@@ -62,7 +62,6 @@ public sealed class ReplicationServer {
     readonly ReplicationRegistry registry;
     readonly IInterestResolver interest;
     readonly Dictionary<BaselineKey, CaptureRing> current = [];
-    readonly Dictionary<DeltaKey, Cached> memo = [];
     readonly Dictionary<uint, Connection> connections = [];
     readonly List<IComponentReplicator> byPriority = [];
     readonly Dictionary<uint, uint> wireIndex = [];
@@ -148,10 +147,6 @@ public sealed class ReplicationServer {
         ArgumentNullException.ThrowIfNull(world);
 
         LastCapturedCount = 0;
-
-        // A difference is only ever sent within the round of snapshots that follows the capture
-        // it was measured against, so nothing here outlives a tick.
-        memo.Clear();
 
         foreach (var replicator in byPriority) {
             foreach (var chunk in world.Chunks(replicator.ChangedQuery, capturedVersion)) {
@@ -271,6 +266,11 @@ public sealed class ReplicationServer {
             current[key] = ring;
         }
 
+        // A new capture makes any memoised difference stale, and MemoFor would catch it — but
+        // saying so here costs nothing and means the check above is about matching rather than
+        // about lifetimes.
+        ring.MemoBits = 0;
+
         var slot = ring.Advance(bits.Length);
         bits.CopyTo(slot.Bits);
         slot.BitCount = bitCount;
@@ -321,12 +321,10 @@ public sealed class ReplicationServer {
             return default;
         }
 
-        var memoKey = new DeltaKey(key, baseline.At.Value);
+        if (ring.MemoBits > 0 && ring.MemoFrom == baseline.At && ring.MemoFor == newest.Hash) {
+            bitCount = ring.MemoBits;
 
-        if (memo.TryGetValue(memoKey, out var cached)) {
-            bitCount = cached.BitCount;
-
-            return cached.Bits.AsSpan(0, (cached.BitCount + 7) / 8);
+            return ring.Memo.Bits.AsSpan(0, (bitCount + 7) / 8);
         }
 
         var previous = new BitReader(baseline.Bits);
@@ -346,23 +344,17 @@ public sealed class ReplicationServer {
         Ledger?.RecordFields(replicator.TypeName, lanes, costs);
 
         bitCount = delta.BitsWritten;
-        Remember(memoKey, bits, bitCount);
+
+        if (ring.Memo.Bits.Length < bits.Length) {
+            ring.Memo.Bits = new byte[bits.Length];
+        }
+
+        bits.CopyTo(ring.Memo.Bits);
+        ring.MemoBits = bitCount;
+        ring.MemoFrom = baseline.At;
+        ring.MemoFor = newest.Hash;
 
         return bits;
-    }
-
-    void Remember(in DeltaKey key, ReadOnlySpan<byte> bits, int bitCount) {
-        if (!memo.TryGetValue(key, out var cached)) {
-            cached = new();
-            memo[key] = cached;
-        }
-
-        if (cached.Bits.Length < bits.Length) {
-            cached.Bits = new byte[bits.Length];
-        }
-
-        bits.CopyTo(cached.Bits);
-        cached.BitCount = bitCount;
     }
 
     void MarkWhatLeft(Connection connection, Tick tick) {
@@ -520,15 +512,6 @@ public sealed class ReplicationServer {
         }
 
         return hash;
-    }
-
-    /// <summary>One value, and the baseline a difference for it was measured from.</summary>
-    readonly record struct DeltaKey(BaselineKey Value, uint BaselineTick);
-
-    /// <summary>A difference already encoded this tick, for whoever asks for it next.</summary>
-    sealed class Cached {
-        public byte[] Bits { get; set; } = [];
-        public int BitCount { get; set; }
     }
 
     sealed class Connection {

@@ -2477,6 +2477,29 @@ N-client in-process replication convergence tests green. Bit-exact serialization
 OSes (same gate as content determinism). Packet-reader fuzzing clean. 100-connection / 5 000-entity soak
 holds its bandwidth, CPU, and allocation budgets for 30 minutes.
 
+- ✅ **The soak harness** — `Samples/09-NetworkSoak`, which measures the criterion above and exits
+  non-zero when a budget is missed. It currently misses three, and that is recorded rather than tuned
+  away.
+
+  **It found three allocation bugs, all in code written earlier in this phase and none of them
+  visible at eight entities.** The delta memo allocated an object per value per tick, because it was
+  a dictionary keyed by (value, baseline) that `Capture` cleared — it is one slot on the capture ring
+  now, which is right for the reason the table was wrong: connections cluster on the same baseline.
+  `ConnectionBaseline` allocated a list per tick per connection, three thousand a second at a hundred
+  connections; pooled. And `BandwidthLedger` composed `"Type.Field"` on every record — eight strings
+  per differenced value, most of a megabyte a tick — where the names are constants. Together: **4 588
+  KB a tick down to 24 KB, and 464 Gen0 collections down to 4.**
+
+  **What is still failing.** Bandwidth, at 286 kbit/s a client against a 128 budget, and that one is
+  a design gap rather than tuning: a record is re-sent every tick until acknowledged, so a four-tick
+  round trip sends every change four times. **Retransmission backoff — not re-sending a record whose
+  previous send could still be in flight — is not built, and is worth roughly 4×.** Worst-tick, at
+  83 ms against a 33 ms tick, is a collection pause rather than the pipeline: the mean is 3.9 ms and
+  there were four Gen0 collections in the run. Allocation is 24 KB a tick against a 4 KB budget.
+
+  The remaining criteria are untouched: **packet-reader fuzzing** and **bit-exact serialization across
+  the three desktop OSes**.
+
 > **Client-side prediction is explicitly *not* in this phase** — see [16](16-networking.md). PurrNet does
 > not have it either. The tick loop and snapshot APIs are shaped to accept it later (+2 EM), and the
 > ECS's chunk-copy world snapshots plus input-log replay are already the rollback primitives.

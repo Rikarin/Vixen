@@ -203,6 +203,7 @@
   <Project Path="Samples/04-EcsStressTest/EcsStressTest.csproj" />
   <Project Path="Samples/07-AddressablesRemote/AddressablesRemote.csproj" />
   <Project Path="Samples/08-Multiplayer/Multiplayer.csproj" />
+  <Project Path="Samples/09-NetworkSoak/NetworkSoak.csproj" />
 
 
 </Solution>

@@ -33,6 +33,11 @@ public sealed class ConnectionBaseline {
     readonly List<uint> pendingOrder = [];
     readonly List<BaselineKey> forgetting = [];
 
+    // The per-tick lists are handed back rather than dropped. A connection opens one a tick and
+    // closes it a round trip later, so without this a hundred connections at thirty hertz make
+    // three thousand lists a second for the collector — which the soak measured before this existed.
+    readonly Stack<List<Sent>> spare = [];
+
     /// <summary>The newest tick this connection has acknowledged.</summary>
     public Tick AcknowledgedTick { get; private set; }
 
@@ -87,7 +92,8 @@ public sealed class ConnectionBaseline {
     /// <param name="capturedAt">The tick the value that was sent was captured at.</param>
     public void RecordSent(Tick tick, in BaselineKey key, uint hash, Tick capturedAt) {
         if (!pendingByTick.TryGetValue(tick.Value, out var sent)) {
-            sent = [];
+            sent = spare.Count > 0 ? spare.Pop() : [];
+            sent.Clear();
             pendingByTick[tick.Value] = sent;
             pendingOrder.Add(tick.Value);
             Trim();
@@ -129,7 +135,7 @@ public sealed class ConnectionBaseline {
                 continue;
             }
 
-            pendingByTick.Remove(pendingOrder[i]);
+            Recycle(pendingOrder[i]);
             pendingOrder.RemoveAt(i);
         }
 
@@ -164,17 +170,28 @@ public sealed class ConnectionBaseline {
     /// <summary>Forgets everything, for a connection that is starting again.</summary>
     public void Clear() {
         acknowledged.Clear();
+
+        foreach (var sent in pendingByTick.Values) {
+            spare.Push(sent);
+        }
+
         pendingByTick.Clear();
         pendingOrder.Clear();
         HasAcknowledged = false;
         AcknowledgedTick = default;
     }
 
+    void Recycle(uint tick) {
+        if (pendingByTick.Remove(tick, out var sent)) {
+            spare.Push(sent);
+        }
+    }
+
     void Trim() {
         while (pendingOrder.Count > MaxPendingTicks) {
             // Dropped rather than folded in: a tick this old was not acknowledged because it did not
             // arrive, and forgetting that we sent it is what makes it be sent again.
-            pendingByTick.Remove(pendingOrder[0]);
+            Recycle(pendingOrder[0]);
             pendingOrder.RemoveAt(0);
         }
     }

@@ -46,6 +46,28 @@ internal sealed class CaptureRing {
 
     readonly Capture[] entries = new Capture[Depth];
 
+    /// <summary>
+    ///     The difference most recently encoded for this value, kept so the connections that share a
+    ///     baseline share the encoding.
+    /// </summary>
+    /// <remarks>
+    ///     <b>One slot, not a table.</b> Connections cluster: they are all about the same distance
+    ///     behind, so within a tick they almost all ask for a difference from the same capture, and
+    ///     the second one gets the answer the first paid for. A table keyed by baseline would serve
+    ///     the rare case where they do not — and would allocate an entry per value per tick to do it,
+    ///     which the soak measured at four megabytes a tick.
+    /// </remarks>
+    public Capture Memo { get; } = new();
+
+    /// <summary>How long the memoised difference is, or zero if there is not one.</summary>
+    public int MemoBits { get; set; }
+
+    /// <summary>The capture the memoised difference was measured from.</summary>
+    public Tick MemoFrom { get; set; }
+
+    /// <summary>The value it produces, so a stale memo is not mistaken for a fresh one.</summary>
+    public uint MemoFor { get; set; }
+
     int count;
     int oldest;
 

@@ -51,6 +51,11 @@ public sealed class BandwidthLedger {
     readonly Dictionary<uint, Tally> byConnection = [];
     readonly Dictionary<uint, Tally> byObject = [];
 
+    // Composed once per type rather than per record. The names are constants — a type name and a
+    // lane name, both fixed at build time — so building "Type.Field" on every record was one string
+    // per lane per value per tick, which the soak measured as most of a megabyte a tick.
+    readonly Dictionary<string, string[]> fieldNames = [];
+
     /// <summary>Whether to attribute to individual networked objects as well as to types.</summary>
     /// <remarks>
     ///     Off by default. The other tables are bounded by how many component types and remote calls
@@ -116,8 +121,18 @@ public sealed class BandwidthLedger {
     ///     and it is the one that tells you a rotation is costing three times its position.
     /// </remarks>
     public void RecordFields(string typeName, ReadOnlySpan<Messaging.WireLane> lanes, ReadOnlySpan<int> costs) {
-        for (var i = 0; i < lanes.Length && i < costs.Length; i++) {
-            Add(byField, $"{typeName}.{lanes[i].Name}", costs[i]);
+        if (!fieldNames.TryGetValue(typeName, out var names)) {
+            names = new string[lanes.Length];
+
+            for (var i = 0; i < lanes.Length; i++) {
+                names[i] = $"{typeName}.{lanes[i].Name}";
+            }
+
+            fieldNames[typeName] = names;
+        }
+
+        for (var i = 0; i < lanes.Length && i < costs.Length && i < names.Length; i++) {
+            Add(byField, names[i], costs[i]);
         }
     }
 
@@ -167,6 +182,9 @@ public sealed class BandwidthLedger {
         byCall.Clear();
         byConnection.Clear();
         byObject.Clear();
+
+        // The composed names are kept: they depend on the types registered, not on what was sent,
+        // and re-composing them would put the allocation back where it was found.
         Elapsed = TimeSpan.Zero;
         TotalBits = 0;
         TotalCount = 0;
