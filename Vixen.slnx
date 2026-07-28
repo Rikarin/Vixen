@@ -120,6 +120,8 @@
     <Project Path="Core/Vixen.Net.Transport.Composite.Tests/Vixen.Net.Transport.Composite.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Engine/Vixen.Net.Engine.csproj" />
     <Project Path="Core/Vixen.Net.Engine.Tests/Vixen.Net.Engine.Tests.csproj" />
+    <Project Path="Core/Vixen.Net.Telemetry/Vixen.Net.Telemetry.csproj" />
+    <Project Path="Core/Vixen.Net.Telemetry.Tests/Vixen.Net.Telemetry.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Fuzz/Vixen.Net.Fuzz.csproj" />
     <Project Path="Core/Vixen.Net.Fuzz.Tests/Vixen.Net.Fuzz.Tests.csproj" />
   </Folder>

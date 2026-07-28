@@ -2397,10 +2397,14 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   Each is pinned by a named test beside the code it broke rather than only by a corpus file, because
   two of them need a *sequence* and a corpus entry is one input.
 
-  **Owed:** `SharpFuzz` with real instrumentation for the nightly ([12](12-build-ci-and-testing.md) §
-  Test infrastructure) — the targets are already `(ReadOnlySpan<byte>) -> outcome`, so the wrapper is a
-  few lines, and libFuzzer would find in an hour what this finds in a week; what is here runs on every
-  build, which that never will. Targets for the transports themselves — `Udp` reassembles fragments and
+  **The nightly exists too** — `.github/workflows/nightly.yml` runs the same harness with ten minutes
+  a target rather than a second, roughly six hundred times as many cases, and uploads the bytes of
+  anything it finds rather than only the message.
+
+  **Owed:** `SharpFuzz` with real instrumentation ([12](12-build-ci-and-testing.md) § Test
+  infrastructure) — the targets are already `(ReadOnlySpan<byte>) -> outcome`, so the wrapper is a few
+  lines, and libFuzzer would find in an hour what this finds in a week. Worth having alongside rather
+  than instead: what is here runs on every build, which an instrumented fuzzer never will. Targets for the transports themselves — `Udp` reassembles fragments and
   tracks acknowledgement windows from bytes off the wire and `WebSocket` parses RFC 6455 frames, both
   of them *below* the handshake and therefore more exposed than anything in the list above.
   Structure-aware mutation, so the mutator knows a snapshot from a handshake.
@@ -2435,7 +2439,7 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   before code. Transport *fallback* — start several, keep whichever answers — belongs with it, which
   is why the composite's client half is deliberately a single choice rather than a race.
 - **Server variant end to end** ([17](17-app-heads-and-shipping.md)): headless host on the `Null`
-  backend, server content profile (no textures/audio/shader permutations), container image, metrics
+  backend, server content profile (no textures/audio/shader permutations), container image, ✅ metrics
   endpoint. Plus **out-of-process play mode** in the editor, which is what makes multiplayer testable.
 
   **Partly already true, and the remainder is not networking's.** `BuildVariant.Server`,
@@ -2443,10 +2447,41 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   picks the headless platform for the server variant — the boot path is done. What is left divides
   into three, none of it blocked on Phase 9:
 
-  - **The metrics endpoint** is the one runtime piece still missing, and it now has something to
-    serve: `BandwidthLedger` plus the session's player and round-trip figures are the numbers a
-    dedicated server is asked for. It is a small piece of work against a decision that has not been
-    made — Prometheus text, OpenTelemetry, or something of our own.
+  - ✅ **The metrics endpoint**, over **OpenTelemetry**, and split across two packages for a reason
+    worth stating: `System.Diagnostics.Metrics` is not a third option alongside OpenTelemetry and
+    Prometheus — it *is* OpenTelemetry's metrics API in .NET, because the BCL types are the
+    specification's API surface and the SDK is only needed to export. So the instrumentation is
+    `NetworkMetrics` in `Vixen.Net` and **depends on nothing**; a server that already has a pipeline
+    reads every number by adding `"Vixen.Net"` to its meter list. `Vixen.Net.Telemetry` is the export
+    half, kept separate so a game that never runs a dedicated server does not link a protobuf
+    serializer to play offline.
+
+    **It pushes over OTLP rather than being scraped**, and that is a decision rather than a default.
+    A match server is one of a fleet, started and stopped per match, on a port an orchestrator chose,
+    often behind NAT, and frequently shorter-lived than a scrape interval — everything Prometheus's
+    pull model is good at depends on the target being findable and long-lived, and a match server is
+    neither. OTLP to a collector inverts that, and choosing it does not choose the backend; it
+    declines to.
+
+    **The one call a game makes is `Sample()`, once a tick, and that is the design.** Observable
+    instruments are called back on the collector's thread, and the session, the replication server
+    and the router are all single-threaded frame code — a callback that walked `Session.Players`
+    would eventually walk it while somebody was joining, which is an exception on a background thread
+    in a process whose whole job is to stay up. The frame publishes a reading; the callbacks read it.
+
+    Three smaller decisions, recorded because they are the ones that get made wrong: the **tick is a
+    histogram**, since the question is how often one goes over budget and a mean cannot be asked
+    that; **refusals are a tag rather than seven instruments**, since refusals are normal traffic and
+    the number anybody looks at is which one is climbing; and **nothing is differenced here**, so a
+    missed scrape loses resolution rather than data and a rate can still be re-aggregated across
+    three servers.
+
+    **Owed:** traces — a span per handshake is the half of OpenTelemetry not wired, and the handshake
+    is the one with enough steps to deserve one. Bridging `Vixen.Core.Diagnostics`' ring buffer to
+    OTLP logs. A committed Grafana dashboard, which belongs with whatever ships the container image.
+    And the client half — `ReplicationClient`'s rejected and stale snapshot counts are the numbers
+    that say a player is having a bad time, and a client is not scraped, so it wants a different
+    route out than this one.
   - **The server content profile and the container image** are the asset pipeline's and CI's,
     [08](08-asset-pipeline-and-addressables.md) and [12](12-build-ci-and-testing.md).
   - **Out-of-process play mode is genuinely blocked**, and not by networking. It needs an editor

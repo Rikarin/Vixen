@@ -92,6 +92,11 @@ For a longer run, give it seconds instead:
 VIXEN_FUZZ_SECONDS=600 dotnet test Core/Vixen.Net.Fuzz.Tests -c Release
 ```
 
+That is what `.github/workflows/nightly.yml` does at three in the morning — the same harness, the same
+seeds, the same generator, given ten minutes a target rather than a second, which is roughly six
+hundred times as many cases. Anything it finds is written to `artifacts/fuzz-findings` and uploaded,
+because a finding whose bytes only exist in an assertion message is one somebody has to retype.
+
 ## What it found
 
 Four defects on the first run, all in code that had tests and review and none of which either had
@@ -131,12 +136,13 @@ without it.
 
 ## Owed
 
-- **`SharpFuzz` and a nightly with real coverage.** [docs/plan/12](../../docs/plan/12-build-ci-and-testing.md)
-  § Test infrastructure asks for `SharpFuzz` over the parsers, and the packet reader belongs in that
-  job. What is here is a behaviour signature rather than edge coverage and says so; libFuzzer with
-  instrumentation would find in an hour what this finds in a week. The targets are already the right
-  shape for it — each is `(ReadOnlySpan<byte>) -> outcome` — so the wrapper is a few lines once the
-  nightly infrastructure exists. This runs on every build, which that never will.
+- **`SharpFuzz`, for coverage this cannot have.** The nightly exists; what it runs is still this
+  harness, whose guidance is a behaviour signature rather than edge coverage.
+  [docs/plan/12](../../docs/plan/12-build-ci-and-testing.md) § Test infrastructure asks for `SharpFuzz`
+  over the parsers, and the packet reader belongs in that job: libFuzzer with instrumentation would
+  find in an hour what this finds in a week. The targets are already the right shape for it — each is
+  `(ReadOnlySpan<byte>) -> outcome` — so the wrapper is a few lines. Worth having *alongside* rather
+  than instead: this one runs on every build, which an instrumented one never will.
 - **The transports themselves.** `Udp`'s reliability layer reassembles fragments and tracks
   acknowledgement windows from bytes off the wire, and `WebSocket` parses RFC 6455 frames. Both are
   more exposed than anything in this list — they are *below* the handshake — and both want a target of

@@ -20,12 +20,13 @@ Vixen.Net.Replication  NetworkId · [Replicated] · [Quantize] · ReplicationSer
 Vixen.Net.Rpc          [ServerRpc] · [ClientRpc] · RpcRouter · NetworkOwnership · RpcManifest
 Vixen.Net.Rules        NetworkRules · NetworkRulesRegistry
 Vixen.Net.Motion       NetworkTransform · SnapshotBuffer · OwnerSmoothing
-Vixen.Net.Diagnostics  BandwidthLedger · SnapshotInspector
+Vixen.Net.Diagnostics  BandwidthLedger · SnapshotInspector · NetworkMetrics
 ```
 
 Plus the transports — `Local` (in-process), `Udp`, `WebSocket`, and `Composite` (several at once,
-so one server takes both desktop and browser clients) — and the build half (`Vixen.Net.Generators`),
-each in their own package with their own README.
+so one server takes both desktop and browser clients) — the build half (`Vixen.Net.Generators`), the
+export half of the metrics (`Vixen.Net.Telemetry`), and the fuzz harness (`Vixen.Net.Fuzz`), each in
+their own package with their own README.
 
 **[`Samples/08-Multiplayer`](../../Samples/08-Multiplayer) is all of it at once** — eight players,
 server-authoritative movement and shooting, over either transport, ending in a convergence check that
@@ -371,9 +372,21 @@ which component, whole or a difference, which baseline, how many bits — and **
 That is what makes it usable on a recorded capture, on a snapshot the client rejected, and on a live
 connection's traffic. A packet inspector is this call plus somewhere to put the answer.
 
+`NetworkMetrics` is the third: the same numbers, published as a `System.Diagnostics.Metrics` meter
+called `Vixen.Net`, for the process nobody is sitting in front of. **That is the OpenTelemetry metrics
+API rather than an alternative to it** — the BCL types are the specification's API surface and the SDK
+is only needed to export — so this file depends on nothing, and a server that already has a pipeline
+reads it by naming the meter. [`Vixen.Net.Telemetry`](../Vixen.Net.Telemetry) is the export half, kept
+separate so a game that never runs a dedicated server does not link an exporter.
+
+The one call it needs is `Sample()`, once a tick, from the loop that owns the session. Observable
+instruments are called back on the collector's thread, and everything worth reporting lives in
+single-threaded frame code — so the game pushes a reading and the callbacks read that, rather than a
+background thread walking a player list while somebody is joining it.
+
 **Owed:** the editor panel — connections, replicated objects, ownership, interest sets, a live RPC
 log — which is [13](../../docs/plan/13-diagnostics.md)'s to host and has nothing to hang off yet.
-Everything it would show is in these two types.
+Everything it would show is in these types.
 
 ## Testing
 
@@ -382,3 +395,8 @@ The contract's own tests are in `Vixen.Net.Tests`, and the interesting one is
 there against `Vixen.Net.Transport.Local` and against the simulation wrapped around it; every other
 transport's test project inherits the same suite. A transport is substitutable or it is nothing, and
 the way to keep that true is to make the contract executable.
+
+The other executable claim is [`Vixen.Net.Fuzz`](../Vixen.Net.Fuzz): nine targets over every decode
+path a peer can reach, nine million cases on every build, holding each of them to three promises —
+nothing throws, nothing amplifies, nothing is retained. It found four defects on its first run,
+including one packet that crashed a client and one that made it keep a player record per packet.

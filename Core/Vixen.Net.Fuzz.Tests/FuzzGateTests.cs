@@ -52,6 +52,8 @@ public sealed class FuzzGateTests {
             var seconds = Seconds;
             var outcome = seconds is null ? session.Run(cases) : session.RunFor(seconds.Value);
 
+            Keep(outcome);
+
             Assert.True(
                 outcome.Clean,
                 string.Create(
@@ -92,6 +94,33 @@ public sealed class FuzzGateTests {
             foreach (var target in built) {
                 (target as IDisposable)?.Dispose();
             }
+        }
+    }
+
+    /// <summary>Writes the inputs that broke something, where CI can pick them up.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         A finding whose bytes only exist in an assertion message is a finding somebody has to
+    ///         retype. These go to <c>artifacts/fuzz-findings</c>, which the workflow uploads, and the
+    ///         fix for each one is to move the file into <c>Corpus/</c> and commit it — from then on it
+    ///         is replayed before every run, which is the difference between fuzzing and having
+    ///         fuzzed.
+    ///     </para>
+    ///     <para>
+    ///         Deliberately not written straight into <c>Corpus/</c>. A test that commits its own
+    ///         regressions would go green on the next run having changed nothing, which is the one
+    ///         outcome worse than a red build.
+    ///     </para>
+    /// </remarks>
+    static void Keep(FuzzOutcome outcome) {
+        if (outcome.Clean) {
+            return;
+        }
+
+        var directory = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "artifacts", "fuzz-findings");
+
+        foreach (var finding in outcome.Findings) {
+            Corpus.WriteRegression(directory, finding.Target, finding.Input);
         }
     }
 
