@@ -2818,9 +2818,11 @@ the shipping projects; a `.rvn` edit reparsing incrementally; the differential o
   handlers.
 
   ⚠ **Still owed:** there is no undo anywhere — an undo stack inside a text control can only undo
-  typing, and the four `Changed` events are the seams a real one subscribes to; `Viewport` draws a
-  placeholder because the draw list has no texture command; `CodeEditor` does not wrap and its caret
-  does not blink, both for want of things the framework has not got yet; `OkLch.ToSrgb` clamps per
+  typing, and the four `Changed` events are the seams a real one subscribes to; ~~`Viewport` draws a
+  placeholder because the draw list has no texture command~~ — the draw list has `Image` and
+  `Viewport` draws a real render target, which is what the editor's scene panel is; `CodeEditor` does
+  not wrap and its caret does not blink, both for want of things the framework has not got yet;
+  `OkLch.ToSrgb` clamps per
   channel, which shifts the hue where real gamut mapping would walk the chroma down; and every one of
   these controls is still one layout pass behind a resize, for the reason Phase 4e recorded.
 - Asset editors: texture, model, material, scene, prefab, shader, UI, addressable groups, graphics

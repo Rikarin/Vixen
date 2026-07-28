@@ -58,6 +58,7 @@ sealed class EditorApplication : IDisposable {
     SceneViewport? viewport;
     InspectorView? inspector;
     TreeView? hierarchy;
+    ProjectBrowser? browser;
     ViewBookmark camera;
     bool hierarchyStale = true;
 
@@ -95,6 +96,11 @@ sealed class EditorApplication : IDisposable {
             // exists only until the window closes — and it makes the *second* launch take the load
             // path, which is otherwise reachable only by remembering to press Save first.
             scene.Save();
+
+            // ⚠ And scanned again, because the file was written *after* `Open` indexed the project.
+            // Without this a first run shows a project browser with no scene in it — the one file the
+            // editor is certain exists, because it just made it.
+            project.Assets.Scan();
         }
 
         scene.StructureChanged += _ => hierarchyStale = true;
@@ -268,19 +274,7 @@ sealed class EditorApplication : IDisposable {
         Shell.RegisterPanel(
             "project",
             new StringId("editor.panel.project", "Project"),
-            panel => {
-                var tree = panel.Add<TreeView>();
-                var assets = tree.Root.Add(project.Name);
-
-                // Still the asset database's shape rather than its contents: a scratch project has no
-                // Assets directory, and listing one that is there is the project browser's own job.
-                assets.Add("Materials");
-                assets.Add("Scenes");
-                assets.Add("Shaders");
-
-                tree.Refresh();
-                tree.Expand(assets);
-            }
+            panel => browser = new ProjectBrowser(project, panel)
         );
 
         Shell.RegisterPanel(
@@ -382,6 +376,21 @@ sealed class EditorApplication : IDisposable {
         );
 
         Shell.Keys.SetDefault("file.save", new KeyChord(InputKey.S, ModifierKeys.Control));
+
+        // Enabled only while the panel is open, because the browser is what holds the tree — and a
+        // rescan with nowhere to show the result is a menu item that appears to do nothing.
+        Shell.Commands.Add(
+            new EditorCommand(
+                "assets.refresh",
+                new StringId("editor.command.refresh-assets", "Refresh Assets"),
+                RefreshAssets
+            ) {
+                Category = EditorStrings.CategoryFile,
+                Enablement = () => browser is not null
+            }
+        );
+
+        Shell.Keys.SetDefault("assets.refresh", new KeyChord(InputKey.R, ModifierKeys.Control));
 
         Shell.Commands.Add(
             new EditorCommand("help.about", EditorStrings.CommandAbout, About) {
@@ -618,6 +627,36 @@ sealed class EditorApplication : IDisposable {
             Shell.Notifications.Success(Path.GetFileName(scenePath));
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
             Shell.Notifications.Show("Could not save the scene", NotificationSeverity.Error, exception.Message);
+        }
+    }
+
+    /// <summary>Rescans the project and says what changed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The issues are what is worth reporting, not the count.</b> A scan that created eleven
+    ///     sidecars, quarantined an orphan and re-GUIDed a duplicate has just modified the working
+    ///     tree, and telling somebody only that there are 340 assets would leave them to find that out
+    ///     from <c>git status</c>.
+    /// </remarks>
+    void RefreshAssets() {
+        if (browser is not { } open) {
+            return;
+        }
+
+        try {
+            var report = open.Rescan();
+
+            if (report.Issues.Count == 0) {
+                Shell.Notifications.Success($"{report.Assets} assets");
+                return;
+            }
+
+            Shell.Notifications.Show(
+                $"{report.Assets} assets, {report.Issues.Count} repaired",
+                NotificationSeverity.Warning,
+                string.Join(Environment.NewLine, report.Issues.Take(5).Select(issue => issue.Message))
+            );
+        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
+            Shell.Notifications.Show("Could not scan the project", NotificationSeverity.Error, exception.Message);
         }
     }
 

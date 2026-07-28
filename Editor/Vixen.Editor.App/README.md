@@ -81,13 +81,36 @@ looking at a real model:
 | Hierarchy | a `TreeView` over the scene's entities; selecting drives the shared selection, and renaming a row is an undo entry |
 | Inspector | an `InspectorView` over the selection, recording every edit on the scene document's stack |
 | Scene | a `SceneViewport`: orbit, pan, zoom, the axis cross, gizmo modes and snapping, drawn into the panel — as lines, for the reason below |
-| Project | still `TreeView` over three made-up folders; listing the asset database is the project browser's own job |
+| Project | `ProjectBrowser`: the asset database as a tree, with a search box, over the real `Assets/` directory |
 | Console | still a line of text |
 
 The scene lives at `Assets/Scenes/Main.vxscene` and is opened on launch. A project that has none gets
 the seeded one written immediately — the only time the editor saves without being asked, so that a new
 project contains the scene you are looking at rather than something that exists until the window
 closes. `Ctrl+S` saves; the menu item greys itself out from the document's own dirty signal.
+
+⚠ **The seeded scene is scanned a second time, and has to be.** `EditorProject.Open` indexes the
+project before that file is written, so without the rescan a first run shows a browser with no scene
+in it — the one file the editor is certain exists, because it just made it.
+
+## The project browser
+
+`ProjectBrowser` is the Project panel: a `SearchBox` and a `TreeView` over `AssetTree.Build`. The
+shape — folder synthesis, ordering, search — is `Vixen.Editor.Core`'s and is tested there without a
+document; what is left here is rows, selection and when to rebuild. `Ctrl+R` rescans, saves the index
+and rebuilds the reverse-reference index with it, and reports what the scan repaired rather than only
+how many assets it found.
+
+⚠ **Not watched.** A file added outside the editor appears on the next refresh. A file-system watcher
+needs debouncing, a rename heuristic and a way not to fight the editor's own writes; one that missed
+half the events while claiming to be live would be worse than a Refresh that says what it does.
+
+⚠ **Only indexed nodes reach the selection.** A folder scanned read-only has no sidecar and so no
+GUID, and putting `AssetId.Empty` in `EditorProject.Selection` would make every such folder select the
+same nothing and look like one asset.
+
+⚠ **Untested at the panel level**, in common with every other panel here — the app is an executable
+with no test project. The model underneath it has 16.
 
 **The scene panel is live.** `ScenePresenter` renders into an offscreen colour target, registers it
 with `UiRenderer.RegisterImage`, and the viewport control draws it — so the scene arrives in the
