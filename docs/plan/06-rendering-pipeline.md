@@ -156,6 +156,10 @@ Vixen keeps all three, with these changes:
   instance counts rather than compacting, because compaction needs an atomic counter Raven does not
   have; the host's bitset then holds what *could* be seen, and the device removes the rest. With the
   readback on, everything is as before: the bits are this frame's and the work list is exact.
+  ✅ **And it is a compositor document**: `!GpuCulling` and `!HiZ` are node kinds with `readBack` and
+  `indirectDraws` as their flags, and `CompositorBuilder` makes the assignments a file cannot — the
+  render system's visibility group, and the arguments every drawing feature reads. The resources stay
+  host-supplied, so one document runs on a target with no compute and gets the CPU path.
   Still open: the **two-phase** form of the occlusion test, which is what removes the frame of
   staleness, and **compaction**, which only pays off once materials are bindless — see
   `Vixen.Rendering/README.md § Culling`.

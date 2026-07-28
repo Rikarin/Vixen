@@ -207,6 +207,16 @@ seen — so the work list is a superset and the GPU removes the rest. Nothing is
 be; what costs is recording draws that turn out to be empty. It is opt-in for exactly that reason,
 and `Hide` still works, because a bit cleared on the host removes the object from the list entirely.
 
+**A document turns all of it on.** `!GpuCulling` at the head of the frame and `!HiZ` after whatever
+fills depth, with `readBack` and `indirectDraws` as the two flags — and the builder makes the two
+assignments a file cannot: `RenderSystem.Visibility` becomes the group, and every
+`IDrawArgumentSource` feature is handed the arguments. Both are things a host placing the node by
+hand has to remember in the same breath, and forgetting either is a frame that culls on the CPU or
+draws everything, with nothing to say why. The resources stay host-supplied — a visibility group
+holds device memory across frames and a file cannot make one — which is the same division
+`descriptors` and `samplers` already have, and what lets one document run on a target with no compute
+at all: the nodes build, and do nothing.
+
 **The templates are filled by a node, not by a feature's `Prepare`.** A root feature's `Prepare` runs
 before its sub-features', so an instancing batch's size and first instance — two of the five numbers
 — do not exist yet. A node's `Build` runs after the whole of `RenderSystem.Draw`, which is the first

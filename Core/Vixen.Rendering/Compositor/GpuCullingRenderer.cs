@@ -16,6 +16,18 @@ namespace Vixen.Rendering.Compositor;
 ///     something other than meshes fills its own objects' records and nothing else changes.
 /// </remarks>
 public interface IDrawArgumentSource {
+    /// <summary>
+    ///     Where this feature's draws read their arguments, or null to carry their own counts.
+    /// </summary>
+    /// <remarks>
+    ///     Settable, and on the same interface as the filling, because they are two halves of one
+    ///     decision: a feature that fills records is the feature that draws from them, and a host
+    ///     that set one without the other would have a buffer nothing reads or a draw reading a
+    ///     buffer nobody filled. <see cref="CompositorBuilder" /> assigns it when a document asks for
+    ///     indirect draws, which is the only place both facts are known at once.
+    /// </remarks>
+    GpuDrawArguments? Arguments { get; set; }
+
     /// <summary>Fills the records for this feature's objects, leaving every other slot alone.</summary>
     /// <param name="system">The render system, for the per-object data.</param>
     /// <param name="commands">One record per object slot, cleared before the first source sees it.</param>

@@ -513,6 +513,72 @@ public sealed record ShadowMapAsset : ISceneRendererAsset {
     public float Extrusion { get; init; } = 50f;
 }
 
+/// <summary>The depth pyramid the next frame's culling tests against.</summary>
+/// <remarks>
+///     Placed after whatever fills depth, because what it reduces is this frame's and what consumes
+///     it is next frame's <c>Cull</c> — see <see cref="HiZRenderer" />. A document with this node and
+///     no <c>GpuCulling</c> builds a pyramid nothing reads, which costs a dispatch chain and is
+///     otherwise harmless.
+/// </remarks>
+[DataContract("HiZ")]
+public sealed record HiZAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The name of the depth texture to reduce.</summary>
+    public string Depth { get; init; } = string.Empty;
+}
+
+/// <summary>
+///     The culling dispatch, and the draw arguments it feeds.
+/// </summary>
+/// <remarks>
+///     <para>
+///         Placed at the head of the frame, before anything it decides for is drawn. The node is what
+///         makes <see cref="GpuVisibilityGroup.ReadBack" /> false usable at all: with no wait, the
+///         only ordering this RHI can express is a barrier between two things in one queue, so the
+///         dispatch has to be recorded where the draws are.
+///     </para>
+///     <para>
+///         <strong>What the document decides is placement; what the host supplies is the
+///         resources.</strong> A visibility group holds device memory across frames and a pyramid
+///         holds a frame of depth, neither of which a file can create — the same division
+///         <c>Descriptors</c> and <c>Samplers</c> already have on <see cref="CompositorBuilder" />.
+///         Building this node with none of them supplied is how a document says "cull on the GPU" to
+///         a host that has decided not to, and it is a node that then does nothing.
+///     </para>
+/// </remarks>
+[DataContract("GpuCulling")]
+public sealed record GpuCullingAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>
+    ///     Whether the bits come back to the host, which is what the interface's promise costs.
+    /// </summary>
+    /// <remarks>
+    ///     True is the safe reading: the work list is exactly what is visible and everything
+    ///     downstream is unchanged. False removes the stall and makes the host's list a superset that
+    ///     the draw arguments narrow — see <see cref="GpuVisibilityGroup.ReadBack" /> for why that is
+    ///     opt-in rather than the default.
+    /// </remarks>
+    public bool ReadBack { get; init; } = true;
+
+    /// <summary>Whether the pass also turns the bits into indirect draw arguments.</summary>
+    /// <remarks>
+    ///     Only meaningful with <see cref="ReadBack" /> off, where it is what removes the objects the
+    ///     host recorded and the device rejected. Twenty bytes per object per view is the cost, which
+    ///     is why it is a choice rather than a consequence.
+    /// </remarks>
+    public bool IndirectDraws { get; init; }
+}
+
 /// <summary>Spot and point light shadows in one atlas.</summary>
 [DataContract("PunctualShadows")]
 public sealed record PunctualShadowAsset : ISceneRendererAsset {
