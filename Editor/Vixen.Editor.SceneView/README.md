@@ -135,14 +135,18 @@ bytes per entity in every chunk of a shipping build, serving a panel that does n
 The map lives on the document, which also makes renaming an ordinary undoable edit rather than a
 structural change to the world.
 
-⚠ **Creating and destroying entities is not undoable, and is therefore not offered.** An `Entity` is
-a slot and a version, and the ECS cannot be asked to reissue a particular one — so a redo would hand
-back a *different* handle and every reference to the old one (the selection, the name map, the
-hierarchy's rows) would be quietly stale. Offering an operation that silently is not undoable is
-worse than not offering it. `Add` exists for a host building a scene from a file or a template, and a
-shell should not put it behind a button until `Vixen.Ecs` can reserve a handle. Reparenting is
-missing for a narrower reason: undo has to put the entity back at the same index among its old
-siblings, and the intrusive list records a neighbour rather than a position.
+⚠ **Creating and destroying entities is still not offered, but the reason changed.** It used to be
+that the ECS could not reissue a particular handle, so a redo handed back a *different* one and every
+reference to the old (the selection, the name map, the hierarchy's rows) went quietly stale.
+`World.TryRecreate` now gives a handle back when nothing has taken the slot, and returns false when
+something has — which is what a stable `EntityId` and `Remap` are here to answer.
+
+What is owed is the commands themselves. Destroying has to remember more than the handle: the
+entity's components, its name, its children and where it sat among its siblings. `Add` exists for a
+host building a scene from a file or a template, and a shell should not put delete behind a button
+until undo can put all of that back. Reparenting is missing for a narrower reason of the same kind:
+undo has to restore the index among the old siblings, and the intrusive list records a neighbour
+rather than a position.
 
 ⚠ **Saving throws without an `ISceneWriter`.** `EditorDocument.Save` marks the document clean
 afterwards, so a `SaveCore` that wrote nothing would leave it claiming to match a file that does not

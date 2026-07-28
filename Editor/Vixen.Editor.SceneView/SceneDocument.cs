@@ -96,13 +96,15 @@ public sealed class RenameEntityCommand : IEditorCommand {
 ///         world.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Creating and destroying entities is not undoable, and is therefore not offered.</b>
-///         An <c>Entity</c> is a slot and a version, and the ECS cannot be asked to reissue a
-///         particular one — so a redo would hand back a <i>different</i> handle, and every reference
-///         to the old one (the selection, this name map, the hierarchy's rows) would be quietly
-///         stale. Offering an operation that silently is not undoable is worse than not offering it,
-///         so what is here is renaming, reparenting and the transform edits the inspector and the
-///         gizmo make. Handle reservation in <c>Vixen.Ecs</c> is what unblocks the rest.
+///         ⚠ <b>Creating and destroying entities is not undoable <i>yet</i>, and is therefore still
+///         not offered — but the thing that blocked it is gone.</b> The reason was that an
+///         <c>Entity</c> is a slot and a version and the ECS could not be asked to reissue a
+///         particular one, so a redo handed back a <i>different</i> handle and every reference to the
+///         old one went quietly stale. <c>World.TryRecreate</c> now gives a handle back, provided
+///         nothing has taken the slot. What is still owed here is the commands: destroying has to
+///         remember the entity's components, its name and where it sat among its siblings, and
+///         restoring has to put all three back. Until that exists, what is offered is renaming,
+///         reparenting and the transform edits the inspector and the gizmo make.
 ///     </para>
 /// </remarks>
 public sealed class SceneDocument : EditorDocument {
@@ -243,7 +245,8 @@ public sealed class SceneDocument : EditorDocument {
     /// <remarks>
     ///     ⚠ <b>Not undoable</b>, and the type's own remarks say why. It is here so a host can build
     ///     a scene — from a file, from a template, from a test — and not so a user can press a
-    ///     button. A shell should not offer it as a command until the ECS can reissue a handle.
+    ///     button. A shell should not offer it as a command until there is a pair of commands that
+    ///     can put back everything a delete takes away.
     /// </remarks>
     public Entity Add(string name, LocalTransform local, Entity parent = default) {
         ArgumentException.ThrowIfNullOrEmpty(name);

@@ -226,6 +226,107 @@ public sealed class World : IDisposable {
         return entity;
     }
 
+    /// <summary>Whether <see cref="TryRecreate" /> would give this exact handle back.</summary>
+    /// <param name="entity">The handle a destroyed entity had.</param>
+    /// <returns>Whether the slot is still exactly as <see cref="Destroy" /> left it.</returns>
+    /// <remarks>
+    ///     Asked separately so a caller can decide <i>before</i> it starts an operation it would have
+    ///     to unwind — an editor command that has to fall back to a fresh handle wants to know that
+    ///     while it is still holding what the fallback needs.
+    /// </remarks>
+    public bool CanRecreate(Entity entity) =>
+        entity.WorldId == Id
+        && entity.Id > 0
+        && (uint) entity.Id < (uint) nextId
+        && infos[entity.Id].Archetype is null
+
+        // ⚠ Exactly one, and this is the whole of the safety argument. See `TryRecreate`.
+        && infos[entity.Id].Version == entity.Version + 1;
+
+    /// <summary>Creates an entity with a handle a destroyed one used to have.</summary>
+    /// <param name="entity">The handle to give back.</param>
+    /// <param name="archetype">Where to put it. Its components are zeroed.</param>
+    /// <returns>Whether it could be given back.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What undoing a delete needs, and the only thing an editor could not do without.</b>
+    ///         <see cref="Create(Archetype)" /> hands out whatever slot is free, so redoing a delete
+    ///         and then undoing it again would produce a <i>different</i> handle each time and
+    ///         everything still holding the old one — a selection, a gizmo target, a hierarchy row —
+    ///         would be quietly addressing nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only when the slot is exactly as <see cref="Destroy" /> left it, and the "exactly"
+    ///         is what keeps the version counter's promise.</b> Destroying bumps the version so every
+    ///         outstanding handle goes stale; this puts it back, which is sound <i>only</i> because
+    ///         the version it is put back to was the last one issued and the one it is taken from has
+    ///         never been issued at all. Rewinding further would be the bug: if the slot had since
+    ///         been created as <c>(id, 4)</c> and destroyed again, restoring <c>(id, 3)</c> would let
+    ///         the next destroy-and-create hand out <c>(id, 4)</c> a second time — and a handle that
+    ///         names two different entities across its lifetime is the exact failure the version
+    ///         exists to prevent.
+    ///     </para>
+    ///     <para>
+    ///         <b>So it can fail, and a caller has to have an answer for that.</b> Anything that took
+    ///         the slot in the meantime — one other <see cref="Create(Archetype)" /> is enough,
+    ///         because the free list is last-in-first-out — makes the handle unrecoverable for ever.
+    ///         The answer is a stable identity of the caller's own that it can remap: the editor's
+    ///         <c>SceneDocument</c> keeps one per entity for exactly this reason.
+    ///     </para>
+    ///     <para>
+    ///         The free list is scanned rather than indexed, which is linear in the number of
+    ///         destroyed-and-not-reused slots. This runs when somebody presses undo; the allocation
+    ///         path is untouched.
+    ///     </para>
+    /// </remarks>
+    public bool TryRecreate(Entity entity, Archetype archetype) {
+        ArgumentNullException.ThrowIfNull(archetype);
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+
+        if (!ReferenceEquals(archetype.World, this)) {
+            throw new ArgumentException(
+                $"Archetype {archetype.Signature} belongs to world {archetype.World.Id} "
+                + $"('{archetype.World.Name}'), not to this one. Archetypes hold chunks, and chunks "
+                + "hold entities of exactly one world.",
+                nameof(archetype)
+            );
+        }
+
+        if (!CanRecreate(entity)) {
+            return false;
+        }
+
+        // A free slot is always on the free list, because `Destroy` is the only thing that frees one
+        // and it always pushes. Checked rather than assumed: `LastIndexOf` over an empty range wants
+        // a start index of -1 only when the array itself is empty, and this one never is.
+        var slot = freeCount == 0 ? -1 : Array.LastIndexOf(freeIds, entity.Id, freeCount - 1, freeCount);
+
+        if (slot < 0) {
+            // Free by every other measure and not on the list, which nothing here can produce.
+            // Refusing beats handing out a handle to a slot something else believes it owns.
+            return false;
+        }
+
+        // Closed over by moving the tail down rather than by swapping the last entry into the hole,
+        // so the remaining slots keep the order `Destroy` pushed them in and `Create` keeps handing
+        // them out in the order it would have. Cheaper is not worth a reshuffle nobody asked for.
+        Array.Copy(freeIds, slot + 1, freeIds, slot, freeCount - slot - 1);
+        freeCount--;
+
+        ref var info = ref infos[entity.Id];
+        info.Version = entity.Version;
+
+        var (chunk, row) = archetype.Allocate(entity);
+
+        info.Archetype = archetype;
+        info.Chunk = chunk;
+        info.Row = row;
+        EntityCount++;
+
+        MarkAllColumnsWritten(chunk);
+        return true;
+    }
+
     // ---------------------------------------------------------------- queries
 
     /// <summary>The query for a description, with its matched archetypes remembered.</summary>

@@ -191,10 +191,11 @@ rebuilt; without it, closing and reopening the viewport puts the user back at th
   the `PublishAot` property says so already.
 - **No file dialog, so no "open project…".** A project comes from `--project` or is the scratch one;
   choosing one at run time needs a dialog, which is `Vixen.Platform`'s and not built.
-- **Creating and deleting entities is not offered.** An `Entity` is a slot and a version and the ECS
-  cannot reissue one, so a redo would hand back a different handle and every reference to the old one
-  would be stale. Handle reservation in `Vixen.Ecs` is what unblocks it; until then the scene is
-  seeded and edited rather than built.
+- **Creating and deleting entities is not offered yet.** The blocker was that the ECS could not
+  reissue a handle, so a redo handed back a different one and every reference to the old was stale.
+  `World.TryRecreate` fixed that. What is still owed is a delete command that remembers the entity's
+  components, name, children and sibling position, and an undo that puts all four back; until then
+  the scene is seeded and edited rather than built.
 - **Clicking in the viewport does not select.** Picking needs the id target the missing texture
   command also blocks; the gizmo can be dragged, and what it drags comes from the hierarchy.
 - **It redraws every frame.** Redrawing only on change is the right end state and is not free — every
