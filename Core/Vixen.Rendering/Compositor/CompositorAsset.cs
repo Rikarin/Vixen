@@ -340,8 +340,9 @@ public enum SamplerPreset {
 ///         instead.
 ///     </para>
 ///     <para>
-///         The index remains for a shader whose provider reports no plan, which is every provider
-///         until the content build does.
+///         The index remains for a shader whose provider reports no plan — a test fake, a host
+///         supplying effects of its own. The shipped ones do report it: a baked <c>EffectData</c>
+///         carries the binding plan and <c>EffectLoader</c> puts it on the effect.
 ///     </para>
 /// </remarks>
 [DataContract("Binding")]
@@ -463,48 +464,6 @@ public sealed record ComputeAsset : ISceneRendererAsset {
 
     /// <summary>What it binds, and where.</summary>
     public ResourceBindingAsset[] Bindings { get; init; } = [];
-}
-
-/// <summary>The dual-filter bloom chain.</summary>
-/// <remarks>
-///     A node rather than a list of passes, because the chain's shape follows from its depth and the
-///     frame's size — nine passes and nine textures out of one line, and a document that spelled them
-///     out would have to be rewritten to change the resolution.
-/// </remarks>
-[DataContract("Bloom")]
-public sealed record BloomAsset : ISceneRendererAsset {
-    /// <inheritdoc />
-    public string Name { get; init; } = string.Empty;
-
-    /// <inheritdoc />
-    public bool Enabled { get; init; } = true;
-
-    /// <summary>The shader to run, in its permuted modes.</summary>
-    public string Shader { get; init; } = "Bloom";
-
-    /// <summary>The texture the chain reads.</summary>
-    public string Source { get; init; } = string.Empty;
-
-    /// <summary>The name the result is published under.</summary>
-    public string Output { get; init; } = "Bloom";
-
-    /// <summary>How many levels the pyramid has, the first at half resolution.</summary>
-    public int Levels { get; init; } = 5;
-
-    /// <summary>The format every level has.</summary>
-    public PixelFormat Format { get; init; } = PixelFormat.Rgba16Float;
-
-    /// <summary>Luminance above which a pixel contributes.</summary>
-    public float Threshold { get; init; } = 1f;
-
-    /// <summary>How soft that threshold is.</summary>
-    public float Knee { get; init; } = 0.5f;
-
-    /// <summary>The upsample tent's radius in texels.</summary>
-    public float FilterRadius { get; init; } = 1f;
-
-    /// <summary>How much of each level is added on the way up.</summary>
-    public float Intensity { get; init; } = 1f;
 }
 
 /// <summary>One stage drawn from one view.</summary>

@@ -5,10 +5,12 @@ using System.CommandLine;
 using System.Text;
 using Vixen.Assets;
 using Vixen.Core;
+using Vixen.Core.Serialization;
 using Vixen.Core.Serialization.Storage;
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets.Content;
+using Vixen.Shaders;
 using Xunit;
 
 namespace Vixen.Cli.Tests;
@@ -382,6 +384,92 @@ public sealed class VixenCommandTests : IDisposable {
         }
     }
 
+    // --- The shader bundle --------------------------------------------------
+
+    /// <summary>
+    ///     A build with a shader manifest writes the bundle a shipping run loads instead of compiling.
+    /// </summary>
+    /// <remarks>
+    ///     The last step of doc 06's third tier. Everything below it was already a library call; what
+    ///     this asserts is that <c>vixen build</c> produces the file, beside the catalog, in a form
+    ///     the runtime reads — which is the only place the three parts (a project's shaders, a
+    ///     manifest somebody committed, and the bundle format) are ever in the same room.
+    /// </remarks>
+    [Fact]
+    public async Task ABuildCompilesTheShaderManifestIntoABundle() {
+        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Group("UiCore");
+        Shader("Tint.rvn");
+        Manifest("""{ "Effects": [ { "Shader": "Tint", "Permutations": { "Tint.Bright": "true" } } ] }""");
+
+        var (code, output) = await Run("content", "build");
+
+        Assert.True(code == ExitCode.Success, output);
+        Assert.Contains("Compiled 1 shader variant", output, StringComparison.Ordinal);
+
+        var bundle = Path.Combine(Build(), ShaderBuildRunner.BundleFileName);
+
+        Assert.True(File.Exists(bundle));
+
+        // And what came out is the record the runtime resolves through, not merely a file of bytes.
+        var store = new EffectStore(Serializer.Read<EffectBundle>(File.ReadAllBytes(bundle)));
+        var key = Assert.Single(store.Keys);
+
+        Assert.Equal("Tint", key.ShaderName);
+        Assert.Equal("true", Assert.Single(key.Values).Value);
+    }
+
+    /// <summary>A project that has not got to a manifest yet still builds.</summary>
+    /// <remarks>
+    ///     It runs against a compiler in development, so it is not broken — it is early. Saying that
+    ///     rather than failing is the difference between a step somebody takes when they are ready and
+    ///     a step they work around.
+    /// </remarks>
+    [Fact]
+    public async Task ABuildWithNoShaderManifestSaysWhatToDo() {
+        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Group("UiCore");
+
+        var (code, output) = await Run("content", "build");
+
+        Assert.Equal(ExitCode.Success, code);
+        Assert.Contains("EffectSystem.Requests", output, StringComparison.Ordinal);
+        Assert.False(File.Exists(Path.Combine(Build(), ShaderBuildRunner.BundleFileName)));
+    }
+
+    /// <summary>A manifest naming a shader nobody has is a warning, and the build still finishes.</summary>
+    /// <remarks>
+    ///     The usual cause is a manifest older than the material it was captured from, and failing a
+    ///     build for a line somebody can delete would be the wrong trade. The run that needs it
+    ///     reports it as a miss, by the same name.
+    /// </remarks>
+    [Fact]
+    public async Task AStaleShaderManifestWarnsRatherThanFailing() {
+        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Group("UiCore");
+        Shader("Tint.rvn");
+        Manifest("""{ "Effects": [ { "Shader": "Deleted" } ] }""");
+
+        var (code, output) = await Run("content", "build");
+
+        Assert.Equal(ExitCode.Success, code);
+        Assert.Contains("no shader in this project answers to it", output, StringComparison.Ordinal);
+    }
+
+    /// <summary>A shader that does not compile fails the build, saying what the compiler said.</summary>
+    [Fact]
+    public async Task AShaderThatDoesNotCompileFailsTheBuild() {
+        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Group("UiCore");
+        Asset("Broken.rvn", "package Game\n\nshader Broken {\n    var tint: float3 = nonsense\n}\n");
+        Manifest("""{ "Effects": [ { "Shader": "Broken" } ] }""");
+
+        var (code, output) = await Run("content", "build");
+
+        Assert.Equal(ExitCode.Failed, code);
+        Assert.Contains("error", output, StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>
     ///     Serving refuses before it opens a socket, which is what makes the check testable at all —
     ///     and what stops a phone being pointed at an empty directory and told the content is broken.
@@ -460,6 +548,52 @@ public sealed class VixenCommandTests : IDisposable {
                 Addressable = new() { Address = address, Group = group, Labels = labels ?? [] }
             }
         );
+    }
+
+    /// <summary>A shader with one permutation that changes its output, under <c>Assets/</c>.</summary>
+    /// <remarks>
+    ///     Deliberately trivial and deliberately SPIR-V-clean: no <c>bool</c> uniform, which the
+    ///     SPIR-V backend refuses because std140 gives one four bytes and SPIR-V has no four-byte
+    ///     boolean to put there.
+    /// </remarks>
+    void Shader(string relativePath) =>
+        Asset(
+            relativePath,
+            """
+            package Game
+
+            shader Tint {
+                [Permutation] val Bright: bool = false
+
+                var tint: float3
+
+                [VertexShader]
+                [Semantic("SV_Position")]
+                func Vertex(position: float3): float4 {
+                    return float4(position, 1f)
+                }
+
+                [PixelShader]
+                [Semantic("SV_Target")]
+                func Pixel(): float4 {
+                    var color = tint
+
+                    if (Bright) {
+                        color = color * 2f
+                    }
+
+                    return float4(color, 1f)
+                }
+            }
+
+            """
+        );
+
+    /// <summary>The shader manifest, under <c>ProjectSettings/</c> where it is committed.</summary>
+    void Manifest(string json) {
+        var settings = Path.Combine(root, "ProjectSettings");
+        Directory.CreateDirectory(settings);
+        File.WriteAllText(Path.Combine(settings, ShaderBuildRunner.ManifestFileName), json);
     }
 
     void Group(string name) =>

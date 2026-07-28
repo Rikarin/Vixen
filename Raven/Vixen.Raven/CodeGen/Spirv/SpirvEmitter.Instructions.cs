@@ -295,6 +295,10 @@ partial class SpirvEmitter {
                 values[length.Result.Id] = EmitArrayLength(length);
                 return;
 
+            case IrAtomicInstruction atomic:
+                values[atomic.Result.Id] = EmitAtomic(atomic);
+                return;
+
             case IrCallInstruction call: {
                 // Even a void call needs a result id in SPIR-V.
                 var result = Emit(
@@ -1012,6 +1016,70 @@ partial class SpirvEmitter {
                 Add(new(SpirvOp.Store, null, null, SpirvOperand.Id(pointer), SpirvOperand.Id(value)));
                 return;
         }
+    }
+
+    /// <summary>
+    ///     An atomic read-modify-write, as a pointer and two constants the author never writes.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Device scope and relaxed semantics</b>, which is what glslang emits for the same
+    ///         GLSL and therefore what keeps § C's differential comparing like with like. Device
+    ///         because a storage buffer is visible to the whole dispatch and a workgroup-scoped
+    ///         atomic on one would be wrong wherever two workgroups touched the same counter;
+    ///         relaxed because these operations order themselves and nothing else, which is all an
+    ///         allocator needs and all the language currently offers a way to ask for.
+    ///     </para>
+    ///     <para>
+    ///         The pointer comes from the same <see cref="Resolve" /> a store uses, marked as a
+    ///         write — so an access chain into a buffer element is built exactly once, here as
+    ///         there.
+    ///     </para>
+    /// </remarks>
+    uint EmitAtomic(IrAtomicInstruction instruction) {
+        var pointer = Resolve(instruction.Place, write: true);
+        var type = types.Type(instruction.Result.Type);
+        var scope = types.ConstantUInt(1);
+        var relaxed = types.ConstantUInt(0);
+        var signed = instruction.Place.Type is IrScalarType { Kind: IrTypeKind.Int };
+
+        if (instruction.Comparand is { } comparand) {
+            // Equal and unequal semantics, in that order, and then value before comparator — the
+            // reverse of how GLSL and this language's signature take them.
+            return Emit(
+                SpirvOp.AtomicCompareExchange,
+                type,
+                [
+                    SpirvOperand.Id(pointer.Id),
+                    SpirvOperand.Id(scope),
+                    SpirvOperand.Id(relaxed),
+                    SpirvOperand.Id(relaxed),
+                    SpirvOperand.Id(Value(instruction.Value)),
+                    SpirvOperand.Id(Value(comparand))
+                ]
+            );
+        }
+
+        var op = instruction.Op switch {
+            IrAtomicOp.Add => SpirvOp.AtomicIAdd,
+            IrAtomicOp.Min => signed ? SpirvOp.AtomicSMin : SpirvOp.AtomicUMin,
+            IrAtomicOp.Max => signed ? SpirvOp.AtomicSMax : SpirvOp.AtomicUMax,
+            IrAtomicOp.And => SpirvOp.AtomicAnd,
+            IrAtomicOp.Or => SpirvOp.AtomicOr,
+            IrAtomicOp.Xor => SpirvOp.AtomicXor,
+            _ => SpirvOp.AtomicExchange
+        };
+
+        return Emit(
+            op,
+            type,
+            [
+                SpirvOperand.Id(pointer.Id),
+                SpirvOperand.Id(scope),
+                SpirvOperand.Id(relaxed),
+                SpirvOperand.Id(Value(instruction.Value))
+            ]
+        );
     }
 
     void EmitStore(IrPlace place, uint value) {

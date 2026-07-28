@@ -60,11 +60,22 @@ public interface IFuzzTarget {
 
     /// <summary>Pushes one input through the decoder.</summary>
     /// <param name="input">The bytes, which are not to be believed.</param>
-    /// <returns>A signature summarising what the decoder did with them.</returns>
+    /// <returns>A signature summarising what the decoder did with <i>this</i> input.</returns>
     /// <remarks>
-    ///     Must not throw, must not allocate more than <see cref="AllowanceFor" />, and must not
-    ///     take long. Those three are the whole of what is being tested; a target that catches its
-    ///     own exceptions is a target that proves nothing.
+    ///     <para>
+    ///         Must not throw, must not allocate more than <see cref="AllowanceFor" />, and must not
+    ///         take long. Those three are the whole of what is being tested; a target that catches
+    ///         its own exceptions is a target that proves nothing.
+    ///     </para>
+    ///     <para>
+    ///         <b>The signature is about the case, not about the run, and getting that wrong is
+    ///         silent.</b> A decoder's counters are lifetime totals, so a signature folded from them
+    ///         strictly increases and <i>every</i> case looks like a behaviour never seen before —
+    ///         which is not a fuzzer with excellent coverage, it is a fuzzer with no guidance at all
+    ///         and a corpus that keeps everything. One target here kept a million inputs in a second
+    ///         before this was noticed. Fold the <i>change</i> in each counter, or state that is
+    ///         genuinely bounded; never a running total.
+    ///     </para>
     /// </remarks>
     long Run(ReadOnlySpan<byte> input);
 

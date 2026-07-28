@@ -550,3 +550,50 @@ dotnet_diagnostic.CA1711.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [Core/Vixen.Navigation/Agents/NavPathQueue.cs]
 dotnet_diagnostic.CA1711.severity = none
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Vfx/VfxAttribute.cs
+#
+# CA1711 (identifiers should not have incorrect suffix). The rule reserves the
+# `Attribute` suffix for types deriving from System.Attribute. This one is a
+# particle *attribute* — position, velocity, colour — which is the word every
+# system of this kind uses for the idea and the word docs/plan/06 uses for it:
+# "SoA NativeArray per attribute, with attributes allocated only if the graph
+# uses them". Unity's VFX Graph and Stride's particle runtime both call them
+# attributes too, so it is also the term anybody reading this code arrives with.
+# Renaming it would rename the concept the whole storage design is built around,
+# and there is no System.Attribute anywhere near it to be confused with.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Vfx/VfxAttribute.cs]
+dotnet_diagnostic.CA1711.severity = none
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Rendering/Features/ParticleRenderFeature.cs
+#
+# CA1051 (do not declare visible instance fields). `ParticleDraw` is an element
+# of a RenderDataHolder array, exactly as `MeshDraw` is — native memory, written
+# per object in the prepare loop and read per node in the draw loop — so it is a
+# data layout rather than an object, and a property returning a copy would
+# silently drop a write. Same rule, same reason, one file further along.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Rendering/Features/ParticleRenderFeature.cs]
+dotnet_diagnostic.CA1051.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Ui.Controls/Selects.cs
+#
+# CA1716 (identifiers should not match keywords). `Select` and `Option` are both
+# Visual Basic statements, so the rule wants both types renamed. They are the
+# names docs/plan/09 § "Control library" gives these controls, they are the names
+# HTML gives them — `<select>` with `<option>` inside it — and they are what every
+# designer handing over a mock-up calls them. A control library whose select is
+# called something else is a control library nobody can search.
+#
+# Scoped to the one file that declares them. `Select` on some other member
+# elsewhere is still reported — including, deliberately, nothing in this file but
+# `MultiSelect.Select`, which is the same word about the same thing.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Ui.Controls/Selects.cs]
+dotnet_diagnostic.CA1716.severity = none

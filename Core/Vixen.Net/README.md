@@ -25,8 +25,8 @@ Vixen.Net.Diagnostics  BandwidthLedger · SnapshotInspector · NetworkMetrics
 
 Plus the transports — `Local` (in-process), `Udp`, `WebSocket`, and `Composite` (several at once,
 so one server takes both desktop and browser clients) — the build half (`Vixen.Net.Generators`), the
-export half of the metrics (`Vixen.Net.Telemetry`), and the fuzz harness (`Vixen.Net.Fuzz`), each in
-their own package with their own README.
+export half of the metrics (`Vixen.Net.Telemetry`), lag compensation (`Vixen.Net.Physics`), and the
+fuzz harness (`Vixen.Net.Fuzz`), each in their own package with their own README.
 
 **[`Samples/08-Multiplayer`](../../Samples/08-Multiplayer) is all of it at once** — eight players,
 server-authoritative movement and shooting, over either transport, ending in a convergence check that
@@ -225,6 +225,16 @@ Components declare themselves, and `Vixen.Net.Generators` writes the code:
 [Replicated(Channel = Channel.Unreliable, Priority = 10)]
 struct Position { [Quantize(-1000f, 1000f, 16)] public float X, Y, Z; }
 ```
+
+**Spawning is one of these components, not a message beside them.** `NetworkSpawn` — a prefab id, a
+scene id and an owner — sits at the top of the priority list, so it reaches exactly the connections
+the interest resolver returns, is re-sent until acknowledged and then never again, arrives for a
+player who joins an hour in, and precedes every state record about the same entity. A spawn on its own
+route would have needed a second answer to interest, to loss and to late joiners, and three mechanisms
+that can disagree about who may see what is how objects end up on one screen and not another.
+Despawning needed nothing new at all: leaving the interest set already means "drop it", so
+destruction and walking over the horizon are the same mechanism. The half that has to see a `Prefab`
+lives in `Vixen.Net.Engine`.
 
 ## Remote calls
 

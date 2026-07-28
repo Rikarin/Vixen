@@ -354,6 +354,148 @@ public sealed class UiImageTests {
         );
     }
 
+    /// <summary>
+    ///     ⚠ A display with two pixels per device-independent one draws the same picture, larger.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The regression test for a unit mismatch that had no picture.</b>
+    ///         <see cref="UiRenderer.Record" /> takes the geometry's extent for the projection and a
+    ///         scale for the scissor, and until it took the second the two were one number — which
+    ///         is correct at 1:1 and only at 1:1. An interface laid out in device-independent units
+    ///         on a retina display was drawn into the top-left quarter of the window, and the pointer
+    ///         went on hitting the controls where the layout said they were, so it read as a renderer
+    ///         that was mysteriously small rather than as a unit mismatch.
+    ///     </para>
+    ///     <para>
+    ///         <b>Two renders compared against each other rather than a new reference image</b>, and
+    ///         that is what makes it a property rather than a snapshot: the same interface, once at
+    ///         1:1 into a surface of <c>Side</c>, once from a half-size geometry at scale two into a
+    ///         surface of <c>Side</c>. Changing the pixel density must change the density and nothing
+    ///         else, so the two pictures have to agree — where a reference PNG could only have said
+    ///         that the second looked like whatever it looked like on the day it was committed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ There is a clip in it deliberately. The projection is half the bug: a scissor left in
+    ///         geometry units cuts at half the right place, and the busiest fixture in this file
+    ///         cannot see that because nothing in it is clipped. Verified by sabotage — passing
+    ///         <c>1f</c> to the scissor fails this and nothing else in the suite.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Scaled() {
+        // ⚠ A fixture each. `Render` executes the graph and a graph is one frame, so the two pictures
+        // cannot come out of the same one — which is the harness saying, correctly, that these are
+        // two frames rather than two passes.
+        if (!TryOpen(out var first, out _)) {
+            return;
+        }
+
+        Bitmap reference;
+
+        using (var owned = first!) {
+            reference = Draw(owned, "ui-scale-1", Side, 1f);
+        }
+
+        if (!TryOpen(out var second, out _)) {
+            return;
+        }
+
+        Bitmap scaled;
+
+        using (var owned = second!) {
+            scaled = Draw(owned, "ui-scale-2", Side / 2, 2f);
+        }
+
+        var differences = 0;
+
+        for (var y = 0; y < Side; y++) {
+            for (var x = 0; x < Side; x++) {
+                if (Math.Abs(Green(reference, x, y) - Green(scaled, x, y)) > 24) {
+                    differences++;
+                }
+            }
+        }
+
+        // ⚠ Not zero. The two are rasterised from different vertex coordinates, so the antialiased
+        // edges land on subtly different subpixel positions and a handful of pixels along every
+        // boundary differ. What the count catches is the failure this exists for, which is not
+        // subtle: a quarter-size picture differs over the three quarters it does not cover, and both
+        // sabotages above land at about a quarter of the surface.
+        Assert.True(
+            differences < Side * Side / 50,
+            $"{differences} of {Side * Side} pixels differ, which is more than an edge's worth"
+        );
+
+        // And the picture is actually there, so that two blank surfaces cannot agree their way to a
+        // pass.
+        Assert.True(Green(scaled, Side / 4, Side / 4) > 100, "the scaled picture is empty");
+        Assert.True(Green(scaled, (Side / 2) + 8, Side / 4) > 100, "the scaled picture stops early");
+    }
+
+    /// <summary>Draws one clipped box into a <c>Side</c>-square surface.</summary>
+    /// <param name="fixture">The device.</param>
+    /// <param name="name">What to call the target.</param>
+    /// <param name="extent">The geometry's own extent — half the surface at scale two.</param>
+    /// <param name="scale">How many framebuffer pixels one geometry unit is.</param>
+    /// <remarks>
+    ///     Everything is a fraction of the extent, so the two runs describe the same picture in
+    ///     different units — which is the whole point: if they described different pictures the
+    ///     comparison would be measuring the arithmetic in this method.
+    /// </remarks>
+    static Bitmap Draw(Fixture fixture, string name, int extent, float scale) {
+        var colour = fixture.ColourTarget(name);
+        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+
+        var list = new DrawList();
+        list.BeginFrame();
+
+        list.Add(new(DrawCommandKind.ClipPush, 0, 0, extent, extent * 0.5f, default, 0, 0));
+        list.Add(
+            new(
+                DrawCommandKind.Rectangle,
+                extent * 0.125f,
+                extent * 0.125f,
+                extent * 0.75f,
+                extent * 0.75f,
+                new Color4(0.2f, 0.8f, 0.5f, 1f),
+                0,
+                0
+            )
+        );
+
+        list.Add(new(DrawCommandKind.ClipPop, 0, 0, 0, 0, default, 0, 0));
+        list.EndFrame();
+
+        var geometry = new UiGeometryBuilder().Build(list, cache, new Rectangle(0, 0, extent, extent));
+
+        var renderer = new UiRenderer(
+            fixture.Device,
+            new(
+                fixture.Shader("ui.vert.spv", ShaderStage.Vertex),
+                fixture.Shader("ui-box.frag.spv", ShaderStage.Fragment),
+                fixture.Shader("ui-text.frag.spv", ShaderStage.Fragment),
+                fixture.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
+            ),
+            new Rendering.RenderOutput([PixelFormat.Rgba8UNorm])
+        );
+
+        fixture.Owns(renderer.Dispose);
+
+        fixture.Graph.AddPass(
+            name,
+            pass => {
+                pass.ColourAttachment(colour, LoadAction.Clear, new(0f, 0f, 0f, 1f));
+                pass.SideEffect();
+                pass.Execute(
+                    context => renderer.Record(context.CommandList, geometry, new(extent, extent), scale)
+                );
+            }
+        );
+
+        return fixture.Render(colour, commands => renderer.Upload(commands, geometry, cache.Atlas));
+    }
+
     // -------------------------------------------------------------- Oracles
 
     /// <summary>

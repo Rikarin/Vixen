@@ -24,6 +24,14 @@ public sealed class TapEvent : UiEvent {
 
     /// <summary>Ditto.</summary>
     public float Y { get; init; }
+
+    /// <summary>What was held on the keyboard when the tap completed.</summary>
+    /// <remarks>
+    ///     Read off the release rather than the press, because that is the moment the tap became
+    ///     one — and because it is the modifier a user who pressed Ctrl <i>while</i> deciding
+    ///     expects to have applied.
+    /// </remarks>
+    public ModifierKeys Modifiers { get; init; }
 }
 
 /// <summary>A press that stayed put and stayed down.</summary>
@@ -287,7 +295,16 @@ public sealed class GestureRecognizer {
                 : 1;
 
         lastTap = new Tap(args.Timestamp, args.X, args.Y, count);
-        press.Target.Raise(new TapEvent { PointerId = args.PointerId, Count = count, X = args.X, Y = args.Y });
+
+        press.Target.Raise(
+            new TapEvent {
+                PointerId = args.PointerId,
+                Count = count,
+                X = args.X,
+                Y = args.Y,
+                Modifiers = args.Modifiers
+            }
+        );
     }
 
     static void Raise(Press press, DragStage stage, float x, float y) {

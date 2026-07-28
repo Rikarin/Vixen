@@ -1,0 +1,35 @@
+<Project>
+
+  <!--
+    Vixen — test-only source shared across test assemblies, linked rather than referenced.
+
+    Imported by every test project that asserts on allocation. Adds Measured, the guarded
+    replacement for a bare `GC.GetAllocatedBytesForCurrentThread()` subtraction; the file itself
+    says why the subtraction is not enough.
+
+    LINKED, NOT A PROJECT, for three reasons:
+
+      1. Directory.Build.props gives every non-test project under Core/ the runtime profile —
+         packable, AOT-compatible, trimmable, documentation file required. All four are wrong for
+         test-only code, so a Core/Vixen.Testing library would need either a fourth profile or a
+         name that lies about what it is.
+      2. A referenced assembly would have to make Measured public and would flow xunit into every
+         consumer transitively. A linked file keeps it internal, per assembly, and adds nothing to
+         any test output.
+      3. The repository already links source across project boundaries where an assembly boundary
+         would be the wrong shape — see Vixen.Input.Generators and Vixen.Ui.Markup.Generators.
+
+    Top level rather than under Core/ because docs/plan/02 § "Core/" states that every folder there
+    is one class library plus its sibling test project, and this is neither. It is also where the
+    shared test infrastructure of docs/plan/12 § "Test infrastructure worth building early" —
+    TestApp, RecordingBackend, GoldenFile, FixtureProject — belongs when it is written.
+
+    Consumers need a `using Vixen.Testing;` and a PackageReference to xunit.v3, which every test
+    project in the tree already has.
+  -->
+
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)Measured.cs" Link="Testing\Measured.cs" />
+  </ItemGroup>
+
+</Project>

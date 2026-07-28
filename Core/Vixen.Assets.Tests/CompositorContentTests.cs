@@ -5,6 +5,7 @@ using Vixen.Core.IO;
 using Vixen.Core.Serialization.Storage;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
+using Vixen.Rendering.PostFx;
 using Xunit;
 
 namespace Vixen.Assets.Tests;
@@ -114,6 +115,12 @@ public class CompositorContentTests {
         var builder = new CompositorBuilder(system);
 
         builder.Views["Camera"] = new("Camera");
+
+        // The bloom node's kind is defined downstream of the builder, so the document names something
+        // the builder cannot know — and whoever defines it supplies the factory. Registering it is
+        // what a host does once; without it the build throws naming the kind, rather than producing a
+        // frame quietly missing a pass.
+        builder.Factories.Add(new PostEffectFactory());
 
         var compositor = builder.Build(handle.Result);
         var sequence = Assert.IsType<SceneRendererSequence>(compositor.Game);

@@ -5,6 +5,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Core.Threading;
 using Vixen.Navigation.Agents;
 using Vixen.Navigation.Baking;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.Navigation.Tests;
@@ -160,27 +161,23 @@ public sealed class NavPathQueueJobTests {
         Assert.True(query.FindNearestPoly(new(2, 0, 2), Extents, NavQueryFilter.Default, out var start, out var startPoint));
         Assert.True(query.FindNearestPoly(new(38, 0, 38), Extents, NavQueryFilter.Default, out var end, out var endPoint));
 
-        Span<NavPolyRef> path = stackalloc NavPolyRef[256];
-
         // Warmed until nothing is still settling: the node pools, and the scheduler's payload array
         // for this job type, which is allocated once per type and never again.
-        for (var warm = 0; warm < 400; warm++) {
-            Step(queue, start, end, startPoint, endPoint, path);
-        }
-
-        var before = GC.GetAllocatedBytesForCurrentThread();
-
-        for (var run = 0; run < 400; run++) {
-            Step(queue, start, end, startPoint, endPoint, path);
-        }
-
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        var allocated = Measured.Bytes(Search, warmUp: 400, passes: 400);
 
         Assert.True(
             allocated == 0,
             $"Four hundred searches on the job system allocated {allocated} bytes on the calling thread. "
             + "A job is a struct in a preallocated array, so the only right answer is none."
         );
+
+        return;
+
+        void Search() {
+            Span<NavPolyRef> path = stackalloc NavPolyRef[256];
+
+            Step(queue, start, end, startPoint, endPoint, path);
+        }
     }
 
     static void Step(NavPathQueue queue, NavPolyRef start, NavPolyRef end, Vector3 startPoint, Vector3 endPoint, Span<NavPolyRef> path) {

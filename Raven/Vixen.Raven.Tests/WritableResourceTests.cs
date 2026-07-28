@@ -262,6 +262,66 @@ public class WritableResourceTests {
         Assert.Contains("length @particles", IrPrinter.Print(module), StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     A buffer a shader <em>inherits</em> is as writable as the one that declared it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Merging a base's interface rebuilds each <c>IrBinding</c> onto the derived shader, and
+    ///         the rebuild used to omit the writable flag — so it took the parameter's default and
+    ///         every inherited <c>RWBuffer</c> arrived read-only. The same path carries a
+    ///         <c>compose</c>d feature's bindings, so a feature with a storage buffer had it too.
+    ///     </para>
+    ///     <para>
+    ///         What made it survive review is that only one of the two targets objects: SPIR-V takes
+    ///         a <c>NonWritable</c> variable it then stores into and <c>spirv-val</c> passes it,
+    ///         while GLSL's <c>readonly</c> is a compile error at the store. So the shader ran on
+    ///         Vulkan and would not build for GL, which reads as a backend bug rather than a lowering
+    ///         one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AnInheritedBufferKeepsItsWritability() {
+        const string Source = """
+                              package A
+
+                              shader Storage {
+                                  var particles: RWBuffer<float4>
+                                  var spawn: Buffer<float4>
+                                  var count: int
+                              }
+
+                              shader Step : Storage {
+                                  [ComputeShader(64)]
+                                  func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+                                      val index = int(id.x)
+
+                                      if (index >= count) {
+                                          return
+                                      }
+
+                                      particles[index] = spawn[index]
+                                  }
+                              }
+
+                              """;
+
+        var module = Lower(Source);
+        var shader = LoweringTestBase.FindShader(module, "Step");
+
+        Assert.True(shader.Bindings.Single(binding => binding.Name == "particles").IsWritable);
+        Assert.False(shader.Bindings.Single(binding => binding.Name == "spawn").IsWritable);
+
+        // And the decoration the backend writes from it. `readonly` on a buffer that is stored into
+        // is what the GLSL front end refuses, and asserting the emitted text is the cheapest way to
+        // hold the fix without a reference compiler on the machine.
+        var generated = Assert.Single(CodeGenTestBase.GenerateClean(Source, "glsl"));
+
+        Assert.Contains("buffer particlesBlock", generated.Code, StringComparison.Ordinal);
+        Assert.DoesNotContain("readonly buffer particlesBlock", generated.Code, StringComparison.Ordinal);
+        Assert.Contains("readonly buffer spawnBlock", generated.Code, StringComparison.Ordinal);
+    }
+
     // --- Layout and reflection --------------------------------------------
 
     /// <summary>

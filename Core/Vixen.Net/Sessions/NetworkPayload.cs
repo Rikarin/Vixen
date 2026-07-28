@@ -18,7 +18,15 @@ public enum PayloadKind : byte {
     Replication = 1,
 
     /// <summary>A remote call.</summary>
-    Rpc = 2
+    Rpc = 2,
+
+    /// <summary>A typed message about nothing in particular.</summary>
+    /// <remarks>
+    ///     The one kind that is not about a networked object. See <c>BroadcastRouter</c> for why
+    ///     that distinction is worth a payload kind rather than being folded into
+    ///     <see cref="Rpc" />.
+    /// </remarks>
+    Broadcast = 3
 }
 
 /// <summary>Puts the kind byte on, and takes it off.</summary>

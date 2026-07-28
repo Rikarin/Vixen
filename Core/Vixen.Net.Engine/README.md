@@ -59,6 +59,56 @@ every op exactly once, so nobody needs telling which they missed. A late joiner 
 once and ops from then on. That is doc 16's "reliable-eventual semantics for `SyncVar`-style state"
 taken literally.
 
+## Spawning is a replicated component, not a message
+
+`NetworkSpawn` — a prefab id, a scene id and an owner — is an ordinary `IComponentReplicator` at the
+top of the priority list. That is the whole design, and everything else follows from it:
+
+- **Interest, loss and late joiners are already answered.** A spawn is carried by the snapshot, so it
+  goes to exactly the connections the interest resolver returns, it is re-sent until acknowledged and
+  then never again, and a player who connects an hour in receives it with everything else. A message
+  on its own route would have needed its own answer to all three.
+- **Ordering is free.** Records are written in descending priority, so a spawn precedes every state
+  record about the same entity in the same snapshot — and it is the last thing the bandwidth budget
+  sheds, which is the right way round.
+- **Despawn already existed.** Destroying the entity takes it out of what the resolver returns, and
+  leaving interest already means "drop it". A client cannot tell destruction from walking over the
+  horizon, and does not need to.
+
+**The prefab id is the hash of the addressable's address** ([08](../../docs/plan/08-asset-pipeline-and-addressables.md)),
+so both peers compute it from content neither had to send. `NetworkPrefabRegistry` refuses two
+addresses that hash alike, which is the one place both names are still in hand.
+
+**Only the parts of a prefab that asked for an id get one.** A template node carrying a `NetworkId`
+opts in; a hundred-entity set piece where one turret rotates costs one id and one record, not a
+hundred of each. The instance's ids are one reserved run — root first, then the marked nodes in
+capture order — so a spawn is a fixed twelve bytes however large the prefab is.
+
+**The receiver builds the instance *over* whatever was already standing there.** A snapshot names
+entities by id, so a record whose spawn is a few ticks behind makes a bare stand-in that is already
+holding the object's real position. `Prefab.InstantiateOnto` merges the two and the stand-in wins
+wherever they overlap: the wire's position is where the object is, and the prefab's is where the
+artist left it. That path only happens under loss — which is to say never on a developer's machine —
+so it has a test of its own rather than a comment.
+
+## Scenes
+
+A `SceneHandle` is a number the local `SceneManager` hands out in load order, so the same level is
+scene 2 on a server that loaded a lobby first and scene 1 on a client that did not. `NetworkSceneId`
+is the hash of the scene's *name* — the thing both ends already agree on — and `NetworkSceneMap` is
+the join between the two on each peer.
+
+- **A spawn for a scene this peer has not loaded waits.** Not built-and-untagged, which would leave an
+  object the scene's unload never sweeps, standing in the middle of the next map. `PendingCount` is
+  where that becomes visible, and a number that never comes down is a client that will never have the
+  content.
+- **`SceneInterestResolver`** is doc 16's first resolver: a player is told about the scenes they have
+  loaded, and about anything in no scene at all. The second half is deliberate — a resolver whose
+  default is "vanish" is one everybody debugs.
+- **Scene-placed objects derive their ids** from the scene and their index in it rather than being
+  allocated one, so a designer's crate is addressable the moment the scene loads and before anybody
+  has connected. Those live above `NetworkId.FirstBaked`, which the allocator will not reach.
+
 ## Owed
 
 - **The sync system.** `MarkChanged()` is called by hand today. A system that walks dirty modules once
@@ -66,7 +116,23 @@ taken literally.
 - **`SyncList` in the snapshot.** The op log is built and tested, but its ops are not yet carried by
   `ReplicationServer` — a list needs a variable-length record kind beside the fixed-lane one, which is
   a wire-format addition rather than a design question.
-- **The `NetworkTransform` bridge**, which is the other thing this package exists to host: the system
-  that copies between `Vixen.Net.Motion`'s transform and the engine's hierarchy.
 - **Codecs beyond the built-in set.** `SyncCodecs.Register` is the door; only the types the generator
   already understands are through it.
+- **Registering prefabs from the catalog.** `NetworkPrefabRegistry.Register(address, prefab)` is called
+  by hand today. It should be filled from the content catalog by label, so "networked prefab" is
+  something an asset *is* rather than something a start-up path remembers to say.
+- **A scene format to derive indices from.** `NetworkSceneId.BakedId(index)` is the rule, and the index
+  is whatever the game passes because scenes are built in code and not yet serialised. The moment a
+  scene is an asset, the index is its position in that asset's list of networked objects and nobody
+  chooses it. That is doc 08's territory.
+- **Scene load and unload as session messages.** `SceneInterestResolver.Enter`/`Leave` is called by the
+  game today. The server telling a client which scenes to load — and knowing when it has — is what
+  turns "the spawn is waiting for its scene" from a state into a handshake.
+- **Client-requested spawns.** `NetworkSpawner.MaySpawn` answers the default rule, which is all a rule
+  registry can answer before the object exists. The per-prefab question ("clients may spawn projectiles
+  but not vehicles") wants an RPC that receives the address, and that RPC is not written.
+- **Disconnect behaviour reaching despawn.** `NetworkRules.OnOwnerDisconnect` and
+  `NetworkRulesRegistry.OnOwnerLeft` decide what happens to an absent player's objects, and nothing
+  yet hands those actions to `NetworkSpawner.Despawn`.
+- **Composing resolvers.** Doc 16 wants scene scope, then explicit overrides, then a distance grid,
+  then LOD falloff. `SceneInterestResolver` is the first and there is no chain to put it in yet.

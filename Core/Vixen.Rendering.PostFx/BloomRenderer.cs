@@ -3,10 +3,11 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
+using Vixen.Rendering.Compositor;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
 
-namespace Vixen.Rendering.Compositor;
+namespace Vixen.Rendering.PostFx;
 
 /// <summary>
 ///     The dual-filter bloom chain: a downsample pyramid, then an upsample that adds each level back.
@@ -134,7 +135,7 @@ public sealed class BloomRenderer : SceneRenderer, IDisposable {
     public IReadOnlyList<FullScreenRenderer> Passes => passes;
 
     /// <inheritdoc />
-    protected internal override void Build(GraphicsCompositor compositor, CompositorFrame frame) {
+    protected override void Build(GraphicsCompositor compositor, CompositorFrame frame) {
         ArgumentNullException.ThrowIfNull(compositor);
         ArgumentNullException.ThrowIfNull(frame);
 
@@ -189,7 +190,7 @@ public sealed class BloomRenderer : SceneRenderer, IDisposable {
         PassCount = index;
 
         for (var i = 0; i < index; i++) {
-            passes[i].Build(compositor, frame);
+            BuildChild(passes[i], compositor, frame);
         }
     }
 

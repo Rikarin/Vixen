@@ -70,6 +70,24 @@ public partial class UiElement {
     /// <summary>Its element name, which selectors match on.</summary>
     public string Tag { get; private set; }
 
+    /// <summary>The element name this type answers to when a caller does not choose one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         A control overrides this with a literal, so that <c>new Button()</c> and the
+    ///         <c>button { … }</c> its theme is written against cannot come apart. Everything a
+    ///         stylesheet can say about a control is said through this name, which makes it part of
+    ///         the type's contract rather than a detail of how it was constructed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A literal rather than the type name lowercased.</b> Deriving it would give
+    ///         <c>iconbutton</c> for <c>IconButton</c> and nothing readable at all for a generic
+    ///         type, would make renaming a class a silent restyle of every document that used it,
+    ///         and would put a reflection call on the creation path of every element in a framework
+    ///         that has to run trimmed.
+    ///     </para>
+    /// </remarks>
+    protected internal virtual string TagName => "div";
+
     /// <summary>Its parent, or <c>null</c> for the root.</summary>
     public UiElement? Parent { get; private set; }
 
@@ -108,11 +126,16 @@ public partial class UiElement {
 
     /// <summary>Adds a child of a particular element type.</summary>
     /// <typeparam name="T">The element type.</typeparam>
-    /// <param name="tag">Its element name.</param>
+    /// <param name="tag">Its element name, or <c>null</c> to take the one the type answers to.</param>
     /// <param name="id">Its identifier.</param>
     /// <param name="classNames">Its classes.</param>
     /// <returns>The new element.</returns>
-    public T Add<T>(string tag, string? id = null, params ReadOnlySpan<string> classNames)
+    /// <remarks>
+    ///     The tag defaults so that <c>parent.Add&lt;Button&gt;()</c> is the whole of adding a
+    ///     control — see <see cref="TagName" /> for why a control naming itself is worth the
+    ///     defaulted parameter.
+    /// </remarks>
+    public T Add<T>(string? tag = null, string? id = null, params ReadOnlySpan<string> classNames)
         where T : UiElement, new() =>
         Document.Create<T>(tag, this, id, classNames);
 
@@ -259,6 +282,30 @@ public partial class UiElement {
         Document.Invalidate();
     }
 
+    /// <summary>Builds whatever this element is made of, once, as it joins a document.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The constructor a control cannot have.</b> A switch is a track and a knob, a scroll
+    ///         view is a viewport and two bars — parts made of elements, and an element can only be
+    ///         made by a document. <see cref="UiDocument.Create{T}" /> is what binds this one to
+    ///         hers, so anything that needs children has to wait until after that, and this is
+    ///         immediately after: bound, attached, and not yet returned to the caller.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Once, and only from <see cref="UiDocument.Create{T}" />.</b> An element that has
+    ///         been removed and is being reused does not get a second one — there is no such
+    ///         element, because removal is final. That makes this the right place to attach handlers
+    ///         and the wrong place to read anything about layout, which has not happened yet: every
+    ///         box is zero here and will be until the next <see cref="UiDocument.Update" />.
+    ///     </para>
+    ///     <para>
+    ///         An override must call its base, in the usual direction — a derived control's parts
+    ///         belong after the ones it inherited, in painting order and in the tab order both.
+    ///     </para>
+    /// </remarks>
+    protected internal virtual void OnCreated() {
+    }
+
     /// <summary>Raised after any generated UI property changes.</summary>
     /// <remarks>
     ///     ⚠ Overriding this is how a subclass reacts to a property it did not declare — the
@@ -315,6 +362,43 @@ public partial class UiElement {
     /// </remarks>
     protected internal virtual void OnDraw(DrawContext context) {
     }
+
+    /// <summary>How far this element and everything inside it is shifted from where layout put it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A translation applied after layout rather than a position given to it</b>, and the
+    ///         difference is the whole reason it exists. Scrolling a list, sliding a drawer in,
+    ///         dragging a preview under the cursor and putting a popup beside its anchor are all
+    ///         "the same boxes, somewhere else" — and expressing them as layout would mean a cascade
+    ///         and a flexbox pass per frame for something that has not changed shape.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It moves the element, not the space it occupies.</b> Siblings do not move out of
+    ///         the way and the parent does not grow, which is what makes it right for an overlay and
+    ///         wrong for anything that is meant to take up room — the same bargain as CSS's
+    ///         <c>transform: translate</c>, which is what this is.
+    ///     </para>
+    ///     <para>
+    ///         Hit testing and drawing both read the accumulated position, so a shifted element is
+    ///         clicked where it is drawn without either of them knowing this exists.
+    ///     </para>
+    /// </remarks>
+    [UiProperty(Changed = nameof(OnOffsetChanged))]
+    public partial float OffsetX { get; set; }
+
+    /// <summary>Ditto, vertically.</summary>
+    [UiProperty(Changed = nameof(OnOffsetChanged))]
+    public partial float OffsetY { get; set; }
+
+    /// <remarks>
+    ///     ⚠ <b>Invalidates the document rather than only the positions.</b> There is no cheaper
+    ///     pass to ask for — <see cref="UiDocument.Update" /> is what recomputes absolute positions —
+    ///     and it costs a walk that changes nothing: no element's computed style has changed, so the
+    ///     reference comparison skips every one of them, and no layout node is dirty, so flexbox
+    ///     returns without measuring. A scroll is therefore two walks of the tree and no work, which
+    ///     is the point.
+    /// </remarks>
+    void OnOffsetChanged(float previous, float current) => Document.Invalidate();
 
     /// <summary>Its left edge in document space, after the last layout pass.</summary>
     public float AbsoluteLeft { get; internal set; }
@@ -433,7 +517,18 @@ public partial class UiElement {
 
     internal void Attach(UiElement child) => children.Add(child);
 
+    internal void Insert(UiElement child, int index) => children.Insert(index, child);
+
     internal void Detach(UiElement child) => children.Remove(child);
+
+    /// <summary>Points this element at its new parent.</summary>
+    /// <remarks>
+    ///     ⚠ Only <c>UiDocument.Reparent</c> may call this, and only as part of moving all three
+    ///     stores at once. <see cref="Parent" /> is what the event router walks and what removal
+    ///     climbs; one changed on its own would give an element that is a child of one thing and
+    ///     claims to be a child of another.
+    /// </remarks>
+    internal void Adopt(UiElement parent) => Parent = parent;
 
     internal void MoveChild(UiElement child, int index) {
         children.Remove(child);

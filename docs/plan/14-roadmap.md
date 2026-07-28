@@ -2280,9 +2280,159 @@ sub-piece has its own gate.
 - Gate: draw-list golden tests; parser golden trees + error-recovery tests; hot-reload scenario tests.
 
 **4e — Controls (1.0 EM)**
-- `Vixen.Ui.Controls` (the full standard set) and the `Advanced` set's first three: `DockingHost`,
-  `TreeView`, `PropertyGrid`.
-- `Samples/02-HelloUi`.
+- ✅ **`Vixen.Ui.Controls` — the standard set, and the four framework gaps building it exposed.**
+  Forty-odd controls over one base: `Control` carries whether it is disabled, how prominent it is and
+  how big, and writes the last two through to *classes* rather than reading them, so a game restyles
+  `button.variant-danger` and adds a variant of its own with a plain class. `ButtonBase` carries
+  activation once, for the nine controls that can be pressed — and Space activates on the release
+  while Enter activates on the press, which is not an inconsistency: Space is the key you can back
+  out of, Enter is the one that submits.
+
+  **Four things had to be added to `Vixen.Ui` first, because no control set works without them.**
+  *Keyboard input* — `KeyEvent` and `TextInputEvent`, routed from the focus outwards, with Tab
+  handled by the document after the route and only if nothing wanted it, so a code editor can still
+  take the key. A key is a physical position (`Vixen.Input.InputKey`, which that enum's own remarks
+  already named this assembly as the consumer of) and a character is a separate event, because on an
+  AZERTY keyboard the key that types `a` is `Q`. *Hover and press* — `:hover` and `:active` on the
+  whole ancestor chain, maintained as a difference so that moving a pointer one pixel does not
+  restyle the path to the root, plus `Entered`/`Exited` delivered `Direct` to each element actually
+  crossed. *`:focus-visible`* — the document remembers whether the last input was a key, so a click
+  focuses quietly and a Tab lights the ring; one heuristic in one place rather than a flag on every
+  control. And *`UiElement.OffsetX/Y`*, a translation applied where absolute positions are
+  accumulated: scrolling, popup placement and drag previews are all "the same boxes, somewhere else",
+  and expressing them as layout would cost a cascade and a flexbox pass per frame.
+
+  ⚠ **A control names its own tag, and that is what `OnCreated` is for.** `Create<T>` makes the
+  instance before the style node so it can ask for `TagName`, then binds, attaches, and calls
+  `OnCreated` — the constructor a control cannot have, because a switch is made of elements and an
+  element can only be made by a document.
+
+  ⚠ **Three controls draw themselves and the rest are elements.** A slider's thumb at 37% is a length
+  no stylesheet was given and no flexbox rule produces, and writing it back as an offset settles a
+  frame late on every resize. So `Slider`, `RangeSlider`, `ProgressBar`, `Spinner` and `ScrollBar`
+  compute their geometry in `OnDraw`, where the width is known — and read `--track-color`,
+  `--fill-color`, `--thumb-color` and `--thumb-size` from the cascade, so a theme still decides how
+  they look.
+
+  ⚠ **An overlay is a child of the root, not of whatever opened it**, because painting order is
+  document order: a popup inside the button that opened it is clipped by every `overflow: hidden`
+  between the two. Opening therefore runs a layout pass of its own — where a popup goes depends on
+  how big it is — and light dismiss treats a press on the *anchor* as inside, without which clicking
+  the button that opened a menu closes and reopens it in one gesture.
+
+  **`ControlTheme` is loaded as `StyleOrigin.UserAgent`**, which is the first use of the origin the
+  cascade has had three of since Phase 4a: a game's `button { … }` beats it at equal specificity, so
+  restyling is one rule rather than a fork. It also sets `box-sizing: border-box` on `*`, which is
+  where `LayoutStyleBuilder`'s own remarks said that property belonged.
+
+  **One real bug, found by a control rather than by a test.** `StyleEngine.ResolveAll` never called
+  `StyleResolver.BeginPass`, so the style-sharing cache outlived its pass — and its key describes
+  what an element *is*, including its own state and which parent it hangs off, but nothing about that
+  parent's state. So `checkbox:checked box icon` and `.card:hover .button` resolved to what they were
+  before the state changed, permanently. `StyleUpdater` had always called it; the document's own path
+  never did, and it takes a rule whose subject is a *descendant* of the element that changed to see
+  it. Also fixed: `[UiProperty(Default = double.NegativeInfinity)]` emitted `Infinityd`, which is not
+  a compile error in the generator and is one in every project that declares an unbounded range.
+
+  Gate: 78 control tests over a real theme and a real font — a keyboard interaction matrix per
+  control, draw-list assertions for the ones that draw themselves, and end-to-end pointer input
+  through `Dispatch` rather than synthesised gestures — plus 18 in `Vixen.Ui.Tests` for the framework
+  additions, including the regression test for the sharing cache.
+
+  ⚠ **Still owed, and said plainly rather than left to be found:** `Image` reserves space and draws
+  nothing, because the draw list has no texture command; `TextArea` is a taller `TextBox`, because
+  nothing wraps a line yet; `Tooltip` and `Toast` need a host tick, for the reason
+  `GestureRecognizer.Tick` does; an overlay outlives the control that made it, because there is no
+  `OnRemoved` hook; and `VirtualizingPanel` is not here, so `ScrollView` keeps everything in the tree.
+- ✅ **`Vixen.Ui.Controls.Advanced` — the first three, and the two framework primitives they needed.**
+  `DockingHost` keeps the arrangement (`DockLayout`: binary splits and tab groups) apart from the
+  elements that show it, so what is on screen and what would be saved cannot drift; **a layout
+  round-trips through YAML**, which is this phase's stated exit criterion and is asserted as a fixed
+  point rather than field by field. `TreeView` is virtualised — a hundred thousand nodes is a
+  hundred thousand model objects and about thirty rows, rebound as it scrolls — with lazy children,
+  multi-select, rename in place and a three-zone drop indicator. `PropertyGrid` builds its editors
+  from `Vixen.Core.Reflection` descriptors, edits several objects at once, and says so where they
+  disagree rather than showing the first one's value as though it were the answer.
+
+  **Two things had to be added to `Vixen.Ui` first.** *Inline styles* — the styling engine has
+  resolved them since Phase 4a and nothing could set one, because `StyleTree` had no slot and
+  `ResolveAll` passed none. A splitter at 37% and a virtualised row at y = 880 000 are lengths no
+  stylesheet was given, and `InlineStyleStore.Replace` rewrites a block in place when the set of
+  properties has not changed, so a drag does not allocate per frame. And *reparenting*, which
+  `Move` deliberately refuses: a style slot's position is what three passes read as depth order, so
+  the subtree gets **fresh slots** under its new parent carrying its tags, classes, states,
+  attributes and inline block, while the elements — their handlers, their children, their layout
+  nodes, their focus — are untouched. A docked panel that was rebuilt instead of moved would pass
+  every structural test and lose whatever the user had typed into it.
+
+  ⚠ **Two flexbox traps, both silent, both found the hard way.** A flex item's base size is its
+  content, so a `ScrollView` meant to fill its parent needs `flex-basis: 0px` as well as a
+  grow — without it the viewport grows to the height of everything inside it, nothing overflows, the
+  scroll range is zero, and the virtualiser realises every row there is: the tree looks correct and
+  the process runs out of memory. And a minimum size is applied *before* the free space is shared
+  out, so a dock group with `min-width: 48px` gets 48 pixels plus its share of the remainder and a
+  splitter saved at 25% comes back at 28%; the ratio clamp guards without distorting, and the
+  minimum is zero.
+
+  **One more footgun, named rather than papered over.** `MemberPresentation` is a record *struct*
+  whose `IsEditorVisible` parameter defaults to `true` — which `default(MemberPresentation)` and
+  `new MemberPresentation()` both ignore, because a struct's parameterless constructor zeroes. A
+  hand-written descriptor that defaults the presentation is therefore invisible to the inspector,
+  silently. The generator writes every field and never trips over it; the remark now says so.
+
+  Gate: 56 tests. The docking half asserts the round trip, the stale-layout recovery, every drop
+  zone, the corner case where the nearest edge decides, a panel keeping its contents across a move,
+  and a splitter drag that changes the ratio without rebuilding anything. The tree half asserts that
+  a hundred-thousand-node tree realises under twenty rows and that scrolling rebinds the same
+  elements. The grid half asserts multi-object writes, the mixed-value states, the numeric
+  conversion back to a member's own type, and reset-to-default.
+
+  ⚠ **Still owed:** rows and scroll ranges are one layout pass behind a *resize* — `Refresh()` is
+  today's answer and a "layout finished" callback on `UiDocument` is the real one; floating groups
+  float within the document rather than in an OS window of their own, which is `Vixen.Platform`'s
+  half; `StyleTree.AppendChild` is O(children) per append, which virtualisation keeps every control
+  here clear of and a `DataGrid` may not be; and nested struct members are shown read-only, because
+  the descriptor's accessors box.
+- ✅ **`Samples/02-HelloUi` — an editor shell on a window, with no engine underneath it.** A menu bar
+  over a `DockingHost` holding three panels: a `TreeView` of a thousand nodes, a gallery of the
+  standard set, and a `PropertyGrid` over a hand-written descriptor. It prints the docking
+  arrangement as YAML on exit, which is this phase's round-trip criterion demonstrated by the thing
+  it is about.
+
+  ⚠ **What it proves is an absence, so the absence is now asserted.** Doc 02 calls this sample
+  "Vixen.Ui only, no engine", and the convenient way to write it — `Vixen.App` — references
+  `Vixen.Engine`. So the host is a hundred lines of `Program.cs`, and `CheckArchitecture` now globs
+  `Samples/**` and fails the build if `HelloUi` reaches for either. Verified by sabotage: adding the
+  reference fails with the message that says why.
+
+  ⚠ **`UiInput` — fifty lines turning a `PlatformEvent` into the document's events — lives in the
+  sample, and that is where it has to live today.** `Vixen.Ui` is `Core/` and `Vixen.Platform` is
+  not, so the framework cannot depend on what produces its input; a `Vixen.Platform.Ui` assembly is
+  where it goes when the editor becomes the second consumer. Two things it found: the platform's
+  timestamps are `Stopwatch` ticks rather than milliseconds, and positions are physical pixels that
+  have to be divided by the DPI scale before a document that works in device-independent ones sees
+  them — the second reads as a hit-testing bug in the framework rather than a missing division in
+  the host.
+
+  **The frame budget, measured by the sample and by a benchmark.** `--frames N` reports the UI frame
+  — the two passes and the vertex build, not the present — with the first frame reported separately
+  because it is not one: it carries the JIT, the font load and the rasterisation of every glyph into
+  the MSDF atlas. On this machine, in Release: *287 elements, 192 commands, first frame 590 ms, then
+  over 270 frames mean 0.427 ms and worst 4.9 ms.* Doc 14's budget is 5 000 elements under 2 ms and
+  this shell is 287 — because the tree virtualises, which is what it is there to show — so the
+  number at the roadmap's scale is `Vixen.Benchmarks.Ui`'s new `DocumentBenchmarks`, which builds a
+  themed document of five thousand controls and measures a steady frame with `[MemoryDiagnoser]` on
+  it. That benchmark exists because `LayoutBenchmarks` measures the flexbox engine and three of the
+  four passes in the criterion are above it.
+
+  ⚠ **The font is borrowed from the operating system**, because the repository has no Latin UI face
+  to commit — the fourteen it does have are the Consortium's shaping fixtures. Finding none is not a
+  failure: every label measures zero and the controls draw their chrome regardless, which is worth
+  knowing about the framework as well as convenient in a sample.
+
+  ⚠ **Still owed on the exit criteria:** the browser run is Phase 10's — it needs `net10.0-browser`
+  and the wasm workload — and hot reload of `.vxml`/`.vcss` against a running window is untested from
+  this sample, though `Vixen.Ui.HotReload.Tests` covers the mechanism.
 
 **Exit:** `Samples/02` runs on Windows/Linux/macOS and in a browser. Yoga suite green. UI frame under
 2 ms with 5 000 elements and zero steady-state allocation. Hot reload of `.vxml`/`.vcss` preserves
@@ -2297,9 +2447,16 @@ scroll/focus/selection. A `DockingHost` layout round-trips through serialisation
 
 - `Vixen.Shaders`: ✅ **typed parameter/permutation keys and the constant-buffer writers**, with
   `Vixen.Shaders.Generators` emitting both from Raven's reflection — see
-  [07 § Generated C# bindings](07-raven-shader-pipeline.md#generated-c-bindings). Still open: the
-  effect system, the three cache tiers, build-time permutation pre-generation and
-  `Tools/Vixen.ShaderCompilerService`, all of which need `Vixen.Rendering` to design against.
+  [07 § Generated C# bindings](07-raven-shader-pipeline.md#generated-c-bindings). ✅ **the effect
+  system and all three cache tiers**: `EffectStore` over a baked bundle, `EffectDiskCache`
+  read-through and write-back over a directory, and `RemoteEffectSource` over a socket — each an
+  `IEffectSource` producing an `EffectData`, which is the device-independent form of a variant that
+  reading needs no compiler for. ✅ **build-time pre-generation** in `Tools/Vixen.ShaderCompiler`,
+  where `PermutationClosure` finds a shader's variants by compiling until the read-key set stops
+  growing, and `EffectBundleBuilder` bakes them. ✅ **`Tools/Vixen.ShaderCompilerService`** — a device
+  asks for a permutation over TCP, this machine compiles it, and both ends cache. The exit
+  criterion below is asserted in `Vixen.ShaderCompiler.Tests`: a run records what it asked for, the
+  build bakes exactly that, and a second run over the bundle alone misses nothing.
 - `Raven/Library`: ✅ the full shader library from [07](07-raven-shader-pipeline.md) — Core, Shading,
   Geometry, Material, Pipeline, PostFx, Ui, Vfx — every shader reaching both backends under `glslc`
   and `spirv-val`.
@@ -2368,9 +2525,17 @@ scroll/focus/selection. A `DockingHost` layout round-trips through serialisation
   C# does not, and both became one identifier. Renamed in the shader, where the distinction is worth
   saying out loud anyway.
 
+  Bloom and tonemap moved into it as well, and that is what forced the extension seam:
+  `CompositorBuilder` switches on an asset's type to build a node, which it cannot do for a type
+  defined downstream of it. `ISceneRendererFactory` is the answer — whoever defines a node kind
+  supplies the factory that builds it — and it is what makes a game's own effect a node kind on the
+  same terms as a shipped one. Tonemap also gained the 3D grading table its shader has always taken
+  and nothing bound.
+
   ⚠ Still to come: SMAA, MSAA resolve, the full GTAO horizon integral, screen-space reflections,
-  depth of field, motion blur, and colour grading as an asset — each needs a shader that does not
-  exist yet rather than a pass over one that does. `AutoExposure.rvn` is also still unwired: it is two
+  depth of field, motion blur, and the grading table as an *asset* — an importer that reads a `.cube`
+  and hands over a texture. Each of the rest needs a shader that does not exist yet rather than a pass
+  over one that does. `AutoExposure.rvn` is also still unwired: it is two
   compute passes over a histogram and a buffer that survives the frame, so it wants the compute node
   rather than the full-screen one.
 - `Vixen.Graphics.Direct3D12` — **not built** (Q4: postponed past 1.0). Stub project only. The abstraction
@@ -2455,8 +2620,61 @@ nowhere in the dependency graph.
   sub-graphs, search-to-create, drag-from-port, previews, auto-layout, minimap.
 - `Vixen.Editor.ShaderGraph`: node library, `DynamicVector` port typing, Raven emission, show-generated-
   code, diagnostics mapped to ports, master nodes (PBR/unlit/sprite/UI/post).
-- `Vixen.Vfx` runtime: SoA attribute storage, spawners/initializers/updaters/renderers, deterministic
+- 🟡 `Vixen.Vfx` runtime: SoA attribute storage, spawners/initializers/updaters/renderers, deterministic
   RNG shared between CPU and GPU paths, CPU jobs + GPU compute simulation, GPU sort, indirect draw.
+
+  **The simulation and the compiled form are built; the renderers and the GPU path are not.** The
+  compiled graph is an array of fixed-size operations — an opcode, a salt, two `Vector4`s — because
+  that is the only shape a CPU loop, a shader emitter, a constant buffer and a golden test can all
+  read, and this document says that part must be designed in rather than retrofitted. Storage is
+  *derived* from what the operations touch, so an unused attribute has no memory and a graph that
+  reads what nothing writes is refused at compile time rather than running over zeroed memory.
+
+  `VfxRandom` is stateless and integer-only so a compute shader can reproduce a value exactly: a draw
+  is a pure function of the particle's identifier, the effect's seed and a per-operation salt, with
+  the one float conversion taking 24 bits over 2²⁴ so no rounding mode can differ. Two systems with
+  one seed are identical particle for particle, which is what the exit criterion's CPU/GPU agreement
+  test will compare against. Writing it found that these mixers have a fixed point at zero — particle
+  zero of seed zero drew zero for ever — which an offset before mixing removes. 34 tests, and a frame
+  of a running effect allocates nothing.
+
+  **Particles are drawn.** `ParticleRenderFeature` sits beside `MeshRenderFeature` and is the first
+  feature whose geometry does not exist until the frame asks for it: `Prepare` expands each particle
+  into a camera-facing quad and appends it to one vertex buffer every effect in the frame shares, and
+  `Draw` binds that buffer once and reaches each run through the draw call's vertex offset. The
+  dependency runs Rendering → Vfx and not the other way, so the expansion is a unit test rather than a
+  screenshot. Two limits are deliberate and written down: the expansion is on the CPU, and it happens
+  once for one view — so particles do not belong in a shadow stage until the GPU path removes that
+  rather than working around it.
+
+  **The graph emits a compute shader.** `VfxShaderEmitter` turns a compiled graph into Raven source —
+  a base shader holding the buffers and the RNG, and one compute entry point per pass — and it is a
+  `switch` that writes a line per operation rather than a second implementation, which is the whole
+  return on the compiled form having been designed first. The order inverts: the CPU sweeps one
+  operation across every particle, and a dispatch runs the whole graph on one particle, because a
+  dispatch has no inner loop to keep an opcode out of and every intermediate can stay in registers.
+  Both are correct because no operation reads another particle. `float3` attributes are declared
+  `float4`, since std430 gives a `vec3` array a stride of sixteen whatever it is called and a host
+  uploading packed `Vector3`s would read every particle after the first from the wrong offset.
+
+  Emitting it found a **lowering bug in Raven**: `MergeInterface` rebuilt each `IrBinding` without its
+  writable flag, so a `RWBuffer` inherited from a base shader — or contributed by a `compose`d feature
+  — arrived read-only. `spirv-val` accepts a `NonWritable` variable that is then stored into and
+  GLSL's front end does not, so the shader ran on Vulkan and would not build for GL, which reads as a
+  backend bug and was one argument in the binding merge. Fixed, with a regression test on both sides;
+  the Vfx tests run *both* reference tools for exactly this reason.
+
+  Writing the emitter also settled what the language was missing for the *rest* of the GPU path, and
+  it turned out to be one thing: **atomics**. Compacting the alive set is every survivor taking the
+  next slot from a shared counter, and the value an atomic hands back is the slot. Raven now has the
+  eight of them on `int` and `uint` — see [07](07-raven-shader-pipeline.md) § Atomics for why the
+  first argument had to be a place and why `inout` could not be it.
+
+  **Owed here:** the dispatch itself — nothing has yet uploaded a buffer or read one back, which is
+  what the exit criterion's agreement test needs a device for. Spawning stays on the CPU because it is
+  bookkeeping; reaping stays there until the dispatch exists, not because the language cannot say it.
+  Then mesh/ribbon/light renderers, custom attributes, and the force-field/curl-noise/collision/
+  sub-emitter/trail updaters this document names.
 - `Vixen.Editor.VfxGraph`: node library + dual-target compilation + live preview.
 - Particle render feature integrated.
 
@@ -2804,11 +3022,12 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   `IRpcTransport`, because wiring the two together without the marker would have been a connection
   that looked right and mixed three streams into one.
 
-  **Owed:** awaitable calls returning `ValueTask<T>`, which are designed for and refused with a
-  diagnostic that says so. (`NetworkRules` landed with the next slice.)
-- Identity and spawning: `NetworkId` ✅ and ownership with transfer ✅. **Owed:** prefab ids derived
-  from asset GUIDs, and build-time-baked ids for scene-placed objects — both of which are the
-  deterministic content build's to hand over, and neither of which has a caller until spawning exists.
+  Awaitable calls were owed here and are ✅ below — as `Task<T>` rather than the `ValueTask<T>` this
+  was written expecting, for a reason recorded there. (`NetworkRules` landed with the next slice.)
+- ✅ **Identity and spawning**: `NetworkId`, ownership with transfer, prefab ids derived from the
+  content pipeline, and derived ids for scene-placed objects. Written here as owed until spawning had a
+  caller for it; see the spawn entry below for what it became — including that the id comes from the
+  **address** rather than the GUID, which is a correction to doc 16.
 - ✅ **`NetworkRules`** — the policy, as a declaration rather than a `switch`. 12 further tests; 287
   across the networking projects in total.
 
@@ -2827,10 +3046,12 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   `CallServerRpc` is enforced by the router before dispatch, `ChangeOwner` by
   `RpcRouter.TryTransferOwnership`, and `OnOwnerDisconnect` when a player leaves — with the transfer
   done and a `Destroy` handed back as a decision, because destroying an entity is not the policy's to
-  do. `Spawn`, `Despawn` and `Write` are declared and answered through the same registry and have no
-  enforcement point yet, because nothing can spawn a networked object from a client or write
-  replicated state from one; when those arrive they ask this question rather than inventing a second
-  policy. The distinction is in the type's own documentation rather than left to be discovered.
+  do. `Spawn`, `Despawn` and `Write` were declared here with no enforcement point, because nothing yet
+  spawned a networked object or wrote replicated state from a client — with the note that when those
+  arrived they would ask *this* question rather than invent a second policy. **Both have since arrived
+  and both did**: `Write` is what decides authority for networked rigid bodies and animators, and
+  `Spawn` is what `NetworkSpawner.MaySpawn` asks. Writing down what a declaration is *for* turned out
+  to be what made two later slices land in the right place.
 
   **Owed:** the `.vxnetrules` asset itself — the importer, the serialised form and the per-prefab
   reference, which are the asset pipeline's half. `NetworkRulesRegistry` is what it loads into.
@@ -2940,8 +3161,9 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
 - Interest management: ✅ the resolver seam and the default. `IInterestResolver` is what decides which
   entities a player is told about, and `ReplicateEverythingResolver` is what a new project gets —
   a deliberate ergonomics choice rather than a placeholder, so a prototype works before anyone has
-  thought about it. **Owed:** scene scope, explicit overrides, the distance grid and `NetworkLOD`,
-  which are resolvers to write against a seam that now exists.
+  thought about it. ✅ **Scene scope** landed with spawning — `SceneInterestResolver`, the first of the
+  chain doc 16 describes. **Owed:** explicit overrides, the distance grid and `NetworkLOD`, and the
+  composition that lets the four be chained in the order the doc puts them in.
 - ✅ **Motion: interpolation, clamped extrapolation, `NetworkTransform`, owner-side smoothing.**
   26 further tests; 275 across the networking projects in total.
 
@@ -2967,13 +3189,161 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   `[Replicated]` component and a user's own RPC argument get the same encoding rather than a
   second one.
 
-  **Owed:** per-axis enable and parent-relative replication on `NetworkTransform`, and the system
-  that copies between it and the engine's transform hierarchy — which is where `Vixen.Engine` and
-  `Vixen.Net` will first have to meet.
-- Lag compensation: transform/collider history ring + rewound Jolt shape casts. **Deferred within the
-  phase.** It is the one item here that cannot start: it rewinds colliders, and `Vixen.Physics` is
-  Phase 8 and not built. The tick history it needs is keyed by `Tick`, which now exists, so the ring
-  is the work and the query is Jolt's — the sequencing note at the top of this phase stands.
+  ✅ **The transform bridge** — `NetworkTransformCaptureSystem`/`ApplySystem` in `Vixen.Net.Engine`,
+  the seam `Vixen.Engine` and `Vixen.Net` were always going to have to meet at. **The direction
+  depends on which peer this is**, and that is the whole design: a server publishes transform →
+  network, a client applies network → transform, and one system doing both has each end overwriting
+  the other every tick — on a client with physics, the solver and the network fighting over the same
+  body. Filtered on `WithChanged<LocalTransform>`, so a scene of sleeping props visits none of them.
+  `NetworkTeleport` is a tag the bridge turns into the counter the wire carries and takes off again,
+  so nothing has to remember to clear it.
+
+  ✅ **Networked rigid bodies** — `NetworkRigidBody` in `Vixen.Net.Physics`: linear and angular
+  velocity beside the transform, quantised harder than the position because a velocity only ever
+  carries a body a fraction of a second, plus a rest flag that is the bandwidth decision — most
+  objects in most scenes are asleep, and a body written as *exactly* zero costs its unchanged bits
+  for ever after rather than dithering in its last quantisation step.
+
+  **The correction is the piece worth having taken from PurrNet.** A remote body is not moved to the
+  authoritative pose; it is given a velocity that would carry it there, so it arrives through the
+  solver — colliding with what is in the way and resting on what it lands on. `error × frequency` is
+  the critically damped solution: fastest convergence with no overshoot, where underdamped makes the
+  crate wobble around its true position and overdamped never quite arrives. Past a snap threshold it
+  teleports instead, because a spring strong enough to fix a respawn is one that would fling
+  everything else across the level.
+
+  ✅ **Authority is a `NetworkRules` audience**, not a flag on the body. `NetworkRules.Write` was
+  declared from the start with the note "nothing calls it yet, because replication is one-way and a
+  client has no path to write — when it has, this is the question it asks rather than a second
+  policy". This is that, and it turned out to be exactly right: the capture and correction systems
+  ask the one question and take opposite branches, so `rules.Set(crate, NetworkRules.OwnerAuthoritative)`
+  moves both at once and they can never both act on one body. A per-component toggle beside the
+  registry — which is how PurrNet spells it — would be a second policy that can disagree with the
+  first, and the day they disagree one of them is silently ignored.
+
+  **Owed:** per-axis enable and parent-relative replication on `NetworkTransform`.
+- ✅ **Lag compensation** — `Vixen.Net.Physics`, unblocked the moment Phase 8's physics landed and
+  built against it. A ring of pose history per tracked body, and a rewind scope that moves those
+  bodies to where a shooter saw them, lets one query run, and puts them back.
+
+  **A package of its own, for the reason `Vixen.Net.Engine` is one:** `Vixen.Net` and `Vixen.Physics`
+  may not reference each other, so the type that has to see a `Tick` and a `BodyHandle` lives above
+  both. A game with networking and no physics must not link Jolt to send a packet.
+
+  **Only tracked bodies rewind**, which is both the cheap answer and the correct one: the walls did
+  not move, so a shot through a doorway resolves against the doorway as it is now. The tracked set is
+  players and vehicles — tens of bodies, not thousands.
+
+  **`ClampFor` is the anti-cheat surface and is public because of it.** A hit claim names a tick and
+  the client chooses that number; three bounds decide what it may mean — not in the future, not past
+  `MaxRewind`, and not further back than the player's *measured* round trip plus the interpolation
+  delay they were rendering at. That last bound is the one that does the work, and the one that is
+  easy to leave out: a client renders behind the newest snapshot it holds, so a server allowing only
+  the round trip rewinds to a world the shooter had not been shown. Claims are **clamped rather than
+  refused** — a refusal punishes a player for their latency — and `ClampedCount` says how often.
+
+  **The restore is a `using`, and that is load-bearing.** A world left in the past does not fail: it
+  simulates and replicates and looks entirely normal, with everybody standing where they were a fifth
+  of a second ago, for ever. There is a test for a query that throws mid-rewind, because that is the
+  path nobody writes by hand.
+
+  Eleven tests, the first of which is the whole feature: the same ray, missing live and hitting
+  rewound. `Capture` allocates nothing — the one path a hundred players multiply — and that test is
+  bracketed by a collection count rather than asserting on a bare
+  `GC.GetAllocatedBytesForCurrentThread` difference, for the reason recorded in `FuzzSession.Weigh`.
+
+  **Owed:** the hit-claim message itself, which this validates and nothing yet defines. Per-bone
+  rewind, so a headshot is judged against a skeleton rather than a capsule — that wants animation pose
+  history and multiplies the ring by the tracked bone count. A cost budget for rewinds, which belongs
+  in the RPC rate limiter and needs it to know that some calls are dearer than others. And drawing it,
+  without which a disputed kill is unanswerable.
+- ✅ **Broadcasts** — `BroadcastRouter` in `Vixen.Net`: a message that is not *about* anything, which
+  is the whole reason it cannot be an RPC. A chat line, a match-state change, a lobby update has no
+  `NetworkId` to be addressed to, and the alternatives — a dummy entity that exists to receive them,
+  or an RPC on the session object — are both a networked object invented to satisfy a signature.
+  `IBroadcast<TSelf>` with `static abstract` members, so a type declares its own name and codec and
+  the router never reflects. Rate-limited per sender like everything else that a client can send.
+- ✅ **Awaitable RPCs** — `RpcRouter.CallAsync<T>`, which the RPC slice designed for and refused with a
+  diagnostic. Correlation ids, a pending table, a five-second default timeout, and cancellation of
+  everything outstanding when a connection drops — because the failure mode of the obvious
+  implementation is a task nobody ever completes and a caller that waits for ever.
+
+  **It returns `Task<T>` rather than the `ValueTask<T>` doc 16 asked for**, and that is a correction
+  rather than a shortcut: CA2012 exists because a `ValueTask` may be awaited only once, and a
+  request/response handle is exactly the thing callers store, pass around and await twice. The doc has
+  been updated rather than the code bent to match it.
+- ✅ **Networked animation** — `Vixen.Net.Animation`: the animator's **inputs** on the wire, not its
+  output. A pose is sixty bone rotations a frame per character; the parameters that produce it are a
+  dozen values that change when somebody presses something. What it costs is a determinism
+  assumption — the receiver reproduces the pose only if its animator reaches the same state from the
+  same parameters — which is true of a gameplay state machine and false of anything driven by local
+  physics, IK against local geometry or a random number generator. `CorrectedCount` is where that
+  assumption failing becomes visible.
+
+  **The channels are the opposite way round from a first guess.** Parameters go *reliably*, because a
+  lost parameter edge never heals: a state machine's position is a function of every parameter it has
+  ever seen, so a missed "jump was pressed" is a jump that never happens on one client. The state goes
+  *unreliably*, because it is re-sent every tick and doubles as the backstop. And the state is applied
+  **only when the receiver disagrees**, with a short crossfade — calling `Play` every tick restarts the
+  state every tick and nothing animates, which presents as the animation being broken rather than as
+  the network being wrong, and therefore has a test rather than a comment.
+
+  **Owed:** `NetworkBones`, for the cases the determinism assumption does not cover. Expensive by
+  nature and wanting the same quantisation the rotation codec already has.
+- ✅ **Spawn, scenes and instance handling** — `NetworkSpawner`, `NetworkSpawnSystem` and
+  `NetworkPrefabRegistry` in `Vixen.Net.Engine`, over a `NetworkSpawn` component in `Vixen.Net`.
+  8 further tests here and 3 on the engine's `Prefab`.
+
+  **A spawn is a replicated component, not a message, and everything follows from that.** It rides the
+  snapshot at the top of the priority list, so it goes to exactly the connections the interest resolver
+  returns, is re-sent until acknowledged and then never again, reaches a player who joins an hour in
+  with everything else, and precedes every state record about the same entity. A message on its own
+  route would have needed its own answer to interest, to loss and to late joiners — three mechanisms
+  that can disagree with the snapshot about who can see what. **Despawn needed nothing at all**:
+  destroying the entity takes it out of what the resolver returns, and leaving interest already means
+  "drop it", so a client cannot tell destruction from walking over the horizon and does not need to.
+
+  **The prefab id is the hash of the *address*.** Doc 16 said "asset GUID" and that has been corrected
+  there: doc 08 is explicit that the GUID is the authoring identity and *never appears in a shipped
+  build*, so a client has no GUID to hash. The address is also the better choice on its merits — it
+  survives edits to the prefab, where the content hash would renumber the wire on every patch, and
+  whether two peers hold the same content under an address is a question for the handshake, asked once.
+  The collision is caught at registration, where both names are still in hand, because the failure
+  downstream is a client instantiating the wrong object with no error anywhere.
+
+  **Only the parts of a prefab that asked for an id get one.** A template node carrying a `NetworkId`
+  opts in, so a hundred-entity set piece where one turret rotates costs one id and one record rather
+  than a hundred of each — and the instance's ids are one reserved run, root first then the marked
+  nodes in capture order, which is what makes a spawn a fixed twelve bytes however large the prefab is.
+  That is only sound because prefab capture order is deterministic, which is now stated where it is
+  relied on.
+
+  **The receiver builds the instance *over* whatever was already standing there**, and that is the part
+  that would have been got wrong. A snapshot names entities by id, so a state record whose spawn is a
+  few ticks behind makes a bare stand-in already holding the object's real position — while the prefab
+  holds the position an artist saved. `Prefab.InstantiateOnto` merges the two with the stand-in
+  winning: the wire says where the object *is*, the prefab says what it is made of. It only happens
+  under loss, which is to say never on a developer's machine, so it has a test of its own.
+
+  **Scenes are named, not numbered.** A `SceneHandle` is handed out in load order, so the same level is
+  scene 2 on a server that loaded a lobby first and scene 1 on a client that did not; `NetworkSceneId`
+  is the hash of the name, which is the thing both ends already agree on. A spawn for a scene this peer
+  has not loaded **waits** rather than landing untagged — an untagged instance is one the scene's
+  unload never sweeps, standing in the middle of the next map — and `PendingCount` is where a client
+  that will never have the content becomes visible. `SceneInterestResolver` is doc 16's first resolver;
+  an entity in no scene is told to everybody, deliberately, because a resolver whose default is
+  "vanish" is one everybody debugs. Scene-placed objects **derive** their ids from the scene and their
+  index rather than being allocated one, so a designer's crate is addressable before anybody has
+  connected, and the two schemes get half the number space each with a guard where they meet.
+
+  **Owed:** filling the prefab registry from the content catalog by label, rather than by hand at
+  start-up. A serialised scene format to take the baked index from, which is doc 08's. Scene load and
+  unload as session messages, which is what turns "waiting for its scene" from a state into a
+  handshake. Client-requested spawns — `MaySpawn` answers the default rule, which is all a rule
+  registry *can* answer before the object exists, and the per-prefab question wants an RPC that
+  receives the address. Wiring `OnOwnerDisconnect` through to `Despawn`. And a way to compose
+  resolvers, without which the scene one cannot be chained with the distance grid it is meant to
+  precede.
 - ✅ **Security pass: packet validation, rate limits, closed-set deserialization, protocol/content hash
   handshake, and the fuzzing corpus over the packet reader.** `Vixen.Net.Fuzz` — nine targets, three
   oracles, nine million cases on every build in nine seconds.
@@ -3025,6 +3395,16 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   **The nightly exists too** — `.github/workflows/nightly.yml` runs the same harness with ten minutes
   a target rather than a second, roughly six hundred times as many cases, and uploads the bytes of
   anything it finds rather than only the message.
+
+  **And the harness had the same class of bug it was written to find.** A signature folded from a
+  decoder's *lifetime* counters strictly increases, so every case looks like a behaviour never seen
+  before — which is not excellent coverage, it is no guidance at all and a corpus that keeps
+  everything: `rpc` kept 1,027,530 inputs out of 1,027,508 cases, unbounded, in a test host that runs
+  alongside seventeen others. Signatures are per-case deltas now and both tables are capped; `rpc`
+  keeps 538 of 1,500,000 and the whole gate runs in five seconds rather than nine. It still finds what
+  it found before — with the `TickManager` fix reverted it caught the overflow again from a 45-entry
+  corpus. The ratio is printed on every run now, because that is the only place the health of the
+  guidance is visible and a green build hides it completely.
 
   **Owed:** `SharpFuzz` with real instrumentation ([12](12-build-ci-and-testing.md) § Test
   infrastructure) — the targets are already `(ReadOnlySpan<byte>) -> outcome`, so the wrapper is a few

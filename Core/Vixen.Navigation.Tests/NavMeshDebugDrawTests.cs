@@ -6,6 +6,7 @@ using Vixen.Engine.Diagnostics;
 using Vixen.Navigation.Agents;
 using Vixen.Navigation.Baking;
 using Vixen.Navigation.Diagnostics;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.Navigation.Tests;
@@ -176,19 +177,15 @@ public sealed class NavMeshDebugDrawTests {
         // Warm the enumerator's first walk, then measure the next thousand.
         var seen = 0;
 
-        foreach (var handle in crowd.Agents) {
-            seen += handle.Index;
-        }
+        Assert.Equal(0, Measured.Bytes(Walk, warmUp: 1));
+        Assert.True(seen > 0);
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
+        return;
 
-        for (var pass = 0; pass < 1_000; pass++) {
+        void Walk() {
             foreach (var handle in crowd.Agents) {
                 seen += handle.Index;
             }
         }
-
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
-        Assert.True(seen > 0);
     }
 }

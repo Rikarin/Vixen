@@ -267,6 +267,20 @@ of the `EffectKey` — two materials differing only in features are two variants
 only permutations could not express. Details, including the one constraint the whole shape is built
 around, are in [Vixen.Rendering's README](../../Core/Vixen.Rendering/README.md#materials).
 
+✅ **And a material binds its own resources**, which was the last thing a host had to do by hand. A
+material knows it has a texture called `albedo`; which binding index that is belongs to the compiled
+shader, so until the binding plan reached the runtime somebody had to write the number down and hand
+over a finished descriptor set. `MaterialRenderFeature` now writes it: the uniform block through
+`EffectConstants`, every texture, sampler and storage buffer looked up in `Effect.Bindings` by the
+shader's own name for it. The same fix that made a compositor node's bindings authorable, applied to
+the other half of the same gap.
+
+Per variant rather than per material, because a permutation can fold a texture out of the shader and a
+set written for the variant that has it does not fit the layout of the one that does not — which is
+also what keeps a depth prepass binding nothing. Every binding or none, because a set short of an entry
+is a validation error on one backend and a sampled black texture on another. Through the frame
+allocator, because a value that changes must not be rewritten under a frame still reading it.
+
 | Layer | Options |
 |---|---|
 | Diffuse | Lambert, Oren–Nayar, Burley (Disney), energy-conserving variants |
@@ -304,8 +318,11 @@ would have made "a post effect is a node over a full-screen pass" a sentence onl
 write, and a game's own effect impossible. `BuildChild` and its two siblings are that seam, and
 deliberately the only thing that widens.
 
-`BloomRenderer` and the tonemap pass stay in `Vixen.Rendering.Compositor` where they were written;
-moving them is a rename across the golden fixtures that bind them, and worth doing on its own.
+Bloom and tonemap moved across too, which is what made the seam necessary rather than merely nice: a
+document naming `!Bloom` has to be built by something, and the builder that reads documents cannot
+reference the project the node now lives in. `ISceneRendererFactory` is that something — whoever
+defines a node kind supplies the factory that builds it, so a game's own effect is a node kind on the
+same terms as a shipped one.
 
 Every entry below is a `FullScreenRenderer` or a node built out of several. ✅ **The full-screen pass
 is the edge every one of them was waiting on**: everything else in the compositor draws *objects*, and
@@ -326,10 +343,10 @@ merely waste one.
 | Upscaling hook | P2 | a `IUpscaler` interface so FSR/XeSS/DLSS can be plugged; ship FSR1 (spatial, no licence friction) in-box |
 | SSAO / GTAO | ✅ (SSAO) | `AmbientOcclusionRenderer` over `Ssao.rvn`, at half resolution by default — occlusion from a hemisphere is low frequency almost everywhere, so the cost halves twice and only contact edges notice. The march steps in the *depth buffer's* texel grid rather than its own half-size target's, which is the one thing about running it at a fraction that can be silently wrong. Bent normals are a permutation the shader has and nothing yet consumes; the full GTAO horizon integral is still to come |
 | SSR (screen-space reflections) | P1 | Stride's `LocalReflections`; hierarchical depth trace |
-| Bloom + lens flare + light streak | ✅ (bloom) | `BloomRenderer`: Jimenez's 13-tap downsample and 9-tap tent upsample, one shader in three permuted modes. The pyramid is **declared**, so nine textures and nine passes vanish when nothing reads the result. Each pass steps in its *source's* texel grid — taking it from the target makes a bloom that is subtly too soft and that no screenshot answers. Lens flare and light streak still to come |
+| Bloom + lens flare + light streak | ✅ (bloom) | `BloomRenderer`, in `Vixen.Rendering.PostFx`: Jimenez's 13-tap downsample and 9-tap tent upsample, one shader in three permuted modes. The pyramid is **declared**, so nine textures and nine passes vanish when nothing reads the result. Each pass steps in its *source's* texel grid — taking it from the target makes a bloom that is subtly too soft and that no screenshot answers. Lens flare and light streak still to come |
 | Depth of field | P1 | bokeh, near/far, physical aperture params |
 | Motion blur | P2 | camera + per-object from motion vectors |
-| Tonemap + colour grading | P1 | `Tonemap.rvn` exists and `FullScreenRenderer` runs it; what is not wired is the grading LUT as an asset. ACES/AgX/Reinhard/Filmic, 3D LUT, curves, white balance, split toning |
+| Tonemap + colour grading | ✅ (the pass and the LUT) | `TonemapRenderer`, with the 3D grading table bound and `UseLut` folding the sample out of the variant when there is none. ACES, AgX, Reinhard and Uncharted curves, exposure, white point, contrast, saturation, white balance and split toning are the shader's; what is still missing is the table as an *asset* — something that imports a `.cube` and hands over a texture |
 | Auto-exposure | P1 | histogram-based luminance in compute, with adaptation curve |
 | Fog (linear/exp/height) | ✅ | `FogRenderer`. A post-process because fog depends on distance, which the depth buffer already holds for every pixel — putting it in every material would mean every material carrying its parameters and evaluating it whether it is on or not |
 | Vignette, chromatic aberration, film grain, dithering | ✅ (three of four) | `VignetteRenderer`: one pass, three permutations, because they are one look and each is one or two taps. Grain moves with a frame index — grain that does not is a texture stuck to the screen, which is worse than none. Dithering is not in it |
@@ -383,6 +400,32 @@ Renderers → billboard (camera/velocity/fixed-axis aligned), mesh, ribbon, ligh
 
 **Authoring** is `Vixen.Editor.VfxGraph` — see [11](11-editor.md).
 
+### 🟡 Status: both targets are emitted; only one of them runs
+
+`Vixen.Vfx` has the storage, the compiled graph, the CPU simulation, billboard geometry and
+`ParticleRenderFeature`. `VfxShaderEmitter` closes the other half of the dual target on paper: the same
+compiled graph becomes a Raven compute shader, and the tests compile it and hand both targets to
+`glslangValidator` and `spirv-val`. What is not built is the dispatch — nothing uploads a particle
+buffer, runs the kernel or reads it back — so the exit criterion's CPU/GPU agreement test is waiting on
+a device rather than on the translation.
+
+Three things settled while writing it, recorded because they are the reasons rather than the results:
+
+- **The sweep order inverts between the targets, and that is fine.** The CPU runs one operation across
+  every particle to keep the opcode dispatch out of the inner loop; a compute invocation runs the whole
+  graph on one particle, because it has no inner loop and every intermediate can stay in a register.
+  Both are correct because no operation reads another particle — which is worth stating, since it is the
+  property that makes the dual target cheap.
+- **The graph is unrolled into the shader, not uploaded and interpreted.** One shader per graph rather
+  than one shader for every graph, and no branch on the hot path of the processor that likes them least.
+- **Spawning and reaping stay on the CPU, for now.** Spawning is bookkeeping with one right home.
+  Reaping was blocked and is not any more: writing the emitter is what put `atomicAdd` into Raven
+  ([07](07-raven-shader-pipeline.md) § Atomics), and GPU compaction is every survivor taking the next
+  slot from a shared counter. It waits on the dispatch rather than on the language. When it lands the
+  two backends will leave the survivors in *different orders*, which is fine and is written down
+  anyway: nothing promises an order, and a particle's randomness follows its identifier rather than
+  its slot.
+
 ## Effect permutations
 
 The problem Stride solves with `EffectSystem` + `.sdfx` mixins, and the thing that makes a
@@ -403,7 +446,7 @@ material/shader system usable at all.
   machine compiles and returns it, the device caches it. This is what makes on-device shader iteration
   tolerable and it is worth building early.
 
-### ✅ Status: the key, the cache and the seam are built
+### ✅ Status: all three tiers are built, and the exit criterion is a test
 
 `EffectKey`, `Effect` and `EffectSystem` are in `Core/Vixen.Shaders`, with `ParameterCollection`
 beside them. Three things the implementation settled:
@@ -427,6 +470,85 @@ every use, which is what makes "what is this frame's effect key" a field rather 
 the permutations Raven reports as `UsedPermutationKeys` reach the key — the difference between a
 tractable cache and 2ⁿ entries where a handful are distinct — and the values are sorted by name, so
 the same settings in a different order are the same key rather than a cache that never hits.
+
+#### What the three tiers turned out to need
+
+**A form for a variant that the compiler is not needed to read.** Raven already writes `.rvnfx` —
+bytecode, reflection, permutation key, source hash — and it is unusable at run time, because
+`CompiledEffectReader` lives in the compiler assembly and reading one links the parser, the lowerer
+and both backends. So `Vixen.Shaders` has **`EffectData`**: the same content, device-independent,
+carried by the engine's own serializer. The disk cache, the baked bundle and the answer that comes
+back over TCP are all that one record, and translating a `.rvnfx` into it happens once, on the build
+side, in `Tools/Vixen.ShaderCompiler` — the only project that references both halves.
+
+**The tiers answer with bytes, not with effects.** `IEffectProvider` gives an `Effect`, which is a
+thing on a device; the tiers underneath implement **`IEffectSource`** and give an `EffectData`. That
+is what lets them compose: a disk cache that missed can ask the dev machine and *write down what came
+back*, which it could not do if the answer were already a set of device handles. One
+`EffectSourceProvider` at the top turns whatever the stack produced into an effect, and a shipping
+build's stack is one deep.
+
+**The disk cache is keyed by (key, target) with the source hash checked rather than named.** Doc's
+`(RavenSourceHash, PermutationKey, Backend)` has a direction problem: a reader has to be able to
+*find* an entry, and a runtime asking for a variant does not know what the shader source hashed to —
+the compiler that knew is the thing this tier exists to avoid running. So the hash rides inside the
+record and `Expect` is what a host that does know sets. Every failure to read is a miss and never an
+exception: a cache is an optimisation and its failure mode has to be "slower".
+
+**Pre-generation is a fixed point, not a cross product.** Raven reports which keys a compilation
+*read*, and the answer depends on the values — a flag guarded by another flag is unread until the
+outer one is on. Compiling once with the defaults undercounts; the cross product of everything
+declared overcounts by orders of magnitude. `PermutationClosure` compiles the defaults, enumerates
+over what was read, and starts again if any of those compilations read something new. The set only
+grows and is bounded by what the shader declares, so it terminates having compiled exactly the
+variants that exist — three declared keys and two that matter is two shaders, measured rather than
+claimed.
+
+That enumeration also found a constraint worth writing down: **a shader whose used-key set depends on
+its values has variants no draw can ask for.** The engine builds its key from the `UsedPermutationKeys`
+in the reflection checked in beside the shader, and that reflection came from one compilation. If
+`Inner` is only read inside `if (Outer)`, the generated key list does not contain `Inner` and nothing
+can select those variants. The closure reports it as `Dependent`; the fix is in the shader, which
+should read the inner key unconditionally.
+
+**Numbers need a domain and booleans do not.** A `bool` has two values and enumerating them is
+complete; an `int` does not, and which values matter is project knowledge — a light-count bucket is 4,
+16 and 64 because of what the scenes look like. Unsupplied, a numeric key contributes its declared
+default alone, and the variants nobody asked for show up as named misses rather than as a silently
+short bundle.
+
+**Where the manifest comes from is a playthrough.** No static analysis of a scene knows which shading
+model a script switches to on level three. `EffectSystem.Requests` records every key anything asked
+for — before the in-memory tier, so a key resolved once and cached is still in the list — and that is
+an `EffectManifest`: JSON, because it is a build input people read, review in a diff and merge when
+two branches each add a material. Play, dump, build, and the next run compiles nothing.
+
+`vixen content build` is where that lands: `ProjectSettings/Shaders.effects.json` in, `shaders.effects`
+beside the catalog out, with `--shader-target` picking the backend. No manifest is not a failure — a
+project runs against a compiler in development, and the build says how to make one rather than
+refusing to finish.
+
+#### Compiling without stalling
+
+The other half of the development story, and the half that decides whether anyone leaves the
+compiler in the loop: `EffectSystem.Placeholder`. Setting it makes a miss return immediately with
+something to draw and queue the real compile; `Pump()` produces them, called by the host off the
+render thread and bounded by a count if a frame should only pay for so much. The system owns no
+thread of its own, because how much CPU to spend compiling and against what else is a scheduling
+decision the job system exists for — and a pump is testable without a clock.
+
+**The placeholder is never cached, and that is the whole subtlety.** The dictionary holds what a key
+resolved to; a placeholder is what it resolved to *for now*. Caching it makes the temporary answer
+permanent, which is a magenta object that never becomes anything with nothing logged anywhere. The
+matching half is that whatever *kept* the answer has to know it was provisional —
+`MaterialRenderFeature` resolves a variant once and keeps it, and the real effect arrives some frames
+later with nothing to announce it. `Effect.IsPlaceholder` is what it checks, and it re-resolves
+exactly the variants still holding one.
+
+`Raven/Library/Pipeline/Placeholder.rvn` is the shipped one: a screen-space magenta checker importing
+nothing and binding one matrix. Screen space rather than UV space because it has to draw for a mesh
+with no texture coordinates — the geometry most likely to be missing its shader — and one uniform
+because it stands in for *any* shader, so its bindings must be ones every draw can already satisfy.
 
 ## Testing
 

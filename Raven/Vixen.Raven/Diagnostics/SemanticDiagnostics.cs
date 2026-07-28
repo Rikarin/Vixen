@@ -1027,4 +1027,37 @@ public static class SemanticDiagnostics {
         Binding,
         DiagnosticSeverity.Warning
     );
+
+    // --- Atomics -----------------------------------------------------------
+
+    /// <summary>An atomic on something no atomic can operate on.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Two shapes, one rule. The target has to be <em>memory</em>, because the whole content
+    ///         of "atomic" is that the read and the write are one operation on one location —
+    ///         <c>atomicAdd(count + 1u, 1u)</c> would have to modify a copy, which is an ordinary add
+    ///         spelled expensively. And it has to be memory <em>the dispatch shares</em>, because an
+    ///         atomic on storage only one invocation can reach has nothing to be indivisible against.
+    ///     </para>
+    ///     <para>
+    ///         The second half is not pedantry: GLSL refuses it outright — <i>"only l-values
+    ///         corresponding to shader block storage or shared variables can be used with atomic
+    ///         memory functions"</i> — so allowing it here would be a shader that binds, verifies and
+    ///         then fails in one backend. Reported at the call for the same reason every other
+    ///         two-backend rule is reported before them.
+    ///     </para>
+    ///     <para>
+    ///         Checked after overload resolution, for the same reason <c>inout</c>'s check is:
+    ///         nothing at the call site marks an argument as storage, so folding it into
+    ///         applicability would turn "you passed an expression" into "no overload applies", which
+    ///         names neither the argument nor the reason.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor AtomicTargetMustBeStorage = new(
+        "RVN2130",
+        "Atomic target is not shared memory",
+        "The first argument of '{0}' cannot be operated on atomically: {1}",
+        Binding,
+        DiagnosticSeverity.Error
+    );
 }

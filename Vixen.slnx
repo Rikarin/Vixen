@@ -102,6 +102,8 @@
     <Project Path="Core/Vixen.Rendering.PostFx.Tests/Vixen.Rendering.PostFx.Tests.csproj" />
     <Project Path="Core/Vixen.Animation/Vixen.Animation.csproj" />
     <Project Path="Core/Vixen.Animation.Tests/Vixen.Animation.Tests.csproj" />
+    <Project Path="Core/Vixen.Vfx/Vixen.Vfx.csproj" />
+    <Project Path="Core/Vixen.Vfx.Tests/Vixen.Vfx.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Reactive/Vixen.Ui.Reactive.csproj" />
     <Project Path="Core/Vixen.Ui.Reactive.Tests/Vixen.Ui.Reactive.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Layout/Vixen.Ui.Layout.csproj" />
@@ -119,6 +121,10 @@
     <Project Path="Core/Vixen.Ui.Markup.Tests/Vixen.Ui.Markup.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Markup.Generators/Vixen.Ui.Markup.Generators.csproj" />
     <Project Path="Core/Vixen.Ui.Markup.Generators.Tests/Vixen.Ui.Markup.Generators.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Controls/Vixen.Ui.Controls.csproj" />
+    <Project Path="Core/Vixen.Ui.Controls.Tests/Vixen.Ui.Controls.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Controls.Advanced/Vixen.Ui.Controls.Advanced.csproj" />
+    <Project Path="Core/Vixen.Ui.Controls.Advanced.Tests/Vixen.Ui.Controls.Advanced.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Renderer/Vixen.Ui.Renderer.csproj" />
     <Project Path="Core/Vixen.Ui.HotReload/Vixen.Ui.HotReload.csproj" />
     <Project Path="Core/Vixen.Ui.HotReload.Tests/Vixen.Ui.HotReload.Tests.csproj" />
@@ -136,6 +142,10 @@
     <Project Path="Core/Vixen.Net.Transport.Composite.Tests/Vixen.Net.Transport.Composite.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Engine/Vixen.Net.Engine.csproj" />
     <Project Path="Core/Vixen.Net.Engine.Tests/Vixen.Net.Engine.Tests.csproj" />
+    <Project Path="Core/Vixen.Net.Animation/Vixen.Net.Animation.csproj" />
+    <Project Path="Core/Vixen.Net.Animation.Tests/Vixen.Net.Animation.Tests.csproj" />
+    <Project Path="Core/Vixen.Net.Physics/Vixen.Net.Physics.csproj" />
+    <Project Path="Core/Vixen.Net.Physics.Tests/Vixen.Net.Physics.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Telemetry/Vixen.Net.Telemetry.csproj" />
     <Project Path="Core/Vixen.Net.Telemetry.Tests/Vixen.Net.Telemetry.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Fuzz/Vixen.Net.Fuzz.csproj" />
@@ -200,6 +210,10 @@
     <Project Path="Tools/Vixen.ContentServer.Tests/Vixen.ContentServer.Tests.csproj" />
     <Project Path="Tools/Vixen.Sdk/Vixen.Sdk.csproj" />
     <Project Path="Tools/Vixen.Sdk.Tests/Vixen.Sdk.Tests.csproj" />
+    <Project Path="Tools/Vixen.ShaderCompiler/Vixen.ShaderCompiler.csproj" />
+    <Project Path="Tools/Vixen.ShaderCompiler.Tests/Vixen.ShaderCompiler.Tests.csproj" />
+    <Project Path="Tools/Vixen.ShaderCompilerService/Vixen.ShaderCompilerService.csproj" />
+    <Project Path="Tools/Vixen.ShaderCompilerService.Tests/Vixen.ShaderCompilerService.Tests.csproj" />
     <Project Path="Tools/Vixen.TextRenderingTestGen/Vixen.TextRenderingTestGen.csproj" />
     <Project Path="Tools/Vixen.UnicodeTableGen/Vixen.UnicodeTableGen.csproj" />
     <Project Path="Tools/Vixen.YogaTestGen/Vixen.YogaTestGen.csproj" />
@@ -230,7 +244,16 @@
     <Project Path="Raven/Vixen.Raven.Tests/Vixen.Raven.Tests.csproj" />
     <Project Path="Raven/Vixen.Raven.Cli/Vixen.Raven.Cli.csproj" />
   </Folder>
+  <!--
+    Testing — test-only source shared across test assemblies, linked into them rather than built
+    into one. Vixen.Testing.props says why; docs/plan/02 § "Testing/" says where it sits.
+  -->
+  <Folder Name="/Testing/">
+    <File Path="Testing/Vixen.Testing.props" />
+    <File Path="Testing/Measured.cs" />
+  </Folder>
   <Project Path="Samples/01-HelloTriangle/HelloTriangle.csproj" />
+  <Project Path="Samples/02-HelloUi/HelloUi.csproj" />
   <Project Path="Samples/04-EcsStressTest/EcsStressTest.csproj" />
   <Project Path="Samples/07-AddressablesRemote/AddressablesRemote.csproj" />
   <Project Path="Samples/08-Multiplayer/Multiplayer.csproj" />

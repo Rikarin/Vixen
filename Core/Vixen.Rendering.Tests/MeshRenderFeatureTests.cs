@@ -230,6 +230,51 @@ public class MeshRenderFeatureTests : IDisposable {
         Assert.Equal(1, starved.MissCount);
     }
 
+    /// <summary>
+    ///     An object whose shader is still compiling draws a placeholder, and picks up the real one
+    ///     when it arrives.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Doc 06 asks for both halves and the second is the one that is easy to miss. Handing
+    ///         back a placeholder is what keeps the frame moving; noticing that it has stopped being
+    ///         the right answer is what stops the object being magenta forever — a variant is
+    ///         resolved once and kept, and the real effect arrives on a later frame with nothing to
+    ///         announce it.
+    ///     </para>
+    ///     <para>
+    ///         Asserted through the whole feature rather than on the effect system alone, because the
+    ///         thing that would break is here: the cache is correct either way, and it is the
+    ///         <em>keeping</em> of the answer that has to be provisional.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_object_whose_shader_is_still_compiling_draws_a_placeholder_and_then_does_not() {
+        using var h = Build();
+        var material = new Material("Lit");
+        var id = AddMesh(h, 10f, material);
+
+        effects.Placeholder = Compiled(EffectKey.Of("Placeholder")).AsPlaceholder();
+
+        Record(h);
+
+        // It drew, which is the point — a stall or a skipped object would both be worse.
+        Assert.Equal(1, device.Recorder!.CountOf(RecordedCommandKind.DrawIndexed));
+        Assert.True(h.Materials.EffectOf(h.System, id)!.IsPlaceholder);
+        Assert.Equal(1, effects.PendingCount);
+
+        // The compile, on whatever thread the host runs it on.
+        Assert.Equal(1, effects.Pump());
+
+        Record(h);
+
+        var settled = h.Materials.EffectOf(h.System, id);
+
+        Assert.NotNull(settled);
+        Assert.False(settled.IsPlaceholder);
+        Assert.Equal("Lit", settled.Key.ShaderName);
+    }
+
     // --- What the sort buys -------------------------------------------------
 
     /// <summary>

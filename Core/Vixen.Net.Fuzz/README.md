@@ -70,9 +70,23 @@ times out of four billion. So:
   run of them is the encoding that walks a reader forward without terminating.
 - **Novel behaviour is kept.** There is no instrumentation and therefore no edge coverage. What a
   target returns instead is a cheap number summarising how the decode went — which reads succeeded,
-  which counter moved, where it stopped — and an input producing a number nothing before it produced
-  is added to the corpus. That is a weaker signal than libFuzzer's and it is deliberately not called
-  coverage; it is enough to walk a decoder into its branches, which random bytes will not do.
+  which counter moved *this case*, where it stopped — and an input producing a number nothing before
+  it produced is added to the corpus. That is a weaker signal than libFuzzer's and it is deliberately
+  not called coverage; it is enough to walk a decoder into its branches, which random bytes will not
+  do.
+
+  **The signature must be about the case, not the run, and getting that wrong is silent.** A
+  decoder's counters are lifetime totals, so a signature folded from them strictly increases and
+  *every* case looks like a behaviour never seen before — which is not a fuzzer with excellent
+  coverage, it is a fuzzer with no guidance and a corpus that keeps everything. Four of these targets
+  did exactly that until the ratio was printed and looked at: `rpc` kept 1,027,530 inputs out of
+  1,027,508 cases. It now keeps 538 out of 1,500,000, and still finds the same defects — reverting the
+  `TickManager` fix, it caught the overflow again from a 45-entry corpus in a 27-byte input.
+
+  The corpus and the signature set are both capped regardless, because a working set that grows
+  without bound is a memory leak wearing a hat. Past `MaxSignatures` the guidance has demonstrated
+  that nearly everything looks new to it, so it is switched off rather than paid for — which is what
+  `packet` and `bits` do, and the printed ratio is where you can see it.
 
 The whole thing is deterministic. The generator is seeded from the target name, the mutations are a
 pure function of it, and the corpus grows in a fixed order — so a failure on a CI runner is reproduced
