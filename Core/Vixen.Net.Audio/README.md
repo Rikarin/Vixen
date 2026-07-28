@@ -40,9 +40,12 @@ avoid.
 
 ## Owed
 
-- **Voice chat**, which doc 16 asks for and which is a different problem entirely: a capture device,
-  an encoder, a jitter buffer and a mixing policy. `IAudioCaptureDevice` exists on both backends, so
-  the input half is there; nothing above it is.
+- **Voice chat is not this package's**, and is built elsewhere. It is a different problem — a capture
+  device, an encoder, a jitter buffer, concealment and a mixing policy — and it lives in
+  `Vixen.Audio.Codecs`, joined to a session by about forty lines that
+  [`Samples/10-VoiceChat`](../../Samples/10-VoiceChat) shows. Nothing here carries voice, and nothing
+  here should: this replicates *whether a sound is playing*, and a voice stream is samples rather than
+  state.
 - **Spatial parameters.** `AudioSpatial` — attenuation, cone, doppler — is not replicated. It is
   usually authored on the prefab and never changed, which is why it costs nothing today; a game that
   animates a cone would need it.
