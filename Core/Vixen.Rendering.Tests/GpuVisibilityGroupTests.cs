@@ -284,6 +284,66 @@ public class GpuVisibilityGroupTests : IDisposable {
     }
 
     /// <summary>
+    ///     A device with no compute culls on the CPU rather than throwing.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The WebGL2-class device, which is what <see cref="GraphicsDeviceFeatures.Minimum" />
+    ///         is — and the exact target doc 06 keeps the CPU path for. Creating a compute pipeline
+    ///         there throws, and the RHI's own message says to ask
+    ///         <see cref="GraphicsDeviceFeatures.HasCompute" /> and take the fallback: an exception
+    ///         out of the middle of <see cref="GpuVisibilityGroup.Cull" /> is not a fallback, because
+    ///         the caller it escapes to has no answer to give the frame.
+    ///     </para>
+    ///     <para>
+    ///         All three pieces, because all three create a compute pipeline and each would have
+    ///         thrown on its own.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_device_with_no_compute_falls_back_rather_than_throwing() {
+        using var limited = new NullDevice(new() { Record = true, Features = GraphicsDeviceFeatures.Minimum });
+        using var store = new RenderObjectStore();
+
+        var effectsFor = new EffectSystem();
+        effectsFor.AddProvider(new AlwaysCompiles(limited));
+
+        using var visibility = new GpuVisibilityGroup(limited) { Effects = effectsFor, Pipelines = new(limited) };
+        using var pyramid = new HiZPyramid(limited) { Effects = effectsFor, Pipelines = new(limited) };
+        using var arguments = new GpuDrawArguments(limited) { Effects = effectsFor, Pipelines = new(limited) };
+
+        Assert.False(GpuCulling.IsSupported(limited));
+
+        var ahead = Add(store, 10f);
+        var behind = Add(store, -10f);
+
+        visibility.Cull(store, [Camera(RenderStageMask.Of(0))]);
+
+        // Not merely "did not throw": the frame still has the right answer, from the CPU.
+        Assert.False(visibility.CulledOnDevice);
+        Assert.True(visibility.IsVisible(0, ahead));
+        Assert.False(visibility.IsVisible(0, behind));
+
+        var depth = limited.CreateTexture(
+            new(PixelFormat.Depth32Float, 64, 64, TextureUsage.DepthStencilTarget | TextureUsage.Sampled)
+        );
+
+        using var list = limited.BeginCommandList(QueueKind.Compute);
+
+        Assert.False(pyramid.Build(list, limited.CreateTextureView(depth), new(64, 64)));
+        Assert.False(pyramid.IsBuilt);
+
+        arguments.Fill(store.Count);
+        Assert.False(arguments.Update(list, visibility.Bits, 1, store.Count));
+        Assert.False(arguments.IsFilled);
+
+        list.Finish();
+        limited.ComputeQueue.Submit([list]);
+
+        Assert.Equal(0, limited.Recorder!.CountOf(RecordedCommandKind.Dispatch));
+    }
+
+    /// <summary>
     ///     Hiding, counting and walking the words work the same on either group.
     /// </summary>
     /// <remarks>
@@ -730,18 +790,43 @@ public class GpuVisibilityGroupTests : IDisposable {
     }
 
     /// <summary>
-    ///     The occlusion variant binds the pyramid, and the frustum-only one does not ask for it.
+    ///     A frame with no pyramid still culls on the device.
     /// </summary>
     /// <remarks>
-    ///     The permutation's whole point: with it off the shader declares no texture, so a device
-    ///     with no pyramid to bind — the first frame, or a compositor with no depth pass — resolves a
-    ///     variant that cannot ask for one. A single shader with a uniform flag would need something
-    ///     bound to that binding regardless.
+    ///     <para>
+    ///         The regression this exists for was silent in the worst way. The occlusion permutation
+    ///         removes the sampling and the branch; it does <em>not</em> remove the declaration, so
+    ///         both variants ask for the texture — which a real compiler says and a hand-written
+    ///         provider had been letting the host imagine otherwise. A group that refused to bind a
+    ///         texture it did not have would then fall back to the CPU on every frustum-only frame,
+    ///         for ever, and the only symptom is that GPU culling never happens.
+    ///     </para>
+    ///     <para>
+    ///         So the binding is filled with a texture that exists and every view's flags say it is
+    ///         not usable, which is what stops it being read.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void The_variant_without_occlusion_declares_no_texture() {
-        Assert.Null(AlwaysCompiles.Culling(false).BindingOf("occluders"));
-        Assert.NotNull(AlwaysCompiles.Culling(true).BindingOf("occluders"));
+    public void A_frame_with_no_pyramid_still_culls_on_the_device() {
+        using var store = new RenderObjectStore();
+        using var visibility = Configured();
+
+        Assert.NotNull(AlwaysCompiles.Culling().BindingOf("occluders"));
+        Assert.Null(visibility.Occluders);
+
+        var ahead = Add(store, 10f);
+        var behind = Add(store, -10f);
+
+        visibility.Cull(store, [Camera(RenderStageMask.Of(0))]);
+
+        Assert.True(visibility.CulledOnDevice, "a frame with no pyramid fell back to the CPU");
+        Assert.False(visibility.OcclusionTested);
+        Assert.Equal(1, device.Recorder!.CountOf(RecordedCommandKind.Dispatch));
+
+        // And the readback still landed: on the Null backend that is all zeroes, which is what the
+        // dispatch is presumed to have written.
+        Assert.False(visibility.IsVisible(0, ahead));
+        Assert.False(visibility.IsVisible(0, behind));
     }
 
     /// <summary>
@@ -1172,10 +1257,10 @@ public class GpuVisibilityGroupTests : IDisposable {
             new(
                 DescriptorSetSlot.PerMaterial,
                 [
-                    new(0, DescriptorKind.StorageBuffer, ShaderStage.Compute),
+                    new(0, DescriptorKind.SampledTexture, ShaderStage.Compute),
                     new(1, DescriptorKind.StorageBuffer, ShaderStage.Compute),
                     new(2, DescriptorKind.StorageBuffer, ShaderStage.Compute),
-                    new(3, DescriptorKind.SampledTexture, ShaderStage.Compute)
+                    new(3, DescriptorKind.StorageBuffer, ShaderStage.Compute)
                 ],
                 "Culling"
             )
@@ -1185,38 +1270,29 @@ public class GpuVisibilityGroupTests : IDisposable {
             key.ShaderName switch {
                 GpuCulling.ReduceShaderName => Reduce(key, Layouts(layout)),
                 GpuCulling.ArgumentsShaderName => Arguments(key, Layouts(layout)),
-                _ => Culling(Occludes(key), key, Layouts(layout))
+                _ => Culling(key, Layouts(layout))
             };
 
-        /// <summary>Whether a key asked for the variant that tests occlusion.</summary>
-        static bool Occludes(EffectKey key) =>
-            key.Values.Any(value =>
-                string.Equals(value.Key, GpuCulling.OcclusionKey, StringComparison.Ordinal)
-                && string.Equals(value.Value, "true", StringComparison.Ordinal)
-            );
-
-        /// <summary>The culling variant, with or without the texture the permutation declares.</summary>
-        public static Effect Culling(
-            bool occlusion,
-            EffectKey key = default,
-            ImmutableArray<DescriptorSetLayoutHandle> layouts = default
-        ) =>
+        /// <summary>
+        ///     The culling variant, in the shape the real compiler produces.
+        /// </summary>
+        /// <remarks>
+        ///     One shape for both variants, and the texture is in it either way — which is what
+        ///     <c>Culling.rvn</c> compiled through <c>RavenEffectCompiler</c> actually reports, and
+        ///     what a fixture that invented a leaner variant for the frustum-only case let the host
+        ///     get wrong. The binding order is the real one too: the texture first.
+        /// </remarks>
+        public static Effect Culling(EffectKey key = default, ImmutableArray<DescriptorSetLayoutHandle> layouts = default) =>
             new() {
                 Key = key.ShaderName is null ? EffectKey.Of(GpuCulling.ShaderName) : key,
                 SetLayouts = layouts.IsDefault ? [] : layouts,
                 Stages = [new(ShaderStage.Compute, [1, 2, 3, 4], "main")],
-                Bindings = occlusion
-                    ? [
-                        new("objects", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.StorageBuffer),
-                        new("views", DescriptorSetSlot.PerMaterial, 1, DescriptorKind.StorageBuffer),
-                        new("visibility", DescriptorSetSlot.PerMaterial, 2, DescriptorKind.StorageBuffer),
-                        new("occluders", DescriptorSetSlot.PerMaterial, 3, DescriptorKind.SampledTexture)
-                    ]
-                    : [
-                        new("objects", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.StorageBuffer),
-                        new("views", DescriptorSetSlot.PerMaterial, 1, DescriptorKind.StorageBuffer),
-                        new("visibility", DescriptorSetSlot.PerMaterial, 2, DescriptorKind.StorageBuffer)
-                    ]
+                Bindings = [
+                    new("occluders", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.SampledTexture),
+                    new("objects", DescriptorSetSlot.PerMaterial, 1, DescriptorKind.StorageBuffer),
+                    new("views", DescriptorSetSlot.PerMaterial, 2, DescriptorKind.StorageBuffer),
+                    new("visibility", DescriptorSetSlot.PerMaterial, 3, DescriptorKind.StorageBuffer)
+                ]
             };
 
         static Effect Arguments(EffectKey key, ImmutableArray<DescriptorSetLayoutHandle> layouts) =>

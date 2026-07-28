@@ -4,6 +4,7 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
+using Vixen.Graphics;
 
 namespace Vixen.Rendering;
 
@@ -91,6 +92,31 @@ public static class GpuCulling {
     ///     can be evaluated against a pyramid a test built rather than against a device.
     /// </remarks>
     public delegate float OccluderDepth(int x, int y, int level);
+
+    /// <summary>
+    ///     Whether a device can run any of this at all.
+    /// </summary>
+    /// <param name="device">The device.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="device" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         One question, asked in three places, because the answer is the same for all of them:
+    ///         the culling dispatch, the depth pyramid and the argument pass are compute shaders, and
+    ///         <see cref="GraphicsDeviceFeatures.HasCompute" /> is false on WebGL2 and on a GL target
+    ///         old enough to matter. Doc 06's "where capabilities allow" is this line.
+    ///     </para>
+    ///     <para>
+    ///         <strong>Asked rather than found out.</strong> Creating a compute pipeline on a device
+    ///         with no compute throws — the RHI says so in the exception's own text, "ask
+    ///         <c>Features.HasCompute</c> and take the fallback path" — and an exception is not a
+    ///         fallback. It escapes <see cref="GpuVisibilityGroup.Cull" /> to a caller that has no
+    ///         answer to give the frame, on precisely the target the CPU path was kept for.
+    ///     </para>
+    /// </remarks>
+    public static bool IsSupported(IGraphicsDevice device) {
+        ArgumentNullException.ThrowIfNull(device);
+        return device.Features.HasCompute;
+    }
 
     /// <summary>How many device words a store of this many objects needs.</summary>
     public static int WordsFor(int objectCount) => objectCount <= 0 ? 0 : ((objectCount + WordSize - 1) / WordSize);

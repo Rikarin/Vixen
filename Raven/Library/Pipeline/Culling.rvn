@@ -145,9 +145,15 @@ struct Cull {
 shader Culling {
     /// Whether the pass tests against last frame's depth as well as against the frustum.
     ///
-    /// A permutation rather than a uniform, and not only to remove a branch: with it off the shader
-    /// declares no texture at all, so a device with no pyramid to bind — the first frame, a target
-    /// whose compositor has no depth pass — resolves a variant that cannot ask for one.
+    /// A permutation rather than a uniform because it removes the projection of eight corners, the
+    /// four taps and the branch from every object in a frame that is not occlusion culling — which
+    /// is every frame on a target with no depth pass.
+    ///
+    /// **What it does not remove is the binding.** The declaration below survives into both
+    /// variants, so a host still has to fill `occluders` with something when it has no pyramid; a
+    /// device is what says so, since a set with a hole in it is a validation error there and nothing
+    /// at all in a compilation. `GpuVisibilityGroup` binds one texel and clears `Cull.Occluders` in
+    /// every view.
     [Permutation] val Occlusion: bool = false
 
     /// One record per object slot, indexed by `RenderObjectId`.

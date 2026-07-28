@@ -1791,6 +1791,18 @@ Nothing lossy sits in the middle any more, so subgroup operations, `float64`, ex
 decorations and mesh shaders are available as soon as the emitter supports them rather than waiting for
 a second phase. Those were the features the bridge could not have carried.
 
+**And SPIR-V is not the last step, which `OpName` found out the hard way.** A module that validates and
+that `spirv-val` accepts can still be one no driver will take: MoltenVK cross-compiles it to Metal
+Shading Language and takes variable names *from the debug names*, so a name that is an ordinary
+identifier in Raven and a keyword in C++ produces source that will not compile. Raven lowers
+`a && b` into a local so `b` can be skipped and called it `and` — which is how C++ spells `&&` — so
+every shader with a short-circuiting operand that needed guarding failed on Apple hardware with
+`vkCreateComputePipelines … ErrorInitializationFailed` and no mention of a name. `SpirvNames` now
+sanitises at the one place `OpName` is written, against the words that are legal in Raven, legal in
+GLSL, and reserved in C++: the alternative operator spellings and the keywords GLSL leaves alone. The
+lesson generalises past the fix — **a backend's output is only as portable as what the next compiler
+downstream will accept**, and only a real device says which that is.
+
 ## The contract Raven must satisfy
 
 The engine consumes Raven through **one library API** and **one artefact schema**. Both are
