@@ -11,6 +11,7 @@ using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Features;
 using Vixen.Shaders;
+using Vixen.Shaders.Generated;
 using Xunit;
 
 namespace Tests;
@@ -719,6 +720,63 @@ public class ClusteredLightingTests : IDisposable {
         point.X >= box.Minimum.X - slack && point.X <= box.Maximum.X + slack
         && point.Y >= box.Minimum.Y - slack && point.Y <= box.Maximum.Y + slack
         && point.Z >= box.Minimum.Z - slack && point.Z <= box.Maximum.Z + slack;
+
+    // --- Selecting the clustered variant -------------------------------------
+
+    /// <summary>
+    ///     The clustered flag reaches the shader's own permutation, under the shader's own name.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Two naming schemes meet here and nothing joined them. A sub-feature's key is the
+    ///         <em>renderer's</em> — <c>Vixen.Clustered</c>, deliberately, because one feature drives
+    ///         the same flag across every shader that has it — and a shader's permutation is the
+    ///         shader's: <c>ForwardPlus.UseClusteredLights</c>. The effect key is built from the keys
+    ///         registered for the shader, read out of a collection the sub-features wrote under
+    ///         <em>their</em> names, so registering the shader's key found nothing and registering the
+    ///         renderer's key produced a define no compiler could match.
+    ///     </para>
+    ///     <para>
+    ///         Invisible until something compiled from the key, which is why every test of this passed:
+    ///         a provider that answers every key alike cannot tell the two apart. What it means in a
+    ///         shipping build is that <strong>the clustered variant was never selected</strong> — the
+    ///         culler filled a buffer and the shading pass read the uniform-array loop beside it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_clustered_flag_reaches_the_shaders_own_permutation() {
+        using var h = Build();
+
+        h.Materials.PermutationKeys["Lit"] = [ForwardPlusKeys.UseClusteredLights];
+        h.Materials.PermutationSources[ForwardPlusKeys.UseClusteredLights] = h.Lighting.PermutationKeys[0];
+
+        AddMesh(h, -10f);
+        Frame(h);
+
+        var key = Assert.Single(effects.Requests, candidate => candidate.ShaderName == "Lit");
+
+        Assert.Equal("true", Assert.Single(key.Values, value => value.Key == "ForwardPlus.UseClusteredLights").Value);
+    }
+
+    /// <summary>And the unclustered frame says so, rather than saying nothing.</summary>
+    /// <remarks>
+    ///     The pairing that makes the one above mean something: a mapping that wrote <c>true</c>
+    ///     whatever the feature said would pass it and light every scene through the wrong loop.
+    /// </remarks>
+    [Fact]
+    public void The_unclustered_frame_selects_the_unclustered_variant() {
+        using var h = Build(clustered: false);
+
+        h.Materials.PermutationKeys["Lit"] = [ForwardPlusKeys.UseClusteredLights];
+        h.Materials.PermutationSources[ForwardPlusKeys.UseClusteredLights] = h.Lighting.PermutationKeys[0];
+
+        AddMesh(h, -10f);
+        Frame(h);
+
+        var key = Assert.Single(effects.Requests, candidate => candidate.ShaderName == "Lit");
+
+        Assert.Equal("false", Assert.Single(key.Values, value => value.Key == "ForwardPlus.UseClusteredLights").Value);
+    }
 
     // --- The culler's own uniforms -------------------------------------------
 

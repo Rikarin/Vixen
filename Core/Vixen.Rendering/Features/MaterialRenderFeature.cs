@@ -28,9 +28,11 @@ public interface IPermutationSubFeature {
     /// <remarks>
     ///     The name is the <em>renderer's</em> — <c>Vixen.Skinned</c>, not <c>ForwardPlus.Skinned</c>
     ///     — because one feature drives the same flag across every shader that has it, and a key per
-    ///     shader would mean a feature that had to enumerate them. A host maps it onto a shader by
-    ///     listing it in <see cref="MaterialRenderFeature.PermutationKeys" /> for that shader, which
-    ///     is the same place the shader's own permutations are declared.
+    ///     shader would mean a feature that had to enumerate them. A host joins the two with
+    ///     <see cref="MaterialRenderFeature.PermutationSources" />, which says which flag fills which
+    ///     shader's permutation; <see cref="MaterialRenderFeature.PermutationKeys" /> lists what goes
+    ///     in the key and does no mapping of its own. Listing this key there instead puts the
+    ///     renderer's name in the effect key, which is a define no compiler can match.
     /// </remarks>
     IReadOnlyList<PermutationKey<bool>> PermutationKeys { get; }
 
@@ -139,6 +141,33 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     /// </remarks>
     public Dictionary<string, IReadOnlyList<ParameterKey>> PermutationKeys { get; } =
         new(StringComparer.Ordinal);
+
+    /// <summary>
+    ///     Which contributed flag supplies a shader permutation's value, by the shader's own key.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Two naming schemes meet here, and until this existed nothing joined them. A
+    ///         sub-feature's key is the <em>renderer's</em> — <c>Vixen.Clustered</c>, deliberately, so
+    ///         that one feature drives the same flag across every shader that has it — and a shader's
+    ///         permutation is the shader's, <c>ForwardPlus.UseClusteredLights</c>. The effect key is
+    ///         built from the keys registered in <see cref="PermutationKeys" />, read out of a
+    ///         collection the sub-features wrote under <em>their</em> names.
+    ///     </para>
+    ///     <para>
+    ///         So registering the shader's key found nothing and took its default, and registering the
+    ///         renderer's key produced a define no compiler could match — and neither showed, because
+    ///         a provider that answers every key alike cannot tell them apart. In a shipping build it
+    ///         means <strong>the variant was never selected</strong>: the culler filled its buffer and
+    ///         the shading pass read the uniform-array loop beside it.
+    ///     </para>
+    ///     <para>
+    ///         Explicit rather than inferred, because the pairing is a fact about one shader —
+    ///         <c>Vixen.Clustered</c> is <c>UseClusteredLights</c> in this pass and could be something
+    ///         else in the next — and a convention that stripped prefixes would guess.
+    ///     </para>
+    /// </remarks>
+    public Dictionary<PermutationKey<bool>, PermutationKey<bool>> PermutationSources { get; } = [];
 
     /// <summary>Where effects are resolved from. Set before the first frame that prepares.</summary>
     public EffectSystem? Effects { get; set; }
@@ -512,6 +541,12 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
             for (var i = 0; i < contributor.PermutationKeys.Count; i++) {
                 scratch.Set(contributor.PermutationKeys[i], contributor.ValueOf(system, id, i));
             }
+        }
+
+        // Then under the names the shaders know them by. After the loop above rather than inside it,
+        // so a source can be a key a material set for itself as easily as one a sub-feature wrote.
+        foreach (var (shaderKey, source) in PermutationSources) {
+            scratch.Set(shaderKey, scratch.Get(source));
         }
     }
 

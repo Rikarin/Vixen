@@ -800,6 +800,16 @@ barrier after. Its effect resolves through the ordinary `EffectSystem`, so a com
 permuted, cached and baked like a graphics one, and a shipping build cannot compile one for the same
 structural reason it cannot compile a vertex shader.
 
+**A contributed flag and a shader permutation are different names for the same thing**, and
+`PermutationSources` is what joins them. A sub-feature's key is the renderer's — `Vixen.Clustered`, so
+that one feature drives the flag across every shader that has it — and the shader's is its own,
+`ForwardPlus.UseClusteredLights`. The effect key is built from the keys registered for the shader, read
+out of a collection the sub-features wrote under *their* names, so registering the shader's key found
+nothing and took its default, and registering the renderer's key produced a define no compiler could
+match. Neither showed, because a test provider that answers every key alike cannot tell them apart —
+and what it meant in a shipping build is that **the clustered variant was never selected**: the culler
+filled its buffer and the shading pass read the uniform-array loop beside it.
+
 **A compute node fills its own uniform block**, through `ConstantBinding` and `Parameters`, at the
 offsets the effect's plan gives. That was missing until the culler was actually run: a node could
 declare the buffers and textures it read and wrote, and the *values* beside them — a camera, a count,
