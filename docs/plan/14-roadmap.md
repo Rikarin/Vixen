@@ -1248,19 +1248,129 @@ sub-piece has its own gate.
   decision — a run is shaped with the text around it, so its glyphs are not a function of the run
   alone, and a run-keyed cache would either be unsound or need the context in the key. Reuse between
   paragraphs sharing a word is given up on purpose.
-- ⚠ **MSDF has an unanswered question underneath it: HarfBuzzSharp exposes no glyph outlines.** The
-  assembly has `TryGetGlyphExtents`, which is a bounding box, and no draw, paint or outline surface
-  at all. Distance-field generation needs contours, so something else has to produce them.
+- ✅ **The glyph-outline question is answered, and the managed route stands** —
+  [spikes/text-glyph-outlines](spikes/text-glyph-outlines/RESULT.md), sequencing rule 3 for the
+  fifth time. MSDF had an unanswered question underneath it: HarfBuzzSharp exposes no outlines at
+  all — `TryGetGlyphExtents` is a bounding box and there is no draw, paint or outline surface — so
+  distance-field generation had nothing to generate from.
 
-  **Decided direction, to be spiked before the atlas is planned** (sequencing rule 3, as with ExCSS
-  and HarfBuzz): a **managed `glyf`/`CFF` outline parser**, fed by `Face.ReferenceTable`, which
-  HarfBuzzSharp *does* expose. The alternatives are FreeType — a second native dependency, and one
-  whose WebAssembly story would have to be re-run from scratch — or SkiaSharp, which is heavy and
-  duplicates HarfBuzz. The managed route adds no native dependency, keeps the WASM path exactly as
-  the HarfBuzz spike left it, and reuses the binary-format parsing this repository already does for
-  KTX2. What it costs is a real parser for two outline formats, which is why it is a spike and not
-  an assumption.
-- Owed: MSDF atlas with LRU eviction, font fallback, rich-text runs, variable-font axes,
+  A managed `glyf`/`CFF` parser over `Face.ReferenceTable` reads them, in ~600 lines for both
+  formats, with no new native dependency and the WebAssembly path exactly as the HarfBuzz spike left
+  it. **242 fonts, 259,298 glyphs, every font read without an exception: 99.999 % of `glyf` glyphs
+  and 99.777 % of `CFF` ones agree with HarfBuzz's own extents** — a separate implementation of the
+  same tables, which is the only oracle available at that scale.
+
+  ⚠ **HarfBuzz reports *positioned* extents and an outline is not positioned.** For `glyf` it shifts
+  the glyph so `xMin` lands on the left side bearing; where a font's stored `xMin` disagrees with its
+  own `lsb` — common, and universal in italics — the extents come back translated. That correction is
+  the difference between reading 95.3 % and 99.999 %, **and the atlas will need the same shift when
+  it places a glyph**, so it is a fact about the pipeline rather than about the test.
+
+  ⚠ **For `glyf`, HarfBuzz returns the box the font stores rather than one it computes**, so the
+  comparison checks point decoding and not curve evaluation — and where a font's stored box is wrong,
+  disagreeing is correct. All three remaining `glyf` misses are that, verified by hand: glyph 274 of
+  Arial, Arial Bold and Times New Roman claims an `xMax` its own two components do not reach.
+
+  Two bugs, and both are the kind that reads correctly on the page. `r.Position += r.U16()` skips
+  from where the *length* started, because a compound assignment reads its target first — 8.6 %
+  agreement before, 95.3 % after, one line. And a Type 2 width test inverted for stem operators,
+  which miscounts stems, so `hintmask` skips the wrong number of bytes and the rest of the charstring
+  is read as garbage — a wrong shape rather than an error, and only in fonts hinted heavily enough to
+  have a `hintmask` at all.
+
+  Not built, and **not owed**: point-matched composites and `seac` — no glyph in 242 fonts used
+  either. Owed with the variable-font axes: `gvar` deltas, so a variable font currently parses at its
+  default instance.
+- ✅ **The outline reader is built** — `FontFace.GetOutline`, over `glyf`/`loca` and `CFF ` Type 2
+  charstrings, positioned to agree with the extents everything else in the assembly comes from. The
+  spike's parser, made AOT- and trim-clean and gated in CI.
+
+  Gate: HarfBuzz's own extents over every glyph of all fourteen embedded fonts — 2,066 of them.
+  Verified by sabotage: restoring the compound-assignment bug fails 10, dropping the left-side-bearing
+  shift fails 1, and stopping a composite after its first component fails 7.
+
+  ⚠ **Two sabotages failed to fail for a reason worth keeping: a bounds oracle cannot see a path.**
+  The rules that turn TrueType's points into a path — an implied on-curve point midway between two
+  off-curve ones, and a contour that begins off-curve — move points that already lie inside the hull
+  of their neighbours, so breaking either changes the shape and not the box. Golden paths for three
+  glyphs close it, and finding the right three meant counting which branch each of the 2,066 glyphs
+  took: every Kannada contour starts on-curve, so the first golden reached only one of the two rules.
+
+  ⚠ **Two more are unreachable with the corpus that can be committed, and that is measured rather
+  than assumed.** The embedded fonts contain **zero stem operators and zero hintmasks**, so the CFF
+  width-parity rule is never executed and inverting it passes everything; and **not one of their 530
+  composite components carries both a transform and an offset**, so the rule about which matrix the
+  offset travels through is never exercised. Both were gated by the spike's 259,298 glyphs, whose
+  fonts belong to the operating system. Named here rather than papered over with a test that cannot
+  reach what it claims.
+
+- ✅ **The rasteriser, and the oracle it exists to be.** `GlyphRasterizer` fills an outline by
+  scanline and non-zero winding; sequencing rule 4 put it before the distance field it judges.
+
+  **Gated by Green's theorem**, which gives the exact area a path encloses straight from its control
+  points — the integrand for a Bézier is a polynomial, so four-point Gauss–Legendre evaluates it
+  without error. A real oracle: it shares no code and no reasoning with the fill.
+
+  ⚠ **Compared per contour, and that is the oracle's own limit.** Green's theorem measures
+  *algebraic* area and a non-zero fill measures *covered* area, so a region two contours both cover
+  counts twice in one and once in the other. Not exotic: `TestShapeLana` builds letters from stacked
+  strokes, and 22 % of one glyph's algebraic area is covered more than once. Found by the whole-glyph
+  comparison failing on one font of fourteen.
+
+  Verified by sabotage: rounding spans to whole pixels fails 1, flattening every curve to one chord
+  fails 5, ignoring an edge's direction fails 17, leaving an unclosed contour open fails 8. ⚠ Two
+  failed to fail, and one was **a claim written in a comment and never tested** — even-odd fill
+  agrees with non-zero on a hole and differs only where two contours wound the same way overlap. The
+  other was the half-open y rule, observable only when a vertex lands exactly on a sample line.
+
+- ✅ **Multi-channel signed distance fields.** `EdgeColoring` and `DistanceField`: the corner-keeping
+  encoding doc 09 names, gated by reconstructing the shape back out of the field and comparing
+  against the rasteriser filling the same outline.
+
+  ⚠ **Three sabotages failed to fail, and each found a real defect.** *A corner is a property of the
+  outline, not of the flattening* — twice over, since a flattened curve's internal joins each turn a
+  few degrees and even a genuine segment boundary shows a step's worth of curvature between
+  neighbouring chords; either reading makes a circle come out striped. *Each channel carries its own
+  sign*, and taking one sign from the fill for all three leaves them differing only in magnitude, so
+  their median can never disagree with a single channel about which side of the shape a point is on
+  — which is the whole of what the median is for, and the first version reconstructed a square's
+  corner no better than a plain field. And *a run's colour must differ from its neighbour's with the
+  last one wrapping*: cycling three combinations gives four corners RG, GB, BR, RG, so exactly one
+  join has both sides the same.
+
+  ⚠ **The corner claim needed a third oracle, and two attempts at it measured nothing.** Counting
+  misclassified pixels hides the effect, because a plain field's corner error is a fraction of a
+  texel. And **the corner's diagonal is the one direction where the three channels are symmetric and
+  none can help** — measured there the median *is* a plain field, exactly. What the channels buy is
+  that the edges stay straight up to the corner, so the test walks across an edge instead, against
+  the closed-form distance to a rectangle sampled and interpolated identically.
+
+  ⚠ **The pseudo-distance is insurance and is labelled as such.** Clamping to the segment fails
+  nothing; two shapes were built to reach it, and the answers differ in magnitude but never in sign,
+  so a thresholded reconstruction moves 0.02 of a texel. What it should buy is a truer gradient for
+  the shader's antialiasing, which nothing here reads yet.
+
+- ✅ **The atlas**, and with it **the whole of 4c's rasterisation line: outline → coverage → field →
+  texture.** `GlyphAtlas` shelf-packs the fields and evicts least-recently-used, keyed by font and
+  glyph and *not* by point size — a field is read at any scale, so a size in the key would miss on
+  every frame of a growing label.
+
+  ⚠ **Evict first, compact only when the space is there and the shape is wrong.** Compaction changes
+  every region and so moves the version, which throws away every texture coordinate in flight;
+  compacting whenever a full atlas is added to would do that every frame of a steady-state interface.
+  Entries go one at a time until either one fits or enough area has been freed that fragmentation
+  must be the reason it does not.
+
+  Verified by sabotage: a hit that does not refresh its entry fails 2, evicting the newest fails 2,
+  never reusing a freed slot fails 1, dropping the padding fails 1, a compaction that does not move
+  the version fails 1, and a hit that marks the texture dirty fails 1. ⚠ Writing a glyph at the wrong
+  row failed to fail until a test placed something below the first shelf — everything else lands on
+  row zero, where dropping the region's y is invisible. And **compaction's warmest-first order is
+  insurance**: a sabotage reversing it fails nothing, because compaction only runs on a set that
+  already fitted, and several attempts to build one that repacks worse than it packed all fitted.
+
+- Owed: the UI render feature that draws from the atlas. Also font fallback, rich-text runs,
+  variable-font axes,
   `TextEditor` model with IME and caret affinity.
 - Gate: ✅ UAX conformance data green. ✅ shaping conformance green against an external oracle,
   with the quarantine pinned in both directions.

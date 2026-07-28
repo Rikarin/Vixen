@@ -3,6 +3,7 @@
 
 using System.Runtime.InteropServices;
 using HarfBuzzSharp;
+using Vixen.Ui.Text.Outlines;
 
 namespace Vixen.Ui.Text;
 
@@ -39,6 +40,7 @@ public sealed class FontFace : IDisposable {
     readonly Blob blob;
     readonly Face face;
     readonly Font font;
+    GlyphOutlineSource? outlines;
     bool disposed;
 
     FontFace(Blob blob, Face face, Font font, string name) {
@@ -115,6 +117,66 @@ public sealed class FontFace : IDisposable {
     /// <param name="glyphId">The glyph.</param>
     /// <returns>Its <c>post</c>-table name, or <c>gidN</c> if the font does not name it.</returns>
     public string GlyphName(ushort glyphId) => font.GlyphToString(glyphId);
+
+    /// <summary>The box a glyph occupies, as the font itself reports it.</summary>
+    /// <param name="glyphId">The glyph.</param>
+    /// <param name="bounds">Its extent in design units, y up.</param>
+    /// <returns>Whether the font had an answer.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Not the same as measuring <see cref="GetOutline" />.</b> For a <c>glyf</c> font this
+    ///     is the box the font *stores*, which a font compiler writes from the control points and
+    ///     which is occasionally simply wrong — three glyphs in the Microsoft core fonts claim an
+    ///     <c>xMax</c> their own components do not reach. It is the cheap answer and the right one
+    ///     for laying out a line; a distance field measures the contours.
+    /// </remarks>
+    public bool TryGetGlyphExtents(ushort glyphId, out GlyphBounds bounds) {
+        if (!font.TryGetGlyphExtents(glyphId, out var extents)) {
+            bounds = default;
+            return false;
+        }
+
+        // HarfBuzz gives a bearing and a signed size, with height running down from the top.
+        bounds = new GlyphBounds(
+            extents.XBearing,
+            extents.YBearing + extents.Height,
+            extents.XBearing + extents.Width,
+            extents.YBearing
+        );
+
+        return true;
+    }
+
+    /// <summary>Whether this face stores outlines in a format Vixen can read.</summary>
+    /// <remarks>
+    ///     False for a bitmap-only or colour-only font, which shapes and measures perfectly well and
+    ///     has no contours to build a distance field from.
+    /// </remarks>
+    public bool HasOutlines => Outlines.HasOutlines;
+
+    /// <summary>A glyph's contours, in design units.</summary>
+    /// <param name="glyphId">The glyph.</param>
+    /// <returns>Its outline, or an empty one for a space or a glyph the font does not draw.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         Design units, like everything else here, so one outline serves every size — which is
+    ///         the same property that makes the shaping cache size-independent.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Positioned to agree with <c>TryGetGlyphExtents</c>, not to match the raw table.</b>
+    ///         See <see cref="Outlines.GlyphOutlineSource" />: a <c>glyf</c> glyph whose stored
+    ///         <c>xMin</c> disagrees with its left side bearing is rasterised shifted, and every
+    ///         other number in this assembly comes from HarfBuzz.
+    ///     </para>
+    /// </remarks>
+    public GlyphOutline GetOutline(ushort glyphId) => Outlines.Read(glyphId);
+
+    /// <summary>Built on first use: a face is loaded to shape with far more often than to draw from.</summary>
+    GlyphOutlineSource Outlines => outlines ??= GlyphOutlineSource.Create(Table, UnitsPerEm);
+
+    byte[] Table(string tag) {
+        using var table = face.ReferenceTable(new Tag(tag[0], tag[1], tag[2], tag[3]));
+        return table.Length == 0 ? [] : table.AsSpan().ToArray();
+    }
 
     /// <inheritdoc />
     public void Dispose() {
