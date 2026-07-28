@@ -121,8 +121,9 @@ shell; a direction samples `z` uniformly rather than the polar angle, or a burst
 ## Geometry stops where the graphics stack starts
 
 `VfxGeometryBuilder` turns particles into quads and nothing more. What happens to those vertices — the
-pipeline, the descriptor set, the draw — belongs to a render feature in `Vixen.Rendering`, which is why
-`Vixen.Vfx` references no graphics at all. The payoff is that every decision the expansion makes is
+pipeline, the descriptor set, the draw — is `Vixen.Rendering.Features.ParticleRenderFeature`, which is
+why `Vixen.Vfx` references no graphics at all. Rendering depends on Vfx; Vfx depends on nothing that
+draws. The payoff is that every decision the expansion makes is
 checked against a number instead of a screenshot: where the four corners are, which way the quad faces,
 what happens when a streak is seen end-on.
 
@@ -198,12 +199,12 @@ is two small arrays of spawner bookkeeping.
 - **The GPU backend.** The compiled graph is the shape a Raven compute shader would be emitted from,
   and the RNG is built for it, but nothing emits one. This is the half of the dual target that has been
   designed for rather than written, and Phase 7's exit criterion is the test that the two agree.
-- **`ParticleRenderFeature`.** The quads exist; nothing uploads or draws them. The feature that sits
-  beside `MeshRenderFeature` in [doc 06](../../docs/plan/06-rendering-pipeline.md) belongs in
-  `Vixen.Rendering`, and it is the next piece.
 - **Mesh, ribbon and light renderers.** Only billboards so far. A mesh renderer is an instance
   transform per particle rather than a quad; a ribbon needs particles linked into strips, which is the
   one that needs something the storage does not have yet.
+- **A second view of the same effect.** `ParticleRenderFeature` expands once, against one view, so a
+  reflection or a shadow pass draws quads facing the wrong camera. Expanding per view is the
+  workaround; the GPU path is the fix, which is why the workaround is not in.
 - **The node graph and its editor.** `Vixen.Editor.VfxGraph` authors what `Compile` consumes. A graph is
   written in code today.
 - **Custom attributes.** The attribute set is closed. Opening it means a name-to-slot mapping the

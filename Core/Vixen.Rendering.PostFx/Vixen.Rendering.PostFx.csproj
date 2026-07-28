@@ -20,6 +20,9 @@
         <ProjectReference Include="..\Vixen.Graphics\Vixen.Graphics.csproj" />
         <ProjectReference Include="..\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
         <ProjectReference Include="..\Vixen.Shaders\Vixen.Shaders.csproj" />
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
 
         <!--
           The compositor, for the node every effect here is made of. An effect is one draw of three
@@ -27,6 +30,22 @@
           so a pass in this project is a configuration of one, not a new kind of thing.
         -->
         <ProjectReference Include="..\Vixen.Rendering\Vixen.Rendering.csproj" />
+
+        <!--
+          The effect set's node kinds are [DataContract] records of this assembly's own — a document
+          names !Bloom and !Tonemap — so it runs the descriptor generator over itself for the editor's
+          YAML binder and the binary one for the chunk a content build bakes. The same arrangement
+          Vixen.Rendering uses for the compositor's own node kinds, and for the same reason: analyzers
+          do not flow through a ProjectReference, so a contract name generated over there is not
+          generated here.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
 
         <!--
           The shader binding generator, over the reflection checked in beside the library shaders, for

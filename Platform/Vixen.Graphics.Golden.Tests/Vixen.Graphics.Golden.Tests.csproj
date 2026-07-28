@@ -24,6 +24,11 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
+        <!--
+          The effect set, for the fixtures that render one. A bloom pyramid against a reference image
+          is the only thing that answers whether the filter is the filter it says it is.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.PostFx\Vixen.Rendering.PostFx.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
 
         <!--

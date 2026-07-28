@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <OutputType>Exe</OutputType>
+        <RootNamespace>Vixen.ShaderCompilerService</RootNamespace>
+        <AssemblyName>vixen-shader-compiler</AssemblyName>
+        <IsPackable>true</IsPackable>
+        <PackAsTool>true</PackAsTool>
+        <ToolCommandName>vixen-shader-compiler</ToolCommandName>
+
+        <!--
+            Explicit, because the package id otherwise defaults to AssemblyName and this would ship
+            as `vixen-shader-compiler`. The `Vixen.` prefix is the reserved one on nuget.org, so an
+            unprefixed id is not covered by the reservation. The command a person types is unchanged.
+        -->
+        <PackageId>Vixen.ShaderCompilerService</PackageId>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <Description>
+            Compiles shader variants for a device that has no compiler. A phone or a console asks for
+            a permutation over TCP, this machine compiles it and sends the bytecode back, and the
+            device caches it — which is what makes on-device shader iteration take seconds instead of
+            a content build and a redeploy. A development tool: no TLS, no authentication.
+        </Description>
+        <PackageTags>shaders;raven;remote;tooling;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.ShaderCompiler\Vixen.ShaderCompiler.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.ShaderCompilerService.Tests" />
+    </ItemGroup>
+
+</Project>

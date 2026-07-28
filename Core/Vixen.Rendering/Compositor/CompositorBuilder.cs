@@ -108,6 +108,23 @@ public sealed class CompositorBuilder(RenderSystem system) {
     /// <summary>The stages this build created, by name.</summary>
     public Dictionary<string, RenderStage> Stages { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>Node kinds this builder can build beyond the ones it knows itself.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The seam that makes a compositor document extensible, and the one the effect set needed
+    ///         first. <c>Vixen.Rendering.PostFx</c> holds nodes whose assets this assembly must not
+    ///         know about — it is downstream, and a builder that named its types would be a cycle — so
+    ///         a document naming <c>!Bloom</c> is built by a factory that project registers rather than
+    ///         by a case in a switch here.
+    ///     </para>
+    ///     <para>
+    ///         Which means a game's own effect is a node kind on exactly the same terms as a shipped
+    ///         one: a <c>[DataContract]</c> asset for the YAML tag, and a factory. Without this, "the
+    ///         frame is data" would have stopped at the node kinds this assembly happened to define.
+    ///     </para>
+    /// </remarks>
+    public IList<ISceneRendererFactory> Factories { get; } = [];
+
     /// <summary>Builds the compositor an asset describes.</summary>
     /// <exception cref="CompositorBindingException">A name was not bound.</exception>
     /// <exception cref="NotSupportedException">The document is a version this cannot read.</exception>
@@ -183,14 +200,25 @@ public sealed class CompositorBuilder(RenderSystem system) {
             ShadowMapAsset shadows => Cascades(shadows),
             PunctualShadowAsset punctual => Punctual(punctual),
             FullScreenAsset post => FullScreen(post),
-            BloomAsset bloom => Bloom(bloom),
             ComputeAsset compute => Compute(compute),
-            _ => throw new CompositorBindingException(
-                declared.Name,
-                "a node kind",
-                declared.GetType().Name
-            )
+            _ => Extension(declared)
         };
+
+    /// <summary>A node kind this assembly does not know, from whoever does.</summary>
+    /// <remarks>
+    ///     Asked after the built-ins rather than before, so a factory cannot quietly replace a node
+    ///     kind the document's schema already defines — and the exception, when nothing answers, still
+    ///     names the type nobody could build.
+    /// </remarks>
+    SceneRenderer Extension(ISceneRendererAsset declared) {
+        foreach (var factory in Factories) {
+            if (factory.Create(declared, this) is { } node) {
+                return node;
+            }
+        }
+
+        throw new CompositorBindingException(declared.Name, "a node kind", declared.GetType().Name);
+    }
 
     SceneRendererSequence Sequence(SequenceAsset declared) {
         var node = new SceneRendererSequence { Name = declared.Name, Enabled = declared.Enabled };
@@ -380,25 +408,6 @@ public sealed class CompositorBuilder(RenderSystem system) {
         Bind(node.Descriptors, declared.Bindings);
         return node;
     }
-
-    BloomRenderer Bloom(BloomAsset declared) =>
-        new() {
-            Name = declared.Name,
-            Enabled = declared.Enabled,
-            ShaderName = declared.Shader,
-            Source = declared.Source,
-            Output = declared.Output,
-            Levels = declared.Levels,
-            Format = declared.Format,
-            Threshold = declared.Threshold,
-            Knee = declared.Knee,
-            FilterRadius = declared.FilterRadius,
-            Intensity = declared.Intensity,
-            Modules = Modules,
-            Device = Device,
-            Descriptors = Descriptors,
-            Samplers = Samplers
-        };
 
     /// <summary>Copies a document's bindings onto a node, translating its sampler presets.</summary>
     static void Bind(DescriptorBindings bindings, ResourceBindingAsset[] declared) {
