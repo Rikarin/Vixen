@@ -217,6 +217,88 @@ public class ShadowCascadeTests {
         }
     }
 
+    // --- Selecting one ------------------------------------------------------
+
+    /// <summary>
+    ///     The cascade a fragment selects is one whose projection contains that fragment.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The round trip a cascaded atlas rests on, and the claim neither half can make alone.
+    ///         The shader picks a cascade from its own view depth; the host fitted that cascade to a
+    ///         slice of the frustum. If the two disagree — an off-by-one in the comparison, splits
+    ///         published in the wrong order — a fragment projects outside the tile it was sent to and
+    ///         comes back unshadowed, which reads as a shadow distance shorter than the setting
+    ///         rather than as a mismatch.
+    ///     </para>
+    ///     <para>
+    ///         Off-axis as well as down the middle, because the slices are cut by distance and the
+    ///         cascades are fitted to spheres around them: a fragment at the edge of the screen is
+    ///         further from the camera than its depth, and the sphere is what has to cover it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_cascade_a_fragment_selects_contains_it() {
+        const float shadowDistance = 150f;
+
+        Span<float> splits = stackalloc float[4];
+        ShadowCascades.Split(0.1f, shadowDistance, 0.75f, splits);
+
+        var eye = new Vector3(2f, 6f, -3f);
+        var forward = Vector3.Normalize(new(0.2f, -0.1f, -1f));
+        var right = Vector3.Normalize(Vector3.Cross(forward, Up));
+        var up = Vector3.Cross(right, forward);
+
+        var fitted = new BoundingFrustum[splits.Length];
+        var near = 0.1f;
+
+        for (var i = 0; i < splits.Length; i++) {
+            var cascade = ShadowCascades.Fit(eye, forward, Up, Light, Fov, Aspect, near, splits[i], 1024);
+            fitted[i] = new(cascade.ViewProjection);
+            near = splits[i];
+        }
+
+        var tanY = MathF.Tan(Fov * 0.5f);
+        var tanX = tanY * Aspect;
+
+        foreach (var depth in (float[])[0.5f, 3f, 12f, 30f, 90f, 149f]) {
+            var index = ShadowCascades.CascadeOf(depth, splits);
+
+            // Its own slice, which is the point: the nearest cascade that still reaches it.
+            Assert.True(depth <= splits[index], $"{depth} selected cascade {index}, which ends at {splits[index]}");
+            Assert.True(index == 0 || depth > splits[index - 1], $"{depth} skipped cascade {index - 1}");
+
+            foreach (var (sx, sy) in (( int X, int Y)[])[(0, 0), (1, 1), (-1, 1), (1, -1), (-1, -1)]) {
+                var point = eye
+                    + (forward * depth)
+                    + (right * (sx * tanX * depth))
+                    + (up * (sy * tanY * depth));
+
+                Assert.True(
+                    fitted[index].Contains(point),
+                    $"a fragment at {depth} on ({sx},{sy}) selected cascade {index} and is outside it"
+                );
+            }
+        }
+    }
+
+    /// <summary>Past the last split a fragment falls through to the last cascade.</summary>
+    /// <remarks>
+    ///     Rather than to none, which has no index to be. What stops that being a hard line across
+    ///     the ground is <c>Lighting.CascadeFade</c>, which ramps the shadow out over the last
+    ///     cascade's final metres — the shader's business, and the reason this may fall through at
+    ///     all.
+    /// </remarks>
+    [Fact]
+    public void Past_the_last_split_a_fragment_takes_the_last_cascade() {
+        Span<float> splits = stackalloc float[4];
+        ShadowCascades.Split(0.1f, 150f, 0.75f, splits);
+
+        Assert.Equal(3, ShadowCascades.CascadeOf(150f, splits));
+        Assert.Equal(3, ShadowCascades.CascadeOf(1_000f, splits));
+        Assert.Equal(0, ShadowCascades.CascadeOf(0f, splits));
+    }
+
     // --- The atlas ----------------------------------------------------------
 
     [Fact]
