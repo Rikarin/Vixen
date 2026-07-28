@@ -172,7 +172,12 @@ public sealed class GpuDrawArguments : IDisposable {
 
         IsFilled = false;
 
-        if (Effects is null || Pipelines is null || !visibility.IsValid || viewCount <= 0 || objectCount <= 0) {
+        if (Effects is null
+            || Pipelines is null
+            || !visibility.IsValid
+            || viewCount <= 0
+            || objectCount <= 0
+            || !GpuCulling.IsSupported(device)) {
             return false;
         }
 

@@ -110,7 +110,12 @@ public sealed class HiZPyramid : IDisposable {
         ArgumentNullException.ThrowIfNull(list);
         ObjectDisposedException.ThrowIf(disposed, this);
 
-        if (Effects is null || Pipelines is null || !depth.IsValid || depthSize.X <= 0 || depthSize.Y <= 0) {
+        if (Effects is null
+            || Pipelines is null
+            || !depth.IsValid
+            || depthSize.X <= 0
+            || depthSize.Y <= 0
+            || !GpuCulling.IsSupported(device)) {
             return false;
         }
 

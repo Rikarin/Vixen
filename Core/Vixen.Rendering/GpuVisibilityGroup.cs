@@ -30,11 +30,12 @@ namespace Vixen.Rendering;
 ///         provide.
 ///     </para>
 ///     <para>
-///         <strong>It falls back rather than failing.</strong> No effect system, no pipeline cache, a
-///         variant that has not compiled yet, a provider that does not report layouts: each of those
-///         is a frame that still has to be drawn, and each of them culls on the CPU instead.
-///         <see cref="CulledOnDevice" /> says which happened. This is also what a GL or WebGL target
-///         gets, which is what doc 06 means by "the CPU path remains".
+///         <strong>It falls back rather than failing.</strong> A device that cannot run compute at
+///         all, no effect system, no pipeline cache, a variant that has not compiled yet, a provider
+///         that does not report layouts: each of those is a frame that still has to be drawn, and
+///         each of them culls on the CPU instead. <see cref="CulledOnDevice" /> says which happened.
+///         The first of them is what a GL or WebGL target hits on every frame, and is what doc 06
+///         means by "the CPU path remains" — see <see cref="GpuCulling.IsSupported" />.
 ///     </para>
 ///     <para>
 ///         <strong>The readback is a stall, and choosing to pay it is the design.</strong> The
@@ -80,6 +81,11 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
 
     BufferHandle visibility;
     BufferHandle readback;
+
+    // One texel, for the frames that have no pyramid and a variant that declares one anyway.
+    TextureHandle placeholder;
+    TextureViewHandle placeholderView;
+    bool placeholderReady;
     long capacity;
 
     // What the visibility buffer was left in, so a barrier can name a truthful `before`. The copy at
@@ -133,7 +139,8 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
     ///         The pyramid is built by <see cref="Compositor.HiZRenderer" /> at the end of a frame
     ///         and read at the start of the next, which is the only depth a pass that runs before
     ///         anything is drawn can have. Setting this selects the <c>Occlusion</c> variant of the
-    ///         shader; leaving it null resolves one that declares no texture at all.
+    ///         shader; leaving it null resolves the one that does not sample — though it still
+    ///         declares the binding, which is why there is a one-texel texture to fill it with.
     ///     </para>
     ///     <para>
     ///         A view is only tested against it when this group saw that view's matrix in the frame
@@ -252,7 +259,14 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
 
     /// <summary>Runs the dispatch and reads it back, or answers false having done nothing.</summary>
     bool TryCullOnDevice(RenderObjectStore store, IReadOnlyList<RenderView> frameViews) {
-        if (store.Count == 0 || frameViews.Count == 0 || Effects is null || Pipelines is null) {
+        // The capability check before anything that would need it. A device with no compute is the
+        // case the CPU path was kept for, and asking here is what makes that a fallback rather than
+        // an exception out of the middle of a frame — see GpuCulling.IsSupported.
+        if (store.Count == 0
+            || frameViews.Count == 0
+            || Effects is null
+            || Pipelines is null
+            || !GpuCulling.IsSupported(device)) {
             return false;
         }
 
@@ -281,9 +295,14 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
         // rather than something to fail on. The reverse is not survivable: a set with a binding
         // nothing filled is a validation error on one backend and a sampled nothing on another, so a
         // variant asking for a pyramid this group cannot supply is a frame the CPU takes.
+        // A binding the variant declares is one the set must fill, whether or not this frame reads
+        // it: a hole in a set is a validation error on one backend and a sampled nothing on another.
+        // And the variant declares it either way — the permutation removes the *sampling*, not the
+        // declaration, which a device found out and no host test could have. So a frame with no
+        // pyramid binds a texture that exists and says so in every view's flags instead.
         var occluderBinding = effect.BindingOf("occluders");
 
-        if (occluderBinding is not null && Occluders?.View.IsValid != true) {
+        if (occluderBinding is not null && !EnsureOccluders()) {
             return false;
         }
 
@@ -475,8 +494,8 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
         // Whenever the variant declares it, whether or not any view ends up testing against it: a
         // binding the shader declares is one the set must fill, and a view that is not being
         // occlusion tested says so through its own flag rather than by leaving a hole here.
-        if (occluderBinding is { } occluders && Occluders is { } pyramid) {
-            writes[written++] = DescriptorWrite.Texture(occluders.Binding, pyramid.View);
+        if (occluderBinding is { } occluders) {
+            writes[written++] = DescriptorWrite.Texture(occluders.Binding, Occluding());
         }
 
         device.UpdateDescriptorSet(descriptors[ring], writes.AsSpan(0, written));
@@ -500,6 +519,14 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
 
     /// <summary>The dispatch itself, into whichever list is going to carry it.</summary>
     void RecordDispatch(ICommandList list, PipelineHandle pipeline, int wordCount, int viewCount, ResourceState after) {
+        // A texture is created in no layout at all, and a descriptor promises the one it was written
+        // with — so the stand-in has to be transitioned even though nothing ever reads it. Once, on
+        // the first dispatch that binds it; the pyramid transitions itself.
+        if (placeholder.IsValid && !placeholderReady) {
+            list.Barrier(new([], [new(placeholder, ResourceState.Undefined, ResourceState.ShaderRead)]));
+            placeholderReady = true;
+        }
+
         list.Barrier(new([new(visibility, state, ResourceState.ShaderWrite)], []));
         list.BindPipeline(pipeline);
         list.BindDescriptorSet(slot, descriptors[ring]);
@@ -567,6 +594,44 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
     ///     would produce something the validation layers reject and a release driver mis-binds in
     ///     silence.
     /// </remarks>
+    /// <summary>What fills the occluder binding: the pyramid, or the texture that stands in for it.</summary>
+    TextureViewHandle Occluding() =>
+        Occluders is { IsBuilt: true } pyramid && pyramid.View.IsValid ? pyramid.View : placeholderView;
+
+    /// <summary>
+    ///     Makes sure there is something to put in the occluder binding when there is no pyramid.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         One texel, never sampled, and not a workaround for a shader that should have been
+    ///         written differently: the <c>Occlusion</c> permutation removes the sampling and the
+    ///         branch, and leaves the declaration behind — so the frustum-only variant still has a
+    ///         binding to fill, and a frame with no depth yet must fill it with <em>something</em>.
+    ///         Every view's flags say the pyramid is not usable, which is what actually stops it
+    ///         being read.
+    ///     </para>
+    ///     <para>
+    ///         The same shape as an unfilled probe slot in <see cref="EffectSetWriter" />, for the
+    ///         same reason: a slot with no descriptor is not a slot a shader may skip.
+    ///     </para>
+    /// </remarks>
+    bool EnsureOccluders() {
+        if (Occluding().IsValid) {
+            return true;
+        }
+
+        placeholder = device.CreateTexture(new(PixelFormat.R32Float, 1, 1, TextureUsage.Sampled, Name: "Culling.NoOccluders"));
+
+        if (!placeholder.IsValid) {
+            return false;
+        }
+
+        placeholderView = device.CreateTextureView(placeholder);
+        placeholderReady = false;
+
+        return placeholderView.IsValid;
+    }
+
     bool TryAllocateSet(Effect effect, DescriptorSetSlot wanted) {
         var slots = Math.Max(1, device.FramesInFlight);
 
@@ -672,6 +737,16 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
         if (readback.IsValid) {
             device.Destroy(readback);
             readback = default;
+        }
+
+        if (placeholderView.IsValid) {
+            device.Destroy(placeholderView);
+            placeholderView = default;
+        }
+
+        if (placeholder.IsValid) {
+            device.Destroy(placeholder);
+            placeholder = default;
         }
 
         objects.Dispose();

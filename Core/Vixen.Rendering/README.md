@@ -118,9 +118,12 @@ frame being rendered. The RHI has no fence, which is why the wait is queue-wide 
 submission alone. It is also optional: `ReadBack = false` pays none of it and moves the decision into
 the draw call instead — see *And drawing from it without ever asking* below.
 
-**It falls back rather than failing.** No effect system, no pipeline cache, a variant that has not
-compiled yet, a provider that does not report set layouts: each of those is a frame that still has to
-be drawn, and each culls on the CPU instead, with `CulledOnDevice` saying which happened. That is
+**It falls back rather than failing.** A device that cannot run compute at all, no effect system, no
+pipeline cache, a variant that has not compiled yet, a provider that does not report set layouts:
+each of those is a frame that still has to be drawn, and each culls on the CPU instead, with
+`CulledOnDevice` saying which happened. The capability is asked rather than found out — creating a
+compute pipeline where there is no compute *throws*, and an exception out of the middle of `Cull` is
+not a fallback for the target the fallback exists for. That is
 also what a GL or WebGL target gets, which is what doc 06 means by "the CPU path remains". The
 fallback costs nothing to provide because the GPU group *is* the CPU group plus a front end — it
 composes one and writes the readback into its storage, so there is one bitset implementation in the
@@ -1299,7 +1302,19 @@ the near plane occludes, an empty frame does not, and an object reaching behind 
 What none of them can see is the shader still containing the arithmetic the mirror mirrors, so two
 tests read `Culling.rvn` and `HiZReduce.rvn` themselves — the same defence the clustered path uses,
 and pointed at the two lines (the rounding slack, and the min-versus-max of the depth comparison)
-whose reversal is invisible everywhere else. The indirect path is asserted where it shows: the node
+whose reversal is invisible everywhere else.
+
+**And one test asks a device**, in `Vixen.Graphics.Golden.Tests/ViewCullingDeviceTests`: the shader is
+compiled through the compiler the content build uses, the group culls five hundred randomised objects
+across two views on real hardware, and the bitset that comes back is compared against the CPU path
+object by object. It is worth more than its size, because it is the only test that can see three
+things a mirror structurally cannot — that `CullObject` really is thirty-two bytes and `CullView` two
+hundred and eight *on the other side of the binding*, that the descriptor plan is the shader's own
+rather than the one the host imagined, and that two 32-bit words reassemble into ours the way round we
+think. It found all three classes of problem on its first run: a shader no Metal driver would compile
+(see doc 07 on `OpName`), a permutation that removes the sampling but not the binding — so the host
+had to fill an occluder slot it did not have — and a placeholder texture bound in no layout, which the
+validation layers named exactly. The indirect path is asserted where it shows: the node
 records two dispatches with a barrier between them, the templates are the numbers the direct draw
 would have used, and `MeshRenderFeature` emits `DrawIndexedIndirect` at the object's own slot when
 the arguments cover it and `DrawIndexed` when they do not. The last one is the guard that a change starting to allocate per object per frame fails a
