@@ -62,6 +62,7 @@ public sealed class AudioMixer {
         }
 
         Master = new AudioBus(0, "Master", null);
+        Master.Attach(this);
         buses.Add(Master);
         Rebuild();
     }
@@ -102,6 +103,7 @@ public sealed class AudioMixer {
             }
 
             var bus = new AudioBus(buses.Count, name, parent ?? Master);
+            bus.Attach(this);
             buses.Add(bus);
 
             if (format.IsValid) {
@@ -156,9 +158,10 @@ public sealed class AudioMixer {
     ///     Interleaved, at least <c>frameCount × channels</c> floats. Overwritten, not added to.
     /// </param>
     /// <param name="frameCount">How many frames. No more than <see cref="MaxFrames" />.</param>
-    /// <param name="listener">Where the ears are.</param>
+    /// <param name="listeners">Where the ears are.</param>
+    /// <param name="blockStart">The device frame this block begins at, for scheduled starts.</param>
     /// <remarks>Runs on the audio thread. Takes no lock and allocates nothing.</remarks>
-    public void Render(Span<float> destination, int frameCount, in AudioListener listener) {
+    public void Render(Span<float> destination, int frameCount, in AudioListenerSet listeners, long blockStart = 0) {
         var channels = format.Channels;
         var samples = frameCount * channels;
 
@@ -186,7 +189,14 @@ public sealed class AudioMixer {
             active++;
             var bus = lookup[(uint)voice.Bus < (uint)lookup.Length ? voice.Bus : 0];
 
-            if (!voice.Render(bus.Buffer[..samples], frameCount, listener)) {
+            if (!voice.Render(bus.Buffer[..samples], frameCount, listeners, blockStart)) {
+                // The one moment nothing is reading this voice's render state, and therefore the only
+                // safe place to hand its slot to a sound that stole it.
+                if (voice.TryTakePending(out var paused)) {
+                    Volatile.Write(ref voice.State, (int)(paused ? VoiceState.Paused : VoiceState.Playing));
+                    continue;
+                }
+
                 // Finished, not Free: the game thread collects it, which is where a streaming source
                 // can be unregistered from the pump and a reference can be dropped without the audio
                 // thread touching the garbage collector.
@@ -197,24 +207,27 @@ public sealed class AudioMixer {
         Volatile.Write(ref activeVoices, active);
 
         foreach (var bus in order) {
-            var gain = bus.Finish(frameCount);
+            bus.Finish(frameCount);
             var source = bus.Buffer[..samples];
 
             if (bus.Parent is not null) {
                 var target = bus.Parent.Buffer;
 
                 for (var i = 0; i < samples; i++) {
-                    target[i] += source[i] * gain;
+                    target[i] += source[i];
                 }
 
                 continue;
             }
 
-            // The master, and the only place anything is clamped. A backend converting to 16-bit
-            // would wrap a sample above one round to the opposite rail — the loudest possible click
-            // — and a float device would hand the overshoot to a driver that may or may not cope.
+            // The master. The clamp is a guard and not a level control: a LimiterEffect is what
+            // keeps a loud scene from distorting, and this is what stops a NaN out of a misbehaving
+            // effect, or an overshoot nothing caught, reaching a driver. A 16-bit backend would wrap
+            // a sample above one round to the opposite rail, which is the loudest click a machine
+            // can make.
             for (var i = 0; i < samples; i++) {
-                destination[i] = Math.Clamp(source[i] * gain, -1f, 1f);
+                var value = source[i];
+                destination[i] = float.IsNaN(value) ? 0f : Math.Clamp(value, -1f, 1f);
             }
         }
     }
@@ -235,14 +248,103 @@ public sealed class AudioMixer {
 
     internal AudioBus BusAt(int index) => byIndex[(uint)index < (uint)byIndex.Length ? index : 0];
 
+    /// <summary>Recomputes the render order after the graph's shape changed.</summary>
+    /// <remarks>
+    ///     Called by <see cref="AudioBus" /> when a send or a sidechain is added or removed. The
+    ///     shape changes at start-up, not per frame.
+    /// </remarks>
+    internal void Invalidate() {
+        lock (gate) {
+            Rebuild();
+        }
+    }
+
+    /// <summary>
+    ///     Orders the buses so that everything a bus reads has already been written.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A topological sort, where sorting by depth used to do.</b> With only parent edges
+    ///         the graph is a tree and "deepest first" is a correct order for free. A send is an edge
+    ///         that does not follow the tree — an ambience bus three levels down sending into an aux
+    ///         reverb hanging off the master — and depth says nothing useful about it. A sidechain is
+    ///         a third kind of edge with the same requirement: the key has to have been rendered.
+    ///     </para>
+    ///     <para>
+    ///         Kahn's algorithm over the three edge kinds. Cycles cannot arrive here — both
+    ///         <see cref="AudioBus.AddSend" /> and <see cref="AudioBus.SetSidechain" /> refuse to
+    ///         create one — so anything left unvisited would be a bug in that check rather than a
+    ///         user error, and it is appended in depth order so a mistake degrades into the old
+    ///         behaviour instead of silencing the mixer.
+    ///     </para>
+    /// </remarks>
     void Rebuild() {
         byIndex = [.. buses];
-        var order = buses.ToArray();
 
-        // Leaves first, so a bus has already run its effects and been summed by the time its parent
-        // is finished. Sorting by depth is enough: a bus is always deeper than its parent, and buses
-        // at the same depth cannot feed each other.
-        Array.Sort(order, static (left, right) => right.Depth.CompareTo(left.Depth));
-        renderOrder = order;
+        var count = buses.Count;
+        var after = new List<int>[count];
+        var indegree = new int[count];
+
+        for (var i = 0; i < count; i++) {
+            after[i] = [];
+        }
+
+        foreach (var bus in buses) {
+            // A bus's signal reaches its parent, so the parent has to come after it.
+            if (bus.Parent is { } parent) {
+                Edge(bus.Index, parent.Index);
+            }
+
+            // A send is the same relationship without the tree.
+            foreach (var send in bus.Sends) {
+                Edge(bus.Index, send.Target.Index);
+            }
+
+            // And a sidechain points the other way: the key has to have been rendered before the
+            // bus that listens to it.
+            if (bus.SidechainSource is { } key) {
+                Edge(key.Index, bus.Index);
+            }
+        }
+
+        var order = new List<AudioBus>(count);
+        var ready = new Queue<AudioBus>();
+
+        // Deepest first among the ones that are ready, so a plain tree comes out in exactly the
+        // order it used to and the change is invisible to anything that did not add a send.
+        foreach (var bus in buses.OrderByDescending(candidate => candidate.Depth)) {
+            if (indegree[bus.Index] == 0) {
+                ready.Enqueue(bus);
+            }
+        }
+
+        while (ready.Count > 0) {
+            var bus = ready.Dequeue();
+            order.Add(bus);
+
+            foreach (var next in after[bus.Index]) {
+                if (--indegree[next] == 0) {
+                    ready.Enqueue(byIndex[next]);
+                }
+            }
+        }
+
+        if (order.Count != count) {
+            // Unreachable unless the cycle checks in AddSend and SetSidechain have a hole. Appending
+            // the stragglers degrades into the old depth order rather than silencing the mixer,
+            // which is the right way for a bug here to behave.
+            foreach (var bus in buses) {
+                if (!order.Contains(bus)) {
+                    order.Add(bus);
+                }
+            }
+        }
+
+        renderOrder = [.. order];
+
+        void Edge(int from, int to) {
+            after[from].Add(to);
+            indegree[to]++;
+        }
     }
 }

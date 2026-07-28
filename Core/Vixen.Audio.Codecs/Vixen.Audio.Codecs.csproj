@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Audio.Codecs</RootNamespace>
+        <Description>
+            Ogg Vorbis and Opus behind IAudioStreamDecoder, so a five-minute track costs a megabyte
+            instead of fifty. Both decoders are pure managed, so they publish under NativeAOT and run
+            in a browser.
+        </Description>
+        <PackageTags>audio;codec;vorbis;opus;ogg;streaming;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Audio\Vixen.Audio.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- MIT. Ogg Vorbis, which is what most game music ships as. -->
+        <PackageReference Include="NVorbis" />
+
+        <!-- BSD-3-Clause. Opus, which is what voice chat wants and what a modern track should be. -->
+        <PackageReference Include="Concentus" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Audio.Codecs.Tests" />
+    </ItemGroup>
+
+</Project>

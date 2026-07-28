@@ -256,4 +256,186 @@ public sealed class AudioEffectTests {
         Assert.False(engine.Master.RemoveEffect(effect));
         Assert.Empty(engine.Master.Effects);
     }
+
+    [Fact]
+    public void AnEqualiserIsItsBandsOneAfterAnother() {
+        var equalizer = new EqualizerEffect();
+        equalizer.AddBand(BiquadFilterKind.HighPass, 200f);
+        equalizer.AddBand(BiquadFilterKind.Peaking, 1_000f, 2f, 12f);
+
+        equalizer.Prepare(new AudioFormat(Rate, 1), 8_192);
+
+        Assert.Equal(2, equalizer.Bands.Count);
+        Assert.True(Through(equalizer, 50f) < 0.1f, "the high-pass did not take the rumble out");
+
+        equalizer.Reset();
+        Assert.Equal(4f, Through(equalizer, 1_000f), 0.2f);
+    }
+
+    [Fact]
+    public void AnEqualiserBandCanBeChangedAndRemoved() {
+        var equalizer = new EqualizerEffect();
+        var band = equalizer.AddBand(BiquadFilterKind.LowPass, 100f);
+        equalizer.Prepare(new AudioFormat(Rate, 1), 8_192);
+
+        Assert.True(Through(equalizer, 10_000f) < 0.05f);
+
+        band.Frequency = 20_000f;
+        equalizer.Reset();
+        Assert.Equal(1f, Through(equalizer, 10_000f), 0.1f);
+
+        Assert.True(equalizer.RemoveBand(band));
+        Assert.False(equalizer.RemoveBand(band));
+        Assert.Empty(equalizer.Bands);
+    }
+
+    [Fact]
+    public void AnEqualiserWithNoBandsChangesNothing() {
+        var equalizer = new EqualizerEffect();
+        equalizer.Prepare(new AudioFormat(Rate, 1), 512);
+
+        var buffer = new float[512];
+        Array.Fill(buffer, 0.5f);
+        equalizer.Process(buffer, 512, 1);
+
+        Assert.Equal(0.5f, buffer[^1]);
+    }
+
+    [Fact]
+    public void ADelayRepeatsAfterTheTimeItWasGiven() {
+        var delay = new DelayEffect {
+            DelaySeconds = 0.01f,
+            Feedback = 0f,
+            Wet = 1f,
+            Dry = 1f,
+            DampingHz = 30_000f
+        };
+
+        delay.Prepare(new AudioFormat(Rate, 1), 4_096);
+
+        var buffer = new float[4_096];
+        buffer[0] = 1f;
+        delay.Process(buffer, 4_096, 1);
+
+        // 10 ms at 48 kHz is 480 samples.
+        Assert.Equal(1f, buffer[0], 1e-5f);
+        Assert.Equal(1f, buffer[480], 1e-5f);
+        Assert.Equal(0f, buffer[479], 1e-5f);
+        Assert.Equal(0f, buffer[960], 1e-5f);
+    }
+
+    [Fact]
+    public void FeedbackMakesMoreRepeats() {
+        var delay = new DelayEffect {
+            DelaySeconds = 0.01f,
+            Feedback = 0.5f,
+            Wet = 1f,
+            Dry = 0f,
+            DampingHz = 30_000f
+        };
+
+        delay.Prepare(new AudioFormat(Rate, 1), 4_096);
+
+        var buffer = new float[4_096];
+        buffer[0] = 1f;
+        delay.Process(buffer, 4_096, 1);
+
+        Assert.Equal(1f, buffer[480], 1e-4f);
+        Assert.Equal(0.5f, buffer[960], 1e-3f);
+        Assert.Equal(0.25f, buffer[1_440], 1e-3f);
+    }
+
+    /// <summary>
+    ///     An unfiltered delay repeats the same bright signal until it fades, which is what a digital
+    ///     delay does and what nothing in the world does.
+    /// </summary>
+    [Fact]
+    public void TheRepeatsGetDarkerWhenTheFeedbackIsDamped() {
+        var bright = new float[8_192];
+
+        for (var i = 0; i < bright.Length; i++) {
+            bright[i] = i < 480 ? 0.5f * MathF.Sin(2f * MathF.PI * 8_000f * i / Rate) : 0f;
+        }
+
+        var damped = Tail(new DelayEffect {
+            DelaySeconds = 0.01f, Feedback = 0.8f, Wet = 1f, Dry = 0f, DampingHz = 500f
+        });
+
+        var open = Tail(new DelayEffect {
+            DelaySeconds = 0.01f, Feedback = 0.8f, Wet = 1f, Dry = 0f, DampingHz = 30_000f
+        });
+
+        Assert.True(damped < open * 0.5f, $"damped {damped:F4} against open {open:F4}");
+
+        float Tail(DelayEffect delay) {
+            delay.Prepare(new AudioFormat(Rate, 1), bright.Length);
+            var buffer = (float[])bright.Clone();
+            delay.Process(buffer, bright.Length, 1);
+            return AudioTestData.Peak(buffer.AsSpan(4_096));
+        }
+    }
+
+    /// <summary>
+    ///     The dry signal always enters its own line; it is the feedback that crosses. Getting that
+    ///     backwards puts the sound in both speakers at once instead of bouncing it between them.
+    /// </summary>
+    [Fact]
+    public void PingPongPutsTheFirstRepeatOnTheOtherSide() {
+        var delay = new DelayEffect {
+            DelaySeconds = 0.01f,
+            Feedback = 0.7f,
+            Wet = 1f,
+            Dry = 0f,
+            DampingHz = 30_000f,
+            PingPong = true
+        };
+
+        delay.Prepare(new AudioFormat(Rate, 2), 4_096);
+
+        var buffer = new float[4_096 * 2];
+        buffer[0] = 1f;
+        delay.Process(buffer, 4_096, 2);
+
+        // Struck on the left: the first repeat comes back on the left, and its feedback lands on the
+        // right one delay later.
+        Assert.Equal(1f, buffer[480 * 2], 1e-4f);
+        Assert.Equal(0f, buffer[(480 * 2) + 1], 1e-4f);
+        Assert.Equal(0f, buffer[960 * 2], 1e-4f);
+        Assert.Equal(0.7f, buffer[(960 * 2) + 1], 1e-3f);
+    }
+
+    /// <summary>
+    ///     At a feedback of one it never decays; above it the level doubles every repeat until the
+    ///     limiter is the only thing between the player and a very loud noise.
+    /// </summary>
+    [Fact]
+    public void FeedbackCannotRunAway() {
+        var delay = new DelayEffect {
+            DelaySeconds = 0.001f,
+            Feedback = 4f,
+            Wet = 1f,
+            Dry = 0f,
+            DampingHz = 30_000f
+        };
+
+        delay.Prepare(new AudioFormat(Rate, 1), 48_000);
+
+        var buffer = new float[48_000];
+        buffer[0] = 1f;
+        delay.Process(buffer, 48_000, 1);
+
+        Assert.True(AudioTestData.Peak(buffer) <= 1.001f, $"it reached {AudioTestData.Peak(buffer):F3}");
+    }
+
+    static float Through(EqualizerEffect effect, float frequency) {
+        var frames = 8_192;
+        var buffer = new float[frames];
+
+        for (var i = 0; i < frames; i++) {
+            buffer[i] = MathF.Sin(2f * MathF.PI * frequency * i / Rate);
+        }
+
+        effect.Process(buffer, frames, 1);
+        return AudioTestData.Peak(buffer.AsSpan(frames * 3 / 4));
+    }
 }

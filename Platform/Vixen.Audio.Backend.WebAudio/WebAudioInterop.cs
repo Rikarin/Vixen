@@ -76,4 +76,41 @@ internal static partial class WebAudioInterop {
 
     [JSImport("close", ModuleName)]
     public static partial void Close(int handle);
+
+    [JSImport("captureCreate", ModuleName)]
+    public static partial int CaptureCreate(int sampleRate, int channels, int bufferedFrames);
+
+    [JSImport("captureSampleRate", ModuleName)]
+    public static partial int CaptureSampleRate(int handle);
+
+    [JSImport("captureIsRunning", ModuleName)]
+    public static partial bool CaptureIsRunning(int handle);
+
+    [JSImport("captureAvailable", ModuleName)]
+    public static partial int CaptureAvailable(int handle);
+
+    [JSImport("captureOverruns", ModuleName)]
+    public static partial int CaptureOverruns(int handle);
+
+    [JSImport("captureStart", ModuleName)]
+    public static partial void CaptureStart(int handle);
+
+    /// <summary>Copies what has been captured into the caller's buffer.</summary>
+    /// <remarks>
+    ///     Bytes again, for the reason <see cref="Enqueue" /> gives — and in this direction the view
+    ///     is written rather than read, which the marshaller supports and which is why the capture
+    ///     path needs no buffer of its own on the JavaScript side beyond its ring.
+    /// </remarks>
+    [JSImport("captureRead", ModuleName)]
+    public static partial int CaptureRead(
+        int handle,
+        [JSMarshalAs<JSType.MemoryView>] Span<byte> samples,
+        int frames
+    );
+
+    [JSImport("captureStop", ModuleName)]
+    public static partial void CaptureStop(int handle);
+
+    [JSImport("captureClose", ModuleName)]
+    public static partial void CaptureClose(int handle);
 }

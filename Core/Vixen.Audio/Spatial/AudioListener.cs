@@ -125,4 +125,27 @@ public readonly record struct SpatialSettings() {
     /// <summary>How fast sound travels, in world units a second. Only doppler reads it.</summary>
     /// <remarks>343 is metres a second in air at 20 °C, so the default assumes a unit is a metre.</remarks>
     public float SpeedOfSound { get; init; } = 343f;
+
+    /// <summary>How much distance dulls the sound, from none at 0 to fully at 1.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Air absorbs high frequencies faster than low ones, which is why a distant gunshot is a
+    ///         thump and a near one is a crack. Modelling it is the cheapest thing in this file that
+    ///         makes a scene sound like a place rather than like a set of samples — one biquad per
+    ///         voice, and only for the voices that are far away.
+    ///     </para>
+    ///     <para>
+    ///         <b>Off by default</b>, because it compounds with the content. A clip that was recorded
+    ///         at distance, or authored dull on purpose, gets dulled twice — so this is a decision for
+    ///         whoever balanced the library rather than something to switch on for everybody.
+    ///     </para>
+    /// </remarks>
+    public float AirAbsorption { get; init; }
+
+    /// <summary>Where the low-pass ends up, in hertz, at <see cref="MaxDistance" /> and full absorption.</summary>
+    /// <remarks>
+    ///     700 Hz is about what a few hundred metres of air does to a broadband sound. Lower it for
+    ///     something heavier than air — underwater, or a designer's idea of a fog.
+    /// </remarks>
+    public float AirAbsorptionCutoff { get; init; } = 700f;
 }

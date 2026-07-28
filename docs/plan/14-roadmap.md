@@ -2476,8 +2476,21 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
   [Vixen.Physics/README.md](../../Core/Vixen.Physics/README.md) § Platforms and § Known gaps.
 - ✅ `Vixen.Audio`: OpenAL backend + WebAudio backend, 3D spatialisation, mixer buses, effects (reverb,
   filter), streaming, ECS integration. Vixen mixes in software and the backends are sinks — see
-  `Core/Vixen.Audio/README.md` for why, and for what is still owed (surround panning, a sinc
-  resampler, voice stealing, and an Ogg/Opus decoder behind `IAudioStreamDecoder`).
+  `Core/Vixen.Audio/README.md` for why. Beyond what this line asked for: sends and sidechains,
+  fourteen effects over an `Fft`, voice stealing and virtualisation, timed fades, a live push source
+  for voice chat, the mixer and its snapshots as an asset, `AudioEvent` — variants, per-play variation
+  and instance limits, so gameplay posts an event rather than naming a clip — parameters with
+  authored curves onto a sound or onto the mix — four of them filled in by the engine — layered events,
+  scatterers for ambience, quad/5.1/7.1 panning, and up to four listeners for split-screen. Capture
+  landed with it: `IAudioCaptureDevice` on both backends, which is what voice chat in Phase 9 reads
+  from, and an event can play a caller's provider so a talking player is an event like anything else.
+  `MixControl` names every knob in the mix, which is the runtime half of live update — the transport
+  is the editor's. Interactive music landed too: a sample-accurate scheduled start, a transport over
+  the device's own clock, segments whose transitions land on a bar line, sustain points, stingers and
+  a tempo map. Also landed: a BS.1770 loudness meter, a polyphase sinc resampler with the cutoff
+  banded to the pitch, and a loopback live-update listener over `MixControl`. `Vixen.Audio.Codecs`
+  carries Ogg Vorbis and Opus, both pure managed and both rooted in the AOT probe. Still owed:
+  true-peak and loudness-range metering, and ADPCM for effects.
 - `Vixen.Animation`: skeletal playback, blend trees (1D/2D), layers + masks, state machine, IK (two-bone,
   look-at, foot placement), root motion, events, GPU skinning integration.
 - `Vixen.Editor.AnimationGraph`.
