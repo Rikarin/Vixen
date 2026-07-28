@@ -259,6 +259,7 @@ internal sealed class CompactHeightfield {
     ///     Partitions the walkable surface into regions by sweeping it row by row.
     /// </summary>
     /// <param name="minRegionArea">The smallest region to keep, in spans.</param>
+    /// <param name="mergeRegionArea">The size below which a region is absorbed into a neighbour that will take it.</param>
     /// <remarks>
     ///     <para>
     ///         Monotone partitioning, which is one of the two Recast offers. A region is grown from
@@ -275,7 +276,7 @@ internal sealed class CompactHeightfield {
     ///         paths. Watershed is the natural thing to add here, and the README says so.
     ///     </para>
     /// </remarks>
-    public void BuildRegionsMonotone(int minRegionArea) {
+    public void BuildRegionsMonotone(int minRegionArea, int mergeRegionArea = 20) {
         var regions = new ushort[Spans.Length];
         var sweeps = new SweepSpan[Math.Max(Width, Depth) + 1];
         ushort identifier = 1;
@@ -359,40 +360,10 @@ internal sealed class CompactHeightfield {
             }
         }
 
-        RemoveSmallRegions(regions, identifier, minRegionArea);
+        RegionCount = RegionMerge.Apply(this, regions, identifier, minRegionArea, mergeRegionArea);
 
         for (var index = 0; index < Spans.Length; index++) {
             Spans[index].Region = regions[index];
-        }
-
-        RegionCount = identifier;
-    }
-
-    /// <summary>Discards regions too small to be worth walking on.</summary>
-    /// <remarks>
-    ///     Discarded rather than merged into a neighbour, which is what Recast does. Merging keeps
-    ///     more surface, at the cost of regions that are no longer monotone and can therefore have
-    ///     holes — the thing the partitioning was chosen to avoid. Discarding loses the ledge behind
-    ///     the pillar, which is the surface nothing could reach anyway.
-    /// </remarks>
-    void RemoveSmallRegions(ushort[] regions, int regionCount, int minRegionArea) {
-        if (minRegionArea <= 0) {
-            return;
-        }
-
-        var counts = new int[regionCount + 1];
-
-        for (var index = 0; index < regions.Length; index++) {
-            if (regions[index] > 0 && regions[index] < counts.Length) {
-                counts[regions[index]]++;
-            }
-        }
-
-        for (var index = 0; index < regions.Length; index++) {
-            if (regions[index] > 0 && regions[index] < counts.Length && counts[regions[index]] < minRegionArea) {
-                regions[index] = 0;
-                Areas[index] = NavArea.Null;
-            }
         }
     }
 

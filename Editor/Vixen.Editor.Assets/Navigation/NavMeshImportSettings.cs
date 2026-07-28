@@ -47,6 +47,9 @@ public sealed record NavMeshImportSettings : IImportSettings {
     /// <summary>The smallest region to keep, in voxel columns.</summary>
     public int MinRegionArea { get; init; } = 8;
 
+    /// <summary>The size below which a region is absorbed into a neighbour, in voxel columns.</summary>
+    public int MergeRegionArea { get; init; } = 20;
+
     /// <summary>How far a simplified contour may stray from the voxel outline, in voxels.</summary>
     public float MaxSimplificationError { get; init; } = 1.3f;
 
@@ -73,6 +76,7 @@ public sealed record NavMeshImportSettings : IImportSettings {
         AgentMaxClimb = AgentMaxClimb,
         AgentMaxSlope = AgentMaxSlope,
         MinRegionArea = MinRegionArea,
+        MergeRegionArea = MergeRegionArea,
         MaxSimplificationError = MaxSimplificationError,
         MaxEdgeLength = MaxEdgeLength
     };

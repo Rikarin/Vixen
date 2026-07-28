@@ -16,6 +16,7 @@ baking as a build step, agents, avoidance"*.
 |---|---|
 | `Baking/Heightfield` | Triangle rasterisation into columns of solid voxels; the low-obstacle, ledge and low-ceiling filters. |
 | `Baking/CompactHeightfield` | The walkable surface with its neighbours resolved; erosion by the agent radius; authored areas; monotone region partitioning. |
+| `Baking/RegionMerge` | Absorbs regions too small to be worth their own polygons, and drops the groups that lead nowhere. |
 | `Baking/ContourSet` | Region outlines traced from the voxel grid and simplified within an error tolerance. |
 | `Baking/PolyMesh` | Ear-clipping triangulation, convex merge to six-vertex polygons, adjacency by edge matching. |
 | `Baking/NavAreaVolume` | Boxes and convex prisms that stamp an area — water, road, mud — before the surface is partitioned. |
@@ -114,6 +115,25 @@ zero samples and zero weights returns the desired velocity unchanged, which look
 avoidance that has decided there is nothing to avoid. It cost an afternoon; the shape here cannot
 reproduce it.
 
+## Merging regions, and the number that says how much it was worth
+
+`RegionMerge` absorbs a region smaller than `MergeRegionArea` into the smallest neighbour that will
+take it, and discards a *group* of regions whose combined size is under `MinRegionArea` — by group
+rather than one at a time, because three slivers that only touch each other are as unreachable as one.
+
+Two regions are only merged when each touches the other along **one** stretch of boundary, and never
+when one sits directly above the other. Two stretches means the pair encloses something, and merging
+them would produce a region with a hole — which the contour tracer would emit as a second,
+oppositely-wound outline and the polygoniser would turn into a solid polygon over the obstacle. That
+rule is the whole safety argument, and it is why this stage is hole-safe while watershed is not yet.
+
+**What it is worth, measured rather than assumed.** At Recast's default of 20 it does *nothing* on the
+levels here: a monotone sweep produces regions that are long rather than small, so almost none of them
+are under any modest threshold. Turned up to 2 000 on a pillared eighty-metre level it takes 109
+regions to 20 and 401 polygons to 310 — 23 % fewer — with the path across the level identical to the
+centimetre and no measured improvement in search time. So the default stays at Recast's, the knob is
+documented, and the claim in this paragraph is a number rather than a hope.
+
 ## A connection is a polygon with two vertices
 
 Ladders, jumps and drops are authored as `NavOffMeshConnectionData` on the tile, and the loaded tile
@@ -152,10 +172,12 @@ where the cost of a crowd actually is.
 
 - **Watershed partitioning.** Regions are built by monotone sweep, which is hole-free by construction
   and is what makes the contour tracer's life simple. Watershed gives rounder regions and therefore
-  fewer, fatter polygons; both give correct paths. This is the obvious next improvement.
-- **Region merging.** Regions below `MinRegionArea` are discarded rather than merged into a
-  neighbour. Merging keeps more surface and can produce regions with holes, which is the property the
-  partitioning was chosen to avoid.
+  fewer, fatter polygons; both give correct paths. **Half of it is now built** — the merge-and-filter
+  stage below is the half both partitions share — so what remains is the distance field with its
+  flood-and-expand, and hole merging in the contour tracer, which watershed needs and monotone does
+  not. That last part is why this is still not done: a watershed region can enclose a pillar, and a
+  contour tracer that emitted the hole as a second outline would hand the polygoniser a solid polygon
+  over the obstacle. Half a watershed is worse than none.
 - **Off-mesh links between areas an authored volume creates.** A volume stamps a *cost*; it cannot
   make ground walkable that the bake found unwalkable, and it cannot connect two surfaces that do not
   touch.

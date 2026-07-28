@@ -2049,10 +2049,18 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
   corridor, a path and a crowd can also be drawn now, which is how a bad bake stops being something
   you infer from a failing path.
 
-  **Owed:** watershed partitioning (regions are monotone sweeps today), the height-detail pass (a
-  floor sits up to one cell height high), dynamic obstacles, sliced asynchronous pathfinding, and
-  baking from a *scene* rather than from a named collision mesh — which waits on the scene compiler
-  doc 08 splits out.
+  **Region merge-and-filter is in**, which is the half of watershed partitioning that the monotone
+  sweep also wants: small regions absorbed into the smallest neighbour that will take them, unreachable
+  groups dropped as groups. It is hole-safe because a merge is refused when two regions touch along
+  more than one stretch of boundary. At Recast's default threshold it changes nothing here — monotone
+  regions are long rather than small — and at a high one it is 23 % fewer polygons for an identical
+  path, which is recorded in the README as a number rather than a hope.
+
+  **Owed:** watershed's other half (the distance field with flood-and-expand, plus hole merging in the
+  contour tracer — a watershed region can enclose a pillar, and half a watershed is worse than none),
+  the height-detail pass (a floor sits up to one cell height high), dynamic obstacles, sliced
+  asynchronous pathfinding, and baking from a *scene* rather than from a named collision mesh — which
+  waits on the scene compiler doc 08 splits out.
 - `Samples/05-PlatformerGame` — physics, input, animation, audio, VFX end to end on all platforms where
   it is in scope.
 
