@@ -235,6 +235,73 @@ public sealed record RenderPassAsset : ISceneRendererAsset {
     public ISceneRendererAsset[] Children { get; init; } = [];
 }
 
+/// <summary>One value in the per-view block, and where it sits.</summary>
+/// <remarks>
+///     Named by the parameter key a shader's bindings were generated under, so a document says
+///     <c>Vixen.ViewProjection</c> rather than an offset it would have to keep in step with a struct
+///     it cannot see. A name nothing has interned is a mistake the build reports rather than a value
+///     that silently never arrives.
+/// </remarks>
+[DataContract("ViewMember")]
+public sealed record ViewMemberAsset {
+    /// <summary>The parameter key's name.</summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>Its byte offset within the block.</summary>
+    public int Offset { get; init; }
+
+    /// <summary>How many bytes it occupies.</summary>
+    public int Size { get; init; }
+}
+
+/// <summary>The uniform block every view in the frame shares — set 1.</summary>
+/// <remarks>
+///     <para>
+///         The one part of the four-set convention a document has a reason to describe. Sets 2 and 3
+///         belong to a material and a draw and follow from the shaders; set 1 is a contract
+///         <em>between</em> shaders — a descriptor set survives a pipeline change only if the layouts
+///         agree up to it — so the frame is the only thing that can state it.
+///     </para>
+///     <para>
+///         Declaring it with no members takes the standard block: the view-projection at 0 and the
+///         view position at 64, which is what <see cref="ViewConstants" /> writes for every view
+///         whether or not anybody asked.
+///     </para>
+/// </remarks>
+[DataContract("ViewBlock")]
+public sealed record ViewBlockAsset {
+    /// <summary>Which of the four conventional sets holds it.</summary>
+    public DescriptorSetSlot Set { get; init; } = DescriptorSetSlot.PerView;
+
+    /// <summary>Which binding within that set.</summary>
+    public uint Binding { get; init; }
+
+    /// <summary>How large the block is, in bytes.</summary>
+    public int Size { get; init; } = 80;
+
+    /// <summary>Which shader stages read it.</summary>
+    public ShaderStages Stages { get; init; } = ShaderStages.VertexAndPixel;
+
+    /// <summary>What is in it, or empty for the standard block.</summary>
+    public ViewMemberAsset[] Members { get; init; } = [];
+}
+
+/// <summary>Which stages a per-view block is visible to.</summary>
+/// <remarks>
+///     A small enum rather than <see cref="ShaderStage" /> itself, because a document should not have
+///     to spell a flags combination and the three that matter cover every shader that reads a camera.
+/// </remarks>
+public enum ShaderStages {
+    /// <summary>The vertex stage only — what a shadow caster needs.</summary>
+    Vertex,
+
+    /// <summary>The fragment stage only.</summary>
+    Pixel,
+
+    /// <summary>Both, which is what an ordinary material wants.</summary>
+    VertexAndPixel
+}
+
 /// <summary>The samplers a document may name, by what they are for.</summary>
 /// <remarks>
 ///     A preset rather than the twelve fields of a <see cref="SamplerDescription" />, for the same
@@ -494,6 +561,9 @@ public sealed record GraphicsCompositorAsset {
 
     /// <summary>The transient buffers it declares.</summary>
     public RenderBufferAsset[] Buffers { get; init; } = [];
+
+    /// <summary>The per-view block every shader in the frame shares, or null for a frame with none.</summary>
+    public ViewBlockAsset? ViewBlock { get; init; }
 
     /// <summary>The root of the graph — the whole frame.</summary>
     public ISceneRendererAsset? Game { get; init; }

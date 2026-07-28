@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Graphics;
+using Vixen.Shaders;
 
 namespace Vixen.Rendering.Compositor;
 
@@ -93,6 +94,17 @@ public sealed class CompositorBuilder(RenderSystem system) {
     /// <summary>Where samplers come from.</summary>
     public SamplerCache? Samplers { get; set; }
 
+    /// <summary>
+    ///     The per-view block this build created, if the document declared one.
+    /// </summary>
+    /// <remarks>
+    ///     <strong>The caller owns it.</strong> It holds a descriptor set layout and a buffer per view,
+    ///     which is the only device state a build produces — created here because the document is what
+    ///     describes the block, and disposed by whoever asked for the build, because a builder does not
+    ///     outlive anything.
+    /// </remarks>
+    public ViewConstants? ViewBlock { get; private set; }
+
     /// <summary>The stages this build created, by name.</summary>
     public Dictionary<string, RenderStage> Stages { get; } = new(StringComparer.Ordinal);
 
@@ -109,6 +121,8 @@ public sealed class CompositorBuilder(RenderSystem system) {
                 + "produce a frame missing a pass and say nothing about it."
             );
         }
+
+        ViewBlock = asset.ViewBlock is { } block && Device is not null ? Block(block) : null;
 
         foreach (var declared in asset.Stages) {
             Stages[declared.Name] = AddStage(declared);
@@ -227,8 +241,59 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Name = declared.Name,
             Enabled = declared.Enabled,
             View = Bind(Views, declared.Name, "view", declared.View),
-            Stage = Stage(declared.Name, declared.Stage)
+            Stage = Stage(declared.Name, declared.Stage),
+            Constants = ViewBlock
         };
+
+    /// <summary>
+    ///     The per-view block, and the descriptor set layout every shader in the frame agrees on.
+    /// </summary>
+    /// <remarks>
+    ///     Members are named by parameter key rather than by offset alone, so a document cannot drift
+    ///     from the block a shader reads without the build saying so. An empty list takes
+    ///     <see cref="ViewConstants" />'s own default, which is the view-projection and the view
+    ///     position — what it writes for every view whether or not anything asked.
+    /// </remarks>
+    ViewConstants Block(ViewBlockAsset declared) {
+        // Touched so that the standard keys are interned before anything looks one up by name.
+        _ = ViewConstants.ViewProjection;
+
+        var stages = declared.Stages switch {
+            ShaderStages.Vertex => ShaderStage.Vertex,
+            ShaderStages.Pixel => ShaderStage.Fragment,
+            _ => ShaderStage.Vertex | ShaderStage.Fragment
+        };
+
+        var layout = Device!.CreateDescriptorSetLayout(
+            new(declared.Set, [new(declared.Binding, DescriptorKind.UniformBuffer, stages)], "View")
+        );
+
+        var block = new ViewConstants(Device) {
+            Descriptors = Descriptors,
+            Layout = layout,
+            Slot = declared.Set,
+            Binding = declared.Binding,
+            Size = declared.Size
+        };
+
+        if (declared.Members.Length == 0) {
+            return block;
+        }
+
+        block.Members.Clear();
+
+        foreach (var member in declared.Members) {
+            if (!ParameterKeys.TryGet(member.Name, out var key)) {
+                // A name nothing interned is a document naming a parameter no shader declares, which
+                // would otherwise be a value that silently never arrives.
+                throw new CompositorBindingException("viewBlock", "parameter", member.Name);
+            }
+
+            block.Members.Add(new(key, member.Offset, member.Size));
+        }
+
+        return block;
+    }
 
     ShadowMapRenderer Cascades(ShadowMapAsset declared) =>
         new ShadowMapRenderer {
@@ -236,6 +301,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Enabled = declared.Enabled,
             CasterStage = Stage(declared.Name, declared.Stage),
             Atlas = declared.Atlas,
+            Constants = ViewBlock,
             CascadeCount = declared.CascadeCount,
             Resolution = declared.Resolution,
             ShadowDistance = declared.ShadowDistance,

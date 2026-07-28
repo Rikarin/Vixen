@@ -628,8 +628,21 @@ caster could not be told which cascade it was drawing for.
 
 **The layout is shared across every shader in the frame, and that is what makes set 1 work at all.**
 A descriptor set survives a pipeline change only if the two layouts agree up to that set, so the
-members are configured once here rather than taken from an effect: the block belongs to the frame, not
-to any shader in it.
+members are configured once rather than taken from an effect: the block belongs to the frame, not to
+any shader in it. Which is also why a *document* declares it — sets 2 and 3 follow from the shaders,
+and set 1 is a contract between them that only the frame can state:
+
+```yaml
+viewBlock:
+  binding: 0
+  stages: Vertex
+```
+
+Declared with no members it takes the standard block — the view-projection at 0 and the view position
+at 64, which `ViewConstants` writes for every view whether or not anything asked. A member names the
+parameter key rather than an offset alone, so a document cannot drift from the block a shader reads
+without the build refusing it. The builder creates the descriptor set layout, which makes it the one
+piece of device state a build produces — and the caller owns it, because a builder outlives nothing.
 
 `RenderView.ViewProjection` had to exist first, and **setting it re-derives the frustum**. Two
 properties describing one volume is a bug waiting to be written — a view culled against last frame's
@@ -689,11 +702,6 @@ caller's decision and there is nothing here to help make it.
 The shadow renderers still take a light direction and a camera from a host rather than from the
 scene, and nothing yet resolves a compositor by *address* — the binary form is proven, the
 `AssetManager` lookup around it is not wired up here.
-
-A per-view block exists but nothing above `SingleStageRenderer` and `ShadowMapRenderer` configures
-one — a host still creates the layout, the allocator and the `ViewConstants` itself. A compositor
-document has no way to say "this frame has a per-view block", which is the same authoring gap the
-bindings have.
 
 A node's bindings are set in code, not in the compositor document. A binding index is a shader's
 decision and a sampler is a device handle, and the asset model can express neither — so a compositor

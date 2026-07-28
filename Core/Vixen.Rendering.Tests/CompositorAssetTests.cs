@@ -652,4 +652,112 @@ public class CompositorAssetTests : IDisposable {
         Assert.Equal("source", tonemap.Bindings[0].Name);
         Assert.Equal(SamplerPreset.LinearClamp, tonemap.Bindings[1].Sampler);
     }
+
+    // --- The per-view block, authored ---------------------------------------
+
+    /// <summary>
+    ///     The one part of the four-set convention a document has a reason to describe.
+    /// </summary>
+    /// <remarks>
+    ///     Sets 2 and 3 belong to a material and a draw and follow from the shaders. Set 1 is a
+    ///     contract <em>between</em> shaders — a descriptor set survives a pipeline change only if the
+    ///     layouts agree up to it — so the frame is the only thing that can state it, and until now
+    ///     the only thing that could was a host writing C#.
+    /// </remarks>
+    const string WithViewBlock = """
+        version: 2
+        viewBlock:
+          binding: 0
+          stages: Vertex
+        resources:
+          - name: SceneColour
+            format: Rgba16Float
+            usage: ColourTarget, Sampled
+        stages:
+          - name: Opaque
+        game: !RenderPass
+          name: Main
+          colourTargets: [SceneColour]
+          children:
+            - !SingleStage
+              name: OpaqueDraw
+              view: Camera
+              stage: Opaque
+        """;
+
+    [Fact]
+    public void A_document_can_declare_the_per_view_block() {
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(WithViewBlock);
+        using var h = Build();
+        using var allocator = new DescriptorAllocator(device);
+
+        h.Builder.Device = device;
+        h.Builder.Descriptors = allocator;
+
+        var compositor = h.Builder.Build(asset);
+
+        using var block = h.Builder.ViewBlock;
+
+        Assert.NotNull(block);
+        Assert.True(block.IsConfigured);
+        Assert.Equal(DescriptorSetSlot.PerView, block.Slot);
+
+        // Declared with no members, so the standard block: the view-projection and the view position.
+        Assert.Equal(2, block.Members.Count);
+        Assert.Equal(ViewConstants.ViewProjection, block.Members[0].Key);
+
+        // And every node that draws a view was handed it.
+        var pass = Assert.IsType<RenderPassRenderer>(compositor.Game);
+        Assert.Same(block, Assert.IsType<SingleStageRenderer>(pass.Children[0]).Constants);
+    }
+
+    /// <summary>A frame that declares no block builds nodes that bind none.</summary>
+    /// <remarks>
+    ///     Which keeps the block optional rather than mandatory: a project whose shaders read no
+    ///     camera should not have to declare one to draw.
+    /// </remarks>
+    [Fact]
+    public void A_frame_with_no_view_block_binds_none() {
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(Document);
+        using var h = Build();
+
+        h.Builder.Device = device;
+        h.Builder.Build(asset);
+
+        Assert.Null(h.Builder.ViewBlock);
+    }
+
+    /// <summary>A member naming a parameter nothing declares is refused.</summary>
+    /// <remarks>
+    ///     The alternative is a value that silently never arrives — a document and a shader that
+    ///     disagree about what is in the block, which produces a frame drawn with whatever the block
+    ///     happened to contain.
+    /// </remarks>
+    [Fact]
+    public void A_view_member_naming_an_unknown_parameter_is_refused() {
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(
+            """
+            version: 2
+            viewBlock:
+              members:
+                - name: Nothing.Declares.This
+                  offset: 0
+                  size: 4
+            stages:
+              - name: Opaque
+            game: !SingleStage
+              name: Draw
+              view: Camera
+              stage: Opaque
+            """
+        );
+
+        using var h = Build();
+        h.Builder.Device = device;
+
+        var thrown = Assert.Throws<CompositorBindingException>(() => h.Builder.Build(asset));
+
+        Assert.Equal("parameter", thrown.Kind);
+        Assert.Equal("Nothing.Declares.This", thrown.Name);
+    }
 }
