@@ -692,11 +692,12 @@ because `BindDescriptorSet` takes no pipeline layout and infers one from what is
 the first pipeline is undefined and the Vulkan backend refuses it. Once, because the four-set convention
 makes every pipeline in a frame layout-compatible up to set 1, which covers set 0 with it.
 
-⚠ **The generator still emits keys for one block.** `BindingsEmitter` picks the first uniform block a
-shader has, which was every shader's only block until this pass had four — so `ForwardPlusKeys` covers
-set 0's values and names nothing in set 1, set 2 or set 3. Those parameters are reachable by
-`ParameterKeys.New<T>("ForwardPlus.view")` and not by a generated constant, which is the ergonomics
-rather than the correctness of it. Emitting per block is the same change one level out.
+The generator followed. `BindingsEmitter` used to pick the first uniform block a shader had, which was
+every shader's only block until this pass had four — so `ForwardPlusKeys` would have covered set 0 and
+named nothing in the other three. It now emits a key for every block, a `PerFrameBlockSize` /
+`PerDrawBlockSize` pair per set, and a writer struct per block (`ForwardPlusPerDrawConstants`). A
+shader with one block is untouched: `ConstantBufferSize` and `<Shader>Constants` are what every
+post-process pass names, and there is a test that says so.
 
 The shader half — `Library/Pipeline/ClusterCulling.rvn` binning lights into a froxel grid, and
 `ForwardPlus.rvn`'s `UseClusteredLights` permutation swapping its uniform-array loop for the cluster

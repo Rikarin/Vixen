@@ -208,4 +208,97 @@ public class BindingsEmitterTests {
         Assert.Contains("public static class BareKeys {", source, StringComparison.Ordinal);
         Assert.DoesNotContain("struct BareConstants", source, StringComparison.Ordinal);
     }
+
+    // --- A block per set ----------------------------------------------------
+
+    /// <summary>A shader that marks its sets gets a key for every block, not for the first.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Raven gathers a shader's loose uniforms into one block <em>per set</em>, and a shader
+    ///         that marks none of its bindings has one set — which is why "the uniform block" was a
+    ///         well-formed phrase for as long as it was. A pass that says where each binding belongs
+    ///         has up to four, and generating for the first left three sets' worth of values
+    ///         reachable only by spelling the name out, which is the thing generated bindings exist
+    ///         to avoid.
+    ///     </para>
+    ///     <para>
+    ///         The names say which set, because <c>PerDrawBlockSize</c> is a fact about the shader
+    ///         and <c>Set3BlockSize</c> is a fact about where it happens to sit.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_shader_that_marks_its_sets_gets_a_block_for_each() {
+        var source = BindingsEmitter.Emit("Pass", TwoBlocks, "Pass.reflect.json");
+
+        // A key per block, both by their own names.
+        Assert.Contains("ParameterKeys.New<float>(\"Pass.ambient\"", source, StringComparison.Ordinal);
+        Assert.Contains("ParameterKeys.New<int>(\"Pass.lightCount\"", source, StringComparison.Ordinal);
+
+        // A size and a binding per set, named for what the set is.
+        Assert.Contains("public const int PerFrameBlockSize = 16;", source, StringComparison.Ordinal);
+        Assert.Contains("public const int PerDrawBlockSize = 32;", source, StringComparison.Ordinal);
+        Assert.Contains("public const uint PerDrawBlockBinding = 0;", source, StringComparison.Ordinal);
+
+        // And a writer per block, qualified — because "the constant buffer" stops meaning anything
+        // the moment there is more than one.
+        Assert.Contains("public struct PassPerFrameConstants {", source, StringComparison.Ordinal);
+        Assert.Contains("public struct PassPerDrawConstants {", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("public struct PassConstants {", source, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     A shader with one block is unchanged, which is every shader that marks no sets.
+    /// </summary>
+    /// <remarks>
+    ///     The compatibility half, asserted rather than assumed: <c>ConstantBufferSize</c> and
+    ///     <c>&lt;Shader&gt;Constants</c> are what every post-process pass and every existing host
+    ///     names, and a change to the shape of those would be a change to code nobody was editing.
+    /// </remarks>
+    [Fact]
+    public void A_shader_with_one_block_keeps_the_unadorned_names() {
+        var source = Emit();
+
+        Assert.Contains("public const int ConstantBufferSize = 336;", source, StringComparison.Ordinal);
+        Assert.Contains("public struct LightingConstants {", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("BlockSize", source, StringComparison.Ordinal);
+    }
+
+    /// <summary>A pass with a per-frame and a per-draw block, which is what marking sets produces.</summary>
+    static ShaderReflection TwoBlocks =>
+        ReflectionReader.Read(
+            """
+            {
+              "Sets": [
+                {
+                  "Set": 0,
+                  "Bindings": [
+                    {
+                      "Binding": 0, "Name": "PassPerFrameUniforms", "Type": "UniformBuffer", "Count": 1, "Size": 16,
+                      "Members": [
+                        { "Name": "ambient", "Type": { "Scalar": "Float", "Rows": 1, "Columns": 1 }, "Offset": 0, "Size": 4, "ArrayStride": 0, "MatrixStride": 0 }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "Set": 3,
+                  "Bindings": [
+                    {
+                      "Binding": 0, "Name": "PassPerDrawUniforms", "Type": "UniformBuffer", "Count": 1, "Size": 32,
+                      "Members": [
+                        { "Name": "lightCount", "Type": { "Scalar": "Int", "Rows": 1, "Columns": 1 }, "Offset": 0, "Size": 4, "ArrayStride": 0, "MatrixStride": 0 }
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "Parameters": [
+                { "Name": "ambient", "Type": { "Scalar": "Float", "Rows": 1, "Columns": 1 }, "Set": 0, "Binding": 0, "Offset": 0, "Size": 4, "ArrayStride": 0, "MatrixStride": 0 },
+                { "Name": "lightCount", "Type": { "Scalar": "Int", "Rows": 1, "Columns": 1 }, "Set": 3, "Binding": 0, "Offset": 0, "Size": 4, "ArrayStride": 0, "MatrixStride": 0 }
+              ],
+              "Permutations": [],
+              "UsedPermutationKeys": []
+            }
+            """
+        );
 }
