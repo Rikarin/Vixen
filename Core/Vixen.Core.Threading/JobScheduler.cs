@@ -26,7 +26,8 @@ namespace Vixen.Core.Threading;
 ///         to <see cref="Complete(JobHandle)" /> executes ready work while it waits instead of
 ///         idling. Each worker owns a <see cref="WorkStealingDeque" />; threads that are not workers
 ///         push to a shared queue. A worker out of its own work takes from the shared queue, then
-///         steals.
+///         steals. <see cref="WorkerCount" /> may be zero, which leaves only the participating
+///         thread — see <see cref="IsSingleThreaded" />.
 ///     </para>
 ///     <para>
 ///         <b>Cost of scheduling.</b> Nothing on the path from
@@ -120,6 +121,24 @@ public sealed class JobScheduler : IDisposable {
     /// <summary>How many worker threads this scheduler owns, not counting threads that help.</summary>
     public int WorkerCount { get; }
 
+    /// <summary>Whether this scheduler owns no threads and runs everything on its callers.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         True for <c>new JobScheduler(0)</c>, which is the browser's only option: a
+    ///         WebAssembly build without <c>SharedArrayBuffer</c> and the cross-origin isolation
+    ///         headers that unlock it cannot start a <see cref="Thread" /> at all, so a scheduler
+    ///         that tried would throw <see cref="PlatformNotSupportedException" /> at construction.
+    ///     </para>
+    ///     <para>
+    ///         <c>docs/plan/10 § Cross-platform discipline</c> requires every subsystem to work with
+    ///         <c>workerCount == 0</c>. Reading this is for diagnostics and for a caller deciding
+    ///         whether to bother splitting work at all; it is deliberately <em>not</em> something the
+    ///         scheduling API branches on, because a mode that needs different calls is a mode that
+    ///         is only exercised by the platform that needs it.
+    ///     </para>
+    /// </remarks>
+    public bool IsSingleThreaded => WorkerCount == 0;
+
     /// <summary>This scheduler's index in the process-wide table. Carried by every handle it issues.</summary>
     public int Id { get; }
 
@@ -142,18 +161,41 @@ public sealed class JobScheduler : IDisposable {
     }
 
     /// <summary>Creates a scheduler with one worker per processor beyond the calling thread.</summary>
-    public JobScheduler() : this(Math.Max(1, Environment.ProcessorCount - 1)) { }
+    /// <remarks>
+    ///     Zero workers where the runtime has no threads to give — a browser tab that is not
+    ///     cross-origin isolated. Asking for one there does not fail slowly or run slowly; it throws
+    ///     <see cref="PlatformNotSupportedException" /> out of <see cref="Thread.Start()" />, which
+    ///     is not an answer a default constructor should give.
+    /// </remarks>
+    public JobScheduler() : this(DefaultWorkerCount()) { }
 
     /// <summary>Creates a scheduler with a chosen number of workers.</summary>
     /// <param name="workerCount">
-    ///     How many worker threads to start. Must be at least one — a scheduler with no workers
-    ///     would run everything on whichever thread happened to call
-    ///     <see cref="Complete(JobHandle)" />, which is a different design wearing this one's API.
+    ///     How many worker threads to start. Zero is the single-threaded mode — see
+    ///     <see cref="IsSingleThreaded" />.
     /// </param>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="workerCount" /> is less than one.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="workerCount" /> is negative.</exception>
     /// <exception cref="InvalidOperationException">There are already <see cref="MaxSchedulers" /> schedulers.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Zero workers is the same scheduler, not a second one.</b> The graph, the slot ring,
+    ///         the failure log and the batching are untouched; what changes is that nothing is
+    ///         running work in the background, so a job runs when a thread reaches
+    ///         <see cref="Complete(JobHandle)" /> — or <see cref="Dispose" />, which drains — and
+    ///         not before. Every dependency edge is still honoured, and a job still cannot start
+    ///         until its predecessors have finished, so a graph that is correct with workers is
+    ///         correct without them.
+    ///     </para>
+    ///     <para>
+    ///         What a caller loses is overlap, and one guarantee worth stating plainly: work that is
+    ///         scheduled and never completed never runs. With workers a fire-and-forget job happens
+    ///         anyway; with none it sits in the queue until <see cref="Dispose" />. Code that relies
+    ///         on the first is code that has a bug on the web, which is why the test suite has a leg
+    ///         that runs at zero.
+    ///     </para>
+    /// </remarks>
     public JobScheduler(int workerCount) {
-        ArgumentOutOfRangeException.ThrowIfLessThan(workerCount, 1);
+        ArgumentOutOfRangeException.ThrowIfNegative(workerCount);
 
         WorkerCount = workerCount;
         Id = Register(this);
@@ -262,10 +304,18 @@ public sealed class JobScheduler : IDisposable {
     /// <exception cref="JobExecutionException">The job, or one it depended on, threw.</exception>
     /// <exception cref="ArgumentException">The handle belongs to a different scheduler.</exception>
     /// <remarks>
-    ///     The waiting thread is not parked. It takes ready work — including work unrelated to what
-    ///     it is waiting for — until the job it wants is finished. That is what makes the main thread
-    ///     a participant rather than an observer, and it is why a frame that schedules its work early
-    ///     and completes it late gets the whole machine.
+    ///     <para>
+    ///         The waiting thread is not parked. It takes ready work — including work unrelated to
+    ///         what it is waiting for — until the job it wants is finished. That is what makes the
+    ///         main thread a participant rather than an observer, and it is why a frame that
+    ///         schedules its work early and completes it late gets the whole machine.
+    ///     </para>
+    ///     <para>
+    ///         That is also the whole of the single-threaded mode. With
+    ///         <see cref="WorkerCount" /> zero this loop is the only thing that ever runs a job, so
+    ///         the frame's graph executes here, in dependency order, on the calling thread — no
+    ///         second code path, and therefore nothing that only the browser exercises.
+    ///     </para>
     /// </remarks>
     public void Complete(JobHandle handle) {
         if (handle.IsNull) {
@@ -333,7 +383,12 @@ public sealed class JobScheduler : IDisposable {
         }
 
         stopping = true;
-        signal.Release(WorkerCount);
+
+        // Release(0) is an ArgumentOutOfRangeException, not a no-op, so the single-threaded mode
+        // would fail its own teardown on the one line that has nothing to wake.
+        if (WorkerCount > 0) {
+            signal.Release(WorkerCount);
+        }
 
         foreach (var worker in workers) {
             worker.Join();
@@ -395,6 +450,27 @@ public sealed class JobScheduler : IDisposable {
         return Schedule(in empty, handles);
     }
 
+    /// <summary>How many workers the parameterless constructor asks for.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         One per processor beyond the calling thread, which participates — except in a browser,
+    ///         where the answer is none.
+    ///     </para>
+    ///     <para>
+    ///         <b>The browser case is decided by the target and not by a count.</b> Threads on
+    ///         <c>browser-wasm</c> need <c>SharedArrayBuffer</c>, which needs COOP/COEP headers on
+    ///         every response, which is a deployment decision the engine cannot read from inside the
+    ///         page — and <see cref="Environment.ProcessorCount" /> answers with the machine's core
+    ///         count either way. Defaulting to zero means a page that did not arrange for isolation
+    ///         runs, slower; the alternative is a
+    ///         <see cref="PlatformNotSupportedException" /> from <see cref="Thread.Start()" /> before
+    ///         the first frame. A cross-origin-isolated build that wants the threads it has passes
+    ///         the count it wants.
+    ///     </para>
+    /// </remarks>
+    static int DefaultWorkerCount() =>
+        OperatingSystem.IsBrowser() ? 0 : Math.Max(1, Environment.ProcessorCount - 1);
+
     static int Register(JobScheduler scheduler) {
         lock (RegistryGate) {
             for (var index = 0; index < Schedulers.Length; index++) {
@@ -444,7 +520,10 @@ public sealed class JobScheduler : IDisposable {
         var size = requested;
 
         if (size <= 0) {
-            var target = Math.Max(1, participants * 4);
+            // Four batches per participant, so stealing can even out uneven work — except when
+            // there is one participant and therefore nobody to steal, where the four are one
+            // thread's four and the split buys nothing but three extra work items.
+            var target = participants <= 1 ? 1 : participants * 4;
             size = (length + target - 1) / target;
         }
 

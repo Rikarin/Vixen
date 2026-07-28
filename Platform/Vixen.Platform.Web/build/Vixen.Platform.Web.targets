@@ -1,0 +1,380 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    What an application head cannot be trusted to remember, and the lazy-assembly split.
+
+    Spec: docs/plan/10-platforms.md § Web.
+-->
+<Project>
+
+    <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'browser-wasm' OR '$(UsingMicrosoftNETSdkWebAssembly)' == 'true'">
+
+        <!--
+            ════════════════════════════════════════════════════════════════════════════════════
+            The WebGL2 flags. These are the reason this file exists.
+            ════════════════════════════════════════════════════════════════════════════════════
+
+            docs/plan/10 § Web, measured in the spike: omitting -sMIN_WEBGL_VERSION=2 does not
+            error. emscripten_webgl_create_context silently returns a **WebGL 1** context, the ES
+            3.00 shaders then fail to compile, and Silk.NET's GetShaderInfoLog throws
+            ArgumentOutOfRangeException instead of reporting the compile error — so the symptom is
+            an exception inside a diagnostic, several layers away from the missing flag.
+
+            A consumer must not be able to get that wrong by forgetting a line, which is why the
+            flags ship here rather than in a document. Appended rather than assigned, so a head
+            that has its own emcc flags keeps them.
+        -->
+        <EmccExtraLDFlags>$(EmccExtraLDFlags) -lGL -sMAX_WEBGL_VERSION=2 -sMIN_WEBGL_VERSION=2</EmccExtraLDFlags>
+
+        <!--
+            The split happens when there is something listed to defer, so this is the off switch
+            rather than the on one — for bisecting a build, or for publishing without the coupling
+            to the SDK's boot-manifest markers that the task's own comment sets out.
+
+            It cannot be defaulted from whether @(VixenWebLazyAssembly) is empty: MSB4099, an item
+            list may not appear in a condition outside a target. The target's own condition can,
+            and does.
+        -->
+        <VixenWebLazyAssembliesEnabled Condition="'$(VixenWebLazyAssembliesEnabled)' == ''">true</VixenWebLazyAssembliesEnabled>
+
+        <!-- Where the deferred assemblies are served from, relative to the site root. -->
+        <VixenWebLazyAssemblyPath Condition="'$(VixenWebLazyAssemblyPath)' == ''">_lazy</VixenWebLazyAssemblyPath>
+
+    </PropertyGroup>
+
+    <!--
+        ════════════════════════════════════════════════════════════════════════════════════════
+        Lazy assemblies.
+        ════════════════════════════════════════════════════════════════════════════════════════
+
+        docs/plan/10 § Web: "930 KB is the runtime baseline; the engine's own IL adds to it. Lazy
+        assembly loading and splitting so a 2D/UI app does not download the 3D renderer remain
+        worthwhile."
+
+        Usage, in the application head:
+
+            <ItemGroup>
+                <VixenWebLazyAssembly Include="Vixen.Rendering" />
+                <VixenWebLazyAssembly Include="Vixen.Vfx" />
+            </ItemGroup>
+
+        and at run time:
+
+            await WebLazyAssemblies.LoadAsync("Vixen.Rendering");
+
+        ── What this does, and why it is shaped like this ──────────────────────────────────────
+
+        A named assembly is *removed* from the boot manifest and republished as a plain file under
+        $(VixenWebLazyAssemblyPath). The runtime does have a lazyAssembly mechanism of its own, and
+        it is reachable only from Blazor's internals — so this uses the manifest for the half that
+        is a list filter (do not download this at start-up) and does the loading with a public API
+        (AssemblyLoadContext.LoadFromStream over the trimmed IL).
+
+        Two consequences, both real:
+
+          • The IL comes from obj/…/linked/, which is the trimmer's output *before* the WebCIL
+            conversion. WebCIL is a wrapper the runtime's own loader understands and
+            LoadFromStream does not, so a deferred assembly ships as ordinary IL. It is a few per
+            cent larger over the wire than the WebCIL form would be, which is nothing against not
+            downloading it at all.
+
+          • A deferred assembly runs **interpreted** even in an AOT build, exactly as Blazor's lazy
+            loading does. Defer subsystems that are large and cold, not ones that are hot.
+
+        ── The coupling, stated ────────────────────────────────────────────────────────────────
+
+        The boot manifest is inlined into _framework/dotnet.js between /*json-start*/ and
+        /*json-end*/ markers. Those are an SDK implementation detail. The task errors rather than
+        guessing if they are not there, because the alternative failure — a build that silently
+        downloads everything and still works — is one nobody would notice until a size budget did.
+    -->
+
+    <UsingTask TaskName="VixenSplitLazyAssemblies"
+               TaskFactory="RoslynCodeTaskFactory"
+               AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+        <ParameterGroup>
+            <BootFile ParameterType="System.String" Required="true" />
+            <LinkedDirectory ParameterType="System.String" Required="true" />
+            <OutputDirectory ParameterType="System.String" Required="true" />
+            <FrameworkDirectory ParameterType="System.String" Required="true" />
+            <AssemblyNames ParameterType="System.String[]" Required="true" />
+            <DeferredBytes ParameterType="System.Int64" Output="true" />
+        </ParameterGroup>
+
+        <Task>
+            <!--
+                Nothing but netstandard, which is what RoslynCodeTaskFactory compiles against and
+                the only reference set it resolves reliably. That rules out System.Text.Json and
+                BrotliStream: both live in the shared framework, referencing them by path drags in
+                System.Runtime 10.0, and two type identities for `Stream` in one compilation is
+                CS0012 and CS0433 rather than a working task.
+
+                So the manifest edit is a scanner over the JSON text — it has to preserve a document
+                it did not write anyway — and the boot file is re-gzipped rather than re-brotlied.
+                See the target below for what that costs.
+            -->
+            <Using Namespace="Microsoft.Build.Framework" />
+            <Using Namespace="System.Collections.Generic" />
+            <Using Namespace="System.IO" />
+            <Using Namespace="System.IO.Compression" />
+            <Using Namespace="System.Linq" />
+            <Using Namespace="System.Text" />
+
+            <Code Type="Fragment" Language="cs"><![CDATA[
+const string StartMarker = "/*json-start*/";
+const string EndMarker = "/*json-end*/";
+
+// ── A scanner, not a parser ────────────────────────────────────────────────────────────────
+//
+// All that is needed is to delete whole elements from one array in a document this task did not
+// write and should hand back otherwise untouched. Both helpers respect string literals and their
+// escapes, which is the only thing that makes brace counting correct on JSON.
+
+Func<string, int, int> skipValue = null;
+
+skipValue = (text, at) => {
+    var depth = 0;
+    var inString = false;
+
+    for (var index = at; index < text.Length; index++) {
+        var character = text[index];
+
+        if (inString) {
+            if (character == '\\') {
+                index++;
+            } else if (character == '"') {
+                inString = false;
+            }
+
+            continue;
+        }
+
+        if (character == '"') {
+            inString = true;
+        } else if (character == '{' || character == '[') {
+            depth++;
+        } else if (character == '}' || character == ']') {
+            depth--;
+
+            if (depth == 0) {
+                return index + 1;
+            }
+        }
+    }
+
+    return -1;
+};
+
+Func<string, string, string> propertyOf = (objectText, key) => {
+    var quoted = "\"" + key + "\"";
+    var at = objectText.IndexOf(quoted, StringComparison.Ordinal);
+
+    if (at < 0) {
+        return null;
+    }
+
+    var colon = objectText.IndexOf(':', at + quoted.Length);
+    var open = colon < 0 ? -1 : objectText.IndexOf('"', colon + 1);
+
+    if (open < 0) {
+        return null;
+    }
+
+    var builder = new StringBuilder();
+
+    for (var index = open + 1; index < objectText.Length; index++) {
+        if (objectText[index] == '\\') {
+            index++;
+            builder.Append(objectText[index]);
+        } else if (objectText[index] == '"') {
+            return builder.ToString();
+        } else {
+            builder.Append(objectText[index]);
+        }
+    }
+
+    return null;
+};
+
+Action<string> gzip = path => {
+    using (var source = File.OpenRead(path))
+    using (var target = File.Create(path + ".gz"))
+    using (var compressor = new GZipStream(target, CompressionLevel.Optimal)) {
+        source.CopyTo(compressor);
+    }
+};
+
+// ── The edit ───────────────────────────────────────────────────────────────────────────────
+
+if (!File.Exists(BootFile)) {
+    Log.LogError("Vixen: the boot file '{0}' does not exist, so the lazy-assembly split has "
+        + "nothing to edit. This target runs after publish; if the published layout has changed, "
+        + "set VixenWebLazyAssembliesEnabled to false and open an issue.", BootFile);
+    return false;
+}
+
+var boot = File.ReadAllText(BootFile);
+var markerStart = boot.IndexOf(StartMarker, StringComparison.Ordinal);
+var markerEnd = boot.IndexOf(EndMarker, StringComparison.Ordinal);
+
+if (markerStart < 0 || markerEnd < markerStart) {
+    Log.LogError("Vixen: '{0}' does not contain the {1} … {2} markers the .NET SDK writes the boot "
+        + "manifest between. That is an SDK implementation detail and it has changed. Set "
+        + "VixenWebLazyAssembliesEnabled to false to publish without the split.",
+        BootFile, StartMarker, EndMarker);
+    return false;
+}
+
+var manifestStart = markerStart + StartMarker.Length;
+var manifest = boot.Substring(manifestStart, markerEnd - manifestStart);
+
+var resourcesAt = manifest.IndexOf("\"resources\"", StringComparison.Ordinal);
+var assemblyAt = resourcesAt < 0 ? -1 : manifest.IndexOf("\"assembly\"", resourcesAt, StringComparison.Ordinal);
+var arrayAt = assemblyAt < 0 ? -1 : manifest.IndexOf('[', assemblyAt);
+var arrayEnd = arrayAt < 0 ? -1 : skipValue(manifest, arrayAt);
+
+if (arrayEnd < 0) {
+    Log.LogError("Vixen: the boot manifest in '{0}' has no resources.assembly array.", BootFile);
+    return false;
+}
+
+Directory.CreateDirectory(OutputDirectory);
+
+var wanted = new HashSet<string>(
+    AssemblyNames
+        .Select(name => name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ? name.Substring(0, name.Length - 4) : name)
+        .Where(name => name.Length > 0),
+    StringComparer.OrdinalIgnoreCase);
+
+var kept = new List<string>();
+var deferred = new List<string>();
+long total = 0;
+
+// Every element of the array, in order. The array body runs from just after '[' to just before ']'.
+for (var cursor = arrayAt + 1; cursor < arrayEnd - 1; ) {
+    while (cursor < arrayEnd - 1 && (char.IsWhiteSpace(manifest[cursor]) || manifest[cursor] == ',')) {
+        cursor++;
+    }
+
+    if (cursor >= arrayEnd - 1 || manifest[cursor] != '{') {
+        break;
+    }
+
+    var elementEnd = skipValue(manifest, cursor);
+
+    if (elementEnd < 0) {
+        break;
+    }
+
+    var element = manifest.Substring(cursor, elementEnd - cursor);
+    cursor = elementEnd;
+
+    var virtualPath = propertyOf(element, "virtualPath") ?? propertyOf(element, "name");
+    var simple = virtualPath == null ? null : Path.GetFileNameWithoutExtension(virtualPath);
+
+    if (simple == null || !wanted.Contains(simple)) {
+        kept.Add(element);
+        continue;
+    }
+
+    // The trimmer's output, before the WebCIL conversion: LoadFromStream reads IL and nothing else.
+    var il = Path.Combine(LinkedDirectory, simple + ".dll");
+
+    if (!File.Exists(il)) {
+        Log.LogError("Vixen: '{0}' is listed in VixenWebLazyAssembly and there is no trimmed "
+            + "'{1}'. The name has to be an assembly this application actually references — one "
+            + "the trimmer removed entirely has nothing left to defer.", simple, il);
+        return false;
+    }
+
+    var destination = Path.Combine(OutputDirectory, simple + ".dll");
+    File.Copy(il, destination, true);
+    var length = new FileInfo(destination).Length;
+    total += length;
+    gzip(destination);
+
+    // The published copies go, or the browser downloads what the manifest no longer mentions and
+    // the split saves only the parsing.
+    var published = propertyOf(element, "name");
+
+    if (published != null) {
+        foreach (var suffix in new[] { "", ".br", ".gz" }) {
+            var stale = Path.Combine(FrameworkDirectory, published + suffix);
+
+            if (File.Exists(stale)) {
+                File.Delete(stale);
+            }
+        }
+    }
+
+    deferred.Add("  { \"name\": \"" + simple + "\", \"file\": \"" + simple + ".dll\", \"length\": " + length + " }");
+    wanted.Remove(simple);
+    Log.LogMessage(MessageImportance.High, "Vixen: deferred {0} ({1:n0} bytes).", simple, length);
+}
+
+foreach (var missing in wanted) {
+    Log.LogError("Vixen: '{0}' is listed in VixenWebLazyAssembly and is not in the boot manifest. "
+        + "Either this application does not reference it, or the trimmer removed it.", missing);
+    return false;
+}
+
+File.WriteAllText(
+    Path.Combine(OutputDirectory, "vixen-lazy.json"),
+    "[\n" + string.Join(",\n", deferred) + "\n]\n",
+    new UTF8Encoding(false));
+
+var rebuilt = new StringBuilder();
+rebuilt.Append(boot, 0, manifestStart);
+rebuilt.Append(manifest, 0, arrayAt + 1);
+rebuilt.Append(string.Join(",", kept));
+rebuilt.Append(manifest, arrayEnd - 1, manifest.Length - arrayEnd + 1);
+rebuilt.Append(boot, markerEnd, boot.Length - markerEnd);
+
+File.WriteAllText(BootFile, rebuilt.ToString(), new UTF8Encoding(false));
+
+// The pre-compressed copies are stale the moment the boot file changes, and a server doing content
+// negotiation would hand the old manifest to every browser that asked for Brotli — which is every
+// browser. The .br is deleted rather than rewritten (no Brotli encoder is reachable from here) and
+// the .gz is regenerated, so negotiation lands on gzip: about 1.4 KB worse than Brotli on a 40 KB
+// file, against however much IL the split just took out of the start-up payload.
+var staleBrotli = BootFile + ".br";
+
+if (File.Exists(staleBrotli)) {
+    File.Delete(staleBrotli);
+}
+
+gzip(BootFile);
+
+DeferredBytes = total;
+]]></Code>
+        </Task>
+    </UsingTask>
+
+    <Target Name="VixenSplitLazyAssembliesAfterPublish"
+            AfterTargets="Publish"
+            Condition="'$(VixenWebLazyAssembliesEnabled)' == 'true' AND '@(VixenWebLazyAssembly)' != ''">
+
+        <PropertyGroup>
+            <_VixenPublishRoot>$([MSBuild]::NormalizeDirectory('$(PublishDir)', 'wwwroot'))</_VixenPublishRoot>
+            <_VixenFrameworkDir>$([MSBuild]::NormalizeDirectory('$(_VixenPublishRoot)', '_framework'))</_VixenFrameworkDir>
+            <_VixenLinkedDir>$([MSBuild]::NormalizeDirectory('$(IntermediateOutputPath)', 'linked'))</_VixenLinkedDir>
+            <_VixenLazyDir>$([MSBuild]::NormalizeDirectory('$(_VixenPublishRoot)', '$(VixenWebLazyAssemblyPath)'))</_VixenLazyDir>
+        </PropertyGroup>
+
+        <Error Condition="!Exists('$(_VixenLinkedDir)')"
+               Text="Vixen: the lazy-assembly split needs the trimmer's output at '$(_VixenLinkedDir)' and it is not there. PublishTrimmed must be true, which build/Vixen.Platform.Web.props sets unless something overrode it." />
+
+        <VixenSplitLazyAssemblies BootFile="$(_VixenFrameworkDir)dotnet.js"
+                                  LinkedDirectory="$(_VixenLinkedDir)"
+                                  OutputDirectory="$(_VixenLazyDir)"
+                                  FrameworkDirectory="$(_VixenFrameworkDir)"
+                                  AssemblyNames="@(VixenWebLazyAssembly)">
+            <Output TaskParameter="DeferredBytes" PropertyName="_VixenDeferredBytes" />
+        </VixenSplitLazyAssemblies>
+
+        <Message Importance="High"
+                 Text="Vixen: $(_VixenDeferredBytes) bytes of IL deferred out of the start-up payload. Load them with WebLazyAssemblies.LoadAsync." />
+    </Target>
+
+</Project>

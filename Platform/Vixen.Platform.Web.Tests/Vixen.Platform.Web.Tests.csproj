@@ -1,0 +1,76 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <!--
+            net10.0, not net10.0-browser — and the project under test is the other one. A browser
+            test assembly needs a browser to run in, and `dotnet test` has no host for one; that is
+            what the Playwright smoke test in the web CI leg is for (docs/plan/10 § Platform CI
+            matrix), and it exercises the interop.
+
+            What is testable here is everything that is *not* interop, and it is linked in as source
+            rather than referenced. That is deliberate and it is the only way round the TFM: these
+            files touch no [JSImport], so they compile and run on the desktop unchanged, and the
+            alternative — moving them into a platform-neutral assembly to make them testable — would
+            put a browser content manifest in Vixen.Core.IO to satisfy a test runner.
+        -->
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+        <RootNamespace>Vixen.Platform.Web.Tests</RootNamespace>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Raven.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Include="..\Vixen.Platform.Web\IO\WebContentManifest.cs" Link="Linked\WebContentManifest.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Core.IO\Vixen.Core.IO.csproj" />
+    </ItemGroup>
+
+    <Import Project="..\..\Testing\Vixen.Testing.props" />
+
+    <!--
+        The browser half has tests of its own, and they are JavaScript because it is.
+        js/vixen-platform.test.mjs asserts the twelve-double record layout — which is duplicated in
+        WebEventRecord.cs, because nothing can make one side derive it from the other — plus the HID
+        key table, the wheel-unit conversion and the button-role mapping. Each of those is a
+        translation that is wrong in a way no C# test can see.
+
+        Run here rather than left to a README, so it is a regression net rather than a document.
+        No package.json, no install step: it stubs the DOM itself and exits non-zero on the first
+        failure.
+
+        A machine without Node gets a warning and not an error. Node is on every GitHub runner and
+        the check is worth having there; making it fatal would break `dotnet build` for somebody who
+        has no reason to have installed it, over a file they did not touch.
+    -->
+    <ItemGroup>
+        <None Include="js\vixen-platform.test.mjs" />
+    </ItemGroup>
+
+    <Target Name="TestBrowserHalf" AfterTargets="Build">
+        <Exec Command="node --version" ContinueOnError="true" StandardOutputImportance="low" IgnoreExitCode="true">
+            <Output TaskParameter="ExitCode" PropertyName="_NodeExitCode" />
+        </Exec>
+
+        <Warning Condition="'$(_NodeExitCode)' != '0'"
+                 Text="Node is not on PATH, so vixen-platform.js was not tested. Install Node, or run: node $(MSBuildProjectDirectory)/js/vixen-platform.test.mjs" />
+
+        <Exec Condition="'$(_NodeExitCode)' == '0'"
+              Command="node &quot;$(MSBuildProjectDirectory)/js/vixen-platform.test.mjs&quot;"
+              StandardOutputImportance="normal" />
+    </Target>
+
+</Project>
