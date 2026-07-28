@@ -44,6 +44,18 @@ public sealed partial class UiDocument : IDisposable {
 
     readonly int none;
     readonly int visible;
+
+    /// <summary>The subtrees a <c>Remove</c> is part-way through announcing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Because <c>OnRemoved</c> is allowed to remove things and one of them would corrupt
+    ///     the walk.</b> Removing a popup from inside the hook is the whole point and is safe. Removing
+    ///     an <i>ancestor</i> of the subtree currently being announced is not: the outer call is
+    ///     holding an element it is about to detach, and the inner one would detach it first, leaving
+    ///     the outer one to take a node out of a parent it no longer has. Refused with a message
+    ///     rather than left to be found as a null reference three frames later.
+    /// </remarks>
+    readonly List<UiElement> removing = [];
+
     bool dirty = true;
 
     /// <summary>Creates a document over a surface of a given size.</summary>
@@ -313,8 +325,41 @@ public sealed partial class UiDocument : IDisposable {
             throw new InvalidOperationException("the root cannot be removed — a document is its tree.");
         }
 
+        // ⚠ Before the ownership check, which reads `Document` — and a removed element throws on
+        // that rather than answering. Two controls may name the same popup, and the second one to go
+        // should find it already gone rather than be told it belongs to nobody.
+        if (element.IsRemoved) {
+            return;
+        }
+
         if (!ReferenceEquals(element.Document, this)) {
             throw new ArgumentException("that element belongs to another document.", nameof(element));
+        }
+
+        // An `OnRemoved` that removes something already on its way out. Its own subtree is fine — it
+        // is about to go regardless — but an ancestor of one is not: see `removing`.
+        foreach (var pending in removing) {
+            for (var ancestor = pending; ancestor is not null; ancestor = ancestor.Parent) {
+                if (ReferenceEquals(ancestor, element)) {
+                    throw new InvalidOperationException(
+                        "OnRemoved cannot remove an ancestor of the element being removed — "
+                        + "the outer removal is holding it. Remove what the control owns elsewhere in "
+                        + "the tree instead."
+                    );
+                }
+            }
+        }
+
+        // ⚠ Before anything is detached, and before `Release`, because an override's whole purpose is
+        // to reach elsewhere in the document — a menu closing the popover it parented on the root —
+        // and a handler that runs after the subtree is out of the stores can ask almost nothing. It
+        // may remove other elements; `removing` is what stops it removing one of these.
+        removing.Add(element);
+
+        try {
+            Announce(element);
+        } finally {
+            removing.Remove(element);
         }
 
         // Before anything is detached, because finding out whether the focus is inside the subtree
@@ -348,6 +393,26 @@ public sealed partial class UiDocument : IDisposable {
 
         Gestures.Forget(element);
         ForgetHover(element);
+    }
+
+    /// <summary>Tells a subtree it is going, deepest last.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Parents before children, which is the opposite of a disposal order and is right
+    ///     here.</b> A control's <c>OnRemoved</c> tears down what it owns, and what it owns includes
+    ///     its own parts — so a panel that closes its menu wants to run before that menu's own hook,
+    ///     not after it has already been told. It mirrors <c>OnCreated</c>, which builds outward from
+    ///     the type that was asked for.
+    ///
+    ///     The list is snapshotted per level, because a handler may add or remove children of the
+    ///     element it is called on — a popover closing removes its own items — and iterating the live
+    ///     collection would then skip half of them.
+    /// </remarks>
+    static void Announce(UiElement element) {
+        element.OnRemoved();
+
+        foreach (var child in element.Children.ToArray()) {
+            Announce(child);
+        }
     }
 
     /// <summary>Marks a subtree as no longer part of any document.</summary>

@@ -81,26 +81,54 @@ public abstract partial class Overlay : Control {
     /// <summary>Raised when it opens or closes.</summary>
     public event Action<Overlay, bool>? OpenChanged;
 
+    /// <summary>
+    ///     The two root handlers, kept so they can be taken off again.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Fields rather than inline lambdas, and that is the whole reason they are fields.</b>
+    ///     <c>RemoveHandler</c> matches on the delegate, and a lambda written at the call site is a
+    ///     fresh object every time it is evaluated — so registering with one and unregistering with a
+    ///     syntactically identical one removes nothing and reads like it worked.
+    /// </remarks>
+    Action<UiElement, PointerEvent>? dismiss;
+    Action<UiElement, KeyEvent>? escaped;
+
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
 
         AddClass("closed");
 
+        dismiss = (element, args) => Dismiss(args);
+        escaped = (element, args) => Escaped(args);
+
         // ⚠ On the root and on the capture leg, so a press anywhere in the document is seen before
         // whatever it landed on acts on it. Listening on the overlay itself would only hear presses
         // inside the overlay, which are the presses that must *not* close it.
-        Document.Root.AddHandler<PointerEvent>(
-            (element, args) => Dismiss(args),
-            RoutingStrategy.Capture,
-            handledEventsToo: true
-        );
+        Document.Root.AddHandler(dismiss, RoutingStrategy.Capture, handledEventsToo: true);
+        Document.Root.AddHandler(escaped, RoutingStrategy.Capture, handledEventsToo: true);
+    }
 
-        Document.Root.AddHandler<KeyEvent>(
-            (element, args) => Escaped(args),
-            RoutingStrategy.Capture,
-            handledEventsToo: true
-        );
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>An overlay that is removed leaves two handlers on the root, and they are not
+    ///     harmless.</b> Both close over <c>this</c>, so the root holds the removed overlay alive for
+    ///     as long as the document lives, and every pointer event in the application walks two more
+    ///     delegates per overlay ever created — a menu bar that rebuilds its menus leaks a pair each
+    ///     time. Nothing could take them off before <see cref="UiElement.OnRemoved" /> existed.
+    /// </remarks>
+    protected override void OnRemoved() {
+        if (dismiss is not null) {
+            Document.Root.RemoveHandler(dismiss);
+            dismiss = null;
+        }
+
+        if (escaped is not null) {
+            Document.Root.RemoveHandler(escaped);
+            escaped = null;
+        }
+
+        base.OnRemoved();
     }
 
     /// <summary>Shows it, beside an anchor.</summary>
