@@ -56,4 +56,21 @@ public interface IRpcInvoker {
 ///     caller's id in the arguments — where a client would be the one filling it in, which is the
 ///     whole problem.
 /// </remarks>
-public readonly record struct RpcContext(PlayerId Sender, NetworkId Target, RpcMethod Method);
+/// <param name="CorrelationId">
+///     Which outstanding call this is, for one that expects an answer. Zero for the ordinary
+///     fire-and-forget kind, which is almost all of them.
+/// </param>
+public readonly record struct RpcContext(
+    PlayerId Sender,
+    NetworkId Target,
+    RpcMethod Method,
+    uint CorrelationId = 0
+) {
+    /// <summary>Whether the caller is waiting for an answer to this one.</summary>
+    /// <remarks>
+    ///     A handler that ignores this on a call that expects a reply leaves the caller awaiting
+    ///     until its timeout — which is the failure the timeout exists for, and is still a bug worth
+    ///     finding. <c>RpcRouter.Reply</c> is what answers.
+    /// </remarks>
+    public bool ExpectsReply => CorrelationId != 0;
+}

@@ -37,6 +37,7 @@ public sealed class Prefab : IDisposable {
     readonly int[] parents;
     readonly Archetype[] archetypes;
     readonly int[] archetypeOf;
+    readonly int[][] groups;
 
     /// <summary>A name, for diagnostics and for the asset that will own it.</summary>
     public string Name { get; }
@@ -69,6 +70,44 @@ public sealed class Prefab : IDisposable {
         }
 
         archetypes = [.. distinct];
+
+        // Which nodes share an archetype is fixed when the prefab is captured, so the grouping is
+        // worked out once here rather than rebuilt on every instantiation. The root is left out of
+        // it: it is created on its own, because instantiating over a stand-in has to widen its
+        // archetype and the bulk path cannot.
+        var members = new List<int>[archetypes.Length];
+
+        for (var index = 0; index < members.Length; index++) {
+            members[index] = [];
+        }
+
+        for (var index = 1; index < nodes.Length; index++) {
+            members[archetypeOf[index]].Add(index);
+        }
+
+        groups = new int[archetypes.Length][];
+
+        for (var index = 0; index < groups.Length; index++) {
+            groups[index] = [.. members[index]];
+        }
+    }
+
+    /// <summary>Whether one of the captured nodes carries a component.</summary>
+    /// <typeparam name="T">The component type.</typeparam>
+    /// <param name="node">Which node, in capture order, root first.</param>
+    /// <returns>Whether it has one.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="node" /> is not one of them.</exception>
+    /// <remarks>
+    ///     For deciding something about an instance's shape once, when the prefab is registered,
+    ///     rather than per instantiation. Networked spawning uses it to work out which of a prefab's
+    ///     entities want an id of their own — a hundred-entity set piece where only the turret moves
+    ///     should cost one id, not a hundred.
+    /// </remarks>
+    public bool NodeHas<T>(int node) {
+        ArgumentOutOfRangeException.ThrowIfNegative(node);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(node, nodes.Length);
+
+        return template.Has<T>(nodes[node]);
     }
 
     /// <summary>Captures an entity and everything below it.</summary>
@@ -104,45 +143,131 @@ public sealed class Prefab : IDisposable {
     /// <param name="world">Where to put it.</param>
     /// <param name="at">Where to put the root, or <see langword="null" /> to keep the captured transform.</param>
     /// <returns>The instance's root.</returns>
-    public Entity Instantiate(World world, LocalTransform? at = null) {
+    public Entity Instantiate(World world, LocalTransform? at = null) => Instantiate(world, default, at);
+
+    /// <summary>Stamps out an instance and says which entity each of its nodes became.</summary>
+    /// <param name="world">Where to put it.</param>
+    /// <param name="created">
+    ///     Filled with one entity per node, in capture order, root first. Pass an empty span not to
+    ///     ask; anything else must be exactly <see cref="EntityCount" /> long.
+    /// </param>
+    /// <param name="at">Where to put the root, or <see langword="null" /> to keep the captured transform.</param>
+    /// <returns>The instance's root.</returns>
+    /// <exception cref="ArgumentException"><paramref name="created" /> is the wrong length.</exception>
+    /// <remarks>
+    ///     The order is what lets a caller address the nodes without a table: networked spawning
+    ///     numbers an instance's entities from one reserved id, and this is the order it numbers them
+    ///     in.
+    /// </remarks>
+    public Entity Instantiate(World world, Span<Entity> created, LocalTransform? at = null) =>
+        Build(world, Entity.Null, created, at);
+
+    /// <summary>Stamps out an instance over an entity that was already standing in for its root.</summary>
+    /// <param name="world">Where to put it.</param>
+    /// <param name="standIn">The entity to absorb. Destroyed; the returned root replaces it.</param>
+    /// <param name="created">As <see cref="Instantiate(World, Span{Entity}, LocalTransform?)" />.</param>
+    /// <param name="at">Where to put the root, or <see langword="null" /> to keep the captured transform.</param>
+    /// <returns>The instance's root, which is <b>not</b> <paramref name="standIn" />.</returns>
+    /// <exception cref="ArgumentException"><paramref name="created" /> is the wrong length.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         For a receiver that had to make an entity before it knew what the entity was — which is
+    ///         what a networked client does when a snapshot describes an object whose spawn record has
+    ///         not caught up yet. The stand-in's components are real and current and the prefab's are
+    ///         defaults, so <b>the stand-in wins wherever the two overlap</b>: the position that
+    ///         arrived over the wire is where the object is, and the position the artist saved into
+    ///         the prefab is where it would have been.
+    ///     </para>
+    ///     <para>
+    ///         <b>The stand-in's handle does not survive.</b> Its archetype has to grow by everything
+    ///         the prefab's root has, and the root has to be one entity rather than two, so the result
+    ///         is a new row and the old one is destroyed. Callers holding the old handle are holding a
+    ///         dead one — which for the networking is exactly one map entry, rebound here.
+    ///     </para>
+    ///     <para>
+    ///         Its hierarchy links are not absorbed. A stand-in with children would be a subtree the
+    ///         prefab knows nothing about, and grafting one onto an instance root is a decision this
+    ///         has no basis for making.
+    ///     </para>
+    /// </remarks>
+    public Entity InstantiateOnto(World world, Entity standIn, Span<Entity> created, LocalTransform? at = null) =>
+        Build(world, standIn, created, at);
+
+    Entity Build(World world, Entity standIn, Span<Entity> created, LocalTransform? at) {
         ArgumentNullException.ThrowIfNull(world);
         ObjectDisposedException.ThrowIf(template.IsDisposed, this);
 
-        var created = new Entity[nodes.Length];
-        var perArchetype = new List<int>[archetypes.Length];
-
-        for (var index = 0; index < archetypes.Length; index++) {
-            perArchetype[index] = [];
+        if (!created.IsEmpty && created.Length != nodes.Length) {
+            throw new ArgumentException(
+                $"'{Name}' has {nodes.Length} entities and the span is {created.Length}. Pass an empty span not to "
+                + "ask which entity each node became.",
+                nameof(created)
+            );
         }
 
-        for (var index = 0; index < nodes.Length; index++) {
-            perArchetype[archetypeOf[index]].Add(index);
-        }
+        var instances = created.IsEmpty ? new Entity[nodes.Length] : created;
 
-        // One bulk create per archetype, not one per entity. A two-hundred entity prefab of four
-        // archetypes is four of these.
-        for (var group = 0; group < archetypes.Length; group++) {
-            var members = perArchetype[group];
-            var batch = new Entity[members.Count];
+        instances[0] = world.IsAlive(standIn) ? Absorb(world, standIn) : Fresh(world, 0);
+
+        // One bulk create per archetype for everything below the root, not one per entity. A
+        // two-hundred entity prefab of four archetypes is four of these and one for the root.
+        for (var group = 0; group < groups.Length; group++) {
+            var members = groups[group];
+
+            if (members.Length == 0) {
+                continue;
+            }
+
+            var batch = new Entity[members.Length];
             world.CreateMany(world.ArchetypeOf(archetypes[group].Signature.Ids), batch);
 
-            for (var index = 0; index < members.Count; index++) {
-                created[members[index]] = batch[index];
+            for (var index = 0; index < members.Length; index++) {
+                instances[members[index]] = batch[index];
                 world.CopyComponentsFrom(batch[index], template, nodes[members[index]]);
             }
         }
 
         for (var index = 0; index < nodes.Length; index++) {
             if (parents[index] >= 0) {
-                Hierarchy.SetParent(world, created[index], created[parents[index]]);
+                Hierarchy.SetParent(world, instances[index], instances[parents[index]]);
             }
         }
 
-        if (at is { } local && world.Has<LocalTransform>(created[0])) {
-            world.Set(created[0], local);
+        if (at is { } local && world.Has<LocalTransform>(instances[0])) {
+            world.Set(instances[0], local);
         }
 
-        return created[0];
+        return instances[0];
+    }
+
+    Entity Fresh(World world, int node) {
+        var entity = world.Create(world.ArchetypeOf(archetypes[archetypeOf[node]].Signature.Ids));
+        world.CopyComponentsFrom(entity, template, nodes[node]);
+
+        return entity;
+    }
+
+    Entity Absorb(World world, Entity standIn) {
+        // The union of what the prefab's root has and what the stand-in already had, minus the
+        // hierarchy — which is rebuilt from `parents` and would otherwise arrive as a handle naming
+        // a row that is about to be freed.
+        var signature = template.ArchetypeOf(nodes[0]).Signature;
+
+        foreach (var id in Without(world.ArchetypeOf(standIn).Signature).Ids) {
+            signature = signature.With(id);
+        }
+
+        var root = world.Create(world.ArchetypeOf(signature.Ids));
+
+        // Twice, and the order is the rule: the prefab lays down its defaults and the stand-in
+        // overwrites the ones it has an answer for.
+        world.CopyComponentsFrom(root, template, nodes[0]);
+        world.CopyComponentsFrom(root, world, standIn);
+
+        Hierarchy.SetParent(world, standIn, Entity.Null);
+        world.Destroy(standIn);
+
+        return root;
     }
 
     /// <inheritdoc />
