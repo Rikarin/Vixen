@@ -37,10 +37,11 @@ public enum AudioSampleFormat {
 ///         on one machine loads on another.
 ///     </para>
 ///     <para>
-///         <b>What this is not.</b> There is no streaming here — a clip is entirely in memory. Doc 08
-///         wants Ogg or Opus kept compressed for music and decoded as it plays, which needs a decoder
-///         in the <em>runtime</em> and a clip that is a handle to a stream rather than a buffer. That
-///         is a different type and it is owed; see the README.
+///         <b>What this is not.</b> There is no streaming here — a clip is entirely in memory. A track
+///         too big to hold is played through <c>Vixen.Audio.Streaming.StreamingSampleProvider</c>
+///         instead, which is a handle onto a decoder rather than a buffer. Doc 08 wants Ogg or Opus
+///         for that; <c>PcmStreamDecoder</c> is the implementation that needs no codec, and a codec
+///         plugs in behind the same interface.
 ///     </para>
 /// </remarks>
 [DataContract("AudioClip")]

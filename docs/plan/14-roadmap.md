@@ -2021,8 +2021,10 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
 
 - `Vixen.Physics` (Jolt 2.22.0): bodies, shapes, compound shapes, constraints, character controller,
   raycasts/overlaps, triggers, layers, CCD, ECS integration with a fixed-step sync, debug rendering.
-- `Vixen.Audio`: OpenAL backend + WebAudio backend, 3D spatialisation, mixer buses, effects (reverb,
-  filter), streaming, ECS integration.
+- ✅ `Vixen.Audio`: OpenAL backend + WebAudio backend, 3D spatialisation, mixer buses, effects (reverb,
+  filter), streaming, ECS integration. Vixen mixes in software and the backends are sinks — see
+  `Core/Vixen.Audio/README.md` for why, and for what is still owed (surround panning, a sinc
+  resampler, voice stealing, and an Ogg/Opus decoder behind `IAudioStreamDecoder`).
 - `Vixen.Animation`: skeletal playback, blend trees (1D/2D), layers + masks, state machine, IK (two-bone,
   look-at, foot placement), root motion, events, GPU skinning integration.
 - `Vixen.Editor.AnimationGraph`.

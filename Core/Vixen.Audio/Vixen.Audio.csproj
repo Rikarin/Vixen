@@ -4,10 +4,11 @@
         <TargetFramework>net10.0</TargetFramework>
         <RootNamespace>Vixen.Audio</RootNamespace>
         <Description>
-            Engine audio data: the decoded clip a backend submits and the content pipeline produces.
-            No device, no mixer and no codec yet — decoding a WAV is import-time work.
+            The audio subsystem: the decoded clip the content pipeline produces, a software mixer
+            with buses and effects, 3D spatialisation, streaming, and the device contract a backend
+            implements.
         </Description>
-        <PackageTags>audio;pcm;game-engine;vixen</PackageTags>
+        <PackageTags>audio;mixer;spatial;streaming;game-engine;vixen</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
 
@@ -20,6 +21,26 @@
              is described by the same attribute and serialised by the same generated code. -->
         <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
         <ProjectReference Include="..\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+
+        <!-- Positions, velocities and the listener basis. The spatialiser is arithmetic over Vector3
+             and has to agree with Conventions.md about which way is forward. -->
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+
+        <!--
+          The ECS integration: components an emitter carries and the system that drives the engine
+          from a world. It is in this assembly rather than in Vixen.Engine because docs/plan/14 puts
+          "ECS integration" under Vixen.Audio, and because the dependency has to point this way —
+          Vixen.Engine owns WorldTransform, and an audio emitter is a thing at a transform.
+        -->
+        <ProjectReference Include="..\Vixen.Ecs\Vixen.Ecs.csproj" />
+        <ProjectReference Include="..\Vixen.Engine\Vixen.Engine.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- [LoggerMessage] over the ids in docs/manual/log-events.md. Nothing is logged from the
+             audio thread; see Diagnostics/AudioLog.cs. -->
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     </ItemGroup>
 
     <ItemGroup>

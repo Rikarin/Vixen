@@ -19,10 +19,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Vixen.Audio\Vixen.Audio.csproj" />
-        <ProjectReference Include="..\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
-        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
-        <ProjectReference Include="..\Vixen.Ecs\Vixen.Ecs.csproj" />
-        <ProjectReference Include="..\Vixen.Engine\Vixen.Engine.csproj" />
+        <ProjectReference Include="..\Vixen.Audio.Backend.OpenAL\Vixen.Audio.Backend.OpenAL.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Audio\Vixen.Audio.csproj" />
     </ItemGroup>
 </Project>

@@ -443,3 +443,21 @@ dotnet_diagnostic.CA1711.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [Editor/Vixen.Editor.Core/IEditorCommand.cs]
 dotnet_diagnostic.CA1716.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Audio/Devices/AudioDevice.cs
+#
+# CA1716 (identifier conflicts with a reserved language keyword). `Stop` is a
+# statement in Visual Basic, so the rule wants `IAudioDevice.Stop()` renamed.
+# `Start`/`Stop` is what every audio API in existence calls this pair — OpenAL's
+# source play/stop, WebAudio's `AudioBufferSourceNode.start`/`stop`, WASAPI's
+# `IAudioClient::Start`/`Stop` — and a backend author implementing this interface
+# is coming straight from one of them. Renaming it to `Halt` or `Cease` to spare
+# a VB consumer an escaped identifier would cost every reader of the contract
+# more than it saves the consumer, and there is no VB in this repository.
+#
+# Scoped to the file that declares the interface. A stray `Stop` on some other
+# virtual member elsewhere is still reported.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Audio/Devices/AudioDevice.cs]
+dotnet_diagnostic.CA1716.severity = none
