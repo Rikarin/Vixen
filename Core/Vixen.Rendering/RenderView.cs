@@ -23,6 +23,7 @@ namespace Vixen.Rendering;
 /// </remarks>
 public sealed class RenderView(string name) {
     Matrix4x4 viewProjection = Matrix4x4.Identity;
+    RenderCamera? camera;
 
     /// <summary>The view's name, for logging and profiling.</summary>
     public string Name { get; } = name;
@@ -60,6 +61,35 @@ public sealed class RenderView(string name) {
         set {
             viewProjection = value;
             Frustum = new(value);
+        }
+    }
+
+    /// <summary>
+    ///     How this view's projection was built, for the things that need more than the matrix.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Null for every view that is not a camera — a shadow cascade, a probe face — and that is
+    ///         the ordinary case. What needs it is the cascade fit, which slices a <em>cone</em> and
+    ///         therefore has to know the field of view and the aspect a matrix alone does not give
+    ///         back.
+    ///     </para>
+    ///     <para>
+    ///         <strong>Setting it sets the position and the matrix</strong>, and therefore the frustum,
+    ///         for the same reason setting the matrix derives the frustum: a camera and a view that
+    ///         describe different volumes is a bug nothing reports, and here it would mean a cascade
+    ///         fitted to a field of view the camera no longer has.
+    ///     </para>
+    /// </remarks>
+    public RenderCamera? Camera {
+        get => camera;
+        set {
+            camera = value;
+
+            if (value is { } from) {
+                Position = from.Position;
+                ViewProjection = from.ViewProjection;
+            }
         }
     }
 

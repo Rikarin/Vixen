@@ -320,6 +320,31 @@ a point light that did not. When it runs out, lights are dropped **whole and cou
 with four of six faces rendered is worse than one with none, because the two missing directions are
 lit as though nothing occludes them.
 
+### The camera, once
+
+A cascade fit needs a camera, and for a long time it held seven scalars describing one — a copy of
+something the frame already knew, which a host had to keep in step with the view it also set. Nothing
+checked that they agreed, and a cascade fitted to a field of view the camera no longer has puts the
+shadow distance somewhere the setting does not say. That shows up as shadows fading in at the wrong
+distance and gets attributed to the shadow distance.
+
+`RenderCamera` is that description once. A `RenderView` carrying one has its position, matrix and
+frustum derived from it, and `ShadowMapRenderer.Camera` points at the same view — so the thing the
+frame is drawn from and the thing the cascades are fitted to are the same object. The scalars remain
+for a test or a tool fitting cascades to a hypothetical camera, which has no view to point at.
+
+A view is still not a camera. Most views are not — a cascade, a probe face — and `Camera` is null on
+every one of them. What changed is that the one view that *is* a camera can say so.
+
+The sun is the same argument: `ISunSource` gives the shadow renderer the scene's brightest
+directional light, rather than a host copying its direction across every frame and one day
+forgetting, leaving a level lit from one direction and shadowed from another. An interface rather than
+a reference to the lighting feature, so a scripted or cinematic sun supplies it and nothing else
+changes.
+
+The golden fixture fits its cascades from a scene camera now, and produces the same reference image
+it did from the scalars.
+
 ### Caching a cascade
 
 Two things have to be true together, and neither is worth anything alone.
@@ -698,9 +723,6 @@ and a spot light over static geometry has the same argument waiting for it.
 
 Instance batching by locality: an instanced batch is culled as one object, so what goes in one is the
 caller's decision and there is nothing here to help make it.
-
-The shadow renderers still take a light direction and a camera from a host rather than from the
-scene.
 
 A compositor **does** resolve by address: `Vixen.Assets.Tests.CompositorContentTests` writes one into
 a bundle, asks for it by address and builds a running frame from what comes back. It is asserted
