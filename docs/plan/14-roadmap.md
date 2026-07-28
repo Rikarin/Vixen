@@ -1614,7 +1614,7 @@ sub-piece has its own gate.
   rewrite broke nothing, because the descriptor had been written by the atlas path on the way past
   and was correct by accident.
 
-- Owed: per-character font fallback, rich-text runs, `TextEditor` model with IME and caret affinity.
+- Owed: rich-text runs from markup, `TextEditor` model with IME and caret affinity.
   On the rendering side: reconciling the per-vertex box parameters here with `Raven/Library/Ui`'s
   per-uniform ones when Raven takes over shader compilation.
 - Gate: ✅ UAX conformance data green. ✅ shaping conformance green against an external oracle,
@@ -1870,9 +1870,9 @@ sub-piece has its own gate.
 
   **Fonts are registered rather than discovered**: a game ships its fonts, and an interface laid out
   by whatever the operating system happened to have installed lays out differently on every machine.
-  ⚠ That registry is **not font fallback** — the list is tried until a *registered* family is found,
-  not per character until one with a glyph is found — and weight and style matching is not there
-  either. Both owed and said rather than half-implemented.
+  ⚠ That registry was **not font fallback** — the list was tried until a *registered* family was
+  found, not per character until one with a glyph was found. Both that and weight matching are built
+  now; see the entry below.
 
   ⚠ **The frame diff has to cover the side buffer.** A command names a *range* of the glyph array, so
   two frames whose text changed from one word to another of the same length hold byte-identical
@@ -2098,9 +2098,45 @@ sub-piece has its own gate.
   Owed here: named slot projection, `scoped` actually scoping, a component stylesheet loaded once
   per type rather than per instance, and a longest-increasing-subsequence pass so a reorder moves a
   minimal set. The last is correctness-neutral — a move that changes nothing returns immediately.
-- Owed in `Vixen.Ui`: style-slot compaction, access keys, line wrapping, rich-text runs,
-  font fallback and weight matching, gradients, per-corner elliptical radii, pinch and rotate,
-  virtualisation primitive, multi-window and DPI.
+- ✅ **A line is a list of runs, and a character picks its own font.** `font-family: Inter, Noto Sans
+  JP` is a per-character chain rather than a first-registered-wins list: `FontRegistry.Chain` turns a
+  declaration into the faces to try and `Cover` hands each grapheme cluster to the first that draws
+  all of it. `TextRun` goes back to meaning one face and `TextLine` is the ordered runs of one
+  element's text, with the width, the shared baseline and the caret arithmetic on it.
+
+  ⚠ **Composition happens in pixels, and that is not an implementation detail.** A 1000-unit face and
+  a 2048-unit face measure an em differently, so two advances from different fonts cannot be added at
+  all — which is why `Vixen.Ui.Text`'s size-independent `ShapedText` stays single-font and the run
+  list lives in `Vixen.Ui`. A draw command names one font, so a mixed line is a command each, and
+  `TextField`'s caret moved into pixels for the same reason.
+
+  ⚠ **Per grapheme cluster, not per code point.** Splitting a base letter from its combining mark
+  puts the accent at a pen position derived from another font's em; one visible tofu is the better
+  failure. Adjacent clusters on the same face merge, because a span boundary is where kerning,
+  ligatures and Arabic joining all stop.
+
+  `Line()` caches, and that is what makes it affordable: deciding which face draws which character is
+  a native call per code point, and the measure and draw passes both want the answer. The key
+  includes `FontRegistry.Revision`, because registering a face changes what a declaration resolves to
+  without changing anything on the element.
+
+  Verified by sabotage against two fonts with deliberately disjoint coverage, nine of nine landing:
+  covering per code point fails 1, not merging fails 9, `Default` behind the fallbacks instead of in
+  front fails 3, dropping the revision from the cache fails 1, one command for a mixed line fails 1,
+  forgetting a run's pen fails 1, the tallest run's height instead of both sides fails 1, the last
+  covering face instead of the first fails 1, a surrogate pair read as two characters fails 1.
+
+  ⚠ **Two sabotages needed the tests changed before they could land, and both found a real hole.**
+  The surrogate one had no fixture: with only a Latin and a Kannada face, both readings send an
+  astral character to the head of the chain and agree, so Zycon was linked in to have a font that
+  draws one. And the `Default`-ordering test was written against "AB", where the fallback has no
+  Latin and coverage decides the answer whatever the order is — it needed a character *both* faces
+  have, which is the space.
+
+  Owed with it: the other end of rich text — the markup and the cascade that would say which stretch
+  is bold. The run list already carries a face, a size, a tracking and a leading per run.
+- Owed in `Vixen.Ui`: style-slot compaction, access keys, line wrapping, gradients, per-corner
+  elliptical radii, pinch and rotate, virtualisation primitive, multi-window and DPI.
 - `Vixen.Ui.Markup`: ✅ **VXML — lexer, parser, binder, emitter and `#line` mapping.** A `.vxml`
   becomes a green/red tree over `Vixen.Core.Syntax`, then a `BoundComponent`, then a C# partial
   class. Second grammar on the shared tree, which is the first evidence that the Phase 0 extraction

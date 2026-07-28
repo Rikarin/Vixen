@@ -25,7 +25,7 @@ top.
 | `UiDocument.FindInDirection` | Arrow navigation over the layout, by the beam model. |
 | `GestureRecognizer` | Taps with a count, long presses and drags from one pointer; pinch and rotation from two, as one `TransformEvent`. |
 | `visibility`, `opacity` | Honoured by the draw list: hidden elements are not painted but keep their space and their subtree; opacity multiplies down the tree. |
-| `FontRegistry`, `TextRun` | `font-family` → a face, shaping through a cache, measurement into layout, glyphs into the draw list. |
+| `FontRegistry`, `TextRun`, `TextLine` | `font-family` → a fallback chain, a face per character, shaping through a cache, measurement into layout, glyphs into the draw list. |
 | `PathBuilder`, `OnDraw` | Lines, curves, fills and strokes for the controls a stylesheet cannot describe. |
 | `DrawBatcher` | Contiguous, order-preserving, maximal runs a renderer can submit as one. |
 | `UiDocument.Move` | Reordering a sibling in all three stores, so `:nth-child` moves with it. |
@@ -144,9 +144,24 @@ range of one glyph buffer. Four things that were built separately, joined.
 fonts, and an interface laid out by whatever the operating system happened to have installed lays out
 differently on every machine it runs on.
 
-⚠ **The registry is not font *fallback*.** The list in a declaration is tried until a *registered*
-family is found; it is not tried per character until one with a glyph is found. A registered font
-missing the code point draws `.notdef`. Owed, and said rather than half-implemented.
+**A declaration is a fallback chain, and a line is a list of runs.** `font-family: Inter, Noto Sans
+JP` means both faces in that order, and `FontRegistry.Cover` hands each grapheme cluster to the first
+that draws all of it — so one element's text can be in several faces at once. `TextLine` is that list
+and `TextRun` is one face of it; a draw command names one font, so a mixed line is a command each.
+
+⚠ **Composition happens in pixels, and that is not an implementation detail.** A 1000-unit face and a
+2048-unit face measure an em differently, so two advances from different fonts cannot be added at
+all. It is why `Vixen.Ui.Text`'s size-independent `ShapedText` stays single-font and the run list
+lives up here.
+
+⚠ **Per cluster, not per code point.** Splitting a base letter from its combining mark puts the
+accent at a pen position derived from another font's em — a floating accent, where one visible tofu
+would have been the better failure. A cluster no face covers whole goes to the head of the chain.
+
+`AddFallback` is the tail behind every declaration: the emoji or CJK face an application wants
+everywhere and should not have to write into each rule. `Default` keeps its narrower meaning — a
+substitute for a declaration that named nothing registered, in *front* of the fallbacks rather than
+behind them.
 
 **A family is a set of variants, and a face's weight and slant are stated rather than sniffed.** They
 could be read from the file's `OS/2` table, and that would be the same mistake in miniature as

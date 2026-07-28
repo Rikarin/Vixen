@@ -348,7 +348,11 @@ public partial class UiElement {
     ///         ⚠ <b>Text belongs to an element rather than being a node of its own</b>, which is the
     ///         departure from the DOM. A text node buys mixed content — <c>hello &lt;b&gt;there&lt;/b&gt;</c>
     ///         as three children of one paragraph — and costs a node, a style and a layout box for
-    ///         every word. Rich text is a run list inside one element when it arrives, and it is owed.
+    ///         every word. Rich text is a run list inside one element instead, and
+    ///         <see cref="TextLine" /> is that list: it already carries a face, a size, a tracking and
+    ///         a leading per run, and already draws as a command each. What is owed is the other end
+    ///         — the markup and the cascade that would say <i>which</i> stretch is bold. Per-character
+    ///         font fallback is the first thing that builds several runs, and it is built.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>An element with text cannot have children</b>, and the layout tree is what says

@@ -21,6 +21,23 @@ namespace Vixen.Ui.Tests;
 ///         ⚠ The fonts' coverage is asserted rather than assumed. A subsetted replacement would
 ///         otherwise turn every test below green by making the split unnecessary.
 ///     </para>
+///     <para>
+///         Verified by sabotage, nine of nine landing: covering per code point instead of per cluster
+///         fails 1, not merging adjacent clusters on the same face fails 9, putting
+///         <c>Default</c> behind the fallbacks fails 3, dropping <c>FontRegistry.Revision</c> from the
+///         line cache fails 1, emitting one draw command for a mixed line fails 1, forgetting a run's
+///         pen in the caret arithmetic fails 1, taking the tallest run's height instead of both sides
+///         separately fails 1, taking the <i>last</i> covering face rather than the first fails 1, and
+///         reading a surrogate pair as two characters fails 1.
+///     </para>
+///     <para>
+///         ⚠ <b>Two of those needed the tests changed to see them.</b> The last one had no fixture at
+///         all until Zycon was linked in — with only Latin and Kannada faces, both readings of a
+///         surrogate pair send the character to the head of the chain and agree. And the
+///         default-versus-fallback ordering test was passing against "AB", where the fallback has no
+///         Latin and coverage decides the answer whatever the order was; it needed a character
+///         <i>both</i> faces have, which is the space.
+///     </para>
 /// </remarks>
 public class FontFallbackTests {
     const string Latin = "AB";
@@ -28,8 +45,12 @@ public class FontFallbackTests {
     /// <summary>KA and the vowel sign AA — two code points, two glyphs, one Kannada syllable.</summary>
     const string Kannada = "ಕಾ";
 
+    /// <summary>U+1F98E LIZARD, the astral character Zycon draws and the other two do not.</summary>
+    const string Astral = "🦎";
+
     static readonly FontFace Lana = LoadFont("TestShapeLana.ttf", "lana");
     static readonly FontFace Serif = LoadFont("NotoSerifKannada-Regular.ttf", "kannada");
+    static readonly FontFace Emoji = LoadFont("Zycon.ttf", "zycon");
 
     static FontFace LoadFont(string resource, string name) {
         using var stream = Assembly.GetExecutingAssembly()
@@ -72,6 +93,32 @@ public class FontFallbackTests {
         // The one they share, which is what makes the merging test below mean something.
         Assert.True(Lana.Supports(' '));
         Assert.True(Serif.Supports(' '));
+
+        // And the astral character exactly one of the three has.
+        var lizard = char.ConvertToUtf32(Astral, 0);
+
+        Assert.True(Emoji.Supports(lizard));
+        Assert.False(Lana.Supports(lizard));
+        Assert.False(Serif.Supports(lizard));
+    }
+
+    [Fact]
+    public void An_astral_character_is_one_code_point_and_finds_the_face_that_has_it() {
+        var document = new UiDocument(400f, 200f);
+        using var owned = document;
+
+        document.Fonts.Register("Test", Lana);
+        document.Fonts.AddFallback(Emoji);
+        document.Load("root { width: 400px; height: 200px; } label { font-family: Test; }");
+
+        var line = Labelled(document, "A" + Astral + "A").Line()!;
+
+        // ⚠ **The surrogate pair is the test.** Reading the string a `char` at a time asks the font
+        // about U+D83E and U+DD8E, and no font has either — so the lizard would be "covered by
+        // nothing", stay with the head of the chain, and draw a tofu from a font that has the real
+        // glyph two places further along. It looks exactly like a missing font.
+        Assert.Equal([Lana, Emoji, Lana], line.Runs.Select(run => run.Font));
+        Assert.Equal(Astral, line.Runs[1].Shaped.Text);
     }
 
     [Fact]
@@ -264,14 +311,19 @@ public class FontFallbackTests {
     public void A_declaration_that_names_nothing_registered_still_prefers_the_default() {
         using var document = Documented();
 
+        // ⚠ **A space, and the test is nothing without it.** Both faces draw one, so it is the only
+        // character here whose font is decided by chain order rather than by coverage — against
+        // "AB" alone, a chain with the fallback in front still ends up drawing every letter in the
+        // declared face, because the fallback has no Latin, and the test passes while defending
+        // nothing. It cost a sabotage to notice.
         var label = document.Root.Add("div");
-        label.Text = Latin;
+        label.Text = "A B";
         document.Update();
 
-        // ⚠ The default stands in for the *primary*, so it goes in front of the fallbacks rather than
-        // behind them. Behind them, an element with no `font-family` would draw in whichever face was
-        // registered as a last resort for some other script — here, all of Latin in a Kannada font,
-        // which is a page of tofu from a stylesheet that looks fine.
+        // The default stands in for the *primary*, so it goes in front of the fallbacks rather than
+        // behind them. Behind them, an element with no `font-family` would take its spaces — and
+        // every character the fallback happens to have — from whichever face was registered as a
+        // last resort for some other script.
         Assert.Same(Lana, Assert.Single(label.Line()!.Runs).Font);
     }
 }

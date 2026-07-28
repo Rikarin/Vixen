@@ -37,6 +37,16 @@
         -->
         <EmbeddedResource Include="..\Vixen.Ui.Text.Tests\Fonts\NotoSerifKannada-Regular.ttf"
                           LogicalName="Vixen.Ui.Tests.Fonts.NotoSerifKannada-Regular.ttf" />
+
+        <!--
+            And a face with an *astral* character in it, which neither of the others has. Per-glyph
+            fallback reads a string a code point at a time, and a surrogate pair read as two `char`s
+            asks the font about two halves of an emoji that no font has — so every astral character
+            would fall past the whole chain. Nothing without a font that draws one can tell the two
+            readings apart: it cost a sabotage that failed to fail to notice.
+        -->
+        <EmbeddedResource Include="..\Vixen.Ui.Text.Tests\Fonts\Zycon.ttf"
+                          LogicalName="Vixen.Ui.Tests.Fonts.Zycon.ttf" />
     </ItemGroup>
 
     <ItemGroup>
