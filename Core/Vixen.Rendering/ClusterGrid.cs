@@ -3,6 +3,7 @@
 
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
+using Vixen.Shaders;
 
 namespace Vixen.Rendering;
 
@@ -103,6 +104,44 @@ public static class ClusterGrid {
             / MathF.Max(MathF.Log(far / near), 1e-6f);
 
         return Math.Clamp((int)(ratio * Slices), 0, Slices - 1);
+    }
+
+    /// <summary>
+    ///     Writes the camera parameters that place a fragment in the grid, under one shader's names.
+    /// </summary>
+    /// <param name="parameters">Where the values go.</param>
+    /// <param name="camera">The camera the grid is built in.</param>
+    /// <param name="shaderName">The pass whose keys to write — the culler, or whatever shades.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>Both passes are filled from here, and that is the entire reason it exists.</strong>
+    ///         The culler bins a light into a froxel from these four numbers and a fragment finds its
+    ///         own froxel from the same four; give them a different aspect ratio, or a far plane one
+    ///         of them rounded, and every fragment reads the list that was filled for somewhere else.
+    ///         Nothing about that failure looks like a mismatch — it looks like lights that flicker
+    ///         near the edges of the screen.
+    ///     </para>
+    ///     <para>
+    ///         The vertical half-tangent is the camera's field of view and the horizontal one is that
+    ///         times the aspect ratio, which is the pair <c>ClusterCulling.UvOf</c> divides by. The
+    ///         shader's own defaults — <c>float2(1, 0.5625)</c> — are exactly a 16:9 camera at a
+    ///         ninety-degree horizontal field of view, so a host that writes nothing gets a grid for a
+    ///         camera it probably does not have.
+    ///     </para>
+    /// </remarks>
+    public static void Apply(ParameterCollection parameters, in RenderCamera camera, string shaderName) {
+        ArgumentNullException.ThrowIfNull(parameters);
+        ArgumentException.ThrowIfNullOrEmpty(shaderName);
+
+        var vertical = MathF.Tan(camera.FieldOfView * 0.5f);
+
+        parameters.Set(
+            ParameterKeys.New<Vector2>($"{shaderName}.tanHalfFov"),
+            new(vertical * camera.AspectRatio, vertical)
+        );
+
+        parameters.Set(ParameterKeys.New<float>($"{shaderName}.nearPlane"), camera.NearPlane);
+        parameters.Set(ParameterKeys.New<float>($"{shaderName}.farPlane"), camera.FarPlane);
     }
 }
 

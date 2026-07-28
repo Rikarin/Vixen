@@ -719,10 +719,40 @@ bind is where the shader is known. A host that had to size the array itself woul
 `ProbeCount` permutation in two places. Set it and a frame binds its own set 0 with nothing named by
 hand; leave it null and `SceneConstants` is what it was, a collection somebody fills.
 
-What set 0 still wants from elsewhere is the shadow map and its matrix, and the light and cluster
-buffers — handles a *frame* produced, held by the passes that produced them, where the environment and
-the probes are objects a *scene* holds. That split is why `SceneLighting` writes the second group and
-not the first.
+The rest of set 0 is handled the same way and by different owners, because the split is real: the
+environment and the probes are objects a *scene* holds, while an atlas and a cluster list are handles a
+*frame* produced and are only valid after the pass that produced them ran.
+
+| Binding | Published by | Why there |
+|---|---|---|
+| `environment`, `probes[i]`, `probeVolumes[i]`, the sun | `SceneLighting` | objects the scene holds |
+| `lightBuffer` | `ForwardLightingRenderFeature` | its own buffer, recreated whenever the scene outgrows it |
+| `shadowMap`, `clusters` | `RenderPassRenderer.SceneTextures` / `SceneBuffers` | frame resources — see below |
+| `lightViewProjection`, `shadowTexelSize`, both biases, `shadowSampler` | `ShadowMapRenderer` | everything the atlas cannot say about itself |
+| `tanHalfFov`, `nearPlane`, `farPlane` | `ClusterGrid.Apply`, through `SceneLighting.Camera` | the culler and the fragment must be given the same four |
+
+**The consuming pass publishes the frame resources, not the producing one.** A graph resource has no
+handle until the graph has placed it, so a producer that published its own output would be handing over
+a handle whose read barrier nobody declared. Naming one in `SceneTextures` *is* declaring the read —
+the two lists cannot disagree, because there is only one.
+
+`ShadowMapRenderer` publishes **cascade zero's** matrix, with its atlas tile folded into it by
+`ShadowCascades.AtlasProjection`. Both halves are load-bearing. The shader declares one
+`lightViewProjection` and one `shadowMap`, so a fragment past the nearest cascade is unshadowed rather
+than shadowed by the wrong slice — selecting a cascade per fragment is shader work that has not been
+done, and publishing four matrices into a shader that reads one would look like it worked. And the tile
+has to be in the matrix: `NdcToUv(cascade · p)` addresses the *whole* atlas, so with four tiles in it
+every lookup would land a quarter of the way into somebody else's and read a plausible depth from it.
+
+`ViewConstants` defaults to **144 bytes with `Vixen.View` at 80**, which is what `ForwardPlus.rvn`
+declares for set 1. That is not a coincidence to be tidied away: set 1 is a contract between shaders, so
+the engine's own pass defines it. It was 80 while the shader said 144 — a descriptor range shorter than
+the block it points at.
+
+`ForwardFrameTests` is the end-to-end assertion, and it builds its effect from
+`ForwardPlus.reflect.json` through the real `EffectLoader`: one frame, four sets bound, one draw, and a
+paired negative where a single hand-off is removed and set 0 goes unbound rather than half-written. A
+hand-written fake would only assert that the renderer agrees with itself.
 
 `MeshRenderFeature` binds set 0 where it binds set 1 — after the first pipeline, once per run. After,
 because `BindDescriptorSet` takes no pipeline layout and infers one from what is bound, so a set before

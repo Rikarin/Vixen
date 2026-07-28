@@ -461,6 +461,52 @@ public class ClusteredLightingTests : IDisposable {
         Assert.Empty(device.Recorder!.OfKind(RecordedCommandKind.Dispatch));
     }
 
+    // --- The camera both passes are given ------------------------------------
+
+    /// <summary>
+    ///     The published half-tangents are the camera's own projection, derived another way.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The check that matters about <see cref="ClusterGrid.Apply" />, and the reason
+    ///         <c>ClusterCulling.rvn</c> divides by a tangent pair rather than multiplying by a
+    ///         projection matrix: the culler bins a light into a froxel from these numbers and a
+    ///         fragment finds its own froxel from them, so if they disagree with the matrix the
+    ///         geometry was projected with, every fragment reads the list that was culled for
+    ///         somewhere else.
+    ///     </para>
+    ///     <para>
+    ///         Asserted against the projection matrix rather than against trigonometry repeated here —
+    ///         two derivations of one quantity is exactly the failure, so the test has to use the
+    ///         other one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_published_tangents_agree_with_the_cameras_projection() {
+        var camera = new RenderCamera(Vector3.Zero, new(0f, 0f, 1f), new(0f, 1f, 0f), MathF.PI / 3f, 16f / 9f, 0.1f, 1000f);
+        var parameters = new ParameterCollection();
+
+        ClusterGrid.Apply(parameters, camera, "ClusterCulling");
+
+        var tangents = parameters.Get(ParameterKeys.New<Vector2>("ClusterCulling.tanHalfFov"));
+        var projection = camera.Projection;
+
+        foreach (var point in (Vector3[])[new(3f, 2f, -12f), new(-7f, 4f, -40f), new(0.5f, -1.5f, -3f)]) {
+            var clip = Matrix4x4.TransformVector4(new(point, 1f), projection);
+
+            // Magnitudes, because the two describe the same frustum in opposite handedness: the
+            // engine's projection is right-handed, so a visible point has negative view-space z,
+            // while the culler's `max(positionVS.z, …)` reads z as a distance. What has to agree —
+            // and what a wrong aspect ratio or a vertical-for-horizontal mistake would break — is how
+            // wide the frustum is at a depth, which is what the pair states.
+            Assert.Equal(MathF.Abs(clip.X / clip.W), MathF.Abs(point.X / (point.Z * tangents.X)), 3);
+            Assert.Equal(MathF.Abs(clip.Y / clip.W), MathF.Abs(point.Y / (point.Z * tangents.Y)), 3);
+        }
+
+        Assert.Equal(camera.NearPlane, parameters.Get(ParameterKeys.New<float>("ClusterCulling.nearPlane")));
+        Assert.Equal(camera.FarPlane, parameters.Get(ParameterKeys.New<float>("ClusterCulling.farPlane")));
+    }
+
     /// <summary>A compute node naming a buffer nothing bound is refused by name.</summary>
     [Fact]
     public void A_compute_node_naming_an_unbound_buffer_is_refused() {

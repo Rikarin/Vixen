@@ -168,6 +168,21 @@ public sealed class ForwardLightingRenderFeature
     /// <summary>How many lights the scene buffer holds this frame.</summary>
     public int SceneLightCount => scene.Count;
 
+    /// <summary>
+    ///     Where to publish the scene's light buffer, or null to publish it nowhere.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="SceneConstants" />' collection, normally. The buffer is a binding of the frame's
+    ///     set — <c>ForwardPlus.lightBuffer</c>, which the clustered variant indexes into — and it is
+    ///     recreated whenever the scene outgrows it, so a host that read the handle once and wrote it
+    ///     down would be binding a buffer the device has since retired. Publishing it from
+    ///     <see cref="Prepare" /> means the name always resolves to this frame's.
+    /// </remarks>
+    public ParameterCollection? Scene { get; set; }
+
+    /// <summary>Which pass's names to publish under.</summary>
+    public string ShaderName { get; set; } = "ForwardPlus";
+
     /// <inheritdoc />
     public IReadOnlyList<PermutationKey<bool>> PermutationKeys => keys;
 
@@ -282,6 +297,7 @@ public sealed class ForwardLightingRenderFeature
 
         SplitByKind();
         UploadScene();
+        Publish();
 
         // One tick of the ring per frame, and Prepare is what a frame is here. It has to happen on
         // both paths: the clustered path allocates no set, and a ring that only advanced on the
@@ -514,11 +530,7 @@ public sealed class ForwardLightingRenderFeature
         scene.Device = Device;
         scene.Begin();
 
-        if (punctual.Count == 0) {
-            return;
-        }
-
-        if (flattened.Length < punctual.Count) {
+        if (flattened.Length < Math.Max(punctual.Count, 1)) {
             flattened = new PunctualLightData[Math.Max(punctual.Count, 64)];
         }
 
@@ -526,8 +538,30 @@ public sealed class ForwardLightingRenderFeature
             flattened[i] = lights[punctual[i]].ToGpu();
         }
 
-        scene.Add(flattened.AsSpan(0, punctual.Count));
+        // One empty entry rather than nothing when the scene has no punctual lights at all. The
+        // buffer is a *binding* of the frame's set, and a set is written wholly or not at all — so a
+        // scene lit by the sun alone would otherwise fail to bind set 0 and draw nothing. Nobody
+        // reads it: the count is what ends both loops.
+        if (punctual.Count == 0) {
+            flattened[0] = default;
+        }
+
+        scene.Add(flattened.AsSpan(0, Math.Max(punctual.Count, 1)));
         scene.Upload();
+    }
+
+    /// <summary>Hands this frame's light buffer to whatever binds the frame's set.</summary>
+    /// <remarks>
+    ///     On both paths, because both read it: the clustered variant indexes into it through the
+    ///     cluster lists and the unclustered one declares the binding whether or not its loop uses it,
+    ///     and a set is written wholly or not at all.
+    /// </remarks>
+    void Publish() {
+        if (Scene is not { } parameters || !scene.Buffer.IsValid) {
+            return;
+        }
+
+        parameters.Set(ParameterKeys.New<BufferHandle>($"{ShaderName}.lightBuffer"), scene.Buffer);
     }
 
     void SplitByKind() {

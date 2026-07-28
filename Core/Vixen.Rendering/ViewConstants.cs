@@ -48,6 +48,15 @@ public sealed class ViewConstants(IGraphicsDevice device, string name = "View") 
     public static readonly ParameterKey<Vector3> ViewPosition =
         ParameterKeys.New<Vector3>("Vixen.ViewPosition");
 
+    /// <summary>World to view, at byte 80 of the default layout.</summary>
+    /// <remarks>
+    ///     Not the same thing as <see cref="ViewProjection" /> without the projection: it is what
+    ///     places a fragment in <em>view</em> space, which is where a cluster grid is built. A shader
+    ///     that reads it and a host that never wrote it agree on a matrix of zeros, and every fragment
+    ///     lands in the froxel at the origin.
+    /// </remarks>
+    public static readonly ParameterKey<Matrix4x4> View = ParameterKeys.New<Matrix4x4>("Vixen.View");
+
     readonly Dictionary<RenderView, Block> blocks = [];
     bool disposed;
 
@@ -65,15 +74,26 @@ public sealed class ViewConstants(IGraphicsDevice device, string name = "View") 
 
     /// <summary>How large the block is, in bytes.</summary>
     /// <remarks>
-    ///     Eighty by default: a <c>mat4</c> and a <c>float3</c> under std140, which puts the position
-    ///     at 64 and rounds the block to 80. A project that adds members sets this to match.
+    ///     <para>
+    ///         A hundred and forty-four: a <c>mat4</c>, a <c>float3</c> and a second <c>mat4</c> under
+    ///         std140, which puts the position at 64, the view matrix at 80 and rounds the block to
+    ///         144. A project that adds members sets this to match.
+    ///     </para>
+    ///     <para>
+    ///         It is what <c>ForwardPlus.rvn</c> declares for set 1, and that is not a coincidence to
+    ///         be tidied away later: set 1 is a <em>contract between shaders</em>, so the engine's own
+    ///         pass is what defines it. It was eighty here while the shader said 144 — a descriptor
+    ///         range shorter than the block it points at, which the Vulkan validation layers report
+    ///         and a release driver reads past.
+    ///     </para>
     /// </remarks>
-    public int Size { get; set; } = 80;
+    public int Size { get; set; } = 144;
 
     /// <summary>Where each value goes in the block.</summary>
     public IList<EffectParameter> Members { get; } = [
         new(ViewProjection, 0, 64),
-        new(ViewPosition, 64, 12)
+        new(ViewPosition, 64, 12),
+        new(View, 80, 64)
     ];
 
     /// <summary>How many views have a block.</summary>
@@ -112,6 +132,14 @@ public sealed class ViewConstants(IGraphicsDevice device, string name = "View") 
 
         block.Parameters.Set(ViewProjection, view.ViewProjection);
         block.Parameters.Set(ViewPosition, view.Position);
+
+        // Only from a view that carries a camera. A cascade or a probe face has a view-projection and
+        // no camera to derive a view matrix from, and writing an identity for it would be worse than
+        // leaving the member alone: a clustered fragment would place itself in world space and read
+        // whichever froxel that landed in.
+        if (view.Camera is { } camera) {
+            block.Parameters.Set(View, camera.View);
+        }
 
         var members = Members.ToArray();
 

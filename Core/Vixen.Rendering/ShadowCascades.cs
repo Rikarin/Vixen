@@ -280,6 +280,40 @@ public static class ShadowCascades {
         return (scale, offset);
     }
 
+    /// <summary>
+    ///     A cascade's matrix, projecting straight into its tile of the atlas.
+    /// </summary>
+    /// <param name="cascade">The cascade.</param>
+    /// <param name="index">Which tile it occupies.</param>
+    /// <param name="count">How many share the atlas.</param>
+    /// <remarks>
+    ///     <para>
+    ///         What a shading pass needs and what <see cref="AtlasTile" /> alone does not give it. A
+    ///         shader that has one matrix and one atlas does <c>NdcToUv(cascade · p)</c>, which
+    ///         addresses the <em>whole</em> texture — so with four tiles in it every lookup reads a
+    ///         quarter of the way into the wrong one. Folding the tile's scale and offset into the
+    ///         matrix costs the shader nothing and is not a thing a host can be asked to remember.
+    ///     </para>
+    ///     <para>
+    ///         The tile is in UV terms and the matrix produces clip coordinates, so the scale passes
+    ///         through and the offset becomes <c>2·offset + scale − 1</c> against <c>w</c> — which is
+    ///         exactly <c>NdcToUv</c> inverted, applied and re-applied. Depth is untouched: a tile
+    ///         moves where a texel is, not how far away it is.
+    ///     </para>
+    /// </remarks>
+    public static Matrix4x4 AtlasProjection(in ShadowCascade cascade, int index, int count) {
+        var (scale, offset) = AtlasTile(index, count);
+
+        var tile = new Matrix4x4(
+            scale.X, 0f, 0f, 0f,
+            0f, scale.Y, 0f, 0f,
+            0f, 0f, 1f, 0f,
+            (2f * offset.X) + scale.X - 1f, (2f * offset.Y) + scale.Y - 1f, 0f, 1f
+        );
+
+        return cascade.ViewProjection * tile;
+    }
+
     /// <summary>Where an atlas tile sits, in texels.</summary>
     /// <param name="index">Which cascade.</param>
     /// <param name="count">How many share the atlas.</param>

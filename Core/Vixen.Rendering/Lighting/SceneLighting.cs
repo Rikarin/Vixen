@@ -71,6 +71,25 @@ public sealed class SceneLighting {
     /// <summary>Where the directional light comes from — the lighting feature, or a scene's own.</summary>
     public ISunSource? Sun { get; set; }
 
+    /// <summary>
+    ///     The camera the frame's froxel grid is built in, or null to write no grid parameters.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A camera in a type about lighting, because of what those four numbers are for: they are
+    ///         how a fragment finds <em>which lights reach it</em>. The culling pass bins a light into
+    ///         a froxel from the field of view, the aspect ratio and the two planes, and a fragment
+    ///         looks itself up in the grid from the same four — so they are a property of the frame's
+    ///         lighting rather than of its camera, and set 0 is where the shader reads them.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="ClusterGrid.Apply" /> is the one implementation, and both passes are filled
+    ///         through it. Two derivations of one quantity is how a fragment ends up reading the list
+    ///         that was culled for somewhere else.
+    ///     </para>
+    /// </remarks>
+    public RenderCamera? Camera { get; set; }
+
     /// <summary>How many probe slots the last extract found the shader had.</summary>
     /// <remarks>Zero for a variant compiled with <c>UseReflectionProbe</c> off, which binds none.</remarks>
     public int Slots { get; private set; }
@@ -109,6 +128,10 @@ public sealed class SceneLighting {
         WriteSun(parameters, shader);
         WriteEnvironment(parameters, shader);
         WriteProbes(parameters, shader, effect);
+
+        if (Camera is { } camera) {
+            ClusterGrid.Apply(parameters, camera, shader);
+        }
     }
 
     /// <summary>The directional light, or the absence of one.</summary>
