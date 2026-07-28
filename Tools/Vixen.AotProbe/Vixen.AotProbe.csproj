@@ -35,6 +35,7 @@
     -->
     <ItemGroup>
         <ProjectReference Include="..\..\Core\Vixen.Assets\Vixen.Assets.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Audio\Vixen.Audio.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Collections\Vixen.Core.Collections.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Diagnostics\Vixen.Core.Diagnostics.csproj" />
@@ -50,6 +51,7 @@
         <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Ui.Layout\Vixen.Ui.Layout.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Ui.Reactive\Vixen.Ui.Reactive.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Audio.Backend.OpenAL\Vixen.Audio.Backend.OpenAL.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Platform\Vixen.Platform.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
@@ -67,6 +69,8 @@
     -->
     <ItemGroup>
         <TrimmerRootAssembly Include="Vixen.Assets" />
+        <TrimmerRootAssembly Include="Vixen.Audio" />
+        <TrimmerRootAssembly Include="Vixen.Audio.Backend.OpenAL" />
         <TrimmerRootAssembly Include="Vixen.Core" />
         <TrimmerRootAssembly Include="Vixen.Core.Collections" />
         <TrimmerRootAssembly Include="Vixen.Core.Diagnostics" />

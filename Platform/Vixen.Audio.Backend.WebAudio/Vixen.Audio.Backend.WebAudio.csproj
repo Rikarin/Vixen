@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!--
+          net10.0-browser, not net10.0. [JSImport] and [JSExport] live in
+          System.Runtime.InteropServices.JavaScript, which only exists in the browser runtime pack,
+          and the source generator that emits their marshalling only runs for a browser target.
+
+          The consequence is that this project needs the `wasm-tools` workload to evaluate, so — like
+          Vixen.Platform.Android and Vixen.Platform.iOS, and for the same reason — it is NOT in
+          Vixen.slnx. `nuke Compile` does not build it and neither does CI today; it is built by the
+          web app head, which is Phase 10 work (docs/plan/14). See the README.
+        -->
+        <TargetFramework>net10.0-browser</TargetFramework>
+        <RootNamespace>Vixen.Audio.Backend.WebAudio</RootNamespace>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <Description>
+            The audio backend for a browser tab: an AudioContext with a scheduled queue of blocks
+            the software mixer fills. No PannerNode, no ConvolverNode — the mixing has already
+            happened, which is what makes the web build sound like the desktop one.
+        </Description>
+        <PackageTags>audio;webaudio;wasm;browser;backend;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          The browser half. It has to be fetchable by URL at run time — JSHost.ImportAsync takes a
+          path, not a stream — so it is copied beside the assembly rather than embedded, and packed
+          as a content file an application head can place wherever its assets live.
+        -->
+        <None Include="wwwroot\vixen-audio.js"
+              CopyToOutputDirectory="PreserveNewest"
+              Pack="true"
+              PackagePath="contentFiles/any/any/" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Audio\Vixen.Audio.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Audio.Backend.WebAudio.Tests" />
+    </ItemGroup>
+
+</Project>
