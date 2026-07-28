@@ -85,6 +85,8 @@
     <Project Path="Core/Vixen.Shaders.Tests/Vixen.Shaders.Tests.csproj" />
     <Project Path="Core/Vixen.Audio/Vixen.Audio.csproj" />
     <Project Path="Core/Vixen.Audio.Tests/Vixen.Audio.Tests.csproj" />
+    <Project Path="Core/Vixen.Physics/Vixen.Physics.csproj" />
+    <Project Path="Core/Vixen.Physics.Tests/Vixen.Physics.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering/Vixen.Rendering.csproj" />
     <Project Path="Core/Vixen.Rendering.Tests/Vixen.Rendering.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Reactive/Vixen.Ui.Reactive.csproj" />

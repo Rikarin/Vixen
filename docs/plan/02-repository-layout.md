@@ -118,7 +118,8 @@ Core/
 ├── Vixen.Input.Tests/
 ├── Vixen.Audio/                        # ✅ AudioClip only — the backend and mixer are Phase 6
 ├── Vixen.Audio.Tests/
-├── Vixen.Physics/                      # Jolt integration
+├── Vixen.Physics/                      # ✅ Jolt integration — bodies, shapes, constraints,
+│                                       #   characters, queries, triggers, layers, CCD, ECS bridge
 ├── Vixen.Physics.Tests/
 ├── Vixen.Animation/                    # skeletal, blend trees, IK, state machine
 ├── Vixen.Animation.Tests/

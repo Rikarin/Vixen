@@ -2010,8 +2010,12 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
 
 ## Phase 8 — Gameplay subsystems *(3.5 EM)*
 
-- `Vixen.Physics` (Jolt 2.22.0): bodies, shapes, compound shapes, constraints, character controller,
+- ✅ `Vixen.Physics` (Jolt 2.22.0): bodies, shapes, compound shapes, constraints, character controller,
   raycasts/overlaps, triggers, layers, CCD, ECS integration with a fixed-step sync, debug rendering.
+  Everything on the line above is built, plus the bit-exact determinism gate the exit criteria name.
+  **One gap, and it is a platform one:** `JoltPhysics.Native` ships no iOS slice, so `Samples/05`
+  cannot run there until a static `libjoltc.a` is pinned the way MoltenVK already is. See
+  [Vixen.Physics/README.md](../../Core/Vixen.Physics/README.md) § Platforms and § Known gaps.
 - `Vixen.Audio`: OpenAL backend + WebAudio backend, 3D spatialisation, mixer buses, effects (reverb,
   filter), streaming, ECS integration.
 - `Vixen.Animation`: skeletal playback, blend trees (1D/2D), layers + masks, state machine, IK (two-bone,
