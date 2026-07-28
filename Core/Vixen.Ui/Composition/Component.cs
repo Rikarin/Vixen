@@ -55,10 +55,23 @@ public abstract class Component {
     /// </remarks>
     internal Dictionary<string, UiElement>? Slots { get; private set; }
 
+    /// <summary>The class this component's elements carry, or null when its styles are not scoped.</summary>
+    /// <remarks>
+    ///     Per <i>type</i>, because the stylesheet is: every instance shares one class, and a
+    ///     per-instance one would mean a rule set per row of a list.
+    /// </remarks>
+    internal string? Scope => StyleIsScoped ? ScopedStyles.ScopeOf(GetType()) : null;
+
     internal void Mount(BuildContext ctx, UiElement root) {
         Root = root;
         Content = root;
         Slots = null;
+
+        // ⚠ Before `Build`, because `BuildContext.Element` reads it for every element the component
+        // makes — and after it the component's own elements would already exist unscoped.
+        if (Scope is { } scope) {
+            root.AddClass(scope);
+        }
 
         Build(ctx);
 
@@ -67,12 +80,11 @@ public abstract class Component {
         }
 
         if (Style is { } css) {
-            // ⚠ Loaded once per component *type* would be right and this is once per instance,
-            // which reloads the same rules for every row of a list. The loader interns and the
-            // cascade dedupes, so it is correct and wasteful rather than wrong; keyed by type is
-            // owed. `scoped` is parsed and carried but not yet applied — there is no scope
-            // attribute to select on, so saying so is better than pretending.
-            root.Document.Load(css);
+            // ⚠ **Once per type, not once per instance.** The loader interns and the cascade dedupes,
+            // so loading it per instance was correct and wasteful — but "wasteful" here meant a rule
+            // set per row of a list, which is a linear cost on the thing virtualisation exists to
+            // make constant.
+            root.Document.LoadOnce(GetType(), Scope is { } named ? ScopedStyles.Scope(css, named) : css);
         }
     }
 

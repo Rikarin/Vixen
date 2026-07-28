@@ -156,6 +156,30 @@ public sealed partial class UiDocument : IDisposable {
         return sheet;
     }
 
+    /// <summary>Loads a stylesheet once for a key, however many times it is asked for.</summary>
+    /// <param name="key">What the sheet belongs to. A component's type.</param>
+    /// <param name="css">Its text.</param>
+    /// <param name="origin">Who it came from.</param>
+    /// <returns>Whether this call was the one that loaded it.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Per document, not per process.</b> Two documents are two cascades — an editor with a
+    ///     second window loads the same component's rules into each of them — and a static set would
+    ///     leave the second document styling nothing at all, which is the kind of bug that only
+    ///     appears once somebody opens a second window.
+    /// </remarks>
+    public bool LoadOnce(object key, string css, StyleOrigin origin = StyleOrigin.Author) {
+        ArgumentNullException.ThrowIfNull(key);
+
+        if (!loadedOnce.Add(key)) {
+            return false;
+        }
+
+        Load(css, origin);
+        return true;
+    }
+
+    readonly HashSet<object> loadedOnce = [];
+
     /// <summary>Replaces a loaded stylesheet with new text.</summary>
     /// <param name="sheet">The index <see cref="Load" /> returned.</param>
     /// <param name="css">The new text.</param>

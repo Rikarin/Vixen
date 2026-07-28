@@ -2108,9 +2108,23 @@ sub-piece has its own gate.
   a stale `IndexInParent` broke nothing because the only reorder test read the child arena, which is
   a different fact; it takes a `:first-child` rule to reach the field at all.
 
-  Owed here: named slot projection, `scoped` actually scoping, a component stylesheet loaded once
-  per type rather than per instance, and a longest-increasing-subsequence pass so a reorder moves a
-  minimal set. The last is correctness-neutral — a move that changes nothing returns immediately.
+  ✅ **`scoped` actually scopes, and a component's stylesheet is loaded once per type.** They are the
+  same fact — a stylesheet belongs to a component's *type* — and one method's worth of change.
+  `ScopedStyles` welds a per-type class onto the end of every selector and `BuildContext.Element`
+  puts that class on every element the component builds.
+
+  ⚠ **Welded to the end, not prefixed as a descendant.** `.v-x .row` reads as the obvious
+  implementation and is wrong twice: it misses the component's own root, which is the element a
+  stylesheet most often wants, and it matches a caller's `.row` projected into a slot — which is
+  exactly what scoping exists to stop. The scope comes from who *built* an element, not from where it
+  sits.
+
+  Verified by sabotage, seven of seven landing. ⚠ One needed a test that did not exist: every rule in
+  the fixture named a child, so the component's own root was scoped by a line nothing checked.
+
+  Owed here: named slot projection, a longest-increasing-subsequence pass so a reorder moves a
+  minimal set, and `bind:` update events. The reorder is correctness-neutral — a move that changes
+  nothing returns immediately.
 - ✅ **A line is a list of runs, and a character picks its own font.** `font-family: Inter, Noto Sans
   JP` is a per-character chain rather than a first-registered-wins list: `FontRegistry.Chain` turns a
   declaration into the faces to try and `Cover` hands each grapheme cluster to the first that draws
