@@ -365,11 +365,24 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
         }
 
         if (State != SessionState.Stopped) {
+            var local = LocalPlayer;
             LocalPlayer = null;
             clientPingOutstanding = false;
 
             if (Topology == SessionTopology.Client) {
                 State = SessionState.Stopped;
+
+                // A pure client's player list is exactly itself, and the next acceptance rebuilds it
+                // — with whatever id that server hands out, which need not be the one before. Left
+                // here, the old record is a player nothing will ever look up again, and a client
+                // that reconnects a hundred times over a long session holds a hundred of them.
+                //
+                // Only for a pure client. On a host the same list is the server's, and clearing it
+                // because the loopback client half dropped would remove everybody in the game.
+                if (local is not null) {
+                    players.Remove(local);
+                    playersById.Remove(local.Id.Value);
+                }
             }
 
             Disconnected?.Invoke(reason);
@@ -740,6 +753,18 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
     }
 
     void Accept(ref PacketReader reader) {
+        if (LocalPlayer is not null) {
+            // A second acceptance on a connection that is already in the session. A server of ours
+            // sends exactly one, so this is either a broken peer or one probing — and the cost of
+            // believing it is a player record and two dictionary entries per packet, kept for ever,
+            // for any id the sender cares to invent. The fuzzer measured that as fifty kilobytes
+            // from a thirty-two byte packet, which is an amplifier a client hands out for free.
+            //
+            // The mirror of the rule OnServerData already keeps for a second handshake on a live
+            // connection. Reconnecting still works: a disconnect clears LocalPlayer first.
+            return;
+        }
+
         if (!reader.TryReadVariable(out var playerId)
             || !reader.TryReadTick(out var serverTick)
             || !reader.TryReadBlob(TokenBytes, out var token)

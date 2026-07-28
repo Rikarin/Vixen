@@ -21,8 +21,9 @@ public sealed class ReplicationTests : IDisposable {
     readonly NetworkIdAllocator ids = new();
     readonly byte[] buffer = new byte[8192];
 
+    readonly ReplicationClient receiver;
+
     ReplicationServer sender;
-    ReplicationClient receiver;
     uint tick;
 
     public ReplicationTests() {

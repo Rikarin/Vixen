@@ -20,7 +20,7 @@ public sealed class UdpReliabilityTests : IDisposable {
     readonly EventRecorder serverEvents = new();
     readonly EventRecorder clientEvents = new();
 
-    ConnectionId connection;
+    readonly ConnectionId connection;
 
     public UdpReliabilityTests() {
         server = new(bus, new() { ListenEndPoint = ListenAt, RemoteEndPoint = ListenAt });

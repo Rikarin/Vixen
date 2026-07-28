@@ -220,6 +220,36 @@ public sealed class TickManagerTests {
         Assert.True(swinging.Jitter > TimeSpan.FromMilliseconds(20));
     }
 
+    /// <summary>A server tick half the tick space away is a snap, not an exception.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Found by the packet fuzzer. A tick error is a modular distance and therefore takes
+    ///         every value an <see cref="int" /> can hold, including <see cref="int.MinValue" /> —
+    ///         and <c>Math.Abs</c> is the one function that throws on exactly that value. The tick
+    ///         in question arrives straight off the wire in a <c>Pong</c> and in a
+    ///         <c>ConnectAccepted</c>, so it was one packet, one <c>OverflowException</c>, on the
+    ///         frame's own thread.
+    ///     </para>
+    ///     <para>
+    ///         Two synchronisations, because the first one snaps unconditionally and never asks how
+    ///         large the error is. It is the second that compares, which is why a single hostile
+    ///         packet had to arrive after a handshake — and why this is a sequence rather than a
+    ///         corpus entry.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AServerTickHalfTheSpaceAway_SnapsRatherThanOverflowing() {
+        var manager = new TickManager(TickRate.Default);
+        manager.Reset(default);
+        manager.Synchronize(new(0), TimeSpan.Zero);
+
+        var before = manager.SnapCount;
+        manager.Synchronize(new(0x8000_0000), TimeSpan.Zero);
+
+        Assert.Equal(before + 1, manager.SnapCount);
+        Assert.Equal(manager.TargetTick, manager.Current);
+    }
+
     [Fact]
     public void ANegativeSample_Throws() {
         var estimator = new RoundTripEstimator();

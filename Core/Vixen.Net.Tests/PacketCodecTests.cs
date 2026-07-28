@@ -226,11 +226,48 @@ public sealed class PacketCodecTests {
         Assert.Equal(string.Empty, text);
     }
 
+    /// <summary>A length that does not fit in an <see cref="int" /> is refused, not indexed with.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Found by the packet fuzzer, and it took the fuzzer because the route to it is two
+    ///         mistakes deep. A blob's length is a <c>uint</c> and the cap it is checked against is an
+    ///         <c>int</c>, so the comparison is unsigned — which means a <i>negative</i> cap is a cap
+    ///         above every length there is and stops being a cap. The length then goes to the bounds
+    ///         check as <c>(int)length</c>, and a length above <c>int.MaxValue</c> casts to a negative
+    ///         count that sails past <c>count &gt; Remaining</c> and throws out of <c>Span.Slice</c>.
+    ///     </para>
+    ///     <para>
+    ///         Fixed in both places: a negative cap is refused, and the single choke point where
+    ///         bytes are taken rejects a negative count. The second is the one that matters — it puts
+    ///         the invariant where every read goes through it rather than at four call sites and
+    ///         missing from a fifth.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ALengthTooLargeForAnInt_IsRefusedRatherThanThrowing() {
+        // 0xFFFFFFFF as a variable-length integer: five bytes, the last carrying the top four bits.
+        ReadOnlySpan<byte> packet = [0xFF, 0xFF, 0xFF, 0xFF, 0x0F];
+
+        var reader = new PacketReader(packet);
+        Assert.False(reader.TryReadBlob(-1, out var bytes));
+        Assert.True(reader.Failed);
+        Assert.True(bytes.IsEmpty);
+
+        var withACap = new PacketReader(packet);
+        Assert.False(withACap.TryReadBlob(int.MaxValue, out _));
+        Assert.True(withACap.Failed);
+
+        var asAString = new PacketReader(packet);
+        Assert.False(asAString.TryReadString(-1, out var text));
+        Assert.Equal(string.Empty, text);
+    }
+
     [Fact]
     public void NoSequenceOfBytesMakesTheReaderThrow() {
-        // The fuzzing corpus in doc 12 is the thorough version of this. This is the cheap version
-        // that runs on every build: ten thousand random packets, decoded as if they were the real
-        // thing, asserting only that the process survives having read them.
+        // The fuzz harness in Vixen.Net.Fuzz is the thorough version of this and drives every read
+        // in a sequence the input chooses. This is the cheap version that stays here next to the
+        // codec: ten thousand random packets, decoded as if they were the real thing, asserting
+        // only that the process survives having read them.
         var random = new DeterministicRandom(0xC0FFEE);
         var buffer = new byte[64];
 

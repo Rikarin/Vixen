@@ -209,7 +209,13 @@ public sealed class TickManager {
 
         var error = TargetTick.Subtract(Current);
 
-        if (!wasSynchronized || Math.Abs(error) > SnapThresholdTicks) {
+        // Written as two comparisons rather than Math.Abs, and that is a fix rather than a style.
+        // The error is a modular tick distance, so it takes every value an int can hold — including
+        // int.MinValue, which a server tick exactly half the tick space away produces. Math.Abs
+        // throws OverflowException on that one value, and this is reached from a Pong and from a
+        // ConnectAccepted, both of which carry a tick straight off the wire. One packet, one crash
+        // on the frame's own thread; found by the packet fuzzer, which is what it is for.
+        if (!wasSynchronized || error > SnapThresholdTicks || error < -SnapThresholdTicks) {
             Current = TargetTick;
             accumulated = 0;
 

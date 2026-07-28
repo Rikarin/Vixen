@@ -234,6 +234,14 @@ public ref struct PacketReader {
     public bool TryReadBlob(int maxBytes, out ReadOnlySpan<byte> bytes) {
         bytes = default;
 
+        // A negative cap is a caller's mistake, and it is refused rather than thrown on because
+        // this type does not throw. It also cannot be allowed through: the comparison below is
+        // unsigned, so a negative maxBytes becomes a cap above every length there is and stops
+        // being a cap at all.
+        if (maxBytes < 0) {
+            return Fail();
+        }
+
         if (!TryReadVariable(out var length)) {
             return false;
         }
@@ -277,7 +285,13 @@ public ref struct PacketReader {
             return false;
         }
 
-        if (count > Remaining) {
+        // The negative check belongs here rather than only at the callers, and the fuzzer is what
+        // proved it: a length read off the wire is a uint, and casting one above int.MaxValue to
+        // int gives a negative count that sails past the bounds check below — `count > Remaining`
+        // is false for a negative number — and then throws out of Span.Slice. One choke point with
+        // the invariant in it beats the same guard written at four call sites and missing from a
+        // fifth.
+        if (count < 0 || count > Remaining) {
             return Fail();
         }
 

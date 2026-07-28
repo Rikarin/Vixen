@@ -2349,8 +2349,61 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   phase.** It is the one item here that cannot start: it rewinds colliders, and `Vixen.Physics` is
   Phase 8 and not built. The tick history it needs is keyed by `Tick`, which now exists, so the ring
   is the work and the query is Jolt's — the sequencing note at the top of this phase stands.
-- Security pass: packet validation, rate limits, closed-set deserialization, protocol/content hash
-  handshake. Fuzzing corpus over the packet reader.
+- ✅ **Security pass: packet validation, rate limits, closed-set deserialization, protocol/content hash
+  handshake, and the fuzzing corpus over the packet reader.** `Vixen.Net.Fuzz` — nine targets, three
+  oracles, nine million cases on every build in nine seconds.
+
+  **The list of targets is the claim.** "The packet reader is fuzzed" is a much smaller statement than
+  it sounds: the reader is the bottom of the stack, and above it sit a handshake that reads four fields
+  from a connection that is nobody yet, a router that dispatches on a pair of indices, an applier that
+  creates and destroys entities, and a list that takes an index off the wire and then mutates itself
+  with it. All of them are reachable by anybody who can send a packet, so all of them are targets:
+  `PacketReader`, `BitReader`, both halves of `NetworkSession`, `ReplicationClient`,
+  `SnapshotInspector`, `DeltaCodec`, `RpcRouter`, `SyncList`.
+
+  **Three oracles, because "it did not crash" is not the property.** Nothing throws — the never-throws
+  contract, measured. Nothing amplifies — allocation against an allowance proportional to the input,
+  summed over a window rather than per case, because a list that doubles pays for the next thousand
+  appends in one and because `GC.GetAllocatedBytesForCurrentThread` settles up a thread's allocation
+  context at a collection, so a case containing a Gen0 reads kilobytes high through no fault of its
+  own. And **nothing is retained**, which an allocation budget cannot ask: a packet costing a hundred
+  bytes is proportionate and passes every ratio, and a hundred bytes never given back is a server that
+  dies on the second day.
+
+  **Seeded from the real encoders and mutated AFL-style**, because uniform random bytes are a bad
+  fuzzer for a codec — a snapshot opens with a 32-bit tick a client compares against the last one it
+  applied, so random input is refused at the first field about four billion times out of four billion.
+  Novel *behaviour* is kept, which is a signature rather than edge coverage and is called that.
+  Bounded by **case count rather than by the clock**: a time-bounded run executes a different number of
+  cases on a loaded runner than on a laptop, and a green build then proves nothing in particular.
+
+  **It found four defects on the first run**, all in code that had tests and review:
+
+  - `PacketReader` **threw** on a length above `int.MaxValue`. Two mistakes deep, which is why it took
+    a fuzzer: a blob's length is a `uint` and its cap an `int`, so the comparison is unsigned and a
+    *negative* cap is a cap above every length there is; the length then reaches the bounds check as
+    `(int)length`, which is negative, sails past `count > Remaining`, and throws out of `Span.Slice`.
+    Fixed at the one choke point where bytes are taken.
+  - `TickManager` **threw `OverflowException` on one tick value in four billion**. A tick error is a
+    modular distance and takes every value an `int` holds, including `int.MinValue` — the one value
+    `Math.Abs` throws on — and the tick arrives straight off the wire in a `Pong` and a
+    `ConnectAccepted`. One packet, one crash, on the frame's own thread.
+  - A client **kept a player record per `ConnectAccepted`** — fifty kilobytes from a thirty-two byte
+    packet. Now ignored, the mirror of the rule the server half already kept for a second handshake on
+    a live connection.
+  - A client **kept its player record after the connection was lost**, so every reconnect left one
+    behind. The older of the two and not hostile at all.
+
+  Each is pinned by a named test beside the code it broke rather than only by a corpus file, because
+  two of them need a *sequence* and a corpus entry is one input.
+
+  **Owed:** `SharpFuzz` with real instrumentation for the nightly ([12](12-build-ci-and-testing.md) §
+  Test infrastructure) — the targets are already `(ReadOnlySpan<byte>) -> outcome`, so the wrapper is a
+  few lines, and libFuzzer would find in an hour what this finds in a week; what is here runs on every
+  build, which that never will. Targets for the transports themselves — `Udp` reassembles fragments and
+  tracks acknowledgement windows from bytes off the wire and `WebSocket` parses RFC 6455 frames, both
+  of them *below* the handshake and therefore more exposed than anything in the list above.
+  Structure-aware mutation, so the mutator knows a snapshot from a handshake.
 - Transports: ✅ `Local`, ✅ `NetworkSimulation`, ✅ `Udp`, ✅ **`WebSocket`**, ✅ **`Composite`**.
   **Owed: `Relay`** — see below.
 
@@ -2516,8 +2569,10 @@ holds its bandwidth, CPU, and allocation budgets for 30 minutes.
   measures the collector and calls the pipeline broken however fast it is. The pause is still
   printed, and the allocation budget is what keeps it honest, being its cause.
 
-  The remaining criteria are untouched: **packet-reader fuzzing** and **bit-exact serialization across
-  the three desktop OSes**.
+- ✅ **Packet-reader fuzzing is clean**, and is a gate rather than a nightly — see the security pass
+  above for the harness and for the four defects its first run found. The one criterion left is
+  **bit-exact serialization across the three desktop OSes**, which is a golden corpus and a CI job on
+  three runners.
 
 > **Client-side prediction is explicitly *not* in this phase** — see [16](16-networking.md). PurrNet does
 > not have it either. The tick loop and snapshot APIs are shaped to accept it later (+2 EM), and the

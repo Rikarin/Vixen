@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Concurrent;
-using Channels = System.Threading.Channels;
 using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Net.WebSockets;
 using System.Security.Cryptography;
 using System.Text;
+using Channels = System.Threading.Channels;
 
 namespace Vixen.Net.Transport.WebSocket;
 
