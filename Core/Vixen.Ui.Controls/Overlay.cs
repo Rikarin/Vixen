@@ -1,0 +1,378 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core.Mathematics;
+using Vixen.Input;
+
+namespace Vixen.Ui.Controls;
+
+/// <summary>Which side of its anchor an overlay prefers.</summary>
+public enum Placement : byte {
+    /// <summary>Below, aligned to the anchor's left edge.</summary>
+    Bottom,
+
+    /// <summary>Above.</summary>
+    Top,
+
+    /// <summary>To the right, aligned to the anchor's top edge.</summary>
+    Right,
+
+    /// <summary>To the left.</summary>
+    Left
+}
+
+/// <summary>Anything that appears over the rest of the interface.</summary>
+/// <remarks>
+///     <para>
+///         <b>An overlay is a child of the root, not of whatever opened it</b>, and that is forced by
+///         painting order: the draw list is document order, so an element can only be drawn over
+///         something by coming after it. A popup that lived inside the button that opened it would
+///         be painted inside that button's stacking position and clipped by every
+///         <c>overflow: hidden</c> between the two. Being a root child costs a reference back to the
+///         anchor and buys an overlay that is always on top and never clipped.
+///     </para>
+///     <para>
+///         ⚠ <b>Placement runs a layout pass of its own.</b> Where a popup goes depends on how big
+///         it is, and how big it is depends on a layout that has not happened when it opens. So
+///         <see cref="Open" /> updates the document, reads the sizes, and then positions — one extra
+///         pass, on a user action, rather than a popup that is in the wrong place for the first
+///         frame anybody sees it.
+///     </para>
+///     <para>
+///         <b>Position is <see cref="UiElement.OffsetX" />, not layout.</b> Moving a popup does not
+///         disturb anything: no sibling reflows, no ancestor grows, and dragging one costs a walk
+///         rather than a cascade.
+///     </para>
+/// </remarks>
+public abstract partial class Overlay : Control {
+    UiElement? anchor;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>Whether it is showing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not a <c>[UiProperty]</c>, unlike almost everything else on a control.</b> Opening
+    ///     is not an assignment — it measures, places, moves the focus and may take a modal scope —
+    ///     so a settable property would be an invitation to do half of it. <see cref="Open" /> and
+    ///     <see cref="Close" /> are the whole interface, and this is what they report.
+    /// </remarks>
+    public bool IsOpen { get; private set; }
+
+    /// <summary>Which side of the anchor it prefers.</summary>
+    [UiProperty]
+    public partial Placement Placement { get; set; }
+
+    /// <summary>How far off the anchor it sits.</summary>
+    [UiProperty(Default = 4f)]
+    public partial float Gap { get; set; }
+
+    /// <summary>Whether a click outside it closes it.</summary>
+    [UiProperty(Default = true)]
+    public partial bool LightDismiss { get; set; }
+
+    /// <summary>Whether Escape closes it.</summary>
+    [UiProperty(Default = true)]
+    public partial bool CloseOnEscape { get; set; }
+
+    /// <summary>What it is attached to, if anything.</summary>
+    public UiElement? Anchor => anchor;
+
+    /// <summary>Raised when it opens or closes.</summary>
+    public event Action<Overlay, bool>? OpenChanged;
+
+    /// <inheritdoc />
+    protected override void OnCreated() {
+        base.OnCreated();
+
+        AddClass("closed");
+
+        // ⚠ On the root and on the capture leg, so a press anywhere in the document is seen before
+        // whatever it landed on acts on it. Listening on the overlay itself would only hear presses
+        // inside the overlay, which are the presses that must *not* close it.
+        Document.Root.AddHandler<PointerEvent>(
+            (element, args) => Dismiss(args),
+            RoutingStrategy.Capture,
+            handledEventsToo: true
+        );
+
+        Document.Root.AddHandler<KeyEvent>(
+            (element, args) => Escaped(args),
+            RoutingStrategy.Capture,
+            handledEventsToo: true
+        );
+    }
+
+    /// <summary>Shows it, beside an anchor.</summary>
+    /// <param name="target">What to put it beside, or <c>null</c> to leave it where it is.</param>
+    public void Open(UiElement? target = null) {
+        anchor = target ?? anchor;
+
+        if (IsOpen) {
+            Reposition();
+            return;
+        }
+
+        IsOpen = true;
+        Restate();
+
+        // The pass that gives it a size, so that the placement below has something to measure and
+        // to flip against. See the type's remarks.
+        Document.Update();
+        Reposition();
+
+        OnOpened();
+    }
+
+    /// <summary>Hides it.</summary>
+    /// <param name="reason">Why.</param>
+    public void Close(CloseReason reason = CloseReason.Code) {
+        if (!IsOpen) {
+            return;
+        }
+
+        IsOpen = false;
+        Restate();
+        OnClosed(reason);
+    }
+
+    /// <summary>Puts it where its placement asks, flipping if there is no room.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Flip first, then clamp.</b> A popup with no room below goes above; one with no room
+    ///     on either side is pushed back inside the viewport rather than being left hanging off it.
+    ///     Clamping without flipping gives a menu that covers the button that opened it, which is
+    ///     the one place it must not be.
+    /// </remarks>
+    public void Reposition() {
+        if (anchor is null || anchor.IsRemoved) {
+            return;
+        }
+
+        var target = anchor.Bounds;
+        var size = Bounds;
+        var viewport = Document.Viewport;
+
+        var placement = Flip(Placement, target, size, viewport.ViewportWidth, viewport.ViewportHeight);
+
+        var (x, y) = placement switch {
+            Placement.Top => (target.Left, target.Top - size.Height - Gap),
+            Placement.Right => (target.Right + Gap, target.Top),
+            Placement.Left => (target.Left - size.Width - Gap, target.Top),
+            _ => (target.Left, target.Bottom + Gap)
+        };
+
+        MoveTo(
+            Math.Clamp(x, 0f, MathF.Max(0f, viewport.ViewportWidth - size.Width)),
+            Math.Clamp(y, 0f, MathF.Max(0f, viewport.ViewportHeight - size.Height))
+        );
+    }
+
+    /// <summary>Puts its top-left corner at a point in document space.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The offset is relative to where layout put it, so where layout put it is subtracted.</b>
+    ///     An overlay is the root's child and the root has padding in most themes — assigning the
+    ///     document coordinate straight into the offset would add that padding a second time, which
+    ///     looks like a popup that is consistently a few pixels off in one direction.
+    /// </remarks>
+    public void MoveTo(float x, float y) {
+        OffsetX += x - AbsoluteLeft;
+        OffsetY += y - AbsoluteTop;
+    }
+
+    /// <summary>Called after it opens.</summary>
+    protected virtual void OnOpened() {
+    }
+
+    /// <summary>Called after it closes.</summary>
+    /// <param name="reason">Why it closed.</param>
+    protected virtual void OnClosed(CloseReason reason) {
+    }
+
+    /// <summary>Whether a press at a point should close it.</summary>
+    /// <remarks>
+    ///     Overridden by a menu, whose press on its own anchor must close it rather than reopen it —
+    ///     otherwise clicking the button that opened a menu closes and reopens it in one gesture,
+    ///     and the menu never goes away.
+    /// </remarks>
+    protected virtual bool IsOutside(UiElement? hit) {
+        for (var element = hit; element is not null; element = element.Parent) {
+            // ⚠ The anchor counts as inside, and that is what stops a second click on the button
+            // that opened a popup from reopening it. Light dismiss runs on the *press*, on the
+            // root's capture leg, so it fires before the anchor's own handler sees anything — the
+            // anchor then finds the popup already shut and opens it again, and the popup can never
+            // be closed by clicking the thing that opened it. Leaving the anchor to decide is the
+            // only arrangement in which "click it again to close" is expressible at all.
+            if (ReferenceEquals(element, this) || ReferenceEquals(element, anchor)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    static Placement Flip(Placement placement, Rectangle target, Rectangle size, float width, float height) =>
+        placement switch {
+            Placement.Bottom when target.Bottom + size.Height > height && target.Top - size.Height >= 0f =>
+                Placement.Top,
+            Placement.Top when target.Top - size.Height < 0f && target.Bottom + size.Height <= height =>
+                Placement.Bottom,
+            Placement.Right when target.Right + size.Width > width && target.Left - size.Width >= 0f =>
+                Placement.Left,
+            Placement.Left when target.Left - size.Width < 0f && target.Right + size.Width <= width =>
+                Placement.Right,
+            _ => placement
+        };
+
+    /// <summary>Puts the open state where the cascade and the listeners can see it.</summary>
+    void Restate() {
+        if (IsOpen) {
+            RemoveClass("closed");
+        } else {
+            AddClass("closed");
+        }
+
+        Raise(new OpenChangedEvent { IsOpen = IsOpen });
+        OpenChanged?.Invoke(this, IsOpen);
+    }
+
+    void Dismiss(PointerEvent args) {
+        if (!IsOpen || !LightDismiss || args.Action != PointerAction.Pressed) {
+            return;
+        }
+
+        if (IsOutside(Document.HitTest(args.X, args.Y))) {
+            Close(CloseReason.LightDismissed);
+        }
+    }
+
+    void Escaped(KeyEvent args) {
+        if (!IsOpen || !CloseOnEscape || args is not { Action: KeyAction.Pressed, Key: InputKey.Escape }) {
+            return;
+        }
+
+        Close(CloseReason.Cancelled);
+        args.Handled = true;
+    }
+}
+
+/// <summary>A floating panel attached to something.</summary>
+/// <remarks>
+///     The plain overlay: a box, positioned beside an anchor, that closes when something else is
+///     clicked. A menu, a dropdown and a date picker are all this with content in them, which is why
+///     it is a control of its own rather than a base class nobody instantiates.
+/// </remarks>
+public sealed partial class Popover : Overlay {
+    /// <inheritdoc />
+    protected override string TagName => "popover";
+
+    /// <summary>Where the content goes.</summary>
+    public UiElement Content { get; private set; } = null!;
+
+    /// <inheritdoc />
+    protected override void OnCreated() {
+        base.OnCreated();
+        Content = Part("popover-content");
+    }
+}
+
+/// <summary>A short label that appears beside something the pointer is resting on.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The delay needs a clock this assembly does not have.</b> A tooltip is supposed to
+///         wait half a second before appearing, and nothing here is told what time it is except
+///         through input events — which stop arriving precisely when the pointer is resting. So
+///         <see cref="Tick" /> exists and the host calls it, the same bargain
+///         <c>GestureRecognizer.Tick</c> makes for a long press and for the same reason. A host that
+///         never calls it gets a tooltip that appears at once, which is worse than the right
+///         behaviour and better than none.
+///     </para>
+///     <para>
+///         It is never focusable and never takes the pointer: <c>pointer-events: none</c> in the
+///         theme, so a tooltip that lands under the cursor does not immediately hide itself by
+///         taking the hover away from the thing it describes.
+///     </para>
+/// </remarks>
+public sealed partial class Tooltip : Overlay {
+    TimeSpan entered;
+    bool waiting;
+
+    /// <inheritdoc />
+    protected override string TagName => "tooltip";
+
+    /// <summary>How long the pointer must rest before it appears.</summary>
+    [UiProperty]
+    public partial TimeSpan Delay { get; set; }
+
+    /// <summary>What it says.</summary>
+    public string? Label {
+        get => Text;
+        set => Text = value;
+    }
+
+    /// <inheritdoc />
+    protected override void OnCreated() {
+        base.OnCreated();
+
+        Placement = Placement.Bottom;
+        LightDismiss = false;
+
+        if (Delay == TimeSpan.Zero) {
+            Delay = TimeSpan.FromMilliseconds(500);
+        }
+    }
+
+    /// <summary>Attaches it to an element, so that hovering that element shows it.</summary>
+    /// <param name="target">The element.</param>
+    public void Attach(UiElement target) {
+        ArgumentNullException.ThrowIfNull(target);
+
+        target.AddHandler<PointerEvent>(
+            (element, args) => Crossed(element, args),
+            RoutingStrategy.Direct
+        );
+    }
+
+    /// <summary>Tells it what time it is, so that a pointer that has rested long enough shows it.</summary>
+    /// <param name="now">The current time, on the same clock as the input events.</param>
+    public void Tick(TimeSpan now) {
+        if (!waiting || now - entered < Delay) {
+            return;
+        }
+
+        waiting = false;
+        Open(pending);
+    }
+
+    UiElement? pending;
+
+    void Crossed(UiElement target, PointerEvent args) {
+        switch (args.Action) {
+            case PointerAction.Entered:
+                entered = args.Timestamp;
+                pending = target;
+
+                // ⚠ With no delay it opens now, and with one it waits for a tick that may never
+                // come. That is the honest arrangement: a host with a frame loop calls Tick and
+                // gets the half-second every tooltip is supposed to have, and one that does not
+                // gets a tooltip that never appears rather than one that appears instantly. Which
+                // of those is the better failure is arguable; what is not is that it should be
+                // written down, since the difference is a method call in somebody else's loop.
+                if (Delay <= TimeSpan.Zero) {
+                    Open(target);
+                } else {
+                    waiting = true;
+                }
+
+                break;
+
+            case PointerAction.Exited:
+                waiting = false;
+                Close();
+
+                break;
+
+            default:
+                break;
+        }
+    }
+}

@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Ui.Controls</RootNamespace>
+        <Description>
+            The standard control set — buttons, fields, lists, overlays and the rest — built on the
+            element tree, the property system and the event router, and styled by a user-agent
+            stylesheet a game is expected to override rather than fork.
+        </Description>
+        <PackageTags>ui;controls;widgets;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Ui\Vixen.Ui.csproj" />
+
+        <!--
+            Analyzers are not transitive through a ProjectReference, so every assembly that declares
+            [UiProperty] names the generator itself. This one declares a great many.
+        -->
+        <ProjectReference Include="..\Vixen.Ui.Generators\Vixen.Ui.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Ui.Controls.Tests" />
+    </ItemGroup>
+
+</Project>

@@ -57,7 +57,10 @@ public sealed partial class UiDocument : IDisposable {
         drawings = new DrawListBuilder(Styles.Properties, Styles.Values, Styles.Names);
         Viewport = LengthContext.ForViewport(width, height, rootFontSize);
 
+        reader = new StyleValueParser(Styles.Values, Styles.Names);
+
         pointerEvents = Styles.Properties.Intern("pointer-events");
+        color = Styles.Properties.Intern("color");
         fontFamily = Styles.Properties.Intern("font-family");
         overflow = Styles.Properties.Intern("overflow");
         none = Styles.Values.Intern("none");
@@ -169,19 +172,36 @@ public sealed partial class UiDocument : IDisposable {
 
     /// <summary>Creates an element of a particular type.</summary>
     /// <typeparam name="T">The element type, which needs a parameterless constructor.</typeparam>
-    /// <param name="tag">Its element name.</param>
+    /// <param name="tag">Its element name, or <c>null</c> to take the one the type answers to.</param>
     /// <param name="parent">Its parent, or <c>null</c> for the root.</param>
     /// <param name="id">Its identifier.</param>
     /// <param name="classNames">Its classes.</param>
     /// <returns>The element.</returns>
-    public T Create<T>(string tag, UiElement? parent, string? id = null, params ReadOnlySpan<string> classNames)
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The instance is made before the style node, which is the opposite of the obvious
+    ///         order and is what lets a type name itself.</b> A control's stylesheet selects on its
+    ///         tag — <c>button { … }</c> — and a caller that had to pass <c>"button"</c> alongside
+    ///         <c>Button</c> would eventually pass something else, at which point the control is
+    ///         still a <see cref="UiElement" /> and silently unstyled. Asking the element for
+    ///         <see cref="UiElement.TagName" /> makes the two impossible to disagree.
+    ///     </para>
+    ///     <para>
+    ///         <b>Three steps, in this order:</b> bind, attach, then
+    ///         <see cref="UiElement.OnCreated" />. A control builds its parts in that last one and
+    ///         every one of them needs a document to be created in — so the hook cannot be a
+    ///         constructor, and it cannot run before the element is in the tree either, because a
+    ///         part added to an unattached parent would be laid out relative to nothing.
+    ///     </para>
+    /// </remarks>
+    public T Create<T>(string? tag, UiElement? parent, string? id = null, params ReadOnlySpan<string> classNames)
         where T : UiElement, new() {
-        ArgumentNullException.ThrowIfNull(tag);
+        var element = new T();
+        tag ??= element.TagName;
 
         var styleNode = Styles.Tree.CreateElement(tag, parent?.StyleNode, id, classNames);
         var layoutNode = Layout.CreateNode();
 
-        var element = new T();
         element.Bind(this, tag, parent, styleNode, layoutNode);
 
         if (parent is not null) {
@@ -190,6 +210,8 @@ public sealed partial class UiDocument : IDisposable {
         }
 
         Invalidate();
+        element.OnCreated();
+
         return element;
     }
 
@@ -303,6 +325,7 @@ public sealed partial class UiDocument : IDisposable {
         }
 
         Gestures.Forget(element);
+        ForgetHover(element);
     }
 
     /// <summary>Marks a subtree as no longer part of any document.</summary>
@@ -485,6 +508,12 @@ public sealed partial class UiDocument : IDisposable {
     public UiElement? Dispatch(PointerEvent args) {
         ArgumentNullException.ThrowIfNull(args);
 
+        // Before the event rather than after it. `:hover` and `:active` are what a handler reads to
+        // find out what it is being asked about — a menu deciding whether the release it just got
+        // belongs to the item under the cursor asks the item — and state brought up to date
+        // afterwards would answer every handler with the previous frame's arrangement.
+        Track(args);
+
         var target = Captured ?? HitTest(args.X, args.Y);
         target?.Raise(args);
 
@@ -575,8 +604,12 @@ public sealed partial class UiDocument : IDisposable {
     ///     every frame; a walk to the root per read is the same arithmetic done depth times over.
     /// </remarks>
     static void Accumulate(UiElement element, float x, float y) {
-        element.AbsoluteLeft = x + element.Left;
-        element.AbsoluteTop = y + element.Top;
+        // ⚠ The offset lands here and nowhere else, which is what makes it free. Every consumer of a
+        // position — hit testing, the draw list, arrow navigation — reads the accumulated value, so
+        // a shifted element is drawn, clicked and navigated to in its shifted place without any of
+        // them being told that shifting is a thing that can happen.
+        element.AbsoluteLeft = x + element.Left + element.OffsetX;
+        element.AbsoluteTop = y + element.Top + element.OffsetY;
 
         foreach (var child in element.Children) {
             Accumulate(child, element.AbsoluteLeft, element.AbsoluteTop);

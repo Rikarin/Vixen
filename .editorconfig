@@ -580,3 +580,20 @@ dotnet_diagnostic.CA1711.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [Core/Vixen.Rendering/Features/ParticleRenderFeature.cs]
 dotnet_diagnostic.CA1051.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Ui.Controls/Selects.cs
+#
+# CA1716 (identifiers should not match keywords). `Select` and `Option` are both
+# Visual Basic statements, so the rule wants both types renamed. They are the
+# names docs/plan/09 § "Control library" gives these controls, they are the names
+# HTML gives them — `<select>` with `<option>` inside it — and they are what every
+# designer handing over a mock-up calls them. A control library whose select is
+# called something else is a control library nobody can search.
+#
+# Scoped to the one file that declares them. `Select` on some other member
+# elsewhere is still reported — including, deliberately, nothing in this file but
+# `MultiSelect.Select`, which is the same word about the same thing.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Ui.Controls/Selects.cs]
+dotnet_diagnostic.CA1716.severity = none

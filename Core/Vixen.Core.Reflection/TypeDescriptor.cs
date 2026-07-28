@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics.CodeAnalysis;
 using Vixen.Core.Serialization;
 
 namespace Vixen.Core.Reflection;
@@ -39,6 +40,21 @@ public enum TypeTraits {
 /// <param name="Logarithmic">Whether the slider should be logarithmic.</param>
 /// <param name="IsEditorVisible">Whether the inspector shows it at all.</param>
 /// <param name="IsEditorReadOnly">Whether the inspector shows it without letting it be changed.</param>
+/// <remarks>
+///     ⚠ <b><c>default(MemberPresentation)</c> is not the same thing as
+///     <c>new MemberPresentation()</c> would be in a class, and the difference bites exactly once
+///     per person.</b> This is a struct, so both spellings give the all-zero value — which means
+///     <see cref="IsEditorVisible" /> comes out <c>false</c> despite the parameter above defaulting
+///     to <c>true</c>. A member handed a defaulted presentation is therefore hidden from the
+///     inspector, silently.
+///     <para>
+///         The generator never trips over it — it writes every field it means — and a hand-written
+///         descriptor should pass <c>new MemberPresentation(IsEditorVisible: true)</c> rather than
+///         relying on the parameter default. Said here rather than fixed by inverting the flag,
+///         because <c>IsEditorHidden</c> would read backwards everywhere it is used to spare one
+///         caller a surprise they only get once.
+///     </para>
+/// </remarks>
 public readonly record struct MemberPresentation(
     string? Category = null,
     string? DisplayName = null,
@@ -112,7 +128,7 @@ public sealed class MemberDescriptor {
     /// <param name="isInitOnly">Whether the setter is <c>init</c>-only.</param>
     public MemberDescriptor(
         string name,
-        Type memberType,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicFields)] Type memberType,
         int order,
         Func<object, object?>? getter,
         Action<object, object?>? setter,
