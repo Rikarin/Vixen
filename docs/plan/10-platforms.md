@@ -318,7 +318,7 @@ under budget; single-threaded job-system mode verified.
 | Floating point | No reliance on cross-platform FP bit-identity for gameplay. Deterministic simulation, where needed, uses fixed-point or a documented deterministic subset. |
 | Feature detection | Always a runtime capability query with a fallback, never `#if PLATFORM`. `#if` is for P/Invoke surface only. |
 | Time | `Stopwatch`-based monotonic time; never `DateTime.Now` in the loop. |
-| Threading | Every subsystem works with `workerCount == 0`. Enforced by a test mode that runs the whole test suite single-threaded. |
+| Threading | Every subsystem works with `workerCount == 0`. `JobScheduler` supports it and is tested for it; the test mode that would run the *whole* suite single-threaded does not exist yet — see § Web, where the same claim was corrected. |
 | Native binaries | One `Vixen.Platform.Native` project owns RID→binary mapping, `runtimes/<rid>/native/` layout, checksum verification at acquisition time, and a licence manifest. Native binaries are never committed; they are restored by a Nuke target from pinned, checksummed URLs. |
 
 ## Platform CI matrix
