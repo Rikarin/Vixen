@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Immutable;
 using Vixen.Core.Mathematics;
 using Vixen.Ui.Layout;
 using Vixen.Ui.Styling;
+using Vixen.Ui.Text;
 
 namespace Vixen.Ui;
 
@@ -362,26 +364,101 @@ public partial class UiElement {
 
     /// <summary>Its text shaped at its font size, or <c>null</c> if it has none to shape.</summary>
     /// <remarks>
-    ///     Goes through the document's shaping cache, so the measure pass and the draw pass shape
-    ///     once between them rather than once each — and so do ten thousand list rows saying the same
-    ///     word. The cache is keyed on the font and the string and not on the size, because shaping
-    ///     is size-independent.
+    ///     <para>
+    ///         Goes through the document's shaping cache, so the measure pass and the draw pass shape
+    ///         once between them rather than once each — and so do ten thousand list rows saying the
+    ///         same word. The cache is keyed on the font and the string and not on the size, because
+    ///         shaping is size-independent.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The line itself is cached too, and that is what makes per-character fallback
+    ///         affordable.</b> Deciding which face draws which cluster asks the font about every code
+    ///         point, which is a native call each — cheap once and ruinous twice a frame per element.
+    ///         The cache is invalidated by comparing everything the answer depends on, including
+    ///         <see cref="FontRegistry.Revision" />: registering a face changes what a declaration
+    ///         resolves to without changing anything on the element.
+    ///     </para>
     /// </remarks>
-    public TextRun? Run() {
+    public TextLine? Line() {
         if (string.IsNullOrEmpty(Text)) {
+            line = null;
+            lineText = null;
             return null;
         }
 
-        var font = Document.Fonts.Resolve(
-            Document.FontFamilyOf(Style),
-            Document.FontWeightOf(Style),
-            Document.FontStyleOf(Style)
-        );
+        var family = Document.FontFamilyOf(Style);
+        var weight = Document.FontWeightOf(Style);
+        var slant = Document.FontStyleOf(Style);
+        var revision = Document.Fonts.Revision;
 
-        return font is null
-            ? null
-            : new TextRun(font, Document.Shaping.Shape(font, Text), FontSize, LetterSpacing, LineHeight);
+        // Floats compared with Equals rather than ==, because `LineHeight` is NaN for "the font's own
+        // recommendation" and NaN is not equal to itself — a line height nobody set would rebuild the
+        // line every single call.
+        if (line is not null
+            && ReferenceEquals(lineText, Text)
+            && string.Equals(lineFamily, family, StringComparison.Ordinal)
+            && lineWeight == weight
+            && lineStyle == slant
+            && lineRevision == revision
+            && lineSize.Equals(FontSize)
+            && lineTracking.Equals(LetterSpacing)
+            && lineLeading.Equals(LineHeight)) {
+            return line;
+        }
+
+        var chain = new List<FontFace>();
+        Document.Fonts.Chain(family, weight, slant, chain);
+
+        if (chain.Count == 0) {
+            return null;
+        }
+
+        var spans = new List<FontSpan>();
+        FontRegistry.Cover(Text, chain, spans);
+
+        var runs = ImmutableArray.CreateBuilder<TextRun>(spans.Count);
+
+        foreach (var span in spans) {
+            // ⚠ The whole string when there is one span, and a substring only when there is more than
+            // one. Not a micro-optimisation: `Text[0..Length]` is a fresh string every call, and the
+            // shaping cache keys on the string's contents, so it would hash and compare the whole
+            // label to find the entry it already had.
+            var text = spans.Count == 1 ? Text : Text.Substring(span.Start, span.Length);
+
+            runs.Add(
+                new TextRun(
+                    span.Font,
+                    Document.Shaping.Shape(span.Font, text),
+                    FontSize,
+                    LetterSpacing,
+                    LineHeight,
+                    span.Start
+                )
+            );
+        }
+
+        line = new TextLine(runs.MoveToImmutable());
+        lineText = Text;
+        lineFamily = family;
+        lineWeight = weight;
+        lineStyle = slant;
+        lineRevision = revision;
+        lineSize = FontSize;
+        lineTracking = LetterSpacing;
+        lineLeading = LineHeight;
+
+        return line;
     }
+
+    TextLine? line;
+    string? lineText;
+    string? lineFamily;
+    int lineWeight;
+    FontStyle lineStyle;
+    int lineRevision;
+    float lineSize;
+    float lineTracking;
+    float lineLeading;
 
     void OnTextChanged(string? previous, string? current) {
         // ⚠ The measure function is attached and detached rather than left in place answering zero.
@@ -390,7 +467,7 @@ public partial class UiElement {
         // out everything inside it.
         if (string.IsNullOrEmpty(previous) != string.IsNullOrEmpty(current)) {
             Document.Layout.SetContext(LayoutNode, string.IsNullOrEmpty(current) ? null : this);
-            Document.Layout.SetMeasureFunction(LayoutNode, string.IsNullOrEmpty(current) ? null : TextRun.Measure);
+            Document.Layout.SetMeasureFunction(LayoutNode, string.IsNullOrEmpty(current) ? null : TextLine.Measure);
         } else if (!string.IsNullOrEmpty(current)) {
             // Attaching or detaching the measure function already dirties the node, so the only case
             // left is one string becoming another — and the layout tree refuses a hand-dirtied node

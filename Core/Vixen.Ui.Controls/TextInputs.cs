@@ -15,7 +15,7 @@ public sealed partial class TextBox : TextField {
 /// <summary>A field for several lines of text.</summary>
 /// <remarks>
 ///     ⚠ <b>Today it is a taller <see cref="TextBox" />, and the reason is upstream of this file.</b>
-///     The framework draws one <see cref="TextRun" /> per element and nothing wraps it, so there is
+///     The framework draws one <see cref="TextLine" /> per element and nothing wraps it, so there is
 ///     no second line for Enter to start. What this type does have is its own tag — so the theme can
 ///     give it the height and the alignment a text area needs — and its own place for the wrapping
 ///     to land when <c>Vixen.Ui.Text</c>'s line breaker reaches the draw path. Shipping the tag now
