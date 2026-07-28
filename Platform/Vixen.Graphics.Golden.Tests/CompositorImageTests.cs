@@ -4,8 +4,8 @@
 using System.Collections.Immutable;
 using Vixen.Core.Mathematics;
 using Vixen.Rendering;
-using Vixen.Rendering.Features;
 using Vixen.Rendering.Compositor;
+using Vixen.Rendering.Features;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
 using Xunit;
