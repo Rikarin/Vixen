@@ -554,6 +554,40 @@ pure front-to-back, which is exactly what makes early-Z reject the most.
 
 It is the same fix a shadow-caster stage wants, for the same reason.
 
+### Authored
+
+`!FullScreen` and `!Bloom` are nodes a document declares, so a post chain is twenty lines of YAML
+that mention no binding index, no sampler handle and no pass count:
+
+```yaml
+- !Bloom
+  name: Bloom
+  source: SceneColour
+  output: BloomResult
+  levels: 3
+- !FullScreen
+  name: Tonemap
+  shader: Tonemap
+  colourTargets: [Display]
+  reads: [BloomResult]
+  bindings:
+    - name: source
+      resource: BloomResult
+    - kind: Sampler
+      binding: 1
+      sampler: LinearClamp
+```
+
+Two things had made that impossible and both are gone: `name: source` resolves against the shader's
+own binding plan, and `sampler: LinearClamp` is a preset the frame's `SamplerCache` turns into a
+description. What a file still cannot carry is a device, a module cache, a descriptor allocator or a
+sampler cache — so `CompositorBuilder` takes those four and hands them to every node it builds. The
+document says what; a running renderer supplies what only it has.
+
+Bloom is a node rather than a list of passes because its shape follows from its depth and the frame's
+size: nine passes and nine textures out of one line, where a document that spelled them out would need
+rewriting to change the resolution.
+
 ### Bloom
 
 The first effect that is more than one pass, and worth building early for that reason: a pyramid is
@@ -665,11 +699,6 @@ A node's bindings are set in code, not in the compositor document. A binding ind
 decision and a sampler is a device handle, and the asset model can express neither — so a compositor
 loaded from disk declares its dependencies correctly and binds nothing until a host fills in
 `Descriptors`. Reflecting the binding plan onto `Effect` is what closes it.
-
-A post-process node is built in code, not authored: `FullScreenRenderer` and `BloomRenderer` have no
-entry in the compositor asset. The two things that used to make that impossible are gone — a binding
-can name what the shader calls it and a sampler can be a description — so what is left is the asset
-model itself, which is ordinary work rather than a blocked design.
 
 The generated keys cover the shaders the engine names — `PostFx/Bloom` and `PostFx/Tonemap` — and
 nothing else. The list grows when a node starts binding a shader, not in anticipation, because every

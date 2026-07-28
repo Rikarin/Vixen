@@ -73,6 +73,26 @@ public sealed class CompositorBuilder(RenderSystem system) {
     /// <summary>Views a node may draw from, by the name the asset uses.</summary>
     public Dictionary<string, RenderView> Views { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>
+    ///     What the post-process nodes need and a document cannot carry.
+    /// </summary>
+    /// <remarks>
+    ///     A device, a shader-module cache, a descriptor allocator and a sampler cache — four things
+    ///     that belong to a running renderer rather than to a file, and which every node built here
+    ///     gets if they are set. Without them the tree still builds and the post nodes decline to
+    ///     draw, which is what an editor loading a document with no device wants.
+    /// </remarks>
+    public IGraphicsDevice? Device { get; set; }
+
+    /// <summary>Where shader modules come from.</summary>
+    public EffectPipelineDescriber? Modules { get; set; }
+
+    /// <summary>Where descriptor sets come from.</summary>
+    public DescriptorAllocator? Descriptors { get; set; }
+
+    /// <summary>Where samplers come from.</summary>
+    public SamplerCache? Samplers { get; set; }
+
     /// <summary>The stages this build created, by name.</summary>
     public Dictionary<string, RenderStage> Stages { get; } = new(StringComparer.Ordinal);
 
@@ -148,6 +168,8 @@ public sealed class CompositorBuilder(RenderSystem system) {
             SingleStageAsset single => Single(single),
             ShadowMapAsset shadows => Cascades(shadows),
             PunctualShadowAsset punctual => Punctual(punctual),
+            FullScreenAsset post => FullScreen(post),
+            BloomAsset bloom => Bloom(bloom),
             _ => throw new CompositorBindingException(
                 declared.Name,
                 "a node kind",
@@ -188,6 +210,11 @@ public sealed class CompositorBuilder(RenderSystem system) {
             node.BufferReads.Add(read);
         }
 
+        node.Descriptors.Slot = declared.Slot;
+        node.Descriptors.Allocator = Descriptors;
+        node.Samplers = Samplers;
+        Bind(node.Descriptors, declared.Bindings);
+
         foreach (var child in declared.Children) {
             node.Children.Add(Node(child));
         }
@@ -224,6 +251,86 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Atlas = declared.Atlas,
             Resolution = declared.Resolution,
             TilesPerSide = declared.TilesPerSide
+        };
+
+    FullScreenRenderer FullScreen(FullScreenAsset declared) {
+        var node = new FullScreenRenderer {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            ShaderName = declared.Shader,
+            Blend = Blend(declared.Blend),
+            Load = declared.Load,
+            ConstantBinding = declared.ConstantBinding,
+            Modules = Modules,
+            Device = Device,
+            Samplers = Samplers,
+            Descriptors = { Slot = declared.Slot, Allocator = Descriptors }
+        };
+
+        foreach (var target in declared.ColourTargets) {
+            node.ColourTargets.Add(target);
+        }
+
+        foreach (var read in declared.Reads) {
+            node.Reads.Add(read);
+        }
+
+        foreach (var read in declared.BufferReads) {
+            node.BufferReads.Add(read);
+        }
+
+        Bind(node.Descriptors, declared.Bindings);
+        return node;
+    }
+
+    BloomRenderer Bloom(BloomAsset declared) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            ShaderName = declared.Shader,
+            Source = declared.Source,
+            Output = declared.Output,
+            Levels = declared.Levels,
+            Format = declared.Format,
+            Threshold = declared.Threshold,
+            Knee = declared.Knee,
+            FilterRadius = declared.FilterRadius,
+            Intensity = declared.Intensity,
+            Modules = Modules,
+            Device = Device,
+            Descriptors = Descriptors,
+            Samplers = Samplers
+        };
+
+    /// <summary>Copies a document's bindings onto a node, translating its sampler presets.</summary>
+    static void Bind(DescriptorBindings bindings, ResourceBindingAsset[] declared) {
+        foreach (var binding in declared) {
+            bindings.Bindings.Add(
+                new() {
+                    Name = binding.Name,
+                    Binding = binding.Binding,
+                    Kind = binding.Kind,
+                    Resource = binding.Resource,
+                    Offset = binding.Offset,
+                    Size = binding.Size,
+                    Sampled = binding.Sampler switch {
+                        SamplerPreset.LinearClamp => SamplerDescription.LinearClamp,
+                        SamplerPreset.PointClamp => SamplerDescription.PointClamp,
+                        SamplerPreset.LinearRepeat => SamplerDescription.LinearRepeat,
+                        SamplerPreset.Shadow => SamplerDescription.Shadow,
+                        _ => null
+                    }
+                }
+            );
+        }
+    }
+
+    static BlendState Blend(BlendPreset preset) =>
+        preset switch {
+            BlendPreset.AlphaBlend => BlendState.AlphaBlend,
+            BlendPreset.PremultipliedAlpha => BlendState.PremultipliedAlpha,
+            BlendPreset.Additive => BlendState.Additive,
+            _ => BlendState.Opaque
         };
 
     RenderStage Stage(string node, string name) =>

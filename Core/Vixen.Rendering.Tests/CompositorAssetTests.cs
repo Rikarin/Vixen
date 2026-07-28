@@ -523,4 +523,133 @@ public class CompositorAssetTests : IDisposable {
 
         Assert.Equal(3, h.System.Stages.Count);
     }
+
+    // --- Post-processing, authored ------------------------------------------
+
+    /// <summary>
+    ///     A post chain written in a document, with no C# building any of it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         What doc 06's "the frame is data the user edits, not code" had never been true of. Two
+    ///         things used to make it impossible and both are gone: a binding index is the shader's
+    ///         decision, so a binding names what the shader calls it instead; and a sampler is a device
+    ///         handle, so a document names a preset and the frame's cache resolves it.
+    ///     </para>
+    ///     <para>
+    ///         The chain here is the shape a real frame ends with — a bloom pyramid and a tonemap that
+    ///         reads it — declared in twenty lines that mention no index, no handle and no pass count.
+    ///     </para>
+    /// </remarks>
+    const string PostChain = """
+        version: 2
+        resources:
+          - name: SceneColour
+            format: Rgba16Float
+            usage: ColourTarget, Sampled
+        stages:
+          - name: Opaque
+        game: !Sequence
+          name: Frame
+          children:
+            - !RenderPass
+              name: Main
+              colourTargets: [SceneColour]
+              children:
+                - !SingleStage
+                  name: OpaqueDraw
+                  view: Camera
+                  stage: Opaque
+            - !Bloom
+              name: Bloom
+              source: SceneColour
+              output: BloomResult
+              levels: 3
+              threshold: 0.4
+            - !FullScreen
+              name: Tonemap
+              shader: Tonemap
+              colourTargets: [Display]
+              reads: [BloomResult]
+              constantBinding: 2
+              bindings:
+                - name: source
+                  resource: BloomResult
+                - kind: Sampler
+                  binding: 1
+                  sampler: LinearClamp
+        """;
+
+    [Fact]
+    public void A_document_can_author_a_post_chain() {
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(PostChain);
+        using var h = Build();
+
+        var sequence = Assert.IsType<SequenceAsset>(asset.Game);
+
+        var bloom = Assert.IsType<BloomAsset>(sequence.Children[1]);
+        Assert.Equal("SceneColour", bloom.Source);
+        Assert.Equal(3, bloom.Levels);
+        Assert.Equal(0.4f, bloom.Threshold);
+
+        var tonemap = Assert.IsType<FullScreenAsset>(sequence.Children[2]);
+        Assert.Equal("Tonemap", tonemap.Shader);
+        Assert.Equal(2u, tonemap.ConstantBinding);
+
+        // The texture binding names what the shader calls it and carries no index at all; the sampler
+        // names a preset rather than a handle.
+        Assert.Equal("source", tonemap.Bindings[0].Name);
+        Assert.Equal("BloomResult", tonemap.Bindings[0].Resource);
+        Assert.Equal(SamplerPreset.LinearClamp, tonemap.Bindings[1].Sampler);
+    }
+
+    /// <summary>The builder turns those into nodes, wired to the caches the host gave it.</summary>
+    /// <remarks>
+    ///     The division the whole asset model rests on: the document says what, and a running renderer
+    ///     supplies the four things a file cannot carry — a device, a module cache, a descriptor
+    ///     allocator and a sampler cache.
+    /// </remarks>
+    [Fact]
+    public void The_builder_wires_authored_post_nodes_to_the_hosts_caches() {
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(PostChain);
+        using var h = Build();
+        using var allocator = new DescriptorAllocator(device);
+        using var samplers = new SamplerCache(device);
+
+        h.Builder.Device = device;
+        h.Builder.Modules = new(device);
+        h.Builder.Descriptors = allocator;
+        h.Builder.Samplers = samplers;
+
+        var compositor = h.Builder.Build(asset);
+        var sequence = Assert.IsType<SceneRendererSequence>(compositor.Game);
+
+        var bloom = Assert.IsType<BloomRenderer>(sequence.Children[1]);
+        Assert.Equal(3, bloom.Levels);
+        Assert.Same(samplers, bloom.Samplers);
+        Assert.Same(allocator, bloom.Descriptors);
+
+        var tonemap = Assert.IsType<FullScreenRenderer>(sequence.Children[2]);
+        Assert.Equal(2u, tonemap.ConstantBinding);
+        Assert.Same(allocator, tonemap.Descriptors.Allocator);
+        Assert.Equal(2, tonemap.Descriptors.Bindings.Count);
+
+        // The preset became a description, which is what the frame's cache resolves.
+        Assert.Equal(SamplerDescription.LinearClamp, tonemap.Descriptors.Bindings[1].Sampled);
+    }
+
+    /// <summary>A document with post nodes survives the baked binary form too.</summary>
+    [Fact]
+    public void The_baked_form_carries_the_post_chain() {
+        var original = YamlSerializer.Parse<GraphicsCompositorAsset>(PostChain);
+        var reread = Serializer.Read<GraphicsCompositorAsset>(Serializer.ToBytes(original));
+        var sequence = Assert.IsType<SequenceAsset>(reread.Game);
+
+        Assert.Equal(3, Assert.IsType<BloomAsset>(sequence.Children[1]).Levels);
+
+        var tonemap = Assert.IsType<FullScreenAsset>(sequence.Children[2]);
+
+        Assert.Equal("source", tonemap.Bindings[0].Name);
+        Assert.Equal(SamplerPreset.LinearClamp, tonemap.Bindings[1].Sampler);
+    }
 }
