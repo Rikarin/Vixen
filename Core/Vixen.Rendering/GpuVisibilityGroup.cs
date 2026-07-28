@@ -66,10 +66,18 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
     readonly IGraphicsDevice device;
     readonly UploadBuffer<CullObject> objects = new("Culling.Objects");
     readonly UploadBuffer<CullView> views = new("Culling.Views");
+
+    // A second buffer rather than a second run in the first, because what a set binds is a byte
+    // offset and a binding offset has to be a multiple of minStorageBufferOffsetAlignment. A view
+    // record is 208 bytes and that alignment is 256, so a second run inside one buffer would start
+    // at a legal offset only every sixteenth view — which is padding, arithmetic and a rule to get
+    // wrong, to save one buffer of a few kilobytes.
+    readonly UploadBuffer<CullView> lateViews = new("Culling.LateViews");
     readonly DescriptorWrite[] writes = new DescriptorWrite[4];
 
     CullObject[] packedObjects = [];
     CullView[] packedViews = [];
+    CullView[] packedLate = [];
     uint[] words = [];
 
     // Each view's matrix from the frame the pyramid was built in, which is the only matrix its
@@ -99,11 +107,20 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
     DescriptorSetHandle[] descriptors = [];
     int ring;
 
+    // The late pass's own ring, because its set differs from the main pass's in the views it points
+    // at — and the two are recorded into one list, where a set cannot be rewritten between two
+    // dispatches that both read it.
+    DescriptorSetHandle[] lateDescriptors = [];
+    int lateRing;
+
     // From the reflection checked in beside the shader — see GpuCulling.ShaderName.
     const DescriptorSetSlot Slot = (DescriptorSetSlot)CullingKeys.ObjectsSet;
 
     Effect? allocatedFor;
+    Effect? lateAllocatedFor;
     PendingCull? pending;
+    PendingCull? late;
+    bool recorded;
     bool disposed;
 
     /// <summary>Creates a group that culls on a device.</summary>
@@ -115,6 +132,7 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
         this.device = device;
         objects.Device = device;
         views.Device = device;
+        lateViews.Device = device;
     }
 
     /// <summary>Where the culling variant is resolved from. Null culls on the CPU.</summary>
@@ -191,6 +209,44 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
     /// </remarks>
     public bool ReadBack { get; set; } = true;
 
+    /// <summary>
+    ///     Whether a second dispatch is prepared each frame, to catch what the first one's stale depth
+    ///     could not know about.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>What it removes is a frame of staleness, and nothing else.</strong> The main
+    ///         pass tests against a pyramid built from the previous frame, because that is the only
+    ///         depth a pass running before anything is drawn can have — so an object that was hidden
+    ///         last frame and is not now is drawn a frame late, which is a pop at the trailing edge of
+    ///         whatever the camera moved past. With this on, the main pass's draws are reduced back
+    ///         into the pyramid and everything the main pass rejected is asked again against
+    ///         <em>this</em> frame's depth. See <see cref="CullPhase" />.
+    ///     </para>
+    ///     <para>
+    ///         <strong>It needs <see cref="ReadBack" /> off.</strong> The two dispatches have to
+    ///         straddle a set of draws, which means they live in the frame's own command list — and
+    ///         the readback path submits and waits during <see cref="Cull" />, where there is nothing
+    ///         to straddle. With readback on, no late dispatch is prepared and
+    ///         <see cref="RecordLate" /> records nothing; that is not an error, it is the frame being
+    ///         culled exactly as it would have been with this off.
+    ///     </para>
+    ///     <para>
+    ///         What it does <em>not</em> need is a pyramid. A frame with no depth yet still dispatches
+    ///         the late pass, and gets an empty difference — see <see cref="PrepareLate" /> for why
+    ///         that is correctness rather than waste.
+    ///     </para>
+    /// </remarks>
+    public bool TwoPhase { get; set; }
+
+    /// <summary>Whether the last frame's late dispatch was recorded.</summary>
+    /// <remarks>
+    ///     Worth its own flag for the reason <see cref="OcclusionTested" /> is: a two-phase cull that
+    ///     is quietly running one phase looks exactly like one where the second phase never finds
+    ///     anything, and those are opposite conclusions about the same frame.
+    /// </remarks>
+    public bool LatePhaseRan { get; private set; }
+
     /// <summary>Whether the last <see cref="Cull" /> ran on the device rather than on the CPU.</summary>
     /// <remarks>
     ///     Worth exposing rather than inferring: "the GPU path is on" and "the GPU path ran" differ
@@ -208,6 +264,13 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
     ///         the host's copy would consume — a compaction producing indirect draw arguments is the
     ///         whole point of computing them here, and it can read this without the round trip
     ///         <see cref="Cull" /> pays for the CPU's benefit.
+    ///     </para>
+    ///     <para>
+    ///         <strong>After <see cref="RecordLate" /> it holds the difference.</strong> The late
+    ///         dispatch overwrites these words with what the main pass did <em>not</em> draw and this
+    ///         frame's depth says is visible after all, because that is what a second set of draws has
+    ///         to be given. So the buffer's meaning is "what the next draws should draw", which is the
+    ///         same meaning it had before the late pass and a different set of objects.
     ///     </para>
     ///     <para>
     ///         <strong>It is the frustum's answer, not the frame's.</strong> <see cref="Hide" /> — LOD
@@ -247,6 +310,10 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
         ObjectDisposedException.ThrowIf(disposed, this);
 
         OcclusionTested = false;
+        LatePhaseRan = false;
+        recorded = false;
+        late = null;
+
         CulledOnDevice = TryCullOnDevice(store, views);
 
         if (!CulledOnDevice) {
@@ -280,7 +347,7 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
         // A placeholder is a variant that has not compiled yet, and culling with it would produce an
         // empty frame rather than a differently-shaded one — the failure a placeholder exists to
         // avoid. The CPU answers this frame and the device answers the next.
-        if (Effects.Resolve(Key(occlusion)) is not { IsPlaceholder: false } effect) {
+        if (Effects.Resolve(GpuCulling.Key(occlusion)) is not { IsPlaceholder: false } effect) {
             return false;
         }
 
@@ -312,12 +379,87 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
             Dispatch(pipeline, wordCount, frameViews.Count, bytes);
             Read(frameViews.Count, objectCount, wordCount);
         } else {
-            pending = new(pipeline, wordCount, frameViews.Count);
+            pending = new(pipeline, objectCount, wordCount, frameViews.Count);
             Conservative(store, frameViews, objectCount);
+            PrepareLate(frameViews, objectCount, wordCount, tested);
         }
 
         OcclusionTested = tested;
         return true;
+    }
+
+    /// <summary>
+    ///     Packs and uploads what the second dispatch will need, for <see cref="RecordLate" /> to put
+    ///     in the frame's list once the pyramid has been rebuilt.
+    /// </summary>
+    /// <param name="frameViews">This frame's views.</param>
+    /// <param name="objectCount">How many object slots the store holds.</param>
+    /// <param name="wordCount">How many words a view's answer occupies.</param>
+    /// <param name="occlusion">Whether the main pass had a pyramid any view could be tested against.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>It is prepared even when there is no pyramid.</strong> That dispatch re-runs
+    ///         the frustum test, subtracts what the main pass drew and writes an empty difference —
+    ///         and an empty difference is the answer, which is not the same as not dispatching.
+    ///         Skipping it would leave the main pass's bits in the argument buffer for the late draws
+    ///         to find, and every visible object would be drawn a second time. The cost of being
+    ///         right about this is a dispatch that writes zeroes on the frames before any depth
+    ///         exists.
+    ///     </para>
+    ///     <para>
+    ///         <strong>The matrix is this frame's, and that is the whole point.</strong> The main pass
+    ///         projects against the matrix last frame's depth was drawn with; by the time this runs,
+    ///         the pyramid holds depth this frame's main pass drew, so this frame's matrix is the one
+    ///         that matches it. It is the same
+    ///         <see cref="GpuCulling.Pack(RenderView, int, int, Matrix4x4, int)" /> either way — what differs
+    ///         is which matrix is handed to it, which is the difference between the two phases stated
+    ///         in one line.
+    ///     </para>
+    ///     <para>
+    ///         Packed here rather than at record time because it is host data and this is the host's
+    ///         part of the frame. What is deliberately <em>not</em> done here is the descriptor write:
+    ///         see <see cref="RecordLate" />.
+    ///     </para>
+    /// </remarks>
+    void PrepareLate(IReadOnlyList<RenderView> frameViews, int objectCount, int wordCount, bool occlusion) {
+        if (!TwoPhase) {
+            return;
+        }
+
+        if (Effects!.Resolve(GpuCulling.Key(occlusion, CullPhase.Late)) is not { IsPlaceholder: false } effect) {
+            return;
+        }
+
+        var pipeline = Pipelines!.GetOrCreate(effect);
+
+        if (!pipeline.IsValid || !TryAllocateLateSet(effect)) {
+            return;
+        }
+
+        Reserve(ref packedLate, frameViews.Count);
+        var levels = Occluders?.Levels ?? 0;
+
+        for (var i = 0; i < frameViews.Count; i++) {
+            var projection = frameViews[i].ViewProjection;
+
+            // Identity is a view whose matrix was never set — a caller that supplied a frustum and
+            // nothing else — and projecting a scene with it produces a rectangle about nowhere.
+            var tested = levels > 0 && projection != Matrix4x4.Identity;
+
+            packedLate[i] = GpuCulling.Pack(
+                frameViews[i],
+                objectCount,
+                wordCount,
+                tested ? projection : default,
+                tested ? levels : 0
+            );
+        }
+
+        lateViews.Begin();
+        lateViews.Add(packedLate.AsSpan(0, frameViews.Count));
+        lateViews.Upload();
+
+        late = new(pipeline, objectCount, wordCount, frameViews.Count);
     }
 
     /// <summary>
@@ -349,16 +491,6 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
             }
         }
     }
-
-    /// <summary>The key for the variant this frame wants.</summary>
-    /// <remarks>
-    ///     The permutation is named either way rather than left to its default when it is off, so
-    ///     that the two frames either side of a pyramid appearing ask for two keys that differ in
-    ///     their value rather than in their <em>shape</em> — a bundle records what a run asked for,
-    ///     and "Culling with no permutations" is a third variant nobody wants baked.
-    /// </remarks>
-    static EffectKey Key(bool occlusion) =>
-        EffectKey.Of(GpuCulling.ShaderName, [new(GpuCulling.OcclusionKey, occlusion ? "true" : "false")]);
 
     /// <summary>Records the matrices the next frame's occlusion test will project with.</summary>
     void Remember(IReadOnlyList<RenderView> frameViews) {
@@ -462,11 +594,40 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
         device.UpdateDescriptorSet(descriptors[ring], writes);
     }
 
+    /// <summary>Points the late pass's set at the same objects, its own views, and the same output.</summary>
+    /// <remarks>
+    ///     Written at record time rather than at cull time, which the main pass's set is not, and for a
+    ///     reason the main pass does not have: between the two, <see cref="HiZPyramid.Build" /> has
+    ///     run — and a frame that changed resolution rebuilds the pyramid's texture, so the view this
+    ///     binds is one that only exists after that. Asking <see cref="Occluding" /> here is asking it
+    ///     of the pyramid this dispatch will actually sample.
+    /// </remarks>
+    void BindLate(int objectCount, int viewCount, long bytes) {
+        writes[0] = DescriptorWrite.Storage(
+            CullingKeys.ObjectsBinding,
+            objects.Buffer,
+            objects.Offset,
+            (long)objectCount * Unsafe.SizeOf<CullObject>()
+        );
+
+        writes[1] = DescriptorWrite.Storage(
+            CullingKeys.ViewsBinding,
+            lateViews.Buffer,
+            lateViews.Offset,
+            (long)viewCount * Unsafe.SizeOf<CullView>()
+        );
+
+        writes[2] = DescriptorWrite.Storage(CullingKeys.VisibilityBinding, visibility, 0, bytes);
+        writes[3] = DescriptorWrite.Texture(CullingKeys.OccludersBinding, Occluding());
+
+        device.UpdateDescriptorSet(lateDescriptors[lateRing], writes);
+    }
+
     /// <summary>Records the dispatch and the copy out of it, submits, and waits.</summary>
     void Dispatch(PipelineHandle pipeline, int wordCount, int viewCount, long bytes) {
         using var list = device.BeginCommandList(QueueKind.Compute, "Culling");
 
-        RecordDispatch(list, pipeline, wordCount, viewCount, ResourceState.CopySource);
+        RecordDispatch(list, pipeline, descriptors[ring], wordCount, viewCount, ResourceState.CopySource);
         list.CopyBuffer(visibility, 0, readback, 0, bytes);
         list.Finish();
 
@@ -479,7 +640,14 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
     }
 
     /// <summary>The dispatch itself, into whichever list is going to carry it.</summary>
-    void RecordDispatch(ICommandList list, PipelineHandle pipeline, int wordCount, int viewCount, ResourceState after) {
+    void RecordDispatch(
+        ICommandList list,
+        PipelineHandle pipeline,
+        DescriptorSetHandle set,
+        int wordCount,
+        int viewCount,
+        ResourceState after
+    ) {
         // A texture is created in no layout at all, and a descriptor promises the one it was written
         // with — so the stand-in has to be transitioned even though nothing ever reads it. Once, on
         // the first dispatch that binds it; the pyramid transitions itself.
@@ -488,9 +656,12 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
             placeholderReady = true;
         }
 
+        // Truthful `before` in both directions: the main pass finds the bits wherever last frame left
+        // them, and the late pass finds them in ShaderRead, having just been read by the argument
+        // pass. That read-then-write is the reason this barrier is not merely ordering two writes.
         list.Barrier(new([new(visibility, state, ResourceState.ShaderWrite)], []));
         list.BindPipeline(pipeline);
-        list.BindDescriptorSet(Slot, descriptors[ring]);
+        list.BindDescriptorSet(Slot, set);
         list.Dispatch(GpuCulling.Groups(wordCount), viewCount);
 
         list.Barrier(new([new(visibility, ResourceState.ShaderWrite, after)], []));
@@ -527,13 +698,69 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
         }
 
         pending = null;
-        RecordDispatch(list, work.Pipeline, work.WordCount, work.ViewCount, ResourceState.ShaderRead);
+        RecordDispatch(list, work.Pipeline, descriptors[ring], work.WordCount, work.ViewCount, ResourceState.ShaderRead);
+        recorded = true;
 
         return true;
     }
 
+    /// <summary>
+    ///     Records the second dispatch of a two-phase cull: what this frame's own depth says is
+    ///     visible and the main pass did not draw.
+    /// </summary>
+    /// <param name="list">An open command list, outside a render pass.</param>
+    /// <returns>False when there was nothing to record, in which case nothing was.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="list" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>Where it goes in the frame is the whole feature.</strong> It has to be after
+    ///         the main pass's draws and after the pyramid has been rebuilt from the depth they left,
+    ///         and before the draws that will consume its answer. Nothing here can check that — an
+    ///         open command list does not say what has been recorded into it — which is why
+    ///         <see cref="Compositor.GpuCullingRenderer" /> exists to be placed rather than a flag to
+    ///         be set.
+    ///     </para>
+    ///     <para>
+    ///         <strong>It overwrites the bits rather than adding a second buffer.</strong> An
+    ///         invocation owns a whole word, so the shader's read-modify-write is one thread's, and
+    ///         what comes out is the difference: visible now, not drawn by the main pass. That is
+    ///         exactly what <see cref="GpuDrawArguments" /> has to turn into the late draws, and a
+    ///         second buffer would be a copy of a decision the first one can hold.
+    ///     </para>
+    ///     <para>
+    ///         Records nothing when <see cref="Record" /> did not run this frame. A late pass reads
+    ///         what the main pass wrote, so without one it would subtract from whatever the previous
+    ///         frame left in the buffer — which is the kind of wrong that looks almost right.
+    ///     </para>
+    /// </remarks>
+    public bool RecordLate(ICommandList list) {
+        ArgumentNullException.ThrowIfNull(list);
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (late is not { } work || !recorded) {
+            return false;
+        }
+
+        late = null;
+        lateRing = lateDescriptors.Length == 0 ? 0 : (lateRing + 1) % lateDescriptors.Length;
+
+        BindLate(work.ObjectCount, work.ViewCount, GpuCulling.BufferSize(work.ViewCount, work.WordCount));
+
+        RecordDispatch(
+            list,
+            work.Pipeline,
+            lateDescriptors[lateRing],
+            work.WordCount,
+            work.ViewCount,
+            ResourceState.ShaderRead
+        );
+
+        LatePhaseRan = true;
+        return true;
+    }
+
     /// <summary>A dispatch that has been prepared but not yet recorded.</summary>
-    readonly record struct PendingCull(PipelineHandle Pipeline, int WordCount, int ViewCount);
+    readonly record struct PendingCull(PipelineHandle Pipeline, int ObjectCount, int WordCount, int ViewCount);
 
     /// <summary>Puts the completed readback into the composed group's bitset.</summary>
     void Read(int viewCount, int objectCount, int wordCount) {
@@ -621,6 +848,34 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
         return true;
     }
 
+    bool TryAllocateLateSet(Effect effect) {
+        var slots = Math.Max(1, device.FramesInFlight);
+
+        if (ReferenceEquals(lateAllocatedFor, effect) && lateDescriptors.Length == slots) {
+            return true;
+        }
+
+        if ((int)Slot >= effect.SetLayouts.Length || !effect.SetLayouts[(int)Slot].IsValid) {
+            return false;
+        }
+
+        DestroyLateSets();
+        lateDescriptors = new DescriptorSetHandle[slots];
+
+        for (var index = 0; index < slots; index++) {
+            lateDescriptors[index] = device.CreateDescriptorSet(effect.SetLayouts[(int)Slot], "Culling.Late");
+
+            if (!lateDescriptors[index].IsValid) {
+                return false;
+            }
+        }
+
+        lateRing = 0;
+        lateAllocatedFor = effect;
+
+        return true;
+    }
+
     void DestroySets() {
         foreach (var set in descriptors) {
             if (set.IsValid) {
@@ -630,6 +885,17 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
 
         descriptors = [];
         allocatedFor = null;
+    }
+
+    void DestroyLateSets() {
+        foreach (var set in lateDescriptors) {
+            if (set.IsValid) {
+                device.Destroy(set);
+            }
+        }
+
+        lateDescriptors = [];
+        lateAllocatedFor = null;
     }
 
     /// <summary>Makes sure the device has room for a frame's answer and for the copy of it.</summary>
@@ -686,8 +952,10 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
 
         disposed = true;
         pending = null;
+        late = null;
 
         DestroySets();
+        DestroyLateSets();
 
         if (visibility.IsValid) {
             device.Destroy(visibility);
@@ -711,10 +979,12 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
 
         objects.Dispose();
         views.Dispose();
+        lateViews.Dispose();
         results.Dispose();
 
         packedObjects = [];
         packedViews = [];
+        packedLate = [];
         words = [];
         capacity = 0;
     }

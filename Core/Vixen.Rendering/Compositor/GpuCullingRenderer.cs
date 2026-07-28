@@ -58,6 +58,15 @@ public interface IDrawArgumentSource {
 ///         It declares no graph resources and is therefore a side effect: what it writes are two
 ///         buffers that outlive the graph, and what reads them is a draw call rather than a pass.
 ///     </para>
+///     <para>
+///         <strong>Two-phase culling is two of these nodes.</strong> A second one with
+///         <see cref="Phase" /> set to <see cref="CullPhase.Late" />, placed after the main pass's
+///         draws and after the <see cref="HiZRenderer" /> that reduced them, asks again about
+///         everything the first rejected — this time against depth from this frame rather than the
+///         last. Its answer goes into the same two buffers, which is why the draws that follow it
+///         need no knowledge of any of this: they read the same argument buffer, whose contents by
+///         then are the difference.
+///     </para>
 /// </remarks>
 public sealed class GpuCullingRenderer : SceneRenderer {
     /// <summary>The group whose dispatch to record. Null does nothing at all.</summary>
@@ -65,6 +74,15 @@ public sealed class GpuCullingRenderer : SceneRenderer {
 
     /// <summary>Where the draw arguments go. Null records the cull and stops there.</summary>
     public GpuDrawArguments? Arguments { get; set; }
+
+    /// <summary>Which of a two-phase cull's dispatches this node records.</summary>
+    /// <remarks>
+    ///     <see cref="CullPhase.Main" /> for an ordinary frame, and for the first of a two-phase one.
+    ///     A <see cref="CullPhase.Late" /> node is only meaningful after a main one and after the
+    ///     depth its draws produced has been reduced — nothing here can check that, which is why this
+    ///     is a node to be placed rather than a flag to be set.
+    /// </remarks>
+    public CullPhase Phase { get; set; }
 
     /// <inheritdoc />
     protected internal override void Build(GraphicsCompositor compositor, CompositorFrame frame) {
@@ -80,7 +98,10 @@ public sealed class GpuCullingRenderer : SceneRenderer {
         var viewCount = system.Views.Count;
         var arguments = Arguments;
 
-        if (arguments is not null && objectCount > 0 && viewCount > 0) {
+        // The main node fills the templates; the late node reuses them. They are what the host would
+        // have drawn, which the two phases agree about — all that differs is the bits they are
+        // filtered by. Filling them again here would clear what the first pass's sources wrote.
+        if (Phase == CullPhase.Main && arguments is not null && objectCount > 0 && viewCount > 0) {
             var commands = arguments.Fill(objectCount);
 
             foreach (var feature in system.Features) {
@@ -91,6 +112,7 @@ public sealed class GpuCullingRenderer : SceneRenderer {
         }
 
         var visibility = Visibility;
+        var phase = Phase;
 
         frame.Graph.AddPass(
             ToString(),
@@ -102,8 +124,14 @@ public sealed class GpuCullingRenderer : SceneRenderer {
                     context => {
                         // Nothing to record when the group read its answer back — it dispatched and
                         // waited during Cull, and the arguments would be a second copy of a decision
-                        // the work list already carries.
-                        if (!visibility.Record(context.CommandList)) {
+                        // the work list already carries. A late node adds: nothing to record when
+                        // there was no pyramid to retest against, which is a frame culled exactly as
+                        // a one-phase frame would have been.
+                        var recorded = phase == CullPhase.Late
+                            ? visibility.RecordLate(context.CommandList)
+                            : visibility.Record(context.CommandList);
+
+                        if (!recorded) {
                             return;
                         }
 

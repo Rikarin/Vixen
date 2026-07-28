@@ -49,12 +49,21 @@ public struct DrawCommand {
 ///     </para>
 ///     <para>
 ///         <strong>It zeroes instance counts rather than compacting.</strong> The textbook form
-///         appends survivors to a list, which needs an atomic counter to claim slots with — and
-///         Raven has no atomics, the constraint that also shapes <see cref="ClusterGrid" /> and the
-///         particle kernels. So the buffer holds one record per object slot at that slot's own index
-///         and a culled object gets zero instances, which every API defines as a draw that fetches
-///         and rasterises nothing. The cost is a command submitted per object rather than per visible
-///         object; the saving is the whole round trip.
+///         appends survivors to a list and draws that list. Claiming a slot needs an atomic add,
+///         which Raven has — so what stands in the way is the <em>draw</em>, in two independent
+///         ways. A single command covers a compacted run only if its count comes from the device,
+///         and <see cref="ICommandList.DrawIndexedIndirect" /> takes <c>drawCount</c> as a host
+///         integer. And a single command covers several objects only if they share their bindings,
+///         which they do not: <see cref="Features.MeshRenderFeature" /> binds a vertex buffer, an
+///         index buffer and a material set per object, so a compacted list would be a list nothing
+///         could draw in one call.
+///     </para>
+///     <para>
+///         Bindless materials are what change the second of those, and are the prerequisite
+///         [docs/plan/14] records against compaction. Until then the buffer holds one record per
+///         object slot at that slot's own index and a culled object gets zero instances, which every
+///         API defines as a draw that fetches and rasterises nothing. The cost is a command submitted
+///         per object rather than per visible object; the saving is the whole round trip.
 ///     </para>
 ///     <para>
 ///         <strong>A record per object per view</strong>, because the bits are: a shadow cascade and
@@ -80,6 +89,13 @@ public sealed class GpuDrawArguments : IDisposable {
     DrawCommand[] packed = [];
     BufferHandle commands;
     long capacity;
+
+    // Whether the templates in `packed` have reached the device since the last Fill. A two-phase
+    // frame dispatches twice over one set of templates, and uploading them again would advance the
+    // upload ring a second time in one frame — which halves the ring's depth in exactly the way the
+    // ring exists to prevent.
+    bool staged;
+    long templateOffset;
 
     // What the argument buffer was left in. The draw that reads it needs IndirectArgument, and the
     // dispatch that writes it needs ShaderWrite, so it changes twice a frame and never settles.
@@ -115,6 +131,19 @@ public sealed class GpuDrawArguments : IDisposable {
 
     /// <summary>Where the compute pipeline comes from. Null updates nothing.</summary>
     public ComputePipelineCache? Pipelines { get; set; }
+
+    /// <summary>
+    ///     How many times a frame <see cref="Update" /> is called, which is what the set ring has to
+    ///     be deep enough for.
+    /// </summary>
+    /// <remarks>
+    ///     One for an ordinary frame; two for a two-phase cull, whose second dispatch turns the late
+    ///     difference into the late draws. The same argument as
+    ///     <see cref="HiZPyramid.BuildsPerFrame" />: two updates in one frame are two rewrites of a
+    ///     set before a single submission, which sizing the ring to frames in flight alone does not
+    ///     cover.
+    /// </remarks>
+    public int DispatchesPerFrame { get; set; } = 1;
 
     /// <summary>The arguments a draw call reads. Invalid before the first update.</summary>
     public BufferHandle Commands => commands;
@@ -159,6 +188,7 @@ public sealed class GpuDrawArguments : IDisposable {
 
         var span = packed.AsSpan(0, objectCount);
         span.Clear();
+        staged = false;
 
         return span;
     }
@@ -214,14 +244,21 @@ public sealed class GpuDrawArguments : IDisposable {
         ObjectCount = objectCount;
         ViewCount = viewCount;
 
-        templates.Begin();
-        templates.Add(packed.AsSpan(0, objectCount));
-        templates.Upload();
+        // Once per Fill, not once per dispatch. The templates are what the host would have drawn and
+        // do not change between a frame's two phases — only the bits they are filtered by do.
+        if (!staged) {
+            templates.Begin();
+            templates.Add(packed.AsSpan(0, objectCount));
+            templates.Upload();
+
+            templateOffset = templates.Offset;
+            staged = true;
+        }
 
         writes[0] = DescriptorWrite.Storage(
             DrawArgumentsKeys.TemplatesBinding,
             templates.Buffer,
-            templates.Offset,
+            templateOffset,
             (long)objectCount * Unsafe.SizeOf<DrawCommand>()
         );
 
@@ -255,7 +292,7 @@ public sealed class GpuDrawArguments : IDisposable {
     }
 
     bool TryAllocateSet(Effect effect) {
-        var slots = Math.Max(1, device.FramesInFlight);
+        var slots = Math.Max(1, device.FramesInFlight) * Math.Max(1, DispatchesPerFrame);
 
         if (ReferenceEquals(allocatedFor, effect) && descriptors.Length == slots) {
             return true;

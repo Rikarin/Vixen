@@ -258,6 +258,110 @@ public class GpuVisibilityGroupTests : IDisposable {
         Assert.Equal(MathUtil.RoundingSlack, float.Parse(literal, CultureInfo.InvariantCulture));
     }
 
+    /// <summary>
+    ///     The late variant reads the word before it writes it, and subtracts what was already drawn.
+    /// </summary>
+    /// <remarks>
+    ///     Source again, and this one earns it more than most: the whole of two-phase culling on the
+    ///     device is three lines that turn an answer into a <em>difference</em>, and a rewrite that
+    ///     dropped the subtraction would produce the union — which draws every visible object twice
+    ///     and looks, in a frame capture, like a scene that is merely expensive.
+    /// </remarks>
+    [Fact]
+    public void The_late_shader_subtracts_what_the_main_pass_drew() {
+        var source = Source("Pipeline", "Culling.rvn");
+
+        // The host's key is qualified by the shader and the declaration is not, which is the
+        // generator's doing rather than either side's — so the two are tied together here instead of
+        // one of them being spelled twice.
+        Assert.Equal($"{GpuCulling.ShaderName}.Late", GpuCulling.LateKey);
+        Assert.Contains("[Permutation] val Late: bool = false", source, StringComparison.Ordinal);
+
+        // Read from the same buffer it writes, which is what makes the second buffer unnecessary.
+        Assert.Contains("already = visibility[slot]", source, StringComparison.Ordinal);
+        Assert.Contains("val drawn = (already & (1u << i)) != 0u", source, StringComparison.Ordinal);
+        Assert.Contains("if (!drawn && Visible(objects[index], view))", source, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     The two phases ask for two variants, and every permutation is named in both.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A key is how a variant is chosen, so this is the one place a phase can be silently
+    ///         wrong: a late key that resolved to the main variant would dispatch a pass that writes
+    ///         the full frustum answer over the difference, and the late draws would draw the whole
+    ///         scene a second time.
+    ///     </para>
+    ///     <para>
+    ///         Which is why <c>Late</c> is set by the phase alone and not gated on occlusion. A
+    ///         two-phase frame that has no pyramid yet still runs a late pass, gets an empty
+    ///         difference, and draws nothing late — and that is a different thing from not dispatching
+    ///         at all.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_two_phases_ask_for_two_variants() {
+        var main = GpuCulling.Key(true);
+        var late = GpuCulling.Key(true, CullPhase.Late);
+
+        Assert.NotEqual(main, late);
+        Assert.Equal(GpuCulling.ShaderName, late.ShaderName);
+
+        Assert.Equal("false", Value(main, GpuCulling.LateKey));
+        Assert.Equal("true", Value(late, GpuCulling.LateKey));
+
+        // Both permutations named in every key, whatever their values, so that the frames either side
+        // of a pyramid appearing ask for keys that differ in value rather than in shape.
+        foreach (var key in (EffectKey[])[main, late, GpuCulling.Key(false), GpuCulling.Key(false, CullPhase.Late)]) {
+            Assert.NotNull(Value(key, GpuCulling.OcclusionKey));
+            Assert.NotNull(Value(key, GpuCulling.LateKey));
+        }
+
+        // And with no pyramid the late phase is still the late variant, which is what stops the main
+        // pass's bits surviving into the late draws.
+        Assert.Equal("true", Value(GpuCulling.Key(false, CullPhase.Late), GpuCulling.LateKey));
+    }
+
+    static string? Value(EffectKey key, string name) {
+        foreach (var (permutation, value) in key.Values) {
+            if (string.Equals(permutation, name, StringComparison.Ordinal)) {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    ///     The late pass owes the difference: visible now, and not already drawn.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of the whole late decision, and the order matters. An object the main pass drew
+    ///     is not re-examined — not because it would fail the test, but because passing it would draw
+    ///     it twice, which is the failure mode a union rather than a difference produces.
+    /// </remarks>
+    [Fact]
+    public void The_late_pass_owes_only_the_difference() {
+        var camera = Camera(RenderStageMask.Of(0));
+        var view = Occluding(camera);
+        var candidate = GpuCulling.Pack(Object(10f));
+
+        // Nothing occludes: an empty pyramid is far everywhere, and under reverse-Z far is zero.
+        static float Open(int x, int y, int level) => 0f;
+
+        Assert.True(GpuCulling.IsLate(candidate, view, drawn: false, new(64, 64), Open));
+        Assert.False(GpuCulling.IsLate(candidate, view, drawn: true, new(64, 64), Open));
+
+        // And a wall in front of it is not late either, however little the main pass drew.
+        static float Wall(int x, int y, int level) => 1f;
+
+        Assert.False(GpuCulling.IsLate(candidate, view, drawn: false, new(64, 64), Wall));
+
+        // Nor is something the frustum rejects.
+        Assert.False(GpuCulling.IsLate(GpuCulling.Pack(Object(-10f)), view, drawn: false, new(64, 64), Open));
+    }
+
     // --- The frame ----------------------------------------------------------
 
     /// <summary>
@@ -1055,6 +1159,158 @@ public class GpuVisibilityGroupTests : IDisposable {
 
         Assert.Equal(1, device.Recorder.CountOf(RecordedCommandKind.Dispatch));
         Assert.Equal(0, device.Recorder.CountOf(RecordedCommandKind.CopyBuffer));
+    }
+
+    /// <summary>
+    ///     Two-phase culling is a second dispatch, and only after the first one has been recorded.
+    /// </summary>
+    /// <remarks>
+    ///     The late pass reads the word the main pass wrote. Without one it would subtract from
+    ///     whatever the previous frame left in the buffer, which is a difference computed against the
+    ///     wrong frame — the kind of wrong that looks almost right and only shows as objects missing
+    ///     where the camera moved last frame.
+    /// </remarks>
+    [Fact]
+    public void The_late_pass_records_a_second_dispatch_after_the_first() {
+        using var store = new RenderObjectStore();
+        using var pyramid = Pyramid();
+        using var visibility = Configured();
+
+        visibility.ReadBack = false;
+        visibility.TwoPhase = true;
+        visibility.Occluders = pyramid;
+
+        Add(store, 10f);
+        Build(pyramid, new(64, 64));
+
+        // Twice, because occlusion needs a matrix from the frame the pyramid was built in — and it is
+        // the occlusion-tested frame that has a late pass worth running.
+        visibility.Cull(store, [Camera(RenderStageMask.Of(0))]);
+        visibility.Cull(store, [Camera(RenderStageMask.Of(0))]);
+
+        Assert.True(visibility.OcclusionTested);
+
+        // Counted from here, because building the pyramid is a dispatch per level and this is about
+        // the two the culler adds.
+        var before = device.Recorder!.CountOf(RecordedCommandKind.Dispatch);
+
+        using (var list = device.BeginCommandList(QueueKind.Compute)) {
+            Assert.True(visibility.Record(list));
+            Assert.True(visibility.RecordLate(list));
+
+            // And only once each: a node that ran twice would dispatch twice over the same answer,
+            // and the second would subtract the first's difference from itself.
+            Assert.False(visibility.RecordLate(list));
+
+            list.Finish();
+            device.ComputeQueue.Submit([list]);
+        }
+
+        Assert.True(visibility.LatePhaseRan);
+        Assert.Equal(before + 2, device.Recorder.CountOf(RecordedCommandKind.Dispatch));
+    }
+
+    /// <summary>
+    ///     A late pass with no main pass records nothing.
+    /// </summary>
+    /// <remarks>
+    ///     The one ordering error a document can make that nothing else would catch: the late
+    ///     dispatch's input is the main dispatch's output, and a list holding only the second is one
+    ///     that subtracts this frame's visibility from last frame's answer.
+    /// </remarks>
+    [Fact]
+    public void A_late_pass_without_a_main_pass_records_nothing() {
+        using var store = new RenderObjectStore();
+        using var pyramid = Pyramid();
+        using var visibility = Configured();
+
+        visibility.ReadBack = false;
+        visibility.TwoPhase = true;
+        visibility.Occluders = pyramid;
+
+        Add(store, 10f);
+        Build(pyramid, new(64, 64));
+
+        visibility.Cull(store, [Camera(RenderStageMask.Of(0))]);
+        visibility.Cull(store, [Camera(RenderStageMask.Of(0))]);
+
+        var before = device.Recorder!.CountOf(RecordedCommandKind.Dispatch);
+
+        using (var list = device.BeginCommandList(QueueKind.Compute)) {
+            Assert.False(visibility.RecordLate(list));
+
+            list.Finish();
+            device.ComputeQueue.Submit([list]);
+        }
+
+        Assert.False(visibility.LatePhaseRan);
+        Assert.Equal(before, device.Recorder.CountOf(RecordedCommandKind.Dispatch));
+    }
+
+    /// <summary>
+    ///     With the readback on there is no late phase, because there is nothing for it to straddle.
+    /// </summary>
+    /// <remarks>
+    ///     The readback path submits and waits inside <see cref="GpuVisibilityGroup.Cull" />, before
+    ///     any of the frame's draws exist. Two phases have to sit either side of a set of draws, so
+    ///     asking for both is asking for something the ordering cannot hold — and the answer is the
+    ///     frame culled exactly as a one-phase frame, not an exception out of the middle of it.
+    /// </remarks>
+    [Fact]
+    public void The_readback_path_has_no_late_phase() {
+        using var store = new RenderObjectStore();
+        using var pyramid = Pyramid();
+        using var visibility = Configured();
+
+        visibility.TwoPhase = true;
+        visibility.Occluders = pyramid;
+
+        Add(store, 10f);
+        Build(pyramid, new(64, 64));
+
+        visibility.Cull(store, [Camera(RenderStageMask.Of(0))]);
+        visibility.Cull(store, [Camera(RenderStageMask.Of(0))]);
+
+        using var list = device.BeginCommandList(QueueKind.Compute);
+
+        Assert.False(visibility.RecordLate(list));
+        Assert.False(visibility.LatePhaseRan);
+
+        list.Finish();
+        device.ComputeQueue.Submit([list]);
+    }
+
+    /// <summary>
+    ///     A two-phase frame with no pyramid still runs the late pass, and gets an empty difference.
+    /// </summary>
+    /// <remarks>
+    ///     Not waste. Skipping it would leave the main pass's bits in the argument buffer for the late
+    ///     draws to find, and every visible object would be drawn twice — so the dispatch that writes
+    ///     zeroes is what makes the frame before any depth exists look like every other frame.
+    /// </remarks>
+    [Fact]
+    public void A_two_phase_frame_with_no_pyramid_still_records_the_late_pass() {
+        using var store = new RenderObjectStore();
+        using var visibility = Configured();
+
+        visibility.ReadBack = false;
+        visibility.TwoPhase = true;
+
+        Add(store, 10f);
+        visibility.Cull(store, [Camera(RenderStageMask.Of(0))]);
+
+        Assert.True(visibility.CulledOnDevice);
+        Assert.False(visibility.OcclusionTested);
+
+        using var list = device.BeginCommandList(QueueKind.Compute);
+
+        Assert.True(visibility.Record(list));
+        Assert.True(visibility.RecordLate(list));
+
+        list.Finish();
+        device.ComputeQueue.Submit([list]);
+
+        Assert.Equal(2, device.Recorder!.CountOf(RecordedCommandKind.Dispatch));
     }
 
     /// <summary>

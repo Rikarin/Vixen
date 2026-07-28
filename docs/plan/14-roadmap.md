@@ -2604,11 +2604,24 @@ never been driven against a running window.
   `VisibilityGroup` culling in parallel on the job system and `GpuVisibilityGroup` dispatching
   `Library/Pipeline/Culling.rvn` against the frustum and against a `HiZPyramid` of last frame's
   depth, the second falling back to the first wherever it cannot run and able to skip the readback
-  entirely — `GpuDrawArguments` turns its bits into `DrawIndexedIndirect` arguments without them
-  leaving the device — `RenderView`/`RenderStage`, sort modes. Still open: the concrete features
-  (mesh, transform, skinning, instancing, material, lighting, shadow-caster), the two-phase form of
-  the occlusion test and compacted draws (which want bindless materials first), and
+  entirely — **in one phase or two**, the second `Culling` node testing everything the first rejected
+  against a pyramid rebuilt from the depth the first phase's own draws left, which is what removes
+  the frame of staleness that one-phase occlusion culling cannot avoid — `GpuDrawArguments` turns
+  its bits into `DrawIndexedIndirect` arguments without them leaving the device —
+  `RenderView`/`RenderStage`, sort modes. Still open: the concrete features (mesh, transform,
+  skinning, instancing, material, lighting, shadow-caster), compacted draws, and
   `GraphicsCompositor` as an asset.
+
+  **Compaction is blocked, and on two things rather than the one this used to say.** Claiming a slot
+  needs an atomic add, which Raven has had since the atomics landed — so the shader is not the
+  problem. A compacted run can only be drawn by one command if (a) the command's draw count comes
+  from the device, and `ICommandList.DrawIndexedIndirect` takes `drawCount` as a host integer, and
+  (b) every draw in the run shares its bindings, which they do not: `MeshRenderFeature` binds a
+  vertex buffer, an index buffer and a material set per object. **Bindless materials** are the deeper
+  of the two and the one to do first; an indirect-count draw is a small RHI addition
+  (`vkCmdDrawIndexedIndirectCount`, `ExecuteIndirect` with a count buffer, `glMultiDrawElements-
+  IndirectCount`) that buys nothing on its own. Until both, one record per object slot with a zeroed
+  instance count is the right shape, and it costs a submitted command rather than a vertex fetch.
 - Materials: ✅ **the composable feature tree** — `MaterialDescriptor` and `MaterialCompiler` over two
   `compose` slots on the pass, `surface` for what a point on the surface *is* and `shading` for what it
   does with light. Metallic-roughness and spec-gloss, normal map, emissive, occlusion, anisotropy,

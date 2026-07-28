@@ -112,6 +112,63 @@ public class CompositorAssetTests : IDisposable {
               depth: SceneDepth
         """;
 
+    /// <summary>The same frame, culled in two phases, which is four nodes in an order.</summary>
+    /// <remarks>
+    ///     The whole of two-phase culling as a document sees it: cull, draw, reduce, cull again, draw
+    ///     what the second answer found. Nothing in the file says "two-phase" — the ordering
+    ///     <em>is</em> the feature, and the second culling node's position after the reduction is what
+    ///     makes its answer about this frame's depth rather than the last one's.
+    /// </remarks>
+    const string TwoPhaseDocument = """
+        version: 2
+        resources:
+          - name: SceneColour
+            format: Rgba16Float
+            usage: ColourTarget, Sampled
+          - name: SceneDepth
+            format: Depth32Float
+            usage: DepthStencilTarget, Sampled
+        stages:
+          - name: Opaque
+        game: !Sequence
+          name: Frame
+          children:
+            - !GpuCulling
+              name: Culling
+              readBack: false
+              indirectDraws: true
+            - !RenderPass
+              name: Main
+              colourTargets: [SceneColour]
+              depthTarget: SceneDepth
+              children:
+                - !SingleStage
+                  name: OpaqueDraw
+                  view: Camera
+                  stage: Opaque
+            - !HiZ
+              name: Pyramid
+              depth: SceneDepth
+            - !GpuCulling
+              name: LateCulling
+              phase: Late
+              indirectDraws: true
+            - !RenderPass
+              name: Late
+              colourTargets: [SceneColour]
+              depthTarget: SceneDepth
+              load: Load
+              depthLoad: Load
+              children:
+                - !SingleStage
+                  name: LateOpaqueDraw
+                  view: Camera
+                  stage: Opaque
+            - !HiZ
+              name: FinalPyramid
+              depth: SceneDepth
+        """;
+
     // --- Fixture ------------------------------------------------------------
 
     static Effect Compiled(EffectKey key) =>
@@ -248,6 +305,82 @@ public class CompositorAssetTests : IDisposable {
 
         Assert.IsType<VisibilityGroup>(h.System.Visibility);
         Assert.Null(h.Meshes.Arguments);
+    }
+
+    /// <summary>
+    ///     A second culling node makes the frame two-phase, and sizes the rings that has to grow.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Three consequences a document states by placing one node, and each of them is a bug
+    ///         somewhere else if the builder does not draw it. The group has to know a late dispatch
+    ///         will be asked for, because that is what makes it pack a second set of view records. The
+    ///         readback has to be off, because two dispatches straddling a set of draws cannot exist
+    ///         on a path that submits and waits before any of them are recorded. And two nodes of a
+    ///         kind in one document are two descriptor-set rewrites before one submission, which
+    ///         sizing a ring to frames in flight alone does not cover.
+    ///     </para>
+    ///     <para>
+    ///         The ring depths are counted from the nodes rather than inferred from the late one,
+    ///         because a document may reduce twice without culling twice — as this one does, so that
+    ///         the frame after has depth including the late draws to test against.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_second_culling_node_makes_the_frame_two_phase() {
+        using var h = Build();
+        using var visibility = new GpuVisibilityGroup(device);
+        using var pyramid = new HiZPyramid(device);
+        using var arguments = new GpuDrawArguments(device);
+
+        h.Builder.Visibility = visibility;
+        h.Builder.Occluders = pyramid;
+        h.Builder.Arguments = arguments;
+
+        var compositor = h.Builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(TwoPhaseDocument));
+        var children = Assert.IsType<SceneRendererSequence>(compositor.Game).Children;
+
+        Assert.Equal(CullPhase.Main, Assert.IsType<GpuCullingRenderer>(children[0]).Phase);
+        Assert.Equal(CullPhase.Late, Assert.IsType<GpuCullingRenderer>(children[3]).Phase);
+
+        // The late node draws from the same argument buffer, because the late draws are the same
+        // draws reading a buffer whose contents have changed.
+        Assert.Same(arguments, Assert.IsType<GpuCullingRenderer>(children[3]).Arguments);
+        Assert.Same(arguments, h.Meshes.Arguments);
+
+        Assert.True(visibility.TwoPhase);
+        Assert.False(visibility.ReadBack);
+
+        // Two reductions and two argument passes in one frame, so two rings deep.
+        Assert.Equal(2, pyramid.BuildsPerFrame);
+        Assert.Equal(2, arguments.DispatchesPerFrame);
+    }
+
+    /// <summary>
+    ///     The one-phase document leaves everything one deep, including after a two-phase build.
+    /// </summary>
+    /// <remarks>
+    ///     Assigned rather than raised, so that an editor reloading a document that dropped its late
+    ///     node does not keep a ring sized for the node that used to be there — which is a spare
+    ///     descriptor set and, more to the point, a number that no longer describes the frame.
+    /// </remarks>
+    [Fact]
+    public void Dropping_the_late_node_puts_the_frame_back_to_one_phase() {
+        using var h = Build();
+        using var visibility = new GpuVisibilityGroup(device);
+        using var pyramid = new HiZPyramid(device);
+        using var arguments = new GpuDrawArguments(device);
+
+        h.Builder.Visibility = visibility;
+        h.Builder.Occluders = pyramid;
+        h.Builder.Arguments = arguments;
+
+        h.Builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(TwoPhaseDocument));
+        h.Builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(CullingDocument));
+
+        Assert.False(visibility.TwoPhase);
+        Assert.Equal(1, pyramid.BuildsPerFrame);
+        Assert.Equal(1, arguments.DispatchesPerFrame);
     }
 
     /// <summary>A document that asks for no indirect draws gets none, and says so twice.</summary>
@@ -423,6 +556,18 @@ public class CompositorAssetTests : IDisposable {
 
         Assert.False(culling.ReadBack);
         Assert.True(culling.IndirectDraws);
+        Assert.Equal(CullPhase.Main, culling.Phase);
+
+        // And the phase, which is the one field whose loss turns a two-phase frame into a frame that
+        // culls twice and draws everything twice — a document that reads back as valid.
+        var phases = Assert.IsType<SequenceAsset>(
+            YamlSerializer.Parse<GraphicsCompositorAsset>(
+                YamlSerializer.ToYaml(YamlSerializer.Parse<GraphicsCompositorAsset>(TwoPhaseDocument))
+            ).Game
+        ).Children;
+
+        Assert.Equal(CullPhase.Main, Assert.IsType<GpuCullingAsset>(phases[0]).Phase);
+        Assert.Equal(CullPhase.Late, Assert.IsType<GpuCullingAsset>(phases[3]).Phase);
     }
 
     // --- Building -----------------------------------------------------------

@@ -485,6 +485,249 @@ public class ViewCullingDeviceTests {
         Assert.Equal(20, drawn);
     }
 
+    /// <summary>
+    ///     The late pass draws what stopped being occluded, and nothing the main pass already drew.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The whole of two-phase culling in one submission, and the only place the claim can be
+    ///         checked: the main dispatch, a rebuilt pyramid, the late dispatch reading back the word
+    ///         it is about to overwrite, and two argument passes over one set of templates. Nothing
+    ///         between them waits, which is both how a frame runs it and the condition under which a
+    ///         descriptor set rewritten too soon is a bug rather than an accident.
+    ///     </para>
+    ///     <para>
+    ///         <strong>The occluder disappears between the phases.</strong> The main pass tests
+    ///         against a wall across half the screen; the pyramid is then rebuilt from an empty depth
+    ///         buffer, which is what "the draws revealed what was behind them" looks like from the
+    ///         culler's side. So the difference the late pass must produce is exactly the set the wall
+    ///         hid — a number this test knows, and one that is neither zero nor everything.
+    ///     </para>
+    ///     <para>
+    ///         <strong>It reads the argument buffer, not the bits.</strong> The bits are an
+    ///         intermediate; what reaches the GPU is an instance count, and reading it back is the
+    ///         difference between "the shader computed the right thing" and "the right thing will be
+    ///         drawn". Copying the bits out mid-list would also leave the group's idea of the buffer's
+    ///         state disagreeing with the buffer's, which is the test perturbing what it measures.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheLatePassDrawsWhatStoppedBeingOccluded() {
+        if (!Fixture.TryOpen(out var fixture, out var reason)) {
+            Skip(reason);
+            return;
+        }
+
+        using var owned = fixture!;
+        var device = owned.Device;
+
+        const int Side = 64;
+
+        // A wall across the left half at the near plane, and an empty buffer to replace it with.
+        // Under reverse-Z a surface at the near plane is 1 and an empty pixel is 0.
+        var wall = new float[Side * Side];
+        var empty = new float[Side * Side];
+
+        for (var y = 0; y < Side; y++) {
+            for (var x = 0; x < Side; x++) {
+                wall[(y * Side) + x] = x < Side / 2 ? 1f : 0f;
+            }
+        }
+
+        var effects = new EffectSystem();
+        effects.AddProvider(new Compiler(device));
+
+        var pipelines = new ComputePipelineCache(device);
+
+        using var store = new RenderObjectStore();
+        using var frustum = new VisibilityGroup();
+
+        using var pyramid = new HiZPyramid(device) {
+            Effects = effects,
+            Pipelines = pipelines,
+            BuildsPerFrame = 2
+        };
+
+        using var visibility = new GpuVisibilityGroup(device) {
+            Effects = effects,
+            Pipelines = pipelines,
+            Occluders = pyramid,
+            ReadBack = false,
+            TwoPhase = true
+        };
+
+        using var arguments = new GpuDrawArguments(device) {
+            Effects = effects,
+            Pipelines = pipelines,
+            DispatchesPerFrame = 2
+        };
+
+        // The same spread as the one-phase occlusion test, which is chosen so that the wall hides
+        // some of them, the frustum rejects some of them, and neither is all of them.
+        for (var i = 0; i < 60; i++) {
+            var angle = i * 0.37f;
+
+            store.Add(
+                new() {
+                    Bounds = new(new(MathF.Sin(angle) * 12f, MathF.Cos(angle) * 8f, 12f + (i % 6 * 9f)), 1.5f + (i % 4)),
+                    Stages = RenderStageMask.Of(0),
+                    IsAlive = true
+                }
+            );
+        }
+
+        RenderView[] views = [Camera("camera", RenderStageMask.Of(0))];
+
+        var size = (long)store.Count * GpuDrawArguments.Stride;
+        var readback = device.CreateBuffer(new(size, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "late arguments"));
+
+        owned.Owns(() => device.Destroy(readback));
+
+        VulkanDiagnostics.Reset();
+
+        // ---- The frame before: the wall becomes the pyramid the main pass will test against, and
+        // the cull that runs beside it is what leaves a matrix behind to project with.
+        device.BeginFrame();
+
+        var depth = Filled(owned, "wall", wall, Side);
+
+        using (var list = device.BeginCommandList(QueueKind.Graphics, "wall")) {
+            Assert.True(pyramid.Build(list, depth.View, new(Side, Side)), "the pyramid did not build");
+
+            list.Finish();
+            device.GraphicsQueue.Submit([list]);
+        }
+
+        device.WaitIdle();
+
+        visibility.Cull(store, views);
+        device.EndFrame();
+
+        // ---- The frame under test.
+        device.BeginFrame();
+        visibility.Cull(store, views);
+
+        Assert.True(visibility.CulledOnDevice, "the main dispatch did not run");
+        Assert.True(visibility.OcclusionTested, "the main pass had no pyramid to test against");
+
+        var templates = arguments.Fill(store.Count);
+
+        for (var i = 0; i < store.Count; i++) {
+            templates[i] = new() { IndexCount = (uint)(3 * (i + 1)), InstanceCount = 1 };
+        }
+
+        var revealed = Filled(owned, "empty", empty, Side);
+
+        using (var list = device.BeginCommandList(QueueKind.Graphics, "two phase")) {
+            Assert.True(visibility.Record(list), "the main cull recorded nothing");
+            Assert.True(arguments.Update(list, visibility.Bits, views.Length, store.Count), "the main argument pass did not run");
+
+            // What the main pass's draws would have left behind: a depth buffer in which the wall is
+            // no longer the nearest thing anywhere. Rebuilt into the same list, which is the second
+            // write of a set that has not been submitted — the case BuildsPerFrame sizes for.
+            Assert.True(pyramid.Build(list, revealed.View, new(Side, Side)), "the pyramid did not rebuild");
+
+            Assert.True(visibility.RecordLate(list), "the late cull recorded nothing");
+            Assert.True(arguments.Update(list, visibility.Bits, views.Length, store.Count), "the late argument pass did not run");
+
+            // From ShaderWrite, which is the access whose writes this publishes — see
+            // TheArgumentPassZeroesWhatCullingRejected for what naming the wrong one costs.
+            list.Barrier(new([new(arguments.Commands, ResourceState.ShaderWrite, ResourceState.CopySource)], []));
+            list.CopyBuffer(arguments.Commands, 0, readback, 0, size);
+            list.Finish();
+
+            device.GraphicsQueue.Submit([list]);
+        }
+
+        device.EndFrame();
+        device.WaitIdle();
+
+        frustum.Cull(store, views);
+        pipelines.Clear();
+
+        Assert.True(visibility.LatePhaseRan, "the late dispatch was never prepared");
+
+        if (VulkanDiagnostics.ErrorCount > 0) {
+            throw new InvalidOperationException(
+                "The frame produced validation errors, so its output means nothing: "
+                + string.Join(Environment.NewLine, VulkanDiagnostics.Messages)
+            );
+        }
+
+        var bytes = new byte[size];
+        device.Read(readback, 0, bytes);
+
+        var written = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, DrawCommand>(bytes);
+        var levels = Reduce(wall, new(Side, Side), pyramid.Levels);
+
+        var packed = GpuCulling.Pack(
+            views[0],
+            store.Count,
+            GpuCulling.WordsFor(store.Count),
+            views[0].ViewProjection,
+            pyramid.Levels
+        );
+
+        var mismatches = new List<string>();
+        var late = 0;
+
+        for (var i = 0; i < store.Count; i++) {
+            var id = new RenderObjectId(i);
+
+            // What the main pass drew: in frustum, and the wall did not hide it.
+            var hidden = GpuCulling.IsOccluded(
+                GpuCulling.Pack(store[id]),
+                packed,
+                pyramid.Size,
+                (x, y, level) => levels[level][(y * GpuCulling.LevelSize(pyramid.Size, level).X) + x]
+            );
+
+            var drawn = frustum.IsVisible(0, id) && !hidden;
+
+            // And what the late pass owes: in frustum, not already drawn — an empty pyramid occludes
+            // nothing, so there is no second occlusion term to write down.
+            var expected = frustum.IsVisible(0, id) && !drawn;
+
+            late += expected ? 1 : 0;
+
+            if (expected != (written[i].InstanceCount != 0)) {
+                mismatches.Add(
+                    $"#{i}: expected {(expected ? "late" : "not late")}, got instanceCount "
+                    + $"{written[i].InstanceCount} (frustum {frustum.IsVisible(0, id)}, hidden {hidden})"
+                );
+            }
+        }
+
+        Assert.Equal([], mismatches.Take(8).ToArray());
+
+        // The wall hid something and did not hide everything, or the two phases agreed about a
+        // difference that was empty either way.
+        Assert.True(late > 0, "nothing was drawn late, so the second phase decided nothing");
+        Assert.True(late < frustum.VisibleCount(0), "everything was drawn late, so the first phase drew nothing");
+    }
+
+    /// <summary>A sampled R32Float texture holding the texels given, ready for a reduction to read.</summary>
+    static (TextureHandle Texture, TextureViewHandle View) Filled(Fixture owned, string name, float[] texels, int side) {
+        var device = owned.Device;
+        var target = owned.Owned(name, TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.R32Float, side, side);
+        var staging = device.CreateBuffer(new(texels.Length * sizeof(float), BufferUsage.CopySource, MemoryAccess.HostUpload, $"{name} staging"));
+
+        owned.Owns(() => device.Destroy(staging));
+        device.Write(staging, 0, System.Runtime.InteropServices.MemoryMarshal.AsBytes(texels.AsSpan()));
+
+        using (var list = device.BeginCommandList(QueueKind.Graphics, $"{name} upload")) {
+            list.Barrier(new([], [new(target.Texture, ResourceState.Undefined, ResourceState.CopyDestination)]));
+            list.CopyBufferToTexture(staging, 0, new(target.Texture), new(side, side, 1));
+            list.Barrier(new([], [new(target.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)]));
+            list.Finish();
+
+            device.GraphicsQueue.Submit([list]);
+        }
+
+        device.WaitIdle();
+        return (target.Texture, target.View);
+    }
+
     static string Show(in DrawCommand command) =>
         $"({command.IndexCount}, {command.InstanceCount}, {command.FirstIndex}, {command.VertexOffset}, {command.FirstInstance})";
 

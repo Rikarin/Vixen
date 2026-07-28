@@ -275,7 +275,7 @@
               "DefaultValue": ""
             },
             {
-              "Name": "views.previousViewProjection",
+              "Name": "views.occluderProjection",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 4,
@@ -379,6 +379,18 @@
   "Permutations": [
     {
       "Name": "Occlusion",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "false"
+    },
+    {
+      "Name": "Late",
       "Type": {
         "Scalar": "Bool",
         "Rows": 1,
@@ -628,7 +640,7 @@
       "DefaultValue": ""
     },
     {
-      "Name": "views.previousViewProjection",
+      "Name": "views.occluderProjection",
       "Type": {
         "Scalar": "Float",
         "Rows": 4,
@@ -722,6 +734,7 @@
     "Compute"
   ],
   "UsedPermutationKeys": [
+    "Late",
     "Occlusion"
   ],
   "Stages": [

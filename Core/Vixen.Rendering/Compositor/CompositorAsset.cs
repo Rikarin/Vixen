@@ -577,6 +577,24 @@ public sealed record GpuCullingAsset : ISceneRendererAsset {
     ///     is why it is a choice rather than a consequence.
     /// </remarks>
     public bool IndirectDraws { get; init; }
+
+    /// <summary>Which of a two-phase cull's dispatches this node is.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Left alone, a document has one culling node and one phase, which is the one-phase
+    ///         culler: correct, and a frame behind on anything that stops being occluded.
+    ///     </para>
+    ///     <para>
+    ///         Two-phase is a <em>second</em> node with <c>phase: Late</c>, placed after the draws the
+    ///         main node's answer produced and after the <c>HiZ</c> node that reduced them. The
+    ///         ordering is the feature — which is why it is expressed by where the node sits rather
+    ///         than by a flag saying "two-phase, please" — and it is also why the late node needs no
+    ///         <see cref="ReadBack" /> of its own: a late phase only exists on the in-frame path, so
+    ///         declaring one is declaring that, and <see cref="CompositorBuilder" /> turns the readback
+    ///         off rather than letting a document ask for two things that cannot both be true.
+    ///     </para>
+    /// </remarks>
+    public CullPhase Phase { get; init; }
 }
 
 /// <summary>Spot and point light shadows in one atlas.</summary>

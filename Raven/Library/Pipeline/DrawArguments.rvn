@@ -6,12 +6,18 @@ import Vixen.Shaders.Core
 // the host at all.
 //
 // **It zeroes instance counts; it does not compact.** The usual GPU-driven formulation appends the
-// survivors to a list and draws that list, which needs an atomic counter to claim slots with — and
-// Raven has no atomics, the same constraint that shapes `ClusterCulling` and `ParticleUpdate`. So the
-// argument buffer keeps *one record per object slot*, at that slot's own index, and a culled object
-// gets `instanceCount = 0`. Every API defines a draw of zero instances as a draw that fetches nothing
-// and rasterises nothing; the command is still submitted, which is the price, and it is a few bytes of
-// front-end work rather than a vertex fetch.
+// survivors to a list and draws that list. Claiming a slot needs `atomicAdd`, which Raven has — so
+// what stops this is not the shader but the *draw*, and it is two things at once. One command can
+// only cover a compacted run if the count comes from the device, and the RHI's
+// `DrawIndexedIndirect` takes its `drawCount` as a host integer. And one command can only cover
+// several objects if they share their bindings, which they do not: `MeshRenderFeature` binds a
+// vertex buffer, an index buffer and a material set per object. Bindless materials are what change
+// the second, and they are the prerequisite the roadmap records.
+//
+// So the argument buffer keeps *one record per object slot*, at that slot's own index, and a culled
+// object gets `instanceCount = 0`. Every API defines a draw of zero instances as a draw that fetches
+// nothing and rasterises nothing; the command is still submitted, which is the price, and it is a few
+// bytes of front-end work rather than a vertex fetch.
 //
 // **A record per object per view.** The bits are per view, so the arguments are too — a shadow cascade
 // and the camera disagree about what is visible, and one argument buffer between them would be
