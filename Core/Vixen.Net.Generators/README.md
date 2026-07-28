@@ -40,6 +40,15 @@ replication loop uses, and `Write`/`Apply` that pack the fields — 16 bits, 16 
 three whole values. Plus one `ReplicatedComponents.RegisterAll(registry)` per assembly, which is the
 closed set nothing outside can add to.
 
+It also emits the **wire layout** — the widths of those fields and which of them arithmetic means
+something for — which is all the runtime's `DeltaCodec` needs to send a value as a difference from the
+last one the far end had. Deliberately no generated delta code: differencing is a transform between
+bit streams, so there is one implementation of it that every component shares and one property test
+over random layouts, rather than a `WriteDelta` per component and the hope that they all agree. The
+layout and `Write` come from the same field list in the same order, and a test asserts they add up to
+the same number of bits — the server checks the same two numbers at run time and falls back to whole
+records if they ever disagree, so getting it wrong costs bandwidth rather than correctness.
+
 The claim that it "emits what a careful person would have written" is a test rather than a slogan:
 `Vixen.Net.Generators.Tests` declares a component, hand-writes the replicator for it, and asserts the
 two produce **the same bits** from the same values.

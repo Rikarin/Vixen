@@ -326,6 +326,40 @@ public sealed class ReplicationGeneratorTests {
         );
     }
 
+    /// <summary>
+    ///     The layout the generator declares for the delta codec is the layout its own
+    ///     <c>Write</c> produces.
+    /// </summary>
+    /// <remarks>
+    ///     The one thing that could be emitted inconsistently, and the whole delta scheme rests on it
+    ///     — a layout that disagreed would difference the wrong bits against each other. Both come
+    ///     from the same field list in the same order, so this is checking that they stay that way
+    ///     rather than that they were right once. The server compares the same two numbers at run
+    ///     time and gives up on differences when they disagree, so the cost of being wrong is
+    ///     bandwidth; the cost of not noticing is a component nobody can delta and nobody can see
+    ///     why.
+    /// </remarks>
+    [Theory]
+    [InlineData(typeof(GeneratedTransform))]
+    [InlineData(typeof(GeneratedPose))]
+    [InlineData(typeof(GeneratedScore))]
+    public void TheDeclaredLayoutIsTheOneWritten(Type component) {
+        using var world = new World();
+        var replicator = Find(component);
+        var entity = world.Create();
+
+        // Whatever the default value encodes to: the layout is fixed-width, so any value will do.
+        typeof(World).GetMethod(nameof(World.Add), [typeof(Core.Entity)])!
+            .MakeGenericMethod(component)
+            .Invoke(world, [entity]);
+
+        var writer = new BitWriter(new byte[256]);
+        replicator.Write(world, entity, ref writer);
+
+        Assert.False(replicator.Lanes.IsEmpty);
+        Assert.Equal(writer.BitsWritten, DeltaCodec.TotalBits(replicator.Lanes));
+    }
+
     static IComponentReplicator Find(Type component) {
         var registry = new ReplicationRegistry();
         ReplicatedComponents.RegisterAll(registry);

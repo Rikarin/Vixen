@@ -71,4 +71,25 @@ public interface IComponentReplicator {
     /// <param name="reader">Where the bits come from.</param>
     /// <returns>Whether the bits were well-formed. A false leaves the entity as it was.</returns>
     bool Apply(World world, Entity entity, ref BitReader reader);
+
+    /// <summary>
+    ///     The fixed-width fields <see cref="Write" /> produces, in the order it produces them.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Declaring this is how a component opts in to delta encoding, and it is all that is
+    ///         needed: <see cref="DeltaCodec" /> works on bits, so the layout is the only thing it has
+    ///         to be told. Empty — the default — means every record of this component is sent whole,
+    ///         which is correct and is what a replicator with a variable-length encoding must do.
+    ///     </para>
+    ///     <para>
+    ///         <b>Lanes that disagree with <see cref="Write" /> would be a desync nobody could see</b>,
+    ///         so they are not taken on trust: the server compares their total against the length of
+    ///         what <see cref="Write" /> actually produced and silently sends whole records if the two
+    ///         differ. A generated replicator derives both from one field list and cannot disagree; a
+    ///         hand-written one gets an assertion in the tests, and a wrong answer costs bandwidth
+    ///         rather than correctness.
+    ///     </para>
+    /// </remarks>
+    ReadOnlySpan<WireLane> Lanes => default;
 }

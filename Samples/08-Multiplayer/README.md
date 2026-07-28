@@ -56,22 +56,29 @@ Apple M-series, .NET 10, Release. Eight players, thirty seconds of play, 30 Hz t
 
 | | clean | 20 % loss, 60 ms | 40 % loss, 120 ms |
 |---|---|---|---|
-| Snapshot, mean | 82 B | 98 B | 110 B |
-| **Bandwidth, per client** | **19.2 kbit/s** | 21.9 kbit/s | 23.2 kbit/s |
-| Shots that hit | 49 % | 37 % | 38 % |
+| Snapshot, mean | 41 B | 66 B | 79 B |
+| **Bandwidth, per client** | **9.7 kbit/s** | 14.5 kbit/s | 16.2 kbit/s |
+| Records sent as a difference | 95 % | 82 % | 73 % |
+| Shots that hit | 49 % | 35 % | 32 % |
 | Snapshots rejected | 0 | 0 | 0 |
 | Converged | yes | yes | yes |
 
-Eight fighters at 30 Hz for **under 20 kbit/s a client**, and that is with `ReplicateEverything` —
+Eight fighters at 30 Hz for **under 10 kbit/s a client**, and that is with `ReplicateEverything` —
 every player is told about every other one, because interest management is the thing to replace
 first and not the thing to start with.
 
-Two of those rows are worth reading twice.
+Against the same run before delta encoding landed — 82 B, 98 B and 110 B — that is **half the
+bandwidth on a good connection and a third off a bad one**. A `NetworkTransform` costs 88 bits sent
+whole; a fighter that walked for a thirtieth of a second is three position axes that moved a few
+quantized levels and a rotation that turned slightly, which is around forty.
 
-**Bandwidth goes *up* under packet loss, not down.** A snapshot only carries what the connection has
-not acknowledged, so a lost acknowledgement means the next snapshot carries the same records again.
-That is the delta mechanism doing exactly what it is for — nothing is lost, it is re-sent — and the
-cost of it is visible here rather than theoretical.
+Two of the other rows are worth reading twice.
+
+**Bandwidth still goes *up* under packet loss, not down.** A snapshot only carries what the
+connection has not acknowledged, so a lost acknowledgement means the next snapshot carries the same
+records again — and a connection far enough behind stops being sent differences at all, because the
+value they would be measured from has fallen out of the history. Both effects are visible in the
+same two columns: fewer differences, larger snapshots.
 
 **Hit rate falls from 49 % to 37 %, and that is the missing lag compensation.** The bot aims at where
 it last *saw* its target, which is half a round trip old; the server resolves the shot against where
@@ -103,10 +110,12 @@ no warning, just a client that never learns about it. That is why joins are queu
 session's event and applied inside the tick rather than where they arrive: a player spawned from the
 event handler would be invisible until the next thing about them changed.
 
-**Split components by how often they change, not by what they mean.** Replication is a delta *per
-component*: either the whole of one is sent or none of it is. `Combatant` (owner and team, set once)
+**Split components by how often they change, not by what they mean.** Whether to send a component at
+all is decided per component: either it goes or it does not. `Combatant` (owner and team, set once)
 is separate from `Vitals` (health and score, set on every hit) because putting them together would
-re-send the owner id to everybody for the rest of the match.
+put the owner id in front of the change-detection every time somebody was shot. Within a component
+the fields are differenced individually, so the split matters less than it did — but the decision to
+send is still all-or-nothing, and that is the one this is about.
 
 **Nothing is written twice.** `Move` compares before it writes, because writing the same value back
 marks the chunk changed and puts that fighter in every capture from then on — which is how a

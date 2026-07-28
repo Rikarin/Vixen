@@ -355,7 +355,7 @@ public sealed class ReplicationTests : IDisposable {
         var baseline = new ConnectionBaseline();
         var key = new BaselineKey(new(1), 42);
 
-        baseline.RecordSent(new(10), key, 99);
+        baseline.RecordSent(new(10), key, 99, new(10));
         Assert.True(baseline.Acknowledge(new(10)));
         Assert.True(baseline.IsCurrent(key, 99));
 
@@ -369,7 +369,7 @@ public sealed class ReplicationTests : IDisposable {
         var baseline = new ConnectionBaseline();
 
         for (var i = 0u; i < ConnectionBaseline.MaxPendingTicks * 2; i++) {
-            baseline.RecordSent(new(i), new(new(1), i), i);
+            baseline.RecordSent(new(i), new(new(1), i), i, new(i));
         }
 
         Assert.Equal(ConnectionBaseline.MaxPendingTicks, baseline.PendingTickCount);

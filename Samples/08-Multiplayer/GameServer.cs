@@ -67,6 +67,12 @@ internal sealed class GameServer : ISessionMessageHandler, IDisposable {
     /// <summary>How many ticks have been simulated.</summary>
     public long StepCount { get; private set; }
 
+    /// <summary>Records sent as a difference from what the connection already held.</summary>
+    public long DeltaRecordCount => replication.DeltaRecordCount;
+
+    /// <summary>Records sent whole.</summary>
+    public long WholeRecordCount => replication.WholeRecordCount;
+
     /// <summary>Payloads that arrived claiming to be a snapshot, which only a server sends.</summary>
     public long BogusPayloadCount { get; private set; }
 
@@ -163,7 +169,7 @@ internal sealed class GameServer : ISessionMessageHandler, IDisposable {
 
         // Once, whatever the player count. What each connection gets is a copy of these bits minus
         // what it has already acknowledged — fifty players cost fifty memcpys and one encode.
-        replication.Capture(world);
+        replication.Capture(world, session.Tick);
         Broadcast();
 
         StepCount++;

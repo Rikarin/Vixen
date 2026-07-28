@@ -169,8 +169,16 @@ internal static class LocalMatch {
             + $"{Rate(server.SnapshotBytes, seconds, clients.Count):N1} kbit/s per client"
         );
 
+        var records = server.DeltaRecordCount + server.WholeRecordCount;
+
+        Write(
+            $"         {records:N0} records, {server.DeltaRecordCount:N0} as a difference "
+            + $"({(records == 0 ? 0 : server.DeltaRecordCount / (double)records):P0}), "
+            + $"{server.WholeRecordCount:N0} whole"
+        );
+
         Write("");
-        Write("client  entities  applied  rejected     rtt      received   hits  interp  extrap  snap  starved");
+        Write("client  entities  applied   stale  rejected     rtt      received   hits  interp  extrap  snap  starved");
 
         for (var index = 0; index < clients.Count; index++) {
             var client = clients[index];
@@ -178,6 +186,7 @@ internal static class LocalMatch {
 
             Write(
                 $"{index + 1,6}  {client.EntityCount,8}  {client.SnapshotsApplied,7:N0}  "
+                + $"{client.Replication.StaleSnapshotCount,6:N0}  "
                 + $"{client.Replication.RejectedSnapshotCount,8:N0}  "
                 + $"{client.Session.Clock.RoundTrip.RoundTrip.TotalMilliseconds,5:N1}ms  "
                 + $"{client.BytesReceived / 1024d,9:N1} KiB  {client.HitsSeen,5:N0}  "

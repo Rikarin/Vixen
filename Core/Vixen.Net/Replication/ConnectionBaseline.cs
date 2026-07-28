@@ -28,7 +28,7 @@ public sealed class ConnectionBaseline {
     /// <summary>How many unacknowledged ticks are kept before the oldest is given up on.</summary>
     public const int MaxPendingTicks = 64;
 
-    readonly Dictionary<BaselineKey, uint> acknowledged = [];
+    readonly Dictionary<BaselineKey, Sent> acknowledged = [];
     readonly Dictionary<uint, List<Sent>> pendingByTick = [];
     readonly List<uint> pendingOrder = [];
     readonly List<BaselineKey> forgetting = [];
@@ -49,14 +49,43 @@ public sealed class ConnectionBaseline {
     /// <param name="key">Which entity's which component.</param>
     /// <param name="hash">The hash of the value now.</param>
     /// <returns>Whether sending it would tell them something they already know.</returns>
+    /// <remarks>
+    ///     <see cref="Acknowledge" /> folds oldest-first so that this answers about the newest value
+    ///     acknowledged rather than an older one that happened to be in the same batch. Getting that
+    ///     backwards costs a redundant re-send when records go whole, and is a silent desync when the
+    ///     next one is a difference measured from it.
+    /// </remarks>
     public bool IsCurrent(in BaselineKey key, uint hash) =>
-        acknowledged.TryGetValue(key, out var known) && known == hash;
+        acknowledged.TryGetValue(key, out var known) && known.Hash == hash;
+
+    /// <summary>
+    ///     Which capture of a value this connection has acknowledged, so a difference can be measured
+    ///     from it.
+    /// </summary>
+    /// <param name="key">Which entity's which component.</param>
+    /// <param name="capturedAt">The tick that capture was taken at.</param>
+    /// <param name="hash">Its hash.</param>
+    /// <returns>Whether they have acknowledged any capture of it.</returns>
+    public bool TryGetBaseline(in BaselineKey key, out Tick capturedAt, out uint hash) {
+        if (acknowledged.TryGetValue(key, out var known)) {
+            capturedAt = known.CapturedAt;
+            hash = known.Hash;
+
+            return true;
+        }
+
+        capturedAt = default;
+        hash = 0;
+
+        return false;
+    }
 
     /// <summary>Records that a value went out in a snapshot.</summary>
     /// <param name="tick">The tick of the snapshot.</param>
     /// <param name="key">Which entity's which component.</param>
     /// <param name="hash">The hash of what was sent.</param>
-    public void RecordSent(Tick tick, in BaselineKey key, uint hash) {
+    /// <param name="capturedAt">The tick the value that was sent was captured at.</param>
+    public void RecordSent(Tick tick, in BaselineKey key, uint hash, Tick capturedAt) {
         if (!pendingByTick.TryGetValue(tick.Value, out var sent)) {
             sent = [];
             pendingByTick[tick.Value] = sent;
@@ -64,7 +93,7 @@ public sealed class ConnectionBaseline {
             Trim();
         }
 
-        sent.Add(new(key, hash));
+        sent.Add(new(key, hash, capturedAt));
     }
 
     /// <summary>Takes an acknowledgement, folding everything up to it into the baseline.</summary>
@@ -79,18 +108,28 @@ public sealed class ConnectionBaseline {
         AcknowledgedTick = tick;
         HasAcknowledged = true;
 
-        for (var i = pendingOrder.Count - 1; i >= 0; i--) {
-            var pending = new Tick(pendingOrder[i]);
-
-            if (pending.IsAfter(tick)) {
+        // Oldest first, because a value sent at two of the ticks being folded should end up in the
+        // baseline as the newer of the two. Folding newest-first would leave the older one there,
+        // and the baseline would then claim the connection holds a value it has already replaced —
+        // which costs a redundant re-send if records are whole, and is a silent desync if the next
+        // one is a difference measured from it.
+        foreach (var pending in pendingOrder) {
+            if (new Tick(pending).IsAfter(tick)) {
                 continue;
             }
 
-            foreach (var sent in pendingByTick[pending.Value]) {
-                acknowledged[sent.Key] = sent.Hash;
+            foreach (var sent in pendingByTick[pending]) {
+                acknowledged[sent.Key] = sent;
+            }
+        }
+
+        // Newest first, so removing does not move the entries still to be looked at.
+        for (var i = pendingOrder.Count - 1; i >= 0; i--) {
+            if (new Tick(pendingOrder[i]).IsAfter(tick)) {
+                continue;
             }
 
-            pendingByTick.Remove(pending.Value);
+            pendingByTick.Remove(pendingOrder[i]);
             pendingOrder.RemoveAt(i);
         }
 
@@ -140,7 +179,7 @@ public sealed class ConnectionBaseline {
         }
     }
 
-    readonly record struct Sent(BaselineKey Key, uint Hash);
+    readonly record struct Sent(BaselineKey Key, uint Hash, Tick CapturedAt);
 }
 
 /// <summary>Which entity's which component.</summary>

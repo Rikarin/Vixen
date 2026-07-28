@@ -138,6 +138,90 @@ static class WireCodec {
             _ => local
         };
 
+    /// <summary>
+    ///     The fixed-width fields a value occupies on the wire, as <c>WireLane</c> constructors.
+    /// </summary>
+    /// <param name="value">The value.</param>
+    /// <param name="lanes">Where to add them.</param>
+    /// <returns>Whether this value has a fixed layout at all.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         This is what lets a component be delta-encoded without a line of generated delta code:
+    ///         <c>DeltaCodec</c> works on bits, so all it needs from the generator is the widths and
+    ///         which of them arithmetic means something for.
+    ///     </para>
+    ///     <para>
+    ///         <b>The order here has to match <see cref="Write" /> exactly</b>, which is why both are
+    ///         driven from the same field list in the same order and neither is written out
+    ///         separately. A vector is three lanes and a rotation is four, because that is what those
+    ///         two write.
+    ///     </para>
+    /// </remarks>
+    public static bool TryLanes(in WireValue value, List<string> lanes) {
+        switch (value.Kind) {
+            case WireKind.Boolean:
+                lanes.Add(Lane(1, offset: false));
+
+                return true;
+
+            case WireKind.Byte or WireKind.SByte:
+                lanes.Add(Lane(8, offset: false));
+
+                return true;
+
+            case WireKind.Int16 or WireKind.UInt16:
+                lanes.Add(Lane(16, offset: true));
+
+                return true;
+
+            case WireKind.Int32 or WireKind.UInt32:
+                lanes.Add(Lane(32, offset: true));
+
+                return true;
+
+            // A float's bits are not a number you may subtract. Sent whole when it changes, which is
+            // exactly what a component that wanted a difference should have declared a range for.
+            case WireKind.Single:
+                lanes.Add(Lane(32, offset: false));
+
+                return true;
+
+            case WireKind.QuantizedSingle:
+                lanes.Add(Lane(value.Bits, offset: true));
+
+                return true;
+
+            case WireKind.Vector3:
+                for (var i = 0; i < 3; i++) {
+                    lanes.Add(Lane(32, offset: false));
+                }
+
+                return true;
+
+            case WireKind.QuantizedVector3:
+                for (var i = 0; i < 3; i++) {
+                    lanes.Add(Lane(value.Bits, offset: true));
+                }
+
+                return true;
+
+            case WireKind.Rotation:
+                lanes.Add(Lane(2, offset: false));
+
+                for (var i = 0; i < 3; i++) {
+                    lanes.Add($"new(global::Vixen.Net.Messaging.MathCodec.RotationBits, true)");
+                }
+
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    static string Lane(int bits, bool offset) =>
+        $"new({bits.ToString(CultureInfo.InvariantCulture)}, {(offset ? "true" : "false")})";
+
     /// <summary>The declaration of the <c>QuantizeRange</c> a value needs, if it needs one.</summary>
     /// <param name="value">The value.</param>
     /// <returns>The field declaration, or an empty string.</returns>

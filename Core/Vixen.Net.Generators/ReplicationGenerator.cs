@@ -306,6 +306,8 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
             }
         }
 
+        EmitLanes(source, fields);
+
         source.AppendLine();
         source.AppendLine("    static readonly global::Vixen.Ecs.QueryDescription Changed =");
         source.AppendLine("        new global::Vixen.Ecs.QueryDescription().RequireChanged(");
@@ -324,6 +326,8 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
         source.AppendLine($"    public int Priority => {settings.Priority.ToString(CultureInfo.InvariantCulture)};");
         source.AppendLine();
         source.AppendLine("    public global::Vixen.Ecs.QueryDescription ChangedQuery => Changed;");
+        source.AppendLine();
+        source.AppendLine("    public global::System.ReadOnlySpan<global::Vixen.Net.Messaging.WireLane> Lanes => Layout;");
         source.AppendLine();
         source.AppendLine("    public bool Has(global::Vixen.Ecs.World world, global::Vixen.Core.Entity entity) =>");
         source.AppendLine($"        world.Has<{fullName}>(entity);");
@@ -370,6 +374,45 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
         source.AppendLine("}");
 
         return source.ToString();
+    }
+
+    /// <summary>Emits the wire layout the delta codec reads this component's encoding through.</summary>
+    /// <remarks>
+    ///     An empty layout means "always send this component whole", which is the correct answer for
+    ///     anything whose encoding is not a fixed run of fixed-width fields. Nothing is generated to
+    ///     do the differencing itself: the runtime has one implementation of that, and this is the
+    ///     only thing it needs to be told about a type.
+    /// </remarks>
+    static void EmitLanes(StringBuilder source, ImmutableArray<WireValue> fields) {
+        var lanes = new List<string>();
+
+        foreach (var field in fields) {
+            if (WireCodec.TryLanes(in field, lanes)) {
+                continue;
+            }
+
+            lanes.Clear();
+
+            break;
+        }
+
+        source.AppendLine();
+        source.AppendLine("    /// <summary>The fixed-width fields Write produces, in the order it produces them.</summary>");
+        source.Append("    static readonly global::Vixen.Net.Messaging.WireLane[] Layout = ");
+
+        if (lanes.Count == 0) {
+            source.AppendLine("[];");
+
+            return;
+        }
+
+        source.AppendLine("[");
+
+        foreach (var lane in lanes) {
+            source.AppendLine($"        {lane},");
+        }
+
+        source.AppendLine("    ];");
     }
 
     static string EmitRegistration(ImmutableArray<string> classNames) {

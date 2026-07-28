@@ -156,6 +156,49 @@ public ref struct BitReader {
         return false;
     }
 
+    /// <summary>Puts the reader back to an earlier position, to read the same bits again.</summary>
+    /// <param name="bitPosition">A position previously read from <see cref="BitsRead" />.</param>
+    /// <remarks>
+    ///     The mirror of <see cref="BitWriter.Rewind" />, and it exists for one caller: a client that
+    ///     has just decoded a record and now wants the bits it decoded, so it can keep them as the
+    ///     baseline the next delta will be measured against. Re-encoding the decoded value instead
+    ///     would be a round trip through a float, and a quantized level that came back one different
+    ///     would corrupt every delta after it.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The position is not one this reader has been at.</exception>
+    public void Rewind(int bitPosition) {
+        ArgumentOutOfRangeException.ThrowIfNegative(bitPosition);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(bitPosition, bits);
+
+        bits = bitPosition;
+        Failed = false;
+    }
+
+    /// <summary>Copies bits out of this reader into a writer, unchanged.</summary>
+    /// <param name="destination">Where they go.</param>
+    /// <param name="count">How many.</param>
+    /// <returns>Whether they were all there.</returns>
+    public bool TryCopyTo(ref BitWriter destination, int count) {
+        if (count < 0) {
+            Failed = true;
+
+            return false;
+        }
+
+        while (count > 0) {
+            var take = Math.Min(32, count);
+
+            if (!TryRead(take, out var chunk)) {
+                return false;
+            }
+
+            destination.Write(chunk, take);
+            count -= take;
+        }
+
+        return !destination.Overflowed;
+    }
+
     /// <summary>Moves to the next byte boundary, matching <see cref="BitWriter.Align" />.</summary>
     /// <returns>Whether there was room to.</returns>
     public bool Align() {

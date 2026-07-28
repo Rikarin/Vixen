@@ -2247,11 +2247,42 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   component, and an assertion against Roslyn's own recorded reasons that an unrelated edit re-runs
   nothing.
 
-  **Owed:** field-level delta against a stored previous value — the delta granularity today is the
-  component, which the change versions give exactly and cheaply. `SyncVar<T>`/`SyncList<T>`/
-  `NetworkModule`, which are the behaviour-facing authoring style over the same mechanism. And
-  packaging the generator into the `Vixen.Net` package the way `Vixen.Ui` carries its own — today a
-  project takes it through a `ProjectReference`.
+  ✅ **Field-level delta**, which [16](16-networking.md) lists as PurrNet's `DeltaModule` and marks
+  "take", and which the generator was specified to emit. It does not emit any: differencing is a
+  transform between bit streams, so the generator emits only the **wire layout** — each field's width
+  and whether arithmetic on it means anything — and one runtime `DeltaCodec` serves every component.
+  One implementation, one property test over random layouts and random bits, and a hand-written
+  replicator opts in with a one-line `Lanes` property. A record carries one bit per field saying
+  whether it changed and a two-bit selector choosing how wide the difference is.
+
+  **Both ends keep a short history, and that is the part that took two goes to get right.** The first
+  version differenced against the *previous capture*, which is exact only for a peer whose
+  acknowledgement has already come back — so it worked perfectly on localhost and did nothing at
+  60 ms, where the acknowledged baseline is four captures old. The second differences against
+  whichever capture the connection acknowledged, names it on the wire, and the receiver applies it to
+  that one rather than to whatever it is currently holding. That distinction is the whole correctness
+  argument: a client may have applied values it has not managed to acknowledge, so "what you have"
+  and "what I last heard you had" are different, and only one of them is safe to measure from.
+  Encoding stays once-per-distinct-baseline rather than once-per-connection, so the property the
+  design is built around survives.
+
+  Measured on `Samples/08`, eight players at 30 Hz: **19.2 → 9.7 kbit/s a client clean, 21.9 → 14.5
+  at 20 % loss and 60 ms, 23.2 → 16.2 at 40 % and 120 ms.** 95 %, 82 % and 73 % of records went as
+  differences.
+
+  **Two real bugs, both pre-existing and both invisible until deltas made them matter.**
+  `ConnectionBaseline.Acknowledge` folded pending ticks newest-first, so an older tick's value
+  overwrote a newer one and the baseline claimed a connection held something it had already replaced
+  — a redundant re-send when records are whole, a corrupted value when one is a difference measured
+  from it. And `ReplicationClient` applied snapshots that arrived out of order or twice, letting an
+  older one overwrite a newer and never be corrected. Both now have regression tests; the second is
+  also why a duplicated snapshot is now counted rather than re-applied.
+
+  **Owed:** `SyncVar<T>`/`SyncList<T>`/`NetworkModule`, the behaviour-facing authoring style over the
+  same mechanism. `DeltaPackerAnalysis`'s other half — the tooling that says which field is costing
+  the bandwidth — which is the same work as the diagnostics item below. And packaging the generator
+  into the `Vixen.Net` package the way `Vixen.Ui` carries its own; today a project takes it through a
+  `ProjectReference`.
 - Interest management: ✅ the resolver seam and the default. `IInterestResolver` is what decides which
   entities a player is told about, and `ReplicateEverythingResolver` is what a new project gets —
   a deliberate ergonomics choice rather than a placeholder, so a prototype works before anyone has
@@ -2312,11 +2343,12 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   0 %, 20 % and 40 % injected loss with latency to match, which is the phase's exit criterion run
   three ways.
 
-  Two measurements worth having. **Eight fighters at 30 Hz cost under 20 kbit/s a client** — with
+  Two measurements worth having. **Eight fighters at 30 Hz cost under 10 kbit/s a client** — with
   `ReplicateEverything`, so that is the number before interest management rather than after it. And
   **bandwidth goes up under packet loss, not down**: a lost acknowledgement means the next snapshot
-  carries the same records again, 82 B clean against 110 B at 40 % loss. That is the delta mechanism
-  doing exactly what it is for, and this is the first time the cost of it has been a number.
+  carries the same records again, and a connection far enough behind stops being sent differences at
+  all. 41 B a snapshot clean against 79 B at 40 % loss. (Both figures are after field-level delta
+  landed; the run that first produced them read 82 B and 110 B.)
 
   **The hit rate falls from 49 % to 37 % between a clean run and one at 60 ms, and that is the
   missing lag compensation.** The bot aims at where it last saw its target — half a round trip old —

@@ -167,7 +167,7 @@ Four decisions worth knowing:
 The server turns its world into a snapshot per connection, once a tick:
 
 ```csharp
-replication.Capture(world);                       // read and encode what changed — once
+replication.Capture(world, session.Tick);         // read and encode what changed — once
 foreach (var player in session.Players) {
     if (replication.TryWriteSnapshot(world, player.Id, session.Tick, buffer, out var snapshot)) {
         session.SendToPlayer(player.Id, snapshot, Channel.Unreliable);
@@ -175,7 +175,7 @@ foreach (var player in session.Players) {
 }
 ```
 
-Four things carry it.
+Five things carry it.
 
 **Capture once, copy many.** Reading a component, quantizing it and packing it happens once a tick;
 a connection's snapshot is a copy of those bits for the values it does not already have. Fifty
@@ -190,6 +190,22 @@ encoded value says which entities in those chunks actually differ from what a co
 enters a connection's baseline until an ack for its tick comes back. The consequence is the one that
 is easy to get wrong: on loss the next snapshot is computed against the older baseline, so the client
 gets the *current* value rather than a retransmission of a value that is stale by now.
+
+**A record is a difference where it can be.** Every value's last few encodings are kept, and a
+record says which of them it was measured from; the receiver applies it to that one rather than to
+whatever it happens to be holding. That last part is the whole of the correctness argument — a client
+may have applied values it has not managed to acknowledge, so "the value you have" and "the value I
+last heard you had" are different things, and only one of them is safe to difference against. A
+component opts in by declaring its wire layout, which the generator emits for it:
+
+```csharp
+public ReadOnlySpan<WireLane> Lanes => Layout;   // 16 bits, 16 bits, a flag, …
+```
+
+Everything else follows from bits: `DeltaCodec` writes one bit per field saying whether it changed and
+a two-bit selector choosing how big the difference is, so a position that moved a few centimetres
+costs six bits where it cost sixteen. Declaring no layout means every record goes whole, which is
+correct and is what a variable-length encoding must do.
 
 **The budget sheds, it does not truncate.** Records go out in priority order and the writer is
 rewound if one would take the snapshot over budget, so a snapshot is always a whole number of
