@@ -55,7 +55,7 @@ that owns its mixer pays.
 | `AudioSend` | a copy of a bus's signal into another, so one reverb serves a whole level |
 | `Voice` | one sound: a source, a rate conversion, a set of speaker gains |
 | `Spatializer` | distance, cone, doppler and panning, as arithmetic |
-| `IAudioEffect` | fourteen of them — see below |
+| `IAudioEffect` | fifteen of them — see below |
 | `Dsp/Fft` | radix-2 transform, for the convolution reverb and the analyser |
 | `ISidechainEffect` | an effect that listens to one bus while processing another — how ducking is built |
 | `IAudioSampleProvider` | a clip, a stream, a live push source, or anything a caller can produce samples from |
@@ -80,6 +80,9 @@ that owns its mixer pays.
 | `MixControl` | every knob in the mix, by name — the runtime half of live update |
 | `MusicPlayer` | segments, loops and transitions that land on a bar line |
 | `MusicTransport` | where the music is, in samples the device actually produced |
+| `MusicTempoMap` | how frames, beats and bars relate across a tempo change |
+| `MixControlServer` | the loopback wire an editor drives the mix down |
+| `Dsp/SincTable` | the polyphase filter a pitched voice is resampled through |
 
 ## Inserts, sends, and the order it all runs in
 
@@ -131,6 +134,7 @@ reading it, or a compressor keying off it, would have ignored the fader entirely
 | `CompressorEffect` | feed-forward, soft knee, sidechain input |
 | `GateEffect` | the same pointing downwards, with a hold — what an open microphone needs |
 | `LimiterEffect` | look-ahead brickwall, on the master by default |
+| `LoudnessMeterEffect` | BS.1770 loudness, which is what certification measures |
 | `DistortionEffect` | four waveshaping curves |
 | `BitCrusherEffect` | quantise and decimate, both sweepable |
 | `PitchShiftEffect` | pitch without length, which `Pitch` cannot do |
@@ -707,12 +711,72 @@ which is the seam every naive music system has.
 range is checked each frame, so "at intensity above 0.7, go to Combat at the next bar" is an asset
 edit. The alternative is a switch statement in whichever system happened to notice the fight start.
 
+**A sustain point is a segment that vamps until released.** An intro that waits for the player: the
+music holds, and `Release()` lets it proceed — still at the boundary it was allowed to land on, never
+as a jump cut, because avoiding jump cuts is what a sustain point is for.
+
+**A stinger plays alongside the music rather than instead of it**, quantised like everything else,
+and changes nothing about where the music is going. Which makes it the right answer to "something
+happened" and the wrong answer to "the situation changed".
+
+**A segment may change tempo or metre part way through.** `MusicTempoMap` precomputes a section per
+change with its start frame, beat and bar, so finding the next bar line stays integer arithmetic
+inside one section. A change starts a new bar, which is what notation does and the only rule that
+makes "the next bar line" answerable across one.
+
 **Beat, bar and marker callbacks are late by up to a frame**, unavoidably — they are raised from
 `Update` on the game thread, which is the only thread a game may do anything on. Fine for a light or
 a camera shake; not what a *musical* change is scheduled with. A frame that ran long raises every
 beat it skipped rather than quietly losing nineteen of them.
 
-## Live update, minus the wire
+## Loudness
+
+**Loudness is not level.** A peak meter says how close the signal is to clipping, which is a question
+about arithmetic; a loudness meter says how loud it sounds, which is a question about ears. Two mixes
+that peak at the same place can be six decibels apart to a listener, and it is the second number that
+Xbox, PlayStation and every streaming platform hold you to.
+
+`LoudnessMeterEffect` is BS.1770 / EBU R128 — K-weight each channel, mean-square over a window,
+weight the surrounds up by 1.5 dB, exclude the LFE, and offset so a 1 kHz sine at −23 dBFS reads
+−23 LUFS. None of it is a choice; all of it is in the standard.
+
+**The gate is the part everybody gets wrong.** Integrated loudness is not the mean of the programme:
+blocks below −70 LUFS are dropped, then blocks more than 10 LU below the mean of what is left are
+dropped too, and the mean is taken again. Without it a minute of silence at the end of a level halves
+the level's reported loudness.
+
+**The coefficients are derived, not the printed table.** BS.1770 prints them for 48 kHz and nothing
+else, and a meter that used them at 44.1 would have its shelf an eighth of an octave low.
+
+Sample peak rather than true peak: true peak oversamples by four to catch what the reconstruction
+filter does between samples, for a number typically a decibel higher. Owed for certification proper.
+
+## Resampling
+
+`Voice` was linearly interpolating, which is a convolution with a triangle — it dulls what it keeps
+and lets through everything it should have removed. Pitched up an octave it folds the top half of the
+spectrum back over the music, which is the gritty edge every cheap sampler has.
+
+`Dsp/SincTable` is a polyphase Blackman-windowed sinc: 32 taps, 512 phases, and eight cutoff bands
+half an octave apart. **The bands are the point.** Pitching up is decimation, and decimation aliases
+unless you filter first — so the cutoff comes down with the ratio, and the sound loses its top octave,
+which is exactly what it would have lost had it been recorded an octave higher. A 9 kHz tone at three
+times the rate folds to 21 kHz at full amplitude under linear interpolation; under this it does not
+arrive at all.
+
+**Thirty-two taps because of the narrow bands, not the wide one.** At full cutoff sixteen are already
+past audibility. Narrowing the cutoff widens the sinc, so a fixed tap count covers fewer of its lobes
+and the filter gets gentlest exactly where a voice needs it sharpest.
+
+**Unity is bit-exact passthrough and never touches the table**, which is the common case because the
+content build resamples clips to the rate they are played at.
+
+The window costs a little at the end of a clip: the interpolation point sits behind the newest frame,
+so the window has to be walked out. A voice may render a seventh of a millisecond of silence past its
+source — and a clip shorter than the window is still heard, which it would not be if running out of
+source were treated as the end of the sound.
+
+## Live update, over the wire
 
 ```csharp
 foreach (var control in engine.Control.Enumerate()) { … }   // what an editor draws
@@ -723,8 +787,20 @@ engine.Control.TryGet("bus/Voice/effect/1/Frequency", out var hz);
 What makes a designer able to move a fader in an editor while the game runs is not a socket — a
 socket is an afternoon. It is that every knob has a stable name, that the name can be read as well as
 written, and that the whole set can be enumerated so the other end knows what to draw. All three are
-here; the transport belongs with the editor in Phase 6 and can be written against this without
-touching the mixer again.
+here, and so is the transport: `MixControlServer` is a listener that speaks a line protocol over
+them — `list`, `get`, `set`, `bye` — so an editor is a client rather than a rebuild.
+
+**Loopback only, and not configurable.** A listener in a game's process is a way into that process,
+and "all it can do is move a fader" is not an argument anybody should have to make. A devkit session
+on another machine tunnels, which puts the authentication somewhere that has some. It is off unless
+something starts it, and a shipping build should not.
+
+**Writes are queued and applied on the game thread**, because the mixer's threading model is one
+writer and one reader and a socket thread would be a third party to an arrangement with room for two.
+**Reads come from a snapshot** that `Update` refreshes ten times a second, for the same reason
+pointed the other way.
+
+The protocol is lines of text because the client is a tool and debugging it with `nc` is a feature.
 
 **Paths, not indices**, because an index moves the day somebody inserts a bus — which is the day a
 saved editor layout starts controlling the wrong thing. The one exception is an effect's position in
@@ -783,18 +859,11 @@ multiply on the few hundred frames that are actually playing.
 
 ## Still to come
 
-**Sustain points and stingers.** A transport that stops at a marked point until gameplay releases it,
-and one-shot musical hits fired over the top of whatever is playing and quantised to it. Both are
-small on top of what is here; neither is built.
+**True-peak metering.** The loudness meter reports sample peak. Certification wants true peak, which
+means oversampling by four to catch what the reconstruction filter does between samples.
 
-**A tempo map.** One tempo per segment, so a piece that changes speed part way through has to be two
-segments. Which is how most game music is written anyway, and is why this is a note rather than a
-gap.
-
-**A loudness meter.** EBU R128 / LUFS, which is what console certification measures against.
-
-**The live-update transport.** `MixControl` is the runtime half; what is missing is an editor at the
-other end of a socket, which is Phase 6.
+**Loudness range.** The third R128 number, and the one that says whether a mix has dynamics or has
+been flattened. It needs the block history kept rather than summed, which is why it is not here.
 
 **Per-voice sends.** Sends are per bus, so every source on a bus shares one send amount. For a room's
 reverb that is right; for a reverb amount that tracks how far into the room each emitter is, it is
@@ -802,11 +871,6 @@ not.
 
 **Occlusion and reverb zones**, both of which want physics — the geometry between a source and the
 listener is a raycast, and there is nothing to cast against yet.
-
-**A windowed-sinc resampler.** The rate conversion is linear interpolation, which aliases when
-pitching up hard. The content build resamples clips to the rate they will be played at, so the common
-ratio is exactly one and the interpolator is bypassed by the arithmetic itself — but a pitched-up
-sound effect is audibly cheap.
 
 **Oversampling for the distortion**, and a phase-vocoder pitch shifter — both now cheap to add, since
 the transform they want is in `Dsp/Fft`.

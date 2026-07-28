@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Audio.Dsp;
 using Vixen.Audio.Effects;
 using Vixen.Audio.Sources;
 using Vixen.Audio.Spatial;
@@ -36,8 +37,10 @@ sealed class Voice {
     readonly float[] sample = new float[AudioFormat.MaxChannels];
     readonly float[] listenerGains = new float[AudioFormat.MaxChannels];
 
-    float[] previous = new float[AudioFormat.MaxChannels];
-    float[] next = new float[AudioFormat.MaxChannels];
+    // The rate conversion's window. Sixteen frames deep, so a windowed sinc has something to look
+    // at; linear only ever reads the two either side of the point, which are slots Half − 1 and Half.
+    readonly float[] history = new float[SincTable.Taps * AudioFormat.MaxChannels];
+    int historyHead;
 
     Published<SpatialSettings> published;
     SpatialSettings spatial = new();
@@ -53,6 +56,9 @@ sealed class Voice {
     bool ended;
     bool downmix;
     bool ramped;
+    bool interpolating;
+    double interpolationRatio = 1.0;
+    int drain;
 
     BiquadCoefficients absorption = BiquadCoefficients.Identity;
     float absorptionZ1;
@@ -286,25 +292,77 @@ sealed class Voice {
         sourceEnded = false;
         ended = false;
         ramped = false;
+        drain = 0;
         absorption = BiquadCoefficients.Identity;
         absorptionZ1 = 0f;
         absorptionZ2 = 0f;
         absorptionHz = 0f;
         ClearFilters();
         Array.Clear(currentGains);
-        Array.Clear(previous);
-        Array.Clear(next);
+        Array.Clear(history);
+        historyHead = 0;
 
-        if (!ReadFrame(previous)) {
+        // Everything before the sound started is silence, so the taps behind the first sample stay
+        // zero. The first real frame goes where the interpolation point sits, and the rest of the
+        // window is look-ahead — which is what a sinc costs and is a third of a millisecond.
+        if (!ReadFrame(Slot(Centre))) {
             ended = true;
             return;
         }
 
-        if (!ReadFrame(next)) {
-            Array.Clear(next);
+        for (var tap = Centre + 1; tap < SincTable.Taps; tap++) {
+            if (ReadFrame(Slot(tap))) {
+                continue;
+            }
+
+            Array.Clear(history, Slot(tap), sourceChannels);
             sourceEnded = true;
+            break;
         }
     }
+
+    /// <summary>Works out the sample at the current fractional position.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Linear at unity, sinc otherwise.</b> A ratio of exactly one never moves off a
+    ///         sample, so both give the source back untouched and the cheaper one wins — and that is
+    ///         the common case, because the content build resamples clips to the rate they are played
+    ///         at. Anything else is where the difference is: linear pitched up an octave folds the top
+    ///         half of the spectrum back over the music, which is the gritty edge every cheap sampler
+    ///         has.
+    ///     </para>
+    ///     <para>
+    ///         The window is narrowed when pitching up, so what would have folded is removed before it
+    ///         can. The sound loses its top octave — which is exactly what it would have lost had it
+    ///         been recorded an octave higher.
+    ///     </para>
+    /// </remarks>
+    void Interpolate() {
+        var before = Slot(Centre);
+
+        if (!interpolating) {
+            Array.Copy(history, before, sample, 0, sourceChannels);
+            return;
+        }
+
+        var window = SincTable.Window(fraction, interpolationRatio);
+
+        for (var channel = 0; channel < sourceChannels; channel++) {
+            var total = 0f;
+
+            for (var tap = 0; tap < SincTable.Taps; tap++) {
+                total += window[tap] * history[Slot(tap) + channel];
+            }
+
+            sample[channel] = total;
+        }
+    }
+
+    /// <summary>Which tap the interpolation point sits just after.</summary>
+    const int Centre = (SincTable.Taps / 2) - 1;
+
+    /// <summary>Where a tap's frame is in the flat history, oldest first.</summary>
+    int Slot(int tap) => ((historyHead + tap) % SincTable.Taps) * AudioFormat.MaxChannels;
 
     /// <summary>Adds this voice's contribution to a bus buffer.</summary>
     /// <param name="destination">The bus's interleaved accumulator.</param>
@@ -339,6 +397,10 @@ sealed class Voice {
         }
 
         var ratio = ComputeTargetGains(listeners, state);
+
+        // Off at unity, which is bit-exact passthrough and the case the content build arranges for.
+        interpolating = ratio != 1.0;
+        interpolationRatio = ratio;
         var channels = outputChannels;
         var filtering = RetuneFilters();
 
@@ -363,12 +425,7 @@ sealed class Voice {
             }
 
             var t = frame * inverse;
-            var position = (float)fraction;
-
-            for (var channel = 0; channel < sourceChannels; channel++) {
-                sample[channel] = previous[channel]
-                    + ((next[channel] - previous[channel]) * position);
-            }
+            Interpolate();
 
             // Before the downmix and before the panning, on the source's own channels. After the
             // pan a stereo output would run two independent filters over one signal, and the two
@@ -644,22 +701,50 @@ sealed class Voice {
         absorption = BiquadCoefficients.Design(BiquadFilterKind.LowPass, outputRate, hertz);
     }
 
+    /// <summary>How many frames of look-ahead sit between the interpolation point and the newest.</summary>
+    const int Lookahead = SincTable.Taps - 2 - Centre;
+
+    /// <summary>Slides the window on by one source frame.</summary>
+    /// <returns>Whether there was one, or one still to be walked to.</returns>
+    /// <remarks>
+    ///     <b>Running out of source is not the end of the sound.</b> The interpolation point sits
+    ///     <see cref="Lookahead" /> frames behind the newest, so when a read finally fails there are
+    ///     still that many real frames in front of the point — and a voice that stopped there would
+    ///     lose the end of every clip it played. Worse, a clip shorter than the window would end
+    ///     before it was heard at all, which is what happens if this is left as "no more frames, no
+    ///     more sound".
+    ///     <para>
+    ///         So the window is walked out. The cost is that a voice may render up to
+    ///         <see cref="Lookahead" /> frames of silence past its source — a seventh of a millisecond,
+    ///         and the price of having a window at all.
+    ///     </para>
+    /// </remarks>
     bool Advance() {
-        if (sourceEnded) {
+        if (sourceEnded && drain >= Lookahead) {
             return false;
         }
 
-        (previous, next) = (next, previous);
+        // The oldest frame becomes the newest, which is the whole of a circular buffer.
+        historyHead = (historyHead + 1) % SincTable.Taps;
+        var newest = Slot(SincTable.Taps - 1);
 
-        if (!ReadFrame(next)) {
-            Array.Clear(next);
+        if (sourceEnded) {
+            drain++;
+            Array.Clear(history, newest, sourceChannels);
+            return true;
+        }
+
+        if (!ReadFrame(history, newest)) {
+            Array.Clear(history, newest, sourceChannels);
             sourceEnded = true;
         }
 
         return true;
     }
 
-    bool ReadFrame(float[] destination) {
+    bool ReadFrame(int destination) => ReadFrame(history, destination);
+
+    bool ReadFrame(float[] destination, int at) {
         var source = Source;
 
         if (source is null) {
@@ -681,7 +766,7 @@ sealed class Voice {
             }
         }
 
-        Array.Copy(read, readCursor * sourceChannels, destination, 0, sourceChannels);
+        Array.Copy(read, readCursor * sourceChannels, destination, at, sourceChannels);
         readCursor++;
         return true;
     }

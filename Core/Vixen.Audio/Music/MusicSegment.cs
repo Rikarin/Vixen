@@ -36,8 +36,28 @@ public sealed record MusicSegment {
     /// <summary>The audio.</summary>
     public AudioClip? Clip { get; init; }
 
-    /// <summary>How fast it is, and how it is counted.</summary>
+    /// <summary>How fast it is, and how it is counted, where it begins.</summary>
     public MusicTempo Tempo { get; init; } = new();
+
+    /// <summary>Where it changes tempo or metre, if it does.</summary>
+    public MusicTempoChange[] TempoChanges { get; init; } = [];
+
+    /// <summary>Whether it vamps here rather than moving on, until gameplay releases it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>An intro that waits for the player.</b> A door that opens when they are ready, a
+    ///         conversation that ends when they say so — the music has to hold, and it has to hold
+    ///         musically rather than by looping four bars of nothing. A sustain point is the composer
+    ///         saying "here is where this can wait".
+    ///     </para>
+    ///     <para>
+    ///         Off, so a segment does what it says without one. What sustaining means is simply that
+    ///         <see cref="Next" /> is not taken and a queued transition does not land until
+    ///         <c>MusicPlayer.Release</c> is called — the audio keeps looping, which it was doing
+    ///         anyway.
+    ///     </para>
+    /// </remarks>
+    public bool Sustains { get; init; }
 
     /// <summary>How many times it repeats before moving on. Zero plays it once; negative is forever.</summary>
     /// <remarks>

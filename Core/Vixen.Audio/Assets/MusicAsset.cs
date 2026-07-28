@@ -17,6 +17,19 @@ public sealed record MusicMarkerAsset {
     public float Beat { get; init; }
 }
 
+/// <summary>A change of tempo or metre part way through a segment, as a file declares it.</summary>
+[DataContract("MusicTempoChange")]
+public sealed record MusicTempoChangeAsset {
+    /// <summary>Where it happens, in beats from the segment's start.</summary>
+    public float Beat { get; init; }
+
+    /// <summary>What it changes to.</summary>
+    public float BeatsPerMinute { get; init; } = 120f;
+
+    /// <summary>The top of the new time signature.</summary>
+    public int BeatsPerBar { get; init; } = 4;
+}
+
 /// <summary>One piece of music, as a file declares it.</summary>
 /// <remarks>
 ///     The tempo is written down rather than derived. It is what the composer wrote, and it is the
@@ -37,6 +50,12 @@ public sealed record MusicSegmentAsset {
     /// <summary>The top of its time signature.</summary>
     public int BeatsPerBar { get; init; } = 4;
 
+    /// <summary>Where it changes tempo or metre, if it does.</summary>
+    public MusicTempoChangeAsset[] TempoChanges { get; init; } = [];
+
+    /// <summary>Whether it vamps rather than moving on, until gameplay releases it.</summary>
+    public bool Sustains { get; init; }
+
     /// <summary>How many times it repeats before moving on. Zero plays it once; negative is forever.</summary>
     public int LoopCount { get; init; } = -1;
 
@@ -55,10 +74,23 @@ public sealed record MusicSegmentAsset {
             markers[i] = new(Markers[i].Name, Markers[i].Beat);
         }
 
+        var changes = new MusicTempoChange[TempoChanges.Length];
+
+        for (var i = 0; i < TempoChanges.Length; i++) {
+            var change = TempoChanges[i];
+
+            changes[i] = new(change.Beat, new MusicTempo {
+                BeatsPerMinute = change.BeatsPerMinute,
+                BeatsPerBar = change.BeatsPerBar
+            });
+        }
+
         return new() {
             Name = Name,
             Clip = Clip?.Value,
             Tempo = new() { BeatsPerMinute = BeatsPerMinute, BeatsPerBar = BeatsPerBar },
+            TempoChanges = changes,
+            Sustains = Sustains,
             LoopCount = LoopCount,
             Next = Next,
             Markers = markers

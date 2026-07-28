@@ -27,16 +27,26 @@ public sealed class MusicTransport(int sampleRate) {
     /// <summary>The device frame the current segment began at.</summary>
     public long Origin { get; private set; }
 
-    /// <summary>How fast the music is, and how it is counted.</summary>
-    public MusicTempo Tempo { get; set; } = new();
+    /// <summary>How its frames, beats and bars relate, across however many tempi it has.</summary>
+    public MusicTempoMap Map { get; private set; } = new(new MusicTempo(), [], sampleRate);
+
+    /// <summary>The tempo it started at. A segment that changes tempo has more than this one.</summary>
+    public MusicTempo Tempo => Map.Tempo;
 
     /// <summary>Puts the origin at a frame, so positions are measured from there.</summary>
     /// <param name="frame">The device frame the segment starts at.</param>
-    /// <param name="tempo">Its tempo.</param>
-    public void Start(long frame, in MusicTempo tempo) {
+    /// <param name="map">How its beats and bars are laid out.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="map" /> is null.</exception>
+    public void Start(long frame, MusicTempoMap map) {
+        ArgumentNullException.ThrowIfNull(map);
         Origin = frame;
-        Tempo = tempo;
+        Map = map;
     }
+
+    /// <summary>Puts the origin at a frame, at one unchanging tempo.</summary>
+    /// <param name="frame">The device frame the segment starts at.</param>
+    /// <param name="tempo">Its tempo.</param>
+    public void Start(long frame, in MusicTempo tempo) => Start(frame, new MusicTempoMap(tempo, [], SampleRate));
 
     /// <summary>How far into the segment a device frame is, in frames.</summary>
     /// <param name="frame">The device frame.</param>
@@ -46,18 +56,12 @@ public sealed class MusicTransport(int sampleRate) {
     /// <summary>Which beat a device frame falls on, counting from zero at the origin.</summary>
     /// <param name="frame">The device frame.</param>
     /// <returns>The beat.</returns>
-    public long BeatAt(long frame) {
-        var perBeat = Tempo.FramesPerBeat(SampleRate);
-        return perBeat > 0 ? FloorDivide(PositionAt(frame), perBeat) : 0;
-    }
+    public long BeatAt(long frame) => Map.BeatAt(PositionAt(frame));
 
     /// <summary>Which bar a device frame falls in, counting from zero at the origin.</summary>
     /// <param name="frame">The device frame.</param>
     /// <returns>The bar.</returns>
-    public long BarAt(long frame) {
-        var perBar = Tempo.FramesPerBar(SampleRate);
-        return perBar > 0 ? FloorDivide(PositionAt(frame), perBar) : 0;
-    }
+    public long BarAt(long frame) => Map.BarAt(PositionAt(frame));
 
     /// <summary>The first frame at or after a given one that a change is allowed to land on.</summary>
     /// <param name="frame">The frame the request arrived at.</param>
@@ -78,15 +82,11 @@ public sealed class MusicTransport(int sampleRate) {
     /// </remarks>
     public long NextBoundary(long frame, MusicQuantize quantize, long segmentFrames = 0) {
         switch (quantize) {
-            case MusicQuantize.Beat: {
-                var perBeat = Tempo.FramesPerBeat(SampleRate);
-                return perBeat > 0 ? Align(frame, perBeat) : frame;
-            }
+            case MusicQuantize.Beat:
+                return Origin + Map.NextBeat(PositionAt(frame));
 
-            case MusicQuantize.Bar: {
-                var perBar = Tempo.FramesPerBar(SampleRate);
-                return perBar > 0 ? Align(frame, perBar) : frame;
-            }
+            case MusicQuantize.Bar:
+                return Origin + Map.NextBar(PositionAt(frame));
 
             case MusicQuantize.Segment: {
                 if (segmentFrames <= 0) {
@@ -94,34 +94,25 @@ public sealed class MusicTransport(int sampleRate) {
                 }
 
                 var end = Origin + segmentFrames;
-                return end >= frame ? end : Align(frame, segmentFrames);
+
+                if (end >= frame) {
+                    return end;
+                }
+
+                // Past its first pass, so the next whole one — a looping segment has as many ends as
+                // it has times round.
+                var offset = frame - Origin;
+                var steps = MusicTempoMap.FloorDivide(offset, segmentFrames);
+
+                if (steps * segmentFrames < offset) {
+                    steps++;
+                }
+
+                return Origin + (steps * segmentFrames);
             }
 
             default:
                 return frame;
         }
-    }
-
-    /// <summary>The first multiple of a grid, measured from the origin, at or after a frame.</summary>
-    long Align(long frame, long grid) {
-        var offset = frame - Origin;
-        var steps = FloorDivide(offset, grid);
-
-        if (steps * grid < offset) {
-            steps++;
-        }
-
-        return Origin + (steps * grid);
-    }
-
-    /// <summary>Integer division that rounds towards negative infinity rather than towards zero.</summary>
-    /// <remarks>
-    ///     C#'s <c>/</c> truncates, so −1 / 4 is 0 and beat −1 would be reported as beat 0. Positions
-    ///     before the origin are ordinary — a segment scheduled a bar ahead is queried for a frame
-    ///     before it starts on every frame until it does.
-    /// </remarks>
-    static long FloorDivide(long value, long divisor) {
-        var quotient = value / divisor;
-        return value % divisor != 0 && (value < 0) != (divisor < 0) ? quotient - 1 : quotient;
     }
 }

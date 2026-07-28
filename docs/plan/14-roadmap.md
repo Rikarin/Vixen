@@ -2033,9 +2033,11 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
   from, and an event can play a caller's provider so a talking player is an event like anything else.
   `MixControl` names every knob in the mix, which is the runtime half of live update — the transport
   is the editor's. Interactive music landed too: a sample-accurate scheduled start, a transport over
-  the device's own clock, and segments whose transitions land on a bar line. Still owed: sustain
-  points and stingers, a loudness meter, a sinc resampler, and an Ogg/Opus decoder behind
-  `IAudioStreamDecoder`.
+  the device's own clock, segments whose transitions land on a bar line, sustain points, stingers and
+  a tempo map. Also landed: a BS.1770 loudness meter, a polyphase sinc resampler with the cutoff
+  banded to the pitch, and a loopback live-update listener over `MixControl`. Still owed: true-peak
+  and loudness-range metering, and an Ogg/Opus decoder behind `IAudioStreamDecoder` — which is a
+  third-party dependency and therefore a decision rather than a task.
 - `Vixen.Animation`: skeletal playback, blend trees (1D/2D), layers + masks, state machine, IK (two-bone,
   look-at, foot placement), root motion, events, GPU skinning integration.
 - `Vixen.Editor.AnimationGraph`.

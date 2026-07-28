@@ -83,6 +83,40 @@ public sealed class MusicPlayer {
     /// <summary>Whether anything is playing or scheduled.</summary>
     public bool IsPlaying => Current is not null || Queued is not null;
 
+    /// <summary>Whether the music is holding at a sustain point, waiting to be let go.</summary>
+    public bool IsSustaining => Current?.Sustains == true && !released;
+
+    /// <summary>Lets a sustaining segment move on.</summary>
+    /// <returns>Whether it was sustaining.</returns>
+    /// <remarks>
+    ///     <b>It does not cut anything short.</b> Releasing says the music may proceed, and the
+    ///     proceeding still happens where it is allowed to — at the end of the pass for a segment
+    ///     following its <c>Next</c>, or at the bar line a queued transition asked for. A release
+    ///     that took effect immediately would be a jump cut, which is the thing a sustain point exists
+    ///     to avoid.
+    /// </remarks>
+    public bool Release() {
+        if (!IsSustaining) {
+            return false;
+        }
+
+        released = true;
+
+        // Whatever was asked for while it was held is now allowed to land, from here rather than
+        // from when it was asked for — a transition queued four bars ago wants the next bar line,
+        // not one four bars in the past.
+        if (Queued is { } waiting) {
+            var quantize = queuedQuantize;
+            CancelQueued();
+            Schedule(waiting, quantize);
+        } else if (Current is { } current && current.LoopCount < 0) {
+            // A sustaining loop has no natural end, so releasing gives it one.
+            currentEnd = Transport.NextBoundary(engine.RenderedFrames, MusicQuantize.Segment, SegmentFrames(current));
+        }
+
+        return true;
+    }
+
     /// <summary>Raised as the playhead crosses a beat, with its number from the segment's start.</summary>
     /// <remarks>
     ///     <b>Late by up to a frame, unavoidably.</b> It is raised from <see cref="Update" /> on the
@@ -138,7 +172,7 @@ public sealed class MusicPlayer {
             return false;
         }
 
-        Release();
+        LetGo();
         Queued = null;
         Begin(segment, engine.RenderedFrames);
         return true;
@@ -163,13 +197,46 @@ public sealed class MusicPlayer {
         return Schedule(segment, quantize);
     }
 
+    /// <summary>Fires a one-shot over the top of whatever is playing.</summary>
+    /// <param name="clip">The hit.</param>
+    /// <param name="quantize">Where it is allowed to land.</param>
+    /// <param name="gainDb">How loud, against the music.</param>
+    /// <returns>Its handle, or <see cref="VoiceHandle.None" /> if the pool was full.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A stinger is not a transition.</b> It plays alongside the music rather than instead
+    ///         of it, and it changes nothing about where the music is going — which is what makes it
+    ///         the right answer to "something happened" and the wrong answer to "the situation
+    ///         changed".
+    ///     </para>
+    ///     <para>
+    ///         Quantised like everything else here, because a hit landing off the beat is the same
+    ///         mistake a cut landing off the beat is, and rather more obvious.
+    ///     </para>
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="clip" /> is null.</exception>
+    public VoiceHandle PlayStinger(AudioClip clip, MusicQuantize quantize = MusicQuantize.Beat, float gainDb = 0f) {
+        ArgumentNullException.ThrowIfNull(clip);
+        var now = engine.RenderedFrames;
+
+        return engine.Play(clip, new PlaybackSettings {
+            Bus = Bus,
+            Gain = gainDb == 0f ? 1f : Effects.Decibels.ToLinear(gainDb),
+
+            // Below the music, which is the one thing that must never be displaced, and above
+            // everything else — a stinger that lost its slot to a footstep would be worse than none.
+            Priority = int.MaxValue - 1,
+            StartFrame = Current is null ? now : Transport.NextBoundary(now, quantize, SegmentFrames(Current))
+        });
+    }
+
     /// <summary>Stops the music.</summary>
     /// <param name="quantize">Where the stop is allowed to land.</param>
     public void Stop(MusicQuantize quantize = MusicQuantize.Immediate) {
         CancelQueued();
 
         if (quantize is MusicQuantize.Immediate) {
-            Release();
+            LetGo();
             Current = null;
             currentEnd = long.MaxValue;
             return;
@@ -189,8 +256,8 @@ public sealed class MusicPlayer {
     public void Update() {
         var now = engine.RenderedFrames;
 
-        if (Queued is { } queued && now >= QueuedAtFrame) {
-            Release();
+        if (Queued is { } queued && now >= QueuedAtFrame && !IsSustaining) {
+            LetGo();
             var start = QueuedAtFrame;
             Queued = null;
             QueuedAtFrame = 0;
@@ -199,7 +266,7 @@ public sealed class MusicPlayer {
 
         Notify(now);
 
-        if (Current is not null && now >= currentEnd) {
+        if (Current is not null && now >= currentEnd && !IsSustaining) {
             Advance(now);
         }
 
@@ -211,6 +278,8 @@ public sealed class MusicPlayer {
     }
 
     bool stopping;
+    bool released;
+    MusicQuantize queuedQuantize = MusicQuantize.Bar;
 
     /// <summary>Raises everything the playhead has crossed since the last call.</summary>
     /// <remarks>
@@ -266,7 +335,7 @@ public sealed class MusicPlayer {
     /// <summary>Decides what happens when a segment runs out.</summary>
     void Advance(long now) {
         var finished = Current;
-        Release();
+        LetGo();
         Current = null;
         currentEnd = long.MaxValue;
 
@@ -326,7 +395,7 @@ public sealed class MusicPlayer {
         var now = engine.RenderedFrames;
 
         if (Current is null || quantize is MusicQuantize.Immediate) {
-            Release();
+            LetGo();
             CancelQueued();
             Begin(segment, now);
             return true;
@@ -337,7 +406,11 @@ public sealed class MusicPlayer {
 
         Queued = segment;
         QueuedAtFrame = at;
-        queuedVoice = Start(segment, at);
+        queuedQuantize = quantize;
+
+        // A sustaining segment has no idea when it will be let go, so there is nothing to schedule
+        // against yet — the voice is started when Release works out where the boundary actually is.
+        queuedVoice = IsSustaining ? VoiceHandle.None : Start(segment, at);
         return true;
     }
 
@@ -346,11 +419,12 @@ public sealed class MusicPlayer {
     /// <summary>Makes a segment the current one, from a frame.</summary>
     void Begin(MusicSegment segment, long start, bool alreadyStarted = false) {
         Current = segment;
-        Transport.Start(start, segment.Tempo);
+        Transport.Start(start, new MusicTempoMap(segment.Tempo, segment.TempoChanges, Transport.SampleRate));
         lastBeat = long.MinValue;
         lastBar = long.MinValue;
         lastMarker = -1;
         lastFrame = start;
+        released = false;
 
         var frames = SegmentFrames(segment);
 
@@ -381,7 +455,7 @@ public sealed class MusicPlayer {
             : VoiceHandle.None;
 
     /// <summary>Lets the current voice go, over the crossfade.</summary>
-    void Release() {
+    void LetGo() {
         if (!voice.IsValid) {
             return;
         }
