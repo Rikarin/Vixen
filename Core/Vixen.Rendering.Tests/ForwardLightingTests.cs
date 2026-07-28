@@ -28,7 +28,7 @@ public class ForwardLightingTests : IDisposable {
     readonly NullDevice device = new(new() { Record = true });
     readonly EffectSystem effects = new();
 
-    const int LightSize = 64;
+    const int LightSize = 80;
 
     // --- Fixture ------------------------------------------------------------
 
@@ -200,7 +200,7 @@ public class ForwardLightingTests : IDisposable {
     // --- The layout the shader reads ----------------------------------------
 
     /// <summary>
-    ///     The GPU record is sixty-four bytes, and every field is where std140 puts it.
+    ///     The GPU record is eighty bytes, and every field is where std140 puts it.
     /// </summary>
     /// <remarks>
     ///     The comment in <c>Lighting.rvn</c> says the field order makes each <c>float3</c> land on a
@@ -209,7 +209,7 @@ public class ForwardLightingTests : IDisposable {
     ///     and shades with them.
     /// </remarks>
     [Fact]
-    public void The_gpu_record_is_sixty_four_bytes_with_no_padding() =>
+    public void The_gpu_record_is_eighty_bytes_with_no_padding() =>
         Assert.Equal(LightSize, Unsafe.SizeOf<PunctualLightData>());
 
     /// <summary>Each field is at the byte offset the shader's struct declares.</summary>
@@ -240,6 +240,72 @@ public class ForwardLightingTests : IDisposable {
         Assert.Equal(1f, At(bytes, 44));  // cos(0) — inner
         Assert.Equal(8f, At(bytes, 48));  // radius
         Assert.Equal(1f, At(bytes, 52));  // cos(0) — outer
+    }
+
+    /// <summary>An area light's shape lands in the sixteen bytes the record grew by.</summary>
+    /// <remarks>
+    ///     The tail is where a tube's axis and a rectangle's width live, and the record went from
+    ///     sixty-four bytes to eighty to hold them. Asserted at the offsets rather than by reading the
+    ///     fields back, because what has to be right is the byte a shader compiled against
+    ///     <c>PunctualLight</c> reads — the C# field could be anywhere.
+    /// </remarks>
+    [Fact]
+    public void An_area_lights_shape_lands_in_the_records_tail() {
+        var light = RenderLight.Tube(
+            Vector3.Zero,
+            new(0f, 0f, 2f),
+            halfLength: 3f,
+            radius: 0.25f,
+            range: 10f,
+            new(1f, 1f, 1f)
+        );
+
+        Span<byte> bytes = stackalloc byte[LightSize];
+        var record = light.ToGpu();
+        MemoryMarshal.Write(bytes, in record);
+
+        Assert.Equal(3f, At(bytes, 12));   // kind — Tube
+        Assert.Equal(0.25f, At(bytes, 48));  // radius, which a tube uses for its thickness
+        Assert.Equal(1f, At(bytes, 72));   // tangent.z — normalised on the way out
+        Assert.Equal(3f, At(bytes, 76));   // halfLength
+    }
+
+    /// <summary>A rectangle's width axis comes out square to its normal, whatever was authored.</summary>
+    /// <remarks>
+    ///     The closest-point search treats the normal, the tangent and their cross product as an
+    ///     orthonormal basis. An axis a few degrees off makes that basis sheared, and a sheared panel
+    ///     lights a room slightly wrongly in a way nobody would think to look for — so it is squared
+    ///     up once, here, rather than trusted.
+    /// </remarks>
+    [Fact]
+    public void A_rectangles_axis_is_squared_against_its_normal() {
+        var light = RenderLight.Rect(
+            Vector3.Zero,
+            new(0f, 1f, 0f),
+            new(1f, 0.5f, 0f),
+            halfWidth: 2f,
+            halfHeight: 1f,
+            range: 10f,
+            new(1f, 1f, 1f)
+        ).ToGpu();
+
+        Assert.Equal(0f, Vector3.Dot(light.Tangent, light.Direction), 5);
+        Assert.Equal(1f, light.Tangent.Length(), 5);
+
+        // A width axis parallel to the normal has no square part to keep, and still has to come out
+        // as *some* usable axis rather than as a zero vector the cross product would collapse.
+        var degenerate = RenderLight.Rect(
+            Vector3.Zero,
+            new(0f, 1f, 0f),
+            new(0f, 1f, 0f),
+            halfWidth: 2f,
+            halfHeight: 1f,
+            range: 10f,
+            new(1f, 1f, 1f)
+        ).ToGpu();
+
+        Assert.Equal(1f, degenerate.Tangent.Length(), 5);
+        Assert.Equal(0f, Vector3.Dot(degenerate.Tangent, degenerate.Direction), 5);
     }
 
     static float At(ReadOnlySpan<byte> bytes, int offset) => MemoryMarshal.Read<float>(bytes[offset..]);

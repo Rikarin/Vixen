@@ -209,9 +209,12 @@ shader ClusterCulling {
         val closest = clamp(center, bounds.minimum, bounds.maximum)
         val offset = center - closest
 
-        // The sphere is the light's range, widened by its radius: a sphere light's *surface* is what
-        // lights the cluster, so a tube whose centre is out of range can still reach in.
-        val reach = light.range + light.radius
+        // The sphere is the light's range, widened by everything that puts its *surface* further out
+        // than its centre: a sphere or tube radius, and half a tube's length or half a rectangle's
+        // width. A shaped light whose centre is out of range still reaches in from its end, and a
+        // cluster that missed it would go dark along one edge of the screen — the failure that made
+        // the radius term necessary in the first place, one shape further on.
+        val reach = light.range + light.radius + light.halfLength
         return dot(offset, offset) <= reach * reach
     }
 }

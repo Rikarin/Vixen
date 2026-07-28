@@ -36,7 +36,11 @@ shader Deferred {
 
     var environment: TextureCube
     var environmentSampler: Sampler
+    var environmentMipCount: float = 7f
     var ambientIntensity: float = 1f
+
+    /// The environment's diffuse irradiance as order-2 spherical harmonics — see `ForwardPlus`.
+    var environmentSh: ShCoefficients
 
     stream var uv: float2
 
@@ -92,13 +96,19 @@ shader Deferred {
         return (diffuse + specular) * light.radiance * angles.NdotL
     }
 
+    /// The same split-sum ambient the forward pass evaluates, off the same two inputs.
+    ///
+    /// Deliberately identical rather than merely similar: a deferred frame and a forward frame draw
+    /// the same scene, and an ambient term that differed between them would make the transparent pass
+    /// a visibly different material from the opaque one it sits in front of.
     func Ambient(d: MaterialData, n: float3, v: float3): float3 {
         val NdotV = saturate(dot(n, v))
         val reflected = reflect(-v, n)
 
         val dfg = Ibl.EnvironmentDfg(NdotV, d.perceptualRoughness)
-        val prefiltered = environment.Sample(environmentSampler, reflected).rgb
-        val irradiance = environment.Sample(environmentSampler, n).rgb
+        val lod = Ibl.SpecularLod(d.perceptualRoughness, environmentMipCount)
+        val prefiltered = environment.SampleLevel(environmentSampler, reflected, lod).rgb
+        val irradiance = Ibl.IrradianceSh9(n, environmentSh)
 
         val specular = Ibl.Specular(prefiltered, d.f0, dfg, d.occlusion)
         val diffuse = Ibl.Diffuse(irradiance, d.diffuseColor, d.occlusion)

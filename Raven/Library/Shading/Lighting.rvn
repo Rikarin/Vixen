@@ -94,6 +94,51 @@ struct Lighting {
         return sample
     }
 
+    /// A tube: a segment with a radius, shaded from the point on it the highlight is made of.
+    ///
+    /// The falloff is measured to that point rather than to the tube's centre, which is the whole
+    /// reason a strip light along a wall lights the wall evenly instead of falling off from its
+    /// middle. `radius` then rounds the segment into a capsule, exactly as it rounds a point into a
+    /// sphere.
+    static func Tube(light: PunctualLight, surfacePosition: float3, alpha: float, reflected: float3): LightSample {
+        val axis = light.tangent * light.halfLength
+        val start = light.position - axis - surfacePosition
+        val finish = light.position + axis - surfacePosition
+
+        val onSegment = AreaLights.ClosestOnSegment(start, finish, reflected)
+        val representative = AreaLights.ClosestOnSphere(onSegment, light.radius, reflected)
+
+        var sample = Point(surfacePosition + representative, surfacePosition, light.color, light.range)
+        sample.alphaPrime = AreaLights.Widen(alpha, light.radius, length(onSegment))
+        return sample
+    }
+
+    /// A rectangle emitting from one face.
+    ///
+    /// Two things separate it from a sphere at the same place. The representative point is found by
+    /// intersecting the reflection ray with the panel, so a mirror sees the panel where it is rather
+    /// than a highlight where its centre is; and the emission is scaled by the panel's own cosine, so
+    /// a surface off to its side is lit by the sliver it can see rather than by all of it.
+    static func Rect(light: PunctualLight, surfacePosition: float3, alpha: float, reflected: float3): LightSample {
+        var rect: RectLight
+        rect.position = light.position
+        rect.normal = light.direction
+        rect.tangent = light.tangent
+        rect.bitangent = cross(light.direction, light.tangent)
+        rect.halfWidth = light.halfLength
+        rect.halfHeight = light.radius
+
+        val representative = AreaLights.ClosestOnRect(rect, surfacePosition, reflected)
+
+        var sample = Point(surfacePosition + representative, surfacePosition, light.color, light.range)
+        sample.radiance = sample.radiance * AreaLights.FrontFacing(rect.normal, -sample.l)
+
+        // Widened by the larger extent: a lobe covering the long side covers the short one, and a
+        // panel's highlight is as wide as the panel however it is oriented.
+        sample.alphaPrime = AreaLights.Widen(alpha, max(rect.halfWidth, rect.halfHeight), length(representative))
+        return sample
+    }
+
     /// Resolves one entry of a light list to a `LightSample`.
     ///
     /// The one function a light loop needs, and the reason `PunctualLight` is a single record with a
@@ -102,10 +147,20 @@ struct Lighting {
     /// light an unused cone — 16 bytes of padding against three list traversals and three uniforms.
     ///
     /// `alpha` is the surface roughness, needed because an area light widens the specular lobe and the
-    /// widening depends on how tight it already was.
-    static func Resolve(light: PunctualLight, surfacePosition: float3, alpha: float): LightSample {
+    /// widening depends on how tight it already was. `reflected` is the view vector mirrored about the
+    /// shading normal, which is what a shaped light finds its representative point along — a punctual
+    /// kind ignores it.
+    static func Resolve(light: PunctualLight, surfacePosition: float3, alpha: float, reflected: float3): LightSample {
         if (light.kind == LightKind.Directional) {
             return Directional(light.direction, light.color)
+        }
+
+        if (light.kind == LightKind.Tube) {
+            return Tube(light, surfacePosition, alpha, reflected)
+        }
+
+        if (light.kind == LightKind.Rect) {
+            return Rect(light, surfacePosition, alpha, reflected)
         }
 
         var sample = Point(light.position, surfacePosition, light.color, light.range)
@@ -181,6 +236,12 @@ struct LightKind {
     const val Directional = 0f
     const val Point = 1f
     const val Spot = 2f
+
+    /// A capsule: a segment with a radius. A fluorescent tube, a strip light.
+    const val Tube = 3f
+
+    /// A one-sided rectangle. A softbox, a window, a screen.
+    const val Rect = 4f
 }
 
 /// One entry of a light list, as the host writes it.
@@ -213,6 +274,20 @@ struct PunctualLight {
     var cosOuter: float
 
     var padding: float2
+
+    /// A shaped light's own axis: the length of a tube, the width of a rectangle. Unit length.
+    ///
+    /// The record grew by sixteen bytes for the two area kinds, rather than gaining a list of their
+    /// own. One list means one loop, one cluster binning and one descriptor — where a second kind of
+    /// light in a second buffer would have needed all three duplicated, and the clustering pass
+    /// taught about both.
+    var tangent: float3
+
+    /// Half a tube's length, or half a rectangle's width. Zero for every punctual kind.
+    ///
+    /// A rectangle's half-*height* is `radius`, which is the same field a sphere and a tube use for
+    /// their radius — every area shape needs exactly two extents and no kind needs three.
+    var halfLength: float
 }
 
 /// A spot light's parameters, bundled so `Spot` fits one line.
