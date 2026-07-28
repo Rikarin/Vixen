@@ -27,15 +27,36 @@ Read from `Assets/PurrNet/Runtime/`:
 | Coroutine RPCs (`IEnumerator`) | **Reject.** Vixen has no coroutines by decision ([04](04-ecs-and-scripting.md)); `async`/`await` on a frame-synchronous scheduler covers it with a real debugger and real exceptions. |
 | **Mono.Cecil IL post-processing** (`Codegen/PostProcessor.cs`, `MonoCecilInstaller.cs`, `GenerateSerializersProcessor`, `GenerateRPCManifestProcessor`, …) | **Reject — banned by ADR-002.** This is the one structural thing we cannot copy, and it has a real API consequence. See below. |
 
-## What PurrNet does *not* have, stated so expectations are calibrated
+## Client-side prediction, and a calibration this document got wrong
 
-There is **no client-side prediction with rollback/resimulation.** Searching the runtime for
-prediction/reconciliation turns up only scene-spawn reconciliation and hierarchy code. PurrNet's model
-is *server-authoritative + snapshot interpolation + lag compensation*, which is the right architecture
-for the large majority of games (co-op, MOBA-lite, survival, social, turn-based, most shooters at
-casual latency) and is **not** rollback netcode in the Quantum/GGPO sense.
+> **Corrected July 2026.** This section previously read "PurrNet does not have client-side
+> prediction", based on reading `Assets/PurrNet/Runtime/` at the time. **That is no longer true, and
+> the argument built on top of it has to stand on its own merits instead.** PurrNet now ships
+> **PurrDiction**: client-side prediction with genuine rollback and resimulation — predicted
+> identities, predicted modules, snapshot save/reconcile against verified server frames
+> (`ReadState`, `Rollback(tick)`), automatic history participation so modules do not hand-manage
+> buffers, and a view layer that interpolates presentation from the last verified state toward the
+> latest predicted one. It is distributed as a separate Asset Store package rather than in the core.
+>
+> The original text is left described rather than deleted because *why* it was wrong matters: a
+> competitor comparison is a fact with a shelf life, and this one was load-bearing for a scope
+> decision. Anything in this document that reads "X does not have Y" should be treated as dated from
+> the moment it is written.
 
-Vixen adopts the same model for 1.0, and is unusually well placed to add prediction later:
+Vixen's model for 1.0 is *server-authoritative + snapshot interpolation + lag compensation*. That is
+the right architecture for the large majority of games — co-op, MOBA-lite, survival, social,
+turn-based, most shooters at casual latency — and it is **not** rollback netcode in the Quantum/GGPO
+sense.
+
+**The case for deferring prediction, argued on its own.** It is not that nobody else has it; it is
+that prediction is the single most expensive correctness surface in netcode, every predicted system
+must be resimulable and therefore deterministic, and shipping it half-built is worse than not
+shipping it — a game that predicts movement but not the interactions movement causes feels *less*
+consistent than one that predicts nothing. The server-authoritative model is complete and correct at
+every point on its own road; prediction is a second road that has to be finished before it is worth
+starting.
+
+Vixen is unusually well placed to add it later:
 
 - The ECS is fixed-step and deterministic, with an input-log replay test already in
   [04](04-ecs-and-scripting.md).

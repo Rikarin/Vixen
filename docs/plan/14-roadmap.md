@@ -3108,9 +3108,32 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   `[Replicated]` component and a user's own RPC argument get the same encoding rather than a
   second one.
 
-  **Owed:** per-axis enable and parent-relative replication on `NetworkTransform`, and the system
-  that copies between it and the engine's transform hierarchy — which is where `Vixen.Engine` and
-  `Vixen.Net` will first have to meet.
+  ✅ **The transform bridge** — `NetworkTransformCaptureSystem`/`ApplySystem` in `Vixen.Net.Engine`,
+  the seam `Vixen.Engine` and `Vixen.Net` were always going to have to meet at. **The direction
+  depends on which peer this is**, and that is the whole design: a server publishes transform →
+  network, a client applies network → transform, and one system doing both has each end overwriting
+  the other every tick — on a client with physics, the solver and the network fighting over the same
+  body. Filtered on `WithChanged<LocalTransform>`, so a scene of sleeping props visits none of them.
+  `NetworkTeleport` is a tag the bridge turns into the counter the wire carries and takes off again,
+  so nothing has to remember to clear it.
+
+  ✅ **Networked rigid bodies** — `NetworkRigidBody` in `Vixen.Net.Physics`: linear and angular
+  velocity beside the transform, quantised harder than the position because a velocity only ever
+  carries a body a fraction of a second, plus a rest flag that is the bandwidth decision — most
+  objects in most scenes are asleep, and a body written as *exactly* zero costs its unchanged bits
+  for ever after rather than dithering in its last quantisation step.
+
+  **The correction is the piece worth having taken from PurrNet.** A remote body is not moved to the
+  authoritative pose; it is given a velocity that would carry it there, so it arrives through the
+  solver — colliding with what is in the way and resting on what it lands on. `error × frequency` is
+  the critically damped solution: fastest convergence with no overshoot, where underdamped makes the
+  crate wobble around its true position and overdamped never quite arrives. Past a snap threshold it
+  teleports instead, because a spring strong enough to fix a respawn is one that would fling
+  everything else across the level.
+
+  **Owed:** per-axis enable and parent-relative replication on `NetworkTransform`. Owner-authority as
+  a `NetworkRules` audience rather than the server-authoritative default — the rules registry is the
+  right place and already asks the right question.
 - ✅ **Lag compensation** — `Vixen.Net.Physics`, unblocked the moment Phase 8's physics landed and
   built against it. A ring of pose history per tracked body, and a rewind scope that moves those
   bodies to where a shooter saw them, lets one query run, and puts them back.
