@@ -32,7 +32,7 @@ top.
 | `Component`, `BuildContext` | What a compiled `.vxml` calls: elements, effects, branches, keyed lists, events, slots. |
 | `KeyEvent`, `TextInputEvent` | Keys routed from the focus outwards; typed text as its own event. Tab is the document's default, after the route. |
 | `UiDocument.Track` | `:hover` and `:active` on the ancestor chain, `Entered`/`Exited` per element crossed, `:focus-visible` from how the focus arrived. |
-| `WheelEvent` | Hit-tested and bubbling, so nested scrolling chains on `Handled` rather than on a rule. |
+| `WheelEvent` | Hit-tested and bubbling, so nested scrolling chains on `Handled` rather than on a rule. Carries `Modifiers`, because Ctrl-wheel means zoom in every canvas and timeline ever written. |
 | `UiElement.OnCreated`, `TagName` | The constructor a control cannot have, and the element name a type answers to. |
 | `UiElement.OffsetX/Y` | A translation applied after layout — scrolling, popups and drag previews, at the cost of a walk. |
 | `UiElement.SetStyle` | Declarations written on an element, for the lengths no stylesheet was given: a splitter's ratio, a virtualised row's position. |

@@ -46,20 +46,69 @@ sealed class AdvancedFixture : IDisposable {
         Document.Draw();
     }
 
-    public void Click(UiElement element) {
-        var bounds = element.Bounds;
-        var x = bounds.X + (bounds.Width * 0.5f);
-        var y = bounds.Y + (bounds.Height * 0.5f);
+    public void Click(UiElement element, ModifierKeys modifiers = ModifierKeys.None) {
+        var centre = Centre(element);
 
-        Press(x, y);
-        Release(x, y);
+        Press(centre.X, centre.Y, modifiers: modifiers);
+        Release(centre.X, centre.Y, modifiers: modifiers);
     }
 
-    public void Press(float x, float y) => Send(x, y, PointerAction.Pressed, PointerButton.Primary);
+    /// <summary>The middle of an element, in document space — where a pointer test aims.</summary>
+    public static (float X, float Y) Centre(UiElement element) {
+        var bounds = element.Bounds;
+        return (bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f));
+    }
 
-    public void Move(float x, float y) => Send(x, y, PointerAction.Moved, PointerButton.None);
+    public void Press(
+        float x,
+        float y,
+        PointerButton button = PointerButton.Primary,
+        ModifierKeys modifiers = ModifierKeys.None
+    ) => Send(x, y, PointerAction.Pressed, button, modifiers);
 
-    public void Release(float x, float y) => Send(x, y, PointerAction.Released, PointerButton.Primary);
+    public void Move(float x, float y, ModifierKeys modifiers = ModifierKeys.None) =>
+        Send(x, y, PointerAction.Moved, PointerButton.None, modifiers);
+
+    public void Release(
+        float x,
+        float y,
+        PointerButton button = PointerButton.Primary,
+        ModifierKeys modifiers = ModifierKeys.None
+    ) => Send(x, y, PointerAction.Released, button, modifiers);
+
+    /// <summary>Presses in the middle of an element, drags to a point and releases there.</summary>
+    /// <remarks>
+    ///     For the controls that act on raw pointer events rather than on the gesture recogniser's
+    ///     drags — a canvas, a timeline, a curve — where there is no slop threshold to cross and a
+    ///     single move is a move.
+    /// </remarks>
+    public void DragFrom(
+        UiElement from,
+        float x,
+        float y,
+        PointerButton button = PointerButton.Primary,
+        ModifierKeys modifiers = ModifierKeys.None
+    ) {
+        var centre = Centre(from);
+
+        Press(centre.X, centre.Y, button, modifiers);
+        Move(x, y, modifiers);
+        Release(x, y, button, modifiers);
+    }
+
+    /// <summary>Ditto, from a bare point.</summary>
+    public void DragPoint(
+        float fromX,
+        float fromY,
+        float x,
+        float y,
+        PointerButton button = PointerButton.Primary,
+        ModifierKeys modifiers = ModifierKeys.None
+    ) {
+        Press(fromX, fromY, button, modifiers);
+        Move(x, y, modifiers);
+        Release(x, y, button, modifiers);
+    }
 
     /// <summary>Drags from the middle of an element to a point, far enough to be a drag.</summary>
     /// <remarks>
@@ -74,6 +123,20 @@ sealed class AdvancedFixture : IDisposable {
         Move(x, y);
         Move(x, y);
         Release(x, y);
+    }
+
+    /// <summary>Lets enough time pass that the next tap is a first tap rather than a third.</summary>
+    /// <remarks>
+    ///     ⚠ The gesture recogniser counts taps in a row, so two double-clicks in the same place with
+    ///     nothing between them are taps one to four — and a control acting on <c>Count == 2</c> sees
+    ///     one double click, not two. Every test that clicks twice in the same place needs this in
+    ///     the middle, and every user gets it for free by being slow.
+    /// </remarks>
+    public void Rest(int milliseconds = 500) {
+        clock += TimeSpan.FromMilliseconds(milliseconds);
+
+        Document.Gestures.Tick(clock);
+        Update();
     }
 
     public void Type(InputKey key, ModifierKeys modifiers = ModifierKeys.None) {
@@ -104,11 +167,18 @@ sealed class AdvancedFixture : IDisposable {
         Update();
     }
 
-    void Send(float x, float y, PointerAction action, PointerButton button) {
+    void Send(float x, float y, PointerAction action, PointerButton button, ModifierKeys modifiers) {
         clock += TimeSpan.FromMilliseconds(16);
 
         Document.Dispatch(
-            new PointerEvent { X = x, Y = y, Action = action, Button = button, Timestamp = clock }
+            new PointerEvent {
+                X = x,
+                Y = y,
+                Action = action,
+                Button = button,
+                Modifiers = modifiers,
+                Timestamp = clock
+            }
         );
 
         Update();

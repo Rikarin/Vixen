@@ -2629,8 +2629,61 @@ the shipping projects; a `.rvn` edit reparsing incrementally; the differential o
 - `Vixen.Editor.Inspector`: generated drawers, attribute set, custom drawers, multi-object editing.
 - `Vixen.Editor.SceneView`: viewport, gizmos, picking stage, selection outline, debug view modes,
   camera nav, drag-and-drop, play-in-editor with world snapshot.
-- `Vixen.Ui.Controls.Advanced`: `DataGrid`, `NodeCanvas`, `CodeEditor`, `ColorPicker`, `Timeline`,
-  `CurveEditor`, `GradientEditor`, `Viewport`.
+- ✅ **`Vixen.Ui.Controls.Advanced` — the remaining eight, and the one framework field they needed.**
+  `NodeCanvas` (infinite pan/zoom, bezier wires, marquee, snapping, groups, minimap), `CodeEditor`
+  (virtualised lines, pluggable highlighting, folding, diagnostics gutter, completion popup),
+  `DataGrid` (virtualised rows *and* columns, frozen columns, resize/reorder, stable sort, grouping,
+  inline edit, cell templates), `Viewport`, `ColorPicker` (HSV and OkLCh, alpha, palette, HDR,
+  eyedropper), `CurveEditor` (Hermite tangents, five modes, presets), `GradientEditor` (separate
+  colour and alpha stops, three interpolation spaces) and `Timeline` (tracks, keys, playhead, 1-2-5
+  ruler, frame snapping).
+
+  **Model apart from view, everywhere.** `NodeGraph`, `CodeBuffer`, `AnimationCurve` and `Gradient`
+  need no document, stylesheet or font, so a shader graph can be validated on a build server with no
+  interface at all — the same split `DockLayout` makes and for the same reason.
+
+  **What is not a box is drawn.** Wires, curves, keyframes, the colour field, the gradient bar, the
+  minimap and the axis gizmo are all `OnDraw`, because each is a position that is a multiplication
+  rather than a layout — and because ten thousand keyframes as elements is ten thousand style nodes
+  for a picture with no text in it. Colours still come out of the cascade through custom properties.
+
+  **Painting order is document order, used as a design tool.** A selection has to be under the text
+  and a caret over it, so `CodeEditor` puts three siblings either side of its lines; wires have to be
+  over the group boxes and under the nodes, so `NodeCanvas` puts a layer between them. No z-index
+  anywhere.
+
+  **One field was added to `Vixen.Ui`: `WheelEvent.Modifiers`.** Ctrl-wheel means zoom and
+  Shift-wheel means the other axis in every canvas, graph and timeline ever written, and a control
+  that had to ask a keyboard what was held *now* would get the wrong answer for any event it dealt
+  with a frame later — the argument `PointerEvent.Modifiers` already makes.
+
+  ⚠ **Two more silent flexbox traps, both measured.** This layout engine takes Yoga's `flex-shrink`
+  default of **zero**, not CSS's of one, so a control whose content is wider than its parent grows
+  straight out of the window: a `DataGrid` of two hundred columns made itself twenty-four thousand
+  pixels wide, which turned its own column virtualiser off without an error anywhere. `min-width` is
+  the same trap on the other axis. Both are now said out loud in the theme, beside the
+  `flex-basis: 0px` remark Phase 4e left there.
+
+  ⚠ **And one performance trap worth recording.** `UiDocument.LengthOf` parses the interned value on
+  every call, and `NodeCanvas.RectOf` reads three custom properties — so a canvas of ten thousand
+  nodes was doing thirty thousand parses per realise, and a minimap that walked every node twice made
+  it quadratic. One test took four minutes. The fix is a cache keyed on the `ComputedStyle`
+  *reference*, which is sound because the cascade interns them: the same object means the same
+  declarations. Four minutes to one second.
+
+  Gate: 253 tests (up from 82), including a ten-thousand-node canvas realising under thirty elements,
+  a fifty-thousand-line file realising under sixty, a two-hundred-column grid realising under twenty
+  cells per row, a frozen cell whose offset is asserted against the scroll position, a block comment
+  opened on line 0 recolouring line 4 000, a hue that survives a trip through black, and every
+  interaction driven as real `PointerEvent`s through `UiDocument.Dispatch` rather than by calling
+  handlers.
+
+  ⚠ **Still owed:** there is no undo anywhere — an undo stack inside a text control can only undo
+  typing, and the four `Changed` events are the seams a real one subscribes to; `Viewport` draws a
+  placeholder because the draw list has no texture command; `CodeEditor` does not wrap and its caret
+  does not blink, both for want of things the framework has not got yet; `OkLch.ToSrgb` clamps per
+  channel, which shifts the hue where real gamut mapping would walk the chroma down; and every one of
+  these controls is still one layout pass behind a resize, for the reason Phase 4e recorded.
 - Asset editors: texture, model, material, scene, prefab, shader, UI, addressable groups, graphics
   compositor.
 - `Vixen.Editor.Profiler` + `.Debugger` (frame graph, frame debugger, memory view, remote inspector).
