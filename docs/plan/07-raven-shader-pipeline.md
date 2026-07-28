@@ -1446,6 +1446,22 @@ relative to the start of an element, which is what a host writing an array of th
 is reported too, and cannot be inferred: read-only and read-write are the same descriptor type, and the
 difference decides which barrier the frame graph inserts around the dispatch.
 
+##### ✅ The writable bit did not survive being inherited
+
+The first real consumer — `Vixen.Vfx`'s compute emitter, which puts its buffers on a base shader and
+inherits them into two kernels — found that `MergeInterface` rebuilt each `IrBinding` **without its
+writable flag**, so it took the parameter's default. Every `RWBuffer` reaching a shader through
+inheritance arrived read-only, and so did every one contributed by a `compose`d feature, since both go
+through the same merge.
+
+What let it live is that only one target objects. SPIR-V decorates the variable `NonWritable`, stores
+into it anyway, and `spirv-val` passes the module; GLSL writes `readonly` and its front end refuses the
+store outright. So the shader ran on Vulkan and would not build for GL — which reads as a backend bug
+and was one argument in the merge. Two lessons worth keeping: **a validator that accepts is weaker
+evidence than a front end that has to compile**, so both reference tools are worth running; and a
+constructor with defaulted parameters is a place where a rebuild silently loses information, which is
+what "copies one shader's bindings onto another" had quietly become.
+
 ##### ✅ And the storage image that went with it
 
 A **storage image** — a writable texture — landed as `[Format("rgba16f")] var target:

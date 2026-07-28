@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Net.Physics</RootNamespace>
+        <Description>
+            Lag compensation: the server-side rewind that decides whether a shot fired 80 ms ago hit
+            what the player was actually looking at. A ring of collider history keyed by tick, and a
+            rewound query against the world as that client plausibly saw it.
+        </Description>
+        <PackageTags>lag-compensation;rollback;netcode;multiplayer;physics;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <!--
+        The only package that references both, and a package of its own for the same reason
+        Vixen.Net.Engine is one: a game with networking and no physics must not link Jolt to send a
+        packet, and a game with physics and no networking must not carry a tick history it never
+        captures. Neither Vixen.Net nor Vixen.Physics may reference the other, so the type that has
+        to see a Tick and a BodyHandle lives above both.
+    -->
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Net\Vixen.Net.csproj" />
+        <ProjectReference Include="..\Vixen.Physics\Vixen.Physics.csproj" />
+    </ItemGroup>
+
+</Project>

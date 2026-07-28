@@ -91,6 +91,15 @@ public sealed class PointerEvent : UiEvent {
     /// <summary>Which button, for a press or a release.</summary>
     public PointerButton Button { get; init; }
 
+    /// <summary>What was held on the keyboard at the time.</summary>
+    /// <remarks>
+    ///     On the pointer event because a modified click is one thing rather than two: a list adding
+    ///     to its selection on Ctrl-click cannot ask a keyboard what is held <i>now</i> without
+    ///     getting the wrong answer for any click it deals with a frame later, and a control that
+    ///     tracked the modifiers itself would have to see every key event in the document to do it.
+    /// </remarks>
+    public ModifierKeys Modifiers { get; init; }
+
     /// <summary>What happened.</summary>
     public PointerAction Action { get; init; }
 
@@ -118,5 +127,17 @@ public enum PointerAction : byte {
     Pressed,
 
     /// <summary>A button came up.</summary>
-    Released
+    Released,
+
+    /// <summary>It came onto an element.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Never fed in from outside</b> — the document works these out for itself from where
+    ///     the pointer is, and delivers them <see cref="RoutingStrategy.Direct" /> to each element
+    ///     whose hover changed. A backend reports moves, presses and releases; crossing an edge is a
+    ///     fact about a tree the backend cannot see.
+    /// </remarks>
+    Entered,
+
+    /// <summary>It left an element.</summary>
+    Exited
 }

@@ -83,6 +83,18 @@ and until Raven carried it, lowering dropped it on the floor. It now reaches `Pa
 generator spells it as a literal, and the key holds its bytes. Break any link in that chain and the
 symptom is a black frame that nothing reports.
 
+**"I have no default" is not "my default is zero", and the intern table can tell them apart.**
+`New<T>(name)` joins a key without claiming one and leaves `HasDeclaredDefault` false;
+`New<T>(name, value)` declares one, and does so whether it created the key or found one already
+there. That distinction is the last link in the chain above. `EffectLoader` interns every parameter a
+compiled effect reflects, and an `EffectParameterData` is a name, a kind, an offset and a size —
+nothing carries the initialiser, which lives in the source and reaches the generated binding instead.
+If the loader's registration claimed zero, whichever ran first would win: effects load from data and
+a bindings class is not initialised until code first touches it, so an effect loading before that
+touch would replace every declared default in the shader with zero. Two *declared* defaults for one
+name is a different thing — a real disagreement, resolved first-wins and documented, unreachable in
+practice because generated names are shader-qualified.
+
 ## Parameters, effects and the cache
 
 **Two ways to fill one uniform block, because two callers want different things.** Code that knows

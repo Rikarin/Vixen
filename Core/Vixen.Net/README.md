@@ -25,8 +25,8 @@ Vixen.Net.Diagnostics  BandwidthLedger · SnapshotInspector · NetworkMetrics
 
 Plus the transports — `Local` (in-process), `Udp`, `WebSocket`, and `Composite` (several at once,
 so one server takes both desktop and browser clients) — the build half (`Vixen.Net.Generators`), the
-export half of the metrics (`Vixen.Net.Telemetry`), and the fuzz harness (`Vixen.Net.Fuzz`), each in
-their own package with their own README.
+export half of the metrics (`Vixen.Net.Telemetry`), lag compensation (`Vixen.Net.Physics`), and the
+fuzz harness (`Vixen.Net.Fuzz`), each in their own package with their own README.
 
 **[`Samples/08-Multiplayer`](../../Samples/08-Multiplayer) is all of it at once** — eight players,
 server-authoritative movement and shooting, over either transport, ending in a convergence check that

@@ -71,7 +71,7 @@ public sealed partial class UiDocument {
         var previous = Focused;
         Focused = element;
 
-        Restate(previous, element);
+        Restate(previous, element, KeyboardMode);
 
         previous?.Raise(new FocusEvent { Gained = false, Previous = previous, Next = element });
         element?.Raise(new FocusEvent { Gained = true, Previous = previous, Next = element });
@@ -159,13 +159,36 @@ public sealed partial class UiDocument {
         return Root;
     }
 
-    static void Restate(UiElement? previous, UiElement? next) {
+    /// <summary>Moves the focus flags from one chain to another.</summary>
+    /// <param name="previous">What had the focus.</param>
+    /// <param name="next">What has it now.</param>
+    /// <param name="visible">
+    ///     Whether the focus should show. See <see cref="KeyboardMode" /> — a ring drawn on every
+    ///     click looks like a bug and a ring withheld from a keyboard makes the interface unusable,
+    ///     so what decides is how the focus arrived rather than that it did.
+    /// </param>
+    /// <remarks>
+    ///     ⚠ <b><see cref="ElementState.FocusVisible" /> is cleared unconditionally and set
+    ///     conditionally.</b> Clearing it only when the new focus does not want it would leave the
+    ///     ring behind on an element that a click has just taken it from — the state is per-element
+    ///     and the element that keeps it is not the one that was clicked.
+    /// </remarks>
+    static void Restate(UiElement? previous, UiElement? next, bool visible) {
         for (var element = previous; element is not null; element = element.Parent) {
-            element.State &= ~(element == previous ? ElementState.Focus | ElementState.FocusWithin : ElementState.FocusWithin);
+            element.State &= ~(element == previous
+                ? ElementState.Focus | ElementState.FocusVisible | ElementState.FocusWithin
+                : ElementState.FocusWithin);
         }
 
         for (var element = next; element is not null; element = element.Parent) {
-            element.State |= element == next ? ElementState.Focus | ElementState.FocusWithin : ElementState.FocusWithin;
+            if (element != next) {
+                element.State |= ElementState.FocusWithin;
+                continue;
+            }
+
+            element.State |= visible
+                ? ElementState.Focus | ElementState.FocusVisible | ElementState.FocusWithin
+                : ElementState.Focus | ElementState.FocusWithin;
         }
     }
 }

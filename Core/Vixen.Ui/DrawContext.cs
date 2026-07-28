@@ -38,6 +38,15 @@ public readonly struct DrawContext {
     /// <summary>Where the element is, in document space.</summary>
     public Rectangle Bounds => Element.Bounds;
 
+    /// <summary>The element's <c>color</c>, which is what a control draws itself in by default.</summary>
+    /// <remarks>
+    ///     Here rather than left to the caller because <i>every</i> custom-drawn control needs it and
+    ///     the alternative is each of them interning a property name and parsing a value. A control
+    ///     that wants a second colour — a slider's track against its fill — reads it through
+    ///     <see cref="UiDocument.ColorOf" /> with an identifier it interned once.
+    /// </remarks>
+    public Color4 Foreground => Element.Document.ForegroundOf(Element);
+
     /// <summary>Fills a path.</summary>
     /// <param name="path">The path.</param>
     /// <param name="color">What to fill it with.</param>

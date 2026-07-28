@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Ui.Controls.Advanced</RootNamespace>
+        <Description>
+            The controls that prove the framework rather than furnish it: a docking host with
+            splitters, tab groups and a layout that round-trips through serialisation; a virtualised
+            tree; and a property grid generated from type descriptors.
+        </Description>
+        <PackageTags>ui;controls;docking;treeview;property-grid;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Ui.Controls\Vixen.Ui.Controls.csproj" />
+
+        <!--
+            The property grid's whole reason for existing. `TypeDescriptor` is generated, so an
+            inspector reads and writes arbitrary members after trimming and on iOS — which is what
+            an inspector built on System.Reflection cannot do.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+
+        <!--
+            A docking layout is a document. It is written and read as YAML rather than through the
+            binary serializer because it is something a person edits, diffs and checks in — the same
+            argument doc 11 makes for project settings.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
+
+        <ProjectReference Include="..\Vixen.Ui.Generators\Vixen.Ui.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Ui.Controls.Advanced.Tests" />
+    </ItemGroup>
+
+</Project>
