@@ -21,21 +21,44 @@ Read from `Assets/PurrNet/Runtime/`:
 | **Delta compression + `BitPacker`** (`DeltaModule`, `DeltaMessager`, and a `DeltaPackerAnalysis` tool) | **Take.** Bit-level packing with per-field quantization, and *tooling to analyse it*. |
 | **`NetworkLOD`** — update rate degrades with distance/importance | **Take.** Cheap, and the difference between 20 and 200 players. |
 | **`ColliderRollback`** — server-side rewind of collider history for hit validation | **Take.** Lag compensation is not optional for anything with aiming. |
-| **Awaitable RPCs** returning `Task<T>` | **Take**, as `ValueTask<T>` with correlation IDs and timeouts. |
+| **Awaitable RPCs** returning `Task<T>` | **Take**, with correlation IDs and timeouts — and as `Task<T>` after all. `ValueTask<T>` earns its keep when a result is often already available; this one never is, since it is a network round trip, so the completion source is allocated either way and the wrapper buys nothing. What it would cost is real: a `ValueTask` may be consumed once, so asking three questions and awaiting them together becomes a hazard the compiler warns about. |
 | **Reconnect identity** (`Cookies`) | **Take.** Session resumption is always wanted and always retrofitted painfully. |
 | **Bandwidth profiler + telemetry** (`Profiler`, `Telemetry`, `ProfileBandwidth`) | **Take.** Folds into [13](13-diagnostics.md) rather than being a separate tool. |
 | Coroutine RPCs (`IEnumerator`) | **Reject.** Vixen has no coroutines by decision ([04](04-ecs-and-scripting.md)); `async`/`await` on a frame-synchronous scheduler covers it with a real debugger and real exceptions. |
+| **`NetworkReflection`** — automatic property synchronisation driven by runtime reflection | **Reject, and the reason is the same family as the row below.** NativeAOT on iOS and trim-clean `Core/` assemblies are stated non-negotiables ([00](00-vision-and-principles.md) § Non-negotiables); a sync layer that reflects over properties at runtime either breaks under AOT or needs enough `DynamicDependency` annotations to defeat the point of it being automatic. What it buys — "I did not have to write any wiring" — Vixen buys at compile time instead: `[Replicated]` on a struct gets a generated replicator, and `SyncVar<T>`/`NetworkModule` cover behaviour-facing state. Same benefit, output you can read and step through, and it survives the platform the plan calls out as AOT-only. |
+| **`NetworkStateMachine`** — automatic networking of a state machine | **Take, in two halves that already exist.** A *game* state machine is `SyncVar<TState>` plus `NetworkRules`, and a component wrapping that would be thinner than the thing it wraps. An *animation* state machine falls out of `NetworkAnimator`: replicate the parameters and the current state, never the pose. |
 | **Mono.Cecil IL post-processing** (`Codegen/PostProcessor.cs`, `MonoCecilInstaller.cs`, `GenerateSerializersProcessor`, `GenerateRPCManifestProcessor`, …) | **Reject — banned by ADR-002.** This is the one structural thing we cannot copy, and it has a real API consequence. See below. |
 
-## What PurrNet does *not* have, stated so expectations are calibrated
+## Client-side prediction, and a calibration this document got wrong
 
-There is **no client-side prediction with rollback/resimulation.** Searching the runtime for
-prediction/reconciliation turns up only scene-spawn reconciliation and hierarchy code. PurrNet's model
-is *server-authoritative + snapshot interpolation + lag compensation*, which is the right architecture
-for the large majority of games (co-op, MOBA-lite, survival, social, turn-based, most shooters at
-casual latency) and is **not** rollback netcode in the Quantum/GGPO sense.
+> **Corrected July 2026.** This section previously read "PurrNet does not have client-side
+> prediction", based on reading `Assets/PurrNet/Runtime/` at the time. **That is no longer true, and
+> the argument built on top of it has to stand on its own merits instead.** PurrNet now ships
+> **PurrDiction**: client-side prediction with genuine rollback and resimulation — predicted
+> identities, predicted modules, snapshot save/reconcile against verified server frames
+> (`ReadState`, `Rollback(tick)`), automatic history participation so modules do not hand-manage
+> buffers, and a view layer that interpolates presentation from the last verified state toward the
+> latest predicted one. It is distributed as a separate Asset Store package rather than in the core.
+>
+> The original text is left described rather than deleted because *why* it was wrong matters: a
+> competitor comparison is a fact with a shelf life, and this one was load-bearing for a scope
+> decision. Anything in this document that reads "X does not have Y" should be treated as dated from
+> the moment it is written.
 
-Vixen adopts the same model for 1.0, and is unusually well placed to add prediction later:
+Vixen's model for 1.0 is *server-authoritative + snapshot interpolation + lag compensation*. That is
+the right architecture for the large majority of games — co-op, MOBA-lite, survival, social,
+turn-based, most shooters at casual latency — and it is **not** rollback netcode in the Quantum/GGPO
+sense.
+
+**The case for deferring prediction, argued on its own.** It is not that nobody else has it; it is
+that prediction is the single most expensive correctness surface in netcode, every predicted system
+must be resimulable and therefore deterministic, and shipping it half-built is worse than not
+shipping it — a game that predicts movement but not the interactions movement causes feels *less*
+consistent than one that predicts nothing. The server-authoritative model is complete and correct at
+every point on its own road; prediction is a second road that has to be finished before it is worth
+starting.
+
+Vixen is unusually well placed to add it later:
 
 - The ECS is fixed-step and deterministic, with an input-log replay test already in
   [04](04-ecs-and-scripting.md).
@@ -155,12 +178,23 @@ The backbone. One fixed-tick clock shared with the ECS scheduler's `FixedUpdate`
 
 - `NetworkId` = `readonly record struct(uint Value)` component on replicated entities; server allocates,
   clients never invent.
-- **Prefab IDs come from the asset pipeline**: a networked prefab's id is its asset GUID's stable hash
-  ([08](08-asset-pipeline-and-addressables.md)). No hand-maintained "network prefab list" to desync —
-  this is a direct win from the deterministic content build, and it is where our design is simpler than
-  PurrNet's.
+- **Prefab IDs come from the asset pipeline**: a networked prefab's id is the stable hash of its
+  **address** ([08](08-asset-pipeline-and-addressables.md)). No hand-maintained "network prefab list" to
+  desync — this is a direct win from the deterministic content build, and it is where our design is
+  simpler than PurrNet's.
+
+  > **Corrected.** This said "asset GUID's stable hash" until the spawn layer was built, and a GUID is
+  > the wrong half of doc 08: *"the GUID is the authoring identity and never appears in a shipped
+  > build. The address is the runtime identity."* A shipped client has no GUID to hash. The address is
+  > also the better choice on its own merits — it is stable across edits to the prefab, where the
+  > content hash (`CatalogEntry.Id`) would renumber the wire on every content patch. Whether two peers
+  > hold the *same* content under an address is a question for the handshake's catalog hash, asked
+  > once, rather than smeared across every spawn.
+
 - Scene-placed networked objects get ids baked at content-build time, identical across all peers because
-  the build is deterministic (CI already gates this).
+  the build is deterministic (CI already gates this). The id space is split: `NetworkIdAllocator` counts
+  up from one and stops at `NetworkId.FirstBaked`, and derived scene ids live above it, so a session
+  cannot allocate a number a scene already used.
 - Ownership: per-entity `Owner` (connection id or server), transferable, with `NetworkRules` deciding
   who may transfer. Ownership changes are events users can react to.
 - **`NetworkRules` is a policy asset** (`.vxnetrules`) referenced per prefab or set globally: who may

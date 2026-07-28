@@ -25,6 +25,7 @@ decision that has been made and built, kept because the reasons stay useful.
 | | Open item | Where | Blocks |
 |---|---|---|---|
 | 🟡 | **String interpolation** — needs lexer modes; nothing shipped uses it | § I | nothing |
+| 🟡 | **Workgroup-shared memory** — a storage class the language cannot declare. The atomics landed without it, but a reduction or a bitonic sort stages through it | § Writable resources | GPU sorting; a compaction that wants one counter per workgroup rather than one per dispatch |
 | ⚪ | **Nuke is not stood up**: `CompileShaderLibrary`, `CheckFormat` for SPDX enforcement, the CI workflows | § A, § G | shipping the library as a package; SPDX is a real gap, not a closed item |
 | ⚪ | **`Vixen.Raven.Transpile`** (SPIRV-Cross wrapper) and the cross-compilation test pass | § A, § G | HLSL/MSL/WGSL output, which ADR-012 says SPIRV-Cross owns |
 
@@ -1446,6 +1447,53 @@ relative to the start of an element, which is what a host writing an array of th
 is reported too, and cannot be inferred: read-only and read-write are the same descriptor type, and the
 difference decides which barrier the frame graph inserts around the dispatch.
 
+##### ✅ Atomics: the one thing a dispatch cannot do without
+
+A storage buffer let a compute shader persist. What it still could not do was let its invocations
+**agree about a number** — and almost everything a dispatch is used for needs that once. Stream
+compaction is the case that made it urgent: `Vixen.Vfx` reaps dead particles by swap-removal, which is
+sequential, and the GPU form of it is every survivor taking the next slot from a shared counter. The
+value the atomic hands back *is* the slot.
+
+`atomicAdd`, `atomicMin`, `atomicMax`, `atomicAnd`, `atomicOr`, `atomicXor`, `atomicExchange` and
+`atomicCompareExchange`, on scalar `int` and `uint`, named as GLSL names them.
+
+**The design question is the first argument, and it has one answer.** An atomic operates on memory;
+a value handed to a function is a copy, and nothing done to a copy is indivisible. So the first
+argument has to be a *place* — the same conclusion `buffer.Length` reached for a different reason, and
+the same `IrPlace` machinery. What is new is that nothing in the signature can say so. `inout` exists
+and is exactly wrong: it is defined as copy-in/copy-out on both targets, which is the one property an
+atomic must not have. So the requirement is a rule about the call rather than about the parameter —
+`RVN2130` after overload resolution, for the same reason `inout`'s check is there rather than inside
+applicability, and `Lowerer` takes the argument's place instead of loading it.
+
+Three consequences worth keeping:
+
+- **Free functions, not members of `RWBuffer`.** A member taking an index could only reach
+  `buffer[i]`; the target is any place inside one, including `cells[i].population`.
+- **A place is necessary and not sufficient.** The first draft's rule was "must be a place", which
+  admitted a local and read as the more general statement. It is not: GLSL allows atomics only on
+  "shader block storage or shared variables", so a local target would bind, verify, emit and be
+  rejected by the GLSL front end — the exact failure this language exists to move earlier. It is also
+  right on the merits, since an atomic on memory one invocation owns has nothing to be indivisible
+  against. So the root must be a writable resource, and workgroup-shared memory when there is one.
+  Found by asking `glslangValidator` rather than by reading the spec, which is the honest account.
+- **A read-modify-write is a write**, so an atomic on a read-only `Buffer<T>` is `RVN2119` with the
+  same message and the same one-character fix. Reusing the diagnostic is the point: the rule is not
+  "atomics are special", it is "this is a store".
+- **Signedness splits in one target and not the other.** GLSL's `atomicMin` covers both;
+  `OpAtomicSMin` and `OpAtomicUMin` do not. The IR carries one `Min` and the place's type decides,
+  because the split belongs to the backend that has it.
+
+Both targets emit **device scope and relaxed semantics**, which is what glslang emits for the same
+GLSL — checked by reading the operand ids out of the listing rather than assumed. Scope is the failure
+that would not show up in a test: a workgroup-scoped atomic on a storage buffer is correct for every
+dispatch small enough to be one workgroup and wrong for every one that is not.
+
+Scalar integers only, and that is the targets' limit rather than a choice: GLSL 4.5 core has no atomic
+on a float and none on a vector, so the overloads simply are not declared and a float atomic is
+`RVN2031` — no applicable overload — instead of a signature the emitter would have to break.
+
 ##### ✅ The writable bit did not survive being inherited
 
 The first real consumer — `Vixen.Vfx`'s compute emitter, which puts its buffers on a base shader and
@@ -1796,6 +1844,16 @@ Everything else it reports, and why each is separate rather than merged, is in
 `RequiredCapabilities` as names rather than an enum, and `PushConstants`/`SpecConstants` reported empty
 rather than guessed at.
 
+3. **An array of resources is one binding with a `Count`.** `TextureCube[4]` is four descriptors in one
+   binding, which is how a shader picks a reflection probe or a shadow atlas slice by index without a
+   descriptor set per choice. `ReflectionBuilder` was written for this from the start; the *front end*
+   was not, and the disagreement was silent — a field's resource kind came from its type, an array
+   reported none, and the lowerer's fall-through arm makes anything that is not a declared resource a
+   member of the uniform block. So `var probes: TextureCube[4]` compiled into a block containing
+   `OpTypeImage`, which `glslc` rejects with "member of block cannot be or contain a sampler" and which
+   `spirv-val` accepts and no driver would. Fixed in `ArrayTypeSymbol.ResourceKind`, and the emitted
+   GLSL is now held against `glslc`'s own rule rather than against our reading of it.
+
 ### Artefact schema
 
 Two on-disk formats, both content-addressed into the object database ([08](08-asset-pipeline-and-addressables.md)):
@@ -1939,6 +1997,15 @@ the build-time permutation pre-generator ([06](06-rendering-pipeline.md)) can it
 `.reflect.json` as `AdditionalFiles` and emits, per shader, a `…Keys` class (a typed
 `ParameterKey`/`PermutationKey` per parameter, resource and permutation) and a `…Constants` struct
 whose `Write(Span<byte>)` stores every value at the offset Raven computed.
+
+**A block per set, not "the" block.** Raven gathers a shader's loose uniforms into one block *per set*,
+and a shader that marks none of its bindings has one set — which is why "the uniform block" was a
+well-formed phrase for as long as it was. A pass that says where each binding belongs has up to four,
+and generating for the first left three sets' worth of values reachable only by spelling the name out.
+So: a key for every block's values, a `PerFrameBlockSize`/`PerDrawBlockSize` pair per set, and a writer
+struct per block (`ForwardPlusPerDrawConstants`). A shader with one block keeps `ConstantBufferSize`
+and `<Shader>Constants` unchanged, because that is every shader that marks no sets and every host that
+names one.
 
 **The offsets are copied, never recomputed** — which is the entire point. They come out of the same
 `ShaderLayout` pass that told the GLSL and SPIR-V emitters where to put things, so a host and a shader

@@ -58,6 +58,17 @@ public sealed class RenderDrawContext(ICommandList commandList, EffectSystem eff
     /// </remarks>
     public ViewConstants? ViewConstants { get; set; }
 
+    /// <summary>
+    ///     The frame's own set — the environment, the probes, the shadow atlas, the sun.
+    /// </summary>
+    /// <remarks>
+    ///     Bound the same way and at the same moment as <see cref="ViewConstants" />, and for the same
+    ///     reason: a set cannot be bound before the first pipeline. It is separate from the view's
+    ///     because the two have different lifetimes and different shapes — set 0 belongs to the pass
+    ///     drawing and holds resources, set 1 is a block every shader in the frame agrees on.
+    /// </remarks>
+    public SceneConstants? SceneConstants { get; set; }
+
     /// <summary>The formats of the pass currently open.</summary>
     /// <remarks>
     ///     Set by whatever opened the pass — <see cref="Compositor.RenderPassRenderer" /> in a

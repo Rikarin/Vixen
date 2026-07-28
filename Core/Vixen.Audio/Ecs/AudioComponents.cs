@@ -276,3 +276,43 @@ public struct AudioListenerComponent {
     /// <summary>Full gain, velocity worked out from movement.</summary>
     public static AudioListenerComponent Default => new() { Gain = 1f, Weight = 1f, AutoVelocity = true };
 }
+
+/// <summary>Makes an entity a region of space that sounds like somewhere.</summary>
+/// <remarks>
+///     <para>
+///         <b>The zone is placed, not written.</b> Everything else spatial in this engine is an
+///         entity — a source, a listener — and a reverb zone is the one that most obviously belongs
+///         in a level rather than in a method: it is a room. Without this component a zone could only
+///         be added by calling <c>engine.ReverbZones.Add</c>, which is the wrong person doing it in
+///         the wrong file.
+///     </para>
+///     <para>
+///         <b>Position comes from <c>WorldTransform</c></b>, the same rule
+///         <see cref="AudioSpatial" /> follows. The <see cref="AudioReverbZone.Position" /> on the
+///         description is ignored here — a zone that moved because somebody edited an asset rather
+///         than because the room moved would be a surprise.
+///     </para>
+///     <para>
+///         <b>The description is shared and the placement is not.</b> One "cathedral" describes the
+///         parameter it drives, its shape, how far in it reaches full strength and which zone it
+///         beats; twenty entities carry it and are twenty different rooms. That is the same split as
+///         <see cref="AudioEventRef" />, and it is what makes "make every cathedral boomier" one
+///         edit.
+///     </para>
+/// </remarks>
+public struct AudioReverbZoneRef {
+    /// <summary>The zone. An entity with none is not a zone, and that is not an error.</summary>
+    public AudioReverbZone? Zone;
+
+    /// <summary>Whether it is currently doing anything.</summary>
+    /// <remarks>
+    ///     For a door that seals. Cheaper and more obvious than moving the zone somewhere the
+    ///     listener cannot reach, and it keeps the parameter released rather than stuck.
+    /// </remarks>
+    public bool Enabled;
+
+    /// <summary>An entity carrying <paramref name="zone" />, switched on.</summary>
+    /// <param name="zone">The description.</param>
+    /// <returns>The component.</returns>
+    public static AudioReverbZoneRef Of(AudioReverbZone zone) => new() { Zone = zone, Enabled = true };
+}

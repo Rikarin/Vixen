@@ -32,6 +32,28 @@ public sealed class ArrayTypeSymbol : TypeSymbol, IEquatable<ArrayTypeSymbol> {
     public override string Name => string.Empty;
     public override Symbol? ContainingSymbol => null;
 
+    /// <summary>
+    ///     The element's, because an array of resources is a resource — one binding with a count.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Without this an array of textures answered "not a resource", and every rule that asks
+    ///         got the wrong answer at once. The worst of them was silent: the lowerer's binding kind
+    ///         falls through to <c>Uniform</c> for anything that is not a declared resource, so
+    ///         <c>var probes: TextureCube[4]</c> became a <em>member of the uniform block</em> — which
+    ///         no backend can express, and which both of them emitted anyway. <c>glslc</c> rejects the
+    ///         GLSL with "member of block cannot be or contain a sampler"; the SPIR-V put
+    ///         <c>OpTypeImage</c> inside a <c>Block</c>-decorated struct, which passes
+    ///         <c>spirv-val</c> and no driver.
+    ///     </para>
+    ///     <para>
+    ///         The rest of the pipeline was already expecting this shape:
+    ///         <c>ReflectionBuilder</c> unwraps an array into <c>(type, count)</c> and says so in a
+    ///         comment. It was only the front end that did not agree.
+    ///     </para>
+    /// </remarks>
+    public override ResourceKind ResourceKind => ElementType.ResourceKind;
+
     public ArrayTypeSymbol(TypeSymbol elementType, int rank = 1, int? length = null) {
         ElementType = elementType;
         Rank = rank;

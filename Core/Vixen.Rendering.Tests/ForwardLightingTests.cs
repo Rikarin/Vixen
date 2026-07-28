@@ -9,6 +9,7 @@ using Vixen.Graphics.Null;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Features;
+using Vixen.Rendering.Lighting;
 using Vixen.Shaders;
 using Xunit;
 
@@ -511,6 +512,111 @@ public class ForwardLightingTests : IDisposable {
         Assert.Equal(16, ForwardLightingRenderFeature.HeaderSize);
         Assert.Equal(11f, At(block, ForwardLightingRenderFeature.HeaderSize + 8));
     }
+
+    // --- The probe each object picked ---------------------------------------
+
+    /// <summary>
+    ///     Two objects in two rooms take two probes, out of one array bound once.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         What per-object reflection probes are, and the reason they cost nothing extra to bind:
+    ///         the cubes are one binding with a count, the volumes are an array beside them, and an
+    ///         object picks both with an <c>int</c> in a block it already had. The alternative — a
+    ///         descriptor set per probe bound per draw — is a set per object in all but name.
+    ///     </para>
+    ///     <para>
+    ///         It goes in this feature's block because the header already had the room: std140 starts
+    ///         the light array on a sixteen-byte boundary, so the count left twelve bytes of padding
+    ///         and two of them are these.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Two_objects_in_two_rooms_take_two_probes() {
+        using var h = Build();
+
+        var selector = new ReflectionProbeSelector();
+
+        selector.Probes.Add(new() { Bounds = new(new(-5f, -5f, 5f), new(5f, 5f, 15f)), CapturePosition = new(0f, 0f, 10f) });
+        selector.Probes.Add(new() { Bounds = new(new(-5f, -5f, 25f), new(5f, 5f, 35f)), CapturePosition = new(0f, 0f, 30f) });
+
+        h.Lighting.Probes = selector;
+
+        var near = AddMesh(h, new(0f, 0f, 10f));
+        var far = AddMesh(h, new(0f, 0f, 30f));
+
+        Record(h);
+
+        Assert.Equal(0, ProbeOf(h, near));
+        Assert.Equal(1, ProbeOf(h, far));
+
+        // And both are inside their own probe, so both take it whole.
+        Assert.Equal(1f, WeightOf(h, near));
+        Assert.Equal(1f, WeightOf(h, far));
+    }
+
+    /// <summary>An object in no probe's volume takes none, and the shader's default is no probe.</summary>
+    [Fact]
+    public void An_object_outside_every_probe_takes_none() {
+        using var h = Build();
+
+        var selector = new ReflectionProbeSelector();
+        selector.Probes.Add(new() { Bounds = new(new(-5f, -5f, 5f), new(5f, 5f, 15f)), CapturePosition = new(0f, 0f, 10f) });
+
+        h.Lighting.Probes = selector;
+
+        var outside = AddMesh(h, new(0f, 0f, 40f));
+
+        Record(h);
+
+        Assert.Equal(0, ProbeOf(h, outside));
+        Assert.Equal(0f, WeightOf(h, outside));
+    }
+
+    /// <summary>A probe fading at its edge fades in the block, which is what stops it popping.</summary>
+    [Fact]
+    public void A_probes_falloff_reaches_the_block() {
+        using var h = Build();
+
+        var selector = new ReflectionProbeSelector();
+
+        // The object is on the camera's axis and the probe's far face is what it is near, because an
+        // object placed off to the side to reach an edge would be outside the frustum and culled —
+        // and a culled object has no block at all, which is a different test failing.
+        selector.Probes.Add(
+            new() {
+                Bounds = new(new(-10f, -10f, 0f), new(10f, 10f, 12f)),
+                CapturePosition = new(0f, 0f, 6f),
+                BlendDistance = 4f
+            }
+        );
+
+        h.Lighting.Probes = selector;
+
+        var edge = AddMesh(h, new(0f, 0f, 10f));
+
+        Record(h);
+
+        Assert.Equal(0.5f, WeightOf(h, edge), 4);
+    }
+
+    /// <summary>With no selector, nothing is written and the object keeps the shader's default.</summary>
+    [Fact]
+    public void No_selector_leaves_the_probe_fields_alone() {
+        using var h = Build();
+        var id = AddMesh(h, new(0f, 0f, 10f));
+
+        Record(h);
+
+        Assert.Equal(0, ProbeOf(h, id));
+        Assert.Equal(0f, WeightOf(h, id));
+    }
+
+    static int ProbeOf(Harness h, RenderObjectId id) =>
+        MemoryMarshal.Read<int>(h.Lighting.Block(h.System, id)[ForwardLightingRenderFeature.ProbeIndexOffset..]);
+
+    static float WeightOf(Harness h, RenderObjectId id) =>
+        MemoryMarshal.Read<float>(h.Lighting.Block(h.System, id)[ForwardLightingRenderFeature.ProbeWeightOffset..]);
 
     /// <summary>Every object's block starts at a multiple of the device's offset alignment.</summary>
     /// <remarks>

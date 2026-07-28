@@ -23,7 +23,8 @@ top.
 | `DrawList`, `DrawListBuilder` | Backgrounds, borders, radii and clips as commands, diffed frame to frame. |
 | `UiDocument.Focus`, `MoveFocus` | Focus, focus scopes, and HTML's tab order. |
 | `UiDocument.FindInDirection` | Arrow navigation over the layout, by the beam model. |
-| `GestureRecognizer` | Taps with a count, long presses and drags, from timestamped pointer events. |
+| `GestureRecognizer` | Taps with a count, long presses and drags from one pointer; pinch and rotation from two, as one `TransformEvent`. |
+| `visibility`, `opacity` | Honoured by the draw list: hidden elements are not painted but keep their space and their subtree; opacity multiplies down the tree. |
 | `FontRegistry`, `TextRun` | `font-family` → a face, shaping through a cache, measurement into layout, glyphs into the draw list. |
 | `PathBuilder`, `OnDraw` | Lines, curves, fills and strokes for the controls a stylesheet cannot describe. |
 | `DrawBatcher` | Contiguous, order-preserving, maximal runs a renderer can submit as one. |
@@ -112,8 +113,26 @@ reason.
 capture's rule and it is here for pointer capture's reason; the two coexist rather than duplicate,
 because capture redirects raw events and this remembers a target already decided.
 
-⚠ **One pointer at a time.** Two fingers produce two independent taps or drags, which is right, but
-nothing combines them — pinch and rotate are owed rather than approximated.
+**One pointer taps, presses and drags; two transform.** Two fingers on two different controls stay
+two independent gestures, which is right. Two that start moving *relative to each other* become one
+`TransformEvent` carrying a scale and a rotation — one event rather than a pinch and a rotate,
+because they are computed from the same pair on the same frame and cannot occur apart.
+
+⚠ **Starting one cancels the drags those fingers had begun**, and neither produces a tap or a long
+press afterwards. A map that both panned and zoomed from the same two fingers moves twice as far as
+either gesture asked for, so the suppression is as much of the feature as the arithmetic.
+
+⚠ **The gesture goes to the nearest element containing both fingers**, not to the first one's target.
+Two fingers pinching a map land on two different tiles, and a gesture delivered to one tile is one
+the map never hears about.
+
+⚠ **The rotation is accumulated, not wrapped.** `Atan2` returns in (-π, π], so an angle measured
+against the start jumps a full turn when the fingers pass the wrap point; each sample is unwrapped
+against the previous one instead, and a gesture spun twice round reports 4π.
+
+⚠ **Two, not more.** A third finger arriving during a transform is ignored rather than folded in.
+Three-finger gestures have no agreed meaning across platforms, and averaging an arbitrary number of
+pointers into one scale is an approximation worse than the gap.
 
 ## Text
 
@@ -288,6 +307,22 @@ grouping turns out to be.
 The last step of the chain: the cascade said what applies, the bridge turned it into lengths, flexbox
 turned those into rectangles, and this turns the rectangles into commands. Nothing here decides
 anything — it reads.
+
+**Three ways to be unpainted, and they are not the same.** `display: none` arrives as a zero
+rectangle from flexbox and takes the subtree with it. `visibility: hidden` skips the element's own
+background, border and text but still descends — it is inherited, so a child is hidden by having
+inherited the value, and a child that declares `visibility: visible` reappears inside a hidden
+parent. `opacity: 0` skips the subtree outright, because opacity multiplies and nothing below can
+bring it back.
+
+⚠ **Opacity is carried down as a multiplier rather than composited as a group, and the difference is
+visible.** CSS renders a translucent element's subtree into its own surface and blends that once, so
+two overlapping children of a half-opaque panel do *not* show through each other. Multiplying each
+element's alpha instead makes them show through. The two agree exactly whenever the subtree does not
+overlap itself — most interfaces, and all of the ones a fade-in is applied to. The correct version
+needs an offscreen target per translucent subtree, which is a compositor decision rather than a draw
+list's, so it is **owed**. Said plainly because a half-right opacity reads as a bug in the renderer
+rather than a gap in the model.
 
 **Painting order is document order**, and hit testing walks it in reverse. The two have to agree: the
 element drawn last is on top, so it is the one a click lands on, and any rule that made them disagree

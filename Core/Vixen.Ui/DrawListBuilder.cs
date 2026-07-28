@@ -15,10 +15,12 @@ namespace Vixen.Ui;
 ///         this turns the rectangles into commands. Nothing here decides anything — it reads.
 ///     </para>
 ///     <para>
-///         <b>Painting order is document order</b>, parent before its children, siblings in the
-///         order they were added. That is the same order hit testing walks in reverse, and the two
-///         have to agree: an element drawn on top must be the one a click lands on, and any rule
-///         that made them disagree would be a UI where things are not where they look.
+///         <b>Painting order is <see cref="UiElement.PaintOrder" /></b>, parent before its children
+///         and siblings in the order they were added unless a <c>z-index</c> says otherwise. That is
+///         the same property hit testing walks in reverse, and the two have to agree: an element
+///         drawn on top must be the one a click lands on, and any rule that made them disagree would
+///         be a UI where things are not where they look. Neither of them having its own opinion is
+///         what guarantees it.
 ///     </para>
 /// </remarks>
 public sealed class DrawListBuilder {
@@ -29,11 +31,13 @@ public sealed class DrawListBuilder {
     readonly int borderRadius;
     readonly int textColor;
     readonly int overflow;
+    readonly int visible;
+    readonly int visibility;
+    readonly int hidden;
     readonly int opacity;
     readonly int textAlign;
     readonly int direction;
     readonly int boxShadow;
-    readonly int visible;
     readonly int alignedCenter;
     readonly int alignedLeft;
     readonly int alignedRight;
@@ -61,12 +65,16 @@ public sealed class DrawListBuilder {
         borderRadius = properties.Intern("border-top-left-radius");
         textColor = properties.Intern("color");
         overflow = properties.Intern("overflow");
+        this.visible = values.Intern("visible");
+
+        visibility = properties.Intern("visibility");
+        this.hidden = values.Intern("hidden");
         opacity = properties.Intern("opacity");
+
         textAlign = properties.Intern("text-align");
         direction = properties.Intern("direction");
         boxShadow = properties.Intern("box-shadow");
 
-        this.visible = values.Intern("visible");
         alignedCenter = values.Intern("center");
         alignedLeft = values.Intern("left");
         alignedRight = values.Intern("right");
@@ -87,23 +95,23 @@ public sealed class DrawListBuilder {
         return into.EndFrame();
     }
 
-    /// <summary>Emits one element and everything under it.</summary>
+    /// <summary>Emits one element and its subtree.</summary>
     /// <param name="document">The document.</param>
     /// <param name="element">The element.</param>
-    /// <param name="into">The list to fill.</param>
+    /// <param name="into">The list being filled.</param>
     /// <param name="inherited">
-    ///     The alpha every colour below here is multiplied by, which is the product of the
-    ///     <c>opacity</c> of every ancestor.
+    ///     The <c>opacity</c> of everything above this element, multiplied together.
     /// </param>
     /// <remarks>
-    ///     ⚠ <b><c>opacity</c> is applied per command, not per group.</b> CSS composites an element
-    ///     and its descendants into a layer and fades that <i>once</i>, so two overlapping children
-    ///     of a half-transparent parent show the background through both of them together; here each
-    ///     command carries the multiplied alpha and the overlap is drawn twice, so it comes out
-    ///     darker than a browser would draw it. Doing it properly needs an offscreen target per
-    ///     element that has an opacity, which is a renderer feature rather than a builder one. Said
-    ///     plainly because the difference is invisible until something overlaps, and then it looks
-    ///     like a blending bug rather than a known limit.
+    ///     ⚠ <b>Opacity is carried down as a multiplier rather than composited as a group, and the
+    ///     difference is visible.</b> CSS renders a translucent element's subtree into its own
+    ///     surface and then blends that surface once, so two overlapping children of a half-opaque
+    ///     panel do <i>not</i> show through each other. Multiplying each element's alpha instead
+    ///     makes them show through, and the two answers agree exactly whenever the subtree does not
+    ///     overlap itself — which is most interfaces, and all of the ones a fade-in is applied to.
+    ///     The correct version needs an offscreen target per translucent subtree, which is a
+    ///     compositor decision rather than a draw list's, so it is <b>owed</b>. Said here because a
+    ///     half-right opacity reads as a bug in the renderer rather than a gap in the model.
     /// </remarks>
     void Emit(UiDocument document, UiElement element, DrawList into, float inherited) {
         var width = element.Width;
@@ -116,11 +124,12 @@ public sealed class DrawListBuilder {
             return;
         }
 
-        // Multiplied down the walk rather than read from the cascade, because `opacity` does not
-        // inherit — it makes a group, and every descendant is in it whatever its own value says.
-        // A fully transparent subtree is skipped whole: it is the one case where the cheapest thing
-        // to do is also exactly right, since nothing under it can be visible.
-        var alpha = inherited * Alpha(element);
+        var alpha = inherited * Opacity(element);
+
+        // ⚠ Fully transparent is skipped outright rather than emitted with a zero alpha, and the
+        // subtree with it — `opacity: 0` is not inherited, but it multiplies, so nothing below can
+        // bring it back. A frame full of invisible commands costs a batch and a draw each and is
+        // indistinguishable in the picture from having emitted nothing.
         if (alpha <= 0f) {
             return;
         }
@@ -129,27 +138,36 @@ public sealed class DrawListBuilder {
         var y = element.AbsoluteTop;
         var radius = Length(element, borderRadius);
 
-        // Before the background, which is where CSS paints it: a shadow is cast *by* the box and
-        // therefore lies under it, and an element with a translucent background shows its own shadow
-        // through itself.
-        EmitShadow(document, element, into, x, y, width, height, radius, alpha);
+        // ⚠ `visibility: hidden` hides the element and *not* its subtree, which is what separates it
+        // from `display: none`. It is an inherited property, so a child is hidden by having
+        // inherited the value rather than by being skipped here — and a child that declares
+        // `visibility: visible` reappears inside a hidden parent, which is the whole reason CSS has
+        // two properties for this.
+        var shown = !element.Style.TryGet(visibility, out var mode) || mode != hidden;
 
-        if (Color(element, backgroundColor) is { } fill) {
-            into.Add(new DrawCommand(DrawCommandKind.Rectangle, x, y, width, height, Fade(fill, alpha), radius, 0f));
+        if (shown) {
+            // Before the background, which is where CSS paints it: a shadow is cast *by* the box and
+            // therefore lies under it, and an element with a translucent background shows its own
+            // shadow through itself.
+            EmitShadow(document, element, into, x, y, width, height, radius, alpha);
+
+            if (Color(element, backgroundColor) is { } fill) {
+                into.Add(new DrawCommand(DrawCommandKind.Rectangle, x, y, width, height, Fade(fill, alpha), radius, 0f));
+            }
+
+            // The border is drawn after the background and before the children, which is the order
+            // CSS paints them in — a child overlapping the edge covers the border, and a background
+            // never covers its own.
+            var thickness = document.Layout.GetComputedBorder(element.LayoutNode, Edge.Top);
+            if (thickness > 0f && Color(element, borderColor) is { } stroke) {
+                into.Add(new DrawCommand(DrawCommandKind.Border, x, y, width, height, Fade(stroke, alpha), radius, thickness));
+            }
+
+            // Between the border and the children, which is where CSS puts an element's own content:
+            // a child overlaps its parent's text, and its parent's text overlaps its parent's border.
+            EmitText(document, element, into, alpha);
+            element.OnDraw(new DrawContext(element, into, alpha));
         }
-
-        // The border is drawn after the background and before the children, which is the order CSS
-        // paints them in — a child overlapping the edge covers the border, and a background never
-        // covers its own.
-        var thickness = document.Layout.GetComputedBorder(element.LayoutNode, Edge.Top);
-        if (thickness > 0f && Color(element, borderColor) is { } stroke) {
-            into.Add(new DrawCommand(DrawCommandKind.Border, x, y, width, height, Fade(stroke, alpha), radius, thickness));
-        }
-
-        // Between the border and the children, which is where CSS puts an element's own content:
-        // a child overlaps its parent's text, and its parent's text overlaps its parent's border.
-        EmitText(document, element, into, alpha);
-        element.OnDraw(new DrawContext(element, into, alpha));
 
         var clips = element.Style.TryGet(overflow, out var value) && value != visible;
         if (clips) {
@@ -185,12 +203,6 @@ public sealed class DrawListBuilder {
     ///         run's origin is the content box's top plus the font's ascender. Putting the top there
     ///         instead draws every line one ascender too low, which for a single line looks like a
     ///         padding mistake and for two lines looks like nothing at all.
-    ///     </para>
-    ///     <para>
-    ///         <c>text-align</c> is an offset applied to the run's origin rather than anything the
-    ///         layout knows about, which works precisely because <see cref="TextRun" /> is one line:
-    ///         there is one origin to move and its width is already measured. It stops working the
-    ///         day text wraps, and at that point alignment belongs to whatever breaks the lines.
     ///     </para>
     /// </remarks>
     void EmitText(UiDocument document, UiElement element, DrawList into, float alpha) {
@@ -404,34 +416,31 @@ public sealed class DrawListBuilder {
         return mirrored != (alignment == alignedEnd) ? slack : 0f;
     }
 
-    /// <summary>Scales a colour's alpha, leaving its channels alone.</summary>
+    /// <summary>An element's own <c>opacity</c>, before anything above it is multiplied in.</summary>
     /// <remarks>
-    ///     ⚠ Not <c>colour * alpha</c>, which the operator would read as scaling all four components
-    ///     — right in premultiplied space and wrong here, where it would darken the colour towards
-    ///     black as well as fading it. The draw list is not premultiplied.
+    ///     One when nothing said, and clamped — CSS clamps to 0–1 rather than treating <c>1.5</c> as
+    ///     an error, and a value outside the range that silently drew nothing would be a stylesheet
+    ///     bug nobody could find. Not inherited, which is why it has to be threaded through
+    ///     <see cref="Emit" /> rather than read off the computed style of each element alone.
     /// </remarks>
-    internal static Color4 Fade(Color4 color, float alpha) =>
-        alpha >= 1f ? color : new Color4(color.R, color.G, color.B, color.A * alpha);
-
-    /// <summary>Reads an element's own <c>opacity</c>, which is one when it has none.</summary>
-    /// <remarks>
-    ///     A percentage is accepted as well as a number, because CSS allows both and a stylesheet
-    ///     written by hand is as likely to say <c>50%</c> as <c>0.5</c>. Clamped, since a value
-    ///     outside the range is a mistake with an obvious intent rather than something to drop.
-    /// </remarks>
-    float Alpha(UiElement element) {
+    float Opacity(UiElement element) {
         if (!element.Style.TryGet(opacity, out var id)) {
             return 1f;
         }
 
         var value = parser.Parse(id);
-
-        return value.Kind switch {
-            StyleValueKind.Number => Math.Clamp(value.Number, 0f, 1f),
-            StyleValueKind.Length when value.Unit == StyleUnit.Percent => Math.Clamp(value.Number / 100f, 0f, 1f),
-            _ => 1f
-        };
+        return value.Kind == StyleValueKind.Number ? Math.Clamp(value.Number, 0f, 1f) : 1f;
     }
+
+    /// <summary>A colour with the accumulated opacity multiplied into its alpha.</summary>
+    /// <remarks>
+    ///     ⚠ Not <c>colour * alpha</c>, which the operator would read as scaling all four
+    ///     components — right in premultiplied space and wrong here, where it would darken the
+    ///     colour towards black as well as fading it. Internal because <see cref="DrawContext" />
+    ///     fades what a custom-drawn control hands it, and the two must agree.
+    /// </remarks>
+    internal static Color4 Fade(Color4 colour, float alpha) =>
+        alpha >= 1f ? colour : new Color4(colour.R, colour.G, colour.B, colour.A * alpha);
 
     Color4? Color(UiElement element, int property) {
         if (!element.Style.TryGet(property, out var id)) {

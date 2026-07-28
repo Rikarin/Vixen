@@ -63,10 +63,70 @@ position and costs a few milliseconds per second skipped.
 finding it means seeking there and scanning back — on a stream that may not seek at all. A track's
 length is something the content build knows and can put in the asset.
 
+## Voice chat
+
+`OpusPacketEncoder`/`OpusPacketDecoder` and the `VoiceSender`/`VoiceReceiver` pair above them are the
+other half of this assembly: a track on disk is a container full of packets, and voice is one packet
+per datagram. Framing voice in an Ogg would be adding a container so it can immediately be taken off
+again.
+
+None of it knows about a network. Packets come out of the sender with `TryRead` and go into the
+receiver with `Receive`; wiring that to `Channel.Sequenced` — which may be lost, is never
+retransmitted, and is never delivered out of order — is four lines in a game and the reason the
+transport is not a dependency here.
+
+**The gate decides whether a packet is sent at all.** It runs before the encoder, so room tone is
+neither encoded nor transmitted, and `GateEffect.IsOpen` decides whether the frame goes. A player who
+is not talking costs *nothing* — not a small packet, nothing — which is the difference between a
+thirty-two player voice channel being affordable and being a feature people turn off.
+
+**That creates the one genuinely hard problem, and both counters exist for it.** A receiver cannot
+tell a deliberate pause from a burst of loss, and concealing a pause invents speech into a silence
+the talker chose — which sounds like stuttering. So a packet carries a *sequence*, counting what was
+transmitted, and a *timestamp*, counting the talker's clock. A gap in the timestamp with none in the
+sequence is somebody not talking; a gap in the sequence is loss. This is what RTP does, for exactly
+this reason, and no simpler scheme distinguishes the two.
+
+Both directions are pinned by sabotage: reading every gap as silence fails `ALostPacketIsConcealed`,
+and reading every gap as loss fails `APauseIsNotMistakenForLoss`. A pair of tests that both passed on
+a wrong implementation would have proved nothing.
+
+**A short pause is played and a long one is skipped.** Playing it keeps the talker's rhythm; buffering
+ten seconds of nothing would add ten seconds of latency to whatever they say next. Half a second is
+past any pause inside a sentence and short of any between them.
+
+**There is no `Recover()` beside `Conceal()`.** Asking Opus to decode the redundancy out of a packet
+that has none does not fail — it silently returns concealment instead. So the two cannot be told
+apart from outside the codec, and an API with both would invite a caller to count something it cannot
+observe. `Conceal` takes the successor as an optional argument instead: handing it over is never
+worse and often very much better.
+
+**Redundancy is off until somebody says what the link is like.** It costs bitrate whether or not
+anything is lost, and an encoder that guessed would spend a player's bandwidth on a problem they may
+not have. Feed `ExpectedPacketLoss` something measured.
+
+## Opus runs managed, and that is not the default
+
+Concentus P/Invokes a system libopus when it finds one — `AttemptToUseNativeLibrary` defaults to on.
+So whether the codec runs managed or native depends on whether the machine happens to have libopus
+installed, which a developer's Mac with Homebrew does and a player's does not.
+
+Against Homebrew's libopus the interop mismatches: the encoder ignores its bitrate and emits
+1275-byte packets — twenty times the bandwidth — property reads come back as zero, and a direct probe
+faults the process. Six of the voice tests failed on that before they failed on anything else.
+
+`OpusRuntime` pins it to managed from every codec's constructor. That is the position Vorbis is
+already written down with, it is the only option the browser target ever had, and it buys the same
+answer on every machine.
+
 ## Testing
 
 The fixtures are real Ogg files, produced once with ffmpeg and checked in: one second of a 440 Hz
 sine at an amplitude of 0.7, which is a signal whose every property is known before it is decoded. A
 test that shelled out to an encoder would be a test of whichever machine it ran on.
+
+The voice tests need no fixtures — they encode what they are about to decode — but they do need a
+stand-in for a network, because losing, reordering and delaying a packet on purpose is the whole
+point and no real transport can be asked to do it on cue.
 
 Licensed under Apache-2.0.

@@ -144,6 +144,21 @@ public enum SpirvOp {
     DPdx = 207,
     DPdy = 208,
 
+    // The atomics. Every one takes a pointer, a scope and a memory-semantics mask before its
+    // operands, and every one answers with the value that was there — which is what makes an
+    // atomic add an index allocator. Min and Max come in signed and unsigned forms where GLSL has
+    // one name for both.
+    AtomicExchange = 229,
+    AtomicCompareExchange = 230,
+    AtomicIAdd = 234,
+    AtomicSMin = 236,
+    AtomicUMin = 237,
+    AtomicSMax = 238,
+    AtomicUMax = 239,
+    AtomicAnd = 240,
+    AtomicOr = 241,
+    AtomicXor = 242,
+
     LoopMerge = 246,
     SelectionMerge = 247,
     Label = 248,

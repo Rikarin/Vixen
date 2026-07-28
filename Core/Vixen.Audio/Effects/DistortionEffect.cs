@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Audio.Dsp;
+
 namespace Vixen.Audio.Effects;
 
 /// <summary>Which curve a distortion bends the signal along.</summary>
@@ -71,8 +73,39 @@ public sealed class DistortionEffect : IAudioEffect {
     /// <inheritdoc />
     public bool Enabled { get; set; } = true;
 
+    /// <summary>How many times the sample rate the shaping runs at: 1, 2 or 4.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>One by default, because it is not always worth it.</b> Bending a waveform makes
+    ///         harmonics, and the ones above Nyquist fold back as inharmonic tones that move the wrong
+    ///         way when the input pitch changes — which is what aliased distortion sounds like. Four
+    ///         gives them room, filters them, and comes back down.
+    ///     </para>
+    ///     <para>
+    ///         For a guitar or a synth the difference is the character of the effect. For an
+    ///         explosion, a radio voice or a broken machine the source is already noisy and nobody
+    ///         can pick the aliasing out — which is most of what a game uses this for, and why the
+    ///         cost is opt-in rather than assumed.
+    ///     </para>
+    ///     <para>
+    ///         Costs roughly ninety multiply-accumulates a sample a channel at four. Changing it takes
+    ///         effect at the next <see cref="Prepare" />.
+    ///     </para>
+    /// </remarks>
+    public int Oversampling {
+        get => oversampling;
+        set => oversampling = value is 2 or 4 ? value : 1;
+    }
+
+    int oversampling = 1;
+    Oversampler? sampler;
+    int prepared;
+
     /// <inheritdoc />
-    public void Prepare(in AudioFormat format, int maxFrames) { }
+    public void Prepare(in AudioFormat format, int maxFrames) {
+        prepared = format.Channels;
+        sampler = oversampling > 1 && prepared > 0 ? new Oversampler(prepared, oversampling) : null;
+    }
 
     /// <inheritdoc />
     public void Process(Span<float> buffer, int frameCount, int channels) {
@@ -86,15 +119,43 @@ public sealed class DistortionEffect : IAudioEffect {
         var samples = frameCount * channels;
         var curve = Curve;
 
-        for (var i = 0; i < samples; i++) {
-            var dry = buffer[i];
-            var shaped = Shape(dry * drive, curve) * output;
-            buffer[i] = dry + ((shaped - dry) * mix);
+        // Rebuilt rather than refused when the knob moved since Prepare: an effect that silently did
+        // the wrong thing until something else happened to re-prepare it would be a bad afternoon.
+        if (oversampling > 1 && (sampler is null || sampler.Factor != oversampling || sampler.Channels != channels)) {
+            sampler = new Oversampler(channels, oversampling);
+        }
+
+        if (sampler is null || oversampling <= 1) {
+            for (var i = 0; i < samples; i++) {
+                var dry = buffer[i];
+                var shaped = Shape(dry * drive, curve) * output;
+                buffer[i] = dry + ((shaped - dry) * mix);
+            }
+
+            return;
+        }
+
+        Span<float> points = stackalloc float[sampler.Factor];
+
+        for (var frame = 0; frame < frameCount; frame++) {
+            for (var channel = 0; channel < channels; channel++) {
+                var index = (frame * channels) + channel;
+                var dry = buffer[index];
+
+                sampler.Expand(channel, dry, points);
+
+                for (var i = 0; i < points.Length; i++) {
+                    points[i] = Shape(points[i] * drive, curve);
+                }
+
+                var shaped = sampler.Collapse(channel, points) * output;
+                buffer[index] = dry + ((shaped - dry) * mix);
+            }
         }
     }
 
     /// <inheritdoc />
-    public void Reset() { }
+    public void Reset() => sampler?.Reset();
 
     /// <inheritdoc />
     public bool TrySetProperty(string name, float value) {

@@ -217,9 +217,13 @@ public sealed class SourceFieldSymbol : FieldSymbol {
                 return Type.ResourceKind;
             }
 
-            return ContainingType is { TypeKind: TypeKind.Shader } && Type.IsNumericLike && !IsConst
-                ? ResourceKind.Uniform
-                : ResourceKind.None;
+            // Everything else a shader binds is a member of its uniform block, whatever shape it is.
+            // This used to ask `IsNumericLike`, which is true of a scalar, a vector and a matrix and
+            // of nothing else — so a struct and an array of structs reported "not a binding" while
+            // the lowerer went on making them uniforms. The two answers being different is the exact
+            // thing `IsBinding` documents itself as preventing, and it surfaced as `[PerDraw] var
+            // lights: PunctualLight[MaxLights]` being told its marker had no effect.
+            return IsBinding ? ResourceKind.Uniform : ResourceKind.None;
         }
     }
 

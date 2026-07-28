@@ -14,8 +14,6 @@
         <PackageReference Include="xunit.v3" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" />
         <PackageReference Include="CsCheck" />
-        <!-- Crc32 for the PNG chunk checksums; already in the register for content addressing. -->
-        <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="xunit.runner.visualstudio">
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
             <PrivateAssets>all</PrivateAssets>
@@ -46,6 +44,19 @@
             sampled as sRGB — every one of those passes every unit test in `Vixen.Ui`.
         -->
         <ProjectReference Include="..\..\Core\Vixen.Ui.Renderer\Vixen.Ui.Renderer.csproj" />
+
+        <!--
+            `Bitmap` and `PngCodec`, which used to live here. This suite wrote them first and
+            `Vixen.Ui.Testing` needed the same two for its screenshots, so there were two hand-rolled
+            PNG encoders in the tree.
+
+            ⚠ The direction is this way round and not the other. A shipping library can be referenced
+            by a test project; a test project cannot be referenced by anything. Moving them into the
+            library that ships is what makes one copy possible at all — and it is the copy under a
+            documentation and API-compatibility obligation, which is the one that should be load
+            bearing.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Testing\Vixen.Ui.Testing.csproj" />
     </ItemGroup>
 
     <ItemGroup>

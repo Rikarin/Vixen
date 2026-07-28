@@ -87,6 +87,8 @@
     <Project Path="Core/Vixen.Audio.Tests/Vixen.Audio.Tests.csproj" />
     <Project Path="Core/Vixen.Audio.Codecs/Vixen.Audio.Codecs.csproj" />
     <Project Path="Core/Vixen.Audio.Codecs.Tests/Vixen.Audio.Codecs.Tests.csproj" />
+    <Project Path="Core/Vixen.Audio.Physics/Vixen.Audio.Physics.csproj" />
+    <Project Path="Core/Vixen.Audio.Physics.Tests/Vixen.Audio.Physics.Tests.csproj" />
     <Project Path="Core/Vixen.Input/Vixen.Input.csproj" />
     <Project Path="Core/Vixen.Input.Generators/Vixen.Input.Generators.csproj" />
     <Project Path="Core/Vixen.Input.Tests/Vixen.Input.Tests.csproj" />
@@ -126,6 +128,8 @@
     <Project Path="Core/Vixen.Ui.Renderer/Vixen.Ui.Renderer.csproj" />
     <Project Path="Core/Vixen.Ui.HotReload/Vixen.Ui.HotReload.csproj" />
     <Project Path="Core/Vixen.Ui.HotReload.Tests/Vixen.Ui.HotReload.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Testing/Vixen.Ui.Testing.csproj" />
+    <Project Path="Core/Vixen.Ui.Testing.Tests/Vixen.Ui.Testing.Tests.csproj" />
     <Project Path="Core/Vixen.Net/Vixen.Net.csproj" />
     <Project Path="Core/Vixen.Net.Generators/Vixen.Net.Generators.csproj" />
     <Project Path="Core/Vixen.Net.Generators.Tests/Vixen.Net.Generators.Tests.csproj" />
@@ -140,6 +144,8 @@
     <Project Path="Core/Vixen.Net.Transport.Composite.Tests/Vixen.Net.Transport.Composite.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Engine/Vixen.Net.Engine.csproj" />
     <Project Path="Core/Vixen.Net.Engine.Tests/Vixen.Net.Engine.Tests.csproj" />
+    <Project Path="Core/Vixen.Net.Animation/Vixen.Net.Animation.csproj" />
+    <Project Path="Core/Vixen.Net.Animation.Tests/Vixen.Net.Animation.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Physics/Vixen.Net.Physics.csproj" />
     <Project Path="Core/Vixen.Net.Physics.Tests/Vixen.Net.Physics.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Telemetry/Vixen.Net.Telemetry.csproj" />
@@ -254,6 +260,7 @@
   <Project Path="Samples/07-AddressablesRemote/AddressablesRemote.csproj" />
   <Project Path="Samples/08-Multiplayer/Multiplayer.csproj" />
   <Project Path="Samples/09-NetworkSoak/NetworkSoak.csproj" />
+    <Project Path="Samples/10-VoiceChat/VoiceChat.csproj" />
 
 
 </Solution>

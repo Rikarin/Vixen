@@ -55,8 +55,14 @@ it is about.
 
 ## `--frames N`
 
-Runs exactly N frames and exits, which is how CI proves the whole stack starts, presents and stops
-without a validation error or a hang — the same argument Samples/01 makes for the flag it introduced.
+Runs exactly N frames and exits, so the whole stack can be proved to start, present and stop without
+a validation error or a hang — the same argument Samples/01 makes for the flag it introduced.
+
+⚠ **No CI step runs it yet.** This paragraph used to say the flag was how CI proved that, and it is
+not: `ci.yml` builds and tests on all three platforms and invokes neither sample. The flag is what a
+CI step would use; nothing uses it. Samples/01 heads its equivalent section "Running it in CI",
+which is a recipe rather than a claim — but nothing runs that one either.
+
 It also prints what the frame cost:
 
 ```
@@ -74,8 +80,13 @@ swapchain would measure the display's refresh rate.
 The measurement above is this machine, in Release, at the sample's own size. Doc 14's budget is
 *5 000 elements under 2 ms*, and this interface is 287 — because the tree virtualises, which is what
 it is there to show. The number at the roadmap's scale is `Vixen.Benchmarks.Ui`'s
-`DocumentBenchmarks`, which builds a themed document of five thousand controls and measures a steady
-frame with `[MemoryDiagnoser]` on it.
+`DocumentBenchmarks`, which has now been run: **8 001 elements, 0.230 ms, zero bytes allocated.**
+
+⚠ **The same run found that an interaction costs a full cascade** — one class toggled on one row of
+that document is 9.50 ms and 8.87 MB, because `UiDocument.Update` calls `StyleEngine.ResolveAll` and
+Phase 4b's `StyleUpdater` has no production caller. It is invisible from this sample: 287 elements
+put the same defect at about a third of a millisecond. See the benchmark's
+[README](../../Benchmarks/Vixen.Benchmarks.Ui/README.md).
 
 ## The font
 

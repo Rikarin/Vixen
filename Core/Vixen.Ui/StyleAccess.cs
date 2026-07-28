@@ -66,6 +66,25 @@ public sealed partial class UiDocument {
         return value is { Kind: StyleValueKind.Length, Unit: StyleUnit.Pixels } ? value.Number : null;
     }
 
+    /// <summary>The bare number a computed style gives a property, if it gives one.</summary>
+    /// <param name="style">The style, from <see cref="UiElement.Style" />.</param>
+    /// <param name="property">The property, from <see cref="PropertyId" />.</param>
+    /// <returns>The number, or <c>null</c> if the property is absent or is not a bare number.</returns>
+    /// <remarks>
+    ///     The third of the readings a control needs, beside <see cref="ColorOf" /> and
+    ///     <see cref="LengthOf" />: <c>opacity</c>, <c>flex-grow</c> and <c>z-index</c> are numbers
+    ///     rather than lengths, and reading one through <see cref="LengthOf" /> answers <c>null</c>
+    ///     because a number carries no unit — which looks exactly like the property being absent.
+    /// </remarks>
+    public float? NumberOf(ComputedStyle style, int property) {
+        if (!style.TryGet(property, out var id)) {
+            return null;
+        }
+
+        var value = reader.Parse(id);
+        return value.Kind == StyleValueKind.Number ? value.Number : null;
+    }
+
     /// <summary>An element's <c>color</c>, which is what a control draws itself in.</summary>
     /// <param name="element">The element.</param>
     /// <returns>Its colour, or black if it has none.</returns>
