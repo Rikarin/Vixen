@@ -2841,10 +2841,11 @@ nowhere in the dependency graph.
 > **The one sentence, as built.** ✅ Opens a project — `EditorProject.Open`, with a `ProjectBrowser`
 > over the result. ✅ Imports assets and ✅ builds content — `ContentPipeline` on the shell's
 > background task manager, the same call the CLI makes, proved from the editor's own path by
-> `--run assets.build`. 🟡 Edits a scene — hierarchy, inspector, gizmos and a viewport, but creating
-> and destroying an entity are still not offered. The ECS half is done: `World.TryRecreate` gives a
-> destroyed handle back when nothing has taken the slot. The editor half is not — a delete has to
-> remember components, name, children and sibling position. ✅ Saves. ✅ Runs the
+> `--run assets.build`. ✅ Edits a scene — hierarchy, inspector, gizmos, a viewport, and creating,
+> deleting and renaming entities undoably, with the handle surviving a delete-and-undo
+> (`World.TryRecreate`) and the entity returning to its own place among its siblings
+> (`Hierarchy.SetParentAfter`). Reparenting is still not undoable, for want of a command rather than
+> a primitive. ✅ Saves. ✅ Runs the
 > game, in the sense of play-in-editor over a world snapshot. ✅ Entirely in `Vixen.Ui` — there is no
 > other toolkit anywhere in the dependency graph, and never was.
 >

@@ -96,15 +96,18 @@ public sealed class RenameEntityCommand : IEditorCommand {
 ///         world.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Creating and destroying entities is not undoable <i>yet</i>, and is therefore still
-///         not offered — but the thing that blocked it is gone.</b> The reason was that an
-///         <c>Entity</c> is a slot and a version and the ECS could not be asked to reissue a
-///         particular one, so a redo handed back a <i>different</i> handle and every reference to the
-///         old one went quietly stale. <c>World.TryRecreate</c> now gives a handle back, provided
-///         nothing has taken the slot. What is still owed here is the commands: destroying has to
-///         remember the entity's components, its name and where it sat among its siblings, and
-///         restoring has to put all three back. Until that exists, what is offered is renaming,
-///         reparenting and the transform edits the inspector and the gizmo make.
+///         <b>Creating and destroying entities are undoable, and the handle survives.</b>
+///         <see cref="Create" /> and <see cref="Delete" /> go on the stack; <see cref="Add" /> stays
+///         for a host building a scene from a file or a template. Five things come back and only the
+///         first was ever hard: the handle (<c>World.TryRecreate</c>), the components (a scratch
+///         world), the name, the stable id, and the entity's place among its siblings
+///         (<c>Hierarchy.SetParentAfter</c>) — see <see cref="SubtreeSnapshot" />.
+///     </para>
+///     <para>
+///         ⚠ <b>An undo of a delete can refuse.</b> A slot taken since the delete makes its handle
+///         unrecoverable for ever, so the command throws rather than half-restoring a subtree.
+///         Reaching that needs something else creating entities in this world — a play-mode restore,
+///         or a second document.
 ///     </para>
 /// </remarks>
 public sealed class SceneDocument : EditorDocument {
@@ -218,6 +221,29 @@ public sealed class SceneDocument : EditorDocument {
     public string NameOf(Entity entity) =>
         names.TryGetValue(entity, out var name) ? name : "Entity " + entity.Id.ToString(null as IFormatProvider);
 
+    /// <summary>Whether an entity has been given a name, rather than being shown as its handle.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <param name="name">The name it was given.</param>
+    /// <returns>Whether it has one.</returns>
+    /// <remarks>
+    ///     Distinct from <see cref="NameOf" />, which always answers. Something restoring an entity
+    ///     needs to know whether to put a name back or leave it as it found it — assigning the
+    ///     generated "Entity 7" would turn a never-named entity into a named one whose name is a
+    ///     handle it may no longer have.
+    /// </remarks>
+    public bool TryGetName(Entity entity, [MaybeNullWhen(false)] out string name) =>
+        names.TryGetValue(entity, out name);
+
+    /// <summary>The stable id an entity already has, without minting one.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <param name="id">Its id.</param>
+    /// <returns>Whether it has one.</returns>
+    /// <remarks>
+    ///     <see cref="IdOf" /> mints on ask, which is right for saving and wrong for asking. An entity
+    ///     that never had an id should not acquire one because something looked at it.
+    /// </remarks>
+    public bool TryGetId(Entity entity, out EntityId id) => ids.TryGetValue(entity, out id);
+
     /// <summary>Renames an entity, undoably.</summary>
     /// <param name="entity">The entity.</param>
     /// <param name="name">What it should be called.</param>
@@ -260,6 +286,57 @@ public sealed class SceneDocument : EditorDocument {
 
         StructureChanged?.Invoke(this);
         return entity;
+    }
+
+    /// <summary>Creates an entity, undoably.</summary>
+    /// <param name="name">What to call it.</param>
+    /// <param name="local">Where it starts.</param>
+    /// <param name="parent">What to hang it from, or <see cref="Entity.Null" /> for a root.</param>
+    /// <returns>The entity.</returns>
+    /// <remarks>
+    ///     What a shell puts behind a button, as against <see cref="Add" />, which is what a reader
+    ///     or a test uses to build a scene without filling the undo stack with entries nobody made.
+    /// </remarks>
+    public Entity Create(string name, LocalTransform local, Entity parent = default) {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+
+        var command = new CreateEntityCommand(this, name, local, parent);
+
+        Stack.Execute(command);
+        Stack.Seal();
+
+        return command.Entity;
+    }
+
+    /// <summary>Deletes entities and everything below them, undoably.</summary>
+    /// <param name="entities">The subtree roots.</param>
+    /// <returns>Whether anything was deleted.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The whole subtree goes.</b> A child left behind holds a <c>Parent</c> naming a
+    ///         dead entity, and every walk over the hierarchy then throws.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The selection is not part of the command.</b> Selection is where you are looking
+    ///         and not what you changed — <c>Selection&lt;T&gt;</c>'s own argument — so this clears
+    ///         what it deleted and an undo does not bring it back selected.
+    ///     </para>
+    /// </remarks>
+    public bool Delete(IEnumerable<Entity> entities) {
+        ArgumentNullException.ThrowIfNull(entities);
+
+        var roots = entities.Where(World.IsAlive).ToList();
+
+        if (roots.Count == 0) {
+            return false;
+        }
+
+        Stack.Execute(new DestroyEntitiesCommand(this, roots));
+        Stack.Seal();
+
+        Selection.Clear();
+
+        return true;
     }
 
     /// <summary>Hangs an entity from another one, keeping where it is in the world.</summary>
@@ -429,6 +506,9 @@ public sealed class SceneDocument : EditorDocument {
 
         writer.Write(this);
     }
+
+    /// <summary>Says the hierarchy has changed shape, for a command that changed it.</summary>
+    internal void RaiseStructureChanged() => StructureChanged?.Invoke(this);
 
     internal void Assign(Entity entity, string name) {
         names[entity] = name;

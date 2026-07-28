@@ -135,18 +135,38 @@ bytes per entity in every chunk of a shipping build, serving a panel that does n
 The map lives on the document, which also makes renaming an ordinary undoable edit rather than a
 structural change to the world.
 
-⚠ **Creating and destroying entities is still not offered, but the reason changed.** It used to be
-that the ECS could not reissue a particular handle, so a redo handed back a *different* one and every
-reference to the old (the selection, the name map, the hierarchy's rows) went quietly stale.
-`World.TryRecreate` now gives a handle back when nothing has taken the slot, and returns false when
-something has — which is what a stable `EntityId` and `Remap` are here to answer.
+**Creating and destroying entities are undoable, and the handle survives.** `Create` and `Delete` go
+on the stack; `Add` stays for a host building a scene from a file or a template, where filling the
+undo history with entries nobody made would be wrong.
 
-What is owed is the commands themselves. Destroying has to remember more than the handle: the
-entity's components, its name, its children and where it sat among its siblings. `Add` exists for a
-host building a scene from a file or a template, and a shell should not put delete behind a button
-until undo can put all of that back. Reparenting is missing for a narrower reason of the same kind:
-undo has to restore the index among the old siblings, and the intrusive list records a neighbour
-rather than a position.
+Five things have to come back, and only the first was ever the hard part:
+
+| | How |
+|---|---|
+| The handle | `World.TryRecreate`, which refuses if anything took the slot |
+| The components | A scratch world holding a mirror, copied both ways by `CopyComponentsFrom` |
+| The name | `TryGetName` before, `Assign` after — an entity never named must not come back named |
+| The stable id | `TryGetId` / `Adopt`, so references in a saved file still point at it |
+| Its place among its siblings | `PreviousSiblingOf` before, `Hierarchy.SetParentAfter` after |
+
+⚠ **A delete takes the whole subtree.** A child left behind holds a `Parent` naming a dead entity,
+and every walk over the hierarchy then throws.
+
+⚠ **The components cannot be a list of boxes.** They are unconstrained structs stored by type in
+chunks, so the only thing that can hold an arbitrary one without knowing what it is, is a chunk — and
+the only thing that makes chunks is a world. Hence the scratch world.
+
+⚠ **The hierarchy components are re-established, not copied back.** `Parent`, `Sibling` and `Child`
+are handles into a list whose other ends the delete also rewrote — the surviving parent's `Child`
+pointer in particular. Restoring the raw values would give a list that is internally consistent and
+detached from the one it belongs to.
+
+⚠ **An undo can refuse.** If something took one of the freed slots, every handle is unrecoverable and
+the command throws rather than half-restoring — checked for all of them before any of them moves.
+In the editor this needs a play-mode restore or a second document to reach.
+
+Reparenting is still not undoable, but only for want of a command: `SetParentAfter` is the primitive
+it was waiting on.
 
 ⚠ **Saving throws without an `ISceneWriter`.** `EditorDocument.Save` marks the document clean
 afterwards, so a `SaveCore` that wrote nothing would leave it claiming to match a file that does not

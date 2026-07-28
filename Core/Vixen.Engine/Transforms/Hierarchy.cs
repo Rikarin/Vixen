@@ -175,6 +175,73 @@ public static class Hierarchy {
         Redepth(world, entity, (short)(DepthOf(world, parent) + 1));
     }
 
+    /// <summary>Hangs an entity from a parent at a particular place among its children.</summary>
+    /// <param name="world">The world.</param>
+    /// <param name="entity">The entity to move.</param>
+    /// <param name="parent">Its new parent, which may not be null — a root has no siblings to sit among.</param>
+    /// <param name="after">
+    ///     The child to sit behind, or <see cref="Entity.Null" /> to go first. Must already be a child
+    ///     of <paramref name="parent" />.
+    /// </param>
+    /// <exception cref="InvalidOperationException">
+    ///     The new parent is the entity itself or one of its descendants, or
+    ///     <paramref name="after" /> is not a child of <paramref name="parent" />.
+    /// </exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What undo needs and <see cref="SetParent" /> cannot give it.</b> Linking prepends —
+    ///         O(1), and the right default for building a hierarchy — so undoing a delete or a
+    ///         reparent with it puts the entity back at the head of its old parent's children rather
+    ///         than where it was. A user who moves the third of five children and presses Ctrl+Z gets
+    ///         it back in the wrong place, which is an undo that did not undo.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The neighbour is the position.</b> An index would have to be counted from the
+    ///         head, be invalidated by every insertion before it, and mean nothing once a sibling was
+    ///         itself deleted. The entity that used to be in front is stable under all three — and it
+    ///         is what the list already stores, so restoring is a link rather than a walk.
+    ///     </para>
+    /// </remarks>
+    public static void SetParentAfter(World world, Entity entity, Entity parent, Entity after) {
+        ArgumentNullException.ThrowIfNull(world);
+
+        if (parent.IsNull) {
+            throw new InvalidOperationException(
+                $"Entity {entity} cannot be placed after {after} with no parent: roots are not a "
+                + "sibling list, so there is no order to restore. Use SetParent for a root."
+            );
+        }
+
+        if (!after.IsNull && ParentOf(world, after) != parent) {
+            throw new InvalidOperationException(
+                $"Entity {after} is not a child of {parent}, so there is no place behind it. A "
+                + "position recorded before something else moved is a position that no longer exists; "
+                + "the caller has to notice that rather than have it silently become 'first'."
+            );
+        }
+
+        SetParent(world, entity, parent);
+
+        if (after.IsNull) {
+            // Already first: SetParent prepends, which is where this wants it.
+            return;
+        }
+
+        Unlink(world, entity, parent);
+        LinkAfter(world, entity, parent, after);
+    }
+
+    /// <summary>Which child comes before this one, or null if it is the first or has no parent.</summary>
+    /// <param name="world">The world.</param>
+    /// <param name="entity">The entity.</param>
+    /// <returns>The previous sibling.</returns>
+    /// <remarks>What to record before moving something, so <see cref="SetParentAfter" /> can undo it.</remarks>
+    public static Entity PreviousSiblingOf(World world, Entity entity) {
+        ArgumentNullException.ThrowIfNull(world);
+
+        return world.TryGet<Sibling>(entity, out var sibling) ? sibling.Previous : Entity.Null;
+    }
+
     /// <summary>Destroys an entity and everything below it.</summary>
     /// <param name="world">The world.</param>
     /// <param name="root">The subtree root.</param>
@@ -255,6 +322,34 @@ public static class Hierarchy {
         } else {
             world.Add(parent, new Child { First = entity });
         }
+    }
+
+    /// <summary>Splices an entity into a parent's list behind one of its children.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The entity's own component is written first, and the order is not stylistic.</b>
+    ///     Adding a component is a structural change: it moves the entity to another archetype, which
+    ///     moves rows in the chunks it leaves and enters. A <c>ref</c> taken before that — to
+    ///     <paramref name="after" />'s sibling record, say — points at whatever now occupies the row.
+    ///     <see cref="Link" /> is written in the same order for the same reason.
+    /// </remarks>
+    static void LinkAfter(World world, Entity entity, Entity parent, Entity after) {
+        var next = world.Read<Sibling>(after).Next;
+        var sibling = new Sibling { Next = next, Previous = after };
+
+        if (world.Has<Sibling>(entity)) {
+            world.Set(entity, sibling);
+        } else {
+            world.Add(entity, sibling);
+        }
+
+        world.Get<Sibling>(after).Next = entity;
+
+        if (!next.IsNull) {
+            world.Get<Sibling>(next).Previous = entity;
+        }
+
+        // The head cannot have changed — this went behind something, so something is still in front.
+        // Said rather than assumed, because `Link`'s counterpart does have to touch it.
     }
 
     static void Unlink(World world, Entity entity, Entity parent) {
