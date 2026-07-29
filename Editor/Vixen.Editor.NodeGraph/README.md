@@ -121,6 +121,19 @@ to fix it. A file from a *later version* is refused, because there it cannot tel
 Positions are two floats rather than a nested vector, for the same reason: this is a file people read
 and merge.
 
+**A port's inline value is lanes of `float` or a string, never both.** `GraphNode.Values` is what a
+shader graph and a VFX graph are made of; `GraphNode.Texts` arrived for the graphics compositor,
+which is made of **names** — a pass names its targets, a full-screen node names its shader — and
+there is no float encoding of a name that is not an index into a table somebody has to keep.
+`SetPortTextCommand` is `SetPortValueCommand`'s twin, down to keeping whether there *was* a text and
+merging so that typing a resource name is one undo entry.
+
+⚠ **A key no port claimed still reaches the binding.** A node type may hold a setting keyed like a
+port and declared as none — nothing connects to it, and giving it a socket would put a wire nobody
+can attach on the canvas. Those keys are added to `NodeBinding` *after* the ports are bound and only
+where nothing claimed them, so a **connected** port still answers "no inline value" — otherwise a
+VFX node would start reading the number an author typed before wiring something up.
+
 **No file format is chosen here.** The document types are `[DataContract]` records described by the
 reflection generator; a caller writes them as YAML or bakes them with the binary serializer. Nothing
 that only wants to compile a graph links a parser.

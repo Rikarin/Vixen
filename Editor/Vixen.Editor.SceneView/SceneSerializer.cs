@@ -197,7 +197,54 @@ public static class SceneSerializer {
         return carried;
     }
 
+    /// <summary>Creates one file entity, and everything under it, inside a document.</summary>
+    /// <param name="document">The document to create in.</param>
+    /// <param name="data">The entity, as a file holds it.</param>
+    /// <param name="parent">What to hang it from, or <see cref="Entity.Null" /> for a root.</param>
+    /// <param name="sources">
+    ///     Filled with each created entity and the id the <i>file</i> gave it, or
+    ///     <see langword="null" /> to adopt those ids as the document's own.
+    /// </param>
+    /// <returns>The entity created for <paramref name="data" /> itself.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="Load(SceneDocument,SceneFile)" /> is this with <paramref name="sources" />
+    ///         null: reading a scene means the file's identities <i>are</i> the document's, which is
+    ///         what makes a save, load and save cycle a no-op in the diff.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A prefab instance is the other case, and it must not adopt.</b> Two instances of
+    ///         one prefab in one scene would claim the same ids, and every reference between entities
+    ///         would then name whichever of them was reached last. Passing a map records where each
+    ///         entity came from without giving it the template's identity — which is also exactly what
+    ///         an override comparison needs.
+    ///     </para>
+    /// </remarks>
+    public static Entity Instantiate(
+        SceneDocument document,
+        SceneEntityData data,
+        Entity parent = default,
+        IDictionary<Entity, EntityId>? sources = null
+    ) {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(data);
+
+        return Create(document, data, parent, sources);
+    }
+
     static int Restore(SceneDocument document, SceneEntityData data, Entity parent) {
+        var before = document.World.EntityCount;
+        Create(document, data, parent, sources: null);
+
+        return document.World.EntityCount - before;
+    }
+
+    static Entity Create(
+        SceneDocument document,
+        SceneEntityData data,
+        Entity parent,
+        IDictionary<Entity, EntityId>? sources
+    ) {
         var local = new LocalTransform {
             Position = data.Position,
 
@@ -212,7 +259,12 @@ public static class SceneSerializer {
         };
 
         var entity = document.Add(data.Name, local, parent);
-        document.Adopt(entity, data.Id);
+
+        if (sources is null) {
+            document.Adopt(entity, data.Id);
+        } else if (!data.Id.IsNone) {
+            sources[entity] = data.Id;
+        }
 
         foreach (var component in data.Components) {
             // ⚠ Refused rather than dropped. A component the binder bound and the registry does not
@@ -231,18 +283,16 @@ public static class SceneSerializer {
             binder.AddTo(document.World, entity, component);
         }
 
-        var created = 1;
-
         // ⚠ Backwards, and the round-trip test is what holds this honest. `Hierarchy.Link` puts a
         // new child at the *head* of the intrusive list — O(1), which is the reason the list is
         // intrusive at all — so creating the file's children in order leaves the world holding them
         // reversed. A scene would then flip its sibling order on every open-and-save: not visibly
         // wrong, and enough to make every scene a merge conflict with itself.
         for (var index = data.Children.Count - 1; index >= 0; index--) {
-            created += Restore(document, data.Children[index], entity);
+            Create(document, data.Children[index], entity, sources);
         }
 
-        return created;
+        return entity;
     }
 }
 

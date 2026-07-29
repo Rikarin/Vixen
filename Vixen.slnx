@@ -271,6 +271,13 @@
     a control and a viewport is arithmetic over an interface, so both are testable against
     a bare UiDocument with no shell, and joining them to the docking workspace is
     Vixen.Editor.App's job as it is for everything else.
+
+    Vixen.Editor.AssetEditors is the one assembly here that references most of the others,
+    and that is what it is for: doc 11's table of per-asset editors is a table of things
+    that each need a document, an inspector, and — for four of them — a viewport, a graph
+    or a code editor. It is above the panels rather than beside them, and it is still not
+    the shell: an asset editor is a document and a control, and which dock group it lands
+    in is Vixen.Editor.App's decision as everything else is.
   -->
   <Folder Name="/Editor/">
     <Project Path="Editor/Vixen.Editor.Core/Vixen.Editor.Core.csproj" />
@@ -291,6 +298,8 @@
     <Project Path="Editor/Vixen.Editor.SceneView.Tests/Vixen.Editor.SceneView.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Ui/Vixen.Editor.Ui.csproj" />
     <Project Path="Editor/Vixen.Editor.Ui.Tests/Vixen.Editor.Ui.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.AssetEditors/Vixen.Editor.AssetEditors.csproj" />
+    <Project Path="Editor/Vixen.Editor.AssetEditors.Tests/Vixen.Editor.AssetEditors.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.App/Vixen.Editor.App.csproj" />
   </Folder>
 

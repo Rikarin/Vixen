@@ -1,0 +1,104 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.AssetEditors</RootNamespace>
+        <Description>
+            The editors doc 11 lists per asset kind: import settings with a per-target override
+            matrix and a channel/mip viewer for textures, a part list for models, a material
+            document with a preview, scene and prefab documents with override indication, the
+            Raven and VXML/VCSS code editors with live diagnostics and a preview pane, the
+            addressable group list with its build analysis, and the graphics compositor as a graph.
+        </Description>
+        <PackageTags>editor;asset-editor;import-settings;material;prefab;compositor;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- Every editor here is a document with an undo stack, which is this assembly's whole shape. -->
+        <ProjectReference Include="..\Vixen.Editor.Core\Vixen.Editor.Core.csproj" />
+
+        <!--
+            The rows an import-settings editor is made of. An asset editor that drew its own fields
+            would be a second inspector with its own mixed-value, undo and reset behaviour — and the
+            override matrix is exactly the case where that would have gone wrong quietly.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Inspector\Vixen.Editor.Inspector.csproj" />
+
+        <!--
+            The settings types being edited, the addressable group policy, and the pipeline the
+            analysis view runs. This is the assembly that decides what a .meta means; an editor for
+            one that redeclared the schema would be the second copy that drifts.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Assets\Vixen.Editor.Assets.csproj" />
+
+        <!--
+            SceneDocument, and with it the world a prefab is edited in. A prefab is a scene with one
+            root, so the isolated mode is a second document over the same machinery rather than a
+            second scene editor.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.SceneView\Vixen.Editor.SceneView.csproj" />
+
+        <!--
+            The compositor is a node graph, and doc 11's argument for building one framework rather
+            than three is the reason it is this one.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.NodeGraph\Vixen.Editor.NodeGraph.csproj" />
+
+        <!-- GraphicsCompositorAsset: the document the compositor graph compiles to. -->
+        <ProjectReference Include="..\..\Core\Vixen.Rendering\Vixen.Rendering.csproj" />
+
+        <!-- CodeEditor, Viewport and the tree — the three controls the advanced set exists for. -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Controls.Advanced\Vixen.Ui.Controls.Advanced.csproj" />
+
+        <!--
+            A .meta, a .vxmat and a .vxgroup are all YAML, and a settings editor works on the node
+            tree rather than on a bound object — see ImportSettingsDocument for why.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
+
+        <!--
+            The VXML front end, for the markup editor's diagnostics and for the structure the preview
+            pane builds. Vixen.Ui.Styling arrives with Vixen.Ui, which is what makes a .vcss preview
+            a stylesheet reload rather than a rebuild.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Markup\Vixen.Ui.Markup.csproj" />
+
+        <!--
+            Raven's lexer, parser and binder, for the shader editor's live diagnostics. Nothing here
+            emits SPIR-V: the editor wants to know where the squiggle goes, and a backend run per
+            keystroke is what the compiler service is for.
+        -->
+        <ProjectReference Include="..\..\Raven\Vixen.Raven\Vixen.Raven.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            Analyzers do not flow transitively through a ProjectReference, so an assembly declaring
+            types of its own has to name every generator it depends on: [Inspector] members for the
+            settings mirrors and the material, [Node] classes for the compositor's node library, and
+            [DataContract] for the material asset's own schema.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Inspector.Generator\Vixen.Editor.Inspector.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\Vixen.Editor.NodeGraph.Generator\Vixen.Editor.NodeGraph.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Editor.AssetEditors.Tests" />
+    </ItemGroup>
+
+</Project>

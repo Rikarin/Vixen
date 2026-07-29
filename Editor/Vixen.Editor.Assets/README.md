@@ -333,6 +333,12 @@ left in `Vixen.Cli` is the console formatting and the worker pool.
 path; the CLI turns one into an MSBuild-parseable line and the editor turns a few into a
 notification. Neither owns the other's output format.
 
+`ContentPipeline.Analyse` is `Build` without the packing: the same group read and the same
+`BuildPlanner.Plan` call, and nothing written. It exists because the editor's addressable analysis
+view answers "what would a build say", and a panel that reimplemented the planner's rules would be a
+second set of rules — the drift showing up as a panel calling a project clean and the build refusing
+it.
+
 ⚠ **A build packs what the import produced, so the two are ordered and not alternatives.** The plan
 reads the import cache: a build over a project that has never been imported plans nothing and writes
 an empty catalog, which looks exactly like a build that worked. There is a test whose only job is to

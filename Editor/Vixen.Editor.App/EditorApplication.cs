@@ -4,6 +4,9 @@
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
+using Vixen.Editor.AssetEditors;
+using Vixen.Editor.AssetEditors.Content;
+using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Inspector;
@@ -56,6 +59,8 @@ sealed class EditorApplication : IDisposable {
     readonly ContentTasks content;
     readonly string scenePath;
     readonly List<Entity> shown = [];
+    readonly AssetEditorRegistry editors;
+    readonly HashSet<string> assetPanels = new(StringComparer.Ordinal);
 
     /// <summary>The one system the editor runs, and <see cref="ResolveTransforms" /> says why.</summary>
     readonly TransformSystem transforms = new();
@@ -82,6 +87,11 @@ sealed class EditorApplication : IDisposable {
         // after those three, so a rule of the same specificity here wins — which is what lets it
         // narrow `expander-content`'s indent and a field's background without out-specifying them.
         InspectorTheme.Install(Shell.Document);
+
+        // ⚠ And the fifth, after it, for the same reason: the asset editors' own elements are styled
+        // against the tokens the four below declare, and a rule of equal specificity here has to win
+        // — an override matrix's cell is a row inside an inspector-shaped panel.
+        AssetEditorTheme.Install(Shell.Document);
 
         // A scratch project under the user's data directory, so a first run with no arguments opens
         // something real rather than refusing to start. `Open` tolerates a missing Assets directory
@@ -119,6 +129,26 @@ sealed class EditorApplication : IDisposable {
         scene.Renamed += (_, _) => hierarchyStale = true;
 
         camera = new EditorCamera().Bookmark("initial");
+
+        // ⚠ One world for every scene this editor opens and a fresh one per prefab. Sharing the
+        // editor's world between scenes is what makes an entity handle mean one thing across the
+        // application; a prefab must not share it, because "isolated" is exactly the claim that its
+        // entities are not in the level — see PrefabEditorFactory.
+        editors = StandardEditors.CreateDefault(_ => world, _ => new World("Prefab"));
+
+        if (editors.TryGetByName("Addressable Group", out var groups)
+            && groups is AddressableGroupEditorFactory addressable) {
+            // The real planner, run against a workspace of its own. `ProjectWorkspace` opens the four
+            // stores that have to agree about which directory they are looking at, and it must not
+            // share the editor's database — `Scan` clears and repopulates its dictionaries, which is
+            // the race ContentTasks already documents.
+            addressable.Analyser = () => {
+                var workspace = new ProjectWorkspace(project.Paths);
+
+                workspace.Database.Scan();
+                return ContentPipeline.Analyse(workspace, _ => { });
+            };
+        }
 
         content = new(project, Shell) {
             // The panel's own rescan, so the browser shows what an import repaired rather than what
@@ -333,7 +363,10 @@ sealed class EditorApplication : IDisposable {
         Shell.RegisterPanel(
             "project",
             new StringId("editor.panel.project", "Project"),
-            panel => browser = new ProjectBrowser(project, panel)
+            panel => {
+                browser = new ProjectBrowser(project, panel);
+                browser.Activated += Open;
+            }
         );
 
         Shell.RegisterPanel(
@@ -373,6 +406,54 @@ sealed class EditorApplication : IDisposable {
             new StringId("editor.panel.console", "Console"),
             panel => panel.Add<TextBlock>().Text = "Nothing logged yet."
         );
+    }
+
+    /// <summary>Opens an asset in whatever editor claims it, in a panel of its own.</summary>
+    /// <param name="asset">Which asset.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A panel per document, registered on demand and named after the asset's GUID.</b> A
+    ///         path would be shorter and would make moving the file leave a panel nobody can reopen;
+    ///         the GUID is the identity precisely so that it does not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Registered once and reopened afterwards.</b> The workspace refuses a second
+    ///         registration under one id, and the document is already found by
+    ///         <c>AssetEditorRegistry.TryOpen</c> — so the second double-click brings the tab forward
+    ///         rather than building a second view over the same undo stack.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A file nothing claims is a notification, not silence.</b> Double-clicking a
+    ///         <c>.txt</c> and having nothing at all happen reads as a broken editor; saying that no
+    ///         editor claims it is one sentence and is true.
+    ///     </para>
+    /// </remarks>
+    void Open(AssetId asset) {
+        if (!editors.TryOpen(project, asset, out var document)) {
+            Shell.Notifications.Show("No editor claims that file.");
+
+            return;
+        }
+
+        var id = "asset." + asset;
+
+        if (assetPanels.Add(id)) {
+            var title = document.Title.Peek();
+
+            Shell.RegisterPanel(
+                id,
+                new StringId("editor.panel." + id, title),
+                panel => {
+                    if (project.TryGetDocument(asset, out var open)
+                        && editors.TryGetForFile(project.Assets.TryGetByGuid(asset, out var entry) ? entry.Path : title, out var editor)) {
+                        editor.CreateView(open, panel);
+                    }
+                }
+            );
+        }
+
+        Shell.Workspace.Open(id);
+        project.Activate(document);
     }
 
     void Layouts() {
