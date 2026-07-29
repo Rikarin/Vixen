@@ -45,9 +45,9 @@ public class SizedArrayTests {
                              var offsets: float4[Taps]
                              var weights: float[8]
 
-                             [PixelShader]
+                             [FragmentShader]
                              [Semantic("SV_Target")]
-                             func Pixel(): float4 {
+                             func Fragment(): float4 {
                                  var sum = float4(0f, 0f, 0f, 0f)
                                  for (i in 0 .. Taps - 1) {
                                      sum = sum + offsets[i] * weights[i]
@@ -231,9 +231,9 @@ public class SizedArrayTests {
               shader S {
                   var data: float[4]
 
-                  [PixelShader]
+                  [FragmentShader]
                   [Semantic("SV_Target")]
-                  func Pixel(): float4 {
+                  func Fragment(): float4 {
                       return float4({{access}})
                   }
               }
@@ -254,9 +254,9 @@ public class SizedArrayTests {
                 var data: float[4]
                 var which: int
 
-                [PixelShader]
+                [FragmentShader]
                 [Semantic("SV_Target")]
-                func Pixel(): float4 {
+                func Fragment(): float4 {
                     return float4(data[which])
                 }
             }
@@ -390,9 +390,9 @@ public class SizedArrayTests {
             shader S {
                 var stack: float[2][3]
 
-                [PixelShader]
+                [FragmentShader]
                 [Semantic("SV_Target")]
-                func Pixel(): float4 {
+                func Fragment(): float4 {
                     return float4(stack[0][1])
                 }
             }
@@ -528,9 +528,9 @@ public class SizedArrayTests {
                     import A.Lib
 
                     shader S {
-                        [PixelShader]
+                        [FragmentShader]
                         [Semantic("SV_Target")]
-                        func Pixel(): float4 {
+                        func Fragment(): float4 {
                             val k = Windows.Blackman()
                             return float4(Windows.Sum(k, [1f, 2f, 3f]))
                         }
@@ -588,9 +588,9 @@ public class SizedArrayTests {
                                  var lightCount: int
                                  var cameraPosition: float3
 
-                                 [PixelShader]
+                                 [FragmentShader]
                                  [Semantic("SV_Target")]
-                                 func Pixel(): float4 {
+                                 func Fragment(): float4 {
                                      var sum = float3(0f, 0f, 0f)
                                      for (i in 0 .. MaxLights - 1) {
                                          if (i >= lightCount) {
@@ -625,15 +625,15 @@ public class SizedArrayTests {
             .Single(field => field.Name == name);
     }
 
-    /// <summary>The inferred length of the last local a pixel body declares.</summary>
+    /// <summary>The inferred length of the last local a fragment body declares.</summary>
     static int? LengthOfLocal(string body) {
         var source = $$"""
                        package A
 
                        shader S {
-                           [PixelShader]
+                           [FragmentShader]
                            [Semantic("SV_Target")]
-                           func Pixel(): float4 {
+                           func Fragment(): float4 {
                        {{body}}
                                return float4(xs[0])
                            }

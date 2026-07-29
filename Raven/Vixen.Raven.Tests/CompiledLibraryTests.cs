@@ -209,7 +209,7 @@ public class CompiledLibraryTests {
             shader Lit {
                 var amount: float
 
-                [PixelShader]
+                [FragmentShader]
                 func Shade(): float4 {
                     val clamped = MathHelpers.Saturate(amount)
                     return float4(clamped, clamped, clamped, 1f)
@@ -247,7 +247,7 @@ public class CompiledLibraryTests {
             shader Lit {
                 var amount: float
 
-                [PixelShader]
+                [FragmentShader]
                 func Shade(): float4 {
                     val clamped = MathHelpers.Saturate(amount)
                     return float4(clamped, clamped, clamped, 1f)
@@ -289,7 +289,7 @@ public class CompiledLibraryTests {
             shader Lit {
                 var t: float
 
-                [PixelShader]
+                [FragmentShader]
                 func Shade(): float4 {
                     val r = Ray(float3(0f, 0f, 0f), float3(0f, 1f, 0f))
                     val p = MathHelpers.At(r, t)
@@ -332,7 +332,7 @@ public class CompiledLibraryTests {
             shader Lit {
                 var amount: float
 
-                [PixelShader]
+                [FragmentShader]
                 func Shade(): float4 {
                     val clamped = MathHelpers.Saturate(amount)
                     return float4(clamped, clamped, clamped, 1f)
@@ -368,7 +368,7 @@ public class CompiledLibraryTests {
                                 shader Lit {
                                     var t: float
 
-                                    [PixelShader]
+                                    [FragmentShader]
                                     func Shade(): float4 {
                                         val r = Ray(float3(0f, 0f, 0f), float3(0f, 1f, 0f))
                                         val p = MathHelpers.At(r, t)
@@ -482,7 +482,7 @@ public class CompiledLibraryTests {
                                     var m: mat3
                                     var v: float3
 
-                                    [PixelShader]
+                                    [FragmentShader]
                                     func Shade(): float4 {
                                         val a = Shapes.Loops(n, weights)
                                         val b = Shapes.Vectors(m, v)
@@ -555,7 +555,7 @@ public class CompiledLibraryTests {
 
                 var tint: float4
 
-                [PixelShader]
+                [FragmentShader]
                 func Shade(): float4 {
                     return diffuse.Diffuse(tint)
                 }
@@ -621,7 +621,7 @@ public class CompiledLibraryTests {
             shader Lit {
                 var nDotL: float
 
-                [PixelShader]
+                [FragmentShader]
                 func Shade(): float4 {
                     val d = Brdf.Diffuse(nDotL)
                     return float4(d, d, d, 1f)
@@ -680,7 +680,7 @@ public class CompiledLibraryTests {
             import Shading
 
             shader Lit {
-                [PixelShader]
+                [FragmentShader]
                 func Shade(): float4 {
                     val o = Trace.Origin(Ray(float3(0f, 0f, 0f), float3(0f, 1f, 0f)))
                     return float4(o.x, o.y, o.z, 1f)
@@ -792,7 +792,7 @@ public class CompiledLibraryTests {
             shader Lit {
                 var t: float
 
-                [PixelShader]
+                [FragmentShader]
                 func Shade(): float4 {
                     val r = Ray(float3(0f, 0f, 0f), float3(0f, 1f, 0f))
                     val p = MathHelpers.At(r, t)
@@ -823,7 +823,7 @@ public class CompiledLibraryTests {
             package Staged
 
             shader Blit {
-                [PixelShader]
+                [FragmentShader]
                 func Shade(): float4 {
                     return float4(1f, 1f, 1f, 1f)
                 }
@@ -856,7 +856,7 @@ public class CompiledLibraryTests {
             }
 
             shader Lit {
-                [PixelShader]
+                [FragmentShader]
                 func Shade(): float4 {
                     val r = Ray(float3(0f, 0f, 0f))
                     return float4(r.origin.x, 0f, 0f, 1f)

@@ -211,6 +211,43 @@ public sealed class TransformSystemTests {
         }
     }
 
+    /// <summary>
+    ///     A host with no system graph — the editor — resolves and <i>then</i> advances, and every
+    ///     edit after the first one is what says whether it got the order right.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A tool's writes are not inside a phase.</b> <c>SystemRunner</c> advances before a
+    ///     phase runs, so everything that phase writes is stamped later than anything the previous
+    ///     pass recorded as seen. An editor has no phases: a write lands whenever somebody typed,
+    ///     stamped with whatever the version currently is. Advancing before the pass would stamp
+    ///     those writes with exactly the version the pass just recorded — so the next pass answers
+    ///     "nothing changed", and the symptom is an inspector that moves an object once and then
+    ///     never again.
+    /// </remarks>
+    [Fact]
+    public void AHostWithNoPhasesSeesEveryEditWhenItAdvancesAfterResolving() {
+        using var world = new World();
+        var system = new TransformSystem();
+        var entity = Hierarchy.CreateTransform(world, LocalTransform.Identity);
+
+        Frame();
+
+        for (var edit = 1; edit <= 3; edit++) {
+            // Between two frames, the way a pointer event or a typed number arrives.
+            new Transform(world, entity).Position = new Vector3(edit, 0, 0);
+            Frame();
+
+            Assert.Equal(new Vector3(edit, 0, 0), world.Read<WorldTransform>(entity).Position);
+        }
+
+        return;
+
+        void Frame() {
+            system.Resolve(world);
+            world.AdvanceVersion();
+        }
+    }
+
     static Vector3 Round(Vector3 value) =>
         new(MathF.Round(value.X, 3), MathF.Round(value.Y, 3), MathF.Round(value.Z, 3));
 }

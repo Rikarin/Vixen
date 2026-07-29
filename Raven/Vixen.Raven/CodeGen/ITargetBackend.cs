@@ -38,7 +38,7 @@ public static class ShaderStageNames {
     public static string Suffix(ShaderStage stage) =>
         stage switch {
             ShaderStage.Vertex => "vert",
-            ShaderStage.Pixel => "frag",
+            ShaderStage.Fragment => "frag",
             ShaderStage.Geometry => "geom",
             ShaderStage.Compute => "comp",
             _ => "shader"

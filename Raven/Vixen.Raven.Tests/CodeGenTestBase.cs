@@ -64,9 +64,9 @@ public static class CodeGenTestBase {
         var lookup = new IrVariable("lookup", new IrArrayType(IrScalarType.Int), IrVariableKind.Global);
         shader.Add(new IrBinding(lookup, IrBindingKind.Uniform, 0, null));
 
-        var function = new IrFunction("Pixel", new IrVectorType(IrScalarType.Float, 4));
+        var function = new IrFunction("Fragment", new IrVectorType(IrScalarType.Float, 4));
         shader.Add(function);
-        shader.Add(new IrEntryPoint(ShaderStage.Pixel, function, [], [new("result", function.ReturnType, null)]));
+        shader.Add(new IrEntryPoint(ShaderStage.Fragment, function, [], [new("result", function.ReturnType, null)]));
 
         var module = new IrModule("Test");
         module.Add(shader);
@@ -93,15 +93,15 @@ public static class CodeGenTestBase {
     public static string GenerateOne(string source, string target = "glsl") =>
         Assert.Single(GenerateClean(source, target)).Code;
 
-    /// <summary>Wraps a body in a pixel shader and returns the generated GLSL.</summary>
-    public static string GeneratePixel(string body, string members = "", string signature = "func Pixel(): float4") =>
+    /// <summary>Wraps a body in a fragment shader and returns the generated GLSL.</summary>
+    public static string GeneratePixel(string body, string members = "", string signature = "func Fragment(): float4") =>
         GenerateOne(
             $$"""
               package A
 
               shader S {
               {{members}}
-                  [PixelShader]
+                  [FragmentShader]
                   {{signature}} {
               {{body}}
                   }

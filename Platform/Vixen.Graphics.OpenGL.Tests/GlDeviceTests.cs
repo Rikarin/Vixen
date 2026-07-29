@@ -37,6 +37,35 @@ public sealed class GlDeviceTests {
         Assert.Equal(0, gl.Count("ClipControl"));
     }
 
+    /// <summary>Only desktop GL is told to honour an sRGB attachment, because only it has to be.</summary>
+    /// <remarks>
+    ///     <c>GL_FRAMEBUFFER_SRGB</c> is not an enumerant GLES or WebGL2 accept — enabling it there is
+    ///     <c>GL_INVALID_ENUM</c> — and they need no such switch: an attachment whose format is sRGB
+    ///     is encoded and one whose format is not is not, which is what the RHI means by a format.
+    ///     This was the first thing a real GLES context found.
+    /// </remarks>
+    [Theory]
+    [InlineData(GlProfile.WebGl2, 0)]
+    [InlineData(GlProfile.Es30, 0)]
+    [InlineData(GlProfile.Es32, 0)]
+    [InlineData(GlProfile.Core45, 1)]
+    public void EnablesFramebufferSrgbOnlyWhereItExists(GlProfile profile, int expected) {
+        var gl = new RecordingGlApi(profile);
+        using var device = new GlDevice(new(gl));
+
+        Assert.Equal(
+            expected,
+            gl.Named("Enable").Count(call => call.Arguments[0] is GlConstants.FramebufferSrgb)
+        );
+
+        // The one that is enabled on every profile, so the theory above is a gate rather than a
+        // device that stopped setting state.
+        Assert.Contains(
+            gl.Named("Enable"),
+            call => call.Arguments[0] is GlConstants.PrimitiveRestartFixedIndex
+        );
+    }
+
     /// <summary>What each profile claims it can do.</summary>
     [Theory]
     [InlineData(GlProfile.WebGl2, false, false)]

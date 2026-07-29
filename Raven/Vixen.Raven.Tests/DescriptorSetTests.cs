@@ -36,8 +36,8 @@ public class DescriptorSetTests {
                               var linear: Sampler
                               [PerDraw] var world: mat4
 
-                              [PixelShader]
-                              func Pixel(uv: float2): float4 {
+                              [FragmentShader]
+                              func Fragment(uv: float2): float4 {
                                   return albedo.Sample(linear, uv) * tint * time + viewProjection * world * tint
                               }
                           }
@@ -75,8 +75,8 @@ public class DescriptorSetTests {
             shader S {
                 var tint: float4
 
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     return tint
                 }
             }
@@ -132,8 +132,8 @@ public class DescriptorSetTests {
                 [PerFrame] var albedo: Texture2D
                 [PerFrame] var linear: Sampler
 
-                [PixelShader]
-                func Pixel(uv: float2): float4 {
+                [FragmentShader]
+                func Fragment(uv: float2): float4 {
                     return albedo.Sample(linear, uv)
                 }
             }
@@ -220,8 +220,8 @@ public class DescriptorSetTests {
                                   var probeSampler: Sampler
                                   var probeIndex: int
 
-                                  [PixelShader]
-                                  func Pixel(direction: float3): float4 {
+                                  [FragmentShader]
+                                  func Fragment(direction: float3): float4 {
                                       return probes[probeIndex].Sample(probeSampler, direction)
                                   }
                               }
@@ -289,8 +289,8 @@ public class DescriptorSetTests {
                 shader S {
                     [PerFrame] [PerDraw] var time: float
 
-                    [PixelShader]
-                    func Pixel(): float4 {
+                    [FragmentShader]
+                    func Fragment(): float4 {
                         return float4(time, 0, 0, 1)
                     }
                 }
@@ -318,8 +318,8 @@ public class DescriptorSetTests {
                 shader S {
                     [PerFrame] const val Ambient = 0.1f
 
-                    [PixelShader]
-                    func Pixel(): float4 {
+                    [FragmentShader]
+                    func Fragment(): float4 {
                         return float4(Ambient, 0, 0, 1)
                     }
                 }

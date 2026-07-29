@@ -72,4 +72,24 @@
                           ReferenceOutputAssembly="false" />
     </ItemGroup>
 
+    <!--
+        Shared generator source. The compiler contracts and the ArgumentNullException throw helper
+        are part of the second language surface Compat/Netstandard.cs describes — that file keeps
+        only the ArgumentOutOfRangeException helpers, which nothing else needs. EquatableArray is
+        what the incremental pipeline caches on. Files are listed rather than globbed on purpose —
+        ArgumentNullException.cs carries a compilation-wide `global using` alias and is linked only
+        where the linked source needs it.
+
+        Shared source rather than a shared assembly, for the reason spelled out at length above: an
+        analyzer's ProjectReference does not travel to the analyzer path. See
+        ..\Vixen.Generators.Shared\README.md.
+    -->
+    <ItemGroup>
+        <Compile Include="..\Vixen.Generators.Shared\IsExternalInit.cs" LinkBase="Linked\Shared" />
+        <Compile Include="..\Vixen.Generators.Shared\CallerArgumentExpressionAttribute.cs" LinkBase="Linked\Shared" />
+        <Compile Include="..\Vixen.Generators.Shared\ArgumentNullException.cs" LinkBase="Linked\Shared" />
+        <Compile Include="..\Vixen.Generators.Shared\EquatableArray.cs" LinkBase="Linked\Shared" />
+        <Using Include="Vixen.Generators.Shared" />
+    </ItemGroup>
+
 </Project>

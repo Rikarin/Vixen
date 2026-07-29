@@ -194,7 +194,7 @@ public sealed class ForwardFrameTests : IDisposable {
         foreach (var stage in stages.Split(',', StringSplitOptions.TrimEntries)) {
             result |= stage switch {
                 "Vertex" => ShaderStage.Vertex,
-                "Pixel" or "Fragment" => ShaderStage.Fragment,
+                "Fragment" => ShaderStage.Fragment,
                 "Compute" => ShaderStage.Compute,
                 _ => ShaderStage.None
             };

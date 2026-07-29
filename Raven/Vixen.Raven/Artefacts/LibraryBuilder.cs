@@ -265,7 +265,7 @@ public static class LibraryBuilder {
         LibraryMethod Method(NamedTypeSymbol declaringType, MethodSymbol method) {
             // A stage is generated per effect from the shader that declares it, so an entry point
             // is not part of what a library supplies. Said rather than dropped: an author who wrote
-            // [PixelShader] in a library file believes something about what shipping it does.
+            // [FragmentShader] in a library file believes something about what shipping it does.
             if (method.Stage != ShaderStage.None) {
                 diagnostics.Add(
                     LibraryDiagnostics.EntryPointNotExported,

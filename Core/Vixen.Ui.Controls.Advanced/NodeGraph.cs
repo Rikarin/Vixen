@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Core.Mathematics;
 
 namespace Vixen.Ui.Controls.Advanced;
@@ -49,7 +50,8 @@ public sealed class GraphPort {
     ///     data-flow graph has: a value can feed anything, and a slot that expected one value cannot
     ///     be handed two. <see cref="NodeGraph.Connect" /> enforces it by replacing rather than
     ///     refusing, because a user who drags a second wire into an occupied input means to change
-    ///     what feeds it.
+    ///     what feeds it. The rule itself is <see cref="GraphInvariants.Arriving" />'s, so the
+    ///     document model enforces the same one.
     /// </remarks>
     public bool AllowsMany => Direction == PortDirection.Output;
 
@@ -201,6 +203,14 @@ public sealed class GraphGroup {
 ///         that does not terminate. Refusing at the moment of connection is the only place the user
 ///         can be told which wire was the problem.
 ///     </para>
+///     <para>
+///         ⚠ <b>The rules are not this type's.</b> The cycle refusal, the cascade a deletion causes
+///         and the one-wire-per-input rule are <see cref="GraphInvariants" />'s, and the document
+///         model — <c>Vixen.Editor.NodeGraph.NodeGraphModel</c> — calls the same three methods with
+///         the same <see cref="GraphConnectionError" /> coming back. That is deliberate and it is the
+///         only thing keeping two graph types from drifting into two sets of rules. What differs is
+///         how a refusal is delivered: see <see cref="Connect" />.
+///     </para>
 /// </remarks>
 public sealed class NodeGraph {
     readonly List<GraphNode> nodes = [];
@@ -253,10 +263,10 @@ public sealed class NodeGraph {
             return false;
         }
 
-        // ⚠ The wires go with it. A wire whose node is gone is a wire drawn from an anchor computed
-        // off a rectangle nobody owns — and it would still be there to be saved, so the graph would
-        // reload with a connection to a node that does not exist.
-        wires.RemoveAll(wire => ReferenceEquals(wire.From.Node, node) || ReferenceEquals(wire.To.Node, node));
+        // ⚠ The wires go with it, by the same cascade the document model uses — see
+        // GraphInvariants.Detach for why a graph that kept them would reload with a connection to a
+        // node that does not exist.
+        GraphInvariants.Detach(wires, static wire => wire.From.Node, static wire => wire.To.Node, node);
         node.Group?.Remove(node);
 
         Changed?.Invoke(this);
@@ -303,12 +313,34 @@ public sealed class NodeGraph {
     /// <param name="to">The input end.</param>
     /// <returns>The wire, or <c>null</c> if the connection is not allowed.</returns>
     /// <remarks>
+    ///     ⚠ <b>A refusal is null here and an exception on the document model, and that difference is
+    ///     the whole of the difference between them.</b> This overload is what a drag ends in: a
+    ///     pointer released over a port that cannot take the wire is an ordinary outcome of an
+    ///     ordinary gesture, and a canvas that threw would turn every clumsy drop into a crash. The
+    ///     document model is called by commands and by a loader, where a connection that cannot be
+    ///     made means the caller is wrong and should say so loudly. Same rules, same
+    ///     <see cref="GraphConnectionError" /> values — <see cref="TryConnect" /> is where they are
+    ///     applied, and both models go through their own thin wrapper over it.
+    /// </remarks>
+    public GraphWire? Connect(GraphPort from, GraphPort to) => TryConnect(from, to, out _);
+
+    /// <summary>Connects an output to an input, and says why not when it will not.</summary>
+    /// <param name="from">The output end. The two may be given either way round.</param>
+    /// <param name="to">The input end.</param>
+    /// <param name="error">Why it was refused, or <see cref="GraphConnectionError.None" />.</param>
+    /// <returns>The wire, or <c>null</c>.</returns>
+    /// <remarks>
     ///     ⚠ <b>An occupied input is replaced rather than refused.</b> Dragging a second wire into a
     ///     slot that already has one is how everybody rewires a graph, and a version that refused
     ///     would make the gesture "delete the old wire, then drag the new one" — two steps for one
     ///     intention, and the first of them has no obvious affordance.
+    ///     <para>
+    ///         <see cref="GraphConnectionError.WrongDirection" /> is the one reason only this model
+    ///         can give: a port here knows which side it is on, and a
+    ///         <c>Vixen.Editor.NodeGraph.PortRef</c> is a name and does not.
+    ///     </para>
     /// </remarks>
-    public GraphWire? Connect(GraphPort from, GraphPort to) {
+    public GraphWire? TryConnect(GraphPort from, GraphPort to, out GraphConnectionError error) {
         ArgumentNullException.ThrowIfNull(from);
         ArgumentNullException.ThrowIfNull(to);
 
@@ -319,21 +351,56 @@ public sealed class NodeGraph {
         }
 
         if (from.Direction != PortDirection.Output || to.Direction != PortDirection.Input) {
+            error = GraphConnectionError.WrongDirection;
+
             return null;
         }
 
-        if (ReferenceEquals(from.Node, to.Node) || WouldCycle(from.Node, to.Node)) {
+        // Checked because the document model checks it, and a contract the two share only holds if
+        // both hold it. A port of a node in another graph is a wire this one would draw from an
+        // anchor it does not own and could never save.
+        if (!nodes.Contains(from.Node)) {
+            error = GraphConnectionError.FromNotInGraph;
+
             return null;
         }
 
-        if (Wire(to) is { } existing) {
-            wires.Remove(existing);
+        if (!nodes.Contains(to.Node)) {
+            error = GraphConnectionError.ToNotInGraph;
+
+            return null;
+        }
+
+        if (ReferenceEquals(from.Node, to.Node)) {
+            error = GraphConnectionError.SameNode;
+
+            return null;
+        }
+
+        if (GraphInvariants.Reaches(
+                wires,
+                static wire => wire.From.Node,
+                static wire => wire.To.Node,
+                to.Node,
+                from.Node
+            )) {
+            error = GraphConnectionError.Cycle;
+
+            return null;
+        }
+
+        var displaced = GraphInvariants.Arriving(wires, static wire => wire.To, to);
+
+        if (displaced >= 0) {
+            wires.RemoveAt(displaced);
         }
 
         var wire = new GraphWire(from, to);
         wires.Add(wire);
 
+        error = GraphConnectionError.None;
         Changed?.Invoke(this);
+
         return wire;
     }
 
@@ -357,13 +424,9 @@ public sealed class NodeGraph {
     public GraphWire? Wire(GraphPort port) {
         ArgumentNullException.ThrowIfNull(port);
 
-        foreach (var wire in wires) {
-            if (ReferenceEquals(wire.To, port)) {
-                return wire;
-            }
-        }
+        var index = GraphInvariants.Arriving(wires, static wire => wire.To, port);
 
-        return null;
+        return index >= 0 ? wires[index] : null;
     }
 
     /// <summary>Tells the canvas the model changed under it.</summary>
@@ -373,37 +436,4 @@ public sealed class NodeGraph {
     ///     because a node does not know which graph it is in.
     /// </remarks>
     public void Touch() => Changed?.Invoke(this);
-
-    /// <summary>Whether a wire from one node to another would close a loop.</summary>
-    /// <remarks>
-    ///     A walk forwards from the would-be destination: if the source is reachable from it, the new
-    ///     wire completes a circle. Depth-first with an explicit stack rather than recursion, because
-    ///     a chain of ten thousand nodes is a legal graph and a stack overflow is not a diagnostic.
-    /// </remarks>
-    bool WouldCycle(GraphNode from, GraphNode to) {
-        var seen = new HashSet<GraphNode>();
-        var pending = new Stack<GraphNode>();
-
-        pending.Push(to);
-
-        while (pending.Count > 0) {
-            var node = pending.Pop();
-
-            if (ReferenceEquals(node, from)) {
-                return true;
-            }
-
-            if (!seen.Add(node)) {
-                continue;
-            }
-
-            foreach (var wire in wires) {
-                if (ReferenceEquals(wire.From.Node, node)) {
-                    pending.Push(wire.To.Node);
-                }
-            }
-        }
-
-        return false;
-    }
 }

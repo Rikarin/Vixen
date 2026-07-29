@@ -164,6 +164,13 @@ bootstrap on Web). Game/app code lives in a platform-neutral library that all he
   extensions. The engine must degrade, and the device-capability database (a curated deny-list keyed on
   GPU/driver version, shipped as content and updatable) is how commercial engines handle this. Build it
   small but build it.
+  - ✅ **The graphics half of that fallback exists.** `Vixen.Graphics.OpenGL` now has
+    `Silk.NET.OpenGLES` behind `SilkGlesApi` and an EGL context of its own — `EglContext`, over
+    entry points loaded from the platform's `libEGL`, because there is no `Silk.NET.EGL` for
+    Silk.NET 2. It asks a device for GLES 3.2 and falls back to 3.0, which is the same shape as the
+    deny-list's own decision one level up. ⚠ What is still owed is the Android head choosing it:
+    nothing here creates a GL device instead of a Vulkan one yet, and the deny-list that would say
+    when to does not exist.
 - `VK_KHR_dynamic_rendering` is not available on all Vulkan 1.1 drivers → the real-render-pass fallback
   path in the Vulkan backend ([05](05-graphics-rhi.md)) is mandatory here, not optional.
 - **Lifecycle is the biggest source of bugs**: `onPause`/`onResume` destroys and recreates the surface;

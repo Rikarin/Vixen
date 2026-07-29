@@ -191,10 +191,19 @@ newer build.
 
 ## What is not here yet
 
-The document model is the vocabulary and the stacks; the concrete documents are not. A
-`SceneDocument`, a `MaterialDocument` and the drawers that edit them arrive with
-`Vixen.Editor.Inspector` and `Vixen.Editor.SceneView`, which is also where multi-object editing and
-the generated drawer descriptors land. Watch-driven re-import belongs to the import pipeline in
-`Vixen.Editor.Assets` and is wired to the database from the shell.
+The document model is the vocabulary and the stacks; the concrete documents live where their subject
+does. ✅ `SceneDocument` is in [`Vixen.Editor.SceneView`](../Vixen.Editor.SceneView/README.md) —
+there rather than here because a scene *is* an ECS world and this project deliberately does not
+reference `Vixen.Ecs`, so the command stack and the asset database stay testable without one. ✅
+Multi-object editing and the generated drawer descriptors are in
+[`Vixen.Editor.Inspector`](../Vixen.Editor.Inspector/README.md).
+
+**Still not written: a `MaterialDocument`**, and the asset editors generally — a material, a texture,
+a model and an addressable group each want a document and a view, and none has one.
+
+**Watch-driven re-import** belongs to the import pipeline in `Vixen.Editor.Assets` and is not built:
+the shell rescans on `Ctrl+R`. A watcher needs debouncing, a rename heuristic and a way not to fight
+the editor's own writes, and one that missed half the events while claiming to be live would be worse
+than a refresh that says what it does.
 
 Licensed under Apache-2.0.

@@ -41,8 +41,8 @@ public class LoweringDiagnosticsTests {
                 var albedo: Texture2D
                 var linear: Sampler
 
-                [PixelShader]
-                func Pixel(uv: float2): float4 {
+                [FragmentShader]
+                func Fragment(uv: float2): float4 {
                     return albedo.Sample(linear, uv) * tint
                 }
             }

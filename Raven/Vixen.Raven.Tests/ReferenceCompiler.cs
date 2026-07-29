@@ -98,7 +98,7 @@ public static class ReferenceCompiler {
     static string StageFlag(ShaderStage stage) =>
         stage switch {
             ShaderStage.Vertex => "vert",
-            ShaderStage.Pixel => "frag",
+            ShaderStage.Fragment => "frag",
             ShaderStage.Geometry => "geom",
             ShaderStage.Compute => "comp",
             _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, "No glslc stage for this.")

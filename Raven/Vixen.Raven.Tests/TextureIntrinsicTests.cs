@@ -42,8 +42,8 @@ public class TextureIntrinsicTests {
                             var albedo: Texture2D
                             var linear: Sampler
 
-                            [PixelShader]
-                            func Pixel(uv: float2): float4 {
+                            [FragmentShader]
+                            func Fragment(uv: float2): float4 {
                                 val size = albedo.GetDimensions(0)
                                 val texel = float2(1f / float(size.x), 1f / float(size.y))
                                 return albedo.Sample(linear, uv + texel)
@@ -146,8 +146,8 @@ public class TextureIntrinsicTests {
                 val sky: TextureCube
                 var linear: Sampler
 
-                [PixelShader]
-                func Pixel(uvw: float3): float4 {
+                [FragmentShader]
+                func Fragment(uvw: float3): float4 {
                     return volume.SampleLevel(linear, uvw, 1f) + sky.SampleLevel(linear, uvw, 1f)
                 }
             }

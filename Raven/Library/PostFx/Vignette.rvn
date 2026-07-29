@@ -49,9 +49,9 @@ shader Vignette {
         return Fullscreen.Position(vertexIndex)
     }
 
-    [PixelShader]
+    [FragmentShader]
     [Semantic("SV_Target")]
-    func Pixel(): float4 {
+    func Fragment(): float4 {
         val centred = uv - 0.5f
         var color = UseChromaticAberration ? Aberrated(centred) : source.Sample(linearSampler, uv).rgb
 

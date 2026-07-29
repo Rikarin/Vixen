@@ -12,8 +12,7 @@ public static class DeclarationFacts {
     /// <summary>Attribute names that mark a method as a pipeline entry point.</summary>
     static readonly Dictionary<string, ShaderStage> StageAttributes = new(StringComparer.Ordinal) {
         ["VertexShader"] = ShaderStage.Vertex,
-        ["PixelShader"] = ShaderStage.Pixel,
-        ["FragmentShader"] = ShaderStage.Pixel,
+        ["FragmentShader"] = ShaderStage.Fragment,
         ["GeometryShader"] = ShaderStage.Geometry,
         ["ComputeShader"] = ShaderStage.Compute
     };

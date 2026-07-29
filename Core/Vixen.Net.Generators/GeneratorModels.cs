@@ -1,62 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Collections;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 
 namespace Vixen.Net.Generators;
-
-/// <summary>
-///     An <see cref="ImmutableArray{T}" /> that compares by contents rather than by reference.
-/// </summary>
-/// <remarks>
-///     An incremental generator caches on equality, and <see cref="ImmutableArray{T}" />'s equality is
-///     the array's identity — so a model holding one is a model that is never equal to the model from
-///     the previous run, and the generator re-runs everything on every keystroke while looking
-///     incremental. This type is the fix, and it is why it exists in every generator that has one.
-/// </remarks>
-/// <typeparam name="T">The element type.</typeparam>
-readonly struct EquatableArray<T> : IEquatable<EquatableArray<T>>, IEnumerable<T> where T : IEquatable<T> {
-    readonly ImmutableArray<T> items;
-
-    public int Length => items.IsDefault ? 0 : items.Length;
-
-    public T this[int index] => items[index];
-
-    public EquatableArray(ImmutableArray<T> items) => this.items = items;
-
-    public bool Equals(EquatableArray<T> other) {
-        if (Length != other.Length) {
-            return false;
-        }
-
-        for (var i = 0; i < Length; i++) {
-            if (!items[i].Equals(other.items[i])) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    public override bool Equals(object? obj) => obj is EquatableArray<T> other && Equals(other);
-
-    public override int GetHashCode() {
-        var hash = 17;
-
-        for (var i = 0; i < Length; i++) {
-            hash = (hash * 31) + items[i].GetHashCode();
-        }
-
-        return hash;
-    }
-
-    public IEnumerator<T> GetEnumerator() =>
-        (items.IsDefault ? ImmutableArray<T>.Empty : items).AsEnumerable().GetEnumerator();
-
-    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-}
 
 /// <summary>A diagnostic, reduced to values so it can live in a cached model.</summary>
 /// <remarks>

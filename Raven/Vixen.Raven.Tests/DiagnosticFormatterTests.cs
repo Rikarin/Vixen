@@ -94,8 +94,8 @@ public class DiagnosticFormatterTests {
             package A
 
             shader S {
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     return float4(missingA, missingB, 0, 1)
                 }
             }

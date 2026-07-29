@@ -38,9 +38,9 @@ shader Blur {
         return projection * float4(position.x, position.y, 0f, 1f)
     }
 
-    [PixelShader]
+    [FragmentShader]
     [Semantic("SV_Target")]
-    func Pixel(): float4 {
+    func Fragment(): float4 {
         val step = texelSize * direction * radiusScale
 
         // The centre tap, weighted for a 9-texel Gaussian.

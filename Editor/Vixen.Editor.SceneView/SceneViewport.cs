@@ -3,6 +3,7 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
+using Vixen.Input;
 using Vixen.Rendering;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
@@ -31,6 +32,78 @@ public enum NavigationAction {
     Manipulate
 }
 
+/// <summary>Which way a viewport is being flown, as the keys that are down.</summary>
+/// <remarks>
+///     Flags rather than one direction, because holding two is the ordinary case: forward and right
+///     at once is how anybody actually crosses a scene.
+/// </remarks>
+[Flags]
+public enum FlyAxis {
+    /// <summary>Nothing held.</summary>
+    None = 0,
+
+    /// <summary>Along the camera's forward.</summary>
+    Forward = 1,
+
+    /// <summary>Against it.</summary>
+    Back = 2,
+
+    /// <summary>Along the camera's −X.</summary>
+    Left = 4,
+
+    /// <summary>Along its +X.</summary>
+    Right = 8,
+
+    /// <summary>Straight down the world's up.</summary>
+    Down = 16,
+
+    /// <summary>Straight up it.</summary>
+    Up = 32
+}
+
+/// <summary>Which keys fly the camera while the fly button is held.</summary>
+/// <remarks>
+///     ⚠ <b>Positions, not letters.</b> <c>InputKey</c> names the physical key by its US-QWERTY
+///     legend, so this is the same block of six under the left hand on an AZERTY keyboard — where
+///     <see cref="InputKey.Q" /> is the key printed <c>A</c>. A binding by typed character would move
+///     the whole gesture across the keyboard for everyone who does not have a US layout.
+/// </remarks>
+/// <param name="Forward">Towards what the camera is looking at.</param>
+/// <param name="Back">Away from it.</param>
+/// <param name="Left">Sideways, along the camera's own basis.</param>
+/// <param name="Right">Ditto.</param>
+/// <param name="Down">Down the world's up, not the camera's — see <see cref="EditorCamera.Fly" />.</param>
+/// <param name="Up">Ditto.</param>
+public readonly record struct FlyBindings(
+    InputKey Forward,
+    InputKey Back,
+    InputKey Left,
+    InputKey Right,
+    InputKey Down,
+    InputKey Up
+) {
+    /// <summary>The six every 3D editor ships with.</summary>
+    public static FlyBindings Wasdqe { get; } =
+        new(InputKey.W, InputKey.S, InputKey.A, InputKey.D, InputKey.Q, InputKey.E);
+
+    /// <summary>Which way a key flies, if it flies at all.</summary>
+    /// <param name="key">The key.</param>
+    /// <returns>The axis, or <see cref="FlyAxis.None" />.</returns>
+    public FlyAxis Axis(InputKey key) {
+        if (key == InputKey.Unknown) {
+            return FlyAxis.None;
+        }
+
+        return key == Forward ? FlyAxis.Forward
+            : key == Back ? FlyAxis.Back
+            : key == Left ? FlyAxis.Left
+            : key == Right ? FlyAxis.Right
+            : key == Down ? FlyAxis.Down
+            : key == Up ? FlyAxis.Up
+            : FlyAxis.None;
+    }
+}
+
 /// <summary>One pane of the scene view: a camera, a gizmo, picking, and the control they live in.</summary>
 /// <remarks>
 ///     <para>
@@ -52,9 +125,29 @@ public enum NavigationAction {
 ///         here is one documented default: right or middle drags the camera, left drives the gizmo,
 ///         and Alt makes left orbit for people whose hands remember Maya.
 ///     </para>
+///     <para>
+///         ⚠ <b>Flight is the exception to that, and it has to be.</b> WASDQE while the right button
+///         is held is a <i>held</i> gesture over six keys that already mean something else — W, E and
+///         R are the gizmo modes and A is frame-all — and a keymap of chords over commands can
+///         express neither half of that: it fires once on the press and it has no idea a mouse button
+///         is down. So the keys are read here, only while <see cref="IsFlying" />, and consumed, so
+///         the shell's own bindings cannot fire underneath them. It stays one gesture rather than a
+///         binding system: <see cref="FlyKeys" /> is the whole of it, and it is settable.
+///     </para>
 /// </remarks>
 public sealed class SceneViewport : IDisposable {
+    /// <summary>The longest frame flight will integrate, in seconds.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A stall is not travel.</b> A shader compile, a scene load or a window dragged
+    ///     between displays produces one frame worth half a second, and multiplying that by the fly
+    ///     speed puts the camera somewhere the user was not going — which reads as the editor having
+    ///     lost the scene rather than as a hitch.
+    /// </remarks>
+    public const float MaximumFlyStep = 0.1f;
+
     readonly Selection<Vixen.Core.Entity> selection;
+    FlyAxis held;
+    bool fast;
     bool disposed;
 
     /// <summary>The control the scene is drawn in.</summary>
@@ -83,6 +176,30 @@ public sealed class SceneViewport : IDisposable {
 
     /// <summary>Where a gizmo drag is recorded.</summary>
     public EditorDocument? Document { get; set; }
+
+    /// <summary>How far the wheel scrolls in one notch, in device-independent pixels.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The wheel arrives in pixels and the camera zooms in notches, and the conversion has
+    ///     to happen somewhere.</b> <c>WheelEvent</c> carries a distance the backend has already
+    ///     resolved from the device and the machine's settings — see its own remarks for why a
+    ///     framework must not invent that number — while <see cref="EditorCamera.ZoomSpeed" /> is a
+    ///     fraction of the distance <i>per notch</i>. Handing one straight to the other is a zoom of
+    ///     forty-odd notches per click of the wheel, which is one notch to go from a room to a
+    ///     continent and reads as a viewport that cannot be aimed. The default is the editor host's
+    ///     own line height; a host whose backend resolves the wheel differently sets this.
+    /// </remarks>
+    public float WheelNotch { get; set; } = 48f;
+
+    /// <summary>Which keys fly the camera while the fly button is held.</summary>
+    public FlyBindings FlyKeys { get; set; } = FlyBindings.Wasdqe;
+
+    /// <summary>Whether the fly button is down, so that the fly keys are live.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A mode, and one that ends when the button does.</b> Flight that latched would leave
+    ///     the six keys captured after the gesture people think of as "holding right-drag" is over,
+    ///     and the next W would move the camera instead of choosing the translate gizmo.
+    /// </remarks>
+    public bool IsFlying { get; private set; }
 
     /// <summary>What can answer "what is under this ray", for placement and surface snapping.</summary>
     public ISurfaceProbe? Surfaces { get; set; }
@@ -120,20 +237,84 @@ public sealed class SceneViewport : IDisposable {
         // listener AddHandler's own remarks describe: one that needs to know an event happened
         // rather than to compete for it.
         control.AddHandler<PointerEvent>(OnPointer, handledEventsToo: true);
+
+        // ⚠ Not handledEventsToo, and the other way round from the pointer above: this one competes
+        // for the key and wins it, because a W that flies must not also be a W that switches the
+        // gizmo. The route from the focus outwards is what makes that work — the viewport is the
+        // focused element while it is being flown, so it sees the key before the shell's dispatcher
+        // on the root does.
+        control.AddHandler<KeyEvent>(OnKey);
+
+        // Losing the focus ends flight, because the keys that would end it are about to be going
+        // somewhere else. Alt-tabbing away with W down and coming back to a camera still moving is
+        // the version of this bug every first-person control has had once.
+        control.AddHandler<FocusEvent>(OnFocus, handledEventsToo: true);
     }
 
-    /// <summary>Brings the render view up to date with the camera and the control's size.</summary>
+    /// <summary>Advances the pane by a frame: flight, then the render view.</summary>
+    /// <param name="delta">How long the last frame took.</param>
     /// <remarks>
-    ///     ⚠ <b>Called once a frame, after the layout pass</b>, for the reason <c>Viewport.Refresh</c>
-    ///     gives: nothing announces that an element's box changed, so a splitter moving is something
-    ///     the application notices rather than something the viewport is told.
+    ///     <para>
+    ///         ⚠ <b>Called once a frame, after the layout pass</b>, for the reason
+    ///         <c>Viewport.Refresh</c> gives: nothing announces that an element's box changed, so a
+    ///         splitter moving is something the application notices rather than something the
+    ///         viewport is told.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Flight is integrated before the view is read, not after.</b> The other order
+    ///         renders every frame of a flight from where the camera was at the end of the previous
+    ///         one, which is a whole frame of lag on the only navigation that is continuous — and it
+    ///         is invisible until somebody flies alongside a moving object and finds it swimming.
+    ///     </para>
     /// </remarks>
-    public void Update() {
+    public void Update(TimeSpan delta) {
         Control.Refresh();
+        Fly(delta);
+
         Control.ViewRotation = Camera.Rotation;
 
         View.Position = Camera.Position;
         View.ViewProjection = Camera.ViewProjection(Control.AspectRatio);
+    }
+
+    /// <summary>Moves the camera by whatever fly keys are held.</summary>
+    /// <param name="delta">How long the last frame took.</param>
+    /// <remarks>
+    ///     Public and separate from <see cref="Update(TimeSpan)" /> because it is the half that has a
+    ///     clock in it: a test drives it with a frame it chose rather than with whatever the machine
+    ///     managed. Called for you by <see cref="Update(TimeSpan)" />.
+    /// </remarks>
+    public void Fly(TimeSpan delta) {
+        if (!IsFlying || held == FlyAxis.None) {
+            return;
+        }
+
+        var seconds = MathF.Min((float) delta.TotalSeconds, MaximumFlyStep);
+
+        if (seconds <= 0f) {
+            return;
+        }
+
+        var direction = new Vector3(
+            Along(FlyAxis.Right, FlyAxis.Left),
+            Along(FlyAxis.Up, FlyAxis.Down),
+            Along(FlyAxis.Forward, FlyAxis.Back)
+        );
+
+        if (direction.IsZero) {
+            // Both ends of an axis held, which is what happens the instant somebody changes their
+            // mind mid-flight. Normalising it would be a division by zero and moving by it would be
+            // a drift in whichever direction the rounding went.
+            return;
+        }
+
+        // Normalised, so that forwards and sideways at once is not forty per cent faster than either
+        // alone — the diagonal being the quickest way across a level is the oldest bug in flight.
+        direction = Vector3.Normalize(direction);
+        Camera.Fly(direction.X, direction.Y, direction.Z, seconds, fast);
+
+        float Along(FlyAxis positive, FlyAxis negative) =>
+            ((held & positive) != 0 ? 1f : 0f) - ((held & negative) != 0 ? 1f : 0f);
     }
 
     /// <summary>Asks what is under a point, in render pixels.</summary>
@@ -240,6 +421,34 @@ public sealed class SceneViewport : IDisposable {
             _ => NavigationAction.None
         };
     }
+
+    /// <summary>What a wheel event is worth to the camera.</summary>
+    /// <param name="delta">How far it scrolled, in device-independent pixels, positive downwards.</param>
+    /// <param name="pixelsPerNotch">What <see cref="WheelNotch" /> says a notch is worth.</param>
+    /// <returns>Notches, positive meaning closer.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Negated.</b> The wheel's positive direction is towards the content's end — down a
+    ///     document — and pushing the wheel away from you moves the camera in, in every 3D view there
+    ///     is. They are the same gesture with opposite signs, which is exactly the sort of thing that
+    ///     survives review by being written down.
+    /// </remarks>
+    public static float Notches(float delta, float pixelsPerNotch) =>
+        pixelsPerNotch > 0f ? -delta / pixelsPerNotch : -delta;
+
+    /// <summary>Zooms by one wheel event's worth of scrolling.</summary>
+    /// <param name="delta">How far it scrolled, in device-independent pixels, positive downwards.</param>
+    public void Wheel(float delta) => Camera.Zoom(Notches(delta, WheelNotch));
+
+    /// <summary>Whether holding this button also flies the camera.</summary>
+    /// <param name="button">Which button.</param>
+    /// <returns>Whether the fly keys are live while it is down.</returns>
+    /// <remarks>
+    ///     The right button, which is the one that already orbits — and flying <i>is</i> orbiting
+    ///     from where you are, which is what makes the pair one gesture rather than two modes. The
+    ///     modifiers are deliberately not asked about: Alt turns the same drag into a dolly, and
+    ///     somebody who is flying does not expect the keyboard to stop working because of it.
+    /// </remarks>
+    public static bool Flies(PointerButton button) => button == PointerButton.Secondary;
 
     /// <summary>Records which handle the pointer is over, so the viewport can highlight it.</summary>
     /// <param name="point">Where, in render pixels.</param>
@@ -359,6 +568,10 @@ public sealed class SceneViewport : IDisposable {
     ///     supposed to be swinging around.
     /// </remarks>
     void OnPointer(UiElement element, PointerEvent args) {
+        if (Flies(args.Button) && args.Action is PointerAction.Pressed or PointerAction.Released) {
+            Flying(args.Action == PointerAction.Pressed);
+        }
+
         if (args.Button != PointerButton.Primary) {
             return;
         }
@@ -401,10 +614,11 @@ public sealed class SceneViewport : IDisposable {
                 break;
 
             case NavigationAction.Dolly:
-                // A vertical drag reads as "closer" and "further", which is the same sign convention
-                // as the wheel — a dolly that went the other way from the wheel is the complaint
-                // people report as "the mouse is inverted in the viewport".
-                Camera.Zoom(drag.DeltaY * 0.05f);
+                // Pushing away is closer and pulling back is further, which is the same sign
+                // convention the wheel gets through Notches — a dolly that went the other way from
+                // the wheel is the complaint people report as "the mouse is inverted in the
+                // viewport". Twenty render pixels to the notch.
+                Camera.Zoom(Notches(drag.DeltaY, 20f));
                 break;
 
             default:
@@ -412,5 +626,62 @@ public sealed class SceneViewport : IDisposable {
         }
     }
 
-    void OnZoomed(ViewportControl control, float notches) => Camera.Zoom(notches);
+    void OnZoomed(ViewportControl control, float delta) => Wheel(delta);
+
+    /// <summary>Tracks which fly keys are down, and takes them from everything else.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Auto-repeat is left alone rather than filtered.</b> A held key repeats and each
+    ///     repeat sets a bit that is already set; the release is what clears it. Everything that
+    ///     acts <i>on</i> a press — the shell's dispatcher — has to ignore repeats, and a state that
+    ///     is a set of held keys does not.
+    /// </remarks>
+    void OnKey(UiElement element, KeyEvent args) {
+        if (!IsFlying) {
+            return;
+        }
+
+        // Shift is read off whichever key event carries it, and off its own press directly: the
+        // modifier state is on every event, but somebody who presses shift while already holding W
+        // gets no other event until they let go of something.
+        fast = args.Key is InputKey.LeftShift or InputKey.RightShift
+            ? args.Action == KeyAction.Pressed
+            : (args.Modifiers & ModifierKeys.Shift) != 0;
+
+        if (FlyKeys.Axis(args.Key) is var axis && axis == FlyAxis.None) {
+            return;
+        }
+
+        if (args.Action == KeyAction.Pressed) {
+            held |= axis;
+        } else {
+            held &= ~axis;
+        }
+
+        // ⚠ Consumed. W, E and R are the gizmo modes and A is frame-all, so a flight that let its
+        // keys through would swap the tool and reframe the scene on the way past — and the user
+        // would find out about it when they let go of the mouse.
+        args.Handled = true;
+    }
+
+    void OnFocus(UiElement element, FocusEvent args) {
+        if (!args.Gained) {
+            Flying(false);
+        }
+    }
+
+    /// <summary>Enters or leaves fly mode.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The held keys are dropped on the way out rather than waited for.</b> Most people
+    ///     release the mouse before the keyboard, so the release of W arrives when the viewport is no
+    ///     longer listening — and a bit left set is a camera that sets off by itself the next time
+    ///     the button goes down.
+    /// </remarks>
+    void Flying(bool value) {
+        IsFlying = value;
+
+        if (!value) {
+            held = FlyAxis.None;
+            fast = false;
+        }
+    }
 }

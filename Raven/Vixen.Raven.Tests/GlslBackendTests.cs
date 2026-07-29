@@ -36,8 +36,8 @@ public class GlslBackendTests {
                     return float4(position, 1)
                 }
 
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     return float4(1, 1, 1, 1)
                 }
             }
@@ -47,7 +47,7 @@ public class GlslBackendTests {
 
         Assert.Equal(2, generated.Count);
         Assert.Equal(["Lit.vert", "Lit.frag"], generated.Select(g => g.Name));
-        Assert.Equal([ShaderStage.Vertex, ShaderStage.Pixel], generated.Select(g => g.Stage));
+        Assert.Equal([ShaderStage.Vertex, ShaderStage.Fragment], generated.Select(g => g.Stage));
         Assert.All(generated, unit => Assert.StartsWith("#version 450", unit.Code));
     }
 
@@ -62,7 +62,7 @@ public class GlslBackendTests {
                     return 1
                 }
 
-                func OnlyPixel(): float {
+                func OnlyFragment(): float {
                     return 2
                 }
 
@@ -71,9 +71,9 @@ public class GlslBackendTests {
                     return float4(OnlyVertex(), 0, 0, 1)
                 }
 
-                [PixelShader]
-                func Pixel(): float4 {
-                    return float4(OnlyPixel(), 0, 0, 1)
+                [FragmentShader]
+                func Fragment(): float4 {
+                    return float4(OnlyFragment(), 0, 0, 1)
                 }
             }
 
@@ -81,12 +81,12 @@ public class GlslBackendTests {
         );
 
         var vertex = generated.Single(g => g.Stage == ShaderStage.Vertex).Code;
-        var pixel = generated.Single(g => g.Stage == ShaderStage.Pixel).Code;
+        var fragment = generated.Single(g => g.Stage == ShaderStage.Fragment).Code;
 
         Assert.Contains("OnlyVertex", vertex);
-        Assert.DoesNotContain("OnlyPixel", vertex);
-        Assert.Contains("OnlyPixel", pixel);
-        Assert.DoesNotContain("OnlyVertex", pixel);
+        Assert.DoesNotContain("OnlyFragment", vertex);
+        Assert.Contains("OnlyFragment", fragment);
+        Assert.DoesNotContain("OnlyVertex", fragment);
     }
 
     [Fact]
@@ -94,7 +94,7 @@ public class GlslBackendTests {
         var code = GeneratePixel(
             "        return albedo.Sample(linear, uv) * tint",
             "    var tint: float4\n    var albedo: Texture2D\n    var linear: Sampler\n",
-            "func Pixel(uv: float2): float4"
+            "func Fragment(uv: float2): float4"
         );
 
         Assert.Contains("layout(std140, set = 2, binding = 0) uniform SPerMaterialUniforms {", code);
@@ -113,7 +113,7 @@ public class GlslBackendTests {
         var code = GeneratePixel(
             "        return albedo.Sample(linear, uv)",
             "    var albedo: Texture2D\n    var linear: Sampler\n",
-            "func Pixel(uv: float2): float4"
+            "func Fragment(uv: float2): float4"
         );
 
         Assert.Contains("layout(set = 2, binding = 0) uniform texture2D albedo;", code);
@@ -134,7 +134,7 @@ public class GlslBackendTests {
         var fetching = GeneratePixel(
             "        return albedo.Load(int3(1, 2, 0))",
             "    var albedo: Texture2D\n",
-            "func Pixel(): float4"
+            "func Fragment(): float4"
         );
 
         Assert.Contains("#extension GL_EXT_samplerless_texture_functions : require", fetching);
@@ -143,7 +143,7 @@ public class GlslBackendTests {
         var sampling = GeneratePixel(
             "        return albedo.Sample(linear, uv)",
             "    var albedo: Texture2D\n    var linear: Sampler\n",
-            "func Pixel(uv: float2): float4"
+            "func Fragment(uv: float2): float4"
         );
 
         Assert.DoesNotContain("GL_EXT_samplerless_texture_functions", sampling);
@@ -157,7 +157,7 @@ public class GlslBackendTests {
         var code = GeneratePixel(
             "        return tint * time",
             "    [PerFrame] var time: float\n    var tint: float4\n",
-            "func Pixel(): float4"
+            "func Fragment(): float4"
         );
 
         Assert.Contains("layout(std140, set = 0, binding = 0) uniform SPerFrameUniforms {", code);
@@ -191,7 +191,7 @@ public class GlslBackendTests {
         var code = GeneratePixel("        return float4(1, 1, 1, 1)");
 
         Assert.Contains("layout(location = 0) out vec4 out_result;", code);
-        Assert.Contains("out_result = Pixel();", code);
+        Assert.Contains("out_result = Fragment();", code);
     }
 
     [Theory]
@@ -353,8 +353,8 @@ public class GlslBackendTests {
             }
 
             shader S {
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     var ray: Ray
                     ray.origin = float3(0, 0, 0)
                     ray.direction = float3(0, 0, 1)

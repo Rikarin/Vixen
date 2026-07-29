@@ -34,8 +34,8 @@ public class ElseIfTests {
                                  }
                              }
 
-                             [PixelShader]
-                             func Pixel(uv: float2): float4 {
+                             [FragmentShader]
+                             func Fragment(uv: float2): float4 {
                                  return float4(Pick(int(uv.x)))
                              }
                          }

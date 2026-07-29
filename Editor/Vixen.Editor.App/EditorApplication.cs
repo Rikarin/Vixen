@@ -57,6 +57,9 @@ sealed class EditorApplication : IDisposable {
     readonly string scenePath;
     readonly List<Entity> shown = [];
 
+    /// <summary>The one system the editor runs, and <see cref="ResolveTransforms" /> says why.</summary>
+    readonly TransformSystem transforms = new();
+
     SceneViewport? viewport;
     InspectorView? inspector;
     TreeView? hierarchy;
@@ -72,6 +75,13 @@ sealed class EditorApplication : IDisposable {
     public EditorApplication(float width, float height, string directory, string? projectRoot = null) {
         store = new EditorUserStore(directory);
         Shell = new EditorShell(width, height);
+
+        // ⚠ The fourth user-agent sheet, and it is the application that loads it. `EditorShell` has
+        // the three that draw the chrome and cannot have this one: it is deliberately a shell that
+        // knows nothing about inspectors, and the panel it hosts is this assembly's choice. Loaded
+        // after those three, so a rule of the same specificity here wins — which is what lets it
+        // narrow `expander-content`'s indent and a field's background without out-specifying them.
+        InspectorTheme.Install(Shell.Document);
 
         // A scratch project under the user's data directory, so a first run with no arguments opens
         // something real rather than refusing to start. `Open` tolerates a missing Assets directory
@@ -176,16 +186,19 @@ sealed class EditorApplication : IDisposable {
     /// <summary>
     ///     Brings the panels up to date with the model, once a frame, after the layout pass.
     /// </summary>
+    /// <param name="delta">How long the last frame took, for the things that move by themselves.</param>
     /// <remarks>
     ///     ⚠ <b>After <c>UiDocument.Update</c> and before <c>Draw</c>.</b> The viewport measures
     ///     itself in render pixels from its own box, which the layout pass is what produces; and the
     ///     axis cross it draws comes from the camera rotation this writes. Either side of that pair
     ///     and the picture is a frame behind.
     /// </remarks>
-    public void Update() {
+    public void Update(TimeSpan delta) {
         // What a finished import or build had to say, on the thread that owns the panels it is about
         // to rebuild. See `ContentTasks` for why nothing crosses back except a queued value.
         content.Pump();
+
+        ResolveTransforms();
 
         if (hierarchyStale) {
             hierarchyStale = false;
@@ -200,7 +213,7 @@ sealed class EditorApplication : IDisposable {
             return;
         }
 
-        pane.Update();
+        pane.Update(delta);
 
         // ⚠ Kept every frame, not on the way out. A panel's factory runs again when it is reopened
         // and the SceneViewport goes with the old one, so there is no teardown hook to read the
@@ -212,6 +225,39 @@ sealed class EditorApplication : IDisposable {
         if (pane.Gizmo.IsDragging) {
             inspector?.Reload();
         }
+    }
+
+    /// <summary>Brings every <c>WorldTransform</c> up to date with the local one behind it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Without this nothing an edit does is visible.</b> <c>Transform</c> reads the
+    ///         world matrix and writes the local one — deliberately, so that "position" means the
+    ///         same thing to a gizmo drag and a typed number — and <c>TransformSystem</c> is what
+    ///         joins the two. The editor runs no system graph, so a position typed into the
+    ///         inspector landed in <c>LocalTransform</c> and was never turned into the matrix the
+    ///         viewport draws from and the inspector reads back: the number reverted and the object
+    ///         did not move. The same held for a gizmo drag, for the hierarchy's parent lines, and
+    ///         for frame-selected.
+    ///     </para>
+    ///     <para>
+    ///         Resolved here rather than by standing up a <c>SystemRunner</c>, which is what
+    ///         <c>TransformSystem.Resolve</c> is public for. The world is a document until play mode
+    ///         says otherwise — <see cref="EditorApplication" />'s own remarks — and one pass whose
+    ///         cost is bounded by what moved is not a frame loop.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The version is advanced <i>after</i> the pass, not before.</b> The pass answers
+    ///         "what has been written since I last looked" by comparing chunk versions against the
+    ///         one it saw last time, and the editor has no sync point of its own to advance at —
+    ///         every write is stamped with whatever <c>World.Version</c> currently is. Advancing
+    ///         first would stamp this frame's edits with the same version the pass just recorded as
+    ///         seen, so the next pass would answer "nothing changed" and the second edit of a
+    ///         session would be the one that stopped working.
+    ///     </para>
+    /// </remarks>
+    void ResolveTransforms() {
+        transforms.Resolve(world);
+        world.AdvanceVersion();
     }
 
     /// <summary>Writes what the user changed.</summary>

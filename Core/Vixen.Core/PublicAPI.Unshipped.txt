@@ -149,6 +149,15 @@ Vixen.Core.GameTime.TryFormat(System.Span<char> destination, out int charsWritte
 Vixen.Core.GameTime.UnscaledDeltaSeconds.get -> float
 Vixen.Core.GameTime.UnscaledElapsed.get -> System.TimeSpan
 Vixen.Core.GameTime.UnscaledElapsed.init -> System.TimeSpan
+Vixen.Core.GraphConnectionError -> enum : byte
+Vixen.Core.GraphConnectionError.Cycle = 5 -> Vixen.Core.GraphConnectionError
+Vixen.Core.GraphConnectionError.FromNotInGraph = 1 -> Vixen.Core.GraphConnectionError
+Vixen.Core.GraphConnectionError.GraphConnectionError() -> void
+Vixen.Core.GraphConnectionError.None = 0 -> Vixen.Core.GraphConnectionError
+Vixen.Core.GraphConnectionError.SameNode = 4 -> Vixen.Core.GraphConnectionError
+Vixen.Core.GraphConnectionError.ToNotInGraph = 2 -> Vixen.Core.GraphConnectionError
+Vixen.Core.GraphConnectionError.WrongDirection = 3 -> Vixen.Core.GraphConnectionError
+Vixen.Core.GraphInvariants -> static class
 Vixen.Core.HotPathAttribute -> sealed class
 Vixen.Core.HotPathAttribute : System.Attribute
 Vixen.Core.HotPathAttribute.HotPathAttribute() -> void
@@ -376,6 +385,10 @@ static Vixen.Core.Entity.operator <=(Vixen.Core.Entity left, Vixen.Core.Entity r
 static Vixen.Core.Entity.operator >(Vixen.Core.Entity left, Vixen.Core.Entity right) -> bool
 static Vixen.Core.Entity.operator >=(Vixen.Core.Entity left, Vixen.Core.Entity right) -> bool
 static Vixen.Core.GameTime.Zero.get -> Vixen.Core.GameTime
+static Vixen.Core.GraphInvariants.Arriving<TPort, TEdge>(System.Collections.Generic.IReadOnlyList<TEdge> edges, System.Func<TEdge, TPort> to, TPort input) -> int
+static Vixen.Core.GraphInvariants.Describe<TPort>(Vixen.Core.GraphConnectionError error, TPort from, TPort to) -> string
+static Vixen.Core.GraphInvariants.Detach<TNode, TEdge>(System.Collections.Generic.List<TEdge> edges, System.Func<TEdge, TNode> from, System.Func<TEdge, TNode> to, TNode node, System.Collections.Generic.ICollection<TEdge>? detached = null) -> int
+static Vixen.Core.GraphInvariants.Reaches<TNode, TEdge>(System.Collections.Generic.IReadOnlyList<TEdge> edges, System.Func<TEdge, TNode> from, System.Func<TEdge, TNode> to, TNode start, TNode target) -> bool
 static Vixen.Core.LeakTracker.CaptureStackTraces.get -> bool
 static Vixen.Core.LeakTracker.CaptureStackTraces.set -> bool
 static Vixen.Core.LeakTracker.FormatReport() -> string

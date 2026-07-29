@@ -189,10 +189,19 @@ public sealed class EditorCamera {
 
     /// <summary>Turns the camera about its pivot.</summary>
     /// <param name="deltaX">How far the pointer moved horizontally, in render pixels.</param>
-    /// <param name="deltaY">How far it moved vertically.</param>
+    /// <param name="deltaY">How far it moved vertically, positive downwards.</param>
+    /// <remarks>
+    ///     ⚠ <b>A drag downwards takes the camera down and a drag upwards takes it over the top.</b>
+    ///     The two axes carry different things — sideways spins the scene the way the pointer went,
+    ///     vertically the <i>camera</i> goes the way the pointer went — and that mixture is what a
+    ///     turntable is. Pitching with the other sign is the thing other editors offer as an "invert
+    ///     Y" setting, and it is what <see cref="ViewportLayout" />'s perspective preset silently got:
+    ///     it asks for a drag up and to the left and expects the three-quarter view from above, and
+    ///     with the pitch inverted it ended up underneath the grid looking at the sky.
+    /// </remarks>
     public void Orbit(float deltaX, float deltaY) {
         Yaw -= deltaX * OrbitSpeed;
-        Pitch = Math.Clamp(Pitch - (deltaY * OrbitSpeed), -PitchLimit, PitchLimit);
+        Pitch = Math.Clamp(Pitch + (deltaY * OrbitSpeed), -PitchLimit, PitchLimit);
     }
 
     /// <summary>Slides the view sideways and up, keeping the direction.</summary>

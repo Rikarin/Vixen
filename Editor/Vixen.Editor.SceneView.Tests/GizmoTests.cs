@@ -159,7 +159,7 @@ public class GizmoTests {
         // Pitched down, because a rotation about Y is measured in the XZ plane and a horizontal
         // camera's rays are parallel to it — see TransformGizmo.OnPlane for what a parallel ray does.
         var camera = Camera();
-        camera.Orbit(0f, 150f);
+        camera.Orbit(0f, -150f);
         var first = new StubTarget { Position = new(-5f, 0f, 0f) };
         var second = new StubTarget { Position = new(5f, 0f, 0f) };
 
@@ -178,7 +178,7 @@ public class GizmoTests {
     [Fact]
     public void Rotation_snapping_lands_on_whole_steps() {
         var camera = Camera();
-        camera.Orbit(0f, 150f);
+        camera.Orbit(0f, -150f);
         var (gizmo, target) = One(GizmoMode.Rotate);
 
         gizmo.Snap.SnapRotation = true;

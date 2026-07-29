@@ -8,7 +8,7 @@
           "Name": "TonemapPerMaterialUniforms",
           "Type": "UniformBuffer",
           "Count": 1,
-          "Stages": "Vertex, Pixel",
+          "Stages": "Vertex, Fragment",
           "Members": [
             {
               "Name": "exposure",
@@ -147,7 +147,7 @@
           "Name": "source",
           "Type": "SampledTexture",
           "Count": 1,
-          "Stages": "Vertex, Pixel",
+          "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
           "IsWritable": false
@@ -157,7 +157,7 @@
           "Name": "lut",
           "Type": "SampledTexture",
           "Count": 1,
-          "Stages": "Vertex, Pixel",
+          "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
           "IsWritable": false
@@ -167,7 +167,7 @@
           "Name": "sourceSampler",
           "Type": "Sampler",
           "Count": 1,
-          "Stages": "Vertex, Pixel",
+          "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
           "IsWritable": false
@@ -177,7 +177,7 @@
           "Name": "lutSampler",
           "Type": "Sampler",
           "Count": 1,
-          "Stages": "Vertex, Pixel",
+          "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
           "IsWritable": false
@@ -398,6 +398,6 @@
   ],
   "Stages": [
     "Vertex",
-    "Pixel"
+    "Fragment"
   ]
 }

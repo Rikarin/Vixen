@@ -41,9 +41,9 @@ public class StageBuiltInTests {
                                       return float4(x - 1f, y - 1f, 0f, 1f)
                                   }
 
-                                  [PixelShader]
+                                  [FragmentShader]
                                   [Semantic("SV_Target")]
-                                  func Pixel(): float4 => tint
+                                  func Fragment(): float4 => tint
                               }
 
                               """;
@@ -66,7 +66,7 @@ public class StageBuiltInTests {
         Assert.Same(BuiltInTypes.Int, builtIn.Type);
 
         // A stage that does not supply it does not recognise the name.
-        Assert.Null(StageBuiltIns.Of(semantic, ShaderStage.Pixel));
+        Assert.Null(StageBuiltIns.Of(semantic, ShaderStage.Fragment));
         Assert.Null(StageBuiltIns.Of(semantic, ShaderStage.Compute));
     }
 
@@ -206,9 +206,9 @@ public class StageBuiltInTests {
                                         return float4(uv.x * 2f - 1f, uv.y * 2f - 1f, 0f, 1f)
                                     }
 
-                                    [PixelShader]
+                                    [FragmentShader]
                                     [Semantic("SV_Target")]
-                                    func Pixel(): float4 => float4(uv.x, uv.y, 0f, 1f)
+                                    func Fragment(): float4 => float4(uv.x, uv.y, 0f, 1f)
                                 }
 
                                 """;

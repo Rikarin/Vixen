@@ -49,9 +49,9 @@ shader Ssao {
         return Fullscreen.Position(vertexIndex)
     }
 
-    [PixelShader]
+    [FragmentShader]
     [Semantic("SV_Target")]
-    func Pixel(): float4 {
+    func Fragment(): float4 {
         val centreDepth = depthBuffer.Sample(pointSampler, uv).r
         val centre = Transform.UvDepthToView(inverseProjection, uv, centreDepth)
         val n = Math.SafeNormalize(normalBuffer.Sample(pointSampler, uv).xyz * 2f - 1f)

@@ -184,9 +184,11 @@ frame and before anything that reacts to it.
 ## What is not here yet
 
 The **action-map editor** and the **input debug panel** ([doc 11](../../docs/plan/11-editor.md) §
-Input system) are editor UI, and the editor application shell does not exist yet — `Editor/` is
-`Vixen.Editor.Core` and `Vixen.Editor.Assets`. The model they edit and the live state they show are
-both public and both tested; what is missing is the window to put them in.
+Input system) are editor UI. They were owed on the editor shell, and ⚠ **that reason has expired** —
+`Vixen.Editor.Ui` is a shell with a command registry, docking and panel registration, and
+`Vixen.Editor.App` is a running editor. So these are now two panels nobody has written rather than
+two panels with nowhere to go. The model they edit and the live state they show are both public and
+both tested.
 
 Also owed: **sensors** (accelerometer, gyroscope), **pen/stylus**, **MIDI** and **custom HID**, which
 [doc 11](../../docs/plan/11-editor.md) lists on the device side and which need a platform contract

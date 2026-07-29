@@ -41,8 +41,8 @@ public enum ShaderStages {
     /// <summary>The vertex stage.</summary>
     Vertex = 1 << 0,
 
-    /// <summary>The pixel/fragment stage.</summary>
-    Pixel = 1 << 1,
+    /// <summary>The fragment stage.</summary>
+    Fragment = 1 << 1,
 
     /// <summary>The geometry stage.</summary>
     Geometry = 1 << 2,

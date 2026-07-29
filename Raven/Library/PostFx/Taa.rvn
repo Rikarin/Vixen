@@ -50,9 +50,9 @@ shader Taa {
         return Fullscreen.Position(vertexIndex)
     }
 
-    [PixelShader]
+    [FragmentShader]
     [Semantic("SV_Target")]
-    func Pixel(): float4 {
+    func Fragment(): float4 {
         val currentColor = ColorSpaces.RgbToYCoCg(current.Sample(linearSampler, uv).rgb)
 
         // The motion vector is stored as the offset from this frame to the previous one, so following

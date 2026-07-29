@@ -212,7 +212,30 @@ rule's real gate was the spike's 17,934 CFF glyphs, whose fonts belong to the op
 cannot be committed. The flex operators are unreached for the same reason.
 
 **Not implemented, and not owed**: point-matched composites and `seac`. No glyph in 242 fonts used
-either. **Owed**: `gvar` deltas, so a variable font currently reads at its default instance.
+either.
+
+~~**Owed**: `gvar` deltas, so a variable font currently reads at its default instance.~~ **A font is
+read at an instance.** `FontVariation` normalises user-space axis values through `fvar` and warps
+them through `avar`; `GlyphVariations` applies `gvar`'s tuples, with packed point numbers, packed
+deltas, intermediate regions, shared tuples, phantom points, composite component offsets, and
+inferred deltas for the points a tuple does not name. `TextShaper` honours the instance too, which
+closed a gap where `ShapingCache` keyed on the axis position and nothing upstream varied by it.
+
+Gated by the Consortium's own variable-font cases — all 100 of `GVAR-1…9` and `AVAR-1` — which is a
+stronger oracle than the shaping suite, because nothing else shapes a `gvar` delta: every contour is
+read, varied and interpolated by code in this project and compared against expectations written by
+hand from the specification. Verified by sabotage kept as a test: reading the same hundred cases at
+each font's default instance fails **82** of them.
+
+⚠ **A tag is four bytes.** Zycon's axes are `M1␣␣` and every caller — CSS, a test file, a person —
+writes `M1`; matching only the padded form left all six axes at their defaults, which on screen is
+indistinguishable from a font with no variation data. ⚠ **And an untouched point's rule is not the
+obvious one**: two references at the same coordinate pulling different ways infer *nothing*, where
+taking either is the natural mistake.
+
+**Still not implemented**: `CVAR` — it varies hinting control values, so its expectations differ from
+an unhinted outline and need an interpreter — `CFF2` charstring variation, and `HVAR` read directly
+rather than through HarfBuzz.
 
 ## Rasterising, and the distance field
 

@@ -194,8 +194,11 @@ rebuilt; without it, closing and reopening the viewport puts the user back at th
 - **Reparenting is not undoable.** Dragging in the hierarchy is not wired up either; the primitive
   undo was waiting on — `Hierarchy.SetParentAfter`, which puts a child back where it was rather than
   at the head — now exists, so what is missing is the command.
-- **Clicking in the viewport does not select.** Picking needs the id target the missing texture
-  command also blocks; the gizmo can be dragged, and what it drags comes from the hierarchy.
+- **Clicking in the viewport does not select.** ⚠ Not for want of a texture command any more — the
+  draw list has one, and `Viewport` draws a `RenderTarget` through it. What picking needs is the
+  *id* target and the readback: `PickingBuffer` and `PickingRenderer` in `Vixen.Editor.SceneView` are
+  the pieces, and nothing in this application drives them. The gizmo can be dragged meanwhile, and
+  what it drags comes from the hierarchy.
 - **It redraws every frame.** Redrawing only on change is the right end state and is not free — every
   animation, toast expiry and task progress has to say so, and one that forgets leaves a progress bar
   frozen at forty per cent.

@@ -20,7 +20,7 @@ import Vixen.Shaders.Material
 // this file, and the honest place to state it is here where the truncation happens.
 //
 // Writing three targets is what the pass could not say before multiple render targets landed: an entry
-// point returns one value, so the pixel stage returns `GBufferTargets` and the entry-point wrapper takes
+// point returns one value, so the fragment stage returns `GBufferTargets` and the entry-point wrapper takes
 // it apart, one member per target, in declaration order. See docs/plan/07 § The three interface shapes.
 
 shader GBufferPass {
@@ -92,8 +92,8 @@ shader GBufferPass {
     /// No `[Semantic]` on the entry point, and that is not an omission: with more than one output the
     /// target index comes from the member's position in `GBufferTargets`, so a declared semantic could
     /// only disagree with the location the plan assigns. One member, one target, in order.
-    [PixelShader]
-    func Pixel(): GBufferTargets {
+    [FragmentShader]
+    func Fragment(): GBufferTargets {
         var d: MaterialData
         MaterialDefaults.Begin(d, normalWS, tangentWS)
         surface.Compute(d)

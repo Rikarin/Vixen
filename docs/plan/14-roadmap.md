@@ -2778,13 +2778,35 @@ never been driven against a running window.
 
   Every GL call goes through `IGlApi`, so the translation — which is the part ADR-001 wants validated
   and the part that can actually be wrong — is exercised against a recording fake on every build
-  rather than only on a CI leg with a driver. Ninety-two tests. `SilkGlApi` is the one file the suite
-  does not touch, and there is nothing in it but transcription.
+  rather than only on a CI leg with a driver. A hundred and thirty-one tests. `SilkGlApi`,
+  `SilkGlesApi` and `NativeEglApi` are the files the suite does not touch, and there is nothing in
+  them but transcription.
 
-  ⚠ Still to come: `Silk.NET.OpenGLES` and an EGL context, which is what the GLES profiles need to
-  run rather than merely to be modelled — one class implementing `IGlApi` and no change above it. And
-  `glBindImageTexture` for storage images, which every compute path that would use one already has a
-  fullscreen-fragment variant for.
+  ✅ **The GLES profiles run rather than merely being modelled.** `Silk.NET.OpenGLES` is the second
+  binding — libGL and libGLESv2 are different libraries with different entry-point tables — and
+  `EglContext` is the context, because there is no `Silk.NET.EGL` for Silk.NET 2 to use: that package
+  stops at 1.9.0 and Silk.NET 2 reaches EGL through GLFW or SDL. So nineteen entry points are loaded
+  out of the platform's `libEGL` through `Vixen.Platform.Native`, exactly as the Vulkan loader loads
+  Vulkan's.
+
+  Nothing above `IGlApi` changed to accommodate it, which was the claim. What did change is one line
+  in `GlDevice` that the seam could not have caught: `GL_FRAMEBUFFER_SRGB` is desktop-only and
+  enabling it on GLES is `GL_INVALID_ENUM`, so it is now gated on
+  `GlProfiles.HasFramebufferSrgbControl`. Its absence costs nothing — GLES encodes for an attachment
+  whose format is sRGB and does not for any other, which is what the RHI means by a format; desktop
+  GL's global switch is the odd one out.
+
+  The bring-up sequence is tested the way the translation is: `EglContext` talks to `IEglApi` and the
+  suite drives a recorder, so the version ladder (3.2, then 3.0), the attribute lists, the
+  proc-address resolution order and the unwinding of a half-built context are all checked on a
+  machine with no EGL on it. Two decisions inside the binding are worth naming because they are
+  translation rather than transcription: a readback is `glMapBufferRange` plus a copy, since GLES has
+  no `glGetBufferSubData` at any version, and a multi-draw is a loop over `glDrawElementsIndirect`,
+  since GLES has no multi-draw at any version either.
+
+  ⚠ Still to come: `glBindImageTexture` for storage images, which every compute path that would use
+  one already has a fullscreen-fragment variant for. And a device to run any of it on — the context
+  comes up against a recorder, and no app head in this repository creates one yet.
 - ✅ **`docs/rhi-backend-mapping.md`** — every RHI concept against Vulkan, D3D12, GL, GLES/WebGL2,
   WebGPU and Metal, with the findings from building the GL backend and a list of what the table has
   already changed. Reviewed whenever the RHI's surface changes; that is the whole obligation.

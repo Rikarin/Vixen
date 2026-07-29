@@ -653,7 +653,7 @@ public static class SemanticDiagnostics {
     /// </summary>
     /// <remarks>
     ///     The RVN2091 policy: legal syntax that changes nothing, so it is named rather than
-    ///     ignored. Only a compute dispatch has a workgroup — a vertex or pixel stage's invocation
+    ///     ignored. Only a compute dispatch has a workgroup — a vertex or fragment stage's invocation
     ///     count is the draw's, not the shader's.
     /// </remarks>
     public static readonly DiagnosticDescriptor WorkgroupSizeOnGraphicsStage = new(

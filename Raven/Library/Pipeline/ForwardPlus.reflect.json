@@ -8,7 +8,7 @@
           "Name": "ForwardPlusPerFrameUniforms",
           "Type": "UniformBuffer",
           "Count": 1,
-          "Stages": "Vertex, Pixel",
+          "Stages": "Vertex, Fragment",
           "Members": [
             {
               "Name": "lightDirection",
@@ -521,7 +521,7 @@
           "Name": "shadowMap",
           "Type": "SampledTexture",
           "Count": 1,
-          "Stages": "Vertex, Pixel",
+          "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
           "IsWritable": false
@@ -531,7 +531,7 @@
           "Name": "environment",
           "Type": "SampledTexture",
           "Count": 1,
-          "Stages": "Vertex, Pixel",
+          "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
           "IsWritable": false
@@ -541,7 +541,7 @@
           "Name": "probes",
           "Type": "SampledTexture",
           "Count": 4,
-          "Stages": "Vertex, Pixel",
+          "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
           "IsWritable": false
@@ -551,7 +551,7 @@
           "Name": "shadowSampler",
           "Type": "Sampler",
           "Count": 1,
-          "Stages": "Vertex, Pixel",
+          "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
           "IsWritable": false
@@ -561,7 +561,7 @@
           "Name": "environmentSampler",
           "Type": "Sampler",
           "Count": 1,
-          "Stages": "Vertex, Pixel",
+          "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
           "IsWritable": false
@@ -571,7 +571,7 @@
           "Name": "probeSampler",
           "Type": "Sampler",
           "Count": 1,
-          "Stages": "Vertex, Pixel",
+          "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
           "IsWritable": false
@@ -581,7 +581,7 @@
           "Name": "lightBuffer",
           "Type": "StorageBuffer",
           "Count": 0,
-          "Stages": "Vertex, Pixel",
+          "Stages": "Vertex, Fragment",
           "Members": [
             {
               "Name": "lightBuffer",
@@ -785,7 +785,7 @@
           "Name": "clusters",
           "Type": "StorageBuffer",
           "Count": 0,
-          "Stages": "Vertex, Pixel",
+          "Stages": "Vertex, Fragment",
           "Members": [
             {
               "Name": "clusters",
@@ -851,7 +851,7 @@
           "Name": "ForwardPlusPerViewUniforms",
           "Type": "UniformBuffer",
           "Count": 1,
-          "Stages": "Vertex, Pixel",
+          "Stages": "Vertex, Fragment",
           "Members": [
             {
               "Name": "viewProjection",
@@ -915,7 +915,7 @@
           "Name": "ForwardPlusPerMaterialUniforms",
           "Type": "UniformBuffer",
           "Count": 1,
-          "Stages": "Vertex, Pixel",
+          "Stages": "Vertex, Fragment",
           "Members": [
             {
               "Name": "CompositeSurface.MetalRoughnessSurface.baseColor",
@@ -979,7 +979,7 @@
           "Name": "ForwardPlusPerDrawUniforms",
           "Type": "UniformBuffer",
           "Count": 1,
-          "Stages": "Vertex, Pixel",
+          "Stages": "Vertex, Fragment",
           "Members": [
             {
               "Name": "lightCount",
@@ -1300,7 +1300,7 @@
       "Name": "ForwardPlusPushConstants",
       "Offset": 0,
       "Size": 64,
-      "Stages": "Vertex, Pixel",
+      "Stages": "Vertex, Fragment",
       "Members": [
         {
           "Name": "world",
@@ -2506,6 +2506,6 @@
   ],
   "Stages": [
     "Vertex",
-    "Pixel"
+    "Fragment"
   ]
 }

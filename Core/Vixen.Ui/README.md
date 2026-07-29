@@ -712,12 +712,16 @@ that replaces fails 1, a clip that is never popped fails 1, a box not parameteri
 fails 1, emitting empty draws fails 3, a dropped glyph that is silent fails 1, removing the resolve
 pass fails 2, and an `AtlasChanged` that never fires fails 3.
 
-**Owed:** paths. Filling one needs a tessellator and stroking one needs that plus a join and cap
-model, so they are skipped rather than approximated — and skipped visibly, since a batch with no
-indices produces no draw. Also owed: a wider index, because nothing is emitted past what a `ushort`
-can reach and a dense editor frame could pass sixteen thousand quads. Refusing is what is honest
-until then; running over is silent and looks like geometry from the top of the frame appearing in
-the middle of it.
+~~**Owed:** paths.~~ `PathFlattener` and `PathTessellator` are here — curves to contours at a
+tolerance the caller chooses, contours to triangles by a trapezoid sweep, filled or stroked, with an
+antialiasing fringe. See [Paths and custom drawing](#paths-and-custom-drawing) above.
+
+~~Also owed: a wider index.~~ `UiGeometry.Indices` is `uint`. It was `ushort`, and the builder
+refused to emit past 65 535 vertices rather than wrap — which was honest while the index was narrow
+and was not a fix, because a dense editor frame really can pass sixteen thousand quads and the
+symptom of dropping the rest is a frame missing its bottom half. Thirty-two bits not because a frame
+is expected to need them, but because the one that does wraps *silently*, drawing geometry from the
+top of the frame in the middle of it.
 
 Licensed under Apache-2.0.
 
@@ -757,10 +761,31 @@ The alternative was an anchor element, which is what the DOM frameworks use. Her
 be a real element in all three stores, and a real element is counted by `:nth-child`. Rows that
 stripe wrongly because of a hidden marker is a worse bug than this is complexity.
 
+### Scoped styles
+
+`scoped` on a component's `<style>` puts a class on every element the component built and welds the
+same class onto the end of every selector: `.row { … }` becomes `.row.v-1f2e { … }`. So a
+component's `.row` cannot reach a caller's `.row` that happens to be inside it, which is the whole
+content of the keyword.
+
+⚠ **Welded to the end, not prefixed to the front.** A descendant prefix — `.v-1f2e .row` — reads as
+the obvious implementation and is wrong twice: it misses the component's own root, which is the
+element a stylesheet most often wants, and it matches a caller's `.row` projected into a slot, which
+is exactly what scoping is for.
+
+⚠ **The scope is per type, and so is the stylesheet.** Every instance shares one class because they
+share one sheet; a per-instance scope would mean a rule set per row of a list, which is the cost that
+made loading it once per instance worth fixing in the first place. `ScopedStyles.ScopeOf` derives the
+class from the **full** type name, because two components called `Row` in different namespaces are
+two components.
+
+⚠ **Nothing inside `@keyframes` is touched.** Its blocks are keyed by `from`, `to` and percentages,
+which are not selectors — appending a class to `50%` produces a rule that parses and never matches,
+and the animation quietly loses its middle.
+
 ### Owed
 
-Named slot projection (`slot="footer"` on a child), `scoped` actually scoping, a component's
-stylesheet loaded once per type rather than per instance, and a
-longest-increasing-subsequence pass so a reorder moves a minimal set rather than every surviving
-item. The last one is correctness-neutral: a move that changes nothing returns immediately, so an
-unchanged list already costs a walk and nothing else.
+Named slot projection (`slot="footer"` on a child), and a longest-increasing-subsequence pass so a
+reorder moves a minimal set rather than every surviving item. The last one is correctness-neutral: a
+move that changes nothing returns immediately, so an unchanged list already costs a walk and nothing
+else.

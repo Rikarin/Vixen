@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
+using Vixen.Core;
 using Vixen.Core.Mathematics;
 
 namespace Vixen.Editor.NodeGraph;
@@ -131,6 +132,14 @@ public sealed class GraphComment {
 ///         <b>An input takes one edge.</b> Connecting a second replaces the first, because that is
 ///         what an author dragging a wire onto an occupied port means every time. An output takes any
 ///         number; a value read twice is read twice.
+///     </para>
+///     <para>
+///         ⚠ <b>Those three rules are not written here.</b> They are
+///         <see cref="GraphInvariants" />', and <c>Vixen.Ui.Controls.Advanced.NodeGraph</c> — the
+///         graph a canvas draws — calls the same three methods and gets the same
+///         <see cref="GraphConnectionError" /> values back. Two graph types is deliberate; two sets
+///         of rules was not, and a change to one of them now has nowhere to land but the shared
+///         place. What is still different is delivery: see <see cref="Connect" />.
 ///     </para>
 /// </remarks>
 public sealed class NodeGraphModel {
@@ -277,18 +286,14 @@ public sealed class NodeGraphModel {
 
         List<GraphEdge> removed = [];
 
-        for (var index = edges.Count - 1; index >= 0; index--) {
-            if (edges[index].From.Node == id || edges[index].To.Node == id) {
-                removed.Add(edges[index]);
-                edges.RemoveAt(index);
-            }
-        }
+        // The same cascade the canvas graph runs, for the same reason: an edge naming a node that is
+        // not there is one that would be saved and reloaded as a connection to nothing.
+        GraphInvariants.Detach(edges, static edge => edge.From.Node, static edge => edge.To.Node, id, removed);
 
         foreach (var group in Groups) {
             group.Nodes.Remove(id);
         }
 
-        removed.Reverse();
         detached = [.. removed];
 
         Changed?.Invoke(this);
@@ -304,72 +309,113 @@ public sealed class NodeGraphModel {
     ///     Either end names a node the graph does not have, both ends are the same node, or the edge
     ///     would close a cycle.
     /// </exception>
+    /// <remarks>
+    ///     ⚠ <b>It throws where the canvas graph returns null, and that is the only thing the two
+    ///     still do differently.</b> This one is called by commands, by a loader and by the sub-graph
+    ///     surgery — callers that computed both ends and have no branch for "it did not happen", so a
+    ///     refusal here means the caller is wrong and the exception is the report. The canvas graph is
+    ///     called at the end of a drag, where a pointer released over a port that cannot take the wire
+    ///     is an ordinary outcome and throwing would make every clumsy drop a crash. Use
+    ///     <see cref="TryConnect" /> to get the same answer without the difference.
+    /// </remarks>
     public GraphEdge? Connect(PortRef from, PortRef to) {
+        if (TryConnect(from, to, out var replaced, out var error)) {
+            return replaced;
+        }
+
+        throw new ArgumentException(
+            GraphInvariants.Describe(error, from, to),
+            error == GraphConnectionError.FromNotInGraph ? nameof(from) : nameof(to)
+        );
+    }
+
+    /// <summary>Connects an output to an input, and says why not when it will not.</summary>
+    /// <param name="from">The output.</param>
+    /// <param name="to">The input.</param>
+    /// <param name="replaced">The edge that was displaced, when the input already had one.</param>
+    /// <param name="error">Why it was refused, or <see cref="GraphConnectionError.None" />.</param>
+    /// <returns><see langword="true" /> if the edge was made.</returns>
+    /// <remarks>
+    ///     ⚠ <b><see cref="GraphConnectionError.WrongDirection" /> never comes back from here.</b> A
+    ///     <see cref="PortRef" /> is a node and a name; which side of the node it is on is a fact
+    ///     about a node <i>type</i>, and a document deliberately does not depend on a registry — so
+    ///     that a graph saved against a missing plugin still holds its wiring. The canvas graph, whose
+    ///     ports are objects that know their side, is what reports it, and
+    ///     <see cref="NodeGraphView" /> is what refuses a wire on grounds of port kind.
+    /// </remarks>
+    public bool TryConnect(PortRef from, PortRef to, out GraphEdge? replaced, out GraphConnectionError error) {
+        replaced = null;
+
         if (!nodes.ContainsKey(from.Node)) {
-            throw new ArgumentException($"{from.Node} is not in this graph.", nameof(from));
+            error = GraphConnectionError.FromNotInGraph;
+
+            return false;
         }
 
         if (!nodes.ContainsKey(to.Node)) {
-            throw new ArgumentException($"{to.Node} is not in this graph.", nameof(to));
+            error = GraphConnectionError.ToNotInGraph;
+
+            return false;
         }
 
         if (from.Node == to.Node) {
-            throw new ArgumentException("A node cannot be connected to itself.", nameof(to));
+            error = GraphConnectionError.SameNode;
+
+            return false;
         }
 
-        if (Reaches(to.Node, from.Node)) {
-            throw new ArgumentException(
-                $"Connecting {from} to {to} would close a cycle: {to.Node} already feeds {from.Node}.",
-                nameof(to)
-            );
+        if (GraphInvariants.Reaches(
+                edges,
+                static edge => edge.From.Node,
+                static edge => edge.To.Node,
+                to.Node,
+                from.Node
+            )) {
+            error = GraphConnectionError.Cycle;
+
+            return false;
         }
 
-        GraphEdge? replaced = null;
+        var displaced = GraphInvariants.Arriving(edges, static edge => edge.To, to);
 
-        for (var index = 0; index < edges.Count; index++) {
-            if (edges[index].To == to) {
-                replaced = edges[index];
-                edges.RemoveAt(index);
-
-                break;
-            }
+        if (displaced >= 0) {
+            replaced = edges[displaced];
+            edges.RemoveAt(displaced);
         }
 
         edges.Add(new(from, to));
+
+        error = GraphConnectionError.None;
         Changed?.Invoke(this);
 
-        return replaced;
+        return true;
     }
 
     /// <summary>Disconnects whatever arrives at an input.</summary>
     /// <param name="to">The input.</param>
     /// <returns>The edge that was removed, or null when there was none.</returns>
     public GraphEdge? Disconnect(PortRef to) {
-        for (var index = 0; index < edges.Count; index++) {
-            if (edges[index].To == to) {
-                var edge = edges[index];
+        var index = GraphInvariants.Arriving(edges, static edge => edge.To, to);
 
-                edges.RemoveAt(index);
-                Changed?.Invoke(this);
-
-                return edge;
-            }
+        if (index < 0) {
+            return null;
         }
 
-        return null;
+        var edge = edges[index];
+
+        edges.RemoveAt(index);
+        Changed?.Invoke(this);
+
+        return edge;
     }
 
     /// <summary>What arrives at an input, if anything.</summary>
     /// <param name="to">The input.</param>
     /// <returns>The output feeding it, or null.</returns>
     public PortRef? Source(PortRef to) {
-        foreach (var edge in edges) {
-            if (edge.To == to) {
-                return edge.From;
-            }
-        }
+        var index = GraphInvariants.Arriving(edges, static edge => edge.To, to);
 
-        return null;
+        return index >= 0 ? edges[index].From : null;
     }
 
     /// <summary>
@@ -422,33 +468,5 @@ public sealed class NodeGraphModel {
         }
 
         return order;
-    }
-
-    /// <summary>Whether one node feeds another, directly or through any number of others.</summary>
-    bool Reaches(NodeId from, NodeId to) {
-        if (from == to) {
-            return true;
-        }
-
-        Queue<NodeId> pending = new([from]);
-        HashSet<NodeId> seen = [from];
-
-        while (pending.Count > 0) {
-            var current = pending.Dequeue();
-
-            foreach (var edge in edges) {
-                if (edge.From.Node != current || !seen.Add(edge.To.Node)) {
-                    continue;
-                }
-
-                if (edge.To.Node == to) {
-                    return true;
-                }
-
-                pending.Enqueue(edge.To.Node);
-            }
-        }
-
-        return false;
     }
 }

@@ -205,8 +205,8 @@ public class IrVerifierTests {
                     return world * float4(position, 1)
                 }
 
-                [PixelShader]
-                func Pixel(normal: float3, uv: float2): float4 {
+                [FragmentShader]
+                func Fragment(normal: float3, uv: float2): float4 {
                     val sampled = albedo.Sample(linear, uv)
                     return float4(sampled.rgb * Shade(normal), sampled.a)
                 }

@@ -116,13 +116,20 @@ public sealed class ViewportLayout : IDisposable {
         Rebuild();
     }
 
-    /// <summary>Brings every pane's render view up to date.</summary>
+    /// <summary>Advances every pane and brings its render view up to date.</summary>
+    /// <param name="delta">How long the last frame took.</param>
     /// <returns>The views to render this frame, in pane order.</returns>
-    public IReadOnlyList<RenderView> Update() {
+    /// <remarks>
+    ///     Every pane is advanced, not only the focused one — but only one of them is <i>flying</i>,
+    ///     because the keys reach the pane the focus is in and the others have no keys held. That is
+    ///     the same answer this type's remarks give for the keyboard generally, arrived at by the
+    ///     focus rather than by a check here.
+    /// </remarks>
+    public IReadOnlyList<RenderView> Update(TimeSpan delta) {
         List<RenderView> views = new(panes.Count);
 
         foreach (var pane in panes) {
-            pane.Update();
+            pane.Update(delta);
             views.Add(pane.View);
         }
 

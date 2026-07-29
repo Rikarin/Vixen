@@ -1532,7 +1532,7 @@ CompilationUnit
               Token(OpenBracketToken) "["
               Attribute
                 IdentifierName
-                  Token(IdentifierToken) "PixelShader"
+                  Token(IdentifierToken) "FragmentShader"
               Token(CloseBracketToken) "]"
             AttributeList
               Token(OpenBracketToken) "["
@@ -1661,7 +1661,7 @@ CompilationUnit
             Token(OpenBracketToken) "["
             Attribute
               IdentifierName
-                Token(IdentifierToken) "PixelShader"
+                Token(IdentifierToken) "FragmentShader"
             Token(CloseBracketToken) "]"
           Token(FuncKeyword) "func"
           Token(IdentifierToken) "PS"

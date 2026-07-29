@@ -51,7 +51,7 @@ public class StreamTests {
                                   return float4(position.x, position.y, position.z, 1f)
                               }
 
-                              [PixelShader]
+                              [FragmentShader]
                               func Shade(): float4 {
                                   val n = normalize(normalWS)
                                   return float4(n.x, n.y, uv.x, 1f)
@@ -87,9 +87,9 @@ public class StreamTests {
         Assert.Equal(["normalWS", "uv"], vertex.StreamOutputs.Select(s => s.Name));
         Assert.Empty(vertex.StreamInputs);
 
-        var pixel = Stage(module, ShaderStage.Pixel);
-        Assert.Equal(["normalWS", "uv"], pixel.StreamInputs.Select(s => s.Name));
-        Assert.Empty(pixel.StreamOutputs);
+        var fragment = Stage(module, ShaderStage.Fragment);
+        Assert.Equal(["normalWS", "uv"], fragment.StreamInputs.Select(s => s.Name));
+        Assert.Empty(fragment.StreamOutputs);
     }
 
     /// <summary>
@@ -193,7 +193,7 @@ public class StreamTests {
         var shader = LitOf(module);
 
         var vertex = GlslFor(module, ShaderStage.Vertex);
-        var pixel = GlslFor(module, ShaderStage.Pixel);
+        var fragment = GlslFor(module, ShaderStage.Fragment);
 
         foreach (var planned in StreamPlan.Of(shader)) {
             Assert.Contains(
@@ -204,7 +204,7 @@ public class StreamTests {
 
             Assert.Contains(
                 $"layout(location = {planned.Location}) in vec{Lanes(planned.Stream)} in_{planned.Stream.Name}",
-                pixel,
+                fragment,
                 StringComparison.Ordinal
             );
         }
@@ -277,10 +277,10 @@ public class StreamTests {
         var module = Lower(Source);
         var shader = LitOf(module);
 
-        Assert.Equal(0, StreamPlan.OutputBase(shader, ShaderStage.Pixel));
+        Assert.Equal(0, StreamPlan.OutputBase(shader, ShaderStage.Fragment));
         Assert.Contains(
             "layout(location = 0) out vec4 out_result",
-            GlslFor(module, ShaderStage.Pixel),
+            GlslFor(module, ShaderStage.Fragment),
             StringComparison.Ordinal
         );
     }
@@ -305,7 +305,7 @@ public class StreamTests {
         }
 
         var vertex = Assert.Single(generated, u => u.Stage == ShaderStage.Vertex).Code;
-        var pixel = Assert.Single(generated, u => u.Stage == ShaderStage.Pixel).Code;
+        var fragment = Assert.Single(generated, u => u.Stage == ShaderStage.Fragment).Code;
 
         // Matched by name, since the two modules number their ids independently.
         Assert.Contains(
@@ -315,8 +315,8 @@ public class StreamTests {
         );
 
         Assert.Contains(
-            $"OpDecorate {SpirvTestBase.IdNamed(pixel, "in_normalWS")} Location 0",
-            pixel,
+            $"OpDecorate {SpirvTestBase.IdNamed(fragment, "in_normalWS")} Location 0",
+            fragment,
             StringComparison.Ordinal
         );
     }
@@ -437,7 +437,7 @@ public class StreamTests {
             shader Lit {
                 stream var normalWS: float3
 
-                [PixelShader]
+                [FragmentShader]
                 func Shade(): float4 {
                     normalWS = float3(1f, 0f, 0f)
                     return float4(1f, 1f, 1f, 1f)

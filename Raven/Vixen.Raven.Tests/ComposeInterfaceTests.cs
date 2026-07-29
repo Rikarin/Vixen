@@ -52,9 +52,9 @@ public class ComposeInterfaceTests {
 
                               var baseColor: float3
 
-                              [PixelShader]
+                              [FragmentShader]
                               [Semantic("SV_Target")]
-                              func Pixel(): float4 {
+                              func Fragment(): float4 {
                                   return float4(diffuse.Diffuse(baseColor), 1f)
                               }
                           }
@@ -142,9 +142,9 @@ public class ComposeInterfaceTests {
 
                                     var tint: float3
 
-                                    [PixelShader]
+                                    [FragmentShader]
                                     [Semantic("SV_Target")]
-                                    func Pixel(): float4 {
+                                    func Fragment(): float4 {
                                         return float4(diffuse.Diffuse(tint), 1f)
                                     }
                                 }
@@ -206,9 +206,9 @@ public class ComposeInterfaceTests {
 
                                    var baseColor: float3
 
-                                   [PixelShader]
+                                   [FragmentShader]
                                    [Semantic("SV_Target")]
-                                   func Pixel(): float4 {
+                                   func Fragment(): float4 {
                                        return float4(diffuse.Diffuse(baseColor), 1f)
                                    }
                                }
@@ -259,9 +259,9 @@ public class ComposeInterfaceTests {
                               shader Lit {
                                   compose val diffuse: IDiffuse
 
-                                  [PixelShader]
+                                  [FragmentShader]
                                   [Semantic("SV_Target")]
-                                  func Pixel(): float4 {
+                                  func Fragment(): float4 {
                                       return float4(diffuse.Diffuse(float3(1f)), 1f)
                                   }
                               }
@@ -296,9 +296,9 @@ public class ComposeInterfaceTests {
                                  compose val a: IDiffuse
                                  compose val b: IDiffuse
 
-                                 [PixelShader]
+                                 [FragmentShader]
                                  [Semantic("SV_Target")]
-                                 func Pixel(): float4 {
+                                 func Fragment(): float4 {
                                      return float4(a.Diffuse(float3(1f)) + b.Diffuse(float3(2f)), 1f)
                                  }
                              }
@@ -330,9 +330,9 @@ public class ComposeInterfaceTests {
                                  var baseColor: float3
                                  var roughness: float
 
-                                 [PixelShader]
+                                 [FragmentShader]
                                  [Semantic("SV_Target")]
-                                 func Pixel(): float4 {
+                                 func Fragment(): float4 {
                                      return float4(baseColor, roughness)
                                  }
                              }

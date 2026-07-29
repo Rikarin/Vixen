@@ -106,6 +106,23 @@ public static class GlProfiles {
     /// <summary>Whether the profile has anisotropic sampling in core.</summary>
     public static bool HasAnisotropy(this GlProfile profile) => profile >= GlProfile.Core45;
 
+    /// <summary>Whether sRGB encoding on write can be switched on and off.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>GL_FRAMEBUFFER_SRGB</c> is desktop GL, and <c>EXT_sRGB_write_control</c> everywhere
+    ///         else — which means <c>glEnable</c> of it on a GLES or WebGL2 context is
+    ///         <c>GL_INVALID_ENUM</c> rather than a no-op.
+    ///     </para>
+    ///     <para>
+    ///         Its absence costs nothing, and it is worth saying why: without the switch, GLES
+    ///         encodes for any attachment whose format is sRGB and does not for any other, which is
+    ///         precisely what the RHI means by a format. The switch is the odd one out — a global
+    ///         that has to be turned on for desktop GL to honour a per-attachment property it already
+    ///         knows.
+    ///     </para>
+    /// </remarks>
+    public static bool HasFramebufferSrgbControl(this GlProfile profile) => profile >= GlProfile.Core45;
+
     /// <summary>Whether wireframe fill is available.</summary>
     /// <remarks><c>glPolygonMode</c> does not exist in GLES at any version.</remarks>
     public static bool HasWireframe(this GlProfile profile) => profile >= GlProfile.Core45;
