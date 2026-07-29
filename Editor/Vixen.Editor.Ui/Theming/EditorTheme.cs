@@ -62,86 +62,99 @@ public static class EditorTheme {
            light is the same relationships with the ramp inverted, so that toggling
            the theme changes the palette and not the layout.
 
+           ⚠ The greys are the middle of the range and not the bottom of it. A tool
+           window that goes to near-black has nowhere left to put a recess — every
+           field, every gutter and every gap is then the same colour, and the depth
+           the ramp is *for* collapses into one flat sheet. Sitting the working
+           surface at a mid grey leaves room below it for the wells and above it for
+           the things you press, which is what the reference does and why it reads as
+           material rather than as a dark theme.
+
+           ⚠ The hairline is DARKER than the surface it edges, which is the other
+           half of the same idea. A lighter border is a bevel and belongs on something
+           raised; a darker one is a seam, and a tool window is made of seams. The
+           gap between two panes is the same colour as the line around one, so a
+           split and an edge are the same fact drawn at two widths.
+
            ⚠ The shadows and radii are tokens too. They are the difference between
            "a panel" and "a panel that is on top of something", and a sheet that
            wrote them inline would make changing the whole editor's depth a
            forty-place edit. */
         root {
-            --workspace: #cfd3da;
-            --surface: #f7f8fa;
-            --surface-sunken: #e9ebf0;
-            --surface-raised: #ffffff;
-            --surface-hover: #eef0f4;
-            --border: #ccd1d9;
-            --border-active: #9fbaf3;
-            --text: #14161a;
-            --text-muted: #646b77;
-            --accent: #2f6df0;
+            --workspace: #b4b7bc;
+            --surface: #e4e6ea;
+            --surface-sunken: #d3d6db;
+            --surface-raised: #f2f3f6;
+            --surface-hover: #ecedf1;
+            --border: #a9adb4;
+            --border-active: #5f8ddb;
+            --text: #1b1d21;
+            --text-muted: #5c616b;
+            --accent: #2f6ecd;
             --accent-text: #ffffff;
-            --accent-soft: #d8e3fd;
-            --accent-deep: #2b60d4;
-            --danger: #d93a34;
+            --accent-soft: #c6d8f5;
+            --accent-deep: #35659f;
+            --danger: #c8352f;
 
-            --track-color: #d7dae1;
-            --fill-color: #2f6df0;
-            --thumb-color: #9ba2ae;
+            --track-color: #c3c6cc;
+            --fill-color: #2f6ecd;
+            --thumb-color: #8d919a;
             --selection-color: #bcd3fb;
-            --caret-color: #2f6df0;
+            --caret-color: #2f6ecd;
 
-            --chrome: #e6e8ed;
-            --chrome-sunken: #d5d8de;
-            --chrome-text: #4a515c;
-            --warning: #a86a00;
+            --chrome: #d0d2d7;
+            --chrome-sunken: #c4c6cc;
+            --chrome-text: #43474f;
+            --warning: #9a6200;
 
-            --radius-panel: 10px;
-            --radius-control: 7px;
-            --radius-row: 6px;
-            --elevation: 0px 12px 32px rgba(16, 20, 28, 0.18);
-            --card: 0px 1px 3px rgba(16, 20, 28, 0.10);
-            --status-height: 26px;
+            --radius-panel: 5px;
+            --radius-control: 4px;
+            --radius-row: 4px;
+            --elevation: 0px 10px 26px rgba(12, 14, 18, 0.22);
+            --status-height: 24px;
         }
 
         root.dark {
-            --workspace: #08090b;
-            --surface: #191c20;
-            --surface-sunken: #0f1114;
-            --surface-raised: #23272d;
-            --surface-hover: #282c33;
-            --border: #2c3138;
-            --border-active: #35507f;
-            --text: #e9ecf1;
-            --text-muted: #868d99;
-            --accent: #4d8dff;
-            --accent-text: #06090f;
-            --accent-soft: #1c2c4d;
-            --accent-deep: #2f62c4;
-            --danger: #ff5f57;
+            --workspace: #1b1b1d;
+            --surface: #313134;
+            --surface-sunken: #262628;
+            --surface-raised: #3e3e42;
+            --surface-hover: #48484d;
+            --border: #1e1e20;
+            --border-active: #4f7dbe;
+            --text: #dcdcde;
+            --text-muted: #97979c;
+            --accent: #3f7fd8;
+            --accent-text: #ffffff;
+            --accent-soft: #33507a;
+            --accent-deep: #35659f;
+            --danger: #e5544c;
 
-            --track-color: #23262b;
-            --fill-color: #4d8dff;
-            --thumb-color: #3d434c;
-            --selection-color: #24406e;
-            --caret-color: #4d8dff;
+            --track-color: #232326;
+            --fill-color: #3f7fd8;
+            --thumb-color: #5a5a60;
+            --selection-color: #2f5a94;
+            --caret-color: #6fa4ee;
 
-            --chrome: #08090b;
-            --chrome-sunken: #08090b;
-            --chrome-text: #99a1ad;
-            --warning: #ffb454;
+            --chrome: #2a2a2c;
+            --chrome-sunken: #232325;
+            --chrome-text: #a8a8ad;
+            --warning: #d99a3c;
 
-            --elevation: 0px 14px 36px rgba(0, 0, 0, 0.6);
-            --card: 0px 1px 3px rgba(0, 0, 0, 0.45);
+            --elevation: 0px 10px 26px rgba(0, 0, 0, 0.5);
         }
 
         /* ── Shell ──────────────────────────────────────────────────────────────
-           ⚠ The whole shell is the desk colour and the panels are what is on it. So
-           the menu bar and the toolbar declare no background of their own and no
-           dividing line: what separates them from the workspace is that the
-           workspace has cards in it and they do not. A toolbar with its own fill and
-           its own rule under it is two more edges to look at for no information. */
+           ⚠ Three greys down the window, not one. The transport strip at the top is
+           its own shade, the panes below are the working surface, and what shows
+           between the panes is the seam colour — which is the darkest of the three
+           and is never a surface anything sits on. An editor that painted the whole
+           frame one colour has to draw a line every time two things meet; this one
+           only has to leave a gap. */
         editor-shell {
             flex-direction: column;
             flex-grow: 1;
-            background-color: var(--workspace);
+            background-color: var(--chrome);
         }
 
         editor-shell > menu-bar {
@@ -223,33 +236,36 @@ public static class EditorTheme {
         status-bar progress-bar { width: 110px; }
         status-bar button { padding: 2px 8px; font-size: 1em; }
 
-        /* ── The desk, and the cards on it ──────────────────────────────────────
-           ⚠ The panels are separated by their own margins, not by the splitter. A
-           splitter drawn as a grey bar is a piece of furniture between two documents;
-           an empty gap with an invisible splitter *in* it reads as space, drags
-           exactly the same, and lights up only while it is being used. That gap plus
-           a corner radius is what makes a panel look like a surface rather than a
-           region of the window. */
+        /* ── Panes and seams ────────────────────────────────────────────────────
+           ⚠ The panes are separated by a seam, not spaced out on a desk. A one-pixel
+           margin against the workspace colour is exactly the dark line a tool window
+           divides itself with — and it is drawn by leaving a gap rather than by
+           stroking an edge, so a split and a border are the same fact at two widths
+           and can never disagree about their colour.
+
+           The radius is small on purpose. A pane is a region of the window with work
+           in it, not a card that arrived from somewhere; rounding it like one throws
+           away four pixels of every corner of every panel and makes a dense tool
+           read as a settings screen. */
         docking-host, dock-surface { background-color: var(--workspace); }
 
         dock-group {
-            margin: 3px;
+            margin: 1px;
             border-width: 1px;
             border-color: var(--border);
             border-radius: var(--radius-panel);
             background-color: var(--surface);
-            box-shadow: var(--card);
         }
 
-        /* ⚠ The focused panel says so on its own edge. A dozen identical cards and a
+        /* ⚠ The focused panel says so on its own edge. A dozen identical panes and a
            keyboard that goes to one of them is an editor where Delete is a guess —
            and a tinted hairline is the cheapest possible way to answer "which one",
            costing no layout and no second element. */
         dock-group:focus-within { border-color: var(--border-active); }
 
-        dock-splitter { background-color: transparent; border-radius: 2px; }
-        dock-split.horizontal > dock-splitter { width: 4px; }
-        dock-split.vertical > dock-splitter { height: 4px; }
+        dock-splitter { background-color: transparent; }
+        dock-split.horizontal > dock-splitter { width: 3px; }
+        dock-split.vertical > dock-splitter { height: 3px; }
         dock-splitter:hover { background-color: var(--accent); }
 
         /* Tabs are pills on the panel's own surface: no strip fill, no rule beneath,
@@ -258,14 +274,14 @@ public static class EditorTheme {
            saying where the panel already is. */
         dock-tabstrip {
             flex-shrink: 0;
-            gap: 2px;
-            padding: 4px 4px 2px 4px;
+            gap: 1px;
+            padding: 3px 3px 1px 3px;
             border-width: 0px;
             background-color: transparent;
         }
 
         dock-tab {
-            padding: 4px 10px;
+            padding: 3px 9px;
             border-radius: var(--radius-row);
             background-color: transparent;
             color: var(--text-muted);
@@ -282,10 +298,10 @@ public static class EditorTheme {
            without counting borders. */
         dock-group:focus-within dock-tab:checked { color: var(--accent); }
 
-        dock-panel { padding: 4px; }
+        dock-panel { padding: 3px; }
 
         dock-float {
-            border-radius: var(--radius-panel);
+            border-radius: var(--radius-control);
             border-color: var(--border);
             background-color: var(--surface);
             box-shadow: var(--elevation);
@@ -299,8 +315,8 @@ public static class EditorTheme {
            and having each of them invent its own is how a menu ends up looking
            nearer than the dialog it was opened from. */
         popover, menu, context-menu {
-            padding: 5px;
-            border-radius: 12px;
+            padding: 4px;
+            border-radius: 7px;
             border-color: var(--border);
             background-color: var(--surface-raised);
             box-shadow: var(--elevation);
@@ -323,12 +339,12 @@ public static class EditorTheme {
             color: var(--accent-text);
         }
 
-        dialog-surface { border-radius: 14px; box-shadow: var(--elevation); }
+        dialog-surface { border-radius: 8px; box-shadow: var(--elevation); }
         dialog-header, dialog-footer { border-color: var(--border); }
         drawer-surface { box-shadow: var(--elevation); }
 
         toast {
-            border-radius: 12px;
+            border-radius: 7px;
             background-color: var(--surface-raised);
             box-shadow: var(--elevation);
         }
@@ -398,7 +414,7 @@ public static class EditorTheme {
         }
 
         checkbox box, radio box { border-color: var(--border); background-color: var(--surface-sunken); }
-        checkbox box { border-radius: 5px; }
+        checkbox box { border-radius: 3px; }
         switch track { background-color: var(--track-color); }
 
         slider, range-slider { height: 18px; }
@@ -426,10 +442,10 @@ public static class EditorTheme {
            sunken track and the selected tab is the raised thing sitting in it. */
         tab-strip {
             align-self: flex-start;
-            gap: 2px;
-            padding: 3px;
+            gap: 1px;
+            padding: 2px;
             border-width: 0px;
-            border-radius: 9px;
+            border-radius: 6px;
             background-color: var(--surface-sunken);
         }
 
@@ -444,7 +460,7 @@ public static class EditorTheme {
 
         expander { border-color: var(--border); }
         expander-header { padding: 7px 4px; }
-        card { border-radius: var(--radius-panel); border-color: var(--border); }
+        card { border-radius: var(--radius-control); border-color: var(--border); }
         badge, kbd { border-radius: var(--radius-row); }
 
         /* ── Lists ──────────────────────────────────────────────────────────────
@@ -490,7 +506,7 @@ public static class EditorTheme {
         empty-state { padding: 24px; }
         /* The shape only. What is inside is a render target the control paints itself,
            and a background under it would be a colour nobody ever sees. */
-        viewport { border-radius: 7px; overflow: hidden; }
+        viewport { border-radius: var(--radius-row); overflow: hidden; }
 
         /* ── Background tasks ───────────────────────────────────────────────────
            Never a modal dialog — doc 11 is explicit — so this is a panel that
@@ -535,7 +551,7 @@ public static class EditorTheme {
             gap: 6px;
             border-width: 1px;
             border-color: var(--border);
-            border-radius: 14px;
+            border-radius: 8px;
             background-color: var(--surface-raised);
             box-shadow: var(--elevation);
         }
@@ -550,9 +566,9 @@ public static class EditorTheme {
             flex-direction: row;
             align-items: center;
             gap: 8px;
-            padding: 7px 10px;
+            padding: 6px 9px;
             border-width: 0px;
-            border-radius: 8px;
+            border-radius: var(--radius-row);
             background-color: transparent;
             color: var(--text);
         }
