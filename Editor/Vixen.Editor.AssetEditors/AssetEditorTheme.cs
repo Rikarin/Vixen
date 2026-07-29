@@ -43,7 +43,7 @@ public static class AssetEditorTheme {
     const string Sheet = """
         /* ── Shared ─────────────────────────────────────────────────────────── */
         import-settings, texture-editor, sprite-editor, model-editor, material-editor,
-        code-editor-pane, group-editor, compositor-editor, prefab-editor {
+        code-editor-pane, group-editor, compositor-editor, shadergraph-editor, prefab-editor {
             flex-direction: column;
             flex-grow: 1;
             gap: 8px;
@@ -288,6 +288,29 @@ public static class AssetEditorTheme {
         lane-name { color: var(--text-muted); font-size: 11px; width: 10px; flex-shrink: 0; }
         node-inspector fact-value { flex-direction: row; align-items: center; gap: 4px; }
         node-inspector fact-value > numeric-input { flex-grow: 1; flex-basis: 0px; min-width: 0; }
+
+        /* ── The shader graph editor ────────────────────────────────────────
+           Three columns, and the middle one is usually not there: a graph is what is being looked
+           at, the generated Raven is what is being checked, and the fields are a fixed strip. The
+           pane keeps a width rather than growing, so showing it narrows the canvas by a predictable
+           amount instead of halving it. */
+        shadergraph-editor { flex-direction: row; gap: 6px; }
+        shadergraph-editor > node-graph { flex-grow: 1; min-width: 0; }
+
+        shadergraph-source {
+            flex-direction: column;
+            width: 420px;
+            flex-shrink: 0;
+            overflow: hidden;
+            background-color: var(--surface-sunken);
+            border-radius: var(--radius-panel, 5px);
+        }
+
+        shadergraph-source > code-editor { flex-grow: 1; min-height: 0; }
+
+        shadergraph-side { flex-direction: column; width: 300px; flex-shrink: 0; gap: 6px; overflow-y: auto; }
+        shadergraph-transport { flex-direction: row; align-items: center; gap: 4px; flex-shrink: 0; }
+        shadergraph-property { flex-direction: column; gap: 2px; flex-shrink: 0; }
 
         /* ── The VFX editor ─────────────────────────────────────────────────
            The canvas takes the width and the effect takes a fixed column, which is the way round a

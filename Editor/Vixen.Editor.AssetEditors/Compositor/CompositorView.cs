@@ -99,6 +99,22 @@ public sealed class CompositorView : Control {
         Report(compositor);
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>A closed panel has to let go of the document</b>, for the reason
+    ///     <c>VfxGraphView.OnRemoved</c> states: a factory runs again on every reopen, and a view
+    ///     still subscribed to a document it has left is one whose <see cref="Report" /> writes into
+    ///     elements that are no longer in the tree.
+    /// </remarks>
+    protected override void OnRemoved() {
+        base.OnRemoved();
+
+        if (document is { } compositor) {
+            compositor.Compiled -= Report;
+            document = null;
+        }
+    }
+
     /// <summary>Compiles the graph and lists what it said.</summary>
     /// <returns>The number of complaints.</returns>
     public int Compile() {

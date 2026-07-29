@@ -86,34 +86,48 @@ public sealed partial class ConstantNode : ShaderNode {
 
 /// <summary>A material property: a colour the material sets rather than the graph.</summary>
 [Node("Input/Colour Property", Summary = "A colour the material supplies.")]
-public sealed partial class ColourPropertyNode : ShaderNode {
+public sealed partial class ColourPropertyNode : ShaderNode, IShaderPropertyNode {
     /// <summary>The colour.</summary>
     [Output(Name = "Colour")]
     public Float4 Colour;
 
-    /// <summary>What the property is called. Set on the node, not wired.</summary>
+    /// <inheritdoc />
+    public string PropertyType => "float4";
+
+    /// <inheritdoc />
+    public string DefaultProperty => "tint";
+
+    /// <summary>What the property is called. Authored on the node, not wired.</summary>
     /// <remarks>
-    ///     A field rather than a port because it is not a value that flows: it names a binding, and a
-    ///     name arriving down a wire would be a name that changed per fragment.
+    ///     Not a port because it is not a value that flows: it names a binding, and a name arriving
+    ///     down a wire would be a name that changed per fragment. It is a graph <i>text</i> rather
+    ///     than a C# field for <see cref="IShaderPropertyNode" />'s reason — a field would make every
+    ///     colour property in every graph the same one.
     /// </remarks>
-    public string Property { get; set; } = "tint";
+    public string PropertyName => ShaderProperties.NameOf(this, DefaultProperty);
 
     /// <inheritdoc />
     protected internal override void Emit(RavenEmitter emitter) =>
-        emitter.Assign(Colour.Expression, emitter.Uniform(Property, "float4"));
+        emitter.Assign(Colour.Expression, emitter.Uniform(PropertyName, "float4"));
 }
 
 /// <summary>A material property: a number the material sets.</summary>
 [Node("Input/Float Property", Summary = "A number the material supplies.")]
-public sealed partial class FloatPropertyNode : ShaderNode {
+public sealed partial class FloatPropertyNode : ShaderNode, IShaderPropertyNode {
     /// <summary>The value.</summary>
     [Output(Name = "Out")]
     public Scalar Out;
 
-    /// <summary>What the property is called.</summary>
-    public string Property { get; set; } = "value";
+    /// <inheritdoc />
+    public string PropertyType => "float";
+
+    /// <inheritdoc />
+    public string DefaultProperty => "value";
+
+    /// <inheritdoc cref="ColourPropertyNode.PropertyName" />
+    public string PropertyName => ShaderProperties.NameOf(this, DefaultProperty);
 
     /// <inheritdoc />
     protected internal override void Emit(RavenEmitter emitter) =>
-        emitter.Assign(Out.Expression, emitter.Uniform(Property, "float"));
+        emitter.Assign(Out.Expression, emitter.Uniform(PropertyName, "float"));
 }
