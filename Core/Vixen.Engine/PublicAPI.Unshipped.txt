@@ -678,6 +678,7 @@ static Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Default.get -> Vixen.Engin
 static Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Fade(Vixen.Core.Mathematics.Color4 colour, float alpha) -> Vixen.Core.Mathematics.Color4
 static Vixen.Engine.Scenes.Prefab.CaptureFrom(Vixen.Ecs.World world, Vixen.Core.Entity root, string name = "Prefab") -> Vixen.Engine.Scenes.Prefab
 static Vixen.Engine.Scenes.SceneComponentRegistry.Binders.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Engine.Scenes.ISceneComponentBinder>
+static Vixen.Engine.Scenes.SceneComponentRegistry.Declare<T>() -> void
 static Vixen.Engine.Scenes.SceneComponentRegistry.Register<T>() -> void
 static Vixen.Engine.Scenes.SceneComponentRegistry.Require(string alias) -> Vixen.Engine.Scenes.ISceneComponentBinder
 static Vixen.Engine.Scenes.SceneComponentRegistry.TryGet(System.Type type, out Vixen.Engine.Scenes.ISceneComponentBinder? binder) -> bool

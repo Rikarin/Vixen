@@ -6,6 +6,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 
 namespace Vixen.Editor.SceneView;
 
@@ -111,7 +112,7 @@ public sealed class SceneProbe : ISceneProbe {
         var found = false;
 
         foreach (var entity in document.Entities) {
-            if (!Eligible(entity, ignore) || !MeshShapes.TryGet(world, entity, out var kind)) {
+            if (!Eligible(entity, ignore) || !PrimitiveShapes.TryGet(world, entity, out var kind)) {
                 continue;
             }
 
@@ -151,7 +152,7 @@ public sealed class SceneProbe : ISceneProbe {
         var found = false;
 
         foreach (var entity in document.Entities) {
-            if (!Eligible(entity, ignore) || !MeshShapes.TryGet(world, entity, out var kind)) {
+            if (!Eligible(entity, ignore) || !PrimitiveShapes.TryGet(world, entity, out var kind)) {
                 continue;
             }
 

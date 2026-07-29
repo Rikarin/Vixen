@@ -69,17 +69,49 @@ public class ViewportTests {
         Assert.Equal(ViewMode.Unlit, panes[1].Modes.Current);
     }
 
+    /// <summary>
+    ///     Maximise gives the Scene panel the whole window and gives the window back, splits and all.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The panel, not the pane count, and the difference is why this command did nothing at
+    ///     all.</b> It used to set the arrangement to Single and remember what it had been — so in a
+    ///     single-pane layout, which is the default and what nearly everyone is in, it asked the
+    ///     arrangement to become what it already was and the setter returned. The button was inert in
+    ///     exactly the case it is pressed.
+    /// </remarks>
     [Fact]
-    public void Maximise_goes_to_one_pane_and_comes_back_to_what_was_there() {
+    public void Maximise_gives_the_scene_the_window_and_gives_it_back() {
         using var fixture = EditorSession.Start();
 
         fixture.Open("scene");
-        fixture.Run("scene.panes-stacked");
+        fixture.Open("hierarchy");
         fixture.Frames(2);
 
-        Assert.Equal(2, fixture.Viewports.Count);
+        Assert.True(fixture.Shell.Workspace.IsOpen("hierarchy"));
 
         fixture.Run("scene.maximise");
+        fixture.Frames(2);
+
+        // Everything but the Scene tab has gone, and the pane count inside it is untouched.
+        Assert.True(fixture.Shell.Workspace.IsOpen("scene"));
+        Assert.False(fixture.Shell.Workspace.IsOpen("hierarchy"));
+
+        fixture.Run("scene.maximise");
+        fixture.Frames(2);
+
+        // ⚠ Back to what was there rather than to a preset. A maximise that returned by re-applying
+        // the default layout would silently throw away every splitter the user had dragged.
+        Assert.True(fixture.Shell.Workspace.IsOpen("scene"));
+        Assert.True(fixture.Shell.Workspace.IsOpen("hierarchy"));
+    }
+
+    /// <summary>And it does something in the single-pane layout, which is where it did nothing.</summary>
+    [Fact]
+    public void Maximise_works_in_the_layout_that_is_already_one_pane() {
+        using var fixture = EditorSession.Start();
+
+        fixture.Open("scene");
+        fixture.Open("inspector");
         fixture.Frames(2);
 
         Assert.Single(fixture.Viewports);
@@ -87,9 +119,7 @@ public class ViewportTests {
         fixture.Run("scene.maximise");
         fixture.Frames(2);
 
-        // ⚠ Back to Stacked rather than to a fixed arrangement. A toggle that came back to Quad would
-        // turn somebody's two-pane layout into four the first time they pressed it.
-        Assert.Equal(2, fixture.Viewports.Count);
+        Assert.False(fixture.Shell.Workspace.IsOpen("inspector"));
     }
 
     [Fact]

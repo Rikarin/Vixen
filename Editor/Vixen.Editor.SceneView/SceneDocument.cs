@@ -11,6 +11,7 @@ using Vixen.Engine.Cameras;
 using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 
 namespace Vixen.Editor.SceneView;
 
@@ -267,6 +268,41 @@ public sealed class SceneDocument : EditorDocument {
     /// </remarks>
     public bool TryGetId(Entity entity, out EntityId id) => ids.TryGetValue(entity, out id);
 
+    /// <summary>Renames an entity without recording anything.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <param name="name">What it should be called.</param>
+    /// <returns>Whether anything changed.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>For a caller that is <i>already</i> being recorded, and there is exactly one:
+    ///         a property setter the inspector is writing through.</b> The inspector wraps every
+    ///         write in a <c>SetMembersCommand</c>, so a setter that also called
+    ///         <see cref="Rename" /> put two entries on the stack for one edit — and the second was
+    ///         pushed from inside the first, which is where it stopped being merely untidy. Undoing
+    ///         the outer one runs the setter again, the setter asks the stack to execute during an
+    ///         undo, and the stack refuses: the entry comes off the history and the name does not
+    ///         change. That is precisely the shape of "Ctrl+Z removes the entry and the value stays".
+    ///     </para>
+    ///     <para>
+    ///         Everything a <i>person</i> reaches — the outliner's inline editor, F2, the context
+    ///         menu — goes through <see cref="Rename" /> and is one undo step, as it was.
+    ///     </para>
+    /// </remarks>
+    public bool SetName(Entity entity, string name) {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+
+        var current = NameOf(entity);
+
+        if (string.Equals(current, name, StringComparison.Ordinal)) {
+            return false;
+        }
+
+        Assign(entity, name);
+        Context.Touch(this);
+
+        return true;
+    }
+
     /// <summary>Renames an entity, undoably.</summary>
     /// <param name="entity">The entity.</param>
     /// <param name="name">What it should be called.</param>
@@ -348,10 +384,10 @@ public sealed class SceneDocument : EditorDocument {
     /// <remarks>
     ///     Named after the shape, which is what every editor does and what makes a hierarchy of
     ///     block-out geometry readable without clicking each row. Renaming it afterwards does not
-    ///     change what it is: the shape is <see cref="MeshShape" /> and the name is a label.
+    ///     change what it is: the shape is <see cref="PrimitiveShape" /> and the name is a label.
     /// </remarks>
     public Entity CreateShape(PrimitiveKind kind, LocalTransform local, Entity parent = default) =>
-        Create(MeshShapes.NameOf(kind), local, parent, entity => MeshShapes.Attach(World, entity, kind));
+        Create(PrimitiveShapes.NameOf(kind), local, parent, entity => PrimitiveShapes.Attach(World, entity, kind));
 
     /// <summary>Creates a light, undoably.</summary>
     /// <param name="kind">Which kind.</param>

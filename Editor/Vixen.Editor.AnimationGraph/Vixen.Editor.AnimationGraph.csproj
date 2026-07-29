@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.AnimationGraph</RootNamespace>
+        <Description>
+            The third graph doc 11 names: an authored animation state machine — layers, states,
+            motions and blend trees, transitions with their conditions, parameters and bone masks —
+            as a serialisable document, and the compiler that turns it into the AnimationStateMachine
+            and AnimationLayers Vixen.Animation runs.
+        </Description>
+        <PackageTags>editor;animation;state-machine;blend-tree;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The runtime, because the artefact *is* an AnimationStateMachine. There is no editor-side
+            model of a state machine to keep in step with the runtime's: the document compiles
+            straight to the thing that runs, which is the same bargain Vixen.Editor.VfxGraph makes.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Animation\Vixen.Animation.csproj" />
+
+        <!--
+            AssetId, so a motion can name the clip it plays without this assembly knowing what an
+            asset database is. Resolving one is the host's — see AnimationGraphCompiler's resolver.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+
+        <!--
+            ⚠ Not Vixen.Editor.NodeGraph, and doc 11's tree puts this assembly under it. A state
+            machine is not a dataflow graph: an edge carries "may become", several of them leave and
+            arrive at one state, and there is no value on any of them — so every rule that framework
+            is built around (one edge per input, ports typed by what flows, a topological order)
+            would have to be turned off. What is shared with the other two graphs is the *shape* of
+            the editor, not the model. See this project's README.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Editor.AnimationGraph.Tests" />
+    </ItemGroup>
+
+</Project>

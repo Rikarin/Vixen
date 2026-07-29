@@ -18,6 +18,7 @@ using Vixen.Engine.Cameras;
 using Vixen.Engine.Transforms;
 using Vixen.Input;
 using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -62,7 +63,16 @@ sealed partial class EditorApplication : IDisposable {
     readonly EditorUserStore store;
     readonly World world = new("Editor");
     readonly EditorProject project;
-    readonly SceneDocument scene;
+
+    /// <summary>The scene every command acts on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not readonly, because doc 20's multi-scene row makes it change.</b> Half the editor
+    ///     holds the active scene — the outliner, the gizmo, the inspector, the picker — so making
+    ///     one of several open scenes active is an assignment to the field they all already read,
+    ///     rather than an index every one of them would have to learn about. See
+    ///     <see cref="SetActiveScene" />.
+    /// </remarks>
+    SceneDocument scene;
 
     /// <summary>What the host can do that this cannot ask for itself: pickers, and a browser.</summary>
     readonly EditorServices services;
@@ -94,7 +104,7 @@ sealed partial class EditorApplication : IDisposable {
     ///     time the panel is reopened and this caches a mesh per shape kind — which is geometry that
     ///     never changes and would otherwise be rebuilt every time somebody closed the scene tab.
     /// </remarks>
-    readonly ScenePicker picker;
+    ScenePicker picker;
 
     /// <summary>What an asset field's button opens.</summary>
     AssetPicker assetPicker = null!;
@@ -149,7 +159,7 @@ sealed partial class EditorApplication : IDisposable {
     ///     Held here for <see cref="picker" />'s reason: it caches a mesh per shape kind, and a panel's
     ///     factory runs again every time the panel is reopened.
     /// </remarks>
-    readonly SceneProbe probe;
+    SceneProbe probe;
 
     InspectorView? inspector;
 
@@ -248,6 +258,9 @@ sealed partial class EditorApplication : IDisposable {
         // And the browser's two rules, which are this assembly's panel and nobody else's business.
         BrowserTheme.Install(Shell.Document);
 
+        // And E5's world-building panels', on the same terms.
+        WorldTheme.Install(Shell.Document);
+
         // A scratch project under the user's data directory, so a first run with no arguments opens
         // something real rather than refusing to start. `Open` tolerates a missing Assets directory
         // — see AssetDatabase.Scan — which is what makes a directory that does not exist yet fine.
@@ -312,18 +325,28 @@ sealed partial class EditorApplication : IDisposable {
         // entities are not in the level — see PrefabEditorFactory.
         editors = StandardEditors.CreateDefault(_ => world, _ => new World("Prefab"));
 
+        // ⚠ The scene the editor started with is the first entry of the multi-scene list rather
+        // than a special case beside it. Everything that walks the open scenes — the panel, Save All
+        // Scenes, the active-scene switch — would otherwise have to remember that one of them is not
+        // in the list, which is exactly the kind of exception that goes wrong once and quietly.
+        openScenes.Add(new(scene, scenePath) { Settings = WorldSettings.Load(scenePath) });
+        world0 = openScenes[0].Settings;
+
         if (editors.TryGetByName("Addressable Group", out var groups)
             && groups is AddressableGroupEditorFactory addressable) {
             // The real planner, run against a workspace of its own. `ProjectWorkspace` opens the four
             // stores that have to agree about which directory they are looking at, and it must not
             // share the editor's database — `Scan` clears and repopulates its dictionaries, which is
             // the race ContentTasks already documents.
-            addressable.Analyser = () => {
-                var workspace = new ProjectWorkspace(project.Paths);
+            addressable.Analyser = AnalyseContent;
+        }
 
-                workspace.Database.Scan();
-                return ContentPipeline.Analyse(workspace, _ => { });
-            };
+        // ⚠ A sequence drives the scene the editor has open, and which scene that is is this class's
+        // arbitration in the way every other panel's subject is — see `EditorWorlds`. A factory that
+        // reached for one would be a factory that knows what the editor has open.
+        if (editors.TryGetByName("Sequence", out var sequences)
+            && sequences is AssetEditors.Sequencing.SequenceEditorFactory sequencer) {
+            sequencer.Scene = () => scene;
         }
 
         thumbnails = new ThumbnailCache(project);
@@ -332,7 +355,17 @@ sealed partial class EditorApplication : IDisposable {
             // The panel's own rescan, so the browser shows what an import repaired rather than what
             // was there before it ran. Assigned rather than called by the tasks directly, because
             // the browser exists only while its panel is open.
-            Rescan = () => browser?.Rescan()
+            //
+            // The build panel goes with it: its scene picker is a view of the same database, so a
+            // scene that arrived in an import belongs in the list of what can be put in a build.
+            Rescan = () => {
+                browser?.Rescan();
+                RefreshBuildPanel();
+            },
+
+            // And its two buttons are greyed while anything is running, which is a fact about the
+            // task rather than about anything the panel did.
+            BusyChanged = RefreshBuildPanel
         };
 
         // ⚠ Before the panels, because the inspector's asset fields are built by drawers that have
@@ -351,6 +384,10 @@ sealed partial class EditorApplication : IDisposable {
         // preset naming a panel the workspace cannot build is a preset that comes back short.
         DiagnosticsPanels();
         SettingsPanels();
+        BuildPanels();
+
+        // And E5's four, for the same reason: the Sequencing preset names the scene list.
+        WorldPanels();
 
         Layouts();
         Commands();
@@ -397,6 +434,8 @@ sealed partial class EditorApplication : IDisposable {
         // ⚠ Recorded after the project has opened rather than before, so a root that turned out to
         // be unreadable is not offered as the first thing to try again next time.
         Recent.Record(project.Paths.Root, DateTime.UtcNow);
+
+        WarnIfNewerEngine();
 
         Shell.Status = ProductName;
 
@@ -557,12 +596,18 @@ sealed partial class EditorApplication : IDisposable {
         // and the rings are written from every thread the editor runs work on.
         DiagnosticsUpdate(delta);
 
+        // ⚠ And E5's two moving surfaces, pulled rather than self-driving. A VFX preview and a
+        // sequencer transport both advance with time, and a timer either of them started would
+        // outlive the panel it was drawn in — the rule every pulled surface in this editor follows.
+        AuthoringUpdate(delta);
+
         // ⚠ Polled, and it compares before it rebuilds. A command stack is signal-backed and nothing
         // in this loop flushes the reactive scheduler — the same trade the selections make — and the
         // panel is the one that would otherwise rewrite its whole list during a gizmo drag.
         historyView?.Tick();
 
         ResolveTransforms();
+        FollowHistory();
         Retitle();
 
         if (hierarchyStale) {
@@ -609,6 +654,61 @@ sealed partial class EditorApplication : IDisposable {
         if (layout.Panes.Any(static pane => pane.Gizmo.IsDragging)) {
             inspector?.Reload();
         }
+    }
+
+    /// <summary>How deep the stack the inspector is over was when its rows were last read.</summary>
+    /// <inheritdoc cref="FollowHistory" select="remarks" />
+    (CommandStack? Stack, int Depth) history = (null, -1);
+
+    /// <summary>Reads the inspector's editors back after an undo or a redo moved the model.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Without this Ctrl+Z is a lie in the one panel that shows the number it changed.</b>
+    ///         An undo puts the old value back in the world and takes the entry off the stack — the
+    ///         history panel notices, the viewport redraws, the title bar's asterisk moves — and the
+    ///         inspector goes on showing what was typed, because a row is read from its target when it
+    ///         is built and after an edit <i>it</i> made. Nothing tells it that somebody else wrote.
+    ///         The value reappears the next time the selection changes, which is what makes it look
+    ///         like the undo did not happen rather than like the panel is stale.
+    ///     </para>
+    ///     <para>
+    ///         <b><c>Reload</c> and not <c>Inspect</c>.</b> The rows and their handlers already exist
+    ///         and describe the same objects; rebuilding would take the focus out of whatever is
+    ///         being typed and collapse every expander. It is the same call a gizmo drag makes for
+    ///         the same reason.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Polled and compared, like everything else in this loop.</b> A command stack is
+    ///         signal-backed and nothing here flushes the reactive scheduler — the trade this class's
+    ///         own remarks describe — and the comparison is two fields, so a frame in which nothing
+    ///         was undone costs nothing. The stack is part of the key because the inspector follows
+    ///         whichever document's selection won, and switching to another document is not an undo.
+    ///     </para>
+    /// </remarks>
+    void FollowHistory() {
+        var stack = inspectingAssets ? project.GlobalStack : (inspected ?? scene).Stack;
+        var state = (stack, stack.Depth.Value);
+
+        if (state == history) {
+            return;
+        }
+
+        var moved = ReferenceEquals(history.Stack, stack);
+
+        history = state;
+
+        if (!moved) {
+            return;
+        }
+
+        inspector?.Reload();
+
+        // ⚠ And the component foldouts, which are not the inspector's rows and are the ones a
+        // numeric edit usually lands in. `SetComponentCommand` announces itself only when the *set*
+        // of components changed — a value edit deliberately says nothing, so that a slider drag does
+        // not rebuild the panel under the pointer — which left an undone intensity showing the
+        // number it had been undone from.
+        components?.Reload();
     }
 
     /// <summary>Brings every <c>WorldTransform</c> up to date with the local one behind it.</summary>
@@ -746,7 +846,7 @@ sealed partial class EditorApplication : IDisposable {
                 parent
             );
 
-            MeshShapes.Attach(world, entity, kind);
+            PrimitiveShapes.Attach(world, entity, kind);
         }
     }
 
@@ -907,16 +1007,12 @@ sealed partial class EditorApplication : IDisposable {
 
                 hierarchy.Moved += (_, node) => Dropped(node);
 
-                // ⚠ Double-click renames here and opens the asset in the project browser, and the
-                // two are right for the same reason: a row's own name is the thing you edit in an
-                // outliner, and a file is the thing you open in a browser. F2 does the same, through
-                // the same command, so the keyboard and the pointer cannot disagree.
-                hierarchy.Activated += (_, node) => {
-                    if (node.Tag is Entity entity) {
-                        scene.Selection.Set([entity]);
-                        Rename();
-                    }
-                };
+                // ⚠ Double-click renames, and it is the control's own gesture rather than three
+                // lines here. A row's name is the thing you edit in place, in this panel and in the
+                // content browser both — see `TreeView.RenameOnActivate`, which is where the two
+                // copies of it went. F2 still comes through `edit.rename`, so the keyboard and the
+                // pointer cannot disagree about what a rename is.
+                hierarchy.RenameOnActivate = true;
 
                 Contextualise(hierarchy, hierarchyMenu ??= HierarchyMenu());
                 hierarchyStale = true;
@@ -936,6 +1032,17 @@ sealed partial class EditorApplication : IDisposable {
                 browser.Moved += MoveAssets;
                 browser.DroppedOutside += DropIntoScene;
                 browser.Thumbnails = thumbnails;
+
+                // ⚠ Restored before the subscription, so putting the toggle back where the user
+                // left it is not itself recorded as the user having moved it — and written on
+                // change rather than on the way down, because closing the *panel* is one of the two
+                // ways the choice was being lost and nothing runs on that.
+                browser.IsGrid = preferences.ProjectGridView;
+
+                browser.ViewChanged += grid => {
+                    preferences.ProjectGridView = grid;
+                    WritePreferences();
+                };
 
                 Contextualise(browser.Tree, assetMenu ??= AssetMenu());
             }
@@ -992,6 +1099,17 @@ sealed partial class EditorApplication : IDisposable {
                 components = inspector.Scroll.Content.Add<ComponentsView>();
                 components.Attach(scene, bridges);
 
+                // ⚠ Restored before the subscription, so putting the foldouts back where the user
+                // left them is not itself recorded as a rearrangement. The order is a preference
+                // rather than anything about the entity — see `ComponentsView.Order` — which is why
+                // it lives in the preferences file and not in the scene.
+                components.Order = preferences.ComponentOrder;
+
+                components.Reordered += arranged => {
+                    preferences.ComponentOrder = [.. arranged];
+                    WritePreferences();
+                };
+
                 // ⚠ After it is in the tree, because the menu is a child of the document root and a
                 // control has no document until it is added to one.
                 inspector.Contextualise();
@@ -1033,6 +1151,13 @@ sealed partial class EditorApplication : IDisposable {
         );
     }
 
+    /// <summary>Opens an asset in whatever editor claims it, for a caller outside this class.</summary>
+    /// <remarks>
+    ///     The same path a double-click in the browser takes — see <see cref="Open(AssetId)" /> — and
+    ///     named so that a test can take it without pretending to be a pointer.
+    /// </remarks>
+    internal void OpenAsset(AssetId asset) => Open(asset);
+
     /// <summary>Opens an asset in whatever editor claims it, in a panel of its own.</summary>
     /// <param name="asset">Which asset.</param>
     /// <remarks>
@@ -1071,7 +1196,7 @@ sealed partial class EditorApplication : IDisposable {
                 panel => {
                     if (project.TryGetDocument(asset, out var open)
                         && editors.TryGetForFile(project.Assets.TryGetByGuid(asset, out var entry) ? entry.Path : title, out var editor)) {
-                        editor.CreateView(open, panel);
+                        Joined(editor.CreateView(open, panel));
                     }
                 }
             );
@@ -1079,6 +1204,22 @@ sealed partial class EditorApplication : IDisposable {
 
         Shell.Workspace.Open(id);
         project.Activate(document);
+    }
+
+    /// <summary>Connects an asset editor's view to the things only this assembly can answer.</summary>
+    /// <param name="view">Whatever the factory built.</param>
+    /// <remarks>
+    ///     ⚠ <b>Here rather than in the factory, because the request is for another document.</b> A
+    ///     material's "Open shader graph" carries an <c>AssetId</c> and stops —
+    ///     <c>Vixen.Editor.AssetEditors</c> has a registry but no panels, no docking and no way to
+    ///     bring a tab forward — so the button raised an event nothing listened to until a shader
+    ///     graph editor existed to open. Every asset editor's factory runs again on a reopen, so this
+    ///     runs again with it and subscribes the new view rather than a dead one.
+    /// </remarks>
+    void Joined(UiElement view) {
+        if (view is AssetEditors.Materials.MaterialView material) {
+            material.OpenGraphRequested += (_, graph) => Open(graph);
+        }
     }
 
     /// <summary>What a panel showing an asset's editor is called in an arrangement.</summary>
@@ -1278,6 +1419,16 @@ sealed partial class EditorApplication : IDisposable {
             )
         );
 
+        // ⚠ And the second of the two A6 owes, now that B5 exists. Its shape is the Profiling
+        // preset's argument turned round: a cinematic is authored *against* the viewport, so the
+        // scene keeps the width and the tracks get a wide, short strip under it — a timeline in a
+        // right-hand slot is one where a two-second shot is forty pixels.
+        Shell.RegisterLayout(
+            "Sequencing",
+            new StringId("editor.layout.sequencing", "Sequencing"),
+            () => LayoutPresets.Standard(["hierarchy", "scenes"], ["scene"], ["inspector"], ["console"])
+        );
+
         Shell.Workspace.DefaultPreset = "Default";
     }
 
@@ -1382,6 +1533,10 @@ sealed partial class EditorApplication : IDisposable {
         // answerable by reading one method.
         DiagnosticsCommands();
 
+        // ⚠ And E5's, for the same reason and on the same terms: these are the ids that were
+        // declared-and-disabled until this milestone built the panels behind them.
+        WorldCommands();
+
         Shell.Keys.SetDefault("file.exit", new KeyChord(InputKey.Q, ModifierKeys.Control));
 
         ParityToolbar();
@@ -1464,18 +1619,25 @@ sealed partial class EditorApplication : IDisposable {
         Mode("scene.rotate", "Rotate", GizmoMode.Rotate, InputKey.E);
         Mode("scene.scale", "Scale", GizmoMode.Scale, InputKey.R);
 
+        // ⚠ These two say which state they are <i>in</i> rather than what pressing them does, and
+        // that is the convention every 3D editor uses for exactly this pair. A button that read
+        // "Local Space" in both spaces left the only way to find out which one a drag was in being
+        // to drag — and a tick beside a fixed noun does not answer it either, because the reader has
+        // to know whether the label names the current state or the one the click would move to.
         Add(
             "scene.toggle-space",
             "Local Space",
             pane => pane.Gizmo.Space = pane.Gizmo.Space == GizmoSpace.World ? GizmoSpace.Local : GizmoSpace.World,
-            on: pane => pane.Gizmo.Space != GizmoSpace.World
+            on: pane => pane.Gizmo.Space != GizmoSpace.World,
+            caption: pane => pane.Gizmo.Space == GizmoSpace.World ? "World Space" : "Local Space"
         );
 
         Add(
             "scene.toggle-pivot",
             "Pivot at Centre",
             pane => pane.Gizmo.Pivot = pane.Gizmo.Pivot == PivotMode.Pivot ? PivotMode.Center : PivotMode.Pivot,
-            on: pane => pane.Gizmo.Pivot == PivotMode.Center
+            on: pane => pane.Gizmo.Pivot == PivotMode.Center,
+            caption: pane => pane.Gizmo.Pivot == PivotMode.Center ? "Pivot at Centre" : "Pivot at Object"
         );
 
         Add(
@@ -1580,7 +1742,8 @@ sealed partial class EditorApplication : IDisposable {
             string label,
             Action<SceneViewport> action,
             Func<SceneViewport, bool>? on = null,
-            InputKey key = InputKey.Unknown
+            InputKey key = InputKey.Unknown,
+            Func<SceneViewport, string>? caption = null
         ) {
             Shell.Commands.Add(
                 new EditorCommand(id, new StringId("editor.command." + id, label), () => {
@@ -1595,7 +1758,18 @@ sealed partial class EditorApplication : IDisposable {
                     // ⚠ Null when the command is not a toggle, rather than a predicate that answers
                     // false. `MenuPresenter` grows the tick column only for commands that have one,
                     // so a lambda here would indent every line of the Scene menu by an empty tick.
-                    Checked = on is null ? null : () => viewport is { } pane && on(pane)
+                    Checked = on is null ? null : () => viewport is { } pane && on(pane),
+
+                    // ⚠ And null when the name does not move, which is all but two of these. See
+                    // `EditorCommand.Caption`: a delegate asked per button per frame is not free,
+                    // and the id has to stay the *same* string whatever the label says — it is what
+                    // the keymap, the palette and the menu model all name.
+                    Caption = caption is null
+                        ? null
+                        : () => new StringId(
+                            "editor.command." + id,
+                            viewport is { } pane ? caption(pane) : label
+                        )
                 }
             );
 
@@ -1690,6 +1864,16 @@ sealed partial class EditorApplication : IDisposable {
         menu.AddSubmenu(new StringId("editor.menu.speed", "Camera Speed")).Add(ViewportIds.SpeedIds);
 
         menu.AddSeparator().Add("scene.focus", "scene.frame-all");
+
+        // ⚠ Doc 20's B6, on the Scene menu rather than on a menu of its own. Every one of them is
+        // about *this level* — its sky, its lighting budget, its agent size, which scenes are open
+        // beside it — and a "World" menu would be a second place people have to learn to look for
+        // something the Scene menu is already named after.
+        menu.AddSeparator()
+            .Add("scene.world-settings", "scene.lighting", "scene.navigation", "scene.layers")
+            .AddSeparator()
+            .Add("scene.scenes", "scene.open-additive", "scene.save-all-scenes");
+
         menu.AddSeparator().Add("scene.maximise");
 
         // ⚠ Rebuilt here rather than left to the one a registration triggers, which is why this runs
@@ -1715,13 +1899,13 @@ sealed partial class EditorApplication : IDisposable {
     ///     command with an id, a title and an enablement — that is what the palette searches, what the
     ///     keymap binds and what a menu line is built from — so "Create Cube" being findable in the
     ///     palette and bindable to a key means it has to be its own entry. Generated from
-    ///     <see cref="MeshShapes.All" />, so a shape added there appears everywhere without anything
+    ///     <see cref="PrimitiveShapes.All" />, so a shape added there appears everywhere without anything
     ///     here being edited.
     /// </remarks>
     void ShapeCommands() {
-        foreach (var kind in MeshShapes.All) {
+        foreach (var kind in PrimitiveShapes.All) {
             var shape = kind;
-            var name = MeshShapes.NameOf(shape);
+            var name = PrimitiveShapes.NameOf(shape);
 
             Shell.Commands.Add(
                 new EditorCommand(
@@ -1737,7 +1921,7 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>What a shape's create command is called in the registry.</summary>
     static string ShapeCommandId(PrimitiveKind kind) =>
-        "scene.create-" + MeshShapes.NameOf(kind).ToLowerInvariant();
+        "scene.create-" + PrimitiveShapes.NameOf(kind).ToLowerInvariant();
 
     /// <summary>One command per kind of light, and one for a camera.</summary>
     /// <remarks>
@@ -1803,7 +1987,7 @@ sealed partial class EditorApplication : IDisposable {
     static void Creatable(MenuGroup menu) {
         var shapes = menu.AddSubmenu(new StringId("editor.menu.create-shape", "3D Object"));
 
-        foreach (var kind in MeshShapes.All) {
+        foreach (var kind in PrimitiveShapes.All) {
             shapes.Add(ShapeCommandId(kind));
         }
 
@@ -1870,7 +2054,18 @@ sealed partial class EditorApplication : IDisposable {
 
         group.Add("assets.open");
         group.AddSeparator();
-        group.Add("assets.new-folder", "assets.import-files");
+
+        // ⚠ The same Create submenu the Assets menu on the bar carries, from the same ids — which is
+        // what the registry is for and is why this is three lines rather than a second list. A
+        // browser whose context menu could make a folder but not a material is one where the seven
+        // asset kinds are reachable only from a menu at the top of the window, several inches from
+        // the folder somebody has just navigated into and right-clicked in.
+        group.AddSubmenu(EditorStrings.MenuCreate)
+            .Add("assets.new-folder", "assets.create")
+            .AddSeparator()
+            .Add([.. CreatableIds]);
+
+        group.Add("assets.import-files");
         group.AddSeparator();
         group.Add("assets.rename", "assets.delete", "assets.move-to");
         group.AddSeparator();
@@ -2167,7 +2362,7 @@ sealed partial class EditorApplication : IDisposable {
     ///     <para>
     ///         ⚠ <b>What it makes is an entity carrying an <c>AssetInstance</c>, and that is a
     ///         reference rather than a renderer.</b> Nothing in the runtime turns an asset into
-    ///         geometry yet — see <c>MeshShape</c>'s remarks for why it lives in the editor at all —
+    ///         geometry yet — see <c>PrimitiveShape</c>'s remarks for why it lives in the editor at all —
     ///         so the crate does not appear in the viewport. What is real is everything else: the
     ///         entity is named after the asset, the reference is authored and saved, the inspector's
     ///         asset field shows and can change it, and <c>ReferenceIndex</c> counts it, so deleting
@@ -2307,6 +2502,9 @@ sealed partial class EditorApplication : IDisposable {
         // an outliner is the one row the user was looking for.
         bool Branch(TreeNode parent, Entity entity) {
             var node = parent.Add(scene.NameOf(entity), entity);
+
+            node.Icon = GlyphFor(entity);
+
             var kept = Matches(entity);
 
             foreach (var child in Ordered(Children(entity))) {
@@ -2319,6 +2517,52 @@ sealed partial class EditorApplication : IDisposable {
 
             return kept;
         }
+    }
+
+    /// <summary>Runs the real content planner, for whoever wants to know what a build would say.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The planner, not a reimplementation of its rules.</b> A panel that worked out for
+    ///     itself which assets land in which group would be a second set of rules, and the way that
+    ///     drift shows up is a panel saying a project is fine and the build refusing it.
+    ///     <para>
+    ///         ⚠ <b>Against a workspace of its own.</b> <c>ProjectWorkspace</c> opens the four stores
+    ///         that have to agree about which directory they are looking at, and it must not share
+    ///         the editor's database — <c>Scan</c> clears and repopulates its dictionaries, which is
+    ///         the race <c>ContentTasks</c> already documents.
+    ///     </para>
+    /// </remarks>
+    BuildPlan AnalyseContent() {
+        var workspace = new ProjectWorkspace(project.Paths);
+
+        workspace.Database.Scan();
+        return ContentPipeline.Analyse(workspace, _ => { });
+    }
+
+    /// <summary>The glyph an outliner row draws for what an entity is.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What it carries rather than what it is called.</b> An outliner of forty identical
+    ///         rows is one you read rather than scan, and a name is the one thing on the row that is
+    ///         already text — an icon that repeated it would be decoration. A camera, a light and a
+    ///         piece of geometry are the three things a scene is mostly made of, and telling them
+    ///         apart at a glance is what the column is for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Asked once per rebuild rather than on every bind.</b> The node keeps the answer,
+    ///         and a rebuild is what a component being added or removed already triggers — so a row
+    ///         scrolling past does not ask the world three questions per frame.
+    ///     </para>
+    /// </remarks>
+    PathBuilder GlyphFor(Entity entity) {
+        if (world.Has<Light>(entity)) {
+            return EditorIcons.Light;
+        }
+
+        if (world.Has<Camera>(entity)) {
+            return EditorIcons.Camera;
+        }
+
+        return world.Has<PrimitiveShape>(entity) ? EditorIcons.Cube : EditorIcons.Entity;
     }
 
     /// <summary>An entity's children, as a list a sort can be applied to.</summary>
@@ -2565,7 +2809,7 @@ sealed partial class EditorApplication : IDisposable {
             var matrix = world.Read<WorldTransform>(entity).Value;
             var position = matrix.Translation;
 
-            var extent = MeshShapes.TryGet(world, entity, out _)
+            var extent = PrimitiveShapes.TryGet(world, entity, out _)
                 ? new Vector3(
                     matrix.Right.Length(),
                     matrix.Up.Length(),

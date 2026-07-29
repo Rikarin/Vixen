@@ -72,6 +72,12 @@ would produce no particles at all, and saying so is more useful than compiling s
 - **Sub-emitters and trails.** `VfxSubEmitter` connects two systems, so authoring one is authoring a
   relationship between two graphs — which the model can hold and the compiler has nothing to say
   about yet.
-- **A live preview.** Doc 11's VFX editor is a graph and a viewport. The graph half is here.
+- ~~**A live preview.**~~ Closed by doc 20's E5, and in the other assembly. `VfxNodeLibrary.Create`
+  is the one call a host needs from here; the document, the canvas and the preview are
+  `Vixen.Editor.AssetEditors`' `Vfx/`, because this assembly deliberately knows nothing about a
+  project, a document or a panel — which is what lets its tests compile a graph with no editor in the
+  way. ⚠ The preview *simulates* with `VfxSystem` and *draws* by projecting the particle buffer:
+  particles are drawn by a material, and the editor's viewport is a tool renderer until doc 14's
+  Phase 7 wires one.
 
 Licensed under Apache-2.0.

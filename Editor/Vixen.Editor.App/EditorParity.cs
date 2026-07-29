@@ -664,7 +664,8 @@ sealed partial class EditorApplication {
             "entity.create-vfx",
             new StringId("editor.command.entity.create-vfx", "VFX Emitter"),
             CategoryEntity,
-            "The VFX graph is not reachable from the editor yet. Milestone E5."
+            "The graph is authorable now, but the runtime has no VFX emitter component for an entity "
+            + "to carry — an entity called VFX would reference nothing."
         );
 
         Planned(
@@ -897,33 +898,10 @@ sealed partial class EditorApplication {
     // ── Build and Tools ─────────────────────────────────────────────────────────────────────────
 
     void BuildAndToolCommands() {
-        Planned(
-            "build.settings",
-            new StringId("editor.command.build.settings", "Build Settings…"),
-            CategoryBuild,
-            "The Build Settings window is milestone E6."
-        );
-
-        Planned(
-            "build.run",
-            new StringId("editor.command.build.run", "Build and Run"),
-            CategoryBuild,
-            "Building a player needs the build settings window. Milestone E6."
-        );
-
-        Planned(
-            "build.target",
-            new StringId("editor.command.build.target", "Target…"),
-            CategoryBuild,
-            $"The content build targets this machine ({content.Target}). Choosing another is milestone E6."
-        );
-
-        Planned(
-            "build.configuration",
-            new StringId("editor.command.build.configuration", "Configuration…"),
-            CategoryBuild,
-            "Debug and release players are milestone E6."
-        );
+        // Build Settings, Build and Run, and the two radio submenus. `EditorBuilds` owns them
+        // because they are one setting's worth of state and a build's worth of orchestration, and
+        // this file's job is the bar rather than what is behind it.
+        PlayerBuildCommands();
 
         // Deploy is `DiagnosticsCommands`', because it opens the device manager E4 built. It is
         // still a Build-menu line — Part C puts it there — and the window is the Tools one.
@@ -936,11 +914,17 @@ sealed partial class EditorApplication {
             enabled: () => !content.IsBusy
         );
 
+        // ⚠ Still declared-and-disabled, and the reason has moved rather than gone away. The
+        // ahead-of-time shader bundle is `ShaderBuildRunner`'s, which links Raven's compiler — a
+        // build-time library the editor deliberately does not carry, for the reason
+        // Tools/Vixen.ShaderCompiler's README gives. So a player built from here has no bundle, the
+        // build log says so for a project that has a manifest, and `vixen build` is what compiles
+        // one. What would close this is a compiler service the editor talks to rather than links.
         Planned(
             "build.rebuild-shaders",
             new StringId("editor.command.build.rebuild-shaders", "Rebuild Shaders"),
             CategoryBuild,
-            "Shader compilation runs inside the content import; a separate pass is milestone E6."
+            "The shader bundle is compiled by `vixen build`, which links a compiler the editor does not."
         );
 
         // ⚠ On the Window menu, which the shell owns and which names it — so the shell would have a
@@ -1056,7 +1040,13 @@ sealed partial class EditorApplication {
 
         var assets = Shell.Menus.InsertMenu(++after, EditorStrings.MenuAssets);
 
-        assets.AddSubmenu(EditorStrings.MenuCreate).Add("assets.new-folder", "assets.create");
+        // ⚠ The authoring surfaces' asset kinds are on the Create submenu and not behind a dialog,
+        // because a format nobody can make a file of is a format nobody can reach. `assets.create`
+        // stays beside them as the general "from a template" line it always named.
+        assets.AddSubmenu(EditorStrings.MenuCreate)
+            .Add("assets.new-folder", "assets.create")
+            .AddSeparator()
+            .Add([.. CreatableIds]);
 
         assets.AddSeparator()
             .Add("assets.show-in-explorer", "assets.open", "assets.rename", "assets.delete", "assets.move-to")
@@ -1064,6 +1054,14 @@ sealed partial class EditorApplication {
             .Add("assets.reimport", "assets.reimport-all")
             .AddSeparator()
             .Add("assets.find-references", "assets.select-dependencies")
+            .AddSeparator()
+
+            // ⚠ Named on the Assets menu as well as in Window, and the second is not enough on its
+            // own. Every panel gets a `view.panel.*` toggle for free, so Addressables was already
+            // *listed* — under Window, among two dozen others, which is where you look for a panel
+            // you know exists and not for a feature you are wondering whether the editor has. What
+            // ships an asset belongs beside the other things that do.
+            .Add(EditorShell.PanelCommand(AddressablesPanel))
             .AddSeparator()
             .Add("assets.refresh", "assets.import", "assets.build");
 
@@ -1105,8 +1103,15 @@ sealed partial class EditorApplication {
         var build = Shell.Menus.InsertMenu(++after, EditorStrings.MenuBuild);
 
         build.Add("build.settings").AddSeparator().Add("assets.build", "build.run").AddSeparator();
-        build.AddSubmenu(new StringId("editor.menu.build-target", "Target")).Add("build.target");
-        build.AddSubmenu(new StringId("editor.menu.build-configuration", "Configuration")).Add("build.configuration");
+        build.AddSubmenu(new StringId("editor.menu.build-target", "Target")).Add(BuildIds.Targets);
+
+        // ⚠ Four lines where Part C names two, and the label is Part C's word for them. Doc 17's
+        // variants are the axis a player build actually has — Development is an optimised build that
+        // keeps its profiler, and Server is a Release one with no window — and the compiler
+        // configuration is derived from the variant rather than chosen beside it. A menu of Debug
+        // and Release over a setting of four would leave two of them unreachable and unmarkable.
+        build.AddSubmenu(new StringId("editor.menu.build-configuration", "Configuration")).Add(BuildIds.Variants);
+
         build.AddSubmenu(new StringId("editor.menu.build-deploy", "Deploy")).Add("build.deploy");
         build.AddSeparator().Add("build.clean-library", "build.rebuild-shaders");
 
@@ -1134,27 +1139,26 @@ sealed partial class EditorApplication {
     ///     the only set on the bar that is genuinely exclusive — space, snap and grid are three
     ///     independent toggles and drawing them boxed together would claim otherwise.
     /// </remarks>
+    /// <summary>The window's own strip: what is about the application rather than about a pane.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The gizmo controls are deliberately <i>not</i> here, and they used to be.</b> This
+    ///     bar carried Translate/Rotate/Scale, the space, pivot and snap toggles and a Gizmo dropdown
+    ///     — every one of which is also on the strip floating over the scene pane, six inches below
+    ///     and pointing at the same commands. Two copies of one control is not merely redundant: they
+    ///     are two places to look for the state, and the one that is not beside the viewport is the
+    ///     one that is read wrong, because a four-pane layout has four gizmo modes and a window has
+    ///     one bar. <c>ViewportChrome</c> shows the <i>focused</i> pane's, which is the only strip
+    ///     that can be telling the truth.
+    ///
+    ///     What is left is what belongs to the window: the palette, the two verbs that write to disk,
+    ///     the transport, and the layout.
+    /// </remarks>
     void ParityToolbar() {
         Shell.Toolbar.Show(
             new ToolbarButton("view.palette"),
             new ToolbarSeparator(),
             new ToolbarButton("file.save"),
             new ToolbarButton("assets.build"),
-            new ToolbarSeparator(),
-            new ToolbarGroup("scene.translate", "scene.rotate", "scene.scale"),
-            new ToolbarButton("scene.toggle-space"),
-            new ToolbarButton("scene.toggle-pivot"),
-            new ToolbarButton("scene.toggle-snap"),
-            new ToolbarDropdown(
-                new StringId("editor.toolbar.gizmo", "Gizmo"),
-                "settings",
-                "scene.toggle-space",
-                "scene.toggle-pivot",
-                "scene.toggle-snap",
-                null,
-                "scene.toggle-grid",
-                "scene.toggle-projection"
-            ),
             new ToolbarSeparator(),
 
             // ⚠ Boxed, and for a different reason from the gizmo modes above. Those are one *choice*

@@ -9,6 +9,7 @@ using Vixen.Editor.Core.Scenes;
 using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 
 namespace Vixen.Editor.SceneView;
 
@@ -152,18 +153,18 @@ public static class SceneSerializer {
     static SceneEntityData Capture(SceneDocument document, Entity entity) {
         var local = document.World.Read<LocalTransform>(entity);
 
+        // ⚠ No `Shape` and no `Light`. Both are `Vixen.Rendering`'s components now, so both are
+        // declared to `SceneComponentRegistry` and both come out through `Carried` below as ordinary
+        // entries in `Components` — which is what their remarks always said would happen on the day
+        // the runtime grew them. The two fields are still *read*, so every scene written before this
+        // opens; they are simply never written again, and a scene rewrites itself into the new form on
+        // its first save.
         var data = new SceneEntityData {
             Id = document.IdOf(entity),
             Name = document.NameOf(entity),
             Position = local.Position,
             Rotation = local.Rotation,
             Scale = local.Scale,
-
-            Shape = MeshShapes.TryGet(document.World, entity, out var shape)
-                ? MeshShapes.NameOf(shape)
-                : string.Empty,
-
-            Light = Lights.TryGet(document.World, entity, out var light) ? Written(light) : null,
 
             Asset = AssetInstances.TryGet(document.World, entity, out var asset)
                 ? new AssetReference(asset).ToString()
@@ -181,20 +182,7 @@ public static class SceneSerializer {
         return data;
     }
 
-    /// <summary>A light as the file holds it.</summary>
-    static SceneLightData Written(Light light) =>
-        new() {
-            Kind = Lights.NameOf(light.Kind),
-            Colour = light.Colour,
-            Intensity = light.Intensity,
-            Range = light.Range,
-            Radius = light.Radius,
-            InnerAngle = light.InnerAngle,
-            OuterAngle = light.OuterAngle,
-            HalfLength = light.HalfLength
-        };
-
-    /// <summary>A light as the world holds it.</summary>
+    /// <summary>A light as the world holds it, from the field a scene used to write it in.</summary>
     /// <remarks>
     ///     ⚠ <b>The kind is passed in already parsed</b> rather than read from the record, because
     ///     the caller has had to parse it to know whether there is a light here at all — and doing it
@@ -308,23 +296,22 @@ public static class SceneSerializer {
             sources[entity] = data.Id;
         }
 
-        // ⚠ Attached rather than skipped when the name is unknown, and `TryParse` is what decides
-        // which. A shape this editor has never heard of leaves the entity in place with no geometry;
-        // the next save then writes an empty shape, which does lose the field — the alternative is
-        // refusing to open the file at all, and doc 08's argument about unknown keys applies here too.
+        // ⚠ Read and never written: both of these are how a scene carried a shape and a light before
+        // either was a runtime component, and every scene authored until then holds them this way.
+        // `Capture` now writes both as ordinary `Components` entries, so a file read here is rewritten
+        // into the new form the first time it is saved — and the components loop below runs after
+        // these, so a hand-edited file holding both forms takes the newer one.
         //
-        // ⚠ Its own field rather than one of the components below, and that is worth a second look
-        // now that a scene can carry arbitrary components. `MeshShape` is the editor's, not the
-        // runtime's — see its own remarks — so it has nothing to register with
-        // `SceneComponentRegistry`, and a scene naming a type no build declares is exactly what the
-        // loop below refuses. When the runtime grows a mesh component this field becomes one of them.
-        if (MeshShapes.TryParse(data.Shape, out var shape)) {
-            MeshShapes.Attach(document.World, entity, shape);
+        // ⚠ Attached rather than skipped when the name is unknown, and `TryParse` is what decides
+        // which. A shape this editor has never heard of leaves the entity in place with no geometry
+        // rather than refusing to open the file at all; doc 08's argument about unknown keys applies
+        // here too. It matters more for a light, which has seven numbers behind its name: an entity
+        // whose kind this editor does not recognise keeps its transform and its children and loses
+        // only the lighting.
+        if (PrimitiveShapes.TryParse(data.Shape, out var shape)) {
+            PrimitiveShapes.Attach(document.World, entity, shape);
         }
 
-        // ⚠ The same tolerance, and it matters more here: a light has seven numbers behind its name,
-        // so an entity whose kind this editor does not recognise keeps its transform and its
-        // children and loses only the lighting. Refusing the file would cost the scene.
         if (data.Light is { } written && Lights.TryParse(written.Kind, out var kind)) {
             Lights.Attach(document.World, entity, Read(written, kind));
         }
@@ -344,9 +331,9 @@ public static class SceneSerializer {
             // arriving through a different door.
             if (!SceneComponentRegistry.TryGet(component.GetType(), out var binder)) {
                 throw new SceneComponentException(
-                    $"'{data.Name}' carries a {component.GetType().Name}, which nothing registered as a scene "
-                    + "component. Call SceneComponentRegistry.Register for it where the game's components are "
-                    + "registered; a scene cannot hold what a build cannot compile."
+                    $"'{data.Name}' carries a {component.GetType().Name}, which nothing declared as a scene "
+                    + "component. Give it [Component] beside its [DataContract] so the declaring assembly "
+                    + "declares it; a scene cannot hold what a build cannot compile."
                 );
             }
 

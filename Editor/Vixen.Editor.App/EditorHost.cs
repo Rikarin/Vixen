@@ -270,9 +270,26 @@ sealed class EditorHost : IDisposable {
     void Pump() {
         foreach (var platformEvent in platform.PumpEvents()) {
             switch (platformEvent.Kind) {
+                // ⚠ Through the same request the close button goes through, and the difference is
+                // an afternoon's work. This used to stop the loop where it stood — no prompt, no
+                // save, and every unsaved document gone. That is not a rare path: ⌘Q is how a
+                // macOS application is quit, and SDL raises this rather than a window close for it;
+                // on every platform it is also what the window manager sends when the session ends.
+                //
+                // ⚠ And the platform's own flag is cleared, because backing out of the prompt has to
+                // leave the editor running. `DesktopLifecycle` latches `IsQuitRequested` — a host
+                // that left it set would be one where the *next* quit is already half-answered.
                 case PlatformEventKind.Quit:
-                    running = false;
-                    return;
+                    editor.RequestClose();
+
+                    if (!editor.IsClosing) {
+                        platform.Lifecycle.CancelQuit();
+                    }
+
+                    // ⚠ Not `return`. The rest of this pump is the frame's input — a click, a
+                    // keystroke, the resize that arrived with it — and dropping it was what made a
+                    // close request that arrived in the same batch as a quit never reach the editor.
+                    break;
 
                 case PlatformEventKind.WindowCloseRequested:
                     // ⚠ Asked first, and the answer decides whose close this is. A torn-off panel's
@@ -521,7 +538,7 @@ sealed class EditorHost : IDisposable {
                     continue;
                 }
 
-                presenter.Upload(editor.Scene, viewport);
+                presenter.Upload(commands, editor.Scene, viewport);
 
                 if (presenter.Declare(graph, viewport, out var target)) {
                     sampled.Add(target);
@@ -672,6 +689,28 @@ sealed class EditorHost : IDisposable {
                 device.CreateShader(ShaderStage.Fragment, Module("Mesh.frag.spv"), "mesh fragment")
             ) {
                 Locations = new(MeshKeys.PositionLocation, MeshKeys.NormalLocation, MeshKeys.VertexColourLocation)
+            },
+            new MeshInstanceShaders(
+                device.CreateShader(ShaderStage.Vertex, Module("MeshInstanced.vert.spv"), "mesh instance vertex"),
+                device.CreateShader(ShaderStage.Fragment, Module("MeshInstanced.frag.spv"), "mesh instance fragment")
+            ) {
+                // ⚠ Eleven, in the renderer's own attribute order: the shape's pair first, then the
+                // entity's nine. A location short would leave that attribute bound to nothing and the
+                // stage reading whatever the driver left there — see `VertexLocations`, which is why
+                // these are read out of Raven's reflection rather than written down.
+                Locations = new(
+                    MeshInstancedKeys.PositionLocation,
+                    MeshInstancedKeys.NormalLocation,
+                    MeshInstancedKeys.Model0Location,
+                    MeshInstancedKeys.Model1Location,
+                    MeshInstancedKeys.Model2Location,
+                    MeshInstancedKeys.Model3Location,
+                    MeshInstancedKeys.Normal0Location,
+                    MeshInstancedKeys.Normal1Location,
+                    MeshInstancedKeys.Normal2Location,
+                    MeshInstancedKeys.TintLocation,
+                    MeshInstancedKeys.StyleLocation
+                )
             },
             PixelFormat.Rgba8UNorm,
             image

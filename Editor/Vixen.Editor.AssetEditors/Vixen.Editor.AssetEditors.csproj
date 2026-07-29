@@ -49,8 +49,39 @@
         -->
         <ProjectReference Include="..\Vixen.Editor.NodeGraph\Vixen.Editor.NodeGraph.csproj" />
 
+        <!--
+            The VFX node library and its compiler. That assembly deliberately knows nothing about a
+            project, a document or a panel — which is what lets it be tested by compiling a graph
+            with no editor in the way — so the document, the view and the factory over it are here,
+            where every other row of doc 11's asset-editor table already is.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.VfxGraph\Vixen.Editor.VfxGraph.csproj" />
+
+        <!-- And the third graph, for the same split: states and transitions there, document here. -->
+        <ProjectReference Include="..\Vixen.Editor.AnimationGraph\Vixen.Editor.AnimationGraph.csproj" />
+
+        <!--
+            The shader node library and its Raven emission, on the same split again: the nodes and the
+            compiler stay there, where they are checked by putting the emitted source through the real
+            Raven front end, and the document, the panel and the factory are here.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.ShaderGraph\Vixen.Editor.ShaderGraph.csproj" />
+
         <!-- GraphicsCompositorAsset: the document the compositor graph compiles to. -->
         <ProjectReference Include="..\..\Core\Vixen.Rendering\Vixen.Rendering.csproj" />
+
+        <!--
+            AnimationClipData and the state machine the animation graph compiles to, the mixer the
+            audio editor is a view over, and the action model the input editor reads and writes. Each
+            is the runtime's own type: an editor-side copy of any of them would be the second
+            declaration that drifts, which is the argument the compositor's row already makes.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Animation\Vixen.Animation.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Audio\Vixen.Audio.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Input\Vixen.Input.csproj" />
+
+        <!-- The font atlas and its metrics, which is what a font editor shows. -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Text\Vixen.Ui.Text.csproj" />
 
         <!-- CodeEditor, Viewport and the tree — the three controls the advanced set exists for. -->
         <ProjectReference Include="..\..\Core\Vixen.Ui.Controls.Advanced\Vixen.Ui.Controls.Advanced.csproj" />

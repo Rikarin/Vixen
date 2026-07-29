@@ -52,14 +52,19 @@
     <ItemGroup>
         <!--
             Analyzers do not flow transitively through a ProjectReference, so an assembly declaring
-            [DataContract] types of its own has to name both generators: the descriptors a YAML-bound
-            component is found through come from the reflection generator, and the binary serializers
-            a compiled scene is made of come from the serialization one.
+            [DataContract] types of its own has to name all three generators: the descriptors a
+            YAML-bound component is found through come from the reflection generator, the binary
+            serializers a compiled scene is made of come from the serialization one, and the engine
+            one declares every [Component] [DataContract] type to SceneComponentRegistry so that a
+            scene may name it without anybody writing a registration call.
         -->
         <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
         <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
     </ItemGroup>

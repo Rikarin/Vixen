@@ -156,11 +156,17 @@ public class ViewportStateTests : IDisposable {
         Shape(PrimitiveKind.Cube, Vector3.Zero);
 
         pane.Viewport.Modes.Current = ViewMode.Wireframe;
-        meshes.Build(scene, pane.Viewport, Height);
+        meshes.Build(scene, pane.Viewport);
 
         Assert.Equal(0, meshes.Triangles);
-        Assert.NotEmpty(meshes.Edges);
-        Assert.Equal(0, meshes.Edges.Count % 2);
+
+        // The wireframe is the same instance again with the edge index range, which is a batch of its
+        // own because a topology cannot change within a draw.
+        var batch = Assert.Single(meshes.Batches);
+
+        Assert.True(batch.Edges);
+        Assert.Equal(1, batch.Count);
+        Assert.Equal(meshes.WireColour, meshes.Instances[batch.First].Colour);
     }
 
     [Fact]
@@ -171,10 +177,16 @@ public class ViewportStateTests : IDisposable {
         Shape(PrimitiveKind.Cube, Vector3.Zero);
 
         pane.Viewport.Modes.Current = ViewMode.ShadedWireframe;
-        meshes.Build(scene, pane.Viewport, Height);
+        meshes.Build(scene, pane.Viewport);
 
         Assert.True(meshes.Triangles > 0);
-        Assert.NotEmpty(meshes.Edges);
+        Assert.Contains(meshes.Batches, batch => batch.Edges);
+        Assert.Contains(meshes.Batches, batch => !batch.Edges);
+
+        // One entity, drawn twice. The pass costs a second instance rather than a second copy of the
+        // cube's vertices, which is the whole difference from the path this replaced.
+        Assert.Equal(1, meshes.Count);
+        Assert.Equal(2, meshes.Instances.Length);
     }
 
     [Fact]
@@ -188,22 +200,19 @@ public class ViewportStateTests : IDisposable {
         pane.Viewport.Modes.Current = ViewMode.Normal;
         pane.Viewport.Show &= ~SceneShow.Outline;
 
-        meshes.Build(scene, pane.Viewport, Height);
+        meshes.Build(scene, pane.Viewport);
 
-        // ⚠ Remapped from −1..1 rather than clamped: half of every normal is negative and a colour is
-        // not, so clamping would paint three of a cube's six faces black.
-        Assert.All(
-            meshes.Vertices.ToArray(),
-            vertex => {
-                Assert.Equal((vertex.Normal.X * 0.5f) + 0.5f, vertex.Colour.R, 4);
-                Assert.Equal((vertex.Normal.Y * 0.5f) + 0.5f, vertex.Colour.G, 4);
-                Assert.Equal((vertex.Normal.Z * 0.5f) + 0.5f, vertex.Colour.B, 4);
-            }
-        );
+        // ⚠ A style lane rather than a colour per vertex, because there are no vertices here to put
+        // one on: the shader remaps the world normal from −1..1 into a colour, and remaps rather than
+        // clamps because half of every normal is negative and a colour is not — clamping would paint
+        // three of a cube's six faces black.
+        var instance = Assert.Single(meshes.Instances.ToArray());
+
+        Assert.Equal(1f, instance.Style.W);
 
         // Painting the selected object orange in a view whose whole content is "this pixel's colour
         // *is* the normal" makes the one object being looked at the one the view cannot answer for.
-        Assert.DoesNotContain(meshes.Vertices.ToArray(), vertex => vertex.Colour == meshes.SelectedColour);
+        Assert.NotEqual(meshes.SelectedColour, instance.Colour);
     }
 
     [Fact]
@@ -237,38 +246,73 @@ public class ViewportStateTests : IDisposable {
 
         var cube = Shape(PrimitiveKind.Cube, Vector3.Zero);
 
-        meshes.Build(scene, pane.Viewport, Height);
+        meshes.Build(scene, pane.Viewport);
         var plain = meshes.Triangles;
 
         scene.Selection.Set(cube);
-        meshes.Build(scene, pane.Viewport, Height);
+        meshes.Build(scene, pane.Viewport);
 
-        // The hull is the same geometry again, so exactly twice the triangles.
+        // The hull is the same geometry again, so exactly twice the triangles — and, because it is the
+        // same geometry, one more instance rather than another copy of the cube.
         Assert.Equal(plain * 2, meshes.Triangles);
-        Assert.Contains(meshes.Vertices.ToArray(), vertex => vertex.Colour == meshes.OutlineColour);
+        Assert.Equal(2, meshes.Instances.Length);
+        Assert.Contains(meshes.Instances.ToArray(), instance => instance.Colour == meshes.OutlineColour);
     }
 
     [Fact]
-    public void The_outline_is_outside_the_shape_and_behind_it() {
+    public void The_outline_shares_its_shapes_batch_and_carries_the_width_the_shader_expands_by() {
         using var pane = new Pane();
         var meshes = new SceneMeshes();
 
         var cube = Shape(PrimitiveKind.Cube, Vector3.Zero);
         scene.Selection.Set(cube);
 
-        meshes.Build(scene, pane.Viewport, Height);
+        meshes.Build(scene, pane.Viewport);
 
-        var vertices = meshes.Vertices.ToArray();
-        var hull = vertices.Where(vertex => vertex.Colour == meshes.OutlineColour).ToArray();
-        var solid = vertices.Where(vertex => vertex.Colour != meshes.OutlineColour).ToArray();
+        // ⚠ One batch, not two. An outline is the same shape at the same transform with a different
+        // style, so it belongs in the same draw — which is what makes selecting a whole floor cost one
+        // instance per object instead of a second copy of the floor.
+        var batch = Assert.Single(meshes.Batches);
 
-        Assert.NotEmpty(hull);
-        Assert.NotEmpty(solid);
+        Assert.False(batch.Edges);
+        Assert.Equal(2, batch.Count);
 
-        // ⚠ Wider on screen, which is what makes a rim, and further away, which is what makes it lose
-        // the depth test against the object rather than fight it triangle by triangle.
-        Assert.True(hull.Max(vertex => MathF.Abs(vertex.Position.X)) > solid.Max(v => MathF.Abs(v.Position.X)));
-        Assert.True(hull.Max(vertex => vertex.Position.Z) < solid.Max(vertex => vertex.Position.Z));
+        var hull = Assert.Single(meshes.Instances.ToArray(), instance => instance.Colour == meshes.OutlineColour);
+
+        // The expansion itself happens per vertex in the shader, which has the camera; what this side
+        // says is how wide and how far back, in pixels, and that the hull is lit flat rather than
+        // shaded — see `MeshInstanced.rvn` for the four lanes.
+        Assert.Equal(meshes.OutlineWidth, hull.Style.X);
+        Assert.Equal(meshes.OutlineBias, hull.Style.Y);
+        Assert.Equal(1f, hull.Style.Z);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The one number that reaches the shader and can be wrong quietly.</b> The hull's width
+    ///     is in pixels, so the shader needs how many world units a pixel is — which it computes from
+    ///     <c>EditorCamera.PixelScale</c> and the depth along the view axis. Nothing but a picture can
+    ///     assert on the expansion; this asserts that the numbers it is made of are the camera's own,
+    ///     in both projections, which is the half that can drift silently.
+    /// </summary>
+    [Fact]
+    public void The_pixel_scale_the_shader_is_given_reproduces_the_cameras_own() {
+        var camera = new EditorCamera { Pivot = Vector3.Zero, Distance = 12f };
+        var point = new Vector3(1f, 2f, 3f);
+
+        foreach (var orthographic in (bool[]) [false, true]) {
+            camera.IsOrthographic = orthographic;
+
+            var view = new MeshInstanceView(
+                camera.ViewProjection(1.5f),
+                camera.Position,
+                camera.Forward,
+                camera.NearPlane,
+                camera.IsOrthographic,
+                camera.PixelScale(Height)
+            );
+
+            Assert.Equal(camera.WorldPerPixel(point, Height), view.WorldPerPixel(point), 6);
+        }
     }
 
     [Fact]
@@ -280,11 +324,12 @@ public class ViewportStateTests : IDisposable {
         scene.Selection.Set(cube);
 
         pane.Viewport.Modes.Current = ViewMode.Wireframe;
-        meshes.Build(scene, pane.Viewport, Height);
+        meshes.Build(scene, pane.Viewport);
 
         // An expanded hull with no object drawn over it is a solid blob where the selection used to
         // be — the one place this technique fails outright rather than degrading.
         Assert.Equal(0, meshes.Triangles);
+        Assert.DoesNotContain(meshes.Instances.ToArray(), instance => instance.Style.X > 0f);
     }
 
     [Fact]
@@ -296,9 +341,9 @@ public class ViewportStateTests : IDisposable {
         scene.Selection.Set(cube);
 
         pane.Viewport.Show &= ~SceneShow.Outline;
-        meshes.Build(scene, pane.Viewport, Height);
+        meshes.Build(scene, pane.Viewport);
 
-        Assert.DoesNotContain(meshes.Vertices.ToArray(), vertex => vertex.Colour == meshes.OutlineColour);
+        Assert.DoesNotContain(meshes.Instances.ToArray(), instance => instance.Colour == meshes.OutlineColour);
     }
 
     // ── Stats ───────────────────────────────────────────────────────────────────────────────────

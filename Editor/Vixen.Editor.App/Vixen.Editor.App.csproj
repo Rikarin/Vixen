@@ -133,6 +133,14 @@
         <EmbeddedResource Include="Shaders\*.spv" />
 
         <!--
+            The interface's face, embedded for the reason `Fonts` gives: a font beside the binary is
+            a font a publish step can drop, and the failure is a window whose every label measures
+            zero. Open Sans under the SIL Open Font License 1.1 — Fonts/OFL.txt is the licence as it
+            ships, and NOTICE names it.
+        -->
+        <EmbeddedResource Include="Fonts\*.ttf" />
+
+        <!--
             The bindings generator turns each .reflect.json into the constants this host binds
             against: where each descriptor goes, and — the reason it is wired up here — which vertex
             attribute location each stage reads. That number is Raven's decision, not this

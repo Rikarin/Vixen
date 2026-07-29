@@ -19,15 +19,24 @@ namespace Vixen.Editor.Debugger;
 ///         state than one that pretends to scan.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Deploy is not here, and is not merely unimplemented.</b> Copying a build to a device
-///         needs a build, which is doc 20's E6 — <c>build.settings</c> and <c>build.run</c> are
-///         declared-and-disabled for exactly that reason. What this window contributes to that
-///         milestone is the list the deploy target is chosen from.
+///         ⚠ <b>Deploy is a request rather than a call, for exactly <see cref="AttachRequested" />'s
+///         reason.</b> It needs a build — which is doc 20's E6 and lives behind
+///         <c>build.settings</c> — and what "deploy" means differs per kind of device: this machine
+///         is a publish and a launch, a phone is <c>adb install</c>, a console is a vendor SDK. A
+///         debugger assembly that picked one would be a panel that could only deploy to that one, so
+///         it raises the intent and the application answers it.
+///     </para>
+///     <para>
+///         ⚠ <b>Which devices can be deployed to is asked rather than assumed</b> — see
+///         <see cref="CanDeploy" />. The button is greyed with the reason for the kinds nothing can
+///         reach yet, which is the same rule the greyed menu lines follow and is why a device this
+///         editor cannot install to is visibly that rather than a button that fails.
 ///     </para>
 /// </remarks>
 public sealed partial class DeviceManagerView : Control {
     Action<DeviceManager>? onChanged;
     DeviceManager? manager;
+    Func<DeviceEntry, string?>? canDeploy;
 
     /// <inheritdoc />
     protected override string TagName => "device-manager";
@@ -40,6 +49,9 @@ public sealed partial class DeviceManagerView : Control {
 
     /// <summary>Asks every provider what it can see.</summary>
     public Button Discover { get; private set; } = null!;
+
+    /// <summary>Builds and installs onto the selected device.</summary>
+    public Button DeployButton { get; private set; } = null!;
 
     /// <summary>Points the remote inspector at the selected device.</summary>
     public Button AttachButton { get; private set; } = null!;
@@ -58,6 +70,38 @@ public sealed partial class DeviceManagerView : Control {
     ///     place that decides.
     /// </remarks>
     public event Action<DeviceManagerView, DeviceEntry>? AttachRequested;
+
+    /// <summary>Raised when somebody asks for a build to be put on a device.</summary>
+    /// <inheritdoc cref="AttachRequested" select="remarks" />
+    public event Action<DeviceManagerView, DeviceEntry>? DeployRequested;
+
+    /// <summary>Why a device cannot be deployed to, or <see langword="null" /> when it can.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         A sentence rather than a predicate, and unset means "nothing can be deployed to" rather
+    ///         than "everything can". A panel opened by a test or by a host with no build settings
+    ///         behind it must not offer a button that would silently do nothing, and the reason is
+    ///         what the status line shows so that the greying is never a mystery.
+    ///     </para>
+    ///     <para>
+    ///         Pulled rather than pushed, like every other source this assembly's panels read: the
+    ///         factory that sets it runs again on every reopen, and an answer captured once would be
+    ///         one from a build target the user has since changed.
+    ///     </para>
+    /// </remarks>
+    public Func<DeviceEntry, string?>? CanDeploy {
+        get => canDeploy;
+
+        set {
+            canDeploy = value;
+
+            // The button's state is derived from this, and a panel whose factory set it after
+            // `Show` would otherwise stay greyed until the next selection change.
+            if (DeployButton is not null) {
+                Restate();
+            }
+        }
+    }
 
     /// <summary>Points the panel at a manager.</summary>
     /// <param name="devices">The manager.</param>
@@ -87,9 +131,20 @@ public sealed partial class DeviceManagerView : Control {
         Discover.Label = "Discover";
         Discover.Clicked += _ => manager?.Discover();
 
+        DeployButton = Toolbar.Add<Button>();
+        DeployButton.Size = ControlSize.Small;
+        DeployButton.Variant = ControlVariant.Primary;
+        DeployButton.Label = "Deploy";
+
+        DeployButton.Clicked += _ => {
+            if (manager?.Selected is { } device && Refusal(device) is null) {
+                DeployRequested?.Invoke(this, device);
+            }
+        };
+
         AttachButton = Toolbar.Add<Button>();
         AttachButton.Size = ControlSize.Small;
-        AttachButton.Variant = ControlVariant.Primary;
+        AttachButton.Variant = ControlVariant.Subtle;
         AttachButton.Label = "Attach";
 
         AttachButton.Clicked += _ => {
@@ -138,6 +193,7 @@ public sealed partial class DeviceManagerView : Control {
         if (manager is not { } devices) {
             Status.Text = "No device providers.";
             AttachButton.Disabled = true;
+            DeployButton.Disabled = true;
 
             return;
         }
@@ -148,11 +204,27 @@ public sealed partial class DeviceManagerView : Control {
         // endpoint is a button whose failure would be a silent no-op.
         AttachButton.Disabled = devices.Selected is not { Endpoint: not null };
 
+        var refusal = devices.Selected is { } chosen ? Refusal(chosen) : null;
+        DeployButton.Disabled = devices.Selected is null || refusal is not null;
+
+        // ⚠ The refusal outranks the count, because it is the sentence about the thing somebody is
+        // looking at. "One device from one provider" beside a greyed Deploy button is a panel that
+        // answers a question nobody asked and withholds the one they did — and with nothing chosen
+        // there is no such question, so the count is what a freshly-opened panel says.
         Status.Text = devices.Problems.Count > 0
             ? string.Join(" · ", devices.Problems)
-            : string.Create(
+            : refusal
+            ?? string.Create(
                 CultureInfo.InvariantCulture,
                 $"{devices.Devices.Count:N0} device(s) from {devices.Providers.Count:N0} provider(s)."
             );
     }
+
+    /// <summary>Why the selected device cannot be deployed to, or <see langword="null" />.</summary>
+    string? Refusal(DeviceEntry device) =>
+        device.Status is DeviceStatus.Deploying
+            ? "A build is already on its way to this device."
+            : CanDeploy is { } ask
+                ? ask(device)
+                : "Nothing here knows how to build for a device yet.";
 }

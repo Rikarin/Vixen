@@ -66,7 +66,7 @@ public enum SceneShow {
 
 /// <summary>The show flags as a list, so a menu is generated rather than written twice.</summary>
 /// <remarks>
-///     ⚠ <b>Generated from this, the same bargain <c>MeshShapes.All</c> makes.</b> A flag added to
+///     ⚠ <b>Generated from this, the same bargain <c>PrimitiveShapes.All</c> makes.</b> A flag added to
 ///     <see cref="SceneShow" /> and to <see cref="All" /> appears in the Show menu, in the viewport's
 ///     overlay popover and in the palette without any of the three being edited — and a flag added to
 ///     the enum alone appears in none of them, which is the failure that is visible immediately rather

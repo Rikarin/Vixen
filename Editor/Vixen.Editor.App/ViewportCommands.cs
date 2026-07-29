@@ -114,13 +114,23 @@ sealed partial class EditorApplication {
     /// </remarks>
     const float BaseFlySpeed = 4f;
 
-    /// <summary>What arrangement <c>scene.maximise</c> goes back to.</summary>
+    /// <summary>What arrangement play mode's maximise goes back to.</summary>
     /// <remarks>
-    ///     ⚠ <b>Held rather than assumed to be Quad.</b> Maximise is a toggle, and a toggle that came
-    ///     back to a fixed arrangement would turn somebody's two-pane layout into four panes the first
-    ///     time they pressed it.
+    ///     ⚠ <b>Held rather than assumed to be Quad.</b> Maximise-on-play is a toggle, and one that
+    ///     came back to a fixed arrangement would turn somebody's two-pane layout into four panes the
+    ///     first time they pressed Play.
     /// </remarks>
     ViewportArrangement? restore;
+
+    /// <summary>The window's arrangement while the Scene panel is maximised over it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The saved YAML rather than a flag, because a maximise throws the arrangement away.</b>
+    ///     What comes back has to be the splitter positions, the tab order and the panels that were
+    ///     open — all of which live in the layout the docking host serialises, and none of which
+    ///     survives being rebuilt from a preset. Null means the panel is not maximised, which is what
+    ///     the command's tick reads.
+    /// </remarks>
+    string? unmaximised;
 
     /// <summary>Whether entering play mode maximises the scene panel.</summary>
     bool maximiseOnPlay;
@@ -132,16 +142,68 @@ sealed partial class EditorApplication {
         SpeedCommands();
         BookmarkCommands();
 
-        Pane(
-            "scene.maximise",
-            "Maximise Viewport",
-            _ => Arrangement = restore is { } previous && arrangement == ViewportArrangement.Single
-                ? Take(previous)
-                : Remember(),
-            on: _ => arrangement == ViewportArrangement.Single && restore is not null,
-            key: InputKey.Space,
-            modifiers: ModifierKeys.Shift
+        // ⚠ Not a `Pane` command, and that is the fix rather than a detail. This used to set the
+        // *pane count* to Single and remember what it had been — so pressing it in the default
+        // layout, which is already Single, asked the arrangement to become what it already was and
+        // `Arrangement`'s setter returned without doing anything. The button did nothing, every
+        // time, for the only layout most people ever use.
+        //
+        // What maximise means in every editor that has one is the panel filling the window: the
+        // hierarchy, the inspector and the console go away and the scene gets the whole frame. That
+        // is an arrangement, so it is the workspace's to do and not a viewport's.
+        Shell.Commands.Add(
+            new EditorCommand(
+                "scene.maximise",
+                Label("scene.maximise", "Maximise Viewport"),
+                ToggleMaximised
+            ) {
+                Category = CategoryScene,
+
+                // Enabled from the panel rather than from a pane, for `ArrangementCommands`' reason:
+                // maximising a closed panel is meaningless, and coming *back* has to stay reachable
+                // even in the state where the Scene tab is the only thing on screen.
+                Enablement = () => unmaximised is not null || Shell.Workspace.IsOpen(ScenePanel),
+                Checked = () => unmaximised is not null
+            }
         );
+
+        Shell.Keys.SetDefault("scene.maximise", new KeyChord(InputKey.Space, ModifierKeys.Shift));
+    }
+
+    /// <summary>What the Scene panel is called in an arrangement.</summary>
+    internal const string ScenePanel = "scene";
+
+    /// <summary>Gives the Scene panel the whole window, or gives the window back.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The arrangement is saved before it is replaced and applied whole afterwards.</b> A
+    ///     maximise that came back by re-applying a preset would be one that silently threw away
+    ///     every splitter the user had dragged and every panel they had opened — which is the same
+    ///     complaint, one press later.
+    /// </remarks>
+    void ToggleMaximised() {
+        if (unmaximised is { } saved) {
+            unmaximised = null;
+            Shell.Workspace.Load(saved);
+
+            return;
+        }
+
+        if (!Shell.Workspace.IsOpen(ScenePanel)) {
+            return;
+        }
+
+        unmaximised = Shell.Workspace.Save();
+
+        // ⚠ Closed rather than left to the new arrangement, because `DockingHost.SetLayout` keeps a
+        // panel the layout does not name — it tabs it into the first group, deliberately, so that
+        // applying a preset does not silently throw away an open document. Here that is exactly
+        // wrong: it would give the Scene tab the window with the inspector and the console stacked
+        // behind it, which is not a maximise, it is a rearrangement.
+        foreach (var id in Shell.Workspace.Host.Panels.Keys.Where(id => id != ScenePanel).ToList()) {
+            Shell.Workspace.Close(id);
+        }
+
+        Shell.Workspace.Show(LayoutPresets.Single(ScenePanel));
     }
 
     /// <summary>Records what to come back to, and answers Single.</summary>

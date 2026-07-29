@@ -124,12 +124,16 @@
 
         <ItemGroup>
             <VixenTemplateSource Include="$(VixenTemplateSourceDirectory)**/*"
-                                 Exclude="$(VixenTemplateSourceDirectory)**/*.csproj;$(VixenTemplateSourceDirectory)**/Dockerfile" />
+                                 Exclude="$(VixenTemplateSourceDirectory)**/*.csproj;$(VixenTemplateSourceDirectory)**/*.vxproj;$(VixenTemplateSourceDirectory)**/Dockerfile" />
 
             <!-- The files that mention a version. A list rather than "every text file", because the
                  substitution is a rewrite and rewriting a shader is not something to do by accident.
                  Vixen.Templates.Tests asserts the token survives nowhere else. -->
             <VixenTemplateVersioned Include="$(VixenTemplateSourceDirectory)**/*.csproj" />
+
+            <!-- The project marker records the engine that made the project, which is the version
+                 IsFromTheFuture compares against. See Editor/Vixen.Editor.Core/ProjectMarker.cs. -->
+            <VixenTemplateVersioned Include="$(VixenTemplateSourceDirectory)**/*.vxproj" />
             <VixenTemplateVersioned Include="$(VixenTemplateSourceDirectory)**/Dockerfile" />
         </ItemGroup>
 

@@ -252,6 +252,19 @@ public static class ControlTheme {
             opacity: 0.55;
         }
 
+        /* ⚠ And a field that will not take a keystroke, which is a different state and had no
+           picture at all. `ReadOnly` is deliberately not `Disabled` — the field still takes the
+           focus and its text can still be selected and copied, which is the whole reason a form
+           uses it — so it does not get the fade, which reads as "out of reach". What it gets is
+           the muted text `:disabled` gets, because "you cannot change this" is the half the two
+           states share and is the half somebody is about to discover by typing.
+
+           On the parts as well as the field: `field-text` inherits its colour from here, and
+           `numeric-input`'s spinners and a combo box's editable half are children that do not. */
+        .read-only, .read-only field-text, .read-only icon {
+            color: var(--text-muted);
+        }
+
         /* ── Toggles ────────────────────────────────────────────────────────── */
         checkbox, radio, switch {
             flex-direction: row;
@@ -345,7 +358,15 @@ public static class ControlTheme {
          * lets the single-line one be wider than its box and scroll sideways; the text area gives
          * that up in exchange for its text staying inside.
          */
-        field-text { flex-shrink: 0; white-space: nowrap; }
+        /*
+         * ⚠ `min-height` in em, and it is what stops an empty field collapsing. An element with no
+         * text has no measure function at all — see `UiElement.OnTextChanged` — so it reports zero
+         * and a field holding "" is its padding and its border and nothing else: about ten pixels
+         * tall, which is a control that looks like a rule and is almost impossible to click. One em
+         * and a fifth is roughly a line box, and it is in em rather than px so that a field in a
+         * larger-typeset panel grows with the text it will hold rather than clipping it.
+         */
+        field-text { flex-shrink: 0; white-space: nowrap; min-height: 1.2em; }
         textarea field-text { flex-shrink: 1; white-space: normal; }
         field-placeholder { position: absolute; left: 8px; color: var(--text-muted); display: none; }
         .empty field-placeholder { display: flex; }
@@ -582,7 +603,11 @@ public static class ControlTheme {
             color: var(--text);
         }
 
-        select-field { flex-grow: 1; }
+        /* ⚠ The same floor `field-text` has, and for the same reason: a select with nothing chosen
+           yet holds an empty string, which measures zero and leaves a dropdown the height of its
+           padding. The chevron beside it is 12px and would otherwise be the only thing giving the
+           control a height at all. */
+        select-field { flex-grow: 1; min-height: 1.2em; }
         select.empty select-field, multi-select.empty select-field { color: var(--text-muted); }
         select icon, multi-select icon, combo-box icon { width: 12px; height: 12px; color: var(--text-muted); }
 

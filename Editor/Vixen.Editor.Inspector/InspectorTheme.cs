@@ -57,7 +57,21 @@ public static class InspectorTheme {
            shrank when the selection emptied would move under the pointer mid-type. */
         inspector-header { flex-direction: row; align-items: center; gap: 6px; flex-shrink: 0; }
         inspector-header > search-box { flex-grow: 1; min-width: 0; }
-        inspector-header > .inspector-lock { flex-shrink: 0; }
+        /* ⚠ The label is set and not drawn, which is what `IconButton` does for its own: it is what
+           a screen reader reads and what a tooltip would show, and a control whose only affordance
+           is a picture is the one that most needs to say what it is. Hidden here rather than by
+           leaving the label empty, because an empty label is a control with nothing to announce. */
+        inspector-header > .inspector-lock { flex-shrink: 0; padding: 3px; }
+        .inspector-lock label { display: none; }
+        .inspector-lock icon { width: 15px; height: 15px; }
+
+        /* ⚠ Grey open, red closed, and the glyph changes too — see `ControlIcons.Unlock`. A locked
+           inspector is the answer to "why is this panel ignoring what I select", so the state has to
+           read from across the window rather than being a slightly different grey. */
+        .inspector-lock icon { color: var(--text-muted); }
+        .inspector-lock:checked { background-color: transparent; }
+        .inspector-lock:checked icon { color: var(--danger, #c8352f); }
+        .inspector-lock:checked:hover:not(:disabled) icon { color: var(--danger, #c8352f); }
 
         /* ⚠ `min-height: 0` is what makes it scroll rather than grow. A flex item's automatic
            minimum is its content, so a scroll view full of rows refuses to be shorter than all of
@@ -239,9 +253,14 @@ public static class BrowserTheme {
     const string Sheet = """
         /* The search box takes what is left and the type filter keeps its width, so a long importer
            name is what gets clipped rather than the search field disappearing. */
-        browser-filters { flex-direction: row; align-items: center; gap: 6px; flex-shrink: 0; padding: 2px; }
-        browser-filters > search-box { flex-grow: 1; min-width: 0; }
-        browser-filters > select { flex-shrink: 0; width: 140px; }
+        browser-filters { flex-direction: row; align-items: center; gap: 6px; flex-shrink: 0; padding: 5px 6px; }
+        /* ⚠ The search box has a floor and the type filter gives up the width for it. At 140px the
+           dropdown left "Search assets" reading "Search as" in a docked browser, which is a
+           placeholder that has stopped being one. 110 still fits every importer tag the project
+           actually holds, and it is the control that can afford to clip: its value is a word the
+           user chose from a list they can reopen. */
+        browser-filters > search-box { flex-grow: 1; flex-shrink: 1; min-width: 90px; }
+        browser-filters > select { flex-shrink: 1; width: 110px; min-width: 64px; }
         browser-filters > .browser-view { flex-shrink: 0; }
 
         /* ── The grid ───────────────────────────────────────────────────────────
@@ -316,6 +335,11 @@ public static class BrowserTheme {
            and a column of identical crosses down the right of the panel is not. */
         .remove-component { flex-shrink: 0; margin-left: auto; opacity: 0.2; }
         expander-header:hover .remove-component { opacity: 1; }
+
+        /* The one being dragged, faded so the gap it will leave is visible under it. A real
+           floating copy would need the drag to carry an element, which the gesture layer does
+           not do — and at three foldouts the fade is enough to say what is moving. */
+        expander.component.dragging { opacity: 0.5; }
 
         .add-component { align-self: stretch; margin: 8px 4px 4px 4px; }
         .add-component.hidden { display: none; }

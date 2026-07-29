@@ -35,6 +35,38 @@ under `level1`; `level1/**` is everything beneath it. Collapsing that distinctio
 one download. Summing entry sizes is the mistake that tells a player a 4 MB pack is 40 MB. It is
 computed over the closure, so a remote dependency of a local address still counts.
 
+## References, and the direction the runtime needs
+
+An address is what a person types. A **reference** — `vx:9e8a44c9…`, optionally `#<subAssetId>` — is
+what a scene, a material or a component *stores*, because an id survives renaming the file and an
+address does not. Everything that loads takes an address, so a catalog that only went one way left a
+component holding an id with nothing it could do with it.
+
+```csharp
+var mesh = new AssetReference(entity.Mesh);      // what the component holds
+
+catalog.TryGetAddress(mesh, out var address);    // → "characters/hero#Hero_Mesh"
+assets.LoadAsync<MeshData>(mesh);                // or skip the address entirely
+```
+
+Every entry carries its reference, and the reverse index is derived in the constructor rather than
+stored — a second table that disagreed with the entries indexing it is a bug nothing would report, and
+it would disagree first on exactly the entry a content update replaced.
+
+⚠ **An address and a reference name the same thing and neither can be computed from the other.** A
+sub-asset's address carries its *name* (`#Hero_Mesh`, so it is typeable) and its reference carries its
+*id* (`#2b9e5f13`, so it is fixed-width). `BuildPlanner` is the only place in the build holding both,
+which is why the reference is written down there or not at all.
+
+⚠ **A reference nobody shipped raises `ReferenceNotFoundException`, not `AddressNotFoundException`.**
+A missing address is usually a typo in a call somebody wrote; a missing reference is content — an asset
+excluded from the build, or one deleted after something saved a reference to it. Nobody typed the
+identity, so "check the spelling" is the wrong advice.
+
+⚠ **Two addresses cannot claim one reference**, the same refusal as two entries claiming one address
+and for the same reason: it is a build that cannot say what a component points at. Entries with *no*
+reference are exempt and common — any chunk no authored asset claims.
+
 ## Content updates
 
 `MergedWith` lays a remote catalog over the shipped one. An address in both takes the update's
@@ -45,6 +77,12 @@ and a runtime that forgot the address would fail to load something sitting right
 Merging across targets or format versions is refused. Applying an Android catalog to a Windows one
 would resolve addresses to chunks in a format the device cannot read, which otherwise surfaces as a
 corrupt texture rather than as a build mix-up.
+
+⚠ **An update that moves an asset drops the address it left.** A merge is keyed by address, so the old
+entry would otherwise survive and claim the same reference as the new one — which the constructor
+refuses. The reference is the only thing that says the two entries are the same asset, so this is the
+one case where a merge does remove an address, and it is not an exception to the paragraph above: the
+asset is still reachable, under the address the update gave it.
 
 Catalogs are immutable, so a half-applied update cannot exist: either the merge produced one or the
 old one is still in use.

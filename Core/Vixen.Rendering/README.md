@@ -451,6 +451,47 @@ failing. What it buys is not bandwidth — it is that a push constant is *per co
 objects that bind nothing between them cannot become one command while each still has a matrix to
 push. See [Compacted draws](#what-is-not-here-yet).
 
+## The components a scene places
+
+`Ecs/` holds this assembly's ECS components and the systems that bridge them, the arrangement
+`Vixen.Physics` and `Vixen.Audio` already use: the subsystem references `Vixen.Ecs` and `Vixen.Engine`
+and owns both halves. `Vixen.Engine` references no graphics API, so the arrow points one way only.
+
+```csharp
+Lights.Attach(world, entity, LightKind.Directional);   // aimed with the entity's transform
+MeshRenderables.Attach(world, entity, MeshRenderables.Default(mesh));
+PrimitiveShapes.Attach(world, entity, PrimitiveKind.Cube);
+
+loop.Add(new LightExtractionSystem(lighting));         // fills lighting.Lights every frame
+```
+
+All three carry `[Component]` and `[DataContract]`, which is what declares them to
+`SceneComponentRegistry` — so a `.vxscene` places a light, the inspector draws one, and a compiled
+scene carries one, with no registration call anywhere. All three spent a while as editor-side
+components for want of exactly this.
+
+**`Light` is everything a light is except where it is.** Position, direction and the axis a tube or a
+rectangle runs along all come from `WorldTransform`, which is what makes a spot light something you aim
+with the rotate gizmo rather than by typing a vector — and what stops a file saying two different things
+about where one points.
+
+`LightExtractionSystem` is the bridge, and it is a copy rather than a translation: `Light`'s fields line
+up with `RenderLight`'s, plus the basis folded in from the transform. It runs in `SystemPhase.PreRender`
+and declares `Read<WorldTransform>`, so the dependency graph puts it after `TransformSystem` — which is
+what makes a light's position this frame's rather than last frame's. Naming the phase alone would not
+have been enough.
+
+⚠ **The list is rebuilt every frame rather than mirrored.** A light has no handle to keep, so there is
+nothing to reconcile and a destroyed entity cannot leave a light burning. That is the opposite trade
+from `PhysicsBody`, and the difference is exactly that a body is state and a light is not.
+
+⚠ **`MeshRenderable` is authored, compiled, loaded — and not yet drawn.** Resolving it is done:
+`ContentCatalog.TryGetAddress` turns its `AssetReference` into an address and `AssetManager.LoadAsync`
+turns that into a `MeshData`. What is missing is the extraction system, which needs a residency cache
+over `GeometryBuffer` — one slice per mesh, shared by every entity drawing it — and a material asset
+resolved to a `Material`. `LightExtractionSystem` is the same shape of thing and is finished, so the
+pattern is in the tree.
+
 ## Lighting
 
 `ForwardLightingRenderFeature` is the fourth sub-feature, and it registers an eight-byte

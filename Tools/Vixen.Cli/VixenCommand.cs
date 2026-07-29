@@ -4,6 +4,8 @@
 using System.CommandLine;
 using Vixen.ContentServer;
 using Vixen.Core.IO;
+using Vixen.Editor.Assets.Content;
+using Vixen.Editor.Core;
 
 namespace Vixen.Cli;
 
@@ -403,17 +405,16 @@ public static class VixenCommand {
 
                 var forTarget = parseResult.GetRequiredValue(target);
 
-                if (!PublishRunner.TryDescribe(forTarget, out var shape)) {
-                    Complain(
-                        parseResult.GetValue(format),
-                        complaints,
-                        $"'{forTarget}' is not a target this tool can publish. Try Windows, Linux, MacOS, Android or iOS."
-                    );
+                if (!PlayerBuild.TryDescribe(forTarget, out var shape)) {
+                    // The same sentence the editor's Build Settings window greys its Build button
+                    // with, because a target being unpublishable is one fact and two explanations of
+                    // it would be two things to keep in step.
+                    Complain(parseResult.GetValue(format), complaints, PlayerBuild.WhyNotPublishable(forTarget)!);
 
                     return (int)ExitCode.UsageError;
                 }
 
-                if (!TryFindProjectFile(opened.Paths.Root, out var projectFile)) {
+                if (!PlayerBuild.TryFindProjectFile(opened.Paths.Root, out var projectFile)) {
                     Complain(
                         parseResult.GetValue(format),
                         complaints,
@@ -478,9 +479,9 @@ public static class VixenCommand {
                 }
 
                 var forTarget = Project.HostTarget;
-                PublishRunner.TryDescribe(forTarget, out var shape);
+                PlayerBuild.TryDescribe(forTarget, out var shape);
 
-                if (!TryFindProjectFile(opened.Paths.Root, out var projectFile)) {
+                if (!PlayerBuild.TryFindProjectFile(opened.Paths.Root, out var projectFile)) {
                     Complain(
                         parseResult.GetValue(format),
                         complaints,
@@ -504,11 +505,12 @@ public static class VixenCommand {
 
                 writer.WriteLine();
 
-                return await PublishRunner.LaunchAsync(
+                return await PlayerBuild.LaunchAsync(
                     artefact,
                     Path.GetFileNameWithoutExtension(projectFile),
                     parseResult.GetValue(passthrough) ?? [],
                     writer,
+                    capture: false,
                     cancellationToken
                 ).ConfigureAwait(false);
             }
@@ -561,22 +563,14 @@ public static class VixenCommand {
 
         writer.WriteLine();
 
-        var (code, _) = await PublishRunner
-            .PublishAsync(projectFile, shape, variant, artefact, writer, cancellationToken)
+        // ⚠ The child's output is inherited rather than captured, which is the one thing this call
+        // wants differently from the editor's. A terminal is where MSBuild's colours and its
+        // in-place progress belong; a window with no console of its own is where they have to be
+        // read back and written into a panel. Same call, one flag.
+        var published = await PlayerBuild
+            .PublishAsync(projectFile, shape, variant, artefact, writer, capture: false, cancellationToken)
             .ConfigureAwait(false);
 
-        return code;
-    }
-
-    /// <summary>The one project file in the project root.</summary>
-    /// <remarks>
-    ///     Refuses when there is more than one rather than picking. A directory with two of them is a
-    ///     solution, and guessing which is the game is how a tool publishes the wrong thing quietly.
-    /// </remarks>
-    static bool TryFindProjectFile(string root, out string projectFile) {
-        var candidates = Directory.GetFiles(root, "*.csproj", SearchOption.TopDirectoryOnly);
-        projectFile = candidates.Length == 1 ? candidates[0] : string.Empty;
-
-        return projectFile.Length > 0;
+        return published ? ExitCode.Success : ExitCode.Failed;
     }
 }

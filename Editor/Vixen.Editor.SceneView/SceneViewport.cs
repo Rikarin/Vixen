@@ -882,6 +882,16 @@ public sealed class SceneViewport : IDisposable {
     ///     </para>
     /// </remarks>
     void OnPointer(UiElement element, PointerEvent args) {
+        // ⚠ The chrome drawn over the pane is not the pane, and this handler hears its events
+        // because it is registered with `handledEventsToo` — see the constructor. Without the guard,
+        // clicking the toolbar that floats over the viewport began a rubber band under it and the
+        // release picked nothing, so pressing "Rotate" deselected whatever was about to be rotated.
+        // Once a real drag is under way the pointer is captured and the source is the control again,
+        // so a band that started on the pane and wandered over the toolbar is unaffected.
+        if (Control.IsOverlayEvent(args.Source)) {
+            return;
+        }
+
         if (Flies(args.Button) && args.Action is PointerAction.Pressed or PointerAction.Released) {
             Flying(args.Action == PointerAction.Pressed);
         }

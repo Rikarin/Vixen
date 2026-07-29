@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Editor.Core;
+using Vixen.Editor.Ui;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -72,6 +73,16 @@ sealed class ProjectBrowser {
     /// <summary>Raised when a row's inline editor is committed.</summary>
     public event Action<AssetId, string>? Renamed;
 
+    /// <summary>Raised when the user switches between the tree and the grid.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What makes the choice outlive the panel.</b> A panel's factory runs again every time
+    ///     it is reopened, so the toggle is a fresh unchecked button on every visit — and the
+    ///     application is the only thing that can hold the answer, because it is the only thing that
+    ///     owns a preferences file. Reported rather than written here for the browser's own rule:
+    ///     every verb goes out as an event.
+    /// </remarks>
+    public event Action<bool>? ViewChanged;
+
     /// <summary>Raised when rows are dropped onto a folder row.</summary>
     public event Action<IReadOnlyList<AssetId>, AssetId>? Moved;
 
@@ -118,11 +129,22 @@ sealed class ProjectBrowser {
         grid.Size = ControlSize.Small;
         grid.Variant = ControlVariant.Subtle;
         grid.AddClass("browser-view");
-        grid.CheckedChanged += (_, _) => Populate();
+
+        grid.CheckedChanged += (_, on) => {
+            Populate();
+            ViewChanged?.Invoke(on);
+        };
 
         tree = panel.Add<TreeView>();
         tree.MultiSelect = true;
         tree.AllowDrag = true;
+
+        // ⚠ Double-click opens and a second click on the selected row renames, which is the pair
+        // every file manager ships and the reason the two are separate properties on the control. A
+        // browser whose double-click renamed would have no gesture left for the thing a browser is
+        // for; the outliner is the other way round, because a row there is a name rather than a
+        // document — see `TreeView.RenameOnSecondClick`.
+        tree.RenameOnSecondClick = true;
 
         tree.Activated += (_, node) => {
             // ⚠ Only what the database has an identity for, and never a folder — the same rule the
@@ -385,6 +407,12 @@ sealed class ProjectBrowser {
     /// </remarks>
     bool Branch(TreeNode parent, AssetTreeNode asset, string? kind) {
         var node = parent.Add(asset.Name, asset);
+
+        // A folder or a file, which is the only distinction the tree can make without asking the
+        // database what claims each row — see `AssetGrid`, which does ask, because a tile is large
+        // enough for the answer to be worth reading.
+        node.Icon = asset.IsFolder ? EditorIcons.Folder : EditorIcons.File;
+
         var kept = kind is null || (!asset.IsFolder && Tagged(asset, kind));
 
         foreach (var child in asset.Children) {

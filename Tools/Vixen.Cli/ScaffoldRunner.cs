@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Editor.Core;
+
 namespace Vixen.Cli;
 
 /// <summary>Writes a new project.</summary>
@@ -40,10 +42,7 @@ public static class ScaffoldRunner {
     ///     engine that matches the tool that scaffolded it. A hard-coded version here is one that
     ///     silently goes stale and produces projects that will not restore.
     /// </remarks>
-    public static string SdkVersion { get; } =
-        typeof(ScaffoldRunner).Assembly.GetName().Version is { } version
-            ? $"{version.Major}.{version.Minor}.{version.Build}"
-            : "0.1.0";
+    public static string SdkVersion => ProjectScaffold.SdkVersion;
 
     /// <summary>Writes the project.</summary>
     /// <param name="template">Which template: <c>game</c>, <c>app</c> or <c>lib</c>.</param>
@@ -51,60 +50,47 @@ public static class ScaffoldRunner {
     /// <param name="directory">Where to write it. Created if it is not there.</param>
     /// <param name="output">Where to report what was written.</param>
     /// <returns>Success, or a usage error with the reason already written.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The decisions moved to <see cref="ProjectScaffold" /> and what is left here is the
+    ///     console.</b> That is the split <c>ImportRunner</c> and <c>ContentPipeline</c> already
+    ///     make, and it happened for the same reason: the editor's New Project needs the four
+    ///     decisions — which template, is the name usable, what would be overwritten, what to write
+    ///     — and does not need a <see cref="TextWriter" />.
+    /// </remarks>
     public static ExitCode Run(string template, string name, string directory, TextWriter output) {
         ArgumentNullException.ThrowIfNull(output);
 
-        if (!TemplateCatalog.TryFind(template ?? string.Empty, out var chosen)) {
-            output.WriteLine($"'{template}' is not a template. There are {TemplateCatalog.All.Count}:");
-
-            foreach (var known in TemplateCatalog.All) {
-                output.WriteLine($"  {known.ShortName,-8} {known.Description}");
-            }
-
-            return ExitCode.UsageError;
-        }
-
-        if (!IsUsableName(name)) {
-            output.WriteLine(
-                $"'{name}' cannot be a project name. It has to start with a letter and hold only "
-                + "letters, digits, underscores and dots — it becomes both an assembly name and a "
-                + "namespace."
-            );
-
-            return ExitCode.UsageError;
-        }
-
         var root = Path.GetFullPath(directory);
-        var files = chosen.Instantiate(name, SdkVersion);
+        var result = ProjectScaffold.Write(template, name, root);
 
-        // Every collision is found before anything is written. A half-scaffolded directory is worse
-        // than an untouched one, because the second is obviously a no-op and the first is not.
-        var existing = files
-            .Select(file => Path.Combine(root, file.Path))
-            .Where(File.Exists)
-            .ToList();
+        if (result.Error.Length > 0) {
+            output.WriteLine(result.Error);
 
-        if (existing.Count > 0) {
-            output.WriteLine($"Nothing was written: {existing.Count} file(s) are already there.");
-
-            foreach (var path in existing) {
-                output.WriteLine($"  {Path.GetRelativePath(root, path)}");
+            // The list is the console's half: a caller that is not a terminal has `All` itself.
+            if (!TemplateCatalog.TryFind(template ?? string.Empty, out _)) {
+                foreach (var known in TemplateCatalog.All) {
+                    output.WriteLine($"  {known.ShortName,-8} {known.Description}");
+                }
             }
 
             return ExitCode.UsageError;
         }
 
-        foreach (var file in files) {
-            var path = Path.Combine(root, file.Path);
+        if (result.Collisions.Count > 0) {
+            output.WriteLine($"Nothing was written: {result.Collisions.Count} file(s) are already there.");
 
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllBytes(path, file.Content);
+            foreach (var path in result.Collisions) {
+                output.WriteLine($"  {path}");
+            }
+
+            return ExitCode.UsageError;
         }
 
+        TemplateCatalog.TryFind(template, out var chosen);
         output.WriteLine($"Created {chosen.ShortName} '{name}' in {root}");
 
-        foreach (var file in files) {
-            output.WriteLine($"  {file.Path}");
+        foreach (var path in result.Written) {
+            output.WriteLine($"  {path}");
         }
 
         if (chosen.Id is "vixen-game") {
@@ -115,16 +101,4 @@ public static class ScaffoldRunner {
 
         return ExitCode.Success;
     }
-
-    /// <summary>
-    ///     Whether a name can be both an assembly name and a namespace.
-    /// </summary>
-    /// <remarks>
-    ///     Checked here rather than left to the compiler, because the compiler's complaint arrives
-    ///     after the files exist and names a generated line rather than the argument that caused it.
-    /// </remarks>
-    static bool IsUsableName(string name) =>
-        name.Length > 0
-        && char.IsLetter(name[0])
-        && name.All(character => char.IsLetterOrDigit(character) || character is '_' or '.');
 }

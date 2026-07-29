@@ -6,7 +6,6 @@ using System.Diagnostics.CodeAnalysis;
 using Vixen.Core;
 using Vixen.Core.Serialization;
 using Vixen.Ecs;
-using Vixen.Engine.Cameras;
 
 namespace Vixen.Engine.Scenes;
 
@@ -208,11 +207,16 @@ sealed class SceneComponentBinder<T> : ISceneComponentBinder {
 /// <summary>Which component types a compiled scene is allowed to name, and how each of them loads.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Told rather than discovered, for the reason <c>BuiltInImporters</c> gives.</b> An
-///         assembly scan reads metadata a trimmed publish has already deleted, and it would make
-///         "which components can be in a scene" a question with a different answer in the editor, in
-///         a worker process and in a shipped game — where the disagreement shows up as a level that
-///         loads on the machine that built it.
+///         <b>Discovered at compile time, which is not the same as scanned at run time.</b> A
+///         component carrying both <c>[Component]</c> and <c>[DataContract]</c> is declared here by
+///         <c>ComponentRegistrationGenerator</c>, through a <c>[ModuleInitializer]</c> the declaring
+///         assembly emits. The objection this paragraph used to record stands and is answered rather
+///         than dropped: an assembly scan reads metadata a trimmed publish has already deleted, and
+///         it would make "which components can be in a scene" a question with a different answer in
+///         the editor, in a worker process and in a shipped game. A generated call is the opposite —
+///         what is registered is what a generator saw in the source, so the set is fixed at build
+///         time and identical everywhere, which is the bargain <see cref="SerializerRegistry" />
+///         already struck for the serializers themselves.
 ///     </para>
 ///     <para>
 ///         <b>The name is the serializer's alias and is not chosen here.</b> A component's
@@ -222,18 +226,19 @@ sealed class SceneComponentBinder<T> : ISceneComponentBinder {
 ///         registration rather than at the load.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The engine registers only what a scene can sensibly carry, and a game registers its
-///         own.</b> <see cref="Transforms.LocalTransform" /> is deliberately absent: every entity in
-///         a scene has one, so it is stored as three columns of the scene's own rather than as a
-///         component somebody could also list — which would let a file say two different things about
-///         where an entity is.
+///         ⚠ <b>Two attributes rather than one, because a handle is a component and is not scene
+///         data.</b> <c>PhysicsBody</c> holds a body handle and carries <c>[Component]</c> without
+///         <c>[DataContract]</c>, so it is excluded by construction — no denylist, no opt-out
+///         attribute, and nothing for anybody to remember. <see cref="Transforms.LocalTransform" />
+///         carries neither and is absent for its own reason: every entity in a scene has one, so it
+///         is stored as three columns of the scene's own rather than as a component somebody could
+///         also list, which would let a file say two different things about where an entity is.
 ///     </para>
 /// </remarks>
 public static class SceneComponentRegistry {
     static readonly ConcurrentDictionary<string, ISceneComponentBinder> ByAlias = new(StringComparer.Ordinal);
     static readonly ConcurrentDictionary<Type, ISceneComponentBinder> ByType = new();
-
-    static SceneComponentRegistry() => Register<Camera>();
+    static readonly ConcurrentQueue<Action> Declared = new();
 
     /// <summary>Every component a scene may name, in the order they were registered.</summary>
     /// <remarks>
@@ -244,7 +249,31 @@ public static class SceneComponentRegistry {
     ///     asking each one <see cref="ISceneComponentBinder.Has" /> is how a panel finds out what an
     ///     entity carries.
     /// </remarks>
-    public static IReadOnlyCollection<ISceneComponentBinder> Binders => (IReadOnlyCollection<ISceneComponentBinder>) ByAlias.Values;
+    public static IReadOnlyCollection<ISceneComponentBinder> Binders {
+        get {
+            Resolve();
+            return (IReadOnlyCollection<ISceneComponentBinder>) ByAlias.Values;
+        }
+    }
+
+    /// <summary>Says a component exists, to be registered the first time anything asks.</summary>
+    /// <typeparam name="T">The component.</typeparam>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What the generated <c>[ModuleInitializer]</c> calls, and the deferral is the whole
+    ///         point of it having its own method.</b> Registering needs the component's serializer,
+    ///         which its assembly registers from a module initializer of its own — and the order two
+    ///         module initializers in one assembly run in is unspecified. Enqueuing costs one static
+    ///         delegate per component and cannot observe that order at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A failure therefore surfaces at the first lookup rather than here.</b> That is
+    ///         only reachable when an assembly ran this generator and not the serialization one, which
+    ///         is a build that is wired wrong rather than a component that is written wrong; the
+    ///         message <see cref="Register{T}" /> throws names the type and the fix either way.
+    ///     </para>
+    /// </remarks>
+    public static void Declare<T>() => Declared.Enqueue(static () => Register<T>());
 
     /// <summary>Makes a component type nameable by a compiled scene.</summary>
     /// <typeparam name="T">The component.</typeparam>
@@ -253,7 +282,8 @@ public static class SceneComponentRegistry {
     /// <remarks>
     ///     Idempotent for the same type, so a game that registers its components from more than one
     ///     entry point — a test, a module initializer, a plugin loading twice — does not have to
-    ///     coordinate.
+    ///     coordinate. Annotating the component is the ordinary way in; this stays public for a type
+    ///     whose assembly cannot run a generator, and for a test that wants one registered now.
     /// </remarks>
     public static void Register<T>() {
         if (ByType.ContainsKey(typeof(T))) {
@@ -296,15 +326,19 @@ public static class SceneComponentRegistry {
     /// <param name="alias">The name.</param>
     /// <param name="binder">Its binder.</param>
     /// <returns><see langword="false" /> if nothing registered claims it.</returns>
-    public static bool TryGet(string alias, [NotNullWhen(true)] out ISceneComponentBinder? binder) =>
-        ByAlias.TryGetValue(alias, out binder);
+    public static bool TryGet(string alias, [NotNullWhen(true)] out ISceneComponentBinder? binder) {
+        Resolve();
+        return ByAlias.TryGetValue(alias, out binder);
+    }
 
     /// <summary>The binder for a component type, if it has one.</summary>
     /// <param name="type">The CLR type.</param>
     /// <param name="binder">Its binder.</param>
     /// <returns><see langword="false" /> if it was never registered.</returns>
-    public static bool TryGet(Type type, [NotNullWhen(true)] out ISceneComponentBinder? binder) =>
-        ByType.TryGetValue(type, out binder);
+    public static bool TryGet(Type type, [NotNullWhen(true)] out ISceneComponentBinder? binder) {
+        Resolve();
+        return ByType.TryGetValue(type, out binder);
+    }
 
     /// <summary>The binder for a name, or a failure that says what to do about it.</summary>
     /// <param name="alias">The name.</param>
@@ -323,8 +357,22 @@ public static class SceneComponentRegistry {
             : throw new SceneComponentException(
                 $"This build has no component called '{alias}', so the scene naming it cannot be loaded. "
                 + "Either the content was built against a newer game than the one loading it, or the "
-                + "assembly declaring that component never called SceneComponentRegistry.Register."
+                + "component is missing [Component] or [DataContract] — a compiled scene may name a type "
+                + "that carries both, and the declaring assembly has to run the engine's component "
+                + "generator."
             );
+
+    /// <summary>Registers everything <see cref="Declare{T}" /> has been told about and not yet built.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Dequeued before it is run, so a component that cannot be registered fails once.</b>
+    ///     Leaving it on the queue would raise the same exception out of every lookup that followed,
+    ///     including the ones that had nothing to do with it.
+    /// </remarks>
+    static void Resolve() {
+        while (Declared.TryDequeue(out var register)) {
+            register();
+        }
+    }
 }
 
 /// <summary>A compiled scene names something this build cannot make.</summary>

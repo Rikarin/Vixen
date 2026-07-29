@@ -30,23 +30,12 @@
         <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
     </ItemGroup>
 
-    <ItemGroup>
-        <!--
-            The `dotnet new` templates, embedded so that `vixen new` writes the same files
-            `dotnet new vixen-game` does. There is no ProjectReference to go with this: Vixen.Templates
-            is a content-only package with no assembly, so there is nothing to reference — what is
-            shared is the tree of files, and TemplateCatalog is what reads it back out.
-
-            ⚠ LogicalName is spelled out, with the separators normalised. The default naming folds
-            directory separators into dots, which makes `Shaders/ui.vert.spv` and
-            `Shaders.ui.vert.spv` the same resource name; and %(RecursiveDir) uses the host's
-            separator, which would otherwise put a different set of resource names in a Windows build
-            than in a Linux one — in an assembly the repository requires to be deterministic.
-        -->
-        <EmbeddedResource Include="$(MSBuildThisFileDirectory)..\Vixen.Templates\templates\**\*"
-                          LogicalName="Vixen.Templates/$([MSBuild]::ValueOrDefault('%(RecursiveDir)', '').Replace('\', '/'))%(Filename)%(Extension)"
-                          Visible="false" />
-    </ItemGroup>
+<!--
+    The `dotnet new` templates used to be embedded here. They moved to Vixen.Editor.Core with
+    TemplateCatalog, because the editor's New Project needs the same scaffold — an editor whose new
+    projects have no .csproj is one whose Build and Run is greyed for every project it makes.
+    `vixen new` reads them through the same type it always did.
+-->
 
     <ItemGroup>
         <PackageReference Include="System.CommandLine" />

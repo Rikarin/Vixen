@@ -16,12 +16,18 @@ namespace Vixen.Ui.Controls;
 ///         field where Ctrl-Left works and one where it does not.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Single line, because <see cref="TextLine" /> is.</b> Nothing in the framework breaks
-///         a paragraph across lines yet — <c>Vixen.Ui.Text</c> has the UAX#14 breaker and the draw
-///         path does not use it — so a value longer than the box scrolls sideways rather than
-///         wrapping, and <see cref="TextArea" /> is a taller box rather than a different control.
-///         Said plainly: this is the honest state of the text stack rather than a decision about
-///         what a text area should be.
+///         ⚠ <b>Single line unless <see cref="AcceptsNewlines" /> says otherwise</b>, which only
+///         <see cref="TextArea" /> does. A one-line field's value scrolls sideways rather than
+///         wrapping; a text area wraps, takes a newline from Enter, and moves its caret between
+///         lines. Both are the same caret, the same selection and the same keyboard map — the
+///         difference is three predicates rather than a second control.
+///     </para>
+///     <para>
+///         ⚠ <b>A text area does not scroll vertically yet.</b> Its lines are drawn where they fall
+///         and a value taller than the box is clipped by it, which is honest and is not enough: the
+///         box is sized by the theme (<c>textarea { min-height }</c>) and a caller that expects to
+///         hold a long document should say how tall it wants to be. A scroll region round the text
+///         is owed.
 ///     </para>
 ///     <para>
 ///         <b>The caret is an index into the value and the selection is a second one.</b> Both are
@@ -51,11 +57,23 @@ public abstract partial class TextField : Control {
 
     /// <summary>Whether it can be typed into.</summary>
     /// <remarks>
-    ///     Distinct from <see cref="Control.Disabled" />: a read-only field still takes the focus,
-    ///     is still a tab stop, and its text can still be selected and copied. A disabled one is out
-    ///     of reach entirely. Conflating them is how a form ends up with values nobody can read.
+    ///     <para>
+    ///         Distinct from <see cref="Control.Disabled" />: a read-only field still takes the
+    ///         focus, is still a tab stop, and its text can still be selected and copied. A disabled
+    ///         one is out of reach entirely. Conflating them is how a form ends up with values
+    ///         nobody can read.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It writes a <c>read-only</c> class, and until it did the state was invisible.</b>
+    ///         <see cref="Control.Disabled" /> has <c>:disabled</c> and every theme greys it; this
+    ///         had nothing at all — so a field the inspector had made read-only because the member
+    ///         has no setter looked exactly like one you could type in, and the only way to find out
+    ///         was to type in it and watch nothing happen. A class rather than a state because
+    ///         <c>ElementState</c> is the set of <i>transient</i> conditions a selector asks about
+    ///         and this is a mode the field was put into.
+    ///     </para>
     /// </remarks>
-    [UiProperty]
+    [UiProperty(Changed = nameof(OnReadOnlyChanged))]
     public partial bool ReadOnly { get; set; }
 
     /// <summary>The longest value it will take, or zero for no limit.</summary>
@@ -224,6 +242,23 @@ public abstract partial class TextField : Control {
     protected virtual void OnSubmit() {
     }
 
+    /// <summary>Whether Enter puts a line break in the value rather than submitting it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>False everywhere except <see cref="TextArea" />, and it is what makes a text area
+    ///         a text area.</b> Without it Enter submitted and the value stayed one line, so a field
+    ///         offered for a YAML document — the editor's theme tokens are one — could not be given a
+    ///         second line at all. That reads as a box that will not take what you type, which is a
+    ///         worse bug than a missing feature because there is nothing on screen to explain it.
+    ///     </para>
+    ///     <para>
+    ///         The wrapping and the multi-line caret were already possible: <c>TextLayout</c> breaks
+    ///         on a mandatory break and answers <c>CaretAt</c> per line. What was missing was a way to
+    ///         get a newline into the string.
+    ///     </para>
+    /// </remarks>
+    protected virtual bool AcceptsNewlines => false;
+
     /// <summary>What a repeated tap selects.</summary>
     /// <param name="index">Where the tap landed, as a UTF-16 index into <see cref="Value" />.</param>
     /// <param name="count">How many taps in a row, two or more.</param>
@@ -249,33 +284,70 @@ public abstract partial class TextField : Control {
     protected override void OnDraw(DrawContext context) {
         base.OnDraw(context);
 
-        if (!IsFocused || text.Block() is not { } block) {
+        if (!IsFocused) {
             return;
         }
 
-        // ⚠ The first line, and there is only ever one: the theme puts `white-space: nowrap` on a
-        // field's text so that a long value scrolls sideways rather than growing the field downwards.
-        // A caret that had to know which line it was on is `TextArea`'s problem and is owed.
-        var line = block.Lines[0];
         var origin = text.AbsoluteLeft;
         var top = text.AbsoluteTop;
-        var height = line.Height;
 
-        if (HasSelection) {
-            var from = origin + line.CaretOffset(SelectionStart);
-            var to = origin + line.CaretOffset(SelectionEnd);
-
+        // ⚠ An empty field still draws a caret, and until it did, clicking one looked like nothing
+        // happening. There is no block to ask — `UiElement.Block` answers null for an element with
+        // no text, deliberately — so this used to return here, which meant the *only* field with no
+        // visible sign of the focus was the one you were about to type your first character into.
+        // A click gives `Focus` and not `FocusVisible`, so the ring is not drawn either: between the
+        // two, an empty focused search box was indistinguishable from an empty unfocused one.
+        //
+        // The height is the text element's own, which is a real number because the theme gives
+        // `field-text` a `min-height` — the same declaration that stops an empty field collapsing.
+        if (text.Block() is not { } block) {
             context.FillRectangle(
-                new Rectangle(MathF.Min(from, to), top, MathF.Abs(to - from), height),
-                Document.ColorOf(Style, selectionColor) ?? new Color4(0.25f, 0.45f, 0.85f, 0.35f)
+                new Rectangle(origin, top, 1f, MathF.Max(text.Height, 1f)),
+                Document.ColorOf(Style, caretColor) ?? context.Foreground
             );
+
+            return;
+        }
+
+        // ⚠ Per line, and a single-line field is the one-line case of it rather than a different
+        // path. This used to read `block.Lines[0]` and say so — which was true while nothing wrapped
+        // and became a lie the moment `TextArea` grew a newline: the caret stayed pinned to the first
+        // line's baseline and a selection spanning two lines was drawn as one band across the first.
+        if (HasSelection) {
+            var first = block.LineOf(SelectionStart);
+            var last = block.LineOf(SelectionEnd);
+            var colour = Document.ColorOf(Style, selectionColor) ?? new Color4(0.25f, 0.45f, 0.85f, 0.35f);
+
+            for (var index = first; index <= last; index++) {
+                var line = block.Lines[index];
+                var start = Math.Max(SelectionStart, line.Start);
+                var end = Math.Min(SelectionEnd, line.Start + line.Length);
+
+                var from = origin + line.CaretOffset(start);
+                var to = origin + line.CaretOffset(end);
+
+                // ⚠ A minimum width, so a line whose whole content is inside the selection but which
+                // ends in the break still reads as selected. Zero-width is what a blank line in the
+                // middle of a selected paragraph would otherwise be, and it looks like a gap.
+                context.FillRectangle(
+                    new Rectangle(
+                        MathF.Min(from, to),
+                        top + block.TopOf(index),
+                        MathF.Max(MathF.Abs(to - from), index < last ? 3f : 0f),
+                        line.Height
+                    ),
+                    colour
+                );
+            }
         }
 
         // ⚠ The caret is drawn even when there is a selection. Every editor does — the caret is the
         // end you are extending from, and hiding it during a Shift-Arrow leaves the user unable to
         // tell which way the next keystroke will grow the selection.
+        var (caretX, caretY) = block.CaretAt(CaretIndex);
+
         context.FillRectangle(
-            new Rectangle(origin + line.CaretOffset(CaretIndex), top, 1f, height),
+            new Rectangle(origin + caretX, top + caretY, 1f, block.Lines[block.LineOf(CaretIndex)].Height),
             Document.ColorOf(Style, caretColor) ?? context.Foreground
         );
     }
@@ -299,6 +371,14 @@ public abstract partial class TextField : Control {
     void OnPlaceholderChanged(string? previous, string? current) {
         placeholder.Text = current;
         Restate();
+    }
+
+    void OnReadOnlyChanged(bool previous, bool current) {
+        if (current) {
+            AddClass("read-only");
+        } else {
+            RemoveClass("read-only");
+        }
     }
 
     /// <summary>Shows the placeholder only when there is nothing to show instead.</summary>
@@ -325,6 +405,14 @@ public abstract partial class TextField : Control {
     /// </remarks>
     void Reveal() {
         if (text.Block() is not { } block) {
+            text.OffsetX = 0f;
+            return;
+        }
+
+        // ⚠ Nothing to reveal in a field whose text wraps: the caret is always inside the box
+        // horizontally, and shifting the block sideways would take the *other* lines out of it.
+        // Scrolling a text area vertically is the scroll region's job and is owed.
+        if (AcceptsNewlines) {
             text.OffsetX = 0f;
             return;
         }
@@ -371,7 +459,7 @@ public abstract partial class TextField : Control {
         switch (args.Action) {
             case PointerAction.Pressed when args.Button == PointerButton.Primary:
                 Document.Focus(this);
-                MoveCaret(IndexAt(args.X), args.Modifiers.HasFlag(ModifierKeys.Shift));
+                MoveCaret(IndexAt(args.X, args.Y), args.Modifiers.HasFlag(ModifierKeys.Shift));
 
                 // Captured, so that a selection drag that leaves the field keeps extending. Without
                 // it the drag stops at the border and the user has to make the selection twice.
@@ -382,7 +470,7 @@ public abstract partial class TextField : Control {
                 break;
 
             case PointerAction.Moved when dragging:
-                MoveCaret(IndexAt(args.X), true);
+                MoveCaret(IndexAt(args.X, args.Y), true);
                 args.Handled = true;
                 break;
 
@@ -410,22 +498,60 @@ public abstract partial class TextField : Control {
             return;
         }
 
-        SelectAt(IndexAt(args.X), args.Count);
+        SelectAt(IndexAt(args.X, args.Y), args.Count);
         args.Handled = true;
     }
 
-    /// <summary>Which caret index a document-space x lands on.</summary>
-    int IndexAt(float x) {
+    /// <summary>Which caret index a point in document space lands on.</summary>
+    /// <remarks>
+    ///     Pixels all the way, which is what changed when a line became several runs: a mixed-font
+    ///     line has no single design-unit scale to divide by, so the conversion belongs inside each
+    ///     run rather than out here. The <c>y</c> is what picks the line, and for a single-line field
+    ///     it can only ever pick the one.
+    /// </remarks>
+    int IndexAt(float x, float y) =>
+        text.Block() is { } block ? block.CaretIndexAt(x - text.AbsoluteLeft, y - text.AbsoluteTop) : 0;
+
+    /// <summary>Where the line holding an index begins.</summary>
+    int LineStart(int index) =>
+        text.Block() is { } block ? block.Lines[block.LineOf(index)].Start : 0;
+
+    /// <summary>And where it ends, before the break that ended it.</summary>
+    int LineEnd(int index) {
         if (text.Block() is not { } block) {
+            return Value?.Length ?? 0;
+        }
+
+        var line = block.Lines[block.LineOf(index)];
+
+        return line.Start + line.Length;
+    }
+
+    /// <summary>The index a line up or down, keeping roughly the same column.</summary>
+    /// <remarks>
+    ///     ⚠ <b>By pixel offset rather than by character count, which is what makes it land under the
+    ///     caret rather than <i>n</i> characters into the next line.</b> Proportional text has no
+    ///     column, and a caret that counted characters would drift left across a line of capitals and
+    ///     right across a line of commas. Off the top or the bottom, it goes to the ends — which is
+    ///     what every editor does and what stops Up on the first line doing nothing at all.
+    /// </remarks>
+    int Vertically(int delta) {
+        if (text.Block() is not { } block) {
+            return CaretIndex;
+        }
+
+        var line = block.LineOf(CaretIndex);
+        var wanted = line + delta;
+
+        if (wanted < 0) {
             return 0;
         }
 
-        var line = block.Lines[0];
+        if (wanted >= block.Lines.Length) {
+            return Value?.Length ?? 0;
+        }
 
-        // Pixels all the way, which is what changed when a line became several runs: a mixed-font
-        // line has no single design-unit scale to divide by, so the conversion belongs inside each
-        // run rather than out here.
-        return line.CaretIndexAt(x - text.AbsoluteLeft);
+        return block.Lines[wanted].CaretIndexAt(block.Lines[line].CaretOffset(CaretIndex));
     }
 
     void Typed(TextInputEvent args) {
@@ -459,12 +585,23 @@ public abstract partial class TextField : Control {
                 MoveCaret(word ? WordAfter(CaretIndex) : Step(CaretIndex, 1), shift);
                 break;
 
+            // ⚠ To the end of the *line* in a field that has more than one, and to the end of the
+            // value in one that does not. Both are what Home and End mean where they came from, and
+            // a text area whose Home jumped to the top of the document would be the odd one out.
             case InputKey.Home:
-                MoveCaret(0, shift);
+                MoveCaret(AcceptsNewlines ? LineStart(CaretIndex) : 0, shift);
                 break;
 
             case InputKey.End:
-                MoveCaret(Value?.Length ?? 0, shift);
+                MoveCaret(AcceptsNewlines ? LineEnd(CaretIndex) : Value?.Length ?? 0, shift);
+                break;
+
+            case InputKey.Up when AcceptsNewlines:
+                MoveCaret(Vertically(-1), shift);
+                break;
+
+            case InputKey.Down when AcceptsNewlines:
+                MoveCaret(Vertically(1), shift);
                 break;
 
             case InputKey.Backspace:
@@ -477,6 +614,13 @@ public abstract partial class TextField : Control {
 
             case InputKey.A when word:
                 SelectAll();
+                break;
+
+            // ⚠ A newline in a text area and a submission everywhere else. Ctrl-Enter still submits
+            // in a text area, because a form's default button has to stay reachable from a field
+            // that has claimed the plain key.
+            case InputKey.Enter or InputKey.KeypadEnter when AcceptsNewlines && !word:
+                Replace("\n");
                 break;
 
             case InputKey.Enter or InputKey.KeypadEnter:

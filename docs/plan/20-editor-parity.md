@@ -39,11 +39,11 @@ from counting `Add` calls, because half of the commands are registered in loops.
 
 | | Built | Missing |
 |---|---|---|
-| **Panels** | Hierarchy, Inspector, Scene viewport (1/2/4 panes), Project browser, Console, the seven of [B4](#b4--diagnostics), Message Log, Keyboard Shortcuts, Preferences, Project Settings, Plugins, Undo History, one per open asset document | ~11 more, listed in [Part B](#part-b--the-panel-inventory) |
+| **Panels** | Hierarchy, Inspector, Scene viewport (1/2/4 panes), Project browser, Console, the seven of [B4](#b4--diagnostics), Message Log, Keyboard Shortcuts, Preferences, Project Settings, Build Settings, Plugins, Undo History, **World Settings, Lighting, Navigation, Scenes**, one per open asset document | ~6 more, listed in [Part B](#part-b--the-panel-inventory) |
 | **Menus** | All ten of [Part C](#part-c--the-menu-bar-entry-by-entry): File, Edit, Assets, Entity, Scene, Play, Window, Build, Tools, Help | Nothing structural. Individual lines are disabled-with-a-reason rather than absent |
-| **Commands** | Every id [Part C](#part-c--the-menu-bar-entry-by-entry) names, plus Open Recent's one per project. The declared-and-disabled ones that are left name E5 and E6 | Whatever E5 and E6 add |
+| **Commands** | Every id [Part C](#part-c--the-menu-bar-entry-by-entry) names, plus Open Recent's one per project, the Build menu's one per target and per variant, and **seven Assets ▸ Create lines, one per asset kind E5 adds**. The declared-and-disabled ones that are left name the rest of E6, Raven's compiler, or a runtime concept that does not exist | Whatever the rest of E6 adds |
 | **Windows** | One OS window, a floating dock group promoted to a real one with an off-display rule, drawn modal dialogs, and the startup Project Browser | About is still a notification rather than a window |
-| **Layouts** | Six presets, saved/named arrangements, `current.vxlayout`, floating groups with their geometry, **and the open documents** | `Sequencing`, which waits on B5 |
+| **Layouts** | Seven presets — the six, plus `Sequencing` now that B5 exists — saved/named arrangements, `current.vxlayout`, floating groups with their geometry, **and the open documents** | Nothing |
 | **Shell services** | Commands with contexts and scopes, a three-layer keymap with presets, palette, **search-everywhere**, menus, context menus, toolbar with sections and groups, status bar, notifications, background tasks, theming, localisation, docking, plugins, dialogs, icons, MRU, **a settings mechanism**, **an automation harness** | Modes |
 
 The three findings this document opened with are all closed, and they are kept because the reasoning
@@ -135,9 +135,15 @@ currently unbuildable.
   ⚠ **It is a drawn dialog rather than an OS window, which is this section's own rule applied to its
   own example** — the first thing a new user sees is precisely the screen a regression must not be
   able to hide in, so it has to be photographable by the golden suite and drivable by the harness.
-  ⚠ **And New Project makes four directories rather than instantiating a template**:
-  `Tools/Vixen.Templates` is reached with `dotnet new` and produces a *solution*, which is a different
-  thing from the folder an editor opens.
+  ✅ **New Project instantiates the `game` template**, which it did not until E6 needed it to. The
+  sentence that used to be here — that `Tools/Vixen.Templates` "is reached with `dotnet new` and
+  produces a solution" — was wrong twice over: `TemplateCatalog` reads the same tree of files out of
+  an assembly with no `dotnet new` anywhere near it, and the `game` template is a project rather than
+  a solution. What was true is that the reader lived in `Tools/Vixen.Cli`, which no editor
+  references. So New Project made two directories, every project born in the editor had no `.csproj`,
+  and [E6](#e6--production-hardening-15-em)'s Build and Run was greyed for all of them with a message
+  naming a terminal command. `ProjectScaffold` in `Vixen.Editor.Core` is `ProjectWorkspace`'s move
+  made a second time, for the third consumer of the same argument.
 
 ### A3 — Command system, completed
 
@@ -351,7 +357,7 @@ runtime half; `Vixen.Core.Diagnostics` has the sample rings and the Chrome-trace
 | **Memory** — managed heap, native allocators, GPU heaps, asset residency | Memory Insights / Memory Profiler | 🟡 | Managed ✅, native ✅ through `LeakTracker` — which compiles out of release, and the panel says so rather than reading zero. GPU heaps need `VK_EXT_memory_budget`, which the backend does not query; assets are counts, because the database holds identities and not sizes |
 | **Remote inspector** — attach to a running build, browse and mutate live entities | Device output / Profiler remote | 🟡 | The editor's half ✅ over any `ITransport`. ⚠ **The runtime half is doc 13's and is not written**, and neither is discovery — a `FakeBuild` in the tests is the shape a player implements |
 | **Statistics** — counts, budgets, warnings per scene | Statistics / Stats | ✅ | Traversal only, as this row said. No draw calls: the viewport draws lines, and a count there would be a guess presented as a measurement |
-| **Device manager** | Device Manager / Build & Run | 🟡 | The list, the statuses and the hand-off to the inspector ✅. Finding an Android device is `adb` and a console is a vendor SDK — one `IDeviceProvider` each |
+| **Device manager** | Device Manager / Build & Run | 🟡 | The list, the statuses, the hand-off to the inspector and — since [E6](#e6--production-hardening-15-em)'s build settings — Deploy ✅. Finding an Android device is `adb` and a console is a vendor SDK — one `IDeviceProvider` each, and the same tool is what would install to it, which is why deploying to anything but this machine is greyed with the tool's name |
 
 ⚠ **The profiler must be able to profile the editor.** An editor that can only profile the game
 cannot answer why the editor is slow, and doc 00's editor-shell performance bar is a claim about the
@@ -363,34 +369,34 @@ is, and `EditorHost` instruments its loop with the four phases its own remarks n
 
 | Panel | UE / Unity | Owner | Status | Notes |
 |---|---|---|---|---|
-| Shader graph | Material Editor / Shader Graph | `.ShaderGraph` | ✅ | Owes procedural nodes, custom-code node, post/UI masters, node previews |
-| VFX graph | Niagara / VFX Graph | `.VfxGraph` | 🟡 | Model and compiler exist; **no document, no factory, no editor registration** — it is not reachable from the editor. Then a live preview |
-| **Animation graph** | Animation Blueprint / Animator | ⛔ | ⛔ | The third graph doc 11 names. States, transitions, blend trees, layers, masks, IK, parameters, events |
-| **Animation clip editor** | Sequencer curves / Animation window | `.AssetEditors` | ⛔ | `CurveEditor` and `Timeline` controls exist; the format does not. Dope sheet, curve mode, event track |
-| **Sequencer / cinematics** | Sequencer / Timeline | new | ⛔ | Tracks over entities, cameras, audio, events; `Timeline` control exists. This is the largest single missing authoring surface and it is what "cinematics" means to both reference editors |
-| **Audio mixer** | Audio Mixer (both) | new | ⛔ | Buses, sends, effects, snapshots. `Vixen.Audio` has the runtime |
-| **Input actions** | Input / Input System | `.AssetEditors` | ⛔ | Doc 11's own gap: `Vixen.Input` has the whole action model and no editor. Maps, actions, composite bindings, control schemes, interactive rebinding |
-| **Font editor** | — / Font asset | `.AssetEditors` | ⛔ | Glyph coverage, atlas preview, fallback chain |
+| Shader graph | Material Editor / Shader Graph | `.ShaderGraph` + `.AssetEditors` | ✅ | `.vxshadergraph`: document, panel, factory, registration and a Create ▸ line — the half that had been missing while the row said ✅, exactly as the VFX row's did. ⚠ **Compiling runs both compilers**: the graph's, whose diagnostics name a node and a port, and Raven's front end over the emitted text, whose name a line — a well-formed graph can emit a shader that does not type-check, and a panel listing only the first would call that success. Doc 07's "show generated code" is a read-only `CodeEditor` beside the canvas. Owes procedural nodes, custom-code node, post/UI masters, node previews, and a material that draws with one |
+| VFX graph | Niagara / VFX Graph | `.VfxGraph` + `.AssetEditors` | ✅ | Document, factory, registration and a preview that is the *real* simulation — `VfxSystem` over the compiled graph — projected by the panel, because particles need a material. ⚠ The node library and the compiler stay in `.VfxGraph`, which knows nothing about a project or a panel; the document and the view are where every other row of doc 11's table already is |
+| **Animation graph** | Animation Blueprint / Animator | `.AnimationGraph` + `.AssetEditors` | 🟡 | Layers, states, motions and blend trees, transitions with conditions, parameters, masks. ⚠ **Not on the node-graph framework** — see [E5](#e5--authoring-surfaces-25-em). IK is the runtime's and has no authored surface yet |
+| **Animation clip editor** | Sequencer curves / Animation window | `.AssetEditors` | ✅ | `.vxanim` — ten scalar curves per target rather than three vector tracks, because a curve editor edits one number and a vector track cannot say "X has a key here and Y does not". Dope sheet, curve mode, event track |
+| **Sequencer / cinematics** | Sequencer / Timeline | `.AssetEditors` | 🟡 | `.vxseq` over entities, cameras, audio and events, scrubbed against the open scene and restored on the way out. ⚠ A camera track *cuts* and reports; making the viewport look through it is Phase 7's compositor wiring |
+| **Audio mixer** | Audio Mixer (both) | `.AssetEditors` | ✅ | A strip per bus with its sends, inserts and snapshots, validated by running the real `MixerBuilder`. ⚠ The format was already `Vixen.Audio`'s |
+| **Input actions** | Input / Input System | `.AssetEditors` | ✅ | Maps, actions, composite bindings, control schemes, and rebinding as a *mode* rather than a modal — `KeyBindingsView`'s argument, restated |
+| **Font editor** | — / Font asset | `.AssetEditors` | ✅ | `.vxfont`: coverage per Unicode block against *assigned* code points, a glyph page drawn from the face's own outlines, and a fallback chain whose colour says which face drew each cell |
 | **Curve / gradient presets** | ✅ both | `.Inspector` | 🟡 | Controls exist; a library of saved presets does not |
 
 ### B6 — World building
 
 | Panel | UE / Unity | Status | Notes |
 |---|---|---|---|
-| **World / scene settings** | World Settings / Lighting+Physics settings | ⛔ | The per-scene half of Project Settings: environment, ambient, fog, GI, physics, navigation. Inspector over a `[DataContract]` on the scene |
-| **Layers and tags** | Layers / Tags & Layers | ⛔ | Needs an ECS-side concept first |
-| **Lighting / GI** | Lighting / Lighting window | ⛔ | Doc 19 retires baked lightmaps, so this is a *dynamic* GI panel: distance-field coverage, irradiance-field placement, surface-cache budgets, and the debug views for each |
-| **Navigation** | Navigation / Navigation window | ⛔ | `Vixen.Navigation` exists; bake settings, agent profiles, a debug draw |
+| **World / scene settings** | World Settings / Lighting+Physics settings | ✅ | Environment, ambient, fog, physics and navigation as `[DataContract]` types with `[Inspector]` members and no dialog code. ⚠ **A sidecar beside the `.vxscene`, not a block inside it** — a scene file is the one two people touch every day |
+| **Layers and tags** | Layers / Tags & Layers | ⛔ | Needs an ECS-side concept first. On the Scene menu, disabled with that reason |
+| **Lighting / GI** | Lighting / Lighting window | 🟡 | The dynamic budgets doc 19 names — distance-field range and voxel size, probe spacing and per-frame budget, surface-cache cards, bounces — with a derived cost readout that says **(derived)**. ⚠ The four debug views are named as absent: they need the GI path, which is Phase 7's |
+| **Navigation** | Navigation / Navigation window | 🟡 | Agent profile, cell sizes, and a bake through the real `NavMeshBaker`. ⚠ Over the *boxes* the scene's primitives occupy, because the viewport draws primitives; it becomes true geometry with the renderer |
 | **Physics debug** | — | ⛔ | Collider draw, contact visualisation, layer matrix |
 | **Terrain / foliage** | Landscape + Foliage / Terrain | ⛔ | Post-1.0, [Part G](#part-g--out-of-scope) |
-| **Multi-scene** | Levels / multi-scene editing | ⛔ | The editor opens one scene by path. Additive loading, per-scene visibility and lock, and a scene as a unit of ownership is what a team of more than three needs |
+| **Multi-scene** | Levels / multi-scene editing | ✅ | Additive loading into **one world** — which is what `SceneManager` already does and what keeps an entity handle meaning one thing — a Scenes panel with per-scene visibility and lock, an active scene new entities go into, and Save All Scenes |
 
 ### B7 — Build, deploy, and extend
 
 | Window | UE / Unity | Status | Notes |
 |---|---|---|---|
-| **Build settings** | Project Launcher / Build Settings | ⛔ | Target, configuration, scenes-in-build, variant, output path, over `Tools/Vixen.Cli`'s existing calls |
-| **Device manager / deploy** | Device Manager / Build & Run | ⛔ | List devices, deploy, launch, attach the remote inspector |
+| **Build settings** | Project Launcher / Build Settings | ✅ | A panel over `PlayerBuildSettings`, running `ContentTasks.BuildPlayer` — import, pack, `dotnet publish`, launch. ⚠ **`PublishRunner` moved out of the CLI to make "over `Tools/Vixen.Cli`'s existing calls" literally true**: it is `PlayerBuild` in `Vixen.Editor.Assets`, beside `ContentPipeline`, for the reason `ProjectWorkspace` is there. What is *not* shared is the shader bundle — `ShaderBuildRunner` links Raven's compiler, which the editor deliberately does not carry, and the build log says so |
+| **Device manager / deploy** | Device Manager / Build & Run | 🟡 | List ✅, deploy and launch ✅ for this machine, attach ⛔. ⚠ **The fourth verb is not a gap in this row**: attaching needs something on the other side to answer, which is doc 13's runtime half — the same absence [B4](#b4--diagnostics)'s remote-inspector row names. Every other kind of device is greyed with the tool that is missing, because the tool that would *find* an Android phone is the tool that would install to it |
 | **Plugin manager** | Plugins / Package Manager | ✅ | A list over `PluginHost.Plugins` with enable, disable, reload. ⚠ The two switches are kept apart: `plugin.yaml`'s `enabled:` is the author's and is shared by a team, and the user's is recorded beside their layout |
 | **Source control** | Revision Control / Version Control | ⛔ | P2. Status column in the browser, and check-out/revert/diff/history over a provider interface with a git implementation |
 | **Crash reporter** | Crash Reporter (both) | ⛔ | Out-of-process, minidump plus the last N log lines plus the undo history, with consent |
@@ -502,6 +508,15 @@ Reset Layout), | **Panels ▸** (dynamic, every registered panel, ticked when op
 **Build Settings⋯**, | Build Content `Ctrl+Shift+B`, **Build and Run** `Ctrl+B`, | **Target ▸**
 (Windows, Linux, macOS, Android, iOS, Web), **Configuration ▸** (Debug, Release), | **Deploy ▸**
 (devices), | **Clean Library**, **Rebuild Shaders**.
+
+⚠ **Two lines came out with a different arity than this table says, and both for the same reason: the
+menu is a view of a setting rather than a list of verbs.** Target has a seventh entry above the six —
+*This Machine* — because an unset target means "whatever machine this is", which is not one of the six
+and a submenu with no tick at all reads as a setting that failed to load. Configuration has four
+rather than two, because doc 17's variants are what a player build actually chooses between and the
+compiler configuration is derived from one: Debug, Development, Release, Server. Web is on the Target
+list and greyed with its reason, which is the rule this document opened with rather than an exception
+to it.
 
 ### Tools
 
@@ -624,7 +639,7 @@ The three gaps this section used to name are closed, and each turned out to be a
 
 | Was owed | What it needed, and what it is now |
 |---|---|
-| **Drag from the browser into the scene** | Nothing in the runtime carried an `AssetId`, so an entity had nowhere to hold "this is the crate". `AssetInstance` is that component, editor-side beside `Light` and `MeshShape` for the same reason they are. ⚠ **It is a reference, not a renderer** — nothing draws an asset yet — but the reference is authored, saved, editable through the inspector's existing asset field, and written in `vx:` form so `ReferenceIndex` counts it and deleting the asset warns about the scene |
+| **Drag from the browser into the scene** | Nothing in the runtime carried an `AssetId`, so an entity had nowhere to hold "this is the crate". `AssetInstance` is that component. ⚠ **It is a reference, not a renderer** — nothing draws an asset yet, and `Light`/`PrimitiveShape`/`MeshRenderable` have since become `Vixen.Rendering`'s own components while this stayed editor-side, since "this entity stands for this asset" is still the honest reading of a drop of a texture or a clip — but the reference is authored, saved, editable through the inspector's existing asset field, and written in `vx:` form so `ReferenceIndex` counts it and deleting the asset warns about the scene |
 | **Picture thumbnails** | A decode and a GPU upload. `IThumbnailSurface` is the seam: the application decides what is worth a picture and reduces it on the thread pool, the host uploads it on the frame thread, and null — a headless run, every test — falls back to the type glyph. Bounded and evicting, because a cache with no ceiling is a leak with a picture on it |
 | **A virtualising grid** | `VirtualizingGrid`, beside `VirtualizingPanel` rather than inside it. ⚠ The difference is one number: a list's row is at `n × height` and a grid's item is at a position that depends on the *measured* width, so the same resize that changes the viewport changes which item is where and the content height with it |
 
@@ -656,7 +671,7 @@ same dependency wearing two hats:
 
 | Not built | What it actually needs |
 |---|---|
-| **The picking stage driven by a real target** | ⚠ **The reason stated in [B2](#b2--the-viewport) was wrong in a way worth recording.** It is true that `EditorHost` owns a `RenderGraph` and that `ScenePresenter.Declare` hands back a `GraphTexture` — and neither is what `PickingRenderer` consumes. It is a `SceneRenderer` over a `RenderStage`, so it needs a `GraphicsCompositor` and a render system feeding it, which the editor's viewport does not have: what draws the scene is `SceneMeshes` through `MeshRenderer`, a tool renderer with no materials. Clicking and banding both work, exactly, through the processor — and that is the right answer for primitives and the wrong one the day a shader moves a vertex |
+| **The picking stage driven by a real target** | ⚠ **The reason stated in [B2](#b2--the-viewport) was wrong in a way worth recording.** It is true that `EditorHost` owns a `RenderGraph` and that `ScenePresenter.Declare` hands back a `GraphTexture` — and neither is what `PickingRenderer` consumes. It is a `SceneRenderer` over a `RenderStage`, so it needs a `GraphicsCompositor` and a render system feeding it, which the editor's viewport does not have: what draws the scene is `SceneMeshes` through `MeshInstanceRenderer`, which has device-resident geometry and a per-entity transform — [blockout-tools § B1](../blockout-tools.md#b1-every-mesh-in-the-viewport-went-through-the-cpu-every-frame-) — and no compositor and no materials. Clicking and banding both work, exactly, through the processor — and that is the right answer for primitives and the wrong one the day a shader moves a vertex |
 | **The compositor swap behind the view modes** | The same thing. Six modes are expressible as vertex colouring and edge emission on the tool path and are built that way; roughness needs a material, light complexity needs the clustered light list, and overdraw needs an additive pipeline — none of which a tool renderer has. All three are registered and greyed with the reason rather than silently falling back to shaded |
 
 ⚠ **This is the Risks table's first row arriving exactly as predicted.** It says the material-system
@@ -711,9 +726,10 @@ workspace at all.
 
 Three things this milestone is *not*, said plainly: **About is still a notification** rather than the
 window Part C's Help menu implies; **Find References does not reach the inspector's asset field**,
-which is a change to `AssetDrawer` rather than to any of this; and **New Project makes four
-directories** rather than instantiating one of `Tools/Vixen.Templates`, which produces a solution and
-is a different thing from the folder an editor opens.
+which is a change to `AssetDrawer` rather than to any of this; and **New Project made two
+directories** rather than instantiating one of `Tools/Vixen.Templates` — ✅ **closed by E6**, which is
+the milestone where the cost of it turned up: a project with no `.csproj` is one Build and Run cannot
+publish, and until E6 nothing in the editor had ever asked for one.
 
 ### E4 — Diagnostics (2.0 EM)
 
@@ -747,9 +763,11 @@ already exists, not by rewriting a view.
 Two more that E4 touches and does not close, both named where they belong: **`tools.diagnostics-report`
 is written and is missing its second half** — it carries the log ring, the memory arenas, the scene's
 counts and the last capture, and says *in the file* that the minidump and the undo history are
-[E6](#e6--production-hardening-15-em)'s — and **Deploy opens the device list rather than deploying**,
-because deploying needs a build, which is E6's `build.settings`. What E4 contributes to that
-milestone is the list the target is chosen from.
+[E6](#e6--production-hardening-15-em)'s — and **Deploy opened the device list rather than deploying**,
+because deploying needs a build. ✅ **That one is closed**: E6's `build.settings` exists, the panel
+raises `DeployRequested`, and what E4 contributed to it — the list, the statuses, the selection — is
+exactly what the deploy is chosen from. `DeviceStatus.Deploying` was an enum member no code could
+produce until there was something to produce it.
 
 ⚠ **The RHI blocker this milestone opened with is closed, and it was the shape it said it was.**
 There was no query API in `Vixen.Graphics` — not an interface, not a stub, nothing in the Vulkan
@@ -783,6 +801,45 @@ Lighting/GI panel. Navigation panel. Multi-scene.
 **Exit:** doc 11's thirteen-row asset-editor table has thirteen rows built; a cinematic can be
 authored, scrubbed and played.
 
+**Where E5 stands.** Both exit clauses run as tests in `Vixen.Editor.App.Tests/MilestoneE5Tests` —
+the first named row by row rather than counted, because a count passes when somebody deletes the font
+editor and adds two of something else. Eleven surfaces, seven new asset kinds, four panels, and one
+thing that had to be built before any of it was reachable: a way to *make* one of these files. Six
+things came out differently from how this document described them, and each is worth the sentence.
+
+| What the plan said | What it turned out to be |
+|---|---|
+| **The animation graph is the third graph on `Vixen.Editor.NodeGraph`** — doc 11's tree puts it under the framework beside `.ShaderGraph` and `.VfxGraph` | It is its own model, and the reason is not a detail. A shader graph's edge carries a *value*, a VFX graph's carries *order*, and a state machine's carries *"may become"*: there is nothing on it, several leave one state and several arrive at another, and a graph without a cycle is a character that can never return to idle. Every rule that framework exists for — one edge per input, ports typed by what flows, a topological order — would have to be switched off to hold one. What is shared is the *shape of the editor*, which is where sharing belongs |
+| **"The VFX graph wants a document and a factory"** | And a preview, which is the half that had a decision in it. The simulation is real — `VfxSystem` over the `VfxCompiledGraph` the document just compiled, the same class a game runs — and the *picture* is a projection this control draws, because particles are drawn by a material and the editor's viewport is a tool renderer. Borrowing the tool renderer would have been a second thing to rewrite when Phase 7 lands and would still not show a textured sprite |
+| **Three formats were owed: animation clip, input actions, font** | Two. `MixerAsset` already existed — `Vixen.Audio`'s own authoring layer, whose remarks say why: "a sound designer who has to open a C# file to move a fader does not move the fader" — so the mixer editor is a panel over a format, not a format. ⚠ What it *did* need was one line of MSBuild: the assembly ran the binary-serializer generator and not the reflection one, so every one of those records was describable in principle and unreadable as YAML in practice |
+| **World settings are "an inspector over a `[DataContract]` on the scene"** | Over a `[DataContract]` in a **sidecar beside** the scene. A `.vxscene` is where every entity anybody adds lands, so it is the file two people on a team touch every day; the fog colour changes once a month. Keeping them apart means changing the sky does not conflict with somebody else having moved a crate — doc 08's argument for `.meta` files, restated |
+| **Multi-scene needs "a scene as a unit of ownership"** | It needs a second `SceneDocument` over the *same* world, which is what `SceneManager` already does additively. A second world would have meant the outliner, the gizmo and the picker each learning which world an entity came from; one world is what keeps an entity handle meaning one thing across the editor. What did change is three fields: `scene`, `picker` and `probe` stopped being `readonly` |
+| **Nothing about creating one of these files** | The gap that would have made all six editors unreachable. A format with no way to make a file of it is a format nobody meets, whatever the double-click does — so Assets ▸ Create grew seven lines, each an ordinary command with a palette entry and a bindable key, and each writes a zero-byte file. That is not a shortcut: every one of these documents already opens an empty file as a sensible new one, so a templates folder would be a second place the defaults live |
+
+Two defects fell out of writing the tests rather than out of writing the features, which is the shape
+[E3](#e3--settings-keys-layouts-plugins-10-em) reported and the reason Part F's rows are worth having:
+
+- ⚠ **A record struct's `default` runs no constructor and no property initializer.** `InputRow` is the
+  tag on an action-tree row, and `TreeNode.Tag` is null when nothing is selected — so its `string`
+  members were genuinely null however the declaration was written, and the panel threw on the first
+  frame after somebody clicked the empty space under the last row. Coalescing in an accessor *looks*
+  like it fixes this and does not; the readers use `is { Length: > 0 }`.
+- ⚠ **`ViewportLayout.Discard` removed elements the host had already removed.** `UiElement.Remove`
+  throws on a second removal by contract, and a panel closes by the host tearing its contents out —
+  so the teardown hook fires *after* the children are gone. The panel-lifecycle test found it the
+  moment four more panels were registered, which is the second time that row has earned its place.
+
+What is not built, each named against the layer it is missing from rather than as a checkbox:
+
+| Not built | What it actually needs |
+|---|---|
+| **A VFX emitter component** | `entity.create-vfx` is still declared-and-disabled, and the reason has moved rather than gone: the graph is authorable now, and the runtime has no component for an entity to carry it with. An entity called VFX would reference nothing |
+| **The lighting panel's four debug views** | Distance-field coverage, probe placement, surface-cache residency and indirect-only are named as absent with the reason, because doc 19's GI path is doc 14's Phase 7. The budgets beside them are arithmetic over the settings and say **(derived)** in the row: a number presented as measured when it was computed is the failure this panel could most easily have had |
+| **A navigation bake over real geometry** | It bakes, through the real `NavMeshBaker`, over the *boxes* the scene's primitives occupy — which is a real navigation mesh over a real blockout, and is what a level designer bakes at this stage anyway. It becomes true geometry the day the renderer has meshes, with nothing in the panel changing |
+| **Render-target inspection for a sequence's camera track** | The track cuts and the player reports which camera; making the viewport look through it is the same `GraphicsCompositor` wiring [E2](#e2--the-viewport-20-em)'s two remaining rows are waiting on |
+| **Layers and tags** | Named on the Scene menu and disabled with the reason. Doc 20's own row says they need an ECS-side concept first, and a panel maintaining a list of names nothing reads would fail this document's second bar |
+| **Curve and gradient preset libraries** | B5's last 🟡 row. The controls exist and a library of saved presets is a user-store file rather than an editor surface — it belongs beside the layouts and the keymap, not in an asset editor |
+
 ### E6 — Production hardening (1.5 EM)
 
 Crash reporter, session recovery with the kill-and-restore loop, source-control provider and git
@@ -792,6 +849,42 @@ performance benchmark from doc 00 actually run.
 
 **Exit:** Phase 6's stated exit criteria, plus: the editor survives being killed mid-edit with no
 lost work; a signed installer exists for three desktops; the performance bar is a number in CI.
+
+**Where E6 stands.** One row of it is built — **build settings and deploy** — and it is taken first
+because it is the one the other milestones were waiting on rather than the other way round: E4's
+Deploy line and Part C's `build.settings`, `build.run`, `Target ▸` and `Configuration ▸` were all
+declared-and-disabled naming this milestone. Three things came out differently from how this document
+described them, and each is worth the sentence:
+
+| What the plan said | What it turned out to be |
+|---|---|
+| **"Over `Tools/Vixen.Cli`'s existing calls"** | Not possible as written, and the fix is the one `ProjectWorkspace` already made. `PublishRunner` was *in* the CLI, which is a tool no editor references — so a window "over" it would have been a second copy of the same `dotnet publish`. It is now `PlayerBuild`, beside `ContentPipeline` in `Vixen.Editor.Assets`, and `vixen build` and Build and Run are literally the same three calls in the same order |
+| **Target and configuration are two settings** | Two *fields*, and neither is the compiler's configuration. Doc 17's variants are the axis a player build has — Development is optimised and keeps its profiler — so the variant travels as `VixenVariant` and `-c Release` is derived from it. Part C's `Configuration ▸ (Debug, Release)` is therefore four lines rather than two: a menu of the two everybody knows, over a setting of four, would leave the other two unreachable and unmarkable |
+| **Scenes-in-build is a list of scenes** | And the honest half is what reads it. A build checks every entry still resolves and says which do not — somebody else's rename arriving in a checkout is the failure this list actually has. What does *not* read it is anything at boot: doc 17's `AppConfig.StartupScene` is what will make the first entry mean something, and the panel says so rather than implying the order does |
+| **New Project is [E3](#e3--settings-keys-layouts-plugins-10-em)'s and is finished** | It made two directories, which was fine until something asked the project to build. Every project the editor had ever created had no `.csproj`, so this milestone's own Build and Run was greyed for all of them — an editor that cannot finish the project it just made, failing this document's second bar on the first screen a new user sees. `TemplateCatalog` moved to `Vixen.Editor.Core` beside a `ProjectScaffold` that both heads write through, and New Project instantiates `game` |
+
+⚠ **The player's target and the content target are deliberately two settings, and this was not
+obvious.** `ContentBuildSettings.Target` is what the editor's own panels are imported for and
+`PlayerBuildSettings.Target` is what ships. One field would be simpler and would make "build the
+Android player" also mean "reimport this whole project as ASTC" — which is exactly what a team
+building for a phone from a workstation must not have happen.
+
+⚠ **The console is the build log, which is not a detail.** An editor has no terminal, so a publish
+whose output went to `Console.Out` would be a build that failed with its reason written to a handle
+nobody has. `dotnet publish` is captured line by line into the diagnostics ring, and MSBuild's own
+severity is read back out of the line — a compiler error logged as information is one the console's
+default filter hides, which would be the panel concealing the thing it was opened for.
+
+⚠ **A player build cannot compile the shader bundle, and this is a real difference from
+`vixen build`.** `ShaderBuildRunner` links Raven's compiler, a build-time library the editor
+deliberately does not carry — see `Tools/Vixen.ShaderCompiler`'s README for why. A project with a
+`Shaders.effects.json` is told so in the build log, and `build.rebuild-shaders` is the one Build-menu
+line still declared-and-disabled, now naming that reason rather than this milestone. What closes it is
+a compiler *service* the editor talks to rather than links, which `Tools/Vixen.ShaderCompilerService`
+is already the shape of.
+
+Still owed here: the crash reporter, session recovery, source control, `PublishEditor` with signing
+and notarisation, the golden-screenshot suite, and doc 00's editor-shell benchmark actually run.
 
 ### Ordering note
 

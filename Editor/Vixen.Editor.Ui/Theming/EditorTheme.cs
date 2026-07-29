@@ -81,6 +81,14 @@ public static class EditorTheme {
            wrote them inline would make changing the whole editor's depth a
            forty-place edit. */
         root {
+            /* ⚠ Named, and the editor ships the face — see `Vixen.Editor.App.Fonts`. A
+               declaration is what lets `font-weight` mean anything at all: the registry
+               picks the family first and the weight inside it, so text under no family
+               name draws in `Default` at whatever weight the default happens to be. A
+               machine without the face falls back to `Default` here too, which is what
+               makes naming it safe rather than a way to lose every label. */
+            font-family: OpenSans;
+
             --workspace: #b4b7bc;
             --surface: #e4e6ea;
             --surface-sunken: #d3d6db;
@@ -235,6 +243,28 @@ public static class EditorTheme {
         toolbar button:hover:not(:disabled), toolbar icon-button:hover:not(:disabled),
         toolbar toggle-button:hover:not(:disabled) {
             background-color: var(--surface-hover);
+            color: var(--text);
+        }
+
+        /* ⚠ A pressed toolbar button, and there was no rule for one. `toolbar-group :checked`
+           below covered the three gizmo modes because they are in a segmented group; every
+           standalone toggle on a strip — Local Space, Pivot at Centre, Snapping, Grid,
+           Orthographic — had its state written to `:checked` by `ToolbarPresenter.Refresh`
+           and nothing drew it. A toggle whose only state is in the DOM is a button that
+           looks like it did nothing when you press it.
+
+           The accent's soft tone rather than the accent, for the reason a tree row uses
+           `--accent-deep`: several of these are on at once, all the time, and the accent at
+           full strength across a strip is the loudest thing in the window. */
+        toolbar button:checked, toolbar icon-button:checked, toolbar toggle-button:checked {
+            background-color: var(--accent-soft);
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
+        toolbar button:checked:hover:not(:disabled), toolbar icon-button:checked:hover:not(:disabled),
+        toolbar toggle-button:checked:hover:not(:disabled) {
+            background-color: var(--accent-soft);
             color: var(--text);
         }
 
@@ -686,7 +716,18 @@ public static class EditorTheme {
            what pressing it does. */
         .outliner-hidden.inherited, .outliner-locked.inherited { opacity: 0.45; }
 
-        outliner-filters { flex-direction: row; align-items: center; gap: 6px; flex-shrink: 0; }
+        /* ⚠ Padded on all four sides, which the row above the outliner did not have. A
+           filter box flush against the panel's border reads as part of the frame rather
+           than as a control, and the dropdown beside it lost its rounded right edge to
+           the panel's own — the two of them are inset by the same amount the rows are. */
+        outliner-filters {
+            flex-direction: row;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+            padding: 5px 6px;
+        }
+
         outliner-filters > search-box { flex-grow: 1; min-width: 0; }
         outliner-filters > select { flex-shrink: 0; width: 132px; }
 
@@ -1149,6 +1190,17 @@ public static class EditorTheme {
 
         settings-spacer { flex-grow: 1; }
 
+        /* ⚠ Tall and unshrinkable. It holds a stylesheet, and a text area that took its height
+           from a column's leftovers is one where a theme is edited four lines at a time —
+           `TextArea` has no scroll region of its own, so what does not fit is clipped rather
+           than reachable. */
+        .theme-tokens { min-height: 220px; flex-shrink: 0; }
+
+        /* What the window's search box hides on a page built from commands rather than from a
+           settings object. A class rather than the inspector's `filtered`, because that one is
+           the inspector's own vocabulary and these are ordinary buttons. */
+        settings-pane > .filtered-out { display: none; }
+
         /* ── Plugins and history ────────────────────────────────────────────────
            Two grids over lists the editor already keeps. Neither needs anything
            the data grid does not already draw; what they need is a strip and a
@@ -1188,6 +1240,74 @@ public static class EditorTheme {
         }
 
         plugin-detail.failed { color: var(--danger); }
+
+        /* ── Build settings ─────────────────────────────────────────────────────
+           A form of three rows, a list with a strip over it, and two sentences.
+           ⚠ The grid does *not* grow to fill the panel, unlike the two above:
+           a scenes-in-build list is four rows in most projects and thirty in a
+           big one, and a table stretched to the height of a docked panel would
+           put the Build button below the fold on every one of them. */
+        build-settings {
+            flex-direction: column;
+            flex-grow: 1;
+            flex-basis: 0px;
+            min-height: 0px;
+            gap: 0px;
+        }
+
+        build-form {
+            flex-direction: column;
+            flex-shrink: 0;
+            gap: 4px;
+            padding: 8px 9px;
+        }
+
+        build-row {
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+        }
+
+        build-row text { width: 110px; flex-shrink: 0; color: var(--text-muted); }
+        build-row select, build-row textbox { flex-grow: 1; min-width: 120px; }
+
+        build-heading {
+            flex-shrink: 0;
+            padding: 4px 9px 2px 9px;
+            font-weight: 600;
+        }
+
+        build-scene-bar {
+            flex-direction: row;
+            align-items: center;
+            flex-shrink: 0;
+            gap: 4px;
+            padding: 4px 6px;
+        }
+
+        build-scene-bar select { flex-grow: 1; min-width: 80px; }
+
+        build-settings data-grid { flex-grow: 1; flex-basis: 0px; min-height: 60px; }
+
+        build-note, build-status {
+            flex-shrink: 0;
+            padding: 4px 9px;
+            color: var(--text-muted);
+            font-size: 0.85em;
+        }
+
+        build-actions {
+            flex-direction: row;
+            align-items: center;
+            flex-shrink: 0;
+            gap: 6px;
+            padding: 6px 9px;
+            border-top-width: 1px;
+            border-color: var(--border);
+            background-color: var(--surface-sunken);
+        }
+
+        build-spacer { flex-grow: 1; }
 
         /* ── Choosing one of a list, in a dialog ────────────────────────────────
            The startup project browser and "move to which folder?" are the same

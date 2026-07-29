@@ -336,7 +336,9 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 > the editor scans at start-up. The editor-shell performance bar is unmeasured.
 >
 > ⚠ **The viewport draws lines, not meshes.** A scene of empties looks right; a scene with a model in
-> it does not show the model. That wants a material system wired to an editor viewport.
+> it does not show the model. That wants a material system wired to an editor viewport. `MeshRenderable`
+> is authored, compiled and loaded now — what is missing is the extraction system, which needs a
+> residency cache over `GeometryBuffer` and a material resolved to a `Material`.
 
 | Feature | Status | Where | Blocked by / note |
 |---|---|---|---|
@@ -375,8 +377,10 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | A shader-graph renderer that *fills* a preview thumbnail | ⬜ | — | Unblocked. Compile one node's sub-expression, run it over a quad, keep the target alive across edits. `.ShaderGraph`'s, not the framework's |
 | Selectable wires; in-place sticky-note editing; inlined-node → source-node map | ⬜ | — | The last is what lets a diagnostic inside a sub-graph name a node the author can select |
 | Raven-span → node diagnostics mapping | ⬜ | — | Needs the emitter to record spans as it writes |
-| `Vixen.Editor.ShaderGraph` — node library, `DynamicVector` typing, Raven emission | ✅ | Editor/Vixen.Editor.ShaderGraph | Unlit, Sprite, PBR masters |
+| `Vixen.Editor.ShaderGraph` — node library, `DynamicVector` typing, Raven emission | ✅ | Editor/Vixen.Editor.ShaderGraph | Unlit, Sprite, PBR masters. Property names are authored and live on the graph |
+| The authoring surface — `.vxshadergraph`, canvas, show-generated-code, Create ▸ | ✅ | Editor/Vixen.Editor.AssetEditors | `Shading/`. Compiling runs the graph compiler **and** Raven's front end over what it emitted |
 | Procedural nodes, custom-code node, Post + UI masters, preview thumbnails | ⬜ | — | |
+| A material that draws with a graph | ⬜ | — | The link and "Open shader graph" are live; turning the emitted Raven into the shader a `.vxmat` names is doc 08's material compiler |
 | `Vixen.Editor.VfxGraph` — node library + dual-target compilation | ✅ | Editor/Vixen.Editor.VfxGraph | One method produces both the CPU graph and the compute shader |
 | Operator nodes, blocks for the remaining opcodes, sub-emitters/trails, live preview | ⬜ | — | |
 
@@ -792,7 +796,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 79 | `Vixen.Editor.SceneView` | Undoable reparent command; hierarchy drag-and-drop; viewport click-to-select; meshes in the viewport | Feature | An id target; the material system |
 | 80 | `Vixen.Editor.App` | File dialog; a plugin-management panel | Feature | K3 is built, so the dialog is only owed a caller; the panel is a view over `PluginHost.Plugins` |
 | 81 | `Vixen.Editor.NodeGraph` | Selectable wires; sticky-note editing; a node in two groups; inlined-node → source-node map; Raven-span diagnostics | Feature | Emitter span recording, for the last |
-| 82 | `Vixen.Editor.ShaderGraph` | Procedural + custom-code nodes; Post/UI masters; previews; diagnostic mapping | Feature | Emitter span recording |
+| 82 | `Vixen.Editor.ShaderGraph` | Procedural + custom-code nodes; Post/UI masters; previews; diagnostic mapping; an importer that compiles the emitted Raven | Feature | Emitter span recording; doc 08's material compiler |
 | 83 | `Vixen.Editor.VfxGraph` | Operator nodes; remaining opcode blocks; sub-emitters/trails; live preview | Feature | — |
 | 84 | Editor | Asset editors; `Vixen.Editor.Profiler`/`.Debugger`/`.AnimationGraph`; golden screenshots; `PublishEditor`; redraw-on-change; the shell perf bar | Feature | Various |
 | 85 | Build/CI | NativeAOT leg; sample-running leg; Playwright leg; 3-OS determinism run | Infra | — |

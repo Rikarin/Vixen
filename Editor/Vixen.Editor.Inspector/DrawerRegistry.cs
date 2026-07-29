@@ -177,10 +177,20 @@ public sealed class DrawerRegistry {
         registry.ForType<Vector4>(new Vector4Drawer());
         registry.ForType<Quaternion>(new QuaternionDrawer());
         registry.ForType<Color4>(new ColorDrawer());
+
+        // ⚠ Its own drawer, and without it every `Color3` in the editor was drawn by the read-only
+        // last resort — a light's colour included, which is the property people open a light for.
+        registry.ForType<Color3>(new Color3Drawer());
         registry.ForType<AnimationCurve>(new CurveDrawer());
         registry.ForType<AssetId>(new AssetDrawer());
 
+        // ⚠ Both, and the order does not matter: `PropertyDrawer.CanDraw` answers for its own value
+        // type, so the one that does not match the member declines and the registry moves on. A
+        // `[ColorUsage]` on a `Color3` would otherwise land on the `Color4` drawer, be refused, and
+        // fall all the way through to the read-only last resort — which is worse than having no
+        // attribute at all, because the attribute is what somebody wrote to ask for a picker.
         registry.ForAttribute<ColorUsageAttribute>(new ColorDrawer());
+        registry.ForAttribute<ColorUsageAttribute>(new Color3Drawer());
         registry.ForAttribute<CurveAttribute>(new CurveDrawer());
         registry.ForAttribute<AssetPickerAttribute>(new AssetDrawer());
         registry.ForAttribute<MultilineAttribute>(new MultilineDrawer());

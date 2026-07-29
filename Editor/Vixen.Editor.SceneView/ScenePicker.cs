@@ -6,6 +6,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 
 namespace Vixen.Editor.SceneView;
 
@@ -118,7 +119,7 @@ public sealed class ScenePicker : IScenePicker {
 
             var transform = world.Read<WorldTransform>(entity).Value;
 
-            var hit = MeshShapes.TryGet(world, entity, out var kind)
+            var hit = PrimitiveShapes.TryGet(world, entity, out var kind)
                 ? Shaped(ray, Shape(kind), transform)
                 : Marker(ray, transform.Translation, camera, height);
 
@@ -176,7 +177,7 @@ public sealed class ScenePicker : IScenePicker {
 
             var transform = world.Read<WorldTransform>(entity).Value;
 
-            var taken = MeshShapes.TryGet(world, entity, out var kind)
+            var taken = PrimitiveShapes.TryGet(world, entity, out var kind)
                 ? Boxed(marquee, Shape(kind).Bounds, transform, camera, width, height)
                 : camera.TryProject(transform.Translation, width, height, out var point) && marquee.Contains(point);
 

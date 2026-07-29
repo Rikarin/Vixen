@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Ecs;
+using Vixen.Rendering.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Engine.Scenes;
 
@@ -18,12 +19,13 @@ namespace Vixen.Editor.SceneView;
 ///         bridges it was given and asks each one <see cref="Has" />.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two kinds of component exist in the editor and both have to appear.</b> One is
-///         registered with <c>SceneComponentRegistry</c> and can be named by a compiled scene; the
-///         other — <see cref="Light" />, <see cref="MeshShape" /> — is editor-side and deliberately
-///         written as its own field of the scene file, because a scene naming a type no <i>build</i>
-///         declares is what a content compile refuses. An inspector that showed only the first would
-///         omit the light on the light, which is the most obviously missing row in the panel.
+///         ⚠ <b>Two kinds of component exist in the editor and both have to appear.</b> One carries
+///         <c>[Component]</c> and <c>[DataContract]</c>, so the engine's component generator declares
+///         it to <c>SceneComponentRegistry</c> and a compiled scene can name it; the other —
+///         <see cref="Light" />, <see cref="PrimitiveShape" /> — is editor-side and deliberately written as
+///         its own field of the scene file, because a scene naming a type no <i>build</i> declares is
+///         what a content compile refuses. An inspector that showed only the first would omit the light
+///         on the light, which is the most obviously missing row in the panel.
 ///     </para>
 /// </remarks>
 public interface IComponentBridge {
@@ -145,6 +147,7 @@ public sealed class ComponentBridge<T> : IComponentBridge where T : struct {
 /// </remarks>
 public sealed class SceneComponentBridge : IComponentBridge {
     readonly ISceneComponentBinder binder;
+    readonly Func<object>? initial;
 
     /// <inheritdoc />
     public string Name => binder.Name;
@@ -154,10 +157,22 @@ public sealed class SceneComponentBridge : IComponentBridge {
 
     /// <summary>Wraps a registered binder.</summary>
     /// <param name="binder">The binder.</param>
-    public SceneComponentBridge(ISceneComponentBinder binder) {
+    /// <param name="initial">
+    ///     What a freshly added one holds, or <see langword="null" /> for a zeroed struct.
+    /// </param>
+    /// <remarks>
+    ///     ⚠ <b>Zero is the right default for most components and is wrong for a few, so the few say
+    ///     so.</b> A zeroed <c>Light</c> has no colour, no intensity and no range, and adding one would
+    ///     put a black light on the entity — which looks like the renderer is broken rather than like a
+    ///     field needs filling in. A zeroed <c>Camera</c> has a zero far plane and every matrix derived
+    ///     from it is degenerate. Both types already have a factory saying what a usable one is; this is
+    ///     how a panel reaches it, and everything with no answer keeps the zero.
+    /// </remarks>
+    public SceneComponentBridge(ISceneComponentBinder binder, Func<object>? initial = null) {
         ArgumentNullException.ThrowIfNull(binder);
 
         this.binder = binder;
+        this.initial = initial;
     }
 
     /// <inheritdoc />
@@ -176,7 +191,11 @@ public sealed class SceneComponentBridge : IComponentBridge {
     ///     adding a component in every editor gives you before you edit it.
     /// </remarks>
     public object Create() =>
-        binder.IsTag ? new object() : Activator.CreateInstance(binder.ComponentType) ?? new object();
+        initial is not null
+            ? initial()
+            : binder.IsTag
+                ? new object()
+                : Activator.CreateInstance(binder.ComponentType) ?? new object();
 
     /// <inheritdoc />
     public bool Remove(World world, Entity entity) => binder.RemoveFrom(world, entity);
