@@ -1147,12 +1147,13 @@ Vixen.Rendering.Lighting.EnvironmentLight.Sampler.get -> Vixen.Graphics.SamplerH
 Vixen.Rendering.Lighting.EnvironmentLight.Sampler.set -> Vixen.Graphics.SamplerHandle
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture -> sealed class
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture : System.IDisposable
-Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.Apply(Vixen.Shaders.ParameterCollection parameters, string shaderName = "ForwardPlus") -> void
+Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.Apply(Vixen.Shaders.ParameterCollection parameters, string shaderName) -> void
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.Dispose() -> void
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.Field.get -> Vixen.Rendering.DistanceFields.GlobalDistanceField
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.GlobalDistanceFieldTexture(Vixen.Rendering.DistanceFields.GlobalDistanceField field) -> void
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.IsCreated.get -> bool
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.Level(int level) -> Vixen.Graphics.TextureHandle
+Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.LevelView(int level) -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.Sampler.get -> Vixen.Graphics.SamplerHandle
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.Upload(Vixen.Graphics.IGraphicsDevice graphics, Vixen.Graphics.ICommandList commands) -> void
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.Uploads.get -> int
@@ -2320,8 +2321,8 @@ static Vixen.Rendering.Lighting.CubeMapping.Locate(Vixen.Core.Mathematics.Vector
 static Vixen.Rendering.Lighting.CubeMapping.SolidAngle(float u, float v, float size) -> float
 static Vixen.Rendering.Lighting.EnvironmentBaker.Prefilter(Vixen.Rendering.Lighting.CubeImage source, int mipCount, int samples = 64) -> Vixen.Rendering.Lighting.CubeImage[]
 static Vixen.Rendering.Lighting.EnvironmentBaker.RoughnessOf(int mip, int mipCount) -> float
-static Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.LevelBinding(int level, string shaderName = "ForwardPlus") -> string
-static Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.SamplerBinding(string shaderName = "ForwardPlus") -> string
+static Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.LevelBinding(int level, string shaderName) -> string
+static Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.SamplerBinding(string shaderName) -> string
 static Vixen.Rendering.Lighting.ShCoefficients.operator *(Vixen.Rendering.Lighting.ShCoefficients coefficients, float scale) -> Vixen.Rendering.Lighting.ShCoefficients
 static Vixen.Rendering.Lighting.ShCoefficients.operator *(float scale, Vixen.Rendering.Lighting.ShCoefficients coefficients) -> Vixen.Rendering.Lighting.ShCoefficients
 static Vixen.Rendering.Lighting.ShCoefficients.operator +(Vixen.Rendering.Lighting.ShCoefficients left, Vixen.Rendering.Lighting.ShCoefficients right) -> Vixen.Rendering.Lighting.ShCoefficients

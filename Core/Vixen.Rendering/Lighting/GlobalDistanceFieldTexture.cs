@@ -49,6 +49,7 @@ public sealed class GlobalDistanceFieldTexture : IDisposable {
     const string SamplerName = "distanceFieldSampler";
 
     readonly TextureHandle[] textures;
+    readonly TextureViewHandle[] views;
 
     BufferHandle staging;
     SamplerHandle sampler;
@@ -81,12 +82,18 @@ public sealed class GlobalDistanceFieldTexture : IDisposable {
 
         Field = field;
         textures = new TextureHandle[field.LevelCount];
+        views = new TextureViewHandle[field.LevelCount];
     }
 
     /// <summary>One level's volume texture.</summary>
     /// <param name="level">Which level.</param>
     /// <returns>The texture, or an invalid handle before the first upload.</returns>
     public TextureHandle Level(int level) => textures[level];
+
+    /// <summary>One level's view, which is what a descriptor actually holds.</summary>
+    /// <param name="level">Which level.</param>
+    /// <returns>The view, or an invalid handle before the first upload.</returns>
+    public TextureViewHandle LevelView(int level) => views[level];
 
     /// <summary>Copies every level up to the device, creating the textures if they are not there.</summary>
     /// <param name="graphics">The device.</param>
@@ -158,8 +165,15 @@ public sealed class GlobalDistanceFieldTexture : IDisposable {
     ///         indexing and running on every target. Writing it here as well would be a second number
     ///         that could disagree with the number of descriptors actually bound. Ask the effect.
     ///     </para>
+    ///     <para>
+    ///         <b><paramref name="shaderName" /> has no default, deliberately.</b> A composed slot's
+    ///         bindings are named for the <i>slot</i> rather than for the shader that declared them —
+    ///         <c>DistanceFieldAo.GlobalDistanceField.distanceFieldVolumes[0]</c>, not
+    ///         <c>ForwardPlus.distanceFieldVolumes[0]</c>. A default here was wrong for the only
+    ///         consumer that exists and would have bound nothing at all, silently.
+    ///     </para>
     /// </remarks>
-    public void Apply(ParameterCollection parameters, string shaderName = "ForwardPlus") {
+    public void Apply(ParameterCollection parameters, string shaderName) {
         ArgumentNullException.ThrowIfNull(parameters);
         ArgumentException.ThrowIfNullOrEmpty(shaderName);
 
@@ -173,20 +187,29 @@ public sealed class GlobalDistanceFieldTexture : IDisposable {
             parameters.Set(ParameterKeys.New<Vector3>($"{slot}.maximum"), bounds.Maximum);
             parameters.Set(ParameterKeys.New<float>($"{slot}.inverseCellSize"), 1f / cell);
             parameters.Set(ParameterKeys.New<float>($"{slot}.maxDistance"), Field.MaxDistanceOf(level));
+
+            // The volume this slot describes, beside the numbers describing it. Writing one without
+            // the other is a shader told exactly where to look in a texture nothing bound.
+            parameters.Set(
+                ParameterKeys.New<TextureViewHandle>(LevelBinding(level, shaderName)),
+                views[level]
+            );
         }
+
+        parameters.Set(ParameterKeys.New<SamplerHandle>(SamplerBinding(shaderName)), sampler);
     }
 
     /// <summary>The shader's name for one level's volume texture.</summary>
     /// <param name="level">Which level.</param>
     /// <param name="shaderName">The pass whose keys to name.</param>
     /// <returns>The binding's name.</returns>
-    public static string LevelBinding(int level, string shaderName = "ForwardPlus") =>
+    public static string LevelBinding(int level, string shaderName) =>
         $"{shaderName}.{LevelsName}[{level.ToString(CultureInfo.InvariantCulture)}]";
 
     /// <summary>The shader's name for the sampler all the levels share.</summary>
     /// <param name="shaderName">The pass whose keys to name.</param>
     /// <returns>The binding's name.</returns>
-    public static string SamplerBinding(string shaderName = "ForwardPlus") => $"{shaderName}.{SamplerName}";
+    public static string SamplerBinding(string shaderName) => $"{shaderName}.{SamplerName}";
 
     /// <inheritdoc />
     public void Dispose() {
@@ -198,6 +221,12 @@ public sealed class GlobalDistanceFieldTexture : IDisposable {
 
         if (device is null) {
             return;
+        }
+
+        foreach (var view in views) {
+            if (view.IsValid) {
+                device.Destroy(view);
+            }
         }
 
         foreach (var texture in textures) {
@@ -240,6 +269,8 @@ public sealed class GlobalDistanceFieldTexture : IDisposable {
                     Name: $"GlobalDistanceField.Level{level.ToString(CultureInfo.InvariantCulture)}"
                 )
             );
+
+            views[level] = graphics.CreateTextureView(textures[level]);
         }
 
         staging = graphics.CreateBuffer(

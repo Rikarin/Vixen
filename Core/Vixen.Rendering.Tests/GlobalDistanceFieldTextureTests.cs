@@ -111,7 +111,7 @@ public class GlobalDistanceFieldTextureTests {
         using var mirror = new GlobalDistanceFieldTexture(field);
         var parameters = new ParameterCollection();
 
-        mirror.Apply(parameters);
+        mirror.Apply(parameters, "ForwardPlus");
 
         // The level count is deliberately absent: it is the shader's LevelCount permutation, which is
         // what unrolls the level search so every texture index is a literal. A uniform beside it would
@@ -139,6 +139,61 @@ public class GlobalDistanceFieldTextureTests {
                 4
             );
         }
+    }
+
+    /// <summary>
+    ///     The volume a slot describes goes in beside the numbers describing it. Writing one without
+    ///     the other is a shader told exactly where to look in a texture nothing bound — which reads
+    ///     as a world with a surface everywhere, or nowhere, depending on the driver.
+    /// </summary>
+    [Fact]
+    public void TheVolumesThemselvesAreBoundBesideTheNumbers() {
+        using var device = new NullDevice(new() { Record = true });
+        using var mirror = new GlobalDistanceFieldTexture(Composited(levels: 2));
+        var parameters = new ParameterCollection();
+
+        var list = device.BeginCommandList();
+        mirror.Upload(device, list);
+        Submit(device, list);
+
+        mirror.Apply(parameters, "DistanceFieldAo.GlobalDistanceField");
+
+        for (var level = 0; level < 2; level++) {
+            var view = parameters.Get(
+                ParameterKeys.New<TextureViewHandle>(
+                    GlobalDistanceFieldTexture.LevelBinding(level, "DistanceFieldAo.GlobalDistanceField")
+                )
+            );
+
+            Assert.True(view.IsValid);
+            Assert.Equal(mirror.LevelView(level), view);
+        }
+
+        Assert.Equal(
+            mirror.Sampler,
+            parameters.Get(
+                ParameterKeys.New<SamplerHandle>(
+                    GlobalDistanceFieldTexture.SamplerBinding("DistanceFieldAo.GlobalDistanceField")
+                )
+            )
+        );
+    }
+
+    /// <summary>
+    ///     The names are the slot's, not the declaring shader's — which is why <c>Apply</c> has no
+    ///     default prefix any more. This is the shape the bindings generator actually emitted.
+    /// </summary>
+    [Fact]
+    public void TheNamesAreTheComposeSlotsRatherThanTheShadersThatDeclaredThem() {
+        Assert.Equal(
+            "DistanceFieldAo.GlobalDistanceField.distanceFieldLevels[1]",
+            GlobalDistanceFieldTexture.LevelBinding(1, "DistanceFieldAo.GlobalDistanceField")
+        );
+
+        Assert.Equal(
+            "DistanceFieldAo.GlobalDistanceField.distanceFieldSampler",
+            GlobalDistanceFieldTexture.SamplerBinding("DistanceFieldAo.GlobalDistanceField")
+        );
     }
 
     [Fact]
