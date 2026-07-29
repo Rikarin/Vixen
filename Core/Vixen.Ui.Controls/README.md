@@ -70,6 +70,20 @@ container with no `flex-direction` is a *row* and every rule that wants a column
 `box-sizing: border-box` is set here on `*`, because `LayoutStyleBuilder` deliberately left that
 property to a user-agent sheet rather than baking it in where an author could not see it.
 
+## Menus
+
+**A submenu opens on hover, and a line that has one says so with an arrow.** Both are what every
+desktop menu does, and the absence of either is felt rather than noticed: without the hover, reaching
+a nested command costs a click per level and sliding off "3D Object" onto "Delete" leaves the shapes
+hanging over the line the pointer is now on; without the arrow, a line that opens a menu and a line
+that runs a command are the same shape, so there is no way to tell which one you are about to commit
+to. Clicking still opens one, for the keyboard's Right arrow and for anybody who clicks anyway.
+
+⚠ **A submenu closes when a *sibling* is hovered, not when its own line is left.** A submenu is
+placed beside the item that opens it, so reaching into it means leaving that item — a close-on-exit
+rule would shut the menu the user is reaching for, every time, and no nested command would be
+reachable with the mouse at all.
+
 ## Known gaps
 
 Said out loud rather than left to be discovered:

@@ -257,6 +257,7 @@ Vixen.Ui.Controls.MenuBarItem.Menu.get -> Vixen.Ui.Controls.Menu
 Vixen.Ui.Controls.MenuBarItem.MenuBarItem() -> void
 Vixen.Ui.Controls.MenuItem -> sealed class
 Vixen.Ui.Controls.MenuItem : Vixen.Ui.Controls.ButtonBase
+Vixen.Ui.Controls.MenuItem.Arrow.get -> Vixen.Ui.Controls.Icon
 Vixen.Ui.Controls.MenuItem.Mark.get -> Vixen.Ui.Controls.Icon
 Vixen.Ui.Controls.MenuItem.MenuItem() -> void
 Vixen.Ui.Controls.MenuItem.Shortcut.get -> Vixen.Ui.Controls.KeyboardShortcut?

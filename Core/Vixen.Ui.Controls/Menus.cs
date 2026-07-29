@@ -13,12 +13,40 @@ namespace Vixen.Ui.Controls;
 /// </remarks>
 public sealed partial class MenuItem : ButtonBase {
     Icon? icon;
+    Menu? submenu;
 
     /// <inheritdoc />
     protected override string TagName => "menu-item";
 
     /// <summary>The submenu this opens, if it has one.</summary>
-    public Menu? Submenu { get; internal set; }
+    /// <remarks>
+    ///     ⚠ <b>Setting it puts the arrow on, which is why this is not an automatic property.</b> A
+    ///     line that opens a menu and a line that runs a command are the same shape otherwise, and a
+    ///     user has no way to tell which one they are about to commit to — so the one affordance that
+    ///     distinguishes them cannot be something a caller has to remember to ask for.
+    /// </remarks>
+    public Menu? Submenu {
+        get => submenu;
+
+        internal set {
+            submenu = value;
+
+            if (value is not null) {
+                _ = Arrow;
+            }
+        }
+    }
+
+    /// <summary>The arrow shown on the right when the item opens a submenu.</summary>
+    /// <remarks>
+    ///     Created on demand like <see cref="Mark" />, because most items are commands and an element
+    ///     per line that is never drawn is an element per line all the same. It is pushed to the right
+    ///     by the theme, the same way a shortcut is — the two never appear together, since a submenu
+    ///     is not a command and has nothing to bind.
+    /// </remarks>
+    public Icon Arrow => arrow ??= Append();
+
+    Icon? arrow;
 
     /// <summary>The shortcut shown on the right, if any.</summary>
     public KeyboardShortcut? Shortcut { get; private set; }
@@ -49,6 +77,13 @@ public sealed partial class MenuItem : ButtonBase {
         mark.Geometry = ControlIcons.Check;
 
         Document.Move(mark, 0);
+        return mark;
+    }
+
+    Icon Append() {
+        var mark = Part<Icon>(null, "submenu");
+        mark.Geometry = ControlIcons.ChevronRight;
+
         return mark;
     }
 }
@@ -100,6 +135,19 @@ public partial class Menu : Overlay {
         item.Label = label;
 
         items.Add(item);
+
+        // ⚠ On the item and Direct, not on the menu, because a pointer entering an element is
+        // raised once per element that it entered rather than routed — `EventRouter.Direct` — so a
+        // handler up here would never hear about it. The same arrangement `MenuBar` uses.
+        item.AddHandler<PointerEvent>(
+            static (element, args) => {
+                if (args.Action == PointerAction.Entered && element is MenuItem entered) {
+                    ((Menu) entered.Parent!).Hovered(entered);
+                }
+            },
+            RoutingStrategy.Direct
+        );
+
         return item;
     }
 
@@ -195,13 +243,55 @@ public partial class Menu : Overlay {
         }
     }
 
+    /// <summary>Follows the pointer across the items: opens what it rests on, closes what it left.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What every desktop menu does, and it is not a nicety.</b> A submenu that needed a
+    ///         click is one where reaching a nested command costs a click per level, and — worse —
+    ///         where sliding off "3D Object" onto "Delete" leaves the shapes hanging over the item the
+    ///         pointer is now on. Hovering a sibling closing the open one is the same rule as opening,
+    ///         seen from the other side.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Closed on entering a sibling rather than on leaving the item, and the difference
+    ///         is the whole gesture.</b> A submenu is placed beside its parent item, so the pointer
+    ///         going to it <i>leaves</i> that item — a close on exit would shut the menu the user is
+    ///         reaching for, every time, and there would be no way to reach a nested command with the
+    ///         mouse at all.
+    ///     </para>
+    ///     <para>
+    ///         Nothing happens while the menu itself is shut. A closed menu still has its items and
+    ///         they still answer to the pointer crossing where they used to be.
+    ///     </para>
+    /// </remarks>
+    void Hovered(MenuItem item) {
+        if (!IsOpen || item.Disabled) {
+            return;
+        }
+
+        foreach (var other in items) {
+            if (!ReferenceEquals(other, item) && other.Submenu is { IsOpen: true } open) {
+                open.Close(CloseReason.Code);
+            }
+        }
+
+        if (item.Submenu is { IsOpen: false } submenu) {
+            submenu.Open(item);
+        }
+    }
+
     void Chosen(ClickEvent args) {
         if (args.Source is not MenuItem item || !items.Contains(item)) {
             return;
         }
 
         if (item.Submenu is { } submenu) {
-            submenu.Open(item);
+            // Already open where the pointer got there first, which is the common case now that
+            // hovering opens it. Re-opening would re-place a menu the user is already inside.
+            if (!submenu.IsOpen) {
+                submenu.Open(item);
+            }
+
             return;
         }
 

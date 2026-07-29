@@ -519,6 +519,12 @@ public static class ControlTheme {
         menu-item icon, option icon { width: 12px; height: 12px; }
         menu-item kbd { margin-left: auto; }
 
+        /* The arrow that says a line opens a menu rather than running something. Pushed right the
+           same way a shortcut is — the two never share a line, because a submenu is not a command
+           and so has nothing to bind — and dimmed, because it is a property of the line rather than
+           a second thing on it. */
+        menu-item icon.submenu { margin-left: auto; color: var(--text-muted); }
+
         menu-bar { flex-direction: row; gap: 2px; }
 
         menu-bar-item {

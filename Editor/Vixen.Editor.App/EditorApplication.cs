@@ -857,6 +857,7 @@ sealed class EditorApplication : IDisposable {
         );
 
         ShapeCommands();
+        ObjectCommands();
 
         // ⚠ Ticked, and that is what makes the three modes read as one choice rather than as three
         // buttons. A menu of Translate, Rotate and Scale with nothing saying which is current is one
@@ -1016,13 +1017,10 @@ sealed class EditorApplication : IDisposable {
 
         menu.Add("scene.create-entity");
 
-        // The same eight the hierarchy's context menu offers, from the same command ids — which is
-        // the point of them being commands rather than something the menu does for itself.
-        var shapes = menu.AddSubmenu(new StringId("editor.menu.create-shape", "3D Object"));
-
-        foreach (var kind in MeshShapes.All) {
-            shapes.Add(ShapeCommandId(kind));
-        }
+        // The same submenus the hierarchy's context menu offers, from the same command ids and the
+        // same code — which is the point of them being commands rather than something a menu does
+        // for itself, and what stops the two drifting apart the next time one is added to.
+        Creatable(menu);
 
         menu.Add("scene.rename-entity", "scene.delete-entity").AddSeparator();
 
@@ -1090,6 +1088,83 @@ sealed class EditorApplication : IDisposable {
     static string ShapeCommandId(PrimitiveKind kind) =>
         "scene.create-" + MeshShapes.NameOf(kind).ToLowerInvariant();
 
+    /// <summary>One command per kind of light, and one for a camera.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Commands rather than menu lines, which is <see cref="ShapeCommands" />' argument
+    ///     applied to the other half of a Create menu.</b> "Create Point Light" being findable in the
+    ///     palette and bindable to a key is what makes it a thing the editor can do, rather than a
+    ///     thing one menu happens to offer — and it is why the Scene menu and the hierarchy's context
+    ///     menu can both name it without either of them owning it.
+    /// </remarks>
+    void ObjectCommands() {
+        foreach (var kind in Lights.All) {
+            var light = kind;
+            var title = Lights.TitleOf(light);
+
+            Shell.Commands.Add(
+                new EditorCommand(
+                    LightCommandId(light),
+                    new StringId("editor.command.create-light-" + Lights.NameOf(light).ToLowerInvariant(), title),
+                    () => CreateLight(light)
+                ) {
+                    Category = new StringId("editor.category.create", "Create")
+                }
+            );
+        }
+
+        Shell.Commands.Add(
+            new EditorCommand(
+                "scene.create-camera",
+                new StringId("editor.command.create-camera", "Camera"),
+                CreateCamera
+            ) {
+                Category = new StringId("editor.category.create", "Create")
+            }
+        );
+    }
+
+    /// <summary>What a light's create command is called in the registry.</summary>
+    static string LightCommandId(LightKind kind) =>
+        "scene.create-light-" + Lights.NameOf(kind).ToLowerInvariant();
+
+    /// <summary>Everything a Create menu offers, written once for the two menus that offer it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Grouped into submenus rather than listed flat, and that is not tidiness.</b>
+    ///         Thirteen create lines in the same list as Rename, Delete and Focus is a menu where the
+    ///         two destructive entries are somewhere in the middle of a wall of nouns — and the wall
+    ///         grows with every kind of thing the engine learns to make.
+    ///     </para>
+    ///     <para>
+    ///         <b>Camera is a line rather than a submenu of one.</b> A submenu that opens onto a
+    ///         single item is a second click for nothing, and it invites the reader to wonder what
+    ///         else is in there.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What is absent is absent on purpose.</b> There is no UI, sprite, terrain or
+    ///         particle entry because the runtime has no component for any of them — <c>Vixen.Ui</c>
+    ///         is a document tree with no world-space bridge, and the others do not exist at all. A
+    ///         line that created an entity called "Canvas" carrying nothing would be a menu that lies
+    ///         about what the engine can do, and the bug reports it earns are about the editor rather
+    ///         than about the gap. They belong here the moment there is something for them to attach.
+    ///     </para>
+    /// </remarks>
+    static void Creatable(MenuGroup menu) {
+        var shapes = menu.AddSubmenu(new StringId("editor.menu.create-shape", "3D Object"));
+
+        foreach (var kind in MeshShapes.All) {
+            shapes.Add(ShapeCommandId(kind));
+        }
+
+        var lights = menu.AddSubmenu(new StringId("editor.menu.create-light", "Light"));
+
+        foreach (var kind in Lights.All) {
+            lights.Add(LightCommandId(kind));
+        }
+
+        menu.Add("scene.create-camera");
+    }
+
     /// <summary>The menu a secondary click in the hierarchy opens.</summary>
     /// <remarks>
     ///     <para>
@@ -1139,12 +1214,7 @@ sealed class EditorApplication : IDisposable {
         var group = new MenuGroup(new StringId("editor.menu.hierarchy", "Hierarchy"));
 
         group.Add("scene.create-entity");
-
-        var shapes = group.AddSubmenu(new StringId("editor.menu.create-shape", "3D Object"));
-
-        foreach (var kind in MeshShapes.All) {
-            shapes.Add(ShapeCommandId(kind));
-        }
+        Creatable(group);
 
         group.AddSeparator();
         group.Add("scene.rename-entity", "scene.delete-entity");
@@ -1538,6 +1608,39 @@ sealed class EditorApplication : IDisposable {
         var created = scene.CreateShape(kind, LocalTransform.Identity, Under());
         scene.Selection.Set([created]);
     }
+
+    /// <summary>Creates a light under the selection, and selects it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Aimed downwards rather than left at the identity, and only this one is.</b> A shape at
+    ///     the identity is a shape; a directional or a spot light at the identity points along +Z,
+    ///     which for a sun means the horizon and for a spot means a cone lying flat in the floor —
+    ///     both of which look like the command having done nothing. Every other kind ignores the
+    ///     rotation, so the same placement is right for all five.
+    /// </remarks>
+    void CreateLight(LightKind kind) {
+        var created = scene.CreateLight(kind, Aimed, Under());
+        scene.Selection.Set([created]);
+    }
+
+    /// <summary>Creates a camera under the selection, and selects it.</summary>
+    /// <remarks>
+    ///     Level and facing the way a directional light points, for the same reason: a camera looking
+    ///     along +Z from the origin is a camera looking at the inside of whatever is at the origin.
+    /// </remarks>
+    void CreateCamera() {
+        var created = scene.CreateCamera(LocalTransform.Identity, Under());
+        scene.Selection.Set([created]);
+    }
+
+    /// <summary>Pointing down and forward, the way a key light is hung.</summary>
+    static LocalTransform Aimed =>
+        LocalTransform.Identity with {
+            Rotation = Quaternion.FromYawPitchRoll(
+                MathUtil.DegreesToRadians(-30f),
+                MathUtil.DegreesToRadians(50f),
+                0f
+            )
+        };
 
     /// <summary>What a newly created entity hangs from.</summary>
     /// <remarks>
