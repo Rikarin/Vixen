@@ -208,6 +208,49 @@ public sealed class DockingWorkspace {
         return true;
     }
 
+    /// <summary>Closes the panel the user is in.</summary>
+    /// <returns>Whether there was one to close.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A panel that says it cannot be closed is not closed.</b>
+    ///     <see cref="PanelDescriptor.CanClose" /> is what a panel the arrangement depends on
+    ///     declares, and Ctrl+W is the one path to closing that does not go past the tab's own close
+    ///     button — which is where that flag is otherwise honoured.
+    /// </remarks>
+    public bool CloseActive() {
+        if (Host.Active is not { } panel) {
+            return false;
+        }
+
+        return descriptors.TryGetValue(panel.Id, out var descriptor) && !descriptor.CanClose
+            ? false
+            : Close(panel.Id);
+    }
+
+    /// <summary>Moves to the next or previous tab of the group the user is in.</summary>
+    /// <param name="delta">How far, and which way. <c>1</c> is the next tab.</param>
+    /// <returns>Whether there was a group with more than one tab in it.</returns>
+    /// <remarks>
+    ///     ⚠ <b>It wraps.</b> Ctrl+Tab that stops at the last tab is one people press twice and then
+    ///     reach for the mouse; every editor with tabs wraps, and a group of two makes the wrap the
+    ///     only useful behaviour.
+    /// </remarks>
+    public bool CycleTab(int delta) {
+        if (Host.Active is not { } panel || Host.Layout.Find(panel.Id) is not var (group, index)) {
+            return false;
+        }
+
+        if (group.Panels.Count < 2) {
+            return false;
+        }
+
+        var count = group.Panels.Count;
+
+        group.Selected = (((index + delta) % count) + count) % count;
+        Host.Rebuild();
+
+        return true;
+    }
+
     /// <summary>Takes the panel the user is in out into a window of its own.</summary>
     /// <returns>Whether there was one to take out.</returns>
     /// <remarks>

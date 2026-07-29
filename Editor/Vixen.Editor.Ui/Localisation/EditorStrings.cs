@@ -35,6 +35,27 @@ public static class EditorStrings {
     /// <summary>The <c>Help</c> menu.</summary>
     public static StringId MenuHelp { get; } = new("editor.menu.help", "Help");
 
+    /// <summary>The <c>Assets</c> menu.</summary>
+    public static StringId MenuAssets { get; } = new("editor.menu.assets", "Assets");
+
+    /// <summary>The <c>Entity</c> menu — Unreal's Actor, Unity's GameObject.</summary>
+    public static StringId MenuEntity { get; } = new("editor.menu.entity", "Entity");
+
+    /// <summary>The <c>Play</c> menu.</summary>
+    public static StringId MenuPlay { get; } = new("editor.menu.play", "Play");
+
+    /// <summary>The <c>Build</c> menu.</summary>
+    public static StringId MenuBuild { get; } = new("editor.menu.build", "Build");
+
+    /// <summary>The <c>Tools</c> menu.</summary>
+    public static StringId MenuTools { get; } = new("editor.menu.tools", "Tools");
+
+    /// <summary>The <c>Open Recent</c> submenu.</summary>
+    public static StringId MenuRecent { get; } = new("editor.menu.recent", "Open Recent");
+
+    /// <summary>The <c>Create</c> submenu, under Assets.</summary>
+    public static StringId MenuCreate { get; } = new("editor.menu.create", "Create");
+
     /// <summary>The <c>Layout</c> submenu.</summary>
     public static StringId MenuLayout { get; } = new("editor.menu.layout", "Layout");
 
@@ -95,6 +116,15 @@ public static class EditorStrings {
     /// <summary>Switches between the light and dark themes.</summary>
     public static StringId CommandToggleTheme { get; } = new("editor.command.view.toggle-theme", "Toggle Dark Theme");
 
+    /// <summary>Closes the panel the user is in.</summary>
+    public static StringId CommandClosePanel { get; } = new("editor.command.view.close-panel", "Close Panel");
+
+    /// <summary>Moves to the next tab of its group.</summary>
+    public static StringId CommandNextTab { get; } = new("editor.command.view.next-tab", "Next Tab");
+
+    /// <summary>And the previous one.</summary>
+    public static StringId CommandPreviousTab { get; } = new("editor.command.view.previous-tab", "Previous Tab");
+
     /// <summary>Says what version this is.</summary>
     public static StringId CommandAbout { get; } = new("editor.command.help.about", "About Vixen");
 
@@ -134,6 +164,23 @@ public static class EditorStrings {
     /// <summary>What the shell reports after putting the arrangement back.</summary>
     public static StringId LayoutReset { get; } = new("editor.notice.layout-reset", "Layout reset");
 
+    /// <summary>The confirming button on a dialog that asks nothing more specific.</summary>
+    public static StringId DialogOk { get; } = new("editor.dialog.ok", "OK");
+
+    /// <summary>The one that backs out of it.</summary>
+    public static StringId DialogCancel { get; } = new("editor.dialog.cancel", "Cancel");
+
+    /// <summary>What the status bar calls the selection when there is more than one thing in it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A format string with a placeholder, which is what makes it translatable at all.</b>
+    ///     "3" and " selected" concatenated is a sentence no translator can reorder, and there are
+    ///     languages where the number does not come first.
+    /// </remarks>
+    public static StringId StatusSelection { get; } = new("editor.status.selection", "{0} selected");
+
+    /// <summary>What the status bar's frame-time cell says.</summary>
+    public static StringId StatusFrameTime { get; } = new("editor.status.frame-time", "{0} ms");
+
     /// <summary>What it reports when a keybinding could not be taken.</summary>
     public static StringId KeyBindingConflict { get; } = new("editor.notice.binding-conflict", "That shortcut is already taken");
 
@@ -144,6 +191,13 @@ public static class EditorStrings {
         MenuView,
         MenuWindow,
         MenuHelp,
+        MenuAssets,
+        MenuEntity,
+        MenuPlay,
+        MenuBuild,
+        MenuTools,
+        MenuRecent,
+        MenuCreate,
         MenuLayout,
         MenuPanels,
         CategoryFile,
@@ -164,6 +218,9 @@ public static class EditorStrings {
         CommandSaveLayout,
         CommandFloatPanel,
         CommandToggleTheme,
+        CommandClosePanel,
+        CommandNextTab,
+        CommandPreviousTab,
         CommandAbout,
         CommandDocumentation,
         PalettePlaceholder,
@@ -177,6 +234,10 @@ public static class EditorStrings {
         NotificationsEmpty,
         NotificationsClear,
         LayoutReset,
+        DialogOk,
+        DialogCancel,
+        StatusSelection,
+        StatusFrameTime,
         KeyBindingConflict
     ];
 }

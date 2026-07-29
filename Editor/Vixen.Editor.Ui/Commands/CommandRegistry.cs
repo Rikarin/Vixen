@@ -31,6 +31,33 @@ public sealed class CommandRegistry {
     /// <summary>The commands, in the order they were registered.</summary>
     public IReadOnlyList<EditorCommand> Commands => ordered;
 
+    /// <summary>Which context has the focus, asked whenever a scoped command is looked at.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The shell sets this and nothing else does.</b> A context is a place the user can
+    ///         be — a panel, a mode, a field — and only the thing that owns the focus knows which one
+    ///         that is. Left unset, every command is in scope, which is the right answer for a
+    ///         registry with no shell around it and for the majority of commands, which declare no
+    ///         context at all.
+    ///     </para>
+    ///     <para>
+    ///         Asked on demand rather than pushed, for the same reason
+    ///         <see cref="EditorCommand.Enablement" /> is: a value pushed on focus change is one that
+    ///         is right only if every path that moves the focus remembered to push it.
+    ///     </para>
+    /// </remarks>
+    public Func<string?>? FocusedContext { get; set; }
+
+    /// <summary>Whether a command belongs to the context the user is in.</summary>
+    /// <param name="command">The command.</param>
+    /// <returns>Whether it does. A command with no context always does.</returns>
+    public bool IsInScope(EditorCommand command) {
+        ArgumentNullException.ThrowIfNull(command);
+
+        return command.Context is not { } context
+            || string.Equals(context, FocusedContext?.Invoke(), StringComparison.Ordinal);
+    }
+
     /// <summary>Raised when a command is added or removed.</summary>
     /// <remarks>What a palette listens to in order to forget a cached list, and what a menu built
     ///     from a model listens to in order to rebuild.</remarks>
@@ -103,7 +130,17 @@ public sealed class CommandRegistry {
     /// <returns>Whether it can.</returns>
     /// <remarks>An id nothing registered is <c>false</c> rather than a throw: a menu model outlives
     ///     the plugin whose commands it names, exactly as a saved layout outlives its panels.</remarks>
-    public bool CanExecute(string id) => TryGet(id, out var command) && command.CanExecute;
+    public bool CanExecute(string id) => TryGet(id, out var command) && CanExecute(command);
+
+    /// <summary>Whether a command is in scope and enabled.</summary>
+    /// <param name="command">The command.</param>
+    /// <returns>Whether it can run.</returns>
+    /// <remarks>
+    ///     The pair every view asks, together, because a menu that greyed a line out for enablement
+    ///     and not for scope would offer the content browser's Delete while the outliner has the
+    ///     focus — which is the confusion <see cref="EditorCommand.Context" /> exists to end.
+    /// </remarks>
+    public bool CanExecute(EditorCommand command) => IsInScope(command) && command.CanExecute;
 
     /// <summary>Runs a command.</summary>
     /// <param name="id">The id.</param>
@@ -114,7 +151,7 @@ public sealed class CommandRegistry {
     ///     three ways to reach the same command and only two of them go past a greyed-out control.
     /// </remarks>
     public bool Execute(string id) {
-        if (!TryGet(id, out var command) || !command.CanExecute) {
+        if (!TryGet(id, out var command) || !CanExecute(command)) {
             return false;
         }
 

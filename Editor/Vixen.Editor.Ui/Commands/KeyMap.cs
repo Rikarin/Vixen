@@ -30,11 +30,21 @@ public enum BindResult : byte {
 ///         has a support burden to prove it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Conflicts are detected, not resolved.</b> A chord belongs to at most one command, so
-///         binding an occupied chord fails and says who has it — the caller decides whether to ask
-///         the user and rebind with <see cref="Bind" />'s <c>replace</c>. Two commands sharing a
-///         chord would be an editor where the same keystroke does different things depending on
-///         which handler happened to be registered first.
+///         ⚠ <b>Conflicts are detected, not resolved — <i>within a context</i>.</b> A chord belongs
+///         to at most one command per context, so binding an occupied chord fails and says who has
+///         it; the caller decides whether to ask the user and rebind with <see cref="Bind" />'s
+///         <c>replace</c>. Two commands sharing a chord in one context would be an editor where the
+///         same keystroke does different things depending on which handler happened to be registered
+///         first.
+///     </para>
+///     <para>
+///         ⚠ <b>Across contexts, sharing a chord is the point rather than the hazard.</b> Delete in
+///         the outliner and Delete in the content browser are two commands and one key, and an
+///         editor that made the second of them pick another key would be one nobody's fingers can
+///         use. <see cref="ContextOf" /> is how this class finds out which context a command belongs
+///         to — the registry answers it, so the declaration lives on the command and not in a second
+///         table here — and a binding made in a context shadows the global one for as long as that
+///         context has the focus.
 ///     </para>
 ///     <para>
 ///         <b>Bindings survive the commands they name.</b> A chord bound to a plugin's command is
@@ -46,7 +56,7 @@ public enum BindResult : byte {
 public sealed class KeyMap {
     readonly Dictionary<string, KeyChord> defaults = new(StringComparer.Ordinal);
     readonly Dictionary<string, KeyChord> bindings = new(StringComparer.Ordinal);
-    readonly Dictionary<KeyChord, string> byChord = [];
+    readonly Dictionary<(KeyChord Chord, string? Context), string> byChord = [];
 
     /// <summary>Raised after anything changes a binding.</summary>
     /// <remarks>The moment to save it, and the moment for a menu to re-label its shortcuts.</remarks>
@@ -54,6 +64,22 @@ public sealed class KeyMap {
 
     /// <summary>Every binding, as command id to chord.</summary>
     public IReadOnlyDictionary<string, KeyChord> Bindings => bindings;
+
+    /// <summary>Which context a command belongs to, asked whenever a chord is claimed or resolved.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The registry answers this, so <see cref="EditorCommand.Context" /> stays the one
+    ///         declaration.</b> A second table here would be a second place to keep in step, and the
+    ///         way that goes wrong is a plugin's command whose context the keymap never heard about
+    ///         binding over the outliner's Delete.
+    ///     </para>
+    ///     <para>
+    ///         Left unset, every command is global and this class behaves exactly as it did before
+    ///         contexts existed — which is what a keymap with no shell around it, and every test that
+    ///         predates this, relies on.
+    ///     </para>
+    /// </remarks>
+    public Func<string, string?>? ContextOf { get; set; }
 
     /// <summary>Declares what a command is bound to out of the box.</summary>
     /// <param name="commandId">The command.</param>
@@ -87,10 +113,26 @@ public sealed class KeyMap {
         return Apply(commandId, chord, replace);
     }
 
-    /// <summary>What has a chord, if anything.</summary>
+    /// <summary>What has a chord in a context, if anything.</summary>
     /// <param name="chord">The chord.</param>
+    /// <param name="context">Which context has the focus, or <see langword="null" /> for none.</param>
     /// <returns>The command's id, or <c>null</c>.</returns>
-    public string? CommandFor(KeyChord chord) => chord.IsBound ? byChord.GetValueOrDefault(chord) : null;
+    /// <remarks>
+    ///     ⚠ <b>The context's own binding first and the global one second.</b> That order is what
+    ///     makes a panel able to claim a key the editor already uses without taking it away from
+    ///     everywhere else — and the fallback is what stops every panel having to re-declare Ctrl+S.
+    /// </remarks>
+    public string? CommandFor(KeyChord chord, string? context = null) {
+        if (!chord.IsBound) {
+            return null;
+        }
+
+        if (context is not null && byChord.TryGetValue((chord, context), out var scoped)) {
+            return scoped;
+        }
+
+        return byChord.GetValueOrDefault((chord, null));
+    }
 
     /// <summary>What a command is bound to.</summary>
     /// <param name="commandId">The command.</param>
@@ -116,7 +158,7 @@ public sealed class KeyMap {
         foreach (var (commandId, chord) in defaults) {
             if (chord.IsBound) {
                 bindings[commandId] = chord;
-                byChord[chord] = commandId;
+                byChord[(chord, Scope(commandId))] = commandId;
             }
         }
 
@@ -185,6 +227,9 @@ public sealed class KeyMap {
     /// <summary>Every command that has ever been bound here, in id order.</summary>
     IEnumerable<string> Ids() => bindings.Keys.Concat(defaults.Keys).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal);
 
+    /// <summary>Which context a command's binding is filed under.</summary>
+    string? Scope(string commandId) => ContextOf?.Invoke(commandId);
+
     BindResult Apply(string commandId, KeyChord chord, bool replace) {
         var existing = bindings.GetValueOrDefault(commandId);
 
@@ -192,14 +237,15 @@ public sealed class KeyMap {
             return BindResult.Unchanged;
         }
 
-        var displaced = chord.IsBound ? byChord.GetValueOrDefault(chord) : null;
+        var context = Scope(commandId);
+        var displaced = chord.IsBound ? byChord.GetValueOrDefault((chord, context)) : null;
 
         if (displaced is not null && !replace) {
             return BindResult.Conflict;
         }
 
         if (existing.IsBound) {
-            byChord.Remove(existing);
+            byChord.Remove((existing, context));
         }
 
         if (displaced is not null) {
@@ -208,7 +254,7 @@ public sealed class KeyMap {
 
         if (chord.IsBound) {
             bindings[commandId] = chord;
-            byChord[chord] = commandId;
+            byChord[(chord, context)] = commandId;
         } else {
             bindings.Remove(commandId);
         }

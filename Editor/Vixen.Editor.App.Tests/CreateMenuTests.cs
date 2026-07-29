@@ -46,7 +46,10 @@ public class CreateMenuTests {
         fixture.Open("hierarchy");
         fixture.Frames(2);
 
-        var menu = Assert.Single(Menus(fixture));
+        // ⚠ The hierarchy's, not "the only one". The toolbar's dropdowns are context menus too and
+        // they hang off the document root for the same reason this one does — so "the single context
+        // menu in the tree" stopped being an identity the moment the toolbar grew a section.
+        var menu = Assert.Single(Menus(fixture), static candidate => candidate.Items.Any(item => item.Label == "3D Object"));
         var labels = menu.Items.Select(static item => item.Label).ToList();
 
         Assert.Contains("3D Object", labels);

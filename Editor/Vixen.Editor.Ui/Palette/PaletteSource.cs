@@ -87,7 +87,18 @@ public sealed class CommandPaletteSource : IPaletteSource {
             var chord = keys.ChordFor(command.Id);
             var id = command.Id;
 
-            results.Add(new PaletteItem(title, category, score, chord.IsBound ? chord.Describe() : null, () => commands.Execute(id)));
+            // ⚠ The reason wins over the shortcut, and only one of the two can be shown. A command
+            // that is declared but not built yet is exactly the one whose entry has to say so — its
+            // chord is the least useful thing about it — and a palette that offered "Sequencer" with
+            // a key beside it and did nothing when chosen is the promise doc 20 says an editor must
+            // not break.
+            var detail = command.IsUnavailable
+                ? command.Unavailable.Text
+                : chord.IsBound
+                    ? chord.Describe()
+                    : null;
+
+            results.Add(new PaletteItem(title, category, score, detail, () => commands.Execute(id)));
         }
     }
 }

@@ -354,8 +354,12 @@ rebuilt; without it, closing and reopening the viewport puts the user back at th
 - **No plugin-management panel.** Plugins load, but the only way to see what is installed is the
   notification on the way up. The panel is a list over `PluginHost.Plugins` with enable, disable and
   reload on it, and nothing in the loader is missing for it.
-- **No file dialog, so no "open project…".** A project comes from `--project` or is the scratch one;
-  choosing one at run time needs a dialog, which is `Vixen.Platform`'s and not built.
+- **No "open project…", and it is no longer the dialog's fault.** `INativeDialogs` exists, has
+  implementations on every desktop, and this application reaches it through `EditorServices` — Open
+  Scene, Save Scene As and Import Assets are all one call each and all work. What Open Project needs
+  is a *project swapped underneath a live editor*: a world, an asset database and every open document
+  replaced without tearing the window down. Doc 20 puts that behind the startup Project Browser in
+  E3, and the two commands are registered, greyed and carrying that sentence meanwhile.
 - **Reparenting is not undoable.** Dragging in the hierarchy is not wired up either; the primitive
   undo was waiting on — `Hierarchy.SetParentAfter`, which puts a child back where it was rather than
   at the head — now exists, so what is missing is the command.
@@ -367,8 +371,11 @@ rebuilt; without it, closing and reopening the viewport puts the user back at th
 - **It redraws every frame.** Redrawing only on change is the right end state and is not free — every
   animation, toast expiry and task progress has to say so, and one that forgets leaves a progress bar
   frozen at forty per cent.
-- **One scene per project, chosen by path rather than by a dialog.** `Assets/Scenes/Main.vxscene`,
-  because picking another needs a file dialog that `Vixen.Platform` does not have.
+- **One scene at a time, though no longer one *fixed* scene.** The editor opens
+  `Assets/Scenes/Main.vxscene` and `file.open-scene` loads another over the same document — the
+  panels, the gizmo and the picker all hold that document, so swapping the object would leave four
+  panels looking at the old one. Additive loading and per-scene visibility is doc 20's multi-scene
+  row, in E5.
 - ⚠ **Double-clicking the scene that is already open loads it a second time.** The editor opens its
   own scene by *path*, as a `SceneDocument` carrying `AssetId.Empty`, so `AssetEditorRegistry` has no
   way to know that the GUID being opened is the document already on screen — and both share one

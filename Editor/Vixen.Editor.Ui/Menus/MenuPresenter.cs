@@ -143,9 +143,38 @@ public sealed class MenuPresenter : IDisposable {
             host.Document.Move(bar, Math.Min(slot, host.Children.Count - 1));
         }
 
+        // ⚠ Every menu on the bar, empty or not, unlike the submenus below. A menu is on the bar
+        // because somebody described it there, and one that is empty this second is one whose
+        // commands have not been registered yet — a plugin's, a document-dependent set — which is
+        // precisely the case the model is built to tolerate. Dropping it would move the menus beside
+        // it along the bar every time something registered, which is worse than an empty dropdown.
         foreach (var group in Model.Menus) {
             Fill(Bar.AddMenu(group.Title.Text), group);
         }
+    }
+
+    /// <summary>Whether a group would produce any lines at all right now.</summary>
+    /// <remarks>
+    ///     Asked at build time and not cached, because it is the same question the fill is about to
+    ///     answer and the registry is a dictionary lookup per entry. A dynamic entry is asked, which
+    ///     means its producer runs twice per rebuild — they are all `Select` over a list the shell
+    ///     already holds.
+    /// </remarks>
+    static bool HasContent(MenuGroup group, CommandRegistry commands) {
+        foreach (var entry in group.Entries) {
+            var any = entry switch {
+                MenuCommand(var id) => commands.TryGet(id, out _),
+                MenuSubmenu(var child) => HasContent(child, commands),
+                MenuDynamic(var ids) => ids().Any(id => commands.TryGet(id, out _)),
+                _ => false
+            };
+
+            if (any) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Builds a context menu over a set of commands.</summary>
@@ -291,7 +320,9 @@ public sealed class MenuPresenter : IDisposable {
                     pending = any;
                     break;
 
-                case MenuSubmenu(var child):
+                // Empty submenus are skipped for the same reason empty menus are: a line with an
+                // arrow on it that opens onto nothing is worse than no line.
+                case MenuSubmenu(var child) when HasContent(child, commands):
                     Rule(menu, ref pending);
                     Fill(menu.AddSubmenu(child.Title.Text), child, commands, keys, map, track);
 
@@ -333,8 +364,20 @@ public sealed class MenuPresenter : IDisposable {
     }
 
     /// <summary>Adds one line for a command.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The mark's geometry is set here, once, and not when the state changes.</b> An
+    ///     <c>Icon</c> with no geometry draws nothing, so a menu that only toggled the mark's
+    ///     <c>display</c> — which is what this did — showed a checked command with an empty twelve
+    ///     pixel gutter and no tick in it. Which shape it is depends on whether the command is one
+    ///     of a set: a tick for a toggle, a dot for a member of a
+    ///     <see cref="EditorCommand.RadioGroup" />, because three ticks is not how a choice reads.
+    /// </remarks>
     static MenuItem Line(Menu menu, EditorCommand command, KeyMap keys) {
         var item = menu.AddItem(command.Title.Text);
+
+        if (command.Checked is not null) {
+            item.Mark.Geometry = command.RadioGroup is null ? ControlIcons.Check : EditorIcons.RadioMark;
+        }
 
         if (keys.ChordFor(command.Id) is { IsBound: true } chord) {
             item.ShowShortcut(chord.Key, chord.Modifiers);
@@ -350,9 +393,13 @@ public sealed class MenuPresenter : IDisposable {
                 continue;
             }
 
-            item.Disabled = !command.CanExecute;
+            // ⚠ Scope as well as enablement, through the registry rather than the command. A line
+            // for a command belonging to a context the user is not in is one that would do nothing
+            // if it were clicked — `CommandRegistry.Execute` refuses it — and a menu that offered it
+            // anyway would be the menu lying about what a click will do.
+            item.Disabled = !commands.CanExecute(command);
 
-            // The tick is a part that exists only once something asks for it, so a command that is
+            // The mark is a part that exists only once something asks for it, so a command that is
             // not a toggle never grows one — which is what keeps the ordinary menu from being
             // indented by a column of empty ticks. An inline `display` rather than a class,
             // because a class relies on a rule this assembly did not write.

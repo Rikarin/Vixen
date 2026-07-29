@@ -69,10 +69,23 @@ sealed class EditorHost : IDisposable {
             window.FramebufferSize.X / Scale,
             window.FramebufferSize.Y / Scale,
             platform.FileSystem.DataDirectory,
-            projectRoot
+            projectRoot,
+
+            // ⚠ Capabilities rather than the platform. What the application is handed is "there is a
+            // file picker" and "there is a browser", both answered at run time — so Open Scene greys
+            // itself out on a platform without pickers instead of being absent, which is the rule
+            // `view.float-panel` already follows for a second window.
+            EditorServices.Of(platform)
         ) {
             RenderScale = Scale
         };
+
+        // ⚠ Pushed on change rather than set once. The title carries the scene's name and its dirty
+        // marker — `<scene>* — <project> — Vixen` — and it is the only affordance that answers
+        // "which project is this window" when three of them are open. The shell composes it and
+        // raises nothing unless the composed string differs, so this runs once per actual change.
+        window.Title = editor.Shell.Title;
+        editor.Shell.TitleChanged += title => window.Title = title;
 
         // ⚠ Installed on the document, which is what makes a torn-off dock group a real window
         // rather than a rectangle drawn inside this one. Nothing in `Vixen.Ui.Controls.Advanced`
@@ -196,8 +209,13 @@ sealed class EditorHost : IDisposable {
                         break;
                     }
 
-                    running = false;
-                    return;
+                    // ⚠ A request, not a close, and this is the whole of save-on-close. The editor
+                    // asks about unsaved work and sets `IsClosing` when it has an answer — which the
+                    // loop reads on the next frame — so backing out of the prompt leaves the window
+                    // open. Setting `running` here instead is what made the close button lose an
+                    // afternoon, and doc 20 is blunt about what that costs.
+                    editor.RequestClose();
+                    break;
 
                 case PlatformEventKind.WindowResized:
                 case PlatformEventKind.WindowDpiChanged:
