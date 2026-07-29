@@ -44,13 +44,23 @@ namespace Vixen.Editor.App;
 ///     </para>
 /// </remarks>
 sealed class ScenePresenter : IDisposable {
-    /// <summary>What the interface calls this texture.</summary>
+    /// <summary>What the interface calls this presenter's texture.</summary>
     /// <remarks>
-    ///     ⚠ <b>Constant across resizes.</b> The viewport control holds it and the draw list carries
-    ///     it; changing it when the target is recreated would mean a frame drawn with a number
-    ///     nothing has registered, which is a viewport that blinks empty on every splitter drag.
+    ///     <para>
+    ///         ⚠ <b>Constant across resizes.</b> The viewport control holds it and the draw list
+    ///         carries it; changing it when the target is recreated would mean a frame drawn with a
+    ///         number nothing has registered, which is a viewport that blinks empty on every splitter
+    ///         drag.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Per presenter rather than a constant, which is what a four-pane layout needed.</b>
+    ///         One number for every pane means every pane's control names the same texture, so all
+    ///         four show whichever presenter registered last — four identical views of the
+    ///         perspective camera, which reads as the other three cameras not working. The host hands
+    ///         out the numbers, because it is the thing that knows how many panes there are.
+    ///     </para>
     /// </remarks>
-    public const ulong Image = 1;
+    public ulong Image { get; }
 
     readonly IGraphicsDevice device;
 
@@ -103,16 +113,20 @@ sealed class ScenePresenter : IDisposable {
     /// <param name="shaders">The two line stages.</param>
     /// <param name="meshShaders">The two mesh stages.</param>
     /// <param name="format">What the target's colour format is.</param>
+    /// <param name="image">What the interface calls this presenter's texture. Unique per pane.</param>
     public ScenePresenter(
         IGraphicsDevice device,
         LineShaders shaders,
         MeshShaders meshShaders,
-        PixelFormat format
+        PixelFormat format,
+        ulong image = 1
     ) {
         ArgumentNullException.ThrowIfNull(device);
+        ArgumentOutOfRangeException.ThrowIfZero(image);
 
         this.device = device;
         Format = format;
+        Image = image;
 
         var output = new RenderOutput([format], DepthFormat);
 
@@ -181,6 +195,11 @@ sealed class ScenePresenter : IDisposable {
         renderer.RegisterImage(Image, colourView);
         viewport.Control.RenderTarget = Image;
 
+        // The answers in flight are about a picture that no longer exists: the target was recreated
+        // at a new size, so a pick resolved against the old one would name whatever id happens to sit
+        // at those pixels now.
+        viewport.Picking?.Abandon();
+
         return true;
     }
 
@@ -196,18 +215,51 @@ sealed class ScenePresenter : IDisposable {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(viewport);
 
-        surfaces.Build(document);
+        // ⚠ The renderer's light, pushed into the collector rather than guessed by it. The outline's
+        // vertices are given a normal that faces this so their lambert term is one — see
+        // `SceneMeshes.LightDirection`, which says what a copy that drifted would look like.
+        surfaces.LightDirection = meshes.LightDirection;
+
+        // ⚠ The ambient term is the view mode's and the shaded default is the renderer's. Unlit,
+        // albedo and normal are modes about a surface's own value rather than about its shape, and a
+        // lambert term over any of the three is the picture the mode exists to take apart.
+        meshes.Ambient = ViewShading.AmbientFor(viewport.Modes.Current, Ambient);
+
+        surfaces.Build(document, viewport, size.Y);
         meshes.Upload(surfaces.Vertices, surfaces.Indices);
 
         geometry.Build(document, viewport, size.Y);
 
-        Write(lines, geometry.World);
+        // ⚠ The scene's own segments and the wireframe view's edges go into one buffer, because one
+        // `LineRenderer` holds one buffer and draws all of it with one pipeline — the same reason the
+        // gizmo needed a second instance rather than a second range.
+        Write(lines, geometry.World, surfaces.Edges);
         Write(overlay, geometry.Overlay);
 
         // Straight across, no copy: `SceneLines` hands the gizmo's solid parts back as spans for
         // exactly this, which the two segment lists cannot do — see its own remarks.
         handles.Upload(geometry.Handles, geometry.HandleIndices);
+
+        var stats = viewport.Stats;
+
+        stats.Entities = surfaces.Count;
+        stats.Triangles = surfaces.Triangles;
+
+        // ⚠ Counted from the lists rather than from the buffers. A renderer reports what it *drew*,
+        // which is the truncated count when a frame overflowed — and a stats overlay whose triangle
+        // count silently stops rising is the one readout that would hide the overflow it exists to
+        // make visible. The draw count below is the renderer's, because that one is a fact about the
+        // command list rather than about the scene.
+        stats.Segments = (geometry.World.Count + surfaces.Edges.Count + geometry.Overlay.Count) / 2;
     }
+
+    /// <summary>How much light a surface facing away from the key gets, in the shaded modes.</summary>
+    /// <remarks>
+    ///     <see cref="MeshRenderer.Ambient" />'s own default, held here because the renderer's copy is
+    ///     overwritten every frame by the view mode and there has to be somewhere the shaded value
+    ///     comes back from.
+    /// </remarks>
+    public float Ambient { get; set; } = 0.35f;
 
     /// <summary>Copies a collected list into a renderer's buffer.</summary>
     /// <remarks>
@@ -216,11 +268,13 @@ sealed class ScenePresenter : IDisposable {
     ///     <see cref="IReadOnlyList{T}" /> — which is the right shape for something a test reads and
     ///     the wrong one for something a device writes. One reused list, cleared per call.
     /// </remarks>
-    void Write(LineRenderer renderer, IReadOnlyList<LineVertex> segments) {
+    void Write(LineRenderer renderer, params IReadOnlyList<LineVertex>[] lists) {
         pending.Clear();
 
-        foreach (var vertex in segments) {
-            pending.Add(vertex);
+        foreach (var segments in lists) {
+            foreach (var vertex in segments) {
+                pending.Add(vertex);
+            }
         }
 
         renderer.Upload(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(pending));
@@ -294,6 +348,8 @@ sealed class ScenePresenter : IDisposable {
                     // it rather than being drawn over by it.
                     overlay.Record(context.CommandList, viewProjection, depthTested: false);
                     handles.Record(context.CommandList, viewProjection, depthTested: false);
+
+                    viewport.Stats.Draws = meshes.Draws + lines.Draws + overlay.Draws + handles.Draws;
                 });
             }
         );

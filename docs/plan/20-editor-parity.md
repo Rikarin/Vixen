@@ -32,14 +32,14 @@ than a plan.
 ## Where the editor actually is
 
 Reconciled against the code in `Editor/`, not against doc 11's aspirations, and **as of the end of
-[E1](#e1--the-three-panels-people-live-in-20-em)**. The counts came out of the registry rather than
+[E2](#e2--the-viewport-20-em)**. The counts came out of the registry rather than
 from counting `Add` calls, because half of the commands are registered in loops.
 
 | | Built | Missing |
 |---|---|---|
-| **Panels** | Hierarchy, Inspector, Scene viewport, Project browser, Console, one per open asset document | ~24 more, listed in [Part B](#part-b--the-panel-inventory) |
+| **Panels** | Hierarchy, Inspector, Scene viewport (1/2/4 panes), Project browser, Console, one per open asset document | ~24 more, listed in [Part B](#part-b--the-panel-inventory) |
 | **Menus** | All ten of [Part C](#part-c--the-menu-bar-entry-by-entry): File, Edit, Assets, Entity, Scene, Play, Window, Build, Tools, Help | Nothing structural. Individual lines are disabled-with-a-reason rather than absent |
-| **Commands** | 153 registered ids, of which 51 are declared-and-disabled with the milestone that builds them | The 51, plus whatever E2–E6 adds |
+| **Commands** | 197 registered ids, of which 51 are declared-and-disabled with the milestone that builds them | The 51, plus whatever E3–E6 adds |
 | **Windows** | One OS window, a floating dock group promoted to a real one, and drawn modal dialogs | Preferences, Project Settings, Keybindings, Plugin manager, Project browser (startup), About |
 | **Layouts** | Five presets, saved/named arrangements, `current.vxlayout`, floating groups with their geometry | Open documents are not part of an arrangement |
 | **Shell services** | Commands with contexts and scopes, keymap, palette, menus, context menus, toolbar with sections and groups, status bar, notifications, background tasks, theming, localisation, docking, plugins, dialogs, icons, MRU, **an automation harness** | Modes, search-everywhere, keymap presets |
@@ -245,17 +245,17 @@ The viewport is one panel and about nine features, so it gets its own table.
 | Feature | Status | What is owed |
 |---|---|---|
 | Camera navigation | ✅ | — |
-| Transform gizmos, snapping, spaces, pivots | ✅ | Filled plane quads and a torus ring — the hit test already treats a plane handle as filled and the outline understates it |
-| Picking | 🟡 | A ray test works and `PickingRenderer` is driven by nothing. ⚠ **The reason given here was that it needs a render target the host does not own, and that is no longer true** — `EditorHost` owns a `RenderGraph` and `ScenePresenter.Declare` already declares a pass and hands back a `GraphTexture`. What is left is connecting an existing two-pass stage to an existing graph |
-| Marquee / rubber-band select | ⛔ | A region resolve rather than a one-pixel readback — the same stage as the row above, with a bigger copy, so the two are one piece of work |
-| Selection outline | ⛔ | A stencil pass and a post effect — the one thing here that is not geometry a tool can build |
-| **Viewport overlay toolbar** | ⛔ | Camera speed, view mode, show flags, gizmo toggles, projection, maximise — floating over the top-left of the viewport, as both reference editors do. Chrome, not rendering |
-| **Multiple viewports** | ⛔ | `ViewportLayout` exists in `.SceneView`; 1/2/4-pane with independent cameras and view modes is the host wiring N `ScenePresenter`s |
-| **Show flags** | ⛔ | A checklist of what to draw: grid, gizmos, wireframe, colliders, lights, audio sources, navigation, bounds. A menu over a bitset the presenter reads |
-| **Debug view modes** | 🟡 | `ViewModes` exists in the model; the UI to pick one and the compositor swap that honours it do not |
-| **Stats overlay** | ⛔ | Draw calls, triangles, frame time, in-viewport |
-| **View bookmarks** | 🟡 | `ViewBookmark` exists and holds the camera across a panel rebuild; `Ctrl+1..9` to set and `1..9` to recall is commands over it |
-| **Meshes and materials** | ⛔ | The viewport draws lines. This is doc 14 Phase 7's neighbourhood, not a shell gap, and it is the single most visible difference from a reference editor |
+| Transform gizmos, snapping, spaces, pivots | ✅ | — |
+| Picking | 🟡 | A ray test and a screen-space region query both work and are exact against what the viewport draws. `PickingRenderer` is still driven by nothing, and ⚠ **the reason has moved rather than gone away**: it is a `SceneRenderer` over a `RenderStage`, so it needs the viewport driven by `RenderSystem` through a `GraphicsCompositor` — which is the same Phase 7 wiring the bottom row names. It is what will be right the day a shader moves a vertex |
+| Marquee / rubber-band select | ✅ | — |
+| Selection outline | ✅ | An inverted hull built on the processor, not a stencil pass — see `.SceneView`'s README for why that is exact here rather than an approximation, and what it gets wrong if any of three steps is skipped |
+| **Viewport overlay toolbar** | ✅ | — |
+| **Multiple viewports** | ✅ | — |
+| **Show flags** | ✅ | Colliders, audio sources and navigation are deliberately absent: there is no component or mesh behind any of the three, and a tick that does nothing fails this document's second bar. They arrive with the subsystems |
+| **Debug view modes** | 🟡 | Six of the nine are drawn by the tool renderer and the UI picks them; roughness, overdraw and light complexity are registered and greyed with the reason, because a mode with no compositor falls back to shaded and would draw the line above it. All nine become compositor swaps with the row below |
+| **Stats overlay** | ✅ | — |
+| **View bookmarks** | ✅ | — |
+| **Meshes and materials** | ⛔ | The viewport draws lines and untextured primitives. This is doc 14 Phase 7's neighbourhood, not a shell gap, and it is the single most visible difference from a reference editor — and it is what the two 🟡 rows above are waiting on |
 
 ### B3 — Content and assets
 
@@ -395,16 +395,30 @@ Sphere, Capsule, Cylinder, Plane, Quad), **Light ▸** (Directional, Point, Spot
 
 ### Scene
 
-Built, and the most complete menu in the editor. Additions: **Viewport Layout ▸** (1 / 2 / 4 panes),
-**View Mode ▸** (Lit, Unlit, Wireframe, Albedo, Normal, Roughness, Overdraw, Light Complexity),
-**Show ▸** (the show-flag checklist), **Bookmarks ▸** (set `Ctrl+1..9`, go `1..9`), **Camera Speed ▸**.
+Built, and the most complete menu in the editor. The five additions this document asked for are now
+on it: **Viewport Layout ▸** (1 / 2 / 4 panes, on `Alt+1..4`), **View Mode ▸** (nine entries, three of
+them greyed with the reason), **Show ▸** (the show-flag checklist), **Bookmarks ▸** (go `1..9` above,
+set `Ctrl+1..9` below — recall is used more often than save), **Camera Speed ▸** (five multiples),
+and **Maximise Viewport** on `Shift+Space`.
+
+⚠ **Every one of them acts on the *focused* pane**, which is what makes a split layout mean anything:
+pressing the wireframe key changes the pane being worked in and not its three neighbours. The
+viewport's own floating toolbar is a second view over the same command ids rather than a second set
+of controls, and only the focused pane draws one — four strips of which three would be showing their
+neighbour's state is worse than one that is always right.
 
 ### Play
 
 **Play** `F5`, **Pause** `Ctrl+Shift+P`, **Step Frame** `F10`, **Stop** `Shift+F5`, | **Mode ▸**
 (In Editor, Standalone Process, Server + N Clients — both topologies exist in `.SceneView`'s
-`PlayMode` and `PlayerSessions` and neither has a menu), | **Options ▸** (Maximise on Play, Mute
-Audio, Clear Console on Play, Enter Play Mode Options).
+`PlayMode` and `PlayerSessions` and neither has a menu), | **Options ▸** (Maximise on Play ✅, Mute
+Audio, Clear Console on Play ✅, Enter Play Mode Options).
+
+⚠ **Maximise on Play is a preference and not an action**, which is what its tick says: it changes what
+the *next* Play does. It goes through the same pair `scene.maximise` uses, so stopping restores
+whatever the arrangement was rather than an arrangement it remembered separately — and it is skipped
+when the panel is already one pane, or stopping would leave the toggle claiming a viewport was
+maximised when nothing had changed.
 
 ⚠ **Play is a menu *and* the toolbar's centre group.** It is the most-clicked control in either
 reference editor and the one place where being one click away is measurably worse.
@@ -442,16 +456,27 @@ The verbs. A menu line without the verb behind it is the thing this section exis
 Click, add (`Ctrl`), range (`Shift`), marquee, select-all/none/invert, select children/parent,
 select by type, select by name, **selection sets** (save and recall a selection — a small feature
 professionals use constantly and neither reference editor made discoverable), lock, isolate
-(hide everything else). Selection is already `Selection<T>` and signal-backed; what is missing is
-multi-select in the outliner and the marquee in the viewport.
+(hide everything else). Selection is already `Selection<T>` and signal-backed; multi-select in the
+outliner is E1's and the marquee is E2's, and both are built. ⚠ **A band *touches* rather than
+contains**, which is what both reference editors do by default: a rule that only took what it fully
+enclosed cannot select anything larger than the pane, so the gesture would stop working precisely
+where a scene gets big. Unreal's strict-box preference is worth having and is not what makes the
+gesture work.
 
 ### Transform
 
 Translate/rotate/scale ✅, world/local/parent/screen space ✅, pivot/centre ✅, grid and angle snap
-✅, **vertex snap** (in the model, not honoured — needs the readback picking already does, for a
-position rather than an id), **surface snap**, numeric entry ✅ through the inspector, **relative
-transform entry**, **copy/paste transform**, **reset transform**, **align to view**, **distribute and
-align** across a multi-selection.
+✅, **vertex snap** ✅, **surface snap** ✅, numeric entry ✅ through the inspector, **relative
+transform entry**, **copy/paste transform**, **reset transform**, **align to view** ✅, **snap to
+floor** ✅, **move to view** ✅, **distribute and align** across a multi-selection.
+
+⚠ **Vertex and surface snap did not need the readback after all**, and the note that said they did
+was reasoning from the wrong end. What a snap asks is "what does this ray hit" and "which vertex is
+nearest the pointer", and `SceneProbe` answers both exactly against the geometry the viewport draws —
+one matrix inversion per entity for the first, one screen-space box rejection then a projection per
+vertex for the second. The readback is what will be right when a shader moves a vertex, which is the
+same day the picking stage lands. ⚠ **Both must exclude what is being dragged**, or the answer is the
+dragged object's own surface for the whole of every drag — a snap that never moves anything.
 
 ### Hierarchy
 
@@ -541,6 +566,29 @@ vertex and surface snap, filled gizmo geometry.
 **Exit:** four panes with independent cameras and view modes; a marquee selects; a selected object is
 outlined; a golden screenshot per view mode.
 
+**Where E2 stands.** The first three exit clauses run, in `Vixen.Editor.App.Tests/ViewportTests` and
+`Vixen.Editor.SceneView.Tests`. Nine of the eleven items are built: the overlay toolbar, the show
+flags, the view-mode UI, 1/2/4-pane layouts with a presenter and an image id each, the stats readout,
+nine bookmark slots on `Ctrl+1..9` and `1..9`, rubber-band selection, the selection outline, vertex
+and surface snap, and filled plane quads with tubular rotation rings. Two are not, and both are the
+same dependency wearing two hats:
+
+| Not built | What it actually needs |
+|---|---|
+| **The picking stage driven by a real target** | ⚠ **The reason stated in [B2](#b2--the-viewport) was wrong in a way worth recording.** It is true that `EditorHost` owns a `RenderGraph` and that `ScenePresenter.Declare` hands back a `GraphTexture` — and neither is what `PickingRenderer` consumes. It is a `SceneRenderer` over a `RenderStage`, so it needs a `GraphicsCompositor` and a render system feeding it, which the editor's viewport does not have: what draws the scene is `SceneMeshes` through `MeshRenderer`, a tool renderer with no materials. Clicking and banding both work, exactly, through the processor — and that is the right answer for primitives and the wrong one the day a shader moves a vertex |
+| **The compositor swap behind the view modes** | The same thing. Six modes are expressible as vertex colouring and edge emission on the tool path and are built that way; roughness needs a material, light complexity needs the clustered light list, and overdraw needs an additive pipeline — none of which a tool renderer has. All three are registered and greyed with the reason rather than silently falling back to shaded |
+
+⚠ **This is the Risks table's first row arriving exactly as predicted.** It says the material-system
+wiring "should be scheduled *before* E2 rather than after — E2's view modes and outline are much
+easier to judge against real geometry". It was not, and the cost is precisely the two rows above:
+everything that could be built against the tool renderer was, and the two items that are *about* the
+renderer could not be. Neither is shell work and neither should be scheduled as though it were.
+
+⚠ **The golden screenshot per view mode is E6's suite and is not here.** The view modes are covered
+behaviourally — what goes into the vertex buffers, and what does not — which is the half a
+screenshot cannot check; the half it can is the half `Vixen.Editor.Ui`'s README says finds shell bugs,
+and it wants the fixture E6 owns.
+
 ### E3 — Settings, keys, layouts, plugins (1.0 EM)
 
 Project Settings window, Preferences window, keybinding editor with the three presets, layouts
@@ -600,6 +648,11 @@ they run in parallel from the end of E1. E5 depends on E1 (thumbnails, browser) 
 (previews). E6 depends on everything and should start its automation harness during E1, not after E5
 — a harness written last is a harness written against a frozen target.
 
+⚠ **E2's remainder is not an E3 or an E4 item and must not be swept into one.** The picking stage and
+the compositor swap are both Phase 7's material wiring, which is doc 14's schedule rather than this
+one's; what is left of E2 does not become smaller by waiting and does not belong to a shell
+milestone. Whoever picks up Phase 7 closes both, and the panels are already written against them.
+
 ---
 
 ## Part F — Testing
@@ -641,10 +694,10 @@ Named so that "missing" and "not doing" are different words.
 
 | Risk | Mitigation |
 |---|---|
-| **The viewport draws lines.** No amount of shell work makes an editor that cannot show a model feel finished, and this is the first thing anybody notices | It is Phase 7's material-system wiring, not this document's, and it should be scheduled *before* E2 rather than after — E2's view modes and outline are much easier to judge against real geometry |
+| **The viewport draws lines.** No amount of shell work makes an editor that cannot show a model feel finished, and this is the first thing anybody notices | It is Phase 7's material-system wiring, not this document's, and it should be scheduled *before* E2 rather than after — E2's view modes and outline are much easier to judge against real geometry. ⚠ **This came true and cost exactly what it said it would**: E2 shipped nine of eleven items, and the two it did not — the picking stage and the compositor swap behind the view modes — are the two that are *about* the renderer rather than about the shell. See [E2](#e2--the-viewport-20-em) |
 | **Scope of Part B is larger than Parts A and C together** | The milestones are ordered so each ends demonstrable, and E3/E4 parallelise. The panel inventory is a checklist, not a commitment to build all of it before 1.0 — B4 and B7 are where a schedule squeeze should land |
 | **Icon set is a design dependency, not an engineering one** | ~120 glyphs is a real piece of work by someone who draws. Start it at E0 and treat a missing icon as a labelled button rather than a blocker |
 | **Keymap presets promise compatibility they cannot fully keep** | A preset maps the commands that exist. It must be documented as "the bindings you know for the features we have", not as an emulation mode |
-| **The editor gets slower one panel at a time** | The status-bar frame time in [A1](#a1--the-application-frame) makes it visible daily, and E6's benchmark makes it a gate. `It redraws every frame` is a known gap; redraw-on-change should land in E2, while the number of panels is still small enough to audit |
+| **The editor gets slower one panel at a time** | The status-bar frame time in [A1](#a1--the-application-frame) makes it visible daily, and E6's benchmark makes it a gate. ⚠ **Redraw-on-change was supposed to land in E2 and did not**, and the number of panels is no longer as small: a four-pane layout is four render targets, four collect passes and four sets of chrome, all redrawn every frame whether anything moved or not. What E2 *did* add is the per-pane readout that makes the cost visible — frame time, draw calls and triangles in the corner of each pane — so the gap is now measurable daily rather than only asserted here. Landing it is E3's or E4's, and it is more work than it was |
 
 Licensed under Apache-2.0.

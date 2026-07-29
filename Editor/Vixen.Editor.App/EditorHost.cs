@@ -51,7 +51,18 @@ sealed class EditorHost : IDisposable {
     readonly GlyphFieldCache glyphs = new(new GlyphAtlas(1024, 1024));
     readonly List<EditorPane> panes = [];
 
-    ScenePresenter? scene;
+    /// <summary>One presenter per scene pane, made on demand and kept while the count holds.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Indexed by pane, and each one owns a target and an image id of its own.</b> Four panes
+    ///     sharing a presenter would share a render target, so all four would show whichever camera
+    ///     wrote it last — and sharing the <i>id</i> alone would do the same thing one layer up, in
+    ///     the interface's image registry. See <c>ScenePresenter.Image</c>.
+    /// </remarks>
+    readonly List<ScenePresenter> scenes = [];
+
+    /// <summary>The panes' targets this frame, for the interface's pass to declare that it reads.</summary>
+    readonly List<GraphTexture> sampled = [];
+
     VulkanDevice? device;
     TransientResourcePool? pool;
     RenderGraph? graph;
@@ -414,12 +425,30 @@ sealed class EditorHost : IDisposable {
         // ⚠ Declared before the interface's pass, so the graph orders the two from the read: the
         // interface samples what the scene wrote, and the barrier between them is derived rather
         // than placed by hand.
-        var sampled = default(GraphTexture);
-        var hasScene = false;
+        //
+        // ⚠ One of these per pane of the scene panel, and the list is reused rather than allocated:
+        // this runs once per window per frame.
+        sampled.Clear();
 
-        if (pane.IsPrimary && editor.Viewport is { } viewport && scene is not null && scene.Resize(viewport, renderer)) {
-            scene.Upload(editor.Scene, viewport);
-            hasScene = scene.Declare(graph, viewport, out sampled);
+        if (pane.IsPrimary) {
+            var panes = editor.Viewports;
+
+            Ensure(panes.Count);
+
+            for (var index = 0; index < panes.Count && index < scenes.Count; index++) {
+                var presenter = scenes[index];
+                var viewport = panes[index];
+
+                if (!presenter.Resize(viewport, renderer)) {
+                    continue;
+                }
+
+                presenter.Upload(editor.Scene, viewport);
+
+                if (presenter.Declare(graph, viewport, out var target)) {
+                    sampled.Add(target);
+                }
+            }
         }
 
         graph.AddPass(
@@ -431,9 +460,10 @@ sealed class EditorHost : IDisposable {
                 // ⚠ The scene's target is sampled through a descriptor set, which the graph cannot
                 // see. Saying so here is what orders the scene's pass before this one and puts the
                 // layout transition between them — without it the target is still a colour
-                // attachment when the fragment shader reads it.
-                if (hasScene) {
-                    pass.Reads(sampled);
+                // attachment when the fragment shader reads it. Every pane's, because a four-pane
+                // layout is four targets this one pass samples.
+                foreach (var target in sampled) {
+                    pass.Reads(target);
                 }
 
                 // ⚠ The logical surface and the DPI scale, not the swapchain's size. The geometry is
@@ -484,6 +514,68 @@ sealed class EditorHost : IDisposable {
         return status is not SwapChainStatus.OutOfDate;
     }
 
+    /// <summary>Makes the pool of presenters match how many panes the scene panel has.</summary>
+    /// <param name="wanted">How many.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Grown and shrunk here rather than when the arrangement changes.</b> The
+    ///         application splits the panel and knows nothing about devices; this is the frame loop,
+    ///         which is the only place that can be sure no frame is in flight over the target it is
+    ///         about to destroy. Comparing two counts once per frame is not a cost.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The device is idled before one goes.</b> A presenter's colour target may be
+    ///         referenced by a frame the driver has not finished with, and destroying it is a
+    ///         use-after-free the validation layers name and the driver does not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Image ids are one-based and are the index plus one.</b> Zero means "no target" to
+    ///         <c>Viewport.RenderTarget</c>, which draws the placeholder instead — so a pane numbered
+    ///         zero would be a pane that never shows the scene.
+    ///     </para>
+    /// </remarks>
+    void Ensure(int wanted) {
+        if (scenes.Count > wanted) {
+            device?.WaitIdle();
+
+            for (var index = scenes.Count - 1; index >= wanted; index--) {
+                scenes[index].Dispose();
+                scenes.RemoveAt(index);
+            }
+        }
+
+        while (scenes.Count < wanted) {
+            scenes.Add(Presenter((ulong) scenes.Count + 1));
+        }
+    }
+
+    /// <summary>Builds one pane's presenter.</summary>
+    /// <param name="image">What the interface calls its target.</param>
+    /// <remarks>
+    ///     ⚠ <b>A colour format the swapchain's is not.</b> The scene is sampled by the interface
+    ///     rather than presented, so it wants a linear target — a UNorm-sRGB one would be decoded on
+    ///     the way in and encoded again on the way out, which is a scene visibly washed out next to
+    ///     the panels around it.
+    /// </remarks>
+    ScenePresenter Presenter(ulong image) =>
+        new(
+            device!,
+            new LineShaders(
+                device!.CreateShader(ShaderStage.Vertex, Module("LineVertex.vert.spv"), "line vertex"),
+                device.CreateShader(ShaderStage.Fragment, Module("LineFragment.frag.spv"), "line fragment")
+            ) {
+                Locations = new(LineVertexKeys.PositionLocation, LineVertexKeys.VertexColourLocation)
+            },
+            new MeshShaders(
+                device.CreateShader(ShaderStage.Vertex, Module("Mesh.vert.spv"), "mesh vertex"),
+                device.CreateShader(ShaderStage.Fragment, Module("Mesh.frag.spv"), "mesh fragment")
+            ) {
+                Locations = new(MeshKeys.PositionLocation, MeshKeys.NormalLocation, MeshKeys.VertexColourLocation)
+            },
+            PixelFormat.Rgba8UNorm,
+            image
+        );
+
     /// <summary>Builds everything GPU-shaped, once there is a surface to present to.</summary>
     /// <returns>Whether there is one.</returns>
     bool EnsureDevice() {
@@ -524,34 +616,19 @@ sealed class EditorHost : IDisposable {
             )
         };
 
-        // ⚠ A colour format the swapchain's is not. The scene is sampled by the interface rather
-        // than presented, so it wants a linear target — a UNorm-sRGB one would be decoded on the way
-        // in and encoded again on the way out, which is a scene visibly washed out next to the panels
-        // around it.
-        scene = new ScenePresenter(
-            device,
-            new LineShaders(
-                device.CreateShader(ShaderStage.Vertex, Module("LineVertex.vert.spv"), "line vertex"),
-                device.CreateShader(ShaderStage.Fragment, Module("LineFragment.frag.spv"), "line fragment")
-            ) {
-                Locations = new(LineVertexKeys.PositionLocation, LineVertexKeys.VertexColourLocation)
-            },
-            new MeshShaders(
-                device.CreateShader(ShaderStage.Vertex, Module("Mesh.vert.spv"), "mesh vertex"),
-                device.CreateShader(ShaderStage.Fragment, Module("Mesh.frag.spv"), "mesh fragment")
-            ) {
-                Locations = new(MeshKeys.PositionLocation, MeshKeys.NormalLocation, MeshKeys.VertexColourLocation)
-            },
-            PixelFormat.Rgba8UNorm
-        );
-
+        // The presenters themselves are made on demand, one per pane — see `Ensure`, which is also
+        // where they go when the panel is split the other way.
         return true;
     }
 
     void Release() {
         device?.WaitIdle();
 
-        scene?.Dispose();
+        foreach (var presenter in scenes) {
+            presenter.Dispose();
+        }
+
+        scenes.Clear();
 
         foreach (var pane in panes) {
             pane.Dispose();
@@ -560,7 +637,6 @@ sealed class EditorHost : IDisposable {
         pool?.Dispose();
         device?.Dispose();
 
-        scene = null;
         graph = null;
         pool = null;
         device = null;

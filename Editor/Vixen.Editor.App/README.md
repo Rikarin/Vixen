@@ -103,7 +103,7 @@ looking at a real model:
 |---|---|
 | Hierarchy | a `TreeView` over the scene's entities, with a name filter above it. Selection goes both ways — clicking a row selects, and selecting anywhere else highlights the row — and renaming, creating, deleting and dragging-to-reparent are all undo entries |
 | Inspector | an `InspectorView` over whichever selection was last clicked in — the scene's entities or the project's assets — recording every edit on the scene document's stack |
-| Scene | a `SceneViewport`: orbit, pan, zoom, the axis cross, gizmo modes and snapping, drawn into the panel — as lines, for the reason below |
+| Scene | a `ViewportLayout` of one, two or four `SceneViewport`s, each with its own camera, view mode and show flags, and a floating toolbar, stats readout and rubber-band drawn over the focused one |
 | Project | `ProjectBrowser`: the asset database as a tree, with a search box, over the real `Assets/` directory. Double-clicking a row opens the asset |
 | An asset | one per open document, built by whichever of the nine asset editors claims the file |
 | Console | a virtualised list over the editor's log ring: level toggles with counts, a category filter, search, collapse-duplicates, clear-on-play, and a detail pane with the stack |
@@ -268,6 +268,13 @@ enabled.
 with `UiRenderer.RegisterImage`, and the viewport control draws it — so the scene arrives in the
 interface as an ordinary element that panels can be drawn over.
 
+⚠ **One presenter per pane, each with a target and an image id of its own.** Four panes sharing a
+presenter would share a render target, so all four would show whichever camera wrote it last; sharing
+the *id* alone does the same thing one layer up, in the interface's image registry — four identical
+views of the perspective camera, which reads as the other three cameras not working. The pool is
+grown and shrunk in the frame loop rather than when the arrangement changes, because that is the only
+place that can be sure no frame is in flight over the target it is about to destroy.
+
 ⚠ **Four draws into one target, in an order that is not arbitrary.** The spawned shapes go first and
 are the only thing that writes depth. The grid, the three-axis marker on each entity and the line to
 each parent follow, depth-tested, so a marker inside a cube is inside it. Then the gizmo's shafts,
@@ -341,9 +348,13 @@ lies about what the next Delete, the next gizmo drag or the next rename will act
   only, by its own documented decision, so clearing its document's selection from here would leave a
   row highlighted with nothing behind it.
 
-⚠ **A panel's factory runs again when it is reopened**, so nothing durable may live in one. The
-camera is kept as a `ViewBookmark` on `EditorApplication` and restored when the scene panel is
-rebuilt; without it, closing and reopening the viewport puts the user back at the origin.
+⚠ **A panel's factory runs again when it is reopened**, so nothing durable may live in one. Each
+pane's camera is kept as a `ViewBookmark` on `EditorApplication` and restored when the scene panel is
+rebuilt; without it, closing and reopening the viewport puts the user back at the origin. ⚠ **The
+saved cameras are forgotten when the arrangement changes**, because a single pane's camera restored
+into a freshly-split layout would overwrite `ViewportLayout`'s top/front/side presets with three
+copies of wherever that pane happened to be looking — a four-pane layout that comes up as four
+identical perspective views, which is the exact thing the presets exist to prevent.
 
 ## The editor's own log
 
@@ -377,11 +388,13 @@ warning would toast, log, toast, log.
   whole selection moves when the dragged row is part of it. ⚠ **A root is the exception**: roots are
   not a sibling list, so an entity undone back to the root set returns in creation order. Making
   that exact needs the scene format to carry a root order.
-- **Clicking in the viewport does not select.** ⚠ Not for want of a texture command any more — the
-  draw list has one, and `Viewport` draws a `RenderTarget` through it. What picking needs is the
-  *id* target and the readback: `PickingBuffer` and `PickingRenderer` in `Vixen.Editor.SceneView` are
-  the pieces, and nothing in this application drives them. The gizmo can be dragged meanwhile, and
-  what it drags comes from the hierarchy.
+- ~~**Clicking in the viewport does not select.**~~ It does, and dragging a box round several does
+  too, through `ScenePicker` and `IScenePicker.Within` — a ray test and a screen-space region query,
+  both exact against the geometry the viewport actually draws. ⚠ **The id readback is still not
+  driven**, and the reason has moved rather than gone away: `PickingRenderer` is a `SceneRenderer`
+  over a `RenderStage`, which needs the viewport driven by `RenderSystem` through a
+  `GraphicsCompositor`. This application has neither, so the stage is blocked on the same material
+  wiring the view modes are — and it is what will be right the day a shader moves a vertex.
 - **It redraws every frame.** Redrawing only on change is the right end state and is not free — every
   animation, toast expiry and task progress has to say so, and one that forgets leaves a progress bar
   frozen at forty per cent.

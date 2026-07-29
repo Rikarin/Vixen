@@ -485,19 +485,27 @@ sealed partial class EditorApplication {
             "Reparenting by menu needs the entity picker the outliner's drag will bring. Milestone E1."
         );
 
-        Planned(
+        Verb(
             "entity.move-to-view",
             new StringId("editor.command.entity.move-to-view", "Move To View"),
             CategoryEntity,
-            "Placing an entity at the view's pivot needs the picking stage driven by a real target. Milestone E2."
+            MoveToView,
+            enabled: () => viewport is not null && scene.Selection.Count > 0
         );
 
-        Planned(
+        // ⚠ Not blocked on the picking readback after all. What Snap To Floor needs is "what does
+        // this ray hit", and `SceneProbe` answers it exactly against the same geometry the viewport
+        // draws — which is what makes it the right answer today and the wrong one the day a shader
+        // moves a vertex. See `SceneProbe`'s own remarks.
+        Verb(
             "entity.snap-to-floor",
             new StringId("editor.command.entity.snap-to-floor", "Snap To Floor"),
             CategoryEntity,
-            "Surface snapping needs the picking readback. Milestone E2."
+            SnapToFloor,
+            enabled: () => scene.Selection.Count > 0
         );
+
+        Shell.Keys.SetDefault("entity.snap-to-floor", new KeyChord(InputKey.End, ModifierKeys.None));
 
         Planned(
             "entity.toggle-active",
@@ -626,11 +634,15 @@ sealed partial class EditorApplication {
             "PlayerSessions has the topology; hosting it from the editor is milestone E6."
         );
 
-        Planned(
+        // ⚠ A preference rather than an action, which is what the tick says. It changes what the
+        // *next* Play does; pressing it while the game is running would be a second, differently
+        // spelled maximise, and the one on the Scene menu is that.
+        Verb(
             "play.maximise",
             new StringId("editor.command.play.maximise", "Maximise on Play"),
             CategoryPlay,
-            "Maximising the viewport needs the multi-viewport host. Milestone E2."
+            () => maximiseOnPlay = !maximiseOnPlay,
+            on: () => maximiseOnPlay
         );
 
         Planned(
@@ -1556,11 +1568,152 @@ sealed partial class EditorApplication {
         );
     }
 
+    /// <summary>Puts the selection where the camera is looking.</summary>
+    /// <remarks>
+    ///     ⚠ <b>At the pivot, not at the eye, and that is what makes it different from Align With
+    ///     View.</b> The pivot is the point the view orbits and therefore the point in the middle of
+    ///     the pane; the eye is where you are standing. Moving something to the eye puts it inside the
+    ///     near plane, which reads as the object having vanished.
+    /// </remarks>
+    void MoveToView() {
+        if (viewport is not { } pane) {
+            return;
+        }
+
+        var pivot = pane.Camera.Pivot;
+
+        // The middle of what is selected, so a group keeps its shape rather than collapsing onto one
+        // point — the same rule `TransformGizmo`'s centre pivot follows.
+        var centre = Vector3.Zero;
+        var counted = 0;
+
+        var targets = scene.Selection
+            .Where(entity => world.Has<LocalTransform>(entity))
+            .Select(entity => (Entity: entity, Was: world.Read<LocalTransform>(entity)))
+            .ToList();
+
+        foreach (var (entity, _) in targets) {
+            if (world.Has<WorldTransform>(entity)) {
+                centre += world.Read<WorldTransform>(entity).Value.Translation;
+                counted++;
+            }
+        }
+
+        if (counted == 0) {
+            return;
+        }
+
+        var offset = pivot - (centre / counted);
+        Displace("Move To View", targets, _ => offset);
+    }
+
+    /// <summary>Drops the selection onto whatever is under it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Straight down from each entity's own origin, ignoring the selection.</b> A ray
+    ///         that could hit the thing being dropped answers "zero" at once, which is a Snap To Floor
+    ///         that never moves anything — and with several things selected, one of them landing on
+    ///         another is worse than nothing happening.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An entity with nothing under it falls to the ground plane rather than not
+    ///         moving.</b> A block-out scene has no floor geometry at all, which is exactly the scene
+    ///         somebody is placing things in; a verb that only worked once there was something to
+    ///         land on would be one nobody would find out worked.
+    ///     </para>
+    /// </remarks>
+    void SnapToFloor() {
+        var targets = scene.Selection
+            .Where(entity => world.Has<LocalTransform>(entity) && world.Has<WorldTransform>(entity))
+            .Select(entity => (Entity: entity, Was: world.Read<LocalTransform>(entity)))
+            .ToList();
+
+        if (targets.Count == 0) {
+            return;
+        }
+
+        var ignore = scene.Selection.Items;
+
+        Displace(
+            "Snap To Floor",
+            targets,
+            entity => {
+                var from = world.Read<WorldTransform>(entity).Value.Translation;
+                var ray = new Ray(from, -Vector3.UnitY);
+
+                var landed = probe.Raycast(ray, ignore, out var hit) ? hit.Point : new Vector3(from.X, 0f, from.Z);
+
+                return landed - from;
+            }
+        );
+    }
+
+    /// <summary>Moves a set of entities by an offset each, undoably.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The offsets are resolved once, when the command is built, rather than inside its
+    ///         redo.</b> A redo that re-cast the rays would land on whatever the scene contains
+    ///         <i>now</i>, so undoing and redoing a Snap To Floor after moving the floor would put
+    ///         things somewhere the history never recorded — which is the one thing an undo stack
+    ///         exists to make impossible.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A world offset is turned into the parent's space before it is added to a
+    ///         <c>LocalTransform</c>.</b> The two are the same only for a root; under a rotated or
+    ///         scaled parent, adding a world vector to a local position moves the child along an axis
+    ///         that is not the one asked for and by a distance that is not the one asked for. As a
+    ///         <i>direction</i> and not a position, because an offset has no origin.
+    ///     </para>
+    /// </remarks>
+    void Displace(
+        string name,
+        List<(Entity Entity, LocalTransform Was)> targets,
+        Func<Entity, Vector3> offsetOf
+    ) {
+        var offsets = targets.Select(target => Local(target.Entity, offsetOf(target.Entity))).ToArray();
+
+        scene.Stack.Execute(
+            new DelegateCommand(
+                name,
+                _ => {
+                    for (var index = 0; index < targets.Count; index++) {
+                        var (entity, was) = targets[index];
+                        world.Set(entity, was with { Position = was.Position + offsets[index] });
+                    }
+                },
+                _ => {
+                    foreach (var (entity, was) in targets) {
+                        world.Set(entity, was);
+                    }
+                }
+            )
+        );
+    }
+
+    /// <summary>A world-space offset in the space an entity's <c>LocalTransform</c> is written in.</summary>
+    Vector3 Local(Entity entity, Vector3 offset) {
+        var parent = new Transform(world, entity).Parent;
+
+        return !parent.IsNull
+            && world.Has<WorldTransform>(parent)
+            && Matrix4x4.Invert(world.Read<WorldTransform>(parent).Value, out var inverse)
+                ? Matrix4x4.TransformDirection(offset, inverse)
+                : offset;
+    }
+
     // ── Play mode ───────────────────────────────────────────────────────────────────────────────
 
     void EnterPlay() {
         if (!play.Play()) {
             return;
+        }
+
+        // ⚠ Through the same pair maximise itself uses, so stopping restores whatever arrangement the
+        // user had rather than an arrangement this remembered separately. Skipped when the panel is
+        // already single, because `Remember` would then record Single and stopping would leave the
+        // toggle claiming the viewport is maximised when nothing was ever changed.
+        if (maximiseOnPlay && arrangement != ViewportArrangement.Single) {
+            Arrangement = Remember();
         }
 
         // Before the notification, so the line saying what play mode does is the first thing in the
@@ -1585,6 +1738,12 @@ sealed partial class EditorApplication {
 
         scene.Selection.Set(restored);
         hierarchyStale = true;
+
+        // Whatever the panel was split into before Play maximised it. Null when it was not, which is
+        // every session where the preference is off.
+        if (restore is { } previous) {
+            Arrangement = Take(previous);
+        }
     }
 
     // ── Save on close ───────────────────────────────────────────────────────────────────────────

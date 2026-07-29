@@ -152,8 +152,15 @@ public sealed class EditorSession : IDisposable {
     /// <summary>The scene it is editing.</summary>
     public SceneDocument Scene => editor.Scene;
 
-    /// <summary>The viewport, or <see langword="null" /> while its panel is closed.</summary>
+    /// <summary>The focused pane, or <see langword="null" /> while the scene panel is closed.</summary>
     public SceneViewport? Viewport => editor.Viewport;
+
+    /// <summary>Every pane of the scene panel, in reading order. Empty while it is closed.</summary>
+    /// <remarks>
+    ///     What a test of a split layout asserts against: the panes have their own cameras, their own
+    ///     view modes and their own show flags, and the point of the split is that they disagree.
+    /// </remarks>
+    public IReadOnlyList<SceneViewport> Viewports => editor.Viewports;
 
     /// <summary>The outliner's tree.</summary>
     /// <remarks>Opens the panel if it is not already up, because a closed panel has no tree at all.</remarks>
