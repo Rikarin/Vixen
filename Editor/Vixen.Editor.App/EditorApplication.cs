@@ -1195,7 +1195,7 @@ sealed partial class EditorApplication : IDisposable {
                 panel => {
                     if (project.TryGetDocument(asset, out var open)
                         && editors.TryGetForFile(project.Assets.TryGetByGuid(asset, out var entry) ? entry.Path : title, out var editor)) {
-                        editor.CreateView(open, panel);
+                        Joined(editor.CreateView(open, panel));
                     }
                 }
             );
@@ -1203,6 +1203,22 @@ sealed partial class EditorApplication : IDisposable {
 
         Shell.Workspace.Open(id);
         project.Activate(document);
+    }
+
+    /// <summary>Connects an asset editor's view to the things only this assembly can answer.</summary>
+    /// <param name="view">Whatever the factory built.</param>
+    /// <remarks>
+    ///     ⚠ <b>Here rather than in the factory, because the request is for another document.</b> A
+    ///     material's "Open shader graph" carries an <c>AssetId</c> and stops —
+    ///     <c>Vixen.Editor.AssetEditors</c> has a registry but no panels, no docking and no way to
+    ///     bring a tab forward — so the button raised an event nothing listened to until a shader
+    ///     graph editor existed to open. Every asset editor's factory runs again on a reopen, so this
+    ///     runs again with it and subscribes the new view rather than a dead one.
+    /// </remarks>
+    void Joined(UiElement view) {
+        if (view is AssetEditors.Materials.MaterialView material) {
+            material.OpenGraphRequested += (_, graph) => Open(graph);
+        }
     }
 
     /// <summary>What a panel showing an asset's editor is called in an arrangement.</summary>

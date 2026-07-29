@@ -4,7 +4,10 @@ Shaders authored as a graph, compiled to Raven source.
 
 The node library and the emission; the framework underneath is
 [`Vixen.Editor.NodeGraph`](../Vixen.Editor.NodeGraph/README.md). There is no UI here and none is
-needed to check any of it.
+needed to check any of it — the panel that opens a `.vxshadergraph` is
+[`Vixen.Editor.AssetEditors`](../Vixen.Editor.AssetEditors/README.md)'s `Shading/`, on the same split
+the VFX graph makes: a compiler that knows nothing about a project is a compiler a test can run with
+no editor in the way.
 
 ```csharp
 var registry = new NodeTypeRegistry();
@@ -57,6 +60,16 @@ lines too.
 **Declarations are requests.** A node that needs a uniform or an interpolated value asks and gets the
 name back. Two texture nodes sampling one property declare one binding; a graph that never reads a
 normal interpolates no normal, which is a real cost on a dense mesh and a varying slot on every mesh.
+What each compile asked for comes back on `ShaderGraphSource.Properties`, which is what a panel shows
+as "what this graph needs from outside" — and it cannot yet say which of them a *material* supplies
+rather than the engine, because the emitter asks for both the same way.
+
+**A property's name is authored, and it lives on the graph.** `Texture/Sample 2D`, `Colour Property`
+and `Float Property` read theirs from `GraphNode.Texts` under `ShaderProperties.Key`. It used to be a
+C# field on the node, which is scaffolding the compiler builds and throws away — so nothing wrote it,
+nothing saved it, and every texture in every graph was `albedo`. A name that cannot be changed is one
+binding for every node that wants one, which is the shape of bug that makes a node library unusable
+in a real project rather than in a test.
 
 ## The shape of what comes out
 
@@ -108,6 +121,10 @@ and a change to one method when it is time to wire it into the engine's clustere
 
 ## What is not here yet
 
+- **A material that draws with one.** The graph emits Raven and nothing consumes it: a `.vxmat` links
+  to the graph it was authored in — the editor's "Open shader graph" follows it — but turning the
+  emitted source into the shader a material names is doc 08's material compiler, which is not
+  written. Until it is, the output is text an author can read and hand to `raven compile`.
 - **Procedural nodes.** Noise, gradients, shapes. The `VfxNoise` transcription in `Vixen.Vfx` is the
   obvious source for a value-noise node, and it is not wired up.
 - **A custom-code node**, which doc 11 lists. It is a `[Input]`-less node holding a string of Raven,
@@ -116,7 +133,9 @@ and a change to one method when it is time to wire it into the engine's clustere
 - **Diagnostics mapped back to ports.** Half of it is here — every diagnostic this compiler raises
   names a node and a port. The other half needs the emitter to record which node wrote which span, so
   that Raven's own complaints can be mapped back.
-- **Preview thumbnails.** `[Node(Preview = true)]` is recorded on the types that would want one; what
-  draws it is a view.
+- **Preview thumbnails.** `[Node(Preview = true)]` is recorded on the types that would want one, and
+  the panel does not set a `INodePreviewSource` — compiling one node's sub-expression, running it
+  over a quad and keeping the target alive across edits needs a device, which is what
+  `NodePreview.Image` exists for and what nothing here has yet.
 
 Licensed under Apache-2.0.

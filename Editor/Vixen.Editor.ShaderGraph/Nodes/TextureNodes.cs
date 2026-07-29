@@ -20,7 +20,7 @@ namespace Vixen.Editor.ShaderGraph.Nodes;
 ///     </para>
 /// </remarks>
 [Node("Texture/Sample 2D", Preview = true, Summary = "Reads a texture at a coordinate.")]
-public sealed partial class SampleTexture2DNode : ShaderNode {
+public sealed partial class SampleTexture2DNode : ShaderNode, IShaderPropertyNode {
     /// <summary>Where to read. Defaults to the mesh's own coordinate.</summary>
     [Input(Name = "UV")]
     public Float2 Uv;
@@ -29,13 +29,24 @@ public sealed partial class SampleTexture2DNode : ShaderNode {
     [Output(Name = "RGBA")]
     public Float4 Rgba;
 
-    /// <summary>What the texture property is called.</summary>
-    public string Property { get; set; } = "albedo";
+    /// <inheritdoc />
+    public string PropertyType => "Texture2D";
+
+    /// <inheritdoc />
+    public string DefaultProperty => "albedo";
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     Read off the graph rather than set on the node, so that a graph with a base map and a
+    ///     normal map in it is two textures rather than one sampled twice — see
+    ///     <see cref="IShaderPropertyNode" />.
+    /// </remarks>
+    public string PropertyName => ShaderProperties.NameOf(this, DefaultProperty);
 
     /// <inheritdoc />
     protected internal override void Emit(RavenEmitter emitter) {
-        var texture = emitter.Uniform(Property, "Texture2D");
-        var sampler = emitter.Uniform(Property + "Sampler", "Sampler");
+        var texture = emitter.Uniform(PropertyName, "Texture2D");
+        var sampler = emitter.Uniform(PropertyName + "Sampler", "Sampler");
 
         // An unconnected UV port carries the literal its default made, which is not a coordinate. The
         // node asks for the stage's own instead, which is what an author who did not wire one means.

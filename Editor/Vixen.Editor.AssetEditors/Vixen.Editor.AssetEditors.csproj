@@ -60,6 +60,13 @@
         <!-- And the third graph, for the same split: states and transitions there, document here. -->
         <ProjectReference Include="..\Vixen.Editor.AnimationGraph\Vixen.Editor.AnimationGraph.csproj" />
 
+        <!--
+            The shader node library and its Raven emission, on the same split again: the nodes and the
+            compiler stay there, where they are checked by putting the emitted source through the real
+            Raven front end, and the document, the panel and the factory are here.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.ShaderGraph\Vixen.Editor.ShaderGraph.csproj" />
+
         <!-- GraphicsCompositorAsset: the document the compositor graph compiles to. -->
         <ProjectReference Include="..\..\Core\Vixen.Rendering\Vixen.Rendering.csproj" />
 

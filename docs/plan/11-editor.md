@@ -330,6 +330,15 @@ port model from the start.
 >   membership is a back-pointer on the node; the model keeps both, since a document should not lose
 >   an author's grouping to a drawing limitation.
 >
+> And one from giving each graph a way in. **Each graph's document, panel and factory are
+> `Vixen.Editor.AssetEditors`', not its own assembly's** — `.vxvfx`, `.vxcomp` and now
+> `.vxshadergraph` — because a compiler that knows nothing about a project is a compiler a test runs
+> with no editor in the way, and the document-with-an-undo-stack-and-a-view is one shape this table's
+> other rows already have. The shader graph's panel is where "show generated code" lives: a read-only
+> `CodeEditor` with Raven's own highlighting, and the emitted text put back through Raven's front end
+> so that a graph which is well-formed and emits a shader that does not type-check is reported rather
+> than called a success.
+>
 > Not in: the animation graph, selectable wires, editing a sticky note in place, and mapping a
 > *generated shader's* diagnostics back to the node that emitted the line — every diagnostic the graph
 > compilers raise names a node and a port, but Raven's own complaints about the generated text are not

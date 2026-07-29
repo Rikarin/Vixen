@@ -196,6 +196,35 @@ public class MilestoneE5Tests {
         Assert.Contains(fixture.Project.Documents, document => document.Title.Peek().EndsWith(extension, StringComparison.Ordinal));
     }
 
+    /// <summary>An asset editor's own tab closes and reopens, which is where the graphs went wrong.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The theory above covers the four world-building panels and this covers the panels
+    ///     doc 20's Part F row is actually about.</b> A graph view subscribes to its document's
+    ///     <c>Compiled</c>, and the view that was closed stayed subscribed — so the <i>reopened</i>
+    ///     view's first compile called the dead one's handler, which wrote into elements that had
+    ///     left the tree and took the editor down. It was found by giving the shader graph the same
+    ///     shape and testing it, and it was in the VFX graph and the compositor too.
+    /// </remarks>
+    [Fact]
+    public void An_asset_editor_tab_survives_being_closed_and_reopened() {
+        using var fixture = EditorSession.Start();
+
+        fixture.Run("assets.create-vfx").Settle();
+
+        var path = Directory
+            .EnumerateFiles(fixture.Project.Paths.Assets, "*.vxvfx", SearchOption.AllDirectories)
+            .First();
+
+        Assert.True(fixture.Project.Assets.TryGetByPath(fixture.Project.Paths.Relative(path), out var entry));
+
+        var panel = "asset." + entry.Guid;
+
+        fixture.Close(panel).Settle();
+        fixture.Open(panel).Settle();
+
+        Assert.NotNull(fixture.Panel(panel));
+    }
+
     /// <summary>A second scene opens beside the first rather than over it.</summary>
     [Fact]
     public void A_second_scene_opens_additively_and_closes_again() {

@@ -132,6 +132,23 @@ public sealed class VfxGraphView : Control {
         Compile();
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>A closed panel has to let go of the document.</b> A panel's factory runs again on
+    ///     every reopen, so the view that was closed is still subscribed to a document that outlives
+    ///     it — and the reopened view's first compile then called <see cref="Report" /> on a view
+    ///     whose elements have left the tree, which threw and took the editor down. Closing the tab
+    ///     is what ends the subscription; the document was never the view's to own.
+    /// </remarks>
+    protected override void OnRemoved() {
+        base.OnRemoved();
+
+        if (document is { } effect) {
+            effect.Compiled -= Report;
+            document = null;
+        }
+    }
+
     /// <summary>Compiles the graph, restarts the preview, and lists what compiling said.</summary>
     /// <returns>The number of complaints.</returns>
     public int Compile() {

@@ -24,6 +24,7 @@ if (editors.TryOpen(project, asset, out var document)) {
 | UI (`.vxml`/`.vcss`) | `MarkupDocument`, `StyleSheetDocument` | `PreviewCodeEditorView`: the editor and a preview pane |
 | Addressable groups | `AddressableGroupDocument` | the group list, the policy, and the build's own analysis |
 | Graphics compositor | `CompositorDocument` | a node graph, the selected node's settings, and what compiling says |
+| Shader graph | `ShaderGraphDocument` | a node graph, the Raven it emits, and what both compilers said |
 
 ## The sprite editor is a tab, not a document
 
@@ -261,9 +262,11 @@ every section beside the one before it.
   that is now the whole of it: `ModelCompiler` writes a `Meshlets` sub-asset holding the cluster
   hierarchy — every level at once rather than a chain — which the part list already shows. What is
   missing is somewhere to draw a cut through it.
-- **Nothing imports a `.vxcomp`.** `NativeFormatImporter` carries a document forward, which is right
-  for a material and wrong for a graph — what a build needs is the compiled frame. A compositor wants
-  an importer that runs `CompositorDocument.Compile`, the shape `SceneImporter` has.
+- **Nothing imports a `.vxcomp` or a `.vxshadergraph`.** `NativeFormatImporter` carries a document
+  forward, which is right for a material and wrong for a graph — what a build needs is the compiled
+  frame. A compositor wants
+  an importer that runs `CompositorDocument.Compile`, the shape `SceneImporter` has, and a shader
+  graph wants the same thing one step further along: the emitted Raven, compiled.
 - ~~**No animation-clip, VFX, input-action or font editor.**~~ Closed by doc 20's E5, along with two
   surfaces doc 11's table has no row for. What is here now, and the one decision each is worth:
   - **VFX** (`Vfx/`) — the node library and the compiler stay in `Vixen.Editor.VfxGraph`, which knows
@@ -287,6 +290,22 @@ every section beside the one before it.
     writes and the file the source generator reads are the same file by construction.
   - **Font** (`Fonts/`) — `.vxfont`, a document beside the `.ttf` because a fallback chain is a
     property of *this use* of a face rather than of the file.
+- ~~**No shader graph editor.**~~ `Shading/` — `.vxshadergraph`, on the same split as the VFX graph:
+  the node library and the Raven emission stay in `Vixen.Editor.ShaderGraph`. Three things are worth
+  pulling out of it:
+  - **Compiling runs two compilers, and the panel says which one spoke.** The graph compiler's
+    complaints name a node and a port; Raven's front end then reads the emitted text and names a
+    line. A graph can be well-formed and emit a shader that does not type-check, which is exactly
+    what a panel listing only the first kind would report as success.
+  - **The generated source is a read-only `CodeEditor`, hidden until asked for.** Doc 07's "show
+    generated code", with the same Raven tokenizer the `.rvn` editor uses and the same gutter. It is
+    read-only because the next compile overwrites it: a pane you could type into is one that throws
+    work away.
+  - **A property's name is a graph text, and that was a bug fix.** `Texture/Sample 2D` and the two
+    property nodes used to carry their name as a C# field on the node — which nothing writes and
+    nothing saves — so every texture in every graph was `albedo` and two colour properties were one
+    binding. It is `GraphNode.Texts` now, edited beside the node inspector, and the emitted
+    declaration follows it.
 - **The scene editor's view here is the hierarchy only.** The viewport is `Vixen.Editor.SceneView`'s
   and the inspector is `Vixen.Editor.Inspector`'s; arranging the three is the shell's job, and
   `Vixen.Editor.App` does it for the one scene it opens rather than per document.

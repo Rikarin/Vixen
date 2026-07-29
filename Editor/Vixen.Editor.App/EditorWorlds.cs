@@ -701,16 +701,24 @@ sealed partial class EditorApplication {
 
     // ── Making one of the new assets ────────────────────────────────────────────────────────────
 
-    /// <summary>The asset kinds E5 adds, and what an empty one of each is called.</summary>
+    /// <summary>The asset kinds the authoring surfaces add, and what an empty one of each is called.</summary>
     /// <remarks>
-    ///     ⚠ <b>An empty file, not a template.</b> Every one of these documents opens a zero-byte
-    ///     file as a sensible new one — a VFX graph with a spawner and an output, an animation graph
-    ///     with one layer and one state, an input asset with <c>Player/Move</c> — which is
-    ///     <c>AssetFile.Read</c>'s own bargain and is why creating one is a <c>File.Create</c> rather
-    ///     than a copy of something in a templates folder that would then be a second place the
-    ///     defaults live.
+    ///     <para>
+    ///         ⚠ <b>An empty file, not a template.</b> Every one of these documents opens a zero-byte
+    ///         file as a sensible new one — a VFX graph with a spawner and an output, a shader graph
+    ///         with a colour property and a master, an animation graph with one layer and one state,
+    ///         an input asset with <c>Player/Move</c> — which is <c>AssetFile.Read</c>'s own bargain
+    ///         and is why creating one is a <c>File.Create</c> rather than a copy of something in a
+    ///         templates folder that would then be a second place the defaults live.
+    ///     </para>
+    ///     <para>
+    ///         Seven of these are E5's and the shader graph is the eighth, added when its panel was:
+    ///         doc 20's Create ▸ names it, and until this line existed the only way to reach the
+    ///         editor was to make the file outside the editor.
+    ///     </para>
     /// </remarks>
     static readonly (string Id, string Title, string Extension, string Name)[] NewAssetKinds = [
+        ("assets.create-shader-graph", "Shader Graph", ".vxshadergraph", "New Shader Graph"),
         ("assets.create-vfx", "VFX Graph", ".vxvfx", "New Effect"),
         ("assets.create-animation", "Animation Clip", ".vxanim", "New Clip"),
         ("assets.create-animation-graph", "Animation Graph", ".vxanimgraph", "New Animation Graph"),
@@ -725,7 +733,7 @@ sealed partial class EditorApplication {
 
     /// <summary>One command per asset kind E5 adds.</summary>
     /// <remarks>
-    ///     ⚠ <b>Seven commands rather than one that takes a kind</b>, for the reason
+    ///     ⚠ <b>One command per kind rather than one that takes a kind</b>, for the reason
     ///     <c>ShapeCommands</c> gives: the registry's unit is a command with an id, a title and an
     ///     enablement, so "Create Animation Graph" being findable in the palette and bindable to a
     ///     key means it has to be its own entry.

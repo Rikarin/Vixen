@@ -1040,9 +1040,9 @@ sealed partial class EditorApplication {
 
         var assets = Shell.Menus.InsertMenu(++after, EditorStrings.MenuAssets);
 
-        // ⚠ E5's seven asset kinds are on the Create submenu and not behind a dialog, because a
-        // format nobody can make a file of is a format nobody can reach. `assets.create` stays
-        // beside them as the general "from a template" line it always named.
+        // ⚠ The authoring surfaces' asset kinds are on the Create submenu and not behind a dialog,
+        // because a format nobody can make a file of is a format nobody can reach. `assets.create`
+        // stays beside them as the general "from a template" line it always named.
         assets.AddSubmenu(EditorStrings.MenuCreate)
             .Add("assets.new-folder", "assets.create")
             .AddSeparator()
