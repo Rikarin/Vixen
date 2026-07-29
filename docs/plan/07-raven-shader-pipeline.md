@@ -197,6 +197,17 @@ way — `OpTypeRuntimeArray` with no `ArrayStride` under `RuntimeDescriptorArray
 `ShaderNonUniform`; `uniform texture2D t[]` under `GL_EXT_nonuniform_qualifier` — and the reflection
 reports `Count == 0`, which is what the RHI already reads for an unbounded binding.
 
+✅ **And a binding may be *shared*.** `[Shared]` says a binding is one resource for the whole
+compilation rather than a contribution from each feature that names it. A composed feature's bindings
+are qualified by the path they were reached through — which is what stops three features that each
+declare a `strength` from colliding — and that makes a binding declared by two features two bindings.
+For a value that is right; for the frame's texture table it is the opposite of what the table is, and
+`CompositeSurface` chains up to eight features. `BindingPlan` collapses the declarations by their
+declared name into one `(set, binding)` pair and lists the rest as `Aliases`, which both emitters
+point at the single declaration they emitted — because each feature's body was compiled against its
+own variable and all of them have to resolve. Two shared declarations that disagree about kind or set
+are `RVN3011`: one of the two authors is wrong and nothing can say which.
+
 ⚠ **Every subscript of one is decorated non-uniform, and both halves of it are.** SPIR-V marks the
 index *and* the pointer the access chain produced; GLSL wraps the index in `nonuniformEXT`. A module
 carrying one and not the other is valid SPIR-V that a driver may read one descriptor per subgroup

@@ -79,7 +79,7 @@ A settled material costs one dictionary hit, no table write and no upload.
 What this does **not** do is remove the per-material descriptor set — the block is still a uniform
 buffer in set 2, so a draw still binds one. That is 2b.
 
-### 2a′. A shared binding, which Raven does not have
+### 2a′. ~~A shared binding, which Raven does not have~~ — built
 
 ⚠ **The blocker for putting 2a to use, found by trying.** Nothing in `Raven/Library` declares a table
 and nothing outside the tests sets `TextureIndices`, so the next step was to give a real surface
@@ -104,23 +104,24 @@ It compiles and it runs, so this is not a bug in what was built. It is a capabil
 not have: **a binding that is one resource for the whole compilation rather than a contribution from
 each feature that mentions it.**
 
-Three ways out, in increasing order of language surface:
+**`[Shared]` is the answer, and it is the middle of the three that were open.** A binding says for
+itself that it is one resource; declarations of it are recognised by the *declared* name, collapsed
+into one `(set, binding)` pair by `BindingPlan`, and refused by `RVN3011` when two of them disagree
+about kind or set. Deduplicating identical contributions automatically was the cheap alternative and
+is the wrong default — two features that happened to name a texture `noise` would silently share one
+descriptor, and neither author would have said anything to that effect. Letting a feature reach the
+composing shader's bindings was the general one, and is a much larger change to how composition
+works.
 
-- **Deduplicate identical contributions.** Two features declaring the same declared name, kind and
-  set emit one binding. Cheap, and surprising in the way this codebase avoids: two features that
-  happened to name a texture `noise` would silently share one descriptor.
-- **Mark it.** A binding says for itself that it is shared — one resource named once, deduplicated by
-  its *declared* name and refused if two declarations disagree about kind or set. Explicit, local,
-  and reads as an extension of what `[PerFrame]` already means: a table is the extreme of "changes
-  once a frame". **This is the one to do.**
-- **Let a feature reach the composing shader's bindings**, through a protocol requirement or an
-  inherited base. The most general and the largest change to how composition works.
+⚠ Collapsing the plan is only half of it, and the other half is what a first attempt leaves out. Each
+feature's body was compiled against its *own* variable, so the second feature's sample refers to
+something the emitter never declared — a SPIR-V diagnostic about a variable that is plainly there, or
+a GLSL identifier the unit does not contain. `PlannedBinding.Aliases` carries the other declarations
+and both backends point every one of them at the single declaration they emitted.
 
-Until one of them exists, a material feature can sample only if the pass declares the table and the
-feature is handed what it needs — which is the parameter-list contract `MaterialData` exists to
-avoid. So 2a is finished and unusable by the shader library, and this is the next thing to build,
-before 2b rather than after: 2b's material record is reached the same way and would hit the same
-wall.
+An unshared binding beside a shared one still gets one per feature and is still qualified, which is
+the control worth keeping: three features with a `strength` each are three values, and sharing them
+is a material where moving one slider moves three.
 
 ### 2b. A material becomes a record rather than a set
 
@@ -192,7 +193,7 @@ Raven got atomics; what was missing was 2 and 3.
 | The RHI: `BindlessTable`, the capability, the Vulkan backend | ✅ built, device-verified |
 | 1. Raven `Texture2D[]` | ✅ built, device-verified |
 | 2a. A material's texture as a value in its block | ✅ built — closes "materials are values, not resources" |
-| 2a′. A binding shared across composed features | ⬜ — **next**, and what stops a shader-library feature using 2a at all |
+| 2a′. A binding shared across composed features | ✅ built — `[Shared]`, collapsed by `BindingPlan`, aliased in both backends |
 | 2b. The block as a record rather than a per-material set | ⬜ — the one compacted draws and per-object probes wait on |
 | 3. An indirect draw whose count comes from the device | ⬜ |
 | 4. Compaction | ⬜ |

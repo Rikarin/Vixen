@@ -211,6 +211,14 @@ sealed class GlslEmitter {
             if (planned.Resource is { } resource) {
                 var name = ReserveVariable(resource.Variable);
 
+                // The aliases take the same name rather than one of their own. A shared binding is
+                // one declaration, and each feature that named it refers to its own variable — so
+                // every one of those has to spell the same identifier, or the second feature's
+                // sample names something the unit never declared.
+                foreach (var alias in planned.Aliases) {
+                    variableNames[alias.Variable] = name;
+                }
+
                 // A storage image carries its texel format in the layout qualifier. GLSL requires
                 // it on any image that is read, and stating it always keeps the two backends
                 // emitting the same declaration.

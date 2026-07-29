@@ -393,13 +393,18 @@ public sealed partial class Lowerer {
                     // host binding by name should see what the source says. The two differ because
                     // a composed feature's parameter belongs to the feature, and an inherited field
                     // belongs to the type that inherited it.
-                    qualify ? $"{source.Name}.{binding.Name}" : binding.Name,
+                    // A shared binding keeps its declared name however deep it was reached through,
+                    // because the name is how the several features that declare it are recognised as
+                    // meaning one resource. Qualifying it would make each feature's mention its own
+                    // binding again, which is the thing the marker exists to stop.
+                    qualify && !binding.IsShared ? $"{source.Name}.{binding.Name}" : binding.Name,
                     // Carried, not defaulted. A merged `RWBuffer` that arrived here read-only was
                     // decorated `readonly` and then stored into: SPIR-V's validator accepts the
                     // contradiction and GLSL's front end does not, so an inherited or composed
                     // storage buffer compiled on one target and failed on the other.
                     binding.IsWritable,
-                    binding.DefaultValue
+                    binding.DefaultValue,
+                    binding.IsShared
                 )
             );
         }
@@ -641,7 +646,8 @@ public sealed partial class Lowerer {
                     // The author's initialiser, kept for the host rather than for the GPU: a uniform
                     // block arrives already filled, so `= 1f` is a statement about what to put there
                     // when nobody said otherwise. See IrBinding.DefaultValue.
-                    defaultValue: field.DeclaredValue
+                    defaultValue: field.DeclaredValue,
+                    shared: field.IsShared
                 )
             );
         }

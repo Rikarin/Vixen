@@ -33,6 +33,38 @@ public sealed record PlannedBinding(
 ) {
     /// <summary>True when this is a set's uniform block rather than an opaque resource.</summary>
     public bool IsBlock => Resource is null;
+
+    /// <summary>
+    ///     The other declarations of this same resource, for a <c>[Shared]</c> binding.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Empty for everything else. Several composed features may each declare the frame's
+    ///         texture table, and they are one binding — but each feature's body refers to its
+    ///         <em>own</em> variable, because that is what it was compiled against. So the plan hands
+    ///         out one <c>(set, binding)</c> pair and lists the rest here, and each backend points
+    ///         every listed variable at the one declaration it emitted.
+    ///     </para>
+    ///     <para>
+    ///         Without this the second feature's variable resolves to nothing and the emitter reports
+    ///         a variable it cannot reach — which is the correct failure and a useless one, since the
+    ///         author wrote a declaration that is plainly there.
+    ///     </para>
+    /// </remarks>
+    public ImmutableArray<IrBinding> Aliases { get; init; } = [];
+
+    /// <summary>Every declaration this covers: the resource, then its aliases.</summary>
+    public IEnumerable<IrBinding> Declarations {
+        get {
+            if (Resource is { } resource) {
+                yield return resource;
+            }
+
+            foreach (var alias in Aliases) {
+                yield return alias;
+            }
+        }
+    }
 }
 
 /// <summary>
@@ -88,14 +120,35 @@ public static class BindingPlan {
                 IrBindingKind.StorageBuffer,
                 IrBindingKind.StorageImage
             ]) {
-                foreach (var resource in inSet.Where(b => b.Kind == kind)) {
-                    plan.Add(new(set, binding++, kind, resource.Name, [], resource));
+                // A shared binding declared by several features is one binding, recognised by the
+                // name they all wrote. Grouped rather than deduplicated in place so that the first
+                // declaration keeps the slot and the rest become its aliases — every one of them has
+                // a variable some feature's body refers to, and all of them have to resolve.
+                foreach (var group in inSet.Where(b => b.Kind == kind).GroupBy(SharedKey)) {
+                    var resource = group.First();
+
+                    plan.Add(
+                        new(set, binding++, kind, resource.Name, [], resource) {
+                            Aliases = [.. group.Skip(1)]
+                        }
+                    );
                 }
             }
         }
 
         return plan.ToImmutable();
     }
+
+    /// <summary>What decides whether two bindings of one kind are the same resource.</summary>
+    /// <param name="binding">The binding.</param>
+    /// <remarks>
+    ///     The declared name for a <c>[Shared]</c> binding, and the binding itself for everything
+    ///     else — which is to say nothing is grouped unless it said so. Returning the object rather
+    ///     than a name for the unshared case is what keeps two ordinary bindings that happen to be
+    ///     called the same thing apart; they are already qualified by then, but relying on that would
+    ///     make this correct only because of something two files away.
+    /// </remarks>
+    static object SharedKey(IrBinding binding) => binding.IsShared ? binding.Name : binding;
 
     /// <summary>The name of a set's uniform block.</summary>
     public static string BlockName(IrShader shader, ResourceSet set) {

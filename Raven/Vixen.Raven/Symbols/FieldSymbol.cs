@@ -122,6 +122,19 @@ public abstract class FieldSymbol : Symbol {
     public virtual bool IsPushConstant => false;
 
     /// <summary>
+    ///     Whether this binding is one resource for the whole compilation rather than a contribution
+    ///     from each feature that declares it — <c>[Shared]</c>.
+    /// </summary>
+    /// <remarks>
+    ///     Only meaningful on a binding a composed shader declares. Two features that both declare a
+    ///     <c>[Shared]</c> binding of the same name get one binding between them, bound once and
+    ///     named as it was declared rather than by the path it was reached through — which is what
+    ///     the frame's texture table has to be, and what an ordinary contribution deliberately is
+    ///     not.
+    /// </remarks>
+    public virtual bool IsShared => false;
+
+    /// <summary>
     ///     The texel format from <c>[Format("…")]</c>, resolved. Null unless this field is a
     ///     storage image with a recognised format.
     /// </summary>

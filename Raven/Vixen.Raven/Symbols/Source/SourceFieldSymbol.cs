@@ -232,6 +232,8 @@ public sealed class SourceFieldSymbol : FieldSymbol {
 
     public override bool IsPushConstant => DeclarationFacts.IsPushConstant(syntax.AttributeLists);
 
+    public override bool IsShared => DeclarationFacts.IsShared(syntax.AttributeLists);
+
     public override ImageFormat? ImageFormat =>
         ImageFormats.Lookup(DeclarationFacts.GetImageFormat(syntax.AttributeLists));
 

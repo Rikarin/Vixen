@@ -207,6 +207,34 @@ public static class DeclarationFacts {
         return false;
     }
 
+    /// <summary>Whether the declaration is marked <c>[Shared]</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         One resource for the whole compilation rather than a contribution from each feature
+    ///         that mentions it. A composed feature's bindings are qualified by the path they were
+    ///         reached through — which is what stops three features that each declare a
+    ///         <c>strength</c> from colliding — and that makes a binding declared by two features two
+    ///         bindings. For a value that is right. For the frame's texture table it is the opposite
+    ///         of what the table is: one unbounded array bound once, which two of is two descriptor
+    ///         arrays and two pools.
+    ///     </para>
+    ///     <para>
+    ///         Marked rather than inferred from the declarations matching, because the inference is
+    ///         the wrong default: two features that happened to name a texture <c>noise</c> would
+    ///         silently share one descriptor, and neither author would have said anything to that
+    ///         effect. Saying it is the whole point.
+    ///     </para>
+    /// </remarks>
+    public static bool IsShared(SyntaxList<AttributeListSyntax> attributeLists) {
+        foreach (var attribute in GetAttributes(attributeLists)) {
+            if (GetAttributeName(attribute) == "Shared") {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>
     ///     The texel format a declaration is tagged with — <c>[Format("rgba16f")]</c> — or null.
     /// </summary>

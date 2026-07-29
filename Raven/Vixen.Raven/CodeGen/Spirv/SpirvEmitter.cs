@@ -114,10 +114,19 @@ sealed partial class SpirvEmitter {
             }
 
             if (planned.Resource is { } resource) {
-                globals[resource.Variable] = new(
+                var declared = new SpirvGlobal(
                     DeclareOpaque(resource, planned),
                     SpirvStorageClass.UniformConstant
                 );
+
+                // Every declaration the plan collapsed into this one, not only the first. A shared
+                // binding is one resource named by several features, and each feature's body refers
+                // to the variable *it* was compiled against — so all of them have to reach the one
+                // OpVariable that was emitted, or the second feature's sample resolves to nothing.
+                foreach (var declaration in planned.Declarations) {
+                    globals[declaration.Variable] = declared;
+                }
+
                 continue;
             }
 

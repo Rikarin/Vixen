@@ -106,6 +106,31 @@ public static class LoweringDiagnostics {
         DiagnosticSeverity.Warning
     );
 
+    /// <summary>Two <c>[Shared]</c> declarations of one name that are not the same resource.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         A shared binding is recognised by the name several features wrote, so two features
+    ///         that write the same name mean the same resource — and if they disagree about what it
+    ///         is, one of them is wrong and no compiler can say which. Refused here rather than
+    ///         collapsed to whichever came first, which would compile a feature against a texture it
+    ///         did not declare.
+    ///     </para>
+    ///     <para>
+    ///         The set is part of it as well as the kind. Two declarations of <c>textures</c>, one
+    ///         <c>[PerFrame]</c> and one <c>[PerMaterial]</c>, are two descriptor sets and cannot be
+    ///         one binding however identical the type is.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor SharedBindingsDisagree = new(
+        "RVN3011",
+        "Shared bindings disagree",
+        "'{0}' is declared [Shared] more than once in '{1}' and the declarations do not match: {2}. "
+        + "A shared binding is one resource recognised by its name, so every declaration of it has to "
+        + "be the same kind in the same set",
+        Lowering,
+        DiagnosticSeverity.Error
+    );
+
     /// <summary>A <c>discard</c> reachable from a stage that has no fragment to throw away.</summary>
     /// <remarks>
     ///     <para>
