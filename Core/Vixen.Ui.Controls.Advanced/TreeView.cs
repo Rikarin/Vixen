@@ -94,6 +94,16 @@ public sealed partial class TreeView : Control {
 
     TreeNode? anchor;
     TreeNode? dragging;
+
+    /// <summary>A row pressed inside the selection, whose collapse is waiting for the release.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Without this a multi-selection cannot be dragged at all.</b> Pressing a row selects
+    ///     it, so pressing one of five selected rows to drag them leaves one selected before the drag
+    ///     has begun — and every consumer that moves "the selection when it includes the dragged row"
+    ///     moves one thing. The fix is every file manager's: a press inside the selection changes
+    ///     nothing, and the release collapses it only if no drag happened.
+    /// </remarks>
+    TreeNode? pending;
     TreeNode? dropTarget;
     DropPosition dropPosition;
     int rowHeightId;
@@ -574,10 +584,26 @@ public sealed partial class TreeView : Control {
             return;
         }
 
+        // ⚠ Deferred rather than applied, when the press is inside the selection and nothing is
+        // held. That is the case where the user is either about to drag all of it or about to
+        // narrow to this one, and the press cannot tell which — only the release can.
+        if (MultiSelect && args.Modifiers == ModifierKeys.None && selection.Count > 1 && selection.Contains(node)) {
+            pending = node;
+            return;
+        }
+
+        pending = null;
         Select(node, args.Modifiers);
     }
 
     void Tapped(TapEvent args) {
+        // A tap is a press and a release with no drag between them, which is the answer the press
+        // was waiting for: the user meant this row and not the five that were selected.
+        if (pending is { } narrowed) {
+            pending = null;
+            Select(narrowed, ModifierKeys.None);
+        }
+
         if (args.Count == 2 && RowAt(args.X, args.Y) is { Node: { } node }) {
             // ⚠ The run ends with the activation. Expanding a folder moves a different row under a
             // pointer that has not moved, so the next double-click would otherwise be counted as
@@ -684,6 +710,8 @@ public sealed partial class TreeView : Control {
             // several rows away in a tree of twenty-pixel rows — so hit-testing here picks up
             // whatever the pointer has arrived at and drags the wrong node.
             case DragStage.Started when AllowDrag && RowUnder(args.Source) is { Node: { } node }:
+                // The drag is the other answer the press was waiting for: the whole selection moves.
+                pending = null;
                 dragging = node;
                 Track(args.X, args.Y);
 

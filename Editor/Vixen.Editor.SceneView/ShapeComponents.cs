@@ -39,6 +39,77 @@ public struct MeshShape {
     public PrimitiveKind Kind;
 }
 
+/// <summary>The asset an entity is an instance of.</summary>
+/// <remarks>
+///     <para>
+///         <b>What a drag from the content browser into the scene produces, and the reason it could
+///         not before.</b> Nothing in the runtime carries an <c>AssetId</c>, so an entity had nowhere
+///         to hold "this is the crate" — and a drop that made an entity <i>named</i> after a file
+///         would have been the editor pretending it had done something.
+///     </para>
+///     <para>
+///         ⚠ <b>A reference, not a renderer.</b> This says which asset the entity stands for; it does
+///         not draw it. Turning a mesh asset into geometry needs a runtime mesh component and a
+///         loader, which is where <see cref="MeshShape" />'s own remarks say this all ends up. What
+///         it does buy today is real: the reference is authored, saved, shown in the inspector by the
+///         existing asset drawer, and — because the scene file writes it in <c>vx:</c> form —
+///         <c>ReferenceIndex</c> finds it, so "what breaks if I delete this" counts it.
+///     </para>
+///     <para>
+///         ⚠ <b>Editor-side, like the two above.</b> <c>[DataContract]</c> so the inspector can draw
+///         it; deliberately <i>not</i> registered with <c>SceneComponentRegistry</c>, because a scene
+///         naming a type no build declares is what a content compile refuses.
+///     </para>
+/// </remarks>
+[DataContract]
+public struct AssetInstance {
+    /// <summary>Which asset.</summary>
+    /// <remarks>
+    ///     No <c>[AssetPicker]</c>, and not for want of trying: that attribute is
+    ///     <c>Vixen.Editor.Inspector</c>'s and this assembly deliberately does not reference it — a
+    ///     scene view that knew what a property drawer was would be the coupling doc 11's layering
+    ///     exists to prevent. The drawer is registered for <c>AssetId</c> by type as well as by
+    ///     attribute, so the field gets a picker anyway.
+    /// </remarks>
+    public AssetId Asset;
+}
+
+/// <summary>Reading and writing an entity's asset, on the terms <see cref="MeshShapes" /> uses.</summary>
+public static class AssetInstances {
+    /// <summary>Puts an asset reference on an entity, replacing whatever was there.</summary>
+    /// <param name="world">The world.</param>
+    /// <param name="entity">The entity.</param>
+    /// <param name="asset">Which asset.</param>
+    public static void Attach(World world, Entity entity, AssetId asset) {
+        ArgumentNullException.ThrowIfNull(world);
+
+        var instance = new AssetInstance { Asset = asset };
+
+        if (world.Has<AssetInstance>(entity)) {
+            world.Set(entity, in instance);
+        } else {
+            world.Add(entity, in instance);
+        }
+    }
+
+    /// <summary>What asset an entity stands for, if any.</summary>
+    /// <param name="world">The world.</param>
+    /// <param name="entity">The entity.</param>
+    /// <param name="asset">The asset.</param>
+    /// <returns>Whether it has one.</returns>
+    public static bool TryGet(World world, Entity entity, out AssetId asset) {
+        ArgumentNullException.ThrowIfNull(world);
+
+        if (world.IsAlive(entity) && world.Has<AssetInstance>(entity)) {
+            asset = world.Read<AssetInstance>(entity).Asset;
+            return !asset.IsEmpty;
+        }
+
+        asset = AssetId.Empty;
+        return false;
+    }
+}
+
 /// <summary>Reading and writing an entity's shape, and what the shapes are called.</summary>
 public static class MeshShapes {
     /// <summary>Every shape, in the order a menu should offer them.</summary>

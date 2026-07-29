@@ -163,7 +163,11 @@ public static class SceneSerializer {
                 ? MeshShapes.NameOf(shape)
                 : string.Empty,
 
-            Light = Lights.TryGet(document.World, entity, out var light) ? Written(light) : null
+            Light = Lights.TryGet(document.World, entity, out var light) ? Written(light) : null,
+
+            Asset = AssetInstances.TryGet(document.World, entity, out var asset)
+                ? new AssetReference(asset).ToString()
+                : string.Empty
         };
 
         foreach (var binder in Carried(document.World, entity)) {
@@ -323,6 +327,13 @@ public static class SceneSerializer {
         // children and loses only the lighting. Refusing the file would cost the scene.
         if (data.Light is { } written && Lights.TryParse(written.Kind, out var kind)) {
             Lights.Attach(document.World, entity, Read(written, kind));
+        }
+
+        // ⚠ Read through `AssetReference.TryParse` rather than by trimming the prefix. What is in the
+        // file is a reference, which may carry a sub-asset — `vx:<guid>#<sub>` — and a reader that
+        // assumed the short form would silently take the wrong half of one.
+        if (AssetReference.TryParse(data.Asset, out var reference) && !reference.IsNull) {
+            AssetInstances.Attach(document.World, entity, reference.Asset);
         }
 
         foreach (var component in data.Components) {

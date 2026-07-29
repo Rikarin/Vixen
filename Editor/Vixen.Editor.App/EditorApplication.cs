@@ -99,6 +99,9 @@ sealed partial class EditorApplication : IDisposable {
     /// <summary>What an asset field's button opens.</summary>
     AssetPicker assetPicker = null!;
 
+    /// <summary>Pictures of assets for the browser's grid, decoded off the frame thread.</summary>
+    readonly ThumbnailCache thumbnails;
+
     readonly ContentTasks content;
     readonly PluginHost plugins;
 
@@ -297,6 +300,8 @@ sealed partial class EditorApplication : IDisposable {
             };
         }
 
+        thumbnails = new ThumbnailCache(project);
+
         content = new(project, Shell) {
             // The panel's own rescan, so the browser shows what an import repaired rather than what
             // was there before it ran. Assigned rather than called by the tasks directly, because
@@ -361,6 +366,18 @@ sealed partial class EditorApplication : IDisposable {
     /// <summary>The project the editor has open.</summary>
     public EditorProject Project => project;
 
+    /// <summary>Where a thumbnail becomes a picture, once the host has a device to make one with.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Set by the host after the device exists, which is after this object does.</b> The
+    ///     window has to be up before a Vulkan surface can be made from it, so the application is
+    ///     constructed first — and a browser that demanded its uploader up front would be one the
+    ///     host could not build. Null is the ordinary state headless, and the grid draws type glyphs.
+    /// </remarks>
+    public IThumbnailSurface? ThumbnailSurface {
+        get => thumbnails.Surface;
+        set => thumbnails.Surface = value;
+    }
+
     /// <summary>The pane the scene is drawn in, or <see langword="null" /> while it is closed.</summary>
     /// <remarks>
     ///     Null is the ordinary case rather than an error: a layout without the scene panel in it is
@@ -406,6 +423,10 @@ sealed partial class EditorApplication : IDisposable {
         // And what a native picker answered, for the same reason and on the same terms. Two queues
         // rather than one, because a dialog's answer must not wait behind a content build's.
         deferred.Pump();
+
+        // ⚠ And the thumbnails, on the frame thread because the device is not thread-safe. The
+        // decode happened on the pool; this is the upload.
+        thumbnails.Pump();
 
         // ⚠ Pulled here rather than subscribed to, and the reason is threading: the sink is written
         // from the pool by a content import and by anything else the editor runs in the background,
@@ -501,6 +522,10 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     public void Dispose() {
         plugins.UnloadAll();
+
+        // Before the shell, because the images it releases are registered with the renderer the
+        // shell's document draws through.
+        thumbnails.Dispose();
 
         viewport?.Dispose();
 
@@ -705,6 +730,8 @@ sealed partial class EditorApplication : IDisposable {
                 browser.Activated += Open;
                 browser.Renamed += RenameAsset;
                 browser.Moved += MoveAssets;
+                browser.DroppedOutside += DropIntoScene;
+                browser.Thumbnails = thumbnails;
 
                 Contextualise(browser.Tree, assetMenu ??= AssetMenu());
             }
@@ -1799,6 +1826,103 @@ sealed partial class EditorApplication : IDisposable {
             1 => document.NameOf(document.Selection[0]),
             _ => $"{document.Selection.Count} selected"
         };
+    }
+
+    /// <summary>Puts assets into the scene, when a drag from the browser was released over it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The drop is refused unless it landed on the viewport or the outliner.</b> A drag
+    ///         that ends over the console, the inspector or nothing at all means the user changed
+    ///         their mind, and an editor that spawned an entity for it would be one people learn to
+    ///         drag carefully in.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it makes is an entity carrying an <c>AssetInstance</c>, and that is a
+    ///         reference rather than a renderer.</b> Nothing in the runtime turns an asset into
+    ///         geometry yet — see <c>MeshShape</c>'s remarks for why it lives in the editor at all —
+    ///         so the crate does not appear in the viewport. What is real is everything else: the
+    ///         entity is named after the asset, the reference is authored and saved, the inspector's
+    ///         asset field shows and can change it, and <c>ReferenceIndex</c> counts it, so deleting
+    ///         the asset now warns about the scene.
+    ///     </para>
+    ///     <para>
+    ///         One undo step for the whole drop, however many assets it carried: dropping four things
+    ///         is one gesture, and four undos for it is four presses to take back one mistake.
+    ///     </para>
+    /// </remarks>
+    void DropIntoScene(IReadOnlyList<AssetId> assets, float x, float y) {
+        if (assets.Count == 0 || !OverScene(x, y)) {
+            return;
+        }
+
+        List<Entity> created = [];
+
+        using (scene.Stack.BeginTransaction(assets.Count == 1 ? "Add Asset" : $"Add {assets.Count} Assets")) {
+            foreach (var asset in assets) {
+                if (!project.Assets.TryGetByGuid(asset, out var entry) || entry.IsFolder) {
+                    continue;
+                }
+
+                var name = Path.GetFileNameWithoutExtension(entry.Name);
+
+                created.Add(
+                    scene.Create(
+                        string.IsNullOrEmpty(name) ? entry.Name : name,
+                        LocalTransform.Identity,
+                        Entity.Null,
+                        entity => AssetInstances.Attach(world, entity, asset)
+                    )
+                );
+            }
+        }
+
+        if (created.Count == 0) {
+            return;
+        }
+
+        // Selected afterwards, so the next thing the user does — rename it, move it, look at it in
+        // the inspector — lands on what they just made.
+        scene.Selection.Set(created);
+        hierarchyStale = true;
+
+        Shell.Notifications.Show(
+            created.Count == 1 ? $"Added {scene.NameOf(created[0])}" : $"Added {created.Count} entities",
+            NotificationSeverity.Success,
+            "The reference is authored and saved. Nothing draws it yet — no runtime component renders an asset."
+        );
+    }
+
+    /// <summary>Whether a point is over a panel that means "the scene".</summary>
+    /// <remarks>
+    ///     The viewport and the outliner both, because both are the scene: one is what it looks like
+    ///     and the other is what is in it, and a person dragging into either means the same thing.
+    /// </remarks>
+    bool OverScene(float x, float y) {
+        foreach (var panel in Panels(Shell.Document.Root)) {
+            if (panel.Id is not ("scene" or "hierarchy")) {
+                continue;
+            }
+
+            var bounds = panel.Bounds;
+
+            if (x >= bounds.X && x < bounds.X + bounds.Width && y >= bounds.Y && y < bounds.Y + bounds.Height) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    static IEnumerable<DockPanel> Panels(UiElement element) {
+        if (element is DockPanel panel) {
+            yield return panel;
+        }
+
+        foreach (var child in element.Children) {
+            foreach (var found in Panels(child)) {
+                yield return found;
+            }
+        }
     }
 
     /// <summary>What a drag in the outliner meant, as an undoable move of the document.</summary>

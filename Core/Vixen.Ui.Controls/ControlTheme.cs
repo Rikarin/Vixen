@@ -363,6 +363,19 @@ public static class ControlTheme {
          */
         .virtual-content > .parked { display: none; }
 
+        /*
+         * The grid's own, and it needs a class of its own rather than sharing the list's. A row
+         * spans the width — `left: 0; right: 0` — and a tile does not: it is placed at a column as
+         * well as a line, so it carries its own `left` and `width` and must not also be pinned to
+         * the right edge.
+         */
+        virtualizing-grid { flex: 1; min-height: 0; }
+        virtualizing-grid scroll-view { flex: 1; }
+
+        .virtual-grid { position: relative; }
+        .virtual-grid > * { position: absolute; }
+        .virtual-grid > .parked { display: none; }
+
         /* ── Range ──────────────────────────────────────────────────────────── */
         slider, range-slider { height: 20px; min-width: 80px; }
 
