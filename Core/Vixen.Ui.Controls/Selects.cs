@@ -121,6 +121,26 @@ public abstract partial class SelectBase : Control {
         return option;
     }
 
+    /// <summary>Removes every choice.</summary>
+    /// <remarks>
+    ///     ⚠ <b>For a dropdown whose contents are data rather than a fixed set</b> — a filter over the
+    ///     asset types a project actually holds, a list of connected devices, a build target list. The
+    ///     alternative is rebuilding the control, which loses its place in the layout and its focus.
+    ///     <para>
+    ///         The chosen value is <i>not</i> cleared with the options, because the caller is usually
+    ///         about to add them back and wants to keep the choice if it survives. Setting
+    ///         <c>Value</c> to something no option carries shows the placeholder, which is the honest
+    ///         state for "what was chosen is not on offer any more".
+    ///     </para>
+    /// </remarks>
+    public void ClearOptions() {
+        foreach (var option in options) {
+            option.Remove();
+        }
+
+        options.Clear();
+    }
+
     /// <summary>Shows the list.</summary>
     public void Open() {
         if (Disabled) {

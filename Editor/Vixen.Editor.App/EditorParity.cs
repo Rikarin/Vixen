@@ -313,30 +313,45 @@ sealed partial class EditorApplication {
             enabled: () => project.Selection.Count > 0 && services.OpenUrl is not null
         );
 
-        // ⚠ Rename, Delete and Move are the three that must not be done naively, and doc 20 says so
-        // in as many words: renaming an asset moves a file and rewrites every referrer, and deleting
-        // one has to report what breaks before it does it. `ReferenceIndex` answers the query and
-        // the rewrite does not exist — which is why the browser's rows are read-only today, and why
-        // these are declared rather than wired to something that would corrupt a project.
-        Planned(
+        // ⚠ Doc 20 calls a naive rename "the fastest way to corrupt a project", and it is worth
+        // being precise about which naivety. Not a stale path: doc 08 chose a GUID in a prefixed
+        // scalar over a path, so a referrer needs nothing done to it. The corruption is leaving the
+        // sidecar behind — the next scan then finds an asset with no identity, mints a new one, and
+        // every reference in the project dangles with nothing having reported an error.
+        // `AssetOperations` is that invariant and nothing else, and it is tested against it.
+        Verb(
             "assets.rename",
             new StringId("editor.command.assets.rename", "Rename"),
             CategoryAssets,
-            "Renaming an asset has to rewrite every referrer. Milestone E1."
+            RenameSelectedAsset,
+            enabled: () => browser is not null && project.Selection.Count == 1
         );
 
-        Planned(
+        Verb(
             "assets.delete",
             new StringId("editor.command.assets.delete", "Delete"),
             CategoryAssets,
-            "Deleting an asset has to report what breaks first. Milestone E1."
+            DeleteSelectedAssets,
+            enabled: () => project.Selection.Count > 0
         );
 
+        Verb(
+            "assets.new-folder",
+            new StringId("editor.command.assets.new-folder", "New Folder"),
+            CategoryAssets,
+            NewAssetFolder,
+            enabled: () => browser is not null
+        );
+
+        // ⚠ Still declared rather than wired, because the destination is the question and there is
+        // no folder picker to ask it with. Dragging a row onto a folder is the gesture people
+        // actually use and it goes through the same `AssetOperations.Move`; this is the menu line
+        // for the case where the destination is off screen, and it needs E3's dialog.
         Planned(
             "assets.move-to",
             new StringId("editor.command.assets.move-to", "Move To…"),
             CategoryAssets,
-            "Moving an asset has to rewrite every referrer. Milestone E1."
+            "Choosing a destination folder needs the browser dialog from milestone E3. Drag a row onto a folder."
         );
 
         Planned(
@@ -812,7 +827,7 @@ sealed partial class EditorApplication {
 
         var assets = Shell.Menus.InsertMenu(++after, EditorStrings.MenuAssets);
 
-        assets.AddSubmenu(EditorStrings.MenuCreate).Add("assets.create");
+        assets.AddSubmenu(EditorStrings.MenuCreate).Add("assets.new-folder", "assets.create");
 
         assets.AddSeparator()
             .Add("assets.show-in-explorer", "assets.open", "assets.rename", "assets.delete", "assets.move-to")
@@ -1185,6 +1200,132 @@ sealed partial class EditorApplication {
         if (project.Selection.Count > 0) {
             Open(project.Selection[0]);
         }
+    }
+
+    /// <summary>Renames the selected asset, in place in the browser's own tree.</summary>
+    /// <remarks>
+    ///     Through the tree's inline editor rather than a dialog, so the menu line, F2 and a
+    ///     double-click on a folder all do the same thing — and so the commit goes through the one
+    ///     handler that calls <c>AssetOperations.Rename</c>. It is the same arrangement the outliner
+    ///     uses for an entity, for the same reason.
+    /// </remarks>
+    void RenameSelectedAsset() {
+        if (project.Selection.Count > 0) {
+            browser?.BeginRename(project.Selection[0]);
+        }
+    }
+
+    /// <summary>Applies a rename typed into the browser, and says why not if it could not.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The tree is rebuilt either way.</b> A refused rename leaves the row showing the name
+    ///     that was typed — the control committed its own editor before this ran — and an outliner
+    ///     showing a name the disk does not have is worse than the refusal it is reporting.
+    /// </remarks>
+    void RenameAsset(AssetId asset, string name) {
+        var result = AssetOperations.Rename(project, asset, name);
+
+        if (!result.Ok) {
+            Shell.Notifications.Show("Could not rename", NotificationSeverity.Error, result.Message);
+        }
+
+        browser?.Rescan();
+    }
+
+    /// <summary>Moves assets into a folder that was dropped on, and says why not if it could not.</summary>
+    void MoveAssets(IReadOnlyList<AssetId> assets, AssetId folder) {
+        if (!project.Assets.TryGetByGuid(folder, out var destination) || !destination.IsFolder) {
+            return;
+        }
+
+        var failures = 0;
+
+        foreach (var asset in assets) {
+            var result = AssetOperations.Move(project, asset, destination.Path);
+
+            if (!result.Ok) {
+                failures++;
+                Shell.Notifications.Show("Could not move", NotificationSeverity.Error, result.Message);
+            }
+        }
+
+        browser?.Rescan();
+
+        if (failures == 0 && assets.Count > 0) {
+            Shell.Notifications.Success($"Moved to {destination.Name}");
+        }
+    }
+
+    /// <summary>Deletes the selected assets, having said what would break.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The list of referrers goes in the question, not in a report afterwards.</b>
+    ///     <c>ReferenceIndex</c> has answered "what breaks if I delete this" since it was written and
+    ///     nothing asked it; a list of newly-broken scenes shown once the file has gone is not a
+    ///     warning. Five names and a count, because a dialog listing four hundred is one nobody reads
+    ///     and the number is the part that changes the decision.
+    /// </remarks>
+    void DeleteSelectedAssets() {
+        List<AssetId> assets = [.. project.Selection];
+
+        if (assets.Count == 0) {
+            return;
+        }
+
+        var names = assets
+            .Select(asset => project.Assets.TryGetByGuid(asset, out var entry) ? entry.Name : asset.ToString())
+            .ToList();
+
+        var broken = AssetOperations.Breakage(project, assets);
+
+        var what = assets.Count == 1 ? $"Delete '{names[0]}'?" : $"Delete {assets.Count} assets?";
+
+        var message = broken.Count == 0
+            ? "Nothing in the project references them. This cannot be undone."
+            : $"{Count(broken.Count, "asset")} would be left pointing at nothing:"
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, broken.Take(5))
+            + (broken.Count > 5 ? Environment.NewLine + $"…and {broken.Count - 5} more" : string.Empty);
+
+        Confirm(
+            ask: true,
+            what,
+            message,
+            () => {
+                foreach (var asset in assets) {
+                    var result = AssetOperations.Delete(project, asset);
+
+                    if (!result.Ok) {
+                        Shell.Notifications.Show("Could not delete", NotificationSeverity.Error, result.Message);
+                    }
+                }
+
+                browser?.Rescan();
+            },
+            "Delete"
+        );
+
+        static string Count(int count, string noun) => count == 1 ? $"1 {noun}" : $"{count} {noun}s";
+    }
+
+    /// <summary>Makes a folder beside whatever is selected, and starts renaming it.</summary>
+    /// <remarks>
+    ///     Inside the selected folder, or beside the selected file — which is what every browser does
+    ///     and what somebody who has just clicked a folder means.
+    /// </remarks>
+    void NewAssetFolder() {
+        var parent = "Assets";
+
+        if (project.Selection.Count > 0 && project.Assets.TryGetByGuid(project.Selection[0], out var entry)) {
+            parent = entry.IsFolder ? entry.Path : Path.GetDirectoryName(entry.Path)?.Replace('\\', '/') ?? "Assets";
+        }
+
+        var result = AssetOperations.CreateFolder(project, parent, "New Folder");
+
+        if (!result.Ok) {
+            Shell.Notifications.Show("Could not create the folder", NotificationSeverity.Error, result.Message);
+            return;
+        }
+
+        browser?.Rescan();
     }
 
     void ShowSelectedAsset() {

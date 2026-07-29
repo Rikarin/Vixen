@@ -475,6 +475,7 @@ Vixen.Ui.Controls.SelectBase -> abstract class
 Vixen.Ui.Controls.SelectBase : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.SelectBase.AddOption(string value, string? label = null) -> Vixen.Ui.Controls.Option
 Vixen.Ui.Controls.SelectBase.Chevron.get -> Vixen.Ui.Controls.Icon
+Vixen.Ui.Controls.SelectBase.ClearOptions() -> void
 Vixen.Ui.Controls.SelectBase.CloseList(Vixen.Ui.Controls.CloseReason reason = Vixen.Ui.Controls.CloseReason.Code) -> void
 Vixen.Ui.Controls.SelectBase.Field.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.SelectBase.Highlight(int step) -> void

@@ -208,3 +208,31 @@ public static class InspectorTheme {
         .property-readonly { color: var(--text-muted); font-size: 0.9em; }
         """;
 }
+
+/// <summary>The content browser's own two rules, which have nowhere better to live.</summary>
+/// <remarks>
+///     ⚠ <b>Here rather than in the shell's theme because the browser is the application's panel and
+///     the shell knows nothing about it</b> — the same reason this assembly's sheet is loaded by the
+///     application rather than by <c>EditorShell</c>. Two rules is not worth a fifth stylesheet.
+/// </remarks>
+public static class BrowserTheme {
+    /// <summary>Adds the sheet to a document.</summary>
+    /// <param name="document">The document.</param>
+    /// <returns>The sheet's index, for a hot reload.</returns>
+    public static int Install(UiDocument document) {
+        ArgumentNullException.ThrowIfNull(document);
+
+        return document.Load(Css, StyleOrigin.UserAgent);
+    }
+
+    /// <summary>The stylesheet's text.</summary>
+    public static string Css => Sheet;
+
+    const string Sheet = """
+        /* The search box takes what is left and the type filter keeps its width, so a long importer
+           name is what gets clipped rather than the search field disappearing. */
+        browser-filters { flex-direction: row; align-items: center; gap: 6px; flex-shrink: 0; padding: 2px; }
+        browser-filters > search-box { flex-grow: 1; min-width: 0; }
+        browser-filters > select { flex-shrink: 0; width: 140px; }
+        """;
+}

@@ -128,6 +128,7 @@ sealed partial class EditorApplication : IDisposable {
     InspectorView? inspector;
     TreeView? hierarchy;
     ContextMenu? hierarchyMenu;
+    ContextMenu? assetMenu;
     ProjectBrowser? browser;
     ViewBookmark camera;
     bool hierarchyStale = true;
@@ -188,6 +189,9 @@ sealed partial class EditorApplication : IDisposable {
         // against the tokens the four below declare, and a rule of equal specificity here has to win
         // — an override matrix's cell is a row inside an inspector-shaped panel.
         AssetEditorTheme.Install(Shell.Document);
+
+        // And the browser's two rules, which are this assembly's panel and nobody else's business.
+        BrowserTheme.Install(Shell.Document);
 
         // A scratch project under the user's data directory, so a first run with no arguments opens
         // something real rather than refusing to start. `Open` tolerates a missing Assets directory
@@ -615,7 +619,7 @@ sealed partial class EditorApplication : IDisposable {
                     }
                 };
 
-                Contextualise(hierarchy);
+                Contextualise(hierarchy, hierarchyMenu ??= HierarchyMenu());
                 hierarchyStale = true;
             }
         );
@@ -627,7 +631,12 @@ sealed partial class EditorApplication : IDisposable {
                 Contextual(panel, AssetContext);
 
                 browser = new ProjectBrowser(project, panel);
+
                 browser.Activated += Open;
+                browser.Renamed += RenameAsset;
+                browser.Moved += MoveAssets;
+
+                Contextualise(browser.Tree, assetMenu ??= AssetMenu());
             }
         );
 
@@ -1393,9 +1402,7 @@ sealed partial class EditorApplication : IDisposable {
     ///         of five selected rows still means all five.
     ///     </para>
     /// </remarks>
-    void Contextualise(TreeView tree) {
-        hierarchyMenu ??= HierarchyMenu();
-
+    static void Contextualise(TreeView tree, ContextMenu menu) {
         tree.AddHandler<PointerEvent>(
             (_, args) => {
                 if (args is not { Action: PointerAction.Pressed, Button: PointerButton.Secondary }) {
@@ -1417,10 +1424,31 @@ sealed partial class EditorApplication : IDisposable {
             handledEventsToo: true
         );
 
-        hierarchyMenu.Attach(tree);
+        menu.Attach(tree);
     }
 
-    /// <summary>What is on that menu.</summary>
+    /// <summary>What a secondary click in the content browser opens.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every line is a registered command, so this menu and the Assets menu on the bar
+    ///     cannot disagree.</b> That is the point of the registry rather than a nicety: the two
+    ///     menus, the palette and the keymap are four views over one list, and a browser that built
+    ///     its own verbs would be the place where Delete means something different.
+    /// </remarks>
+    ContextMenu AssetMenu() {
+        var group = new MenuGroup(new StringId("editor.menu.browser", "Project"));
+
+        group.Add("assets.open");
+        group.AddSeparator();
+        group.Add("assets.new-folder", "assets.import-files");
+        group.AddSeparator();
+        group.Add("assets.rename", "assets.delete", "assets.move-to");
+        group.AddSeparator();
+        group.Add("assets.reimport-all", "assets.show-in-explorer");
+
+        return MenuPresenter.Context(Shell.Document, group, Shell.Commands, Shell.Keys);
+    }
+
+    /// <summary>What is on the outliner's menu.</summary>
     ContextMenu HierarchyMenu() {
         var group = new MenuGroup(new StringId("editor.menu.hierarchy", "Hierarchy"));
 
