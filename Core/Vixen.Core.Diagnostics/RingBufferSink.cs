@@ -14,6 +14,11 @@ namespace Vixen.Core.Diagnostics;
 /// <param name="Message">The formatted message.</param>
 /// <param name="Exception">The exception, if one was attached.</param>
 /// <param name="ThreadId">Which managed thread wrote it.</param>
+/// <param name="SuppressedCount">
+///     How many identical records a <see cref="LogRateLimiter" /> dropped since the last one that
+///     got through — the <c>N</c> in <c>… (repeated N times)</c>, and zero when nothing was
+///     suppressed or no limiter is attached.
+/// </param>
 public sealed record LogRecord(
     DateTimeOffset Timestamp,
     LogLevel Level,
@@ -21,7 +26,8 @@ public sealed record LogRecord(
     string Category,
     string Message,
     Exception? Exception,
-    int ThreadId
+    int ThreadId,
+    int SuppressedCount = 0
 );
 
 /// <summary>
@@ -36,9 +42,11 @@ public sealed record LogRecord(
 ///         thirty seconds.
 ///     </para>
 ///     <para>
-///         Per-category minimum levels, so "turn on verbose asset loading without drowning in render
-///         spam" works. Categories are matched by prefix, longest first, which makes
-///         <c>Vixen.Graphics</c> a single switch for everything under it.
+///         Per-category minimum levels come from <see cref="LogFilter" />, so "turn on verbose asset
+///         loading without drowning in render spam" works. Rate limiting is available and off:
+///         everything else is a view of the log and can afford to lose repeats, whereas this is the
+///         record the crash reporter dumps, and a ring that dropped the four thousand identical
+///         lines before the crash would be hiding the shape of the failure.
 ///     </para>
 ///     <para>
 ///         <b>Where this is not yet what doc 13 asks for.</b> Records hold a formatted
@@ -50,16 +58,12 @@ public sealed record LogRecord(
 ///         be guessing at the field layout the editor console wants.
 ///     </para>
 /// </remarks>
-public sealed class RingBufferSink : ILoggerProvider {
+public sealed class RingBufferSink : LogRecordSink {
     /// <summary>How many records the ring holds when no capacity is given.</summary>
     public const int DefaultCapacity = 100_000;
 
     readonly RingBuffer<LogRecord> records;
     readonly Lock gate = new();
-    readonly List<(string Prefix, LogLevel Level)> categoryLevels = [];
-
-    /// <summary>The level below which nothing is recorded, regardless of category.</summary>
-    public LogLevel MinimumLevel { get; set; } = LogLevel.Information;
 
     /// <summary>How many records the ring holds.</summary>
     public int Capacity => records.Capacity;
@@ -87,53 +91,11 @@ public sealed class RingBufferSink : ILoggerProvider {
 
     /// <summary>Creates a sink holding at most <paramref name="capacity" /> records.</summary>
     /// <param name="capacity">The ring size.</param>
-    public RingBufferSink(int capacity = DefaultCapacity) => records = new(capacity);
-
-    /// <summary>
-    ///     Sets the minimum level for a category and everything beneath it. The longest matching
-    ///     prefix wins, so a specific rule beats a general one whatever order they were added in.
-    /// </summary>
-    /// <param name="categoryPrefix">The category prefix, such as <c>"Vixen.Graphics"</c>.</param>
-    /// <param name="level">The minimum level for it.</param>
-    public void SetCategoryLevel(string categoryPrefix, LogLevel level) {
-        ArgumentException.ThrowIfNullOrEmpty(categoryPrefix);
-
-        lock (gate) {
-            categoryLevels.RemoveAll(rule => string.Equals(rule.Prefix, categoryPrefix, StringComparison.Ordinal));
-            categoryLevels.Add((categoryPrefix, level));
-            categoryLevels.Sort(static (left, right) => right.Prefix.Length.CompareTo(left.Prefix.Length));
-        }
-    }
-
-    /// <summary>Forgets every per-category rule.</summary>
-    public void ClearCategoryLevels() {
-        lock (gate) {
-            categoryLevels.Clear();
-        }
-    }
-
-    /// <summary>Whether a record at this level and category would be kept.</summary>
-    /// <param name="category">The logger category.</param>
-    /// <param name="level">The level.</param>
-    /// <returns><see langword="true" /> if it would be recorded.</returns>
-    public bool IsEnabled(string category, LogLevel level) {
-        if (level == LogLevel.None) {
-            return false;
-        }
-
-        lock (gate) {
-            foreach (var (prefix, configured) in categoryLevels) {
-                if (category.StartsWith(prefix, StringComparison.Ordinal)) {
-                    return level >= configured;
-                }
-            }
-        }
-
-        return level >= MinimumLevel;
-    }
-
-    /// <inheritdoc />
-    public ILogger CreateLogger(string categoryName) => new CategoryLogger(this, categoryName);
+    /// <param name="filter">
+    ///     The filter to use, or <see langword="null" /> for one of this sink's own.
+    /// </param>
+    public RingBufferSink(int capacity = DefaultCapacity, LogFilter? filter = null) : base(filter) =>
+        records = new(capacity);
 
     /// <summary>Copies the records out, oldest first.</summary>
     /// <returns>The current contents of the ring.</returns>
@@ -173,44 +135,10 @@ public sealed class RingBufferSink : ILoggerProvider {
         }
     }
 
-    /// <summary>Nothing to release — the ring is managed memory and the sink outlives its loggers.</summary>
-    public void Dispose() { }
-
-    void Write(LogRecord record) {
+    /// <inheritdoc />
+    protected override void Write(LogRecord record) {
         lock (gate) {
             records.Enqueue(record);
-        }
-    }
-
-    sealed class CategoryLogger(RingBufferSink sink, string category) : ILogger {
-        public bool IsEnabled(LogLevel logLevel) => sink.IsEnabled(category, logLevel);
-
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-        public void Log<TState>(
-            LogLevel logLevel,
-            EventId eventId,
-            TState state,
-            Exception? exception,
-            Func<TState, Exception?, string> formatter
-        ) {
-            if (!IsEnabled(logLevel)) {
-                return;
-            }
-
-            ArgumentNullException.ThrowIfNull(formatter);
-
-            sink.Write(
-                new(
-                    DateTimeOffset.UtcNow,
-                    logLevel,
-                    eventId,
-                    category,
-                    formatter(state, exception),
-                    exception,
-                    Environment.CurrentManagedThreadId
-                )
-            );
         }
     }
 }

@@ -92,6 +92,18 @@ public sealed class AppConfig {
     public bool LogToConsole { get; set; } = true;
 
     /// <summary>
+    ///     Where rolling JSON-line log files are written, or <see langword="null" /> for none.
+    /// </summary>
+    /// <remarks>
+    ///     Off unless <c>--vixen-log-file</c> asks for it or a game sets it in
+    ///     <c>OnConfigure</c>. The file is what a player attaches to a bug report and what a
+    ///     dedicated server keeps between restarts, and it is the one sink whose output is read by
+    ///     machines as often as by people — which is why it is JSON lines and not the console's
+    ///     format.
+    /// </remarks>
+    public string? LogFileDirectory { get; set; }
+
+    /// <summary>
     ///     A directory of loose content to read instead of bundles, from
     ///     <c>--vixen-loose-content</c>.
     /// </summary>
@@ -187,6 +199,10 @@ public sealed class AppConfig {
 
         if (arguments.VideoDriver is { } driver) {
             VideoDriver = driver;
+        }
+
+        if (arguments.LogFilePath is { } logPath) {
+            LogFileDirectory = logPath;
         }
 
         if (arguments.LooseContentPath is { } path) {

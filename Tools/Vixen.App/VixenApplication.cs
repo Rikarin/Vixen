@@ -60,6 +60,11 @@ public sealed class VixenApplication : IDisposable {
         disposables.Add(services.Content);
         disposables.Add(services.Jobs);
         disposables.Add(services.Platform);
+
+        // Last, so that everything above it has already said why it was shutting down: disposing the
+        // factory disposes the sinks, and the file sink's dispose is what flushes its background
+        // buffer to disk. A log missing its final seconds is missing the part that explains them.
+        disposables.Add(services.LoggerFactory);
     }
 
     /// <summary>Everything the host built.</summary>

@@ -4,6 +4,7 @@
 using Foundation;
 using UIKit;
 using Vixen.App;
+using Vixen.Core.Diagnostics;
 using Vixen.Platform.Ios;
 
 namespace Vixen.Samples.HelloTriangle;
@@ -47,7 +48,7 @@ public sealed class TriangleHost : IosApplicationHost {
     protected override Action Start(IosPlatform platform) {
         application = VixenApp.Create([])
             .WithPlatform(platform)
-            .WithServices(services => services.LoggerFactory.AddProvider(new ConsoleLogProvider()))
+            .WithServices(services => services.LoggerFactory.AddProvider(new PlatformSink()))
             .Build(new TriangleGame());
 
         return application.RunFrame;

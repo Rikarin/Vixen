@@ -150,6 +150,7 @@ Every host argument starts `--vixen-`; anything else is left for the game. `--vi
 | `--vixen-workers <n>` | Job-system workers. `0` is supported and tested |
 | `--vixen-frame-limit <n>` | Frames per second, `0` for uncapped |
 | `--vixen-log-level <level>` | The lowest level kept and printed |
+| `--vixen-log-file <dir>` | Also write rolling JSON-line log files into a directory. Off unless asked for |
 | `--vixen-loose-content <dir>` | See above |
 
 ## What `vixen build` does not do

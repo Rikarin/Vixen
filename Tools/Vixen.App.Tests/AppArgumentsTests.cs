@@ -37,6 +37,7 @@ public class AppArgumentsTests {
             "--vixen-workers", "2",
             "--vixen-frame-limit", "144",
             "--vixen-log-level", "Debug",
+            "--vixen-log-file", "/tmp/logs",
             "--vixen-loose-content", "/tmp/content"
         ]);
 
@@ -45,6 +46,7 @@ public class AppArgumentsTests {
         Assert.Equal(2, parsed.WorkerCount);
         Assert.Equal(144, parsed.FrameRateLimit);
         Assert.Equal(LogLevel.Debug, parsed.LogLevel);
+        Assert.Equal("/tmp/logs", parsed.LogFilePath);
         Assert.Equal("/tmp/content", parsed.LooseContentPath);
         Assert.Empty(parsed.Unrecognised);
     }

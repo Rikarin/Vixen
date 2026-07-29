@@ -36,12 +36,26 @@
   <!-- ===== Logging (docs/plan/01 § Platform baseline, ADR-008) ===== -->
   <ItemGroup Label="Logging">
     <!--
-      Abstractions only. The engine implements its own sink: the ring buffer the
-      editor console and the crash reporter read is ours, and ILogger is the
+      Abstractions for everything that logs. The engine implements its own sinks:
+      the ring buffer the editor console and the crash reporter read is ours, as
+      are the console, platform, remote and EventSource sinks, and ILogger is the
       interface everything codes against so that [LoggerMessage] can generate
       allocation-free call sites.
     -->
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
+    <!--
+      ADR-008's other half, and only the file sink's half: an asynchronous UTF-8
+      writer with a bounded background buffer and file rolling that does not lose
+      the record it was writing when the file turns over. That is the part worth
+      taking a dependency for; the ring buffer, the filtering and the rate limiter
+      above it are engine-owned because they answer to the editor console.
+
+      It brings Microsoft.Extensions.Logging (the non-abstractions package) with
+      it, which is the one cost worth naming here — Vixen.Core.Diagnostics is
+      referenced by every build that logs, and this is the only third-party
+      assembly it carries.
+    -->
+    <PackageVersion Include="ZLogger" Version="2.5.10" />
   </ItemGroup>
 
   <!-- ===== Telemetry (docs/plan/14 § Phase 9, docs/plan/17 § Server variant) ===== -->
