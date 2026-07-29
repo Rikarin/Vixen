@@ -57,11 +57,23 @@ public abstract partial class TextField : Control {
 
     /// <summary>Whether it can be typed into.</summary>
     /// <remarks>
-    ///     Distinct from <see cref="Control.Disabled" />: a read-only field still takes the focus,
-    ///     is still a tab stop, and its text can still be selected and copied. A disabled one is out
-    ///     of reach entirely. Conflating them is how a form ends up with values nobody can read.
+    ///     <para>
+    ///         Distinct from <see cref="Control.Disabled" />: a read-only field still takes the
+    ///         focus, is still a tab stop, and its text can still be selected and copied. A disabled
+    ///         one is out of reach entirely. Conflating them is how a form ends up with values
+    ///         nobody can read.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It writes a <c>read-only</c> class, and until it did the state was invisible.</b>
+    ///         <see cref="Control.Disabled" /> has <c>:disabled</c> and every theme greys it; this
+    ///         had nothing at all — so a field the inspector had made read-only because the member
+    ///         has no setter looked exactly like one you could type in, and the only way to find out
+    ///         was to type in it and watch nothing happen. A class rather than a state because
+    ///         <c>ElementState</c> is the set of <i>transient</i> conditions a selector asks about
+    ///         and this is a mode the field was put into.
+    ///     </para>
     /// </remarks>
-    [UiProperty]
+    [UiProperty(Changed = nameof(OnReadOnlyChanged))]
     public partial bool ReadOnly { get; set; }
 
     /// <summary>The longest value it will take, or zero for no limit.</summary>
@@ -272,12 +284,30 @@ public abstract partial class TextField : Control {
     protected override void OnDraw(DrawContext context) {
         base.OnDraw(context);
 
-        if (!IsFocused || text.Block() is not { } block) {
+        if (!IsFocused) {
             return;
         }
 
         var origin = text.AbsoluteLeft;
         var top = text.AbsoluteTop;
+
+        // ⚠ An empty field still draws a caret, and until it did, clicking one looked like nothing
+        // happening. There is no block to ask — `UiElement.Block` answers null for an element with
+        // no text, deliberately — so this used to return here, which meant the *only* field with no
+        // visible sign of the focus was the one you were about to type your first character into.
+        // A click gives `Focus` and not `FocusVisible`, so the ring is not drawn either: between the
+        // two, an empty focused search box was indistinguishable from an empty unfocused one.
+        //
+        // The height is the text element's own, which is a real number because the theme gives
+        // `field-text` a `min-height` — the same declaration that stops an empty field collapsing.
+        if (text.Block() is not { } block) {
+            context.FillRectangle(
+                new Rectangle(origin, top, 1f, MathF.Max(text.Height, 1f)),
+                Document.ColorOf(Style, caretColor) ?? context.Foreground
+            );
+
+            return;
+        }
 
         // ⚠ Per line, and a single-line field is the one-line case of it rather than a different
         // path. This used to read `block.Lines[0]` and say so — which was true while nothing wrapped
@@ -341,6 +371,14 @@ public abstract partial class TextField : Control {
     void OnPlaceholderChanged(string? previous, string? current) {
         placeholder.Text = current;
         Restate();
+    }
+
+    void OnReadOnlyChanged(bool previous, bool current) {
+        if (current) {
+            AddClass("read-only");
+        } else {
+            RemoveClass("read-only");
+        }
     }
 
     /// <summary>Shows the placeholder only when there is nothing to show instead.</summary>

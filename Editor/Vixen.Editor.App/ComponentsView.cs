@@ -51,6 +51,14 @@ sealed partial class ComponentsView : Control {
     /// </remarks>
     readonly Dictionary<IComponentBridge, List<object>> working = [];
 
+    /// <summary>The rows on screen, so that <see cref="Reload" /> can re-read them.</summary>
+    /// <remarks>
+    ///     Kept beside the boxes rather than walked out of the element tree, because a row is an
+    ///     <c>InspectorRow</c> with a field and a drawer on it and the tree only has elements — and
+    ///     because the walk would be per undo rather than per rebuild.
+    /// </remarks>
+    readonly List<(IComponentBridge Bridge, InspectorRow Row)> rows = [];
+
     /// <summary>The order the foldouts are shown in, by component name.</summary>
     /// <remarks>
     ///     <para>
@@ -164,6 +172,10 @@ sealed partial class ComponentsView : Control {
 
         working.Clear();
 
+        // ⚠ With the boxes, and the two have to go together. A row left here after its foldout was
+        // removed is one `Reload` would push a value into, which is a write into a detached element.
+        rows.Clear();
+
         var alive = entity != Entity.Null && scene.World.IsAlive(entity);
 
         if (alive) {
@@ -239,12 +251,51 @@ sealed partial class ComponentsView : Control {
             // the one thing that reaches the stack, and it carries the whole component.
             var field = new InspectorField(descriptor, member, box);
 
-            InspectorRows.Add(
-                fold.Content,
-                field,
-                DrawerRegistry.Default,
-                made => field.Changed += _ => Commit(bridge, made)
-            );
+            if (InspectorRows.Add(
+                    fold.Content,
+                    field,
+                    DrawerRegistry.Default,
+                    made => field.Changed += _ => Commit(bridge, made)
+                ) is { } row) {
+                rows.Add((bridge, row));
+            }
+        }
+    }
+
+    /// <summary>Reads every editor back from the entity, without rebuilding anything.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What an undo needs, and what a value edit deliberately does not raise.</b>
+    ///         <c>SetComponentCommand</c> announces itself only when the <i>set</i> of components
+    ///         changed — telling the panel on every field write would rebuild it under the pointer of
+    ///         whoever is dragging a slider — so a Ctrl+Z that put a light's intensity back changed
+    ///         the world, the viewport and the undo history, and left the number on screen as it was.
+    ///         The row is read from its box when it is built and after an edit it made itself;
+    ///         nothing else ever told it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The boxes are re-read first.</b> They are copies — that is the whole arrangement,
+    ///         one command carrying a whole component — so refreshing the rows against the boxes they
+    ///         already hold would faithfully redisplay what the undo just discarded.
+    ///     </para>
+    ///     <para>
+    ///         <c>Reload</c> and not <see cref="Rebuild" />: the foldouts, their expansion and the
+    ///         focus survive, which is the same trade <c>InspectorView.Reload</c> makes.
+    ///     </para>
+    /// </remarks>
+    public void Reload() {
+        if (entity == Entity.Null || !scene.World.IsAlive(entity)) {
+            return;
+        }
+
+        foreach (var (bridge, box) in working) {
+            if (box.Count > 0 && bridge.Has(scene.World, entity)) {
+                box[0] = bridge.Read(scene.World, entity);
+            }
+        }
+
+        foreach (var (_, row) in rows) {
+            InspectorRows.Show(row);
         }
     }
 

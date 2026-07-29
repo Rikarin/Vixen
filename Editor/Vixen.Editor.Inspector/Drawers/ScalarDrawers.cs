@@ -123,11 +123,22 @@ public sealed class NumberDrawer : IPropertyDrawer {
 
                 break;
 
+            // ⚠ The number, not the text, and the difference is not cosmetic. `NumericInput.Value` is
+            // a rendering of `Number` and writing one does not read back into the other — that is
+            // deliberate, because a field mid-edit holds `-` and `1.` and a control that reparsed on
+            // every keystroke would fight every negative number ever typed. So a drawer that set only
+            // the text left `Number` at whatever it was born as, which is zero: the box said 1 and
+            // the control believed 0. A scrub reads `Number` for its origin, so dragging a member
+            // that had never been typed into jumped it to nought and moved from there.
+            //
+            // Safe against a write-back loop because `InspectorRows.Show` wraps this in
+            // `InspectorField.Refreshing`, and `Write` refuses while that is held.
             case NumericInput numeric:
-                numeric.Value = mixed
-                    ? string.Empty
-                    : System.Convert.ToDouble(value ?? 0, CultureInfo.InvariantCulture)
-                        .ToString("0.###", CultureInfo.InvariantCulture);
+                if (mixed) {
+                    numeric.Value = string.Empty;
+                } else {
+                    numeric.Number = System.Convert.ToDouble(value ?? 0, CultureInfo.InvariantCulture);
+                }
 
                 numeric.Placeholder = mixed ? "—" : null;
                 break;

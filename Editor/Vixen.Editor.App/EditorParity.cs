@@ -1055,6 +1055,14 @@ sealed partial class EditorApplication {
             .AddSeparator()
             .Add("assets.find-references", "assets.select-dependencies")
             .AddSeparator()
+
+            // ⚠ Named on the Assets menu as well as in Window, and the second is not enough on its
+            // own. Every panel gets a `view.panel.*` toggle for free, so Addressables was already
+            // *listed* — under Window, among two dozen others, which is where you look for a panel
+            // you know exists and not for a feature you are wondering whether the editor has. What
+            // ships an asset belongs beside the other things that do.
+            .Add(EditorShell.PanelCommand(AddressablesPanel))
+            .AddSeparator()
             .Add("assets.refresh", "assets.import", "assets.build");
 
         var entity = Shell.Menus.InsertMenu(++after, EditorStrings.MenuEntity);

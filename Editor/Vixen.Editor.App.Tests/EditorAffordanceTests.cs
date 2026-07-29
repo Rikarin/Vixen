@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
 using Vixen.Rendering;
 using Vixen.Editor.Testing;
@@ -70,16 +71,134 @@ public class EditorAffordanceTests {
         );
     }
 
-    /// <summary>A double-click in the content browser edits the name, as it does in the outliner.</summary>
+    /// <summary>A double-click in the content browser opens the asset, as a browser's must.</summary>
     [Fact]
-    public void Double_clicking_an_asset_row_opens_the_rename_editor() {
+    public void Double_clicking_an_asset_row_opens_it() {
         using var editor = EditorSession.Start();
 
         editor.Open("project");
         editor.ExpandAll(editor.Assets);
         editor.DoubleClickRow(editor.Assets, "Main.vxscene");
 
+        Assert.Null(Find<TextBox>(editor.Assets));
+        Assert.Contains(editor.Panels, panel => panel.Id.StartsWith("asset.", StringComparison.Ordinal));
+    }
+
+    /// <summary>And clicking a row that is already the only one selected renames it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The gesture has to be the one that is not a double-click, because a browser's
+    ///     double-click opens.</b> "Already selected before this press" is what tells them apart with
+    ///     no timer: the first click of a double-click lands on a row that was not selected and arms
+    ///     nothing. See <c>TreeView.RenameOnSecondClick</c>.
+    /// </remarks>
+    [Fact]
+    public void Clicking_an_already_selected_asset_row_renames_it() {
+        using var editor = EditorSession.Start();
+
+        editor.Open("project");
+        editor.ExpandAll(editor.Assets);
+
+        editor.ClickRow(editor.Assets, "Main.vxscene");
+
+        // The first click only selects — a row that was not selected arms nothing.
+        Assert.Null(Find<TextBox>(editor.Assets));
+
+        // ⚠ The pause is what makes it a *slow* double click, and in a harness a pause is not time
+        // passing — it is the tap run ending. Without this the two clicks are taps one and two of
+        // one run and the second opens the asset, which is the behaviour the other test asserts.
+        editor.Document.Gestures.EndTapRun();
+        editor.ClickRow(editor.Assets, "Main.vxscene");
+
         Assert.NotNull(Find<TextBox>(editor.Assets));
+    }
+
+    /// <summary>The outliner keeps double-click-to-rename, because a row there is a name.</summary>
+    [Fact]
+    public void Double_clicking_an_outliner_row_still_renames() {
+        using var editor = EditorSession.Start();
+
+        editor.Open("hierarchy");
+        editor.ExpandAll(editor.Hierarchy);
+        editor.DoubleClickRow(editor.Hierarchy, "Crate");
+
+        Assert.NotNull(Find<TextBox>(editor.Hierarchy));
+    }
+
+    /// <summary>The browser's context menu offers the same Create entries the Assets menu does.</summary>
+    [Fact]
+    public void The_project_context_menu_can_create_things() {
+        using var editor = EditorSession.Start();
+
+        editor.Open("project");
+        editor.ExpandAll(editor.Assets);
+        editor.RightClickRow(editor.Assets, "Assets");
+
+        var labels = editor.Ui.Get("menu-item").Elements
+            .OfType<ButtonBase>()
+            .Select(item => item.Label)
+            .ToList();
+
+        Assert.Contains("Create", labels);
+    }
+
+    /// <summary>The addressables window has a way in that does not require owning a group already.</summary>
+    /// <remarks>
+    ///     ⚠ The view was built and reachable only by double-clicking a <c>.vxgroup</c> — which a
+    ///     project that has never made one does not have. That is what "no addressable UI" meant.
+    /// </remarks>
+    [Fact]
+    public void The_addressables_panel_is_reachable_from_a_menu() {
+        using var editor = EditorSession.Start();
+
+        var command = EditorShell.PanelCommand("addressables");
+
+        Assert.True(editor.Shell.Commands.TryGet(command, out _));
+
+        var assets = editor.Shell.Menus.Menus.First(menu => menu.Title.Text == "Assets");
+
+        Assert.Contains(command, Ids(assets));
+
+        editor.Open("addressables");
+        editor.Frames(2);
+
+        Assert.NotNull(
+            Descendants(editor.Panel("addressables"))
+                .FirstOrDefault(element => element.Tag == "group-editor")
+        );
+    }
+
+    /// <summary>An asset's address is editable and lands in the sidecar.</summary>
+    [Fact]
+    public void An_assets_address_can_be_typed_into_the_inspector() {
+        using var editor = EditorSession.Start();
+
+        editor.Open("project");
+        editor.ExpandAll(editor.Assets);
+        editor.ClickRow(editor.Assets, "Main.vxscene");
+
+        editor.Open("inspector");
+        editor.Frames(2);
+
+        var row = editor.Inspector.Rows.FirstOrDefault(candidate => candidate.Field.Member.Name == "Address");
+
+        Assert.NotNull(row);
+
+        var box = Find<TextBox>(row!)!;
+
+        Assert.False(box.ReadOnly, "the address is the one row on an asset that is meant to be typed in");
+
+        // Typed and committed the way a person does: the drawer records on submit and on focus loss
+        // rather than per keystroke, so assigning the property alone writes nothing.
+        editor.Document.Focus(box);
+        box.Value = "levels/main";
+
+        editor.Document.Focus(null);
+        editor.Frames(2);
+
+        var sidecar = Path.Combine(editor.ProjectRoot, "Assets", "Scenes", "Main.vxscene.meta");
+
+        Assert.True(File.Exists(sidecar));
+        Assert.Contains("levels/main", File.ReadAllText(sidecar), StringComparison.Ordinal);
     }
 
     /// <summary>The gizmo's space toggle says which space it is in, and looks pressed when it is.</summary>
@@ -233,6 +352,51 @@ public class EditorAffordanceTests {
         );
     }
 
+    /// <summary>An undo puts a component's number back in the panel that shows it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The component foldouts are not the inspector's rows, and they are where a numeric
+    ///     edit usually lands.</b> <c>SetComponentCommand</c> announces itself only when the *set* of
+    ///     components changed — a value edit deliberately says nothing, so that a slider drag does
+    ///     not rebuild the panel under the pointer — so the undo changed the world and the viewport
+    ///     and left the old number on screen. Reloading the boxes is the other half of
+    ///     <see cref="Undo_is_visible_in_the_inspector" />.
+    /// </remarks>
+    [Fact]
+    public void Undo_is_visible_in_a_components_numbers() {
+        using var editor = EditorSession.Start();
+
+        editor.Open("hierarchy");
+        editor.ExpandAll(editor.Hierarchy);
+        editor.ClickRow(editor.Hierarchy, "Directional Light");
+
+        editor.Open("inspector");
+        editor.Frames(2);
+
+        var components = Descendants(editor.Panel("inspector")).OfType<ComponentsView>().Single();
+
+        // ⚠ By member rather than "the first numeric box in the section". The colour picker above it
+        // is made of numeric fields of its own, and setting one of those edits the picker rather
+        // than the component — a test that passed by moving a control nothing is recording.
+        var intensity = Intensity(components);
+        var before = intensity.Number;
+
+        // The drawer writes on every change and the view commits one `SetComponentCommand` for it,
+        // which is the path a scrub takes.
+        intensity.Number = before + 4d;
+        editor.Frames(2);
+
+        Assert.Equal(before + 4d, Intensity(components).Number);
+        Assert.Equal(before + 4f, editor.Scene.World.Get<Light>(editor.Scene.Selection[0]).Intensity);
+
+        editor.Run("edit.undo");
+        editor.Frames(2);
+
+        Assert.Equal(before, editor.Scene.World.Get<Light>(editor.Scene.Selection[0]).Intensity);
+
+        // Re-read rather than held, so the assertion is about what is on screen now.
+        Assert.Equal(before, Intensity(components).Number);
+    }
+
     /// <summary>A light's colour is a picker rather than a line of grey text.</summary>
     /// <remarks>
     ///     ⚠ <c>Light.Colour</c> is a <c>Color3</c>, and the registry only had a drawer for
@@ -350,6 +514,38 @@ public class EditorAffordanceTests {
         editor.Frames(2);
 
         Assert.Equal(before[^1], reopened.Sections[0].Label);
+    }
+
+    /// <summary>Every command id a menu names, submenus included.</summary>
+    static IEnumerable<string> Ids(MenuGroup group) {
+        foreach (var entry in group.Entries) {
+            switch (entry) {
+                case MenuCommand(var id):
+                    yield return id;
+                    break;
+
+                case MenuSubmenu(var nested):
+                    foreach (var id in Ids(nested)) {
+                        yield return id;
+                    }
+
+                    break;
+
+                default:
+                    break;
+            }
+        }
+    }
+
+    /// <summary>The intensity box of the Light foldout, found by member rather than by position.</summary>
+    static NumericInput Intensity(ComponentsView components) {
+        var light = components.Sections.Single(section => section.Label == "Light");
+
+        var row = Descendants(light)
+            .OfType<InspectorRow>()
+            .Single(candidate => candidate.Field.Member.Name == "Intensity");
+
+        return Descendants(row).OfType<NumericInput>().First();
     }
 
     static EditorCommand Command(EditorSession editor, string id) {
