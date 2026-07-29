@@ -159,6 +159,39 @@ public class BuildSettingsTests {
     }
 
     /// <summary>
+    ///     ⚠ The two buttons are derived from a refusal that changes for reasons that are not edits
+    ///     to this panel, and nothing was asking it again: they stayed as they were when the panel
+    ///     opened — live for the whole of a build that had already started. The menu line never had
+    ///     this, because <c>MenuPresenter</c> asks <c>CanExecute</c> every time it draws.
+    /// </summary>
+    [Fact]
+    public void The_buttons_grey_themselves_while_other_work_is_running() {
+        using var session = EditorSession.Start();
+
+        File.WriteAllText(Path.Combine(session.ProjectRoot, "Game.csproj"), "<Project />");
+
+        var view = session.Control<BuildSettingsView>("build-settings");
+
+        view.Rebuild();
+        Assert.False(view.BuildButton.Disabled);
+
+        // A content build rather than a player one, deliberately: it is the case that proves the
+        // panel is watching the *task* rather than watching itself, since nothing it owns started
+        // this one.
+        session.Run("assets.build");
+
+        Assert.True(view.BuildButton.Disabled);
+        Assert.Contains("already running", view.Status.Text, StringComparison.OrdinalIgnoreCase);
+
+        // ⚠ The other direction is deliberately not asserted here. Coming back would mean waiting on
+        // a pool thread to finish a real import, and no test in this suite races one — the harness
+        // pumps a fixed number of frames on purpose. What it would prove is covered without a race
+        // by `Build_and_Run_is_refused_until_the_project_has_something_to_publish`, which asks the
+        // panel again and watches the same button flip the other way; the two together are "the
+        // refusal is re-asked" and "something other than the panel can be what asks".
+    }
+
+    /// <summary>
     ///     The scenes-in-build list: what is offered, what order means, and what a build would say
     ///     about an entry that no longer resolves.
     /// </summary>

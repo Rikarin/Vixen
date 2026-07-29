@@ -321,10 +321,28 @@ sealed class ContentTasks {
         while (afterwards.TryDequeue(out var work)) {
             work();
         }
+
+        if (IsBusy != wasBusy) {
+            wasBusy = !wasBusy;
+            BusyChanged?.Invoke();
+        }
     }
+
+    /// <summary>Whether work was running the last time <see cref="Pump" /> looked.</summary>
+    bool wasBusy;
 
     /// <summary>What to do when a task has finished and the panels are stale.</summary>
     public Action? Rescan { get; set; }
+
+    /// <summary>What to do when work starts or stops, for a panel whose buttons say which.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Raised from <see cref="Pump" /> by comparing, rather than from the two places that
+    ///     write the flag.</b> One of those places is on a pool thread and the other is not, and
+    ///     there are four ways out of a task — finished, failed, refused, cancelled — of which
+    ///     cancellation produces no result at all. A bool compared once a frame catches every one of
+    ///     them and cannot be forgotten by a fifth way out being added later.
+    /// </remarks>
+    public Action? BusyChanged { get; set; }
 
     /// <summary>Runs one piece of content work, and tells the caller how it went.</summary>
     /// <param name="title">What the task centre calls it.</param>

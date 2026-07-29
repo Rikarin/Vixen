@@ -222,6 +222,13 @@ sealed partial class BuildSettingsView : Control {
 
         var actions = Part("build-actions");
 
+        // ⚠ A growing element rather than an alignment on the row, which is `SettingsView`'s own
+        // idiom for the same job — see `settings-spacer`. It matters because the two are not the
+        // same rule the day something is added to the *left* of the strip: a spacer keeps whatever
+        // is before it left and whatever is after it right, and a container-wide alignment pushes
+        // the lot over.
+        actions.Add<UiElement>("build-spacer");
+
         BuildButton = Command(actions, "Build", () => BuildRequested?.Invoke(this, false), ControlVariant.Default);
         RunButton = Command(actions, "Build and Run", () => BuildRequested?.Invoke(this, true), ControlVariant.Primary);
 

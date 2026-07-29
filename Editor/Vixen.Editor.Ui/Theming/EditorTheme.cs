@@ -1255,6 +1255,8 @@ public static class EditorTheme {
             background-color: var(--surface-sunken);
         }
 
+        build-spacer { flex-grow: 1; }
+
         /* ── Choosing one of a list, in a dialog ────────────────────────────────
            The startup project browser and "move to which folder?" are the same
            question about two kinds of thing, so they are one control and one
