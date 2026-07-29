@@ -125,6 +125,41 @@ public class PixelFormatTests {
         }
     }
 
+    /// <summary>
+    ///     What a layout has to declare about a texture it has not been given yet. Depth is the case
+    ///     that matters — a shadow map read through a binding that says "float" is refused on WebGPU.
+    /// </summary>
+    [Theory]
+    [InlineData(PixelFormat.Rgba8UNorm, DescriptorSampleType.Float)]
+    [InlineData(PixelFormat.Rgba32Float, DescriptorSampleType.Float)]
+    [InlineData(PixelFormat.Depth32Float, DescriptorSampleType.Depth)]
+    [InlineData(PixelFormat.Depth24UNormStencil8, DescriptorSampleType.Depth)]
+    [InlineData(PixelFormat.R32UInt, DescriptorSampleType.UInt)]
+    [InlineData(PixelFormat.R8SInt, DescriptorSampleType.SInt)]
+    public void AFormatKnowsHowItIsSampled(PixelFormat format, DescriptorSampleType expected) {
+        Assert.Equal(expected, format.SampleTypeOf());
+        Assert.True(expected.Accepts(format));
+    }
+
+    /// <summary>
+    ///     Filterability is the device's answer, not the format's, so both float declarations accept
+    ///     the same textures — and neither accepts a depth or integer one.
+    /// </summary>
+    [Fact]
+    public void FloatAndUnfilterableFloatAcceptTheSameFormats() {
+        foreach (var format in Enum.GetValues<PixelFormat>()) {
+            Assert.Equal(
+                DescriptorSampleType.Float.Accepts(format),
+                DescriptorSampleType.UnfilterableFloat.Accepts(format)
+            );
+        }
+
+        Assert.False(DescriptorSampleType.Float.Accepts(PixelFormat.Depth32Float));
+        Assert.False(DescriptorSampleType.Float.Accepts(PixelFormat.R32UInt));
+        Assert.False(DescriptorSampleType.Depth.Accepts(PixelFormat.Rgba8UNorm));
+        Assert.False(DescriptorSampleType.UInt.Accepts(PixelFormat.R8SInt));
+    }
+
     [Fact]
     public void AZeroOrNegativeExtentIsRejected() {
         Assert.Throws<ArgumentOutOfRangeException>(() => PixelFormat.Rgba8UNorm.LevelSize(0, 4));

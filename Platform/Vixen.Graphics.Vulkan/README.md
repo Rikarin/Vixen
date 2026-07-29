@@ -89,6 +89,13 @@ a bad extension list fails.
 **The messenger always returns `VK_FALSE`.** Returning non-zero aborts the call that triggered the
 message; the specification reserves that for layer development, and it turns a warning into a crash.
 
+**A stated sample type is checked here, and an unstated one is not.** `DescriptorBinding.SampleType`
+is WebGPU's requirement — Vulkan takes any view a layout's "sampled image" binding is given, and the
+shader's own type decides how it is read. But a layout that *does* say `Depth`, and is then handed a
+colour view or a sampler that does not compare, is wrong on the web and would be found there rather
+than here. So a declaration is checked and silence is not: nothing that worked before is refused, and
+a renderer that describes its shadow map properly finds out on the machine it is being written on.
+
 **We request exactly Vulkan 1.1**, the floor [doc 05](../../docs/plan/05-graphics-rhi.md) states,
 rather than the highest available — a driver should not enable behaviour we have not tested against.
 A device that offers more is queried for it explicitly.

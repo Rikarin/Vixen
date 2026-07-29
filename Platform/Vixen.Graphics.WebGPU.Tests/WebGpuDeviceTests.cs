@@ -220,11 +220,41 @@ public class WebGpuDeviceTests {
     }
 
     /// <summary>
-    ///     The gap the RHI's binding description leaves: a sampled depth texture needs a sample type
-    ///     the layout cannot carry, and it is refused here rather than in a browser console.
+    ///     A shadow map: a depth texture and a comparison sampler, declared as such, which is the
+    ///     whole of what WebGPU asks for and what the RHI could not say until it carried a sample
+    ///     type.
     /// </summary>
     [Fact]
-    public void ASampledDepthTextureSaysWhatIsMissing() {
+    public void ADepthTextureAndAComparisonSamplerBindWhenDeclared() {
+        var binding = new FakeWebGpuBinding();
+        using var device = Device(binding);
+
+        var layout = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerView,
+                [
+                    new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment, SampleType: DescriptorSampleType.Depth),
+                    new(1, DescriptorKind.Sampler, ShaderStage.Fragment, SampleType: DescriptorSampleType.Depth)
+                ],
+                "Shadow"
+            )
+        );
+
+        var set = device.CreateDescriptorSet(layout, "Shadow");
+        var view = device.CreateTextureView(ShadowMap(device));
+        var sampler = device.CreateSampler(SamplerDescription.Shadow);
+
+        device.UpdateDescriptorSet(set, [DescriptorWrite.Texture(0, view), DescriptorWrite.SamplerAt(1, sampler)]);
+
+        Assert.Single(binding.OfName("CreateBindGroup"));
+    }
+
+    /// <summary>
+    ///     And the same map through a layout that never said so: the refusal names the declaration to
+    ///     change, rather than leaving it to a browser console a frame later.
+    /// </summary>
+    [Fact]
+    public void ADepthViewInAFloatBindingSaysWhichDeclarationIsWrong() {
         var binding = new FakeWebGpuBinding();
         using var device = Device(binding);
 
@@ -233,18 +263,67 @@ public class WebGpuDeviceTests {
         );
 
         var set = device.CreateDescriptorSet(layout, "Shadow");
-        var texture = device.CreateTexture(
-            new(PixelFormat.Depth32Float, 512, 512, TextureUsage.DepthStencilTarget | TextureUsage.Sampled, Name: "Map")
-        );
+        var view = device.CreateTextureView(ShadowMap(device));
 
-        var view = device.CreateTextureView(texture);
-
-        var thrown = Assert.Throws<NotSupportedException>(
+        var thrown = Assert.Throws<ArgumentException>(
             () => device.UpdateDescriptorSet(set, [DescriptorWrite.Texture(0, view)])
         );
 
-        Assert.Contains("DescriptorBinding", thrown.Message, StringComparison.Ordinal);
+        Assert.Contains("SampleType", thrown.Message, StringComparison.Ordinal);
+        Assert.Contains("Depth", thrown.Message, StringComparison.Ordinal);
     }
+
+    /// <summary>A comparison sampler in an ordinary sampler binding is the other half of the same mismatch.</summary>
+    [Fact]
+    public void AComparisonSamplerInAFilteringBindingIsRefused() {
+        var binding = new FakeWebGpuBinding();
+        using var device = Device(binding);
+
+        var layout = device.CreateDescriptorSetLayout(
+            new(DescriptorSetSlot.PerView, [new(0, DescriptorKind.Sampler, ShaderStage.Fragment)], "Shadow")
+        );
+
+        var set = device.CreateDescriptorSet(layout, "Shadow");
+        var sampler = device.CreateSampler(SamplerDescription.Shadow);
+
+        var thrown = Assert.Throws<ArgumentException>(
+            () => device.UpdateDescriptorSet(set, [DescriptorWrite.SamplerAt(0, sampler)])
+        );
+
+        Assert.Contains("compares", thrown.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     A binding that may not filter is given the sampler everything defaults to, which WebGPU
+    ///     refuses — so this does, by name.
+    /// </summary>
+    [Fact]
+    public void AFilteringSamplerInANonFilteringBindingIsRefused() {
+        var binding = new FakeWebGpuBinding();
+        using var device = Device(binding);
+
+        var layout = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerView,
+                [new(0, DescriptorKind.Sampler, ShaderStage.Fragment, SampleType: DescriptorSampleType.UInt)],
+                "Ids"
+            )
+        );
+
+        var set = device.CreateDescriptorSet(layout, "Ids");
+        var sampler = device.CreateSampler(SamplerDescription.LinearClamp);
+
+        var thrown = Assert.Throws<ArgumentException>(
+            () => device.UpdateDescriptorSet(set, [DescriptorWrite.SamplerAt(0, sampler)])
+        );
+
+        Assert.Contains("may not filter", thrown.Message, StringComparison.Ordinal);
+    }
+
+    static TextureHandle ShadowMap(WebGpuDevice device) =>
+        device.CreateTexture(
+            new(PixelFormat.Depth32Float, 512, 512, TextureUsage.DepthStencilTarget | TextureUsage.Sampled, Name: "Map")
+        );
 
     // ── Lifetime ────────────────────────────────────────────────────────────────────────────
 

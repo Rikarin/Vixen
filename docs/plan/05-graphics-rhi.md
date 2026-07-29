@@ -251,12 +251,20 @@ Three things the RHI has that WebGPU does not, and what happens instead:
 - **Border colours.** `ClampToBorder` becomes `ClampToEdge`, which `SamplerDescription.Shadow`
   notices: outside a shadow map reads as the edge texel rather than as lit.
 
-**Owed, and it is a change to `Vixen.Graphics` rather than to the backend.** WebGPU requires a
-sampled texture's type and a sampler's comparison-ness to be declared in the bind group layout;
-`DescriptorBinding` carries a kind, some stages and a count and nothing about formats. So every
-layout the backend builds says "filterable float", and a shadow map bound through one is refused with
-that explanation. Sampling depth on WebGPU needs `DescriptorBinding` to grow a sample type — which
-every other backend would ignore.
+And one thing WebGPU requires that the RHI did not have, closed where it belonged — in
+`Vixen.Graphics`, not here. WebGPU requires a sampled texture's type and a sampler's comparison-ness to be declared in the bind
+group layout, which is built before there is a resource to ask. `DescriptorBinding.SampleType` now
+carries it — filterable float, unfilterable float, depth, sint, uint — with the sampler's job stated
+as the texture it is paired with rather than as a second field, because those were never two
+independent choices. Vulkan and GL read past it; the web backend translates it into
+`WGPUTextureSampleType` and `WGPUSamplerBindingType`, and a resource that disagrees with the
+declaration is refused by `UpdateDescriptorSet` naming the binding, rather than by a browser a frame
+later naming nothing.
+
+What a shadow map on the web still waits on is the other end of the same sentence: Raven has no depth
+texture and no comparison sampler in its type system, so an effect's reflection reports every sampled
+binding as an ordinary float one and `EffectLoader` builds the layout it was told about. The RHI is no
+longer the missing half ([07](07-raven-shader-pipeline.md)).
 
 #### The implementation is fetched, and the pin is not a version
 

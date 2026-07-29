@@ -219,9 +219,13 @@ Vixen.Graphics.DescriptorBinding.Binding.init -> uint
 Vixen.Graphics.DescriptorBinding.Count.get -> int
 Vixen.Graphics.DescriptorBinding.Count.init -> int
 Vixen.Graphics.DescriptorBinding.DescriptorBinding() -> void
-Vixen.Graphics.DescriptorBinding.DescriptorBinding(uint Binding, Vixen.Graphics.DescriptorKind Kind, Vixen.Graphics.ShaderStage Stages, int Count = 1) -> void
+Vixen.Graphics.DescriptorBinding.DescriptorBinding(uint Binding, Vixen.Graphics.DescriptorKind Kind, Vixen.Graphics.ShaderStage Stages, int Count = 1, Vixen.Graphics.DescriptorSampleType SampleType = Vixen.Graphics.DescriptorSampleType.Float) -> void
+Vixen.Graphics.DescriptorBinding.Filters.get -> bool
+Vixen.Graphics.DescriptorBinding.IsComparisonSampler.get -> bool
 Vixen.Graphics.DescriptorBinding.Kind.get -> Vixen.Graphics.DescriptorKind
 Vixen.Graphics.DescriptorBinding.Kind.init -> Vixen.Graphics.DescriptorKind
+Vixen.Graphics.DescriptorBinding.SampleType.get -> Vixen.Graphics.DescriptorSampleType
+Vixen.Graphics.DescriptorBinding.SampleType.init -> Vixen.Graphics.DescriptorSampleType
 Vixen.Graphics.DescriptorBinding.Stages.get -> Vixen.Graphics.ShaderStage
 Vixen.Graphics.DescriptorBinding.Stages.init -> Vixen.Graphics.ShaderStage
 Vixen.Graphics.DescriptorKind -> enum : byte
@@ -233,6 +237,13 @@ Vixen.Graphics.DescriptorKind.Sampler = 6 -> Vixen.Graphics.DescriptorKind
 Vixen.Graphics.DescriptorKind.StorageBuffer = 2 -> Vixen.Graphics.DescriptorKind
 Vixen.Graphics.DescriptorKind.StorageTexture = 5 -> Vixen.Graphics.DescriptorKind
 Vixen.Graphics.DescriptorKind.UniformBuffer = 0 -> Vixen.Graphics.DescriptorKind
+Vixen.Graphics.DescriptorSampleType -> enum : byte
+Vixen.Graphics.DescriptorSampleType.Depth = 2 -> Vixen.Graphics.DescriptorSampleType
+Vixen.Graphics.DescriptorSampleType.DescriptorSampleType() -> void
+Vixen.Graphics.DescriptorSampleType.Float = 0 -> Vixen.Graphics.DescriptorSampleType
+Vixen.Graphics.DescriptorSampleType.SInt = 3 -> Vixen.Graphics.DescriptorSampleType
+Vixen.Graphics.DescriptorSampleType.UInt = 4 -> Vixen.Graphics.DescriptorSampleType
+Vixen.Graphics.DescriptorSampleType.UnfilterableFloat = 1 -> Vixen.Graphics.DescriptorSampleType
 Vixen.Graphics.DescriptorSetHandle -> readonly struct
 Vixen.Graphics.DescriptorSetHandle : System.IEquatable<Vixen.Graphics.DescriptorSetHandle>
 Vixen.Graphics.DescriptorSetHandle.DescriptorSetHandle() -> void
@@ -892,6 +903,7 @@ static Vixen.Graphics.DescriptorWrite.Uniform(uint binding, Vixen.Graphics.Buffe
 static Vixen.Graphics.GraphicsDeviceFeatures.Minimum.get -> Vixen.Graphics.GraphicsDeviceFeatures
 static Vixen.Graphics.PipelineHandle.Null.get -> Vixen.Graphics.PipelineHandle
 static Vixen.Graphics.PipelineLayoutHandle.Null.get -> Vixen.Graphics.PipelineLayoutHandle
+static Vixen.Graphics.PixelFormats.Accepts(this Vixen.Graphics.DescriptorSampleType declared, Vixen.Graphics.PixelFormat format) -> bool
 static Vixen.Graphics.PixelFormats.BlockExtent(this Vixen.Graphics.PixelFormat format) -> (int Width, int Height)
 static Vixen.Graphics.PixelFormats.BlockSize(this Vixen.Graphics.PixelFormat format) -> int
 static Vixen.Graphics.PixelFormats.HasDepth(this Vixen.Graphics.PixelFormat format) -> bool
@@ -901,6 +913,7 @@ static Vixen.Graphics.PixelFormats.IsDepthStencil(this Vixen.Graphics.PixelForma
 static Vixen.Graphics.PixelFormats.IsSrgb(this Vixen.Graphics.PixelFormat format) -> bool
 static Vixen.Graphics.PixelFormats.LevelSize(this Vixen.Graphics.PixelFormat format, int width, int height, int depth = 1) -> long
 static Vixen.Graphics.PixelFormats.MipLevelCount(int width, int height, int depth = 1) -> int
+static Vixen.Graphics.PixelFormats.SampleTypeOf(this Vixen.Graphics.PixelFormat format) -> Vixen.Graphics.DescriptorSampleType
 static Vixen.Graphics.PixelFormats.ToLinear(this Vixen.Graphics.PixelFormat format) -> Vixen.Graphics.PixelFormat
 static Vixen.Graphics.PixelFormats.ToSrgb(this Vixen.Graphics.PixelFormat format) -> Vixen.Graphics.PixelFormat
 static Vixen.Graphics.RasterizerState.Default.get -> Vixen.Graphics.RasterizerState

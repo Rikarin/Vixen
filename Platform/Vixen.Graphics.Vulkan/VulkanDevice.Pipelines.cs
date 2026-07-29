@@ -194,6 +194,20 @@ public sealed unsafe partial class VulkanDevice {
                 case DescriptorKind.StorageTexture: {
                     var view = Resolve(write.TextureView);
 
+                    // Vulkan neither needs nor checks a sample type; WebGPU requires one and refuses
+                    // a view that disagrees with it. So a layout that states one is held to it here
+                    // as well — a declaration is checked, silence is not — which is what makes the
+                    // mistake a desktop run can find rather than one only a browser reports.
+                    if (write.Kind == DescriptorKind.SampledTexture
+                        && declared.SampleType != DescriptorSampleType.Float
+                        && !declared.SampleType.Accepts(view.Format)) {
+                        throw new ArgumentException(
+                            $"Binding {write.Binding} declares {declared.SampleType} and a {view.Format} view "
+                            + $"is being written to it, which is {view.Format.SampleTypeOf()}. Vulkan would "
+                            + "take it and WebGPU would not, so the layout and the view have to agree here too."
+                        );
+                    }
+
                     imageInfos[index] = new() {
                         ImageView = view.Handle,
                         ImageLayout = write.Kind == DescriptorKind.StorageTexture
@@ -206,7 +220,17 @@ public sealed unsafe partial class VulkanDevice {
                 }
 
                 case DescriptorKind.Sampler: {
-                    imageInfos[index] = new() { Sampler = ResolveSampler(write.Sampler).Handle };
+                    var sampler = ResolveSampler(write.Sampler);
+
+                    if (declared.IsComparisonSampler && !sampler.Compares) {
+                        throw new ArgumentException(
+                            $"Binding {write.Binding} declares a comparison sampler and '{sampler.Name}' does "
+                            + "not compare. It would read the shadow map's depth instead of a visibility, "
+                            + "which is a picture rather than an error on Vulkan and a refusal on WebGPU."
+                        );
+                    }
+
+                    imageInfos[index] = new() { Sampler = sampler.Handle };
                     entries[index].PImageInfo = &imageInfos[index];
                     break;
                 }

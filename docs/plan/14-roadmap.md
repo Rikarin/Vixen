@@ -4321,10 +4321,13 @@ holds its bandwidth, CPU, and allocation budgets for 30 minutes.
   **`Silk.NET.WebGPU` 2.23.0 matches no wgpu-native release at all** and the pin therefore carries a
   refusal and a struct override rather than just a version.
 
-  **Owed:** a sampled depth texture and a comparison sampler are refused, because WebGPU needs a
-  sample type declared in the bind group layout and `DescriptorBinding` carries none. That is a
-  change to `Vixen.Graphics` — see [05](05-graphics-rhi.md) — and it is owed before a shadow map
-  renders on the web. Owed too: the Linux CI leg, where wgpu-native would run on the lavapipe that
+  **A sampled depth texture and a comparison sampler are describable**, since `DescriptorBinding`
+  grew a `SampleType` — the declaration WebGPU requires in a bind group layout and the other backends
+  read past ([05](05-graphics-rhi.md)). What a shadow map on the web still waits on is Raven, which
+  has no depth texture and no comparison sampler in its type system, so an effect's reflection
+  reports every sampled binding as a float one.
+
+  **Owed:** the Linux CI leg, where wgpu-native would run on the lavapipe that
   workflow already installs and would be a second implementation. macOS is gated; Linux is not,
   because nobody has watched it come up there.
 - `Vixen.Platform.Web` completion: canvas, all input, IndexedDB providers, fetch provider with range

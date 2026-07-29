@@ -54,6 +54,18 @@ sealed class VulkanTextureView : GpuTextureView {
 /// <summary>A sampler.</summary>
 sealed class VulkanSampler : GpuSampler {
     public required Sampler Handle { get; init; }
+
+    /// <summary>Whether it compares rather than returning what it read.</summary>
+    /// <remarks>
+    ///     Vulkan needs no such thing at bind time — the sampler carries its own <c>compareEnable</c>
+    ///     and the layout says nothing about it. It is kept so a layout that <em>does</em> declare
+    ///     which it wants can be held to it here, on the backend a renderer is developed against,
+    ///     rather than only by WebGPU, where the declaration is mandatory.
+    /// </remarks>
+    public required bool Compares { get; init; }
+
+    /// <summary>A name for the diagnostic that reports a mismatch.</summary>
+    public required string Name { get; init; }
 }
 
 /// <summary>A shader module and the stage it was compiled for.</summary>

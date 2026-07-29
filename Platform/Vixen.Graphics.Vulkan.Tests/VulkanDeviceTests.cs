@@ -449,6 +449,82 @@ public sealed class VulkanDeviceTests {
     }
 
     /// <summary>
+    ///     The sample type Vulkan has no use for: checked when the layout states one, ignored when it
+    ///     does not. Stating it is how a shadow map that would be refused on WebGPU is found here
+    ///     instead — and not stating it is how every layout written before the field existed keeps
+    ///     working.
+    /// </summary>
+    [Fact]
+    public void AStatedSampleTypeIsCheckedAndAnUnstatedOneIsNot() {
+        VulkanRequirement.Available(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
+        using var owned = device!;
+
+        var declared = owned.CreateDescriptorSetLayout(new(
+            DescriptorSetSlot.PerView,
+            [
+                new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment, SampleType: DescriptorSampleType.Depth),
+                new(1, DescriptorKind.Sampler, ShaderStage.Fragment, SampleType: DescriptorSampleType.Depth)
+            ],
+            "shadow"
+        ));
+
+        var silent = owned.CreateDescriptorSetLayout(new(
+            DescriptorSetSlot.PerView,
+            [new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment)],
+            "unstated"
+        ));
+
+        var shadowSet = owned.CreateDescriptorSet(declared, "shadow set");
+        var silentSet = owned.CreateDescriptorSet(silent, "unstated set");
+
+        var depth = owned.CreateTexture(new(
+            PixelFormat.Depth32Float,
+            64,
+            64,
+            TextureUsage.DepthStencilTarget | TextureUsage.Sampled,
+            Name: "shadow map"
+        ));
+
+        var colour = owned.CreateTexture(
+            new(PixelFormat.Rgba8UNorm, 64, 64, TextureUsage.Sampled, Name: "albedo")
+        );
+
+        var depthView = owned.CreateTextureView(depth);
+        var colourView = owned.CreateTextureView(colour);
+        var comparison = owned.CreateSampler(SamplerDescription.Shadow);
+        var ordinary = owned.CreateSampler(SamplerDescription.LinearClamp);
+
+        owned.UpdateDescriptorSet(shadowSet, [
+            DescriptorWrite.Texture(0, depthView),
+            DescriptorWrite.SamplerAt(1, comparison)
+        ]);
+
+        // Declared depth, given colour — and declared a comparison sampler, given one that returns
+        // what it read, which on Vulkan is a shadow term of "the depth" rather than an error.
+        Assert.Throws<ArgumentException>(
+            () => owned.UpdateDescriptorSet(shadowSet, [DescriptorWrite.Texture(0, colourView)])
+        );
+
+        Assert.Throws<ArgumentException>(
+            () => owned.UpdateDescriptorSet(shadowSet, [DescriptorWrite.SamplerAt(1, ordinary)])
+        );
+
+        // And the layout that said nothing takes the same depth view, as it always did.
+        owned.UpdateDescriptorSet(silentSet, [DescriptorWrite.Texture(0, depthView)]);
+
+        owned.Destroy(ordinary);
+        owned.Destroy(comparison);
+        owned.Destroy(colourView);
+        owned.Destroy(depthView);
+        owned.Destroy(colour);
+        owned.Destroy(depth);
+        owned.Destroy(silentSet);
+        owned.Destroy(shadowSet);
+        owned.Destroy(silent);
+        owned.Destroy(declared);
+    }
+
+    /// <summary>
     ///     A great many resources, which is what the block allocator exists for: one
     ///     <c>vkAllocateMemory</c> per resource hits <c>maxMemoryAllocationCount</c> — 4096 on a great
     ///     many drivers — and a scene with more textures than that simply cannot be loaded.

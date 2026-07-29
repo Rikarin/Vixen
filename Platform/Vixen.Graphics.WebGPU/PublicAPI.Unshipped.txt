@@ -980,6 +980,7 @@ static Vixen.Graphics.WebGPU.WebGpuCapabilities.Wanted(System.Func<Vixen.Graphic
 static Vixen.Graphics.WebGPU.WebGpuConversions.IsStrip(Vixen.Graphics.PrimitiveTopology topology) -> bool
 static Vixen.Graphics.WebGPU.WebGpuConversions.ToEngine(Vixen.Graphics.WebGPU.WgpuSurfaceStatus status, bool suboptimal) -> Vixen.Graphics.SwapChainStatus
 static Vixen.Graphics.WebGPU.WebGpuConversions.ToMipmapFilter(Vixen.Graphics.FilterMode filter) -> Vixen.Graphics.WebGPU.WgpuMipmapFilterMode
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToSamplerBinding(Vixen.Graphics.DescriptorSampleType sampleType) -> Vixen.Graphics.WebGPU.WgpuSamplerBindingType
 static Vixen.Graphics.WebGPU.WebGpuConversions.ToViewDimension(Vixen.Graphics.TextureDimension dimension, int arrayLayers) -> Vixen.Graphics.WebGPU.WgpuTextureViewDimension
 static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.AddressMode mode) -> Vixen.Graphics.WebGPU.WgpuAddressMode
 static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.BlendFactor factor) -> Vixen.Graphics.WebGPU.WgpuBlendFactor
@@ -988,6 +989,7 @@ static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.BufferUsa
 static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.ColourWriteMask mask) -> Vixen.Graphics.WebGPU.WgpuColorWriteMask
 static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.CompareFunction compare) -> Vixen.Graphics.WebGPU.WgpuCompareFunction
 static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.CullMode cull) -> Vixen.Graphics.WebGPU.WgpuCullMode
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.DescriptorSampleType sampleType) -> Vixen.Graphics.WebGPU.WgpuTextureSampleType
 static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.FilterMode filter) -> Vixen.Graphics.WebGPU.WgpuFilterMode
 static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.FrontFace face) -> Vixen.Graphics.WebGPU.WgpuFrontFace
 static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.IndexFormat format) -> Vixen.Graphics.WebGPU.WgpuIndexFormat

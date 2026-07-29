@@ -59,10 +59,16 @@ sealed class WebGpuSampler(WebGpuObject handle, SamplerDescription description) 
     /// <summary>Whether this is a shadow-comparison sampler.</summary>
     /// <remarks>
     ///     Kept so <c>UpdateDescriptorSet</c> can say what is wrong when one is bound through a
-    ///     layout built for an ordinary sampler — see
+    ///     layout that declares the other kind — see
     ///     <see cref="WebGpuConversions.ToWebGpu(in DescriptorBinding)" />.
     /// </remarks>
     public bool Compares { get; } = description.Compare is not null;
+
+    /// <summary>Whether it filters, which a non-filtering binding does not allow.</summary>
+    public bool Filters { get; } = description.MinFilter == FilterMode.Linear
+        || description.MagFilter == FilterMode.Linear
+        || description.MipFilter == FilterMode.Linear
+        || description.Anisotropy > 1f;
 
     public string Name { get; } = description.Name;
 }
