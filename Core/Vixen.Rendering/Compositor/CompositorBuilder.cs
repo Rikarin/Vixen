@@ -251,6 +251,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
     void EnableGpuDriven(GpuDrivenAsset declared) {
         var materials = false;
         var transforms = false;
+        var objects = false;
 
         foreach (var feature in system.Features) {
             if (feature is not RootRenderFeature root) {
@@ -272,7 +273,24 @@ public sealed class CompositorBuilder(RenderSystem system) {
             }
         }
 
-        GpuDriven = new(materials, transforms);
+        // A second pass, because the answer depends on the first one and sub-features are in the
+        // order a host added them. What addresses a per-object record is the draw's instance index,
+        // and that holds the object's slot only because the transform path put it there — so a
+        // lighting feature asked without transforms would read record zero for every object.
+        foreach (var feature in system.Features) {
+            if (feature is not RootRenderFeature root) {
+                continue;
+            }
+
+            foreach (var subFeature in root.SubFeatures) {
+                if (subFeature is ForwardLightingRenderFeature lighting && declared.TransformRecords) {
+                    lighting.Device ??= Device;
+                    objects |= lighting.EnableRecords(Permutation(declared.Shader, "UseObjectRecords"), transforms);
+                }
+            }
+        }
+
+        GpuDriven = new(materials, transforms, objects);
     }
 
     /// <summary>The shader's own key for a permutation, by the name the generator interns it under.</summary>
@@ -689,9 +707,10 @@ public sealed class CompositorBuilder(RenderSystem system) {
 /// <summary>What a build's GPU-driven request actually turned on.</summary>
 /// <param name="MaterialRecords">Whether materials became records of one buffer.</param>
 /// <param name="TransformRecords">Whether world matrices left the command buffer.</param>
+/// <param name="ObjectRecords">Whether the per-object scalars did too.</param>
 /// <remarks>
 ///     Both false is the ordinary answer on most targets and is not a failure — see
 ///     <see cref="GpuDrivenAsset" />. What it is useful for is telling a "the device said no" frame
 ///     apart from a "nobody asked" one, which otherwise look identical from outside.
 /// </remarks>
-public readonly record struct GpuDrivenResult(bool MaterialRecords, bool TransformRecords);
+public readonly record struct GpuDrivenResult(bool MaterialRecords, bool TransformRecords, bool ObjectRecords);

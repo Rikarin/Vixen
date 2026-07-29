@@ -1568,11 +1568,12 @@ nothing is generated for a push block and the only offset a host had was one it 
 real exclusion: the clustered path binds no per-draw set, so bindless materials and clustered lighting
 could not both be on.
 
-⚠ `probeIndex` and `probeWeight` are still in that block and still undelivered under clustering. They
-are genuinely per object, so the answer for them is a record read through a flat `objectIndex` varying
-— Raven emits `Flat` on integer fragment inputs now, which was the missing piece; the buffer and the
-feature that fills it are not written. It bites only with `UseReflectionProbe` on, which is off by
-default.
+**`probeIndex` and `probeWeight` came out of that block too**, but as records rather than as a push:
+a probe is chosen by where the object *is*, so those are genuinely per object. They go in a buffer
+`ForwardLightingRenderFeature` owns, read in the fragment stage through a flat `objectIndex` varying —
+which needed Raven to emit `Flat` on integer fragment inputs, because it did not. `UseObjectRecords`
+takes "is the record addressable" as a parameter rather than checking, since the answer is the
+transform feature's: `SV_InstanceID` holds the object's slot only because `firstInstance` does.
 
 **A compositor document turns all of this on.** `gpuDriven:` on the asset root carries
 `materialRecords` and `transformRecords`; `compact:` sits on the culling node beside `indirectDraws`.

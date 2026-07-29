@@ -186,6 +186,38 @@ public sealed class GpuDrivenCompositorTests : IDisposable {
     }
 
     /// <summary>
+    ///     The per-object records follow the transforms, because they are addressed by them.
+    /// </summary>
+    /// <remarks>
+    ///     <strong>Not an independent flag, and it must not become one.</strong> What addresses a
+    ///     per-object record is the draw's instance index, and that holds the object's slot only
+    ///     because the transform record path put it there. Asked without it, every draw carries zero
+    ///     and every object reads record zero's probe — a picture, and a plausible one.
+    /// </remarks>
+    [Fact]
+    public void The_object_records_follow_the_transforms() {
+        using var h = Build();
+
+        h.Builder.Build(Parse(Document));
+
+        Assert.True(h.Builder.GpuDriven.TransformRecords);
+        Assert.True(h.Builder.GpuDriven.ObjectRecords);
+        Assert.True(h.Lighting.UseRecords);
+    }
+
+    /// <summary>And with the transforms refused, the records are refused with them.</summary>
+    [Fact]
+    public void Without_transforms_the_object_records_stay_off() {
+        using var plain = new GpuDrivenCompositorTests(capable: false);
+        using var h = plain.Build();
+
+        h.Builder.Build(Parse(Document));
+
+        Assert.False(h.Builder.GpuDriven.ObjectRecords);
+        Assert.False(h.Lighting.UseRecords);
+    }
+
+    /// <summary>
     ///     A material feature with no device of its own is given the builder's.
     /// </summary>
     /// <remarks>
@@ -221,7 +253,11 @@ public sealed class GpuDrivenCompositorTests : IDisposable {
 
         var materials = new MaterialRenderFeature { Effects = effects, Device = devices ? device : null };
         var transforms = new TransformRenderFeature { Device = devices ? device : null };
+        var lighting = new ForwardLightingRenderFeature { Device = devices ? device : null, Clustered = true };
 
+        // The lighting feature after the transform one, so the builder's second pass is doing work
+        // rather than being saved by the order a fixture happened to add them in.
+        meshes.Add(lighting);
         meshes.Add(transforms);
         meshes.Add(materials);
         system.AddFeature(meshes);
@@ -239,7 +275,8 @@ public sealed class GpuDrivenCompositorTests : IDisposable {
             Builder = builder,
             Meshes = meshes,
             Materials = materials,
-            Transforms = transforms
+            Transforms = transforms,
+            Lighting = lighting
         };
     }
 
@@ -249,6 +286,7 @@ public sealed class GpuDrivenCompositorTests : IDisposable {
         public required MeshRenderFeature Meshes { get; init; }
         public required MaterialRenderFeature Materials { get; init; }
         public required TransformRenderFeature Transforms { get; init; }
+        public required ForwardLightingRenderFeature Lighting { get; init; }
 
         public void Dispose() => System.Dispose();
     }
