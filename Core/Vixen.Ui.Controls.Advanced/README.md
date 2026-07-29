@@ -249,8 +249,14 @@ Said out loud rather than left to be discovered:
   `AnimationCurve.Changed` and `Gradient.Changed` are the seams such a stack subscribes to.
 - ~~**`Viewport` draws a placeholder.**~~ It draws `RenderTarget` through the draw list's image
   command, and falls back to the placeholder colour only when nothing has been rendered into it yet.
-  `FlipVertically` is on by default, because a scene renders with y up and an interface draws with y
-  down.
+  ⚠ `FlipVertically` is **off** by default, and used to be on for a reason that was already handled
+  somewhere else: a scene does render with y up and an interface does draw with y down, but both
+  backends resolve that where the API is — Vulkan with a negative-height viewport, OpenGL by flipping
+  the viewport origin — so a colour target's row zero is already the top of the view. Flipping it
+  again mirrored every scene about its horizon, which is nearly invisible in a symmetric scene and
+  which broke everything that *measures* the pane: gizmo hit-testing, picking rays and vertical
+  camera drags all go through the unmirrored projection, so their error was zero at the centreline
+  and the full height of the pane at its edges.
 - **`CodeEditor` does not wrap and has no caret blink.** ⚠ The first half's reason has changed: the
   framework *does* wrap a line now — `TextLayout` over `TextLine` over `TextRun` — so what is missing
   is this control using it, which is a caret that moves between visual lines rather than logical ones

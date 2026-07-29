@@ -19,21 +19,37 @@ public class CameraTests {
     }
 
     [Fact]
-    public void Dragging_up_climbs_over_the_top_and_dragging_down_goes_under() {
+    public void Dragging_up_tips_the_scene_towards_you_and_puts_the_eye_below_it() {
         var camera = new EditorCamera { Distance = 10f };
 
         camera.Orbit(0f, -100f);
 
-        // Above the pivot and looking down at it. The other sign is the "invert Y" setting, and
-        // having it on by default is what ViewportLayout's perspective preset was quietly asking for
-        // when it put its default view under the grid.
-        Assert.True(camera.Position.Y > camera.Pivot.Y);
-        Assert.True(camera.Forward.Y < 0f);
+        // The turntable: a drag up grabs the front of the thing and pulls it up, so its underside
+        // comes into view and the eye ends up beneath it. It is the same gesture as the horizontal
+        // axis below, which is the whole point — the vertical used to carry the *camera* instead, so
+        // one diagonal drag turned the scene one way and the eye the other.
+        Assert.True(camera.Position.Y < camera.Pivot.Y);
+        Assert.True(camera.Forward.Y > 0f);
 
         camera.Orbit(0f, 200f);
 
-        Assert.True(camera.Position.Y < camera.Pivot.Y);
-        Assert.True(camera.Forward.Y > 0f);
+        Assert.True(camera.Position.Y > camera.Pivot.Y);
+        Assert.True(camera.Forward.Y < 0f);
+    }
+
+    [Fact]
+    public void Inverting_y_swaps_the_vertical_and_leaves_the_horizontal_alone() {
+        var plain = new EditorCamera { Distance = 10f };
+        var inverted = new EditorCamera { Distance = 10f, InvertOrbitY = true };
+
+        plain.Orbit(80f, -60f);
+        inverted.Orbit(80f, -60f);
+
+        // The setting people arriving from Unity and Unreal reach for. It is one axis: reversing both
+        // is a different preference, and a setting that quietly did the second when asked for the
+        // first is one nobody can describe.
+        Assert.Equal(plain.Yaw, inverted.Yaw, 5);
+        Assert.Equal(-plain.Pitch, inverted.Pitch, 5);
     }
 
     [Fact]
@@ -45,6 +61,111 @@ public class CameraTests {
         camera.Orbit(100f, 0f);
 
         Assert.True(camera.Position.X < camera.Pivot.X);
+    }
+
+    [Fact]
+    public void Orbiting_around_an_anchor_keeps_the_eye_the_same_distance_from_it() {
+        var camera = new EditorCamera { Pivot = Vector3.Zero, Distance = 10f };
+        var anchor = new Vector3(4f, 1f, -2f);
+
+        var before = (camera.Position - anchor).Length();
+        var pivot = (camera.Pivot - anchor).Length();
+
+        camera.OrbitAround(anchor, 120f, -70f);
+
+        // The whole rig turns about the anchor, so both the eye and the pivot keep their distance
+        // from it — which is what "orbit around the selection" means and what a camera that only
+        // knows how to orbit its own pivot cannot do without moving that pivot too.
+        Assert.Equal(before, (camera.Position - anchor).Length(), 3);
+        Assert.Equal(pivot, (camera.Pivot - anchor).Length(), 3);
+    }
+
+    [Fact]
+    public void Orbiting_around_the_pivot_itself_is_an_ordinary_orbit() {
+        var anchored = new EditorCamera { Pivot = new Vector3(3f, 0f, 1f), Distance = 7f };
+        var plain = new EditorCamera { Pivot = new Vector3(3f, 0f, 1f), Distance = 7f };
+
+        anchored.OrbitAround(anchored.Pivot, 40f, 25f);
+        plain.Orbit(40f, 25f);
+
+        Assert.Equal(plain.Yaw, anchored.Yaw, 5);
+        Assert.Equal(plain.Pitch, anchored.Pitch, 5);
+        Assert.True(Vector3.NearEqual(plain.Pivot, anchored.Pivot, 1e-3f));
+    }
+
+    [Fact]
+    public void Orbiting_around_an_anchor_at_the_pitch_limit_does_not_drift() {
+        var camera = new EditorCamera { Distance = 10f };
+        var anchor = new Vector3(5f, 0f, 0f);
+
+        // Held past the top of its travel, which is where the requested rotation and the applied one
+        // stop being the same thing. Rebuilding the pivot from the requested one slides it a little
+        // further on every frame the drag is held there.
+        camera.OrbitAround(anchor, 0f, 400f);
+
+        var pivot = camera.Pivot;
+
+        for (var frame = 0; frame < 20; frame++) {
+            camera.OrbitAround(anchor, 0f, 40f);
+        }
+
+        Assert.True(Vector3.NearEqual(camera.Pivot, pivot, 1e-3f), $"the pivot drifted to {camera.Pivot}");
+    }
+
+    [Fact]
+    public void Zooming_at_a_point_keeps_that_point_where_it_was_on_screen() {
+        var camera = new EditorCamera { Distance = 10f };
+        var target = new Vector3(2f, 1.5f, 0f);
+        var before = camera.Project(target, 1000, 800);
+
+        camera.ZoomTowards(target, 3f);
+
+        var after = camera.Project(target, 1000, 800);
+
+        // What "zoom to mouse position" has to mean: the thing under the pointer is still under the
+        // pointer afterwards. A zoom that only scaled the distance moves it towards the middle of the
+        // pane, which is why approaching anything off-centre is otherwise zoom, pan, zoom, pan.
+        Assert.Equal(before.X, after.X, 2);
+        Assert.Equal(before.Y, after.Y, 2);
+        Assert.True(camera.Distance < 10f);
+    }
+
+    [Fact]
+    public void Zooming_at_a_point_stops_dragging_the_view_once_the_distance_is_floored() {
+        var camera = new EditorCamera { Distance = EditorCamera.MinimumDistance };
+        var target = new Vector3(50f, 0f, 0f);
+
+        camera.ZoomTowards(target, 200f);
+
+        // The distance cannot fall any further, so nothing may move. Scaling the pivot by the factor
+        // that was *asked* for instead of the one that happened is a view that keeps sliding towards
+        // the pointer for as long as the wheel is turned at the bottom of the zoom.
+        Assert.Equal(EditorCamera.MinimumDistance, camera.Distance);
+        Assert.True(Vector3.NearEqual(camera.Pivot, Vector3.Zero, 1e-4f));
+    }
+
+    [Fact]
+    public void A_point_behind_the_eye_has_no_screen_position() {
+        var camera = new EditorCamera { Distance = 10f };
+
+        Assert.True(camera.TryProject(Vector3.Zero, 1000, 800, out var middle));
+        Assert.Equal(500f, middle.X, 2);
+
+        // Behind the camera, which sits at +10 on z looking down −z. A perspective divide by a
+        // negative w answers with a real pixel position on the wrong side of the pane, and nothing
+        // downstream can tell it from a real one — see EditorCamera.TryProject.
+        Assert.False(camera.TryProject(new Vector3(0f, 0f, 40f), 1000, 800, out _));
+    }
+
+    [Fact]
+    public void Orthographic_projects_what_is_behind_it_too() {
+        var camera = new EditorCamera { Distance = 10f, IsOrthographic = true };
+
+        // No divide, so there is nothing to go wrong and nothing to reject. Rejecting it anyway would
+        // make the gizmo unclickable in the three orthographic panes of a quad layout, where the
+        // camera routinely sits inside the scene.
+        Assert.True(camera.TryProject(new Vector3(0f, 0f, 40f), 1000, 800, out var behind));
+        Assert.Equal(500f, behind.X, 2);
     }
 
     [Fact]

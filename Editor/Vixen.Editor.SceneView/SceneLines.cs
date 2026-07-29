@@ -73,8 +73,12 @@ public sealed class SceneLines {
 
     void Grid(SceneViewport viewport, int height) {
         foreach (var line in viewport.Grid.Build(viewport.Camera, height)) {
+            // ⚠ A colour per end, not one for the line. The grid fades its lines out towards their
+            // far ends so that a level runs out into nothing instead of stopping at a rectangle, and
+            // that fade only exists if both ends are carried through — writing `line.Colour` twice
+            // draws the rectangle back.
             world.Add(new(line.From, line.Colour));
-            world.Add(new(line.To, line.Colour));
+            world.Add(new(line.To, line.ToColour));
         }
     }
 

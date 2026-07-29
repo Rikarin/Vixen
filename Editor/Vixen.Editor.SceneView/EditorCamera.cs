@@ -105,6 +105,14 @@ public sealed class EditorCamera {
     /// <summary>How fast an orbit turns, in radians per render pixel.</summary>
     public float OrbitSpeed { get; set; } = 0.006f;
 
+    /// <summary>Whether a vertical orbit drag goes the other way.</summary>
+    /// <remarks>
+    ///     The "invert Y" every editor offers, and it is a preference rather than a fix: which way an
+    ///     orbit's vertical axis goes is the one navigation setting people genuinely disagree about.
+    ///     Off is the turntable — see <see cref="Orbit" />.
+    /// </remarks>
+    public bool InvertOrbitY { get; set; }
+
     /// <summary>How much one wheel notch changes the distance, as a fraction.</summary>
     public float ZoomSpeed { get; set; } = 0.12f;
 
@@ -191,17 +199,75 @@ public sealed class EditorCamera {
     /// <param name="deltaX">How far the pointer moved horizontally, in render pixels.</param>
     /// <param name="deltaY">How far it moved vertically, positive downwards.</param>
     /// <remarks>
-    ///     ⚠ <b>A drag downwards takes the camera down and a drag upwards takes it over the top.</b>
-    ///     The two axes carry different things — sideways spins the scene the way the pointer went,
-    ///     vertically the <i>camera</i> goes the way the pointer went — and that mixture is what a
-    ///     turntable is. Pitching with the other sign is the thing other editors offer as an "invert
-    ///     Y" setting, and it is what <see cref="ViewportLayout" />'s perspective preset silently got:
-    ///     it asks for a drag up and to the left and expects the three-quarter view from above, and
-    ///     with the pitch inverted it ended up underneath the grid looking at the sky.
+    ///     <para>
+    ///         <b>The scene follows the pointer on both axes.</b> Dragging right swings what you are
+    ///         looking at to the right and dragging up tips its top towards you, which is the
+    ///         turntable Blender, Maya and 3ds Max all present: the gesture is "grab the thing and
+    ///         turn it", and it is one gesture rather than two rules.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only the horizontal axis used to do that.</b> The vertical carried the
+    ///         <i>camera</i> instead — drag up, camera climbs — so the two halves of one drag
+    ///         disagreed about what was being held, and a diagonal drag rotated the scene one way and
+    ///         the eye the other. It survived review because the scene was also being presented
+    ///         mirrored (see <c>Viewport.FlipVertically</c>), and the two wrongs cancelled on screen.
+    ///     </para>
+    ///     <para>
+    ///         Unity and Unreal orbit the other way on <i>both</i> axes, and people who come from them
+    ///         want the whole gesture reversed rather than half of it. That is
+    ///         <see cref="InvertOrbitY" /> together with a negated <paramref name="deltaX" />, not a
+    ///         different rule here.
+    ///     </para>
     /// </remarks>
-    public void Orbit(float deltaX, float deltaY) {
-        Yaw -= deltaX * OrbitSpeed;
-        Pitch = Math.Clamp(Pitch + (deltaY * OrbitSpeed), -PitchLimit, PitchLimit);
+    public void Orbit(float deltaX, float deltaY) =>
+        Turn(-deltaX * OrbitSpeed, (InvertOrbitY ? deltaY : -deltaY) * OrbitSpeed);
+
+    /// <summary>Turns the camera about its pivot by an angle rather than by a drag.</summary>
+    /// <param name="yaw">How far to turn about the world's up, in radians.</param>
+    /// <param name="pitch">How far to raise the eye, in radians. Clamped short of vertical.</param>
+    /// <remarks>
+    ///     What the numpad's four orbit keys press, and what <see cref="Orbit" /> is in terms of once
+    ///     the pixels have become angles. Separate because a keyboard orbit that had to invent a
+    ///     pointer delta would go the wrong way the moment <see cref="InvertOrbitY" /> was set.
+    /// </remarks>
+    public void Turn(float yaw, float pitch) {
+        Yaw += yaw;
+        Pitch = Math.Clamp(Pitch + pitch, -PitchLimit, PitchLimit);
+    }
+
+    /// <summary>Turns the camera about a point that is not its pivot.</summary>
+    /// <param name="anchor">What to swing around, in world space.</param>
+    /// <param name="deltaX">How far the pointer moved horizontally, in render pixels.</param>
+    /// <param name="deltaY">How far it moved vertically, positive downwards.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What "orbit around selection" is.</b> The camera's four numbers can only orbit the
+    ///         pivot, so orbiting something else means turning the whole rig — eye and pivot together
+    ///         — about the anchor, and that is what this does: the pivot's offset from the anchor is
+    ///         read in the camera's own basis before the turn and rebuilt in the basis after it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Measured against the basis the turn actually produced, not the one it asked
+    ///         for.</b> <see cref="Turn" /> clamps the pitch, so at the poles the rotation applied is
+    ///         smaller than the rotation requested — and rebuilding the offset from the requested one
+    ///         would slide the pivot a little further every frame somebody held the drag at the top of
+    ///         its travel. That is a view that drifts only when it is already at its limit, which is
+    ///         the hardest kind of drift to be shown.
+    ///     </para>
+    /// </remarks>
+    public void OrbitAround(Vector3 anchor, float deltaX, float deltaY) {
+        var (right, up, forward) = (Right, Up, Forward);
+        var offset = Pivot - anchor;
+
+        var local = new Vector3(
+            Vector3.Dot(offset, right),
+            Vector3.Dot(offset, up),
+            Vector3.Dot(offset, forward)
+        );
+
+        Orbit(deltaX, deltaY);
+
+        Pivot = anchor + (Right * local.X) + (Up * local.Y) + (Forward * local.Z);
     }
 
     /// <summary>Slides the view sideways and up, keeping the direction.</summary>
@@ -230,6 +296,54 @@ public sealed class EditorCamera {
     ///     current distance takes the same number of notches to halve the distance wherever you are.
     /// </remarks>
     public void Zoom(float notches) => Distance *= MathF.Pow(1f - ZoomSpeed, notches);
+
+    /// <summary>Moves the camera towards or away from a point, keeping that point still on screen.</summary>
+    /// <param name="target">What to zoom at, in world space. Taken to be at the pivot's depth.</param>
+    /// <param name="notches">Wheel notches. Positive comes closer.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Blender's "zoom to mouse position", and the reason it is worth having.</b> A zoom
+    ///         about the middle of the pane means approaching anything off-centre is zoom, pan, zoom,
+    ///         pan — and the thing being approached leaves the view between every pair of them. Zooming
+    ///         at the pointer is one gesture.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The pivot is moved by the factor the distance actually changed by</b>, which is
+    ///         not the factor asked for once <see cref="MinimumDistance" /> has clamped it. Using the
+    ///         requested one would keep hauling the pivot towards the target after the camera had
+    ///         stopped being able to approach it, so a wheel held down at the floor of the zoom would
+    ///         slide the view sideways for ever.
+    ///     </para>
+    /// </remarks>
+    public void ZoomTowards(Vector3 target, float notches) {
+        var before = Distance;
+
+        Zoom(notches);
+
+        // Similar triangles: the whole rig scales about the target, so a point at the pivot's depth
+        // keeps the screen position it had.
+        Pivot = target + ((Pivot - target) * (Distance / before));
+    }
+
+    /// <summary>Where a ray crosses the plane through the pivot that faces the camera.</summary>
+    /// <param name="ray">The ray, usually the one under the pointer.</param>
+    /// <returns>The point, or the pivot when the ray runs parallel to the plane.</returns>
+    /// <remarks>
+    ///     The depth a scene view assumes when it has not been told one: it is where the grid is when
+    ///     the grid is what you are looking at, and it is what <see cref="ZoomTowards" /> and a pan
+    ///     both measure against. An editor with a depth buffer to sample would use that instead —
+    ///     Blender calls it auto-depth — and this is the fallback that needs no device.
+    /// </remarks>
+    public Vector3 OnPivotPlane(Ray ray) {
+        var normal = Forward;
+        var denominator = Vector3.Dot(ray.Direction, normal);
+
+        if (MathF.Abs(denominator) < MathUtil.ZeroTolerance) {
+            return Pivot;
+        }
+
+        return ray.Origin + (ray.Direction * (Vector3.Dot(Pivot - ray.Origin, normal) / denominator));
+    }
 
     /// <summary>Moves the view along its own basis, for WASDQE flight.</summary>
     /// <param name="right">How far right, in units of speed.</param>
@@ -323,5 +437,55 @@ public sealed class EditorCamera {
         var viewport = new Viewport(0f, 0f, width, height);
 
         return viewport.Project(world, ViewProjection(viewport.AspectRatio));
+    }
+
+    /// <summary>Where a world point lands in the viewport, if it lands in it at all.</summary>
+    /// <param name="world">The point.</param>
+    /// <param name="width">How wide the viewport is, in render pixels.</param>
+    /// <param name="height">How tall.</param>
+    /// <param name="point">Its x and y in render pixels.</param>
+    /// <returns>Whether the point is in front of the eye and has a screen position.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A perspective projection has an answer for points behind the camera and the
+    ///         answer is a lie.</b> The divide by <c>w</c> is a divide by a negative number back
+    ///         there, so a point behind the eye comes back mirrored through the middle of the pane —
+    ///         a real pixel position, on the wrong side, moving the wrong way. Nothing downstream can
+    ///         tell that from a real one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is how a gizmo answers clicks in empty space.</b>
+    ///         <c>TransformGizmo.HitTest</c> measures the pointer's distance to the projected arms; an
+    ///         arm whose far end folded round to the other side of the pane is a segment lying across
+    ///         the viewport that nothing drew, and the pointer is regularly within its grab radius.
+    ///         The selection then leaps when the drag starts, because the ray and the projection
+    ///         disagree about where the handle was. This is the check that makes that case answer
+    ///         "no handle" instead.
+    ///     </para>
+    ///     <para>
+    ///         Orthographic needs none of it: the projection is affine, there is no divide, and a
+    ///         point behind the camera projects exactly where the maths says — which is why the test
+    ///         is on the perspective path only rather than being a general clip.
+    ///     </para>
+    /// </remarks>
+    public bool TryProject(Vector3 world, int width, int height, out Vector2 point) {
+        point = default;
+
+        if (width <= 0 || height <= 0) {
+            return false;
+        }
+
+        if (!IsOrthographic && Vector3.Dot(world - Position, Forward) <= NearPlane) {
+            return false;
+        }
+
+        var projected = Project(world, width, height);
+
+        if (!float.IsFinite(projected.X) || !float.IsFinite(projected.Y)) {
+            return false;
+        }
+
+        point = new(projected.X, projected.Y);
+        return true;
     }
 }

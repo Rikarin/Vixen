@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
 using Vixen.Rendering;
 using Vixen.Ui;
@@ -216,7 +217,12 @@ public sealed class ViewportLayout : IDisposable {
             default:
                 // The perspective pane keeps the default angle rather than an axis view, which is
                 // what makes it the one you actually work in.
-                pane.Camera.Orbit(-160f, -90f);
+                //
+                // ⚠ In degrees through `Turn` rather than as a pointer drag through `Orbit`. A
+                // preset expressed as pixels is one that moves when the orbit speed is tuned and
+                // reverses when somebody sets `InvertOrbitY` — and this preset was already the
+                // casualty of the second of those, coming up underneath the grid looking at the sky.
+                pane.Camera.Turn(MathUtil.DegreesToRadians(45f), MathUtil.DegreesToRadians(-30f));
                 break;
         }
     }

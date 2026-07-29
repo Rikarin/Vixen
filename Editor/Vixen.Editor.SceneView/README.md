@@ -13,6 +13,7 @@ layout.TargetsFactory = () => EntityGizmoTarget.For(world, selection);
 foreach (var pane in layout.Panes) {
     pane.Gizmo.Mode = GizmoMode.Translate;
     pane.Gizmo.Snap.SnapPosition = true;
+    pane.OrbitAround = OrbitPivot.Selection;   // Blender's "orbit around selection"
     pane.Picking = new PickingBuffer(device);
 }
 
@@ -31,6 +32,30 @@ Everything below the viewport is arithmetic over interfaces with no device in it
 makes "does dragging the X arm fifteen pixels move it the right distance" a unit test rather than a
 screenshot somebody looks at, and it is why this assembly's test suite needs no GPU.
 
+## ⚠ The scene was being presented upside down
+
+`Viewport.FlipVertically` defaulted to on, and it had no business being on. Both backends resolve the
+engine's +Y-up clip space where the API is — Vulkan with a negative-height viewport, OpenGL by
+flipping the viewport origin — so a colour target's row zero is already the *top* of the view, and
+`Conventions.md` puts the UV origin at the top-left. Sampling it as it stands is right; the flip
+mirrored the whole pane about its horizon.
+
+Almost nothing looked wrong. A grid is symmetric, a scene of markers is nearly so, and the corner
+axis cross is an interface element that did not flip with it. What was noticed instead was everything
+that *measures* the pane, because all of it — `TransformGizmo.HitTest`, `EditorCamera.PickingRay`,
+`Viewport.Project` — measures the unmirrored image:
+
+- the gizmo could not be clicked near the top or bottom of the pane and *could* near the middle,
+  because the error is zero at the centreline and grows to the full height of the pane at the edges;
+- hover lit up a handle the cursor was visibly not on — the same error, a little smaller;
+- a vertical pan and a vertical orbit both went the wrong way;
+- the grid and the origin lines were mirrored, which for a symmetric grid reads as "the grid is
+  wrong" rather than as "the picture is upside down".
+
+The property stays, for a host whose renderer really does hand over a bottom-up target, and it is
+that host's job to say so. `ViewportTests` pins the default from one end and
+`LineImageTests.AssertTheDiagonalFades` from the other.
+
 ## The camera is four numbers
 
 A pivot, a distance and two angles. Every navigation a scene view has is an operation on those: orbit
@@ -45,8 +70,21 @@ people use most.
   pixels — that conversion belongs to the backend, which knows the device and the machine's settings
   — so `SceneViewport.Notches` divides before the camera sees it, and negates: pushing the wheel away
   from you moves in.
-- **Orbit is a turntable.** Sideways carries the scene and vertically carries the camera: dragging
-  right spins what you are looking at to the right, dragging up climbs over the top of it.
+- **Orbit is a turntable, on both axes.** The scene follows the pointer: dragging right spins what you
+  are looking at to the right, and dragging up tips its top towards you and puts the eye beneath it.
+  ⚠ The vertical used to carry the *camera* instead, so one diagonal drag turned the scene one way and
+  the eye the other — and it survived review because the pane was being presented mirrored and the two
+  wrongs cancelled on screen. Unity and Unreal orbit the other way on both axes; people who come from
+  them want the whole gesture reversed, which is `InvertOrbitY` plus a negated horizontal, not a
+  different rule.
+- **`OrbitAround` turns the whole rig about a point that is not the pivot.** The camera can only orbit
+  its own pivot, so orbiting the selection means reading the pivot's offset in the camera's basis
+  before the turn and rebuilding it in the basis after — ⚠ the basis the turn *produced*, not the one
+  it was asked for, or a drag held at the pitch limit slides the pivot a little further every frame.
+- **`ZoomTowards` keeps a point still while the distance changes.** Blender's "zoom to mouse
+  position", and the reason it is worth having is that approaching anything off-centre is otherwise
+  zoom, pan, zoom, pan. ⚠ The pivot moves by the factor the distance *actually* changed by, which is
+  not the one asked for once `MinimumDistance` has clamped it.
 - **Flight is orbiting from where you are.** WASDQE moves the *pivot* along the camera's basis rather
   than switching to a second camera model, so leaving fly mode does not teleport the view and the
   orbit afterwards is about something in front of you.
@@ -56,10 +94,51 @@ people use most.
   time: you lined the view up and then asked to see something *in* it.
 - **The orthographic height is derived from the distance**, so pressing the projection key does not
   rescale the picture.
+- **`TryProject` is `Project` with the lie taken out.** A perspective divide by a negative `w` answers
+  for points behind the eye with a real pixel position, mirrored through the middle of the pane, and
+  nothing downstream can tell it from a real one — which is how a gizmo behind the camera answers
+  clicks in empty space. Orthographic is affine and needs none of it.
 
 Bookmarks are the four numbers plus the projection, and the numpad views set the two angles and
 deliberately do *not* force orthographic — a key that changed two things at once is one people stop
 pressing.
+
+### The gestures
+
+Blender's middle-button set, plus Maya's Alt chords, plus the right button that flies. The two sets do
+not collide because Blender's use no modifier where Maya's use Alt.
+
+| Gesture | Does |
+| --- | --- |
+| Middle drag | Orbit |
+| Shift + middle | Pan |
+| Ctrl + middle | Dolly |
+| Alt + left / middle / right | Orbit / pan / dolly — Maya's spelling of the same three |
+| Left drag | Drive the gizmo, or start a selection |
+| Right drag | Orbit, and hold it for WASDQE flight |
+| Wheel | Zoom, at the pointer if `ZoomToCursor` |
+| Numpad 1/3/7, 9 | Front, right, top; back |
+| Numpad 2/4/6/8 | Orbit fifteen degrees |
+| Numpad 5 | Toggle orthographic |
+
+⚠ The middle button used to pan whatever was held with it — two branches written for one answer — so
+there was no orbit on it at all, and the only orbit was on the right button, which is also the one
+that captures WASDQE. Somebody arriving from Blender found that the button which turns the view slides
+it, and that trying the other one started a flight.
+
+⚠ **The keyboard orbits in degrees, through `Turn`.** A keyboard orbit expressed as a pointer delta
+moves when the orbit speed is tuned and reverses when somebody sets "invert orbit Y" — and a key that
+says "turn left" has no business being affected by a preference about the mouse. `ViewportLayout`'s
+perspective preset was expressed that way and was the casualty of exactly that: it asked for a drag up
+and to the left, and came up underneath the grid looking at the sky.
+
+**Orbit around selection** is Blender's preference of the same name, and it is a preference because
+both answers are right for different work: the view's own pivot keeps whatever is in the middle of the
+pane in the middle of it, and the selection is what you want the moment you are working on something
+that is not. The anchor is read from the *gizmo* rather than from the selection directly, so it
+honours `TransformGizmo.Pivot` and a multiple selection swings around whatever the handles are sitting
+on. Nothing selected has no anchor and falls back to the view, because a preference that stopped the
+view turning until something was clicked would read as the middle button having broken.
 
 ### Flight is the one gesture the keymap cannot hold
 
@@ -87,13 +166,64 @@ The gizmo records what each target held on mouse-down and applies **the whole of
 every frame. Three consequences, and all three are bugs in the implementation that adds each frame's
 delta:
 
-- snapping lands *on* the grid rather than near it, however slowly the drag was made;
+- a snapped drag moves by a whole number of steps however slowly it was made, rather than by a
+  rounding error per frame that adds up to somewhere between two of them;
 - a drag that goes out and comes back ends exactly where it began;
 - floating-point drift is impossible rather than merely small.
 
 Hit-testing is in screen space, not by ray against solid handle geometry: an arm is a line a few pixels
 wide, and a ray test against a cylinder that thin misses more often than it hits. Innermost handles are
 tested first, because the plane quads overlap the arms they sit between.
+
+### What "it does not work from all angles" was
+
+Four separate faults, all of which read to a user as the same one — the gizmo answering somewhere
+other than where it is drawn.
+
+- **The first arm within tolerance won, not the nearest.** The arms cross on screen from most angles,
+  and at every crossing the answer was whichever the loop reached first, which was X, always.
+- **Nothing owned the middle.** The three arms all pass through the origin, so a click anywhere near
+  it started an X drag — and translate offered no middle handle at all, so there was nothing else it
+  *could* answer. There is one now: a square that drags in the view plane, which is how anything gets
+  moved that is not along an axis. Scale's square has always been there and was never drawn. The arms
+  now start at `ArmStart` in the picture *and* in the test, so the middle belongs to the square in
+  both.
+- **An arm pointing at the eye was still offered.** It projects to a dot, so every pixel of it is
+  within the grab radius of every other and it wins the middle of the gizmo — and then drags along a
+  line that has no direction on screen, which moves the selection by whatever the ray's numerical
+  error happens to be. `IsAxisVisible` is one dot product and is what both the hit test and the
+  geometry ask, so a handle that is hidden is not grabbable and vice versa.
+- **A gizmo behind the camera had grabbable arms.** See `TryProject` above.
+
+Rotation rings are cut to the half facing the camera, in the picture and in the test. Three full
+circles about one point cross each other twelve times, and at every crossing the front of one ring is
+drawn over the back of another — so aiming at the green ring where the red one passes behind it was a
+coin toss, and the space inside the gizmo that looks empty was criss-crossed by the far sides of all
+three. ⚠ The run is *broken* rather than the point skipped: joining the last point before the horizon
+to the first one after it draws a chord across the gizmo belonging to no handle.
+
+⚠ **An edge-on ring is dragged along the screen, not in its own plane.** The ray and the plane are
+nearly parallel, so the crossing point is hundreds of units away and moves by tens of them per pixel;
+exactly parallel there is no crossing at all, and `OnPlane` answered with the translate drag's start
+point — a field a rotation never wrote. That is a gizmo that spins wildly and then jumps, in the most
+ordinary pose there is: a horizontal camera, turning something about Y. `Begin` notices it once, at
+the grab, and the rest of that drag is arc length over radius. ⚠ The tangent is taken at the point of
+the ring *nearest the eye* rather than at the point grabbed: at the two ends of an edge-on ring's
+silhouette, turning moves it directly towards or away from the viewer, so no pointer motion there
+means anything. It is also the physical answer — a hoop seen edge-on is turned by pushing the part
+closest to you sideways.
+
+**The handles are an overlay.** `LineRenderer` has had a second pipeline differing only in the depth
+test from the start, and nothing could use it: `Record` drew the whole buffer with one of them, so the
+world's lines and the gizmo's had to agree, and they agreed on the depth test — which hides the
+handles inside the object they are moving. `Record` now takes a vertex range, `SceneLines` has always
+kept the two lists apart, and `ScenePresenter` uploads once and draws twice.
+
+**Snapping is two different things and only one of them puts objects on the grid.** By default — and
+this is what Blender, Unity and Unreal all do — a drag moves by a whole number of steps, so something
+at 0.3 dragged one step lands at 1.3. `SnapSettings.AbsoluteGrid` rounds the resulting *position*
+instead, so everything dragged ends up on the same lattice however it started. The doc comment used to
+claim the second and the code did the first.
 
 ### It has to be attached every frame, not on the press that grabs it
 
@@ -154,6 +284,41 @@ per target — a rotate about a group's centre both moves and turns each object,
 one drag would be three undo steps that only make sense applied together. Escape rolls the drag back
 immediately rather than through the stack, so the viewport is redrawn from the model the instant the key
 is pressed.
+
+## The floor grid
+
+The spacing is chosen, not fixed: the 1-2-5 step that puts the lines roughly `TargetSpacing` pixels
+apart, which is the rule a chart's axis ticks follow and for the same reason. A one-metre grid is a
+grey haze from two hundred metres up and three lines from half a metre away.
+
+Everything else about it is decided from the **world coordinate**, and the four things that were
+decided from a loop index or a line count instead are the four ways it looked wrong:
+
+- **The emphasised lines were every tenth *line*, not every tenth round number.** The lines are laid
+  out from the pivot, so the emphasis marched sideways one line at a time as the view was panned — a
+  grid that is subtly, continuously wrong and that nobody can point at. ⚠ `MajorColour` is now
+  brighter as well as more opaque, because the two used to differ only in alpha and the distance fade
+  below took that over: an emphasised line at the rim came out fainter than an ordinary one under the
+  pivot, so the emphasis said "near" rather than "round".
+- **The finer level was a tenth of the coarse one**, which is four or five pixels apart at every
+  distance — permanently too dense to read and permanently drawn. So the fade computed from it never
+  left a tenth, and the level it controlled was an invisible haze costing two hundred segments a
+  frame. It is now the previous step of the sequence, half or two fifths of the coarse spacing, which
+  is legible at one end of a bracket and not at the other — which is the only reason a fade has
+  anything to do.
+- **The finer level used the coarse level's line count**, so it covered a tenth of the reach: a small
+  dense square patch sitting in the middle of the grid.
+- **The reach was a fixed count of lines**, which is a fixed reach in *screen* terms — right looking
+  down and far too short looking along the ground, where the whole budget is spent in the first few
+  metres and the floor stops just past your feet. It is now in screen-heights at the pivot's depth,
+  the one unit that is the same at every zoom, with a hard ceiling on the segment count because a
+  camera at the horizon can see for ever.
+
+⚠ **Every line is emitted as two halves meeting under the pivot**, faded to nothing at the ends. A
+colour at each end can only fade one way along a segment, and what a grid has to do is be solid where
+you are looking and gone at the rim — three colours across one line. `LineVertex` has carried a colour
+per vertex from the start for exactly this; the grid was the caller that was not using it, so its far
+edge was a hard rectangle drawn across the scene.
 
 ## Picking is a render stage
 
@@ -332,6 +497,17 @@ rather than an id.
 
 **Rubber-band selection.** The picking stage answers one pixel; a marquee wants a region, which is a
 different copy and a different resolve.
+
+**Clicking to select in the viewport.** `SceneViewport.Pick` needs a `PickingBuffer` and
+`Vixen.Editor.App` never sets one, so a click on empty space does nothing and the selection is made in
+the hierarchy panel. The stage is written and tested; what it has nothing to draw *with* is the same
+gap as meshes, above — a pass that renders object ids needs geometry that carries them, and a scene of
+line crosses does not.
+
+**Auto-depth.** `EditorCamera.OnPivotPlane` is the depth a zoom-at-the-pointer assumes when it has not
+been told one, and it is right when the grid is what you are looking at. Blender samples the depth
+buffer instead. That wants a readback the picking stage already knows how to do, and it wants
+something in the depth buffer to sample.
 
 **Meshes.** `Vixen.Editor.App` renders the scene into an offscreen target and hands it to the
 interface, so the viewport is live. What goes in it is lines: there is no material system wired to an

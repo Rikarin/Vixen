@@ -196,13 +196,27 @@ public sealed partial class Viewport : Control {
     ///     Whether the rendered image is flipped vertically on its way to the screen.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A scene is rendered with the engine's Y up and an interface is drawn with Y down</b>,
-    ///     so a render target sampled as it stands is upside down. Which way round it should go is
-    ///     the host's answer, not this one's — a target the renderer already flipped is not to be
-    ///     flipped twice — so it is a property with the common case as its default rather than
-    ///     something assumed.
+    ///     <para>
+    ///         ⚠ <b>Off, because the backend has already done it.</b> The engine's clip space has +Y
+    ///         up and both backends resolve that where the API is — Vulkan with a negative-height
+    ///         viewport, OpenGL by flipping the viewport origin — so a colour target's row zero is
+    ///         already the <i>top</i> of the view, and UVs run from the top-left
+    ///         (<c>Conventions.md</c> § UV origin). Sampling it as it stands is right.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Turning it on mirrors the picture about the horizon, and almost nothing looks
+    ///         wrong.</b> A grid is symmetric, a scene of markers is nearly so, and the corner axis
+    ///         cross is an interface element that does not flip with it — so what a reader notices is
+    ///         not "upside down" but that the gizmo cannot be clicked near the top or bottom of the
+    ///         pane, that hover lights up a handle the cursor is not on, and that a vertical pan goes
+    ///         the wrong way. All of the arithmetic behind those — <c>TransformGizmo.HitTest</c>,
+    ///         <c>EditorCamera.PickingRay</c>, <c>Viewport.Project</c> — measures the unmirrored
+    ///         image, so the error is zero at the middle of the pane and grows to the full height of
+    ///         it at the edges. It is left settable for a host whose renderer really does hand over
+    ///         a bottom-up target, and that host is the one that has to say so.
+    ///     </para>
     /// </remarks>
-    [UiProperty(Default = true)]
+    [UiProperty(Default = false)]
     public partial bool FlipVertically { get; set; }
 
     /// <summary>How wide the render target should be, in render pixels.</summary>
