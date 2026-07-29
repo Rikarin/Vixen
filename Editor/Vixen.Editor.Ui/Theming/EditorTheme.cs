@@ -253,12 +253,25 @@ public static class EditorTheme {
             border-radius: var(--radius-control);
             background-color: var(--surface);
             overflow: hidden;
+
+            /* ⚠ A pixel of it, and it is what keeps a member's fill off the group's rounded
+               corner. `overflow: hidden` is a *scissor* — the clip a draw list pushes carries the
+               radius and the geometry builder resolves it to a rectangle — so a square fill drawn
+               into a rounded box is clipped by the box's bounds and not by its corners. Inset by
+               the border and this padding, the fill never reaches a corner for the clip to have
+               to round. */
+            padding: 1px;
         }
 
+        /* ⚠ Rounded, where a segmented member's fill would normally be square. The draw path has
+           one radius per element rather than four — `border-top-left-radius` is the corner it
+           reads — so the usual answer, square inner corners and round outer ones, cannot be
+           written. Two pixels is the group's four less the border and the padding above it, which
+           is the radius concentric with the one the group draws. */
         toolbar-group button, toolbar-group icon-button, toolbar-group toggle-button,
         toolbar-group button.variant-subtle, toolbar-group icon-button.variant-subtle {
             border-width: 0px;
-            border-radius: 0px;
+            border-radius: 2px;
             background-color: transparent;
         }
 

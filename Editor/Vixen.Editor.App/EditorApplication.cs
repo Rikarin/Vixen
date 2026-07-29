@@ -900,10 +900,13 @@ sealed partial class EditorApplication : IDisposable {
                 inspector = panel.Add<InspectorView>();
                 inspector.EditedDocument = scene;
 
-                // ⚠ Under the inspector rather than inside it. `InspectorView` draws the members of
-                // one described type; which *types* are on an entity is a different question, and
-                // one it deliberately cannot ask — see `ComponentsView`.
-                components = panel.Add<ComponentsView>();
+                // ⚠ Under the inspector's rows rather than inside its model. `InspectorView` draws
+                // the members of one described type; which *types* are on an entity is a different
+                // question, and one it deliberately cannot ask — see `ComponentsView`. What it does
+                // share is the scroll region: an entity with six components is longer than any
+                // panel, and two independent scroll regions would leave half the answer off screen
+                // whichever one you moved.
+                components = inspector.Scroll.Content.Add<ComponentsView>();
                 components.Attach(scene, bridges);
 
                 // ⚠ After it is in the tree, because the menu is a child of the document root and a

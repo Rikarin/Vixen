@@ -102,7 +102,7 @@ looking at a real model:
 | Panel | What it is |
 |---|---|
 | Hierarchy | a `TreeView` over the scene's entities, with a name filter above it. Selection goes both ways — clicking a row selects, and selecting anywhere else highlights the row — and renaming, creating, deleting and dragging-to-reparent are all undo entries |
-| Inspector | an `InspectorView` over whichever selection was last clicked in — the scene's entities or the project's assets — recording every edit on the scene document's stack |
+| Inspector | an `InspectorView` over whichever selection was last clicked in — the scene's entities or the project's assets — recording every edit on the scene document's stack, with `ComponentsView` under the rows in the same scroll region |
 | Scene | a `ViewportLayout` of one, two or four `SceneViewport`s, each with its own camera, view mode and show flags, and a floating toolbar, stats readout and rubber-band drawn over the focused one |
 | Project | `ProjectBrowser`: the asset database as a tree, with a search box, over the real `Assets/` directory. Double-clicking a row opens the asset |
 | An asset | one per open document, built by whichever of the nine asset editors claims the file |

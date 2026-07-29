@@ -66,8 +66,15 @@ public sealed class TransformGizmo {
     ///     from are nearer twice that. It is also what sizes <see cref="PlaneOffset" /> and
     ///     <see cref="PlaneSize" />, which are fractions of it, so a short arm makes plane quads too
     ///     small to aim at as well.
+    ///     <para>
+    ///         ⚠ <b>The pixel sizes below move with it.</b> <see cref="GrabRadius" />,
+    ///         <see cref="Thickness" />, <see cref="CentreRadius" /> and
+    ///         <see cref="MinimumAxisLength" /> are absolute rather than fractions of the arm, so
+    ///         lengthening the arm alone draws a longer gizmo made of the same thin lines with the
+    ///         same small middle — which is a gizmo that got bigger without getting easier to hit.
+    ///     </para>
     /// </remarks>
-    public float HandleLength { get; set; } = 150f;
+    public float HandleLength { get; set; } = 200f;
 
     /// <summary>How near the pointer has to be to an arm to grab it, in render pixels.</summary>
     /// <remarks>
@@ -77,7 +84,7 @@ public sealed class TransformGizmo {
     ///     an arm and works in the middle of it, and so reads as the tool being unreliable rather
     ///     than as a number being wrong.
     /// </remarks>
-    public float GrabRadius { get; set; } = 14f;
+    public float GrabRadius { get; set; } = 18f;
 
     /// <summary>How thick the handles are drawn, in render pixels.</summary>
     /// <remarks>
@@ -88,7 +95,7 @@ public sealed class TransformGizmo {
     ///     how many pixels across the result is, and it is here rather than there because the hit test
     ///     has to know how wide the thing it is testing looks.
     /// </remarks>
-    public float Thickness { get; set; } = 5f;
+    public float Thickness { get; set; } = 6f;
 
     /// <summary>How far along the arms the plane quads sit, as a fraction of the arm.</summary>
     public float PlaneOffset { get; set; } = 0.35f;
@@ -97,7 +104,7 @@ public sealed class TransformGizmo {
     public float PlaneSize { get; set; } = 0.22f;
 
     /// <summary>How big the middle box is, in render pixels.</summary>
-    public float CentreRadius { get; set; } = 18f;
+    public float CentreRadius { get; set; } = 24f;
 
     /// <summary>How far out the screen-facing rotation ring sits, as a fraction of the arm.</summary>
     /// <remarks>
@@ -140,7 +147,7 @@ public sealed class TransformGizmo {
     ///     in <c>GizmoGeometry</c>, because a handle that is drawn and not grabbable is worse than one
     ///     that is neither.
     /// </remarks>
-    public float MinimumAxisLength { get; set; } = 24f;
+    public float MinimumAxisLength { get; set; } = 32f;
 
     /// <summary>
     ///     How nearly a rotation ring may be edge-on before its drag is measured along the screen
