@@ -1,0 +1,113 @@
+package Vixen.Shaders.PostFx
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+import Vixen.Shaders.DistanceFields
+
+// Large-scale occlusion and a sun shadow, traced through the global distance field.
+//
+// The companion to `Ssao`, not a replacement for it, and the difference is what each one can see. GTAO
+// searches the depth buffer, so it is sharp, cheap and completely blind to anything off screen — a wall
+// behind the camera does not darken the floor in front of it. This searches the field, so it sees the
+// whole world at the field's own resolution and nothing finer. A frame wants both, multiplied together:
+// contact darkening from one, the room from the other.
+//
+// It also traces a shadow ray, because the march is already paid for. A distance field answers "how much
+// of the sky is blocked" and "how much of the sun is blocked" with the same walk and the same data, and
+// the sun's penumbra falls out of how close the ray passed rather than out of a filter kernel — which is
+// the part that reads as real and is what a cascade cannot do at any resolution.
+//
+// The field arrives through a compose slot rather than as bindings of this pass. That is what lets a
+// project with no clipmap fill it with something that answers "nothing is near": no permutation here, no
+// branch, and no descriptors bound for a feature nobody uses.
+
+shader DistanceFieldAo {
+    /// Where the distances come from. `GlobalDistanceField` is the one that reads a clipmap.
+    compose val distanceField: IDistanceFieldSource
+
+    /// Whether to trace a sun shadow alongside the occlusion.
+    ///
+    /// A permutation and not a branch: with it off the march is not merely skipped, it is not compiled,
+    /// and a pass that only wants occlusion does not carry the sun's uniforms either.
+    [Permutation] val SunShadow: bool = true
+
+    var depthBuffer: Texture2D
+    var normalBuffer: Texture2D
+    var pointSampler: Sampler
+
+    /// Turns a UV and a device depth back into a world position, which is where the march starts.
+    var inverseViewProjection: mat4
+
+    /// How far up the normal the occlusion integral looks, in world units.
+    var occlusionRadius: float = 2f
+
+    /// How many steps it takes along that. More is smoother and costs a sample each.
+    var occlusionSamples: int = 5
+
+    /// How dark the occlusion goes.
+    var occlusionStrength: float = 1f
+
+    /// Which way the sun is, in world space.
+    var sunDirection: float3 = float3(0f, 1f, 0f)
+
+    /// How far to march toward it before calling the point lit.
+    var sunDistance: float = 200f
+
+    /// The reciprocal of the sun's angular radius. Larger is a sharper shadow.
+    var sunSoftness: float = 8f
+
+    /// How far off the surface the shadow ray starts.
+    ///
+    /// The same quantity a shadow map's depth bias is, with the same failure mode: without it every lit
+    /// surface shadows itself, and with too much every contact shadow detaches from what casts it. A
+    /// cell of the finest level is the honest scale, because that is the resolution of the thing being
+    /// traced.
+    var shadowBias: float = 0.2f
+
+    /// How many steps a shadow march may take.
+    var shadowSteps: int = 64
+
+    /// How near counts as arrived, for both marches.
+    var surfaceThreshold: float = 0.05f
+
+    /// What fraction of the reported distance each step actually takes.
+    ///
+    /// Below one because a trilinear field over-reports near a convex corner, which is exactly a step
+    /// that crosses the surface and a ray that comes out the other side. See `DistanceFieldTracer`.
+    var stepScale: float = 0.9f
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex([Semantic("SV_VertexID")] vertexIndex: int): float4 {
+        uv = Fullscreen.Uv(vertexIndex)
+        return Fullscreen.Position(vertexIndex)
+    }
+
+    /// Occlusion in `r`, sun visibility in `g`. Two numbers a shading pass multiplies into different
+    /// terms, so they are kept apart rather than pre-combined into a single "darkness" that cannot be.
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        val deviceDepth = depthBuffer.Sample(pointSampler, uv).r
+
+        // Nothing was drawn here. Fully lit and fully open — the sky is not occluded by the world.
+        if (deviceDepth >= 1f) {
+            return float4(1f, 1f, 0f, 1f)
+        }
+
+        val world = Transform.UvDepthToWorld(inverseViewProjection, uv, deviceDepth)
+        val normal = Math.SafeNormalize(normalBuffer.Sample(pointSampler, uv).xyz * 2f - 1f)
+
+        val occlusion = distanceField.OcclusionField(world, normal, occlusionRadius, occlusionSamples, occlusionStrength)
+        var sun = 1f
+
+        if (SunShadow) {
+            val toSun = Math.SafeNormalize(sunDirection)
+            sun = distanceField.ShadowField(world, toSun, sunDistance, sunSoftness, shadowBias, shadowSteps, surfaceThreshold, stepScale)
+        }
+
+        return float4(occlusion, sun, 0f, 1f)
+    }
+}

@@ -40,7 +40,7 @@ public class LibraryTreeTests {
     ///     but deliberately does not lower — so folding them in here would mean weakening what this
     ///     asserts about the library proper.
     /// </remarks>
-    static readonly string[] Packages = ["Core", "Shading", "Geometry", "Material", "Pipeline", "Ui", "PostFx", "Vfx"];
+    static readonly string[] Packages = ["Core", "Shading", "Geometry", "DistanceFields", "Material", "Pipeline", "Ui", "PostFx", "Vfx"];
 
     /// <summary>
     ///     The packages that ship as <c>.rvnlib</c> references.
@@ -53,6 +53,8 @@ public class LibraryTreeTests {
     ///     to export a function that reads one, because a binding belongs to the shader that declares
     ///     it. A material feature is consumed by being compiled alongside its consumer and resolved
     ///     through a <c>compose</c> slot, which is what makes the binding the consumer's.
+    ///     <c>DistanceFields</c> is the same case: <c>DistanceField</c>'s structs would export happily, but
+    ///     <c>GlobalDistanceField</c> is a shader whose functions read the clipmap it binds.
     /// </remarks>
     static readonly string[] ExportedPackages = ["Core", "Shading", "Geometry"];
 
@@ -823,8 +825,8 @@ public class LibraryTreeTests {
         // Slot names only: which shader declares which is the engine's business, and qualifying them
         // here would make this fail every time a shader is renamed for reasons nothing depends on.
         string[] expected = [
-            "eighth", "fifth", "first", "fourth", "over", "second", "seventh",
-            "shading", "sixth", "surface", "third", "under"
+            "distanceField", "eighth", "fifth", "first", "fourth", "over", "second",
+            "seventh", "shading", "sixth", "surface", "third", "under"
         ];
 
         Assert.Equal(

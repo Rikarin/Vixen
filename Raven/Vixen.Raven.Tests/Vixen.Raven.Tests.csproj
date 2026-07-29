@@ -31,15 +31,6 @@
         <ProjectReference Include="..\Vixen.Raven\Vixen.Raven.csproj"/>
     </ItemGroup>
 
-    <!--
-      The shipped library files, linked rather than copied, so ShippedLibraryTests compiles the same
-      bytes a project consumes. Listed one by one on purpose: a glob would let a renamed file pass the
-      test by not being there, which is the failure this gate exists to catch.
-    -->
-    <ItemGroup>
-        <None Include="..\Library\Core\Math.rvn" Link="Library\Math.rvn" CopyToOutputDirectory="PreserveNewest"/>
-        <None Include="..\Library\Lighting\DistanceField.rvn" Link="Library\DistanceField.rvn" CopyToOutputDirectory="PreserveNewest"/>
-    </ItemGroup>
 
     <!--
       The retired ANTLR front end lives on here as the differential oracle

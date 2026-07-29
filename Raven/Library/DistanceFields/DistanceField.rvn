@@ -1,4 +1,4 @@
-package Vixen.Shaders.Lighting
+package Vixen.Shaders.DistanceFields
 
 import Vixen.Shaders.Core
 
@@ -215,12 +215,26 @@ struct DistanceField {
 /// slot is resolved at compile time with no dispatch, so a pass that traces is written once and a
 /// project that has no clipmap fills the slot with something that answers "nothing is near" — no
 /// permutation in the pass, no branch, and no bindings it does not use.
+/// The marches are on the protocol rather than left to the pass, and that is the load-bearing choice.
+/// Every one of them is written in terms of `SampleField` and nothing else, so a pass *could* implement
+/// them — and then every pass that traces would carry its own copy of a loop whose step scale, threshold
+/// and early-out are the difference between a correct image and a ray through a wall. Putting them here
+/// means one implementation, and an alternative source is free to answer them some cheaper way.
 protocol IDistanceFieldSource {
     /// The signed distance at a world position, negative inside, never over-reported.
     func SampleField(world: float3): float
 
     /// Which way the distance grows fastest — the surface normal, near one.
     func GradientField(world: float3): float3
+
+    /// Marches a ray until it reaches a surface or runs out of road.
+    func TraceField(origin: float3, direction: float3, maxDistance: float, maxSteps: int, threshold: float, stepScale: float): DistanceFieldHit
+
+    /// How much of a light reaches a point, with the penumbra falling out of the march.
+    func ShadowField(origin: float3, toLight: float3, lightDistance: float, softness: float, bias: float, maxSteps: int, threshold: float, stepScale: float): float
+
+    /// How enclosed a point is, from a few samples up its own normal.
+    func OcclusionField(position: float3, normal: float3, radius: float, samples: int, strength: float): float
 }
 
 /// The clipmap: nested volumes following the camera, finest first.

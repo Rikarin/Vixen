@@ -117,7 +117,7 @@ public class LibraryReflectionTests {
     ///     each other, so binding one alone fails on a name that is not missing.
     /// </remarks>
     static IrModule Library(out IEnumerable<string> usedPermutationKeys) {
-        var trees = new[] { "Core", "Shading", "Geometry", "Material", "Pipeline", "Ui", "PostFx", "Vfx" }
+        var trees = new[] { "Core", "Shading", "Geometry", "DistanceFields", "Material", "Pipeline", "Ui", "PostFx", "Vfx" }
             .SelectMany(package => Directory.EnumerateFiles(Path.Combine(LibraryRoot, package), "*.rvn"))
             .OrderBy(file => file, StringComparer.Ordinal)
             .Select(file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))

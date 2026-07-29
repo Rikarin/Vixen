@@ -49,6 +49,9 @@ static class LibraryComposition {
         bindings.Add(new("under", "IdentitySurface"));
         bindings.Add(new("over", "IdentitySurface"));
 
+        // And the distance field a traced pass reads, which the clipmap fills.
+        bindings.Add(new("distanceField", "GlobalDistanceField"));
+
         foreach (var (slot, shader) in overrides) {
             bindings.Add(new(slot, shader));
         }
