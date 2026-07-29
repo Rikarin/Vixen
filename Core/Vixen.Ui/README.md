@@ -59,6 +59,15 @@ the keyboard.
 `:focus` and `:focus-within` are set on the style tree, so a focus ring is a stylesheet's business
 rather than a special case in the renderer.
 
+**A press that lands on nothing focusable takes the focus away.** Which control a press *gives* the
+focus to is that control's own decision — some decline it, a `NumericInput` being scrubbed among
+them — but the other half of the rule belongs to the document, because no control is in a position
+to notice that the user has clicked somewhere else. The test is the whole ancestor chain rather than
+the element under the pointer: a press on a field lands on the part that draws its text, which is not
+itself focusable. A press that captures the pointer is exempt too — capture is how a control says
+the press *began* something, and a field must not lose its caret because the scrollbar beside it was
+dragged.
+
 ## Arrow navigation
 
 Tab walks an *order* — a list the document decides in advance. An arrow walks a *layout*, decided by

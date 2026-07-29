@@ -79,6 +79,51 @@ public sealed partial class UiDocument {
         return element is not null;
     }
 
+    /// <summary>Takes the focus away when a press lands on something that cannot hold it.</summary>
+    /// <param name="target">What the press was routed to, or <c>null</c> if it landed on nothing.</param>
+    /// <param name="focused">What had the focus when the press landed.</param>
+    /// <remarks>
+    ///     <para>
+    ///         The other half of the rule every control writes the first half of. A control focuses
+    ///         itself when it is pressed; nothing was saying what a press on the background means, so
+    ///         a field kept the focus — and the caret, and the keyboard — after the user had visibly
+    ///         clicked away from it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The whole ancestor chain, not the element under the pointer.</b> A press on a
+    ///         field lands on the part that draws its text, and that part is not focusable; blurring
+    ///         on that would take the focus off every control the moment it was clicked.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It blurs and never focuses</b>, even when the chain does contain a focusable
+    ///         element. Which control a press focuses is the control's decision and some of them
+    ///         decline it — a <c>NumericInput</c> is deliberately left unfocused while it is being
+    ///         scrubbed, and focusing it here would be read by its own handler as "already editing"
+    ///         and the scrub would never start.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A press that took the pointer is exempt.</b> Capture is how a control says the
+    ///         press began something it is now carrying out — a scrollbar drag, that same scrub —
+    ///         and a scrollbar is not focusable, so without this a field would lose its caret and its
+    ///         selection because the panel around it was scrolled.
+    ///     </para>
+    /// </remarks>
+    void Defocus(UiElement? target, UiElement? focused) {
+        // Nothing to take away, or the route has already moved the focus itself and is entitled to
+        // the last word — including moving it to nothing.
+        if (focused is null || !ReferenceEquals(Focused, focused) || Captured is not null) {
+            return;
+        }
+
+        for (var element = target; element is not null; element = element.Parent) {
+            if (element.Focusable) {
+                return;
+            }
+        }
+
+        Focus(null);
+    }
+
     /// <summary>Moves the focus one step round the tab order.</summary>
     /// <param name="direction">Which way.</param>
     /// <returns>Whether it moved.</returns>
