@@ -303,9 +303,12 @@ loading half is closed too: a catalog entry carries its `vx:` reference, `Conten
 resolves one into an address, and `AssetManager.LoadAsync<T>(reference)` turns an `AssetId` into an
 asset.
 
-What is still owed for a block-out is the *drawing*: a mesh extraction system, which needs a residency
-cache over `GeometryBuffer` and a material resolved to a `Material`. `LightExtractionSystem` is the
-finished example of the shape it takes.
+Drawing is now built for a primitive: `SurfaceGeometry` packs a `MeshData` into the vertex the shading
+stages declare, `GeometryResidency` keeps one slice per mesh shared by every entity drawing it, and
+`MeshExtractionSystem` turns a `PrimitiveShape` entity into a render object with a valid draw, world
+matrix and bounds. What is left for a *mesh asset* is the load — the resolution is done and the open
+question is what the extraction does while an asynchronous load is in flight — and a material asset
+resolved to a `Material`, which is P5's blocker too.
 
 ⚠ **What was genuinely blocked was only the last phase, and it is now unblocked.**
 [P7](#p7--handoff-10-em) bakes a block-out into an asset and points an entity at it, and *that* needed a
