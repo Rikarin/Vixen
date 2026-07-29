@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Core.Serialization;
 using Vixen.Ecs;
 using Vixen.Rendering;
 
@@ -25,7 +26,14 @@ namespace Vixen.Editor.SceneView;
 ///         runtime grows a mesh component this becomes an editor-side alias for it, and the scene
 ///         format below is what makes that migration a reader change rather than a data loss.
 ///     </para>
+///     <para>
+///         ⚠ <b><c>[DataContract]</c> and <i>not</i> <c>SceneComponentRegistry.Register</c></b>, for
+///         the reason <see cref="Light" /> gives: the attribute is what makes it describable and so
+///         inspectable, and registering it would be the separate claim that a compiled scene may
+///         name it.
+///     </para>
 /// </remarks>
+[DataContract]
 public struct MeshShape {
     /// <summary>Which shape.</summary>
     public PrimitiveKind Kind;

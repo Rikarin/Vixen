@@ -31,6 +31,26 @@ public sealed class ModelImportEdits {
     [Inspector]
     [Tooltip("Off for a character exported once per animation, where every file repeats the same skeleton.")]
     public bool ImportAnimations { get; set; } = true;
+
+    /// <summary>Whether to bake a signed distance field for each of the model's meshes.</summary>
+    [Inspector]
+    [Tooltip("What distance-field shadows and occlusion read. The most expensive part of the import; off for a project not lighting this way.")]
+    public bool GenerateDistanceFields { get; set; } = true;
+
+    /// <summary>How many samples along the longest axis of each field.</summary>
+    [Inspector]
+    [Tooltip("Quality and cost at once — doubling it is eight times the samples. Other axes follow the bounds so cells stay near-cubic.")]
+    public int DistanceFieldResolution { get; set; } = 32;
+
+    /// <summary>How many rays each sample casts to decide which side of the surface it is on.</summary>
+    [Inspector]
+    [Tooltip("What makes the sign survive meshes that are not closed. Noisy below sixteen; stops changing above sixty-four.")]
+    public int DistanceFieldSignRays { get; set; } = 32;
+
+    /// <summary>How far a field's volume is grown past its mesh, as a fraction of the mesh's size.</summary>
+    [Inspector]
+    [Tooltip("Room outside the surface for a ray to slow down in. With none, the surface lies on the volume's own face.")]
+    public float DistanceFieldBoundsExpansion { get; set; } = 0.2f;
 }
 
 /// <summary>A model's import settings, open for editing.</summary>

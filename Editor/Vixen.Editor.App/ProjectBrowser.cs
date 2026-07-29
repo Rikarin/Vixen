@@ -47,8 +47,18 @@ sealed class ProjectBrowser {
     readonly TreeView tree;
     readonly SearchBox search;
     readonly Select kinds;
+    readonly ToggleButton grid;
+    readonly AssetGrid tiles;
 
     AssetTreeNode root;
+
+    /// <summary>Which folder the grid is in, by path, so it survives a rescan.</summary>
+    /// <remarks>
+    ///     ⚠ <b>By path rather than by node.</b> A rescan rebuilds every <c>AssetTreeNode</c>, so a
+    ///     held reference is to a folder that no longer exists — and the grid would come back at the
+    ///     root every time somebody renamed anything.
+    /// </remarks>
+    string folder = AssetTree.RootName;
 
     /// <summary>Raised when a row is activated — a double-click, or Enter on the keyboard.</summary>
     /// <remarks>
@@ -89,6 +99,16 @@ sealed class ProjectBrowser {
         // narrows to nothing is one people stop using after the second time.
         kinds = bar.Add<Select>();
         kinds.SelectionChanged += (_, _) => Populate();
+
+        // ⚠ A toggle rather than two panels, and the two views share everything behind them: the
+        // search box, the type filter, the selection and the verbs. A grid with a filter of its own
+        // would be a second browser that disagrees with the first about what is in the project.
+        grid = bar.Add<ToggleButton>();
+        grid.Label = "Grid";
+        grid.Size = ControlSize.Small;
+        grid.Variant = ControlVariant.Subtle;
+        grid.AddClass("browser-view");
+        grid.CheckedChanged += (_, _) => Populate();
 
         tree = panel.Add<TreeView>();
         tree.MultiSelect = true;
@@ -135,15 +155,51 @@ sealed class ProjectBrowser {
             }
         };
 
+        tiles = panel.Add<AssetGrid>();
+        tiles.Containing = Containing;
+        tiles.Navigated += entered => {
+            folder = entered.Path;
+            Populate();
+        };
+
+        tiles.Selected += node => project.Selection.Set(node.IsIndexed ? [node.Guid] : []);
+
+        tiles.Activated += node => {
+            if (node.IsIndexed) {
+                Activated?.Invoke(node.Guid);
+            }
+        };
+
         Refilter();
         Populate();
     }
+
+    /// <summary>Whether the grid is showing rather than the tree.</summary>
+    public bool IsGrid {
+        get => grid.IsChecked;
+        set => grid.IsChecked = value;
+    }
+
+    /// <summary>The grid, for the panel that holds it.</summary>
+    public AssetGrid Grid => tiles;
 
     /// <summary>How many rows the tree is showing.</summary>
     public int Count => tree.Root.Children.Count;
 
     /// <summary>The tree, for the harness and for the panel that holds it.</summary>
     public TreeView Tree => tree;
+
+    /// <summary>Brings the grid's marks into line with the project's selection.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Pushed once a frame rather than only after a click in the grid.</b> Selecting an
+    ///     asset anywhere else — the inspector's picker, a command, the tree — leaves the tiles
+    ///     showing whatever was clicked in them last, which is the same failure the outliner had.
+    /// </remarks>
+    public void SyncSelection() {
+        if (IsGrid) {
+            tiles.Mark(project.Selection);
+        }
+    }
 
     /// <summary>Deselects everything.</summary>
     /// <remarks>
@@ -234,14 +290,32 @@ sealed class ProjectBrowser {
         return tree.Selection.Contains(node) ? [.. project.Selection] : [asset.Guid];
     }
 
-    /// <summary>Rebuilds the rows from the tree and whatever the two filters say.</summary>
+    /// <summary>Rebuilds whichever view is showing, from the tree and the two filters.</summary>
     void Populate() {
+        var shown = AssetTree.Filter(root, search.Value);
+        var kind = kinds.Value is { } value && value != AnyType ? value : null;
+
+        if (IsGrid) {
+            tree.AddClass("hidden");
+            tiles.RemoveClass("hidden");
+
+            var kept = Prune(shown, kind) ?? shown;
+
+            // ⚠ Falls back to whatever survives rather than showing an empty grid. A folder can go
+            // — deleted, renamed, filtered out — and a browser sitting in one that no longer exists
+            // is one with no way back to anything.
+            tiles.Show(AssetTree.Find(kept, folder) ?? kept, Importer);
+            tiles.Mark(project.Selection);
+
+            return;
+        }
+
+        tree.RemoveClass("hidden");
+        tiles.AddClass("hidden");
+
         while (tree.Root.Children.Count > 0) {
             tree.Root.Remove(tree.Root.Children[^1]);
         }
-
-        var shown = AssetTree.Filter(root, search.Value);
-        var kind = kinds.Value is { } value && value != AnyType ? value : null;
 
         Branch(tree.Root, shown, kind);
         tree.Refresh();
@@ -287,6 +361,43 @@ sealed class ProjectBrowser {
 
         return kept;
     }
+
+    /// <summary>The same filter the tree applies, as a tree rather than as rows.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Bottom-up, exactly as <see cref="Branch" /> is.</b> A folder survives because
+    ///     something under it did — dropping one whose own tag does not match would take every
+    ///     matching file inside it, which for a filter is the one thing somebody was looking for.
+    /// </remarks>
+    AssetTreeNode? Prune(AssetTreeNode asset, string? kind) {
+        if (kind is null) {
+            return asset;
+        }
+
+        List<AssetTreeNode> kept = [];
+
+        foreach (var child in asset.Children) {
+            if (Prune(child, kind) is { } survivor) {
+                kept.Add(survivor);
+            }
+        }
+
+        if (kept.Count == 0 && (asset.IsFolder || !Tagged(asset, kind))) {
+            return null;
+        }
+
+        return asset with { Children = kept };
+    }
+
+    /// <summary>What contains a node, for the grid's breadcrumbs.</summary>
+    AssetTreeNode? Containing(AssetTreeNode node) {
+        var slash = node.Path.LastIndexOf('/');
+
+        return slash <= 0 ? null : AssetTree.Find(root, node.Path[..slash]);
+    }
+
+    /// <summary>Which importer claims an asset, for its glyph.</summary>
+    string? Importer(AssetTreeNode asset) =>
+        asset.IsIndexed && project.Assets.TryGetByGuid(asset.Guid, out var entry) ? entry.ImporterTag : null;
 
     bool Tagged(AssetTreeNode asset, string kind) =>
         asset.IsIndexed

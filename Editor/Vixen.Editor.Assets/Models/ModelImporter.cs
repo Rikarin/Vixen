@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Core.Serialization;
+using Vixen.Rendering.DistanceFields;
 
 namespace Vixen.Editor.Assets.Models;
 
@@ -32,7 +33,12 @@ namespace Vixen.Editor.Assets.Models;
 [Importer(".fbx", ".gltf", ".glb", ".obj", ".dae", ".3ds", ".ply", ".stl", ".blend")]
 public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
     /// <inheritdoc />
-    public override int Version => 1;
+    /// <remarks>
+    ///     Two since distance fields joined the artefacts a model produces. A model imported under
+    ///     version one has no field sub-asset at all, and nothing downstream could tell that from a
+    ///     model whose meshes are all skinned — so the version has to say it rather than the content.
+    /// </remarks>
+    public override int Version => 2;
 
     /// <inheritdoc />
     protected override async ValueTask<ImportResult> ImportAsync(
@@ -64,8 +70,39 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
             return context.Finish();
         }
 
+        var fields = 0;
+        var skinned = 0;
+
         foreach (var mesh in read.Meshes) {
             context.Write(context.DeclareSubAsset("Mesh", mesh.Name), "Mesh", Serializer.ToBytes(mesh));
+
+            if (!settings.GenerateDistanceFields || mesh.Indices.Length == 0) {
+                continue;
+            }
+
+            // A field is baked in one pose and a skinned mesh does not stay in it. Baking the bind
+            // pose anyway would put an occluder where the character is standing in the T-pose it was
+            // exported in, which is a shadow on the floor next to somebody rather than under them.
+            // Unreal excludes skeletal meshes from its global field for the same reason.
+            if (mesh.IsSkinned) {
+                skinned++;
+
+                continue;
+            }
+
+            var field = MeshDistanceFieldBaker.Bake(
+                mesh.Positions,
+                mesh.Indices,
+                settings.ToDistanceFieldSettings()
+            );
+
+            context.Write(
+                context.DeclareSubAsset("DistanceField", mesh.Name),
+                "DistanceField",
+                Serializer.ToBytes(field)
+            );
+
+            fields++;
         }
 
         if (read.Skeleton is { } skeleton) {
@@ -94,8 +131,18 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
             $"{read.Meshes.Length} mesh(es), {read.Model.Materials.Length} material(s), "
             + $"{read.Model.Nodes.Length} node(s)"
             + (read.Skeleton is { } bones ? $", {bones.Joints.Length} joint(s)" : string.Empty)
+            + (fields > 0 ? $", {fields} distance field(s)" : string.Empty)
             + "."
         );
+
+        if (skinned > 0) {
+            // Information rather than a warning: this is the correct outcome, not a problem to fix.
+            context.Report(
+                ImportSeverity.Information,
+                $"{skinned} skinned mesh(es) have no distance field. A field is baked in one pose and "
+                + "a skinned mesh does not stay in it, so it would occlude where the mesh is not."
+            );
+        }
 
         if (read.Meshes.Length == 0) {
             context.Report(

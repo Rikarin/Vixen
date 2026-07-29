@@ -272,6 +272,43 @@ public class PostEffectTests : IDisposable {
     }
 
     /// <summary>
+    ///     The traced pass runs at a fraction of the frame, and its own set carries only what it owns.
+    /// </summary>
+    /// <remarks>
+    ///     The clipmap — the volumes, their textures, their sampler — is not here and must not be. It
+    ///     follows the camera and belongs to the frame's set 0, put there by
+    ///     <c>GlobalDistanceFieldRenderer</c>. What this pass owns is the depth, the normals and the
+    ///     numbers of its own march, and a test that found a volume in this collection would be
+    ///     finding the two halves fighting over who binds the field.
+    /// </remarks>
+    [Fact]
+    public void Distance_field_occlusion_owns_its_march_and_not_the_field() {
+        using var effect = new DistanceFieldAoRenderer {
+            Depth = "SceneDepth",
+            Normals = "SceneNormals",
+            Output = "TracedOcclusion",
+            Scale = 0.5f,
+            OcclusionRadius = 3.5f,
+            SunShadow = false
+        };
+
+        using var h = Build(effect);
+
+        Frame(h);
+
+        Assert.Equal(3.5f, effect.Pass.Parameters.Get(DistanceFieldAoKeys.OcclusionRadius), 5);
+        Assert.False(effect.Pass.Parameters.Get(DistanceFieldAoKeys.SunShadow));
+        Assert.Contains("TracedOcclusion", effect.Pass.ColourTargets);
+
+        // The clipmap's own names belong to set 0 and are nobody's business here.
+        Assert.False(
+            effect.Pass.Parameters.Has(
+                ParameterKeys.New<float>("DistanceFieldAo.GlobalDistanceField.distanceFieldVolumes[0].maxDistance")
+            )
+        );
+    }
+
+    /// <summary>
     ///     An effect with no shader declares nothing rather than throwing.
     /// </summary>
     /// <remarks>
@@ -490,6 +527,11 @@ public class PostEffectTests : IDisposable {
             "Fog" => new FogRenderer { Source = "SceneColour", Depth = "SceneDepth", Output = "Out" },
             "Outline" => new OutlineRenderer { Source = "SceneColour", Depth = "SceneDepth", Output = "Out" },
             "Ssao" => new AmbientOcclusionRenderer {
+                Depth = "SceneDepth",
+                Normals = "SceneNormals",
+                Output = "Out"
+            },
+            "DistanceFieldAo" => new DistanceFieldAoRenderer {
                 Depth = "SceneDepth",
                 Normals = "SceneNormals",
                 Output = "Out"

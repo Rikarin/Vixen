@@ -321,6 +321,103 @@ public class StreamTests {
         );
     }
 
+    // --- Flat interpolation -----------------------------------------------
+
+    const string Indexed = """
+                           package A
+
+                           shader Lit {
+                               stream var objectIndex: int
+                               stream var uv: float2
+
+                               [VertexShader]
+                               func Vertex([Semantic("POSITION")] position: float3, [Semantic("SV_InstanceID")] instance: int): float4 {
+                                   objectIndex = instance
+                                   uv = float2(position.x, position.y)
+                                   return float4(position.x, position.y, position.z, 1f)
+                               }
+
+                               [FragmentShader]
+                               func Shade(): float4 {
+                                   return float4(uv.x, uv.y, float(objectIndex), 1f)
+                               }
+                           }
+
+                           """;
+
+    /// <summary>
+    ///     An integer stream arrives at the fragment stage flat, and a float one does not.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>A rule rather than a preference, and the module is invalid without it.</strong>
+    ///         The rasteriser weights a varying by barycentric coordinates, which produces a fraction
+    ///         — so there is no interpolation an integer could take, and SPIR-V requires <c>Flat</c>
+    ///         on a fragment input of integer type.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The float stream is asserted too, and not for symmetry: decorating everything flat
+    ///         would satisfy the validator and quietly kill interpolation, which is a picture that
+    ///         looks like faceted shading rather than an error.
+    ///     </para>
+    ///     <para>
+    ///         And only the <em>input</em>. The decoration says how a value is received; the vertex
+    ///         stage that wrote it has no interpolation to describe, and decorating its output would
+    ///         be a claim about the wrong end of the wire.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AnIntegerStreamIsFlat() {
+        Assert.SkipUnless(SpirvTestBase.ValidatorAvailable, "spirv-val is not on PATH (brew install spirv-tools).");
+
+        var module = Lower(Indexed);
+        var bag = new DiagnosticBag();
+        var generated = new SpirvBackend().Generate(module, bag);
+        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+
+        foreach (var unit in generated) {
+            SpirvTestBase.Validate(unit);
+        }
+
+        var vertex = Assert.Single(generated, u => u.Stage == ShaderStage.Vertex).Code;
+        var fragment = Assert.Single(generated, u => u.Stage == ShaderStage.Fragment).Code;
+
+        Assert.Contains(
+            $"OpDecorate {SpirvTestBase.IdNamed(fragment, "in_objectIndex")} Flat",
+            fragment,
+            StringComparison.Ordinal
+        );
+
+        Assert.DoesNotContain(
+            $"OpDecorate {SpirvTestBase.IdNamed(fragment, "in_uv")} Flat",
+            fragment,
+            StringComparison.Ordinal
+        );
+
+        Assert.DoesNotContain(
+            $"OpDecorate {SpirvTestBase.IdNamed(vertex, "out_objectIndex")} Flat",
+            vertex,
+            StringComparison.Ordinal
+        );
+    }
+
+    /// <summary>And GLSL says the same thing in its own words.</summary>
+    /// <remarks>
+    ///     GLSL rejects the declaration without the qualifier, so this is the same rule and not a
+    ///     second one — which is why both backends ask <c>StageInterface.MustBeFlat</c> rather than
+    ///     each deciding. Two copies of a rule is how they come to differ.
+    /// </remarks>
+    [Fact]
+    public void GlslQualifiesTheSameStreamFlat() {
+        var module = Lower(Indexed);
+        var fragment = GlslFor(module, ShaderStage.Fragment);
+        var vertex = GlslFor(module, ShaderStage.Vertex);
+
+        Assert.Contains("flat in int in_objectIndex;", fragment, StringComparison.Ordinal);
+        Assert.DoesNotContain("flat in vec2", fragment, StringComparison.Ordinal);
+        Assert.DoesNotContain("flat out", vertex, StringComparison.Ordinal);
+    }
+
     /// <summary>A stream is not a binding: nothing about it reaches a descriptor set.</summary>
     [Fact]
     public void AStreamIsNotABinding() {

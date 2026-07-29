@@ -81,6 +81,28 @@ public interface ISceneComponentBinder {
     ///     <see cref="Read" /> writes into an archetype that already has the column.
     /// </remarks>
     void AddTo(World world, Entity entity, object value);
+
+    /// <summary>Whether an entity carries this component.</summary>
+    /// <param name="world">The world.</param>
+    /// <param name="entity">The entity.</param>
+    /// <returns>Whether it does.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Asked before <see cref="ValueOn" />, which throws on an entity that does not have
+    ///     one.</b> An editor drawing "what is on this entity" has to enumerate the registered
+    ///     components and ask each — there is no way to go the other way, because an archetype knows
+    ///     dense ids and a panel knows names.
+    /// </remarks>
+    bool Has(World world, Entity entity);
+
+    /// <summary>Takes the component off an entity.</summary>
+    /// <param name="world">The world.</param>
+    /// <param name="entity">The entity.</param>
+    /// <returns>Whether it was there to remove.</returns>
+    /// <remarks>
+    ///     A structural change, like <see cref="AddTo" />, and the same trade: the right cost in an
+    ///     editor and the wrong one in a loop.
+    /// </remarks>
+    bool RemoveFrom(World world, Entity entity);
 }
 
 /// <summary>The binder for one component type.</summary>
@@ -162,6 +184,25 @@ sealed class SceneComponentBinder<T> : ISceneComponentBinder {
             world.Add(entity, in typed);
         }
     }
+
+    /// <inheritdoc />
+    public bool Has(World world, Entity entity) {
+        ArgumentNullException.ThrowIfNull(world);
+
+        return world.Has<T>(entity);
+    }
+
+    /// <inheritdoc />
+    public bool RemoveFrom(World world, Entity entity) {
+        ArgumentNullException.ThrowIfNull(world);
+
+        if (!world.Has<T>(entity)) {
+            return false;
+        }
+
+        world.Remove<T>(entity);
+        return true;
+    }
 }
 
 /// <summary>Which component types a compiled scene is allowed to name, and how each of them loads.</summary>
@@ -193,6 +234,17 @@ public static class SceneComponentRegistry {
     static readonly ConcurrentDictionary<Type, ISceneComponentBinder> ByType = new();
 
     static SceneComponentRegistry() => Register<Camera>();
+
+    /// <summary>Every component a scene may name, in the order they were registered.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What an "Add Component" menu is built from, and the only direction that works.</b> An
+    ///     archetype knows dense <see cref="ComponentTypeId" />s and an editor knows names, and there
+    ///     is no map from the first to the second — the ids are handed out in first-touch order, so
+    ///     they differ between two runs of the same program. Enumerating what is registered and
+    ///     asking each one <see cref="ISceneComponentBinder.Has" /> is how a panel finds out what an
+    ///     entity carries.
+    /// </remarks>
+    public static IReadOnlyCollection<ISceneComponentBinder> Binders => (IReadOnlyCollection<ISceneComponentBinder>) ByAlias.Values;
 
     /// <summary>Makes a component type nameable by a compiled scene.</summary>
     /// <typeparam name="T">The component.</typeparam>

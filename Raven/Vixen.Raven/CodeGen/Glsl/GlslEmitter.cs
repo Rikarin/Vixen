@@ -459,8 +459,16 @@ sealed class GlslEmitter {
         foreach (var stream in entryPoint.StreamInputs) {
             var name = Reserve("in_" + stream.Name);
             streamReads[stream.Variable] = name;
+
+            // The same rule SPIR-V states as `Flat`: an integer has no interpolation to take, so GLSL
+            // requires the qualifier here and rejects the declaration without it. Only on the input,
+            // because it describes how a value is received.
+            var flat = entryPoint.Stage == ShaderStage.Fragment && StageInterface.MustBeFlat(stream.Type)
+                ? "flat "
+                : string.Empty;
+
             writer.Line(
-                $"layout(location = {StreamPlan.LocationOf(shader, stream)}) in "
+                $"layout(location = {StreamPlan.LocationOf(shader, stream)}) {flat}in "
                 + $"{Declare(stream.Type, name, stream.Name)};"
                 + Comment("stream")
             );

@@ -1,0 +1,281 @@
+package Vixen.Shaders.IrradianceFields
+
+import Vixen.Shaders.Core
+
+// Reading an irradiance field: divide, floor, fetch, divide again.
+//
+// The shader half of `Vixen.Rendering.IrradianceFields.IrradianceField`. That one exists first and on the
+// CPU because there it can be checked — a field filled from a linear function of world position is
+// reproduced exactly by trilinear interpolation, so the addressing has a closed-form answer and any error
+// left is a probe read from the wrong place. Where the two disagree, the C# is right and this is wrong:
+// it is the one with tests that do not need a device.
+//
+// The whole lookup is a point-sampled fetch of the indirection grid followed by a linearly-filtered fetch
+// of the pool. No Delaunay, no predicates, no walk — which is the shape doc 06's tetrahedral light probes
+// failed at, chosen because it cannot fail the same way.
+//
+// A style note that is a language constraint: Raven is newline-sensitive and has no line continuation, so
+// anything that does not fit on one line becomes a block body with named locals.
+
+/// Where a field is and how to turn a world position into a lookup, as `IrradianceFieldTexture.Apply`
+/// writes it.
+///
+/// The reciprocals rather than the sizes, because turning a world position into a cell coordinate is a
+/// multiply and a divide per sample is a divide nobody needs.
+struct IrradianceFieldVolume {
+    var minimum: float3
+    var maximum: float3
+
+    /// The reciprocal of one FINEST cell — the size a brick of size one covers.
+    var inverseCellSize: float3
+
+    /// How many finest cells the indirection grid is, along each axis.
+    var resolution: float3
+
+    /// The reciprocal of the pool's size in texels.
+    var inversePoolSize: float3
+
+    /// How far off a surface a shading lookup moves, in probe spacings.
+    var normalBias: float
+}
+
+/// What one probe holds: four coefficients a channel, plus how much to believe it.
+///
+/// L1 and not L2, because a Lambertian surface cannot see detail sharper than the cosine lobe that blurs
+/// it — and the second band costs more than twice the whole payload. It is what Unity's adaptive probe
+/// volumes and Epic's volumetric lightmap both ship as their default.
+struct IrradianceProbe {
+    var l00: float3
+    var l1m1: float3
+    var l10: float3
+    var l11: float3
+
+    /// How much of this probe is worth believing. Zero for one buried in geometry.
+    var validity: float
+
+    /// How much of the directional light reaches here.
+    var sunShadow: float
+}
+
+struct IrradianceField {
+    /// How many probes a brick owns along each axis. Four, in a footprint of five.
+    ///
+    /// The fifth plane holds the neighbouring brick's first probe — the same world position, the same
+    /// value, stored twice — which is what lets one hardware trilinear fetch cross a brick boundary
+    /// without knowing there was one. So a brick spans FOUR gaps, and this is the number that scales a
+    /// position inside it into texels.
+    const val BrickResolution = 4f
+
+    /// The constant spherical-harmonic basis function.
+    const val Constant = 0.282095f
+
+    /// The linear ones, already multiplied by the cosine lobe's own band factor of two thirds.
+    const val Linear = 0.325735f
+
+    // --- Finding the brick -------------------------------------------------
+
+    /// Whether the field covers a point at all.
+    static func Contains(volume: IrradianceFieldVolume, world: float3): bool {
+        val above = world.x >= volume.minimum.x && world.y >= volume.minimum.y && world.z >= volume.minimum.z
+        val below = world.x <= volume.maximum.x && world.y <= volume.maximum.y && world.z <= volume.maximum.z
+        return above && below
+    }
+
+    /// Where a world position sits in the grid, measured in finest cells.
+    static func Voxel(volume: IrradianceFieldVolume, world: float3): float3 {
+        return (world - volume.minimum) * volume.inverseCellSize
+    }
+
+    /// Which cell a position falls in, with the far face inside the last one rather than past it.
+    static func Cell(volume: IrradianceFieldVolume, world: float3): float3 {
+        val voxel = Voxel(volume, world)
+        val limit = volume.resolution - float3(1f, 1f, 1f)
+        return clamp(floor(voxel), float3(0f, 0f, 0f), limit)
+    }
+
+    /// Where to read the indirection grid for a cell — its own texel centre, point sampled.
+    static func IndirectionUvw(volume: IrradianceFieldVolume, cell: float3): float3 {
+        return (cell + float3(0.5f, 0.5f, 0.5f)) / volume.resolution
+    }
+
+    /// What the indirection grid holds: where a brick starts in the pool, and how many cells across it is.
+    ///
+    /// A size of zero means no brick covers that cell — which is a real answer and not an error. A field
+    /// allocated from renderer bounds has nothing at all in the empty air, and that is the point of it.
+    ///
+    /// A coarse brick writes both numbers into every cell it covers, so this is one fetch and never a
+    /// search. Point sampled, obviously: interpolating two slot indices gives a third that means nothing.
+    static func Fetch(volume: IrradianceFieldVolume, indirection: Texture3D, point: Sampler, world: float3): float4 {
+        val uvw = IndirectionUvw(volume, Cell(volume, world))
+        return indirection.SampleLevel(point, uvw, 0f)
+    }
+
+    // --- Reading the pool --------------------------------------------------
+
+    /// Where a position sits inside its own brick, 0 to 1 along each axis.
+    ///
+    /// Measured from the brick's own origin rather than taken as the fractional part of a division. The
+    /// two agree everywhere they are both defined, and the explicit form also answers correctly on the
+    /// grid's far face — where the coordinate is a whole cell count and a fractional part would be zero,
+    /// putting a sample at the near face of a brick it is at the far face of.
+    static func Local(volume: IrradianceFieldVolume, entry: float4, world: float3): float3 {
+        val size = entry.a
+        val voxel = Voxel(volume, world)
+        val origin = floor(Cell(volume, world) / size) * size
+        val local = (voxel - origin) / size
+        return clamp(local, float3(0f, 0f, 0f), float3(1f, 1f, 1f))
+    }
+
+    /// Where a position sits in the pool's volumes, as 0..1.
+    ///
+    /// The half-texel is not a fudge. A probe lives at the CENTRE of its texel, so texel `i` of the pool
+    /// is at `i + 0.5`. Dropping it shifts every probe half a texel, which is lighting subtly in the wrong
+    /// place and a defect two implementations tested separately against arithmetic would each pass.
+    ///
+    /// `Vixen.Rendering.IrradianceFields.IrradianceBrickPool.TextureCoordinate` is the same expression on
+    /// the other side, and a test holds the two against each other.
+    static func Uvw(volume: IrradianceFieldVolume, entry: float4, world: float3): float3 {
+        val local = Local(volume, entry, world)
+        val texel = entry.rgb + float3(0.5f, 0.5f, 0.5f) + local * BrickResolution
+        return texel * volume.inversePoolSize
+    }
+
+    /// Everything one probe holds, out of the four volumes it is spread across.
+    ///
+    /// Four and not six: validity rides in the constant volume's alpha and the sun's shadow in the red
+    /// channel's, because both are one number a probe and a fifth texture for each would be two more
+    /// fetches at every shaded pixel.
+    static func Read(l0: Texture3D, l1r: Texture3D, l1g: Texture3D, l1b: Texture3D, s: Sampler, uvw: float3): IrradianceProbe {
+        val a = l0.SampleLevel(s, uvw, 0f)
+        val r = l1r.SampleLevel(s, uvw, 0f)
+        val g = l1g.SampleLevel(s, uvw, 0f)
+        val b = l1b.SampleLevel(s, uvw, 0f)
+
+        val l1m1 = float3(r.r, g.r, b.r)
+        val l10 = float3(r.g, g.g, b.g)
+        val l11 = float3(r.b, g.b, b.b)
+
+        return IrradianceProbe(a.rgb, l1m1, l10, l11, a.a, r.a)
+    }
+
+    /// The diffuse lighting a surface facing a direction receives, divided by π.
+    ///
+    /// Over π, which is the quantity a shader multiplies by albedo. Getting that factor wrong is the
+    /// classic "everything is π times too bright", and the band constants below are already divided by it.
+    static func Irradiance(probe: IrradianceProbe, normal: float3): float3 {
+        val constant = probe.l00 * Constant
+        val linear = probe.l1m1 * normal.y + probe.l10 * normal.z + probe.l11 * normal.x
+        return constant + linear * Linear
+    }
+
+    /// How far a shading lookup moves off the surface it stands on.
+    ///
+    /// A surface stands exactly where the leak is: its own position is the boundary between the probes
+    /// that saw the room and the probes inside the wall it is part of. Pushing along the normal puts the
+    /// lookup on the side it faces.
+    ///
+    /// In the BRICK's probe spacing rather than a fixed distance, because a coarse brick's ambiguity is
+    /// wider in exactly the ratio its probes are further apart. That is what the first of the two
+    /// indirection fetches is for.
+    static func Bias(volume: IrradianceFieldVolume, entry: float4, normal: float3): float3 {
+        val cellSize = float3(1f, 1f, 1f) / volume.inverseCellSize
+        val spacing = cellSize * (entry.a / BrickResolution)
+        return normal * spacing * volume.normalBias
+    }
+}
+
+/// What a pass needs from an irradiance field, whatever is behind it.
+///
+/// A `protocol` rather than a shader a pass hard-codes, for the reason `IDistanceFieldSource` is one: the
+/// slot is resolved at compile time with no dispatch, so a pass that reads indirect light is written once
+/// and a project with no field fills the slot with something that answers "none" — no permutation in the
+/// pass, no branch, and no bindings it does not use.
+protocol IIrradianceSource {
+    /// The indirect diffuse a surface receives, divided by π — what to multiply by albedo.
+    func SampleIrradiance(world: float3, normal: float3): float3
+
+    /// How much of the directional light reaches a surface, from zero to one.
+    func SampleSunShadow(world: float3, normal: float3): float
+}
+
+/// The field: an indirection grid over a pool of bricks.
+///
+/// Bound by `Vixen.Rendering.Lighting.IrradianceFieldTexture`, and the names here are that type's
+/// contract — `irradianceField.inverseCellSize` is written by `Apply` and read below, so a rename on
+/// either side is a binding that silently resolves to nothing.
+///
+/// Two indirection fetches and not one, and the second is not waste: the first learns how big the brick
+/// under the surface is, because the normal bias is measured in that brick's probe spacing. Both are point
+/// samples of a small volume and neither filters.
+shader IrradianceFieldProbes : IIrradianceSource {
+    [PerFrame] var irradianceIndirection: Texture3D
+    [PerFrame] var irradiancePointSampler: Sampler
+
+    [PerFrame] var irradianceL0: Texture3D
+    [PerFrame] var irradianceL1R: Texture3D
+    [PerFrame] var irradianceL1G: Texture3D
+    [PerFrame] var irradianceL1B: Texture3D
+    [PerFrame] var irradianceSampler: Sampler
+
+    [PerFrame] var irradianceField: IrradianceFieldVolume
+
+    /// The probe a surface sees, or a probe that has seen nothing where the field has no answer.
+    ///
+    /// Nothing rather than the nearest brick's answer. A field that quietly extrapolates hides the fact
+    /// that it did not cover the scene, and a sky light or a fallback ambient is what fills the gap — it
+    /// should be visible that it is doing so.
+    func Probe(world: float3, normal: float3): IrradianceProbe {
+        val nothing = float3(0f, 0f, 0f)
+        val empty = IrradianceProbe(nothing, nothing, nothing, nothing, 0f, 1f)
+
+        if (!IrradianceField.Contains(irradianceField, world)) {
+            return empty
+        }
+
+        val under = IrradianceField.Fetch(irradianceField, irradianceIndirection, irradiancePointSampler, world)
+
+        if (under.a <= 0f) {
+            return empty
+        }
+
+        val biased = world + IrradianceField.Bias(irradianceField, under, normal)
+
+        if (!IrradianceField.Contains(irradianceField, biased)) {
+            return empty
+        }
+
+        val entry = IrradianceField.Fetch(irradianceField, irradianceIndirection, irradiancePointSampler, biased)
+
+        if (entry.a <= 0f) {
+            return empty
+        }
+
+        val uvw = IrradianceField.Uvw(irradianceField, entry, biased)
+        return IrradianceField.Read(irradianceL0, irradianceL1R, irradianceL1G, irradianceL1B, irradianceSampler, uvw)
+    }
+
+    func SampleIrradiance(world: float3, normal: float3): float3 {
+        val probe = Probe(world, normal)
+        return IrradianceField.Irradiance(probe, normal)
+    }
+
+    func SampleSunShadow(world: float3, normal: float3): float {
+        val probe = Probe(world, normal)
+        return probe.sunShadow
+    }
+}
+
+/// A world with no indirect light, for a project that has no field.
+///
+/// Every compose slot a compilation declares has to be bound, whether or not anything reaches it — so a
+/// pass that CAN read indirect light forces every material compiled beside it to name something for the
+/// slot. This is that something: no bindings, no volumes, no descriptors.
+///
+/// Zero irradiance and a fully lit sun, which are the two right answers rather than one convenient one.
+/// A field that is absent contributes nothing to the indirect term; it does not shadow the sun either,
+/// and answering zero there would put every surface in the world in shadow.
+shader NoIrradiance : IIrradianceSource {
+    func SampleIrradiance(world: float3, normal: float3): float3 => float3(0f, 0f, 0f)
+
+    func SampleSunShadow(world: float3, normal: float3): float => 1f
+}

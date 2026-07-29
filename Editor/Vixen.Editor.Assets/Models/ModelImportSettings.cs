@@ -3,15 +3,16 @@
 
 using Vixen.Core;
 using Vixen.Core.Yaml.Meta;
+using Vixen.Rendering.DistanceFields;
 
 namespace Vixen.Editor.Assets.Models;
 
 /// <summary>How one model is imported.</summary>
 /// <remarks>
-///     Four settings, and each of them answers something the file cannot. Which axis is up, how the
-///     material tree is wired and what the LODs should be are all decisions with better homes — the
-///     first in the authoring tool, the second in a material asset, the third in the compiler that
-///     sees the whole model.
+///     Each of these answers something the file cannot. Which axis is up, how the material tree is
+///     wired and what the LODs should be are all decisions with better homes — the first in the
+///     authoring tool, the second in a material asset, the third in the compiler that sees the whole
+///     model.
 /// </remarks>
 [DataContract("ModelImporter")]
 public sealed record ModelImportSettings : IImportSettings {
@@ -48,4 +49,54 @@ public sealed record ModelImportSettings : IImportSettings {
     ///     weight in the bundle.
     /// </remarks>
     public bool ImportAnimations { get; init; } = true;
+
+    /// <summary>Whether to bake a signed distance field for each of the model's meshes.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         On by default, because <c>docs/plan/19</c> makes the field the substrate the whole
+    ///         lighting path stands on — distance-field shadows and occlusion read it, and everything
+    ///         above them traces it. A mesh with no field is invisible to all of that.
+    ///     </para>
+    ///     <para>
+    ///         It is the most expensive thing this importer does, by a wide margin: a bake is one
+    ///         exact closest-point query and <see cref="DistanceFieldSignRays" /> ray casts for every
+    ///         one of <see cref="DistanceFieldResolution" /> cubed samples. Turning it off is one
+    ///         setting, and worth it for a project that is not lighting this way — or per asset, for
+    ///         a mesh nothing will ever cast off.
+    ///     </para>
+    /// </remarks>
+    public bool GenerateDistanceFields { get; init; } = true;
+
+    /// <summary>How many samples along the longest axis of each field.</summary>
+    /// <remarks>
+    ///     The quality dial and the cost dial at once — doubling it is eight times the samples. The
+    ///     other two axes follow from the mesh's bounds so cells stay near-cubic, which matters most
+    ///     for a thin mesh: the thin axis is the one that decides whether the field leaks.
+    /// </remarks>
+    public int DistanceFieldResolution { get; init; } = 32;
+
+    /// <summary>How many rays each sample casts to decide which side of the surface it is on.</summary>
+    /// <remarks>
+    ///     The dominant cost, and what makes the sign survive the meshes people actually ship rather
+    ///     than only closed ones. Below about sixteen the vote is noisy on concave geometry; above
+    ///     about sixty-four it stops changing.
+    /// </remarks>
+    public int DistanceFieldSignRays { get; init; } = 32;
+
+    /// <summary>How far a field's volume is grown past its mesh, as a fraction of the mesh's size.</summary>
+    /// <remarks>
+    ///     A field whose bounds are the mesh's own has the surface lying on its boundary, where a
+    ///     trilinear sample has nothing on one side. The margin is where a ray approaching the mesh
+    ///     slows down before it arrives rather than at it.
+    /// </remarks>
+    public float DistanceFieldBoundsExpansion { get; init; } = 0.2f;
+
+    /// <summary>These as the bake wants them.</summary>
+    /// <returns>The build settings.</returns>
+    public DistanceFieldBuildSettings ToDistanceFieldSettings() =>
+        new() {
+            Resolution = DistanceFieldResolution,
+            SignRayCount = DistanceFieldSignRays,
+            BoundsExpansion = DistanceFieldBoundsExpansion
+        };
 }

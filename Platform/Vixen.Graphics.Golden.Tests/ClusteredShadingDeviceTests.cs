@@ -132,7 +132,7 @@ public class ClusteredShadingDeviceTests {
     [Fact]
     public void TheClusteredVariantCompilesAndBindsTheClusterList() {
         var material = Composed();
-        var data = Compiler().TryGet(Key(material.Composition));
+        var data = RavenEffects.Everything().TryGet(Key(material.Composition));
 
         Assert.NotNull(data);
 
@@ -158,14 +158,23 @@ public class ClusteredShadingDeviceTests {
             binding => binding.Set == DescriptorSetSlot.PerDraw && binding.Size == 1296
         );
 
-        // The world matrix is pushed, and the range reaches the runtime — a pipeline layout that
-        // declared none would drop every push against it, so every object in the frame would draw at
-        // the origin.
+        // The world matrix and the material record are pushed, and the range reaches the runtime — a
+        // pipeline layout that declared none would drop every push against it, so every object in the
+        // frame would draw at the origin.
+        //
+        // The members come with it, because an offset a host guessed is the failure this family
+        // specialises in: a push at the wrong offset within a declared range is accepted by every
+        // layer there is.
         var pushed = Assert.Single(data.PushConstants);
 
-        Assert.Equal(64, pushed.Size);
+        Assert.InRange(pushed.Size, 68, 128);
         Assert.Equal(0, pushed.Offset);
         Assert.True(pushed.Stages.HasFlag(ShaderStage.Vertex));
+
+        Assert.Equal(
+            [("world", 0), ("materialIndex", 64)],
+            [.. (pushed.Members ?? []).Select(member => (member.Name, member.Offset))]
+        );
 
         // And the attribute locations, which are not zero-based and are not guessable: a shader's
         // `stream` variables take locations before its vertex inputs do, so these four start at five.
@@ -259,7 +268,7 @@ public class ClusteredShadingDeviceTests {
 
         var loader = new EffectLoader(device);
         var effects = new EffectSystem();
-        effects.AddProvider(new Compiling(loader));
+        effects.AddProvider(new Compiling(loader, Compiler));
 
         // Resolved up front for its set-1 layout, which the per-view block has to be created with —
         // and it is the same handle the frame resolves, because the loader caches a layout by shape.
@@ -298,7 +307,13 @@ public class ClusteredShadingDeviceTests {
         var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = describer };
         var materials = new MaterialRenderFeature { Effects = effects, Device = device, Descriptors = allocator };
         var lighting = new ForwardLightingRenderFeature { Device = device, Clustered = true };
-        var transforms = new TransformRenderFeature();
+        // ⚠ A device and somewhere to publish to, both of them load-bearing even though this frame
+        // pushes its matrix rather than reading a record. `ForwardPlus` declares `transforms` in set 0
+        // unconditionally, so every variant needs it bound — and the feature answers that by uploading
+        // a single identity matrix when the record path is off. Without a device there is no buffer;
+        // without a collection the name is never published; either way set 0 is one binding short,
+        // which means it is not bound at all, and the draw reads descriptors nobody wrote.
+        var transforms = new TransformRenderFeature { Device = device, Scene = scene.Parameters };
 
         meshes.Add(transforms);
         meshes.Add(materials);
@@ -543,37 +558,6 @@ public class ClusteredShadingDeviceTests {
             };
     }
 
-    /// <summary>Compiles whatever key the frame asks for, as a content build would have baked it.</summary>
-    /// <remarks>
-    ///     ⚠ A compiler per shader name, not one for the frame. The material shaders' compose slots are
-    ///     bound by a composition, so a source set holding them compiles nothing without one — and
-    ///     <c>ClusterCulling</c> has no composition and no business having one. The two passes in this
-    ///     frame therefore see different libraries, which a content build does per effect anyway.
-    /// </remarks>
-    sealed class Compiling(EffectLoader loader) : IEffectProvider {
-        readonly Dictionary<EffectKey, Effect> cache = [];
-        readonly Dictionary<string, RavenEffectCompiler> compilers = [];
-
-        public Effect? TryGet(EffectKey key) {
-            if (cache.TryGetValue(key, out var existing)) {
-                return existing;
-            }
-
-            if (!compilers.TryGetValue(key.ShaderName, out var compiler)) {
-                compilers[key.ShaderName] = compiler = Compiler(key.ShaderName);
-            }
-
-            if (compiler.TryGet(key) is not { } data) {
-                return null;
-            }
-
-            var effect = loader.Load(data);
-            cache[key] = effect;
-
-            return effect;
-        }
-    }
-
     /// <summary>The material whose composition the pass is compiled against.</summary>
     /// <remarks>
     ///     Through <see cref="MaterialCompiler" /> rather than by hand, because it binds <em>every</em>
@@ -596,42 +580,15 @@ public class ClusteredShadingDeviceTests {
         return compilation.Material!;
     }
 
-    /// <summary>The compiler, over the whole library — the material shaders included this time.</summary>
-    static RavenEffectCompiler Compiler() =>
-        new(Directory.GetFiles(Library(), "*.rvn", SearchOption.AllDirectories));
-
     /// <summary>The sources one named shader compiles against.</summary>
     /// <remarks>
     ///     Everything for a material pass, and for <c>ClusterCulling</c> only what it imports — see the
     ///     remarks on <see cref="Compiling" /> for why the two cannot share a set.
     /// </remarks>
-    static RavenEffectCompiler Compiler(string shaderName) {
-        if (shaderName != "ClusterCulling") {
-            return Compiler();
-        }
-
-        var library = Library();
-
-        return new([
-            .. Directory.GetFiles(Path.Combine(library, "Core"), "*.rvn"),
-            .. Directory.GetFiles(Path.Combine(library, "Geometry"), "*.rvn"),
-            .. Directory.GetFiles(Path.Combine(library, "Shading"), "*.rvn"),
-            Path.Combine(library, "Pipeline", "ClusterCulling.rvn")
-        ]);
-    }
-
-    /// <summary>The shader library, found by walking up rather than by counting directories.</summary>
-    static string Library() {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
-            var candidate = Path.Combine(directory.FullName, "Raven", "Library");
-
-            if (Directory.Exists(candidate)) {
-                return candidate;
-            }
-        }
-
-        throw new DirectoryNotFoundException($"Raven/Library was not found above '{AppContext.BaseDirectory}'.");
-    }
+    static RavenEffectCompiler Compiler(string shaderName) =>
+        shaderName == "ClusterCulling"
+            ? RavenEffects.Only(["Core", "Geometry", "Shading"], Path.Combine("Pipeline", "ClusterCulling.rvn"))
+            : RavenEffects.Everything();
 
     /// <summary>Passes when there is no device, unless the environment insists on one.</summary>
     static void Skip(string? reason) {

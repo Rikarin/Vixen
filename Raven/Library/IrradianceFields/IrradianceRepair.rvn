@@ -1,0 +1,350 @@
+package Vixen.Shaders.IrradianceFields
+
+import Vixen.Shaders.Core
+
+// Repairing a filled field: dilation into invalid probes, then the border planes.
+//
+// The device half of `IrradianceField.Dilate` and `IrradianceField.SyncBorders`. Those exist first and on
+// the CPU because there they can be checked against arithmetic, and they stay the reference: where the two
+// disagree, the C# is right and this is wrong. `IrradianceFillDeviceTests`' sibling holds a device-repaired
+// pool against a CPU-repaired one, brick for brick.
+//
+// Both are owed the moment filler A runs on a device. `IrradianceFieldTexture.PoolIsWritten` makes the pool
+// a storage image the dispatch owns, and the CPU field beside it stops being uploaded — so the CPU's repair
+// is repairing an array nothing reads. A device-filled field without these has a rind of unlit probes
+// around every wall and a seam at every brick boundary.
+//
+// THREE PHASES, ONE SHADER, because they share every binding and differ only in what an invocation does
+// with a texel. A permutation rather than a branch: each variant is compiled with one answer, so the
+// promote pass is four instructions rather than a dilation kernel with its body switched off.
+//
+// The pool is read through the storage images rather than through a sampler, and that is not a preference.
+// An image is in one layout at a time; these dispatches need it writable, so a sampled view of the same
+// texels cannot be bound alongside. Every read here is therefore an explicit `Load`, and the trilinear the
+// hardware would have done is written out — which is also what makes it match `IrradianceBrickPool.Sample`
+// rather than approximately agree with it.
+
+/// One brick to repair: where it is in the pool, where it is in the world, and how coarse it is.
+struct IrradianceRepairJob {
+    /// Where the brick's footprint starts in the pool, in texels.
+    var origin: int3
+
+    /// Where its probe (0, 0, 0) stands, in world space.
+    var position: float3
+
+    /// How far apart its probes are. A quarter of the brick, not a fifth.
+    var spacing: float3
+
+    /// How many finest cells across it is, for telling a same-size neighbour from a coarser one.
+    var size: float
+}
+
+shader IrradianceRepair {
+    /// How many probes a brick owns along each axis.
+    const val Owned = 4
+
+    /// The last index of the padded footprint — the border plane.
+    const val Last = 4
+
+    /// Fill the border planes instead of dilating.
+    ///
+    /// A separate dispatch and not a later branch of the same one: a border is a COPY of a repaired probe,
+    /// so every dilation everywhere has to have finished before the first border is written. That is a
+    /// barrier, and a barrier is between dispatches.
+    [Permutation] val Borders: bool = false
+
+    /// Turn this pass's repairs from provisional into believed.
+    ///
+    /// What replaces the CPU's deferred write list. `Dilate` applies its repairs after the whole sweep, so
+    /// a probe repaired in one pass cannot feed the probe beside it in the same pass — otherwise the answer
+    /// depends on which way the loops ran, which on a GPU is "on whatever order the scheduler chose".
+    ///
+    /// A device has nowhere to put a deferred list that every invocation can also read past. So a repair is
+    /// written with its validity NEGATED, which is a value no filler produces and every reader here already
+    /// rejects — `validity <= 0` was the existing test for "do not borrow from this". The repair is
+    /// therefore invisible to its own pass and complete for the next one, and this flips the sign.
+    [Permutation] val Promote: bool = false
+
+    /// Where the field is, and how to turn a world position into a lookup.
+    var irradianceField: IrradianceFieldVolume
+
+    /// Which brick covers a cell.
+    var irradianceIndirection: Texture3D
+
+    /// Point, because interpolating two slot indices gives a third that means nothing.
+    var irradiancePointSampler: Sampler
+
+    var jobs: Buffer<IrradianceRepairJob>
+
+    [Format("rgba32f")] var repairL0: RWTexture3D<float4>
+    [Format("rgba32f")] var repairL1R: RWTexture3D<float4>
+    [Format("rgba32f")] var repairL1G: RWTexture3D<float4>
+    [Format("rgba32f")] var repairL1B: RWTexture3D<float4>
+
+    /// Everything one probe holds, out of the four volumes it is spread across.
+    ///
+    /// Colour-major, matching `IrradianceFieldTexture.PackPool` and `IrradianceFill.Store`: a fetch of the
+    /// red volume gives all three of red's linear coefficients rather than one coefficient's RGB.
+    func Fetch(texel: int3): IrradianceProbe {
+        val a = repairL0.Load(texel)
+        val r = repairL1R.Load(texel)
+        val g = repairL1G.Load(texel)
+        val b = repairL1B.Load(texel)
+
+        val l1m1 = float3(r.r, g.r, b.r)
+        val l10 = float3(r.g, g.g, b.g)
+        val l11 = float3(r.b, g.b, b.b)
+
+        return IrradianceProbe(a.rgb, l1m1, l10, l11, a.a, r.a)
+    }
+
+    /// Writes one probe back into the four volumes.
+    func Write(texel: int3, probe: IrradianceProbe) {
+        repairL0.Store(texel, float4(probe.l00, probe.validity))
+        repairL1R.Store(texel, float4(probe.l1m1.x, probe.l10.x, probe.l11.x, probe.sunShadow))
+        repairL1G.Store(texel, float4(probe.l1m1.y, probe.l10.y, probe.l11.y, 0f))
+        repairL1B.Store(texel, float4(probe.l1m1.z, probe.l10.z, probe.l11.z, 0f))
+    }
+
+    /// One probe between two, weight by weight — the same linear blend `IrradianceProbe.Lerp` is.
+    ///
+    /// Interpolating the coefficients IS interpolating the lighting, exactly, because the projection is
+    /// linear. That is the property the whole storage layer rests on.
+    static func Between(from: IrradianceProbe, to: IrradianceProbe, amount: float): IrradianceProbe {
+        val l00 = lerp(from.l00, to.l00, amount)
+        val l1m1 = lerp(from.l1m1, to.l1m1, amount)
+        val l10 = lerp(from.l10, to.l10, amount)
+        val l11 = lerp(from.l11, to.l11, amount)
+        val validity = lerp(from.validity, to.validity, amount)
+        val sun = lerp(from.sunShadow, to.sunShadow, amount)
+        return IrradianceProbe(l00, l1m1, l10, l11, validity, sun)
+    }
+
+    /// Which probe of a brick a local coordinate is nearest, along each axis.
+    ///
+    /// `floor(x + 0.5)` rather than `round`, matching `IrradianceField.Nearest` — and the difference is not
+    /// pedantry. `MathF.Round` on the other side breaks a tie to the nearest EVEN integer while `round`
+    /// here does not, so the two disagree on every tie; and ties are structural rather than rare, because a
+    /// fine brick's probes sit exactly halfway between a coarse neighbour's. Spelling the tie-break out on
+    /// both sides is what makes neither depend on a library's policy.
+    static func Round(local: float3, scale: float, last: float): float3 {
+        return clamp(floor(local * scale + float3(0.5f, 0.5f, 0.5f)), float3(0f, 0f, 0f), float3(last, last, last))
+    }
+
+    /// Which of a brick's probes a local coordinate falls between, along one axis.
+    ///
+    /// `IrradianceBrickPool.Weights`, written out: the lower index is clamped to the probes a brick OWNS,
+    /// so the upper one is at most the border plane and never past it.
+    static func Lower(local: float): float {
+        return clamp(floor(clamp(local, 0f, 1f) * float(Owned)), 0f, float(Owned - 1))
+    }
+
+    /// A brick's own field at a point inside it, trilinearly — `IrradianceBrickPool.Sample`.
+    ///
+    /// Eight explicit loads. The hardware would do this in one fetch through a sampler, and cannot here:
+    /// the pool is bound writable, and an image cannot also be sampled in that layout.
+    func Interpolated(origin: int3, local: float3): IrradianceProbe {
+        val scaled = clamp(local, float3(0f, 0f, 0f), float3(1f, 1f, 1f)) * float(Owned)
+        val lower = float3(Lower(local.x), Lower(local.y), Lower(local.z))
+        val f = clamp(scaled - lower, float3(0f, 0f, 0f), float3(1f, 1f, 1f))
+        val at = origin + int3(int(lower.x), int(lower.y), int(lower.z))
+
+        val c00 = Between(Fetch(at + int3(0, 0, 0)), Fetch(at + int3(1, 0, 0)), f.x)
+        val c10 = Between(Fetch(at + int3(0, 1, 0)), Fetch(at + int3(1, 1, 0)), f.x)
+        val c01 = Between(Fetch(at + int3(0, 0, 1)), Fetch(at + int3(1, 0, 1)), f.x)
+        val c11 = Between(Fetch(at + int3(0, 1, 1)), Fetch(at + int3(1, 1, 1)), f.x)
+
+        return Between(Between(c00, c10, f.y), Between(c01, c11, f.y), f.z)
+    }
+
+    /// The pool texel of the probe a brick holds nearest a world position, with `w` set when one exists.
+    ///
+    /// `IrradianceField.TryProbeAt`: rounded to the nearest OWNED probe rather than floored to a cell, so
+    /// a neighbour asked for "one probe that way" answers with a probe and not with an interpolation.
+    ///
+    /// An `int4` because Raven has no `out` parameters and no tuples. The alternative — a sentinel texel —
+    /// would be a texel some pool legitimately has.
+    func Nearest(world: float3): int4 {
+        val missing = int4(0, 0, 0, 0)
+
+        if (!IrradianceField.Contains(irradianceField, world)) {
+            return missing
+        }
+
+        val entry = IrradianceField.Fetch(irradianceField, irradianceIndirection, irradiancePointSampler, world)
+
+        if (entry.a <= 0f) {
+            return missing
+        }
+
+        val local = IrradianceField.Local(irradianceField, entry, world)
+        val index = Round(local, float(Owned), float(Owned - 1))
+        val texel = int3(int(entry.r), int(entry.g), int(entry.b)) + int3(int(index.x), int(index.y), int(index.z))
+
+        return int4(texel.x, texel.y, texel.z, 1)
+    }
+
+    /// Which way the nth face neighbour is. Six directions, no array and no `select`.
+    static func Face(index: int): float3 {
+        val sign = 1f - 2f * float(mod(index, 2))
+        var step = float3(0f, 0f, sign)
+
+        if (index / 2 == 0) {
+            step = float3(sign, 0f, 0f)
+        }
+
+        if (index / 2 == 1) {
+            step = float3(0f, sign, 0f)
+        }
+
+        return step
+    }
+
+    /// The average of a probe's valid face neighbours, or a probe of validity zero if it has none.
+    ///
+    /// Six and not twenty-six. A diagonal neighbour is further away and its path to here runs through the
+    /// two faces between them, so a corner probe buried in a wall would pull from a room it has no straight
+    /// line to. Six is also what makes one pass mean one probe of travel.
+    ///
+    /// Zero validity is an unambiguous "nothing to borrow": a real repair divides a positive weight by a
+    /// positive count, so it can never come out as zero.
+    func Borrowed(texel: int3, position: float3, spacing: float3): IrradianceProbe {
+        val nothing = float3(0f, 0f, 0f)
+
+        var l00 = nothing
+        var l1m1 = nothing
+        var l10 = nothing
+        var l11 = nothing
+        var shadow = 0f
+        var weight = 0f
+        var contributors = 0
+
+        for (axis in 0 .. 5) {
+            val found = Nearest(position + spacing * Face(axis))
+            val other = int3(found.x, found.y, found.z)
+
+            // A coarse neighbour's nearest probe can round back to this one, and averaging a probe into
+            // itself repairs nothing while looking as though it did.
+            val elsewhere = other.x != texel.x || other.y != texel.y || other.z != texel.z
+
+            if (found.w == 1 && elsewhere) {
+                val probe = Fetch(other)
+
+                // Zero is an unfilled probe and a negative is one this same pass has just repaired. Both
+                // are rejected by the same test, which is the whole trick — see `Promote`.
+                if (probe.validity > 0f) {
+                    l00 += probe.l00 * probe.validity
+                    l1m1 += probe.l1m1 * probe.validity
+                    l10 += probe.l10 * probe.validity
+                    l11 += probe.l11 * probe.validity
+                    shadow += probe.sunShadow * probe.validity
+                    weight += probe.validity
+                    contributors += 1
+                }
+            }
+        }
+
+        if (contributors == 0) {
+            return IrradianceProbe(nothing, nothing, nothing, nothing, 0f, 0f)
+        }
+
+        // Divided by the weight rather than by the count, so a half-believed neighbour contributes half as
+        // much light and not half as much darkness. Validity itself is the plain mean, which is what makes
+        // a probe repaired from one uncertain neighbour stay uncertain.
+        val scale = 1f / weight
+        val believed = weight / float(contributors)
+
+        return IrradianceProbe(l00 * scale, l1m1 * scale, l10 * scale, l11 * scale, believed, shadow * scale)
+    }
+
+    /// What a border texel should hold — `IrradianceField.Borrowed`.
+    ///
+    /// Asked as a world position rather than as a neighbouring cell, because which brick is beyond a border
+    /// texel is a different answer for different texels of the same plane: a coarse brick's +X face can
+    /// span four finer neighbours, and the cell at the plane's own corner names only the first of them.
+    func Beyond(job: IrradianceRepairJob, probe: int3, world: float3): IrradianceProbe {
+        val inside = IrradianceField.Contains(irradianceField, world)
+        val entry = IrradianceField.Fetch(irradianceField, irradianceIndirection, irradiancePointSampler, world)
+        val origin = int3(int(entry.r), int(entry.g), int(entry.b))
+        val same = origin.x == job.origin.x && origin.y == job.origin.y && origin.z == job.origin.z
+
+        if (inside && entry.a > 0f && !same) {
+            val local = IrradianceField.Local(irradianceField, entry, world)
+
+            // Same size, same lattice: the border probe and one of the neighbour's own probes are the same
+            // world position, so this is a copy by index and nothing happens to the value.
+            if (entry.a == job.size) {
+                val index = Round(local, float(Owned), float(Last))
+                return Fetch(origin + int3(int(index.x), int(index.y), int(index.z)))
+            }
+
+            // Different sizes, so the neighbour has no probe at this position to copy — interpolate its own
+            // field instead, which is what makes the two agree at the boundary.
+            return Interpolated(origin, local)
+        }
+
+        return Fetch(job.origin + int3(min(probe.x, Owned - 1), min(probe.y, Owned - 1), min(probe.z, Owned - 1)))
+    }
+
+    // A five-cubed group, because that is the padded footprint and the border phase has a texel for every
+    // one of it. The other two phases leave sixty-one of the hundred and twenty-five idle, which is the
+    // cheaper of the two mistakes available: the alternative is a second workgroup size, and a workgroup
+    // size is not a permutation.
+    [ComputeShader(5, 5, 5)]
+    func Main([Semantic("SV_GroupID")] group: uint3, [Semantic("SV_GroupThreadID")] thread: uint3) {
+        val job = jobs[int(group.z)]
+
+        // A brick of no size is padding. The border phase dispatches one size class at a time from an
+        // offset into this buffer, and a storage binding's offset has to be a multiple of the device's
+        // alignment — so the host rounds each class up and fills the gap with these. Skipping them here
+        // is cheaper than the arithmetic that would avoid them, and it is the only thing standing between
+        // a padded buffer and sixty-four probes written at whatever origin the padding happened to hold.
+        if (job.size <= 0f) {
+            return
+        }
+
+        val probe = int3(int(thread.x), int(thread.y), int(thread.z))
+        val texel = job.origin + probe
+        val border = probe.x == Last || probe.y == Last || probe.z == Last
+
+        if (Borders) {
+            if (!border) {
+                return
+            }
+
+            val world = job.position + job.spacing * float3(float(probe.x), float(probe.y), float(probe.z))
+            Write(texel, Beyond(job, probe, world))
+            return
+        }
+
+        if (border) {
+            return
+        }
+
+        if (Promote) {
+            val held = repairL0.Load(texel)
+
+            if (held.a < 0f) {
+                repairL0.Store(texel, float4(held.rgb, -held.a))
+            }
+
+            return
+        }
+
+        val current = repairL0.Load(texel)
+
+        if (current.a > 0f) {
+            return
+        }
+
+        val position = job.position + job.spacing * float3(float(probe.x), float(probe.y), float(probe.z))
+        val repair = Borrowed(texel, position, job.spacing)
+
+        if (repair.validity <= 0f) {
+            return
+        }
+
+        // Negated, so this pass cannot read what this pass wrote. `Promote` turns it back.
+        Write(texel, IrradianceProbe(repair.l00, repair.l1m1, repair.l10, repair.l11, -repair.validity, repair.sunShadow))
+    }
+}

@@ -70,30 +70,10 @@ public sealed class ForwardLightingRenderFeature
     /// <summary>Where the chosen probe's weight sits in the header.</summary>
     public const int ProbeWeightOffset = 8;
 
-    /// <summary>Where the material's record index sits in the header.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         The fourth scalar, in the padding the other three already left — so it costs nothing
-    ///         and <see cref="HeaderSize" /> does not move. `ForwardPlus.rvn` declares it at exactly
-    ///         this offset and the checked-in reflection says so, which is what makes the number here
-    ///         a fact rather than an agreement.
-    ///     </para>
-    ///     <para>
-    ///         Written by this feature although it is the material feature's number, because the
-    ///         block is this one's: the per-draw block is one allocation with the light list in it,
-    ///         and two features writing into one block at agreed offsets is worse than one feature
-    ///         asking the other for a value.
-    ///     </para>
-    /// </remarks>
-    public const int MaterialIndexOffset = 12;
-
     readonly List<RenderLight> lights = [];
     readonly List<int> punctual = [];
     readonly UploadBuffer<PunctualLightData> scene = new("ForwardLighting.Scene");
     readonly List<PermutationKey<bool>> keys;
-
-    /// <summary>The sibling that knows which record each material occupies, or null.</summary>
-    MaterialRenderFeature? materials;
 
     // One element, reused: the write is the same shape every frame, and the allocator copies it only
     // when it has to make a key out of it. Building the span from a collection expression here would
@@ -332,18 +312,6 @@ public sealed class ForwardLightingRenderFeature
             return;
         }
 
-        // Gathered here rather than at Initialize, for the reason MaterialRenderFeature gathers its
-        // own contributors that way: a sub-feature may be attached after this one, and the order a
-        // host calls Add in should not decide whether material records reach the shader.
-        materials = null;
-
-        foreach (var subFeature in Parent.SubFeatures) {
-            if (subFeature is MaterialRenderFeature found) {
-                materials = found;
-                break;
-            }
-        }
-
         SplitByKind();
         UploadScene();
         Publish();
@@ -389,7 +357,6 @@ public sealed class ForwardLightingRenderFeature
             var declared = (uint)count;
             MemoryMarshal.Write(block, in declared);
             WriteProbe(block, candidate.Bounds.Center);
-            WriteMaterialIndex(block, system, new(index));
 
             for (var i = 0; i < count; i++) {
                 var light = lights[chosen[i]].ToGpu();
@@ -446,29 +413,6 @@ public sealed class ForwardLightingRenderFeature
     ///         probe, ambient from the environment alone.
     ///     </para>
     /// </remarks>
-    /// <summary>Writes which record of the material buffer this object's material is.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         Zero when materials are not records, which is a record that exists rather than one
-    ///         that does not — and the shader only reads this field in the variant that asked for it,
-    ///         so an unfilled slot on the bound-per-material path is read by nothing at all.
-    ///     </para>
-    ///     <para>
-    ///         The <em>record</em> and not the group. A host binds the group's buffer for the frame
-    ///         and the shader subscripts it, so the number an object carries is its position within
-    ///         whichever buffer was bound — and a group written here instead would index the material
-    ///         buffer by a number that means "which buffer".
-    ///     </para>
-    /// </remarks>
-    void WriteMaterialIndex(Span<byte> block, RenderSystem system, RenderObjectId id) {
-        if (materials?.RecordOf(system, id) is not { } placed) {
-            return;
-        }
-
-        var record = (uint)placed.Index;
-        MemoryMarshal.Write(block[MaterialIndexOffset..], in record);
-    }
-
     void WriteProbe(Span<byte> block, Vector3 position) {
         if (Probes is not { } selector || selector.Select(position) is not { } chosenProbe) {
             return;
