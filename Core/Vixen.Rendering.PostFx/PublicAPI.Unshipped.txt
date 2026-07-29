@@ -102,6 +102,8 @@ Vixen.Rendering.PostFx.DistanceFieldAoRenderer.ShadowBias.get -> float
 Vixen.Rendering.PostFx.DistanceFieldAoRenderer.ShadowBias.set -> float
 Vixen.Rendering.PostFx.DistanceFieldAoRenderer.ShadowSteps.get -> int
 Vixen.Rendering.PostFx.DistanceFieldAoRenderer.ShadowSteps.set -> int
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.Source.get -> string
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.Source.set -> string
 Vixen.Rendering.PostFx.DistanceFieldAoRenderer.StepScale.get -> float
 Vixen.Rendering.PostFx.DistanceFieldAoRenderer.StepScale.set -> float
 Vixen.Rendering.PostFx.DistanceFieldAoRenderer.SunDirection.get -> Vixen.Core.Mathematics.Vector3

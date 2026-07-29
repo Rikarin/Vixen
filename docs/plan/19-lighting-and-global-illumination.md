@@ -155,23 +155,28 @@ discipline `EnvironmentBaker` and `SphericalHarmonics` already follow.
 **Exit:** a sphere's baked field matches its analytic distance to tolerance; the clipmap's traced
 occlusion matches a CPU reference on a fixture scene; two bakes are byte-identical.
 
-**Status: built, except that nothing has drawn with it.** The bake, the clipmap (which scrolls rather
-than recomposites), the CPU tracer, the importer stage, the volume textures, the compositor node, the
-Raven module and `DistanceFieldAo` all exist and are gated — the pass compiles on a device and its
-binding plan is held against the names the host writes. What has never happened is a *draw*: the
-shader's own arithmetic has not executed once.
+**Status: built, and it has now drawn.** The bake, the clipmap (which scrolls rather than
+recomposites), the CPU tracer, the importer stage, the volume textures, the compositor node, the Raven
+module and `DistanceFieldAo` all exist and are gated. `DistanceFieldAoImageTests` runs the pass through
+a real compositor on a real device and reads the picture back: with `NoDistanceField` behind the slot
+every pixel comes back `(1, 1, 0)` — fully open, fully lit, nothing in blue — which is the answer that
+is knowable exactly and as far from a shader that did not run as a frame can be.
 
-That is the outstanding item on L1 and it is worth naming precisely, because every previous time
-something real ran it found something the layer below had agreed with itself about — the unbound
-compose slot, the binding-name confusion, three errors in the first rendered scene, a
-float-associativity bug in the scroll. The parts checked only against their own mirrors are the parts
-most likely to be wrong, and right now that is the shader.
+It found what a first execution always finds here. **A full-screen pass had no way to fill a compose
+slot at all**, so `DistanceFieldAo` could not be built by a compositor under *any* composition: the key
+carried none, the compiler refused the unbound slot, the effect system recorded a miss, and the node
+drew nothing while looking exactly like a pass nobody scheduled. `FullScreenRenderer.Composition` is
+the fix, and `DistanceFieldAoRenderer.Source` is what sets it — defaulting to `NoDistanceField`,
+because a project with no clipmap has no field to trace. That is the sixth time something real running
+has found something the layer below had agreed with itself about, after the unbound material slot, the
+binding-name confusion, three errors in the first rendered scene, and the scroll's float associativity.
 
-What it needs, in order: a volume-texture upload path on the golden `Fixture` (it can upload 2D and
-nothing else); the `Compiling` effect provider lifted out of `ClusteredShadingDeviceTests` where it is
-private; and a graph pass that draws. Start with the `NoDistanceField` composition — no volumes to
-bind and the answer is knowable exactly, a frame uniformly `(1, 1, 0)`, where a shader that did not
-run gives black.
+**Still owed on L1: a frame that traces.** The traced variant now compiles and reaches a pipeline —
+that half had never been built by a compositor either — but it stops before the draw, because the
+clipmap's volumes live in the frame's set 0 and a frame without a `GlobalDistanceFieldRenderer` binds
+no set 0 at all, which is a validation error at submit whether or not the shader reads it. Giving the
+fixture a real clipmap needs a volume-texture upload path on the golden `Fixture`, which can upload a
+2D texture and nothing else. Plumbing rather than a question, and it is the last piece.
 
 ### L2 — The irradiance field *(2.0 EM)*
 

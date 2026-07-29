@@ -201,6 +201,17 @@ whole of the hard half be checked against a sphere's own equation rather than a 
 mirror — one volume texture per clipmap level, staged, copied and named — lives on the other side of
 that line, in `Vixen.Rendering.Lighting.GlobalDistanceFieldTexture`, and the dependency runs one way.
 
-What is still owed for doc 19's L1: the shader port of `DistanceFieldTracer`, with the CPU one as the
-reference it gets compared against; and clipmap scrolling, so a camera that moved one cell dirties
-one slab per axis instead of every level.
+## It has drawn
+
+`DistanceFieldAoImageTests` runs the pass through a real compositor on a real device. With
+`NoDistanceField` behind the slot every pixel comes back `(1, 1, 0)` — fully open, fully lit — which
+is the answer that is knowable exactly, and as far as a frame can get from the black a shader that did
+not run gives.
+
+Writing it found that **a full-screen pass had no way to fill a compose slot at all**, so this pass
+could not be built by a compositor under any composition: the key carried none, the compiler refused
+the unbound slot, and the node drew nothing while looking exactly like a pass nobody scheduled.
+
+What is still owed: a frame that actually *traces*. The traced variant compiles and reaches a
+pipeline, but the clipmap's volumes live in the frame's set 0 and the golden fixture can upload a 2D
+texture and nothing else, so there is no set 0 to bind. That is the last piece.

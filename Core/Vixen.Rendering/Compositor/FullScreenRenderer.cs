@@ -85,6 +85,26 @@ public sealed class FullScreenRenderer : SceneRenderer, IDisposable {
     /// <summary>The viewport, or null for the whole target.</summary>
     public Viewport? Viewport { get; set; }
 
+    /// <summary>What fills the shader's compose slots, for a pass that has any.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Empty for almost every post effect, because almost none of them composes anything — a
+    ///         blur is a blur. <c>DistanceFieldAo</c> is the exception: it declares
+    ///         <c>compose val distanceField</c> so that a project which traces nothing still compiles,
+    ///         and a slot a compilation declares has to be <i>bound</i>, whether or not anything
+    ///         reaches it.
+    ///     </para>
+    ///     <para>
+    ///         <b>Without this a composing pass cannot be built at all, and fails silently.</b> The key
+    ///         would carry no composition, the compiler would refuse the unbound slot, and
+    ///         <see cref="EffectSystem" /> would record a miss and return nothing — so the node draws
+    ///         no pixels and the frame looks like one where the pass was simply not scheduled. That is
+    ///         what a material's <c>MaterialCompiler.OptionalSlots</c> does for a material, and a
+    ///         full-screen pass has no material.
+    ///     </para>
+    /// </remarks>
+    public ShaderComposition Composition { get; set; } = ShaderComposition.Empty;
+
     /// <summary>The set it binds: its source textures, its samplers, its uniform block.</summary>
     public DescriptorBindings Descriptors { get; } = new() { Slot = DescriptorSetSlot.PerMaterial };
 
@@ -128,7 +148,7 @@ public sealed class FullScreenRenderer : SceneRenderer, IDisposable {
             return;
         }
 
-        var key = EffectKey.From(ShaderName, Parameters, PermutationKeys);
+        var key = EffectKey.From(ShaderName, Parameters, PermutationKeys, Composition);
 
         if (frame.Effects.Resolve(key) is not { } effect) {
             // Reported through EffectSystem.Misses like every other, which is what keeps "no runtime

@@ -164,18 +164,5 @@ public sealed class DistanceFieldDeviceTests {
         return compilation.Material!.Composition;
     }
 
-    static RavenEffectCompiler Compiler() =>
-        new(Directory.GetFiles(Library(), "*.rvn", SearchOption.AllDirectories));
-
-    static string Library() {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-
-        while (directory is not null && !Directory.Exists(Path.Combine(directory.FullName, "Raven", "Library"))) {
-            directory = directory.Parent;
-        }
-
-        Assert.NotNull(directory);
-
-        return Path.Combine(directory!.FullName, "Raven", "Library");
-    }
+    static RavenEffectCompiler Compiler() => RavenEffects.Everything();
 }

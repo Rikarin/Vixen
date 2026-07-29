@@ -272,6 +272,8 @@ Vixen.Rendering.Compositor.FullScreenRenderer.BufferReads.get -> System.Collecti
 Vixen.Rendering.Compositor.FullScreenRenderer.ClearColour.get -> Vixen.Core.Mathematics.Color4
 Vixen.Rendering.Compositor.FullScreenRenderer.ClearColour.set -> Vixen.Core.Mathematics.Color4
 Vixen.Rendering.Compositor.FullScreenRenderer.ColourTargets.get -> System.Collections.Generic.IList<string>
+Vixen.Rendering.Compositor.FullScreenRenderer.Composition.get -> Vixen.Shaders.ShaderComposition
+Vixen.Rendering.Compositor.FullScreenRenderer.Composition.set -> Vixen.Shaders.ShaderComposition
 Vixen.Rendering.Compositor.FullScreenRenderer.ConstantBinding.get -> uint?
 Vixen.Rendering.Compositor.FullScreenRenderer.ConstantBinding.set -> uint?
 Vixen.Rendering.Compositor.FullScreenRenderer.Descriptors.get -> Vixen.Rendering.Compositor.DescriptorBindings

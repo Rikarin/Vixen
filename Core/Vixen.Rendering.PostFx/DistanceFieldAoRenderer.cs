@@ -3,6 +3,7 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Rendering.Compositor;
+using Vixen.Rendering.Materials;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
 
@@ -51,6 +52,25 @@ public sealed class DistanceFieldAoRenderer() : PostEffectRenderer(
 
     /// <summary>The normals it orients the occlusion integral by.</summary>
     public required string Normals { get; init; }
+
+    /// <summary>The shader behind the field slot — what the march actually reads.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>NoDistanceField</c> by default, which answers "nothing is near" and makes this pass a
+    ///         constant: fully open, fully lit. That is the honest default, because a project with no
+    ///         clipmap has no field to trace and the alternative would be a pass that refuses to
+    ///         compile until something it does not own exists.
+    ///     </para>
+    ///     <para>
+    ///         <c>GlobalDistanceField</c> is what a frame with a
+    ///         <c>GlobalDistanceFieldRenderer</c> in it sets, and the two have to agree: this name is
+    ///         also the compose-slot prefix that renderer writes its bindings under.
+    ///     </para>
+    /// </remarks>
+    public string Source { get; set; } = MaterialCompiler.EmptyFieldShader;
+
+    /// <summary>The slot the shader declares for it.</summary>
+    const string Slot = "distanceField";
 
     /// <summary>Whether to trace a sun shadow alongside the occlusion.</summary>
     /// <remarks>
@@ -132,6 +152,10 @@ public sealed class DistanceFieldAoRenderer() : PostEffectRenderer(
     ) {
         ArgumentNullException.ThrowIfNull(frame);
         ArgumentNullException.ThrowIfNull(parameters);
+
+        // Without this the slot is unbound, the compiler refuses the variant, and the pass draws
+        // nothing while looking exactly like a pass nobody scheduled.
+        Pass.Composition = ShaderComposition.Of([new KeyValuePair<string, string>(Slot, Source)]);
 
         parameters.Set(DistanceFieldAoKeys.SunShadow, SunShadow);
 
