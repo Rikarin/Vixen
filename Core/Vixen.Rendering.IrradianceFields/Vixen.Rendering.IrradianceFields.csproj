@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Rendering.IrradianceFields</RootNamespace>
+        <Description>
+            The irradiance field of docs/plan/19: a sparse grid of bricks, each four probes cubed in
+            a five-cubed footprint so hardware trilinear crosses a brick boundary without a seam, a
+            pool that holds them, and an indirection grid mapping a world cell to a pool slot. The
+            storage and sampling half of dynamic global illumination — written once and deliberately
+            ignorant of whether a ray tracer or an offline capture filled it. Device-free, so the
+            sampling is checked against arithmetic rather than against a picture.
+        </Description>
+        <PackageTags>global-illumination;irradiance;probes;spherical-harmonics;lumen;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Imaging\Vixen.Core.Imaging.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Rendering.IrradianceFields.Tests" />
+    </ItemGroup>
+
+</Project>

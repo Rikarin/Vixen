@@ -193,6 +193,20 @@ closes doc 06's withdrawn light-probe row, and the point at which Vixen has GI a
 within a bounded frame count; the same scene through filler A and filler B agree within a stated
 tolerance.
 
+**Status: the storage exists and nothing fills it.**
+[`Vixen.Rendering.IrradianceFields`](../../Core/Vixen.Rendering.IrradianceFields/README.md) holds the
+payload (`SphericalHarmonicsL1` plus validity and a sun-shadow scalar), the pool (4³ probes in a 5³
+footprint, fixed capacity, cleared on release), the indirection grid, and the border sync. The seam is
+closed and the closure is checked the way a bake is: a field filled from a linear function of world
+position is reproduced *exactly* across a brick boundary, and the same field with its borders left
+alone is badly wrong — because a layout detail that looks like padding needs a test that fails when
+you remove it.
+
+Owed, in the order they change the picture: the two fillers; the rest of the leak mitigation
+(dilation into invalid probes, normal bias, view bias — validity is carried but nothing acts on it);
+refinement, which arrives as a brick size stored beside the slot; and the GPU mirror, whose sampling
+convention is already pinned from the CPU side the way `MeshDistanceField.TextureCoordinate` is.
+
 ### L3 — Screen probe gather *(3.0 EM)*
 
 The Lumen final gather. The largest quality jump and the largest risk.

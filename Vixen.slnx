@@ -117,6 +117,14 @@
     <Project Path="Core/Vixen.Rendering.DistanceFields.Tests/Vixen.Rendering.DistanceFields.Tests.csproj" />
 
     <!--
+      The irradiance field (docs/plan/19 § L2): bricks, a pool and an indirection grid. Beside the
+      distance fields and device-free for the same reason — the storage and sampling half is where
+      the seams and the leaks live, and both are arithmetic.
+    -->
+    <Project Path="Core/Vixen.Rendering.IrradianceFields/Vixen.Rendering.IrradianceFields.csproj" />
+    <Project Path="Core/Vixen.Rendering.IrradianceFields.Tests/Vixen.Rendering.IrradianceFields.Tests.csproj" />
+
+    <!--
       The debug-geometry join, listed here rather than beside Vixen.Engine because it belongs to the
       renderer half of the pair: Vixen.Engine accumulates without a device and this draws. Same
       arrangement, and same reason, as Vixen.Ui.Renderer.
