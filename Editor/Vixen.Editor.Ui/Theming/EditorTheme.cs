@@ -110,6 +110,18 @@ public static class EditorTheme {
             --pause: #b8791b;
             --stop: #c8352f;
 
+            /* ⚠ Two more shades each, because a hover has to stay the button's own
+               colour. The generic toolbar hover is a neutral grey, which on a green
+               button reads as the colour draining out of it at the moment the pointer
+               arrives — the one instant it most needs to look live. `soft` is the wash
+               under an idle button; `strong` is the filled one brightened. */
+            --play-soft: #cfe6d6;
+            --play-strong: #277a3b;
+            --pause-soft: #f0e0c4;
+            --pause-strong: #a06615;
+            --stop-soft: #f2cfcd;
+            --stop-strong: #ad2b26;
+
             --radius-panel: 5px;
             --radius-control: 4px;
             --radius-row: 4px;
@@ -146,6 +158,13 @@ public static class EditorTheme {
             --play: #3fae5c;
             --pause: #d99a3c;
             --stop: #e5544c;
+
+            --play-soft: #24402c;
+            --play-strong: #4cc46c;
+            --pause-soft: #453a26;
+            --pause-strong: #e8ab4e;
+            --stop-soft: #4a2b29;
+            --stop-strong: #f0655d;
 
             --elevation: 0px 10px 26px rgba(0, 0, 0, 0.5);
         }
@@ -280,17 +299,24 @@ public static class EditorTheme {
            the two being unreadable. */
         toolbar .transport-play:checked icon, toolbar .transport-pause:checked icon { color: #ffffff; }
 
+        /* ⚠ A hover keeps the button's own hue. The generic toolbar hover is a
+           neutral grey, and applied to these it reads as the colour draining out of
+           the button at the moment the pointer arrives. Idle buttons get a wash of
+           their colour; a filled one gets a brighter fill of the same. */
+        toolbar .transport-play:hover:not(:disabled):not(:checked) { background-color: var(--play-soft); }
+        toolbar .transport-pause:hover:not(:disabled):not(:checked) { background-color: var(--pause-soft); }
+        toolbar .transport-stop:hover:not(:disabled) { background-color: var(--stop-soft); }
+        toolbar .transport-step:hover:not(:disabled) { background-color: var(--surface-hover); }
+
+        toolbar .transport-play:checked:hover:not(:disabled) { background-color: var(--play-strong); }
+        toolbar .transport-pause:checked:hover:not(:disabled) { background-color: var(--pause-strong); }
+
         /* Disabled is the ordinary muting and not a colour: a greyed Stop must not
            read as a Stop that is merely a different shade of red. */
         toolbar .transport-play:disabled icon, toolbar .transport-pause:disabled icon,
         toolbar .transport-stop:disabled icon, toolbar .transport-step:disabled icon {
             color: var(--text-muted);
         }
-
-        /* A dropdown's chevron is smaller than a leading icon and muted, so that the
-           button reads as "this opens something" rather than as two glyphs. */
-        toolbar button.toolbar-dropdown { padding-right: 6px; }
-        toolbar button.toolbar-dropdown icon.chevron { width: 10px; height: 10px; color: var(--text-muted); }
 
         editor-workspace { flex-direction: column; flex-grow: 1; flex-basis: 0px; }
 

@@ -908,14 +908,12 @@ sealed partial class EditorApplication {
             ),
             new ToolbarSeparator(),
 
-            // ⚠ Four buttons and not a segmented group, which is the same argument as the one above
-            // read the other way. Translate/Rotate/Scale are boxed because they are one choice; Play,
-            // Pause, Step and Stop are two toggles and two actions, and boxing them would claim an
-            // exclusivity they do not have. What tells them apart here is colour, not a border.
-            new ToolbarButton("play.play"),
-            new ToolbarButton("play.pause"),
-            new ToolbarButton("play.step"),
-            new ToolbarButton("play.stop"),
+            // ⚠ Boxed, and for a different reason from the gizmo modes above. Those are one *choice*
+            // and the box says so; the transport is one *control* — a transport bar is a single
+            // object in every editor, every player and every tape machine there has ever been, and
+            // four buttons with gaps between them read as four unrelated verbs that happen to be
+            // adjacent. What still tells them apart is colour, which is why the box does not have to.
+            new ToolbarGroup("play.play", "play.pause", "play.step", "play.stop"),
             new ToolbarSeparator(),
             new ToolbarDropdown(
                 new StringId("editor.toolbar.layout", "Layout"),

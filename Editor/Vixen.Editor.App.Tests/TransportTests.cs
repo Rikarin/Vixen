@@ -78,18 +78,30 @@ public class TransportTests {
     }
 
     /// <summary>
-    ///     ⚠ Four buttons and not a segmented group. Translate/Rotate/Scale are boxed because they
-    ///     are one choice; the transport is two toggles and two actions, and boxing it would claim an
-    ///     exclusivity it does not have.
+    ///     ⚠ The four are one box, and it is a different argument from the gizmo modes'. Those are
+    ///     one <i>choice</i> and the box says so; a transport is one <i>control</i> — a single object
+    ///     in every editor, every player and every tape machine there has ever been — and four
+    ///     buttons with gaps between them read as four unrelated verbs that happen to be adjacent.
     /// </summary>
     [Fact]
-    public void The_transport_is_not_drawn_as_one_choice() {
+    public void The_transport_is_drawn_as_one_control() {
         using var fixture = new EditorFixture();
 
         var strip = fixture.Editor.Shell.Toolbar.Strip;
 
-        foreach (var group in strip.Children.Where(child => child.Tag == "toolbar-group")) {
-            Assert.DoesNotContain(Descendants(group), child => child.HasClass("transport-play"));
+        var group = Assert.Single(
+            strip.Children.Where(child => child.Tag == "toolbar-group"),
+            box => Descendants(box).Any(child => child.HasClass("transport-play"))
+        );
+
+        // All four in it and nothing else: a transport with the gizmo modes boxed in beside it would
+        // be a control claiming that Rotate and Stop are the same kind of thing.
+        var buttons = Descendants(group).OfType<ButtonBase>().ToList();
+
+        Assert.Equal(4, buttons.Count);
+
+        foreach (var name in new[] { "transport-play", "transport-pause", "transport-step", "transport-stop" }) {
+            Assert.Contains(buttons, button => button.HasClass(name));
         }
     }
 

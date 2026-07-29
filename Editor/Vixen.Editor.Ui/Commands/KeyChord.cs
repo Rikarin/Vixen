@@ -124,11 +124,30 @@ public readonly record struct KeyChord(InputKey Key, ModifierKeys Modifiers) {
     ///         without stopping.
     ///     </para>
     /// </remarks>
-    public static void UsePlatformFormat() {
-        if (Primary == ModifierKeys.Meta) {
-            KeyboardShortcut.Formatter = MacFormat;
+    public static void UsePlatformFormat(UiDocument? document = null) {
+        if (Primary != ModifierKeys.Meta) {
+            return;
         }
+
+        // ⚠ Only where the face can actually draw them. The editor borrows a font from the machine
+        // rather than shipping one — see `Fonts` — and on macOS what it finds is Arial, which has
+        // none of ⌘ ⇧ ⌥ ⌃. An unmapped codepoint does not draw as a box or as nothing: it resolves
+        // to whatever glyph zero happens to be, and the menu bar read "L+S" for Save. A shortcut
+        // nobody can read is worse than one written the long way.
+        KeyboardShortcut.Formatter = CanDrawGlyphs(document) ? MacFormat : MacWords;
     }
+
+    /// <summary>Whether a document's default face has the four modifier glyphs.</summary>
+    /// <remarks>
+    ///     All four rather than any: a label reading <c>⇧Cmd+S</c> — half glyphs, half words — is
+    ///     worse than either, and the Command symbol alone is the one most likely to be present.
+    /// </remarks>
+    static bool CanDrawGlyphs(UiDocument? document) =>
+        document?.Fonts.Default is { } face
+        && face.Supports('⌃')
+        && face.Supports('⌥')
+        && face.Supports('⇧')
+        && face.Supports('⌘');
 
     /// <summary>Writes a combination the way macOS has written them since 1984.</summary>
     /// <param name="key">The key.</param>
@@ -139,6 +158,38 @@ public readonly record struct KeyChord(InputKey Key, ModifierKeys Modifiers) {
     ///     machine reads without stopping. Public and pure so it can be checked without replacing a
     ///     process-wide formatter.
     /// </remarks>
+    /// <summary>The same combination in words, for a face that cannot draw the glyphs.</summary>
+    /// <param name="key">The key.</param>
+    /// <param name="modifiers">What is held with it.</param>
+    /// <returns>Something like <c>Shift+Cmd+S</c>.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The platform's order and the platform's names, with separators.</b> It is not the
+    ///     <see cref="KeyboardShortcut.Describe" /> form: that writes <c>Meta</c>, which is what the
+    ///     modifier is called in an event and not what it is called on the key — a Mac user reading
+    ///     "Meta+S" has to translate, and the whole point of adapting is that they should not have to.
+    /// </remarks>
+    public static string MacWords(InputKey key, ModifierKeys modifiers) {
+        var text = new StringBuilder();
+
+        if (modifiers.HasFlag(ModifierKeys.Control)) {
+            text.Append("Ctrl+");
+        }
+
+        if (modifiers.HasFlag(ModifierKeys.Alt)) {
+            text.Append("Opt+");
+        }
+
+        if (modifiers.HasFlag(ModifierKeys.Shift)) {
+            text.Append("Shift+");
+        }
+
+        if (modifiers.HasFlag(ModifierKeys.Meta)) {
+            text.Append("Cmd+");
+        }
+
+        return text.Append(KeyboardShortcut.Describe(key, ModifierKeys.None)).ToString();
+    }
+
     public static string MacFormat(InputKey key, ModifierKeys modifiers) {
         var text = new StringBuilder();
 

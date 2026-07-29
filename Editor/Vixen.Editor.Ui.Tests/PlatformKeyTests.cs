@@ -118,6 +118,24 @@ public class PlatformKeyTests : IDisposable {
         Assert.Equal("⌘1", KeyChord.MacFormat(InputKey.Number1, ModifierKeys.Meta));
     }
 
+    /// <summary>
+    ///     ⚠ The editor borrows a font from the machine rather than shipping one, and on macOS what
+    ///     it finds is Arial — which has none of ⌘ ⇧ ⌥ ⌃. An unmapped codepoint does not draw as a
+    ///     box or as nothing: it resolves to whatever glyph zero happens to be, and the menu bar read
+    ///     "L+S" for Save. A shortcut nobody can read is worse than one written the long way.
+    /// </summary>
+    [Fact]
+    public void A_face_that_cannot_draw_the_glyphs_gets_the_words() {
+        Assert.Equal("Shift+Cmd+S", KeyChord.MacWords(InputKey.S, ModifierKeys.Meta | ModifierKeys.Shift));
+
+        // The platform's names, not the event's: a Mac user reading "Meta+S" has to translate, and
+        // the whole point of adapting is that they should not have to.
+        Assert.Equal("Ctrl+Opt+Shift+Cmd+S", KeyChord.MacWords(
+            InputKey.S,
+            ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift | ModifierKeys.Meta
+        ));
+    }
+
     [Fact]
     public void The_keymap_file_stays_portable() {
         keys.SetDefault("file.save", new KeyChord(InputKey.S, ModifierKeys.Control));
