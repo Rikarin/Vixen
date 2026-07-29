@@ -189,6 +189,11 @@ public sealed partial class TreeView : Control {
     ///     nothing, and the release collapses it only if no drag happened.
     /// </remarks>
     TreeNode? pending;
+
+    /// <summary>A row that was already the sole selection when it was pressed, for the rename.</summary>
+    /// <inheritdoc cref="RenameOnSecondClick" select="remarks" />
+    TreeNode? renaming;
+
     TreeNode? dropTarget;
     DropPosition dropPosition;
     int rowHeightId;
@@ -280,6 +285,27 @@ public sealed partial class TreeView : Control {
     /// </remarks>
     [UiProperty]
     public partial bool RenameOnActivate { get; set; }
+
+    /// <summary>Whether clicking a row that is already the only one selected renames it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The other half of the pair, and the one a file browser wants.</b> A double-click on
+    ///         a file opens it — that is what a browser is for — so the rename has to be the gesture
+    ///         that is <i>not</i> a double-click: click once to select, pause, click again on the
+    ///         same row. Every file manager does this and nobody has to be told.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>"Already selected before this press" is what tells the two apart, and it needs no
+    ///         timer.</b> The first click of a double-click lands on a row that was not selected, so
+    ///         it arms nothing and the second tap activates; a click after a pause lands on a row
+    ///         that <i>is</i> selected, and the tap that follows renames. The one case the rule
+    ///         cannot separate is a double-click on a row that was already selected — there the
+    ///         first tap opens the editor and the second closes it again and activates, which is the
+    ///         same order of events every implementation of this gesture produces.
+    ///     </para>
+    /// </remarks>
+    [UiProperty]
+    public partial bool RenameOnSecondClick { get; set; }
 
     /// <summary>Raised when the selection changes.</summary>
     public event Action<TreeView>? SelectionChanged;
@@ -706,6 +732,15 @@ public sealed partial class TreeView : Control {
             return;
         }
 
+        // ⚠ Read before the selection is written, which is the whole of how a rename click is told
+        // apart from the first click of a double-click. See `RenameOnSecondClick`.
+        renaming = RenameOnSecondClick
+            && args.Modifiers == ModifierKeys.None
+            && selection.Count == 1
+            && selection.Contains(node)
+                ? node
+                : null;
+
         // ⚠ Deferred rather than applied, when the press is inside the selection and nothing is
         // held. That is the case where the user is either about to drag all of it or about to
         // narrow to this one, and the press cannot tell which — only the release can.
@@ -726,11 +761,34 @@ public sealed partial class TreeView : Control {
             Select(narrowed, ModifierKeys.None);
         }
 
-        if (args.Count == 2 && RowAt(args.X, args.Y) is { Node: { } node }) {
+        // A single tap on a row that was already the only one selected. See `RenameOnSecondClick`:
+        // the arming happened on the press, before the selection was written, which is what keeps
+        // this off the first click of a double-click.
+        if (args.Count == 1 && renaming is { } again && RowAt(args.X, args.Y)?.Node is { } under
+            && ReferenceEquals(again, under)) {
+            renaming = null;
+
+            BeginRename(under);
+            args.Handled = true;
+
+            return;
+        }
+
+        if (args.Count >= 2 && RowAt(args.X, args.Y) is { Node: { } node } row) {
             // ⚠ The run ends with the activation. Expanding a folder moves a different row under a
             // pointer that has not moved, so the next double-click would otherwise be counted as
             // taps three and four and would activate nothing.
             Document.Gestures.EndTapRun();
+            renaming = null;
+
+            // ⚠ And a rename the first tap of this run opened is abandoned rather than left over
+            // the row. That happens on a double-click of a row that was *already* selected, which
+            // the arming rule cannot tell from the rename gesture without a timer — so the second
+            // tap takes it back, and what the user sees is the editor they did not want closing as
+            // the file opens.
+            if (row.Editor is not null) {
+                CommitRename(row, commit: false);
+            }
 
             if (RenameOnActivate) {
                 // ⚠ Selected first, because every consumer of a rename acts on the row that was

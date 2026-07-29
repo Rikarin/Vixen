@@ -252,6 +252,19 @@ public static class ControlTheme {
             opacity: 0.55;
         }
 
+        /* ⚠ And a field that will not take a keystroke, which is a different state and had no
+           picture at all. `ReadOnly` is deliberately not `Disabled` — the field still takes the
+           focus and its text can still be selected and copied, which is the whole reason a form
+           uses it — so it does not get the fade, which reads as "out of reach". What it gets is
+           the muted text `:disabled` gets, because "you cannot change this" is the half the two
+           states share and is the half somebody is about to discover by typing.
+
+           On the parts as well as the field: `field-text` inherits its colour from here, and
+           `numeric-input`'s spinners and a combo box's editable half are children that do not. */
+        .read-only, .read-only field-text, .read-only icon {
+            color: var(--text-muted);
+        }
+
         /* ── Toggles ────────────────────────────────────────────────────────── */
         checkbox, radio, switch {
             flex-direction: row;

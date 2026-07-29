@@ -337,12 +337,7 @@ sealed partial class EditorApplication : IDisposable {
             // stores that have to agree about which directory they are looking at, and it must not
             // share the editor's database — `Scan` clears and repopulates its dictionaries, which is
             // the race ContentTasks already documents.
-            addressable.Analyser = () => {
-                var workspace = new ProjectWorkspace(project.Paths);
-
-                workspace.Database.Scan();
-                return ContentPipeline.Analyse(workspace, _ => { });
-            };
+            addressable.Analyser = AnalyseContent;
         }
 
         // ⚠ A sequence drives the scene the editor has open, and which scene that is is this class's
@@ -701,9 +696,18 @@ sealed partial class EditorApplication : IDisposable {
 
         history = state;
 
-        if (moved) {
-            inspector?.Reload();
+        if (!moved) {
+            return;
         }
+
+        inspector?.Reload();
+
+        // ⚠ And the component foldouts, which are not the inspector's rows and are the ones a
+        // numeric edit usually lands in. `SetComponentCommand` announces itself only when the *set*
+        // of components changed — a value edit deliberately says nothing, so that a slider drag does
+        // not rebuild the panel under the pointer — which left an undone intensity showing the
+        // number it had been undone from.
+        components?.Reload();
     }
 
     /// <summary>Brings every <c>WorldTransform</c> up to date with the local one behind it.</summary>
@@ -2033,7 +2037,18 @@ sealed partial class EditorApplication : IDisposable {
 
         group.Add("assets.open");
         group.AddSeparator();
-        group.Add("assets.new-folder", "assets.import-files");
+
+        // ⚠ The same Create submenu the Assets menu on the bar carries, from the same ids — which is
+        // what the registry is for and is why this is three lines rather than a second list. A
+        // browser whose context menu could make a folder but not a material is one where the seven
+        // asset kinds are reachable only from a menu at the top of the window, several inches from
+        // the folder somebody has just navigated into and right-clicked in.
+        group.AddSubmenu(EditorStrings.MenuCreate)
+            .Add("assets.new-folder", "assets.create")
+            .AddSeparator()
+            .Add([.. CreatableIds]);
+
+        group.Add("assets.import-files");
         group.AddSeparator();
         group.Add("assets.rename", "assets.delete", "assets.move-to");
         group.AddSeparator();
@@ -2485,6 +2500,25 @@ sealed partial class EditorApplication : IDisposable {
 
             return kept;
         }
+    }
+
+    /// <summary>Runs the real content planner, for whoever wants to know what a build would say.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The planner, not a reimplementation of its rules.</b> A panel that worked out for
+    ///     itself which assets land in which group would be a second set of rules, and the way that
+    ///     drift shows up is a panel saying a project is fine and the build refusing it.
+    ///     <para>
+    ///         ⚠ <b>Against a workspace of its own.</b> <c>ProjectWorkspace</c> opens the four stores
+    ///         that have to agree about which directory they are looking at, and it must not share
+    ///         the editor's database — <c>Scan</c> clears and repopulates its dictionaries, which is
+    ///         the race <c>ContentTasks</c> already documents.
+    ///     </para>
+    /// </remarks>
+    BuildPlan AnalyseContent() {
+        var workspace = new ProjectWorkspace(project.Paths);
+
+        workspace.Database.Scan();
+        return ContentPipeline.Analyse(workspace, _ => { });
     }
 
     /// <summary>The glyph an outliner row draws for what an entity is.</summary>

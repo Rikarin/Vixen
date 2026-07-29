@@ -897,6 +897,7 @@ Vixen.Ui.Controls.Advanced.TreeView.BeginRename(Vixen.Ui.Controls.Advanced.TreeN
 Vixen.Ui.Controls.Advanced.TreeView.ClearAllowDrag() -> void
 Vixen.Ui.Controls.Advanced.TreeView.ClearMultiSelect() -> void
 Vixen.Ui.Controls.Advanced.TreeView.ClearRenameOnActivate() -> void
+Vixen.Ui.Controls.Advanced.TreeView.ClearRenameOnSecondClick() -> void
 Vixen.Ui.Controls.Advanced.TreeView.DropIndicator.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Advanced.TreeView.Expand(Vixen.Ui.Controls.Advanced.TreeNode node, bool expanded = true) -> void
 Vixen.Ui.Controls.Advanced.TreeView.GuideColour.get -> Vixen.Core.Mathematics.Color4
@@ -910,6 +911,8 @@ Vixen.Ui.Controls.Advanced.TreeView.Panel.get -> Vixen.Ui.Controls.VirtualizingP
 Vixen.Ui.Controls.Advanced.TreeView.Refresh() -> void
 Vixen.Ui.Controls.Advanced.TreeView.RenameOnActivate.get -> bool
 Vixen.Ui.Controls.Advanced.TreeView.RenameOnActivate.set -> bool
+Vixen.Ui.Controls.Advanced.TreeView.RenameOnSecondClick.get -> bool
+Vixen.Ui.Controls.Advanced.TreeView.RenameOnSecondClick.set -> bool
 Vixen.Ui.Controls.Advanced.TreeView.Renamed -> System.Action<Vixen.Ui.Controls.Advanced.TreeView, Vixen.Ui.Controls.Advanced.TreeNode, string>?
 Vixen.Ui.Controls.Advanced.TreeView.Reveal(Vixen.Ui.Controls.Advanced.TreeNode node) -> void
 Vixen.Ui.Controls.Advanced.TreeView.Root.get -> Vixen.Ui.Controls.Advanced.TreeNode
@@ -1166,6 +1169,7 @@ static readonly Vixen.Ui.Controls.Advanced.Timeline.TimeStartProperty -> Vixen.U
 static readonly Vixen.Ui.Controls.Advanced.TreeView.AllowDragProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.TreeView.MultiSelectProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.TreeView.RenameOnActivateProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.TreeView.RenameOnSecondClickProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.Viewport.FlipVerticallyProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.Viewport.RenderScaleProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.Viewport.ShowGizmoProperty -> Vixen.Ui.UiPropertyKey
