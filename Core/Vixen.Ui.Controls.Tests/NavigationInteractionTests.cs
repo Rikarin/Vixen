@@ -112,6 +112,30 @@ public class NavigationInteractionTests {
         Assert.False(expander.IsExpanded);
     }
 
+    /// <summary>
+    ///     ⚠ The chevron is the only thing on a collapsed section saying there is anything inside it,
+    ///     and it pointed right in both states. This class used to claim the stylesheet rotated it —
+    ///     no such rule was ever written, and there is no <c>transform</c> in the style engine to
+    ///     write it with.
+    /// </summary>
+    [Fact]
+    public void An_expanders_chevron_turns_down_when_it_opens() {
+        using var ui = Opened();
+
+        var expander = ui.Add<Expander>("details");
+        expander.Content.Add("div").Text = "Hidden";
+
+        ui.Frame();
+
+        Assert.Same(ControlIcons.ChevronRight, expander.Header.Chevron.Geometry);
+
+        ui.Get("expander-header").Click();
+        Assert.Same(ControlIcons.ChevronDown, expander.Header.Chevron.Geometry);
+
+        ui.Get("expander-header").Click();
+        Assert.Same(ControlIcons.ChevronRight, expander.Header.Chevron.Geometry);
+    }
+
     [Fact]
     public void An_accordion_closes_the_last_one_when_it_opens_the_next() {
         using var ui = Opened();

@@ -244,6 +244,23 @@ public sealed partial class KeyboardShortcut : Control {
     [UiProperty(Changed = nameof(OnModifiersChanged))]
     public partial ModifierKeys Modifiers { get; set; }
 
+    /// <summary>How every shortcut in the process is written.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The hook a Mac head needs, and the reason it is here rather than at each call
+    ///         site.</b> A shortcut is drawn by menus, by toolbar tooltips and by the command
+    ///         palette; an application that adapted the text itself would have to find all three and
+    ///         would still miss whichever one was added next. Replacing this once changes every
+    ///         shortcut the process draws.
+    ///     </para>
+    ///     <para>
+    ///         Defaulted to <see cref="Describe" />, which is deliberately not platform-adapted:
+    ///         <c>Vixen.Ui</c> sits below <c>Vixen.Platform</c> and does not know what it is running
+    ///         on. Knowing is the application's, and so is saying so.
+    ///     </para>
+    /// </remarks>
+    public static Func<InputKey, ModifierKeys, string> Formatter { get; set; } = Describe;
+
     /// <summary>Writes a combination the way a menu would.</summary>
     /// <param name="key">The key.</param>
     /// <param name="modifiers">What is held with it.</param>
@@ -258,9 +275,8 @@ public sealed partial class KeyboardShortcut : Control {
     ///     <para>
     ///         ⚠ <b>Not localised and not platform-adapted.</b> A Mac writes <c>⌘⇧S</c> with no
     ///         separators and a different modifier order, and getting that right needs to know what
-    ///         it is running on — which this assembly deliberately does not, because
-    ///         <c>Vixen.Ui</c> sits below <c>Vixen.Platform</c>. An application that ships on macOS
-    ///         should set the text itself; this is the default, not the answer.
+    ///         it is running on — which this assembly deliberately does not. <see cref="Formatter" />
+    ///         is where an application says otherwise; this is the default, not the answer.
     ///     </para>
     /// </remarks>
     public static string Describe(InputKey key, ModifierKeys modifiers) {
@@ -310,7 +326,7 @@ public sealed partial class KeyboardShortcut : Control {
             _ => key.ToString()
         };
 
-    void OnKeyChanged(InputKey previous, InputKey current) => Text = Describe(current, Modifiers);
+    void OnKeyChanged(InputKey previous, InputKey current) => Text = Formatter(current, Modifiers);
 
-    void OnModifiersChanged(ModifierKeys previous, ModifierKeys current) => Text = Describe(Key, current);
+    void OnModifiersChanged(ModifierKeys previous, ModifierKeys current) => Text = Formatter(Key, current);
 }

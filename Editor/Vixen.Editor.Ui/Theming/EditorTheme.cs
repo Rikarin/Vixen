@@ -106,6 +106,9 @@ public static class EditorTheme {
             --chrome-sunken: #c4c6cc;
             --chrome-text: #43474f;
             --warning: #9a6200;
+            --play: #2f8f46;
+            --pause: #b8791b;
+            --stop: #c8352f;
 
             --radius-panel: 5px;
             --radius-control: 4px;
@@ -140,6 +143,9 @@ public static class EditorTheme {
             --chrome-sunken: #232325;
             --chrome-text: #a8a8ad;
             --warning: #d99a3c;
+            --play: #3fae5c;
+            --pause: #d99a3c;
+            --stop: #e5544c;
 
             --elevation: 0px 10px 26px rgba(0, 0, 0, 0.5);
         }
@@ -247,6 +253,39 @@ public static class EditorTheme {
         }
 
         toolbar-group :checked { background-color: var(--accent-soft); color: var(--text); }
+
+        /* ── The transport ──────────────────────────────────────────────────────
+           ⚠ Colour first, fill when it is on. The play controls are the most
+           clicked thing in either reference editor and are read at a glance rather
+           than looked at — a row of identical grey glyphs is one the eye has to
+           parse. And "am I in play mode" has to be answerable without reading
+           anything at all, which is what the filled state is for: a green button
+           with a white triangle while the game runs, a green triangle on the
+           surface while it does not.
+
+           The class is the command's (`EditorCommand.ClassName`) so the toolbar
+           stays a view over ids and never learns which buttons are green. */
+        toolbar .transport-play icon { color: var(--play); }
+        toolbar .transport-pause icon { color: var(--pause); }
+        toolbar .transport-stop icon { color: var(--stop); }
+        toolbar .transport-step icon { color: var(--text-muted); }
+
+        toolbar .transport-play:checked { background-color: var(--play); }
+        toolbar .transport-pause:checked { background-color: var(--pause); }
+
+        /* ⚠ White rather than `--accent-text`, and on both themes. The fill is a
+           saturated colour rather than the accent, so the token that pairs with the
+           accent is the wrong contrast — and a glyph that inherited `--text` would
+           be near-black on green in light and near-white in dark, which is one of
+           the two being unreadable. */
+        toolbar .transport-play:checked icon, toolbar .transport-pause:checked icon { color: #ffffff; }
+
+        /* Disabled is the ordinary muting and not a colour: a greyed Stop must not
+           read as a Stop that is merely a different shade of red. */
+        toolbar .transport-play:disabled icon, toolbar .transport-pause:disabled icon,
+        toolbar .transport-stop:disabled icon, toolbar .transport-step:disabled icon {
+            color: var(--text-muted);
+        }
 
         /* A dropdown's chevron is smaller than a leading icon and muted, so that the
            button reads as "this opens something" rather than as two glyphs. */

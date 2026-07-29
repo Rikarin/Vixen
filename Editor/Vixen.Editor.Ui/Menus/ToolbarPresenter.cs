@@ -223,6 +223,16 @@ public sealed class ToolbarPresenter {
         var chord = keys.ChordFor(command.Id);
         var description = chord.IsBound ? $"{label} ({chord.Describe()})" : label;
 
+        var button = Face(into, command, label, description);
+
+        if (command.ClassName is { Length: > 0 } className) {
+            button.AddClass(className);
+        }
+
+        return button;
+    }
+
+    static ButtonBase Face(UiElement into, EditorCommand command, string label, string description) {
         if (command.Icon is null) {
             var text = into.Add<Button>();
             text.Label = label;

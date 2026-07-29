@@ -39,9 +39,12 @@ public sealed partial class ExpanderHeader : ButtonBase {
 ///         expensive one should build it on first expansion, which <see cref="Expanded" /> is for.
 ///     </para>
 ///     <para>
-///         The chevron turns because the stylesheet turns it — <c>expander.open expander-header
-///         icon</c> — rather than because this swaps the geometry. One rule in the theme against a
-///         property here, and the rule is the one that can be animated.
+///         ⚠ <b>The chevron is swapped, not rotated.</b> This class used to say the stylesheet turned
+///         it — <c>expander.open expander-header icon</c> — and both halves of that were wrong: no
+///         such rule was ever written, and there is no <c>transform</c> in the style engine to write
+///         it with. So an expander opened and closed with the arrow pointing right the whole time,
+///         which is the one affordance saying whether there is anything inside. Swapping the geometry
+///         is what <c>TreeView</c> and the code editor's fold gutter already do.
 ///     </para>
 /// </remarks>
 public sealed partial class Expander : Control {
@@ -95,6 +98,8 @@ public sealed partial class Expander : Control {
     }
 
     void OnExpandedChanged(bool previous, bool current) {
+        Header.Chevron.Geometry = current ? ControlIcons.ChevronDown : ControlIcons.ChevronRight;
+
         if (current) {
             AddClass("open");
             Header.State |= ElementState.Checked;

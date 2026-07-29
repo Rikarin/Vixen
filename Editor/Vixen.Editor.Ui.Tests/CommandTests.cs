@@ -166,11 +166,11 @@ public class CommandTests {
         var dispatcher = new CommandDispatcher(registry, keys);
         dispatcher.Attach(document);
 
-        document.Dispatch(Key(InputKey.Z, ModifierKeys.Control));
+        document.Dispatch(Pressed(InputKey.Z));
         Assert.Equal(1, ran);
 
-        // Auto-repeat is not a fresh press: holding Ctrl+S must save once.
-        document.Dispatch(Key(InputKey.Z, ModifierKeys.Control, repeat: true));
+        // Auto-repeat is not a fresh press: holding the undo chord must undo once.
+        document.Dispatch(Pressed(InputKey.Z, repeat: true));
         Assert.Equal(1, ran);
     }
 
@@ -218,7 +218,7 @@ public class CommandTests {
         dispatcher.Refused += _ => refused++;
         dispatcher.Attach(document);
 
-        document.Dispatch(Key(InputKey.Z, ModifierKeys.Control));
+        document.Dispatch(Pressed(InputKey.Z));
 
         // "The shortcut does nothing" and "the shortcut is not bound" have different fixes, so the
         // two must not look the same.
@@ -227,4 +227,16 @@ public class CommandTests {
 
     static KeyEvent Key(InputKey key, ModifierKeys modifiers, bool repeat = false) =>
         new() { Key = key, Action = KeyAction.Pressed, Modifiers = modifiers, IsRepeat = repeat };
+
+    /// <summary>A press of a chord the keymap spells with Control, as this machine's user makes it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not a literal <c>ModifierKeys.Control</c>.</b> The keymap stores one portable
+    ///     spelling and the keyboard adapts — ⌘ on a Mac — so a test that pressed Control by hand
+    ///     would pass on a PC and assert the opposite of the intended behaviour on a Mac. See
+    ///     <c>KeyChord.ForPlatform</c>.
+    /// </remarks>
+    static KeyEvent Pressed(InputKey key, bool repeat = false) {
+        var chord = new KeyChord(key, ModifierKeys.Control).ForPlatform();
+        return Key(chord.Key, chord.Modifiers, repeat);
+    }
 }

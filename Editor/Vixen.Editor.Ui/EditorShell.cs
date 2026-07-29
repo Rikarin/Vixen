@@ -77,6 +77,11 @@ public sealed class EditorShell : IDisposable {
         Commands = new CommandRegistry();
         Keys = new KeyMap();
 
+        // ⚠ Before the menu bar is built, because a menu item's shortcut text is written when the
+        // item is made. Doing it later would leave the bar reading "Ctrl+S" on a machine whose every
+        // other application says ⌘S, until something happened to trigger a rebuild.
+        KeyChord.UsePlatformFormat();
+
         Menus = DefaultMenus();
         MenuBar = new MenuPresenter(chrome, Menus, Commands, Keys);
 
