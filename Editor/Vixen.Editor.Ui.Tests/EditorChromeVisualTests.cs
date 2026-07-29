@@ -57,6 +57,24 @@ public class EditorChromeVisualTests {
         fixture.Test.Screenshot("editor-chrome-palette");
     }
 
+    /// <summary>The transport hovered, which is the only way to check that a hover keeps its hue.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The generic toolbar hover is a neutral grey.</b> Applied to a coloured button it reads
+    ///     as the colour draining out of it at the moment the pointer arrives — the one instant it
+    ///     most needs to look live — and no assertion about which command ran would ever notice.
+    ///     Stop is hovered because it is the button that is <i>not</i> filled, so the picture carries
+    ///     both cases: a green fill beside a red wash.
+    /// </remarks>
+    [Fact]
+    public void The_transport_hovered() {
+        using var fixture = new ChromeFixture(ThemeMode.Dark);
+
+        fixture.Test.Get(".transport-stop").Hover();
+        fixture.Test.Frames(2);
+
+        fixture.Test.Screenshot("editor-chrome-transport-hover");
+    }
+
     /// <summary>A shell with something in every panel, rendered through the visual harness.</summary>
     /// <remarks>
     ///     ⚠ <b>The shell owns its document and the harness has to be given that one.</b>
@@ -97,10 +115,7 @@ public class EditorChromeVisualTests {
                 new ToolbarGroup("test.translate", "test.rotate", "test.scale"),
                 new ToolbarButton("view.toggle-theme"),
                 new ToolbarSeparator(),
-                new ToolbarButton("test.play"),
-                new ToolbarButton("test.pause"),
-                new ToolbarButton("test.step"),
-                new ToolbarButton("test.stop"),
+                new ToolbarGroup("test.play", "test.pause", "test.step", "test.stop"),
                 new ToolbarSeparator(),
                 new ToolbarDropdown(Title("Layout"), "layout", "view.layout.Default", null, "view.reset-layout")
             );

@@ -94,6 +94,12 @@ sealed class EditorHost : IDisposable {
         windows = new PlatformWindowHost(platform, editor.Shell.Document, window);
 
         Fonts.Install(editor.Shell.Document);
+
+        // ⚠ After the font, because how a shortcut should be written depends on what the face can
+        // draw. macOS's ⌘ ⇧ ⌥ ⌃ are missing from Arial — which is what `Fonts` finds there — and an
+        // unmapped codepoint resolves to glyph zero rather than to a box, so the bar read "L+S" for
+        // Save. The shell decides again now that there is something to ask.
+        editor.Shell.RefreshShortcutFormat();
     }
 
     /// <summary>A command to run once, on the first frame, and then forget.</summary>

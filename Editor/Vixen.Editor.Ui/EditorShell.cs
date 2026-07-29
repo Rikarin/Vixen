@@ -80,7 +80,10 @@ public sealed class EditorShell : IDisposable {
         // ⚠ Before the menu bar is built, because a menu item's shortcut text is written when the
         // item is made. Doing it later would leave the bar reading "Ctrl+S" on a machine whose every
         // other application says ⌘S, until something happened to trigger a rebuild.
-        KeyChord.UsePlatformFormat();
+        //
+        // ⚠ And again from `RefreshShortcutFormat` once the host has a font, because whether the
+        // glyph form is legible depends on the face — and there is none yet.
+        KeyChord.UsePlatformFormat(Document);
 
         Menus = DefaultMenus();
         MenuBar = new MenuPresenter(chrome, Menus, Commands, Keys);
@@ -227,6 +230,23 @@ public sealed class EditorShell : IDisposable {
 
     /// <summary>Raised when <see cref="Title" /> changes.</summary>
     public event Action<string>? TitleChanged;
+
+    /// <summary>Decides again how a shortcut is written, now that there is a font to judge with.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Called by the host after it installs a face, and the ordering is the whole reason
+    ///     this exists.</b> The shell is built before anything has a font — it is a
+    ///     <c>UiDocument</c> and nothing else, which is what makes it testable headless — so the
+    ///     first decision is made against no face at all and is necessarily the conservative one.
+    ///     A machine whose borrowed font does have ⌘ should get ⌘, and that can only be known later.
+    /// </remarks>
+    public void RefreshShortcutFormat() {
+        KeyChord.UsePlatformFormat(Document);
+
+        // Both views, because a shortcut is drawn by a menu item when the item is made and by a
+        // toolbar button's label when the strip is built. Neither re-reads it on its own.
+        MenuBar.Rebuild();
+        Toolbar.Rebuild();
+    }
 
     /// <summary>Says what this window is looking at.</summary>
     /// <param name="document">The open document's name, or <see langword="null" /> for none.</param>
