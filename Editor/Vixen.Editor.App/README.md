@@ -25,7 +25,9 @@ the same reason. With no `--frames` it runs until the window closes.
 | `EditorParity.cs` | every menu of doc 20's Part C, and the verbs behind them |
 | `EditorSettingsPanels.cs` | the Preferences and Project Settings pages, and the plugin and history panels |
 | `EditorProjects.cs` | which project, asked at start-up and answered without a restart |
-| `EditorSettings.cs` | the settings assets the editor ships: two of the project's and one of the user's |
+| `EditorSettings.cs` | the settings assets the editor ships: three of the project's and one of the user's |
+| `EditorBuilds.cs` | the Build Settings panel, Build and Run, and what Deploy means for a device |
+| `BuildSettingsView.cs` | doc 20's B7 window: target, configuration, scenes-in-build, output path |
 | `SearchSources.cs` | what `Ctrl+Shift+F` looks in that is not a command |
 | `SceneEntity.cs` | the join: one entity as a row of editors and as something a gizmo can drag |
 
@@ -138,6 +140,8 @@ Every one of them is looking at a real model rather than at a placeholder:
 | Project Settings | the same control over `ProjectSettingsStore`, drawing two `[DataContract]` types with `InspectorView` |
 | Plugins | a grid over `PluginHost.Plugins` with enable, disable and reload, and the failure under it as a sentence |
 | Undo History | the active document's stack, where choosing a step undoes back to it |
+| Build Settings | target, configuration, output path and the scenes that ship, over `PlayerBuild` — the same three calls `vixen build` makes |
+| Devices | E4's list, plus a Deploy that builds and launches on this machine and says which tool is missing for every other kind |
 
 The shell registers two more of its own — **Keyboard Shortcuts** and **Message Log** — because both
 are views over things `EditorShell` owns rather than over anything here.
@@ -297,6 +301,50 @@ rescans afterwards, on the frame thread, which is what `ContentTasks.Rescan` is 
 ⚠ **The progress bar fills at the end.** `ImportAllAsync` returns when it is finished, so what drives
 the bar is a walk over what happened rather than a live feed. Honest, and fixed by giving the import
 pipeline a progress callback of its own.
+
+## Building a player
+
+`Build Settings…` opens the panel; `Build and Run` (`Ctrl+B`) runs `ContentTasks.BuildPlayer`, which
+is import → content build → `dotnet publish` → optionally launch. That is `vixen build`'s own
+sequence, over `PlayerBuild` in `Vixen.Editor.Assets`, because doc 20's B7 asks for a window "over
+`Tools/Vixen.Cli`'s existing calls" and a second orchestration would drift from the first exactly the
+way the content pipeline's would have.
+
+⚠ **On the same one-at-a-time guard as an import**, and not politeness: a player build imports and
+packs, so two of them write the same `Library/` and the same catalog.
+
+⚠ **The console is the build log.** An editor has no terminal, so `dotnet publish` is run with its
+output captured and every line goes into the ring the Console panel reads — where it can be filtered,
+searched, and read after the toast has gone. MSBuild's own severity is read back out of the line
+(`: error CS…`), because a compiler error logged as information is one the console's default filter
+hides, which would be the panel concealing the thing it was opened for.
+
+⚠ **A launch is awaited, so the task centre entry is what says a player is running** — and its Cancel
+is what kills one that came up with no window. The notification at the end carries the game's own
+exit code rather than the build's.
+
+⚠ **No shader bundle, and it is said rather than left to be found.** The ahead-of-time compile is
+`ShaderBuildRunner`'s, which links Raven's compiler — a build-time library this application
+deliberately does not carry. A project with a `ProjectSettings/Shaders.effects.json` is told so in the
+build log, and `build.rebuild-shaders` is declared-and-disabled with the same sentence.
+
+⚠ **The Target submenu, the Configuration submenu and the window write one setting.** Doc 20's A4
+rule about two writers applies, and is kept by there being one field: `PlayerBuildSettings.Target` is
+what both tick from. There is no Apply on this window, which is the one settings surface where that is
+right — Build *reads* these fields, so an uncommitted edit would mean the button building something
+other than what is on screen.
+
+⚠ **The player's target and the content target are two settings on purpose.**
+`ContentBuildSettings.Target` is what the editor's own panels are imported for and
+`PlayerBuildSettings.Target` is what ships. A single field would make "build the Android player" also
+mean "reimport the whole project as ASTC", which is precisely what a team building for a phone from a
+workstation must not have happen.
+
+**Deploy** on the Devices panel is the same build with a device attached to it: this machine is a
+publish and a launch, and every other kind of device says which tool is missing — `adb`, a vendor SDK
+— because the tool that would *find* one is the tool that would install to it. Attaching the remote
+inspector afterwards is the fourth verb doc 20's B7 asks for and is the one still owed: it needs
+something on the other side to answer, and doc 13's runtime half is not written.
 
 `--run ID` executes one editor command on the first frame, which is how CI proves an import or a
 build through the *editor's* path — enablement, background task and notification — rather than

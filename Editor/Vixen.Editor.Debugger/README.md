@@ -88,7 +88,22 @@ is anything that knows how to find an Android phone — that is `adb` — or a c
 vendor SDK. Both are one `IDeviceProvider` each, and a panel listing the local machine and saying so
 is a truer state than one that pretends to scan.
 
-Deploy itself needs a build, which is doc 20's E6. What this window contributes to that milestone is
-the list the deploy target is chosen from.
+Deploy is here now that there is a build behind it, and it is a **request** rather than a call, for
+exactly the reason attaching is: what "deploy" means differs per kind of device — this machine is a
+publish and a launch, a phone is `adb install`, a console is the vendor's own tooling — and a
+debugger assembly that picked one would be a panel that could only deploy to that one. It raises
+`DeployRequested`; `Vixen.Editor.App` answers it with doc 20's B7 build.
+
+⚠ **Which devices can be deployed to is asked rather than assumed.** `CanDeploy` returns a sentence
+or null, and unset means *nothing* can be — a panel with no build settings behind it must not offer a
+button that would silently do nothing. The kinds this editor cannot install to say which tool is
+missing, which is the same rule the greyed menu lines follow: the tool that would find a device is
+the tool that would install to it, so a phone nothing can discover is necessarily a phone nothing can
+deploy to.
+
+⚠ **`Deploying` and `Running` are states no provider can report**, so `DeviceManager.Mark` exists to
+say them. Discovery answers "is it there"; whether a build is on its way to it is a fact about what
+the editor is doing. Without it the two would be enum members no code could ever produce, and a row
+would read Available while a publish was running.
 
 Licensed under Apache-2.0.

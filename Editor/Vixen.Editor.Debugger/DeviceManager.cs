@@ -146,6 +146,37 @@ public sealed class DeviceManager {
         Changed?.Invoke(this);
     }
 
+    /// <summary>Says what a device is doing now, without asking its provider again.</summary>
+    /// <param name="id">Which device.</param>
+    /// <param name="status">What it is doing.</param>
+    /// <returns>Whether there was a device with that id.</returns>
+    /// <remarks>
+    ///     ⚠ <b><see cref="DeviceStatus.Deploying" /> and <see cref="DeviceStatus.Running" /> are not
+    ///     things a provider can see.</b> Discovery answers "is it there"; whether a build is being
+    ///     copied to it is a fact about what the editor is doing, and it is known here and nowhere
+    ///     else. Without this the two states would be enum members no code could ever produce — which
+    ///     is a promise the panel breaks the first time somebody deploys and the row says Available.
+    /// </remarks>
+    public bool Mark(string id, DeviceStatus status) {
+        var index = devices.FindIndex(device => string.Equals(device.Id, id, StringComparison.Ordinal));
+
+        if (index < 0) {
+            return false;
+        }
+
+        devices[index] = devices[index] with { Status = status };
+
+        // The selection is by identity elsewhere in this class and has to be here too: a row whose
+        // record was replaced would otherwise deselect itself the moment a deploy started.
+        if (Selected is { } selected && string.Equals(selected.Id, id, StringComparison.Ordinal)) {
+            Selected = devices[index];
+        }
+
+        Changed?.Invoke(this);
+
+        return true;
+    }
+
     /// <summary>Asks every provider what it can see.</summary>
     public void Discover() {
         var previous = devices.ToArray();

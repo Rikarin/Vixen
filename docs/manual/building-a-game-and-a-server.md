@@ -52,6 +52,17 @@ not the compiler configuration.
 What the command does, in order: content build, then `dotnet publish`. That ordering is the whole
 reason it is a command rather than a note in a README.
 
+**The same build is on the editor's Build menu.** `Build ▸ Build Settings…` is the window — target,
+configuration, output path and the scenes that ship — and `Build and Run` (`Ctrl+B`) runs it, with
+`dotnet publish`'s own output going into the Console panel. It is not a second build system: the
+editor and this command make the same calls in the same order, so a project builds the same way
+whichever one asked.
+
+One difference, and it is stated rather than left to be found: **the editor does not compile the
+ahead-of-time shader bundle.** That step links Raven's compiler, which the editor deliberately does
+not carry — so a project with a `ProjectSettings/Shaders.effects.json` gets a line in the build log
+saying so, and `vixen build` is what produces a player carrying one.
+
 ## Build the dedicated server
 
 The same project, one word different:

@@ -200,6 +200,11 @@ sealed partial class EditorApplication {
                 Contextual(panel, DiagnosticsContext);
 
                 var manager = panel.Add<DeviceManagerView>();
+
+                // ⚠ Before `Show`, because the panel derives the Deploy button's state from it and
+                // a factory that set it afterwards would leave the button greyed until the next
+                // selection change.
+                manager.CanDeploy = DeployRefusal;
                 manager.Show(devices);
 
                 // Opening the remote inspector on the device somebody chose, which is the whole of
@@ -208,6 +213,9 @@ sealed partial class EditorApplication {
                     Shell.Workspace.Toggle("remote-inspector");
                     Inspector().Attach();
                 };
+
+                // And what "deploy" means, which is doc 20's B7 and is `EditorBuilds`'.
+                manager.DeployRequested += (_, device) => Deploy(device);
             }
         );
     }

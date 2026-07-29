@@ -386,6 +386,16 @@ left in `Vixen.Cli` is the console formatting and the worker pool.
 path; the CLI turns one into an MSBuild-parseable line and the editor turns a few into a
 notification. Neither owns the other's output format.
 
+⚠ **`PlayerBuild` is the third step and it arrived here for the same reason the other two did.**
+Content is not an application: after the pack there is a `dotnet publish`, and doc 20's B7 asks for a
+Build Settings window "over `Tools/Vixen.Cli`'s existing calls" — which is only possible if the calls
+are somewhere both heads can reach. So the target shapes (which RID, which framework, which
+configuration a variant compiles as), the publish and the launch live beside the pipeline, and
+`vixen build` and the editor's Build and Run are the same three calls in the same order. What is
+*not* here is the shader bundle: `ShaderBuildRunner` links Raven's compiler, which is a build-time
+library the editor deliberately does not carry, so it stays in the CLI and the editor's build log says
+so for a project that has a manifest.
+
 `ContentPipeline.Analyse` is `Build` without the packing: the same group read and the same
 `BuildPlanner.Plan` call, and nothing written. It exists because the editor's addressable analysis
 view answers "what would a build say", and a panel that reimplemented the planner's rules would be a
