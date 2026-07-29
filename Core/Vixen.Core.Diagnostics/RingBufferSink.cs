@@ -65,6 +65,17 @@ public sealed class RingBufferSink : LogRecordSink {
     readonly RingBuffer<LogRecord> records;
     readonly Lock gate = new();
 
+    /// <summary>How many records have ever been accepted, which is <see cref="Written" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Counted here rather than derived from <c>OverwrittenCount + Count</c>, because
+    ///     <see cref="Clear" /> makes that sum go backwards.</b> The ring keeps its overwritten count
+    ///     across a clear and resets its live count to zero, so the sum drops by however much was in
+    ///     it — and the records enqueued afterwards would be handed sequence numbers a reader had
+    ///     already seen and would therefore skip. A counter that only ever goes up is the whole
+    ///     contract <see cref="CopySince" /> rests on.
+    /// </remarks>
+    long written;
+
     /// <summary>How many records the ring holds.</summary>
     public int Capacity => records.Capacity;
 
@@ -128,6 +139,69 @@ public sealed class RingBufferSink : LogRecordSink {
         }
     }
 
+    /// <summary>How many records have ever reached the ring, the overwritten ones included.</summary>
+    /// <remarks>
+    ///     A sequence number rather than a count: it never goes backwards, and a reader that
+    ///     remembers the value it last saw can ask <see cref="CopySince" /> for exactly what has
+    ///     arrived since. <see cref="Count" /> cannot do that, because a full ring's count stops
+    ///     changing while records keep coming.
+    /// </remarks>
+    public long Written {
+        get {
+            lock (gate) {
+                return written;
+            }
+        }
+    }
+
+    /// <summary>Copies the records written since a sequence number.</summary>
+    /// <param name="sequence">
+    ///     How many records the caller has already seen, advanced past everything this call accounts
+    ///     for — including records that were overwritten before it got to them.
+    /// </param>
+    /// <param name="destination">Where they go. Its length is how many are taken at once.</param>
+    /// <returns>How many were written. Zero means the caller is up to date.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What the editor's console reads, and the reason it does not allocate per line.</b>
+    ///         <see cref="Snapshot" /> copies the whole ring — a hundred thousand records by default —
+    ///         and a console that called it once a frame to find the four new lines would allocate
+    ///         several megabytes a frame to show four rows. This copies only what is new, into a
+    ///         buffer the caller keeps.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A caller that falls further behind than the ring is deep loses the difference,
+    ///         silently, and that is the correct behaviour.</b> The records are gone — that is what a
+    ///         ring is — and <paramref name="sequence" /> is advanced past them so the next call
+    ///         returns what still exists rather than looping for ever on records nobody has.
+    ///         <see cref="DroppedCount" /> is how a reader notices it happened.
+    ///     </para>
+    ///     <para>
+    ///         Called in a loop until it returns zero: one call takes at most
+    ///         <c>destination.Length</c>, so a burst larger than the buffer arrives over several
+    ///         calls rather than being truncated.
+    ///     </para>
+    /// </remarks>
+    public int CopySince(ref long sequence, Span<LogRecord> destination) {
+        lock (gate) {
+            // The sequence number of `records[0]`: everything before it is gone, whether it was
+            // overwritten or cleared.
+            var oldest = written - records.Count;
+
+            // Clamped at both ends. Below, for a caller that has fallen behind the ring; above, for
+            // one holding a sequence from before a `Clear`.
+            var from = Math.Clamp(sequence, oldest, written);
+            var take = (int) Math.Min(destination.Length, written - from);
+
+            for (var index = 0; index < take; index++) {
+                destination[index] = records[(int) (from - oldest) + index];
+            }
+
+            sequence = from + take;
+            return take;
+        }
+    }
+
     /// <summary>Empties the ring. Does not reset <see cref="DroppedCount" />.</summary>
     public void Clear() {
         lock (gate) {
@@ -139,6 +213,7 @@ public sealed class RingBufferSink : LogRecordSink {
     protected override void Write(LogRecord record) {
         lock (gate) {
             records.Enqueue(record);
+            written++;
         }
     }
 }

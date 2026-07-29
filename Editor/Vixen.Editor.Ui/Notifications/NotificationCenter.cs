@@ -76,6 +76,17 @@ public sealed class NotificationCenter {
     /// <summary>Raised when a message arrives or the history is cleared.</summary>
     public event Action<NotificationCenter>? Changed;
 
+    /// <summary>Raised for each notification as it is shown, with the entry.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What mirrors the editor's own messages into the log, and thence into the console.</b>
+    ///     A notification is by definition something the editor thought worth telling somebody — a
+    ///     save, a failed import, a plugin that would not load — and a console showing none of them
+    ///     would be one where the record of what happened lives only in a toast that expired four
+    ///     seconds later. <see cref="Changed" /> cannot do this: it fires for a clear as well, and it
+    ///     does not say which entry is new.
+    /// </remarks>
+    public event Action<Notification>? Shown;
+
     /// <summary>Shows a message.</summary>
     /// <param name="message">What it says.</param>
     /// <param name="severity">How much it matters.</param>
@@ -99,6 +110,8 @@ public sealed class NotificationCenter {
         toast.Duration = severity == NotificationSeverity.Error ? TimeSpan.MaxValue : Duration;
 
         Changed?.Invoke(this);
+        Shown?.Invoke(entry);
+
         return entry;
     }
 

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Core.Diagnostics;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
@@ -45,6 +46,14 @@ sealed partial class EditorApplication {
 
     /// <summary>And of the content browser, where the same verb means an asset.</summary>
     internal const string AssetContext = "project";
+
+    /// <summary>And of the console, where nothing yet means anything but where the focus is real.</summary>
+    /// <remarks>
+    ///     Declared even though no command is scoped to it, because the point of tracking a context
+    ///     is that leaving one is as meaningful as entering it: clicking a console row must stop
+    ///     Delete meaning "delete the selected entity".
+    /// </remarks>
+    internal const string ConsoleContext = "console";
 
     static readonly StringId CategoryAssets = new("editor.category.assets", "Assets");
     static readonly StringId CategoryEntity = new("editor.category.entity", "Entity");
@@ -583,11 +592,28 @@ sealed partial class EditorApplication {
             "The editor does not drive the audio engine yet."
         );
 
-        Planned(
+        // ⚠ A tick over the console's own preference rather than a second copy of it. Doc 20's rule
+        // for the three navigation preferences applies here for the same reason: two writers to one
+        // setting is how a menu tick and a panel's toggle come to disagree.
+        Verb(
             "play.clear-console",
             new StringId("editor.command.play.clear-console", "Clear Console on Play"),
             CategoryPlay,
-            "The console is a line of text until milestone E1."
+            () => {
+                if (console is { } view) {
+                    view.ClearsOnPlay = !view.ClearsOnPlay;
+                }
+            },
+            enabled: () => console is not null,
+            on: () => console is { ClearsOnPlay: true }
+        );
+
+        Verb(
+            "view.clear-console",
+            new StringId("editor.command.view.clear-console", "Clear Console"),
+            CategoryPlay,
+            () => console?.Clear(),
+            enabled: () => console is not null
         );
     }
 
@@ -853,7 +879,7 @@ sealed partial class EditorApplication {
             .AddSeparator()
             .Add("tools.plugins", "plugins.reload")
             .AddSeparator()
-            .Add("tools.reload-shaders", "tools.reload-styles")
+            .Add("tools.reload-shaders", "tools.reload-styles", "view.clear-console")
             .AddSeparator()
             .Add("tools.diagnostics-report");
     }
@@ -1173,6 +1199,29 @@ sealed partial class EditorApplication {
         Shell.Notifications.Success("Styles reloaded");
     }
 
+    /// <summary>Opens the source a console line came from, as far as anything here can tell.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The folder, not the file and not the line, and that is the honest limit today.</b>
+    ///     Doc 20 asks for double-click-to-open-source "through the external-tool setting" — a
+    ///     preference that arrives with the Preferences window in E3 — and a stack frame carries a
+    ///     file and a line only in a build with symbols beside it. What is available is the URL
+    ///     opener the host already has, so a record with no exception says so rather than appearing
+    ///     to do nothing.
+    /// </remarks>
+    void Reveal(LogRecord record) {
+        if (record.Exception is null) {
+            Shell.Notifications.Show(
+                "Nothing to open",
+                NotificationSeverity.Info,
+                "That line has no exception, so there is no source to go to."
+            );
+
+            return;
+        }
+
+        Browse(new Uri(project.Paths.Root).AbsoluteUri);
+    }
+
     void Browse(string url) {
         if (services.OpenUrl is not { } open || !open(url)) {
             Shell.Notifications.Show("Could not open the link", NotificationSeverity.Warning, url);
@@ -1308,6 +1357,12 @@ sealed partial class EditorApplication {
     void EnterPlay() {
         if (!play.Play()) {
             return;
+        }
+
+        // Before the notification, so the line saying what play mode does is the first thing in the
+        // console rather than the last thing before it was emptied.
+        if (console is { ClearsOnPlay: true } view) {
+            view.Clear();
         }
 
         // ⚠ Said before it matters rather than after it has cost something. Doc 20 calls this the one

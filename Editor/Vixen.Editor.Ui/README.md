@@ -180,6 +180,28 @@ The tests beside it ask which panel is open and which command ran, which stays t
 palette at all — the inspector bugs that started this work were invisible to every one of them and
 obvious in the first screenshot.
 
+## The console
+
+A virtualised list over `Vixen.Core.Diagnostics`' `RingBufferSink`, which is the log the crash
+reporter dumps rather than a second one the editor keeps for itself. `ConsoleModel` is the half
+worth testing — which records are visible, what a level toggle means, what collapse collapses, what
+the badges count — and `ConsoleView` is the rows and the buttons over it.
+
+⚠ **It must not allocate per line**, and doc 20 says why: "a game logging per frame into a panel
+that keeps strings is a leak with a UI". Three things make that true. `RingBufferSink.CopySince`
+hands over only what has arrived since the reader's sequence number, so the console never
+snapshots a hundred thousand records to find the four that are new. The model keeps *indices* into
+a bounded buffer of the records the sink already allocated. And `VirtualizingPanel` keeps about
+thirty row elements whatever the list holds — a hundred thousand lines is thirty elements, and
+there is a test that says so.
+
+⚠ **The badges count what arrived, not what is shown.** A warning badge reading zero because
+warnings are hidden answers the opposite of the question somebody clicks it to ask.
+
+⚠ **Following the tail is a mode the user leaves by scrolling**, not a checkbox — and it is applied
+from `LayoutFinished` rather than when rows are added, because at the moment a row arrives the
+scroller's extent has just been invalidated and a scroll aimed at the bottom lands at the top.
+
 ## Notifications and background work
 
 A toast **and** a history, because the thing a user does after an import fails is look away, look

@@ -396,25 +396,35 @@ public sealed class SceneDocument : EditorDocument {
     /// <param name="parent">Its new parent, or <see cref="Entity.Null" /> to make it a root.</param>
     /// <returns>Whether anything changed.</returns>
     /// <remarks>
-    ///     ⚠ <b>Not undoable either, and for a different reason.</b> Reparenting <i>is</i> reversible
-    ///     — the old parent is a handle that still exists — but undoing it has to put the entity back
-    ///     at the same index among its old siblings, and the intrusive sibling list records a
-    ///     neighbour rather than a position. Recording the neighbour is the fix and it is a command
-    ///     this does not have yet.
+    ///     ⚠ <b>Undoable, and putting it back where it was is the whole of what took the work.</b>
+    ///     Reparenting was always reversible — the old parent is a handle that still exists — but an
+    ///     undo that returned the third of five children to the head of the list is an undo that did
+    ///     not undo. <see cref="ReparentCommand" /> records the sibling that was in front, which is
+    ///     what the intrusive list already stores and what stays meaningful when its neighbours move.
     /// </remarks>
-    public bool Reparent(Entity entity, Entity parent) {
-        if (!World.IsAlive(entity) || Hierarchy.ParentOf(World, entity) == parent) {
+    public bool Reparent(Entity entity, Entity parent) => Reparent([entity], parent);
+
+    /// <summary>Hangs several entities from one parent, keeping where each is in the world.</summary>
+    /// <param name="entities">The entities to move.</param>
+    /// <param name="parent">Their new parent, or <see cref="Entity.Null" /> to make them roots.</param>
+    /// <returns>Whether anything moved.</returns>
+    /// <remarks>
+    ///     ⚠ <b>One command for the whole drag, not one per entity.</b> Dragging five rows onto a
+    ///     sixth is one thing somebody did, and five undo steps for it is the shape of every "undo
+    ///     did not undo what I did" report. What cannot move — a cycle, an entity already there, one
+    ///     carried inside a parent that is also moving — is filtered by the command rather than
+    ///     refused, so a drag that was partly meaningless still does the meaningful part.
+    /// </remarks>
+    public bool Reparent(IEnumerable<Entity> entities, Entity parent) {
+        ArgumentNullException.ThrowIfNull(entities);
+
+        var command = new ReparentCommand(this, entities, parent);
+
+        if (command.IsEmpty) {
             return false;
         }
 
-        if (!parent.IsNull && Hierarchy.IsAncestorOf(World, entity, parent)) {
-            // A cycle. The hierarchy would accept it and the transform pass would then walk for ever.
-            return false;
-        }
-
-        Hierarchy.SetParentKeepingWorldPosition(World, entity, parent);
-        StructureChanged?.Invoke(this);
-
+        Stack.Execute(command);
         return true;
     }
 

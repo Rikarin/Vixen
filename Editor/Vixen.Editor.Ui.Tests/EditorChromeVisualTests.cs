@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Reflection;
+using Microsoft.Extensions.Logging;
+using Vixen.Core.Diagnostics;
 using Vixen.Core.Mathematics;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
@@ -108,6 +110,16 @@ public class EditorChromeVisualTests {
 
         public EditorShell Shell { get; }
 
+        /// <summary>The ring the console draws from.</summary>
+        /// <remarks>
+        ///     ⚠ <b>On a fixed clock, because the console draws the timestamp.</b> A golden
+        ///     screenshot of a wall clock differs from itself every run, which is a suite that fails
+        ///     at random and is therefore the suite nobody trusts.
+        /// </remarks>
+        readonly RingBufferSink logs = new(256) {
+            TimeProvider = new FixedClock(new DateTimeOffset(2026, 3, 14, 9, 26, 53, TimeSpan.Zero))
+        };
+
         public UiTest Test { get; }
 
         /// <summary>
@@ -115,7 +127,15 @@ public class EditorChromeVisualTests {
         ///     of its own, and both types dispose the document they hold — see
         ///     <c>UiTest.Adopt</c>'s remarks, which say so for exactly this reason.
         /// </summary>
-        public void Dispose() => Shell.Dispose();
+        public void Dispose() {
+            Shell.Dispose();
+            logs.Dispose();
+        }
+
+        /// <summary>A clock that does not move.</summary>
+        sealed class FixedClock(DateTimeOffset now) : TimeProvider {
+            public override DateTimeOffset GetUtcNow() => now;
+        }
 
         static StringId Title(string text) => new("test." + text, text);
 
@@ -190,12 +210,33 @@ public class EditorChromeVisualTests {
             return row.Add<UiElement>("property-editor");
         }
 
-        static void Console(DockPanel panel) {
-            var log = panel.Add<UiElement>("panel");
+        /// <summary>The real console over a sink with a plausible session in it.</summary>
+        /// <remarks>
+        ///     ⚠ <b>The actual panel, not two lines of text pretending to be one.</b> The console is
+        ///     where doc 20's "nothing they find is a toy" bar is most easily failed — a level
+        ///     badge that is unreadable against the strip, a message column the category has pushed
+        ///     off the panel — and none of that is visible to an assertion about how many rows there
+        ///     are.
+        /// </remarks>
+        void Console(DockPanel panel) {
+            var view = panel.Add<ConsoleView>();
 
-            log.Add<TextBlock>().Text = "Loaded Main.vscene — 6 entities";
-            log.Add<TextBlock>().Text = "Content build finished in 1.4 s";
+            // ⚠ The model first, then the lines. It starts at the sink's current end — a console
+            // opened an hour into a session does not replay the hour — so logging before it exists
+            // is logging into a console that will never show it.
+            view.Show(new ConsoleModel(logs));
+
+            Say(LogLevel.Information, "Vixen.Editor", "Loaded Main.vxscene — 6 entities");
+            Say(LogLevel.Information, "Vixen.Editor.Assets.Content.ContentPipeline", "Imported 24, 3 unchanged");
+            Say(LogLevel.Warning, "Vixen.Editor.Assets", "crate_albedo.png has no mipmaps");
+            Say(LogLevel.Error, "Vixen.Editor", "Could not save the scene — the disk is full");
+            Say(LogLevel.Information, "Vixen.Editor", "Content build finished in 1.4 s");
+
+            view.Tick();
         }
+
+        void Say(LogLevel level, string category, string message) =>
+            logs.CreateLogger(category).Log(level, default, message, null, static (state, _) => state);
 
         static void Font(UiDocument document) {
             foreach (var path in Candidates()) {
