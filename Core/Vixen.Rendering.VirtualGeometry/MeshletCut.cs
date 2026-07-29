@@ -13,9 +13,9 @@ namespace Vixen.Rendering.VirtualGeometry;
 ///     </para>
 ///     <para>
 ///         <b>A cut is chosen per cluster, with no traversal and no agreement between neighbours.</b>
-///         <see cref="SelectByError" /> is a linear scan asking each cluster one question about
-///         itself, which is exactly what the traversal shader of phase 3 will ask — it will simply
-///         ask it hierarchically, so that a rejected subtree costs one test rather than one per
+///         <see cref="SelectByError(MeshletMesh, float)" /> is a linear scan asking each cluster one
+///         question about itself, which is exactly what the traversal shader of phase 3 will ask — it
+///         will simply ask it hierarchically, so that a rejected subtree costs one test rather than one per
 ///         cluster. That the two produce the same set is the property worth testing, and it holds
 ///         because a cluster's own error and its parent's bracket a half-open interval of thresholds,
 ///         and the intervals along any path through the DAG tile the number line exactly once.
@@ -46,6 +46,85 @@ public static class MeshletCut {
         }
 
         return [.. cut];
+    }
+
+    /// <summary>
+    ///     The clusters to draw at a threshold, given that only some of the pages have arrived.
+    /// </summary>
+    /// <param name="mesh">The DAG.</param>
+    /// <param name="pages">Where each cluster's geometry lives.</param>
+    /// <param name="threshold">How far the drawn surface may deviate from the original, in object space.</param>
+    /// <param name="isResident">Whether a page's bytes are in the pool. Page zero always is.</param>
+    /// <returns>The cluster indices, ascending.</returns>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This is what makes streaming degrade rather than fail.</b> A cluster whose page has
+    ///         not arrived cannot be drawn, and the answer is not to draw a hole. It is to draw a
+    ///         <em>coarser cut</em> — one whose clusters live in earlier pages, which are the ones a
+    ///         residency policy keeps.
+    ///     </para>
+    ///     <para>
+    ///         <b>And it is chosen by raising the threshold, not by patching the cut.</b> The
+    ///         tempting implementation is local: find the missing cluster, swap it and its siblings
+    ///         for the group's parents, repeat. It is wrong, and wrong in a way that looks right —
+    ///         a group's other children may not be in the cut at all, because the cut took
+    ///         <em>their</em> children instead, so swapping in the parents leaves those finer
+    ///         clusters underneath and the surface is covered twice in one place and once in
+    ///         another. Raising the threshold cannot do that: every threshold's cut is an antichain
+    ///         by construction, which is the property phase 1 pays for.
+    ///     </para>
+    ///     <para>
+    ///         The candidates are the group errors, because those are the only thresholds at which
+    ///         the answer changes — a group's error is exactly where its children stop being drawn
+    ///         and its parents start. So this walks up the distinct ones and answers with the first
+    ///         cut that is entirely there.
+    ///     </para>
+    ///     <para>
+    ///         What comes out is therefore a valid cut at some threshold coarser than the one asked
+    ///         for, never a partial one. The gap between them is what "popping" means for this
+    ///         system, and it closes as the pages arrive.
+    ///     </para>
+    ///     <para>
+    ///         And empty when even the roots are missing, rather than a cut that names them anyway.
+    ///         A cluster whose page is absent points into a pool slot some other page now occupies,
+    ///         so drawing it is drawing another mesh's triangles at this one's indices — which is
+    ///         worse than drawing nothing, and is why the roots are pinned.
+    ///     </para>
+    /// </remarks>
+    public static int[] SelectByError(
+        MeshletMesh mesh,
+        MeshletPageSet pages,
+        float threshold,
+        Func<int, bool> isResident
+    ) {
+        ArgumentNullException.ThrowIfNull(mesh);
+        ArgumentNullException.ThrowIfNull(pages);
+        ArgumentNullException.ThrowIfNull(isResident);
+
+        // The thresholds at which the answer changes: a group's error is where its children stop
+        // being drawn and its parents start. Anything between two of them is the same cut, so these
+        // are the only candidates worth trying.
+        var steps = mesh.Groups
+            .Where(group => group.Parents.Length > 0 && group.Error >= threshold)
+            .Select(group => group.Error)
+            .Distinct()
+            .Order()
+            .ToArray();
+
+        foreach (var candidate in steps.Prepend(threshold)) {
+            var cut = SelectByError(mesh, candidate);
+
+            if (cut.All(cluster => isResident(pages.Clusters[cluster].Page))) {
+                return cut;
+            }
+        }
+
+        // Coarser than every group's error is the roots, and if those are missing the object is not
+        // drawable at all.
+        var roots = SelectByError(mesh, float.MaxValue);
+
+        return roots.All(cluster => isResident(pages.Clusters[cluster].Page)) ? roots : [];
     }
 
     /// <summary>The finest cut that fits inside a triangle budget.</summary>
@@ -183,7 +262,7 @@ public static class MeshletCut {
     /// <param name="distance">How far the cluster is from the eye.</param>
     /// <param name="verticalFieldOfView">The camera's vertical field of view, in radians.</param>
     /// <param name="screenHeight">How many pixels tall the view is.</param>
-    /// <returns>The threshold to hand <see cref="SelectByError" />.</returns>
+    /// <returns>The threshold to hand <see cref="SelectByError(MeshletMesh, float)" />.</returns>
     /// <remarks>
     ///     <see cref="PixelError" /> turned round. Both exist because a cut is chosen against a
     ///     threshold and reported against a pixel count, and deriving one from the other at each call

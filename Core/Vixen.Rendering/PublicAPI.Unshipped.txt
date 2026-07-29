@@ -32,6 +32,15 @@ Vixen.Rendering.ClusterLights.Count -> uint
 Vixen.Rendering.ClusterLights.IndexArray -> struct
 Vixen.Rendering.ClusterLights.IndexArray.IndexArray() -> void
 Vixen.Rendering.ClusterLights.Indices -> Vixen.Rendering.ClusterLights.IndexArray
+Vixen.Rendering.ClusterScene -> sealed record
+Vixen.Rendering.ClusterScene : System.IEquatable<Vixen.Rendering.ClusterScene>
+Vixen.Rendering.ClusterScene.Children.get -> uint[]
+Vixen.Rendering.ClusterScene.Children.init -> uint[]
+Vixen.Rendering.ClusterScene.ClusterScene(Vixen.Rendering.CullCluster[] Clusters, uint[] Children, uint[] Roots) -> void
+Vixen.Rendering.ClusterScene.Clusters.get -> Vixen.Rendering.CullCluster[]
+Vixen.Rendering.ClusterScene.Clusters.init -> Vixen.Rendering.CullCluster[]
+Vixen.Rendering.ClusterScene.Roots.get -> uint[]
+Vixen.Rendering.ClusterScene.Roots.init -> uint[]
 Vixen.Rendering.Compositor.BlendPreset -> enum : int
 Vixen.Rendering.Compositor.BlendPreset.Additive = 3 -> Vixen.Rendering.Compositor.BlendPreset
 Vixen.Rendering.Compositor.BlendPreset.AlphaBlend = 1 -> Vixen.Rendering.Compositor.BlendPreset
@@ -820,6 +829,33 @@ Vixen.Rendering.CubeFace.NegativeZ = 5 -> Vixen.Rendering.CubeFace
 Vixen.Rendering.CubeFace.PositiveX = 0 -> Vixen.Rendering.CubeFace
 Vixen.Rendering.CubeFace.PositiveY = 2 -> Vixen.Rendering.CubeFace
 Vixen.Rendering.CubeFace.PositiveZ = 4 -> Vixen.Rendering.CubeFace
+Vixen.Rendering.CullCluster -> struct
+Vixen.Rendering.CullCluster.Center -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.CullCluster.ChildCount -> uint
+Vixen.Rendering.CullCluster.ConeAxis -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.CullCluster.ConeCosine -> float
+Vixen.Rendering.CullCluster.CullCluster() -> void
+Vixen.Rendering.CullCluster.Error -> float
+Vixen.Rendering.CullCluster.ErrorCenter -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.CullCluster.ErrorRadius -> float
+Vixen.Rendering.CullCluster.FirstChild -> uint
+Vixen.Rendering.CullCluster.Flags -> uint
+Vixen.Rendering.CullCluster.Padding -> ulong
+Vixen.Rendering.CullCluster.Page -> uint
+Vixen.Rendering.CullCluster.ParentError -> float
+Vixen.Rendering.CullCluster.Radius -> float
+Vixen.Rendering.CullInstance -> struct
+Vixen.Rendering.CullInstance.ClusterCount -> uint
+Vixen.Rendering.CullInstance.CullInstance() -> void
+Vixen.Rendering.CullInstance.FirstCluster -> uint
+Vixen.Rendering.CullInstance.FirstRoot -> uint
+Vixen.Rendering.CullInstance.Flags -> uint
+Vixen.Rendering.CullInstance.Padding -> uint
+Vixen.Rendering.CullInstance.Position -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.CullInstance.RootCount -> uint
+Vixen.Rendering.CullInstance.Scale -> float
+Vixen.Rendering.CullInstance.StagesHigh -> uint
+Vixen.Rendering.CullInstance.StagesLow -> uint
 Vixen.Rendering.CullObject -> struct
 Vixen.Rendering.CullObject.Center -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.CullObject.CullObject() -> void
@@ -834,12 +870,13 @@ Vixen.Rendering.CullPhase.Late = 1 -> Vixen.Rendering.CullPhase
 Vixen.Rendering.CullPhase.Main = 0 -> Vixen.Rendering.CullPhase
 Vixen.Rendering.CullView -> struct
 Vixen.Rendering.CullView.CullView() -> void
+Vixen.Rendering.CullView.ErrorScale -> float
+Vixen.Rendering.CullView.ErrorThreshold -> float
 Vixen.Rendering.CullView.Flags -> uint
 Vixen.Rendering.CullView.MaximumDistance -> float
 Vixen.Rendering.CullView.ObjectCount -> uint
 Vixen.Rendering.CullView.OccluderLevels -> uint
 Vixen.Rendering.CullView.OccluderProjection -> Vixen.Core.Mathematics.Matrix4x4
-Vixen.Rendering.CullView.Padding -> ulong
 Vixen.Rendering.CullView.PlaneArray -> struct
 Vixen.Rendering.CullView.PlaneArray.PlaneArray() -> void
 Vixen.Rendering.CullView.Planes -> Vixen.Rendering.CullView.PlaneArray
@@ -1226,6 +1263,15 @@ Vixen.Rendering.GeometrySlice.IndexCount.init -> int
 Vixen.Rendering.GeometrySlice.IsValid.get -> bool
 Vixen.Rendering.GeometrySlice.VertexCount.get -> int
 Vixen.Rendering.GeometrySlice.VertexCount.init -> int
+Vixen.Rendering.GpuClusterCulling -> static class
+Vixen.Rendering.GpuClusterCulling.TraversalResult -> readonly struct
+Vixen.Rendering.GpuClusterCulling.TraversalResult : System.IEquatable<Vixen.Rendering.GpuClusterCulling.TraversalResult>
+Vixen.Rendering.GpuClusterCulling.TraversalResult.Requests.get -> int[]
+Vixen.Rendering.GpuClusterCulling.TraversalResult.Requests.init -> int[]
+Vixen.Rendering.GpuClusterCulling.TraversalResult.TraversalResult() -> void
+Vixen.Rendering.GpuClusterCulling.TraversalResult.TraversalResult(int[] Visible, int[] Requests) -> void
+Vixen.Rendering.GpuClusterCulling.TraversalResult.Visible.get -> int[]
+Vixen.Rendering.GpuClusterCulling.TraversalResult.Visible.init -> int[]
 Vixen.Rendering.GpuCulling -> static class
 Vixen.Rendering.GpuCulling.OccluderDepth -> delegate
 Vixen.Rendering.GpuDrawArguments -> sealed class
@@ -1268,6 +1314,8 @@ Vixen.Rendering.GpuVisibilityGroup.GpuVisibilityGroup(Vixen.Graphics.IGraphicsDe
 Vixen.Rendering.GpuVisibilityGroup.Hide(int viewIndex, Vixen.Rendering.RenderObjectId id) -> void
 Vixen.Rendering.GpuVisibilityGroup.IsVisible(int viewIndex, Vixen.Rendering.RenderObjectId id) -> bool
 Vixen.Rendering.GpuVisibilityGroup.LatePhaseRan.get -> bool
+Vixen.Rendering.GpuVisibilityGroup.ObjectBytesUploaded.get -> long
+Vixen.Rendering.GpuVisibilityGroup.ObjectUploadRegions.get -> int
 Vixen.Rendering.GpuVisibilityGroup.Occluders.get -> Vixen.Rendering.HiZPyramid?
 Vixen.Rendering.GpuVisibilityGroup.Occluders.set -> Vixen.Rendering.HiZPyramid?
 Vixen.Rendering.GpuVisibilityGroup.OcclusionTested.get -> bool
@@ -1297,6 +1345,14 @@ Vixen.Rendering.HiZPyramid.Pipelines.get -> Vixen.Rendering.ComputePipelineCache
 Vixen.Rendering.HiZPyramid.Pipelines.set -> Vixen.Rendering.ComputePipelineCache?
 Vixen.Rendering.HiZPyramid.Size.get -> Vixen.Core.Mathematics.Int2
 Vixen.Rendering.HiZPyramid.View.get -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.IMeshletPageSource -> interface
+Vixen.Rendering.IMeshletPageSource.ReadAsync(Vixen.Rendering.PageKey key, System.Memory<byte> destination, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<int>
+Vixen.Rendering.IPageStore -> interface
+Vixen.Rendering.IPageStore.Evict(Vixen.Rendering.PageKey key, int slot) -> void
+Vixen.Rendering.IPageStore.LoadAsync(Vixen.Rendering.PageKey key, System.Memory<byte> destination, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<int>
+Vixen.Rendering.IPageStore.PageSize.get -> int
+Vixen.Rendering.IPageStore.Place(Vixen.Rendering.PageKey key, int slot, System.ReadOnlySpan<byte> bytes) -> bool
+Vixen.Rendering.IPageStore.SlotCount.get -> int
 Vixen.Rendering.IPipelineDescriber -> interface
 Vixen.Rendering.IPipelineDescriber.Describe(Vixen.Shaders.Effect effect, Vixen.Rendering.RenderStage stage, in Vixen.Rendering.RenderOutput output, int vertexLayout) -> Vixen.Graphics.GraphicsPipelineDescription
 Vixen.Rendering.ISunSource -> interface
@@ -1805,6 +1861,11 @@ Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.Roughness.get -> float
 Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.Roughness.init -> float
 Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.ShaderName.get -> string
 Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.TexturedMetalRoughnessFeature() -> void
+Vixen.Rendering.MemoryMeshletPageSource -> sealed class
+Vixen.Rendering.MemoryMeshletPageSource : Vixen.Rendering.IMeshletPageSource
+Vixen.Rendering.MemoryMeshletPageSource.Add(int source, Vixen.Rendering.VirtualGeometry.MeshletPageSet pages) -> void
+Vixen.Rendering.MemoryMeshletPageSource.MemoryMeshletPageSource() -> void
+Vixen.Rendering.MemoryMeshletPageSource.ReadAsync(Vixen.Rendering.PageKey key, System.Memory<byte> destination, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<int>
 Vixen.Rendering.MeshData -> sealed record
 Vixen.Rendering.MeshData : System.IEquatable<Vixen.Rendering.MeshData>
 Vixen.Rendering.MeshData.BoneIndices.get -> int[]
@@ -1976,6 +2037,23 @@ Vixen.Rendering.MeshVertex.Normal.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.MeshVertex.Normal.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.MeshVertex.Position.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.MeshVertex.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.MeshletPagePool -> sealed class
+Vixen.Rendering.MeshletPagePool : System.IDisposable
+Vixen.Rendering.MeshletPagePool : Vixen.Rendering.IPageStore
+Vixen.Rendering.MeshletPagePool.Dispose() -> void
+Vixen.Rendering.MeshletPagePool.Evict(Vixen.Rendering.PageKey key, int slot) -> void
+Vixen.Rendering.MeshletPagePool.Evictions.get -> long
+Vixen.Rendering.MeshletPagePool.Flush(Vixen.Graphics.ICommandList list) -> int
+Vixen.Rendering.MeshletPagePool.LoadAsync(Vixen.Rendering.PageKey key, System.Memory<byte> destination, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<int>
+Vixen.Rendering.MeshletPagePool.MeshletPagePool(Vixen.Graphics.IGraphicsDevice device, Vixen.Rendering.IMeshletPageSource source, int slotCount, int pageSize = 131072, string name = "MeshletPages") -> void
+Vixen.Rendering.MeshletPagePool.PageSize.get -> int
+Vixen.Rendering.MeshletPagePool.Pages.get -> Vixen.Graphics.BufferHandle
+Vixen.Rendering.MeshletPagePool.PendingBytes.get -> long
+Vixen.Rendering.MeshletPagePool.Place(Vixen.Rendering.PageKey key, int slot, System.ReadOnlySpan<byte> bytes) -> bool
+Vixen.Rendering.MeshletPagePool.Placements.get -> long
+Vixen.Rendering.MeshletPagePool.Refusals.get -> long
+Vixen.Rendering.MeshletPagePool.SlotCount.get -> int
+Vixen.Rendering.MeshletPagePool.StagingCapacity.get -> long
 Vixen.Rendering.ModelData -> sealed record
 Vixen.Rendering.ModelData : System.IEquatable<Vixen.Rendering.ModelData>
 Vixen.Rendering.ModelData.Animations.get -> string[]
@@ -2011,7 +2089,64 @@ Vixen.Rendering.ModelPart.Mesh.set -> string
 Vixen.Rendering.ModelPart.ModelPart() -> void
 Vixen.Rendering.ModelPart.Node.get -> int
 Vixen.Rendering.ModelPart.Node.set -> int
+Vixen.Rendering.PageKey -> readonly struct
+Vixen.Rendering.PageKey : System.IEquatable<Vixen.Rendering.PageKey>
+Vixen.Rendering.PageKey.Index.get -> int
+Vixen.Rendering.PageKey.Index.init -> int
+Vixen.Rendering.PageKey.PageKey() -> void
+Vixen.Rendering.PageKey.PageKey(int Source, int Index) -> void
+Vixen.Rendering.PageKey.Source.get -> int
+Vixen.Rendering.PageKey.Source.init -> int
+Vixen.Rendering.PagePlacement -> readonly struct
+Vixen.Rendering.PagePlacement : System.IEquatable<Vixen.Rendering.PagePlacement>
+Vixen.Rendering.PagePlacement.Offset.get -> long
+Vixen.Rendering.PagePlacement.Offset.init -> long
+Vixen.Rendering.PagePlacement.PagePlacement() -> void
+Vixen.Rendering.PagePlacement.PagePlacement(int Slot, long Offset) -> void
+Vixen.Rendering.PagePlacement.Slot.get -> int
+Vixen.Rendering.PagePlacement.Slot.init -> int
+Vixen.Rendering.PageResidency -> sealed class
+Vixen.Rendering.PageResidency : System.IDisposable
+Vixen.Rendering.PageResidency.Budget.get -> long
+Vixen.Rendering.PageResidency.ClearRequests() -> void
+Vixen.Rendering.PageResidency.Dispose() -> void
+Vixen.Rendering.PageResidency.Evictions.get -> long
+Vixen.Rendering.PageResidency.IsResident(Vixen.Rendering.PageKey key) -> bool
+Vixen.Rendering.PageResidency.Loading.get -> int
+Vixen.Rendering.PageResidency.Loads.get -> long
+Vixen.Rendering.PageResidency.PageResidency(Vixen.Rendering.IPageStore store, long budget) -> void
+Vixen.Rendering.PageResidency.PendingRequests.get -> int
+Vixen.Rendering.PageResidency.Pin(Vixen.Rendering.PageKey key) -> void
+Vixen.Rendering.PageResidency.PinnedPages.get -> int
+Vixen.Rendering.PageResidency.Rejections.get -> long
+Vixen.Rendering.PageResidency.Request(Vixen.Rendering.PageKey key) -> void
+Vixen.Rendering.PageResidency.ResidentBytes.get -> long
+Vixen.Rendering.PageResidency.ResidentPages.get -> int
+Vixen.Rendering.PageResidency.Service(int maxLoads = 8) -> int
+Vixen.Rendering.PageResidency.Touch(Vixen.Rendering.PageKey key) -> void
+Vixen.Rendering.PageResidency.TryGetPlacement(Vixen.Rendering.PageKey key, out Vixen.Rendering.PagePlacement placement) -> bool
+Vixen.Rendering.PageResidency.Unpin(Vixen.Rendering.PageKey key) -> void
 Vixen.Rendering.ParticleLights -> static class
+Vixen.Rendering.PersistentUploadBuffer<T> -> sealed class
+Vixen.Rendering.PersistentUploadBuffer<T> : System.IDisposable
+Vixen.Rendering.PersistentUploadBuffer<T>.Alignment.get -> int
+Vixen.Rendering.PersistentUploadBuffer<T>.Alignment.set -> int
+Vixen.Rendering.PersistentUploadBuffer<T>.Begin(int required) -> void
+Vixen.Rendering.PersistentUploadBuffer<T>.Buffer.get -> Vixen.Graphics.BufferHandle
+Vixen.Rendering.PersistentUploadBuffer<T>.Capacity.get -> int
+Vixen.Rendering.PersistentUploadBuffer<T>.Count.get -> int
+Vixen.Rendering.PersistentUploadBuffer<T>.Device.get -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.PersistentUploadBuffer<T>.Device.set -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.PersistentUploadBuffer<T>.Dispose() -> void
+Vixen.Rendering.PersistentUploadBuffer<T>.Items.get -> System.ReadOnlySpan<T>
+Vixen.Rendering.PersistentUploadBuffer<T>.LastUploadBytes.get -> long
+Vixen.Rendering.PersistentUploadBuffer<T>.LastUploadRegions.get -> int
+Vixen.Rendering.PersistentUploadBuffer<T>.Offset.get -> long
+Vixen.Rendering.PersistentUploadBuffer<T>.PersistentUploadBuffer(string name, Vixen.Graphics.BufferUsage usage = Vixen.Graphics.BufferUsage.Storage) -> void
+Vixen.Rendering.PersistentUploadBuffer<T>.Set(int index, in T value) -> void
+Vixen.Rendering.PersistentUploadBuffer<T>.Slots.get -> int
+Vixen.Rendering.PersistentUploadBuffer<T>.Stride.get -> long
+Vixen.Rendering.PersistentUploadBuffer<T>.Upload() -> void
 Vixen.Rendering.PipelineCache -> sealed class
 Vixen.Rendering.PipelineCache.Clear() -> void
 Vixen.Rendering.PipelineCache.Count.get -> int
@@ -2600,6 +2735,8 @@ const Vixen.Rendering.Features.ForwardLightingRenderFeature.HeaderSize = 16 -> i
 const Vixen.Rendering.Features.ForwardLightingRenderFeature.ProbeIndexOffset = 4 -> int
 const Vixen.Rendering.Features.ForwardLightingRenderFeature.ProbeWeightOffset = 8 -> int
 const Vixen.Rendering.Features.MaterialRenderFeature.RecordIndexName = "materialIndex" -> string
+const Vixen.Rendering.GpuClusterCulling.ClusterRoot = 1 -> uint
+const Vixen.Rendering.GpuClusterCulling.QueueCapacity = 1024 -> int
 const Vixen.Rendering.GpuCulling.Alive = 1 -> uint
 const Vixen.Rendering.GpuCulling.ArgumentsShaderName = "DrawArguments" -> string
 const Vixen.Rendering.GpuCulling.ClipEpsilon = 0.0001 -> float
@@ -2624,6 +2761,7 @@ const Vixen.Rendering.Materials.MaterialKeys.DefaultLayerCount = 2 -> int
 const Vixen.Rendering.MeshPrimitives.DefaultRings = 16 -> int
 const Vixen.Rendering.MeshPrimitives.DefaultSegments = 32 -> int
 const Vixen.Rendering.MeshPrimitives.MinimumSegments = 3 -> int
+const Vixen.Rendering.PersistentUploadBuffer<T>.MergeGap = 16 -> int
 const Vixen.Rendering.RenderStageMask.Capacity = 64 -> int
 const Vixen.Rendering.ShadowCascades.MaxCascades = 4 -> int
 const Vixen.Rendering.ShadowProjections.MaximumConeAngle = 1.48 -> float
@@ -2642,15 +2780,29 @@ const Vixen.Shaders.Generated.BloomKeys.SourceBinding = 1 -> uint
 const Vixen.Shaders.Generated.BloomKeys.SourceSamplerBinding = 3 -> uint
 const Vixen.Shaders.Generated.BloomKeys.SourceSamplerSet = 2 -> int
 const Vixen.Shaders.Generated.BloomKeys.SourceSet = 2 -> int
+const Vixen.Shaders.Generated.CullingKeys.ChildrenBinding = 6 -> uint
+const Vixen.Shaders.Generated.CullingKeys.ChildrenSet = 2 -> int
+const Vixen.Shaders.Generated.CullingKeys.ClusterRecordsBinding = 4 -> uint
+const Vixen.Shaders.Generated.CullingKeys.ClusterRecordsSet = 2 -> int
+const Vixen.Shaders.Generated.CullingKeys.InstancesBinding = 5 -> uint
+const Vixen.Shaders.Generated.CullingKeys.InstancesSet = 2 -> int
 const Vixen.Shaders.Generated.CullingKeys.ObjectsBinding = 1 -> uint
 const Vixen.Shaders.Generated.CullingKeys.ObjectsSet = 2 -> int
 const Vixen.Shaders.Generated.CullingKeys.OccludersBinding = 0 -> uint
 const Vixen.Shaders.Generated.CullingKeys.OccludersSet = 2 -> int
+const Vixen.Shaders.Generated.CullingKeys.RequestsBinding = 9 -> uint
+const Vixen.Shaders.Generated.CullingKeys.RequestsSet = 2 -> int
+const Vixen.Shaders.Generated.CullingKeys.ResidencyBinding = 10 -> uint
+const Vixen.Shaders.Generated.CullingKeys.ResidencySet = 2 -> int
+const Vixen.Shaders.Generated.CullingKeys.RootsBinding = 7 -> uint
+const Vixen.Shaders.Generated.CullingKeys.RootsSet = 2 -> int
 const Vixen.Shaders.Generated.CullingKeys.ShaderName = "Culling" -> string
 const Vixen.Shaders.Generated.CullingKeys.ViewsBinding = 2 -> uint
 const Vixen.Shaders.Generated.CullingKeys.ViewsSet = 2 -> int
 const Vixen.Shaders.Generated.CullingKeys.VisibilityBinding = 3 -> uint
 const Vixen.Shaders.Generated.CullingKeys.VisibilitySet = 2 -> int
+const Vixen.Shaders.Generated.CullingKeys.VisibleBinding = 8 -> uint
+const Vixen.Shaders.Generated.CullingKeys.VisibleSet = 2 -> int
 const Vixen.Shaders.Generated.DrawArgumentsKeys.BasesBinding = 4 -> uint
 const Vixen.Shaders.Generated.DrawArgumentsKeys.BasesSet = 2 -> int
 const Vixen.Shaders.Generated.DrawArgumentsKeys.BatchesBinding = 3 -> uint
@@ -2941,9 +3093,18 @@ static Vixen.Rendering.Ecs.PrimitiveShapes.NameOf(Vixen.Rendering.PrimitiveKind 
 static Vixen.Rendering.Ecs.PrimitiveShapes.TryGet(Vixen.Ecs.World world, Vixen.Core.Entity entity, out Vixen.Rendering.PrimitiveKind kind) -> bool
 static Vixen.Rendering.Ecs.PrimitiveShapes.TryParse(string? text, out Vixen.Rendering.PrimitiveKind kind) -> bool
 static Vixen.Rendering.EffectSetWriter.TryWrite(Vixen.Shaders.Effect effect, Vixen.Graphics.DescriptorSetSlot slot, Vixen.Shaders.ParameterCollection parameters, Vixen.Rendering.EffectConstants? block, System.Collections.Generic.IList<Vixen.Graphics.DescriptorWrite> writes) -> bool
+static Vixen.Rendering.GpuClusterCulling.Backfacing(Vixen.Core.Mathematics.Vector3 center, float radius, Vixen.Core.Mathematics.Vector3 axis, float cosine, Vixen.Core.Mathematics.Vector3 eye) -> bool
+static Vixen.Rendering.GpuClusterCulling.ClustersKey.get -> string
+static Vixen.Rendering.GpuClusterCulling.Cut(Vixen.Rendering.ClusterScene scene, in Vixen.Rendering.CullInstance instance, in Vixen.Rendering.CullView view) -> int[]
+static Vixen.Rendering.GpuClusterCulling.ErrorScaleFor(float verticalFieldOfView, float screenHeight) -> float
+static Vixen.Rendering.GpuClusterCulling.Flatten(Vixen.Rendering.VirtualGeometry.MeshletMesh mesh, Vixen.Rendering.VirtualGeometry.MeshletPageSet pages) -> Vixen.Rendering.ClusterScene
+static Vixen.Rendering.GpuClusterCulling.PixelError(float error, float distance, float errorScale) -> float
+static Vixen.Rendering.GpuClusterCulling.ProjectedError(in Vixen.Rendering.CullCluster record, in Vixen.Rendering.CullInstance instance, in Vixen.Rendering.CullView view) -> float
+static Vixen.Rendering.GpuClusterCulling.Traverse(Vixen.Rendering.ClusterScene scene, in Vixen.Rendering.CullInstance instance, in Vixen.Rendering.CullView view, System.Func<uint, bool> isResident, Vixen.Rendering.GpuCulling.OccluderDepth? occluder = null, Vixen.Core.Mathematics.Int2 occluderSize = default(Vixen.Core.Mathematics.Int2)) -> Vixen.Rendering.GpuClusterCulling.TraversalResult
 static Vixen.Rendering.GpuCulling.BufferSize(int viewCount, int wordCount) -> long
 static Vixen.Rendering.GpuCulling.Groups(int wordCount) -> int
 static Vixen.Rendering.GpuCulling.IsLate(in Vixen.Rendering.CullObject candidate, in Vixen.Rendering.CullView view, bool drawn, Vixen.Core.Mathematics.Int2 size, Vixen.Rendering.GpuCulling.OccluderDepth depth) -> bool
+static Vixen.Rendering.GpuCulling.IsOccluded(Vixen.Core.Mathematics.Vector3 center, float radius, in Vixen.Rendering.CullView view, Vixen.Core.Mathematics.Int2 size, Vixen.Rendering.GpuCulling.OccluderDepth depth) -> bool
 static Vixen.Rendering.GpuCulling.IsOccluded(in Vixen.Rendering.CullObject candidate, in Vixen.Rendering.CullView view, Vixen.Core.Mathematics.Int2 size, Vixen.Rendering.GpuCulling.OccluderDepth depth) -> bool
 static Vixen.Rendering.GpuCulling.IsSupported(Vixen.Graphics.IGraphicsDevice device) -> bool
 static Vixen.Rendering.GpuCulling.IsVisible(in Vixen.Rendering.CullObject candidate, in Vixen.Rendering.CullView view) -> bool
@@ -2955,6 +3116,7 @@ static Vixen.Rendering.GpuCulling.OcclusionKey.get -> string
 static Vixen.Rendering.GpuCulling.Outside(Vixen.Core.Mathematics.Vector4 plane, Vixen.Core.Mathematics.Vector3 center, float radius) -> bool
 static Vixen.Rendering.GpuCulling.Pack(Vixen.Rendering.RenderView view, int objectCount, int wordCount, Vixen.Core.Mathematics.Matrix4x4 occluderProjection = default(Vixen.Core.Mathematics.Matrix4x4), int occluderLevels = 0) -> Vixen.Rendering.CullView
 static Vixen.Rendering.GpuCulling.Pack(in Vixen.Rendering.RenderObject candidate) -> Vixen.Rendering.CullObject
+static Vixen.Rendering.GpuCulling.ScreenBounds(Vixen.Core.Mathematics.Vector3 center, float radius, in Vixen.Rendering.CullView view, out Vixen.Core.Mathematics.Vector3 minimum, out Vixen.Core.Mathematics.Vector3 maximum) -> bool
 static Vixen.Rendering.GpuCulling.ScreenBounds(in Vixen.Rendering.CullObject candidate, in Vixen.Rendering.CullView view, out Vixen.Core.Mathematics.Vector3 minimum, out Vixen.Core.Mathematics.Vector3 maximum) -> bool
 static Vixen.Rendering.GpuCulling.Unpack(System.ReadOnlySpan<uint> words, System.Span<ulong> destination) -> void
 static Vixen.Rendering.GpuCulling.WordsFor(int objectCount) -> int
@@ -3047,13 +3209,21 @@ static readonly Vixen.Shaders.Generated.BloomKeys.SourceSampler -> Vixen.Shaders
 static readonly Vixen.Shaders.Generated.BloomKeys.TexelSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
 static readonly Vixen.Shaders.Generated.BloomKeys.Threshold -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.BloomKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
+static readonly Vixen.Shaders.Generated.CullingKeys.Children -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.CullingKeys.ClusterRecords -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.CullingKeys.Clusters -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.CullingKeys.Instances -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.CullingKeys.Late -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.CullingKeys.Objects -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.CullingKeys.Occluders -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.CullingKeys.Occlusion -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.CullingKeys.Requests -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.CullingKeys.Residency -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.CullingKeys.Roots -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.CullingKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
 static readonly Vixen.Shaders.Generated.CullingKeys.Views -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.CullingKeys.Visibility -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.CullingKeys.Visible -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.DrawArgumentsKeys.Bases -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.DrawArgumentsKeys.Batches -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.DrawArgumentsKeys.Commands -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>

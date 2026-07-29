@@ -138,7 +138,7 @@ public static class GpuCulling {
     /// <param name="level">Which level it is in.</param>
     /// <returns>The furthest depth in that texel's footprint.</returns>
     /// <remarks>
-    ///     What <see cref="IsOccluded" /> reads the pyramid through, so that the mirror of the shader
+    ///     What <see cref="IsOccluded(in CullObject, in CullView, Int2, OccluderDepth)" /> reads the pyramid through, so that the mirror of the shader
     ///     can be evaluated against a pyramid a test built rather than against a device.
     /// </remarks>
     public delegate float OccluderDepth(int x, int y, int level);
@@ -349,10 +349,35 @@ public static class GpuCulling {
     ///     <para>
     ///         The UVs are unclamped, so a caller can see how far off screen the rectangle reached.
     ///         The shader saturates them before choosing a level, and so does
-    ///         <see cref="IsOccluded" />.
+    ///         <see cref="IsOccluded(in CullObject, in CullView, Int2, OccluderDepth)" />.
     ///     </para>
     /// </remarks>
-    public static bool ScreenBounds(in CullObject candidate, in CullView view, out Vector3 minimum, out Vector3 maximum) {
+    public static bool ScreenBounds(in CullObject candidate, in CullView view, out Vector3 minimum, out Vector3 maximum) =>
+        ScreenBounds(candidate.Center, candidate.Radius, view, out minimum, out maximum);
+
+    /// <summary>
+    ///     The same, of any sphere.
+    /// </summary>
+    /// <param name="center">The sphere's centre.</param>
+    /// <param name="radius">Its radius.</param>
+    /// <param name="view">The packed view, whose occluder matrix does the projecting.</param>
+    /// <param name="minimum">The rectangle's lower corner in UV, and the sphere's furthest depth.</param>
+    /// <param name="maximum">Its upper corner, and the sphere's nearest depth.</param>
+    /// <returns>False when the sphere reaches behind the near plane and has no usable rectangle.</returns>
+    /// <remarks>
+    ///     A sphere and not an object, which is improvement 6's sibling on the host: the object cull
+    ///     and the cluster traversal ask the same question of the same pyramid with the same matrix,
+    ///     and two implementations of "visible against last frame's pyramid" is two places for the
+    ///     definition to drift — see <c>docs/virtualized-geometry.md</c> improvement 3. The shader's
+    ///     <c>Occluded</c> was refactored the same way and for the same reason.
+    /// </remarks>
+    public static bool ScreenBounds(
+        Vector3 center,
+        float radius,
+        in CullView view,
+        out Vector3 minimum,
+        out Vector3 maximum
+    ) {
         minimum = default;
         maximum = default;
 
@@ -360,15 +385,12 @@ public static class GpuCulling {
 
         for (var corner = 0; corner < 8; corner++) {
             var offset = new Vector3(
-                (corner & 1) == 0 ? -candidate.Radius : candidate.Radius,
-                (corner & 2) == 0 ? -candidate.Radius : candidate.Radius,
-                (corner & 4) == 0 ? -candidate.Radius : candidate.Radius
+                (corner & 1) == 0 ? -radius : radius,
+                (corner & 2) == 0 ? -radius : radius,
+                (corner & 4) == 0 ? -radius : radius
             );
 
-            var clip = Matrix4x4.TransformVector4(
-                new(candidate.Center + offset, 1f),
-                view.OccluderProjection
-            );
+            var clip = Matrix4x4.TransformVector4(new(center + offset, 1f), view.OccluderProjection);
 
             if (clip.W <= ClipEpsilon) {
                 return false;
@@ -421,14 +443,29 @@ public static class GpuCulling {
     ///     largest depth against the smallest — the only pair for which "definitely behind
     ///     everything" is true.
     /// </remarks>
-    public static bool IsOccluded(in CullObject candidate, in CullView view, Int2 size, OccluderDepth depth) {
+    public static bool IsOccluded(in CullObject candidate, in CullView view, Int2 size, OccluderDepth depth) =>
+        IsOccluded(candidate.Center, candidate.Radius, view, size, depth);
+
+    /// <summary>The same, of any sphere — what the cluster traversal asks.</summary>
+    /// <param name="center">The sphere's centre.</param>
+    /// <param name="radius">Its radius.</param>
+    /// <param name="view">The packed view.</param>
+    /// <param name="size">The pyramid's level-0 size in texels.</param>
+    /// <param name="depth">How to read the pyramid.</param>
+    public static bool IsOccluded(
+        Vector3 center,
+        float radius,
+        in CullView view,
+        Int2 size,
+        OccluderDepth depth
+    ) {
         ArgumentNullException.ThrowIfNull(depth);
 
         if ((view.Flags & Occluders) == 0 || view.OccluderLevels == 0) {
             return false;
         }
 
-        if (!ScreenBounds(candidate, view, out var minimum, out var maximum)) {
+        if (!ScreenBounds(center, radius, view, out var minimum, out var maximum)) {
             return false;
         }
 
@@ -601,6 +638,23 @@ public struct CullView {
     /// <summary><see cref="GpuCulling.Occluders" /> when this view has a pyramid to test against.</summary>
     public uint Flags;
 
-    /// <summary>Eight bytes of tail padding the shader declares and never reads.</summary>
-    public ulong Padding;
+    /// <summary>
+    ///     <c>screenHeight / (2 tan(fov / 2))</c> — what an object-space error is multiplied by to
+    ///     reach pixels, once divided by the distance.
+    /// </summary>
+    /// <remarks>
+    ///     Precomputed here rather than derived from <see cref="OccluderProjection" /> in the shader,
+    ///     because it is one number per view per frame either way and the host has the field of view
+    ///     in the form it was authored in. It is also the field the "projecting error with the wrong
+    ///     view" sabotage changes, which is worth being one number rather than a derivation.
+    /// </remarks>
+    public float ErrorScale;
+
+    /// <summary>How many pixels of deviation a cluster may have before it is refined.</summary>
+    /// <remarks>
+    ///     No tail padding after it, which is what the two error fields are doing here rather than at
+    ///     the end: the level count, the flags and the two of them are exactly one sixteen-byte row,
+    ///     so the record stays two hundred and eight bytes on both sides.
+    /// </remarks>
+    public float ErrorThreshold;
 }

@@ -227,6 +227,29 @@ ordering this RHI can express is a barrier between two things in one queue: it h
 semaphores. That is the whole reason the culling dispatch became something a node records rather than
 something `Cull` submits.
 
+**And the same shader culls clusters.** `Culling.rvn` carries a `Clusters` permutation that turns the
+per-object dispatch into a hierarchical walk over a cluster DAG — one workgroup per instance per view,
+a `groupshared` queue, and a barrier per round. It is a permutation rather than a shader of its own
+because objects and clusters are the same hierarchy at different depths, and because two
+implementations of "visible against last frame's pyramid" is two places for the definition to drift:
+`Occluded` takes a *sphere* now, and the object cull and the traversal each hand it one.
+
+Raven refuses a second compute entry point in one shader, so the two dispatch shapes are one entry
+point branching on the permutation. That turns out to be the better arrangement: the branch is folded
+before lowering, so the object variant provably carries no queue, no barrier and no shared memory at
+all, and `LibraryTreeTests` asserts it.
+
+**A rejected subtree costs one test**, which is the whole point and the whole difference from the
+object cull. A cluster that fails the frustum, the cone or the pyramid takes its children with it, so a
+mesh of a hundred thousand clusters behind the camera costs as many tests as it has roots.
+
+**The error is projected at the group's bound, not the cluster's**, and that is the one decision here
+whose failure is a crack. A group's simplification produces several parents, each of which replaces
+*all* of the group's children, so all of them have to refine or none of them do. They share an error;
+they also have to share the distance it is projected at, because their own bounds are in different
+places. `GpuClusterCullingTests` found this by comparing the traversal against a brute-force cut over
+random DAGs — which is what that comparison is for.
+
 **And with no wait, every descriptor set is a ring.** A set a submitted command buffer still
 references may not be written — `VUID-vkUpdateDescriptorSets-None-03047` — so all three classes hold
 one set per frame in flight and advance with the frame, which is the invariant `DescriptorAllocator`
@@ -1522,6 +1545,19 @@ the ring is a property of the binding, not of the data.
 
 `EffectConstants` moves only when a value actually changed, so a post pass whose parameters are the
 same every frame keeps reading the region it already has and the ring costs nothing.
+
+**And one of them is a ring whose regions are not interchangeable.** `PersistentUploadBuffer<T>` —
+the culling scene's object records — keeps its contents across frames rather than refilling them,
+because a hundred thousand object bounds are the same bytes they were last frame for all but a
+handful. That turns the ring's invariant inside out: this frame's region is not empty, it is
+`FramesInFlight` frames *stale*, and what it is missing is every change since it was last written. So
+a change is marked dirty in every region and each of them flushes its own set when its turn comes.
+One moved object costs one record per frame for three frames, rather than three megabytes once.
+
+Which records changed is decided by **comparing the bytes**, not by a flag a writer sets. Anything
+holding a `ref RenderObject` can move an object, and a writer that forgets to say so would be
+silently wrong — bounds a frame culled against, with nothing anywhere to say why. The comparison
+cannot miss one, and it reads exactly the data the culling loop reads anyway.
 
 **Destroying is not the same problem, and it was already solved.** Growing one of these buffers hands
 the old handle back while the frame that used it may still be running — which is safe, because every

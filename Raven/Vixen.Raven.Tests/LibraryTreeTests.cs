@@ -424,6 +424,45 @@ public class LibraryTreeTests {
         }
     }
 
+    /// <summary>
+    ///     The cluster-traversal variant of <c>Culling</c> reaches both backends, and is the only
+    ///     variant that carries any workgroup-shared memory.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Two claims, and the second is the one that would rot. The traversal is a permutation
+    ///         of the object cull rather than a shader of its own — improvement 3 of
+    ///         <c>docs/virtualized-geometry.md</c> — so the object variant has to come out with no
+    ///         queue, no barrier and no shared storage at all, or every frame that is not doing
+    ///         virtualized geometry pays for the branch that is.
+    ///     </para>
+    ///     <para>
+    ///         Off by default, so <see cref="EveryShippedShaderReachesBothBackends" /> compiles the
+    ///         object variant and never this one — the same reason the clustered light loop needs
+    ///         asking for by name, and the same defect that found.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_cluster_traversal_variant_reaches_both_backends_and_owns_the_shared_memory() {
+        var traversal = LowerTree(PermutationValues.Parse(["Clusters=true"]));
+        var culling = FindShader(traversal, "Culling");
+
+        var shared = Assert.Single(culling.EntryPoints).SharedVariables;
+        Assert.Equal(["queue", "pushed", "taken", "overflowed"], shared.Select(v => v.Name).ToArray());
+
+        // The output the traversal exists to produce, and the request buffer that makes streaming
+        // demand-driven rather than predictive.
+        Assert.Contains(culling.Bindings, b => b.Name == "visible" && b.IsWritable);
+        Assert.Contains(culling.Bindings, b => b.Name == "requests" && b.IsWritable);
+
+        AssertReachesBothBackends(traversal);
+
+        // And the object variant carries none of it: the branch is folded before lowering, so the
+        // shared declarations are unreachable and no unit declares them.
+        var objects = FindShader(LowerTree(), "Culling");
+        Assert.Empty(Assert.Single(objects.EntryPoints).SharedVariables);
+    }
+
     static IrShader FindShader(IrModule module, string name) =>
         Assert.Single(module.Shaders, shader => shader.Name == name);
 

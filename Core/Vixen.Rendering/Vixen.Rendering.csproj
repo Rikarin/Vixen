@@ -43,6 +43,14 @@
         <ProjectReference Include="..\Vixen.Rendering.IrradianceFields\Vixen.Rendering.IrradianceFields.csproj" />
 
         <!--
+            The cluster DAG and its page format (docs/virtualized-geometry.md, phases 1 and 2). One-way
+            for the same reason the distance fields are: that project references no device, so the
+            build and the page encoding are checked against spheres and grids where the answer is
+            known. This is the side that owns the pool the pages land in.
+        -->
+        <ProjectReference Include="..\Vixen.Rendering.VirtualGeometry\Vixen.Rendering.VirtualGeometry.csproj" />
+
+        <!--
             Rendering depends on Vfx and not the other way round, which is the direction doc 06
             names: ParticleRenderFeature sits beside MeshRenderFeature here, and Vixen.Vfx
             simulates without referencing a single graphics type.
