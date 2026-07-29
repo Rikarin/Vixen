@@ -159,6 +159,43 @@ public class BuildSettingsTests {
     }
 
     /// <summary>
+    ///     ⚠ The panel is derived from state that changes for reasons that are not edits to it, and
+    ///     nothing was asking it again — so it stayed as it was when it opened. The menu never had
+    ///     this because <c>MenuPresenter</c> asks <c>CanExecute</c> every time it draws.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Driven from the menu rather than from a build, deliberately.</b> The other thing that
+    ///     changes the answer is a task starting and stopping, and asserting on that means racing a
+    ///     pool thread — a content build over an empty project can finish between two frames, so the
+    ///     transition a test watched for might never be observable. The menu is the same wiring with
+    ///     no timing in it: one setting, two views, and the one that is not being touched has to
+    ///     follow.
+    /// </remarks>
+    [Fact]
+    public void A_target_chosen_on_the_menu_reaches_a_panel_that_is_already_open() {
+        using var session = EditorSession.Start();
+
+        File.WriteAllText(Path.Combine(session.ProjectRoot, "Game.csproj"), "<Project />");
+
+        var view = session.Control<BuildSettingsView>("build-settings");
+
+        view.Rebuild();
+
+        Assert.False(view.BuildButton.Disabled);
+        Assert.False(view.RunButton.Disabled);
+
+        session.Run("build.target-android");
+
+        // The picker followed the menu, rather than the two disagreeing about one field.
+        Assert.Equal("Android", view.TargetPicker.Value);
+
+        // And so did the buttons: an APK is buildable from here and is not something this machine
+        // can launch, which is the distinction `TargetShape.Runnable` exists to draw.
+        Assert.False(view.BuildButton.Disabled);
+        Assert.True(view.RunButton.Disabled);
+    }
+
+    /// <summary>
     ///     The scenes-in-build list: what is offered, what order means, and what a build would say
     ///     about an entry that no longer resolves.
     /// </summary>

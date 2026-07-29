@@ -5,6 +5,7 @@ using System.CommandLine;
 using Vixen.ContentServer;
 using Vixen.Core.IO;
 using Vixen.Editor.Assets.Content;
+using Vixen.Editor.Core;
 
 namespace Vixen.Cli;
 

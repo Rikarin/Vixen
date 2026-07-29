@@ -359,7 +359,17 @@ sealed partial class EditorApplication : IDisposable {
             // The panel's own rescan, so the browser shows what an import repaired rather than what
             // was there before it ran. Assigned rather than called by the tasks directly, because
             // the browser exists only while its panel is open.
-            Rescan = () => browser?.Rescan()
+            //
+            // The build panel goes with it: its scene picker is a view of the same database, so a
+            // scene that arrived in an import belongs in the list of what can be put in a build.
+            Rescan = () => {
+                browser?.Rescan();
+                RefreshBuildPanel();
+            },
+
+            // And its two buttons are greyed while anything is running, which is a fact about the
+            // task rather than about anything the panel did.
+            BusyChanged = RefreshBuildPanel
         };
 
         // ⚠ Before the panels, because the inspector's asset fields are built by drawers that have
@@ -428,6 +438,8 @@ sealed partial class EditorApplication : IDisposable {
         // ⚠ Recorded after the project has opened rather than before, so a root that turned out to
         // be unreadable is not offered as the first thing to try again next time.
         Recent.Record(project.Paths.Root, DateTime.UtcNow);
+
+        WarnIfNewerEngine();
 
         Shell.Status = ProductName;
 

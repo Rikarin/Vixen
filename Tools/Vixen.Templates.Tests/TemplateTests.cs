@@ -3,6 +3,7 @@
 
 using System.Text;
 using Vixen.Cli;
+using Vixen.Editor.Core;
 using Xunit;
 
 namespace Vixen.Templates.Tests;
@@ -123,6 +124,7 @@ public class TemplateTests {
 
             Assert.True(
                 file.Path.EndsWith(".csproj", StringComparison.Ordinal)
+                || file.Path.EndsWith(ProjectMarker.Extension, StringComparison.Ordinal)
                 || Path.GetFileName(file.Path) == "Dockerfile",
                 $"{id}/{file.Path} carries the version token, which pack time does not replace there."
             );

@@ -17,6 +17,30 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!--
+            The `dotnet new` templates, embedded so that both heads write the same files
+            `dotnet new vixen-game` does: `vixen new` from a terminal and the editor's New Project.
+            There is no ProjectReference to go with this — Vixen.Templates is a content-only package
+            with no assembly, so there is nothing to reference. What is shared is the tree of files,
+            and TemplateCatalog is what reads it back out.
+
+            ⚠ Embedded beside the reader rather than in each head, which is a hundred and thirty
+            kilobytes in a library rather than in two applications. The reader looks in its *own*
+            assembly, deliberately: an Assembly parameter would make "which templates" a question
+            with two answers that could differ.
+
+            ⚠ LogicalName is spelled out, with the separators normalised. The default naming folds
+            directory separators into dots, which makes `Shaders/ui.vert.spv` and
+            `Shaders.ui.vert.spv` the same resource name; and %(RecursiveDir) uses the host's
+            separator, which would otherwise put a different set of resource names in a Windows build
+            than in a Linux one — in an assembly the repository requires to be deterministic.
+        -->
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)..\..\Tools\Vixen.Templates\templates\**\*"
+                          LogicalName="Vixen.Templates/$([MSBuild]::ValueOrDefault('%(RecursiveDir)', '').Replace('\', '/'))%(Filename)%(Extension)"
+                          Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
         <PackageReference Include="System.IO.Hashing" />
     </ItemGroup>
 

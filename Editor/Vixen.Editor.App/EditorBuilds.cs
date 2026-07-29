@@ -44,29 +44,69 @@ sealed partial class EditorApplication {
     /// <summary>Where <c>dotnet publish</c>'s output goes, which is the console like everything else.</summary>
     BuildLog? buildLog;
 
+    /// <summary>The Build Settings panel while it is open, or <see langword="null" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Held for the reason <c>historyView</c> is, and released the same way.</b> Its two
+    ///     buttons are derived from <see cref="BuildRefusal" />, which changes for reasons that are
+    ///     not edits to this panel — a build starting, a build finishing, a <c>.csproj</c> arriving
+    ///     in a checkout. Nothing was asking it again, so the buttons stayed as they were at the
+    ///     moment the panel opened: enabled for the whole of a build that had already started, and
+    ///     greyed after the thing they were greyed for had been fixed. The menu line never had this
+    ///     because <c>MenuPresenter</c> asks <c>CanExecute</c> every time it draws.
+    /// </remarks>
+    BuildSettingsView? buildView;
+
     /// <summary>The project's build settings, which is the one copy everything reads and writes.</summary>
     PlayerBuildSettings Builds => project.Settings.Get<PlayerBuildSettings>();
 
     void BuildPanels() =>
         Shell.RegisterPanel(
-            BuildPanel,
-            new StringId("editor.panel.build", "Build Settings"),
-            panel => {
-                var view = panel.Add<BuildSettingsView>();
+            new PanelDescriptor(
+                BuildPanel,
+                new StringId("editor.panel.build", "Build Settings"),
+                panel => {
+                    var view = panel.Add<BuildSettingsView>();
 
-                // ⚠ Pulled, all three, and the panel's remarks say why: this factory runs again on
-                // every reopen, so an answer captured once would be one from a project state the
-                // user has since changed.
-                view.Catalogue = SceneCatalogue;
-                view.Resolves = path => project.Assets.TryGetByPath(path, out _);
-                view.Refusal = BuildRefusal;
+                    // ⚠ Pulled, all three, and the panel's remarks say why: this factory runs again
+                    // on every reopen, so an answer captured once would be one from a project state
+                    // the user has since changed.
+                    view.Catalogue = SceneCatalogue;
+                    view.Resolves = path => project.Assets.TryGetByPath(path, out _);
+                    view.Refusal = BuildRefusal;
 
-                view.Changed += _ => SaveBuildSettings();
-                view.BuildRequested += (_, launch) => StartPlayerBuild(launch);
+                    view.Changed += _ => SaveBuildSettings();
+                    view.BuildRequested += (_, launch) => StartPlayerBuild(launch);
 
-                view.Show(Builds);
+                    view.Show(Builds);
+                    buildView = view;
+                }
+            ) {
+                // ⚠ The other half of holding it. A reference kept past the tab's own close button
+                // is the defect `PanelDescriptor.Closed` was added for — see `EditorApplication`'s
+                // undo history, which was polled for the rest of the session after being closed once.
+                Closed = () => buildView = null
             }
         );
+
+    /// <summary>Asks the panel to look at the project again, if it is open.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Called when something happens rather than once a frame, and the difference is a
+    ///     syscall.</b> <see cref="BuildRefusal" /> enumerates the project root looking for a
+    ///     <c>.csproj</c>; a menu asks it when somebody opens a menu, which is rare, and a panel
+    ///     polled every frame would ask it sixty times a second for an answer that changes when a
+    ///     build starts, when one ends, and almost never otherwise.
+    /// </remarks>
+    void RefreshBuildPanel() => buildView?.Rebuild();
+
+    /// <summary>Shows the settings again, for a change made somewhere that is not the panel.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>Show</c> rather than <c>Rebuild</c>, because the three fields are the part that
+    ///     moved.</b> Picking Target ▸ Android from the menu writes the same setting the panel's own
+    ///     picker writes — doc 20's A4 rule is kept by there being one field — but a panel that was
+    ///     already open went on displaying the old one, which is the same disagreement between a menu
+    ///     and a window that having one setting was supposed to prevent.
+    /// </remarks>
+    void ShowBuildSettings() => buildView?.Show(Builds);
 
     /// <summary>Every scene in the project, project-relative, in path order.</summary>
     /// <remarks>
@@ -128,6 +168,7 @@ sealed partial class EditorApplication {
                     () => {
                         Builds.Variant = chosen;
                         SaveBuildSettings();
+                        ShowBuildSettings();
                     }
                 ) {
                     Category = CategoryBuild,
@@ -142,6 +183,7 @@ sealed partial class EditorApplication {
                 new EditorCommand(id, new StringId("editor.command." + id, label), () => {
                         Builds.Target = value;
                         SaveBuildSettings();
+                        ShowBuildSettings();
                     }
                 ) {
                     Category = CategoryBuild,

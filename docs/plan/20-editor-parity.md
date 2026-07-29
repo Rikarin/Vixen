@@ -135,9 +135,15 @@ currently unbuildable.
   ⚠ **It is a drawn dialog rather than an OS window, which is this section's own rule applied to its
   own example** — the first thing a new user sees is precisely the screen a regression must not be
   able to hide in, so it has to be photographable by the golden suite and drivable by the harness.
-  ⚠ **And New Project makes four directories rather than instantiating a template**:
-  `Tools/Vixen.Templates` is reached with `dotnet new` and produces a *solution*, which is a different
-  thing from the folder an editor opens.
+  ✅ **New Project instantiates the `game` template**, which it did not until E6 needed it to. The
+  sentence that used to be here — that `Tools/Vixen.Templates` "is reached with `dotnet new` and
+  produces a solution" — was wrong twice over: `TemplateCatalog` reads the same tree of files out of
+  an assembly with no `dotnet new` anywhere near it, and the `game` template is a project rather than
+  a solution. What was true is that the reader lived in `Tools/Vixen.Cli`, which no editor
+  references. So New Project made two directories, every project born in the editor had no `.csproj`,
+  and [E6](#e6--production-hardening-15-em)'s Build and Run was greyed for all of them with a message
+  naming a terminal command. `ProjectScaffold` in `Vixen.Editor.Core` is `ProjectWorkspace`'s move
+  made a second time, for the third consumer of the same argument.
 
 ### A3 — Command system, completed
 
@@ -720,9 +726,10 @@ workspace at all.
 
 Three things this milestone is *not*, said plainly: **About is still a notification** rather than the
 window Part C's Help menu implies; **Find References does not reach the inspector's asset field**,
-which is a change to `AssetDrawer` rather than to any of this; and **New Project makes four
-directories** rather than instantiating one of `Tools/Vixen.Templates`, which produces a solution and
-is a different thing from the folder an editor opens.
+which is a change to `AssetDrawer` rather than to any of this; and **New Project made two
+directories** rather than instantiating one of `Tools/Vixen.Templates` — ✅ **closed by E6**, which is
+the milestone where the cost of it turned up: a project with no `.csproj` is one Build and Run cannot
+publish, and until E6 nothing in the editor had ever asked for one.
 
 ### E4 — Diagnostics (2.0 EM)
 
@@ -854,6 +861,7 @@ described them, and each is worth the sentence:
 | **"Over `Tools/Vixen.Cli`'s existing calls"** | Not possible as written, and the fix is the one `ProjectWorkspace` already made. `PublishRunner` was *in* the CLI, which is a tool no editor references — so a window "over" it would have been a second copy of the same `dotnet publish`. It is now `PlayerBuild`, beside `ContentPipeline` in `Vixen.Editor.Assets`, and `vixen build` and Build and Run are literally the same three calls in the same order |
 | **Target and configuration are two settings** | Two *fields*, and neither is the compiler's configuration. Doc 17's variants are the axis a player build has — Development is optimised and keeps its profiler — so the variant travels as `VixenVariant` and `-c Release` is derived from it. Part C's `Configuration ▸ (Debug, Release)` is therefore four lines rather than two: a menu of the two everybody knows, over a setting of four, would leave the other two unreachable and unmarkable |
 | **Scenes-in-build is a list of scenes** | And the honest half is what reads it. A build checks every entry still resolves and says which do not — somebody else's rename arriving in a checkout is the failure this list actually has. What does *not* read it is anything at boot: doc 17's `AppConfig.StartupScene` is what will make the first entry mean something, and the panel says so rather than implying the order does |
+| **New Project is [E3](#e3--settings-keys-layouts-plugins-10-em)'s and is finished** | It made two directories, which was fine until something asked the project to build. Every project the editor had ever created had no `.csproj`, so this milestone's own Build and Run was greyed for all of them — an editor that cannot finish the project it just made, failing this document's second bar on the first screen a new user sees. `TemplateCatalog` moved to `Vixen.Editor.Core` beside a `ProjectScaffold` that both heads write through, and New Project instantiates `game` |
 
 ⚠ **The player's target and the content target are deliberately two settings, and this was not
 obvious.** `ContentBuildSettings.Target` is what the editor's own panels are imported for and

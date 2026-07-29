@@ -162,6 +162,12 @@ vixen build --target iOS     # content, then dotnet publish
 vixen run -- --vixen-frames 5
 ```
 
+⚠ **`TemplateCatalog` and the scaffold moved to `Vixen.Editor.Core`**, for the reason `PublishRunner`
+and `ContentPipeline` did before them: the editor's New Project needs the same scaffold, and an
+editor whose new projects have no `.csproj` is one whose Build and Run is greyed for every project it
+makes. What is left here is the console — the listing, the exit code, and the two lines saying what
+to type next.
+
 **`new` writes the same files `dotnet new vixen-game` writes, because it reads the same files.**
 [`Vixen.Templates`](../Vixen.Templates/README.md) owns one tree; the template package ships it and
 this assembly embeds it, and `TemplateCatalog` is the fifty lines that apply the one substitution the
