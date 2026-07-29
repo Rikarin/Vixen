@@ -857,7 +857,9 @@ public sealed partial class UiDocument : IDisposable {
             }
         }
 
-        foreach (var child in element.Children) {
+        // ⚠ `ChildList` rather than `Children`, here and in `Accumulate`, and it is worth forty bytes
+        // per element with children per frame. See the remarks on it.
+        foreach (var child in element.ChildList) {
             Apply(child, element.FontSize, text);
         }
     }
@@ -1152,7 +1154,7 @@ public sealed partial class UiDocument : IDisposable {
         element.AbsoluteLeft = x + element.Left + element.OffsetX;
         element.AbsoluteTop = y + element.Top + element.OffsetY;
 
-        foreach (var child in element.Children) {
+        foreach (var child in element.ChildList) {
             Accumulate(child, element.AbsoluteLeft, element.AbsoluteTop);
         }
     }

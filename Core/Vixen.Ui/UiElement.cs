@@ -100,6 +100,21 @@ public partial class UiElement {
     /// <summary>Its children, in document order.</summary>
     public IReadOnlyList<UiElement> Children => children;
 
+    /// <summary>The same children, as the list they are.</summary>
+    /// <remarks>
+    ///     ⚠ <b>For the walks that run every frame, and for no other reason.</b> A <c>foreach</c> over
+    ///     <see cref="Children" /> enumerates an interface, which boxes <c>List&lt;T&gt;</c>'s struct
+    ///     enumerator — forty bytes per element with children, per walk, per frame. The JIT elides it
+    ///     wherever it can prove the concrete type and cannot always, and "sometimes free" is not what
+    ///     a per-frame pass can be built on. <see cref="UiDocument" />'s <c>Apply</c> and
+    ///     <c>Accumulate</c> take this; everything that runs on a mutation takes
+    ///     <see cref="Children" />, because there the clarity is worth more than the enumerator.
+    ///
+    ///     Internal, and a mutable list only incidentally: the outside reads <see cref="Children" />,
+    ///     and nothing on this side of the wall may write through this.
+    /// </remarks>
+    internal List<UiElement> ChildList => children;
+
     /// <summary>Its <c>line-height</c> in pixels, or <see cref="float.NaN" /> for the font's own.</summary>
     /// <remarks>
     ///     Computed each style pass and inherited in that form, the same way <see cref="FontSize" />
@@ -163,11 +178,21 @@ public partial class UiElement {
     ///         children list itself, not a copy of it. The sorted list is built only when some child
     ///         has an index, and then cached until the children or one of their indices change.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="List{T}" /> rather than <see cref="IReadOnlyList{T}" />, and the
+    ///         difference was the whole of the steady frame's allocation.</b> Both branches return a
+    ///         list, so the type is exact and the draw walk's <c>foreach</c> gets the struct
+    ///         enumerator — where the interface boxed one per element with children, every frame, on a
+    ///         document nothing had changed in. That is the same defect <see cref="ChildList" />
+    ///         exists for, and it showed up here first because <c>UiDocument.Draw</c> is the only pass
+    ///         a <i>settled</i> document still runs: the criterion it broke was the zero-allocation one,
+    ///         which is a claim about doing nothing.
+    ///     </para>
     /// </remarks>
-    internal IReadOnlyList<UiElement> PaintOrder {
+    internal List<UiElement> PaintOrder {
         get {
             if (!orderDirty) {
-                return ordered ?? (IReadOnlyList<UiElement>) children;
+                return ordered ?? children;
             }
 
             orderDirty = false;

@@ -523,6 +523,44 @@ did not change still needs rebuilding when an ancestor's font size did, because 
 measures against a different number now — its computed style is the same interned object, so a check
 on the style alone skips it and `2em` keeps meaning twenty pixels while the text around it doubles.
 
+⚠ **`StylesApplied` is not `StylesResolved`, and reading the first as the second hid a defect for two
+phases.** `StylesApplied` counts elements whose *layout style was rebuilt*, which the interning makes
+a pointer comparison — so it reads 1 for a one-class change however the styles were arrived at.
+`StylesResolved` counts the cascade that produced them. The claim "one changed class rebuilds one
+element" was true the whole time the pass underneath it was cascading all ten thousand.
+
+## The cascade, incrementally
+
+The document **records what changed rather than that something did**. A class change and a state
+change are the two mutations `StyleUpdater` can narrow, so `AddClass`, `RemoveClass` and `State` put
+an entry in a log; the next pass replays it through the updater, which restyles what a rule could
+have noticed and stops descending wherever the resolved style came back as the same interned object.
+
+Everything else — a new element, a removal, a move, a reparent, an inline style, a stylesheet — comes
+through `UiDocument.Invalidate` and costs a cold pass over every live node. That is correct for all
+of them: the updater narrows a change to *an existing element's* names or state and cannot express
+any of the others, and an element created this frame has no resolved style for an invalidation root
+to reach. Widening `StyleChangeKind` is how the remaining ones would get their own path.
+
+⚠ **Each recorded change is replayed as its own pass, not merged into one.** The invalidator answers
+"what could *this* have reached", and the sharing cache has to be cleared between them because an
+entry cached while resolving the first knows nothing about the second having happened. It is correct
+to replay them in a batch only because the tree is fully mutated before any of them run — every pass
+resolves against the final state, so the union of what they reach is what a cold pass would have
+produced. Replaying against a tree being mutated in step would not be.
+
+⚠ **A scroll resolves nothing at all.** An offset moves where boxes are drawn and cannot change what
+any selector matches, so `OffsetX`/`OffsetY` ask for a pass with `InvalidatePositions` rather than
+`Invalidate`. Before that existed the only way to ask for a frame was the conservative door, and
+every frame of a scroll re-resolved the document.
+
+**Gated through `UiDocument` rather than through `StyleUpdater`.** `Vixen.Ui.Styling.Tests` has run
+this same property against the updater since Phase 4b — and stayed green for two phases while
+`Update` called `StyleEngine.ResolveAll` and never touched the updater at all. A test that reaches
+for the updater passes with the wiring deleted, so `IncrementalDocumentTests` drives the document:
+mutate a tree, compare every resolved style against a second document built directly in the final
+state, and assert the pass really was incremental.
+
 ## Removal
 
 `UiElement.Remove()` takes an element and its subtree out of all three stores at once — which is why

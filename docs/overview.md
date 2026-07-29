@@ -183,7 +183,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Layout gates — zero-alloc settled tree, 11 ns unchanged pass, 1.16 ms at 10⁴ | ✅ | Benchmarks/Vixen.Benchmarks.Ui | |
 | **CSS Grid** | ⬜ | — | A separate algorithm after flexbox; cut-list #5 |
 | `Vixen.Ui.Styling` — selectors, cascade, `@layer`, `@media`, inheritance, `var()`, sharing | ✅ | Core/Vixen.Ui.Styling | Oracle gates green, verified by sabotage |
-| Style **invalidation** (`StyleUpdater`, `StyleInvalidator`) | 🟡 | Core/Vixen.Ui.Styling | **Built and gated, but `UiDocument.Update` calls `ResolveAll` instead** — one class toggle costs 9.50 ms / 8.87 MB. Largest perf item in the phase |
+| Style **invalidation** (`StyleUpdater`, `StyleInvalidator`) | ✅ | Core/Vixen.Ui.Styling | Wired into `UiDocument.Update`, which records class and state changes and replays them. One class toggle went from 9.50 ms / 8.87 MB to **0.94 ms / 552 B**, and the allocation no longer depends on the document's size |
 | Transitions, `@keyframes`, `cubic-bezier`/`steps`/`spring()`, Oklab | ✅ | Core/Vixen.Ui.Styling | Springs solved in closed form |
 | Transform decomposition | ⬜ | — | Waits on a transform property existing |
 | `Vixen.Ui.Styling.Utilities` — tokens, scanner, variants, arbitrary values, `@apply` | ✅ | Core/Vixen.Ui.Styling.Utilities | 78 tests |
@@ -223,7 +223,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | `OkLch.ToSrgb` real gamut mapping | ⬜ | — | Clamps per channel today, which shifts hue |
 | `StyleTree.AppendChild` O(children) | ⬜ | — | Every current control virtualises clear of it |
 | `Vixen.Ui.Testing` harness + software rasteriser | ✅ | Core/Vixen.Ui.Testing | Group opacity, a third finger, and box assertions owed |
-| `Samples/02-HelloUi` | ✅ | Samples/02-HelloUi | 8 001 elements at 0.230 ms, 0 B — exit criterion met with margin |
+| `Samples/02-HelloUi` | ✅ | Samples/02-HelloUi | 8 001 elements at 0.436 ms, 0 B — exit criterion met with margin. The 0 B was briefly untrue: `PaintOrder` boxed an enumerator per element from the hour it landed until the cascade work re-ran the benchmark |
 
 ## 1.8 Raven and shaders
 
@@ -605,7 +605,7 @@ since. The rest can run in parallel.
 | W0-5 | `DescriptorBinding` sample type + comparison sampler (RHI) | WebGPU shadow maps → deferred/forward parity on the web |
 | ~~W0-6~~ | ~~`Tools/Vixen.ApiCheck` + first `PublicAPI.Shipped.txt`~~ | Built. The gate is in CI; what is left is the Phase 11 reading of what it baselined |
 | W0-7 | CI legs: Windows/Linux Vulkan, NativeAOT publish, run-a-sample, WebGPU-on-lavapipe | Content determinism across 3 OSes; `Samples/01` on Windows/Linux; the AOT gate becoming continuous |
-| W0-8 | `UiDocument.Update` → `StyleUpdater` (incremental cascade) | The largest UI perf item; nothing depends on it, everything benefits |
+| ~~W0-8~~ | ~~`UiDocument.Update` → `StyleUpdater` (incremental cascade)~~ | Built. The document records what changed rather than that something did; the largest UI perf item in the phase is closed |
 | ~~W0-9~~ | ~~`UiDocument` "layout finished" callback~~ | Built. The resize lag in `ScrollView`, `TreeView`, `DataGrid`, `CodeEditor`, `NodeCanvas` and `Viewport` is closed |
 | ~~W0-10~~ | ~~Wire `LineWrapper` into `TextRun`/controls~~ | Built (`TextLayout`). What is left is the *editing* half — a caret that moves between lines — and `CodeEditor`'s own wrap |
 | W0-11 | `Vixen.Core.Diagnostics` sinks (ZLogger file, console, platform, remote, `EventSource`) + rate limiting | Editor console · remote inspector · `Vixen.Editor.Profiler`/`.Debugger` |
@@ -723,7 +723,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 32 | Asset pipeline | `.cube` LUT importer; server content profile | Feature | — |
 | 33 | `Vixen.Sdk` | CLI shipped in the package; platform packaging; diagnostic file paths | Infra | — |
 | 34 | `Vixen.Cli` | Signing/notarisation/packaging; `app`/`plugin`/`tool` templates; `doctor systems` | Infra | Nuke `Build.Release.cs` (signing), Vixen.Ui maturity (`app`) |
-| 35 | `Vixen.Ui.Styling` | `UiDocument.Update` → incremental cascade | **Perf (largest in Phase 4)** | — |
+| ~~35~~ | ~~`Vixen.Ui.Styling`~~ | ~~`UiDocument.Update` → incremental cascade~~ | Built. What is left is the next-narrowest change — an inline style, a new element — getting a path of its own | — |
 | 35b | `Vixen.Ui.Reactive` | A frame-pass caller for `EffectScheduler.Flush()` | Correctness | — |
 | 36 | `Vixen.Ui.Styling` | Transform decomposition | Feature | A transform property |
 | 37 | `Vixen.Ui.Text` | `TextEditor` model with IME + caret affinity | Feature | — |
@@ -792,7 +792,7 @@ it is deliberately distinct from "not started" in Part 1.
 | Blocked on a **decision**, not code | 2 | Relay scope; D3D12 (already answered: post-1.0) |
 | Blocked on **hardware or an account** | 3 | iPhone provisioning; an Android device; the IHV matrix |
 | Genuinely independent | ~40 | Can be picked up in any order (§3.5) |
-| Closed since the first revision of this page | 11 | **K2** · **K3** · **K4** · `CheckApi` · `LayoutFinished` · `NodeGraphView` · handle reservation · line wrapping · `VirtualizingPanel` · `scoped`/per-type stylesheets · the image draw command |
+| Closed since the first revision of this page | 12 | **K2** · **K3** · **K4** · `CheckApi` · `LayoutFinished` · `NodeGraphView` · handle reservation · line wrapping · `VirtualizingPanel` · `scoped`/per-type stylesheets · the image draw command · the incremental cascade |
 
 ---
 
