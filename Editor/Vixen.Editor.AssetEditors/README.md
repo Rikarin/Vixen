@@ -264,9 +264,29 @@ every section beside the one before it.
 - **Nothing imports a `.vxcomp`.** `NativeFormatImporter` carries a document forward, which is right
   for a material and wrong for a graph — what a build needs is the compiled frame. A compositor wants
   an importer that runs `CompositorDocument.Compile`, the shape `SceneImporter` has.
-- **No animation-clip, VFX, input-action or font editor.** Four more rows of doc 11's table. The VFX
-  graph's model and compiler exist in `Vixen.Editor.VfxGraph` and want a document and a factory here;
-  the other three want their formats first.
+- ~~**No animation-clip, VFX, input-action or font editor.**~~ Closed by doc 20's E5, along with two
+  surfaces doc 11's table has no row for. What is here now, and the one decision each is worth:
+  - **VFX** (`Vfx/`) — the node library and the compiler stay in `Vixen.Editor.VfxGraph`, which knows
+    nothing about a project or a panel; the document, the view and the factory are here, the same
+    split the compositor makes from the other side. The preview is the *real* `VfxSystem` and a
+    projection this assembly draws, because particles are drawn by a material and the editor's
+    viewport is a tool renderer.
+  - **Animation clip** (`Animation/`) — `.vxanim` is ten scalar curves per target rather than three
+    vector tracks, because a curve editor edits one number and a vector track cannot say "X has a key
+    here and Y does not". `ToClipData` bakes back to the import's shape at the union of each group's
+    key times, not at a frame rate.
+  - **Animation graph** (`Animation/`) — document, view and factory over
+    `Vixen.Editor.AnimationGraph`'s model. The state map draws its arrows and puts *elements* over the
+    boxes, because `DrawContext` deliberately has no text: text in this framework is an element.
+  - **Sequencer** (`Sequencing/`) — `.vxseq`. Scrubbing and playing are one pure function of the time,
+    so dragging left is exactly as correct as dragging right; events are the exception and take the
+    previous time, because an event is a moment rather than a state. What it moves, it restores.
+  - **Audio mixer** (`Audio/`) — a panel over `Vixen.Audio`'s own `MixerAsset`, validated by running
+    the real `MixerBuilder` against a real `AudioMixer` rather than by a second set of rules.
+  - **Input actions** (`Input/`) — over `Vixen.Input`'s reader and writer, so the file this editor
+    writes and the file the source generator reads are the same file by construction.
+  - **Font** (`Fonts/`) — `.vxfont`, a document beside the `.ttf` because a fallback chain is a
+    property of *this use* of a face rather than of the file.
 - **The scene editor's view here is the hierarchy only.** The viewport is `Vixen.Editor.SceneView`'s
   and the inspector is `Vixen.Editor.Inspector`'s; arranging the three is the shell's job, and
   `Vixen.Editor.App` does it for the one scene it opens rather than per document.

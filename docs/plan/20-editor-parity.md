@@ -39,11 +39,11 @@ from counting `Add` calls, because half of the commands are registered in loops.
 
 | | Built | Missing |
 |---|---|---|
-| **Panels** | Hierarchy, Inspector, Scene viewport (1/2/4 panes), Project browser, Console, the seven of [B4](#b4--diagnostics), Message Log, Keyboard Shortcuts, Preferences, Project Settings, Build Settings, Plugins, Undo History, one per open asset document | ~10 more, listed in [Part B](#part-b--the-panel-inventory) |
+| **Panels** | Hierarchy, Inspector, Scene viewport (1/2/4 panes), Project browser, Console, the seven of [B4](#b4--diagnostics), Message Log, Keyboard Shortcuts, Preferences, Project Settings, Build Settings, Plugins, Undo History, **World Settings, Lighting, Navigation, Scenes**, one per open asset document | ~6 more, listed in [Part B](#part-b--the-panel-inventory) |
 | **Menus** | All ten of [Part C](#part-c--the-menu-bar-entry-by-entry): File, Edit, Assets, Entity, Scene, Play, Window, Build, Tools, Help | Nothing structural. Individual lines are disabled-with-a-reason rather than absent |
-| **Commands** | Every id [Part C](#part-c--the-menu-bar-entry-by-entry) names, plus Open Recent's one per project and the Build menu's one per target and per variant. The declared-and-disabled ones that are left name E5, and one names Raven's compiler | Whatever E5 and the rest of E6 add |
+| **Commands** | Every id [Part C](#part-c--the-menu-bar-entry-by-entry) names, plus Open Recent's one per project, the Build menu's one per target and per variant, and **seven Assets ▸ Create lines, one per asset kind E5 adds**. The declared-and-disabled ones that are left name the rest of E6, Raven's compiler, or a runtime concept that does not exist | Whatever the rest of E6 adds |
 | **Windows** | One OS window, a floating dock group promoted to a real one with an off-display rule, drawn modal dialogs, and the startup Project Browser | About is still a notification rather than a window |
-| **Layouts** | Six presets, saved/named arrangements, `current.vxlayout`, floating groups with their geometry, **and the open documents** | `Sequencing`, which waits on B5 |
+| **Layouts** | Seven presets — the six, plus `Sequencing` now that B5 exists — saved/named arrangements, `current.vxlayout`, floating groups with their geometry, **and the open documents** | Nothing |
 | **Shell services** | Commands with contexts and scopes, a three-layer keymap with presets, palette, **search-everywhere**, menus, context menus, toolbar with sections and groups, status bar, notifications, background tasks, theming, localisation, docking, plugins, dialogs, icons, MRU, **a settings mechanism**, **an automation harness** | Modes |
 
 The three findings this document opened with are all closed, and they are kept because the reasoning
@@ -364,26 +364,26 @@ is, and `EditorHost` instruments its loop with the four phases its own remarks n
 | Panel | UE / Unity | Owner | Status | Notes |
 |---|---|---|---|---|
 | Shader graph | Material Editor / Shader Graph | `.ShaderGraph` | ✅ | Owes procedural nodes, custom-code node, post/UI masters, node previews |
-| VFX graph | Niagara / VFX Graph | `.VfxGraph` | 🟡 | Model and compiler exist; **no document, no factory, no editor registration** — it is not reachable from the editor. Then a live preview |
-| **Animation graph** | Animation Blueprint / Animator | ⛔ | ⛔ | The third graph doc 11 names. States, transitions, blend trees, layers, masks, IK, parameters, events |
-| **Animation clip editor** | Sequencer curves / Animation window | `.AssetEditors` | ⛔ | `CurveEditor` and `Timeline` controls exist; the format does not. Dope sheet, curve mode, event track |
-| **Sequencer / cinematics** | Sequencer / Timeline | new | ⛔ | Tracks over entities, cameras, audio, events; `Timeline` control exists. This is the largest single missing authoring surface and it is what "cinematics" means to both reference editors |
-| **Audio mixer** | Audio Mixer (both) | new | ⛔ | Buses, sends, effects, snapshots. `Vixen.Audio` has the runtime |
-| **Input actions** | Input / Input System | `.AssetEditors` | ⛔ | Doc 11's own gap: `Vixen.Input` has the whole action model and no editor. Maps, actions, composite bindings, control schemes, interactive rebinding |
-| **Font editor** | — / Font asset | `.AssetEditors` | ⛔ | Glyph coverage, atlas preview, fallback chain |
+| VFX graph | Niagara / VFX Graph | `.VfxGraph` + `.AssetEditors` | ✅ | Document, factory, registration and a preview that is the *real* simulation — `VfxSystem` over the compiled graph — projected by the panel, because particles need a material. ⚠ The node library and the compiler stay in `.VfxGraph`, which knows nothing about a project or a panel; the document and the view are where every other row of doc 11's table already is |
+| **Animation graph** | Animation Blueprint / Animator | `.AnimationGraph` + `.AssetEditors` | 🟡 | Layers, states, motions and blend trees, transitions with conditions, parameters, masks. ⚠ **Not on the node-graph framework** — see [E5](#e5--authoring-surfaces-25-em). IK is the runtime's and has no authored surface yet |
+| **Animation clip editor** | Sequencer curves / Animation window | `.AssetEditors` | ✅ | `.vxanim` — ten scalar curves per target rather than three vector tracks, because a curve editor edits one number and a vector track cannot say "X has a key here and Y does not". Dope sheet, curve mode, event track |
+| **Sequencer / cinematics** | Sequencer / Timeline | `.AssetEditors` | 🟡 | `.vxseq` over entities, cameras, audio and events, scrubbed against the open scene and restored on the way out. ⚠ A camera track *cuts* and reports; making the viewport look through it is Phase 7's compositor wiring |
+| **Audio mixer** | Audio Mixer (both) | `.AssetEditors` | ✅ | A strip per bus with its sends, inserts and snapshots, validated by running the real `MixerBuilder`. ⚠ The format was already `Vixen.Audio`'s |
+| **Input actions** | Input / Input System | `.AssetEditors` | ✅ | Maps, actions, composite bindings, control schemes, and rebinding as a *mode* rather than a modal — `KeyBindingsView`'s argument, restated |
+| **Font editor** | — / Font asset | `.AssetEditors` | ✅ | `.vxfont`: coverage per Unicode block against *assigned* code points, a glyph page drawn from the face's own outlines, and a fallback chain whose colour says which face drew each cell |
 | **Curve / gradient presets** | ✅ both | `.Inspector` | 🟡 | Controls exist; a library of saved presets does not |
 
 ### B6 — World building
 
 | Panel | UE / Unity | Status | Notes |
 |---|---|---|---|
-| **World / scene settings** | World Settings / Lighting+Physics settings | ⛔ | The per-scene half of Project Settings: environment, ambient, fog, GI, physics, navigation. Inspector over a `[DataContract]` on the scene |
-| **Layers and tags** | Layers / Tags & Layers | ⛔ | Needs an ECS-side concept first |
-| **Lighting / GI** | Lighting / Lighting window | ⛔ | Doc 19 retires baked lightmaps, so this is a *dynamic* GI panel: distance-field coverage, irradiance-field placement, surface-cache budgets, and the debug views for each |
-| **Navigation** | Navigation / Navigation window | ⛔ | `Vixen.Navigation` exists; bake settings, agent profiles, a debug draw |
+| **World / scene settings** | World Settings / Lighting+Physics settings | ✅ | Environment, ambient, fog, physics and navigation as `[DataContract]` types with `[Inspector]` members and no dialog code. ⚠ **A sidecar beside the `.vxscene`, not a block inside it** — a scene file is the one two people touch every day |
+| **Layers and tags** | Layers / Tags & Layers | ⛔ | Needs an ECS-side concept first. On the Scene menu, disabled with that reason |
+| **Lighting / GI** | Lighting / Lighting window | 🟡 | The dynamic budgets doc 19 names — distance-field range and voxel size, probe spacing and per-frame budget, surface-cache cards, bounces — with a derived cost readout that says **(derived)**. ⚠ The four debug views are named as absent: they need the GI path, which is Phase 7's |
+| **Navigation** | Navigation / Navigation window | 🟡 | Agent profile, cell sizes, and a bake through the real `NavMeshBaker`. ⚠ Over the *boxes* the scene's primitives occupy, because the viewport draws primitives; it becomes true geometry with the renderer |
 | **Physics debug** | — | ⛔ | Collider draw, contact visualisation, layer matrix |
 | **Terrain / foliage** | Landscape + Foliage / Terrain | ⛔ | Post-1.0, [Part G](#part-g--out-of-scope) |
-| **Multi-scene** | Levels / multi-scene editing | ⛔ | The editor opens one scene by path. Additive loading, per-scene visibility and lock, and a scene as a unit of ownership is what a team of more than three needs |
+| **Multi-scene** | Levels / multi-scene editing | ✅ | Additive loading into **one world** — which is what `SceneManager` already does and what keeps an entity handle meaning one thing — a Scenes panel with per-scene visibility and lock, an active scene new entities go into, and Save All Scenes |
 
 ### B7 — Build, deploy, and extend
 
@@ -793,6 +793,45 @@ Lighting/GI panel. Navigation panel. Multi-scene.
 
 **Exit:** doc 11's thirteen-row asset-editor table has thirteen rows built; a cinematic can be
 authored, scrubbed and played.
+
+**Where E5 stands.** Both exit clauses run as tests in `Vixen.Editor.App.Tests/MilestoneE5Tests` —
+the first named row by row rather than counted, because a count passes when somebody deletes the font
+editor and adds two of something else. Eleven surfaces, seven new asset kinds, four panels, and one
+thing that had to be built before any of it was reachable: a way to *make* one of these files. Six
+things came out differently from how this document described them, and each is worth the sentence.
+
+| What the plan said | What it turned out to be |
+|---|---|
+| **The animation graph is the third graph on `Vixen.Editor.NodeGraph`** — doc 11's tree puts it under the framework beside `.ShaderGraph` and `.VfxGraph` | It is its own model, and the reason is not a detail. A shader graph's edge carries a *value*, a VFX graph's carries *order*, and a state machine's carries *"may become"*: there is nothing on it, several leave one state and several arrive at another, and a graph without a cycle is a character that can never return to idle. Every rule that framework exists for — one edge per input, ports typed by what flows, a topological order — would have to be switched off to hold one. What is shared is the *shape of the editor*, which is where sharing belongs |
+| **"The VFX graph wants a document and a factory"** | And a preview, which is the half that had a decision in it. The simulation is real — `VfxSystem` over the `VfxCompiledGraph` the document just compiled, the same class a game runs — and the *picture* is a projection this control draws, because particles are drawn by a material and the editor's viewport is a tool renderer. Borrowing the tool renderer would have been a second thing to rewrite when Phase 7 lands and would still not show a textured sprite |
+| **Three formats were owed: animation clip, input actions, font** | Two. `MixerAsset` already existed — `Vixen.Audio`'s own authoring layer, whose remarks say why: "a sound designer who has to open a C# file to move a fader does not move the fader" — so the mixer editor is a panel over a format, not a format. ⚠ What it *did* need was one line of MSBuild: the assembly ran the binary-serializer generator and not the reflection one, so every one of those records was describable in principle and unreadable as YAML in practice |
+| **World settings are "an inspector over a `[DataContract]` on the scene"** | Over a `[DataContract]` in a **sidecar beside** the scene. A `.vxscene` is where every entity anybody adds lands, so it is the file two people on a team touch every day; the fog colour changes once a month. Keeping them apart means changing the sky does not conflict with somebody else having moved a crate — doc 08's argument for `.meta` files, restated |
+| **Multi-scene needs "a scene as a unit of ownership"** | It needs a second `SceneDocument` over the *same* world, which is what `SceneManager` already does additively. A second world would have meant the outliner, the gizmo and the picker each learning which world an entity came from; one world is what keeps an entity handle meaning one thing across the editor. What did change is three fields: `scene`, `picker` and `probe` stopped being `readonly` |
+| **Nothing about creating one of these files** | The gap that would have made all six editors unreachable. A format with no way to make a file of it is a format nobody meets, whatever the double-click does — so Assets ▸ Create grew seven lines, each an ordinary command with a palette entry and a bindable key, and each writes a zero-byte file. That is not a shortcut: every one of these documents already opens an empty file as a sensible new one, so a templates folder would be a second place the defaults live |
+
+Two defects fell out of writing the tests rather than out of writing the features, which is the shape
+[E3](#e3--settings-keys-layouts-plugins-10-em) reported and the reason Part F's rows are worth having:
+
+- ⚠ **A record struct's `default` runs no constructor and no property initializer.** `InputRow` is the
+  tag on an action-tree row, and `TreeNode.Tag` is null when nothing is selected — so its `string`
+  members were genuinely null however the declaration was written, and the panel threw on the first
+  frame after somebody clicked the empty space under the last row. Coalescing in an accessor *looks*
+  like it fixes this and does not; the readers use `is { Length: > 0 }`.
+- ⚠ **`ViewportLayout.Discard` removed elements the host had already removed.** `UiElement.Remove`
+  throws on a second removal by contract, and a panel closes by the host tearing its contents out —
+  so the teardown hook fires *after* the children are gone. The panel-lifecycle test found it the
+  moment four more panels were registered, which is the second time that row has earned its place.
+
+What is not built, each named against the layer it is missing from rather than as a checkbox:
+
+| Not built | What it actually needs |
+|---|---|
+| **A VFX emitter component** | `entity.create-vfx` is still declared-and-disabled, and the reason has moved rather than gone: the graph is authorable now, and the runtime has no component for an entity to carry it with. An entity called VFX would reference nothing |
+| **The lighting panel's four debug views** | Distance-field coverage, probe placement, surface-cache residency and indirect-only are named as absent with the reason, because doc 19's GI path is doc 14's Phase 7. The budgets beside them are arithmetic over the settings and say **(derived)** in the row: a number presented as measured when it was computed is the failure this panel could most easily have had |
+| **A navigation bake over real geometry** | It bakes, through the real `NavMeshBaker`, over the *boxes* the scene's primitives occupy — which is a real navigation mesh over a real blockout, and is what a level designer bakes at this stage anyway. It becomes true geometry the day the renderer has meshes, with nothing in the panel changing |
+| **Render-target inspection for a sequence's camera track** | The track cuts and the player reports which camera; making the viewport look through it is the same `GraphicsCompositor` wiring [E2](#e2--the-viewport-20-em)'s two remaining rows are waiting on |
+| **Layers and tags** | Named on the Scene menu and disabled with the reason. Doc 20's own row says they need an ECS-side concept first, and a panel maintaining a list of names nothing reads would fail this document's second bar |
+| **Curve and gradient preset libraries** | B5's last 🟡 row. The controls exist and a library of saved presets is a user-store file rather than an editor surface — it belongs beside the layouts and the keymap, not in an asset editor |
 
 ### E6 — Production hardening (1.5 EM)
 

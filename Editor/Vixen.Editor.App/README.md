@@ -484,11 +484,13 @@ warning would toast, log, toast, log.
 - **It redraws every frame.** Redrawing only on change is the right end state and is not free — every
   animation, toast expiry and task progress has to say so, and one that forgets leaves a progress bar
   frozen at forty per cent.
-- **One scene at a time, though no longer one *fixed* scene.** The editor opens
-  `Assets/Scenes/Main.vxscene` and `file.open-scene` loads another over the same document — the
-  panels, the gizmo and the picker all hold that document, so swapping the object would leave four
-  panels looking at the old one. Additive loading and per-scene visibility is doc 20's multi-scene
-  row, in E5.
+- ~~**One scene at a time.**~~ Closed by doc 20's E5. Scenes open **additively into one world** —
+  which is what `SceneManager` already does, and what keeps an entity handle meaning one thing across
+  the editor — and the Scenes panel lists them with per-scene visibility and lock. Making one active
+  is an assignment to the `scene` field every panel already reads, which is why the change was three
+  fields losing `readonly` rather than an index every panel had to learn about. ⚠ **Per-scene
+  visibility writes the documents' own hidden sets**, so it is editor state and is not saved — the
+  rule `entity.toggle-hidden` already follows.
 - ⚠ **Double-clicking the scene that is already open loads it a second time.** The editor opens its
   own scene by *path*, as a `SceneDocument` carrying `AssetId.Empty`, so `AssetEditorRegistry` has no
   way to know that the GUID being opened is the document already on screen — and both share one

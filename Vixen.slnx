@@ -284,9 +284,12 @@
     Vixen.Editor.Ui is the shell over Vixen.Ui — docking, commands, palette, theming —
     and deliberately does not reference Core, so the chrome is testable with no project
     on disk. Vixen.Editor.App is the head that joins them to a window and a device.
-    Vixen.Editor.NodeGraph is the framework the shader and VFX graphs are both built on,
+    Vixen.Editor.NodeGraph is the framework the shader and VFX graphs are both built on
     and references neither of those two: a graph is a document and a compiler, so the
-    whole of it is testable with no shell either.
+    whole of it is testable with no shell either. Vixen.Editor.AnimationGraph is beside
+    them and ⚠ deliberately *not* on that framework: a state machine's edge carries "may
+    become" rather than a value, several leave one state and several arrive at another,
+    and a graph with no cycle is a character that can never return to idle. See its README.
 
     Vixen.Editor.Inspector and Vixen.Editor.SceneView are the two panels that are more
     than chrome, and both reference Vixen.Editor.Core because both produce IEditorCommands
@@ -331,6 +334,8 @@
     <Project Path="Editor/Vixen.Editor.ShaderGraph.Tests/Vixen.Editor.ShaderGraph.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.VfxGraph/Vixen.Editor.VfxGraph.csproj" />
     <Project Path="Editor/Vixen.Editor.VfxGraph.Tests/Vixen.Editor.VfxGraph.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.AnimationGraph/Vixen.Editor.AnimationGraph.csproj" />
+    <Project Path="Editor/Vixen.Editor.AnimationGraph.Tests/Vixen.Editor.AnimationGraph.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Inspector/Vixen.Editor.Inspector.csproj" />
     <Project Path="Editor/Vixen.Editor.Inspector.Generator/Vixen.Editor.Inspector.Generator.csproj" />
     <Project Path="Editor/Vixen.Editor.Inspector.Tests/Vixen.Editor.Inspector.Tests.csproj" />

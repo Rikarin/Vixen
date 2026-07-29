@@ -235,8 +235,20 @@ public sealed class ViewportLayout : IDisposable {
         panes.Clear();
         Focused = null;
 
-        while (root.Children.Count > 0) {
-            root.Children[^1].Remove();
+        // ⚠ Only what is still in the document, and the check is not defensive tidiness. This runs
+        // from `Dispose`, which the application calls from `PanelDescriptor.Closed` — and a panel
+        // closes by the host tearing its contents out, so by the time the hook fires the children
+        // may already be gone. `UiElement.Remove` throws on a second removal *by contract*, so a
+        // teardown that did not ask would take the frame down every time somebody closed the Scene
+        // tab in a layout the host rebuilt first.
+        while (!root.IsRemoved && root.Children.Count > 0) {
+            var child = root.Children[^1];
+
+            if (child.IsRemoved) {
+                break;
+            }
+
+            child.Remove();
         }
     }
 }

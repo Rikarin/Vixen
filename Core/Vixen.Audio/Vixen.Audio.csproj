@@ -53,6 +53,18 @@
         <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
+
+        <!--
+          And the reflection generator, for the same reason and about the other half. The mixer,
+          event and music assets are [DataContract] record graphs whose whole point is that "a sound
+          designer who has to open a C# file to move a fader does not move the fader" — and the file
+          they open is YAML, which `Vixen.Core.Yaml` binds through a *descriptor*. Without this the
+          types are describable in principle and unreadable in practice: the editor's mixer document
+          would throw on the first save with "MixerAsset has no descriptor".
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>

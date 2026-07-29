@@ -62,7 +62,16 @@ sealed partial class EditorApplication : IDisposable {
     readonly EditorUserStore store;
     readonly World world = new("Editor");
     readonly EditorProject project;
-    readonly SceneDocument scene;
+
+    /// <summary>The scene every command acts on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not readonly, because doc 20's multi-scene row makes it change.</b> Half the editor
+    ///     holds the active scene — the outliner, the gizmo, the inspector, the picker — so making
+    ///     one of several open scenes active is an assignment to the field they all already read,
+    ///     rather than an index every one of them would have to learn about. See
+    ///     <see cref="SetActiveScene" />.
+    /// </remarks>
+    SceneDocument scene;
 
     /// <summary>What the host can do that this cannot ask for itself: pickers, and a browser.</summary>
     readonly EditorServices services;
@@ -94,7 +103,7 @@ sealed partial class EditorApplication : IDisposable {
     ///     time the panel is reopened and this caches a mesh per shape kind — which is geometry that
     ///     never changes and would otherwise be rebuilt every time somebody closed the scene tab.
     /// </remarks>
-    readonly ScenePicker picker;
+    ScenePicker picker;
 
     /// <summary>What an asset field's button opens.</summary>
     AssetPicker assetPicker = null!;
@@ -149,7 +158,7 @@ sealed partial class EditorApplication : IDisposable {
     ///     Held here for <see cref="picker" />'s reason: it caches a mesh per shape kind, and a panel's
     ///     factory runs again every time the panel is reopened.
     /// </remarks>
-    readonly SceneProbe probe;
+    SceneProbe probe;
 
     InspectorView? inspector;
 
@@ -248,6 +257,9 @@ sealed partial class EditorApplication : IDisposable {
         // And the browser's two rules, which are this assembly's panel and nobody else's business.
         BrowserTheme.Install(Shell.Document);
 
+        // And E5's world-building panels', on the same terms.
+        WorldTheme.Install(Shell.Document);
+
         // A scratch project under the user's data directory, so a first run with no arguments opens
         // something real rather than refusing to start. `Open` tolerates a missing Assets directory
         // — see AssetDatabase.Scan — which is what makes a directory that does not exist yet fine.
@@ -312,6 +324,13 @@ sealed partial class EditorApplication : IDisposable {
         // entities are not in the level — see PrefabEditorFactory.
         editors = StandardEditors.CreateDefault(_ => world, _ => new World("Prefab"));
 
+        // ⚠ The scene the editor started with is the first entry of the multi-scene list rather
+        // than a special case beside it. Everything that walks the open scenes — the panel, Save All
+        // Scenes, the active-scene switch — would otherwise have to remember that one of them is not
+        // in the list, which is exactly the kind of exception that goes wrong once and quietly.
+        openScenes.Add(new(scene, scenePath) { Settings = WorldSettings.Load(scenePath) });
+        world0 = openScenes[0].Settings;
+
         if (editors.TryGetByName("Addressable Group", out var groups)
             && groups is AddressableGroupEditorFactory addressable) {
             // The real planner, run against a workspace of its own. `ProjectWorkspace` opens the four
@@ -324,6 +343,14 @@ sealed partial class EditorApplication : IDisposable {
                 workspace.Database.Scan();
                 return ContentPipeline.Analyse(workspace, _ => { });
             };
+        }
+
+        // ⚠ A sequence drives the scene the editor has open, and which scene that is is this class's
+        // arbitration in the way every other panel's subject is — see `EditorWorlds`. A factory that
+        // reached for one would be a factory that knows what the editor has open.
+        if (editors.TryGetByName("Sequence", out var sequences)
+            && sequences is AssetEditors.Sequencing.SequenceEditorFactory sequencer) {
+            sequencer.Scene = () => scene;
         }
 
         thumbnails = new ThumbnailCache(project);
@@ -352,6 +379,9 @@ sealed partial class EditorApplication : IDisposable {
         DiagnosticsPanels();
         SettingsPanels();
         BuildPanels();
+
+        // And E5's four, for the same reason: the Sequencing preset names the scene list.
+        WorldPanels();
 
         Layouts();
         Commands();
@@ -557,6 +587,11 @@ sealed partial class EditorApplication : IDisposable {
         // ⚠ Beside the console's pull and for the same reason: a capture drains the sample rings,
         // and the rings are written from every thread the editor runs work on.
         DiagnosticsUpdate(delta);
+
+        // ⚠ And E5's two moving surfaces, pulled rather than self-driving. A VFX preview and a
+        // sequencer transport both advance with time, and a timer either of them started would
+        // outlive the panel it was drawn in — the rule every pulled surface in this editor follows.
+        AuthoringUpdate(delta);
 
         // ⚠ Polled, and it compares before it rebuilds. A command stack is signal-backed and nothing
         // in this loop flushes the reactive scheduler — the same trade the selections make — and the
@@ -1034,6 +1069,13 @@ sealed partial class EditorApplication : IDisposable {
         );
     }
 
+    /// <summary>Opens an asset in whatever editor claims it, for a caller outside this class.</summary>
+    /// <remarks>
+    ///     The same path a double-click in the browser takes — see <see cref="Open(AssetId)" /> — and
+    ///     named so that a test can take it without pretending to be a pointer.
+    /// </remarks>
+    internal void OpenAsset(AssetId asset) => Open(asset);
+
     /// <summary>Opens an asset in whatever editor claims it, in a panel of its own.</summary>
     /// <param name="asset">Which asset.</param>
     /// <remarks>
@@ -1279,6 +1321,16 @@ sealed partial class EditorApplication : IDisposable {
             )
         );
 
+        // ⚠ And the second of the two A6 owes, now that B5 exists. Its shape is the Profiling
+        // preset's argument turned round: a cinematic is authored *against* the viewport, so the
+        // scene keeps the width and the tracks get a wide, short strip under it — a timeline in a
+        // right-hand slot is one where a two-second shot is forty pixels.
+        Shell.RegisterLayout(
+            "Sequencing",
+            new StringId("editor.layout.sequencing", "Sequencing"),
+            () => LayoutPresets.Standard(["hierarchy", "scenes"], ["scene"], ["inspector"], ["console"])
+        );
+
         Shell.Workspace.DefaultPreset = "Default";
     }
 
@@ -1382,6 +1434,10 @@ sealed partial class EditorApplication : IDisposable {
         // Keeping them together is what makes "which verbs does the diagnostics milestone own"
         // answerable by reading one method.
         DiagnosticsCommands();
+
+        // ⚠ And E5's, for the same reason and on the same terms: these are the ids that were
+        // declared-and-disabled until this milestone built the panels behind them.
+        WorldCommands();
 
         Shell.Keys.SetDefault("file.exit", new KeyChord(InputKey.Q, ModifierKeys.Control));
 
@@ -1691,6 +1747,16 @@ sealed partial class EditorApplication : IDisposable {
         menu.AddSubmenu(new StringId("editor.menu.speed", "Camera Speed")).Add(ViewportIds.SpeedIds);
 
         menu.AddSeparator().Add("scene.focus", "scene.frame-all");
+
+        // ⚠ Doc 20's B6, on the Scene menu rather than on a menu of its own. Every one of them is
+        // about *this level* — its sky, its lighting budget, its agent size, which scenes are open
+        // beside it — and a "World" menu would be a second place people have to learn to look for
+        // something the Scene menu is already named after.
+        menu.AddSeparator()
+            .Add("scene.world-settings", "scene.lighting", "scene.navigation", "scene.layers")
+            .AddSeparator()
+            .Add("scene.scenes", "scene.open-additive", "scene.save-all-scenes");
+
         menu.AddSeparator().Add("scene.maximise");
 
         // ⚠ Rebuilt here rather than left to the one a registration triggers, which is why this runs
