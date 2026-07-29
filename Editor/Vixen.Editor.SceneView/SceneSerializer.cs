@@ -156,7 +156,11 @@ public static class SceneSerializer {
             Name = document.NameOf(entity),
             Position = local.Position,
             Rotation = local.Rotation,
-            Scale = local.Scale
+            Scale = local.Scale,
+
+            Shape = MeshShapes.TryGet(document.World, entity, out var shape)
+                ? MeshShapes.NameOf(shape)
+                : string.Empty
         };
 
         foreach (var binder in Carried(document.World, entity)) {
@@ -213,6 +217,20 @@ public static class SceneSerializer {
 
         var entity = document.Add(data.Name, local, parent);
         document.Adopt(entity, data.Id);
+
+        // ⚠ Attached rather than skipped when the name is unknown, and `TryParse` is what decides
+        // which. A shape this editor has never heard of leaves the entity in place with no geometry;
+        // the next save then writes an empty shape, which does lose the field — the alternative is
+        // refusing to open the file at all, and doc 08's argument about unknown keys applies here too.
+        //
+        // ⚠ Its own field rather than one of the components below, and that is worth a second look
+        // now that a scene can carry arbitrary components. `MeshShape` is the editor's, not the
+        // runtime's — see its own remarks — so it has nothing to register with
+        // `SceneComponentRegistry`, and a scene naming a type no build declares is exactly what the
+        // loop below refuses. When the runtime grows a mesh component this field becomes one of them.
+        if (MeshShapes.TryParse(data.Shape, out var shape)) {
+            MeshShapes.Attach(document.World, entity, shape);
+        }
 
         foreach (var component in data.Components) {
             // ⚠ Refused rather than dropped. A component the binder bound and the registry does not

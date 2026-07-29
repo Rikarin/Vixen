@@ -882,6 +882,7 @@ Vixen.Ui.Controls.Advanced.TreeView.MoveNode(Vixen.Ui.Controls.Advanced.TreeNode
 Vixen.Ui.Controls.Advanced.TreeView.Moved -> System.Action<Vixen.Ui.Controls.Advanced.TreeView, Vixen.Ui.Controls.Advanced.TreeNode>?
 Vixen.Ui.Controls.Advanced.TreeView.MultiSelect.get -> bool
 Vixen.Ui.Controls.Advanced.TreeView.MultiSelect.set -> bool
+Vixen.Ui.Controls.Advanced.TreeView.NodeAt(float x, float y) -> Vixen.Ui.Controls.Advanced.TreeNode?
 Vixen.Ui.Controls.Advanced.TreeView.Panel.get -> Vixen.Ui.Controls.VirtualizingPanel
 Vixen.Ui.Controls.Advanced.TreeView.Refresh() -> void
 Vixen.Ui.Controls.Advanced.TreeView.Renamed -> System.Action<Vixen.Ui.Controls.Advanced.TreeView, Vixen.Ui.Controls.Advanced.TreeNode, string>?

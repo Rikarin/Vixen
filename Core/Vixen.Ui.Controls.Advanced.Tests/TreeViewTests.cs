@@ -308,6 +308,24 @@ public class TreeViewTests {
     }
 
     [Fact]
+    public void A_point_answers_with_the_node_showing_there() {
+        using var fixture = new AdvancedFixture();
+        var tree = Populated(fixture, roots: 3, children: 0);
+
+        var bounds = tree.Rows[1].Bounds;
+
+        Assert.Same(
+            tree.Root.Children[1],
+            tree.NodeAt(bounds.X + 20f, bounds.Y + (bounds.Height * 0.5f))
+        );
+
+        // Below the last row is not a row, which is what lets a context menu tell "on this entity"
+        // from "in the empty part of the panel" — two different things for a Create command.
+        Assert.Null(tree.NodeAt(bounds.X + 20f, bounds.Y + (bounds.Height * 40f)));
+        Assert.Null(tree.NodeAt(bounds.X - 500f, bounds.Y));
+    }
+
+    [Fact]
     public void Dragging_a_row_shows_an_indicator_and_moves_the_node() {
         using var fixture = new AdvancedFixture();
         var tree = Populated(fixture, roots: 3, children: 0);

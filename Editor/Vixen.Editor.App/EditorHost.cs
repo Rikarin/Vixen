@@ -380,6 +380,10 @@ sealed class EditorHost : IDisposable {
                 device.CreateShader(ShaderStage.Vertex, Module("line.vert.spv"), "line vertex"),
                 device.CreateShader(ShaderStage.Fragment, Module("line.frag.spv"), "line fragment")
             ),
+            new MeshShaders(
+                device.CreateShader(ShaderStage.Vertex, Module("mesh.vert.spv"), "mesh vertex"),
+                device.CreateShader(ShaderStage.Fragment, Module("mesh.frag.spv"), "mesh fragment")
+            ),
             PixelFormat.Rgba8UNorm
         );
 
