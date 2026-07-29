@@ -12,6 +12,9 @@ Vixen.Rendering.IrradianceFields.IrradianceBrick.Size.get -> int
 Vixen.Rendering.IrradianceFields.IrradianceBrick.Size.init -> int
 Vixen.Rendering.IrradianceFields.IrradianceBrick.Slot.get -> int
 Vixen.Rendering.IrradianceFields.IrradianceBrick.Slot.init -> int
+Vixen.Rendering.IrradianceFields.IrradianceBrickCursor -> struct
+Vixen.Rendering.IrradianceFields.IrradianceBrickCursor.IrradianceBrickCursor() -> void
+Vixen.Rendering.IrradianceFields.IrradianceBrickCursor.Take(Vixen.Rendering.IrradianceFields.IrradianceField field, System.Span<Vixen.Rendering.IrradianceFields.IrradianceBrick> bricks) -> int
 Vixen.Rendering.IrradianceFields.IrradianceBrickPool -> sealed class
 Vixen.Rendering.IrradianceFields.IrradianceBrickPool.Capacity.get -> int
 Vixen.Rendering.IrradianceFields.IrradianceBrickPool.Clear() -> void
@@ -120,6 +123,7 @@ const Vixen.Rendering.IrradianceFields.IrradianceBrickPool.BrickResolution = 4 -
 const Vixen.Rendering.IrradianceFields.IrradianceBrickPool.PaddedResolution = 5 -> int
 const Vixen.Rendering.IrradianceFields.IrradianceBrickPool.TexelsPerBrick = 125 -> int
 const Vixen.Rendering.IrradianceFields.IrradianceIndirection.Empty = -1 -> int
+readonly Vixen.Rendering.IrradianceFields.IrradianceBrickCursor.Position.get -> int
 static Vixen.Rendering.IrradianceFields.IrradianceBrickPool.OfCapacity(int capacity) -> Vixen.Rendering.IrradianceFields.IrradianceBrickPool
 static Vixen.Rendering.IrradianceFields.IrradianceCell.Empty.get -> Vixen.Rendering.IrradianceFields.IrradianceCell
 static Vixen.Rendering.IrradianceFields.IrradianceIndirection.Origin(Vixen.Core.Mathematics.Int3 cell, int size) -> Vixen.Core.Mathematics.Int3

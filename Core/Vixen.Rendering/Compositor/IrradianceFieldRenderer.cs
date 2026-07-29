@@ -34,6 +34,14 @@ namespace Vixen.Rendering.Compositor;
 ///         this type exists — they are cheap, they are easy to forget, and forgetting either produces
 ///         an artefact that looks like a lighting bug rather than a missing call.
 ///     </para>
+///     <para>
+///         <b>Two fillers, and at most one of them at a time.</b> <see cref="Filler" /> traces on the
+///         CPU and this copies the answer up; <see cref="DeviceFiller" /> dispatches and this copies
+///         nothing but the index volume. Both live would be an upload of the CPU pool over whatever
+///         the dispatch wrote, one frame after it wrote it — lighting that flickers between two
+///         answers rather than a mode somebody chose — so asking for both is refused rather than
+///         resolved.
+///     </para>
 /// </remarks>
 public sealed class IrradianceFieldRenderer : SceneRenderer, IDisposable {
     bool disposed;
@@ -41,8 +49,25 @@ public sealed class IrradianceFieldRenderer : SceneRenderer, IDisposable {
     /// <summary>The field to keep. Null does nothing at all.</summary>
     public IrradianceField? Field { get; set; }
 
-    /// <summary>What fills its probes, or null for a field somebody else fills.</summary>
+    /// <summary>What fills its probes on the CPU, or null for a field somebody else fills.</summary>
     public TracedIrradianceFiller? Filler { get; set; }
+
+    /// <summary>What fills its probes on the device — doc 19 § L2's filler A.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Settable rather than owned, and symmetrically with <see cref="Filler" />: what a probe
+    ///         sees is a question about the scene, so the sky colour, the sun and the shader behind
+    ///         the field slot belong to whoever knows about those. This knows about ordering.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Setting it changes what the mirror is. The pool becomes a storage image the dispatch
+    ///         owns and this stops copying it up, which means the CPU field's probes are no longer
+    ///         what anything reads — and <see cref="IrradianceField.Dilate" /> and
+    ///         <see cref="IrradianceField.SyncBorders" /> stop being run, because they repair an array
+    ///         nothing uploads. A device-filled field has seams until those exist as dispatches too.
+    ///     </para>
+    /// </remarks>
+    public IrradianceFieldFill? DeviceFiller { get; set; }
 
     /// <summary>Its mirror on the device, made on the first build.</summary>
     public IrradianceFieldTexture? Texture { get; private set; }
@@ -94,10 +119,20 @@ public sealed class IrradianceFieldRenderer : SceneRenderer, IDisposable {
             return;
         }
 
+        if (Filler is not null && DeviceFiller is not null) {
+            throw new InvalidOperationException(
+                $"'{this}' has both a CPU filler and a device filler. The pool can be authored by one "
+                + "or the other: with both, every upload copies the CPU's probes over the dispatch's, "
+                + "one frame after it wrote them. Clear whichever is not wanted."
+            );
+        }
+
         frame.Graph.AddPass(
             ToString(),
             pass => {
-                pass.Kind = PassKind.Transfer;
+                // A dispatch belongs on the compute queue and a copy on the transfer one, and this
+                // pass is whichever of the two it turns out to be doing.
+                pass.Kind = DeviceFiller is null ? PassKind.Transfer : PassKind.Compute;
                 pass.SideEffect();
 
                 pass.Execute(context => Refill(field, device, context.CommandList));
@@ -116,9 +151,14 @@ public sealed class IrradianceFieldRenderer : SceneRenderer, IDisposable {
         Texture = null;
     }
 
-    /// <summary>Fills what the budget allows, repairs it, and copies the whole field up.</summary>
+    /// <summary>Fills what the budget allows, repairs it, and copies up whatever the CPU still owns.</summary>
+    /// <remarks>
+    ///     The upload comes before the dispatch and after the CPU fill, which is not a preference
+    ///     either way: the mirror creates its textures on its first upload, so a dispatch before one
+    ///     has nothing to write into — and an upload after a CPU fill is what carries that fill.
+    /// </remarks>
     void Refill(IrradianceField field, IGraphicsDevice device, ICommandList commands) {
-        if (Filler is { } filler && Budget > 0) {
+        if (DeviceFiller is null && Filler is { } filler && Budget > 0) {
             var filled = filler.Fill(field, Budget);
 
             if (filled > 0) {
@@ -131,8 +171,12 @@ public sealed class IrradianceFieldRenderer : SceneRenderer, IDisposable {
             }
         }
 
-        Texture ??= new(field);
+        Texture ??= new(field) { PoolIsWritten = DeviceFiller is not null };
         Texture.Upload(device, commands);
+
+        if (DeviceFiller is { } dispatch && Budget > 0) {
+            Filled += dispatch.Record(commands, field, Texture, Budget);
+        }
 
         if (SceneConstants is { } scene) {
             Texture.Apply(scene.Parameters, ShaderName);

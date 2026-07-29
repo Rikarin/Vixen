@@ -433,6 +433,8 @@ Vixen.Rendering.Compositor.IrradianceFieldRenderer.Budget.get -> int
 Vixen.Rendering.Compositor.IrradianceFieldRenderer.Budget.set -> int
 Vixen.Rendering.Compositor.IrradianceFieldRenderer.Device.get -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.Compositor.IrradianceFieldRenderer.Device.set -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.DeviceFiller.get -> Vixen.Rendering.Lighting.IrradianceFieldFill?
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.DeviceFiller.set -> Vixen.Rendering.Lighting.IrradianceFieldFill?
 Vixen.Rendering.Compositor.IrradianceFieldRenderer.DilationPasses.get -> int
 Vixen.Rendering.Compositor.IrradianceFieldRenderer.DilationPasses.set -> int
 Vixen.Rendering.Compositor.IrradianceFieldRenderer.Dispose() -> void
@@ -1189,6 +1191,36 @@ Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.LevelView(int level) -> Vixe
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.Sampler.get -> Vixen.Graphics.SamplerHandle
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.Upload(Vixen.Graphics.IGraphicsDevice graphics, Vixen.Graphics.ICommandList commands) -> void
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.Uploads.get -> int
+Vixen.Rendering.Lighting.IrradianceFieldFill -> sealed class
+Vixen.Rendering.Lighting.IrradianceFieldFill : System.IDisposable
+Vixen.Rendering.Lighting.IrradianceFieldFill.Cursor.get -> int
+Vixen.Rendering.Lighting.IrradianceFieldFill.Descriptors.get -> Vixen.Graphics.DescriptorAllocator?
+Vixen.Rendering.Lighting.IrradianceFieldFill.Descriptors.set -> Vixen.Graphics.DescriptorAllocator?
+Vixen.Rendering.Lighting.IrradianceFieldFill.Dispatches.get -> int
+Vixen.Rendering.Lighting.IrradianceFieldFill.Dispose() -> void
+Vixen.Rendering.Lighting.IrradianceFieldFill.Effects.get -> Vixen.Shaders.EffectSystem?
+Vixen.Rendering.Lighting.IrradianceFieldFill.Effects.set -> Vixen.Shaders.EffectSystem?
+Vixen.Rendering.Lighting.IrradianceFieldFill.Filled.get -> int
+Vixen.Rendering.Lighting.IrradianceFieldFill.Hysteresis.get -> float
+Vixen.Rendering.Lighting.IrradianceFieldFill.Hysteresis.set -> float
+Vixen.Rendering.Lighting.IrradianceFieldFill.IrradianceFieldFill(Vixen.Graphics.IGraphicsDevice device) -> void
+Vixen.Rendering.Lighting.IrradianceFieldFill.MaxDistance.get -> float
+Vixen.Rendering.Lighting.IrradianceFieldFill.MaxDistance.set -> float
+Vixen.Rendering.Lighting.IrradianceFieldFill.Parameters.get -> Vixen.Shaders.ParameterCollection
+Vixen.Rendering.Lighting.IrradianceFieldFill.Pipelines.get -> Vixen.Rendering.ComputePipelineCache?
+Vixen.Rendering.Lighting.IrradianceFieldFill.Pipelines.set -> Vixen.Rendering.ComputePipelineCache?
+Vixen.Rendering.Lighting.IrradianceFieldFill.RayCount.get -> int
+Vixen.Rendering.Lighting.IrradianceFieldFill.RayCount.set -> int
+Vixen.Rendering.Lighting.IrradianceFieldFill.Record(Vixen.Graphics.ICommandList commands, Vixen.Rendering.IrradianceFields.IrradianceField field, Vixen.Rendering.Lighting.IrradianceFieldTexture texture, int budget) -> int
+Vixen.Rendering.Lighting.IrradianceFieldFill.Skipped.get -> string?
+Vixen.Rendering.Lighting.IrradianceFieldFill.SkyColour.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Lighting.IrradianceFieldFill.SkyColour.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Lighting.IrradianceFieldFill.Source.get -> string
+Vixen.Rendering.Lighting.IrradianceFieldFill.Source.set -> string
+Vixen.Rendering.Lighting.IrradianceFieldFill.SunDirection.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Lighting.IrradianceFieldFill.SunDirection.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Lighting.IrradianceFieldFill.SunSoftness.get -> float
+Vixen.Rendering.Lighting.IrradianceFieldFill.SunSoftness.set -> float
 Vixen.Rendering.Lighting.IrradianceFieldTexture -> sealed class
 Vixen.Rendering.Lighting.IrradianceFieldTexture : System.IDisposable
 Vixen.Rendering.Lighting.IrradianceFieldTexture.Apply(Vixen.Shaders.ParameterCollection parameters, string shaderName) -> void
@@ -1205,10 +1237,17 @@ Vixen.Rendering.Lighting.IrradianceFieldTexture.Pool(int channel) -> Vixen.Graph
 Vixen.Rendering.Lighting.IrradianceFieldTexture.PoolIsWritten.get -> bool
 Vixen.Rendering.Lighting.IrradianceFieldTexture.PoolIsWritten.init -> bool
 Vixen.Rendering.Lighting.IrradianceFieldTexture.PoolView(int channel) -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.Lighting.IrradianceFieldTexture.RecordReadback(Vixen.Graphics.ICommandList commands) -> bool
 Vixen.Rendering.Lighting.IrradianceFieldTexture.Sampler.get -> Vixen.Graphics.SamplerHandle
 Vixen.Rendering.Lighting.IrradianceFieldTexture.TransitionPool(Vixen.Graphics.ICommandList commands, Vixen.Graphics.ResourceState before, Vixen.Graphics.ResourceState after) -> void
+Vixen.Rendering.Lighting.IrradianceFieldTexture.TryRead(System.Span<Vixen.Rendering.IrradianceFields.IrradianceProbe> probes) -> bool
 Vixen.Rendering.Lighting.IrradianceFieldTexture.Upload(Vixen.Graphics.IGraphicsDevice graphics, Vixen.Graphics.ICommandList commands) -> void
 Vixen.Rendering.Lighting.IrradianceFieldTexture.Uploads.get -> int
+Vixen.Rendering.Lighting.IrradianceFillJob -> struct
+Vixen.Rendering.Lighting.IrradianceFillJob.IrradianceFillJob() -> void
+Vixen.Rendering.Lighting.IrradianceFillJob.Origin -> Vixen.Core.Mathematics.Int3
+Vixen.Rendering.Lighting.IrradianceFillJob.Position -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Lighting.IrradianceFillJob.Spacing -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Lighting.ReflectionProbe -> sealed class
 Vixen.Rendering.Lighting.ReflectionProbe.Apply(Vixen.Shaders.ParameterCollection parameters, int index, string shaderName = "ForwardPlus") -> void
 Vixen.Rendering.Lighting.ReflectionProbe.BlendDistance.get -> float
@@ -2083,6 +2122,27 @@ Vixen.Shaders.Generated.ForwardPlusProbeVolumesElement.ForwardPlusProbeVolumesEl
 Vixen.Shaders.Generated.ForwardPlusProbeVolumesElement.MipCount -> float
 Vixen.Shaders.Generated.ForwardPlusProbeVolumesElement.Radius -> float
 Vixen.Shaders.Generated.HiZReduceKeys -> static class
+Vixen.Shaders.Generated.IrradianceFillGlobalDistanceFieldDistanceFieldVolumesElement -> struct
+Vixen.Shaders.Generated.IrradianceFillGlobalDistanceFieldDistanceFieldVolumesElement.InverseCellSize -> float
+Vixen.Shaders.Generated.IrradianceFillGlobalDistanceFieldDistanceFieldVolumesElement.IrradianceFillGlobalDistanceFieldDistanceFieldVolumesElement() -> void
+Vixen.Shaders.Generated.IrradianceFillGlobalDistanceFieldDistanceFieldVolumesElement.MaxDistance -> float
+Vixen.Shaders.Generated.IrradianceFillGlobalDistanceFieldDistanceFieldVolumesElement.Maximum -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.IrradianceFillGlobalDistanceFieldDistanceFieldVolumesElement.Minimum -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.IrradianceFillKeys -> static class
+Vixen.Shaders.Generated.IrradianceFillPerFrameConstants -> struct
+Vixen.Shaders.Generated.IrradianceFillPerFrameConstants.IrradianceFillPerFrameConstants() -> void
+Vixen.Shaders.Generated.IrradianceFillPerMaterialConstants -> struct
+Vixen.Shaders.Generated.IrradianceFillPerMaterialConstants.Hysteresis -> float
+Vixen.Shaders.Generated.IrradianceFillPerMaterialConstants.IrradianceFillPerMaterialConstants() -> void
+Vixen.Shaders.Generated.IrradianceFillPerMaterialConstants.MaxDistance -> float
+Vixen.Shaders.Generated.IrradianceFillPerMaterialConstants.MaxSteps -> int
+Vixen.Shaders.Generated.IrradianceFillPerMaterialConstants.RayCount -> int
+Vixen.Shaders.Generated.IrradianceFillPerMaterialConstants.ShadowBias -> float
+Vixen.Shaders.Generated.IrradianceFillPerMaterialConstants.SkyColor -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.IrradianceFillPerMaterialConstants.StepScale -> float
+Vixen.Shaders.Generated.IrradianceFillPerMaterialConstants.SunDirection -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.IrradianceFillPerMaterialConstants.SunSoftness -> float
+Vixen.Shaders.Generated.IrradianceFillPerMaterialConstants.SurfaceThreshold -> float
 Vixen.Shaders.Generated.PlaceholderConstants -> struct
 Vixen.Shaders.Generated.PlaceholderConstants.PlaceholderConstants() -> void
 Vixen.Shaders.Generated.PlaceholderConstants.WorldViewProjection -> Vixen.Core.Mathematics.Matrix4x4
@@ -2120,6 +2180,8 @@ const Vixen.Rendering.GpuCulling.WordSize = 32 -> int
 const Vixen.Rendering.GpuCulling.WordsPerInvocation = 1 -> int
 const Vixen.Rendering.GpuCulling.WorkgroupSize = 64 -> int
 const Vixen.Rendering.GpuDrawArguments.Stride = 20 -> int
+const Vixen.Rendering.Lighting.IrradianceFieldFill.ShaderName = "IrradianceFill" -> string
+const Vixen.Rendering.Lighting.IrradianceFillJob.Stride = 48 -> int
 const Vixen.Rendering.Materials.MaterialCompiler.ChainShader = "CompositeSurface" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.EmptyFieldShader = "NoDistanceField" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.EmptyIrradianceShader = "NoIrradiance" -> string
@@ -2213,6 +2275,35 @@ const Vixen.Shaders.Generated.HiZReduceKeys.SourceBinding = 0 -> uint
 const Vixen.Shaders.Generated.HiZReduceKeys.SourceSet = 2 -> int
 const Vixen.Shaders.Generated.HiZReduceKeys.TargetBinding = 1 -> uint
 const Vixen.Shaders.Generated.HiZReduceKeys.TargetSet = 2 -> int
+const Vixen.Shaders.Generated.IrradianceFillGlobalDistanceFieldDistanceFieldVolumesElement.BaseOffset = 0 -> int
+const Vixen.Shaders.Generated.IrradianceFillGlobalDistanceFieldDistanceFieldVolumesElement.Count = 4 -> int
+const Vixen.Shaders.Generated.IrradianceFillGlobalDistanceFieldDistanceFieldVolumesElement.Stride = 48 -> int
+const Vixen.Shaders.Generated.IrradianceFillKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.IrradianceFillKeys.ConstantBufferSet = 0 -> int
+const Vixen.Shaders.Generated.IrradianceFillKeys.ConstantBufferSize = 192 -> int
+const Vixen.Shaders.Generated.IrradianceFillKeys.FillL0Binding = 2 -> uint
+const Vixen.Shaders.Generated.IrradianceFillKeys.FillL0Set = 2 -> int
+const Vixen.Shaders.Generated.IrradianceFillKeys.FillL1BBinding = 5 -> uint
+const Vixen.Shaders.Generated.IrradianceFillKeys.FillL1BSet = 2 -> int
+const Vixen.Shaders.Generated.IrradianceFillKeys.FillL1GBinding = 4 -> uint
+const Vixen.Shaders.Generated.IrradianceFillKeys.FillL1GSet = 2 -> int
+const Vixen.Shaders.Generated.IrradianceFillKeys.FillL1RBinding = 3 -> uint
+const Vixen.Shaders.Generated.IrradianceFillKeys.FillL1RSet = 2 -> int
+const Vixen.Shaders.Generated.IrradianceFillKeys.GlobalDistanceFieldDistanceFieldLevelsBinding = 1 -> uint
+const Vixen.Shaders.Generated.IrradianceFillKeys.GlobalDistanceFieldDistanceFieldLevelsSet = 0 -> int
+const Vixen.Shaders.Generated.IrradianceFillKeys.GlobalDistanceFieldDistanceFieldSamplerBinding = 2 -> uint
+const Vixen.Shaders.Generated.IrradianceFillKeys.GlobalDistanceFieldDistanceFieldSamplerSet = 0 -> int
+const Vixen.Shaders.Generated.IrradianceFillKeys.JobsBinding = 1 -> uint
+const Vixen.Shaders.Generated.IrradianceFillKeys.JobsSet = 2 -> int
+const Vixen.Shaders.Generated.IrradianceFillKeys.PerFrameBlockBinding = 0 -> uint
+const Vixen.Shaders.Generated.IrradianceFillKeys.PerFrameBlockSet = 0 -> int
+const Vixen.Shaders.Generated.IrradianceFillKeys.PerFrameBlockSize = 192 -> int
+const Vixen.Shaders.Generated.IrradianceFillKeys.PerMaterialBlockBinding = 0 -> uint
+const Vixen.Shaders.Generated.IrradianceFillKeys.PerMaterialBlockSet = 2 -> int
+const Vixen.Shaders.Generated.IrradianceFillKeys.PerMaterialBlockSize = 80 -> int
+const Vixen.Shaders.Generated.IrradianceFillKeys.ShaderName = "IrradianceFill" -> string
+const Vixen.Shaders.Generated.IrradianceFillPerFrameConstants.Size = 192 -> int
+const Vixen.Shaders.Generated.IrradianceFillPerMaterialConstants.Size = 80 -> int
 const Vixen.Shaders.Generated.PlaceholderConstants.Size = 64 -> int
 const Vixen.Shaders.Generated.PlaceholderKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.PlaceholderKeys.ConstantBufferSet = 2 -> int
@@ -2311,6 +2402,9 @@ readonly Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.Write(System.Span<
 readonly Vixen.Shaders.Generated.ForwardPlusPerMaterialConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.ForwardPlusPerViewConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.ForwardPlusProbeVolumesElement.Write(System.Span<byte> buffer, int index) -> void
+readonly Vixen.Shaders.Generated.IrradianceFillGlobalDistanceFieldDistanceFieldVolumesElement.Write(System.Span<byte> buffer, int index) -> void
+readonly Vixen.Shaders.Generated.IrradianceFillPerFrameConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.IrradianceFillPerMaterialConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.PlaceholderConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.TonemapConstants.Write(System.Span<byte> buffer) -> void
 required Vixen.Rendering.Compositor.BufferReadbackRenderer.Buffer.get -> string
@@ -2508,6 +2602,23 @@ static readonly Vixen.Shaders.Generated.ForwardPlusKeys.ViewPosition -> Vixen.Sh
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.ViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Shaders.Generated.HiZReduceKeys.Source -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.HiZReduceKeys.Target -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.IrradianceFillKeys.FillL0 -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.IrradianceFillKeys.FillL1B -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.IrradianceFillKeys.FillL1G -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.IrradianceFillKeys.FillL1R -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.IrradianceFillKeys.GlobalDistanceFieldDistanceFieldLevels -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.IrradianceFillKeys.GlobalDistanceFieldDistanceFieldSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.IrradianceFillKeys.Hysteresis -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.IrradianceFillKeys.Jobs -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.IrradianceFillKeys.MaxDistance -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.IrradianceFillKeys.MaxSteps -> Vixen.Shaders.ParameterKey<int>
+static readonly Vixen.Shaders.Generated.IrradianceFillKeys.RayCount -> Vixen.Shaders.ParameterKey<int>
+static readonly Vixen.Shaders.Generated.IrradianceFillKeys.ShadowBias -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.IrradianceFillKeys.SkyColor -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.IrradianceFillKeys.StepScale -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.IrradianceFillKeys.SunDirection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.IrradianceFillKeys.SunSoftness -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.IrradianceFillKeys.SurfaceThreshold -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.PlaceholderKeys.Cells -> Vixen.Shaders.PermutationKey<int>
 static readonly Vixen.Shaders.Generated.PlaceholderKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
 static readonly Vixen.Shaders.Generated.PlaceholderKeys.WorldViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>

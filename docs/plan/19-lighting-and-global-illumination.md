@@ -217,7 +217,7 @@ closes doc 06's withdrawn light-probe row, and the point at which Vixen has GI a
 within a bounded frame count; the same scene through filler A and filler B agree within a stated
 tolerance.
 
-**Status: the storage exists and nothing fills it.**
+**Status: both halves of filler A are in and agree with each other; filler B is not started.**
 [`Vixen.Rendering.IrradianceFields`](../../Core/Vixen.Rendering.IrradianceFields/README.md) holds the
 payload (`SphericalHarmonicsL1` plus validity and a sun-shadow scalar), the pool (4³ probes in a 5³
 footprint, fixed capacity, cleared on release), the indirection grid, and the border sync. The seam is
@@ -291,27 +291,44 @@ rather than the end state: a compose slot on `ForwardPlus` and `Deferred` would 
 every material in every project until each named a filler. What comes out is a buffer, which is what a
 payload stored over π is for.
 
-**Filler A's shader exists and nothing dispatches it.** `IrradianceFill` — one workgroup per brick,
-one invocation per probe, the bricks to do in a buffer indexed by the group — compiles, lowers and has
-its reflection checked in, with `TracedIrradianceFiller` as the reference it will be compared against.
-`IrradianceFieldTexture.PoolIsWritten` is the storage half: set, the pool is a storage image the
-dispatch owns and the mirror uploads only the index volume, because allocation and refinement stay a
-CPU decision and only the probes move.
+**Filler A dispatches, and agrees with the reference to a ten-thousandth.** `IrradianceFill` — one
+workgroup per brick, one invocation per probe, the bricks to do in a buffer indexed by the group — is
+driven by `IrradianceFieldFill`, and `IrradianceFillDeviceTests` runs it on a device and reads the pool
+back. Every one of the sixty-four probes of every brick is the probe `TracedIrradianceFiller` writes
+for the same position. `IrradianceFieldTexture.PoolIsWritten` is the storage half: set, the pool is a
+storage image the dispatch owns and the mirror uploads only the index volume, because allocation and
+refinement stay a CPU decision and only the probes move; `IrradianceFieldRenderer.DeviceFiller` is the
+one property that switches between the two, and asking for both fillers at once is refused rather than
+resolved.
 
-What is not there is the node that dispatches it. Three things are known about it, all of them found
-by trying:
+What the node turned out to need, all of it found by trying:
 
 - **It cannot be a `ComputeRenderer`.** That node binds resources by graph name, and the fill writes
   four storage images the graph does not own. `HiZPyramid` is the shape — a hand-rolled node writing
   its own descriptors and its own barriers.
-- **Its set and binding indices have to come from the compiled effect, not from the generated
-  constants.** Reflection describes *one* variant, and the fill compiles whichever the composition
-  asks for.
-- **A first attempt produced garbage**, including in the sun scalar, which is the discriminating
-  channel: it comes from a different part of the shader than the radiance and does not depend on the
-  uniform block, so garbage there means the dispatch's writes are not reaching the texels the sampler
-  reads rather than that the projection is wrong. The next step is a pool readback, which distinguishes
-  "wrote nothing" from "wrote elsewhere". Reverted rather than landed half-working.
+- **Its binding indices come from the compiled effect, not from the generated constants.** Reflection
+  describes *one* variant — the checked-in one was produced with `GlobalDistanceField` filling the slot
+  — and a different implementation behind `distanceField` may declare resources that renumber
+  everything after them. The names are safe; the numbers are the compilation's. Set 2 is filled by
+  hand from `Effect.BindingOf` rather than through `EffectSetWriter`, for one reason: the job buffer is
+  a ring, and what has to be bound is *this frame's region of it* — a name-driven write has nowhere to
+  put an offset.
+- **The composed source may declare no set 0 at all.** `NoDistanceField` does, which is why it is the
+  composition the test runs under: a node that assumed a set 0 would bind a set nothing filled.
+- **A struct that agrees with a comment agrees with nothing.** `IrradianceFillJob` is std430 — three
+  `float3`-shaped members at 0, 16 and 32, stride 48 — and sequential layout would make it 36, reading
+  every job after the first out of the middle of the one before it. `IrradianceFillJobTests` asserts
+  the offsets against `IrradianceFill.reflect.json` rather than against the number written here.
+- **A pool readback is what makes a device-authored field checkable at all.** With `PoolIsWritten` set,
+  the CPU field beside it is no longer what the shader reads, so every closed form L2 was built against
+  has nothing to test. `RecordReadback`/`TryRead` are the way back, and they are also what separates
+  "the dispatch wrote nothing" from "the dispatch wrote elsewhere" — two failures that draw the same
+  unlit frame. The earlier attempt that produced garbage was diagnosable only by guessing.
+
+The reference is the CPU filler rather than the closed form, and that is the stronger check: a uniform
+sky constrains only the constant coefficient, so a transposition or a sign error among the three linear
+ones is invisible to it. Sixty-four Fibonacci directions do not sum to exactly zero, so the reference's
+linear coefficients are small nonzero numbers a wrong shader has no way of reproducing.
 
 Adding the fill shader also found that **a slot has to be filled where it is *declared*, not where it
 is used**: `IrradianceFill` declares `distanceField`, so every material in every project needed a
@@ -319,9 +336,17 @@ filler for a slot no material can reach. `MaterialCompiler.PassSlots` and `PassC
 pass-side counterpart of `OptionalSlots`, because a full-screen pass composing one typed slot cannot
 compile beside a shader declaring another unless it names both.
 
-Owed, in the order they change the picture: the node that dispatches filler A, and filler B at all;
-the shading models reading the buffer; a policy that decides *where* to refine, which § 3 says is
-renderer bounds and the `VisibilityGroup` already has; and the view bias.
+**What a device-filled field does not have is borders or dilation.** The dispatch writes the sixty-four
+probes a brick owns — exactly what the reference filler writes, which is why the two can be compared to
+the last coefficient — and the fifth plane stays whatever the texture was created with.
+`SyncBorders` and `Dilate` repair an array nothing uploads once the GPU owns the pool, so they are
+skipped, and a field filled this way has seams. A test asserts the unwritten border rather than
+tolerating it, so it stops passing the moment one is written for the wrong reason. Both as dispatches
+is the next thing owed on this path, and it arrives *with* filler A rather than after it.
+
+Owed, in the order they change the picture: the border sync and the dilation as compute passes; the
+shading models reading the buffer; filler B at all; a policy that decides *where* to refine, which § 3
+says is renderer bounds and the `VisibilityGroup` already has; and the view bias.
 
 ### L3 — Screen probe gather *(3.0 EM)*
 

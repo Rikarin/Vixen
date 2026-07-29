@@ -165,13 +165,24 @@ It lives on the field rather than on a caller because it is a constant the shade
 does nothing for a wall thinner than a probe spacing: it moves along the *surface's* normal, and a
 floor's normal is not the direction a thin wall is thin in.
 
-## One filler exists, and it is the reference rather than the shipping one
+## The filler here is the reference, and the shipping one is checked against it
 
 `TracedIrradianceFiller` is doc 19 § L2's filler A written where it can be checked: sixty-four
 Fibonacci directions per probe, marched through an `IDistanceField`, cosine-projected into L1. The
 shipping version is a compute shader doing N bricks a frame. This is the same arithmetic with nothing
 between it and a closed form — the arrangement `DistanceFieldTracer` already has with its Raven port,
 and it exists for the same reason: a shader can only be compared against *something*.
+
+It is now compared. `IrradianceFillDeviceTests` dispatches the shader over a whole field, reads the
+pool back, and asserts that every probe of every brick is the probe this writes for the same position.
+The comparison is against this rather than against the closed form on purpose: a uniform sky pins down
+only the constant coefficient, so a transposition or a sign error among the three linear ones would
+slip past it. Sixty-four Fibonacci directions do not sum to exactly zero, so the linear coefficients
+here are small nonzero numbers a wrong shader has no way of reproducing.
+
+**Which bricks, and in what order, is `IrradianceBrickCursor`'s** — one walk shared by both, because
+comparing them means visiting the same bricks, and two implementations of one ordering is the pair that
+drifts.
 
 **A distance field says where geometry is and nothing about its colour**, so `IRadianceSource` is who
 the filler asks. Separating it out keeps the tracing honest — the filler owns which directions matter
@@ -230,6 +241,13 @@ the trilinear read, and the basis evaluation.
 the shader writes is a one — a radiance equal to either would pass for a picture that had merely
 copied something through, which is the shape of most of the ways a path like this goes wrong.
 
+**And a picture is not enough for the compute filler**, which is why `IrradianceFieldTexture` grew a
+readback. Once the pool is a storage image the dispatch owns, the field in *this* assembly is no longer
+what anything reads, so every closed form above has nothing left to test. Worse, the two ways a
+dispatch fails — writing nothing, and writing to the wrong texels — draw the same unlit frame.
+`RecordReadback` and `TryRead` copy the pool back and decode it, which is what tells those two apart
+and what lets the device filler be checked probe by probe rather than pixel by pixel.
+
 ## The pool has a fixed capacity, and that is a decision
 
 A pool that grows reallocates the texture it is a mirror of, mid-frame, at the exact moment a scene
@@ -245,9 +263,14 @@ gets blamed on the temporal filter.
 
 - **A refinement policy.** `Refine` exists; nothing decides *where* to call it. Doc 19 § 3 wants that
   driven by renderer bounds, which the `VisibilityGroup` already has.
-- **Filler A on a GPU**, and filler B at all. The CPU tracer above is filler A's reference; the
-  compute shader that does N bricks a frame, and the offline cube capture for targets without
-  compute, are both still owed.
+- **The border sync and the dilation as dispatches.** Filler A now runs on a device —
+  `Vixen.Rendering.Lighting.IrradianceFieldFill` drives `IrradianceFill.rvn`, and a device test reads
+  the pool back and finds the same probes the tracer above writes. What it writes is the sixty-four
+  probes a brick owns, which is exactly what this writes, which is why the two can be compared at all;
+  the fifth plane and the repair of invalid probes are still `SyncBorders` and `Dilate` on an array
+  that is no longer uploaded once the GPU owns the pool. A device-filled field has seams until these
+  exist too.
+- **Filler B at all.** The offline cube capture, for the targets without compute.
 - **View bias.** Dilation and the normal bias are here; the offset along the view ray, which is what
   helps at grazing angles, is not.
 - **Indirect light inside the shading models.** `IndirectDiffuse` is a screen-space pass producing a

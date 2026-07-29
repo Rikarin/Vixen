@@ -104,7 +104,8 @@ public sealed class TracedIrradianceFiller {
     readonly Vector3[] directions;
     readonly float solidAngle;
 
-    Int3 grid;
+    IrradianceBrickCursor cursor;
+    IrradianceBrick[] taken = [];
 
     /// <summary>Builds a filler over a scene's geometry and its lighting.</summary>
     /// <param name="geometry">What the rays march through.</param>
@@ -139,7 +140,7 @@ public sealed class TracedIrradianceFiller {
     ///     round-robin that silently stopped moving produces a field that is correct where it got to
     ///     and stale everywhere else — which looks like a lighting bug rather than a scheduling one.
     /// </remarks>
-    public int Cursor { get; private set; }
+    public int Cursor => cursor.Position;
 
     /// <summary>Fills every brick of a field.</summary>
     /// <param name="field">The field to fill.</param>
@@ -169,45 +170,23 @@ public sealed class TracedIrradianceFiller {
     ///         downstream has a use for.
     ///     </para>
     ///     <para>
-    ///         The walk itself is over indirection cells and is bounded by the grid, so a mostly-empty
-    ///         field cannot make one call scan forever looking for work. A coarse brick names itself in
-    ///         every cell it covers, so the walk only stops at the cell that <i>is</i> its origin —
-    ///         otherwise a brick of size eight would be filled five hundred and twelve times a lap.
-    ///     </para>
-    ///     <para>
-    ///         The cursor resets when the grid changes shape, because an index into a grid that no
-    ///         longer exists is not a position — it is a different cell every time the resolution
-    ///         changes, which is a round-robin that visits some bricks twice and others never.
+    ///         Which bricks, and in what order, is <see cref="IrradianceBrickCursor" />'s — because
+    ///         the compute filler walks the same order and comparing the two is how that one is
+    ///         checked at all.
     ///     </para>
     /// </remarks>
     public int Fill(IrradianceField field, int budget) {
         ArgumentNullException.ThrowIfNull(field);
         ArgumentOutOfRangeException.ThrowIfNegative(budget);
 
-        var resolution = field.Indirection.Resolution;
-        var total = (int)resolution.Volume;
-
-        if (resolution != grid) {
-            grid = resolution;
-            Cursor = 0;
+        if (taken.Length < budget) {
+            taken = new IrradianceBrick[budget];
         }
 
-        var filled = 0;
+        var count = cursor.Take(field, taken.AsSpan(0, budget));
 
-        for (var walked = 0; walked < total && filled < budget; walked++) {
-            var index = Cursor;
-
-            Cursor = (Cursor + 1) % total;
-
-            var cell = new Int3(
-                index % resolution.X,
-                index / resolution.X % resolution.Y,
-                index / (resolution.X * resolution.Y)
-            );
-
-            if (!field.Indirection.IsOrigin(cell) || !field.Indirection.TryBrick(cell, out var brick)) {
-                continue;
-            }
+        for (var index = 0; index < count; index++) {
+            var brick = taken[index];
 
             for (var z = 0; z < IrradianceBrickPool.BrickResolution; z++) {
                 for (var y = 0; y < IrradianceBrickPool.BrickResolution; y++) {
@@ -222,11 +201,9 @@ public sealed class TracedIrradianceFiller {
                     }
                 }
             }
-
-            filled++;
         }
 
-        return filled;
+        return count;
     }
 
     /// <summary>What one probe sees from where it stands.</summary>

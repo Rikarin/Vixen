@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Runtime.InteropServices;
+using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Rendering.IrradianceFields;
@@ -70,6 +71,7 @@ public sealed class IrradianceFieldTexture : IDisposable {
     TextureHandle indirection;
     TextureViewHandle indirectionView;
     BufferHandle staging;
+    BufferHandle download;
     SamplerHandle sampler;
     SamplerHandle pointSampler;
     IGraphicsDevice? device;
@@ -207,7 +209,7 @@ public sealed class IrradianceFieldTexture : IDisposable {
 
         TransitionIndirection(commands, settled, ResourceState.CopyDestination);
 
-        var poolBytes = (long)Field.Pool.Texels.Length * Channels * BytesPerChannel;
+        var poolBytes = PoolBytes;
 
         if (!PoolIsWritten) {
             for (var channel = 0; channel < Channels; channel++) {
@@ -272,6 +274,129 @@ public sealed class IrradianceFieldTexture : IDisposable {
         }
 
         commands.Barrier(new([], barriers));
+    }
+
+    /// <summary>Records a copy of the whole pool back into host memory.</summary>
+    /// <param name="commands">Where to record it.</param>
+    /// <returns>False before the textures exist, in which case nothing was recorded.</returns>
+    /// <exception cref="ArgumentNullException">There is no command list.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What makes a device-authored pool checkable.</b> With <see cref="PoolIsWritten" />
+    ///         set, the CPU field beside this is no longer what the shader reads — the probes are the
+    ///         dispatch's — so every closed form L2 was built against has nothing to test. This is the
+    ///         way back: read the texels the sampler would read, and hold them against the reference
+    ///         filler's answer for the same bricks.
+    ///     </para>
+    ///     <para>
+    ///         It also distinguishes the two failures that look identical from a picture. A pool of
+    ///         zeroes is a dispatch that wrote nothing; plausible numbers in the wrong texels are a
+    ///         dispatch that wrote somewhere else. Both draw an unlit frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The result is only readable once the queue has finished with it —
+    ///         <see cref="TryRead" /> reads host memory and cannot wait for anything. The pool is left
+    ///         in <see cref="ResourceState.ShaderRead" />, which is where both fillers expect it.
+    ///     </para>
+    /// </remarks>
+    public bool RecordReadback(ICommandList commands) {
+        ArgumentNullException.ThrowIfNull(commands);
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (!IsCreated || device is null) {
+            return false;
+        }
+
+        if (!download.IsValid) {
+            download = device.CreateBuffer(
+                new BufferDescription(
+                    PoolBytes * Channels,
+                    BufferUsage.CopyDestination,
+                    MemoryAccess.HostReadback,
+                    "IrradianceField.Readback"
+                )
+            );
+        }
+
+        TransitionPool(commands, ResourceState.ShaderRead, ResourceState.CopySource);
+
+        var texels = Field.Pool.TexelResolution;
+
+        for (var channel = 0; channel < Channels; channel++) {
+            commands.CopyTextureToBuffer(new TextureRegion(pool[channel]), texels, download, channel * PoolBytes);
+        }
+
+        TransitionPool(commands, ResourceState.CopySource, ResourceState.ShaderRead);
+
+        return true;
+    }
+
+    /// <summary>Decodes what the last <see cref="RecordReadback" /> copied.</summary>
+    /// <param name="probes">Where they go — one per texel of the pool, in the pool's own order.</param>
+    /// <returns>False when nothing has been read back, or the span is too short.</returns>
+    /// <remarks>
+    ///     The inverse of <see cref="PackPool" />, and deliberately written as one: a decode that
+    ///     agreed with the encode by construction would test nothing, so this reads the four volumes
+    ///     back in the colour-major arrangement the shader reads them in and reassembles a probe from
+    ///     the four fetches the shader makes.
+    /// </remarks>
+    public bool TryRead(Span<IrradianceProbe> probes) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        var texels = Field.Pool.Texels.Length;
+
+        if (!download.IsValid || device is null || probes.Length < texels) {
+            return false;
+        }
+
+        var bytes = new byte[PoolBytes * Channels];
+
+        device.Read(download, 0, bytes);
+
+        var samples = new float[texels * Channels * Channels];
+
+        for (var channel = 0; channel < Channels; channel++) {
+            Widen(bytes.AsSpan((int)(channel * PoolBytes), (int)PoolBytes), samples.AsSpan(channel * texels * Channels));
+        }
+
+        for (var index = 0; index < texels; index++) {
+            var at = index * Channels;
+            var l0 = samples.AsSpan(at);
+            var red = samples.AsSpan((texels * Channels) + at);
+            var green = samples.AsSpan((2 * texels * Channels) + at);
+            var blue = samples.AsSpan((3 * texels * Channels) + at);
+
+            probes[index] = new IrradianceProbe(
+                new SphericalHarmonicsL1(
+                    new Vector3(l0[0], l0[1], l0[2]),
+                    new Vector3(red[0], green[0], blue[0]),
+                    new Vector3(red[1], green[1], blue[1]),
+                    new Vector3(red[2], green[2], blue[2])
+                ),
+                l0[3],
+                red[3]
+            );
+        }
+
+        return true;
+    }
+
+    /// <summary>How many bytes one pool volume is.</summary>
+    long PoolBytes => (long)Field.Pool.Texels.Length * Channels * BytesPerChannel;
+
+    /// <summary>One volume's bytes as floats, whichever width they were stored at.</summary>
+    void Widen(ReadOnlySpan<byte> source, Span<float> destination) {
+        if (Format != PixelFormat.Rgba16Float) {
+            MemoryMarshal.Cast<byte, float>(source).CopyTo(destination);
+
+            return;
+        }
+
+        var stored = MemoryMarshal.Cast<byte, Half>(source);
+
+        for (var index = 0; index < destination.Length; index++) {
+            destination[index] = (float)stored[index];
+        }
     }
 
     /// <summary>Moves the index volume from one state to another.</summary>
@@ -390,6 +515,10 @@ public sealed class IrradianceFieldTexture : IDisposable {
 
         if (staging.IsValid) {
             device.Destroy(staging);
+        }
+
+        if (download.IsValid) {
+            device.Destroy(download);
         }
 
         if (sampler.IsValid) {
@@ -552,12 +681,17 @@ public sealed class IrradianceFieldTexture : IDisposable {
         var cells = Field.Indirection.Resolution;
 
         for (var channel = 0; channel < Channels; channel++) {
+            // CopySource unconditionally, and it is not free-because-unused: it is what
+            // RecordReadback needs, and a pool a compute shader authored has no other way of being
+            // checked at all — the CPU field beside it is no longer what the GPU is reading. A
+            // usage flag on a texture nothing copies from costs nothing on any target.
             pool[channel] = graphics.CreateTexture(
                 new TextureDescription(
                     Format,
                     texels.X,
                     texels.Y,
                     TextureUsage.Sampled
+                    | TextureUsage.CopySource
                     | (PoolIsWritten ? TextureUsage.Storage : TextureUsage.CopyDestination),
                     Depth: texels.Z,
                     Dimension: TextureDimension.Texture3D,
@@ -582,7 +716,7 @@ public sealed class IrradianceFieldTexture : IDisposable {
 
         indirectionView = graphics.CreateTextureView(indirection);
 
-        var poolBytes = (long)Field.Pool.Texels.Length * Channels * BytesPerChannel;
+        var poolBytes = PoolBytes;
         var indirectionBytes = (long)Field.Indirection.Cells.Length * Channels * sizeof(ushort);
 
         staging = graphics.CreateBuffer(

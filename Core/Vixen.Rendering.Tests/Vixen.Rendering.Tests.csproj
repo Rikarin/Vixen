@@ -49,6 +49,13 @@
     -->
     <ItemGroup>
         <None Include="..\..\Raven\Library\**\*.rvn" LinkBase="Shaders" CopyToOutputDirectory="PreserveNewest" />
+
+        <!--
+          And the reflection beside the sources, so a test can hold a C# mirror of a shader struct
+          against the offsets Raven actually assigned rather than against the ones somebody wrote in
+          a comment while looking at them.
+        -->
+        <None Include="..\..\Raven\Library\**\*.reflect.json" LinkBase="Shaders" CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 
 </Project>
