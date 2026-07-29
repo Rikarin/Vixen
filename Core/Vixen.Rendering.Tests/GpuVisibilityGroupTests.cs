@@ -1587,10 +1587,17 @@ public class GpuVisibilityGroupTests : IDisposable {
             new("visibility", DescriptorSetSlot.PerMaterial, 3, DescriptorKind.StorageBuffer)
         ];
 
+        // Six, and the last three in both variants. A binding is a declared field, so it survives
+        // its last reader folding away — the padded variant declares the batch layout it never reads
+        // exactly as the compacted one does, and a set short of it is a validation error rather than
+        // an unused slot.
         static readonly ImmutableArray<EffectBinding> ArgumentBindings = [
             new("templates", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.StorageBuffer),
             new("visibility", DescriptorSetSlot.PerMaterial, 1, DescriptorKind.StorageBuffer),
-            new("commands", DescriptorSetSlot.PerMaterial, 2, DescriptorKind.StorageBuffer)
+            new("commands", DescriptorSetSlot.PerMaterial, 2, DescriptorKind.StorageBuffer),
+            new("batches", DescriptorSetSlot.PerMaterial, 3, DescriptorKind.StorageBuffer),
+            new("bases", DescriptorSetSlot.PerMaterial, 4, DescriptorKind.StorageBuffer),
+            new("counts", DescriptorSetSlot.PerMaterial, 5, DescriptorKind.StorageBuffer)
         ];
 
         static readonly ImmutableArray<EffectBinding> ReduceBindings = [

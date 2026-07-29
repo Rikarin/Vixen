@@ -245,6 +245,87 @@
           ],
           "Size": 20,
           "IsWritable": true
+        },
+        {
+          "Binding": 3,
+          "Name": "batches",
+          "Type": "StorageBuffer",
+          "Count": 0,
+          "Stages": "Compute",
+          "Members": [
+            {
+              "Name": "batches",
+              "Type": {
+                "Scalar": "UInt",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            }
+          ],
+          "Size": 4,
+          "IsWritable": false
+        },
+        {
+          "Binding": 4,
+          "Name": "bases",
+          "Type": "StorageBuffer",
+          "Count": 0,
+          "Stages": "Compute",
+          "Members": [
+            {
+              "Name": "bases",
+              "Type": {
+                "Scalar": "UInt",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            }
+          ],
+          "Size": 4,
+          "IsWritable": false
+        },
+        {
+          "Binding": 5,
+          "Name": "counts",
+          "Type": "StorageBuffer",
+          "Count": 0,
+          "Stages": "Compute",
+          "Members": [
+            {
+              "Name": "counts",
+              "Type": {
+                "Scalar": "UInt",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            }
+          ],
+          "Size": 4,
+          "IsWritable": true
         }
       ]
     }
@@ -253,7 +334,20 @@
   "Outputs": [],
   "PushConstants": [],
   "SpecConstants": [],
-  "Permutations": [],
+  "Permutations": [
+    {
+      "Name": "Compact",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "false"
+    }
+  ],
   "ValueParameters": [],
   "Parameters": [
     {
@@ -453,12 +547,68 @@
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": ""
+    },
+    {
+      "Name": "batches",
+      "Type": {
+        "Scalar": "UInt",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 3,
+      "Offset": 0,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "bases",
+      "Type": {
+        "Scalar": "UInt",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 4,
+      "Offset": 0,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "counts",
+      "Type": {
+        "Scalar": "UInt",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 5,
+      "Offset": 0,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
     }
   ],
   "RequiredCapabilities": [
     "Compute"
   ],
-  "UsedPermutationKeys": [],
+  "UsedPermutationKeys": [
+    "Compact"
+  ],
   "Stages": [
     "Compute"
   ]
