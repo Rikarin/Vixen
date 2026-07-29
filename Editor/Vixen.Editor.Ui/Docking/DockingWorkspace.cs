@@ -405,7 +405,7 @@ public sealed class DockingWorkspace {
             return false;
         }
 
-        Show(build());
+        Install(build());
         return true;
     }
 
@@ -435,11 +435,25 @@ public sealed class DockingWorkspace {
             return;
         }
 
-        Show(layout);
+        Install(layout);
     }
 
     /// <summary>Applies an arrangement and opens what it names.</summary>
-    void Show(DockLayout layout) {
+    /// <param name="layout">The arrangement.</param>
+    /// <remarks>
+    ///     ⚠ <b>Public because an arrangement is not always a preset or a file.</b>
+    ///     <see cref="Apply" /> takes a registered name and <see cref="Load" /> takes what
+    ///     <see cref="Save" /> wrote; maximising a panel is neither — it is one panel filling the
+    ///     window and the previous arrangement kept in a string until it is put back. Registering a
+    ///     preset for it would put "Maximised" in the layout palette, which is not a layout anybody
+    ///     chooses from a list.
+    /// </remarks>
+    public void Show(DockLayout layout) {
+        ArgumentNullException.ThrowIfNull(layout);
+        Install(layout);
+    }
+
+    void Install(DockLayout layout) {
         Host.SetLayout(layout);
 
         // ⚠ Which tab was in front is read *before* anything is opened and written back afterwards.

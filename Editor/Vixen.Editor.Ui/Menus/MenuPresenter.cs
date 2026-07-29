@@ -373,7 +373,7 @@ public sealed class MenuPresenter : IDisposable {
     ///     <see cref="EditorCommand.RadioGroup" />, because three ticks is not how a choice reads.
     /// </remarks>
     static MenuItem Line(Menu menu, EditorCommand command, KeyMap keys) {
-        var item = menu.AddItem(command.Title.Text);
+        var item = menu.AddItem(command.CurrentTitle.Text);
 
         if (command.Checked is not null) {
             item.Mark.Geometry = command.RadioGroup is null ? ControlIcons.Check : EditorIcons.RadioMark;

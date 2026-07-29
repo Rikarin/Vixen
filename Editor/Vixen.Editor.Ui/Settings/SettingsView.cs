@@ -101,6 +101,9 @@ public sealed partial class SettingsView : Control {
     /// <summary>Which page is showing, or <see langword="null" /> before one has been chosen.</summary>
     public string? Current => current;
 
+    /// <summary>What the search box says, or <see langword="null" /> when it is empty.</summary>
+    public string? Query => filter;
+
     /// <summary>Whether something has been edited and not yet written.</summary>
     /// <remarks>
     ///     ⚠ <b>Set by whoever built the page, because only it knows what an edit is.</b> A settings
@@ -128,6 +131,25 @@ public sealed partial class SettingsView : Control {
     /// <remarks>The page is rebuilt afterwards, so a handler only has to reload the model.</remarks>
     public event Action<SettingsView>? Reverted;
 
+    /// <summary>Raised with the pane whenever the page or the search text changes.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What makes the search a search over settings rather than over headings.</b> The
+    ///         rail already narrows to the pages whose <see cref="SettingsCategory.Keywords" />
+    ///         match and selects the first of them — which for somebody typing a member name that is
+    ///         on the page they are already looking at changes nothing visible at all, and reads as
+    ///         a search box that does nothing. Narrowing the page itself is the other half, and it
+    ///         cannot be done here: what a page is <i>made of</i> is the caller's — this assembly
+    ///         does not know what an inspector row is, and deliberately does not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Raised on every change to the box, not only when the page is rebuilt.</b> A page
+    ///         that survives the filter is not rebuilt, so a handler hung on <see cref="Reload" />
+    ///         alone would narrow only when the search happened to move the selection.
+    ///     </para>
+    /// </remarks>
+    public event Action<SettingsView, UiElement>? PageShown;
+
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
@@ -139,7 +161,13 @@ public sealed partial class SettingsView : Control {
 
         Search.ValueChanged += (_, value) => {
             filter = string.IsNullOrWhiteSpace(value) ? null : value;
+
             Rebuild();
+
+            // ⚠ After the rebuild, and unconditionally. `Rebuild` only reloads the pane when the
+            // filter moved the selection off the page that was showing — so typing a member name
+            // that is on the page you are already on would otherwise narrow nothing.
+            PageShown?.Invoke(this, Pane);
         };
 
         var body = Part("settings-body");
@@ -211,6 +239,7 @@ public sealed partial class SettingsView : Control {
 
         if (current is not null && Find(current) is { } page) {
             page.Build(Pane);
+            PageShown?.Invoke(this, Pane);
         } else {
             Pane.Add<EmptyState>().Title = EditorStrings.SettingsNoPage.Text;
         }

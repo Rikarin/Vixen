@@ -235,6 +235,14 @@ public sealed class ViewportLayout : IDisposable {
         panes.Clear();
         Focused = null;
 
+        // ⚠ Nothing to take out if the host has already gone, and asking anyway throws. This runs
+        // from `Dispose`, which the panel's `Closed` hook calls — and closing a panel removes its
+        // whole subtree, this layout's root included. `UiElement.Remove` is documented as throwing
+        // on a second removal, so tearing down a *closed* Scene panel took the editor with it.
+        if (root.IsRemoved) {
+            return;
+        }
+
         while (root.Children.Count > 0) {
             root.Children[^1].Remove();
         }

@@ -157,6 +157,68 @@ public static class EditorIcons {
     ).Then(path => Line(path, new Vector2(7f, 10f), new Vector2(10.5f, 13f), new Vector2(7f, 16f)))
         .Then(path => Line(path, new Vector2(13f, 16f), new Vector2(18f, 16f)));
 
+    /// <summary>A folder, closed. What a directory row and a directory tile draw.</summary>
+    public static PathBuilder Folder { get; } = Outline(
+        [
+            new Vector2(3f, 19.5f), new Vector2(3f, 5f), new Vector2(9.5f, 5f), new Vector2(11.5f, 7.5f),
+            new Vector2(21f, 7.5f), new Vector2(21f, 19.5f)
+        ],
+        closed: true
+    );
+
+    /// <summary>A page with a corner turned. A file nothing more specific claims.</summary>
+    public static PathBuilder File { get; } = Outline(
+        [
+            new Vector2(6f, 3f), new Vector2(14f, 3f), new Vector2(19f, 8f), new Vector2(19f, 21f),
+            new Vector2(6f, 21f)
+        ],
+        closed: true
+    ).Then(path => Line(path, new Vector2(14f, 3f), new Vector2(14f, 8f), new Vector2(19f, 8f)));
+
+    /// <summary>A wireframe box. An entity carrying a mesh.</summary>
+    /// <remarks>
+    ///     An isometric cube rather than a square: a square is what a hundred other glyphs are, and
+    ///     the whole job of a row's icon is to be recognised without being read.
+    /// </remarks>
+    public static PathBuilder Cube { get; } = Outline(
+        [
+            new Vector2(12f, 2.5f), new Vector2(20.5f, 7f), new Vector2(20.5f, 17f), new Vector2(12f, 21.5f),
+            new Vector2(3.5f, 17f), new Vector2(3.5f, 7f)
+        ],
+        closed: true,
+        width: 1.6f
+    ).Then(path => Line(path, new Vector2(3.5f, 7f), new Vector2(12f, 11.5f), new Vector2(20.5f, 7f)))
+        .Then(path => Line(path, new Vector2(12f, 11.5f), new Vector2(12f, 21.5f)));
+
+    /// <summary>A disc with rays. An entity carrying a light.</summary>
+    public static PathBuilder Light { get; } = Ring(12f, 12f, 4.2f, 1.6f)
+        .Then(path => Line(path, new Vector2(12f, 2f), new Vector2(12f, 5f)))
+        .Then(path => Line(path, new Vector2(12f, 19f), new Vector2(12f, 22f)))
+        .Then(path => Line(path, new Vector2(2f, 12f), new Vector2(5f, 12f)))
+        .Then(path => Line(path, new Vector2(19f, 12f), new Vector2(22f, 12f)))
+        .Then(path => Line(path, new Vector2(5f, 5f), new Vector2(7.2f, 7.2f)))
+        .Then(path => Line(path, new Vector2(16.8f, 16.8f), new Vector2(19f, 19f)))
+        .Then(path => Line(path, new Vector2(19f, 5f), new Vector2(16.8f, 7.2f)))
+        .Then(path => Line(path, new Vector2(7.2f, 16.8f), new Vector2(5f, 19f)));
+
+    /// <summary>A body and a lens hood. An entity carrying a camera.</summary>
+    public static PathBuilder Camera { get; } = Outline(
+        [new Vector2(3f, 7f), new Vector2(14f, 7f), new Vector2(14f, 17f), new Vector2(3f, 17f)],
+        closed: true,
+        width: 1.6f
+    ).Then(path => Filled([
+        new Vector2(16f, 9.5f), new Vector2(21f, 6.5f), new Vector2(21f, 17.5f), new Vector2(16f, 14.5f)
+    ], path));
+
+    /// <summary>Three axes from a point. An entity carrying nothing but a transform.</summary>
+    public static PathBuilder Entity { get; } = Line(
+        new PathBuilder(),
+        new Vector2(12f, 12f),
+        new Vector2(12f, 4f)
+    ).Then(path => Line(path, new Vector2(12f, 12f), new Vector2(20f, 16f)))
+        .Then(path => Line(path, new Vector2(12f, 12f), new Vector2(4f, 16f)))
+        .Then(path => Disc(12f, 12f, 2f, path));
+
     /// <summary>A question mark's dot and hook. Help.</summary>
     public static PathBuilder Help { get; } = Ring(12f, 12f, 9f, 1.8f)
         .Then(path => Line(path, new Vector2(9f, 9.5f), new Vector2(12f, 7.5f), new Vector2(14.5f, 10f), new Vector2(12f, 13f)))
@@ -195,7 +257,13 @@ public static class EditorIcons {
         ["build"] = Build,
         ["profiler"] = Profiler,
         ["console"] = Console,
-        ["help"] = Help
+        ["help"] = Help,
+        ["folder"] = Folder,
+        ["file"] = File,
+        ["cube"] = Cube,
+        ["light"] = Light,
+        ["camera"] = Camera,
+        ["entity"] = Entity
     };
 
     /// <summary>The glyph with an id, or <see langword="null" />.</summary>

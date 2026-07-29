@@ -161,6 +161,44 @@ public sealed partial class Viewport : Control {
     /// </remarks>
     public UiElement Overlay { get; private set; } = null!;
 
+    /// <summary>Whether an event came from the chrome over the pane rather than from the pane.</summary>
+    /// <param name="source">What the event says it is about — <c>UiEvent.Source</c>.</param>
+    /// <returns>Whether it started inside <see cref="Overlay" />.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Without this, every button drawn over a viewport also presses the viewport.</b>
+    ///         The overlay's controls are descendants of this element, so their pointer events bubble
+    ///         through it — and a host listening with <c>handledEventsToo</c>, which a scene view has
+    ///         to be because this control marks every pointer event handled, hears the press as
+    ///         though it had landed on the scene. In the editor that meant clicking the gizmo-mode
+    ///         button started a rubber-band selection over the toolbar and the release cleared the
+    ///         selection: the button worked and deselected the object it was about to act on.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The walk stops at this element rather than at the root.</b> A viewport inside a
+    ///         viewport is not a thing, but a chain that ran past this one would answer about an
+    ///         ancestor's overlay for an event that has nothing to do with it.
+    ///     </para>
+    ///     <para>
+    ///         A drag that <i>did</i> start on the pane keeps answering false for its whole life,
+    ///         because the pointer is captured by then and a captured pointer's events are addressed
+    ///         to the capturing element wherever it has moved to.
+    ///     </para>
+    /// </remarks>
+    public bool IsOverlayEvent(UiElement? source) {
+        for (var walk = source; walk is not null; walk = walk.Parent) {
+            if (ReferenceEquals(walk, Overlay)) {
+                return true;
+            }
+
+            if (ReferenceEquals(walk, this)) {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>The axis cross in the corner.</summary>
     public ViewportGizmo Gizmo { get; private set; } = null!;
 
@@ -406,6 +444,13 @@ public sealed partial class Viewport : Control {
         var point = ToRender(args.X, args.Y);
 
         switch (args.Action) {
+            // ⚠ A press on the chrome is not a press on the pane. Without the guard this takes the
+            // focus, captures the pointer and starts a drag for every click on a toolbar button
+            // floating over the viewport — see `IsOverlayEvent`. It falls through to the default arm,
+            // so the event is left unhandled and the button that was actually clicked keeps it.
+            case PointerAction.Pressed when IsOverlayEvent(args.Source):
+                return;
+
             case PointerAction.Pressed:
                 dragging = true;
                 held = args.Button;

@@ -69,7 +69,7 @@ public sealed class SceneLines {
     ///     saying they are going to move — which is the state in which somebody drags and is
     ///     surprised.
     /// </remarks>
-    public Color4 SelectedColour { get; set; } = new(1f, 0.62f, 0.15f, 1f);
+    public Color4 SelectedColour { get; set; } = SceneMeshes.SelectionBlue;
 
     /// <summary>Collects a frame's lines.</summary>
     /// <param name="document">The scene being drawn.</param>

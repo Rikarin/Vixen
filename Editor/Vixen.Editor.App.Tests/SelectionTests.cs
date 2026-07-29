@@ -131,7 +131,13 @@ public class SelectionTests {
 
         fixture.Open("project");
         fixture.ExpandAll(fixture.Assets);
-        fixture.DoubleClickRow(fixture.Assets, "Main.vxscene");
+
+        // ⚠ Selected and then opened through the command, because a double-click in the browser
+        // begins a rename now rather than opening — see `TreeView.RenameOnActivate`, which is the
+        // gesture the outliner already had. Opening is Enter, the context menu's Open, and a
+        // double-click in the *grid*, where a tile is a document rather than a name edited in place.
+        fixture.ClickRow(fixture.Assets, "Main.vxscene");
+        fixture.Run("assets.open");
 
         var opened = OpenedAssetTree(fixture);
 

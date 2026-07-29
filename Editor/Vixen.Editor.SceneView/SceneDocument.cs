@@ -267,6 +267,41 @@ public sealed class SceneDocument : EditorDocument {
     /// </remarks>
     public bool TryGetId(Entity entity, out EntityId id) => ids.TryGetValue(entity, out id);
 
+    /// <summary>Renames an entity without recording anything.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <param name="name">What it should be called.</param>
+    /// <returns>Whether anything changed.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>For a caller that is <i>already</i> being recorded, and there is exactly one:
+    ///         a property setter the inspector is writing through.</b> The inspector wraps every
+    ///         write in a <c>SetMembersCommand</c>, so a setter that also called
+    ///         <see cref="Rename" /> put two entries on the stack for one edit — and the second was
+    ///         pushed from inside the first, which is where it stopped being merely untidy. Undoing
+    ///         the outer one runs the setter again, the setter asks the stack to execute during an
+    ///         undo, and the stack refuses: the entry comes off the history and the name does not
+    ///         change. That is precisely the shape of "Ctrl+Z removes the entry and the value stays".
+    ///     </para>
+    ///     <para>
+    ///         Everything a <i>person</i> reaches — the outliner's inline editor, F2, the context
+    ///         menu — goes through <see cref="Rename" /> and is one undo step, as it was.
+    ///     </para>
+    /// </remarks>
+    public bool SetName(Entity entity, string name) {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+
+        var current = NameOf(entity);
+
+        if (string.Equals(current, name, StringComparison.Ordinal)) {
+            return false;
+        }
+
+        Assign(entity, name);
+        Context.Touch(this);
+
+        return true;
+    }
+
     /// <summary>Renames an entity, undoably.</summary>
     /// <param name="entity">The entity.</param>
     /// <param name="name">What it should be called.</param>

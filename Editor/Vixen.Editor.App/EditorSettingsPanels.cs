@@ -80,6 +80,10 @@ sealed partial class EditorApplication {
                     LoadPreferences();
                 };
 
+                // ⚠ Before the pages, because adding one rebuilds the rail and selects the first —
+                // which builds a pane this would otherwise not have been told about.
+                view.PageShown += (shown, pane) => Narrow(pane, shown.Query);
+
                 PreferencePages(view);
             }
         );
@@ -103,6 +107,8 @@ sealed partial class EditorApplication {
                     project.Settings.Reload();
                     ApplyProjectSettings();
                 };
+
+                view.PageShown += (shown, pane) => Narrow(pane, shown.Query);
 
                 ProjectPages(view);
             }
@@ -281,14 +287,30 @@ sealed partial class EditorApplication {
         ApplyPreferences();
     }
 
+    /// <summary>Writes the preferences and says so, which is what the window's Apply means.</summary>
     void SavePreferences() {
+        if (WritePreferences()) {
+            Shell.Notifications.Success(EditorStrings.PanelPreferences.Text);
+        }
+    }
+
+    /// <summary>Writes them without saying anything.</summary>
+    /// <returns>Whether it worked.</returns>
+    /// <remarks>
+    ///     ⚠ <b>For the preferences nothing pressed Apply for.</b> The content browser's view toggle
+    ///     is one — it is a button in a panel rather than a row in the settings window — and a toast
+    ///     reading "Preferences" every time somebody switched between tiles and rows would be the
+    ///     editor congratulating itself for remembering.
+    /// </remarks>
+    bool WritePreferences() {
         try {
             store.Write(EditorUserStore.PreferencesFile, YamlSerializer.ToYaml(preferences));
             ApplyPreferences();
 
-            Shell.Notifications.Success(EditorStrings.PanelPreferences.Text);
+            return true;
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
             Shell.Notifications.Show("Could not save the preferences", NotificationSeverity.Error, exception.Message);
+            return false;
         }
     }
 
@@ -376,6 +398,14 @@ sealed partial class EditorApplication {
         var inspector = pane.Add<InspectorView>();
 
         inspector.EditedDocument = null;
+
+        // ⚠ Its own header goes, because the window has one. Two search boxes over the same rows is
+        // two filters that can disagree, and the one in the panel's own strip is the one somebody
+        // typing "orbit" reaches for. `Narrow` pushes the window's text into this one, which is what
+        // makes the inspector's row filter the thing the settings search actually drives. The lock
+        // has no meaning here either: a settings page inspects one object and follows no selection.
+        inspector.Header.AddClass("hidden");
+
         inspector.Inspect(settings);
 
         inspector.ValueChanged += (_, _) => {
@@ -387,6 +417,62 @@ sealed partial class EditorApplication {
             // Apply button would clear the dirty flag and write nothing at all.
             edited?.Invoke();
         };
+    }
+
+    /// <summary>Narrows whatever is on a settings page to what the window's search box says.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Doc 20's A4 asks for "a search box over every setting in every category", and the
+    ///         rail alone answers half of it.</b> Typing a member name selected the page that had it
+    ///         and then stopped — which, when that page was the one already showing, is a search box
+    ///         that visibly does nothing. This is the other half, and it lives here rather than in
+    ///         <see cref="SettingsView" /> because what a page is made of is this assembly's: the
+    ///         shell does not know what an inspector row is and should not learn.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The inspector is driven through its own search box rather than reaching into its
+    ///         rows.</b> It already knows how to hide a row that does not match — by display name
+    ///         <i>and</i> by member name — and a second implementation here would be a second answer
+    ///         to "does this row match", which is exactly the sort of pair that stops agreeing.
+    ///     </para>
+    ///     <para>
+    ///         The command toggles are matched on their label, which is all a page built from command
+    ///         ids has: the label is the command's title, which is what somebody is typing a fragment
+    ///         of. A page whose every control is hidden is left as it is rather than emptied — the
+    ///         rail has already said the page matched, and an empty pane under a highlighted rail
+    ///         entry reads as a broken page rather than as a narrow filter.
+    ///     </para>
+    /// </remarks>
+    static void Narrow(UiElement pane, string? query) {
+        foreach (var child in pane.Children) {
+            switch (child) {
+                case InspectorView inspector:
+                    inspector.Search.Value = query ?? string.Empty;
+                    break;
+
+                case ToggleButton toggle:
+                    Reveal(toggle, query is null || Mentions(toggle.Label, query));
+                    break;
+
+                case Button button:
+                    Reveal(button, query is null || Mentions(button.Label, query));
+                    break;
+
+                default:
+                    break;
+            }
+        }
+
+        static bool Mentions(string? label, string query) =>
+            label is not null && label.Contains(query, StringComparison.OrdinalIgnoreCase);
+
+        static void Reveal(UiElement element, bool shown) {
+            if (shown) {
+                element.RemoveClass("filtered-out");
+            } else {
+                element.AddClass("filtered-out");
+            }
+        }
     }
 
     /// <summary>Draws some commands as toggles, which is what a preference with a command already is.</summary>
@@ -448,6 +534,14 @@ sealed partial class EditorApplication {
             + "is the shipped palette.";
 
         var editor = pane.Add<TextArea>();
+
+        editor.AddClass("theme-tokens");
+
+        // ⚠ A prompt, because an empty box on this page is the ordinary state and looked like a
+        // broken one. Nobody has a theme.yaml until they write one, so the first thing anybody sees
+        // here is a blank field with nothing saying what belongs in it — and "it is empty and I
+        // cannot tell whether it works" is the bug report that earns.
+        editor.Placeholder = "root { --accent: #3f7fd8; }";
 
         // ⚠ Read once and kept, because this factory runs on every visit to the page — and the
         // search box alone can bounce between two pages, which would make typing in it a sequence of

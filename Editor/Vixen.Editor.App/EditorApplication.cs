@@ -563,6 +563,7 @@ sealed partial class EditorApplication : IDisposable {
         historyView?.Tick();
 
         ResolveTransforms();
+        FollowHistory();
         Retitle();
 
         if (hierarchyStale) {
@@ -607,6 +608,52 @@ sealed partial class EditorApplication : IDisposable {
         // The inspector follows the gizmo. Reload rather than Inspect, because the rows and their
         // handlers already exist and rebuilding would take the focus out of whatever is being typed.
         if (layout.Panes.Any(static pane => pane.Gizmo.IsDragging)) {
+            inspector?.Reload();
+        }
+    }
+
+    /// <summary>How deep the stack the inspector is over was when its rows were last read.</summary>
+    /// <inheritdoc cref="FollowHistory" select="remarks" />
+    (CommandStack? Stack, int Depth) history = (null, -1);
+
+    /// <summary>Reads the inspector's editors back after an undo or a redo moved the model.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Without this Ctrl+Z is a lie in the one panel that shows the number it changed.</b>
+    ///         An undo puts the old value back in the world and takes the entry off the stack — the
+    ///         history panel notices, the viewport redraws, the title bar's asterisk moves — and the
+    ///         inspector goes on showing what was typed, because a row is read from its target when it
+    ///         is built and after an edit <i>it</i> made. Nothing tells it that somebody else wrote.
+    ///         The value reappears the next time the selection changes, which is what makes it look
+    ///         like the undo did not happen rather than like the panel is stale.
+    ///     </para>
+    ///     <para>
+    ///         <b><c>Reload</c> and not <c>Inspect</c>.</b> The rows and their handlers already exist
+    ///         and describe the same objects; rebuilding would take the focus out of whatever is
+    ///         being typed and collapse every expander. It is the same call a gizmo drag makes for
+    ///         the same reason.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Polled and compared, like everything else in this loop.</b> A command stack is
+    ///         signal-backed and nothing here flushes the reactive scheduler — the trade this class's
+    ///         own remarks describe — and the comparison is two fields, so a frame in which nothing
+    ///         was undone costs nothing. The stack is part of the key because the inspector follows
+    ///         whichever document's selection won, and switching to another document is not an undo.
+    ///     </para>
+    /// </remarks>
+    void FollowHistory() {
+        var stack = inspectingAssets ? project.GlobalStack : (inspected ?? scene).Stack;
+        var state = (stack, stack.Depth.Value);
+
+        if (state == history) {
+            return;
+        }
+
+        var moved = ReferenceEquals(history.Stack, stack);
+
+        history = state;
+
+        if (moved) {
             inspector?.Reload();
         }
     }
@@ -907,16 +954,12 @@ sealed partial class EditorApplication : IDisposable {
 
                 hierarchy.Moved += (_, node) => Dropped(node);
 
-                // ⚠ Double-click renames here and opens the asset in the project browser, and the
-                // two are right for the same reason: a row's own name is the thing you edit in an
-                // outliner, and a file is the thing you open in a browser. F2 does the same, through
-                // the same command, so the keyboard and the pointer cannot disagree.
-                hierarchy.Activated += (_, node) => {
-                    if (node.Tag is Entity entity) {
-                        scene.Selection.Set([entity]);
-                        Rename();
-                    }
-                };
+                // ⚠ Double-click renames, and it is the control's own gesture rather than three
+                // lines here. A row's name is the thing you edit in place, in this panel and in the
+                // content browser both — see `TreeView.RenameOnActivate`, which is where the two
+                // copies of it went. F2 still comes through `edit.rename`, so the keyboard and the
+                // pointer cannot disagree about what a rename is.
+                hierarchy.RenameOnActivate = true;
 
                 Contextualise(hierarchy, hierarchyMenu ??= HierarchyMenu());
                 hierarchyStale = true;
@@ -936,6 +979,17 @@ sealed partial class EditorApplication : IDisposable {
                 browser.Moved += MoveAssets;
                 browser.DroppedOutside += DropIntoScene;
                 browser.Thumbnails = thumbnails;
+
+                // ⚠ Restored before the subscription, so putting the toggle back where the user
+                // left it is not itself recorded as the user having moved it — and written on
+                // change rather than on the way down, because closing the *panel* is one of the two
+                // ways the choice was being lost and nothing runs on that.
+                browser.IsGrid = preferences.ProjectGridView;
+
+                browser.ViewChanged += grid => {
+                    preferences.ProjectGridView = grid;
+                    WritePreferences();
+                };
 
                 Contextualise(browser.Tree, assetMenu ??= AssetMenu());
             }
@@ -991,6 +1045,17 @@ sealed partial class EditorApplication : IDisposable {
                 // whichever one you moved.
                 components = inspector.Scroll.Content.Add<ComponentsView>();
                 components.Attach(scene, bridges);
+
+                // ⚠ Restored before the subscription, so putting the foldouts back where the user
+                // left them is not itself recorded as a rearrangement. The order is a preference
+                // rather than anything about the entity — see `ComponentsView.Order` — which is why
+                // it lives in the preferences file and not in the scene.
+                components.Order = preferences.ComponentOrder;
+
+                components.Reordered += arranged => {
+                    preferences.ComponentOrder = [.. arranged];
+                    WritePreferences();
+                };
 
                 // ⚠ After it is in the tree, because the menu is a child of the document root and a
                 // control has no document until it is added to one.
@@ -1464,18 +1529,25 @@ sealed partial class EditorApplication : IDisposable {
         Mode("scene.rotate", "Rotate", GizmoMode.Rotate, InputKey.E);
         Mode("scene.scale", "Scale", GizmoMode.Scale, InputKey.R);
 
+        // ⚠ These two say which state they are <i>in</i> rather than what pressing them does, and
+        // that is the convention every 3D editor uses for exactly this pair. A button that read
+        // "Local Space" in both spaces left the only way to find out which one a drag was in being
+        // to drag — and a tick beside a fixed noun does not answer it either, because the reader has
+        // to know whether the label names the current state or the one the click would move to.
         Add(
             "scene.toggle-space",
             "Local Space",
             pane => pane.Gizmo.Space = pane.Gizmo.Space == GizmoSpace.World ? GizmoSpace.Local : GizmoSpace.World,
-            on: pane => pane.Gizmo.Space != GizmoSpace.World
+            on: pane => pane.Gizmo.Space != GizmoSpace.World,
+            caption: pane => pane.Gizmo.Space == GizmoSpace.World ? "World Space" : "Local Space"
         );
 
         Add(
             "scene.toggle-pivot",
             "Pivot at Centre",
             pane => pane.Gizmo.Pivot = pane.Gizmo.Pivot == PivotMode.Pivot ? PivotMode.Center : PivotMode.Pivot,
-            on: pane => pane.Gizmo.Pivot == PivotMode.Center
+            on: pane => pane.Gizmo.Pivot == PivotMode.Center,
+            caption: pane => pane.Gizmo.Pivot == PivotMode.Center ? "Pivot at Centre" : "Pivot at Object"
         );
 
         Add(
@@ -1580,7 +1652,8 @@ sealed partial class EditorApplication : IDisposable {
             string label,
             Action<SceneViewport> action,
             Func<SceneViewport, bool>? on = null,
-            InputKey key = InputKey.Unknown
+            InputKey key = InputKey.Unknown,
+            Func<SceneViewport, string>? caption = null
         ) {
             Shell.Commands.Add(
                 new EditorCommand(id, new StringId("editor.command." + id, label), () => {
@@ -1595,7 +1668,18 @@ sealed partial class EditorApplication : IDisposable {
                     // ⚠ Null when the command is not a toggle, rather than a predicate that answers
                     // false. `MenuPresenter` grows the tick column only for commands that have one,
                     // so a lambda here would indent every line of the Scene menu by an empty tick.
-                    Checked = on is null ? null : () => viewport is { } pane && on(pane)
+                    Checked = on is null ? null : () => viewport is { } pane && on(pane),
+
+                    // ⚠ And null when the name does not move, which is all but two of these. See
+                    // `EditorCommand.Caption`: a delegate asked per button per frame is not free,
+                    // and the id has to stay the *same* string whatever the label says — it is what
+                    // the keymap, the palette and the menu model all name.
+                    Caption = caption is null
+                        ? null
+                        : () => new StringId(
+                            "editor.command." + id,
+                            viewport is { } pane ? caption(pane) : label
+                        )
                 }
             );
 
@@ -2307,6 +2391,9 @@ sealed partial class EditorApplication : IDisposable {
         // an outliner is the one row the user was looking for.
         bool Branch(TreeNode parent, Entity entity) {
             var node = parent.Add(scene.NameOf(entity), entity);
+
+            node.Icon = GlyphFor(entity);
+
             var kept = Matches(entity);
 
             foreach (var child in Ordered(Children(entity))) {
@@ -2319,6 +2406,33 @@ sealed partial class EditorApplication : IDisposable {
 
             return kept;
         }
+    }
+
+    /// <summary>The glyph an outliner row draws for what an entity is.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What it carries rather than what it is called.</b> An outliner of forty identical
+    ///         rows is one you read rather than scan, and a name is the one thing on the row that is
+    ///         already text — an icon that repeated it would be decoration. A camera, a light and a
+    ///         piece of geometry are the three things a scene is mostly made of, and telling them
+    ///         apart at a glance is what the column is for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Asked once per rebuild rather than on every bind.</b> The node keeps the answer,
+    ///         and a rebuild is what a component being added or removed already triggers — so a row
+    ///         scrolling past does not ask the world three questions per frame.
+    ///     </para>
+    /// </remarks>
+    PathBuilder GlyphFor(Entity entity) {
+        if (world.Has<Light>(entity)) {
+            return EditorIcons.Light;
+        }
+
+        if (world.Has<Camera>(entity)) {
+            return EditorIcons.Camera;
+        }
+
+        return world.Has<MeshShape>(entity) ? EditorIcons.Cube : EditorIcons.Entity;
     }
 
     /// <summary>An entity's children, as a list a sort can be applied to.</summary>
