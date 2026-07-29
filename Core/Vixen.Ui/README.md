@@ -163,6 +163,15 @@ everywhere and should not have to write into each rule. `Default` keeps its narr
 substitute for a declaration that named nothing registered, in *front* of the fallbacks rather than
 behind them.
 
+⚠ **Registering a face re-measures the text that is already laid out.** `FontRegistry.Revision`
+moves, `UiElement.Line` drops the runs it shaped against the old chain, and `UiDocument.Update`
+dirties the layout node of every element that measures its own text — before its "is anything dirty"
+check, because a registration is the one change that leaves the document otherwise clean. All three
+are needed and the last is the one that is easy to miss: a line is rebuilt only when the measure
+function asks for one, and the measure function runs only for a dirty node, so without it a host that
+builds its interface and *then* installs a font gets labels that measured zero and keep the zero for
+the life of the document — the right strings, the right colour, nought pixels wide.
+
 **A family is a set of variants, and a face's weight and slant are stated rather than sniffed.** They
 could be read from the file's `OS/2` table, and that would be the same mistake in miniature as
 walking the font directories: a shipped asset whose metadata disagrees with what the designer meant
