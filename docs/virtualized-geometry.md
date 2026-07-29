@@ -56,7 +56,10 @@ answering the *difference* — is done and device-verified.
 | Discrete LOD with hysteresis and dither cross-fade | ✅ | [LodRenderFeature.cs](../Core/Vixen.Rendering/Features/LodRenderFeature.cs) |
 | Deferred/GBuffer *shaders* | ✅ | `Pipeline/GBuffer.rvn`, `Pipeline/Deferred.rvn` |
 | Deferred *pipeline* | ⬜ | Phase 10, cut-list #6 |
-| Meshlet generation in `ModelCompiler` | ⬜ | [08 § Compilers](plan/08-asset-pipeline-and-addressables.md) |
+| **The cluster DAG** — cluster, group, simplify with the group boundary locked, split, repeat | ✅ | [MeshletBuilder.cs](../Core/Vixen.Rendering.VirtualGeometry/MeshletBuilder.cs) |
+| **DAG validity as a build error** — monotonic error and boundary equality, per group | ✅ | `MeshletValidator`, `ModelCompiler.CompileMeshlets` |
+| **A CPU reference cut**, and the fallback mesh cut from the same code | ✅ | `MeshletCut` |
+| Meshlet generation in `ModelCompiler` | ✅ | [ModelCompiler.cs](../Editor/Vixen.Editor.Assets/Models/ModelCompiler.cs), `generateMeshlets:` in the `.meta` |
 | Any streaming manager at all | ⬜ | planned in 08, no code |
 
 The existing two-phase structure is not merely *similar* to Nanite's — it is the same algorithm at a
@@ -183,9 +186,26 @@ compaction built, the per-frame repack is now the largest fixed CPU cost in a GP
 
 ---
 
-### Phase 1 — The cluster DAG · ~3 EM
+### Phase 1 — The cluster DAG · ~3 EM · ✅ built
 
 Offline, in `ModelCompiler`. This is the phase that decides whether the result has cracks.
+
+Built as [`Vixen.Rendering.VirtualGeometry`](../Core/Vixen.Rendering.VirtualGeometry/README.md), called
+from `ModelCompiler.CompileMeshlets` and written as a `Meshlets` sub-asset per mesh. Three things the
+plan below did not say, found in the building:
+
+- **The error has to be measured, not taken from the quadric.** A quadric is the distance to the
+  *planes* of the triangles that met at a vertex, which on a smooth surface is about a third of the
+  distance to the surface itself — so a cut chosen for a one-pixel budget pops by three. The
+  simplifier measures the removed point against the triangles that replaced it and adds that to what
+  the point already carried.
+- **Locking a group's boundary vertices is not enough.** A collapse of an *interior* edge can delete
+  the one triangle carrying a boundary edge, and the edge goes with it although neither endpoint
+  moved. Both rules are needed.
+- **The per-cluster lock is a quality failure, not a validity one.** The exit criterion below asks
+  for a validation that fails on it; locking more than necessary never cracks, so it cannot. What it
+  costs is measured instead: with the group lock every level meets the ratio it was given exactly,
+  and with the per-cluster lock no level ever does.
 
 - **Cluster** the mesh into ~128-triangle groups by a locality partition (METIS-style edge-cut on the
   triangle adjacency graph). Record per cluster: bounds, a normal cone for backface rejection, the
@@ -205,6 +225,12 @@ Offline, in `ModelCompiler`. This is the phase that decides whether the result h
 boundary equality between every parent and its children, and it *fails* on a mesh deliberately built
 with the per-cluster lock instead of the per-group one. Plus a CPU reference cut over a sphere at
 twenty distances whose silhouette error stays under the requested pixel threshold.
+
+**Met**, with the third clause answered as above and one criterion added that is stronger than any of
+them: over twenty thresholds, **every cut of a closed mesh is itself closed** — a sphere has no
+boundary, so a cut that took a parent on one side of a group and a child on the other leaves an edge
+with one triangle on it, and that is a crack detected as a number rather than looked for in a picture.
+Removing the group-boundary lock fails it. `MeshletCutTests`, `MeshletValidatorTests`.
 
 ---
 
@@ -389,12 +415,22 @@ crack at one distance on one mesh. A CPU reference cut and a CPU reference raste
 the device bit-for-bit turn that class of bug into a unit test. Unreal does not have this, and
 debugging Nanite artefacts is correspondingly unpleasant.
 
+**The cut half is built.** `MeshletCut.SelectByError` is the linear scan the traversal of phase 3 will
+do hierarchically, and `PixelError` is the projection it will mirror. The fallback mesh is cut by the
+same code at a budget rather than a threshold, so the path that has to be crack-free is the path that
+runs in every build.
+
 ### 5. DAG validity as a build error
 
 Following from 4: assert monotonic error and locked-boundary equality across every edge **at import
 time**. Nanite's crack-freedom is a property the builder is careful to maintain; making it a checked
 invariant costs a validation pass over a structure already in memory, and converts the engine's most
 notorious artefact class into a failed build.
+
+**Built.** `MeshletValidator` recomputes the boundary sets from the positions rather than asking the
+builder what it did, and a mesh that fails produces no clusters and an import error naming the group —
+because a builder that is self-consistently wrong is the only interesting case, and shipping the
+asset anyway is how the crack reaches a player.
 
 ### 6. One residency manager for geometry, textures and shadow pages
 
@@ -434,7 +470,7 @@ being a mystery in a frame capture.
 | Phase | EM | Cumulative |
 |---|---|---|
 | 0 — Unblockers | ~1 | 1 |
-| 1 — Cluster DAG | ~3 | 4 |
+| 1 — Cluster DAG ✅ | ~3 | 4 |
 | 2 — Pages and residency | ~2 | 6 |
 | 3 — Hierarchical culling | ~2.5 | 8.5 |
 | 4 — HW-raster visibility buffer | ~2 | 10.5 |

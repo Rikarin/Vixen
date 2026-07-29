@@ -10,6 +10,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Editor.Assets.Models;
 using Vixen.Rendering;
 using Vixen.Rendering.DistanceFields;
+using Vixen.Rendering.VirtualGeometry;
 using Xunit;
 
 namespace Vixen.Editor.Assets.Tests;
@@ -47,6 +48,30 @@ public sealed class ModelImporterTests {
         f 1 2 6
         f 1 6 5
         """;
+
+    /// <summary>A five-by-five grid: thirty-two triangles, which is enough to be cut into clusters.</summary>
+    static string Grid {
+        get {
+            var text = new StringBuilder("o Plane\n");
+
+            for (var z = 0; z < 5; z++) {
+                for (var x = 0; x < 5; x++) {
+                    text.Append("v ").Append(x).Append(" 0 ").Append(z).Append('\n');
+                }
+            }
+
+            for (var z = 0; z < 4; z++) {
+                for (var x = 0; x < 4; x++) {
+                    var corner = (z * 5) + x + 1;
+
+                    text.Append("f ").Append(corner).Append(' ').Append(corner + 5).Append(' ').Append(corner + 1).Append('\n');
+                    text.Append("f ").Append(corner + 1).Append(' ').Append(corner + 5).Append(' ').Append(corner + 6).Append('\n');
+                }
+            }
+
+            return text.ToString();
+        }
+    }
 
     [Fact]
     public void ItClaimsTheFormatsDoc08Lists() {
@@ -188,6 +213,47 @@ public sealed class ModelImporterTests {
             Serializer.Read<MeshDistanceField>(
                 Assert.Single(result.Artifacts, artifact => artifact.Type == "DistanceField").Content.Span.ToArray()
             );
+    }
+
+    /// <summary>
+    ///     Phase 1 of <c>docs/virtualized-geometry.md</c>, reached through the importer: a mesh
+    ///     produces a cluster hierarchy beside itself, addressable and loadable on its own.
+    /// </summary>
+    [Fact]
+    public async Task EachMeshGetsAClusterHierarchyBesideIt() {
+        var (_, result) = await Import("crate.obj", Cube, Fast);
+
+        var artifact = Assert.Single(result.Artifacts, entry => entry.Type == "Meshlets");
+        var meshlets = Serializer.Read<MeshletMesh>(artifact.Content.Span.ToArray());
+
+        Assert.True(result.Succeeded);
+        Assert.NotEmpty(meshlets.Meshlets);
+        Assert.NotEmpty(meshlets.Fallback);
+        Assert.Contains(result.SubAssets, entry => entry.Type == "Meshlets");
+
+        // A cube is twelve triangles, so the whole of it is one cluster and there is nothing to
+        // simplify. What matters here is that it survives the round trip through the serializer with
+        // its ranges intact, which is what the runtime will read.
+        Assert.Equal(12, meshlets.Meshlets.Sum(meshlet => meshlet.TriangleCount));
+    }
+
+    [Fact]
+    public async Task TheHierarchyCanBeTurnedOff() {
+        var (_, result) = await Import("crate.obj", Cube, Fast with { GenerateMeshlets = false });
+
+        Assert.True(result.Succeeded);
+        Assert.DoesNotContain(result.Artifacts, artifact => artifact.Type == "Meshlets");
+    }
+
+    [Fact]
+    public async Task TheClusterSettingsInTheMetaReachTheBuild() {
+        var (_, result) = await Import("plane.obj", Grid, Fast with { MeshletTriangles = 4 });
+
+        var meshlets = Serializer.Read<MeshletMesh>(
+            Assert.Single(result.Artifacts, artifact => artifact.Type == "Meshlets").Content.Span.ToArray()
+        );
+
+        Assert.All(meshlets.Meshlets, meshlet => Assert.InRange(meshlet.TriangleCount, 1, 4));
     }
 
     /// <summary>Cheap enough to run in a test, and still enough resolution to be checkable.</summary>

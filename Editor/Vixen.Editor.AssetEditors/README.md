@@ -257,9 +257,10 @@ every section beside the one before it.
 
 ## Known gaps
 
-- **No LOD preview and no model viewport.** Doc 11 asks for both. Drawing a mesh needs a device; the
-  LOD chain needs `ModelCompiler`, which doc 08 specifies and nothing has written. When the levels
-  exist they arrive as further sub-assets and the part list draws them unchanged.
+- **No LOD preview and no model viewport.** Doc 11 asks for both. Drawing a mesh needs a device, and
+  that is now the whole of it: `ModelCompiler` writes a `Meshlets` sub-asset holding the cluster
+  hierarchy — every level at once rather than a chain — which the part list already shows. What is
+  missing is somewhere to draw a cut through it.
 - **Nothing imports a `.vxcomp`.** `NativeFormatImporter` carries a document forward, which is right
   for a material and wrong for a graph — what a build needs is the compiled frame. A compositor wants
   an importer that runs `CompositorDocument.Compile`, the shape `SceneImporter` has.

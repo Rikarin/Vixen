@@ -123,6 +123,8 @@
     -->
     <Project Path="Core/Vixen.Rendering.IrradianceFields/Vixen.Rendering.IrradianceFields.csproj" />
     <Project Path="Core/Vixen.Rendering.IrradianceFields.Tests/Vixen.Rendering.IrradianceFields.Tests.csproj" />
+    <Project Path="Core/Vixen.Rendering.VirtualGeometry/Vixen.Rendering.VirtualGeometry.csproj" />
+    <Project Path="Core/Vixen.Rendering.VirtualGeometry.Tests/Vixen.Rendering.VirtualGeometry.Tests.csproj" />
 
     <!--
       The debug-geometry join, listed here rather than beside Vixen.Engine because it belongs to the

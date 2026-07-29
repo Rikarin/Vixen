@@ -61,10 +61,11 @@ public sealed class ModelImportEdits {
 ///         re-importing. That is the difference between opening a model and waiting for Assimp.
 ///     </para>
 ///     <para>
-///         ⚠ <b>No LOD preview, and the honest reason is that there are no LODs yet.</b> Doc 08 puts
-///         LOD generation in <c>ModelCompiler</c>, which does not exist — the importer produces one
-///         mesh per material and nothing generates a chain. When it does, the levels arrive here as
-///         further sub-assets and the list draws them without being told.
+///         ⚠ <b>No LOD preview, and the honest reason is no longer that there are no LODs.</b>
+///         <c>ModelCompiler</c> writes a <c>Meshlets</c> sub-asset per mesh — the cluster hierarchy
+///         of <c>docs/virtualized-geometry.md</c>, which is every level at once rather than a chain —
+///         and this list shows it as the sub-asset it is. Previewing a level means choosing a cut and
+///         drawing it, which wants the viewport that does not exist yet.
 ///     </para>
 /// </remarks>
 public sealed class ModelImportDocument : ImportSettingsDocument {

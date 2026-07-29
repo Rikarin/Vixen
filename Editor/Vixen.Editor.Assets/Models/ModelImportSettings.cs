@@ -4,6 +4,7 @@
 using Vixen.Core;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Rendering.DistanceFields;
+using Vixen.Rendering.VirtualGeometry;
 
 namespace Vixen.Editor.Assets.Models;
 
@@ -91,6 +92,57 @@ public sealed record ModelImportSettings : IImportSettings {
     /// </remarks>
     public float DistanceFieldBoundsExpansion { get; init; } = 0.2f;
 
+    /// <summary>Whether to build a cluster hierarchy for each of the model's meshes.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Phase 1 of <c>docs/virtualized-geometry.md</c>: the mesh is partitioned into clusters
+    ///         of about <see cref="MeshletTriangles" /> triangles, neighbouring clusters are
+    ///         simplified together as groups with their shared boundary locked, and the result is
+    ///         split and simplified again until one cluster is left. What comes out is every level of
+    ///         detail at once, plus a fallback mesh cut from it at a fixed budget.
+    ///     </para>
+    ///     <para>
+    ///         On by default, and it is the second most expensive thing this importer does. Turning
+    ///         it off leaves a mesh that draws through the ordinary path with whatever levels of
+    ///         detail were authored, which is the right answer for a mesh that is already a hundred
+    ///         triangles.
+    ///     </para>
+    /// </remarks>
+    public bool GenerateMeshlets { get; init; } = true;
+
+    /// <summary>The most triangles one cluster may hold.</summary>
+    /// <remarks>
+    ///     The unit of culling and of streaming both, since a cluster is accepted or rejected whole
+    ///     and paged in whole. A hundred and twenty-eight is what Nanite uses and about where the
+    ///     per-cluster overhead stops mattering.
+    /// </remarks>
+    public int MeshletTriangles { get; init; } = 128;
+
+    /// <summary>The most distinct vertices one cluster may reference.</summary>
+    /// <remarks>
+    ///     At most 256, because a cluster's triangles index its own vertex list with a byte. A closed
+    ///     patch of a hundred and twenty-eight triangles carries about seventy vertices, so this
+    ///     rarely binds; where it does, the cluster is split rather than the mesh refused.
+    /// </remarks>
+    public int MeshletVertices { get; init; } = 128;
+
+    /// <summary>How many clusters are simplified together as a group.</summary>
+    /// <remarks>
+    ///     The dial that decides how much a level of detail can actually remove. A group's shared
+    ///     outer boundary is locked, so a small group has little interior to collapse and a large one
+    ///     spans parts of the mesh that have no business being simplified together.
+    /// </remarks>
+    public int MeshletGroupSize { get; init; } = 16;
+
+    /// <summary>How many triangles the generated fallback mesh may have.</summary>
+    /// <remarks>
+    ///     A cut through the finished hierarchy at a fixed budget, emitted as an ordinary indexed
+    ///     mesh. It is what WebGL2 draws, what the physics cook reads, and what anything the
+    ///     virtualized path does not reach falls back to — generated rather than authored, so it
+    ///     cannot disagree with the mesh it stands in for.
+    /// </remarks>
+    public int MeshletFallbackTriangles { get; init; } = 4096;
+
     /// <summary>These as the bake wants them.</summary>
     /// <returns>The build settings.</returns>
     public DistanceFieldBuildSettings ToDistanceFieldSettings() =>
@@ -98,5 +150,15 @@ public sealed record ModelImportSettings : IImportSettings {
             Resolution = DistanceFieldResolution,
             SignRayCount = DistanceFieldSignRays,
             BoundsExpansion = DistanceFieldBoundsExpansion
+        };
+
+    /// <summary>These as the cluster build wants them.</summary>
+    /// <returns>The build settings.</returns>
+    public MeshletBuildSettings ToMeshletSettings() =>
+        new() {
+            MaxTriangles = MeshletTriangles,
+            MaxVertices = MeshletVertices,
+            GroupSize = MeshletGroupSize,
+            FallbackTriangles = MeshletFallbackTriangles
         };
 }
