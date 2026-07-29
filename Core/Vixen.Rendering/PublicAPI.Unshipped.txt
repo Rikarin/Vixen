@@ -1125,6 +1125,19 @@ Vixen.Rendering.Lighting.EnvironmentLight.Prefiltered.get -> Vixen.Graphics.Text
 Vixen.Rendering.Lighting.EnvironmentLight.Prefiltered.set -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Lighting.EnvironmentLight.Sampler.get -> Vixen.Graphics.SamplerHandle
 Vixen.Rendering.Lighting.EnvironmentLight.Sampler.set -> Vixen.Graphics.SamplerHandle
+Vixen.Rendering.Lighting.LightProbe -> sealed class
+Vixen.Rendering.Lighting.LightProbe.Coefficients.get -> Vixen.Rendering.Lighting.ShCoefficients
+Vixen.Rendering.Lighting.LightProbe.Coefficients.set -> Vixen.Rendering.Lighting.ShCoefficients
+Vixen.Rendering.Lighting.LightProbe.LightProbe() -> void
+Vixen.Rendering.Lighting.LightProbe.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Lighting.LightProbe.Position.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Lighting.LightProbeVolume -> sealed class
+Vixen.Rendering.Lighting.LightProbeVolume.IsTetrahedral.get -> bool
+Vixen.Rendering.Lighting.LightProbeVolume.Mesh.get -> Vixen.Core.Mathematics.DelaunayTetrahedralization
+Vixen.Rendering.Lighting.LightProbeVolume.NearestProbe(Vixen.Core.Mathematics.Vector3 position) -> int
+Vixen.Rendering.Lighting.LightProbeVolume.Positions.get -> System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3>
+Vixen.Rendering.Lighting.LightProbeVolume.Sample(Vixen.Core.Mathematics.Vector3 position) -> Vixen.Rendering.Lighting.ShCoefficients
+Vixen.Rendering.Lighting.LightProbeVolume.Sample(Vixen.Core.Mathematics.Vector3 position, ref int cell) -> Vixen.Rendering.Lighting.ShCoefficients
 Vixen.Rendering.Lighting.ReflectionProbe -> sealed class
 Vixen.Rendering.Lighting.ReflectionProbe.Apply(Vixen.Shaders.ParameterCollection parameters, int index, string shaderName = "ForwardPlus") -> void
 Vixen.Rendering.Lighting.ReflectionProbe.BlendDistance.get -> float
@@ -2288,6 +2301,7 @@ static Vixen.Rendering.Lighting.CubeMapping.Locate(Vixen.Core.Mathematics.Vector
 static Vixen.Rendering.Lighting.CubeMapping.SolidAngle(float u, float v, float size) -> float
 static Vixen.Rendering.Lighting.EnvironmentBaker.Prefilter(Vixen.Rendering.Lighting.CubeImage source, int mipCount, int samples = 64) -> Vixen.Rendering.Lighting.CubeImage[]
 static Vixen.Rendering.Lighting.EnvironmentBaker.RoughnessOf(int mip, int mipCount) -> float
+static Vixen.Rendering.Lighting.LightProbeVolume.Build(System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Lighting.LightProbe> probes) -> Vixen.Rendering.Lighting.LightProbeVolume
 static Vixen.Rendering.Lighting.ShCoefficients.operator *(Vixen.Rendering.Lighting.ShCoefficients coefficients, float scale) -> Vixen.Rendering.Lighting.ShCoefficients
 static Vixen.Rendering.Lighting.ShCoefficients.operator *(float scale, Vixen.Rendering.Lighting.ShCoefficients coefficients) -> Vixen.Rendering.Lighting.ShCoefficients
 static Vixen.Rendering.Lighting.ShCoefficients.operator +(Vixen.Rendering.Lighting.ShCoefficients left, Vixen.Rendering.Lighting.ShCoefficients right) -> Vixen.Rendering.Lighting.ShCoefficients

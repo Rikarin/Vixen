@@ -272,7 +272,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Transmission / refraction | ⬜ | — | Needs the scene colour or an environment sample — a pass concern, not a lobe |
 | Bindless material textures (a feature that samples needs a binding index) | ⬜ | — | ⛔ needs Raven to declare an unsized texture array and a material record to carry the index — [step 1 and step 2](bindless-materials.md). The table the index would name exists |
 | Lighting — directional/point/spot/tube/rect, clustered binning, IBL, reflection probes | ✅ | Core/Vixen.Rendering | `EnvironmentBaker` + `SphericalHarmonics` on the CPU |
-| **Light probes** (tetrahedral interpolation) | ⛔ | — | Bowyer–Watson needs exact predicates; written, found wrong by its own tests, withdrawn |
+| **Light probes** (tetrahedral interpolation) | 🟡 | Core/Vixen.Core.Mathematics · Core/Vixen.Rendering | `ExactPredicates` + `DelaunayTetrahedralization` + `LightProbeVolume`. The CPU half is done and the GPU half is not: nothing uploads a volume or samples one in a shader. The row used to read ⛔ *written, found wrong by its own tests, withdrawn* |
 | Per-object reflection probe selection | ⬜ | — | ⛔ needs a probe to be a table index rather than one of four bound cubes — [step 2](bindless-materials.md). The per-object block already carries the index and the weight |
 | Shadows — CSM, cube, spot, atlas, static caching, PCF/PCSS | ✅ | Core/Vixen.Rendering | |
 | Punctual shadow caching | ⬜ | — | Only the directional cascades are cached |
@@ -607,7 +607,7 @@ K4  Silk.NET.OpenGLES + an EGL context                      ✅ BUILT
 
 ## 3.2 Wave 0 — startable today, fully parallel
 
-No unmet dependency. Twenty-three tracks as first written; five are struck through, having landed
+No unmet dependency. Twenty-three tracks as first written; fifteen are struck through, having landed
 since. The rest can run in parallel.
 
 | # | Track | Unblocks |
@@ -629,7 +629,7 @@ since. The rest can run in parallel.
 | W0-15 | Add `astcenc` + `ispc_texcomp` to `native-dependencies.json` | ASTC/ETC2 · full BC7/BC6H · mobile texture budgets. Also proves R10's schema generalises |
 | ~~W0-16~~ | ~~ECS entity-handle **reservation**~~ | Built (`World.TryRecreate`), and spent: create/delete/rename are undoable in the scene view |
 | 🟡 W0-17 | Bindless material binding plan | **The RHI half is built** — `BindlessTable`, descriptor indexing in the Vulkan backend, device-verified. The rest is written down in [bindless-materials.md](bindless-materials.md): Raven unsized texture arrays, then a material record replacing the per-material set, then an indirect-count draw. Compacted draws · per-object reflection probes · material texture features all wait on the second of those. **Two-phase occlusion landed without it** |
-| W0-18 | Light-probe exact predicates (robust Bowyer–Watson) | Tetrahedral light-probe interpolation |
+| ~~W0-18~~ | ~~Light-probe exact predicates (robust Bowyer–Watson)~~ | Built, and spent: `LightProbeVolume` interpolates tetrahedrally. `ExactPredicates` is general — an exact orientation and in-sphere live in `Vixen.Core.Mathematics` now, for whatever else needs a sign rather than a number |
 | ~~W0-19~~ | ~~`NodeGraphView` (pan/zoom/wires/minimap/search-to-create)~~ | Built. Shader-graph and VFX-graph authoring is now a matter of nodes, not of a canvas |
 | W0-20 | Non-scene asset editors: texture, model, material, shader, UI, addressable groups, compositor | Phase 6's exit criterion, minus the scene half |
 | W0-21 | Relay **scope decision** (host one? in-box or addon?) | The `Relay` transport + transport fallback |
@@ -760,7 +760,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 54 | Raven | Stream interpolation control; per-module flat IR namespace | Feature | — |
 | 55 | `Vixen.Rendering` | Compacted draws | Perf | Bindless materials |
 | 56 | `Vixen.Rendering` | Transmission; bindless material textures; blend shapes | Feature | Pass-level scene colour |
-| 57 | `Vixen.Rendering` | Light probes (tetrahedral); per-object reflection probes; punctual shadow caching | Feature | Exact predicates / binding plan |
+| 57 | `Vixen.Rendering` | Light probes **on the GPU** (upload a volume, sample it in a shader); per-object reflection probes; punctual shadow caching | Feature | Binding plan. The predicates and the CPU interpolation landed |
 | 58 | `Vixen.Rendering.PostFx` | SMAA, MSAA resolve, GTAO, SSR, DoF, motion blur, LUT asset, `AutoExposure` | Feature | — (**K2** landed; `AutoExposure` is now a chain to write) |
 | 59 | `Vixen.Physics` | iOS slice; per-pair suppression; vehicles/ragdolls/soft bodies; double precision | Platform / feature | Static `libjoltc.a` |
 | 60 | `Vixen.Audio` | Measured HRTF sets; per-title certification work | Content | — |
