@@ -77,6 +77,17 @@ sealed class GlslEmitter {
     bool nonUniformIndexing;
 
     /// <summary>
+    ///     Per-material values that live in a record, and how to spell a read of one.
+    /// </summary>
+    /// <remarks>
+    ///     A member of a material record has no variable name of its own — it is reached through the
+    ///     buffer and the index, so the "name" of it is an expression rather than an identifier. Kept
+    ///     apart from <c>variableNames</c> because that map's values are identifiers and a caller is
+    ///     entitled to treat them as such.
+    /// </remarks>
+    readonly Dictionary<IrVariable, (string Buffer, string Field, IrBinding Index)> recordMembers = [];
+
+    /// <summary>
     ///     The function being emitted, for naming a by-reference argument's variable — a name is
     ///     only unique within one function, so the lookup needs to know which.
     /// </summary>
@@ -167,6 +178,57 @@ sealed class GlslEmitter {
     ///     <c>set</c> or <c>binding</c> — a push constant has no descriptor, which is the whole
     ///     reason to use one.
     /// </remarks>
+    /// <summary>
+    ///     Emits the per-material block as one record of a buffer, rather than as a block.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A named struct and a <c>readonly buffer</c> holding a runtime array of it, laid out
+    ///         std430 — which is the shape SPIR-V's side has for the same reason, and the packing a
+    ///         record needs rather than a block's std140.
+    ///     </para>
+    ///     <para>
+    ///         The members are <em>not</em> reserved as variable names here. Each one is recorded as
+    ///         an access through the array instead, so every read in the body spells
+    ///         <c>materials.records[index].member</c> — which is what makes the block a record at the
+    ///         use site as well as at the declaration.
+    ///     </para>
+    /// </remarks>
+    void EmitMaterialRecords(PlannedBinding planned, string layout) {
+        var structName = Reserve(planned.Name);
+        var blockName = Reserve(planned.Name + "Buffer");
+        var instance = GlslTypes.Identifier(char.ToLowerInvariant(planned.Name[0]) + planned.Name[1..]);
+
+        writer.Line($"struct {structName} {{");
+        writer.Indent();
+
+        var fields = new string[planned.Members.Length];
+
+        for (var i = 0; i < planned.Members.Length; i++) {
+            var uniform = planned.Members[i];
+            fields[i] = GlslTypes.Identifier(uniform.Name);
+            writer.Line(Declare(uniform.Type, fields[i], uniform.Name) + ";" + Comment(uniform.Semantic));
+        }
+
+        writer.Outdent();
+        writer.Line("};");
+        writer.Blank();
+
+        writer.Line($"layout(std430, {layout}) readonly buffer {blockName} {{");
+        writer.Indent();
+        writer.Line($"{structName} records[];");
+        writer.Outdent();
+        writer.Line($"}} {instance};");
+        writer.Blank();
+
+        // The index is a binding of its own, so it has a name by the time this runs — or will have
+        // one by the time the body is emitted, which is why the accessor is built lazily rather than
+        // captured here.
+        for (var i = 0; i < planned.Members.Length; i++) {
+            recordMembers[planned.Members[i].Variable] = (instance, fields[i], planned.RecordIndex!);
+        }
+    }
+
     void EmitPushConstants() {
         if (BindingPlan.PushConstants(shader) is not { IsEmpty: false } constants) {
             return;
@@ -245,6 +307,11 @@ sealed class GlslEmitter {
                 // sets; the blank line keeps them visually apart.
                 writer.Blank();
                 opaque = false;
+            }
+
+            if (planned.IsRecord) {
+                EmitMaterialRecords(planned, layout);
+                continue;
             }
 
             writer.Line($"layout(std140, {layout}) uniform {Reserve(planned.Name)} {{");
@@ -956,7 +1023,10 @@ sealed class GlslEmitter {
 
     static string Name(IrValue value) => "_" + value.Id;
 
-    string VariableName(IrVariable variable) => variableNames.GetValueOrDefault(variable, variable.Name);
+    string VariableName(IrVariable variable) =>
+        recordMembers.TryGetValue(variable, out var record)
+            ? $"{record.Buffer}.records[{VariableName(record.Index.Variable)}].{record.Field}"
+            : variableNames.GetValueOrDefault(variable, variable.Name);
 
     /// <summary>Reserves the mangled form of a global name, keeping it unique.</summary>
     string Reserve(string name) {

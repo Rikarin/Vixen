@@ -404,7 +404,8 @@ public sealed partial class Lowerer {
                     // storage buffer compiled on one target and failed on the other.
                     binding.IsWritable,
                     binding.DefaultValue,
-                    binding.IsShared
+                    binding.IsShared,
+                    binding.IsMaterialIndex
                 )
             );
         }
@@ -647,7 +648,8 @@ public sealed partial class Lowerer {
                     // block arrives already filled, so `= 1f` is a statement about what to put there
                     // when nobody said otherwise. See IrBinding.DefaultValue.
                     defaultValue: field.DeclaredValue,
-                    shared: field.IsShared
+                    shared: field.IsShared,
+                    materialIndex: field.IsMaterialIndex
                 )
             );
         }

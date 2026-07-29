@@ -143,6 +143,21 @@ sealed class SpirvTypes {
         );
     }
 
+    /// <summary>A runtime array of one record struct, with the stride the host writes.</summary>
+    /// <param name="element">The record's type id.</param>
+    /// <param name="stride">One record's size in bytes, laid out std430.</param>
+    /// <remarks>
+    ///     Distinct from <see cref="RuntimeArray" />, which takes an <see cref="IrArrayType" /> and
+    ///     computes the stride from its element. A material record has no <see cref="IrArrayType" />
+    ///     at all — it is a struct the plan assembled out of a set's uniforms, and the array around
+    ///     it exists only because SPIR-V has no bare runtime-array variable.
+    /// </remarks>
+    internal uint RecordArray(uint element, int stride) {
+        var id = module.AddDeclaration(SpirvOp.TypeRuntimeArray, null, SpirvOperand.Id(element));
+        module.Decorate(id, SpirvDecoration.ArrayStride, SpirvOperand.Literal(stride));
+        return id;
+    }
+
     /// <summary>Whether this is a descriptor array rather than a laid-out one.</summary>
     /// <param name="type">The type to ask about.</param>
     /// <remarks>

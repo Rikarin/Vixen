@@ -235,6 +235,32 @@ public static class DeclarationFacts {
         return false;
     }
 
+    /// <summary>Whether the declaration is marked <c>[MaterialIndex]</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         One field carries it, and its presence changes the shape of a whole set: the
+    ///         per-material uniform block becomes one <em>record</em> of a buffer holding every
+    ///         material in the frame, and this is the index of the record a draw reads. Every
+    ///         reference to a per-material value is then <c>materials[index].value</c> rather than a
+    ///         member of a block bound per draw.
+    ///     </para>
+    ///     <para>
+    ///         Which is the point: a draw that binds a descriptor set per material cannot be merged
+    ///         with a draw that binds a different one. One buffer bound once for the frame and an
+    ///         index in the per-draw data is what makes two materials' draws identical in everything
+    ///         but their data — see <c>docs/bindless-materials.md</c>.
+    ///     </para>
+    /// </remarks>
+    public static bool IsMaterialIndex(SyntaxList<AttributeListSyntax> attributeLists) {
+        foreach (var attribute in GetAttributes(attributeLists)) {
+            if (GetAttributeName(attribute) == "MaterialIndex") {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>
     ///     The texel format a declaration is tagged with — <c>[Format("rgba16f")]</c> — or null.
     /// </summary>

@@ -234,6 +234,8 @@ public sealed class SourceFieldSymbol : FieldSymbol {
 
     public override bool IsShared => DeclarationFacts.IsShared(syntax.AttributeLists);
 
+    public override bool IsMaterialIndex => DeclarationFacts.IsMaterialIndex(syntax.AttributeLists);
+
     public override ImageFormat? ImageFormat =>
         ImageFormats.Lookup(DeclarationFacts.GetImageFormat(syntax.AttributeLists));
 

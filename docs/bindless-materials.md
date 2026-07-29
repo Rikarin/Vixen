@@ -144,7 +144,38 @@ The index defaults to zero, which is a slot that *exists*: a material whose map 
 defined thing to read and a visible mistake, where an unwritten descriptor is whatever the driver
 left there.
 
-### 2b. A material becomes a record rather than a set
+### 2b. A material becomes a record rather than a set — the shader half is built
+
+`[MaterialIndex]` on a per-draw field turns that shader's whole per-material block into one *record*
+of a buffer: a `readonly buffer` of records at the same set and binding the block had, and every read
+of a per-material value spelled `materials.records[index].value`. Set 2 stays set 2 — what changes is
+that it holds every material at once and is bound for the frame rather than for the draw, so nothing
+renumbers and the four-set convention says what it always said.
+
+The packing changes with it. A record is std430 because it is an element of a storage buffer; a block
+was std140 because it was a uniform block. Both backends lay it out the new way and the reflection
+reports the offsets it was *emitted* at, as a `StorageBuffer` with a count of zero — because
+reporting a uniform buffer for a shader that reads a `BufferBlock` builds a descriptor of the wrong
+type, which no API checks and which reads as a frame lit by whatever those bytes meant.
+
+Without the marker nothing changes at all, which is the control worth keeping: the bound-per-material
+path is what runs on GL, on WebGL2 and on every device with no bindless, so it is not a legacy branch.
+
+**What is left is the engine half**, and it is the larger one:
+
+- `MaterialRenderFeature` writes records into one buffer instead of a descriptor set per variant,
+  and hands out the index each variant landed at.
+- A per-object value carries that index into the per-draw data, the way
+  `ForwardLightingRenderFeature` already carries a probe index and weight.
+- `MeshRenderFeature` stops binding a per-material set.
+- `ForwardPlus` declares the `[MaterialIndex]`, which is one line once the three above exist.
+
+**The permutation question, now answerable.** A record's layout is the *variant's* — a permutation
+can fold a value out of the block — so one buffer per variant rather than one for every material,
+and the index is an index into that variant's buffer. Which costs a bind per variant, and a variant
+is already a pipeline change.
+
+### 2b (original sketch)
 
 This is the change the three blocked items are actually waiting for.
 
@@ -216,7 +247,8 @@ Raven got atomics; what was missing was 2 and 3.
 | 2a. A material's texture as a value in its block | ✅ built — closes "materials are values, not resources" |
 | 2a′. A binding shared across composed features | ✅ built — `[Shared]`, collapsed by `BindingPlan`, aliased in both backends |
 | 2c. A shader-library feature that samples through the table | ✅ built — `TexturedMetalRoughnessSurface`, and `uv` on `MaterialData` |
-| 2b. The block as a record rather than a per-material set | ⬜ — the one compacted draws and per-object probes wait on |
+| 2b. The block as a record — shader half | ✅ built — `[MaterialIndex]`, both backends, reflection |
+| 2b. The block as a record — engine half | ⬜ — the one compacted draws and per-object probes wait on |
 | 3. An indirect draw whose count comes from the device | ⬜ |
 | 4. Compaction | ⬜ |
 

@@ -57,7 +57,8 @@ public sealed class IrBinding(
     string? name = null,
     bool writable = false,
     object? defaultValue = null,
-    bool shared = false
+    bool shared = false,
+    bool materialIndex = false
 ) {
     public IrVariable Variable { get; } = variable;
     public IrBindingKind Kind { get; } = kind;
@@ -144,6 +145,17 @@ public sealed class IrBinding(
     ///     </para>
     /// </remarks>
     public bool IsShared { get; } = shared;
+
+    /// <summary>
+    ///     Whether this is the index of the material record a draw reads.
+    /// </summary>
+    /// <remarks>
+    ///     Its presence is what makes the per-material block a record. Carried on the binding rather
+    ///     than on the shader because it is a field the author marked, and because the emitters need
+    ///     the <em>variable</em> — the index is loaded and used as the first subscript of every
+    ///     per-material access, so knowing that a shader is indexed is not enough.
+    /// </remarks>
+    public bool IsMaterialIndex { get; } = materialIndex;
 
     public IrType Type => Variable.Type;
 }

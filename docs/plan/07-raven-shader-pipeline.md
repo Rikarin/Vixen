@@ -208,6 +208,15 @@ point at the single declaration they emitted — because each feature's body was
 own variable and all of them have to resolve. Two shared declarations that disagree about kind or set
 are `RVN3011`: one of the two authors is wrong and nothing can say which.
 
+✅ **And a per-material block may be a *record*.** `[MaterialIndex]` on a per-draw field turns the
+shader's per-material block into one element of a buffer — a `BufferBlock` wrapping a strided runtime
+array in SPIR-V, a `readonly buffer` of a named struct in GLSL — read as
+`materials.records[index].value` at every use. The set and binding do not move; what changes is that
+the set holds every material at once and is bound for the frame rather than for the draw, which is
+what lets two materials' draws be the same draw. The packing moves with it, std140 to std430, and the
+reflection reports a `StorageBuffer` at the offsets it was emitted at: reporting a uniform buffer for
+a shader that reads a `BufferBlock` is a descriptor of the wrong type, which no API checks.
+
 ⚠ **Every subscript of one is decorated non-uniform, and both halves of it are.** SPIR-V marks the
 index *and* the pointer the access chain produced; GLSL wraps the index in `nonuniformEXT`. A module
 carrying one and not the other is valid SPIR-V that a driver may read one descriptor per subgroup

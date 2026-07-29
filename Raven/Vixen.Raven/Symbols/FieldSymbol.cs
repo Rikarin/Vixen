@@ -135,6 +135,16 @@ public abstract class FieldSymbol : Symbol {
     public virtual bool IsShared => false;
 
     /// <summary>
+    ///     Whether this field is the index of the material record a draw reads —
+    ///     <c>[MaterialIndex]</c>.
+    /// </summary>
+    /// <remarks>
+    ///     At most one per shader, and its presence turns that shader's per-material block into an
+    ///     element of a buffer rather than a set bound per draw.
+    /// </remarks>
+    public virtual bool IsMaterialIndex => false;
+
+    /// <summary>
     ///     The texel format from <c>[Format("…")]</c>, resolved. Null unless this field is a
     ///     storage image with a recognised format.
     /// </summary>
