@@ -21,9 +21,24 @@ person. The half that only a running frame exercises is here:
 - the version check meaning a 25 fps video costs one upload in several frames rather than one per
   frame.
 
-It is also the shape a renderer's video material will take. `VideoTexture` hands over plane views, a
-sampler and `VideoColourCoefficients`; [`Shaders/video.frag`](Shaders/video.frag) is what a material
-does with them, and it is twenty lines.
+The pipeline, the descriptor set and the push block used to be in this file — which meant a video
+could only ever be the whole screen, because what it drew was a full-screen triangle. They are now
+[Vixen.Video.Rendering](../../Core/Vixen.Video.Rendering/README.md)'s, and what is left here is two
+calls that say *where*:
+
+```csharp
+renderer.Begin();
+renderer.Record(commands, VideoDraw.From(texture, VideoFit.Place(VideoScaling.Contain, player, whole)), surface);
+renderer.Record(commands, VideoDraw.From(texture, VideoFit.Place(VideoScaling.Cover, player, corner)), surface);
+```
+
+The second one is the point. The same texture is drawn again into a sixth of the width in the
+bottom-right corner, cropped rather than letterboxed — so the two rectangles between them exercise
+both halves of `VideoPlacement`: the one that moves the rectangle and the one that moves the texture
+coordinates. A picture-in-picture that lines up with the main one is what says both are right.
+
+[`Shaders/video.frag`](Shaders/video.frag) is still what a material does with three planes, and it is
+still about twenty lines of arithmetic.
 
 ## It carries no content
 
@@ -90,9 +105,11 @@ is what the BT.709 transfer function is — so writing it to an sRGB target enco
 and shows as mid-tones that are far too bright. A renderer lighting the video as a texture in a scene
 would want the opposite; a player showing it directly wants the bytes to arrive as they are.
 
-**The letterboxing is in the shader rather than in a viewport.** A viewport would leave the bars
-untouched by the clear and full of whatever the last frame put there. The same triangle draws the
-picture and the black either side of it.
+~~**The letterboxing is in the shader rather than in a viewport.**~~ It was, and the argument was
+about the wrong thing. Painting the bars black is correct for a player showing a video on nothing and
+wrong the moment the video is drawn over anything — opaque black over whatever was behind. `VideoFit`
+shrinks the rectangle instead, and the pass's own clear fills what is left, which is what a viewport
+could not do and a discard should not have.
 
 ## Reading the summary it prints
 
@@ -114,6 +131,17 @@ decoded.
 
 ## What it does not do yet
 
-No render feature. What a material does with three planes is `Vixen.Rendering`'s business, and this
-sample is deliberately the RHI and the video module with nothing between them, exactly as
-`01-HelloTriangle` is the RHI and nothing at all.
+**No compositor and no scene.** This is the RHI, the video module and `VideoRenderer`, with nothing
+between them — deliberately, exactly as `01-HelloTriangle` is the RHI and nothing at all.
+[`VideoRenderFeature`](../../Core/Vixen.Video.Rendering/README.md) is what puts the same renderer
+inside a `RenderSystem`, and `VideoSurfaceUploader` is what drives it from an ECS world; neither is
+exercised here, and both are asserted headlessly in `Vixen.Video.Rendering.Tests`.
+
+**No interface.** A video inside a UI panel is
+[`Vixen.Video.Ui`](../../Core/Vixen.Video.Ui/README.md), which needs a document, a theme and a font
+atlas — a second sample's worth of setup for a path whose wiring is asserted end to end over the null
+backend in `VideoInUiTests`.
+
+**No material.** A video lit as a texture on a mesh in a scene is `MaterialRenderFeature`'s and, once
+it lands, Raven's. The three plane views and six coefficients this binds are exactly what such a
+material would consume.

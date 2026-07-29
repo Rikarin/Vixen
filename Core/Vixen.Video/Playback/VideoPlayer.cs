@@ -198,6 +198,10 @@ public sealed class VideoPlayer : IDisposable {
     /// <summary>How long the video is, or zero if the container did not say.</summary>
     public TimeSpan Duration => Decoder.Duration;
 
+    /// <summary>How big the picture is meant to look, which anamorphic content answers differently.</summary>
+    /// <remarks>What anything fitting the video into a rectangle should measure it by — see <c>VideoFit</c>.</remarks>
+    public Vixen.Core.Mathematics.Int2 DisplaySize => Decoder.DisplaySize;
+
     /// <inheritdoc />
     public void Dispose() {
         if (disposed) {

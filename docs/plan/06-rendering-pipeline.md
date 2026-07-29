@@ -382,7 +382,7 @@ compute and a fullscreen-triangle variant so WebGL2 has a path.
 | Trails / ribbons | P2 |
 | Line/gizmo/debug renderer | P1 — editor dependency |
 | Text in 3D (MSDF) | P1 |
-| Video textures | P2 — ✅ `Vixen.Video`: WebM in, Opus for the sound, the picture on the sound's clock, three `R8` planes and the coefficients a material converts them by. `Samples/11` draws it; a render feature is what is owed |
+| Video textures | P2 — ✅ `Vixen.Video`: WebM in, Opus for the sound, the picture on the sound's clock, three `R8` planes and the coefficients a shader converts them by. ✅ `Vixen.Video.Rendering` draws them — one pipeline, a quad in any rectangle, `VideoRenderFeature` in a `ByGroup` stage, `VideoSurfaceUploader` for the ECS path — and ✅ `Vixen.Video.Ui` puts one in an interface panel. **Screen-space only**: a video lit as a texture on a mesh is a material, and that is what is owed |
 | VR/XR stereo (multiview, OpenXR) | P2, **not in 1.0** — `Vixen.Xr` + `Vixen.Xr.OpenXR` exist and are tested against a simulated headset: session, per-eye asymmetric projections, runtime-owned swapchains, actions. Nothing renders into the eye buffers yet and single-pass multiview is unwritten, so treat it as a parked spike rather than a feature. See [14](14-roadmap.md) |
 
 ## VFX pipeline

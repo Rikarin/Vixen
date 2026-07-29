@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Video.Rendering</RootNamespace>
+        <Description>
+            The half of video playback that draws: one pipeline, three plane bindings and six
+            coefficients, plus the render feature that puts a video on the screen inside somebody
+            else's renderer.
+        </Description>
+        <PackageTags>video;rendering;yuv;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The two halves this assembly exists to join, and the reason it is a separate assembly
+            rather than a folder in either of them — the same reason `Vixen.Ui.Renderer` is one.
+            `Vixen.Video` decodes and uploads and knows nothing about a renderer, which is what lets
+            a tool that only wants frames link it alone; `Vixen.Rendering` draws things without
+            knowing what a video is. Putting the join in `Vixen.Video` would drag a renderer into a
+            module a thumbnailer uses; putting it in `Vixen.Rendering` would put a WebM demuxer in
+            every game that draws a mesh.
+        -->
+        <ProjectReference Include="..\Vixen.Video\Vixen.Video.csproj" />
+        <ProjectReference Include="..\Vixen.Rendering\Vixen.Rendering.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Video.Rendering.Tests" />
+    </ItemGroup>
+
+</Project>

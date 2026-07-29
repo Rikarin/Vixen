@@ -164,6 +164,32 @@ public static class VideoCodecRegistry {
         }
     }
 
+    /// <summary>Whether anything registered claims a track, without making a codec for it.</summary>
+    /// <param name="track">What is known about it, which may be only its codec id.</param>
+    /// <returns>Whether one does.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The question is asked before the file is open, so the answer is about the codec id
+    ///     and not about the stream.</b> That is what makes it useful — a title finds out it has no
+    ///     VP9 decoder while it is drawing a menu rather than when the cutscene was due — and it is
+    ///     also its limit: <c>V_UNCOMPRESSED</c> is claimed here on the codec id and refused later on
+    ///     a sample format only the file states. A yes means "worth opening", not "will play".
+    /// </remarks>
+    public static bool CanDecode(in VideoTrackInfo track) {
+        IVideoCodecFactory[] candidates;
+
+        lock (Gate) {
+            candidates = [.. Factories];
+        }
+
+        foreach (var factory in candidates) {
+            if (factory.CanDecode(in track)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Finds a codec for a track.</summary>
     /// <param name="track">What the container said about it.</param>
     /// <param name="codec">The codec, if one was found.</param>

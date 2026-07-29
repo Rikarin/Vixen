@@ -144,5 +144,45 @@ that sentence rather than letting an `.mp4` become an unplayable byte blob.
 **Ten-bit and BT.2020.** Both belong with a wider pixel format than this module has. They are absent
 rather than present and wrong.
 
-**A render feature.** What a material does with three planes is the renderer's business.
-`VideoTexture` stops at handing over the views, the sampler and the coefficients.
+~~**A render feature.**~~ [Vixen.Video.Rendering](../Vixen.Video.Rendering/README.md) draws it and
+[Vixen.Video.Ui](../Vixen.Video.Ui/README.md) puts it in an interface. This module still stops at
+handing over the views, the sampler and the coefficients, which is what those two consume. What is
+still owed is a **material** — a video lit as a texture on a mesh in a scene, which is
+`MaterialRenderFeature`'s and Raven's.
+
+**Frame-accurate seeking.** `Seek` lands on the last cue at or before where it was asked for, which is
+right for a loop point and wrong for a scrubber. A cue bisect and a decode-forward-to-the-frame pass
+are what a scrubbable video needs, and neither is here.
+
+**Choosing between audio tracks.** `FindTrack` takes the first, so a file with an English and a
+Japanese track plays whichever the muxer wrote first. Subtitles are not modelled at all.
+
+## Playing one from the content build
+
+`VideoClip` is a record naming a video; `VideoPlayback` is what opens it.
+
+```csharp
+VideoAudioCodecs.RegisterOpus();
+
+var clip = assets.Load<VideoClip>("cutscenes/intro").Value;
+
+if (!VideoPlayback.CanPlay(clip)) {
+    return;                                    // no decoder for it, and the menu is still on screen
+}
+
+using var playback = VideoPlayback.Open(
+    clip,
+    new DelegatedVideoContentSource(assets.Open, assets.CanOpen),
+    new VideoPlaybackOptions { AutoPlay = true }
+);
+```
+
+`IVideoContentSource` is a seam rather than a dependency: nothing in `Core/` references
+`Vixen.Assets`, so a video module that called `AssetManager.Load` would be the first and would make
+every game that plays a sting link the addressables system to do it. `FileVideoContentSource` needs
+nothing at all, which is what a video left loose beside the executable wants — and a video is
+streamed, so that is a reasonable thing for one to be.
+
+⚠ **`CanPlay` answers about the codec id, not about the stream.** That is what makes it useful — a
+title finds out it has no VP9 decoder while it is drawing a menu rather than when the cutscene was
+due — and it is also its limit. A yes means "worth opening", not "will play".

@@ -2,10 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Reflection;
-using System.Runtime.InteropServices;
 using Microsoft.Extensions.Logging;
 using Vixen.App;
+using Vixen.Audio;
+using Vixen.Audio.Backend.OpenAL;
+using Vixen.Audio.Devices;
+using Vixen.Audio.Mixing;
+using Vixen.Audio.Streaming;
 using Vixen.Core;
+using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Graphics.RenderGraph;
 using Vixen.Graphics.Vulkan;
@@ -16,11 +21,7 @@ using Vixen.Video.Codecs;
 using Vixen.Video.Containers;
 using Vixen.Video.Gpu;
 using Vixen.Video.Playback;
-using Vixen.Audio;
-using Vixen.Audio.Backend.OpenAL;
-using Vixen.Audio.Devices;
-using Vixen.Audio.Mixing;
-using Vixen.Audio.Streaming;
+using Vixen.Video.Rendering;
 
 namespace Vixen.Samples.VideoPlayback;
 
@@ -49,9 +50,6 @@ namespace Vixen.Samples.VideoPlayback;
 ///     </para>
 /// </remarks>
 public sealed class VideoGame : Game {
-    /// <summary>Twelve floats: the letterbox fit, and the six numbers that convert YUV to RGB.</summary>
-    const int PushConstantSize = 12 * sizeof(float);
-
     VulkanDevice? device;
     TransientResourcePool? pool;
     RenderGraph? graph;
@@ -72,12 +70,9 @@ public sealed class VideoGame : Game {
 
     ShaderHandle vertexShader;
     ShaderHandle fragmentShader;
-    DescriptorSetLayoutHandle setLayout;
-    DescriptorSetHandle descriptors;
-    PipelineLayoutHandle layout;
-    PipelineHandle pipeline;
+    VideoRenderer? renderer;
 
-    TextureViewHandle boundLuma;
+    bool announced;
     bool lost;
     bool waiting;
 
@@ -159,8 +154,9 @@ public sealed class VideoGame : Game {
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "frame")) {
             // Version-checked inside: a 25 fps video in a 144 fps window costs one upload in six
             // frames rather than one per frame.
-            if (texture!.Upload(commands, player!)) {
-                Rebind();
+            if (texture!.Upload(commands, player!) && !announced && log is not null) {
+                announced = true;
+                SampleLog.PlanesBound(log, texture.Format.Width, texture.Format.Height, texture.PlaneCount);
             }
 
             var backbuffer = graph!.ImportTexture(
@@ -174,28 +170,7 @@ public sealed class VideoGame : Game {
             graph.AddPass("video", pass => {
                 pass.ColourAttachment(backbuffer, LoadAction.Clear, new(0f, 0f, 0f, 1f));
 
-                pass.Execute(context => {
-                    if (!descriptors.IsValid || !boundLuma.IsValid) {
-                        // Nothing has been decoded yet, so there is nothing to sample. The clear is
-                        // the whole frame, which is what the first few milliseconds of any video is.
-                        return;
-                    }
-
-                    Span<float> constants = stackalloc float[12];
-
-                    Fit(constants);
-                    Coefficients(constants);
-
-                    context.CommandList.BindPipeline(pipeline);
-                    context.CommandList.BindDescriptorSet(DescriptorSetSlot.PerFrame, descriptors);
-                    context.CommandList.PushConstants(
-                        ShaderStage.Fragment,
-                        0,
-                        MemoryMarshal.AsBytes(constants)
-                    );
-
-                    context.CommandList.Draw(3);
-                });
+                pass.Execute(context => Draw(context.CommandList));
             });
 
             graph.Execute(commands);
@@ -343,67 +318,67 @@ public sealed class VideoGame : Game {
         }
     }
 
-    /// <summary>The scale and offset that letterbox the video into the window.</summary>
+    /// <summary>The frame's two videos: the picture, and the same picture in a corner.</summary>
     /// <remarks>
-    ///     In the shader rather than in a viewport, because a viewport would leave the bars
-    ///     untouched by the clear and full of whatever the last frame put there. The bars are drawn
-    ///     black by the same triangle.
+    ///     <para>
+    ///         <b>Two draws of one texture, and that is what this sample is for now.</b> Before
+    ///         <c>VideoRenderer</c> existed, this file built its own pipeline, its own descriptor set
+    ///         and its own twelve-float push block, and drew a full-screen triangle — which meant a
+    ///         video could only ever be the whole screen. It is now four lines that say where, and
+    ///         "where" can be a corner.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The letterboxing has moved out of the shader.</b> It used to be a discard in the
+    ///         fragment stage that painted the bars black, which is correct for a player showing a
+    ///         video on nothing and wrong for everything else — opaque black over whatever the video
+    ///         was laid over. <c>VideoFit</c> shrinks the rectangle instead, so the bars are simply
+    ///         not drawn on, and the pass's clear is what fills them.
+    ///     </para>
+    ///     <para>
+    ///         The inset is deliberately <see cref="VideoScaling.Cover" />: it crops rather than
+    ///         letterboxes, so the two rectangles between them exercise both halves of
+    ///         <c>VideoPlacement</c> — the one that moves the rectangle and the one that moves the
+    ///         texture coordinates.
+    ///     </para>
     /// </remarks>
-    void Fit(Span<float> constants) {
-        var format = texture!.Format;
-        var window = (float)swapChain!.Size.X / Math.Max(1, swapChain.Size.Y);
-        var video = format.Height > 0 ? (float)format.Width / format.Height : window;
-
-        var horizontal = window > video ? video / window : 1f;
-        var vertical = window > video ? 1f : window / video;
-
-        constants[0] = 1f / horizontal;
-        constants[1] = 1f / vertical;
-        constants[2] = (1f - horizontal) * 0.5f;
-        constants[3] = (1f - vertical) * 0.5f;
-    }
-
-    /// <summary>The six numbers the shader multiplies by, taken from the frame's own metadata.</summary>
-    void Coefficients(Span<float> constants) {
-        var coefficients = texture!.Coefficients;
-
-        constants[4] = coefficients.LumaOffset;
-        constants[5] = coefficients.LumaScale;
-        constants[6] = coefficients.RedV;
-        constants[7] = coefficients.BlueU;
-        constants[8] = coefficients.GreenU;
-        constants[9] = coefficients.GreenV;
-    }
-
-    /// <summary>Points the descriptor set at the planes, when they are new ones.</summary>
-    /// <remarks>
-    ///     Only when they change, which is the first upload and any resolution change — and never
-    ///     per frame, because the planes are reused. The wait is what makes it safe: a descriptor set
-    ///     a frame still in flight is reading must not be rewritten, and the alternative to waiting
-    ///     is a set per frame in flight for something that happens twice in a run.
-    /// </remarks>
-    void Rebind() {
-        if (texture!.PlaneView(0) == boundLuma) {
+    void Draw(ICommandList commands) {
+        if (renderer is null || texture is null || player is null || texture.PlaneCount == 0) {
+            // Nothing decoded yet, so there is nothing to sample. The clear is the whole frame, which
+            // is what the first few milliseconds of any video is.
             return;
         }
 
-        device!.WaitIdle();
+        var surface = swapChain!.Size;
+        var whole = new Rectangle(0, 0, surface.X, surface.Y);
 
-        device.UpdateDescriptorSet(
-            descriptors,
-            [
-                DescriptorWrite.Texture(0, texture.PlaneView(0)),
-                DescriptorWrite.Texture(1, texture.PlaneView(1)),
-                DescriptorWrite.Texture(2, texture.PlaneView(2)),
-                DescriptorWrite.SamplerAt(3, texture.Sampler)
-            ]
+        renderer.Begin();
+
+        renderer.Record(
+            commands,
+            VideoDraw.From(texture, VideoFit.Place(VideoScaling.Contain, player, whole)),
+            surface
         );
 
-        boundLuma = texture.PlaneView(0);
+        // A sixth of the width, in the bottom-right corner, one twentieth in from each edge.
+        var inset = surface.X / 6f;
 
-        if (log is not null) {
-            SampleLog.PlanesBound(log, texture.Format.Width, texture.Format.Height, texture.PlaneCount);
-        }
+        renderer.Record(
+            commands,
+            VideoDraw.From(
+                texture,
+                VideoFit.Place(
+                    VideoScaling.Cover,
+                    player,
+                    new Rectangle(
+                        surface.X - inset - (surface.X / 20f),
+                        surface.Y - (inset * 0.75f) - (surface.Y / 20f),
+                        inset,
+                        inset * 0.75f
+                    )
+                )
+            ),
+            surface
+        );
     }
 
     bool EnsureDevice() {
@@ -443,43 +418,16 @@ public sealed class VideoGame : Game {
         vertexShader = device.CreateShader(ShaderStage.Vertex, Load("video.vert.spv"), "video vertex");
         fragmentShader = device.CreateShader(ShaderStage.Fragment, Load("video.frag.spv"), "video fragment");
 
-        setLayout = device.CreateDescriptorSetLayout(
-            new(
-                // Set 0, which the convention calls the per-frame set. A video pass has no per-frame
-                // or per-view set at all — the fit and the coefficients are twelve floats in a push
-                // constant — so the planes are the only set there is, and two empty sets in front of
-                // them would cost two bind points to honour a naming convention. `UiRenderer` makes
-                // the same call for the same reason.
-                DescriptorSetSlot.PerFrame,
-                [
-                    new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment),
-                    new(1, DescriptorKind.SampledTexture, ShaderStage.Fragment),
-                    new(2, DescriptorKind.SampledTexture, ShaderStage.Fragment),
-                    new(3, DescriptorKind.Sampler, ShaderStage.Fragment)
-                ],
-                "video planes"
-            )
+        // ⚠ The pipeline, the layout, the descriptor set and the sixty-four-byte push block all live
+        // in `VideoRenderer` now. What is left here is the two things only an application knows: the
+        // shader modules — which nothing compiles yet, so a caller supplies them — and the formats of
+        // the pass they will be drawn in.
+        renderer = new VideoRenderer(
+            device,
+            new VideoShaders(vertexShader, fragmentShader),
+            new Rendering.RenderOutput([swapChain.Format]),
+            "video"
         );
-
-        descriptors = device.CreateDescriptorSet(setLayout, "video planes");
-
-        layout = device.CreatePipelineLayout(
-            new(
-                [setLayout],
-                [new(ShaderStage.Fragment, 0, PushConstantSize)],
-                "video layout"
-            )
-        );
-
-        pipeline = device.CreateGraphicsPipeline(new(
-            vertexShader,
-            fragmentShader,
-            layout,
-            [new(swapChain.Format)],
-            Rasterizer: RasterizerState.TwoSided,
-            DepthStencil: DepthStencilState.Disabled,
-            Name: "video"
-        ));
 
         // Started here rather than in OnInitialise, and it is not a detail. The clock is the sound,
         // and building a Vulkan device takes the better part of a second — so a video that began
@@ -510,20 +458,21 @@ public sealed class VideoGame : Game {
 
         device.WaitIdle();
         swapChain?.Dispose();
+
+        // ⚠ The renderer before the texture: it holds a descriptor set pointing at the texture's
+        // plane views, and destroying a view a live set still names is the one ordering the
+        // validation layers are strictest about.
+        renderer?.Dispose();
         texture?.Dispose();
 
-        device.Destroy(pipeline);
-        device.Destroy(layout);
-        device.Destroy(descriptors);
-        device.Destroy(setLayout);
         device.Destroy(fragmentShader);
         device.Destroy(vertexShader);
 
         pool?.Dispose();
         device.Dispose();
 
-        boundLuma = default;
-        descriptors = default;
+        announced = false;
+        renderer = null;
         texture = null;
         swapChain = null;
         graph = null;

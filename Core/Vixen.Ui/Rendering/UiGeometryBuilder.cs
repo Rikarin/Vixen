@@ -118,17 +118,28 @@ public sealed class UiGeometryBuilder {
                         Path(list, command);
                         break;
 
+                    case DrawCommandKind.Surface:
+                        Surface(command);
+                        break;
+
                     default:
                         break;
                 }
             }
 
             if (indices.Count > first) {
-                draws.Add(new UiDraw(batch.Kind, first, indices.Count - first, batch.Font, clip));
+                // ⚠ The surface index comes off the batch's *first* command, which is exact rather
+                // than approximate: a surface batch is one command by construction — see
+                // BatchKind.Surface — so there is no second one to disagree with it.
+                draws.Add(
+                    new UiDraw(batch.Kind, first, indices.Count - first, batch.Font, clip) {
+                        Surface = batch.Kind == BatchKind.Surface ? list.Commands[batch.First].Surface : 0
+                    }
+                );
             }
         }
 
-        return new UiGeometry(vertices, indices, draws, shapes);
+        return new UiGeometry(vertices, indices, draws, shapes) { Surfaces = list.Surfaces };
     }
 
     /// <summary>Applies a clip push or pop, keeping the stack here so the renderer has none.</summary>
@@ -366,6 +377,40 @@ public sealed class UiGeometryBuilder {
                 indices.Add(start + (uint)corner);
             }
         }
+    }
+
+    /// <summary>An external picture, as one quad with a texture coordinate across the whole of it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The vertices are emitted even though the renderer that draws this will almost
+    ///         certainly ignore them.</b> A video is drawn by its own pipeline with its own quad built
+    ///         from the vertex index, so these four vertices are never read — and they are still here,
+    ///         because <c>UiGeometry.Draws</c> is a partition of the index buffer and a draw with no
+    ///         indices is dropped by the loop above. Four vertices is sixty-four bytes to keep the
+    ///         draw list a single ordered sequence, which is what makes a video sit *between* two
+    ///         panels rather than over both of them.
+    ///     </para>
+    ///     <para>
+    ///         The rectangle carries no aspect fitting. That is the element's, and the two answers it
+    ///         can give are the two the UI already has: shrink the rectangle, or push a clip and draw
+    ///         past it.
+    ///     </para>
+    /// </remarks>
+    void Surface(DrawCommand command) {
+        if (command.Width <= 0 || command.Height <= 0) {
+            return;
+        }
+
+        Quad(
+            command.X,
+            command.Y,
+            command.X + command.Width,
+            command.Y + command.Height,
+            Vector2.Zero,
+            Vector2.One,
+            command.Color,
+            new Vector4(command.Surface, 0, 0, 0)
+        );
     }
 
     /// <summary>Four vertices and six indices, wound the same way every time.</summary>

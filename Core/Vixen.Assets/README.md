@@ -171,6 +171,31 @@ refetched.
 bundle on the device, and a runtime that forgot the address would refuse to load something it is
 sitting on.
 
+## Content that is streamed rather than loaded
+
+Not everything wants to become an object. A two-minute cutscene is a hundred megabytes, and turning
+it into one would mean a loading screen for a cutscene longer than the cutscene — so what the catalog
+holds is a small record naming it, and the bytes come back as a stream:
+
+```csharp
+using var stream = assets.Open("cutscenes/intro#container");
+```
+
+⚠ **It claims nothing and caches nothing**, unlike every `Load` here. There is no object to share, so
+there is nothing for a second caller to be given and nothing to release; the stream is the caller's.
+That also means two callers get two independent streams over the same bytes, which is exactly what a
+video whose picture and sound both seek needs — see
+[Vixen.Video](../Vixen.Video/README.md#two-readers-one-seeker).
+
+It is also the only way to get back a payload the content build produced with a tool that is not this
+serializer. `ObjectDatabase.Read<T>` demands a matching type id and `ReadObject` demands a registered
+serializer; a WebM container, a compressed texture and an audio bitstream have neither, which is what
+`WriteRaw` was always for and `ReadRaw` is the other half of.
+
+**Build streamed payloads uncompressed.** A chunk is LZ4-packed by default, so there is no slice of
+the memory-mapped bundle that *is* the payload and `Open` has to decompress into an array. Content
+that is already compressed — which a video is — pays the build time and saves nothing.
+
 ## Still to come
 
 The streaming manager. Reloading in place, so a hot-reloaded asset updates the references pointing at

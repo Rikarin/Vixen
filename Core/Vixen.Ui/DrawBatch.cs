@@ -42,6 +42,16 @@ public enum BatchKind : byte {
     /// <summary>Lines along paths.</summary>
     PathStroke,
 
+    /// <summary>One external picture, drawn by somebody who knows what it is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Never more than one command, and not for the reason <see cref="Clip" /> is not.</b> Two
+    ///     surfaces are two textures, and two textures are two descriptor sets — so merging them would
+    ///     produce a batch a renderer cannot bind for. Two commands drawing the <i>same</i> surface
+    ///     could legitimately merge, and are still kept apart: the drawer is handed a rectangle, and a
+    ///     batch of two rectangles would need a geometry buffer this kind does not have.
+    /// </remarks>
+    Surface,
+
     /// <summary>A clip pushed or popped. Always exactly one command.</summary>
     /// <remarks>
     ///     A state change rather than a draw, and it gets a batch of its own so that the batches
@@ -141,8 +151,11 @@ public static class DrawBatcher {
 
             // ⚠ A clip never joins anything, not even another clip. Two pushes in a row would merge
             // into a batch of two under the general rule, and a batch is a thing to draw — a state
-            // change that arrives as part of a draw is a state change somebody will apply once.
-            if (kind != BatchKind.Clip && into.Count > 0 && Extends(into[^1], kind, font, rule)) {
+            // change that arrives as part of a draw is a state change somebody will apply once. A
+            // surface stands alone for a different reason, given at BatchKind.Surface.
+            if (kind is not (BatchKind.Clip or BatchKind.Surface)
+                && into.Count > 0
+                && Extends(into[^1], kind, font, rule)) {
                 into[^1] = into[^1] with { Count = into[^1].Count + 1 };
                 continue;
             }
@@ -194,6 +207,11 @@ public static class DrawBatcher {
             DrawCommandKind.Text => (BatchKind.Text, command.Font, default),
             DrawCommandKind.Path => (BatchKind.PathFill, 0, command.FillRule),
             DrawCommandKind.PathStroke => (BatchKind.PathStroke, 0, default),
+
+            // ⚠ Named explicitly rather than left to the fallback, which maps to Clip. A kind added
+            // to the enum and forgotten here becomes a state change that draws nothing, silently —
+            // and the enum has grown once already.
+            DrawCommandKind.Surface => (BatchKind.Surface, 0, default),
             _ => (BatchKind.Clip, 0, default)
         };
 }

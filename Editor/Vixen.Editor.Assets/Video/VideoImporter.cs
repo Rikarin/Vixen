@@ -61,7 +61,7 @@ public sealed class VideoImporter : AssetImporter<VideoImportSettings> {
         VideoClip clip;
 
         try {
-            clip = Describe(context, bytes);
+            clip = Describe(context, bytes, settings);
         } catch (InvalidDataException failure) {
             // A malformed file is the author's problem and belongs against the asset. An I/O failure
             // is the machine's, and is deliberately not caught — it is not a fact about the file.
@@ -92,7 +92,7 @@ public sealed class VideoImporter : AssetImporter<VideoImportSettings> {
     }
 
     /// <summary>Opens the container far enough to describe it, and no further.</summary>
-    static VideoClip Describe(ImportContext context, byte[] bytes) {
+    static VideoClip Describe(ImportContext context, byte[] bytes, VideoImportSettings settings) {
         using var demuxer = new MatroskaDemuxer(new MemoryStream(bytes, writable: false));
 
         var video = demuxer.FindTrack(MatroskaTrackKind.Video)
@@ -103,12 +103,27 @@ public sealed class VideoImporter : AssetImporter<VideoImportSettings> {
 
         var clip = new VideoClip {
             Address = context.Target,
+
+            // ⚠ Derived by the same function the content build derives it with, rather than by
+            // formatting a separator here. The two agreeing is what makes the address openable at
+            // all, and a second copy of `address + '#' + name` is a second thing to keep in step.
+            // Empty when the container was not embedded — in which case the clip's own address is
+            // what a player falls back to, and the video is expected to be a loose file. Writing the
+            // bytes and not writing this down produces a clip nothing can open, which is the state
+            // the module was in before this line existed.
+            ContainerAddress = settings.EmbedContainer
+                ? Content.BuildPlanner.SubAssetAddress(context.Target, "container")
+                : string.Empty,
             Width = video.PixelWidth,
             Height = video.PixelHeight,
             Duration = demuxer.Duration,
             FrameRateNumerator = rate.Numerator,
             FrameRateDenominator = rate.Denominator,
             CodecId = video.CodecId,
+
+            // Only the uncompressed codec has one, and it is the difference between "V_UNCOMPRESSED"
+            // and an answer to whether this clip can be played — see VideoClip.FourCc.
+            FourCc = video.ColourSpace,
             HasAudio = audio is not null,
             AudioCodecId = audio?.CodecId ?? string.Empty
         };

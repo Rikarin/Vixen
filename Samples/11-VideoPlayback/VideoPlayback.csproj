@@ -17,6 +17,10 @@
         <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Video\Vixen.Video.csproj" />
 
+        <!-- The pipeline, the descriptor set and the push block a video is drawn with, so this
+             sample is the RHI plus two calls rather than a hand-rolled renderer. -->
+        <ProjectReference Include="..\..\Core\Vixen.Video.Rendering\Vixen.Video.Rendering.csproj" />
+
         <!-- Opus, so the WebM's audio track plays and can be the clock. Referencing it is what pulls
              Concentus in; a game whose video is silent references neither. -->
         <ProjectReference Include="..\..\Core\Vixen.Video.Codecs\Vixen.Video.Codecs.csproj" />

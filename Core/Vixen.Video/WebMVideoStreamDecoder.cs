@@ -112,6 +112,14 @@ public sealed class WebMVideoStreamDecoder : IVideoStreamDecoder {
     public VideoFormat Format => codec.Format;
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     Matroska's <c>DisplayWidth</c> and <c>DisplayHeight</c>, which the demuxer defaults to the
+    ///     pixel size when the track states neither — so this is the sample count for every file with
+    ///     square pixels and the intended shape for the ones without.
+    /// </remarks>
+    public Vixen.Core.Mathematics.Int2 DisplaySize => new(Track.DisplayWidth, Track.DisplayHeight);
+
+    /// <inheritdoc />
     public TimeSpan Duration => demuxer.Duration;
 
     /// <inheritdoc />

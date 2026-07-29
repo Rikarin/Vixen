@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Video.Ui</RootNamespace>
+        <Description>
+            Video inside a user interface: the surface drawer that resolves a UI draw list's opaque
+            picture into a video's planes, and the element that puts one there.
+        </Description>
+        <PackageTags>video;ui;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ An assembly of two files, and it is two files rather than a folder in either of the
+            things it joins for a reason worth stating plainly. `Vixen.Video.Rendering` would have to
+            reference a whole UI framework — text shaping, an MSDF atlas, a styling engine — to hold
+            these ten lines, and every game that draws a cutscene and no interface would link it;
+            `Vixen.Ui.Renderer` would have to reference a WebM demuxer to hold them, and every game
+            that draws a button would link that. Neither cost is worth avoiding one project file.
+        -->
+        <ProjectReference Include="..\Vixen.Video.Rendering\Vixen.Video.Rendering.csproj" />
+        <ProjectReference Include="..\Vixen.Ui.Renderer\Vixen.Ui.Renderer.csproj" />
+        <ProjectReference Include="..\Vixen.Ui.Controls\Vixen.Ui.Controls.csproj" />
+    </ItemGroup>
+
+</Project>

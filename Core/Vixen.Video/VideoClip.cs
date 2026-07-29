@@ -26,6 +26,23 @@ public sealed record VideoClip {
     /// <summary>The address of the file, as the content build knows it.</summary>
     public string Address { get; set; } = string.Empty;
 
+    /// <summary>Where the container's bytes are, for whatever opens them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Separate from <see cref="Address" />, and it is the address of a different thing.</b>
+    ///         This record is a few dozen bytes an editor lists a hundred of; the container is the
+    ///         hundred megabytes nobody wants to touch to draw that list. They are two sub-assets of
+    ///         one import for exactly that reason, so a clip has to name the other one or a game
+    ///         holding a clip still has nothing to open.
+    ///     </para>
+    ///     <para>
+    ///         Empty when the import did not embed the container — a video left loose beside the
+    ///         executable, which is a reasonable thing to do with something that is streamed — and
+    ///         <c>VideoPlayback.Open</c> falls back to <see cref="Address" /> when it is.
+    ///     </para>
+    /// </remarks>
+    public string ContainerAddress { get; set; } = string.Empty;
+
     /// <summary>The picture's width in samples.</summary>
     public int Width { get; set; }
 
@@ -52,6 +69,15 @@ public sealed record VideoClip {
     ///     is supposed to start, which is the difference between a fallback and a black screen.
     /// </remarks>
     public string CodecId { get; set; } = string.Empty;
+
+    /// <summary>The sample format of an uncompressed track — <c>I420</c>, <c>BGRA</c> — or empty.</summary>
+    /// <remarks>
+    ///     Carried because <see cref="CodecId" /> alone does not answer the question
+    ///     <see cref="CodecId" /> exists to answer for the one codec the engine does ship:
+    ///     <c>V_UNCOMPRESSED</c> is a family, and whether it can be played depends on which member of
+    ///     it the file holds. Empty for every compressed codec, where the id is the whole answer.
+    /// </remarks>
+    public string FourCc { get; set; } = string.Empty;
 
     /// <summary>The audio codec the container names, or empty if there is no audio track.</summary>
     public string AudioCodecId { get; set; } = string.Empty;

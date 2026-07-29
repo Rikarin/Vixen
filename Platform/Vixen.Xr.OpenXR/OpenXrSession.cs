@@ -39,7 +39,7 @@ public sealed unsafe class OpenXrSession : IXrSession {
     readonly List<OpenXrSwapchain> swapchains = [];
     readonly XrView[] views;
 
-    EnvironmentBlendMode blendMode = EnvironmentBlendMode.Opaque;
+    readonly EnvironmentBlendMode blendMode = EnvironmentBlendMode.Opaque;
     bool disposed;
     bool frameOpen;
     Space referenceSpace;

@@ -147,6 +147,9 @@ Core/
 ├── Vixen.Video.Tests/
 ├── Vixen.Video.Codecs/                 # ✅ Opus behind IAudioPacketDecoder — a video's sound
 ├── Vixen.Video.Codecs.Tests/
+├── Vixen.Video.Rendering/              # ✅ The pipeline, the push block, the render feature, the ECS uploader
+├── Vixen.Video.Rendering.Tests/
+├── Vixen.Video.Ui/                     # ✅ A video as an element: the surface drawer and VideoView
 ├── Vixen.Xr/                           # ✅ session, stereo views, actions, ECS — no runtime in it
 ├── Vixen.Xr.Tests/
 │

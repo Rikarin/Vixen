@@ -141,6 +141,70 @@ public sealed class AssetManager {
     /// <returns>The scope.</returns>
     public AssetScope Scope() => new(this);
 
+    /// <summary>Opens an address's bytes as a stream, without deserialising anything.</summary>
+    /// <param name="address">The address.</param>
+    /// <param name="cancellationToken">Cancels the fetch, if the bundle has to be downloaded.</param>
+    /// <returns>A seekable stream over its payload, which the caller disposes.</returns>
+    /// <exception cref="AddressNotFoundException">The catalog has no such address.</exception>
+    /// <exception cref="BundleUnavailableException">Its bundle is not here and could not be fetched.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>For the content that is streamed rather than loaded.</b> A video is the case this
+    ///         exists for: a two-minute cutscene is a hundred megabytes and turning it into an object
+    ///         would mean a loading screen for a cutscene longer than the cutscene — so the asset the
+    ///         catalog holds is a small record naming this, and this is a stream a demuxer reads.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It claims nothing and caches nothing, unlike every <c>Load</c> here.</b> There is
+    ///         no object to share, so there is nothing for a second caller to be given and nothing to
+    ///         release; the stream is the caller's and the bundle stays mounted because bundles
+    ///         always do. That also means two callers get two streams over the same bytes, which is
+    ///         exactly what a video whose picture and sound both seek needs.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The payload is a copy, and that is a cost worth naming.</b> A bundle backend hands
+    ///         out a window onto a memory-mapped file, but a chunk is stored compressed by default —
+    ///         so there is no slice of the map that <i>is</i> the payload, and decompressing produces
+    ///         an array. Content that is genuinely streamed should be built with
+    ///         <c>CompressionMethod.None</c>, which a video already wants: a WebM is compressed
+    ///         already and packing it again costs the build time and saves nothing.
+    ///     </para>
+    /// </remarks>
+    public async ValueTask<Stream> OpenAsync(string address, CancellationToken cancellationToken = default) {
+        ArgumentNullException.ThrowIfNull(address);
+
+        var entry = Catalog.Get(address);
+
+        await MountFor(address, cancellationToken).ConfigureAwait(false);
+
+        return new MemoryStream(database.ReadRaw(entry.Id, out _), writable: false);
+    }
+
+    /// <summary>Opens an address's bytes, blocking until they are there.</summary>
+    /// <param name="address">The address.</param>
+    /// <param name="cancellationToken">Cancels the fetch.</param>
+    /// <returns>A seekable stream over its payload, which the caller disposes.</returns>
+    /// <remarks>
+    ///     Honest rather than hidden, for the reason <see cref="Load{T}" /> is: the alternative pushes
+    ///     people towards <c>.Result</c> on the asynchronous form, which deadlocks on a
+    ///     synchronisation context.
+    /// </remarks>
+    public Stream Open(string address, CancellationToken cancellationToken = default) =>
+        OpenAsync(address, cancellationToken).AsTask().GetAwaiter().GetResult();
+
+    /// <summary>Whether an address is one this manager could open right now.</summary>
+    /// <param name="address">The address.</param>
+    /// <returns>Whether the catalog knows it and its bundle is on the device.</returns>
+    /// <remarks>
+    ///     What a title checks before committing to a cutscene, so that a missing download is a
+    ///     fallback rather than an exception halfway through a fade.
+    /// </remarks>
+    public bool CanOpen(string address) =>
+        address is not null
+        && Catalog.TryGet(address, out var entry)
+        && (entry.Bundle.Length == 0
+            || (Catalog.TryGetBundle(entry.Bundle, out var bundle) && Bundles.IsAvailable(bundle)));
+
     /// <summary>How many bytes have to be downloaded before some addresses can load.</summary>
     /// <param name="addresses">The addresses.</param>
     /// <returns>The size on the wire, counting each bundle once and skipping cached ones.</returns>

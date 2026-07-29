@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
+
 namespace Vixen.Video;
 
 /// <summary>Turns whatever a video is stored as into frames, one at a time.</summary>
@@ -33,6 +35,23 @@ public interface IVideoStreamDecoder : IDisposable {
     ///     caller holding buffers is told rather than silently handed a different picture.
     /// </remarks>
     VideoFormat Format { get; }
+
+    /// <summary>How big the picture is meant to <em>look</em>, which is not always how big it is.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not a property of the codec, which is why it is defaulted here rather than derived
+    ///         from <see cref="Format" />.</b> A decoder produces a grid of samples; whether those
+    ///         samples are square is something only the container states. Anamorphic content — a
+    ///         720×480 clip meant to be shown at 853×480 — decodes to exactly the samples it has and
+    ///         is a fifth too narrow on screen unless somebody reads the container's own answer.
+    ///     </para>
+    ///     <para>
+    ///         The default is the sample count, which is right for everything with square pixels and
+    ///         is therefore right for almost everything. An implementation over a container that
+    ///         states a display size overrides it.
+    ///     </para>
+    /// </remarks>
+    Int2 DisplaySize => new(Format.Width, Format.Height);
 
     /// <summary>How long the whole video is, or <see cref="TimeSpan.Zero" /> if the container does not say.</summary>
     TimeSpan Duration { get; }

@@ -62,11 +62,16 @@ public sealed partial class Badge : Control {
 
 /// <summary>A person or an entity, as a circle with their initials in it.</summary>
 /// <remarks>
-///     ⚠ <b>Initials only, for now, and it is the draw list rather than this control that says so.</b>
-///     There is no texture command — <c>DrawCommandKind</c> has rectangles, borders, text, paths and
-///     clips — so an avatar cannot show a picture until one exists. <see cref="Initials" /> derives
-///     from a name so that the fallback every avatar needs anyway is the thing that works today, and
-///     the picture is owed.
+///     ⚠ <s><b>Initials only, for now, and it is the draw list rather than this control that says
+///     so.</b> There is no texture command — <c>DrawCommandKind</c> has rectangles, borders, text,
+///     paths and clips — so an avatar cannot show a picture until one exists.</s>
+///     <para>
+///         <b>There is one now.</b> <see cref="SurfaceView" /> draws whatever a renderer's surface
+///         drawer recognises, so an avatar with a picture is this control with one of those inside
+///         it, and the picture is no longer owed by the draw list. <see cref="Initials" /> stays as
+///         what it always was: the fallback every avatar needs anyway, for the person whose portrait
+///         has not loaded or was never set.
+///     </para>
 /// </remarks>
 public sealed partial class Avatar : Control {
     /// <inheritdoc />

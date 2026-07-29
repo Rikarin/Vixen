@@ -165,6 +165,57 @@ public readonly struct DrawContext {
             }
         );
 
+    /// <summary>Draws a picture this framework knows nothing about.</summary>
+    /// <param name="rectangle">Where it goes, in document space.</param>
+    /// <param name="source">Whatever the renderer will recognise — a <c>VideoTexture</c>, say.</param>
+    /// <param name="tint">Multiplied into it. White is the picture untouched; the alpha fades it.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="source" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         The escape hatch's escape hatch. <see cref="Fill" /> and <see cref="FillRectangle(Rectangle, Color4, float)" />
+    ///         draw things this assembly can describe; this draws one it cannot, by naming it and
+    ///         leaving the rest to <c>Vixen.Ui.Renderer</c>'s surface drawer. Nothing here opens a
+    ///         file, allocates a texture or links a decoder.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>No aspect fitting, on purpose.</b> A control that wants to letterbox shrinks the
+    ///         rectangle before it gets here; one that wants to crop pushes a clip and draws past it.
+    ///         Both are things the UI can already do, and a third way of expressing them inside a
+    ///         primitive would be a third thing that has to agree with the layout.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Faded by <c>opacity</c> like everything else here</b>, which is what makes a video
+    ///         inside a panel that is fading out fade with it rather than staying solid until the
+    ///         panel vanishes.
+    ///     </para>
+    /// </remarks>
+    public void Surface(Rectangle rectangle, object source, Color4 tint = default) {
+        ArgumentNullException.ThrowIfNull(source);
+
+        if (rectangle.Width <= 0 || rectangle.Height <= 0) {
+            return;
+        }
+
+        // ⚠ A default tint is transparent black, and a caller who passed nothing meant "as it is".
+        // Color4's default cannot be white, so the sentinel is here rather than in the type.
+        var colour = tint == default ? Color4.White : tint;
+
+        List.Add(
+            new DrawCommand(
+                DrawCommandKind.Surface,
+                rectangle.X,
+                rectangle.Y,
+                rectangle.Width,
+                rectangle.Height,
+                DrawListBuilder.Fade(colour, alpha),
+                0f,
+                0f
+            ) {
+                Surface = List.AddSurface(source)
+            }
+        );
+    }
+
     /// <summary>Draws a border inside a rectangle's edges, with per-corner radii.</summary>
     /// <param name="rectangle">Where.</param>
     /// <param name="color">What colour.</param>

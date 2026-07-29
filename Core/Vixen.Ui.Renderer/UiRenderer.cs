@@ -137,6 +137,27 @@ public sealed class UiRenderer : IDisposable {
         solidPipeline = Pipeline(shaders.Solid, output, "ui solid");
     }
 
+    /// <summary>Who draws the pictures this renderer does not understand.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         A list rather than one, and tried in order until one claims the source. A game showing
+    ///         a video and a render target in the same window has two of these and neither has to
+    ///         know about the other; the common case is zero, and a frame with no surfaces in it
+    ///         never looks at this.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An unclaimed surface draws nothing and is counted in
+    ///         <see cref="SurfacesUnclaimed" />.</b> Throwing would be the wrong answer — the source
+    ///         came from an element, and the drawers are configured by whoever assembled the frame, so
+    ///         the two parting company is a wiring mistake and not a corrupt frame. It is still worth
+    ///         being able to see, because the symptom is a hole in the interface.
+    ///     </para>
+    /// </remarks>
+    public IList<IUiSurfaceDrawer> SurfaceDrawers { get; } = new List<IUiSurfaceDrawer>();
+
+    /// <summary>How many surfaces the last <see cref="Record" /> found nobody to draw.</summary>
+    public int SurfacesUnclaimed { get; private set; }
+
     /// <summary>How many draws the last <see cref="Record" /> submitted.</summary>
     /// <remarks>
     ///     Exposed for the same reason <c>DrawList.Batched</c> is: a claim about how little a frame
@@ -205,6 +226,7 @@ public sealed class UiRenderer : IDisposable {
         ArgumentNullException.ThrowIfNull(commands);
 
         Draws = 0;
+        SurfacesUnclaimed = 0;
 
         if (geometry.Indices.Count == 0 || surface.X <= 0 || surface.Y <= 0 || scale <= 0f) {
             return;
@@ -227,6 +249,20 @@ public sealed class UiRenderer : IDisposable {
         var shared = false;
 
         foreach (var draw in geometry.Draws) {
+            if (draw.Kind == BatchKind.Surface) {
+                // ⚠ Everything this renderer had bound is now suspect, so both locals are reset and
+                // the next interface draw re-binds from scratch. The foreign pipeline has a different
+                // layout, and Vulkan disturbs every descriptor set from the first one two layouts
+                // disagree about — so the panel drawn after a video would sample the video's planes
+                // through the glyph atlas's binding. That is undefined rather than an error, and on
+                // the driver this was written against it happens to look correct.
+                Surface(commands, geometry, draw, surface, scale);
+                bound = default;
+                shared = false;
+
+                continue;
+            }
+
             var pipeline = PipelineFor(draw.Kind);
 
             if (pipeline != bound) {
@@ -283,6 +319,58 @@ public sealed class UiRenderer : IDisposable {
         }
 
         DestroyAtlas();
+    }
+
+    /// <summary>Hands one surface to whichever drawer claims it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The rectangle and the tint are read back off the quad rather than carried on the
+    ///     draw.</b> <c>UiGeometryBuilder</c> emits four vertices for a surface whose positions are
+    ///     exactly the rectangle the element asked for and whose colour is exactly the tint, faded by
+    ///     <c>opacity</c> — so the geometry is already the answer, and two more fields on
+    ///     <c>UiDraw</c> would be two more things that could disagree with it. The scissor is
+    ///     deliberately <i>not</i> set here: a drawer is told the clip and decides, because a video
+    ///     that letterboxes inside its own bounds wants a different rectangle from the one it is
+    ///     clipped to.
+    /// </remarks>
+    void Surface(
+        ICommandList commands,
+        in UiGeometry geometry,
+        in UiDraw draw,
+        Int2 surface,
+        float scale
+    ) {
+        if (SurfaceDrawers.Count == 0
+            || (uint) draw.Surface >= (uint) geometry.Surfaces.Count
+            || draw.Count == 0) {
+            SurfacesUnclaimed++;
+            return;
+        }
+
+        var corner = geometry.Vertices[(int) geometry.Indices[draw.First]];
+        var opposite = geometry.Vertices[(int) geometry.Indices[draw.First + 2]];
+
+        var request = new UiSurfaceDraw(
+            geometry.Surfaces[draw.Surface],
+            new Rectangle(
+                corner.Position.X,
+                corner.Position.Y,
+                opposite.Position.X - corner.Position.X,
+                opposite.Position.Y - corner.Position.Y
+            ),
+            corner.Color,
+            draw.Clip,
+            surface,
+            scale
+        );
+
+        foreach (var drawer in SurfaceDrawers) {
+            if (drawer.Draw(commands, in request)) {
+                Draws++;
+                return;
+            }
+        }
+
+        SurfacesUnclaimed++;
     }
 
     PipelineHandle PipelineFor(BatchKind kind) =>

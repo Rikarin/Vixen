@@ -106,6 +106,30 @@ and an interface has none.
 The batch list was not a wasted guess and is not the thing to delete. It is what `UiGeometryBuilder`
 turns into one `UiDraw` each, behind the frame diff, so a still interface regroups nothing.
 
+## Pictures this renderer does not understand
+
+A video, a render target, a camera feed, a sprite page. `Vixen.Ui` touches no device and cannot hold
+a texture, so `DrawCommandKind.Surface` names one the way a text command names a font: an index into
+a side list of `object`. This is where that index is resolved — by handing the source to each
+registered `IUiSurfaceDrawer` until one claims it.
+
+```csharp
+ui.SurfaceDrawers.Add(new VideoSurfaceDrawer(videoRenderer, uploader.TextureFor));
+```
+
+⚠ **Everything this renderer had bound is reset afterwards, unconditionally.** A drawer binds its own
+pipeline, and Vulkan disturbs every descriptor set from the first one two pipeline layouts disagree
+about — so a panel drawn after a video would sample the video's planes through the atlas's binding.
+That is undefined rather than an error, and on the driver this was written against it happens to look
+correct.
+
+The rectangle and the tint are read back off the surface's own quad rather than carried on the
+`UiDraw`: the four vertices `UiGeometryBuilder` emitted are exactly the rectangle the element asked
+for and exactly the tint, already faded by `opacity`, so the geometry is the answer and two more
+fields would be two more things that could disagree with it. A source nobody claims draws nothing and
+is counted in `SurfacesUnclaimed` — a wiring mistake shows as a hole in a panel, so throwing would
+take a game down over one.
+
 ## Gates
 
 `Platform/Vixen.Graphics.Golden.Tests` — `ui-interface` and `ui-clipped`. A picture is the only thing

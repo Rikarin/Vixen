@@ -3799,9 +3799,27 @@ holds its bandwidth, CPU, and allocation budgets for 30 minutes.
   writes down what a game needs before it opens the file, and `Samples/11-VideoPlayback` playing all
   of it at once.
 
-  **Owed on video:** MP4, which is additive behind `IVideoStreamDecoder`, and a render feature — what a
-  material does with three planes is `Vixen.Rendering`'s business, and the sample's own twenty-line
-  shader is the shape it will take.
+  **And it is now drawn as well as decoded.** `Vixen.Video.Rendering` holds the pipeline, the
+  sixty-four-byte push block, a descriptor set per texture, `VideoRenderFeature` for a compositor and
+  `VideoSurfaceUploader` for the ECS path — which is the `PreRender` step `VideoSystem`'s own remarks
+  had been naming and not doing. `Vixen.Video.Ui` puts one in an interface panel through a seam that
+  keeps both sides ignorant of each other: a draw list names an external picture the way it names a
+  font, and a registered `IUiSurfaceDrawer` resolves it. Both are separate assemblies for the reason
+  `Vixen.Ui.Renderer` is one — a game that draws a cutscene and no interface links neither, and a game
+  that draws a button links no demuxer.
+
+  **A clip can be played.** `VideoPlayback.Open` turns the record the importer wrote into a player,
+  its sound and everything holding the file, through an `IVideoContentSource` that keeps `Vixen.Video`
+  off `Vixen.Assets` — nothing else in `Core/` depends on the asset system and video was not going to
+  be the first. `AssetManager.Open` is the other half: a stream over a bundle entry, claiming nothing,
+  which is what content that is streamed rather than loaded has always needed and what `WriteRaw` had
+  no counterpart for.
+
+  **Owed on video:** MP4, which is additive behind `IVideoStreamDecoder`; a **material**, so a video
+  can be a lit texture on a mesh rather than only a rectangle of the screen — that is
+  `MaterialRenderFeature`'s and Raven's, and the three plane views are what it would consume; and
+  frame-accurate seeking, without which a scrubber lands on cue points. Never measured above 320×180
+  and never run on the web target.
 
 **Exit:** deferred and forward+ both pass the golden-image suite. `Samples/02` and `Samples/06` run in
 three browsers within the download-size budget. `Samples/06` holds 60 fps with a 4 K canvas and 20
