@@ -1482,6 +1482,19 @@ the ring is a property of the binding, not of the data.
 `EffectConstants` moves only when a value actually changed, so a post pass whose parameters are the
 same every frame keeps reading the region it already has and the ring costs nothing.
 
+**And one of them is a ring whose regions are not interchangeable.** `PersistentUploadBuffer<T>` —
+the culling scene's object records — keeps its contents across frames rather than refilling them,
+because a hundred thousand object bounds are the same bytes they were last frame for all but a
+handful. That turns the ring's invariant inside out: this frame's region is not empty, it is
+`FramesInFlight` frames *stale*, and what it is missing is every change since it was last written. So
+a change is marked dirty in every region and each of them flushes its own set when its turn comes.
+One moved object costs one record per frame for three frames, rather than three megabytes once.
+
+Which records changed is decided by **comparing the bytes**, not by a flag a writer sets. Anything
+holding a `ref RenderObject` can move an object, and a writer that forgets to say so would be
+silently wrong — bounds a frame culled against, with nothing anywhere to say why. The comparison
+cannot miss one, and it reads exactly the data the culling loop reads anyway.
+
 **Destroying is not the same problem, and it was already solved.** Growing one of these buffers hands
 the old handle back while the frame that used it may still be running — which is safe, because every
 `Destroy` on `IGraphicsDevice` is deferred by `FramesInFlight`. The contract is now stated on the

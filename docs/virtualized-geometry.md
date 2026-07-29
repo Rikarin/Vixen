@@ -55,6 +55,7 @@ answering the *difference* — is done and device-verified.
 | **Compaction** — survivors appended, one command per batch | ✅ | `GpuDrawArguments.Compact` |
 | Discrete LOD with hysteresis and dither cross-fade | ✅ | [LodRenderFeature.cs](../Core/Vixen.Rendering/Features/LodRenderFeature.cs) |
 | Deferred/GBuffer *shaders* | ✅ | `Pipeline/GBuffer.rvn`, `Pipeline/Deferred.rvn` |
+| **An incremental GPU scene** — object records rewritten only where they changed | ✅ | [PersistentUploadBuffer.cs](../Core/Vixen.Rendering/PersistentUploadBuffer.cs) |
 | **Workgroup-shared memory in Raven** — `groupshared`, `barrier()`, an atomic rooted in it | ✅ | B1 below |
 | **64-bit integers and atomics in Raven** — `int64`/`uint64`, `Int64`/`Int64Atomics` reported apart | ✅ | B2 below |
 | **`SampleGrad` in Raven** — gradients the caller computed, in every stage | ✅ | B3 below |
@@ -182,28 +183,56 @@ feature.
 
 ---
 
-### Phase 0 — Unblockers · ~1 EM · **mostly built**
+### Phase 0 — Unblockers · ~1 EM · ✅ built
 
 Nothing here is virtualized geometry. All of it is owed to something else already. **Two of the five
 items this phase used to hold were built with the bindless plan** — the geometry arena is
 `GeometryBuffer` and the device-supplied draw count is `DrawIndexedIndirectCount`, along with the
-material records that were the third. **The two Raven items are now built too**, together with the
-64-bit atomics phase 6 wanted, so what is left of this phase is one upload rewrite.
+material records that were the third.
 
 | | Work | Owed to | |
 |---|---|---|---|
 | 0.1 | **Workgroup-shared memory in Raven** — the storage class, the barrier intrinsics, the atomic root that is not a local | B1, GPU sort (#50), a compaction with one counter per workgroup rather than one per dispatch | ✅ |
 | 0.2 | **`SampleGrad` in Raven** — explicit gradients, so a sample outside a fragment quad filters correctly | B3, phase 5 | ✅ |
-| 0.3 | **Incremental GPU scene** — [GpuVisibilityGroup.cs:523](../Core/Vixen.Rendering/GpuVisibilityGroup.cs:523) still repacks and re-uploads every object every frame. Dirty-tracked ranges, driven by the ECS change versions [04](plan/04-ecs-and-scripting.md) already exposes | everything; it is the cost floor at 100k instances | ⬜ |
+| 0.3 | **Incremental GPU scene** — the object records were repacked and re-uploaded every frame. Now a persistent buffer, rewritten only where it changed | everything; it was the cost floor at 100k instances | ✅ |
 | 0.4 | **64-bit integers and atomics in Raven** — `int64`/`uint64`, every atomic at both widths, `Int64` and `Int64Atomics` reported separately | B2, phase 6 | ✅ |
 
 **Exit:** a 100k-instance scene where a frame that moves one object uploads one object's worth of
 bytes, asserted by counting the upload. Deleting the dirty tracking makes the assertion fail rather
-than making the frame slower.
+than making the frame slower. Both are `GpuVisibilityGroupTests`, and the second was checked by
+doing it.
 
-0.3 is the one worth doing on its own merits whatever happens to the rest of this document: with
-compaction built, the per-frame repack is now the largest fixed CPU cost in a GPU-culled frame — and
-it is now the only thing standing between here and phase 1.
+#### What 0.3 turned out to be
+
+[`PersistentUploadBuffer<T>`](../Core/Vixen.Rendering/PersistentUploadBuffer.cs), the sibling of
+`UploadBuffer<T>`: same ring of one region per frame in flight, and the opposite policy about what
+is in it. `UploadBuffer` is refilled from scratch, which is right for a skeleton's matrices or a
+frame's light list — data the host recomputes anyway. Object records are the same bytes they were
+last frame for all but a handful of a hundred thousand, and uploading all of them costs three
+megabytes a frame to say so.
+
+Three decisions worth keeping:
+
+- **Dirtiness is decided by comparison, not by cooperation.** The plan said "driven by the ECS
+  change versions", and the ECS does expose them — but nothing bridges the ECS to
+  `RenderObjectStore` yet, and `RenderObjectStore` hands out a `ref` that any feature may write
+  through. A flag those writers had to set would be *silently* wrong when one of them forgot, which
+  is bounds a frame culled against and a diagnostic nowhere. Comparing the packed bytes cannot miss
+  a change, and it reads exactly the bounds and stage mask the culling loop reads anyway. The linear
+  pass stays; what leaves the host is the difference.
+- **A dirty set per region, not one.** A persistent buffer cannot simply rewrite this frame's
+  region: that region is `FramesInFlight` frames stale, and what it is missing is every change
+  since. So a change marks the record in every region and each flushes its own set when its turn
+  comes — one moved object costs one record per frame for three frames rather than the whole buffer
+  once.
+- **A region starts entirely dirty.** Not conservatism, and it is the case a comparison alone gets
+  wrong: a record the host has never set is zeroed in its copy and undefined on the device, so
+  comparing the two finds no difference and skips the one write that mattered. A bit cleared only by
+  an actual write makes "never written" and "differs" the same state.
+
+What it does *not* do is remove the per-frame walk over the object array — that needs the store to
+own mutation rather than hand out a `ref`, which is a separate change with a wider blast radius and
+no visible payoff until something profiles it.
 
 ---
 
@@ -493,7 +522,7 @@ being a mystery in a frame capture.
 
 | Phase | EM | Cumulative |
 |---|---|---|
-| 0 — Unblockers (0.1, 0.2, 0.4 built; 0.3 left) | ~1 | 1 |
+| 0 — Unblockers ✅ | ~1 | 1 |
 | 1 — Cluster DAG ✅ | ~3 | 4 |
 | 2 — Pages and residency | ~2 | 6 |
 | 3 — Hierarchical culling | ~2.5 | 8.5 |

@@ -1239,6 +1239,8 @@ Vixen.Rendering.GpuVisibilityGroup.GpuVisibilityGroup(Vixen.Graphics.IGraphicsDe
 Vixen.Rendering.GpuVisibilityGroup.Hide(int viewIndex, Vixen.Rendering.RenderObjectId id) -> void
 Vixen.Rendering.GpuVisibilityGroup.IsVisible(int viewIndex, Vixen.Rendering.RenderObjectId id) -> bool
 Vixen.Rendering.GpuVisibilityGroup.LatePhaseRan.get -> bool
+Vixen.Rendering.GpuVisibilityGroup.ObjectBytesUploaded.get -> long
+Vixen.Rendering.GpuVisibilityGroup.ObjectUploadRegions.get -> int
 Vixen.Rendering.GpuVisibilityGroup.Occluders.get -> Vixen.Rendering.HiZPyramid?
 Vixen.Rendering.GpuVisibilityGroup.Occluders.set -> Vixen.Rendering.HiZPyramid?
 Vixen.Rendering.GpuVisibilityGroup.OcclusionTested.get -> bool
@@ -1886,6 +1888,26 @@ Vixen.Rendering.ModelPart.ModelPart() -> void
 Vixen.Rendering.ModelPart.Node.get -> int
 Vixen.Rendering.ModelPart.Node.set -> int
 Vixen.Rendering.ParticleLights -> static class
+Vixen.Rendering.PersistentUploadBuffer<T> -> sealed class
+Vixen.Rendering.PersistentUploadBuffer<T> : System.IDisposable
+Vixen.Rendering.PersistentUploadBuffer<T>.Alignment.get -> int
+Vixen.Rendering.PersistentUploadBuffer<T>.Alignment.set -> int
+Vixen.Rendering.PersistentUploadBuffer<T>.Begin(int required) -> void
+Vixen.Rendering.PersistentUploadBuffer<T>.Buffer.get -> Vixen.Graphics.BufferHandle
+Vixen.Rendering.PersistentUploadBuffer<T>.Capacity.get -> int
+Vixen.Rendering.PersistentUploadBuffer<T>.Count.get -> int
+Vixen.Rendering.PersistentUploadBuffer<T>.Device.get -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.PersistentUploadBuffer<T>.Device.set -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.PersistentUploadBuffer<T>.Dispose() -> void
+Vixen.Rendering.PersistentUploadBuffer<T>.Items.get -> System.ReadOnlySpan<T>
+Vixen.Rendering.PersistentUploadBuffer<T>.LastUploadBytes.get -> long
+Vixen.Rendering.PersistentUploadBuffer<T>.LastUploadRegions.get -> int
+Vixen.Rendering.PersistentUploadBuffer<T>.Offset.get -> long
+Vixen.Rendering.PersistentUploadBuffer<T>.PersistentUploadBuffer(string name, Vixen.Graphics.BufferUsage usage = Vixen.Graphics.BufferUsage.Storage) -> void
+Vixen.Rendering.PersistentUploadBuffer<T>.Set(int index, in T value) -> void
+Vixen.Rendering.PersistentUploadBuffer<T>.Slots.get -> int
+Vixen.Rendering.PersistentUploadBuffer<T>.Stride.get -> long
+Vixen.Rendering.PersistentUploadBuffer<T>.Upload() -> void
 Vixen.Rendering.PipelineCache -> sealed class
 Vixen.Rendering.PipelineCache.Clear() -> void
 Vixen.Rendering.PipelineCache.Count.get -> int
@@ -2498,6 +2520,7 @@ const Vixen.Rendering.Materials.MaterialKeys.DefaultLayerCount = 2 -> int
 const Vixen.Rendering.MeshPrimitives.DefaultRings = 16 -> int
 const Vixen.Rendering.MeshPrimitives.DefaultSegments = 32 -> int
 const Vixen.Rendering.MeshPrimitives.MinimumSegments = 3 -> int
+const Vixen.Rendering.PersistentUploadBuffer<T>.MergeGap = 16 -> int
 const Vixen.Rendering.RenderStageMask.Capacity = 64 -> int
 const Vixen.Rendering.ShadowCascades.MaxCascades = 4 -> int
 const Vixen.Rendering.ShadowProjections.MaximumConeAngle = 1.48 -> float
