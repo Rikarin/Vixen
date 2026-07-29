@@ -107,7 +107,9 @@ brick whether a ray tracer wrote it this frame or a cube capture wrote it at bui
   Volumetric Lightmap detail, and it is the one everybody rediscovers the hard way.
 - **Indirection.** A 3D index texture mapping world cell → brick slot in the pool. Sampling is:
   world position → cell → index fetch → UVW → trilinear. Integer arithmetic and two fetches. No
-  Delaunay, no predicates, **no repeat of the tetrahedral failure recorded in doc 06**.
+  Delaunay, no predicates, and **no exact-predicate problem to have** — which is the point, and is
+  now a claim about robustness rather than about a failure, since doc 06's tetrahedral row has
+  since been fixed with `ExactPredicates` and reads 🟡 rather than ⛔.
 - **Payload.** L1 SH per probe (4 coefficients per channel), plus a validity scalar and a
   directional-light shadowing scalar. L1 not L2: half the pool, and it is what both Unity and Epic
   ship as default.
@@ -125,7 +127,7 @@ Struck from doc 06 and from the roadmap. These are not "P2, later" — they are 
 | Retired | Why |
 |---|---|
 | **Texture lightmaps and the whole GI bake tool** | The single biggest saving. Kills a lightmap UV unwrapper, a chart packer, seam fixing, an atlas allocator, and a UV channel in the mesh format. This tool is never written |
-| **Tetrahedral light-probe interpolation** | Attempted, found wrong by its own tests, withdrawn. §3 is the replacement, and it cannot fail the same way |
+| **Tetrahedral light-probe interpolation** | Retired as *this document's* answer, not as code: it was attempted, found wrong by its own tests, and has since been fixed — `ExactPredicates` + `DelaunayTetrahedralization` + `LightProbeVolume` are built and doc 06's row reads 🟡. §3 is still what the plan commits to, because a lattice inside a brick needs no predicates to be right and no triangulation to sample |
 | **Indirect-lighting-cache-style per-object probe sampling** | Subsumed by the irradiance field |
 | **Baked static shadow data** | Replaced by the per-probe shadowing scalar, plus SDF shadows in L1 |
 
@@ -155,6 +157,48 @@ discipline `EnvironmentBaker` and `SphericalHarmonics` already follow.
 **Exit:** a sphere's baked field matches its analytic distance to tolerance; the clipmap's traced
 occlusion matches a CPU reference on a fixture scene; two bakes are byte-identical.
 
+**Status: built, and it has now drawn.** The bake, the clipmap (which scrolls rather than
+recomposites), the CPU tracer, the importer stage, the volume textures, the compositor node, the Raven
+module and `DistanceFieldAo` all exist and are gated. `DistanceFieldAoImageTests` runs the pass through
+a real compositor on a real device and reads the picture back: with `NoDistanceField` behind the slot
+every pixel comes back `(1, 1, 0)` — fully open, fully lit, nothing in blue — which is the answer that
+is knowable exactly and as far from a shader that did not run as a frame can be.
+
+It found what a first execution always finds here. **A full-screen pass had no way to fill a compose
+slot at all**, so `DistanceFieldAo` could not be built by a compositor under *any* composition: the key
+carried none, the compiler refused the unbound slot, the effect system recorded a miss, and the node
+drew nothing while looking exactly like a pass nobody scheduled. `FullScreenRenderer.Composition` is
+the fix, and `DistanceFieldAoRenderer.Source` is what sets it — defaulting to `NoDistanceField`,
+because a project with no clipmap has no field to trace. That is the sixth time something real running
+has found something the layer below had agreed with itself about, after the unbound material slot, the
+binding-name confusion, three errors in the first rendered scene, and the scroll's float associativity.
+
+**And a frame now traces an actual clipmap.** `ATracedFrameSeesWhatTheFieldHolds` puts a ball above
+the reconstructed plane, composites the clipmap, copies it up and reads the picture back: black under
+the ball, lit at the corners. Every part of L1 at once, on a device.
+
+Getting there found three more defects of the same kind, all of them structural and none of them
+visible to anything that was not a whole frame:
+
+- **A full-screen pass could not bind set 0.** A mesh feature binds it for a geometry pass and
+  `RenderPassRenderer` only puts it in the context for children to find; a full-screen pass has
+  neither. So a post effect whose shader declares anything per-frame — which is exactly what a
+  composed clipmap is — declared a set nothing bound. `FullScreenRenderer.SceneConstants` is the fix.
+- **`GlobalDistanceFieldRenderer` was in the wrong phase.** It overrode `Record`, which runs *inside*
+  a render pass, and it records a buffer-to-texture copy — which is illegal there. It could never have
+  run in a real frame. It now declares its own `PassKind.Transfer` pass in `Build`, marked as having a
+  side effect because the volumes are not graph resources and a pass writing no graph resource is a
+  pass the graph culls.
+- **Neither GPU mirror transitioned its own textures.** Same root cause as the above: the volumes are
+  named into a descriptor set rather than read through the graph, so nothing else in the frame knows
+  they exist. A texture never moved out of `UNDEFINED` is a validation error at the copy, and one left
+  in `TRANSFER_DST` is one at the draw that samples it. Both were true, of the distance-field mirror
+  and of the irradiance one, and both now barrier around their own copies.
+
+That is the pattern this document has recorded five times now, and it is worth stating as a rule
+rather than as a list: **a layer checked only against its own mirror is a layer that has not been
+checked.** Every one of these passed every test it had.
+
 ### L2 — The irradiance field *(2.0 EM)*
 
 §3's structure, both fillers.
@@ -169,11 +213,170 @@ occlusion matches a CPU reference on a fixture scene; two bakes are byte-identic
   hits, dilation into invalid probes, normal bias, view bias.
 
 **Ships on its own:** dynamic indirect diffuse everywhere, on every target. This is the phase that
-closes doc 06's withdrawn light-probe row, and the point at which Vixen has GI at all.
+supersedes doc 06's light-probe row, and the point at which Vixen has GI at all. Superseded rather
+than closed: that row's CPU half was repaired after this document was written, so the two are now
+alternative answers rather than a replacement for a hole.
 
 **Exit:** a closed box lit from outside stays dark (the leak test); moving a light updates indirect
 within a bounded frame count; the same scene through filler A and filler B agree within a stated
 tolerance.
+
+**Status: filler A is complete on both sides, repair included, and the two agree; filler B is not
+started.**
+[`Vixen.Rendering.IrradianceFields`](../../Core/Vixen.Rendering.IrradianceFields/README.md) holds the
+payload (`SphericalHarmonicsL1` plus validity and a sun-shadow scalar), the pool (4³ probes in a 5³
+footprint, fixed capacity, cleared on release), the indirection grid, and the border sync. The seam is
+closed and the closure is checked the way a bake is: a field filled from a linear function of world
+position is reproduced *exactly* across a brick boundary, and the same field with its borders left
+alone is badly wrong — because a layout detail that looks like padding needs a test that fails when
+you remove it.
+
+Dilation and the normal bias are in, and running them turned the leak criterion above into something
+sharper than it was written as. **The pass count is not the knob** — a repair never overwrites a valid
+probe, so each face of a wall fills inward from its own side and the two meet without mixing, and the
+closed-box test passes at one, two and eight passes alike. The knob is **how thick a wall is in
+probes**: three works, exactly one leaks at full strength in a single pass, and thinner than the probe
+spacing is worse still because every probe is then valid and there is nothing to repair or to notice.
+Both failures have tests asserting that they *do* leak, so the day refinement fixes them the tests say
+which one it fixed. That makes refinement a leak fix rather than a memory optimisation, which is not
+how § 3 currently reads.
+
+**Filler A now has a CPU reference**, the way the distance-field tracer had one before its shader port:
+sixty-four Fibonacci directions per probe marched through an `IDistanceField`, cosine-projected into
+L1, validity from the field's sign, a sun-shadow ray, hysteresis, and a resumable budget. The exit
+criterion above is asserted end to end against it — a field filled inside a closed box, dilated and
+synced, is dark at every interior point, because each ray hit the inside of the shell before it
+reached anything bright.
+
+It also corrected this section. **The backface vote cannot fire against an exact field**: sphere
+tracing stops where the field crosses zero on the way down and the gradient there always opposes the
+ray, so the sign answers every time. The vote earns its place against a *sampled* field, where an
+over-reported step lands past a thin wall and the surface it then finds is seen from behind. Both are
+implemented; § L2's bullet should say which one answers when, rather than naming the vote alone.
+
+**Refinement is in**, as a brick size stored beside the slot in every cell the brick covers — Epic's
+arrangement, and the reason a lookup never searches or climbs. `Allocate` covers a region at a size and
+`Refine` splits what overlaps another until it is fine enough; a split discards the parent's probes
+rather than interpolating them down, because interpolated children look converged and a filler would
+then be blending toward the truth from a lie.
+
+Two things fell out of it that this section did not anticipate. **There is no field-wide probe lattice
+once bricks differ in size** — "the probe next door" becomes a question about world positions, and
+dilation and the filler's walk both had to be rewritten in those terms. And **border sync has an
+order: coarsest first.** A fine brick borrowing from a coarse neighbour interpolates that neighbour's
+field at a position that can fall in the coarse brick's own border plane, so the coarse brick has to
+be finished first; the reverse never happens. The seam test on a refined field is what found it, and
+the obvious way to make a pass order-independent — compute everything, then write everything — is
+exactly what breaks it.
+
+**The GPU side is in**: `Raven/Library/IrradianceFields` for the lookup and
+`Vixen.Rendering.Lighting.IrradianceFieldTexture` for what feeds it. Four pool volumes rather than six
+— validity rides in the constant term's alpha and the sun's shadow in the red channel's — packed
+colour-major so one fetch gives one colour's three coefficients, which is what the evaluation wants.
+The index volume is point sampled and therefore always half-precision; it holds integers, and `Upload`
+refuses a pool past 2048 texels an axis rather than storing an origin that rounds. Two indirection
+fetches per pixel, the first only to learn the brick size the normal bias is measured in.
+
+The convention is pinned the way L1's was, and the same way round: a test walks the shader's
+addressing in C# and asserts it reaches the texels the field's own sampler reads — on a refined field
+as well as a uniform one, because the divide by the brick size is a step a uniform field never
+exercises.
+
+**And L2 has drawn.** `IndirectDiffuse` is the consumer: a screen-space pass composing
+`IIrradianceSource`, with `IrradianceFieldRenderer` filling a budget of bricks a frame, dilating,
+syncing borders and copying the field up in a transfer pass. `IndirectDiffuseImageTests` runs it on a
+device — an empty world under a uniform sky of radiance *L* comes back as a flat frame of *L*, which
+is the same closed form the projection and the filler are each held against, now reached through the
+pool, the index volume and the shader's basis. *L* is deliberately neither a half nor a one, because
+the g-buffer clears to halves and the shader writes a one into alpha, and a radiance equal to either
+would pass for a picture that had merely copied something through.
+
+A screen-space pass rather than a term inside the shading models, and that is a scoping decision
+rather than the end state: a compose slot on `ForwardPlus` and `Deferred` would put an unbound slot in
+every material in every project until each named a filler. What comes out is a buffer, which is what a
+payload stored over π is for.
+
+**Filler A dispatches, and agrees with the reference to a ten-thousandth.** `IrradianceFill` — one
+workgroup per brick, one invocation per probe, the bricks to do in a buffer indexed by the group — is
+driven by `IrradianceFieldFill`, and `IrradianceFillDeviceTests` runs it on a device and reads the pool
+back. Every one of the sixty-four probes of every brick is the probe `TracedIrradianceFiller` writes
+for the same position. `IrradianceFieldTexture.PoolIsWritten` is the storage half: set, the pool is a
+storage image the dispatch owns and the mirror uploads only the index volume, because allocation and
+refinement stay a CPU decision and only the probes move; `IrradianceFieldRenderer.DeviceFiller` is the
+one property that switches between the two, and asking for both fillers at once is refused rather than
+resolved.
+
+What the node turned out to need, all of it found by trying:
+
+- **It cannot be a `ComputeRenderer`.** That node binds resources by graph name, and the fill writes
+  four storage images the graph does not own. `HiZPyramid` is the shape — a hand-rolled node writing
+  its own descriptors and its own barriers.
+- **Its binding indices come from the compiled effect, not from the generated constants.** Reflection
+  describes *one* variant — the checked-in one was produced with `GlobalDistanceField` filling the slot
+  — and a different implementation behind `distanceField` may declare resources that renumber
+  everything after them. The names are safe; the numbers are the compilation's. Set 2 is filled by
+  hand from `Effect.BindingOf` rather than through `EffectSetWriter`, for one reason: the job buffer is
+  a ring, and what has to be bound is *this frame's region of it* — a name-driven write has nowhere to
+  put an offset.
+- **The composed source may declare no set 0 at all.** `NoDistanceField` does, which is why it is the
+  composition the test runs under: a node that assumed a set 0 would bind a set nothing filled.
+- **A struct that agrees with a comment agrees with nothing.** `IrradianceFillJob` is std430 — three
+  `float3`-shaped members at 0, 16 and 32, stride 48 — and sequential layout would make it 36, reading
+  every job after the first out of the middle of the one before it. `IrradianceFillJobTests` asserts
+  the offsets against `IrradianceFill.reflect.json` rather than against the number written here.
+- **A pool readback is what makes a device-authored field checkable at all.** With `PoolIsWritten` set,
+  the CPU field beside it is no longer what the shader reads, so every closed form L2 was built against
+  has nothing to test. `RecordReadback`/`TryRead` are the way back, and they are also what separates
+  "the dispatch wrote nothing" from "the dispatch wrote elsewhere" — two failures that draw the same
+  unlit frame. The earlier attempt that produced garbage was diagnosable only by guessing.
+
+The reference is the CPU filler rather than the closed form, and that is the stronger check: a uniform
+sky constrains only the constant coefficient, so a transposition or a sign error among the three linear
+ones is invisible to it. Sixty-four Fibonacci directions do not sum to exactly zero, so the reference's
+linear coefficients are small nonzero numbers a wrong shader has no way of reproducing.
+
+Adding the fill shader also found that **a slot has to be filled where it is *declared*, not where it
+is used**: `IrradianceFill` declares `distanceField`, so every material in every project needed a
+filler for a slot no material can reach. `MaterialCompiler.PassSlots` and `PassComposition` are the
+pass-side counterpart of `OptionalSlots`, because a full-screen pass composing one typed slot cannot
+compile beside a shader declaring another unless it names both.
+
+**The dilation and the border sync are dispatches too, and the fill drives them.** `IrradianceRepair`
+is one shader in three permutations — gather, promote, borders — and `IrradianceFieldFill` owns an
+`IrradianceFieldRepair` and runs it after every fill, in the order the CPU insists on. One call rather
+than two, because a fill without its repair leaves a rind of unlit probes and a seam at every brick
+boundary, and both read as lighting bugs rather than as a missing line.
+
+Three things that only showed up in the writing:
+
+- **A device has nowhere to put a deferred write list.** `Dilate` applies its repairs after the whole
+  sweep so a repair cannot feed the probe beside it in the same pass; on a GPU that ordering is the
+  scheduler's. The answer is a **sign**: a repair is written with its validity negated, which is a value
+  no filler produces and which every reader already rejects — `validity <= 0` was already the test for
+  "do not borrow from this". A four-instruction promote pass flips it back. No scratch memory, no
+  ping-pong pool.
+- **`MathF.Round` breaks ties to even and GLSL's `round` does not**, and on this data ties are
+  structural rather than rare: a fine brick's probes sit exactly halfway between a coarse neighbour's,
+  so *every* lookup across a refinement boundary lands on one. Both sides now spell the tie-break out as
+  `floor(x + ½)`, which is the fix that removes an unspecified dependency rather than teaching one side
+  to imitate the other's quirk. Found by the refined case of the comparison test and by nothing else.
+- **The pool cannot be sampled while it is being written.** An image is in one layout at a time, so
+  every read in the repair is an explicit `Load` and the trilinear a fine brick needs across a size
+  boundary is written out by hand — which is also what makes it match `IrradianceBrickPool.Sample`
+  rather than approximately agree with it.
+
+`IrradianceRepairDeviceTests` seeds the pool from the reference filler tracing an analytic sphere,
+dispatches the repair, and compares **all one hundred and twenty-five texels** of every brick — the
+sixty-four a fill writes and the sixty-one it does not. On a refined field as well as a uniform one,
+because the coarsest-first ordering exists for the refined case and a uniform field never reaches it.
+Seeding a pool and then dispatching into it is not a test-only shape: it is filler B handing a field to
+filler A, and it is why the mirror carries both usages.
+
+Owed, in the order they change the picture: the shading models reading the buffer; filler B at all; a
+policy that decides *where* to refine, which § 3 says is renderer bounds and the `VisibilityGroup`
+already has; and the view bias. And one optimisation that is now visible: the repair runs over every
+brick every frame, because a brick the budget did not refill still has neighbours that were — narrowing
+it to the dirty bricks and their neighbours is real work and is not done.
 
 ### L3 — Screen probe gather *(3.0 EM)*
 
@@ -276,5 +479,6 @@ the architecture rather than an implementation detail.
   belongs there and the estimate moves accordingly; L3–L6 are a post-1.0 track.
 - **[05](05-graphics-rhi.md)** — add acceleration structures to the capability register as declared
   and unimplemented, so L6 has somewhere to land.
-- **[../overview.md](../overview.md)** — the withdrawn light-probe entry becomes "superseded by 19"
+- **[../overview.md](../overview.md)** — the light-probe entry keeps its own status and gains a note
+  that § L2 is not built on it
   rather than "owed".

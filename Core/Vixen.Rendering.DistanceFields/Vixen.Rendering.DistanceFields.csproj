@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Rendering.DistanceFields</RootNamespace>
+        <Description>
+            Signed distance fields over mesh geometry: an exact-distance bake with a robust sign,
+            and the trilinear field it produces. The tracing substrate the global illumination path
+            of docs/plan/19 is built on — distance-field shadows and occlusion read it directly, and
+            everything above them traces it. Entirely CPU-side and device-free, so a bake is checked
+            against closed forms rather than against a picture.
+        </Description>
+        <PackageTags>distance-field;sdf;global-illumination;lumen;raymarching;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            A field is written by a content build and read by a player, so the field types carry
+            [DataContract] and this emits their serializers at compile time. ADR-002: no reflection,
+            no IL weaving, and the generated C# is on disk and steppable.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Rendering.DistanceFields.Tests" />
+    </ItemGroup>
+
+</Project>

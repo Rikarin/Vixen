@@ -88,6 +88,16 @@ public abstract class PostEffectRenderer : SceneRenderer, IDisposable {
     /// <summary>The pass this effect is, for a host that wants to look at what it did.</summary>
     public FullScreenRenderer Pass => pass;
 
+    /// <summary>The frame's set 0, for an effect whose shader declares anything per-frame.</summary>
+    /// <remarks>
+    ///     Null for almost every one of these — see <see cref="FullScreenRenderer.SceneConstants" />
+    ///     for the exception and for why nothing else in the path would bind it.
+    /// </remarks>
+    public SceneConstants? SceneConstants {
+        get => pass.SceneConstants;
+        set => pass.SceneConstants = value;
+    }
+
     /// <summary>The size the effect's own target is, given the frame's.</summary>
     /// <remarks>
     ///     The frame's by default. An effect that runs at half resolution — ambient occlusion is the

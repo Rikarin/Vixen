@@ -56,7 +56,7 @@ public static class MaterialCompiler {
     ///     because that is a base workflow plus every optional feature the library has, and because a
     ///     ninth would be a slot every material pays a binding for.
     /// </remarks>
-    static readonly string[] ChainSlots = [
+    internal static readonly string[] ChainSlots = [
         "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth"
     ];
 
@@ -68,13 +68,100 @@ public static class MaterialCompiler {
     ///     added to the library and not added here shows up as <c>RVN2073</c> the first time
     ///     something compiles a material, which is a loud failure rather than a quiet one.
     /// </remarks>
-    static readonly (string Shader, string Slot)[] OptionalSlots = [
-        ("BlendSurface", "under"),
-        ("BlendSurface", "over")
+    internal static readonly (string Shader, string Slot, string Filler)[] OptionalSlots = [
+        ("BlendSurface", "under", IdentityShader),
+        ("BlendSurface", "over", IdentityShader),
+
+        // The traced pass's field. Its filler is not the identity surface — a slot is typed, and this
+        // one wants an IDistanceFieldSource rather than an IMaterialSurface. A material compiled
+        // beside a pass that can trace has to name something for it even though it never reaches it,
+        // and what it names answers "nothing is near".
+        ("DistanceFieldAo", "distanceField", EmptyFieldShader),
+
+        // And the indirect pass's field, for the same reason and with the same shape. Its filler
+        // answers "no indirect light and nothing shadowing the sun", which are two different right
+        // answers rather than one convenient zero.
+        ("IndirectDiffuse", "irradiance", EmptyIrradianceShader),
+
+        // And the fill shader's, which traces the same clipmap the traced pass does. A material never
+        // reaches a compute shader, and that is exactly why this is here: a slot has to be bound
+        // wherever it is *declared*, not wherever it is used.
+        ("IrradianceFill", "distanceField", EmptyFieldShader)
     ];
+
+    /// <summary>The typed slots a pass has to name whether or not it reaches them, and their fillers.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Bare slot names rather than qualified ones, because a pass is compiled against a source
+    ///         set rather than against a material: a bare binding fills the slot wherever it is
+    ///         declared, which is what a compilation holding two shaders that each declare one needs.
+    ///     </para>
+    ///     <para>
+    ///         The material path uses <see cref="OptionalSlots" /> for the same job and cannot share
+    ///         this list, because there the qualification is what keeps one shader's slot from
+    ///         accidentally filling another's. The two answer different questions about the same
+    ///         fillers, and <c>ComposeSlotInventoryTests</c> holds them against each other.
+    ///     </para>
+    /// </remarks>
+    internal static readonly (string Slot, string Filler)[] PassSlots = [
+        ("distanceField", EmptyFieldShader),
+        ("irradiance", EmptyIrradianceShader)
+    ];
+
+    /// <summary>A pass's composition, with every typed slot it did not name filled by its default.</summary>
+    /// <param name="slot">The slot this pass actually cares about.</param>
+    /// <param name="filler">What to put behind it.</param>
+    /// <returns>The composition.</returns>
+    /// <exception cref="ArgumentException">The slot or the filler is empty.</exception>
+    /// <remarks>
+    ///     <b>Every slot a compilation's sources declare has to be bound, whether or not the shader
+    ///     being compiled reaches it.</b> A post pass composing one of them therefore cannot compile
+    ///     beside a shader declaring another unless it names a filler for that one too — which is the
+    ///     same job <see cref="OptionalSlots" /> does for a material, and the same failure when it is
+    ///     not done: the compiler refuses the variant, the effect system records a miss, and the node
+    ///     draws nothing while looking exactly like a pass nobody scheduled.
+    /// </remarks>
+    public static ShaderComposition PassComposition(string slot, string filler) {
+        ArgumentException.ThrowIfNullOrEmpty(slot);
+        ArgumentException.ThrowIfNullOrEmpty(filler);
+
+        Dictionary<string, string> bindings = Defaults();
+
+        bindings[slot] = filler;
+
+        return ShaderComposition.Of(bindings);
+    }
+
+    /// <summary>Every typed slot filled by its default, for a pass that composes none of them.</summary>
+    /// <returns>The composition.</returns>
+    /// <remarks>
+    ///     <b>A shader that composes nothing still needs one, and that is the part that surprises.</b>
+    ///     The rule is about the <i>compilation</i>, not the shader: every slot the sources declare has
+    ///     to be bound. So a compute pass sharing a package with a shader that declares
+    ///     <c>distanceField</c> — <c>IrradianceRepair</c> beside <c>IrradianceFill</c>, exactly — is
+    ///     refused unless it names a filler for a slot it has never heard of. This is what it names.
+    /// </remarks>
+    public static ShaderComposition PassComposition() => ShaderComposition.Of(Defaults());
+
+    /// <summary>Every typed slot mapped to the shader that fills it when nothing else does.</summary>
+    static Dictionary<string, string> Defaults() {
+        Dictionary<string, string> bindings = new(StringComparer.Ordinal);
+
+        foreach (var (name, fallback) in PassSlots) {
+            bindings[name] = fallback;
+        }
+
+        return bindings;
+    }
 
     /// <summary>The shader that fills a slot nothing else does.</summary>
     public const string IdentityShader = "IdentitySurface";
+
+    /// <summary>The shader that fills a distance-field slot for a project that traces nothing.</summary>
+    public const string EmptyFieldShader = "NoDistanceField";
+
+    /// <summary>The shader that fills an irradiance slot for a project with no field.</summary>
+    public const string EmptyIrradianceShader = "NoIrradiance";
 
     /// <summary>The chain a material's features are composed through.</summary>
     public const string ChainShader = "CompositeSurface";
@@ -175,11 +262,11 @@ public static class MaterialCompiler {
             }
         }
 
-        foreach (var (shader, slot) in OptionalSlots) {
+        foreach (var (shader, slot, filler) in OptionalSlots) {
             var qualified = $"{shader}.{slot}";
 
             if (!composition.ContainsKey(qualified)) {
-                composition[qualified] = IdentityShader;
+                composition[qualified] = filler;
             }
         }
     }

@@ -4413,8 +4413,17 @@ holds its bandwidth, CPU, and allocation budgets for 30 minutes.
 
 ---
 
-## Phase 10 — Deferred, advanced rendering, Web *(2.5 EM)*
+## Phase 10 — Deferred, advanced rendering, Web *(2.5 EM + 4.5 EM lighting)*
 
+- ✅ **Global illumination, phase L1** — [19](19-lighting-and-global-illumination.md). The distance
+  fields the whole lighting path stands on: an exact per-mesh bake with a voted sign, a camera-snapped
+  clipmap that scrolls, a CPU tracer that is the shader's reference, the volume textures and the
+  compositor node that keeps them, a Raven module and a traced pass that composes it. Baked lightmaps
+  and tetrahedral probes are **retired** rather than deferred, which is where most of the saving is.
+  ⚠ Nothing has drawn with it yet.
+- **L2, the irradiance field — 2.0 EM, and the cut line.** Doc 19's own: with L1 done this is what
+  delivers dynamic indirect diffuse on every platform, with no lightmapper and no tetrahedra. L3–L6
+  are a post-1.0 track.
 - Deferred pipeline: GBuffer layout, shading-model-ID dispatch, automatic forward routing for
   non-representable materials, decals.
 - Volumetric fog, contact shadows, light shafts, motion blur, SSS blur, upscaler interface + FSR1.

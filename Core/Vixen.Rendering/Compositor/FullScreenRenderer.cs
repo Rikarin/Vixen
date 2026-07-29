@@ -85,8 +85,47 @@ public sealed class FullScreenRenderer : SceneRenderer, IDisposable {
     /// <summary>The viewport, or null for the whole target.</summary>
     public Viewport? Viewport { get; set; }
 
+    /// <summary>What fills the shader's compose slots, for a pass that has any.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Empty for almost every post effect, because almost none of them composes anything — a
+    ///         blur is a blur. <c>DistanceFieldAo</c> is the exception: it declares
+    ///         <c>compose val distanceField</c> so that a project which traces nothing still compiles,
+    ///         and a slot a compilation declares has to be <i>bound</i>, whether or not anything
+    ///         reaches it.
+    ///     </para>
+    ///     <para>
+    ///         <b>Without this a composing pass cannot be built at all, and fails silently.</b> The key
+    ///         would carry no composition, the compiler would refuse the unbound slot, and
+    ///         <see cref="EffectSystem" /> would record a miss and return nothing — so the node draws
+    ///         no pixels and the frame looks like one where the pass was simply not scheduled. That is
+    ///         what a material's <c>MaterialCompiler.OptionalSlots</c> does for a material, and a
+    ///         full-screen pass has no material.
+    ///     </para>
+    /// </remarks>
+    public ShaderComposition Composition { get; set; } = ShaderComposition.Empty;
+
     /// <summary>The set it binds: its source textures, its samplers, its uniform block.</summary>
     public DescriptorBindings Descriptors { get; } = new() { Slot = DescriptorSetSlot.PerMaterial };
+
+    /// <summary>The frame's set 0, for a pass whose shader declares anything per-frame.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Null for almost every post effect, because almost none of them reads anything the frame
+    ///         owns — a blur reads its source and nothing else. <c>DistanceFieldAo</c> is the exception:
+    ///         the clipmap it traces belongs to the frame rather than to the pass, so its volumes, its
+    ///         sampler and the numbers describing them are set 0 bindings that
+    ///         <c>GlobalDistanceFieldRenderer</c> fills.
+    ///     </para>
+    ///     <para>
+    ///         <b>Nothing else in this node's path would bind it.</b> A mesh feature binds set 0 for a
+    ///         geometry pass and <see cref="RenderPassRenderer" /> only puts it in the context for
+    ///         children to find; a full-screen pass has no feature and no children. Without this the
+    ///         pipeline declares a set nothing binds, which is a validation error at submit whether or
+    ///         not the shader samples it.
+    ///     </para>
+    /// </remarks>
+    public SceneConstants? SceneConstants { get; set; }
 
     /// <summary>Where the uniform block goes, or null for an effect that has none.</summary>
     /// <remarks>
@@ -128,7 +167,7 @@ public sealed class FullScreenRenderer : SceneRenderer, IDisposable {
             return;
         }
 
-        var key = EffectKey.From(ShaderName, Parameters, PermutationKeys);
+        var key = EffectKey.From(ShaderName, Parameters, PermutationKeys, Composition);
 
         if (frame.Effects.Resolve(key) is not { } effect) {
             // Reported through EffectSystem.Misses like every other, which is what keeps "no runtime
@@ -214,6 +253,12 @@ public sealed class FullScreenRenderer : SceneRenderer, IDisposable {
                         }
 
                         context.CommandList.BindPipeline(pipeline);
+
+                        // Before the pass's own set, though the order does not matter to a driver —
+                        // it matters to a reader, because set 0 is the frame's and set 2 is this
+                        // node's, and a pass that skipped the first draws with whatever was there.
+                        SceneConstants?.Bind(context.CommandList, effect);
+
                         bound?.Bind(context, extra);
 
                         // Three vertices, no vertex buffer and no index buffer. The whole reason the
