@@ -293,6 +293,26 @@ Vixen.Rendering.Compositor.FullScreenRenderer.Samplers.set -> Vixen.Rendering.Sa
 Vixen.Rendering.Compositor.FullScreenRenderer.UploadCount.get -> int
 Vixen.Rendering.Compositor.FullScreenRenderer.Viewport.get -> Vixen.Core.Mathematics.Viewport?
 Vixen.Rendering.Compositor.FullScreenRenderer.Viewport.set -> Vixen.Core.Mathematics.Viewport?
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer -> sealed class
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer : System.IDisposable
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer : Vixen.Rendering.Compositor.SceneRenderer
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.Composites.get -> int
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.Dispose() -> void
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.Field.get -> Vixen.Rendering.DistanceFields.GlobalDistanceField?
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.Field.set -> Vixen.Rendering.DistanceFields.GlobalDistanceField?
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.GlobalDistanceFieldRenderer() -> void
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.Instances.get -> System.Collections.Generic.IList<Vixen.Rendering.DistanceFields.DistanceFieldInstance>
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.InstancesVersion.get -> int
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.InstancesVersion.set -> int
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.Parallel.get -> bool
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.Parallel.set -> bool
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.SceneConstants.get -> Vixen.Rendering.SceneConstants?
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.SceneConstants.set -> Vixen.Rendering.SceneConstants?
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.ShaderName.get -> string
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.ShaderName.set -> string
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.Texture.get -> Vixen.Rendering.Lighting.GlobalDistanceFieldTexture?
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.ViewPosition.get -> Vixen.Core.Mathematics.Vector3?
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.ViewPosition.set -> Vixen.Core.Mathematics.Vector3?
 Vixen.Rendering.Compositor.GpuCullingAsset -> sealed record
 Vixen.Rendering.Compositor.GpuCullingAsset : System.IEquatable<Vixen.Rendering.Compositor.GpuCullingAsset>
 Vixen.Rendering.Compositor.GpuCullingAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
@@ -2165,6 +2185,7 @@ override Vixen.Rendering.Compositor.DelegateSceneRenderer.Build(Vixen.Rendering.
 override Vixen.Rendering.Compositor.DelegateSceneRenderer.Collect(Vixen.Rendering.Compositor.GraphicsCompositor compositor) -> void
 override Vixen.Rendering.Compositor.DelegateSceneRenderer.Record(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.RenderDrawContext context) -> void
 override Vixen.Rendering.Compositor.FullScreenRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
+override Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.Record(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.RenderDrawContext context) -> void
 override Vixen.Rendering.Compositor.GpuCullingRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Compositor.HiZRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Compositor.PunctualShadowRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void

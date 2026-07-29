@@ -229,7 +229,7 @@ public sealed class GlobalDistanceField : IDistanceField {
     ///     tenth of a cell resamples every surface at a tenth-of-a-cell offset, and a wall that has
     ///     not moved changes its distance every frame.
     /// </remarks>
-    internal static Vector3 Snap(Vector3 position, float cell) =>
+    public static Vector3 Snap(Vector3 position, float cell) =>
         new(
             MathF.Round(position.X / cell) * cell,
             MathF.Round(position.Y / cell) * cell,
