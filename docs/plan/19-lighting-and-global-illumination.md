@@ -396,9 +396,20 @@ because the coarsest-first ordering exists for the refined case and a uniform fi
 Seeding a pool and then dispatching into it is not a test-only shape: it is filler B handing a field to
 filler A, and it is why the mirror carries both usages.
 
-Owed: filler B at all; a policy that decides *where* to refine, which § 3 says is renderer bounds and
-the `VisibilityGroup` already has; the view bias; and `Deferred`, which has the same ambient term and
-has not been given the slot. Plus one optimisation that is now visible — the repair runs over every
+**And something decides where to refine.** `IrradianceRefinementPolicy` takes *bands* — a margin and a
+brick size — and applies them coarsest first around every renderer's bounds, which is what grades a
+field rather than making it uniformly fine. `IrradianceFieldRenderer.Refinement` is the half that knows
+what a renderer is; the policy itself takes boxes and is checked against closed forms with no scene in
+sight.
+
+Two things it is deliberately not: it reads **every** object rather than the visible ones, because
+indirect light comes from geometry the camera cannot see and that is the whole reason a field exists
+rather than a screen-space gather; and it only ever **adds** detail, so a scene that streams geometry
+through a region ratchets that region toward its finest and never gives the slots back. Coarsening
+needs the pool to take slots back and a policy for when, and neither exists.
+
+Owed: filler B at all; the view bias; and `Deferred`, which has the same ambient term and has not been
+given the slot. Plus one optimisation that is now visible — the repair runs over every
 brick every frame, because a brick the budget did not refill still has neighbours that were, and
 narrowing it to the dirty bricks and their neighbours is real work nobody has done.
 

@@ -446,6 +446,9 @@ Vixen.Rendering.Compositor.IrradianceFieldRenderer.Filler.get -> Vixen.Rendering
 Vixen.Rendering.Compositor.IrradianceFieldRenderer.Filler.set -> Vixen.Rendering.IrradianceFields.TracedIrradianceFiller?
 Vixen.Rendering.Compositor.IrradianceFieldRenderer.IrradianceFieldRenderer() -> void
 Vixen.Rendering.Compositor.IrradianceFieldRenderer.Passes.get -> System.Collections.Generic.IList<string>
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.Refined.get -> int
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.Refinement.get -> Vixen.Rendering.IrradianceFields.IrradianceRefinementPolicy?
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.Refinement.set -> Vixen.Rendering.IrradianceFields.IrradianceRefinementPolicy?
 Vixen.Rendering.Compositor.IrradianceFieldRenderer.SceneConstants.get -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.Compositor.IrradianceFieldRenderer.SceneConstants.set -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.Compositor.IrradianceFieldRenderer.Source.get -> string

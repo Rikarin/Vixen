@@ -270,8 +270,10 @@ gets blamed on the temporal filter.
 
 ## Not yet, and named so the absence is a decision
 
-- **A refinement policy.** `Refine` exists; nothing decides *where* to call it. Doc 19 § 3 wants that
-  driven by renderer bounds, which the `VisibilityGroup` already has.
+- **Coarsening.** `IrradianceRefinementPolicy` decides where a field should be fine and only ever adds
+  detail. Nothing merges bricks back when geometry moves away, so a streamed scene ratchets toward its
+  finest everywhere the geometry has ever been — which needs the pool to take slots back and a policy
+  for when, and neither exists.
 - **Filler B at all.** The offline cube capture, for the targets without compute.
 - **A repair narrowed to what changed.** `IrradianceFieldRepair` dilates and syncs every brick every
   frame, which is what this does too and is not an oversight in either — a brick the budget did not

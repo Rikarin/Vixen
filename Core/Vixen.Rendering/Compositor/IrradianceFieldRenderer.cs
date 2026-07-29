@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering.IrradianceFields;
@@ -100,6 +101,36 @@ public sealed class IrradianceFieldRenderer : SceneRenderer, IDisposable {
     /// <summary>The shader filling the slot, which is the other half of every binding's name.</summary>
     public string Source { get; set; } = MaterialCompiler.IrradianceFieldShader;
 
+    /// <summary>Where the field should be fine, or null to leave its allocation alone.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Doc 19 § 3's "bricks subdivide near geometry, from renderer bounds", and this is the
+    ///         half that knows what a renderer is. The policy itself takes boxes and knows nothing
+    ///         about a scene, which is what keeps it device-free and checkable; this reads
+    ///         <see cref="RenderObject.Bounds" /> off the compositor's own store and hands them over.
+    ///     </para>
+    ///     <para>
+    ///         <b>Every object, not the visible ones.</b> Indirect light comes from geometry the camera
+    ///         cannot see — that is the whole reason a field exists rather than a screen-space gather —
+    ///         so refining only what survived the frustum would coarsen exactly the wall that is
+    ///         bouncing light onto what the camera <i>can</i> see, one frame after it left the view.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Refinement only ever adds detail — see <see cref="IrradianceRefinementPolicy" />. A
+    ///         scene that streams geometry through a region ratchets that region toward its finest and
+    ///         never gives the slots back.
+    ///     </para>
+    /// </remarks>
+    public IrradianceRefinementPolicy? Refinement { get; set; }
+
+    /// <summary>How many bricks the refinement policy has produced since this node was made.</summary>
+    /// <remarks>
+    ///     Settles once the scene stops moving, which is what makes it worth counting: a number that
+    ///     keeps climbing is a policy asking for more than the pool holds, and that is a stutter
+    ///     nobody could otherwise attribute.
+    /// </remarks>
+    public int Refined { get; private set; }
+
     /// <summary>How many bricks to refill each frame.</summary>
     /// <remarks>
     ///     Bricks rather than probes, because a brick is the unit of a pool slot and of a dispatch.
@@ -142,6 +173,11 @@ public sealed class IrradianceFieldRenderer : SceneRenderer, IDisposable {
             );
         }
 
+        // Before the pass is declared, not inside it: refinement changes which bricks exist, and the
+        // mirror's textures are sized from the pool rather than from the field's shape — so a split
+        // during execution would be a fill into slots the frame has already decided about.
+        Refine(compositor, field);
+
         frame.Graph.AddPass(
             ToString(),
             pass => {
@@ -153,6 +189,33 @@ public sealed class IrradianceFieldRenderer : SceneRenderer, IDisposable {
                 pass.Execute(context => Refill(field, device, context.CommandList));
             }
         );
+    }
+
+    /// <summary>Asks the policy where the field should be fine, from what the scene holds.</summary>
+    /// <remarks>
+    ///     Every object's bounds, allocated into a list per build. That is a list per frame for a
+    ///     scene that is not changing, which is worth removing once something measures it — and worth
+    ///     leaving until then, because the alternative is a cache keyed on "has anything moved" and
+    ///     that question has no cheap answer here.
+    /// </remarks>
+    void Refine(GraphicsCompositor compositor, IrradianceField field) {
+        if (Refinement is not { } policy || compositor is null) {
+            return;
+        }
+
+        var objects = compositor.System.Objects.All;
+
+        if (objects.Length == 0) {
+            return;
+        }
+
+        var bounds = new List<BoundingBox>(objects.Length);
+
+        foreach (ref readonly var candidate in objects) {
+            bounds.Add(BoundingBox.FromSphere(candidate.Bounds));
+        }
+
+        Refined += policy.Apply(field, bounds);
     }
 
     /// <inheritdoc />

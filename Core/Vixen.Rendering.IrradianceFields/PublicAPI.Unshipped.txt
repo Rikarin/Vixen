@@ -112,6 +112,19 @@ Vixen.Rendering.IrradianceFields.IrradianceProbe.SunShadow.get -> float
 Vixen.Rendering.IrradianceFields.IrradianceProbe.SunShadow.init -> float
 Vixen.Rendering.IrradianceFields.IrradianceProbe.Validity.get -> float
 Vixen.Rendering.IrradianceFields.IrradianceProbe.Validity.init -> float
+Vixen.Rendering.IrradianceFields.IrradianceRefinementBand -> readonly struct
+Vixen.Rendering.IrradianceFields.IrradianceRefinementBand : System.IEquatable<Vixen.Rendering.IrradianceFields.IrradianceRefinementBand>
+Vixen.Rendering.IrradianceFields.IrradianceRefinementBand.IrradianceRefinementBand() -> void
+Vixen.Rendering.IrradianceFields.IrradianceRefinementBand.IrradianceRefinementBand(float Margin, int Size) -> void
+Vixen.Rendering.IrradianceFields.IrradianceRefinementBand.Margin.get -> float
+Vixen.Rendering.IrradianceFields.IrradianceRefinementBand.Margin.init -> float
+Vixen.Rendering.IrradianceFields.IrradianceRefinementBand.Size.get -> int
+Vixen.Rendering.IrradianceFields.IrradianceRefinementBand.Size.init -> int
+Vixen.Rendering.IrradianceFields.IrradianceRefinementPolicy -> sealed class
+Vixen.Rendering.IrradianceFields.IrradianceRefinementPolicy.Apply(Vixen.Rendering.IrradianceFields.IrradianceField field, System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.BoundingBox> bounds) -> int
+Vixen.Rendering.IrradianceFields.IrradianceRefinementPolicy.Bands.get -> System.Collections.Generic.IList<Vixen.Rendering.IrradianceFields.IrradianceRefinementBand>
+Vixen.Rendering.IrradianceFields.IrradianceRefinementPolicy.IrradianceRefinementPolicy() -> void
+Vixen.Rendering.IrradianceFields.IrradianceRefinementPolicy.Refined.get -> int
 Vixen.Rendering.IrradianceFields.TracedIrradianceFiller -> sealed class
 Vixen.Rendering.IrradianceFields.TracedIrradianceFiller.Cursor.get -> int
 Vixen.Rendering.IrradianceFields.TracedIrradianceFiller.Fill(Vixen.Rendering.IrradianceFields.IrradianceField field) -> int
