@@ -67,6 +67,11 @@
              deserialises and both halves have to agree on the type. -->
         <ProjectReference Include="..\..\Core\Vixen.Rendering.DistanceFields\Vixen.Rendering.DistanceFields.csproj" />
 
+        <!-- And ModelCompiler builds each mesh's cluster hierarchy (docs/virtualized-geometry.md
+             phase 1). Same arrangement again: the MeshletMesh this writes is what a player
+             deserialises, so the build and the runtime have to be talking about one type. -->
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.VirtualGeometry\Vixen.Rendering.VirtualGeometry.csproj" />
+
         <!-- The navmesh importer runs the bake, which is a runtime assembly's: the artefact it writes
              is what a player deserialises, so both halves have to be the same NavMeshAsset. -->
         <ProjectReference Include="..\..\Core\Vixen.Navigation\Vixen.Navigation.csproj" />

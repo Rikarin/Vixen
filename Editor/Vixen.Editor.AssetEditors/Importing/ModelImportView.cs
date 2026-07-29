@@ -25,9 +25,9 @@ namespace Vixen.Editor.AssetEditors.Importing;
 ///     <para>
 ///         ⚠ <b>No LOD preview and no viewport.</b> Doc 11 asks for both. Drawing a mesh needs a
 ///         device and a render target, which is the application's — the same wall the texture
-///         preview meets — and the LOD chain needs <c>ModelCompiler</c>, which doc 08 specifies and
-///         nothing has written. When the levels exist they arrive as further sub-assets and this
-///         list draws them without being changed.
+///         preview meets. The levels themselves now exist: <c>ModelCompiler</c> writes a
+///         <c>Meshlets</c> sub-asset holding the whole cluster hierarchy, so what is missing is a
+///         way to draw a cut through it rather than anything to draw.
 ///     </para>
 /// </remarks>
 public sealed class ModelImportView : Control {

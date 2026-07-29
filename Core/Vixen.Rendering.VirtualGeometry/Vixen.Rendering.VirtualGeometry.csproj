@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Rendering.VirtualGeometry</RootNamespace>
+        <Description>
+            The cluster DAG behind virtualized geometry: a mesh partitioned into meshlets, grouped,
+            simplified as a group with its shared boundary locked, split again, and repeated until
+            one cluster remains. Phase 1 of docs/virtualized-geometry.md — the offline half, with a
+            validation pass that turns a crack into a failed build. Entirely CPU-side and
+            device-free, so every invariant is checked rather than looked at.
+        </Description>
+        <PackageTags>nanite;virtualized-geometry;meshlet;cluster-lod;simplification;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            A cluster DAG is written by a content build and read by a player, so the types carry
+            [DataContract] and this emits their serializers at compile time. ADR-002: no reflection,
+            no IL weaving, and the generated C# is on disk and steppable.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Rendering.VirtualGeometry.Tests" />
+    </ItemGroup>
+
+</Project>
