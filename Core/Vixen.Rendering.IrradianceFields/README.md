@@ -83,6 +83,50 @@ probe. There is nothing beyond to copy, and a constant extrapolation means the l
 changing rather than falling to black — which is what the alternative looks like: a dark rind one
 probe thick around everything.
 
+## Leaks: what is fixed here, and what is not
+
+A leak is light where a wall should have stopped it, and it is the defect users actually report —
+[doc 19](../../docs/plan/19-lighting-and-global-illumination.md)'s risk G3. Two things here work on
+it, and neither is a general solution.
+
+### Dilation, which is really about the opposite problem
+
+A probe inside a wall holds nothing, and **nothing is a colour**. Trilinear interpolation does not
+know it should skip that probe, so every surface within a probe spacing of a wall reads part of a
+hole and comes out dark — a rind one probe thick around everything, which is what people describe as
+"the GI looks dirty". `Dilate` fills invalid probes from their valid face neighbours and removes it.
+
+It is a fill rather than a weighting at sample time for a stated reason: doc 19 § 3 commits to **one**
+trilinear fetch, and a validity-weighted skip needs eight taps and cannot be one.
+
+**The pass count is not the leak knob**, though everyone assumes it is. A repair never overwrites a
+valid probe, so each face of a wall fills inward from its own side and the two meet without mixing —
+once the face touching a room has taken the room's light, no number of further passes carries the
+outside's past it. `AClosedBoxStaysDark` runs at one, two and eight passes to say so.
+
+### The knob is how thick a wall is in probes
+
+| Wall | What happens |
+|---|---|
+| Three probes thick | Works. No interior stencil reaches an exterior probe; each face repairs from its own side |
+| **Exactly one probe thick** | Leaks, at full strength, in one pass. A single invalid plane touches the room on one side and the outside on the other, and its repair is the average of both |
+| **Thinner than the probe spacing** | Worse: no probe is inside it, so every probe is valid, dilation has nothing to repair, and a stencil spans straight through |
+
+Both failures have tests that assert they *do* leak, so that the day refinement fixes them, the tests
+say which one it fixed. The fix for both is the same — finer bricks near geometry, so the same wall
+is more probes thick. That is the refinement doc 19 § 3 asks for and this does not have yet.
+
+### The normal bias
+
+A surface stands exactly where the ambiguity is: its own position is the boundary between the probes
+that saw the room and the probes inside the wall it is part of. `NormalBias` pushes the lookup a
+quarter of a probe spacing along the normal — Unity's and Epic's number too — onto the side the
+surface faces.
+
+It lives on the field rather than on a caller because it is a constant the shader has to match. It
+does nothing for a wall thinner than a probe spacing: it moves along the *surface's* normal, and a
+floor's normal is not the direction a thin wall is thin in.
+
 ## The pool has a fixed capacity, and that is a decision
 
 A pool that grows reallocates the texture it is a mirror of, mid-frame, at the exact moment a scene
@@ -101,9 +145,8 @@ gets blamed on the temporal filter.
   beside the slot, the way Epic's does, and the sampling formula gains a divide.
 - **The fillers.** Neither the runtime ray tracer (filler A, where `HasCompute`) nor the offline cube
   capture (filler B) exists. This is the half they both write into.
-- **The rest of the leak mitigation.** Validity is carried but nothing dilates into invalid probes,
-  and there is no normal or view bias. All three are doc 19's risk G3, and all three land in this
-  phase rather than as polish.
+- **View bias.** Dilation and the normal bias are here; the offset along the view ray, which is what
+  helps at grazing angles, is not.
 - **The GPU mirror.** One volume texture per coefficient plus the index texture, staged and copied,
   the way `GlobalDistanceFieldTexture` does it for the clipmap. `TextureCoordinate` is the convention
   it will have to agree with, and it is tested from this side already.

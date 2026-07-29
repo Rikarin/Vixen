@@ -202,10 +202,19 @@ position is reproduced *exactly* across a brick boundary, and the same field wit
 alone is badly wrong — because a layout detail that looks like padding needs a test that fails when
 you remove it.
 
-Owed, in the order they change the picture: the two fillers; the rest of the leak mitigation
-(dilation into invalid probes, normal bias, view bias — validity is carried but nothing acts on it);
-refinement, which arrives as a brick size stored beside the slot; and the GPU mirror, whose sampling
-convention is already pinned from the CPU side the way `MeshDistanceField.TextureCoordinate` is.
+Dilation and the normal bias are in, and running them turned the leak criterion above into something
+sharper than it was written as. **The pass count is not the knob** — a repair never overwrites a valid
+probe, so each face of a wall fills inward from its own side and the two meet without mixing, and the
+closed-box test passes at one, two and eight passes alike. The knob is **how thick a wall is in
+probes**: three works, exactly one leaks at full strength in a single pass, and thinner than the probe
+spacing is worse still because every probe is then valid and there is nothing to repair or to notice.
+Both failures have tests asserting that they *do* leak, so the day refinement fixes them the tests say
+which one it fixed. That makes refinement a leak fix rather than a memory optimisation, which is not
+how § 3 currently reads.
+
+Owed, in the order they change the picture: the two fillers; refinement, which arrives as a brick size
+stored beside the slot; the view bias; and the GPU mirror, whose sampling convention is already pinned
+from the CPU side the way `MeshDistanceField.TextureCoordinate` is.
 
 ### L3 — Screen probe gather *(3.0 EM)*
 

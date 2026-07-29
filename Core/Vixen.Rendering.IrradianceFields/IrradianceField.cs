@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 
 namespace Vixen.Rendering.IrradianceFields;
@@ -59,6 +60,25 @@ public sealed class IrradianceField {
     ///     number a filler needs when it decides how far to push a sample off a surface.
     /// </remarks>
     public Vector3 ProbeSpacing => Indirection.CellSize / IrradianceBrickPool.BrickResolution;
+
+    /// <summary>How far off a surface a shading lookup moves, in probe spacings.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A surface stands exactly where the leak is.</b> Its own position is on the boundary
+    ///         between the probes that saw the room and the probes that are inside the wall it is part
+    ///         of, so a lookup there splits the difference between them. Pushing the lookup along the
+    ///         normal — a quarter of a probe spacing, which is Unity's and Epic's number too — puts it
+    ///         on the side of the wall the surface faces, where the answer is unambiguous.
+    ///     </para>
+    ///     <para>
+    ///         <b>It is a tuning constant that has to match the shader's</b>, which is why it lives on
+    ///         the field rather than in a caller. Too little and the rind comes back; too much and a
+    ///         surface reads the lighting of somewhere it is not, which shows on anything thinner than
+    ///         the bias. It does not fix a wall thinner than a probe spacing, and nothing at this end
+    ///         does — see the README.
+    ///     </para>
+    /// </remarks>
+    public float NormalBias { get; set; } = 0.25f;
 
     /// <summary>Gives a cell a brick, or answers with the one it already has.</summary>
     /// <param name="cell">Which cell.</param>
@@ -283,6 +303,18 @@ public sealed class IrradianceField {
         return true;
     }
 
+    /// <summary>The probe a surface sees, biased off the surface it stands on.</summary>
+    /// <param name="world">Where the surface is.</param>
+    /// <param name="normal">Which way it faces, normalised.</param>
+    /// <param name="probe">What is there.</param>
+    /// <returns>Whether a brick covers the biased position.</returns>
+    /// <remarks>
+    ///     What shading calls, where <see cref="TrySample(Vector3, out IrradianceProbe)" /> is the raw
+    ///     lookup. See <see cref="NormalBias" /> for why the two are different functions.
+    /// </remarks>
+    public bool TrySample(Vector3 world, Vector3 normal, out IrradianceProbe probe) =>
+        TrySample(world + (normal * ProbeSpacing * NormalBias), out probe);
+
     /// <summary>The diffuse lighting a surface at a position receives, divided by π.</summary>
     /// <param name="world">Where the surface is.</param>
     /// <param name="normal">Which way it faces, normalised.</param>
@@ -294,7 +326,148 @@ public sealed class IrradianceField {
     ///     and it should be visible that it is doing so.
     /// </remarks>
     public Vector3 Irradiance(Vector3 world, Vector3 normal) =>
-        TrySample(world, out var probe) ? probe.Irradiance(normal) : Vector3.Zero;
+        TrySample(world, normal, out var probe) ? probe.Irradiance(normal) : Vector3.Zero;
+
+    /// <summary>Replaces probes nothing could fill with what their neighbours saw.</summary>
+    /// <param name="passes">How far the replacement may travel, in probes.</param>
+    /// <returns>How many probes were repaired.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">A negative number of passes.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A probe inside a wall holds nothing, and nothing is a colour.</b> Trilinear
+    ///         interpolation does not know it should skip that probe, so every surface within a probe
+    ///         spacing of a wall reads part of it and comes out dark — a rind one probe thick around
+    ///         everything, which is the artefact people describe as "the GI looks dirty". Filling
+    ///         invalid probes from their valid neighbours is what removes it, and it is a fill rather
+    ///         than a sample-time weighting for a reason: doc 19 § 3 commits to <i>one</i> trilinear
+    ///         fetch, and a weighted skip needs eight taps and cannot be one.
+    ///     </para>
+    ///     <para>
+    ///         <b>Only invalid probes are written, and that — not the pass count — is what stops light
+    ///         walking through a wall.</b> A probe repaired in one pass is valid in the next and is
+    ///         never revisited, so each face of a wall repairs inward from its own side and the two
+    ///         meet without mixing. More passes reach further into solid geometry, where nothing
+    ///         samples anyway; they do not carry the outside's light any further in.
+    ///     </para>
+    ///     <para>
+    ///         <b>The failure case is a wall exactly one probe thick.</b> Then a single plane of
+    ///         invalid probes touches the room on one side and the outside on the other, and its
+    ///         repair is the average of the two — which is a leak, at full strength, in one pass. A
+    ///         wall thinner than the probe spacing is worse still: it holds no invalid probes at all,
+    ///         so there is nothing here to repair and nothing to notice. Both are doc 19's risk G3,
+    ///         and the fix for both is refinement — finer bricks near geometry, so a wall is more
+    ///         probes thick.
+    ///     </para>
+    ///     <para>
+    ///         Run it before <see cref="SyncBorders" />: borders are copies, and copying before the
+    ///         original is repaired copies the hole.
+    ///     </para>
+    /// </remarks>
+    public int Dilate(int passes = 1) {
+        ArgumentOutOfRangeException.ThrowIfNegative(passes);
+
+        var lattice = LatticeResolution;
+        var pending = new List<(Int3 At, IrradianceProbe Probe)>();
+        var repaired = 0;
+
+        for (var pass = 0; pass < passes; pass++) {
+            pending.Clear();
+
+            for (var z = 0; z < lattice.Z; z++) {
+                for (var y = 0; y < lattice.Y; y++) {
+                    for (var x = 0; x < lattice.X; x++) {
+                        var at = new Int3(x, y, z);
+
+                        if (!TryGetLattice(at, out var probe) || probe.Validity > 0f) {
+                            continue;
+                        }
+
+                        if (TryBorrowFromNeighbours(at, out var repair)) {
+                            pending.Add((at, repair));
+                        }
+                    }
+                }
+            }
+
+            if (pending.Count == 0) {
+                break;
+            }
+
+            // Applied after the whole pass, not during it, so a repair cannot feed the probe next to
+            // it in the same sweep — which would make the result depend on which way the loops run.
+            foreach (var (at, probe) in pending) {
+                SetLattice(at, probe);
+            }
+
+            repaired += pending.Count;
+        }
+
+        return repaired;
+    }
+
+    /// <summary>How many probes the field holds along each axis, over every brick.</summary>
+    /// <remarks>
+    ///     Four per brick, not five: the fifth plane is the next brick's first probe, so counting it
+    ///     would count every interior probe twice. A filler walks this rather than walking bricks —
+    ///     probes are what it fills, and which brick one lives in is storage's business.
+    /// </remarks>
+    public Int3 LatticeResolution => Indirection.Resolution * IrradianceBrickPool.BrickResolution;
+
+    /// <summary>Where one probe of the whole field's lattice stands.</summary>
+    /// <param name="lattice">Its coordinate.</param>
+    /// <returns>The position.</returns>
+    public Vector3 LatticePosition(Int3 lattice) =>
+        Indirection.Bounds.Minimum + (ProbeSpacing * new Vector3(lattice.X, lattice.Y, lattice.Z));
+
+    /// <summary>Whether a lattice coordinate is one the field has.</summary>
+    /// <param name="lattice">The coordinate.</param>
+    /// <returns>Whether it is.</returns>
+    public bool HoldsLattice(Int3 lattice) {
+        var resolution = LatticeResolution;
+
+        return lattice.X >= 0 && lattice.X < resolution.X
+            && lattice.Y >= 0 && lattice.Y < resolution.Y
+            && lattice.Z >= 0 && lattice.Z < resolution.Z;
+    }
+
+    /// <summary>Reads one probe of the whole field's lattice.</summary>
+    /// <param name="lattice">Its coordinate.</param>
+    /// <param name="probe">What it holds.</param>
+    /// <returns>Whether the field has that probe and a brick to hold it.</returns>
+    public bool TryGetLattice(Int3 lattice, out IrradianceProbe probe) {
+        probe = IrradianceProbe.Empty;
+
+        if (!HoldsLattice(lattice)) {
+            return false;
+        }
+
+        var slot = Indirection[CellOf(lattice)];
+
+        if (slot == IrradianceIndirection.Empty) {
+            return false;
+        }
+
+        probe = Pool[slot, Within(lattice.X), Within(lattice.Y), Within(lattice.Z)];
+
+        return true;
+    }
+
+    /// <summary>Writes one probe of the whole field's lattice.</summary>
+    /// <param name="lattice">Its coordinate.</param>
+    /// <param name="probe">What it saw.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The field has no such probe.</exception>
+    /// <exception cref="InvalidOperationException">No brick covers it.</exception>
+    public void SetLattice(Int3 lattice, IrradianceProbe probe) {
+        if (!HoldsLattice(lattice)) {
+            throw new ArgumentOutOfRangeException(
+                nameof(lattice),
+                lattice,
+                $"The field's lattice is {LatticeResolution} probes."
+            );
+        }
+
+        SetProbe(CellOf(lattice), Within(lattice.X), Within(lattice.Y), Within(lattice.Z), probe);
+    }
 
     /// <summary>What a border texel should hold.</summary>
     /// <param name="cell">The brick's cell.</param>
@@ -322,6 +495,76 @@ public sealed class IrradianceField {
 
         return Pool[slot, Math.Min(x, last - 1), Math.Min(y, last - 1), Math.Min(z, last - 1)];
     }
+
+    /// <summary>The average of a probe's valid neighbours, if it has any.</summary>
+    /// <param name="at">Where the probe is.</param>
+    /// <param name="repair">What it should hold instead.</param>
+    /// <returns>Whether anything nearby was worth copying.</returns>
+    /// <remarks>
+    ///     The six face neighbours, not all twenty-six. A diagonal neighbour is further away and its
+    ///     path to here passes through the two faces between them, so a corner probe buried in a wall
+    ///     would pull from a room it has no straight line to. Six is also what makes a pass mean "one
+    ///     probe of travel", which is what makes the pass count a distance and therefore a knob
+    ///     somebody can reason about.
+    /// </remarks>
+    bool TryBorrowFromNeighbours(Int3 at, out IrradianceProbe repair) {
+        ReadOnlySpan<Int3> directions = [
+            new(1, 0, 0), new(-1, 0, 0),
+            new(0, 1, 0), new(0, -1, 0),
+            new(0, 0, 1), new(0, 0, -1)
+        ];
+
+        var radiance = SphericalHarmonicsL1.Zero;
+        var shadow = 0f;
+        var weight = 0f;
+        var contributors = 0;
+
+        foreach (var direction in directions) {
+            if (!TryGetLattice(at + direction, out var other) || other.Validity <= 0f) {
+                continue;
+            }
+
+            radiance = Sum(radiance, other.Radiance.Scaled(other.Validity));
+            shadow += other.SunShadow * other.Validity;
+            weight += other.Validity;
+            contributors++;
+        }
+
+        if (contributors == 0) {
+            repair = IrradianceProbe.Empty;
+
+            return false;
+        }
+
+        // Divided by the weight rather than by the count, so a half-believed neighbour contributes
+        // half as much light and not half as much darkness. Validity itself is the plain mean, which
+        // is what makes a probe repaired from one uncertain neighbour stay uncertain.
+        repair = new(radiance.Scaled(1f / weight), weight / contributors, shadow / weight);
+
+        return true;
+    }
+
+    /// <summary>Which brick a lattice coordinate belongs to.</summary>
+    /// <param name="lattice">The coordinate.</param>
+    /// <returns>The cell.</returns>
+    static Int3 CellOf(Int3 lattice) => lattice / IrradianceBrickPool.BrickResolution;
+
+    /// <summary>Where a lattice coordinate sits inside its own brick.</summary>
+    /// <param name="coordinate">One axis of it.</param>
+    /// <returns>The probe index, 0 to 3.</returns>
+    static int Within(int coordinate) => coordinate % IrradianceBrickPool.BrickResolution;
+
+    /// <summary>Two projections added, which is the projection of the two together.</summary>
+    /// <param name="left">One.</param>
+    /// <param name="right">The other.</param>
+    /// <returns>The sum.</returns>
+    static SphericalHarmonicsL1 Sum(SphericalHarmonicsL1 left, SphericalHarmonicsL1 right) =>
+        new(
+            left.L00 + right.L00,
+            left.L1m1 + right.L1m1,
+            left.L10 + right.L10,
+            left.L11 + right.L11
+        );
 
     /// <summary>The brick covering a cell.</summary>
     /// <param name="cell">The cell.</param>
