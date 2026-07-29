@@ -338,7 +338,7 @@ public sealed class UiGeometryBuilder {
         );
     }
 
-    /// <summary>One textured quad.</summary>
+    /// <summary>One textured quad, or the nine a nine-slice cuts it into.</summary>
     /// <remarks>
     ///     ⚠ <b>No shape entry and no distance field.</b> An image is the one thing the interface
     ///     draws that is already a picture: there is nothing to round, no border to inset and no
@@ -353,16 +353,72 @@ public sealed class UiGeometryBuilder {
             return;
         }
 
-        Quad(
-            command.X,
-            command.Y,
-            command.X + command.Width,
-            command.Y + command.Height,
-            new Vector2(command.Source.X, command.Source.Y),
-            new Vector2(command.Source.X + command.Source.Width, command.Source.Y + command.Source.Height),
-            command.Color,
-            Vector4.Zero
-        );
+        // Either inset missing means there is nothing to preserve: a destination cut with no source
+        // cut behind it would sample eight zero-width strips and smear them along the edges, and a
+        // source cut with no destination cut has nowhere to put them.
+        if (command.Slice.IsEmpty || command.SourceSlice.IsEmpty) {
+            Quad(
+                command.X,
+                command.Y,
+                command.X + command.Width,
+                command.Y + command.Height,
+                new Vector2(command.Source.X, command.Source.Y),
+                new Vector2(command.Source.X + command.Source.Width, command.Source.Y + command.Source.Height),
+                command.Color,
+                Vector4.Zero
+            );
+
+            return;
+        }
+
+        Sliced(command);
+    }
+
+    /// <summary>An image cut into nine, each cell drawn from the matching cell of the source.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Nine quads in the batch the one quad would have been in.</b> Same texture, same
+    ///         pipeline, same descriptor set — so a nine-sliced panel followed by an icon from the
+    ///         same atlas is still one draw. That is the whole of what "shares the UI batcher" buys,
+    ///         and it is why the slice lives on the image command rather than beside it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The destination inset is fitted to the box and the source inset is not.</b> A
+    ///         panel drawn narrower than its own two corners has to show them compressed; fitting the
+    ///         source as well would leave them undistorted and quietly read different texels, which
+    ///         looks like the artwork changed rather than like the box got small.
+    ///     </para>
+    ///     <para>
+    ///         Empty cells are skipped rather than emitted degenerate. An inset with no top border
+    ///         makes three of the nine zero-high, and four vertices that enclose no pixels still cost
+    ///         a vertex fetch and six indices in every frame that draws the panel.
+    ///     </para>
+    /// </remarks>
+    void Sliced(DrawCommand command) {
+        Span<Rectangle> destination = stackalloc Rectangle[NineSlice.CellCount];
+        Span<Rectangle> source = stackalloc Rectangle[NineSlice.CellCount];
+
+        var box = new Rectangle(command.X, command.Y, command.Width, command.Height);
+
+        command.Slice.Fit(command.Width, command.Height).Split(box, destination);
+        command.SourceSlice.Split(command.Source, source);
+
+        for (var cell = 0; cell < NineSlice.CellCount; cell++) {
+            if (destination[cell].IsEmpty || (command.HollowCentre && cell == NineSlice.Centre)) {
+                continue;
+            }
+
+            Quad(
+                destination[cell].Left,
+                destination[cell].Top,
+                destination[cell].Right,
+                destination[cell].Bottom,
+                new Vector2(source[cell].Left, source[cell].Top),
+                new Vector2(source[cell].Right, source[cell].Bottom),
+                command.Color,
+                Vector4.Zero
+            );
+        }
     }
 
     /// <summary>A run of glyphs, one quad each, from the atlas.</summary>

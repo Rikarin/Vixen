@@ -178,13 +178,48 @@ public sealed partial class Image : Control {
     /// </remarks>
     public Rectangle SourceRectangle { get; set; } = new(0f, 0f, 1f, 1f);
 
+    /// <summary>How far the corners reach in, in document pixels. Empty stretches the whole image.</summary>
+    /// <remarks>
+    ///     What turns one small texture into a panel, a button and a tooltip at three different
+    ///     sizes with the same corners. Set it together with <see cref="SourceBorder" /> — either one
+    ///     alone draws the ordinary stretched image, because a nine-slice needs both halves of the
+    ///     cut.
+    /// </remarks>
+    public NineSlice Border { get; set; }
+
+    /// <summary>The same cut of the texture, in UVs.</summary>
+    /// <remarks>
+    ///     ⚠ In UVs rather than texels, for the reason <see cref="SourceRectangle" /> is: this
+    ///     assembly does not know how big the texture is, so the application that registered it
+    ///     divides. A 16-pixel border on a 128-pixel sheet is <c>NineSlice.Uniform(16f / 128f)</c>.
+    /// </remarks>
+    public NineSlice SourceBorder { get; set; }
+
+    /// <summary>Whether the middle of a nine-slice is left undrawn.</summary>
+    /// <remarks>A frame with a hole in it — a selection outline, a window chrome over a viewport.</remarks>
+    public bool HollowCentre { get; set; }
+
     /// <inheritdoc />
     protected override void OnDraw(DrawContext context) {
         base.OnDraw(context);
 
-        if (Texture != 0) {
-            context.DrawImage(context.Bounds, Texture, source: SourceRectangle);
+        if (Texture == 0) {
+            return;
         }
+
+        if (Border.IsEmpty || SourceBorder.IsEmpty) {
+            context.DrawImage(context.Bounds, Texture, source: SourceRectangle);
+            return;
+        }
+
+        context.DrawNineSlice(
+            context.Bounds,
+            Texture,
+            Border,
+            SourceBorder,
+            source: SourceRectangle,
+            hollowCentre: HollowCentre
+        );
     }
 }
 

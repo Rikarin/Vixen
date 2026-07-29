@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Core.Yaml.Meta;
+using Vixen.Rendering.Sprites;
 
 namespace Vixen.Editor.Assets.Textures;
 
@@ -97,4 +98,36 @@ public sealed record TextureImportSettings : IImportSettings {
     ///     rather than at 1000, which is the behaviour every engine has and is worth knowing about.
     /// </remarks>
     public int MaxSize { get; init; }
+
+    /// <summary>Whether this texture produces sprites, and whether it produces one or many.</summary>
+    public SpriteMode SpriteMode { get; init; } = SpriteMode.None;
+
+    /// <summary>How many texels of this texture make one world unit.</summary>
+    /// <remarks>
+    ///     Per texture rather than per project, so a background painted at a quarter of the
+    ///     resolution of the characters in front of it is a number on the background rather than a
+    ///     scale on everything that uses it. Only read when <see cref="SpriteMode" /> is not
+    ///     <see cref="SpriteMode.None" />.
+    /// </remarks>
+    public float PixelsPerUnit { get; init; } = Sprite.DefaultPixelsPerUnit;
+
+    /// <summary>
+    ///     Where each sprite is, in texels of the source image.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The rects are recorded, not the slice that produced them.</b> Storing "grid, 32
+    ///         by 32, automatic" and re-cutting at import time would be smaller and would make every
+    ///         sprite in a project depend on the pixels: a sheet re-exported with one frame nudged
+    ///         would renumber everything after it under an automatic slice, and every reference to
+    ///         those sprites would quietly point at a different picture. What the sprite editor
+    ///         writes here is the answer, and the slicer is how an author gets a first draft of it.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="SpriteMode.Single" /> holds exactly one rect covering the whole texture —
+    ///         the mode says how many sub-assets are produced, not whether this list is how they are
+    ///         described.
+    ///     </para>
+    /// </remarks>
+    public SpriteRect[] Sprites { get; init; } = [];
 }

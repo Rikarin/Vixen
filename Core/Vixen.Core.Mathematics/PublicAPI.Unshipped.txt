@@ -179,6 +179,24 @@ Vixen.Core.Mathematics.Matrix4x4.Translation.get -> Vixen.Core.Mathematics.Vecto
 Vixen.Core.Mathematics.Matrix4x4.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format = default(System.ReadOnlySpan<char>), System.IFormatProvider? provider = null) -> bool
 Vixen.Core.Mathematics.Matrix4x4.Up.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Core.Mathematics.Matrix4x4.this[int row, int column].get -> float
+Vixen.Core.Mathematics.NineSlice -> readonly struct
+Vixen.Core.Mathematics.NineSlice : System.IEquatable<Vixen.Core.Mathematics.NineSlice>
+Vixen.Core.Mathematics.NineSlice.Bottom.get -> float
+Vixen.Core.Mathematics.NineSlice.Bottom.init -> float
+Vixen.Core.Mathematics.NineSlice.Fit(float width, float height) -> Vixen.Core.Mathematics.NineSlice
+Vixen.Core.Mathematics.NineSlice.Horizontal.get -> float
+Vixen.Core.Mathematics.NineSlice.IsEmpty.get -> bool
+Vixen.Core.Mathematics.NineSlice.Left.get -> float
+Vixen.Core.Mathematics.NineSlice.Left.init -> float
+Vixen.Core.Mathematics.NineSlice.NineSlice() -> void
+Vixen.Core.Mathematics.NineSlice.NineSlice(float Left, float Top, float Right, float Bottom) -> void
+Vixen.Core.Mathematics.NineSlice.Right.get -> float
+Vixen.Core.Mathematics.NineSlice.Right.init -> float
+Vixen.Core.Mathematics.NineSlice.Scaled(float x, float y) -> Vixen.Core.Mathematics.NineSlice
+Vixen.Core.Mathematics.NineSlice.Split(Vixen.Core.Mathematics.Rectangle box, System.Span<Vixen.Core.Mathematics.Rectangle> into) -> void
+Vixen.Core.Mathematics.NineSlice.Top.get -> float
+Vixen.Core.Mathematics.NineSlice.Top.init -> float
+Vixen.Core.Mathematics.NineSlice.Vertical.get -> float
 Vixen.Core.Mathematics.Oklab -> readonly struct
 Vixen.Core.Mathematics.Oklab : System.IEquatable<Vixen.Core.Mathematics.Oklab>
 Vixen.Core.Mathematics.Oklab.A.get -> float
@@ -343,6 +361,8 @@ const Vixen.Core.Mathematics.MathUtil.TwoPi = 6.2831855 -> float
 const Vixen.Core.Mathematics.MathUtil.ZeroTolerance = 1E-06 -> float
 const Vixen.Core.Mathematics.Matrix3x3.ComponentCount = 9 -> int
 const Vixen.Core.Mathematics.Matrix4x4.ComponentCount = 16 -> int
+const Vixen.Core.Mathematics.NineSlice.CellCount = 9 -> int
+const Vixen.Core.Mathematics.NineSlice.Centre = 4 -> int
 const Vixen.Core.Mathematics.Quaternion.ComponentCount = 4 -> int
 const Vixen.Core.Mathematics.Vector2.ComponentCount = 2 -> int
 const Vixen.Core.Mathematics.Vector3.ComponentCount = 3 -> int
@@ -676,6 +696,8 @@ static Vixen.Core.Mathematics.Matrix4x4.operator !=(Vixen.Core.Mathematics.Matri
 static Vixen.Core.Mathematics.Matrix4x4.operator *(Vixen.Core.Mathematics.Matrix4x4 left, Vixen.Core.Mathematics.Matrix4x4 right) -> Vixen.Core.Mathematics.Matrix4x4
 static Vixen.Core.Mathematics.Matrix4x4.operator *(Vixen.Core.Mathematics.Vector4 value, Vixen.Core.Mathematics.Matrix4x4 matrix) -> Vixen.Core.Mathematics.Vector4
 static Vixen.Core.Mathematics.Matrix4x4.operator ==(Vixen.Core.Mathematics.Matrix4x4 left, Vixen.Core.Mathematics.Matrix4x4 right) -> bool
+static Vixen.Core.Mathematics.NineSlice.None.get -> Vixen.Core.Mathematics.NineSlice
+static Vixen.Core.Mathematics.NineSlice.Uniform(float amount) -> Vixen.Core.Mathematics.NineSlice
 static Vixen.Core.Mathematics.Oklab.FromLinear(Vixen.Core.Mathematics.Vector3 linear) -> Vixen.Core.Mathematics.Oklab
 static Vixen.Core.Mathematics.Oklab.Lerp(Vixen.Core.Mathematics.Color4 from, Vixen.Core.Mathematics.Color4 to, float amount) -> Vixen.Core.Mathematics.Color4
 static Vixen.Core.Mathematics.Oklab.Lerp(Vixen.Core.Mathematics.Oklab from, Vixen.Core.Mathematics.Oklab to, float amount) -> Vixen.Core.Mathematics.Oklab

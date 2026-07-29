@@ -27,4 +27,16 @@
         -->
         <ProjectReference Include="..\..\Core\Vixen.Ui.Testing\Vixen.Ui.Testing.csproj" />
     </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The PNG writer, linked rather than copied or referenced. It exists so that the importer's
+            input does not come from the library that decodes it, and the sprite editor's tests want a
+            real image for exactly the same reason: the panel decodes the file it is pointed at. A
+            project reference between two test assemblies would be worse than either — it makes one
+            test project's fixtures part of another's public surface — and a second copy of forty
+            lines of container format is a second place for a CRC to be wrong.
+        -->
+        <Compile Include="..\Vixen.Editor.Assets.Tests\MinimalPng.cs" Link="MinimalPng.cs" />
+    </ItemGroup>
 </Project>

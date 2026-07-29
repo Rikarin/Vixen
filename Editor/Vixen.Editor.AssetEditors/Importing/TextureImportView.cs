@@ -62,6 +62,12 @@ public sealed class TextureImportView : Control {
     /// <summary>The settings, the overrides and the addressable block.</summary>
     public ImportSettingsView SettingsView { get; private set; } = null!;
 
+    /// <summary>The two halves of a texture: what it ships as, and what is cut out of it.</summary>
+    public Tabs Tabs { get; private set; } = null!;
+
+    /// <summary>The sprite editor, over this same document.</summary>
+    public SpriteSheetView Sprites { get; private set; } = null!;
+
     /// <summary>The decoded source, or <see langword="null" /> if nothing could decode it.</summary>
     public TextureData? Source => source;
 
@@ -78,26 +84,40 @@ public sealed class TextureImportView : Control {
     public event Action<TextureImportView>? ViewChanged;
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Two tabs over one document, not two documents.</b> The sprite editor edits the same
+    ///     <c>.meta</c> the settings do — a slice is rects written into the texture's import settings —
+    ///     so it shares this document's undo stack and its dirty flag rather than opening a second
+    ///     one. <c>AssetEditorRegistry</c>'s own rule: two documents over one file are two undo
+    ///     histories over one set of bytes, and whichever saves last wins.
+    /// </remarks>
     protected override void OnCreated() {
         base.OnCreated();
 
-        Preview = Part<Image>();
-        Preview.Description = "The texture's source pixels";
+        Tabs = Part<Tabs>();
 
-        Undecodable = Part<Alert>();
+        var texture = Tabs.AddTab("Texture").Panel;
+
+        Preview = texture.Add<Image>();
+        Preview.Description = "The texture's source pixels";
+        Preview.AddClass("texture-preview");
+
+        Undecodable = texture.Add<Alert>();
         Undecodable.AddClass("hidden");
         Undecodable.Title = "No preview";
 
-        var bar = Part("texture-channels");
+        var bar = texture.Add("texture-channels");
 
         Channel(bar, "R", TextureChannels.Red);
         Channel(bar, "G", TextureChannels.Green);
         Channel(bar, "B", TextureChannels.Blue);
         Channel(bar, "A", TextureChannels.Alpha);
 
-        Facts = Part("texture-facts");
-        Ladder = Part("texture-ladder");
-        SettingsView = Part<ImportSettingsView>();
+        Facts = texture.Add("texture-facts");
+        Ladder = texture.Add("texture-ladder");
+        SettingsView = texture.Add<ImportSettingsView>();
+
+        Sprites = Tabs.AddTab("Sprites").Panel.Add<SpriteSheetView>();
     }
 
     /// <summary>Shows a texture.</summary>
@@ -116,6 +136,7 @@ public sealed class TextureImportView : Control {
         }
 
         SettingsView.Show(texture);
+        Sprites.Show(texture);
 
         // Every settings edit moves the ladder — a size limit, a format, mips on or off — so the one
         // event the inspector already raises is what keeps the numbers honest, rather than the panel

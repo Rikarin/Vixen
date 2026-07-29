@@ -15,7 +15,7 @@ if (editors.TryOpen(project, asset, out var document)) {
 
 | Asset | Document | View |
 |---|---|---|
-| Texture | `TextureImportDocument` | settings, the mip ladder, the channel selection, the override matrix |
+| Texture | `TextureImportDocument` | two tabs: settings, the mip ladder, the channel selection and the override matrix — and the sprite editor |
 | Model | `ModelImportDocument` | settings, the part list, the override matrix |
 | Material | `MaterialDocument` | header, parameters, a preview request, the shader-graph link |
 | Scene | `SceneDocument` (`.SceneView`'s) | `SceneHierarchyView` beside the viewport and the inspector |
@@ -24,6 +24,31 @@ if (editors.TryOpen(project, asset, out var document)) {
 | UI (`.vxml`/`.vcss`) | `MarkupDocument`, `StyleSheetDocument` | `PreviewCodeEditorView`: the editor and a preview pane |
 | Addressable groups | `AddressableGroupDocument` | the group list, the policy, and the build's own analysis |
 | Graphics compositor | `CompositorDocument` | a node graph, the selected node's settings, and what compiling says |
+
+## The sprite editor is a tab, not a document
+
+`SpriteSheetView` cuts a texture into sprites: a grid by cell size, a grid by cell count, or one
+sprite per island of opaque texels, then the rects drawn over the picture with the nine-slice guides
+inside the selected one and a name/rect/pivot/border panel beside it.
+
+**It edits `TextureImportDocument`.** A slice is rects written into the texture's own import
+settings — the same `.meta` the compression settings live in — so the panel is a second view over
+that document and shares its undo stack, its dirty flag and its save. A second document over one file
+would be two undo histories over one set of bytes, which is the rule stated below about opening an
+asset twice.
+
+**The cutting is not here.** `SpriteSlicer` lives in `Vixen.Editor.Assets`, beside the importer that
+consumes what it produces, and is a pure function of pixels and options — which is what lets all three
+modes be checked against images built in a test rather than against a screenshot. What is here is the
+toolbar, the overlay and the selection.
+
+⚠ **Slicing is a suggestion.** The sidecar records the rects, not the options that produced them. An
+automatic slice depends on the pixels, so re-cutting at import time would renumber a sheet whose
+artist nudged one frame between exports and repoint every reference into it.
+
+⚠ **The overlay is positioned inline, in texels times the zoom.** No stylesheet can say "this box is
+at texel 96 of that picture", and computing it in the view rather than reading it back out of the
+layout is what lets the overlay be asserted without a frame having been drawn.
 
 ## Told, never discovered — and no fallback
 

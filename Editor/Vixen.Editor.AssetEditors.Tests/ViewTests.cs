@@ -61,8 +61,10 @@ public class ImportViewTests {
         matrix.Show(document);
         harness.Ui.Frame();
 
-        // Five settings on a texture, three columns each: base, Android, iOS.
-        Assert.Equal(15, matrix.Cells.Count);
+        // Seven settings on a texture, three columns each: base, Android, iOS. Two of the seven are
+        // the sprite ones — the sprite *rects* are not among them, because they are not a knob and
+        // are drawn by the sprite editor instead.
+        Assert.Equal(21, matrix.Cells.Count);
         Assert.All(matrix.Cells, cell => Assert.NotNull(cell.Field));
     }
 
@@ -79,8 +81,8 @@ public class ImportViewTests {
         matrix.Show(document);
         harness.Ui.Frame();
 
-        Assert.Equal(5, matrix.Cells.Count(cell => cell.Toggle is null));
-        Assert.Equal(5, matrix.Cells.Count(cell => cell.Toggle is not null));
+        Assert.Equal(7, matrix.Cells.Count(cell => cell.Toggle is null));
+        Assert.Equal(7, matrix.Cells.Count(cell => cell.Toggle is not null));
     }
 
     /// <summary>Adding a target rebuilds the grid, because which cells exist has changed.</summary>
@@ -95,12 +97,12 @@ public class ImportViewTests {
         matrix.Show(document);
         harness.Ui.Frame();
 
-        Assert.Equal(5, matrix.Cells.Count);
+        Assert.Equal(7, matrix.Cells.Count);
 
         document.AddTarget("Android");
         harness.Ui.Frame();
 
-        Assert.Equal(10, matrix.Cells.Count);
+        Assert.Equal(14, matrix.Cells.Count);
     }
 
     /// <summary>The texture editor's ladder shows a row per level and restates when a setting moves.</summary>

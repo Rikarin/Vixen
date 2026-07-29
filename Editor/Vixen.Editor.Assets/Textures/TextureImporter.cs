@@ -4,7 +4,10 @@
 using Vixen.Core;
 using Vixen.Core.Imaging;
 using Vixen.Core.Imaging.BlockCompression;
+using Vixen.Core.Mathematics;
+using Vixen.Core.Serialization;
 using Vixen.Graphics;
+using Vixen.Rendering.Sprites;
 
 namespace Vixen.Editor.Assets.Textures;
 
@@ -74,6 +77,8 @@ public sealed class TextureImporter : AssetImporter<TextureImportSettings> {
             );
 
             context.Write(SubAssetId.Main, "Texture", Ktx2.Write(decoded));
+            WriteSprites(context, settings, decoded.Width, decoded.Height);
+
             return context.Finish();
         }
 
@@ -94,7 +99,77 @@ public sealed class TextureImporter : AssetImporter<TextureImportSettings> {
         var compressed = Compress(texture, settings, context);
 
         context.Write(SubAssetId.Main, "Texture", Ktx2.Write(compressed));
+
+        // ⚠ The *decoded* extent, not the compressed one. A texture over the size limit ships halved
+        // and the sprite rects are in the source's texels — see SpriteRect for why that is right
+        // rather than an oversight: a UV is a region over a texture size and both halve together, so
+        // rescaling the rects would round every one of them to a grid they were not drawn on.
+        WriteSprites(context, settings, decoded.Width, decoded.Height);
+
         return context.Finish();
+    }
+
+    /// <summary>Writes the sheet and one sub-asset per sprite, when the texture declares any.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A sub-asset each, and the sheet as well.</b> The sheet is what a tile map or an
+    ///         animation reaches for — it is the thing that holds the frames in order — and the
+    ///         per-sprite sub-assets are what a single reference resolves to, so dragging one frame
+    ///         into a scene does not pull a hundred others in with it. Neither is derivable from the
+    ///         other at load time without reading both.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The sub-asset id is derived from the sprite's <i>name</i></b>, through the same
+    ///         <c>DeclareSubAsset</c> every importer uses. That is what makes a re-slice survivable:
+    ///         a reference points at a name, so moving a rect keeps it and renaming one breaks it
+    ///         visibly — where numbering by position would silently repoint every reference after
+    ///         the frame somebody inserted.
+    ///     </para>
+    /// </remarks>
+    static void WriteSprites(ImportContext context, TextureImportSettings settings, int width, int height) {
+        if (settings.SpriteMode == SpriteMode.None || settings.Sprites.Length == 0) {
+            return;
+        }
+
+        var size = new Int2(width, height);
+        var density = settings.PixelsPerUnit > 0f ? settings.PixelsPerUnit : Sprite.DefaultPixelsPerUnit;
+        var name = Path.GetFileNameWithoutExtension(context.SourcePath.ToString());
+
+        List<Sprite> sprites = [];
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var rect in settings.Sprites) {
+            if (rect.IsEmpty) {
+                context.Report(ImportSeverity.Warning, $"Sprite '{rect.Name}' has no area and was skipped.");
+                continue;
+            }
+
+            if (!seen.Add(rect.Name)) {
+                // Refused rather than de-duplicated, because the id is derived from the name: two
+                // sprites called the same thing are one sub-asset, and whichever is written second
+                // silently replaces the first.
+                context.Report(
+                    ImportSeverity.Error,
+                    $"Two sprites are called '{rect.Name}'. A sub-asset is identified by its name, so the second "
+                    + "would take the first one's place and every reference to it would follow."
+                );
+
+                continue;
+            }
+
+            var sprite = rect.ToSprite(size, density);
+
+            sprites.Add(sprite);
+            context.Write(context.DeclareSubAsset("Sprite", rect.Name), "Sprite", Serializer.ToBytes(sprite));
+        }
+
+        if (sprites.Count == 0) {
+            return;
+        }
+
+        var sheet = new SpriteSheet { Name = name, TextureSize = size, Sprites = [.. sprites] };
+
+        context.Write(context.DeclareSubAsset("SpriteSheet", name), "SpriteSheet", Serializer.ToBytes(sheet));
     }
 
     /// <summary>How the mip filter should treat this texture, which is the usage restated.</summary>

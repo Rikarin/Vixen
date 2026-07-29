@@ -29,6 +29,7 @@ order, the depth range and the UV origin, once. Every line of it is asserted by
 | `Plane`, `Ray` | Signed distances, classification, and ray casts against planes, boxes, spheres and triangles. |
 | `BoundingBox`, `BoundingSphere`, `BoundingFrustum` | Culling and spatial queries. The frustum's plane extraction is reverse-Z-correct, which is not the same as the textbook derivation. |
 | `Rectangle`, `Viewport` | The 2D half: half-open containment so tiles do not overlap, and `Project`/`Unproject`/`GetPickingRay`. |
+| `NineSlice` | Four inset edges and the cut of a rectangle into the nine they describe. Unitless, so the same four numbers cut a destination box in pixels and a texture region in UVs — which is what lets `Vixen.Ui` and `Vixen.Rendering` stretch a panel and a sprite the same way without referencing each other. |
 | `Color`, `Color3`, `Color4`, `ColorSpace` | 8-bit storage and linear working values, with the sRGB boundary spelled out at every crossing. |
 | `ExactPredicates` | Orientation and in-sphere, answered exactly — see below. |
 | `DelaunayTetrahedralization` | Bowyer–Watson over those predicates, and the completeness check that says the result is the tetrahedralisation rather than most of one. |

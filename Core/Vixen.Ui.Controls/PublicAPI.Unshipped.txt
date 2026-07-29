@@ -204,13 +204,19 @@ Vixen.Ui.Controls.IconButton : Vixen.Ui.Controls.ButtonBase
 Vixen.Ui.Controls.IconButton.IconButton() -> void
 Vixen.Ui.Controls.Image -> sealed class
 Vixen.Ui.Controls.Image : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Image.Border.get -> Vixen.Core.Mathematics.NineSlice
+Vixen.Ui.Controls.Image.Border.set -> Vixen.Core.Mathematics.NineSlice
 Vixen.Ui.Controls.Image.ClearDescription() -> void
 Vixen.Ui.Controls.Image.ClearSource() -> void
 Vixen.Ui.Controls.Image.Description.get -> string?
 Vixen.Ui.Controls.Image.Description.set -> string?
+Vixen.Ui.Controls.Image.HollowCentre.get -> bool
+Vixen.Ui.Controls.Image.HollowCentre.set -> bool
 Vixen.Ui.Controls.Image.Image() -> void
 Vixen.Ui.Controls.Image.Source.get -> string?
 Vixen.Ui.Controls.Image.Source.set -> string?
+Vixen.Ui.Controls.Image.SourceBorder.get -> Vixen.Core.Mathematics.NineSlice
+Vixen.Ui.Controls.Image.SourceBorder.set -> Vixen.Core.Mathematics.NineSlice
 Vixen.Ui.Controls.Image.SourceRectangle.get -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Controls.Image.SourceRectangle.set -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Controls.Image.Texture.get -> ulong
