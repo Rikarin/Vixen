@@ -74,6 +74,15 @@ sealed partial class EditorApplication : IDisposable {
     /// <summary>Snapshot, restore, and what state the transport is in.</summary>
     readonly PlayModeController play;
 
+    /// <summary>The ring the console reads, and what puts the editor's own messages in it.</summary>
+    readonly EditorLog log = new();
+
+    /// <summary>The console panel while it is open, or <see langword="null" />.</summary>
+    ConsoleView? console;
+
+    /// <summary>What it is showing, which outlives the panel.</summary>
+    ConsoleModel? consoleModel;
+
     /// <summary>Whether the save-on-close prompt is already on screen.</summary>
     bool closing;
 
@@ -147,6 +156,11 @@ sealed partial class EditorApplication : IDisposable {
         this.services = services ?? EditorServices.None;
 
         Shell = new EditorShell(width, height);
+
+        // ⚠ Before anything that could notify, which on a first run is the project scan and the
+        // plugin loader. A mirror attached afterwards would miss exactly the messages somebody opens
+        // the console to read: the ones from start-up.
+        log.Mirror(Shell.Notifications);
 
         // ⚠ The fourth user-agent sheet, and it is the application that loads it. `EditorShell` has
         // the three that draw the chrome and cannot have this one: it is deliberately a shell that
@@ -316,6 +330,11 @@ sealed partial class EditorApplication : IDisposable {
         // rather than one, because a dialog's answer must not wait behind a content build's.
         deferred.Pump();
 
+        // ⚠ Pulled here rather than subscribed to, and the reason is threading: the sink is written
+        // from the pool by a content import and by anything else the editor runs in the background,
+        // so a subscription would rebuild the panel's rows off the frame thread.
+        console?.Tick();
+
         ResolveTransforms();
         Retitle();
 
@@ -406,6 +425,10 @@ sealed partial class EditorApplication : IDisposable {
 
         Shell.Dispose();
         world.Dispose();
+
+        // After the shell, because disposing it raises no notifications but unloading a plugin can —
+        // and a mirror taken down first would lose the last thing the editor had to say.
+        log.Dispose();
     }
 
     /// <summary>Brings the window's title into line with what is open.</summary>
@@ -572,7 +595,20 @@ sealed partial class EditorApplication : IDisposable {
         Shell.RegisterPanel(
             "console",
             new StringId("editor.panel.console", "Console"),
-            panel => panel.Add<TextBlock>().Text = "Nothing logged yet."
+            panel => {
+                Contextual(panel, ConsoleContext);
+
+                console = panel.Add<ConsoleView>();
+
+                // ⚠ One model, kept here, rather than one per panel. A panel's factory runs again
+                // every time it is reopened — see this class's own remarks — and a fresh model starts
+                // at the sink's current end, so closing and reopening the console would empty it.
+                // The buffer, the filters and the collapse state are all the user's and survive.
+                consoleModel ??= new ConsoleModel(log.Sink);
+                console.Show(consoleModel);
+
+                console.Activated += (_, record) => Reveal(record);
+            }
         );
     }
 

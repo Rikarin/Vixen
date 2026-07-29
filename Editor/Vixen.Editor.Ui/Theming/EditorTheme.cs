@@ -632,5 +632,112 @@ public static class EditorTheme {
         palette-category { color: var(--text-muted); font-size: 0.85em; }
         palette-row:checked palette-category, palette-row:checked palette-detail { color: var(--accent-text); }
         palette-detail { color: var(--text-muted); font-size: 0.85em; }
+
+        /* ── Console ────────────────────────────────────────────────────────────
+           A strip, a virtualised list and a detail pane, in a column. The list is
+           the only part that grows: a console whose detail pane grew with the
+           stack in it would push the lines off the top of the panel every time
+           somebody clicked an exception. */
+        console-view { flex-direction: column; flex-grow: 1; flex-basis: 0px; min-height: 0px; gap: 0px; }
+
+        console-toolbar {
+            flex-direction: row;
+            align-items: center;
+            flex-shrink: 0;
+            gap: 4px;
+            padding: 4px 6px;
+            border-bottom-width: 1px;
+            border-color: var(--border);
+        }
+
+        console-toolbar search-box { flex-grow: 1; min-width: 80px; }
+        console-toolbar select { width: 150px; flex-shrink: 0; }
+
+        /* ⚠ The four level buttons are pushed to the right, away from the verbs.
+           Clear and Collapse *do* something; a level button changes what you are
+           looking at, and mixing the two into one run of identical chips is how
+           somebody clears the console meaning to hide the warnings. */
+        console-toolbar toggle-button.console-level {
+            flex-shrink: 0;
+            min-width: 34px;
+            padding: 2px 7px;
+            border-radius: var(--radius-control);
+            border-color: var(--border);
+            background-color: var(--surface);
+            color: var(--text-muted);
+        }
+
+        /* Off is muted and on is coloured, which is the right way round: a level
+           that is being *shown* is the one carrying the signal. */
+        console-toolbar toggle-button.console-level:checked.level-error { color: var(--danger); }
+        console-toolbar toggle-button.console-level:checked.level-warning { color: var(--warning); }
+        console-toolbar toggle-button.console-level:checked.level-info { color: var(--text); }
+        console-toolbar toggle-button.console-level:checked.level-verbose { color: var(--text-muted); }
+
+        console-view virtualizing-panel { flex-grow: 1; flex-basis: 0px; min-height: 0px; }
+
+        console-row {
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+            padding: 0px 8px;
+            border-width: 0px;
+            background-color: transparent;
+            color: var(--text);
+            font-size: 0.9em;
+        }
+
+        console-row:hover { background-color: var(--surface-hover); }
+        console-row:checked { background-color: var(--accent); color: var(--accent-text); }
+        console-row.parked { display: none; }
+
+        /* A three-pixel rule down the left of the row rather than a coloured
+           message: a console where the text is the colour is one where a page of
+           warnings is a page of orange, and the message stops being readable. */
+        console-level-mark { width: 3px; height: 12px; flex-shrink: 0; border-radius: 2px; }
+        console-level-mark.level-error { background-color: var(--danger); }
+        console-level-mark.level-warning { background-color: var(--warning); }
+        console-level-mark.level-info { background-color: var(--accent); }
+        console-level-mark.level-verbose { background-color: var(--border); }
+
+        console-time { width: 74px; flex-shrink: 0; color: var(--text-muted); font-size: 0.9em; }
+        console-category { width: 112px; flex-shrink: 0; color: var(--text-muted); overflow: hidden; }
+        console-message { flex-grow: 1; overflow: hidden; }
+
+        console-repeats {
+            flex-shrink: 0;
+            min-width: 20px;
+            padding: 0px 5px;
+            border-radius: 8px;
+            background-color: var(--surface-raised);
+            color: var(--text-muted);
+            font-size: 0.85em;
+        }
+
+        console-row:checked console-time, console-row:checked console-category,
+        console-row:checked console-repeats { color: var(--accent-text); }
+
+        /* ⚠ A fixed height and its own scroller. The stack of a deep exception is
+           forty lines, and a pane that sized to its contents would leave the list
+           two rows tall the moment one was selected. */
+        console-detail {
+            flex-direction: column;
+            flex-shrink: 0;
+            height: 132px;
+            gap: 3px;
+            padding: 7px 9px;
+            border-top-width: 1px;
+            border-color: var(--border);
+            background-color: var(--surface-sunken);
+            overflow: auto;
+        }
+
+        /* ⚠ One line tall with nothing selected. A console docked along the bottom is
+           about six rows deep, and a detail pane holding a third of that open for a
+           stack that is not there is a panel with no room to read the log in. */
+        console-detail.empty { height: auto; padding: 5px 9px; color: var(--text-muted); }
+        console-detail-heading { color: var(--text); }
+        console-detail-meta { color: var(--text-muted); font-size: 0.85em; }
+        console-detail-stack { color: var(--text-muted); font-size: 0.85em; white-space: pre; }
         """;
 }

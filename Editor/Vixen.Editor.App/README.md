@@ -345,6 +345,17 @@ lies about what the next Delete, the next gizmo drag or the next rename will act
 camera is kept as a `ViewBookmark` on `EditorApplication` and restored when the scene panel is
 rebuilt; without it, closing and reopening the viewport puts the user back at the origin.
 
+## The editor's own log
+
+The editor is not built by `VixenApp`, so nothing along its path ever made a `RingBufferSink` — the
+console would have been a perfectly good panel over an empty ring. `EditorLog` is that sink plus the
+one thing that fills it: every `NotificationCenter` message becomes a log line, because a
+notification is the editor deciding something is worth saying and a toast says it for four seconds.
+
+⚠ **The mirror is one-way and must stay that way.** The console reads the ring; the ring is fed from
+notifications. A console that raised notifications for log lines would close the loop, and a single
+warning would toast, log, toast, log.
+
 ## Known gaps
 
 - **A document's panel is not in any layout preset.** It is opened on demand and closed by hand, so

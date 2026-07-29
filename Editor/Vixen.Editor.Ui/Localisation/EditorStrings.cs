@@ -181,6 +181,25 @@ public static class EditorStrings {
     /// <summary>What the status bar's frame-time cell says.</summary>
     public static StringId StatusFrameTime { get; } = new("editor.status.frame-time", "{0} ms");
 
+    /// <summary>Empties the console and the ring behind it.</summary>
+    public static StringId ConsoleClear { get; } = new("editor.console.clear", "Clear");
+
+    /// <summary>Folds identical lines into one row with a count.</summary>
+    public static StringId ConsoleCollapse { get; } = new("editor.console.collapse", "Collapse");
+
+    /// <summary>Empties it on the way into play mode.</summary>
+    public static StringId ConsoleClearOnPlay { get; } = new("editor.console.clear-on-play", "Clear on Play");
+
+    /// <summary>What the console's search box says when it is empty.</summary>
+    public static StringId ConsoleSearch { get; } = new("editor.console.search", "Filter…");
+
+    /// <summary>The category picker's "no filter" choice.</summary>
+    public static StringId ConsoleAllCategories { get; } = new("editor.console.all-categories", "All Categories");
+
+    /// <summary>What the detail pane says when no line is selected.</summary>
+    public static StringId ConsoleNoSelection { get; } =
+        new("editor.console.no-selection", "Select a line to see the whole record.");
+
     /// <summary>What it reports when a keybinding could not be taken.</summary>
     public static StringId KeyBindingConflict { get; } = new("editor.notice.binding-conflict", "That shortcut is already taken");
 
@@ -238,6 +257,12 @@ public static class EditorStrings {
         DialogCancel,
         StatusSelection,
         StatusFrameTime,
+        ConsoleClear,
+        ConsoleCollapse,
+        ConsoleClearOnPlay,
+        ConsoleSearch,
+        ConsoleAllCategories,
+        ConsoleNoSelection,
         KeyBindingConflict
     ];
 }
