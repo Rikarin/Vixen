@@ -108,9 +108,45 @@ public sealed class SequenceView : Control {
         Fields = Side.Add("sequence-fields");
         Log = Side.Add("analysis-list");
 
+        // ⚠ **A track is selected by its header, and without this the panel has no way in.** Track
+        // selection used to come only from clicking one of its keys — so a track somebody had just
+        // added had none, could not be selected, and could not be keyed: you needed a key to select
+        // the track and the track selected to make a key. Clicking the name is what every sequencer
+        // does, and it is the only gesture that works on an empty track.
+        //
+        // On the container rather than on each header, because `Timeline` pools its header rows as
+        // it scrolls — a handler attached per row would be attached to whichever track that row is
+        // showing now.
+        Tracks.Headers.AddHandler<PointerEvent>(
+            (_, args) => {
+                if (args.Action != PointerAction.Pressed) {
+                    return;
+                }
+
+                for (var element = args.Source; element is not null; element = element.Parent) {
+                    if (element is TimelineHeader { Track.Tag: SequenceTrackData track }) {
+                        selected = track;
+                        Restate();
+
+                        return;
+                    }
+                }
+            }
+        );
+
         Duration.NumberChanged += (_, value) => document?.SetDuration((float) value);
         Tracks.TimeChanged += (_, time) => Seek(time);
-        Tracks.SelectionChanged += _ => Restate();
+        // ⚠ Derived here rather than in `Restate`, and the difference is not tidiness. `Restate`
+        // renders; a renderer that also decides what is selected runs *after* every other way of
+        // selecting something and quietly overrules it — which is exactly what a stale key selection
+        // did to a header click while this was inside it.
+        Tracks.SelectionChanged += _ => {
+            if (Tracks.Selection.FirstOrDefault() is { } key && TrackOf(key) is { } owner) {
+                selected = owner;
+            }
+
+            Restate();
+        };
         Tracks.KeysMoved += _ => Commit();
 
         AddHandler<ClickEvent>(static (element, args) => ((SequenceView) element).Chosen(args));
@@ -280,12 +316,6 @@ public sealed class SequenceView : Control {
             return;
         }
 
-        // The timeline reports the selected *key*; the track it is on is what the fields are about,
-        // because a track is what somebody adds, mutes and removes.
-        if (Tracks.Selection.FirstOrDefault() is { } key) {
-            selected = Tracks.Tracks.FirstOrDefault(row => row.Keys.Contains(key))?.Tag as SequenceTrackData ?? selected;
-        }
-
         Fields.Add("sequence-title").Text = sequence.Sequence.Name;
 
         Fields.Add("fact-row").Add("fact-name").Text = string.Create(
@@ -355,14 +385,14 @@ public sealed class SequenceView : Control {
             }
 
             if (ReferenceEquals(element, AddCamera)) {
-                sequence.AddTrack(new() { Kind = SequenceTrackKind.Camera, Name = "Camera" });
+                Add(sequence, new() { Kind = SequenceTrackKind.Camera, Name = "Camera" });
                 args.Handled = true;
 
                 return;
             }
 
             if (ReferenceEquals(element, AddEvent)) {
-                sequence.AddTrack(new() { Kind = SequenceTrackKind.Event, Name = "Events" });
+                Add(sequence, new() { Kind = SequenceTrackKind.Event, Name = "Events" });
                 args.Handled = true;
 
                 return;
@@ -385,6 +415,18 @@ public sealed class SequenceView : Control {
         }
     }
 
+    /// <summary>Adds a track and selects it, so the next press of Key lands on it.</summary>
+    void Add(SequenceDocument sequence, SequenceTrackData track) {
+        sequence.AddTrack(track);
+
+        selected = track;
+        Restate();
+    }
+
+    /// <summary>The track a timeline key belongs to, or <see langword="null" />.</summary>
+    SequenceTrackData? TrackOf(TimelineKey key) =>
+        Tracks.Tracks.FirstOrDefault(row => row.Keys.Contains(key))?.Tag as SequenceTrackData;
+
     /// <summary>Adds a track for whatever the scene has selected.</summary>
     void AddForSelection(SequenceDocument sequence, SequenceTrackKind kind) {
         if (sequence.Player is not { Scene: { } scene } || scene.Selection.Count == 0) {
@@ -394,8 +436,17 @@ public sealed class SequenceView : Control {
         }
 
         foreach (var entity in scene.Selection) {
-            sequence.AddTrack(new() { Kind = kind, Target = scene.IdOf(entity) });
+            var track = new SequenceTrackData { Kind = kind, Target = scene.IdOf(entity) };
+
+            sequence.AddTrack(track);
+
+            // ⚠ The last one added is selected, so Key works without a click. Adding a track and
+            // then being told to select one is the shape of instruction nobody reads, and with a
+            // header click as the only other route it was also the only route on an empty track.
+            selected = track;
         }
+
+        Restate();
     }
 
     /// <summary>Records the selected track's value at the playhead.</summary>
