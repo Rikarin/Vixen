@@ -62,6 +62,11 @@
         <!-- And the model importer produces a ModelData, its meshes, its skeleton and its clips. -->
         <ProjectReference Include="..\..\Core\Vixen.Rendering\Vixen.Rendering.csproj" />
 
+        <!-- It also bakes a distance field per mesh (docs/plan/19 § L1). Same reason as the navmesh
+             below: the bake is a runtime assembly's, because the artefact it writes is what a player
+             deserialises and both halves have to agree on the type. -->
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.DistanceFields\Vixen.Rendering.DistanceFields.csproj" />
+
         <!-- The navmesh importer runs the bake, which is a runtime assembly's: the artefact it writes
              is what a player deserialises, so both halves have to be the same NavMeshAsset. -->
         <ProjectReference Include="..\..\Core\Vixen.Navigation\Vixen.Navigation.csproj" />

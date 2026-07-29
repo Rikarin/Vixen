@@ -6,8 +6,10 @@ using Vixen.Core;
 using Vixen.Core.IO;
 using Vixen.Core.Serialization;
 using Vixen.Core.Yaml.Meta;
+using Vixen.Core.Mathematics;
 using Vixen.Editor.Assets.Models;
 using Vixen.Rendering;
+using Vixen.Rendering.DistanceFields;
 using Xunit;
 
 namespace Vixen.Editor.Assets.Tests;
@@ -19,6 +21,31 @@ public sealed class ModelImporterTests {
         v 1 0 0
         v 0 1 0
         f 1 2 3
+        """;
+
+    /// <summary>A closed unit cube, wound so every face looks outward. What a field can be checked against.</summary>
+    const string Cube = """
+        o Cube
+        v -0.5 -0.5 -0.5
+        v 0.5 -0.5 -0.5
+        v 0.5 0.5 -0.5
+        v -0.5 0.5 -0.5
+        v -0.5 -0.5 0.5
+        v 0.5 -0.5 0.5
+        v 0.5 0.5 0.5
+        v -0.5 0.5 0.5
+        f 5 6 7
+        f 5 7 8
+        f 1 4 3
+        f 1 3 2
+        f 2 3 7
+        f 2 7 6
+        f 1 5 8
+        f 1 8 4
+        f 4 8 7
+        f 4 7 3
+        f 1 2 6
+        f 1 6 5
         """;
 
     [Fact]
@@ -42,11 +69,11 @@ public sealed class ModelImporterTests {
         Assert.True(result.Succeeded);
 
         var model = Assert.Single(result.Artifacts, artifact => artifact.SubAsset == SubAssetId.Main);
-        var mesh = Assert.Single(result.Artifacts, artifact => artifact.SubAsset != SubAssetId.Main);
+        var mesh = Assert.Single(result.Artifacts, artifact => artifact.Type == "Mesh");
 
         Assert.Equal("Model", model.Type);
-        Assert.Equal("Mesh", mesh.Type);
-        Assert.Equal("Mesh", Assert.Single(result.SubAssets).Type);
+        Assert.NotEqual(SubAssetId.Main, mesh.SubAsset);
+        Assert.Contains(result.SubAssets, entry => entry.Type == "Mesh");
         Assert.Empty(context.AssetDependencies);
     }
 
@@ -73,7 +100,7 @@ public sealed class ModelImporterTests {
         var (_, result) = await Import("hero.obj", Triangle);
 
         var mesh = Serializer.Read<MeshData>(
-            Assert.Single(result.Artifacts, artifact => artifact.SubAsset != SubAssetId.Main).Content.Span.ToArray()
+            Assert.Single(result.Artifacts, artifact => artifact.Type == "Mesh").Content.Span.ToArray()
         );
 
         Assert.Equal(3, mesh.VertexCount);
@@ -103,13 +130,83 @@ public sealed class ModelImporterTests {
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Severity == ImportSeverity.Warning);
     }
 
-    static async Task<(ImportContext Context, ImportResult Result)> Import(string name, string text) {
+    /// <summary>
+    ///     A field per mesh, as its own sub-asset — because every instance of a mesh shares one, and
+    ///     because a renderer wants to load the geometry without paying for the field or the other
+    ///     way round.
+    /// </summary>
+    [Fact]
+    public async Task EachMeshGetsADistanceFieldBesideIt() {
+        var (_, result) = await Import("crate.obj", Cube, Fast);
+
+        Assert.True(result.Succeeded);
+
+        var field = Assert.Single(result.Artifacts, artifact => artifact.Type == "DistanceField");
+
+        Assert.Equal("DistanceField", Assert.Single(result.SubAssets, entry => entry.Type == "DistanceField").Type);
+        Assert.NotEqual(SubAssetId.Main, field.SubAsset);
+    }
+
+    /// <summary>
+    ///     The bake reached the right geometry and came out the right way round. A cube's centre is
+    ///     half a unit inside it, and a field that measured nothing — or measured it inverted — fails
+    ///     here rather than in a renderer.
+    /// </summary>
+    [Fact]
+    public async Task TheFieldMeasuresTheMeshItWasBakedFrom() {
+        var (_, result) = await Import("crate.obj", Cube, Fast);
+
+        var field = Serializer.Read<MeshDistanceField>(
+            Assert.Single(result.Artifacts, artifact => artifact.Type == "DistanceField").Content.Span.ToArray()
+        );
+
+        field.Validate();
+
+        Assert.True(field.Sample(Vector3.Zero) < 0, "the centre of a solid cube read as outside it");
+        Assert.True(field.Sample(new(0.9f, 0, 0)) > 0, "a point beyond a face read as inside it");
+        Assert.Equal(0f, field.Sample(new(0.5f, 0, 0)), field.CellSize.Length());
+    }
+
+    [Fact]
+    public async Task TurningTheBakeOffLeavesTheRestOfTheImportAlone() {
+        var (_, result) = await Import("crate.obj", Cube, new() { GenerateDistanceFields = false });
+
+        Assert.True(result.Succeeded);
+        Assert.DoesNotContain(result.Artifacts, artifact => artifact.Type == "DistanceField");
+        Assert.Contains(result.Artifacts, artifact => artifact.Type == "Mesh");
+    }
+
+    [Fact]
+    public async Task TheBakeSettingsInTheMetaReachTheBake() {
+        var (_, coarse) = await Import("crate.obj", Cube, new() { DistanceFieldResolution = 8, DistanceFieldSignRays = 8 });
+        var (_, fine) = await Import("crate.obj", Cube, new() { DistanceFieldResolution = 20, DistanceFieldSignRays = 8 });
+
+        Assert.Equal(8, Field(coarse).Resolution.X);
+        Assert.Equal(20, Field(fine).Resolution.X);
+
+        static MeshDistanceField Field(ImportResult result) =>
+            Serializer.Read<MeshDistanceField>(
+                Assert.Single(result.Artifacts, artifact => artifact.Type == "DistanceField").Content.Span.ToArray()
+            );
+    }
+
+    /// <summary>Cheap enough to run in a test, and still enough resolution to be checkable.</summary>
+    static ModelImportSettings Fast => new() { DistanceFieldResolution = 16, DistanceFieldSignRays = 16 };
+
+    static Task<(ImportContext Context, ImportResult Result)> Import(string name, string text) =>
+        Import(name, text, new ModelImportSettings());
+
+    static async Task<(ImportContext Context, ImportResult Result)> Import(
+        string name,
+        string text,
+        ModelImportSettings settings
+    ) {
         var path = new VirtualPath("/Assets/" + name);
         var files = new MemoryFileProvider();
         files.Seed(path, Encoding.UTF8.GetBytes(text));
 
         var importer = new ModelImporter();
-        var context = new ImportContext(AssetId.New(), path, importer.CreateSettings(), files, importer.Name, "Windows");
+        var context = new ImportContext(AssetId.New(), path, settings, files, importer.Name, "Windows");
 
         return (context, await importer.ImportAsync(context, TestContext.Current.CancellationToken));
     }
