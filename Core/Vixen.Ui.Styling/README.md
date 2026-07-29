@@ -26,6 +26,13 @@ before anything was built on it is
 | `Animator` | Transitions and `@keyframes` animations, over the cascade. |
 | `Vixen.Ui.Styling.Utilities` | ⏳ its own project |
 
+⚠ **`StyleUpdater` is what the frame pass runs, and for two phases it was not.** `UiDocument.Update`
+called `StyleEngine.ResolveAll` — the cold pass — so every gate in this project about incremental
+restyling was green against an object nothing in the running framework called. It is wired now, and
+the gate that says so lives in `Vixen.Ui.Tests` rather than here, because a test that reaches for the
+updater directly passes with the wiring deleted. `StyleEngine.ResolveAll` survives as the plain
+whole-tree cascade the sharing and cascade oracles are written against.
+
 ## The three ideas
 
 **Right to left.** `.sidebar .row .cell` read left to right means finding every `.sidebar`, then every

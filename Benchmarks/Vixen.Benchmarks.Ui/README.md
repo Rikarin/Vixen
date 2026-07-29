@@ -89,37 +89,47 @@ elements, so **`Controls = 5 000` is 8 001 style nodes**.
 
 ## What it measured
 
-Apple M1 Max, .NET 10.0.9, `DefaultJob`.
+Apple M1 Max, .NET 10.0.9, `DefaultJob`. The right-hand pair of columns is the run that closed the
+incremental cascade; the left-hand pair is the run that opened it.
 
 | Controls | Nodes | Nothing changed | One class toggled | Cold | Steady alloc | Toggled alloc |
 |---|---|---|---|---|---|---|
-| 500 | 801 | 20.9 µs | 843 µs | 1.16 ms | **0 B** | 889 KB |
-| 5 000 | 8 001 | **230 µs** | 9.50 ms | 11.9 ms | **0 B** | 8.87 MB |
-| 20 000 | 32 001 | 1.18 ms | 37.8 ms | 49.9 ms | **0 B** | 36.1 MB |
+| 500 | 801 | 36.4 µs | **85.9 µs** | 1.48 ms | **0 B** | **552 B** |
+| 5 000 | 8 001 | **436 µs** | **937 µs** | 14.6 ms | **0 B** | **552 B** |
+| 20 000 | 32 001 | 2.75 ms | **5.37 ms** | 105 ms † | **0 B** | **552 B** |
 
-**Doc 14's Phase 4 exit criterion is met, with margin.** *"UI frame under 2 ms with 5 000 elements
-and zero steady-state allocation"* — 8 001 elements at **0.230 ms** against a 2 ms budget, allocating
-**zero bytes**. It still holds at 32 001 elements and 1.18 ms, so the budget is met at four times the
-scale it was written for.
+† median. The 20 000 cold case has a standard deviation two thirds of its mean — a background
+collection lands inside some iterations — so its median is quoted and its mean is not.
+
+**Doc 14's Phase 4 exit criterion is met, with margin.** *"UI frame under 2 ms with 5 000 elements and
+zero steady-state allocation"* — 8 001 elements at **0.436 ms** against a 2 ms budget, allocating
+**zero bytes**. It still holds at 32 001 elements and 2.75 ms, which is four times the scale the
+budget was written for and the first size at which it does not hold.
 
 ⚠ **That is the frame an interface spends most of its time in and it is not the frame that matters.**
 The steady number is this good because `UiDocument.Update` returns immediately on a clean document, so
 what is being timed is the draw walk and the frame diff. The column next to it is the one an
 application actually pays.
 
+⚠ **The steady frame is slower than the 0.230 ms this file recorded when the suite first ran, and
+that is not explained here.** Allocation is zero in both, so it is real work added to the draw walk
+between the two runs rather than pressure; the machine was also visibly noisier this time — cold
+frames varied by 2.7× across three runs of the same build. It is quoted as measured rather than
+reconciled, and re-running it on a quiet machine is owed before anybody reads a regression into it.
+
 ## What it found
 
-⚠ **Toggling one class costs a full cascade, and `StyleUpdater` has no production caller.**
+⚠ **Toggling one class cost a full cascade, and `StyleUpdater` had no production caller.**
 
-One class on one row of 8 001 elements costs **9.50 ms and 8.87 MB** — 41× the steady frame, and 80 %
-of a cold frame that resizes the viewport and relays out everything. An interaction is nearly as
+One class on one row of 8 001 elements cost **9.50 ms and 8.87 MB** — 41× the steady frame, and 80 %
+of a cold frame that resizes the viewport and relays out everything. An interaction was nearly as
 expensive as a theme reload.
 
-The cause is one line: `UiDocument.Update` calls `StyleEngine.ResolveAll`, which cascades every live
+The cause was one line: `UiDocument.Update` called `StyleEngine.ResolveAll`, which cascades every live
 node from scratch. `StyleUpdater` and `StyleInvalidator` — Phase 4b's incremental restyle, whose gate
 is *"toggling `.selected` on one row of a 100×100 grid restyles exactly one element"*, with an
-oracle and four sabotages behind it — are **referenced only by their own project's tests**. Nothing in
-the running framework has ever used them.
+oracle and four sabotages behind it — were **referenced only by their own project's tests**. Nothing in
+the running framework had ever used them.
 
 Measured, not inferred:
 
@@ -133,7 +143,8 @@ Measured, not inferred:
 **`StylesApplied = 1` is why no test caught this.** Doc 14's claim under 4d — *"one changed class
 rebuilds one element"* — is true, and it is a claim about what gets rebuilt *downstream* of the
 cascade, which the `ComputedStyle` interning makes cheap to check. It says nothing about the cost of
-the cascade that produced the answer, and the two were read as one.
+the cascade that produced the answer, and the two were read as one. `UiDocument.StylesResolved` is the
+second number, and it exists because this one was read as both.
 
 ⚠ **And the sharing cache cannot cover for it, by construction.** Its key holds the parent *element* —
 the correction Phase 4b made to doc 09, and the right one — so it shares between identical siblings
@@ -141,9 +152,30 @@ and nowhere else. A 10 000-cell grid is one parent and shares 9 999 times; an in
 of four differing children shares only the 1 000 rows, which is the 12 % above. Sharing makes a *cold*
 pass cheap for grid-shaped documents and does nothing for an incremental pass on any shape.
 
-The fix is to wire `StyleUpdater` into `UiDocument.Update` in place of `ResolveAll`. It is not a small
-change — the updater owns its own resolved-style array and its own pass ordering, and the document
-would hand it the dirty set instead of a flag — and it is the difference between an interaction
-costing 9.5 ms and costing what the 4b gate says it costs.
+## What it changed
+
+**The document records what changed rather than that something did.** A class change and a state
+change are the two mutations `StyleUpdater` can narrow, so they go into a log that the next pass
+replays through the updater; everything else still comes through `Invalidate` and still costs a cold
+pass. An interaction went from **9.50 ms to 0.937 ms** at 8 001 nodes and from 37.8 ms to 5.37 ms at
+32 001 — 7× to 10× at every size.
+
+**The allocation is the number worth reading, because it stopped depending on the document.** A
+toggle allocated 889 KB, 8.87 MB and 36.1 MB at the three sizes; it now allocates **552 bytes at all
+three**. That flatness is the whole claim of an incremental cascade, and it is the shape a ratio
+hides: 65 000× at the largest size is the same fact as *the cascade no longer looks at the document*.
+
+⚠ **The run also found the zero-allocation criterion had quietly stopped holding, and not because of
+any of this.** The steady frame was allocating 160 KB at 8 001 nodes and 640 KB at 32 001 — exactly
+40 bytes per element with children, which is `List<T>`'s enumerator being boxed. `UiElement.PaintOrder`
+returned `IReadOnlyList<UiElement>`, and because its two branches return two different concrete lists
+the JIT could not devirtualise the `foreach` in the draw walk the way it does everywhere else. It
+returns `List<UiElement>` now, and `UiDocument`'s `Apply` and `Accumulate` take a concrete
+`ChildList` for the same reason.
+
+**That regression is dated, and the dates are the point.** The run that recorded *"0 B"* in the table
+above was 17:01; `PaintOrder` arrived with `z-index` at 18:06, an hour later. The claim was true when
+it was measured and false within the hour, and nothing re-ran the benchmark — which is the argument
+for this file being a build step rather than a document somebody remembers to update.
 
 Licensed under Apache-2.0.

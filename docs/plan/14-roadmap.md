@@ -2651,7 +2651,53 @@ sub-piece has its own gate.
   entry drew the line between them.
 
   Owed, and the largest performance item left in the phase: `UiDocument.Update` taking the dirty set
-  to `StyleUpdater` instead of a flag to `ResolveAll`.
+  to `StyleUpdater` instead of a flag to `ResolveAll`. **Closed — see the entry below.**
+- ✅ **The incremental cascade is wired up, and the interaction frame is 7× to 10× cheaper.** The
+  document now **records what changed rather than that something did**: a class change and a state
+  change — the two mutations `StyleUpdater` can narrow — go into a log that the next pass replays
+  through the updater, and everything else still arrives through `Invalidate` and still costs a cold
+  pass. Toggling one class on 8 001 nodes went from **9.50 ms to 0.937 ms**, and on 32 001 from
+  37.8 ms to 5.37 ms.
+
+  **The allocation is the number worth reading, because it stopped depending on the document.** That
+  toggle allocated 889 KB, 8.87 MB and 36.1 MB at the three sizes and now allocates **552 bytes at
+  all three**. Flatness is the whole claim of an incremental cascade; the 65 000× at the largest size
+  is the same fact stated in a way that hides it.
+
+  ⚠ **Two bugs in the updater, both from being dead rather than from being wrong.** It never passed
+  the element's inline block, so every declaration written on an element — a splitter at 37 %, a
+  virtualised row at y = 880 000 — would have vanished on the first incremental pass. And `Compact`
+  cleared a negative length when a document compacted before its first pass. Neither is a mistake in
+  the design; both are what happens to code nothing calls. **Dead code does not stay correct**, which
+  is a better argument for wiring it up than the frame cost was.
+
+  ⚠ **Gated through `UiDocument` rather than through `StyleUpdater`, because the old gate could not
+  fail.** `IncrementalRestyleOracleTests` had run this property against the updater since 4b and was
+  green the entire time nothing called it. `IncrementalDocumentTests` drives the document instead:
+  mutate a tree, compare every resolved style against a second document built *directly* in the final
+  state, assert the pass really was incremental. Six of seven sabotages land; the seventh is
+  unreachable and labelled where it lives. The property was **vacuous when first written** — its trees
+  were bare `div`s and every generated rule needed a class, so both documents resolved to nothing and
+  agreed — which a sabotage that failed to fail is what found. Three coverage assertions now.
+
+  ⚠ **A scroll no longer restyles anything.** An offset cannot change what any selector matches, but
+  the only way to ask for a pass was `Invalidate`, so every frame of a scroll re-resolved the
+  document. `OffsetX`/`OffsetY` ask for `InvalidatePositions` now.
+
+  ⚠ **And re-running the benchmark found the zero-allocation criterion had quietly stopped holding,
+  for an unrelated reason.** The *steady* frame was allocating 160 KB at 8 001 nodes and 640 KB at
+  32 001 — exactly forty bytes per element with children, which is `List<T>`'s enumerator being boxed.
+  `UiElement.PaintOrder` returned `IReadOnlyList<UiElement>`, and because its two branches hand back
+  two different concrete lists the JIT could not devirtualise the draw walk's `foreach` the way it
+  does elsewhere. **The dates are the point:** the run that recorded *"zero bytes"* was 17:01 and
+  `PaintOrder` arrived with `z-index` at 18:06. The claim was true when measured and false within the
+  hour, and nothing re-ran the benchmark. Fixed, and the exit criterion holds again at all three
+  sizes.
+
+  ⚠ **Still owed:** the steady frame measures 0.436 ms at 8 001 nodes against the 0.230 ms recorded
+  when the suite first ran. Allocation is zero in both, so it is work added to the draw walk rather
+  than pressure — but the machine was also visibly noisier, with cold frames varying 2.7× across three
+  runs of the same build, so it is recorded as measured rather than diagnosed.
 
   ⚠ **The font is borrowed from the operating system**, because the repository has no Latin UI face
   to commit — the fourteen it does have are the Consortium's shaping fixtures. Finding none is not a
@@ -2663,7 +2709,8 @@ sub-piece has its own gate.
   this sample, though `Vixen.Ui.HotReload.Tests` covers the mechanism.
 
 **Exit:** ✅ Yoga suite green. ✅ UI frame under 2 ms with 5 000 elements and zero steady-state
-allocation — measured at 8 001 elements, 0.230 ms, 0 B. ✅ A `DockingHost` layout round-trips through
+allocation — measured at 8 001 elements, 0.436 ms, 0 B, and re-measured after the zero was found to
+have lapsed for an hour and a half. ✅ A `DockingHost` layout round-trips through
 serialisation. 🟡 `Samples/02` runs on macOS; it builds and its assemblies are tested on
 Windows/Linux in CI, but **no CI step runs either sample**, so the `--frames N` flag both sample
 READMEs describe as CI's proof is not wired to anything. The browser run is Phase 10's. 🟡 Hot reload
