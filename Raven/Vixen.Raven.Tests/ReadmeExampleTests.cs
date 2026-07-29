@@ -48,7 +48,7 @@ public class ReadmeExampleTests {
         Assert.True(errors.Length == 0, string.Join("\n", errors.Select(d => d.ToString())));
 
         // One unit per stage, each a complete GLSL translation unit.
-        Assert.Equal([ShaderStage.Vertex, ShaderStage.Pixel], generated.Select(g => g.Stage));
+        Assert.Equal([ShaderStage.Vertex, ShaderStage.Fragment], generated.Select(g => g.Stage));
         Assert.All(generated, unit => Assert.StartsWith("#version 450", unit.Code));
         Assert.All(generated, unit => Assert.Contains("void main() {", unit.Code));
     }
@@ -68,7 +68,7 @@ public class ReadmeExampleTests {
         var errors = bag.ToArray().Where(d => d.IsError).ToArray();
         Assert.True(errors.Length == 0, string.Join("\n", errors.Select(d => d.ToString())));
 
-        Assert.Equal([ShaderStage.Vertex, ShaderStage.Pixel], generated.Select(g => g.Stage));
+        Assert.Equal([ShaderStage.Vertex, ShaderStage.Fragment], generated.Select(g => g.Stage));
 
         // The verdict that matters is the reference validator's.
         Assert.All(generated, SpirvTestBase.Validate);
@@ -102,13 +102,13 @@ public class ReadmeExampleTests {
         Assert.True(errors.Length == 0, string.Join("\n", errors.Select(d => d.ToString())));
 
         var vertex = Assert.Single(generated, unit => unit.Stage == ShaderStage.Vertex).Code;
-        var pixel = Assert.Single(generated, unit => unit.Stage == ShaderStage.Pixel).Code;
+        var fragment = Assert.Single(generated, unit => unit.Stage == ShaderStage.Fragment).Code;
 
         // Declaration order gives normalWS 0 and uv 1, in both directions, so the pipeline links.
         Assert.Contains("layout(location = 0) out vec3 out_normalWS", vertex, StringComparison.Ordinal);
         Assert.Contains("layout(location = 1) out vec2 out_uv", vertex, StringComparison.Ordinal);
-        Assert.Contains("layout(location = 0) in vec3 in_normalWS", pixel, StringComparison.Ordinal);
-        Assert.Contains("layout(location = 1) in vec2 in_uv", pixel, StringComparison.Ordinal);
+        Assert.Contains("layout(location = 0) in vec3 in_normalWS", fragment, StringComparison.Ordinal);
+        Assert.Contains("layout(location = 1) in vec2 in_uv", fragment, StringComparison.Ordinal);
 
         // And the vertex attributes sit after them, which is the stated consequence.
         Assert.Contains("layout(location = 2) in vec3 in_position", vertex, StringComparison.Ordinal);

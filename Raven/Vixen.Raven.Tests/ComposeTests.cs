@@ -43,7 +43,7 @@ public class ComposeTests {
 
                                 var tint: float4
 
-                                [PixelShader]
+                                [FragmentShader]
                                 func Shade(): float4 {
                                     return diffuse.Diffuse(tint)
                                 }

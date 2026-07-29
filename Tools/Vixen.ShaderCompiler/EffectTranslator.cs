@@ -16,11 +16,13 @@ namespace Vixen.ShaderCompiler;
 /// <remarks>
 ///     <para>
 ///         The only place in the repository where the compiler's vocabulary and the runtime's meet,
-///         and it exists so that they never have to anywhere else. Raven says <c>Pixel</c> and the
-///         RHI says <c>Fragment</c>; Raven describes a member of a struct array once with a stride
-///         and the engine wants a key per element; Raven's parameter names are bare and the engine's
-///         are qualified by shader. Every one of those is a rename, and every rename is somewhere a
-///         mistake could be made once and then be permanent in a bundle.
+///         and it exists so that they never have to anywhere else. The stages are spelled the same
+///         on both sides — <c>Fragment</c>, deliberately, so that this stays a widening from a plain
+///         enum to a flags one and never a translation. What genuinely differs is the rest: Raven
+///         describes a member of a struct array once with a stride and the engine wants a key per
+///         element; Raven's parameter names are bare and the engine's are qualified by shader. Every
+///         one of those is a rename, and every rename is somewhere a mistake could be made once and
+///         then be permanent in a bundle.
 ///     </para>
 ///     <para>
 ///         <strong>The naming has to match the generator, not merely resemble it.</strong>
@@ -224,7 +226,7 @@ public static class EffectTranslator {
     static Vixen.Graphics.ShaderStage Stage(RavenStage stage) =>
         stage switch {
             RavenStage.Vertex => Vixen.Graphics.ShaderStage.Vertex,
-            RavenStage.Pixel => Vixen.Graphics.ShaderStage.Fragment,
+            RavenStage.Fragment => Vixen.Graphics.ShaderStage.Fragment,
             RavenStage.Geometry => Vixen.Graphics.ShaderStage.Geometry,
             RavenStage.Compute => Vixen.Graphics.ShaderStage.Compute,
             _ => Vixen.Graphics.ShaderStage.None
@@ -237,7 +239,7 @@ public static class EffectTranslator {
             result |= Vixen.Graphics.ShaderStage.Vertex;
         }
 
-        if (stages.HasFlag(ShaderStages.Pixel)) {
+        if (stages.HasFlag(ShaderStages.Fragment)) {
             result |= Vixen.Graphics.ShaderStage.Fragment;
         }
 

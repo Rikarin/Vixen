@@ -50,7 +50,7 @@ As a CLI tool
 
 `<output>` with an extension names a single file, and then the shader must have
 exactly one stage. Anything else is a directory, which is what a shader with
-both a vertex and a pixel entry point needs — it writes one file per stage,
+both a vertex and a fragment entry point needs — it writes one file per stage,
 named after the shader:
 
 ```
@@ -183,9 +183,9 @@ shader Lambert {
         return world * float4(position, 1)
     }
 
-    [PixelShader]
+    [FragmentShader]
     [Semantic("SV_Target")]
-    func Pixel(normal: float3, uv: float2): float4 {
+    func Fragment(normal: float3, uv: float2): float4 {
         val sampled = albedo.Sample(albedoSampler, uv)
         val lit = Diffuse(normal)
         return float4(sampled.rgb * baseColor.rgb * lit, sampled.a)
@@ -522,16 +522,16 @@ shader Lit {
         return world * float4(position, 1f)
     }
 
-    [PixelShader]
-    func Pixel(): float4 {
+    [FragmentShader]
+    func Fragment(): float4 {
         val n = normalize(normalWS)
         return float4(n * 0.5f + 0.5f, uv.x)
     }
 }
 ```
 
-Nothing declares a direction. The vertex stage writes both streams, so both are its outputs; the pixel
-stage reads both, so both are its inputs — worked out from what each stage's code does, which is why
+Nothing declares a direction. The vertex stage writes both streams, so both are its outputs; the
+fragment stage reads both, so both are its inputs — worked out from what each stage's code does, which is why
 `WriteNormal` can contribute one without any signature between it and the pipeline mentioning it.
 
 A stream's location is its position in the shader's declaration list, so the writing stage and the

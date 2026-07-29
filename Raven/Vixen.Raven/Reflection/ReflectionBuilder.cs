@@ -370,12 +370,12 @@ public static class ReflectionBuilder {
     ///     its colour-attachment list straight off this.
     /// </remarks>
     static ImmutableArray<FragmentOutputInfo> BuildOutputs(IrShader shader) {
-        if (shader.EntryPoints.FirstOrDefault(e => e.Stage == ShaderStage.Pixel) is not { } pixel) {
+        if (shader.EntryPoints.FirstOrDefault(e => e.Stage == ShaderStage.Fragment) is not { } fragment) {
             return [];
         }
 
         return [
-            .. pixel.Outputs.Select(
+            .. fragment.Outputs.Select(
                 (output, location) => new FragmentOutputInfo(
                     location,
                     output.Name,
@@ -434,7 +434,7 @@ public static class ReflectionBuilder {
     static ShaderStages Flag(ShaderStage stage) =>
         stage switch {
             ShaderStage.Vertex => ShaderStages.Vertex,
-            ShaderStage.Pixel => ShaderStages.Pixel,
+            ShaderStage.Fragment => ShaderStages.Fragment,
             ShaderStage.Geometry => ShaderStages.Geometry,
             ShaderStage.Compute => ShaderStages.Compute,
             _ => ShaderStages.None

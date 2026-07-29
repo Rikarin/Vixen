@@ -13,7 +13,7 @@ import Vixen.Shaders.Geometry
 //   - It applies a depth bias in the vertex stage along the normal, which a camera pass must not.
 //
 // The bias belongs here rather than in the rasteriser state because a normal-offset bias needs the
-// vertex normal, which only a shader has. See `Lighting.NormalOffset` for the pixel-stage counterpart
+// vertex normal, which only a shader has. See `Lighting.NormalOffset` for the fragment-stage counterpart
 // and why both exist.
 //
 // It is also the pass that has to be skinned, and the reason is a bug rather than a feature: a skinned
@@ -85,9 +85,9 @@ shader ShadowCaster {
     /// A cut-out texel casts no shadow, which only a `discard` can say: a returned zero still writes
     /// depth into the shadow map, and a shadow map is nothing but depth — so the holes in a leaf
     /// would cast the shadow of a solid quad.
-    [PixelShader]
+    [FragmentShader]
     [Semantic("SV_Target")]
-    func Pixel(): float4 {
+    func Fragment(): float4 {
         if (AlphaTested) {
             val opacity = opacityMap.Sample(opacitySampler, uv).a
             if (opacity < alphaCutoff) {

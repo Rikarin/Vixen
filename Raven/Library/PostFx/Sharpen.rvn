@@ -36,9 +36,9 @@ shader Sharpen {
         return Fullscreen.Position(vertexIndex)
     }
 
-    [PixelShader]
+    [FragmentShader]
     [Semantic("SV_Target")]
-    func Pixel(): float4 {
+    func Fragment(): float4 {
         val centre = Tap(0f, 0f)
         val up = Tap(0f, -texelSize.y)
         val down = Tap(0f, texelSize.y)

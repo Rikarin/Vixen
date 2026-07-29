@@ -59,9 +59,9 @@ shader Fog {
         return Fullscreen.Position(vertexIndex)
     }
 
-    [PixelShader]
+    [FragmentShader]
     [Semantic("SV_Target")]
-    func Pixel(): float4 {
+    func Fragment(): float4 {
         val color = source.Sample(linearSampler, uv).rgb
         val deviceDepth = depthBuffer.Sample(linearSampler, uv).r
 

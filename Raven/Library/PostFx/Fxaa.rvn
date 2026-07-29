@@ -42,9 +42,9 @@ shader Fxaa {
         return Fullscreen.Position(vertexIndex)
     }
 
-    [PixelShader]
+    [FragmentShader]
     [Semantic("SV_Target")]
-    func Pixel(): float4 {
+    func Fragment(): float4 {
         val centre = source.Sample(sourceSampler, uv).rgb
         val lumaCentre = Fullscreen.Luminance(centre)
 

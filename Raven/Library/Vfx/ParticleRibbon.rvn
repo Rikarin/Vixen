@@ -65,9 +65,9 @@ shader ParticleRibbon {
         return viewProjection * float4(worldPosition, 1f)
     }
 
-    [PixelShader]
+    [FragmentShader]
     [Semantic("SV_Target")]
-    func Pixel(): float4 {
+    func Fragment(): float4 {
         val sampled = trailTexture.Sample(trailSampler, uv) * color
         return float4(sampled.rgb * sampled.a, sampled.a)
     }

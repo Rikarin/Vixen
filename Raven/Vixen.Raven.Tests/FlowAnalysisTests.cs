@@ -31,9 +31,9 @@ public class FlowAnalysisTests {
                   var tint: float4
                   var mode: int
               {{members}}
-                  [PixelShader]
+                  [FragmentShader]
                   [Semantic("SV_Target")]
-                  func Pixel(): float4 {
+                  func Fragment(): float4 {
               {{body}}
                   }
               }
@@ -266,9 +266,9 @@ public class FlowAnalysisTests {
                 }
 
                 shader S {
-                    [PixelShader]
+                    [FragmentShader]
                     [Semantic("SV_Target")]
-                    func Pixel(): float4 => float4(Ray(float3(0, 0, 0)).origin, 1)
+                    func Fragment(): float4 => float4(Ray(float3(0, 0, 0)).origin, 1)
                 }
 
                 """

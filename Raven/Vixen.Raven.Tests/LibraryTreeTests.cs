@@ -146,7 +146,7 @@ public class LibraryTreeTests {
     public void AShaderCompilesAgainstTheLibraryThroughReferences(string target) {
         var generated = GenerateConsumer(target);
 
-        Assert.Equal([ShaderStage.Vertex, ShaderStage.Pixel], generated.Select(unit => unit.Stage));
+        Assert.Equal([ShaderStage.Vertex, ShaderStage.Fragment], generated.Select(unit => unit.Stage));
 
         if (target == "spirv") {
             Assert.All(generated, SpirvTestBase.Validate);
@@ -165,9 +165,9 @@ public class LibraryTreeTests {
     /// </remarks>
     [Fact]
     public void AFunctionReachedThroughSeveralReferencesIsEmittedOnce() {
-        var pixel = Assert.Single(GenerateConsumer("glsl"), unit => unit.Stage == ShaderStage.Pixel).Code;
+        var fragment = Assert.Single(GenerateConsumer("glsl"), unit => unit.Stage == ShaderStage.Fragment).Code;
 
-        var definitions = pixel
+        var definitions = fragment
             .Split('\n')
             .Count(line => line.StartsWith("vec3 SafeNormalize(", StringComparison.Ordinal) && line.EndsWith('{'));
 
@@ -185,7 +185,7 @@ public class LibraryTreeTests {
     /// </remarks>
     [Fact]
     public void UnreachedLibraryFunctionsAreNotEmitted() {
-        var pixel = Assert.Single(GenerateConsumer("glsl"), unit => unit.Stage == ShaderStage.Pixel).Code;
+        var fragment = Assert.Single(GenerateConsumer("glsl"), unit => unit.Stage == ShaderStage.Fragment).Code;
 
         foreach (var absent in (string[])[
             "Halton", "ConcentricDisk", "RadicalInverseBase2", "ImportanceSampleGgx",
@@ -193,7 +193,7 @@ public class LibraryTreeTests {
             "AcesFilmic", "AgXSigmoid", "LinearToPq", "RgbToYCoCg",
             "EncodeOctahedral", "DecodeOctahedral", "DirectionToEquirectangular"
         ]) {
-            Assert.DoesNotContain(absent, pixel, StringComparison.Ordinal);
+            Assert.DoesNotContain(absent, fragment, StringComparison.Ordinal);
         }
     }
 
@@ -327,8 +327,8 @@ public class LibraryTreeTests {
 
         // The clustered loop is emitted and the uniform-array one is not, which is the permutation
         // doing its job rather than a branch surviving into the variant.
-        var pixel = FindShader(module, "ForwardPlus").Functions.Single(f => f.Name.Contains("Clustered"));
-        Assert.NotNull(pixel);
+        var fragment = FindShader(module, "ForwardPlus").Functions.Single(f => f.Name.Contains("Clustered"));
+        Assert.NotNull(fragment);
 
         AssertReachesBothBackends(module);
     }
@@ -391,12 +391,12 @@ public class LibraryTreeTests {
         var module = LowerTree(PermutationValues.Parse(["AlphaTested=true"]));
 
         foreach (var name in (string[])["DepthOnly", "ShadowCaster"]) {
-            var pixel = Assert.Single(
+            var fragment = Assert.Single(
                 FindShader(module, name).EntryPoints,
-                entry => entry.Stage == ShaderStage.Pixel
+                entry => entry.Stage == ShaderStage.Fragment
             );
 
-            Assert.True(pixel.Function.Discards, $"{name}'s cutout did not survive lowering.");
+            Assert.True(fragment.Function.Discards, $"{name}'s cutout did not survive lowering.");
         }
 
         foreach (var target in (string[])["glsl", "spirv"]) {
@@ -833,7 +833,7 @@ public class LibraryTreeTests {
         );
     }
 
-    /// <summary>The pixel stage of the shipped forward pass, as GLSL.</summary>
+    /// <summary>The fragment stage of the shipped forward pass, as GLSL.</summary>
     static string ForwardPlusSource(IrModule module) {
         var bag = new DiagnosticBag();
         var generated = TargetBackends.Create("glsl")!.Generate(module, bag);
@@ -842,7 +842,7 @@ public class LibraryTreeTests {
 
         return Assert.Single(
                 generated,
-                unit => unit.Name.StartsWith("ForwardPlus", StringComparison.Ordinal) && unit.Stage == ShaderStage.Pixel
+                unit => unit.Name.StartsWith("ForwardPlus", StringComparison.Ordinal) && unit.Stage == ShaderStage.Fragment
             )
             .Code;
     }
@@ -891,9 +891,9 @@ public class LibraryTreeTests {
 
                                         var lightDirection: float3
 
-                                        [PixelShader]
+                                        [FragmentShader]
                                         [Semantic("SV_Target")]
-                                        func Pixel(): float4 {
+                                        func Fragment(): float4 {
                                             var d: MaterialData
                                             MaterialDefaults.Reset(d)
                                             surface.Compute(d)
@@ -948,9 +948,9 @@ public class LibraryTreeTests {
                                     return world * float4(position, 1f)
                                 }
 
-                                [PixelShader]
+                                [FragmentShader]
                                 [Semantic("SV_Target")]
-                                func Pixel(): float4 {
+                                func Fragment(): float4 {
                                     val n = Math.SafeNormalize(normalWS)
                                     val l = Math.SafeNormalize(-lightDirection)
                                     val v = float3(0f, 0f, 1f)

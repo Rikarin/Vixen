@@ -36,8 +36,8 @@ public class TupleTests {
                                  return (float3(v.x, v.y, v.z), v.w)
                              }
 
-                             [PixelShader]
-                             func Pixel(): float4 {
+                             [FragmentShader]
+                             func Fragment(): float4 {
                                  val parts = Split(tint)
                                  return float4(parts.rgb * parts.a, 1)
                              }
@@ -77,8 +77,8 @@ public class TupleTests {
                     return (tint.x, tint.y)
                 }
 
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     val p = Pair()
                     return float4(p.Item1, p.Item2, 0, 1)
                 }
@@ -108,8 +108,8 @@ public class TupleTests {
 
                 func Second(): (float, float) => (tint.z, tint.w)
 
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     val a = First()
                     val b = Second()
                     return float4(a.Item1, a.Item2, b.Item1, b.Item2)
@@ -136,8 +136,8 @@ public class TupleTests {
                 shader S {
                     var pair: (x: float, y: float)
 
-                    [PixelShader]
-                    func Pixel(): float4 {
+                    [FragmentShader]
+                    func Fragment(): float4 {
                         return float4(pair.x, pair.y, 0, 1)
                     }
                 }

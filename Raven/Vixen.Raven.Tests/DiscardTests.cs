@@ -35,9 +35,9 @@ public class DiscardTests {
                               var opacitySampler: Sampler
                               var alphaCutoff: float = 0.5f
 
-                              [PixelShader]
+                              [FragmentShader]
                               [Semantic("SV_Target")]
-                              func Pixel(uv: float2): float4 {
+                              func Fragment(uv: float2): float4 {
                                   if (opacityMap.Sample(opacitySampler, uv).a < alphaCutoff) {
                                       discard
                                   }
@@ -56,7 +56,7 @@ public class DiscardTests {
 
         // Not a call, not a return: the IR keeps it as the terminator it is, so both backends can
         // see that the block ends here without inspecting a callee.
-        Assert.Contains("discard", PrintFunction(module, "Pixel"), StringComparison.Ordinal);
+        Assert.Contains("discard", PrintFunction(module, "Fragment"), StringComparison.Ordinal);
         Assert.DoesNotContain(module.AllFunctions, function => function.Name == "discard");
     }
 
@@ -86,9 +86,9 @@ public class DiscardTests {
                 var opacitySampler: Sampler
                 var alphaCutoff: float = 0.5f
 
-                [PixelShader]
+                [FragmentShader]
                 [Semantic("SV_Target")]
-                func Pixel(uv: float2): float4 {
+                func Fragment(uv: float2): float4 {
                     Cut(uv)
                     return float4(1f, 1f, 1f, 1f)
                 }
@@ -125,9 +125,9 @@ public class DiscardTests {
                 shader S {
                     var tint: float4
 
-                    [PixelShader]
+                    [FragmentShader]
                     [Semantic("SV_Target")]
-                    func Pixel(): float4 {
+                    func Fragment(): float4 {
                         if (tint.a > 0f) {
                             return tint
                         }
@@ -151,9 +151,9 @@ public class DiscardTests {
                 shader S {
                     var tint: float4
 
-                    [PixelShader]
+                    [FragmentShader]
                     [Semantic("SV_Target")]
-                    func Pixel(): float4 {
+                    func Fragment(): float4 {
                         discard
                         return tint
                     }
@@ -181,9 +181,9 @@ public class DiscardTests {
                 shader S {
                     var tint: float4
 
-                    [PixelShader]
+                    [FragmentShader]
                     [Semantic("SV_Target")]
-                    func Pixel(): float4 {
+                    func Fragment(): float4 {
                         if (tint.a > 0f) {
                             return tint
                         } else {
@@ -209,9 +209,9 @@ public class DiscardTests {
                             shader S {
                                 var tint: float4
 
-                                [PixelShader]
+                                [FragmentShader]
                                 [Semantic("SV_Target")]
-                                func Pixel(): float4 {
+                                func Fragment(): float4 {
                                     if (tint.a > 0f) {
                                         return tint
                                     }
@@ -264,9 +264,9 @@ public class DiscardTests {
                         return float4(position, 1f)
                     }
 
-                    [PixelShader]
+                    [FragmentShader]
                     [Semantic("SV_Target")]
-                    func Pixel(): float4 {
+                    func Fragment(): float4 {
                         Cut(cutoff)
                         return float4(1f, 1f, 1f, 1f)
                     }
@@ -364,8 +364,8 @@ public class DiscardTests {
                 package A
 
                 shader S {
-                    [PixelShader]
-                    func Pixel(): float4 {
+                    [FragmentShader]
+                    func Fragment(): float4 {
                         return discard
                     }
                 }

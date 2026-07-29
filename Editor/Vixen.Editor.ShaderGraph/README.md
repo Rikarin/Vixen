@@ -60,7 +60,7 @@ normal interpolates no normal, which is a real cost on a dense mesh and a varyin
 
 ## The shape of what comes out
 
-The vertex stage is fixed and the pixel stage is the graph. A shader graph is about what a surface
+The vertex stage is fixed and the fragment stage is the graph. A shader graph is about what a surface
 looks like; the transform and the interpolators are the same in every one.
 
 ```
@@ -75,8 +75,8 @@ shader Tinted {
     [VertexShader] [Semantic("SV_Position")]
     func Vertex(position: float3, texcoord: float2): float4 { … }
 
-    [PixelShader] [Semantic("SV_Target")]
-    func Pixel(): float4 {
+    [FragmentShader] [Semantic("SV_Target")]
+    func Fragment(): float4 {
         val n1_UV = uv
         val n3_RGBA = albedo.Sample(albedoSampler, n1_UV)
         val surface = float4(n3_RGBA.xyz, 1f)

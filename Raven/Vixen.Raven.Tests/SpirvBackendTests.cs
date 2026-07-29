@@ -34,8 +34,8 @@ public class SpirvBackendTests {
             package A
 
             shader S {
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     return float4(1, 1, 1, 1)
                 }
             }
@@ -72,8 +72,8 @@ public class SpirvBackendTests {
                     return float4(position, 1)
                 }
 
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     return float4(1, 1, 1, 1)
                 }
             }
@@ -97,7 +97,7 @@ public class SpirvBackendTests {
                     return 1
                 }
 
-                func OnlyPixel(): float {
+                func OnlyFragment(): float {
                     return 2
                 }
 
@@ -106,9 +106,9 @@ public class SpirvBackendTests {
                     return float4(OnlyVertex(), 0, 0, 1)
                 }
 
-                [PixelShader]
-                func Pixel(): float4 {
-                    return float4(OnlyPixel(), 0, 0, 1)
+                [FragmentShader]
+                func Fragment(): float4 {
+                    return float4(OnlyFragment(), 0, 0, 1)
                 }
             }
 
@@ -117,17 +117,17 @@ public class SpirvBackendTests {
         );
 
         var vertex = generated.Single(g => g.Stage == ShaderStage.Vertex).Code;
-        var pixel = generated.Single(g => g.Stage == ShaderStage.Pixel).Code;
+        var fragment = generated.Single(g => g.Stage == ShaderStage.Fragment).Code;
 
         Assert.Contains("\"OnlyVertex\"", vertex);
-        Assert.DoesNotContain("\"OnlyPixel\"", vertex);
-        Assert.Contains("\"OnlyPixel\"", pixel);
-        Assert.DoesNotContain("\"OnlyVertex\"", pixel);
+        Assert.DoesNotContain("\"OnlyFragment\"", vertex);
+        Assert.Contains("\"OnlyFragment\"", fragment);
+        Assert.DoesNotContain("\"OnlyVertex\"", fragment);
     }
 
     [Fact]
     public void A_callee_is_defined_before_its_caller() {
-        var code = Pixel(
+        var code = Fragment(
             "        return float4(Helper(), 0, 0, 1)",
             """
                 func Helper(): float {
@@ -138,7 +138,7 @@ public class SpirvBackendTests {
         );
 
         // SPIR-V is read in one pass, so a call never points forward: Helper,
-        // then Pixel, then the main that the pipeline calls.
+        // then Fragment, then the main that the pipeline calls.
         var names = Lines(code)
             .Where(line => line.Contains("= OpFunction "))
             .Select(line => line.Split(' ')[0])
@@ -146,7 +146,7 @@ public class SpirvBackendTests {
 
         Assert.Equal(3, names.Length);
         Assert.Contains($"OpName {names[0]} \"Helper\"", code);
-        Assert.Contains($"OpName {names[1]} \"Pixel\"", code);
+        Assert.Contains($"OpName {names[1]} \"Fragment\"", code);
         Assert.Contains($"OpName {names[2]} \"main\"", code);
     }
 
@@ -154,7 +154,7 @@ public class SpirvBackendTests {
 
     [Fact]
     public void Uniforms_become_one_explicitly_laid_out_block() {
-        var code = Pixel(
+        var code = Fragment(
             "        return tint",
             "    var scale: float\n    var tint: float4\n"
         );
@@ -173,7 +173,7 @@ public class SpirvBackendTests {
 
     [Fact]
     public void A_matrix_member_carries_its_stride_and_ordering() {
-        var code = Pixel(
+        var code = Fragment(
             "        return m * float4(0, 0, 0, 1)",
             "    var m: mat4\n"
         );
@@ -189,10 +189,10 @@ public class SpirvBackendTests {
 
     [Fact]
     public void A_texture_and_a_sampler_stay_two_bindings() {
-        var code = Pixel(
+        var code = Fragment(
             "        return albedo.Sample(linear, uv)",
             "    var albedo: Texture2D\n    var linear: Sampler\n",
-            "func Pixel(uv: float2): float4"
+            "func Fragment(uv: float2): float4"
         );
 
         // Nothing is folded away: the two meet only at the sample itself. The GLSL
@@ -256,7 +256,7 @@ public class SpirvBackendTests {
 
     [Fact]
     public void A_fragment_stage_declares_where_its_origin_is() {
-        var code = Pixel("        return float4(1, 1, 1, 1)");
+        var code = Fragment("        return float4(1, 1, 1, 1)");
 
         // Vulkan accepts only the upper-left origin, and requires it be stated.
         Assert.Contains("OpExecutionMode", code);
@@ -265,9 +265,9 @@ public class SpirvBackendTests {
 
     [Fact]
     public void Stage_inputs_get_consecutive_locations() {
-        var code = Pixel(
+        var code = Fragment(
             "        return float4(a, b, 0, 1)",
-            signature: "func Pixel(a: float, b: float): float4"
+            signature: "func Fragment(a: float, b: float): float4"
         );
 
         Assert.Contains("Location 0", code);
@@ -283,7 +283,7 @@ public class SpirvBackendTests {
     [InlineData("float", "OpTypeFloat 32")]
     [InlineData("double", "OpTypeFloat 64")]
     public void Scalars_map_onto_their_spirv_type(string raven, string expected) {
-        var code = Pixel($"        var probe: {raven}\n        return float4(0, 0, 0, 1)");
+        var code = Fragment($"        var probe: {raven}\n        return float4(0, 0, 0, 1)");
 
         Assert.Contains(expected, code);
     }
@@ -291,7 +291,7 @@ public class SpirvBackendTests {
     [Fact]
     public void A_matrix_becomes_a_repeated_column() {
         // Raven's mat2x3 is 2 rows by 3 columns, so SPIR-V holds 3 columns of 2.
-        var code = Pixel("        var probe: mat2x3\n        return float4(0, 0, 0, 1)");
+        var code = Fragment("        var probe: mat2x3\n        return float4(0, 0, 0, 1)");
 
         var matrix = Lines(code).Single(line => line.Contains("OpTypeMatrix")).Split(' ');
         var column = matrix[^2];
@@ -303,7 +303,7 @@ public class SpirvBackendTests {
 
     [Fact]
     public void A_double_pulls_in_the_capability_that_allows_it() {
-        var code = Pixel("        var probe: double\n        return float4(0, 0, 0, 1)");
+        var code = Fragment("        var probe: double\n        return float4(0, 0, 0, 1)");
 
         Assert.Contains("OpCapability Float64", code);
     }
@@ -322,8 +322,8 @@ public class SpirvBackendTests {
                 }
 
                 shader S {
-                    [PixelShader]
-                    func Pixel(): float4 {
+                    [FragmentShader]
+                    func Fragment(): float4 {
                         var ray: Ray
                         ray.origin = float3(0, 0, 0)
                         ray.direction = float3(0, 0, 1)
@@ -345,7 +345,7 @@ public class SpirvBackendTests {
 
     [Fact]
     public void An_if_declares_its_merge_before_it_branches() {
-        var code = Pixel(
+        var code = Fragment(
             """
                     if (level > 1f) {
                         return float4(1, 0, 0, 1)
@@ -366,7 +366,7 @@ public class SpirvBackendTests {
 
     [Fact]
     public void A_loop_puts_its_step_in_the_continue_target() {
-        var code = Pixel(
+        var code = Fragment(
             """
                     var total = 0f
                     for (i in 0 .. 3) {
@@ -394,7 +394,7 @@ public class SpirvBackendTests {
 
     [Fact]
     public void Break_and_continue_branch_to_the_targets_the_header_declared() {
-        var code = Pixel(
+        var code = Fragment(
             """
                     var total = 0f
                     for (i in 0 .. 8) {
@@ -425,7 +425,7 @@ public class SpirvBackendTests {
 
     [Fact]
     public void A_repeat_loop_tests_after_its_body() {
-        var code = Pixel(
+        var code = Fragment(
             """
                     var total = 0f
                     repeat {
@@ -450,7 +450,7 @@ public class SpirvBackendTests {
 
     [Fact]
     public void A_select_over_vectors_gets_a_condition_per_lane() {
-        var code = Pixel(
+        var code = Fragment(
             "        val picked = level > 1f ? a : b\n        return float4(picked, 1)",
             "    var level: float\n    var a: float3\n    var b: float3\n"
         );
@@ -463,7 +463,7 @@ public class SpirvBackendTests {
 
     [Fact]
     public void A_swizzle_read_becomes_a_shuffle_and_one_lane_an_extract() {
-        var code = Pixel(
+        var code = Fragment(
             "        return float4(v.xyz, v.w)",
             "    var v: float4\n"
         );
@@ -476,7 +476,7 @@ public class SpirvBackendTests {
 
     [Fact]
     public void Writing_some_lanes_reads_the_vector_shuffles_and_writes_it_back() {
-        var code = Pixel(
+        var code = Fragment(
             """
                     var v = float4(0, 0, 0, 1)
                     v.xy = float2(1, 1)
@@ -500,7 +500,7 @@ public class SpirvBackendTests {
     [InlineData("length(v)", "Length")]
     [InlineData("reflect(v, v)", "Reflect")]
     public void Intrinsics_reach_the_glsl_extended_instruction_set(string expression, string expected) {
-        var code = Pixel(
+        var code = Fragment(
             $"        val probe = {expression}\n        return float4(0, 0, 0, 1)",
             "    var v: float3\n    var f: float\n"
         );
@@ -517,7 +517,7 @@ public class SpirvBackendTests {
     [InlineData("any(v < v)", "OpAny")]
     [InlineData("ddx(f)", "OpDPdx")]
     public void Some_intrinsics_are_core_opcodes(string expression, string expected) {
-        var code = Pixel(
+        var code = Fragment(
             $"        val probe = {expression}\n        return float4(0, 0, 0, 1)",
             "    var v: float3\n    var f: float\n    var m: mat3\n"
         );
@@ -527,7 +527,7 @@ public class SpirvBackendTests {
 
     [Fact]
     public void Saturate_becomes_a_clamp_against_constants_it_has_to_build() {
-        var code = Pixel(
+        var code = Fragment(
             "        val probe = saturate(v)\n        return float4(probe, 1)",
             "    var v: float3\n"
         );
@@ -547,7 +547,7 @@ public class SpirvBackendTests {
     [InlineData("a & b", "OpBitwiseAnd")]
     [InlineData("a ^ b", "OpBitwiseXor")]
     public void Integer_operators_pick_the_signed_instruction(string expression, string expected) {
-        var code = Pixel(
+        var code = Fragment(
             $"        val probe = {expression}\n        return float4(0, 0, 0, 1)",
             "    var a: int\n    var b: int\n"
         );
@@ -557,7 +557,7 @@ public class SpirvBackendTests {
 
     [Fact]
     public void An_unsigned_divide_is_a_different_instruction_from_a_signed_one() {
-        var code = Pixel(
+        var code = Fragment(
             "        val probe = a / b\n        return float4(0, 0, 0, 1)",
             "    var a: uint\n    var b: uint\n"
         );
@@ -568,7 +568,7 @@ public class SpirvBackendTests {
 
     [Fact]
     public void A_vector_times_a_scalar_is_its_own_instruction() {
-        var code = Pixel(
+        var code = Fragment(
             "        return float4(v * f, 1)",
             "    var v: float3\n    var f: float\n"
         );
@@ -580,7 +580,7 @@ public class SpirvBackendTests {
 
     [Fact]
     public void A_conversion_names_the_direction_it_goes() {
-        var code = Pixel(
+        var code = Fragment(
             "        val probe: float = i\n        return float4(probe, 0, 0, 1)",
             "    var i: int\n"
         );
@@ -667,8 +667,8 @@ public class SpirvBackendTests {
             package A
 
             shader S {
-                [PixelShader]
-                func Pixel(flag: bool): float4 {
+                [FragmentShader]
+                func Fragment(flag: bool): float4 {
                     return float4(1, 1, 1, 1)
                 }
             }
@@ -695,8 +695,8 @@ public class SpirvBackendTests {
                     return tint
                 }
 
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     return tint
                 }
             }
@@ -724,8 +724,8 @@ public class SpirvBackendTests {
             shader S {
                 var m: mat2x3
 
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     val column = m[0]
                     return float4(column, 0, 1)
                 }

@@ -157,9 +157,9 @@ public class ShaderGraphCompilerTests {
                     return worldViewProjection * float4(position, 1f)
                 }
 
-                [PixelShader]
+                [FragmentShader]
                 [Semantic("SV_Target")]
-                func Pixel(): float4 {
+                func Fragment(): float4 {
                     val n1_UV = uv
                     val n2_Out = n1_UV * float2(2f, 2f) + float2(0f, 0f)
                     val n3_RGBA = albedo.Sample(albedoSampler, n2_Out)

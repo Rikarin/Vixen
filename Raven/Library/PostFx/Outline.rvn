@@ -51,9 +51,9 @@ shader Outline {
         return Fullscreen.Position(vertexIndex)
     }
 
-    [PixelShader]
+    [FragmentShader]
     [Semantic("SV_Target")]
-    func Pixel(): float4 {
+    func Fragment(): float4 {
         val color = source.Sample(pointSampler, uv).rgb
         val offset = texelSize * thickness
 

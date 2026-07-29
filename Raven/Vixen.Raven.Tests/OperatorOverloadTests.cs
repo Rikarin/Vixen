@@ -30,7 +30,7 @@ public class OperatorOverloadTests {
                             }
                             """;
 
-    static string Pixel(string body) =>
+    static string Fragment(string body) =>
         GenerateOne(
             $$"""
               package A
@@ -38,8 +38,8 @@ public class OperatorOverloadTests {
               {{Spectrum}}
 
               shader S {
-                  [PixelShader]
-                  func Pixel(): float4 {
+                  [FragmentShader]
+                  func Fragment(): float4 {
               {{body}}
                   }
               }
@@ -54,7 +54,7 @@ public class OperatorOverloadTests {
     /// </summary>
     [Fact]
     public void A_binary_operator_becomes_a_call_named_for_the_operator() {
-        var glsl = Pixel(
+        var glsl = Fragment(
             """
                     val x = Spectrum(1f, 2f)
                     val sum = x + x
@@ -72,7 +72,7 @@ public class OperatorOverloadTests {
     /// </summary>
     [Fact]
     public void An_operator_takes_its_operands_and_no_receiver() {
-        var glsl = Pixel(
+        var glsl = Fragment(
             """
                     val x = Spectrum(1f, 2f)
                     val sum = x + x
@@ -85,7 +85,7 @@ public class OperatorOverloadTests {
 
     [Fact]
     public void A_unary_operator_resolves_too() {
-        var glsl = Pixel(
+        var glsl = Fragment(
             """
                     val x = Spectrum(1f, 2f)
                     val negated = -x
@@ -99,7 +99,7 @@ public class OperatorOverloadTests {
     /// <summary>Mixed operand types resolve against the type that declares the operator.</summary>
     [Fact]
     public void An_operator_with_a_scalar_operand_resolves() {
-        var glsl = Pixel(
+        var glsl = Fragment(
             """
                     val x = Spectrum(1f, 2f)
                     val scaled = x * 2f
@@ -127,8 +127,8 @@ public class OperatorOverloadTests {
             }
 
             shader S {
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     val sum = 1f + 2f
                     return float4(sum, 0, 0, 1)
                 }
@@ -158,8 +158,8 @@ public class OperatorOverloadTests {
             }
 
             shader S {
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     var a: Other
                     a.v = 1f
                     var b: Other
@@ -182,8 +182,8 @@ public class OperatorOverloadTests {
                        {{Spectrum}}
 
                        shader S {
-                           [PixelShader]
-                           func Pixel(): float4 {
+                           [FragmentShader]
+                           func Fragment(): float4 {
                                val x = Spectrum(1f, 2f)
                                val y = -(x + x) * 2f
                                return float4(y.r, y.g, 0, 1)

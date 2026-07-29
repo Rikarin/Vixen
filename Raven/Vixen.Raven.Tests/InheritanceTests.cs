@@ -51,9 +51,9 @@ public class InheritanceTests {
                               shader Derived : Base {
                                   var extra: float
 
-                                  [PixelShader]
+                                  [FragmentShader]
                                   [Semantic("SV_Target")]
-                                  func Pixel(): float4 {
+                                  func Fragment(): float4 {
                                       return Shade() * tint * extra
                                   }
                               }
@@ -93,9 +93,9 @@ public class InheritanceTests {
                               }
 
                               shader S {
-                                  [PixelShader]
+                                  [FragmentShader]
                                   [Semantic("SV_Target")]
-                                  func Pixel(): float4 {
+                                  func Fragment(): float4 {
                                       var d: Derived
                                       d.a = 2f
                                       d.b = 1f
@@ -111,7 +111,7 @@ public class InheritanceTests {
         Assert.Equal(["a", "b"], derived.Fields.Select(f => f.Name));
 
         // The read of `a` is index 0 of the derived struct, which is what used to be `b`'s.
-        Assert.Contains("load !d.0 : f32", LoweringTestBase.PrintFunction(module, "Pixel"), StringComparison.Ordinal);
+        Assert.Contains("load !d.0 : f32", LoweringTestBase.PrintFunction(module, "Fragment"), StringComparison.Ordinal);
 
         CodeGenTestBase.GenerateClean(Source);
         CodeGenTestBase.GenerateClean(Source, "spirv");
@@ -143,9 +143,9 @@ public class InheritanceTests {
                               shader Derived : Base {
                                   override func Shade(): float3 => float3(0, 1, 0)
 
-                                  [PixelShader]
+                                  [FragmentShader]
                                   [Semantic("SV_Target")]
-                                  func Pixel(): float4 {
+                                  func Fragment(): float4 {
                                       return float4(Compute(), 1)
                                   }
                               }
@@ -203,9 +203,9 @@ public class InheritanceTests {
                               }
 
                               shader S {
-                                  [PixelShader]
+                                  [FragmentShader]
                                   [Semantic("SV_Target")]
-                                  func Pixel(): float4 {
+                                  func Fragment(): float4 {
                                       var v: C1
                                       v.a = 1f
                                       v.b = 2f
@@ -267,9 +267,9 @@ public class InheritanceTests {
                                       return float4(position.x, position.y, 0f, 1f)
                                   }
 
-                                  [PixelShader]
+                                  [FragmentShader]
                                   [Semantic("SV_Target")]
-                                  func Pixel(): float4 => Sample() * tint
+                                  func Fragment(): float4 => Sample() * tint
                               }
 
                               """;
@@ -312,8 +312,8 @@ public class InheritanceTests {
 
                 var tint: float4
 
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     return diffuse.Diffuse(tint)
                 }
             }

@@ -31,8 +31,8 @@ public class RenderTargetTests {
                            shader S {
                                var tint: float4
 
-                               [PixelShader]
-                               func Pixel(normalWS: float3): GBufferData {
+                               [FragmentShader]
+                               func Fragment(normalWS: float3): GBufferData {
                                    var g: GBufferData
                                    g.albedo = tint
                                    g.normal = float4(normalWS, 0f)
@@ -68,7 +68,7 @@ public class RenderTargetTests {
         Assert.Contains("layout(location = 2) out vec4 out_material;", unit.Code, StringComparison.Ordinal);
 
         // One call, not one per target: calling per target would run the shader body three times.
-        Assert.Single(unit.Code.Split("Pixel(in_normalWS)")[1..]);
+        Assert.Single(unit.Code.Split("Fragment(in_normalWS)")[1..]);
         Assert.Contains("out_material = _targets.material;", unit.Code, StringComparison.Ordinal);
     }
 
@@ -102,9 +102,9 @@ public class RenderTargetTests {
                            package A
 
                            shader S {
-                               [PixelShader]
+                               [FragmentShader]
                                [Semantic("SV_Target")]
-                               func Pixel(): float4 => float4(1, 0, 0, 1)
+                               func Fragment(): float4 => float4(1, 0, 0, 1)
                            }
 
                            """;
@@ -117,7 +117,7 @@ public class RenderTargetTests {
         Assert.Equal("result", output.Name);
         Assert.Equal("SV_Target", output.Semantic);
 
-        Assert.Contains("out_result = Pixel();", Assert.Single(GenerateClean(One)).Code, StringComparison.Ordinal);
+        Assert.Contains("out_result = Fragment();", Assert.Single(GenerateClean(One)).Code, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -174,8 +174,8 @@ public class RenderTargetTests {
             }
 
             shader S {
-                [PixelShader]
-                func Pixel(): Targets {
+                [FragmentShader]
+                func Fragment(): Targets {
                     var t: Targets
                     t.colour = float4(1, 1, 1, 1)
                     t.visible = true

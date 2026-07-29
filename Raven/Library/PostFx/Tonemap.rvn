@@ -55,9 +55,9 @@ shader Tonemap {
         return Fullscreen.Position(vertexIndex)
     }
 
-    [PixelShader]
+    [FragmentShader]
     [Semantic("SV_Target")]
-    func Pixel(): float4 {
+    func Fragment(): float4 {
         var color = source.Sample(sourceSampler, uv).rgb * exposure
         color = WhiteBalance(color)
         color = Curve(color)

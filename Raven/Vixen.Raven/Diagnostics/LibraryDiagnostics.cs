@@ -49,7 +49,7 @@ public static class LibraryDiagnostics {
     /// <remarks>
     ///     Informational rather than silent: a library supplies types and functions, and a
     ///     stage is generated per effect from the shader that declares it. An author who wrote
-    ///     <c>[PixelShader]</c> in a library file believes something about what shipping it
+    ///     <c>[FragmentShader]</c> in a library file believes something about what shipping it
     ///     does.
     /// </remarks>
     public static readonly DiagnosticDescriptor EntryPointNotExported = new(

@@ -39,9 +39,9 @@ public class MonomorphisationTests {
                             shader S {
                                 var tint: float4
 
-                                [PixelShader]
+                                [FragmentShader]
                                 [Semantic("SV_Target")]
-                                func Pixel(): float4 {
+                                func Fragment(): float4 {
                                     var a: Box<float4>
                                     a.value = tint
                                     var b: Box<float>
@@ -98,8 +98,8 @@ public class MonomorphisationTests {
             }
 
             shader S {
-                [PixelShader]
-                func Pixel(): float4 => float4(1, 1, 1, 1)
+                [FragmentShader]
+                func Fragment(): float4 => float4(1, 1, 1, 1)
             }
 
             """
@@ -122,8 +122,8 @@ public class MonomorphisationTests {
                 func First(b: Box<float>): float => b.value
                 func Second(b: Box<float>): float => b.value
 
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     var b: Box<float>
                     b.value = 1f
                     return float4(First(b), Second(b), 0, 1)
@@ -152,8 +152,8 @@ public class MonomorphisationTests {
             }
 
             shader S {
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     var h: Holder<float>
                     h.pair.first = 1f
                     return float4(h.pair.first, h.pair.second, 0, 1)
@@ -191,9 +191,9 @@ public class MonomorphisationTests {
                             var tint: float4
                             var flag: int
 
-                            [PixelShader]
+                            [FragmentShader]
                             [Semantic("SV_Target")]
-                            func Pixel(): float4 {
+                            func Fragment(): float4 {
                                 val c = Util.Pick<float4>(flag > 0, tint, float4(1, 0, 0, 1))
                                 val s = Util.Pick<float>(flag > 1, 0.5f, 1f)
                                 val t = Util.Pick<float4>(flag > 2, c, tint)
@@ -211,7 +211,7 @@ public class MonomorphisationTests {
 
         // Two call sites, one function: a constructed method symbol is built fresh at each use, so
         // without canonicalisation this would be `Pick_float4` twice.
-        Assert.Equal(2, PrintFunction(module, "Pixel").Split("call Pick_float4").Length - 1);
+        Assert.Equal(2, PrintFunction(module, "Fragment").Split("call Pick_float4").Length - 1);
     }
 
     [Fact]
@@ -249,9 +249,9 @@ public class MonomorphisationTests {
                               }
 
                               shader S {
-                                  [PixelShader]
+                                  [FragmentShader]
                                   [Semantic("SV_Target")]
-                                  func Pixel(): float4 {
+                                  func Fragment(): float4 {
                                       var b: Box<Pair<float>>
                                       b.value.first = 1f
                                       b.value.second = 0f
@@ -296,8 +296,8 @@ public class MonomorphisationTests {
             }
 
             shader S {
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     var o: Outer<float4>
                     o.inner.value = float4(1, 1, 1, 1)
                     return o.inner.value

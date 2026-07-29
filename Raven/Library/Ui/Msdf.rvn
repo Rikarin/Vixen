@@ -45,9 +45,9 @@ shader Msdf {
         return projection * float4(position.x, position.y, 0f, 1f)
     }
 
-    [PixelShader]
+    [FragmentShader]
     [Semantic("SV_Target")]
-    func Pixel(): float4 {
+    func Fragment(): float4 {
         val sampled = atlas.Sample(atlasSampler, uv).rgb
         val distance = Median(sampled.r, sampled.g, sampled.b) - 0.5f + weight
 

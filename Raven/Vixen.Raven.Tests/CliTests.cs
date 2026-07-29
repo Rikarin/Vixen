@@ -68,8 +68,8 @@ public class CliTests : IDisposable {
             package A
 
             shader One {
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     return float4(1, 1, 1, 1)
                 }
             }
@@ -112,8 +112,8 @@ public class CliTests : IDisposable {
             package A
 
             shader S {
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     return float4(missing, 0, 0, 1)
                 }
             }
@@ -251,7 +251,7 @@ public class CliTests : IDisposable {
             shader Lit {
                 var amount: float
 
-                [PixelShader]
+                [FragmentShader]
                 func Shade(): float4 {
                     val c = MathHelpers.Saturate(amount)
                     return float4(c, c, c, 1f)

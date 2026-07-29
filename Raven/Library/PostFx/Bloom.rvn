@@ -66,9 +66,9 @@ shader Bloom {
         return Fullscreen.Position(vertexIndex)
     }
 
-    [PixelShader]
+    [FragmentShader]
     [Semantic("SV_Target")]
-    func Pixel(): float4 {
+    func Fragment(): float4 {
         if (Mode == 0) {
             return float4(Prefilter(), 1f)
         }

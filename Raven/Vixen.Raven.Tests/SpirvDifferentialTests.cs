@@ -60,8 +60,8 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
                                    return world * float4(position, 1)
                                }
 
-                               [PixelShader]
-                               func Pixel(normal: float3, uv: float2): float4 {
+                               [FragmentShader]
+                               func Fragment(normal: float3, uv: float2): float4 {
                                    val light = Light(float3(0, 1, 0), float3(1, 1, 1))
                                    val shade = max(dot(normalize(normal), light.direction), 0.1f)
                                    val tint = float4(light.colour, 1)
@@ -83,8 +83,8 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
                                 var linear: Sampler
                                 [PerDraw] var world: mat4
 
-                                [PixelShader]
-                                func Pixel(uv: float2): float4 {
+                                [FragmentShader]
+                                func Fragment(uv: float2): float4 {
                                     return albedo.Sample(linear, uv) * tint * time + viewProjection * world * tint
                                 }
                             }
@@ -111,8 +111,8 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
                                var direction: float3
                                var transform: mat4
 
-                               [PixelShader]
-                               func Pixel(): float4 {
+                               [FragmentShader]
+                               func Fragment(): float4 {
                                    return transform * tint * roughness + float4(direction, 1)
                                }
                            }
@@ -126,8 +126,8 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
                          shader S {
                              var albedo: Texture2D
 
-                             [PixelShader]
-                             func Pixel(): float4 {
+                             [FragmentShader]
+                             func Fragment(): float4 {
                                  return albedo.Load(int3(1, 2, 0))
                              }
                          }
@@ -146,8 +146,8 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
                                 var oblique: mat2x3
                                 var world: mat4
 
-                                [PixelShader]
-                                func Pixel(): float4 {
+                                [FragmentShader]
+                                func Fragment(): float4 {
                                     val column = oblique[0]
                                     return world * float4(column, 0, 1)
                                 }
@@ -177,8 +177,8 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
                                     return (float3(v.x, v.y, v.z), v.w)
                                 }
 
-                                [PixelShader]
-                                func Pixel(): float4 {
+                                [FragmentShader]
+                                func Fragment(): float4 {
                                     val parts = Split(tint)
                                     var scale = 1f
                                     switch (mode) {
@@ -209,8 +209,8 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
                                     var weights: float[4]
                                     var count: int
 
-                                    [PixelShader]
-                                    func Pixel(): float4 {
+                                    [FragmentShader]
+                                    func Fragment(): float4 {
                                         var total = 0f
                                         for (i in 0 .. 3) {
                                             if (i < count && weights[i] > 0f) {
@@ -243,8 +243,8 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
                                   var albedoMap: Texture2D
                                   var linear: Sampler
 
-                                  [PixelShader]
-                                  func Pixel(uv: float2): Targets {
+                                  [FragmentShader]
+                                  func Fragment(uv: float2): Targets {
                                       var t: Targets
                                       t.albedo = albedoMap.Sample(linear, uv + jitter)
                                       t.normal = float4(0, 0, 1, 0)
@@ -283,8 +283,8 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
                                 var tint: float4
                                 var flag: int
 
-                                [PixelShader]
-                                func Pixel(): float4 {
+                                [FragmentShader]
+                                func Fragment(): float4 {
                                     var wide: Box<float4>
                                     wide.value = tint
                                     var narrow: Box<float>
@@ -321,8 +321,8 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
                                shader S {
                                    var tint: float4
 
-                                   [PixelShader]
-                                   func Pixel(): float4 {
+                                   [FragmentShader]
+                                   func Fragment(): float4 {
                                        var d: Derived
                                        d.scale = 2f
                                        d.bias = float3(1, 0, 0)
@@ -366,8 +366,8 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
                                var linear: Sampler
                                var packed: Buffer<uint>
 
-                               [PixelShader]
-                               func Pixel(uv: float2): float4 {
+                               [FragmentShader]
+                               func Fragment(uv: float2): float4 {
                                    val size = albedo.GetDimensions(0)
                                    val texel = float2(1f / float(size.x), 1f / float(size.y))
                                    val tint = asfloat(packed[0])
@@ -396,9 +396,9 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
                               var alphaCutoff: float = 0.5f
                               var tint: float4
 
-                              [PixelShader]
+                              [FragmentShader]
                               [Semantic("SV_Target")]
-                              func Pixel(uv: float2): float4 {
+                              func Fragment(uv: float2): float4 {
                                   Cut(uv)
                                   return Shade(uv)
                               }

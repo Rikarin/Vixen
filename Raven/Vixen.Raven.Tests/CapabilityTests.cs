@@ -48,8 +48,8 @@ public class CapabilityTests {
                 shader S {
                     var tint: float4
 
-                    [PixelShader]
-                    func Pixel(): float4 {
+                    [FragmentShader]
+                    func Fragment(): float4 {
                         return tint
                     }
                 }
@@ -69,8 +69,8 @@ public class CapabilityTests {
                 shader S {
                     var scale: double
 
-                    [PixelShader]
-                    func Pixel(): float4 {
+                    [FragmentShader]
+                    func Fragment(): float4 {
                         var doubled = scale * 2.0
                         return float4(0.0f, 0.0f, 0.0f, 0.0f)
                     }
@@ -94,8 +94,8 @@ public class CapabilityTests {
                       var map: {{type}}
                       var tint: float4
 
-                      [PixelShader]
-                      func Pixel(): float4 {
+                      [FragmentShader]
+                      func Fragment(): float4 {
                           return tint
                       }
                   }
@@ -115,8 +115,8 @@ public class CapabilityTests {
                     var map: Texture2D
                     var tint: float4
 
-                    [PixelShader]
-                    func Pixel(): float4 {
+                    [FragmentShader]
+                    func Fragment(): float4 {
                         return tint
                     }
                 }
@@ -161,8 +161,8 @@ public class CapabilityTests {
                                   var tint: float4
                                   var scale: float
 
-                                  [PixelShader]
-                                  func Pixel(): float4 {
+                                  [FragmentShader]
+                                  func Fragment(): float4 {
                                       if (HighPrecision) {
                                           var precise = 2.0
                                           return tint * float(precise)
@@ -198,8 +198,8 @@ public class CapabilityTests {
             shader Plain {
                 var tint: float4
 
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     return tint
                 }
             }
@@ -208,8 +208,8 @@ public class CapabilityTests {
                 var scale: double
                 var tint: float4
 
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     var doubled = scale * 2.0
                     return tint
                 }
@@ -238,8 +238,8 @@ public class CapabilityTests {
                 var other: Texture3D
                 var tint: float4
 
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     return tint
                 }
             }

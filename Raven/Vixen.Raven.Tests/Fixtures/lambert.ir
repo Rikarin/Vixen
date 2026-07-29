@@ -11,7 +11,7 @@ shader Lambert
   binding texture @albedo : texture2d slot 0
   binding sampler @albedoSampler : sampler slot 0
   entry vertex Vertex(position : vec<f32,3>) -> result : vec<f32,4> "SV_Position"
-  entry pixel Pixel(normal : vec<f32,3>, uv : vec<f32,2>) -> result : vec<f32,4> "SV_Target"
+  entry fragment Fragment(normal : vec<f32,3>, uv : vec<f32,2>) -> result : vec<f32,4> "SV_Target"
 
   init
     %0 = const 1f : f32
@@ -46,7 +46,7 @@ shader Lambert
     return %4
   end
 
-  func Pixel($normal : vec<f32,3>, $uv : vec<f32,2>) : vec<f32,4>
+  func Fragment($normal : vec<f32,3>, $uv : vec<f32,2>) : vec<f32,4>
     local !shade : f32
     local !i : i32
     local !i#limit : i32

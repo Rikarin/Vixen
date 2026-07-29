@@ -279,27 +279,14 @@ public sealed record ViewBlockAsset {
     /// <summary>How large the block is, in bytes.</summary>
     public int Size { get; init; } = 80;
 
-    /// <summary>Which shader stages read it.</summary>
-    public ShaderStages Stages { get; init; } = ShaderStages.VertexAndPixel;
+    /// <summary>
+    ///     Which shader stages read it. The default is what an ordinary material wants; a shadow
+    ///     caster needs <see cref="ShaderStage.Vertex" /> alone.
+    /// </summary>
+    public ShaderStage Stages { get; init; } = ShaderStage.Vertex | ShaderStage.Fragment;
 
     /// <summary>What is in it, or empty for the standard block.</summary>
     public ViewMemberAsset[] Members { get; init; } = [];
-}
-
-/// <summary>Which stages a per-view block is visible to.</summary>
-/// <remarks>
-///     A small enum rather than <see cref="ShaderStage" /> itself, because a document should not have
-///     to spell a flags combination and the three that matter cover every shader that reads a camera.
-/// </remarks>
-public enum ShaderStages {
-    /// <summary>The vertex stage only — what a shadow caster needs.</summary>
-    Vertex,
-
-    /// <summary>The fragment stage only.</summary>
-    Pixel,
-
-    /// <summary>Both, which is what an ordinary material wants.</summary>
-    VertexAndPixel
 }
 
 /// <summary>The samplers a document may name, by what they are for.</summary>

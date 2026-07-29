@@ -650,7 +650,7 @@ Each of these shaped a file rather than blocking it, and each is recorded in the
   the split rather than only the compile, because a force that read a binding would break the
   comparison silently.
 - ~~**No multiple render targets**~~ — landed, and `GBufferPass.rvn` is now written against it: the
-  pixel stage returns a struct of the targets, `Deferred.rvn` reads through the same `Decode`, and the
+  fragment stage returns a struct of the targets, `Deferred.rvn` reads through the same `Decode`, and the
   two agree in one place. See
   [§ The three interface shapes](#the-three-interface-shapes-that-are-not-a-set-of-uniforms).
 - ~~**No `SampleLevel`**~~ — landed, along with `GetDimensions` and `asfloat`/`asint`/`asuint`. All
@@ -1227,7 +1227,7 @@ BRDF readback now has a resource to read back through.
 
 `stream var normalWS: float3` on a shader declares a value one stage writes and the next reads. The
 alternative — what this row described — was threading it through signatures: a vertex entry point
-returning a struct of everything the pixel stage might want, and every contributing function taking and
+returning a struct of everything the fragment stage might want, and every contributing function taking and
 returning it. That works, and it makes an interstage value a property of every signature between its
 producer and the pipeline, which is exactly the cost `compose` avoids for implementations. `[PerMaterial]`
 says where a *binding* lives without spelling a set number; `stream` does the same for the pipeline's own

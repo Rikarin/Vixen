@@ -8,7 +8,7 @@
           "Name": "VignettePerMaterialUniforms",
           "Type": "UniformBuffer",
           "Count": 1,
-          "Stages": "Vertex, Pixel",
+          "Stages": "Vertex, Fragment",
           "Members": [
             {
               "Name": "vignetteIntensity",
@@ -131,7 +131,7 @@
           "Name": "source",
           "Type": "SampledTexture",
           "Count": 1,
-          "Stages": "Vertex, Pixel",
+          "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
           "IsWritable": false
@@ -141,7 +141,7 @@
           "Name": "linearSampler",
           "Type": "Sampler",
           "Count": 1,
-          "Stages": "Vertex, Pixel",
+          "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
           "IsWritable": false
@@ -355,6 +355,6 @@
   ],
   "Stages": [
     "Vertex",
-    "Pixel"
+    "Fragment"
   ]
 }

@@ -255,8 +255,8 @@ public class ConventionTests {
 
               shader S {
               {{members}}
-                  [PixelShader]
-                  func Pixel(): float4 {
+                  [FragmentShader]
+                  func Fragment(): float4 {
               {{body}}
                   }
               }
