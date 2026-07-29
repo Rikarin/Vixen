@@ -65,6 +65,20 @@ public sealed class Effect {
     /// </remarks>
     public ImmutableArray<EffectBinding> Bindings { get; init; } = [];
 
+    /// <summary>The push-constant ranges its pipeline layout declares.</summary>
+    /// <remarks>
+    ///     What a feature pushing into one has to agree with — see <see cref="EffectPushConstant" />
+    ///     for why the stages matter as much as the offset.
+    /// </remarks>
+    public ImmutableArray<EffectPushConstant> PushConstants { get; init; } = [];
+
+    /// <summary>The vertex attributes its vertex stage reads, with their locations.</summary>
+    /// <remarks>
+    ///     What a host needs to lay its own vertex buffer out against, and what it cannot guess: the
+    ///     locations are the shader's, and <c>stream</c> variables take theirs first.
+    /// </remarks>
+    public ImmutableArray<EffectVertexInput> VertexInputs { get; init; } = [];
+
     /// <summary>One set's uniform block: where it goes, how big it is, and what is in it.</summary>
     /// <remarks>
     ///     What <see cref="ConstantBufferSize" /> and <see cref="Parameters" /> answer for a shader
@@ -216,6 +230,28 @@ public readonly record struct EffectBinding(
     /// </remarks>
     public int Count { get; init; } = 1;
 }
+
+/// <summary>One push-constant range the pipeline layout declares.</summary>
+/// <param name="Stages">Which stages the range covers.</param>
+/// <param name="Offset">Where it starts, in bytes.</param>
+/// <param name="Size">How many bytes it is.</param>
+/// <remarks>
+///     The stages are not decoration. A push has to name <em>every</em> stage of every range it
+///     overlaps, so a caller that pushed to the vertex stage alone against a range the shader
+///     declared for vertex and fragment is refused — which is what a host guessing at them does.
+/// </remarks>
+public readonly record struct EffectPushConstant(ShaderStage Stages, int Offset, int Size);
+
+/// <summary>One vertex attribute the shader reads, and where it reads it.</summary>
+/// <param name="Name">The name the shader's vertex entry point gave it.</param>
+/// <param name="Location">The attribute location, which is the shader's to assign.</param>
+/// <param name="Kind">Its type, which decides the format a buffer has to supply.</param>
+/// <remarks>
+///     Not zero-based, and that is the reason this is carried at all: a shader's <c>stream</c>
+///     variables take locations before its vertex inputs do, so <c>ForwardPlus</c>'s four attributes
+///     start at five. A host that assumed otherwise builds a pipeline the driver refuses.
+/// </remarks>
+public readonly record struct EffectVertexInput(string Name, int Location, ShaderValueKind Kind);
 
 /// <summary>Where one parameter lives in an effect's constant buffer.</summary>
 /// <param name="Key">The key a host sets it through.</param>

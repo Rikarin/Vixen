@@ -55,6 +55,9 @@ public static class EffectTranslator {
             Bindings = [.. Bindings(reflection)],
             ConstantBufferSize = block?.Binding.Size ?? 0,
             Parameters = [.. Parameters(effect.Name, reflection)],
+            VertexInputs = [
+                .. reflection.VertexInputs.Select(input => new EffectVertexInputData(input.Name, input.Location, Kind(input.Type)))
+            ],
             PushConstants = [
                 .. reflection.PushConstants.Select(range => new EffectPushConstantData(Stages(range.Stages), range.Offset, range.Size))
             ]

@@ -180,6 +180,10 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
                 boundDescriptors = descriptors;
             }
 
+            // What the sub-features are contributing to, so one that pushes a constant can agree with
+            // the range the shader declared rather than with the stages it guessed.
+            context.Effect = effect;
+
             foreach (var subFeature in SubFeatures) {
                 if (subFeature is IDrawSubFeature contributor) {
                     contributor.Draw(system, context, node);

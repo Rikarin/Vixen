@@ -91,6 +91,10 @@ public sealed class EffectLoader(IGraphicsDevice device) {
             ConstantBufferSize = data.ConstantBufferSize,
             Parameters = parameters.ToImmutable(),
             Bindings = bindings.ToImmutable(),
+            PushConstants = [.. Pushed(data).Select(range => new EffectPushConstant(range.Stages, range.Offset, range.Size))],
+            VertexInputs = [
+                .. data.VertexInputs.Select(input => new EffectVertexInput(input.Name, input.Location, input.Kind))
+            ],
             UsedPermutationKeys = permutations.ToImmutable()
         };
     }

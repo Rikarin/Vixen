@@ -121,6 +121,22 @@ description, compared over all 3456 clusters. Two guards keep it honest: a shade
 would agree with an oracle that expected nothing, so the fixture also asserts that *some* cluster
 holds a light and that *not every* cluster does.
 
+Its other half *is* a picture. `ClusteredShadingDeviceTests` renders one composed Forward+ frame —
+the culler as a `ComputeRenderer` node, the shading pass reading what it wrote — and asserts a quad
+comes back red from the light two units in front of it while the corner it does not cover stays the
+clear colour. The clear is a deliberate blue for exactly that reason: `RenderPassRenderer.ClearColour`
+defaults to transparent black, so a fixture that leaves it alone cannot tell a pass that ran and drew
+nothing from a pass that never ran.
+
+Two engine bugs stood between writing it and its passing, and the point of recording them here is
+that **neither was visible to anything but a picture**. A composed material parameter's qualified
+name depended on the order the lowerer merged types, so a single-pass compilation named it one thing
+and the engine predicted another and every material value uploaded as zero. And one Raven struct used
+in both a uniform block and a storage buffer became two SPIR-V types with the same debug name, which
+a translator with one namespace for struct definitions collapses — on Metal the padded `float3` won
+and the fragment stage read a light four bytes late, while the compute stage that filled the same
+buffer read it correctly. Both produce valid SPIR-V, no validation message, and a black frame.
+
 Where the arithmetic is beyond hand-checking — `bloom` is nine passes of bilinear taps — the fixture
 asserts the **properties** a correct result has before it trusts the picture: the glow is centred on
 its source, symmetric about that centre, and reaches well past it. Otherwise committing the first
