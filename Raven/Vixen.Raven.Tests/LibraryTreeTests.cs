@@ -829,7 +829,7 @@ public class LibraryTreeTests {
         // Slot names only: which shader declares which is the engine's business, and qualifying them
         // here would make this fail every time a shader is renamed for reasons nothing depends on.
         string[] expected = [
-            "distanceField", "eighth", "fifth", "first", "fourth", "over", "second",
+            "distanceField", "eighth", "fifth", "first", "fourth", "irradiance", "over", "second",
             "seventh", "shading", "sixth", "surface", "third", "under"
         ];
 

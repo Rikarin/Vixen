@@ -426,6 +426,27 @@ Vixen.Rendering.Compositor.ImportedTexture.Texture.get -> Vixen.Graphics.Texture
 Vixen.Rendering.Compositor.ImportedTexture.Texture.init -> Vixen.Graphics.TextureHandle
 Vixen.Rendering.Compositor.ImportedTexture.View.get -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Compositor.ImportedTexture.View.init -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.Compositor.IrradianceFieldRenderer -> sealed class
+Vixen.Rendering.Compositor.IrradianceFieldRenderer : System.IDisposable
+Vixen.Rendering.Compositor.IrradianceFieldRenderer : Vixen.Rendering.Compositor.SceneRenderer
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.Budget.get -> int
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.Budget.set -> int
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.Device.get -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.Device.set -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.DilationPasses.get -> int
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.DilationPasses.set -> int
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.Dispose() -> void
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.Field.get -> Vixen.Rendering.IrradianceFields.IrradianceField?
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.Field.set -> Vixen.Rendering.IrradianceFields.IrradianceField?
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.Filled.get -> int
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.Filler.get -> Vixen.Rendering.IrradianceFields.TracedIrradianceFiller?
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.Filler.set -> Vixen.Rendering.IrradianceFields.TracedIrradianceFiller?
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.IrradianceFieldRenderer() -> void
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.SceneConstants.get -> Vixen.Rendering.SceneConstants?
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.SceneConstants.set -> Vixen.Rendering.SceneConstants?
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.ShaderName.get -> string
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.ShaderName.set -> string
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.Texture.get -> Vixen.Rendering.Lighting.IrradianceFieldTexture?
 Vixen.Rendering.Compositor.PunctualShadowAsset -> sealed record
 Vixen.Rendering.Compositor.PunctualShadowAsset : System.IEquatable<Vixen.Rendering.Compositor.PunctualShadowAsset>
 Vixen.Rendering.Compositor.PunctualShadowAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
@@ -2098,6 +2119,7 @@ const Vixen.Rendering.GpuCulling.WorkgroupSize = 64 -> int
 const Vixen.Rendering.GpuDrawArguments.Stride = 20 -> int
 const Vixen.Rendering.Materials.MaterialCompiler.ChainShader = "CompositeSurface" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.EmptyFieldShader = "NoDistanceField" -> string
+const Vixen.Rendering.Materials.MaterialCompiler.EmptyIrradianceShader = "NoIrradiance" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.IdentityShader = "IdentitySurface" -> string
 const Vixen.Rendering.Materials.MaterialKeys.DefaultLayerCount = 2 -> int
 const Vixen.Rendering.MeshPrimitives.DefaultRings = 16 -> int
@@ -2219,6 +2241,7 @@ override Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.Build(Vixen.Rend
 override Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.Record(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.RenderDrawContext context) -> void
 override Vixen.Rendering.Compositor.GpuCullingRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Compositor.HiZRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
+override Vixen.Rendering.Compositor.IrradianceFieldRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Compositor.PunctualShadowRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Compositor.PunctualShadowRenderer.Collect(Vixen.Rendering.Compositor.GraphicsCompositor compositor) -> void
 override Vixen.Rendering.Compositor.PunctualShadowRenderer.ToString() -> string

@@ -1,0 +1,75 @@
+package Vixen.Shaders.PostFx
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+import Vixen.Shaders.IrradianceFields
+
+// The indirect diffuse a surface receives, read out of the irradiance field.
+//
+// The consumer half of `docs/plan/19` § L2. Everything under it — the bricks, the borders, the
+// dilation, the refinement, the filler — exists to answer one question per shaded pixel, and this is
+// where the question gets asked: what light arrives at this world position, facing this way.
+//
+// A screen-space pass rather than a term inside the shading models, deliberately for now. Adding a
+// compose slot to `ForwardPlus` and `Deferred` would put an unbound slot in every material in every
+// project until each of them named a filler, and this reads the same field through the same protocol
+// with none of that reach. The result is a buffer a shading pass multiplies by albedo, which is what
+// the payload is over π for.
+//
+// The field arrives through a compose slot rather than as bindings of this pass. That is what lets a
+// project with no field fill it with something that answers "none": no permutation here, no branch, and
+// no descriptors bound for a feature nobody uses.
+
+shader IndirectDiffuse {
+    /// Where the light comes from. `IrradianceFieldProbes` is the one that reads a field.
+    compose val irradiance: IIrradianceSource
+
+    var depthBuffer: Texture2D
+    var normalBuffer: Texture2D
+    var pointSampler: Sampler
+
+    /// Turns a UV and a device depth back into a world position, which is what the field is indexed by.
+    var inverseViewProjection: mat4
+
+    /// A multiplier on the result, for a project that wants its indirect light stronger than it is.
+    ///
+    /// Physically it should be one. It is here because artists ask for it and because a value that is
+    /// not one is then visible in a capture rather than folded into the field itself, where it would
+    /// quietly corrupt the thing the next bounce reads.
+    var intensity: float = 1f
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex([Semantic("SV_VertexID")] vertexIndex: int): float4 {
+        uv = Fullscreen.Uv(vertexIndex)
+        return Fullscreen.Position(vertexIndex)
+    }
+
+    /// Irradiance over π in `rgb`, and how much of the sun reaches here in `a`.
+    ///
+    /// Both come out of the same probe and the same two fetches, so keeping them apart costs nothing
+    /// and keeping them together would cost the thing that matters: a shading pass multiplies the first
+    /// into the ambient term and the second into the direct one, and a single combined "light" number
+    /// darkens direct lighting with indirect occlusion.
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        val deviceDepth = depthBuffer.Sample(pointSampler, uv).r
+
+        // Nothing was drawn here. No surface, no indirect light, and nothing shadowing the sun — the
+        // sky is not lit by the world and is not in the world's shadow either.
+        if (deviceDepth >= 1f) {
+            return float4(0f, 0f, 0f, 1f)
+        }
+
+        val world = Transform.UvDepthToWorld(inverseViewProjection, uv, deviceDepth)
+        val normal = Math.SafeNormalize(normalBuffer.Sample(pointSampler, uv).xyz * 2f - 1f)
+
+        val lit = irradiance.SampleIrradiance(world, normal)
+        val sun = irradiance.SampleSunShadow(world, normal)
+
+        return float4(lit * intensity, sun)
+    }
+}

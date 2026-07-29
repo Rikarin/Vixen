@@ -219,6 +219,17 @@ texture coordinate, trilinear — and asserts it lands on the same texels the fi
 on a refined field as well as a uniform one. Refined is where it gets interesting: the divide by the
 brick size and the floor of the cell by it are the two steps a uniform field would never exercise.
 
+### And it has drawn
+
+`IndirectDiffuseImageTests` runs the whole thing on a device: an empty world under a uniform sky of
+radiance *L* comes back as a flat frame of *L*. Every step between a probe and a pixel is in that
+path — the fill, the dilation, the border sync, the pack into four volumes, the copy, the index fetch,
+the trilinear read, and the basis evaluation.
+
+*L* is deliberately neither a half nor a one, because the g-buffer is cleared to halves and the alpha
+the shader writes is a one — a radiance equal to either would pass for a picture that had merely
+copied something through, which is the shape of most of the ways a path like this goes wrong.
+
 ## The pool has a fixed capacity, and that is a decision
 
 A pool that grows reallocates the texture it is a mirror of, mid-frame, at the exact moment a scene
@@ -239,9 +250,9 @@ gets blamed on the temporal filter.
   compute, are both still owed.
 - **View bias.** Dilation and the normal bias are here; the offset along the view ray, which is what
   helps at grazing angles, is not.
-- **A pass that composes `IIrradianceSource`.** The shader module and the GPU mirror exist and agree
-  with each other; nothing reads them yet, so nothing is registered in `MaterialCompiler`'s optional
-  slots either. The day a pass composes the slot, `NoIrradiance` is the filler it needs.
+- **Indirect light inside the shading models.** `IndirectDiffuse` is a screen-space pass producing a
+  buffer; a term inside `ForwardPlus` and `Deferred` is what eventually reads it, and that is a compose
+  slot in every material rather than in one pass.
 
 **Nothing here creates or calls a graphics device**, which is what lets the sampling be checked
 against arithmetic instead of against a picture. The assembly does reference `Vixen.Core.Imaging` for

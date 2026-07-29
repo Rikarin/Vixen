@@ -76,7 +76,12 @@ public static class MaterialCompiler {
         // one wants an IDistanceFieldSource rather than an IMaterialSurface. A material compiled
         // beside a pass that can trace has to name something for it even though it never reaches it,
         // and what it names answers "nothing is near".
-        ("DistanceFieldAo", "distanceField", EmptyFieldShader)
+        ("DistanceFieldAo", "distanceField", EmptyFieldShader),
+
+        // And the indirect pass's field, for the same reason and with the same shape. Its filler
+        // answers "no indirect light and nothing shadowing the sun", which are two different right
+        // answers rather than one convenient zero.
+        ("IndirectDiffuse", "irradiance", EmptyIrradianceShader)
     ];
 
     /// <summary>The shader that fills a slot nothing else does.</summary>
@@ -84,6 +89,9 @@ public static class MaterialCompiler {
 
     /// <summary>The shader that fills a distance-field slot for a project that traces nothing.</summary>
     public const string EmptyFieldShader = "NoDistanceField";
+
+    /// <summary>The shader that fills an irradiance slot for a project with no field.</summary>
+    public const string EmptyIrradianceShader = "NoIrradiance";
 
     /// <summary>The chain a material's features are composed through.</summary>
     public const string ChainShader = "CompositeSurface";

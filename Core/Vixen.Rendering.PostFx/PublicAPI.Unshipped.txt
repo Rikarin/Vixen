@@ -148,6 +148,17 @@ Vixen.Rendering.PostFx.FxaaRenderer.Subpixel.get -> bool
 Vixen.Rendering.PostFx.FxaaRenderer.Subpixel.set -> bool
 Vixen.Rendering.PostFx.FxaaRenderer.SubpixelQuality.get -> float
 Vixen.Rendering.PostFx.FxaaRenderer.SubpixelQuality.set -> float
+Vixen.Rendering.PostFx.IndirectDiffuseRenderer -> sealed class
+Vixen.Rendering.PostFx.IndirectDiffuseRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
+Vixen.Rendering.PostFx.IndirectDiffuseRenderer.IndirectDiffuseRenderer() -> void
+Vixen.Rendering.PostFx.IndirectDiffuseRenderer.Intensity.get -> float
+Vixen.Rendering.PostFx.IndirectDiffuseRenderer.Intensity.set -> float
+Vixen.Rendering.PostFx.IndirectDiffuseRenderer.InverseViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.PostFx.IndirectDiffuseRenderer.InverseViewProjection.set -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.PostFx.IndirectDiffuseRenderer.Scale.get -> float
+Vixen.Rendering.PostFx.IndirectDiffuseRenderer.Scale.set -> float
+Vixen.Rendering.PostFx.IndirectDiffuseRenderer.Source.get -> string
+Vixen.Rendering.PostFx.IndirectDiffuseRenderer.Source.set -> string
 Vixen.Rendering.PostFx.OutlineRenderer -> sealed class
 Vixen.Rendering.PostFx.OutlineRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
 Vixen.Rendering.PostFx.OutlineRenderer.Colour.get -> Vixen.Core.Mathematics.Vector4
@@ -335,6 +346,19 @@ Vixen.Shaders.Generated.FxaaConstants.FxaaConstants() -> void
 Vixen.Shaders.Generated.FxaaConstants.SubpixelQuality -> float
 Vixen.Shaders.Generated.FxaaConstants.TexelSize -> Vixen.Core.Mathematics.Vector2
 Vixen.Shaders.Generated.FxaaKeys -> static class
+Vixen.Shaders.Generated.IndirectDiffuseKeys -> static class
+Vixen.Shaders.Generated.IndirectDiffusePerFrameConstants -> struct
+Vixen.Shaders.Generated.IndirectDiffusePerFrameConstants.IndirectDiffusePerFrameConstants() -> void
+Vixen.Shaders.Generated.IndirectDiffusePerFrameConstants.IrradianceFieldProbesIrradianceFieldInverseCellSize -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.IndirectDiffusePerFrameConstants.IrradianceFieldProbesIrradianceFieldInversePoolSize -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.IndirectDiffusePerFrameConstants.IrradianceFieldProbesIrradianceFieldMaximum -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.IndirectDiffusePerFrameConstants.IrradianceFieldProbesIrradianceFieldMinimum -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.IndirectDiffusePerFrameConstants.IrradianceFieldProbesIrradianceFieldNormalBias -> float
+Vixen.Shaders.Generated.IndirectDiffusePerFrameConstants.IrradianceFieldProbesIrradianceFieldResolution -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.IndirectDiffusePerMaterialConstants -> struct
+Vixen.Shaders.Generated.IndirectDiffusePerMaterialConstants.IndirectDiffusePerMaterialConstants() -> void
+Vixen.Shaders.Generated.IndirectDiffusePerMaterialConstants.Intensity -> float
+Vixen.Shaders.Generated.IndirectDiffusePerMaterialConstants.InverseViewProjection -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Shaders.Generated.OutlineConstants -> struct
 Vixen.Shaders.Generated.OutlineConstants.DepthThreshold -> float
 Vixen.Shaders.Generated.OutlineConstants.FarPlane -> float
@@ -420,6 +444,38 @@ const Vixen.Shaders.Generated.FxaaKeys.SourceBinding = 1 -> uint
 const Vixen.Shaders.Generated.FxaaKeys.SourceSamplerBinding = 2 -> uint
 const Vixen.Shaders.Generated.FxaaKeys.SourceSamplerSet = 2 -> int
 const Vixen.Shaders.Generated.FxaaKeys.SourceSet = 2 -> int
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.ConstantBufferSet = 0 -> int
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.ConstantBufferSize = 80 -> int
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.DepthBufferBinding = 1 -> uint
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.DepthBufferSet = 2 -> int
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceIndirectionBinding = 1 -> uint
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceIndirectionSet = 0 -> int
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceL0Binding = 2 -> uint
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceL0Set = 0 -> int
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceL1BBinding = 5 -> uint
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceL1BSet = 0 -> int
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceL1GBinding = 4 -> uint
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceL1GSet = 0 -> int
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceL1RBinding = 3 -> uint
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceL1RSet = 0 -> int
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradiancePointSamplerBinding = 6 -> uint
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradiancePointSamplerSet = 0 -> int
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceSamplerBinding = 7 -> uint
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceSamplerSet = 0 -> int
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.NormalBufferBinding = 2 -> uint
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.NormalBufferSet = 2 -> int
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.PerFrameBlockBinding = 0 -> uint
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.PerFrameBlockSet = 0 -> int
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.PerFrameBlockSize = 80 -> int
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.PerMaterialBlockBinding = 0 -> uint
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.PerMaterialBlockSet = 2 -> int
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.PerMaterialBlockSize = 80 -> int
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.PointSamplerBinding = 3 -> uint
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.PointSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.ShaderName = "IndirectDiffuse" -> string
+const Vixen.Shaders.Generated.IndirectDiffusePerFrameConstants.Size = 80 -> int
+const Vixen.Shaders.Generated.IndirectDiffusePerMaterialConstants.Size = 80 -> int
 const Vixen.Shaders.Generated.OutlineConstants.Size = 64 -> int
 const Vixen.Shaders.Generated.OutlineKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.OutlineKeys.ConstantBufferSet = 2 -> int
@@ -488,6 +544,8 @@ override Vixen.Rendering.PostFx.DistanceFieldAoRenderer.Configure(Vixen.Renderin
 override Vixen.Rendering.PostFx.DistanceFieldAoRenderer.TargetSize(Vixen.Core.Mathematics.Int2 frame) -> Vixen.Core.Mathematics.Int2
 override Vixen.Rendering.PostFx.FogRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.FxaaRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
+override Vixen.Rendering.PostFx.IndirectDiffuseRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
+override Vixen.Rendering.PostFx.IndirectDiffuseRenderer.TargetSize(Vixen.Core.Mathematics.Int2 frame) -> Vixen.Core.Mathematics.Int2
 override Vixen.Rendering.PostFx.OutlineRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.PostEffectRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.PostFx.SharpenRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
@@ -501,6 +559,8 @@ readonly Vixen.Shaders.Generated.DistanceFieldAoPerFrameConstants.Write(System.S
 readonly Vixen.Shaders.Generated.DistanceFieldAoPerMaterialConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.FogConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.FxaaConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.IndirectDiffusePerFrameConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.IndirectDiffusePerMaterialConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.OutlineConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.SharpenConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.SsaoConstants.Write(System.Span<byte> buffer) -> void
@@ -522,6 +582,10 @@ required Vixen.Rendering.PostFx.FogRenderer.Source.get -> string
 required Vixen.Rendering.PostFx.FogRenderer.Source.init -> string
 required Vixen.Rendering.PostFx.FxaaRenderer.Source.get -> string
 required Vixen.Rendering.PostFx.FxaaRenderer.Source.init -> string
+required Vixen.Rendering.PostFx.IndirectDiffuseRenderer.Depth.get -> string
+required Vixen.Rendering.PostFx.IndirectDiffuseRenderer.Depth.init -> string
+required Vixen.Rendering.PostFx.IndirectDiffuseRenderer.Normals.get -> string
+required Vixen.Rendering.PostFx.IndirectDiffuseRenderer.Normals.init -> string
 required Vixen.Rendering.PostFx.OutlineRenderer.Depth.get -> string
 required Vixen.Rendering.PostFx.OutlineRenderer.Depth.init -> string
 required Vixen.Rendering.PostFx.OutlineRenderer.Source.get -> string
@@ -585,6 +649,24 @@ static readonly Vixen.Shaders.Generated.FxaaKeys.Subpixel -> Vixen.Shaders.Permu
 static readonly Vixen.Shaders.Generated.FxaaKeys.SubpixelQuality -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.FxaaKeys.TexelSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
 static readonly Vixen.Shaders.Generated.FxaaKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
+static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.DepthBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.Intensity -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.InverseViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
+static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceFieldInverseCellSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceFieldInversePoolSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceFieldMaximum -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceFieldMinimum -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceFieldNormalBias -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceFieldResolution -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceIndirection -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceL0 -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceL1B -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceL1G -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceL1R -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradiancePointSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.NormalBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.PointSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
 static readonly Vixen.Shaders.Generated.OutlineKeys.DepthBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.OutlineKeys.DepthThreshold -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.OutlineKeys.FarPlane -> Vixen.Shaders.ParameterKey<float>

@@ -52,6 +52,9 @@ static class LibraryComposition {
         // And the distance field a traced pass reads, which the clipmap fills.
         bindings.Add(new("distanceField", "GlobalDistanceField"));
 
+        // And the irradiance field an indirect pass reads, which the probe pool fills.
+        bindings.Add(new("irradiance", "IrradianceFieldProbes"));
+
         foreach (var (slot, shader) in overrides) {
             bindings.Add(new(slot, shader));
         }

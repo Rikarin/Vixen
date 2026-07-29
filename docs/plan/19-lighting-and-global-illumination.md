@@ -277,10 +277,23 @@ addressing in C# and asserts it reaches the texels the field's own sampler reads
 as well as a uniform one, because the divide by the brick size is a step a uniform field never
 exercises.
 
-Owed, in the order they change the picture: a pass that composes `IIrradianceSource` (the module and
-the mirror agree with each other and nothing reads them yet); filler A on a GPU and filler B at all; a
-policy that decides *where* to refine, which § 3 says is renderer bounds and the `VisibilityGroup`
-already has; and the view bias.
+**And L2 has drawn.** `IndirectDiffuse` is the consumer: a screen-space pass composing
+`IIrradianceSource`, with `IrradianceFieldRenderer` filling a budget of bricks a frame, dilating,
+syncing borders and copying the field up in a transfer pass. `IndirectDiffuseImageTests` runs it on a
+device — an empty world under a uniform sky of radiance *L* comes back as a flat frame of *L*, which
+is the same closed form the projection and the filler are each held against, now reached through the
+pool, the index volume and the shader's basis. *L* is deliberately neither a half nor a one, because
+the g-buffer clears to halves and the shader writes a one into alpha, and a radiance equal to either
+would pass for a picture that had merely copied something through.
+
+A screen-space pass rather than a term inside the shading models, and that is a scoping decision
+rather than the end state: a compose slot on `ForwardPlus` and `Deferred` would put an unbound slot in
+every material in every project until each named a filler. What comes out is a buffer, which is what a
+payload stored over π is for.
+
+Owed, in the order they change the picture: filler A on a GPU and filler B at all; the shading models
+reading the buffer; a policy that decides *where* to refine, which § 3 says is renderer bounds and the
+`VisibilityGroup` already has; and the view bias.
 
 ### L3 — Screen probe gather *(3.0 EM)*
 
