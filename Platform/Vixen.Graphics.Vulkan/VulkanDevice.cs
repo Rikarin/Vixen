@@ -789,6 +789,15 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
             extensions.Add(KhrDynamicRendering.ExtensionName);
         }
 
+        // Descriptor indexing is core from 1.2, so only a 1.1 device has to name it. Its own
+        // dependency — VK_KHR_maintenance3 — is core in 1.1, which AdapterSelection already made the
+        // floor, so there is nothing further to pull in.
+        var wantsBindless = adapter.Features.HasBindless;
+
+        if (wantsBindless && adapter.UsableApiVersion < VulkanFeatures.Version12) {
+            extensions.Add(VulkanFeatures.DescriptorIndexing);
+        }
+
         var missing = extensions.Where(name => !adapter.Extensions.Contains(name)).ToArray();
 
         if (missing.Length > 0) {
@@ -826,10 +835,38 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
             FragmentStoresAndAtomics = adapter.Supported.FragmentStoresAndAtomics
         };
 
+        // Exactly the four bits VulkanFeatures.Bindless asked about, and no more. Enabling a feature
+        // the engine does not use costs nothing on most drivers and disables fast paths on some, and
+        // enabling one the device does not have fails vkCreateDevice outright — so the request is
+        // what was reported, narrowed to what is used.
+        var indexing = new PhysicalDeviceDescriptorIndexingFeatures {
+            SType = StructureType.PhysicalDeviceDescriptorIndexingFeatures,
+            RuntimeDescriptorArray = true,
+            DescriptorBindingPartiallyBound = true,
+            ShaderSampledImageArrayNonUniformIndexing = true,
+            DescriptorBindingSampledImageUpdateAfterBind = true
+        };
+
         var dynamicRendering = new PhysicalDeviceDynamicRenderingFeaturesKHR {
             SType = StructureType.PhysicalDeviceDynamicRenderingFeaturesKhr,
             DynamicRendering = true
         };
+
+        // A chain rather than a choice. It used to be one structure or none, and adding a second the
+        // same way would have silently dropped whichever was not asked for last — which for
+        // descriptor indexing is a device that reports bindless, is created without it, and fails at
+        // the first unbounded layout with a message about the layout.
+        var wantsDynamic = wantsDynamicRendering || adapter.UsableApiVersion >= VulkanFeatures.Version13;
+        void* chain = null;
+
+        if (wantsBindless) {
+            chain = &indexing;
+        }
+
+        if (wantsDynamic) {
+            dynamicRendering.PNext = chain;
+            chain = &dynamicRendering;
+        }
 
         var names = SilkMarshal.StringArrayToPtr(extensions);
 
@@ -841,9 +878,7 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
                 EnabledExtensionCount = (uint)extensions.Count,
                 PpEnabledExtensionNames = (byte**)names,
                 PEnabledFeatures = &enabled,
-                PNext = wantsDynamicRendering || adapter.UsableApiVersion >= VulkanFeatures.Version13
-                    ? &dynamicRendering
-                    : null
+                PNext = chain
             };
 
             Device handle;

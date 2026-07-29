@@ -56,6 +56,16 @@ GPU, with a message saying what was wrong:
 - a handle used after it was destroyed — caught by its generation
 - a compute pipeline on a device that reports no compute, so the fallback path the capability exists
   for actually gets taken
+- an unbounded descriptor binding on a device that reports no `HasBindless`
+- a descriptor write to a binding the layout does not declare, or to an element past the end of one
+  — measured against the table's capacity for an unbounded binding, since its `Count` is zero and
+  both obvious readings of that are wrong in opposite directions
+
+⚠ The write's **kind** is deliberately not checked here, and the Vulkan backend does check it.
+Turning it on found six distinct places where a declaration and its write disagree — a dynamic
+uniform block written as a plain one, a sampler written where a texture was declared. Those are real,
+they are not this backend's to fix, and half the change would break every test that exercises those
+paths without fixing anything.
 
 ## Resource creation genuinely does not allocate
 

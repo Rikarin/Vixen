@@ -372,6 +372,13 @@ therefore the correct single investment for Vulkan, Metal, and (via the same too
 - `VK_EXT_descriptor_indexing` requires **Metal argument buffers enabled in config**, and is limited on
   Tier 1 hardware (96/128 textures, 16 samplers) and on Intel GPUs. → the bindless path
   ([05](05-graphics-rhi.md)) must genuinely have a non-bindless fallback on Apple, not just on GL.
+
+  ✅ Measured rather than assumed, now that there is something to measure with: an **M1 Max reports
+  the capability and a million descriptors**, which is Tier 2 and is what every Apple-silicon part
+  is. The constraint is real and it is an Intel-Mac constraint. What it changed in the design is that
+  `HasBindless` cannot be answered from the extension string — MoltenVK offers it on every device it
+  runs on — so `VulkanFeatures.Bindless` asks the four features, and the fallback is selected by a
+  device that says no rather than by a device that fails at its first layout.
 - `VK_EXT_buffer_device_address` requires **Tier 2 argument buffers**.
 - **Primitive restart cannot be disabled** — Metal has no such control, so
   `VK_DYNAMIC_STATE_PRIMITIVE_RESTART_ENABLE_EXT` is a no-op. Index buffers must never rely on

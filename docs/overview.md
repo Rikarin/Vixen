@@ -104,6 +104,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 |---|---|---|---|
 | `Vixen.Graphics` RHI surface — formats, `synchronization2`-shaped barriers, typed handles, PSO/descriptor descriptions | ✅ | Core/Vixen.Graphics | 46 tests; reversed depth in the defaults |
 | `DescriptorBinding` sample type / comparison sampler | ✅ | Core/Vixen.Graphics | `DescriptorSampleType` on the binding and `PixelFormats.SampleTypeOf` beside it. WebGPU declares and enforces it, Vulkan checks it when it is stated, GL reads past it. Shadow maps on the web now wait on Raven having a depth texture type, not on the RHI |
+| **Bindless descriptor arrays** — `BindlessTable`, `MaxBindlessDescriptors`, descriptor indexing in the Vulkan backend | ✅ | Core/Vixen.Graphics · Platform/Vixen.Graphics.Vulkan | The RHI half of W0-17. `HasBindless` is now four opt-in features rather than an extension string, so MoltenVK below argument-buffer tier 2 reports no rather than failing at the first layout. ⚠ `Count == 0` meant two things — a storage buffer's runtime-sized array *and* an unbounded array — and `IsUnbounded()` is where the kind tells them apart |
 | Placed resources (true memory aliasing) | ⬜ | — | Two of six planned backends cannot express it |
 | `Vixen.Graphics.Null` + recording harness | ✅ | Platform/Vixen.Graphics.Null | Also the shipping dedicated-server backend |
 | `Vixen.Graphics.RenderGraph` — culling, aliasing, batched barriers, derived store actions | ✅ | Core/Vixen.Graphics.RenderGraph | 34 tests incl. property tests |
@@ -265,14 +266,14 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | `VisibilityGroup` (job-parallel) + `GpuVisibilityGroup` (Hi-Z, indirect args) | ✅ | Core/Vixen.Rendering | Falls back where it cannot run |
 | Mesh, transform, skinning, instancing, material, lighting, shadow-caster features | ✅ | Core/Vixen.Rendering | Roadmap §Phase 5 still lists these "open"; the code says otherwise |
 | **Two-phase occlusion culling** (`GpuVisibilityGroup.TwoPhase`, the `Late` permutation of `Culling.rvn`) | ✅ | Core/Vixen.Rendering | Removes the frame of staleness. The late pass writes a **difference**, not an answer — the union would draw every visible object twice. Needs the readback off; `LatePhaseRan` says which happened |
-| Compacted draws | ⬜ | — | ⛔ wants bindless materials first |
+| Compacted draws | ⬜ | — | ⛔ wants bindless materials first — the RHI half of them is in, the material-record half is [planned](bindless-materials.md) and not written |
 | `GraphicsCompositor` as an asset, resolvable by address | ✅ | Core/Vixen.Rendering | Asserted in `Vixen.Assets.Tests` |
 | Materials — composable feature tree, 2 workflows, 7 shading models, both layering forms | ✅ | Core/Vixen.Rendering | Every combination through `glslc` + `spirv-val` |
 | Transmission / refraction | ⬜ | — | Needs the scene colour or an environment sample — a pass concern, not a lobe |
-| Bindless material textures (a feature that samples needs a binding index) | ⬜ | — | ⛔ the same gap as the compositor's authored nodes |
+| Bindless material textures (a feature that samples needs a binding index) | ⬜ | — | ⛔ needs Raven to declare an unsized texture array and a material record to carry the index — [step 1 and step 2](bindless-materials.md). The table the index would name exists |
 | Lighting — directional/point/spot/tube/rect, clustered binning, IBL, reflection probes | ✅ | Core/Vixen.Rendering | `EnvironmentBaker` + `SphericalHarmonics` on the CPU |
 | **Light probes** (tetrahedral interpolation) | ⛔ | — | Bowyer–Watson needs exact predicates; written, found wrong by its own tests, withdrawn |
-| Per-object reflection probe selection | ⬜ | — | ⛔ needs the binding-plan work |
+| Per-object reflection probe selection | ⬜ | — | ⛔ needs a probe to be a table index rather than one of four bound cubes — [step 2](bindless-materials.md). The per-object block already carries the index and the weight |
 | Shadows — CSM, cube, spot, atlas, static caching, PCF/PCSS | ✅ | Core/Vixen.Rendering | |
 | Punctual shadow caching | ⬜ | — | Only the directional cascades are cached |
 | Blend shapes | ⬜ | — | |
@@ -627,7 +628,7 @@ since. The rest can run in parallel.
 | W0-14 | Pin a static `libjoltc.a` for `ios-arm64` | Physics on iOS → `Samples/05` on iOS |
 | W0-15 | Add `astcenc` + `ispc_texcomp` to `native-dependencies.json` | ASTC/ETC2 · full BC7/BC6H · mobile texture budgets. Also proves R10's schema generalises |
 | ~~W0-16~~ | ~~ECS entity-handle **reservation**~~ | Built (`World.TryRecreate`), and spent: create/delete/rename are undoable in the scene view |
-| W0-17 | Bindless material binding plan | Compacted draws · per-object reflection probes · material texture features. **Two-phase occlusion landed without it** |
+| 🟡 W0-17 | Bindless material binding plan | **The RHI half is built** — `BindlessTable`, descriptor indexing in the Vulkan backend, device-verified. The rest is written down in [bindless-materials.md](bindless-materials.md): Raven unsized texture arrays, then a material record replacing the per-material set, then an indirect-count draw. Compacted draws · per-object reflection probes · material texture features all wait on the second of those. **Two-phase occlusion landed without it** |
 | W0-18 | Light-probe exact predicates (robust Bowyer–Watson) | Tetrahedral light-probe interpolation |
 | ~~W0-19~~ | ~~`NodeGraphView` (pan/zoom/wires/minimap/search-to-create)~~ | Built. Shader-graph and VFX-graph authoring is now a matter of nodes, not of a canvas |
 | W0-20 | Non-scene asset editors: texture, model, material, shader, UI, addressable groups, compositor | Phase 6's exit criterion, minus the scene half |

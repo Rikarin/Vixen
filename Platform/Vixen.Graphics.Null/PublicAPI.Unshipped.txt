@@ -27,6 +27,7 @@ Vixen.Graphics.Null.NullDevice.CreateShader(Vixen.Graphics.ShaderStage stage, Sy
 Vixen.Graphics.Null.NullDevice.CreateSwapChain(in Vixen.Graphics.SwapChainDescription description) -> Vixen.Graphics.ISwapChain
 Vixen.Graphics.Null.NullDevice.CreateTexture(in Vixen.Graphics.TextureDescription description) -> Vixen.Graphics.TextureHandle
 Vixen.Graphics.Null.NullDevice.CreateTextureView(Vixen.Graphics.TextureHandle texture, Vixen.Graphics.PixelFormat format = Vixen.Graphics.PixelFormat.Undefined, int baseMipLevel = 0, int mipLevelCount = 0, int baseArrayLayer = 0, int arrayLayerCount = 0) -> Vixen.Graphics.TextureViewHandle
+Vixen.Graphics.Null.NullDevice.DescriptorWrites.get -> int
 Vixen.Graphics.Null.NullDevice.Destroy(Vixen.Graphics.BufferHandle handle) -> void
 Vixen.Graphics.Null.NullDevice.Destroy(Vixen.Graphics.DescriptorSetHandle handle) -> void
 Vixen.Graphics.Null.NullDevice.Destroy(Vixen.Graphics.DescriptorSetLayoutHandle handle) -> void

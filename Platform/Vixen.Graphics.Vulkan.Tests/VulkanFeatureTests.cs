@@ -52,7 +52,9 @@ public sealed class VulkanFeatureTests {
         IReadOnlySet<string>? extensions = null,
         uint apiVersion = Version11,
         QueueFamilyPlan? queues = null,
-        bool unifiedMemory = false
+        bool unifiedMemory = false,
+        PhysicalDeviceDescriptorIndexingFeatures indexing = default,
+        PhysicalDeviceDescriptorIndexingProperties? indexingLimits = null
     ) =>
         VulkanFeatures.Translate(
             features,
@@ -60,8 +62,24 @@ public sealed class VulkanFeatureTests {
             extensions ?? new HashSet<string>(),
             apiVersion,
             queues ?? OneFamily,
-            unifiedMemory
+            unifiedMemory,
+            indexing,
+            indexingLimits ?? IndexingLimits()
         );
+
+    /// <summary>The four bits an unbounded texture array needs, all on.</summary>
+    static PhysicalDeviceDescriptorIndexingFeatures Indexing() => new() {
+        RuntimeDescriptorArray = true,
+        DescriptorBindingPartiallyBound = true,
+        ShaderSampledImageArrayNonUniformIndexing = true,
+        DescriptorBindingSampledImageUpdateAfterBind = true
+    };
+
+    /// <summary>A plausible desktop driver's update-after-bind ceilings, unequal on purpose.</summary>
+    static PhysicalDeviceDescriptorIndexingProperties IndexingLimits() => new() {
+        MaxDescriptorSetUpdateAfterBindSampledImages = 1_048_576,
+        MaxPerStageDescriptorUpdateAfterBindSampledImages = 65_536
+    };
 
     [Fact]
     public void LimitsAreCarriedAcross() {
@@ -213,6 +231,95 @@ public sealed class VulkanFeatureTests {
         Assert.False(features.HasTimelineSemaphores);
         Assert.False(features.HasBindless);
     }
+
+    /// <summary>
+    ///     The extension alone is not bindless, and this is the case that made it a rule.
+    /// </summary>
+    /// <remarks>
+    ///     MoltenVK offers <c>VK_EXT_descriptor_indexing</c> on every device it runs on and gates the
+    ///     features behind Metal argument-buffer tier 2 (ADR-011). A translation that answered on the
+    ///     extension string would report bindless on every Mac and every iPhone, and the discovery
+    ///     would be <c>vkCreateDescriptorSetLayout</c> refusing the table — long after the renderer
+    ///     had chosen its path.
+    /// </remarks>
+    [Fact]
+    public void DescriptorIndexingReachableIsNotDescriptorIndexingEnabled() {
+        var reachable = new HashSet<string> { "VK_EXT_descriptor_indexing" };
+
+        Assert.False(Translate(extensions: reachable).HasBindless);
+        Assert.False(Translate(apiVersion: VulkanFeatures.Version12).HasBindless);
+
+        Assert.True(Translate(extensions: reachable, indexing: Indexing()).HasBindless);
+        Assert.True(Translate(apiVersion: VulkanFeatures.Version12, indexing: Indexing()).HasBindless);
+    }
+
+    /// <summary>
+    ///     The features without a route to them are not bindless either.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of the case above, and it is not hypothetical: the structure is only ever
+    ///     filled where the device was asked, so features reported against a 1.1 device with no
+    ///     extension are features nobody could have obtained. Answering yes there would enable an
+    ///     extension device creation never asked for.
+    /// </remarks>
+    [Fact]
+    public void FeaturesWithoutTheExtensionOrTheVersionAreNotBindless() =>
+        Assert.False(Translate(apiVersion: Version11, indexing: Indexing()).HasBindless);
+
+    /// <summary>
+    ///     Each of the four bits is load-bearing, so dropping any one of them turns bindless off.
+    /// </summary>
+    /// <remarks>
+    ///     Written out one at a time rather than as a single all-on assertion, because the failure
+    ///     this guards against is a translation that checks three and forgets the fourth — which
+    ///     reports a capability the device has three quarters of, and fails at whichever call needed
+    ///     the missing quarter.
+    /// </remarks>
+    [Fact]
+    public void EveryOneOfTheFourBitsIsRequired() {
+        var full = Indexing();
+
+        Assert.False(Translate(apiVersion: VulkanFeatures.Version12, indexing: full with {
+            RuntimeDescriptorArray = false
+        }).HasBindless);
+
+        Assert.False(Translate(apiVersion: VulkanFeatures.Version12, indexing: full with {
+            DescriptorBindingPartiallyBound = false
+        }).HasBindless);
+
+        Assert.False(Translate(apiVersion: VulkanFeatures.Version12, indexing: full with {
+            ShaderSampledImageArrayNonUniformIndexing = false
+        }).HasBindless);
+
+        Assert.False(Translate(apiVersion: VulkanFeatures.Version12, indexing: full with {
+            DescriptorBindingSampledImageUpdateAfterBind = false
+        }).HasBindless);
+    }
+
+    /// <summary>
+    ///     A table is sized by the lesser of the two update-after-bind ceilings.
+    /// </summary>
+    /// <remarks>
+    ///     Both bound it. The set limit covers every update-after-bind sampled image in the set, and
+    ///     the per-stage limit covers what one stage may see — and the fragment stage indexing the
+    ///     table sees all of it. Taking the larger produces a layout the driver refuses, on exactly
+    ///     the mobile parts where the two differ most.
+    /// </remarks>
+    [Fact]
+    public void TheTableIsSizedByTheLesserCeiling() {
+        var features = Translate(apiVersion: VulkanFeatures.Version12, indexing: Indexing());
+
+        Assert.Equal(65_536, features.MaxBindlessDescriptors);
+    }
+
+    /// <summary>A device without the capability reports no descriptors, whatever its limits say.</summary>
+    /// <remarks>
+    ///     So that a host cannot reach a non-zero capacity through a device that would refuse the
+    ///     layout. <c>BindlessTable.IsSupportedBy</c> asks both questions for the same reason.
+    /// </remarks>
+    [Fact]
+    public void WithoutTheCapabilityThereAreNoBindlessDescriptors() =>
+        Assert.Equal(0, Translate(apiVersion: VulkanFeatures.Version12).MaxBindlessDescriptors);
 
     [Fact]
     public void MeshShadersComeFromEitherVendorsExtension() {

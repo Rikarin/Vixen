@@ -116,7 +116,8 @@ cheap enough not to matter.
 | `DescriptorSampleType` | ⚠ inferred from the shader | ⚠ same | ⚠ same | ⚠ same | = **required** in the layout | ⚠ inferred |
 | `StorageTexture` | = | = | ≈ `glBindImageTexture` | ✗ below ES 3.1 | = | = |
 | `StorageBuffer` | = | = | = SSBO | ✗ below ES 3.1 | = | = |
-| `HasBindless` | = descriptor indexing | = SM6.6 dynamic resources | ✗ vendor extension only | ✗ | ✗ | ⚠ argument-buffer tier 1 |
+| `HasBindless` | = descriptor indexing | = SM6.6 dynamic resources | ✗ vendor extension only | ✗ | ✗ | ⚠ argument-buffer tier |
+| Unbounded binding (`Count == 0`) | = partially-bound + update-after-bind, sized from the device | = a heap range | ✗ | ✗ | ✗ | as the tier allows |
 | Updating a set | cheap | cheap | **free** (no GPU object) | free | cheap | cheap |
 | Binding a set | cheap | cheap | ⚠ **N calls** | ⚠ same | cheap | cheap |
 
@@ -248,7 +249,8 @@ in the engine may assume.
 | `HasGeometryShaders` | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ |
 | `HasTessellation` | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ |
 | `HasMeshShaders` | ext | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ |
-| `HasBindless` | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ⚠ tier 1 |
+| `HasBindless` | ✓ four opt-in features | ✓ | ✗ | ✗ | ✗ | ✗ | ⚠ tier-dependent |
+| `MaxBindlessDescriptors` | lesser of the two update-after-bind ceilings | SM6.6 heap size | 0 | 0 | 0 | 0 | as MoltenVK reports |
 | `HasMultiDrawIndirect` | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ |
 | `HasTimelineSemaphores` | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ |
 | `HasAsyncCompute` | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ |

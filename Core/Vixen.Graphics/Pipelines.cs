@@ -109,8 +109,9 @@ public enum DescriptorSampleType : byte {
 /// <param name="Kind">What it binds.</param>
 /// <param name="Stages">Which shader stages see it.</param>
 /// <param name="Count">
-///     How many, for an array binding. <c>0</c> means unbounded, which needs
-///     <see cref="GraphicsDeviceFeatures.HasBindless" />.
+///     How many descriptors, for an array binding. <c>0</c> means the length is not in the shader —
+///     which is <em>two</em> different things depending on the kind, and
+///     <see cref="DescriptorBindingExtensions.IsUnbounded" /> is where they are told apart.
 /// </param>
 /// <param name="SampleType">
 ///     What a <see cref="DescriptorKind.SampledTexture" /> holds, or what a
@@ -135,6 +136,34 @@ public readonly record struct DescriptorBinding(
     ///     habit is a validation failure rather than a slightly wrong picture.
     /// </remarks>
     public bool Filters => SampleType == DescriptorSampleType.Float;
+}
+
+/// <summary>The one question about a binding that cannot be asked as <c>Count == 0</c>.</summary>
+public static class DescriptorBindingExtensions {
+    /// <summary>Whether this binding is the unbounded array a <see cref="BindlessTable" /> is made of.</summary>
+    /// <param name="binding">The binding.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>Zero means two things, and which one depends on the kind.</strong> On a buffer
+    ///         it means the block ends in a runtime-sized array — <c>buffer objects { Object items[]; }</c>
+    ///         — which is <em>one</em> descriptor whose length the host decides when it binds a range.
+    ///         Raven's reflection says exactly that, and every storage buffer in the shader library
+    ///         arrives here as a zero. On a texture or a sampler there is no such thing as a
+    ///         runtime-sized resource, so zero can only mean the other reading: an unbounded
+    ///         descriptor array, which needs <see cref="GraphicsDeviceFeatures.HasBindless" /> and is
+    ///         sized by <see cref="GraphicsDeviceFeatures.MaxBindlessDescriptors" />.
+    ///     </para>
+    ///     <para>
+    ///         A method rather than the comparison written at each use site, because the two readings
+    ///         are one <c>Math.Max(1, Count)</c> apart and the failure is not symmetric. Treating a
+    ///         storage buffer's zero as unbounded puts an update-after-bind flag on a binding whose
+    ///         feature nobody enabled, and the validation layers refuse the layout — which is how this
+    ///         was found, on the culling shaders, on the first run against a real driver.
+    ///     </para>
+    /// </remarks>
+    public static bool IsUnbounded(this DescriptorBinding binding) =>
+        binding.Count == 0
+        && binding.Kind is DescriptorKind.SampledTexture or DescriptorKind.StorageTexture or DescriptorKind.Sampler;
 }
 
 /// <summary>The shape of one descriptor set.</summary>
