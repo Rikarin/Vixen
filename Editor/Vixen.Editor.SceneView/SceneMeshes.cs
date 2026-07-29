@@ -9,64 +9,98 @@ using Vixen.Rendering.Ecs;
 
 namespace Vixen.Editor.SceneView;
 
-/// <summary>Every shaped entity in a scene, as one buffer of world-space triangles.</summary>
+/// <summary>One run of a scene's entities that share a shape, and are therefore one draw.</summary>
+/// <param name="Kind">Which primitive they are instances of.</param>
+/// <param name="First">Where the run starts in <see cref="SceneMeshes.Instances" />.</param>
+/// <param name="Count">How many entities it holds.</param>
+/// <param name="Edges">Whether it draws their wireframe rather than their surfaces.</param>
+/// <remarks>
+///     A <see cref="PrimitiveKind" /> rather than a device handle, because this side of the seam has no
+///     device: the collector says which shape each run wants and whoever owns the buffers turns that
+///     into a <see cref="MeshShapeGeometry" />. When a block-out mesh is a mesh of its own rather than
+///     a parameter, this is where its identity goes and nothing else here changes.
+/// </remarks>
+public readonly record struct ShapeBatch(PrimitiveKind Kind, int First, int Count, bool Edges);
+
+/// <summary>Every shaped entity in a scene, as one instance each.</summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="SceneLines" /> for surfaces.</b> Same shape of object and same reason for
-///         existing: one collect a frame, into one vertex list and one index list, so that however
-///         many primitives a scene holds they cost one buffer write and one draw call. The geometry
-///         itself comes from <see cref="MeshPrimitives" /> — this places it, colours it and joins it
-///         up.
+///         <b><see cref="SceneLines" /> for surfaces, and the shape of what it hands over is the whole
+///         of its design.</b> A frame is one <see cref="MeshInstance" /> per entity — a transform, a
+///         normal matrix, a colour and four style lanes — grouped into runs that share a shape. The
+///         geometry itself is registered once with <see cref="MeshInstanceRenderer" /> and never
+///         crosses the bus again; this places it, colours it and groups it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The vertices go through the CPU every frame, and that is the deliberate limit of
-///         this path.</b> A shape's geometry never changes, so the honest arrangement is a vertex
-///         buffer per shape and an instance transform per entity — which is <c>RenderSystem</c>, and
-///         wiring the editor's viewport to it is a piece of work rather than a detail. Until then the
-///         cost is linear in vertices and the ceiling is the tens of thousands
-///         <see cref="MeshRenderer" /> is sized for, which is a block-out rather than a level.
+///         ⚠ <b>This used to transform every vertex of every entity into world space every frame, and
+///         that was the thing <c>docs/blockout-tools.md</c> § B1 called a blocker rather than a
+///         performance concern.</b> The cost was linear in vertices with a cache keyed by
+///         <see cref="PrimitiveKind" /> — so a hundred cubes were cheap and a hundred <em>edited</em>
+///         meshes were a hundred rebuilds a frame, and "a drag that redraws at four frames a second is
+///         not a slow tool, it is a tool nobody can aim". What crosses the bus now is a hundred and
+///         sixty bytes an entity whether the entity is a cube or a corridor.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Built shapes are cached by kind, not by entity.</b> A hundred cubes are one
-///         <see cref="MeshData" />; rebuilding a sphere's four hundred vertices per entity per frame
-///         would be the whole cost of this pass and none of its output.
+///         ⚠ <b>Three things that were geometry are now style lanes on an instance</b>, and each was a
+///         copy of the shape's vertices before: the selection outline, the wireframe view's edges, and
+///         the normal view's per-vertex colour. Selecting everything in a scene used to double the
+///         frame's vertex count; it now costs one more instance per selected entity, which is the case
+///         the outline is actually used in.
+///     </para>
+///     <para>
+///         ⚠ <b>Built shapes are still cached by kind and not by entity</b>, for the reason the cache
+///         always had: rebuilding a sphere's four hundred vertices per entity would be the whole cost
+///         of this pass and none of its output. What changed is that the cache is now consulted once
+///         per shape rather than once per entity, and only to answer what the geometry <em>is</em> —
+///         see <see cref="Shape" />, which is what registers it with a device.
 ///     </para>
 /// </remarks>
 public sealed class SceneMeshes {
-    readonly List<MeshVertex> vertices = [];
-    readonly List<uint> indices = [];
-    readonly List<LineVertex> edges = [];
+    readonly List<MeshInstance> instances = [];
+    readonly List<ShapeBatch> batches = [];
     readonly Dictionary<PrimitiveKind, MeshData> shapes = [];
-    readonly Dictionary<PrimitiveKind, uint[]> wires = [];
 
-    /// <summary>The frame's vertices, in world space.</summary>
+    // One bucket per shape per topology, reused across frames rather than rebuilt: a batch's
+    // instances have to be contiguous, and a scene is walked in tree order rather than in shape
+    // order. Cleared per build, so a kind that stops appearing costs an empty list.
+    readonly Dictionary<PrimitiveKind, List<MeshInstance>> solids = [];
+    readonly Dictionary<PrimitiveKind, List<MeshInstance>> wires = [];
+
+    /// <summary>The frame's entities, one instance each, grouped by <see cref="Batches" />.</summary>
     /// <remarks>
     ///     A span rather than an <see cref="IReadOnlyList{T}" />, which is what
-    ///     <see cref="SceneLines" /> hands back: this is read by <c>MeshRenderer.Upload</c>, which
-    ///     wants one, and copying a scene's worth of vertices through a list once a frame to satisfy
-    ///     an interface nothing else needs would be the most expensive line in the pass.
+    ///     <see cref="SceneLines" /> hands back: this is read by <c>MeshInstanceRenderer.Upload</c>,
+    ///     which wants one.
     /// </remarks>
-    public ReadOnlySpan<MeshVertex> Vertices => CollectionsMarshal.AsSpan(vertices);
+    public ReadOnlySpan<MeshInstance> Instances => CollectionsMarshal.AsSpan(instances);
 
-    /// <summary>Three indices per triangle, into <see cref="Vertices" />.</summary>
-    public ReadOnlySpan<uint> Indices => CollectionsMarshal.AsSpan(indices);
-
-    /// <summary>The frame's wireframe, when the view mode asks for one.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Segments rather than a fill mode, which is what makes a wireframe view cost no new
-    ///     pipeline.</b> <c>MeshRenderer</c> draws with one rasterizer state and a second one for a
-    ///     debug view is a change to a shipping renderer — and the editor already has a line path
-    ///     that these go straight into. The picture is the same one <c>FillMode.Wireframe</c> would
-    ///     draw, minus the interior diagonals of a quad's two triangles, which is arguably the better
-    ///     picture.
-    /// </remarks>
-    public IReadOnlyList<LineVertex> Edges => edges;
+    /// <summary>Which run of them is which shape.</summary>
+    public IReadOnlyList<ShapeBatch> Batches => batches;
 
     /// <summary>How many entities the last build drew.</summary>
+    /// <remarks>
+    ///     Entities, not instances: a selected entity is drawn twice — itself and its outline — and a
+    ///     shaded wireframe draws every entity twice as well. What this answers is the question the
+    ///     stats overlay asks, which is how much of the scene is on screen.
+    /// </remarks>
     public int Count { get; private set; }
 
-    /// <summary>How many triangles the last build produced.</summary>
-    public int Triangles => indices.Count / 3;
+    /// <summary>How many triangles the last build asked for.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asked for, not drawn.</b> The renderer reports what it drew, which is the truncated
+    ///     count when a frame overflowed the instance ring — see <c>MeshInstanceRenderer.Triangles</c>.
+    ///     This is the collector's own number and is what a test about what a view mode collects
+    ///     asserts on.
+    /// </remarks>
+    public int Triangles { get; private set; }
+
+    /// <summary>How many times the shape cache has been thrown away.</summary>
+    /// <remarks>
+    ///     What lets whoever registered this collector's geometry with a device notice that a shape it
+    ///     uploaded is no longer the shape this would build — see <see cref="Invalidate" />. A number
+    ///     rather than an event, because the consumer is a frame loop that is already asking.
+    /// </remarks>
+    public int Revision { get; private set; }
 
     /// <summary>The colour of a shape that is not selected.</summary>
     /// <remarks>
@@ -85,9 +119,12 @@ public sealed class SceneMeshes {
 
     /// <summary>How many divisions a curved shape is built with.</summary>
     /// <remarks>
-    ///     Lower than <see cref="MeshPrimitives.DefaultSegments" />, because these are drawn through a
-    ///     buffer that is rewritten every frame and a smoother sphere is paid for once per frame
-    ///     rather than once. Twenty-four is past the point where a sphere reads as a sphere.
+    ///     ⚠ <b>Higher would now be affordable and is deliberately unchanged.</b> This used to be
+    ///     lower than <see cref="MeshPrimitives.DefaultSegments" /> because a smoother sphere was paid
+    ///     for once per frame through a buffer that was rewritten every frame; the geometry is uploaded
+    ///     once now, so the same number buys a fixed cost instead of a recurring one. It stays where it
+    ///     is because what it decides is also what <c>ScenePicker</c> and <c>SceneProbe</c> test
+    ///     against, and those still walk triangles — changing it is a change to what a click hits.
     /// </remarks>
     public int Segments { get; set; } = 24;
 
@@ -123,44 +160,58 @@ public sealed class SceneMeshes {
     /// </remarks>
     public float OutlineBias { get; set; } = 2f;
 
-    /// <summary>Which way the light comes from, for the vertices that are drawn unshaded.</summary>
+    /// <summary>What a wireframe view's edges are drawn in.</summary>
     /// <remarks>
-    ///     ⚠ <b>Kept in step with <c>MeshRenderer.LightDirection</c> by whoever owns both.</b> The
-    ///     outline is one flat colour and the renderer has one ambient term for the whole draw, so the
-    ///     only way to draw an unshaded rim beside shaded surfaces is to give the rim vertices a
-    ///     normal that faces the light — which needs to be the light the renderer will actually use.
-    ///     A copy that drifted would leave the outline shaded on one side, which reads as the outline
-    ///     being translucent.
+    ///     Brighter than <see cref="ShapeColour" /> and not the selection's, because in a wireframe
+    ///     view every edge is on the silhouette of something and a wire the colour of the surface it
+    ///     replaced would be a picture of nothing.
     /// </remarks>
-    public Vector3 LightDirection { get; set; } = Vector3.Normalize(new Vector3(-0.4f, -1f, -0.35f));
+    public Color4 WireColour { get; set; } = new(0.78f, 0.82f, 0.88f, 0.9f);
 
-    /// <summary>Collects a frame's triangles, shaded, with everything shown.</summary>
+    /// <summary>Collects a frame's instances, shaded, with everything shown.</summary>
     /// <param name="document">The scene being drawn.</param>
     /// <returns>How many entities were drawn.</returns>
     /// <remarks>
     ///     What a host with no view modes and no show flags asks for. The pane's own answer is
-    ///     <see cref="Build(SceneDocument, SceneViewport, int)" />.
+    ///     <see cref="Build(SceneDocument, SceneViewport)" />.
     /// </remarks>
-    public int Build(SceneDocument document) => Build(document, null, 0);
+    public int Build(SceneDocument document) => Build(document, null);
 
-    /// <summary>Collects a frame's triangles as one pane wants them.</summary>
+    /// <summary>Collects a frame's instances as one pane wants them.</summary>
     /// <param name="document">The scene being drawn.</param>
     /// <param name="viewport">The pane, for its show flags and its view mode, or null for neither.</param>
-    /// <param name="height">How tall the pane is, in render pixels, for the outline's width.</param>
     /// <returns>How many entities were drawn.</returns>
     /// <remarks>
-    ///     ⚠ <b>The outline is a second copy of the selected geometry and is only collected when the
-    ///     surfaces are.</b> In a wireframe view there is nothing for a rim to be the rim <i>of</i> —
-    ///     an expanded hull with no object drawn over it is a solid orange blob where the selection
-    ///     used to be, which is the one place this technique fails outright rather than degrading.
+    ///     <para>
+    ///         ⚠ <b>The outline is a second instance of the selected entity and is only collected
+    ///         when the surfaces are.</b> In a wireframe view there is nothing for a rim to be the rim
+    ///         <i>of</i> — an expanded hull with no object drawn over it is a solid blob where the
+    ///         selection used to be, which is the one place this technique fails outright rather than
+    ///         degrading.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>No pane height, where this used to take one.</b> The hull's expansion is measured
+    ///         in pixels and so needs to know how many world units a pixel is — which was computed here
+    ///         when every vertex went through this method, and is now computed per vertex by the shader
+    ///         from <c>MeshInstanceView</c>. The pane's height reaches it through that instead.
+    ///     </para>
     /// </remarks>
-    public int Build(SceneDocument document, SceneViewport? viewport, int height) {
+    public int Build(SceneDocument document, SceneViewport? viewport) {
         ArgumentNullException.ThrowIfNull(document);
 
-        vertices.Clear();
-        indices.Clear();
-        edges.Clear();
+        instances.Clear();
+        batches.Clear();
+
+        foreach (var bucket in solids.Values) {
+            bucket.Clear();
+        }
+
+        foreach (var bucket in wires.Values) {
+            bucket.Clear();
+        }
+
         Count = 0;
+        Triangles = 0;
 
         var show = viewport?.Show ?? SceneShow.Default;
         var mode = viewport?.Modes.Current ?? ViewMode.Shaded;
@@ -174,10 +225,13 @@ public sealed class SceneMeshes {
         var normals = ViewShading.ColoursByNormal(mode);
         var plain = ViewShading.IgnoresSelectionColour(mode);
 
-        var outline = surfaces
-            && (show & SceneShow.Outline) != 0
-            && viewport is not null
-            && height > 0;
+        var outline = surfaces && (show & SceneShow.Outline) != 0;
+
+        // The style lanes the shader reads, assembled once rather than per entity: everything that
+        // varies per entity is the transform and the colour.
+        var surfaceStyle = new Vector4(0f, 0f, 0f, normals ? 1f : 0f);
+        var outlineStyle = new Vector4(OutlineWidth, OutlineBias, 1f, 0f);
+        var wireStyle = new Vector4(0f, 0f, 1f, 0f);
 
         var world = document.World;
 
@@ -193,24 +247,36 @@ public sealed class SceneMeshes {
                 continue;
             }
 
-            var mesh = Shape(kind);
             var transform = world.Read<WorldTransform>(entity).Value;
             var selected = document.Selection.Contains(entity);
 
-            if (outline && selected) {
-                Hull(mesh, transform, viewport!.Camera, height);
-            }
+            // ⚠ One matrix inverse per entity, shared by its surface, its outline and its wires. The
+            // three instances an entity can produce differ only in colour and style, so this is built
+            // once and copied — building each would be three inverses of one transform.
+            var placement = MeshInstance.Of(transform, ShapeColour);
 
             if (surfaces) {
-                Append(mesh, transform, selected && !plain, normals);
+                var colour = selected && !plain ? SelectedColour : ShapeColour;
+                Add(solids, kind, placement with { Colour = colour, Style = surfaceStyle });
+            }
+
+            if (outline && selected) {
+                Add(solids, kind, placement with { Colour = OutlineColour, Style = outlineStyle });
             }
 
             if (wire) {
-                Wire(kind, mesh, transform);
+                Add(wires, kind, placement with { Colour = WireColour, Style = wireStyle });
             }
 
             Count++;
         }
+
+        // ⚠ The batch order does not matter and the grouping does. One batch per shape and topology is
+        // what makes a shaded wireframe of a hundred cubes two draws; which of the two goes first is
+        // settled by the depth buffer, because both pipelines test depth and an outline is biased away
+        // from the eye rather than relying on being drawn second.
+        Emit(solids, edges: false);
+        Emit(wires, edges: true);
 
         return Count;
     }
@@ -219,13 +285,25 @@ public sealed class SceneMeshes {
     /// <remarks>
     ///     For a caller that changed <see cref="Segments" /> and wants it to take effect, which is the
     ///     only thing that invalidates the cache — the shapes themselves never change.
+    ///     <see cref="Revision" /> moves with it, because a shape already uploaded to a device is now
+    ///     the wrong shape and nothing else would say so.
     /// </remarks>
     public void Invalidate() {
         shapes.Clear();
-        wires.Clear();
+        Revision++;
     }
 
-    MeshData Shape(PrimitiveKind kind) {
+    /// <summary>The geometry of one shape, built once and cached.</summary>
+    /// <param name="kind">Which primitive.</param>
+    /// <returns>Its vertices, normals and triangles, in the shape's own space.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Public because the device side needs the geometry this collector's batches name.</b>
+    ///     A <see cref="ShapeBatch" /> says "these entities are cubes", and the thing holding the
+    ///     buffers has to be able to ask what a cube is without knowing how one is built or agreeing
+    ///     separately about <see cref="Segments" /> — which is the disagreement that draws the picking
+    ///     ray against one sphere and the pixels against another.
+    /// </remarks>
+    public MeshData Shape(PrimitiveKind kind) {
         if (!shapes.TryGetValue(kind, out var mesh)) {
             mesh = MeshPrimitives.Create(kind, Segments, Math.Max(MeshPrimitives.MinimumSegments, Segments / 2));
             shapes[kind] = mesh;
@@ -234,174 +312,27 @@ public sealed class SceneMeshes {
         return mesh;
     }
 
-    /// <summary>Places one shape's geometry into the frame's buffers.</summary>
-    /// <param name="mesh">The shape.</param>
-    /// <param name="transform">Where the entity is.</param>
-    /// <param name="selected">Whether it is selected.</param>
-    /// <remarks>
-    ///     ⚠ <b>Normals go through the inverse transpose and not through the matrix.</b> A cube scaled
-    ///     <c>2 1 1</c> transformed by its own matrix comes out with normals that are no longer
-    ///     perpendicular to the faces they belong to — the shading then slides across the object as it
-    ///     is scaled, which reads as the light moving. A matrix that cannot be inverted is a zero
-    ///     scale, where the entity has no visible surface anyway and any normal will do.
-    /// </remarks>
-    void Append(MeshData mesh, in Matrix4x4 transform, bool selected, bool byNormal = false) {
-        var colour = selected ? SelectedColour : ShapeColour;
-        var first = (uint) vertices.Count;
-
-        var normals = Matrix4x4.Invert(transform, out var inverse) ? Matrix4x4.Transpose(inverse) : transform;
-        var hasNormals = mesh.Normals.Length == mesh.Positions.Length;
-
-        for (var index = 0; index < mesh.Positions.Length; index++) {
-            var normal = hasNormals
-                ? Vector3.Normalize(Matrix4x4.TransformDirection(mesh.Normals[index], normals))
-                : Vector3.UnitY;
-
-            vertices.Add(
-                new MeshVertex(
-                    Matrix4x4.TransformPosition(mesh.Positions[index], transform),
-                    normal,
-
-                    // ⚠ Remapped from −1..1 rather than clamped. Half of every normal is negative and
-                    // a colour is not, so clamping would paint three of the six faces of a cube black
-                    // — the picture would be legible and would say the wrong thing about which way
-                    // half the scene faces.
-                    byNormal
-                        ? new Color4((normal.X * 0.5f) + 0.5f, (normal.Y * 0.5f) + 0.5f, (normal.Z * 0.5f) + 0.5f, 1f)
-                        : colour
-                )
-            );
+    static void Add(Dictionary<PrimitiveKind, List<MeshInstance>> buckets, PrimitiveKind kind, MeshInstance instance) {
+        if (!buckets.TryGetValue(kind, out var bucket)) {
+            bucket = [];
+            buckets[kind] = bucket;
         }
 
-        foreach (var index in mesh.Indices) {
-            indices.Add(first + (uint) index);
-        }
+        bucket.Add(instance);
     }
 
-    /// <summary>Appends one shape's edges as segments.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Every edge of every triangle, deduplicated by the index pair rather than by
-    ///     position.</b> A cube is twenty-four vertices — three per corner, so that its faces have
-    ///     hard normals — and two faces meeting at an edge name it with two different pairs of
-    ///     indices. So an edge of a cube is drawn twice, exactly on top of itself, which costs a
-    ///     segment and shows nothing. Deduplicating by position instead would mean hashing floats,
-    ///     which is a worse trade for a debug view.
-    /// </remarks>
-    void Wire(PrimitiveKind kind, MeshData mesh, in Matrix4x4 transform) {
-        var pairs = Wires(kind, mesh);
+    void Emit(Dictionary<PrimitiveKind, List<MeshInstance>> buckets, bool edges) {
+        foreach (var (kind, bucket) in buckets) {
+            if (bucket.Count == 0) {
+                continue;
+            }
 
-        for (var index = 0; index + 1 < pairs.Length; index += 2) {
-            edges.Add(
-                new LineVertex(Matrix4x4.TransformPosition(mesh.Positions[pairs[index]], transform), WireColour)
-            );
+            batches.Add(new(kind, instances.Count, bucket.Count, edges));
+            instances.AddRange(bucket);
 
-            edges.Add(
-                new LineVertex(Matrix4x4.TransformPosition(mesh.Positions[pairs[index + 1]], transform), WireColour)
-            );
-        }
-    }
-
-    /// <summary>What a wireframe view's edges are drawn in.</summary>
-    /// <remarks>
-    ///     Brighter than <see cref="ShapeColour" /> and not the selection's, because in a wireframe
-    ///     view every edge is on the silhouette of something and a wire the colour of the surface it
-    ///     replaced would be a picture of nothing.
-    /// </remarks>
-    public Color4 WireColour { get; set; } = new(0.78f, 0.82f, 0.88f, 0.9f);
-
-    /// <summary>A shape's unique edges as index pairs, built once per kind.</summary>
-    uint[] Wires(PrimitiveKind kind, MeshData mesh) {
-        if (wires.TryGetValue(kind, out var cached)) {
-            return cached;
-        }
-
-        HashSet<(int From, int To)> seen = [];
-        List<uint> pairs = [];
-
-        for (var index = 0; index + 2 < mesh.Indices.Length; index += 3) {
-            Edge(mesh.Indices[index], mesh.Indices[index + 1]);
-            Edge(mesh.Indices[index + 1], mesh.Indices[index + 2]);
-            Edge(mesh.Indices[index + 2], mesh.Indices[index]);
-        }
-
-        cached = pairs.ToArray();
-        wires[kind] = cached;
-
-        return cached;
-
-        void Edge(int from, int to) {
-            var key = from < to ? (from, to) : (to, from);
-
-            if (seen.Add(key)) {
-                pairs.Add((uint) key.Item1);
-                pairs.Add((uint) key.Item2);
+            if (!edges) {
+                Triangles += Shape(kind).TriangleCount * bucket.Count;
             }
         }
     }
-
-    /// <summary>Appends the expanded copy of a shape that shows round it as an outline.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         <b>An inverted hull, built where the vertices already are.</b> The textbook outline is
-    ///         a stencil pass and a post effect over it, which needs a second render pass, a stencil
-    ///         format the target does not have and a shader neither of which exists in this path.
-    ///         What this path <i>does</i> have is every vertex on the processor with the camera in
-    ///         hand, which makes the hull exact rather than approximate: the expansion is along the
-    ///         part of the normal that lies <i>across</i> the view, scaled by how many world units a
-    ///         pixel is at that vertex — so the rim is the width it was asked for, in pixels, at every
-    ///         distance and in both projections.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>A vertex whose normal points at the eye is not expanded at all.</b> It is not on
-    ///         the silhouette, so expanding it would push the front face of the object outwards
-    ///         through its own surface — an orange bloom over the middle of whatever is selected. The
-    ///         cross-view component being near zero is exactly the test for "this is facing me".
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The hull's normals face the light rather than the surface.</b> The renderer has
-    ///         one ambient term for the whole draw, so the only way to have a flat rim beside shaded
-    ///         surfaces is to make the rim's lambert term one everywhere — see
-    ///         <see cref="LightDirection" /> for why that number has to be the renderer's.
-    ///     </para>
-    /// </remarks>
-    void Hull(MeshData mesh, in Matrix4x4 transform, EditorCamera camera, int height) {
-        var first = (uint) vertices.Count;
-        var normals = Matrix4x4.Invert(transform, out var inverse) ? Matrix4x4.Transpose(inverse) : transform;
-        var hasNormals = mesh.Normals.Length == mesh.Positions.Length;
-
-        // The direction a lambert term of one is achieved by, which is the direction the light comes
-        // from. `MeshRenderer` shades with `dot(normal, -light)`.
-        var facing = LightDirection.LengthSquared() > MathUtil.ZeroTolerance
-            ? -Vector3.Normalize(LightDirection)
-            : Vector3.UnitY;
-
-        for (var index = 0; index < mesh.Positions.Length; index++) {
-            var point = Matrix4x4.TransformPosition(mesh.Positions[index], transform);
-
-            var normal = hasNormals
-                ? Vector3.Normalize(Matrix4x4.TransformDirection(mesh.Normals[index], normals))
-                : Vector3.UnitY;
-
-            var toEye = camera.IsOrthographic
-                ? -camera.Forward
-                : Direction(camera.Position - point, -camera.Forward);
-
-            var across = normal - (toEye * Vector3.Dot(normal, toEye));
-            var scale = camera.WorldPerPixel(point, height);
-
-            if (across.LengthSquared() > MathUtil.ZeroTolerance) {
-                point += Vector3.Normalize(across) * (scale * OutlineWidth);
-            }
-
-            vertices.Add(new MeshVertex(point - (toEye * (scale * OutlineBias)), facing, OutlineColour));
-        }
-
-        foreach (var index in mesh.Indices) {
-            indices.Add(first + (uint) index);
-        }
-    }
-
-    /// <summary>A unit vector, or a fallback when there is nothing to normalise.</summary>
-    static Vector3 Direction(Vector3 value, Vector3 fallback) =>
-        value.LengthSquared() > MathUtil.ZeroTolerance ? Vector3.Normalize(value) : fallback;
 }

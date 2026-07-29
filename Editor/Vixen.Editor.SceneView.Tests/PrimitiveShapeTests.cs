@@ -167,7 +167,8 @@ public class PrimitiveShapeTests : IDisposable {
         var meshes = new SceneMeshes();
 
         Assert.Equal(1, meshes.Build(scene));
-        Assert.Equal(MeshPrimitives.Cube().VertexCount, meshes.Vertices.Length);
+        Assert.Equal(1, meshes.Instances.Length);
+        Assert.Equal(PrimitiveKind.Cube, Assert.Single(meshes.Batches).Kind);
     }
 
     [Fact]
@@ -175,33 +176,61 @@ public class PrimitiveShapeTests : IDisposable {
         var meshes = new SceneMeshes();
 
         Assert.Equal(0, meshes.Build(scene));
-        Assert.True(meshes.Vertices.IsEmpty);
-        Assert.True(meshes.Indices.IsEmpty);
+        Assert.True(meshes.Instances.IsEmpty);
+        Assert.Empty(meshes.Batches);
     }
 
+    /// <summary>
+    ///     ⚠ <b>The assertion <c>docs/blockout-tools.md</c> § B1 is about.</b> A frame's cost used to be
+    ///     every vertex of every entity, transformed on the processor, with a cache keyed by kind — so
+    ///     a hundred cubes were one mesh and a hundred *edited* meshes were a hundred rebuilds a frame.
+    ///     What a frame collects now is one instance per entity and one batch per shape, whatever the
+    ///     shape's vertex count is, which is what makes a drag aimable at scene scale.
+    /// </summary>
     [Fact]
-    public void Two_shapes_go_into_one_buffer_with_their_indices_offset() {
-        scene.CreateShape(PrimitiveKind.Cube, LocalTransform.Identity);
-        scene.CreateShape(PrimitiveKind.Cube, LocalTransform.At(new Vector3(3f, 0f, 0f)));
+    public void A_hundred_shapes_of_one_kind_are_one_batch_of_a_hundred_instances() {
+        for (var index = 0; index < 100; index++) {
+            scene.CreateShape(PrimitiveKind.Cube, LocalTransform.At(new Vector3(index * 2f, 0f, 0f)));
+        }
+
+        var meshes = new SceneMeshes();
+
+        Assert.Equal(100, meshes.Build(scene));
+
+        var batch = Assert.Single(meshes.Batches);
+
+        Assert.Equal(0, batch.First);
+        Assert.Equal(100, batch.Count);
+        Assert.Equal(100, meshes.Instances.Length);
+    }
+
+    /// <summary>Two kinds are two batches, and each one's run is contiguous.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A draw names a first instance and a count</b>, so an instance in the wrong run is an
+    ///     entity drawn as the wrong shape rather than an entity drawn in the wrong place. Interleaving
+    ///     the two kinds in the scene is what makes the grouping do work.
+    /// </remarks>
+    [Fact]
+    public void Two_kinds_are_two_batches_and_each_run_is_contiguous() {
+        scene.CreateShape(PrimitiveKind.Cube, LocalTransform.At(new Vector3(0f, 0f, 0f)));
+        scene.CreateShape(PrimitiveKind.Sphere, LocalTransform.At(new Vector3(3f, 0f, 0f)));
+        scene.CreateShape(PrimitiveKind.Cube, LocalTransform.At(new Vector3(6f, 0f, 0f)));
 
         var meshes = new SceneMeshes();
         meshes.Build(scene);
 
-        var cube = MeshPrimitives.Cube();
+        Assert.Equal(2, meshes.Batches.Count);
+        Assert.Equal(3, meshes.Instances.Length);
 
-        Assert.Equal(cube.VertexCount * 2, meshes.Vertices.Length);
-        Assert.Equal(cube.Indices.Length * 2, meshes.Indices.Length);
+        var cubes = Assert.Single(meshes.Batches, batch => batch.Kind == PrimitiveKind.Cube);
+        var spheres = Assert.Single(meshes.Batches, batch => batch.Kind == PrimitiveKind.Sphere);
 
-        // ⚠ The second shape's indices have to be pushed past the first shape's vertices. Without
-        // the offset both cubes draw on top of each other at the first one's position, which looks
-        // like the second one simply not having been created.
-        var highest = 0u;
+        Assert.Equal(2, cubes.Count);
+        Assert.Equal(1, spheres.Count);
 
-        foreach (var index in meshes.Indices) {
-            highest = Math.Max(highest, index);
-        }
-
-        Assert.Equal((uint) (cube.VertexCount * 2) - 1, highest);
+        // The two runs cover the instances between them without overlapping.
+        Assert.Equal(3, cubes.Count + spheres.Count);
+        Assert.NotEqual(cubes.First, spheres.First);
     }
 
     [Fact]
@@ -211,9 +240,12 @@ public class PrimitiveShapeTests : IDisposable {
         var meshes = new SceneMeshes();
         meshes.Build(scene);
 
-        foreach (var vertex in meshes.Vertices) {
-            Assert.InRange(vertex.Position.X, 9.4f, 10.6f);
-        }
+        // The fourth row of a row-vector matrix is its translation, which is where the shader reads it
+        // from — see `MeshInstanced.rvn` on why the rows cross the boundary rather than a mat4.
+        var instance = meshes.Instances[0];
+
+        Assert.Equal(new Vector3(10f, 0f, 0f), instance.Transform.Translation);
+        Assert.Equal(new Vector3(10f, 0f, 0f), Matrix4x4.TransformPosition(Vector3.Zero, instance.Transform));
     }
 
     [Fact]
@@ -230,16 +262,22 @@ public class PrimitiveShapeTests : IDisposable {
         var meshes = new SceneMeshes();
         meshes.Build(scene);
 
-        // A cube's normals are axis-aligned and stay so under an axis-aligned scale — but only if
-        // they go through the inverse transpose. Through the matrix itself the ±X faces come out
-        // four times as long and, once normalised, still axis-aligned; the test that catches it is
-        // that every normal is *unit* and axis-aligned, which the matrix path breaks for the
-        // diagonal of any rotated shape. Keeping the cube axis-aligned makes the assertion exact.
-        foreach (var vertex in meshes.Vertices) {
-            Assert.Equal(1f, vertex.Normal.Length(), 3);
+        // A cube's normals are axis-aligned and stay so under an axis-aligned scale — but only if they
+        // go through the inverse transpose. Through the matrix itself the ±X faces come out four times
+        // as long and, once normalised, still axis-aligned; the test that catches it is that every
+        // normal is *unit* and axis-aligned, which the matrix path breaks for the diagonal of any
+        // rotated shape. Keeping the cube axis-aligned makes the assertion exact.
+        //
+        // ⚠ The transform happens in the vertex stage now, so what is asserted is the matrix the stage
+        // is given: one inverse per entity rather than one per vertex, and the reason it is stored
+        // rather than derived is that a shader language has no inverse to ask with.
+        var normals = meshes.Instances[0].Normals;
 
-            var axes = MathF.Abs(vertex.Normal.X) + MathF.Abs(vertex.Normal.Y) + MathF.Abs(vertex.Normal.Z);
-            Assert.Equal(1f, axes, 3);
+        foreach (var source in MeshPrimitives.Cube().Normals) {
+            var normal = Vector3.Normalize(Matrix4x4.TransformDirection(source, normals));
+
+            Assert.Equal(1f, normal.Length(), 3);
+            Assert.Equal(1f, MathF.Abs(normal.X) + MathF.Abs(normal.Y) + MathF.Abs(normal.Z), 3);
         }
     }
 
@@ -249,7 +287,7 @@ public class PrimitiveShapeTests : IDisposable {
         var meshes = new SceneMeshes();
 
         meshes.Build(scene);
-        var plain = meshes.Vertices[0].Colour;
+        var plain = meshes.Instances[0].Colour;
 
         scene.Selection.Set(cube);
         meshes.Build(scene);
@@ -257,7 +295,7 @@ public class PrimitiveShapeTests : IDisposable {
         // ⚠ Shown by colour rather than only by the gizmo sitting on it, for the reason SceneLines
         // gives: with several things selected the gizmo is at one place and the rest have nothing
         // saying they are about to move.
-        Assert.NotEqual(plain, meshes.Vertices[0].Colour);
-        Assert.Equal(meshes.SelectedColour, meshes.Vertices[0].Colour);
+        Assert.NotEqual(plain, meshes.Instances[0].Colour);
+        Assert.Equal(meshes.SelectedColour, meshes.Instances[0].Colour);
     }
 }

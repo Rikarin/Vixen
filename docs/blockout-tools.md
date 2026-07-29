@@ -176,8 +176,9 @@ against the plan docs.
 | `MeshData` — parallel typed arrays, empty means absent | ✅ | [MeshData.cs](../Core/Vixen.Rendering/MeshData.cs) |
 | `MeshPrimitives` — eight shapes, every one fitting the unit cube, CCW, no device | ✅ | [MeshPrimitives.cs](../Core/Vixen.Rendering/MeshPrimitives.cs) |
 | `PrimitiveShape` + `PrimitiveShapes` — a primitive kind per entity, as a runtime component a scene names | ✅ | [MeshComponents.cs](../Core/Vixen.Rendering/Ecs/MeshComponents.cs) |
-| `SceneMeshes` — every shaped entity as one world-space triangle buffer | 🟡 | [SceneMeshes.cs](../Editor/Vixen.Editor.SceneView/SceneMeshes.cs) |
-| `MeshRenderer` — solid geometry, overlay pipeline, sized for tens of thousands of vertices | ✅ | [MeshRenderer.cs](../Core/Vixen.Rendering/MeshRenderer.cs) |
+| `SceneMeshes` — every shaped entity as one instance, grouped per shape | ✅ | [SceneMeshes.cs](../Editor/Vixen.Editor.SceneView/SceneMeshes.cs) |
+| `MeshInstanceRenderer` — device-resident shapes, a per-entity transform, one draw per shape | ✅ | [MeshInstanceRenderer.cs](../Core/Vixen.Rendering/MeshInstanceRenderer.cs) |
+| `MeshRenderer` — world-space triangles for the gizmo's solid handles, which are rebuilt per frame | ✅ | [MeshRenderer.cs](../Core/Vixen.Rendering/MeshRenderer.cs) |
 | `TransformGizmo` — four modes, four spaces, two pivots, **recomputed from mouse-down** | ✅ | [TransformGizmo.cs](../Editor/Vixen.Editor.SceneView/TransformGizmo.cs) |
 | `SnapSettings` — grid / angle / scale, absolute-vs-relative distinguished | ✅ | [GizmoTypes.cs](../Editor/Vixen.Editor.SceneView/GizmoTypes.cs) |
 | `SnapSettings.SnapToVertex` / `SnapToSurface` | 🟡 | declared, **not honoured** |
@@ -213,29 +214,54 @@ expressible at all.
 
 ## What blocks it
 
-Five things, of which two are genuinely blocking and three are ordering constraints.
+Five things, of which one was genuinely blocking and is now fixed, one is still genuinely blocking, and
+three are ordering constraints.
 
-### B1. Every mesh in the viewport goes through the CPU every frame 🔴
+### B1. Every mesh in the viewport went through the CPU every frame ✅
 
-`SceneMeshes.Build` walks the scene, transforms each shape's vertices into world space, and appends
-them to one list — once per frame, unconditionally. Its own remarks call this "the deliberate limit
+**Fixed.** The argument is kept because it is the reason this was scheduled ahead of the rest of Phase
+7 rather than with it, and because the shape of the answer is the shape the phases below now assume.
+
+`SceneMeshes.Build` walked the scene, transformed each shape's vertices into world space, and appended
+them to one list — once per frame, unconditionally. Its own remarks called this "the deliberate limit
 of this path" and put the ceiling at the tens of thousands of vertices `MeshRenderer` is sized for,
 "which is a block-out rather than a level".
 
-That was a fair trade when a scene was a hundred primitives. It stops being one here for a reason
-the remark does not anticipate: **the cache is keyed by `PrimitiveKind`.** A hundred cubes are one
-`MeshData` today. A hundred *edited* meshes are a hundred, each rebuilt and re-transformed every
-frame, and the pass becomes linear in the scene's total vertex count with no sharing left in it.
+That was a fair trade when a scene was a hundred primitives. It stopped being one here for a reason
+the remark did not anticipate: **the cache was keyed by `PrimitiveKind`.** A hundred cubes were one
+`MeshData`. A hundred *edited* meshes would have been a hundred, each rebuilt and re-transformed every
+frame, with the pass linear in the scene's total vertex count and no sharing left in it.
 
-The fix is not this document's, and naming it as a blocker rather than as a task is the point: the
-viewport needs meshes drawn from device-resident buffers with a per-entity transform — which is
-`RenderSystem` and `GeometryBuffer`, both of which exist — instead of a per-frame CPU gather.
-[20's risk table](plan/20-editor-parity.md#risks) already says the material-system wiring should be
-scheduled *before* E2. It has to be scheduled before this too, and for a harder reason: E2 would
-merely look better with it, and blockout is unusable without it past about twenty meshes.
-
-⚠ **This is the one item here that can be mistaken for a performance concern and is not.** A drag
+⚠ **This is the one item here that could be mistaken for a performance concern and was not.** A drag
 that redraws at four frames a second is not a slow tool, it is a tool nobody can aim.
+
+**What was built** is the device-resident half of what [20's risk table](plan/20-editor-parity.md#risks)
+calls the viewport wiring, and none of the material half:
+
+| Piece | Where |
+|---|---|
+| `MeshInstanceRenderer` — each shape's geometry in a `GeometryBuffer`, written once; a per-entity instance ring; one draw per shape, and one more for its wireframe | [MeshInstanceRenderer.cs](../Core/Vixen.Rendering/MeshInstanceRenderer.cs) |
+| `MeshInstanced.rvn` — the transform, the normal matrix and the outline's expansion in the vertex stage | [MeshInstanced.rvn](../Editor/Vixen.Editor.App/Shaders/MeshInstanced.rvn) |
+| `SceneMeshes` — one `MeshInstance` per entity, grouped into a `ShapeBatch` per shape | [SceneMeshes.cs](../Editor/Vixen.Editor.SceneView/SceneMeshes.cs) |
+| `ScenePresenter.Resolve` — where a `PrimitiveKind` becomes a range in a vertex buffer, on the frame the first entity wanting it appears | [ScenePresenter.cs](../Editor/Vixen.Editor.App/ScenePresenter.cs) |
+
+A frame costs a hundred and sixty bytes an entity now — a transform, a normal matrix, a colour and four
+style lanes — whether the entity is a cube or a corridor. Three things that were *copies of the
+geometry* are style lanes on an instance: the selection outline, the wireframe view's edges and the
+normal view's per-vertex colour. Selecting a whole floor used to double the frame's vertex count and
+now costs one more instance per object.
+
+⚠ **Two consequences to know before [P1](#p1--the-mesh-15-em).** The outline's width is in pixels, so
+its expansion moved into the vertex stage — there is no vertex on the processor to expand any more —
+and what can now be wrong without a test is the picture that expansion makes rather than the numbers it
+is made of, which are asserted against `EditorCamera.WorldPerPixel` in both projections. And a
+block-out mesh is one shape per *entity* rather than one per kind, which is a batch of one and an
+allocation per mesh: the geometry buffer is per renderer today, so a four-pane layout holding four
+copies of a level's geometry is the thing to fix when the shapes stop being eight primitives.
+
+**What is still Phase 7's** is the material system. The viewport has one key direction, one ambient term
+and a colour per instance, so [P5](#p5--surfaces-10-em) is gated exactly as it was, and so is the
+picking stage.
 
 ### B2. There is no `IEditorMode`, and blockout is the second mode 🟡
 
@@ -625,11 +651,13 @@ scene that opens in the shipped editor.
 Per-face materials, auto-UV in planar / box / **world-space** (default), UV transform per face,
 smoothing groups, vertex colours, and the blockout checker material.
 
-⚠ **This phase is gated on something outside it.** The viewport draws untextured shading today;
-per-face materials and a checker need the material system wired to the editor's viewport, which is
-[14](plan/14-roadmap.md) Phase 7 and is the same dependency [B1](#b1-every-mesh-in-the-viewport-goes-through-the-cpu-every-frame-)
-names. P5 is therefore the phase most likely to move, and it is placed after P4 rather than before
-it for exactly that reason.
+⚠ **This phase is gated on something outside it, and the gate did not move when
+[B1](#b1-every-mesh-in-the-viewport-went-through-the-cpu-every-frame-) closed.** The viewport draws
+untextured shading: one key direction, one ambient term, a colour per instance. Per-face materials and a
+checker need the material system wired to the editor's viewport, which is
+[14](plan/14-roadmap.md) Phase 7 — B1 took the device-resident geometry out of that dependency and left
+the materials in it. P5 is therefore still the phase most likely to move, and it is placed after P4
+rather than before it for exactly that reason.
 
 **Exit:** a block-out reads as a space rather than as a grey mass; a scaled box's checker squares are
 the same size as an unscaled one's.
@@ -678,10 +706,12 @@ not change shape.
 | P7 — Handoff | 1.0 | mesh *drawing* — the extraction system over `GeometryBuffer` |
 | | **11.0** | |
 
-**And one cost that is not in the table.** [B1](#b1-every-mesh-in-the-viewport-goes-through-the-cpu-every-frame-)
-— drawing meshes from device-resident buffers instead of a per-frame CPU gather — is not this
-document's work and this document cannot ship past about P3 without it. It belongs to
-[14](plan/14-roadmap.md) Phase 7 and it should be scheduled before P2.
+**And one cost that was not in the table and has been paid.**
+[B1](#b1-every-mesh-in-the-viewport-went-through-the-cpu-every-frame-) — drawing meshes from
+device-resident buffers instead of a per-frame CPU gather — was the precondition this document could not
+ship past about P3 without. It is built, ahead of the rest of [14](plan/14-roadmap.md) Phase 7 rather
+than as part of it, so no phase below is blocked on it and P1 inherits a viewport that draws a mesh per
+entity for the price of a transform.
 
 ---
 
@@ -713,7 +743,7 @@ caused it.
 
 | Risk | Mitigation |
 |---|---|
-| **The viewport cannot draw this many meshes** ([B1](#b1-every-mesh-in-the-viewport-goes-through-the-cpu-every-frame-)) | Not this document's work, on this document's critical path, and it stops being optional at P2 rather than at P5. Schedule Phase 7's viewport wiring before P2 and treat that as a precondition rather than a parallel task |
+| ~~**The viewport cannot draw this many meshes**~~ ([B1](#b1-every-mesh-in-the-viewport-went-through-the-cpu-every-frame-)) | Closed. It was treated as a precondition rather than a parallel task, and the device-resident half of Phase 7's viewport wiring was built first: shapes live in a `GeometryBuffer` and a frame is one instance per entity. What remains of that dependency is the material system, which is P5's gate and not P2's |
 | **Boolean absorbs the schedule** | It is last, it is the only phase with a research-shaped risk, and every phase before it exits with something shippable. `ExactPredicates` removes the part that usually causes the overrun |
 | **This is 11 EM and reads as a second editor** | The cut line is real and stated per phase. P0 alone improves the existing transform tools; P0–P3 is the reference toolsets' core; P4 is where it becomes a level-design tool |
 | **Scope creep into modelling** | [The table at the top](#the-row-this-overturns) is the test, and the test is "between two playtests", not "is it hard". A proposal that fails it is a DCC feature |
@@ -732,6 +762,6 @@ caused it.
 | [20 § E2](plan/20-editor-parity.md#e2--the-viewport-20-em) | Vertex snap, surface snap and the marquee are shared with [P0](#p0--the-seam-10-em) and [P2](#p2--selection-10-em) and should be built once |
 | [02](plan/02-repository-layout.md) | Two assemblies: `Core/Vixen.Geometry` and `Editor/Vixen.Editor.Blockout`, each with its tests |
 | [11 § `Vixen.Editor.SceneView`](plan/11-editor.md) | The "not in" list's vertex snapping and rubber-band selection are closed by [P0](#p0--the-seam-10-em) and [P2](#p2--selection-10-em) |
-| [14](plan/14-roadmap.md) | Phase 7's viewport-material wiring gains a second dependant, and moves ahead of it |
+| [14](plan/14-roadmap.md) | Phase 7's viewport wiring gained a second dependant and split in two: the device-resident geometry is built ([B1](#b1-every-mesh-in-the-viewport-went-through-the-cpu-every-frame-)), and the material half is what [P5](#p5--surfaces-10-em) and the picking stage still wait on |
 
 Licensed under Apache-2.0.
