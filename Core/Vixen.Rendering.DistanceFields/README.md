@@ -115,6 +115,22 @@ Because every mesh point is inside the box, the true distance is at least `√(f
 and *continuous* at the boundary, where `t = 0` makes it exactly *f*. A plain distance-to-box would
 drop to zero there and make every tracer crawl around every object.
 
+**A level that moves keeps what the movement did not invalidate.** A camera crossing one cell moves a
+level by exactly one cell, so every cell of the overlap is the same world position looking at the same
+instances and already holds its answer — a one-cell step on a 32³ level keeps about 97 per cent of it.
+That is what snapping the levels was for.
+
+A scrolled level is **bit-identical** to a recomputed one, and getting there took one change worth
+knowing about: a cell's world position is computed from its coordinate on the *global* grid rather
+than from its own box's corner. `minimum + i·cell` and `minimum′ + i′·cell` are the same point written
+two ways, float addition is not associative, and the ULP between them is enough to make "identical"
+into "close" — which is not a property worth having, because the whole claim is that the optimisation
+did not change the picture.
+
+It is opt-in, because the clipmap cannot tell whether the instances changed and comparing them every
+update would cost more than the scroll saves. The compositor node knows — it is the thing watching the
+instance version — so it is the thing that says.
+
 It is still loose in the open gap between two objects — about a sixth low, with a test that says so
 in numbers. Under-reporting is the survivable direction: a tracer that thinks a surface is nearer
 takes an extra step; one that thinks it is further goes through it.
@@ -176,10 +192,6 @@ that omitting the settings agrees with passing `new()`.
 
 Stored as `float`, not quantised into a narrow band. Correctness first: a quantisation is measured
 against this, not instead of it.
-
-`Update` recomposites every cell of every level every time. A camera that moved one cell invalidates
-one slab per axis and nothing else — which is the entire reason the levels are snapped to their own
-grids — so scrolling is the next thing here, and it changes no result, only how long an update takes.
 
 Instances are rejected against their bounds in a linear scan, early-outing against the best distance
 so far. A tree over the instances is what replaces that when the scan stops being enough.

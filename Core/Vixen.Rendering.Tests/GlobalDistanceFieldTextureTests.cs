@@ -196,6 +196,46 @@ public class GlobalDistanceFieldTextureTests {
         );
     }
 
+    /// <summary>
+    ///     Half storage halves the staging buffer, and the precision it costs is measured rather than
+    ///     asserted to be acceptable.
+    /// </summary>
+    /// <remarks>
+    ///     A level clamps to its own extent, so the largest value a four-metre level holds is four —
+    ///     and half carries that to under a thousandth, which is a fiftieth of a cell at this
+    ///     resolution. The error the cell already has is far larger. What keeps this off by default is
+    ///     filtering support, not precision.
+    /// </remarks>
+    [Fact]
+    public void HalfStorageCostsHalfTheBytesAndAThousandthOfAMetre() {
+        var field = Composited(levels: 1, resolution: 8);
+
+        using var device = new NullDevice(new() { Record = true });
+        using var mirror = new GlobalDistanceFieldTexture(field) { Format = PixelFormat.R16Float };
+
+        var list = device.BeginCommandList();
+        mirror.Upload(device, list);
+        Submit(device, list);
+
+        Assert.Equal(1, device.Recorder!.CountOf(RecordedCommandKind.CopyBufferToTexture));
+
+        var worst = 0f;
+
+        foreach (var sample in field.LevelData(0)) {
+            worst = MathF.Max(worst, MathF.Abs((float)(Half)sample - sample));
+        }
+
+        Assert.True(worst < 0.005f, $"half cost {worst} at a clamp of {field.MaxDistanceOf(0)}");
+        Assert.True(worst < field.CellSizeOf(0) * 0.05f, $"half cost {worst} of a {field.CellSizeOf(0)} cell");
+    }
+
+    [Fact]
+    public void FullPrecisionIsTheDefault() {
+        using var mirror = new GlobalDistanceFieldTexture(Composited(levels: 1));
+
+        Assert.Equal(PixelFormat.R32Float, mirror.Format);
+    }
+
     [Fact]
     public void ADisposedMirrorReleasesWhatItMade() {
         using var device = new NullDevice(new() { Record = true });

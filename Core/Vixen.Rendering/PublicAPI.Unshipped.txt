@@ -306,6 +306,7 @@ Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.InstancesVersion.get -> i
 Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.InstancesVersion.set -> int
 Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.Parallel.get -> bool
 Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.Parallel.set -> bool
+Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.Reused.get -> long
 Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.SceneConstants.get -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.SceneConstants.set -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.ShaderName.get -> string
@@ -1150,6 +1151,8 @@ Vixen.Rendering.Lighting.GlobalDistanceFieldTexture : System.IDisposable
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.Apply(Vixen.Shaders.ParameterCollection parameters, string shaderName) -> void
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.Dispose() -> void
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.Field.get -> Vixen.Rendering.DistanceFields.GlobalDistanceField
+Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.Format.init -> Vixen.Graphics.PixelFormat
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.GlobalDistanceFieldTexture(Vixen.Rendering.DistanceFields.GlobalDistanceField field) -> void
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.IsCreated.get -> bool
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.Level(int level) -> Vixen.Graphics.TextureHandle

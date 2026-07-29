@@ -41,6 +41,12 @@ namespace Vixen.Rendering.DistanceFields;
 public sealed class GlobalDistanceField : IDistanceField {
     readonly MeshDistanceField[] levels;
 
+    /// <summary>The other half of each level's double buffer, so a scroll can read while it writes.</summary>
+    readonly MeshDistanceField[] spare;
+
+    /// <summary>Whether each level holds anything a scroll could reuse.</summary>
+    readonly bool[] filled;
+
     /// <summary>How many samples along each axis, in every level.</summary>
     public int Resolution { get; }
 
@@ -52,6 +58,15 @@ public sealed class GlobalDistanceField : IDistanceField {
 
     /// <summary>Whether <see cref="Update" /> has run.</summary>
     public bool HasContent { get; private set; }
+
+    /// <summary>How many cells the last update kept rather than recomputed.</summary>
+    /// <remarks>
+    ///     What makes the scroll checkable rather than claimed. A camera crossing one cell of the
+    ///     finest level keeps almost all of it — and a change that quietly stopped reusing anything
+    ///     would still produce a correct field, only a slow one, which is the kind of regression
+    ///     nothing else here would notice.
+    /// </remarks>
+    public long Reused { get; private set; }
 
     /// <summary>Half the width of the finest level.</summary>
     public float FinestExtent { get; }
@@ -69,15 +84,16 @@ public sealed class GlobalDistanceField : IDistanceField {
         Resolution = resolution;
         FinestExtent = finestExtent;
         levels = new MeshDistanceField[levelCount];
+        spare = new MeshDistanceField[levelCount];
+        filled = new bool[levelCount];
 
         for (var level = 0; level < levelCount; level++) {
             var extent = ExtentOf(level);
+            var box = new BoundingBox(new(-extent), new(extent));
+            var count = (long)resolution * resolution * resolution;
 
-            levels[level] = new(
-                new(new(-extent), new(extent)),
-                new(resolution),
-                new float[(long)resolution * resolution * resolution]
-            );
+            levels[level] = new(box, new(resolution), new float[count]);
+            spare[level] = new(box, new(resolution), new float[count]);
         }
     }
 
@@ -127,13 +143,23 @@ public sealed class GlobalDistanceField : IDistanceField {
     /// <param name="viewPosition">Where the camera is.</param>
     /// <param name="instances">Everything that might be in the volume.</param>
     /// <param name="parallel">Whether the composite may use more than one thread.</param>
+    /// <param name="scroll">
+    ///     Whether the levels may keep what a movement did not invalidate. Only safe when nothing
+    ///     about the instances changed — see the remarks.
+    /// </param>
     /// <remarks>
     ///     <para>
-    ///         Every cell of every level, every time. A real implementation scrolls instead — a
-    ///         camera that moved one cell invalidates one slab per axis and nothing else, which is
-    ///         the whole reason a clipmap is snapped to its own grid in the first place. That is the
-    ///         next thing to build here and it changes no result, only how long this takes; the
-    ///         snapping it depends on is already done.
+    ///         <b>Scrolling is the whole reason the levels are snapped to their own grids.</b> A
+    ///         camera that crossed one cell moves a level by exactly one cell, so every cell of the
+    ///         overlap is the same world position looking at the same instances and already holds its
+    ///         answer. Only the slabs the level moved off the end of have to be computed. On a 32³
+    ///         level a one-cell step keeps about 97 per cent of it.
+    ///     </para>
+    ///     <para>
+    ///         <b>It is opt-in because this cannot tell whether the instances changed.</b> Comparing
+    ///         them every update would cost more than the scroll saves, so the caller says — and the
+    ///         caller knows, because it is the thing that changed them. Passing it when something
+    ///         moved keeps stale cells, which is geometry left behind where it used to be.
     ///     </para>
     ///     <para>
     ///         Instances are rejected against their own world bounds before being sampled, and the
@@ -145,9 +171,11 @@ public sealed class GlobalDistanceField : IDistanceField {
     public void Update(
         Vector3 viewPosition,
         ReadOnlySpan<DistanceFieldInstance> instances,
-        bool parallel = true
+        bool parallel = true,
+        bool scroll = false
     ) {
         ViewPosition = viewPosition;
+        Reused = 0;
 
         // Bounds are eight transforms and a merge each, and every cell of every level would
         // otherwise pay for them again.
@@ -160,7 +188,7 @@ public sealed class GlobalDistanceField : IDistanceField {
         }
 
         for (var level = 0; level < levels.Length; level++) {
-            Composite(level, Snap(viewPosition, CellSizeOf(level)), placed, bounds, parallel);
+            Composite(level, Snap(viewPosition, CellSizeOf(level)), placed, bounds, parallel, scroll);
         }
 
         HasContent = true;
@@ -242,28 +270,68 @@ public sealed class GlobalDistanceField : IDistanceField {
     /// <param name="instances">Everything that might be in it.</param>
     /// <param name="bounds">Each instance's world bounds, in the same order.</param>
     /// <param name="parallel">Whether the composite may use more than one thread.</param>
+    /// <param name="scroll">Whether cells the movement did not invalidate may be kept.</param>
     void Composite(
         int level,
         Vector3 centre,
         DistanceFieldInstance[] instances,
         BoundingBox[] bounds,
-        bool parallel
+        bool parallel,
+        bool scroll
     ) {
         var extent = ExtentOf(level);
         var maximum = MaxDistanceOf(level);
         var box = new BoundingBox(centre - new Vector3(extent), centre + new Vector3(extent));
+        var previous = levels[level];
 
-        // The level's box moved, so the field describing it is a new one over the same storage.
-        var slot = new MeshDistanceField(box, new(Resolution), levels[level].Distances);
-        levels[level] = slot;
+        // Written into the other buffer, not over the one being read. A scroll copies from the old
+        // level into the new one, and doing that in place would overwrite a cell another cell is
+        // about to want — which is a field that is right along one axis and smeared along the rest.
+        var slot = new MeshDistanceField(box, new(Resolution), spare[level].Distances);
 
         var cell = slot.CellSize;
         var distances = slot.Distances;
 
+        // A cell's world position is computed from its position on the GLOBAL grid, not from this
+        // box's corner, and that is what makes a scrolled level bit-identical to a recomputed one.
+        // `minimum + index * cell` and `minimum' + index' * cell` are the same point written two
+        // ways, and float addition is not associative — so the two differ by an ULP, the distances
+        // computed from them differ, and "identical" becomes "close", which is not a property worth
+        // having. The snapped centre is a whole number of cells from the origin, so this expression
+        // depends only on which cell of the world it is.
+        var half = (Resolution - 1) * 0.5f;
+        var origin = new Vector3(
+            MathF.Round(centre.X / cell.X) - half,
+            MathF.Round(centre.Y / cell.Y) - half,
+            MathF.Round(centre.Z / cell.Z) - half
+        );
+        var shift = Int3.Zero;
+        var reuse = false;
+
+        if (scroll && filled[level]) {
+            reuse = TryShift(previous.Bounds.Minimum, box.Minimum, cell, out shift);
+        }
+
         void Slice(int z) {
             for (var y = 0; y < Resolution; y++) {
                 for (var x = 0; x < Resolution; x++) {
-                    var point = box.Minimum + (cell * new Vector3(x, y, z));
+                    // A cell of the new level is a world position, and the same world position in the
+                    // old level is that cell plus the shift — which is why the levels are snapped to
+                    // their own grids: without that the shift is not a whole number of cells and
+                    // nothing lines up to be kept.
+                    if (reuse) {
+                        var sx = x + shift.X;
+                        var sy = y + shift.Y;
+                        var sz = z + shift.Z;
+
+                        if (sx >= 0 && sx < Resolution && sy >= 0 && sy < Resolution && sz >= 0 && sz < Resolution) {
+                            distances[slot.Index(x, y, z)] = previous[sx, sy, sz];
+
+                            continue;
+                        }
+                    }
+
+                    var point = cell * (origin + new Vector3(x, y, z));
 
                     distances[slot.Index(x, y, z)] =
                         Math.Clamp(Nearest(point, instances, bounds, maximum), -maximum, maximum);
@@ -278,6 +346,51 @@ public sealed class GlobalDistanceField : IDistanceField {
                 Slice(z);
             }
         }
+
+        if (reuse) {
+            Reused += Kept(shift);
+        }
+
+        // The new level becomes the level, and the one just read becomes the spare.
+        levels[level] = slot;
+        spare[level] = previous;
+        filled[level] = true;
+    }
+
+    /// <summary>How far one level moved, in whole cells, or false when it did not move by whole ones.</summary>
+    /// <param name="from">Where the level was.</param>
+    /// <param name="to">Where it is now.</param>
+    /// <param name="cell">Its cell size.</param>
+    /// <param name="shift">The movement, in cells.</param>
+    /// <returns>Whether anything can be kept.</returns>
+    /// <remarks>
+    ///     It always is a whole number of cells, because <see cref="Snap" /> is what places the box —
+    ///     but this checks rather than trusting it. A level whose extent or resolution changed under a
+    ///     running clipmap would produce a fractional shift, and keeping cells across that is a field
+    ///     offset from itself by a fraction of a cell everywhere, which is far harder to recognise
+    ///     than a slow recomposite.
+    /// </remarks>
+    static bool TryShift(Vector3 from, Vector3 to, Vector3 cell, out Int3 shift) {
+        var exact = (to - from) / cell;
+
+        shift = new(
+            (int)MathF.Round(exact.X),
+            (int)MathF.Round(exact.Y),
+            (int)MathF.Round(exact.Z)
+        );
+
+        var error = exact - new Vector3(shift.X, shift.Y, shift.Z);
+
+        return MathF.Abs(error.X) < 0.001f && MathF.Abs(error.Y) < 0.001f && MathF.Abs(error.Z) < 0.001f;
+    }
+
+    /// <summary>How many cells of a level survive a shift.</summary>
+    /// <param name="shift">The movement, in cells.</param>
+    /// <returns>The count.</returns>
+    long Kept(Int3 shift) {
+        long Overlap(int offset) => Math.Max(0, Resolution - Math.Abs(offset));
+
+        return Overlap(shift.X) * Overlap(shift.Y) * Overlap(shift.Z);
     }
 
     /// <summary>The nearest surface to a point, over every instance that could hold one.</summary>

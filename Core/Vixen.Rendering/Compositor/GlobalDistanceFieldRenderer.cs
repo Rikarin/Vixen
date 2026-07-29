@@ -84,6 +84,13 @@ public sealed class GlobalDistanceFieldRenderer : SceneRenderer, IDisposable {
     /// <summary>Where to centre the clipmap, or null to follow the view.</summary>
     public Vector3? ViewPosition { get; set; }
 
+    /// <summary>How many cells the last recomposite kept rather than recomputed.</summary>
+    /// <remarks>
+    ///     Zero on the first frame and after anything moves; nearly the whole clipmap for a camera
+    ///     that crossed one cell. What says the scroll is happening rather than merely available.
+    /// </remarks>
+    public long Reused => Field?.Reused ?? 0;
+
     /// <summary>How many times the clipmap has actually been recomposited.</summary>
     /// <remarks>
     ///     What makes "it does not recomposite a still frame" checkable rather than claimed. A frame
@@ -105,8 +112,11 @@ public sealed class GlobalDistanceFieldRenderer : SceneRenderer, IDisposable {
 
         var centre = ViewPosition ?? context.View?.Position ?? Vector3.Zero;
 
-        if (ShouldComposite(field, centre)) {
-            field.Update(centre, CollectionsMarshal.AsSpan(instances), Parallel);
+        if (ShouldComposite(field, centre, out var moveOnly)) {
+            // Scrolling only where the camera moved and nothing else did. This node is the one thing
+            // that knows the difference — it is what watches the instance version — and the clipmap
+            // cannot work it out for itself without comparing every instance every frame.
+            field.Update(centre, CollectionsMarshal.AsSpan(instances), Parallel, moveOnly);
 
             // The snapped centre of the finest level, which is what decides whether the next frame
             // has anything to redo. Recorded after the composite, not before, so a composite that
@@ -138,12 +148,15 @@ public sealed class GlobalDistanceFieldRenderer : SceneRenderer, IDisposable {
     /// <summary>Whether anything about the clipmap would come out different this frame.</summary>
     /// <param name="field">The clipmap.</param>
     /// <param name="centre">Where it would be centred.</param>
+    /// <param name="moveOnly">Whether the camera is the only thing that changed, so a scroll is safe.</param>
     /// <returns>Whether to redo it.</returns>
     /// <remarks>
     ///     The finest level's snap is the test, because it is the one with the smallest cell: a
     ///     movement too small to move level zero is too small to move any of them.
     /// </remarks>
-    bool ShouldComposite(GlobalDistanceField field, Vector3 centre) {
+    bool ShouldComposite(GlobalDistanceField field, Vector3 centre, out bool moveOnly) {
+        moveOnly = false;
+
         if (!composited || !field.HasContent) {
             return true;
         }
@@ -153,6 +166,8 @@ public sealed class GlobalDistanceFieldRenderer : SceneRenderer, IDisposable {
 
             return true;
         }
+
+        moveOnly = true;
 
         return GlobalDistanceField.Snap(centre, field.CellSizeOf(0)) != lastCentre;
     }

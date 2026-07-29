@@ -52,6 +52,7 @@ public sealed class GlobalDistanceFieldTexture : IDisposable {
     readonly TextureViewHandle[] views;
 
     BufferHandle staging;
+    Half[] halves = [];
     SamplerHandle sampler;
     IGraphicsDevice? device;
     bool disposed;
@@ -73,6 +74,25 @@ public sealed class GlobalDistanceFieldTexture : IDisposable {
 
     /// <summary>How the volumes are sampled.</summary>
     public SamplerHandle Sampler => sampler;
+
+    /// <summary>What each sample is stored as. Fixed once the textures exist.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Half is enough and full is the default anyway.</b> A level clamps to its own extent,
+    ///         so the largest value a level of extent <i>e</i> holds is <i>e</i> — and half has about
+    ///         three decimal digits, which at eight metres is a millimetre and at a hundred and
+    ///         twenty-eight is a centimetre and a half. Both are far finer than the cell those samples
+    ///         sit on, which is where the real error already is.
+    ///     </para>
+    ///     <para>
+    ///         It is not the default because filtering it is not universal. Linear filtering of a
+    ///         half-float texture is an extension on WebGL2 and not guaranteed on every GLES 3.0
+    ///         driver, and an unfilterable field is a field sampled at its nearest cell — blocky in a
+    ///         way that reads as broken rather than as low quality. Switching this on is a decision
+    ///         about which devices a project runs on, so it is a decision the project makes.
+    ///     </para>
+    /// </remarks>
+    public PixelFormat Format { get; init; } = PixelFormat.R32Float;
 
     /// <summary>Mirrors one clipmap.</summary>
     /// <param name="field">The clipmap.</param>
@@ -121,14 +141,11 @@ public sealed class GlobalDistanceFieldTexture : IDisposable {
         Create(graphics);
 
         var resolution = Field.Resolution;
-        var perLevel = (long)resolution * resolution * resolution * sizeof(float);
+        var count = (long)resolution * resolution * resolution;
+        var perLevel = count * BytesPerSample;
 
         for (var level = 0; level < textures.Length; level++) {
-            graphics.Write(
-                staging,
-                level * perLevel,
-                MemoryMarshal.AsBytes(Field.LevelData(level))
-            );
+            graphics.Write(staging, level * perLevel, Staged(Field.LevelData(level)));
 
             commands.CopyBufferToTexture(
                 staging,
@@ -246,6 +263,33 @@ public sealed class GlobalDistanceFieldTexture : IDisposable {
         IsCreated = false;
     }
 
+    /// <summary>How wide one stored sample is.</summary>
+    int BytesPerSample => Format == PixelFormat.R16Float ? sizeof(ushort) : sizeof(float);
+
+    /// <summary>One level's samples in whatever <see cref="Format" /> says, ready to copy.</summary>
+    /// <param name="samples">The level's samples.</param>
+    /// <returns>The bytes.</returns>
+    /// <remarks>
+    ///     The full-precision path hands the array's own bytes over untouched, which is the case worth
+    ///     keeping free: a readback then compares against the CPU field with no conversion in between
+    ///     to argue about.
+    /// </remarks>
+    ReadOnlySpan<byte> Staged(ReadOnlySpan<float> samples) {
+        if (Format != PixelFormat.R16Float) {
+            return MemoryMarshal.AsBytes(samples);
+        }
+
+        if (halves.Length < samples.Length) {
+            halves = new Half[samples.Length];
+        }
+
+        for (var index = 0; index < samples.Length; index++) {
+            halves[index] = (Half)samples[index];
+        }
+
+        return MemoryMarshal.AsBytes(halves.AsSpan(0, samples.Length));
+    }
+
     /// <summary>Allocates the textures, the staging buffer and the sampler, once.</summary>
     /// <param name="graphics">The device.</param>
     void Create(IGraphicsDevice graphics) {
@@ -260,7 +304,7 @@ public sealed class GlobalDistanceFieldTexture : IDisposable {
         for (var level = 0; level < textures.Length; level++) {
             textures[level] = graphics.CreateTexture(
                 new TextureDescription(
-                    PixelFormat.R32Float,
+                    Format,
                     resolution,
                     resolution,
                     TextureUsage.Sampled | TextureUsage.CopyDestination,
@@ -275,7 +319,7 @@ public sealed class GlobalDistanceFieldTexture : IDisposable {
 
         staging = graphics.CreateBuffer(
             new BufferDescription(
-                (long)resolution * resolution * resolution * sizeof(float) * textures.Length,
+                (long)resolution * resolution * resolution * BytesPerSample * textures.Length,
                 BufferUsage.CopySource,
                 MemoryAccess.HostUpload,
                 "GlobalDistanceField.Staging"

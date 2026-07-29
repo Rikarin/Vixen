@@ -83,6 +83,32 @@ public class GlobalDistanceFieldRendererTests {
     }
 
     /// <summary>
+    ///     A camera that crossed a cell recomposites, but keeps what the movement did not invalidate.
+    ///     A camera that stopped and had something move around it keeps nothing, because a kept cell
+    ///     would be geometry left behind where it used to be.
+    /// </summary>
+    [Fact]
+    public void MovingScrollsAndChangingTheSceneDoesNot() {
+        using var device = new NullDevice(new() { Record = true });
+        using var node = Node(device, out _);
+        var context = Context(device);
+
+        Record(node, context);
+
+        Assert.Equal(0, node.Reused);
+
+        node.ViewPosition = new Vector3(node.Field!.CellSizeOf(0), 0, 0);
+        Record(node, context);
+
+        Assert.True(node.Reused > 0, "a one-cell step kept nothing");
+
+        node.InstancesVersion++;
+        Record(node, context);
+
+        Assert.Equal(0, node.Reused);
+    }
+
+    /// <summary>
     ///     Comparing the instances themselves every frame would cost more than the comparison saves,
     ///     so the list carries a version and whoever changes it says so.
     /// </summary>

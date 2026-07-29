@@ -71,10 +71,11 @@ Vixen.Rendering.DistanceFields.GlobalDistanceField.LevelCount.get -> int
 Vixen.Rendering.DistanceFields.GlobalDistanceField.LevelData(int level) -> System.ReadOnlySpan<float>
 Vixen.Rendering.DistanceFields.GlobalDistanceField.MaxDistanceOf(int level) -> float
 Vixen.Rendering.DistanceFields.GlobalDistanceField.Resolution.get -> int
+Vixen.Rendering.DistanceFields.GlobalDistanceField.Reused.get -> long
 Vixen.Rendering.DistanceFields.GlobalDistanceField.Sample(Vixen.Core.Mathematics.Vector3 position) -> float
 Vixen.Rendering.DistanceFields.GlobalDistanceField.SampleGradient(Vixen.Core.Mathematics.Vector3 position) -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.DistanceFields.GlobalDistanceField.TryLevelFor(Vixen.Core.Mathematics.Vector3 world, out int level) -> bool
-Vixen.Rendering.DistanceFields.GlobalDistanceField.Update(Vixen.Core.Mathematics.Vector3 viewPosition, System.ReadOnlySpan<Vixen.Rendering.DistanceFields.DistanceFieldInstance> instances, bool parallel = true) -> void
+Vixen.Rendering.DistanceFields.GlobalDistanceField.Update(Vixen.Core.Mathematics.Vector3 viewPosition, System.ReadOnlySpan<Vixen.Rendering.DistanceFields.DistanceFieldInstance> instances, bool parallel = true, bool scroll = false) -> void
 Vixen.Rendering.DistanceFields.GlobalDistanceField.ViewPosition.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.DistanceFields.GlobalDistanceField.this[int level, int x, int y, int z].get -> float
 Vixen.Rendering.DistanceFields.IDistanceField -> interface
