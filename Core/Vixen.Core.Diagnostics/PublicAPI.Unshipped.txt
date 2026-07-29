@@ -1,4 +1,39 @@
 #nullable enable
+Vixen.Core.Diagnostics.ConsoleSink -> sealed class
+Vixen.Core.Diagnostics.ConsoleSink : Vixen.Core.Diagnostics.LogRecordSink
+Vixen.Core.Diagnostics.ConsoleSink.CategoryWidth.get -> int
+Vixen.Core.Diagnostics.ConsoleSink.CategoryWidth.set -> int
+Vixen.Core.Diagnostics.ConsoleSink.ConsoleSink(Microsoft.Extensions.Logging.LogLevel? minimumLevel = 2, Vixen.Core.Diagnostics.LogFilter? filter = null) -> void
+Vixen.Core.Diagnostics.ConsoleSink.ShowTimestamps.get -> bool
+Vixen.Core.Diagnostics.ConsoleSink.ShowTimestamps.set -> bool
+Vixen.Core.Diagnostics.ConsoleSink.StandardErrorThreshold.get -> Microsoft.Extensions.Logging.LogLevel
+Vixen.Core.Diagnostics.ConsoleSink.StandardErrorThreshold.set -> Microsoft.Extensions.Logging.LogLevel
+Vixen.Core.Diagnostics.ConsoleSink.UseColour.get -> bool
+Vixen.Core.Diagnostics.ConsoleSink.UseColour.set -> bool
+Vixen.Core.Diagnostics.EventSourceSink -> sealed class
+Vixen.Core.Diagnostics.EventSourceSink : Vixen.Core.Diagnostics.LogRecordSink
+Vixen.Core.Diagnostics.EventSourceSink.EventSourceSink(Microsoft.Extensions.Logging.LogLevel? minimumLevel = 0, Vixen.Core.Diagnostics.LogFilter? filter = null) -> void
+Vixen.Core.Diagnostics.IRemoteLogTransport -> interface
+Vixen.Core.Diagnostics.IRemoteLogTransport.IsConnected.get -> bool
+Vixen.Core.Diagnostics.IRemoteLogTransport.Send(System.ReadOnlySpan<byte> payload) -> void
+Vixen.Core.Diagnostics.LogFilter -> sealed class
+Vixen.Core.Diagnostics.LogFilter.CategoryRuleCount.get -> int
+Vixen.Core.Diagnostics.LogFilter.ClearCategoryLevels() -> void
+Vixen.Core.Diagnostics.LogFilter.IsEnabled(string category, Microsoft.Extensions.Logging.LogLevel level) -> bool
+Vixen.Core.Diagnostics.LogFilter.LogFilter() -> void
+Vixen.Core.Diagnostics.LogFilter.MinimumLevel.get -> Microsoft.Extensions.Logging.LogLevel
+Vixen.Core.Diagnostics.LogFilter.MinimumLevel.set -> Microsoft.Extensions.Logging.LogLevel
+Vixen.Core.Diagnostics.LogFilter.SetCategoryLevel(string categoryPrefix, Microsoft.Extensions.Logging.LogLevel level) -> void
+Vixen.Core.Diagnostics.LogRateLimiter -> sealed class
+Vixen.Core.Diagnostics.LogRateLimiter.Burst.get -> int
+Vixen.Core.Diagnostics.LogRateLimiter.LogRateLimiter(System.TimeSpan window, int burst = 4, int maxTrackedEvents = 1024, System.TimeProvider? timeProvider = null) -> void
+Vixen.Core.Diagnostics.LogRateLimiter.MaxTrackedEvents.get -> int
+Vixen.Core.Diagnostics.LogRateLimiter.Reset() -> void
+Vixen.Core.Diagnostics.LogRateLimiter.SuppressedCount.get -> long
+Vixen.Core.Diagnostics.LogRateLimiter.TrackedEventCount.get -> int
+Vixen.Core.Diagnostics.LogRateLimiter.TryAdmit(string category, Microsoft.Extensions.Logging.EventId eventId, Microsoft.Extensions.Logging.LogLevel level, out int suppressedCount) -> bool
+Vixen.Core.Diagnostics.LogRateLimiter.UntrackedCount.get -> long
+Vixen.Core.Diagnostics.LogRateLimiter.Window.get -> System.TimeSpan
 Vixen.Core.Diagnostics.LogRecord -> sealed record
 Vixen.Core.Diagnostics.LogRecord : System.IEquatable<Vixen.Core.Diagnostics.LogRecord>
 Vixen.Core.Diagnostics.LogRecord.Category.get -> string
@@ -9,13 +44,35 @@ Vixen.Core.Diagnostics.LogRecord.Exception.get -> System.Exception?
 Vixen.Core.Diagnostics.LogRecord.Exception.init -> System.Exception?
 Vixen.Core.Diagnostics.LogRecord.Level.get -> Microsoft.Extensions.Logging.LogLevel
 Vixen.Core.Diagnostics.LogRecord.Level.init -> Microsoft.Extensions.Logging.LogLevel
-Vixen.Core.Diagnostics.LogRecord.LogRecord(System.DateTimeOffset Timestamp, Microsoft.Extensions.Logging.LogLevel Level, Microsoft.Extensions.Logging.EventId EventId, string Category, string Message, System.Exception? Exception, int ThreadId) -> void
+Vixen.Core.Diagnostics.LogRecord.LogRecord(System.DateTimeOffset Timestamp, Microsoft.Extensions.Logging.LogLevel Level, Microsoft.Extensions.Logging.EventId EventId, string Category, string Message, System.Exception? Exception, int ThreadId, int SuppressedCount = 0) -> void
 Vixen.Core.Diagnostics.LogRecord.Message.get -> string
 Vixen.Core.Diagnostics.LogRecord.Message.init -> string
+Vixen.Core.Diagnostics.LogRecord.SuppressedCount.get -> int
+Vixen.Core.Diagnostics.LogRecord.SuppressedCount.init -> int
 Vixen.Core.Diagnostics.LogRecord.ThreadId.get -> int
 Vixen.Core.Diagnostics.LogRecord.ThreadId.init -> int
 Vixen.Core.Diagnostics.LogRecord.Timestamp.get -> System.DateTimeOffset
 Vixen.Core.Diagnostics.LogRecord.Timestamp.init -> System.DateTimeOffset
+Vixen.Core.Diagnostics.LogRecordSink -> abstract class
+Vixen.Core.Diagnostics.LogRecordSink : Vixen.Core.Diagnostics.LogSink
+Vixen.Core.Diagnostics.LogRecordSink.LogRecordSink(Vixen.Core.Diagnostics.LogFilter? filter = null) -> void
+Vixen.Core.Diagnostics.LogSink -> abstract class
+Vixen.Core.Diagnostics.LogSink : System.IDisposable
+Vixen.Core.Diagnostics.LogSink.ClearCategoryLevels() -> void
+Vixen.Core.Diagnostics.LogSink.Dispose() -> void
+Vixen.Core.Diagnostics.LogSink.Filter.get -> Vixen.Core.Diagnostics.LogFilter
+Vixen.Core.Diagnostics.LogSink.IsEnabled(string category, Microsoft.Extensions.Logging.LogLevel level) -> bool
+Vixen.Core.Diagnostics.LogSink.LogSink(Vixen.Core.Diagnostics.LogFilter? filter = null) -> void
+Vixen.Core.Diagnostics.LogSink.MinimumLevel.get -> Microsoft.Extensions.Logging.LogLevel
+Vixen.Core.Diagnostics.LogSink.MinimumLevel.set -> Microsoft.Extensions.Logging.LogLevel
+Vixen.Core.Diagnostics.LogSink.RateLimiter.get -> Vixen.Core.Diagnostics.LogRateLimiter?
+Vixen.Core.Diagnostics.LogSink.RateLimiter.set -> Vixen.Core.Diagnostics.LogRateLimiter?
+Vixen.Core.Diagnostics.LogSink.SetCategoryLevel(string categoryPrefix, Microsoft.Extensions.Logging.LogLevel level) -> void
+Vixen.Core.Diagnostics.LogSink.ShouldWrite(string category, Microsoft.Extensions.Logging.LogLevel level, Microsoft.Extensions.Logging.EventId eventId, out int suppressedCount) -> bool
+Vixen.Core.Diagnostics.PlatformSink -> sealed class
+Vixen.Core.Diagnostics.PlatformSink : Vixen.Core.Diagnostics.LogRecordSink
+Vixen.Core.Diagnostics.PlatformSink.PlatformSink(string tag = "Vixen", Microsoft.Extensions.Logging.LogLevel minimumLevel = 2, Vixen.Core.Diagnostics.LogFilter? filter = null) -> void
+Vixen.Core.Diagnostics.PlatformSink.Tag.get -> string
 Vixen.Core.Diagnostics.Profiler -> static class
 Vixen.Core.Diagnostics.Profiler.Scope -> readonly ref struct
 Vixen.Core.Diagnostics.Profiler.Scope.Dispose() -> void
@@ -55,27 +112,51 @@ Vixen.Core.Diagnostics.ProfilingKey.IsValid.get -> bool
 Vixen.Core.Diagnostics.ProfilingKey.Name.get -> string
 Vixen.Core.Diagnostics.ProfilingKey.ProfilingKey() -> void
 Vixen.Core.Diagnostics.ProfilingKey.ProfilingKey(int Id) -> void
+Vixen.Core.Diagnostics.RemoteSink -> sealed class
+Vixen.Core.Diagnostics.RemoteSink : Vixen.Core.Diagnostics.LogRecordSink
+Vixen.Core.Diagnostics.RemoteSink.DroppedCount.get -> long
+Vixen.Core.Diagnostics.RemoteSink.Flush(System.TimeSpan timeout) -> bool
+Vixen.Core.Diagnostics.RemoteSink.PendingCount.get -> int
+Vixen.Core.Diagnostics.RemoteSink.RemoteSink(Vixen.Core.Diagnostics.IRemoteLogTransport transport, int capacity = 4096, Microsoft.Extensions.Logging.LogLevel minimumLevel = 2, Vixen.Core.Diagnostics.LogFilter? filter = null) -> void
 Vixen.Core.Diagnostics.RingBufferSink -> sealed class
-Vixen.Core.Diagnostics.RingBufferSink : System.IDisposable
+Vixen.Core.Diagnostics.RingBufferSink : Vixen.Core.Diagnostics.LogRecordSink
 Vixen.Core.Diagnostics.RingBufferSink.Capacity.get -> int
 Vixen.Core.Diagnostics.RingBufferSink.Clear() -> void
-Vixen.Core.Diagnostics.RingBufferSink.ClearCategoryLevels() -> void
 Vixen.Core.Diagnostics.RingBufferSink.CopyTail(System.Span<Vixen.Core.Diagnostics.LogRecord> destination) -> int
 Vixen.Core.Diagnostics.RingBufferSink.Count.get -> int
-Vixen.Core.Diagnostics.RingBufferSink.CreateLogger(string categoryName) -> Microsoft.Extensions.Logging.ILogger
-Vixen.Core.Diagnostics.RingBufferSink.Dispose() -> void
 Vixen.Core.Diagnostics.RingBufferSink.DroppedCount.get -> long
-Vixen.Core.Diagnostics.RingBufferSink.IsEnabled(string category, Microsoft.Extensions.Logging.LogLevel level) -> bool
-Vixen.Core.Diagnostics.RingBufferSink.MinimumLevel.get -> Microsoft.Extensions.Logging.LogLevel
-Vixen.Core.Diagnostics.RingBufferSink.MinimumLevel.set -> Microsoft.Extensions.Logging.LogLevel
-Vixen.Core.Diagnostics.RingBufferSink.RingBufferSink(int capacity = 100000) -> void
-Vixen.Core.Diagnostics.RingBufferSink.SetCategoryLevel(string categoryPrefix, Microsoft.Extensions.Logging.LogLevel level) -> void
+Vixen.Core.Diagnostics.RingBufferSink.RingBufferSink(int capacity = 100000, Vixen.Core.Diagnostics.LogFilter? filter = null) -> void
 Vixen.Core.Diagnostics.RingBufferSink.Snapshot() -> Vixen.Core.Diagnostics.LogRecord[]
 Vixen.Core.Diagnostics.TraceExporter -> static class
+Vixen.Core.Diagnostics.ZLoggerFileSink -> sealed class
+Vixen.Core.Diagnostics.ZLoggerFileSink : Vixen.Core.Diagnostics.LogSink
+Vixen.Core.Diagnostics.ZLoggerFileSink.DirectoryPath.get -> string
+Vixen.Core.Diagnostics.ZLoggerFileSink.ZLoggerFileSink(System.Func<System.DateTimeOffset, int, string> filePathSelector, int rollingSizeKilobytes = 65536, Microsoft.Extensions.Logging.LogLevel minimumLevel = 2, Vixen.Core.Diagnostics.LogFilter? filter = null) -> void
+Vixen.Core.Diagnostics.ZLoggerFileSink.ZLoggerFileSink(string directoryPath, string fileNamePrefix = "vixen", int rollingSizeKilobytes = 65536, Microsoft.Extensions.Logging.LogLevel minimumLevel = 2, Vixen.Core.Diagnostics.LogFilter? filter = null) -> void
+abstract Vixen.Core.Diagnostics.LogRecordSink.Write(Vixen.Core.Diagnostics.LogRecord record) -> void
+abstract Vixen.Core.Diagnostics.LogSink.CreateLogger(string categoryName) -> Microsoft.Extensions.Logging.ILogger
+const Vixen.Core.Diagnostics.ConsoleSink.DefaultCategoryWidth = 28 -> int
+const Vixen.Core.Diagnostics.EventSourceSink.ProviderName = "Vixen-Diagnostics-Log" -> string
+const Vixen.Core.Diagnostics.LogRateLimiter.DefaultBurst = 4 -> int
+const Vixen.Core.Diagnostics.LogRateLimiter.DefaultMaxTrackedEvents = 1024 -> int
+const Vixen.Core.Diagnostics.PlatformSink.DefaultTag = "Vixen" -> string
 const Vixen.Core.Diagnostics.Profiler.DefaultCapacityPerThread = 65536 -> int
 const Vixen.Core.Diagnostics.Profiler.IsSupported = true -> bool
+const Vixen.Core.Diagnostics.RemoteSink.DefaultCapacity = 4096 -> int
 const Vixen.Core.Diagnostics.RingBufferSink.DefaultCapacity = 100000 -> int
+const Vixen.Core.Diagnostics.ZLoggerFileSink.DefaultFileNamePrefix = "vixen" -> string
+const Vixen.Core.Diagnostics.ZLoggerFileSink.DefaultRollingSizeKilobytes = 65536 -> int
+override Vixen.Core.Diagnostics.ConsoleSink.Write(Vixen.Core.Diagnostics.LogRecord record) -> void
+override Vixen.Core.Diagnostics.EventSourceSink.Write(Vixen.Core.Diagnostics.LogRecord record) -> void
+override Vixen.Core.Diagnostics.PlatformSink.Write(Vixen.Core.Diagnostics.LogRecord record) -> void
 override Vixen.Core.Diagnostics.ProfilingKey.ToString() -> string
+override Vixen.Core.Diagnostics.RemoteSink.Dispose(bool disposing) -> void
+override Vixen.Core.Diagnostics.RemoteSink.Write(Vixen.Core.Diagnostics.LogRecord record) -> void
+override Vixen.Core.Diagnostics.RingBufferSink.Write(Vixen.Core.Diagnostics.LogRecord record) -> void
+override Vixen.Core.Diagnostics.ZLoggerFileSink.CreateLogger(string categoryName) -> Microsoft.Extensions.Logging.ILogger
+override Vixen.Core.Diagnostics.ZLoggerFileSink.Dispose(bool disposing) -> void
+override sealed Vixen.Core.Diagnostics.LogRecordSink.CreateLogger(string categoryName) -> Microsoft.Extensions.Logging.ILogger
+static Vixen.Core.Diagnostics.PlatformSink.IsSupported.get -> bool
 static Vixen.Core.Diagnostics.Profiler.Begin(Vixen.Core.Diagnostics.ProfilingKey key) -> Vixen.Core.Diagnostics.Profiler.Scope
 static Vixen.Core.Diagnostics.Profiler.BeginFrame() -> int
 static Vixen.Core.Diagnostics.Profiler.CapacityPerThread.get -> int
@@ -97,3 +178,4 @@ static Vixen.Core.Diagnostics.ProfilingKey.operator >=(Vixen.Core.Diagnostics.Pr
 static Vixen.Core.Diagnostics.TraceExporter.Summarize(System.Collections.Generic.IReadOnlyList<Vixen.Core.Diagnostics.ProfilerThreadSamples> threads) -> string
 static Vixen.Core.Diagnostics.TraceExporter.WriteChromeTrace(System.Collections.Generic.IReadOnlyList<Vixen.Core.Diagnostics.ProfilerThreadSamples> threads, System.IO.Stream destination) -> void
 static Vixen.Core.Diagnostics.TraceExporter.WriteChromeTrace(System.Collections.Generic.IReadOnlyList<Vixen.Core.Diagnostics.ProfilerThreadSamples> threads, string path) -> void
+virtual Vixen.Core.Diagnostics.LogSink.Dispose(bool disposing) -> void

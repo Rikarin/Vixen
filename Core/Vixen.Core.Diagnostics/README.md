@@ -11,7 +11,13 @@ always either too sparse or allocating.
 | `ProfilingKey` | An interned name for a timed scope. An `int` at run time; a readable name only when a report is written. |
 | `Profiler`, `ProfilerSample` | Scoped CPU sampling into a per-thread ring. No lock, no allocation, no contention. |
 | `TraceExporter` | Chrome `trace_event` JSON, which opens in `ui.perfetto.dev`. Plus a text summary for CI logs. |
-| `RingBufferSink`, `LogRecord` | The always-on log ring behind `ILogger`, with per-category levels. |
+| `RingBufferSink`, `LogRecord` | The always-on log ring behind `ILogger`. |
+| `ZLoggerFileSink` | Rolling JSON-line files, written asynchronously. The one a player attaches to a bug report. |
+| `ConsoleSink` | The terminal: colourised, aligned, errors to `stderr`. |
+| `PlatformSink` | `logcat` · the Apple unified log · the Linux journal · `OutputDebugString` · the browser console. |
+| `RemoteSink` | JSON lines to the editor over an `IRemoteLogTransport`, on a thread of its own. |
+| `EventSourceSink` | `dotnet-trace` / PerfView / ETW, as the `Vixen-Diagnostics-Log` provider. |
+| `LogFilter`, `LogRateLimiter` | Per-category levels, and suppression of repeated events. |
 
 ## The profiler is meant to be left on
 
@@ -53,17 +59,61 @@ so a number in a support ticket is greppable and stable across versions.
 it, which is the point: the interesting moment is usually the thirty seconds before a crash, and
 asking a player for a log file is asking for nothing.
 
+## One filter, several sinks
+
+Each sink is an `ILoggerProvider`; a host composes the ones its variant calls for and hands them all
+the same `LogFilter`, so that "turn on verbose asset loading" is one call rather than five sinks to
+walk and keep in step:
+
+```csharp
+var levels = new LogFilter { MinimumLevel = LogLevel.Information };
+levels.SetCategoryLevel("Vixen.Assets", LogLevel.Debug);
+
+var ring = new RingBufferSink(filter: levels);          // always
+var console = new ConsoleSink(filter: levels);          // not in a shipping build
+var file = new ZLoggerFileSink("/var/log/game", filter: levels);
+```
+
+Prefixes match longest-first, so `Vixen.Graphics` is a single switch for everything under it and a
+rule naming one type still beats it whatever order the two were added in. Giving a sink its own
+filter is equally valid and is how the file stays verbose while the console stays quiet.
+
+## Rate limiting
+
+One warning inside the frame loop is sixty lines a second: a file nobody can read, a console the
+editor cannot keep up with, and real time spent formatting the sixty-thousandth copy of a message
+whose first copy said everything.
+
+```csharp
+console.RateLimiter = new LogRateLimiter(TimeSpan.FromSeconds(1), burst: 4);
+```
+
+A message's identity is the pair **(category, event id)** — which is what ADR-008's id register is
+for, and what makes the decision to drop a line cost no formatting. The first few per window get
+through, the rest are counted, and the next one that does get through carries the count:
+`… (repeated 4 812 times)`. `Critical` is never suppressed, and neither is the first report of an
+event the tracking table had no room for: a limiter that loses a novel error is worse than none.
+
 ## What is not here yet
 
-**The sink stores formatted strings, not UTF-8 with structured fields intact**, which doc 13 asks
+**The ring stores formatted strings, not UTF-8 with structured fields intact**, which doc 13 asks
 for. An enabled log line therefore allocates. The disabled path already does not, and the enabled
 path is not in any hot loop — `[HotPath]` methods are barred from logging and increment counters
 instead. Packing records into a byte ring is the optimisation to make when a profile asks for it;
 doing it now would mean guessing at the field layout the editor console has not been written to want.
+The *file* sink does keep its fields — that is why it is ZLogger's and not ours — so `{Ms}` in a log
+event is a number in a field called `Ms` in the `.jsonl`, not a fragment of a sentence.
 
-**The other sinks** — ZLogger file, console, platform (`logcat`/`OSLog`/`OutputDebugString`), remote,
-`EventSource` — and **rate limiting on repeated events**. Each is small on its own and none can be
-validated without the thing it feeds.
+**The remote sink has no protocol under it.** It formats, batches and hands bytes to an
+`IRemoteLogTransport`; discovery, pairing and framing belong to doc 13's remote inspector, which is
+not written. This assembly sits below the networking stack and stays there — a foundation library
+that opened its own socket would drag a transport into every build that logs.
+
+**Apple gets `syslog(3)`, not `os_log` proper.** The unified logging system captures it, so the lines
+do appear in `log stream` and Console.app; what is lost is the subsystem/category pairing.
+`_os_log_impl` takes a compiled format descriptor that cannot be produced from managed code, so
+reaching it needs a native shim in `Vixen.Platform.Native` — which is a reason for a shim, not a
+reason for the sink not to exist.
 
 **GPU profiling and memory attribution** need the RHI and the allocators' reporting surface, so they
 land with those.

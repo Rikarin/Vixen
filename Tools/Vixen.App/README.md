@@ -106,6 +106,7 @@ untouched and in order.
 | `--vixen-workers <n>` | Job-system workers. `0` is supported and tested. |
 | `--vixen-frame-limit <n>` | Frames per second, `0` for uncapped. |
 | `--vixen-log-level <level>` | The lowest level the log ring keeps. |
+| `--vixen-log-file <dir>` | Also write rolling JSON-line files there, through `ZLoggerFileSink`. A directory rather than a file name, because the sink rolls by day and by size and therefore owns the names. |
 | `--vixen-loose-content <path>` | [Q5b](../../docs/plan/17-app-heads-and-shipping.md): read loose files instead of bundles, even in a release build. Warns loudly; the content system honours it in Phase 3. |
 
 An unrecognised `--vixen-*` argument is **warned about**, not ignored — a typo in a launch script
@@ -131,18 +132,30 @@ vsync is off or there is no window — a server's tick rate, or a tool's.
 
 ## Logging
 
-The always-on ring buffer from `Vixen.Core.Diagnostics`, behind a twenty-line `ILoggerFactory` —
-ADR-008 takes `Microsoft.Extensions.Logging.Abstractions` and no more, so the concrete `LoggerFactory`
-(and the configuration and options stack behind it) is deliberately not available.
+The always-on ring buffer from `Vixen.Core.Diagnostics`, behind a twenty-line `ILoggerFactory` — the
+concrete `LoggerFactory` lives in the non-abstractions package with a configuration and options stack
+an engine has no use for, and composing three providers is not worth it.
 
 **And a console, for every variant except `Release`.** That is doc 17's table read literally:
 Development lists a console among the things it carries and Server lists full logging, while Release
 gets the ring and the crash reporter and nothing else — a shipped game has no terminal to write to
 and would pay for every string it formatted. `config.LogToConsole` overrides it either way.
 
-Until that existed the host added no providers at all, so a scaffolded game printed nothing and
+**And a file, when asked.** `--vixen-log-file <dir>` or `config.LogFileDirectory` adds
+`ZLoggerFileSink`, which is what a player attaches to a bug report and what a dedicated server keeps
+between restarts. The factory is disposed last of everything the application owns, because the file
+sink's dispose is what flushes its background buffer — a log missing its final seconds is missing the
+part that explains them.
+
+All of them share one `LogFilter`, so `--vixen-log-level` and any per-category rule mean the same
+thing in every sink. A head that wants otherwise — a verbose file behind a quiet console — gives the
+sink a filter of its own.
+
+Until this existed the host added no providers at all, so a scaffolded game printed nothing and
 `Samples/01` carried its own thirty-line copy — which is the usual sign that they belonged one layer
 down. A dedicated server logging into a ring nobody reads is the same bug with worse consequences.
+The mobile heads add `PlatformSink` instead, which is the one that reaches `logcat` and the Apple
+unified log; a phone has no terminal, so a console sink there writes to nothing.
 
 The host's own lines are generated `[LoggerMessage]` call sites with ids registered in
 [`docs/manual/log-events.md`](../../docs/manual/log-events.md) — the first entries in that register,

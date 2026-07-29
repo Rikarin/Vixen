@@ -70,9 +70,10 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | ASTC / ETC2 encoders | ⛔ | — | No managed encoder and none planned; needs `astcenc` pinned in `build/native-dependencies.json` |
 | BC7 / BC6H multi-mode | 🟡 | Core/Vixen.Core.Imaging | One (single-subset) mode each — valid output, real quality ceiling. `ispc_texcomp` registered in doc 01 for the rest |
 | KTX2/BCn verified against an independent implementation | ⬜ | — | Everything is asserted against hand-computed examples; `ktx validate` + a reference decoder are owed |
-| `Vixen.Core.Diagnostics` — `[LoggerMessage]`, ring sink, profiler, Chrome trace | 🟡 | Core/Vixen.Core.Diagnostics | 18 tests; event ids registered in [log-events.md](manual/log-events.md) |
-| Other log sinks (ZLogger file, console, `logcat`/`OSLog`, remote, `EventSource`) | ⬜ | — | ZLogger is in ADR-008 and **not in `Directory.Packages.props`** |
-| Log rate limiting, UTF-8 record packing | ⬜ | — | |
+| `Vixen.Core.Diagnostics` — `[LoggerMessage]`, ring sink, profiler, Chrome trace | 🟡 | Core/Vixen.Core.Diagnostics | 36 tests; event ids registered in [log-events.md](manual/log-events.md) |
+| Other log sinks (ZLogger file, console, `logcat`/`OSLog`, remote, `EventSource`) | ✅ | Core/Vixen.Core.Diagnostics | All five, over a shared `LogFilter`. The remote one takes an `IRemoteLogTransport`, since the inspector protocol is not written |
+| Log rate limiting | ✅ | Core/Vixen.Core.Diagnostics | `LogRateLimiter`: a burst per window per (category, event id), the count carried on the line that follows |
+| UTF-8 record packing in the ring | ⬜ | — | The ring still holds formatted strings — see the module README for why that is not yet a profile-led decision |
 | GPU profiling / memory attribution / Perfetto protobuf | ⬜ | — | ⛔ GPU half needs the allocators' reporting surface |
 
 ## 1.3 ECS, engine loop, scenes
@@ -477,6 +478,7 @@ Ground truth is [`Directory.Packages.props`](../Directory.Packages.props); the p
 | `ZstdSharp.Port` | 0.8.8 | ✅ | `Vixen.Core.Serialization` | Pure managed → works on WASM |
 | `System.IO.Hashing` | 10.0.10 | ✅ | `Vixen.Core` | XxHash128 |
 | `Microsoft.Extensions.Logging.Abstractions` | 10.0.10 | ✅ | `Vixen.Core.Diagnostics` | Interface only |
+| `ZLogger` | 2.5.10 | ✅ | `Vixen.Core.Diagnostics` | The file sink only (ADR-008). Brings `Microsoft.Extensions.Logging` with it; publishes AOT with no trim warning |
 | `NVorbis` | 0.10.5 | ✅ | `Vixen.Audio.Codecs` | |
 | `Concentus` | 2.2.2 | ✅ | `Vixen.Audio.Codecs`, `Vixen.Video.Codecs` | Pinned to the **managed** path — the native libopus fallback ignored its bitrate |
 | `OpenTelemetry` + OTLP/Console exporters + Runtime instrumentation | 1.17.0 | ✅ | `Vixen.Net.Telemetry` | Added beyond doc 01's register |
@@ -497,7 +499,6 @@ Ground truth is [`Directory.Packages.props`](../Directory.Packages.props); the p
 | `Silk.NET.Shaderc` / `.Native` | Raven's differential oracle | ⬜ | The `glslc`-vs-SPIR-V oracle is described as running; the package is not in the register |
 | `Silk.NET.Direct3D.Compilers` | D3D12 backend | ✂️ | Postponed with the backend |
 | `Silk.NET.Maths` | interop shim | ⬜ | Never needed — ADR-003 types carry their own conversions |
-| `ZLogger` 2.5.10 | `Vixen.Core.Diagnostics` file/console sink | ⬜ | ADR-008's sink half. The ring-buffer sink is engine-owned and built |
 | `NSubstitute` 6.0.0, `Shouldly` 4.3.0 | test stack | ⬜ | Listed in doc 12; the props file deliberately omits unused versions |
 | `Pfim` | DDS/TGA decode | ⬜ | `.dds` import |
 | `SharpFuzz` | `Vixen.Net.Fuzz` | ⬜ | Instrumented fuzzing alongside the build-time harness |
@@ -608,7 +609,7 @@ since. The rest can run in parallel.
 | W0-8 | `UiDocument.Update` → `StyleUpdater` (incremental cascade) | The largest UI perf item; nothing depends on it, everything benefits |
 | ~~W0-9~~ | ~~`UiDocument` "layout finished" callback~~ | Built. The resize lag in `ScrollView`, `TreeView`, `DataGrid`, `CodeEditor`, `NodeCanvas` and `Viewport` is closed |
 | ~~W0-10~~ | ~~Wire `LineWrapper` into `TextRun`/controls~~ | Built (`TextLayout`). What is left is the *editing* half — a caret that moves between lines — and `CodeEditor`'s own wrap |
-| W0-11 | `Vixen.Core.Diagnostics` sinks (ZLogger file, console, platform, remote, `EventSource`) + rate limiting | Editor console · remote inspector · `Vixen.Editor.Profiler`/`.Debugger` |
+| ~~W0-11~~ | ~~`Vixen.Core.Diagnostics` sinks (ZLogger file, console, platform, remote, `EventSource`) + rate limiting~~ | Built. All five sinks, a shared `LogFilter` and `LogRateLimiter`. What the three downstream items now need is the editor UI and the inspector protocol, not a sink — `RemoteSink` streams JSON lines into whatever `IRemoteLogTransport` the protocol turns out to be |
 | W0-12 | `Vixen.Editor.Plugin` (`AssemblyLoadContext`) | Editor extensibility; lets `Vixen.Editor.App` state its AOT position |
 | W0-13 | `Tools/Vixen.Templates` (`vixen-game`/`app`/`lib`/`plugin`) | Phase 11's clean-machine criterion |
 | W0-14 | Pin a static `libjoltc.a` for `ios-arm64` | Physics on iOS → `Samples/05` on iOS |
@@ -648,8 +649,8 @@ since. The rest can run in parallel.
 | VFX-graph operator nodes, remaining opcode blocks, live preview | W1(VFX GPU) | The view half is in; the live preview is the runtime's |
 | `Relay` transport + transport fallback | W0-21 | |
 | Cross-compilation test pass (ESSL/HLSL/MSL/WGSL) | W0-22 | |
-| `Vixen.Editor.Profiler` · `.Debugger` · editor console | W0-11 | Plus the GPU/memory tracks in `Core.Diagnostics` |
-| Editor network panel | W0-11 (host) | Everything it shows is already public |
+| `Vixen.Editor.Profiler` · `.Debugger` · editor console | — | Unblocked: W0-11 landed, so the console reads `RingBufferSink` live and the profiler reads the sample rings. The GPU/memory tracks in `Core.Diagnostics` are still owed |
+| Editor network panel | — | Unblocked: everything it shows is already public |
 | `.vxnetrules` asset | W0-1 (asset-pipeline shape) | |
 | Prefab registry filled from the content catalog | W0-1 | |
 | `Samples/05-PlatformerGame` | W0-1 + W0-14 | Phase 8 exit criterion |
@@ -658,7 +659,7 @@ since. The rest can run in parallel.
 
 | Track | Waits on |
 |---|---|
-| Remote inspector attached to out-of-process players | Diagnostics remote sink (W0-11) — the player-launch half is built |
+| Remote inspector attached to out-of-process players | The inspector **protocol** — the player-launch half is built and so is the sink (W0-11), which wants an `IRemoteLogTransport` to hand its bytes to |
 | Deferred pipeline (GBuffer, shading-model dispatch, forward routing, decals) | Bindless materials (W0-17); parallel to everything else |
 | Volumetric fog · contact shadows · light shafts · motion blur · SSS blur · FSR1 | Deferred pipeline |
 | Mesh shaders / meshlet culling | Deferred pipeline + capability flags |
@@ -697,8 +698,8 @@ it is deliberately distinct from "not started" in Part 1.
 | 5 | `Vixen.Core.Threading` | Job priority tier for streaming/decode | Perf | — |
 | 6 | `Vixen.Core.IO` | The synchronous-IO ban (the `System.IO.Path` half is built) | Discipline | A decision about `IOdbBackend`'s synchronous contract |
 | 7 | `Vixen.Core.Reflection` | Generic type support | Feature | — |
-| 8 | `Vixen.Core.Diagnostics` | ZLogger/console/platform/remote/`EventSource` sinks | Feature | — |
-| 9 | `Vixen.Core.Diagnostics` | Rate limiting; UTF-8 record packing | Perf | — |
+| 8 | ~~`Vixen.Core.Diagnostics`~~ | ~~ZLogger/console/platform/remote/`EventSource` sinks~~ | Built (W0-11) — all five, sharing one `LogFilter` | — |
+| 9 | `Vixen.Core.Diagnostics` | ~~Rate limiting~~ (built: `LogRateLimiter`); UTF-8 record packing in the ring | Perf | — |
 | 10 | `Vixen.Core.Diagnostics` | GPU profiling, memory attribution, Perfetto protobuf | Feature | Allocator reporting surface |
 | 11 | `Vixen.Core.Imaging` | ASTC/ETC2 encoders; full BC7/BC6H | Feature | Native encoder acquisition (W0-15) |
 | 12 | `Vixen.Core.Imaging` | `ktx validate` + reference-decoder verification | Correctness | — |

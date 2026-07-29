@@ -3,10 +3,17 @@
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
         <RootNamespace>Vixen.Core.Diagnostics</RootNamespace>
+        <!--
+            The platform sink's [LibraryImport] declarations and the EventSource sink's
+            WriteEventCore payload are the only unsafe code here, and both are the allocation-free
+            form of a call that has an allocating alternative.
+        -->
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <Description>
             Observability as a foundation rather than an afterthought: the always-on log ring the
-            editor console and crash reporter read, interned profiling keys, per-thread sample
-            recording, and trace export that opens in Perfetto's viewer.
+            editor console and crash reporter read, file, console, platform, remote and EventSource
+            sinks with per-category levels and repeat suppression, interned profiling keys,
+            per-thread sample recording, and trace export that opens in Perfetto's viewer.
         </Description>
         <PackageTags>logging;profiling;tracing;diagnostics;game-engine;vixen</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -18,6 +25,7 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+        <PackageReference Include="ZLogger" />
     </ItemGroup>
 
     <ItemGroup>

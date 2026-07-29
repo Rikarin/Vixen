@@ -58,6 +58,18 @@ public sealed record AppArguments {
     public LogLevel? LogLevel { get; private init; }
 
     /// <summary>
+    ///     The directory for rolling log files, from <c>--vixen-log-file</c>, or
+    ///     <see langword="null" /> for no file at all.
+    /// </summary>
+    /// <remarks>
+    ///     A directory rather than a file name, because the sink rolls by day and by size and
+    ///     therefore owns the names. Off unless asked for: a game that writes a log file nobody
+    ///     collects has bought disk churn and nothing else, whereas a dedicated server and a
+    ///     playtest build both want one and know they do.
+    /// </remarks>
+    public string? LogFilePath { get; private init; }
+
+    /// <summary>
     ///     The directory from <c>--vixen-loose-content</c>, or <see langword="null" />.
     /// </summary>
     /// <remarks>
@@ -124,6 +136,10 @@ public sealed record AppArguments {
 
                 case "--vixen-log-level" when Take(out var level) && Enum.TryParse<LogLevel>(level, true, out var parsedLevel):
                     parsed = parsed with { LogLevel = parsedLevel };
+                    continue;
+
+                case "--vixen-log-file" when Take(out var logPath):
+                    parsed = parsed with { LogFilePath = logPath };
                     continue;
 
                 case "--vixen-loose-content" when Take(out var path):

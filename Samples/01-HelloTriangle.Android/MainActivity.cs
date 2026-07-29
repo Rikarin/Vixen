@@ -4,6 +4,7 @@
 using Android.App;
 using Android.Content.PM;
 using Vixen.App;
+using Vixen.Core.Diagnostics;
 using Vixen.Platform.Android;
 
 namespace Vixen.Samples.HelloTriangle;
@@ -48,7 +49,7 @@ public sealed class MainActivity : AndroidActivityHost {
     protected override Action Start(AndroidPlatform platform) {
         application = VixenApp.Create([])
             .WithPlatform(platform)
-            .WithServices(services => services.LoggerFactory.AddProvider(new ConsoleLogProvider()))
+            .WithServices(services => services.LoggerFactory.AddProvider(new PlatformSink()))
             .Build(new TriangleGame());
 
         return application.RunFrame;

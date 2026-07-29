@@ -16,7 +16,14 @@ five-minute job that is easy to skip until it is too late to fix.
 - **Add the entry in the same commit as the log line.** A register updated later is a register that
   is wrong.
 - **`0` means unassigned** and is what an un-annotated call site gets. Anything logging with event 0
-  in a shipping build is a bug.
+  in a shipping build is a bug — and now a costly one: `LogRateLimiter` treats
+  (category, event id) as a message's identity, so every un-annotated call site in a category shares
+  one budget with all the others.
+
+**These are not `EventSource` event ids.** `EventSourceSink` publishes the whole log as the
+`Vixen-Diagnostics-Log` provider, whose six events are one per level — so
+`dotnet-trace collect --providers Vixen-Diagnostics-Log` filters by verbosity, and the id below
+arrives as the first field of the payload rather than as the ETW event number.
 
 ## Ranges
 

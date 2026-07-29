@@ -91,11 +91,22 @@ public sealed class AppBuilder {
         // Before the platform exists, because it decides what the platform will be.
         game.OnConfigure(config);
 
-        var logs = new RingBufferSink { MinimumLevel = config.LogLevel };
+        // One filter, shared by every sink: doc 13 asks for per-category levels that are
+        // live-editable, and a host whose console and file disagreed about what "verbose asset
+        // loading" means would make that setting untrustworthy.
+        var levels = new LogFilter { MinimumLevel = config.LogLevel };
+        var logs = new RingBufferSink(filter: levels);
+        var sinks = new List<ILoggerProvider> { logs };
 
-        var loggerFactory = config.LogToConsole
-            ? new HostLoggerFactory(logs, new ConsoleLogProvider(config.LogLevel))
-            : new HostLoggerFactory(logs);
+        if (config.LogToConsole) {
+            sinks.Add(new ConsoleSink(filter: levels));
+        }
+
+        if (config.LogFileDirectory is { Length: > 0 } logDirectory) {
+            sinks.Add(new ZLoggerFileSink(logDirectory, FileNamePrefix(config.Name), filter: levels));
+        }
+
+        var loggerFactory = new HostLoggerFactory([.. sinks]);
         var host = platform ?? PlatformHost.Create(config);
 
         var fileSystem = new VirtualFileSystem();
@@ -154,6 +165,22 @@ public sealed class AppBuilder {
         }
 
         return new(game, services);
+    }
+
+    /// <summary>
+    ///     Turns an application's name into something a file can be called. A title is allowed to
+    ///     contain a slash, a colon or a quote; a path is not, and a log file that failed to open
+    ///     because the game was called <c>Half-Life: Alyx</c> would be found out on the day somebody
+    ///     needed the log.
+    /// </summary>
+    static string FileNamePrefix(string name) {
+        var cleaned = new string([
+            .. name.Select(static character =>
+                char.IsLetterOrDigit(character) || character is '-' or '_' ? character : '-'
+            )
+        ]).Trim('-');
+
+        return cleaned.Length == 0 ? "vixen" : cleaned;
     }
 }
 
