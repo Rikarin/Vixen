@@ -122,6 +122,29 @@ public sealed class IrradianceFieldTexture : IDisposable {
     /// </remarks>
     public PixelFormat Format { get; init; } = PixelFormat.Rgba32Float;
 
+    /// <summary>Whether a compute shader writes the pool instead of this copying it up.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The fork between doc 19's two fillers, and it is exactly one property wide.</b> With
+    ///         it set the pool is a storage image and the probes are the GPU's — this uploads the index
+    ///         volume and nothing else, because allocation and refinement stay a CPU decision and only
+    ///         the <i>probes</i> move. With it clear the CPU field is authoritative and the whole
+    ///         thing is copied up, which is filler B and what a target with no compute gets.
+    ///     </para>
+    ///     <para>
+    ///         The two cannot both be live: an upload of the CPU pool would overwrite whatever the
+    ///         dispatch just wrote, one frame after it wrote it, which reads as lighting that flickers
+    ///         between two answers rather than as a mode nobody chose.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Whoever dispatches owns the pool's state.</b> This leaves it in
+    ///         <see cref="ResourceState.ShaderRead" /> and expects to find it there; a fill pass has to
+    ///         move it to <see cref="ResourceState.ShaderWrite" /> and back around its own dispatch,
+    ///         because the volumes are not graph resources and nothing else can see them.
+    ///     </para>
+    /// </remarks>
+    public bool PoolIsWritten { get; init; }
+
     /// <summary>One of the four pool volumes.</summary>
     /// <param name="channel">Which one — zero is the constant term, one to three the linear ones.</param>
     /// <returns>The texture, or an invalid handle before the first upload.</returns>
@@ -171,21 +194,34 @@ public sealed class IrradianceFieldTexture : IDisposable {
         // through the graph — so nothing else in the frame will transition them and this has to. A
         // texture that was copied into and left in TRANSFER_DST is a validation error at the draw that
         // samples it, and one never transitioned at all is one at the copy.
-        Transition(commands, Uploads == 0 ? ResourceState.Undefined : ResourceState.ShaderRead, ResourceState.CopyDestination);
+        var settled = Uploads == 0 ? ResourceState.Undefined : ResourceState.ShaderRead;
+
+        if (PoolIsWritten) {
+            // The probes are the dispatch's. All this owes them is a state they can be found in, once.
+            if (Uploads == 0) {
+                TransitionPool(commands, ResourceState.Undefined, ResourceState.ShaderRead);
+            }
+        } else {
+            TransitionPool(commands, settled, ResourceState.CopyDestination);
+        }
+
+        TransitionIndirection(commands, settled, ResourceState.CopyDestination);
 
         var poolBytes = (long)Field.Pool.Texels.Length * Channels * BytesPerChannel;
 
-        for (var channel = 0; channel < Channels; channel++) {
-            PackPool(channel);
+        if (!PoolIsWritten) {
+            for (var channel = 0; channel < Channels; channel++) {
+                PackPool(channel);
 
-            graphics.Write(staging, channel * poolBytes, Staged(Field.Pool.Texels.Length * Channels));
+                graphics.Write(staging, channel * poolBytes, Staged(Field.Pool.Texels.Length * Channels));
 
-            commands.CopyBufferToTexture(
-                staging,
-                channel * poolBytes,
-                new TextureRegion(pool[channel]),
-                texels
-            );
+                commands.CopyBufferToTexture(
+                    staging,
+                    channel * poolBytes,
+                    new TextureRegion(pool[channel]),
+                    texels
+                );
+            }
         }
 
         PackIndirection();
@@ -207,26 +243,40 @@ public sealed class IrradianceFieldTexture : IDisposable {
             cells
         );
 
-        Transition(commands, ResourceState.CopyDestination, ResourceState.ShaderRead);
+        if (!PoolIsWritten) {
+            TransitionPool(commands, ResourceState.CopyDestination, ResourceState.ShaderRead);
+        }
+
+        TransitionIndirection(commands, ResourceState.CopyDestination, ResourceState.ShaderRead);
 
         Uploads++;
     }
 
-    /// <summary>Moves every volume from one state to another, in one barrier.</summary>
+    /// <summary>Moves the four pool volumes from one state to another, in one barrier.</summary>
     /// <param name="commands">Where to record it.</param>
     /// <param name="before">What they are in.</param>
     /// <param name="after">What they need to be in.</param>
-    void Transition(ICommandList commands, ResourceState before, ResourceState after) {
-        var barriers = new TextureBarrier[Channels + 1];
+    /// <exception cref="ArgumentNullException">There is no command list.</exception>
+    /// <remarks>
+    ///     Public because a fill pass has to bracket its own dispatch with it — see
+    ///     <see cref="PoolIsWritten" />. The volumes are not graph resources, so nothing else in the
+    ///     frame can see them and nothing else will move them.
+    /// </remarks>
+    public void TransitionPool(ICommandList commands, ResourceState before, ResourceState after) {
+        ArgumentNullException.ThrowIfNull(commands);
+
+        var barriers = new TextureBarrier[Channels];
 
         for (var channel = 0; channel < Channels; channel++) {
             barriers[channel] = new(pool[channel], before, after);
         }
 
-        barriers[Channels] = new(indirection, before, after);
-
         commands.Barrier(new([], barriers));
     }
+
+    /// <summary>Moves the index volume from one state to another.</summary>
+    void TransitionIndirection(ICommandList commands, ResourceState before, ResourceState after) =>
+        commands.Barrier(new([], [new TextureBarrier(indirection, before, after)]));
 
     /// <summary>Writes the names a shader reads the field through.</summary>
     /// <param name="parameters">Where the values go — the frame's, since the field follows the scene.</param>
@@ -507,7 +557,8 @@ public sealed class IrradianceFieldTexture : IDisposable {
                     Format,
                     texels.X,
                     texels.Y,
-                    TextureUsage.Sampled | TextureUsage.CopyDestination,
+                    TextureUsage.Sampled
+                    | (PoolIsWritten ? TextureUsage.Storage : TextureUsage.CopyDestination),
                     Depth: texels.Z,
                     Dimension: TextureDimension.Texture3D,
                     Name: $"IrradianceField.{PoolNames[channel]}"

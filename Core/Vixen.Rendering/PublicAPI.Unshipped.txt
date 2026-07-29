@@ -1202,8 +1202,11 @@ Vixen.Rendering.Lighting.IrradianceFieldTexture.IrradianceFieldTexture(Vixen.Ren
 Vixen.Rendering.Lighting.IrradianceFieldTexture.IsCreated.get -> bool
 Vixen.Rendering.Lighting.IrradianceFieldTexture.PointSampler.get -> Vixen.Graphics.SamplerHandle
 Vixen.Rendering.Lighting.IrradianceFieldTexture.Pool(int channel) -> Vixen.Graphics.TextureHandle
+Vixen.Rendering.Lighting.IrradianceFieldTexture.PoolIsWritten.get -> bool
+Vixen.Rendering.Lighting.IrradianceFieldTexture.PoolIsWritten.init -> bool
 Vixen.Rendering.Lighting.IrradianceFieldTexture.PoolView(int channel) -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Lighting.IrradianceFieldTexture.Sampler.get -> Vixen.Graphics.SamplerHandle
+Vixen.Rendering.Lighting.IrradianceFieldTexture.TransitionPool(Vixen.Graphics.ICommandList commands, Vixen.Graphics.ResourceState before, Vixen.Graphics.ResourceState after) -> void
 Vixen.Rendering.Lighting.IrradianceFieldTexture.Upload(Vixen.Graphics.IGraphicsDevice graphics, Vixen.Graphics.ICommandList commands) -> void
 Vixen.Rendering.Lighting.IrradianceFieldTexture.Uploads.get -> int
 Vixen.Rendering.Lighting.ReflectionProbe -> sealed class

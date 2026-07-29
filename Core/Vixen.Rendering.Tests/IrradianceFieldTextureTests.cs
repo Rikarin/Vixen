@@ -119,9 +119,29 @@ public class IrradianceFieldTextureTests {
             .Where(command => command.Kind == RecordedCommandKind.Barrier)
             .ToArray();
 
-        // One before the copies and one after, each covering all five volumes at once.
-        Assert.Equal(2, barriers.Length);
-        Assert.All(barriers, barrier => Assert.Equal(5, barrier.B));
+        // The pool and the index separately, before and after: four volumes and one, twice each. They
+        // are apart because a GPU-filled pool is transitioned by whoever dispatches and the index
+        // never is — see PoolIsWritten.
+        Assert.Equal(4, barriers.Length);
+        Assert.Equal([1, 1, 4, 4], barriers.Select(barrier => barrier.B).Order());
+    }
+
+    /// <summary>
+    ///     <b>With the pool written by a compute shader the probes are not copied at all</b>, and the
+    ///     index volume still is: allocation and refinement stay a CPU decision, and only the probes
+    ///     move. Uploading both would overwrite whatever the dispatch just wrote, one frame after it
+    ///     wrote it — lighting that flickers between two answers rather than a mode nobody chose.
+    /// </summary>
+    [Fact]
+    public void AWrittenPoolIsNotCopiedUp() {
+        using var device = new NullDevice(new() { Record = true });
+        using var mirror = new IrradianceFieldTexture(Filled()) { PoolIsWritten = true };
+
+        var list = device.BeginCommandList();
+        mirror.Upload(device, list);
+        Submit(device, list);
+
+        Assert.Equal(1, device.Recorder!.CountOf(RecordedCommandKind.CopyBufferToTexture));
     }
 
     /// <summary>
