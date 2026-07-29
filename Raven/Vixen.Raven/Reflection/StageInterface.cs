@@ -28,6 +28,15 @@ namespace Vixen.Raven.Reflection;
 ///         before it reaches here, and every one of those is asked this same question. So the check
 ///         never had to be relaxed — what changed was that an entry point may have several outputs.
 ///     </para>
+///     <para>
+///         <strong>A built-in is not asked at all</strong>, because the rule is about a
+///         <em>location</em> and a built-in has none: <c>Location</c> and <c>BuiltIn</c> are
+///         mutually exclusive decorations, and the type is the target's own rather than something a
+///         host lays out. <c>SV_IsFrontFace</c> is the case that makes the distinction visible —
+///         <c>gl_FrontFacing</c> and SPIR-V's <c>FrontFacing</c> are both declared <c>bool</c> by
+///         the target itself, so asking this predicate about one would refuse a variable neither
+///         backend was going to write a location for.
+///     </para>
 /// </remarks>
 public static class StageInterface {
     /// <summary>Whether a stage input or output may have this type.</summary>

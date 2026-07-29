@@ -54,6 +54,15 @@ static class ReflectionReader {
             reflection.Sets.Add(descriptorSet);
         }
 
+        foreach (var input in root["VertexInputs"].Items) {
+            reflection.VertexInputs.Add(
+                new VertexInput {
+                    Location = input["Location"].AsInt(),
+                    Name = input["Name"].AsString(string.Empty)
+                }
+            );
+        }
+
         foreach (var parameter in root["Parameters"].Items) {
             reflection.Parameters.Add(
                 new Parameter {

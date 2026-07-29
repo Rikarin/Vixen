@@ -25,6 +25,8 @@ Vixen.Ui.Renderer.UiShaders.Box.get -> Vixen.Graphics.ShaderHandle
 Vixen.Ui.Renderer.UiShaders.Box.init -> Vixen.Graphics.ShaderHandle
 Vixen.Ui.Renderer.UiShaders.Image.get -> Vixen.Graphics.ShaderHandle
 Vixen.Ui.Renderer.UiShaders.Image.init -> Vixen.Graphics.ShaderHandle
+Vixen.Ui.Renderer.UiShaders.Locations.get -> Vixen.Rendering.VertexLocations
+Vixen.Ui.Renderer.UiShaders.Locations.init -> Vixen.Rendering.VertexLocations
 Vixen.Ui.Renderer.UiShaders.Solid.get -> Vixen.Graphics.ShaderHandle
 Vixen.Ui.Renderer.UiShaders.Solid.init -> Vixen.Graphics.ShaderHandle
 Vixen.Ui.Renderer.UiShaders.Text.get -> Vixen.Graphics.ShaderHandle

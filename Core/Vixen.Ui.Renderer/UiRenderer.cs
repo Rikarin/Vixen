@@ -18,10 +18,10 @@ namespace Vixen.Ui.Renderer;
 /// <param name="Solid">Tessellated paths, flat.</param>
 /// <remarks>
 ///     ⚠ <b>Supplied rather than compiled here, and that is the seam.</b> Turning shader source into
-///     modules belongs to <c>Vixen.Shaders</c> and, once it lands, to Raven — which already carries
-///     <c>Ui/Msdf.rvn</c> and <c>Ui/RoundedRect.rvn</c> for exactly this. Until then a caller hands
-///     over whatever it has, which is how the golden fixture drives this with hand-written GLSL and
-///     how a game will drive it from an effect. What this must not do is grow a compiler.
+///     modules belongs to <c>Vixen.Shaders</c> and to Raven. A caller hands over whatever it has,
+///     which is how the golden fixture drives this with hand-written GLSL and how
+///     <c>Vixen.Editor.App</c> drives it from <c>Shaders/Ui.rvn</c>. What this must not do is grow a
+///     compiler.
 /// </remarks>
 public readonly record struct UiShaders(
     ShaderHandle Vertex,
@@ -37,6 +37,17 @@ public readonly record struct UiShaders(
     ///     renderer that was not given the shader for them.
     /// </remarks>
     public ShaderHandle Image { get; init; }
+
+    /// <summary>
+    ///     Where the vertex stage reads <c>UiVertex</c>'s four attributes: position, texture,
+    ///     colour, then shape.
+    /// </summary>
+    /// <remarks>
+    ///     Left unset for a stage compiled from hand-written GLSL, whose attributes are at 0 to 3. A
+    ///     Raven stage declaring three streams has them at 3 to 6 — see <see cref="VertexLocations" />
+    ///     for why the number belongs to the shader rather than to this renderer.
+    /// </remarks>
+    public VertexLocations Locations { get; init; }
 }
 
 /// <summary>Draws a frame of interface geometry.</summary>
@@ -157,6 +168,8 @@ public sealed class UiRenderer : IDisposable {
 
         this.device = device;
         this.shaders = shaders;
+
+        shaders.Locations.Require(4, nameof(UiRenderer));
 
         // ⚠ A region per frame in flight, and it is the whole of what stops the interface tearing.
         // `IGraphicsDevice.Write` is a memcpy into persistently-mapped host-visible memory: writing
@@ -589,10 +602,10 @@ public sealed class UiRenderer : IDisposable {
                         // colour, shape.
                         48,
                         [
-                            new(0, VertexFormat.Float32X2, 0),
-                            new(1, VertexFormat.Float32X2, 8),
-                            new(2, VertexFormat.Float32X4, 16),
-                            new(3, VertexFormat.Float32X4, 32)
+                            new(shaders.Locations[0], VertexFormat.Float32X2, 0),
+                            new(shaders.Locations[1], VertexFormat.Float32X2, 8),
+                            new(shaders.Locations[2], VertexFormat.Float32X4, 16),
+                            new(shaders.Locations[3], VertexFormat.Float32X4, 32)
                         ]
                     )
                 ],

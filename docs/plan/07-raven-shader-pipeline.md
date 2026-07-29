@@ -946,6 +946,21 @@ Two smaller decisions:
   attributes at all, so an unknown name there is `RVN2108`. That is why the table is keyed on
   (semantic, *stage*) rather than on the name alone.
 
+**`SV_IsFrontFace` is the fragment stage's entry in the same table**, and the one built-in whose type
+is `bool`. A two-sided pipeline has no other source for it: the inside of an open shape — a plane seen
+from below, a cone with the camera inside it — arrives with its normal pointing away from the viewer,
+and only the rasterizer knows which winding it saw.
+
+What it cost beyond a table row is one exemption, and it is a distinction worth having drawn.
+`StageInterface` refuses a boolean because *a location* has no boolean representation — and a built-in
+has no location for that rule to be about, its type being the target's own (`gl_FrontFacing` and
+SPIR-V's `FrontFacing` are both declared `bool` by the target) rather than something a host lays out.
+The GLSL backend had always skipped the check for a built-in, by declaring nothing for one at all; the
+SPIR-V backend asked it of every stage variable and so refused a built-in *both* targets spell. So
+this is the same "two copies of a rule is how two backends come to differ" the rest of this section is
+about, found from the other end — the shared predicate was shared and the decision about *when to ask
+it* was not.
+
 **What it fixed in the library.** `Fullscreen.rvn` says a triangle needs no vertex buffer, and every
 post-process effect then took the index as `vertexIndex: float` — an *attribute*, so the host had to
 bind a buffer of floats after all. Ten files now take `SV_VertexID` and bind nothing, which is what

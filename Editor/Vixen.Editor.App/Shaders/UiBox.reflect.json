@@ -1,0 +1,277 @@
+{
+  "Sets": [
+    {
+      "Set": 0,
+      "Bindings": [
+        {
+          "Binding": 0,
+          "Name": "atlas",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Fragment",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 1,
+          "Name": "atlasSampler",
+          "Type": "Sampler",
+          "Count": 1,
+          "Stages": "Fragment",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 2,
+          "Name": "shapes",
+          "Type": "StorageBuffer",
+          "Count": 0,
+          "Stages": "Fragment",
+          "Members": [
+            {
+              "Name": "shapes",
+              "Type": {
+                "Scalar": "Struct",
+                "Rows": 1,
+                "Columns": 1,
+                "ArrayLength": null,
+                "StructName": "UiShape",
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": true
+              },
+              "Offset": 0,
+              "Size": 80,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "shapes.size",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 1,
+                "ArrayLength": null,
+                "StructName": null,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 16,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "shapes.radiiX",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 1,
+                "ArrayLength": null,
+                "StructName": null,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 16,
+              "Size": 16,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "shapes.radiiY",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 1,
+                "ArrayLength": null,
+                "StructName": null,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 32,
+              "Size": 16,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "shapes.axis",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 1,
+                "ArrayLength": null,
+                "StructName": null,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 48,
+              "Size": 16,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "shapes.endColour",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 1,
+                "ArrayLength": null,
+                "StructName": null,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 64,
+              "Size": 16,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            }
+          ],
+          "Size": 80,
+          "IsWritable": false
+        }
+      ]
+    }
+  ],
+  "VertexInputs": [],
+  "Outputs": [
+    {
+      "Location": 0,
+      "Name": "result",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Semantic": "SV_Target"
+    }
+  ],
+  "PushConstants": [],
+  "SpecConstants": [],
+  "Permutations": [],
+  "ValueParameters": [],
+  "Parameters": [
+    {
+      "Name": "shapes.size",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 2,
+      "Offset": 0,
+      "Size": 16,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "shapes.radiiX",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 2,
+      "Offset": 16,
+      "Size": 16,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "shapes.radiiY",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 2,
+      "Offset": 32,
+      "Size": 16,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "shapes.axis",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 2,
+      "Offset": 48,
+      "Size": 16,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "shapes.endColour",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 2,
+      "Offset": 64,
+      "Size": 16,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    }
+  ],
+  "RequiredCapabilities": [],
+  "UsedPermutationKeys": [],
+  "Stages": [
+    "Fragment"
+  ]
+}

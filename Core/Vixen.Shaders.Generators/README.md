@@ -28,13 +28,25 @@ this adds no build step, only a consumer for a file that already exists. Output 
 | Resource keys | a typed handle per texture, sampler and storage buffer |
 | **Value keys** | one per value in the uniform block, with the shader's declared default |
 | **`…Set` / `…Binding` constants** | where each resource and the block itself go |
+| **`…Location` constants** | which vertex attribute location the stage reads each parameter from |
 
-The last two are the ones that make a shader usable by code that knows it only by *name*. A binding
+The last three are the ones that make a shader usable by code that knows it only by *name*. A binding
 index is Raven's decision — assigned from declaration order within a set — so a host that wrote one
 down was writing a number it could not see and would not be told about when a texture was added above
 it. And a value key is what a material read from an asset, or a compositor node configured by a
 document, sets its parameters through; the `…Constants` struct beside it is for code that knows the
 shader at compile time and can assign fields.
+
+**An attribute location is the same argument, one interface over.** `StreamPlan` locates a stage's own
+parameters *after* the shader's streams, so `position` is location 0 in a shader with no streams and
+location 3 in one with three — and adding a stream renumbers everything under it. The failure is worse
+than a wrong binding index, because it is not a validation error: a vertex layout naming a location the
+shader does not declare binds nothing to that attribute, and the stage reads whatever the driver left
+there. `VertexAttributeCount` comes with them, so a host can assert it is describing all of them.
+
+⚠ **Formats and offsets are not generated, and should not be.** Those come from the host's own vertex
+struct — its field order and its packing — which is precisely the half of a vertex layout the shader
+has no opinion about. What Raven knows is where it reads each attribute from.
 
 ## Four decisions that were forced rather than chosen
 

@@ -1194,6 +1194,8 @@ Vixen.Rendering.LineShaders.Fragment.get -> Vixen.Graphics.ShaderHandle
 Vixen.Rendering.LineShaders.Fragment.init -> Vixen.Graphics.ShaderHandle
 Vixen.Rendering.LineShaders.LineShaders() -> void
 Vixen.Rendering.LineShaders.LineShaders(Vixen.Graphics.ShaderHandle Vertex, Vixen.Graphics.ShaderHandle Fragment) -> void
+Vixen.Rendering.LineShaders.Locations.get -> Vixen.Rendering.VertexLocations
+Vixen.Rendering.LineShaders.Locations.init -> Vixen.Rendering.VertexLocations
 Vixen.Rendering.LineShaders.Vertex.get -> Vixen.Graphics.ShaderHandle
 Vixen.Rendering.LineShaders.Vertex.init -> Vixen.Graphics.ShaderHandle
 Vixen.Rendering.LineVertex -> readonly struct
@@ -1504,6 +1506,8 @@ Vixen.Rendering.MeshShaders -> readonly struct
 Vixen.Rendering.MeshShaders : System.IEquatable<Vixen.Rendering.MeshShaders>
 Vixen.Rendering.MeshShaders.Fragment.get -> Vixen.Graphics.ShaderHandle
 Vixen.Rendering.MeshShaders.Fragment.init -> Vixen.Graphics.ShaderHandle
+Vixen.Rendering.MeshShaders.Locations.get -> Vixen.Rendering.VertexLocations
+Vixen.Rendering.MeshShaders.Locations.init -> Vixen.Rendering.VertexLocations
 Vixen.Rendering.MeshShaders.MeshShaders() -> void
 Vixen.Rendering.MeshShaders.MeshShaders(Vixen.Graphics.ShaderHandle Vertex, Vixen.Graphics.ShaderHandle Fragment) -> void
 Vixen.Rendering.MeshShaders.Vertex.get -> Vixen.Graphics.ShaderHandle
@@ -1868,6 +1872,13 @@ Vixen.Rendering.UploadBuffer<T>.Slots.get -> int
 Vixen.Rendering.UploadBuffer<T>.Stride.get -> long
 Vixen.Rendering.UploadBuffer<T>.Upload() -> void
 Vixen.Rendering.UploadBuffer<T>.UploadBuffer(string name, Vixen.Graphics.BufferUsage usage = Vixen.Graphics.BufferUsage.Storage) -> void
+Vixen.Rendering.VertexLocations -> readonly struct
+Vixen.Rendering.VertexLocations : System.IEquatable<Vixen.Rendering.VertexLocations>
+Vixen.Rendering.VertexLocations.Count.get -> int
+Vixen.Rendering.VertexLocations.Require(int expected, string name) -> void
+Vixen.Rendering.VertexLocations.VertexLocations() -> void
+Vixen.Rendering.VertexLocations.VertexLocations(params System.ReadOnlySpan<uint> locations) -> void
+Vixen.Rendering.VertexLocations.this[int index].get -> uint
 Vixen.Rendering.VfxGpuSimulation -> sealed class
 Vixen.Rendering.VfxGpuSimulation : System.IDisposable
 Vixen.Rendering.VfxGpuSimulation.Bindings.get -> System.Collections.Generic.IReadOnlyList<Vixen.Vfx.VfxShaderBinding>
@@ -2075,6 +2086,7 @@ const Vixen.Shaders.Generated.ForwardPlusKeys.EnvironmentSamplerSet = 0 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.EnvironmentSet = 0 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.LightBufferBinding = 7 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.LightBufferSet = 0 -> int
+const Vixen.Shaders.Generated.ForwardPlusKeys.NormalLocation = 6 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.PerDrawBlockBinding = 0 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.PerDrawBlockSet = 3 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.PerDrawBlockSize = 1296 -> int
@@ -2087,6 +2099,7 @@ const Vixen.Shaders.Generated.ForwardPlusKeys.PerMaterialBlockSize = 32 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.PerViewBlockBinding = 0 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.PerViewBlockSet = 1 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.PerViewBlockSize = 144 -> int
+const Vixen.Shaders.Generated.ForwardPlusKeys.PositionLocation = 5 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.ProbeSamplerBinding = 6 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.ProbeSamplerSet = 0 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.ProbesBinding = 3 -> uint
@@ -2096,6 +2109,9 @@ const Vixen.Shaders.Generated.ForwardPlusKeys.ShadowMapBinding = 1 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.ShadowMapSet = 0 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.ShadowSamplerBinding = 4 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.ShadowSamplerSet = 0 -> int
+const Vixen.Shaders.Generated.ForwardPlusKeys.TangentLocation = 7 -> uint
+const Vixen.Shaders.Generated.ForwardPlusKeys.TexcoordLocation = 8 -> uint
+const Vixen.Shaders.Generated.ForwardPlusKeys.VertexAttributeCount = 4 -> int
 const Vixen.Shaders.Generated.ForwardPlusLightsElement.BaseOffset = 16 -> int
 const Vixen.Shaders.Generated.ForwardPlusLightsElement.Count = 16 -> int
 const Vixen.Shaders.Generated.ForwardPlusLightsElement.Stride = 80 -> int
@@ -2115,7 +2131,9 @@ const Vixen.Shaders.Generated.PlaceholderConstants.Size = 64 -> int
 const Vixen.Shaders.Generated.PlaceholderKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.PlaceholderKeys.ConstantBufferSet = 2 -> int
 const Vixen.Shaders.Generated.PlaceholderKeys.ConstantBufferSize = 64 -> int
+const Vixen.Shaders.Generated.PlaceholderKeys.PositionLocation = 1 -> uint
 const Vixen.Shaders.Generated.PlaceholderKeys.ShaderName = "Placeholder" -> string
+const Vixen.Shaders.Generated.PlaceholderKeys.VertexAttributeCount = 1 -> int
 const Vixen.Shaders.Generated.TonemapConstants.Size = 64 -> int
 const Vixen.Shaders.Generated.TonemapKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.TonemapKeys.ConstantBufferSet = 2 -> int

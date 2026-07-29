@@ -1,0 +1,297 @@
+package Vixen.Editor.Shaders
+
+// The editor's interface pipelines: one vertex stage and four fragment stages over one vertex
+// layout. Two layouts would mean two buffers and two uploads to save sixteen bytes on a vertex count
+// in the thousands; an interface is not a mesh.
+//
+// Five shaders rather than four pairs, and that is the shape the host already has: `UiRenderer` takes
+// one vertex module and a fragment module per pipeline. A Raven shader carrying both stages would
+// emit the vertex module four times over, and four copies of one stage is four chances for three of
+// them to be wrong.
+//
+// ⚠ **The stream declarations are the contract between the five, and their order is the whole of
+// it.** A stream's location is its index in the shader's declaration list, so `UiVertex` writing
+// `uv, colour, shape` and `UiBox` reading `uv, colour, shape` agree without either naming a number —
+// exactly as the GLSL these replace agreed by both spelling `layout(location = 2)`. Adding a stream
+// to one and not the others is the way to break it, and what it produces is a fragment stage reading
+// the vertex stage's next value along.
+//
+// A stream nothing here reads is still declared for that reason: it costs no interface variable —
+// only a stage's *reads* are emitted — and it keeps the ones after it where they are.
+
+/// The per-box record the rounded-rectangle shader reads, matching the host's `UiShape`.
+///
+/// ⚠ One record per box rather than fourteen more floats on every vertex. Four elliptical corners and
+/// a gradient would take the vertex from forty-eight bytes to a hundred and four, and every glyph in
+/// the frame would carry fields no shader reads on them.
+struct UiShape {
+    /// Half width, half height, border thickness, whether there is a gradient.
+    var size: float4
+
+    /// Corner radii clockwise from the top left.
+    var radiiX: float4
+
+    var radiiY: float4
+
+    /// Which way the gradient runs in the box's own space, then a shadow's blur radius.
+    var axis: float4
+
+    var endColour: float4
+}
+
+/// What the four fragment stages share.
+struct Ui {
+    /// The screen-space width of one unit of a value, for antialiasing an analytic shape.
+    ///
+    /// `fwidth`, which neither of Raven's targets spells that way. Taking the width from the geometry
+    /// rather than from a constant is what makes one shader right under any projection and any scale.
+    static func PixelWidth(value: float): float => abs(ddx(value)) + abs(ddy(value))
+
+    /// Coverage across a one-pixel band, from the derivative of the distance itself.
+    static func Coverage(distance: float, width: float): float => saturate(0.5f - distance / width)
+
+    /// Premultiplies a straight-alpha colour, which is what the UI blend state expects.
+    ///
+    /// Straight alpha here would show as a dark halo around every antialiased edge. Having one
+    /// function means a shader either calls it or visibly does not.
+    static func Premultiply(colour: float4): float4 => float4(colour.rgb * colour.a, colour.a)
+}
+
+/// The one vertex stage all four interface pipelines share.
+shader UiVertex {
+    // A push constant rather than a uniform block: it is four floats that change once a frame, and a
+    // descriptor set for that would be a set to allocate, bind and invalidate everything above.
+    [PushConstant] var scale: float2 = float2(1f, 1f)
+    [PushConstant] var offset: float2 = float2(0f, 0f)
+
+    /// Atlas UV for text, offset from the centre for a box.
+    stream var uv: float2
+
+    /// Linear.
+    stream var colour: float4
+
+    /// A shape index, a pixel range, or a coverage.
+    stream var shape: float4
+
+    /// `position` is in document pixels.
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(position: float2, texcoord: float2, vertexColour: float4, vertexShape: float4): float4 {
+        uv = texcoord
+        colour = vertexColour
+        shape = vertexShape
+
+        return float4(position * scale + offset, 0f, 1f)
+    }
+}
+
+/// A rounded rectangle, its border and its shadow, as a signed distance evaluated per pixel.
+///
+/// One quad draws any size at any radius with an exact edge; tessellating the corner costs vertices
+/// in proportion to the radius and is still faceted.
+shader UiBox {
+    // ⚠ Declared and never read, and that is deliberate: the interface's four pipelines share one
+    // descriptor set layout — see `UiRenderer`'s own remarks for why — and a binding's index is its
+    // position among the shader's declarations. Without these two the shape buffer would be binding
+    // 0, which is the atlas, and the box would read a texture as a storage buffer.
+    [PerFrame] var atlas: Texture2D
+    [PerFrame] var atlasSampler: Sampler
+
+    [PerFrame] var shapes: Buffer<UiShape>
+
+    /// Offset from the box's centre, in pixels.
+    stream var uv: float2
+
+    stream var colour: float4
+    stream var shape: float4
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        // ⚠ The index the vertex stage put in `shape.x`, rounded rather than truncated. The same at
+        // all four corners of a quad, so interpolating it is exact — until an index large enough
+        // that a float stops holding it exactly, past sixteen million boxes, where the last bit is a
+        // box drawn with another box's radii.
+        val box = shapes[int(shape.x + 0.5f)]
+
+        val halfSize = box.size.xy
+        val distance = BoxDistance(uv, halfSize, CornerRadius(box, uv))
+        val width = max(Ui.PixelWidth(distance), 0.0001f)
+        val blur = box.axis.z
+
+        // A blurred box is a shadow, and its edge is the blur rather than a pixel. Branching here
+        // rather than in a second shader because everything above this line — the corner selection,
+        // the elliptical distance — is the same work, and a shadow that disagreed with its own box
+        // about where the boundary is would sit visibly off it.
+        var coverage = blur > 0f ? ShadowCoverage(distance, blur) : Ui.Coverage(distance, width)
+
+        val thickness = box.size.z
+
+        if (thickness > 0f) {
+            // The border is the band between the edge and `thickness` inside it. Taken as the
+            // difference of two coverages rather than drawn as a second shape, so the two share one
+            // antialiased outer edge and cannot disagree about where it is.
+            coverage -= Ui.Coverage(distance + thickness, width)
+        }
+
+        var fill = colour
+
+        if (box.size.w > 0f) {
+            // ⚠ The gradient runs across the box's own extent along the axis, so the same axis means
+            // the same picture whatever the box's size — which is what lets one style be shared by a
+            // column of buttons of different heights. Normalised by the projection of the half size
+            // onto the axis, because that is how far the axis reaches before it leaves the box.
+            val axis = normalize(box.axis.xy)
+            val reach = abs(axis.x * halfSize.x) + abs(axis.y * halfSize.y)
+            val t = saturate(dot(uv, axis) / max(reach, 0.0001f) * 0.5f + 0.5f)
+
+            fill = lerp(colour, box.endColour, t)
+        }
+
+        return Ui.Premultiply(float4(fill.rgb, fill.a * coverage))
+    }
+
+    /// A shadow's coverage: the same distance, faded over the blur radius instead of over a pixel.
+    ///
+    /// ⚠ `smoothstep` rather than a linear ramp, and it matters. A linear falloff has a corner in it
+    /// at both ends, and a corner in the alpha of a large soft shadow is visible as a ring — the eye
+    /// finds the second derivative of a gradient far more readily than the first. The cubic is not a
+    /// Gaussian either, but it is C1 at both ends, which is the property that makes it look like
+    /// light.
+    func ShadowCoverage(distance: float, blur: float): float => 1f - smoothstep(-blur, blur, distance)
+
+    /// The radius of the corner this pixel is nearest, from the four authored pairs.
+    func CornerRadius(box: UiShape, point: float2): float2 {
+        val top = point.y < 0f
+        val left = point.x < 0f
+
+        // Clockwise from the top left: TL, TR, BR, BL.
+        val index = top ? (left ? 0 : 1) : (left ? 3 : 2)
+        return float2(box.radiiX[index], box.radiiY[index])
+    }
+
+    /// The signed distance to a box with an elliptical corner, negative inside.
+    ///
+    /// `q` is the offset from the corner ellipse's *centre*, which sits a radius in from each edge —
+    /// so `q <= 0` on an axis means this pixel is in the band where the boundary is that straight
+    /// edge, and only the quadrant where both are positive is the ellipse at all. Getting that wrong
+    /// is not a rounding error: measuring from the ellipse's centre where the edge is straight
+    /// reports every pixel down the flat part of the side as being a radius further out than it is,
+    /// and the box comes back with its whole left edge eaten away.
+    ///
+    /// ⚠ In the corner quadrant the ellipse is turned into a circle by scaling, and the distance
+    /// scaled back by the *smaller* semi-axis. The exact distance to an ellipse has no closed form
+    /// and is solved iteratively; this is exact on the axes and within a fraction of a pixel between
+    /// them, which is all a one-pixel antialiasing band can tell apart. Scaling back by the larger
+    /// axis instead leaves the edge soft on the flat side of a wide corner.
+    func BoxDistance(point: float2, halfSize: float2, radius: float2): float {
+        val r = min(max(radius, float2(0f)), halfSize)
+        val q = abs(point) - halfSize + r
+
+        if (r.x <= 0f || r.y <= 0f) {
+            val square = abs(point) - halfSize
+            return length(max(square, float2(0f))) + min(max(square.x, square.y), 0f)
+        }
+
+        if (q.x <= 0f && q.y <= 0f) {
+            // Inside the inner rectangle, where the nearest boundary is whichever straight edge is
+            // closer.
+            return max(q.x - r.x, q.y - r.y)
+        }
+
+        if (q.x <= 0f) {
+            return q.y - r.y
+        }
+
+        if (q.y <= 0f) {
+            return q.x - r.x
+        }
+
+        return (length(q / r) - 1f) * min(r.x, r.y)
+    }
+}
+
+/// Multi-channel signed distance field text.
+///
+/// A single-channel field rounds off corners, because one distance cannot describe two edges meeting
+/// at a point — which is what a serif is made of. Three fields whose median reconstructs the true
+/// shape keep the corner. The median is the whole trick, and it is why the three channels must never
+/// be treated as a colour.
+shader UiText {
+    [PerFrame] var atlas: Texture2D
+    [PerFrame] var atlasSampler: Sampler
+
+    stream var uv: float2
+    stream var colour: float4
+
+    /// x: screen pixels per unit of the field's range.
+    stream var shape: float4
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        // The atlas is sampled linearly and never as sRGB: the values are distances, not light.
+        // Decoding them as colour is the classic mistake and shows as text that is too thin.
+        val field = atlas.Sample(atlasSampler, uv).rgb
+        val distance = Median(field.r, field.g, field.b) - 0.5f
+
+        // One atlas serves every size because the range arrives already scaled by the size being
+        // drawn.
+        val coverage = saturate(distance * max(shape.x, 0.0001f) + 0.5f)
+
+        return Ui.Premultiply(float4(colour.rgb, colour.a * coverage))
+    }
+
+    /// Branchless via min and max: three comparisons and no divergence, where a sort costs more for
+    /// the same answer.
+    func Median(a: float, b: float, c: float): float => max(min(a, b), min(max(a, b), c))
+}
+
+/// Tessellated paths: the one UI primitive that is real geometry rather than a distance field.
+///
+/// A triangle carries no signed distance to its own boundary, so its edge cannot be resolved here the
+/// way a box's or a glyph's is. What it carries instead is a coverage the tessellator interpolated —
+/// one across the interior, running to zero over a half-pixel strip along the outline. That is the
+/// whole of the antialiasing, and it is why this shader reads `shape.x` for the same reason the text
+/// one does.
+shader UiSolid {
+    stream var uv: float2
+    stream var colour: float4
+    stream var shape: float4
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 => Ui.Premultiply(float4(colour.rgb, colour.a * saturate(shape.x)))
+}
+
+/// A texture drawn into the interface: an image, a video frame, a viewport's render target.
+///
+/// The same two bindings the text shader has, and deliberately so — one descriptor set layout serves
+/// both, so an image costs a set to allocate and nothing to design. What differs is what the sample
+/// *means*: text reads three distance channels and reconstructs a coverage from them, and this reads
+/// a colour and believes it.
+shader UiImage {
+    [PerFrame] var source: Texture2D
+    [PerFrame] var sourceSampler: Sampler
+
+    stream var uv: float2
+
+    /// The tint, linear and straight-alpha.
+    stream var colour: float4
+
+    stream var shape: float4
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        val sampled = source.Sample(sourceSampler, uv)
+
+        // ⚠ The sampled texture is straight alpha and the target is premultiplied, which is what the
+        // other three pipelines write and therefore what the blend state expects. Multiplying the
+        // tint's alpha in as well is what makes a faded-out image fade rather than turn into a dark
+        // rectangle.
+        val alpha = sampled.a * colour.a
+
+        return float4(sampled.rgb * colour.rgb * alpha, alpha)
+    }
+}

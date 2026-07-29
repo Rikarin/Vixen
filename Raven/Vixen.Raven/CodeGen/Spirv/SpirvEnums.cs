@@ -89,6 +89,7 @@ public enum SpirvBuiltIn {
     Position = 0,
     PointSize = 1,
     FragCoord = 15,
+    FrontFacing = 17,
     FragDepth = 22,
 
     // The stage-supplied values. Numbers are from the SPIR-V spec's BuiltIn table; the names
@@ -121,6 +122,7 @@ public static class SpirvBuiltIns {
             Symbols.StageBuiltIn.GroupIndex => SpirvBuiltIn.LocalInvocationIndex,
             Symbols.StageBuiltIn.VertexId => SpirvBuiltIn.VertexIndex,
             Symbols.StageBuiltIn.InstanceId => SpirvBuiltIn.InstanceIndex,
+            Symbols.StageBuiltIn.IsFrontFace => SpirvBuiltIn.FrontFacing,
             _ => throw new ArgumentOutOfRangeException(nameof(builtIn), builtIn, "Not a stage built-in.")
         };
 }

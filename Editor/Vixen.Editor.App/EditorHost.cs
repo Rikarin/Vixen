@@ -9,6 +9,7 @@ using Vixen.Graphics.RenderGraph;
 using Vixen.Graphics.Vulkan;
 using Vixen.Platform;
 using Vixen.Rendering;
+using Vixen.Shaders.Generated;
 using Vixen.Ui.Renderer;
 using Vixen.Ui.Rendering;
 using Vixen.Ui.Text;
@@ -357,15 +358,25 @@ sealed class EditorHost : IDisposable {
         renderer = new UiRenderer(
             device,
             new UiShaders(
-                device.CreateShader(ShaderStage.Vertex, Module("ui.vert.spv"), "ui vertex"),
-                device.CreateShader(ShaderStage.Fragment, Module("ui-box.frag.spv"), "ui box"),
-                device.CreateShader(ShaderStage.Fragment, Module("ui-text.frag.spv"), "ui text"),
-                device.CreateShader(ShaderStage.Fragment, Module("ui-solid.frag.spv"), "ui solid")
+                device.CreateShader(ShaderStage.Vertex, Module("UiVertex.vert.spv"), "ui vertex"),
+                device.CreateShader(ShaderStage.Fragment, Module("UiBox.frag.spv"), "ui box"),
+                device.CreateShader(ShaderStage.Fragment, Module("UiText.frag.spv"), "ui text"),
+                device.CreateShader(ShaderStage.Fragment, Module("UiSolid.frag.spv"), "ui solid")
             ) {
                 // The stage a viewport's render target is drawn through. Supplied here rather than
                 // assumed by the renderer, for the reason UiShaders gives: turning source into
                 // modules is Raven's job and this host hands over what it has.
-                Image = device.CreateShader(ShaderStage.Fragment, Module("ui-image.frag.spv"), "ui image")
+                Image = device.CreateShader(ShaderStage.Fragment, Module("UiImage.frag.spv"), "ui image"),
+
+                // ⚠ Read out of Raven's reflection rather than written down. Shaders/Ui.rvn declares
+                // three streams, so its attributes are at 3..6 — and a stream added to it moves them
+                // without anything here having to notice.
+                Locations = new(
+                    UiVertexKeys.PositionLocation,
+                    UiVertexKeys.TexcoordLocation,
+                    UiVertexKeys.VertexColourLocation,
+                    UiVertexKeys.VertexShapeLocation
+                )
             },
             new Rendering.RenderOutput([swapChain.Format])
         );
@@ -377,13 +388,17 @@ sealed class EditorHost : IDisposable {
         scene = new ScenePresenter(
             device,
             new LineShaders(
-                device.CreateShader(ShaderStage.Vertex, Module("line.vert.spv"), "line vertex"),
-                device.CreateShader(ShaderStage.Fragment, Module("line.frag.spv"), "line fragment")
-            ),
+                device.CreateShader(ShaderStage.Vertex, Module("LineVertex.vert.spv"), "line vertex"),
+                device.CreateShader(ShaderStage.Fragment, Module("LineFragment.frag.spv"), "line fragment")
+            ) {
+                Locations = new(LineVertexKeys.PositionLocation, LineVertexKeys.VertexColourLocation)
+            },
             new MeshShaders(
-                device.CreateShader(ShaderStage.Vertex, Module("mesh.vert.spv"), "mesh vertex"),
-                device.CreateShader(ShaderStage.Fragment, Module("mesh.frag.spv"), "mesh fragment")
-            ),
+                device.CreateShader(ShaderStage.Vertex, Module("Mesh.vert.spv"), "mesh vertex"),
+                device.CreateShader(ShaderStage.Fragment, Module("Mesh.frag.spv"), "mesh fragment")
+            ) {
+                Locations = new(MeshKeys.PositionLocation, MeshKeys.NormalLocation, MeshKeys.VertexColourLocation)
+            },
             PixelFormat.Rgba8UNorm
         );
 
@@ -437,8 +452,8 @@ sealed class EditorHost : IDisposable {
     /// <remarks>
     ///     ⚠ Found by suffix rather than named outright: the manifest name is the root namespace
     ///     plus the folder plus the file, so it is
-    ///     <c>Vixen.Editor.App.Shaders.ui.vert.spv</c> rather than anything a reader would guess —
-    ///     and it changes if the assembly is renamed.
+    ///     <c>Vixen.Editor.App.Shaders.UiVertex.vert.spv</c> rather than anything a reader would
+    ///     guess — and it changes if the assembly is renamed.
     /// </remarks>
     static byte[] Module(string name) {
         var assembly = Assembly.GetExecutingAssembly();
