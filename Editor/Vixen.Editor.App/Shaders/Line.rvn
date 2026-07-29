@@ -1,0 +1,40 @@
+package Vixen.Editor.Shaders
+
+// A world-space line segment: the grid, the axis markers, the parent links, the gizmo.
+//
+// Two shaders rather than one carrying both stages, for one reason: `LineRenderer` declares its
+// push-constant range for the vertex stage alone, and Raven puts a shader's push block into every
+// module it emits. A single shader would give the fragment module a block the pipeline layout does
+// not cover for that stage, which is a validation error at pipeline creation. The split says the
+// same thing the layout does — only the vertex stage reads the matrix.
+
+/// The vertex stage: there is no model matrix because a line is already where it is.
+///
+/// A grid line, a debug ray and a gizmo arm are all authored in world space by whatever produced
+/// them, which is what makes a whole viewport's geometry one buffer and one draw.
+shader LineVertex {
+    /// Sixty-four bytes, which is the guaranteed minimum push-constant size — a matrix and nothing
+    /// else, so this fits everywhere without asking the device what it allows.
+    [PushConstant] var viewProjection: mat4
+
+    stream var colour: float4
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(position: float3, vertexColour: float4): float4 {
+        colour = vertexColour
+        return viewProjection * float4(position, 1f)
+    }
+}
+
+shader LineFragment {
+    stream var colour: float4
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        // Premultiplied, which is what the alpha blend state expects — a grid whose distant lines
+        // fade is the whole reason these carry an alpha at all.
+        return float4(colour.rgb * colour.a, colour.a)
+    }
+}

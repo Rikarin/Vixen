@@ -39,7 +39,19 @@ public enum StageBuiltIn {
     VertexId,
 
     /// <summary>Which instance is being drawn, counting from the draw's first instance.</summary>
-    InstanceId
+    InstanceId,
+
+    /// <summary>
+    ///     Whether the triangle this fragment came from faces the viewer.
+    /// </summary>
+    /// <remarks>
+    ///     What a two-sided pipeline is shaded with: the inside of an open shape — a plane seen
+    ///     from below, a cone with the camera inside it — arrives with its normal pointing away,
+    ///     and flipping it there is the difference between a surface you can judge the shape of and
+    ///     one that is flat black. There is nothing a shader could compute this from; the
+    ///     rasterizer is the only thing that knows which winding it saw.
+    /// </remarks>
+    IsFrontFace
 }
 
 /// <summary>
@@ -122,7 +134,13 @@ public static class StageBuiltIns {
         // integer under Vulkan. Declaring `uint` would put a conversion nobody wrote in front of
         // every use.
         new("SV_VertexID", StageBuiltIn.VertexId, ShaderStage.Vertex, BuiltInTypes.Int, "gl_VertexIndex"),
-        new("SV_InstanceID", StageBuiltIn.InstanceId, ShaderStage.Vertex, BuiltInTypes.Int, "gl_InstanceIndex")
+        new("SV_InstanceID", StageBuiltIn.InstanceId, ShaderStage.Vertex, BuiltInTypes.Int, "gl_InstanceIndex"),
+
+        // The one built-in whose type is `bool`, and the one place a boolean reaches a stage
+        // interface at all: `RVN2103` keeps a stream out of one because Vulkan has no boolean
+        // interface *type*, and this is not one — `gl_FrontFacing` and SPIR-V's `FrontFacing` are
+        // both declared bool by the target itself, so there is nothing here for a host to lay out.
+        new("SV_IsFrontFace", StageBuiltIn.IsFrontFace, ShaderStage.Fragment, BuiltInTypes.Bool, "gl_FrontFacing")
     ];
 
     static readonly Dictionary<(string Semantic, ShaderStage Stage), StageBuiltInInfo> Table =

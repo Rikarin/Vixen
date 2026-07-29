@@ -64,15 +64,35 @@
         <!--
             SPIR-V, committed, for the reason Samples/01 and Samples/02 give: `UiRenderer`'s modules
             are supplied rather than compiled, because turning shader source into modules belongs to
-            Raven — which already carries Ui/Msdf.rvn and Ui/RoundedRect.rvn for exactly this. Until
-            that path is wired a caller hands over whatever it has, and these four are byte for byte
-            the sample's, so the editor and the golden-image fixture cannot disagree about what the
-            shaders do.
+            Raven. The source beside them is Raven's now — Shaders/*.rvn — so what is committed is
+            the output of a compiler in this repository rather than of `glslc` on someone's machine.
 
-            Regenerating: `glslc Shaders/ui.vert -o Shaders/ui.vert.spv`, and likewise for the three
-            fragment stages.
+            Regenerating is one `raven compile` per .rvn — the command is in Shaders/README.md,
+            because MSBuild will not have the double dash a command line needs anywhere in an XML
+            comment. Its `emit-reflection` flag is not optional: the .reflect.json is what the
+            generator below reads, and a module regenerated without it is a module whose attribute
+            locations the host is still being told the old values for.
         -->
         <EmbeddedResource Include="Shaders\*.spv" />
+
+        <!--
+            The bindings generator turns each .reflect.json into the constants this host binds
+            against: where each descriptor goes, and — the reason it is wired up here — which vertex
+            attribute location each stage reads. That number is Raven's decision, not this
+            application's: `StreamPlan` locates a stage's own parameters after the shader's streams,
+            so Ui.rvn's four attributes are at 3..6 rather than 0..3, and adding a stream to the
+            vertex shader moves them again.
+
+            ⚠ A wrong location is not a validation error. The pipeline binds nothing to that
+            attribute and the stage reads whatever the driver left there — an interface drawn from
+            uninitialized memory, on one driver, silently. Reading the number back out of the
+            compiler's own output is what makes that unable to happen.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Shaders.Generators\Vixen.Shaders.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <AdditionalFiles Include="Shaders\*.reflect.json" />
     </ItemGroup>
 
 </Project>

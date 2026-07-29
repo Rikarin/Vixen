@@ -1,0 +1,56 @@
+package Vixen.Editor.Shaders
+
+// A world-space triangle. Position, normal and colour per vertex, and the view-projection in a push
+// constant — there is no model matrix for the same reason `Line` has none: what arrives here has
+// already been placed by whatever produced it, which is what makes a whole viewport's geometry one
+// buffer and one draw.
+//
+// One shader carrying both stages, where `Line` is two, and the difference is which stages read the
+// push constants: `MeshRenderer` declares its range for `Vertex | Fragment`, because the fragment
+// stage reads the light. So the block Raven emits into both modules is a block the pipeline layout
+// covers for both, and there is nothing to split.
+
+shader Mesh {
+    /// Eighty bytes, well under the hundred and twenty-eight every implementation guarantees.
+    [PushConstant] var viewProjection: mat4
+
+    /// The direction the light travels in xyz, and the ambient term in w.
+    [PushConstant] var light: float4 = float4(0f, -1f, 0f, 0.2f)
+
+    /// ⚠ Passed through unnormalised: it is unit length per vertex and the interpolation between two
+    /// unit vectors is not, so the fragment stage normalises once rather than this doing it twice.
+    stream var normalWS: float3
+
+    stream var colour: float4
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(position: float3, normal: float3, vertexColour: float4): float4 {
+        normalWS = normal
+        colour = vertexColour
+
+        return viewProjection * float4(position, 1f)
+    }
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment([Semantic("SV_IsFrontFace")] frontFacing: bool): float4 {
+        var surface = normalize(normalWS)
+
+        // The pipeline is two-sided, so the inside of an open shape — a plane seen from below, a
+        // cone with the camera inside it — arrives with its normal pointing away from the viewer.
+        // Flipping it lights that face rather than leaving it flat black, which is what an editor
+        // wants: a surface you can see is a surface you can judge the shape of.
+        if (!frontFacing) {
+            surface = -surface
+        }
+
+        val lambert = max(dot(surface, -normalize(light.xyz)), 0f)
+        val shade = light.w + (1f - light.w) * lambert
+
+        // Premultiplied, which is what the blend state expects — the same convention `LineFragment`
+        // writes in.
+        val lit = colour.rgb * shade
+        return float4(lit * colour.a, colour.a)
+    }
+}

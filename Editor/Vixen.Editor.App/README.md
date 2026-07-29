@@ -29,6 +29,10 @@ the document, run the layout and draw passes, turn the draw list into geometry, 
 into a frame. Only the last knows what a GPU is — which is why `--frames` means something on a
 machine with no Vulkan at all.
 
+`Shaders/` is the fifth thing and is its own README: nine SPIR-V modules from three Raven sources, and
+the reflection beside them that tells `EditorHost` where each vertex attribute and each descriptor
+went.
+
 ## Not Vixen.App, and the reason is the frame loop
 
 `Tools/Vixen.App` exists to run a game: it builds an ECS world, a fixed-step accumulator and a
@@ -238,8 +242,13 @@ rebuilt; without it, closing and reopening the viewport puts the user back at th
   frozen at forty per cent.
 - **One scene per project, chosen by path rather than by a dialog.** `Assets/Scenes/Main.vxscene`,
   because picking another needs a file dialog that `Vixen.Platform` does not have.
-- **The four SPIR-V modules are committed here and in `Samples/02-HelloUi`**, byte for byte. They
-  belong in one place once Raven's `Ui/*.rvn` path is wired; until then a caller hands the renderer
-  whatever it has.
+- **`Samples/02-HelloUi` still carries the interface shaders as GLSL**, and so does
+  `Platform/Vixen.Graphics.Golden.Tests`. This project's are Raven now — `Shaders/*.rvn`, and
+  [`Shaders/README.md`](Shaders/README.md) says how they are built — so the three copies are no
+  longer byte for byte, and the way that already bit was `ui-box.frag`: the golden fixture's copy
+  grew shadow blur and the editor's did not, so the editor could not draw a box shadow that every
+  other consumer of `UiShape` could. The Raven port is the current behaviour and the duplication is
+  still the gap. What closes it is one set of `.rvn` the three of them share, which is a move rather
+  than a rewrite now that there is somewhere to move from.
 - **`PlatformInput.cs` is the second copy of the same file.** The sample's copy says a
   `Vixen.Platform.Ui` assembly is where it goes "when the editor becomes the second one". It now has.

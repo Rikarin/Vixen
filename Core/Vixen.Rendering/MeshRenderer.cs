@@ -26,7 +26,18 @@ public readonly record struct MeshVertex(Vector3 Position, Vector3 Normal, Color
 /// </remarks>
 /// <param name="Vertex">The vertex stage.</param>
 /// <param name="Fragment">The fragment stage.</param>
-public readonly record struct MeshShaders(ShaderHandle Vertex, ShaderHandle Fragment);
+public readonly record struct MeshShaders(ShaderHandle Vertex, ShaderHandle Fragment) {
+    /// <summary>
+    ///     Where the vertex stage reads <see cref="MeshVertex" />'s three attributes: position,
+    ///     normal, then colour.
+    /// </summary>
+    /// <remarks>
+    ///     Left unset for a stage compiled from the GLSL beside this file, whose attributes are at
+    ///     0, 1 and 2. A Raven stage declaring two streams has them at 2, 3 and 4 — see
+    ///     <see cref="VertexLocations" /> for why the number belongs to the shader.
+    /// </remarks>
+    public VertexLocations Locations { get; init; }
+}
 
 /// <summary>Draws world-space triangles: a block-out primitive, a debug hull, a preview.</summary>
 /// <remarks>
@@ -133,6 +144,8 @@ public sealed class MeshRenderer : IDisposable {
         this.device = device;
         slots = Math.Max(1, device.FramesInFlight);
 
+        shaders.Locations.Require(3, nameof(MeshRenderer));
+
         // Eighty bytes: the view-projection, then the light direction and the ambient term as one
         // vector four. Under the hundred and twenty-eight every Vulkan implementation guarantees, so
         // this needs nothing asked of the device.
@@ -150,9 +163,9 @@ public sealed class MeshRenderer : IDisposable {
                     new(
                         Marshal.SizeOf<MeshVertex>(),
                         [
-                            new(0, VertexFormat.Float32X3, 0),
-                            new(1, VertexFormat.Float32X3, 12),
-                            new(2, VertexFormat.Float32X4, 24)
+                            new(shaders.Locations[0], VertexFormat.Float32X3, 0),
+                            new(shaders.Locations[1], VertexFormat.Float32X3, 12),
+                            new(shaders.Locations[2], VertexFormat.Float32X4, 24)
                         ]
                     )
                 ],

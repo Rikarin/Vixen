@@ -87,16 +87,28 @@ rather than in the upload.
 
 ### Where the shaders come from
 
-`UiShaders` is handed over, not built. Compiling shader source belongs to `Vixen.Shaders` and, once
-it lands, to Raven — which already carries `Raven/Library/Ui/Msdf.rvn` and `RoundedRect.rvn` for
-exactly this. Until then a caller supplies whatever it has: the golden fixture uses hand-written GLSL
-compiled by `glslc` and committed as SPIR-V, and a game will supply an effect. What this assembly
-must not grow is a compiler.
+`UiShaders` is handed over, not built. Compiling shader source belongs to `Vixen.Shaders` and to
+Raven; a caller supplies whatever it has. The golden fixture uses hand-written GLSL compiled by
+`glslc` and committed as SPIR-V, `Vixen.Editor.App` supplies Raven's output from its own
+`Shaders/Ui.rvn`, and a game will supply an effect. What this assembly must not grow is a compiler.
 
-⚠ The Raven shaders take the box's size and radii as **uniforms**, so one draw is one box. The
-pipelines here take them **per vertex**, so one draw is a whole batch. That is a real divergence and
-the reason for it is that a user interface draws hundreds of boxes with different sizes per frame; it
-has to be reconciled when Raven takes over, and the vertex layout is the thing that stays.
+⚠ **`Raven/Library/Ui/Msdf.rvn` and `RoundedRect.rvn` are not these shaders**, and the difference is
+not a porting gap. They take the box's size and radii as **uniforms**, so one draw is one box; these
+pipelines take them **per vertex** and out of a shape buffer, so one draw is a whole batch. A user
+interface draws hundreds of boxes of different sizes per frame, so the batched form is the one that
+stays — which is what the editor's `Ui.rvn` is, and what a library shader would have to become before
+it could be used here.
+
+### And where the numbers in a vertex layout come from
+
+`Locations` is the second thing a caller may hand over, and it exists because an attribute's location
+is a property of the *shader*: Raven locates a stage's own parameters after the shader's streams, so
+the editor's four attributes are at 3 to 6 where `glslc` output has them at 0 to 3.
+
+⚠ Getting it wrong is not a validation error. The pipeline binds nothing to that attribute and the
+stage reads whatever the driver left there. So it is passed rather than assumed, and what passes it is
+`Vixen.Shaders.Generators` reading the shader's own reflection — a number nobody wrote down cannot be
+out of date.
 
 ## One render object per surface
 

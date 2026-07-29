@@ -223,4 +223,124 @@ public class StageBuiltInTests {
         GenerateClean(Triangle);
         GenerateClean(Triangle, "spirv");
     }
+
+    /// <summary>
+    ///     <c>SV_IsFrontFace</c>, which is the fragment stage's entry in the same table — and the
+    ///     one built-in whose type is <c>bool</c>.
+    /// </summary>
+    /// <remarks>
+    ///     A two-sided pipeline has no other way to shade the inside of an open shape: the normal
+    ///     arrives pointing away from the viewer and only the rasterizer knows which winding it
+    ///     saw. What it cost beyond a table row is the exemption below — <c>StageInterface</c>
+    ///     refuses a boolean because a <em>located</em> interface variable has no boolean
+    ///     representation, and a built-in has no location for that rule to be about.
+    /// </remarks>
+    const string TwoSided = """
+                            package A
+
+                            shader S {
+                                stream var normalWS: float3
+
+                                [VertexShader]
+                                [Semantic("SV_Position")]
+                                func Vertex(position: float3, normal: float3): float4 {
+                                    normalWS = normal
+                                    return float4(position, 1f)
+                                }
+
+                                [FragmentShader]
+                                [Semantic("SV_Target")]
+                                func Fragment([Semantic("SV_IsFrontFace")] frontFacing: bool): float4 {
+                                    var surface = normalize(normalWS)
+
+                                    if (!frontFacing) {
+                                        surface = -surface
+                                    }
+
+                                    return float4(surface, 1f)
+                                }
+                            }
+
+                            """;
+
+    [Fact]
+    public void The_table_answers_for_the_fragment_stage_and_not_for_others() {
+        var builtIn = StageBuiltIns.Of("SV_IsFrontFace", ShaderStage.Fragment);
+
+        Assert.NotNull(builtIn);
+        Assert.Equal(StageBuiltIn.IsFrontFace, builtIn.BuiltIn);
+        Assert.Equal("gl_FrontFacing", builtIn.GlslName);
+        Assert.Same(BuiltInTypes.Bool, builtIn.Type);
+
+        // The vertex table is open, so an unrecognised name there is an ordinary attribute rather
+        // than this built-in reached from the wrong stage.
+        Assert.Null(StageBuiltIns.Of("SV_IsFrontFace", ShaderStage.Vertex));
+        Assert.Null(StageBuiltIns.Of("SV_IsFrontFace", ShaderStage.Compute));
+    }
+
+    [Fact]
+    public void GLSL_threads_gl_FrontFacing_through_and_declares_no_input_for_it() {
+        var unit = Assert.Single(GenerateClean(TwoSided), u => u.Name.EndsWith(".frag", StringComparison.Ordinal));
+
+        Assert.Contains("Fragment(gl_FrontFacing)", unit.Code, StringComparison.Ordinal);
+        Assert.DoesNotContain("in_frontFacing", unit.Code, StringComparison.Ordinal);
+
+        // The stream keeps location 0: a built-in consumed nothing, here as on the vertex stage.
+        Assert.Contains("layout(location = 0) in vec3 in_normalWS;", unit.Code, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     A boolean is refused as a <em>located</em> input and accepted as a built-in, which is
+    ///     the whole of the distinction <c>StageInterface</c> now draws.
+    /// </summary>
+    [Fact]
+    public void SPIR_V_decorates_the_boolean_BuiltIn_FrontFacing() {
+        if (!SpirvTestBase.ValidatorAvailable) {
+            return;
+        }
+
+        var listing = ReferenceCompiler.Disassemble(
+            Assert.Single(GenerateClean(TwoSided, "spirv"), u => u.Name.EndsWith(".frag", StringComparison.Ordinal))
+                .Binary!
+        );
+
+        Assert.Contains("OpDecorate %in_frontFacing BuiltIn FrontFacing", listing, StringComparison.Ordinal);
+        Assert.DoesNotContain("OpDecorate %in_frontFacing Location", listing, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_boolean_that_is_not_a_built_in_is_still_refused() {
+        var error = Assert.Single(
+            SemanticTestBase.Diagnose(
+                """
+                package A
+
+                shader S {
+                    stream var lit: bool
+
+                    [VertexShader]
+                    [Semantic("SV_Position")]
+                    func Vertex(position: float3): float4 {
+                        lit = position.x > 0f
+                        return float4(position, 1f)
+                    }
+                }
+
+                """
+            ),
+            d => d.Id == "RVN2103"
+        );
+
+        Assert.True(error.IsError);
+    }
+
+    [Fact]
+    public void It_is_absent_from_the_vertex_layout_the_host_binds() {
+        var module = LoweringTestBase.Lower(TwoSided);
+        var reflection = ReflectionBuilder.Describe(LoweringTestBase.FindShader(module, "S"));
+
+        // Only what a vertex buffer feeds. A fragment built-in was never a candidate, but the
+        // list is the vertex layout and a claim about it is worth pinning.
+        Assert.Equal(["position", "normal"], reflection.VertexInputs.Select(input => input.Name));
+    }
 }

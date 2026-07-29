@@ -1,0 +1,73 @@
+{
+  "Sets": [],
+  "VertexInputs": [
+    {
+      "Location": 1,
+      "Name": "position",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Semantic": null
+    },
+    {
+      "Location": 2,
+      "Name": "vertexColour",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Semantic": null
+    }
+  ],
+  "Outputs": [],
+  "PushConstants": [
+    {
+      "Name": "LineVertexPushConstants",
+      "Offset": 0,
+      "Size": 64,
+      "Stages": "Vertex",
+      "Members": [
+        {
+          "Name": "viewProjection",
+          "Type": {
+            "Scalar": "Float",
+            "Rows": 4,
+            "Columns": 4,
+            "ArrayLength": null,
+            "StructName": null,
+            "IsMatrix": true,
+            "IsArray": false,
+            "IsStruct": false
+          },
+          "Offset": 0,
+          "Size": 64,
+          "ArrayStride": 0,
+          "MatrixStride": 16,
+          "DefaultValue": ""
+        }
+      ]
+    }
+  ],
+  "SpecConstants": [],
+  "Permutations": [],
+  "ValueParameters": [],
+  "Parameters": [],
+  "RequiredCapabilities": [],
+  "UsedPermutationKeys": [],
+  "Stages": [
+    "Vertex"
+  ]
+}

@@ -60,6 +60,17 @@ public static class LightingKeys {
     /// <summary>Which binding within set 2 <c>overflow</c> occupies.</summary>
     public const uint OverflowBinding = 3;
 
+    // --- Vertex attributes: where the vertex stage expects each one. See the remarks above.
+
+    /// <summary>How many attributes the vertex stage takes from a buffer.</summary>
+    public const int VertexAttributeCount = 2;
+
+    /// <summary>Which location the vertex stage reads <c>position</c> from.</summary>
+    public const uint PositionLocation = 1;
+
+    /// <summary>Which location the vertex stage reads <c>texcoord</c> from.</summary>
+    public const uint TexcoordLocation = 2;
+
     // --- Value keys: what a name-driven caller fills the block through.
 
     /// <summary><c>worldViewProjection</c> at byte 0.</summary>

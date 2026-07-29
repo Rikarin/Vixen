@@ -1,0 +1,31 @@
+{
+  "Sets": [],
+  "VertexInputs": [],
+  "Outputs": [
+    {
+      "Location": 0,
+      "Name": "result",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Semantic": "SV_Target"
+    }
+  ],
+  "PushConstants": [],
+  "SpecConstants": [],
+  "Permutations": [],
+  "ValueParameters": [],
+  "Parameters": [],
+  "RequiredCapabilities": [],
+  "UsedPermutationKeys": [],
+  "Stages": [
+    "Fragment"
+  ]
+}

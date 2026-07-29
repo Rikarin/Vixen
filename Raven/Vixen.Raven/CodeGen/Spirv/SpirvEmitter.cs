@@ -313,11 +313,17 @@ sealed partial class SpirvEmitter {
 
         for (var i = 0; i < entryPoint.Inputs.Count; i++) {
             var input = entryPoint.Inputs[i];
-            var variable = DeclareStageVariable(input, SpirvStorageClass.Input, "in_" + input.Name);
+            var builtIn = StageBuiltIns.Of(input.Semantic, entryPoint.Stage);
+            var variable = DeclareStageVariable(
+                input,
+                SpirvStorageClass.Input,
+                "in_" + input.Name,
+                located: builtIn is null
+            );
 
             // `Location` and `BuiltIn` are mutually exclusive, so a pipeline-supplied value takes
             // the second and the plan gave it no location to spend.
-            if (StageBuiltIns.Of(input.Semantic, entryPoint.Stage) is { } builtIn) {
+            if (builtIn is not null) {
                 module.Decorate(
                     variable,
                     SpirvDecoration.BuiltIn,
@@ -333,7 +339,13 @@ sealed partial class SpirvEmitter {
         var outputLocation = (uint)StreamPlan.OutputBase(shader, entryPoint.Stage);
 
         foreach (var output in entryPoint.Outputs) {
-            var variable = DeclareStageVariable(output, SpirvStorageClass.Output, "out_" + output.Name);
+            var variable = DeclareStageVariable(
+                output,
+                SpirvStorageClass.Output,
+                "out_" + output.Name,
+                located: !OutputGoesToBuiltIn()
+            );
+
             outputs.Add((output, variable));
 
             if (OutputGoesToBuiltIn()) {
@@ -357,7 +369,7 @@ sealed partial class SpirvEmitter {
     /// </remarks>
     void EmitComputeInterface() {
         foreach (var input in entryPoint.Inputs) {
-            var variable = DeclareStageVariable(input, SpirvStorageClass.Input, "in_" + input.Name);
+            var variable = DeclareStageVariable(input, SpirvStorageClass.Input, "in_" + input.Name, located: false);
 
             module.Decorate(
                 variable,
@@ -383,7 +395,8 @@ sealed partial class SpirvEmitter {
         var variable = DeclareStageVariable(
             new(stream.Name, stream.Type, null),
             storage,
-            prefix + stream.Name
+            prefix + stream.Name,
+            located: true
         );
 
         module.Decorate(
@@ -395,11 +408,17 @@ sealed partial class SpirvEmitter {
         return variable;
     }
 
-    uint DeclareStageVariable(IrStageIo io, SpirvStorageClass storage, string name) {
+    /// <param name="located">
+    ///     Whether this variable takes a <c>Location</c>. False for one that takes a
+    ///     <c>BuiltIn</c> instead, which is what exempts it from the check below — see
+    ///     <see cref="StageInterface" />. The GLSL backend skips the same check for the same
+    ///     variables, by declaring nothing for them at all.
+    /// </param>
+    uint DeclareStageVariable(IrStageIo io, SpirvStorageClass storage, string name, bool located) {
         // Vulkan has no boolean interface type, and an aggregate would need a location for every
         // leaf. Both are rejected rather than mis-emitted — through the shared predicate, so the
         // GLSL backend refuses exactly the same set rather than emitting `out SomeStruct`.
-        if (!StageInterface.CanCarry(io.Type)) {
+        if (located && !StageInterface.CanCarry(io.Type)) {
             Report(
                 BackendDiagnostics.NotExpressible,
                 StageInterface.Describe(io.Type, io.Name, storage == SpirvStorageClass.Input)

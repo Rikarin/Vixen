@@ -22,10 +22,29 @@ namespace Vixen.Shaders.Generators;
 /// </remarks>
 sealed class ShaderReflection {
     public List<DescriptorSet> Sets { get; } = [];
+    public List<VertexInput> VertexInputs { get; } = [];
     public List<Parameter> Parameters { get; } = [];
     public List<Permutation> Permutations { get; } = [];
     public List<string> Stages { get; } = [];
     public List<string> UsedPermutationKeys { get; } = [];
+}
+
+/// <summary>One vertex attribute: what the host feeds the vertex stage, and where.</summary>
+/// <remarks>
+///     <para>
+///         The list <em>is</em> the vertex layout — a value the pipeline supplies rather than the
+///         host is absent from it rather than listed with a placeholder — so its length is the
+///         attribute count and nothing here needs to know which parameters were built-ins.
+///     </para>
+///     <para>
+///         Raven reports a type with each, and it is deliberately not read: a format and an offset
+///         come from the host's own vertex struct, which is the half of a vertex layout the shader
+///         has no opinion about. Only the fields used are declared, as the rest of this file is.
+///     </para>
+/// </remarks>
+sealed class VertexInput {
+    public int Location { get; set; }
+    public string Name { get; set; } = string.Empty;
 }
 
 sealed class DescriptorSet {

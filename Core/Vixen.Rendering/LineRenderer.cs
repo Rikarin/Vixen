@@ -26,7 +26,18 @@ public readonly record struct LineVertex(Vector3 Position, Color4 Colour);
 /// </remarks>
 /// <param name="Vertex">The vertex stage.</param>
 /// <param name="Fragment">The fragment stage.</param>
-public readonly record struct LineShaders(ShaderHandle Vertex, ShaderHandle Fragment);
+public readonly record struct LineShaders(ShaderHandle Vertex, ShaderHandle Fragment) {
+    /// <summary>
+    ///     Where the vertex stage reads <see cref="LineVertex" />'s two attributes: position, then
+    ///     colour.
+    /// </summary>
+    /// <remarks>
+    ///     Left unset for a stage compiled from the GLSL beside this file, whose attributes are at
+    ///     0 and 1. A Raven stage declaring a stream has them at 1 and 2 — see
+    ///     <see cref="VertexLocations" /> for why the number belongs to the shader.
+    /// </remarks>
+    public VertexLocations Locations { get; init; }
+}
 
 /// <summary>Draws world-space line segments: a grid, a gizmo, a debug ray, a collider's outline.</summary>
 /// <remarks>
@@ -105,6 +116,8 @@ public sealed class LineRenderer : IDisposable {
 
         this.device = device;
         slots = Math.Max(1, device.FramesInFlight);
+
+        shaders.Locations.Require(2, nameof(LineRenderer));
 
         layout = device.CreatePipelineLayout(
             new([], [new(ShaderStage.Vertex, 0, 64)], "line")
@@ -213,7 +226,10 @@ public sealed class LineRenderer : IDisposable {
                 [
                     new(
                         Marshal.SizeOf<LineVertex>(),
-                        [new(0, VertexFormat.Float32X3, 0), new(1, VertexFormat.Float32X4, 12)]
+                        [
+                            new(shaders.Locations[0], VertexFormat.Float32X3, 0),
+                            new(shaders.Locations[1], VertexFormat.Float32X4, 12)
+                        ]
                     )
                 ],
                 PrimitiveTopology.LineList,

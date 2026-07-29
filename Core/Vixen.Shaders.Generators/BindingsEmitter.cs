@@ -180,6 +180,8 @@ static class BindingsEmitter {
             }
         }
 
+        EmitVertexInputConstants(writer, reflection);
+
         foreach (var block in blocks) {
             EmitValueKeys(writer, shaderName, reflection, block);
         }
@@ -211,6 +213,55 @@ static class BindingsEmitter {
         }
 
         writer.AppendLine("}");
+    }
+
+    /// <summary>
+    ///     Where each vertex attribute sits, and how many there are.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The same argument as <see cref="EmitBindingConstants" />, one interface over: an
+    ///         attribute location is the <em>shader's</em> decision, not the host's. Raven's
+    ///         <c>StreamPlan</c> locates a stage's own parameters after the shader's streams, so
+    ///         <c>position</c> is location 0 in a shader with no streams and location 3 in one with
+    ///         three of them — and adding a stream renumbers every attribute under it. A host that
+    ///         wrote <c>new(0, VertexFormat.Float32X2, 0)</c> by hand was writing down a number it
+    ///         could not see and would not be told about when it moved.
+    ///     </para>
+    ///     <para>
+    ///         What a wrong location produces is worth stating, because it is not a validation
+    ///         error: a pipeline whose vertex layout names a location the shader does not declare
+    ///         binds nothing to that attribute, and the stage reads whatever the driver left there.
+    ///         That is a mesh drawn with its normals in the colour slot, on one driver, silently.
+    ///     </para>
+    ///     <para>
+    ///         Offsets and formats are deliberately <em>not</em> generated. Those come from the
+    ///         host's own vertex struct — its field order and its packing — which is exactly the
+    ///         half of a vertex layout the shader has no opinion about. Generating them would mean
+    ///         inventing a struct layout Raven never saw.
+    ///     </para>
+    /// </remarks>
+    static void EmitVertexInputConstants(StringBuilder writer, ShaderReflection reflection) {
+        if (reflection.VertexInputs.Count == 0) {
+            return;
+        }
+
+        writer.AppendLine();
+        writer.AppendLine("    // --- Vertex attributes: where the vertex stage expects each one. See the remarks above.");
+        writer.AppendLine();
+        writer.AppendLine("    /// <summary>How many attributes the vertex stage takes from a buffer.</summary>");
+        writer.AppendLine($"    public const int VertexAttributeCount = {reflection.VertexInputs.Count};");
+
+        foreach (var input in reflection.VertexInputs) {
+            writer.AppendLine();
+            writer.AppendLine(
+                $"    /// <summary>Which location the vertex stage reads <c>{Escape(input.Name)}</c> from.</summary>"
+            );
+
+            writer.AppendLine(
+                $"    public const uint {ShaderTypes.Identifier(input.Name)}Location = {input.Location};"
+            );
+        }
     }
 
     /// <summary>

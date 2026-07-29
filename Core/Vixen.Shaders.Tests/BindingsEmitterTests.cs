@@ -209,6 +209,44 @@ public class BindingsEmitterTests {
         Assert.DoesNotContain("struct BareConstants", source, StringComparison.Ordinal);
     }
 
+    // --- Vertex attributes --------------------------------------------------
+
+    /// <summary>
+    ///     An attribute location is the shader's decision, so the host is told it rather than
+    ///     writing it down.
+    /// </summary>
+    /// <remarks>
+    ///     <c>Lighting</c> is the case that makes the point without being contrived: it declares one
+    ///     stream, and Raven locates a stage's own parameters <em>after</em> a shader's streams — so
+    ///     <c>position</c> is at 1 and <c>texcoord</c> at 2, not 0 and 1. A host that wrote the
+    ///     obvious numbers would bind nothing to either, which is not a validation error but a stage
+    ///     reading whatever the driver left there.
+    /// </remarks>
+    [Fact]
+    public void A_vertex_attribute_reports_the_location_the_shader_reads_it_from() {
+        var source = Emit();
+
+        Assert.Contains("public const uint PositionLocation = 1;", source, StringComparison.Ordinal);
+        Assert.Contains("public const uint TexcoordLocation = 2;", source, StringComparison.Ordinal);
+        Assert.Contains("public const int VertexAttributeCount = 2;", source, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Nothing is invented for a shader with no vertex stage — a compute or post-process
+    ///     reflection has an empty list, and an empty list is the honest answer.
+    /// </summary>
+    [Fact]
+    public void A_shader_with_no_attributes_emits_no_locations() {
+        var source = BindingsEmitter.Emit(
+            "Bare",
+            ReflectionReader.Read("""{"Sets":[],"Parameters":[],"Permutations":[],"UsedPermutationKeys":[]}"""),
+            "Bare.reflect.json"
+        );
+
+        Assert.DoesNotContain("VertexAttributeCount", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Location =", source, StringComparison.Ordinal);
+    }
+
     // --- A block per set ----------------------------------------------------
 
     /// <summary>A shader that marks its sets gets a key for every block, not for the first.</summary>
