@@ -82,6 +82,7 @@
     <Project Path="Core/Vixen.Ecs.Generators/Vixen.Ecs.Generators.csproj" />
     <Project Path="Core/Vixen.Ecs.Tests/Vixen.Ecs.Tests.csproj" />
     <Project Path="Core/Vixen.Engine/Vixen.Engine.csproj" />
+    <Project Path="Core/Vixen.Engine.Generators/Vixen.Engine.Generators.csproj" />
     <Project Path="Core/Vixen.Engine.Tests/Vixen.Engine.Tests.csproj" />
     <Project Path="Core/Vixen.Graphics/Vixen.Graphics.csproj" />
     <Project Path="Core/Vixen.Graphics.Tests/Vixen.Graphics.Tests.csproj" />
