@@ -124,6 +124,9 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
 
         var boundPipeline = default(PipelineHandle);
         var boundDescriptors = default(DescriptorSetHandle);
+        var boundVertices = default(BufferHandle);
+        var boundIndices = default(BufferHandle);
+        var boundIndexFormat = default(IndexFormat);
         var boundView = false;
         var boundScene = false;
         var boundTable = false;
@@ -206,7 +209,15 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
                 }
             }
 
-            context.CommandList.BindVertexBuffer(0, draw.VertexBuffer);
+            // Only when it changed, which for geometry out of a shared GeometryBuffer is once for
+            // the whole run. Every object used to rebind its own, and re-binding the same handle is
+            // not free: it is a command the front end reads and, more to the point, the reason a run
+            // of objects could not become one draw. A mesh with a buffer of its own still gets a
+            // bind per object, which is the same behaviour it always had.
+            if (draw.VertexBuffer != boundVertices) {
+                context.CommandList.BindVertexBuffer(0, draw.VertexBuffer);
+                boundVertices = draw.VertexBuffer;
+            }
 
             // An instancing sub-feature overrides the draw's own count and supplies the offset its
             // transforms start at. `firstInstance` rather than a binding: Vulkan adds it into
@@ -217,7 +228,16 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
             var first = batch > 0 ? instances!.FirstInstanceOf(system, node.Object) : 0;
 
             if (draw.IsIndexed) {
-                context.CommandList.BindIndexBuffer(draw.IndexBuffer, draw.IndexFormat);
+                // ⚠ The format as well as the handle. Two buffers may be the same object at
+                // different index widths only if something rebound the format in between, and an
+                // index buffer read at the wrong width is geometry through the world rather than a
+                // missing mesh — so a comparison on the handle alone would be a correctness bug
+                // wearing an optimisation's clothes.
+                if (draw.IndexBuffer != boundIndices || draw.IndexFormat != boundIndexFormat) {
+                    context.CommandList.BindIndexBuffer(draw.IndexBuffer, draw.IndexFormat);
+                    boundIndices = draw.IndexBuffer;
+                    boundIndexFormat = draw.IndexFormat;
+                }
 
                 // Indirect when something has written this object's arguments for this view: the
                 // counts are the same ones, except that culling may have zeroed the instance count —

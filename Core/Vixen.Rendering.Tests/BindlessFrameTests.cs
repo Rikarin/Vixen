@@ -269,6 +269,81 @@ public sealed class BindlessFrameTests : IDisposable {
         Assert.Equal(1, harness.Materials.IndexedTextureCount);
     }
 
+    // --- The geometry -------------------------------------------------------
+
+    /// <summary>
+    ///     Three meshes out of one <c>GeometryBuffer</c> are one vertex bind and one index bind.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         With the records path on, this is the sentence at the top of
+    ///         <c>docs/bindless-materials.md</c> reduced to nothing: three objects, no per-material
+    ///         set, no per-object vertex buffer, no per-object index buffer. What separates their
+    ///         draws is the numbers in the arguments — which is what an indirect buffer holds, and so
+    ///         what makes compaction worth anything.
+    ///     </para>
+    ///     <para>
+    ///         Counted against the same three meshes with buffers of their own, so "one" is a
+    ///         measurement rather than an artefact of a fixture that only had one buffer to bind.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Meshes_sharing_a_geometry_buffer_bind_it_once() {
+        using var harness = Build();
+        harness.Materials.EnableRecords(UseRecords);
+
+        using var geometry = new GeometryBuffer(device, vertexStride: 32, vertexCapacity: 256, indexCapacity: 256);
+
+        for (var index = 0; index < 3; index++) {
+            Assert.True(geometry.TryAllocate(8, 12, out var slice));
+
+            var draw = new MeshDraw { InstanceCount = 1 };
+            geometry.Apply(ref draw, slice);
+            AddMesh(harness, Material(), draw);
+        }
+
+        Frame(harness);
+        device.Recorder!.Clear();
+        RecordStage(harness);
+
+        Assert.Equal(3, device.Recorder.CountOf(RecordedCommandKind.DrawIndexed));
+        Assert.Equal(1, device.Recorder.CountOf(RecordedCommandKind.BindVertexBuffer));
+        Assert.Equal(1, device.Recorder.CountOf(RecordedCommandKind.BindIndexBuffer));
+    }
+
+    /// <summary>And three meshes with buffers of their own are three of each.</summary>
+    /// <remarks>
+    ///     The control. This is what every mesh did before a shared buffer existed, and it is still
+    ///     what a mesh with a buffer of its own gets — the draw loop compares handles rather than
+    ///     assuming they are shared, so nothing was taken away from the ordinary case.
+    /// </remarks>
+    [Fact]
+    public void Meshes_with_their_own_buffers_still_bind_per_object() {
+        using var harness = Build();
+        harness.Materials.EnableRecords(UseRecords);
+
+        for (var index = 0; index < 3; index++) {
+            AddMesh(
+                harness,
+                Material(),
+                new() {
+                    VertexBuffer = device.CreateBuffer(new(1024, BufferUsage.Vertex, MemoryAccess.HostUpload)),
+                    IndexBuffer = device.CreateBuffer(new(1024, BufferUsage.Index, MemoryAccess.HostUpload)),
+                    IndexFormat = IndexFormat.UInt32,
+                    Count = 3,
+                    InstanceCount = 1
+                }
+            );
+        }
+
+        Frame(harness);
+        device.Recorder!.Clear();
+        RecordStage(harness);
+
+        Assert.Equal(3, device.Recorder.CountOf(RecordedCommandKind.BindVertexBuffer));
+        Assert.Equal(3, device.Recorder.CountOf(RecordedCommandKind.BindIndexBuffer));
+    }
+
     // --- The set writer -----------------------------------------------------
 
     /// <summary>
@@ -375,14 +450,13 @@ public sealed class BindlessFrameTests : IDisposable {
         };
     }
 
-    static void AddMesh(Harness h, Material material) {
+    static void AddMesh(Harness h, Material material, MeshDraw? draw = null) {
         var id = h.System.Objects.Add(
             new() { Bounds = new(new Vector3(0f, 0f, 10f), 1f), Stages = h.Opaque.Mask, FeatureIndex = h.Meshes.Index }
         );
 
-        h.System.Objects.Data.Data(h.Meshes.Draws)[id.Index] = new() {
-            VertexBuffer = h.Vertices, Count = 3, InstanceCount = 1
-        };
+        h.System.Objects.Data.Data(h.Meshes.Draws)[id.Index] = draw
+            ?? new() { VertexBuffer = h.Vertices, Count = 3, InstanceCount = 1 };
 
         h.Materials.Assign(h.System, id, material);
     }

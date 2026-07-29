@@ -325,6 +325,9 @@ at the top, and the answer to them is a shared geometry buffer with per-object o
 descriptor array — a different change, in the mesh pipeline, with its own reasons. Compaction needs
 both; they are independent.
 
+✅ **Built, as `GeometryBuffer`** — see step 5 below. The answer stayed the one predicted here: an
+offset, not a descriptor.
+
 **Samplers in the table.** A material's sampler is one of a handful of presets that `SamplerCache`
 already interns, so a small bounded array indexed by preset is the right shape and an unbounded one
 would be a second capability for no gain. `BindlessTable` accepts `DescriptorKind.Sampler` because
