@@ -42,6 +42,43 @@ layout detail that looks like padding needs a test that fails when you remove it
 apart — so: an indirection cell is a volume, and the probe lattice *inside* it is the one with the
 grid-point convention.
 
+## Bricks come in sizes, and every one holds sixty-four probes
+
+A brick of size eight covers five hundred and twelve times the volume of a brick of size one for the
+same memory, and its probes are eight times further apart. `Allocate` covers a region cheaply at some
+size; `Refine` splits what overlaps another region until it is fine enough. The usual shape is one
+coarse call over the world and one refine pass driven by renderer bounds.
+
+**A brick is aligned to its own size**, which is what makes the sampling arithmetic work — dividing a
+cell coordinate by the size only gives a position inside the brick if the brick started at a multiple
+of it. That is why refinement halves rather than subdividing by arbitrary factors, and why `Assign`
+refuses a misaligned brick rather than producing a field that samples slightly wrong everywhere.
+
+**A split discards the parent's probes.** Interpolating them down would give eight children that agree
+with each other and with a coarser answer than any of them should hold — and a filler would then be
+converging toward the truth from something that already looks converged. Empty is honest: the children
+are invalid until something fills them, and dilation treats them as the holes they are.
+
+**There is no field-wide probe lattice, and there cannot be one.** Two bricks of different sizes have
+probes at different spacings, so "the probe next door" is a question about world positions rather than
+about indices. Everything that walks probes — dilation, a filler — walks bricks and asks the field
+where a position lands.
+
+### Border sync has an order, and it is coarsest first
+
+A fine brick borrowing from a coarse neighbour interpolates that neighbour's field, and the position
+it wants can fall in the coarse brick's *own* border plane — so the coarse brick has to be finished
+first. The reverse never happens: a coarse brick's border lands on the near face of whichever fine
+brick covers it, which needs only probes that brick owns.
+
+Within a size the order does not matter, because two bricks of the same size only ever copy each
+other's owned probes — and every value in a size is computed before any of it is written, so it
+cannot come to matter.
+
+This was found by running the seam test on a refined field, and it is worth naming because the
+obvious way to make a pass order-independent — compute everything, then write everything — is
+precisely what breaks it.
+
 ## Divide, floor, fetch
 
 The whole lookup. A world position becomes a cell, the cell becomes a pool slot, the fractional part
@@ -112,9 +149,10 @@ outside's past it. `AClosedBoxStaysDark` runs at one, two and eight passes to sa
 | **Exactly one probe thick** | Leaks, at full strength, in one pass. A single invalid plane touches the room on one side and the outside on the other, and its repair is the average of both |
 | **Thinner than the probe spacing** | Worse: no probe is inside it, so every probe is valid, dilation has nothing to repair, and a stencil spans straight through |
 
-Both failures have tests that assert they *do* leak, so that the day refinement fixes them, the tests
-say which one it fixed. The fix for both is the same — finer bricks near geometry, so the same wall
-is more probes thick. That is the refinement doc 19 § 3 asks for and this does not have yet.
+Both failures have tests that assert they *do* leak, so that the day a scene is refined enough to fix
+them, the tests say which one it fixed. The fix for both is the same and it is `Refine`: halve the
+probe spacing near geometry until the wall is more probes thick. **That is why refinement is a leak
+fix before it is a memory optimisation**, and why dilation cannot substitute for it.
 
 ### The normal bias
 
@@ -167,9 +205,8 @@ gets blamed on the temporal filter.
 
 ## Not yet, and named so the absence is a decision
 
-- **Refinement.** Every cell is one brick at one size. Doc 19 § 3 wants bricks subdividing near
-  geometry from renderer bounds, up to three levels; when it lands it lands as a brick size stored
-  beside the slot, the way Epic's does, and the sampling formula gains a divide.
+- **A refinement policy.** `Refine` exists; nothing decides *where* to call it. Doc 19 § 3 wants that
+  driven by renderer bounds, which the `VisibilityGroup` already has.
 - **Filler A on a GPU**, and filler B at all. The CPU tracer above is filler A's reference; the
   compute shader that does N bricks a frame, and the offline cube capture for targets without
   compute, are both still owed.

@@ -151,10 +151,11 @@ public class LeakTests {
         once.Dilate();
         twice.Dilate(2);
 
-        // The wall's probes run from 2 to 4; 4 touches the room and 3 is one further in.
-        Assert.True(once.TryGetLattice(new(4, 8, 8), out var touching) && touching.Validity > 0f);
-        Assert.True(once.TryGetLattice(new(3, 8, 8), out var deeper) && deeper.Validity == 0f);
-        Assert.True(twice.TryGetLattice(new(3, 8, 8), out deeper) && deeper.Validity > 0f);
+        // Probe spacing is one world unit here, so the wall's probes stand at 2, 3 and 4 — four
+        // touches the room and three is one further in.
+        Assert.True(At(once, new(4f, 8f, 8f)).Validity > 0f, "the probe touching the room was not repaired");
+        Assert.Equal(0f, At(once, new(3f, 8f, 8f)).Validity);
+        Assert.True(At(twice, new(3f, 8f, 8f)).Validity > 0f, "a second pass did not reach one probe further");
     }
 
     [Fact]
@@ -262,16 +263,27 @@ public class LeakTests {
 
     /// <summary>Fills every probe of a field from what stands where it does.</summary>
     static void Fill(IrradianceField field, Func<Vector3, IrradianceProbe> what) {
-        var lattice = field.LatticeResolution;
-
-        for (var z = 0; z < lattice.Z; z++) {
-            for (var y = 0; y < lattice.Y; y++) {
-                for (var x = 0; x < lattice.X; x++) {
-                    var at = new Int3(x, y, z);
-
-                    field.SetLattice(at, what(field.LatticePosition(at)));
+        foreach (var brick in field.Bricks) {
+            for (var z = 0; z < 4; z++) {
+                for (var y = 0; y < 4; y++) {
+                    for (var x = 0; x < 4; x++) {
+                        field.SetProbe(brick, x, y, z, what(field.ProbePosition(brick, x, y, z)));
+                    }
                 }
             }
         }
+    }
+
+    /// <summary>The probe standing at a world position, which after refinement is the only way to ask.</summary>
+    static IrradianceProbe At(IrradianceField field, Vector3 position) {
+        Assert.True(field.Indirection.TryLocate(position, out var brick, out var local), $"{position} is outside");
+
+        var index = new Int3(
+            (int)MathF.Round(local.X * 4),
+            (int)MathF.Round(local.Y * 4),
+            (int)MathF.Round(local.Z * 4)
+        );
+
+        return field.GetProbe(brick, index.X, index.Y, index.Z);
     }
 }

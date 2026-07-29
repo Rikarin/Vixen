@@ -225,9 +225,25 @@ ray, so the sign answers every time. The vote earns its place against a *sampled
 over-reported step lands past a thin wall and the surface it then finds is seen from behind. Both are
 implemented; § L2's bullet should say which one answers when, rather than naming the vote alone.
 
-Owed, in the order they change the picture: filler A on a GPU and filler B at all; refinement, which
-arrives as a brick size stored beside the slot; the view bias; and the GPU mirror, whose sampling
-convention is already pinned from the CPU side the way `MeshDistanceField.TextureCoordinate` is.
+**Refinement is in**, as a brick size stored beside the slot in every cell the brick covers — Epic's
+arrangement, and the reason a lookup never searches or climbs. `Allocate` covers a region at a size and
+`Refine` splits what overlaps another until it is fine enough; a split discards the parent's probes
+rather than interpolating them down, because interpolated children look converged and a filler would
+then be blending toward the truth from a lie.
+
+Two things fell out of it that this section did not anticipate. **There is no field-wide probe lattice
+once bricks differ in size** — "the probe next door" becomes a question about world positions, and
+dilation and the filler's walk both had to be rewritten in those terms. And **border sync has an
+order: coarsest first.** A fine brick borrowing from a coarse neighbour interpolates that neighbour's
+field at a position that can fall in the coarse brick's own border plane, so the coarse brick has to
+be finished first; the reverse never happens. The seam test on a refined field is what found it, and
+the obvious way to make a pass order-independent — compute everything, then write everything — is
+exactly what breaks it.
+
+Owed, in the order they change the picture: filler A on a GPU and filler B at all; a policy that
+decides *where* to refine, which § 3 says is renderer bounds and the `VisibilityGroup` already has;
+the view bias; and the GPU mirror, whose sampling convention is already pinned from the CPU side the
+way `MeshDistanceField.TextureCoordinate` is.
 
 ### L3 — Screen probe gather *(3.0 EM)*
 

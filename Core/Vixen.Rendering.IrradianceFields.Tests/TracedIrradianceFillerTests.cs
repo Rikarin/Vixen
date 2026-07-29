@@ -165,59 +165,78 @@ public class TracedIrradianceFillerTests {
         );
     }
 
-    /// <summary>A budget walks the lattice and comes back round, one probe at a time.</summary>
+    /// <summary>A budget walks the grid and comes back round, a brick at a time.</summary>
     [Fact]
-    public void ABudgetedFillWalksTheLatticeAndWrapsAround() {
-        var field = new IrradianceField(new BoundingBox(new(-1f), new(1f)), new(1));
+    public void ABudgetedFillWalksTheGridAndWrapsAround() {
+        var field = new IrradianceField(new BoundingBox(new(-4f), new(4f)), new(2));
         var filler = new TracedIrradianceFiller(AnalyticFields.Empty, Radiance.Uniform(2f));
 
         field.AllocateAll();
 
         Assert.Equal(0, filler.Cursor);
-        Assert.Equal(10, filler.Fill(field, 10));
-        Assert.Equal(10, filler.Cursor);
+        Assert.Equal(3, filler.Fill(field, 3));
+        Assert.Equal(3, filler.Cursor);
 
-        // Sixty-four probes in one brick, so the rest of them plus a wrap of two.
-        Assert.Equal(56, filler.Fill(field, 56));
+        // Eight bricks in the grid, so the rest of them plus a wrap of two.
+        Assert.Equal(7, filler.Fill(field, 7));
         Assert.Equal(2, filler.Cursor);
     }
 
     /// <summary>
-    ///     A budget spends itself on cells with no brick too, so one call cannot walk a mostly-empty
-    ///     lattice looking for work — which is the frame-time spike a budget exists to prevent.
+    ///     <b>A coarse brick is filled once a lap, not once per cell it covers.</b> It names itself in
+    ///     every one of them, so the walk has to stop only at the cell that is its origin — otherwise a
+    ///     brick of size two costs eight times what it should and one of size eight costs five hundred
+    ///     and twelve.
     /// </summary>
     [Fact]
-    public void ABudgetIsSpentOnEmptyCellsAsWell() {
-        var field = new IrradianceField(new BoundingBox(new(-4f), new(4f)), new(2));
+    public void ACoarseBrickIsFilledOncePerLap() {
+        var field = new IrradianceField(new BoundingBox(new(0f), new(8f)), new(4));
         var filler = new TracedIrradianceFiller(AnalyticFields.Empty, Radiance.Uniform(2f));
 
-        // One brick out of eight, and it is not the first one the cursor reaches.
-        Assert.True(field.TryAllocate(new(1, 1, 1), out _));
+        field.AllocateAll(2);
 
-        Assert.Equal(0, filler.Fill(field, 20));
-        Assert.Equal(20, filler.Cursor);
+        Assert.Equal(8, field.BrickCount);
+        Assert.Equal(8, filler.Fill(field, 100));
+
+        // The walk stopped when the grid ran out, not when the budget did.
+        Assert.Equal(0, filler.Cursor);
     }
 
     /// <summary>
-    ///     A cursor into a lattice that no longer exists is not a position, so a field that changed
-    ///     shape starts again rather than visiting some probes twice and others never.
+    ///     The walk is bounded by the grid, so one call cannot scan forever looking for work in a field
+    ///     that is mostly empty air — which is the frame-time spike a budget exists to prevent.
     /// </summary>
     [Fact]
-    public void ChangingTheLatticeRestartsTheWalk() {
+    public void AWalkIsBoundedByTheGridAndNotByTheBudget() {
+        var field = new IrradianceField(new BoundingBox(new(-4f), new(4f)), new(2));
+        var filler = new TracedIrradianceFiller(AnalyticFields.Empty, Radiance.Uniform(2f));
+
+        Assert.True(field.TryAllocate(new(1, 1, 1), 1, out _));
+
+        Assert.Equal(1, filler.Fill(field, 50));
+        Assert.Equal(0, filler.Cursor);
+    }
+
+    /// <summary>
+    ///     A cursor into a grid that no longer exists is not a position, so a field that changed shape
+    ///     starts again rather than visiting some bricks twice and others never.
+    /// </summary>
+    [Fact]
+    public void ChangingTheGridRestartsTheWalk() {
         var filler = new TracedIrradianceFiller(AnalyticFields.Empty, Radiance.Uniform(1f));
-        var small = new IrradianceField(new BoundingBox(new(-1f), new(1f)), new(1));
+        var small = new IrradianceField(new BoundingBox(new(-4f), new(4f)), new(2));
 
         small.AllocateAll();
-        filler.Fill(small, 10);
+        filler.Fill(small, 3);
 
-        Assert.Equal(10, filler.Cursor);
+        Assert.Equal(3, filler.Cursor);
 
-        var large = new IrradianceField(new BoundingBox(new(-4f), new(4f)), new(2));
+        var large = new IrradianceField(new BoundingBox(new(-8f), new(8f)), new(4));
 
         large.AllocateAll();
 
-        Assert.Equal(3, filler.Fill(large, 3));
-        Assert.Equal(3, filler.Cursor);
+        Assert.Equal(2, filler.Fill(large, 2));
+        Assert.Equal(2, filler.Cursor);
     }
 
     /// <summary>
@@ -232,7 +251,7 @@ public class TracedIrradianceFillerTests {
 
         field.AllocateAll();
 
-        Assert.Equal(64, filler.Fill(field));
+        Assert.Equal(1, filler.Fill(field));
 
         field.Dilate();
         field.SyncBorders();

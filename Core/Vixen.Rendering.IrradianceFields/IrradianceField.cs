@@ -16,29 +16,34 @@ namespace Vixen.Rendering.IrradianceFields;
 ///         different update rates: nothing above this branches on which filler ran.
 ///     </para>
 ///     <para>
+///         <b>Bricks come in sizes, and every one of them holds sixty-four probes.</b> A brick of size
+///         eight covers five hundred and twelve times the volume of a brick of size one for the same
+///         memory, and its probes are eight times further apart. Refining near geometry — coarse where
+///         there is nothing to shade, fine where a wall is — is what makes the memory affordable
+///         <i>and</i> what makes a wall more than one probe thick, which is the only real defence
+///         against a leak.
+///     </para>
+///     <para>
 ///         <b>Borders are maintained, not written.</b> A filler fills the sixty-four probes a brick
-///         owns; <see cref="SyncBorders" /> copies each neighbour's first probe into the border plane
-///         that stands in for it. The border is not data — it is a second copy of somebody else's
-///         data, which is why <see cref="SetProbe" /> refuses to address it.
+///         owns; <see cref="SyncBorders" /> fills the plane that stands in for its neighbour. The
+///         border is not data — it is a second copy of somebody else's data, which is why
+///         <see cref="SetProbe" /> refuses to address it.
 ///     </para>
 ///     <para>
-///         <b>Probes sit on a lattice that spans the whole field, not one per brick.</b> Brick
-///         <c>c</c>'s probe 4 and brick <c>c+1</c>'s probe 0 are the same world position, so a sample
-///         walking across the boundary reads the same two numbers from either side and the
-///         interpolation is continuous. A test says so by reproducing a linear function <i>exactly</i>
-///         across a boundary, which trilinear interpolation does and a seam does not.
-///     </para>
-///     <para>
-///         Not here yet, and named so their absence is a decision: refinement (bricks subdividing near
-///         geometry), dilation into invalid probes, and the normal and view biases. All three are
-///         leak mitigation, doc 19 carries leaks as risk G3, and all three land in this phase.
+///         <b>There is no field-wide probe lattice, and there cannot be one.</b> Two bricks of
+///         different sizes have probes at different spacings, so "the probe next door" is a question
+///         about world positions rather than about indices. Everything that walks probes — dilation,
+///         a filler — walks bricks and asks the field where a position lands.
 ///     </para>
 /// </remarks>
 public sealed class IrradianceField {
+    /// <summary>Border values computed but not yet written, so a sync cannot read its own output.</summary>
+    readonly List<(int Slot, int X, int Y, int Z, IrradianceProbe Probe)> deferred = [];
+
     /// <summary>Builds a field over a box, with an indirection grid and a pool for it.</summary>
     /// <param name="bounds">The box the field covers.</param>
-    /// <param name="cells">How many bricks along each axis.</param>
-    /// <param name="pool">Where the bricks live. One sized to hold them all by default.</param>
+    /// <param name="cells">How many cells along each axis, at the finest brick size.</param>
+    /// <param name="pool">Where the bricks live. One sized for an entirely fine field by default.</param>
     public IrradianceField(BoundingBox bounds, Int3 cells, IrradianceBrickPool? pool = null) {
         Indirection = new(bounds, cells);
         Pool = pool ?? IrradianceBrickPool.OfCapacity(checked((int)cells.Volume));
@@ -53,13 +58,46 @@ public sealed class IrradianceField {
     /// <summary>The box the field covers.</summary>
     public BoundingBox Bounds => Indirection.Bounds;
 
-    /// <summary>How far apart two neighbouring probes are, in world units.</summary>
+    /// <summary>How many bricks there are, counting a coarse one once.</summary>
+    public int BrickCount => Indirection.BrickCount;
+
+    /// <summary>Every brick, once each, in the order the indirection grid holds them.</summary>
     /// <remarks>
-    ///     A quarter of a cell, not a fifth. The fifth plane of a brick is the neighbour's first
-    ///     probe rather than one of its own, so a brick spans four gaps and not five — and this is the
+    ///     Enumerated off the grid rather than kept in a list beside it. A list is a second source of
+    ///     truth about the same thing, and the two disagree the first time an allocation fails
+    ///     halfway through a split.
+    /// </remarks>
+    public IEnumerable<IrradianceBrick> Bricks {
+        get {
+            var resolution = Indirection.Resolution;
+
+            for (var z = 0; z < resolution.Z; z++) {
+                for (var y = 0; y < resolution.Y; y++) {
+                    for (var x = 0; x < resolution.X; x++) {
+                        var cell = new Int3(x, y, z);
+
+                        if (Indirection.IsOrigin(cell) && Indirection.TryBrick(cell, out var brick)) {
+                            yield return brick;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>How far apart two neighbouring probes of a brick of a given size are.</summary>
+    /// <param name="size">The brick's size, in finest cells.</param>
+    /// <returns>The spacing, in world units.</returns>
+    /// <remarks>
+    ///     A quarter of the brick, not a fifth. The fifth plane holds the neighbour's first probe
+    ///     rather than one of its own, so a brick spans four gaps and not five — and this is the
     ///     number a filler needs when it decides how far to push a sample off a surface.
     /// </remarks>
-    public Vector3 ProbeSpacing => Indirection.CellSize / IrradianceBrickPool.BrickResolution;
+    public Vector3 ProbeSpacingOf(int size) =>
+        Indirection.CellSize * size / IrradianceBrickPool.BrickResolution;
+
+    /// <summary>How far apart two probes of the finest brick there could be are.</summary>
+    public Vector3 FinestProbeSpacing => ProbeSpacingOf(1);
 
     /// <summary>How far off a surface a shading lookup moves, in probe spacings.</summary>
     /// <remarks>
@@ -71,115 +109,213 @@ public sealed class IrradianceField {
     ///         on the side of the wall the surface faces, where the answer is unambiguous.
     ///     </para>
     ///     <para>
-    ///         <b>It is a tuning constant that has to match the shader's</b>, which is why it lives on
-    ///         the field rather than in a caller. Too little and the rind comes back; too much and a
-    ///         surface reads the lighting of somewhere it is not, which shows on anything thinner than
-    ///         the bias. It does not fix a wall thinner than a probe spacing, and nothing at this end
-    ///         does — see the README.
+    ///         <b>In probe spacings, not world units, and the spacing is the brick's own.</b> A coarse
+    ///         brick's probes are further apart and its ambiguity is correspondingly wider, so a fixed
+    ///         distance would be too small out there and too large in a refined region. That costs one
+    ///         extra indirection fetch: where the surface is, to learn the size, then where the biased
+    ///         lookup lands.
+    ///     </para>
+    ///     <para>
+    ///         It is a tuning constant that has to match the shader's, which is why it lives on the
+    ///         field rather than in a caller. It does not fix a wall thinner than a probe spacing, and
+    ///         nothing at this end does — see the README.
     ///     </para>
     /// </remarks>
     public float NormalBias { get; set; } = 0.25f;
 
-    /// <summary>Gives a cell a brick, or answers with the one it already has.</summary>
-    /// <param name="cell">Which cell.</param>
-    /// <param name="slot">The brick covering it.</param>
+    /// <summary>Gives a cell a brick of a given size, or answers with the one already covering it.</summary>
+    /// <param name="cell">A cell the brick should cover.</param>
+    /// <param name="size">How many finest cells across it should be. A power of two.</param>
+    /// <param name="brick">The brick covering that cell.</param>
     /// <returns>Whether it has one — false only when the pool is full.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">There is no such cell.</exception>
-    public bool TryAllocate(Int3 cell, out int slot) {
-        slot = Indirection[cell];
-
-        if (slot != IrradianceIndirection.Empty) {
+    /// <exception cref="ArgumentOutOfRangeException">There is no such cell, or the size is not a power of two.</exception>
+    public bool TryAllocate(Int3 cell, int size, out IrradianceBrick brick) {
+        if (Indirection.TryBrick(cell, out brick)) {
             return true;
         }
 
-        if (!Pool.TryAllocate(out slot)) {
-            slot = IrradianceIndirection.Empty;
+        var origin = IrradianceIndirection.Origin(cell, size);
+
+        if (!Free(origin, size) || !Pool.TryAllocate(out var slot)) {
+            brick = default;
 
             return false;
         }
 
-        Indirection[cell] = slot;
+        brick = new(slot, origin, size);
+        Indirection.Assign(brick);
 
         return true;
     }
 
-    /// <summary>Gives every cell a brick, as far as the pool goes.</summary>
-    /// <returns>How many cells got one.</returns>
+    /// <summary>Gives every empty cell overlapping a box a brick of a given size.</summary>
+    /// <param name="region">The box, in world space.</param>
+    /// <param name="size">How many finest cells across each brick should be. A power of two.</param>
+    /// <returns>How many bricks were made.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The size is not a positive power of two.</exception>
     /// <remarks>
-    ///     What a field with no refinement wants, and what a test wants. A real scene allocates from
-    ///     renderer bounds so empty air costs nothing — which is the refinement this does not do yet.
+    ///     <para>
+    ///         Cells that already have a brick are left alone whatever size that brick is, so this
+    ///         only ever fills gaps. The usual shape is coarse first and then
+    ///         <see cref="Refine" />: one call to cover the world cheaply, one to subdivide where
+    ///         geometry is.
+    ///     </para>
+    ///     <para>
+    ///         A caller passes a renderer's world bounds grown by a probe spacing or two, because a
+    ///         surface needs probes on <i>both</i> sides of it to be interpolated between.
+    ///     </para>
     /// </remarks>
-    public int AllocateAll() {
-        var resolution = Indirection.Resolution;
-        var allocated = 0;
+    public int Allocate(BoundingBox region, int size = 1) {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(size);
 
-        for (var z = 0; z < resolution.Z; z++) {
-            for (var y = 0; y < resolution.Y; y++) {
-                for (var x = 0; x < resolution.X; x++) {
-                    if (TryAllocate(new(x, y, z), out _)) {
-                        allocated++;
-                    }
-                }
-            }
+        if ((size & (size - 1)) != 0) {
+            throw new ArgumentOutOfRangeException(nameof(size), size, "A brick's size has to be a power of two.");
         }
 
-        return allocated;
-    }
-
-    /// <summary>Gives every cell overlapping a box a brick.</summary>
-    /// <param name="region">The box, in world space.</param>
-    /// <returns>How many cells got one.</returns>
-    /// <remarks>
-    ///     The whole allocation policy for now: cover what something is in, leave the rest empty. A
-    ///     caller passes a renderer's world bounds grown by a probe spacing or two, because a surface
-    ///     needs probes on <i>both</i> sides of it to be interpolated between.
-    /// </remarks>
-    public int Allocate(BoundingBox region) {
         if (!Indirection.Bounds.Intersects(region)) {
             return 0;
         }
 
-        var size = Indirection.CellSize;
-        var offset = Indirection.Bounds.Minimum;
         var resolution = Indirection.Resolution;
-        var allocated = 0;
+        var cellSize = Indirection.CellSize;
+        var low = (region.Minimum - Indirection.Bounds.Minimum) / cellSize;
+        var high = (region.Maximum - Indirection.Bounds.Minimum) / cellSize;
 
-        var low = (region.Minimum - offset) / size;
-        var high = (region.Maximum - offset) / size;
+        var first = IrradianceIndirection.Origin(
+            new(
+                Math.Clamp((int)MathF.Floor(low.X), 0, resolution.X - 1),
+                Math.Clamp((int)MathF.Floor(low.Y), 0, resolution.Y - 1),
+                Math.Clamp((int)MathF.Floor(low.Z), 0, resolution.Z - 1)
+            ),
+            size
+        );
 
-        var x0 = Math.Clamp((int)MathF.Floor(low.X), 0, resolution.X - 1);
-        var y0 = Math.Clamp((int)MathF.Floor(low.Y), 0, resolution.Y - 1);
-        var z0 = Math.Clamp((int)MathF.Floor(low.Z), 0, resolution.Z - 1);
-        var x1 = Math.Clamp((int)MathF.Ceiling(high.X) - 1, x0, resolution.X - 1);
-        var y1 = Math.Clamp((int)MathF.Ceiling(high.Y) - 1, y0, resolution.Y - 1);
-        var z1 = Math.Clamp((int)MathF.Ceiling(high.Z) - 1, z0, resolution.Z - 1);
+        var last = new Int3(
+            Math.Clamp((int)MathF.Ceiling(high.X) - 1, first.X, resolution.X - 1),
+            Math.Clamp((int)MathF.Ceiling(high.Y) - 1, first.Y, resolution.Y - 1),
+            Math.Clamp((int)MathF.Ceiling(high.Z) - 1, first.Z, resolution.Z - 1)
+        );
 
-        for (var z = z0; z <= z1; z++) {
-            for (var y = y0; y <= y1; y++) {
-                for (var x = x0; x <= x1; x++) {
-                    if (TryAllocate(new(x, y, z), out _)) {
-                        allocated++;
+        var made = 0;
+
+        for (var z = first.Z; z <= last.Z; z += size) {
+            for (var y = first.Y; y <= last.Y; y += size) {
+                for (var x = first.X; x <= last.X; x += size) {
+                    var origin = new Int3(x, y, z);
+
+                    if (!Free(origin, size) || !Pool.TryAllocate(out var slot)) {
+                        continue;
                     }
+
+                    Indirection.Assign(new(slot, origin, size));
+                    made++;
                 }
             }
         }
 
-        return allocated;
+        return made;
+    }
+
+    /// <summary>Gives every empty cell of the field a brick of a given size.</summary>
+    /// <param name="size">How many finest cells across each brick should be.</param>
+    /// <returns>How many bricks were made.</returns>
+    public int AllocateAll(int size = 1) => Allocate(Indirection.Bounds, size);
+
+    /// <summary>Subdivides every brick overlapping a box until it is no coarser than a given size.</summary>
+    /// <param name="region">The box, in world space.</param>
+    /// <param name="size">The coarsest a brick there may be. A power of two.</param>
+    /// <returns>How many bricks were made.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The size is not a positive power of two.</exception>
+    /// <remarks>
+    ///     <b>Refinement is a leak fix before it is a memory optimisation.</b> A leak is light crossing
+    ///     a wall, and whether it does is decided by how thick the wall is <i>in probes</i> — a wall
+    ///     thinner than the probe spacing holds no probes at all and a trilinear stencil spans straight
+    ///     through it. Halving the spacing near geometry is the only thing that changes that number,
+    ///     which is why this exists and why <see cref="Dilate" /> cannot substitute for it.
+    /// </remarks>
+    public int Refine(BoundingBox region, int size = 1) {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(size);
+
+        if ((size & (size - 1)) != 0) {
+            throw new ArgumentOutOfRangeException(nameof(size), size, "A brick's size has to be a power of two.");
+        }
+
+        var pending = new List<Int3>();
+        var made = 0;
+
+        while (true) {
+            pending.Clear();
+
+            foreach (var brick in Bricks) {
+                if (brick.Size > size && BrickBounds(brick).Intersects(region)) {
+                    pending.Add(brick.Cell);
+                }
+            }
+
+            if (pending.Count == 0) {
+                return made;
+            }
+
+            foreach (var cell in pending) {
+                made += Split(cell);
+            }
+        }
+    }
+
+    /// <summary>Replaces the brick covering a cell with eight of half its size.</summary>
+    /// <param name="cell">A cell the brick covers.</param>
+    /// <returns>How many children were made.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">There is no such cell.</exception>
+    /// <remarks>
+    ///     <b>The parent's probes are discarded rather than interpolated down.</b> Interpolating would
+    ///     make eight children that agree with each other and with a coarser answer than any of them
+    ///     should hold, and a filler would then be blending toward the truth from something that looks
+    ///     converged. Empty is honest: the children are invalid until something fills them, and
+    ///     <see cref="Dilate" /> treats them as the holes they are.
+    /// </remarks>
+    public int Split(Int3 cell) {
+        if (!Indirection.TryBrick(cell, out var parent) || parent.Size == 1) {
+            return 0;
+        }
+
+        var half = parent.Size / 2;
+
+        Indirection.Revoke(parent);
+        Pool.Release(parent.Slot);
+
+        var made = 0;
+
+        for (var z = 0; z < 2; z++) {
+            for (var y = 0; y < 2; y++) {
+                for (var x = 0; x < 2; x++) {
+                    var origin = parent.Cell + (new Int3(x, y, z) * half);
+
+                    // A child entirely past the edge of the grid is a child of a brick that was
+                    // hanging over — there is nothing out there to cover.
+                    if (!Indirection.Holds(origin) || !Pool.TryAllocate(out var slot)) {
+                        continue;
+                    }
+
+                    Indirection.Assign(new(slot, origin, half));
+                    made++;
+                }
+            }
+        }
+
+        return made;
     }
 
     /// <summary>Takes a cell's brick away and gives the slot back.</summary>
-    /// <param name="cell">Which cell.</param>
+    /// <param name="cell">A cell the brick covers.</param>
     /// <returns>Whether it had one.</returns>
     /// <exception cref="ArgumentOutOfRangeException">There is no such cell.</exception>
     public bool Release(Int3 cell) {
-        var slot = Indirection[cell];
-
-        if (slot == IrradianceIndirection.Empty) {
+        if (!Indirection.TryBrick(cell, out var brick)) {
             return false;
         }
 
-        Indirection[cell] = IrradianceIndirection.Empty;
-        Pool.Release(slot);
+        Indirection.Revoke(brick);
+        Pool.Release(brick.Slot);
 
         return true;
     }
@@ -190,65 +326,84 @@ public sealed class IrradianceField {
         Pool.Clear();
     }
 
+    /// <summary>The box a brick covers.</summary>
+    /// <param name="brick">The brick.</param>
+    /// <returns>The box.</returns>
+    public BoundingBox BrickBounds(IrradianceBrick brick) {
+        var cellSize = Indirection.CellSize;
+        var minimum = Indirection.Bounds.Minimum + (cellSize * new Vector3(brick.Cell.X, brick.Cell.Y, brick.Cell.Z));
+
+        return new(minimum, minimum + (cellSize * brick.Size));
+    }
+
     /// <summary>Where one probe of one brick is, in world space.</summary>
-    /// <param name="cell">Which brick.</param>
+    /// <param name="brick">The brick.</param>
     /// <param name="x">The probe's index along X, 0 to 4.</param>
     /// <param name="y">Along Y.</param>
     /// <param name="z">Along Z.</param>
     /// <returns>The position.</returns>
     /// <remarks>
-    ///     Four is allowed and is the point: it is the same world position as the next brick's zero,
-    ///     which is what makes the border a copy rather than an estimate. A test compares the two and
-    ///     expects them equal.
+    ///     Four is allowed and is the point: for a neighbour of the same size it is the same world
+    ///     position as that neighbour's zero, which is what makes the border a copy rather than an
+    ///     estimate.
     /// </remarks>
-    public Vector3 ProbePosition(Int3 cell, int x, int y, int z) =>
+    public Vector3 ProbePosition(IrradianceBrick brick, int x, int y, int z) =>
         Indirection.Bounds.Minimum
-        + (Indirection.CellSize * new Vector3(cell.X, cell.Y, cell.Z))
-        + (ProbeSpacing * new Vector3(x, y, z));
+        + (Indirection.CellSize * new Vector3(brick.Cell.X, brick.Cell.Y, brick.Cell.Z))
+        + (ProbeSpacingOf(brick.Size) * new Vector3(x, y, z));
 
     /// <summary>Writes one of the sixty-four probes a brick owns.</summary>
-    /// <param name="cell">Which brick.</param>
+    /// <param name="brick">The brick.</param>
     /// <param name="x">The probe's index along X, 0 to 3.</param>
     /// <param name="y">Along Y.</param>
     /// <param name="z">Along Z.</param>
     /// <param name="probe">What it saw.</param>
-    /// <exception cref="ArgumentOutOfRangeException">The cell or a coordinate is out of range.</exception>
-    /// <exception cref="InvalidOperationException">No brick covers that cell.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A coordinate is out of range.</exception>
     /// <remarks>
     ///     <b>Three, not four.</b> The fourth plane is a border, borders belong to
     ///     <see cref="SyncBorders" />, and a filler that wrote one would be writing an answer where a
     ///     copy of the neighbour's answer has to go — a seam that appears only where two bricks
     ///     disagree, which is exactly where a seam is visible.
     /// </remarks>
-    public void SetProbe(Int3 cell, int x, int y, int z, IrradianceProbe probe) {
-        ArgumentOutOfRangeException.ThrowIfNegative(x);
-        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(x, IrradianceBrickPool.BrickResolution);
-        ArgumentOutOfRangeException.ThrowIfNegative(y);
-        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(y, IrradianceBrickPool.BrickResolution);
-        ArgumentOutOfRangeException.ThrowIfNegative(z);
-        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(z, IrradianceBrickPool.BrickResolution);
+    public void SetProbe(IrradianceBrick brick, int x, int y, int z, IrradianceProbe probe) {
+        const int owned = IrradianceBrickPool.BrickResolution;
 
-        Pool[SlotOf(cell), x, y, z] = probe;
+        ArgumentOutOfRangeException.ThrowIfNegative(x);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(x, owned);
+        ArgumentOutOfRangeException.ThrowIfNegative(y);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(y, owned);
+        ArgumentOutOfRangeException.ThrowIfNegative(z);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(z, owned);
+
+        Pool[brick.Slot, x, y, z] = probe;
     }
 
     /// <summary>Reads one texel of a brick, border planes included.</summary>
-    /// <param name="cell">Which brick.</param>
+    /// <param name="brick">The brick.</param>
     /// <param name="x">The texel's index along X, 0 to 4.</param>
     /// <param name="y">Along Y.</param>
     /// <param name="z">Along Z.</param>
     /// <returns>The probe.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">The cell or a coordinate is out of range.</exception>
-    /// <exception cref="InvalidOperationException">No brick covers that cell.</exception>
-    public IrradianceProbe GetProbe(Int3 cell, int x, int y, int z) => Pool[SlotOf(cell), x, y, z];
+    /// <exception cref="ArgumentOutOfRangeException">A coordinate is out of range.</exception>
+    public IrradianceProbe GetProbe(IrradianceBrick brick, int x, int y, int z) => Pool[brick.Slot, x, y, z];
 
-    /// <summary>Fills every brick's border planes from its neighbours.</summary>
+    /// <summary>Fills every brick's border planes from whatever is beyond them.</summary>
     /// <remarks>
     ///     <para>
     ///         <b>Run this after a filler and before a sample, or the field has seams in it.</b> Each
     ///         of the three positive faces of a brick — and the edges and the corner where they meet —
-    ///         holds the probe of the brick beyond it, at the same world position. Copying it is what
-    ///         makes a single trilinear fetch legal across a boundary, and it is a copy rather than an
-    ///         interpolation because the two positions are identical.
+    ///         stands in for what is beyond it, so that a single trilinear fetch can cross a boundary
+    ///         without knowing there was one.
+    ///     </para>
+    ///     <para>
+    ///         <b>Between two bricks of the same size it is a copy, exactly.</b> The border probe and
+    ///         the neighbour's first probe are the same world position, so the value is fetched by
+    ///         index and no arithmetic happens to it. <b>Across a change of size it is a sample</b>,
+    ///         because there is no probe of the neighbour at that position to copy — a coarse brick's
+    ///         border plane spans several finer bricks, and a fine brick's border lands between a
+    ///         coarse one's probes. Interpolating the neighbour's own field is the answer that makes
+    ///         the two agree at the boundary; anything else puts a seam exactly where the refinement
+    ///         changes, which is next to geometry.
     ///     </para>
     ///     <para>
     ///         <b>At the edge of the field, and beside a cell with no brick, a border repeats the
@@ -256,77 +411,58 @@ public sealed class IrradianceField {
     ///         extrapolation — the lighting stops changing rather than falling to black, which is what
     ///         the alternative looks like: a dark rind one probe thick around everything.
     ///     </para>
+    ///     <para>
+    ///         <b>Coarsest first, and that ordering is forced rather than tidy.</b> A fine brick
+    ///         borrowing from a coarse neighbour interpolates that neighbour's field, and the position
+    ///         it wants can fall in the coarse brick's <i>own</i> border plane — so the coarse brick
+    ///         has to be finished first. The reverse never happens: a coarse brick's border lands on
+    ///         the near face of whichever fine brick covers it, which needs only probes that brick
+    ///         owns. Two bricks of the same size only ever copy each other's owned probes, so within a
+    ///         size the order does not matter — and every value in a size is computed before any of
+    ///         them is written, so it cannot matter.
+    ///     </para>
     /// </remarks>
     public void SyncBorders() {
-        var resolution = Indirection.Resolution;
         const int last = IrradianceBrickPool.BrickResolution;
 
-        for (var cz = 0; cz < resolution.Z; cz++) {
-            for (var cy = 0; cy < resolution.Y; cy++) {
-                for (var cx = 0; cx < resolution.X; cx++) {
-                    var cell = new Int3(cx, cy, cz);
-                    var slot = Indirection[cell];
+        var sizes = new List<int>();
 
-                    if (slot == IrradianceIndirection.Empty) {
-                        continue;
-                    }
+        foreach (var brick in Bricks) {
+            if (!sizes.Contains(brick.Size)) {
+                sizes.Add(brick.Size);
+            }
+        }
 
-                    for (var z = 0; z <= last; z++) {
-                        for (var y = 0; y <= last; y++) {
-                            for (var x = 0; x <= last; x++) {
-                                if (x < last && y < last && z < last) {
-                                    continue;
-                                }
+        sizes.Sort(static (left, right) => right.CompareTo(left));
 
-                                Pool[slot, x, y, z] = Borrowed(cell, slot, x, y, z);
+        foreach (var size in sizes) {
+            deferred.Clear();
+
+            foreach (var brick in Bricks) {
+                if (brick.Size != size) {
+                    continue;
+                }
+
+                for (var z = 0; z <= last; z++) {
+                    for (var y = 0; y <= last; y++) {
+                        for (var x = 0; x <= last; x++) {
+                            if (x < last && y < last && z < last) {
+                                continue;
                             }
+
+                            deferred.Add((brick.Slot, x, y, z, Borrowed(brick, x, y, z)));
                         }
                     }
                 }
             }
-        }
-    }
 
-    /// <summary>The probe a field holds at a world position, or nothing where no brick does.</summary>
-    /// <param name="world">The position.</param>
-    /// <param name="probe">What is there.</param>
-    /// <returns>Whether a brick covers it.</returns>
-    public bool TrySample(Vector3 world, out IrradianceProbe probe) {
-        if (!Indirection.TryLocate(world, out var slot, out var local)) {
-            probe = IrradianceProbe.Empty;
-
-            return false;
+            foreach (var (slot, x, y, z, probe) in deferred) {
+                Pool[slot, x, y, z] = probe;
+            }
         }
 
-        probe = Pool.Sample(slot, local);
-
-        return true;
+        deferred.Clear();
     }
-
-    /// <summary>The probe a surface sees, biased off the surface it stands on.</summary>
-    /// <param name="world">Where the surface is.</param>
-    /// <param name="normal">Which way it faces, normalised.</param>
-    /// <param name="probe">What is there.</param>
-    /// <returns>Whether a brick covers the biased position.</returns>
-    /// <remarks>
-    ///     What shading calls, where <see cref="TrySample(Vector3, out IrradianceProbe)" /> is the raw
-    ///     lookup. See <see cref="NormalBias" /> for why the two are different functions.
-    /// </remarks>
-    public bool TrySample(Vector3 world, Vector3 normal, out IrradianceProbe probe) =>
-        TrySample(world + (normal * ProbeSpacing * NormalBias), out probe);
-
-    /// <summary>The diffuse lighting a surface at a position receives, divided by π.</summary>
-    /// <param name="world">Where the surface is.</param>
-    /// <param name="normal">Which way it faces, normalised.</param>
-    /// <returns>The irradiance over π, or zero where the field has nothing.</returns>
-    /// <remarks>
-    ///     Zero outside the field rather than the nearest brick's answer. A field that quietly
-    ///     extrapolates hides the fact that it did not cover the scene, and covering the scene is the
-    ///     caller's decision to get right — a sky light or a fallback ambient is what fills the gap,
-    ///     and it should be visible that it is doing so.
-    /// </remarks>
-    public Vector3 Irradiance(Vector3 world, Vector3 normal) =>
-        TrySample(world, normal, out var probe) ? probe.Irradiance(normal) : Vector3.Zero;
 
     /// <summary>Replaces probes nothing could fill with what their neighbours saw.</summary>
     /// <param name="passes">How far the replacement may travel, in probes.</param>
@@ -355,149 +491,148 @@ public sealed class IrradianceField {
     ///         repair is the average of the two — which is a leak, at full strength, in one pass. A
     ///         wall thinner than the probe spacing is worse still: it holds no invalid probes at all,
     ///         so there is nothing here to repair and nothing to notice. Both are doc 19's risk G3,
-    ///         and the fix for both is refinement — finer bricks near geometry, so a wall is more
-    ///         probes thick.
+    ///         and the fix for both is <see cref="Refine" />.
     ///     </para>
     ///     <para>
-    ///         Run it before <see cref="SyncBorders" />: borders are copies, and copying before the
-    ///         original is repaired copies the hole.
+    ///         <b>A neighbour is a world position, not an index.</b> Two bricks of different sizes
+    ///         have probes at different spacings, so "one probe that way" is asked of the field and
+    ///         answered by whichever brick covers the answer. Run this before
+    ///         <see cref="SyncBorders" />: borders are copies, and copying before the original is
+    ///         repaired copies the hole.
     ///     </para>
     /// </remarks>
     public int Dilate(int passes = 1) {
         ArgumentOutOfRangeException.ThrowIfNegative(passes);
 
-        var lattice = LatticeResolution;
-        var pending = new List<(Int3 At, IrradianceProbe Probe)>();
+        const int owned = IrradianceBrickPool.BrickResolution;
+
         var repaired = 0;
 
         for (var pass = 0; pass < passes; pass++) {
-            pending.Clear();
+            deferred.Clear();
 
-            for (var z = 0; z < lattice.Z; z++) {
-                for (var y = 0; y < lattice.Y; y++) {
-                    for (var x = 0; x < lattice.X; x++) {
-                        var at = new Int3(x, y, z);
+            foreach (var brick in Bricks) {
+                for (var z = 0; z < owned; z++) {
+                    for (var y = 0; y < owned; y++) {
+                        for (var x = 0; x < owned; x++) {
+                            if (Pool[brick.Slot, x, y, z].Validity > 0f) {
+                                continue;
+                            }
 
-                        if (!TryGetLattice(at, out var probe) || probe.Validity > 0f) {
-                            continue;
-                        }
-
-                        if (TryBorrowFromNeighbours(at, out var repair)) {
-                            pending.Add((at, repair));
+                            if (TryBorrowFromNeighbours(brick, x, y, z, out var repair)) {
+                                deferred.Add((brick.Slot, x, y, z, repair));
+                            }
                         }
                     }
                 }
             }
 
-            if (pending.Count == 0) {
+            if (deferred.Count == 0) {
                 break;
             }
 
             // Applied after the whole pass, not during it, so a repair cannot feed the probe next to
             // it in the same sweep — which would make the result depend on which way the loops run.
-            foreach (var (at, probe) in pending) {
-                SetLattice(at, probe);
+            foreach (var (slot, x, y, z, probe) in deferred) {
+                Pool[slot, x, y, z] = probe;
             }
 
-            repaired += pending.Count;
+            repaired += deferred.Count;
         }
+
+        deferred.Clear();
 
         return repaired;
     }
 
-    /// <summary>How many probes the field holds along each axis, over every brick.</summary>
-    /// <remarks>
-    ///     Four per brick, not five: the fifth plane is the next brick's first probe, so counting it
-    ///     would count every interior probe twice. A filler walks this rather than walking bricks —
-    ///     probes are what it fills, and which brick one lives in is storage's business.
-    /// </remarks>
-    public Int3 LatticeResolution => Indirection.Resolution * IrradianceBrickPool.BrickResolution;
+    /// <summary>The probe a field holds at a world position, or nothing where no brick does.</summary>
+    /// <param name="world">The position.</param>
+    /// <param name="probe">What is there.</param>
+    /// <returns>Whether a brick covers it.</returns>
+    public bool TrySample(Vector3 world, out IrradianceProbe probe) {
+        if (!Indirection.TryLocate(world, out var brick, out var local)) {
+            probe = IrradianceProbe.Empty;
 
-    /// <summary>Where one probe of the whole field's lattice stands.</summary>
-    /// <param name="lattice">Its coordinate.</param>
-    /// <returns>The position.</returns>
-    public Vector3 LatticePosition(Int3 lattice) =>
-        Indirection.Bounds.Minimum + (ProbeSpacing * new Vector3(lattice.X, lattice.Y, lattice.Z));
-
-    /// <summary>Whether a lattice coordinate is one the field has.</summary>
-    /// <param name="lattice">The coordinate.</param>
-    /// <returns>Whether it is.</returns>
-    public bool HoldsLattice(Int3 lattice) {
-        var resolution = LatticeResolution;
-
-        return lattice.X >= 0 && lattice.X < resolution.X
-            && lattice.Y >= 0 && lattice.Y < resolution.Y
-            && lattice.Z >= 0 && lattice.Z < resolution.Z;
-    }
-
-    /// <summary>Reads one probe of the whole field's lattice.</summary>
-    /// <param name="lattice">Its coordinate.</param>
-    /// <param name="probe">What it holds.</param>
-    /// <returns>Whether the field has that probe and a brick to hold it.</returns>
-    public bool TryGetLattice(Int3 lattice, out IrradianceProbe probe) {
-        probe = IrradianceProbe.Empty;
-
-        if (!HoldsLattice(lattice)) {
             return false;
         }
 
-        var slot = Indirection[CellOf(lattice)];
-
-        if (slot == IrradianceIndirection.Empty) {
-            return false;
-        }
-
-        probe = Pool[slot, Within(lattice.X), Within(lattice.Y), Within(lattice.Z)];
+        probe = Pool.Sample(brick.Slot, local);
 
         return true;
     }
 
-    /// <summary>Writes one probe of the whole field's lattice.</summary>
-    /// <param name="lattice">Its coordinate.</param>
-    /// <param name="probe">What it saw.</param>
-    /// <exception cref="ArgumentOutOfRangeException">The field has no such probe.</exception>
-    /// <exception cref="InvalidOperationException">No brick covers it.</exception>
-    public void SetLattice(Int3 lattice, IrradianceProbe probe) {
-        if (!HoldsLattice(lattice)) {
-            throw new ArgumentOutOfRangeException(
-                nameof(lattice),
-                lattice,
-                $"The field's lattice is {LatticeResolution} probes."
-            );
+    /// <summary>The probe a surface sees, biased off the surface it stands on.</summary>
+    /// <param name="world">Where the surface is.</param>
+    /// <param name="normal">Which way it faces, normalised.</param>
+    /// <param name="probe">What is there.</param>
+    /// <returns>Whether a brick covers the biased position.</returns>
+    /// <remarks>
+    ///     Two lookups: the first to learn how big the brick under the surface is, because
+    ///     <see cref="NormalBias" /> is measured in that brick's probe spacings. See its remarks for
+    ///     why it is not a world distance.
+    /// </remarks>
+    public bool TrySample(Vector3 world, Vector3 normal, out IrradianceProbe probe) {
+        if (!Indirection.TryLocate(world, out var brick, out _)) {
+            probe = IrradianceProbe.Empty;
+
+            return false;
         }
 
-        SetProbe(CellOf(lattice), Within(lattice.X), Within(lattice.Y), Within(lattice.Z), probe);
+        return TrySample(world + (normal * ProbeSpacingOf(brick.Size) * NormalBias), out probe);
     }
 
-    /// <summary>What a border texel should hold.</summary>
-    /// <param name="cell">The brick's cell.</param>
-    /// <param name="slot">The brick.</param>
-    /// <param name="x">The texel's index along X.</param>
-    /// <param name="y">Along Y.</param>
-    /// <param name="z">Along Z.</param>
-    /// <returns>The neighbour's probe, or this brick's own last one where there is no neighbour.</returns>
-    IrradianceProbe Borrowed(Int3 cell, int slot, int x, int y, int z) {
-        const int last = IrradianceBrickPool.BrickResolution;
+    /// <summary>The diffuse lighting a surface at a position receives, divided by π.</summary>
+    /// <param name="world">Where the surface is.</param>
+    /// <param name="normal">Which way it faces, normalised.</param>
+    /// <returns>The irradiance over π, or zero where the field has nothing.</returns>
+    /// <remarks>
+    ///     Zero outside the field rather than the nearest brick's answer. A field that quietly
+    ///     extrapolates hides the fact that it did not cover the scene, and covering the scene is the
+    ///     caller's decision to get right — a sky light or a fallback ambient is what fills the gap,
+    ///     and it should be visible that it is doing so.
+    /// </remarks>
+    public Vector3 Irradiance(Vector3 world, Vector3 normal) =>
+        TrySample(world, normal, out var probe) ? probe.Irradiance(normal) : Vector3.Zero;
 
-        var neighbour = new Int3(
-            cell.X + (x == last ? 1 : 0),
-            cell.Y + (y == last ? 1 : 0),
-            cell.Z + (z == last ? 1 : 0)
-        );
+    /// <summary>The probe nearest a world position, out of whichever brick covers it.</summary>
+    /// <param name="world">The position.</param>
+    /// <param name="slot">Which brick it came from.</param>
+    /// <param name="index">Where in that brick.</param>
+    /// <param name="probe">The probe.</param>
+    /// <returns>Whether a brick covers the position.</returns>
+    /// <remarks>
+    ///     Clamped to the sixty-four a brick owns, never a border — so a dilation reading its
+    ///     neighbours cannot read a border plane that is about to be rewritten from the very probe
+    ///     being repaired.
+    /// </remarks>
+    bool TryProbeAt(Vector3 world, out int slot, out Int3 index, out IrradianceProbe probe) {
+        slot = IrradianceIndirection.Empty;
+        index = Int3.Zero;
+        probe = IrradianceProbe.Empty;
 
-        if (Indirection.Holds(neighbour)) {
-            var beyond = Indirection[neighbour];
-
-            if (beyond != IrradianceIndirection.Empty) {
-                return Pool[beyond, x == last ? 0 : x, y == last ? 0 : y, z == last ? 0 : z];
-            }
+        if (!Indirection.TryLocate(world, out var brick, out var local)) {
+            return false;
         }
 
-        return Pool[slot, Math.Min(x, last - 1), Math.Min(y, last - 1), Math.Min(z, last - 1)];
+        const int owned = IrradianceBrickPool.BrickResolution;
+
+        index = new(
+            Math.Clamp((int)MathF.Round(local.X * owned), 0, owned - 1),
+            Math.Clamp((int)MathF.Round(local.Y * owned), 0, owned - 1),
+            Math.Clamp((int)MathF.Round(local.Z * owned), 0, owned - 1)
+        );
+
+        slot = brick.Slot;
+        probe = Pool[slot, index.X, index.Y, index.Z];
+
+        return true;
     }
 
     /// <summary>The average of a probe's valid neighbours, if it has any.</summary>
-    /// <param name="at">Where the probe is.</param>
+    /// <param name="brick">The brick the probe belongs to.</param>
+    /// <param name="x">The probe's index along X.</param>
+    /// <param name="y">Along Y.</param>
+    /// <param name="z">Along Z.</param>
     /// <param name="repair">What it should hold instead.</param>
     /// <returns>Whether anything nearby was worth copying.</returns>
     /// <remarks>
@@ -507,12 +642,16 @@ public sealed class IrradianceField {
     ///     probe of travel", which is what makes the pass count a distance and therefore a knob
     ///     somebody can reason about.
     /// </remarks>
-    bool TryBorrowFromNeighbours(Int3 at, out IrradianceProbe repair) {
+    bool TryBorrowFromNeighbours(IrradianceBrick brick, int x, int y, int z, out IrradianceProbe repair) {
         ReadOnlySpan<Int3> directions = [
             new(1, 0, 0), new(-1, 0, 0),
             new(0, 1, 0), new(0, -1, 0),
             new(0, 0, 1), new(0, 0, -1)
         ];
+
+        var position = ProbePosition(brick, x, y, z);
+        var spacing = ProbeSpacingOf(brick.Size);
+        var self = new Int3(x, y, z);
 
         var radiance = SphericalHarmonicsL1.Zero;
         var shadow = 0f;
@@ -520,7 +659,15 @@ public sealed class IrradianceField {
         var contributors = 0;
 
         foreach (var direction in directions) {
-            if (!TryGetLattice(at + direction, out var other) || other.Validity <= 0f) {
+            var step = spacing * new Vector3(direction.X, direction.Y, direction.Z);
+
+            if (!TryProbeAt(position + step, out var slot, out var index, out var other)) {
+                continue;
+            }
+
+            // A coarse neighbour's nearest probe can round back to this one, and averaging a probe
+            // into itself repairs nothing while looking as though it did.
+            if (other.Validity <= 0f || (slot == brick.Slot && index == self)) {
                 continue;
             }
 
@@ -544,20 +691,58 @@ public sealed class IrradianceField {
         return true;
     }
 
-    /// <summary>Which brick a lattice coordinate belongs to.</summary>
-    /// <param name="lattice">The coordinate.</param>
-    /// <returns>The cell.</returns>
-    static Int3 CellOf(Int3 lattice) => lattice / IrradianceBrickPool.BrickResolution;
+    /// <summary>What a border texel should hold.</summary>
+    /// <param name="brick">The brick the border belongs to.</param>
+    /// <param name="x">The texel's index along X.</param>
+    /// <param name="y">Along Y.</param>
+    /// <param name="z">Along Z.</param>
+    /// <returns>The neighbour's answer, or this brick's own last probe where there is no neighbour.</returns>
+    IrradianceProbe Borrowed(IrradianceBrick brick, int x, int y, int z) {
+        const int last = IrradianceBrickPool.BrickResolution;
 
-    /// <summary>Where a lattice coordinate sits inside its own brick.</summary>
-    /// <param name="coordinate">One axis of it.</param>
-    /// <returns>The probe index, 0 to 3.</returns>
-    static int Within(int coordinate) => coordinate % IrradianceBrickPool.BrickResolution;
+        // Asked as a world position rather than as a neighbouring cell, because which brick is beyond
+        // a border texel is a different answer for different texels of the same plane: a coarse
+        // brick's +X face can span four finer neighbours, and the cell at the plane's own corner
+        // names only the first of them.
+        if (Indirection.TryLocate(ProbePosition(brick, x, y, z), out var beyond, out var local)
+            && beyond.Slot != brick.Slot) {
+            // Same size, same lattice: the border probe and one of the neighbour's own probes are the
+            // same world position, so this is a copy by index and nothing happens to the value.
+            if (beyond.Size == brick.Size) {
+                return Pool[
+                    beyond.Slot,
+                    Math.Clamp((int)MathF.Round(local.X * last), 0, last),
+                    Math.Clamp((int)MathF.Round(local.Y * last), 0, last),
+                    Math.Clamp((int)MathF.Round(local.Z * last), 0, last)
+                ];
+            }
+
+            // Different sizes, so there is no probe of the neighbour at this position to copy —
+            // interpolate its own field instead, which is what makes the two agree at the boundary.
+            return Pool.Sample(beyond.Slot, local);
+        }
+
+        return Pool[brick.Slot, Math.Min(x, last - 1), Math.Min(y, last - 1), Math.Min(z, last - 1)];
+    }
+
+    /// <summary>Whether every cell a brick of a size would cover is empty.</summary>
+    bool Free(Int3 origin, int size) {
+        for (var z = origin.Z; z < origin.Z + size; z++) {
+            for (var y = origin.Y; y < origin.Y + size; y++) {
+                for (var x = origin.X; x < origin.X + size; x++) {
+                    var cell = new Int3(x, y, z);
+
+                    if (Indirection.Holds(cell) && Indirection[cell].HasBrick) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
 
     /// <summary>Two projections added, which is the projection of the two together.</summary>
-    /// <param name="left">One.</param>
-    /// <param name="right">The other.</param>
-    /// <returns>The sum.</returns>
     static SphericalHarmonicsL1 Sum(SphericalHarmonicsL1 left, SphericalHarmonicsL1 right) =>
         new(
             left.L00 + right.L00,
@@ -565,18 +750,4 @@ public sealed class IrradianceField {
             left.L10 + right.L10,
             left.L11 + right.L11
         );
-
-    /// <summary>The brick covering a cell.</summary>
-    /// <param name="cell">The cell.</param>
-    /// <returns>The slot.</returns>
-    /// <exception cref="InvalidOperationException">No brick covers it.</exception>
-    int SlotOf(Int3 cell) {
-        var slot = Indirection[cell];
-
-        if (slot == IrradianceIndirection.Empty) {
-            throw new InvalidOperationException($"Cell {cell} has no brick. Allocate one first.");
-        }
-
-        return slot;
-    }
 }

@@ -104,7 +104,7 @@ public sealed class TracedIrradianceFiller {
     readonly Vector3[] directions;
     readonly float solidAngle;
 
-    Int3 lattice;
+    Int3 grid;
 
     /// <summary>Builds a filler over a scene's geometry and its lighting.</summary>
     /// <param name="geometry">What the rays march through.</param>
@@ -133,7 +133,7 @@ public sealed class TracedIrradianceFiller {
     /// <summary>How this filler was told to trace.</summary>
     public IrradianceFillSettings Settings { get; }
 
-    /// <summary>Which probe the next budgeted fill starts at.</summary>
+    /// <summary>Which indirection cell the next budgeted fill starts at.</summary>
     /// <remarks>
     ///     Public because it is the only way to see that a round-robin is making progress, and a
     ///     round-robin that silently stopped moving produces a field that is correct where it got to
@@ -141,9 +141,9 @@ public sealed class TracedIrradianceFiller {
     /// </remarks>
     public int Cursor { get; private set; }
 
-    /// <summary>Fills every probe of a field.</summary>
+    /// <summary>Fills every brick of a field.</summary>
     /// <param name="field">The field to fill.</param>
-    /// <returns>How many probes were filled.</returns>
+    /// <returns>How many bricks were filled.</returns>
     /// <exception cref="ArgumentNullException">There is no field.</exception>
     /// <remarks>
     ///     Borders are not touched and are not filled — run <see cref="IrradianceField.Dilate" /> and
@@ -152,69 +152,81 @@ public sealed class TracedIrradianceFiller {
     public int Fill(IrradianceField field) {
         ArgumentNullException.ThrowIfNull(field);
 
-        var resolution = field.LatticeResolution;
-
-        return Fill(field, (int)resolution.Volume);
+        return Fill(field, field.BrickCount);
     }
 
-    /// <summary>Fills a bounded number of probes, carrying on from where the last call stopped.</summary>
+    /// <summary>Fills a bounded number of bricks, carrying on from where the last call stopped.</summary>
     /// <param name="field">The field to fill.</param>
-    /// <param name="budget">How many probes to visit.</param>
-    /// <returns>How many of them had a brick to write into.</returns>
+    /// <param name="budget">How many bricks to fill.</param>
+    /// <returns>How many were filled.</returns>
     /// <exception cref="ArgumentNullException">There is no field.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A negative budget.</exception>
     /// <remarks>
     ///     <para>
-    ///         <b>The budget counts probes visited, not probes written.</b> A cell with no brick costs
-    ///         a lookup and is skipped, and it still spends budget — otherwise a field that is mostly
-    ///         empty air makes one call walk the whole lattice looking for work, which is exactly the
-    ///         frame-time spike a budget exists to prevent.
+    ///         <b>Bricks, not probes, which is doc 19 § L2's "N bricks per frame round-robin".</b> A
+    ///         brick is the unit because it is the unit of the pool and of a GPU dispatch — sixty-four
+    ///         probes sharing one slot, filled together or not at all. Half a brick is a state nothing
+    ///         downstream has a use for.
     ///     </para>
     ///     <para>
-    ///         The cursor resets when the field's lattice changes shape, because an index into a
-    ///         lattice that no longer exists is not a position — it is a different probe every time the
-    ///         resolution changes, which is a round-robin that visits some probes twice and others
-    ///         never.
+    ///         The walk itself is over indirection cells and is bounded by the grid, so a mostly-empty
+    ///         field cannot make one call scan forever looking for work. A coarse brick names itself in
+    ///         every cell it covers, so the walk only stops at the cell that <i>is</i> its origin —
+    ///         otherwise a brick of size eight would be filled five hundred and twelve times a lap.
+    ///     </para>
+    ///     <para>
+    ///         The cursor resets when the grid changes shape, because an index into a grid that no
+    ///         longer exists is not a position — it is a different cell every time the resolution
+    ///         changes, which is a round-robin that visits some bricks twice and others never.
     ///     </para>
     /// </remarks>
     public int Fill(IrradianceField field, int budget) {
         ArgumentNullException.ThrowIfNull(field);
         ArgumentOutOfRangeException.ThrowIfNegative(budget);
 
-        var resolution = field.LatticeResolution;
+        var resolution = field.Indirection.Resolution;
         var total = (int)resolution.Volume;
 
-        if (resolution != lattice) {
-            lattice = resolution;
+        if (resolution != grid) {
+            grid = resolution;
             Cursor = 0;
         }
 
-        if (total == 0) {
-            return 0;
-        }
+        var filled = 0;
 
-        var written = 0;
-
-        for (var visited = 0; visited < budget; visited++) {
+        for (var walked = 0; walked < total && filled < budget; walked++) {
             var index = Cursor;
 
             Cursor = (Cursor + 1) % total;
 
-            var at = new Int3(
+            var cell = new Int3(
                 index % resolution.X,
                 index / resolution.X % resolution.Y,
                 index / (resolution.X * resolution.Y)
             );
 
-            if (!field.TryGetLattice(at, out var previous)) {
+            if (!field.Indirection.IsOrigin(cell) || !field.Indirection.TryBrick(cell, out var brick)) {
                 continue;
             }
 
-            field.SetLattice(at, Trace(field.LatticePosition(at), previous));
-            written++;
+            for (var z = 0; z < IrradianceBrickPool.BrickResolution; z++) {
+                for (var y = 0; y < IrradianceBrickPool.BrickResolution; y++) {
+                    for (var x = 0; x < IrradianceBrickPool.BrickResolution; x++) {
+                        field.SetProbe(
+                            brick,
+                            x,
+                            y,
+                            z,
+                            Trace(field.ProbePosition(brick, x, y, z), field.GetProbe(brick, x, y, z))
+                        );
+                    }
+                }
+            }
+
+            filled++;
         }
 
-        return written;
+        return filled;
     }
 
     /// <summary>What one probe sees from where it stands.</summary>

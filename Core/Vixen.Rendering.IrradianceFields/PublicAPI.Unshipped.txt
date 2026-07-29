@@ -2,6 +2,16 @@
 Vixen.Rendering.IrradianceFields.IRadianceSource -> interface
 Vixen.Rendering.IrradianceFields.IRadianceSource.Sky(Vixen.Core.Mathematics.Vector3 direction) -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.IrradianceFields.IRadianceSource.Surface(Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 normal, Vixen.Core.Mathematics.Vector3 direction) -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.IrradianceFields.IrradianceBrick -> readonly struct
+Vixen.Rendering.IrradianceFields.IrradianceBrick : System.IEquatable<Vixen.Rendering.IrradianceFields.IrradianceBrick>
+Vixen.Rendering.IrradianceFields.IrradianceBrick.Cell.get -> Vixen.Core.Mathematics.Int3
+Vixen.Rendering.IrradianceFields.IrradianceBrick.Cell.init -> Vixen.Core.Mathematics.Int3
+Vixen.Rendering.IrradianceFields.IrradianceBrick.IrradianceBrick() -> void
+Vixen.Rendering.IrradianceFields.IrradianceBrick.IrradianceBrick(int Slot, Vixen.Core.Mathematics.Int3 Cell, int Size) -> void
+Vixen.Rendering.IrradianceFields.IrradianceBrick.Size.get -> int
+Vixen.Rendering.IrradianceFields.IrradianceBrick.Size.init -> int
+Vixen.Rendering.IrradianceFields.IrradianceBrick.Slot.get -> int
+Vixen.Rendering.IrradianceFields.IrradianceBrick.Slot.init -> int
 Vixen.Rendering.IrradianceFields.IrradianceBrickPool -> sealed class
 Vixen.Rendering.IrradianceFields.IrradianceBrickPool.Capacity.get -> int
 Vixen.Rendering.IrradianceFields.IrradianceBrickPool.Clear() -> void
@@ -18,30 +28,40 @@ Vixen.Rendering.IrradianceFields.IrradianceBrickPool.TextureCoordinate(int slot,
 Vixen.Rendering.IrradianceFields.IrradianceBrickPool.TryAllocate(out int slot) -> bool
 Vixen.Rendering.IrradianceFields.IrradianceBrickPool.this[int slot, int x, int y, int z].get -> Vixen.Rendering.IrradianceFields.IrradianceProbe
 Vixen.Rendering.IrradianceFields.IrradianceBrickPool.this[int slot, int x, int y, int z].set -> Vixen.Rendering.IrradianceFields.IrradianceProbe
+Vixen.Rendering.IrradianceFields.IrradianceCell -> readonly struct
+Vixen.Rendering.IrradianceFields.IrradianceCell : System.IEquatable<Vixen.Rendering.IrradianceFields.IrradianceCell>
+Vixen.Rendering.IrradianceFields.IrradianceCell.HasBrick.get -> bool
+Vixen.Rendering.IrradianceFields.IrradianceCell.IrradianceCell() -> void
+Vixen.Rendering.IrradianceFields.IrradianceCell.IrradianceCell(int Slot, int Size) -> void
+Vixen.Rendering.IrradianceFields.IrradianceCell.Size.get -> int
+Vixen.Rendering.IrradianceFields.IrradianceCell.Size.init -> int
+Vixen.Rendering.IrradianceFields.IrradianceCell.Slot.get -> int
+Vixen.Rendering.IrradianceFields.IrradianceCell.Slot.init -> int
 Vixen.Rendering.IrradianceFields.IrradianceField -> sealed class
-Vixen.Rendering.IrradianceFields.IrradianceField.Allocate(Vixen.Core.Mathematics.BoundingBox region) -> int
-Vixen.Rendering.IrradianceFields.IrradianceField.AllocateAll() -> int
+Vixen.Rendering.IrradianceFields.IrradianceField.Allocate(Vixen.Core.Mathematics.BoundingBox region, int size = 1) -> int
+Vixen.Rendering.IrradianceFields.IrradianceField.AllocateAll(int size = 1) -> int
 Vixen.Rendering.IrradianceFields.IrradianceField.Bounds.get -> Vixen.Core.Mathematics.BoundingBox
+Vixen.Rendering.IrradianceFields.IrradianceField.BrickBounds(Vixen.Rendering.IrradianceFields.IrradianceBrick brick) -> Vixen.Core.Mathematics.BoundingBox
+Vixen.Rendering.IrradianceFields.IrradianceField.BrickCount.get -> int
+Vixen.Rendering.IrradianceFields.IrradianceField.Bricks.get -> System.Collections.Generic.IEnumerable<Vixen.Rendering.IrradianceFields.IrradianceBrick>
 Vixen.Rendering.IrradianceFields.IrradianceField.Clear() -> void
 Vixen.Rendering.IrradianceFields.IrradianceField.Dilate(int passes = 1) -> int
-Vixen.Rendering.IrradianceFields.IrradianceField.GetProbe(Vixen.Core.Mathematics.Int3 cell, int x, int y, int z) -> Vixen.Rendering.IrradianceFields.IrradianceProbe
-Vixen.Rendering.IrradianceFields.IrradianceField.HoldsLattice(Vixen.Core.Mathematics.Int3 lattice) -> bool
+Vixen.Rendering.IrradianceFields.IrradianceField.FinestProbeSpacing.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.IrradianceFields.IrradianceField.GetProbe(Vixen.Rendering.IrradianceFields.IrradianceBrick brick, int x, int y, int z) -> Vixen.Rendering.IrradianceFields.IrradianceProbe
 Vixen.Rendering.IrradianceFields.IrradianceField.Indirection.get -> Vixen.Rendering.IrradianceFields.IrradianceIndirection
 Vixen.Rendering.IrradianceFields.IrradianceField.Irradiance(Vixen.Core.Mathematics.Vector3 world, Vixen.Core.Mathematics.Vector3 normal) -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.IrradianceFields.IrradianceField.IrradianceField(Vixen.Core.Mathematics.BoundingBox bounds, Vixen.Core.Mathematics.Int3 cells, Vixen.Rendering.IrradianceFields.IrradianceBrickPool? pool = null) -> void
-Vixen.Rendering.IrradianceFields.IrradianceField.LatticePosition(Vixen.Core.Mathematics.Int3 lattice) -> Vixen.Core.Mathematics.Vector3
-Vixen.Rendering.IrradianceFields.IrradianceField.LatticeResolution.get -> Vixen.Core.Mathematics.Int3
 Vixen.Rendering.IrradianceFields.IrradianceField.NormalBias.get -> float
 Vixen.Rendering.IrradianceFields.IrradianceField.NormalBias.set -> float
 Vixen.Rendering.IrradianceFields.IrradianceField.Pool.get -> Vixen.Rendering.IrradianceFields.IrradianceBrickPool
-Vixen.Rendering.IrradianceFields.IrradianceField.ProbePosition(Vixen.Core.Mathematics.Int3 cell, int x, int y, int z) -> Vixen.Core.Mathematics.Vector3
-Vixen.Rendering.IrradianceFields.IrradianceField.ProbeSpacing.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.IrradianceFields.IrradianceField.ProbePosition(Vixen.Rendering.IrradianceFields.IrradianceBrick brick, int x, int y, int z) -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.IrradianceFields.IrradianceField.ProbeSpacingOf(int size) -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.IrradianceFields.IrradianceField.Refine(Vixen.Core.Mathematics.BoundingBox region, int size = 1) -> int
 Vixen.Rendering.IrradianceFields.IrradianceField.Release(Vixen.Core.Mathematics.Int3 cell) -> bool
-Vixen.Rendering.IrradianceFields.IrradianceField.SetLattice(Vixen.Core.Mathematics.Int3 lattice, Vixen.Rendering.IrradianceFields.IrradianceProbe probe) -> void
-Vixen.Rendering.IrradianceFields.IrradianceField.SetProbe(Vixen.Core.Mathematics.Int3 cell, int x, int y, int z, Vixen.Rendering.IrradianceFields.IrradianceProbe probe) -> void
+Vixen.Rendering.IrradianceFields.IrradianceField.SetProbe(Vixen.Rendering.IrradianceFields.IrradianceBrick brick, int x, int y, int z, Vixen.Rendering.IrradianceFields.IrradianceProbe probe) -> void
+Vixen.Rendering.IrradianceFields.IrradianceField.Split(Vixen.Core.Mathematics.Int3 cell) -> int
 Vixen.Rendering.IrradianceFields.IrradianceField.SyncBorders() -> void
-Vixen.Rendering.IrradianceFields.IrradianceField.TryAllocate(Vixen.Core.Mathematics.Int3 cell, out int slot) -> bool
-Vixen.Rendering.IrradianceFields.IrradianceField.TryGetLattice(Vixen.Core.Mathematics.Int3 lattice, out Vixen.Rendering.IrradianceFields.IrradianceProbe probe) -> bool
+Vixen.Rendering.IrradianceFields.IrradianceField.TryAllocate(Vixen.Core.Mathematics.Int3 cell, int size, out Vixen.Rendering.IrradianceFields.IrradianceBrick brick) -> bool
 Vixen.Rendering.IrradianceFields.IrradianceField.TrySample(Vixen.Core.Mathematics.Vector3 world, Vixen.Core.Mathematics.Vector3 normal, out Vixen.Rendering.IrradianceFields.IrradianceProbe probe) -> bool
 Vixen.Rendering.IrradianceFields.IrradianceField.TrySample(Vixen.Core.Mathematics.Vector3 world, out Vixen.Rendering.IrradianceFields.IrradianceProbe probe) -> bool
 Vixen.Rendering.IrradianceFields.IrradianceFillSettings -> readonly struct
@@ -59,19 +79,25 @@ Vixen.Rendering.IrradianceFields.IrradianceFillSettings.SunSoftness.get -> float
 Vixen.Rendering.IrradianceFields.IrradianceFillSettings.SunSoftness.init -> float
 Vixen.Rendering.IrradianceFields.IrradianceFillSettings.Validate() -> void
 Vixen.Rendering.IrradianceFields.IrradianceIndirection -> sealed class
+Vixen.Rendering.IrradianceFields.IrradianceIndirection.Assign(Vixen.Rendering.IrradianceFields.IrradianceBrick brick) -> void
 Vixen.Rendering.IrradianceFields.IrradianceIndirection.Bounds.get -> Vixen.Core.Mathematics.BoundingBox
+Vixen.Rendering.IrradianceFields.IrradianceIndirection.BrickCount.get -> int
 Vixen.Rendering.IrradianceFields.IrradianceIndirection.CellBounds(Vixen.Core.Mathematics.Int3 cell) -> Vixen.Core.Mathematics.BoundingBox
 Vixen.Rendering.IrradianceFields.IrradianceIndirection.CellSize.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.IrradianceFields.IrradianceIndirection.Cells.get -> System.ReadOnlySpan<Vixen.Rendering.IrradianceFields.IrradianceCell>
 Vixen.Rendering.IrradianceFields.IrradianceIndirection.Clear() -> void
+Vixen.Rendering.IrradianceFields.IrradianceIndirection.Covered.get -> int
 Vixen.Rendering.IrradianceFields.IrradianceIndirection.Holds(Vixen.Core.Mathematics.Int3 cell) -> bool
 Vixen.Rendering.IrradianceFields.IrradianceIndirection.IrradianceIndirection(Vixen.Core.Mathematics.BoundingBox bounds, Vixen.Core.Mathematics.Int3 resolution) -> void
-Vixen.Rendering.IrradianceFields.IrradianceIndirection.Occupancy.get -> int
+Vixen.Rendering.IrradianceFields.IrradianceIndirection.IsOrigin(Vixen.Core.Mathematics.Int3 cell) -> bool
 Vixen.Rendering.IrradianceFields.IrradianceIndirection.Resolution.get -> Vixen.Core.Mathematics.Int3
-Vixen.Rendering.IrradianceFields.IrradianceIndirection.Slots.get -> System.ReadOnlySpan<int>
-Vixen.Rendering.IrradianceFields.IrradianceIndirection.TryCell(Vixen.Core.Mathematics.Vector3 world, out Vixen.Core.Mathematics.Int3 cell, out Vixen.Core.Mathematics.Vector3 local) -> bool
-Vixen.Rendering.IrradianceFields.IrradianceIndirection.TryLocate(Vixen.Core.Mathematics.Vector3 world, out int slot, out Vixen.Core.Mathematics.Vector3 local) -> bool
-Vixen.Rendering.IrradianceFields.IrradianceIndirection.this[Vixen.Core.Mathematics.Int3 cell].get -> int
-Vixen.Rendering.IrradianceFields.IrradianceIndirection.this[Vixen.Core.Mathematics.Int3 cell].set -> int
+Vixen.Rendering.IrradianceFields.IrradianceIndirection.Revoke(Vixen.Rendering.IrradianceFields.IrradianceBrick brick) -> void
+Vixen.Rendering.IrradianceFields.IrradianceIndirection.TryBrick(Vixen.Core.Mathematics.Int3 cell, out Vixen.Rendering.IrradianceFields.IrradianceBrick brick) -> bool
+Vixen.Rendering.IrradianceFields.IrradianceIndirection.TryCell(Vixen.Core.Mathematics.Vector3 world, out Vixen.Core.Mathematics.Int3 cell) -> bool
+Vixen.Rendering.IrradianceFields.IrradianceIndirection.TryLocate(Vixen.Core.Mathematics.Vector3 world, out Vixen.Rendering.IrradianceFields.IrradianceBrick brick, out Vixen.Core.Mathematics.Vector3 local) -> bool
+Vixen.Rendering.IrradianceFields.IrradianceIndirection.TryVoxel(Vixen.Core.Mathematics.Vector3 world, out Vixen.Core.Mathematics.Vector3 voxel) -> bool
+Vixen.Rendering.IrradianceFields.IrradianceIndirection.this[Vixen.Core.Mathematics.Int3 cell].get -> Vixen.Rendering.IrradianceFields.IrradianceCell
+Vixen.Rendering.IrradianceFields.IrradianceIndirection.this[Vixen.Core.Mathematics.Int3 cell].set -> Vixen.Rendering.IrradianceFields.IrradianceCell
 Vixen.Rendering.IrradianceFields.IrradianceProbe -> readonly struct
 Vixen.Rendering.IrradianceFields.IrradianceProbe : System.IEquatable<Vixen.Rendering.IrradianceFields.IrradianceProbe>
 Vixen.Rendering.IrradianceFields.IrradianceProbe.Irradiance(Vixen.Core.Mathematics.Vector3 normal) -> Vixen.Core.Mathematics.Vector3
@@ -95,6 +121,8 @@ const Vixen.Rendering.IrradianceFields.IrradianceBrickPool.PaddedResolution = 5 
 const Vixen.Rendering.IrradianceFields.IrradianceBrickPool.TexelsPerBrick = 125 -> int
 const Vixen.Rendering.IrradianceFields.IrradianceIndirection.Empty = -1 -> int
 static Vixen.Rendering.IrradianceFields.IrradianceBrickPool.OfCapacity(int capacity) -> Vixen.Rendering.IrradianceFields.IrradianceBrickPool
+static Vixen.Rendering.IrradianceFields.IrradianceCell.Empty.get -> Vixen.Rendering.IrradianceFields.IrradianceCell
+static Vixen.Rendering.IrradianceFields.IrradianceIndirection.Origin(Vixen.Core.Mathematics.Int3 cell, int size) -> Vixen.Core.Mathematics.Int3
 static Vixen.Rendering.IrradianceFields.IrradianceProbe.Empty.get -> Vixen.Rendering.IrradianceFields.IrradianceProbe
 static Vixen.Rendering.IrradianceFields.IrradianceProbe.Lerp(Vixen.Rendering.IrradianceFields.IrradianceProbe from, Vixen.Rendering.IrradianceFields.IrradianceProbe to, float amount) -> Vixen.Rendering.IrradianceFields.IrradianceProbe
 static Vixen.Rendering.IrradianceFields.IrradianceProbe.Lit(Vixen.Core.Imaging.SphericalHarmonicsL1 radiance) -> Vixen.Rendering.IrradianceFields.IrradianceProbe

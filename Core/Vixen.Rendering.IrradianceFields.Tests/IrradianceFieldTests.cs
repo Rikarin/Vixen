@@ -21,40 +21,55 @@ public class IrradianceFieldTests {
         var field = Field();
 
         Assert.Equal(new Vector3(4f, 4f, 2f), field.Indirection.CellSize);
-        Assert.Equal(new Vector3(1f, 1f, 0.5f), field.ProbeSpacing);
+        Assert.Equal(new Vector3(1f, 1f, 0.5f), field.FinestProbeSpacing);
+    }
+
+    /// <summary>
+    ///     <b>A coarse brick is the same sixty-four probes over more world.</b> That is the whole
+    ///     bargain refinement makes: memory where geometry is, and nothing where there is only air.
+    /// </summary>
+    [Fact]
+    public void ACoarseBrickSpreadsTheSameProbesFurther() {
+        var field = Field();
+
+        Assert.Equal(field.FinestProbeSpacing * 4f, field.ProbeSpacingOf(4));
     }
 
     /// <summary>
     ///     <b>The geometric fact the whole scheme rests on.</b> A brick's fifth probe is not near its
-    ///     neighbour's first — it <i>is</i> its neighbour's first, at the same world position. That is
-    ///     what makes the border a copy rather than an estimate, and it is why a seam cannot survive a
-    ///     correct border sync.
+    ///     neighbour's first — it <i>is</i> its neighbour's first, at the same world position, when the
+    ///     two are the same size. That is what makes the border a copy rather than an estimate.
     /// </summary>
     [Fact]
     public void ABricksLastProbeIsItsNeighboursFirst() {
         var field = Field();
 
+        field.AllocateAll();
+
+        Assert.True(field.Indirection.TryBrick(new(0, 0, 0), out var first));
+        Assert.True(field.Indirection.TryBrick(new(1, 0, 0), out var second));
+        Assert.True(field.Indirection.TryBrick(new(1, 1, 1), out var diagonal));
+
         for (var y = 0; y <= 4; y++) {
             for (var z = 0; z <= 4; z++) {
-                Assert.Equal(
-                    field.ProbePosition(new(0, 0, 0), 4, y, z),
-                    field.ProbePosition(new(1, 0, 0), 0, y, z)
-                );
+                Assert.Equal(field.ProbePosition(first, 4, y, z), field.ProbePosition(second, 0, y, z));
             }
         }
 
-        Assert.Equal(
-            field.ProbePosition(new(0, 0, 0), 4, 4, 4),
-            field.ProbePosition(new(1, 1, 1), 0, 0, 0)
-        );
+        Assert.Equal(field.ProbePosition(first, 4, 4, 4), field.ProbePosition(diagonal, 0, 0, 0));
     }
 
     [Fact]
-    public void ProbesStartAtTheCornerOfTheirCell() {
+    public void ProbesStartAtTheCornerOfTheirBrick() {
         var field = Field();
 
-        Assert.Equal(new Vector3(-3f, 1f, 2f), field.ProbePosition(new(0, 0, 0), 0, 0, 0));
-        Assert.Equal(new Vector3(9f, 9f, 6f), field.ProbePosition(new(2, 1, 1), 4, 4, 4));
+        field.AllocateAll();
+
+        Assert.True(field.Indirection.TryBrick(new(0, 0, 0), out var first));
+        Assert.True(field.Indirection.TryBrick(new(2, 1, 1), out var last));
+
+        Assert.Equal(new Vector3(-3f, 1f, 2f), field.ProbePosition(first, 0, 0, 0));
+        Assert.Equal(new Vector3(9f, 9f, 6f), field.ProbePosition(last, 4, 4, 4));
     }
 
     /// <summary>
@@ -63,9 +78,24 @@ public class IrradianceFieldTests {
     ///     a brick boundary, which is the one place a storage scheme with borders can differ from one
     ///     without them. Any error left is a probe read from the wrong place.
     /// </summary>
-    [Fact]
-    public void ALinearFieldIsReproducedExactlyAcrossABrickBoundary() {
-        var field = Filled();
+    /// <param name="refined">
+    ///     Whether the field mixes brick sizes. It is the same assertion either way and that is the
+    ///     point: a border between two bricks of one size is a copy, a border across a change of size
+    ///     is a sample of the neighbour's own field, and both have to land on the same linear answer or
+    ///     there is a seam exactly where the refinement changes — which is next to geometry.
+    ///     <para>
+    ///         The refined case is what found that <see cref="IrradianceField.SyncBorders" /> has an
+    ///         order to it. A fine brick's border interpolates a coarse neighbour at a position that
+    ///         can fall in that neighbour's own border plane, so the coarse bricks have to be finished
+    ///         first — and computing everything before writing anything, which is the obvious way to
+    ///         make a pass order-independent, is exactly what breaks it.
+    ///     </para>
+    /// </param>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ALinearFieldIsReproducedExactlyAcrossABrickBoundary(bool refined) {
+        var field = refined ? Mixed() : Filled();
 
         foreach (var point in Interior(field)) {
             Assert.Equal(Probes.Ramp(point), Sampled(field, point), 3);
@@ -77,9 +107,11 @@ public class IrradianceFieldTests {
     ///     what a seam is. Written down because the border plane is the part of the layout that looks
     ///     like padding and is not.
     /// </summary>
-    [Fact]
-    public void WithoutBordersTheSeamShows() {
-        var field = Filled(sync: false);
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void WithoutBordersTheSeamShows(bool refined) {
+        var field = refined ? Mixed(sync: false) : Filled(sync: false);
         var worst = 0f;
 
         foreach (var point in Interior(field)) {
@@ -89,24 +121,22 @@ public class IrradianceFieldTests {
         Assert.True(worst > 1f, $"the unsynced field was only {worst} out, so the borders did nothing");
     }
 
-    /// <summary>A synced border holds the neighbour's probe, not something like it.</summary>
+    /// <summary>A synced border between equal bricks holds the neighbour's probe, not something like it.</summary>
     [Fact]
     public void ABorderHoldsTheNeighboursOwnProbe() {
         var field = Filled();
 
+        Assert.True(field.Indirection.TryBrick(new(0, 0, 0), out var first));
+        Assert.True(field.Indirection.TryBrick(new(1, 0, 0), out var second));
+        Assert.True(field.Indirection.TryBrick(new(1, 1, 1), out var diagonal));
+
         for (var y = 0; y < 4; y++) {
             for (var z = 0; z < 4; z++) {
-                Assert.Equal(
-                    field.GetProbe(new(1, 0, 0), 0, y, z),
-                    field.GetProbe(new(0, 0, 0), 4, y, z)
-                );
+                Assert.Equal(field.GetProbe(second, 0, y, z), field.GetProbe(first, 4, y, z));
             }
         }
 
-        Assert.Equal(
-            field.GetProbe(new(1, 1, 1), 0, 0, 0),
-            field.GetProbe(new(0, 0, 0), 4, 4, 4)
-        );
+        Assert.Equal(field.GetProbe(diagonal, 0, 0, 0), field.GetProbe(first, 4, 4, 4));
     }
 
     /// <summary>
@@ -118,7 +148,8 @@ public class IrradianceFieldTests {
     public void AtTheEdgeABorderRepeatsWhatItHas() {
         var field = Filled();
 
-        Assert.Equal(field.GetProbe(new(2, 1, 1), 3, 3, 3), field.GetProbe(new(2, 1, 1), 4, 4, 4));
+        Assert.True(field.Indirection.TryBrick(new(2, 1, 1), out var last));
+        Assert.Equal(field.GetProbe(last, 3, 3, 3), field.GetProbe(last, 4, 4, 4));
     }
 
     /// <summary>Borders are not data, so a filler cannot write one.</summary>
@@ -128,17 +159,9 @@ public class IrradianceFieldTests {
 
         field.AllocateAll();
 
+        Assert.True(field.Indirection.TryBrick(new(0, 0, 0), out var brick));
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => field.SetProbe(new(0, 0, 0), 4, 0, 0, IrradianceProbe.Empty)
-        );
-    }
-
-    [Fact]
-    public void WritingToACellWithNoBrickIsRefused() {
-        var field = Field();
-
-        Assert.Throws<InvalidOperationException>(
-            () => field.SetProbe(new(0, 0, 0), 0, 0, 0, IrradianceProbe.Empty)
+            () => field.SetProbe(brick, 4, 0, 0, IrradianceProbe.Empty)
         );
     }
 
@@ -147,11 +170,11 @@ public class IrradianceFieldTests {
         var field = Field();
 
         Assert.Equal(2, field.Allocate(new(new(-3f, 1f, 2f), new(2f, 4f, 3f))));
-        Assert.Equal(2, field.Indirection.Occupancy);
+        Assert.Equal(2, field.BrickCount);
         Assert.Equal(2, field.Pool.Count);
 
         // Asking again for the same region changes nothing — a cell that has a brick keeps it.
-        Assert.Equal(2, field.Allocate(new(new(-3f, 1f, 2f), new(2f, 4f, 3f))));
+        Assert.Equal(0, field.Allocate(new(new(-3f, 1f, 2f), new(2f, 4f, 3f))));
         Assert.Equal(2, field.Pool.Count);
 
         Assert.Equal(0, field.Allocate(new(new(100f), new(200f))));
@@ -166,19 +189,19 @@ public class IrradianceFieldTests {
         );
 
         Assert.Equal(3, field.AllocateAll());
-        Assert.Equal(3, field.Indirection.Occupancy);
-        Assert.False(field.TryAllocate(new(1, 1, 1), out _));
+        Assert.Equal(3, field.BrickCount);
+        Assert.False(field.TryAllocate(new(1, 1, 1), 1, out _));
     }
 
     [Fact]
     public void ReleasingGivesTheSlotBackAndForgetsTheCell() {
         var field = Field();
 
-        Assert.True(field.TryAllocate(new(1, 0, 0), out var slot));
+        Assert.True(field.TryAllocate(new(1, 0, 0), 1, out var brick));
         Assert.True(field.Release(new(1, 0, 0)));
 
-        Assert.Equal(IrradianceIndirection.Empty, field.Indirection[new(1, 0, 0)]);
-        Assert.False(field.Pool.IsAllocated(slot));
+        Assert.False(field.Indirection[new(1, 0, 0)].HasBrick);
+        Assert.False(field.Pool.IsAllocated(brick.Slot));
         Assert.False(field.Release(new(1, 0, 0)));
     }
 
@@ -200,24 +223,152 @@ public class IrradianceFieldTests {
         Assert.False(field.TrySample(new(2f, 2f, 3f), out _));
     }
 
-    /// <summary>A field whose every probe carries <see cref="Probes.Ramp" /> of where it stands.</summary>
+    /// <summary>Splitting a brick makes eight of half its size, in its own footprint.</summary>
+    [Fact]
+    public void SplittingMakesEightOfHalfTheSize() {
+        var field = Coarse();
+
+        Assert.Equal(8, field.BrickCount);
+
+        Assert.Equal(8, field.Split(new(0, 0, 0)));
+        Assert.Equal(15, field.BrickCount);
+
+        Assert.True(field.Indirection.TryBrick(new(0, 0, 0), out var child));
+        Assert.Equal(1, child.Size);
+
+        Assert.True(field.Indirection.TryBrick(new(2, 0, 0), out var untouched));
+        Assert.Equal(2, untouched.Size);
+
+        // Already as fine as the grid goes.
+        Assert.Equal(0, field.Split(new(0, 0, 0)));
+    }
+
+    /// <summary>
+    ///     <b>The parent's probes are discarded rather than interpolated down.</b> Interpolating would
+    ///     make eight children that agree with a coarser answer than any of them should hold, and a
+    ///     filler would then be converging toward the truth from something that already looks
+    ///     converged. Empty is honest.
+    /// </summary>
+    [Fact]
+    public void SplittingDiscardsWhatTheParentSaw() {
+        var field = Coarse();
+
+        Assert.True(field.Indirection.TryBrick(new(0, 0, 0), out var parent));
+        field.SetProbe(parent, 1, 1, 1, Probes.Of(9f));
+
+        field.Split(new(0, 0, 0));
+
+        Assert.True(field.Indirection.TryBrick(new(0, 0, 0), out var child));
+
+        for (var index = 0; index < 4; index++) {
+            Assert.Equal(IrradianceProbe.Empty, field.GetProbe(child, index, index, index));
+        }
+    }
+
+    /// <summary>Refinement splits what overlaps and leaves the rest coarse — which is the whole point.</summary>
+    [Fact]
+    public void RefiningSplitsOnlyWhatOverlaps() {
+        var field = Coarse();
+
+        Assert.Equal(8, field.Refine(new(new(0.5f), new(1.5f))));
+
+        Assert.True(field.Indirection.TryBrick(new(0, 0, 0), out var near));
+        Assert.True(field.Indirection.TryBrick(new(3, 3, 3), out var far));
+
+        Assert.Equal(1, near.Size);
+        Assert.Equal(2, far.Size);
+        Assert.Equal(15, field.BrickCount);
+    }
+
+    /// <summary>Refining to a size a brick already is does nothing at all.</summary>
+    [Fact]
+    public void RefiningToWhatIsAlreadyThereChangesNothing() {
+        var field = Coarse();
+
+        Assert.Equal(0, field.Refine(field.Bounds, 2));
+        Assert.Equal(8, field.BrickCount);
+    }
+
+    [Fact]
+    public void ABrickSizeHasToBeAPowerOfTwo() {
+        var field = Coarse();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => field.Allocate(field.Bounds, 3));
+        Assert.Throws<ArgumentOutOfRangeException>(() => field.Refine(field.Bounds, 0));
+    }
+
+    /// <summary>
+    ///     The normal bias is measured in the brick's own probe spacing, so a coarse region pushes the
+    ///     lookup further than a fine one — the ambiguity out there is wider in exactly that ratio.
+    /// </summary>
+    [Fact]
+    public void TheBiasScalesWithTheBrickUnderTheSurface() {
+        var field = Coarse();
+
+        field.Refine(new(new(0.5f), new(1.5f)));
+
+        foreach (var brick in field.Bricks) {
+            for (var z = 0; z < 4; z++) {
+                for (var y = 0; y < 4; y++) {
+                    for (var x = 0; x < 4; x++) {
+                        field.SetProbe(brick, x, y, z, Probes.Of(field.ProbePosition(brick, x, y, z).X));
+                    }
+                }
+            }
+        }
+
+        field.SyncBorders();
+        field.NormalBias = 1f;
+
+        // A size-one brick covers two world units, so its probes are half a unit apart.
+        Assert.True(field.TrySample(new(1f, 1f, 1f), new(1, 0, 0), out var fine));
+        Assert.Equal(1.5f, fine.Value(), 3);
+
+        // A size-two brick covers four, so its probes are one unit apart.
+        Assert.True(field.TrySample(new(5f, 5f, 5f), new(1, 0, 0), out var coarse));
+        Assert.Equal(6f, coarse.Value(), 3);
+    }
+
+    /// <summary>Eight bricks of size two over a four-cell grid, so there is something to refine.</summary>
+    static IrradianceField Coarse() {
+        var field = new IrradianceField(new BoundingBox(new(0f), new(8f)), new(4));
+
+        field.AllocateAll(2);
+
+        return field;
+    }
+
+    /// <summary>A field of one brick size, every probe carrying the ramp of where it stands.</summary>
     static IrradianceField Filled(bool sync = true) {
         var field = Field();
-        var resolution = field.Indirection.Resolution;
 
         field.AllocateAll();
 
-        for (var cz = 0; cz < resolution.Z; cz++) {
-            for (var cy = 0; cy < resolution.Y; cy++) {
-                for (var cx = 0; cx < resolution.X; cx++) {
-                    var cell = new Int3(cx, cy, cz);
+        return Ramped(field, sync);
+    }
 
-                    for (var z = 0; z < 4; z++) {
-                        for (var y = 0; y < 4; y++) {
-                            for (var x = 0; x < 4; x++) {
-                                field.SetProbe(cell, x, y, z, Probes.Of(Probes.Ramp(field.ProbePosition(cell, x, y, z))));
-                            }
-                        }
+    /// <summary>A field of two brick sizes, refined in two opposite corners so both adjacencies occur.</summary>
+    /// <remarks>
+    ///     Both directions matter and they take different code paths: a coarse brick borrowing from a
+    ///     fine one has a border plane spanning several neighbours, and a fine brick borrowing from a
+    ///     coarse one lands between that neighbour's probes.
+    /// </remarks>
+    static IrradianceField Mixed(bool sync = true) {
+        var field = Coarse();
+
+        field.Refine(new(new(0.5f), new(1.5f)));
+        field.Refine(new(new(4.5f), new(5.5f)));
+
+        return Ramped(field, sync);
+    }
+
+    /// <summary>Fills every owned probe of every brick from <see cref="Probes.Ramp" />.</summary>
+    static IrradianceField Ramped(IrradianceField field, bool sync) {
+        foreach (var brick in field.Bricks) {
+            for (var z = 0; z < 4; z++) {
+                for (var y = 0; y < 4; y++) {
+                    for (var x = 0; x < 4; x++) {
+                        field.SetProbe(brick, x, y, z, Probes.Of(Probes.Ramp(field.ProbePosition(brick, x, y, z))));
                     }
                 }
             }
@@ -237,11 +388,17 @@ public class IrradianceFieldTests {
     ///     The last brick's border plane has no neighbour to copy, so it repeats rather than
     ///     continuing the ramp. Beyond the last <i>owned</i> probe the field is a constant
     ///     extrapolation by design, and asserting a linear answer there would be asserting something
-    ///     the scheme does not claim.
+    ///     the scheme does not claim. The rind is as wide as the coarsest brick's probes are apart.
     /// </remarks>
     static IEnumerable<Vector3> Interior(IrradianceField field) {
         var bounds = field.Bounds;
-        var limit = bounds.Maximum - field.ProbeSpacing;
+        var coarsest = 1;
+
+        foreach (var brick in field.Bricks) {
+            coarsest = Math.Max(coarsest, brick.Size);
+        }
+
+        var limit = bounds.Maximum - field.ProbeSpacingOf(coarsest);
 
         for (var i = 0; i <= 12; i++) {
             for (var j = 0; j <= 6; j++) {
@@ -249,9 +406,8 @@ public class IrradianceFieldTests {
                     // Deliberately fractional steps as well as whole ones, so samples land on probes,
                     // on brick boundaries, and between both.
                     var t = new Vector3(i * 0.97f, j * 1.31f, k * 0.63f);
-                    var point = Vector3.Min(bounds.Minimum + t, limit);
 
-                    yield return point;
+                    yield return Vector3.Min(bounds.Minimum + t, limit);
                 }
             }
         }
