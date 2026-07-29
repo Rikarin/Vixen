@@ -501,16 +501,53 @@ rather than replacing it.
   cube rather than the far one" was decided by scale rather than by depth, and a shape's distance was
   not comparable with a marker's at all.
 
+## Shapes are instanced, and that was a blocker rather than an optimisation
+
+`SceneMeshes` walked the scene once a frame, transformed every vertex of every entity into world space
+and appended them to one list. `docs/blockout-tools.md` § B1 is the argument for why that had to change
+before anything else in that document could be built, and the sentence worth keeping is the one about
+what the failure looks like: **a drag that redraws at four frames a second is not a slow tool, it is a
+tool nobody can aim.**
+
+What made it a blocker rather than a cost was the cache: it was keyed by `PrimitiveKind`, so a hundred
+cubes were one `MeshData` and a hundred *edited* meshes would have been a hundred rebuilds a frame,
+with no sharing left in the pass. So the collector now emits one `MeshInstance` per entity — a
+transform, a normal matrix, a colour and four style lanes, a hundred and sixty bytes — grouped into
+`ShapeBatch`es that share a shape, and `MeshInstanceRenderer` holds each shape's geometry in a
+`GeometryBuffer` that is written once.
+
+- **A `ShapeBatch` names a `PrimitiveKind`, not a device handle.** This assembly still has no device
+  in it: `ScenePresenter.Resolve` is where a kind becomes a range in a vertex buffer, on the frame the
+  first entity wanting it appears. The day a block-out mesh is a mesh of its own rather than a
+  parameter, that is the only thing that changes.
+- ⚠ **A batch's instances have to be contiguous**, because a draw names a first instance and a count.
+  Grouping is why the collector buckets per shape instead of appending in tree order, and it is the
+  only invariant the collector owes the renderer.
+- ⚠ **The outline, the wireframe and the normal view were all copies of the geometry and are now style
+  lanes.** Selecting everything in a scene used to double the frame's vertex count. It now costs one
+  more instance per selected entity, which is the case the outline is actually used in.
+- ⚠ **One inverse per entity, not per vertex.** The normal matrix is the transform's inverse transpose
+  and is computed here, because a shader language has no inverse to ask with — and because without it
+  a cube scaled `2 1 1` has normals that are no longer perpendicular to their faces, so the shading
+  slides across the object as it is scaled and reads as the light moving.
+- ⚠ **`SceneMeshes.Segments` stays where it was even though a smoother sphere is now free.** What it
+  decides is also what `ScenePicker` and `SceneProbe` test against, and those still walk triangles:
+  changing it changes what a click hits.
+- **What is still missing is materials, not geometry.** One key direction, one ambient term, a colour
+  per instance. A per-face material, a texture or the blockout checker needs the viewport driven by
+  `RenderSystem` through a `GraphicsCompositor` — Phase 7's material-system wiring, which is where the
+  view modes and the picking stage are still blocked.
+
 ## A selection outline without a stencil
 
 The textbook outline is a stencil pass and a post effect over it: a second render pass, a stencil
-format this target does not have, and a shader. What this path *does* have is every vertex on the
-processor with the camera in hand, so the outline is an inverted hull built exactly rather than
-approximately — `SceneMeshes.Hull`.
+format this target does not have, and a shader. What this path does instead is an inverted hull built
+from the geometry that is already there — the object's own vertices pushed outwards across the view by
+a width in **pixels**, exactly rather than approximately.
 
-- The expansion is along the part of the normal lying **across** the view, scaled by
-  `EditorCamera.WorldPerPixel` at that vertex, so the rim is the width it was asked for in pixels at
-  every distance and in both projections.
+- The expansion is along the part of the normal lying **across** the view, scaled by how many world
+  units a pixel is at that vertex, so the rim is the width it was asked for in pixels at every
+  distance and in both projections.
 - ⚠ **A vertex whose normal points at the eye is not expanded at all.** It is not on the silhouette,
   and expanding it pushes the front face outwards through its own surface — an orange bloom over the
   middle of the selection.
@@ -519,9 +556,17 @@ approximately — `SceneMeshes.Hull`.
   differently per triangle: an outline that flickers in patches.
 - ⚠ **The hull's normals face the light rather than the surface.** One renderer, one ambient term for
   the whole draw — so the only way to have a flat rim beside shaded surfaces is a lambert term of one
-  everywhere, which needs the light the renderer will actually use.
+  everywhere, which is what the third style lane asks for.
 - It is collected only when surfaces are: in a wireframe view there is nothing for a rim to be the rim
   *of*, and an expanded hull with no object over it is a solid blob.
+- ⚠ **The expansion moved into the vertex stage when the shapes became instanced, and it had to.** It
+  needs the camera at every vertex, and there is no vertex on the processor any more. What crosses the
+  boundary instead is the numbers the measurement is made of, in `MeshInstanceView` —
+  `EditorCamera.PixelScale` is the part of `WorldPerPixel` that does not depend on the point, and the
+  shader multiplies it by the depth along the view axis.
+- ⚠ **What that costs is a test.** The picture the expansion makes can only be asserted on with a
+  device and a golden image; that the *numbers* it is made of are the camera's own is asserted, in both
+  projections, against `EditorCamera.WorldPerPixel`. That is the half of it that can drift silently.
 
 ## View modes are compositors
 
@@ -539,17 +584,17 @@ per pane. `ViewportLayout` gives each pane a whole `SceneViewport` for this reas
 ⚠ **All of the above is right and none of it is what the editor draws today.** A mode being a
 compositor tree needs the viewport driven by `RenderSystem` through a `GraphicsCompositor`, which is
 Phase 7's material-system wiring rather than doc 20's. What the editor draws is `SceneMeshes` through
-`MeshRenderer`: world-space triangles, one flat colour per vertex, one directional term.
-`ViewShading` is the table of what *that* path can honestly express, and six of the nine modes are
-expressible with no new module, no new pipeline and no new push constant:
+`MeshInstanceRenderer`: device-resident shapes, one instance per entity, one directional term and no
+materials. `ViewShading` is the table of what *that* path can honestly express, and six of the nine
+modes are expressible with no new module and no new pipeline:
 
 | Mode | How |
 |---|---|
 | Shaded | The default. |
-| Shaded Wireframe | The same, plus every edge into the line list. |
-| Wireframe | Only the edges. Segments rather than `FillMode.Wireframe`, which would be a second rasterizer state in a shipping renderer for a debug view of a tool path. |
+| Shaded Wireframe | The same, plus a second batch of the same instances drawn from the shape's edge index range. |
+| Wireframe | Only that batch. Segments rather than `FillMode.Wireframe`, which needs `fillModeNonSolid` — optional in Vulkan and absent on most tiled GPUs, so a view mode that drew nothing on a phone. |
 | Unlit, Albedo | The ambient term at one. With no materials, "base colour" and "unlit" *are* the same picture, and saying so is more honest than two menu lines that differ by nothing. |
-| Normal | The world normal remapped into the vertex colour, ⚠ from −1..1 rather than clamped: half of every normal is negative, so clamping would paint three of a cube's six faces black. The selection's colour is ignored in this mode, because painting the selected object orange in a view whose content *is* the normal makes the one object being looked at the one the view cannot answer for. |
+| Normal | A style lane, and the shader remaps the world normal into a colour ⚠ from −1..1 rather than clamping: half of every normal is negative, so clamping would paint three of a cube's six faces black. The selection's colour is ignored in this mode, because painting the selected object orange in a view whose content *is* the normal makes the one object being looked at the one the view cannot answer for. |
 
 ⚠ **The other three are registered and greyed rather than absent.** Roughness has no material to read
 one off; light complexity needs the clustered light list; overdraw needs an additive pipeline with the
@@ -740,7 +785,8 @@ primitives is a scene the processor can answer about exactly.
 `PickingRenderer` is written and tested and nothing drives it, and the reason has moved rather than
 gone away: it is a `SceneRenderer` over a `RenderStage`, which needs the viewport driven by
 `RenderSystem` through a `GraphicsCompositor`. The editor's viewport is `SceneMeshes` through
-`MeshRenderer` and has neither. So this is blocked on the same material-system wiring the view modes
+`MeshInstanceRenderer`, which has device-resident geometry and a per-entity transform but neither a
+compositor nor a material system. So this is blocked on the same material-system wiring the view modes
 are — doc 20's Risks table says that work should be scheduled *before* the viewport milestone, and it
 was not — and it stays blocked until it is, at which point the stage connects to a real target and
 `ScenePicker` becomes the fallback rather than the answer.
@@ -750,9 +796,11 @@ been told one, and it is right when the grid is what you are looking at. Blender
 buffer instead. That wants a readback the picking stage already knows how to do, and it wants
 something in the depth buffer to sample.
 
-**Meshes.** `Vixen.Editor.App` renders the scene into an offscreen target and hands it to the
-interface, so the viewport is live. What goes in it is lines: there is no material system wired to an
-editor viewport and no model importer feeding one, so a mesh pass is a second `SceneRenderer` in the
-same target when there is something to put in it.
+~~**Meshes.**~~ In, and twice over: solid shapes went in as world-space triangles through
+`MeshRenderer`, and are now device-resident geometry drawn once per entity through
+`MeshInstanceRenderer` — see above for why the second step was a blocker rather than a tidy-up. What is
+still out is a **material**: there is no material system wired to an editor viewport, so every surface
+is one flat colour under one directional term, and a textured or per-face-material block-out is the
+same Phase 7 wiring the picking stage and the view modes wait on.
 
 Licensed under Apache-2.0.

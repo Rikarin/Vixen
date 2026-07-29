@@ -1,13 +1,28 @@
 # Shaders
 
-The editor's own shaders, in Raven. Nine modules from three sources: four interface pipelines over one
-vertex stage, a line pair, and a mesh pair.
+The editor's own shaders, in Raven. Eleven modules from four sources: four interface pipelines over one
+vertex stage, a line pair, and two mesh pairs.
 
 | Source | Shaders | Modules |
 |---|---|---|
 | `Ui.rvn` | `UiVertex`, `UiBox`, `UiText`, `UiSolid`, `UiImage` | one `.vert.spv`, four `.frag.spv` |
 | `Line.rvn` | `LineVertex`, `LineFragment` | one of each |
 | `Mesh.rvn` | `Mesh` | one of each |
+| `MeshInstanced.rvn` | `MeshInstanced` | one of each |
+
+## Why there are two mesh shaders
+
+`Mesh` takes triangles that are already in world space and `MeshInstanced` takes a shape and a transform
+per entity, and the split is the same one `MeshRenderer` and `MeshInstanceRenderer` are: geometry that
+is genuinely rebuilt every frame against geometry that is not. The gizmo's solid handles are the first —
+a handle is a different size and colour at every camera position, and there is one of it — and the
+scene's shapes are the second, which `docs/blockout-tools.md` § B1 is the argument for.
+
+⚠ **`MeshInstanced`'s eleven vertex attributes are two buffers rather than one**, and the second one
+steps per *instance*: the shape's position and normal come from the geometry buffer, and the four
+transform rows, three normal-matrix rows, colour and style come from the frame's instance ring. The
+step mode is the host's to set — Raven has no opinion about it — so `MeshInstanceRenderer` is where a
+mistake there would live, and what it would draw is the whole scene as one exploded object.
 
 ## Regenerating
 
@@ -17,16 +32,16 @@ From the repository root, one command per source:
 dotnet run --project Raven/Vixen.Raven.Cli -- compile --target spirv Editor/Vixen.Editor.App/Shaders/Ui.rvn Editor/Vixen.Editor.App/Shaders/ --emit-reflection
 ```
 
-…and the same for `Line.rvn` and `Mesh.rvn`. The `.spv` and the `.reflect.json` beside each source are
-committed, for the reason `Samples/01` and `Samples/02` give: `UiRenderer`'s modules are *supplied*
-rather than compiled, so a caller hands over what it has.
+…and the same for `Line.rvn`, `Mesh.rvn` and `MeshInstanced.rvn`. The `.spv` and the `.reflect.json`
+beside each source are committed, for the reason `Samples/01` and `Samples/02` give: `UiRenderer`'s
+modules are *supplied* rather than compiled, so a caller hands over what it has.
 
 ⚠ **`--emit-reflection` is not optional.** The `.reflect.json` is what `Vixen.Shaders.Generators`
 reads, and what it tells `EditorHost` is where each vertex attribute lives. Regenerating a module
 without it leaves the host binding against the previous source's numbering — which is not a
 validation error but a stage reading whatever the driver left in an attribute nothing was bound to.
 
-`spirv-val --target-env vulkan1.2` over the nine `.spv` is worth running after: Raven's SPIR-V is
+`spirv-val --target-env vulkan1.2` over the eleven `.spv` is worth running after: Raven's SPIR-V is
 checked against the validator in its own tests, but these are the modules the editor actually loads.
 
 ## Why five shaders and not four pairs
@@ -57,6 +72,7 @@ pipeline layout does not cover *for that stage* is refused at pipeline creation:
 |---|---|---|
 | `LineRenderer` | `Vertex`, 64 bytes | the fragment stage must declare none, hence two shaders |
 | `MeshRenderer` | `Vertex \| Fragment`, 80 bytes | one shader, both stages, nothing to split |
+| `MeshInstanceRenderer` | `Vertex \| Fragment`, 128 bytes | the same, and 128 is exactly what every Vulkan implementation guarantees — the outline's pixel measurement needs three more vectors than `Mesh` does, and one more would need a limit asked of the device |
 | `UiRenderer` | `Vertex`, 16 bytes | only `UiVertex` declares them, which the split already gives |
 
 ## Bindings, and the two `UiBox` declares and never reads
