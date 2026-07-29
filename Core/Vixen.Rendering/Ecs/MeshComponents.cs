@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 
 namespace Vixen.Rendering.Ecs;
@@ -208,4 +209,38 @@ public static class PrimitiveShapes {
         kind = default;
         return false;
     }
+}
+
+/// <summary>The render object an entity has, while it has one.</summary>
+/// <remarks>
+///     <para>
+///         <b>Written by the bridge, never by game code</b> — the shape <c>PhysicsBody</c> established.
+///         Present exactly while a render object exists, so "is this drawable extracted" is an archetype
+///         question and the system finds what still needs one with <c>WithNone&lt;RenderHandle&gt;</c>
+///         rather than by scanning for a sentinel.
+///     </para>
+///     <para>
+///         ⚠ <b>Neither <c>[Component]</c> nor <c>[DataContract]</c>, and both omissions are
+///         load-bearing.</b> A <see cref="RenderObjectId" /> is a dense index into arrays this process
+///         allocated, so it means nothing in another one — saving it into a scene would restore a handle
+///         to whatever object took the slot. That is the same reason <c>Entity</c> is never written to a
+///         scene, and the absence of the attributes is the whole of what keeps this out of
+///         <c>SceneComponentRegistry</c>.
+///     </para>
+/// </remarks>
+public struct RenderHandle {
+    /// <summary>The object in the store.</summary>
+    public RenderObjectId Object;
+
+    /// <summary>Which geometry it holds a residency claim on, so releasing it releases the right one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Recorded rather than re-derived on removal.</b> An entity whose mesh reference was
+    ///     changed and then destroyed would otherwise release a claim on the mesh it points at *now* and
+    ///     leak the one it was actually holding — a leak that only shows up in a level that reassigns
+    ///     meshes at run time.
+    /// </remarks>
+    public GeometryKey Geometry;
+
+    /// <summary>Its bounds in the mesh's own space, so a moved entity needs no mesh lookup.</summary>
+    public BoundingSphere Local;
 }
