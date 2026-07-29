@@ -98,8 +98,8 @@ Vixen.Ui.Testing.UiTest.StyleOf(Vixen.Ui.UiElement element, string property) -> 
 Vixen.Ui.Testing.UiTest.Tab(bool backwards = false) -> bool
 Vixen.Ui.Testing.UiTest.Ticked -> System.Action?
 Vixen.Ui.Testing.UiTest.Tree() -> string
-Vixen.Ui.Testing.UiTest.Updated -> System.Action?
 Vixen.Ui.Testing.UiTest.TypeText(string text) -> Vixen.Ui.UiElement?
+Vixen.Ui.Testing.UiTest.Updated -> System.Action?
 Vixen.Ui.Testing.UiTest.Wheel(float deltaX, float deltaY) -> Vixen.Ui.UiElement?
 Vixen.Ui.Testing.UiTestException -> sealed class
 Vixen.Ui.Testing.UiTestException : System.Exception

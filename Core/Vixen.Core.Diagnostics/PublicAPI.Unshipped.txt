@@ -56,8 +56,8 @@ Vixen.Core.Diagnostics.LogRecord.Timestamp.init -> System.DateTimeOffset
 Vixen.Core.Diagnostics.LogRecordSink -> abstract class
 Vixen.Core.Diagnostics.LogRecordSink : Vixen.Core.Diagnostics.LogSink
 Vixen.Core.Diagnostics.LogRecordSink.LogRecordSink(Vixen.Core.Diagnostics.LogFilter? filter = null) -> void
-Vixen.Core.Diagnostics.LogRecordSink.TimeProvider.get -> System.TimeProvider!
-Vixen.Core.Diagnostics.LogRecordSink.TimeProvider.set -> void
+Vixen.Core.Diagnostics.LogRecordSink.TimeProvider.get -> System.TimeProvider
+Vixen.Core.Diagnostics.LogRecordSink.TimeProvider.set -> System.TimeProvider
 Vixen.Core.Diagnostics.LogSink -> abstract class
 Vixen.Core.Diagnostics.LogSink : System.IDisposable
 Vixen.Core.Diagnostics.LogSink.ClearCategoryLevels() -> void

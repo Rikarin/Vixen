@@ -378,12 +378,23 @@ Vixen.Ui.Controls.Advanced.DockGroupView -> sealed class
 Vixen.Ui.Controls.Advanced.DockGroupView : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.Advanced.DockGroupView.Body.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Advanced.DockGroupView.DockGroupView() -> void
+Vixen.Ui.Controls.Advanced.DockGroupView.MaximumScroll.get -> float
+Vixen.Ui.Controls.Advanced.DockGroupView.Next.get -> Vixen.Ui.Controls.IconButton
 Vixen.Ui.Controls.Advanced.DockGroupView.Node.get -> Vixen.Ui.Controls.Advanced.DockGroupNode?
+Vixen.Ui.Controls.Advanced.DockGroupView.Overflows.get -> bool
+Vixen.Ui.Controls.Advanced.DockGroupView.Previous.get -> Vixen.Ui.Controls.IconButton
+Vixen.Ui.Controls.Advanced.DockGroupView.Refresh() -> void
+Vixen.Ui.Controls.Advanced.DockGroupView.Reveal(Vixen.Ui.UiElement tab) -> void
+Vixen.Ui.Controls.Advanced.DockGroupView.RevealAfterLayout(Vixen.Ui.UiElement? tab) -> void
+Vixen.Ui.Controls.Advanced.DockGroupView.Scroll(float delta) -> void
+Vixen.Ui.Controls.Advanced.DockGroupView.ScrollLeft.get -> float
+Vixen.Ui.Controls.Advanced.DockGroupView.ScrollTo(float offset) -> void
 Vixen.Ui.Controls.Advanced.DockGroupView.Strip.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.DockGroupView.Tabs.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Advanced.DockLayout -> sealed class
 Vixen.Ui.Controls.Advanced.DockLayout.AddFloating(Vixen.Ui.Controls.Advanced.DockFloat window) -> void
 Vixen.Ui.Controls.Advanced.DockLayout.Contains(Vixen.Ui.Controls.Advanced.DockGroupNode group) -> bool
-Vixen.Ui.Controls.Advanced.DockLayout.Dock(string id, Vixen.Ui.Controls.Advanced.DockGroupNode target, Vixen.Ui.Controls.Advanced.DockZone zone) -> void
+Vixen.Ui.Controls.Advanced.DockLayout.Dock(string id, Vixen.Ui.Controls.Advanced.DockGroupNode target, Vixen.Ui.Controls.Advanced.DockZone zone, int index = -1) -> void
 Vixen.Ui.Controls.Advanced.DockLayout.DockLayout() -> void
 Vixen.Ui.Controls.Advanced.DockLayout.DockedGroups() -> System.Collections.Generic.List<Vixen.Ui.Controls.Advanced.DockGroupNode>
 Vixen.Ui.Controls.Advanced.DockLayout.Find(string id) -> (Vixen.Ui.Controls.Advanced.DockGroupNode Group, int Index)?
@@ -442,7 +453,7 @@ Vixen.Ui.Controls.Advanced.DockingHost.Active.get -> Vixen.Ui.Controls.Advanced.
 Vixen.Ui.Controls.Advanced.DockingHost.AddPanel(string id, string? title = null) -> Vixen.Ui.Controls.Advanced.DockPanel
 Vixen.Ui.Controls.Advanced.DockingHost.CanTearOut.get -> bool
 Vixen.Ui.Controls.Advanced.DockingHost.Detached.get -> Vixen.Ui.UiElement
-Vixen.Ui.Controls.Advanced.DockingHost.Dock(string id, Vixen.Ui.Controls.Advanced.DockGroupNode target, Vixen.Ui.Controls.Advanced.DockZone side) -> void
+Vixen.Ui.Controls.Advanced.DockingHost.Dock(string id, Vixen.Ui.Controls.Advanced.DockGroupNode target, Vixen.Ui.Controls.Advanced.DockZone side, int index = -1) -> void
 Vixen.Ui.Controls.Advanced.DockingHost.DockingHost() -> void
 Vixen.Ui.Controls.Advanced.DockingHost.Float(string id) -> bool
 Vixen.Ui.Controls.Advanced.DockingHost.Float(string id, float x, float y, float width = 320, float height = 240) -> void
@@ -967,6 +978,7 @@ const Vixen.Ui.Controls.Advanced.CodeEditor.Overscan = 2 -> int
 const Vixen.Ui.Controls.Advanced.ColorField.Samples = 16 -> int
 const Vixen.Ui.Controls.Advanced.ColorPicker.MaximumChroma = 0.37 -> float
 const Vixen.Ui.Controls.Advanced.DataGrid.Overscan = 2 -> int
+const Vixen.Ui.Controls.Advanced.DockGroupView.PageFraction = 0.75 -> float
 const Vixen.Ui.Controls.Advanced.DockSplitNode.MinimumRatio = 0.05 -> float
 const Vixen.Ui.Controls.Advanced.Gradient.MaximumStops = 8 -> int
 const Vixen.Ui.Controls.Advanced.GradientBar.Bands = 48 -> int
@@ -1016,6 +1028,7 @@ override Vixen.Ui.Controls.Advanced.DockGroupNode.Collect(System.Collections.Gen
 override Vixen.Ui.Controls.Advanced.DockGroupNode.ToYaml() -> Vixen.Core.Yaml.YamlNode
 override Vixen.Ui.Controls.Advanced.DockGroupView.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Advanced.DockGroupView.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.DockGroupView.OnRemoved() -> void
 override Vixen.Ui.Controls.Advanced.DockGroupView.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.DockPanel.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Advanced.DockPanel.TagName.get -> string
