@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using Vixen.Rendering.Lighting;
@@ -10,7 +9,8 @@ using Xunit;
 namespace Tests;
 
 /// <summary>
-///     The C# mirror of <c>IrradianceFill.rvn</c>'s job struct, against the offsets Raven assigned it.
+///     The C# mirrors of the irradiance compute shaders' job structs, against the offsets Raven
+///     assigned them.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -27,43 +27,66 @@ namespace Tests;
 ///         and its reflection are checked against each other in the Raven tree; this is the third
 ///         side of that triangle.
 ///     </para>
+///     <para>
+///         Both structs, and separately: they are both forty-eight bytes, and the repair's fourth
+///         member fits only because std430 left padding after the third. That is a coincidence worth
+///         not relying on — a member added to either moves one and not the other.
+///     </para>
 /// </remarks>
 public class IrradianceFillJobTests {
+    /// <summary>Which shader each mirror belongs to, and how wide its host says a job is.</summary>
+    public static TheoryData<string, int> Shaders =>
+        new() {
+            { "IrradianceFill", IrradianceFillJob.Stride },
+            { "IrradianceRepair", IrradianceRepairJob.Stride }
+        };
+
     [Theory]
-    [InlineData("jobs.origin", nameof(IrradianceFillJob.Origin))]
-    [InlineData("jobs.position", nameof(IrradianceFillJob.Position))]
-    [InlineData("jobs.spacing", nameof(IrradianceFillJob.Spacing))]
-    public void EveryMemberSitsWhereTheShaderPutIt(string member, string field) {
-        var expected = Members()[member];
-        var actual = (int)Marshal.OffsetOf<IrradianceFillJob>(field);
+    [InlineData("IrradianceFill", "jobs.origin", nameof(IrradianceFillJob.Origin))]
+    [InlineData("IrradianceFill", "jobs.position", nameof(IrradianceFillJob.Position))]
+    [InlineData("IrradianceFill", "jobs.spacing", nameof(IrradianceFillJob.Spacing))]
+    [InlineData("IrradianceRepair", "jobs.origin", nameof(IrradianceRepairJob.Origin))]
+    [InlineData("IrradianceRepair", "jobs.position", nameof(IrradianceRepairJob.Position))]
+    [InlineData("IrradianceRepair", "jobs.spacing", nameof(IrradianceRepairJob.Spacing))]
+    [InlineData("IrradianceRepair", "jobs.size", nameof(IrradianceRepairJob.Size))]
+    public void EveryMemberSitsWhereTheShaderPutIt(string shader, string member, string field) {
+        var expected = Members(shader)[member];
+
+        var actual = shader == "IrradianceFill"
+            ? (int)Marshal.OffsetOf<IrradianceFillJob>(field)
+            : (int)Marshal.OffsetOf<IrradianceRepairJob>(field);
 
         Assert.Equal(expected, actual);
     }
 
-    [Fact]
-    public void OneJobIsAsWideAsTheShaderSaysAStrideIs() {
-        Assert.Equal(48, Unsafe.SizeOf<IrradianceFillJob>());
-        Assert.Equal(IrradianceFillJob.Stride, Unsafe.SizeOf<IrradianceFillJob>());
-
-        // The struct's own declared size, which is what a buffer of N jobs is N of. The members alone
-        // do not settle it: the last one ends at forty-four, and a struct that stopped there would
-        // put every job after the first four bytes early.
-        Assert.Equal(IrradianceFillJob.Stride, Members()["jobs"]!);
+    /// <summary>
+    ///     And one job is as wide as the shader says a stride is.
+    /// </summary>
+    /// <remarks>
+    ///     The struct's own declared size, which is what a buffer of N jobs is N of. The members alone
+    ///     do not settle it: the fill's last member ends at forty-four, and a struct that stopped there
+    ///     would put every job after the first four bytes early.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Shaders))]
+    public void OneJobIsAsWideAsTheShaderSaysAStrideIs(string shader, int stride) {
+        Assert.Equal(48, stride);
+        Assert.Equal(stride, Members(shader)["jobs"]);
     }
 
     /// <summary>
-    ///     Where the shader's job members are — offsets for the leaves, and the size for the struct.
+    ///     Where one shader's job members are — offsets for the leaves, and the size for the struct.
     /// </summary>
     /// <remarks>
     ///     The whole-struct entry is keyed by the binding's own name and carries its <c>Size</c>
     ///     rather than an offset, because that is the one number the leaves cannot imply.
     /// </remarks>
-    static Dictionary<string, int> Members() {
+    static Dictionary<string, int> Members(string shader) {
         var path = Directory
-            .EnumerateFiles(Path.Combine(AppContext.BaseDirectory, "Shaders"), "IrradianceFill.reflect.json", SearchOption.AllDirectories)
+            .EnumerateFiles(Path.Combine(AppContext.BaseDirectory, "Shaders"), $"{shader}.reflect.json", SearchOption.AllDirectories)
             .FirstOrDefault();
 
-        Assert.True(path is not null, "IrradianceFill.reflect.json is not beside the tests, so there is nothing to check against");
+        Assert.True(path is not null, $"{shader}.reflect.json is not beside the tests, so there is nothing to check against");
 
         using var document = JsonDocument.Parse(File.ReadAllText(path!));
 
@@ -89,7 +112,7 @@ public class IrradianceFillJobTests {
             }
         }
 
-        Assert.Fail("IrradianceFill declares no binding called 'jobs', so the dispatch has nothing to index");
+        Assert.Fail($"{shader} declares no binding called 'jobs', so the dispatch has nothing to index");
 
         return [];
     }

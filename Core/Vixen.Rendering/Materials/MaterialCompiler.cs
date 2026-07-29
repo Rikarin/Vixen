@@ -125,15 +125,33 @@ public static class MaterialCompiler {
         ArgumentException.ThrowIfNullOrEmpty(slot);
         ArgumentException.ThrowIfNullOrEmpty(filler);
 
+        Dictionary<string, string> bindings = Defaults();
+
+        bindings[slot] = filler;
+
+        return ShaderComposition.Of(bindings);
+    }
+
+    /// <summary>Every typed slot filled by its default, for a pass that composes none of them.</summary>
+    /// <returns>The composition.</returns>
+    /// <remarks>
+    ///     <b>A shader that composes nothing still needs one, and that is the part that surprises.</b>
+    ///     The rule is about the <i>compilation</i>, not the shader: every slot the sources declare has
+    ///     to be bound. So a compute pass sharing a package with a shader that declares
+    ///     <c>distanceField</c> — <c>IrradianceRepair</c> beside <c>IrradianceFill</c>, exactly — is
+    ///     refused unless it names a filler for a slot it has never heard of. This is what it names.
+    /// </remarks>
+    public static ShaderComposition PassComposition() => ShaderComposition.Of(Defaults());
+
+    /// <summary>Every typed slot mapped to the shader that fills it when nothing else does.</summary>
+    static Dictionary<string, string> Defaults() {
         Dictionary<string, string> bindings = new(StringComparer.Ordinal);
 
         foreach (var (name, fallback) in PassSlots) {
             bindings[name] = fallback;
         }
 
-        bindings[slot] = filler;
-
-        return ShaderComposition.Of(bindings);
+        return bindings;
     }
 
     /// <summary>The shader that fills a slot nothing else does.</summary>

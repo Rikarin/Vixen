@@ -99,6 +99,7 @@
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\Bloom.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\Tonemap.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\IrradianceFields\IrradianceFill.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\IrradianceFields\IrradianceRepair.reflect.json" />
     </ItemGroup>
 
     <ItemGroup>

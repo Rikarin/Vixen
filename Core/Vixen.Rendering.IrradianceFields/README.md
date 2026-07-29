@@ -184,6 +184,15 @@ here are small nonzero numbers a wrong shader has no way of reproducing.
 comparing them means visiting the same bricks, and two implementations of one ordering is the pair that
 drifts.
 
+`Dilate` and `SyncBorders` have a device half too, and it is checked the same way: seed a pool from this
+tracer against an analytic sphere, dispatch `IrradianceRepair`, and compare all one hundred and
+twenty-five texels of every brick. Two things in this file changed because of it. **`Nearest` spells its
+tie-break out** as `floor(x + ½)` rather than calling `MathF.Round`, which breaks ties to even where GLSL
+does not — and on a refined field every lookup across a size boundary is a tie, because a fine brick's
+probes sit exactly halfway between a coarse neighbour's. And the **deferred write list has no device
+equivalent**, so the shader writes a repair with its validity negated instead: a value this code already
+rejects, since `validity <= 0` was always the test for "do not borrow from this".
+
 **A distance field says where geometry is and nothing about its colour**, so `IRadianceSource` is who
 the filler asks. Separating it out keeps the tracing honest — the filler owns which directions matter
 and how much of the sphere each stands for, and nothing else. On a GPU that answer eventually comes
@@ -263,14 +272,11 @@ gets blamed on the temporal filter.
 
 - **A refinement policy.** `Refine` exists; nothing decides *where* to call it. Doc 19 § 3 wants that
   driven by renderer bounds, which the `VisibilityGroup` already has.
-- **The border sync and the dilation as dispatches.** Filler A now runs on a device —
-  `Vixen.Rendering.Lighting.IrradianceFieldFill` drives `IrradianceFill.rvn`, and a device test reads
-  the pool back and finds the same probes the tracer above writes. What it writes is the sixty-four
-  probes a brick owns, which is exactly what this writes, which is why the two can be compared at all;
-  the fifth plane and the repair of invalid probes are still `SyncBorders` and `Dilate` on an array
-  that is no longer uploaded once the GPU owns the pool. A device-filled field has seams until these
-  exist too.
 - **Filler B at all.** The offline cube capture, for the targets without compute.
+- **A repair narrowed to what changed.** `IrradianceFieldRepair` dilates and syncs every brick every
+  frame, which is what this does too and is not an oversight in either — a brick the budget did not
+  refill still has neighbours that were, and a border is a copy of a probe that may have just changed.
+  Restricting it to the dirty bricks and their neighbours is real work nobody has done.
 - **View bias.** Dilation and the normal bias are here; the offset along the view ray, which is what
   helps at grazing angles, is not.
 - **Indirect light inside the shading models.** `IndirectDiffuse` is a screen-space pass producing a

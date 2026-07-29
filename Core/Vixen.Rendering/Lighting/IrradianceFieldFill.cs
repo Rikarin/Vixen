@@ -67,12 +67,13 @@ public struct IrradianceFillJob {
 ///         compilation's.
 ///     </para>
 ///     <para>
-///         <b>What it does not do is borders or dilation.</b> The dispatch writes the sixty-four
-///         probes a brick owns and nothing else, which is exactly what the reference filler writes —
-///         so the two can be compared to the last coefficient. The border plane and the repair of
-///         invalid probes are <see cref="IrradianceField.SyncBorders" /> and
-///         <see cref="IrradianceField.Dilate" /> on the CPU, and a device-filled pool has neither
-///         until those exist as dispatches too. A field filled this way has seams.
+///         <b>The dispatch writes the sixty-four probes a brick owns and nothing else</b>, which is
+///         exactly what the reference filler writes — so the two can be compared to the last
+///         coefficient. The border plane and the repair of invalid probes belong to
+///         <see cref="IrradianceFieldRepair" />, which this owns and runs after every fill, in the
+///         order <see cref="IrradianceField.Dilate" /> and <see cref="IrradianceField.SyncBorders" />
+///         insist on. One call rather than two, because a fill without its repair leaves a rind and a
+///         seam that read as lighting bugs rather than as a missing line.
 ///     </para>
 /// </remarks>
 public sealed class IrradianceFieldFill : IDisposable {
@@ -108,7 +109,26 @@ public sealed class IrradianceFieldFill : IDisposable {
         jobs.Device = device;
         frameBlock = new(device, "IrradianceFill.Frame");
         materialBlock = new(device, "IrradianceFill.Material");
+        Repair = new(device);
     }
+
+    /// <summary>The dilation and border sync that run after every fill.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Owned rather than optional, which is the whole reason it is here.</b> A fill leaves
+    ///         probes nothing could fill and borders nothing has copied; running the repair afterwards is
+    ///         cheap, easy to forget, and forgetting it produces a rind and a seam that read as lighting
+    ///         bugs rather than as a missing call. That is the same argument
+    ///         <see cref="Compositor.IrradianceFieldRenderer" /> makes for owning the CPU pair, and it is
+    ///         the same pair.
+    ///     </para>
+    ///     <para>
+    ///         Exposed so a caller can set <see cref="IrradianceFieldRepair.DilationPasses" /> and read
+    ///         <see cref="IrradianceFieldRepair.Skipped" />; its effect system, pipelines and allocator
+    ///         are this one's, forwarded on every record so the two cannot be configured apart.
+    ///     </para>
+    /// </remarks>
+    public IrradianceFieldRepair Repair { get; }
 
     /// <summary>Where the fill variant is resolved from. Null dispatches nothing.</summary>
     public EffectSystem? Effects { get; set; }
@@ -282,13 +302,19 @@ public sealed class IrradianceFieldFill : IDisposable {
 
         // ⚠ The pool is not a graph resource, so this is the only thing that will move it. It is left
         // in ShaderRead because that is where both the mirror's upload and the sampling pass expect
-        // to find it.
-        texture.TransitionPool(commands, ResourceState.ShaderRead, ResourceState.ShaderWrite);
+        // to find it — and the repair runs inside the same pair, because it writes the same images.
+        texture.TransitionPool(commands, ResourceState.ShaderRead, IrradianceFieldTexture.PoolIsBeingWritten);
 
         // One group per brick along Z, because that is what the shader indexes its job buffer by.
         commands.Dispatch(1, 1, count);
+        texture.OrderPool(commands);
 
-        texture.TransitionPool(commands, ResourceState.ShaderWrite, ResourceState.ShaderRead);
+        Repair.Effects = Effects;
+        Repair.Pipelines = Pipelines;
+        Repair.Descriptors = Descriptors;
+        Repair.Record(commands, field, texture);
+
+        texture.TransitionPool(commands, IrradianceFieldTexture.PoolIsBeingWritten, ResourceState.ShaderRead);
 
         Filled += count;
         Dispatches++;
@@ -445,5 +471,6 @@ public sealed class IrradianceFieldFill : IDisposable {
         jobs.Dispose();
         frameBlock.Dispose();
         materialBlock.Dispose();
+        Repair.Dispose();
     }
 }

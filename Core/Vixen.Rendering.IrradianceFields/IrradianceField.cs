@@ -617,9 +617,9 @@ public sealed class IrradianceField {
         const int owned = IrradianceBrickPool.BrickResolution;
 
         index = new(
-            Math.Clamp((int)MathF.Round(local.X * owned), 0, owned - 1),
-            Math.Clamp((int)MathF.Round(local.Y * owned), 0, owned - 1),
-            Math.Clamp((int)MathF.Round(local.Z * owned), 0, owned - 1)
+            Nearest(local.X, owned, owned - 1),
+            Nearest(local.Y, owned, owned - 1),
+            Nearest(local.Z, owned, owned - 1)
         );
 
         slot = brick.Slot;
@@ -711,9 +711,9 @@ public sealed class IrradianceField {
             if (beyond.Size == brick.Size) {
                 return Pool[
                     beyond.Slot,
-                    Math.Clamp((int)MathF.Round(local.X * last), 0, last),
-                    Math.Clamp((int)MathF.Round(local.Y * last), 0, last),
-                    Math.Clamp((int)MathF.Round(local.Z * last), 0, last)
+                    Nearest(local.X, last, last),
+                    Nearest(local.Y, last, last),
+                    Nearest(local.Z, last, last)
                 ];
             }
 
@@ -724,6 +724,26 @@ public sealed class IrradianceField {
 
         return Pool[brick.Slot, Math.Min(x, last - 1), Math.Min(y, last - 1), Math.Min(z, last - 1)];
     }
+
+    /// <summary>
+    ///     Which probe of a brick a local coordinate is nearest, along one axis.
+    /// </summary>
+    /// <param name="local">Where along the axis, 0 to 1.</param>
+    /// <param name="scale">How many gaps the axis spans — the probes a brick owns.</param>
+    /// <param name="last">The largest index the answer may be.</param>
+    /// <returns>The probe's index.</returns>
+    /// <remarks>
+    ///     <b><c>floor(x + ½)</c> rather than <see cref="MathF.Round(float)" />, and the difference is
+    ///     not pedantry.</b> <c>MathF.Round</c> breaks a tie to the nearest EVEN integer, so a
+    ///     coordinate of exactly 0.5 rounds down and 2.5 rounds up. GLSL's <c>round</c> does not
+    ///     promise that and in practice rounds halves away from zero, so the two disagree on every
+    ///     tie — and ties are not rare here, they are structural: a fine brick's probes sit exactly
+    ///     halfway between a coarse neighbour's, so <i>every</i> lookup across a refinement boundary
+    ///     lands on one.
+    /// </remarks>
+    /// <seealso cref="IrradianceBrickPool.BrickResolution" />
+    static int Nearest(float local, int scale, int last) =>
+        Math.Clamp((int)MathF.Floor((local * scale) + 0.5f), 0, last);
 
     /// <summary>Whether every cell a brick of a size would cover is empty.</summary>
     bool Free(Int3 origin, int size) {

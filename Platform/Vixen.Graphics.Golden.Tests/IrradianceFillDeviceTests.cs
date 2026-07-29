@@ -92,17 +92,25 @@ public sealed class IrradianceFillDeviceTests {
     }
 
     /// <summary>
-    ///     <b>And a border texel the dispatch did not write stays unwritten.</b>
+    ///     <b>And the border plane is filled too, because a fill drives its own repair.</b>
     /// </summary>
     /// <remarks>
-    ///     The point of asserting it rather than leaving it implicit: a device-filled pool has no
-    ///     border sync and no dilation, so the fifth plane of every brick holds whatever the texture
-    ///     was created with. That is a real seam and the next thing owed on this path — a test that
-    ///     quietly tolerated a written border would be a test that stopped noticing when one appeared
-    ///     for the wrong reason.
+    ///     <para>
+    ///         The fill dispatch writes the sixty-four probes a brick owns and never the fifth plane;
+    ///         what puts a value there is <see cref="IrradianceFieldRepair" />, which
+    ///         <see cref="IrradianceFieldFill" /> owns and runs after every dispatch. A border left at
+    ///         whatever the texture was created with is a seam at every brick boundary, and the only
+    ///         thing standing between this path and one is that the two are one call.
+    ///     </para>
+    ///     <para>
+    ///         Asserted through validity rather than through radiance: the sky is uniform, so a border
+    ///         copied from the right neighbour and one copied from the wrong one hold the same light.
+    ///         Validity distinguishes written from unwritten, which is what this test is about —
+    ///         <see cref="IrradianceRepairDeviceTests" /> is where the values are checked.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void TheBorderPlaneIsLeftToTheSyncThatDoesNotExistYet() {
+    public void TheBorderPlaneIsFilledByTheRepairTheFillDrives() {
         if (!TryOpen(out var fixture)) {
             return;
         }
@@ -119,8 +127,11 @@ public sealed class IrradianceFillDeviceTests {
         var border = probes[Texel(field, origin.X + IrradianceBrickPool.BrickResolution, origin.Y, origin.Z)];
         var interior = probes[Texel(field, origin.X, origin.Y, origin.Z)];
 
-        Assert.NotEqual(0f, interior.Validity);
-        Assert.Equal(0f, border.Validity);
+        Assert.Equal(1f, interior.Validity, 1e-4f);
+        Assert.Equal(1f, border.Validity, 1e-4f);
+
+        // A uniform sky lights everything with itself, whichever probe the border was copied from.
+        Assert.Equal(interior.Irradiance(Vector3.UnitY).X, border.Irradiance(Vector3.UnitY).X, 1e-3f);
     }
 
     /// <summary>Runs one dispatch over a whole field and reads the pool back.</summary>

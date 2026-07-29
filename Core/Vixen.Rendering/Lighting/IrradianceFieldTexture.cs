@@ -276,6 +276,27 @@ public sealed class IrradianceFieldTexture : IDisposable {
         commands.Barrier(new([], barriers));
     }
 
+    /// <summary>What the pool is in while a dispatch owns it — writable, and readable by the next one.</summary>
+    /// <remarks>
+    ///     Both bits, and the second is not decoration. A barrier from <see cref="ResourceState.ShaderWrite" />
+    ///     to itself carries <c>SHADER_WRITE</c> in both access masks, which orders one dispatch's writes
+    ///     against the next one's <i>writes</i> and says nothing about its <i>reads</i> — and every repair
+    ///     pass reads what the pass before it wrote. Naming both states gives the barrier a read bit; the
+    ///     layout is <c>General</c> either way, because a storage image has no other.
+    /// </remarks>
+    public const ResourceState PoolIsBeingWritten = ResourceState.ShaderWrite | ResourceState.ShaderRead;
+
+    /// <summary>Orders everything written to the pool so far against whatever reads it next.</summary>
+    /// <param name="commands">Where to record it.</param>
+    /// <exception cref="ArgumentNullException">There is no command list.</exception>
+    /// <remarks>
+    ///     What goes between two dispatches that both touch the pool. Without it the second reads whatever
+    ///     of the first's writes happened to have landed, which is not a wrong picture so much as a
+    ///     different one every time it runs.
+    /// </remarks>
+    public void OrderPool(ICommandList commands) =>
+        TransitionPool(commands, PoolIsBeingWritten, PoolIsBeingWritten);
+
     /// <summary>Records a copy of the whole pool back into host memory.</summary>
     /// <param name="commands">Where to record it.</param>
     /// <returns>False before the textures exist, in which case nothing was recorded.</returns>
@@ -681,10 +702,12 @@ public sealed class IrradianceFieldTexture : IDisposable {
         var cells = Field.Indirection.Resolution;
 
         for (var channel = 0; channel < Channels; channel++) {
-            // CopySource unconditionally, and it is not free-because-unused: it is what
-            // RecordReadback needs, and a pool a compute shader authored has no other way of being
-            // checked at all — the CPU field beside it is no longer what the GPU is reading. A
-            // usage flag on a texture nothing copies from costs nothing on any target.
+            // Every usage, whichever filler is live, and none of them is speculative. CopySource is
+            // what RecordReadback needs, and a pool a compute shader authored has no other way of
+            // being checked at all. CopyDestination and Storage together are what let a pool be
+            // seeded from the host and then refined on the device — which is doc 19's two fillers
+            // meeting, and is also the only way to test the repair without a distance field in the
+            // way. A usage flag nothing exercises costs nothing on any target.
             pool[channel] = graphics.CreateTexture(
                 new TextureDescription(
                     Format,
@@ -692,7 +715,8 @@ public sealed class IrradianceFieldTexture : IDisposable {
                     texels.Y,
                     TextureUsage.Sampled
                     | TextureUsage.CopySource
-                    | (PoolIsWritten ? TextureUsage.Storage : TextureUsage.CopyDestination),
+                    | TextureUsage.CopyDestination
+                    | TextureUsage.Storage,
                     Depth: texels.Z,
                     Dimension: TextureDimension.Texture3D,
                     Name: $"IrradianceField.{PoolNames[channel]}"

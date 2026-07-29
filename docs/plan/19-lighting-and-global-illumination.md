@@ -221,7 +221,8 @@ alternative answers rather than a replacement for a hole.
 within a bounded frame count; the same scene through filler A and filler B agree within a stated
 tolerance.
 
-**Status: both halves of filler A are in and agree with each other; filler B is not started.**
+**Status: filler A is complete on both sides, repair included, and the two agree; filler B is not
+started.**
 [`Vixen.Rendering.IrradianceFields`](../../Core/Vixen.Rendering.IrradianceFields/README.md) holds the
 payload (`SphericalHarmonicsL1` plus validity and a sun-shadow scalar), the pool (4³ probes in a 5³
 footprint, fixed capacity, cleared on release), the indirection grid, and the border sync. The seam is
@@ -340,17 +341,42 @@ filler for a slot no material can reach. `MaterialCompiler.PassSlots` and `PassC
 pass-side counterpart of `OptionalSlots`, because a full-screen pass composing one typed slot cannot
 compile beside a shader declaring another unless it names both.
 
-**What a device-filled field does not have is borders or dilation.** The dispatch writes the sixty-four
-probes a brick owns — exactly what the reference filler writes, which is why the two can be compared to
-the last coefficient — and the fifth plane stays whatever the texture was created with.
-`SyncBorders` and `Dilate` repair an array nothing uploads once the GPU owns the pool, so they are
-skipped, and a field filled this way has seams. A test asserts the unwritten border rather than
-tolerating it, so it stops passing the moment one is written for the wrong reason. Both as dispatches
-is the next thing owed on this path, and it arrives *with* filler A rather than after it.
+**The dilation and the border sync are dispatches too, and the fill drives them.** `IrradianceRepair`
+is one shader in three permutations — gather, promote, borders — and `IrradianceFieldFill` owns an
+`IrradianceFieldRepair` and runs it after every fill, in the order the CPU insists on. One call rather
+than two, because a fill without its repair leaves a rind of unlit probes and a seam at every brick
+boundary, and both read as lighting bugs rather than as a missing line.
 
-Owed, in the order they change the picture: the border sync and the dilation as compute passes; the
-shading models reading the buffer; filler B at all; a policy that decides *where* to refine, which § 3
-says is renderer bounds and the `VisibilityGroup` already has; and the view bias.
+Three things that only showed up in the writing:
+
+- **A device has nowhere to put a deferred write list.** `Dilate` applies its repairs after the whole
+  sweep so a repair cannot feed the probe beside it in the same pass; on a GPU that ordering is the
+  scheduler's. The answer is a **sign**: a repair is written with its validity negated, which is a value
+  no filler produces and which every reader already rejects — `validity <= 0` was already the test for
+  "do not borrow from this". A four-instruction promote pass flips it back. No scratch memory, no
+  ping-pong pool.
+- **`MathF.Round` breaks ties to even and GLSL's `round` does not**, and on this data ties are
+  structural rather than rare: a fine brick's probes sit exactly halfway between a coarse neighbour's,
+  so *every* lookup across a refinement boundary lands on one. Both sides now spell the tie-break out as
+  `floor(x + ½)`, which is the fix that removes an unspecified dependency rather than teaching one side
+  to imitate the other's quirk. Found by the refined case of the comparison test and by nothing else.
+- **The pool cannot be sampled while it is being written.** An image is in one layout at a time, so
+  every read in the repair is an explicit `Load` and the trilinear a fine brick needs across a size
+  boundary is written out by hand — which is also what makes it match `IrradianceBrickPool.Sample`
+  rather than approximately agree with it.
+
+`IrradianceRepairDeviceTests` seeds the pool from the reference filler tracing an analytic sphere,
+dispatches the repair, and compares **all one hundred and twenty-five texels** of every brick — the
+sixty-four a fill writes and the sixty-one it does not. On a refined field as well as a uniform one,
+because the coarsest-first ordering exists for the refined case and a uniform field never reaches it.
+Seeding a pool and then dispatching into it is not a test-only shape: it is filler B handing a field to
+filler A, and it is why the mirror carries both usages.
+
+Owed, in the order they change the picture: the shading models reading the buffer; filler B at all; a
+policy that decides *where* to refine, which § 3 says is renderer bounds and the `VisibilityGroup`
+already has; and the view bias. And one optimisation that is now visible: the repair runs over every
+brick every frame, because a brick the budget did not refill still has neighbours that were — narrowing
+it to the dirty bricks and their neighbours is real work and is not done.
 
 ### L3 — Screen probe gather *(3.0 EM)*
 
