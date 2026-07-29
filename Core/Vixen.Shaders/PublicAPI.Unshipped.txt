@@ -202,21 +202,45 @@ Vixen.Shaders.EffectPushConstant -> readonly struct
 Vixen.Shaders.EffectPushConstant : System.IEquatable<Vixen.Shaders.EffectPushConstant>
 Vixen.Shaders.EffectPushConstant.EffectPushConstant() -> void
 Vixen.Shaders.EffectPushConstant.EffectPushConstant(Vixen.Graphics.ShaderStage Stages, int Offset, int Size) -> void
+Vixen.Shaders.EffectPushConstant.Members.get -> System.Collections.Immutable.ImmutableArray<Vixen.Shaders.EffectPushConstantMemberInfo>
+Vixen.Shaders.EffectPushConstant.Members.init -> System.Collections.Immutable.ImmutableArray<Vixen.Shaders.EffectPushConstantMemberInfo>
 Vixen.Shaders.EffectPushConstant.Offset.get -> int
 Vixen.Shaders.EffectPushConstant.Offset.init -> int
+Vixen.Shaders.EffectPushConstant.OffsetOf(string name) -> int?
 Vixen.Shaders.EffectPushConstant.Size.get -> int
 Vixen.Shaders.EffectPushConstant.Size.init -> int
 Vixen.Shaders.EffectPushConstant.Stages.get -> Vixen.Graphics.ShaderStage
 Vixen.Shaders.EffectPushConstant.Stages.init -> Vixen.Graphics.ShaderStage
 Vixen.Shaders.EffectPushConstantData -> sealed record
 Vixen.Shaders.EffectPushConstantData : System.IEquatable<Vixen.Shaders.EffectPushConstantData>
-Vixen.Shaders.EffectPushConstantData.EffectPushConstantData(Vixen.Graphics.ShaderStage Stages = Vixen.Graphics.ShaderStage.None, int Offset = 0, int Size = 0) -> void
+Vixen.Shaders.EffectPushConstantData.EffectPushConstantData(Vixen.Graphics.ShaderStage Stages = Vixen.Graphics.ShaderStage.None, int Offset = 0, int Size = 0, Vixen.Shaders.EffectPushConstantMember[]? Members = null) -> void
+Vixen.Shaders.EffectPushConstantData.Members.get -> Vixen.Shaders.EffectPushConstantMember[]?
+Vixen.Shaders.EffectPushConstantData.Members.init -> Vixen.Shaders.EffectPushConstantMember[]?
 Vixen.Shaders.EffectPushConstantData.Offset.get -> int
 Vixen.Shaders.EffectPushConstantData.Offset.init -> int
 Vixen.Shaders.EffectPushConstantData.Size.get -> int
 Vixen.Shaders.EffectPushConstantData.Size.init -> int
 Vixen.Shaders.EffectPushConstantData.Stages.get -> Vixen.Graphics.ShaderStage
 Vixen.Shaders.EffectPushConstantData.Stages.init -> Vixen.Graphics.ShaderStage
+Vixen.Shaders.EffectPushConstantMember -> sealed record
+Vixen.Shaders.EffectPushConstantMember : System.IEquatable<Vixen.Shaders.EffectPushConstantMember>
+Vixen.Shaders.EffectPushConstantMember.EffectPushConstantMember(string Name = "", int Offset = 0, int Size = 0) -> void
+Vixen.Shaders.EffectPushConstantMember.Name.get -> string
+Vixen.Shaders.EffectPushConstantMember.Name.init -> string
+Vixen.Shaders.EffectPushConstantMember.Offset.get -> int
+Vixen.Shaders.EffectPushConstantMember.Offset.init -> int
+Vixen.Shaders.EffectPushConstantMember.Size.get -> int
+Vixen.Shaders.EffectPushConstantMember.Size.init -> int
+Vixen.Shaders.EffectPushConstantMemberInfo -> readonly struct
+Vixen.Shaders.EffectPushConstantMemberInfo : System.IEquatable<Vixen.Shaders.EffectPushConstantMemberInfo>
+Vixen.Shaders.EffectPushConstantMemberInfo.EffectPushConstantMemberInfo() -> void
+Vixen.Shaders.EffectPushConstantMemberInfo.EffectPushConstantMemberInfo(string Name, int Offset, int Size) -> void
+Vixen.Shaders.EffectPushConstantMemberInfo.Name.get -> string
+Vixen.Shaders.EffectPushConstantMemberInfo.Name.init -> string
+Vixen.Shaders.EffectPushConstantMemberInfo.Offset.get -> int
+Vixen.Shaders.EffectPushConstantMemberInfo.Offset.init -> int
+Vixen.Shaders.EffectPushConstantMemberInfo.Size.get -> int
+Vixen.Shaders.EffectPushConstantMemberInfo.Size.init -> int
 Vixen.Shaders.EffectRequest -> sealed record
 Vixen.Shaders.EffectRequest : System.IEquatable<Vixen.Shaders.EffectRequest>
 Vixen.Shaders.EffectRequest.Composition.get -> System.Collections.Generic.SortedDictionary<string, string>

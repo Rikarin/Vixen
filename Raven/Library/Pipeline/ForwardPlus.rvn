@@ -112,6 +112,27 @@ shader ForwardPlus {
     /// date with the camera it was built from.
     [PushConstant] var world: mat4
 
+    /// Which record of the material buffer this draw's material is, when materials are records.
+    ///
+    /// **A push constant, and it was a per-object block member — which was the wrong shape.** A
+    /// variant is keyed `(material, flags, shader)`, so one variant is one material; a batch is keyed
+    /// on the variant, so every object in a merged draw has the *same* material and the same record.
+    /// It is per *draw* and never per object, and putting it in the per-object block meant a
+    /// clustered frame — which binds no per-draw set at all, because a fragment finds its own lights
+    /// in the grid — never delivered it. Bindless materials and clustered lighting were quietly
+    /// exclusive.
+    ///
+    /// It also takes a cross-feature write with it: the lighting feature used to write the material
+    /// feature's number into its own block, which its own comment apologised for. And the block is 68
+    /// bytes against Vulkan's guaranteed 128, so it fits everywhere `world` already did.
+    ///
+    /// ⚠ `[MaterialIndex("UseMaterialRecords")]` rather than `[MaterialIndex]`: the marker turns this
+    /// shader's whole per-material block into one record of a buffer, and that is what a device with
+    /// bindless wants and not what GL, WebGL2 or MoltenVK below argument-buffer tier 2 can do
+    /// (ADR-011). Conditional on the permutation, one shader is both — and the *default is the
+    /// fallback*, so a host that never asked gets exactly the pass it had.
+    [PushConstant] [MaterialIndex("UseMaterialRecords")] var materialIndex: uint = 0u
+
     // The scalars come first and the array last, which is not a style choice: std140 starts an array
     // of structures on a sixteen-byte boundary whatever precedes it, so three scalars and four bytes
     // of padding fill exactly the header `ForwardLightingRenderFeature.HeaderSize` already writes.
@@ -134,19 +155,6 @@ shader ForwardPlus {
     /// whole, and one near the edge fades back to the sky over the probe's falloff distance. Per
     /// object because that is what the falloff is a function of — where the object is.
     [PerDraw] var probeWeight: float = 0f
-
-    /// Which record of the material buffer this object's material is, when materials are records.
-    ///
-    /// The fourth scalar, and it costs nothing: std140 starts the array below on a sixteen-byte
-    /// boundary whatever precedes it, so three scalars already left four bytes of padding here and
-    /// this fills them. `ForwardLightingRenderFeature.HeaderSize` does not move.
-    ///
-    /// ⚠ `[MaterialIndex("UseMaterialRecords")]` rather than `[MaterialIndex]`: the marker turns this
-    /// shader's whole per-material block into one record of a buffer, and that is what a device with
-    /// bindless wants and not what GL, WebGL2 or MoltenVK below argument-buffer tier 2 can do
-    /// (ADR-011). Conditional on the permutation, one shader is both — and the *default is the
-    /// fallback*, so a host that never asked gets exactly the pass it had.
-    [PerDraw] [MaterialIndex("UseMaterialRecords")] var materialIndex: uint = 0u
 
     /// The host-filled light list. Read `lightCount` entries, not `MaxLights` — the rest is stale
     /// memory. Unused when clustering is on.

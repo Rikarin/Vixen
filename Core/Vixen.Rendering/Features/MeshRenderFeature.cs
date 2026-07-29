@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.InteropServices;
 using Vixen.Graphics;
 using Vixen.Shaders;
 
@@ -175,6 +176,7 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
         var boundVertices = default(BufferHandle);
         var boundIndices = default(BufferHandle);
         var boundIndexFormat = default(IndexFormat);
+        var boundRecord = -1;
         var boundView = false;
         var boundScene = false;
         var boundTable = false;
@@ -249,6 +251,16 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
                 context.CommandList.BindDescriptorSet(DescriptorSetSlot.Bindless, table.Set);
                 boundTable = true;
             }
+
+            // Which record of the material buffer this draw reads, pushed rather than bound and
+            // pushed once per run rather than per node.
+            //
+            // ⚠ It is per *draw* and never per object, which is the fact that makes it a push at all.
+            // A variant is keyed (material, flags, shader), so one variant is one material; a batch
+            // is keyed on the variant; so every object in a merged command has the same material and
+            // the same record. Putting it in the per-object block — where it was — meant a clustered
+            // frame never delivered it, because that path binds no per-draw set at all.
+            PushRecordIndex(context, materials, system, node.Object, stage, effect, ref boundRecord);
 
             // Only when the resolved effect actually has a per-material set. A stage that overrode
             // the shader — a depth prepass, a shadow caster — is drawing something that reads no
@@ -397,6 +409,62 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
         }
 
         return length == Arguments.BatchSizeOf(batch) && length > 1 ? length : null;
+    }
+
+    /// <summary>
+    ///     Pushes which record of the material buffer this draw reads, when it changed.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>Per run, which is what makes it compatible with a merged command.</strong> The
+    ///         merge gate rules out anything that has to happen between two nodes; this happens
+    ///         between two <em>runs</em>, at the same point the per-material set is bound on the path
+    ///         that has one. A batch is one variant and a variant is one material, so a run and a
+    ///         record change together by construction.
+    ///     </para>
+    ///     <para>
+    ///         The offset comes from the effect and not from a constant here. A shader that adds a
+    ///         member above this one renumbers it, and a host that had written 64 down would push the
+    ///         index into the world matrix — which is a picture rather than an error, and a wild one.
+    ///         An effect whose block has no such member is one compiled without records, and gets no
+    ///         push at all.
+    ///     </para>
+    /// </remarks>
+    static void PushRecordIndex(
+        RenderDrawContext context,
+        MaterialRenderFeature? materials,
+        RenderSystem system,
+        RenderObjectId id,
+        RenderStage stage,
+        Effect effect,
+        ref int boundRecord
+    ) {
+        if (materials is not { UseRecords: true }) {
+            return;
+        }
+
+        var record = materials.RecordOf(system, id, stage)?.Index ?? 0;
+
+        if (record == boundRecord) {
+            return;
+        }
+
+        foreach (var range in effect.PushConstants) {
+            if (range.OffsetOf(MaterialRenderFeature.RecordIndexName) is not { } offset) {
+                continue;
+            }
+
+            var value = (uint)record;
+
+            context.CommandList.PushConstants(
+                range.Stages,
+                offset,
+                MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref value, 1))
+            );
+
+            boundRecord = record;
+            return;
+        }
     }
 
     /// <summary>

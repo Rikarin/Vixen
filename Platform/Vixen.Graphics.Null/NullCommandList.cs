@@ -144,7 +144,13 @@ sealed class NullCommandList(QueueKind kind, string name, bool hasDrawIndirectCo
 
     public void PushConstants(ShaderStage stages, int offset, ReadOnlySpan<byte> data) {
         ThrowIfRecording();
-        Add(new(RecordedCommandKind.PushConstants, 0, (long)stages, offset, data.Length));
+
+        // The first four bytes as well as the shape. A push is the one call whose *payload* is the
+        // whole point — a matrix at the right offset with the wrong contents draws a picture — and
+        // four bytes is every scalar anyone pushes. Zero for a shorter payload, which nothing writes.
+        var head = data.Length >= sizeof(uint) ? System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(data) : 0u;
+
+        Add(new(RecordedCommandKind.PushConstants, 0, (long)stages, offset, data.Length, head));
     }
 
     public void BindVertexBuffer(int slot, BufferHandle buffer, long offset = 0) {

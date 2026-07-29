@@ -44,6 +44,28 @@ public static class StageInterface {
         type is IrScalarType { Kind: not IrTypeKind.Bool } or IrVectorType { Component.Kind: not IrTypeKind.Bool };
 
     /// <summary>
+    ///     Whether a varying of this type has to be flat rather than interpolated.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>Integers, and it is a rule rather than a preference.</strong> There is no
+    ///         interpolation an integer could take — the rasteriser weights its inputs by barycentric
+    ///         coordinates, which produces a fraction — so SPIR-V requires <c>Flat</c> on a
+    ///         <c>Fragment</c> input of integer type and GLSL requires <c>flat</c> on the same. A
+    ///         module without it is invalid, and a driver's answer to invalid ranges from a validation
+    ///         error to a value that is right at one vertex of every triangle.
+    ///     </para>
+    ///     <para>
+    ///         Asked of the type rather than declared by the shader, because there is no other legal
+    ///         answer for an integer and no legal way to ask for it on a float. A qualifier would be a
+    ///         syntax whose only correct value the compiler already knows.
+    ///     </para>
+    /// </remarks>
+    public static bool MustBeFlat(IrType type) =>
+        type is IrScalarType { Kind: IrTypeKind.Int or IrTypeKind.UInt }
+            or IrVectorType { Component.Kind: IrTypeKind.Int or IrTypeKind.UInt };
+
+    /// <summary>
     ///     The reason a type cannot be carried, phrased for <c>RVN4001</c>'s <c>{0}</c>.
     /// </summary>
     public static string Describe(IrType type, string name, bool isInput) =>

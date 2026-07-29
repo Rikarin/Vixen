@@ -821,6 +821,7 @@ Vixen.Rendering.Features.ForwardLightingRenderFeature.Device.set -> Vixen.Graphi
 Vixen.Rendering.Features.ForwardLightingRenderFeature.Dispose() -> void
 Vixen.Rendering.Features.ForwardLightingRenderFeature.Draw(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderDrawContext context, in Vixen.Rendering.RenderNode node) -> void
 Vixen.Rendering.Features.ForwardLightingRenderFeature.ForwardLightingRenderFeature() -> void
+Vixen.Rendering.Features.ForwardLightingRenderFeature.IsRecording.get -> bool
 Vixen.Rendering.Features.ForwardLightingRenderFeature.Layout.get -> Vixen.Graphics.DescriptorSetLayoutHandle
 Vixen.Rendering.Features.ForwardLightingRenderFeature.Lights.get -> System.Collections.Generic.IList<Vixen.Rendering.RenderLight>
 Vixen.Rendering.Features.ForwardLightingRenderFeature.LightsFor(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id) -> System.Collections.Generic.IEnumerable<Vixen.Rendering.PunctualLightData>
@@ -2190,7 +2191,6 @@ Vixen.Shaders.Generated.ForwardPlusLightsElement.Tangent -> Vixen.Core.Mathemati
 Vixen.Shaders.Generated.ForwardPlusPerDrawConstants -> struct
 Vixen.Shaders.Generated.ForwardPlusPerDrawConstants.ForwardPlusPerDrawConstants() -> void
 Vixen.Shaders.Generated.ForwardPlusPerDrawConstants.LightCount -> int
-Vixen.Shaders.Generated.ForwardPlusPerDrawConstants.MaterialIndex -> uint
 Vixen.Shaders.Generated.ForwardPlusPerDrawConstants.ProbeIndex -> int
 Vixen.Shaders.Generated.ForwardPlusPerDrawConstants.ProbeWeight -> float
 Vixen.Shaders.Generated.ForwardPlusPerFrameConstants -> struct
@@ -2258,9 +2258,9 @@ const Vixen.Rendering.ClusterGrid.TilesX = 16 -> int
 const Vixen.Rendering.ClusterGrid.TilesY = 9 -> int
 const Vixen.Rendering.Compositor.CompositorBuilder.SupportedVersion = 2 -> int
 const Vixen.Rendering.Features.ForwardLightingRenderFeature.HeaderSize = 16 -> int
-const Vixen.Rendering.Features.ForwardLightingRenderFeature.MaterialIndexOffset = 12 -> int
 const Vixen.Rendering.Features.ForwardLightingRenderFeature.ProbeIndexOffset = 4 -> int
 const Vixen.Rendering.Features.ForwardLightingRenderFeature.ProbeWeightOffset = 8 -> int
+const Vixen.Rendering.Features.MaterialRenderFeature.RecordIndexName = "materialIndex" -> string
 const Vixen.Rendering.GpuCulling.Alive = 1 -> uint
 const Vixen.Rendering.GpuCulling.ArgumentsShaderName = "DrawArguments" -> string
 const Vixen.Rendering.GpuCulling.ClipEpsilon = 0.0001 -> float
@@ -2654,7 +2654,6 @@ static readonly Vixen.Shaders.Generated.ForwardPlusKeys.LightBuffer -> Vixen.Sha
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.LightColor -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.LightCount -> Vixen.Shaders.ParameterKey<int>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.LightDirection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
-static readonly Vixen.Shaders.Generated.ForwardPlusKeys.MaterialIndex -> Vixen.Shaders.ParameterKey<uint>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.MaxLights -> Vixen.Shaders.PermutationKey<int>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.NearPlane -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.ProbeCount -> Vixen.Shaders.PermutationKey<int>

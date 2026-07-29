@@ -1090,22 +1090,6 @@
               "DefaultValue": "0"
             },
             {
-              "Name": "materialIndex",
-              "Type": {
-                "Scalar": "UInt",
-                "Rows": 1,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 12,
-              "Size": 4,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": "0"
-            },
-            {
               "Name": "lights",
               "Type": {
                 "Scalar": "Struct",
@@ -1375,7 +1359,7 @@
     {
       "Name": "ForwardPlusPushConstants",
       "Offset": 0,
-      "Size": 64,
+      "Size": 80,
       "Stages": "Vertex, Fragment",
       "Members": [
         {
@@ -1392,6 +1376,22 @@
           "Size": 64,
           "ArrayStride": 0,
           "MatrixStride": 16,
+          "DefaultValue": ""
+        },
+        {
+          "Name": "materialIndex",
+          "Type": {
+            "Scalar": "UInt",
+            "Rows": 1,
+            "Columns": 1,
+            "IsMatrix": false,
+            "IsArray": false,
+            "IsStruct": false
+          },
+          "Offset": 64,
+          "Size": 4,
+          "ArrayStride": 0,
+          "MatrixStride": 0,
           "DefaultValue": ""
         }
       ]
@@ -2424,24 +2424,6 @@
       "Set": 3,
       "Binding": 0,
       "Offset": 8,
-      "Size": 4,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": "0"
-    },
-    {
-      "Name": "materialIndex",
-      "Type": {
-        "Scalar": "UInt",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 3,
-      "Binding": 0,
-      "Offset": 12,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
