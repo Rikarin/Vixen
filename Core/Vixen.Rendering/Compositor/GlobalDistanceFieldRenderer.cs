@@ -3,6 +3,8 @@
 
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
+using Vixen.Graphics;
+using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.Lighting;
 
@@ -84,6 +86,17 @@ public sealed class GlobalDistanceFieldRenderer : SceneRenderer, IDisposable {
     /// <summary>Where to centre the clipmap, or null to follow the view.</summary>
     public Vector3? ViewPosition { get; set; }
 
+    /// <summary>Whose position to follow when <see cref="ViewPosition" /> says nothing.</summary>
+    /// <remarks>
+    ///     Named rather than taken from a draw context, because <see cref="Build" /> is where this node
+    ///     belongs and a graph pass has no view — see the remarks there. A frame with several views
+    ///     has to say which one the clipmap follows anyway, and there is no defensible default.
+    /// </remarks>
+    public RenderView? View { get; set; }
+
+    /// <summary>The device its texture is made on, or null to take the frame's.</summary>
+    public IGraphicsDevice? Device { get; set; }
+
     /// <summary>How many cells the last recomposite kept rather than recomputed.</summary>
     /// <remarks>
     ///     Zero on the first frame and after anything moves; nearly the whole clipmap for a camera
@@ -101,12 +114,59 @@ public sealed class GlobalDistanceFieldRenderer : SceneRenderer, IDisposable {
     /// <summary>Whether the composite may use more than one thread.</summary>
     public bool Parallel { get; set; } = true;
 
+    /// <summary>Declares the pass that composites the clipmap and copies it up.</summary>
+    /// <param name="compositor">The compositor.</param>
+    /// <param name="frame">The frame being built.</param>
+    /// <exception cref="ArgumentNullException">There is no frame.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A transfer pass, and it has to be one.</b> Uploading a clipmap is a buffer-to-texture
+    ///         copy, and a copy cannot be recorded inside a render pass — which is what
+    ///         <see cref="SceneRenderer.Record" /> runs inside, because the only thing that calls it is
+    ///         a <see cref="RenderPassRenderer" /> that has already opened one. This node spent its
+    ///         whole life so far unable to run in a real frame for that reason, and nothing noticed
+    ///         until a frame tried.
+    ///     </para>
+    ///     <para>
+    ///         <b>Marked as having a side effect, because the graph cannot see what it produces.</b> The
+    ///         volumes are not graph resources — they belong to
+    ///         <see cref="GlobalDistanceFieldTexture" /> and are named into a descriptor set rather than
+    ///         read through the graph — so a pass that writes no graph resource reads as a pass nothing
+    ///         needs, and would be culled.
+    ///     </para>
+    /// </remarks>
+    protected internal override void Build(GraphicsCompositor compositor, CompositorFrame frame) {
+        ArgumentNullException.ThrowIfNull(frame);
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (Field is null) {
+            return;
+        }
+
+        frame.Graph.AddPass(
+            ToString(),
+            pass => {
+                pass.Kind = PassKind.Transfer;
+                pass.SideEffect();
+
+                pass.Execute(
+                    context => {
+                        var draw = frame.Context(context.CommandList);
+
+                        draw.View = View;
+                        Record(compositor, draw);
+                    }
+                );
+            }
+        );
+    }
+
     /// <inheritdoc />
     protected internal override void Record(GraphicsCompositor compositor, RenderDrawContext context) {
         ArgumentNullException.ThrowIfNull(context);
         ObjectDisposedException.ThrowIf(disposed, this);
 
-        if (Field is not { } field || context.Device is not { } device) {
+        if (Field is not { } field || (Device ?? context.Device) is not { } device) {
             return;
         }
 

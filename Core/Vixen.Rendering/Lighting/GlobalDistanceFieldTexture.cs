@@ -144,6 +144,12 @@ public sealed class GlobalDistanceFieldTexture : IDisposable {
         var count = (long)resolution * resolution * resolution;
         var perLevel = count * BytesPerSample;
 
+        // ⚠ These are not graph resources — they are named into a descriptor set rather than read
+        // through the graph — so nothing else in the frame will transition them and this has to. A
+        // texture that was copied into and left in TRANSFER_DST is a validation error at the draw that
+        // samples it, and one never transitioned at all is one at the copy.
+        Transition(commands, Uploads == 0 ? ResourceState.Undefined : ResourceState.ShaderRead, ResourceState.CopyDestination);
+
         for (var level = 0; level < textures.Length; level++) {
             graphics.Write(staging, level * perLevel, Staged(Field.LevelData(level)));
 
@@ -155,7 +161,23 @@ public sealed class GlobalDistanceFieldTexture : IDisposable {
             );
         }
 
+        Transition(commands, ResourceState.CopyDestination, ResourceState.ShaderRead);
+
         Uploads++;
+    }
+
+    /// <summary>Moves every level from one state to another, in one barrier.</summary>
+    /// <param name="commands">Where to record it.</param>
+    /// <param name="before">What they are in.</param>
+    /// <param name="after">What they need to be in.</param>
+    void Transition(ICommandList commands, ResourceState before, ResourceState after) {
+        var barriers = new TextureBarrier[textures.Length];
+
+        for (var level = 0; level < textures.Length; level++) {
+            barriers[level] = new(textures[level], before, after);
+        }
+
+        commands.Barrier(new([], barriers));
     }
 
     /// <summary>Writes the names a shader reads the clipmap through.</summary>

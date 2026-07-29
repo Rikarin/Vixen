@@ -91,6 +91,31 @@ public class GlobalDistanceFieldTextureTests {
     }
 
     /// <summary>
+    ///     <b>The levels are transitioned by whoever owns them, which is this and nothing else.</b>
+    ///     They are named into a descriptor set rather than read through the render graph, so the graph
+    ///     does not know they exist — and a texture never moved out of UNDEFINED is a validation error
+    ///     at the copy, while one left in TRANSFER_DST is one at the draw that samples it. Both were
+    ///     real until a frame tried to trace one.
+    /// </summary>
+    [Fact]
+    public void TheLevelsAreMovedIntoAndOutOfBeingCopiedInto() {
+        using var device = new NullDevice(new() { Record = true });
+        using var mirror = new GlobalDistanceFieldTexture(Composited(levels: 3));
+
+        var list = device.BeginCommandList();
+        mirror.Upload(device, list);
+        Submit(device, list);
+
+        var barriers = device.Recorder!.Commands
+            .Where(command => command.Kind == RecordedCommandKind.Barrier)
+            .ToArray();
+
+        // One before the copies and one after, each covering all three levels at once.
+        Assert.Equal(2, barriers.Length);
+        Assert.All(barriers, barrier => Assert.Equal(3, barrier.B));
+    }
+
+    /// <summary>
     ///     A clipmap nobody composited is a volume of zeroes, and zero is the value that means
     ///     "surface here" — so uploading one would put a wall across the whole world rather than
     ///     render nothing. Better to say so than to ship the frame.

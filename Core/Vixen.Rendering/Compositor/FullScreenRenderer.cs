@@ -108,6 +108,25 @@ public sealed class FullScreenRenderer : SceneRenderer, IDisposable {
     /// <summary>The set it binds: its source textures, its samplers, its uniform block.</summary>
     public DescriptorBindings Descriptors { get; } = new() { Slot = DescriptorSetSlot.PerMaterial };
 
+    /// <summary>The frame's set 0, for a pass whose shader declares anything per-frame.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Null for almost every post effect, because almost none of them reads anything the frame
+    ///         owns — a blur reads its source and nothing else. <c>DistanceFieldAo</c> is the exception:
+    ///         the clipmap it traces belongs to the frame rather than to the pass, so its volumes, its
+    ///         sampler and the numbers describing them are set 0 bindings that
+    ///         <c>GlobalDistanceFieldRenderer</c> fills.
+    ///     </para>
+    ///     <para>
+    ///         <b>Nothing else in this node's path would bind it.</b> A mesh feature binds set 0 for a
+    ///         geometry pass and <see cref="RenderPassRenderer" /> only puts it in the context for
+    ///         children to find; a full-screen pass has no feature and no children. Without this the
+    ///         pipeline declares a set nothing binds, which is a validation error at submit whether or
+    ///         not the shader samples it.
+    ///     </para>
+    /// </remarks>
+    public SceneConstants? SceneConstants { get; set; }
+
     /// <summary>Where the uniform block goes, or null for an effect that has none.</summary>
     /// <remarks>
     ///     The binding index the shader gave it, which nothing yet reflects — the same seam
@@ -234,6 +253,12 @@ public sealed class FullScreenRenderer : SceneRenderer, IDisposable {
                         }
 
                         context.CommandList.BindPipeline(pipeline);
+
+                        // Before the pass's own set, though the order does not matter to a driver —
+                        // it matters to a reader, because set 0 is the frame's and set 2 is this
+                        // node's, and a pass that skipped the first draws with whatever was there.
+                        SceneConstants?.Bind(context.CommandList, effect);
+
                         bound?.Bind(context, extra);
 
                         // Three vertices, no vertex buffer and no index buffer. The whole reason the

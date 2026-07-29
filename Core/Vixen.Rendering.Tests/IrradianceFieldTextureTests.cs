@@ -100,6 +100,31 @@ public class IrradianceFieldTextureTests {
     }
 
     /// <summary>
+    ///     <b>The volumes are transitioned by whoever owns them, which is this and nothing else.</b>
+    ///     They are named into a descriptor set rather than read through the render graph, so the graph
+    ///     does not know they exist — and a texture never moved out of UNDEFINED is a validation error
+    ///     at the copy, while one left in TRANSFER_DST is one at the draw that samples it. Both were
+    ///     real until a frame tried to trace.
+    /// </summary>
+    [Fact]
+    public void TheVolumesAreMovedIntoAndOutOfBeingCopiedInto() {
+        using var device = new NullDevice(new() { Record = true });
+        using var mirror = new IrradianceFieldTexture(Filled());
+
+        var list = device.BeginCommandList();
+        mirror.Upload(device, list);
+        Submit(device, list);
+
+        var barriers = device.Recorder!.Commands
+            .Where(command => command.Kind == RecordedCommandKind.Barrier)
+            .ToArray();
+
+        // One before the copies and one after, each covering all five volumes at once.
+        Assert.Equal(2, barriers.Length);
+        Assert.All(barriers, barrier => Assert.Equal(5, barrier.B));
+    }
+
+    /// <summary>
     ///     <b>The index volume holds integers, and half-precision holds them exactly only to 2048.</b>
     ///     A brick origin that rounds puts every probe of that brick somewhere else, which is lighting
     ///     from the wrong part of the world with nothing to suggest why — so a pool that cannot be

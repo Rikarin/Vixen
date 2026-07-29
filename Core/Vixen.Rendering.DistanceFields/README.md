@@ -212,6 +212,18 @@ Writing it found that **a full-screen pass had no way to fill a compose slot at 
 could not be built by a compositor under any composition: the key carried none, the compiler refused
 the unbound slot, and the node drew nothing while looking exactly like a pass nobody scheduled.
 
-What is still owed: a frame that actually *traces*. The traced variant compiles and reaches a
-pipeline, but the clipmap's volumes live in the frame's set 0 and the golden fixture can upload a 2D
-texture and nothing else, so there is no set 0 to bind. That is the last piece.
+And a frame now traces a real clipmap: a ball above the reconstructed plane comes out black underneath
+and lit at the corners, with the field composited and copied up a pass earlier. The assertion is on
+the **sun** channel rather than the occlusion one, and that is not a convenience — a ray leaving a
+sphere along its own radius reads a clearance exactly equal to the step it took, so the occlusion
+integral correctly finds nothing. It is the flat-floor property seen from the other side.
+
+Getting there found three more, all structural and none visible to anything smaller than a whole
+frame: a full-screen pass could not bind set 0 at all; `GlobalDistanceFieldRenderer` overrode `Record`,
+which runs inside a render pass, and records a texture copy, which is illegal there — so it could never
+have run in a real frame; and **the GPU mirror never transitioned its own textures**, because they are
+named into a descriptor set rather than read through the graph and nothing else in the frame knows
+they exist.
+
+Every one of those passed every test it had. A layer checked only against its own mirror is a layer
+that has not been checked.

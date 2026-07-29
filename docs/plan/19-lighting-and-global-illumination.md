@@ -171,12 +171,31 @@ because a project with no clipmap has no field to trace. That is the sixth time 
 has found something the layer below had agreed with itself about, after the unbound material slot, the
 binding-name confusion, three errors in the first rendered scene, and the scroll's float associativity.
 
-**Still owed on L1: a frame that traces.** The traced variant now compiles and reaches a pipeline —
-that half had never been built by a compositor either — but it stops before the draw, because the
-clipmap's volumes live in the frame's set 0 and a frame without a `GlobalDistanceFieldRenderer` binds
-no set 0 at all, which is a validation error at submit whether or not the shader reads it. Giving the
-fixture a real clipmap needs a volume-texture upload path on the golden `Fixture`, which can upload a
-2D texture and nothing else. Plumbing rather than a question, and it is the last piece.
+**And a frame now traces an actual clipmap.** `ATracedFrameSeesWhatTheFieldHolds` puts a ball above
+the reconstructed plane, composites the clipmap, copies it up and reads the picture back: black under
+the ball, lit at the corners. Every part of L1 at once, on a device.
+
+Getting there found three more defects of the same kind, all of them structural and none of them
+visible to anything that was not a whole frame:
+
+- **A full-screen pass could not bind set 0.** A mesh feature binds it for a geometry pass and
+  `RenderPassRenderer` only puts it in the context for children to find; a full-screen pass has
+  neither. So a post effect whose shader declares anything per-frame — which is exactly what a
+  composed clipmap is — declared a set nothing bound. `FullScreenRenderer.SceneConstants` is the fix.
+- **`GlobalDistanceFieldRenderer` was in the wrong phase.** It overrode `Record`, which runs *inside*
+  a render pass, and it records a buffer-to-texture copy — which is illegal there. It could never have
+  run in a real frame. It now declares its own `PassKind.Transfer` pass in `Build`, marked as having a
+  side effect because the volumes are not graph resources and a pass writing no graph resource is a
+  pass the graph culls.
+- **Neither GPU mirror transitioned its own textures.** Same root cause as the above: the volumes are
+  named into a descriptor set rather than read through the graph, so nothing else in the frame knows
+  they exist. A texture never moved out of `UNDEFINED` is a validation error at the copy, and one left
+  in `TRANSFER_DST` is one at the draw that samples it. Both were true, of the distance-field mirror
+  and of the irradiance one, and both now barrier around their own copies.
+
+That is the pattern this document has recorded five times now, and it is worth stating as a rule
+rather than as a list: **a layer checked only against its own mirror is a layer that has not been
+checked.** Every one of these passed every test it had.
 
 ### L2 — The irradiance field *(2.0 EM)*
 

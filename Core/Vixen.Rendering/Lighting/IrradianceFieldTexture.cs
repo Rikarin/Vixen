@@ -167,6 +167,12 @@ public sealed class IrradianceFieldTexture : IDisposable {
 
         Create(graphics);
 
+        // ⚠ These are not graph resources — they are named into a descriptor set rather than read
+        // through the graph — so nothing else in the frame will transition them and this has to. A
+        // texture that was copied into and left in TRANSFER_DST is a validation error at the draw that
+        // samples it, and one never transitioned at all is one at the copy.
+        Transition(commands, Uploads == 0 ? ResourceState.Undefined : ResourceState.ShaderRead, ResourceState.CopyDestination);
+
         var poolBytes = (long)Field.Pool.Texels.Length * Channels * BytesPerChannel;
 
         for (var channel = 0; channel < Channels; channel++) {
@@ -201,7 +207,25 @@ public sealed class IrradianceFieldTexture : IDisposable {
             cells
         );
 
+        Transition(commands, ResourceState.CopyDestination, ResourceState.ShaderRead);
+
         Uploads++;
+    }
+
+    /// <summary>Moves every volume from one state to another, in one barrier.</summary>
+    /// <param name="commands">Where to record it.</param>
+    /// <param name="before">What they are in.</param>
+    /// <param name="after">What they need to be in.</param>
+    void Transition(ICommandList commands, ResourceState before, ResourceState after) {
+        var barriers = new TextureBarrier[Channels + 1];
+
+        for (var channel = 0; channel < Channels; channel++) {
+            barriers[channel] = new(pool[channel], before, after);
+        }
+
+        barriers[Channels] = new(indirection, before, after);
+
+        commands.Barrier(new([], barriers));
     }
 
     /// <summary>Writes the names a shader reads the field through.</summary>
