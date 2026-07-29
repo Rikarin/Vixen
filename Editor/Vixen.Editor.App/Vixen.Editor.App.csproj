@@ -57,6 +57,26 @@
         <ProjectReference Include="..\Vixen.Editor.AssetEditors\Vixen.Editor.AssetEditors.csproj" />
 
         <!--
+            The six diagnostics panels of doc 20's B4. Two assemblies rather than one because they
+            depend on different halves of the engine — the profiler on the sample rings and the RHI's
+            query pools, the debugger on a command stream and a network transport — and because doc
+            11's tree names `Vixen.Editor.Profiler` and `Vixen.Editor.Debugger` as two projects.
+            Which world the statistics count and which device the GPU timeline reads are this
+            assembly's arbitration, in the way every other panel's subject is.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Profiler\Vixen.Editor.Profiler.csproj" />
+        <ProjectReference Include="..\Vixen.Editor.Debugger\Vixen.Editor.Debugger.csproj" />
+
+        <!--
+            ⚠ The transport the remote inspector runs over, chosen *here* rather than in
+            Vixen.Editor.Debugger. Which transport reaches a target is an application's decision —
+            loopback for a standalone play-mode process, UDP for a machine on the LAN, a forwarded
+            port for a phone — and a debugger assembly that picked one would be a debugger that
+            could only attach to that one. It takes an ITransport and this hands it whichever.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Net.Transport.Local\Vixen.Net.Transport.Local.csproj" />
+
+        <!--
             Analyzers do not flow transitively through a ProjectReference, so an assembly declaring
             [Inspector] members of its own — which SceneEntity does — has to name the generator.
         -->

@@ -128,6 +128,29 @@ public readonly record struct GraphicsDeviceFeatures {
     /// and iOS (ADR-011).</remarks>
     public bool HasPipelineStatistics { get; init; }
 
+    /// <summary>Timestamp queries, which is what a GPU timeline is made of.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Separate from <see cref="HasPipelineStatistics" /> because the two are separate
+    ///         promises and MoltenVK is exactly the case that proves it: it has timestamps and it does
+    ///         not have statistics. One flag for both would take the GPU profiler off macOS to no
+    ///         purpose.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is a claim about the queue as well as the device.</b> Vulkan reports validity
+    ///         bits per queue family, and a transfer queue that cannot time is a real configuration —
+    ///         a backend reporting this true is promising the <i>graphics</i> queue can, which is the
+    ///         one a frame's passes are recorded on.
+    ///     </para>
+    /// </remarks>
+    public bool HasTimestampQueries { get; init; }
+
+    /// <summary>Nanoseconds per <see cref="QueryKind.Timestamp" /> tick. Zero without
+    /// <see cref="HasTimestampQueries" />.</summary>
+    /// <remarks>A float rather than an integer because on several vendors it is not one — see
+    /// <see cref="GpuTimestamps" />, which is the only thing that should be doing the arithmetic.</remarks>
+    public float TimestampPeriod { get; init; }
+
     /// <summary>The CPU and GPU share one memory pool.</summary>
     /// <remarks>
     ///     True on integrated and mobile GPUs. Where it holds, staging copies are pure overhead and

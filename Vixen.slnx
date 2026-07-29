@@ -285,6 +285,16 @@
     the shell: an asset editor is a document and a control, and which dock group it lands
     in is Vixen.Editor.App's decision as everything else is.
 
+    Vixen.Editor.Profiler and Vixen.Editor.Debugger are doc 11's two diagnostics projects
+    and doc 20's B4. Two rather than one because they depend on different halves of the
+    engine — the profiler on the sample rings and the RHI's query pools, the debugger on a
+    command stream and a network transport — and neither references Vixen.Editor.Core:
+    what a diagnostics panel shows is a *reading* rather than something anybody edits, so
+    there is no document and no undo stack, and both are testable against a bare
+    UiDocument with no project on disk. Which world the statistics count and which device
+    the GPU timeline reads are Vixen.Editor.App's arbitration, as every other panel's
+    subject is.
+
     Vixen.Editor.Plugin is the contract a third party writes against, and the only
     project under Editor/ whose public surface is checked against a baseline — doc 11
     asks for a stricter promise there than anywhere else in the editor. It references
@@ -312,6 +322,10 @@
     <Project Path="Editor/Vixen.Editor.Ui.Tests/Vixen.Editor.Ui.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.AssetEditors/Vixen.Editor.AssetEditors.csproj" />
     <Project Path="Editor/Vixen.Editor.AssetEditors.Tests/Vixen.Editor.AssetEditors.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Profiler/Vixen.Editor.Profiler.csproj" />
+    <Project Path="Editor/Vixen.Editor.Profiler.Tests/Vixen.Editor.Profiler.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Debugger/Vixen.Editor.Debugger.csproj" />
+    <Project Path="Editor/Vixen.Editor.Debugger.Tests/Vixen.Editor.Debugger.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Plugin/Vixen.Editor.Plugin.csproj" />
     <Project Path="Editor/Vixen.Editor.Plugin.Tests/Vixen.Editor.Plugin.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.App/Vixen.Editor.App.csproj" />

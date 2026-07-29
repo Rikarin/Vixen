@@ -330,6 +330,26 @@ GPU timeline from timestamp queries, a frame debugger stepping draw calls with r
 inspection, a memory view (managed heap, native allocators, GPU heaps, asset residency), and a remote
 inspector that attaches to a running build on a device to browse and mutate live entities.
 
+> **As built** (see [`Editor/Vixen.Editor.Profiler/README.md`](../../Editor/Vixen.Editor.Profiler/README.md)
+> and [`.Debugger`](../../Editor/Vixen.Editor.Debugger/README.md)). Both projects exist and both are
+> above the shell rather than beside the model — a diagnostics panel shows a *reading* rather than
+> something anybody edits, so neither references `Vixen.Editor.Core` and both are testable against a
+> bare `UiDocument`. Four gaps, each named where it is:
+>
+> - **The GPU timeline needed an RHI change first**, which doc 20's E4 called the one item that could
+>   not start with the panel. `Vixen.Graphics` now has query pools, `WriteTimestamp` and a
+>   non-blocking resolve; Vulkan implements it, the Null backend records it, OpenGL and WebGPU report
+>   the capability absent with a reason the panel shows.
+> - **Render-target inspection is not built.** Stepping to draw N replays the *state*, which a
+>   recorded command stream has; presenting what the frame had drawn by then needs a device that
+>   executed the calls, and `Vixen.Graphics.Null` is the only recording path there is.
+> - **The remote inspector's runtime half is not written** — it is doc 13's — and neither is device
+>   discovery. The editor's half is complete over any `ITransport`, and the tests drive it against a
+>   `FakeBuild` written only to the protocol.
+> - **GPU heaps are absent from the memory view**, because reporting them needs
+>   `VK_EXT_memory_budget` and the Vulkan backend does not query it. The arena is missing rather than
+>   zero, which is the difference between "not measured" and "nothing allocated".
+
 ### `Vixen.Editor.Plugin`
 
 - A plugin is a NuGet package or a folder with an assembly + a manifest, discovered at startup.

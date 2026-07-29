@@ -22,6 +22,7 @@ Vixen.Graphics.Null.NullDevice.CreateDescriptorSet(Vixen.Graphics.DescriptorSetL
 Vixen.Graphics.Null.NullDevice.CreateDescriptorSetLayout(in Vixen.Graphics.DescriptorSetLayoutDescription description) -> Vixen.Graphics.DescriptorSetLayoutHandle
 Vixen.Graphics.Null.NullDevice.CreateGraphicsPipeline(in Vixen.Graphics.GraphicsPipelineDescription description) -> Vixen.Graphics.PipelineHandle
 Vixen.Graphics.Null.NullDevice.CreatePipelineLayout(in Vixen.Graphics.PipelineLayoutDescription description) -> Vixen.Graphics.PipelineLayoutHandle
+Vixen.Graphics.Null.NullDevice.CreateQueryPool(in Vixen.Graphics.QueryPoolDescription description) -> Vixen.Graphics.QueryPoolHandle
 Vixen.Graphics.Null.NullDevice.CreateSampler(in Vixen.Graphics.SamplerDescription description) -> Vixen.Graphics.SamplerHandle
 Vixen.Graphics.Null.NullDevice.CreateShader(Vixen.Graphics.ShaderStage stage, System.ReadOnlySpan<byte> bytecode, string name = "") -> Vixen.Graphics.ShaderHandle
 Vixen.Graphics.Null.NullDevice.CreateSwapChain(in Vixen.Graphics.SwapChainDescription description) -> Vixen.Graphics.ISwapChain
@@ -33,6 +34,7 @@ Vixen.Graphics.Null.NullDevice.Destroy(Vixen.Graphics.DescriptorSetHandle handle
 Vixen.Graphics.Null.NullDevice.Destroy(Vixen.Graphics.DescriptorSetLayoutHandle handle) -> void
 Vixen.Graphics.Null.NullDevice.Destroy(Vixen.Graphics.PipelineHandle handle) -> void
 Vixen.Graphics.Null.NullDevice.Destroy(Vixen.Graphics.PipelineLayoutHandle handle) -> void
+Vixen.Graphics.Null.NullDevice.Destroy(Vixen.Graphics.QueryPoolHandle handle) -> void
 Vixen.Graphics.Null.NullDevice.Destroy(Vixen.Graphics.SamplerHandle handle) -> void
 Vixen.Graphics.Null.NullDevice.Destroy(Vixen.Graphics.ShaderHandle handle) -> void
 Vixen.Graphics.Null.NullDevice.Destroy(Vixen.Graphics.TextureHandle handle) -> void
@@ -49,6 +51,7 @@ Vixen.Graphics.Null.NullDevice.NullDevice(Vixen.Graphics.Null.NullDeviceOptions 
 Vixen.Graphics.Null.NullDevice.Read(Vixen.Graphics.BufferHandle buffer, long offset, System.Span<byte> destination) -> void
 Vixen.Graphics.Null.NullDevice.Recorder.get -> Vixen.Graphics.Null.CommandRecorder?
 Vixen.Graphics.Null.NullDevice.TransferQueue.get -> Vixen.Graphics.ICommandSubmitter
+Vixen.Graphics.Null.NullDevice.TryResolveQueries(Vixen.Graphics.QueryPoolHandle pool, int first, System.Span<ulong> results) -> bool
 Vixen.Graphics.Null.NullDevice.UpdateDescriptorSet(Vixen.Graphics.DescriptorSetHandle descriptors, System.ReadOnlySpan<Vixen.Graphics.DescriptorWrite> writes) -> void
 Vixen.Graphics.Null.NullDevice.WaitIdle() -> void
 Vixen.Graphics.Null.NullDevice.Write(Vixen.Graphics.BufferHandle buffer, long offset, System.ReadOnlySpan<byte> data) -> void
@@ -105,10 +108,12 @@ Vixen.Graphics.Null.RecordedCommandKind.PopDebugGroup = 23 -> Vixen.Graphics.Nul
 Vixen.Graphics.Null.RecordedCommandKind.PushConstants = 8 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.PushDebugGroup = 22 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.RecordedCommandKind() -> void
+Vixen.Graphics.Null.RecordedCommandKind.ResetQueries = 25 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.SetBlendConstant = 4 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.SetScissor = 3 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.SetStencilReference = 5 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.SetViewport = 2 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.WriteTimestamp = 26 -> Vixen.Graphics.Null.RecordedCommandKind
 override Vixen.Graphics.Null.CommandRecorder.ToString() -> string
 override Vixen.Graphics.Null.RecordedCommand.ToString() -> string
 static Vixen.Graphics.Null.NullDevice.Everything.get -> Vixen.Graphics.GraphicsDeviceFeatures

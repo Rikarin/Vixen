@@ -472,6 +472,18 @@ sealed class GlCommandList(GlDevice device, QueueKind kind, string name) : IComm
     }
 
     /// <inheritdoc />
+    public void ResetQueries(QueryPoolHandle pool, int first, int count) =>
+        throw new NotSupportedException(
+            "The OpenGL backend has no timestamp queries — see GlDevice.CreateQueryPool for why."
+        );
+
+    /// <inheritdoc />
+    public void WriteTimestamp(QueryPoolHandle pool, int index) =>
+        throw new NotSupportedException(
+            "The OpenGL backend has no timestamp queries — see GlDevice.CreateQueryPool for why."
+        );
+
+    /// <inheritdoc />
     public void Dispose() {
         if (disposed) {
             return;

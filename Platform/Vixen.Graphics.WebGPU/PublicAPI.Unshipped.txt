@@ -204,6 +204,7 @@ Vixen.Graphics.WebGPU.WebGpuDevice.CreateDescriptorSet(Vixen.Graphics.Descriptor
 Vixen.Graphics.WebGPU.WebGpuDevice.CreateDescriptorSetLayout(in Vixen.Graphics.DescriptorSetLayoutDescription description) -> Vixen.Graphics.DescriptorSetLayoutHandle
 Vixen.Graphics.WebGPU.WebGpuDevice.CreateGraphicsPipeline(in Vixen.Graphics.GraphicsPipelineDescription description) -> Vixen.Graphics.PipelineHandle
 Vixen.Graphics.WebGPU.WebGpuDevice.CreatePipelineLayout(in Vixen.Graphics.PipelineLayoutDescription description) -> Vixen.Graphics.PipelineLayoutHandle
+Vixen.Graphics.WebGPU.WebGpuDevice.CreateQueryPool(in Vixen.Graphics.QueryPoolDescription description) -> Vixen.Graphics.QueryPoolHandle
 Vixen.Graphics.WebGPU.WebGpuDevice.CreateSampler(in Vixen.Graphics.SamplerDescription description) -> Vixen.Graphics.SamplerHandle
 Vixen.Graphics.WebGPU.WebGpuDevice.CreateShader(Vixen.Graphics.ShaderStage stage, System.ReadOnlySpan<byte> bytecode, string name = "") -> Vixen.Graphics.ShaderHandle
 Vixen.Graphics.WebGPU.WebGpuDevice.CreateSwapChain(in Vixen.Graphics.SwapChainDescription description) -> Vixen.Graphics.ISwapChain
@@ -214,6 +215,7 @@ Vixen.Graphics.WebGPU.WebGpuDevice.Destroy(Vixen.Graphics.DescriptorSetHandle ha
 Vixen.Graphics.WebGPU.WebGpuDevice.Destroy(Vixen.Graphics.DescriptorSetLayoutHandle handle) -> void
 Vixen.Graphics.WebGPU.WebGpuDevice.Destroy(Vixen.Graphics.PipelineHandle handle) -> void
 Vixen.Graphics.WebGPU.WebGpuDevice.Destroy(Vixen.Graphics.PipelineLayoutHandle handle) -> void
+Vixen.Graphics.WebGPU.WebGpuDevice.Destroy(Vixen.Graphics.QueryPoolHandle handle) -> void
 Vixen.Graphics.WebGPU.WebGpuDevice.Destroy(Vixen.Graphics.SamplerHandle handle) -> void
 Vixen.Graphics.WebGPU.WebGpuDevice.Destroy(Vixen.Graphics.ShaderHandle handle) -> void
 Vixen.Graphics.WebGPU.WebGpuDevice.Destroy(Vixen.Graphics.TextureHandle handle) -> void
@@ -227,6 +229,7 @@ Vixen.Graphics.WebGPU.WebGpuDevice.GraphicsQueue.get -> Vixen.Graphics.ICommandS
 Vixen.Graphics.WebGPU.WebGpuDevice.LiveResourceCount.get -> int
 Vixen.Graphics.WebGPU.WebGpuDevice.Read(Vixen.Graphics.BufferHandle buffer, long offset, System.Span<byte> destination) -> void
 Vixen.Graphics.WebGPU.WebGpuDevice.TransferQueue.get -> Vixen.Graphics.ICommandSubmitter
+Vixen.Graphics.WebGPU.WebGpuDevice.TryResolveQueries(Vixen.Graphics.QueryPoolHandle pool, int first, System.Span<ulong> results) -> bool
 Vixen.Graphics.WebGPU.WebGpuDevice.UpdateDescriptorSet(Vixen.Graphics.DescriptorSetHandle descriptors, System.ReadOnlySpan<Vixen.Graphics.DescriptorWrite> writes) -> void
 Vixen.Graphics.WebGPU.WebGpuDevice.WaitIdle() -> void
 Vixen.Graphics.WebGPU.WebGpuDevice.WebGpuDevice(Vixen.Graphics.WebGPU.IWebGpuBinding binding) -> void

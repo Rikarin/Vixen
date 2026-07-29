@@ -338,6 +338,8 @@ Vixen.Graphics.GpuPipeline -> abstract class
 Vixen.Graphics.GpuPipeline.GpuPipeline() -> void
 Vixen.Graphics.GpuPipelineLayout -> abstract class
 Vixen.Graphics.GpuPipelineLayout.GpuPipelineLayout() -> void
+Vixen.Graphics.GpuQueryPool -> abstract class
+Vixen.Graphics.GpuQueryPool.GpuQueryPool() -> void
 Vixen.Graphics.GpuSampler -> abstract class
 Vixen.Graphics.GpuSampler.GpuSampler() -> void
 Vixen.Graphics.GpuShader -> abstract class
@@ -346,6 +348,7 @@ Vixen.Graphics.GpuTexture -> abstract class
 Vixen.Graphics.GpuTexture.GpuTexture() -> void
 Vixen.Graphics.GpuTextureView -> abstract class
 Vixen.Graphics.GpuTextureView.GpuTextureView() -> void
+Vixen.Graphics.GpuTimestamps -> static class
 Vixen.Graphics.GraphicsDeviceFeatures -> readonly struct
 Vixen.Graphics.GraphicsDeviceFeatures : System.IEquatable<Vixen.Graphics.GraphicsDeviceFeatures>
 Vixen.Graphics.GraphicsDeviceFeatures.GraphicsDeviceFeatures() -> void
@@ -385,6 +388,8 @@ Vixen.Graphics.GraphicsDeviceFeatures.HasTessellation.get -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasTessellation.init -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasTimelineSemaphores.get -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasTimelineSemaphores.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasTimestampQueries.get -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasTimestampQueries.init -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasUnifiedMemory.get -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasUnifiedMemory.init -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasWireframe.get -> bool
@@ -410,6 +415,8 @@ Vixen.Graphics.GraphicsDeviceFeatures.MaxVertexBuffers.init -> int
 Vixen.Graphics.GraphicsDeviceFeatures.SupportedSampleCounts.get -> int
 Vixen.Graphics.GraphicsDeviceFeatures.SupportedSampleCounts.init -> int
 Vixen.Graphics.GraphicsDeviceFeatures.SupportsSampleCount(int samples) -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.TimestampPeriod.get -> float
+Vixen.Graphics.GraphicsDeviceFeatures.TimestampPeriod.init -> float
 Vixen.Graphics.GraphicsPipelineDescription -> readonly struct
 Vixen.Graphics.GraphicsPipelineDescription : System.IEquatable<Vixen.Graphics.GraphicsPipelineDescription>
 Vixen.Graphics.GraphicsPipelineDescription.ColourTargets.get -> Vixen.Graphics.ColourTargetState[]
@@ -463,10 +470,12 @@ Vixen.Graphics.ICommandList.Kind.get -> Vixen.Graphics.QueueKind
 Vixen.Graphics.ICommandList.PopDebugGroup() -> void
 Vixen.Graphics.ICommandList.PushConstants(Vixen.Graphics.ShaderStage stages, int offset, System.ReadOnlySpan<byte> data) -> void
 Vixen.Graphics.ICommandList.PushDebugGroup(string name) -> void
+Vixen.Graphics.ICommandList.ResetQueries(Vixen.Graphics.QueryPoolHandle pool, int first, int count) -> void
 Vixen.Graphics.ICommandList.SetBlendConstant(in Vixen.Core.Mathematics.Color4 colour) -> void
 Vixen.Graphics.ICommandList.SetScissor(in Vixen.Graphics.ScissorRect scissor) -> void
 Vixen.Graphics.ICommandList.SetStencilReference(uint reference) -> void
 Vixen.Graphics.ICommandList.SetViewport(in Vixen.Core.Mathematics.Viewport viewport) -> void
+Vixen.Graphics.ICommandList.WriteTimestamp(Vixen.Graphics.QueryPoolHandle pool, int index) -> void
 Vixen.Graphics.ICommandSubmitter -> interface
 Vixen.Graphics.ICommandSubmitter.Kind.get -> Vixen.Graphics.QueueKind
 Vixen.Graphics.ICommandSubmitter.Submit(System.ReadOnlySpan<Vixen.Graphics.ICommandList> lists) -> void
@@ -489,6 +498,7 @@ Vixen.Graphics.IGraphicsDevice.CreateDescriptorSet(Vixen.Graphics.DescriptorSetL
 Vixen.Graphics.IGraphicsDevice.CreateDescriptorSetLayout(in Vixen.Graphics.DescriptorSetLayoutDescription description) -> Vixen.Graphics.DescriptorSetLayoutHandle
 Vixen.Graphics.IGraphicsDevice.CreateGraphicsPipeline(in Vixen.Graphics.GraphicsPipelineDescription description) -> Vixen.Graphics.PipelineHandle
 Vixen.Graphics.IGraphicsDevice.CreatePipelineLayout(in Vixen.Graphics.PipelineLayoutDescription description) -> Vixen.Graphics.PipelineLayoutHandle
+Vixen.Graphics.IGraphicsDevice.CreateQueryPool(in Vixen.Graphics.QueryPoolDescription description) -> Vixen.Graphics.QueryPoolHandle
 Vixen.Graphics.IGraphicsDevice.CreateSampler(in Vixen.Graphics.SamplerDescription description) -> Vixen.Graphics.SamplerHandle
 Vixen.Graphics.IGraphicsDevice.CreateShader(Vixen.Graphics.ShaderStage stage, System.ReadOnlySpan<byte> bytecode, string name = "") -> Vixen.Graphics.ShaderHandle
 Vixen.Graphics.IGraphicsDevice.CreateSwapChain(in Vixen.Graphics.SwapChainDescription description) -> Vixen.Graphics.ISwapChain
@@ -499,6 +509,7 @@ Vixen.Graphics.IGraphicsDevice.Destroy(Vixen.Graphics.DescriptorSetHandle handle
 Vixen.Graphics.IGraphicsDevice.Destroy(Vixen.Graphics.DescriptorSetLayoutHandle handle) -> void
 Vixen.Graphics.IGraphicsDevice.Destroy(Vixen.Graphics.PipelineHandle handle) -> void
 Vixen.Graphics.IGraphicsDevice.Destroy(Vixen.Graphics.PipelineLayoutHandle handle) -> void
+Vixen.Graphics.IGraphicsDevice.Destroy(Vixen.Graphics.QueryPoolHandle handle) -> void
 Vixen.Graphics.IGraphicsDevice.Destroy(Vixen.Graphics.SamplerHandle handle) -> void
 Vixen.Graphics.IGraphicsDevice.Destroy(Vixen.Graphics.ShaderHandle handle) -> void
 Vixen.Graphics.IGraphicsDevice.Destroy(Vixen.Graphics.TextureHandle handle) -> void
@@ -509,6 +520,7 @@ Vixen.Graphics.IGraphicsDevice.FramesInFlight.get -> int
 Vixen.Graphics.IGraphicsDevice.GraphicsQueue.get -> Vixen.Graphics.ICommandSubmitter
 Vixen.Graphics.IGraphicsDevice.Read(Vixen.Graphics.BufferHandle buffer, long offset, System.Span<byte> destination) -> void
 Vixen.Graphics.IGraphicsDevice.TransferQueue.get -> Vixen.Graphics.ICommandSubmitter
+Vixen.Graphics.IGraphicsDevice.TryResolveQueries(Vixen.Graphics.QueryPoolHandle pool, int first, System.Span<ulong> results) -> bool
 Vixen.Graphics.IGraphicsDevice.UpdateDescriptorSet(Vixen.Graphics.DescriptorSetHandle descriptors, System.ReadOnlySpan<Vixen.Graphics.DescriptorWrite> writes) -> void
 Vixen.Graphics.IGraphicsDevice.WaitIdle() -> void
 Vixen.Graphics.IGraphicsDevice.Write(Vixen.Graphics.BufferHandle buffer, long offset, System.ReadOnlySpan<byte> data) -> void
@@ -630,6 +642,26 @@ Vixen.Graphics.PushConstantRange.Size.get -> int
 Vixen.Graphics.PushConstantRange.Size.init -> int
 Vixen.Graphics.PushConstantRange.Stages.get -> Vixen.Graphics.ShaderStage
 Vixen.Graphics.PushConstantRange.Stages.init -> Vixen.Graphics.ShaderStage
+Vixen.Graphics.QueryKind -> enum : byte
+Vixen.Graphics.QueryKind.QueryKind() -> void
+Vixen.Graphics.QueryKind.Timestamp = 0 -> Vixen.Graphics.QueryKind
+Vixen.Graphics.QueryPoolDescription -> readonly struct
+Vixen.Graphics.QueryPoolDescription : System.IEquatable<Vixen.Graphics.QueryPoolDescription>
+Vixen.Graphics.QueryPoolDescription.Count.get -> int
+Vixen.Graphics.QueryPoolDescription.Count.init -> int
+Vixen.Graphics.QueryPoolDescription.Kind.get -> Vixen.Graphics.QueryKind
+Vixen.Graphics.QueryPoolDescription.Kind.init -> Vixen.Graphics.QueryKind
+Vixen.Graphics.QueryPoolDescription.Name.get -> string
+Vixen.Graphics.QueryPoolDescription.Name.init -> string
+Vixen.Graphics.QueryPoolDescription.QueryPoolDescription() -> void
+Vixen.Graphics.QueryPoolDescription.QueryPoolDescription(Vixen.Graphics.QueryKind Kind, int Count, string Name = "") -> void
+Vixen.Graphics.QueryPoolHandle -> readonly struct
+Vixen.Graphics.QueryPoolHandle : System.IEquatable<Vixen.Graphics.QueryPoolHandle>
+Vixen.Graphics.QueryPoolHandle.IsValid.get -> bool
+Vixen.Graphics.QueryPoolHandle.QueryPoolHandle() -> void
+Vixen.Graphics.QueryPoolHandle.QueryPoolHandle(Vixen.Core.Collections.Handle<Vixen.Graphics.GpuQueryPool> Value) -> void
+Vixen.Graphics.QueryPoolHandle.Value.get -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuQueryPool>
+Vixen.Graphics.QueryPoolHandle.Value.init -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuQueryPool>
 Vixen.Graphics.QueueKind -> enum : byte
 Vixen.Graphics.QueueKind.Compute = 1 -> Vixen.Graphics.QueueKind
 Vixen.Graphics.QueueKind.Graphics = 0 -> Vixen.Graphics.QueueKind
@@ -929,6 +961,8 @@ static Vixen.Graphics.DescriptorWrite.SamplerAt(uint binding, Vixen.Graphics.Sam
 static Vixen.Graphics.DescriptorWrite.Storage(uint binding, Vixen.Graphics.BufferHandle buffer, long offset = 0, long size = 0) -> Vixen.Graphics.DescriptorWrite
 static Vixen.Graphics.DescriptorWrite.Texture(uint binding, Vixen.Graphics.TextureViewHandle view, int arrayIndex = 0) -> Vixen.Graphics.DescriptorWrite
 static Vixen.Graphics.DescriptorWrite.Uniform(uint binding, Vixen.Graphics.BufferHandle buffer, long offset = 0, long size = 0) -> Vixen.Graphics.DescriptorWrite
+static Vixen.Graphics.GpuTimestamps.ToMilliseconds(ulong ticks, float period) -> double
+static Vixen.Graphics.GpuTimestamps.ToNanoseconds(ulong ticks, float period) -> double
 static Vixen.Graphics.GraphicsDeviceFeatures.Minimum.get -> Vixen.Graphics.GraphicsDeviceFeatures
 static Vixen.Graphics.PipelineHandle.Null.get -> Vixen.Graphics.PipelineHandle
 static Vixen.Graphics.PipelineLayoutHandle.Null.get -> Vixen.Graphics.PipelineLayoutHandle
@@ -945,6 +979,7 @@ static Vixen.Graphics.PixelFormats.MipLevelCount(int width, int height, int dept
 static Vixen.Graphics.PixelFormats.SampleTypeOf(this Vixen.Graphics.PixelFormat format) -> Vixen.Graphics.DescriptorSampleType
 static Vixen.Graphics.PixelFormats.ToLinear(this Vixen.Graphics.PixelFormat format) -> Vixen.Graphics.PixelFormat
 static Vixen.Graphics.PixelFormats.ToSrgb(this Vixen.Graphics.PixelFormat format) -> Vixen.Graphics.PixelFormat
+static Vixen.Graphics.QueryPoolHandle.Null.get -> Vixen.Graphics.QueryPoolHandle
 static Vixen.Graphics.RasterizerState.Default.get -> Vixen.Graphics.RasterizerState
 static Vixen.Graphics.RasterizerState.TwoSided.get -> Vixen.Graphics.RasterizerState
 static Vixen.Graphics.SamplerDescription.LinearClamp.get -> Vixen.Graphics.SamplerDescription

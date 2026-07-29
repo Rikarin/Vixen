@@ -4,6 +4,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using Vixen.Core.Mathematics;
+using Vixen.Editor.Profiler;
 using Vixen.Graphics;
 using Vixen.Graphics.RenderGraph;
 using Vixen.Graphics.Vulkan;
@@ -56,6 +57,15 @@ sealed class EditorHost : IDisposable {
     TransientResourcePool? pool;
     RenderGraph? graph;
     UiShaders shaders;
+
+    /// <summary>What writes the frame's timestamps, once there is a device that can be timed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Owned here rather than by the application, because the object that records the
+    ///     timestamps has to be the one recording the frame.</b> A GPU profiler in
+    ///     <c>EditorApplication</c> would have no command list to write into — the application is
+    ///     deliberately the half of the editor that does not know what a GPU is.
+    /// </remarks>
+    GpuProfiler? gpu;
 
     bool running = true;
     bool lost;
@@ -124,7 +134,19 @@ sealed class EditorHost : IDisposable {
             var delta = now - previous;
             previous = now;
 
-            Pump();
+            // ⚠ Advanced whether or not anybody is sampling. `BeginFrame` is an interlocked
+            // increment and nothing else — an editor that only counted frames while the profiler
+            // was open would attribute a whole capture to frame zero, which is exactly the axis a
+            // flame chart is drawn against.
+            Vixen.Core.Diagnostics.Profiler.BeginFrame();
+
+            // The scope covering everything below, so a chart of the editor has one bar per frame
+            // with the four phases nested under it rather than four unrelated bars.
+            using var frame = Vixen.Core.Diagnostics.Profiler.Begin(EditorApplication.EditorKeys.Frame);
+
+            using (Vixen.Core.Diagnostics.Profiler.Begin(EditorApplication.EditorKeys.Pump)) {
+                Pump();
+            }
 
             if (!running || editor.IsClosing) {
                 break;
@@ -149,19 +171,31 @@ sealed class EditorHost : IDisposable {
 
             editor.Shell.Tick(now, delta);
 
-            editor.Shell.Document.Update();
+            using (Vixen.Core.Diagnostics.Profiler.Begin(EditorApplication.EditorKeys.Document)) {
+                editor.Shell.Document.Update();
+            }
 
             // ⚠ Between the two, and it is not arbitrary. A viewport measures itself in render pixels
             // from a box the layout pass is what produces, and the axis cross it draws comes from the
             // camera this brings up to date — so either side of this pair puts the picture a frame
             // behind whatever the user just did with the mouse.
-            editor.Update(delta);
+            using (Vixen.Core.Diagnostics.Profiler.Begin(EditorApplication.EditorKeys.Update)) {
+                editor.Update(delta);
+            }
 
-            editor.Shell.Document.Draw();
+            using (Vixen.Core.Diagnostics.Profiler.Begin(EditorApplication.EditorKeys.Document)) {
+                editor.Shell.Document.Draw();
+            }
 
             Sync();
-            Build();
-            Present();
+
+            using (Vixen.Core.Diagnostics.Profiler.Begin(EditorApplication.EditorKeys.Geometry)) {
+                Build();
+            }
+
+            using (Vixen.Core.Diagnostics.Profiler.Begin(EditorApplication.EditorKeys.Present)) {
+                Present();
+            }
 
             drawn++;
 
@@ -390,6 +424,19 @@ sealed class EditorHost : IDisposable {
 
         using var commands = device!.BeginCommandList(QueueKind.Graphics, "ui");
 
+        // ⚠ Only the primary window's frame is timed, and it is a decision rather than a limitation.
+        // A torn-off panel is a second submission on the same queue, and interleaving two windows'
+        // regions in one pool would produce a timeline whose bars overlap for reasons that are about
+        // window management rather than about rendering.
+        var timing = gpu is not null && pane.IsPrimary;
+
+        if (timing) {
+            // The CPU profiler's frame counter, so a GPU bar and a CPU bar labelled "frame 812" are
+            // the same frame. A counter of the host's own would be a second number that agreed by
+            // accident until somebody early-returned out of the loop.
+            gpu!.BeginFrame(commands, Vixen.Core.Diagnostics.Profiler.FrameIndex);
+        }
+
         var backbuffer = graph!.ImportTexture(
             pane.SwapChain!.CurrentTexture,
             pane.Acquired,
@@ -428,6 +475,12 @@ sealed class EditorHost : IDisposable {
                 pass.ColourAttachment(backbuffer, LoadAction.Clear, new Color4(0.06f, 0.07f, 0.09f, 1f));
                 pass.SideEffect();
 
+                // ⚠ The pair goes *inside* the pass's execute rather than around `AddPass`. A render
+                // graph is declared here and executed later, so a timestamp written at declaration
+                // time would land wherever the last pass to be declared happened to be recorded —
+                // which is a bar whose position has nothing to do with when the work ran.
+                int? region = null;
+
                 // ⚠ The scene's target is sampled through a descriptor set, which the graph cannot
                 // see. Saying so here is what orders the scene's pass before this one and puts the
                 // layout transition between them — without it the target is still a colour
@@ -442,12 +495,22 @@ sealed class EditorHost : IDisposable {
                 // quarter of the window. The scale is this window's, which on a second display is
                 // not the main window's.
                 pass.Execute(
-                    context => renderer.Record(
-                        context.CommandList,
-                        pane.Frame,
-                        new Int2((int) MathF.Round(extent.Width), (int) MathF.Round(extent.Height)),
-                        scale
-                    )
+                    context => {
+                        if (timing) {
+                            region = gpu!.Begin(context.CommandList, "ui");
+                        }
+
+                        renderer.Record(
+                            context.CommandList,
+                            pane.Frame,
+                            new Int2((int) MathF.Round(extent.Width), (int) MathF.Round(extent.Height)),
+                            scale
+                        );
+
+                        if (timing) {
+                            gpu!.End(context.CommandList, region);
+                        }
+                    }
                 );
             }
         );
@@ -457,6 +520,13 @@ sealed class EditorHost : IDisposable {
 
         commands.Finish();
         device.GraphicsQueue.Submit([commands]);
+
+        // ⚠ After the submit, and it reads a pool from several frames ago rather than this one.
+        // `TryResolveQueries` never waits — see its remarks — so the first few frames after the
+        // panel opens report nothing, which is correct and is why the view says it is waiting.
+        if (timing && gpu!.Resolve()) {
+            editor.GpuFrame = gpu.Latest;
+        }
     }
 
     /// <summary>Takes the next image, rebuilding once if the swapchain has gone stale.</summary>
@@ -499,6 +569,16 @@ sealed class EditorHost : IDisposable {
 
         pool = new TransientResourcePool(device);
         graph = new RenderGraph(device, pool);
+
+        // ⚠ Handed to the application so the panel can say *why* there is no timeline. A device that
+        // reports no timestamp queries — MoltenVK on an older Metal, a driver with no valid bits on
+        // the graphics family — is a real configuration, and a GPU panel that drew nothing on it
+        // would be indistinguishable from one whose frame had no passes.
+        editor.GraphicsDevice = device;
+
+        if (device.Features.HasTimestampQueries) {
+            gpu = new GpuProfiler(device);
+        }
 
         // Compiled once and handed to every window's renderer. Turning source into modules is
         // Raven's job and this host hands over what it has — which is the argument `UiShaders` makes
@@ -550,6 +630,13 @@ sealed class EditorHost : IDisposable {
 
     void Release() {
         device?.WaitIdle();
+
+        // Before the device, because the pools are its resources — and after the wait, because a
+        // frame still in flight is one whose command buffer still names them.
+        gpu?.Dispose();
+        gpu = null;
+
+        editor.GraphicsDevice = null;
 
         scene?.Dispose();
 

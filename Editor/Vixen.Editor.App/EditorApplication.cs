@@ -294,6 +294,11 @@ sealed partial class EditorApplication : IDisposable {
         }
 
         Panels();
+
+        // ⚠ Before `Layouts`, because the Profiling preset names the panels this registers and a
+        // preset naming a panel the workspace cannot build is a preset that comes back short.
+        DiagnosticsPanels();
+
         Layouts();
         Commands();
 
@@ -391,6 +396,10 @@ sealed partial class EditorApplication : IDisposable {
         // so a subscription would rebuild the panel's rows off the frame thread.
         console?.Tick();
 
+        // ⚠ Beside the console's pull and for the same reason: a capture drains the sample rings,
+        // and the rings are written from every thread the editor runs work on.
+        DiagnosticsUpdate(delta);
+
         ResolveTransforms();
         Retitle();
 
@@ -481,6 +490,11 @@ sealed partial class EditorApplication : IDisposable {
         plugins.UnloadAll();
 
         viewport?.Dispose();
+
+        // Before the shell, because detaching writes a line into the connection log the panel is
+        // showing — and after the plugins, because a plugin could in principle be holding a device
+        // provider that has just been unloaded.
+        DiagnosticsDispose();
 
         // Before the world, because it holds a snapshot of it: a controller disposed after the world
         // would be releasing chunks into a world that had already released its own.
@@ -926,6 +940,21 @@ sealed partial class EditorApplication : IDisposable {
             () => LayoutPresets.Split(["scene"], ["console"], 0.6f)
         );
 
+        // ⚠ Doc 20's A6 owes two more presets, "once Parts B4 and B5 exist". B4 exists now, so this
+        // one does. The shape is deliberate and is not the Default's: profiling is a reading rather
+        // than an edit, so the viewport is the *narrow* column and the numbers get the width — a
+        // flame chart squeezed into a right-hand inspector slot is one where every bar is a pixel.
+        Shell.RegisterLayout(
+            "Profiling",
+            new StringId("editor.layout.profiling", "Profiling"),
+            () => LayoutPresets.Standard(
+                ["scene"],
+                ["profiler", "gpu", "frame-debugger"],
+                ["statistics", "memory"],
+                ["console"]
+            )
+        );
+
         Shell.Workspace.DefaultPreset = "Default";
     }
 
@@ -1023,6 +1052,12 @@ sealed partial class EditorApplication : IDisposable {
         // which needs the command to exist; and the toolbar is built from ids, which needs every one
         // of these to exist.
         ParityCommands();
+
+        // ⚠ A separate method rather than seven more lines inside `ParityCommands`, because these
+        // are the ids that were declared-and-disabled there until E4 built the panels behind them.
+        // Keeping them together is what makes "which verbs does the diagnostics milestone own"
+        // answerable by reading one method.
+        DiagnosticsCommands();
 
         Shell.Keys.SetDefault("file.exit", new KeyChord(InputKey.Q, ModifierKeys.Control));
 

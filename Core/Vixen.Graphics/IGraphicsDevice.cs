@@ -245,6 +245,51 @@ public interface IGraphicsDevice : IDisposable {
     /// <param name="description">What to create.</param>
     ISwapChain CreateSwapChain(in SwapChainDescription description);
 
+    /// <summary>Creates a pool of GPU queries.</summary>
+    /// <param name="description">What to create.</param>
+    /// <returns>The pool.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Ask <see cref="Features" /> first.</b> A device without
+    ///     <see cref="GraphicsDeviceFeatures.HasTimestampQueries" /> throws here rather than handing
+    ///     back a pool that measures nothing — a profiler drawing a timeline of zeroes is worse than
+    ///     one that says the device cannot be timed, because the first is a wrong answer and the
+    ///     second is an answer.
+    /// </remarks>
+    /// <exception cref="NotSupportedException">The device cannot answer this kind of query.</exception>
+    QueryPoolHandle CreateQueryPool(in QueryPoolDescription description);
+
+    /// <summary>Returns a query pool.</summary>
+    /// <param name="handle">The pool.</param>
+    void Destroy(QueryPoolHandle handle);
+
+    /// <summary>Reads out whatever a pool's queries have answered.</summary>
+    /// <param name="pool">The pool.</param>
+    /// <param name="first">The first query to read.</param>
+    /// <param name="results">
+    ///     Where the readings go, one per query. Its length is how many are read.
+    /// </param>
+    /// <returns>
+    ///     Whether every query in the range had an answer. <see langword="false" /> leaves
+    ///     <paramref name="results" /> untouched.
+    /// </returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>It does not wait, and that is the whole contract.</b> A query is answered when the
+    ///         submission that wrote it has finished on the GPU, which is up to
+    ///         <see cref="FramesInFlight" /> frames after it was recorded. Blocking here would stall
+    ///         the CPU on the GPU once per frame — a profiler that halves the frame rate it is
+    ///         measuring — so the caller records into pool <i>n</i>, asks about pool
+    ///         <i>n − FramesInFlight</i>, and gets <see langword="false" /> until the answer is there.
+    ///     </para>
+    ///     <para>
+    ///         All or nothing, rather than a count: a partially resolved range is one where the pairs
+    ///         a caller subtracts may straddle the boundary, and a half-resolved pair reads as a
+    ///         nonsense duration rather than as missing data.
+    ///     </para>
+    /// </remarks>
+    /// <exception cref="NotSupportedException">The device cannot answer this kind of query.</exception>
+    bool TryResolveQueries(QueryPoolHandle pool, int first, Span<ulong> results);
+
     /// <summary>
     ///     Returns a buffer.
     /// </summary>

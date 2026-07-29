@@ -142,3 +142,15 @@ sealed class VulkanPipeline : GpuPipeline {
     /// <summary>What the layout declared, so that a push-constant write can be checked.</summary>
     public required PushConstantRange[] PushConstants { get; init; }
 }
+
+/// <summary>A pool of GPU queries, and how large it is.</summary>
+/// <remarks>
+///     The count is kept because <c>vkGetQueryPoolResults</c> is asked for a range and Vulkan's
+///     answer to a range running off the end is undefined rather than an error — so the bound is
+///     checked here, on the CPU, where the message can say which pool and how large it was.
+/// </remarks>
+sealed class VulkanQueryPool : GpuQueryPool {
+    public required QueryPool Handle { get; init; }
+
+    public required int Count { get; init; }
+}
