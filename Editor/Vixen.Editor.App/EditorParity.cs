@@ -708,12 +708,8 @@ sealed partial class EditorApplication {
             "Debug and release players are milestone E6."
         );
 
-        Planned(
-            "build.deploy",
-            new StringId("editor.command.build.deploy", "Deploy…"),
-            CategoryBuild,
-            "The device manager is milestone E4."
-        );
+        // Deploy is `DiagnosticsCommands`', because it opens the device manager E4 built. It is
+        // still a Build-menu line — Part C puts it there — and the window is the Tools one.
 
         Verb(
             "build.clean-library",
@@ -729,10 +725,6 @@ sealed partial class EditorApplication {
             CategoryBuild,
             "Shader compilation runs inside the content import; a separate pass is milestone E6."
         );
-
-        foreach (var (id, title, reason) in Diagnostics()) {
-            Planned(id, title, CategoryTools, reason);
-        }
 
         // ⚠ On the Window menu, which the shell owns and which names it — so the shell would have a
         // dangling id if this were left out. It is registered here rather than there because full
@@ -766,12 +758,9 @@ sealed partial class EditorApplication {
             ReloadStyles
         );
 
-        Planned(
-            "tools.diagnostics-report",
-            new StringId("editor.command.tools.diagnostics-report", "Generate Diagnostics Report…"),
-            CategoryTools,
-            "A report needs the profiler and the crash reporter. Milestones E4 and E6."
-        );
+        // The report is `DiagnosticsCommands`' too, and it is the one line here that E4 only half
+        // finished: it carries the log, the memory arenas, the scene's counts and the last capture,
+        // and says in the file that the minidump and the undo history are E6's.
     }
 
     /// <summary>The four clipboard verbs and the keys everybody expects them on.</summary>
@@ -781,35 +770,6 @@ sealed partial class EditorApplication {
         ("edit.paste", "Paste", new KeyChord(InputKey.V, ModifierKeys.Control)),
         ("edit.paste-as-child", "Paste As Child", KeyChord.None),
         ("edit.duplicate", "Duplicate", new KeyChord(InputKey.D, ModifierKeys.Control))
-    ];
-
-    /// <summary>The five diagnostics windows doc 20's B4 lists, none of which has a project yet.</summary>
-    static (string Id, StringId Title, string Reason)[] Diagnostics() => [
-        (
-            "tools.profiler",
-            new StringId("editor.command.tools.profiler", "Profiler"),
-            "Vixen.Editor.Profiler does not exist as a project yet. Milestone E4."
-        ),
-        (
-            "tools.frame-debugger",
-            new StringId("editor.command.tools.frame-debugger", "Frame Debugger"),
-            "Command-stream capture is milestone E4."
-        ),
-        (
-            "tools.memory",
-            new StringId("editor.command.tools.memory", "Memory"),
-            "Allocator instrumentation is milestone E4."
-        ),
-        (
-            "tools.statistics",
-            new StringId("editor.command.tools.statistics", "Statistics"),
-            "Scene statistics are milestone E4."
-        ),
-        (
-            "tools.remote-inspector",
-            new StringId("editor.command.tools.remote-inspector", "Remote Inspector"),
-            "Attaching to a running build is milestone E4."
-        )
     ];
 
     // ── Help ────────────────────────────────────────────────────────────────────────────────────
@@ -933,8 +893,13 @@ sealed partial class EditorApplication {
         build.AddSubmenu(new StringId("editor.menu.build-deploy", "Deploy")).Add("build.deploy");
         build.AddSeparator().Add("build.clean-library", "build.rebuild-shaders");
 
+        // ⚠ Six lines where Part C names five. The GPU timeline is a panel of its own rather than a
+        // tab inside the profiler, because it is a different measurement of a different device with a
+        // different failure mode — a machine whose graphics queue cannot be timed still profiles its
+        // CPU perfectly well, and a tab that was empty on that machine would read as a broken
+        // profiler rather than as an untimeable GPU.
         Shell.Menus.InsertMenu(++after, EditorStrings.MenuTools)
-            .Add("tools.profiler", "tools.frame-debugger", "tools.memory", "tools.statistics")
+            .Add("tools.profiler", "tools.gpu", "tools.frame-debugger", "tools.memory", "tools.statistics")
             .Add("tools.remote-inspector")
             .AddSeparator()
             .Add("tools.plugins", "plugins.reload")

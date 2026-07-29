@@ -135,6 +135,10 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
     readonly HandlePool<GpuDescriptorSet> descriptorSets = new(64);
     readonly HandlePool<GpuPipeline> pipelines = new(32);
 
+    // Small, because a frame needs one pool per frame in flight and nothing else creates them: a
+    // GPU profiler is the only consumer, and it holds two or three for the life of the device.
+    readonly HandlePool<GpuQueryPool> queryPools = new(4);
+
     readonly Lock gate = new();
     readonly List<Action>[] retiring;
     readonly ConcurrentDictionary<(int Thread, int Frame), CommandPool> commandPools = [];

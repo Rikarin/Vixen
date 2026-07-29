@@ -32,16 +32,17 @@ than a plan.
 ## Where the editor actually is
 
 Reconciled against the code in `Editor/`, not against doc 11's aspirations, and **as of the end of
-[E2](#e2--the-viewport-20-em)**. The counts came out of the registry rather than
+[E2](#e2--the-viewport-20-em) and [E4](#e4--diagnostics-20-em)** — which ran in parallel, as the
+[ordering note](#ordering-note) says they could. The counts came out of the registry rather than
 from counting `Add` calls, because half of the commands are registered in loops.
 
 | | Built | Missing |
 |---|---|---|
-| **Panels** | Hierarchy, Inspector, Scene viewport (1/2/4 panes), Project browser, Console, one per open asset document | ~24 more, listed in [Part B](#part-b--the-panel-inventory) |
+| **Panels** | Hierarchy, Inspector, Scene viewport (1/2/4 panes), Project browser, Console, the seven of [B4](#b4--diagnostics), one per open asset document | ~17 more, listed in [Part B](#part-b--the-panel-inventory) |
 | **Menus** | All ten of [Part C](#part-c--the-menu-bar-entry-by-entry): File, Edit, Assets, Entity, Scene, Play, Window, Build, Tools, Help | Nothing structural. Individual lines are disabled-with-a-reason rather than absent |
-| **Commands** | 197 registered ids, of which 51 are declared-and-disabled with the milestone that builds them | The 51, plus whatever E3–E6 adds |
+| **Commands** | 198 registered ids, of which 44 are declared-and-disabled with the milestone that builds them | The 44, plus whatever E3, E5 and E6 adds |
 | **Windows** | One OS window, a floating dock group promoted to a real one, and drawn modal dialogs | Preferences, Project Settings, Keybindings, Plugin manager, Project browser (startup), About |
-| **Layouts** | Five presets, saved/named arrangements, `current.vxlayout`, floating groups with their geometry | Open documents are not part of an arrangement |
+| **Layouts** | Six presets, saved/named arrangements, `current.vxlayout`, floating groups with their geometry | `Sequencing`, which waits on B5. Open documents are not part of an arrangement |
 | **Shell services** | Commands with contexts and scopes, keymap, palette, menus, context menus, toolbar with sections and groups, status bar, notifications, background tasks, theming, localisation, docking, plugins, dialogs, icons, MRU, **an automation harness** | Modes, search-everywhere, keymap presets |
 
 The three findings this document opened with are all closed, and they are kept because the reasoning
@@ -196,7 +197,10 @@ is not.
   saved ones (currently a palette source only), Save Layout As…, and Reset. ⚠ The palette source
   stays — an unbounded list belongs there — but a menu with the five presets on it is what a new user
   finds.
-- **Two more presets to ship**: `Profiling` and `Sequencing`, once Parts B4 and B5 exist.
+- **Two more presets to ship**: `Profiling` ✅ — B4 exists, so it does — and `Sequencing`, once B5
+  does. ⚠ The Profiling one is deliberately not the Default's shape: profiling is a *reading* rather
+  than an edit, so the viewport is the narrow column and the numbers get the width. A flame chart
+  squeezed into a right-hand inspector slot is one where every bar is a pixel.
 
 ### A7 — Notifications, messages, and the Console
 
@@ -274,22 +278,24 @@ The viewport is one panel and about nine features, so it gets its own table.
 
 ### B4 — Diagnostics
 
-`Vixen.Editor.Profiler` and `Vixen.Editor.Debugger` are named in doc 11's tree and **neither project
-exists**. Doc 13 specifies the runtime half; `Vixen.Core.Diagnostics` has the sample rings and the
-Chrome-trace export.
+Both projects exist, and this table is the record of what each was waiting on. Doc 13 specifies the
+runtime half; `Vixen.Core.Diagnostics` has the sample rings and the Chrome-trace export.
 
-| Panel | UE / Unity | Status | Depends on |
+| Panel | UE / Unity | Status | What it took |
 |---|---|---|---|
-| **CPU profiler** — flame chart over job-system samples, per-frame timeline, capture/compare | Insights / Profiler | ⛔ | `Profiler` sample rings ✅ |
-| **GPU profiler** — timeline from timestamp queries, pass breakdown | GPU Visualizer / Profiler | ⛔ | Timestamp queries in the RHI |
-| **Frame debugger** — step draw calls, inspect bound state and render targets | RenderDoc-adjacent / Frame Debugger | ⛔ | Command-stream capture; `Vixen.Graphics.Null`'s recording harness is the shape |
-| **Memory** — managed heap, native allocators, GPU heaps, asset residency | Memory Insights / Memory Profiler | ⛔ | `LeakTracker`, allocator instrumentation |
-| **Remote inspector** — attach to a running build, browse and mutate live entities | Device output / Profiler remote | ⛔ | Doc 13's protocol; `Vixen.Net` transports ✅ |
-| **Statistics** — counts, budgets, warnings per scene | Statistics / Stats | ⛔ | Scene traversal only |
+| **CPU profiler** — flame chart over job-system samples, per-frame timeline, capture/compare | Insights / Profiler | ✅ | Rebuilding the nesting the rings do not keep. Samples arrive in *completion* order, so the obvious reading builds every tree upside down |
+| **GPU profiler** — timeline from timestamp queries, pass breakdown | GPU Visualizer / Profiler | ✅ | The RHI change below, then one pool per frame in flight and a resolve that never waits |
+| **Frame debugger** — step draw calls, inspect bound state and render targets | RenderDoc-adjacent / Frame Debugger | 🟡 | State ✅, replayed by walking the stream's prefix. ⚠ **Not the intermediate render target**: `Vixen.Graphics.Null` is the only recording path and it has the state, not the pixels. A Vulkan capture hook is a second adapter, not a change to the panel |
+| **Memory** — managed heap, native allocators, GPU heaps, asset residency | Memory Insights / Memory Profiler | 🟡 | Managed ✅, native ✅ through `LeakTracker` — which compiles out of release, and the panel says so rather than reading zero. GPU heaps need `VK_EXT_memory_budget`, which the backend does not query; assets are counts, because the database holds identities and not sizes |
+| **Remote inspector** — attach to a running build, browse and mutate live entities | Device output / Profiler remote | 🟡 | The editor's half ✅ over any `ITransport`. ⚠ **The runtime half is doc 13's and is not written**, and neither is discovery — a `FakeBuild` in the tests is the shape a player implements |
+| **Statistics** — counts, budgets, warnings per scene | Statistics / Stats | ✅ | Traversal only, as this row said. No draw calls: the viewport draws lines, and a count there would be a guess presented as a measurement |
+| **Device manager** | Device Manager / Build & Run | 🟡 | The list, the statuses and the hand-off to the inspector ✅. Finding an Android device is `adb` and a console is a vendor SDK — one `IDeviceProvider` each |
 
 ⚠ **The profiler must be able to profile the editor.** An editor that can only profile the game
 cannot answer why the editor is slow, and doc 00's editor-shell performance bar is a claim about the
-editor. The same panel over the same rings, with a source selector.
+editor. The same panel over the same rings, with a source selector — which is what `IProfileSource`
+is, and `EditorHost` instruments its loop with the four phases its own remarks name so that the
+"Editor" source has something to show.
 
 ### B5 — Authoring
 
@@ -622,17 +628,54 @@ preset.
 a draw call can be stepped and its render target inspected; a build on a device can be attached to
 and an entity mutated live.
 
-⚠ **One item here is not editor work at all and E4 cannot be scheduled as though it were
-self-contained.** [B4](#b4--diagnostics) already names timestamp queries as the GPU
-profiler's dependency; what is worth stating at the milestone is that **there is no query API in the
-RHI to build against** — not an interface, not a stub, and nothing in the Vulkan backend. A GPU
-timeline needs a query pool, a `WriteTimestamp` on the command list, and a resolve path, added to
-`Vixen.Graphics` and implemented per backend. That is a graphics change on the critical path of an
-editor milestone, and it is the one thing in E4 that cannot start with the panel.
+**Where E4 stands.** Both projects exist, the seven panels are registered, the five Tools verbs and
+Deploy are verbs rather than declared-and-disabled lines, and the Profiling preset [A6](#a6--layouts-completed)
+owed is registered. Two of the three exit clauses hold: the editor's own frame profiles in the same
+panel a game would, and an entity is mutated live over the protocol — `RemoteInspectorTests` is that
+sentence as a test.
 
-The other three are ready to build against what exists: `Profiler.Collect` hands back per-thread
-sample rings with depth and a frame index, `Vixen.Graphics.Null`'s `CommandRecorder` is the shape a
-frame capture takes, and `RemoteSink` is the remote inspector's transport.
+Five things are not built, and each is a gap in something *below* the panel rather than in the panel
+— which is the same shape [E1](#e1--the-three-panels-people-live-in-20-em)'s table has, and is worth
+recording for the same reason: every one of them is reachable by adding a piece to a layer that
+already exists, not by rewriting a view.
+
+| Not built | What it actually needs |
+|---|---|
+| **Render-target inspection**, which is half of the third exit clause | A capture that was *executed*. `Vixen.Graphics.Null` is the engine's only recording path and it holds the state, not the pixels — doc 13 wants stepping to draw N to present what the frame had drawn by then, and that is a Vulkan command-stream hook plus a replay. `FrameCapture` takes `CapturedCommand` rather than the Null backend's enum precisely so that hook lands as a second adapter beside `NullFrameCapture`. Until then the panel says so rather than showing a black image somebody would read as an empty target |
+| **The remote inspector's runtime half** | Doc 13 owns it and it is not written: the editor's end greets, browses, writes and takes counters, and nothing on the other side answers except `Vixen.Editor.Debugger.Tests`' `FakeBuild` — which is deliberately written against `InspectorProtocol`'s readers and writers only, so it is the shape a player implements rather than a mock |
+| **Device discovery** | An Android device is `adb`, a console is a vendor SDK, and a machine on the LAN is whatever discovery `Vixen.Net` grows. One `IDeviceProvider` each. The window, the statuses, the selection and the hand-off to the inspector are built; what it lists today is the local machine, and it says so |
+| **GPU heaps in the memory view** | `VK_EXT_memory_budget`, which the Vulkan backend does not query. The arena is *absent* rather than shown as zero — the difference between "not measured" and "nothing allocated" is the whole value of the panel. Native allocations have the same shape from the other side: `LeakTracker` compiles out of release, and the rows say that instead of reading zero |
+| **A GPU timeline on OpenGL and WebGPU** | `GL_TIMESTAMP` is desktop-only and this backend targets GLES and WebGL2; WebGPU's `timestamp-query` is an optional device feature browsers gate, so asking for it unconditionally would fail device creation on most of the targets. Both report `HasTimestampQueries` false with the reason, and the panel shows the reason |
+
+Two more that E4 touches and does not close, both named where they belong: **`tools.diagnostics-report`
+is written and is missing its second half** — it carries the log ring, the memory arenas, the scene's
+counts and the last capture, and says *in the file* that the minidump and the undo history are
+[E6](#e6--production-hardening-15-em)'s — and **Deploy opens the device list rather than deploying**,
+because deploying needs a build, which is E6's `build.settings`. What E4 contributes to that
+milestone is the list the target is chosen from.
+
+⚠ **The RHI blocker this milestone opened with is closed, and it was the shape it said it was.**
+There was no query API in `Vixen.Graphics` — not an interface, not a stub, nothing in the Vulkan
+backend. There is now: `QueryPoolHandle`, `IGraphicsDevice.CreateQueryPool`/`TryResolveQueries`,
+`ICommandList.ResetQueries`/`WriteTimestamp`, and `HasTimestampQueries` with a `TimestampPeriod`
+beside it. Vulkan implements it against the *graphics family's* validity bits rather than the
+device's, because a transfer queue that cannot be timed is an ordinary configuration; the Null
+backend records the writes and resolves synthetic readings; OpenGL and WebGPU report the capability
+absent with the reason, which the GPU panel shows instead of an empty chart.
+
+Three things worth recording, because each was a decision rather than a translation:
+
+- **`TryResolveQueries` never waits.** Asking the driver to would stall the frame thread on the GPU
+  once per frame — a profiler that halves the frame rate it is reporting. So the recorder holds one
+  pool per frame in flight *plus one*, writes into the newest and asks about the oldest, and takes
+  `false` for an answer until the submission has retired.
+- **A GPU timestamp's zero point means nothing.** It is comparable with another reading from the
+  same device and with nothing on the CPU; lining the two up needs `VK_EXT_calibrated_timestamps`,
+  which many drivers lack. So doc 13's frame breakdown is a GPU timeline *beside* a CPU one, and the
+  bars are drawn relative to the frame's own first reading.
+- **The capture's vocabulary is not the Null backend's.** `FrameCapture` takes `CapturedCommand`,
+  and `NullFrameCapture` is the one file that knows a backend exists — so the Vulkan hook doc 13
+  eventually wants arrives as a second adapter rather than as a rewrite of the panel.
 
 ### E5 — Authoring surfaces (2.5 EM)
 

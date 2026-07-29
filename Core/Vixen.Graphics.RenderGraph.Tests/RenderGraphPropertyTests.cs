@@ -502,6 +502,10 @@ public sealed class RenderGraphPropertyTests {
             Core.Mathematics.Int3 size
         ) { }
 
+        public void ResetQueries(QueryPoolHandle pool, int first, int count) { }
+
+        public void WriteTimestamp(QueryPoolHandle pool, int index) { }
+
         public void PushDebugGroup(string name) { }
 
         public void PopDebugGroup() { }

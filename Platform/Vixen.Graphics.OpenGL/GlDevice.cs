@@ -588,6 +588,34 @@ public sealed partial class GlDevice : IGraphicsDevice {
     public ISwapChain CreateSwapChain(in SwapChainDescription description) =>
         new GlSwapChain(this, description, present);
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Never, and it is a profile decision rather than a gap.</b> <c>glQueryCounter</c> with
+    ///     <c>GL_TIMESTAMP</c> is core on desktop GL from 3.3 and is absent from every GLES profile
+    ///     and from WebGL2 — which is what this backend exists for. A timeline available on the one
+    ///     configuration that also has Vulkan, and missing on the three that do not, is a feature
+    ///     nobody could rely on; <see cref="GraphicsDeviceFeatures.HasTimestampQueries" /> says so
+    ///     and the GPU profiler shows the reason rather than an empty chart.
+    /// </remarks>
+    public QueryPoolHandle CreateQueryPool(in QueryPoolDescription description) =>
+        throw new NotSupportedException(
+            $"Query pool '{description.Name}' was asked for on the OpenGL backend, which reports no "
+            + "timestamp queries: GL_TIMESTAMP is desktop-only and this backend targets GLES and "
+            + "WebGL2. Ask Features.HasTimestampQueries first."
+        );
+
+    /// <inheritdoc />
+    public void Destroy(QueryPoolHandle handle) {
+        // Nothing can have been created, so nothing can be destroyed. Silent rather than throwing,
+        // because a Destroy that throws turns a clean-up path into a second failure.
+    }
+
+    /// <inheritdoc />
+    public bool TryResolveQueries(QueryPoolHandle pool, int first, Span<ulong> results) =>
+        throw new NotSupportedException(
+            "The OpenGL backend has no timestamp queries, so no pool exists to resolve."
+        );
+
     // ── Destruction ─────────────────────────────────────────────────────────────────────────
 
     /// <inheritdoc />

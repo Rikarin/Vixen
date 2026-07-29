@@ -82,6 +82,11 @@ static class VulkanFeatures {
     ///     was never asked — which is the right answer for a device that has no descriptor indexing
     ///     to ask about.
     /// </param>
+    /// <param name="timestampValidBits">
+    ///     How many meaningful bits the <i>graphics</i> family writes into a timestamp query. Zero
+    ///     means the queue a frame is recorded on cannot be timed, whatever the rest of the device
+    ///     can do.
+    /// </param>
     /// <param name="indexingLimits">What <c>VkPhysicalDeviceDescriptorIndexingProperties</c> said.</param>
     public static GraphicsDeviceFeatures Translate(
         in PhysicalDeviceFeatures features,
@@ -90,6 +95,7 @@ static class VulkanFeatures {
         uint apiVersion,
         in QueueFamilyPlan queues,
         bool unifiedMemory,
+        uint timestampValidBits = 0,
         in PhysicalDeviceDescriptorIndexingFeatures indexing = default,
         in PhysicalDeviceDescriptorIndexingProperties indexingLimits = default
     ) {
@@ -149,6 +155,14 @@ static class VulkanFeatures {
             HasAnisotropicFiltering = features.SamplerAnisotropy,
             HasIndependentBlend = features.IndependentBlend,
             HasPipelineStatistics = features.PipelineStatisticsQuery,
+
+            // ⚠ Both halves, and the period is the half that is easy to forget. A device may report
+            // valid bits on the graphics family and a period of zero, which happens on a small
+            // number of software implementations; a profiler that trusted the bits alone would
+            // multiply every duration by nothing and draw a timeline of zero-width passes.
+            HasTimestampQueries = timestampValidBits > 0 && limits.TimestampPeriod > 0f,
+            TimestampPeriod = timestampValidBits > 0 ? limits.TimestampPeriod : 0f,
+
             HasUnifiedMemory = unifiedMemory,
 
             MaxTextureSize = Clamp(limits.MaxImageDimension2D),

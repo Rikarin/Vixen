@@ -81,7 +81,18 @@ public enum RecordedCommandKind : byte {
     PopDebugGroup,
 
     /// <summary>A debug marker.</summary>
-    InsertDebugMarker
+    InsertDebugMarker,
+
+    // ⚠ Appended rather than filed beside the copies they resemble. Every member above has a value
+    // written down in this assembly's public-API baseline, so inserting one renumbers a dozen
+    // entries and turns a two-line addition into a diff nobody reads. Grouping is what the doc
+    // comments are for.
+
+    /// <summary>A range of queries was reset.</summary>
+    ResetQueries,
+
+    /// <summary>A timestamp was written.</summary>
+    WriteTimestamp
 }
 
 /// <summary>One RHI call, as it was made.</summary>
@@ -153,6 +164,8 @@ public readonly record struct RecordedCommand(
             RecordedCommandKind.SetViewport => $"{A}×{B} at {C},{D}",
             RecordedCommandKind.SetScissor => $"{A}×{B} at {C},{D}",
             RecordedCommandKind.PushConstants => $"stages={(ShaderStage)A} offset={B} size={C} head={D}",
+            RecordedCommandKind.ResetQueries => $"pool={A} first={B} count={C}",
+            RecordedCommandKind.WriteTimestamp => $"pool={A} query={B}",
             RecordedCommandKind.PushDebugGroup or RecordedCommandKind.InsertDebugMarker => $"'{Text}'",
             _ => string.Empty
         };

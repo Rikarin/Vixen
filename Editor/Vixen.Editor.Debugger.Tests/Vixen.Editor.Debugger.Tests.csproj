@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Ui.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Editor.Debugger\Vixen.Editor.Debugger.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Testing\Vixen.Ui.Testing.csproj" />
+
+        <!--
+            The loopback transport, which is what makes the remote-inspector protocol testable at
+            all: both ends run in the process, `Poll` is told how much time to advance by, and a
+            round trip is a loop rather than a wait. See ITransport's own remarks on time being a
+            parameter.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Net.Transport.Local\Vixen.Net.Transport.Local.csproj" />
+    </ItemGroup>
+</Project>

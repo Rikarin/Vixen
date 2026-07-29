@@ -302,6 +302,24 @@ sealed class NullCommandList(QueueKind kind, string name, bool hasDrawIndirectCo
         Add(new(RecordedCommandKind.CopyTexture, 0, (long)source.Texture.Value.Packed, source.MipLevel, (long)destination.Texture.Value.Packed, destination.MipLevel, size.X));
     }
 
+    public void ResetQueries(QueryPoolHandle pool, int first, int count) {
+        ThrowIfCopying();
+
+        if (count <= 0) {
+            return;
+        }
+
+        Add(new(RecordedCommandKind.ResetQueries, 0, (long)pool.Value.Packed, first, count));
+    }
+
+    public void WriteTimestamp(QueryPoolHandle pool, int index) {
+        // ⚠ Not ThrowIfCopying. A timestamp inside a render pass is the whole point — a pass's cost
+        // is a pair around its draws — and it is one of the two commands (with a debug marker) that
+        // every API allows there.
+        ThrowIfRecording();
+        Add(new(RecordedCommandKind.WriteTimestamp, 0, (long)pool.Value.Packed, index));
+    }
+
     public void PushDebugGroup(string name) {
         ThrowIfRecording();
         groupDepth++;

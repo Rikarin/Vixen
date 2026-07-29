@@ -658,6 +658,18 @@ sealed class WebGpuCommandList : ICommandList {
     }
 
     /// <inheritdoc />
+    public void ResetQueries(QueryPoolHandle pool, int first, int count) =>
+        throw new NotSupportedException(
+            "The WebGPU backend has no query pools — see WebGpuDevice.CreateQueryPool for why."
+        );
+
+    /// <inheritdoc />
+    public void WriteTimestamp(QueryPoolHandle pool, int index) =>
+        throw new NotSupportedException(
+            "The WebGPU backend has no query pools — see WebGpuDevice.CreateQueryPool for why."
+        );
+
+    /// <inheritdoc />
     public void Dispose() => disposed = true;
 
     internal void MarkSubmitted() => Submitted = true;

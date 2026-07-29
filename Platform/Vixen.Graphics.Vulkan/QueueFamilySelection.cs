@@ -11,7 +11,18 @@ namespace Vixen.Graphics.Vulkan;
 /// <param name="Flags">What it can do.</param>
 /// <param name="QueueCount">How many queues it has.</param>
 /// <param name="CanPresent">Whether it can present to the surface we care about.</param>
-readonly record struct QueueFamilyCandidate(uint Index, QueueFlags Flags, uint QueueCount, bool CanPresent);
+/// <param name="TimestampValidBits">
+///     How many meaningful bits <c>vkCmdWriteTimestamp</c> writes on this family. Zero means the
+///     family cannot be timed at all, which is an ordinary configuration on a transfer-only DMA
+///     queue and is why the GPU profiler asks about the graphics family rather than the device.
+/// </param>
+readonly record struct QueueFamilyCandidate(
+    uint Index,
+    QueueFlags Flags,
+    uint QueueCount,
+    bool CanPresent,
+    uint TimestampValidBits = 0
+);
 
 /// <summary>Which family each kind of work goes to.</summary>
 /// <param name="Graphics">Draws.</param>

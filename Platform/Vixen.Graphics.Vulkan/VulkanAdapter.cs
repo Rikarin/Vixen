@@ -178,6 +178,14 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
                 usable,
                 plan,
                 VulkanFeatures.HasUnifiedMemory(memory, kind),
+
+                // The *graphics* family's, because that is the queue a frame's passes are recorded
+                // on. Asking the device instead would be `timestampComputeAndGraphics`, which is a
+                // stronger claim than the profiler needs and one several drivers decline while
+                // still timing the graphics queue perfectly well.
+                planned
+                    ? families.FirstOrDefault(family => family.Index == plan.Graphics).TimestampValidBits
+                    : 0,
                 indexing,
                 indexingLimits
             )
@@ -300,7 +308,15 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
                         && supported;
                 }
 
-                families.Add(new(index, first[index].QueueFlags, first[index].QueueCount, present));
+                families.Add(
+                    new(
+                        index,
+                        first[index].QueueFlags,
+                        first[index].QueueCount,
+                        present,
+                        first[index].TimestampValidBits
+                    )
+                );
             }
         }
 

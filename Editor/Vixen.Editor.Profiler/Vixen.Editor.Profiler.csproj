@@ -1,0 +1,72 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.Profiler</RootNamespace>
+        <Description>
+            The measuring half of doc 20's B4: a CPU flame chart over the job system's sample
+            rings, a GPU timeline over timestamp queries, a memory view over the managed heap and
+            the leak tracker, and per-scene statistics. Every panel takes its numbers from a
+            source, so the editor's own frame and a running game are the same panel with a
+            different selection.
+        </Description>
+        <PackageTags>editor;profiler;flame-chart;gpu;memory;statistics;diagnostics;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The shell's panels, strings, commands and theming tokens. Deliberately *not*
+            Vixen.Editor.Core: a profiler has no documents and no undo stack — what it shows is a
+            reading rather than something anybody edits — and keeping the reference out is what
+            lets the whole assembly be tested against a bare UiDocument with no project on disk.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Ui\Vixen.Editor.Ui.csproj" />
+
+        <!--
+            `Profiler.Collect`, `ProfilerSample` and `TraceExporter`. This is the whole reason the
+            CPU chart is a view rather than an instrumentation layer: the rings are on in every
+            build and already hold the samples, and a profiler that installed its own hooks would
+            measure a different program from the one that ships.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Diagnostics\Vixen.Core.Diagnostics.csproj" />
+
+        <!--
+            `QueryPoolHandle`, `GpuTimestamps` and the timestamp capability flag. The RHI and not a
+            backend: the GPU timeline is recorded through `ICommandList` and resolved through
+            `IGraphicsDevice`, so it works on any backend that reports the capability and shows the
+            reason on any that does not.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Graphics\Vixen.Graphics.csproj" />
+
+        <!--
+            `LeakTracker`, which is the native half of the memory view. The managed half is the
+            runtime's own `GC` and needs no reference at all.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+
+        <!--
+            The world a statistics pass walks. An editor's scene statistics are a traversal and
+            nothing else — doc 20's B4 says so in as many words — so this is the only dependency
+            the statistics model has.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ecs\Vixen.Ecs.csproj" />
+
+        <!--
+            Analyzers do not flow transitively through a ProjectReference, so an assembly declaring
+            [UiProperty] controls of its own has to name the generator itself.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Generators\Vixen.Ui.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Editor.Profiler.Tests" />
+    </ItemGroup>
+
+</Project>

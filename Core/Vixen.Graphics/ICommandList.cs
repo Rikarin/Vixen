@@ -243,6 +243,52 @@ public interface ICommandList : IDisposable {
     /// <param name="size">The region's size in texels.</param>
     void CopyTexture(in TextureRegion source, in TextureRegion destination, Int3 size);
 
+    // ── Queries ─────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Puts a range of a pool's queries back into the state a write expects.</summary>
+    /// <param name="pool">The pool.</param>
+    /// <param name="first">The first query to reset.</param>
+    /// <param name="count">How many.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not optional, and not something a backend can do for you.</b> Vulkan makes
+    ///         writing a timestamp into a query that has not been reset undefined behaviour, and the
+    ///         reset is itself a command — it happens where it is recorded rather than when it is
+    ///         called, so a pool reset from the host between submissions would be racing the frame
+    ///         still reading it. Reset the range at the top of the list that writes it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Outside a render pass.</b> A reset is a transfer-shaped operation and is not
+    ///         allowed inside one, which is the same rule <see cref="CopyBuffer" /> follows.
+    ///     </para>
+    /// </remarks>
+    /// <exception cref="NotSupportedException">
+    ///     The device does not report <see cref="GraphicsDeviceFeatures.HasTimestampQueries" />.
+    /// </exception>
+    void ResetQueries(QueryPoolHandle pool, int first, int count);
+
+    /// <summary>Writes the GPU clock into one of a pool's queries.</summary>
+    /// <param name="pool">The pool.</param>
+    /// <param name="index">Which query.</param>
+    /// <remarks>
+    ///     <para>
+    ///         Allowed inside a render pass, which is the point: a pass's cost is the difference
+    ///         between a write before its first draw and a write after its last, and a timestamp that
+    ///         had to be taken outside the pass would measure the pass plus whatever the driver does
+    ///         at its boundaries.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It records "when everything before this had finished", not "when this line ran".</b>
+    ///         The write is bottom-of-pipe, so two timestamps around a draw bracket the draw's
+    ///         completion rather than its issue — which is what makes a pair meaningful and also why
+    ///         a pair around a single tiny draw on a deeply pipelined GPU can read as zero.
+    ///     </para>
+    /// </remarks>
+    /// <exception cref="NotSupportedException">
+    ///     The device does not report <see cref="GraphicsDeviceFeatures.HasTimestampQueries" />.
+    /// </exception>
+    void WriteTimestamp(QueryPoolHandle pool, int index);
+
     // ── Debugging ───────────────────────────────────────────────────────────────────────────
 
     /// <summary>Opens a named group in a capture.</summary>
