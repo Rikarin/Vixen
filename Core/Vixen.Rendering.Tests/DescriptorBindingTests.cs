@@ -52,8 +52,18 @@ public class DescriptorBindingTests : IDisposable {
             )
         );
 
+        // The sampler is declared even though most of the passes below bind only the buffer: a write
+        // to a binding the layout never declared is one no shader could read, and the backend rejects
+        // it rather than letting the described-sampler test pass on a set with nowhere to put it.
         viewLayout = device.CreateDescriptorSetLayout(
-            new(DescriptorSetSlot.PerView, [new(0, DescriptorKind.StorageBuffer, ShaderStage.Fragment)], "View")
+            new(
+                DescriptorSetSlot.PerView,
+                [
+                    new(0, DescriptorKind.StorageBuffer, ShaderStage.Fragment),
+                    new(1, DescriptorKind.Sampler, ShaderStage.Fragment)
+                ],
+                "View"
+            )
         );
     }
 

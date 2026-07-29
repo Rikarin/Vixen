@@ -43,28 +43,40 @@ public class BloomTests : IDisposable {
     readonly DescriptorAllocator allocator;
     readonly SamplerCache samplers;
     readonly EffectPipelineDescriber describer;
-    readonly DescriptorSetLayoutHandle layout;
+    readonly Dictionary<string, DescriptorSetLayoutHandle> layouts = [];
 
     public BloomTests() {
         allocator = new(device);
         samplers = new(device);
         describer = new(device);
 
-        layout = device.CreateDescriptorSetLayout(
-            new(
-                DescriptorSetSlot.PerMaterial,
-                [
-                    new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment),
-                    new(1, DescriptorKind.Sampler, ShaderStage.Fragment),
-                    new(2, DescriptorKind.SampledTexture, ShaderStage.Fragment),
-                    new(3, DescriptorKind.UniformBuffer, ShaderStage.Fragment)
-                ],
-                "Bloom"
-            )
+        // Set 2 of each shader, in the shape its reflection reports — indices from the generated
+        // constants for the reason the chain itself takes them from there. A layout per shader rather
+        // than one for both: they agree on neither what binding 2 is nor what binding 3 is, so one
+        // shared layout is a set the composite writes a texture into where the bloom declared a
+        // sampler. No device would report that, and now the Null backend does.
+        Declare(
+            BloomKeys.ShaderName,
+            new(BloomKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
+            new(BloomKeys.SourceBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(BloomKeys.PreviousBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(BloomKeys.SourceSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
         );
 
-        effects.AddProvider(new AlwaysCompiles(layout));
+        Declare(
+            TonemapKeys.ShaderName,
+            new(TonemapKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
+            new(TonemapKeys.SourceBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(TonemapKeys.LutBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(TonemapKeys.SourceSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
+            new(TonemapKeys.LutSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
+        );
+
+        effects.AddProvider(new AlwaysCompiles(layouts));
     }
+
+    void Declare(string shader, params DescriptorBinding[] bindings) =>
+        layouts[shader] = device.CreateDescriptorSetLayout(new(DescriptorSetSlot.PerMaterial, bindings, shader));
 
     /// <inheritdoc />
     public void Dispose() {
@@ -273,8 +285,9 @@ public class BloomTests : IDisposable {
             ConstantBufferSize = 32
         };
 
-    sealed class AlwaysCompiles(DescriptorSetLayoutHandle layout) : IEffectProvider {
-        public Effect? TryGet(EffectKey key) => Compiled(key, layout);
+    sealed class AlwaysCompiles(Dictionary<string, DescriptorSetLayoutHandle> layouts) : IEffectProvider {
+        public Effect? TryGet(EffectKey key) =>
+            Compiled(key, layouts.TryGetValue(key.ShaderName, out var layout) ? layout : default);
     }
 
     sealed class Harness : IDisposable {
@@ -331,7 +344,7 @@ public class BloomTests : IDisposable {
 
         var tonemap = new FullScreenRenderer {
             Name = "Composite",
-            ShaderName = "Tonemap",
+            ShaderName = TonemapKeys.ShaderName,
             Modules = describer,
             Device = device
         };
@@ -341,7 +354,7 @@ public class BloomTests : IDisposable {
         tonemap.Descriptors.Allocator = allocator;
 
         tonemap.Descriptors.Bindings.Add(
-            new() { Binding = 0, Kind = DescriptorKind.SampledTexture, Resource = "Bloom" }
+            new() { Binding = TonemapKeys.SourceBinding, Kind = DescriptorKind.SampledTexture, Resource = "Bloom" }
         );
 
         compositor.Imports["Display"] = Colour("Display", size);

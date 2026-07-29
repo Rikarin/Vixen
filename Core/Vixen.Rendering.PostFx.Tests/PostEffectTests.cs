@@ -32,38 +32,118 @@ namespace Tests;
 ///     </para>
 /// </remarks>
 public class PostEffectTests : IDisposable {
+    // The pass that reads whatever effect is under test. Not a shipped shader — nothing here is
+    // asserting about a copy — so its three bindings are named here rather than generated.
+    const string ConsumerShader = "Copy";
+    const uint ConsumerConstantBinding = 0;
+    const uint ConsumerSourceBinding = 1;
+    const uint ConsumerSamplerBinding = 2;
+
     readonly NullDevice device = new(new() { Record = true, FramesInFlight = 2 });
     readonly EffectSystem effects = new();
     readonly DescriptorAllocator allocator;
     readonly SamplerCache samplers;
     readonly EffectPipelineDescriber describer;
-    readonly DescriptorSetLayoutHandle layout;
+    readonly Dictionary<string, DescriptorSetLayoutHandle> layouts = [];
 
     public PostEffectTests() {
         allocator = new(device);
         samplers = new(device);
         describer = new(device);
 
-        // Wide enough for the effect with the most bindings — the outline's four textures, its
-        // sampler and its block — so one layout serves every pass here.
-        layout = device.CreateDescriptorSetLayout(
-            new(
-                DescriptorSetSlot.PerMaterial,
-                [
-                    new(0, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
-                    new(1, DescriptorKind.SampledTexture, ShaderStage.Fragment),
-                    new(2, DescriptorKind.SampledTexture, ShaderStage.Fragment),
-                    new(3, DescriptorKind.SampledTexture, ShaderStage.Fragment),
-                    new(4, DescriptorKind.SampledTexture, ShaderStage.Fragment),
-                    new(5, DescriptorKind.Sampler, ShaderStage.Fragment),
-                    new(6, DescriptorKind.Sampler, ShaderStage.Fragment)
-                ],
-                "PostFx"
-            )
+        // A layout per shader, each set 2 in the shape that shader's reflection reports.
+        //
+        // One layout wide enough for all of them looks like it would serve — the outline has the most
+        // bindings and every other effect's are a prefix of the count — but the effects do not agree
+        // on what an index *holds*: Fxaa's sampler is binding 2, where the outline has a texture, and
+        // the ambient occlusion pass's is binding 3, where the outline has another. A shared layout is
+        // therefore a set most of these passes write a sampler into a texture binding of, which is
+        // undefined on a device, silent on a driver, and what the Null backend's kind check catches.
+        //
+        // The indices are the generated constants rather than numbers written here, for the reason
+        // the effects themselves take them from there: Raven assigns a binding index from declaration
+        // order within a set, so adding a texture above another in the .rvn renumbers everything below.
+        Declare(
+            FxaaKeys.ShaderName,
+            new(FxaaKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
+            new(FxaaKeys.SourceBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(FxaaKeys.SourceSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
         );
 
-        effects.AddProvider(new AlwaysCompiles(layout));
+        Declare(
+            SharpenKeys.ShaderName,
+            new(SharpenKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
+            new(SharpenKeys.SourceBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(SharpenKeys.PointSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
+        );
+
+        Declare(
+            VignetteKeys.ShaderName,
+            new(VignetteKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
+            new(VignetteKeys.SourceBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(VignetteKeys.LinearSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
+        );
+
+        Declare(
+            FogKeys.ShaderName,
+            new(FogKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
+            new(FogKeys.SourceBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(FogKeys.DepthBufferBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(FogKeys.LinearSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
+        );
+
+        Declare(
+            OutlineKeys.ShaderName,
+            new(OutlineKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
+            new(OutlineKeys.SourceBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(OutlineKeys.DepthBufferBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(OutlineKeys.NormalBufferBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(OutlineKeys.SelectionMaskBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(OutlineKeys.PointSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
+        );
+
+        Declare(
+            SsaoKeys.ShaderName,
+            new(SsaoKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
+            new(SsaoKeys.DepthBufferBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(SsaoKeys.NormalBufferBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(SsaoKeys.PointSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
+        );
+
+        Declare(
+            TonemapKeys.ShaderName,
+            new(TonemapKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
+            new(TonemapKeys.SourceBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(TonemapKeys.LutBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(TonemapKeys.SourceSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
+            new(TonemapKeys.LutSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
+        );
+
+        Declare(
+            TaaKeys.ShaderName,
+            new(TaaKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
+            new(TaaKeys.CurrentBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(TaaKeys.HistoryBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(TaaKeys.MotionVectorsBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(TaaKeys.DepthBufferBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(TaaKeys.LinearSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
+            new(TaaKeys.PointSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
+        );
+
+        // The consumer's shader, which is this fixture's own rather than one that ships: a block, the
+        // texture it copies and the sampler it copies through.
+        Declare(
+            ConsumerShader,
+            new(ConsumerConstantBinding, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
+            new(ConsumerSourceBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(ConsumerSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
+        );
+
+        effects.AddProvider(new AlwaysCompiles(layouts));
     }
+
+    void Declare(string shader, params DescriptorBinding[] bindings) =>
+        layouts[shader] = device.CreateDescriptorSetLayout(new(DescriptorSetSlot.PerMaterial, bindings, shader));
 
     /// <inheritdoc />
     public void Dispose() {
@@ -437,8 +517,8 @@ public class PostEffectTests : IDisposable {
 
         var consumer = new FullScreenRenderer {
             Name = "Present",
-            ShaderName = "Copy",
-            ConstantBinding = 0,
+            ShaderName = ConsumerShader,
+            ConstantBinding = ConsumerConstantBinding,
             Modules = describer,
             Device = device,
             Samplers = samplers
@@ -449,11 +529,11 @@ public class PostEffectTests : IDisposable {
         consumer.Descriptors.Allocator = allocator;
 
         consumer.Descriptors.Bindings.Add(
-            new() { Binding = 1, Kind = DescriptorKind.SampledTexture, Resource = effect.Output }
+            new() { Binding = ConsumerSourceBinding, Kind = DescriptorKind.SampledTexture, Resource = effect.Output }
         );
 
         consumer.Descriptors.Bindings.Add(
-            new() { Binding = 5, Kind = DescriptorKind.Sampler, Sampler = samplers.LinearClamp }
+            new() { Binding = ConsumerSamplerBinding, Kind = DescriptorKind.Sampler, Sampler = samplers.LinearClamp }
         );
 
         var compositor = new GraphicsCompositor(system) {
@@ -497,7 +577,7 @@ public class PostEffectTests : IDisposable {
     }
 
     /// <summary>An effect for any key, so a pass under test always resolves one.</summary>
-    sealed class AlwaysCompiles(DescriptorSetLayoutHandle layout) : IEffectProvider {
+    sealed class AlwaysCompiles(Dictionary<string, DescriptorSetLayoutHandle> layouts) : IEffectProvider {
         public Effect? TryGet(EffectKey key) =>
             new() {
                 Key = key,
@@ -505,7 +585,7 @@ public class PostEffectTests : IDisposable {
                     new(ShaderStage.Vertex, [1, 2, 3, 4], "main"),
                     new(ShaderStage.Fragment, [5, 6, 7, 8], "main")
                 ],
-                SetLayouts = [default, default, layout, default],
+                SetLayouts = [default, default, layouts.GetValueOrDefault(key.ShaderName), default],
                 ConstantBufferSize = 64
             };
     }

@@ -917,6 +917,7 @@ static Vixen.Graphics.DepthStencilState.TestOnly.get -> Vixen.Graphics.DepthSten
 static Vixen.Graphics.DescriptorBindingExtensions.IsUnbounded(this Vixen.Graphics.DescriptorBinding binding) -> bool
 static Vixen.Graphics.DescriptorSetHandle.Null.get -> Vixen.Graphics.DescriptorSetHandle
 static Vixen.Graphics.DescriptorSetLayoutHandle.Null.get -> Vixen.Graphics.DescriptorSetLayoutHandle
+static Vixen.Graphics.DescriptorWrite.DynamicUniform(uint binding, Vixen.Graphics.BufferHandle buffer, long offset = 0, long size = 0) -> Vixen.Graphics.DescriptorWrite
 static Vixen.Graphics.DescriptorWrite.SamplerAt(uint binding, Vixen.Graphics.SamplerHandle sampler) -> Vixen.Graphics.DescriptorWrite
 static Vixen.Graphics.DescriptorWrite.Storage(uint binding, Vixen.Graphics.BufferHandle buffer, long offset = 0, long size = 0) -> Vixen.Graphics.DescriptorWrite
 static Vixen.Graphics.DescriptorWrite.Texture(uint binding, Vixen.Graphics.TextureViewHandle view, int arrayIndex = 0) -> Vixen.Graphics.DescriptorWrite

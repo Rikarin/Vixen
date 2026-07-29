@@ -400,19 +400,22 @@ public sealed class NullDevice : IGraphicsDevice {
     /// <remarks>
     ///     <para>
     ///         Every write is held against the layout the set was allocated from: the binding has to
-    ///         be one the set declares, and the element has to be inside it. Neither needs a GPU and
-    ///         both are undefined behaviour on one — a release driver overwrites a neighbouring
-    ///         descriptor, and the symptom is the wrong texture on an object that has nothing to do
-    ///         with the code that was wrong.
+    ///         be one the set declares, the kind has to be the one it was declared as, and the element
+    ///         has to be inside it. None of the three needs a GPU and all of them are undefined
+    ///         behaviour on one — a release driver overwrites a neighbouring descriptor, and the
+    ///         symptom is the wrong texture on an object that has nothing to do with the code that was
+    ///         wrong.
     ///     </para>
     ///     <para>
-    ///         <strong>The write's <em>kind</em> is deliberately not checked here, and the Vulkan
-    ///         backend does check it.</strong> Turning it on found six distinct places where a
-    ///         declaration and its write disagree — a dynamic uniform block written as a plain one, a
-    ///         sampler written where a texture was declared — which are real and are not this
-    ///         backend's to fix. Left as a note rather than a silent omission: closing them and
-    ///         adding the check is one change, and doing half of it would break every test that
-    ///         exercises those paths without fixing anything.
+    ///         <strong>The kind check is here rather than left to the Vulkan backend, which also makes
+    ///         it, because that one only runs on a machine with a driver and the validation layers
+    ///         switched on.</strong> Without them the write lands, the shader reads whichever kind it
+    ///         was compiled for, and what comes back is a wrong frame rather than an error. The
+    ///         dynamic kinds are compared exactly rather than folded into their static counterparts: a
+    ///         <see cref="DescriptorKind.DynamicUniformBuffer" /> written as a
+    ///         <see cref="DescriptorKind.UniformBuffer" /> is a descriptor that takes no offset at
+    ///         bind time, so every per-draw offset the caller passes is ignored and every object draws
+    ///         with the first one's block. That is what turning it on found.
     ///     </para>
     /// </remarks>
     public void UpdateDescriptorSet(DescriptorSetHandle descriptors, ReadOnlySpan<DescriptorWrite> writes) {
@@ -446,6 +449,14 @@ public sealed class NullDevice : IGraphicsDevice {
         foreach (var declared in layout.Bindings) {
             if (declared.Binding != write.Binding) {
                 continue;
+            }
+
+            if (declared.Kind != write.Kind) {
+                throw new ArgumentException(
+                    $"Binding {write.Binding} was declared as {declared.Kind} and is being written as "
+                    + $"{write.Kind}. No driver checks this and the shader reads whichever it was "
+                    + "compiled for, so the result would be silently wrong."
+                );
             }
 
             // How long the binding actually is. A table's zero is its capacity; a storage buffer's
@@ -705,9 +716,10 @@ public sealed class NullDevice : IGraphicsDevice {
 
         /// <summary>What the set declares, kept so a write can be held against it.</summary>
         /// <remarks>
-        ///     A backend with no GPU has no reason to remember this except the one that matters: an
-        ///     element written past the end of an array binding is undefined on a real device and
-        ///     caught here without one, which is what this backend is for.
+        ///     A backend with no GPU has no reason to remember this except the one that matters: a
+        ///     write of the wrong kind, or an element written past the end of an array binding, is
+        ///     undefined on a real device and caught here without one — which is what this backend is
+        ///     for.
         /// </remarks>
         public DescriptorBinding[] Bindings { get; } = bindings;
     }
