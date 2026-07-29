@@ -22,6 +22,14 @@
         <ProjectReference Include="..\Vixen.Ui.Controls\Vixen.Ui.Controls.csproj" />
 
         <!--
+            NodeGraph's rules — the cycle refusal, the cascade a deletion causes, one wire per input
+            — are GraphInvariants', because Vixen.Editor.NodeGraph's document model enforces the same
+            three and two copies would eventually be two rules. Arrives transitively through the
+            reference above; named here because a file in this assembly depends on it directly.
+        -->
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+
+        <!--
             The property grid's whole reason for existing. `TypeDescriptor` is generated, so an
             inspector reads and writes arbitrary members after trimming and on iOS — which is what
             an inspector built on System.Reflection cannot do.
