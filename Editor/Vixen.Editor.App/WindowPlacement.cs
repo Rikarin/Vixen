@@ -6,6 +6,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Ui;
 using Vixen.Platform;
+using Vixen.Platform.Ui;
 
 namespace Vixen.Editor.App;
 
@@ -134,32 +135,21 @@ static class WindowPlacement {
     /// <param name="size">How big it would be.</param>
     /// <returns>Whether enough of it would be visible to grab.</returns>
     /// <remarks>
-    ///     ⚠ <b>The title bar has to be reachable, not the whole window.</b> A window half off the
-    ///     right edge is one the user put there; a window entirely on a display that has been
-    ///     unplugged is one they cannot see, cannot move and will conclude did not start. The test is
-    ///     therefore whether the top-left corner and a grabbable strip beside it land on something.
+    ///     <para>
+    ///         ⚠ <b>The title bar has to be reachable, not the whole window.</b> A window half off
+    ///         the right edge is one the user put there; a window entirely on a display that has been
+    ///         unplugged is one they cannot see, cannot move and will conclude did not start.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Deferred to <see cref="PlatformWindowHost.IsReachable" /> rather than repeated
+    ///         here.</b> A torn-off panel restored onto an unplugged display has exactly this problem
+    ///         and the docking host has to answer it too — see <c>DockFloat</c> — so two copies of
+    ///         the grip rule would be two places for "how much of a window counts as reachable" to
+    ///         drift. One of them would then be right and nobody would know which.
+    ///     </para>
     /// </remarks>
-    public static bool IsVisible(IPlatform platform, Int2 position, Int2 size) {
-        ArgumentNullException.ThrowIfNull(platform);
-
-        const int Grip = 120;
-
-        foreach (var display in platform.Displays.Displays) {
-            var bounds = display.Bounds;
-
-            var overlapsX = position.X + Math.Min(Grip, size.X) > bounds.X
-                && position.X < bounds.X + bounds.Width;
-
-            var overlapsY = position.Y + Math.Min(Grip, size.Y) > bounds.Y
-                && position.Y < bounds.Y + bounds.Height;
-
-            if (overlapsX && overlapsY) {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    public static bool IsVisible(IPlatform platform, Int2 position, Int2 size) =>
+        PlatformWindowHost.IsReachable(platform, position.X, position.Y, size.X, size.Y);
 
     static int Number(YamlMapping mapping, string key, int fallback) =>
         mapping[key] is YamlScalar scalar

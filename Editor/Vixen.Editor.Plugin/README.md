@@ -51,6 +51,21 @@ business, and a scan that walked into them would find the manifest of a plugin t
 ⚠ **A folder either declares itself or is not a plugin.** An editor that loaded whatever DLLs it
 found under a directory the user can write to would have an interesting security model.
 
+## The two switches
+
+`plugin.yaml`'s `enabled:` is the **author's**, and it lives in the plugin's own directory — which for
+a project-local plugin is a file the whole team shares and for a globally installed one may not be
+writable at all. `PluginHost.Suppress` is the **user's**, recorded by the editor beside their layout
+and their keymap. Either alone keeps a plugin out; only the second can be undone from the plugin
+manager, which says which of the two it is looking at.
+
+⚠ **A suppressed plugin is never activated rather than activated and unloaded.** The one somebody
+switched off because it broke the editor is exactly the one whose `Activate` must not run.
+
+⚠ **`Enable` goes through `Reload`**, so it re-reads the manifest and the assembly. A plugin being
+switched back on *because it has just been fixed* is the ordinary case, and a descriptor read at
+start-up would load the copy that did not work.
+
 ## The four rules that make unloading work
 
 This is the part worth reading before writing a plugin, because three of the four fail silently.

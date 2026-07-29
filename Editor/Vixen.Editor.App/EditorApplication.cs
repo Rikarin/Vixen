@@ -220,6 +220,12 @@ sealed partial class EditorApplication : IDisposable {
         dataDirectory = directory;
         this.services = services ?? EditorServices.None;
 
+        // ⚠ Before the project, because whether this run is a first one — no history at all — is
+        // what decides whether the startup Project Browser has anything to offer, and opening the
+        // project is what adds this one to the list.
+        Recent = new ProjectHistory(directory);
+        IsScratch = projectRoot is null;
+
         Shell = new EditorShell(width, height);
 
         // ⚠ Before anything that could notify, which on a first run is the project scan and the
@@ -344,15 +350,28 @@ sealed partial class EditorApplication : IDisposable {
         // ⚠ Before `Layouts`, because the Profiling preset names the panels this registers and a
         // preset naming a panel the workspace cannot build is a preset that comes back short.
         DiagnosticsPanels();
+        SettingsPanels();
 
         Layouts();
         Commands();
+
+        // ⚠ After the commands and before the keymap, because the undo depth it carries is applied
+        // to stacks that exist by now, and because `SavePreferences` is reachable from a panel the
+        // line above has just registered.
+        LoadPreferences();
+        ApplyProjectSettings();
 
         // ⚠ Plugins go here and not later, and the two reasons are the two lines below. A plugin's
         // commands have to exist before the keymap is read or the user's override for one lands on
         // a command with no default; a plugin's panels have to be registered before the saved
         // layout is applied or an arrangement that had one comes back without it.
-        plugins = LoadPlugins(directory);
+        plugins = new PluginHost(Shell, PluginPoints());
+
+        // ⚠ And the user's own list of what to leave alone is read before anything is activated.
+        // A plugin somebody switched off because it broke the editor is exactly the one whose
+        // Activate must not run.
+        LoadDisabledPlugins();
+        StartPlugins(directory);
 
         // ⚠ In this order and no other. The keymap has to be loaded after the commands that own its
         // defaults, or every override in the file lands on a command with no default and the file
@@ -362,7 +381,12 @@ sealed partial class EditorApplication : IDisposable {
             Shell.Keys.Load(keymap);
         }
 
-        Shell.Theme.LoadTokens(store.Read("theme.yaml"));
+        Shell.Theme.LoadTokens(store.Read(ThemeFile));
+
+        // ⚠ Doc 20's A6: the panels a saved arrangement names include the asset editors that were
+        // open, which nothing has registered yet because they are registered on demand. This is the
+        // hook that registers one when the arrangement asks for it.
+        Shell.Workspace.Resolve = ReopenDocument;
 
         if (store.LoadLayout(EditorUserStore.CurrentLayout) is { } layout) {
             Shell.Workspace.Load(layout);
@@ -370,7 +394,11 @@ sealed partial class EditorApplication : IDisposable {
             Shell.Workspace.Reset();
         }
 
-        Shell.Status = project.Name;
+        // ⚠ Recorded after the project has opened rather than before, so a root that turned out to
+        // be unreadable is not offered as the first thing to try again next time.
+        Recent.Record(project.Paths.Root, DateTime.UtcNow);
+
+        Shell.Status = ProductName;
 
         // ⚠ A delegate rather than a number pushed on every change. Which of the several selections
         // the count is about is this class's arbitration — see `FollowSelection` — and a shell
@@ -452,6 +480,19 @@ sealed partial class EditorApplication : IDisposable {
     /// <summary>Whether the editor has been asked to close.</summary>
     public bool IsClosing { get; private set; }
 
+    /// <summary>Whether this is the scratch project rather than one somebody chose.</summary>
+    bool IsScratch { get; }
+
+    /// <summary>Whether the host should put the project browser up on the first frame.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Set by the host and false everywhere else, which is what keeps it out of the
+    ///     tests.</b> Doc 20 calls the startup Project Browser "the first thing a new user sees",
+    ///     and it means the <i>first</i> — a browser that opened over a project the user chose last
+    ///     time is a dialog they dismiss every launch. So it appears once: on a run with no
+    ///     <c>--project</c>, on the scratch project, with nothing in the recent list.
+    /// </remarks>
+    public bool Greets { get; set; }
+
     /// <summary>How many render pixels one layout pixel is.</summary>
     /// <remarks>
     ///     Pushed down to the viewport rather than read from it, because the display's scale belongs
@@ -483,6 +524,18 @@ sealed partial class EditorApplication : IDisposable {
     ///     and the picture is a frame behind.
     /// </remarks>
     public void Update(TimeSpan delta) {
+        // ⚠ On the first update rather than in the constructor, because the dialog service completes
+        // from the tick and a question asked before the loop has started is one nothing pumps.
+        // Cleared as it is consumed, so the flag is the latch — a second `greeted` field would be a
+        // second thing that has to agree with this one.
+        if (Greets) {
+            Greets = false;
+
+            if (IsScratch && Recent.Entries.Count <= 1) {
+                ShowProjectBrowser();
+            }
+        }
+
         // What a finished import or build had to say, on the thread that owns the panels it is about
         // to rebuild. See `ContentTasks` for why nothing crosses back except a queued value.
         content.Pump();
@@ -503,6 +556,11 @@ sealed partial class EditorApplication : IDisposable {
         // ⚠ Beside the console's pull and for the same reason: a capture drains the sample rings,
         // and the rings are written from every thread the editor runs work on.
         DiagnosticsUpdate(delta);
+
+        // ⚠ Polled, and it compares before it rebuilds. A command stack is signal-backed and nothing
+        // in this loop flushes the reactive scheduler — the same trade the selections make — and the
+        // panel is the one that would otherwise rewrite its whole list during a gizmo drag.
+        historyView?.Tick();
 
         ResolveTransforms();
         Retitle();
@@ -637,7 +695,7 @@ sealed partial class EditorApplication : IDisposable {
     ///     <c>EditorShell.Describe</c> raises nothing unless the composed string actually differs, so
     ///     the host is told only when there is something to tell it.
     /// </remarks>
-    void Retitle() => Shell.Describe(scene.Title.Peek(), scene.IsDirty.Value, project.Name);
+    void Retitle() => Shell.Describe(scene.Title.Peek(), scene.IsDirty.Value, ProductName);
 
     /// <summary>A scene with something in it, for a project that has none yet.</summary>
     /// <remarks>
@@ -884,26 +942,37 @@ sealed partial class EditorApplication : IDisposable {
         );
 
         Shell.RegisterPanel(
-            "scene",
-            new StringId("editor.panel.scene", "Scene"),
-            panel => {
-                Contextual(panel, SceneContext);
+            new PanelDescriptor(
+                "scene",
+                new StringId("editor.panel.scene", "Scene"),
+                panel => {
+                    Contextual(panel, SceneContext);
 
-                // ⚠ A layout rather than a control, and every pane in it is a whole `SceneViewport`.
-                // Doc 11 asks for "multiple simultaneous viewports with independent cameras and
-                // render modes", and the second half of that is what forces it: a view mode is stage
-                // state, so a pane that wanted its own would silently change its neighbour's.
-                viewports = new ViewportLayout(panel, scene.Selection) {
-                    Document = scene,
-                    TargetsFactory = () => EntityGizmoTarget.For(world, scene.Selection),
-                    Arrangement = arrangement
-                };
+                    // ⚠ A layout rather than a control, and every pane in it is a whole
+                    // `SceneViewport`. Doc 11 asks for "multiple simultaneous viewports with
+                    // independent cameras and render modes", and the second half of that is what
+                    // forces it: a view mode is stage state, so a pane that wanted its own would
+                    // silently change its neighbour's.
+                    viewports = new ViewportLayout(panel, scene.Selection) {
+                        Document = scene,
+                        TargetsFactory = () => EntityGizmoTarget.For(world, scene.Selection),
+                        Arrangement = arrangement
+                    };
 
-                // ⚠ Subscribed after the constructor and then called by hand, because the
-                // constructor's own `Rebuild` raises this before there is anything to hear it — and
-                // the panes it made are the ones that need configuring.
-                viewports.Rearranged += Configure;
-                Configure(viewports);
+                    // ⚠ Subscribed after the constructor and then called by hand, because the
+                    // constructor's own `Rebuild` raises this before there is anything to hear it —
+                    // and the panes it made are the ones that need configuring.
+                    viewports.Rearranged += Configure;
+                    Configure(viewports);
+                }
+            ) {
+                // ⚠ The other half of the factory. A closed Scene tab takes every pane's control
+                // with it, and `Update` walking them on the next frame asks a removed element for
+                // its width — see `PanelDescriptor.Closed`.
+                Closed = () => {
+                    viewports?.Dispose();
+                    viewports = null;
+                }
             }
         );
 
@@ -991,7 +1060,7 @@ sealed partial class EditorApplication : IDisposable {
             return;
         }
 
-        var id = "asset." + asset;
+        var id = AssetPanel(asset);
 
         if (assetPanels.Add(id)) {
             var title = document.Title.Peek();
@@ -1010,6 +1079,64 @@ sealed partial class EditorApplication : IDisposable {
 
         Shell.Workspace.Open(id);
         project.Activate(document);
+    }
+
+    /// <summary>What a panel showing an asset's editor is called in an arrangement.</summary>
+    /// <remarks>
+    ///     The GUID rather than the path, so that moving the file does not leave a panel nobody can
+    ///     reopen — the identity is a GUID precisely so that it does not.
+    /// </remarks>
+    const string AssetPrefix = "asset.";
+
+    /// <inheritdoc cref="AssetPrefix" />
+    static string AssetPanel(AssetId asset) => AssetPrefix + asset;
+
+    /// <summary>Reads an asset panel's id back, which is what restoring an arrangement needs.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Beside the formatter, because a format written in one place and parsed in another is
+    ///     a format with two owners.</b> The parse is the half a saved layout depends on, and it was
+    ///     the half that could drift silently: a mismatch does not fail, it just never restores a
+    ///     document.
+    /// </remarks>
+    static bool TryReadAssetPanel(string id, out AssetId asset) {
+        asset = default;
+
+        return id.StartsWith(AssetPrefix, StringComparison.Ordinal)
+            && AssetId.TryParse(id[AssetPrefix.Length..], out asset);
+    }
+
+    /// <summary>Reopens the document a restored arrangement names, so the panel can be built.</summary>
+    /// <returns>Whether the id was an asset panel this project can open.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Doc 20's A6, and it is one function rather than a list in the layout file.</b> An
+    ///         asset editor's panel is registered on demand and named after the asset's GUID, so a
+    ///         saved arrangement holding <c>asset.9e8a44c9…</c> named a panel nothing had declared —
+    ///         the tab came back missing and the id stayed in the file. <c>DockingWorkspace.Resolve</c>
+    ///         asks this before giving up, and <see cref="Open" /> registers the panel as a
+    ///         side-effect of opening the document, which is the same path a double-click takes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Off by preference, because reopening six asset editors costs six documents.</b>
+    ///         <see cref="EditorPreferences.RestoreOpenDocuments" /> is on by default — "the editor
+    ///         comes back how I left it" is what doc 20 asks for — and somebody who wants a clean
+    ///         start can say so rather than deleting a layout file.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An asset that has gone answers false rather than throwing.</b> A layout outlives
+    ///         the files it names — a branch switch is enough — and the id is left in the arrangement
+    ///         on the same terms a plugin's unregistered panel is.
+    ///     </para>
+    /// </remarks>
+    bool ReopenDocument(string id) {
+        if (!preferences.RestoreOpenDocuments
+            || !TryReadAssetPanel(id, out var asset)
+            || !project.Assets.TryGetByGuid(asset, out _)) {
+            return false;
+        }
+
+        Open(asset);
+        return assetPanels.Contains(id);
     }
 
     /// <summary>Finds and starts the plugins, and says what it found.</summary>
@@ -1036,8 +1163,8 @@ sealed partial class EditorApplication : IDisposable {
     ///         outlives a run, which is a change to <c>Vixen.Editor.Assets</c> rather than to this.
     ///     </para>
     /// </remarks>
-    PluginHost LoadPlugins(string directory) {
-        var services = new PluginServices()
+    PluginServices PluginPoints() =>
+        new PluginServices()
             .Add(project)
             .Add(scene)
 
@@ -1045,9 +1172,8 @@ sealed partial class EditorApplication : IDisposable {
             // that is already open rather than by one built afterwards.
             .Add(DrawerRegistry.Default);
 
-        var host = new PluginHost(Shell, services);
-
-        var report = host.Load(
+    void StartPlugins(string directory) {
+        var report = plugins.Load(
             PluginDiscovery.Scan(
                 Path.Combine(project.Paths.Root, PluginsFolder),
                 Path.Combine(directory, PluginsFolder)
@@ -1065,8 +1191,6 @@ sealed partial class EditorApplication : IDisposable {
                 string.Join(", ", report.Activated.Select(plugin => plugin.Manifest.Name))
             );
         }
-
-        return host;
     }
 
     /// <summary>Unloads every active plugin and loads it again from disk.</summary>
@@ -1999,8 +2123,8 @@ sealed partial class EditorApplication : IDisposable {
             components?.Show(Entity.Null);
 
             Shell.Status = project.Selection.Count switch {
-                0 => project.Name,
-                1 => project.Assets.TryGetByGuid(project.Selection[0], out var entry) ? entry.Name : project.Name,
+                0 => ProductName,
+                1 => project.Assets.TryGetByGuid(project.Selection[0], out var entry) ? entry.Name : ProductName,
                 _ => $"{project.Selection.Count} selected"
             };
 
@@ -2026,7 +2150,7 @@ sealed partial class EditorApplication : IDisposable {
         );
 
         Shell.Status = document.Selection.Count switch {
-            0 => project.Name,
+            0 => ProductName,
             1 => document.NameOf(document.Selection[0]),
             _ => $"{document.Selection.Count} selected"
         };

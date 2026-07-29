@@ -35,6 +35,19 @@ public sealed class EditorUserStore {
     /// <summary>The file the shell's own preferences go in.</summary>
     public const string PreferencesFile = "preferences.yaml";
 
+    /// <summary>The file recording which plugins the user has switched off.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The user's rather than the plugin's, and that is the whole reason it is a second
+    ///     file.</b> <c>plugin.yaml</c>'s <c>enabled:</c> is the <i>author's</i> switch and lives in
+    ///     the plugin's own directory — which for a plugin checked into a repository is a file shared
+    ///     by everybody on the team, and which for one installed globally may not be writable at all.
+    ///     Somebody switching a plugin off in the manager is saying something about their machine.
+    /// </remarks>
+    public const string PluginsFile = "plugins.yaml";
+
+    /// <summary>The file listing the projects the editor has opened, newest first.</summary>
+    public const string RecentProjectsFile = "projects.yaml";
+
     /// <summary>The arrangement the editor was left in.</summary>
     public const string CurrentLayout = "current";
 
