@@ -895,6 +895,7 @@ Vixen.Ui.Controls.Advanced.TreeView.Refresh() -> void
 Vixen.Ui.Controls.Advanced.TreeView.Renamed -> System.Action<Vixen.Ui.Controls.Advanced.TreeView, Vixen.Ui.Controls.Advanced.TreeNode, string>?
 Vixen.Ui.Controls.Advanced.TreeView.Reveal(Vixen.Ui.Controls.Advanced.TreeNode node) -> void
 Vixen.Ui.Controls.Advanced.TreeView.Root.get -> Vixen.Ui.Controls.Advanced.TreeNode
+Vixen.Ui.Controls.Advanced.TreeView.RowBound -> System.Action<Vixen.Ui.Controls.Advanced.TreeRow, Vixen.Ui.Controls.Advanced.TreeNode>?
 Vixen.Ui.Controls.Advanced.TreeView.RowHeight.get -> float
 Vixen.Ui.Controls.Advanced.TreeView.RowOf(Vixen.Ui.Controls.Advanced.TreeNode node) -> Vixen.Ui.Controls.Advanced.TreeRow?
 Vixen.Ui.Controls.Advanced.TreeView.Rows.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.TreeRow>

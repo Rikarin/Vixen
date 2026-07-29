@@ -75,6 +75,15 @@ public sealed class InspectorView : Control {
     readonly List<InspectorRow> rows = [];
     readonly List<object> targets = [];
 
+    /// <summary>The row a secondary click landed on, which is what the context menu acts upon.</summary>
+    InspectorRow? aimed;
+
+    ContextMenu? menu;
+    MenuItem copy = null!;
+    MenuItem paste = null!;
+    MenuItem reset = null!;
+    MenuItem revert = null!;
+
     /// <inheritdoc />
     protected override string TagName => "inspector";
 
@@ -97,8 +106,19 @@ public sealed class InspectorView : Control {
     /// <summary>What the inspected objects were made from, for override marks and revert.</summary>
     public IPrefabSource? Prefab { get; set; }
 
+    /// <summary>The strip above the rows: the search box and the lock.</summary>
+    public UiElement Header { get; private set; } = null!;
+
     /// <summary>The search box above the rows.</summary>
     public SearchBox Search { get; private set; } = null!;
+
+    /// <summary>Holds the inspector on what it is showing while the selection moves on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The verb every editor has and the one people reach for without being taught.</b>
+    ///     Dragging an asset into a field on object A means selecting object B to find it, at which
+    ///     point A is gone. Locking is what makes the two-handed operation possible at all.
+    /// </remarks>
+    public ToggleButton Lock { get; private set; } = null!;
 
     /// <summary>Where the rows go.</summary>
     public UiElement Body { get; private set; } = null!;
@@ -115,16 +135,49 @@ public sealed class InspectorView : Control {
     /// <summary>The type every target has in common, if they have one.</summary>
     public InspectorDescriptor? Descriptor { get; private set; }
 
+    /// <summary>Whether the inspector is held on what it is showing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A locked inspector ignores <see cref="Inspect" /> and does not clear.</b> Anything
+    ///     softer — following the selection but remembering the old one, say — is a panel whose
+    ///     contents depend on which of two rules fired last.
+    /// </remarks>
+    public bool IsLocked {
+        get => Lock.IsChecked;
+        set => Lock.IsChecked = value;
+    }
+
     /// <summary>Raised after an editor writes a member.</summary>
     public event Action<InspectorView, InspectorMember>? ValueChanged;
+
+    /// <summary>Raised when the lock is turned on or off.</summary>
+    /// <remarks>
+    ///     What a host listens to so that it can push the selection in the moment the lock comes off
+    ///     — the inspector refused everything while it was on, so it is showing something stale and
+    ///     nothing else would tell it.
+    /// </remarks>
+    public event Action<InspectorView>? LockChanged;
 
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
 
-        Search = Part<SearchBox>();
+        Header = Part("inspector-header");
+
+        Search = Header.Add<SearchBox>();
         Search.Placeholder = "Search";
         Search.ValueChanged += (_, _) => Filter();
+
+        // ⚠ A word rather than a padlock, and deliberately. `ControlIcons` says in its own remarks
+        // that it is not an icon set — it is the handful of shapes without which the controls here
+        // cannot be drawn — and a padlock is not one of them. Inventing an icon set in the inspector
+        // for one button would be the wrong place for it; the toolbar's set lives in the shell,
+        // which this assembly does not and should not reference.
+        Lock = Header.Add<ToggleButton>();
+        Lock.Label = "Lock";
+        Lock.Size = ControlSize.Small;
+        Lock.Variant = ControlVariant.Subtle;
+        Lock.AddClass("inspector-lock");
+        Lock.CheckedChanged += (_, _) => LockChanged?.Invoke(this);
 
         Body = Part("inspector-body");
 
@@ -132,11 +185,28 @@ public sealed class InspectorView : Control {
         Empty.AddClass("hidden");
 
         AddHandler<ClickEvent>(static (element, args) => ((InspectorView) element).Chosen(args));
+
+        // ⚠ On the capture leg, so the row is known before the menu this belongs to opens. A handler
+        // that ran after the menu's own would decide which row the menu is about from whatever the
+        // pointer had been over previously.
+        AddHandler<PointerEvent>(
+            static (element, args) => {
+                if (args is { Action: PointerAction.Pressed, Button: PointerButton.Secondary }) {
+                    ((InspectorView) element).aimed = ((InspectorView) element).RowAt(args.X, args.Y);
+                }
+            },
+            RoutingStrategy.Capture,
+            handledEventsToo: true
+        );
     }
 
     /// <summary>Shows the members of some objects.</summary>
     /// <param name="objects">What to inspect. All of one type, or nothing is shown.</param>
     public void Inspect(params ReadOnlySpan<object> objects) {
+        if (IsLocked) {
+            return;
+        }
+
         targets.Clear();
 
         foreach (var target in objects) {
@@ -271,42 +341,23 @@ public sealed class InspectorView : Control {
 
             var field = new InspectorField(descriptor, member, targets, EditedDocument, Prefab);
 
-            if (!field.IsVisible) {
-                continue;
+            var row = InspectorRows.Add(
+                section,
+                field,
+                Drawers,
+
+                // The row restates itself from whatever wrote the member — its own drawer, a paste,
+                // a gizmo. Subscribing here rather than having each write path call back is what
+                // makes the reset button and the override bar impossible to leave stale.
+                made => field.Changed += edited => {
+                    InspectorRows.Restate(made);
+                    ValueChanged?.Invoke(this, edited.Member);
+                }
+            );
+
+            if (row is not null) {
+                rows.Add(row);
             }
-
-            var drawer = Drawers.Resolve(member);
-
-            if (drawer is null) {
-                continue;
-            }
-
-            var row = section.Add<InspectorRow>();
-            row.Field = field;
-
-            // The row restates itself from whatever wrote the member — its own drawer, a paste, a
-            // gizmo. Subscribing here rather than having each write path call back is what makes the
-            // reset button and the override bar impossible to leave stale.
-            field.Changed += edited => {
-                Restate(row);
-                ValueChanged?.Invoke(this, edited.Member);
-            };
-
-            row.Drawer = drawer;
-            row.Label.Text = member.DisplayName;
-
-            if (member.Tooltip is { } text) {
-                // Attached to the label rather than the row, so hovering the editor does not cover
-                // the thing being edited with a description of it.
-                var tooltip = row.Add<Tooltip>();
-                tooltip.Label = text;
-                tooltip.Attach(row.Label);
-            }
-
-            row.Editor = drawer.Build(field, row.Slot);
-
-            Show(row);
-            rows.Add(row);
         }
 
         Filter();
@@ -320,34 +371,81 @@ public sealed class InspectorView : Control {
         return expander.Content;
     }
 
-    static void Show(InspectorRow row) {
-        using (row.Field.Refreshing()) {
-            row.Drawer.Show(row.Field, row.Editor);
+    static void Show(InspectorRow row) => InspectorRows.Show(row);
+
+    /// <summary>Puts a Copy / Paste / Reset / Revert menu on the rows.</summary>
+    /// <returns>The menu, so that a host can add lines of its own to it.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Built on demand rather than in <c>OnCreated</c>, and this is not laziness.</b> A
+    ///         menu is a child of the document root, and a control's parts are made before it has a
+    ///         document — so building one there would either throw or make an overlay attached to
+    ///         nothing.
+    ///     </para>
+    ///     <para>
+    ///         <b>Four lines, and every one of them already existed as a method nothing could
+    ///         reach.</b> <see cref="Copy" />, <see cref="Paste" />, <see cref="Reset" /> and
+    ///         <see cref="RevertToPrefab" /> have been on this type since it was written; the reset
+    ///         button is the only one that had an affordance, and paste — the one that saves the most
+    ///         time — had none at all.
+    ///     </para>
+    /// </remarks>
+    public ContextMenu Contextualise() {
+        if (menu is not null) {
+            return menu;
         }
 
-        Restate(row);
+        menu = Document.Root.Add<ContextMenu>();
+
+        copy = Line("Copy", () => aimed is { } row && Copy(row));
+        paste = Line("Paste", () => aimed is { } row && Paste(row));
+
+        menu.AddSeparator();
+
+        reset = Line("Reset to Default", () => aimed is { } row && Reset(row));
+        revert = Line("Revert to Prefab", () => aimed is { } row && RevertToPrefab(row));
+
+        // ⚠ Asked on the way open rather than kept in step with every write. Whether there is
+        // something on the clipboard, whether this member differs from its default and whether it
+        // came from a prefab are three questions with three different answers per row, and pushing
+        // them would mean four flags maintained by every path that writes anything.
+        menu.OpenChanged += (_, isOpen) => {
+            if (isOpen) {
+                Enable();
+            }
+        };
+
+        menu.Attach(Body);
+        return menu;
+
+        MenuItem Line(string label, Func<bool> run) {
+            var item = menu.AddItem(label);
+
+            item.Clicked += _ => run();
+            return item;
+        }
     }
 
-    /// <summary>Shows the reset button only when there is something to reset to.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Two different marks, and they are not the same question.</b> "Differs from the type's
-    ///     default" is what the reset button answers; "differs from the prefab this came from" is
-    ///     what the override bar answers, and an object can be either without being the other. An
-    ///     inspector that collapsed them into one indicator is one where reverting to prefab looks
-    ///     available on a scene object that never came from one.
-    /// </remarks>
-    static void Restate(InspectorRow row) {
-        if (row.Field.CanReset && row.Field.IsModified) {
-            row.Reset.RemoveClass("hidden");
-        } else {
-            row.Reset.AddClass("hidden");
+    void Enable() {
+        var field = aimed?.Field;
+
+        copy.Disabled = field is null;
+        paste.Disabled = field is null || !field.CanWrite || !Clipboard.CanPaste(field);
+        reset.Disabled = field is null || !field.CanReset || !field.IsModified;
+        revert.Disabled = field is null || !field.IsOverridden;
+    }
+
+    /// <summary>The row under a point, if any.</summary>
+    InspectorRow? RowAt(float x, float y) {
+        foreach (var row in rows) {
+            var bounds = row.Bounds;
+
+            if (x >= bounds.X && x < bounds.X + bounds.Width && y >= bounds.Y && y < bounds.Y + bounds.Height) {
+                return row;
+            }
         }
 
-        if (row.Field.IsOverridden) {
-            row.AddClass("overridden");
-        } else {
-            row.RemoveClass("overridden");
-        }
+        return null;
     }
 
     void Chosen(ClickEvent args) {

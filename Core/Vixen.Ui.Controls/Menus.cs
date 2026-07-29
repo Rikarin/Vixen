@@ -127,6 +127,26 @@ public partial class Menu : Overlay {
         AddHandler<KeyEvent>(static (element, args) => ((Menu) element).Keyed(args));
     }
 
+    /// <summary>Removes every item and separator.</summary>
+    /// <remarks>
+    ///     ⚠ <b>For a menu whose contents are decided when it opens.</b> Open Recent, Layouts ▸ and
+    ///     Add Component ▸ are all lists that move between one opening and the next, and rebuilding
+    ///     the <i>menu</i> instead would detach the overlay that anchors it and lose whatever the
+    ///     caller had attached it to.
+    ///     <para>
+    ///         The separators go with the items, because they are the only thing that gives a menu of
+    ///         nothing a height — a cleared menu that still drew three rules would open as a small
+    ///         empty box with lines in it.
+    ///     </para>
+    /// </remarks>
+    public void Clear() {
+        while (Children.Count > 0) {
+            Children[^1].Remove();
+        }
+
+        items.Clear();
+    }
+
     /// <summary>Adds a command.</summary>
     /// <param name="label">What it says.</param>
     /// <returns>The item.</returns>

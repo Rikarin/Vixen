@@ -464,9 +464,11 @@ Vixen.Engine.Input.InputUpdateSystem.InputUpdateSystem(Vixen.Input.InputService 
 Vixen.Engine.Scenes.ISceneComponentBinder -> interface
 Vixen.Engine.Scenes.ISceneComponentBinder.AddTo(Vixen.Ecs.World world, Vixen.Core.Entity entity, object value) -> void
 Vixen.Engine.Scenes.ISceneComponentBinder.ComponentType.get -> System.Type
+Vixen.Engine.Scenes.ISceneComponentBinder.Has(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> bool
 Vixen.Engine.Scenes.ISceneComponentBinder.IsTag.get -> bool
 Vixen.Engine.Scenes.ISceneComponentBinder.Name.get -> string
 Vixen.Engine.Scenes.ISceneComponentBinder.Read(ref Vixen.Core.Serialization.SerializationReader reader, Vixen.Ecs.World world, Vixen.Core.Entity entity) -> void
+Vixen.Engine.Scenes.ISceneComponentBinder.RemoveFrom(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> bool
 Vixen.Engine.Scenes.ISceneComponentBinder.TypeId.get -> Vixen.Core.ComponentTypeId
 Vixen.Engine.Scenes.ISceneComponentBinder.ValueOn(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> object
 Vixen.Engine.Scenes.ISceneComponentBinder.Write(ref Vixen.Core.Serialization.SerializationWriter writer, Vixen.Ecs.World world, Vixen.Core.Entity entity) -> void
@@ -675,6 +677,7 @@ static Vixen.Engine.Diagnostics.DebugFont.SegmentCount(System.ReadOnlySpan<char>
 static Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Default.get -> Vixen.Engine.Diagnostics.Overlays.OverlayTheme
 static Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Fade(Vixen.Core.Mathematics.Color4 colour, float alpha) -> Vixen.Core.Mathematics.Color4
 static Vixen.Engine.Scenes.Prefab.CaptureFrom(Vixen.Ecs.World world, Vixen.Core.Entity root, string name = "Prefab") -> Vixen.Engine.Scenes.Prefab
+static Vixen.Engine.Scenes.SceneComponentRegistry.Binders.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Engine.Scenes.ISceneComponentBinder>
 static Vixen.Engine.Scenes.SceneComponentRegistry.Register<T>() -> void
 static Vixen.Engine.Scenes.SceneComponentRegistry.Require(string alias) -> Vixen.Engine.Scenes.ISceneComponentBinder
 static Vixen.Engine.Scenes.SceneComponentRegistry.TryGet(System.Type type, out Vixen.Engine.Scenes.ISceneComponentBinder? binder) -> bool

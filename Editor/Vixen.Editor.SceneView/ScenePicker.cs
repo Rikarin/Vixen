@@ -95,6 +95,13 @@ public sealed class ScenePicker : IScenePicker {
                 continue;
             }
 
+            // ⚠ Hidden as well as locked, and the first is the one people are surprised by. Something
+            // you cannot see and can still click is worse than either — you drag what you cannot look
+            // at — and it is the whole reason an outliner has an eye rather than a delete key.
+            if (document.IsHidden(entity) || document.IsLocked(entity)) {
+                continue;
+            }
+
             var transform = world.Read<WorldTransform>(entity).Value;
 
             var hit = MeshShapes.TryGet(world, entity, out var kind)

@@ -53,9 +53,11 @@ public static class InspectorTheme {
         /* ── The view ───────────────────────────────────────────────────────── */
         inspector { flex-direction: column; flex-grow: 1; gap: 6px; padding: 2px; overflow: hidden; }
 
-        /* The box keeps its height while the rows below it come and go — a search field that
+        /* The strip keeps its height while the rows below it come and go — a search field that
            shrank when the selection emptied would move under the pointer mid-type. */
-        inspector > search-box { flex-shrink: 0; }
+        inspector-header { flex-direction: row; align-items: center; gap: 6px; flex-shrink: 0; }
+        inspector-header > search-box { flex-grow: 1; min-width: 0; }
+        inspector-header > .inspector-lock { flex-shrink: 0; }
 
         inspector-body { flex-direction: column; }
 
@@ -173,5 +175,133 @@ public static class InspectorTheme {
         vector-component.axis-y > text { color: #7ece6b; }
         vector-component.axis-z > text { color: #58a6ff; }
         vector-component.axis-w > text { color: var(--text-muted); }
+
+        /* ── Nested objects and lists ───────────────────────────────────────────
+           ⚠ The row's own label goes and the row stacks. A nested object is a block of rows rather
+           than a value, so it cannot sit in the editor column beside a name — the foldout carries
+           the name instead, and a row that kept both would say it twice with the second copy
+           squeezed into a third of the panel. */
+        inspector-row.nested { flex-direction: column; align-items: stretch; padding: 0px; }
+        inspector-row.nested > inspector-label { display: none; }
+        inspector-row.nested > inspector-editor { width: 100%; }
+        inspector-row.nested:hover { background-color: transparent; }
+
+        composite-editor { flex-direction: column; flex-grow: 1; min-width: 0; }
+
+        /* Indented after all, unlike a [Header]'s group — these members *are* a nested thing, and the
+           step is what says the four rows under "Bounds" belong to it rather than to the type. */
+        composite-editor expander-content { padding: 0px 0px 4px 10px; }
+        composite-editor expander { border-width: 0px; }
+
+        /* The element's own buttons, right of its editor and out of the tab order. Muted until the
+           row is hovered, because three buttons per element at full contrast is a wall of chrome
+           down the side of a list nobody is editing. */
+        .list-up, .list-down, .list-remove { flex-shrink: 0; opacity: 0.35; }
+        inspector-row:hover .list-up, inspector-row:hover .list-down, inspector-row:hover .list-remove {
+            opacity: 1;
+        }
+
+        .list-add { align-self: flex-start; margin: 4px 0px 0px 0px; }
+
+        /* The count, and whatever the last resort drew. Muted and small: it is a statement about the
+           value rather than a way of changing it. */
+        .property-readonly { color: var(--text-muted); font-size: 0.9em; }
+        """;
+}
+
+/// <summary>The content browser's own two rules, which have nowhere better to live.</summary>
+/// <remarks>
+///     ⚠ <b>Here rather than in the shell's theme because the browser is the application's panel and
+///     the shell knows nothing about it</b> — the same reason this assembly's sheet is loaded by the
+///     application rather than by <c>EditorShell</c>. Two rules is not worth a fifth stylesheet.
+/// </remarks>
+public static class BrowserTheme {
+    /// <summary>Adds the sheet to a document.</summary>
+    /// <param name="document">The document.</param>
+    /// <returns>The sheet's index, for a hot reload.</returns>
+    public static int Install(UiDocument document) {
+        ArgumentNullException.ThrowIfNull(document);
+
+        return document.Load(Css, StyleOrigin.UserAgent);
+    }
+
+    /// <summary>The stylesheet's text.</summary>
+    public static string Css => Sheet;
+
+    const string Sheet = """
+        /* The search box takes what is left and the type filter keeps its width, so a long importer
+           name is what gets clipped rather than the search field disappearing. */
+        browser-filters { flex-direction: row; align-items: center; gap: 6px; flex-shrink: 0; padding: 2px; }
+        browser-filters > search-box { flex-grow: 1; min-width: 0; }
+        browser-filters > select { flex-shrink: 0; width: 140px; }
+        browser-filters > .browser-view { flex-shrink: 0; }
+
+        /* ── The grid ───────────────────────────────────────────────────────────
+           ⚠ `flex-wrap` is the whole of the layout, and the tiles have a fixed basis so that
+           a row holds as many as fit rather than as many as the widest name allows. A grid
+           whose columns moved as you typed in the search box is one you cannot aim at. */
+        asset-grid { flex-direction: column; flex-grow: 1; min-height: 0; gap: 4px; }
+        asset-grid.hidden { display: none; }
+
+        asset-path { flex-direction: row; flex-wrap: wrap; align-items: center; flex-shrink: 0; gap: 2px; }
+        .asset-crumb { flex-shrink: 0; }
+
+        asset-tiles {
+            flex-direction: row;
+            flex-wrap: wrap;
+            align-content: flex-start;
+            flex-grow: 1;
+            gap: 4px;
+            padding: 4px;
+            overflow-y: auto;
+        }
+
+        asset-tile {
+            flex-direction: column;
+            align-items: center;
+            width: 78px;
+            flex-basis: 78px;
+            flex-grow: 0;
+            flex-shrink: 0;
+            padding: 8px 4px;
+            gap: 6px;
+            border-radius: var(--radius-row, 6px);
+        }
+
+        asset-tile:hover { background-color: var(--surface-hover, var(--surface-sunken)); }
+
+        /* The same `--accent-deep` the tree rows use, so a selection reads the same in both views. */
+        asset-tile:checked { background-color: var(--accent-deep, var(--accent)); color: #ffffff; }
+        asset-tile:checked icon { color: #ffffff; }
+
+        /* ⚠ Bigger than a row's icon by a lot. A grid whose glyphs are row-sized is a list with
+           gaps in it — the size *is* the affordance, and it is what makes the colour readable
+           from across the panel. */
+        asset-tile > icon { width: 40px; height: 40px; }
+
+        /* Two lines and then clipped: a tile whose height followed its name would make every row of
+           the grid a different height and the whole thing impossible to scan. */
+        asset-caption { text-align: center; font-size: 0.85em; max-height: 30px; overflow: hidden; }
+
+        .asset-note { color: var(--text-muted); font-size: 0.85em; padding: 2px 6px; }
+        .asset-note.hidden { display: none; }
+
+        /* ── The component foldouts ─────────────────────────────────────────────
+           One block per component, under the inspector's own rows and separated from them
+           by a rule, because "what this entity is" and "what is on it" are two lists and a
+           panel that ran them together reads as one long one. */
+        components { flex-direction: column; }
+
+        expander.component { border-width: 1px 0px 0px 0px; border-color: var(--border); }
+        expander.component > expander-header { flex-direction: row; align-items: center; }
+
+        /* ⚠ The remove button is faint until the header is hovered, and it is inside the header
+           rather than beside it — a component's Remove has to be unmistakably *that* component's,
+           and a column of identical crosses down the right of the panel is not. */
+        .remove-component { flex-shrink: 0; margin-left: auto; opacity: 0.2; }
+        expander-header:hover .remove-component { opacity: 1; }
+
+        .add-component { align-self: stretch; margin: 8px 4px 4px 4px; }
+        .add-component.hidden { display: none; }
         """;
 }

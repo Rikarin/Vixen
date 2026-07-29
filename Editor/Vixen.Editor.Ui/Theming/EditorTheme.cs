@@ -652,6 +652,31 @@ public static class EditorTheme {
         tree-row:checked icon, data-row:checked icon { color: #ffffff; }
         .tree-editor { border-radius: 5px; }
 
+        /* ── The outliner's two columns ─────────────────────────────────────────
+           The label takes what is left and the two toggles keep their width, so a long
+           entity name is what gets clipped rather than the eye being pushed off the
+           panel — which is the one thing that must stay reachable.
+
+           ⚠ Faint until the row is hovered, and *not* faint when the mark is on. Two
+           icons at full contrast beside every name is a wall of chrome down the side
+           of a scene where nothing is hidden; two invisible ones are a feature nobody
+           finds. What is on has to read from across the panel, because "why can I not
+           click this" is the question the padlock exists to answer. */
+        .outliner-hidden, .outliner-locked { flex-shrink: 0; opacity: 0.18; }
+
+        tree-row:hover .outliner-hidden, tree-row:hover .outliner-locked { opacity: 0.7; }
+        .outliner-hidden:checked, .outliner-locked:checked { opacity: 1; }
+
+        /* ⚠ A row whose parent carries the mark shows it dimmed rather than on. It is not
+           being drawn either way, and clicking here would do nothing — the mark it would
+           clear is on an ancestor — so showing it on would be a button that lies about
+           what pressing it does. */
+        .outliner-hidden.inherited, .outliner-locked.inherited { opacity: 0.45; }
+
+        outliner-filters { flex-direction: row; align-items: center; gap: 6px; flex-shrink: 0; }
+        outliner-filters > search-box { flex-grow: 1; min-width: 0; }
+        outliner-filters > select { flex-shrink: 0; width: 132px; }
+
         property-grid { gap: 4px; }
         property-row { border-radius: var(--radius-row); padding: 2px 6px; min-height: 26px; }
         property-row:hover { background-color: var(--surface-hover); }

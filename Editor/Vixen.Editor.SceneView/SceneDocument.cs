@@ -116,6 +116,26 @@ public sealed class RenameEntityCommand : IEditorCommand {
 public sealed class SceneDocument : EditorDocument {
     readonly Dictionary<Entity, string> names = [];
     readonly Dictionary<Entity, EntityId> ids = [];
+
+    /// <summary>The entities the editor is not drawing, and the ones it will not let be picked.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Editor state, not scene state, and both engines agree.</b> Unreal keeps "hidden
+    ///         in editor" separate from "hidden in game" and Unity's <c>SceneVisibilityManager</c> is
+    ///         editor-only, because the alternative — a component — means hiding something to work on
+    ///         what is behind it silently changes what ships. So these are sets on the document, not
+    ///         columns in a chunk, and nothing here is written to a file.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Keyed by handle, so they move through <see cref="Remap" /> with the names.</b> A
+    ///         play-mode restore reissues every handle; a hidden set that did not travel would come
+    ///         back hiding whatever happened to take those slots.
+    ///     </para>
+    /// </remarks>
+    readonly HashSet<Entity> hidden = [];
+
+    /// <inheritdoc cref="hidden" />
+    readonly HashSet<Entity> locked = [];
     readonly Dictionary<EntityId, Entity> byId = [];
     readonly QueryDescription tagged = new QueryDescription().RequireAll([ComponentType<SceneTag>.Id]);
 
@@ -469,6 +489,95 @@ public sealed class SceneDocument : EditorDocument {
         }
     }
 
+    /// <summary>Raised when a component was added to or taken off an entity.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Its own event, and the panel that issued the change is not the only listener that
+    ///     matters.</b> An <i>undo</i> of "remove component" puts the column back without anything
+    ///     having been clicked, so a panel that only rebuilt after its own commands would show a
+    ///     component that is gone and hide one that is back.
+    /// </remarks>
+    public event Action<SceneDocument, Entity>? ComponentsChanged;
+
+    /// <summary>Says a component came or went, for whatever is drawing them.</summary>
+    internal void Recomposed(Entity entity) => ComponentsChanged?.Invoke(this, entity);
+
+    /// <summary>Raised when an entity's visibility or lock changed.</summary>
+    /// <remarks>
+    ///     Its own event rather than <see cref="StructureChanged" />: nothing about the tree's shape
+    ///     moved, so an outliner that rebuilt its rows for this would throw away the expansion state
+    ///     every time somebody clicked an eye.
+    /// </remarks>
+    public event Action<SceneDocument, Entity>? Marked;
+
+    /// <summary>Whether the editor is drawing an entity.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <returns>Whether it is hidden in the editor.</returns>
+    /// <remarks>
+    ///     ⚠ <b>An entity under a hidden parent is hidden too, and the walk is upwards.</b> Hiding a
+    ///     prop and finding its four children still drawn is what makes a visibility column useless —
+    ///     and marking the descendants instead would mean unhiding the parent could not put back
+    ///     exactly what was there, because it cannot tell which of them the user had hidden on
+    ///     purpose.
+    /// </remarks>
+    public bool IsHidden(Entity entity) => Inherited(hidden, entity);
+
+    /// <summary>Whether an entity refuses to be picked in the viewport.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <returns>Whether it is locked.</returns>
+    /// <inheritdoc cref="IsHidden" select="remarks" />
+    public bool IsLocked(Entity entity) => Inherited(locked, entity);
+
+    /// <summary>Whether the entity itself carries the mark, ignoring its parents.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <returns>Whether it was hidden directly.</returns>
+    /// <remarks>
+    ///     What a toggle in the outliner reads, as against <see cref="IsHidden" />, which is what a
+    ///     renderer asks. A row whose eye is off because its parent's is has to draw differently from
+    ///     one the user turned off themselves, or clicking it does nothing visible.
+    /// </remarks>
+    public bool IsHiddenDirectly(Entity entity) => hidden.Contains(entity);
+
+    /// <inheritdoc cref="IsHiddenDirectly" />
+    public bool IsLockedDirectly(Entity entity) => locked.Contains(entity);
+
+    /// <summary>Hides an entity in the editor, or stops hiding it.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <param name="isHidden">Whether to hide it.</param>
+    public void SetHidden(Entity entity, bool isHidden) => Mark(hidden, entity, isHidden);
+
+    /// <summary>Stops an entity being picked in the viewport, or allows it again.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <param name="isLocked">Whether to lock it.</param>
+    public void SetLocked(Entity entity, bool isLocked) => Mark(locked, entity, isLocked);
+
+    /// <summary>Everything the editor is not drawing, directly.</summary>
+    public IReadOnlyCollection<Entity> Hidden => hidden;
+
+    /// <summary>Everything that refuses to be picked, directly.</summary>
+    public IReadOnlyCollection<Entity> Locked => locked;
+
+    void Mark(HashSet<Entity> set, Entity entity, bool marked) {
+        if (marked ? !set.Add(entity) : !set.Remove(entity)) {
+            return;
+        }
+
+        Marked?.Invoke(this, entity);
+    }
+
+    bool Inherited(HashSet<Entity> set, Entity entity) {
+        if (set.Count == 0) {
+            return false;
+        }
+
+        for (var current = entity; current != Entity.Null && World.IsAlive(current); current = Hierarchy.ParentOf(World, current)) {
+            if (set.Contains(current)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Forgets the names of entities that are no longer alive.</summary>
     /// <returns>How many were forgotten.</returns>
     /// <remarks>
@@ -493,6 +602,8 @@ public sealed class SceneDocument : EditorDocument {
 
         foreach (var entity in dead) {
             names.Remove(entity);
+            hidden.Remove(entity);
+            locked.Remove(entity);
 
             if (ids.Remove(entity, out var id)) {
                 byId.Remove(id);
@@ -546,7 +657,30 @@ public sealed class SceneDocument : EditorDocument {
             byId[id] = entity;
         }
 
+        // ⚠ And the marks, for the same reason. A hidden set keyed by handles that no longer exist
+        // is one that comes back hiding whatever took those slots — which reads as objects
+        // disappearing from the viewport when play mode stops.
+        Translate(hidden, translation);
+        Translate(locked, translation);
+
         StructureChanged?.Invoke(this);
+
+        static void Translate(HashSet<Entity> set, IReadOnlyDictionary<Entity, Entity> table) {
+            if (set.Count == 0) {
+                return;
+            }
+
+            List<Entity> moved = [];
+
+            foreach (var entity in set) {
+                if (table.TryGetValue(entity, out var now)) {
+                    moved.Add(now);
+                }
+            }
+
+            set.Clear();
+            set.UnionWith(moved);
+        }
     }
 
     /// <inheritdoc />

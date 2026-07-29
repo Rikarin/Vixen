@@ -6,6 +6,7 @@ using Vixen.Editor.Inspector;
 using Vixen.Editor.Inspector.Drawers;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
+using Vixen.Editor.Testing;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -44,7 +45,7 @@ public class AssetPickerTests {
 
     [Fact]
     public void The_editor_wires_the_drawers_to_its_project() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         var drawers = DrawerRegistry.Default.Drawers.OfType<AssetDrawer>().ToList();
 
@@ -56,9 +57,9 @@ public class AssetPickerTests {
 
     [Fact]
     public void An_asset_id_resolves_to_the_name_the_project_knows_it_by() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
-        var picker = new AssetPicker(fixture.Editor.Project, fixture.Editor.Shell.Dialogs);
+        var picker = new AssetPicker(fixture.Project, fixture.Shell.Dialogs);
         var scene = Scene(fixture);
 
         Assert.Equal("Main.vxscene", picker.NameOf(scene));
@@ -70,10 +71,10 @@ public class AssetPickerTests {
 
     [Fact]
     public void Choosing_a_row_writes_the_asset_and_seals_it_as_one_undo_step() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         var target = new PickerFixture();
-        var field = new InspectorField(Fixture, Member("Anything"), [target], fixture.Editor.Scene);
+        var field = new InspectorField(Fixture, Member("Anything"), [target], fixture.Scene);
 
         Open(fixture, field);
 
@@ -84,29 +85,29 @@ public class AssetPickerTests {
 
         // Written through the field and sealed, which is what puts it on the document's stack as one
         // step — the same path the text and number drawers take.
-        Assert.True(fixture.Editor.Scene.Stack.CanUndo.Value);
+        Assert.True(fixture.Scene.Stack.CanUndo.Value);
     }
 
     [Fact]
     public void Backing_out_leaves_the_field_alone() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         var target = new PickerFixture();
-        var field = new InspectorField(Fixture, Member("Anything"), [target], fixture.Editor.Scene);
+        var field = new InspectorField(Fixture, Member("Anything"), [target], fixture.Scene);
 
         Open(fixture, field);
         Press(fixture, "Cancel");
         fixture.Frames(2);
 
         Assert.Equal(AssetId.Empty, target.Anything);
-        Assert.False(fixture.Editor.Scene.Stack.CanUndo.Value);
+        Assert.False(fixture.Scene.Stack.CanUndo.Value);
     }
 
     [Fact]
     public void The_search_box_narrows_the_list() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
-        var field = new InspectorField(Fixture, Member("Anything"), [new PickerFixture()], fixture.Editor.Scene);
+        var field = new InspectorField(Fixture, Member("Anything"), [new PickerFixture()], fixture.Scene);
 
         Open(fixture, field);
 
@@ -129,7 +130,7 @@ public class AssetPickerTests {
     /// </summary>
     [Fact]
     public void Only_a_nullable_field_offers_none() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         Open(fixture, new InspectorField(Fixture, Member("Anything"), [new PickerFixture()]));
         Assert.Contains(Buttons(fixture), button => button.Label == "None");
@@ -141,26 +142,26 @@ public class AssetPickerTests {
         Assert.DoesNotContain(Buttons(fixture), button => button.Label == "None");
     }
 
-    static AssetId Scene(EditorFixture fixture) =>
-        fixture.Editor.Project.Assets.Entries.First(entry => entry.Name == "Main.vxscene").Guid;
+    static AssetId Scene(EditorSession fixture) =>
+        fixture.Project.Assets.Entries.First(entry => entry.Name == "Main.vxscene").Guid;
 
-    static void Open(EditorFixture fixture, InspectorField field) {
-        new AssetPicker(fixture.Editor.Project, fixture.Editor.Shell.Dialogs).Open(field);
+    static void Open(EditorSession fixture, InspectorField field) {
+        new AssetPicker(fixture.Project, fixture.Shell.Dialogs).Open(field);
         fixture.Frames(2);
     }
 
-    static Dialog Dialog(EditorFixture fixture) =>
-        fixture.Editor.Shell.Dialogs.Current ?? throw new InvalidOperationException("the picker did not open");
+    static Dialog Dialog(EditorSession fixture) =>
+        fixture.Shell.Dialogs.Current ?? throw new InvalidOperationException("the picker did not open");
 
-    static IEnumerable<Button> Buttons(EditorFixture fixture) => Dialog(fixture).Footer.Children.OfType<Button>();
+    static IEnumerable<Button> Buttons(EditorSession fixture) => Dialog(fixture).Footer.Children.OfType<Button>();
 
-    static void Press(EditorFixture fixture, string label) =>
+    static void Press(EditorSession fixture, string label) =>
         Buttons(fixture).First(button => button.Label == label).Activate();
 
-    static List<Button> Rows(EditorFixture fixture) =>
+    static List<Button> Rows(EditorSession fixture) =>
         [.. Descendants(Dialog(fixture).Body).OfType<Button>().Where(button => button.HasClass("asset-picker-row"))];
 
-    static Button Row(EditorFixture fixture, string label) =>
+    static Button Row(EditorSession fixture, string label) =>
         Rows(fixture).FirstOrDefault(button => button.Label == label)
         ?? throw new InvalidOperationException($"the picker has no '{label}' row");
 

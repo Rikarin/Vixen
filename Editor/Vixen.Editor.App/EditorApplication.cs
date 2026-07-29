@@ -14,6 +14,7 @@ using Vixen.Editor.Inspector.Drawers;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
+using Vixen.Engine.Cameras;
 using Vixen.Engine.Transforms;
 using Vixen.Input;
 using Vixen.Rendering;
@@ -126,8 +127,20 @@ sealed partial class EditorApplication : IDisposable {
 
     SceneViewport? viewport;
     InspectorView? inspector;
+
+    /// <summary>The component foldouts under the inspector, while its panel is open.</summary>
+    ComponentsView? components;
+
+    /// <summary>Which components the editor can show, built once because the set is a process fact.</summary>
+    /// <remarks>
+    ///     A plugin registering a component would want this rebuilt; it is a list rather than a
+    ///     snapshot for that reason, and the day a plugin can add one is the day this grows a
+    ///     subscription.
+    /// </remarks>
+    readonly IReadOnlyList<IComponentBridge> bridges = ComponentsView.Default();
     TreeView? hierarchy;
     ContextMenu? hierarchyMenu;
+    ContextMenu? assetMenu;
     ProjectBrowser? browser;
     ViewBookmark camera;
     bool hierarchyStale = true;
@@ -142,6 +155,19 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>Whether the tree is being told about the selection rather than reporting one.</summary>
     bool hierarchyEchoing;
+
+    /// <summary>How the outliner's siblings are ordered.</summary>
+    /// <inheritdoc cref="hierarchyFilter" select="remarks" />
+    string hierarchyOrder = OutlinerOrders[0];
+
+    /// <summary>The orders the outliner offers, the first being the one it opens with.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Hierarchy order is first and is the default.</b> It is the only one that carries
+    ///     information the others destroy — the order of siblings is something the user arranged, and
+    ///     a name sort on by default would hide that permanently and look like the arrangement not
+    ///     having been saved.
+    /// </remarks>
+    static readonly string[] OutlinerOrders = ["Hierarchy order", "Name (A–Z)", "Name (Z–A)"];
 
     /// <summary>Whether the inspector is showing the project's selection rather than a scene's.</summary>
     bool inspectingAssets;
@@ -189,6 +215,9 @@ sealed partial class EditorApplication : IDisposable {
         // — an override matrix's cell is a row inside an inspector-shaped panel.
         AssetEditorTheme.Install(Shell.Document);
 
+        // And the browser's two rules, which are this assembly's panel and nobody else's business.
+        BrowserTheme.Install(Shell.Document);
+
         // A scratch project under the user's data directory, so a first run with no arguments opens
         // something real rather than refusing to start. `Open` tolerates a missing Assets directory
         // — see AssetDatabase.Scan — which is what makes a directory that does not exist yet fine.
@@ -217,6 +246,15 @@ sealed partial class EditorApplication : IDisposable {
         play.Restored += (_, translation) => {
             scene.Remap(translation);
             hierarchyStale = true;
+        };
+
+        // ⚠ Not only after this panel's own commands. An *undo* of "remove component" puts the
+        // column back with nothing having been clicked, so a view that rebuilt only on its own
+        // edits would show a component that is gone and hide one that is back.
+        scene.ComponentsChanged += (_, changed) => {
+            if (components?.Entity == changed) {
+                components.Rebuild();
+            }
         };
 
         if (SceneSerializer.Load(scene, scenePath) == 0) {
@@ -390,6 +428,7 @@ sealed partial class EditorApplication : IDisposable {
         // highlighting whatever was clicked in it last. Comparing a handful of handles is the same
         // trade this class already makes for the selections themselves.
         SyncTreeSelection();
+        browser?.SyncSelection();
 
         if (viewport is not { } pane) {
             return;
@@ -495,8 +534,19 @@ sealed partial class EditorApplication : IDisposable {
     void Seed() {
         var root = scene.Add("Scene Root", LocalTransform.Identity);
 
-        scene.Add("Directional Light", LocalTransform.At(new Vector3(0f, 3f, 0f)), root);
-        scene.Add("Main Camera", LocalTransform.At(new Vector3(0f, 1.5f, 6f)), root);
+        // ⚠ Both carry the component their name claims, and until the component panel existed
+        // neither did. A first run showing a "Directional Light" that is not a light and a "Main
+        // Camera" that is not a camera was invisible while nothing drew what was on an entity; it is
+        // the first thing somebody clicking those two rows now sees.
+        var sun = scene.Add("Directional Light", LocalTransform.At(new Vector3(0f, 3f, 0f)) with {
+            Rotation = Aimed.Rotation
+        }, root);
+
+        Lights.Attach(world, sun, LightKind.Directional);
+
+        var camera = scene.Add("Main Camera", LocalTransform.At(new Vector3(0f, 1.5f, 6f)), root);
+
+        world.Add(camera, new Camera());
 
         var ground = scene.Add("Ground", LocalTransform.Identity, root);
 
@@ -564,7 +614,9 @@ sealed partial class EditorApplication : IDisposable {
                 // about the control: the tree is a view of whatever it is handed, and what it is
                 // handed is this application's decision. `TreeView` has no filter of its own for
                 // the same reason it has no idea what an entity is.
-                var search = panel.Add<SearchBox>();
+                var bar = panel.Add<UiElement>("outliner-filters");
+
+                var search = bar.Add<SearchBox>();
                 search.Placeholder = "Filter by name…";
 
                 search.ValueChanged += (_, value) => {
@@ -572,8 +624,30 @@ sealed partial class EditorApplication : IDisposable {
                     hierarchyStale = true;
                 };
 
+                // ⚠ Hierarchy order is first and is the default, because it is the only one that
+                // carries information the others destroy: the order of siblings is a thing the user
+                // arranged, and a sort that is on by default would hide it permanently.
+                var order = bar.Add<Select>();
+
+                foreach (var mode in OutlinerOrders) {
+                    order.AddOption(mode);
+                }
+
+                order.Value = hierarchyOrder;
+
+                order.SelectionChanged += (_, value) => {
+                    hierarchyOrder = value ?? OutlinerOrders[0];
+                    hierarchyStale = true;
+                };
+
                 hierarchy = panel.Add<TreeView>();
                 hierarchy.MultiSelect = true;
+                hierarchy.AllowDrag = true;
+
+                // ⚠ The two columns are added on bind rather than built with the row, because the
+                // rows are pooled: thirty of them serve a scene of any size, so an eye appended per
+                // call would add one per scrolled row for the life of the panel.
+                hierarchy.RowBound += MarkRow;
 
                 hierarchy.SelectionChanged += tree => {
                     // ⚠ Ignored while the tree is being brought into line with the selection rather
@@ -615,7 +689,7 @@ sealed partial class EditorApplication : IDisposable {
                     }
                 };
 
-                Contextualise(hierarchy);
+                Contextualise(hierarchy, hierarchyMenu ??= HierarchyMenu());
                 hierarchyStale = true;
             }
         );
@@ -627,7 +701,12 @@ sealed partial class EditorApplication : IDisposable {
                 Contextual(panel, AssetContext);
 
                 browser = new ProjectBrowser(project, panel);
+
                 browser.Activated += Open;
+                browser.Renamed += RenameAsset;
+                browser.Moved += MoveAssets;
+
+                Contextualise(browser.Tree, assetMenu ??= AssetMenu());
             }
         );
 
@@ -663,6 +742,25 @@ sealed partial class EditorApplication : IDisposable {
             panel => {
                 inspector = panel.Add<InspectorView>();
                 inspector.EditedDocument = scene;
+
+                // ⚠ Under the inspector rather than inside it. `InspectorView` draws the members of
+                // one described type; which *types* are on an entity is a different question, and
+                // one it deliberately cannot ask — see `ComponentsView`.
+                components = panel.Add<ComponentsView>();
+                components.Attach(scene, bridges);
+
+                // ⚠ After it is in the tree, because the menu is a child of the document root and a
+                // control has no document until it is added to one.
+                inspector.Contextualise();
+
+                // ⚠ The panel refused every selection while it was locked, so it is showing
+                // something stale the moment the lock comes off — and nothing else would tell it,
+                // because the selection has not changed since.
+                inspector.LockChanged += view => {
+                    if (!view.IsLocked) {
+                        ShowSelection();
+                    }
+                };
 
                 // The rows were built against the previous instance of this panel, so what is
                 // selected has to be pushed into the new one rather than waited for — and from
@@ -1380,9 +1478,7 @@ sealed partial class EditorApplication : IDisposable {
     ///         of five selected rows still means all five.
     ///     </para>
     /// </remarks>
-    void Contextualise(TreeView tree) {
-        hierarchyMenu ??= HierarchyMenu();
-
+    static void Contextualise(TreeView tree, ContextMenu menu) {
         tree.AddHandler<PointerEvent>(
             (_, args) => {
                 if (args is not { Action: PointerAction.Pressed, Button: PointerButton.Secondary }) {
@@ -1404,10 +1500,31 @@ sealed partial class EditorApplication : IDisposable {
             handledEventsToo: true
         );
 
-        hierarchyMenu.Attach(tree);
+        menu.Attach(tree);
     }
 
-    /// <summary>What is on that menu.</summary>
+    /// <summary>What a secondary click in the content browser opens.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every line is a registered command, so this menu and the Assets menu on the bar
+    ///     cannot disagree.</b> That is the point of the registry rather than a nicety: the two
+    ///     menus, the palette and the keymap are four views over one list, and a browser that built
+    ///     its own verbs would be the place where Delete means something different.
+    /// </remarks>
+    ContextMenu AssetMenu() {
+        var group = new MenuGroup(new StringId("editor.menu.browser", "Project"));
+
+        group.Add("assets.open");
+        group.AddSeparator();
+        group.Add("assets.new-folder", "assets.import-files");
+        group.AddSeparator();
+        group.Add("assets.rename", "assets.delete", "assets.move-to");
+        group.AddSeparator();
+        group.Add("assets.reimport-all", "assets.show-in-explorer");
+
+        return MenuPresenter.Context(Shell.Document, group, Shell.Commands, Shell.Keys);
+    }
+
+    /// <summary>What is on the outliner's menu.</summary>
     ContextMenu HierarchyMenu() {
         var group = new MenuGroup(new StringId("editor.menu.hierarchy", "Hierarchy"));
 
@@ -1416,6 +1533,8 @@ sealed partial class EditorApplication : IDisposable {
 
         group.AddSeparator();
         group.Add("edit.rename", "edit.delete");
+        group.AddSeparator();
+        group.Add("entity.toggle-hidden", "entity.toggle-lock");
         group.AddSeparator();
         group.Add("scene.focus");
 
@@ -1644,6 +1763,10 @@ sealed partial class EditorApplication : IDisposable {
         if (inspectingAssets) {
             inspector?.Inspect([.. project.Selection.Select(asset => new ProjectAsset(project, asset))]);
 
+            // An asset has no components, and leaving the last entity's foldouts under it would be a
+            // panel showing two different things at once.
+            components?.Show(Entity.Null);
+
             Shell.Status = project.Selection.Count switch {
                 0 => project.Name,
                 1 => project.Assets.TryGetByGuid(project.Selection[0], out var entry) ? entry.Name : project.Name,
@@ -1663,6 +1786,13 @@ sealed partial class EditorApplication : IDisposable {
             view.EditedDocument = document;
             view.Inspect([.. document.Selection.Select(entity => new SceneEntity(document, entity))]);
         }
+
+        // ⚠ Only this editor's own scene. The foldouts write through `scene.Stack`, and a document
+        // opened as an asset has a stack of its own — showing its entity's components here would put
+        // the edit on the wrong one, which is the hazard the line above guards for the rows.
+        components?.Show(
+            ReferenceEquals(document, scene) && document.Selection.Count > 0 ? document.Selection[0] : Entity.Null
+        );
 
         Shell.Status = document.Selection.Count switch {
             0 => project.Name,
@@ -1707,7 +1837,7 @@ sealed partial class EditorApplication : IDisposable {
             tree.Root.Remove(tree.Root.Children[^1]);
         }
 
-        foreach (var entity in scene.Roots) {
+        foreach (var entity in Ordered(scene.Roots)) {
             Branch(tree.Root, entity);
         }
 
@@ -1727,7 +1857,7 @@ sealed partial class EditorApplication : IDisposable {
             var node = parent.Add(scene.NameOf(entity), entity);
             var kept = Matches(entity);
 
-            foreach (var child in Hierarchy.ChildrenOf(world, entity)) {
+            foreach (var child in Ordered(Children(entity))) {
                 kept |= Branch(node, child);
             }
 
@@ -1736,6 +1866,132 @@ sealed partial class EditorApplication : IDisposable {
             }
 
             return kept;
+        }
+    }
+
+    /// <summary>An entity's children, as a list a sort can be applied to.</summary>
+    /// <remarks>
+    ///     <c>Hierarchy.ChildrenOf</c> hands back a struct sequence rather than a list, which is
+    ///     right for a walk that does not want an allocation and is the one thing a sort cannot be
+    ///     done on. One list per branch, in a rebuild that only happens when the scene's shape
+    ///     changed.
+    /// </remarks>
+    List<Entity> Children(Entity entity) {
+        List<Entity> found = [];
+
+        foreach (var child in Hierarchy.ChildrenOf(world, entity)) {
+            found.Add(child);
+        }
+
+        return found;
+    }
+
+    /// <summary>Puts a set of siblings in whatever order the outliner is showing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Per level, not over the flattened tree.</b> Sorting an outliner is sorting each
+    ///     parent's children — a global sort would put a child above its own parent, which is not a
+    ///     tree.
+    /// </remarks>
+    IEnumerable<Entity> Ordered(IReadOnlyList<Entity> siblings) =>
+        hierarchyOrder switch {
+            "Name (A–Z)" => siblings.OrderBy(scene.NameOf, StringComparer.CurrentCultureIgnoreCase),
+            "Name (Z–A)" => siblings.OrderByDescending(scene.NameOf, StringComparer.CurrentCultureIgnoreCase),
+            _ => siblings
+        };
+
+    /// <summary>Puts the eye and the padlock on a row, and brings them up to date.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Made once per row and updated on every bind.</b> A virtualised tree rebinds its
+    ///         rows as it scrolls, so a handler that added an element per call would add one per
+    ///         scrolled row for the life of the panel. The two buttons are found by class on the row
+    ///         they already belong to.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A row whose parent is hidden shows the eye off but dimmed.</b> It is off because
+    ///         the entity is not being drawn, and dimmed because clicking it would do nothing — the
+    ///         mark it would clear is on an ancestor. Showing it on would be a lie about what is on
+    ///         screen; showing it plainly off would make the click look broken.
+    ///     </para>
+    /// </remarks>
+    void MarkRow(TreeRow row, TreeNode node) {
+        var eye = Mark(row, "outliner-hidden", ControlIcons.Close, "Hide");
+        var padlock = Mark(row, "outliner-locked", ControlIcons.Check, "Lock");
+
+        if (node.Tag is not Entity entity) {
+            eye.AddClass("hidden");
+            padlock.AddClass("hidden");
+
+            return;
+        }
+
+        eye.RemoveClass("hidden");
+        padlock.RemoveClass("hidden");
+
+        Restate(eye, scene.IsHiddenDirectly(entity), scene.IsHidden(entity));
+        Restate(padlock, scene.IsLockedDirectly(entity), scene.IsLocked(entity));
+
+        static void Restate(ToggleButton button, bool directly, bool inherited) {
+            button.IsChecked = directly;
+
+            if (inherited && !directly) {
+                button.AddClass("inherited");
+            } else {
+                button.RemoveClass("inherited");
+            }
+        }
+    }
+
+    /// <summary>The toggle for one column, made on the row's first bind and reused after that.</summary>
+    ToggleButton Mark(TreeRow row, string className, PathBuilder icon, string label) {
+        foreach (var child in row.Children) {
+            if (child is ToggleButton existing && existing.HasClass(className)) {
+                return existing;
+            }
+        }
+
+        var button = row.Add<ToggleButton>();
+
+        button.AddClass(className);
+        button.LeadingIcon.Geometry = icon;
+        button.Variant = ControlVariant.Subtle;
+        button.Size = ControlSize.Small;
+        button.Label = label;
+        button.TabIndex = -1;
+
+        // ⚠ Reads the row's *current* node rather than the one it was made for. The row outlives the
+        // node by design — that is what pooling is — so a closure over the node would toggle
+        // whatever entity happened to be in this slot when the panel first scrolled.
+        button.CheckedChanged += (control, on) => {
+            if (row.Node?.Tag is not Entity entity) {
+                return;
+            }
+
+            if (className == "outliner-hidden") {
+                scene.SetHidden(entity, on);
+            } else {
+                scene.SetLocked(entity, on);
+            }
+
+            // The descendants' rows show an inherited mark, so they have to be restated too — and
+            // the selection may now hold something that cannot be picked.
+            RefreshMarks();
+            _ = control;
+        };
+
+        return button;
+    }
+
+    /// <summary>Brings every realised row's two columns up to date.</summary>
+    void RefreshMarks() {
+        if (hierarchy is not { } tree) {
+            return;
+        }
+
+        foreach (var row in tree.Rows) {
+            if (row.Node is { } node) {
+                MarkRow(row, node);
+            }
         }
     }
 

@@ -335,6 +335,24 @@ public sealed class GestureRecognizer {
         }
     }
 
+    /// <summary>Ends the current run of taps, so that the next one counts as the first.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What a control calls after acting on a double tap, and without it the gesture
+    ///         after an activation is miscounted.</b> A run continues while taps keep landing close
+    ///         together in space and time, which is exactly what "double-click a folder, then
+    ///         double-click the first thing inside it" produces — the content moved under a pointer
+    ///         that did not, so the second gesture arrives as taps three and four and a control
+    ///         looking for two never fires.
+    ///     </para>
+    ///     <para>
+    ///         The recogniser cannot know this on its own: whether the thing under the pointer
+    ///         changed is the control's answer, not a question about the pointer. So the control that
+    ///         consumed the double tap is the one that says the run is over.
+    ///     </para>
+    /// </remarks>
+    public void EndTapRun() => lastTap = null;
+
     /// <summary>Gives up on a pointer, because something else took it.</summary>
     /// <param name="pointerId">Which pointer.</param>
     /// <returns>Whether there was anything to give up on.</returns>
