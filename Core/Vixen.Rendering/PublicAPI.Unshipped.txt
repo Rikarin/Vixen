@@ -121,6 +121,7 @@ Vixen.Rendering.Compositor.CompositorBuilder.Descriptors.set -> Vixen.Graphics.D
 Vixen.Rendering.Compositor.CompositorBuilder.Device.get -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.Compositor.CompositorBuilder.Device.set -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.Compositor.CompositorBuilder.Factories.get -> System.Collections.Generic.IList<Vixen.Rendering.Compositor.ISceneRendererFactory>
+Vixen.Rendering.Compositor.CompositorBuilder.GpuDriven.get -> Vixen.Rendering.Compositor.GpuDrivenResult
 Vixen.Rendering.Compositor.CompositorBuilder.Modules.get -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
 Vixen.Rendering.Compositor.CompositorBuilder.Modules.set -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
 Vixen.Rendering.Compositor.CompositorBuilder.Occluders.get -> Vixen.Rendering.HiZPyramid?
@@ -325,6 +326,8 @@ Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer.ViewPosition.set -> Vixen
 Vixen.Rendering.Compositor.GpuCullingAsset -> sealed record
 Vixen.Rendering.Compositor.GpuCullingAsset : System.IEquatable<Vixen.Rendering.Compositor.GpuCullingAsset>
 Vixen.Rendering.Compositor.GpuCullingAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
+Vixen.Rendering.Compositor.GpuCullingAsset.Compact.get -> bool
+Vixen.Rendering.Compositor.GpuCullingAsset.Compact.init -> bool
 Vixen.Rendering.Compositor.GpuCullingAsset.Enabled.get -> bool
 Vixen.Rendering.Compositor.GpuCullingAsset.Enabled.init -> bool
 Vixen.Rendering.Compositor.GpuCullingAsset.GpuCullingAsset() -> void
@@ -345,6 +348,23 @@ Vixen.Rendering.Compositor.GpuCullingRenderer.Phase.get -> Vixen.Rendering.CullP
 Vixen.Rendering.Compositor.GpuCullingRenderer.Phase.set -> Vixen.Rendering.CullPhase
 Vixen.Rendering.Compositor.GpuCullingRenderer.Visibility.get -> Vixen.Rendering.GpuVisibilityGroup?
 Vixen.Rendering.Compositor.GpuCullingRenderer.Visibility.set -> Vixen.Rendering.GpuVisibilityGroup?
+Vixen.Rendering.Compositor.GpuDrivenAsset -> sealed record
+Vixen.Rendering.Compositor.GpuDrivenAsset : System.IEquatable<Vixen.Rendering.Compositor.GpuDrivenAsset>
+Vixen.Rendering.Compositor.GpuDrivenAsset.GpuDrivenAsset() -> void
+Vixen.Rendering.Compositor.GpuDrivenAsset.MaterialRecords.get -> bool
+Vixen.Rendering.Compositor.GpuDrivenAsset.MaterialRecords.init -> bool
+Vixen.Rendering.Compositor.GpuDrivenAsset.Shader.get -> string
+Vixen.Rendering.Compositor.GpuDrivenAsset.Shader.init -> string
+Vixen.Rendering.Compositor.GpuDrivenAsset.TransformRecords.get -> bool
+Vixen.Rendering.Compositor.GpuDrivenAsset.TransformRecords.init -> bool
+Vixen.Rendering.Compositor.GpuDrivenResult -> readonly struct
+Vixen.Rendering.Compositor.GpuDrivenResult : System.IEquatable<Vixen.Rendering.Compositor.GpuDrivenResult>
+Vixen.Rendering.Compositor.GpuDrivenResult.GpuDrivenResult() -> void
+Vixen.Rendering.Compositor.GpuDrivenResult.GpuDrivenResult(bool MaterialRecords, bool TransformRecords) -> void
+Vixen.Rendering.Compositor.GpuDrivenResult.MaterialRecords.get -> bool
+Vixen.Rendering.Compositor.GpuDrivenResult.MaterialRecords.init -> bool
+Vixen.Rendering.Compositor.GpuDrivenResult.TransformRecords.get -> bool
+Vixen.Rendering.Compositor.GpuDrivenResult.TransformRecords.init -> bool
 Vixen.Rendering.Compositor.GraphicsCompositor -> sealed class
 Vixen.Rendering.Compositor.GraphicsCompositor.BufferImports.get -> System.Collections.Generic.Dictionary<string, Vixen.Rendering.Compositor.ImportedBuffer>
 Vixen.Rendering.Compositor.GraphicsCompositor.BufferResources.get -> System.Collections.Generic.IList<Vixen.Rendering.Compositor.RenderBufferAsset>
@@ -367,6 +387,8 @@ Vixen.Rendering.Compositor.GraphicsCompositorAsset.Buffers.get -> Vixen.Renderin
 Vixen.Rendering.Compositor.GraphicsCompositorAsset.Buffers.init -> Vixen.Rendering.Compositor.RenderBufferAsset[]
 Vixen.Rendering.Compositor.GraphicsCompositorAsset.Game.get -> Vixen.Rendering.Compositor.ISceneRendererAsset?
 Vixen.Rendering.Compositor.GraphicsCompositorAsset.Game.init -> Vixen.Rendering.Compositor.ISceneRendererAsset?
+Vixen.Rendering.Compositor.GraphicsCompositorAsset.GpuDriven.get -> Vixen.Rendering.Compositor.GpuDrivenAsset?
+Vixen.Rendering.Compositor.GraphicsCompositorAsset.GpuDriven.init -> Vixen.Rendering.Compositor.GpuDrivenAsset?
 Vixen.Rendering.Compositor.GraphicsCompositorAsset.GraphicsCompositorAsset() -> void
 Vixen.Rendering.Compositor.GraphicsCompositorAsset.Resources.get -> Vixen.Rendering.Compositor.RenderResourceAsset[]
 Vixen.Rendering.Compositor.GraphicsCompositorAsset.Resources.init -> Vixen.Rendering.Compositor.RenderResourceAsset[]
@@ -2338,7 +2360,6 @@ Vixen.Shaders.Generated.ForwardPlusLightsElement.Tangent -> Vixen.Core.Mathemati
 Vixen.Shaders.Generated.ForwardPlusPerDrawConstants -> struct
 Vixen.Shaders.Generated.ForwardPlusPerDrawConstants.ForwardPlusPerDrawConstants() -> void
 Vixen.Shaders.Generated.ForwardPlusPerDrawConstants.LightCount -> int
-Vixen.Shaders.Generated.ForwardPlusPerDrawConstants.MaterialIndex -> uint
 Vixen.Shaders.Generated.ForwardPlusPerDrawConstants.ProbeIndex -> int
 Vixen.Shaders.Generated.ForwardPlusPerDrawConstants.ProbeWeight -> float
 Vixen.Shaders.Generated.ForwardPlusPerFrameConstants -> struct
@@ -2436,9 +2457,9 @@ const Vixen.Rendering.ClusterGrid.TilesX = 16 -> int
 const Vixen.Rendering.ClusterGrid.TilesY = 9 -> int
 const Vixen.Rendering.Compositor.CompositorBuilder.SupportedVersion = 2 -> int
 const Vixen.Rendering.Features.ForwardLightingRenderFeature.HeaderSize = 16 -> int
-const Vixen.Rendering.Features.ForwardLightingRenderFeature.MaterialIndexOffset = 12 -> int
 const Vixen.Rendering.Features.ForwardLightingRenderFeature.ProbeIndexOffset = 4 -> int
 const Vixen.Rendering.Features.ForwardLightingRenderFeature.ProbeWeightOffset = 8 -> int
+const Vixen.Rendering.Features.MaterialRenderFeature.RecordIndexName = "materialIndex" -> string
 const Vixen.Rendering.GpuCulling.Alive = 1 -> uint
 const Vixen.Rendering.GpuCulling.ArgumentsShaderName = "DrawArguments" -> string
 const Vixen.Rendering.GpuCulling.ClipEpsilon = 0.0001 -> float
@@ -2902,7 +2923,6 @@ static readonly Vixen.Shaders.Generated.ForwardPlusKeys.LightBuffer -> Vixen.Sha
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.LightColor -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.LightCount -> Vixen.Shaders.ParameterKey<int>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.LightDirection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
-static readonly Vixen.Shaders.Generated.ForwardPlusKeys.MaterialIndex -> Vixen.Shaders.ParameterKey<uint>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.MaxLights -> Vixen.Shaders.PermutationKey<int>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.NearPlane -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.ProbeCount -> Vixen.Shaders.PermutationKey<int>

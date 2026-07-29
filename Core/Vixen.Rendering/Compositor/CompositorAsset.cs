@@ -630,6 +630,21 @@ public sealed record GpuCullingAsset : ISceneRendererAsset {
     /// </remarks>
     public bool IndirectDraws { get; init; }
 
+    /// <summary>Whether the survivors are packed into a run per batch rather than left at their slot.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         What makes one command cover a whole batch: the padded form writes a record for every
+    ///         candidate and submits a command per candidate whatever culling decided, and this writes
+    ///         only survivors and reads how many there were out of a buffer the host never sees.
+    ///     </para>
+    ///     <para>
+    ///         Needs <see cref="IndirectDraws" />, and needs <c>HasDrawIndirectCount</c> on the device
+    ///         — GL, WebGPU and Metal have no draw whose count comes from the device, so there the
+    ///         request is answered with the padded form and the frame is exactly what it was.
+    ///     </para>
+    /// </remarks>
+    public bool Compact { get; init; }
+
     /// <summary>Which of a two-phase cull's dispatches this node is.</summary>
     /// <remarks>
     ///     <para>
@@ -710,6 +725,61 @@ public sealed record GraphicsCompositorAsset {
     /// <summary>The per-view block every shader in the frame shares, or null for a frame with none.</summary>
     public ViewBlockAsset? ViewBlock { get; init; }
 
+    /// <summary>
+    ///     Whether the frame draws the GPU-driven way, or null for the way every device can.
+    /// </summary>
+    /// <remarks>
+    ///     Here rather than on a node because it is not a pass: it is where a material's values live,
+    ///     where an object's matrix lives, and therefore whether any two draws in the frame can be one
+    ///     command. A node could not say it — the answer has to be the same for every pass that draws.
+    /// </remarks>
+    public GpuDrivenAsset? GpuDriven { get; init; }
+
     /// <summary>The root of the graph — the whole frame.</summary>
     public ISceneRendererAsset? Game { get; init; }
+}
+
+/// <summary>
+///     What a document asks for when it wants draws merged, and what a device may refuse.
+/// </summary>
+/// <remarks>
+///     <para>
+///         <strong>Every flag here is a request, not a setting.</strong> Each one is gated on a
+///         capability inside the feature that implements it — <c>HasBindless</c> for records,
+///         <c>HasDrawIndirectCount</c> for compaction and transforms — so a document that asks for
+///         all of it runs unchanged on GL, on WebGL2 and on MoltenVK below argument-buffer tier 2,
+///         and draws the same image through a descriptor set per material. That is the reason a
+///         document may ask at all: if asking could break a target, it would have to be a build
+///         configuration instead.
+///     </para>
+///     <para>
+///         ⚠ <strong>The pieces are separable and mostly should not be separated.</strong>
+///         Compaction without records merges nothing, because objects still bind a set each; records
+///         without compaction remove binds and leave the command per object. They are separate flags
+///         because they fail independently on real hardware, not because a project should pick and
+///         choose.
+///     </para>
+/// </remarks>
+[DataContract("GpuDriven")]
+public sealed record GpuDrivenAsset {
+    /// <summary>
+    ///     Which pass's permutations to set, since the keys are the shader's own.
+    /// </summary>
+    /// <remarks>
+    ///     A shader that does not declare them is simply never asked for the variant, which is what a
+    ///     document naming the wrong pass gets: the ordinary path, and no error. Naming it here rather
+    ///     than searching every loaded shader keeps the answer a document's rather than a scan's.
+    /// </remarks>
+    public string Shader { get; init; } = "ForwardPlus";
+
+    /// <summary>Whether a material's values are a record of one buffer rather than a set per draw.</summary>
+    public bool MaterialRecords { get; init; }
+
+    /// <summary>Whether an object's world matrix is a record rather than a push constant.</summary>
+    /// <remarks>
+    ///     Worth nothing without <see cref="GpuCullingAsset.Compact" />, and the feature says so
+    ///     itself: with no merged command to gain, a buffer read per vertex is a straight loss against
+    ///     a constant already in the command stream, so it declines to turn on.
+    /// </remarks>
+    public bool TransformRecords { get; init; }
 }

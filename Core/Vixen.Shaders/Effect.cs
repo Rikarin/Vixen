@@ -284,7 +284,32 @@ public readonly record struct EffectBinding(
 ///     overlaps, so a caller that pushed to the vertex stage alone against a range the shader
 ///     declared for vertex and fragment is refused — which is what a host guessing at them does.
 /// </remarks>
-public readonly record struct EffectPushConstant(ShaderStage Stages, int Offset, int Size);
+public readonly record struct EffectPushConstant(ShaderStage Stages, int Offset, int Size) {
+    /// <summary>The block's members, so a caller can find one by the name the shader gave it.</summary>
+    /// <remarks>
+    ///     The same principle <see cref="EffectBinding" /> follows: a host says <em>what</em> it is
+    ///     pushing and the shader says where it goes. Adding a member above another renumbers the
+    ///     second, and a host that had written the offset down would push into the first.
+    /// </remarks>
+    public ImmutableArray<EffectPushConstantMemberInfo> Members { get; init; } = [];
+
+    /// <summary>Where <paramref name="name" /> starts within this range, or null when it has none.</summary>
+    public int? OffsetOf(string name) {
+        foreach (var member in Members) {
+            if (member.Name == name) {
+                return Offset + member.Offset;
+            }
+        }
+
+        return null;
+    }
+}
+
+/// <summary>One member of a push-constant block.</summary>
+/// <param name="Name">The name the shader gave it.</param>
+/// <param name="Offset">Where it starts within the block, in bytes.</param>
+/// <param name="Size">How many bytes it occupies.</param>
+public readonly record struct EffectPushConstantMemberInfo(string Name, int Offset, int Size);
 
 /// <summary>One vertex attribute the shader reads, and where it reads it.</summary>
 /// <param name="Name">The name the shader's vertex entry point gave it.</param>

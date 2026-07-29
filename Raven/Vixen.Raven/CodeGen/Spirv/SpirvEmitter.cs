@@ -459,6 +459,16 @@ sealed partial class SpirvEmitter {
             SpirvOperand.Literal((uint)StreamPlan.LocationOf(shader, stream))
         );
 
+        // An integer has no interpolation to take — the rasteriser weights by barycentric
+        // coordinates and that produces a fraction — so SPIR-V requires this on a fragment input of
+        // integer type and a module without it is invalid. Only the input: the decoration says how a
+        // value is *received*, and the vertex stage that wrote it has no interpolation to describe.
+        if (entryPoint.Stage == ShaderStage.Fragment
+            && storage == SpirvStorageClass.Input
+            && StageInterface.MustBeFlat(stream.Type)) {
+            module.Decorate(variable, SpirvDecoration.Flat);
+        }
+
         return variable;
     }
 

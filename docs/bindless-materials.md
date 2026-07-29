@@ -22,7 +22,9 @@ stopped a merge anyway, because data in the command buffer is per command by con
 
 What remains is the per-object *light block*, and only on the path that has one: with a uniform light
 list each object binds its block at its own dynamic offset, and a dynamic offset travels in the bind.
-With clustering on nothing is bound per object and a run does merge. See the last two sections.
+With clustering on nothing is bound per object and a run does merge.
+
+And a compositor document can now ask for all of it — see the last three sections.
 
 ## What is built
 
@@ -402,6 +404,8 @@ second buffer, which costs one bind between the two runs and nothing within eith
 | 4. Compaction | ✅ built — one command per batch, three conditions checked |
 | 5. The geometry half | ✅ built — `GeometryBuffer`, one bind per run |
 | 6. The transform out of the command buffer | ✅ built — `UseTransformRecords`, the index in `firstInstance` |
+| 7. The material record out of the per-object block | ✅ built — a push constant, per run, at the offset the effect declares |
+| 8. A document that asks for all of it | ✅ built — `gpuDriven:` on the asset root, `compact:` on the culling node |
 
 ## 6. The transform, which was not a material and was still in the way
 
@@ -447,13 +451,64 @@ side of that pair. The gate asks what a sub-feature is *doing* this frame rather
 — `IDrawSubFeature.IsRecording` — because asking the type gives the same answer to both of these and
 that answer is wrong for one of them.
 
-⚠ **And the clustered path has a pre-existing hole this makes newly relevant.** It binds no per-draw
-set at all, so the whole set-3 block — `probeIndex`, `probeWeight`, `lightCount` and, since 2b,
-`materialIndex` — is not bound in a clustered frame. That is not caused by anything here and it is
-not fixed by anything here, but it is the reason "the clustered pass merges" is not yet the same
-sentence as "the clustered pass is right". The fix is the same shape once more: those scalars are per
-object, the instance index already addresses per-object records, and one more record buffer beside
-the transforms would carry them.
+### The clustered path had a hole, and `materialIndex` was in it
+
+✅ **Fixed** — the index is a push constant beside the world matrix.
+
+The clustered path binds no per-draw set at all, so the whole set-3 block was undelivered in a
+clustered frame — including `materialIndex`, which is the number this entire document is about.
+Bindless materials and clustered lighting were quietly exclusive.
+
+The fix turned on noticing that **it was never per-object data**. A variant is keyed
+`(material, flags, shader)`, so one variant is one material; a batch keys on the variant; so every
+object in a merged command has the same material and the same record. It is per *draw*. So it is
+pushed, once per run, at the point the per-material set is bound on the path that has one — per run
+and not per node, which is exactly what the merge gate permits. It also takes a cross-feature write
+with it: the lighting feature used to write the material feature's number into its own block, which
+its own comment apologised for.
+
+The offset comes off the effect rather than a constant in the host. `EffectPushConstantData` carried
+a range and no members, on the stated grounds that a caller reads the generated constants — but
+nothing is generated for a push block, so the only offset a host had was one it assumed. That held
+while the block was one matrix at zero, and would have stopped holding **silently**: a push at the
+wrong offset inside a declared range is accepted by every layer there is.
+
+⚠ **`probeIndex` and `probeWeight` are still in that block, and still undelivered under
+clustering.** They are genuinely per object — a probe is chosen by where the object is — so the
+answer for them is a record buffer read through a flat `objectIndex` varying, not a push. Raven now
+emits `Flat` on an integer fragment input (and `flat` in GLSL), which is the piece that was missing;
+what is left is the buffer and the feature that fills it. It bites only with `UseReflectionProbe` on,
+which is off by default.
+
+## A document can ask for all of it
+
+✅ **Built** — `GpuDrivenAsset`, and `compact:` on the culling node.
+
+Everything above was reachable from a test and from **nothing a project authors**. `CompositorBuilder`
+wired one thing out of the whole chain — the argument buffer — and never turned records on, never
+asked for compaction. A mechanism nothing invokes is a mechanism that compiles.
+
+```yaml
+gpuDriven:
+  shader: ForwardPlus
+  materialRecords: true
+  transformRecords: true
+game: !Sequence
+  children:
+    - !GpuCulling
+      readBack: false
+      indirectDraws: true
+      compact: true
+```
+
+**Every flag is a request and the device answers it**, which is what makes it safe in a document at
+all: one authored frame runs on a machine with descriptor indexing and on one without, and the second
+draws the same image through a descriptor set per material. `CompositorBuilder.GpuDriven` reports what
+was actually turned on, so "the device said no" and "nobody asked" are not the same observation.
+
+The frame-wide flags are on the asset root rather than on a node, because they are not a pass: they
+decide where a material's values live and where an object's matrix lives, and the answer has to be the
+same for every pass that draws.
 
 ## Two things deliberately not planned here
 

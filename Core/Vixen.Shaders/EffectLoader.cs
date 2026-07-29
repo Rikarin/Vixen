@@ -128,7 +128,7 @@ public sealed class EffectLoader(IGraphicsDevice device) {
             ConstantBufferSize = data.ConstantBufferSize,
             Parameters = parameters.ToImmutable(),
             Bindings = bindings.ToImmutable(),
-            PushConstants = [.. Pushed(data).Select(range => new EffectPushConstant(range.Stages, range.Offset, range.Size))],
+            PushConstants = [.. PushedConstants(data)],
             VertexInputs = [
                 .. data.VertexInputs.Select(input => new EffectVertexInput(input.Name, input.Location, input.Kind))
             ],
@@ -150,6 +150,26 @@ public sealed class EffectLoader(IGraphicsDevice device) {
         foreach (var range in data.PushConstants) {
             if (range is { Size: > 0, Stages: not ShaderStage.None }) {
                 yield return new(range.Stages, range.Offset, range.Size);
+            }
+        }
+    }
+
+    /// <summary>The same ranges, with the members a caller finds an offset by name in.</summary>
+    /// <remarks>
+    ///     Separate from <see cref="Pushed" /> because that one feeds the pipeline layout, which has
+    ///     no interest in what is inside a range — the driver is told bytes. This one feeds a host
+    ///     that has a value called <c>materialIndex</c> and no business knowing it is at 64.
+    /// </remarks>
+    static IEnumerable<EffectPushConstant> PushedConstants(EffectData data) {
+        foreach (var range in data.PushConstants) {
+            if (range is { Size: > 0, Stages: not ShaderStage.None }) {
+                yield return new(range.Stages, range.Offset, range.Size) {
+                    Members = [
+                        .. (range.Members ?? []).Select(
+                            member => new EffectPushConstantMemberInfo(member.Name, member.Offset, member.Size)
+                        )
+                    ]
+                };
             }
         }
     }

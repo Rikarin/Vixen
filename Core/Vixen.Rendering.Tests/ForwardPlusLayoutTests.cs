@@ -133,13 +133,33 @@ public class ForwardPlusLayoutTests {
         }
     }
 
-    /// <summary>The world matrix is pushed, which is what the transform feature does with it.</summary>
+    /// <summary>
+    ///     The world matrix and the material record are pushed, in one range and in that order.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         One range because Vulkan gives a pipeline one, and both members because both are per
+    ///         <em>draw</em>: the matrix until <c>UseTransformRecords</c> takes it into a buffer, and
+    ///         the record index always — a variant is one material, so a batch is one record.
+    ///     </para>
+    ///     <para>
+    ///         Well inside the guaranteed 128 bytes, which is the number that matters: a range past it
+    ///         is a pipeline layout some device refuses to create, and Raven warns at <c>RVN3007</c>
+    ///         before it gets that far.
+    ///     </para>
+    /// </remarks>
     [Fact]
-    public void The_world_matrix_is_a_push_constant() {
+    public void The_world_matrix_and_the_material_record_are_push_constants() {
         var pushed = Reflection.GetProperty("PushConstants").EnumerateArray().Single();
+        var members = pushed.GetProperty("Members").EnumerateArray().ToArray();
 
-        Assert.Equal(64, pushed.GetProperty("Size").GetInt32());
-        Assert.Equal("world", pushed.GetProperty("Members").EnumerateArray().Single().GetProperty("Name").GetString());
+        Assert.InRange(pushed.GetProperty("Size").GetInt32(), 68, 128);
+
+        Assert.Equal("world", members[0].GetProperty("Name").GetString());
+        Assert.Equal(0, members[0].GetProperty("Offset").GetInt32());
+
+        Assert.Equal("materialIndex", members[1].GetProperty("Name").GetString());
+        Assert.Equal(64, members[1].GetProperty("Offset").GetInt32());
     }
 
     /// <summary>The probe cubes are one binding with a count, which is what an index needs.</summary>

@@ -111,6 +111,10 @@ public enum SpirvDecoration {
     ArrayStride = 6,
     MatrixStride = 7,
     BuiltIn = 11,
+
+    /// <summary>This varying is not interpolated. Required on a fragment input of integer type.</summary>
+    Flat = 14,
+
     Location = 30,
     Binding = 33,
     DescriptorSet = 34,

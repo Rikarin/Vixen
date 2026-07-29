@@ -158,14 +158,23 @@ public class ClusteredShadingDeviceTests {
             binding => binding.Set == DescriptorSetSlot.PerDraw && binding.Size == 1296
         );
 
-        // The world matrix is pushed, and the range reaches the runtime — a pipeline layout that
-        // declared none would drop every push against it, so every object in the frame would draw at
-        // the origin.
+        // The world matrix and the material record are pushed, and the range reaches the runtime — a
+        // pipeline layout that declared none would drop every push against it, so every object in the
+        // frame would draw at the origin.
+        //
+        // The members come with it, because an offset a host guessed is the failure this family
+        // specialises in: a push at the wrong offset within a declared range is accepted by every
+        // layer there is.
         var pushed = Assert.Single(data.PushConstants);
 
-        Assert.Equal(64, pushed.Size);
+        Assert.InRange(pushed.Size, 68, 128);
         Assert.Equal(0, pushed.Offset);
         Assert.True(pushed.Stages.HasFlag(ShaderStage.Vertex));
+
+        Assert.Equal(
+            [("world", 0), ("materialIndex", 64)],
+            [.. (pushed.Members ?? []).Select(member => (member.Name, member.Offset))]
+        );
 
         // And the attribute locations, which are not zero-based and are not guessable: a shader's
         // `stream` variables take locations before its vertex inputs do, so these four start at five.

@@ -152,7 +152,7 @@ public readonly record struct RecordedCommand(
             RecordedCommandKind.CopyBuffer => $"from={A}+{B} to={C}+{D} size={E}",
             RecordedCommandKind.SetViewport => $"{A}×{B} at {C},{D}",
             RecordedCommandKind.SetScissor => $"{A}×{B} at {C},{D}",
-            RecordedCommandKind.PushConstants => $"stages={(ShaderStage)A} offset={B} size={C}",
+            RecordedCommandKind.PushConstants => $"stages={(ShaderStage)A} offset={B} size={C} head={D}",
             RecordedCommandKind.PushDebugGroup or RecordedCommandKind.InsertDebugMarker => $"'{Text}'",
             _ => string.Empty
         };
