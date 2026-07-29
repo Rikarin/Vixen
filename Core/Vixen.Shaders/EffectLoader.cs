@@ -32,6 +32,17 @@ public sealed class EffectLoader(IGraphicsDevice device) {
     /// <summary>How many descriptor sets a pipeline layout has. See the convention in docs/plan/05.</summary>
     const int SetCount = 4;
 
+    /// <summary>
+    ///     And a fifth, for a shader that declares a bindless table.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Only for a shader that declares one. Vulkan guarantees four bound descriptor sets and no
+    ///     more, so giving every pipeline layout a fifth would refuse to create a pipeline on a device
+    ///     that is perfectly able to run the shader — for a set the shader never mentions. A variant
+    ///     compiled without the table is a four-set layout exactly as it was.
+    /// </remarks>
+    const int BindlessSetCount = 5;
+
     readonly Dictionary<string, DescriptorSetLayoutHandle> layouts = new(StringComparer.Ordinal);
 
     /// <summary>The device these effects are created on.</summary>
@@ -41,14 +52,40 @@ public sealed class EffectLoader(IGraphicsDevice device) {
     /// <remarks>Observable so a test can assert the sharing above actually happens.</remarks>
     public int LayoutCount => layouts.Count;
 
+    /// <summary>
+    ///     How many descriptors an unbounded binding in set 4 holds.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The shader says a table has no length and the <em>layout</em> has to say one anyway,
+    ///         because a descriptor pool is sized from it. This is where that number comes from, and
+    ///         it has to be the same one the <c>BindlessTable</c> was built with: the table hands out
+    ///         indices up to its own capacity and the set has to have a descriptor at every one of
+    ///         them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Four thousand and ninety-six rather than the device's ceiling, which is what a
+    ///         <c>DescriptorSetLayoutDescription</c> falls back to when nobody says. A desktop driver
+    ///         reports a million; reserving a million descriptors to hold a scene's worth of textures
+    ///         is hundreds of megabytes of descriptor memory for a table that will hold a few
+    ///         thousand. A project that genuinely needs more says so here and builds its table to
+    ///         match.
+    ///     </para>
+    /// </remarks>
+    public int BindlessCapacity { get; set; } = 4096;
+
     /// <summary>Creates the effect one record describes.</summary>
     public Effect Load(EffectData data) {
         ArgumentNullException.ThrowIfNull(data);
 
         var key = data.ToKey();
-        var sets = new DescriptorSetLayoutHandle[SetCount];
+        var count = data.Bindings.Any(binding => binding.Set == DescriptorSetSlot.Bindless)
+            ? BindlessSetCount
+            : SetCount;
 
-        for (var slot = 0; slot < SetCount; slot++) {
+        var sets = new DescriptorSetLayoutHandle[count];
+
+        for (var slot = 0; slot < count; slot++) {
             sets[slot] = LayoutOf(data, (DescriptorSetSlot)slot, key.ShaderName);
         }
 
@@ -144,13 +181,16 @@ public sealed class EffectLoader(IGraphicsDevice device) {
 
         bindings.Sort(static (left, right) => left.Binding.CompareTo(right.Binding));
 
-        var shape = Shape(slot, bindings);
+        // Only where an unbounded binding could be, so the cache key of every other set is what it
+        // has always been and the shapes a project already shares keep sharing.
+        var capacity = slot == DescriptorSetSlot.Bindless ? BindlessCapacity : 0;
+        var shape = Shape(slot, bindings, capacity);
 
         if (layouts.TryGetValue(shape, out var existing)) {
             return existing;
         }
 
-        var description = new DescriptorSetLayoutDescription(slot, [.. bindings], $"{shaderName}.{slot}");
+        var description = new DescriptorSetLayoutDescription(slot, [.. bindings], $"{shaderName}.{slot}", capacity);
         description.Validate();
 
         var created = Device.CreateDescriptorSetLayout(description);
@@ -164,8 +204,8 @@ public sealed class EffectLoader(IGraphicsDevice device) {
     ///     in what they call it, and keying on the name would defeat the whole point of the cache
     ///     while looking like it worked.
     /// </remarks>
-    static string Shape(DescriptorSetSlot slot, List<DescriptorBinding> bindings) {
-        var builder = new StringBuilder().Append((int)slot);
+    static string Shape(DescriptorSetSlot slot, List<DescriptorBinding> bindings, int capacity) {
+        var builder = new StringBuilder().Append((int)slot).Append('#').Append(capacity);
 
         foreach (var binding in bindings) {
             builder

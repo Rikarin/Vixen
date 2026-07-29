@@ -145,6 +145,21 @@ capability with no ceiling is a table that refuses its first texture: it is the 
 per-set and per-stage update-after-bind limits, which differ by an order of magnitude on the mobile
 parts where it matters.
 
+**And a fifth question, which is not about descriptor indexing at all.** A table is
+`DescriptorSetSlot.Bindless` — set 4, its own — so a shader that indexes one binds five sets, and
+Vulkan guarantees four. `HasBindless` therefore also requires `MaxDescriptorSets >= 5`; a device that
+answered on the indexing bits alone would build every descriptor-set layout successfully and fail at
+`vkCreatePipelineLayout`, in a call that says nothing about descriptor indexing.
+
+**Why a set of its own rather than a corner of set 0.** The other four are written each frame by a
+`DescriptorAllocator`, which is content-addressed: a set whose write list differs by a byte is a
+different set object. A table's descriptors are written one at a time as textures enter it, and there
+may be thousands — so a table sharing the frame's set would have to be written out again in full
+every time a uniform block moved within its upload ring. That is precisely the cost the table exists
+to remove, so the table owns its set and nothing else is in it. The *sampler* a material map is read
+through stays in set 0, because it is an ordinary binding a host fills from `SamplerCache` like any
+other: set 4 is not "everything about textures", it is "the one binding a frame cannot rewrite".
+
 **An index does not move.** It is written into data the host has already given away — a material's
 record, a per-object block, a buffer the device filled last frame — none of which can be found again
 to be renumbered. So the table is an allocator with a free list and never a compactor, the same view

@@ -6,6 +6,7 @@ using Vixen.Raven;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Reflection;
+using Vixen.Raven.Symbols;
 using Vixen.Raven.Syntax;
 using Xunit;
 using static Tests.LoweringTestBase;
@@ -338,6 +339,88 @@ public class BindlessTextureTests {
         Assert.Contains("uniform texture2D textures[];", glsl, StringComparison.Ordinal);
         Assert.DoesNotContain("nonuniform_qualifier", glsl, StringComparison.Ordinal);
     }
+
+    // --- The set a table lives in ------------------------------------------
+
+    /// <summary>A table of its own, in set 4.</summary>
+    const string Set4 = """
+                        package A
+
+                        shader S {
+                            [Bindless] var textures: Texture2D[]
+                            [PerFrame] var linear: Sampler
+                            [PerDraw] var albedoIndex: int
+
+                            [FragmentShader]
+                            func Fragment(uv: float2): float4 {
+                                return textures[albedoIndex].Sample(linear, uv)
+                            }
+                        }
+
+                        """;
+
+    /// <summary><c>[Bindless]</c> is set 4, and the sampler beside it is still set 0.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>Why a fifth set exists at all.</strong> Sets 0 to 3 are written per frame from
+    ///         a content-addressed allocator, so a set whose write list differs by a byte is a
+    ///         different set. A table's descriptors are written once each and there may be thousands;
+    ///         a table sharing set 0 would be written out again whenever a uniform block moved, which
+    ///         is the whole cost it exists to remove.
+    ///     </para>
+    ///     <para>
+    ///         The sampler is the control. It is an ordinary binding a host fills like any other, so
+    ///         it stays where a host already looks for it — <c>[Bindless]</c> is not "everything to do
+    ///         with textures", it is "the one binding that cannot be written per frame".
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_bindless_marker_puts_the_table_in_set_four() {
+        var bindings = Reflect(Set4).Sets.SelectMany(set => set.Bindings.Select(binding => (set.Set, binding))).ToArray();
+
+        var table = Assert.Single(bindings, pair => pair.binding.Name == "textures");
+        Assert.Equal((int)ResourceSet.Bindless, table.Set);
+        Assert.Equal(0, table.binding.Count);
+
+        var sampler = Assert.Single(bindings, pair => pair.binding.Name == "linear");
+        Assert.Equal((int)ResourceSet.PerFrame, sampler.Set);
+    }
+
+    /// <summary>And SPIR-V says set 4, which is the number that actually reaches a driver.</summary>
+    /// <remarks>
+    ///     The reflection above is what builds the descriptor-set layout and this is what the shader
+    ///     reads through. A disagreement between them binds a real set at an index the module does
+    ///     not sample, which draws with whatever descriptors were left at set 4 — undefined rather
+    ///     than absent, and invisible to every check that only reads the reflection.
+    /// </remarks>
+    [Fact]
+    public void The_module_decorates_the_table_with_set_four() {
+        var module = SpirvTestBase.One(Set4);
+        var listing = module.Code;
+
+        Assert.Contains(
+            $"OpDecorate {SpirvTestBase.IdNamed(listing, "textures")} DescriptorSet 4",
+            listing,
+            StringComparison.Ordinal
+        );
+
+        Assert.Contains(
+            $"OpDecorate {SpirvTestBase.IdNamed(listing, "linear")} DescriptorSet 0",
+            listing,
+            StringComparison.Ordinal
+        );
+
+        SpirvTestBase.Validate(module);
+    }
+
+    /// <summary>The GLSL says so too.</summary>
+    [Fact]
+    public void The_glsl_declares_the_table_at_set_four() =>
+        Assert.Contains(
+            "set = 4",
+            CodeGenTestBase.GenerateClean(Set4).Single().Code,
+            StringComparison.Ordinal
+        );
 
     // --- The fixture -------------------------------------------------------
 

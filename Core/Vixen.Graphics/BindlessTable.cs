@@ -82,7 +82,10 @@ public sealed class BindlessTable : IDisposable {
     ///     <see cref="GraphicsDeviceFeatures.MaxBindlessDescriptors" />.
     /// </param>
     /// <param name="binding">Which binding within the set the array is, matching the shader.</param>
-    /// <param name="slot">Which of the four sets it is, matching the shader.</param>
+    /// <param name="slot">
+    ///     Which set it is, matching the shader. <see cref="DescriptorSetSlot.Bindless" /> unless a
+    ///     caller has a reason — see that member for why a table wants a set nothing else is in.
+    /// </param>
     /// <param name="kind">Whether the array is sampled or storage textures.</param>
     /// <param name="fallback">
     ///     A view to leave in a slot nobody occupies, or none. Worth supplying: an index that outlives
@@ -96,7 +99,7 @@ public sealed class BindlessTable : IDisposable {
         ShaderStage stages = ShaderStage.Fragment,
         int capacity = 0,
         uint binding = 0,
-        DescriptorSetSlot slot = DescriptorSetSlot.PerFrame,
+        DescriptorSetSlot slot = DescriptorSetSlot.Bindless,
         DescriptorKind kind = DescriptorKind.SampledTexture,
         TextureViewHandle fallback = default,
         string name = "Bindless"

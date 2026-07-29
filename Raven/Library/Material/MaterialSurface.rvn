@@ -252,10 +252,20 @@ shader MetalRoughnessSurface : IMaterialSurface {
 /// the shared name cannot drift.
 shader MaterialTextures {
     /// Every texture any material in the frame can sample, bound once and indexed per material.
-    [PerFrame] [Shared] var materialTextures: Texture2D[]
+    ///
+    /// ⚠ `[Bindless]` — set 4, and its own set rather than the frame's. A per-frame set is written
+    /// from a content-addressed allocator, so it is a *different* set whenever any binding in it
+    /// changes; a table's descriptors are written once each and there may be thousands of them, so a
+    /// table sharing that set would be rewritten in full every time a uniform block moved. That is
+    /// the cost the table exists to remove. See `DescriptorSetSlot.Bindless`.
+    [Bindless] [Shared] var materialTextures: Texture2D[]
 
     /// How they are filtered. One sampler for every material map, which is what a table costs: a
     /// per-material sampler would be a per-material binding, and that is the thing being removed.
+    ///
+    /// Per-frame rather than in the table's set, because it is an ordinary binding a host fills from
+    /// `SamplerCache` like any other — the table's set is for the one thing that cannot be written
+    /// that way.
     [PerFrame] [Shared] var materialSampler: Sampler
 
     /// One map, at the surface's coordinate.

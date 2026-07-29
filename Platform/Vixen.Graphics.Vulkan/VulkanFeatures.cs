@@ -53,6 +53,14 @@ static class VulkanFeatures {
     /// </remarks>
     internal const string DescriptorIndexing = "VK_EXT_descriptor_indexing";
 
+    /// <summary>How many sets a pipeline binds once one of them is a bindless table.</summary>
+    /// <remarks>
+    ///     The engine's four, plus <c>DescriptorSetSlot.Bindless</c>. Vulkan's floor for
+    ///     <c>maxBoundDescriptorSets</c> is four, so this is a real requirement rather than a
+    ///     formality — see the comment where it is applied.
+    /// </remarks>
+    const uint BindlessSetCount = 5;
+
     /// <summary>Translates a device's report into the RHI's vocabulary.</summary>
     /// <param name="features">What <c>vkGetPhysicalDeviceFeatures</c> said.</param>
     /// <param name="limits">What <c>vkGetPhysicalDeviceProperties</c> said.</param>
@@ -76,7 +84,15 @@ static class VulkanFeatures {
         in PhysicalDeviceDescriptorIndexingFeatures indexing = default,
         in PhysicalDeviceDescriptorIndexingProperties indexingLimits = default
     ) {
-        var bindless = HasDescriptorIndexing(extensions, apiVersion) && Bindless(indexing);
+        // ⚠ And a fifth bindable set, which is not part of descriptor indexing and is checked here
+        // because nothing else would check it. The engine's table is its own descriptor set — see
+        // DescriptorSetSlot.Bindless for why it cannot share one — so a shader that indexes a table
+        // binds five sets, and Vulkan guarantees four. Every device with descriptor indexing has
+        // reported eight or more so far; a device that reports four would build every layout
+        // successfully and fail at vkCreatePipelineLayout, which is a long way from the cause.
+        var bindless = HasDescriptorIndexing(extensions, apiVersion)
+            && Bindless(indexing)
+            && limits.MaxBoundDescriptorSets >= BindlessSetCount;
 
         return GraphicsDeviceFeatures.Minimum with {
             // Vulkan has no device without compute — unlike WebGL2, which is what the flag exists

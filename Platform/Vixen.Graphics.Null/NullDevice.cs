@@ -282,6 +282,11 @@ public sealed class NullDevice : IGraphicsDevice {
         // would notice being hit.
         MaxBindlessDescriptors = 500_000,
 
+        // Five, because a table is a set of its own and a shader that indexes one binds five. A
+        // device claiming bindless with four bindable sets is a combination no real device reports
+        // and one this file should not be the first to invent — see DescriptorSetSlot.Bindless.
+        MaxDescriptorSets = 8,
+
         SupportedSampleCounts = 0b11111
     };
 

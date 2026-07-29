@@ -19,13 +19,18 @@ public static class DeclarationFacts {
 
     /// <summary>
     ///     Attribute names that place a binding in a descriptor set. One name per set, so the
-    ///     four-set convention is spelled rather than numbered — see <see cref="ResourceSet" />.
+    ///     convention is spelled rather than numbered — see <see cref="ResourceSet" />.
     /// </summary>
+    /// <remarks>
+    ///     <c>[Bindless]</c> is the odd one, and named for what it holds rather than for how often it
+    ///     changes: the other four say when a frame rebinds them and that one is never rebound.
+    /// </remarks>
     static readonly Dictionary<string, ResourceSet> SetAttributes = new(StringComparer.Ordinal) {
         ["PerFrame"] = ResourceSet.PerFrame,
         ["PerView"] = ResourceSet.PerView,
         ["PerMaterial"] = ResourceSet.PerMaterial,
-        ["PerDraw"] = ResourceSet.PerDraw
+        ["PerDraw"] = ResourceSet.PerDraw,
+        ["Bindless"] = ResourceSet.Bindless
     };
 
     public static bool Has(SyntaxList<SyntaxToken> modifiers, SyntaxKind kind) {

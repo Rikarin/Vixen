@@ -297,6 +297,37 @@ public sealed class VulkanFeatureTests {
     }
 
     /// <summary>
+    ///     And a fifth bindable set, which descriptor indexing does not imply.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>The claim a wrong answer would hide.</strong> A table is its own descriptor set
+    ///         — see <c>DescriptorSetSlot.Bindless</c> — so a shader that indexes one binds five, and
+    ///         Vulkan's floor for <c>maxBoundDescriptorSets</c> is four. A device that answered this
+    ///         on the indexing bits alone would create every descriptor-set layout successfully, and
+    ///         then fail at <c>vkCreatePipelineLayout</c> — a long way from the cause, and in a call
+    ///         that says nothing about descriptor indexing.
+    ///     </para>
+    ///     <para>
+    ///         Four is not a hypothetical floor: it is the number the specification guarantees, so it
+    ///         is exactly what a conformant minimum device reports.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(4u, false)]
+    [InlineData(5u, true)]
+    [InlineData(8u, true)]
+    public void BindlessNeedsAFifthBindableSet(uint sets, bool expected) {
+        var limits = Limits();
+        limits.MaxBoundDescriptorSets = sets;
+
+        Assert.Equal(
+            expected,
+            Translate(limits: limits, apiVersion: VulkanFeatures.Version12, indexing: Indexing()).HasBindless
+        );
+    }
+
+    /// <summary>
     ///     A table is sized by the lesser of the two update-after-bind ceilings.
     /// </summary>
     /// <remarks>
