@@ -128,6 +128,17 @@ sealed partial class EditorApplication : IDisposable {
     ViewBookmark camera;
     bool hierarchyStale = true;
 
+    /// <summary>What the outliner's filter box says, or <see langword="null" /> for no filter.</summary>
+    /// <remarks>
+    ///     Held here rather than read from the box, because a panel's factory runs again when it is
+    ///     reopened — so a filter kept in the control would be silently forgotten by closing the
+    ///     panel, which looks like the outliner spontaneously showing rows that were hidden.
+    /// </remarks>
+    string? hierarchyFilter;
+
+    /// <summary>Whether the tree is being told about the selection rather than reporting one.</summary>
+    bool hierarchyEchoing;
+
     /// <summary>Whether the inspector is showing the project's selection rather than a scene's.</summary>
     bool inspectingAssets;
 
@@ -345,6 +356,13 @@ sealed partial class EditorApplication : IDisposable {
 
         FollowSelection();
 
+        // ⚠ After the arbitration, and every frame rather than only after a rebuild. A selection
+        // made anywhere but the tree — a viewport click, a command, an undo — changes nothing
+        // structural, so a sync that only ran when the rows were rebuilt would leave the outliner
+        // highlighting whatever was clicked in it last. Comparing a handful of handles is the same
+        // trade this class already makes for the selections themselves.
+        SyncTreeSelection();
+
         if (viewport is not { } pane) {
             return;
         }
@@ -514,10 +532,31 @@ sealed partial class EditorApplication : IDisposable {
             panel => {
                 Contextual(panel, SceneContext);
 
+                // ⚠ Above the tree and outside it, because a filter is about the panel rather than
+                // about the control: the tree is a view of whatever it is handed, and what it is
+                // handed is this application's decision. `TreeView` has no filter of its own for
+                // the same reason it has no idea what an entity is.
+                var search = panel.Add<SearchBox>();
+                search.Placeholder = "Filter by name…";
+
+                search.ValueChanged += (_, value) => {
+                    hierarchyFilter = string.IsNullOrWhiteSpace(value) ? null : value;
+                    hierarchyStale = true;
+                };
+
                 hierarchy = panel.Add<TreeView>();
                 hierarchy.MultiSelect = true;
 
                 hierarchy.SelectionChanged += tree => {
+                    // ⚠ Ignored while the tree is being brought into line with the selection rather
+                    // than the other way round. Restoring the highlight after a rebuild raises this,
+                    // and writing it straight back would be the tree overwriting the very selection
+                    // it is being told about — which for a click in the viewport means the click is
+                    // undone on the next frame.
+                    if (hierarchyEchoing) {
+                        return;
+                    }
+
                     List<Entity> picked = [];
 
                     foreach (var node in tree.Selection) {
@@ -534,6 +573,8 @@ sealed partial class EditorApplication : IDisposable {
                         scene.Rename(entity, name);
                     }
                 };
+
+                hierarchy.Moved += (_, node) => Dropped(node);
 
                 Contextualise(hierarchy);
                 hierarchyStale = true;
@@ -1591,6 +1632,33 @@ sealed partial class EditorApplication : IDisposable {
         };
     }
 
+    /// <summary>What a drag in the outliner meant, as an undoable move of the document.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The tree has already moved the node by the time this runs, and the document has
+    ///         not.</b> <c>TreeView</c> owns the gesture and its own rows; the scene owns what is
+    ///         true. So this reads where the node landed, tells the document, and marks the tree
+    ///         stale either way — a move the document refuses (a cycle, an entity already there)
+    ///         would otherwise leave the outliner showing a hierarchy the scene does not have.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The whole selection moves when the dragged row is part of it.</b> The same rule
+    ///         the context menu follows, and for the same reason: dragging one of five selected rows
+    ///         and having four of them stay behind is the behaviour nobody means.
+    ///     </para>
+    /// </remarks>
+    void Dropped(TreeNode node) {
+        if (node.Tag is not Entity moved) {
+            return;
+        }
+
+        var parent = node.Parent is { Tag: Entity target } ? target : Entity.Null;
+        var entities = scene.Selection.Contains(moved) ? scene.Selection.ToList() : [moved];
+
+        scene.Reparent(entities, parent);
+        hierarchyStale = true;
+    }
+
     void RebuildHierarchy() {
         if (hierarchy is not { } tree) {
             return;
@@ -1610,12 +1678,98 @@ sealed partial class EditorApplication : IDisposable {
             tree.Expand(node);
         }
 
-        void Branch(TreeNode parent, Entity entity) {
+        ShowSelectionInTree(tree);
+
+        // ⚠ Whether a branch is kept is decided bottom-up: an entity survives the filter if it
+        // matches, and a parent survives if any of its descendants did. A filter that dropped a
+        // non-matching parent would take the matching child with it, which for a name typed into
+        // an outliner is the one row the user was looking for.
+        bool Branch(TreeNode parent, Entity entity) {
             var node = parent.Add(scene.NameOf(entity), entity);
+            var kept = Matches(entity);
 
             foreach (var child in Hierarchy.ChildrenOf(world, entity)) {
-                Branch(node, child);
+                kept |= Branch(node, child);
             }
+
+            if (!kept) {
+                parent.Remove(node);
+            }
+
+            return kept;
+        }
+    }
+
+    bool Matches(Entity entity) =>
+        hierarchyFilter is null
+        || scene.NameOf(entity).Contains(hierarchyFilter, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Brings the outliner's highlight into line with the document, when they differ.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Doc 20's "selection <i>into</i> the tree", which is the half that was missing.</b>
+    ///     Clicking a row selected an entity; selecting an entity anywhere else — the viewport, a
+    ///     command, an undo — left the outliner showing whatever had been clicked last, because the
+    ///     highlight is the tree's own state and nothing wrote it.
+    /// </remarks>
+    void SyncTreeSelection() {
+        if (hierarchy is not { } tree || hierarchyStale) {
+            return;
+        }
+
+        var shown = 0;
+        var agrees = true;
+
+        foreach (var node in tree.Selection) {
+            shown++;
+
+            if (node.Tag is not Entity entity || !scene.Selection.Contains(entity)) {
+                agrees = false;
+                break;
+            }
+        }
+
+        // Same count and every row selected is selected in the document: nothing to do, which is
+        // every frame in which nobody clicked anything.
+        if (agrees && shown == scene.Selection.Count) {
+            return;
+        }
+
+        ShowSelectionInTree(tree);
+    }
+
+    /// <inheritdoc cref="SyncTreeSelection" />
+    void ShowSelectionInTree(TreeView tree) {
+        if (scene.Selection.Count == 0) {
+            // ⚠ Guarded as well. Clearing the tree's rows raises `SelectionChanged` too, and letting
+            // that through would write an empty selection into whichever document the inspector had
+            // just been handed.
+            hierarchyEchoing = true;
+
+            try {
+                tree.Select(null);
+            } finally {
+                hierarchyEchoing = false;
+            }
+
+            return;
+        }
+
+        // ⚠ Guarded, because `Select` raises `SelectionChanged` and the handler writes the tree's
+        // selection back into the document. Without this, restoring a selection of three entities
+        // would set the document's to one — the first row selected — and the other two would vanish.
+        hierarchyEchoing = true;
+
+        try {
+            var first = true;
+
+            foreach (var node in Descendants(tree.Root)) {
+                if (node.Tag is Entity entity && scene.Selection.Contains(entity)) {
+                    tree.Select(node, first ? ModifierKeys.None : ModifierKeys.Control);
+                    first = false;
+                }
+            }
+        } finally {
+            hierarchyEchoing = false;
         }
     }
 

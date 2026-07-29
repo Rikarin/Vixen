@@ -101,12 +101,12 @@ looking at a real model:
 
 | Panel | What it is |
 |---|---|
-| Hierarchy | a `TreeView` over the scene's entities; selecting drives the shared selection, and renaming, creating and deleting are all undo entries |
+| Hierarchy | a `TreeView` over the scene's entities, with a name filter above it. Selection goes both ways — clicking a row selects, and selecting anywhere else highlights the row — and renaming, creating, deleting and dragging-to-reparent are all undo entries |
 | Inspector | an `InspectorView` over whichever selection was last clicked in — the scene's entities or the project's assets — recording every edit on the scene document's stack |
 | Scene | a `SceneViewport`: orbit, pan, zoom, the axis cross, gizmo modes and snapping, drawn into the panel — as lines, for the reason below |
 | Project | `ProjectBrowser`: the asset database as a tree, with a search box, over the real `Assets/` directory. Double-clicking a row opens the asset |
 | An asset | one per open document, built by whichever of the nine asset editors claims the file |
-| Console | still a line of text |
+| Console | a virtualised list over the editor's log ring: level toggles with counts, a category filter, search, collapse-duplicates, clear-on-play, and a detail pane with the stack |
 
 `Vixen.Editor.App.Tests` drives that arrangement the way `EditorHost` does — a real application, a
 real project in a temporary directory, real pointer events into the panels, no GPU — because what
@@ -371,9 +371,12 @@ warning would toast, log, toast, log.
   is a *project swapped underneath a live editor*: a world, an asset database and every open document
   replaced without tearing the window down. Doc 20 puts that behind the startup Project Browser in
   E3, and the two commands are registered, greyed and carrying that sentence meanwhile.
-- **Reparenting is not undoable.** Dragging in the hierarchy is not wired up either; the primitive
-  undo was waiting on — `Hierarchy.SetParentAfter`, which puts a child back where it was rather than
-  at the head — now exists, so what is missing is the command.
+- ~~**Reparenting is not undoable.**~~ `ReparentCommand` records the sibling that was in front —
+  `Hierarchy.PreviousSiblingOf`, restored through `SetParentAfter` — so an undo puts the third of
+  five children back third rather than first. Dragging in the outliner goes through it, and the
+  whole selection moves when the dragged row is part of it. ⚠ **A root is the exception**: roots are
+  not a sibling list, so an entity undone back to the root set returns in creation order. Making
+  that exact needs the scene format to carry a root order.
 - **Clicking in the viewport does not select.** ⚠ Not for want of a texture command any more — the
   draw list has one, and `Viewport` draws a `RenderTarget` through it. What picking needs is the
   *id* target and the readback: `PickingBuffer` and `PickingRenderer` in `Vixen.Editor.SceneView` are
