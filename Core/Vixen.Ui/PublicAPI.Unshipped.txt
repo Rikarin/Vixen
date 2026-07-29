@@ -248,6 +248,7 @@ Vixen.Ui.FontVariant.Weight.get -> int
 Vixen.Ui.FontVariant.Weight.init -> int
 Vixen.Ui.GestureRecognizer -> sealed class
 Vixen.Ui.GestureRecognizer.Cancel(int pointerId) -> bool
+Vixen.Ui.GestureRecognizer.EndTapRun() -> void
 Vixen.Ui.GestureRecognizer.GestureRecognizer(Vixen.Ui.GestureSettings? settings = null) -> void
 Vixen.Ui.GestureRecognizer.Process(Vixen.Ui.PointerEvent args, Vixen.Ui.UiElement? target) -> void
 Vixen.Ui.GestureRecognizer.Settings.get -> Vixen.Ui.GestureSettings

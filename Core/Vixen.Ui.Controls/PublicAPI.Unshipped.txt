@@ -241,6 +241,7 @@ Vixen.Ui.Controls.Menu : Vixen.Ui.Controls.Overlay
 Vixen.Ui.Controls.Menu.AddItem(string? label = null) -> Vixen.Ui.Controls.MenuItem
 Vixen.Ui.Controls.Menu.AddSeparator() -> Vixen.Ui.Controls.Separator
 Vixen.Ui.Controls.Menu.AddSubmenu(string? label = null) -> Vixen.Ui.Controls.Menu
+Vixen.Ui.Controls.Menu.Clear() -> void
 Vixen.Ui.Controls.Menu.CloseChain(Vixen.Ui.Controls.CloseReason reason) -> void
 Vixen.Ui.Controls.Menu.Items.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.MenuItem>
 Vixen.Ui.Controls.Menu.Menu() -> void

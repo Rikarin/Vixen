@@ -234,5 +234,74 @@ public static class BrowserTheme {
         browser-filters { flex-direction: row; align-items: center; gap: 6px; flex-shrink: 0; padding: 2px; }
         browser-filters > search-box { flex-grow: 1; min-width: 0; }
         browser-filters > select { flex-shrink: 0; width: 140px; }
+        browser-filters > .browser-view { flex-shrink: 0; }
+
+        /* ── The grid ───────────────────────────────────────────────────────────
+           ⚠ `flex-wrap` is the whole of the layout, and the tiles have a fixed basis so that
+           a row holds as many as fit rather than as many as the widest name allows. A grid
+           whose columns moved as you typed in the search box is one you cannot aim at. */
+        asset-grid { flex-direction: column; flex-grow: 1; min-height: 0; gap: 4px; }
+        asset-grid.hidden { display: none; }
+
+        asset-path { flex-direction: row; flex-wrap: wrap; align-items: center; flex-shrink: 0; gap: 2px; }
+        .asset-crumb { flex-shrink: 0; }
+
+        asset-tiles {
+            flex-direction: row;
+            flex-wrap: wrap;
+            align-content: flex-start;
+            flex-grow: 1;
+            gap: 4px;
+            padding: 4px;
+            overflow-y: auto;
+        }
+
+        asset-tile {
+            flex-direction: column;
+            align-items: center;
+            width: 78px;
+            flex-basis: 78px;
+            flex-grow: 0;
+            flex-shrink: 0;
+            padding: 8px 4px;
+            gap: 6px;
+            border-radius: var(--radius-row, 6px);
+        }
+
+        asset-tile:hover { background-color: var(--surface-hover, var(--surface-sunken)); }
+
+        /* The same `--accent-deep` the tree rows use, so a selection reads the same in both views. */
+        asset-tile:checked { background-color: var(--accent-deep, var(--accent)); color: #ffffff; }
+        asset-tile:checked icon { color: #ffffff; }
+
+        /* ⚠ Bigger than a row's icon by a lot. A grid whose glyphs are row-sized is a list with
+           gaps in it — the size *is* the affordance, and it is what makes the colour readable
+           from across the panel. */
+        asset-tile > icon { width: 40px; height: 40px; }
+
+        /* Two lines and then clipped: a tile whose height followed its name would make every row of
+           the grid a different height and the whole thing impossible to scan. */
+        asset-caption { text-align: center; font-size: 0.85em; max-height: 30px; overflow: hidden; }
+
+        .asset-note { color: var(--text-muted); font-size: 0.85em; padding: 2px 6px; }
+        .asset-note.hidden { display: none; }
+
+        /* ── The component foldouts ─────────────────────────────────────────────
+           One block per component, under the inspector's own rows and separated from them
+           by a rule, because "what this entity is" and "what is on it" are two lists and a
+           panel that ran them together reads as one long one. */
+        components { flex-direction: column; }
+
+        expander.component { border-width: 1px 0px 0px 0px; border-color: var(--border); }
+        expander.component > expander-header { flex-direction: row; align-items: center; }
+
+        /* ⚠ The remove button is faint until the header is hovered, and it is inside the header
+           rather than beside it — a component's Remove has to be unmistakably *that* component's,
+           and a column of identical crosses down the right of the panel is not. */
+        .remove-component { flex-shrink: 0; margin-left: auto; opacity: 0.2; }
+        expander-header:hover .remove-component { opacity: 1; }
+
+        .add-component { align-self: stretch; margin: 8px 4px 4px 4px; }
+        .add-component.hidden { display: none; }
         """;
 }

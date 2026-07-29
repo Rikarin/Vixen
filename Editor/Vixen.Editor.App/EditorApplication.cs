@@ -14,6 +14,7 @@ using Vixen.Editor.Inspector.Drawers;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
+using Vixen.Engine.Cameras;
 using Vixen.Engine.Transforms;
 using Vixen.Input;
 using Vixen.Rendering;
@@ -126,6 +127,17 @@ sealed partial class EditorApplication : IDisposable {
 
     SceneViewport? viewport;
     InspectorView? inspector;
+
+    /// <summary>The component foldouts under the inspector, while its panel is open.</summary>
+    ComponentsView? components;
+
+    /// <summary>Which components the editor can show, built once because the set is a process fact.</summary>
+    /// <remarks>
+    ///     A plugin registering a component would want this rebuilt; it is a list rather than a
+    ///     snapshot for that reason, and the day a plugin can add one is the day this grows a
+    ///     subscription.
+    /// </remarks>
+    readonly IReadOnlyList<IComponentBridge> bridges = ComponentsView.Default();
     TreeView? hierarchy;
     ContextMenu? hierarchyMenu;
     ContextMenu? assetMenu;
@@ -234,6 +246,15 @@ sealed partial class EditorApplication : IDisposable {
         play.Restored += (_, translation) => {
             scene.Remap(translation);
             hierarchyStale = true;
+        };
+
+        // ⚠ Not only after this panel's own commands. An *undo* of "remove component" puts the
+        // column back with nothing having been clicked, so a view that rebuilt only on its own
+        // edits would show a component that is gone and hide one that is back.
+        scene.ComponentsChanged += (_, changed) => {
+            if (components?.Entity == changed) {
+                components.Rebuild();
+            }
         };
 
         if (SceneSerializer.Load(scene, scenePath) == 0) {
@@ -407,6 +428,7 @@ sealed partial class EditorApplication : IDisposable {
         // highlighting whatever was clicked in it last. Comparing a handful of handles is the same
         // trade this class already makes for the selections themselves.
         SyncTreeSelection();
+        browser?.SyncSelection();
 
         if (viewport is not { } pane) {
             return;
@@ -512,8 +534,19 @@ sealed partial class EditorApplication : IDisposable {
     void Seed() {
         var root = scene.Add("Scene Root", LocalTransform.Identity);
 
-        scene.Add("Directional Light", LocalTransform.At(new Vector3(0f, 3f, 0f)), root);
-        scene.Add("Main Camera", LocalTransform.At(new Vector3(0f, 1.5f, 6f)), root);
+        // ⚠ Both carry the component their name claims, and until the component panel existed
+        // neither did. A first run showing a "Directional Light" that is not a light and a "Main
+        // Camera" that is not a camera was invisible while nothing drew what was on an entity; it is
+        // the first thing somebody clicking those two rows now sees.
+        var sun = scene.Add("Directional Light", LocalTransform.At(new Vector3(0f, 3f, 0f)) with {
+            Rotation = Aimed.Rotation
+        }, root);
+
+        Lights.Attach(world, sun, LightKind.Directional);
+
+        var camera = scene.Add("Main Camera", LocalTransform.At(new Vector3(0f, 1.5f, 6f)), root);
+
+        world.Add(camera, new Camera());
 
         var ground = scene.Add("Ground", LocalTransform.Identity, root);
 
@@ -709,6 +742,12 @@ sealed partial class EditorApplication : IDisposable {
             panel => {
                 inspector = panel.Add<InspectorView>();
                 inspector.EditedDocument = scene;
+
+                // ⚠ Under the inspector rather than inside it. `InspectorView` draws the members of
+                // one described type; which *types* are on an entity is a different question, and
+                // one it deliberately cannot ask — see `ComponentsView`.
+                components = panel.Add<ComponentsView>();
+                components.Attach(scene, bridges);
 
                 // ⚠ After it is in the tree, because the menu is a child of the document root and a
                 // control has no document until it is added to one.
@@ -1724,6 +1763,10 @@ sealed partial class EditorApplication : IDisposable {
         if (inspectingAssets) {
             inspector?.Inspect([.. project.Selection.Select(asset => new ProjectAsset(project, asset))]);
 
+            // An asset has no components, and leaving the last entity's foldouts under it would be a
+            // panel showing two different things at once.
+            components?.Show(Entity.Null);
+
             Shell.Status = project.Selection.Count switch {
                 0 => project.Name,
                 1 => project.Assets.TryGetByGuid(project.Selection[0], out var entry) ? entry.Name : project.Name,
@@ -1743,6 +1786,13 @@ sealed partial class EditorApplication : IDisposable {
             view.EditedDocument = document;
             view.Inspect([.. document.Selection.Select(entity => new SceneEntity(document, entity))]);
         }
+
+        // ⚠ Only this editor's own scene. The foldouts write through `scene.Stack`, and a document
+        // opened as an asset has a stack of its own — showing its entity's components here would put
+        // the edit on the wrong one, which is the hazard the line above guards for the rows.
+        components?.Show(
+            ReferenceEquals(document, scene) && document.Selection.Count > 0 ? document.Selection[0] : Entity.Null
+        );
 
         Shell.Status = document.Selection.Count switch {
             0 => project.Name,
