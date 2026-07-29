@@ -183,6 +183,13 @@ public sealed class GlobalDistanceFieldTexture : IDisposable {
     ///         that could disagree with the number of descriptors actually bound. Ask the effect.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>And a clipmap of a different depth than the shader's <c>LevelCount</c> binds the
+    ///         wrong number of descriptors, which nothing here catches.</b> That permutation is not
+    ///         selectable from a host — the compiler does not surface a composed shader's keys through
+    ///         the pass composing it — so four is the only value until it does. Building a
+    ///         <see cref="GlobalDistanceField" /> with any other level count is silently wrong.
+    ///     </para>
+    ///     <para>
     ///         <b><paramref name="shaderName" /> has no default, deliberately.</b> A composed slot's
     ///         bindings are named for the <i>slot</i> rather than for the shader that declared them —
     ///         <c>DistanceFieldAo.GlobalDistanceField.distanceFieldVolumes[0]</c>, not

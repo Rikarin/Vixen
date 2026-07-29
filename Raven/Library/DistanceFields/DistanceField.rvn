@@ -249,6 +249,13 @@ protocol IDistanceFieldSource {
 /// descriptors bound.
 shader GlobalDistanceField : IDistanceFieldSource {
     /// How many nested volumes the clipmap has, finest first.
+    ///
+    /// ⚠ **Not selectable by a host today, so this is the only value rather than a default.** The
+    /// compiler surfaces a pass's own permutations and not those of the shaders composed into it, so
+    /// nothing outside this file can set it — and a clipmap built with a different level count would
+    /// bind the wrong number of descriptors, which nothing currently catches.
+    /// `DistanceFieldDeviceTests.OnlyThePassesOwnPermutationsAreSelectable` asserts that, so it fails
+    /// the day it stops being true.
     [Permutation] val LevelCount: int = 4
 
     [PerFrame] var distanceFieldLevels: Texture3D[LevelCount]

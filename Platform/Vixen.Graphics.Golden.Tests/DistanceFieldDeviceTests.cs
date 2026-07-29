@@ -100,11 +100,35 @@ public sealed class DistanceFieldDeviceTests {
         );
     }
 
-    // ⚠ Not tested here: that `LevelCount` sizes the binding. Overriding a permutation declared on a
-    // *composed* shader rather than on the pass needs a key whose form I could not establish from the
-    // compiler's surface — `GlobalDistanceField.LevelCount` and the pass-qualified form both leave the
-    // array at four. The property is real and the Raven side asserts the declaration; what is missing
-    // is a test that a host can select it, and finding the key is the work.
+    /// <summary>
+    ///     <b>A composed shader's permutations are not selectable through the pass that composes it.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>GlobalDistanceField</c> declares <c>LevelCount</c>, and it sizes a binding — the
+    ///         array of volume textures is exactly that many descriptors. But the compiler surfaces
+    ///         only the pass's own permutations, so a host has no key to set it with and every
+    ///         compilation gets the shader's declared default.
+    ///     </para>
+    ///     <para>
+    ///         The consequence is worth being plain about: <b>a clipmap with a level count other than
+    ///         the shader's default binds the wrong number of descriptors</b>, and nothing on either
+    ///         side currently notices. Until the compiler forwards a composed shader's keys, four
+    ///         levels is not a default — it is the only value, and a project wanting two needs the
+    ///         shader edited rather than a setting changed.
+    ///     </para>
+    ///     <para>
+    ///         Asserted rather than left as a note, so that the day it becomes selectable this test
+    ///         fails and says where to look.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void OnlyThePassesOwnPermutationsAreSelectable() {
+        var declared = Compiler().Declared("DistanceFieldAo", Tracing()).Select(info => info.Name).ToArray();
+
+        Assert.Equal(["SunShadow"], declared);
+        Assert.DoesNotContain("LevelCount", declared);
+    }
 
     /// <summary>The shader behind the slot, whose name every binding of the field carries.</summary>
     const string Source = "GlobalDistanceField";
