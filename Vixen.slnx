@@ -207,6 +207,12 @@
     <Project Path="Platform/Vixen.Platform.MacOS.Tests/Vixen.Platform.MacOS.Tests.csproj" />
     <Project Path="Platform/Vixen.Platform.Native/Vixen.Platform.Native.csproj" />
     <Project Path="Platform/Vixen.Platform.Native.Tests/Vixen.Platform.Native.Tests.csproj" />
+    <!--
+      The join between Vixen.Platform and Vixen.Ui. It is in Platform/ rather than Core/ because it
+      references a window, and Core may not — which is the whole reason the assembly exists.
+    -->
+    <Project Path="Platform/Vixen.Platform.Ui/Vixen.Platform.Ui.csproj" />
+    <Project Path="Platform/Vixen.Platform.Ui.Tests/Vixen.Platform.Ui.Tests.csproj" />
     <Project Path="Platform/Vixen.Graphics.Null/Vixen.Graphics.Null.csproj" />
     <Project Path="Platform/Vixen.Graphics.Null.Tests/Vixen.Graphics.Null.Tests.csproj" />
     <Project Path="Platform/Vixen.Graphics.Golden.Tests/Vixen.Graphics.Golden.Tests.csproj" />

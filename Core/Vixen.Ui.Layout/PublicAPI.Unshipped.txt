@@ -190,6 +190,7 @@ Vixen.Ui.Layout.LayoutTree.GetTop(Vixen.Ui.Layout.LayoutNodeId node) -> float
 Vixen.Ui.Layout.LayoutTree.GetWidth(Vixen.Ui.Layout.LayoutNodeId node) -> float
 Vixen.Ui.Layout.LayoutTree.HasNewLayout(Vixen.Ui.Layout.LayoutNodeId node) -> bool
 Vixen.Ui.Layout.LayoutTree.InsertChild(Vixen.Ui.Layout.LayoutNodeId parent, Vixen.Ui.Layout.LayoutNodeId child, int index) -> void
+Vixen.Ui.Layout.LayoutTree.Invalidate(Vixen.Ui.Layout.LayoutNodeId node) -> void
 Vixen.Ui.Layout.LayoutTree.IsDirty(Vixen.Ui.Layout.LayoutNodeId node) -> bool
 Vixen.Ui.Layout.LayoutTree.LayoutTree() -> void
 Vixen.Ui.Layout.LayoutTree.MarkDirty(Vixen.Ui.Layout.LayoutNodeId node) -> void

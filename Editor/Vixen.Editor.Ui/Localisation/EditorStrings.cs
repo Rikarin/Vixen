@@ -89,6 +89,9 @@ public static class EditorStrings {
     /// <summary>Saves the arrangement under a name.</summary>
     public static StringId CommandSaveLayout { get; } = new("editor.command.view.save-layout", "Save Layout…");
 
+    /// <summary>Takes the panel the user is in out into a window of its own.</summary>
+    public static StringId CommandFloatPanel { get; } = new("editor.command.view.float-panel", "Float Panel");
+
     /// <summary>Switches between the light and dark themes.</summary>
     public static StringId CommandToggleTheme { get; } = new("editor.command.view.toggle-theme", "Toggle Dark Theme");
 
@@ -159,6 +162,7 @@ public static class EditorStrings {
         CommandPalette,
         CommandResetLayout,
         CommandSaveLayout,
+        CommandFloatPanel,
         CommandToggleTheme,
         CommandAbout,
         CommandDocumentation,

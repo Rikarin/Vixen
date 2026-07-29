@@ -385,10 +385,12 @@ Vixen.Ui.Controls.Advanced.DockLayout.AddFloating(Vixen.Ui.Controls.Advanced.Doc
 Vixen.Ui.Controls.Advanced.DockLayout.Contains(Vixen.Ui.Controls.Advanced.DockGroupNode group) -> bool
 Vixen.Ui.Controls.Advanced.DockLayout.Dock(string id, Vixen.Ui.Controls.Advanced.DockGroupNode target, Vixen.Ui.Controls.Advanced.DockZone zone) -> void
 Vixen.Ui.Controls.Advanced.DockLayout.DockLayout() -> void
+Vixen.Ui.Controls.Advanced.DockLayout.DockedGroups() -> System.Collections.Generic.List<Vixen.Ui.Controls.Advanced.DockGroupNode>
 Vixen.Ui.Controls.Advanced.DockLayout.Find(string id) -> (Vixen.Ui.Controls.Advanced.DockGroupNode Group, int Index)?
 Vixen.Ui.Controls.Advanced.DockLayout.Float(string id, float x, float y, float width = 320, float height = 240) -> void
 Vixen.Ui.Controls.Advanced.DockLayout.Floating.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.DockFloat>
 Vixen.Ui.Controls.Advanced.DockLayout.Groups() -> System.Collections.Generic.List<Vixen.Ui.Controls.Advanced.DockGroupNode>
+Vixen.Ui.Controls.Advanced.DockLayout.IndexOfFloating(Vixen.Ui.Controls.Advanced.DockGroupNode group) -> int
 Vixen.Ui.Controls.Advanced.DockLayout.Prune() -> void
 Vixen.Ui.Controls.Advanced.DockLayout.RemoveFloating(int index) -> void
 Vixen.Ui.Controls.Advanced.DockLayout.RemovePanel(string id) -> bool
@@ -436,10 +438,13 @@ Vixen.Ui.Controls.Advanced.DockZone.Right = 2 -> Vixen.Ui.Controls.Advanced.Dock
 Vixen.Ui.Controls.Advanced.DockZone.Top = 3 -> Vixen.Ui.Controls.Advanced.DockZone
 Vixen.Ui.Controls.Advanced.DockingHost -> sealed class
 Vixen.Ui.Controls.Advanced.DockingHost : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.DockingHost.Active.get -> Vixen.Ui.Controls.Advanced.DockPanel?
 Vixen.Ui.Controls.Advanced.DockingHost.AddPanel(string id, string? title = null) -> Vixen.Ui.Controls.Advanced.DockPanel
+Vixen.Ui.Controls.Advanced.DockingHost.CanTearOut.get -> bool
 Vixen.Ui.Controls.Advanced.DockingHost.Detached.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Advanced.DockingHost.Dock(string id, Vixen.Ui.Controls.Advanced.DockGroupNode target, Vixen.Ui.Controls.Advanced.DockZone side) -> void
 Vixen.Ui.Controls.Advanced.DockingHost.DockingHost() -> void
+Vixen.Ui.Controls.Advanced.DockingHost.Float(string id) -> bool
 Vixen.Ui.Controls.Advanced.DockingHost.Float(string id, float x, float y, float width = 320, float height = 240) -> void
 Vixen.Ui.Controls.Advanced.DockingHost.Groups.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.DockGroupView>
 Vixen.Ui.Controls.Advanced.DockingHost.Layout.get -> Vixen.Ui.Controls.Advanced.DockLayout
@@ -452,6 +457,7 @@ Vixen.Ui.Controls.Advanced.DockingHost.RemovePanel(string id) -> bool
 Vixen.Ui.Controls.Advanced.DockingHost.Save() -> string
 Vixen.Ui.Controls.Advanced.DockingHost.SetLayout(Vixen.Ui.Controls.Advanced.DockLayout layout) -> void
 Vixen.Ui.Controls.Advanced.DockingHost.Surface.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.DockingHost.TornWindowCount.get -> int
 Vixen.Ui.Controls.Advanced.DropPosition -> enum : byte
 Vixen.Ui.Controls.Advanced.DropPosition.After = 2 -> Vixen.Ui.Controls.Advanced.DropPosition
 Vixen.Ui.Controls.Advanced.DropPosition.Before = 1 -> Vixen.Ui.Controls.Advanced.DropPosition
@@ -1019,6 +1025,7 @@ override Vixen.Ui.Controls.Advanced.DockSplitterView.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.DockTab.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.DockingHost.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Advanced.DockingHost.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.DockingHost.OnRemoved() -> void
 override Vixen.Ui.Controls.Advanced.DockingHost.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.GradientBar.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Advanced.GradientBar.OnDraw(Vixen.Ui.DrawContext context) -> void

@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Raven.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Platform.Ui\Vixen.Platform.Ui.csproj" />
+
+        <!--
+            The headless platform is what makes a window host testable with no display server: it
+            creates windows that have a size, an id and an event stream and show nobody anything,
+            which is exactly enough for "was a second surface made, and did it go away again".
+        -->
+        <ProjectReference Include="..\Vixen.Platform.Headless\Vixen.Platform.Headless.csproj" />
+    </ItemGroup>
+</Project>

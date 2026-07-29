@@ -88,10 +88,27 @@ public sealed class DrawListBuilder {
     /// <returns>Whether the drawing differs from the previous frame's.</returns>
     public bool Build(UiDocument document, DrawList into) {
         ArgumentNullException.ThrowIfNull(document);
+        return Build(document, document.Root, into);
+    }
+
+    /// <summary>Walks one surface of a document and fills a draw list.</summary>
+    /// <param name="document">The document, already updated.</param>
+    /// <param name="root">The surface's root — <see cref="UiSurface.Root" />.</param>
+    /// <param name="into">The list to fill.</param>
+    /// <returns>Whether the drawing differs from the previous frame's.</returns>
+    /// <remarks>
+    ///     One list per window, because one window's frame is not another's. The walk stops at any
+    ///     <i>other</i> surface's root it meets: a torn-off panel is still a child of this tree, and
+    ///     drawing it here would put a copy of it in the main window at whatever coordinates its own
+    ///     window happens to use.
+    /// </remarks>
+    public bool Build(UiDocument document, UiElement root, DrawList into) {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(root);
         ArgumentNullException.ThrowIfNull(into);
 
         into.BeginFrame();
-        Emit(document, document.Root, into, 1f);
+        Emit(document, root, into, 1f);
         return into.EndFrame();
     }
 
@@ -178,6 +195,12 @@ public sealed class DrawListBuilder {
         // a `z-index`. Hit testing walks the same property backwards, and that is the whole reason
         // it is a property of the element rather than a loop written twice.
         foreach (var child in element.PaintOrder) {
+            // Another window's tree, which this frame is not. It is walked by its own surface's
+            // build, against its own size and its own pixel grid.
+            if (child.SurfaceRoot is not null) {
+                continue;
+            }
+
             Emit(document, child, into, alpha);
         }
 

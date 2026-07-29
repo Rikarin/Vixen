@@ -18,16 +18,32 @@ the same reason. With no `--frames` it runs until the window closes.
 
 | | |
 |---|---|
-| `Program.cs` | the platform and the window |
-| `EditorHost.cs` | the device and the four steps of a frame |
+| `Program.cs` | the platform and the main window |
+| `EditorHost.cs` | the device, the windows and the four steps of a frame |
+| `EditorPane.cs` | one window's half of a frame: a swapchain, a renderer and the geometry between them |
 | `EditorApplication.cs` | the project, the scene, which panels exist, which layouts, and what persists |
 | `SceneEntity.cs` | the join: one entity as a row of editors and as something a gizmo can drag |
 
-The third is the one a game team would fork. The first two are the same hundred lines
-`Samples/02-HelloUi` has, and the loop is four steps worth naming: pump the platform's events into
-the document, run the layout and draw passes, turn the draw list into geometry, record that geometry
-into a frame. Only the last knows what a GPU is — which is why `--frames` means something on a
-machine with no Vulkan at all.
+The fourth is the one a game team would fork. The loop is four steps worth naming: pump the
+platform's events into the document, run the layout and draw passes, turn the draw lists into
+geometry, record that geometry into frames. Only the last knows what a GPU is — which is why
+`--frames` means something on a machine with no Vulkan at all.
+
+**Only the last step multiplies.** A panel torn out onto the desktop is a second `UiSurface` of the
+*same* document, so it is laid out by the same pass, styled by the same cascade and reached by the
+same reparent that moved it there. What it needs of its own is an `EditorPane`. Two things about that
+which are not obvious:
+
+- **A `UiRenderer` each, not one shared.** The renderer rings its vertex and box buffers across the
+  device's frames in flight and advances a region per `Upload`, so two uploads in one device frame
+  consume two regions — and after as many frames as there are regions the second window writes over
+  geometry the GPU is still reading. Sharing it is a validation-clean way to draw yesterday's frame.
+- **A pane exists without a device.** On a headless run the surface is still laid out, still drawn
+  and still turned into vertices; only the presenting is missing. A pane that came into existence
+  with a swapchain would make `--frames` prove nothing about the window it never opened.
+
+`--run view.float-panel` is the end-to-end proof: it opens a second operating-system window, gives it
+a swapchain and presents to it, validation-clean.
 
 `Shaders/` is the fifth thing and is its own README: nine SPIR-V modules from three Raven sources, and
 the reflection beside them that tells `EditorHost` where each vertex attribute and each descriptor
@@ -250,5 +266,6 @@ rebuilt; without it, closing and reopening the viewport puts the user back at th
   other consumer of `UiShape` could. The Raven port is the current behaviour and the duplication is
   still the gap. What closes it is one set of `.rvn` the three of them share, which is a move rather
   than a rewrite now that there is somewhere to move from.
-- **`PlatformInput.cs` is the second copy of the same file.** The sample's copy says a
-  `Vixen.Platform.Ui` assembly is where it goes "when the editor becomes the second one". It now has.
+- ~~**`PlatformInput.cs` is the second copy of the same file.**~~ Closed: both copies are gone and
+  `Vixen.Platform.Ui` holds the one. Multi-window is what forced it — routing an event to the wrong
+  surface is a bug two copies would have to be fixed for twice.

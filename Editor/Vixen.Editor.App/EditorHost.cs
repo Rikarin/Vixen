@@ -8,8 +8,10 @@ using Vixen.Graphics;
 using Vixen.Graphics.RenderGraph;
 using Vixen.Graphics.Vulkan;
 using Vixen.Platform;
+using Vixen.Platform.Ui;
 using Vixen.Rendering;
 using Vixen.Shaders.Generated;
+using Vixen.Ui;
 using Vixen.Ui.Renderer;
 using Vixen.Ui.Rendering;
 using Vixen.Ui.Text;
@@ -17,13 +19,20 @@ using Vixen.Ui.Text.Rasterizing;
 
 namespace Vixen.Editor.App;
 
-/// <summary>The window, the device, and the four steps of a frame.</summary>
+/// <summary>The windows, the device, and the four steps of a frame.</summary>
 /// <remarks>
 ///     <para>
 ///         The loop is four steps and they are worth naming: pump the platform's events into the
-///         document, run the layout and draw passes, turn the draw list into geometry, and record
+///         document, run the layout and draw passes, turn the draw lists into geometry, and record
 ///         that geometry into a frame. Only the last of the four knows what a GPU is — which is why
 ///         <c>--frames N</c> means something on a machine with no Vulkan at all.
+///     </para>
+///     <para>
+///         <b>Windows, plural, and only the last step multiplies.</b> A panel torn out of the
+///         arrangement onto the desktop is a second <c>UiSurface</c> of the same document — so it is
+///         laid out by the same pass, styled by the same cascade and reached by the same reparent
+///         that moved it. What it needs of its own is a swapchain, a renderer and an extent, and an
+///         <see cref="EditorPane" /> is those three.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>It draws every frame rather than when something changes.</b> An editor that redrew
@@ -37,26 +46,16 @@ sealed class EditorHost : IDisposable {
     readonly IPlatform platform;
     readonly IWindow window;
     readonly EditorApplication editor;
+    readonly PlatformWindowHost windows;
 
-    readonly UiGeometryBuilder geometry = new();
     readonly GlyphFieldCache glyphs = new(new GlyphAtlas(1024, 1024));
+    readonly List<EditorPane> panes = [];
 
     ScenePresenter? scene;
     VulkanDevice? device;
     TransientResourcePool? pool;
     RenderGraph? graph;
-    ISwapChain? swapChain;
-    UiRenderer? renderer;
-
-    /// <summary>The framebuffer size the swapchain was last built for.</summary>
-    /// <remarks>
-    ///     ⚠ <b>What was asked for, not what came back.</b> The surface decides its own extent —
-    ///     <c>VkSurfaceCapabilities.currentExtent</c> overrides the request — so a swapchain built
-    ///     for a 3840×2160 window can legitimately report a different size, and comparing against
-    ///     <c>swapChain.Size</c> would find a difference that rebuilding cannot remove. That is a
-    ///     rebuild every frame, for ever.
-    /// </remarks>
-    Int2 built;
+    UiShaders shaders;
 
     bool running = true;
     bool lost;
@@ -74,6 +73,12 @@ sealed class EditorHost : IDisposable {
         ) {
             RenderScale = Scale
         };
+
+        // ⚠ Installed on the document, which is what makes a torn-off dock group a real window
+        // rather than a rectangle drawn inside this one. Nothing in `Vixen.Ui.Controls.Advanced`
+        // names this type — the docking host asks the document, the document asks `IUiWindowHost`,
+        // and this is the only assembly in the chain allowed to know what a window is.
+        windows = new PlatformWindowHost(platform, editor.Shell.Document, window);
 
         Fonts.Install(editor.Shell.Document);
     }
@@ -112,12 +117,15 @@ sealed class EditorHost : IDisposable {
             // drawn — every rebuild handing the compositor images whose contents are undefined,
             // which is what the flicker is. Coalescing also keeps the layout and the geometry in
             // step: both are read from the same framebuffer size, once, before anything uses it.
+            //
+            // Only the main window's, because only the main window's size is the shell's. Every
+            // other surface was resized by the window host as the event arrived, and its swapchain
+            // is rebuilt from the size comparison in `EditorPane.Recreate`.
             if (resized) {
                 resized = false;
 
                 editor.Shell.Resize(window.FramebufferSize.X / Scale, window.FramebufferSize.Y / Scale);
                 editor.RenderScale = Scale;
-                Recreate();
             }
 
             editor.Shell.Tick(now, delta);
@@ -132,7 +140,10 @@ sealed class EditorHost : IDisposable {
 
             editor.Shell.Document.Draw();
 
-            Present(Build());
+            Sync();
+            Build();
+            Present();
+
             drawn++;
 
             // ⚠ After the first frame rather than before the loop, so the command runs against a
@@ -161,6 +172,11 @@ sealed class EditorHost : IDisposable {
     /// <inheritdoc />
     public void Dispose() {
         Release();
+
+        // Before the document, because closing a window removes its surface and a surface is part of
+        // the document's tree. The other way round is a window host reaching into a disposed one.
+        windows.Dispose();
+
         editor.Dispose();
     }
 
@@ -168,14 +184,35 @@ sealed class EditorHost : IDisposable {
         foreach (var platformEvent in platform.PumpEvents()) {
             switch (platformEvent.Kind) {
                 case PlatformEventKind.Quit:
+                    running = false;
+                    return;
+
                 case PlatformEventKind.WindowCloseRequested:
+                    // ⚠ Asked first, and the answer decides whose close this is. A torn-off panel's
+                    // window is handled by the host — it becomes a request the docking host answers
+                    // by bringing the panels home — and only a close nobody claimed is the editor
+                    // being asked to quit.
+                    if (windows.Handle(platformEvent)) {
+                        break;
+                    }
+
                     running = false;
                     return;
 
                 case PlatformEventKind.WindowResized:
+                case PlatformEventKind.WindowDpiChanged:
+                    windows.Handle(platformEvent);
+
                     // Recorded rather than acted on: the window is the authority on its own size and
                     // the frame reads it once, above.
-                    resized = true;
+                    if (platformEvent.WindowId == window.Id) {
+                        resized = true;
+                    }
+
+                    break;
+
+                case PlatformEventKind.WindowMoved:
+                    windows.Handle(platformEvent);
                     break;
 
                 case PlatformEventKind.Suspending:
@@ -183,132 +220,214 @@ sealed class EditorHost : IDisposable {
                     break;
 
                 default:
-                    PlatformInput.Dispatch(editor.Shell.Document, platformEvent);
+                    // ⚠ Routed by the window the event names. Two windows do not share a coordinate
+                    // space, so an event delivered to the wrong surface lands at the right numbers in
+                    // the wrong place — which looks exactly like a hit-testing bug and is a routing
+                    // one. A window this host does not know about is one that has just been closed,
+                    // and its last few events are dropped rather than sent somewhere arbitrary.
+                    if (windows.TryResolve(platformEvent.WindowId, out var surface)) {
+                        PlatformInput.Dispatch(editor.Shell.Document, surface, platformEvent);
+                    }
+
                     break;
             }
         }
     }
 
-    /// <summary>Turns this frame's draw list into vertices.</summary>
+    /// <summary>Brings the panes into line with the document's surfaces.</summary>
+    /// <remarks>
+    ///     Once a frame rather than on an event, because a surface appears and disappears from inside
+    ///     the docking host — a tab dragged onto the desktop, a window closed — and a host that had
+    ///     to be told would be a second place that has to agree with the first.
+    /// </remarks>
+    void Sync() {
+        for (var i = panes.Count - 1; i >= 0; i--) {
+            if (!panes[i].Surface.IsRemoved) {
+                continue;
+            }
+
+            // The images this pane's swapchain owns may still be in flight. A window closed while a
+            // frame referencing it is queued is a use-after-free the validation layers will name and
+            // the driver will not.
+            device?.WaitIdle();
+
+            panes[i].Dispose();
+            panes.RemoveAt(i);
+        }
+
+        foreach (var surface in editor.Shell.Document.Surfaces) {
+            if (Pane(surface) is not null || !windows.TryWindow(surface, out var opened)) {
+                continue;
+            }
+
+            panes.Add(new EditorPane(surface, opened));
+        }
+    }
+
+    EditorPane? Pane(UiSurface surface) {
+        foreach (var pane in panes) {
+            if (ReferenceEquals(pane.Surface, surface)) {
+                return pane;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Turns each window's draw list into vertices.</summary>
     /// <remarks>
     ///     ⚠ <b>Built whether or not there is a device.</b> On a headless run — no surface, no
     ///     Vulkan — everything above the RHI still executes, which is what makes <c>--frames</c> a
-    ///     smoke test of the editor rather than only of the backend.
+    ///     smoke test of the editor rather than only of the backend, torn-off windows included.
     /// </remarks>
-    UiGeometry Build() => geometry.Build(editor.Shell.Document.Drawing, glyphs, Surface());
+    void Build() {
+        foreach (var pane in panes) {
+            pane.Frame = pane.Geometry.Build(pane.Surface.Drawing, glyphs, pane.Extent);
+        }
+    }
 
     /// <summary>How many physical pixels one device-independent one is, never zero.</summary>
     float Scale => window.DpiScale <= 0f ? 1f : window.DpiScale;
 
-    /// <summary>The window's client area in the units the document is laid out in.</summary>
-    Rectangle Surface() => new(0f, 0f, window.FramebufferSize.X / Scale, window.FramebufferSize.Y / Scale);
-
-    void Present(UiGeometry frame) {
-        var scale = Scale;
-        var surface = Surface();
-
+    void Present() {
         if (lost || !EnsureDevice()) {
             return;
         }
 
         device!.BeginFrame();
 
-        if (!Acquire(out var view)) {
-            // ⚠ Ended even though nothing was drawn, and this is not tidiness. `BeginFrame` waits on
-            // this slot's fence and resets it; `EndFrame` is what submits the signal that makes the
-            // wait return. Leaving without it means the frame counter never advances, so the next
-            // frame waits on the same reset fence with no submission behind it — `vkWaitForFences`
-            // with no timeout, which is a hang rather than a dropped frame.
-            device.EndFrame();
-            return;
-        }
+        foreach (var pane in panes) {
+            pane.IsDrawing = false;
 
-        using (var commands = device.BeginCommandList(QueueKind.Graphics, "ui")) {
-            var backbuffer = graph!.ImportTexture(
-                swapChain!.CurrentTexture,
-                view,
-                new(
-                    swapChain.Format,
-                    swapChain.Size.X,
-                    swapChain.Size.Y,
-                    TextureUsage.ColourTarget,
-                    Name: "backbuffer"
-                ),
-                ResourceState.Undefined,
-                ResourceState.Present
-            );
-
-            // ⚠ Before the pass, not inside it. The atlas upload is a transfer and a layout
-            // transition, and a render pass is the one place a Vulkan command list may not do
-            // either. The scene's lines are a buffer write and are here for the same reason.
-            renderer!.Upload(commands, frame, glyphs.Atlas);
-
-            // ⚠ Declared before the interface's pass, so the graph orders the two from the read: the
-            // interface samples what the scene wrote, and the barrier between them is derived rather
-            // than placed by hand.
-            var sampled = default(GraphTexture);
-            var hasScene = false;
-
-            if (editor.Viewport is { } pane && scene is not null && scene.Resize(pane, renderer)) {
-                scene.Upload(editor.Scene, pane);
-                hasScene = scene.Declare(graph, pane, out sampled);
+            if (!pane.Ensure(device, shaders)) {
+                continue;
             }
 
-            graph.AddPass(
-                "ui",
-                pass => {
-                    pass.ColourAttachment(backbuffer, LoadAction.Clear, new Color4(0.06f, 0.07f, 0.09f, 1f));
-                    pass.SideEffect();
+            pane.Recreate(device);
 
-                    // ⚠ The scene's target is sampled through a descriptor set, which the graph
-                    // cannot see. Saying so here is what orders the scene's pass before this one and
-                    // puts the layout transition between them — without it the target is still a
-                    // colour attachment when the fragment shader reads it.
-                    if (hasScene) {
-                        pass.Reads(sampled);
-                    }
+            if (!Acquire(pane, out var view)) {
+                continue;
+            }
 
-                    // ⚠ The logical surface and the DPI scale, not the swapchain's size. The
-                    // geometry is in device-independent units and the scissor comes out in
-                    // framebuffer pixels; passing the framebuffer for both draws the whole
-                    // interface into the top-left quarter of the window.
-                    pass.Execute(
-                        context => renderer.Record(
-                            context.CommandList,
-                            frame,
-                            new Int2((int) MathF.Round(surface.Width), (int) MathF.Round(surface.Height)),
-                            scale
-                        )
-                    );
-                }
-            );
+            pane.Acquired = view;
+            pane.IsDrawing = true;
 
-            graph.Execute(commands);
-            graph.Reset();
-
-            commands.Finish();
-            device.GraphicsQueue.Submit([commands]);
+            Record(pane);
         }
 
+        // ⚠ Ended even when nothing was drawn, and this is not tidiness. `BeginFrame` waits on this
+        // slot's fence and resets it; `EndFrame` is what submits the signal that makes the wait
+        // return. Leaving without it means the frame counter never advances, so the next frame waits
+        // on the same reset fence with no submission behind it — `vkWaitForFences` with no timeout,
+        // which is a hang rather than a dropped frame.
         device.EndFrame();
 
-        switch (swapChain.Present()) {
-            case SwapChainStatus.OutOfDate:
-                Recreate(force: true);
-                break;
+        foreach (var pane in panes) {
+            if (!pane.IsDrawing) {
+                continue;
+            }
 
-            // ⚠ Suboptimal is a hint, and rebuilding on it unconditionally is the flicker. It means
-            // "this still presents correctly, but the surface would prefer other parameters" — and
-            // a compositor that keeps saying so, which a scaled 4K surface does, then gets a
-            // `vkDeviceWaitIdle` and a fresh set of undefined images every single frame. Honoured
-            // only when the window has actually changed size, which `Recreate` is what decides.
-            case SwapChainStatus.Suboptimal:
-                Recreate();
-                break;
+            switch (pane.SwapChain!.Present()) {
+                case SwapChainStatus.OutOfDate:
+                    pane.Recreate(device, force: true);
+                    break;
 
-            default:
-                break;
+                // ⚠ Suboptimal is a hint, and rebuilding on it unconditionally is the flicker. It
+                // means "this still presents correctly, but the surface would prefer other
+                // parameters" — and a compositor that keeps saying so, which a scaled 4K surface
+                // does, then gets a `vkDeviceWaitIdle` and a fresh set of undefined images every
+                // single frame. Honoured only when the window has actually changed size, which
+                // `Recreate` is what decides.
+                case SwapChainStatus.Suboptimal:
+                    pane.Recreate(device);
+                    break;
+
+                default:
+                    break;
+            }
         }
+    }
+
+    /// <summary>Records one window's frame into its own command list.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A command list and a graph execution per window, rather than one of each for the
+    ///     frame.</b> Each window has its own backbuffer, its own extent and its own imported
+    ///     resource, and a graph carrying two windows' passes would have to be told they are
+    ///     independent — which is a thing to get wrong in exchange for one fewer submission.
+    /// </remarks>
+    void Record(EditorPane pane) {
+        var scale = pane.Scale;
+        var extent = pane.Extent;
+
+        using var commands = device!.BeginCommandList(QueueKind.Graphics, "ui");
+
+        var backbuffer = graph!.ImportTexture(
+            pane.SwapChain!.CurrentTexture,
+            pane.Acquired,
+            new(
+                pane.SwapChain.Format,
+                pane.SwapChain.Size.X,
+                pane.SwapChain.Size.Y,
+                TextureUsage.ColourTarget,
+                Name: "backbuffer"
+            ),
+            ResourceState.Undefined,
+            ResourceState.Present
+        );
+
+        var renderer = pane.Renderer!;
+
+        // ⚠ Before the pass, not inside it. The atlas upload is a transfer and a layout transition,
+        // and a render pass is the one place a Vulkan command list may not do either. The scene's
+        // lines are a buffer write and are here for the same reason.
+        renderer.Upload(commands, pane.Frame, glyphs.Atlas);
+
+        // ⚠ Declared before the interface's pass, so the graph orders the two from the read: the
+        // interface samples what the scene wrote, and the barrier between them is derived rather
+        // than placed by hand.
+        var sampled = default(GraphTexture);
+        var hasScene = false;
+
+        if (pane.IsPrimary && editor.Viewport is { } viewport && scene is not null && scene.Resize(viewport, renderer)) {
+            scene.Upload(editor.Scene, viewport);
+            hasScene = scene.Declare(graph, viewport, out sampled);
+        }
+
+        graph.AddPass(
+            "ui",
+            pass => {
+                pass.ColourAttachment(backbuffer, LoadAction.Clear, new Color4(0.06f, 0.07f, 0.09f, 1f));
+                pass.SideEffect();
+
+                // ⚠ The scene's target is sampled through a descriptor set, which the graph cannot
+                // see. Saying so here is what orders the scene's pass before this one and puts the
+                // layout transition between them — without it the target is still a colour
+                // attachment when the fragment shader reads it.
+                if (hasScene) {
+                    pass.Reads(sampled);
+                }
+
+                // ⚠ The logical surface and the DPI scale, not the swapchain's size. The geometry is
+                // in device-independent units and the scissor comes out in framebuffer pixels;
+                // passing the framebuffer for both draws the whole interface into the top-left
+                // quarter of the window. The scale is this window's, which on a second display is
+                // not the main window's.
+                pass.Execute(
+                    context => renderer.Record(
+                        context.CommandList,
+                        pane.Frame,
+                        new Int2((int) MathF.Round(extent.Width), (int) MathF.Round(extent.Height)),
+                        scale
+                    )
+                );
+            }
+        );
+
+        graph.Execute(commands);
+        graph.Reset();
+
+        commands.Finish();
+        device.GraphicsQueue.Submit([commands]);
     }
 
     /// <summary>Takes the next image, rebuilding once if the swapchain has gone stale.</summary>
@@ -320,12 +439,12 @@ sealed class EditorHost : IDisposable {
     ///     window visibly blinking. Rebuilding and asking again costs one stall and puts a correct
     ///     frame on the screen.
     /// </remarks>
-    bool Acquire(out TextureViewHandle view) {
-        var status = swapChain!.AcquireNextImage(out view);
+    bool Acquire(EditorPane pane, out TextureViewHandle view) {
+        var status = pane.SwapChain!.AcquireNextImage(out view);
 
         if (status is SwapChainStatus.OutOfDate) {
-            Recreate(force: true);
-            status = swapChain.AcquireNextImage(out view);
+            pane.Recreate(device!, force: true);
+            status = pane.SwapChain.AcquireNextImage(out view);
         }
 
         if (status is SwapChainStatus.DeviceLost) {
@@ -352,34 +471,29 @@ sealed class EditorHost : IDisposable {
         pool = new TransientResourcePool(device);
         graph = new RenderGraph(device, pool);
 
-        built = new Int2(window.FramebufferSize.X, window.FramebufferSize.Y);
-        swapChain = device.CreateSwapChain(new(window.Surface.Handle, built, PixelFormat.Bgra8UNormSrgb));
+        // Compiled once and handed to every window's renderer. Turning source into modules is
+        // Raven's job and this host hands over what it has — which is the argument `UiShaders` makes
+        // for taking them rather than making them, and it applies once per process rather than once
+        // per window.
+        shaders = new UiShaders(
+            device.CreateShader(ShaderStage.Vertex, Module("UiVertex.vert.spv"), "ui vertex"),
+            device.CreateShader(ShaderStage.Fragment, Module("UiBox.frag.spv"), "ui box"),
+            device.CreateShader(ShaderStage.Fragment, Module("UiText.frag.spv"), "ui text"),
+            device.CreateShader(ShaderStage.Fragment, Module("UiSolid.frag.spv"), "ui solid")
+        ) {
+            // The stage a viewport's render target is drawn through.
+            Image = device.CreateShader(ShaderStage.Fragment, Module("UiImage.frag.spv"), "ui image"),
 
-        renderer = new UiRenderer(
-            device,
-            new UiShaders(
-                device.CreateShader(ShaderStage.Vertex, Module("UiVertex.vert.spv"), "ui vertex"),
-                device.CreateShader(ShaderStage.Fragment, Module("UiBox.frag.spv"), "ui box"),
-                device.CreateShader(ShaderStage.Fragment, Module("UiText.frag.spv"), "ui text"),
-                device.CreateShader(ShaderStage.Fragment, Module("UiSolid.frag.spv"), "ui solid")
-            ) {
-                // The stage a viewport's render target is drawn through. Supplied here rather than
-                // assumed by the renderer, for the reason UiShaders gives: turning source into
-                // modules is Raven's job and this host hands over what it has.
-                Image = device.CreateShader(ShaderStage.Fragment, Module("UiImage.frag.spv"), "ui image"),
-
-                // ⚠ Read out of Raven's reflection rather than written down. Shaders/Ui.rvn declares
-                // three streams, so its attributes are at 3..6 — and a stream added to it moves them
-                // without anything here having to notice.
-                Locations = new(
-                    UiVertexKeys.PositionLocation,
-                    UiVertexKeys.TexcoordLocation,
-                    UiVertexKeys.VertexColourLocation,
-                    UiVertexKeys.VertexShapeLocation
-                )
-            },
-            new Rendering.RenderOutput([swapChain.Format])
-        );
+            // ⚠ Read out of Raven's reflection rather than written down. Shaders/Ui.rvn declares
+            // three streams, so its attributes are at 3..6 — and a stream added to it moves them
+            // without anything here having to notice.
+            Locations = new(
+                UiVertexKeys.PositionLocation,
+                UiVertexKeys.TexcoordLocation,
+                UiVertexKeys.VertexColourLocation,
+                UiVertexKeys.VertexShapeLocation
+            )
+        };
 
         // ⚠ A colour format the swapchain's is not. The scene is sampled by the interface rather
         // than presented, so it wants a linear target — a UNorm-sRGB one would be decoded on the way
@@ -405,47 +519,22 @@ sealed class EditorHost : IDisposable {
         return true;
     }
 
-    /// <summary>Rebuilds the swapchain for the window's current size.</summary>
-    /// <param name="force">
-    ///     Whether to rebuild even at the same size. True only for <c>OutOfDate</c>, which is the
-    ///     one status that says the swapchain may no longer be used at all.
-    /// </param>
-    void Recreate(bool force = false) {
-        if (device is null || swapChain is null) {
-            return;
-        }
-
-        var target = new Int2(window.FramebufferSize.X, window.FramebufferSize.Y);
-
-        if (!force && target == built) {
-            return;
-        }
-
-        device.WaitIdle();
-        swapChain.Resize(target);
-
-        built = target;
-    }
-
     void Release() {
         device?.WaitIdle();
 
         scene?.Dispose();
-        renderer?.Dispose();
-        swapChain?.Dispose();
+
+        foreach (var pane in panes) {
+            pane.Dispose();
+        }
+
         pool?.Dispose();
         device?.Dispose();
 
         scene = null;
-        renderer = null;
-        swapChain = null;
         graph = null;
         pool = null;
         device = null;
-
-        // Or the swapchain the next EnsureDevice builds would be compared against the one this
-        // just destroyed, and a resume at the same size would skip the rebuild it needs.
-        built = default;
     }
 
     /// <summary>Reads an embedded SPIR-V module.</summary>

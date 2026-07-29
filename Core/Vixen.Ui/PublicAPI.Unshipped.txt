@@ -186,6 +186,7 @@ Vixen.Ui.DrawList.Segments.get -> System.Collections.Generic.IReadOnlyList<Vixen
 Vixen.Ui.DrawList.Version.get -> int
 Vixen.Ui.DrawListBuilder -> sealed class
 Vixen.Ui.DrawListBuilder.Build(Vixen.Ui.UiDocument document, Vixen.Ui.DrawList into) -> bool
+Vixen.Ui.DrawListBuilder.Build(Vixen.Ui.UiDocument document, Vixen.Ui.UiElement root, Vixen.Ui.DrawList into) -> bool
 Vixen.Ui.DrawListBuilder.DrawListBuilder(Vixen.Ui.Styling.NameTable properties, Vixen.Ui.Styling.NameTable values, Vixen.Ui.Styling.NameTable keywords) -> void
 Vixen.Ui.EventRouter -> static class
 Vixen.Ui.FocusDirection -> enum : byte
@@ -259,6 +260,22 @@ Vixen.Ui.GestureSettings.RotationSlop.get -> float
 Vixen.Ui.GestureSettings.RotationSlop.init -> float
 Vixen.Ui.GestureSettings.TouchSlop.get -> float
 Vixen.Ui.GestureSettings.TouchSlop.init -> float
+Vixen.Ui.IUiWindow -> interface
+Vixen.Ui.IUiWindow : System.IDisposable
+Vixen.Ui.IUiWindow.Bounds.get -> (float X, float Y, float Width, float Height)
+Vixen.Ui.IUiWindow.Bounds.set -> (float X, float Y, float Width, float Height)
+Vixen.Ui.IUiWindow.CloseRequested -> System.Action<Vixen.Ui.IUiWindow>?
+Vixen.Ui.IUiWindow.DpiScale.get -> float
+Vixen.Ui.IUiWindow.Focus() -> void
+Vixen.Ui.IUiWindow.IsClosed.get -> bool
+Vixen.Ui.IUiWindow.Moved -> System.Action<Vixen.Ui.IUiWindow>?
+Vixen.Ui.IUiWindow.Surface.get -> Vixen.Ui.UiSurface
+Vixen.Ui.IUiWindow.Title.get -> string
+Vixen.Ui.IUiWindow.Title.set -> string
+Vixen.Ui.IUiWindowHost -> interface
+Vixen.Ui.IUiWindowHost.CanOpen.get -> bool
+Vixen.Ui.IUiWindowHost.Open(Vixen.Ui.UiDocument document, in Vixen.Ui.UiWindowRequest request) -> Vixen.Ui.IUiWindow?
+Vixen.Ui.IUiWindowHost.TryLocate(Vixen.Ui.UiSurface surface, out float x, out float y) -> bool
 Vixen.Ui.KeyAction -> enum : byte
 Vixen.Ui.KeyAction.KeyAction() -> void
 Vixen.Ui.KeyAction.Pressed = 0 -> Vixen.Ui.KeyAction
@@ -615,20 +632,25 @@ Vixen.Ui.UiCursor.Wait = 10 -> Vixen.Ui.UiCursor
 Vixen.Ui.UiDocument -> sealed class
 Vixen.Ui.UiDocument : System.IDisposable
 Vixen.Ui.UiDocument.Builder.get -> Vixen.Ui.LayoutStyleBuilder
+Vixen.Ui.UiDocument.CanOpenWindows.get -> bool
 Vixen.Ui.UiDocument.CapturePointer(Vixen.Ui.UiElement element) -> void
 Vixen.Ui.UiDocument.Captured.get -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.ColorOf(Vixen.Ui.Styling.ComputedStyle style, int property) -> Vixen.Core.Mathematics.Color4?
 Vixen.Ui.UiDocument.CompactStyles() -> bool
 Vixen.Ui.UiDocument.Create(string tag, Vixen.Ui.UiElement? parent, string? id = null, params System.ReadOnlySpan<string> classNames) -> Vixen.Ui.UiElement
 Vixen.Ui.UiDocument.Create<T>(string? tag, Vixen.Ui.UiElement? parent, string? id = null, params System.ReadOnlySpan<string> classNames) -> T
+Vixen.Ui.UiDocument.CreateSurface(float width, float height, float dpiScale = 1, Vixen.Ui.UiElement? owner = null) -> Vixen.Ui.UiSurface
 Vixen.Ui.UiDocument.Cursor.get -> Vixen.Ui.UiCursor
 Vixen.Ui.UiDocument.CursorOf(Vixen.Ui.Styling.ComputedStyle style) -> Vixen.Ui.UiCursor
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.KeyEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.PointerEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.TextInputEvent args) -> Vixen.Ui.UiElement?
+Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.PointerEvent args) -> Vixen.Ui.UiElement?
+Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.UiSurface surface, Vixen.Ui.WheelEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.WheelEvent args) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Dispose() -> void
 Vixen.Ui.UiDocument.Draw() -> bool
+Vixen.Ui.UiDocument.Draw(Vixen.Ui.UiSurface surface) -> bool
 Vixen.Ui.UiDocument.Drawing.get -> Vixen.Ui.DrawList
 Vixen.Ui.UiDocument.FindInDirection(Vixen.Ui.UiElement origin, Vixen.Ui.NavigationDirection direction) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Focus(Vixen.Ui.UiElement? element) -> bool
@@ -636,6 +658,7 @@ Vixen.Ui.UiDocument.Focused.get -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Fonts.get -> Vixen.Ui.FontRegistry
 Vixen.Ui.UiDocument.ForegroundOf(Vixen.Ui.UiElement element) -> Vixen.Core.Mathematics.Color4
 Vixen.Ui.UiDocument.Gestures.get -> Vixen.Ui.GestureRecognizer
+Vixen.Ui.UiDocument.HitTest(Vixen.Ui.UiSurface surface, float x, float y) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.HitTest(float x, float y) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Hovered.get -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Invalidate() -> void
@@ -652,11 +675,15 @@ Vixen.Ui.UiDocument.MoveFocus(Vixen.Ui.FocusDirection direction) -> bool
 Vixen.Ui.UiDocument.MoveFocus(Vixen.Ui.NavigationDirection direction) -> bool
 Vixen.Ui.UiDocument.Now.get -> System.TimeSpan
 Vixen.Ui.UiDocument.NumberOf(Vixen.Ui.Styling.ComputedStyle style, int property) -> float?
+Vixen.Ui.UiDocument.PointerSurface.get -> Vixen.Ui.UiSurface?
+Vixen.Ui.UiDocument.Primary.get -> Vixen.Ui.UiSurface
 Vixen.Ui.UiDocument.PropertyId(string name) -> int
 Vixen.Ui.UiDocument.ReleasePointer() -> void
 Vixen.Ui.UiDocument.ReloadStyles(int sheet, string css) -> void
 Vixen.Ui.UiDocument.Remove(Vixen.Ui.UiElement element) -> void
+Vixen.Ui.UiDocument.RemoveSurface(Vixen.Ui.UiSurface surface) -> bool
 Vixen.Ui.UiDocument.Reparent(Vixen.Ui.UiElement element, Vixen.Ui.UiElement parent, int index = -1) -> void
+Vixen.Ui.UiDocument.Resize(Vixen.Ui.UiSurface surface, float width, float height, float dpiScale) -> void
 Vixen.Ui.UiDocument.Resize(float width, float height) -> void
 Vixen.Ui.UiDocument.Restyler.get -> Vixen.Ui.Styling.StyleUpdater
 Vixen.Ui.UiDocument.Root.get -> Vixen.Ui.UiElement
@@ -667,11 +694,17 @@ Vixen.Ui.UiDocument.StyleCompactions.get -> int
 Vixen.Ui.UiDocument.Styles.get -> Vixen.Ui.Styling.StyleEngine
 Vixen.Ui.UiDocument.StylesApplied.get -> int
 Vixen.Ui.UiDocument.StylesResolved.get -> int
+Vixen.Ui.UiDocument.SurfaceAdded -> System.Action<Vixen.Ui.UiDocument, Vixen.Ui.UiSurface>?
+Vixen.Ui.UiDocument.SurfaceOf(Vixen.Ui.UiElement element) -> Vixen.Ui.UiSurface?
+Vixen.Ui.UiDocument.SurfaceRemoved -> System.Action<Vixen.Ui.UiDocument, Vixen.Ui.UiSurface>?
+Vixen.Ui.UiDocument.Surfaces.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.UiSurface>
 Vixen.Ui.UiDocument.Tick(System.TimeSpan now) -> void
 Vixen.Ui.UiDocument.Ticked -> System.Action<Vixen.Ui.UiDocument, System.TimeSpan>?
 Vixen.Ui.UiDocument.UiDocument(float width, float height, float rootFontSize = 16) -> void
 Vixen.Ui.UiDocument.Update() -> bool
 Vixen.Ui.UiDocument.Viewport.get -> Vixen.Ui.LengthContext
+Vixen.Ui.UiDocument.Windows.get -> Vixen.Ui.IUiWindowHost?
+Vixen.Ui.UiDocument.Windows.set -> Vixen.Ui.IUiWindowHost?
 Vixen.Ui.UiElement -> class
 Vixen.Ui.UiElement.AbsoluteLeft.get -> float
 Vixen.Ui.UiElement.AbsoluteTop.get -> float
@@ -725,6 +758,7 @@ Vixen.Ui.UiElement.SetStyle(string property, string? value) -> void
 Vixen.Ui.UiElement.State.get -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.UiElement.State.set -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.UiElement.Style.get -> Vixen.Ui.Styling.ComputedStyle
+Vixen.Ui.UiElement.SurfaceRoot.get -> Vixen.Ui.UiSurface?
 Vixen.Ui.UiElement.TabIndex.get -> int
 Vixen.Ui.UiElement.TabIndex.set -> int
 Vixen.Ui.UiElement.Tag.get -> string
@@ -760,6 +794,37 @@ Vixen.Ui.UiPropertyKey.OwnerType.get -> System.Type
 Vixen.Ui.UiPropertyKey.SetValue(Vixen.Ui.UiElement element, object? value) -> void
 Vixen.Ui.UiPropertyKey.ValueType.get -> System.Type
 Vixen.Ui.UiPropertyRegistry -> static class
+Vixen.Ui.UiSurface -> sealed class
+Vixen.Ui.UiSurface.Document.get -> Vixen.Ui.UiDocument
+Vixen.Ui.UiSurface.DpiScale.get -> float
+Vixen.Ui.UiSurface.Drawing.get -> Vixen.Ui.DrawList
+Vixen.Ui.UiSurface.Height.get -> float
+Vixen.Ui.UiSurface.Id.get -> int
+Vixen.Ui.UiSurface.IsPrimary.get -> bool
+Vixen.Ui.UiSurface.IsRemoved.get -> bool
+Vixen.Ui.UiSurface.Metrics.get -> Vixen.Ui.LengthContext
+Vixen.Ui.UiSurface.Root.get -> Vixen.Ui.UiElement
+Vixen.Ui.UiSurface.Width.get -> float
+Vixen.Ui.UiWindowRequest -> readonly struct
+Vixen.Ui.UiWindowRequest : System.IEquatable<Vixen.Ui.UiWindowRequest>
+Vixen.Ui.UiWindowRequest.Height.get -> float
+Vixen.Ui.UiWindowRequest.Height.init -> float
+Vixen.Ui.UiWindowRequest.IsDecorated.get -> bool
+Vixen.Ui.UiWindowRequest.IsDecorated.init -> bool
+Vixen.Ui.UiWindowRequest.IsResizable.get -> bool
+Vixen.Ui.UiWindowRequest.IsResizable.init -> bool
+Vixen.Ui.UiWindowRequest.Owner.get -> Vixen.Ui.UiElement?
+Vixen.Ui.UiWindowRequest.Owner.init -> Vixen.Ui.UiElement?
+Vixen.Ui.UiWindowRequest.Title.get -> string
+Vixen.Ui.UiWindowRequest.Title.init -> string
+Vixen.Ui.UiWindowRequest.UiWindowRequest() -> void
+Vixen.Ui.UiWindowRequest.UiWindowRequest(string Title, float X, float Y, float Width, float Height) -> void
+Vixen.Ui.UiWindowRequest.Width.get -> float
+Vixen.Ui.UiWindowRequest.Width.init -> float
+Vixen.Ui.UiWindowRequest.X.get -> float
+Vixen.Ui.UiWindowRequest.X.init -> float
+Vixen.Ui.UiWindowRequest.Y.get -> float
+Vixen.Ui.UiWindowRequest.Y.init -> float
 Vixen.Ui.WheelEvent -> sealed class
 Vixen.Ui.WheelEvent : Vixen.Ui.UiEvent
 Vixen.Ui.WheelEvent.DeltaX.get -> float

@@ -98,6 +98,17 @@ public static class ControlTheme {
             --caret-color: #e8eaed;
         }
 
+        /* A second window's root. It is `root`'s counterpart for everything except the tokens,
+           which it inherits — one document, one palette, however many windows. `position:
+           relative` because a torn-off window is where a floating popover, a drop preview and a
+           drag ghost are positioned from once the content is no longer in the main window. */
+        ui-surface {
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            background-color: var(--surface);
+        }
+
         /* ── Text ───────────────────────────────────────────────────────────── */
         text { color: var(--text); }
         text.variant-subtle { color: var(--text-muted); }

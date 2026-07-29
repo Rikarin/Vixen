@@ -2568,8 +2568,12 @@ sub-piece has its own gate.
   elements. The grid half asserts multi-object writes, the mixed-value states, the numeric
   conversion back to a member's own type, and reset-to-default.
 
-  ⚠ **Still owed:** floating groups float within the document rather than in an OS window of their
-  own, which is `Vixen.Platform`'s half. The other three on this list are closed.
+  ✅ ~~Floating groups float within the document rather than in an OS window of their own~~ — closed.
+  `UiSurface` makes a window a *surface* of the same document rather than a document of its own,
+  which is what lets a panel move into one by the `Reparent` the host already performed;
+  `IUiWindowHost` is the seam `Vixen.Ui` declares and the new `Vixen.Platform.Ui` fills. Where a
+  platform has one window the same group is drawn inside the host, with the same arrangement and the
+  same file. Everything on this list is now closed.
 
   ✅ ~~Rows and scroll ranges are one layout pass behind a *resize*~~ — closed by
   `UiDocument.LayoutFinished` and `Control.WhenResized`, and the enabling piece turned out to be a
@@ -2600,14 +2604,15 @@ sub-piece has its own gate.
   `Samples/**` and fails the build if `HelloUi` reaches for either. Verified by sabotage: adding the
   reference fails with the message that says why.
 
-  ⚠ **`UiInput` — fifty lines turning a `PlatformEvent` into the document's events — lives in the
-  sample, and that is where it has to live today.** `Vixen.Ui` is `Core/` and `Vixen.Platform` is
-  not, so the framework cannot depend on what produces its input; a `Vixen.Platform.Ui` assembly is
-  where it goes when the editor becomes the second consumer. Two things it found: the platform's
-  timestamps are `Stopwatch` ticks rather than milliseconds, and positions are physical pixels that
-  have to be divided by the DPI scale before a document that works in device-independent ones sees
-  them — the second reads as a hit-testing bug in the framework rather than a missing division in
-  the host.
+  ✅ ~~**`UiInput` — fifty lines turning a `PlatformEvent` into the document's events — lives in the
+  sample**~~ — closed. `Vixen.Ui` is `Core/` and `Vixen.Platform` is not, so the framework cannot
+  depend on what produces its input; the editor became the second consumer and
+  `Vixen.Platform.Ui.PlatformInput` is where it went. Two things it found: the platform's
+  timestamps are `Stopwatch` ticks rather than milliseconds, and pointer positions are **already** in
+  logical points and must *not* be divided by the DPI scale — this line said the opposite, and the
+  division it recommended put every click at a fraction of where it was made, which reads as a
+  hit-testing bug in the framework rather than as arithmetic in the host. The framebuffer is the only
+  thing in physical pixels, and the only thing that needs the scale is the scissor.
 
   **The frame budget, measured by the sample and by a benchmark.** `--frames N` reports the UI frame
   — the two passes and the vertex build, not the present — with the first frame reported separately

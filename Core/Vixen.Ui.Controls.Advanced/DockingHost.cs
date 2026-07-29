@@ -344,10 +344,16 @@ public sealed partial class DockingHost : Control {
 
     /// <summary>Takes a panel out of the docked tree into a window of its own.</summary>
     /// <param name="id">The panel.</param>
-    /// <param name="x">Where the window goes, in document space.</param>
+    /// <param name="x">Where the window goes — see <see cref="DockFloat" /> for which space.</param>
     /// <param name="y">Ditto.</param>
     /// <param name="width">How big it is.</param>
     /// <param name="height">Ditto.</param>
+    /// <remarks>
+    ///     A real operating-system window where <see cref="UiDocument.CanOpenWindows" /> says there
+    ///     can be one, and a rectangle floating inside this host where there cannot. Callers do not
+    ///     choose: a control that opened a window on a platform without them would be a control
+    ///     nobody could ship in a browser.
+    /// </remarks>
     public void Float(string id, float x, float y, float width = 320f, float height = 240f) {
         Layout.Float(id, x, y, width, height);
         Rebuild();
@@ -414,13 +420,27 @@ public sealed partial class DockingHost : Control {
         windows.Clear();
         groups.Clear();
 
+        // ⚠ After the panels are parked and before anything is built. A window closing takes its
+        // surface and everything left in it; a panel that was still inside one would be destroyed
+        // rather than docked back.
+        Retire();
+
         if (Layout.Root is { } root) {
             var view = Build(root, Surface);
             view.SetStyle("flex-grow", "1");
         }
 
         for (var i = 0; i < Layout.Floating.Count; i++) {
-            BuildFloating(Layout.Floating[i], i);
+            var floated = Layout.Floating[i];
+
+            // A real window where the platform has them, a rectangle inside this host where it does
+            // not. Same arrangement, same file, same panels — the difference is one the browser and
+            // the phone impose and the code above this line never sees.
+            if (Torn(floated) is { } window) {
+                BuildTorn(window);
+            } else {
+                BuildFloating(floated, i);
+            }
         }
 
         LayoutChanged?.Invoke(this);
@@ -559,22 +579,52 @@ public sealed partial class DockingHost : Control {
         }
     }
 
+    /// <summary>Follows a tab drag, in desktop space, across every window this host has.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Desktop space rather than the document's, because two windows have two coordinate
+    ///     spaces and a drag between them has to be in one.</b> The pointer's position arrives in
+    ///     whichever surface last received it — which during a capture is the window the drag started
+    ///     in, wherever the cursor has since wandered — and every group's rectangle is in its own.
+    ///     Both are lifted through <see cref="Locate" /> to the one space they share. With a single
+    ///     window that lift is the identity, so this is exactly what it was.
+    /// </remarks>
     void Track(float x, float y) {
         hovered = null;
 
+        var source = Document.PointerSurface ?? Document.Primary;
+
+        if (!Locate(source, out var origin)) {
+            Hide();
+            return;
+        }
+
+        pointer = new Vector2(origin.X + x, origin.Y + y);
+
         foreach (var view in groups) {
-            if (view.Node is not { } node || !Inside(view.Bounds, x, y)) {
+            if (view.Node is not { } node || !Desktop(view, out var bounds) || !Inside(bounds, pointer.X, pointer.Y)) {
                 continue;
             }
 
             hovered = node;
-            zone = ZoneOf(view.Bounds, x, y);
+            zone = ZoneOf(bounds, pointer.X, pointer.Y);
 
-            Show(view.Bounds, zone);
+            Show(view, zone);
             return;
         }
 
+        Hide();
+    }
+
+    /// <summary>Where the drag is now, in desktop space.</summary>
+    Vector2 pointer;
+
+    /// <summary>Takes the drop preview off every window.</summary>
+    void Hide() {
         Preview.AddClass("hidden");
+
+        foreach (var entry in torn) {
+            entry.Preview?.AddClass("hidden");
+        }
     }
 
     /// <summary>Which zone of a rectangle a point is in.</summary>
@@ -608,7 +658,16 @@ public sealed partial class DockingHost : Control {
         return best;
     }
 
-    void Show(Rectangle bounds, DockZone side) {
+    /// <summary>Draws the drop rectangle in the window the group being hovered is in.</summary>
+    /// <remarks>
+    ///     ⚠ The preview belongs to a window and the geometry arrives in desktop space, so it is
+    ///     brought back down into the surface the group lives in. A preview positioned from desktop
+    ///     coordinates would draw the drop target for a torn-off inspector several hundred pixels
+    ///     outside its own window.
+    /// </remarks>
+    void Show(DockGroupView view, DockZone side) {
+        var bounds = view.Bounds;
+
         var half = side is DockZone.Center
             ? bounds
             : side switch {
@@ -618,31 +677,79 @@ public sealed partial class DockingHost : Control {
                 _ => new Rectangle(bounds.X, bounds.Y + (bounds.Height * 0.5f), bounds.Width, bounds.Height * 0.5f)
             };
 
-        Preview.RemoveClass("hidden");
-        Preview.SetStyle("width", Pixels(half.Width));
-        Preview.SetStyle("height", Pixels(half.Height));
+        Hide();
 
-        // The preview is a child of the host, so the offset is measured from where layout put it —
-        // which is wherever a zero-sized absolutely positioned element lands.
-        Preview.OffsetX += half.X - Preview.AbsoluteLeft;
-        Preview.OffsetY += half.Y - Preview.AbsoluteTop;
+        var preview = PreviewFor(view);
+
+        if (preview is null) {
+            return;
+        }
+
+        preview.RemoveClass("hidden");
+        preview.SetStyle("width", Pixels(half.Width));
+        preview.SetStyle("height", Pixels(half.Height));
+
+        // The preview is a child of the host, or of a torn-off window's root, so the offset is
+        // measured from where layout put it — which is wherever a zero-sized absolutely positioned
+        // element lands.
+        preview.OffsetX += half.X - preview.AbsoluteLeft;
+        preview.OffsetY += half.Y - preview.AbsoluteTop;
     }
+
+    /// <summary>The preview rectangle belonging to the window a group view is in.</summary>
+    UiElement? PreviewFor(DockGroupView view) {
+        var surface = Document.SurfaceOf(view);
+
+        foreach (var entry in torn) {
+            if (ReferenceEquals(entry.Window.Surface, surface)) {
+                return entry.Preview;
+            }
+        }
+
+        return Preview;
+    }
+
+    /// <summary>How far above and to the left of the cursor a torn-off window's corner lands.</summary>
+    /// <remarks>
+    ///     So that the tab stays roughly under the pointer that is holding it rather than the window
+    ///     appearing with its corner there — which reads as the panel jumping away at the moment of
+    ///     release.
+    /// </remarks>
+    const float TearGrip = 48f;
+
+    /// <summary>How big a panel torn out onto the desktop starts.</summary>
+    const float TearWidth = 420f;
+
+    /// <inheritdoc cref="TearWidth" />
+    const float TearHeight = 320f;
 
     void Drop(DockTab tab) {
         var target = hovered;
         var side = zone;
+        var where = pointer;
 
         Cancel();
 
         if (target is not null) {
             Dock(tab.PanelId, target, side);
+            return;
         }
+
+        // ⚠ Outside every group *and* outside this host is what a tear-out is, and requiring both is
+        // deliberate. The gaps inside the arrangement are the splitters, six pixels wide, and a drop
+        // on one of those is a miss rather than a request for a new window — floating the panel
+        // there would make a fumbled drag cost the user their layout.
+        if (!Desktop(this, out var host) || Inside(host, where.X, where.Y)) {
+            return;
+        }
+
+        Float(tab.PanelId, where.X - TearGrip, where.Y - (TearGrip * 0.25f), TearWidth, TearHeight);
     }
 
     void Cancel() {
         dragged = null;
         hovered = null;
 
-        Preview.AddClass("hidden");
+        Hide();
     }
 }

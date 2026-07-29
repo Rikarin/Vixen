@@ -75,6 +75,15 @@ dragged it to.
 Opening a panel brings it to the front, which is what it means everywhere else, so a two-tab group
 would otherwise always come back showing whichever panel happened to be built last.
 
+**Panels tear out into real operating-system windows**, by dragging a tab off the window or through
+**View ▸ Panels ▸ Float Panel** (`view.float-panel`). The window opens over exactly where the panel
+was — a panel that visibly jumped somewhere else at the moment of undocking would leave the user
+hunting for it to find out whether the command did what they meant. `FloatActive` acts on the panel
+holding the focus, falling back to the front tab of the first group, because a menu item that acted
+on the first panel in the arrangement regardless is one that surprises every time it is used from the
+keyboard. The command greys itself out where the platform has one window — a browser tab, an Android
+activity, iOS — rather than being absent, which is a runtime question with a runtime answer.
+
 ## The palette
 
 `Ctrl/Cmd+P`, fuzzy, over an ordered list of `IPaletteSource`. Commands are one source; assets,

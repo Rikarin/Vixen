@@ -129,6 +129,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | File pickers, clipboard images/custom formats, thread affinity, thermal state | ✅ | Platform/Vixen.Platform.{Windows,Linux,MacOS} | SDL 2 has none of them; they arrive through `IPlatformSupplement`, chosen by operating system in `DesktopSupplements` |
 | `Vixen.Platform.Windows` / `.Linux` / `.MacOS` | ✅ | Platform/Vixen.Platform.{Windows,Linux,MacOS} | 67 tests. `IFileDialog` · `zenity`/`kdialog` · `NSOpenPanel`; `CF_DIBV5` · `image/png` · `NSPasteboard`; affinity on two of the three; thermal on two of the three |
 | `Vixen.Platform.Native` — RID chain, `runtimes/` search, `DllImportResolver`, `RestoreNativeDeps` | ✅ | Platform/Vixen.Platform.Native | Retired R11's desktop half with **no suppression** |
+| `Vixen.Platform.Ui` — the platform ⇄ document join | ✅ | Platform/Vixen.Platform.Ui | `PlatformInput` (one copy, where `Samples/02` and `Vixen.Editor.App` each had one and each said this assembly was where it belonged) and `PlatformWindowHost`, which fills `IUiWindowHost` over `IPlatform`. 7 tests over the headless platform |
 | Native-dependency acquisition beyond MoltenVK | 🟡 | [build/native-dependencies.json](../build/native-dependencies.json) | Holds MoltenVK (`ios-arm64`) and wgpu-native; R10 lists five more |
 | `Vixen.Platform.iOS` (UIKit, `CAMetalLayer`, `CADisplayLink`, multi-touch, IME) | 🟡 | Platform/Vixen.Platform.iOS | Runs in the **Simulator**. Physical device ⛔ on a provisioning profile (an Apple account, not a build setting) |
 | iOS sensors, haptics, Metal-layer HDR, `UIWindowSceneDelegate` | ⬜ | — | File dialogs, clipboard images, gamepads and hardware keyboard refused with reasons |
@@ -208,7 +209,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Named slot projection; LIS reorder pass | ⬜ | — | The second is correctness-neutral — a move that changes nothing returns immediately |
 | `VirtualizingPanel` — the virtualisation primitive doc 09 asks for | ✅ | Core/Vixen.Ui.Controls | Realises on `LayoutFinished`. ⚠ Fixed row heights only — variable heights need a running-sum index, which is a different control. `TreeView` is migrated onto it |
 | Image / texture draw command (`DrawContext.DrawImage`, `BatchKind.Image`) | ✅ | Core/Vixen.Ui | Unblocked `Image`, `Viewport` drawing a `RenderTarget`, and the node-graph preview layer |
-| Multi-window and DPI | ⬜ | — | Also what floating dock groups need |
+| Multi-window and DPI | ✅ | Core/Vixen.Ui, Platform/Vixen.Platform.Ui | `UiSurface` — one document, N windows, each with its own size, DPI scale, draw list and `vw`/`vh`. A window is a *surface* rather than a second document, which is what makes moving a panel between windows a `Reparent` and not a rebuild. `IUiWindowHost` is the seam `Vixen.Ui` declares and `Vixen.Platform.Ui` fills |
 | `Vixen.Ui.Markup` — VXML lexer/parser/binder/emitter, `#line` spans, incremental reparse | ✅ | Core/Vixen.Ui.Markup | 100 tests; byte-exact round trip over every *prefix* of a real file |
 | `bind:` update events | ⬜ | — | |
 | `Vixen.Ui.Markup.Generators` — `IIncrementalGenerator` | ✅ | Core/Vixen.Ui.Markup.Generators | 19 tests, two of them real `dotnet build`s |
@@ -216,7 +217,8 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | `Vixen.Ui.HotReload` — styles / markup / component replacement | ✅ | Core/Vixen.Ui.HotReload | 15 tests |
 | Hot reload driven against a **running window** | ⬜ | — | Mechanism covered; never exercised end to end |
 | `Vixen.Ui.Controls` — 40-odd standard controls, `ControlTheme` as `UserAgent` origin | ✅ | Core/Vixen.Ui.Controls | 78 tests over a real theme and font |
-| `Vixen.Ui.Controls.Advanced` — Docking, TreeView, PropertyGrid, NodeCanvas, CodeEditor, DataGrid, Viewport, ColorPicker, CurveEditor, GradientEditor, Timeline | ✅ | Core/Vixen.Ui.Controls.Advanced | 253 tests |
+| `Vixen.Ui.Controls.Advanced` — Docking, TreeView, PropertyGrid, NodeCanvas, CodeEditor, DataGrid, Viewport, ColorPicker, CurveEditor, GradientEditor, Timeline | ✅ | Core/Vixen.Ui.Controls.Advanced | 276 tests |
+| **Floating dock groups in real OS windows** | ✅ | Core/Vixen.Ui.Controls.Advanced, Platform/Vixen.Platform.Ui | A tab dragged off the window tears out; a drop inside docks. Windows keyed on the group object, not its index, so a rebuild does not blink them; drags tracked in desktop space, so one crosses a window boundary; closing a window brings the panels home rather than closing them. Falls back to a rectangle inside the host where the platform has one window |
 | `UiDocument` "layout finished" callback | ✅ | Core/Vixen.Ui | All six controls on it. `Control.WhenResized` gates on the box changing; `Update` refuses a nested call, which is what lets a `Refresh` that runs its own pass be hung on the event |
 | Undo inside controls | ⬜ | — | The four `Changed` events are the seams a real stack subscribes to |
 | `Canvas2D` | ⬜ | — | Doc 09's P2, no editor consumer — see `Samples/06-CanvasStress` |
@@ -342,7 +344,8 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | `ISceneWriter` / `SceneFileWriter` / scene save | ✅ | Editor/Vixen.Editor.SceneView | |
 | Play-in-editor, **in-process** (`WorldSnapshot` + `PlayModeController`, leak detection) | ✅ | Editor/Vixen.Editor.SceneView | Restore clears first; the selection is translated through the handle table |
 | Play-in-editor, **out-of-process** (`PlayerSessions`) | ✅ | Editor/Vixen.Editor.SceneView | Ports assigned by the set; a hung player is killed. **Supersedes the roadmap's "genuinely blocked" note in Phase 9** |
-| `Vixen.Editor.App` — platform, window, device, frame loop, `--frames N` | ✅ | Editor/Vixen.Editor.App | Panels are untested at the panel level (the app has no test project); the models under them are |
+| `Vixen.Editor.App` — platform, window**s**, device, frame loop, `--frames N` | ✅ | Editor/Vixen.Editor.App | One `EditorPane` per window: its own swapchain, its own `UiRenderer` (the renderer rings its buffers per `Upload`, so two windows sharing one would draw over geometry still in flight), its own extent and DPI. Events routed to the surface their window id names. Panels are untested at the panel level (the app has no test project); the models under them are |
+| Panels torn out into OS windows from the editor | ✅ | Editor/Vixen.Editor.App, Editor/Vixen.Editor.Ui | Drag a tab off the window, or **View ▸ Panels ▸ Float Panel**. Proved by `--run view.float-panel`, which opens the second window, gives it a swapchain and presents to it validation-clean |
 | **Project browser** (`AssetTree` + `ProjectBrowser`) — the asset database as a searchable tree over the real `Assets/` | ✅ | Editor/Vixen.Editor.Core, Editor/Vixen.Editor.App | ⚠ Not watched: a file added outside the editor appears on `Ctrl+R`. A watcher that missed half the events while claiming to be live would be worse |
 | **Import Assets / Build Content from the editor** (`ContentPipeline` on the background task manager) | ✅ | Editor/Vixen.Editor.App | The same call the CLI makes, so the two cannot produce different output for one project |
 | Redraw-on-change (it redraws every frame today) | ⬜ | — | Every animation, toast expiry and task progress would have to say so, and one that forgets freezes a progress bar |
@@ -579,7 +582,13 @@ K3  Per-OS platform assemblies                                            ✅ BU
     │                          Linux; macOS answers "no" and is right to — see its README)
     ├──✅ Thermal state        (closes the quality-scaling policy loop on macOS and Linux;
     │                          Windows has no user-mode API for it and says so)
-    └──→ Floating dock groups in real OS windows (with multi-window + DPI)
+    └──✅ Floating dock groups in real OS windows (with multi-window + DPI)
+           UiSurface in Vixen.Ui — one document, N windows, each with its own size, DPI
+           scale and draw list — plus IUiWindowHost, the seam a Core assembly can declare
+           and cannot fill, filled by the new Vixen.Platform.Ui. A window is a *surface*
+           rather than a second document, so moving a panel into one is the Reparent the
+           docking host already performed; per-surface DpiScale drives the layout tree's
+           pixel grid; Vixen.Editor.App runs a swapchain and a UiRenderer per window.
 
 K4  Silk.NET.OpenGLES + an EGL context                      ✅ BUILT
     (SilkGlesApi over Silk.NET.OpenGLES · EglContext over a hand-loaded libEGL, because
@@ -600,7 +609,7 @@ since. The rest can run in parallel.
 |---|---|---|
 | ~~W0-1~~ | ~~**K1** — `SceneCompiler` + runtime scene/prefab asset~~ | Built. The 7 downstream items (§3.1) are unblocked and unstarted |
 | ~~W0-2~~ | ~~**K2** — compute node + GPU buffer upload/readback~~ | Built. `ComputeRenderer` · `BufferUploadRenderer` · `BufferReadbackRenderer`, all three authorable. The 5 downstream items are startable |
-| ~~W0-3~~ | ~~**K3** — `Vixen.Platform.Windows/.Linux/.MacOS`~~ | Built. Four of the five downstream items are closed; the docking one needs multi-window + DPI, not this |
+| ~~W0-3~~ | ~~**K3** — `Vixen.Platform.Windows/.Linux/.MacOS`~~ | Built, and all five downstream items with it: the docking one wanted multi-window + DPI rather than this, and that is built too |
 | ~~W0-4~~ | ~~**K4** — `Silk.NET.OpenGLES` + EGL~~ | Built. `SilkGlesApi` + `EglContext`, with no change above `IGlApi`. What the three downstream items now want is an app head that asks for a GL device, not a binding |
 | W0-5 | `DescriptorBinding` sample type + comparison sampler (RHI) | WebGPU shadow maps → deferred/forward parity on the web |
 | ~~W0-6~~ | ~~`Tools/Vixen.ApiCheck` + first `PublicAPI.Shipped.txt`~~ | Built. The gate is in CI; what is left is the Phase 11 reading of what it baselined |
@@ -620,7 +629,7 @@ since. The rest can run in parallel.
 | W0-20 | Non-scene asset editors: texture, model, material, shader, UI, addressable groups, compositor | Phase 6's exit criterion, minus the scene half |
 | W0-21 | Relay **scope decision** (host one? in-box or addon?) | The `Relay` transport + transport fallback |
 | W0-22 | `Vixen.Raven.Transpile` (SPIRV-Cross) | HLSL/MSL/WGSL targets + the cross-compilation test pass |
-| W0-23 | CSS Grid · `Canvas2D` · pinch/rotate · multi-window + DPI | Independent UI gaps; each is its own track. `VirtualizingPanel` and the image draw command are done |
+| W0-23 | CSS Grid · `Canvas2D` · pinch/rotate · ~~multi-window + DPI~~ | Independent UI gaps; each is its own track. `VirtualizingPanel`, the image draw command and multi-window + DPI are done |
 
 ## 3.3 Wave 1 — one dependency deep
 
@@ -635,7 +644,7 @@ since. The rest can run in parallel.
 | `AutoExposure` wiring · Raven numeric + layout gates | W0-2 | |
 | Editor "open project…" dialog | — | Unblocked: the picker is there, the menu item is not |
 | ~~Thread affinity · thermal state · clipboard images~~ | ~~W0-3~~ | Built. Three long-standing deferrals closed, each on the platforms where the OS has an answer |
-| Floating dock groups in OS windows | W0-23 (multi-window) | |
+| ~~Floating dock groups in OS windows~~ | ~~W0-23 (multi-window)~~ | Built, and multi-window + DPI with it. What is left of W0-23 is CSS Grid, `Canvas2D` and pinch/rotate |
 | Android GLES fallback + capability deny-list | W0-4 | |
 | `Samples/02` in three browsers + Playwright leg | W0-4 | Phase 10 exit criterion |
 | WebGPU shadow maps; WebGPU Linux CI leg | W0-5 + W0-7 | |
@@ -730,7 +739,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 38 | `Vixen.Ui.Text` | `CVAR`, `CFF2` variation, direct `HVAR` | Feature | — |
 | 39 | `Vixen.Ui` | Rich-text runs from markup (which stretch is bold) | Feature | — |
 | 40 | `Vixen.Ui` | Named slot projection; LIS reorder pass | Feature | — |
-| 41 | `Vixen.Ui` | Pinch and rotate; multi-window + DPI | Feature | — |
+| 41 | `Vixen.Ui` | Pinch and rotate | Feature | — (multi-window + DPI is built: `UiSurface`, `IUiWindowHost`) |
 | 42 | `Vixen.Ui` | Per-corner radii on `DrawCommand` (one radius carried, rest dropped) | Feature | — |
 | 43 | `Vixen.Ui` | Computed-value stage for `line-height`/`letter-spacing`/`word-spacing`/`text-indent` | Correctness | — |
 | 44 | `Vixen.Ui.Markup` | `bind:` update events; CLI path emitting generated C# to disk | Feature | — |
@@ -787,12 +796,12 @@ it is deliberately distinct from "not started" in Part 1.
 |---|---|---|
 | ~~Blocked on **K1** (scene format)~~ | 9 | Unblocked: the scene format is built. The nine are now startable |
 | ~~Blocked on **K2** (compute/readback)~~ | ~~5~~ | Unblocked. The node and both copies are built; the five are now ordinary work, and finishing them closes Phase 7's exit criterion |
-| ~~Blocked on **K3** (per-OS assemblies)~~ | ~~5~~ | Built. Four of the five are closed; floating dock groups wanted multi-window + DPI rather than this |
+| ~~Blocked on **K3** (per-OS assemblies)~~ | ~~5~~ | Built, and all five are now closed: floating dock groups wanted multi-window + DPI rather than this, and `UiSurface` + `Vixen.Platform.Ui` are it |
 | ~~Blocked on **K4** (`OpenGLES` + EGL)~~ | ~~3~~ | K4 is built. The three are now app-head work: a head that asks for a GL device on Android or in a browser |
 | Blocked on a **decision**, not code | 2 | Relay scope; D3D12 (already answered: post-1.0) |
 | Blocked on **hardware or an account** | 3 | iPhone provisioning; an Android device; the IHV matrix |
 | Genuinely independent | ~40 | Can be picked up in any order (§3.5) |
-| Closed since the first revision of this page | 11 | **K2** · **K3** · **K4** · `CheckApi` · `LayoutFinished` · `NodeGraphView` · handle reservation · line wrapping · `VirtualizingPanel` · `scoped`/per-type stylesheets · the image draw command |
+| Closed since the first revision of this page | 12 | **K2** · **K3** (now including its last downstream item) · **K4** · `CheckApi` · `LayoutFinished` · `NodeGraphView` · handle reservation · line wrapping · `VirtualizingPanel` · `scoped`/per-type stylesheets · the image draw command · multi-window + DPI and floating dock groups in OS windows |
 
 ---
 
@@ -800,7 +809,7 @@ it is deliberately distinct from "not started" in Part 1.
 
 | | |
 |---|---|
-| `.csproj` on disk | 218 (`Core` 122 · `Platform` 34 · `Editor` 19 · `Tools` 21 · `Samples` 11 · `Benchmarks` 7 · `Raven` 3) — counting test siblings and generators, per ADR-014 |
+| `.csproj` on disk | 221 (`Core` 124 · `Platform` 36 · `Editor` 19 · `Tools` 21 · `Samples` 11 · `Benchmarks` 7 · `Raven` 3) — counting test siblings and generators, per ADR-014. `Vixen.Platform.Ui` and its test sibling are the two newest |
 | Planned projects not created | `Vixen.Graphics.Direct3D12`, `Vixen.Net.Transport.Relay`, `Vixen.Editor.AnimationGraph/.Profiler/.Debugger/.Plugin`, `Vixen.Templates`, `Vixen.Raven.Transpile` |
 | Conformance cases green | 534 Yoga · 22 048 UAX#14/#29 · 91 707 UAX#9 · 328/413 shaping · 100 variable-font |
 | Golden image fixtures | 40 |

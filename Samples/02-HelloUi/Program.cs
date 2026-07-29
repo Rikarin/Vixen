@@ -10,6 +10,7 @@ using Vixen.Graphics.RenderGraph;
 using Vixen.Graphics.Vulkan;
 using Vixen.Platform;
 using Vixen.Platform.Desktop;
+using Vixen.Platform.Ui;
 using Vixen.Ui;
 using Vixen.Ui.Renderer;
 using Vixen.Ui.Rendering;
@@ -211,7 +212,7 @@ sealed class UiHost : IDisposable {
                     break;
 
                 default:
-                    UiInput.Dispatch(ui.Document, platformEvent);
+                    PlatformInput.Dispatch(ui.Document, platformEvent);
                     break;
             }
         }

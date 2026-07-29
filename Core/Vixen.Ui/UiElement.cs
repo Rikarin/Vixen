@@ -97,6 +97,16 @@ public partial class UiElement {
     /// <summary>Its parent, or <c>null</c> for the root.</summary>
     public UiElement? Parent { get; private set; }
 
+    /// <summary>The surface this element <i>is</i> the root of, if it is one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not "the surface this element is in" — that is
+    ///     <see cref="UiDocument.SurfaceOf" />.</b> Three passes need to know where one window's tree
+    ///     stops and the next one's begins, and they all ask the same question of a child: is this
+    ///     one somewhere else? A property that answered "which window am I in" would be true of every
+    ///     element and would answer none of them.
+    /// </remarks>
+    public UiSurface? SurfaceRoot { get; private set; }
+
     /// <summary>Its children, in document order.</summary>
     public IReadOnlyList<UiElement> Children => children;
 
@@ -941,6 +951,15 @@ public partial class UiElement {
     public int IndexInParent => Parent?.children.IndexOf(this) ?? -1;
 
     internal void Retire() => IsRemoved = true;
+
+    /// <summary>Makes this element the root of a surface, or stops it being one.</summary>
+    /// <remarks>
+    ///     ⚠ Only <c>UiDocument</c> may call this. A surface's root is the boundary three passes
+    ///     stop at — the accumulator, the hit test and the draw list — so an element that claimed to
+    ///     be one without a surface behind it would be a hole in the middle of the document that
+    ///     nothing draws and nothing can click.
+    /// </remarks>
+    internal void MarkSurface(UiSurface? surface) => SurfaceRoot = surface;
 
     readonly record struct HandlerRegistration(
         Type EventType,

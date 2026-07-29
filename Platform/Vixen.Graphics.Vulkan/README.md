@@ -89,6 +89,16 @@ a bad extension list fails.
 **The messenger always returns `VK_FALSE`.** Returning non-zero aborts the call that triggered the
 message; the specification reserves that for layer development, and it turns a warning into a crash.
 
+**A swapchain for a second window makes and owns its own `VkSurfaceKHR`.** A device has exactly one
+surface of its own, created before the physical device is chosen because the queue families are
+selected against it — and a `VkSurfaceKHR` may have exactly one swapchain at a time, so a second
+swapchain built on the device's surface fails with `VK_ERROR_NATIVE_WINDOW_IN_USE_KHR`. So
+`VulkanSwapChain` compares the `SurfaceHandle` it was given against the one the device was created
+from and creates its own when they differ, destroying it with itself and leaving the device's alone.
+Present support is then re-asked *for that surface*: every desktop driver in practice says yes, which
+is exactly why finding out by way of undefined behaviour on the one that does not would be finding it
+out the hard way. This is what an editor tearing a dock panel out onto the desktop needs.
+
 **We request exactly Vulkan 1.1**, the floor [doc 05](../../docs/plan/05-graphics-rhi.md) states,
 rather than the highest available — a driver should not enable behaviour we have not tested against.
 A device that offers more is queried for it explicitly.
