@@ -43,19 +43,79 @@ public class MeshletStreamingTests : IDisposable {
 
     /// <summary>A page source that takes a stated number of frames to answer.</summary>
     /// <remarks>
-    ///     Frames rather than milliseconds, so the test is about how many frames a page is missing
-    ///     for rather than about how fast the machine running it is. A wall-clock delay would make
-    ///     the same test flaky on a loaded build agent and vacuous on a fast one.
+    ///     <para>
+    ///         Frames rather than milliseconds, and the difference is the whole reason this class
+    ///         exists rather than a <c>Task.Delay</c>. A wall-clock delay makes the same test flaky on
+    ///         a loaded build agent and vacuous on a fast one — which is not a hypothetical: the first
+    ///         version of this was a delay, and it failed once in a full-suite run and passed twenty
+    ///         times on its own.
+    ///     </para>
+    ///     <para>
+    ///         So a read completes when the <em>frame loop</em> says so. <see cref="Advance" /> is
+    ///         called once per frame and releases the loads that have waited long enough, which makes
+    ///         "this page was missing for three frames" a fact about the test rather than about the
+    ///         machine.
+    ///     </para>
     /// </remarks>
-    sealed class DelayedSource(MeshletPageSet pages, int delayMilliseconds) : IMeshletPageSource {
+    sealed class DelayedSource(MeshletPageSet pages, int frames) : IMeshletPageSource {
+        readonly List<(TaskCompletionSource<int> Completion, Memory<byte> Destination, int Index, int Due)> waiting = [];
+        readonly Lock gate = new();
+
+        int frame;
+
         public int Reads { get; private set; }
 
-        public async ValueTask<int> ReadAsync(PageKey key, Memory<byte> destination, CancellationToken cancellation) {
+        public ValueTask<int> ReadAsync(PageKey key, Memory<byte> destination, CancellationToken cancellation) {
+            cancellation.ThrowIfCancellationRequested();
             Reads++;
 
-            await Task.Delay(delayMilliseconds, cancellation).ConfigureAwait(false);
+            if (frames <= 0) {
+                return ValueTask.FromResult(Fill(destination, key.Index));
+            }
 
-            var bytes = pages.BytesOf(key.Index);
+            var completion = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            lock (gate) {
+                waiting.Add((completion, destination, key.Index, frame + frames));
+            }
+
+            return new(completion.Task);
+        }
+
+        /// <summary>How many reads are still waiting for a frame to release them.</summary>
+        /// <remarks>
+        ///     What tells the frame loop apart from a load that is <em>meant</em> to be outstanding and
+        ///     one that has been released and is on its way. Without it the loop cannot know whether
+        ///     waiting is correct or is waiting for something that will not come until it advances
+        ///     again, which is the difference between a fast test and a hundred-second one.
+        /// </remarks>
+        public int Waiting {
+            get {
+                lock (gate) {
+                    return waiting.Count;
+                }
+            }
+        }
+
+        /// <summary>Ends a frame, completing every read that has waited its stated number of them.</summary>
+        public void Advance() {
+            lock (gate) {
+                frame++;
+
+                for (var i = waiting.Count - 1; i >= 0; i--) {
+                    if (waiting[i].Due > frame) {
+                        continue;
+                    }
+
+                    var (completion, destination, index, _) = waiting[i];
+                    waiting.RemoveAt(i);
+                    completion.SetResult(Fill(destination, index));
+                }
+            }
+        }
+
+        int Fill(Memory<byte> destination, int index) {
+            var bytes = pages.BytesOf(index);
             bytes.CopyTo(destination.Span);
 
             return bytes.Length;
@@ -136,7 +196,7 @@ public class MeshletStreamingTests : IDisposable {
         var (_, mesh, pages) = Scene();
 
         var slots = Math.Max(2, pages.Pages.Length / 4);
-        var source = new DelayedSource(pages, 2);
+        var source = new DelayedSource(pages, frames: 2);
 
         using var pool = new MeshletPagePool(device, source, slots, pages.PageSize);
         using var residency = new PageResidency(pool, (long)slots * pages.PageSize);
@@ -147,7 +207,7 @@ public class MeshletStreamingTests : IDisposable {
         Assert.True(pages.TotalBytes >= budget * 4, $"The scene is {pages.TotalBytes} bytes against a budget of {budget}.");
 
         foreach (var distance in Path()) {
-            Frame(residency, pool, mesh, pages, distance);
+            Frame(residency, pool, source, mesh, pages, distance);
 
             Assert.True(
                 residency.ResidentBytes <= budget,
@@ -183,18 +243,18 @@ public class MeshletStreamingTests : IDisposable {
         var (_, mesh, pages) = Scene();
 
         var slots = Math.Max(2, pages.Pages.Length / 4);
-        var source = new DelayedSource(pages, 2);
+        var source = new DelayedSource(pages, frames: 2);
 
         using var pool = new MeshletPagePool(device, source, slots, pages.PageSize);
         using var residency = new PageResidency(pool, (long)slots * pages.PageSize);
 
         residency.Pin(new(0, 0));
-        Settle(residency, pool);
+        Settle(residency, pool, source);
 
         var missed = 0;
 
         foreach (var distance in Path()) {
-            var cut = Frame(residency, pool, mesh, pages, distance);
+            var cut = Frame(residency, pool, source, mesh, pages, distance);
 
             Assert.NotEmpty(cut);
             Assert.True(IsClosed(mesh, cut), $"The cut at distance {distance} left an open edge.");
@@ -222,7 +282,7 @@ public class MeshletStreamingTests : IDisposable {
         var (_, mesh, pages) = Scene();
 
         var slots = Math.Max(2, pages.Pages.Length / 4);
-        var source = new DelayedSource(pages, 2);
+        var source = new DelayedSource(pages, frames: 2);
 
         using var pool = new MeshletPagePool(device, source, slots, pages.PageSize);
         using var residency = new PageResidency(pool, (long)slots * pages.PageSize);
@@ -230,7 +290,7 @@ public class MeshletStreamingTests : IDisposable {
         residency.Pin(new(0, 0));
 
         foreach (var distance in Path()) {
-            var cut = Frame(residency, pool, mesh, pages, distance);
+            var cut = Frame(residency, pool, source, mesh, pages, distance);
 
             Assert.All(
                 cut,
@@ -253,7 +313,7 @@ public class MeshletStreamingTests : IDisposable {
     public void A_stationary_camera_converges_on_the_cut_it_asked_for() {
         var (_, mesh, pages) = Scene();
 
-        var source = new DelayedSource(pages, 1);
+        var source = new DelayedSource(pages, frames: 1);
 
         using var pool = new MeshletPagePool(device, source, pages.Pages.Length, pages.PageSize);
         using var residency = new PageResidency(pool, pages.TotalBytes);
@@ -266,13 +326,11 @@ public class MeshletStreamingTests : IDisposable {
         int[] cut = [];
 
         for (var frame = 0; frame < 400; frame++) {
-            cut = Frame(residency, pool, mesh, pages, Distance);
+            cut = Frame(residency, pool, source, mesh, pages, Distance);
 
             if (cut.SequenceEqual(wanted)) {
                 return;
             }
-
-            Thread.Sleep(1);
         }
 
         Assert.Fail($"After 400 frames the cut is {cut.Length} clusters and the answer is {wanted.Length}.");
@@ -290,13 +348,13 @@ public class MeshletStreamingTests : IDisposable {
     public void The_root_page_is_enough_to_draw_the_object() {
         var (_, mesh, pages) = Scene();
 
-        var source = new DelayedSource(pages, 0);
+        var source = new DelayedSource(pages, frames: 0);
 
         using var pool = new MeshletPagePool(device, source, 1, pages.PageSize);
         using var residency = new PageResidency(pool, pages.PageSize);
 
         residency.Pin(new(0, 0));
-        Settle(residency, pool);
+        Settle(residency, pool, source);
 
         Assert.Equal(1, residency.ResidentPages);
 
@@ -317,6 +375,7 @@ public class MeshletStreamingTests : IDisposable {
     int[] Frame(
         PageResidency residency,
         MeshletPagePool pool,
+        DelayedSource source,
         MeshletMesh mesh,
         MeshletPageSet pages,
         float distance
@@ -334,6 +393,15 @@ public class MeshletStreamingTests : IDisposable {
         // The copies the placements need, recorded and submitted as a frame's would be. Not
         // decoration: the pool stages into host memory it reuses after every flush, so a loop that
         // never flushed would be a frame that never submitted — and would refuse placements.
+        Flush(pool);
+        source.Advance();
+
+        // The loads this frame released have to reach the pool before the cut is chosen, or the frame
+        // is deciding against a residency one frame stale. A device would have the same boundary; here
+        // it is a thread hand-off.
+        Handoff(residency, source);
+
+        residency.Service();
         Flush(pool);
 
         var cut = MeshletCut.SelectByError(mesh, pages, threshold, page => residency.IsResident(new(0, page)));
@@ -407,10 +475,11 @@ public class MeshletStreamingTests : IDisposable {
     ///     Flushes like a frame does, because the pool's staging is reclaimed at the flush and a loop
     ///     that only serviced would fill it — which is a real contract and not a test artefact.
     /// </remarks>
-    void Settle(PageResidency residency, MeshletPagePool pool, int frames = 400) {
+    void Settle(PageResidency residency, MeshletPagePool pool, DelayedSource source, int frames = 400) {
         for (var frame = 0; frame < frames; frame++) {
             residency.Service();
             Flush(pool);
+            source.Advance();
 
             if (residency.PendingRequests == 0 && residency.Loading == 0) {
                 residency.Service();
@@ -418,9 +487,25 @@ public class MeshletStreamingTests : IDisposable {
                 return;
             }
 
-            Thread.Sleep(1);
+            // The completion is deterministic; the hand-off from the loading task to this one is a
+            // thread schedule, so it is waited for rather than assumed. What is never waited on is a
+            // *delay* — how long a page is missing for is decided by Advance above.
+            Handoff(residency, source);
         }
     }
+
+    /// <summary>
+    ///     Waits for the loads this frame released to hand their bytes back, and for nothing else.
+    /// </summary>
+    /// <remarks>
+    ///     Not a delay and not an assumption about one: <see cref="DelayedSource.Advance" /> decides
+    ///     <em>which</em> loads are due, and this waits only for the thread that carries those to run.
+    ///     The comparison is against what the source is still holding, so a load that is meant to be
+    ///     outstanding for two more frames is not waited for — which is the difference between a test
+    ///     that runs in a second and one that spends its timeout on every frame.
+    /// </remarks>
+    static void Handoff(PageResidency residency, DelayedSource source) =>
+        SpinWait.SpinUntil(() => residency.Loading <= source.Waiting, 250);
 
     /// <summary>Records and submits the copies a frame's placements need.</summary>
     void Flush(MeshletPagePool pool) {

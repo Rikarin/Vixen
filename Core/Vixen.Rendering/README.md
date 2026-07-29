@@ -227,6 +227,29 @@ ordering this RHI can express is a barrier between two things in one queue: it h
 semaphores. That is the whole reason the culling dispatch became something a node records rather than
 something `Cull` submits.
 
+**And the same shader culls clusters.** `Culling.rvn` carries a `Clusters` permutation that turns the
+per-object dispatch into a hierarchical walk over a cluster DAG — one workgroup per instance per view,
+a `groupshared` queue, and a barrier per round. It is a permutation rather than a shader of its own
+because objects and clusters are the same hierarchy at different depths, and because two
+implementations of "visible against last frame's pyramid" is two places for the definition to drift:
+`Occluded` takes a *sphere* now, and the object cull and the traversal each hand it one.
+
+Raven refuses a second compute entry point in one shader, so the two dispatch shapes are one entry
+point branching on the permutation. That turns out to be the better arrangement: the branch is folded
+before lowering, so the object variant provably carries no queue, no barrier and no shared memory at
+all, and `LibraryTreeTests` asserts it.
+
+**A rejected subtree costs one test**, which is the whole point and the whole difference from the
+object cull. A cluster that fails the frustum, the cone or the pyramid takes its children with it, so a
+mesh of a hundred thousand clusters behind the camera costs as many tests as it has roots.
+
+**The error is projected at the group's bound, not the cluster's**, and that is the one decision here
+whose failure is a crack. A group's simplification produces several parents, each of which replaces
+*all* of the group's children, so all of them have to refine or none of them do. They share an error;
+they also have to share the distance it is projected at, because their own bounds are in different
+places. `GpuClusterCullingTests` found this by comparing the traversal against a brute-force cut over
+random DAGs — which is what that comparison is for.
+
 **And with no wait, every descriptor set is a ring.** A set a submitted command buffer still
 references may not be written — `VUID-vkUpdateDescriptorSets-None-03047` — so all three classes hold
 one set per frame in flight and advance with the frame, which is the invariant `DescriptorAllocator`

@@ -58,6 +58,7 @@ answering the *difference* — is done and device-verified.
 | **An incremental GPU scene** — object records rewritten only where they changed | ✅ | [PersistentUploadBuffer.cs](../Core/Vixen.Rendering/PersistentUploadBuffer.cs) |
 | **Geometry pages** — fixed-size, one quantization grid, roots in page zero | ✅ | [MeshletPageBuilder.cs](../Core/Vixen.Rendering.VirtualGeometry/MeshletPageBuilder.cs) |
 | **A residency service** — requests in, LRU out, one budget, not geometry-shaped | ✅ | [PageResidency.cs](../Core/Vixen.Rendering/PageResidency.cs) |
+| **The cluster traversal** — a permutation of `Culling.rvn`, with a CPU mirror | ✅ | [GpuClusterCulling.cs](../Core/Vixen.Rendering/GpuClusterCulling.cs), `Culling.rvn` |
 | **Workgroup-shared memory in Raven** — `groupshared`, `barrier()`, an atomic rooted in it | ✅ | B1 below |
 | **64-bit integers and atomics in Raven** — `int64`/`uint64`, `Int64`/`Int64Atomics` reported apart | ✅ | B2 below |
 | **`SampleGrad` in Raven** — gradients the caller computed, in every stage | ✅ | B3 below |
@@ -337,22 +338,56 @@ Four things the plan above did not say, three of them found in the building:
 
 ---
 
-### Phase 3 — Hierarchical cluster culling · ~2.5 EM
+### Phase 3 — Hierarchical cluster culling · ~2.5 EM · ✅ built
 
 The centre of the system, and the phase that reuses the most.
 
-- **Traversal**: persistent workgroups over the DAG. Pop a node, project its error, and either accept
-  its cluster (error under threshold) or push its children. Frustum, normal cone and Hi-Z rejection
+- **Traversal**: workgroups over the DAG. Pop a node, project its error, and either accept its
+  cluster (error under threshold) or push its children. Frustum, normal cone and Hi-Z rejection
   happen at every level, so a rejected subtree costs one test.
-- **A permutation of `Culling.rvn`, not a new shader.** See **improvement 3**. The `Main`/`Late`
-  split, the Hi-Z projection, the per-view records and the fallback-to-CPU behaviour are all
-  behaviours the existing shader has, and duplicating them is how the two answers drift apart.
+- **A permutation of `Culling.rvn`, not a new shader.** See **improvement 3**.
 - **Output**: the visible cluster list, plus page requests for clusters whose data was not resident —
   which is what makes streaming demand-driven rather than predictive.
 
 **Exit:** the existing randomised CPU-mirror test extended to the cluster hierarchy — a
 `GpuCulling.IsVisible` equivalent for the traversal, compared against a brute-force cut over random
 DAGs. Sabotage: removing the normal-cone test, or projecting error with the wrong view, both fail it.
+
+**Met** as `GpuClusterCullingTests`: `GpuClusterCulling.Traverse` against `Cut` over randomised DAG
+shapes and thresholds, with both named sabotages failing it and one criterion added that is stronger
+than either — **every path from a root to a leaf holds exactly one visible cluster**, which is the
+property that makes a cut a cut rather than a set that happens to match an oracle. Two on a path is
+the surface drawn twice; none is a hole.
+
+Four things the plan above did not say, and the first is the one that would have shipped as cracks:
+
+- **An error is projected at the *group's* bound, not at the cluster's.** A group's simplification
+  produces several parents, every one of which replaces *all* of the group's children — so all of them
+  have to reach the same refinement decision. They share an error already, because phase 1 gives a
+  group one; what they also have to share is the **distance** it is projected at, and their own bounds
+  are in different places. A per-cluster distance makes one parent refine while its sibling does not,
+  and the surface is covered twice in one place and once in another. Found by the randomised
+  comparison, which is exactly the class of defect it exists for, and `CullCluster.ErrorCenter` is what
+  fixes it.
+- **One entry point, not two.** Raven refuses a second compute stage in one shader (`RVN2050`), which
+  turns out to be the constraint agreeing with improvement 3 rather than fighting it: the branch on
+  the permutation is folded before lowering, so the object variant carries no queue, no barrier and no
+  shared memory at all, and the cluster variant carries no per-word loop. A test asserts exactly that,
+  because it is the half that would rot.
+- **`Occluded` takes a sphere now.** That is improvement 3 made concrete rather than asserted: the
+  object cull and the cluster traversal ask the same question of the same pyramid with the same
+  matrix, and what differed between them was only which sphere. The host's `IsOccluded` and
+  `ScreenBounds` were refactored the same way, so there is one occlusion semantic on each side rather
+  than two on each.
+- **The queue overflows by drawing coarser, not by dropping.** A workgroup's front is a fixed
+  `groupshared` array — 4 KB of the 16 a device has to offer — and a group whose front does not fit
+  stops refining and accepts what it has. Dropping the node would be a hole, and a shader cannot grow
+  an array.
+
+**Stopping here is defensible**, and what is left to reach a frame is host plumbing rather than
+another idea: a render feature that fills the instance records from the scene, dispatches the
+traversal, and hands the visible list to `DrawIndexedIndirectCount`. The decision the frame turns on
+is built and checked.
 
 **Stopping here is defensible.** With phases 0–3 you have continuous LOD, hierarchical device-side
 culling, streamed geometry and no authored LOD chains, drawn by ordinary hardware raster through the
@@ -486,8 +521,15 @@ separate two-pass implementations.
 Vixen already has `Culling.rvn` with an `Occlusion` permutation and a `CullPhase`. Cluster culling
 should be a **permutation of that shader** over the same phase structure, because objects and
 clusters are the same hierarchy at different depths, and because two implementations of "visible
-against last frame's pyramid" is two places for the definition to drift. `GpuCulling.IsVisible` stays
-the single CPU mirror for both.
+against last frame's pyramid" is two places for the definition to drift.
+
+✅ **Built that way**, and the language pushed it further than intended: Raven refuses a second compute
+entry point in one shader, so the two dispatch shapes are one entry point branching on the
+permutation — which means the object variant provably carries none of the traversal's shared memory,
+and a test says so. The occlusion test now takes a **sphere** rather than an object, on both sides, so
+"visible against last frame's pyramid" is one function with two callers rather than two functions.
+`GpuClusterCulling` is a sibling of `GpuCulling` rather than a copy: the frustum test, the rounding
+slack, the stage-mask intersection and the whole occlusion test are called from it.
 
 ### 4. A CPU reference for the parts that fail silently
 
@@ -564,7 +606,7 @@ being a mystery in a frame capture.
 | 0 — Unblockers ✅ | ~1 | 1 |
 | 1 — Cluster DAG ✅ | ~3 | 4 |
 | 2 — Pages and residency ✅ | ~2 | 6 |
-| 3 — Hierarchical culling | ~2.5 | 8.5 |
+| 3 — Hierarchical culling ✅ | ~2.5 | 8.5 |
 | 4 — HW-raster visibility buffer | ~2 | 10.5 |
 | 5 — Material resolve | ~2.5 | 13 |
 | 6 — SW raster (optional) | ~3 | 16 |
