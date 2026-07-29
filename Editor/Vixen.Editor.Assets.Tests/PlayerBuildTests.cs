@@ -100,6 +100,28 @@ public class PlayerBuildTests {
         }
     }
 
+    /// <summary>
+    ///     ⚠ <b>The two halves joined, because separately they both passed while the editor was
+    ///     broken.</b> A new project used to be two directories, so this call answered false for
+    ///     every project the editor made and Build and Run was greyed for all of them. What has to be
+    ///     true is not "the scaffold writes files" and not "this finds a project file" — it is that
+    ///     what the first writes is what the second finds.
+    /// </summary>
+    [Fact]
+    public void AScaffoldedProjectIsOneThisCanPublish() {
+        var root = Directory.CreateTempSubdirectory("vixen-scaffold-build").FullName;
+
+        try {
+            Assert.False(PlayerBuild.TryFindProjectFile(root, out _));
+            Assert.True(Core.ProjectScaffold.Write("game", "Asteroids", root).Succeeded);
+
+            Assert.True(PlayerBuild.TryFindProjectFile(root, out var found));
+            Assert.Equal("Asteroids.csproj", Path.GetFileName(found));
+        } finally {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     /// <summary>A directory that is not there is the same answer as one with nothing in it.</summary>
     /// <remarks>
     ///     Worth a line because the editor asks this every frame the Build menu is open — the

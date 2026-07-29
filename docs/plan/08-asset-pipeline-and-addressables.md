@@ -44,7 +44,7 @@ chunks are not redownloaded.
 ```
 MyGame/
 ├── MyGame.csproj                    # references Vixen.Sdk (Tools/Vixen.Sdk)
-├── MyGame.vxproj                    # Vixen project settings (YAML)
+├── MyGame.vxproj                    # ⛔ not built — see below
 ├── Assets/                          # everything here is imported
 │   ├── Textures/hero.png  + hero.png.meta
 │   ├── Models/hero.fbx    + hero.fbx.meta
@@ -64,6 +64,21 @@ MyGame/
 `Assets/` and `ProjectSettings/` are committed; `Library/` and `Build/` are not. This is Unity's
 split, and it is right: import artefacts are reproducible from source + `.meta`, so committing them is
 pure churn.
+
+⚠ **`.vxproj` is not built, and the reason is that `ProjectSettings/` answered the question it was
+asked.** It is described above as "Vixen project settings (YAML)" — which is exactly what
+`ProjectSettingsStore` is, one YAML file per `[DataContract]` type, and doc 20's A4 built it that way
+precisely so adding a setting is declaring a type. A single file beside it holding *other* project
+settings would be the second mechanism that split makes unnecessary.
+
+What is left unanswered is the smaller question the extension was also carrying: **what marks a
+directory as a project.** `ProjectWorkspace.IsProject` says "it has an `Assets/` folder", which is
+weak in both directions — any folder with that name in it qualifies, and a project whose assets have
+all been deleted stops being one. A marker file would fix that, would give an Open Project dialog
+something to filter on (`Vixen.Platform.Windows`'s README already writes the filter as an example),
+and would be a place to record the engine version a project was last opened with. That is a real and
+small piece of work, and it is *not* what this line has been promising: it would be a marker, not a
+settings bag. Until it is built, `IsProject` is the answer and this row says so.
 
 ## The `.meta` file
 

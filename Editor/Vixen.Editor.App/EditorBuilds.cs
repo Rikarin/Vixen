@@ -98,6 +98,16 @@ sealed partial class EditorApplication {
     /// </remarks>
     void RefreshBuildPanel() => buildView?.Rebuild();
 
+    /// <summary>Shows the settings again, for a change made somewhere that is not the panel.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>Show</c> rather than <c>Rebuild</c>, because the three fields are the part that
+    ///     moved.</b> Picking Target ▸ Android from the menu writes the same setting the panel's own
+    ///     picker writes — doc 20's A4 rule is kept by there being one field — but a panel that was
+    ///     already open went on displaying the old one, which is the same disagreement between a menu
+    ///     and a window that having one setting was supposed to prevent.
+    /// </remarks>
+    void ShowBuildSettings() => buildView?.Show(Builds);
+
     /// <summary>Every scene in the project, project-relative, in path order.</summary>
     /// <remarks>
     ///     From the editor's own database rather than from the disk, so a scene created a moment ago
@@ -158,6 +168,7 @@ sealed partial class EditorApplication {
                     () => {
                         Builds.Variant = chosen;
                         SaveBuildSettings();
+                        ShowBuildSettings();
                     }
                 ) {
                     Category = CategoryBuild,
@@ -172,6 +183,7 @@ sealed partial class EditorApplication {
                 new EditorCommand(id, new StringId("editor.command." + id, label), () => {
                         Builds.Target = value;
                         SaveBuildSettings();
+                        ShowBuildSettings();
                     }
                 ) {
                     Category = CategoryBuild,

@@ -3,6 +3,7 @@
 
 using System.Text;
 using Vixen.Cli;
+using Vixen.Editor.Core;
 using Xunit;
 
 namespace Vixen.Templates.Tests;

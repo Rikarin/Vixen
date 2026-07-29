@@ -5,7 +5,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 
-namespace Vixen.Cli;
+namespace Vixen.Editor.Core;
 
 /// <summary>One file a template writes.</summary>
 /// <param name="Path">Where it goes, relative to the project directory, with <c>/</c> separators.</param>
@@ -14,6 +14,15 @@ public sealed record TemplateFile(string Path, byte[] Content);
 
 /// <summary>The <c>dotnet new</c> templates, read out of this assembly.</summary>
 /// <remarks>
+///     <para>
+///         ⚠ <b>Here rather than in <c>Tools/Vixen.Cli</c>, which is where it was, and for
+///         <c>ProjectWorkspace</c>'s reason.</b> The editor's New Project made two directories and
+///         called it a project — so every project born in the editor had no <c>.csproj</c>, and Build
+///         and Run was greyed for all of them with a message naming a terminal command. An editor
+///         that cannot finish the project it just made is failing doc 20's second bar on the first
+///         screen a new user sees. The scaffold had to be reachable from both heads, and a second
+///         copy of it is the thing this type was created to prevent one level down.
+///     </para>
 ///     <para>
 ///         <b>There is one tree of template files and two things that instantiate it.</b>
 ///         <c>Tools/Vixen.Templates</c> owns the files; <c>dotnet new</c> reads them out of the
@@ -43,7 +52,7 @@ public sealed record TemplateFile(string Path, byte[] Content);
 public static class TemplateCatalog {
     /// <summary>The prefix the build gives every embedded template file.</summary>
     /// <remarks>
-    ///     Set as an explicit <c>LogicalName</c> in <c>Vixen.Cli.csproj</c> rather than left to the
+    ///     Set as an explicit <c>LogicalName</c> in <c>Vixen.Editor.Core.csproj</c> rather than left to the
     ///     default naming, which would fold the directory separators into dots and make
     ///     <c>Shaders/ui.vert.spv</c> and <c>Shaders.ui.vert.spv</c> the same name.
     /// </remarks>
@@ -253,5 +262,125 @@ public sealed class ProjectTemplate {
             )
             .OrderBy(file => file.Path, StringComparer.Ordinal)
             .ToArray();
+    }
+}
+
+/// <summary>What writing a template into a directory did, or why it did nothing.</summary>
+/// <param name="Written">The files written, project-relative, in the order they were written.</param>
+/// <param name="Collisions">
+///     What was already there, project-relative. Non-empty means nothing was written at all.
+/// </param>
+/// <param name="Error">Why the request was refused before anything was tried, or empty.</param>
+public readonly record struct ScaffoldResult(
+    IReadOnlyList<string> Written,
+    IReadOnlyList<string> Collisions,
+    string Error
+) {
+    /// <summary>Whether the project was written.</summary>
+    public bool Succeeded => Error.Length == 0 && Collisions.Count == 0;
+}
+
+/// <summary>Writes a new project from a template.</summary>
+/// <remarks>
+///     <para>
+///         <b>The half of <c>vixen new</c> that is not a console.</b> Which template, whether the
+///         name can be a namespace, what would be overwritten and what to write: all four are
+///         decisions, and the CLI's copy of them was the only copy — which is why the editor's New
+///         Project made two directories instead. The same split
+///         <c>ContentPipeline</c> made from <c>ImportRunner</c>, for the same reason and with the
+///         same shape: a result somebody formats rather than lines somebody prints.
+///     </para>
+///     <para>
+///         ⚠ <b>Nothing is overwritten, and every collision is found before anything is written.</b>
+///         A scaffolder that clobbers is one nobody runs twice, and "I pointed it at the wrong
+///         directory" is the ordinary mistake rather than the exotic one — so a half-scaffolded
+///         directory must not be a state this can leave behind.
+///     </para>
+/// </remarks>
+public static class ProjectScaffold {
+    /// <summary>The version a new project pins, for the SDK and for every package it references.</summary>
+    /// <remarks>
+    ///     Read from this assembly rather than written down, so a scaffolded project asks for the
+    ///     engine that matches the thing that scaffolded it. A hard-coded version here is one that
+    ///     silently goes stale and produces projects that will not restore.
+    /// </remarks>
+    public static string SdkVersion { get; } =
+        typeof(ProjectScaffold).Assembly.GetName().Version is { } version
+            ? $"{version.Major}.{version.Minor}.{version.Build}"
+            : "0.1.0";
+
+    /// <summary>Whether a name can be both an assembly name and a namespace.</summary>
+    /// <param name="name">The proposed name.</param>
+    /// <returns>Whether it will do.</returns>
+    /// <remarks>
+    ///     Checked rather than left to the compiler, because the compiler's complaint arrives after
+    ///     the files exist and names a generated line rather than the argument that caused it.
+    /// </remarks>
+    public static bool IsUsableName(string name) =>
+        name is { Length: > 0 }
+        && char.IsLetter(name[0])
+        && name.All(character => char.IsLetterOrDigit(character) || character is '_' or '.');
+
+    /// <summary>The nearest usable project name to a directory's own.</summary>
+    /// <param name="directoryName">What the folder is called.</param>
+    /// <returns>A name <see cref="IsUsableName" /> accepts.</returns>
+    /// <remarks>
+    ///     ⚠ <b>For the editor, where the name is not typed — it is whatever folder somebody picked
+    ///     in a file dialog.</b> "my game (2)" is an ordinary thing to call a directory and an
+    ///     impossible thing to call a namespace, and refusing to make a project out of it would be
+    ///     the editor rejecting a folder the user had just created in its own picker. The CLI does
+    ///     not use this: there the name is an argument, so saying it is unusable is useful and
+    ///     silently changing it would not be.
+    /// </remarks>
+    public static string NameFrom(string directoryName) {
+        var cleaned = new string(
+            [.. (directoryName ?? string.Empty)
+                .Where(character => char.IsLetterOrDigit(character) || character is '_' or '.')]
+        ).TrimStart('.', '_');
+
+        // A leading digit is the other way a folder name fails, and prefixing beats dropping: `2024`
+        // becoming `024` would be a project named after a mangling of what somebody typed.
+        return cleaned.Length > 0 && char.IsLetter(cleaned[0]) ? cleaned : "Game" + cleaned;
+    }
+
+    /// <summary>Writes a template into a directory.</summary>
+    /// <param name="template">Which template: <c>game</c>, <c>app</c> or <c>lib</c>.</param>
+    /// <param name="name">The project's name. Becomes the assembly name and the root namespace.</param>
+    /// <param name="directory">Where to write it. Created if it is not there.</param>
+    /// <returns>What was written, or what stopped it.</returns>
+    /// <exception cref="IOException">The directory could not be written to.</exception>
+    public static ScaffoldResult Write(string template, string name, string directory) {
+        ArgumentException.ThrowIfNullOrEmpty(directory);
+
+        if (!TemplateCatalog.TryFind(template ?? string.Empty, out var chosen)) {
+            return new([], [], $"'{template}' is not a template. There are {TemplateCatalog.All.Count}.");
+        }
+
+        if (!IsUsableName(name)) {
+            return new(
+                [],
+                [],
+                $"'{name}' cannot be a project name. It has to start with a letter and hold only "
+                + "letters, digits, underscores and dots — it becomes both an assembly name and a "
+                + "namespace."
+            );
+        }
+
+        var root = Path.GetFullPath(directory);
+        var files = chosen.Instantiate(name, SdkVersion);
+        var collisions = files.Where(file => File.Exists(Path.Combine(root, file.Path))).Select(file => file.Path).ToList();
+
+        if (collisions.Count > 0) {
+            return new([], collisions, string.Empty);
+        }
+
+        foreach (var file in files) {
+            var path = Path.Combine(root, file.Path);
+
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllBytes(path, file.Content);
+        }
+
+        return new([.. files.Select(file => file.Path)], [], string.Empty);
     }
 }

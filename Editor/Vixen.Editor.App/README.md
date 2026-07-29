@@ -465,9 +465,14 @@ warning would toast, log, toast, log.
   enable, disable and reload. ⚠ What is still owed is a plugin *browser*: this lists what is
   installed, and installing one is still copying a folder.
 - ~~**No "open project…".**~~ It opens the project browser, and choosing one closes this editor and
-  reopens it over the new root — see above. ⚠ **New Project makes four directories rather than
-  instantiating a template**: `Tools/Vixen.Templates` is reached with `dotnet new` and produces a
-  solution, which is a different thing from the folder an editor opens.
+  reopens it over the new root — see above. ~~**New Project makes four directories rather than
+  instantiating a template.**~~ It writes the `game` template, through the same `ProjectScaffold`
+  `vixen new game` writes it through. ⚠ **The old note said the templates were "reached with
+  `dotnet new`", and that was never true** — `TemplateCatalog` reads the same tree out of an
+  assembly. What was true is that it read it out of `Tools/Vixen.Cli`'s, which this application does
+  not reference; it is `Vixen.Editor.Core`'s now. The cost of the gap only showed up two milestones
+  later: a project with no `.csproj` is one Build and Run cannot publish, so every project the
+  editor had ever made had that button greyed.
 - ~~**Reparenting is not undoable.**~~ `ReparentCommand` records the sibling that was in front —
   `Hierarchy.PreviousSiblingOf`, restored through `SetParentAfter` — so an undo puts the third of
   five children back third rather than first. Dragging in the outliner goes through it, and the

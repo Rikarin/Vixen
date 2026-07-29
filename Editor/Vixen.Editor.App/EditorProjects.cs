@@ -256,14 +256,34 @@ sealed partial class EditorApplication {
             }
         );
 
-    /// <summary>Makes the directories a project needs and opens it.</summary>
+    /// <summary>Writes a new game project and opens it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Four directories and nothing else, because that is what a project is.</b>
-    ///     <see cref="ProjectPaths" /> names them and <c>AssetDatabase</c> tolerates every one of them
-    ///     being absent — so "create a project" is a folder with an <c>Assets/</c> in it, and the
-    ///     seeded scene is written by the editor's own first-run path the moment it opens. Anything
-    ///     more would be a template, which is <c>Tools/Vixen.Templates</c>' business and reached with
-    ///     <c>dotnet new</c>.
+    ///     <para>
+    ///         ⚠ <b>This used to make two directories and call it a project, and the consequence
+    ///         showed up two milestones later.</b> A folder with an <c>Assets/</c> in it <i>is</i> a
+    ///         project as far as <c>AssetDatabase</c> is concerned — but it has no <c>.csproj</c>, so
+    ///         there is nothing for <c>dotnet publish</c> to publish, and E6's Build and Run was
+    ///         greyed for every project the editor had ever made with a message naming a terminal
+    ///         command. An editor that cannot finish the project it just created fails doc 20's
+    ///         second bar on the first screen a new user sees.
+    ///     </para>
+    ///     <para>
+    ///         <b>It writes the <c>game</c> template</b> — the same files <c>dotnet new vixen-game</c>
+    ///         and <c>vixen new game</c> write, through the same <see cref="ProjectScaffold" />, so
+    ///         there is no third answer to "what is in a new project".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The name is the folder's, cleaned rather than refused.</b> It is not typed here —
+    ///         it is whatever directory somebody picked in a file dialog — and "my game (2)" is an
+    ///         ordinary folder name and an impossible namespace. See <see cref="ProjectScaffold.NameFrom" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A directory that already holds some of those files is opened rather than
+    ///         clobbered.</b> The scaffold finds every collision before it writes anything, and this
+    ///         is the case where somebody pointed New Project at a project they already had: the
+    ///         useful response is to open it and say what was left alone, not to refuse and not to
+    ///         overwrite their <c>Program.cs</c>.
+    ///     </para>
     /// </remarks>
     void CreateProject(string root) {
         try {
@@ -271,6 +291,22 @@ sealed partial class EditorApplication {
 
             Directory.CreateDirectory(paths.Assets);
             Directory.CreateDirectory(paths.ProjectSettings);
+
+            var scaffold = ProjectScaffold.Write("game", ProjectScaffold.NameFrom(Path.GetFileName(root.TrimEnd(Path.DirectorySeparatorChar))), root);
+
+            if (scaffold.Collisions.Count > 0) {
+                Shell.Notifications.Show(
+                    "Opened what was already there",
+                    NotificationSeverity.Warning,
+                    $"{scaffold.Collisions.Count} file(s) of the game template are already in that "
+                    + "folder, so none of them were written."
+                );
+            } else if (scaffold.Error.Length > 0) {
+                // Reported rather than fatal: the directories exist, so what opens is a project that
+                // can be edited and cannot yet be published — which is the state this whole method
+                // used to leave behind unconditionally.
+                Shell.Notifications.Show("The project has no C# project file", NotificationSeverity.Warning, scaffold.Error);
+            }
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
             Shell.Notifications.Show("Could not create the project", NotificationSeverity.Error, exception.Message);
             return;

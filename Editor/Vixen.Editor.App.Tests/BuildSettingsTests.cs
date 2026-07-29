@@ -159,13 +159,20 @@ public class BuildSettingsTests {
     }
 
     /// <summary>
-    ///     ⚠ The two buttons are derived from a refusal that changes for reasons that are not edits
-    ///     to this panel, and nothing was asking it again: they stayed as they were when the panel
-    ///     opened — live for the whole of a build that had already started. The menu line never had
-    ///     this, because <c>MenuPresenter</c> asks <c>CanExecute</c> every time it draws.
+    ///     ⚠ The panel is derived from state that changes for reasons that are not edits to it, and
+    ///     nothing was asking it again — so it stayed as it was when it opened. The menu never had
+    ///     this because <c>MenuPresenter</c> asks <c>CanExecute</c> every time it draws.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Driven from the menu rather than from a build, deliberately.</b> The other thing that
+    ///     changes the answer is a task starting and stopping, and asserting on that means racing a
+    ///     pool thread — a content build over an empty project can finish between two frames, so the
+    ///     transition a test watched for might never be observable. The menu is the same wiring with
+    ///     no timing in it: one setting, two views, and the one that is not being touched has to
+    ///     follow.
+    /// </remarks>
     [Fact]
-    public void The_buttons_grey_themselves_while_other_work_is_running() {
+    public void A_target_chosen_on_the_menu_reaches_a_panel_that_is_already_open() {
         using var session = EditorSession.Start();
 
         File.WriteAllText(Path.Combine(session.ProjectRoot, "Game.csproj"), "<Project />");
@@ -173,22 +180,19 @@ public class BuildSettingsTests {
         var view = session.Control<BuildSettingsView>("build-settings");
 
         view.Rebuild();
+
         Assert.False(view.BuildButton.Disabled);
+        Assert.False(view.RunButton.Disabled);
 
-        // A content build rather than a player one, deliberately: it is the case that proves the
-        // panel is watching the *task* rather than watching itself, since nothing it owns started
-        // this one.
-        session.Run("assets.build");
+        session.Run("build.target-android");
 
-        Assert.True(view.BuildButton.Disabled);
-        Assert.Contains("already running", view.Status.Text, StringComparison.OrdinalIgnoreCase);
+        // The picker followed the menu, rather than the two disagreeing about one field.
+        Assert.Equal("Android", view.TargetPicker.Value);
 
-        // ⚠ The other direction is deliberately not asserted here. Coming back would mean waiting on
-        // a pool thread to finish a real import, and no test in this suite races one — the harness
-        // pumps a fixed number of frames on purpose. What it would prove is covered without a race
-        // by `Build_and_Run_is_refused_until_the_project_has_something_to_publish`, which asks the
-        // panel again and watches the same button flip the other way; the two together are "the
-        // refusal is re-asked" and "something other than the panel can be what asks".
+        // And so did the buttons: an APK is buildable from here and is not something this machine
+        // can launch, which is the distinction `TargetShape.Runnable` exists to draw.
+        Assert.False(view.BuildButton.Disabled);
+        Assert.True(view.RunButton.Disabled);
     }
 
     /// <summary>
