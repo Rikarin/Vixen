@@ -157,6 +157,93 @@ public static class GizmoGeometry {
         return into.Count - before;
     }
 
+    /// <summary>Builds the solid parts of a gizmo: the head on the end of each arm.</summary>
+    /// <param name="gizmo">The gizmo.</param>
+    /// <param name="camera">The camera it is seen from.</param>
+    /// <param name="height">How tall the viewport is, in render pixels.</param>
+    /// <param name="vertices">Where to put the vertices. Not cleared.</param>
+    /// <param name="triangles">Where to put the indices, three per triangle. Not cleared, and offset.</param>
+    /// <returns>How many vertices were added.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A cone on a translate arm and a cube on a scale one, and both used to be wire.</b>
+    ///         An outlined arrowhead is four ribs and a square: from the one angle it was built for it
+    ///         reads as an arrow, and from every other it is four unrelated lines crossing near the
+    ///         end of a shaft. It is also the part of a gizmo people aim at — the head is the target,
+    ///         the shaft only says which way — so it is exactly the wrong part to draw as a hint.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Solid, and therefore lit, and therefore drawn without the depth test.</b> A wire
+    ///         head that is occluded still shows through as a few pixels; a solid one that is occluded
+    ///         is simply gone. <c>MeshRenderer</c> has the overlay pipeline for this, and
+    ///         <c>ScenePresenter</c> records the handles through it after everything else.
+    ///     </para>
+    ///     <para>
+    ///         <b>The geometry is <c>MeshPrimitives</c>' and is built once.</b> A cone's normals are
+    ///         the fiddly part — the tip is a <i>row</i> of vertices with different normals, or it is
+    ///         lit as though a spotlight were on one side of it — and that is solved there and tested
+    ///         there. What is left here is a matrix per head: a rotation taking the primitive's +Y
+    ///         onto the arm, a scale, and a translation. The shapes are cached because they never
+    ///         change; only the matrix does, and it changes every frame because the gizmo is a
+    ///         constant size on screen.
+    ///     </para>
+    /// </remarks>
+    public static int BuildSolid(
+        TransformGizmo gizmo,
+        EditorCamera camera,
+        int height,
+        List<MeshVertex> vertices,
+        List<uint> triangles
+    ) {
+        ArgumentNullException.ThrowIfNull(gizmo);
+        ArgumentNullException.ThrowIfNull(camera);
+        ArgumentNullException.ThrowIfNull(vertices);
+        ArgumentNullException.ThrowIfNull(triangles);
+
+        var before = vertices.Count;
+
+        // Rotation has rings and no arms, and a gizmo with nothing selected has neither.
+        if (gizmo.Targets.Count == 0 || gizmo.Mode is GizmoMode.None or GizmoMode.Rotate) {
+            return 0;
+        }
+
+        var origin = gizmo.Origin;
+        var basis = gizmo.Basis(camera);
+        var scale = gizmo.WorldPerPixel(camera, height) * gizmo.HandleLength;
+        var active = gizmo.IsDragging ? gizmo.Active : gizmo.Hovered;
+
+        var cube = gizmo.Mode == GizmoMode.Scale;
+        var shape = cube ? Cube : Cone;
+        var length = scale * (cube ? gizmo.HeadRadius * 2f : gizmo.HeadLength);
+        var radius = scale * gizmo.HeadRadius;
+
+        for (var axis = 0; axis < 3; axis++) {
+            var direction = Axis(basis, axis);
+
+            // The same call the shafts and the hit test ask, so a head is drawn exactly when the arm
+            // it belongs to is grabbable.
+            if (!gizmo.IsAxisVisible(direction, camera)) {
+                continue;
+            }
+
+            // ⚠ Centred on its own middle, not on the tip. Both primitives straddle the origin in
+            // their local Y, so placing one at the end of the arm would bury half of it in the shaft
+            // and leave the arm looking short by half a head.
+            var centre = origin + (direction * (scale - (length * 0.5f)));
+
+            Append(
+                vertices,
+                triangles,
+                shape,
+                Frame(direction, radius * 2f, length, centre),
+                AxisColour(axis, active == GizmoHandle.AxisX + axis)
+            );
+        }
+
+        return vertices.Count - before;
+    }
+
+    /// <summary>The three shafts. The heads on the ends of them are <see cref="BuildSolid" />'s.</summary>
     static void Arms(
         List<LineVertex> into,
         EditorCamera camera,
@@ -167,8 +254,6 @@ public static class GizmoGeometry {
         GizmoHandle active,
         Pen pen
     ) {
-        var mode = gizmo.Mode;
-
         for (var axis = 0; axis < 3; axis++) {
             var direction = Axis(basis, axis);
 
@@ -187,29 +272,6 @@ public static class GizmoGeometry {
             // region that answers for something else is the visible half of the oldest gizmo
             // complaint there is: "it grabbed the wrong axis".
             Segment(into, origin + (direction * (scale * gizmo.ArmStart)), end, colour, pen);
-
-            // A head, so the two ends of an arm are told apart: a cube for scale, an arrow for
-            // translate. Both are closed shapes rather than a cross, which at this thickness reads
-            // as a handle to grab instead of as a smudge at the end of a line.
-            var side = Axis(basis, (axis + 1) % 3) * (scale * 0.07f);
-            var up = Axis(basis, (axis + 2) % 3) * (scale * 0.07f);
-
-            if (mode == GizmoMode.Scale) {
-                Cube(into, end, direction * (scale * 0.07f), side, up, colour, pen);
-                continue;
-            }
-
-            var back = end - (direction * (scale * 0.16f));
-
-            // Four ribs from the tip to a square around the shaft, and the square itself. An open
-            // arrow — four ribs and nothing joining them — is four unrelated lines from every angle
-            // that is not the one it was drawn for.
-            Segment(into, end, back + side, colour, pen);
-            Segment(into, end, back - side, colour, pen);
-            Segment(into, end, back + up, colour, pen);
-            Segment(into, end, back - up, colour, pen);
-
-            Box(into, back, side, up, colour, pen);
         }
     }
 
@@ -391,33 +453,6 @@ public static class GizmoGeometry {
         }
     }
 
-    /// <summary>A closed wire box, given its middle and half of each of its three sides.</summary>
-    /// <remarks>
-    ///     ⚠ <b>A box and not a square, and the difference is the angle it is seen from.</b> The head
-    ///     of the x arm is drawn in the plane of the other two axes, which is the plane the camera is
-    ///     looking straight along whenever it is lined up with x — and a flat square seen edge-on is a
-    ///     line, so the handle that says "this arm scales" disappears at exactly the angle somebody
-    ///     lined the view up to scale along that arm from.
-    /// </remarks>
-    static void Cube(
-        List<LineVertex> into,
-        Vector3 centre,
-        Vector3 along,
-        Vector3 side,
-        Vector3 up,
-        Color4 colour,
-        Pen pen
-    ) {
-        Box(into, centre - along, side, up, colour, pen);
-        Box(into, centre + along, side, up, colour, pen);
-
-        for (var corner = 0; corner < 4; corner++) {
-            var offset = ((corner & 1) == 0 ? side : -side) + ((corner & 2) == 0 ? up : -up);
-
-            Segment(into, centre + offset - along, centre + offset + along, colour, pen);
-        }
-    }
-
     /// <summary>A closed square, given its middle and half of each side.</summary>
     static void Box(List<LineVertex> into, Vector3 centre, Vector3 side, Vector3 up, Color4 colour, Pen pen) {
         var a = centre - side - up;
@@ -470,6 +505,105 @@ public static class GizmoGeometry {
 
             into.Add(new(from + shift, colour));
             into.Add(new(to + shift, colour));
+        }
+    }
+
+    /// <summary>How many divisions a solid head is built with.</summary>
+    /// <remarks>
+    ///     Twelve, for a cone about twenty pixels across: the flats are under two pixels wide, which
+    ///     is past the point where more of them change the picture. <c>MeshPrimitives</c>' own default
+    ///     is for shapes somebody is modelling with rather than aiming at.
+    /// </remarks>
+    public const int HeadSegments = 12;
+
+    /// <summary>The translate arm's head, a unit cone standing on +Y.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Built once, at type initialisation, and never mutated.</b> A shape's geometry does not
+    ///     change; what changes every frame is the matrix it is placed by, because the gizmo is a
+    ///     constant size on screen and so its head is a different size in world units at every
+    ///     distance. Rebuilding thirty-eight vertices three times a frame would be all of this pass's
+    ///     cost and none of its output — the same reason <c>SceneMeshes</c> caches by kind.
+    /// </remarks>
+    static readonly MeshData Cone = MeshPrimitives.Cone(0.5f, 1f, HeadSegments);
+
+    /// <summary>The scale arm's head, a unit cube.</summary>
+    static readonly MeshData Cube = MeshPrimitives.Cube();
+
+    /// <summary>The transform that puts a unit shape on an arm.</summary>
+    /// <param name="direction">Where the shape's local +Y goes, unit length.</param>
+    /// <param name="width">How wide to make it.</param>
+    /// <param name="length">How long, along <paramref name="direction" />.</param>
+    /// <param name="centre">Where its middle goes.</param>
+    /// <returns>The local-to-world transform.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The two axes across the arm are arbitrary and that is fine — for these two shapes.</b>
+    ///     A cone is symmetric about its axis, so which way round its cross-section is turned is
+    ///     invisible; a cube is not, and a cube whose sides face nowhere in particular is still a
+    ///     cube. What this must not be used for is a head that has a front.
+    /// </remarks>
+    static Matrix4x4 Frame(Vector3 direction, float width, float length, Vector3 centre) {
+        var across = Perpendicular(direction);
+
+        // ⚠ `across × direction`, not the other way round. Either produces a frame the shape fits
+        // into, and the wrong one is a mirror — every triangle wound backwards. Nothing here would
+        // show it, because the pipeline is two-sided and the normals go through the inverse transpose
+        // and come out right regardless, which is precisely why it would be left in place to be
+        // discovered by whatever turns culling on next.
+        var side = across * width;
+        var forward = Vector3.Cross(across, direction) * width;
+        var up = direction * length;
+
+        return new(
+            side.X, side.Y, side.Z, 0f,
+            up.X, up.Y, up.Z, 0f,
+            forward.X, forward.Y, forward.Z, 0f,
+            centre.X, centre.Y, centre.Z, 1f
+        );
+    }
+
+    /// <summary>Any unit vector at right angles to another.</summary>
+    /// <remarks>
+    ///     ⚠ The cross product with a fixed axis is the zero vector when the two are parallel, and
+    ///     <c>Vector3.Normalize</c> of that is <c>NaN</c> rather than zero — which no <c>IsZero</c>
+    ///     test catches and which spreads through every number it touches. Which of the two candidates
+    ///     is used is chosen before the divide, from the component that is largest.
+    /// </remarks>
+    static Vector3 Perpendicular(Vector3 direction) =>
+        Vector3.Normalize(Vector3.Cross(direction, MathF.Abs(direction.Y) > 0.9f ? Vector3.UnitX : Vector3.UnitY));
+
+    /// <summary>Places one shape's triangles into a frame's buffers.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Indices are offset by where this shape's vertices started.</b> <c>MeshRenderer</c>
+    ///     deliberately does not do it — a caller building a frame knows where each mesh began and it
+    ///     does not — and an unoffset index names another shape's vertex, which draws a triangle
+    ///     stretched between two heads.
+    /// </remarks>
+    static void Append(
+        List<MeshVertex> vertices,
+        List<uint> triangles,
+        MeshData mesh,
+        in Matrix4x4 transform,
+        Color4 colour
+    ) {
+        var first = (uint) vertices.Count;
+
+        // ⚠ Through the inverse transpose, for the reason `SceneMeshes.Append` gives: a head is
+        // scaled unevenly — a cone is longer than it is wide — so its own matrix leaves the normals
+        // no longer perpendicular to the slope, and the shading slides across it as the camera
+        // approaches. A matrix that will not invert is a zero-size head with nothing to light.
+        var normals = Matrix4x4.Invert(transform, out var inverse) ? Matrix4x4.Transpose(inverse) : transform;
+        var hasNormals = mesh.Normals.Length == mesh.Positions.Length;
+
+        for (var index = 0; index < mesh.Positions.Length; index++) {
+            var normal = hasNormals
+                ? Vector3.Normalize(Matrix4x4.TransformDirection(mesh.Normals[index], normals))
+                : Vector3.UnitY;
+
+            vertices.Add(new(Matrix4x4.TransformPosition(mesh.Positions[index], transform), normal, colour));
+        }
+
+        foreach (var index in mesh.Indices) {
+            triangles.Add(first + (uint) index);
         }
     }
 

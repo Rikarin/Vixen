@@ -182,10 +182,26 @@ enabled.
 with `UiRenderer.RegisterImage`, and the viewport control draws it — so the scene arrives in the
 interface as an ordinary element that panels can be drawn over.
 
-⚠ **What it draws is lines**: the grid, a three-axis marker per entity, a line to each parent, and the
-gizmo. There is no material system wired to an editor viewport and no model importer feeding one, so
-there is nothing to draw as a mesh yet — and a grid, markers and a gizmo is what any editor shows for
-a scene of empties regardless. A mesh pass is a second `SceneRenderer` into the same target.
+⚠ **Four draws into one target, in an order that is not arbitrary.** The spawned shapes go first and
+are the only thing that writes depth. The grid, the three-axis marker on each entity and the line to
+each parent follow, depth-tested, so a marker inside a cube is inside it. Then the gizmo's shafts,
+rings and plane quads with no depth test at all — a handle you cannot reach through the thing it
+moves is a handle you cannot use. Last, the gizmo's *solid* parts: the cone on the end of a translate
+arm and the cube on a scale one, which are triangles rather than segments and so want a second
+`MeshRenderer` rather than a second range in the first.
+
+⚠ **The arm heads are solid, and they used to be wire.** An outlined arrowhead is four ribs and a
+square: from the one angle it was built for it reads as an arrow, and from every other it is four
+unrelated lines crossing near the end of a shaft. It is also the part of a gizmo people aim at — the
+head is the target and the shaft only says which way — so it was exactly the wrong part to draw as a
+hint. Being solid is also why it has to be the last draw and why `MeshRenderer` grew the overlay
+pipeline `LineRenderer` already had: a wire head behind a cube still shows a few pixels through it,
+and a solid one is simply gone.
+
+⚠ **What it does not draw is materials.** There is no material system wired to an editor viewport and
+no model importer feeding one, so the mesh pass is `MeshRenderer` — a tool renderer whose cost is
+linear in vertices and which has no culling and no materials. It is what makes a spawned cube visible
+today; a viewport driven by `RenderSystem` through a `GraphicsCompositor` is what replaces it.
 
 ⚠ **Resizing re-registers the number rather than surrendering it.** A dragged splitter resizes the
 pane once a frame, and `UnregisterImage` destroys the number's descriptor sets — which the Vulkan

@@ -66,6 +66,16 @@ sealed class ScenePresenter : IDisposable {
     readonly LineRenderer overlay;
 
     readonly MeshRenderer meshes;
+
+    /// <summary>The gizmo's solid heads, in a renderer of their own so they escape the depth test.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A second instance for the same reason <see cref="overlay" /> is one</b>, and the need
+    ///     is sharper here: a wire handle behind a cube still shows a few pixels through it, and a
+    ///     solid one is simply gone. One <see cref="MeshRenderer" /> holds one buffer and draws all of
+    ///     it with one pipeline, so the world's shapes and the gizmo's heads cannot share it.
+    /// </remarks>
+    readonly MeshRenderer handles;
+
     readonly SceneLines geometry = new();
     readonly SceneMeshes surfaces = new();
     readonly List<LineVertex> pending = [];
@@ -107,6 +117,10 @@ sealed class ScenePresenter : IDisposable {
         lines = new(device, shaders, output);
         overlay = new(device, shaders, output);
         meshes = new(device, meshShaders, output);
+
+        // A few hundred vertices at most: three heads of a dozen segments each. Sized down from the
+        // default so a second mesh ring costs kilobytes rather than the megabytes the scene's does.
+        handles = new(device, meshShaders, output, 4096, 8192);
     }
 
     /// <summary>What the shapes in the scene are drawn as.</summary>
@@ -187,6 +201,10 @@ sealed class ScenePresenter : IDisposable {
 
         Write(lines, geometry.World);
         Write(overlay, geometry.Overlay);
+
+        // Straight across, no copy: `SceneLines` hands the gizmo's solid parts back as spans for
+        // exactly this, which the two segment lists cannot do — see its own remarks.
+        handles.Upload(geometry.Handles, geometry.HandleIndices);
     }
 
     /// <summary>Copies a collected list into a renderer's buffer.</summary>
@@ -269,8 +287,11 @@ sealed class ScenePresenter : IDisposable {
                     meshes.Record(context.CommandList, viewProjection);
                     lines.Record(context.CommandList, viewProjection);
 
-                    // Last, and with the depth test off. See the field's own remarks.
+                    // Last, and with the depth test off. See the fields' own remarks. The heads go
+                    // after the shafts so that an opaque cone covers the end of the line running into
+                    // it rather than being drawn over by it.
                     overlay.Record(context.CommandList, viewProjection, depthTested: false);
+                    handles.Record(context.CommandList, viewProjection, depthTested: false);
                 });
             }
         );
@@ -288,6 +309,7 @@ sealed class ScenePresenter : IDisposable {
         disposed = true;
 
         meshes.Dispose();
+        handles.Dispose();
         lines.Dispose();
         overlay.Dispose();
 

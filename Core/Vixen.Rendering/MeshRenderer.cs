@@ -77,6 +77,7 @@ public sealed class MeshRenderer : IDisposable {
     readonly IGraphicsDevice device;
     readonly PipelineLayoutHandle layout;
     readonly PipelineHandle pipeline;
+    readonly PipelineHandle overlayPipeline;
     readonly int slots;
 
     BufferHandle vertices;
@@ -153,34 +154,14 @@ public sealed class MeshRenderer : IDisposable {
             new([], [new(ShaderStage.Vertex | ShaderStage.Fragment, 0, 80)], "mesh")
         );
 
-        pipeline = device.CreateGraphicsPipeline(
-            new(
-                shaders.Vertex,
-                shaders.Fragment,
-                layout,
-                [new(output.ColourCount > 0 ? output.ColourFormats[0] : PixelFormat.Rgba8UNorm, BlendState.PremultipliedAlpha)],
-                [
-                    new(
-                        Marshal.SizeOf<MeshVertex>(),
-                        [
-                            new(shaders.Locations[0], VertexFormat.Float32X3, 0),
-                            new(shaders.Locations[1], VertexFormat.Float32X3, 12),
-                            new(shaders.Locations[2], VertexFormat.Float32X4, 24)
-                        ]
-                    )
-                ],
-                PrimitiveTopology.TriangleList,
-                Rasterizer: RasterizerState.TwoSided,
+        pipeline = Pipeline(shaders, output, DepthStencilState.Default, "mesh");
 
-                // ⚠ Tested *and written*, which is where this differs from the line pipeline. A solid
-                // shape has to occlude what is behind it, including the grid — a mesh that only
-                // tested depth would have the floor grid drawn straight through it.
-                DepthStencil: DepthStencilState.Default,
-                DepthFormat: output.DepthFormat,
-                SampleCount: output.SampleCount,
-                Name: "mesh"
-            )
-        );
+        // ⚠ A second pipeline differing only in the depth test, and it is the same pair
+        // <see cref="LineRenderer" /> has for the same reason: a gizmo has to be reachable through
+        // the thing it is moving, and a solid handle that is *also* occluded is worse than a wire one
+        // — it disappears completely rather than showing through faintly. Depth is not written
+        // either, so a handle drawn over a cube does not then punch a hole in anything drawn after it.
+        overlayPipeline = Pipeline(shaders, output, DepthStencilState.Disabled, "mesh overlay");
 
         Resize(vertexCapacity, indexCapacity);
     }
@@ -236,7 +217,10 @@ public sealed class MeshRenderer : IDisposable {
     /// <summary>Draws what the last upload wrote.</summary>
     /// <param name="commands">Where to record.</param>
     /// <param name="viewProjection">The world-to-clip matrix of the view being drawn.</param>
-    public void Record(ICommandList commands, in Matrix4x4 viewProjection) {
+    /// <param name="depthTested">
+    ///     Whether the triangles are hidden by geometry in front of them, and write depth themselves.
+    /// </param>
+    public void Record(ICommandList commands, in Matrix4x4 viewProjection, bool depthTested = true) {
         ArgumentNullException.ThrowIfNull(commands);
         ObjectDisposedException.ThrowIf(disposed, this);
 
@@ -249,7 +233,7 @@ public sealed class MeshRenderer : IDisposable {
         Span<Matrix4x4> matrix = [viewProjection];
         Span<Vector4> light = [new(LightDirection, Ambient)];
 
-        commands.BindPipeline(pipeline);
+        commands.BindPipeline(depthTested ? pipeline : overlayPipeline);
         commands.PushConstants(ShaderStage.Vertex | ShaderStage.Fragment, 0, MemoryMarshal.AsBytes(matrix));
         commands.PushConstants(ShaderStage.Vertex | ShaderStage.Fragment, 64, MemoryMarshal.AsBytes(light));
 
@@ -261,6 +245,42 @@ public sealed class MeshRenderer : IDisposable {
         Draws = 1;
     }
 
+    /// <summary>One of the two pipelines, which differ only in what they do with depth.</summary>
+    PipelineHandle Pipeline(MeshShaders shaders, RenderOutput output, DepthStencilState depth, string name) =>
+        device.CreateGraphicsPipeline(
+            new(
+                shaders.Vertex,
+                shaders.Fragment,
+                layout,
+                [
+                    new(
+                        output.ColourCount > 0 ? output.ColourFormats[0] : PixelFormat.Rgba8UNorm,
+                        BlendState.PremultipliedAlpha
+                    )
+                ],
+                [
+                    new(
+                        Marshal.SizeOf<MeshVertex>(),
+                        [
+                            new(shaders.Locations[0], VertexFormat.Float32X3, 0),
+                            new(shaders.Locations[1], VertexFormat.Float32X3, 12),
+                            new(shaders.Locations[2], VertexFormat.Float32X4, 24)
+                        ]
+                    )
+                ],
+                PrimitiveTopology.TriangleList,
+                Rasterizer: RasterizerState.TwoSided,
+
+                // ⚠ The world pipeline tests *and writes*, which is where this differs from the line
+                // one. A solid shape has to occlude what is behind it, including the grid — a mesh
+                // that only tested depth would have the floor grid drawn straight through it.
+                DepthStencil: depth,
+                DepthFormat: output.DepthFormat,
+                SampleCount: output.SampleCount,
+                Name: name
+            )
+        );
+
     /// <inheritdoc />
     public void Dispose() {
         if (disposed) {
@@ -270,6 +290,7 @@ public sealed class MeshRenderer : IDisposable {
         disposed = true;
 
         device.Destroy(pipeline);
+        device.Destroy(overlayPipeline);
         device.Destroy(layout);
 
         if (vertices.IsValid) {

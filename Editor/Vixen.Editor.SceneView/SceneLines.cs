@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.InteropServices;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
@@ -9,19 +10,21 @@ using Vixen.Rendering;
 
 namespace Vixen.Editor.SceneView;
 
-/// <summary>Everything a viewport draws as lines, collected once a frame.</summary>
+/// <summary>Everything a viewport draws over the scene, collected once a frame.</summary>
 /// <remarks>
 ///     <para>
-///         <b>One list, three sources: the grid, the entities, the gizmo.</b> They are drawn together
-///         because they are the same kind of thing — world-space segments with no material — and
-///         collecting them here rather than in three places is what makes the whole overlay one
+///         <b>Three sources: the grid, the entities, the gizmo.</b> They are drawn together because
+///         they are nearly the same kind of thing — world-space geometry with no material — and
+///         collecting them here rather than in three places is what makes each of the passes below one
 ///         buffer write and one draw call.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two lists, actually, and the split is not cosmetic.</b> The grid and the markers are
+///         ⚠ <b>Three lists, and none of the splits is cosmetic.</b> The grid and the markers are
 ///         depth-tested so an entity behind a wall is behind it; the gizmo is not, because a handle
-///         you cannot reach through the thing it moves is a handle you cannot use. Two lists is what
-///         lets one <c>LineRenderer</c> draw them with its two pipelines.
+///         you cannot reach through the thing it moves is a handle you cannot use. That much is two
+///         <c>LineRenderer</c>s. The third is the gizmo's <i>solid</i> parts — the head on the end of
+///         each arm — which are triangles rather than segments and want <c>MeshRenderer</c>, so they
+///         cannot share a buffer with either of the other two however alike they look on screen.
 ///     </para>
 ///     <para>
 ///         <b>An entity with no mesh is drawn as a marker.</b> Until there is a mesh path in the
@@ -32,12 +35,25 @@ namespace Vixen.Editor.SceneView;
 public sealed class SceneLines {
     readonly List<LineVertex> world = [];
     readonly List<LineVertex> overlay = [];
+    readonly List<MeshVertex> handles = [];
+    readonly List<uint> handleIndices = [];
 
     /// <summary>The segments drawn with the depth test on.</summary>
     public IReadOnlyList<LineVertex> World => world;
 
     /// <summary>The segments drawn over everything.</summary>
     public IReadOnlyList<LineVertex> Overlay => overlay;
+
+    /// <summary>The gizmo's solid parts, drawn over everything.</summary>
+    /// <remarks>
+    ///     A span rather than an <see cref="IReadOnlyList{T}" />, which is what the two segment lists
+    ///     hand back: this is read by <c>MeshRenderer.Upload</c>, which wants one. The same choice
+    ///     <c>SceneMeshes</c> makes, and for the same reason.
+    /// </remarks>
+    public ReadOnlySpan<MeshVertex> Handles => CollectionsMarshal.AsSpan(handles);
+
+    /// <summary>Three indices per triangle, into <see cref="Handles" />.</summary>
+    public ReadOnlySpan<uint> HandleIndices => CollectionsMarshal.AsSpan(handleIndices);
 
     /// <summary>How big an entity's marker is, in world units.</summary>
     public float MarkerSize { get; set; } = 0.25f;
@@ -64,11 +80,14 @@ public sealed class SceneLines {
 
         world.Clear();
         overlay.Clear();
+        handles.Clear();
+        handleIndices.Clear();
 
         Grid(viewport, height);
         Markers(document);
 
         GizmoGeometry.Build(viewport.Gizmo, viewport.Camera, height, overlay);
+        GizmoGeometry.BuildSolid(viewport.Gizmo, viewport.Camera, height, handles, handleIndices);
     }
 
     void Grid(SceneViewport viewport, int height) {

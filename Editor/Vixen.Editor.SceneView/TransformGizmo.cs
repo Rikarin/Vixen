@@ -106,6 +106,17 @@ public sealed class TransformGizmo {
     /// </remarks>
     public float ScreenRingScale { get; set; } = 1.15f;
 
+    /// <summary>How long an arm's head is, as a fraction of the arm.</summary>
+    /// <remarks>
+    ///     The cone on a translate arm and the cube on a scale one. Longer than the wire arrow it
+    ///     replaced, because a solid cone reads as a direction at a length where an outline reads as a
+    ///     smudge — and because there is no longer a set of ribs making it look longer than it is.
+    /// </remarks>
+    public float HeadLength { get; set; } = 0.22f;
+
+    /// <summary>How wide an arm's head is, as a fraction of the arm.</summary>
+    public float HeadRadius { get; set; } = 0.075f;
+
     /// <summary>How far along an arm its grabbable part starts, as a fraction of the arm.</summary>
     /// <remarks>
     ///     ⚠ <b>The three arms all pass through the origin, so without this the middle of the gizmo

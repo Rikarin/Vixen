@@ -254,6 +254,127 @@ public class GizmoGeometryTests {
         Assert.Equal(GizmoGeometry.AxisColour(0, highlighted: true), into[0].Colour);
     }
 
+    /// <summary>Builds a gizmo's solid parts, and says how big its arms are.</summary>
+    static (List<MeshVertex> Vertices, List<uint> Triangles, float Scale) Solid(
+        TransformGizmo gizmo,
+        EditorCamera camera
+    ) {
+        List<MeshVertex> vertices = [];
+        List<uint> triangles = [];
+
+        GizmoGeometry.BuildSolid(gizmo, camera, Height, vertices, triangles);
+
+        return (vertices, triangles, gizmo.WorldPerPixel(camera, Height) * gizmo.HandleLength);
+    }
+
+    [Fact]
+    public void The_arm_heads_are_solid_triangles_and_the_shafts_are_still_lines() {
+        List<LineVertex> wire = [];
+
+        var (gizmo, _, camera) = One(GizmoMode.Translate);
+        var (vertices, triangles, _) = Solid(gizmo, camera);
+
+        GizmoGeometry.Build(gizmo, camera, Height, wire);
+
+        // ⚠ An outlined arrowhead is four ribs and a square: from the one angle it was built for it
+        // reads as an arrow, and from every other it is four unrelated lines crossing near the end of
+        // a shaft. It is also the part people aim at — the head is the target and the shaft only says
+        // which way — so it was exactly the wrong part to draw as a hint.
+        Assert.NotEmpty(vertices);
+        Assert.NotEmpty(triangles);
+        Assert.Equal(0, triangles.Count % 3);
+
+        // Two arms on screen looking down z, and nothing but their shafts, the plane quads and the
+        // middle box left in the wire list.
+        Assert.NotEmpty(wire);
+    }
+
+    [Fact]
+    public void A_head_sits_on_the_tip_of_its_arm() {
+        var (gizmo, _, camera) = One(GizmoMode.Translate);
+        var (vertices, _, scale) = Solid(gizmo, camera);
+
+        var tip = vertices.Max(vertex => vertex.Position.X);
+        var back = vertices.Where(vertex => vertex.Position.X > scale * 0.5f).Min(vertex => vertex.Position.X);
+
+        // The tip lands exactly where the shaft ends, and the base a head's length behind it. A cone
+        // centred on the arm's end instead would bury half of itself in the shaft and leave the arm
+        // looking half a head short.
+        Assert.Equal(scale, tip, 4);
+        Assert.Equal(scale * (1f - gizmo.HeadLength), back, 4);
+    }
+
+    [Fact]
+    public void Every_index_names_a_vertex_of_the_head_it_belongs_to() {
+        var (gizmo, _, camera) = One(GizmoMode.Translate);
+        var (vertices, triangles, _) = Solid(gizmo, camera);
+
+        // ⚠ `MeshRenderer` deliberately does not offset indices — a caller building a frame knows
+        // where each mesh began and it does not — so an unoffset index names another head's vertex,
+        // which draws a triangle stretched between two arms.
+        Assert.All(triangles, index => Assert.True(index < (uint) vertices.Count));
+
+        var x = vertices.Where(vertex => MathF.Abs(vertex.Position.Y) < 1e-3f).ToArray();
+
+        Assert.NotEmpty(x);
+        Assert.All(vertices, vertex => Assert.Equal(1f, vertex.Normal.Length(), 3));
+    }
+
+    [Fact]
+    public void An_arm_pointing_at_the_eye_has_no_head_either() {
+        var (gizmo, _, camera) = One(GizmoMode.Translate);
+        var (vertices, _, scale) = Solid(gizmo, camera);
+
+        // Looking down z, so the z arm is a dot and is neither drawn nor grabbable — and a head left
+        // behind on it would be a solid lump over the middle of the gizmo, hiding the handle that
+        // does answer there.
+        Assert.False(gizmo.IsAxisVisible(Vector3.UnitZ, camera));
+        Assert.DoesNotContain(vertices, vertex => MathF.Abs(vertex.Position.Z) > scale * 0.5f);
+    }
+
+    [Fact]
+    public void Scale_gets_cubes_and_rotate_gets_nothing() {
+        var (scale, _, camera) = One(GizmoMode.Scale);
+        var (rotate, _, _) = One(GizmoMode.Rotate);
+        var (translate, _, _) = One(GizmoMode.Translate);
+
+        var cubes = Solid(scale, camera);
+        var cones = Solid(translate, camera);
+
+        // A cube is eight corners' worth of faces and a cone is a fan of twelve, so the two modes
+        // cannot have quietly become the same shape.
+        Assert.NotEmpty(cubes.Vertices);
+        Assert.NotEqual(cones.Vertices.Count, cubes.Vertices.Count);
+
+        // A rotate gizmo is rings. There is no arm to put a head on, and a solid lump inside three
+        // rings would be a fourth thing to aim at in the one place there is no room for it.
+        Assert.Empty(Solid(rotate, camera).Vertices);
+    }
+
+    [Fact]
+    public void A_hovered_arm_s_head_changes_colour_with_its_shaft() {
+        var (gizmo, _, camera) = One(GizmoMode.Translate);
+        var plain = Solid(gizmo, camera);
+
+        gizmo.Hovered = GizmoHandle.AxisX;
+
+        var hovered = Solid(gizmo, camera);
+
+        Assert.Equal(plain.Vertices.Count, hovered.Vertices.Count);
+        Assert.Equal(GizmoGeometry.AxisColour(0, highlighted: true), hovered.Vertices[0].Colour);
+        Assert.NotEqual(plain.Vertices[0].Colour, hovered.Vertices[0].Colour);
+    }
+
+    [Fact]
+    public void Nothing_selected_builds_no_solid_geometry() {
+        List<MeshVertex> vertices = [];
+        List<uint> triangles = [];
+
+        Assert.Equal(0, GizmoGeometry.BuildSolid(new TransformGizmo(), new EditorCamera(), Height, vertices, triangles));
+        Assert.Empty(vertices);
+        Assert.Empty(triangles);
+    }
+
     [Fact]
     public void The_axes_are_the_three_colours_everybody_expects() {
         // Red, green, blue for x, y, z — the convention the corner axis cross already uses.
