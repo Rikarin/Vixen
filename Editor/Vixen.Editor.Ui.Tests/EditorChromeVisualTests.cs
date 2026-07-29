@@ -66,8 +66,6 @@ public class EditorChromeVisualTests {
             Shell = new EditorShell(width, height, mode);
             Font(Shell.Document);
 
-            Shell.Toolbar.Show("view.palette", "view.theme", null, "view.layout.Default");
-
             Shell.RegisterPanel("hierarchy", Title("Hierarchy"), Hierarchy);
             Shell.RegisterPanel("project", Title("Project"), Project);
             Shell.RegisterPanel("scene", Title("Scene"), Scene);
@@ -83,7 +81,28 @@ public class EditorChromeVisualTests {
             Shell.Workspace.Reset();
             Shell.Status = "SampleProject";
 
+            // ⚠ The strip is described after the layout, because a section is built from ids and a
+            // group whose commands do not exist yet comes out empty. The three modes are a
+            // segmented control and the dropdown carries a chevron — neither is visible to an
+            // assertion about which panel is open, which is what this file exists for.
+            Modes();
+
+            Shell.Toolbar.Show(
+                new ToolbarButton("view.palette"),
+                new ToolbarSeparator(),
+                new ToolbarGroup("test.translate", "test.rotate", "test.scale"),
+                new ToolbarButton("view.toggle-theme"),
+                new ToolbarSeparator(),
+                new ToolbarDropdown(Title("Layout"), "layout", "view.layout.Default", null, "view.reset-layout")
+            );
+
+            // The selection count and the frame time only exist once the shell has ticked, which is
+            // also the only way the mean is anything but zero.
+            Shell.SelectionCount = () => 1;
+
             Test = UiTest.Adopt(Shell.Document);
+
+            Shell.Tick(TimeSpan.FromMilliseconds(16), TimeSpan.FromMilliseconds(16));
             Test.Frames(2);
         }
 
@@ -99,6 +118,22 @@ public class EditorChromeVisualTests {
         public void Dispose() => Shell.Dispose();
 
         static StringId Title(string text) => new("test." + text, text);
+
+        /// <summary>Three commands that are one choice, so the segmented control has members.</summary>
+        void Modes() {
+            var current = "translate";
+
+            foreach (var mode in new[] { "translate", "rotate", "scale" }) {
+                var chosen = mode;
+
+                Shell.Commands.Add(
+                    new EditorCommand("test." + mode, Title(char.ToUpperInvariant(mode[0]) + mode[1..]), () => current = chosen) {
+                        Checked = () => current == chosen,
+                        RadioGroup = "gizmo"
+                    }
+                );
+            }
+        }
 
         static void Hierarchy(DockPanel panel) {
             var tree = panel.Add<TreeView>();

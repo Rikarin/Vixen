@@ -53,7 +53,7 @@ namespace Vixen.Editor.App;
 ///         user back at the origin.
 ///     </para>
 /// </remarks>
-sealed class EditorApplication : IDisposable {
+sealed partial class EditorApplication : IDisposable {
     /// <summary>What the folder holding plugins is called, in both places it is looked for.</summary>
     const string PluginsFolder = "Plugins";
 
@@ -61,6 +61,21 @@ sealed class EditorApplication : IDisposable {
     readonly World world = new("Editor");
     readonly EditorProject project;
     readonly SceneDocument scene;
+
+    /// <summary>What the host can do that this cannot ask for itself: pickers, and a browser.</summary>
+    readonly EditorServices services;
+
+    /// <summary>Where a native dialog's answer waits for the frame thread.</summary>
+    readonly Deferred deferred = new();
+
+    /// <summary>Where the user's layouts, keymap and preferences live.</summary>
+    readonly string dataDirectory;
+
+    /// <summary>Snapshot, restore, and what state the transport is in.</summary>
+    readonly PlayModeController play;
+
+    /// <summary>Whether the save-on-close prompt is already on screen.</summary>
+    bool closing;
 
     /// <summary>What a click in the viewport is answered by.</summary>
     /// <remarks>
@@ -72,7 +87,9 @@ sealed class EditorApplication : IDisposable {
 
     readonly ContentTasks content;
     readonly PluginHost plugins;
-    readonly string scenePath;
+
+    /// <summary>Where the open scene is written, which Save As moves.</summary>
+    string scenePath;
 
     /// <summary>What each open scene had selected when the inspector was last brought up to date.</summary>
     /// <remarks>
@@ -113,8 +130,22 @@ sealed class EditorApplication : IDisposable {
     /// <param name="height">Its height.</param>
     /// <param name="directory">Where the user's layouts, keymap and preferences live.</param>
     /// <param name="projectRoot">The project to open, or <see langword="null" /> for a scratch one.</param>
-    public EditorApplication(float width, float height, string directory, string? projectRoot = null) {
+    /// <param name="services">
+    ///     What the host can do — file pickers, a browser — or <see langword="null" /> for none, which
+    ///     is what a test and a headless run get. The commands that need them grey themselves out
+    ///     rather than being absent.
+    /// </param>
+    public EditorApplication(
+        float width,
+        float height,
+        string directory,
+        string? projectRoot = null,
+        EditorServices? services = null
+    ) {
         store = new EditorUserStore(directory);
+        dataDirectory = directory;
+        this.services = services ?? EditorServices.None;
+
         Shell = new EditorShell(width, height);
 
         // ⚠ The fourth user-agent sheet, and it is the application that loads it. `EditorShell` has
@@ -146,6 +177,7 @@ sealed class EditorApplication : IDisposable {
 
         project.Activate(scene);
         picker = new ScenePicker(scene);
+        play = new PlayModeController(world);
 
         if (SceneSerializer.Load(scene, scenePath) == 0) {
             Seed();
@@ -221,6 +253,15 @@ sealed class EditorApplication : IDisposable {
         }
 
         Shell.Status = project.Name;
+
+        // ⚠ A delegate rather than a number pushed on every change. Which of the several selections
+        // the count is about is this class's arbitration — see `FollowSelection` — and a shell
+        // holding a number would hold whichever one was written last.
+        Shell.SelectionCount = () => inspectingAssets
+            ? project.Selection.Count
+            : (inspected ?? scene).Selection.Count;
+
+        Retitle();
     }
 
     /// <summary>The interface.</summary>
@@ -271,7 +312,12 @@ sealed class EditorApplication : IDisposable {
         // to rebuild. See `ContentTasks` for why nothing crosses back except a queued value.
         content.Pump();
 
+        // And what a native picker answered, for the same reason and on the same terms. Two queues
+        // rather than one, because a dialog's answer must not wait behind a content build's.
+        deferred.Pump();
+
         ResolveTransforms();
+        Retitle();
 
         if (hierarchyStale) {
             hierarchyStale = false;
@@ -353,9 +399,23 @@ sealed class EditorApplication : IDisposable {
         plugins.UnloadAll();
 
         viewport?.Dispose();
+
+        // Before the world, because it holds a snapshot of it: a controller disposed after the world
+        // would be releasing chunks into a world that had already released its own.
+        play.Dispose();
+
         Shell.Dispose();
         world.Dispose();
     }
+
+    /// <summary>Brings the window's title into line with what is open.</summary>
+    /// <remarks>
+    ///     Once a frame rather than on a change, for the same reason the selections are polled: the
+    ///     dirty flag is a signal nothing here flushes, and comparing three values is not a cost.
+    ///     <c>EditorShell.Describe</c> raises nothing unless the composed string actually differs, so
+    ///     the host is told only when there is something to tell it.
+    /// </remarks>
+    void Retitle() => Shell.Describe(scene.Title.Peek(), scene.IsDirty.Value, project.Name);
 
     /// <summary>A scene with something in it, for a project that has none yet.</summary>
     /// <remarks>
@@ -399,11 +459,38 @@ sealed class EditorApplication : IDisposable {
         }
     }
 
+    /// <summary>Makes a pointer press anywhere in a panel say which context the user is in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>On press and on the tunnel leg, so it lands before anything acts on it.</b> A
+    ///         click in the outliner is what makes Delete mean an entity; recording it from a handler
+    ///         that runs after the tree's own would mean the first Delete of a visit to a panel was
+    ///         still aimed at the panel before it.
+    ///     </para>
+    ///     <para>
+    ///         <b>The press rather than the focus, because most of these panels do not take one.</b>
+    ///         A tree row is focusable and a viewport is not, and "which panel did the user last act
+    ///         in" is the question a scoped command is actually asking.
+    ///     </para>
+    /// </remarks>
+    void Contextual(DockPanel panel, string context) =>
+        panel.AddHandler<PointerEvent>(
+            (_, args) => {
+                if (args.Action == PointerAction.Pressed) {
+                    Shell.Context = context;
+                }
+            },
+            RoutingStrategy.Capture,
+            handledEventsToo: true
+        );
+
     void Panels() {
         Shell.RegisterPanel(
             "hierarchy",
             new StringId("editor.panel.hierarchy", "Hierarchy"),
             panel => {
+                Contextual(panel, SceneContext);
+
                 hierarchy = panel.Add<TreeView>();
                 hierarchy.MultiSelect = true;
 
@@ -434,6 +521,8 @@ sealed class EditorApplication : IDisposable {
             "project",
             new StringId("editor.panel.project", "Project"),
             panel => {
+                Contextual(panel, AssetContext);
+
                 browser = new ProjectBrowser(project, panel);
                 browser.Activated += Open;
             }
@@ -443,6 +532,8 @@ sealed class EditorApplication : IDisposable {
             "scene",
             new StringId("editor.panel.scene", "Scene"),
             panel => {
+                Contextual(panel, SceneContext);
+
                 var control = panel.Add<ViewportControl>();
                 control.RenderScale = RenderScale;
 
@@ -665,7 +756,9 @@ sealed class EditorApplication : IDisposable {
 
     void Commands() {
         Shell.Commands.Add(
-            new EditorCommand("file.exit", EditorStrings.CommandExit, () => IsClosing = true) {
+            // Through the same request the window's close button goes through, so the menu, the
+            // shortcut and the title-bar button all ask about unsaved work rather than two of three.
+            new EditorCommand("file.exit", EditorStrings.CommandExit, RequestClose) {
                 Category = EditorStrings.CategoryFile
             }
         );
@@ -750,26 +843,15 @@ sealed class EditorApplication : IDisposable {
         EditCommands();
         SceneCommands();
 
+        // ⚠ After the scene commands and before the toolbar, and both halves matter. Some of these
+        // put a keybinding on a command `SceneCommands` registered — Ctrl+Shift+N onto Create Empty —
+        // which needs the command to exist; and the toolbar is built from ids, which needs every one
+        // of these to exist.
+        ParityCommands();
+
         Shell.Keys.SetDefault("file.exit", new KeyChord(InputKey.Q, ModifierKeys.Control));
 
-        // The three gizmo modes and the two toggles that change what a drag does, which are the
-        // things somebody reaches for between one edit and the next. They show their state — a
-        // command with a `Checked` predicate draws its button pressed — so the strip also answers
-        // "what will dragging do right now" without anything being opened.
-        Shell.Toolbar.Show(
-            "view.palette",
-            null,
-            "scene.translate",
-            "scene.rotate",
-            "scene.scale",
-            null,
-            "scene.toggle-space",
-            "scene.toggle-snap",
-            "scene.toggle-grid",
-            null,
-            "view.reset-layout",
-            "view.toggle-theme"
-        );
+        ParityToolbar();
 
         // The saved arrangements are a palette source rather than a menu, because there is no bound
         // on how many of them somebody makes and a menu with forty lines in it is a list nobody
@@ -833,29 +915,11 @@ sealed class EditorApplication : IDisposable {
             }
         );
 
-        Shell.Commands.Add(
-            new EditorCommand(
-                "scene.delete-entity",
-                new StringId("editor.command.delete-entity", "Delete"),
-                () => scene.Delete(scene.Selection.ToList())
-            ) {
-                Category = EditorStrings.CategoryEdit,
-                Enablement = () => scene.Selection.Count > 0
-            }
-        );
-
-        Shell.Keys.SetDefault("scene.delete-entity", new KeyChord(InputKey.Delete, ModifierKeys.None));
-
-        // ⚠ A command rather than only the tree's own F2, so that the context menu, the palette and
-        // the key all reach the same code — and so the menu line greys itself out when there is
-        // nothing selected instead of opening an editor on a row that is not there.
-        Shell.Commands.Add(
-            new EditorCommand("scene.rename-entity", new StringId("editor.command.rename-entity", "Rename"), Rename) {
-                Category = EditorStrings.CategoryEdit,
-                Enablement = () => hierarchy is not null && scene.Selection.Count > 0
-            }
-        );
-
+        // ⚠ Delete and Rename are `edit.delete` and `edit.rename`, registered in `EditingCommands`
+        // and scoped to the outliner. They used to be `scene.*` ids with the Delete key and F2 on
+        // them; the move is what lets the content browser's twins claim the same keys, and it is why
+        // this menu, the Edit menu and the hierarchy's context menu now all name the one pair rather
+        // than two commands with the same label.
         ShapeCommands();
         ObjectCommands();
 
@@ -1013,7 +1077,18 @@ sealed class EditorApplication : IDisposable {
     ///     </para>
     /// </remarks>
     void SceneMenu() {
-        var menu = Shell.Menus.InsertMenu(2, new StringId("editor.menu.scene", "Scene"));
+        // ⚠ First, because this is what puts Entity on the bar and the line below counts to it.
+        // Assets, Entity, Play, Build and Tools are doc 20's Part C menus made of this application's
+        // verbs; the shell keeps File, Edit, Window and Help.
+        ParityMenus();
+
+        // ⚠ After Entity, which is doc 20's Part C order: File, Edit, Assets, Entity, Scene, Play,
+        // Window, Build, Tools, Help. Found by counting to the Entity menu rather than by a literal,
+        // so that a menu added to the shell's default bar does not silently put Scene somewhere else.
+        var menu = Shell.Menus.InsertMenu(
+            Index(EditorStrings.MenuEntity) + 1,
+            new StringId("editor.menu.scene", "Scene")
+        );
 
         menu.Add("scene.create-entity");
 
@@ -1022,7 +1097,7 @@ sealed class EditorApplication : IDisposable {
         // for itself, and what stops the two drifting apart the next time one is added to.
         Creatable(menu);
 
-        menu.Add("scene.rename-entity", "scene.delete-entity").AddSeparator();
+        menu.Add("edit.rename", "edit.delete").AddSeparator();
 
         menu.AddSubmenu(new StringId("editor.menu.gizmo", "Gizmo"))
             .Add("scene.translate", "scene.rotate", "scene.scale")
@@ -1048,14 +1123,21 @@ sealed class EditorApplication : IDisposable {
         menu.AddSeparator().Add("scene.focus", "scene.frame-all");
         menu.AddSeparator().Add("scene.toggle-grid");
 
-        // The View menu is the shell's, and this is the one thing the application has to put on it:
-        // saving an arrangement needs somewhere to save it, which is the user store this owns.
-        Shell.View.AddSeparator().Add("view.save-layout");
-
         // ⚠ Rebuilt here rather than left to the one a registration triggers, which is why this runs
         // last. Every `Commands.Add` and every `Keys.SetDefault` above rebuilt the bar against a
         // model that did not yet have this menu in it, and nothing after this point registers either.
         Shell.MenuBar.Rebuild();
+    }
+
+    /// <summary>Where a menu with a title sits on the bar.</summary>
+    int Index(StringId title) {
+        for (var index = 0; index < Shell.Menus.Menus.Count; index++) {
+            if (Shell.Menus.Menus[index].Title.Id == title.Id) {
+                return index;
+            }
+        }
+
+        return Shell.Menus.Menus.Count - 1;
     }
 
     /// <summary>One command per built-in shape, so that spawning one is not the menu's private trick.</summary>
@@ -1217,7 +1299,7 @@ sealed class EditorApplication : IDisposable {
         Creatable(group);
 
         group.AddSeparator();
-        group.Add("scene.rename-entity", "scene.delete-entity");
+        group.Add("edit.rename", "edit.delete");
         group.AddSeparator();
         group.Add("scene.focus");
 

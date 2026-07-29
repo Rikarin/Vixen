@@ -38,6 +38,24 @@ as it opens; a toolbar asks on the tick. The cost is that the predicate must be 
 **A command carries no keybinding.** That is `KeyMap`'s, because a binding is the user's and a
 command is the application's.
 
+**A command may declare a *context*.** Delete in the outliner and Delete in the content browser are
+two commands and one key. `EditorCommand.Context` names the place a verb belongs, `EditorShell.Context`
+says which place has the focus, and `CommandRegistry.CanExecute` is what refuses the one belonging
+somewhere else — so a keystroke aimed at the browser cannot delete an entity, and neither command has
+to give up the key. A command with no context is in scope everywhere, which is almost all of them.
+
+**A command may declare that it is not built yet.** `EditorCommand.Unavailable` carries the sentence
+saying why and disables it wherever it appears. Doc 20's first bar is that "a verb that is not
+implemented is *visibly* not implemented rather than absent": a menu line that is missing reads as an
+editor that cannot do the thing, and one that is there and greyed reads as an editor that will.
+Replacing one with a real implementation is deleting a property initialiser.
+
+⚠ **The toolbar grows *sections*, not entries.** `ToolbarPresenter.Show` takes a list of
+`ToolbarEntry` — a button, a rule, a `ToolbarGroup` drawn as one segmented control, or a
+`ToolbarDropdown` that opens a small menu — because three adjacent buttons say nothing about being
+one choice. The flat `Show(params string?[])` overload is still there and is the same thing with
+every entry a button.
+
 ⚠ **A presenter that rebuilds puts itself back where it was.** Registering a command rebuilds the
 menu bar, and rebuilding replaces the bar rather than editing it — for the good reason that its
 menus hang off the document root and editing in place would leak one per rebuild. But adding a child
@@ -52,9 +70,12 @@ Two layers: the defaults the application ships and the overrides the user made, 
 is saved. A keymap file holding every binding freezes the defaults at the version the user first ran
 — every editor that shipped one has a support burden to prove it.
 
-Conflicts are **detected, not resolved**: a chord belongs to one command, and binding an occupied
-chord fails and says who has it. Bindings **survive the commands they name**, so unloading a plugin
-does not throw away the shortcut the user gave it.
+Conflicts are **detected, not resolved**: a chord belongs to one command *per context*, and binding
+an occupied chord fails and says who has it. Across contexts, sharing a chord is the point rather
+than the hazard — `KeyMap.ContextOf` asks the registry which context a command belongs to, and a
+binding made in a context shadows the global one while that context has the focus. Bindings
+**survive the commands they name**, so unloading a plugin does not throw away the shortcut the user
+gave it.
 
 ⚠ **A chord with no Control or Meta is not taken from a text field.** A single-key binding — `F` for
 frame-selection, which every 3D editor has — would otherwise fire while somebody was naming an
@@ -192,6 +213,12 @@ is English. `Strings.Missing` is the list a translator works from.
   Joining the two is `Vixen.Editor.App`'s job.
 - **A window.** Floating dock groups float *within the document*; promoting one to an OS window needs
   a second surface, swapchain and input queue, which belong to `Vixen.Platform` and the app head.
+  `EditorShell.Title` is composed here and *applied* by the host, for the same reason.
+- **A native file picker.** `DialogService` is the editor's own modal questions — confirm, prompt,
+  choose — drawn as a `Vixen.Ui.Controls` `Dialog` in the shell's document, because a modal that is
+  an OS window cannot be screenshotted by the golden suite or driven by the automation harness. The
+  *file* pickers are the opposite case: they are about the user's disk rather than the editor's
+  state, they go through `INativeDialogs`, and reaching one is `Vixen.Editor.App`'s job.
 
 ## Known gaps
 
@@ -199,6 +226,11 @@ is English. `Strings.Missing` is the list a translator works from.
   reset — and no UI. Interactive "press a key" capture is `Vixen.Input`'s rebinding path.
 - **A notification panel.** The history is kept and bounded; only the toasts and the task centre have
   views.
+- **An icon set.** `EditorIcons` is the two dozen glyphs the chrome cannot be drawn without, on the
+  same 24×24 grid `ControlIcons` uses and reachable by id so a plugin can name one. Doc 20 puts the
+  real set at about a hundred and twenty and calls it a design dependency; the mitigation is that
+  `ToolbarPresenter` draws a command with no icon as a labelled button, so a missing glyph costs a
+  wider button and never a blocked feature.
 - **`Strings.Resource` generation.** `EditorStrings` is hand-written in the shape the generator will
   emit, so nothing at a call site changes when it lands — but an id used nowhere and an id declared
   nowhere are not yet build errors.

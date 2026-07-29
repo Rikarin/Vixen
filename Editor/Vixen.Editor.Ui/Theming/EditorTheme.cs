@@ -213,6 +213,46 @@ public static class EditorTheme {
             color: var(--text);
         }
 
+        /* ── Sections ───────────────────────────────────────────────────────────
+           ⚠ A segmented control is one box with the seams *inside* it, which is the
+           whole of what makes Translate/Rotate/Scale read as a choice rather than as
+           three buttons that happen to be adjacent. Done by taking the gap away and
+           squaring the inner corners: the group draws the border and the radius, and
+           its members draw neither. */
+        toolbar-group {
+            flex-direction: row;
+            align-items: center;
+            gap: 0px;
+            border-width: 1px;
+            border-color: var(--border);
+            border-radius: var(--radius-control);
+            background-color: var(--surface);
+            overflow: hidden;
+        }
+
+        toolbar-group button, toolbar-group icon-button, toolbar-group toggle-button,
+        toolbar-group button.variant-subtle, toolbar-group icon-button.variant-subtle {
+            border-width: 0px;
+            border-radius: 0px;
+            background-color: transparent;
+        }
+
+        /* The seam between two members, drawn by the member rather than by a separator
+           element: an element per seam would be a child the group has to keep in step
+           with a rebuild that only knows about commands. */
+        toolbar-group button + button, toolbar-group icon-button + icon-button,
+        toolbar-group button + icon-button, toolbar-group icon-button + button {
+            border-left-width: 1px;
+            border-color: var(--border);
+        }
+
+        toolbar-group :checked { background-color: var(--accent-soft); color: var(--text); }
+
+        /* A dropdown's chevron is smaller than a leading icon and muted, so that the
+           button reads as "this opens something" rather than as two glyphs. */
+        toolbar button.toolbar-dropdown { padding-right: 6px; }
+        toolbar button.toolbar-dropdown icon.chevron { width: 10px; height: 10px; color: var(--text-muted); }
+
         editor-workspace { flex-direction: column; flex-grow: 1; flex-basis: 0px; }
 
         /* ⚠ `flex-shrink: 0` and a fixed height, because it is the one strip whose
@@ -235,6 +275,16 @@ public static class EditorTheme {
         status-message { flex-grow: 1; overflow: hidden; color: var(--text); }
         status-bar progress-bar { width: 110px; }
         status-bar button { padding: 2px 8px; font-size: 1em; }
+
+        /* ⚠ The cells are muted and the message is not. Four things on one strip with
+           equal weight is a strip nobody reads; the selection count and the frame time
+           are there to be glanced at, and the message is there to be read. */
+        status-cell { flex-shrink: 0; color: var(--text-muted); }
+
+        /* Tabular figures would be better and there is no font feature to ask for
+           them, so the cell is given a floor instead — a frame time going from 9.9 to
+           10.1 must not shift the task button sideways. */
+        status-cell.status-frame { min-width: 54px; }
 
         /* ── Panes and seams ────────────────────────────────────────────────────
            ⚠ The panes are separated by a seam, not spaced out on a desk. A one-pixel
