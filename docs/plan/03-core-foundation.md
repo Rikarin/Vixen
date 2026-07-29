@@ -265,8 +265,12 @@ disk.
 >   `TryMap` returning false is an ordinary answer and callers fall back to a stream.
 >
 > **Deferred:** the Android, iOS, browser and bundle providers, each of which arrives with the thing
-> it reads from; and the analyzer banning `System.IO.Path` and synchronous IO outside their permitted
-> layers, which needs an analyzer project that does not exist yet.
+> it reads from; and the synchronous half of the analyzer. `Core/Vixen.Core.IO.Analyzers` now exists
+> and reports `VXIO0001` for `System.IO.Path` in every `Core/` project, switched off by name in the
+> seven places whose job is the host filesystem ([10](10-platforms.md) § "Cross-platform discipline").
+> Banning the synchronous open overloads is the same sentence and a different problem:
+> `IOdbBackend.TryRead` and `ContentUpdate.CachedVersion` call them from interfaces that are
+> synchronous by contract, so the rule is a decision about those contracts before it is an analyzer.
 
 ## `Vixen.Core.Serialization`
 

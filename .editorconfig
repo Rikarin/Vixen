@@ -630,3 +630,96 @@ dotnet_diagnostic.CA1051.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [Core/Vixen.Engine.Tests/SceneAssetTests.cs]
 dotnet_diagnostic.CA1051.severity = none
+
+# ==============================================================================
+# VXIO0001 — System.IO.Path in engine code.
+#
+# The rule is docs/plan/10 § "Cross-platform discipline": only virtual paths in
+# engine code. The analyzer is Core/Vixen.Core.IO.Analyzers, referenced from
+# Directory.Build.props by every Core project that is not a test, a generator, or
+# the analyzer itself. Platform/**, Editor/**, Tools/** and Raven/** do not get it
+# at all — translating to a host path is their job.
+#
+# Everything below is a host-filesystem layer inside Core: code whose work is to
+# turn a path the engine gave it into one the operating system understands, or to
+# put a file somewhere on a developer's disk. Switching the rule off there is what
+# makes it enforceable everywhere else. Scoped to the file, never to the project,
+# so the next file in the same library is still reported.
+# ==============================================================================
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Core.IO/PhysicalFileProvider.cs
+#
+# The translation itself, and the reason every other file can be held to the rule:
+# a VirtualPath in, a host path out, once, here. It is also where the separator is
+# swapped and where the case probe lives, both of which are questions about the
+# filesystem underneath rather than about the path.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Core.IO/PhysicalFileProvider.cs]
+dotnet_diagnostic.VXIO0001.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Core.IO/Watch/FileWatcher.cs
+#
+# FileSystemWatcher reports host paths and knows nothing else. Turning one back
+# into a mount-relative VirtualPath — rooting it, relativising it, swapping the
+# separator — is the whole of what this file adds to the BCL type.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Core.IO/Watch/FileWatcher.cs]
+dotnet_diagnostic.VXIO0001.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Ui.Testing/Visual/*.cs
+#
+# Golden-image plumbing: the baseline beside the test source, the rendered and
+# diff images under artifacts/, the directory walk that finds the project root
+# from AppContext.BaseDirectory. None of it is content a build ships or a player
+# addresses — it is files on the disk of whoever ran the tests, and the paths come
+# from MSBuild and the test host rather than from a mount.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Ui.Testing/Visual/*.cs]
+dotnet_diagnostic.VXIO0001.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Net.Fuzz/Corpus.cs
+#
+# A fuzz corpus is a directory of loose .bin files — Core/Vixen.Net.Fuzz.Tests/
+# Corpus, committed and replayed before every run — that the harness reads and
+# adds to when a target fails. It has no place in a mount table: nothing in a
+# shipped game ever reads it, and the directory arrives as an argument.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Net.Fuzz/Corpus.cs]
+dotnet_diagnostic.VXIO0001.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Shaders/EffectDiskCache.cs
+#
+# Named for what it is. The host picks a directory — a build's obj/, an editor's
+# project cache — and this writes one file per compiled variant into it. The cache
+# is not content, is not addressed, and is deleted by whoever made it.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Shaders/EffectDiskCache.cs]
+dotnet_diagnostic.VXIO0001.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Video/VideoContent.cs
+#
+# FileVideoContentSource is the loose-files source: a cutscene is streamed rather
+# than loaded, so it is one of the few things a shipping title leaves beside the
+# executable instead of packing. The containment check that catches an absolute
+# path baked into a clip is a comparison of two host paths, which is exactly what
+# System.IO.Path is for. A title that would rather address its videos through a
+# mount implements IVideoContentSource itself; that is what the interface is for.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Video/VideoContent.cs]
+dotnet_diagnostic.VXIO0001.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Ui.HotReload/HotReloadWatcher.cs
+#
+# The same argument as FileWatcher, for the same reason: what arrives from
+# FileSystemWatcher is a host path, and rooting it is how it is recognised again
+# when the editor saves. Editor-time only; a shipped game does not construct one.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Ui.HotReload/HotReloadWatcher.cs]
+dotnet_diagnostic.VXIO0001.severity = none

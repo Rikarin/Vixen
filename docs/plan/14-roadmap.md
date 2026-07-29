@@ -106,7 +106,9 @@ plumbing that everything else stands on.
   conformance suite, memory-mapped reads, and `Watch` with the coalescing that makes a real editor's
   save look like one change. 123 tests. **Deferred with reasons in [03](03-core-foundation.md):**
   the Android/iOS/browser/bundle providers, which arrive with the platform or database they read
-  from, and the `System.IO.Path` analyzer.
+  from. The `System.IO.Path` analyzer is no longer among them: `Vixen.Core.IO.Analyzers` reports
+  `VXIO0001` in every `Core/` project, with 12 tests and seven named exclusions. Its synchronous-IO
+  half is still owed.
 - ✅ `Vixen.Core.Serialization` + generator — the wire format, `DataSerializer<T>`, the registry, a
   `[DataContract]` generator that emits readable C# and turns an unserialisable type into a build
   error, and the content-addressed `ObjectDatabase` with its loose-file and bundle backends, LZ4/Zstd

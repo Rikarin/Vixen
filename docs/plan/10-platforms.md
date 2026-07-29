@@ -319,7 +319,7 @@ under budget; single-threaded job-system mode verified.
 
 | Concern | Rule |
 |---|---|
-| Paths | Only virtual paths in engine code. `System.IO.Path` is banned outside `Vixen.Platform.*` and editor code (analyzer-enforced). |
+| Paths | Only virtual paths in engine code. `System.IO.Path` is banned outside `Vixen.Platform.*` and editor code, and this is now literally analyzer-enforced: `Core/Vixen.Core.IO.Analyzers` reports `VXIO0001` in every `Core/` project, which `TreatWarningsAsErrors` makes a build failure. The seven host-filesystem places that translate — `PhysicalFileProvider`, the two watchers, the disk caches — turn it off by name in `.editorconfig`, each with a written reason. |
 | Case sensitivity | Virtual paths are case-sensitive everywhere, including Windows. A CI check on Linux catches `Texture.PNG` vs `texture.png` before a user does. |
 | Endianness | Content is little-endian; no big-endian target exists, but the serializer asserts rather than assumes. |
 | Floating point | No reliance on cross-platform FP bit-identity for gameplay. Deterministic simulation, where needed, uses fixed-point or a documented deterministic subset. |
