@@ -2553,12 +2553,22 @@ sub-piece has its own gate.
   elements. The grid half asserts multi-object writes, the mixed-value states, the numeric
   conversion back to a member's own type, and reset-to-default.
 
-  ⚠ **Still owed:** rows and scroll ranges are one layout pass behind a *resize* — `Refresh()` is
-  today's answer and a "layout finished" callback on `UiDocument` is the real one; floating groups
-  float within the document rather than in an OS window of their own, which is `Vixen.Platform`'s
-  half; `StyleTree.AppendChild` is O(children) per append, which virtualisation keeps every control
-  here clear of and a `DataGrid` may not be; and nested struct members are shown read-only, because
-  the descriptor's accessors box.
+  ⚠ **Still owed:** floating groups float within the document rather than in an OS window of their
+  own, which is `Vixen.Platform`'s half. The other three on this list are closed: rows and scroll
+  ranges follow a resize through `UiDocument.LayoutFinished`, `StyleTree.AppendChild` is amortised,
+  and nested struct members are editable.
+
+  ✅ **A nested struct's members can be edited**, which the accessors' boxing was said to prevent.
+  It does not: an accessor takes its instance as `object`, so reading a struct member gives a box and
+  writing into it changes a copy — but setting the leaf and then writing each *owner* into its own
+  owner, innermost first, is read-modify-write and needs no `ref` accessors at all. The grid keeps
+  the path from the target to the member rather than the member alone, and expands a member into its
+  own rows where nothing else claimed it.
+
+  Verified by sabotage, five of five landing. ⚠ **Two needed the fixture changed first**, and both
+  changes are the realistic case rather than a contrivance: a setter that maintains an invariant, so
+  that re-reading a sibling row is not a no-op, and a registered descriptor for a type the grid
+  already draws an editor for — which is what a `Vector3` is.
 - ✅ **`Samples/02-HelloUi` — an editor shell on a window, with no engine underneath it.** A menu bar
   over a `DockingHost` holding three panels: a `TreeView` of a thousand nodes, a gallery of the
   standard set, and a `PropertyGrid` over a hand-written descriptor. It prints the docking
