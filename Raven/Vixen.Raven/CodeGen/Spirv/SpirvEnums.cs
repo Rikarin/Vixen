@@ -12,7 +12,40 @@ public enum SpirvCapability {
     Float64 = 10,
 
     /// <summary>Asking an image about itself — <c>OpImageQuerySizeLod</c> and its siblings.</summary>
-    ImageQuery = 50
+    ImageQuery = 50,
+
+    /// <summary>
+    ///     An index into a descriptor array may differ across the invocations of a subgroup.
+    /// </summary>
+    /// <remarks>
+    ///     The capability the whole idea rests on. A merged draw is fragments of several materials in
+    ///     one dispatch, so an index that had to be uniform would mean the merge bought nothing —
+    ///     and, worse, would be undefined rather than refused if it were not declared.
+    /// </remarks>
+    ShaderNonUniform = 5301,
+
+    /// <summary>A descriptor array declared without a length.</summary>
+    RuntimeDescriptorArray = 5302
+}
+
+/// <summary>The SPIR-V extensions this backend declares, spelled as the registry spells them.</summary>
+/// <remarks>
+///     Constants rather than literals at the use site, because an <c>OpExtension</c> whose name is
+///     misspelt is not an error anywhere in this compiler: the module carries a string nothing
+///     recognises, and the capability it was meant to enable is rejected by the validator with a
+///     message about the capability.
+/// </remarks>
+public static class SpirvExtensions {
+    /// <summary>
+    ///     <c>SPV_EXT_descriptor_indexing</c> — unbounded descriptor arrays and non-uniform indexing.
+    /// </summary>
+    /// <remarks>
+    ///     Both of its capabilities became core in SPIR-V 1.5, which Vulkan 1.2 consumes. Declared
+    ///     unconditionally because Raven targets SPIR-V 1.0 for the Vulkan 1.1 floor
+    ///     ([05](../../../../docs/plan/05-graphics-rhi.md)), and an extension declared where it is
+    ///     already core is legal and ignored — where the reverse is a module no 1.1 driver accepts.
+    /// </remarks>
+    public const string DescriptorIndexing = "SPV_EXT_descriptor_indexing";
 }
 
 public enum SpirvAddressingModel {
@@ -82,7 +115,20 @@ public enum SpirvDecoration {
     Binding = 33,
     DescriptorSet = 34,
     NonWritable = 24,
-    Offset = 35
+    Offset = 35,
+
+    /// <summary>
+    ///     This value may differ across a subgroup — put on the index into a descriptor array and on
+    ///     what the access chain produced from it.
+    /// </summary>
+    /// <remarks>
+    ///     Both, and that is the part worth writing down. The index says the number varies; the
+    ///     result says the <em>descriptor</em> does, and it is the second that a driver reads to stop
+    ///     hoisting the load out of whatever it thought was uniform control flow. A module carrying
+    ///     only one of them validates and then produces one material's texture on every fragment of
+    ///     a merged draw — which looks exactly like a merge that worked.
+    /// </remarks>
+    NonUniform = 5300
 }
 
 public enum SpirvBuiltIn {

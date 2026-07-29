@@ -17,50 +17,39 @@ one. Everything else follows.
 ## What is built
 
 **The RHI half.** `Vixen.Graphics.BindlessTable`, `GraphicsDeviceFeatures.MaxBindlessDescriptors`,
-`DescriptorBinding.IsUnbounded()`, and real descriptor-indexing support in the Vulkan backend —
-partially-bound and update-after-bind binding flags, an update-after-bind layout, a dedicated pool
-per table, the four device features enabled at `vkCreateDevice`, and an array-bounds check on every
-write. Verified against a driver with the validation layers on
+`DescriptorBinding.IsUnbounded()`, `DescriptorSetLayoutDescription.BindlessCapacity`, and real
+descriptor-indexing support in the Vulkan backend — partially-bound and update-after-bind binding
+flags, an update-after-bind layout, a dedicated pool per table sized to the capacity the host asked
+for, the four device features enabled at `vkCreateDevice`, and an array-bounds check on every write.
+Verified against a driver with the validation layers on
 (`Vixen.Graphics.Golden.Tests/BindlessTableDeviceTests`), which is the only thing that can see any of
 it: the Null backend has no layout object, no pool and no features to disagree with.
 
 `Core/Vixen.Graphics/README.md` § *The set a shader indexes rather than a draw binds* is the
-reference for that half. What follows is the part that is not built.
+reference for that half.
+
+**The shader half.** `Texture2D[]` — an unsized array of textures — is a type Raven accepts, and the
+only unsized array outside a storage block. It reaches SPIR-V as an `OpTypeRuntimeArray` with no
+`ArrayStride` under `RuntimeDescriptorArray` and `ShaderNonUniform`, GLSL as `uniform texture2D t[];`
+under `GL_EXT_nonuniform_qualifier`, and the reflection as `Count == 0` — which is the number the RHI
+already reads. Every subscript of one is decorated `NonUniform` on both the index and the pointer it
+produces; every other array's is left alone.
+
+The gate is the one every Raven feature has, plus one it usually does not need:
+`Vixen.Graphics.Golden.Tests/BindlessSamplingDeviceTests` dispatches
+`Shaders/BindlessProbe.rvn` on a driver with sixty-four invocations reading sixty-four *different*
+slots and compares the readback texture by texture. That is not ceremony. A non-uniform index that
+was decorated uniform is legal SPIR-V, passes `spirv-val`, and produces the right answer for every
+draw that happens to use one material — which is most of a test scene and all of a golden image.
 
 ## What is not built, and in what order
 
-### 1. Raven has to be able to declare the array
+### 1. ~~Raven has to be able to declare the array~~ — built
 
-Today an unsized array is legal in exactly one position — the last member of a storage block — and
-`RVN4001` is everywhere else. That rule is right and should not be widened; what is needed is one
-more position, a **binding** of texture type:
-
-```
-[PerFrame] var textures: Texture2D[];
-```
-
-The work is in four places and none of it is deep:
-
-- **Type checking.** `IrArrayType` with a null length is already expressible. The verifier has to
-  permit it for `IrBindingKind.Texture` and continue refusing it everywhere else, with `RVN4001`'s
-  message extended rather than replaced.
-- **Reflection.** `ReflectionBuilder.Describe` already reports `count = array.Length ?? 0`, so an
-  unsized texture binding falls out as `Count == 0` with no change at all. This is precisely why
-  `IsUnbounded()` had to ask about the kind: the schema's zero already means "runtime-sized" for
-  storage buffers, and the two readings now coexist by kind rather than by hope.
-- **SPIR-V.** The `RuntimeDescriptorArray` capability, plus `ShaderNonUniform` and
-  `NonUniformEXT` on the index wherever the array is subscripted. The index is non-uniform by
-  construction — that is the whole point — so it is decorated always rather than analysed.
-- **GLSL.** `#extension GL_EXT_nonuniform_qualifier`, and the subscript wrapped in
-  `nonuniformEXT(...)`.
-
-A negative-diagnostic fixture pair for "unsized array where it is still not allowed" belongs with it,
-which is what [doc 07](plan/07-raven-shader-pipeline.md) asks of every id.
-
-**Gate:** the same one every Raven feature has — through `glslc` and `spirv-val`, plus the
-differential oracle, plus a device test that samples through the table and reads back what it
-sampled. The last is not optional here: a non-uniform index that was decorated uniform produces the
-*right* image whenever a draw happens to be single-material, which is most of a test scene.
+The rule it did not have: an unsized array is still `RVN2126` for every element type but a texture,
+still refused with a second dimension, and still refused in a struct (`RVN2053`) or as a stream
+(`RVN2103`). A resource-typed *local* or parameter is accepted by nothing downstream and reported by
+nothing — a gap `Texture2D[]` shares with a plain `Texture2D` rather than one it opened.
 
 ### 2. A material becomes a record rather than a set
 
@@ -125,6 +114,16 @@ forever.
 
 `GpuDrawArguments` appends survivors instead of zeroing them. The atomic add has been available since
 Raven got atomics; what was missing was 2 and 3.
+
+## Where this stands
+
+| Step | State |
+|---|---|
+| The RHI: `BindlessTable`, the capability, the Vulkan backend | ✅ built, device-verified |
+| 1. Raven `Texture2D[]` | ✅ built, device-verified |
+| 2. A material record rather than a per-material set | ⬜ — the one the three blocked items wait on |
+| 3. An indirect draw whose count comes from the device | ⬜ |
+| 4. Compaction | ⬜ |
 
 ## Two things deliberately not planned here
 

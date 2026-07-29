@@ -15,6 +15,7 @@ public enum SpirvOp {
     Name = 5,
     MemberName = 6,
     Source = 3,
+    Extension = 10,
     ExtInstImport = 11,
     ExtInst = 12,
     MemoryModel = 14,

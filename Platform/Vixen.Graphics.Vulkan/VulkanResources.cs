@@ -94,6 +94,16 @@ sealed class VulkanDescriptorSetLayout : GpuDescriptorSetLayout {
     ///     from the same fact or they come apart.
     /// </remarks>
     public bool IsBindless { get; init; }
+
+    /// <summary>How many descriptors its unbounded binding holds, resolved against the device.</summary>
+    /// <remarks>
+    ///     Resolved once, here, because three things need the same number and would otherwise each
+    ///     ask the device for its maximum: the layout that declares the array, the pool sized to
+    ///     allocate one set of it, and the bounds check on every write into it. A host that asked for
+    ///     a thousand slots and got a pool of a million from one of the three is a leak nothing
+    ///     reports.
+    /// </remarks>
+    public int BindlessCapacity { get; init; }
 }
 
 /// <summary>A pipeline layout.</summary>

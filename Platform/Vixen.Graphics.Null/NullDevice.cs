@@ -374,7 +374,15 @@ public sealed class NullDevice : IGraphicsDevice {
         }
 
         lock (gate) {
-            return new(setLayouts.Add(new NullDescriptorSetLayout(description.Slot, [.. description.Bindings ?? []])));
+            return new(
+                setLayouts.Add(
+                    new NullDescriptorSetLayout(
+                        description.Slot,
+                        [.. description.Bindings ?? []],
+                        description.CapacityFor(Features)
+                    )
+                )
+            );
         }
     }
 
@@ -442,7 +450,7 @@ public sealed class NullDevice : IGraphicsDevice {
     /// </remarks>
     public int DescriptorWrites { get; private set; }
 
-    void Validate(NullDescriptorSetLayout layout, in DescriptorWrite write) {
+    static void Validate(NullDescriptorSetLayout layout, in DescriptorWrite write) {
         foreach (var declared in layout.Bindings) {
             if (declared.Binding != write.Binding) {
                 continue;
@@ -451,9 +459,7 @@ public sealed class NullDevice : IGraphicsDevice {
             // How long the binding actually is. A table's zero is its capacity; a storage buffer's
             // zero is one descriptor holding a runtime-sized array, which is why this asks
             // IsUnbounded rather than comparing the count itself.
-            var length = declared.IsUnbounded()
-                ? Features.MaxBindlessDescriptors
-                : Math.Max(1, declared.Count);
+            var length = declared.IsUnbounded() ? layout.BindlessCapacity : Math.Max(1, declared.Count);
 
             if (write.ArrayIndex < 0 || write.ArrayIndex >= length) {
                 throw new ArgumentOutOfRangeException(
@@ -699,9 +705,12 @@ public sealed class NullDevice : IGraphicsDevice {
 
     sealed class NullPipelineLayout : GpuPipelineLayout;
 
-    sealed class NullDescriptorSetLayout(DescriptorSetSlot slot, DescriptorBinding[] bindings)
+    sealed class NullDescriptorSetLayout(DescriptorSetSlot slot, DescriptorBinding[] bindings, int bindlessCapacity)
         : GpuDescriptorSetLayout {
         public DescriptorSetSlot Slot { get; } = slot;
+
+        /// <summary>How many descriptors its unbounded binding holds, resolved against the device.</summary>
+        public int BindlessCapacity { get; } = bindlessCapacity;
 
         /// <summary>What the set declares, kept so a write can be held against it.</summary>
         /// <remarks>

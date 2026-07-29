@@ -1159,6 +1159,7 @@ partial class SpirvEmitter {
         var layout = globals.TryGetValue(place.Root, out var root) ? root.Layout : null;
         var type = place.Root.Type;
         IrSwizzleAccess? trailing = null;
+        var nonUniform = false;
 
         foreach (var access in place.Chain) {
             switch (access) {
@@ -1168,9 +1169,22 @@ partial class SpirvEmitter {
 
                 // A matrix indexes by column, which an access chain reaches exactly as it
                 // reaches an array element or a vector lane.
-                case IrIndexAccess index:
-                    indices.Add(SpirvOperand.Id(Value(index.Index)));
+                case IrIndexAccess index: {
+                    var id = Value(index.Index);
+
+                    // Indexing a descriptor array is the one subscript whose *index* has to be
+                    // decorated. Without it the driver is entitled to assume the number is uniform
+                    // across the subgroup and hoist the descriptor load — which is correct for every
+                    // other array here and is exactly wrong for the one case that exists so a merged
+                    // draw can read a different texture per fragment.
+                    if (SpirvTypes.IsDescriptorArray(type)) {
+                        module.Decorate(id, SpirvDecoration.NonUniform);
+                        nonUniform = true;
+                    }
+
+                    indices.Add(SpirvOperand.Id(id));
                     break;
+                }
 
                 // One lane is a component of the vector, which a pointer can reach.
                 case IrSwizzleAccess { Components: [var only] }:
@@ -1200,6 +1214,15 @@ partial class SpirvEmitter {
             types.Pointer(storage, types.Type(type, layout)),
             [SpirvOperand.Id(baseId), .. indices]
         );
+
+        // The pointer as well as the index. The index says the *number* varies across the subgroup;
+        // this says the descriptor does, and it is the one a driver reads before deciding whether the
+        // load can be hoisted. A module with only the first validates and then samples one material's
+        // texture on every fragment of a merged draw — which is indistinguishable from a merge that
+        // worked, on the picture and in a capture.
+        if (nonUniform) {
+            module.Decorate(chain, SpirvDecoration.NonUniform);
+        }
 
         return new(chain, type, layout, storage, trailing);
     }

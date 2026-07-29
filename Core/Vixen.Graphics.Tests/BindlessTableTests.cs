@@ -175,6 +175,40 @@ public class BindlessTableTests : IDisposable {
         Assert.Contains("MaxBindlessDescriptors", full.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     The capacity reaches the layout, so a write past it is refused by the device.
+    /// </summary>
+    /// <remarks>
+    ///     The half that is easy to leave out and impossible to see. A table can enforce its own
+    ///     ceiling in <see cref="BindlessTable.Add" /> and still declare a layout sized at the
+    ///     device's maximum — everything passes, every test agrees, and the descriptor pool behind a
+    ///     thousand-slot table reserves a million descriptors. Asked of the device rather than of the
+    ///     table, because the table's own answer is the one that was already right.
+    /// </remarks>
+    [Fact]
+    public void The_capacity_is_the_layouts_and_not_only_the_tables() {
+        using var table = new BindlessTable(device, capacity: 8);
+
+        device.UpdateDescriptorSet(table.Set, [DescriptorWrite.Texture(0, albedo, 7)]);
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => device.UpdateDescriptorSet(table.Set, [DescriptorWrite.Texture(0, albedo, 8)])
+        );
+    }
+
+    /// <summary>A table that asked for nothing gets the device's ceiling.</summary>
+    [Fact]
+    public void No_capacity_means_the_devices_own() {
+        using var table = new BindlessTable(device);
+
+        Assert.Equal(device.Features.MaxBindlessDescriptors, table.Capacity);
+
+        device.UpdateDescriptorSet(
+            table.Set,
+            [DescriptorWrite.Texture(0, albedo, device.Features.MaxBindlessDescriptors - 1)]
+        );
+    }
+
     /// <summary>A capacity the device cannot reach is refused where the number is, not where it is used.</summary>
     [Fact]
     public void A_capacity_past_the_devices_limit_is_refused() =>

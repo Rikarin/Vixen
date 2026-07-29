@@ -142,11 +142,14 @@ public sealed class BindlessTable : IDisposable {
             retiring[index] = [];
         }
 
-        // Count 0 is what makes it the unbounded binding rather than an array of one, and the backend
-        // sizes it from the device. Everything else about the layout is the shader's to state, which
-        // is why all of it is a parameter.
+        // Count 0 is what makes it the unbounded binding rather than an array of one; the capacity
+        // beside it is how many descriptors that comes to. Both, because they answer different
+        // questions — the count says the *shader* states no length, and a backend that took only
+        // that would size every table at the device's ceiling and reserve a pool to match.
+        // Everything else about the layout is the shader's to state, which is why all of it is a
+        // parameter.
         Layout = device.CreateDescriptorSetLayout(
-            new(slot, [new(binding, kind, stages, 0)], name)
+            new(slot, [new(binding, kind, stages, 0)], name, Capacity)
         );
 
         Set = device.CreateDescriptorSet(Layout, name);

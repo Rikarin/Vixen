@@ -37,6 +37,7 @@ public sealed unsafe partial class VulkanDevice {
         var bindings = description.Bindings ?? [];
         var entries = stackalloc DescriptorSetLayoutBinding[Math.Max(1, bindings.Length)];
         var flags = stackalloc DescriptorBindingFlags[Math.Max(1, bindings.Length)];
+        var capacity = description.CapacityFor(Features);
         var unbounded = false;
 
         for (var index = 0; index < bindings.Length; index++) {
@@ -62,9 +63,7 @@ public sealed unsafe partial class VulkanDevice {
                 DescriptorType = VulkanEnums.ToVulkan(binding.Kind),
                 // Math.Max, not the count, for everything that is not a table: a storage buffer
                 // whose block ends in a runtime-sized array reports zero, and it is one descriptor.
-                DescriptorCount = binding.IsUnbounded()
-                    ? (uint)Features.MaxBindlessDescriptors
-                    : (uint)Math.Max(1, binding.Count),
+                DescriptorCount = binding.IsUnbounded() ? (uint)capacity : (uint)Math.Max(1, binding.Count),
                 StageFlags = VulkanEnums.ToVulkan(binding.Stages)
             };
         }
@@ -96,7 +95,8 @@ public sealed unsafe partial class VulkanDevice {
             return new(setLayouts.Add(new VulkanDescriptorSetLayout {
                 Handle = handle,
                 Bindings = [.. bindings],
-                IsBindless = unbounded
+                IsBindless = unbounded,
+                BindlessCapacity = capacity
             }));
         }
     }
@@ -219,8 +219,8 @@ public sealed unsafe partial class VulkanDevice {
             sizes[index] = new() {
                 Type = VulkanEnums.ToVulkan(binding.Kind),
                 DescriptorCount = binding.IsUnbounded()
-                    ? (uint)Features.MaxBindlessDescriptors
-                    : (uint)binding.Count
+                    ? (uint)layout.BindlessCapacity
+                    : (uint)Math.Max(1, binding.Count)
             };
         }
 
@@ -294,7 +294,7 @@ public sealed unsafe partial class VulkanDevice {
             // the validation layers catch it and a release driver corrupts a neighbouring descriptor,
             // which shows up as the wrong texture on an unrelated object.
             var length = declared.IsUnbounded()
-                ? Features.MaxBindlessDescriptors
+                ? set.Layout.BindlessCapacity
                 : Math.Max(1, declared.Count);
 
             if (write.ArrayIndex < 0 || write.ArrayIndex >= length) {

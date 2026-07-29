@@ -33,6 +33,7 @@ public sealed class SpirvModule {
 
     readonly Dictionary<string, uint> interned = new(StringComparer.Ordinal);
     readonly HashSet<SpirvCapability> declaredCapabilities = [];
+    readonly HashSet<string> declaredExtensions = new(StringComparer.Ordinal);
 
     /// <summary>The SPIR-V version word, e.g. <c>0x00010000</c> for 1.0.</summary>
     public uint Version { get; }
@@ -66,6 +67,19 @@ public sealed class SpirvModule {
     public void AddCapability(SpirvCapability capability) {
         if (declaredCapabilities.Add(capability)) {
             capabilities.Add(new(SpirvOp.Capability, null, null, SpirvOperand.Enumerant(capability)));
+        }
+    }
+
+    /// <summary>Declares an <c>OpExtension</c>, once however many things ask for it.</summary>
+    /// <param name="name">The extension's name, as the registry spells it.</param>
+    /// <remarks>
+    ///     Deduplicated for the same reason capabilities are, and it matters more here: a module with
+    ///     the same <c>OpExtension</c> twice is rejected by <c>spirv-val</c> rather than tolerated,
+    ///     and the second one would come from whichever binding happened to be second.
+    /// </remarks>
+    public void AddExtension(string name) {
+        if (declaredExtensions.Add(name)) {
+            extensions.Add(new(SpirvOp.Extension, null, null, SpirvOperand.String(name)));
         }
     }
 
