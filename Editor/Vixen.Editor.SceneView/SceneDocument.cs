@@ -489,6 +489,18 @@ public sealed class SceneDocument : EditorDocument {
         }
     }
 
+    /// <summary>Raised when a component was added to or taken off an entity.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Its own event, and the panel that issued the change is not the only listener that
+    ///     matters.</b> An <i>undo</i> of "remove component" puts the column back without anything
+    ///     having been clicked, so a panel that only rebuilt after its own commands would show a
+    ///     component that is gone and hide one that is back.
+    /// </remarks>
+    public event Action<SceneDocument, Entity>? ComponentsChanged;
+
+    /// <summary>Says a component came or went, for whatever is drawing them.</summary>
+    internal void Recomposed(Entity entity) => ComponentsChanged?.Invoke(this, entity);
+
     /// <summary>Raised when an entity's visibility or lock changed.</summary>
     /// <remarks>
     ///     Its own event rather than <see cref="StructureChanged" />: nothing about the tree's shape

@@ -26,6 +26,15 @@
         <ProjectReference Include="..\Vixen.Editor.Core\Vixen.Editor.Core.csproj" />
 
         <!--
+            The other generator's descriptors, which is how a component gets rows without the runtime
+            referencing an editor assembly. Every [DataContract] type already carries a full member
+            description with boxed accessors, categories and ranges — generated for serialization,
+            and the same information the inspector needs under a different name. See
+            ReflectedDescriptor for why an [Inspector] descriptor still wins where there is one.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+
+        <!--
             ColorPicker and CurveEditor are two of the three controls doc 09 built the advanced set
             for, and this is the consumer they were built for. Vixen.Ui.Controls arrives with it.
         -->

@@ -234,5 +234,23 @@ public static class BrowserTheme {
         browser-filters { flex-direction: row; align-items: center; gap: 6px; flex-shrink: 0; padding: 2px; }
         browser-filters > search-box { flex-grow: 1; min-width: 0; }
         browser-filters > select { flex-shrink: 0; width: 140px; }
+
+        /* ── The component foldouts ─────────────────────────────────────────────
+           One block per component, under the inspector's own rows and separated from them
+           by a rule, because "what this entity is" and "what is on it" are two lists and a
+           panel that ran them together reads as one long one. */
+        components { flex-direction: column; }
+
+        expander.component { border-width: 1px 0px 0px 0px; border-color: var(--border); }
+        expander.component > expander-header { flex-direction: row; align-items: center; }
+
+        /* ⚠ The remove button is faint until the header is hovered, and it is inside the header
+           rather than beside it — a component's Remove has to be unmistakably *that* component's,
+           and a column of identical crosses down the right of the panel is not. */
+        .remove-component { flex-shrink: 0; margin-left: auto; opacity: 0.2; }
+        expander-header:hover .remove-component { opacity: 1; }
+
+        .add-component { align-self: stretch; margin: 8px 4px 4px 4px; }
+        .add-component.hidden { display: none; }
         """;
 }

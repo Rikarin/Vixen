@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
+using Vixen.Core.Serialization;
 using Vixen.Ecs;
 using Vixen.Rendering;
 
@@ -36,7 +37,16 @@ namespace Vixen.Editor.SceneView;
 ///         same way for the same reason, and both become ordinary components on the day the runtime
 ///         grows them.
 ///     </para>
+///     <para>
+///         ⚠ <b><c>[DataContract]</c> and <i>not</i> <c>SceneComponentRegistry.Register</c>, and the
+///         two are different claims.</b> The attribute gives it a serializer and a member
+///         description, which is what lets the inspector draw its rows without the runtime ever
+///         referencing an editor assembly — see <c>ReflectedDescriptor</c>. Registering it would be
+///         the separate claim that a <i>compiled scene</i> may name it, which is the one that would
+///         author files no build can load.
+///     </para>
 /// </remarks>
+[DataContract]
 public struct Light {
     /// <summary>Which of the five kinds it is.</summary>
     public LightKind Kind;
