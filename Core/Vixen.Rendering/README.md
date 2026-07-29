@@ -1561,10 +1561,23 @@ records does merge. That is why the gate asks a sub-feature what it is *doing* t
 (`IDrawSubFeature.IsRecording`) rather than what type it is: the type gives the same answer to both
 of those and it is wrong for one of them. There is a test on each side.
 
-⚠ The clustered path binds no per-draw set at all, so `probeIndex`, `probeWeight`, `lightCount` and
-`materialIndex` are not bound in a clustered frame. That is older than any of this and unfixed by it
-— see [docs/bindless-materials.md](../../docs/bindless-materials.md) — and it is why "the clustered
-pass merges" is not yet the same sentence as "the clustered pass is right".
+**And `materialIndex` is out of that block too**, because it was never per-object data: a variant is
+keyed `(material, flags, shader)`, so a batch is one material and one record. It is a push constant
+now, pushed once per *run* at the offset the effect declares — `EffectPushConstant.OffsetOf`, since
+nothing is generated for a push block and the only offset a host had was one it assumed. That fixed a
+real exclusion: the clustered path binds no per-draw set, so bindless materials and clustered lighting
+could not both be on.
+
+⚠ `probeIndex` and `probeWeight` are still in that block and still undelivered under clustering. They
+are genuinely per object, so the answer for them is a record read through a flat `objectIndex` varying
+— Raven emits `Flat` on integer fragment inputs now, which was the missing piece; the buffer and the
+feature that fills it are not written. It bites only with `UseReflectionProbe` on, which is off by
+default.
+
+**A compositor document turns all of this on.** `gpuDriven:` on the asset root carries
+`materialRecords` and `transformRecords`; `compact:` sits on the culling node beside `indirectDraws`.
+Every flag is a request the device answers, so one authored frame runs on a machine with descriptor
+indexing and on one without — `CompositorBuilder.GpuDriven` reports which.
 
 ## Testing
 
