@@ -25,5 +25,14 @@
             the assembly that makes it.
         -->
         <ProjectReference Include="..\Vixen.Editor.App\Vixen.Editor.App.csproj" />
+
+        <!--
+            The picker fixture below declares [Inspector] members of its own, so this assembly needs
+            the generator: a descriptor is a build artefact, and a hand-written stand-in would be a
+            test of the stand-in.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Inspector.Generator\Vixen.Editor.Inspector.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 </Project>

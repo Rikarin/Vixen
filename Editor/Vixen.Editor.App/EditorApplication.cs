@@ -10,6 +10,7 @@ using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Inspector;
+using Vixen.Editor.Inspector.Drawers;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
@@ -93,6 +94,9 @@ sealed partial class EditorApplication : IDisposable {
     ///     never changes and would otherwise be rebuilt every time somebody closed the scene tab.
     /// </remarks>
     readonly ScenePicker picker;
+
+    /// <summary>What an asset field's button opens.</summary>
+    AssetPicker assetPicker = null!;
 
     readonly ContentTasks content;
     readonly PluginHost plugins;
@@ -251,6 +255,16 @@ sealed partial class EditorApplication : IDisposable {
             Rescan = () => browser?.Rescan()
         };
 
+        // ⚠ Before the panels, because the inspector's asset fields are built by drawers that have
+        // to be pointed at a project first. `AssetDrawer` has raised `PickRequested` since it was
+        // written and nothing ever listened, so the button in an asset field did nothing at all.
+        assetPicker = new AssetPicker(project, Shell.Dialogs);
+
+        foreach (var drawer in DrawerRegistry.Default.Drawers.OfType<AssetDrawer>()) {
+            drawer.Resolve = assetPicker.NameOf;
+            drawer.PickRequested += assetPicker.Open;
+        }
+
         Panels();
         Layouts();
         Commands();
@@ -294,6 +308,9 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>The scene being edited.</summary>
     public SceneDocument Scene => scene;
+
+    /// <summary>The project the editor has open.</summary>
+    public EditorProject Project => project;
 
     /// <summary>The pane the scene is drawn in, or <see langword="null" /> while it is closed.</summary>
     /// <remarks>
