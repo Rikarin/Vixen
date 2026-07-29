@@ -89,19 +89,35 @@ Barriers are validated for shape and dropped. WebGPU tracks resource state itsel
 to make — the same elision the GL backend does. They are not useless: a render graph that gets them
 wrong is wrong on Vulkan, and this backend is where that costs nothing to find out.
 
+## A sampled texture's type is declared, not inferred
+
+WebGPU needs a sampled texture's type — filterable float, unfilterable float, depth, integer — and a
+sampler's comparison-ness stated *in the bind group layout*, which is built before there is a resource
+to ask. `DescriptorBinding.SampleType` is where that comes from, and it is the one field in the RHI's
+descriptor vocabulary that exists for this backend; Vulkan reads past it and GL has no use for it at
+all.
+
+A shadow map is the case that is not the default. Both halves of it say the same thing:
+
+```csharp
+new DescriptorSetLayoutDescription(DescriptorSetSlot.PerView, [
+    new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment, SampleType: DescriptorSampleType.Depth),
+    new(1, DescriptorKind.Sampler,        ShaderStage.Fragment, SampleType: DescriptorSampleType.Depth)
+], "Shadow");
+```
+
+A binding and a resource that disagree — a depth view in a float binding, an ordinary sampler in a
+comparison one, a filtering sampler where the texture is an integer — is caught by
+`WebGpuDevice.UpdateDescriptorSet`, naming the binding and the declaration to change, rather than by a
+browser's own error message a frame later naming neither. `PixelFormats.SampleTypeOf` is what a caller
+holding the texture already can declare from.
+
+What this does *not* yet reach is a layout built from shader reflection: Raven has no depth texture and
+no comparison sampler in its type system, so `EffectData` reports every sampled binding as an ordinary
+float one and an effect's layout still says so. Shadow maps on the web want that half too — the RHI is
+no longer what is missing.
+
 ## Known gaps
-
-**A sampled depth texture and a comparison sampler are refused.** WebGPU needs a sampled texture's
-type — filterable float, unfilterable float, depth, integer — and a sampler's comparison-ness declared
-*in the bind group layout*. The RHI's `DescriptorBinding` carries a binding index, a kind, some stages
-and a count, and nothing about formats. So every layout this backend builds says "filterable float"
-and "filtering sampler", and binding a shadow map through one is caught by
-`WebGpuDevice.UpdateDescriptorSet` with that explanation — rather than by a browser's own error
-message, a frame later, naming no binding.
-
-Closing it means the RHI's binding description growing a sample type, which every other backend would
-ignore. That is a change to `Vixen.Graphics`, not to this project, and it is owed before a shadow map
-renders on the web.
 
 **No timestamp queries.** The feature is requested where offered and nothing reads it yet.
 

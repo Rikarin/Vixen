@@ -424,4 +424,41 @@ public class WebGpuConversionTests {
         Assert.False(fixedBinding.HasDynamicOffset);
         Assert.Equal(WgpuBufferBindingType.Uniform, dynamic.BufferType);
     }
+
+    /// <summary>
+    ///     The declaration WebGPU cannot infer: what a sampled texture holds, carried from the RHI
+    ///     rather than assumed to be a filterable float.
+    /// </summary>
+    [Theory]
+    [InlineData(DescriptorSampleType.Float, WgpuTextureSampleType.Float)]
+    [InlineData(DescriptorSampleType.UnfilterableFloat, WgpuTextureSampleType.UnfilterableFloat)]
+    [InlineData(DescriptorSampleType.Depth, WgpuTextureSampleType.Depth)]
+    [InlineData(DescriptorSampleType.SInt, WgpuTextureSampleType.Sint)]
+    [InlineData(DescriptorSampleType.UInt, WgpuTextureSampleType.Uint)]
+    public void ASampledTextureDeclaresHowItIsRead(DescriptorSampleType declared, WgpuTextureSampleType expected) {
+        var entry = WebGpuConversions.ToWebGpu(
+            new DescriptorBinding(2, DescriptorKind.SampledTexture, ShaderStage.Fragment, SampleType: declared)
+        );
+
+        Assert.Equal(expected, entry.TextureSampleType);
+        Assert.Equal(WgpuTextureViewDimension.Dimension2D, entry.TextureViewDimension);
+    }
+
+    /// <summary>
+    ///     And the same decision from the sampler's end: depth compares, integers and unfilterable
+    ///     floats do not filter, everything else does.
+    /// </summary>
+    [Theory]
+    [InlineData(DescriptorSampleType.Float, WgpuSamplerBindingType.Filtering)]
+    [InlineData(DescriptorSampleType.UnfilterableFloat, WgpuSamplerBindingType.NonFiltering)]
+    [InlineData(DescriptorSampleType.Depth, WgpuSamplerBindingType.Comparison)]
+    [InlineData(DescriptorSampleType.UInt, WgpuSamplerBindingType.NonFiltering)]
+    public void ASamplerDeclaresWhatItDoes(DescriptorSampleType declared, WgpuSamplerBindingType expected) {
+        var entry = WebGpuConversions.ToWebGpu(
+            new DescriptorBinding(0, DescriptorKind.Sampler, ShaderStage.Fragment, SampleType: declared)
+        );
+
+        Assert.Equal(expected, entry.SamplerType);
+        Assert.Equal(WgpuTextureSampleType.Undefined, entry.TextureSampleType);
+    }
 }

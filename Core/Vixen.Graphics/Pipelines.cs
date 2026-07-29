@@ -65,6 +65,45 @@ public enum DescriptorKind : byte {
     Sampler = 6
 }
 
+/// <summary>What a sampled binding's texels are, and — for a sampler — what it does with them.</summary>
+/// <remarks>
+///     <para>
+///         The half of a descriptor layout that Vulkan and GL infer and WebGPU insists on being told.
+///         A Vulkan set layout says "sampled image" and the shader's own type says the rest; a WebGPU
+///         bind group layout has to declare <em>filterable float, unfilterable float, depth, sint or
+///         uint</em> up front, and a texture whose format disagrees is refused at bind time. So the
+///         RHI carries it, the web backend uses it, and the desktop ones read past it.
+///     </para>
+///     <para>
+///         On a <see cref="DescriptorKind.Sampler" /> binding it means the texture that sampler is
+///         paired with, which is the same decision stated from the other end:
+///         <see cref="Float" /> is an ordinary filtering sampler, <see cref="Depth" /> is a
+///         shadow-comparison one, and the rest do not filter, because an integer or unfilterable-float
+///         texture may not be read through a sampler that does. One field rather than two, because
+///         those are not two independent choices — a comparison sampler that reads a colour texture is
+///         not a thing any backend will build.
+///     </para>
+/// </remarks>
+public enum DescriptorSampleType : byte {
+    /// <summary>Floats a sampler may filter — an ordinary colour texture, and the default.</summary>
+    Float = 0,
+
+    /// <summary>
+    ///     Floats a sampler may not filter, which is what a 32-bit float texture is unless the device
+    ///     says otherwise.
+    /// </summary>
+    UnfilterableFloat = 1,
+
+    /// <summary>Depth. On a sampler binding, a shadow-comparison sampler.</summary>
+    Depth = 2,
+
+    /// <summary>Signed integers.</summary>
+    SInt = 3,
+
+    /// <summary>Unsigned integers.</summary>
+    UInt = 4
+}
+
 /// <summary>One binding in a descriptor set.</summary>
 /// <param name="Binding">Its index within the set.</param>
 /// <param name="Kind">What it binds.</param>
@@ -73,12 +112,30 @@ public enum DescriptorKind : byte {
 ///     How many, for an array binding. <c>0</c> means unbounded, which needs
 ///     <see cref="GraphicsDeviceFeatures.HasBindless" />.
 /// </param>
+/// <param name="SampleType">
+///     What a <see cref="DescriptorKind.SampledTexture" /> holds, or what a
+///     <see cref="DescriptorKind.Sampler" /> does — see <see cref="DescriptorSampleType" />. Ignored
+///     for anything else, and required to be left alone there rather than set to something a backend
+///     would have to invent a meaning for.
+/// </param>
 public readonly record struct DescriptorBinding(
     uint Binding,
     DescriptorKind Kind,
     ShaderStage Stages,
-    int Count = 1
-);
+    int Count = 1,
+    DescriptorSampleType SampleType = DescriptorSampleType.Float
+) {
+    /// <summary>Whether this declares the shadow-comparison sampler a shadow map is read through.</summary>
+    public bool IsComparisonSampler => Kind == DescriptorKind.Sampler && SampleType == DescriptorSampleType.Depth;
+
+    /// <summary>Whether a sampler bound here is allowed to filter.</summary>
+    /// <remarks>
+    ///     False for depth, integers and unfilterable floats — the three cases WebGPU calls a
+    ///     non-filtering or comparison sampler binding, and the one place a filtering sampler bound by
+    ///     habit is a validation failure rather than a slightly wrong picture.
+    /// </remarks>
+    public bool Filters => SampleType == DescriptorSampleType.Float;
+}
 
 /// <summary>The shape of one descriptor set.</summary>
 /// <param name="Slot">Which of the four conventional sets this is.</param>
@@ -112,6 +169,18 @@ public readonly record struct DescriptorSetLayoutDescription(
             if (binding.Count < 0) {
                 throw new ArgumentException(
                     $"Binding {binding.Binding} in '{Name}' has a negative count."
+                );
+            }
+
+            // A sample type on a buffer or a storage image is not a harmless extra. A storage image
+            // declares a *format*, which is a different thing said in a different place, and a caller
+            // who wrote DescriptorSampleType.Depth on one meant something no backend can build — so
+            // saying so here is better than WebGPU ignoring it and the author believing it took.
+            if (binding.SampleType != DescriptorSampleType.Float
+                && binding.Kind is not (DescriptorKind.SampledTexture or DescriptorKind.Sampler)) {
+                throw new ArgumentException(
+                    $"Binding {binding.Binding} in '{Name}' is a {binding.Kind} with a "
+                    + $"{binding.SampleType} sample type. Only a sampled texture and a sampler have one."
                 );
             }
         }

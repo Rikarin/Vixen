@@ -102,7 +102,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Feature | Status | Where | Blocked by / note |
 |---|---|---|---|
 | `Vixen.Graphics` RHI surface — formats, `synchronization2`-shaped barriers, typed handles, PSO/descriptor descriptions | ✅ | Core/Vixen.Graphics | 46 tests; reversed depth in the defaults |
-| `DescriptorBinding` sample type / comparison sampler | ⬜ | — | ⛔ **blocks shadow maps on WebGPU**; an RHI change every other backend ignores |
+| `DescriptorBinding` sample type / comparison sampler | ✅ | Core/Vixen.Graphics | `DescriptorSampleType` on the binding and `PixelFormats.SampleTypeOf` beside it. WebGPU declares and enforces it, Vulkan checks it when it is stated, GL reads past it. Shadow maps on the web now wait on Raven having a depth texture type, not on the RHI |
 | Placed resources (true memory aliasing) | ⬜ | — | Two of six planned backends cannot express it |
 | `Vixen.Graphics.Null` + recording harness | ✅ | Platform/Vixen.Graphics.Null | Also the shipping dedicated-server backend |
 | `Vixen.Graphics.RenderGraph` — culling, aliasing, batched barriers, derived store actions | ✅ | Core/Vixen.Graphics.RenderGraph | 34 tests incl. property tests |
@@ -611,7 +611,7 @@ since. The rest can run in parallel.
 | ~~W0-2~~ | ~~**K2** — compute node + GPU buffer upload/readback~~ | Built. `ComputeRenderer` · `BufferUploadRenderer` · `BufferReadbackRenderer`, all three authorable. The 5 downstream items are startable |
 | ~~W0-3~~ | ~~**K3** — `Vixen.Platform.Windows/.Linux/.MacOS`~~ | Built, and all five downstream items with it: the docking one wanted multi-window + DPI rather than this, and that is built too |
 | ~~W0-4~~ | ~~**K4** — `Silk.NET.OpenGLES` + EGL~~ | Built. `SilkGlesApi` + `EglContext`, with no change above `IGlApi`. What the three downstream items now want is an app head that asks for a GL device, not a binding |
-| W0-5 | `DescriptorBinding` sample type + comparison sampler (RHI) | WebGPU shadow maps → deferred/forward parity on the web |
+| ~~W0-5~~ | ~~`DescriptorBinding` sample type + comparison sampler (RHI)~~ | Built. `DescriptorSampleType`, translated and enforced by the WebGPU backend. What WebGPU shadow maps now want is a depth texture and a comparison sampler in Raven's type system, so a shader's reflection can say it |
 | ~~W0-6~~ | ~~`Tools/Vixen.ApiCheck` + first `PublicAPI.Shipped.txt`~~ | Built. The gate is in CI; what is left is the Phase 11 reading of what it baselined |
 | W0-7 | CI legs: Windows/Linux Vulkan, NativeAOT publish, run-a-sample, WebGPU-on-lavapipe | Content determinism across 3 OSes; `Samples/01` on Windows/Linux; the AOT gate becoming continuous |
 | W0-8 | `UiDocument.Update` → `StyleUpdater` (incremental cascade) | The largest UI perf item; nothing depends on it, everything benefits |
@@ -647,7 +647,7 @@ since. The rest can run in parallel.
 | ~~Floating dock groups in OS windows~~ | ~~W0-23 (multi-window)~~ | Built, and multi-window + DPI with it. What is left of W0-23 is CSS Grid, `Canvas2D` and pinch/rotate |
 | Android GLES fallback + capability deny-list | W0-4 | |
 | `Samples/02` in three browsers + Playwright leg | W0-4 | Phase 10 exit criterion |
-| WebGPU shadow maps; WebGPU Linux CI leg | W0-5 + W0-7 | |
+| WebGPU shadow maps; WebGPU Linux CI leg | ~~W0-5~~ + W0-7 | W0-5 is in: the RHI declares a sample type and the backend enforces it. The shadow map itself now waits on Raven expressing a depth texture and a comparison sampler, since an effect's layout is built from its reflection |
 | API review pass | — | Unblocked: the gate is wired and the surface is written down. Reading 22 807 entries and deciding which of them should not be `public` is the Phase 11 work |
 | ASTC/ETC2 output + full-quality BC7 | W0-15 | Then `ktx validate` + reference-decoder verification |
 | Undoable **reparenting** command + hierarchy drag-and-drop | — | Unblocked: `SetParentAfter` is in. Create/delete/rename already landed |
@@ -716,12 +716,12 @@ it is deliberately distinct from "not started" in Part 1.
 | 16 | `Vixen.Engine` | Depth-split transform hierarchy | Perf | Shared components |
 | 17 | `Vixen.Engine` | Doc 13's render-mode, UI-debug and streaming overlays | Feature | Shader debug views; a reporting seam out of `Vixen.Ui` and `Vixen.Assets` |
 | 18 | `Vixen.Engine` | `WhenAny` in coroutines | Feature | — |
-| 19 | `Vixen.Graphics` | `DescriptorBinding` sample type / comparison sampler | API | — |
+| ~~19~~ | ~~`Vixen.Graphics`~~ | ~~`DescriptorBinding` sample type / comparison sampler~~ | Built (`DescriptorSampleType`) | — |
 | 20 | `Vixen.Graphics` | Placed resources (true aliasing) | Perf | Two backends cannot express it |
 | 21 | `Vixen.Graphics.RenderGraph` | Async-compute queue scheduling | Perf | — |
 | 22 | `Vixen.Graphics.Vulkan` | Swapchain acquire/present coverage; timeline semaphores; MSAA resolve; query pools | Coverage / feature | Windowed test host |
 | 23 | `Vixen.Graphics.OpenGL` | `glBindImageTexture` (storage images) | Feature | — (`Silk.NET.OpenGLES` + EGL is built) |
-| 24 | `Vixen.Graphics.WebGPU` | Sampled depth + comparison sampler; timestamp queries; Linux CI leg | Feature | #19 |
+| 24 | `Vixen.Graphics.WebGPU` | Timestamp queries; Linux CI leg | Feature | — (sampled depth and comparison samplers are declared and enforced; what an *effect* cannot yet declare is Raven's, #50–54) |
 | 25 | ~~`Vixen.Platform.Desktop`~~ | ~~File pickers, clipboard images/custom formats, thread affinity, thermal state~~ | Built (K3) — supplied by `Vixen.Platform.Windows`/`.Linux`/`.MacOS` through `IPlatformSupplement` | — |
 | 26 | `Vixen.Platform.Native` | R10's remaining five native dependencies | Infra | — |
 | 27 | `Vixen.Platform.iOS` | Physical-device run; sensors, haptics, HDR layer; scene-delegate lifecycle | Verification | Provisioning profile |
@@ -748,7 +748,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 47 | `Vixen.Ui.Controls.Advanced` | Undo; `CodeEditor` wrap + caret blink; `OkLch` gamut mapping; `AppendChild` O(n); `Canvas2D` | Feature / perf | — |
 | 48 | `Vixen.Ui.Testing` | Group opacity; a third finger; layout-box assertions | Feature | Compositor decision (opacity) |
 | 49 | `Vixen.Ui.Renderer` | Reconcile per-vertex box params with `Raven/Library/Ui`'s per-uniform ones | Consistency | Raven taking over UI shader compilation |
-| 50 | Raven | String interpolation; workgroup-shared memory | Language | — |
+| 50 | Raven | String interpolation; workgroup-shared memory; a depth texture and a comparison sampler in the type system — what WebGPU shadow maps wait on now that the RHI carries a sample type | Language | — |
 | 51 | Raven | `Vixen.Raven.Transpile`; cross-compilation pass | Feature | — |
 | 52 | Raven | `CompileShaderLibrary` Nuke target; SPDX enforcement | Infra | — |
 | 53 | Raven | Numeric BRDF gate; per-backend layout gate; negative diagnostic fixtures | Coverage | A device (**K2** landed the readback) |
@@ -801,7 +801,7 @@ it is deliberately distinct from "not started" in Part 1.
 | Blocked on a **decision**, not code | 2 | Relay scope; D3D12 (already answered: post-1.0) |
 | Blocked on **hardware or an account** | 3 | iPhone provisioning; an Android device; the IHV matrix |
 | Genuinely independent | ~40 | Can be picked up in any order (§3.5) |
-| Closed since the first revision of this page | 12 | **K2** · **K3** (now including its last downstream item) · **K4** · `CheckApi` · `LayoutFinished` · `NodeGraphView` · handle reservation · line wrapping · `VirtualizingPanel` · `scoped`/per-type stylesheets · the image draw command · multi-window + DPI and floating dock groups in OS windows |
+| Closed since the first revision of this page | 13 | **K2** · **K3** (now including its last downstream item) · **K4** · `CheckApi` · `LayoutFinished` · `NodeGraphView` · handle reservation · line wrapping · `VirtualizingPanel` · `scoped`/per-type stylesheets · the image draw command · multi-window + DPI and floating dock groups in OS windows · `DescriptorSampleType` |
 
 ---
 

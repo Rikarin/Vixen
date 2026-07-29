@@ -64,6 +64,10 @@ decidable from the call stream. So `EglContext` talks to `IEglApi` and the tests
   would be a mesh in the wrong place. Use a dynamic uniform offset, which every profile has.
 - **A format-reinterpreting texture view is refused on every profile**, including the one that could
   do it. Offering it only on desktop would mean content that works there and fails on Android.
+- **`DescriptorBinding.SampleType` is read past.** A sampler object carries its own comparison mode
+  and a sampler uniform its own type, so there is nothing here for the declaration to change and
+  nothing it could catch that a GLSL compile would not. It exists for WebGPU, where a bind group
+  layout has to state it before there is a resource to ask.
 
 ## Two things worth knowing before reading the code
 

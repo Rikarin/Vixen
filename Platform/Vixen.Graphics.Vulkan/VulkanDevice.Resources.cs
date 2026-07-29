@@ -203,7 +203,11 @@ public sealed unsafe partial class VulkanDevice {
         Name(ObjectType.Sampler, handle.Handle, description.Name);
 
         lock (gate) {
-            return new(samplers.Add(new VulkanSampler { Handle = handle }));
+            return new(samplers.Add(new VulkanSampler {
+                Handle = handle,
+                Compares = description.Compare is not null,
+                Name = description.Name
+            }));
         }
     }
 

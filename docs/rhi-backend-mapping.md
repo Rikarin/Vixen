@@ -113,6 +113,7 @@ cheap enough not to matter.
 | `DynamicUniformBuffer` offsets | = | ≈ root CBV per draw | = `glBindBufferRange` | = | = `dynamicOffsets` | = |
 | `Sampler` as its own descriptor | = | = | ✗ **a sampler binds to a texture unit** | ✗ | = | = |
 | `SampledTexture` | = | = | = a texture unit | = | = | = |
+| `DescriptorSampleType` | ⚠ inferred from the shader | ⚠ same | ⚠ same | ⚠ same | = **required** in the layout | ⚠ inferred |
 | `StorageTexture` | = | = | ≈ `glBindImageTexture` | ✗ below ES 3.1 | = | = |
 | `StorageBuffer` | = | = | = SSBO | ✗ below ES 3.1 | = | = |
 | `HasBindless` | = descriptor indexing | = SM6.6 dynamic resources | ✗ vendor extension only | ✗ | ✗ | ⚠ argument-buffer tier 1 |
@@ -283,6 +284,12 @@ Kept honest by writing down what it actually caused, rather than only what it de
   transform on the wrong object, which is a picture and not an error. Vulkan catches this only because
   its validation layers check the write's type against the layout's. Any future backend should read
   the layout.
+- **One backend needed a field the other five infer, and it belongs in the RHI anyway.**
+  `DescriptorBinding.SampleType` exists because a WebGPU bind group layout declares what a sampled
+  texture holds and whether a sampler compares, before there is a resource to ask. It could have been
+  a WebGPU-side guess; it is not, because the guess is wrong for exactly one case — a shadow map — and
+  a per-backend guess is a per-backend picture. Vulkan checks it when it is stated and ignores it when
+  it is not, which costs nothing and moves the failure to the machine the renderer is written on.
 - **A standalone `Sampler` descriptor has no universal meaning.** It is the one RHI concept with no GL
   answer. It stays in the surface because Vulkan, D3D12, WebGPU and Metal all have it and removing it
   would cost them something real — but anything in the engine that uses one should prefer carrying the

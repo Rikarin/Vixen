@@ -248,6 +248,48 @@ public static class PixelFormats {
     /// <summary>Whether the format is a depth or stencil format, and therefore not a colour one.</summary>
     public static bool IsDepthStencil(this PixelFormat format) => format.HasDepth() || format.HasStencil();
 
+    /// <summary>How a shader reads a texture in this format, for the layout that declares it.</summary>
+    /// <param name="format">The format.</param>
+    /// <remarks>
+    ///     <para>
+    ///         What to put in a <see cref="DescriptorBinding.SampleType" /> when the texture is one
+    ///         the caller already has — a render-graph resource, a shadow atlas — rather than one it
+    ///         is describing from a shader's declaration.
+    ///     </para>
+    ///     <para>
+    ///         Never <see cref="DescriptorSampleType.UnfilterableFloat" />, because that is not a
+    ///         property of the format: a 32-bit float texture is filterable on a device that has the
+    ///         feature and not on one that does not. So this answers with what the format is, and a
+    ///         caller targeting a device without the feature declares the narrower type itself.
+    ///     </para>
+    /// </remarks>
+    public static DescriptorSampleType SampleTypeOf(this PixelFormat format) {
+        if (format.HasDepth()) {
+            return DescriptorSampleType.Depth;
+        }
+
+        return format switch {
+            PixelFormat.R8UInt or PixelFormat.R16UInt or PixelFormat.R32UInt or PixelFormat.Rgba32UInt =>
+                DescriptorSampleType.UInt,
+            PixelFormat.R8SInt => DescriptorSampleType.SInt,
+            _ => DescriptorSampleType.Float
+        };
+    }
+
+    /// <summary>Whether a texture in this format may be read through a binding declared that way.</summary>
+    /// <param name="declared">What the descriptor layout says the binding holds.</param>
+    /// <param name="format">The format of the view being bound.</param>
+    /// <remarks>
+    ///     Float and unfilterable float accept the same formats and differ only in what a sampler may
+    ///     do with them, which is the sampler binding's business rather than the texture's — so this
+    ///     answers the question a backend has at bind time, and no more of it than that.
+    /// </remarks>
+    public static bool Accepts(this DescriptorSampleType declared, PixelFormat format) => declared switch {
+        DescriptorSampleType.Float or DescriptorSampleType.UnfilterableFloat =>
+            format.SampleTypeOf() == DescriptorSampleType.Float,
+        _ => format.SampleTypeOf() == declared
+    };
+
     /// <summary>Whether the hardware converts to and from sRGB on access.</summary>
     /// <remarks>
     ///     The whole of colour correctness in one flag: shading happens in linear space, so a colour

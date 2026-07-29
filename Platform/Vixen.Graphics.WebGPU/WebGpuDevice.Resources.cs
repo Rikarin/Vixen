@@ -607,17 +607,18 @@ public sealed partial class WebGpuDevice {
                     view = (WebGpuTextureView)found;
                 }
 
-                // The gap named in WebGpuConversions.ToWebGpu(DescriptorBinding): a layout built from
-                // the RHI's binding description says "filterable float", and a depth texture bound
-                // through it is a validation failure a browser reports in its own words, a frame
-                // later, with no mention of which binding. Said here instead.
-                if (view.Format.HasDepth()) {
-                    throw new NotSupportedException(
-                        $"A {view.Format} view was bound to binding {write.Binding} of '{set.Name}'. WebGPU "
-                        + "needs a sampled texture's type declared in the bind group layout, and the RHI's "
-                        + "DescriptorBinding does not carry one — so every layout this backend builds says "
-                        + "filterable float. Sampling depth on WebGPU needs that gap closed; see the "
-                        + "backend's README."
+                // The layout declared a sample type before there was a texture to ask, and WebGPU
+                // holds it to that: a depth view bound through a binding that says "filterable float"
+                // is a validation failure a browser reports in its own words, a frame later, with no
+                // mention of which binding. Said here instead, and in terms of the declaration the
+                // caller can change.
+                if (declared.Kind == DescriptorKind.SampledTexture && !declared.SampleType.Accepts(view.Format)) {
+                    throw new ArgumentException(
+                        $"A {view.Format} view was bound to binding {write.Binding} of '{set.Name}', which the "
+                        + $"layout declares as {declared.SampleType}. WebGPU reads a sampled texture as its "
+                        + "bind group layout says, not as its format says, so the two have to agree — declare "
+                        + $"the binding {view.Format.SampleTypeOf()} (DescriptorBinding.SampleType) or bind a "
+                        + "view of a matching format."
                     );
                 }
 
@@ -639,16 +640,31 @@ public sealed partial class WebGpuDevice {
                     sampler = (WebGpuSampler)found;
                 }
 
-                if (sampler.Compares) {
-                    throw new NotSupportedException(
-                        $"Comparison sampler '{sampler.Name}' was bound to binding {write.Binding} of "
-                        + $"'{set.Name}'. A WebGPU bind group layout has to declare a sampler as comparing, "
-                        + "and the RHI's DescriptorBinding does not carry that either — the same gap as the "
-                        + "one above it, and the same fix."
+                if (declared.Kind == DescriptorKind.Sampler && sampler.Compares != declared.IsComparisonSampler) {
+                    throw new ArgumentException(
+                        $"Sampler '{sampler.Name}' {(sampler.Compares ? "compares" : "does not compare")} and "
+                        + $"binding {write.Binding} of '{set.Name}' declares a "
+                        + $"{(declared.IsComparisonSampler ? "comparison" : "non-comparison")} sampler. A WebGPU "
+                        + "bind group layout says which it is, and a shadow map wants "
+                        + "DescriptorSampleType.Depth on both the texture binding and this one."
                     );
                 }
 
-                _ = declared;
+                // A non-filtering binding is the other half of an integer or unfilterable-float
+                // texture: WebGPU refuses a sampler that filters there, and the habit that produces
+                // one is SamplerDescription's default being trilinear. A comparison sampler is past
+                // this already — the check above pairs it with the only declaration it fits, and
+                // filtering one is how PCF is spelled.
+                if (declared.Kind == DescriptorKind.Sampler && !declared.Filters && !declared.IsComparisonSampler
+                    && sampler.Filters) {
+                    throw new ArgumentException(
+                        $"Filtering sampler '{sampler.Name}' was bound to binding {write.Binding} of "
+                        + $"'{set.Name}', which declares {declared.SampleType} and so may not filter. Bind "
+                        + "SamplerDescription.PointClamp, or one of its own with nearest filtering and no "
+                        + "anisotropy."
+                    );
+                }
+
                 return new(write.Binding, Sampler: sampler.Handle);
             }
         }

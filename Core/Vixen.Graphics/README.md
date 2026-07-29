@@ -57,6 +57,18 @@ where it is described rather than surfacing as a validation-layer message about 
 The `Name` field is not decoration either: a RenderDoc capture full of `VkImage 0x7f…` is a capture
 nobody can read.
 
+**A descriptor binding says what it holds, not only that it is a texture.**
+`DescriptorBinding.SampleType` — filterable float, unfilterable float, depth, sint, uint — is the one
+piece of the vocabulary that exists for a single backend. Vulkan and GL infer it from the shader; a
+WebGPU bind group layout has to declare it *before there is a resource to ask*, and a texture whose
+format disagrees is refused. Stating it in the RHI rather than in the web backend is what makes a
+shadow map describable at all: the binding and its sampler both say `Depth`, and the sampler binding
+being the same field is not a shortcut — a comparison sampler paired with a colour texture is not
+something any backend will build. The default is the common case, so a layout that never mentions it
+means what it always meant. Vulkan checks a *stated* sample type against what is bound, and says
+nothing when nothing was stated, so a declaration is worth making on the backend a renderer is
+developed against.
+
 **Capabilities are a flat record queried once**, and everything in it has a documented fallback. The
 only hard floor is Vulkan 1.1 / D3D12 FL 11_0 / GLES 3.0 / WebGL2, stated once and enforced at device
 selection. `GraphicsDeviceFeatures.Minimum` claims nothing it does not have, so a backend that

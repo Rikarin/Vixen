@@ -355,22 +355,47 @@ public static class WebGpuConversions {
         _ => SwapChainStatus.DeviceLost
     };
 
+    /// <summary>How a sampled texture's texels are read, for the layout that declares the binding.</summary>
+    /// <param name="sampleType">What the RHI says the binding holds.</param>
+    public static WgpuTextureSampleType ToWebGpu(DescriptorSampleType sampleType) => sampleType switch {
+        DescriptorSampleType.UnfilterableFloat => WgpuTextureSampleType.UnfilterableFloat,
+        DescriptorSampleType.Depth => WgpuTextureSampleType.Depth,
+        DescriptorSampleType.SInt => WgpuTextureSampleType.Sint,
+        DescriptorSampleType.UInt => WgpuTextureSampleType.Uint,
+        _ => WgpuTextureSampleType.Float
+    };
+
+    /// <summary>What a sampler binding does, for the layout that declares it.</summary>
+    /// <param name="sampleType">The texture the sampler is declared to be paired with.</param>
+    /// <remarks>
+    ///     The RHI states this as the texture's type and WebGPU states it as the sampler's job, and
+    ///     the translation is the rule that makes them the same statement: depth is compared,
+    ///     integers and unfilterable floats may not be filtered, and everything else filters.
+    /// </remarks>
+    public static WgpuSamplerBindingType ToSamplerBinding(DescriptorSampleType sampleType) => sampleType switch {
+        DescriptorSampleType.Depth => WgpuSamplerBindingType.Comparison,
+        DescriptorSampleType.Float => WgpuSamplerBindingType.Filtering,
+        _ => WgpuSamplerBindingType.NonFiltering
+    };
+
     /// <summary>What a descriptor binding is, in WebGPU's terms.</summary>
     /// <param name="binding">The engine binding.</param>
     /// <remarks>
     ///     <para>
-    ///         The one thing WebGPU wants that the RHI does not say: a sampled-texture binding has to
-    ///         declare how its texels are read — float, unfilterable float, depth or integer — and a
-    ///         sampler binding has to declare whether it compares. <see cref="DescriptorBinding" />
-    ///         carries a kind, some stages and a count, and nothing about formats.
+    ///         A sampled-texture binding has to declare how its texels are read — float, unfilterable
+    ///         float, depth or integer — and a sampler binding has to declare whether it compares.
+    ///         Neither is inferable from the resource, because a WebGPU bind group layout is built
+    ///         before there is a resource; both come from <see cref="DescriptorBinding.SampleType" />,
+    ///         which exists for this backend and which the others read past.
     ///     </para>
     ///     <para>
-    ///         So the common case is assumed: a filterable float texture and a filtering sampler.
-    ///         <b>A shadow map is the case that is not the common case</b>, and binding a depth
-    ///         texture or a comparison sampler through a layout built this way is rejected — clearly,
-    ///         and by <c>WebGpuDevice.UpdateDescriptorSet</c> rather than by an implementation error
-    ///         message a frame later. See the README's known gaps: closing it means the RHI's binding
-    ///         description growing a sample type, which every other backend would ignore.
+    ///         Its default is the common case — a filterable float texture and a filtering sampler —
+    ///         so a caller who never thinks about it gets what it used to assume. <b>A shadow map is
+    ///         the case that is not the common case</b>: it wants
+    ///         <see cref="DescriptorSampleType.Depth" /> on both the texture binding and the sampler
+    ///         one, and a mismatch between what the layout declares and what is bound through it is
+    ///         caught by <c>WebGpuDevice.UpdateDescriptorSet</c> rather than by an implementation
+    ///         error message a frame later.
     ///     </para>
     /// </remarks>
     public static WgpuBindGroupLayoutEntry ToWebGpu(in DescriptorBinding binding) {
@@ -394,7 +419,7 @@ public static class WebGpuConversions {
             DescriptorKind.SampledTexture => new(
                 binding.Binding,
                 visibility,
-                TextureSampleType: WgpuTextureSampleType.Float,
+                TextureSampleType: ToWebGpu(binding.SampleType),
                 TextureViewDimension: WgpuTextureViewDimension.Dimension2D
             ),
             DescriptorKind.StorageTexture => new(
@@ -404,7 +429,7 @@ public static class WebGpuConversions {
                 StorageFormat: WgpuTextureFormat.Rgba8Unorm,
                 TextureViewDimension: WgpuTextureViewDimension.Dimension2D
             ),
-            _ => new(binding.Binding, visibility, SamplerType: WgpuSamplerBindingType.Filtering)
+            _ => new(binding.Binding, visibility, SamplerType: ToSamplerBinding(binding.SampleType))
         };
     }
 
