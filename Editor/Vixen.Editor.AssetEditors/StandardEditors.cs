@@ -13,6 +13,7 @@ using Vixen.Editor.AssetEditors.Input;
 using Vixen.Editor.AssetEditors.Materials;
 using Vixen.Editor.AssetEditors.Scenes;
 using Vixen.Editor.AssetEditors.Sequencing;
+using Vixen.Editor.AssetEditors.Shading;
 using Vixen.Editor.AssetEditors.Vfx;
 
 namespace Vixen.Editor.AssetEditors;
@@ -55,6 +56,7 @@ public static class StandardEditors {
             .Add(new MarkupEditorFactory())
             .Add(new AddressableGroupEditorFactory())
             .Add(new CompositorEditorFactory())
+            .Add(new ShaderGraphEditorFactory())
             .Add(new VfxEditorFactory())
             .Add(new AnimationClipEditorFactory())
             .Add(new AnimationGraphEditorFactory())
@@ -80,6 +82,7 @@ public static class StandardEditors {
             .Add(new MarkupEditorFactory())
             .Add(new AddressableGroupEditorFactory())
             .Add(new CompositorEditorFactory())
+            .Add(new ShaderGraphEditorFactory())
             .Add(new VfxEditorFactory())
             .Add(new AnimationClipEditorFactory())
             .Add(new AnimationGraphEditorFactory())

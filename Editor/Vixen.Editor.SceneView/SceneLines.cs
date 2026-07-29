@@ -69,8 +69,13 @@ public sealed class SceneLines {
     ///     With several things selected the gizmo is at one place and the other nineteen have nothing
     ///     saying they are going to move — which is the state in which somebody drags and is
     ///     surprised.
+    ///     <para>
+    ///         <see cref="SceneMeshes.SelectedColour" />'s amber, and deliberately not
+    ///         <see cref="SceneMeshes.OutlineColour" />'s blue: a marker cross and a shape's tint are
+    ///         both saying "this one is selected", and the rim is saying where it ends.
+    ///     </para>
     /// </remarks>
-    public Color4 SelectedColour { get; set; } = SceneMeshes.SelectionBlue;
+    public Color4 SelectedColour { get; set; } = new(1f, 0.62f, 0.15f, 1f);
 
     /// <summary>Collects a frame's lines.</summary>
     /// <param name="document">The scene being drawn.</param>

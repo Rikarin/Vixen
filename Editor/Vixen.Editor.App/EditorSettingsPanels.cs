@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.Ui;
@@ -58,6 +59,9 @@ sealed partial class EditorApplication {
     /// <summary>And the undo history.</summary>
     internal const string HistoryPanel = "history";
 
+    /// <summary>And the addressables window.</summary>
+    internal const string AddressablesPanel = "addressables";
+
     /// <summary>The four panels this milestone adds, over models the editor already had.</summary>
     void SettingsPanels() {
         // ⚠ Subscribed before any layout is applied, because the panel may be in one — and the
@@ -111,6 +115,35 @@ sealed partial class EditorApplication {
                 view.PageShown += (shown, pane) => Narrow(pane, shown.Query);
 
                 ProjectPages(view);
+            }
+        );
+
+        // ⚠ A panel of its own, and the view behind it already existed. `AddressableGroupsView` is
+        // the group list, the per-group policy and doc 08's analysis — all of it built, and reachable
+        // only by finding a `.vxgroup` in the project and double-clicking it. An asset editor is the
+        // right home for editing *one* group's file; it is the wrong front door for the feature,
+        // because a project that has never made a group has nothing to double-click, which is what
+        // "there is no addressables UI" meant. Nothing here is new behaviour: it is the same control
+        // over the same project, with a way in.
+        Shell.RegisterPanel(
+            AddressablesPanel,
+            new StringId("editor.panel.addressables", "Addressables"),
+            panel => {
+                var view = panel.Add<AssetEditors.Content.AddressableGroupsView>();
+
+                // ⚠ The same analyser the `.vxgroup` editor is given — see `AnalyseContent`. Two
+                // panels asking two different planners would be two answers to "what would a build
+                // do", and the one nobody is looking at would be the one that is right.
+                view.Show(project, AnalyseContent);
+
+                // Opening a group from the list goes through the ordinary asset-editor path, so the
+                // panel that appears is the same document a double-click in the browser opens rather
+                // than a second view over the same file.
+                view.GroupOpened += (_, document) => {
+                    if (document.Asset != AssetId.Empty) {
+                        Open(document.Asset);
+                    }
+                };
             }
         );
 

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Immutable;
 using System.Text;
 using Vixen.Editor.NodeGraph;
 
@@ -9,7 +10,30 @@ namespace Vixen.Editor.ShaderGraph;
 /// <summary>What a shader graph compiles to.</summary>
 /// <param name="Name">The shader declaration's name.</param>
 /// <param name="Source">The Raven.</param>
-public sealed record ShaderGraphSource(string Name, string Source);
+/// <param name="Properties">Every uniform the graph asked for, by name, in a stable order.</param>
+/// <remarks>
+///     <para>
+///         <b>The uniforms the graph asked for, not the ones every graph has.</b>
+///         <c>worldViewProjection</c> and <c>world</c> are declared in every shader and authored in
+///         none, so a list an author reads as "what this graph needs from outside" is wrong to
+///         include them.
+///     </para>
+///     <para>
+///         ⚠ <b>It does not say which of them a <i>material</i> supplies.</b> A texture node's
+///         property is the material's; the clock a <c>Time</c> node reads and the light a PBR master
+///         shades with are the engine's, and nothing here can tell them apart because the emitter
+///         asks for both the same way. Sorting them is the material compiler's job and doc 08 owns
+///         it; until then this is the honest list — every name the shader declares.
+///     </para>
+/// </remarks>
+public sealed record ShaderGraphSource(
+    string Name,
+    string Source,
+    ImmutableArray<ShaderGraphProperty> Properties = default
+) {
+    /// <inheritdoc cref="ShaderGraphSource" />
+    public ImmutableArray<ShaderGraphProperty> Properties { get; } = Properties.IsDefault ? [] : Properties;
+}
 
 /// <summary>
 ///     A shader graph, as Raven source.
@@ -147,7 +171,14 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
             .AppendLine("    }")
             .AppendLine("}");
 
-        return new(name, text.ToString());
+        return new(
+            name,
+            text.ToString(),
+            [
+                .. uniforms.OrderBy(entry => entry.Key, StringComparer.Ordinal)
+                    .Select(entry => new ShaderGraphProperty(entry.Key, entry.Value))
+            ]
+        );
     }
 
     /// <inheritdoc />

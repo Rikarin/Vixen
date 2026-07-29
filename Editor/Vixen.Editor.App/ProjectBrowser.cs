@@ -139,11 +139,12 @@ sealed class ProjectBrowser {
         tree.MultiSelect = true;
         tree.AllowDrag = true;
 
-        // ⚠ Double-click renames, which is what it does in the outliner and is the whole reason
-        // `TreeView.RenameOnActivate` exists rather than a second copy of the gesture here. Opening
-        // an asset is Enter, the context menu's Open, and a double-click in the grid — where a tile
-        // is a document rather than a name you edit in place.
-        tree.RenameOnActivate = true;
+        // ⚠ Double-click opens and a second click on the selected row renames, which is the pair
+        // every file manager ships and the reason the two are separate properties on the control. A
+        // browser whose double-click renamed would have no gesture left for the thing a browser is
+        // for; the outliner is the other way round, because a row there is a name rather than a
+        // document — see `TreeView.RenameOnSecondClick`.
+        tree.RenameOnSecondClick = true;
 
         tree.Activated += (_, node) => {
             // ⚠ Only what the database has an identity for, and never a folder — the same rule the
