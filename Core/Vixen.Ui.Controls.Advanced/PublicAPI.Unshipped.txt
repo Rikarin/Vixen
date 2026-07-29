@@ -447,6 +447,7 @@ Vixen.Ui.Controls.Advanced.DockingHost.DockingHost() -> void
 Vixen.Ui.Controls.Advanced.DockingHost.Float(string id) -> bool
 Vixen.Ui.Controls.Advanced.DockingHost.Float(string id, float x, float y, float width = 320, float height = 240) -> void
 Vixen.Ui.Controls.Advanced.DockingHost.Groups.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.DockGroupView>
+Vixen.Ui.Controls.Advanced.DockingHost.Guides.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Advanced.DockingHost.Layout.get -> Vixen.Ui.Controls.Advanced.DockLayout
 Vixen.Ui.Controls.Advanced.DockingHost.LayoutChanged -> System.Action<Vixen.Ui.Controls.Advanced.DockingHost>?
 Vixen.Ui.Controls.Advanced.DockingHost.Load(string yaml) -> void

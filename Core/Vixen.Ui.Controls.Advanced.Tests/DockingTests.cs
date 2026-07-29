@@ -11,6 +11,10 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 public class DockingTests {
     const float Tolerance = 0.5f;
 
+    /// <summary>What the theme puts between a guide handle's edge and the marking inside it.</summary>
+    /// <remarks>Its one-pixel border and its three of padding, which is why the room inside is 20 of 28.</remarks>
+    const float Inset = 4f;
+
     [Fact]
     public void A_layout_round_trips_through_serialisation() {
         var layout = new DockLayout {
@@ -355,6 +359,170 @@ public class DockingTests {
 
         var split = Assert.IsType<DockSplitNode>(host.Layout.Root);
         Assert.Equal(Orientation.Vertical, split.Orientation);
+        Assert.Equal("console", Assert.Single(Assert.IsType<DockGroupNode>(split.Second).Panels));
+    }
+
+    [Fact]
+    public void A_tab_is_dragged_by_its_title_and_not_only_by_its_padding() {
+        using var fixture = new AdvancedFixture();
+
+        var host = fixture.Add<DockingHost>();
+        host.AddPanel("scene", "Scene");
+        host.AddPanel("console", "Console");
+        fixture.Update();
+
+        var group = host.Groups[0];
+        var tab = group.Tabs.Children.OfType<DockTab>().First(static t => t.PanelId == "console");
+        var (x, y) = AdvancedFixture.Centre(tab.Children[0]);
+
+        // ⚠ The whole of this fixture. A press lands on the deepest element under it, and a tab's
+        // title is a child element — it has to be, or a tab could not also have an icon — so the
+        // drag is reported from the label rather than from the tab. A host that asked whether the
+        // source *was* a tab left only the few pixels of padding around the words draggable, which
+        // is what users report as docking being broken.
+        Assert.Same(tab.Children[0], fixture.Document.HitTest(x, y));
+
+        var bounds = group.Bounds;
+        var dropX = bounds.X + (bounds.Width * 0.5f);
+        var dropY = bounds.Bottom - 10f;
+
+        fixture.Press(x, y);
+        fixture.Move(dropX, dropY);
+        fixture.Move(dropX, dropY);
+
+        Assert.False(host.Preview.HasClass("hidden"));
+
+        fixture.Release(dropX, dropY);
+
+        var split = Assert.IsType<DockSplitNode>(host.Layout.Root);
+        Assert.Equal(Orientation.Vertical, split.Orientation);
+        Assert.Equal("console", Assert.Single(Assert.IsType<DockGroupNode>(split.Second).Panels));
+    }
+
+    [Fact]
+    public void A_drag_begun_on_the_close_button_moves_nothing() {
+        using var fixture = new AdvancedFixture();
+
+        var host = fixture.Add<DockingHost>();
+        host.AddPanel("scene", "Scene");
+        host.AddPanel("console", "Console");
+        fixture.Update();
+
+        var group = host.Groups[0];
+        var tab = group.Tabs.Children.OfType<DockTab>().First(static t => t.PanelId == "console");
+        var (x, y) = AdvancedFixture.Centre(tab.CloseButton!);
+
+        var bounds = group.Bounds;
+        var dropX = bounds.X + (bounds.Width * 0.5f);
+        var dropY = bounds.Bottom - 10f;
+
+        fixture.Press(x, y);
+        fixture.Move(dropX, dropY);
+        fixture.Move(dropX, dropY);
+
+        // ⚠ The close button is inside the tab, so the walk that finds the tab from the title would
+        // find it from here too. It stops instead: a press on the button that wandered a few pixels
+        // before letting go would dock the panel somewhere rather than do the one thing its icon
+        // promises.
+        Assert.True(host.Preview.HasClass("hidden"));
+
+        fixture.Release(dropX, dropY);
+
+        // And the drag was not a tap either, so the panel is neither moved nor closed.
+        Assert.Equal(["scene", "console"], Assert.IsType<DockGroupNode>(host.Layout.Root).Panels);
+        Assert.Contains("console", host.Panels.Keys);
+    }
+
+    [Fact]
+    public void The_guides_sit_in_the_middle_and_beat_the_edge_they_are_nowhere_near() {
+        var bounds = new Rectangle(0f, 0f, 400f, 300f);
+
+        Assert.Equal(DockZone.Center, DockingHost.GuideAt(bounds, 200f, 150f));
+        Assert.Equal(DockZone.Left, DockingHost.GuideAt(bounds, 200f - 32f, 150f));
+        Assert.Equal(DockZone.Right, DockingHost.GuideAt(bounds, 200f + 32f, 150f));
+        Assert.Equal(DockZone.Top, DockingHost.GuideAt(bounds, 200f, 150f - 32f));
+        Assert.Equal(DockZone.Bottom, DockingHost.GuideAt(bounds, 200f, 150f + 32f));
+
+        // The gaps between the handles are misses, not near-misses rounded to the nearest one.
+        Assert.Null(DockingHost.GuideAt(bounds, 200f - 16f, 150f - 16f));
+        Assert.Null(DockingHost.GuideAt(bounds, 10f, 10f));
+
+        // ⚠ The point of having them: the middle of a pane means "stack it here" by proximity, and
+        // a handle in the middle of the pane says something else. Aiming at one is never the same
+        // gesture as aiming at an edge, which is why they can be believed over it.
+        Assert.Equal(DockZone.Center, DockingHost.ZoneOf(bounds, 232f, 150f));
+        Assert.Equal(DockZone.Right, DockingHost.ZoneAt(bounds, 232f, 150f));
+
+        // And a pane with no room for the cluster is docked into exactly as it was before the
+        // handles existed, rather than being offered handles hanging over its neighbours.
+        var narrow = new Rectangle(0f, 0f, 60f, 60f);
+
+        Assert.Null(DockingHost.GuideAt(narrow, 30f, 30f));
+        Assert.Equal(DockingHost.ZoneOf(narrow, 30f, 30f), DockingHost.ZoneAt(narrow, 30f, 30f));
+    }
+
+    [Fact]
+    public void Dragging_over_a_group_offers_guides_and_the_one_aimed_at_wins() {
+        using var fixture = new AdvancedFixture();
+
+        var host = fixture.Add<DockingHost>();
+        host.AddPanel("scene", "Scene");
+        host.AddPanel("console", "Console");
+        fixture.Update();
+
+        Assert.True(host.Guides.HasClass("hidden"));
+
+        var group = host.Groups[0];
+        var tab = group.Tabs.Children.OfType<DockTab>().First(static t => t.PanelId == "console");
+        var (x, y) = AdvancedFixture.Centre(tab.Children[0]);
+
+        var handle = DockingHost.GuideBounds(group.Bounds, DockZone.Right);
+        var overX = handle.X + (handle.Width * 0.5f);
+        var overY = handle.Y + (handle.Height * 0.5f);
+
+        fixture.Press(x, y);
+        fixture.Move(overX, overY);
+        fixture.Move(overX, overY);
+
+        Assert.False(host.Guides.HasClass("hidden"));
+
+        // Drawn where the arithmetic that answers for the drop says it is. Nothing hit-tests these
+        // — the pointer is captured by the tab for the whole drag — so a cluster drawn anywhere
+        // else would be a set of handles that lie about what aiming at them does.
+        var lit = Assert.Single(host.Guides.Children, static guide => guide.HasClass("active"));
+
+        Assert.True(lit.HasClass("right"));
+        Assert.Equal(handle.X, lit.AbsoluteLeft, Tolerance);
+        Assert.Equal(handle.Y, lit.AbsoluteTop, Tolerance);
+
+        // ⚠ And every handle's marking is *inside* it. A handle's width is its border box, so a
+        // hint sized as though that width were the room inside overhangs the border along the
+        // bottom and the right — which nothing clips, and which reads as a cluster with all five
+        // markings nudged up and to the left.
+        foreach (var guide in host.Guides.Children) {
+            var hint = Assert.Single(guide.Children);
+
+            Assert.True(hint.AbsoluteLeft >= guide.AbsoluteLeft + Inset - Tolerance, "a hint starts left of its handle");
+            Assert.True(hint.AbsoluteTop >= guide.AbsoluteTop + Inset - Tolerance, "a hint starts above its handle");
+            Assert.True(
+                hint.AbsoluteLeft + hint.Width <= guide.AbsoluteLeft + guide.Width - Inset + Tolerance,
+                "a hint runs past the right of its handle"
+            );
+            Assert.True(
+                hint.AbsoluteTop + hint.Height <= guide.AbsoluteTop + guide.Height - Inset + Tolerance,
+                "a hint runs past the bottom of its handle"
+            );
+        }
+
+        fixture.Release(overX, overY);
+
+        Assert.True(host.Guides.HasClass("hidden"));
+
+        // The pointer was in the middle of the group, where proximity would have said "stack it
+        // here". It went to the right because that is the handle it was over.
+        var split = Assert.IsType<DockSplitNode>(host.Layout.Root);
+
+        Assert.Equal(Orientation.Horizontal, split.Orientation);
         Assert.Equal("console", Assert.Single(Assert.IsType<DockGroupNode>(split.Second).Panels));
     }
 

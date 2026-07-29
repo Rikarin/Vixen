@@ -151,6 +151,53 @@ public static class AdvancedTheme {
             pointer-events: none;
         }
 
+        /*
+         * The drop guides: five handles over the middle of whatever group the drag is over, and the
+         * one the drop would use lit.
+         *
+         * ⚠ `pointer-events: none` on both, and the *sizes are the code's*. Which handle a drop
+         * lands on is arithmetic — the pointer is captured by the tab being dragged for the whole
+         * gesture, so none of this is ever hit-tested — and a sheet that resized a handle would move
+         * the one that is drawn away from the one that answers. `DockingHost.GuideSize` and
+         * `GuideSpan` are the numbers below, and the offsets are written inline as the cluster is
+         * built.
+         */
+        dock-guides { position: absolute; left: 0px; top: 0px; pointer-events: none; }
+
+        dock-guide {
+            position: absolute;
+            left: 0px;
+            top: 0px;
+            width: 28px;
+            height: 28px;
+            padding: 3px;
+            border-width: 1px;
+            border-color: var(--border);
+            border-radius: 4px;
+            background-color: var(--surface-raised);
+            pointer-events: none;
+        }
+
+        dock-guide.left, dock-guide.right, dock-guide.center { flex-direction: row; }
+        dock-guide.top, dock-guide.bottom { flex-direction: column; }
+        dock-guide.right, dock-guide.bottom { justify-content: flex-end; }
+
+        dock-guide.active { border-color: var(--accent); background-color: var(--accent); }
+
+        /* What the handle says it would do, drawn rather than written: the half of the pane the
+           panel would take, which is the preview rectangle in miniature.
+
+           ⚠ 20px, not 22px, and the arithmetic is worth writing down: a `width` is the *border*
+           box, so the room inside a handle is 28 less its 1px border and its 3px padding on each
+           side. A hint sized as though the width were the content area overhangs the border along
+           the bottom and the right — which does not clip, and reads as a cluster with every
+           handle's marking nudged up and to the left. */
+        dock-hint { width: 20px; height: 20px; border-radius: 2px; background-color: var(--text-muted); }
+
+        dock-guide.left > dock-hint, dock-guide.right > dock-hint { width: 10px; }
+        dock-guide.top > dock-hint, dock-guide.bottom > dock-hint { height: 10px; }
+        dock-guide.active > dock-hint { background-color: var(--surface); }
+
         /* One name for "not showing", used by everything in this sheet. It is a class rather than a
            state because it is a mode something was put into rather than a condition it is in. */
         .hidden { display: none; }
