@@ -175,13 +175,14 @@ sealed class EditorApplication : IDisposable {
     /// <summary>
     ///     Brings the panels up to date with the model, once a frame, after the layout pass.
     /// </summary>
+    /// <param name="delta">How long the last frame took, for the things that move by themselves.</param>
     /// <remarks>
     ///     ⚠ <b>After <c>UiDocument.Update</c> and before <c>Draw</c>.</b> The viewport measures
     ///     itself in render pixels from its own box, which the layout pass is what produces; and the
     ///     axis cross it draws comes from the camera rotation this writes. Either side of that pair
     ///     and the picture is a frame behind.
     /// </remarks>
-    public void Update() {
+    public void Update(TimeSpan delta) {
         // What a finished import or build had to say, on the thread that owns the panels it is about
         // to rebuild. See `ContentTasks` for why nothing crosses back except a queued value.
         content.Pump();
@@ -199,7 +200,7 @@ sealed class EditorApplication : IDisposable {
             return;
         }
 
-        pane.Update();
+        pane.Update(delta);
 
         // ⚠ Kept every frame, not on the way out. A panel's factory runs again when it is reopened
         // and the SceneViewport goes with the old one, so there is no teardown hook to read the

@@ -127,7 +127,7 @@ sealed class EditorHost : IDisposable {
             // from a box the layout pass is what produces, and the axis cross it draws comes from the
             // camera this brings up to date — so either side of this pair puts the picture a frame
             // behind whatever the user just did with the mouse.
-            editor.Update();
+            editor.Update(delta);
 
             editor.Shell.Document.Draw();
 
