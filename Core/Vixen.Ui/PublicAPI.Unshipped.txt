@@ -119,6 +119,8 @@ Vixen.Ui.DrawCommand.FontSize.init -> float
 Vixen.Ui.DrawCommand.HasStyle.get -> bool
 Vixen.Ui.DrawCommand.Height.get -> float
 Vixen.Ui.DrawCommand.Height.init -> float
+Vixen.Ui.DrawCommand.HollowCentre.get -> bool
+Vixen.Ui.DrawCommand.HollowCentre.init -> bool
 Vixen.Ui.DrawCommand.Image.get -> ulong
 Vixen.Ui.DrawCommand.Image.init -> ulong
 Vixen.Ui.DrawCommand.Join.get -> Vixen.Ui.LineJoin
@@ -133,8 +135,12 @@ Vixen.Ui.DrawCommand.Offset.get -> int
 Vixen.Ui.DrawCommand.Offset.init -> int
 Vixen.Ui.DrawCommand.Radius.get -> float
 Vixen.Ui.DrawCommand.Radius.init -> float
+Vixen.Ui.DrawCommand.Slice.get -> Vixen.Core.Mathematics.NineSlice
+Vixen.Ui.DrawCommand.Slice.init -> Vixen.Core.Mathematics.NineSlice
 Vixen.Ui.DrawCommand.Source.get -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.DrawCommand.Source.init -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.DrawCommand.SourceSlice.get -> Vixen.Core.Mathematics.NineSlice
+Vixen.Ui.DrawCommand.SourceSlice.init -> Vixen.Core.Mathematics.NineSlice
 Vixen.Ui.DrawCommand.Thickness.get -> float
 Vixen.Ui.DrawCommand.Thickness.init -> float
 Vixen.Ui.DrawCommand.Width.get -> float
@@ -158,6 +164,7 @@ Vixen.Ui.DrawContext -> readonly struct
 Vixen.Ui.DrawContext.Bounds.get -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.DrawContext.DrawContext() -> void
 Vixen.Ui.DrawContext.DrawImage(Vixen.Core.Mathematics.Rectangle rectangle, ulong image, Vixen.Core.Mathematics.Color4 tint = default(Vixen.Core.Mathematics.Color4), Vixen.Core.Mathematics.Rectangle source = default(Vixen.Core.Mathematics.Rectangle)) -> void
+Vixen.Ui.DrawContext.DrawNineSlice(Vixen.Core.Mathematics.Rectangle rectangle, ulong image, Vixen.Core.Mathematics.NineSlice border, Vixen.Core.Mathematics.NineSlice sourceBorder, Vixen.Core.Mathematics.Color4 tint = default(Vixen.Core.Mathematics.Color4), Vixen.Core.Mathematics.Rectangle source = default(Vixen.Core.Mathematics.Rectangle), bool hollowCentre = false) -> void
 Vixen.Ui.DrawContext.Element.get -> Vixen.Ui.UiElement
 Vixen.Ui.DrawContext.Fill(Vixen.Ui.PathBuilder path, Vixen.Core.Mathematics.Color4 color, Vixen.Ui.PathFillRule rule = Vixen.Ui.PathFillRule.NonZero) -> void
 Vixen.Ui.DrawContext.FillRectangle(Vixen.Core.Mathematics.Rectangle rectangle, Vixen.Core.Mathematics.Color4 color, Vixen.Ui.BoxStyle style) -> void

@@ -385,7 +385,7 @@ inspector that attaches to a running build on a device to browse and mutate live
 | Scene | scene view + hierarchy + inspector |
 | Prefab | isolated prefab-editing mode with override indicators |
 | Material | inspector + live sphere preview + shader graph link |
-| Texture | import settings + channel viewer + mip inspector + platform-override matrix |
+| Texture | import settings + channel viewer + mip inspector + platform-override matrix, and a **sprite editor** beside them: ✅ `SpriteSheetView` — three ways to cut (grid by cell size, grid by cell count, and one sprite per island of opaque texels), the rects drawn over the picture with the nine-slice guides inside the selected one, a name/rect/pivot/border panel, and a list. It is a second **tab over the same document**, never a second document: a slice is rects written into the texture's own import settings, so it shares that undo stack — two documents over one `.meta` would be two undo histories over one set of bytes. The cutting itself is `SpriteSlicer` in `Vixen.Editor.Assets`, a pure function of pixels and options, so all three modes are checked against images built in a test. ⚠ **The rects are recorded, not the slice that produced them**: an automatic slice depends on the pixels, so re-cutting at import time would renumber a sheet whose artist nudged one frame and quietly repoint every reference into it |
 | Model | import settings + mesh/skeleton/animation-clip list + LOD preview |
 | Animation clip | timeline + curve editor + event track |
 | Shader (`.rvn`) | `CodeEditor` with Raven syntax highlighting, diagnostics, and live recompile |

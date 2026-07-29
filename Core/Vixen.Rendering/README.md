@@ -350,6 +350,47 @@ The bug that cost the most here was an early-out: `Draw` returned when the share
 invalid, which is true of every frame that draws nothing but instanced meshes. A whole renderer that
 silently drew nothing, from a guard that had been exactly right when there was one kind of draw.
 
+## The third one, which shares the interface's arithmetic
+
+`SpriteRenderFeature` draws sprites: a textured quad in its own plane, or the nine a border cuts it
+into, or the many a tiled fill repeats. Doc 06's row for it says *shares the UI batcher*, and what is
+actually shared is `NineSlice` in `Vixen.Core.Mathematics` — the cut of a rectangle into nine, which is
+also what `UiGeometryBuilder` stretches a panel's background with. The two halves cannot share more
+than that: `Vixen.Ui` describes a frame without a device and this describes a device without an
+element tree. What they do share beyond the arithmetic is the shape of the answer, which is the part
+that matters — quads appended to one buffer, one binding, a draw per object reaching its own run
+through the vertex offset.
+
+**Local space, and that is the whole difference from the particle feature.** A sprite's quads are
+built around its pivot with no camera in them, so the geometry is the same for every view and is built
+once a frame rather than once a view; where the sprite *is* comes from `TransformRenderFeature`
+pushing a matrix, exactly as a mesh's does. A camera-facing sprite is therefore not this feature's
+job — that is a billboard, it has to be built against a view, and an object that answered "where am I"
+twice would draw a different scene in a shadow pass than in the camera.
+
+| Type | Is |
+|---|---|
+| `Sprite` | a region of a texture in texels, a pivot, a nine-slice border and a pixel density. No texture handle: the material binds the atlas, and what a sprite needs is the texture's *size*, which is the denominator that turns texels into UVs |
+| `SpriteSheet` | many sprites on one texture, cut by `Grid` or by an importer, looked up by name through a frozen dictionary built on first use |
+| `SpriteAnimation` | indices into a sheet, a frame rate and a wrap. Sampled by time and never stepped, so nothing holds a playhead and rewinding is passing a smaller number |
+| `SpriteGeometry` | the expansion, as a pure function — checked against numbers rather than a screenshot, the same bargain `VfxGeometryBuilder` makes |
+
+**Tiling is here and not in `Vixen.Ui`, for a reason that decides the split.** How many times a strip
+repeats is destination ÷ natural size, and the natural size is in texels — a draw list does not know
+how big a texture is, so a nine-slice there is stretched only. A sprite carries its own pixel density,
+so it can count. The count is capped at `SpriteGeometry.TileLimit` and a cell that would exceed it is
+stretched instead: the repeat count is a property of how small somebody drew their artwork, not of the
+scene, and one sprite is not allowed to size the frame's vertex buffer.
+
+**Painting order is `SpriteAppearance.SortGroup`, and the stage has to sort `ByGroup`.** Sprites are
+blended quads all the same distance from the camera, so what is in front is a decision an artist makes
+and a depth buffer cannot make for them — a `FrontToBack` stage would break the tie by object id.
+
+One trap worth naming, because the particle feature has it and this one does not: a per-object array is
+native memory the store zeroes when it grows, so an unbiased sprite index would make every object that
+has never been given a sprite draw the first one somebody registered. The stored index is one higher
+than it is, and zero means *no sprite*.
+
 `MaterialRenderFeature` is where the shader half of the engine meets the renderer half: preparation
 turns a material's `ParameterCollection` into an `EffectKey`, resolves it, and remembers the answer
 per object — so by recording time "which shader" is an array lookup. It resolves **per material, not

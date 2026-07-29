@@ -1003,6 +1003,31 @@ Vixen.Rendering.Features.SkinningRenderFeature.SkinningRenderFeature() -> void
 Vixen.Rendering.Features.SkinningRenderFeature.Stages.get -> Vixen.Graphics.ShaderStage
 Vixen.Rendering.Features.SkinningRenderFeature.Stages.set -> Vixen.Graphics.ShaderStage
 Vixen.Rendering.Features.SkinningRenderFeature.ValueOf(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, int index) -> bool
+Vixen.Rendering.Features.SpriteDraw -> struct
+Vixen.Rendering.Features.SpriteDraw.FirstVertex -> int
+Vixen.Rendering.Features.SpriteDraw.QuadCount -> int
+Vixen.Rendering.Features.SpriteDraw.SpriteDraw() -> void
+Vixen.Rendering.Features.SpriteRenderFeature -> sealed class
+Vixen.Rendering.Features.SpriteRenderFeature : System.IDisposable
+Vixen.Rendering.Features.SpriteRenderFeature : Vixen.Rendering.RootRenderFeature
+Vixen.Rendering.Features.SpriteRenderFeature.Appearances.get -> Vixen.Rendering.RenderDataKey<Vixen.Rendering.Sprites.SpriteAppearance>
+Vixen.Rendering.Features.SpriteRenderFeature.Describer.get -> Vixen.Rendering.IPipelineDescriber?
+Vixen.Rendering.Features.SpriteRenderFeature.Describer.set -> Vixen.Rendering.IPipelineDescriber?
+Vixen.Rendering.Features.SpriteRenderFeature.Device.get -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.Features.SpriteRenderFeature.Device.set -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.Features.SpriteRenderFeature.Dispose() -> void
+Vixen.Rendering.Features.SpriteRenderFeature.Draws.get -> Vixen.Rendering.RenderDataKey<Vixen.Rendering.Features.SpriteDraw>
+Vixen.Rendering.Features.SpriteRenderFeature.Known.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Sprites.Sprite>
+Vixen.Rendering.Features.SpriteRenderFeature.LastQuadCount.get -> int
+Vixen.Rendering.Features.SpriteRenderFeature.Pipelines.get -> Vixen.Rendering.PipelineCache?
+Vixen.Rendering.Features.SpriteRenderFeature.Pipelines.set -> Vixen.Rendering.PipelineCache?
+Vixen.Rendering.Features.SpriteRenderFeature.SetAppearance(Vixen.Rendering.RenderObjectId id, in Vixen.Rendering.Sprites.SpriteAppearance appearance) -> void
+Vixen.Rendering.Features.SpriteRenderFeature.SetSprite(Vixen.Rendering.RenderObjectId id, Vixen.Rendering.Sprites.Sprite? sprite) -> void
+Vixen.Rendering.Features.SpriteRenderFeature.SpriteIndices.get -> Vixen.Rendering.RenderDataKey<int>
+Vixen.Rendering.Features.SpriteRenderFeature.SpriteOf(Vixen.Rendering.RenderObjectId id) -> Vixen.Rendering.Sprites.Sprite?
+Vixen.Rendering.Features.SpriteRenderFeature.SpriteRenderFeature() -> void
+Vixen.Rendering.Features.SpriteRenderFeature.VertexLayout.get -> int
+Vixen.Rendering.Features.SpriteRenderFeature.VertexLayout.set -> int
 Vixen.Rendering.Features.TransformRenderFeature -> sealed class
 Vixen.Rendering.Features.TransformRenderFeature : Vixen.Rendering.Features.IDrawSubFeature
 Vixen.Rendering.Features.TransformRenderFeature : Vixen.Rendering.SubRenderFeature
@@ -1510,7 +1535,7 @@ Vixen.Rendering.MeshRenderer.IndexCapacity.get -> int
 Vixen.Rendering.MeshRenderer.LightDirection.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.MeshRenderer.LightDirection.set -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.MeshRenderer.MeshRenderer(Vixen.Graphics.IGraphicsDevice device, Vixen.Rendering.MeshShaders shaders, Vixen.Rendering.RenderOutput output, int vertexCapacity = 65536, int indexCapacity = 262144) -> void
-Vixen.Rendering.MeshRenderer.Record(Vixen.Graphics.ICommandList commands, in Vixen.Core.Mathematics.Matrix4x4 viewProjection) -> void
+Vixen.Rendering.MeshRenderer.Record(Vixen.Graphics.ICommandList commands, in Vixen.Core.Mathematics.Matrix4x4 viewProjection, bool depthTested = true) -> void
 Vixen.Rendering.MeshRenderer.Region.get -> int
 Vixen.Rendering.MeshRenderer.Regions.get -> int
 Vixen.Rendering.MeshRenderer.Upload(System.ReadOnlySpan<Vixen.Rendering.MeshVertex> mesh, System.ReadOnlySpan<uint> triangles) -> void
@@ -1864,6 +1889,94 @@ Vixen.Rendering.SortKey.SortKey() -> void
 Vixen.Rendering.SortKey.SortKey(ulong Value) -> void
 Vixen.Rendering.SortKey.Value.get -> ulong
 Vixen.Rendering.SortKey.Value.init -> ulong
+Vixen.Rendering.Sprites.Sprite -> sealed record
+Vixen.Rendering.Sprites.Sprite : System.IEquatable<Vixen.Rendering.Sprites.Sprite>
+Vixen.Rendering.Sprites.Sprite.Border.get -> Vixen.Core.Mathematics.NineSlice
+Vixen.Rendering.Sprites.Sprite.Border.init -> Vixen.Core.Mathematics.NineSlice
+Vixen.Rendering.Sprites.Sprite.IsDrawable.get -> bool
+Vixen.Rendering.Sprites.Sprite.IsSliced.get -> bool
+Vixen.Rendering.Sprites.Sprite.Name.get -> string
+Vixen.Rendering.Sprites.Sprite.Name.init -> string
+Vixen.Rendering.Sprites.Sprite.Pivot.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Rendering.Sprites.Sprite.Pivot.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Rendering.Sprites.Sprite.PixelsPerUnit.get -> float
+Vixen.Rendering.Sprites.Sprite.PixelsPerUnit.init -> float
+Vixen.Rendering.Sprites.Sprite.Region.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Rendering.Sprites.Sprite.Region.init -> Vixen.Core.Mathematics.Rectangle
+Vixen.Rendering.Sprites.Sprite.Size.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Rendering.Sprites.Sprite.Sprite() -> void
+Vixen.Rendering.Sprites.Sprite.TextureSize.get -> Vixen.Core.Mathematics.Int2
+Vixen.Rendering.Sprites.Sprite.TextureSize.init -> Vixen.Core.Mathematics.Int2
+Vixen.Rendering.Sprites.Sprite.UnitBorder.get -> Vixen.Core.Mathematics.NineSlice
+Vixen.Rendering.Sprites.Sprite.Uv.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Rendering.Sprites.Sprite.UvBorder.get -> Vixen.Core.Mathematics.NineSlice
+Vixen.Rendering.Sprites.SpriteAnimation -> sealed record
+Vixen.Rendering.Sprites.SpriteAnimation : System.IEquatable<Vixen.Rendering.Sprites.SpriteAnimation>
+Vixen.Rendering.Sprites.SpriteAnimation.Duration.get -> float
+Vixen.Rendering.Sprites.SpriteAnimation.FrameAt(float time) -> int
+Vixen.Rendering.Sprites.SpriteAnimation.FrameRate.get -> float
+Vixen.Rendering.Sprites.SpriteAnimation.FrameRate.init -> float
+Vixen.Rendering.Sprites.SpriteAnimation.Frames.get -> int[]
+Vixen.Rendering.Sprites.SpriteAnimation.Frames.init -> int[]
+Vixen.Rendering.Sprites.SpriteAnimation.Name.get -> string
+Vixen.Rendering.Sprites.SpriteAnimation.Name.init -> string
+Vixen.Rendering.Sprites.SpriteAnimation.SpriteAnimation() -> void
+Vixen.Rendering.Sprites.SpriteAnimation.SpriteAt(Vixen.Rendering.Sprites.SpriteSheet sheet, float time) -> Vixen.Rendering.Sprites.Sprite?
+Vixen.Rendering.Sprites.SpriteAnimation.SpriteAt(float time) -> int
+Vixen.Rendering.Sprites.SpriteAnimation.Wrap.get -> Vixen.Rendering.Sprites.SpriteWrap
+Vixen.Rendering.Sprites.SpriteAnimation.Wrap.init -> Vixen.Rendering.Sprites.SpriteWrap
+Vixen.Rendering.Sprites.SpriteAppearance -> readonly struct
+Vixen.Rendering.Sprites.SpriteAppearance : System.IEquatable<Vixen.Rendering.Sprites.SpriteAppearance>
+Vixen.Rendering.Sprites.SpriteAppearance.Colour.get -> Vixen.Core.Mathematics.Color4
+Vixen.Rendering.Sprites.SpriteAppearance.Colour.init -> Vixen.Core.Mathematics.Color4
+Vixen.Rendering.Sprites.SpriteAppearance.Fill.get -> Vixen.Rendering.Sprites.SpriteFill
+Vixen.Rendering.Sprites.SpriteAppearance.Fill.init -> Vixen.Rendering.Sprites.SpriteFill
+Vixen.Rendering.Sprites.SpriteAppearance.Flip.get -> Vixen.Rendering.Sprites.SpriteFlip
+Vixen.Rendering.Sprites.SpriteAppearance.Flip.init -> Vixen.Rendering.Sprites.SpriteFlip
+Vixen.Rendering.Sprites.SpriteAppearance.HollowCentre.get -> bool
+Vixen.Rendering.Sprites.SpriteAppearance.HollowCentre.init -> bool
+Vixen.Rendering.Sprites.SpriteAppearance.Size.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Rendering.Sprites.SpriteAppearance.Size.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Rendering.Sprites.SpriteAppearance.SortGroup.get -> uint
+Vixen.Rendering.Sprites.SpriteAppearance.SortGroup.init -> uint
+Vixen.Rendering.Sprites.SpriteAppearance.SpriteAppearance() -> void
+Vixen.Rendering.Sprites.SpriteFill -> enum : byte
+Vixen.Rendering.Sprites.SpriteFill.SpriteFill() -> void
+Vixen.Rendering.Sprites.SpriteFill.Stretch = 0 -> Vixen.Rendering.Sprites.SpriteFill
+Vixen.Rendering.Sprites.SpriteFill.Tile = 1 -> Vixen.Rendering.Sprites.SpriteFill
+Vixen.Rendering.Sprites.SpriteFlip -> enum : byte
+Vixen.Rendering.Sprites.SpriteFlip.Horizontal = 1 -> Vixen.Rendering.Sprites.SpriteFlip
+Vixen.Rendering.Sprites.SpriteFlip.None = 0 -> Vixen.Rendering.Sprites.SpriteFlip
+Vixen.Rendering.Sprites.SpriteFlip.SpriteFlip() -> void
+Vixen.Rendering.Sprites.SpriteFlip.Vertical = 2 -> Vixen.Rendering.Sprites.SpriteFlip
+Vixen.Rendering.Sprites.SpriteGeometry -> static class
+Vixen.Rendering.Sprites.SpriteSheet -> sealed class
+Vixen.Rendering.Sprites.SpriteSheet.Count.get -> int
+Vixen.Rendering.Sprites.SpriteSheet.Find(string name) -> Vixen.Rendering.Sprites.Sprite?
+Vixen.Rendering.Sprites.SpriteSheet.IndexOf(string name) -> int
+Vixen.Rendering.Sprites.SpriteSheet.Name.get -> string
+Vixen.Rendering.Sprites.SpriteSheet.Name.init -> string
+Vixen.Rendering.Sprites.SpriteSheet.SpriteSheet() -> void
+Vixen.Rendering.Sprites.SpriteSheet.Sprites.get -> Vixen.Rendering.Sprites.Sprite[]
+Vixen.Rendering.Sprites.SpriteSheet.Sprites.init -> Vixen.Rendering.Sprites.Sprite[]
+Vixen.Rendering.Sprites.SpriteSheet.TextureSize.get -> Vixen.Core.Mathematics.Int2
+Vixen.Rendering.Sprites.SpriteSheet.TextureSize.init -> Vixen.Core.Mathematics.Int2
+Vixen.Rendering.Sprites.SpriteSheet.this[int index].get -> Vixen.Rendering.Sprites.Sprite
+Vixen.Rendering.Sprites.SpriteVertex -> readonly struct
+Vixen.Rendering.Sprites.SpriteVertex : System.IEquatable<Vixen.Rendering.Sprites.SpriteVertex>
+Vixen.Rendering.Sprites.SpriteVertex.Colour.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Rendering.Sprites.SpriteVertex.Colour.init -> Vixen.Core.Mathematics.Vector4
+Vixen.Rendering.Sprites.SpriteVertex.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Sprites.SpriteVertex.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Sprites.SpriteVertex.SpriteVertex() -> void
+Vixen.Rendering.Sprites.SpriteVertex.SpriteVertex(Vixen.Core.Mathematics.Vector3 Position, Vixen.Core.Mathematics.Vector2 Texture, Vixen.Core.Mathematics.Vector4 Colour) -> void
+Vixen.Rendering.Sprites.SpriteVertex.Texture.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Rendering.Sprites.SpriteVertex.Texture.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Rendering.Sprites.SpriteWrap -> enum : int
+Vixen.Rendering.Sprites.SpriteWrap.Loop = 1 -> Vixen.Rendering.Sprites.SpriteWrap
+Vixen.Rendering.Sprites.SpriteWrap.Once = 0 -> Vixen.Rendering.Sprites.SpriteWrap
+Vixen.Rendering.Sprites.SpriteWrap.PingPong = 2 -> Vixen.Rendering.Sprites.SpriteWrap
+Vixen.Rendering.Sprites.SpriteWrap.SpriteWrap() -> void
 Vixen.Rendering.SubRenderFeature -> abstract class
 Vixen.Rendering.SubRenderFeature.Parent.get -> Vixen.Rendering.RootRenderFeature?
 Vixen.Rendering.SubRenderFeature.SubRenderFeature() -> void
@@ -2058,6 +2171,10 @@ const Vixen.Rendering.MeshPrimitives.MinimumSegments = 3 -> int
 const Vixen.Rendering.RenderStageMask.Capacity = 64 -> int
 const Vixen.Rendering.ShadowCascades.MaxCascades = 4 -> int
 const Vixen.Rendering.ShadowProjections.MaximumConeAngle = 1.48 -> float
+const Vixen.Rendering.Sprites.Sprite.DefaultPixelsPerUnit = 100 -> float
+const Vixen.Rendering.Sprites.SpriteGeometry.IndicesPerQuad = 6 -> int
+const Vixen.Rendering.Sprites.SpriteGeometry.TileLimit = 64 -> int
+const Vixen.Rendering.Sprites.SpriteGeometry.VerticesPerQuad = 4 -> int
 const Vixen.Shaders.Generated.BloomConstants.Size = 32 -> int
 const Vixen.Shaders.Generated.BloomKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.BloomKeys.ConstantBufferSet = 2 -> int
@@ -2207,6 +2324,11 @@ override Vixen.Rendering.Features.ParticleRenderFeature.Prepare(Vixen.Rendering.
 override Vixen.Rendering.Features.SkinningRenderFeature.Initialize(Vixen.Rendering.RenderSystem system) -> void
 override Vixen.Rendering.Features.SkinningRenderFeature.Name.get -> string
 override Vixen.Rendering.Features.SkinningRenderFeature.Prepare(Vixen.Rendering.RenderSystem system) -> void
+override Vixen.Rendering.Features.SpriteRenderFeature.Draw(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderDrawContext context, System.ReadOnlySpan<Vixen.Rendering.RenderNode> nodes) -> void
+override Vixen.Rendering.Features.SpriteRenderFeature.Initialize(Vixen.Rendering.RenderSystem system) -> void
+override Vixen.Rendering.Features.SpriteRenderFeature.Name.get -> string
+override Vixen.Rendering.Features.SpriteRenderFeature.Prepare(Vixen.Rendering.RenderSystem system) -> void
+override Vixen.Rendering.Features.SpriteRenderFeature.SortGroupOf(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, Vixen.Rendering.RenderStage stage) -> uint
 override Vixen.Rendering.Features.TransformRenderFeature.Initialize(Vixen.Rendering.RenderSystem system) -> void
 override Vixen.Rendering.Features.TransformRenderFeature.Name.get -> string
 override Vixen.Rendering.Material.ToString() -> string
@@ -2223,6 +2345,7 @@ override Vixen.Rendering.RootRenderFeature.ToString() -> string
 override Vixen.Rendering.SortKey.ToString() -> string
 override Vixen.Rendering.SubRenderFeature.ToString() -> string
 readonly Vixen.Rendering.Features.ParticleDraw.IsDrawable.get -> bool
+readonly Vixen.Rendering.Features.SpriteDraw.IsDrawable.get -> bool
 readonly Vixen.Rendering.MeshDraw.IsDrawable.get -> bool
 readonly Vixen.Rendering.MeshDraw.IsIndexed.get -> bool
 readonly Vixen.Rendering.RenderLight.Radiance.get -> Vixen.Core.Mathematics.Vector3
@@ -2353,6 +2476,10 @@ static Vixen.Rendering.SortKey.operator <(Vixen.Rendering.SortKey left, Vixen.Re
 static Vixen.Rendering.SortKey.operator <=(Vixen.Rendering.SortKey left, Vixen.Rendering.SortKey right) -> bool
 static Vixen.Rendering.SortKey.operator >(Vixen.Rendering.SortKey left, Vixen.Rendering.SortKey right) -> bool
 static Vixen.Rendering.SortKey.operator >=(Vixen.Rendering.SortKey left, Vixen.Rendering.SortKey right) -> bool
+static Vixen.Rendering.Sprites.SpriteGeometry.Build(Vixen.Rendering.Sprites.Sprite sprite, in Vixen.Rendering.Sprites.SpriteAppearance appearance, System.Span<Vixen.Rendering.Sprites.SpriteVertex> into) -> int
+static Vixen.Rendering.Sprites.SpriteGeometry.QuadsFor(Vixen.Rendering.Sprites.Sprite sprite, in Vixen.Rendering.Sprites.SpriteAppearance appearance) -> int
+static Vixen.Rendering.Sprites.SpriteGeometry.WriteQuadIndices(System.Span<uint> indices, int quads) -> int
+static Vixen.Rendering.Sprites.SpriteSheet.Grid(string name, Vixen.Core.Mathematics.Int2 textureSize, Vixen.Core.Mathematics.Int2 cell, int count = 0, Vixen.Core.Mathematics.Int2 offset = default(Vixen.Core.Mathematics.Int2), Vixen.Core.Mathematics.Int2 padding = default(Vixen.Core.Mathematics.Int2), Vixen.Core.Mathematics.Vector2 pivot = default(Vixen.Core.Mathematics.Vector2), Vixen.Core.Mathematics.NineSlice border = default(Vixen.Core.Mathematics.NineSlice), float pixelsPerUnit = 100) -> Vixen.Rendering.Sprites.SpriteSheet
 static Vixen.Rendering.VfxGpuSimulation.Groups(int count) -> int
 static readonly Vixen.Rendering.Lighting.CubeMapping.Faces -> Vixen.Rendering.CubeFace[]
 static readonly Vixen.Rendering.ViewConstants.View -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>

@@ -128,6 +128,52 @@ public readonly record struct DrawCommand(
     /// </remarks>
     public Rectangle Source { get; init; } = new(0f, 0f, 1f, 1f);
 
+    /// <summary>How the destination is cut for a nine-slice, in document pixels.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Empty — the default — draws the image as one stretched quad, which is what every
+    ///         image was before there was a nine-slice. Anything else cuts this command's rectangle
+    ///         into nine and draws each cell from the matching cell of <see cref="Source" />, so a
+    ///         panel's corners keep their size at any box size while its edges and middle stretch.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not a new command kind, and that is the point.</b> A nine-sliced image is the same
+    ///         texture through the same pipeline as a stretched one, so it carries the same
+    ///         <see cref="DrawCommandKind.Image" /> and batches with the images around it — nine quads
+    ///         in a run rather than a draw of its own. Making it a kind would have split every batch
+    ///         it appeared in, to describe geometry the renderer never sees.
+    ///     </para>
+    /// </remarks>
+    public NineSlice Slice { get; init; }
+
+    /// <summary>How <see cref="Source" /> is cut to match <see cref="Slice" />, in UVs.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A second inset rather than the same one, because the two are in different spaces
+    ///         and neither can be derived from the other here.</b> The destination is in document
+    ///         pixels and the source is in UVs, and converting between them needs the texture's size
+    ///         in texels — which this assembly does not know, for exactly the reason <see cref="Source" />
+    ///         is not in pixels either. Whoever registered the texture converts.
+    ///     </para>
+    ///     <para>
+    ///         Empty falls back to one stretched quad even when <see cref="Slice" /> is set: a source
+    ///         with no border to preserve is a plain image, and cutting it anyway would smear
+    ///         zero-width strips of it along eight of the nine cells.
+    ///     </para>
+    /// </remarks>
+    public NineSlice SourceSlice { get; init; }
+
+    /// <summary>Whether a nine-slice leaves its middle cell undrawn.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Inverted from how it reads, because a struct's default is all-zeroes.</b> Every other
+    ///     framework spells this "fill centre" and defaults it to true; a <c>bool</c> that defaulted
+    ///     to false under that name would make the ordinary nine-slice — a panel with a background —
+    ///     the one a caller had to opt into, and a hollow frame the one they got by saying nothing.
+    ///     The same argument <see cref="MiterLimit" /> makes about sentinels, answered by naming the
+    ///     unusual case instead.
+    /// </remarks>
+    public bool HollowCentre { get; init; }
+
     /// <summary>The font size in pixels, which is what scales a glyph's outline.</summary>
     /// <remarks>
     ///     Carried even though the glyph positions are already in pixels, because a position is not a

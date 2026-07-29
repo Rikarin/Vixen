@@ -2892,6 +2892,52 @@ never been driven against a running window.
   ⚠ Still to come: `glBindImageTexture` for storage images, which every compute path that would use
   one already has a fullscreen-fragment variant for. And a device to run any of it on — the context
   comes up against a recorder, and no app head in this repository creates one yet.
+- ✅ **Sprites, sprite sheets and 9-slice** — [06](06-rendering-pipeline.md) § Geometry and materials
+  said *shares the UI batcher*, and the honest answer to what could be shared turned out to be the
+  arithmetic rather than the code. `NineSlice` moved into `Vixen.Core.Mathematics`, because a panel
+  stretched by a stylesheet and a sprite stretched by a scene are the same nine pairs of rectangles
+  and the two assemblies cannot reference each other — `Vixen.Ui` describes a frame without a device
+  and `Vixen.Rendering` draws without knowing what an element tree is. On the interface side a
+  nine-slice is deliberately **not a command kind**: it carries the same `DrawCommandKind.Image` as a
+  stretched picture, so a panel and the icon on top of it are still one draw. On the renderer side
+  `SpriteRenderFeature` expands into one shared buffer and reaches each object's run through the
+  vertex offset, the same shape as the particle feature — but in **local space**, because a sprite is
+  a quad in its own plane and `TransformRenderFeature` already answers where it is. That is also what
+  keeps a billboard out of it: a camera-facing quad has to be built against a view, and one object
+  answering "where am I" twice draws a different scene in a shadow pass.
+
+  ⚠ **Tiling is the renderer's and not the interface's**, and the reason is what decided the split: a
+  repeat count is destination ÷ natural size, and the natural size is in texels — which a draw list
+  does not know, for the same reason its UVs are not in pixels. So a nine-slice in the interface
+  stretches and one in a scene can repeat, capped at `SpriteGeometry.TileLimit` because the count is
+  a property of how small somebody drew their artwork rather than of the scene.
+
+  **The editor half landed with it.** `SpriteSheetView` ([11](11-editor.md) § Editor-specific asset
+  editors) is a second *tab* over `TextureImportDocument` — never a second document, because a slice
+  is rects written into the texture's own `.meta` and two documents over one file are two undo
+  histories over one set of bytes. `SpriteSlicer` in `Vixen.Editor.Assets` is the cutting, kept out of
+  the panel so that all three modes are a pure function of pixels and options: a grid by cell size, a
+  grid by cell count, and automatic — connected components over the alpha, eight-connected because a
+  diagonal stroke is one stroke, overlapping boxes merged to a fixed point because a character's
+  detached eye belongs inside its head, and the results ordered in *bands* because frames on a
+  hand-drawn row are rarely aligned to the texel. `TextureImporter` then writes one sub-asset per
+  sprite and one for the sheet, keyed by name through the same derivation the model importer uses, so
+  a re-slice keeps references and a rename breaks one visibly.
+
+  ⚠ **The sidecar records the rects, not the slice.** Re-cutting at import time would be smaller and
+  would make every sprite in a project depend on the pixels: a sheet re-exported with one frame nudged
+  renumbers under an automatic slice, and every reference into it quietly points at a different
+  picture. Two bugs fell out of writing the tests and both are the kind that only a test finds — a
+  kept-empty cell was still being trimmed to nothing, and a pivot of exactly (0, 0), which is the
+  bottom-left corner and the most-asked-for pivot after the centre, was being read as "unspecified"
+  and silently centred.
+
+  What is **owed**: no atlas packer, so a sheet is cut from an image an artist laid out rather than
+  packed from loose files — that belongs with [08](08-asset-pipeline-and-addressables.md). The rects
+  are edited through fields and the list rather than dragged on the canvas; the overlay is positioned
+  and selectable, and what is missing is the pointer arithmetic for a drag and a resize handle.
+  Nothing plays a `SpriteAnimation` either: it answers "which frame at time *t*" and no component asks
+  it, which is a `Vixen.Engine` behaviour rather than a renderer one.
 - ✅ **`docs/rhi-backend-mapping.md`** — every RHI concept against Vulkan, D3D12, GL, GLES/WebGL2,
   WebGPU and Metal, with the findings from building the GL backend and a list of what the table has
   already changed. Reviewed whenever the RHI's surface changes; that is the whole obligation.
