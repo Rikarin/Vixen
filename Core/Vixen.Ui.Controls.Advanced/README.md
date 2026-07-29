@@ -50,8 +50,8 @@ needs a z-index, because the tree already says what is on top.
 
 ### DockingHost
 
-Splitters, tab groups, float, drag-to-dock with a preview, and a layout that round-trips through
-YAML — the exit criterion doc 14 names for Phase 4e.
+Splitters, tab groups, float, drag-to-dock with guides and a preview, and a layout that round-trips
+through YAML — the exit criterion doc 14 names for Phase 4e.
 
 **A panel is created once and moved thereafter.** Before a rebuild every panel is reparented into a
 hidden holder and afterwards into its group, so a panel torn out of one group and dropped into
@@ -85,6 +85,51 @@ Three things that follow, none of them obvious:
 A tab dragged off the host entirely tears out; a drop inside it docks. Both are needed: the gaps
 *inside* the arrangement are six-pixel splitters, and floating a panel when a drag misses one would
 make a fumble cost the user their layout.
+
+**A tab is a drag handle everywhere, including its title.** A press lands on the deepest element
+under it, and a tab's title is a child element — it has to be, or a tab could not also have an icon
+— so asking whether the drag's source *is* a `DockTab` left only the few pixels of padding around
+the words draggable. The source is walked up to the tab it is in instead, and the walk stops at the
+close button: that one is inside the tab too, and a press on it that wandered a few pixels before
+letting go would dock the panel somewhere instead of closing it.
+
+**Five guide handles are offered over whatever group the drag is over**, the way Visual Studio's
+diamond does, with the one the drop would use lit and the preview showing the rectangle it would
+land in. They sit in the middle of the pane, and that is the point of them: proximity to an edge —
+the quarter-deep rule `ZoneOf` applies — means the whole middle of a group is "stack it here", which
+is right until somebody wants a split and has to guess how close to the edge counts. A handle is
+that answer written down, and aiming at one is never the same gesture as aiming at an edge, so it
+can be believed over it. Two things follow:
+
+- **The handles' sizes are the code's, not the stylesheet's.** Which one a drop lands on is
+  arithmetic against the group's rectangle — the pointer is captured by the tab for the whole drag,
+  so nothing here is ever hit-tested — and a sheet that could resize a handle would move the one
+  that is drawn away from the one that answers.
+- **A pane too small for the cluster is offered none**, rather than handles hanging over its
+  neighbours and docking a panel next door. Proximity still answers there, so a narrow pane is
+  docked into exactly as it was before any of this existed.
+
+**The tab strip scrolls, with an arrow at each end.** A group holds as many panels as somebody stacked
+into it, and without somewhere for the tabs to go flexbox either shrinks every one until no title can
+be read or pushes the last of them out of the box — in both cases the panels on the end are ones the
+user cannot get back to. `Strip` is the row; `Tabs` inside it is the part that slides, by `OffsetX`
+against a clipping viewport. The arrows are disabled rather than hidden at the ends, or the button
+under the pointer would be a different button by the time it was pressed again.
+
+- ⚠ **`flex-basis: 0px` on the viewport is what makes an overflow possible.** Without it the viewport
+  takes its base size from its content, so it is always exactly as wide as the tabs and never
+  overflows — twelve tabs produced a strip two thousand pixels wide, which propagated up through the
+  group, the split, the surface and the host. A docking area wider than the window, with arrows that
+  never appeared because nothing had overflowed anything. `min-width: 0px` on the host and the surface
+  is the other half: a flex item's automatic minimum is its content.
+- ⚠ **A group view subscribes to `LayoutFinished` directly rather than through `Control.WhenResized`**,
+  which is the case that method documents as not being its own: whether the tabs fit depends on the
+  *tabs*, not on the group. It unsubscribes on removal, and it must — every structural change rebuilds
+  the views, so a handler left behind would leak one per dock, per drag, per rename.
+- **Selecting a panel scrolls its tab into view**, asked for during the rebuild and honoured on the
+  pass after it, because a tab that has just been created has no box to measure yet. A strip that
+  showed the selected panel's body while its tab sat off the end reads as the selection having been
+  lost.
 
 ### TreeView
 

@@ -34,13 +34,17 @@ public static class AdvancedTheme {
 
     const string Sheet = """
         /* ── Docking ────────────────────────────────────────────────────────── */
-        docking-host { flex-direction: column; position: relative; flex-grow: 1; }
+        /* ⚠ `min-width: 0px` so a tab strip too wide for the window cannot widen the whole docking
+           area — see `dock-tabs-viewport` for the other half of it. `dock-group` has always had the
+           declaration and nothing above it did, so the group dutifully clipped a box that everything
+           between it and the root had already agreed to make big enough. */
+        docking-host { flex-direction: column; position: relative; flex-grow: 1; min-width: 0px; }
 
         /* Where panels wait. `display: none` rather than removal, because an element outside a
            document is a removed element and removal is final. */
         dock-detached { display: none; }
 
-        dock-surface { flex-direction: column; flex-grow: 1; overflow: hidden; }
+        dock-surface { flex-direction: column; flex-grow: 1; min-width: 0px; overflow: hidden; }
 
         dock-split { flex-grow: 1; }
         dock-split.horizontal { flex-direction: row; }
@@ -66,11 +70,42 @@ public static class AdvancedTheme {
 
         dock-tabstrip {
             flex-direction: row;
+            align-items: stretch;
             flex-shrink: 0;
             background-color: var(--surface-sunken);
             border-width: 0px 0px 1px 0px;
             border-color: var(--border);
         }
+
+        /*
+         * The clipping box the tabs slide inside, and the list that slides.
+         *
+         * ⚠ `flex-basis: 0px` is what makes an overflow possible at all, and it is the same
+         * declaration and the same reason `tree-view virtualizing-panel` gives: without it the
+         * viewport takes its base size from its *content*, so it is always exactly as wide as the
+         * tabs inside it and never overflows. Twelve tabs then produced a strip two thousand pixels
+         * wide, which propagated up through the group, the split, the surface and the host — a
+         * docking area wider than the window, with the arrows this exists to show never appearing
+         * because nothing had overflowed anything. `min-width: 0px` here and on the two ancestors
+         * below is the other half: a flex item's automatic minimum is its content, so the demand
+         * survives the base size being zeroed.
+         */
+        dock-tabs-viewport {
+            flex-direction: row;
+            flex-grow: 1;
+            flex-basis: 0px;
+            min-width: 0px;
+            overflow: hidden;
+        }
+
+        dock-tabs {
+            flex-direction: row;
+            flex-shrink: 0;
+            align-items: stretch;
+        }
+
+        /* The arrows keep their width whatever the tabs do, or they are the first thing squeezed out. */
+        dock-tabstrip > icon-button { flex-shrink: 0; align-self: center; }
 
         dock-tab {
             flex-direction: row;
@@ -115,6 +150,53 @@ public static class AdvancedTheme {
             border-color: var(--accent);
             pointer-events: none;
         }
+
+        /*
+         * The drop guides: five handles over the middle of whatever group the drag is over, and the
+         * one the drop would use lit.
+         *
+         * ⚠ `pointer-events: none` on both, and the *sizes are the code's*. Which handle a drop
+         * lands on is arithmetic — the pointer is captured by the tab being dragged for the whole
+         * gesture, so none of this is ever hit-tested — and a sheet that resized a handle would move
+         * the one that is drawn away from the one that answers. `DockingHost.GuideSize` and
+         * `GuideSpan` are the numbers below, and the offsets are written inline as the cluster is
+         * built.
+         */
+        dock-guides { position: absolute; left: 0px; top: 0px; pointer-events: none; }
+
+        dock-guide {
+            position: absolute;
+            left: 0px;
+            top: 0px;
+            width: 28px;
+            height: 28px;
+            padding: 3px;
+            border-width: 1px;
+            border-color: var(--border);
+            border-radius: 4px;
+            background-color: var(--surface-raised);
+            pointer-events: none;
+        }
+
+        dock-guide.left, dock-guide.right, dock-guide.center { flex-direction: row; }
+        dock-guide.top, dock-guide.bottom { flex-direction: column; }
+        dock-guide.right, dock-guide.bottom { justify-content: flex-end; }
+
+        dock-guide.active { border-color: var(--accent); background-color: var(--accent); }
+
+        /* What the handle says it would do, drawn rather than written: the half of the pane the
+           panel would take, which is the preview rectangle in miniature.
+
+           ⚠ 20px, not 22px, and the arithmetic is worth writing down: a `width` is the *border*
+           box, so the room inside a handle is 28 less its 1px border and its 3px padding on each
+           side. A hint sized as though the width were the content area overhangs the border along
+           the bottom and the right — which does not clip, and reads as a cluster with every
+           handle's marking nudged up and to the left. */
+        dock-hint { width: 20px; height: 20px; border-radius: 2px; background-color: var(--text-muted); }
+
+        dock-guide.left > dock-hint, dock-guide.right > dock-hint { width: 10px; }
+        dock-guide.top > dock-hint, dock-guide.bottom > dock-hint { height: 10px; }
+        dock-guide.active > dock-hint { background-color: var(--surface); }
 
         /* One name for "not showing", used by everything in this sheet. It is a class rather than a
            state because it is a mode something was put into rather than a condition it is in. */

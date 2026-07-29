@@ -148,12 +148,18 @@ public static class ReflectionBuilder {
     /// </summary>
     static BindingInfo Describe(PlannedBinding planned, ShaderStages stages) {
         var uniforms = planned.Members;
-        var (offsets, size) = ShaderLayout.Members([.. uniforms.Select(u => u.Type)]);
+
+        // A record is packed std430 and read as an element of a buffer; a block is std140 and bound
+        // as itself. Reported with the rule it was *emitted* with rather than the one a uniform block
+        // usually has, because the host writes bytes at these offsets and both backends laid the
+        // record out the other way.
+        var rule = planned.IsRecord ? LayoutRule.Std430 : LayoutRule.Std140;
+        var (offsets, size) = ShaderLayout.Members([.. uniforms.Select(u => u.Type)], rule);
         var members = ImmutableArray.CreateBuilder<MemberInfo>();
 
         for (var i = 0; i < uniforms.Length; i++) {
             var top = members.Count;
-            Flatten(uniforms[i].Name, uniforms[i].Type, offsets[i], LayoutRule.Std140, members);
+            Flatten(uniforms[i].Name, uniforms[i].Type, offsets[i], rule, members);
 
             // The declared default belongs to the member the author wrote, which is the first entry
             // Flatten adds — its leaves are fields of a struct type and their defaults, if any,
@@ -163,14 +169,28 @@ public static class ReflectionBuilder {
             }
         }
 
-        return new BindingInfo(
-            planned.Binding,
-            planned.Name,
-            DescriptorType.UniformBuffer,
-            1,
-            stages,
-            members.ToImmutable()
-        ) { Size = size };
+        // The kind the host has to create a layout from. A record is a storage buffer — declaring it
+        // as a uniform buffer would build a descriptor of the wrong type against a shader that reads
+        // a BufferBlock, which no API checks and which reads as a frame lit by whatever those bytes
+        // meant. The count is zero for the same reason every storage buffer's is: the array inside it
+        // is runtime-sized, and how many records there are is the host's to decide.
+        return planned.IsRecord
+            ? new BindingInfo(
+                planned.Binding,
+                planned.Name,
+                DescriptorType.StorageBuffer,
+                0,
+                stages,
+                members.ToImmutable()
+            ) { Size = size }
+            : new BindingInfo(
+                planned.Binding,
+                planned.Name,
+                DescriptorType.UniformBuffer,
+                1,
+                stages,
+                members.ToImmutable()
+            ) { Size = size };
     }
 
     /// <summary>

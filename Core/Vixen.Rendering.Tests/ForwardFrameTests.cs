@@ -270,7 +270,9 @@ public sealed class ForwardFrameTests : IDisposable {
         var materials = new MaterialRenderFeature { Effects = effects, Device = device, Descriptors = allocator };
         var lights = new ForwardLightingRenderFeature { Device = device, MaxLightsPerObject = MaxLights };
 
-        meshes.Add(new TransformRenderFeature());
+        var transforms = new TransformRenderFeature { Device = device };
+
+        meshes.Add(transforms);
         meshes.Add(materials);
         meshes.Add(lights);
         system.AddFeature(meshes);
@@ -315,9 +317,12 @@ public sealed class ForwardFrameTests : IDisposable {
         scene.Lighting = lighting;
         lights.Probes = probes;
 
-        // The buffer the feature owns, published by the feature. Not a frame resource, so no pass has
-        // anything to say about it.
+        // The buffers the features own, published by the features. Not frame resources, so no pass
+        // has anything to say about them — and the transform buffer is published whether or not this
+        // frame reads it, because `transforms` is declared by the shader either way and a set short
+        // one entry is not bound at all.
         lights.Scene = scene.Parameters;
+        transforms.Scene = scene.Parameters;
 
         var shadows = new ShadowMapRenderer {
             Name = "Shadows",

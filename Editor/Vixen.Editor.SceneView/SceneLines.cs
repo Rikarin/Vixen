@@ -85,6 +85,7 @@ public sealed class SceneLines {
 
         Grid(viewport, height);
         Markers(document);
+        LightShapes(document);
 
         GizmoGeometry.Build(viewport.Gizmo, viewport.Camera, height, overlay);
         GizmoGeometry.BuildSolid(viewport.Gizmo, viewport.Camera, height, handles, handleIndices);
@@ -137,5 +138,162 @@ public sealed class SceneLines {
     void Cross(Vector3 origin, Vector3 arm, Color4 colour) {
         world.Add(new(origin - arm, colour));
         world.Add(new(origin + arm, colour));
+    }
+
+    /// <summary>How far a directional light's rays are drawn, in world units.</summary>
+    /// <remarks>
+    ///     A fixed length, because a directional light has no range to take one from — the sun does
+    ///     not fall off, which is the whole difference between it and the other four.
+    /// </remarks>
+    const float SunLength = 1.5f;
+
+    /// <summary>How many segments a gizmo's circles are drawn with.</summary>
+    const float Segments = 24;
+
+    /// <summary>What each light in the scene reaches, drawn in its own colour.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A light is invisible, so without this it is a name in the hierarchy and a marker
+    ///         cross in the viewport.</b> Which way a spot points and how far a point light carries
+    ///         are the two things somebody placing lights is actually adjusting, and neither is
+    ///         legible from a transform gizmo — a spot aimed at the ceiling and one aimed at the floor
+    ///         look identical until the cone is drawn.
+    ///     </para>
+    ///     <para>
+    ///         <b>In the light's own colour rather than a fixed one</b>, dimmed towards the marker
+    ///         colour so a scene full of white lights does not read as a scene full of selections.
+    ///         Selected still wins, for the reason <see cref="SelectedColour" /> gives.
+    ///     </para>
+    /// </remarks>
+    void LightShapes(SceneDocument document) {
+        foreach (var entity in document.Entities) {
+            if (!Lights.TryGet(document.World, entity, out var light) || !document.World.Has<WorldTransform>(entity)) {
+                continue;
+            }
+
+            var transform = new Transform(document.World, entity);
+            var selected = document.Selection.Contains(entity);
+            var colour = selected ? SelectedColour : Tint(light.Colour);
+
+            var origin = transform.Position;
+            var forward = transform.Forward;
+            var right = transform.Right;
+            var up = transform.Up;
+
+            switch (light.Kind) {
+                case LightKind.Directional: {
+                    // Parallel rays, which is what makes it read as a sun rather than as a spot: four
+                    // of them from a disc, all pointing the same way and none of them spreading.
+                    var reach = origin + (forward * SunLength);
+
+                    Ring(origin, right, up, MarkerSize, colour);
+                    Segment(origin, reach, colour);
+
+                    for (var i = 0; i < 4; i++) {
+                        var offset = Around(right, up, i / 4f) * MarkerSize;
+                        Segment(origin + offset, reach + offset, colour);
+                    }
+
+                    break;
+                }
+
+                case LightKind.Point:
+                    // Three rings at the range, which is the sphere a wireframe can afford: a full
+                    // one is hundreds of segments per light and says nothing the three do not.
+                    Ring(origin, right, up, light.Range, colour);
+                    Ring(origin, up, forward, light.Range, colour);
+                    Ring(origin, forward, right, light.Range, colour);
+
+                    break;
+
+                case LightKind.Spot: {
+                    // The outer cone and not the inner: the outer is where the light stops, and two
+                    // cones drawn together are a shape nobody can read at a glance.
+                    var apex = origin;
+                    var centre = origin + (forward * light.Range);
+                    var radius = light.Range * MathF.Tan(light.OuterAngle);
+
+                    Ring(centre, right, up, radius, colour);
+
+                    for (var i = 0; i < 4; i++) {
+                        Segment(apex, centre + (Around(right, up, i / 4f) * radius), colour);
+                    }
+
+                    break;
+                }
+
+                case LightKind.Rect: {
+                    // The rectangle it emits from and the way it faces. One-sided, so the normal is
+                    // the difference between a softbox lighting the room and lighting the wall.
+                    var across = right * light.HalfLength;
+                    var down = up * light.Radius;
+
+                    Segment(origin - across - down, origin + across - down, colour);
+                    Segment(origin + across - down, origin + across + down, colour);
+                    Segment(origin + across + down, origin - across + down, colour);
+                    Segment(origin - across + down, origin - across - down, colour);
+
+                    Segment(origin, origin + (forward * MarkerSize * 2f), colour);
+                    break;
+                }
+
+                case LightKind.Tube: {
+                    var end = right * light.HalfLength;
+
+                    Segment(origin - end, origin + end, colour);
+                    Ring(origin - end, up, forward, light.Radius, colour);
+                    Ring(origin + end, up, forward, light.Radius, colour);
+
+                    break;
+                }
+
+                default:
+                    break;
+            }
+        }
+    }
+
+    /// <summary>A light's colour as a line colour: never black, never a full-strength selection orange.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Lifted off the floor, because a light may legitimately be almost black</b> — a dim
+    ///     blue fill at 0.02 is a real thing to author — and a gizmo drawn in it is a gizmo that is
+    ///     not there. The hue survives; only the floor is imposed.
+    /// </remarks>
+    static Color4 Tint(Color3 colour) =>
+        new(
+            MathF.Max(colour.R, 0.35f),
+            MathF.Max(colour.G, 0.35f),
+            MathF.Max(colour.B, 0.35f),
+            0.7f
+        );
+
+    /// <summary>A point on the unit circle spanned by two axes.</summary>
+    /// <param name="first">One axis.</param>
+    /// <param name="second">The other.</param>
+    /// <param name="turn">How far round, from 0 to 1.</param>
+    static Vector3 Around(Vector3 first, Vector3 second, float turn) {
+        var angle = turn * MathF.Tau;
+        return (first * MathF.Cos(angle)) + (second * MathF.Sin(angle));
+    }
+
+    void Segment(Vector3 from, Vector3 to, Color4 colour) {
+        world.Add(new(from, colour));
+        world.Add(new(to, colour));
+    }
+
+    /// <summary>A circle in the plane two axes span. Nothing is drawn for a radius of nothing.</summary>
+    void Ring(Vector3 centre, Vector3 first, Vector3 second, float radius, Color4 colour) {
+        if (radius <= 0f) {
+            return;
+        }
+
+        var previous = centre + (first * radius);
+
+        for (var i = 1; i <= Segments; i++) {
+            var next = centre + (Around(first, second, i / Segments) * radius);
+
+            Segment(previous, next, colour);
+            previous = next;
+        }
     }
 }

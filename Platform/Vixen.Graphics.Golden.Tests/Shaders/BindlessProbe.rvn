@@ -1,0 +1,38 @@
+package Vixen.Shaders.Pipeline
+
+// One invocation, one slot of a bindless table, one texel out.
+//
+// This shader exists for `BindlessTableDeviceTests` and for nothing else, and it is the smallest
+// thing that can tell a working descriptor array from a broken one. Every invocation reads a
+// *different* index, so a driver that hoisted the descriptor load out of what it believed was
+// uniform control flow writes one texture's value into all of them — which is the failure
+// `nonuniformEXT` exists to prevent and the only one a picture cannot show, because a table used by
+// a single-material draw looks identical either way.
+//
+// `Load` rather than `Sample`: a texel fetch needs no sampler and no derivatives, so what is being
+// asserted is the descriptor array and not the filtering beside it.
+
+shader BindlessProbe {
+    /// The table. Unsized, which is what makes it a descriptor array rather than four textures.
+    [PerFrame] var textures: Texture2D[]
+
+    /// One value per invocation, so a wrong descriptor shows up as the wrong number rather than as
+    /// an average nobody can attribute.
+    [PerDraw] var results: RWBuffer<uint>
+
+    /// How many slots the host actually filled, since the dispatch is rounded up to whole groups.
+    [PerDraw] var count: int
+
+    [ComputeShader(64, 1, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val index = int(id.x)
+
+        if (index >= count) {
+            return
+        }
+
+        // Red only. The host writes a distinct red per slot, so the readback is the identity of the
+        // texture each invocation reached.
+        results[index] = uint(textures[index].Load(int3(0, 0, 0)).x * 255f + 0.5f)
+    }
+}

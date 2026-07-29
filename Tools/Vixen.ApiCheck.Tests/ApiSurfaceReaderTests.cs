@@ -185,6 +185,34 @@ public sealed class ApiSurfaceReaderTests : IDisposable {
     }
 
     /// <summary>
+    ///     A method whose only reference-type parameter is nullable carries <c>[NullableContext(2)]</c>
+    ///     in metadata — the compiler's shorthand for "annotate the parameters" written at the method
+    ///     rather than one attribute per parameter. The shorthand says nothing about the value types
+    ///     beside them, and the reading must not spell an optional enum or an <c>int</c> as nullable.
+    /// </summary>
+    [Fact]
+    public void AMethodLevelNullableContext_DoesNotAnnotateValueTypes() {
+        var surface = Read(
+            """
+            #nullable enable
+
+            namespace Sample;
+
+            public enum Level { Trace = 0, Information = 2 }
+
+            public sealed class Sink {
+                public Sink(Level minimumLevel = Level.Information, string? filter = null, int capacity = 8) { }
+            }
+            """
+        );
+
+        Assert.Contains(
+            "Sample.Sink.Sink(Sample.Level minimumLevel = Sample.Level.Information, string? filter = null, int capacity = 8) -> void",
+            surface
+        );
+    }
+
+    /// <summary>
     ///     A record's equality contract, its clone helper and its printer are consequences of the
     ///     keyword, which the type's own line already records.
     /// </summary>

@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Reflection;
+using Microsoft.Extensions.Logging;
+using Vixen.Core.Diagnostics;
 using Vixen.Core.Mathematics;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
@@ -55,6 +57,24 @@ public class EditorChromeVisualTests {
         fixture.Test.Screenshot("editor-chrome-palette");
     }
 
+    /// <summary>The transport hovered, which is the only way to check that a hover keeps its hue.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The generic toolbar hover is a neutral grey.</b> Applied to a coloured button it reads
+    ///     as the colour draining out of it at the moment the pointer arrives — the one instant it
+    ///     most needs to look live — and no assertion about which command ran would ever notice.
+    ///     Stop is hovered because it is the button that is <i>not</i> filled, so the picture carries
+    ///     both cases: a green fill beside a red wash.
+    /// </remarks>
+    [Fact]
+    public void The_transport_hovered() {
+        using var fixture = new ChromeFixture(ThemeMode.Dark);
+
+        fixture.Test.Get(".transport-stop").Hover();
+        fixture.Test.Frames(2);
+
+        fixture.Test.Screenshot("editor-chrome-transport-hover");
+    }
+
     /// <summary>A shell with something in every panel, rendered through the visual harness.</summary>
     /// <remarks>
     ///     ⚠ <b>The shell owns its document and the harness has to be given that one.</b>
@@ -65,8 +85,6 @@ public class EditorChromeVisualTests {
         public ChromeFixture(ThemeMode mode, float width = 1100f, float height = 680f) {
             Shell = new EditorShell(width, height, mode);
             Font(Shell.Document);
-
-            Shell.Toolbar.Show("view.palette", "view.theme", null, "view.layout.Default");
 
             Shell.RegisterPanel("hierarchy", Title("Hierarchy"), Hierarchy);
             Shell.RegisterPanel("project", Title("Project"), Project);
@@ -83,11 +101,46 @@ public class EditorChromeVisualTests {
             Shell.Workspace.Reset();
             Shell.Status = "SampleProject";
 
+            // ⚠ The strip is described after the layout, because a section is built from ids and a
+            // group whose commands do not exist yet comes out empty. The three modes are a
+            // segmented control and the dropdown carries a chevron — neither is visible to an
+            // assertion about which panel is open, which is what this file exists for.
+            Modes();
+
+            Transport();
+
+            Shell.Toolbar.Show(
+                new ToolbarButton("view.palette"),
+                new ToolbarSeparator(),
+                new ToolbarGroup("test.translate", "test.rotate", "test.scale"),
+                new ToolbarButton("view.toggle-theme"),
+                new ToolbarSeparator(),
+                new ToolbarGroup("test.play", "test.pause", "test.step", "test.stop"),
+                new ToolbarSeparator(),
+                new ToolbarDropdown(Title("Layout"), "layout", "view.layout.Default", null, "view.reset-layout")
+            );
+
+            // The selection count and the frame time only exist once the shell has ticked, which is
+            // also the only way the mean is anything but zero.
+            Shell.SelectionCount = () => 1;
+
             Test = UiTest.Adopt(Shell.Document);
+
+            Shell.Tick(TimeSpan.FromMilliseconds(16), TimeSpan.FromMilliseconds(16));
             Test.Frames(2);
         }
 
         public EditorShell Shell { get; }
+
+        /// <summary>The ring the console draws from.</summary>
+        /// <remarks>
+        ///     ⚠ <b>On a fixed clock, because the console draws the timestamp.</b> A golden
+        ///     screenshot of a wall clock differs from itself every run, which is a suite that fails
+        ///     at random and is therefore the suite nobody trusts.
+        /// </remarks>
+        readonly RingBufferSink logs = new(256) {
+            TimeProvider = new FixedClock(new DateTimeOffset(2026, 3, 14, 9, 26, 53, TimeSpan.Zero))
+        };
 
         public UiTest Test { get; }
 
@@ -96,9 +149,56 @@ public class EditorChromeVisualTests {
         ///     of its own, and both types dispose the document they hold — see
         ///     <c>UiTest.Adopt</c>'s remarks, which say so for exactly this reason.
         /// </summary>
-        public void Dispose() => Shell.Dispose();
+        public void Dispose() {
+            Shell.Dispose();
+            logs.Dispose();
+        }
+
+        /// <summary>A clock that does not move.</summary>
+        sealed class FixedClock(DateTimeOffset now) : TimeProvider {
+            public override DateTimeOffset GetUtcNow() => now;
+        }
+
+        /// <summary>The transport, mid-play, which is the state the colour is for.</summary>
+        /// <remarks>
+        ///     ⚠ <b>Playing, deliberately.</b> The picture worth checking is the filled one: whether
+        ///     a white glyph on a saturated green reads in both themes, and whether the two buttons
+        ///     that are merely coloured still read beside one that is filled. A stopped transport is
+        ///     four muted glyphs and says nothing about any of that.
+        /// </remarks>
+        void Transport() {
+            Play("test.play", "Play", EditorIcons.Play, "transport-play", on: true);
+            Play("test.pause", "Pause", EditorIcons.Pause, "transport-pause", on: false);
+            Play("test.step", "Step Frame", EditorIcons.Step, "transport-step", on: null);
+            Play("test.stop", "Stop", EditorIcons.Stop, "transport-stop", on: null);
+        }
+
+        void Play(string id, string title, PathBuilder icon, string className, bool? on) =>
+            Shell.Commands.Add(
+                new EditorCommand(id, Title(title), () => { }) {
+                    Icon = icon,
+                    ClassName = className,
+                    Checked = on is { } state ? () => state : null
+                }
+            );
 
         static StringId Title(string text) => new("test." + text, text);
+
+        /// <summary>Three commands that are one choice, so the segmented control has members.</summary>
+        void Modes() {
+            var current = "translate";
+
+            foreach (var mode in new[] { "translate", "rotate", "scale" }) {
+                var chosen = mode;
+
+                Shell.Commands.Add(
+                    new EditorCommand("test." + mode, Title(char.ToUpperInvariant(mode[0]) + mode[1..]), () => current = chosen) {
+                        Checked = () => current == chosen,
+                        RadioGroup = "gizmo"
+                    }
+                );
+            }
+        }
 
         static void Hierarchy(DockPanel panel) {
             var tree = panel.Add<TreeView>();
@@ -155,12 +255,33 @@ public class EditorChromeVisualTests {
             return row.Add<UiElement>("property-editor");
         }
 
-        static void Console(DockPanel panel) {
-            var log = panel.Add<UiElement>("panel");
+        /// <summary>The real console over a sink with a plausible session in it.</summary>
+        /// <remarks>
+        ///     ⚠ <b>The actual panel, not two lines of text pretending to be one.</b> The console is
+        ///     where doc 20's "nothing they find is a toy" bar is most easily failed — a level
+        ///     badge that is unreadable against the strip, a message column the category has pushed
+        ///     off the panel — and none of that is visible to an assertion about how many rows there
+        ///     are.
+        /// </remarks>
+        void Console(DockPanel panel) {
+            var view = panel.Add<ConsoleView>();
 
-            log.Add<TextBlock>().Text = "Loaded Main.vscene — 6 entities";
-            log.Add<TextBlock>().Text = "Content build finished in 1.4 s";
+            // ⚠ The model first, then the lines. It starts at the sink's current end — a console
+            // opened an hour into a session does not replay the hour — so logging before it exists
+            // is logging into a console that will never show it.
+            view.Show(new ConsoleModel(logs));
+
+            Say(LogLevel.Information, "Vixen.Editor", "Loaded Main.vxscene — 6 entities");
+            Say(LogLevel.Information, "Vixen.Editor.Assets.Content.ContentPipeline", "Imported 24, 3 unchanged");
+            Say(LogLevel.Warning, "Vixen.Editor.Assets", "crate_albedo.png has no mipmaps");
+            Say(LogLevel.Error, "Vixen.Editor", "Could not save the scene — the disk is full");
+            Say(LogLevel.Information, "Vixen.Editor", "Content build finished in 1.4 s");
+
+            view.Tick();
         }
+
+        void Say(LogLevel level, string category, string message) =>
+            logs.CreateLogger(category).Log(level, default, message, null, static (state, _) => state);
 
         static void Font(UiDocument document) {
             foreach (var path in Candidates()) {

@@ -104,6 +104,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 |---|---|---|---|
 | `Vixen.Graphics` RHI surface — formats, `synchronization2`-shaped barriers, typed handles, PSO/descriptor descriptions | ✅ | Core/Vixen.Graphics | 46 tests; reversed depth in the defaults |
 | `DescriptorBinding` sample type / comparison sampler | ✅ | Core/Vixen.Graphics | `DescriptorSampleType` on the binding and `PixelFormats.SampleTypeOf` beside it. WebGPU declares and enforces it, Vulkan checks it when it is stated, GL reads past it. Shadow maps on the web now wait on Raven having a depth texture type, not on the RHI |
+| **Bindless descriptor arrays** — `BindlessTable`, `MaxBindlessDescriptors`, descriptor indexing in the Vulkan backend | ✅ | Core/Vixen.Graphics · Platform/Vixen.Graphics.Vulkan | The RHI half of W0-17. `HasBindless` is now four opt-in features rather than an extension string, so MoltenVK below argument-buffer tier 2 reports no rather than failing at the first layout. ⚠ `Count == 0` meant two things — a storage buffer's runtime-sized array *and* an unbounded array — and `IsUnbounded()` is where the kind tells them apart |
 | Placed resources (true memory aliasing) | ⬜ | — | Two of six planned backends cannot express it |
 | `Vixen.Graphics.Null` + recording harness | ✅ | Platform/Vixen.Graphics.Null | Also the shipping dedicated-server backend |
 | `Vixen.Graphics.RenderGraph` — culling, aliasing, batched barriers, derived store actions | ✅ | Core/Vixen.Graphics.RenderGraph | 34 tests incl. property tests |
@@ -243,6 +244,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Atomics (8 on `int`/`uint`) | ✅ | Raven/Vixen.Raven | Landed for the VFX compaction path |
 | `.rvnlib` / `.rvnfx` artefact formats | ✅ | Raven/Vixen.Raven | |
 | `Raven/Library` — Core, Shading, Geometry, Material, Pipeline, PostFx, Ui, Vfx | ✅ | Raven/Library | Every shader reaches both backends under `glslc` and `spirv-val` |
+| **Bindless texture arrays** (`Texture2D[]`) | ✅ | Raven/Vixen.Raven | The only unsized array outside a storage block, and the one that is descriptors rather than memory: `OpTypeRuntimeArray` with no stride under `RuntimeDescriptorArray`, `uniform texture2D t[]` under `GL_EXT_nonuniform_qualifier`, `Count == 0` in the reflection. ⚠ Every subscript is decorated `NonUniform` on both the index and the pointer — one without the other validates and then reads one descriptor for a whole subgroup, which is the right picture for any draw using one material |
 | **String interpolation** | ⬜ | — | Needs lexer modes; nothing shipped uses it |
 | **Workgroup-shared memory** | ⬜ | — | ⛔ blocks GPU sorting and per-workgroup compaction counters |
 | `Vixen.Raven.Transpile` (SPIRV-Cross → ESSL/HLSL/MSL/WGSL) | ⬜ | — | ADR-012 says SPIRV-Cross owns these targets. **No SPIRV-Cross package in `Directory.Packages.props`** |
@@ -265,15 +267,18 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | `VisibilityGroup` (job-parallel) + `GpuVisibilityGroup` (Hi-Z, indirect args) | ✅ | Core/Vixen.Rendering | Falls back where it cannot run |
 | Mesh, transform, skinning, instancing, material, lighting, shadow-caster features | ✅ | Core/Vixen.Rendering | Roadmap §Phase 5 still lists these "open"; the code says otherwise |
 | **Two-phase occlusion culling** (`GpuVisibilityGroup.TwoPhase`, the `Late` permutation of `Culling.rvn`) | ✅ | Core/Vixen.Rendering | Removes the frame of staleness. The late pass writes a **difference**, not an answer — the union would draw every visible object twice. Needs the readback off; `LatePhaseRan` says which happened |
-| Compacted draws | ⬜ | — | ⛔ wants bindless materials first |
+| **Sprites, sprite sheets, 9-slice** | ✅ | Core/Vixen.Rendering · Core/Vixen.Ui · Core/Vixen.Core.Mathematics | `SpriteRenderFeature` + `SpriteGeometry`, and `DrawContext.DrawNineSlice` on the interface side. What the two share is `NineSlice` — the cut of a rectangle into nine — because they cannot reference each other. A nine-sliced image is the same `Image` command and the same batch as a stretched one, so a panel and the icon on it are one draw. ⚠ Tiling is the renderer's only: a repeat count needs the texture's pixel size, which a draw list does not have |
+| ~~Compacted draws~~ | ✅ | Core/Vixen.Rendering | Built — `GpuDrawArguments.Compact`, one command per batch with the count read from a buffer the host never sees. The transform is a record too, so a clustered `ForwardPlus` frame merges; the uniform-light-list path binds a block per object at a dynamic offset and cannot |
 | `GraphicsCompositor` as an asset, resolvable by address | ✅ | Core/Vixen.Rendering | Asserted in `Vixen.Assets.Tests` |
 | Materials — composable feature tree, 2 workflows, 7 shading models, both layering forms | ✅ | Core/Vixen.Rendering | Every combination through `glslc` + `spirv-val` |
+| **A material feature that samples** (`TexturedMetalRoughnessSurface`) | ✅ | Raven/Library · Core/Vixen.Rendering | The first one there could be. Needed four things that did not exist: `Texture2D[]` as a type, `[Shared]` so every sampling feature names one table, `uv` on `MaterialData` so a feature composed into a pass it cannot read has somewhere to sample at, and a table slot arriving as a value. The authored record carries a *name* and no handle, so a material still serialises on a machine with no device |
 | Transmission / refraction | ⬜ | — | Needs the scene colour or an environment sample — a pass concern, not a lobe |
-| Bindless material textures (a feature that samples needs a binding index) | ⬜ | — | ⛔ the same gap as the compositor's authored nodes |
+| Bindless material textures (a feature that samples needs a binding index) | ✅ | Core/Vixen.Rendering | `MaterialRenderFeature.Textures` + `TextureIndices`: the shader declares a `uint`, the texture takes a table slot, and the slot goes into the material's own block beside the base colour — so a material texture is a *value*, which is the only sense in which it was not one. ⚠ Registered per material and idempotently: this runs every frame, and a table asked for the same view sixty times a second raises a count nothing lowers |
 | Lighting — directional/point/spot/tube/rect, clustered binning, IBL, reflection probes | ✅ | Core/Vixen.Rendering | `EnvironmentBaker` + `SphericalHarmonics` on the CPU |
-| **Light probes** (tetrahedral interpolation) | ⛔ | — | Superseded by [plan/19](plan/19-lighting-and-global-illumination.md) § L2, not owed. Bowyer–Watson needs exact predicates; written, found wrong by its own tests, withdrawn. The replacement is a brick-and-indirection irradiance field, which cannot fail that way |
-| **Distance fields** (bake, clipmap, tracer, traced pass) | ✅ | `Vixen.Rendering.DistanceFields` | [plan/19](plan/19-lighting-and-global-illumination.md) § L1. Exact bake with a voted sign, camera-snapped clipmap that scrolls, CPU tracer, volume textures, compositor node, Raven module, `DistanceFieldAo`. ⚠ Compiles and binds on a device; nothing has drawn with it |
-| Per-object reflection probe selection | ⬜ | — | ⛔ needs the binding-plan work |
+| **Light probes** (tetrahedral interpolation) | 🟡 | Core/Vixen.Core.Mathematics · Core/Vixen.Rendering | `ExactPredicates` + `DelaunayTetrahedralization` + `LightProbeVolume`. The CPU half is done and the GPU half is not: nothing uploads a volume or samples one in a shader. The row used to read ⛔ *written, found wrong by its own tests, withdrawn*. ⚠ It is not what [plan/19](plan/19-lighting-and-global-illumination.md) § L2 builds on — that is the brick-and-indirection field below, which places probes on a lattice rather than triangulating them |
+| **Distance fields** (bake, clipmap, tracer, traced pass) | ✅ | `Vixen.Rendering.DistanceFields` | [plan/19](plan/19-lighting-and-global-illumination.md) § L1. Exact bake with a voted sign, camera-snapped clipmap that scrolls, CPU tracer, volume textures, compositor node, Raven module, `DistanceFieldAo` — and `DistanceFieldAoImageTests` draws with it on a device |
+| **Irradiance field** (bricks, indirection, L1 payload, leak mitigation) | 🟡 | `Vixen.Rendering.IrradianceFields` · Core/Vixen.Rendering | [plan/19](plan/19-lighting-and-global-illumination.md) § L2. 4³ probes in a 5³ footprint, refinement, borders, dilation, normal bias; a CPU reference filler and the compute filler that agrees with it probe by probe on a device; `IndirectDiffuse` draws the result. ⚠ Owed: the border sync and the dilation as dispatches, so a device-filled field has seams; filler B; the shading models reading the buffer |
+| Per-object reflection probe selection | ⬜ | — | ⛔ needs a probe to be a table index rather than one of four bound cubes — [step 2](bindless-materials.md). The per-object block already carries the index and the weight |
 | Shadows — CSM, cube, spot, atlas, static caching, PCF/PCSS | ✅ | Core/Vixen.Rendering | |
 | Punctual shadow caching | ⬜ | — | Only the directional cascades are cached |
 | Blend shapes | ⬜ | — | |
@@ -356,7 +361,8 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Redraw-on-change (it redraws every frame today) | ⬜ | — | Every animation, toast expiry and task progress would have to say so, and one that forgets freezes a progress bar |
 | Plugin loading (`Vixen.Editor.Plugin`, `AssemblyLoadContext`) | ✅ | Editor/Vixen.Editor.Plugin, Editor/Vixen.Editor.App | Collectible per plugin, so `Reload Plugins` picks up a rebuild without closing the project. The reason `Vixen.Editor.App` is not NativeAOT. Importers and build steps are the two extension points still unreachable — `ContentPipeline` builds its registry per run |
 | "Open project…" file dialog | ⬜ | — | Unblocked: `platform.Dialogs` is the OS's own picker on all three desktops (K3). What is left is the editor calling it |
-| Asset editors: texture, model, material, prefab, shader, UI, addressable groups, compositor | ⬜ | — | Shell + inspector exist, so these are unblocked |
+| Asset editors: texture, model, material, prefab, shader, UI, addressable groups, compositor | ⬜ | — | Shell + inspector exist, so these are unblocked. ⚠ This row is **stale**: `Editor/Vixen.Editor.AssetEditors` holds a document and a view for each of them, and its README lists what each one draws. Re-reading it is owed; the row below is the one part of it checked while writing this line |
+| **Sprite editor** (slice a texture into a sheet) | ✅ | Editor/Vixen.Editor.AssetEditors · Editor/Vixen.Editor.Assets | `SpriteSheetView`, a second **tab** over `TextureImportDocument` rather than a second document — a slice is rects written into the texture's own import settings, so it shares that undo stack. Grid by size, grid by count, and automatic (connected components over the alpha, merged to a fixed point, ordered in bands). The cutting is `SpriteSlicer`, a pure function of pixels and options, so all three modes are checked against images built in a test. The importer then produces one sub-asset per sprite and one for the sheet, keyed by name so a re-slice keeps references |
 | Scene editor (as an asset editor) | ⛔ | — | Needs the scene format |
 | `Vixen.Editor.Profiler` (frame graph, frame debugger, memory view) | ⬜ | — | ⛔ partly on `Vixen.Core.Diagnostics`' GPU/memory tracks |
 | `Vixen.Editor.Debugger` (remote inspector, live property editing) | ⬜ | — | ⛔ needs the remote log/telemetry sink |
@@ -607,7 +613,7 @@ K4  Silk.NET.OpenGLES + an EGL context                      ✅ BUILT
 
 ## 3.2 Wave 0 — startable today, fully parallel
 
-No unmet dependency. Twenty-three tracks as first written; five are struck through, having landed
+No unmet dependency. Twenty-three tracks as first written; fifteen are struck through, having landed
 since. The rest can run in parallel.
 
 | # | Track | Unblocks |
@@ -628,8 +634,8 @@ since. The rest can run in parallel.
 | W0-14 | Pin a static `libjoltc.a` for `ios-arm64` | Physics on iOS → `Samples/05` on iOS |
 | W0-15 | Add `astcenc` + `ispc_texcomp` to `native-dependencies.json` | ASTC/ETC2 · full BC7/BC6H · mobile texture budgets. Also proves R10's schema generalises |
 | ~~W0-16~~ | ~~ECS entity-handle **reservation**~~ | Built (`World.TryRecreate`), and spent: create/delete/rename are undoable in the scene view |
-| W0-17 | Bindless material binding plan | Compacted draws · per-object reflection probes · material texture features. **Two-phase occlusion landed without it** |
-| W0-18 | Light-probe exact predicates (robust Bowyer–Watson) | Tetrahedral light-probe interpolation |
+| ~~W0-17~~ | ~~Bindless material binding plan~~ | **Built end to end**, and the record is [bindless-materials.md](bindless-materials.md). `BindlessTable` and descriptor indexing in the Vulkan backend; Raven's `Texture2D[]`, `[Shared]`, `[MaterialIndex("…")]` and `[Bindless]`; materials as records of one buffer bound per effect; `GeometryBuffer` so meshes share one vertex and index buffer; `DrawIndexedIndirectCount` behind its own capability; and compaction — one command per batch, with the count read from a buffer the host never sees. ⚠ A table is **set 4**, because a content-addressed per-frame set cannot hold one, so `HasBindless` also requires five bindable sets. The world matrix left the command buffer with them — `UseTransformRecords`, the record index carried in the draw's own `firstInstance` — because a push constant is per command whether or not it is a binding. ⚠ What is left is the per-object *light* block, and only on the uniform-list path: a dynamic offset travels in the bind. Clustered frames merge |
+| ~~W0-18~~ | ~~Light-probe exact predicates (robust Bowyer–Watson)~~ | Built, and spent: `LightProbeVolume` interpolates tetrahedrally. `ExactPredicates` is general — an exact orientation and in-sphere live in `Vixen.Core.Mathematics` now, for whatever else needs a sign rather than a number |
 | ~~W0-19~~ | ~~`NodeGraphView` (pan/zoom/wires/minimap/search-to-create)~~ | Built. Shader-graph and VFX-graph authoring is now a matter of nodes, not of a canvas |
 | W0-20 | Non-scene asset editors: texture, model, material, shader, UI, addressable groups, compositor | Phase 6's exit criterion, minus the scene half |
 | W0-21 | Relay **scope decision** (host one? in-box or addon?) | The `Relay` transport + transport fallback |
@@ -657,7 +663,8 @@ since. The rest can run in parallel.
 | ASTC/ETC2 output + full-quality BC7 | W0-15 | Then `ktx validate` + reference-decoder verification |
 | Undoable **reparenting** command + hierarchy drag-and-drop | — | Unblocked: `SetParentAfter` is in. Create/delete/rename already landed |
 | Viewport click-to-select | An id render target | The gizmo already drags what the hierarchy selects |
-| Compacted draws; per-object reflection probes | W0-17 | |
+| ~~Compacted draws~~ | ~~W0-17~~ | Built — `GpuDrawArguments.Compact`. Gated on no per-node contributor, which a clustered `ForwardPlus` frame no longer has |
+| Per-object reflection probes | W0-17 | Unblocked: the table and the per-object index both exist |
 | Shader-graph procedural/custom-code nodes, Post + UI masters, previews | — | Unblocked: `NodeGraphView` is in and its preview layer already draws a render target |
 | VFX-graph operator nodes, remaining opcode blocks, live preview | W1(VFX GPU) | The view half is in; the live preview is the runtime's |
 | `Relay` transport + transport fallback | W0-21 | |
@@ -760,7 +767,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 54 | Raven | Stream interpolation control; per-module flat IR namespace | Feature | — |
 | 55 | `Vixen.Rendering` | Compacted draws | Perf | Bindless materials |
 | 56 | `Vixen.Rendering` | Transmission; bindless material textures; blend shapes | Feature | Pass-level scene colour |
-| 57 | `Vixen.Rendering` | Per-object reflection probes; punctual shadow caching | Feature | Binding plan |
+| 57 | `Vixen.Rendering` | Light probes **on the GPU** (upload a volume, sample it in a shader); per-object reflection probes; punctual shadow caching | Feature | Binding plan. The predicates and the CPU interpolation landed |
 | 58 | `Vixen.Rendering.PostFx` | SMAA, MSAA resolve, GTAO, SSR, DoF, motion blur, LUT asset, `AutoExposure` | Feature | — (**K2** landed; `AutoExposure` is now a chain to write) |
 | 59 | `Vixen.Physics` | iOS slice; per-pair suppression; vehicles/ragdolls/soft bodies; double precision | Platform / feature | Static `libjoltc.a` |
 | 60 | `Vixen.Audio` | Measured HRTF sets; per-title certification work | Content | — |

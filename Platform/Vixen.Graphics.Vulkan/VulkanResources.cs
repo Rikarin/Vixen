@@ -85,6 +85,25 @@ sealed class VulkanDescriptorSetLayout : GpuDescriptorSetLayout {
     public required DescriptorSetLayout Handle { get; init; }
 
     public required DescriptorBinding[] Bindings { get; init; }
+
+    /// <summary>Whether any binding is unbounded, which changes where its sets come from.</summary>
+    /// <remarks>
+    ///     Recorded at creation rather than re-derived at allocation, because it is what the layout
+    ///     was <em>built</em> with: a layout carrying the update-after-bind-pool flag can only be
+    ///     allocated from a pool carrying the matching one, and the two decisions have to be made
+    ///     from the same fact or they come apart.
+    /// </remarks>
+    public bool IsBindless { get; init; }
+
+    /// <summary>How many descriptors its unbounded binding holds, resolved against the device.</summary>
+    /// <remarks>
+    ///     Resolved once, here, because three things need the same number and would otherwise each
+    ///     ask the device for its maximum: the layout that declares the array, the pool sized to
+    ///     allocate one set of it, and the bounds check on every write into it. A host that asked for
+    ///     a thousand slots and got a pool of a million from one of the three is a leak nothing
+    ///     reports.
+    /// </remarks>
+    public int BindlessCapacity { get; init; }
 }
 
 /// <summary>A pipeline layout.</summary>
@@ -101,6 +120,15 @@ sealed class VulkanDescriptorSet : GpuDescriptorSet {
     public required DescriptorPool Pool { get; init; }
 
     public required VulkanDescriptorSetLayout Layout { get; init; }
+
+    /// <summary>Whether <see cref="Pool" /> exists for this set alone and dies with it.</summary>
+    /// <remarks>
+    ///     True for a bindless set. A table of a million descriptors cannot come out of the shared
+    ///     pool — its sizes are a few thousand, chosen for sets of a handful of bindings — so it gets
+    ///     a pool of its own, and a pool of its own is the only descriptor memory in the backend
+    ///     large enough to be worth returning before the device goes away.
+    /// </remarks>
+    public bool OwnsPool { get; init; }
 }
 
 /// <summary>A compiled pipeline.</summary>

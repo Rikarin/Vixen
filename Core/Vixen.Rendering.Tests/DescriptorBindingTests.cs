@@ -52,8 +52,18 @@ public class DescriptorBindingTests : IDisposable {
             )
         );
 
+        // The sampler is declared even though most of the passes below bind only the buffer: a write
+        // to a binding the layout never declared is one no shader could read, and the backend rejects
+        // it rather than letting the described-sampler test pass on a set with nowhere to put it.
         viewLayout = device.CreateDescriptorSetLayout(
-            new(DescriptorSetSlot.PerView, [new(0, DescriptorKind.StorageBuffer, ShaderStage.Fragment)], "View")
+            new(
+                DescriptorSetSlot.PerView,
+                [
+                    new(0, DescriptorKind.StorageBuffer, ShaderStage.Fragment),
+                    new(1, DescriptorKind.Sampler, ShaderStage.Fragment)
+                ],
+                "View"
+            )
         );
     }
 
@@ -460,11 +470,26 @@ public class DescriptorBindingTests : IDisposable {
         using var h = Build();
         using var samplers = new SamplerCache(device);
 
+        // Its own layout rather than the shared `viewLayout`, which declares binding 0 and nothing
+        // else: this is the one test that binds a second binding, and a set written at a binding its
+        // layout never declared is refused by every backend — the Null one included, now that it
+        // holds a write against the layout it was allocated from.
+        var layout = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerView,
+                [
+                    new(0, DescriptorKind.StorageBuffer, ShaderStage.Fragment),
+                    new(1, DescriptorKind.Sampler, ShaderStage.Fragment)
+                ],
+                "ViewWithSampler"
+            )
+        );
+
         var pass = new RenderPassRenderer { Name = "Forward", Samplers = samplers };
         pass.ColourTargets.Add("SceneColour");
         pass.BufferReads.Add("SceneLights");
         pass.Descriptors.Allocator = allocator;
-        pass.Descriptors.Layout = viewLayout;
+        pass.Descriptors.Layout = layout;
 
         pass.Descriptors.Bindings.Add(
             new() { Binding = 0, Kind = DescriptorKind.StorageBuffer, Resource = "SceneLights" }

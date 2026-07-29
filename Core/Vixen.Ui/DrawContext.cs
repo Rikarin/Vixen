@@ -176,6 +176,63 @@ public readonly struct DrawContext {
             }
         );
 
+    /// <summary>Draws a texture over a rectangle with its borders held at their own size.</summary>
+    /// <param name="rectangle">Where.</param>
+    /// <param name="image">The renderer's name for the texture. Zero draws nothing.</param>
+    /// <param name="border">How far in the corners reach, in document pixels.</param>
+    /// <param name="sourceBorder">The same cut of the texture, in UVs.</param>
+    /// <param name="tint">What to multiply it by. White leaves it alone.</param>
+    /// <param name="source">Which part of the texture, in UVs. The whole of it by default.</param>
+    /// <param name="hollowCentre">Whether to leave the middle cell undrawn.</param>
+    /// <remarks>
+    ///     <para>
+    ///         The one thing a stretched image cannot do: a panel, a button and a tooltip drawn from
+    ///         one small texture at any size, with the rounded corners the same size in every one of
+    ///         them. Nine quads rather than one, in the same batch as the images around them — see
+    ///         <see cref="DrawCommand.Slice" /> for why it is not a command kind of its own.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two insets, and the second one is in UVs.</b> A border is a distance on the
+    ///         screen and a distance into the texture at once, and those are the same number only
+    ///         when the image is drawn at exactly its own pixel size. Converting from one to the other
+    ///         needs the texture's dimensions, which is the one thing <c>Vixen.Ui</c> refuses to know
+    ///         — so the caller who registered the texture is the one who divides.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Stretched, never tiled.</b> A tiled edge repeats the source a whole number of
+    ///         times, and how many is a function of the texture's size in texels — the same thing
+    ///         this layer does not know. Tiling belongs where the pixel size does, which is
+    ///         <c>Vixen.Rendering</c>'s <c>SpriteGeometry</c>.
+    ///     </para>
+    /// </remarks>
+    public void DrawNineSlice(
+        Rectangle rectangle,
+        ulong image,
+        NineSlice border,
+        NineSlice sourceBorder,
+        Color4 tint = default,
+        Rectangle source = default,
+        bool hollowCentre = false
+    ) =>
+        List.Add(
+            new DrawCommand(
+                DrawCommandKind.Image,
+                rectangle.X,
+                rectangle.Y,
+                rectangle.Width,
+                rectangle.Height,
+                DrawListBuilder.Fade(tint == default ? Color4.White : tint, alpha),
+                0f,
+                0f
+            ) {
+                Image = image,
+                Source = source == default ? new Rectangle(0f, 0f, 1f, 1f) : source,
+                Slice = border,
+                SourceSlice = sourceBorder,
+                HollowCentre = hollowCentre
+            }
+        );
+
     /// <summary>Fills a rectangle with per-corner radii, a gradient, or both.</summary>
     /// <param name="rectangle">Where.</param>
     /// <param name="color">Its colour — the near end of the gradient, if it has one.</param>

@@ -7,6 +7,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
+using Vixen.Engine.Cameras;
 using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering;
@@ -332,6 +333,33 @@ public sealed class SceneDocument : EditorDocument {
     public Entity CreateShape(PrimitiveKind kind, LocalTransform local, Entity parent = default) =>
         Create(MeshShapes.NameOf(kind), local, parent, entity => MeshShapes.Attach(World, entity, kind));
 
+    /// <summary>Creates a light, undoably.</summary>
+    /// <param name="kind">Which kind.</param>
+    /// <param name="local">Where it starts.</param>
+    /// <param name="parent">What to hang it from, or <see cref="Entity.Null" /> for a root.</param>
+    /// <returns>The entity.</returns>
+    /// <remarks>
+    ///     Named the way the menu names it — "Point Light" rather than "Point" — because a hierarchy
+    ///     row saying <c>Spot</c> next to one saying <c>Cube</c> reads as two things of the same sort.
+    ///     It carries <see cref="Lights.Default" />'s values rather than a zeroed record, or the first
+    ///     thing a new light would do is nothing.
+    /// </remarks>
+    public Entity CreateLight(LightKind kind, LocalTransform local, Entity parent = default) =>
+        Create(Lights.TitleOf(kind), local, parent, entity => Lights.Attach(World, entity, kind));
+
+    /// <summary>Creates a camera, undoably.</summary>
+    /// <param name="local">Where it starts.</param>
+    /// <param name="parent">What to hang it from, or <see cref="Entity.Null" /> for a root.</param>
+    /// <returns>The entity.</returns>
+    /// <remarks>
+    ///     ⚠ <b><see cref="Camera.Perspective" /> and not <c>default</c>.</b> A zeroed camera has a
+    ///     zero field of view and a zero far plane, and every matrix built from one is degenerate —
+    ///     so a camera created from the menu would be a camera that renders nothing, which reads as
+    ///     the command having failed.
+    /// </remarks>
+    public Entity CreateCamera(LocalTransform local, Entity parent = default) =>
+        Create("Camera", local, parent, entity => World.Add(entity, Camera.Perspective));
+
     /// <summary>Deletes entities and everything below them, undoably.</summary>
     /// <param name="entities">The subtree roots.</param>
     /// <returns>Whether anything was deleted.</returns>
@@ -368,25 +396,35 @@ public sealed class SceneDocument : EditorDocument {
     /// <param name="parent">Its new parent, or <see cref="Entity.Null" /> to make it a root.</param>
     /// <returns>Whether anything changed.</returns>
     /// <remarks>
-    ///     ⚠ <b>Not undoable either, and for a different reason.</b> Reparenting <i>is</i> reversible
-    ///     — the old parent is a handle that still exists — but undoing it has to put the entity back
-    ///     at the same index among its old siblings, and the intrusive sibling list records a
-    ///     neighbour rather than a position. Recording the neighbour is the fix and it is a command
-    ///     this does not have yet.
+    ///     ⚠ <b>Undoable, and putting it back where it was is the whole of what took the work.</b>
+    ///     Reparenting was always reversible — the old parent is a handle that still exists — but an
+    ///     undo that returned the third of five children to the head of the list is an undo that did
+    ///     not undo. <see cref="ReparentCommand" /> records the sibling that was in front, which is
+    ///     what the intrusive list already stores and what stays meaningful when its neighbours move.
     /// </remarks>
-    public bool Reparent(Entity entity, Entity parent) {
-        if (!World.IsAlive(entity) || Hierarchy.ParentOf(World, entity) == parent) {
+    public bool Reparent(Entity entity, Entity parent) => Reparent([entity], parent);
+
+    /// <summary>Hangs several entities from one parent, keeping where each is in the world.</summary>
+    /// <param name="entities">The entities to move.</param>
+    /// <param name="parent">Their new parent, or <see cref="Entity.Null" /> to make them roots.</param>
+    /// <returns>Whether anything moved.</returns>
+    /// <remarks>
+    ///     ⚠ <b>One command for the whole drag, not one per entity.</b> Dragging five rows onto a
+    ///     sixth is one thing somebody did, and five undo steps for it is the shape of every "undo
+    ///     did not undo what I did" report. What cannot move — a cycle, an entity already there, one
+    ///     carried inside a parent that is also moving — is filtered by the command rather than
+    ///     refused, so a drag that was partly meaningless still does the meaningful part.
+    /// </remarks>
+    public bool Reparent(IEnumerable<Entity> entities, Entity parent) {
+        ArgumentNullException.ThrowIfNull(entities);
+
+        var command = new ReparentCommand(this, entities, parent);
+
+        if (command.IsEmpty) {
             return false;
         }
 
-        if (!parent.IsNull && Hierarchy.IsAncestorOf(World, entity, parent)) {
-            // A cycle. The hierarchy would accept it and the transform pass would then walk for ever.
-            return false;
-        }
-
-        Hierarchy.SetParentKeepingWorldPosition(World, entity, parent);
-        StructureChanged?.Invoke(this);
-
+        Stack.Execute(command);
         return true;
     }
 

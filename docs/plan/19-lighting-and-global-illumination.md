@@ -107,7 +107,9 @@ brick whether a ray tracer wrote it this frame or a cube capture wrote it at bui
   Volumetric Lightmap detail, and it is the one everybody rediscovers the hard way.
 - **Indirection.** A 3D index texture mapping world cell → brick slot in the pool. Sampling is:
   world position → cell → index fetch → UVW → trilinear. Integer arithmetic and two fetches. No
-  Delaunay, no predicates, **no repeat of the tetrahedral failure recorded in doc 06**.
+  Delaunay, no predicates, and **no exact-predicate problem to have** — which is the point, and is
+  now a claim about robustness rather than about a failure, since doc 06's tetrahedral row has
+  since been fixed with `ExactPredicates` and reads 🟡 rather than ⛔.
 - **Payload.** L1 SH per probe (4 coefficients per channel), plus a validity scalar and a
   directional-light shadowing scalar. L1 not L2: half the pool, and it is what both Unity and Epic
   ship as default.
@@ -125,7 +127,7 @@ Struck from doc 06 and from the roadmap. These are not "P2, later" — they are 
 | Retired | Why |
 |---|---|
 | **Texture lightmaps and the whole GI bake tool** | The single biggest saving. Kills a lightmap UV unwrapper, a chart packer, seam fixing, an atlas allocator, and a UV channel in the mesh format. This tool is never written |
-| **Tetrahedral light-probe interpolation** | Attempted, found wrong by its own tests, withdrawn. §3 is the replacement, and it cannot fail the same way |
+| **Tetrahedral light-probe interpolation** | Retired as *this document's* answer, not as code: it was attempted, found wrong by its own tests, and has since been fixed — `ExactPredicates` + `DelaunayTetrahedralization` + `LightProbeVolume` are built and doc 06's row reads 🟡. §3 is still what the plan commits to, because a lattice inside a brick needs no predicates to be right and no triangulation to sample |
 | **Indirect-lighting-cache-style per-object probe sampling** | Subsumed by the irradiance field |
 | **Baked static shadow data** | Replaced by the per-probe shadowing scalar, plus SDF shadows in L1 |
 
@@ -211,7 +213,9 @@ checked.** Every one of these passed every test it had.
   hits, dilation into invalid probes, normal bias, view bias.
 
 **Ships on its own:** dynamic indirect diffuse everywhere, on every target. This is the phase that
-closes doc 06's withdrawn light-probe row, and the point at which Vixen has GI at all.
+supersedes doc 06's light-probe row, and the point at which Vixen has GI at all. Superseded rather
+than closed: that row's CPU half was repaired after this document was written, so the two are now
+alternative answers rather than a replacement for a hole.
 
 **Exit:** a closed box lit from outside stays dark (the leak test); moving a light updates indirect
 within a bounded frame count; the same scene through filler A and filler B agree within a stated
@@ -449,5 +453,6 @@ the architecture rather than an implementation detail.
   belongs there and the estimate moves accordingly; L3–L6 are a post-1.0 track.
 - **[05](05-graphics-rhi.md)** — add acceleration structures to the capability register as declared
   and unimplemented, so L6 has somewhere to land.
-- **[../overview.md](../overview.md)** — the withdrawn light-probe entry becomes "superseded by 19"
+- **[../overview.md](../overview.md)** — the light-probe entry keeps its own status and gains a note
+  that § L2 is not built on it
   rather than "owed".

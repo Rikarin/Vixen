@@ -84,6 +84,7 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
 
         var draws = system.Objects.Data.Data(Draws);
         var instances = SubFeatures.OfType<IInstanceSource>().FirstOrDefault();
+        var transforms = SubFeatures.OfType<ITransformRecordSource>().FirstOrDefault();
 
         for (var index = 0; index < commands.Length && index < draws.Length; index++) {
             ref readonly var draw = ref draws[index];
@@ -100,8 +101,54 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
                 InstanceCount = (uint)Math.Max(batch > 0 ? batch : draw.InstanceCount, 1),
                 FirstIndex = (uint)draw.FirstIndex,
                 VertexOffset = (uint)draw.VertexOffset,
-                FirstInstance = (uint)(batch > 0 ? instances!.FirstInstanceOf(system, id) : 0)
+                FirstInstance = (uint)FirstInstanceOf(system, id, batch, instances, transforms)
             };
+        }
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         The key is everything a merged draw would have to bind once: the resolved variant, the
+    ///         two buffers, the index width and the vertex layout. Two objects sharing all of them
+    ///         are two draws that differ only in their arguments, which is the definition compaction
+    ///         needs.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The variant rather than the effect, because an effect is resolved per stage and this
+    ///         runs once for the frame. A stage that overrides the shader can therefore break a batch
+    ///         into runs that do not match it — which is why the draw side checks that a run is the
+    ///         whole batch rather than trusting the id.
+    ///     </para>
+    /// </remarks>
+    public void FillBatches(RenderSystem system, Span<uint> batches) {
+        ArgumentNullException.ThrowIfNull(system);
+
+        var draws = system.Objects.Data.Data(Draws);
+        var materials = MaterialsOf(system);
+        var variants = materials is null ? default : system.Objects.Data.Data(materials.VariantIndex);
+        var keys = new Dictionary<(int, ulong, ulong, IndexFormat, int), uint>();
+
+        for (var index = 0; index < batches.Length && index < draws.Length; index++) {
+            ref readonly var draw = ref draws[index];
+
+            if (!draw.IsDrawable || !draw.IsIndexed) {
+                continue;
+            }
+
+            var key = (
+                variants.IsEmpty || index >= variants.Length ? 0 : variants[index],
+                draw.VertexBuffer.Value.Packed,
+                draw.IndexBuffer.Value.Packed,
+                draw.IndexFormat,
+                draw.VertexLayout
+            );
+
+            if (!keys.TryGetValue(key, out var batch)) {
+                keys[key] = batch = (uint)keys.Count;
+            }
+
+            batches[index] = batch;
         }
     }
 
@@ -121,14 +168,33 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
         var draws = system.Objects.Data.Data(Draws);
         var materials = MaterialsOf(system);
         var instances = SubFeatures.OfType<IInstanceSource>().FirstOrDefault();
+        var transforms = SubFeatures.OfType<ITransformRecordSource>().FirstOrDefault();
 
         var boundPipeline = default(PipelineHandle);
         var boundDescriptors = default(DescriptorSetHandle);
+        var boundVertices = default(BufferHandle);
+        var boundIndices = default(BufferHandle);
+        var boundIndexFormat = default(IndexFormat);
         var boundView = false;
         var boundScene = false;
+        var boundTable = false;
 
-        foreach (var node in nodes) {
+        // Whether a run of nodes could become one command at all. Every per-node contributor is a
+        // reason it cannot: a sub-feature that pushes this object's world matrix has to be given the
+        // chance to push the next one's, and there is no next one inside a merged draw. A transform
+        // feature whose records are on pushes nothing and therefore does not count — which is the
+        // whole point of the record path. Asked once rather than per node, and it is the honest gate
+        // — see MergeableRunAt.
+        var merging = Arguments is { IsCompacted: true }
+            && context.View is not null
+            && !SubFeatures.Any(feature => feature is IDrawSubFeature { IsRecording: true });
+
+        var remaining = 0;
+
+        for (var position = 0; position < nodes.Length; position++) {
+            var node = nodes[position];
             var draw = draws[node.Object.Index];
+
             if (!draw.IsDrawable) {
                 continue;
             }
@@ -169,6 +235,21 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
                 boundScene = scene.Bind(context.CommandList, effect);
             }
 
+            // The material table, on the same terms and once. It is not written here and not written
+            // per frame at all — the table owns its set and updates descriptors in place as textures
+            // enter it — so all a frame does is name it once, at the set the shader declared it in.
+            //
+            // ⚠ Only where the effect declares the set. A variant compiled without the table has a
+            // four-set pipeline layout, and binding a fifth against it is a validation error rather
+            // than a harmless extra call — which is exactly the mixed frame this is written for, since
+            // the non-bindless variant of the same shader is the one every other device compiles.
+            if (!boundTable
+                && materials.Textures is { Set.IsValid: true } table
+                && HasBindlessSet(effect)) {
+                context.CommandList.BindDescriptorSet(DescriptorSetSlot.Bindless, table.Set);
+                boundTable = true;
+            }
+
             // Only when the resolved effect actually has a per-material set. A stage that overrode
             // the shader — a depth prepass, a shadow caster — is drawing something that reads no
             // material at all, and binding a set its pipeline layout does not declare is a validation
@@ -185,12 +266,20 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
             context.Effect = effect;
 
             foreach (var subFeature in SubFeatures) {
-                if (subFeature is IDrawSubFeature contributor) {
+                if (subFeature is IDrawSubFeature { IsRecording: true } contributor) {
                     contributor.Draw(system, context, node);
                 }
             }
 
-            context.CommandList.BindVertexBuffer(0, draw.VertexBuffer);
+            // Only when it changed, which for geometry out of a shared GeometryBuffer is once for
+            // the whole run. Every object used to rebind its own, and re-binding the same handle is
+            // not free: it is a command the front end reads and, more to the point, the reason a run
+            // of objects could not become one draw. A mesh with a buffer of its own still gets a
+            // bind per object, which is the same behaviour it always had.
+            if (draw.VertexBuffer != boundVertices) {
+                context.CommandList.BindVertexBuffer(0, draw.VertexBuffer);
+                boundVertices = draw.VertexBuffer;
+            }
 
             // An instancing sub-feature overrides the draw's own count and supplies the offset its
             // transforms start at. `firstInstance` rather than a binding: Vulkan adds it into
@@ -198,10 +287,46 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
             // buffer with no descriptor and no alignment of its own.
             var batch = instances?.InstanceCountOf(system, node.Object) ?? 0;
             var count = Math.Max(batch > 0 ? batch : draw.InstanceCount, 1);
-            var first = batch > 0 ? instances!.FirstInstanceOf(system, node.Object) : 0;
+            var first = FirstInstanceOf(system, node.Object, batch, instances, transforms);
 
             if (draw.IsIndexed) {
-                context.CommandList.BindIndexBuffer(draw.IndexBuffer, draw.IndexFormat);
+                // ⚠ The format as well as the handle. Two buffers may be the same object at
+                // different index widths only if something rebound the format in between, and an
+                // index buffer read at the wrong width is geometry through the world rather than a
+                // missing mesh — so a comparison on the handle alone would be a correctness bug
+                // wearing an optimisation's clothes.
+                if (draw.IndexBuffer != boundIndices || draw.IndexFormat != boundIndexFormat) {
+                    context.CommandList.BindIndexBuffer(draw.IndexBuffer, draw.IndexFormat);
+                    boundIndices = draw.IndexBuffer;
+                    boundIndexFormat = draw.IndexFormat;
+                }
+
+                // Already covered by the command this run opened with. The binds above still ran and
+                // were all no-ops, which is what being in one run means — and letting them run is
+                // cheaper than a second condition around each of them.
+                if (remaining > 0) {
+                    remaining--;
+                    continue;
+                }
+
+                // One command for the whole batch, when the batch is exactly this run. The count
+                // comes out of a buffer the host never reads, so a batch of a thousand candidates
+                // with three survivors is one command and three draws.
+                if (merging && MergeableRunAt(system, stage, nodes, position, draws) is { } run) {
+                    var viewIndex = context.View!.Index;
+                    var runBatch = Arguments!.BatchOf(node.Object);
+
+                    context.CommandList.DrawIndexedIndirectCount(
+                        Arguments.Commands,
+                        Arguments.Counts,
+                        Arguments.BatchOffsetOf(viewIndex, runBatch),
+                        Arguments.CountOffsetOf(viewIndex, runBatch),
+                        Arguments.BatchSizeOf(runBatch)
+                    );
+
+                    remaining = run - 1;
+                    continue;
+                }
 
                 // Indirect when something has written this object's arguments for this view: the
                 // counts are the same ones, except that culling may have zeroed the instance count —
@@ -215,6 +340,93 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
                 context.CommandList.Draw(draw.Count, count, draw.FirstIndex, first);
             }
         }
+    }
+
+    /// <summary>
+    ///     How long the run starting here is, when it is a whole batch that one command may cover.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>Three conditions, and each rules out a picture rather than an error.</strong>
+    ///         Every node in the run must be the same batch, or the command would draw arguments
+    ///         belonging to geometry it is not bound for. Every node must resolve to the same effect
+    ///         and the same buffers, because one command binds one of each. And the run must be the
+    ///         <em>whole</em> batch — <see cref="GpuDrawArguments.BatchSizeOf" /> — because the
+    ///         compacted list holds every survivor of the batch across the frame, so a stage holding
+    ///         only some of them would draw the ones it does not have.
+    ///     </para>
+    ///     <para>
+    ///         The last is the one that would otherwise be missed. A batch is a fact about objects
+    ///         and a run is a fact about one stage's node list; a shadow cascade that sees half a
+    ///         batch has a run of half the length, and drawing the batch there puts the other half
+    ///         into the cascade.
+    ///     </para>
+    /// </remarks>
+    int? MergeableRunAt(
+        RenderSystem system,
+        RenderStage stage,
+        ReadOnlySpan<RenderNode> nodes,
+        int start,
+        ReadOnlySpan<MeshDraw> draws
+    ) {
+        var materials = MaterialsOf(system);
+        var first = draws[nodes[start].Object.Index];
+        var batch = Arguments!.BatchOf(nodes[start].Object);
+        var effect = materials?.EffectOf(system, nodes[start].Object, stage);
+        var length = 1;
+
+        for (var position = start + 1; position < nodes.Length; position++) {
+            var id = nodes[position].Object;
+            var draw = draws[id.Index];
+
+            if (Arguments.BatchOf(id) != batch) {
+                break;
+            }
+
+            if (!draw.IsDrawable
+                || !draw.IsIndexed
+                || draw.VertexBuffer != first.VertexBuffer
+                || draw.IndexBuffer != first.IndexBuffer
+                || draw.IndexFormat != first.IndexFormat
+                || draw.VertexLayout != first.VertexLayout
+                || !ReferenceEquals(materials?.EffectOf(system, id, stage), effect)) {
+                return null;
+            }
+
+            length++;
+        }
+
+        return length == Arguments.BatchSizeOf(batch) && length > 1 ? length : null;
+    }
+
+    /// <summary>
+    ///     What a draw carries in <c>firstInstance</c>: an instance batch's start, a transform
+    ///     record's index, or nothing.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>One field, two claimants, and instancing wins.</strong> An instanced draw reads
+    ///         its own run of transforms out of the instancing feature's buffer, so the field has to
+    ///         be where that run starts; a draw of one reads a single matrix out of the transform
+    ///         feature's, so the field is which one. They cannot both be in it, and an object that is
+    ///         instanced already has its transforms somewhere the record path is not.
+    ///     </para>
+    ///     <para>
+    ///         Zero when neither applies, which is what every draw carried before either existed.
+    ///     </para>
+    /// </remarks>
+    static int FirstInstanceOf(
+        RenderSystem system,
+        RenderObjectId id,
+        int batch,
+        IInstanceSource? instances,
+        ITransformRecordSource? transforms
+    ) {
+        if (batch > 0) {
+            return instances!.FirstInstanceOf(system, id);
+        }
+
+        return transforms?.RecordIndexOf(system, id) is { } record && record >= 0 ? record : 0;
     }
 
     /// <summary>Where this object's arguments are for this view, or null to draw directly.</summary>
@@ -254,6 +466,19 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
         return effect.SetLayouts.Length == 0
             || (effect.SetLayouts.Length > slot && effect.SetLayouts[slot].IsValid);
     }
+
+    /// <summary>Whether an effect declares the bindless table's set.</summary>
+    /// <remarks>
+    ///     ⚠ The opposite default to <see cref="HasMaterialSet" />, and deliberately. That one treats
+    ///     an effect with no layouts as having a material set, so a fixture with no reflection is not
+    ///     silently switched off. This one treats it as <em>not</em> having a table, because a fifth
+    ///     set is the rare case: assuming it were present would make every four-set pipeline in a
+    ///     bindless frame the target of a bind its layout does not declare.
+    /// </remarks>
+    static bool HasBindlessSet(Effect effect) {
+        const int slot = (int)DescriptorSetSlot.Bindless;
+        return effect.SetLayouts.Length > slot && effect.SetLayouts[slot].IsValid;
+    }
 }
 
 /// <summary>A sub-feature that contributes commands to each draw.</summary>
@@ -267,4 +492,22 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
 public interface IDrawSubFeature {
     /// <summary>Records this sub-feature's contribution for one node.</summary>
     void Draw(RenderSystem system, RenderDrawContext context, in RenderNode node);
+
+    /// <summary>Whether it has anything to record per node this frame.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         True unless a sub-feature says otherwise, because a sub-feature that implements this
+    ///         interface at all normally does record. What it exists for is the one that stops:
+    ///         <see cref="TransformRenderFeature" /> pushes a matrix per node until its records are on
+    ///         and then pushes nothing, and the difference is not an optimisation but the whole
+    ///         question of whether a run of nodes can become one command.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Answered for the frame rather than per node. A sub-feature that recorded for some
+    ///         objects and not others would have to be asked inside the run scan, and a run that was
+    ///         mergeable except at one node is a run that is not mergeable — so there would be nothing
+    ///         to gain from the finer answer.
+    ///     </para>
+    /// </remarks>
+    bool IsRecording => true;
 }

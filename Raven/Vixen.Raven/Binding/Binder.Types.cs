@@ -61,11 +61,19 @@ public abstract partial class Binder {
 
                     var size = BindArraySize(rank.Size);
 
-                    // No length, and there is nowhere one could go: both targets need a constant
-                    // extent to lay an array out, and neither has a by-reference parameter that
-                    // would let one travel without a size. Named here rather than at emit time,
-                    // where the message would be about a lowered type and appear twice.
-                    if (size is null && rank.Size is null) {
+                    // No length, and — for everything but a texture — nowhere one could go: both
+                    // targets need a constant extent to lay an array out, and neither has a
+                    // by-reference parameter that would let one travel without a size. Named here
+                    // rather than at emit time, where the message would be about a lowered type and
+                    // appear twice.
+                    //
+                    // A texture is the exception, and it is not a loosening of the rule but the rule
+                    // meeting a case it did not have. An array of textures is an array of
+                    // *descriptors*, which are not laid out at all — there is no stride, nothing to
+                    // pack, and nothing for the host to size a buffer from. It is the bindless table
+                    // (`docs/bindless-materials.md`), and the length it does not have is exactly the
+                    // point: the shader indexes it with a number and never asks how long it is.
+                    if (size is null && rank.Size is null && !IsUnsizedTextureArray(element, rank)) {
                         Report(
                             SemanticDiagnostics.ArrayNeedsLength,
                             rank,
@@ -97,6 +105,37 @@ public abstract partial class Binder {
                 return ErrorTypeSymbol.Instance;
         }
     }
+
+    /// <summary>
+    ///     Whether this rank is the one unsized array both targets can express: a descriptor array
+    ///     of textures.
+    /// </summary>
+    /// <param name="element">What the rank is an array of, as bound so far.</param>
+    /// <param name="rank">The rank specifier, which must be the single one and have no commas.</param>
+    /// <remarks>
+    ///     <para>
+    ///         One dimension only, and no <c>[,]</c>. A descriptor array is flat in both targets —
+    ///         SPIR-V's <c>OpTypeRuntimeArray</c> takes one element type and GLSL writes one
+    ///         <c>[]</c> — so <c>Texture2D[][]</c> and <c>Texture2D[,]</c> are shapes with nowhere to
+    ///         go, and they keep <c>RVN2126</c> rather than being silently flattened into the one
+    ///         that does. The array test is not redundant with the comma test: an
+    ///         <see cref="ArrayTypeSymbol" /> reports its <em>element's</em> resource kind, so a
+    ///         <c>Texture2D[]</c> reached as the element of an outer rank answers "texture" and would
+    ///         let the second <c>[]</c> through.
+    ///     </para>
+    ///     <para>
+    ///         The <em>position</em> is not checked here and cannot be: this is type resolution, and
+    ///         a type does not know whether it is annotating a shader field or a local. A resource in
+    ///         a struct is <c>RVN2053</c> and a stream of one is <c>RVN2103</c>; a resource-typed
+    ///         <em>local</em> or parameter is accepted by nothing downstream and reported by nothing
+    ///         here, which is a gap this shares with a plain <c>Texture2D</c> rather than one it
+    ///         opens — a table is refused in exactly the places a texture is.
+    ///     </para>
+    /// </remarks>
+    static bool IsUnsizedTextureArray(TypeSymbol element, ArrayRankSpecifierSyntax rank) =>
+        element is not ArrayTypeSymbol
+        && element.ResourceKind == ResourceKind.Texture
+        && rank.Commas.Count == 0;
 
     /// <summary>
     ///     Folds an array size to its element count, or null when there is no size to fold.

@@ -42,10 +42,24 @@ static class Program {
             new() { Organisation = "Vixen", Application = "Editor", RequestGpuSurface = true }
         );
 
+        // ⚠ Before the window, because a window's size is decided when it is made. Everything else
+        // about the editor's shape already persists — the arrangement, the keymap, the theme — and
+        // doc 20's third bar is "the window is theirs", which a window that opens at a fixed size
+        // however it was closed plainly is not.
+        var (size, saved) = WindowPlacement.Load(platform.FileSystem.DataDirectory);
+
+        // A position restored onto a display that has since been unplugged is a window nobody can
+        // find and cannot move, which is the commonest way persisted geometry goes wrong. Dropped,
+        // and the platform puts the window where it would have.
+        var position = saved is { } where && WindowPlacement.IsVisible(platform, where, size)
+            ? where
+            : (Int2?) null;
+
         using var window = platform.CreateWindow(
             new WindowOptions {
                 Title = "Vixen Editor",
-                Size = new Int2(1600, 1000),
+                Size = size,
+                Position = position,
                 IsVisible = true,
                 IsResizable = true
             }

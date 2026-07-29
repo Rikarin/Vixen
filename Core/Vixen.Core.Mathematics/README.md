@@ -29,7 +29,31 @@ order, the depth range and the UV origin, once. Every line of it is asserted by
 | `Plane`, `Ray` | Signed distances, classification, and ray casts against planes, boxes, spheres and triangles. |
 | `BoundingBox`, `BoundingSphere`, `BoundingFrustum` | Culling and spatial queries. The frustum's plane extraction is reverse-Z-correct, which is not the same as the textbook derivation. |
 | `Rectangle`, `Viewport` | The 2D half: half-open containment so tiles do not overlap, and `Project`/`Unproject`/`GetPickingRay`. |
+| `NineSlice` | Four inset edges and the cut of a rectangle into the nine they describe. Unitless, so the same four numbers cut a destination box in pixels and a texture region in UVs — which is what lets `Vixen.Ui` and `Vixen.Rendering` stretch a panel and a sprite the same way without referencing each other. |
 | `Color`, `Color3`, `Color4`, `ColorSpace` | 8-bit storage and linear working values, with the sRGB boundary spelled out at every crossing. |
+| `ExactPredicates` | Orientation and in-sphere, answered exactly — see below. |
+| `DelaunayTetrahedralization` | Bowyer–Watson over those predicates, and the completeness check that says the result is the tetrahedralisation rather than most of one. |
+
+## Two of these answer a sign, not a number
+
+`ExactPredicates` is the one place in the library where "close enough" is not a tolerance to be
+chosen but a category error. `Orient3D` asks which side of a plane a point is on and `InSphere` asks
+whether a point is inside a circumsphere; both have three possible answers, and a floating-point
+determinant that comes back `-1e-19` where the truth is `0` has not made a small error — it has given
+the wrong one. A tetrahedralisation built on wrong ones is not a slightly wrong mesh, it is not a
+mesh.
+
+Exact does not mean slow. Each predicate evaluates in `double` alongside a bound on its own rounding
+error, and takes that answer whenever the value is further from zero than the bound — which is
+essentially always. Only when the two overlap does it re-evaluate in `BigInteger` over the inputs
+rescaled to integers, which is lossless because a binary float already *is* an integer times a power
+of two. `InSphere` also has an overload that breaks the cospherical tie by point index, since zero is
+a real and frequent answer — every axis-aligned grid is cospherical eight points at a time — and a
+construction that has to decide something there needs the same decision every time it asks.
+
+`DelaunayTetrahedralization` is the consumer that motivated them. It exists here rather than in
+`Vixen.Rendering`, where its first caller lives, because nothing about it is rendering: it is a
+determinant, a walk and a cavity.
 
 ## Equality is exact; `NearEqual` is the approximate one
 

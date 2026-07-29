@@ -33,13 +33,28 @@ namespace Vixen.Editor.Ui;
 ///     </para>
 /// </remarks>
 public sealed class EditorShell : IDisposable {
+    /// <summary>How many frames the status bar's frame time is averaged over.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Averaged, because an instantaneous frame time is a number nobody can read.</b> At
+    ///     sixty hertz a per-frame figure changes sixty times a second and spends most of its life
+    ///     mid-redraw; a mean over half a second is the difference between a cell somebody notices
+    ///     getting worse and a cell they learn to ignore.
+    /// </remarks>
+    const int FrameWindow = 30;
+
     readonly UiElement chrome;
     readonly UiElement statusMessage;
+    readonly UiElement statusSelection;
+    readonly UiElement statusFrame;
     readonly ProgressBar statusProgress;
     readonly Button statusTasks;
     readonly Popover taskPopover;
     readonly TaskCenterView taskCenter;
 
+    readonly double[] frames = new double[FrameWindow];
+
+    int frameCursor;
+    int frameCount;
     float phase;
 
     /// <summary>Builds the shell into a new document.</summary>
@@ -62,6 +77,14 @@ public sealed class EditorShell : IDisposable {
         Commands = new CommandRegistry();
         Keys = new KeyMap();
 
+        // ⚠ Before the menu bar is built, because a menu item's shortcut text is written when the
+        // item is made. Doing it later would leave the bar reading "Ctrl+S" on a machine whose every
+        // other application says ⌘S, until something happened to trigger a rebuild.
+        //
+        // ⚠ And again from `RefreshShortcutFormat` once the host has a font, because whether the
+        // glyph form is legible depends on the face — and there is none yet.
+        KeyChord.UsePlatformFormat(Document);
+
         Menus = DefaultMenus();
         MenuBar = new MenuPresenter(chrome, Menus, Commands, Keys);
 
@@ -70,6 +93,17 @@ public sealed class EditorShell : IDisposable {
 
         StatusBar = chrome.Add<UiElement>("status-bar");
         statusMessage = StatusBar.Add<UiElement>("status-message");
+
+        // ⚠ Four cells, left to right, and doc 20 names all four: the transient message, the
+        // selection count, the editor's own frame time, and the task centre. The frame time is the
+        // one that is not obvious and is the one that matters — doc 00's editor-shell performance
+        // bar is a claim about the editor, and a claim nobody can see is one that gets worse a panel
+        // at a time until a benchmark notices six months later.
+        statusSelection = StatusBar.Add<UiElement>("status-cell");
+        statusSelection.SetStyle("display", "none");
+
+        statusFrame = StatusBar.Add<UiElement>("status-cell");
+        statusFrame.AddClass("status-frame");
 
         statusProgress = StatusBar.Add<ProgressBar>();
         statusProgress.SetStyle("display", "none");
@@ -92,12 +126,24 @@ public sealed class EditorShell : IDisposable {
         Palette = Document.Root.Add<CommandPalette>();
         Palette.AddSource(new CommandPaletteSource(Commands, Keys));
 
+        Dialogs = new DialogService(Document);
+
+        // ⚠ Wired both ways, once, here. The registry answers "what context is this command in" so
+        // the keymap can file a binding under it; the shell answers "what context has the focus" so
+        // the registry can decide whether a command is reachable. Neither knows about the other, and
+        // this is the only place that knows about both.
+        Keys.ContextOf = id => Commands.TryGet(id, out var command) ? command.Context : null;
+        Commands.FocusedContext = () => Context;
+
         Dispatcher = new CommandDispatcher(Commands, Keys);
         Dispatcher.Attach(Document);
+        // ⚠ The command's own reason where it has one. "Not available right now" is the honest answer
+        // for a verb whose enablement is false this second; it is the wrong answer for one that has
+        // not been written, and telling the two apart is what makes a greyed menu line readable.
         Dispatcher.Refused += command => Notifications.Show(
             command.Title.Text,
             NotificationSeverity.Warning,
-            "Not available right now"
+            command.IsUnavailable ? command.Unavailable.Text : "Not available right now"
         );
 
         Tasks.Ended += Announce;
@@ -123,8 +169,19 @@ public sealed class EditorShell : IDisposable {
     /// <summary>What is on the menu bar.</summary>
     public MenuModel Menus { get; }
 
-    /// <summary>The View menu, which is where a panel or a layout adds itself.</summary>
-    public MenuGroup View { get; private set; } = null!;
+    /// <summary>The Window menu, which is where a panel or a layout adds itself.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Titled Window and reached as <see cref="View" /> too, and the ids under it are still
+    ///     <c>view.*</c>.</b> Doc 20's Part C calls this menu Window, which is what both reference
+    ///     editors call it and what somebody looking for "where did my panel go" reads. The property
+    ///     and the command ids are not renamed with it: <see cref="View" /> is what every plugin
+    ///     written against this shell already names, and a command id is what a saved keymap holds —
+    ///     so renaming either would silently drop a user's bindings to make a label read better.
+    /// </remarks>
+    public MenuGroup Window { get; private set; } = null!;
+
+    /// <inheritdoc cref="Window" />
+    public MenuGroup View => Window;
 
     /// <summary>The menu bar itself.</summary>
     public MenuPresenter MenuBar { get; }
@@ -150,11 +207,130 @@ public sealed class EditorShell : IDisposable {
     /// <summary>Fuzzy search over everything.</summary>
     public CommandPalette Palette { get; }
 
+    /// <summary>How the editor asks a question.</summary>
+    public DialogService Dialogs { get; }
+
+    /// <summary>What File ▸ Open Recent lists, asked every time the menu is built.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Command ids, not paths.</b> Every dynamic menu in this shell is a set of ids — see
+    ///     <see cref="MenuDynamic" /> — because a line has to have a title, an enablement and a place
+    ///     in the palette, and only a registered command has all three. An application producing this
+    ///     registers one command per recent project and hands back their ids.
+    /// </remarks>
+    public Func<IEnumerable<string>>? Recent { get; set; }
+
+    /// <summary>What the window's title bar should say.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The shell composes it and the host applies it.</b> A shell that set a window title
+    ///     would be a shell that knows what a window is, which is the one thing this class is built
+    ///     not to know — so the host reads this and calls the platform. It is the only affordance
+    ///     that answers "which project is this window" when three are open.
+    /// </remarks>
+    public string Title { get; private set; } = "Vixen";
+
+    /// <summary>Raised when <see cref="Title" /> changes.</summary>
+    public event Action<string>? TitleChanged;
+
+    /// <summary>Decides again how a shortcut is written, now that there is a font to judge with.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Called by the host after it installs a face, and the ordering is the whole reason
+    ///     this exists.</b> The shell is built before anything has a font — it is a
+    ///     <c>UiDocument</c> and nothing else, which is what makes it testable headless — so the
+    ///     first decision is made against no face at all and is necessarily the conservative one.
+    ///     A machine whose borrowed font does have ⌘ should get ⌘, and that can only be known later.
+    /// </remarks>
+    public void RefreshShortcutFormat() {
+        KeyChord.UsePlatformFormat(Document);
+
+        // Both views, because a shortcut is drawn by a menu item when the item is made and by a
+        // toolbar button's label when the strip is built. Neither re-reads it on its own.
+        MenuBar.Rebuild();
+        Toolbar.Rebuild();
+    }
+
+    /// <summary>Says what this window is looking at.</summary>
+    /// <param name="document">The open document's name, or <see langword="null" /> for none.</param>
+    /// <param name="dirty">Whether it has unsaved changes.</param>
+    /// <param name="project">The project's name, or <see langword="null" />.</param>
+    /// <remarks>
+    ///     <c>&lt;scene&gt;* — &lt;project&gt; — Vixen</c>, dropping whichever parts are absent so a
+    ///     shell with no project open is titled "Vixen" rather than " —  — Vixen".
+    /// </remarks>
+    public void Describe(string? document, bool dirty, string? project) {
+        var parts = new List<string>(3);
+
+        if (!string.IsNullOrEmpty(document)) {
+            parts.Add(dirty ? document + "*" : document);
+        }
+
+        if (!string.IsNullOrEmpty(project)) {
+            parts.Add(project);
+        }
+
+        parts.Add("Vixen");
+
+        var title = string.Join(" — ", parts);
+
+        if (!string.Equals(title, Title, StringComparison.Ordinal)) {
+            Title = title;
+            TitleChanged?.Invoke(title);
+        }
+    }
+
     /// <summary>What the status bar says on the left.</summary>
     public string? Status {
         get => statusMessage.Text;
         set => statusMessage.Text = value;
     }
+
+    /// <summary>Which context the user is in, which decides what a scoped command means.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Set by whatever owns the focus, and read by everything that shows a command.</b>
+    ///         The shell does not work it out for itself: a context is a claim about meaning — "the
+    ///         outliner", "the content browser", "the graph canvas" — and only the thing that put the
+    ///         focus somewhere knows which claim it just made. An application that never sets it has
+    ///         every command in scope, which is the behaviour every command with no
+    ///         <see cref="EditorCommand.Context" /> gets anyway.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Changing it rebuilds nothing.</b> Menus apply enablement as they open and the
+    ///         toolbar refreshes on the tick, so a context that changes on every click costs a
+    ///         predicate rather than a layout pass — which is what makes it safe to set from a
+    ///         pointer handler.
+    ///     </para>
+    /// </remarks>
+    public string? Context {
+        get;
+        set {
+            if (!string.Equals(field, value, StringComparison.Ordinal)) {
+                field = value;
+                ContextChanged?.Invoke(value);
+            }
+        }
+    }
+
+    /// <summary>Raised when <see cref="Context" /> changes.</summary>
+    /// <remarks>What a panel listens to in order to stop showing itself as the active one.</remarks>
+    public event Action<string?>? ContextChanged;
+
+    /// <summary>How many things are selected, for the status bar to report.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A delegate rather than a number the application pushes.</b> There is one selection
+    ///     per open document plus one for the project, and which of them the count is about is the
+    ///     application's arbitration — see <c>EditorApplication.FollowSelection</c> — so a shell that
+    ///     held a number would hold whichever one was written last. Unset, the cell is not drawn at
+    ///     all, which is right for a shell with no documents in it.
+    /// </remarks>
+    public Func<int>? SelectionCount { get; set; }
+
+    /// <summary>The mean time one editor frame has taken lately, in milliseconds.</summary>
+    /// <remarks>
+    ///     Measured from the deltas the host passes to <see cref="Tick" />, so it is the whole frame
+    ///     — events, layout, the application's update and the draw — rather than the part of it this
+    ///     class is responsible for. That is the number doc 00's performance bar is about.
+    /// </remarks>
+    public double FrameTime { get; private set; }
 
     /// <summary>Declares a panel and the command that shows it.</summary>
     /// <param name="descriptor">What the panel is.</param>
@@ -260,9 +436,17 @@ public sealed class EditorShell : IDisposable {
         Notifications.Tick(now);
 
         Tasks.Pump();
+
+        // ⚠ Before the toolbar and the status bar, because a dialog's answer resumes here and the
+        // command that was awaiting it is entitled to change both. After the notifications, so that
+        // a command which answers by showing a toast is not one frame behind. See
+        // `DialogService.Pump` for why the completion happens on the tick at all.
+        Dialogs.Pump();
+
         Toolbar.Refresh();
         taskCenter.Refresh();
 
+        Measure(delta);
         RefreshStatus();
     }
 
@@ -289,6 +473,11 @@ public sealed class EditorShell : IDisposable {
     public void Dispose() {
         MenuBar.Dispose();
 
+        // ⚠ Before the document, and it answers rather than drops. A command awaiting a dialog is a
+        // continuation holding whatever it was in the middle of — the save-on-close prompt is the
+        // one that matters — and a task nobody completes is a shutdown that never finishes.
+        Dialogs.CancelAll();
+
         Tasks.CancelAll();
         Document.Dispose();
     }
@@ -303,22 +492,49 @@ public sealed class EditorShell : IDisposable {
     MenuModel DefaultMenus() {
         var model = new MenuModel();
 
-        model.AddMenu(EditorStrings.MenuFile)
-            .Add("file.new-project", "file.open-project")
+        var file = model.AddMenu(EditorStrings.MenuFile);
+
+        file.Add("file.new-project", "file.open-project");
+        file.AddSubmenu(EditorStrings.MenuRecent).AddDynamic(() => Recent?.Invoke() ?? []);
+
+        file.AddSeparator()
+            .Add("file.new-scene", "file.open-scene", "file.save", "file.save-as", "file.save-all")
             .AddSeparator()
-            .Add("file.save", "file.save-all")
+            .Add("assets.import-files", "file.export-package")
+            .AddSeparator()
+            .Add("file.project-settings")
             .AddSeparator()
             .Add("file.exit");
 
         model.AddMenu(EditorStrings.MenuEdit)
-            .Add("edit.undo", "edit.redo")
+            .Add("edit.undo", "edit.redo", "edit.undo-history")
             .AddSeparator()
-            .Add("edit.preferences");
+            .Add("edit.cut", "edit.copy", "edit.paste", "edit.paste-as-child", "edit.duplicate", "edit.delete")
+            .Add("edit.rename")
+            .AddSeparator()
+            .Add("edit.select-all", "edit.deselect-all", "edit.invert-selection")
+            .Add("edit.select-children", "edit.select-parent")
+            .AddSeparator()
+            .Add("edit.search-everywhere", "edit.find-references")
+            .AddSeparator()
+            .Add("edit.preferences", "edit.keybindings");
 
-        View = model.AddMenu(EditorStrings.MenuView);
-        View.Add("view.palette").AddSeparator();
+        // ⚠ Assets, Entity, Scene, Play, Build and Tools are <i>not</i> here, and doc 20's Part C
+        // lists all ten. The six missing ones are made entirely of an application's verbs — there is
+        // no shell-level meaning to "reimport" or "align with view" — and a shell that put them on
+        // the bar would put six words there that drop open onto nothing in every host that is not
+        // the editor. `MenuModel.InsertMenu` is how the editor puts them back in Part C's order; the
+        // four below are the ones a shell can genuinely fill.
+        Window = model.AddMenu(EditorStrings.MenuWindow);
+        Window.Add("view.palette").AddSeparator();
 
-        model.AddMenu(EditorStrings.MenuHelp).Add("help.documentation", "help.about");
+        model.AddMenu(EditorStrings.MenuHelp)
+            .Add("help.documentation", "help.api-reference", "help.release-notes")
+            .AddSeparator()
+            .Add("help.report-bug", "help.show-log-folder")
+            .AddSeparator()
+            .Add("help.about");
+
         return model;
     }
 
@@ -358,26 +574,51 @@ public sealed class EditorShell : IDisposable {
             }
         );
 
+        // The three tab verbs every editor with tabs has, and the reason they are the shell's rather
+        // than the application's: what a tab *is* belongs to the docking workspace, which is here.
+        Commands.Add(
+            new EditorCommand("view.close-panel", EditorStrings.CommandClosePanel, () => Workspace.CloseActive()) {
+                Category = EditorStrings.CategoryView,
+                Enablement = () => Workspace.Host.Active is not null
+            }
+        );
+
+        Commands.Add(
+            new EditorCommand("view.next-tab", EditorStrings.CommandNextTab, () => Workspace.CycleTab(1)) {
+                Category = EditorStrings.CategoryView
+            }
+        );
+
+        Commands.Add(
+            new EditorCommand("view.previous-tab", EditorStrings.CommandPreviousTab, () => Workspace.CycleTab(-1)) {
+                Category = EditorStrings.CategoryView
+            }
+        );
+
         // Doc 11 asks for Ctrl/Cmd+P by name. Meta as well as Control, rather than instead of it on
         // a Mac, because this assembly does not know what it is running on — and a chord bound
         // twice is two entries in the map, which is exactly what the conflict check permits.
         Keys.SetDefault("view.palette", new KeyChord(InputKey.P, ModifierKeys.Control));
         Keys.SetDefault("view.toggle-theme", new KeyChord(InputKey.D, ModifierKeys.Control | ModifierKeys.Alt));
+        Keys.SetDefault("view.close-panel", new KeyChord(InputKey.W, ModifierKeys.Control));
+        Keys.SetDefault("view.next-tab", new KeyChord(InputKey.Tab, ModifierKeys.Control));
+        Keys.SetDefault("view.previous-tab", new KeyChord(InputKey.Tab, ModifierKeys.Control | ModifierKeys.Shift));
 
         // ⚠ Dynamic, because the panel list and the preset list both grow after the shell is built
         // — a plugin registers a panel, an application registers a layout — and a menu described
         // once at start-up would show whichever of them happened to exist by then.
-        View.AddSubmenu(EditorStrings.MenuPanels)
-            .AddDynamic(() => Workspace.Panels.Select(panel => PanelCommand(panel.Id)))
-            .AddSeparator()
-            .Add("view.float-panel");
-
-        View.AddSubmenu(EditorStrings.MenuLayout)
+        Window.AddSubmenu(EditorStrings.MenuLayout)
             .AddDynamic(() => Workspace.Presets.Order(StringComparer.Ordinal).Select(LayoutCommand))
             .AddSeparator()
-            .Add("view.reset-layout");
+            .Add("view.save-layout", "view.reset-layout");
 
-        View.AddSeparator().Add("view.toggle-theme");
+        Window.AddSubmenu(EditorStrings.MenuPanels)
+            .AddDynamic(() => Workspace.Panels.Select(panel => PanelCommand(panel.Id)));
+
+        Window.AddSeparator()
+            .Add("view.float-panel", "view.close-panel", "view.next-tab", "view.previous-tab")
+            .AddSeparator()
+            .Add("view.toggle-theme", "view.full-screen");
     }
 
     void ResetLayout() {
@@ -400,8 +641,48 @@ public sealed class EditorShell : IDisposable {
         }
     }
 
+    /// <summary>Adds a frame to the rolling window and recomputes the mean.</summary>
+    /// <remarks>
+    ///     A fixed array walked by a cursor rather than a queue, because this runs every frame for
+    ///     the life of the process and a per-frame allocation in the shell's own tick is the thing
+    ///     doc 20 asks the cell to make visible.
+    /// </remarks>
+    void Measure(TimeSpan delta) {
+        frames[frameCursor] = delta.TotalMilliseconds;
+        frameCursor = (frameCursor + 1) % frames.Length;
+        frameCount = Math.Min(frameCount + 1, frames.Length);
+
+        var total = 0d;
+
+        for (var index = 0; index < frameCount; index++) {
+            total += frames[index];
+        }
+
+        FrameTime = frameCount == 0 ? 0d : total / frameCount;
+    }
+
     void RefreshStatus() {
         var running = Tasks.Tasks.Count;
+
+        var selected = SelectionCount?.Invoke() ?? 0;
+
+        // Absent rather than "0 selected", which is a cell that says nothing and is on screen most
+        // of the time.
+        statusSelection.SetStyle("display", selected == 0 ? "none" : "flex");
+
+        if (selected > 0) {
+            statusSelection.Text = string.Format(
+                CultureInfo.CurrentCulture,
+                EditorStrings.StatusSelection.Text,
+                selected
+            );
+        }
+
+        statusFrame.Text = string.Format(
+            CultureInfo.CurrentCulture,
+            EditorStrings.StatusFrameTime.Text,
+            FrameTime.ToString("F1", CultureInfo.CurrentCulture)
+        );
 
         statusTasks.Label = running == 0
             ? EditorStrings.TasksTitle.Text

@@ -96,7 +96,8 @@ sealed class SpirvTypes {
     }
 
     /// <summary>
-    ///     A runtime-sized array — a storage buffer's contents, and the only array with no extent.
+    ///     A runtime-sized array — a storage buffer's contents, and one of the two arrays with no
+    ///     extent.
     /// </summary>
     internal uint RuntimeArray(IrArrayType array, LayoutRule rule) {
         ArgumentNullException.ThrowIfNull(array);
@@ -110,6 +111,62 @@ sealed class SpirvTypes {
         module.Decorate(id, SpirvDecoration.ArrayStride, SpirvOperand.Literal(ShaderLayout.ArrayStride(array, rule)));
         return id;
     }
+
+    /// <summary>
+    ///     A descriptor array — the other array with no extent, and the one with no layout either.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The same <c>OpTypeRuntimeArray</c> and deliberately not the same method. A storage
+    ///         buffer's runtime array is <em>memory</em>: it carries an <c>ArrayStride</c>, the host
+    ///         computes a byte offset from it, and the whole thing lives inside a block. A descriptor
+    ///         array is a range of the descriptor set — there is no stride, nothing is packed, and
+    ///         decorating one with a stride is a validation error rather than a harmless extra.
+    ///     </para>
+    ///     <para>
+    ///         <c>RuntimeDescriptorArray</c> is the capability that makes the variable legal at all,
+    ///         and <c>ShaderNonUniform</c> is what lets the index vary across a subgroup — which is
+    ///         the entire reason to have one, since a merged draw is fragments of different materials
+    ///         in one dispatch. Both come from <c>SPV_EXT_descriptor_indexing</c> below SPIR-V 1.5.
+    ///     </para>
+    /// </remarks>
+    internal uint DescriptorArray(IrArrayType array) {
+        ArgumentNullException.ThrowIfNull(array);
+
+        module.AddExtension(SpirvExtensions.DescriptorIndexing);
+        module.AddCapability(SpirvCapability.RuntimeDescriptorArray);
+        module.AddCapability(SpirvCapability.ShaderNonUniform);
+
+        return module.Intern(
+            $"descriptors {array.Element.Name}",
+            () => module.AddDeclaration(SpirvOp.TypeRuntimeArray, null, SpirvOperand.Id(Type(array.Element)))
+        );
+    }
+
+    /// <summary>A runtime array of one record struct, with the stride the host writes.</summary>
+    /// <param name="element">The record's type id.</param>
+    /// <param name="stride">One record's size in bytes, laid out std430.</param>
+    /// <remarks>
+    ///     Distinct from <see cref="RuntimeArray" />, which takes an <see cref="IrArrayType" /> and
+    ///     computes the stride from its element. A material record has no <see cref="IrArrayType" />
+    ///     at all — it is a struct the plan assembled out of a set's uniforms, and the array around
+    ///     it exists only because SPIR-V has no bare runtime-array variable.
+    /// </remarks>
+    internal uint RecordArray(uint element, int stride) {
+        var id = module.AddDeclaration(SpirvOp.TypeRuntimeArray, null, SpirvOperand.Id(element));
+        module.Decorate(id, SpirvDecoration.ArrayStride, SpirvOperand.Literal(stride));
+        return id;
+    }
+
+    /// <summary>Whether this is a descriptor array rather than a laid-out one.</summary>
+    /// <param name="type">The type to ask about.</param>
+    /// <remarks>
+    ///     One place, because three of them ask — the type emitter, the variable declaration and the
+    ///     access chain that indexes it — and the three have to agree or the module has a runtime
+    ///     array nothing decorated, or a decoration on an array that is not one.
+    /// </remarks>
+    internal static bool IsDescriptorArray(IrType type) =>
+        type is IrArrayType { Length: null, Element: IrTextureType };
 
     uint Struct(IrStructType structType, LayoutRule? layout) {
         if (structs.TryGetValue((structType, layout), out var existing)) {
@@ -249,9 +306,14 @@ sealed class SpirvTypes {
                     () => Array(array, length, layout)
                 );
 
+            case IrArrayType unsized when IsDescriptorArray(unsized):
+                return DescriptorArray(unsized);
+
             case IrArrayType unsized:
-                // A runtime-sized array is only legal as the last member of a
-                // storage buffer, which the IR has no way to express yet.
+                // A runtime-sized array is legal as the last member of a storage buffer — which
+                // EmitStorageBuffer reaches through RuntimeArray rather than through here — and as a
+                // descriptor array of textures, which the case above took. Anything else has no
+                // extent and no descriptor to be one of.
                 unsupported(unsized, "an unsized array");
                 return Float;
 

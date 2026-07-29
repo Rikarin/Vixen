@@ -43,6 +43,18 @@ struct DrawCommand {
 }
 
 shader DrawArguments {
+    /// Whether survivors are appended to a list, or left at their own slot with a zero instance count.
+    ///
+    /// **Both, because both are needed.** Appending is what makes one command cover a whole run, and
+    /// it is worth nothing without a draw whose count comes from the device —
+    /// `GraphicsDeviceFeatures.HasDrawIndirectCount`, which Vulkan has and GL, WebGPU and Metal do
+    /// not. On those the padded form is not a fallback anybody is waiting to remove: it is what runs.
+    ///
+    /// ⚠ A permutation and not a uniform, because the two write *different things* to the same
+    /// buffer. A branch inside one variant would be a branch every invocation takes, on a value that
+    /// is the same for the whole dispatch and the whole run of the program.
+    [Permutation] val Compact: bool = false
+
     /// What each object would be drawn with if it were visible, indexed by object slot.
     var templates: Buffer<DrawCommand>
 
@@ -50,7 +62,32 @@ shader DrawArguments {
     var visibility: Buffer<uint>
 
     /// One record per object per view, view-major — what the draw calls read.
+    ///
+    /// Padded, this holds one record per object slot at that slot's own index. Compacted, it holds
+    /// each batch's survivors packed from `bases[batch]`, and `counts` says how many there are.
     var commands: RWBuffer<DrawCommand>
+
+    /// Which batch each object belongs to — a run of objects that bind everything alike.
+    ///
+    /// The host's, because the host is what knows: a batch is objects sharing a pipeline, a vertex
+    /// buffer, an index buffer and a material set, and every one of those is a fact about the
+    /// renderer rather than about geometry. Teaching a shader to derive it would be teaching it what
+    /// an effect and a sort group are.
+    var batches: Buffer<uint>
+
+    /// Where each batch's run starts within a view's region, in records.
+    ///
+    /// A prefix sum the host computed over the batch sizes. Batches partition the objects, so the
+    /// runs partition the view's region and the buffer is exactly the size the padded form needed —
+    /// compaction costs no memory, only an atomic.
+    var bases: Buffer<uint>
+
+    /// How many survivors each batch has, one `uint` per batch per view.
+    ///
+    /// ⚠ Zeroed by the host before this runs. An `atomicAdd` onto last frame's count appends past
+    /// the end of the batch's run and into the next batch's, which draws one batch's geometry with
+    /// another's arguments — and does so only in the frames where something became invisible.
+    var counts: RWBuffer<uint>
 
     /// One invocation per object per view: `x` is the object, `y` is the view.
     ///
@@ -80,6 +117,23 @@ shader DrawArguments {
         val visible = (word & (1u << (index % 32))) != 0u
 
         var command = templates[index]
+
+        if (Compact) {
+            // Nothing at all for a culled object — which is the whole difference. The padded form
+            // has to write a record for every object because the draw reads every slot; here the
+            // draw reads `counts[…]` slots and a culled object simply never claims one.
+            if (!visible) {
+                return
+            }
+
+            val batch = int(batches[index])
+            val slot = atomicAdd(counts[view * bases.Length + batch], 1u)
+
+            // The batch's run, inside this view's region. `bases` partitions the region, so a slot
+            // claimed here cannot collide with another batch's however the invocations interleave.
+            commands[view * objectCount + int(bases[batch]) + int(slot)] = command
+            return
+        }
 
         // Zeroed rather than skipped: the record is read whether or not this pass touched it, so
         // leaving last frame's alone would draw what last frame could see.

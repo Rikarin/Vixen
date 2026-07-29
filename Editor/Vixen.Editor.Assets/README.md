@@ -187,6 +187,40 @@ the root.
 one skeleton, and it is ordered by the node tree rather than by whichever mesh listed its bones
 first — so a joint always precedes its children.
 
+## `SpriteSlicer`, and a texture that produces sprites
+
+A texture in a sprite mode produces the same KTX2 it always did, plus one sub-asset per sprite and one
+for the sheet. Both, and neither is derivable from the other at load time: the sheet holds the frames
+in order, which is what a tile map or an animation reaches for, and the per-sprite sub-assets are what
+a single reference resolves to — dragging one frame into a scene should not pull ninety-nine others in
+with it. The ids come from the same name derivation the model importer uses, so a re-slice keeps
+references and a rename breaks one visibly; two sprites of one name are refused rather than
+de-duplicated, because the second would silently take the first one's place.
+
+`SpriteSlicer` is the cutting, and it is here rather than in the editor's panel because it is a pure
+function of pixels and options — three modes, all checkable against images built in a test:
+
+- **A grid by cell size** and **a grid by cell count**, which differ only in which two numbers are
+  given. A partial cell at the right or bottom edge is not taken: a sheet that is not a whole number
+  of cells wide is a mistake in the artwork, and drawing the remainder as a frame hides it. Cells with
+  nothing in them are dropped unless asked for, so eleven frames on a four-by-three sheet is eleven
+  sprites rather than eleven and a blank.
+- **Automatic**, which is connected components over the alpha — eight-connected, because a diagonal
+  stroke is one stroke, and four-connectivity cuts it into a sprite per pixel. Bounding boxes that
+  overlap are merged to a fixed point, which is what puts a character's detached eye back inside its
+  head; a single pass would join two of three in a chain. The results come out in reading order by
+  **bands** rather than by top edge, because frames on a hand-drawn row are rarely aligned to the
+  texel and ordering by the top edge alone interleaves two rows.
+
+⚠ **The rects are what the sidecar records — never the options that produced them.** Re-cutting at
+import time would be smaller and would make every sprite in a project depend on the pixels: a sheet
+re-exported with one frame nudged renumbers under an automatic slice, and every reference to those
+sprites quietly points at a different picture.
+
+⚠ **Texels of the source, not of the shipped texture.** A texture over `MaxSize` ships halved and the
+rects are not rescaled, because they do not need to be: a UV is a region over a texture size and both
+halve together. Rescaling would round every rect onto a grid it was not authored on, once per halving.
+
 ## `AudioImporter`, and a WAV reader written rather than taken
 
 Decode, mix, convert, write. The decode is an `IAudioDecoder` — the same licence seam as

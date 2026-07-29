@@ -155,6 +155,38 @@ public interface ICommandList : IDisposable {
     /// <param name="stride">Bytes between consecutive argument structures.</param>
     void DrawIndexedIndirect(BufferHandle arguments, long offset = 0, int drawCount = 1, int stride = 20);
 
+    /// <summary>Draws with arguments the GPU wrote, as many of them as the GPU said.</summary>
+    /// <param name="arguments">The buffer holding them.</param>
+    /// <param name="count">A buffer holding one <c>uint</c>: how many of the arguments to read.</param>
+    /// <param name="offset">Where the arguments start, in bytes.</param>
+    /// <param name="countOffset">Where the count is, in bytes. Four-byte aligned.</param>
+    /// <param name="maxDrawCount">
+    ///     A ceiling on what the count may say, and the length of the region the arguments occupy.
+    /// </param>
+    /// <param name="stride">Bytes between consecutive argument structures.</param>
+    /// <remarks>
+    ///     <para>
+    ///         Needs <see cref="GraphicsDeviceFeatures.HasDrawIndirectCount" />. What it buys is the
+    ///         last thing between a compacted draw list and a single command: without it the host has
+    ///         to name a count, so a list the GPU compacted must be issued at its maximum length with
+    ///         the tail zeroed, and every culled object still costs a command.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <paramref name="maxDrawCount" /> is not advisory. It is what the region was sized
+    ///         for, and a device is entitled to read up to that many argument structures whatever the
+    ///         count buffer says — so a value larger than the allocation is a read past the end of a
+    ///         buffer, which is undefined rather than clamped.
+    ///     </para>
+    /// </remarks>
+    void DrawIndexedIndirectCount(
+        BufferHandle arguments,
+        BufferHandle count,
+        long offset = 0,
+        long countOffset = 0,
+        int maxDrawCount = 1,
+        int stride = 20
+    );
+
     /// <summary>Runs a compute shader.</summary>
     /// <param name="groupsX">Workgroups in X.</param>
     /// <param name="groupsY">Workgroups in Y.</param>

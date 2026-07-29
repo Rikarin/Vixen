@@ -54,7 +54,10 @@ public class MeshRenderFeatureTests : IDisposable {
                 [
                     new(0, DescriptorKind.StorageBuffer, ShaderStage.Compute),
                     new(1, DescriptorKind.StorageBuffer, ShaderStage.Compute),
-                    new(2, DescriptorKind.StorageBuffer, ShaderStage.Compute)
+                    new(2, DescriptorKind.StorageBuffer, ShaderStage.Compute),
+                    new(3, DescriptorKind.StorageBuffer, ShaderStage.Compute),
+                    new(4, DescriptorKind.StorageBuffer, ShaderStage.Compute),
+                    new(5, DescriptorKind.StorageBuffer, ShaderStage.Compute)
                 ],
                 GpuCulling.ArgumentsShaderName
             )
@@ -74,7 +77,10 @@ public class MeshRenderFeatureTests : IDisposable {
                 Bindings = [
                     new("templates", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.StorageBuffer),
                     new("visibility", DescriptorSetSlot.PerMaterial, 1, DescriptorKind.StorageBuffer),
-                    new("commands", DescriptorSetSlot.PerMaterial, 2, DescriptorKind.StorageBuffer)
+                    new("commands", DescriptorSetSlot.PerMaterial, 2, DescriptorKind.StorageBuffer),
+                    new("batches", DescriptorSetSlot.PerMaterial, 3, DescriptorKind.StorageBuffer),
+                    new("bases", DescriptorSetSlot.PerMaterial, 4, DescriptorKind.StorageBuffer),
+                    new("counts", DescriptorSetSlot.PerMaterial, 5, DescriptorKind.StorageBuffer)
                 ]
             };
         }

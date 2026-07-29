@@ -41,6 +41,14 @@
         <ProjectReference Include="..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
 
         <!--
+            The console is a view over `RingBufferSink`, which is on in every build and already holds
+            the records. Doc 20 is explicit that the panel is "a virtualised view over a buffer that
+            exists" — the alternative is a second log the editor keeps for itself, which is a second
+            thing to keep in step with the one the crash reporter dumps.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Diagnostics\Vixen.Core.Diagnostics.csproj" />
+
+        <!--
             Analyzers do not flow transitively through a ProjectReference, so an assembly declaring
             [UiProperty] controls of its own has to name the generator itself.
         -->

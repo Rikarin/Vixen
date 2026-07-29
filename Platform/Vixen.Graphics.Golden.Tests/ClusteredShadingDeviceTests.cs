@@ -298,7 +298,13 @@ public class ClusteredShadingDeviceTests {
         var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = describer };
         var materials = new MaterialRenderFeature { Effects = effects, Device = device, Descriptors = allocator };
         var lighting = new ForwardLightingRenderFeature { Device = device, Clustered = true };
-        var transforms = new TransformRenderFeature();
+        // ⚠ A device and somewhere to publish to, both of them load-bearing even though this frame
+        // pushes its matrix rather than reading a record. `ForwardPlus` declares `transforms` in set 0
+        // unconditionally, so every variant needs it bound — and the feature answers that by uploading
+        // a single identity matrix when the record path is off. Without a device there is no buffer;
+        // without a collection the name is never published; either way set 0 is one binding short,
+        // which means it is not bound at all, and the draw reads descriptors nobody wrote.
+        var transforms = new TransformRenderFeature { Device = device, Scene = scene.Parameters };
 
         meshes.Add(transforms);
         meshes.Add(materials);

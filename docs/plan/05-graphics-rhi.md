@@ -82,6 +82,21 @@ Two tiers, both expressed in the RHI:
    material batching use it where available; there is a non-bindless path for GL/WebGL and older
    Android.
 
+✅ The table is `BindlessTable` and the capability is four opt-in features rather than an extension
+string — runtime-sized arrays, partially-bound slots, non-uniform indexing and update-after-bind —
+because MoltenVK offers the extension everywhere and gates the features behind Metal argument-buffer
+tier 2 (ADR-011). `MaxBindlessDescriptors` travels with `HasBindless` for the same reason a
+capability needs a ceiling: the array is unbounded in the *shader* and a fixed allocation in the set,
+and the two update-after-bind limits that bound it differ by an order of magnitude on mobile parts.
+An index, once handed out, does not move — it is written into data the host has already given away —
+so the table is an allocator with a free list, deduplicates by view with a reference count, and
+retires a released index for `FramesInFlight` frames before reusing it.
+
+What is *not* here is the material side: a material is still a descriptor set per variant, and the
+draw that binds it is still a draw that cannot merge with its neighbour. That, the Raven declaration
+it needs and the indirect-count draw after it are written down in
+[bindless-materials.md](../bindless-materials.md).
+
 ✅ Sets whose contents are a *frame's* resources — anything a render-graph pass reads — come from
 `DescriptorAllocator` rather than being created and destroyed. It recycles through a ring exactly
 `FramesInFlight` deep, because a set written for frame *f* is still being read while the CPU records

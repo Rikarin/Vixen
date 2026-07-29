@@ -100,6 +100,20 @@ struct MaterialData {
     /// feature that rotates by it on a pass with no tangents gets its input back unchanged rather than
     /// a zero vector.
     var tangentFrame: TangentFrame
+
+    /// The interpolated texture coordinate at this point, as the pass carried it.
+    ///
+    /// Geometry rather than material, for the same reason `tangentFrame` is — and here for a reason
+    /// that only appeared once a feature could sample at all. A feature is composed into a pass it
+    /// has never seen and cannot read that pass's streams, so a coordinate to sample at has to
+    /// arrive through the one thing every feature is handed. That is what this struct exists to be:
+    /// "a feature that starts caring about a new channel does not change the contract every other
+    /// feature is written to" is the argument at the top of this file, and it is the argument for
+    /// putting it here rather than widening `Compute`.
+    ///
+    /// Zero on a pass with no coordinates, which samples the corner of every map rather than
+    /// something undefined.
+    var uv: float2
 }
 
 /// A material feature: it reads the surface and contributes to it.
@@ -142,6 +156,10 @@ struct MaterialBlend {
         // The tangent frame belongs to the mesh and the pass, not to either layer, so it is taken
         // rather than blended — both layers were seeded with the same one.
         d.tangentFrame = under.tangentFrame
+
+        // Likewise the coordinate: both layers were seeded with the same one, and interpolating a
+        // coordinate between two layers would sample somewhere neither layer asked for.
+        d.uv = under.uv
         return d
     }
 }
@@ -172,6 +190,8 @@ struct MaterialDefaults {
         d.scatterColor = float3(0f)
         d.thickness = 0f
 
+        d.uv = float2(0f, 0f)
+
         // The identity frame, so `Normals.ToWorld` is a no-op until a pass supplies a real one. A
         // zeroed frame would be worse than useless — it maps every normal to zero, and `SafeNormalize`
         // would hand back a plausible-looking unit vector pointing nowhere in particular.
@@ -185,10 +205,11 @@ struct MaterialDefaults {
     /// What every pass with a tangent channel calls instead of `Reset`. The shading normal starts as
     /// the *geometric* one, so a material with no normal-map feature is already correct, and a
     /// feature that replaces it is replacing something meaningful rather than filling in a blank.
-    static func Begin(inout d: MaterialData, normalWS: float3, tangentWS: float4) {
+    static func Begin(inout d: MaterialData, normalWS: float3, tangentWS: float4, uv: float2) {
         Reset(d)
         d.tangentFrame = Normals.Frame(normalWS, tangentWS.xyz, tangentWS.w)
         d.normalWS = d.tangentFrame.normal
+        d.uv = uv
 
         // The coat starts on the geometric normal rather than following the base's, so a normal-map
         // feature later in the chain bends the base and leaves the coat flat — which is what a
@@ -211,6 +232,84 @@ shader MetalRoughnessSurface : IMaterialSurface {
         d.diffuseColor = baseColor * (1f - metalness)
         d.f0 = Brdf.F0FromMetalness(baseColor, metalness, MaterialDefaults.DielectricF0)
         d.perceptualRoughness = saturate(roughness)
+    }
+}
+
+/// The frame's texture table, and the sampler a material map is read through.
+///
+/// **What makes a material feature able to sample at all.** A feature is composed into a pass it has
+/// never seen, so it cannot know which binding index a texture of its own would get — which is the
+/// gap doc 06 names when it says materials are values and not resources. With a table it needs no
+/// index of the pass's: the host puts the texture in the table and writes the slot into the
+/// material's own block, and the feature reads a `uint` beside the base colour.
+///
+/// ⚠ `[Shared]`, and it is the reason that marker exists. Every feature that samples declares this
+/// same base, and without the marker each one would contribute its *own* table — a chain of eight
+/// features being eight unbounded arrays and eight descriptor pools, where the whole economy of a
+/// table is that there is one of it. See `docs/bindless-materials.md`.
+///
+/// Inherited rather than copied into each feature, so the declaration exists once in this file and
+/// the shared name cannot drift.
+shader MaterialTextures {
+    /// Every texture any material in the frame can sample, bound once and indexed per material.
+    ///
+    /// ⚠ `[Bindless]` — set 4, and its own set rather than the frame's. A per-frame set is written
+    /// from a content-addressed allocator, so it is a *different* set whenever any binding in it
+    /// changes; a table's descriptors are written once each and there may be thousands of them, so a
+    /// table sharing that set would be rewritten in full every time a uniform block moved. That is
+    /// the cost the table exists to remove. See `DescriptorSetSlot.Bindless`.
+    [Bindless] [Shared] var materialTextures: Texture2D[]
+
+    /// How they are filtered. One sampler for every material map, which is what a table costs: a
+    /// per-material sampler would be a per-material binding, and that is the thing being removed.
+    ///
+    /// Per-frame rather than in the table's set, because it is an ordinary binding a host fills from
+    /// `SamplerCache` like any other — the table's set is for the one thing that cannot be written
+    /// that way.
+    [PerFrame] [Shared] var materialSampler: Sampler
+
+    /// One map, at the surface's coordinate.
+    ///
+    /// `index` is a slot the host handed out, so it is always in range — but a material that names
+    /// no texture writes zero, and slot zero is whatever the table's fallback view is. That is a
+    /// defined thing to read rather than whatever the driver left there, which is what makes an
+    /// unset map a visible mistake instead of an undefined one.
+    func SampleMap(index: uint, uv: float2): float4 {
+        return materialTextures[int(index)].Sample(materialSampler, uv)
+    }
+}
+
+/// The metalness/roughness workflow with a base-colour map.
+///
+/// The first feature in the library that samples a texture, and the reason the three pieces above it
+/// exist: `uv` on `MaterialData` so a feature has somewhere to sample at, `Texture2D[]` so the table
+/// is a type, and `[Shared]` so every feature that samples names the same one.
+///
+/// The colour is multiplied rather than replaced, so a material can tint a map and a material with
+/// no map — index zero — is the untextured workflow with one extra multiply.
+shader TexturedMetalRoughnessSurface : MaterialTextures, IMaterialSurface {
+    var baseColor: float3 = float3(1f, 1f, 1f)
+    var metalness: float = 0f
+    var roughness: float = 0.5f
+
+    /// Which slot of the frame's table holds this material's base-colour map.
+    ///
+    /// Written by `MaterialRenderFeature`, which registers the texture and puts the slot here — the
+    /// pairing is `TextureIndices`, and it is explicit because this name and the material's texture
+    /// name belong to different things.
+    var baseColorIndex: uint = 0u
+
+    func Compute(inout d: MaterialData) {
+        val sampled = SampleMap(baseColorIndex, d.uv)
+        val colour = baseColor * sampled.rgb
+
+        d.diffuseColor = colour * (1f - metalness)
+        d.f0 = Brdf.F0FromMetalness(colour, metalness, MaterialDefaults.DielectricF0)
+        d.perceptualRoughness = saturate(roughness)
+
+        // The map's alpha reaches coverage, which is what a cutout material needs and what a
+        // feature with no texture could not express: `alpha` was whatever `Reset` left.
+        d.alpha *= sampled.a
     }
 }
 

@@ -103,6 +103,19 @@ public static class SceneScalars {
             value => Write(((Color4) value).R, ((Color4) value).G, ((Color4) value).B, ((Color4) value).A),
             YamlScalarStyle.Plain
         );
+
+        // ⚠ Registered alongside <see cref="Color4" /> rather than left to the binder, and the
+        // symptom of its absence is worth recording: a light's colour came out as "Color3 has no
+        // descriptor", thrown from the *serializer* when a scene was saved. Nothing in
+        // `Vixen.Core.Mathematics` carries the reflection generator — see the remarks above — so
+        // every type of its that a scene file names has to be one of these, and a colour with no
+        // alpha is as much one as a colour with one.
+        YamlScalarConverters.Register(
+            typeof(Color3),
+            text => Read(text, 3) is var n ? new Color3(n[0], n[1], n[2]) : default,
+            value => Write(((Color3) value).R, ((Color3) value).G, ((Color3) value).B),
+            YamlScalarStyle.Plain
+        );
     }
 
     /// <summary>Splits a scalar into the numbers it holds.</summary>

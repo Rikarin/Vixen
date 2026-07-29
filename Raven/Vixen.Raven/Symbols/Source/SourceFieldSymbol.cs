@@ -232,6 +232,27 @@ public sealed class SourceFieldSymbol : FieldSymbol {
 
     public override bool IsPushConstant => DeclarationFacts.IsPushConstant(syntax.AttributeLists);
 
+    public override bool IsShared => DeclarationFacts.IsShared(syntax.AttributeLists);
+
+    public override bool IsMaterialIndex {
+        get {
+            if (!DeclarationFacts.IsMaterialIndex(syntax.AttributeLists)) {
+                return false;
+            }
+
+            // `[MaterialIndex]` is unconditional; `[MaterialIndex("Key")]` applies only in the
+            // variants where that permutation is true, which is what lets one pass be both a
+            // records pass and a bound-per-material one. An unsupplied key is false, matching how a
+            // permutation with no value behaves everywhere else — the fallback, which is the safe
+            // half of this particular pair.
+            if (DeclarationFacts.GetMaterialIndexCondition(syntax.AttributeLists) is not { } condition) {
+                return true;
+            }
+
+            return binder.Compilation.PermutationValues.GetValueOrDefault(condition) is bool enabled && enabled;
+        }
+    }
+
     public override ImageFormat? ImageFormat =>
         ImageFormats.Lookup(DeclarationFacts.GetImageFormat(syntax.AttributeLists));
 

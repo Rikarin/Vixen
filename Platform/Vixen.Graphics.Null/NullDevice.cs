@@ -260,6 +260,7 @@ public sealed class NullDevice : IGraphicsDevice {
         HasMeshShaders = true,
         HasBindless = true,
         HasMultiDrawIndirect = true,
+        HasDrawIndirectCount = true,
         HasTimelineSemaphores = true,
         HasAsyncCompute = true,
         HasAsyncTransfer = true,
@@ -276,6 +277,17 @@ public sealed class NullDevice : IGraphicsDevice {
         MaxColourAttachments = 8,
         MaxVertexBuffers = 16,
         MaxAnisotropy = 16f,
+
+        // A desktop driver's order of magnitude rather than a round number, because a table sized
+        // against this is the thing a test is checking and a suspiciously tidy ceiling is one nobody
+        // would notice being hit.
+        MaxBindlessDescriptors = 500_000,
+
+        // Five, because a table is a set of its own and a shader that indexes one binds five. A
+        // device claiming bindless with four bindable sets is a combination no real device reports
+        // and one this file should not be the first to invent — see DescriptorSetSlot.Bindless.
+        MaxDescriptorSets = 8,
+
         SupportedSampleCounts = 0b11111
     };
 
@@ -355,8 +367,28 @@ public sealed class NullDevice : IGraphicsDevice {
     public DescriptorSetLayoutHandle CreateDescriptorSetLayout(in DescriptorSetLayoutDescription description) {
         description.Validate();
 
+        foreach (var binding in description.Bindings ?? []) {
+            // The same refusal every real backend makes, made without one. A device that reports no
+            // descriptor indexing and is handed an unbounded binding anyway is a host that skipped
+            // its capability check, and finding that out here costs nothing.
+            if (binding.IsUnbounded() && !Features.HasBindless) {
+                throw new ArgumentException(
+                    $"Binding {binding.Binding} of '{description.Name}' is unbounded, which needs "
+                    + "GraphicsDeviceFeatures.HasBindless. This device reports it absent."
+                );
+            }
+        }
+
         lock (gate) {
-            return new(setLayouts.Add(new NullDescriptorSetLayout(description.Slot)));
+            return new(
+                setLayouts.Add(
+                    new NullDescriptorSetLayout(
+                        description.Slot,
+                        [.. description.Bindings ?? []],
+                        description.CapacityFor(Features)
+                    )
+                )
+            );
         }
     }
 
@@ -379,12 +411,89 @@ public sealed class NullDevice : IGraphicsDevice {
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         Every write is held against the layout the set was allocated from: the binding has to
+    ///         be one the set declares, the kind has to be the one it was declared as, and the element
+    ///         has to be inside it. None of the three needs a GPU and all of them are undefined
+    ///         behaviour on one — a release driver overwrites a neighbouring descriptor, and the
+    ///         symptom is the wrong texture on an object that has nothing to do with the code that was
+    ///         wrong.
+    ///     </para>
+    ///     <para>
+    ///         <strong>The kind check is here rather than left to the Vulkan backend, which also makes
+    ///         it, because that one only runs on a machine with a driver and the validation layers
+    ///         switched on.</strong> Without them the write lands, the shader reads whichever kind it
+    ///         was compiled for, and what comes back is a wrong frame rather than an error. The
+    ///         dynamic kinds are compared exactly rather than folded into their static counterparts: a
+    ///         <see cref="DescriptorKind.DynamicUniformBuffer" /> written as a
+    ///         <see cref="DescriptorKind.UniformBuffer" /> is a descriptor that takes no offset at
+    ///         bind time, so every per-draw offset the caller passes is ignored and every object draws
+    ///         with the first one's block. That is what turning it on found.
+    ///     </para>
+    /// </remarks>
     public void UpdateDescriptorSet(DescriptorSetHandle descriptors, ReadOnlySpan<DescriptorWrite> writes) {
         lock (gate) {
-            if (!descriptorSets.Contains(descriptors.Value)) {
+            if (!descriptorSets.TryGet(descriptors.Value, out var resource)
+                || resource is not NullDescriptorSet set) {
                 throw new ArgumentException("The set does not exist, or has been destroyed.", nameof(descriptors));
             }
+
+            if (!setLayouts.TryGet(set.Layout.Value, out var layoutResource)
+                || layoutResource is not NullDescriptorSetLayout layout) {
+                throw new ArgumentException("The set's layout has been destroyed.", nameof(descriptors));
+            }
+
+            foreach (var write in writes) {
+                Validate(layout, write);
+                DescriptorWrites++;
+            }
         }
+    }
+
+    /// <summary>How many descriptor writes this device has been given, over its whole life.</summary>
+    /// <remarks>
+    ///     Counted rather than logged, because the interesting assertions are all about the count:
+    ///     that a settled frame writes nothing, that deduplication turned a thousand asks into one
+    ///     write, that a table nobody touched cost nothing.
+    /// </remarks>
+    public int DescriptorWrites { get; private set; }
+
+    static void Validate(NullDescriptorSetLayout layout, in DescriptorWrite write) {
+        foreach (var declared in layout.Bindings) {
+            if (declared.Binding != write.Binding) {
+                continue;
+            }
+
+            if (declared.Kind != write.Kind) {
+                throw new ArgumentException(
+                    $"Binding {write.Binding} was declared as {declared.Kind} and is being written as "
+                    + $"{write.Kind}. No driver checks this and the shader reads whichever it was "
+                    + "compiled for, so the result would be silently wrong."
+                );
+            }
+
+            // How long the binding actually is. A table's zero is its capacity; a storage buffer's
+            // zero is one descriptor holding a runtime-sized array, which is why this asks
+            // IsUnbounded rather than comparing the count itself.
+            var length = declared.IsUnbounded() ? layout.BindlessCapacity : Math.Max(1, declared.Count);
+
+            if (write.ArrayIndex < 0 || write.ArrayIndex >= length) {
+                throw new ArgumentOutOfRangeException(
+                    nameof(write),
+                    write.ArrayIndex,
+                    $"Binding {write.Binding} holds {length} descriptor(s), so element "
+                    + $"{write.ArrayIndex} is outside it."
+                );
+            }
+
+            return;
+        }
+
+        throw new ArgumentException(
+            $"Binding {write.Binding} is not declared by this descriptor-set layout, so writing it "
+            + "would do nothing the shader could read."
+        );
     }
 
     /// <inheritdoc />
@@ -535,7 +644,7 @@ public sealed class NullDevice : IGraphicsDevice {
     /// <inheritdoc />
     public ICommandList BeginCommandList(QueueKind kind = QueueKind.Graphics, string name = "") {
         ObjectDisposedException.ThrowIf(disposed, this);
-        return new NullCommandList(kind, name);
+        return new NullCommandList(kind, name, Features.HasDrawIndirectCount);
     }
 
     /// <inheritdoc />
@@ -613,8 +722,21 @@ public sealed class NullDevice : IGraphicsDevice {
 
     sealed class NullPipelineLayout : GpuPipelineLayout;
 
-    sealed class NullDescriptorSetLayout(DescriptorSetSlot slot) : GpuDescriptorSetLayout {
+    sealed class NullDescriptorSetLayout(DescriptorSetSlot slot, DescriptorBinding[] bindings, int bindlessCapacity)
+        : GpuDescriptorSetLayout {
         public DescriptorSetSlot Slot { get; } = slot;
+
+        /// <summary>How many descriptors its unbounded binding holds, resolved against the device.</summary>
+        public int BindlessCapacity { get; } = bindlessCapacity;
+
+        /// <summary>What the set declares, kept so a write can be held against it.</summary>
+        /// <remarks>
+        ///     A backend with no GPU has no reason to remember this except the one that matters: a
+        ///     write of the wrong kind, or an element written past the end of an array binding, is
+        ///     undefined on a real device and caught here without one — which is what this backend is
+        ///     for.
+        /// </remarks>
+        public DescriptorBinding[] Bindings { get; } = bindings;
     }
 
     sealed class NullDescriptorSet(DescriptorSetLayoutHandle layout) : GpuDescriptorSet {

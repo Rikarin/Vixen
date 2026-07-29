@@ -17,6 +17,22 @@ Vixen.Graphics.BarrierGroup.BarrierGroup(System.ReadOnlySpan<Vixen.Graphics.Buff
 Vixen.Graphics.BarrierGroup.Buffers.get -> System.ReadOnlySpan<Vixen.Graphics.BufferBarrier>
 Vixen.Graphics.BarrierGroup.IsEmpty.get -> bool
 Vixen.Graphics.BarrierGroup.Textures.get -> System.ReadOnlySpan<Vixen.Graphics.TextureBarrier>
+Vixen.Graphics.BindlessTable -> sealed class
+Vixen.Graphics.BindlessTable : System.IDisposable
+Vixen.Graphics.BindlessTable.Add(Vixen.Graphics.TextureViewHandle view) -> uint
+Vixen.Graphics.BindlessTable.BeginFrame() -> void
+Vixen.Graphics.BindlessTable.BindlessTable(Vixen.Graphics.IGraphicsDevice device, Vixen.Graphics.ShaderStage stages = Vixen.Graphics.ShaderStage.Fragment, int capacity = 0, uint binding = 0, Vixen.Graphics.DescriptorSetSlot slot = Vixen.Graphics.DescriptorSetSlot.Bindless, Vixen.Graphics.DescriptorKind kind = Vixen.Graphics.DescriptorKind.SampledTexture, Vixen.Graphics.TextureViewHandle fallback = default(Vixen.Graphics.TextureViewHandle), string name = "Bindless") -> void
+Vixen.Graphics.BindlessTable.Capacity.get -> int
+Vixen.Graphics.BindlessTable.Count.get -> int
+Vixen.Graphics.BindlessTable.Dispose() -> void
+Vixen.Graphics.BindlessTable.FramesInFlight.get -> int
+Vixen.Graphics.BindlessTable.HighWaterMark.get -> int
+Vixen.Graphics.BindlessTable.Layout.get -> Vixen.Graphics.DescriptorSetLayoutHandle
+Vixen.Graphics.BindlessTable.Remove(Vixen.Graphics.TextureViewHandle view) -> bool
+Vixen.Graphics.BindlessTable.Reset() -> void
+Vixen.Graphics.BindlessTable.Set.get -> Vixen.Graphics.DescriptorSetHandle
+Vixen.Graphics.BindlessTable.TryGetIndex(Vixen.Graphics.TextureViewHandle view, out uint index) -> bool
+Vixen.Graphics.BindlessTable.WriteCount.get -> int
 Vixen.Graphics.BlendFactor -> enum : byte
 Vixen.Graphics.BlendFactor.BlendFactor() -> void
 Vixen.Graphics.BlendFactor.Constant = 10 -> Vixen.Graphics.BlendFactor
@@ -228,6 +244,7 @@ Vixen.Graphics.DescriptorBinding.SampleType.get -> Vixen.Graphics.DescriptorSamp
 Vixen.Graphics.DescriptorBinding.SampleType.init -> Vixen.Graphics.DescriptorSampleType
 Vixen.Graphics.DescriptorBinding.Stages.get -> Vixen.Graphics.ShaderStage
 Vixen.Graphics.DescriptorBinding.Stages.init -> Vixen.Graphics.ShaderStage
+Vixen.Graphics.DescriptorBindingExtensions -> static class
 Vixen.Graphics.DescriptorKind -> enum : byte
 Vixen.Graphics.DescriptorKind.DescriptorKind() -> void
 Vixen.Graphics.DescriptorKind.DynamicStorageBuffer = 3 -> Vixen.Graphics.DescriptorKind
@@ -255,8 +272,11 @@ Vixen.Graphics.DescriptorSetLayoutDescription -> readonly struct
 Vixen.Graphics.DescriptorSetLayoutDescription : System.IEquatable<Vixen.Graphics.DescriptorSetLayoutDescription>
 Vixen.Graphics.DescriptorSetLayoutDescription.Bindings.get -> Vixen.Graphics.DescriptorBinding[]
 Vixen.Graphics.DescriptorSetLayoutDescription.Bindings.init -> Vixen.Graphics.DescriptorBinding[]
+Vixen.Graphics.DescriptorSetLayoutDescription.BindlessCapacity.get -> int
+Vixen.Graphics.DescriptorSetLayoutDescription.BindlessCapacity.init -> int
+Vixen.Graphics.DescriptorSetLayoutDescription.CapacityFor(in Vixen.Graphics.GraphicsDeviceFeatures features) -> int
 Vixen.Graphics.DescriptorSetLayoutDescription.DescriptorSetLayoutDescription() -> void
-Vixen.Graphics.DescriptorSetLayoutDescription.DescriptorSetLayoutDescription(Vixen.Graphics.DescriptorSetSlot Slot, Vixen.Graphics.DescriptorBinding[] Bindings, string Name = "") -> void
+Vixen.Graphics.DescriptorSetLayoutDescription.DescriptorSetLayoutDescription(Vixen.Graphics.DescriptorSetSlot Slot, Vixen.Graphics.DescriptorBinding[] Bindings, string Name = "", int BindlessCapacity = 0) -> void
 Vixen.Graphics.DescriptorSetLayoutDescription.Name.get -> string
 Vixen.Graphics.DescriptorSetLayoutDescription.Name.init -> string
 Vixen.Graphics.DescriptorSetLayoutDescription.Slot.get -> Vixen.Graphics.DescriptorSetSlot
@@ -270,6 +290,7 @@ Vixen.Graphics.DescriptorSetLayoutHandle.IsValid.get -> bool
 Vixen.Graphics.DescriptorSetLayoutHandle.Value.get -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuDescriptorSetLayout>
 Vixen.Graphics.DescriptorSetLayoutHandle.Value.init -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuDescriptorSetLayout>
 Vixen.Graphics.DescriptorSetSlot -> enum : byte
+Vixen.Graphics.DescriptorSetSlot.Bindless = 4 -> Vixen.Graphics.DescriptorSetSlot
 Vixen.Graphics.DescriptorSetSlot.DescriptorSetSlot() -> void
 Vixen.Graphics.DescriptorSetSlot.PerDraw = 3 -> Vixen.Graphics.DescriptorSetSlot
 Vixen.Graphics.DescriptorSetSlot.PerFrame = 0 -> Vixen.Graphics.DescriptorSetSlot
@@ -340,6 +361,8 @@ Vixen.Graphics.GraphicsDeviceFeatures.HasCompute.get -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasCompute.init -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasDepthClamp.get -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasDepthClamp.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasDrawIndirectCount.get -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasDrawIndirectCount.init -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasDynamicRendering.get -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasDynamicRendering.init -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasFloat64.get -> bool
@@ -368,6 +391,8 @@ Vixen.Graphics.GraphicsDeviceFeatures.HasWireframe.get -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasWireframe.init -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.MaxAnisotropy.get -> float
 Vixen.Graphics.GraphicsDeviceFeatures.MaxAnisotropy.init -> float
+Vixen.Graphics.GraphicsDeviceFeatures.MaxBindlessDescriptors.get -> int
+Vixen.Graphics.GraphicsDeviceFeatures.MaxBindlessDescriptors.init -> int
 Vixen.Graphics.GraphicsDeviceFeatures.MaxColourAttachments.get -> int
 Vixen.Graphics.GraphicsDeviceFeatures.MaxColourAttachments.init -> int
 Vixen.Graphics.GraphicsDeviceFeatures.MaxComputeWorkgroupSize.get -> (int X, int Y, int Z)
@@ -429,6 +454,7 @@ Vixen.Graphics.ICommandList.DispatchIndirect(Vixen.Graphics.BufferHandle argumen
 Vixen.Graphics.ICommandList.Draw(int vertexCount, int instanceCount = 1, int firstVertex = 0, int firstInstance = 0) -> void
 Vixen.Graphics.ICommandList.DrawIndexed(int indexCount, int instanceCount = 1, int firstIndex = 0, int vertexOffset = 0, int firstInstance = 0) -> void
 Vixen.Graphics.ICommandList.DrawIndexedIndirect(Vixen.Graphics.BufferHandle arguments, long offset = 0, int drawCount = 1, int stride = 20) -> void
+Vixen.Graphics.ICommandList.DrawIndexedIndirectCount(Vixen.Graphics.BufferHandle arguments, Vixen.Graphics.BufferHandle count, long offset = 0, long countOffset = 0, int maxDrawCount = 1, int stride = 20) -> void
 Vixen.Graphics.ICommandList.EndRenderPass() -> void
 Vixen.Graphics.ICommandList.Finish() -> void
 Vixen.Graphics.ICommandList.InsertDebugMarker(string name) -> void
@@ -886,6 +912,7 @@ Vixen.Graphics.VertexStepMode -> enum : byte
 Vixen.Graphics.VertexStepMode.Instance = 1 -> Vixen.Graphics.VertexStepMode
 Vixen.Graphics.VertexStepMode.Vertex = 0 -> Vixen.Graphics.VertexStepMode
 Vixen.Graphics.VertexStepMode.VertexStepMode() -> void
+static Vixen.Graphics.BindlessTable.IsSupportedBy(Vixen.Graphics.IGraphicsDevice device) -> bool
 static Vixen.Graphics.BlendState.Additive.get -> Vixen.Graphics.BlendState
 static Vixen.Graphics.BlendState.AlphaBlend.get -> Vixen.Graphics.BlendState
 static Vixen.Graphics.BlendState.Opaque.get -> Vixen.Graphics.BlendState
@@ -894,8 +921,10 @@ static Vixen.Graphics.BufferHandle.Null.get -> Vixen.Graphics.BufferHandle
 static Vixen.Graphics.DepthStencilState.Default.get -> Vixen.Graphics.DepthStencilState
 static Vixen.Graphics.DepthStencilState.Disabled.get -> Vixen.Graphics.DepthStencilState
 static Vixen.Graphics.DepthStencilState.TestOnly.get -> Vixen.Graphics.DepthStencilState
+static Vixen.Graphics.DescriptorBindingExtensions.IsUnbounded(this Vixen.Graphics.DescriptorBinding binding) -> bool
 static Vixen.Graphics.DescriptorSetHandle.Null.get -> Vixen.Graphics.DescriptorSetHandle
 static Vixen.Graphics.DescriptorSetLayoutHandle.Null.get -> Vixen.Graphics.DescriptorSetLayoutHandle
+static Vixen.Graphics.DescriptorWrite.DynamicUniform(uint binding, Vixen.Graphics.BufferHandle buffer, long offset = 0, long size = 0) -> Vixen.Graphics.DescriptorWrite
 static Vixen.Graphics.DescriptorWrite.SamplerAt(uint binding, Vixen.Graphics.SamplerHandle sampler) -> Vixen.Graphics.DescriptorWrite
 static Vixen.Graphics.DescriptorWrite.Storage(uint binding, Vixen.Graphics.BufferHandle buffer, long offset = 0, long size = 0) -> Vixen.Graphics.DescriptorWrite
 static Vixen.Graphics.DescriptorWrite.Texture(uint binding, Vixen.Graphics.TextureViewHandle view, int arrayIndex = 0) -> Vixen.Graphics.DescriptorWrite

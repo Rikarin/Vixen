@@ -66,15 +66,48 @@ public sealed partial class DockTab : ButtonBase {
 }
 
 /// <summary>A group's tab strip and the panel it is showing.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The strip scrolls, and it has to.</b> A group is how many panels somebody stacked
+///         into one place, and that is unbounded — six tabs in a pane a quarter of the window wide is
+///         an ordinary arrangement. Without somewhere for them to go, flexbox either shrinks every
+///         tab until none of the titles can be read or pushes the last of them out of the box, and in
+///         both cases the panels on the end are ones the user cannot get back to.
+///     </para>
+///     <para>
+///         <b>Four elements, and the middle one is the only one that moves.</b> The strip is a row
+///         holding a previous button, a clipping viewport, a next button; the viewport holds a list
+///         that keeps its natural width and is slid sideways by <see cref="UiElement.OffsetX" />. The
+///         clipping is <c>overflow: hidden</c> in the theme, which is the draw list's clip stack —
+///         the same mechanism <c>ScrollView</c> uses, and deliberately not <c>ScrollView</c> itself,
+///         because a tab strip with a scrollbar under it is two rows of chrome to save one.
+///     </para>
+/// </remarks>
 public sealed partial class DockGroupView : Control {
+    /// <summary>How much of the visible width one press of an arrow moves.</summary>
+    /// <remarks>
+    ///     Not all of it: a page that moved the full width would leave nothing on screen that was
+    ///     there before, and the tab you were looking for is the one you have just scrolled past.
+    /// </remarks>
+    public const float PageFraction = 0.75f;
+
     /// <inheritdoc />
     protected override string TagName => "dock-group";
 
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
 
-    /// <summary>The strip along the top.</summary>
+    /// <summary>The strip along the top: the arrows and the tabs between them.</summary>
     public UiElement Strip { get; private set; } = null!;
+
+    /// <summary>Where the tabs live. Inside <see cref="Strip" />, and what scrolls.</summary>
+    public UiElement Tabs { get; private set; } = null!;
+
+    /// <summary>The arrow that scrolls towards the first tab, shown only when there is one off-screen.</summary>
+    public IconButton Previous { get; private set; } = null!;
+
+    /// <summary>The arrow that scrolls towards the last.</summary>
+    public IconButton Next { get; private set; } = null!;
 
     /// <summary>Where the panels live.</summary>
     public UiElement Body { get; private set; } = null!;
@@ -82,12 +115,163 @@ public sealed partial class DockGroupView : Control {
     /// <summary>The arrangement node this is showing.</summary>
     public DockGroupNode? Node { get; internal set; }
 
+    /// <summary>How far the tabs are scrolled, in pixels from the first one.</summary>
+    public float ScrollLeft { get; private set; }
+
+    /// <summary>How far they can be scrolled.</summary>
+    public float MaximumScroll => MathF.Max(0f, Tabs.Width - Viewport.Width);
+
+    /// <summary>Whether there are tabs the strip is not showing.</summary>
+    public bool Overflows => MaximumScroll > 0.5f;
+
+    /// <summary>The clipping box the tabs are slid inside.</summary>
+    UiElement Viewport { get; set; } = null!;
+
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
 
         Strip = Part("dock-tabstrip");
+
+        Previous = Strip.Add<IconButton>();
+        Previous.LeadingIcon.Geometry = ControlIcons.ChevronLeft;
+        Previous.Variant = ControlVariant.Subtle;
+        Previous.Label = "Previous tab";
+        Previous.TabIndex = -1;
+
+        Viewport = Strip.Add("dock-tabs-viewport");
+        Tabs = Viewport.Add("dock-tabs");
+
+        Next = Strip.Add<IconButton>();
+        Next.LeadingIcon.Geometry = ControlIcons.ChevronRight;
+        Next.Variant = ControlVariant.Subtle;
+        Next.Label = "Next tab";
+        Next.TabIndex = -1;
+
         Body = Part("dock-body");
+
+        Previous.Clicked += _ => Scroll(-Viewport.Width * PageFraction);
+        Next.Clicked += _ => Scroll(Viewport.Width * PageFraction);
+
+        // ⚠ Subscribed to the pass directly rather than through `Control.WhenResized`, and it is the
+        // case `WhenResized` documents as not being its own: whether the tabs fit depends on the
+        // *tabs*, not on this. A panel added, closed or renamed changes the strip's content without
+        // changing the group's box at all — so a refresh gated on this element's size would leave the
+        // arrows saying what was true two panels ago.
+        settle = _ => Refresh();
+        Document.LayoutFinished += settle;
+    }
+
+    Action<UiDocument>? settle;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>And it must, because these are built and thrown away constantly.</b> Every structural
+    ///     change rebuilds the views from the arrangement, so a group view that left a handler on the
+    ///     document would leak one per dock, per drag, per rename — and every stale handler would go
+    ///     on measuring an element that is no longer in the tree.
+    /// </remarks>
+    protected override void OnRemoved() {
+        if (settle is not null) {
+            Document.LayoutFinished -= settle;
+            settle = null;
+        }
+
+        base.OnRemoved();
+    }
+
+    /// <summary>Scrolls the tabs by a distance, clamped to what there is.</summary>
+    /// <param name="delta">How far, positive towards the last tab.</param>
+    public void Scroll(float delta) => ScrollTo(ScrollLeft + delta);
+
+    /// <summary>Scrolls the tabs to a position, clamped to what there is.</summary>
+    /// <param name="offset">How far from the first tab.</param>
+    public void ScrollTo(float offset) {
+        ScrollLeft = Math.Clamp(offset, 0f, MaximumScroll);
+
+        Tabs.OffsetX = -ScrollLeft;
+        Update();
+    }
+
+    /// <summary>Scrolls until a tab is wholly visible, if it is not already.</summary>
+    /// <param name="tab">The tab.</param>
+    /// <remarks>
+    ///     ⚠ <b>What makes a scrolling strip usable rather than merely possible.</b> Selecting a panel
+    ///     from a menu, closing the tab in front of the one you wanted, or restoring a layout all put
+    ///     the current tab wherever it happens to fall — and a strip that showed the selected panel's
+    ///     body while its tab sat off the end reads as the selection having been lost.
+    /// </remarks>
+    public void Reveal(UiElement tab) {
+        ArgumentNullException.ThrowIfNull(tab);
+
+        if (!Overflows) {
+            return;
+        }
+
+        var left = tab.AbsoluteLeft - Tabs.AbsoluteLeft;
+        var right = left + tab.Width;
+
+        if (left < ScrollLeft) {
+            ScrollTo(left);
+        } else if (right > ScrollLeft + Viewport.Width) {
+            ScrollTo(right - Viewport.Width);
+        }
+    }
+
+    /// <summary>Asks for a tab to be revealed once there are boxes to measure.</summary>
+    /// <param name="tab">The tab, or <see langword="null" /> to forget a pending request.</param>
+    /// <remarks>
+    ///     What a rebuild uses: the tabs it has just created are all zero-sized until the pass that
+    ///     follows it, so "scroll until the selected one is visible" cannot be answered yet. One
+    ///     pending request rather than a queue — the only thing that ever asks is the rebuild, and the
+    ///     only tab worth revealing is the one that ends up selected.
+    /// </remarks>
+    public void RevealAfterLayout(UiElement? tab) => pending = tab;
+
+    UiElement? pending;
+
+    /// <summary>Brings the arrows and the scroll offset up to date with the tabs.</summary>
+    /// <remarks>
+    ///     Public and idempotent for the same reason <c>ScrollView.Settle</c> is: a caller that has
+    ///     just filled a strip and wants to read <see cref="Overflows" /> before the next pass has a
+    ///     way to say so.
+    /// </remarks>
+    public void Refresh() {
+        // ⚠ Clamped again here, not only when scrolled. Widening the pane or closing a tab shortens
+        // the range, and an offset left past the end of it is a strip scrolled into empty space with
+        // the arrows greyed out and no way back.
+        ScrollTo(ScrollLeft);
+
+        if (pending is not { } tab) {
+            return;
+        }
+
+        // ⚠ Cleared before the reveal, not after. `Reveal` scrolls, a scroll is a change, and a
+        // change runs the settle loop round again — so a request left in place would be honoured on
+        // every pass and would fight anybody scrolling the strip by hand.
+        pending = null;
+        Reveal(tab);
+    }
+
+    void Update() {
+        var overflows = Overflows;
+
+        Toggle(Previous, overflows);
+        Toggle(Next, overflows);
+
+        // ⚠ Disabled rather than hidden at the ends. An arrow that vanished when it ran out would
+        // move the other one and the whole strip sideways on every scroll, so the button under the
+        // pointer would be a different button by the time it was pressed again.
+        Previous.Disabled = ScrollLeft <= 0.5f;
+        Next.Disabled = ScrollLeft >= MaximumScroll - 0.5f;
+    }
+
+    static void Toggle(UiElement element, bool shown) {
+        if (shown) {
+            element.RemoveClass("hidden");
+        } else {
+            element.AddClass("hidden");
+        }
     }
 }
 
@@ -269,8 +453,25 @@ public sealed partial class DockingHost : Control {
 
         Preview.AddClass("hidden");
 
+        // After the preview, because the tree order is the paint order and a guide drawn under the
+        // rectangle it is offering would be a handle the user cannot see at the moment they need it.
+        Guides = BuildGuides(this);
+
         AddHandler<ClickEvent>(static (element, args) => ((DockingHost) element).Chosen(args));
         AddHandler<DragEvent>(static (element, args) => ((DockingHost) element).Dragged(args));
+
+        // ⚠ On the capture leg, so it runs before whatever was pressed does anything with the event
+        // — including marking it handled, which a tree row and a button both do. Which panel the
+        // user is working in is not something any of them should be able to swallow.
+        AddHandler<PointerEvent>(
+            static (element, args) => ((DockingHost) element).Pressed(args),
+            RoutingStrategy.Capture,
+            handledEventsToo: true
+        );
+
+        // Tab moves the focus without any pointer being involved, and the active panel has to follow
+        // it or the border says one thing while the keyboard does another.
+        AddHandler<FocusEvent>(static (element, args) => ((DockingHost) element).Focused(args));
     }
 
     /// <summary>Adds a panel, docking it if the arrangement does not already place it.</summary>
@@ -333,12 +534,89 @@ public sealed partial class DockingHost : Control {
         return true;
     }
 
+    /// <summary>Which panel the user last worked in, whether or not anything in it takes focus.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Focus alone is not enough, and this is the gap it leaves.</b> A tree row and a
+    ///         text field take focus, so the outliner and the scene lit up when clicked; a console
+    ///         row and an inspector's label do not, so those two panels never showed as focused
+    ///         however many times they were clicked. A dozen identical panes where the border is
+    ///         right for two of them is worse than no border at all — it is a signal that reads as
+    ///         broken rather than as absent.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A press outside the focused element's panel takes the focus with it.</b>
+    ///         Otherwise clicking the console would leave the outliner still holding the keyboard,
+    ///         and the next Delete would act on a panel the user had visibly left.
+    ///     </para>
+    /// </remarks>
+    DockPanel? pressed;
+
+    void Pressed(PointerEvent args) {
+        if (args.Action != PointerAction.Pressed || PanelUnder(args.Source) is not { } panel) {
+            return;
+        }
+
+        pressed = panel;
+
+        if (Document.Focused is { } focus && !ReferenceEquals(PanelUnder(focus), panel)) {
+            // Cleared rather than moved: what inside the new panel deserves the keyboard is that
+            // panel's business, and whatever is pressed takes it on the bubble leg anyway.
+            Document.Focus(null);
+        }
+
+        MarkActive();
+    }
+
+    void Focused(FocusEvent args) {
+        if (args.Gained && PanelUnder(args.Next) is { } panel) {
+            pressed = panel;
+        }
+
+        MarkActive();
+    }
+
+    /// <summary>The panel an element is inside, if it is inside one this host owns.</summary>
+    DockPanel? PanelUnder(UiElement? element) {
+        for (var walk = element; walk is not null; walk = walk.Parent) {
+            if (walk is DockPanel panel && panels.ContainsKey(panel.Id)) {
+                return panel;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Puts the <c>active</c> class on the group holding <see cref="Active" /> and no other.</summary>
+    /// <remarks>
+    ///     A class rather than a state, because <c>:focus-within</c> already carries the meaning for
+    ///     the panels that do take focus — a theme styles the two together and gets one rule.
+    /// </remarks>
+    internal void MarkActive() {
+        // ⚠ The panel the user is actually in, not `Active`. That property falls back to the front
+        // tab of the first group so that a command about "this panel" always has one — which is
+        // right for a command and wrong for a border: it would light a panel up before anybody had
+        // touched anything, saying the keyboard is somewhere it is not.
+        var active = PanelUnder(Document.Focused) ?? (pressed is { IsRemoved: false } ? pressed : null);
+
+        foreach (var view in groups) {
+            var holds = active is not null && view.Node?.IndexOf(active.Id) >= 0;
+
+            if (holds) {
+                view.AddClass("active");
+            } else {
+                view.RemoveClass("active");
+            }
+        }
+    }
+
     /// <summary>Moves a panel next to, or into, a group.</summary>
     /// <param name="id">The panel.</param>
     /// <param name="target">The group.</param>
     /// <param name="side">Which side of it, or its middle.</param>
-    public void Dock(string id, DockGroupNode target, DockZone side) {
-        Layout.Dock(id, target, side);
+    /// <param name="index">Where in the target's tab order, for a centre drop, or -1 for the end.</param>
+    public void Dock(string id, DockGroupNode target, DockZone side, int index = -1) {
+        Layout.Dock(id, target, side, index);
         Rebuild();
     }
 
@@ -443,6 +721,11 @@ public sealed partial class DockingHost : Control {
             }
         }
 
+        // ⚠ The views are new, so the class is not on any of them. A rebuild is what every dock,
+        // float and layout change ends with — an active border that survived the arrangement it was
+        // drawn against would be a border on whichever group happened to be built in that slot.
+        MarkActive();
+
         LayoutChanged?.Invoke(this);
     }
 
@@ -485,7 +768,7 @@ public sealed partial class DockingHost : Control {
                 continue;
             }
 
-            var tab = view.Strip.Add<DockTab>();
+            var tab = view.Tabs.Add<DockTab>();
             tab.PanelId = id;
             tab.Label = panel.Title;
 
@@ -498,6 +781,11 @@ public sealed partial class DockingHost : Control {
             if (i == node.Selected) {
                 tab.State |= ElementState.Checked;
                 panel.AddClass("selected");
+
+                // ⚠ Asked for rather than done, because a tab that has just been created has no box
+                // to measure against yet — `Reveal` reads widths and offsets, and every one of them
+                // is zero until the pass that follows this rebuild.
+                view.RevealAfterLayout(tab);
             } else {
                 panel.RemoveClass("selected");
             }
@@ -558,7 +846,7 @@ public sealed partial class DockingHost : Control {
     /// </remarks>
     void Dragged(DragEvent args) {
         switch (args.Stage) {
-            case DragStage.Started when args.Source is DockTab tab:
+            case DragStage.Started when TabOf(args.Source) is { } tab:
                 dragged = tab;
                 break;
 
@@ -577,6 +865,37 @@ public sealed partial class DockingHost : Control {
             default:
                 break;
         }
+    }
+
+    /// <summary>Which tab a drag that started on an element is a drag of.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The element a press lands on is the deepest one under the pointer, and on a tab
+    ///         that is almost never the tab.</b> A tab's title is a child element — it has to be, or
+    ///         a tab could not also have an icon — so a drag begun anywhere on the words reported the
+    ///         label, a test for the tab itself failed, and the only part of a tab that could be
+    ///         picked up was the few pixels of padding around the text. Users find that and report it
+    ///         as docking being broken, which it effectively was.
+    ///     </para>
+    ///     <para>
+    ///         <b>The close button is the exception and stops the walk.</b> It is inside the tab, so
+    ///         an ancestor search that did not stop would make the button a drag handle — and a press
+    ///         on it that wandered a few pixels before letting go would dock the panel somewhere
+    ///         instead of doing the one thing its icon promises.
+    ///     </para>
+    /// </remarks>
+    static DockTab? TabOf(UiElement? source) {
+        for (var walk = source; walk is not null; walk = walk.Parent) {
+            if (walk is DockTab tab) {
+                return tab;
+            }
+
+            if (walk is IconButton) {
+                return null;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Follows a tab drag, in desktop space, across every window this host has.</summary>
@@ -606,7 +925,8 @@ public sealed partial class DockingHost : Control {
             }
 
             hovered = node;
-            zone = ZoneOf(bounds, pointer.X, pointer.Y);
+            zone = ZoneAt(bounds, pointer.X, pointer.Y);
+            index = zone == DockZone.Center ? InsertionAt(view, x, y) : -1;
 
             Show(view, zone);
             return;
@@ -618,12 +938,64 @@ public sealed partial class DockingHost : Control {
     /// <summary>Where the drag is now, in desktop space.</summary>
     Vector2 pointer;
 
-    /// <summary>Takes the drop preview off every window.</summary>
+    /// <summary>Which place in the target's tab order a centre drop would take, or -1 for the end.</summary>
+    int index = -1;
+
+    /// <summary>Where in a group's strip a drop at a point belongs.</summary>
+    /// <param name="view">The group under the pointer.</param>
+    /// <param name="x">Where, in the *document's* space — the strip's rectangles are in it too.</param>
+    /// <param name="y">Ditto.</param>
+    /// <returns>The index to insert at, or -1 for the end.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What makes a stack re-orderable, and it has to come from the pointer.</b> Dropping
+    ///         onto a group's centre appended, so the only reordering anybody could perform was
+    ///         "send this to the end" — and dragging a tab two places to the left did nothing at all,
+    ///         which reads as the tabs not being draggable.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Before or after the tab under the pointer, decided by its midpoint.</b> Nearest-
+    ///         edge rather than "the tab you are over": dropping on the right half of the second tab
+    ///         plainly means third, and a rule that said second would make every leftward drag
+    ///         overshoot and every rightward one fall short.
+    ///     </para>
+    ///     <para>
+    ///         A pointer that is over the body rather than the strip gets -1, which is the end. That
+    ///         is the honest answer for a gesture that said nothing about order.
+    ///     </para>
+    /// </remarks>
+    static int InsertionAt(DockGroupView view, float x, float y) {
+        var strip = view.Tabs;
+
+        if (!Inside(strip.Bounds, x, y)) {
+            return -1;
+        }
+
+        var place = 0;
+
+        foreach (var child in strip.Children) {
+            if (child is not DockTab tab) {
+                continue;
+            }
+
+            if (x < tab.Bounds.X + (tab.Bounds.Width * 0.5f)) {
+                return place;
+            }
+
+            place++;
+        }
+
+        return -1;
+    }
+
+    /// <summary>Takes the drop preview and the guides off every window.</summary>
     void Hide() {
         Preview.AddClass("hidden");
+        Guides.AddClass("hidden");
 
         foreach (var entry in torn) {
             entry.Preview?.AddClass("hidden");
+            entry.Guides?.AddClass("hidden");
         }
     }
 
@@ -658,9 +1030,9 @@ public sealed partial class DockingHost : Control {
         return best;
     }
 
-    /// <summary>Draws the drop rectangle in the window the group being hovered is in.</summary>
+    /// <summary>Draws the drop rectangle and the guides in the window the group being hovered is in.</summary>
     /// <remarks>
-    ///     ⚠ The preview belongs to a window and the geometry arrives in desktop space, so it is
+    ///     ⚠ Both overlays belong to a window and the geometry arrives in desktop space, so it is
     ///     brought back down into the surface the group lives in. A preview positioned from desktop
     ///     coordinates would draw the drop target for a torn-off inspector several hundred pixels
     ///     outside its own window.
@@ -679,34 +1051,43 @@ public sealed partial class DockingHost : Control {
 
         Hide();
 
-        var preview = PreviewFor(view);
+        var (preview, guides) = OverlaysFor(view);
 
-        if (preview is null) {
-            return;
+        if (preview is not null) {
+            preview.RemoveClass("hidden");
+            Place(preview, half);
         }
 
-        preview.RemoveClass("hidden");
-        preview.SetStyle("width", Pixels(half.Width));
-        preview.SetStyle("height", Pixels(half.Height));
-
-        // The preview is a child of the host, or of a torn-off window's root, so the offset is
-        // measured from where layout put it — which is wherever a zero-sized absolutely positioned
-        // element lands.
-        preview.OffsetX += half.X - preview.AbsoluteLeft;
-        preview.OffsetY += half.Y - preview.AbsoluteTop;
+        if (guides is not null) {
+            Guide(guides, bounds, side);
+        }
     }
 
-    /// <summary>The preview rectangle belonging to the window a group view is in.</summary>
-    UiElement? PreviewFor(DockGroupView view) {
+    /// <summary>Puts an overlay over a rectangle given in its own surface's coordinates.</summary>
+    /// <remarks>
+    ///     The overlay is a child of the host, or of a torn-off window's root, so the offset is
+    ///     measured from where layout put it — which is wherever a zero-sized absolutely positioned
+    ///     element lands.
+    /// </remarks>
+    static void Place(UiElement element, Rectangle bounds) {
+        element.SetStyle("width", Pixels(bounds.Width));
+        element.SetStyle("height", Pixels(bounds.Height));
+
+        element.OffsetX += bounds.X - element.AbsoluteLeft;
+        element.OffsetY += bounds.Y - element.AbsoluteTop;
+    }
+
+    /// <summary>The preview and the guides belonging to the window a group view is in.</summary>
+    (UiElement? Preview, UiElement? Guides) OverlaysFor(DockGroupView view) {
         var surface = Document.SurfaceOf(view);
 
         foreach (var entry in torn) {
             if (ReferenceEquals(entry.Window.Surface, surface)) {
-                return entry.Preview;
+                return (entry.Preview, entry.Guides);
             }
         }
 
-        return Preview;
+        return (Preview, Guides);
     }
 
     /// <summary>How far above and to the left of the cursor a torn-off window's corner lands.</summary>
@@ -726,12 +1107,13 @@ public sealed partial class DockingHost : Control {
     void Drop(DockTab tab) {
         var target = hovered;
         var side = zone;
+        var place = index;
         var where = pointer;
 
         Cancel();
 
         if (target is not null) {
-            Dock(tab.PanelId, target, side);
+            Dock(tab.PanelId, target, side, place);
             return;
         }
 
@@ -749,6 +1131,7 @@ public sealed partial class DockingHost : Control {
     void Cancel() {
         dragged = null;
         hovered = null;
+        index = -1;
 
         Hide();
     }

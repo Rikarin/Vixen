@@ -223,6 +223,16 @@ sealed class Fixture : IDisposable {
             // state it was imported with. Reading it is the harness's business, not the frame's.
             commands.CopyTextureToBuffer(new(Graph.TextureOf(colour)), new(Side, Side, 1), readback, 0);
             commands.Finish();
+
+            // ⚠ Before the submit, not only after it. Everything the validation layer says about
+            // *recording* — a set the pipeline needs and nothing bound, a resource in the wrong
+            // layout — it has already said by now, and submitting anyway is submitting work the
+            // driver has been told is invalid. That is not a test failure: it is a GPU fault, a dead
+            // test process, and every test after this one in the collection never running. One such
+            // frame cost fifty-six of them, and the assertion that would have caught it was in the
+            // right file — three lines below the submit that killed the process.
+            Fail(readback);
+
             device.GraphicsQueue.Submit([commands]);
         }
 
@@ -233,14 +243,32 @@ sealed class Fixture : IDisposable {
         device.Read(readback, 0, pixels);
         device.Destroy(readback);
 
-        if (VulkanDiagnostics.ErrorCount > 0) {
-            throw new InvalidOperationException(
-                "The fixture produced validation errors, so its picture is meaningless: "
-                + string.Join(Environment.NewLine, VulkanDiagnostics.Messages)
-            );
-        }
+        Fail(default);
 
         return new(Side, Side, pixels);
+    }
+
+    /// <summary>Throws if the validation layer has said anything, cleaning up first.</summary>
+    /// <param name="readback">A buffer to destroy on the way out, or an invalid handle for none.</param>
+    /// <remarks>
+    ///     The cleanup matters because this is called before the submit as well as after it: throwing
+    ///     out of the recording block leaves a command list that is never submitted and a readback
+    ///     buffer nobody frees, and a leak reported at device teardown would bury the message that
+    ///     says what actually went wrong.
+    /// </remarks>
+    void Fail(BufferHandle readback) {
+        if (VulkanDiagnostics.ErrorCount == 0) {
+            return;
+        }
+
+        if (readback.IsValid) {
+            device.Destroy(readback);
+        }
+
+        throw new InvalidOperationException(
+            "The fixture produced validation errors, so its picture is meaningless: "
+            + string.Join(Environment.NewLine, VulkanDiagnostics.Messages)
+        );
     }
 
     /// <summary>The target a fixture renders into and the harness reads back.</summary>

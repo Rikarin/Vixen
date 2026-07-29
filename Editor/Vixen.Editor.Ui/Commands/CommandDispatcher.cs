@@ -70,13 +70,28 @@ public sealed class CommandDispatcher {
             return false;
         }
 
-        var chord = KeyChord.Of(args);
+        // ⚠ Swapped into the vocabulary the table is written in before anything is looked up. On a
+        // Mac the user pressed ⌘S and the keymap holds Ctrl+S — one portable spelling in the file
+        // and in the model, adapted at the two ends. See `KeyChord.ForPlatform`.
+        var chord = KeyChord.Of(args).ForPlatform();
 
         if (!chord.IsBound || !Available(document, chord)) {
             return false;
         }
 
-        if (keys.CommandFor(chord) is not { } id || !commands.TryGet(id, out var command)) {
+        // ⚠ Resolved against the context that has the focus, which is what lets the outliner and the
+        // content browser both answer Delete. A chord with no binding in that context falls back to
+        // the global one — see `KeyMap.CommandFor` — so nothing has to re-declare Ctrl+S per panel.
+        if (keys.CommandFor(chord, commands.FocusedContext?.Invoke()) is not { } id
+            || !commands.TryGet(id, out var command)) {
+            return false;
+        }
+
+        // ⚠ Out of scope is a fall-through and not a refusal. The chord resolved to a command
+        // belonging somewhere the user is not, which means it is not this keystroke's command at all
+        // — reporting it as unavailable would put "Delete — not available right now" on screen every
+        // time somebody pressed Delete in a text field.
+        if (!commands.IsInScope(command)) {
             return false;
         }
 

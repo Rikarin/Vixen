@@ -106,6 +106,21 @@ public static class EditorTheme {
             --chrome-sunken: #c4c6cc;
             --chrome-text: #43474f;
             --warning: #9a6200;
+            --play: #2f8f46;
+            --pause: #b8791b;
+            --stop: #c8352f;
+
+            /* ⚠ Two more shades each, because a hover has to stay the button's own
+               colour. The generic toolbar hover is a neutral grey, which on a green
+               button reads as the colour draining out of it at the moment the pointer
+               arrives — the one instant it most needs to look live. `soft` is the wash
+               under an idle button; `strong` is the filled one brightened. */
+            --play-soft: #cfe6d6;
+            --play-strong: #277a3b;
+            --pause-soft: #f0e0c4;
+            --pause-strong: #a06615;
+            --stop-soft: #f2cfcd;
+            --stop-strong: #ad2b26;
 
             --radius-panel: 5px;
             --radius-control: 4px;
@@ -140,6 +155,16 @@ public static class EditorTheme {
             --chrome-sunken: #232325;
             --chrome-text: #a8a8ad;
             --warning: #d99a3c;
+            --play: #3fae5c;
+            --pause: #d99a3c;
+            --stop: #e5544c;
+
+            --play-soft: #24402c;
+            --play-strong: #4cc46c;
+            --pause-soft: #453a26;
+            --pause-strong: #e8ab4e;
+            --stop-soft: #4a2b29;
+            --stop-strong: #f0655d;
 
             --elevation: 0px 10px 26px rgba(0, 0, 0, 0.5);
         }
@@ -213,6 +238,86 @@ public static class EditorTheme {
             color: var(--text);
         }
 
+        /* ── Sections ───────────────────────────────────────────────────────────
+           ⚠ A segmented control is one box with the seams *inside* it, which is the
+           whole of what makes Translate/Rotate/Scale read as a choice rather than as
+           three buttons that happen to be adjacent. Done by taking the gap away and
+           squaring the inner corners: the group draws the border and the radius, and
+           its members draw neither. */
+        toolbar-group {
+            flex-direction: row;
+            align-items: center;
+            gap: 0px;
+            border-width: 1px;
+            border-color: var(--border);
+            border-radius: var(--radius-control);
+            background-color: var(--surface);
+            overflow: hidden;
+        }
+
+        toolbar-group button, toolbar-group icon-button, toolbar-group toggle-button,
+        toolbar-group button.variant-subtle, toolbar-group icon-button.variant-subtle {
+            border-width: 0px;
+            border-radius: 0px;
+            background-color: transparent;
+        }
+
+        /* The seam between two members, drawn by the member rather than by a separator
+           element: an element per seam would be a child the group has to keep in step
+           with a rebuild that only knows about commands. */
+        toolbar-group button + button, toolbar-group icon-button + icon-button,
+        toolbar-group button + icon-button, toolbar-group icon-button + button {
+            border-left-width: 1px;
+            border-color: var(--border);
+        }
+
+        toolbar-group :checked { background-color: var(--accent-soft); color: var(--text); }
+
+        /* ── The transport ──────────────────────────────────────────────────────
+           ⚠ Colour first, fill when it is on. The play controls are the most
+           clicked thing in either reference editor and are read at a glance rather
+           than looked at — a row of identical grey glyphs is one the eye has to
+           parse. And "am I in play mode" has to be answerable without reading
+           anything at all, which is what the filled state is for: a green button
+           with a white triangle while the game runs, a green triangle on the
+           surface while it does not.
+
+           The class is the command's (`EditorCommand.ClassName`) so the toolbar
+           stays a view over ids and never learns which buttons are green. */
+        toolbar .transport-play icon { color: var(--play); }
+        toolbar .transport-pause icon { color: var(--pause); }
+        toolbar .transport-stop icon { color: var(--stop); }
+        toolbar .transport-step icon { color: var(--text-muted); }
+
+        toolbar .transport-play:checked { background-color: var(--play); }
+        toolbar .transport-pause:checked { background-color: var(--pause); }
+
+        /* ⚠ White rather than `--accent-text`, and on both themes. The fill is a
+           saturated colour rather than the accent, so the token that pairs with the
+           accent is the wrong contrast — and a glyph that inherited `--text` would
+           be near-black on green in light and near-white in dark, which is one of
+           the two being unreadable. */
+        toolbar .transport-play:checked icon, toolbar .transport-pause:checked icon { color: #ffffff; }
+
+        /* ⚠ A hover keeps the button's own hue. The generic toolbar hover is a
+           neutral grey, and applied to these it reads as the colour draining out of
+           the button at the moment the pointer arrives. Idle buttons get a wash of
+           their colour; a filled one gets a brighter fill of the same. */
+        toolbar .transport-play:hover:not(:disabled):not(:checked) { background-color: var(--play-soft); }
+        toolbar .transport-pause:hover:not(:disabled):not(:checked) { background-color: var(--pause-soft); }
+        toolbar .transport-stop:hover:not(:disabled) { background-color: var(--stop-soft); }
+        toolbar .transport-step:hover:not(:disabled) { background-color: var(--surface-hover); }
+
+        toolbar .transport-play:checked:hover:not(:disabled) { background-color: var(--play-strong); }
+        toolbar .transport-pause:checked:hover:not(:disabled) { background-color: var(--pause-strong); }
+
+        /* Disabled is the ordinary muting and not a colour: a greyed Stop must not
+           read as a Stop that is merely a different shade of red. */
+        toolbar .transport-play:disabled icon, toolbar .transport-pause:disabled icon,
+        toolbar .transport-stop:disabled icon, toolbar .transport-step:disabled icon {
+            color: var(--text-muted);
+        }
+
         editor-workspace { flex-direction: column; flex-grow: 1; flex-basis: 0px; }
 
         /* ⚠ `flex-shrink: 0` and a fixed height, because it is the one strip whose
@@ -235,6 +340,16 @@ public static class EditorTheme {
         status-message { flex-grow: 1; overflow: hidden; color: var(--text); }
         status-bar progress-bar { width: 110px; }
         status-bar button { padding: 2px 8px; font-size: 1em; }
+
+        /* ⚠ The cells are muted and the message is not. Four things on one strip with
+           equal weight is a strip nobody reads; the selection count and the frame time
+           are there to be glanced at, and the message is there to be read. */
+        status-cell { flex-shrink: 0; color: var(--text-muted); }
+
+        /* Tabular figures would be better and there is no font feature to ask for
+           them, so the cell is given a floor instead — a frame time going from 9.9 to
+           10.1 must not shift the task button sideways. */
+        status-cell.status-frame { min-width: 54px; }
 
         /* ── Panes and seams ────────────────────────────────────────────────────
            ⚠ The panes are separated by a seam, not spaced out on a desk. A one-pixel
@@ -260,8 +375,15 @@ public static class EditorTheme {
         /* ⚠ The focused panel says so on its own edge. A dozen identical panes and a
            keyboard that goes to one of them is an editor where Delete is a guess —
            and a tinted hairline is the cheapest possible way to answer "which one",
-           costing no layout and no second element. */
-        dock-group:focus-within { border-color: var(--border-active); }
+           costing no layout and no second element.
+
+           ⚠ Two selectors, because focus alone does not reach every panel. A tree row
+           and a text field take focus, so the outliner and the scene lit up; a console
+           row and an inspector's label do not, so those two never showed as focused
+           however often they were clicked. `dock-group.active` is the docking host's
+           own answer — the panel last worked in — and a border that is right for two
+           panels out of four reads as broken rather than as absent. */
+        dock-group:focus-within, dock-group.active { border-color: var(--border-active); }
 
         dock-splitter { background-color: transparent; }
         dock-split.horizontal > dock-splitter { width: 3px; }
@@ -296,7 +418,7 @@ public static class EditorTheme {
            readable at a glance: a tinted hairline says *a* panel is focused, and the
            accent on its tab's own label says *which*, from across the window and
            without counting borders. */
-        dock-group:focus-within dock-tab:checked { color: var(--accent); }
+        dock-group:focus-within dock-tab:checked, dock-group.active dock-tab:checked { color: var(--accent); }
 
         dock-panel { padding: 3px; }
 
@@ -340,6 +462,41 @@ public static class EditorTheme {
         }
 
         dialog-surface { border-radius: 8px; box-shadow: var(--elevation); }
+        dialog-body { gap: 8px; }
+
+        /* ⚠ A fixed height and its own scroller, not a list that grows with the
+           project. A picker sized to its contents is a dialog taller than the
+           window on the first project with two hundred textures in it — and the
+           search box, which is the way through a large project, would be the part
+           pushed off the top. */
+        asset-picker-list {
+            flex-direction: column;
+            gap: 1px;
+            height: 260px;
+            min-width: 320px;
+            padding: 3px;
+            border-width: 1px;
+            border-color: var(--border);
+            border-radius: var(--radius-control);
+            background-color: var(--surface-sunken);
+            overflow: auto;
+        }
+
+        asset-picker-list > text { padding: 8px 6px; color: var(--text-muted); }
+
+        /* Left-aligned rather than centred, because the list is read down its left
+           edge and a centred name is one the eye has to find on every row. */
+        button.asset-picker-row {
+            flex-shrink: 0;
+            justify-content: flex-start;
+            padding: 5px 8px;
+            border-width: 0px;
+            border-radius: var(--radius-row);
+            background-color: transparent;
+            color: var(--text);
+        }
+
+        button.asset-picker-row:hover { background-color: var(--surface-hover); }
         dialog-header, dialog-footer { border-color: var(--border); }
         drawer-surface { box-shadow: var(--elevation); }
 
@@ -582,5 +739,112 @@ public static class EditorTheme {
         palette-category { color: var(--text-muted); font-size: 0.85em; }
         palette-row:checked palette-category, palette-row:checked palette-detail { color: var(--accent-text); }
         palette-detail { color: var(--text-muted); font-size: 0.85em; }
+
+        /* ── Console ────────────────────────────────────────────────────────────
+           A strip, a virtualised list and a detail pane, in a column. The list is
+           the only part that grows: a console whose detail pane grew with the
+           stack in it would push the lines off the top of the panel every time
+           somebody clicked an exception. */
+        console-view { flex-direction: column; flex-grow: 1; flex-basis: 0px; min-height: 0px; gap: 0px; }
+
+        console-toolbar {
+            flex-direction: row;
+            align-items: center;
+            flex-shrink: 0;
+            gap: 4px;
+            padding: 4px 6px;
+            border-bottom-width: 1px;
+            border-color: var(--border);
+        }
+
+        console-toolbar search-box { flex-grow: 1; min-width: 80px; }
+        console-toolbar select { width: 150px; flex-shrink: 0; }
+
+        /* ⚠ The four level buttons are pushed to the right, away from the verbs.
+           Clear and Collapse *do* something; a level button changes what you are
+           looking at, and mixing the two into one run of identical chips is how
+           somebody clears the console meaning to hide the warnings. */
+        console-toolbar toggle-button.console-level {
+            flex-shrink: 0;
+            min-width: 34px;
+            padding: 2px 7px;
+            border-radius: var(--radius-control);
+            border-color: var(--border);
+            background-color: var(--surface);
+            color: var(--text-muted);
+        }
+
+        /* Off is muted and on is coloured, which is the right way round: a level
+           that is being *shown* is the one carrying the signal. */
+        console-toolbar toggle-button.console-level:checked.level-error { color: var(--danger); }
+        console-toolbar toggle-button.console-level:checked.level-warning { color: var(--warning); }
+        console-toolbar toggle-button.console-level:checked.level-info { color: var(--text); }
+        console-toolbar toggle-button.console-level:checked.level-verbose { color: var(--text-muted); }
+
+        console-view virtualizing-panel { flex-grow: 1; flex-basis: 0px; min-height: 0px; }
+
+        console-row {
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+            padding: 0px 8px;
+            border-width: 0px;
+            background-color: transparent;
+            color: var(--text);
+            font-size: 0.9em;
+        }
+
+        console-row:hover { background-color: var(--surface-hover); }
+        console-row:checked { background-color: var(--accent); color: var(--accent-text); }
+        console-row.parked { display: none; }
+
+        /* A three-pixel rule down the left of the row rather than a coloured
+           message: a console where the text is the colour is one where a page of
+           warnings is a page of orange, and the message stops being readable. */
+        console-level-mark { width: 3px; height: 12px; flex-shrink: 0; border-radius: 2px; }
+        console-level-mark.level-error { background-color: var(--danger); }
+        console-level-mark.level-warning { background-color: var(--warning); }
+        console-level-mark.level-info { background-color: var(--accent); }
+        console-level-mark.level-verbose { background-color: var(--border); }
+
+        console-time { width: 74px; flex-shrink: 0; color: var(--text-muted); font-size: 0.9em; }
+        console-category { width: 112px; flex-shrink: 0; color: var(--text-muted); overflow: hidden; }
+        console-message { flex-grow: 1; overflow: hidden; }
+
+        console-repeats {
+            flex-shrink: 0;
+            min-width: 20px;
+            padding: 0px 5px;
+            border-radius: 8px;
+            background-color: var(--surface-raised);
+            color: var(--text-muted);
+            font-size: 0.85em;
+        }
+
+        console-row:checked console-time, console-row:checked console-category,
+        console-row:checked console-repeats { color: var(--accent-text); }
+
+        /* ⚠ A fixed height and its own scroller. The stack of a deep exception is
+           forty lines, and a pane that sized to its contents would leave the list
+           two rows tall the moment one was selected. */
+        console-detail {
+            flex-direction: column;
+            flex-shrink: 0;
+            height: 132px;
+            gap: 3px;
+            padding: 7px 9px;
+            border-top-width: 1px;
+            border-color: var(--border);
+            background-color: var(--surface-sunken);
+            overflow: auto;
+        }
+
+        /* ⚠ One line tall with nothing selected. A console docked along the bottom is
+           about six rows deep, and a detail pane holding a third of that open for a
+           stack that is not there is a panel with no room to read the log in. */
+        console-detail.empty { height: auto; padding: 5px 9px; color: var(--text-muted); }
+        console-detail-heading { color: var(--text); }
+        console-detail-meta { color: var(--text-muted); font-size: 0.85em; }
+        console-detail-stack { color: var(--text-muted); font-size: 0.85em; white-space: pre; }
         """;
 }

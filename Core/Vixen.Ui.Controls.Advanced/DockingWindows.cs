@@ -32,6 +32,10 @@ public sealed partial class DockingHost {
         ///     the main window's top-left corner.
         /// </remarks>
         public UiElement? Preview { get; set; }
+
+        /// <summary>The guide handles offered over the groups in this window.</summary>
+        /// <inheritdoc cref="Preview" />
+        public UiElement? Guides { get; set; }
     }
 
     readonly List<TornWindow> torn = [];
@@ -60,6 +64,13 @@ public sealed partial class DockingHost {
                 if (walk is DockPanel focused && panels.ContainsKey(focused.Id)) {
                     return focused;
                 }
+            }
+
+            // ⚠ Then the panel last pressed in, which is the answer for every panel whose contents
+            // do not take focus — a console row, an inspector's label. Without it those panels could
+            // be clicked all day and the editor would still say the outliner was the active one.
+            if (pressed is { IsRemoved: false } clicked && panels.ContainsKey(clicked.Id)) {
+                return clicked;
             }
 
             foreach (var group in Layout.Groups()) {
@@ -152,6 +163,8 @@ public sealed partial class DockingHost {
 
         entry.Preview = root.Add("dock-preview");
         entry.Preview.AddClass("hidden");
+
+        entry.Guides = BuildGuides(root);
     }
 
     /// <summary>Closes the windows whose group has left the arrangement.</summary>
@@ -171,6 +184,7 @@ public sealed partial class DockingHost {
             torn.RemoveAt(i);
 
             entry.Preview = null;
+            entry.Guides = null;
             entry.Window.Dispose();
         }
     }
@@ -238,6 +252,7 @@ public sealed partial class DockingHost {
     protected override void OnRemoved() {
         for (var i = torn.Count - 1; i >= 0; i--) {
             torn[i].Preview = null;
+            torn[i].Guides = null;
             torn[i].Window.Dispose();
         }
 

@@ -162,6 +162,12 @@ public static class GlProfiles {
         HasBindless = false,
         HasMultiDrawIndirect = profile >= GlProfile.Core45,
 
+        // Never, at any profile this backend targets. `glMultiDrawElementsIndirectCount` is core in
+        // 4.6 and an ARB extension before it, and Core45 is this backend's ceiling — see GlProfile.
+        // So a compacted run is issued at its maximum length with the culled arguments zeroed, which
+        // is what GpuDrawArguments does without the capability and will keep doing here.
+        HasDrawIndirectCount = false,
+
         // Never. GL has no semaphores of any kind: its execution model is one implicit in-order
         // stream, which is exactly why this backend elides barriers rather than translating them.
         HasTimelineSemaphores = false,

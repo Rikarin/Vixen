@@ -335,7 +335,7 @@ public class DockingWindowTests {
 
             fixture.Update();
 
-            var tab = host.Groups[0].Strip.Children.OfType<DockTab>().First(tab => tab.PanelId == "inspector");
+            var tab = host.Groups[0].Tabs.Children.OfType<DockTab>().First(tab => tab.PanelId == "inspector");
 
             // ⚠ Pressed near the tab's left edge rather than in its middle, which is where the close
             // button is — a drag that starts on the close button has the button as its source and is
@@ -372,7 +372,7 @@ public class DockingWindowTests {
 
             fixture.Update();
 
-            var tab = host.Groups[0].Strip.Children.OfType<DockTab>().First(tab => tab.PanelId == "inspector");
+            var tab = host.Groups[0].Tabs.Children.OfType<DockTab>().First(tab => tab.PanelId == "inspector");
             var bounds = host.Groups[0].Bounds;
 
             var x = bounds.X + 4f;
@@ -407,7 +407,7 @@ public class DockingWindowTests {
 
             var window = Assert.Single(windows.Opened);
             var floating = host.Groups.First(view => ReferenceEquals(fixture.Document.SurfaceOf(view), window.Surface));
-            var tab = floating.Strip.Children.OfType<DockTab>().Single();
+            var tab = floating.Tabs.Children.OfType<DockTab>().Single();
 
             // ⚠ The drag is reported in the *torn-off* window's coordinates for its whole life, even
             // once the cursor is over the main window — every platform keeps sending a captured

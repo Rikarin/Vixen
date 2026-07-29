@@ -88,6 +88,20 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     readonly List<EffectConstants?> blocks = [];
     readonly List<DescriptorWrite> writes = [];
 
+    /// <summary>Which view each (material, index parameter) pair currently holds a table slot for.</summary>
+    /// <remarks>
+    ///     The table counts references, so registering the same view again every frame would raise a
+    ///     count nothing ever lowers and the slot would never come back. This is what makes the steady
+    ///     state free: a material whose texture has not changed is a dictionary hit and nothing else.
+    /// </remarks>
+    readonly Dictionary<(Material Material, ParameterKey<uint> Key), TextureViewHandle> indexed = [];
+
+    /// <summary>One record buffer per sort group, which is one per effect.</summary>
+    readonly Dictionary<uint, MaterialRecords> records = [];
+
+    /// <summary>Which record each variant's material occupies, and in which group's buffer.</summary>
+    readonly Dictionary<int, (uint Group, int Index)> placed = [];
+
     /// <summary>Variant × stage → the variant that stage's shader override resolved to, or 0.</summary>
     /// <remarks>
     ///     A flat array rather than a dictionary because it is read once per draw. Variants are tens
@@ -184,6 +198,138 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     /// </remarks>
     public IGraphicsDevice? Device { get; set; }
 
+    /// <summary>The global texture table a material's textures are registered in, or null.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         What closes doc 06's <em>"materials are values, not resources"</em>. A material feature
+    ///         that samples has always needed a binding index only the compiled shader knew, so a
+    ///         feature could carry channels and could not carry a texture. With a table it does not
+    ///         need one: the shader declares a <c>uint</c>, the texture goes in the table, and the
+    ///         index goes in the material's own uniform block beside the colours — which is what a
+    ///         material being a <em>value</em> means.
+    ///     </para>
+    ///     <para>
+    ///         Set this and <see cref="TextureIndices" /> together, or neither. Leaving the table null
+    ///         is the non-bindless path and is not a legacy concession: it is what runs on GL, on
+    ///         WebGL2 and on MoltenVK below argument-buffer tier 2 (ADR-011), where the same material
+    ///         binds the same texture through a descriptor set instead.
+    ///     </para>
+    /// </remarks>
+    public BindlessTable? Textures { get; set; }
+
+    /// <summary>Which of a shader's <c>uint</c> parameters is filled from which of a material's
+    /// textures.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Explicit rather than inferred, and for the reason <see cref="PermutationSources" />
+    ///         gives about its own pairing: the two names belong to different things. A shader's is
+    ///         the compiled parameter — <c>ForwardPlus.CompositeSurface.MetalRoughnessSurface.baseColorIndex</c>
+    ///         — and a material's is the texture an artist assigned. A convention that stripped
+    ///         <c>Index</c> and matched the rest would guess, and would guess silently: an unmatched
+    ///         pair leaves the index at zero, which is a valid slot holding some other material's
+    ///         texture.
+    ///     </para>
+    ///     <para>
+    ///         The table is reference-counted, so a material keeps its slot while anything holds it —
+    ///         but only if the same view is not registered twice for the same key. That is what
+    ///         <see cref="indexed" /> is for: a material whose texture has not changed costs nothing
+    ///         per frame, and one whose texture <em>has</em> gives the old slot back.
+    ///     </para>
+    /// </remarks>
+    public Dictionary<ParameterKey<uint>, ParameterKey<TextureViewHandle>> TextureIndices { get; } = [];
+
+    /// <summary>Whether a material's values go into a record buffer rather than a descriptor set.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Off by default, and it needs a shader that asked for it: a variant whose effect has no
+    ///         per-material <see cref="Effect.RecordOf" /> keeps the descriptor set whatever this
+    ///         says. So turning it on is safe for a mixed frame, where some passes declared a
+    ///         <c>[MaterialIndex]</c> and some did not.
+    ///     </para>
+    ///     <para>
+    ///         What it buys is the thing the whole plan is about: a draw that binds no per-material
+    ///         set is a draw that can be merged with its neighbour. What it costs is a buffer per
+    ///         effect and an index the per-object data has to carry.
+    ///     </para>
+    /// </remarks>
+    public bool UseRecords { get; set; }
+
+    /// <summary>
+    ///     Permutation values that belong to the frame rather than to an object or a material.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>The third layer, and the one that outranks the other two.</strong> A material's
+    ///         parameters say what a surface is; a sub-feature's contribution says what is true of one
+    ///         object — that it is skinned, that it is instanced. Neither can answer "does this device
+    ///         have descriptor indexing", which is a fact about the machine and identical for every
+    ///         object in the frame. Applied last, so a material that happened to set the same key
+    ///         cannot claim a capability the device does not have.
+    ///     </para>
+    ///     <para>
+    ///         The keys are the shader's own, as <see cref="PermutationKeys" /> registers them — not a
+    ///         renderer flag routed through <see cref="PermutationSources" />, because there is no
+    ///         per-object source to route from.
+    ///     </para>
+    /// </remarks>
+    public ParameterCollection Permutations { get; } = new();
+
+    /// <summary>
+    ///     Turns the record path on where the device can take it, and leaves it off where it cannot.
+    /// </summary>
+    /// <param name="shaderKey">
+    ///     The shader's own permutation — <c>ForwardPlusKeys.UseMaterialRecords</c> for the shipped
+    ///     forward pass.
+    /// </param>
+    /// <returns>Whether records were turned on.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>Both halves, which is the whole reason this exists as one call.</strong>
+    ///         <see cref="UseRecords" /> decides where the host writes a material's bytes, and the
+    ///         permutation decides which shader is compiled to read them. Setting one without the
+    ///         other is not a degraded frame but a wrong one: records written for a shader that binds
+    ///         a per-material set are records nothing reads, and a shader compiled to subscript a
+    ///         record buffer that the host is still filling descriptor sets for reads whatever is at
+    ///         index zero. Neither fails, and both draw a picture.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Off is the correct answer, not the degraded one. It is what runs on GL, on WebGL2
+    ///         and on MoltenVK below argument-buffer tier 2 (ADR-011), and the same materials draw
+    ///         the same image through a descriptor set per material.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Call this before the first <c>Prepare</c>. Variants are cached by their effect key,
+    ///         so a permutation that changed after one was resolved would leave already-resolved
+    ///         variants compiled for the old value — and those are exactly the ones a settled scene
+    ///         keeps using.
+    ///     </para>
+    /// </remarks>
+    public bool EnableRecords(PermutationKey<bool> shaderKey) {
+        var supported = Device?.Features is { HasBindless: true };
+
+        UseRecords = supported;
+        Permutations.Set(shaderKey, supported);
+
+        return supported;
+    }
+
+    /// <summary>The record buffers, one per effect, for a host that binds them.</summary>
+    /// <remarks>
+    ///     Keyed by sort group, which is the engine's name for "these objects resolved to the same
+    ///     effect" — see <see cref="SortGroupOf" />. That is the right key and a variant is not: a
+    ///     variant is a <c>(material, flags, shader)</c> triple, so one variant is one material, and
+    ///     a buffer per variant would be a buffer per material with one record in it.
+    /// </remarks>
+    public IReadOnlyDictionary<uint, MaterialRecords> Records => records;
+
+    /// <summary>How many table slots this feature currently holds a reference to.</summary>
+    /// <remarks>
+    ///     The number a leak test wants: a scene that settles stops growing, and a material released
+    ///     gives its slots back. Distinct from the table's own count, which is shared with everything
+    ///     else that registers a texture.
+    /// </remarks>
+    public int IndexedTextureCount => indexed.Count;
+
     /// <summary>Where a material's descriptor set comes from.</summary>
     /// <remarks>
     ///     The frame allocator rather than a set created once and kept, because a material's values
@@ -194,8 +340,15 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     /// </remarks>
     public DescriptorAllocator? Descriptors { get; set; }
 
-    /// <summary>How many variants have a set this feature wrote.</summary>
+    /// <summary>How many variants have a set this feature wrote, or a record it filled.</summary>
     public int BoundCount { get; private set; }
+
+    /// <summary>How many record buffers went to the device this frame.</summary>
+    /// <remarks>
+    ///     Zero for a settled scene, which is the assertion worth having: the bytes are what costs,
+    ///     and a buffer nobody changed must not go back on the bus because a frame happened.
+    /// </remarks>
+    public int UploadedRecordCount { get; private set; }
 
     /// <summary>How many times a material's uniform block has actually gone to the GPU.</summary>
     /// <remarks>
@@ -318,6 +471,14 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
         // the same economy the variant table itself exists for. Ten thousand objects over twenty
         // materials is twenty descriptor sets.
         Bind();
+
+        // And the record buffers after that, so a frame that touched one material of forty uploads
+        // one buffer rather than one per variant that mentioned it.
+        UploadedRecordCount = Upload();
+
+        // Then the set that points at them, which cannot be written until the buffers exist: a
+        // record buffer creates its handle on first upload and replaces it when it grows.
+        BindRecords();
     }
 
     /// <summary>
@@ -340,6 +501,11 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     ///     </para>
     /// </remarks>
     void Bind() {
+        // Before the device check, because a table is useful without one. A host that writes its own
+        // per-material sets — the path DescriptorsOf falls back to — still wants its textures
+        // indexed, and the indices are values in a block rather than anything descriptor-shaped.
+        Index();
+
         if (Device is null || Descriptors is null) {
             return;
         }
@@ -353,13 +519,23 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
                 continue;
             }
 
+            var material = materials[variant.Material];
+
+            // A record before the set layout is even looked at, and only where the shader asked for
+            // one. A shader whose materials are records has no per-material set to have a layout
+            // for, so checking the layout first would skip exactly the variants this path exists
+            // for. A variant whose effect declares no record keeps the set whatever UseRecords says,
+            // which is what makes a frame mixing the two work.
+            if (UseRecords && Record(index, variant, effect, material)) {
+                continue;
+            }
+
             const int slot = (int)DescriptorSetSlot.PerMaterial;
 
             if (effect.SetLayouts.Length <= slot || !effect.SetLayouts[slot].IsValid) {
                 continue;
             }
 
-            var material = materials[variant.Material];
             var block = Constants(index, effect, material);
 
             // Every binding or none. A set short of an entry is a validation error on one backend and
@@ -376,6 +552,201 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
 
             BoundCount++;
         }
+    }
+
+    /// <summary>
+    ///     Gives every material's textures a table slot, and writes the slot into the material.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Per <em>material</em> rather than per variant, unlike everything else in this class. A
+    ///         permutation can fold a texture out of the shader and therefore out of the block, but it
+    ///         cannot change which texture the material carries — and the table is global, so a slot
+    ///         given out for the variant that samples it is the same slot the variant that does not
+    ///         would have been given. Indexing per variant would take two references to one view and
+    ///         release neither.
+    ///     </para>
+    ///     <para>
+    ///         <strong>The index is written into the material's own parameters.</strong> That is what
+    ///         makes it a value: <see cref="EffectConstants" /> then fills it into the block from the
+    ///         same table of offsets it fills the base colour from, with no idea that this particular
+    ///         <c>uint</c> means a descriptor. And because
+    ///         <see cref="ParameterCollection.Set{T}(ParameterKey{T}, T)" /> does not bump the version
+    ///         when the value is unchanged, a settled material costs no upload.
+    ///     </para>
+    /// </remarks>
+    void Index() {
+        if (Textures is not { } table || TextureIndices.Count == 0) {
+            return;
+        }
+
+        for (var index = 1; index < materials.Count; index++) {
+            var material = materials[index];
+
+            foreach (var (slot, texture) in TextureIndices) {
+                var view = material.Parameters.Has(texture)
+                    ? material.Parameters.Get(texture)
+                    : TextureViewHandle.Null;
+
+                var key = (material, slot);
+
+                if (indexed.TryGetValue(key, out var held) && held == view) {
+                    continue;
+                }
+
+                // The new slot before the old one is released, so a material that reassigned a
+                // texture and then assigned it back does not churn the table's free list — and, more
+                // to the point, a view shared with the thing being released does not lose its last
+                // reference between the two calls.
+                if (view.IsValid) {
+                    material.Parameters.Set(slot, table.Add(view));
+                    indexed[key] = view;
+                } else {
+                    // Slot zero rather than nothing. A shader indexes the table whatever the host
+                    // had to say, so a material with no texture has to name one that exists —
+                    // BindlessTable's fallback is what makes zero a defined thing to sample.
+                    material.Parameters.Set(slot, 0u);
+                    indexed.Remove(key);
+                }
+
+                if (held.IsValid) {
+                    table.Remove(held);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Writes one variant's material into its effect's record buffer, and says whether it did.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Keyed by the variant's <em>group</em>, which is the engine's name for "resolved to the
+    ///         same effect". That is the right key and a variant is not: a variant is a
+    ///         <c>(material, flags, shader)</c> triple, so one variant is one material and a buffer
+    ///         per variant would hold a single record. Materials that share an effect share a layout
+    ///         by construction, which is what makes them records of one buffer rather than a
+    ///         coincidence that has to be checked.
+    ///     </para>
+    ///     <para>
+    ///         The bytes come from <see cref="EffectConstants" /> exactly as the descriptor-set path's
+    ///         do — same parameters, same declared members, same defaults — and only the destination
+    ///         differs. That is deliberate: a record and a block that disagreed about what a material
+    ///         contains would be two answers to a question with one.
+    ///     </para>
+    /// </remarks>
+    bool Record(int index, Variant variant, Effect effect, Material material) {
+        var declared = effect.RecordOf(DescriptorSetSlot.PerMaterial);
+
+        if (!declared.Exists) {
+            return false;
+        }
+
+        var block = blocks[index] ??= new(Device!, material.ShaderName);
+        block.Update(effect, declared.Size, declared.Members.AsSpan(), material.Parameters);
+
+        if (!records.TryGetValue(variant.Group, out var buffer)) {
+            records[variant.Group] = buffer = new(Device!, declared.Size, $"{material.ShaderName}.Records");
+        }
+
+        var slot = buffer.IndexOf(index);
+        buffer.Write(slot, block.Bytes);
+        placed[index] = (variant.Group, slot);
+
+        BoundCount++;
+        return true;
+    }
+
+    /// <summary>
+    ///     Points every recorded variant's set at its group's buffer.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>One set for a whole group, and that is the point rather than an
+    ///         optimisation.</strong> Every variant of one group asks the allocator for the same
+    ///         layout and the same single write, and the allocator is content-addressed — so they all
+    ///         get the same handle back, and <see cref="Features.MeshRenderFeature" />'s
+    ///         "did this differ from the last one" check turns a run of objects into one bind. A set
+    ///         per material would be the cost this whole path exists to remove, arrived at by a
+    ///         different route.
+    ///     </para>
+    ///     <para>
+    ///         After the upload, because a record buffer has no handle until it has been uploaded
+    ///         once and replaces it when it grows — so a set written earlier would point at a buffer
+    ///         that no longer exists, which is the one failure the RHI's deferred destroy cannot save
+    ///         a caller from.
+    ///     </para>
+    /// </remarks>
+    void BindRecords() {
+        if (Descriptors is null) {
+            return;
+        }
+
+        const int slot = (int)DescriptorSetSlot.PerMaterial;
+
+        foreach (var (variant, place) in placed) {
+            var entry = variants[variant];
+
+            if (entry.Effect is not { } effect
+                || effect.SetLayouts.Length <= slot
+                || !effect.SetLayouts[slot].IsValid) {
+                continue;
+            }
+
+            if (effect.RecordOf(DescriptorSetSlot.PerMaterial) is not { Exists: true } declared
+                || !records.TryGetValue(place.Group, out var buffer)
+                || !buffer.Buffer.IsValid) {
+                continue;
+            }
+
+            writes.Clear();
+            writes.Add(DescriptorWrite.Storage(declared.Binding, buffer.Buffer));
+
+            variants[variant] = entry with {
+                Set = Descriptors.Allocate(
+                    effect.SetLayouts[slot],
+                    System.Runtime.InteropServices.CollectionsMarshal.AsSpan(writes)
+                )
+            };
+        }
+    }
+
+    /// <summary>Puts every record buffer on the device, and answers how many had anything to say.</summary>
+    /// <remarks>
+    ///     Separate from writing them because an upload is a device call and writing is not: a frame
+    ///     that touched one material of forty should upload one buffer, and a frame that touched none
+    ///     should upload nothing at all. Called at the end of <see cref="Prepare" />, after every
+    ///     variant has had its say.
+    /// </remarks>
+    int Upload() {
+        var uploaded = 0;
+
+        foreach (var buffer in records.Values) {
+            if (buffer.Upload().IsValid) {
+                uploaded++;
+            }
+        }
+
+        return uploaded;
+    }
+
+    /// <summary>Which record of which buffer an object's material occupies.</summary>
+    /// <param name="system">The render system.</param>
+    /// <param name="id">The object.</param>
+    /// <param name="stage">The stage drawing it, for the same reason <see cref="EffectOf" /> takes one.</param>
+    /// <returns>
+    ///     The group whose buffer holds it and the record within that buffer, or null when this
+    ///     object's material is bound as a set rather than written as a record.
+    /// </returns>
+    /// <remarks>
+    ///     The number a host writes into the per-object data, where the shader's
+    ///     <c>[MaterialIndex]</c> reads it. Null rather than zero for "no record", because zero is a
+    ///     record that exists and a caller that treated the two alike would draw every object with
+    ///     the first material.
+    /// </remarks>
+    public (uint Group, int Index)? RecordOf(RenderSystem system, RenderObjectId id, RenderStage? stage = null) {
+        ArgumentNullException.ThrowIfNull(system);
+        return placed.TryGetValue(IndexFor(system, id, stage), out var found) ? found : null;
     }
 
     /// <summary>The variant's material block, created on first use and refilled when values change.</summary>
@@ -427,6 +798,24 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
 
         var index = system.Objects.Data.Data(MaterialIndex)[id.Index];
         return index > 0 && index < materials.Count ? materials[index].Descriptors : default;
+    }
+
+    /// <summary>The bytes of an object's material block, as they were last filled.</summary>
+    /// <param name="system">The render system.</param>
+    /// <param name="id">The object.</param>
+    /// <param name="stage">The stage drawing it, for the same reason <see cref="EffectOf" /> takes one.</param>
+    /// <remarks>
+    ///     Empty when the variant has no block, or when this feature is not the one filling it.
+    ///     Exposed for the same reason <see cref="EffectConstants.Bytes" /> is: a device that took the
+    ///     bytes cannot be asked what they were, so this is the only way to check that a parameter
+    ///     landed at the offset the reflection said it would — which is the whole claim a material
+    ///     texture makes now that it is a number in the block rather than a descriptor beside it.
+    /// </remarks>
+    public ReadOnlySpan<byte> ConstantsOf(RenderSystem system, RenderObjectId id, RenderStage? stage = null) {
+        ArgumentNullException.ThrowIfNull(system);
+
+        var index = IndexFor(system, id, stage);
+        return index > 0 && index < blocks.Count && blocks[index] is { } block ? block.Bytes : default;
     }
 
     /// <summary>The sort group for an object: its variant's, so equal pipelines sort together.</summary>
@@ -548,6 +937,10 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
         foreach (var (shaderKey, source) in PermutationSources) {
             scratch.Set(shaderKey, scratch.Get(source));
         }
+
+        // And the frame's own last of all, because they are facts about the device: a material must
+        // not be able to claim a capability the machine does not have by setting the same key.
+        scratch.Apply(Permutations);
     }
 
     /// <summary>One object's contributed permutations, packed into a bit per key.</summary>
@@ -594,6 +987,24 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
         }
 
         blocks.Clear();
+
+        // The table outlives this feature — it is the frame's, not a material's — so the references
+        // taken out of it have to go back. Without this a render system torn down and rebuilt walks
+        // the table's high-water mark up by a scene's worth of textures every time.
+        if (Textures is { } table) {
+            foreach (var view in indexed.Values) {
+                table.Remove(view);
+            }
+        }
+
+        indexed.Clear();
+
+        foreach (var buffer in records.Values) {
+            buffer.Dispose();
+        }
+
+        records.Clear();
+        placed.Clear();
     }
 
     IReadOnlyList<ParameterKey> KeysFor(string shaderName) =>

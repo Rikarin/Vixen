@@ -27,8 +27,13 @@ public class DescriptorAllocatorTests : IDisposable {
             new(DescriptorSetSlot.PerView, [new(0, DescriptorKind.StorageBuffer, ShaderStage.Fragment)], "View")
         );
 
+        // The same shape as `layout` in a different set, which is what
+        // A_set_belongs_to_its_layout needs: identical writes, so that the only thing that can
+        // separate the two sets is the layout. A different *kind* here would make that test pass for
+        // the wrong reason — and now that the Null backend holds a write against what the layout
+        // declared, it would not pass at all.
         other = device.CreateDescriptorSetLayout(
-            new(DescriptorSetSlot.PerMaterial, [new(0, DescriptorKind.UniformBuffer, ShaderStage.Fragment)], "Material")
+            new(DescriptorSetSlot.PerMaterial, [new(0, DescriptorKind.StorageBuffer, ShaderStage.Fragment)], "Material")
         );
 
         first = device.CreateBuffer(new(1024, BufferUsage.Storage, Name: "First"));
@@ -144,7 +149,7 @@ public class DescriptorAllocatorTests : IDisposable {
         for (var frame = 0; frame < 100; frame++) {
             allocator.BeginFrame();
             allocator.Allocate(layout, [DescriptorWrite.Storage(0, first)]);
-            allocator.Allocate(other, [DescriptorWrite.Uniform(0, first)]);
+            allocator.Allocate(other, [DescriptorWrite.Storage(0, second)]);
         }
 
         // Two layouts, one set each per frame in flight. A shared pool would hand a PerView set to a

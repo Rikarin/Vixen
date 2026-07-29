@@ -101,12 +101,17 @@ looking at a real model:
 
 | Panel | What it is |
 |---|---|
-| Hierarchy | a `TreeView` over the scene's entities; selecting drives the shared selection, and renaming, creating and deleting are all undo entries |
-| Inspector | an `InspectorView` over the selection, recording every edit on the scene document's stack |
+| Hierarchy | a `TreeView` over the scene's entities, with a name filter above it. Selection goes both ways — clicking a row selects, and selecting anywhere else highlights the row — and renaming, creating, deleting and dragging-to-reparent are all undo entries |
+| Inspector | an `InspectorView` over whichever selection was last clicked in — the scene's entities or the project's assets — recording every edit on the scene document's stack |
 | Scene | a `SceneViewport`: orbit, pan, zoom, the axis cross, gizmo modes and snapping, drawn into the panel — as lines, for the reason below |
 | Project | `ProjectBrowser`: the asset database as a tree, with a search box, over the real `Assets/` directory. Double-clicking a row opens the asset |
 | An asset | one per open document, built by whichever of the nine asset editors claims the file |
-| Console | still a line of text |
+| Console | a virtualised list over the editor's log ring: level toggles with counts, a category filter, search, collapse-duplicates, clear-on-play, and a detail pane with the stack |
+
+`Vixen.Editor.App.Tests` drives that arrangement the way `EditorHost` does — a real application, a
+real project in a temporary directory, real pointer events into the panels, no GPU — because what
+breaks here is the line *between* two pieces that each have tests of their own. Selecting an asset
+did nothing for exactly that reason: every part of the path worked and one of the joins was missing.
 
 **Double-clicking an asset opens it in a panel of its own.** `ProjectBrowser` raises `Activated`,
 `AssetEditorRegistry` says which of the nine editors in
@@ -182,12 +187,22 @@ how many assets it found.
 needs debouncing, a rename heuristic and a way not to fight the editor's own writes; one that missed
 half the events while claiming to be live would be worse than a Refresh that says what it does.
 
+**Single-clicking a row shows the asset in the inspector.** `ProjectAsset` is to a GUID what
+`SceneEntity` is to an entity: the object an inspector can show members of, living here for the same
+reason. Until it existed, `EditorProject.Selection` was a dead end — the browser wrote to it and
+nothing read it — so a click in the Project panel moved a highlight and did nothing else.
+
+- ⚠ **The envelope, not the importer's settings.** `AssetEntry` is deliberately what the database
+  knows without parsing a sidecar; the settings are a document with an undo stack and an
+  apply/revert of its own, which is what double-clicking opens. An editable second copy of them in
+  the inspector would be a writer to that file with no idea the first one exists.
+- ⚠ **Every row is read-only.** Renaming an asset moves a file and rewrites every reference to it —
+  `EditorContext.Touch` exists for exactly that — and there is no command for it yet. A writable
+  Name box would rename the object in memory and leave the file where it was.
+
 ⚠ **Only indexed nodes reach the selection.** A folder scanned read-only has no sidecar and so no
 GUID, and putting `AssetId.Empty` in `EditorProject.Selection` would make every such folder select the
 same nothing and look like one asset.
-
-⚠ **Untested at the panel level**, in common with every other panel here — the app is an executable
-with no test project. The model underneath it has 16.
 
 ## Plugins
 
@@ -301,14 +316,45 @@ that object, and putting it in the application is what keeps `Vixen.Editor.Inspe
 what an ECS is and `Vixen.Editor.SceneView` from knowing what a property drawer is. It is also the
 gizmo's target, so a drag and a typed number cannot disagree about what "position" means.
 
-⚠ **The selection is polled once a frame rather than subscribed to.** `Selection<T>` is
+`ProjectAsset` is the same join on the other side: a GUID and the project it is read through, so
+that the Project panel's selection has somewhere to land.
+
+⚠ **Both selections are polled once a frame rather than subscribed to.** `Selection<T>` is
 signal-backed and an `Effect` would be the better wiring, but nothing in this loop flushes the
 reactive scheduler and adding one changes the loop's contract for notifications and background tasks
 as well. Comparing a handful of handles once a frame is not a cost.
 
+⚠ **Several selections, one inspector, and the panel that was clicked in wins.** There is one per
+open scene — the editor's own, plus one for every scene or prefab opened as an asset, each with its
+own hierarchy and its own undo stack — and one for the project browser. They cannot be shown
+together: `InspectorRegistry.CommonType` draws nothing for a selection with no single type in it,
+which an entity and a texture do not have. So the poll asks which of them changed, shows that one,
+and **clears the ones whose views this application owns — both the document selection and the tree
+rows drawing it**. Two panels highlighted while the inspector can only show one is a picture that
+lies about what the next Delete, the next gizmo drag or the next rename will act on.
+
+- ⚠ **The rows shown are edited against their own document.** `InspectorView.EditedDocument` is set
+  to the scene the entities came from, so an edit to an opened scene is recorded on that scene's
+  stack rather than on the editor's own — otherwise `Ctrl+Z` in one window undoes a change made in
+  another.
+- ⚠ **An asset editor's own hierarchy is not cleared.** `SceneHierarchyView` takes selection outwards
+  only, by its own documented decision, so clearing its document's selection from here would leave a
+  row highlighted with nothing behind it.
+
 ⚠ **A panel's factory runs again when it is reopened**, so nothing durable may live in one. The
 camera is kept as a `ViewBookmark` on `EditorApplication` and restored when the scene panel is
 rebuilt; without it, closing and reopening the viewport puts the user back at the origin.
+
+## The editor's own log
+
+The editor is not built by `VixenApp`, so nothing along its path ever made a `RingBufferSink` — the
+console would have been a perfectly good panel over an empty ring. `EditorLog` is that sink plus the
+one thing that fills it: every `NotificationCenter` message becomes a log line, because a
+notification is the editor deciding something is worth saying and a toast says it for four seconds.
+
+⚠ **The mirror is one-way and must stay that way.** The console reads the ring; the ring is fed from
+notifications. A console that raised notifications for log lines would close the loop, and a single
+warning would toast, log, toast, log.
 
 ## Known gaps
 
@@ -319,11 +365,18 @@ rebuilt; without it, closing and reopening the viewport puts the user back at th
 - **No plugin-management panel.** Plugins load, but the only way to see what is installed is the
   notification on the way up. The panel is a list over `PluginHost.Plugins` with enable, disable and
   reload on it, and nothing in the loader is missing for it.
-- **No file dialog, so no "open project…".** A project comes from `--project` or is the scratch one;
-  choosing one at run time needs a dialog, which is `Vixen.Platform`'s and not built.
-- **Reparenting is not undoable.** Dragging in the hierarchy is not wired up either; the primitive
-  undo was waiting on — `Hierarchy.SetParentAfter`, which puts a child back where it was rather than
-  at the head — now exists, so what is missing is the command.
+- **No "open project…", and it is no longer the dialog's fault.** `INativeDialogs` exists, has
+  implementations on every desktop, and this application reaches it through `EditorServices` — Open
+  Scene, Save Scene As and Import Assets are all one call each and all work. What Open Project needs
+  is a *project swapped underneath a live editor*: a world, an asset database and every open document
+  replaced without tearing the window down. Doc 20 puts that behind the startup Project Browser in
+  E3, and the two commands are registered, greyed and carrying that sentence meanwhile.
+- ~~**Reparenting is not undoable.**~~ `ReparentCommand` records the sibling that was in front —
+  `Hierarchy.PreviousSiblingOf`, restored through `SetParentAfter` — so an undo puts the third of
+  five children back third rather than first. Dragging in the outliner goes through it, and the
+  whole selection moves when the dragged row is part of it. ⚠ **A root is the exception**: roots are
+  not a sibling list, so an entity undone back to the root set returns in creation order. Making
+  that exact needs the scene format to carry a root order.
 - **Clicking in the viewport does not select.** ⚠ Not for want of a texture command any more — the
   draw list has one, and `Viewport` draws a `RenderTarget` through it. What picking needs is the
   *id* target and the readback: `PickingBuffer` and `PickingRenderer` in `Vixen.Editor.SceneView` are
@@ -332,8 +385,16 @@ rebuilt; without it, closing and reopening the viewport puts the user back at th
 - **It redraws every frame.** Redrawing only on change is the right end state and is not free — every
   animation, toast expiry and task progress has to say so, and one that forgets leaves a progress bar
   frozen at forty per cent.
-- **One scene per project, chosen by path rather than by a dialog.** `Assets/Scenes/Main.vxscene`,
-  because picking another needs a file dialog that `Vixen.Platform` does not have.
+- **One scene at a time, though no longer one *fixed* scene.** The editor opens
+  `Assets/Scenes/Main.vxscene` and `file.open-scene` loads another over the same document — the
+  panels, the gizmo and the picker all hold that document, so swapping the object would leave four
+  panels looking at the old one. Additive loading and per-scene visibility is doc 20's multi-scene
+  row, in E5.
+- ⚠ **Double-clicking the scene that is already open loads it a second time.** The editor opens its
+  own scene by *path*, as a `SceneDocument` carrying `AssetId.Empty`, so `AssetEditorRegistry` has no
+  way to know that the GUID being opened is the document already on screen — and both share one
+  world, so the entity count doubles. Opening the scene as an asset from the start is the fix, and it
+  is a change to how the editor decides what it is editing rather than a check to add here.
 - **`Samples/02-HelloUi` still carries the interface shaders as GLSL**, and so does
   `Platform/Vixen.Graphics.Golden.Tests`. This project's are Raven now — `Shaders/*.rvn`, and
   [`Shaders/README.md`](Shaders/README.md) says how they are built — so the three copies are no

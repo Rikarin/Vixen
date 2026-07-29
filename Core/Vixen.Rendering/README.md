@@ -350,6 +350,47 @@ The bug that cost the most here was an early-out: `Draw` returned when the share
 invalid, which is true of every frame that draws nothing but instanced meshes. A whole renderer that
 silently drew nothing, from a guard that had been exactly right when there was one kind of draw.
 
+## The third one, which shares the interface's arithmetic
+
+`SpriteRenderFeature` draws sprites: a textured quad in its own plane, or the nine a border cuts it
+into, or the many a tiled fill repeats. Doc 06's row for it says *shares the UI batcher*, and what is
+actually shared is `NineSlice` in `Vixen.Core.Mathematics` — the cut of a rectangle into nine, which is
+also what `UiGeometryBuilder` stretches a panel's background with. The two halves cannot share more
+than that: `Vixen.Ui` describes a frame without a device and this describes a device without an
+element tree. What they do share beyond the arithmetic is the shape of the answer, which is the part
+that matters — quads appended to one buffer, one binding, a draw per object reaching its own run
+through the vertex offset.
+
+**Local space, and that is the whole difference from the particle feature.** A sprite's quads are
+built around its pivot with no camera in them, so the geometry is the same for every view and is built
+once a frame rather than once a view; where the sprite *is* comes from `TransformRenderFeature`
+pushing a matrix, exactly as a mesh's does. A camera-facing sprite is therefore not this feature's
+job — that is a billboard, it has to be built against a view, and an object that answered "where am I"
+twice would draw a different scene in a shadow pass than in the camera.
+
+| Type | Is |
+|---|---|
+| `Sprite` | a region of a texture in texels, a pivot, a nine-slice border and a pixel density. No texture handle: the material binds the atlas, and what a sprite needs is the texture's *size*, which is the denominator that turns texels into UVs |
+| `SpriteSheet` | many sprites on one texture, cut by `Grid` or by an importer, looked up by name through a frozen dictionary built on first use |
+| `SpriteAnimation` | indices into a sheet, a frame rate and a wrap. Sampled by time and never stepped, so nothing holds a playhead and rewinding is passing a smaller number |
+| `SpriteGeometry` | the expansion, as a pure function — checked against numbers rather than a screenshot, the same bargain `VfxGeometryBuilder` makes |
+
+**Tiling is here and not in `Vixen.Ui`, for a reason that decides the split.** How many times a strip
+repeats is destination ÷ natural size, and the natural size is in texels — a draw list does not know
+how big a texture is, so a nine-slice there is stretched only. A sprite carries its own pixel density,
+so it can count. The count is capped at `SpriteGeometry.TileLimit` and a cell that would exceed it is
+stretched instead: the repeat count is a property of how small somebody drew their artwork, not of the
+scene, and one sprite is not allowed to size the frame's vertex buffer.
+
+**Painting order is `SpriteAppearance.SortGroup`, and the stage has to sort `ByGroup`.** Sprites are
+blended quads all the same distance from the camera, so what is in front is a decision an artist makes
+and a depth buffer cannot make for them — a `FrontToBack` stage would break the tie by object id.
+
+One trap worth naming, because the particle feature has it and this one does not: a per-object array is
+native memory the store zeroes when it grows, so an unbiased sprite index would make every object that
+has never been given a sprite draw the first one somebody registered. The stored index is one higher
+than it is, and zero means *no sprite*.
+
 `MaterialRenderFeature` is where the shader half of the engine meets the renderer half: preparation
 turns a material's `ParameterCollection` into an `EffectKey`, resolves it, and remembers the answer
 per object — so by recording time "which shader" is an array lookup. It resolves **per material, not
@@ -369,11 +410,18 @@ will bind the same pipeline get the same group, the key puts groups above depth,
 and the mesh feature sees one run and binds once. Break any link and four objects sharing a material
 become four pipeline binds — which is asserted, not assumed.
 
-The transform goes out as **push constants**: the smallest, most per-draw thing a frame has, with no
-descriptor, no upload-ring allocation and no offset to track. A `mat4` is 64 bytes against Vulkan's
-guaranteed 128, and Raven warns at `RVN3007` if a shader's block exceeds that, so both sides agree
-about the budget. The matrix is sent unchanged — see the `Matrix4x4` note in
+The transform goes out as **push constants** by default: the smallest, most per-draw thing a frame
+has, with no descriptor, no upload-ring allocation and no offset to track. A `mat4` is 64 bytes
+against Vulkan's guaranteed 128, and Raven warns at `RVN3007` if a shader's block exceeds that, so
+both sides agree about the budget. The matrix is sent unchanged — see the `Matrix4x4` note in
 [Vixen.Shaders](../Vixen.Shaders/README.md).
+
+**Or as a record, when the frame is merging draws.** `EnableRecords` puts every matrix in one buffer
+at the object's own slot and carries the slot in the draw's `firstInstance`; the shader's half is
+`UseTransformRecords`, and both move together because either alone draws a wrong picture rather than
+failing. What it buys is not bandwidth — it is that a push constant is *per command*, so a run of
+objects that bind nothing between them cannot become one command while each still has a matrix to
+push. See [Compacted draws](#what-is-not-here-yet).
 
 ## Lighting
 
@@ -487,6 +535,35 @@ set written for the variant that has it does not fit the layout of the variant t
 also what keeps a depth prepass from binding anything: its effect declares no per-material layout, so
 there is nothing to write.
 
+### A material's texture as a value
+
+Doc 06 says materials are values and not resources, and names what that cost: a feature that samples
+needs a binding index only the compiled shader knows, so a material feature could carry channels and
+could not carry a texture.
+
+With a `BindlessTable` it needs no index of the shader's. Give `MaterialRenderFeature` a `Textures`
+table and a `TextureIndices` pairing, and each material's texture takes a table slot whose number is
+written into the material's own parameters — from where `EffectConstants` fills it into the block out
+of the same offset table it fills the base colour from, with no idea that this particular `uint` means
+a descriptor. The shader declares `var albedoIndex: uint` and samples `textures[albedoIndex]`.
+
+**The pairing is explicit**, for the reason `PermutationSources` gives about its own: a shader's
+parameter name and a material's texture name belong to different things, and a convention that
+stripped `Index` and matched the rest would guess. An unmatched pair leaves the index at zero, which
+is a valid slot holding some other material's texture.
+
+**Per material, not per variant** — the one thing in this class that is. A permutation can fold a
+texture out of the block but cannot change which texture the material carries, and the table is
+global, so indexing per variant would take two references to one view and release neither.
+
+⚠ **And idempotently, because this runs every frame.** A table asked for the same view sixty times a
+second raises a reference count nothing lowers, and the symptom is not a wrong picture — it is a
+table that fills up after a few minutes of play and then refuses a texture on a machine with
+descriptors to spare. A settled material costs one dictionary hit, no table write and no upload.
+
+Leave the table null and none of this happens, which is the non-bindless path exactly as it was: what
+runs on GL, on WebGL2 and on MoltenVK below argument-buffer tier 2.
+
 **Every binding or none.** A material that set no `albedo` gets no set at all, rather than one with a
 hole in it. A partly-written set is a validation error on one backend and a sampled black texture on
 another, and neither says which material forgot which texture — where an object that does not draw is
@@ -567,6 +644,74 @@ A set per probe bound per draw is a set per object in all but name — the cost 
 exists to refuse — and the real obstacle was the compiler: Raven folded an array of textures *into the
 uniform block*, an opaque type in a `Block`-decorated struct, which `glslc` rejects outright and which
 `spirv-val` accepts and no driver would.
+
+## Light probes, and the predicates they turned out to need
+
+An environment map says what is around the *scene*; a reflection probe says what is around a *room*.
+A light probe says what is around **here**, for a thing that moves — and the answer for a position
+between probes is a blend of the four that surround it. `LightProbeVolume` is that, and it is short,
+because spherical harmonics make the blend free: a weighted sum of projections is the projection of
+the weighted sum, so four probes cost nine multiply-adds rather than four evaluations. Everything
+difficult is in *which four*.
+
+Which four is a **Delaunay tetrahedralisation** of the probe positions, and Delaunay specifically
+rather than any tetrahedral mesh over the same points: the empty-circumsphere property is what makes
+the four probes a position blends between its natural neighbours. Group them any other way and an
+object lights differently depending on which arbitrary seam it is standing on.
+
+**This section used to say the tetrahedralisation was written, found wrong by its own tests, and
+withdrawn.** It was, and the reason was always the same reason under three disguises. Bowyer–Watson
+is fifteen lines — delete every cell whose circumsphere contains the new point, then join the point
+to the cavity's boundary — and every one of those lines rests on a question whose answer is one of
+three values. Floating point cannot answer that question. It returns a number that is nearly right,
+and *nearly right* is a category error for a sign: an in-sphere test that says `-1e-19` where the
+truth is `0` has not made a small error, it has given the wrong answer, and the cavity built on it is
+not star-shaped and the mesh that comes out is not a mesh. The three disguises were an enclosing
+tetrahedron whose circumspheres swallowed the domain, a grid of probes that is *cospherical* so a
+strict test found no cavity, and a near-degenerate cell whose circumsphere ate the mesh on the next
+insertion. All three are the same defect.
+
+So the fix is not in the mesh builder. It is `Vixen.Core.Mathematics.ExactPredicates`, and it has
+three parts:
+
+- **Filtered evaluation.** Each predicate runs in `double` alongside a bound on its own rounding
+  error — the permanent of the same expression, which is what you get by replacing every term with
+  its absolute value. Further from zero than the bound and the sign is certain, which is the case for
+  essentially every call. That is the fast path and it is the only path most inputs ever take.
+- **An exact fallback.** When the value and the bound overlap, the same determinant is evaluated in
+  `BigInteger` over the inputs rescaled to integers — every binary float already *is* an integer
+  times a power of two, so factoring out the smallest exponent loses nothing and the determinants are
+  homogeneous, so the common factor cannot change a sign.
+- **Simulation of simplicity.** Zero is a real answer and a common one — eight probes on the corners
+  of a cube are cospherical, and so is every grid anybody authors — so the tie is broken by
+  *symbolically* raising each point off the paraboloid by an infinitesimal ordered by index. The
+  in-sphere test is a determinant and a determinant is linear in each row, so the perturbed value is
+  exactly `S + Σ δᵢ·Cᵢ` with **no cross terms at all**: two rows perturbed in the same column are two
+  identical rows and contribute nothing. The answer is therefore the sign of the first non-zero `Cᵢ`,
+  each of which is an orientation of the other four points, and the one belonging to the point being
+  tested is the cell's own orientation — non-zero by construction, so the scan always terminates with
+  a decision.
+
+**And the mesh checks itself.** The points are inserted into an enclosing tetrahedron and the cells
+touching its corners are dropped at the end, which is the textbook arrangement and has the textbook
+hazard: an enclosure that is not large enough silently loses cells near the hull, and everything that
+remains still looks Delaunay because it *is* Delaunay. What it leaves is a dent. So
+`FillsConvexHull` is asserted rather than assumed — a complex of empty-sphere cells that uses every
+point and whose boundary is closed and convex is the Delaunay tetrahedralisation, and a failed check
+grows the enclosure and rebuilds. The convexity is checked edge by edge rather than point by point,
+because on a grid both counts are in the thousands and every one of those tests lands on the exact
+path.
+
+Outside the hull, `Sample` returns the **nearest** probe rather than extrapolating. An order-2 fit
+pushed past the data it was fitted to produces negative irradiance, which is a surface that removes
+light from the frame; a flat seam at the edge of the bake is visible, and a black patch on a
+character is a bug report. Probes all on one plane — a single-height grid over a floor, which is a
+reasonable thing to author — have no tetrahedralisation at all, and `IsTetrahedral` says so rather
+than an exception saying it.
+
+What is **not** here is the GPU half: nothing yet uploads a probe volume or samples one in a shader,
+and `ForwardLightingRenderFeature` still takes its ambient term from the environment. The CPU side is
+complete and tested, which is the part that needed the predicates.
 
 ## Area lights
 
@@ -878,6 +1023,10 @@ it — and it leaves the per-draw block with exactly one owner, where a block ho
 and a light list needs two features to agree on its layout. `worldViewProjection` went with it: it was
 world × the view's matrix, computed per object on the CPU and uploaded per object, where the vertex
 stage can multiply two matrices it already has.
+
+Set 0 has since gained `transforms` and `transformBase` beside them, which is where `world` reads from
+when `UseTransformRecords` is on — a push constant is per command, and that turned out to matter more
+than what it costs. The push-constant range is still declared either way.
 
 The per-draw block's declaration order is not a style choice either. std140 starts an array of
 structures on a sixteen-byte boundary, so the count and the two probe fields fill exactly the header
@@ -1344,15 +1493,11 @@ is the caller's, and is what the ring above is for.
 Blend shapes. Punctual shadows are not cached — only the directional cascades are, and a spot light
 over static geometry has the same argument waiting for it.
 
-**Light probes.** Doc 06 asks for spherical-harmonic probes interpolated tetrahedrally, and the SH
-half is here — projection, linear blending, evaluation, all tested — while the tetrahedralisation is
-not. Bowyer–Watson over probe positions is fifteen lines of idea and a wall of robustness: an
-enclosing tetrahedron sized generously makes every circumsphere swallow the domain, so four probes
-produce no cells at all; a grid of probes is *cospherical*, so a strict in-sphere test finds no cavity
-to re-triangulate; and with both of those fixed, a single near-degenerate cell still has a circumsphere
-large enough to eat the mesh on the next insertion. Doing it properly means exact predicates. It was
-written, found wrong by its own tests, and taken back out rather than shipped producing a mesh that is
-not Delaunay.
+**Light probes reach a frame.** The tetrahedralisation and the interpolation are built and tested —
+see [Light probes](#light-probes-and-the-predicates-they-turned-out-to-need) — and what is still owed
+is the GPU half: a buffer of coefficients, a per-object index or a compute lookup, and an ambient
+term in `ForwardLightingRenderFeature` that comes from a probe rather than from the environment.
+`LightProbeVolume.Sample` is a CPU call, which is enough for a bake and not enough for a frame.
 
 Transmission has a surface feature's worth of channels and no shading model, deliberately: refraction
 needs either the scene colour or an environment sample, both of which belong to the pass rather than
@@ -1391,14 +1536,35 @@ node that does not compile, with no hint as to why.
 Bloom has no lens flare and no light streak, and the tonemap pass has no grading LUT as an asset —
 the shader takes one, nothing loads one.
 
-**Compacted draws, and the bindless materials they need.** Indirect draws here are one command per
-object with the culled ones zeroed. The reason is not the shader — claiming a slot needs an
-`atomicAdd` and Raven has one. It is the draw, twice over: a single command covers a compacted run
-only if its count comes from the device, and `ICommandList.DrawIndexedIndirect` takes `drawCount` as
-a host integer; and a single command covers several objects only if they share their bindings, and
-`MeshRenderFeature` binds a vertex buffer, an index buffer and a material set per object. **Bindless
-materials** are the deeper of the two and the one to do first — an indirect-count draw is a small
-RHI addition that buys nothing on its own.
+**Compacted draws are built**, and this section used to say they were the thing blocked on
+everything. `GpuDrawArguments.Compact` appends survivors to a run per batch and
+`MeshRenderFeature` covers a whole batch with one `DrawIndexedIndirectCount` — see
+[docs/bindless-materials.md](../../docs/bindless-materials.md), which is the record of the whole
+chain. Both halves of the old objection are gone: the count comes from a buffer the host never reads,
+and objects share their bindings because a material is a record (`MaterialRecords`) and geometry is a
+range of a shared buffer (`GeometryBuffer`).
+
+**The transform is out of the command buffer too.** `TransformRenderFeature.EnableRecords` puts every
+object's matrix in one buffer at the object's own slot and carries the slot in the draw's own
+`firstInstance` — the field `InstancingRenderFeature` has always used, which the compaction shader
+copies and the API adds into `SV_InstanceID` before the vertex stage runs. A push constant is not a
+binding, which is why nothing in the bindless plan touched it, and it stopped a merge anyway: data in
+the command buffer is per command by construction. `ForwardPlusKeys.UseTransformRecords` is the
+shader's half, and the gate is `HasDrawIndirectCount` — not because a device could not read the
+buffer, but because without a merged command to gain the read is a straight loss.
+
+**What is left is the per-object light block, and only where there is one.** With a uniform light
+list `ForwardLightingRenderFeature` binds each object's block at its own dynamic offset, and a
+dynamic offset travels in the *bind* rather than in the block — nothing inside a merged command can
+change it. With clustering on it binds nothing per object, so a clustered frame with transform
+records does merge. That is why the gate asks a sub-feature what it is *doing* this frame
+(`IDrawSubFeature.IsRecording`) rather than what type it is: the type gives the same answer to both
+of those and it is wrong for one of them. There is a test on each side.
+
+⚠ The clustered path binds no per-draw set at all, so `probeIndex`, `probeWeight`, `lightCount` and
+`materialIndex` are not bound in a clustered frame. That is older than any of this and unfixed by it
+— see [docs/bindless-materials.md](../../docs/bindless-materials.md) — and it is why "the clustered
+pass merges" is not yet the same sentence as "the clustered pass is right".
 
 ## Testing
 

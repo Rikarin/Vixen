@@ -1142,6 +1142,15 @@ partial class SpirvEmitter {
             storage = global.Storage;
 
             if (global.Member is { } member) {
+                // A record's member is reached through two more subscripts than a block's: member 0
+                // of the block is the runtime array, then the record, then the member. The index is
+                // loaded here rather than hoisted, because it is a uniform like any other and this
+                // is the only place that knows a per-material access is being made.
+                if (global.RecordIndex is { } record && globals.TryGetValue(record.Variable, out var slot)) {
+                    indices.Add(SpirvOperand.Id(types.ConstantInt(0)));
+                    indices.Add(SpirvOperand.Id(LoadGlobal(slot, record.Type)));
+                }
+
                 indices.Add(SpirvOperand.Id(types.ConstantInt(member)));
             }
         } else if (pointers.TryGetValue(place.Root, out var pointer)) {
@@ -1159,6 +1168,7 @@ partial class SpirvEmitter {
         var layout = globals.TryGetValue(place.Root, out var root) ? root.Layout : null;
         var type = place.Root.Type;
         IrSwizzleAccess? trailing = null;
+        var nonUniform = false;
 
         foreach (var access in place.Chain) {
             switch (access) {
@@ -1168,9 +1178,22 @@ partial class SpirvEmitter {
 
                 // A matrix indexes by column, which an access chain reaches exactly as it
                 // reaches an array element or a vector lane.
-                case IrIndexAccess index:
-                    indices.Add(SpirvOperand.Id(Value(index.Index)));
+                case IrIndexAccess index: {
+                    var id = Value(index.Index);
+
+                    // Indexing a descriptor array is the one subscript whose *index* has to be
+                    // decorated. Without it the driver is entitled to assume the number is uniform
+                    // across the subgroup and hoist the descriptor load — which is correct for every
+                    // other array here and is exactly wrong for the one case that exists so a merged
+                    // draw can read a different texture per fragment.
+                    if (SpirvTypes.IsDescriptorArray(type)) {
+                        module.Decorate(id, SpirvDecoration.NonUniform);
+                        nonUniform = true;
+                    }
+
+                    indices.Add(SpirvOperand.Id(id));
                     break;
+                }
 
                 // One lane is a component of the vector, which a pointer can reach.
                 case IrSwizzleAccess { Components: [var only] }:
@@ -1201,7 +1224,39 @@ partial class SpirvEmitter {
             [SpirvOperand.Id(baseId), .. indices]
         );
 
+        // The pointer as well as the index. The index says the *number* varies across the subgroup;
+        // this says the descriptor does, and it is the one a driver reads before deciding whether the
+        // load can be hoisted. A module with only the first validates and then samples one material's
+        // texture on every fragment of a merged draw — which is indistinguishable from a merge that
+        // worked, on the picture and in a capture.
+        if (nonUniform) {
+            module.Decorate(chain, SpirvDecoration.NonUniform);
+        }
+
         return new(chain, type, layout, storage, trailing);
+    }
+
+    /// <summary>Loads a global's value — used for the index a material record is read at.</summary>
+    /// <remarks>
+    ///     A small access chain and a load rather than anything the value path offers, because the
+    ///     index is not an <c>IrValue</c> the body produced: it is a binding, and the body never
+    ///     mentions it. Emitted at each use rather than once, which is what a driver would do with it
+    ///     anyway — a uniform load is the cheapest thing in the shader and hoisting it here would
+    ///     mean deciding where "here" is across basic blocks.
+    /// </remarks>
+    uint LoadGlobal(SpirvGlobal global, IrType type) {
+        var pointer = global.Variable;
+
+        if (global.Member is { } member) {
+            pointer = Emit(
+                SpirvOp.AccessChain,
+                types.Pointer(global.Storage, types.Type(type, global.Layout)),
+                SpirvOperand.Id(global.Variable),
+                SpirvOperand.Id(types.ConstantInt(member))
+            );
+        }
+
+        return Emit(SpirvOp.Load, types.Type(type), SpirvOperand.Id(pointer));
     }
 
     // --- Values ------------------------------------------------------------

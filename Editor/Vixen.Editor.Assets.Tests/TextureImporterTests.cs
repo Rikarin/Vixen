@@ -4,8 +4,11 @@
 using Vixen.Core;
 using Vixen.Core.Imaging;
 using Vixen.Core.IO;
+using Vixen.Core.Mathematics;
+using Vixen.Core.Serialization;
 using Vixen.Editor.Assets.Textures;
 using Vixen.Graphics;
+using Vixen.Rendering.Sprites;
 using Xunit;
 
 namespace Vixen.Editor.Assets.Tests;
@@ -425,6 +428,91 @@ public sealed class TextureImporterTests {
 
         Assert.True(registry.TryGetForFile("/Assets/notes.txt", out var forText));
         Assert.IsType<RawImporter>(forText);
+    }
+
+    /// <summary>
+    ///     A sliced texture produces the sheet and one sub-asset per sprite — doc 06's row, reaching
+    ///     the runtime.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Both, and neither is derivable from the other at load time.</b> The sheet is what a
+    ///     tile map or an animation reaches for, because it holds the frames in order; the per-sprite
+    ///     sub-assets are what a single reference resolves to, so dragging one frame into a scene
+    ///     does not pull ninety-nine others in with it.
+    /// </remarks>
+    [Fact]
+    public async Task ASlicedTextureProducesASheetAndASubAssetPerSprite() {
+        var (context, _) = Png(
+            new() {
+                SpriteMode = SpriteMode.Multiple,
+                PixelsPerUnit = 4f,
+                Sprites = [
+                    new() { Name = "a", X = 0, Y = 0, Width = 2, Height = 2 },
+                    new() { Name = "b", X = 2, Y = 0, Width = 2, Height = 2, BorderLeft = 1 }
+                ]
+            }
+        );
+
+        var result = await new TextureImporter().ImportAsync(context, TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded);
+
+        // The texture, two sprites and the sheet.
+        Assert.Equal(4, result.Artifacts.Count);
+        Assert.Equal(2, result.SubAssets.Count(entry => string.Equals(entry.Type, "Sprite", StringComparison.Ordinal)));
+        Assert.Single(result.SubAssets, entry => string.Equals(entry.Type, "SpriteSheet", StringComparison.Ordinal));
+
+        var sheet = Serializer.Read<SpriteSheet>(
+            result.Artifacts.Single(artifact => string.Equals(artifact.Type, "SpriteSheet", StringComparison.Ordinal))
+                .Content.Span
+        );
+
+        Assert.Equal("hero", sheet.Name);
+        Assert.Equal(new Int2(4, 4), sheet.TextureSize);
+        Assert.Equal(2, sheet.Count);
+
+        // Texels in, world units and UVs out: a two-texel sprite at four texels to the unit is half
+        // a unit across and a quarter of a four-texel sheet.
+        Assert.Equal(new Vector2(0.5f, 0.5f), sheet[0].Size);
+        Assert.Equal(new Rectangle(0.5f, 0f, 0.5f, 0.5f), sheet[1].Uv);
+        Assert.Equal(0.25f, sheet[1].UnitBorder.Left, 5);
+    }
+
+    /// <summary>
+    ///     ⚠ Two sprites of one name is one sub-asset, so the second would take the first one's place
+    ///     and every reference to it would follow. Refused rather than de-duplicated.
+    /// </summary>
+    [Fact]
+    public async Task TwoSpritesOfOneNameAreRefused() {
+        var (context, _) = Png(
+            new() {
+                SpriteMode = SpriteMode.Multiple,
+                Sprites = [
+                    new() { Name = "a", X = 0, Y = 0, Width = 2, Height = 2 },
+                    new() { Name = "a", X = 2, Y = 0, Width = 2, Height = 2 }
+                ]
+            }
+        );
+
+        var result = await new TextureImporter().ImportAsync(context, TestContext.Current.CancellationToken);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Message.Contains("'a'", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     A texture that is not a sprite sheet produces exactly what it always did.
+    /// </summary>
+    [Fact]
+    public async Task ATextureThatIsNotASpriteSheetProducesNothingExtra() {
+        var (context, _) = Png(new() { Sprites = [new() { Name = "a", X = 0, Y = 0, Width = 2, Height = 2 }] });
+
+        var result = await new TextureImporter().ImportAsync(context, TestContext.Current.CancellationToken);
+
+        // ⚠ The mode decides, not the presence of rects: a sheet somebody sliced and then set back to
+        // None should stop producing sub-assets without losing the rects they drew.
+        Assert.Single(result.Artifacts);
+        Assert.Empty(result.SubAssets);
     }
 
     static (ImportContext Context, byte[] Pixels) Png(

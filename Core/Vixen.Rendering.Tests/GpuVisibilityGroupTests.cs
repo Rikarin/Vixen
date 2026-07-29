@@ -1562,30 +1562,57 @@ public class GpuVisibilityGroupTests : IDisposable {
     ///     A provider that answers with the variants the two passes would have been compiled to.
     /// </summary>
     /// <remarks>
-    ///     The bindings are what the two classes read to build their sets, so they are the part that
-    ///     has to be truthful: the names are the shaders' own, they are all in one set, and the
-    ///     culler's texture appears only in the variant that declares it — which is the permutation
-    ///     this fixture exists to make visible.
+    ///     <para>
+    ///         The bindings are what the two classes read to build their sets, so they are the part
+    ///         that has to be truthful: the names are the shaders' own, they are all in one set, and
+    ///         the culler's texture appears only in the variant that declares it — which is the
+    ///         permutation this fixture exists to make visible.
+    ///     </para>
+    ///     <para>
+    ///         <strong>A layout per shader, derived from that shader's own bindings.</strong> One
+    ///         layout shared by all three was wrong in a way only a device would report: binding 1 is
+    ///         the reduction's storage image, the argument writer's visibility buffer and the culler's
+    ///         object buffer, so two of the three wrote a kind the set was not declared for. Building
+    ///         it from <see cref="Effect.Bindings" /> keeps the two from drifting apart again — there
+    ///         is only one list to get wrong.
+    ///     </para>
     /// </remarks>
     sealed class AlwaysCompiles(NullDevice device) : IEffectProvider {
-        readonly DescriptorSetLayoutHandle layout = device.CreateDescriptorSetLayout(
-            new(
-                DescriptorSetSlot.PerMaterial,
-                [
-                    new(0, DescriptorKind.SampledTexture, ShaderStage.Compute),
-                    new(1, DescriptorKind.StorageBuffer, ShaderStage.Compute),
-                    new(2, DescriptorKind.StorageBuffer, ShaderStage.Compute),
-                    new(3, DescriptorKind.StorageBuffer, ShaderStage.Compute)
-                ],
-                "Culling"
-            )
-        );
+        // The binding order is the real one: the texture first, and the three shaders disagree about
+        // what every index after 0 holds.
+        static readonly ImmutableArray<EffectBinding> CullingBindings = [
+            new("occluders", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.SampledTexture),
+            new("objects", DescriptorSetSlot.PerMaterial, 1, DescriptorKind.StorageBuffer),
+            new("views", DescriptorSetSlot.PerMaterial, 2, DescriptorKind.StorageBuffer),
+            new("visibility", DescriptorSetSlot.PerMaterial, 3, DescriptorKind.StorageBuffer)
+        ];
+
+        // Six, and the last three in both variants. A binding is a declared field, so it survives
+        // its last reader folding away — the padded variant declares the batch layout it never reads
+        // exactly as the compacted one does, and a set short of it is a validation error rather than
+        // an unused slot.
+        static readonly ImmutableArray<EffectBinding> ArgumentBindings = [
+            new("templates", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.StorageBuffer),
+            new("visibility", DescriptorSetSlot.PerMaterial, 1, DescriptorKind.StorageBuffer),
+            new("commands", DescriptorSetSlot.PerMaterial, 2, DescriptorKind.StorageBuffer),
+            new("batches", DescriptorSetSlot.PerMaterial, 3, DescriptorKind.StorageBuffer),
+            new("bases", DescriptorSetSlot.PerMaterial, 4, DescriptorKind.StorageBuffer),
+            new("counts", DescriptorSetSlot.PerMaterial, 5, DescriptorKind.StorageBuffer)
+        ];
+
+        static readonly ImmutableArray<EffectBinding> ReduceBindings = [
+            new("source", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.SampledTexture),
+            new("target", DescriptorSetSlot.PerMaterial, 1, DescriptorKind.StorageTexture)
+        ];
+
+        readonly Dictionary<string, ImmutableArray<DescriptorSetLayoutHandle>> layouts = [];
 
         public Effect? TryGet(EffectKey key) =>
             key.ShaderName switch {
-                GpuCulling.ReduceShaderName => Reduce(key, Layouts(layout)),
-                GpuCulling.ArgumentsShaderName => Arguments(key, Layouts(layout)),
-                _ => Culling(key, Layouts(layout))
+                GpuCulling.ReduceShaderName => Reduce(key, Layouts(GpuCulling.ReduceShaderName, ReduceBindings)),
+                GpuCulling.ArgumentsShaderName =>
+                    Arguments(key, Layouts(GpuCulling.ArgumentsShaderName, ArgumentBindings)),
+                _ => Culling(key, Layouts(GpuCulling.ShaderName, CullingBindings))
             };
 
         /// <summary>
@@ -1602,12 +1629,7 @@ public class GpuVisibilityGroupTests : IDisposable {
                 Key = key.ShaderName is null ? EffectKey.Of(GpuCulling.ShaderName) : key,
                 SetLayouts = layouts.IsDefault ? [] : layouts,
                 Stages = [new(ShaderStage.Compute, [1, 2, 3, 4], "main")],
-                Bindings = [
-                    new("occluders", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.SampledTexture),
-                    new("objects", DescriptorSetSlot.PerMaterial, 1, DescriptorKind.StorageBuffer),
-                    new("views", DescriptorSetSlot.PerMaterial, 2, DescriptorKind.StorageBuffer),
-                    new("visibility", DescriptorSetSlot.PerMaterial, 3, DescriptorKind.StorageBuffer)
-                ]
+                Bindings = CullingBindings
             };
 
         static Effect Arguments(EffectKey key, ImmutableArray<DescriptorSetLayoutHandle> layouts) =>
@@ -1615,11 +1637,7 @@ public class GpuVisibilityGroupTests : IDisposable {
                 Key = key,
                 SetLayouts = layouts,
                 Stages = [new(ShaderStage.Compute, [1, 2, 3, 4], "main")],
-                Bindings = [
-                    new("templates", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.StorageBuffer),
-                    new("visibility", DescriptorSetSlot.PerMaterial, 1, DescriptorKind.StorageBuffer),
-                    new("commands", DescriptorSetSlot.PerMaterial, 2, DescriptorKind.StorageBuffer)
-                ]
+                Bindings = ArgumentBindings
             };
 
         static Effect Reduce(EffectKey key, ImmutableArray<DescriptorSetLayoutHandle> layouts) =>
@@ -1627,17 +1645,29 @@ public class GpuVisibilityGroupTests : IDisposable {
                 Key = key,
                 SetLayouts = layouts,
                 Stages = [new(ShaderStage.Compute, [1, 2, 3, 4], "main")],
-                Bindings = [
-                    new("source", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.SampledTexture),
-                    new("target", DescriptorSetSlot.PerMaterial, 1, DescriptorKind.StorageTexture)
-                ]
+                Bindings = ReduceBindings
             };
 
-        static ImmutableArray<DescriptorSetLayoutHandle> Layouts(DescriptorSetLayoutHandle layout) {
-            var layouts = new DescriptorSetLayoutHandle[(int)DescriptorSetSlot.PerMaterial + 1];
-            layouts[(int)DescriptorSetSlot.PerMaterial] = layout;
+        /// <summary>That shader's set, made once and shaped by the bindings it declares.</summary>
+        ImmutableArray<DescriptorSetLayoutHandle> Layouts(string shader, ImmutableArray<EffectBinding> bindings) {
+            if (layouts.TryGetValue(shader, out var made)) {
+                return made;
+            }
 
-            return [.. layouts];
+            var declared = bindings
+                .Select(binding => new DescriptorBinding(binding.Binding, binding.Kind, ShaderStage.Compute))
+                .ToArray();
+
+            var all = new DescriptorSetLayoutHandle[(int)DescriptorSetSlot.PerMaterial + 1];
+
+            all[(int)DescriptorSetSlot.PerMaterial] = device.CreateDescriptorSetLayout(
+                new(DescriptorSetSlot.PerMaterial, declared, shader)
+            );
+
+            made = [.. all];
+            layouts[shader] = made;
+
+            return made;
         }
     }
 }

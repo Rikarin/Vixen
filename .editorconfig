@@ -606,6 +606,17 @@ dotnet_diagnostic.CA1711.severity = none
 dotnet_diagnostic.CA1051.severity = none
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Rendering/Features/SpriteRenderFeature.cs
+#
+# CA1051 (do not declare visible instance fields). `SpriteDraw` is the third of
+# these — an element of a RenderDataHolder array, written per object in the
+# prepare loop and read per node in the draw loop, exactly as `MeshDraw` and
+# `ParticleDraw` are. Same rule, same reason, one file further along again.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Rendering/Features/SpriteRenderFeature.cs]
+dotnet_diagnostic.CA1051.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Core/Vixen.Ui.Controls/Selects.cs
 #
 # CA1716 (identifiers should not match keywords). `Select` and `Option` are both

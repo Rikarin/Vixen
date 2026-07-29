@@ -110,5 +110,22 @@ public enum ResourceSet {
     PerMaterial = 2,
 
     /// <summary>Set 3 — transforms and instance data. Bound per draw.</summary>
-    PerDraw = 3
+    PerDraw = 3,
+
+    /// <summary>Set 4 — the unbounded descriptor array a bindless table owns.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Outside the four-set ordering rather than the end of it. Sets 0 to 3 are named for how
+    ///         often a <em>frame</em> rebinds them; this one is not rebound at all. The host writes
+    ///         each descriptor once when a texture enters the table and leaves it there, so what
+    ///         belongs here is a <c>Texture2D[]</c> and nothing else.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ A shader that declares it will only run on a device with descriptor indexing
+    ///         <em>and</em> five bindable sets, which is what <c>GraphicsDeviceFeatures.HasBindless</c>
+    ///         means. Everything else has to be reachable in a variant that does not declare it —
+    ///         which is what <c>[Permutation]</c> is for, and what <c>ForwardPlus</c> does.
+    ///     </para>
+    /// </remarks>
+    Bindless = 4
 }

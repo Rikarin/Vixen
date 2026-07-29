@@ -14,7 +14,8 @@ foreach (var pane in layout.Panes) {
     pane.Gizmo.Mode = GizmoMode.Translate;
     pane.Gizmo.Snap.SnapPosition = true;
     pane.OrbitAround = OrbitPivot.Selection;   // Blender's "orbit around selection"
-    pane.Picking = new PickingBuffer(device);
+    pane.Picker = new ScenePicker(scene);      // clicking selects; the ray test needs no device
+    pane.Picking = new PickingBuffer(device);  // and this takes over when there is one
 }
 
 var views = layout.Update(delta);   // once a frame, after the layout pass
@@ -391,6 +392,35 @@ The drawing half is a `RenderPassRenderer` this owns rather than a pass it decla
 `CompositorFrame.Context` is internal to `Vixen.Rendering`, rightly, and composition is the seam
 `SceneRenderer.BuildChild` exists for.
 
+### …and until there is a target for it, a ray
+
+⚠ All of the above is true and none of it was reachable: `SceneViewport.Pick` returned `false` unless
+a `PickingBuffer` had been set, nothing set one, and so **a click in the viewport selected nothing at
+all** — the only way to select an entity was the hierarchy panel, and clicking empty space did not
+even deselect. `ScenePicker` is the answer that needs no device: `Picking` is still checked first, and
+`Picker` is what answers when there is none.
+
+- ⚠ **The ray goes into each shape's local space rather than the vertices coming out of it.** A cube
+  is twenty-four vertices and a torus six hundred, and transforming them per entity per click is the
+  whole cost of the test; inverting one matrix is not. The parameter along the ray survives the
+  transform so long as the direction is *not* renormalised on the way in — which is what makes
+  distances from differently scaled entities comparable, and what makes clicking the near cube not
+  select the far one behind it.
+- **Exact, not bounds.** The corner of a sphere's bounding box is empty, and answering for it is what
+  makes clicking beside a ball select the ball.
+- **An entity with no shape is a cross, and a cross has no area to hit.** What is tested is a small
+  sphere about its origin, sized in *render pixels* rather than world units — a light two hundred
+  metres away is a handful of pixels and has to stay clickable, which is the same reason a gizmo is a
+  constant size on screen. Measured at the marker rather than at the camera's pivot, because those
+  differ whenever the thing being clicked is not what the camera is orbiting.
+- **A zero scale is skipped rather than thrown over.** An entity can be scaled to nothing and back,
+  and a picker that threw would take the editor with it.
+
+**Shift or control extends the selection, and toggles.** The same modifier that adds something is the
+one that takes it back out, because two gestures for the two halves of one idea is what makes people
+click an already-selected object and wonder why nothing happened. A miss clears the selection and an
+*additive* miss does not — that is the end of a rubber-band that grabbed nothing.
+
 ## View modes are compositors
 
 Doc 06 made the compositor data precisely so that "show me the normals" is a different tree rather than
@@ -470,6 +500,21 @@ the binary serializer use for that component. Saving reads back exactly the comp
 `SceneComponentRegistry` knows, in name order so an open-and-save is not a diff; a file naming a type
 nothing registered is **refused on load rather than dropped**, because an entity opened without its
 component is one that gets saved without it.
+
+⚠ **A shape and a light are keys of their own rather than entries in that list, and both are
+temporary.** `MeshShape` and `Light` are the *editor's* components: the runtime has nowhere to name
+a `PrimitiveKind` or a `LightKind`, because `Vixen.Engine` deliberately does not reference
+`Vixen.Rendering`. So neither has anything to register with `SceneComponentRegistry` — and a
+component in the list above that no build declares is exactly what a content compile refuses, which
+would mean the Create menu authoring scenes that cannot be built. One key each is the cheaper
+bargain, and the day the runtime grows those components both become ordinary entries. A `Camera`,
+which *is* a registered runtime component, already is one.
+
+⚠ **A `Color3` needs a scalar converter, the same as a `Vector3`.** Nothing in
+`Vixen.Core.Mathematics` carries the reflection generator, so every type of its that the format
+names has to be registered in `SceneScalars` — the symptom of forgetting is "Color3 has no
+descriptor", thrown from the serializer when somebody saves, which is to say after the work is done
+rather than when the field was added.
 
 **An entity is named by a GUID, not by its handle.** An `Entity` is a slot and a version in one
 world; loading the same scene twice reissues every one of them. `EntityId` is the identity that
@@ -560,11 +605,9 @@ rather than an id.
 **Rubber-band selection.** The picking stage answers one pixel; a marquee wants a region, which is a
 different copy and a different resolve.
 
-**Clicking to select in the viewport.** `SceneViewport.Pick` needs a `PickingBuffer` and
-`Vixen.Editor.App` never sets one, so a click on empty space does nothing and the selection is made in
-the hierarchy panel. The stage is written and tested; what it has nothing to draw *with* is the same
-gap as meshes, above — a pass that renders object ids needs geometry that carries them, and a scene of
-line crosses does not.
+**The picking *stage*.** ~~Clicking to select in the viewport.~~ That works now — see below — but
+through a ray test rather than through the stage. The stage is written and tested and nothing sets a
+`PickingBuffer` for it, because it needs a render target the editor's host does not own yet.
 
 **Auto-depth.** `EditorCamera.OnPivotPlane` is the depth a zoom-at-the-pointer assumes when it has not
 been told one, and it is right when the grid is what you are looking at. Blender samples the depth

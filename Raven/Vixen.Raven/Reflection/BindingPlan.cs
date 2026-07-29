@@ -33,6 +33,59 @@ public sealed record PlannedBinding(
 ) {
     /// <summary>True when this is a set's uniform block rather than an opaque resource.</summary>
     public bool IsBlock => Resource is null;
+
+    /// <summary>
+    ///     The other declarations of this same resource, for a <c>[Shared]</c> binding.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Empty for everything else. Several composed features may each declare the frame's
+    ///         texture table, and they are one binding — but each feature's body refers to its
+    ///         <em>own</em> variable, because that is what it was compiled against. So the plan hands
+    ///         out one <c>(set, binding)</c> pair and lists the rest here, and each backend points
+    ///         every listed variable at the one declaration it emitted.
+    ///     </para>
+    ///     <para>
+    ///         Without this the second feature's variable resolves to nothing and the emitter reports
+    ///         a variable it cannot reach — which is the correct failure and a useless one, since the
+    ///         author wrote a declaration that is plainly there.
+    ///     </para>
+    /// </remarks>
+    public ImmutableArray<IrBinding> Aliases { get; init; } = [];
+
+    /// <summary>
+    ///     The index of the record to read, when this block is one element of a material buffer.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Null for an ordinary uniform block, which is bound per material and read as itself.
+    ///         Set when the shader declared a <c>[MaterialIndex]</c>, which turns the whole
+    ///         per-material block into a <em>record</em>: one buffer holding every material in the
+    ///         frame, bound once, and a subscript in the per-draw data saying which.
+    ///     </para>
+    ///     <para>
+    ///         The binding rather than a name, because both emitters need the variable — the index is
+    ///         loaded and becomes the first subscript of every per-material access, so a member read
+    ///         is <c>materials[index].value</c> where it used to be <c>value</c>.
+    ///     </para>
+    /// </remarks>
+    public IrBinding? RecordIndex { get; init; }
+
+    /// <summary>Whether this block is one record of a buffer rather than a set bound per material.</summary>
+    public bool IsRecord => RecordIndex is not null;
+
+    /// <summary>Every declaration this covers: the resource, then its aliases.</summary>
+    public IEnumerable<IrBinding> Declarations {
+        get {
+            if (Resource is { } resource) {
+                yield return resource;
+            }
+
+            foreach (var alias in Aliases) {
+                yield return alias;
+            }
+        }
+    }
 }
 
 /// <summary>
@@ -75,8 +128,17 @@ public static class BindingPlan {
             var binding = 0;
 
             if (inSet.Where(b => b.Kind == IrBindingKind.Uniform).ToImmutableArray() is { IsEmpty: false } uniforms) {
+                // The per-material block becomes one record of a buffer when the shader declared a
+                // [MaterialIndex]. Still binding 0 of the same set, so nothing else renumbers — what
+                // changes is that the set now holds every material at once and is bound for the
+                // frame rather than for the draw, which is what lets two materials' draws be the
+                // same draw.
+                var record = set == ResourceSet.PerMaterial ? MaterialIndex(shader) : null;
+
                 plan.Add(
-                    new(set, binding++, IrBindingKind.Uniform, BlockName(shader, set), uniforms, null)
+                    new(set, binding++, IrBindingKind.Uniform, BlockName(shader, set), uniforms, null) {
+                        RecordIndex = record
+                    }
                 );
             }
 
@@ -88,13 +150,46 @@ public static class BindingPlan {
                 IrBindingKind.StorageBuffer,
                 IrBindingKind.StorageImage
             ]) {
-                foreach (var resource in inSet.Where(b => b.Kind == kind)) {
-                    plan.Add(new(set, binding++, kind, resource.Name, [], resource));
+                // A shared binding declared by several features is one binding, recognised by the
+                // name they all wrote. Grouped rather than deduplicated in place so that the first
+                // declaration keeps the slot and the rest become its aliases — every one of them has
+                // a variable some feature's body refers to, and all of them have to resolve.
+                foreach (var group in inSet.Where(b => b.Kind == kind).GroupBy(SharedKey)) {
+                    var resource = group.First();
+
+                    plan.Add(
+                        new(set, binding++, kind, resource.Name, [], resource) {
+                            Aliases = [.. group.Skip(1)]
+                        }
+                    );
                 }
             }
         }
 
         return plan.ToImmutable();
+    }
+
+    /// <summary>What decides whether two bindings of one kind are the same resource.</summary>
+    /// <param name="binding">The binding.</param>
+    /// <remarks>
+    ///     The declared name for a <c>[Shared]</c> binding, and the binding itself for everything
+    ///     else — which is to say nothing is grouped unless it said so. Returning the object rather
+    ///     than a name for the unshared case is what keeps two ordinary bindings that happen to be
+    ///     called the same thing apart; they are already qualified by then, but relying on that would
+    ///     make this correct only because of something two files away.
+    /// </remarks>
+    static object SharedKey(IrBinding binding) => binding.IsShared ? binding.Name : binding;
+
+    /// <summary>The <c>[MaterialIndex]</c> a shader declared, or null.</summary>
+    /// <param name="shader">The shader.</param>
+    /// <remarks>
+    ///     The first, and there should never be a second — two indices would be two answers to
+    ///     "which record does this draw read". Taken rather than checked here because a plan is not
+    ///     where a source mistake is reported: <c>IrVerifier</c> says so, with the shader named.
+    /// </remarks>
+    public static IrBinding? MaterialIndex(IrShader shader) {
+        ArgumentNullException.ThrowIfNull(shader);
+        return shader.Bindings.FirstOrDefault(binding => binding.IsMaterialIndex);
     }
 
     /// <summary>The name of a set's uniform block.</summary>

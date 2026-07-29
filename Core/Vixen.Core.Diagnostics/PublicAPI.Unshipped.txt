@@ -56,6 +56,8 @@ Vixen.Core.Diagnostics.LogRecord.Timestamp.init -> System.DateTimeOffset
 Vixen.Core.Diagnostics.LogRecordSink -> abstract class
 Vixen.Core.Diagnostics.LogRecordSink : Vixen.Core.Diagnostics.LogSink
 Vixen.Core.Diagnostics.LogRecordSink.LogRecordSink(Vixen.Core.Diagnostics.LogFilter? filter = null) -> void
+Vixen.Core.Diagnostics.LogRecordSink.TimeProvider.get -> System.TimeProvider!
+Vixen.Core.Diagnostics.LogRecordSink.TimeProvider.set -> void
 Vixen.Core.Diagnostics.LogSink -> abstract class
 Vixen.Core.Diagnostics.LogSink : System.IDisposable
 Vixen.Core.Diagnostics.LogSink.ClearCategoryLevels() -> void
@@ -122,11 +124,13 @@ Vixen.Core.Diagnostics.RingBufferSink -> sealed class
 Vixen.Core.Diagnostics.RingBufferSink : Vixen.Core.Diagnostics.LogRecordSink
 Vixen.Core.Diagnostics.RingBufferSink.Capacity.get -> int
 Vixen.Core.Diagnostics.RingBufferSink.Clear() -> void
+Vixen.Core.Diagnostics.RingBufferSink.CopySince(ref long sequence, System.Span<Vixen.Core.Diagnostics.LogRecord> destination) -> int
 Vixen.Core.Diagnostics.RingBufferSink.CopyTail(System.Span<Vixen.Core.Diagnostics.LogRecord> destination) -> int
 Vixen.Core.Diagnostics.RingBufferSink.Count.get -> int
 Vixen.Core.Diagnostics.RingBufferSink.DroppedCount.get -> long
 Vixen.Core.Diagnostics.RingBufferSink.RingBufferSink(int capacity = 100000, Vixen.Core.Diagnostics.LogFilter? filter = null) -> void
 Vixen.Core.Diagnostics.RingBufferSink.Snapshot() -> Vixen.Core.Diagnostics.LogRecord[]
+Vixen.Core.Diagnostics.RingBufferSink.Written.get -> long
 Vixen.Core.Diagnostics.TraceExporter -> static class
 Vixen.Core.Diagnostics.ZLoggerFileSink -> sealed class
 Vixen.Core.Diagnostics.ZLoggerFileSink : Vixen.Core.Diagnostics.LogSink

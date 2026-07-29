@@ -10,6 +10,7 @@ using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Inspector;
+using Vixen.Editor.Inspector.Drawers;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
@@ -40,7 +41,7 @@ namespace Vixen.Editor.App;
 ///         and it starts being a running game only when play mode says so.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The selection is polled once a frame rather than subscribed to.</b>
+///         ⚠ <b>Every selection is polled once a frame rather than subscribed to.</b>
 ///         <c>Selection&lt;T&gt;</c> is signal-backed, and an <c>Effect</c> over it would be the
 ///         better wiring — but nothing in this loop flushes the reactive scheduler, and adding one
 ///         changes the loop's contract for notifications and background tasks too. A comparison of a
@@ -53,7 +54,7 @@ namespace Vixen.Editor.App;
 ///         user back at the origin.
 ///     </para>
 /// </remarks>
-sealed class EditorApplication : IDisposable {
+sealed partial class EditorApplication : IDisposable {
     /// <summary>What the folder holding plugins is called, in both places it is looked for.</summary>
     const string PluginsFolder = "Plugins";
 
@@ -61,10 +62,62 @@ sealed class EditorApplication : IDisposable {
     readonly World world = new("Editor");
     readonly EditorProject project;
     readonly SceneDocument scene;
+
+    /// <summary>What the host can do that this cannot ask for itself: pickers, and a browser.</summary>
+    readonly EditorServices services;
+
+    /// <summary>Where a native dialog's answer waits for the frame thread.</summary>
+    readonly Deferred deferred = new();
+
+    /// <summary>Where the user's layouts, keymap and preferences live.</summary>
+    readonly string dataDirectory;
+
+    /// <summary>Snapshot, restore, and what state the transport is in.</summary>
+    readonly PlayModeController play;
+
+    /// <summary>The ring the console reads, and what puts the editor's own messages in it.</summary>
+    readonly EditorLog log = new();
+
+    /// <summary>The console panel while it is open, or <see langword="null" />.</summary>
+    ConsoleView? console;
+
+    /// <summary>What it is showing, which outlives the panel.</summary>
+    ConsoleModel? consoleModel;
+
+    /// <summary>Whether the save-on-close prompt is already on screen.</summary>
+    bool closing;
+
+    /// <summary>What a click in the viewport is answered by.</summary>
+    /// <remarks>
+    ///     Held here rather than made in the panel's factory, because that factory runs again every
+    ///     time the panel is reopened and this caches a mesh per shape kind — which is geometry that
+    ///     never changes and would otherwise be rebuilt every time somebody closed the scene tab.
+    /// </remarks>
+    readonly ScenePicker picker;
+
+    /// <summary>What an asset field's button opens.</summary>
+    AssetPicker assetPicker = null!;
+
     readonly ContentTasks content;
     readonly PluginHost plugins;
-    readonly string scenePath;
-    readonly List<Entity> shown = [];
+
+    /// <summary>Where the open scene is written, which Save As moves.</summary>
+    string scenePath;
+
+    /// <summary>What each open scene had selected when the inspector was last brought up to date.</summary>
+    /// <remarks>
+    ///     One entry per open scene rather than one list, because the editor's own scene is not the
+    ///     only one with a selection: a scene or a prefab opened as an asset has a hierarchy of its
+    ///     own, and a click in it is what this is here to notice.
+    /// </remarks>
+    readonly Dictionary<SceneDocument, List<Entity>> watched = [];
+
+    /// <summary>And the same for the project browser's.</summary>
+    readonly List<AssetId> shownAssets = [];
+
+    /// <summary>The open scenes, rebuilt in place once a frame rather than allocated.</summary>
+    readonly List<SceneDocument> scenes = [];
+
     readonly AssetEditorRegistry editors;
     readonly HashSet<string> assetPanels = new(StringComparer.Ordinal);
 
@@ -79,14 +132,50 @@ sealed class EditorApplication : IDisposable {
     ViewBookmark camera;
     bool hierarchyStale = true;
 
+    /// <summary>What the outliner's filter box says, or <see langword="null" /> for no filter.</summary>
+    /// <remarks>
+    ///     Held here rather than read from the box, because a panel's factory runs again when it is
+    ///     reopened — so a filter kept in the control would be silently forgotten by closing the
+    ///     panel, which looks like the outliner spontaneously showing rows that were hidden.
+    /// </remarks>
+    string? hierarchyFilter;
+
+    /// <summary>Whether the tree is being told about the selection rather than reporting one.</summary>
+    bool hierarchyEchoing;
+
+    /// <summary>Whether the inspector is showing the project's selection rather than a scene's.</summary>
+    bool inspectingAssets;
+
+    /// <summary>Which scene's selection it is showing, or <see langword="null" /> for this editor's own.</summary>
+    SceneDocument? inspected;
+
     /// <summary>Builds the editor's interface into a new document.</summary>
     /// <param name="width">The surface's width in device-independent pixels.</param>
     /// <param name="height">Its height.</param>
     /// <param name="directory">Where the user's layouts, keymap and preferences live.</param>
     /// <param name="projectRoot">The project to open, or <see langword="null" /> for a scratch one.</param>
-    public EditorApplication(float width, float height, string directory, string? projectRoot = null) {
+    /// <param name="services">
+    ///     What the host can do — file pickers, a browser — or <see langword="null" /> for none, which
+    ///     is what a test and a headless run get. The commands that need them grey themselves out
+    ///     rather than being absent.
+    /// </param>
+    public EditorApplication(
+        float width,
+        float height,
+        string directory,
+        string? projectRoot = null,
+        EditorServices? services = null
+    ) {
         store = new EditorUserStore(directory);
+        dataDirectory = directory;
+        this.services = services ?? EditorServices.None;
+
         Shell = new EditorShell(width, height);
+
+        // ⚠ Before anything that could notify, which on a first run is the project scan and the
+        // plugin loader. A mirror attached afterwards would miss exactly the messages somebody opens
+        // the console to read: the ones from start-up.
+        log.Mirror(Shell.Notifications);
 
         // ⚠ The fourth user-agent sheet, and it is the application that loads it. `EditorShell` has
         // the three that draw the chrome and cannot have this one: it is deliberately a shell that
@@ -116,6 +205,19 @@ sealed class EditorApplication : IDisposable {
         };
 
         project.Activate(scene);
+        picker = new ScenePicker(scene);
+        play = new PlayModeController(world);
+
+        // ⚠ Every entity gets a *new handle* when a play-mode snapshot is restored, so the
+        // document's name and stable-id tables — both keyed by handle — name nothing at all
+        // afterwards. `SceneDocument.Remap` was written for exactly this and nothing called it: the
+        // outliner came back from play mode as a list of blank rows, which reads as the scene having
+        // been lost. Subscribed here rather than in `LeavePlay` so that it also covers a restore the
+        // controller performs for any other reason.
+        play.Restored += (_, translation) => {
+            scene.Remap(translation);
+            hierarchyStale = true;
+        };
 
         if (SceneSerializer.Load(scene, scenePath) == 0) {
             Seed();
@@ -164,6 +266,16 @@ sealed class EditorApplication : IDisposable {
             Rescan = () => browser?.Rescan()
         };
 
+        // ⚠ Before the panels, because the inspector's asset fields are built by drawers that have
+        // to be pointed at a project first. `AssetDrawer` has raised `PickRequested` since it was
+        // written and nothing ever listened, so the button in an asset field did nothing at all.
+        assetPicker = new AssetPicker(project, Shell.Dialogs);
+
+        foreach (var drawer in DrawerRegistry.Default.Drawers.OfType<AssetDrawer>()) {
+            drawer.Resolve = assetPicker.NameOf;
+            drawer.PickRequested += assetPicker.Open;
+        }
+
         Panels();
         Layouts();
         Commands();
@@ -191,6 +303,15 @@ sealed class EditorApplication : IDisposable {
         }
 
         Shell.Status = project.Name;
+
+        // ⚠ A delegate rather than a number pushed on every change. Which of the several selections
+        // the count is about is this class's arbitration — see `FollowSelection` — and a shell
+        // holding a number would hold whichever one was written last.
+        Shell.SelectionCount = () => inspectingAssets
+            ? project.Selection.Count
+            : (inspected ?? scene).Selection.Count;
+
+        Retitle();
     }
 
     /// <summary>The interface.</summary>
@@ -198,6 +319,9 @@ sealed class EditorApplication : IDisposable {
 
     /// <summary>The scene being edited.</summary>
     public SceneDocument Scene => scene;
+
+    /// <summary>The project the editor has open.</summary>
+    public EditorProject Project => project;
 
     /// <summary>The pane the scene is drawn in, or <see langword="null" /> while it is closed.</summary>
     /// <remarks>
@@ -241,16 +365,31 @@ sealed class EditorApplication : IDisposable {
         // to rebuild. See `ContentTasks` for why nothing crosses back except a queued value.
         content.Pump();
 
+        // And what a native picker answered, for the same reason and on the same terms. Two queues
+        // rather than one, because a dialog's answer must not wait behind a content build's.
+        deferred.Pump();
+
+        // ⚠ Pulled here rather than subscribed to, and the reason is threading: the sink is written
+        // from the pool by a content import and by anything else the editor runs in the background,
+        // so a subscription would rebuild the panel's rows off the frame thread.
+        console?.Tick();
+
         ResolveTransforms();
+        Retitle();
 
         if (hierarchyStale) {
             hierarchyStale = false;
             RebuildHierarchy();
         }
 
-        if (Changed()) {
-            ShowSelection();
-        }
+        FollowSelection();
+
+        // ⚠ After the arbitration, and every frame rather than only after a rebuild. A selection
+        // made anywhere but the tree — a viewport click, a command, an undo — changes nothing
+        // structural, so a sync that only ran when the rows were rebuilt would leave the outliner
+        // highlighting whatever was clicked in it last. Comparing a handful of handles is the same
+        // trade this class already makes for the selections themselves.
+        SyncTreeSelection();
 
         if (viewport is not { } pane) {
             return;
@@ -325,9 +464,27 @@ sealed class EditorApplication : IDisposable {
         plugins.UnloadAll();
 
         viewport?.Dispose();
+
+        // Before the world, because it holds a snapshot of it: a controller disposed after the world
+        // would be releasing chunks into a world that had already released its own.
+        play.Dispose();
+
         Shell.Dispose();
         world.Dispose();
+
+        // After the shell, because disposing it raises no notifications but unloading a plugin can —
+        // and a mirror taken down first would lose the last thing the editor had to say.
+        log.Dispose();
     }
+
+    /// <summary>Brings the window's title into line with what is open.</summary>
+    /// <remarks>
+    ///     Once a frame rather than on a change, for the same reason the selections are polled: the
+    ///     dirty flag is a signal nothing here flushes, and comparing three values is not a cost.
+    ///     <c>EditorShell.Describe</c> raises nothing unless the composed string actually differs, so
+    ///     the host is told only when there is something to tell it.
+    /// </remarks>
+    void Retitle() => Shell.Describe(scene.Title.Peek(), scene.IsDirty.Value, project.Name);
 
     /// <summary>A scene with something in it, for a project that has none yet.</summary>
     /// <remarks>
@@ -371,15 +528,63 @@ sealed class EditorApplication : IDisposable {
         }
     }
 
+    /// <summary>Makes a pointer press anywhere in a panel say which context the user is in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>On press and on the tunnel leg, so it lands before anything acts on it.</b> A
+    ///         click in the outliner is what makes Delete mean an entity; recording it from a handler
+    ///         that runs after the tree's own would mean the first Delete of a visit to a panel was
+    ///         still aimed at the panel before it.
+    ///     </para>
+    ///     <para>
+    ///         <b>The press rather than the focus, because most of these panels do not take one.</b>
+    ///         A tree row is focusable and a viewport is not, and "which panel did the user last act
+    ///         in" is the question a scoped command is actually asking.
+    ///     </para>
+    /// </remarks>
+    void Contextual(DockPanel panel, string context) =>
+        panel.AddHandler<PointerEvent>(
+            (_, args) => {
+                if (args.Action == PointerAction.Pressed) {
+                    Shell.Context = context;
+                }
+            },
+            RoutingStrategy.Capture,
+            handledEventsToo: true
+        );
+
     void Panels() {
         Shell.RegisterPanel(
             "hierarchy",
             new StringId("editor.panel.hierarchy", "Hierarchy"),
             panel => {
+                Contextual(panel, SceneContext);
+
+                // ⚠ Above the tree and outside it, because a filter is about the panel rather than
+                // about the control: the tree is a view of whatever it is handed, and what it is
+                // handed is this application's decision. `TreeView` has no filter of its own for
+                // the same reason it has no idea what an entity is.
+                var search = panel.Add<SearchBox>();
+                search.Placeholder = "Filter by name…";
+
+                search.ValueChanged += (_, value) => {
+                    hierarchyFilter = string.IsNullOrWhiteSpace(value) ? null : value;
+                    hierarchyStale = true;
+                };
+
                 hierarchy = panel.Add<TreeView>();
                 hierarchy.MultiSelect = true;
 
                 hierarchy.SelectionChanged += tree => {
+                    // ⚠ Ignored while the tree is being brought into line with the selection rather
+                    // than the other way round. Restoring the highlight after a rebuild raises this,
+                    // and writing it straight back would be the tree overwriting the very selection
+                    // it is being told about — which for a click in the viewport means the click is
+                    // undone on the next frame.
+                    if (hierarchyEchoing) {
+                        return;
+                    }
+
                     List<Entity> picked = [];
 
                     foreach (var node in tree.Selection) {
@@ -397,6 +602,19 @@ sealed class EditorApplication : IDisposable {
                     }
                 };
 
+                hierarchy.Moved += (_, node) => Dropped(node);
+
+                // ⚠ Double-click renames here and opens the asset in the project browser, and the
+                // two are right for the same reason: a row's own name is the thing you edit in an
+                // outliner, and a file is the thing you open in a browser. F2 does the same, through
+                // the same command, so the keyboard and the pointer cannot disagree.
+                hierarchy.Activated += (_, node) => {
+                    if (node.Tag is Entity entity) {
+                        scene.Selection.Set([entity]);
+                        Rename();
+                    }
+                };
+
                 Contextualise(hierarchy);
                 hierarchyStale = true;
             }
@@ -406,6 +624,8 @@ sealed class EditorApplication : IDisposable {
             "project",
             new StringId("editor.panel.project", "Project"),
             panel => {
+                Contextual(panel, AssetContext);
+
                 browser = new ProjectBrowser(project, panel);
                 browser.Activated += Open;
             }
@@ -415,12 +635,20 @@ sealed class EditorApplication : IDisposable {
             "scene",
             new StringId("editor.panel.scene", "Scene"),
             panel => {
+                Contextual(panel, SceneContext);
+
                 var control = panel.Add<ViewportControl>();
                 control.RenderScale = RenderScale;
 
                 viewport = new SceneViewport(control, scene.Selection) {
                     Document = scene,
-                    TargetsFactory = () => EntityGizmoTarget.For(world, scene.Selection)
+                    TargetsFactory = () => EntityGizmoTarget.For(world, scene.Selection),
+
+                    // ⚠ Without this a click in the viewport selects nothing — the picking stage
+                    // wants a render target nothing here owns yet, so the only way to select an
+                    // entity was the hierarchy panel and clicking empty space did not even deselect.
+                    // Shared across panel rebuilds, because its cache of shapes is worth keeping.
+                    Picker = picker
                 };
 
                 // ⚠ Restored, because this factory runs again every time the panel is reopened and a
@@ -437,8 +665,9 @@ sealed class EditorApplication : IDisposable {
                 inspector.EditedDocument = scene;
 
                 // The rows were built against the previous instance of this panel, so what is
-                // selected has to be pushed into the new one rather than waited for.
-                shown.Clear();
+                // selected has to be pushed into the new one rather than waited for — and from
+                // whichever selection the inspector was already following, which is what the two
+                // fields behind `ShowSelection` are for.
                 ShowSelection();
             }
         );
@@ -446,7 +675,20 @@ sealed class EditorApplication : IDisposable {
         Shell.RegisterPanel(
             "console",
             new StringId("editor.panel.console", "Console"),
-            panel => panel.Add<TextBlock>().Text = "Nothing logged yet."
+            panel => {
+                Contextual(panel, ConsoleContext);
+
+                console = panel.Add<ConsoleView>();
+
+                // ⚠ One model, kept here, rather than one per panel. A panel's factory runs again
+                // every time it is reopened — see this class's own remarks — and a fresh model starts
+                // at the sink's current end, so closing and reopening the console would empty it.
+                // The buffer, the filters and the collapse state are all the user's and survive.
+                consoleModel ??= new ConsoleModel(log.Sink);
+                console.Show(consoleModel);
+
+                console.Activated += (_, record) => Reveal(record);
+            }
         );
     }
 
@@ -630,7 +872,9 @@ sealed class EditorApplication : IDisposable {
 
     void Commands() {
         Shell.Commands.Add(
-            new EditorCommand("file.exit", EditorStrings.CommandExit, () => IsClosing = true) {
+            // Through the same request the window's close button goes through, so the menu, the
+            // shortcut and the title-bar button all ask about unsaved work rather than two of three.
+            new EditorCommand("file.exit", EditorStrings.CommandExit, RequestClose) {
                 Category = EditorStrings.CategoryFile
             }
         );
@@ -715,26 +959,15 @@ sealed class EditorApplication : IDisposable {
         EditCommands();
         SceneCommands();
 
+        // ⚠ After the scene commands and before the toolbar, and both halves matter. Some of these
+        // put a keybinding on a command `SceneCommands` registered — Ctrl+Shift+N onto Create Empty —
+        // which needs the command to exist; and the toolbar is built from ids, which needs every one
+        // of these to exist.
+        ParityCommands();
+
         Shell.Keys.SetDefault("file.exit", new KeyChord(InputKey.Q, ModifierKeys.Control));
 
-        // The three gizmo modes and the two toggles that change what a drag does, which are the
-        // things somebody reaches for between one edit and the next. They show their state — a
-        // command with a `Checked` predicate draws its button pressed — so the strip also answers
-        // "what will dragging do right now" without anything being opened.
-        Shell.Toolbar.Show(
-            "view.palette",
-            null,
-            "scene.translate",
-            "scene.rotate",
-            "scene.scale",
-            null,
-            "scene.toggle-space",
-            "scene.toggle-snap",
-            "scene.toggle-grid",
-            null,
-            "view.reset-layout",
-            "view.toggle-theme"
-        );
+        ParityToolbar();
 
         // The saved arrangements are a palette source rather than a menu, because there is no bound
         // on how many of them somebody makes and a menu with forty lines in it is a list nobody
@@ -798,30 +1031,13 @@ sealed class EditorApplication : IDisposable {
             }
         );
 
-        Shell.Commands.Add(
-            new EditorCommand(
-                "scene.delete-entity",
-                new StringId("editor.command.delete-entity", "Delete"),
-                () => scene.Delete(scene.Selection.ToList())
-            ) {
-                Category = EditorStrings.CategoryEdit,
-                Enablement = () => scene.Selection.Count > 0
-            }
-        );
-
-        Shell.Keys.SetDefault("scene.delete-entity", new KeyChord(InputKey.Delete, ModifierKeys.None));
-
-        // ⚠ A command rather than only the tree's own F2, so that the context menu, the palette and
-        // the key all reach the same code — and so the menu line greys itself out when there is
-        // nothing selected instead of opening an editor on a row that is not there.
-        Shell.Commands.Add(
-            new EditorCommand("scene.rename-entity", new StringId("editor.command.rename-entity", "Rename"), Rename) {
-                Category = EditorStrings.CategoryEdit,
-                Enablement = () => hierarchy is not null && scene.Selection.Count > 0
-            }
-        );
-
+        // ⚠ Delete and Rename are `edit.delete` and `edit.rename`, registered in `EditingCommands`
+        // and scoped to the outliner. They used to be `scene.*` ids with the Delete key and F2 on
+        // them; the move is what lets the content browser's twins claim the same keys, and it is why
+        // this menu, the Edit menu and the hierarchy's context menu now all name the one pair rather
+        // than two commands with the same label.
         ShapeCommands();
+        ObjectCommands();
 
         // ⚠ Ticked, and that is what makes the three modes read as one choice rather than as three
         // buttons. A menu of Translate, Rotate and Scale with nothing saying which is current is one
@@ -977,19 +1193,27 @@ sealed class EditorApplication : IDisposable {
     ///     </para>
     /// </remarks>
     void SceneMenu() {
-        var menu = Shell.Menus.InsertMenu(2, new StringId("editor.menu.scene", "Scene"));
+        // ⚠ First, because this is what puts Entity on the bar and the line below counts to it.
+        // Assets, Entity, Play, Build and Tools are doc 20's Part C menus made of this application's
+        // verbs; the shell keeps File, Edit, Window and Help.
+        ParityMenus();
+
+        // ⚠ After Entity, which is doc 20's Part C order: File, Edit, Assets, Entity, Scene, Play,
+        // Window, Build, Tools, Help. Found by counting to the Entity menu rather than by a literal,
+        // so that a menu added to the shell's default bar does not silently put Scene somewhere else.
+        var menu = Shell.Menus.InsertMenu(
+            Index(EditorStrings.MenuEntity) + 1,
+            new StringId("editor.menu.scene", "Scene")
+        );
 
         menu.Add("scene.create-entity");
 
-        // The same eight the hierarchy's context menu offers, from the same command ids — which is
-        // the point of them being commands rather than something the menu does for itself.
-        var shapes = menu.AddSubmenu(new StringId("editor.menu.create-shape", "3D Object"));
+        // The same submenus the hierarchy's context menu offers, from the same command ids and the
+        // same code — which is the point of them being commands rather than something a menu does
+        // for itself, and what stops the two drifting apart the next time one is added to.
+        Creatable(menu);
 
-        foreach (var kind in MeshShapes.All) {
-            shapes.Add(ShapeCommandId(kind));
-        }
-
-        menu.Add("scene.rename-entity", "scene.delete-entity").AddSeparator();
+        menu.Add("edit.rename", "edit.delete").AddSeparator();
 
         menu.AddSubmenu(new StringId("editor.menu.gizmo", "Gizmo"))
             .Add("scene.translate", "scene.rotate", "scene.scale")
@@ -1015,14 +1239,21 @@ sealed class EditorApplication : IDisposable {
         menu.AddSeparator().Add("scene.focus", "scene.frame-all");
         menu.AddSeparator().Add("scene.toggle-grid");
 
-        // The View menu is the shell's, and this is the one thing the application has to put on it:
-        // saving an arrangement needs somewhere to save it, which is the user store this owns.
-        Shell.View.AddSeparator().Add("view.save-layout");
-
         // ⚠ Rebuilt here rather than left to the one a registration triggers, which is why this runs
         // last. Every `Commands.Add` and every `Keys.SetDefault` above rebuilt the bar against a
         // model that did not yet have this menu in it, and nothing after this point registers either.
         Shell.MenuBar.Rebuild();
+    }
+
+    /// <summary>Where a menu with a title sits on the bar.</summary>
+    int Index(StringId title) {
+        for (var index = 0; index < Shell.Menus.Menus.Count; index++) {
+            if (Shell.Menus.Menus[index].Title.Id == title.Id) {
+                return index;
+            }
+        }
+
+        return Shell.Menus.Menus.Count - 1;
     }
 
     /// <summary>One command per built-in shape, so that spawning one is not the menu's private trick.</summary>
@@ -1054,6 +1285,83 @@ sealed class EditorApplication : IDisposable {
     /// <summary>What a shape's create command is called in the registry.</summary>
     static string ShapeCommandId(PrimitiveKind kind) =>
         "scene.create-" + MeshShapes.NameOf(kind).ToLowerInvariant();
+
+    /// <summary>One command per kind of light, and one for a camera.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Commands rather than menu lines, which is <see cref="ShapeCommands" />' argument
+    ///     applied to the other half of a Create menu.</b> "Create Point Light" being findable in the
+    ///     palette and bindable to a key is what makes it a thing the editor can do, rather than a
+    ///     thing one menu happens to offer — and it is why the Scene menu and the hierarchy's context
+    ///     menu can both name it without either of them owning it.
+    /// </remarks>
+    void ObjectCommands() {
+        foreach (var kind in Lights.All) {
+            var light = kind;
+            var title = Lights.TitleOf(light);
+
+            Shell.Commands.Add(
+                new EditorCommand(
+                    LightCommandId(light),
+                    new StringId("editor.command.create-light-" + Lights.NameOf(light).ToLowerInvariant(), title),
+                    () => CreateLight(light)
+                ) {
+                    Category = new StringId("editor.category.create", "Create")
+                }
+            );
+        }
+
+        Shell.Commands.Add(
+            new EditorCommand(
+                "scene.create-camera",
+                new StringId("editor.command.create-camera", "Camera"),
+                CreateCamera
+            ) {
+                Category = new StringId("editor.category.create", "Create")
+            }
+        );
+    }
+
+    /// <summary>What a light's create command is called in the registry.</summary>
+    static string LightCommandId(LightKind kind) =>
+        "scene.create-light-" + Lights.NameOf(kind).ToLowerInvariant();
+
+    /// <summary>Everything a Create menu offers, written once for the two menus that offer it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Grouped into submenus rather than listed flat, and that is not tidiness.</b>
+    ///         Thirteen create lines in the same list as Rename, Delete and Focus is a menu where the
+    ///         two destructive entries are somewhere in the middle of a wall of nouns — and the wall
+    ///         grows with every kind of thing the engine learns to make.
+    ///     </para>
+    ///     <para>
+    ///         <b>Camera is a line rather than a submenu of one.</b> A submenu that opens onto a
+    ///         single item is a second click for nothing, and it invites the reader to wonder what
+    ///         else is in there.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What is absent is absent on purpose.</b> There is no UI, sprite, terrain or
+    ///         particle entry because the runtime has no component for any of them — <c>Vixen.Ui</c>
+    ///         is a document tree with no world-space bridge, and the others do not exist at all. A
+    ///         line that created an entity called "Canvas" carrying nothing would be a menu that lies
+    ///         about what the engine can do, and the bug reports it earns are about the editor rather
+    ///         than about the gap. They belong here the moment there is something for them to attach.
+    ///     </para>
+    /// </remarks>
+    static void Creatable(MenuGroup menu) {
+        var shapes = menu.AddSubmenu(new StringId("editor.menu.create-shape", "3D Object"));
+
+        foreach (var kind in MeshShapes.All) {
+            shapes.Add(ShapeCommandId(kind));
+        }
+
+        var lights = menu.AddSubmenu(new StringId("editor.menu.create-light", "Light"));
+
+        foreach (var kind in Lights.All) {
+            lights.Add(LightCommandId(kind));
+        }
+
+        menu.Add("scene.create-camera");
+    }
 
     /// <summary>The menu a secondary click in the hierarchy opens.</summary>
     /// <remarks>
@@ -1104,15 +1412,10 @@ sealed class EditorApplication : IDisposable {
         var group = new MenuGroup(new StringId("editor.menu.hierarchy", "Hierarchy"));
 
         group.Add("scene.create-entity");
-
-        var shapes = group.AddSubmenu(new StringId("editor.menu.create-shape", "3D Object"));
-
-        foreach (var kind in MeshShapes.All) {
-            shapes.Add(ShapeCommandId(kind));
-        }
+        Creatable(group);
 
         group.AddSeparator();
-        group.Add("scene.rename-entity", "scene.delete-entity");
+        group.Add("edit.rename", "edit.delete");
         group.AddSeparator();
         group.Add("scene.focus");
 
@@ -1150,14 +1453,149 @@ sealed class EditorApplication : IDisposable {
         }
     }
 
-    /// <summary>Whether the selection differs from what the inspector is showing.</summary>
-    bool Changed() {
-        if (shown.Count != scene.Selection.Count) {
+    /// <summary>Brings the inspector into line with whichever panel the selection changed in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Several selections and one inspector, so something has to arbitrate.</b> There is
+    ///         one per open scene — the editor's own, and one more for every scene or prefab opened
+    ///         as an asset — and one for the project browser. Only the first was ever read: a click
+    ///         in the Project panel, or in the hierarchy of a scene opened from it, moved a highlight
+    ///         and ended there. Showing them together is not an option either;
+    ///         <c>InspectorRegistry.CommonType</c> draws nothing for a selection with no single type
+    ///         in it, which an entity and a texture do not have.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The one that changed is the one that was clicked in, and it wins.</b> Two
+    ///         changing in one frame is this method's own doing — clearing a loser is itself a change
+    ///         — and there the one that gained something is the click.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The losers this application owns the views for are cleared rather than left
+    ///         highlighted.</b> Two panels showing a selection while the inspector can only show one
+    ///         is a picture that lies about which of them the next Delete, the next gizmo drag or the
+    ///         next rename will act on. A document opened as an asset is the exception and not an
+    ///         oversight: its hierarchy owns its own rows and takes selection outwards only — see
+    ///         <c>SceneHierarchyView</c> — so clearing its document's selection from here would leave
+    ///         a row highlighted with nothing behind it, which is worse than leaving it be.
+    ///     </para>
+    /// </remarks>
+    void FollowSelection() {
+        CollectScenes();
+
+        // A document that has been closed cannot be what the inspector is showing, and its snapshot
+        // would keep it alive for as long as the editor runs.
+        var closed = Forget();
+
+        SceneDocument? changed = null;
+
+        foreach (var document in scenes) {
+            if (Differs(Snapshot(document), document.Selection)) {
+                changed = document;
+                break;
+            }
+        }
+
+        var assets = Differs(shownAssets, project.Selection);
+
+        if (changed is null && !assets && !closed) {
+            return;
+        }
+
+        inspectingAssets = changed is null || (assets && project.Selection.Count > 0);
+
+        if (inspectingAssets) {
+            DeselectEntities();
+        } else {
+            inspected = changed;
+            DeselectAssets();
+
+            // The editor's own scene keeps the gizmo and the hierarchy pointed at it, so it is only
+            // dropped when the click was somewhere else entirely.
+            if (!ReferenceEquals(changed, scene)) {
+                DeselectEntities();
+            }
+        }
+
+        // ⚠ Snapshotted after the clears rather than before, so that the changes this method just
+        // made to the losing selections are not read as clicks in those panels on the next frame —
+        // which would hand the inspector straight back to the panel the user had just left.
+        foreach (var document in scenes) {
+            var snapshot = Snapshot(document);
+
+            snapshot.Clear();
+            snapshot.AddRange(document.Selection);
+        }
+
+        shownAssets.Clear();
+        shownAssets.AddRange(project.Selection);
+
+        ShowSelection();
+    }
+
+    /// <summary>Fills <see cref="scenes" /> with every scene the editor has open, its own first.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Into a list this object keeps, because this runs every frame.</b> The class's own
+    ///     remarks say a comparison of a handful of handles once a frame is not a cost; a pair of
+    ///     lists allocated per frame for the rest of the session would be a different claim.
+    ///     <para>
+    ///         Its own scene is put in explicitly rather than trusted to be somewhere particular in
+    ///         <see cref="EditorProject.Documents" />: it is the one that must win a tie, because it
+    ///         is the one the scene panel and the gizmo are looking at.
+    ///     </para>
+    /// </remarks>
+    void CollectScenes() {
+        scenes.Clear();
+        scenes.Add(scene);
+
+        foreach (var document in project.Documents) {
+            if (document is SceneDocument open && !ReferenceEquals(open, scene)) {
+                scenes.Add(open);
+            }
+        }
+    }
+
+    /// <summary>The snapshot of a document's selection, made on first sight.</summary>
+    List<Entity> Snapshot(SceneDocument document) {
+        if (!watched.TryGetValue(document, out var snapshot)) {
+            watched[document] = snapshot = [];
+        }
+
+        return snapshot;
+    }
+
+    /// <summary>Drops the snapshots of documents that are no longer open.</summary>
+    /// <returns>Whether the one the inspector was showing was among them.</returns>
+    /// <remarks>
+    ///     The count is checked first so that the ordinary frame — nothing opened, nothing closed —
+    ///     does not walk the dictionary at all.
+    /// </remarks>
+    bool Forget() {
+        if (watched.Count <= scenes.Count) {
+            return false;
+        }
+
+        var lost = false;
+
+        foreach (var document in watched.Keys.Where(document => !scenes.Contains(document)).ToList()) {
+            watched.Remove(document);
+
+            if (ReferenceEquals(inspected, document)) {
+                inspected = null;
+                lost = true;
+            }
+        }
+
+        return lost;
+    }
+
+    /// <summary>Whether a selection differs from the snapshot of it the inspector was built from.</summary>
+    static bool Differs<T>(List<T> shown, IReadOnlyList<T> selection) where T : notnull {
+        if (shown.Count != selection.Count) {
             return true;
         }
 
         for (var index = 0; index < shown.Count; index++) {
-            if (shown[index] != scene.Selection[index]) {
+            if (!EqualityComparer<T>.Default.Equals(shown[index], selection[index])) {
                 return true;
             }
         }
@@ -1165,19 +1603,99 @@ sealed class EditorApplication : IDisposable {
         return false;
     }
 
+    /// <summary>Drops the scene selection, through the hierarchy when it is open.</summary>
+    /// <remarks>
+    ///     The rows' highlight is the tree's own state and the document's selection is written from
+    ///     it, so clearing only the document would leave a row that looks selected. With the panel
+    ///     closed there is no tree to clear and the document is all there is.
+    /// </remarks>
+    void DeselectEntities() {
+        if (scene.Selection.Count == 0) {
+            return;
+        }
+
+        if (hierarchy is { } tree) {
+            tree.Select(null);
+        } else {
+            scene.Selection.Clear();
+        }
+    }
+
+    /// <inheritdoc cref="DeselectEntities" />
+    void DeselectAssets() {
+        if (project.Selection.Count == 0) {
+            return;
+        }
+
+        if (browser is { } open) {
+            open.Deselect();
+        } else {
+            project.Selection.Clear();
+        }
+    }
+
+    /// <summary>Puts whatever is selected into the inspector, and names it in the status bar.</summary>
+    /// <remarks>
+    ///     One view object per selected thing, made fresh every time: each holds a handle and the
+    ///     model it reads through and nothing else, so keeping a cache of them would be bookkeeping
+    ///     in exchange for nothing.
+    /// </remarks>
     void ShowSelection() {
-        shown.Clear();
-        shown.AddRange(scene.Selection);
+        if (inspectingAssets) {
+            inspector?.Inspect([.. project.Selection.Select(asset => new ProjectAsset(project, asset))]);
 
-        // One SceneEntity per selected entity, made fresh: it holds a handle and a document and
-        // nothing else, so keeping a cache of them would be bookkeeping in exchange for nothing.
-        inspector?.Inspect([.. shown.Select(entity => new SceneEntity(scene, entity))]);
+            Shell.Status = project.Selection.Count switch {
+                0 => project.Name,
+                1 => project.Assets.TryGetByGuid(project.Selection[0], out var entry) ? entry.Name : project.Name,
+                _ => $"{project.Selection.Count} selected"
+            };
 
-        Shell.Status = shown.Count switch {
+            return;
+        }
+
+        var document = inspected ?? scene;
+
+        if (inspector is { } view) {
+            // ⚠ The document whose entities these are, not the editor's own scene. An inspector edit
+            // is recorded on the stack of the document it changed, and a scene opened as an asset
+            // has one of its own — so an edit made here with the wrong document set would be undone
+            // by a Ctrl+Z aimed at something else entirely.
+            view.EditedDocument = document;
+            view.Inspect([.. document.Selection.Select(entity => new SceneEntity(document, entity))]);
+        }
+
+        Shell.Status = document.Selection.Count switch {
             0 => project.Name,
-            1 => scene.NameOf(shown[0]),
-            _ => $"{shown.Count} selected"
+            1 => document.NameOf(document.Selection[0]),
+            _ => $"{document.Selection.Count} selected"
         };
+    }
+
+    /// <summary>What a drag in the outliner meant, as an undoable move of the document.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The tree has already moved the node by the time this runs, and the document has
+    ///         not.</b> <c>TreeView</c> owns the gesture and its own rows; the scene owns what is
+    ///         true. So this reads where the node landed, tells the document, and marks the tree
+    ///         stale either way — a move the document refuses (a cycle, an entity already there)
+    ///         would otherwise leave the outliner showing a hierarchy the scene does not have.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The whole selection moves when the dragged row is part of it.</b> The same rule
+    ///         the context menu follows, and for the same reason: dragging one of five selected rows
+    ///         and having four of them stay behind is the behaviour nobody means.
+    ///     </para>
+    /// </remarks>
+    void Dropped(TreeNode node) {
+        if (node.Tag is not Entity moved) {
+            return;
+        }
+
+        var parent = node.Parent is { Tag: Entity target } ? target : Entity.Null;
+        var entities = scene.Selection.Contains(moved) ? scene.Selection.ToList() : [moved];
+
+        scene.Reparent(entities, parent);
+        hierarchyStale = true;
     }
 
     void RebuildHierarchy() {
@@ -1199,12 +1717,98 @@ sealed class EditorApplication : IDisposable {
             tree.Expand(node);
         }
 
-        void Branch(TreeNode parent, Entity entity) {
+        ShowSelectionInTree(tree);
+
+        // ⚠ Whether a branch is kept is decided bottom-up: an entity survives the filter if it
+        // matches, and a parent survives if any of its descendants did. A filter that dropped a
+        // non-matching parent would take the matching child with it, which for a name typed into
+        // an outliner is the one row the user was looking for.
+        bool Branch(TreeNode parent, Entity entity) {
             var node = parent.Add(scene.NameOf(entity), entity);
+            var kept = Matches(entity);
 
             foreach (var child in Hierarchy.ChildrenOf(world, entity)) {
-                Branch(node, child);
+                kept |= Branch(node, child);
             }
+
+            if (!kept) {
+                parent.Remove(node);
+            }
+
+            return kept;
+        }
+    }
+
+    bool Matches(Entity entity) =>
+        hierarchyFilter is null
+        || scene.NameOf(entity).Contains(hierarchyFilter, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Brings the outliner's highlight into line with the document, when they differ.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Doc 20's "selection <i>into</i> the tree", which is the half that was missing.</b>
+    ///     Clicking a row selected an entity; selecting an entity anywhere else — the viewport, a
+    ///     command, an undo — left the outliner showing whatever had been clicked last, because the
+    ///     highlight is the tree's own state and nothing wrote it.
+    /// </remarks>
+    void SyncTreeSelection() {
+        if (hierarchy is not { } tree || hierarchyStale) {
+            return;
+        }
+
+        var shown = 0;
+        var agrees = true;
+
+        foreach (var node in tree.Selection) {
+            shown++;
+
+            if (node.Tag is not Entity entity || !scene.Selection.Contains(entity)) {
+                agrees = false;
+                break;
+            }
+        }
+
+        // Same count and every row selected is selected in the document: nothing to do, which is
+        // every frame in which nobody clicked anything.
+        if (agrees && shown == scene.Selection.Count) {
+            return;
+        }
+
+        ShowSelectionInTree(tree);
+    }
+
+    /// <inheritdoc cref="SyncTreeSelection" />
+    void ShowSelectionInTree(TreeView tree) {
+        if (scene.Selection.Count == 0) {
+            // ⚠ Guarded as well. Clearing the tree's rows raises `SelectionChanged` too, and letting
+            // that through would write an empty selection into whichever document the inspector had
+            // just been handed.
+            hierarchyEchoing = true;
+
+            try {
+                tree.Select(null);
+            } finally {
+                hierarchyEchoing = false;
+            }
+
+            return;
+        }
+
+        // ⚠ Guarded, because `Select` raises `SelectionChanged` and the handler writes the tree's
+        // selection back into the document. Without this, restoring a selection of three entities
+        // would set the document's to one — the first row selected — and the other two would vanish.
+        hierarchyEchoing = true;
+
+        try {
+            var first = true;
+
+            foreach (var node in Descendants(tree.Root)) {
+                if (node.Tag is Entity entity && scene.Selection.Contains(entity)) {
+                    tree.Select(node, first ? ModifierKeys.None : ModifierKeys.Control);
+                    first = false;
+                }
+            }
+        } finally {
+            hierarchyEchoing = false;
         }
     }
 
@@ -1315,6 +1919,39 @@ sealed class EditorApplication : IDisposable {
         var created = scene.CreateShape(kind, LocalTransform.Identity, Under());
         scene.Selection.Set([created]);
     }
+
+    /// <summary>Creates a light under the selection, and selects it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Aimed downwards rather than left at the identity, and only this one is.</b> A shape at
+    ///     the identity is a shape; a directional or a spot light at the identity points along +Z,
+    ///     which for a sun means the horizon and for a spot means a cone lying flat in the floor —
+    ///     both of which look like the command having done nothing. Every other kind ignores the
+    ///     rotation, so the same placement is right for all five.
+    /// </remarks>
+    void CreateLight(LightKind kind) {
+        var created = scene.CreateLight(kind, Aimed, Under());
+        scene.Selection.Set([created]);
+    }
+
+    /// <summary>Creates a camera under the selection, and selects it.</summary>
+    /// <remarks>
+    ///     Level and facing the way a directional light points, for the same reason: a camera looking
+    ///     along +Z from the origin is a camera looking at the inside of whatever is at the origin.
+    /// </remarks>
+    void CreateCamera() {
+        var created = scene.CreateCamera(LocalTransform.Identity, Under());
+        scene.Selection.Set([created]);
+    }
+
+    /// <summary>Pointing down and forward, the way a key light is hung.</summary>
+    static LocalTransform Aimed =>
+        LocalTransform.Identity with {
+            Rotation = Quaternion.FromYawPitchRoll(
+                MathUtil.DegreesToRadians(-30f),
+                MathUtil.DegreesToRadians(50f),
+                0f
+            )
+        };
 
     /// <summary>What a newly created entity hangs from.</summary>
     /// <remarks>

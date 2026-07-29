@@ -8,6 +8,7 @@ public sealed partial class DockLayout {
     /// <param name="id">The panel's id.</param>
     /// <param name="target">The group to dock it against.</param>
     /// <param name="zone">Which side of that group, or its middle.</param>
+    /// <param name="index">Where in the target's tab order, for a centre drop, or -1 for the end.</param>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Removed first, and the order is load-bearing.</b> Dropping a panel back into the
@@ -21,9 +22,19 @@ public sealed partial class DockLayout {
     ///         group that has just ceased to exist becomes a drop onto whatever survived.
     ///     </para>
     /// </remarks>
-    public void Dock(string id, DockGroupNode target, DockZone zone) {
+    public void Dock(string id, DockGroupNode target, DockZone zone, int index = -1) {
         ArgumentNullException.ThrowIfNull(id);
         ArgumentNullException.ThrowIfNull(target);
+
+        // ⚠ A group holding nothing but this panel is not a place to dock it, whatever the zone. The
+        // gesture is the commonest accident in a docking host — pick a tab up, change your mind, let
+        // go where you started — and every branch below does something wrong with it: the removal
+        // prunes the now-empty group out of the tree, `Contains` then fails, and the panel lands in
+        // whichever unrelated group happened to survive. Dragging the console into the console moved
+        // it into the scene.
+        if (target.Panels.Count == 1 && target.IndexOf(id) == 0) {
+            return;
+        }
 
         RemovePanel(id);
 
@@ -40,7 +51,12 @@ public sealed partial class DockLayout {
         }
 
         if (zone == DockZone.Center) {
-            target.Add(id);
+            // ⚠ At a position, which is what makes a stack re-orderable. `Add` with no index appends,
+            // so dropping a tab anywhere on a strip sent it to the end — the one arrangement the user
+            // did not ask for unless they dropped on the far right. The index is clamped rather than
+            // checked because it was computed from a pointer over a strip that has since had this
+            // panel taken out of it.
+            target.Add(id, index < 0 ? -1 : Math.Min(index, target.Panels.Count));
             return;
         }
 

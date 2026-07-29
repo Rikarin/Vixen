@@ -7,7 +7,7 @@ using Vixen.Ui.Styling;
 
 namespace Vixen.Editor.Ui;
 
-/// <summary>A strip of buttons over command ids.</summary>
+/// <summary>A strip of buttons, segmented groups and dropdowns over command ids.</summary>
 /// <remarks>
 ///     <para>
 ///         The third view over the registry, and the one that shows why the registry is worth
@@ -24,11 +24,23 @@ namespace Vixen.Editor.Ui;
 ///     <para>
 ///         <b>A command with an icon gets an icon button; one without gets its title.</b> A toolbar
 ///         of identical blank squares is worse than a toolbar of words, and requiring an icon would
-///         mean a plugin could not add a toolbar button without drawing one.
+///         mean a plugin could not add a toolbar button without drawing one. It is also doc 20's
+///         stated mitigation for the icon set being a design dependency: a glyph that has not been
+///         drawn yet costs a wider button and never a blocked feature.
+///     </para>
+///     <para>
+///         ⚠ <b>The bar grows sections, not entries.</b> Doc 20's toolbar is <i>mode buttons | save
+///         and build | transform mode, space, pivot, snap | play | layout</i>, and two of those need
+///         something a flat list of ids cannot express: a segmented control, so that the three gizmo
+///         modes read as one choice, and a dropdown, so that a snap value is a popover rather than
+///         eight more buttons. <see cref="Show(ReadOnlySpan{ToolbarEntry})" /> takes those;
+///         <see cref="Show(ReadOnlySpan{string})" /> is still the flat form, and is the same thing
+///         with every entry a button.
 ///     </para>
 /// </remarks>
 public sealed class ToolbarPresenter {
     readonly List<(ButtonBase Button, EditorCommand Command)> buttons = [];
+    readonly List<ContextMenu> popovers = [];
     readonly CommandRegistry commands;
     readonly KeyMap keys;
     readonly UiElement host;
@@ -43,12 +55,13 @@ public sealed class ToolbarPresenter {
     /// <param name="commands">What its buttons run.</param>
     /// <param name="keys">What their tooltips say the shortcut is.</param>
     /// <remarks>
-    ///     ⚠ <b>Nothing is added until <see cref="Show" /> is called, and the place it will go is
-    ///     remembered now.</b> A shell builds its chrome top to bottom and puts the toolbar's
-    ///     commands on it last — so by the time there is a strip to add, appending it to the host
-    ///     would put it after the docking workspace and the status bar rather than under the menu
-    ///     bar. Remembering the position costs an integer; an empty strip built here to hold the
-    ///     place would cost a bordered band of chrome in every shell that never asks for a toolbar.
+    ///     ⚠ <b>Nothing is added until <see cref="Show(ReadOnlySpan{ToolbarEntry})" /> is called, and
+    ///     the place it will go is remembered now.</b> A shell builds its chrome top to bottom and
+    ///     puts the toolbar's commands on it last — so by the time there is a strip to add, appending
+    ///     it to the host would put it after the docking workspace and the status bar rather than
+    ///     under the menu bar. Remembering the position costs an integer; an empty strip built here
+    ///     to hold the place would cost a bordered band of chrome in every shell that never asks for
+    ///     a toolbar.
     /// </remarks>
     public ToolbarPresenter(UiElement host, CommandRegistry commands, KeyMap keys) {
         ArgumentNullException.ThrowIfNull(host);
@@ -62,8 +75,17 @@ public sealed class ToolbarPresenter {
         slot = host.Children.Count;
     }
 
-    /// <summary>The ids on it, with <c>null</c> for a separator.</summary>
-    public IReadOnlyList<string?> Items { get; private set; } = [];
+    /// <summary>What is on it, in order.</summary>
+    public IReadOnlyList<ToolbarEntry> Entries { get; private set; } = [];
+
+    /// <summary>The ids on it, with <c>null</c> for anything that is not a plain button.</summary>
+    /// <remarks>
+    ///     Kept because it is what the flat <see cref="Show(ReadOnlySpan{string})" /> describes and
+    ///     what a caller that never asked for a section wants back. A group or a dropdown reads as a
+    ///     separator here, which is what it looks like to something that only knows about buttons.
+    /// </remarks>
+    public IReadOnlyList<string?> Items =>
+        [.. Entries.Select(entry => entry is ToolbarButton button ? button.CommandId : null)];
 
     /// <summary>The strip element, which is replaced by every rebuild.</summary>
     public UiElement Strip => strip!;
@@ -71,13 +93,37 @@ public sealed class ToolbarPresenter {
     /// <summary>Puts a set of commands on the toolbar.</summary>
     /// <param name="commandIds">Their ids, with <c>null</c> for a separator.</param>
     public void Show(params ReadOnlySpan<string?> commandIds) {
-        Items = commandIds.ToArray();
+        var entries = new ToolbarEntry[commandIds.Length];
+
+        for (var index = 0; index < commandIds.Length; index++) {
+            entries[index] = commandIds[index] is { } id ? new ToolbarButton(id) : new ToolbarSeparator();
+        }
+
+        Show(entries);
+    }
+
+    /// <summary>Puts a described strip on the toolbar.</summary>
+    /// <param name="entries">The buttons, rules, groups and dropdowns, in order.</param>
+    public void Show(params ReadOnlySpan<ToolbarEntry> entries) {
+        Entries = entries.ToArray();
         Rebuild();
     }
 
     /// <summary>Throws the strip away and builds it again.</summary>
     public void Rebuild() {
         buttons.Clear();
+
+        // ⚠ The popovers go too, and they are not the strip's children. A `ContextMenu` hangs off the
+        // document root so it can float over everything — the same arrangement `MenuBar.AddMenu`
+        // uses — so a rebuild that removed only the strip would leave one invisible, still attached
+        // to a button that no longer exists, per rebuild.
+        foreach (var popover in popovers) {
+            if (!popover.IsRemoved) {
+                popover.Remove();
+            }
+        }
+
+        popovers.Clear();
         strip?.Remove();
 
         strip = host.Add<UiElement>("toolbar");
@@ -90,14 +136,26 @@ public sealed class ToolbarPresenter {
 
         strip.AddHandler<ClickEvent>((_, args) => Chosen(args));
 
-        foreach (var id in Items) {
-            if (id is null) {
-                strip.Add<Separator>().Orientation = Orientation.Vertical;
-                continue;
-            }
+        foreach (var entry in Entries) {
+            switch (entry) {
+                case ToolbarSeparator:
+                    strip.Add<Separator>().Orientation = Orientation.Vertical;
+                    break;
 
-            if (commands.TryGet(id, out var command)) {
-                buttons.Add((Button(strip, command), command));
+                case ToolbarButton(var id) when commands.TryGet(id, out var command):
+                    buttons.Add((Button(strip, command), command));
+                    break;
+
+                case ToolbarGroup(var ids):
+                    Segmented(ids);
+                    break;
+
+                case ToolbarDropdown(var title, var icon, var ids):
+                    Dropdown(title, icon, ids);
+                    break;
+
+                default:
+                    break;
             }
         }
 
@@ -107,7 +165,7 @@ public sealed class ToolbarPresenter {
     /// <summary>Asks every command on the strip whether it can run, and shows the answer.</summary>
     public void Refresh() {
         foreach (var (button, command) in buttons) {
-            button.Disabled = !command.CanExecute;
+            button.Disabled = !commands.CanExecute(command);
 
             if (command.Checked is null) {
                 continue;
@@ -123,11 +181,58 @@ public sealed class ToolbarPresenter {
         }
     }
 
+    /// <summary>Draws a set of commands as one segmented control.</summary>
+    /// <remarks>
+    ///     A class on the wrapper and nothing else: which corners are rounded and where the dividing
+    ///     hairlines go is the theme's, and a presenter that positioned them would be one a theme
+    ///     could not restyle.
+    /// </remarks>
+    void Segmented(IReadOnlyList<string> commandIds) {
+        var group = Strip.Add<UiElement>("toolbar-group");
+
+        foreach (var id in commandIds) {
+            if (commands.TryGet(id, out var command)) {
+                buttons.Add((Button(group, command), command));
+            }
+        }
+
+        // A group whose every command has gone — a plugin's, unloaded — would otherwise be an empty
+        // bordered box on the bar.
+        if (group.Children.Count == 0) {
+            group.Remove();
+        }
+    }
+
+    /// <summary>Draws a button that opens a menu of commands.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The menu is built once with the strip, not per click.</b> A rebuild is what a
+    ///     registry change triggers, so the lines cannot go stale without the whole strip being
+    ///     replaced — and building per click would mean a menu leaked for every time somebody looked
+    ///     at the snap values and changed their mind.
+    /// </remarks>
+    void Dropdown(StringId title, string? icon, IReadOnlyList<string?> commandIds) {
+        var menu = MenuPresenter.Context(host.Document, commands, keys, [.. commandIds]);
+        popovers.Add(menu);
+
+        var button = Chevron(Strip, title, icon);
+        button.Clicked += pressed => menu.Open(pressed);
+    }
+
     ButtonBase Button(UiElement into, EditorCommand command) {
         var label = command.Title.Text;
         var chord = keys.ChordFor(command.Id);
         var description = chord.IsBound ? $"{label} ({chord.Describe()})" : label;
 
+        var button = Face(into, command, label, description);
+
+        if (command.ClassName is { Length: > 0 } className) {
+            button.AddClass(className);
+        }
+
+        return button;
+    }
+
+    static ButtonBase Face(UiElement into, EditorCommand command, string label, string description) {
         if (command.Icon is null) {
             var text = into.Add<Button>();
             text.Label = label;
@@ -148,6 +253,32 @@ public sealed class ToolbarPresenter {
         icon.Label = description;
 
         return icon;
+    }
+
+    /// <summary>The button a dropdown hangs off: a label or a glyph, and a chevron either way.</summary>
+    static Button Chevron(UiElement into, StringId title, string? icon) {
+        var button = into.Add<Button>();
+        button.Variant = ControlVariant.Subtle;
+        button.Size = ControlSize.Small;
+        button.AddClass("toolbar-dropdown");
+
+        if (icon is not null && EditorIcons.Find(icon) is { } glyph) {
+            button.LeadingIcon.Geometry = glyph;
+
+            // Still set, still not drawn: a button whose only affordance is a picture is the one
+            // that most needs to say what it is. See `IconButton`'s remarks about `Label`.
+            button.Label = title.Text;
+        } else {
+            button.Label = title.Text;
+        }
+
+        // Appended rather than a part, because `ButtonBase` has a leading icon and no trailing one —
+        // and a chevron is what tells a dropdown apart from a button that just does something.
+        var chevron = button.Add<Icon>();
+        chevron.Geometry = ControlIcons.ChevronDown;
+        chevron.AddClass("chevron");
+
+        return button;
     }
 
     void Chosen(ClickEvent args) {

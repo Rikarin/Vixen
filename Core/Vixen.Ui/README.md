@@ -303,6 +303,32 @@ own `MoveTo`, which is what makes a path with a hole in it possible at all.
 `PathFillRule.EvenOdd` is there because it is how most icon sets punch the hole in a letter `o`, and
 a renderer that only knew non-zero would fill it in.
 
+## Nine-slice
+
+`DrawContext.DrawNineSlice` is what turns one small texture into a panel, a button and a tooltip at
+three different sizes with the same corners. The cut itself is `NineSlice` in
+`Vixen.Core.Mathematics` — shared with `Vixen.Rendering`'s sprites, because a stretched panel and a
+stretched sprite are the same nine pairs of rectangles and the two assemblies cannot see each other.
+
+**Not a command kind, and that is the point.** A nine-sliced image carries the same
+`DrawCommandKind.Image` as a stretched one, so it goes through the same pipeline and batches with the
+images around it: a panel and the icon on top of it are one draw as long as they come from the same
+sheet. Nine quads instead of one, in a run that was going to exist anyway. A kind of its own would
+have split every batch it appeared in, to describe geometry the renderer never sees.
+
+⚠ **Two insets, and the second one is in UVs.** A border is a distance on the screen and a distance
+into the texture at once, and those are the same number only when the image is drawn at its own pixel
+size. Converting between them needs the texture's dimensions, which is the one thing this assembly
+refuses to know — the same bargain `DrawCommand.Source` makes — so the caller who registered the
+texture divides.
+
+⚠ **Stretched, never tiled**, for the same reason: a repeat count is destination ÷ natural size, and
+the natural size is in texels. Tiling lives where the pixel size does, in `SpriteGeometry`.
+
+The destination inset is fitted to the box and the source inset is not, so a panel drawn narrower
+than its own two corners shows them compressed rather than quietly reading different texels — which
+would look like the artwork changed rather than like the box got small.
+
 ## Batching
 
 **Runs of consecutive commands, and never a reordering.** Worth being blunt about, because reordering

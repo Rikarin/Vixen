@@ -145,6 +145,15 @@ public sealed class TrackingCommandList : ICommandList {
     /// <inheritdoc />
     public void DrawIndexedIndirect(BufferHandle arguments, long offset = 0, int drawCount = 1, int stride = 20) { }
 
+    public void DrawIndexedIndirectCount(
+        BufferHandle arguments,
+        BufferHandle count,
+        long offset = 0,
+        long countOffset = 0,
+        int maxDrawCount = 1,
+        int stride = 20
+    ) { }
+
     /// <inheritdoc />
     public void Dispatch(int groupsX, int groupsY = 1, int groupsZ = 1) { }
 

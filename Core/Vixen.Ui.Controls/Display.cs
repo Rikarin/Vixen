@@ -178,13 +178,48 @@ public sealed partial class Image : Control {
     /// </remarks>
     public Rectangle SourceRectangle { get; set; } = new(0f, 0f, 1f, 1f);
 
+    /// <summary>How far the corners reach in, in document pixels. Empty stretches the whole image.</summary>
+    /// <remarks>
+    ///     What turns one small texture into a panel, a button and a tooltip at three different
+    ///     sizes with the same corners. Set it together with <see cref="SourceBorder" /> — either one
+    ///     alone draws the ordinary stretched image, because a nine-slice needs both halves of the
+    ///     cut.
+    /// </remarks>
+    public NineSlice Border { get; set; }
+
+    /// <summary>The same cut of the texture, in UVs.</summary>
+    /// <remarks>
+    ///     ⚠ In UVs rather than texels, for the reason <see cref="SourceRectangle" /> is: this
+    ///     assembly does not know how big the texture is, so the application that registered it
+    ///     divides. A 16-pixel border on a 128-pixel sheet is <c>NineSlice.Uniform(16f / 128f)</c>.
+    /// </remarks>
+    public NineSlice SourceBorder { get; set; }
+
+    /// <summary>Whether the middle of a nine-slice is left undrawn.</summary>
+    /// <remarks>A frame with a hole in it — a selection outline, a window chrome over a viewport.</remarks>
+    public bool HollowCentre { get; set; }
+
     /// <inheritdoc />
     protected override void OnDraw(DrawContext context) {
         base.OnDraw(context);
 
-        if (Texture != 0) {
-            context.DrawImage(context.Bounds, Texture, source: SourceRectangle);
+        if (Texture == 0) {
+            return;
         }
+
+        if (Border.IsEmpty || SourceBorder.IsEmpty) {
+            context.DrawImage(context.Bounds, Texture, source: SourceRectangle);
+            return;
+        }
+
+        context.DrawNineSlice(
+            context.Bounds,
+            Texture,
+            Border,
+            SourceBorder,
+            source: SourceRectangle,
+            hollowCentre: HollowCentre
+        );
     }
 }
 
@@ -209,6 +244,23 @@ public sealed partial class KeyboardShortcut : Control {
     [UiProperty(Changed = nameof(OnModifiersChanged))]
     public partial ModifierKeys Modifiers { get; set; }
 
+    /// <summary>How every shortcut in the process is written.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The hook a Mac head needs, and the reason it is here rather than at each call
+    ///         site.</b> A shortcut is drawn by menus, by toolbar tooltips and by the command
+    ///         palette; an application that adapted the text itself would have to find all three and
+    ///         would still miss whichever one was added next. Replacing this once changes every
+    ///         shortcut the process draws.
+    ///     </para>
+    ///     <para>
+    ///         Defaulted to <see cref="Describe" />, which is deliberately not platform-adapted:
+    ///         <c>Vixen.Ui</c> sits below <c>Vixen.Platform</c> and does not know what it is running
+    ///         on. Knowing is the application's, and so is saying so.
+    ///     </para>
+    /// </remarks>
+    public static Func<InputKey, ModifierKeys, string> Formatter { get; set; } = Describe;
+
     /// <summary>Writes a combination the way a menu would.</summary>
     /// <param name="key">The key.</param>
     /// <param name="modifiers">What is held with it.</param>
@@ -223,9 +275,8 @@ public sealed partial class KeyboardShortcut : Control {
     ///     <para>
     ///         ⚠ <b>Not localised and not platform-adapted.</b> A Mac writes <c>⌘⇧S</c> with no
     ///         separators and a different modifier order, and getting that right needs to know what
-    ///         it is running on — which this assembly deliberately does not, because
-    ///         <c>Vixen.Ui</c> sits below <c>Vixen.Platform</c>. An application that ships on macOS
-    ///         should set the text itself; this is the default, not the answer.
+    ///         it is running on — which this assembly deliberately does not. <see cref="Formatter" />
+    ///         is where an application says otherwise; this is the default, not the answer.
     ///     </para>
     /// </remarks>
     public static string Describe(InputKey key, ModifierKeys modifiers) {
@@ -275,7 +326,7 @@ public sealed partial class KeyboardShortcut : Control {
             _ => key.ToString()
         };
 
-    void OnKeyChanged(InputKey previous, InputKey current) => Text = Describe(current, Modifiers);
+    void OnKeyChanged(InputKey previous, InputKey current) => Text = Formatter(current, Modifiers);
 
-    void OnModifiersChanged(ModifierKeys previous, ModifierKeys current) => Text = Describe(Key, current);
+    void OnModifiersChanged(ModifierKeys previous, ModifierKeys current) => Text = Formatter(Key, current);
 }

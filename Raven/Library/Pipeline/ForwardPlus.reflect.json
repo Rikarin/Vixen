@@ -27,6 +27,22 @@
               "DefaultValue": ""
             },
             {
+              "Name": "transformBase",
+              "Type": {
+                "Scalar": "Int",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 12,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0"
+            },
+            {
               "Name": "lightColor",
               "Type": {
                 "Scalar": "Float",
@@ -578,6 +594,50 @@
         },
         {
           "Binding": 7,
+          "Name": "transforms",
+          "Type": "StorageBuffer",
+          "Count": 0,
+          "Stages": "Vertex, Fragment",
+          "Members": [
+            {
+              "Name": "transforms",
+              "Type": {
+                "Scalar": "Struct",
+                "Rows": 1,
+                "Columns": 1,
+                "StructName": "ObjectTransform",
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": true
+              },
+              "Offset": 0,
+              "Size": 64,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "transforms.world",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 4,
+                "IsMatrix": true,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 64,
+              "ArrayStride": 0,
+              "MatrixStride": 16,
+              "DefaultValue": ""
+            }
+          ],
+          "Size": 64,
+          "IsWritable": false
+        },
+        {
+          "Binding": 8,
           "Name": "lightBuffer",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -781,7 +841,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 8,
+          "Binding": 9,
           "Name": "clusters",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -1024,6 +1084,22 @@
                 "IsStruct": false
               },
               "Offset": 8,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0"
+            },
+            {
+              "Name": "materialIndex",
+              "Type": {
+                "Scalar": "UInt",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 12,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -1360,6 +1436,30 @@
       "DefaultValue": "false"
     },
     {
+      "Name": "UseMaterialRecords",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "false"
+    },
+    {
+      "Name": "UseTransformRecords",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "false"
+    },
+    {
       "Name": "MaxLights",
       "Type": {
         "Scalar": "Int",
@@ -1427,6 +1527,24 @@
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": ""
+    },
+    {
+      "Name": "transformBase",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 0,
+      "Offset": 12,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0"
     },
     {
       "Name": "lightColor",
@@ -1897,6 +2015,24 @@
       "DefaultValue": ""
     },
     {
+      "Name": "transforms.world",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 4,
+        "IsMatrix": true,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 7,
+      "Offset": 0,
+      "Size": 64,
+      "ArrayStride": 0,
+      "MatrixStride": 16,
+      "DefaultValue": ""
+    },
+    {
       "Name": "lightBuffer.position",
       "Type": {
         "Scalar": "Float",
@@ -1907,7 +2043,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 7,
+      "Binding": 8,
       "Offset": 0,
       "Size": 12,
       "ArrayStride": 0,
@@ -1925,7 +2061,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 7,
+      "Binding": 8,
       "Offset": 12,
       "Size": 4,
       "ArrayStride": 0,
@@ -1943,7 +2079,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 7,
+      "Binding": 8,
       "Offset": 16,
       "Size": 12,
       "ArrayStride": 0,
@@ -1961,7 +2097,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 7,
+      "Binding": 8,
       "Offset": 28,
       "Size": 4,
       "ArrayStride": 0,
@@ -1979,7 +2115,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 7,
+      "Binding": 8,
       "Offset": 32,
       "Size": 12,
       "ArrayStride": 0,
@@ -1997,7 +2133,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 7,
+      "Binding": 8,
       "Offset": 44,
       "Size": 4,
       "ArrayStride": 0,
@@ -2015,7 +2151,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 7,
+      "Binding": 8,
       "Offset": 48,
       "Size": 4,
       "ArrayStride": 0,
@@ -2033,7 +2169,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 7,
+      "Binding": 8,
       "Offset": 52,
       "Size": 4,
       "ArrayStride": 0,
@@ -2051,7 +2187,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 7,
+      "Binding": 8,
       "Offset": 56,
       "Size": 8,
       "ArrayStride": 0,
@@ -2069,7 +2205,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 7,
+      "Binding": 8,
       "Offset": 64,
       "Size": 12,
       "ArrayStride": 0,
@@ -2087,7 +2223,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 7,
+      "Binding": 8,
       "Offset": 76,
       "Size": 4,
       "ArrayStride": 0,
@@ -2105,7 +2241,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 8,
+      "Binding": 9,
       "Offset": 0,
       "Size": 4,
       "ArrayStride": 0,
@@ -2124,7 +2260,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 8,
+      "Binding": 9,
       "Offset": 4,
       "Size": 128,
       "ArrayStride": 4,
@@ -2288,6 +2424,24 @@
       "Set": 3,
       "Binding": 0,
       "Offset": 8,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0"
+    },
+    {
+      "Name": "materialIndex",
+      "Type": {
+        "Scalar": "UInt",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 3,
+      "Binding": 0,
+      "Offset": 12,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -2502,7 +2656,8 @@
     "UseClusteredLights",
     "UseImageBasedLighting",
     "UseReflectionProbe",
-    "UseShadows"
+    "UseShadows",
+    "UseTransformRecords"
   ],
   "Stages": [
     "Vertex",

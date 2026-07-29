@@ -5,7 +5,7 @@ using Vixen.Core.Mathematics;
 
 namespace Vixen.Graphics;
 
-/// <summary>Which of the four conventional descriptor sets a binding belongs to.</summary>
+/// <summary>Which of the conventional descriptor sets a binding belongs to.</summary>
 /// <remarks>
 ///     <para>
 ///         The set index is not a free choice. Four sets, ordered by how often they change, so a
@@ -20,6 +20,15 @@ namespace Vixen.Graphics;
 ///         module was decorated with ([07 § C](07-raven-shader-pipeline.md)). An unmarked binding is
 ///         per-material.
 ///     </para>
+///     <para>
+///         <strong>And a fifth, which is not part of that ordering.</strong>
+///         <see cref="Bindless" /> is the one set nothing in a frame writes: a
+///         <see cref="BindlessTable" /> owns it, updates individual descriptors in place, and hands
+///         out indices that shaders subscript it with. It is last rather than first — where its
+///         change frequency would put it — because the four below it are a convention every existing
+///         shader is compiled against, and renumbering them to gain one slot would be renumbering
+///         every set in the engine to move the one that never changes.
+///     </para>
 /// </remarks>
 public enum DescriptorSetSlot : byte {
     /// <summary>Camera, time, the lighting environment. Bound once a frame.</summary>
@@ -32,7 +41,27 @@ public enum DescriptorSetSlot : byte {
     PerMaterial = 2,
 
     /// <summary>Transforms and instance data, usually through a dynamic offset.</summary>
-    PerDraw = 3
+    PerDraw = 3,
+
+    /// <summary>The unbounded descriptor array a <see cref="BindlessTable" /> owns.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>Its own set because it cannot share one.</strong> The other four are written
+    ///         per frame from a <c>DescriptorAllocator</c>, which is content-addressed: a set whose
+    ///         write list differs by one byte is a different set. A table's descriptors are written
+    ///         once each, incrementally, and there may be a million of them — so a table living in a
+    ///         set that is reallocated whenever a uniform block moves would have to be written out
+    ///         again every time it moved, which is the entire cost the table exists to avoid.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ A fifth bound set is not free. Vulkan guarantees only four, so
+    ///         <see cref="GraphicsDeviceFeatures.HasBindless" /> requires
+    ///         <see cref="GraphicsDeviceFeatures.MaxDescriptorSets" /> of at least five — which every
+    ///         device with descriptor indexing has met so far, and which is checked rather than
+    ///         assumed.
+    ///     </para>
+    /// </remarks>
+    Bindless = 4
 }
 
 /// <summary>What kind of resource a descriptor binds.</summary>
@@ -109,8 +138,9 @@ public enum DescriptorSampleType : byte {
 /// <param name="Kind">What it binds.</param>
 /// <param name="Stages">Which shader stages see it.</param>
 /// <param name="Count">
-///     How many, for an array binding. <c>0</c> means unbounded, which needs
-///     <see cref="GraphicsDeviceFeatures.HasBindless" />.
+///     How many descriptors, for an array binding. <c>0</c> means the length is not in the shader —
+///     which is <em>two</em> different things depending on the kind, and
+///     <see cref="DescriptorBindingExtensions.IsUnbounded" /> is where they are told apart.
 /// </param>
 /// <param name="SampleType">
 ///     What a <see cref="DescriptorKind.SampledTexture" /> holds, or what a
@@ -137,19 +167,75 @@ public readonly record struct DescriptorBinding(
     public bool Filters => SampleType == DescriptorSampleType.Float;
 }
 
+/// <summary>The one question about a binding that cannot be asked as <c>Count == 0</c>.</summary>
+public static class DescriptorBindingExtensions {
+    /// <summary>Whether this binding is the unbounded array a <see cref="BindlessTable" /> is made of.</summary>
+    /// <param name="binding">The binding.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>Zero means two things, and which one depends on the kind.</strong> On a buffer
+    ///         it means the block ends in a runtime-sized array — <c>buffer objects { Object items[]; }</c>
+    ///         — which is <em>one</em> descriptor whose length the host decides when it binds a range.
+    ///         Raven's reflection says exactly that, and every storage buffer in the shader library
+    ///         arrives here as a zero. On a texture or a sampler there is no such thing as a
+    ///         runtime-sized resource, so zero can only mean the other reading: an unbounded
+    ///         descriptor array, which needs <see cref="GraphicsDeviceFeatures.HasBindless" /> and is
+    ///         sized by <see cref="GraphicsDeviceFeatures.MaxBindlessDescriptors" />.
+    ///     </para>
+    ///     <para>
+    ///         A method rather than the comparison written at each use site, because the two readings
+    ///         are one <c>Math.Max(1, Count)</c> apart and the failure is not symmetric. Treating a
+    ///         storage buffer's zero as unbounded puts an update-after-bind flag on a binding whose
+    ///         feature nobody enabled, and the validation layers refuse the layout — which is how this
+    ///         was found, on the culling shaders, on the first run against a real driver.
+    ///     </para>
+    /// </remarks>
+    public static bool IsUnbounded(this DescriptorBinding binding) =>
+        binding.Count == 0
+        && binding.Kind is DescriptorKind.SampledTexture or DescriptorKind.StorageTexture or DescriptorKind.Sampler;
+}
+
 /// <summary>The shape of one descriptor set.</summary>
 /// <param name="Slot">Which of the four conventional sets this is.</param>
 /// <param name="Bindings">What it contains.</param>
 /// <param name="Name">A name for the debugger and the validation layers.</param>
+/// <param name="BindlessCapacity">
+///     How many descriptors an unbounded binding in this set holds, or <c>0</c> for the device's
+///     <see cref="GraphicsDeviceFeatures.MaxBindlessDescriptors" />.
+/// </param>
 public readonly record struct DescriptorSetLayoutDescription(
     DescriptorSetSlot Slot,
     DescriptorBinding[] Bindings,
-    string Name = ""
+    string Name = "",
+    int BindlessCapacity = 0
 ) {
+    /// <summary>How long an unbounded binding in this set actually is, on a given device.</summary>
+    /// <param name="features">What the device reported.</param>
+    /// <remarks>
+    ///     <para>
+    ///         "Unbounded" is the shader's word. The shader declares a runtime array and never asks
+    ///         how long it is; the layout has to state a number, and this is where that number comes
+    ///         from — the host's, or the device's ceiling when the host had no opinion.
+    ///     </para>
+    ///     <para>
+    ///         Worth stating rather than always taking the maximum, because the maximum is not free:
+    ///         a descriptor pool is sized from the layout, and a desktop driver's ceiling is a number
+    ///         with six digits in it. A host that knows it will hold a thousand textures should not
+    ///         reserve a million descriptors to hold them, and a host that does not know should not
+    ///         have to guess.
+    ///     </para>
+    /// </remarks>
+    public int CapacityFor(in GraphicsDeviceFeatures features) =>
+        BindlessCapacity > 0 ? BindlessCapacity : features.MaxBindlessDescriptors;
+
     /// <summary>Checks the layout is one a backend could build.</summary>
     /// <exception cref="ArgumentException">It is not.</exception>
     public void Validate() {
         ArgumentNullException.ThrowIfNull(Bindings);
+
+        if (BindlessCapacity < 0) {
+            throw new ArgumentException($"Descriptor set '{Name}' asked for a negative bindless capacity.");
+        }
 
         var seen = new HashSet<uint>();
 
