@@ -40,7 +40,10 @@ public class LibraryTreeTests {
     ///     but deliberately does not lower — so folding them in here would mean weakening what this
     ///     asserts about the library proper.
     /// </remarks>
-    static readonly string[] Packages = ["Core", "Shading", "Geometry", "DistanceFields", "Material", "Pipeline", "Ui", "PostFx", "Vfx"];
+    static readonly string[] Packages = [
+        "Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "Material", "Pipeline", "Ui",
+        "PostFx", "Vfx"
+    ];
 
     /// <summary>
     ///     The packages that ship as <c>.rvnlib</c> references.
@@ -55,6 +58,7 @@ public class LibraryTreeTests {
     ///     through a <c>compose</c> slot, which is what makes the binding the consumer's.
     ///     <c>DistanceFields</c> is the same case: <c>DistanceField</c>'s structs would export happily, but
     ///     <c>GlobalDistanceField</c> is a shader whose functions read the clipmap it binds.
+    ///     <c>IrradianceFields</c> likewise — <c>IrradianceFieldProbes</c> reads the pool it binds.
     /// </remarks>
     static readonly string[] ExportedPackages = ["Core", "Shading", "Geometry"];
 

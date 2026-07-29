@@ -192,6 +192,33 @@ closed form the projection itself is checked against, now reached through traced
 running per frame wants something near nine-tenths, which averages away the noise in a sixty-four-ray
 estimate at the cost of lagging a light that moved.
 
+## The other side of the line
+
+`Raven/Library/IrradianceFields/IrradianceField.rvn` is the shader half of the lookup, and
+`Vixen.Rendering.Lighting.IrradianceFieldTexture` is what feeds it. Nothing in *this* assembly knows
+either exists — the dependency runs one way, which is what lets the hard half be checked against
+arithmetic rather than against a screenshot.
+
+**Four pool volumes for a payload of fourteen numbers, not six.** The constant term takes three
+channels and validity rides in its fourth; each *colour* channel's three linear coefficients take a
+volume, with the sun's shadow in the red one's fourth. The packing is colour-major on purpose: one
+fetch gives all three of red's coefficients, which is what the evaluation wants. Transposing it reads
+as lighting whose colour rotates with the surface normal.
+
+**The index volume is point sampled and always half-precision.** Interpolating two slot indices gives
+a third that means nothing, so it never filters — which removes the only reason to want the wider
+format. It holds a pool origin in texels and a brick size in cells; half represents integers exactly
+to 2048, and `Upload` refuses a pool past that rather than storing an origin that rounds.
+
+**Two indirection fetches per shaded pixel, and the first is not waste.** It learns how big the brick
+under the surface is, because the normal bias is measured in *that brick's* probe spacing. Both are
+point samples of a small volume.
+
+`SamplingConventionTests` walks the shader's addressing in C# — voxel, cell, entry, origin, local,
+texture coordinate, trilinear — and asserts it lands on the same texels the field's own sampler reads,
+on a refined field as well as a uniform one. Refined is where it gets interesting: the divide by the
+brick size and the floor of the cell by it are the two steps a uniform field would never exercise.
+
 ## The pool has a fixed capacity, and that is a decision
 
 A pool that grows reallocates the texture it is a mirror of, mid-frame, at the exact moment a scene
@@ -212,9 +239,9 @@ gets blamed on the temporal filter.
   compute, are both still owed.
 - **View bias.** Dilation and the normal bias are here; the offset along the view ray, which is what
   helps at grazing angles, is not.
-- **The GPU mirror.** One volume texture per coefficient plus the index texture, staged and copied,
-  the way `GlobalDistanceFieldTexture` does it for the clipmap. `TextureCoordinate` is the convention
-  it will have to agree with, and it is tested from this side already.
+- **A pass that composes `IIrradianceSource`.** The shader module and the GPU mirror exist and agree
+  with each other; nothing reads them yet, so nothing is registered in `MaterialCompiler`'s optional
+  slots either. The day a pass composes the slot, `NoIrradiance` is the filler it needs.
 
 **Nothing here creates or calls a graphics device**, which is what lets the sampling be checked
 against arithmetic instead of against a picture. The assembly does reference `Vixen.Core.Imaging` for

@@ -23,6 +23,17 @@
         <ProjectReference Include="..\Vixen.Rendering.DistanceFields\Vixen.Rendering.DistanceFields.csproj" />
     </ItemGroup>
 
+    <!--
+      The shader half of the lookup, linked in so SamplingConventionTests can check that it addresses
+      the pool the way this side does. Raven has no interpreter, so the shared convention is guarded
+      by reading the line rather than running it.
+    -->
+    <ItemGroup>
+        <None Include="..\..\Raven\Library\IrradianceFields\IrradianceField.rvn"
+              Link="Shaders\IrradianceField.rvn"
+              CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
     <Import Project="..\..\Testing\Vixen.Testing.props" />
 
 </Project>

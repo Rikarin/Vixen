@@ -1160,6 +1160,23 @@ Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.LevelView(int level) -> Vixe
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.Sampler.get -> Vixen.Graphics.SamplerHandle
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.Upload(Vixen.Graphics.IGraphicsDevice graphics, Vixen.Graphics.ICommandList commands) -> void
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.Uploads.get -> int
+Vixen.Rendering.Lighting.IrradianceFieldTexture -> sealed class
+Vixen.Rendering.Lighting.IrradianceFieldTexture : System.IDisposable
+Vixen.Rendering.Lighting.IrradianceFieldTexture.Apply(Vixen.Shaders.ParameterCollection parameters, string shaderName) -> void
+Vixen.Rendering.Lighting.IrradianceFieldTexture.Dispose() -> void
+Vixen.Rendering.Lighting.IrradianceFieldTexture.Field.get -> Vixen.Rendering.IrradianceFields.IrradianceField
+Vixen.Rendering.Lighting.IrradianceFieldTexture.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.Lighting.IrradianceFieldTexture.Format.init -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.Lighting.IrradianceFieldTexture.Indirection.get -> Vixen.Graphics.TextureHandle
+Vixen.Rendering.Lighting.IrradianceFieldTexture.IndirectionView.get -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.Lighting.IrradianceFieldTexture.IrradianceFieldTexture(Vixen.Rendering.IrradianceFields.IrradianceField field) -> void
+Vixen.Rendering.Lighting.IrradianceFieldTexture.IsCreated.get -> bool
+Vixen.Rendering.Lighting.IrradianceFieldTexture.PointSampler.get -> Vixen.Graphics.SamplerHandle
+Vixen.Rendering.Lighting.IrradianceFieldTexture.Pool(int channel) -> Vixen.Graphics.TextureHandle
+Vixen.Rendering.Lighting.IrradianceFieldTexture.PoolView(int channel) -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.Lighting.IrradianceFieldTexture.Sampler.get -> Vixen.Graphics.SamplerHandle
+Vixen.Rendering.Lighting.IrradianceFieldTexture.Upload(Vixen.Graphics.IGraphicsDevice graphics, Vixen.Graphics.ICommandList commands) -> void
+Vixen.Rendering.Lighting.IrradianceFieldTexture.Uploads.get -> int
 Vixen.Rendering.Lighting.ReflectionProbe -> sealed class
 Vixen.Rendering.Lighting.ReflectionProbe.Apply(Vixen.Shaders.ParameterCollection parameters, int index, string shaderName = "ForwardPlus") -> void
 Vixen.Rendering.Lighting.ReflectionProbe.BlendDistance.get -> float
@@ -2327,6 +2344,10 @@ static Vixen.Rendering.Lighting.EnvironmentBaker.Prefilter(Vixen.Rendering.Light
 static Vixen.Rendering.Lighting.EnvironmentBaker.RoughnessOf(int mip, int mipCount) -> float
 static Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.LevelBinding(int level, string shaderName) -> string
 static Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.SamplerBinding(string shaderName) -> string
+static Vixen.Rendering.Lighting.IrradianceFieldTexture.IndirectionBinding(string shaderName) -> string
+static Vixen.Rendering.Lighting.IrradianceFieldTexture.PointSamplerBinding(string shaderName) -> string
+static Vixen.Rendering.Lighting.IrradianceFieldTexture.PoolBinding(int channel, string shaderName) -> string
+static Vixen.Rendering.Lighting.IrradianceFieldTexture.SamplerBinding(string shaderName) -> string
 static Vixen.Rendering.Lighting.ShCoefficients.operator *(Vixen.Rendering.Lighting.ShCoefficients coefficients, float scale) -> Vixen.Rendering.Lighting.ShCoefficients
 static Vixen.Rendering.Lighting.ShCoefficients.operator *(float scale, Vixen.Rendering.Lighting.ShCoefficients coefficients) -> Vixen.Rendering.Lighting.ShCoefficients
 static Vixen.Rendering.Lighting.ShCoefficients.operator +(Vixen.Rendering.Lighting.ShCoefficients left, Vixen.Rendering.Lighting.ShCoefficients right) -> Vixen.Rendering.Lighting.ShCoefficients

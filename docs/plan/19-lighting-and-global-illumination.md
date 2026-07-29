@@ -240,10 +240,23 @@ be finished first; the reverse never happens. The seam test on a refined field i
 the obvious way to make a pass order-independent — compute everything, then write everything — is
 exactly what breaks it.
 
-Owed, in the order they change the picture: filler A on a GPU and filler B at all; a policy that
-decides *where* to refine, which § 3 says is renderer bounds and the `VisibilityGroup` already has;
-the view bias; and the GPU mirror, whose sampling convention is already pinned from the CPU side the
-way `MeshDistanceField.TextureCoordinate` is.
+**The GPU side is in**: `Raven/Library/IrradianceFields` for the lookup and
+`Vixen.Rendering.Lighting.IrradianceFieldTexture` for what feeds it. Four pool volumes rather than six
+— validity rides in the constant term's alpha and the sun's shadow in the red channel's — packed
+colour-major so one fetch gives one colour's three coefficients, which is what the evaluation wants.
+The index volume is point sampled and therefore always half-precision; it holds integers, and `Upload`
+refuses a pool past 2048 texels an axis rather than storing an origin that rounds. Two indirection
+fetches per pixel, the first only to learn the brick size the normal bias is measured in.
+
+The convention is pinned the way L1's was, and the same way round: a test walks the shader's
+addressing in C# and asserts it reaches the texels the field's own sampler reads — on a refined field
+as well as a uniform one, because the divide by the brick size is a step a uniform field never
+exercises.
+
+Owed, in the order they change the picture: a pass that composes `IIrradianceSource` (the module and
+the mirror agree with each other and nothing reads them yet); filler A on a GPU and filler B at all; a
+policy that decides *where* to refine, which § 3 says is renderer bounds and the `VisibilityGroup`
+already has; and the view bias.
 
 ### L3 — Screen probe gather *(3.0 EM)*
 
