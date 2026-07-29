@@ -1,0 +1,187 @@
+package Vixen.Shaders.IrradianceFields
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.DistanceFields
+
+// Filling probes by marching the distance field, on the GPU.
+//
+// `docs/plan/19` § L2's filler A. `Vixen.Rendering.IrradianceFields.TracedIrradianceFiller` is the same
+// arithmetic on the CPU and it exists first, because there it can be checked: sixty-four directions
+// into a uniform environment of radiance L give a probe that lights everything with exactly L, and a
+// filler that agrees with arithmetic is the reference this one is compared against. Where the two
+// disagree, the C# is right and this is wrong.
+//
+// One workgroup per brick and one invocation per probe: sixty-four threads, sixty-four probes, and
+// every one of them marching its own sixty-four rays. The brick a group is filling comes out of a
+// buffer indexed by the group, which is what lets a frame refill N bricks in one dispatch rather than
+// N dispatches — doc 19's "N bricks per frame round-robin", with N a number the host picks.
+//
+// The pool is written rather than read here, so it is a storage image and the indirection grid is not
+// involved at all: a job says where its brick lives in the pool and where its first probe stands, and
+// nothing in this shader knows what a cell is. That is the same split the CPU side has — the
+// indirection is allocated and refined by a host, and only the probes are filled.
+
+/// One brick to fill: where it is in the pool, and where it is in the world.
+struct IrradianceFillJob {
+    /// Where the brick's footprint starts in the pool, in texels.
+    var origin: int3
+
+    /// Where its probe (0, 0, 0) stands, in world space.
+    var position: float3
+
+    /// How far apart its probes are, in world units. A quarter of the brick, not a fifth.
+    var spacing: float3
+}
+
+shader IrradianceFill {
+    /// What the rays march through. `GlobalDistanceField` is the one that reads a clipmap.
+    compose val distanceField: IDistanceFieldSource
+
+    /// How many probes a brick owns along each axis.
+    const val BrickResolution = 4
+
+    /// The constant spherical-harmonic basis function.
+    const val Constant = 0.282095f
+
+    /// The linear ones.
+    const val Linear = 0.488603f
+
+    /// The golden angle, which is what makes a Fibonacci spiral cover a sphere evenly.
+    const val GoldenAngle = 2.399963f
+
+    var jobs: Buffer<IrradianceFillJob>
+
+    [Format("rgba32f")] var fillL0: RWTexture3D<float4>
+    [Format("rgba32f")] var fillL1R: RWTexture3D<float4>
+    [Format("rgba32f")] var fillL1G: RWTexture3D<float4>
+    [Format("rgba32f")] var fillL1B: RWTexture3D<float4>
+
+    /// How many directions each probe looks in.
+    ///
+    /// Sixty-four is enough for four coefficients: the basis functions are constant and linear, and
+    /// neither has any detail for more rays to resolve. Past that the samples buy noise reduction,
+    /// which `hysteresis` buys more cheaply.
+    var rayCount: int = 64
+
+    /// How far a ray looks before deciding it hit nothing.
+    var maxDistance: float = 100f
+
+    /// How many steps one march may take.
+    var maxSteps: int = 64
+
+    /// How near counts as arrived.
+    var surfaceThreshold: float = 0.05f
+
+    /// What fraction of the reported distance each step actually takes.
+    var stepScale: float = 0.9f
+
+    /// What a ray that hit nothing sees.
+    ///
+    /// One colour rather than a lookup, for now. A ray that hits something sees black, because what a
+    /// surface gives back is Lumen's surface cache and that is § L4 — until it exists this bounces
+    /// nothing, which is honest rather than convenient.
+    var skyColor: float3 = float3(1f, 1f, 1f)
+
+    /// Which way the sun is, in world space.
+    var sunDirection: float3 = float3(0f, 1f, 0f)
+
+    /// The reciprocal of the sun's angular radius. Larger is a sharper shadow.
+    var sunSoftness: float = 8f
+
+    /// How far off a probe the shadow ray starts.
+    var shadowBias: float = 0.05f
+
+    /// How much of the previous answer survives a fill, from zero to one.
+    ///
+    /// Zero takes the new answer whole, which is what makes a single fill checkable against a closed
+    /// form. A filler running every frame wants something near nine-tenths: sixty-four rays is a noisy
+    /// estimate of an integral over the sphere and the noise is different every frame, so keeping most
+    /// of the previous answer averages it away over time at the cost of lagging a light that moved.
+    var hysteresis: float = 0f
+
+    /// One direction of a Fibonacci spiral over the sphere.
+    ///
+    /// No seed, so two fills of one scene agree — and no direction in the set is axis-aligned, which
+    /// matters because a scene built of axis-aligned surfaces is exactly the scene an axis-aligned ray
+    /// grazes.
+    static func Direction(index: int, count: int): float3 {
+        val z = 1f - 2f * (float(index) + 0.5f) / float(count)
+        val radius = sqrt(max(0f, 1f - z * z))
+        val angle = float(index) * GoldenAngle
+        return float3(radius * cos(angle), radius * sin(angle), z)
+    }
+
+    [ComputeShader(4, 4, 4)]
+    func Main([Semantic("SV_GroupID")] group: uint3, [Semantic("SV_GroupThreadID")] thread: uint3) {
+        val job = jobs[int(group.z)]
+        val probe = int3(int(thread.x), int(thread.y), int(thread.z))
+        val position = job.position + job.spacing * float3(float(probe.x), float(probe.y), float(probe.z))
+        val texel = job.origin + probe
+
+        // A probe the field calls solid is invalid before any ray is cast. Against an exact field that
+        // is the end of it — sphere tracing stops where the field crosses zero on the way down and the
+        // gradient there always opposes the ray, so no ray can report a backface.
+        if (distanceField.SampleField(position) < 0f) {
+            Store(texel, float3(0f, 0f, 0f), float3(0f, 0f, 0f), float3(0f, 0f, 0f), float3(0f, 0f, 0f), 0f, 0f)
+            return
+        }
+
+        val solidAngle = 4f * Const.Pi / float(rayCount)
+        var l00 = float3(0f, 0f, 0f)
+        var l1m1 = float3(0f, 0f, 0f)
+        var l10 = float3(0f, 0f, 0f)
+        var l11 = float3(0f, 0f, 0f)
+
+        for (index in 0 .. rayCount - 1) {
+            val direction = Direction(index, rayCount)
+            val hit = distanceField.TraceField(position, direction, maxDistance, maxSteps, surfaceThreshold, stepScale)
+            var arriving = skyColor
+
+            if (hit.hit) {
+                arriving = float3(0f, 0f, 0f)
+            }
+
+            val weighted = arriving * solidAngle
+
+            l00 += weighted * Constant
+            l1m1 += weighted * (Linear * direction.y)
+            l10 += weighted * (Linear * direction.z)
+            l11 += weighted * (Linear * direction.x)
+        }
+
+        val toSun = Math.SafeNormalize(sunDirection)
+        val sun = distanceField.ShadowField(position, toSun, maxDistance, sunSoftness, shadowBias, maxSteps, surfaceThreshold, stepScale)
+
+        if (hysteresis > 0f) {
+            val previous = fillL0.Load(texel)
+            val red = fillL1R.Load(texel)
+            val green = fillL1G.Load(texel)
+            val blue = fillL1B.Load(texel)
+
+            val keep = hysteresis
+            val take = 1f - hysteresis
+
+            l00 = previous.rgb * keep + l00 * take
+            l1m1 = float3(red.r, green.r, blue.r) * keep + l1m1 * take
+            l10 = float3(red.g, green.g, blue.g) * keep + l10 * take
+            l11 = float3(red.b, green.b, blue.b) * keep + l11 * take
+
+            Store(texel, l00, l1m1, l10, l11, previous.a * keep + take, red.a * keep + sun * take)
+            return
+        }
+
+        Store(texel, l00, l1m1, l10, l11, 1f, sun)
+    }
+
+    /// Writes one probe into the four volumes it is spread across.
+    ///
+    /// Colour-major, matching `IrradianceField.Read` and `IrradianceFieldTexture.PackPool`: a fetch of
+    /// the red volume gives all three of red's linear coefficients rather than one coefficient's RGB.
+    /// Transposing it reads as lighting whose colour rotates with the surface normal.
+    func Store(texel: int3, l00: float3, l1m1: float3, l10: float3, l11: float3, validity: float, sun: float) {
+        fillL0.Store(texel, float4(l00, validity))
+        fillL1R.Store(texel, float4(l1m1.x, l10.x, l11.x, sun))
+        fillL1G.Store(texel, float4(l1m1.y, l10.y, l11.y, 0f))
+        fillL1B.Store(texel, float4(l1m1.z, l10.z, l11.z, 0f))
+    }
+}
