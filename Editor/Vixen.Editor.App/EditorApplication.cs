@@ -351,6 +351,7 @@ sealed partial class EditorApplication : IDisposable {
         // preset naming a panel the workspace cannot build is a preset that comes back short.
         DiagnosticsPanels();
         SettingsPanels();
+        BuildPanels();
 
         Layouts();
         Commands();

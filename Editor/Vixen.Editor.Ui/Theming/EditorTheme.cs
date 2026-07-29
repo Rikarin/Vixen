@@ -1189,6 +1189,72 @@ public static class EditorTheme {
 
         plugin-detail.failed { color: var(--danger); }
 
+        /* ── Build settings ─────────────────────────────────────────────────────
+           A form of three rows, a list with a strip over it, and two sentences.
+           ⚠ The grid does *not* grow to fill the panel, unlike the two above:
+           a scenes-in-build list is four rows in most projects and thirty in a
+           big one, and a table stretched to the height of a docked panel would
+           put the Build button below the fold on every one of them. */
+        build-settings {
+            flex-direction: column;
+            flex-grow: 1;
+            flex-basis: 0px;
+            min-height: 0px;
+            gap: 0px;
+        }
+
+        build-form {
+            flex-direction: column;
+            flex-shrink: 0;
+            gap: 4px;
+            padding: 8px 9px;
+        }
+
+        build-row {
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+        }
+
+        build-row text { width: 110px; flex-shrink: 0; color: var(--text-muted); }
+        build-row select, build-row textbox { flex-grow: 1; min-width: 120px; }
+
+        build-heading {
+            flex-shrink: 0;
+            padding: 4px 9px 2px 9px;
+            font-weight: 600;
+        }
+
+        build-scene-bar {
+            flex-direction: row;
+            align-items: center;
+            flex-shrink: 0;
+            gap: 4px;
+            padding: 4px 6px;
+        }
+
+        build-scene-bar select { flex-grow: 1; min-width: 80px; }
+
+        build-settings data-grid { flex-grow: 1; flex-basis: 0px; min-height: 60px; }
+
+        build-note, build-status {
+            flex-shrink: 0;
+            padding: 4px 9px;
+            color: var(--text-muted);
+            font-size: 0.85em;
+        }
+
+        build-actions {
+            flex-direction: row;
+            align-items: center;
+            flex-shrink: 0;
+            gap: 6px;
+            padding: 6px 9px;
+            border-top-width: 1px;
+            border-color: var(--border);
+            background-color: var(--surface-sunken);
+        }
+
         /* ── Choosing one of a list, in a dialog ────────────────────────────────
            The startup project browser and "move to which folder?" are the same
            question about two kinds of thing, so they are one control and one

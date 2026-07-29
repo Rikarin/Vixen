@@ -759,7 +759,7 @@ public sealed class VixenCommandTests : IDisposable {
     [InlineData("Linux", "linux-x64")]
     [InlineData("iOS", "ios-arm64")]
     public void EveryPublishableTargetHasARuntimeIdentifier(string target, string rid) {
-        Assert.True(PublishRunner.TryDescribe(target, out var shape));
+        Assert.True(PlayerBuild.TryDescribe(target, out var shape));
         Assert.Equal(rid, shape.Rid);
     }
 
@@ -769,14 +769,14 @@ public sealed class VixenCommandTests : IDisposable {
     /// </summary>
     [Fact]
     public void AndroidIsSelectedByFrameworkRatherThanRuntimeIdentifier() {
-        Assert.True(PublishRunner.TryDescribe("Android", out var shape));
+        Assert.True(PlayerBuild.TryDescribe("Android", out var shape));
         Assert.Equal("net10.0-android", shape.Framework);
         Assert.False(shape.Runnable);
     }
 
     [Fact]
     public void AnUnknownTargetIsNotDescribed() {
-        Assert.False(PublishRunner.TryDescribe("Dreamcast", out _));
+        Assert.False(PlayerBuild.TryDescribe("Dreamcast", out _));
     }
 
     /// <summary>

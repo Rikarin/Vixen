@@ -39,9 +39,9 @@ from counting `Add` calls, because half of the commands are registered in loops.
 
 | | Built | Missing |
 |---|---|---|
-| **Panels** | Hierarchy, Inspector, Scene viewport (1/2/4 panes), Project browser, Console, the seven of [B4](#b4--diagnostics), Message Log, Keyboard Shortcuts, Preferences, Project Settings, Plugins, Undo History, one per open asset document | ~11 more, listed in [Part B](#part-b--the-panel-inventory) |
+| **Panels** | Hierarchy, Inspector, Scene viewport (1/2/4 panes), Project browser, Console, the seven of [B4](#b4--diagnostics), Message Log, Keyboard Shortcuts, Preferences, Project Settings, Build Settings, Plugins, Undo History, one per open asset document | ~10 more, listed in [Part B](#part-b--the-panel-inventory) |
 | **Menus** | All ten of [Part C](#part-c--the-menu-bar-entry-by-entry): File, Edit, Assets, Entity, Scene, Play, Window, Build, Tools, Help | Nothing structural. Individual lines are disabled-with-a-reason rather than absent |
-| **Commands** | Every id [Part C](#part-c--the-menu-bar-entry-by-entry) names, plus Open Recent's one per project. The declared-and-disabled ones that are left name E5 and E6 | Whatever E5 and E6 add |
+| **Commands** | Every id [Part C](#part-c--the-menu-bar-entry-by-entry) names, plus Open Recent's one per project and the Build menu's one per target and per variant. The declared-and-disabled ones that are left name E5, and one names Raven's compiler | Whatever E5 and the rest of E6 add |
 | **Windows** | One OS window, a floating dock group promoted to a real one with an off-display rule, drawn modal dialogs, and the startup Project Browser | About is still a notification rather than a window |
 | **Layouts** | Six presets, saved/named arrangements, `current.vxlayout`, floating groups with their geometry, **and the open documents** | `Sequencing`, which waits on B5 |
 | **Shell services** | Commands with contexts and scopes, a three-layer keymap with presets, palette, **search-everywhere**, menus, context menus, toolbar with sections and groups, status bar, notifications, background tasks, theming, localisation, docking, plugins, dialogs, icons, MRU, **a settings mechanism**, **an automation harness** | Modes |
@@ -351,7 +351,7 @@ runtime half; `Vixen.Core.Diagnostics` has the sample rings and the Chrome-trace
 | **Memory** — managed heap, native allocators, GPU heaps, asset residency | Memory Insights / Memory Profiler | 🟡 | Managed ✅, native ✅ through `LeakTracker` — which compiles out of release, and the panel says so rather than reading zero. GPU heaps need `VK_EXT_memory_budget`, which the backend does not query; assets are counts, because the database holds identities and not sizes |
 | **Remote inspector** — attach to a running build, browse and mutate live entities | Device output / Profiler remote | 🟡 | The editor's half ✅ over any `ITransport`. ⚠ **The runtime half is doc 13's and is not written**, and neither is discovery — a `FakeBuild` in the tests is the shape a player implements |
 | **Statistics** — counts, budgets, warnings per scene | Statistics / Stats | ✅ | Traversal only, as this row said. No draw calls: the viewport draws lines, and a count there would be a guess presented as a measurement |
-| **Device manager** | Device Manager / Build & Run | 🟡 | The list, the statuses and the hand-off to the inspector ✅. Finding an Android device is `adb` and a console is a vendor SDK — one `IDeviceProvider` each |
+| **Device manager** | Device Manager / Build & Run | 🟡 | The list, the statuses, the hand-off to the inspector and — since [E6](#e6--production-hardening-15-em)'s build settings — Deploy ✅. Finding an Android device is `adb` and a console is a vendor SDK — one `IDeviceProvider` each, and the same tool is what would install to it, which is why deploying to anything but this machine is greyed with the tool's name |
 
 ⚠ **The profiler must be able to profile the editor.** An editor that can only profile the game
 cannot answer why the editor is slow, and doc 00's editor-shell performance bar is a claim about the
@@ -389,8 +389,8 @@ is, and `EditorHost` instruments its loop with the four phases its own remarks n
 
 | Window | UE / Unity | Status | Notes |
 |---|---|---|---|
-| **Build settings** | Project Launcher / Build Settings | ⛔ | Target, configuration, scenes-in-build, variant, output path, over `Tools/Vixen.Cli`'s existing calls |
-| **Device manager / deploy** | Device Manager / Build & Run | ⛔ | List devices, deploy, launch, attach the remote inspector |
+| **Build settings** | Project Launcher / Build Settings | ✅ | A panel over `PlayerBuildSettings`, running `ContentTasks.BuildPlayer` — import, pack, `dotnet publish`, launch. ⚠ **`PublishRunner` moved out of the CLI to make "over `Tools/Vixen.Cli`'s existing calls" literally true**: it is `PlayerBuild` in `Vixen.Editor.Assets`, beside `ContentPipeline`, for the reason `ProjectWorkspace` is there. What is *not* shared is the shader bundle — `ShaderBuildRunner` links Raven's compiler, which the editor deliberately does not carry, and the build log says so |
+| **Device manager / deploy** | Device Manager / Build & Run | 🟡 | List ✅, deploy and launch ✅ for this machine, attach ⛔. ⚠ **The fourth verb is not a gap in this row**: attaching needs something on the other side to answer, which is doc 13's runtime half — the same absence [B4](#b4--diagnostics)'s remote-inspector row names. Every other kind of device is greyed with the tool that is missing, because the tool that would *find* an Android phone is the tool that would install to it |
 | **Plugin manager** | Plugins / Package Manager | ✅ | A list over `PluginHost.Plugins` with enable, disable, reload. ⚠ The two switches are kept apart: `plugin.yaml`'s `enabled:` is the author's and is shared by a team, and the user's is recorded beside their layout |
 | **Source control** | Revision Control / Version Control | ⛔ | P2. Status column in the browser, and check-out/revert/diff/history over a provider interface with a git implementation |
 | **Crash reporter** | Crash Reporter (both) | ⛔ | Out-of-process, minidump plus the last N log lines plus the undo history, with consent |
@@ -502,6 +502,15 @@ Reset Layout), | **Panels ▸** (dynamic, every registered panel, ticked when op
 **Build Settings⋯**, | Build Content `Ctrl+Shift+B`, **Build and Run** `Ctrl+B`, | **Target ▸**
 (Windows, Linux, macOS, Android, iOS, Web), **Configuration ▸** (Debug, Release), | **Deploy ▸**
 (devices), | **Clean Library**, **Rebuild Shaders**.
+
+⚠ **Two lines came out with a different arity than this table says, and both for the same reason: the
+menu is a view of a setting rather than a list of verbs.** Target has a seventh entry above the six —
+*This Machine* — because an unset target means "whatever machine this is", which is not one of the six
+and a submenu with no tick at all reads as a setting that failed to load. Configuration has four
+rather than two, because doc 17's variants are what a player build actually chooses between and the
+compiler configuration is derived from one: Debug, Development, Release, Server. Web is on the Target
+list and greyed with its reason, which is the rule this document opened with rather than an exception
+to it.
 
 ### Tools
 
@@ -747,9 +756,11 @@ already exists, not by rewriting a view.
 Two more that E4 touches and does not close, both named where they belong: **`tools.diagnostics-report`
 is written and is missing its second half** — it carries the log ring, the memory arenas, the scene's
 counts and the last capture, and says *in the file* that the minidump and the undo history are
-[E6](#e6--production-hardening-15-em)'s — and **Deploy opens the device list rather than deploying**,
-because deploying needs a build, which is E6's `build.settings`. What E4 contributes to that
-milestone is the list the target is chosen from.
+[E6](#e6--production-hardening-15-em)'s — and **Deploy opened the device list rather than deploying**,
+because deploying needs a build. ✅ **That one is closed**: E6's `build.settings` exists, the panel
+raises `DeployRequested`, and what E4 contributed to it — the list, the statuses, the selection — is
+exactly what the deploy is chosen from. `DeviceStatus.Deploying` was an enum member no code could
+produce until there was something to produce it.
 
 ⚠ **The RHI blocker this milestone opened with is closed, and it was the shape it said it was.**
 There was no query API in `Vixen.Graphics` — not an interface, not a stub, nothing in the Vulkan
@@ -792,6 +803,41 @@ performance benchmark from doc 00 actually run.
 
 **Exit:** Phase 6's stated exit criteria, plus: the editor survives being killed mid-edit with no
 lost work; a signed installer exists for three desktops; the performance bar is a number in CI.
+
+**Where E6 stands.** One row of it is built — **build settings and deploy** — and it is taken first
+because it is the one the other milestones were waiting on rather than the other way round: E4's
+Deploy line and Part C's `build.settings`, `build.run`, `Target ▸` and `Configuration ▸` were all
+declared-and-disabled naming this milestone. Three things came out differently from how this document
+described them, and each is worth the sentence:
+
+| What the plan said | What it turned out to be |
+|---|---|
+| **"Over `Tools/Vixen.Cli`'s existing calls"** | Not possible as written, and the fix is the one `ProjectWorkspace` already made. `PublishRunner` was *in* the CLI, which is a tool no editor references — so a window "over" it would have been a second copy of the same `dotnet publish`. It is now `PlayerBuild`, beside `ContentPipeline` in `Vixen.Editor.Assets`, and `vixen build` and Build and Run are literally the same three calls in the same order |
+| **Target and configuration are two settings** | Two *fields*, and neither is the compiler's configuration. Doc 17's variants are the axis a player build has — Development is optimised and keeps its profiler — so the variant travels as `VixenVariant` and `-c Release` is derived from it. Part C's `Configuration ▸ (Debug, Release)` is therefore four lines rather than two: a menu of the two everybody knows, over a setting of four, would leave the other two unreachable and unmarkable |
+| **Scenes-in-build is a list of scenes** | And the honest half is what reads it. A build checks every entry still resolves and says which do not — somebody else's rename arriving in a checkout is the failure this list actually has. What does *not* read it is anything at boot: doc 17's `AppConfig.StartupScene` is what will make the first entry mean something, and the panel says so rather than implying the order does |
+
+⚠ **The player's target and the content target are deliberately two settings, and this was not
+obvious.** `ContentBuildSettings.Target` is what the editor's own panels are imported for and
+`PlayerBuildSettings.Target` is what ships. One field would be simpler and would make "build the
+Android player" also mean "reimport this whole project as ASTC" — which is exactly what a team
+building for a phone from a workstation must not have happen.
+
+⚠ **The console is the build log, which is not a detail.** An editor has no terminal, so a publish
+whose output went to `Console.Out` would be a build that failed with its reason written to a handle
+nobody has. `dotnet publish` is captured line by line into the diagnostics ring, and MSBuild's own
+severity is read back out of the line — a compiler error logged as information is one the console's
+default filter hides, which would be the panel concealing the thing it was opened for.
+
+⚠ **A player build cannot compile the shader bundle, and this is a real difference from
+`vixen build`.** `ShaderBuildRunner` links Raven's compiler, a build-time library the editor
+deliberately does not carry — see `Tools/Vixen.ShaderCompiler`'s README for why. A project with a
+`Shaders.effects.json` is told so in the build log, and `build.rebuild-shaders` is the one Build-menu
+line still declared-and-disabled, now naming that reason rather than this milestone. What closes it is
+a compiler *service* the editor talks to rather than links, which `Tools/Vixen.ShaderCompilerService`
+is already the shape of.
+
+Still owed here: the crash reporter, session recovery, source control, `PublishEditor` with signing
+and notarisation, the golden-screenshot suite, and doc 00's editor-shell benchmark actually run.
 
 ### Ordering note
 
