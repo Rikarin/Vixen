@@ -42,9 +42,16 @@ static class VulkanFeatures {
 
     const string DynamicRendering = "VK_KHR_dynamic_rendering";
     const string TimelineSemaphore = "VK_KHR_timeline_semaphore";
-    const string DescriptorIndexing = "VK_EXT_descriptor_indexing";
     const string MeshShaderExt = "VK_EXT_mesh_shader";
     const string MeshShaderNv = "VK_NV_mesh_shader";
+
+    /// <summary>Descriptor indexing, core in 1.2 and an extension below it.</summary>
+    /// <remarks>
+    ///     Internal rather than private because device creation has to name it in the enabled
+    ///     extension list on a 1.1 device, and two spellings of an extension name is one typo away
+    ///     from a capability that reports present and a device that was never asked for it.
+    /// </remarks>
+    internal const string DescriptorIndexing = "VK_EXT_descriptor_indexing";
 
     /// <summary>Translates a device's report into the RHI's vocabulary.</summary>
     /// <param name="features">What <c>vkGetPhysicalDeviceFeatures</c> said.</param>
@@ -53,15 +60,25 @@ static class VulkanFeatures {
     /// <param name="apiVersion">The Vulkan version it supports, packed as Vulkan packs it.</param>
     /// <param name="queues">Which family does what, which is where the async flags come from.</param>
     /// <param name="unifiedMemory">Whether the CPU and GPU share one pool.</param>
+    /// <param name="indexing">
+    ///     What <c>VkPhysicalDeviceDescriptorIndexingFeatures</c> said, or all-false where the device
+    ///     was never asked — which is the right answer for a device that has no descriptor indexing
+    ///     to ask about.
+    /// </param>
+    /// <param name="indexingLimits">What <c>VkPhysicalDeviceDescriptorIndexingProperties</c> said.</param>
     public static GraphicsDeviceFeatures Translate(
         in PhysicalDeviceFeatures features,
         in PhysicalDeviceLimits limits,
         IReadOnlySet<string> extensions,
         uint apiVersion,
         in QueueFamilyPlan queues,
-        bool unifiedMemory
-    ) =>
-        GraphicsDeviceFeatures.Minimum with {
+        bool unifiedMemory,
+        in PhysicalDeviceDescriptorIndexingFeatures indexing = default,
+        in PhysicalDeviceDescriptorIndexingProperties indexingLimits = default
+    ) {
+        var bindless = HasDescriptorIndexing(extensions, apiVersion) && Bindless(indexing);
+
+        return GraphicsDeviceFeatures.Minimum with {
             // Vulkan has no device without compute — unlike WebGL2, which is what the flag exists
             // for. Stated rather than inferred, so this reads as a decision and not an omission.
             HasCompute = true,
@@ -70,12 +87,13 @@ static class VulkanFeatures {
             HasTessellation = features.TessellationShader,
             HasMeshShaders = extensions.Contains(MeshShaderExt) || extensions.Contains(MeshShaderNv),
 
-            // The extension, or 1.2 where it is core. This says the device *can* do descriptor
-            // indexing, not that the runtime-descriptor-array and partially-bound features are on —
-            // those are opt-in through PhysicalDeviceDescriptorIndexingFeatures at device creation,
-            // and MoltenVK gates them behind Metal argument-buffer tier 2 (ADR-011). Device creation
-            // narrows this; nothing widens it.
-            HasBindless = apiVersion >= Version12 || extensions.Contains(DescriptorIndexing),
+            // The extension or 1.2 says descriptor indexing is *reachable*; Bindless below says the
+            // four bits the engine's table actually needs are there. Both, because the two come
+            // apart on real hardware: MoltenVK offers the extension on every device and gates the
+            // bits behind Metal argument-buffer tier 2 (ADR-011), so an Apple device that answered
+            // this on the extension alone would report a capability and then fail at
+            // vkCreateDescriptorSetLayout.
+            HasBindless = bindless,
 
             HasMultiDrawIndirect = features.MultiDrawIndirect,
             HasTimelineSemaphores = apiVersion >= Version12 || extensions.Contains(TimelineSemaphore),
@@ -109,6 +127,19 @@ static class VulkanFeatures {
             MaxDescriptorSets = Clamp(limits.MaxBoundDescriptorSets),
             MaxPushConstantSize = Clamp(limits.MaxPushConstantsSize),
 
+            // The lesser of the two, because a table has to satisfy both: the set limit bounds every
+            // update-after-bind sampled image across the whole set, and the per-stage limit bounds
+            // what one stage can see — and a fragment shader indexing the table is one stage seeing
+            // all of it. Desktop drivers report a million or more for the first and often the same
+            // for the second; the devices where they differ are exactly the ones where guessing
+            // wrong is a layout the driver refuses.
+            MaxBindlessDescriptors = bindless
+                ? Math.Min(
+                    Clamp(indexingLimits.MaxDescriptorSetUpdateAfterBindSampledImages),
+                    Clamp(indexingLimits.MaxPerStageDescriptorUpdateAfterBindSampledImages)
+                )
+                : 0,
+
             // A driver may report a large maximum anisotropy and still not support the feature, in
             // which case asking for more than 1 is a validation error rather than a slow path.
             MaxAnisotropy = features.SamplerAnisotropy ? limits.MaxSamplerAnisotropy : 1f,
@@ -121,6 +152,57 @@ static class VulkanFeatures {
                 limits.FramebufferColorSampleCounts & limits.FramebufferDepthSampleCounts
             )
         };
+    }
+
+    /// <summary>Whether the descriptor-indexing structures are worth asking the device about.</summary>
+    /// <param name="extensions">The device extensions it offers.</param>
+    /// <param name="apiVersion">The version it supports.</param>
+    /// <remarks>
+    ///     Chaining a structure a device does not recognise is not an error — the loader leaves it as
+    ///     it found it — so this is not about safety. It is about the answer: an all-zero structure
+    ///     back from a 1.1 device means "no", and an all-zero structure that was never written means
+    ///     the same thing, and telling those apart is impossible after the fact. Asking only where
+    ///     the question exists keeps the two from being confused.
+    /// </remarks>
+    public static bool HasDescriptorIndexing(IReadOnlySet<string> extensions, uint apiVersion) {
+        ArgumentNullException.ThrowIfNull(extensions);
+        return apiVersion >= Version12 || extensions.Contains(DescriptorIndexing);
+    }
+
+    /// <summary>The four bits an unbounded texture array needs, all of them.</summary>
+    /// <param name="indexing">What the device reported.</param>
+    /// <remarks>
+    ///     <para>
+    ///         Every one is load-bearing and none of them is implied by the others:
+    ///     </para>
+    ///     <list type="bullet">
+    ///         <item>
+    ///             <c>runtimeDescriptorArray</c> — the array may be declared without a length. Without
+    ///             it the shader is a different shader.
+    ///         </item>
+    ///         <item>
+    ///             <c>descriptorBindingPartiallyBound</c> — a slot nobody has written may exist. A
+    ///             table is almost entirely empty almost all of the time, and without this every slot
+    ///             would have to hold something before the set could be used at all.
+    ///         </item>
+    ///         <item>
+    ///             <c>shaderSampledImageArrayNonUniformIndexing</c> — the index may differ across a
+    ///             subgroup. This is the one that makes the whole idea work: a merged draw is
+    ///             fragments of different materials in one dispatch, so a uniform index would mean
+    ///             the merge was pointless.
+    ///         </item>
+    ///         <item>
+    ///             <c>descriptorBindingSampledImageUpdateAfterBind</c> — the set may be written while
+    ///             bound. This is what lets a texture streamed in mid-frame take a slot without the
+    ///             host waiting for the device.
+    ///         </item>
+    ///     </list>
+    /// </remarks>
+    public static bool Bindless(in PhysicalDeviceDescriptorIndexingFeatures indexing) =>
+        indexing.RuntimeDescriptorArray
+        && indexing.DescriptorBindingPartiallyBound
+        && indexing.ShaderSampledImageArrayNonUniformIndexing
+        && indexing.DescriptorBindingSampledImageUpdateAfterBind;
 
     /// <summary>Whether the memory heaps describe a shared pool.</summary>
     /// <param name="memory">What <c>vkGetPhysicalDeviceMemoryProperties</c> said.</param>

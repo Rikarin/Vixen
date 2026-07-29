@@ -93,6 +93,26 @@ message; the specification reserves that for layer development, and it turns a w
 rather than the highest available — a driver should not enable behaviour we have not tested against.
 A device that offers more is queried for it explicitly.
 
+**Descriptor indexing is asked about as four features, not as an extension string.** MoltenVK offers
+`VK_EXT_descriptor_indexing` on every device it runs on and gates the features behind the Metal
+argument-buffer tier, so a capability answered from the string reports bindless on every Mac and then
+fails at `vkCreateDescriptorSetLayout` — long after the renderer chose its path. `VulkanFeatures`
+therefore asks `vkGetPhysicalDeviceFeatures2` for runtime-descriptor-array, partially-bound,
+non-uniform indexing and update-after-bind, and `vkGetPhysicalDeviceProperties2` for the two
+update-after-bind ceilings that decide how large a table may be. Device creation enables exactly
+those four and nothing else.
+
+**The `pNext` chain at device creation is a chain.** It used to be one structure or none, and adding
+a second the same way would have silently dropped whichever was not last — which for descriptor
+indexing means a device that reports bindless, is created without it, and fails at the first
+unbounded layout with a message about the layout.
+
+**A bindless set gets its own descriptor pool.** `MaxBindlessDescriptors` is a six-digit number on a
+desktop driver where `SetsPerPool` sizes the shared pools for sets of a handful of bindings, so
+allocating one from a shared pool exhausts it and then exhausts the empty one made to replace it. The
+dedicated pool is also the only descriptor memory here large enough that waiting for the device to go
+away is the wrong answer, so it is destroyed with its set.
+
 ## Known gap
 
 The debug callback writes to standard error rather than through the `ILogger` the instance was given.

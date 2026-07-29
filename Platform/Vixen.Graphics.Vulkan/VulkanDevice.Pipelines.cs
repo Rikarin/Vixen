@@ -13,33 +13,79 @@ public sealed unsafe partial class VulkanDevice {
     const uint SetsPerPool = 256;
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         <strong>An unbounded binding is a different object, not a longer one.</strong> Vulkan
+    ///         has no runtime-sized descriptor array: what the shader declares without a length the
+    ///         layout still declares with one, and the number comes from
+    ///         <see cref="GraphicsDeviceFeatures.MaxBindlessDescriptors" />. Three flags go with it,
+    ///         and each is load-bearing — partially-bound so the overwhelmingly empty table is legal
+    ///         at all, update-after-bind so a texture streamed in mid-frame can take a slot without
+    ///         the host waiting for the device, and the pool flag that the other two require.
+    ///     </para>
+    ///     <para>
+    ///         Variable descriptor count is deliberately <em>not</em> used. It would let one set be
+    ///         smaller than the layout allows, at the cost of a rule — the variable binding must be
+    ///         the highest-numbered one in the set — that would silently constrain what a shader may
+    ///         declare next to its table. Sizing every table at the device's maximum costs descriptor
+    ///         memory and buys back a layout with no ordering rule in it.
+    ///     </para>
+    /// </remarks>
     public DescriptorSetLayoutHandle CreateDescriptorSetLayout(in DescriptorSetLayoutDescription description) {
+        description.Validate();
+
         var bindings = description.Bindings ?? [];
         var entries = stackalloc DescriptorSetLayoutBinding[Math.Max(1, bindings.Length)];
+        var flags = stackalloc DescriptorBindingFlags[Math.Max(1, bindings.Length)];
+        var unbounded = false;
 
         for (var index = 0; index < bindings.Length; index++) {
             var binding = bindings[index];
+            flags[index] = 0;
 
-            if (binding.Count == 0 && !Features.HasBindless) {
-                throw new ArgumentException(
-                    $"Binding {binding.Binding} of '{description.Name}' is unbounded, which needs "
-                    + "descriptor indexing. This device does not have it, so the non-bindless path is "
-                    + "the one to take here."
-                );
+            if (binding.IsUnbounded()) {
+                if (!Features.HasBindless) {
+                    throw new ArgumentException(
+                        $"Binding {binding.Binding} of '{description.Name}' is unbounded, which needs "
+                        + "descriptor indexing. This device does not have it, so the non-bindless path is "
+                        + "the one to take here."
+                    );
+                }
+
+                unbounded = true;
+                flags[index] = DescriptorBindingFlags.PartiallyBoundBit
+                    | DescriptorBindingFlags.UpdateAfterBindBit;
             }
 
             entries[index] = new() {
                 Binding = binding.Binding,
                 DescriptorType = VulkanEnums.ToVulkan(binding.Kind),
-                DescriptorCount = (uint)Math.Max(1, binding.Count),
+                // Math.Max, not the count, for everything that is not a table: a storage buffer
+                // whose block ends in a runtime-sized array reports zero, and it is one descriptor.
+                DescriptorCount = binding.IsUnbounded()
+                    ? (uint)Features.MaxBindlessDescriptors
+                    : (uint)Math.Max(1, binding.Count),
                 StageFlags = VulkanEnums.ToVulkan(binding.Stages)
             };
         }
 
+        var bindingFlags = new DescriptorSetLayoutBindingFlagsCreateInfo {
+            SType = StructureType.DescriptorSetLayoutBindingFlagsCreateInfo,
+            BindingCount = (uint)bindings.Length,
+            PBindingFlags = flags
+        };
+
         var create = new DescriptorSetLayoutCreateInfo {
             SType = StructureType.DescriptorSetLayoutCreateInfo,
             BindingCount = (uint)bindings.Length,
-            PBindings = bindings.Length > 0 ? entries : null
+            PBindings = bindings.Length > 0 ? entries : null,
+
+            // Only where something in the set is update-after-bind. The flag makes every allocation
+            // from this layout need an update-after-bind pool, and putting it on the ordinary layouts
+            // too would move the whole engine's descriptor traffic onto pools the driver cannot
+            // bump-allocate from.
+            Flags = unbounded ? DescriptorSetLayoutCreateFlags.UpdateAfterBindPoolBit : 0,
+            PNext = unbounded ? &bindingFlags : null
         };
 
         DescriptorSetLayout handle;
@@ -49,7 +95,8 @@ public sealed unsafe partial class VulkanDevice {
         lock (gate) {
             return new(setLayouts.Add(new VulkanDescriptorSetLayout {
                 Handle = handle,
-                Bindings = [.. bindings]
+                Bindings = [.. bindings],
+                IsBindless = unbounded
             }));
         }
     }
@@ -107,6 +154,10 @@ public sealed unsafe partial class VulkanDevice {
     public DescriptorSetHandle CreateDescriptorSet(DescriptorSetLayoutHandle layout, string name = "") {
         var resolved = ResolveLayout(layout);
 
+        if (resolved.IsBindless) {
+            return CreateBindlessDescriptorSet(resolved, name);
+        }
+
         lock (gate) {
             var pool = CurrentDescriptorPool();
             var handle = resolved.Handle;
@@ -141,6 +192,80 @@ public sealed unsafe partial class VulkanDevice {
         }
     }
 
+    /// <summary>A bindless set, out of a pool made to hold exactly it.</summary>
+    /// <param name="layout">The layout, which has already said it is bindless.</param>
+    /// <param name="name">A name for the debugger and the validation layers.</param>
+    /// <remarks>
+    ///     <para>
+    ///         Not from the shared pools, and not because of the flag alone. A table is
+    ///         <see cref="GraphicsDeviceFeatures.MaxBindlessDescriptors" /> descriptors — on a desktop
+    ///         driver, a number with six digits in it — where <see cref="SetsPerPool" /> sizes the
+    ///         shared pools for sets of a handful of bindings. Allocating one from a shared pool
+    ///         would exhaust it and then exhaust its successor, which is a loop that ends in
+    ///         <c>ErrorOutOfPoolMemory</c> reported against a pool that had just been created empty.
+    ///     </para>
+    ///     <para>
+    ///         Sized from the layout rather than from a constant, so a table of storage images costs
+    ///         storage-image descriptors and a table of sampled ones costs those. The pool holds one
+    ///         set and dies with it — see <see cref="VulkanDescriptorSet.OwnsPool" />.
+    ///     </para>
+    /// </remarks>
+    DescriptorSetHandle CreateBindlessDescriptorSet(VulkanDescriptorSetLayout layout, string name) {
+        var sizes = stackalloc DescriptorPoolSize[Math.Max(1, layout.Bindings.Length)];
+
+        for (var index = 0; index < layout.Bindings.Length; index++) {
+            var binding = layout.Bindings[index];
+
+            sizes[index] = new() {
+                Type = VulkanEnums.ToVulkan(binding.Kind),
+                DescriptorCount = binding.IsUnbounded()
+                    ? (uint)Features.MaxBindlessDescriptors
+                    : (uint)binding.Count
+            };
+        }
+
+        var poolInfo = new DescriptorPoolCreateInfo {
+            SType = StructureType.DescriptorPoolCreateInfo,
+            MaxSets = 1,
+            PoolSizeCount = (uint)layout.Bindings.Length,
+            PPoolSizes = layout.Bindings.Length > 0 ? sizes : null,
+            Flags = DescriptorPoolCreateFlags.UpdateAfterBindBit
+        };
+
+        DescriptorPool pool;
+        Check(Api.CreateDescriptorPool(device, &poolInfo, null, &pool), "vkCreateDescriptorPool");
+
+        var handle = layout.Handle;
+
+        var allocate = new DescriptorSetAllocateInfo {
+            SType = StructureType.DescriptorSetAllocateInfo,
+            DescriptorPool = pool,
+            DescriptorSetCount = 1,
+            PSetLayouts = &handle
+        };
+
+        DescriptorSet set;
+        var result = Api.AllocateDescriptorSets(device, &allocate, &set);
+
+        if (result != Result.Success) {
+            // The pool was made for this one allocation, so a failure leaves nothing else in it and
+            // returning it here is what keeps a refused table from also being a leak.
+            Api.DestroyDescriptorPool(device, pool, null);
+            Check(result, "vkAllocateDescriptorSets");
+        }
+
+        Name(ObjectType.DescriptorSet, set.Handle, name);
+
+        lock (gate) {
+            return new(descriptorSets.Add(new VulkanDescriptorSet {
+                Handle = set,
+                Pool = pool,
+                Layout = layout,
+                OwnsPool = true
+            }));
+        }
+    }
+
     /// <inheritdoc />
     public void UpdateDescriptorSet(DescriptorSetHandle descriptors, ReadOnlySpan<DescriptorWrite> writes) {
         if (writes.IsEmpty) {
@@ -161,6 +286,23 @@ public sealed unsafe partial class VulkanDevice {
                     $"Binding {write.Binding} was declared as {declared.Kind} and is being written as "
                     + $"{write.Kind}. Vulkan does not check this and the shader reads whichever it was "
                     + "compiled for, so the result would be silently wrong."
+                );
+            }
+
+            // How long the binding actually is, which for an unbounded one is the table's size and
+            // not zero. Checked here because writing past the end is undefined rather than refused:
+            // the validation layers catch it and a release driver corrupts a neighbouring descriptor,
+            // which shows up as the wrong texture on an unrelated object.
+            var length = declared.IsUnbounded()
+                ? Features.MaxBindlessDescriptors
+                : Math.Max(1, declared.Count);
+
+            if (write.ArrayIndex < 0 || write.ArrayIndex >= length) {
+                throw new ArgumentOutOfRangeException(
+                    nameof(writes),
+                    write.ArrayIndex,
+                    $"Binding {write.Binding} holds {length} descriptor(s), so element "
+                    + $"{write.ArrayIndex} is outside it."
                 );
             }
 
@@ -510,7 +652,13 @@ public sealed unsafe partial class VulkanDevice {
         // FreeDescriptorSetBit, which lets the driver bump-allocate within them; freeing a set would
         // need the flag and would cost that on every allocation to reclaim memory that is reclaimed
         // wholesale when the device goes away. Sets are cheap and long-lived by design.
-        Take(descriptorSets, handle.Value);
+        //
+        // Except a bindless one, which is neither. Its pool holds it alone and is the size of the
+        // whole table, so destroying the pool is both how the set is freed and the only descriptor
+        // memory in the backend large enough that waiting for the device to go away is wrong.
+        if (Take(descriptorSets, handle.Value) is VulkanDescriptorSet { OwnsPool: true } set) {
+            Retire(() => Api.DestroyDescriptorPool(device, set.Pool, null));
+        }
     }
 
     static StencilOpState ToStencil(in StencilFaceState face, in DepthStencilState state) => new() {

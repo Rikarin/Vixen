@@ -55,6 +55,17 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
 
     internal required PhysicalDeviceFeatures Supported { get; init; }
 
+    /// <summary>
+    ///     What the device said about descriptor indexing, all-false where there was nothing to ask.
+    /// </summary>
+    /// <remarks>
+    ///     Kept rather than reduced to <see cref="GraphicsDeviceFeatures.HasBindless" />, because
+    ///     device creation has to hand the same structure back as the set of features to
+    ///     <em>enable</em> — and a device created without them behaves exactly like one that never had
+    ///     them, with no error anywhere to say which of the two happened.
+    /// </remarks>
+    internal required PhysicalDeviceDescriptorIndexingFeatures Indexing { get; init; }
+
     internal required HashSet<string> Extensions { get; init; }
 
     internal required QueueFamilyPlan Queues { get; init; }
@@ -147,9 +158,11 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
         };
 
         var usable = Math.Min(properties.ApiVersion, instanceVersion);
+        var (indexing, indexingLimits) = DescriptorIndexing(api, device, extensions, usable);
 
         return new(device, properties, name) {
             UsableApiVersion = usable,
+            Indexing = indexing,
             DriverVersion = AdapterSelection.Describe(properties.DriverVersion),
             DeviceMemory = LocalMemory(memory),
             Memory = memory,
@@ -164,9 +177,62 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
                 extensions,
                 usable,
                 plan,
-                VulkanFeatures.HasUnifiedMemory(memory, kind)
+                VulkanFeatures.HasUnifiedMemory(memory, kind),
+                indexing,
+                indexingLimits
             )
         };
+    }
+
+    /// <summary>What the device says about descriptor indexing, where there is anything to say.</summary>
+    /// <param name="api">The Vulkan entry points.</param>
+    /// <param name="device">The physical device.</param>
+    /// <param name="extensions">Its device extensions.</param>
+    /// <param name="usable">The version actually reachable through this instance.</param>
+    /// <remarks>
+    ///     Two calls rather than one because the features and the limits are different structures on
+    ///     different queries, and the engine needs both: the features decide whether a table is
+    ///     possible and the limits decide how large it may be. A device with no descriptor indexing
+    ///     is not asked at all — <c>vkGetPhysicalDeviceFeatures2</c> itself is core only from 1.1,
+    ///     which <see cref="AdapterSelection.MinimumApiVersion" /> already makes the floor, but a
+    ///     device below that floor still has to be *described* so selection can name why it was
+    ///     rejected.
+    /// </remarks>
+    static (PhysicalDeviceDescriptorIndexingFeatures Features, PhysicalDeviceDescriptorIndexingProperties Limits)
+        DescriptorIndexing(Vk api, PhysicalDevice device, IReadOnlySet<string> extensions, uint usable) {
+        if (usable < AdapterSelection.MinimumApiVersion || !VulkanFeatures.HasDescriptorIndexing(extensions, usable)) {
+            return (default, default);
+        }
+
+        var indexing = new PhysicalDeviceDescriptorIndexingFeatures {
+            SType = StructureType.PhysicalDeviceDescriptorIndexingFeatures
+        };
+
+        var features = new PhysicalDeviceFeatures2 {
+            SType = StructureType.PhysicalDeviceFeatures2,
+            PNext = &indexing
+        };
+
+        api.GetPhysicalDeviceFeatures2(device, &features);
+
+        var indexingLimits = new PhysicalDeviceDescriptorIndexingProperties {
+            SType = StructureType.PhysicalDeviceDescriptorIndexingProperties
+        };
+
+        var properties = new PhysicalDeviceProperties2 {
+            SType = StructureType.PhysicalDeviceProperties2,
+            PNext = &indexingLimits
+        };
+
+        api.GetPhysicalDeviceProperties2(device, &properties);
+
+        // The chain pointers are stack addresses that do not outlive this method, and a caller
+        // copying the struct on would carry them. Cleared so the copy is what it looks like: a
+        // record of answers, with nothing pointing anywhere.
+        indexing.PNext = null;
+        indexingLimits.PNext = null;
+
+        return (indexing, indexingLimits);
     }
 
     static ulong LocalMemory(in PhysicalDeviceMemoryProperties memory) {

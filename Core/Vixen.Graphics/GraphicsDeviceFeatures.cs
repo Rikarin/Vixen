@@ -43,9 +43,20 @@ public readonly record struct GraphicsDeviceFeatures {
 
     /// <summary>A shader may index an unbounded descriptor array.</summary>
     /// <remarks>
-    ///     What GPU-driven culling and material batching are built on. Limited on MoltenVK to Metal
-    ///     argument-buffer tier 1 (ADR-011), so the non-bindless path is not merely a legacy
-    ///     concession — it is what runs on Apple hardware and on WebGL2.
+    ///     <para>
+    ///         What GPU-driven culling and material batching are built on. Limited on MoltenVK to
+    ///         Metal argument-buffer tier 1 (ADR-011), so the non-bindless path is not merely a legacy
+    ///         concession — it is what runs on Apple hardware and on WebGL2.
+    ///     </para>
+    ///     <para>
+    ///         <strong>This is four questions, not one</strong>, and a backend must answer all four
+    ///         before it says yes: the array has to be runtime-sized, a slot nobody wrote has to be
+    ///         allowed to stay unwritten, an index that varies across a subgroup has to be legal, and
+    ///         the set has to be writable after it is bound. Vulkan offers the first three as separate
+    ///         opt-in bits under one extension, and a device that has the extension and not the bits
+    ///         is a device where <see cref="BindlessTable" /> would fail at
+    ///         <c>vkAllocateDescriptorSets</c> rather than at a capability check.
+    ///     </para>
     /// </remarks>
     public bool HasBindless { get; init; }
 
@@ -122,6 +133,25 @@ public readonly record struct GraphicsDeviceFeatures {
 
     /// <summary>The largest push-constant block, in bytes.</summary>
     public int MaxPushConstantSize { get; init; }
+
+    /// <summary>How many descriptors one unbounded binding may hold. Zero without
+    /// <see cref="HasBindless" />.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         "Unbounded" is the shader's word and not the driver's. A shader indexes the array with
+    ///         a number it was handed and never asks how long it is; the <em>set</em> is still a fixed
+    ///         allocation, and this is how long it is. So a table is sized once, at creation, out of
+    ///         this — which is also the number that decides how much descriptor memory a bindless
+    ///         renderer costs before it has bound anything.
+    ///     </para>
+    ///     <para>
+    ///         Reported rather than assumed because the spread is enormous and the failure is not
+    ///         graceful: a desktop driver offers a million or more, and a mobile one under the same
+    ///         extension can offer a few thousand. A table sized to the first on the second does not
+    ///         fall back — <c>vkCreateDescriptorSetLayout</c> refuses it.
+    ///     </para>
+    /// </remarks>
+    public int MaxBindlessDescriptors { get; init; }
 
     /// <summary>The largest anisotropy a sampler may ask for.</summary>
     public float MaxAnisotropy { get; init; }

@@ -189,5 +189,88 @@ public sealed class NullDeviceTests : IDisposable {
         server.GraphicsQueue.Submit([list]);
     }
 
+    /// <summary>A binding the layout does not declare is refused rather than ignored.</summary>
+    [Fact]
+    public void AWriteToAnUndeclaredBindingIsRefused() {
+        var layout = device.CreateDescriptorSetLayout(
+            new(DescriptorSetSlot.PerMaterial, [new(0, DescriptorKind.StorageBuffer, ShaderStage.Fragment)], "Material")
+        );
+
+        var set = device.CreateDescriptorSet(layout);
+        var buffer = device.CreateBuffer(new(256, BufferUsage.Storage, Name: "Instances"));
+
+        Assert.Throws<ArgumentException>(() => device.UpdateDescriptorSet(set, [DescriptorWrite.Storage(3, buffer)]));
+    }
+
+    /// <summary>
+    ///     An element past the end of an array binding is refused, and a bindless one is measured
+    ///     against the table's size rather than against zero.
+    /// </summary>
+    /// <remarks>
+    ///     The second half is the one worth the test. An unbounded binding carries <c>Count == 0</c>,
+    ///     so a bounds check written the obvious way rejects every write to a bindless table and a
+    ///     check that skips zero-count bindings accepts every one — including the writes past the end
+    ///     that corrupt a neighbouring descriptor.
+    /// </remarks>
+    [Fact]
+    public void AnElementOutsideItsBindingIsRefused() {
+        var bounded = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerMaterial,
+                [new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment, 4)],
+                "Probes"
+            )
+        );
+
+        var table = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerFrame,
+                [new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment, 0)],
+                "Textures"
+            )
+        );
+
+        var texture = device.CreateTexture(new(PixelFormat.Rgba8UNorm, 4, 4, TextureUsage.Sampled, Name: "Grey"));
+        var view = device.CreateTextureView(texture);
+
+        var boundedSet = device.CreateDescriptorSet(bounded);
+        var tableSet = device.CreateDescriptorSet(table);
+
+        device.UpdateDescriptorSet(boundedSet, [DescriptorWrite.Texture(0, view, 3)]);
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => device.UpdateDescriptorSet(boundedSet, [DescriptorWrite.Texture(0, view, 4)])
+        );
+
+        device.UpdateDescriptorSet(tableSet, [DescriptorWrite.Texture(0, view, 4)]);
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => device.UpdateDescriptorSet(
+                tableSet,
+                [DescriptorWrite.Texture(0, view, device.Features.MaxBindlessDescriptors)]
+            )
+        );
+    }
+
+    /// <summary>
+    ///     A device reporting no descriptor indexing refuses an unbounded binding, like every real one.
+    /// </summary>
+    [Fact]
+    public void AnUnboundedBindingNeedsTheCapability() {
+        using var minimum = new NullDevice(new() { Features = GraphicsDeviceFeatures.Minimum });
+
+        var refused = Assert.Throws<ArgumentException>(
+            () => minimum.CreateDescriptorSetLayout(
+                new(
+                    DescriptorSetSlot.PerFrame,
+                    [new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment, 0)],
+                    "Textures"
+                )
+            )
+        );
+
+        Assert.Contains("HasBindless", refused.Message, StringComparison.Ordinal);
+    }
+
     public void Dispose() => device.Dispose();
 }

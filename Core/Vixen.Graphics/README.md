@@ -17,8 +17,8 @@ have to be right before anything can be built on them.
 | `Pipelines` | Descriptor set slots and kinds, pipeline layouts, vertex layouts, and the graphics and compute pipeline descriptions. |
 | `Barriers` | Buffer and texture barriers, submitted as a group rather than one at a time. |
 
-The **interfaces** — `IGraphicsDevice`, `ICommandList`, `ICommandSubmitter`, `ISwapChain` — and the one
-piece of machinery that is not vocabulary: `DescriptorAllocator`.
+The **interfaces** — `IGraphicsDevice`, `ICommandList`, `ICommandSubmitter`, `ISwapChain` — and the two
+pieces of machinery that are not vocabulary: `DescriptorAllocator` and `BindlessTable`.
 
 `Vixen.Graphics.Null` implements all of it against no GPU, and with recording turned on is what makes
 "did my render feature emit the right calls" a unit test rather than a screenshot diff — which
@@ -103,6 +103,51 @@ A lookup probes with a `ReadOnlySpan<DescriptorWrite>` through `Dictionary.GetAl
 with a constructed key. Building a key would mean copying the writes into an array on every request
 including the hits — the allocation the cache exists to avoid, once per lookup instead of once per
 set.
+
+## The set a shader indexes rather than a draw binds
+
+`BindlessTable` is the second half of [doc 05](../../docs/plan/05-graphics-rhi.md) § Descriptor
+model — "a global `TextureHandle → uint` bindless index table" — and it is what
+[W0-17](../../docs/overview.md) needed before compacted draws, per-object reflection probes or a
+material that samples a texture it was handed the *index* of could be written. See
+[docs/bindless-materials.md](../../docs/bindless-materials.md) for the halves that follow it.
+
+One unbounded binding, one set, bound once for the frame. A draw stops carrying a descriptor set and
+carries a number, so two draws that differ only in their textures stop differing at all — which is
+what lets them share a pipeline, sort together and eventually merge into one indirect command.
+
+**`Count == 0` means two different things, and the kind is what tells them apart.** On a buffer it is
+a block ending in a runtime-sized array — one descriptor, whose length the host decides when it binds
+a range — which is how Raven reports every storage buffer in the shader library. On a texture or a
+sampler there is no such thing, so it can only be the other reading: an unbounded descriptor array.
+`DescriptorBinding.IsUnbounded()` is that question asked once, and it exists because the two are a
+`Math.Max(1, Count)` apart and the wrong answer is not symmetric — reading a storage buffer's zero as
+unbounded puts an update-after-bind flag on a binding whose feature nobody enabled, and the
+validation layers refuse the layout. Which is how it was found, on the culling shaders, on a driver.
+
+**`HasBindless` is four questions.** Runtime-sized arrays, partially-bound slots, non-uniform
+indexing and update-after-bind are four separate opt-in features under one Vulkan extension, and a
+capability answered from the extension string alone reports yes on every device MoltenVK runs on and
+then fails at `vkCreateDescriptorSetLayout`. `MaxBindlessDescriptors` travels with it, because a
+capability with no ceiling is a table that refuses its first texture: it is the lesser of the
+per-set and per-stage update-after-bind limits, which differ by an order of magnitude on the mobile
+parts where it matters.
+
+**An index does not move.** It is written into data the host has already given away — a material's
+record, a per-object block, a buffer the device filled last frame — none of which can be found again
+to be renumbered. So the table is an allocator with a free list and never a compactor, the same view
+twice is the same index with a reference count behind it, and `Capacity` is a real ceiling.
+
+**A released index is retired, not reused.** `DescriptorAllocator`'s hazard in its sharpest form: a
+material record written for frame *f* holds an index the GPU reads while the CPU records *f+1*, so
+handing it straight back means the next texture takes a slot an unfinished frame is still sampling.
+It goes into a ring `FramesInFlight` deep, which makes `BeginFrame` mandatory rather than an
+optimisation — and the failure of forgetting it is not corruption but a high-water mark that walks up
+to `Capacity` and then refuses on a machine with descriptors to spare.
+
+**There is no emulated path, deliberately.** A table faked as a bounded array of the largest size the
+device allows is a different shader with a different limit and a different failure. `IsSupportedBy`
+is the fork, and it belongs in the host.
 
 ## Nothing here names Vulkan
 
