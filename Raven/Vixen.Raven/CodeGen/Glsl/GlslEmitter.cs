@@ -76,6 +76,19 @@ sealed class GlslEmitter {
     bool samplerlessFetch;
     bool nonUniformIndexing;
 
+    /// <summary>Whether anything in this unit is 64 bits of integer.</summary>
+    /// <remarks>
+    ///     Two extensions rather than one, and they are separately optional in the same way the two
+    ///     SPIR-V capabilities are: the types come from
+    ///     <c>GL_EXT_shader_explicit_arithmetic_types_int64</c> and the atomics on them from
+    ///     <c>GL_EXT_shader_atomic_int64</c>. A unit that packs a word without touching it
+    ///     atomically needs only the first, and declaring an extension a unit does not use is
+    ///     something a driver is allowed to reject.
+    /// </remarks>
+    bool wideIntegers;
+
+    bool wideAtomics;
+
     /// <summary>
     ///     Per-material values that live in a record, and how to spell a read of one.
     /// </summary>
@@ -446,9 +459,34 @@ sealed class GlslEmitter {
         );
         writer.Blank();
 
+        EmitSharedVariables();
+
         foreach (var input in entryPoint.Inputs) {
             inputNames.Add(StageBuiltIns.Of(input.Semantic, ShaderStage.Compute)!.GlslName);
         }
+    }
+
+    /// <summary>
+    ///     Declares the <c>groupshared</c> variables this stage reaches, as GLSL <c>shared</c>.
+    /// </summary>
+    /// <remarks>
+    ///     A module-scope declaration with no qualifier beyond the storage word, and no initializer:
+    ///     GLSL has none for shared storage, which is the same restriction SPIR-V has and the reason
+    ///     <c>RVN2134</c> refuses the source that would want one. The name goes into
+    ///     <see cref="variableNames" /> like any other global, so a read is the same identifier the
+    ///     body already refers to.
+    /// </remarks>
+    void EmitSharedVariables() {
+        if (entryPoint.SharedVariables.Count == 0) {
+            return;
+        }
+
+        foreach (var shared in entryPoint.SharedVariables) {
+            var name = ReserveVariable(shared.Variable);
+            writer.Line($"shared {Declare(shared.Type, name, shared.Name)};" + Comment("groupshared"));
+        }
+
+        writer.Blank();
     }
 
     void EmitStreamInterface() {
@@ -834,6 +872,12 @@ sealed class GlslEmitter {
             // The place, not a loaded value: GLSL's atomics take an l-value, which is the whole
             // reason the IR carries a place here.
             case IrAtomicInstruction atomic:
+                // The atomics on a 64-bit word are their own extension, and a separate one from the
+                // types: a device may have `uint64_t` and no atomic on it.
+                if (atomic.Place.Type is IrScalarType { Is64Bit: true }) {
+                    wideAtomics = true;
+                }
+
                 return atomic.Comparand is { } comparand
                     ? $"atomicCompSwap({Place(atomic.Place)}, {Value(comparand)}, {Value(atomic.Value)})"
                     : $"{AtomicName(atomic.Op)}({Place(atomic.Place)}, {Value(atomic.Value)})";
@@ -1083,14 +1127,40 @@ sealed class GlslEmitter {
 
     // --- Types and constants -----------------------------------------------
 
-    string TypeName(IrType type) => GlslTypes.Name(type) ?? Unsupported(type, type.Name);
+    string TypeName(IrType type) {
+        Note(type);
+        return GlslTypes.Name(type) ?? Unsupported(type, type.Name);
+    }
 
-    string Declare(IrType type, string name, string what) =>
-        GlslTypes.Declare(type, name) ?? $"{Unsupported(type, what)} {name}";
+    string Declare(IrType type, string name, string what) {
+        Note(type);
+        return GlslTypes.Declare(type, name) ?? $"{Unsupported(type, what)} {name}";
+    }
 
     /// <summary>As <see cref="Declare" />, but an unsized outer extent is legal here.</summary>
-    string DeclareRuntime(IrType type, string name, string what) =>
-        GlslTypes.Declare(type, name, true) ?? $"{Unsupported(type, what)} {name}";
+    string DeclareRuntime(IrType type, string name, string what) {
+        Note(type);
+        return GlslTypes.Declare(type, name, true) ?? $"{Unsupported(type, what)} {name}";
+    }
+
+    /// <summary>
+    ///     Records that this unit spells a 64-bit integer somewhere, so the prologue asks for the
+    ///     extension that provides one.
+    /// </summary>
+    /// <remarks>
+    ///     Asked on the way through the three places a type is written down rather than at each of
+    ///     the dozen call sites, because a type reaching the output without the extension is a unit
+    ///     <c>glslc</c> rejects on the word <c>uint64_t</c> — the kind of miss that survives every
+    ///     test that does not happen to run a real front end.
+    /// </remarks>
+    void Note(IrType type) {
+        wideIntegers |= type switch {
+            IrScalarType scalar => scalar.IsInteger && scalar.Is64Bit,
+            IrVectorType vector => vector.Component.IsInteger && vector.Component.Is64Bit,
+            IrArrayType array => array.Element.IsInteger && array.Element.Is64Bit,
+            _ => false
+        };
+    }
 
     /// <summary>Whether this is a descriptor array rather than a laid-out one.</summary>
     /// <remarks>
@@ -1128,6 +1198,11 @@ sealed class GlslEmitter {
             bool flag => flag ? "true" : "false",
             int number => number.ToString(CultureInfo.InvariantCulture),
             uint number => number.ToString(CultureInfo.InvariantCulture) + "u",
+            // `L` and `UL`, which is what GL_EXT_shader_explicit_arithmetic_types_int64 spells the
+            // 64-bit literals as. Without the suffix the literal is 32 bits and the assignment is a
+            // widening conversion, which is right for the value and wrong for anything overflowing.
+            long number => number.ToString(CultureInfo.InvariantCulture) + "L",
+            ulong number => number.ToString(CultureInfo.InvariantCulture) + "UL",
             float number => Real(number.ToString("R", CultureInfo.InvariantCulture)),
             // GLSL needs the `lf` suffix to make a literal double rather than float.
             double number => Real(number.ToString("R", CultureInfo.InvariantCulture)) + "lf",
@@ -1146,6 +1221,8 @@ sealed class GlslEmitter {
             IrTypeKind.Bool => "false",
             IrTypeKind.Int => "0",
             IrTypeKind.UInt => "0u",
+            IrTypeKind.Int64 => "0L",
+            IrTypeKind.UInt64 => "0UL",
             IrTypeKind.Float => "0.0",
             IrTypeKind.Double => "0.0lf",
             _ => $"{GlslTypes.Name(type) ?? "float"}(0.0)"
@@ -1184,6 +1261,16 @@ sealed class GlslEmitter {
         // extension a unit does not use is something a driver is allowed to reject.
         if (nonUniformIndexing) {
             prologue.Line("#extension GL_EXT_nonuniform_qualifier : require");
+        }
+
+        // The types, then the atomics on them. A unit that only packs a word needs the first alone,
+        // which is why they are two flags rather than one.
+        if (wideIntegers) {
+            prologue.Line("#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require");
+        }
+
+        if (wideAtomics) {
+            prologue.Line("#extension GL_EXT_shader_atomic_int64 : require");
         }
 
         prologue.Blank();

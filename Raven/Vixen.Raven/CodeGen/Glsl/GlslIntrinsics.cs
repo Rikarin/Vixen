@@ -104,6 +104,15 @@ public static class GlslIntrinsics {
                     + $"{arguments[2]}, {arguments[3]})"
                     : null;
 
+            case IrIntrinsic.SampleTextureGrad:
+                // The gradients are stated rather than derived, which is what makes this legal
+                // outside a fragment stage and correct inside one where the quad spans two
+                // triangles. GLSL takes them in x-then-y order, as SPIR-V's Grad operand does.
+                return arguments.Count == 5 && argumentTypes[0] is IrTextureType gradient
+                    ? $"textureGrad({GlslTypes.Combined(gradient)}({arguments[0]}, {arguments[1]}), "
+                    + $"{arguments[2]}, {arguments[3]}, {arguments[4]})"
+                    : null;
+
             case IrIntrinsic.TextureSize:
                 // Samplerless, like texelFetch: a size is a property of the image, and pairing a
                 // sampler in just to ask for it would need a sampler the shader may not have.
@@ -134,6 +143,15 @@ public static class GlslIntrinsics {
                 return arguments.Count == 2
                     ? $"texelFetch({arguments[0]}, {arguments[1]}.xy, {arguments[1]}.z)"
                     : null;
+
+            case IrIntrinsic.ControlBarrier:
+                // GLSL's `barrier()` in a compute stage is defined as both an execution barrier and
+                // a memory barrier over shared storage, which is exactly the pair the IR opcode
+                // means — so this is one word rather than two calls.
+                return arguments.Count == 0 ? "barrier()" : null;
+
+            case IrIntrinsic.MemoryBarrierShared:
+                return arguments.Count == 0 ? "memoryBarrierShared()" : null;
 
             case IrIntrinsic.ArrayLength:
                 return arguments.Count == 1 ? $"{arguments[0]}.length()" : null;

@@ -206,6 +206,32 @@ public sealed class IrStream(IrVariable variable) {
 }
 
 /// <summary>
+///     Storage one workgroup shares, declared with <c>groupshared</c>.
+/// </summary>
+/// <remarks>
+///     <para>
+///         Deliberately not an <see cref="IrBinding" />, and for the same reason
+///         <see cref="IrStream" /> is not: there is no descriptor, no <c>(set, binding)</c> and
+///         nothing the host writes. It is not a local either — a local is one copy per invocation
+///         and this is one per workgroup, which is the entire difference and the entire point.
+///     </para>
+///     <para>
+///         The variable it carries is a module-scope global, which is what both targets model this
+///         as: a SPIR-V <c>OpVariable</c> in the <c>Workgroup</c> storage class and a GLSL
+///         <c>shared</c> declaration are both module scope. So a read lowers to an ordinary load
+///         and a write to an ordinary store, and the storage class is the backend's to spell.
+///     </para>
+/// </remarks>
+public sealed class IrSharedVariable(IrVariable variable) {
+    public IrVariable Variable { get; } = variable;
+
+    public string Name => Variable.Name;
+    public IrType Type => Variable.Type;
+
+    public override string ToString() => Name;
+}
+
+/// <summary>
 ///     A <c>[Permutation]</c> key the shader declares, with the default it falls back to.
 /// </summary>
 /// <remarks>
@@ -303,10 +329,32 @@ public sealed class IrEntryPoint(
     /// <summary>The shader's streams this stage writes, in the shader's declaration order.</summary>
     public IReadOnlyList<IrStream> StreamOutputs { get; private set; } = [];
 
+    /// <summary>
+    ///     The shader's <c>groupshared</c> variables this stage's reachable code touches, in the
+    ///     shader's declaration order.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Derived rather than declared, the way <see cref="StreamInputs" /> is, and for a
+    ///         sharper reason than tidiness: workgroup memory is a budget. A device guarantees
+    ///         16 KB, and a backend that emitted every shader-level declaration into every stage's
+    ///         unit would spend another entry point's tile against this one's limit — a pipeline
+    ///         that fails to create, for storage the stage never reads.
+    ///     </para>
+    ///     <para>
+    ///         Reachability rather than shader membership decides what "this stage's code" is, for
+    ///         the reason the streams give: a <c>compose</c>d implementation's functions live in
+    ///         another <see cref="IrShader" />.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<IrSharedVariable> SharedVariables { get; private set; } = [];
+
     internal void SetStreams(IReadOnlyList<IrStream> inputs, IReadOnlyList<IrStream> outputs) {
         StreamInputs = inputs;
         StreamOutputs = outputs;
     }
+
+    internal void SetSharedVariables(IReadOnlyList<IrSharedVariable> shared) => SharedVariables = shared;
 }
 
 /// <summary>
@@ -318,6 +366,7 @@ public sealed class IrShader(string name) {
     readonly List<IrEntryPoint> entryPoints = [];
     readonly List<IrFunction> functions = [];
     readonly List<IrPermutation> permutations = [];
+    readonly List<IrSharedVariable> sharedVariables = [];
     readonly List<IrStream> streams = [];
     readonly List<IrValueParameter> valueParameters = [];
 
@@ -337,6 +386,9 @@ public sealed class IrShader(string name) {
     /// </remarks>
     public IReadOnlyList<IrStream> Streams => streams;
 
+    /// <summary>The <c>groupshared</c> variables this shader declares, in declaration order.</summary>
+    public IReadOnlyList<IrSharedVariable> SharedVariables => sharedVariables;
+
     /// <summary>The <c>[Permutation]</c> keys this shader declares, in declaration order.</summary>
     public IReadOnlyList<IrPermutation> Permutations => permutations;
 
@@ -352,6 +404,7 @@ public sealed class IrShader(string name) {
     internal void Add(IrFunction function) => functions.Add(function);
     internal void Add(IrEntryPoint entryPoint) => entryPoints.Add(entryPoint);
     internal void Add(IrPermutation permutation) => permutations.Add(permutation);
+    internal void Add(IrSharedVariable shared) => sharedVariables.Add(shared);
     internal void Add(IrStream stream) => streams.Add(stream);
     internal void Add(IrValueParameter parameter) => valueParameters.Add(parameter);
 }

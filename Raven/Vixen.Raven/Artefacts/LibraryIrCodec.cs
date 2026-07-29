@@ -446,6 +446,8 @@ internal sealed class LibraryIrDecoder {
             IrTypeKind.UInt => IrScalarType.UInt,
             IrTypeKind.Float => IrScalarType.Float,
             IrTypeKind.Double => IrScalarType.Double,
+            IrTypeKind.Int64 => IrScalarType.Int64,
+            IrTypeKind.UInt64 => IrScalarType.UInt64,
             _ => IrScalarType.Void
         };
 

@@ -25,7 +25,6 @@ decision that has been made and built, kept because the reasons stay useful.
 | | Open item | Where | Blocks |
 |---|---|---|---|
 | 🟡 | **String interpolation** — needs lexer modes; nothing shipped uses it | § I | nothing |
-| 🟡 | **Workgroup-shared memory** — a storage class the language cannot declare. The atomics landed without it, but a reduction or a bitonic sort stages through it | § Writable resources | GPU sorting; a compaction that wants one counter per workgroup rather than one per dispatch |
 | ⚪ | **Nuke is not stood up**: `CompileShaderLibrary`, `CheckFormat` for SPDX enforcement, the CI workflows | § A, § G | shipping the library as a package; SPDX is a real gap, not a closed item |
 | ⚪ | **`Vixen.Raven.Transpile`** (SPIRV-Cross wrapper) and the cross-compilation test pass | § A, § G | HLSL/MSL/WGSL output, which ADR-012 says SPIRV-Cross owns |
 
@@ -706,6 +705,16 @@ Each of these shaped a file rather than blocking it, and each is recorded in the
   size query takes the *plain* image in both targets, which is why the GLSL side asks for
   `GL_EXT_samplerless_texture_functions` and the SPIR-V side for the `ImageQuery` capability, each
   declared only in the units that need it.
+- ~~**No `SampleGrad`**~~ — landed, and it is the third sampling form rather than a variation on the
+  other two. `Sample` takes its gradients from the fragment quad, which means nothing where the pixel
+  next door is a different triangle of a different material — every silhouette and every material
+  boundary in a visibility-buffer resolve. `SampleLevel` states one number, and one number has no
+  anisotropy in it, which is visible as blur on every floor at a grazing angle. So the gradients arrive
+  as *values*, computed from the triangle's screen-space plane and propagated through the UV
+  interpolation: SPIR-V's `Grad` image operand, GLSL's `textureGrad`, legal in every stage because a
+  stated gradient needs no quad to derive one from. Blocks phase 5 of
+  [virtualized-geometry.md](../virtualized-geometry.md), and it is the only prerequisite the Forward+
+  resolve adds that a GBuffer resolve would not also need.
 - ~~**No `SV_VertexID`**~~ — landed, and it turned up a claim the library was not keeping. Every
   post-process effect took the fullscreen triangle's index as `vertexIndex: float`, an *attribute*,
   so the host had to bind a vertex buffer of floats — for a shader whose whole point is binding none.
@@ -1533,8 +1542,9 @@ Three consequences worth keeping:
   "shader block storage or shared variables", so a local target would bind, verify, emit and be
   rejected by the GLSL front end — the exact failure this language exists to move earlier. It is also
   right on the merits, since an atomic on memory one invocation owns has nothing to be indivisible
-  against. So the root must be a writable resource, and workgroup-shared memory when there is one.
-  Found by asking `glslangValidator` rather than by reading the spec, which is the honest account.
+  against. So the root must be a writable resource — the dispatch's — or a `groupshared` variable —
+  the workgroup's. Found by asking `glslangValidator` rather than by reading the spec, which is the
+  honest account.
 - **A read-modify-write is a write**, so an atomic on a read-only `Buffer<T>` is `RVN2119` with the
   same message and the same one-character fix. Reusing the diagnostic is the point: the rule is not
   "atomics are special", it is "this is a store".
@@ -1550,6 +1560,84 @@ dispatch small enough to be one workgroup and wrong for every one that is not.
 Scalar integers only, and that is the targets' limit rather than a choice: GLSL 4.5 core has no atomic
 on a float and none on a vector, so the overloads simply are not declared and a float atomic is
 `RVN2031` — no applicable overload — instead of a signature the emitter would have to break.
+
+##### ✅ Both widths, because 32 bits is depth *or* an id
+
+`int64` and `uint64` exist for one job, and it is worth stating rather than generalising: a
+single-pass software rasterizer wants `atomicMax` on a word packing depth above a cluster id, and with
+32 bits you get one of the two. The alternative is two passes over the same triangles — a depth pass by
+`atomicMin` and an id pass testing equality — which costs roughly what it sounds like. See
+[virtualized-geometry.md § B2](../virtualized-geometry.md).
+
+Four decisions, each of which could have gone the other way:
+
+- **Names, not keywords.** `int64` and `uint64` resolve through the same scope `Texture2D` does, so the
+  lexer, the parser and the ANTLR oracle are untouched by a type that only compute shaders ask for.
+- **No vectors and no matrices.** Nothing wants a `uint64_2`, both targets' atomics are scalar anyway,
+  and each lane would cost a name, a layout rule and a row in the conversion table for a shape with no
+  use.
+- **Nothing widens implicitly.** `uint64(x)` is written out. A silent `uint` → `uint64` would make both
+  the 32-bit and the 64-bit overload of every atomic applicable to the same call, and tie-breaking
+  would decide the width of an operation whose width is the entire point. A *literal* still widens —
+  it has no type of its own to be surprised by, and the first argument of an atomic is a place, which
+  already says which overload is meant.
+- **Two capabilities, not one.** `Int64` is the type and `Int64Atomics` is the operation, because they
+  are two Vulkan features and a device may have the first without the second. Reporting only the type
+  would be a pipeline that creates and a dispatch that does not do what the shader says.
+
+What the emitters had to learn is narrower than it sounds. SPIR-V splits a width change from a
+signedness change — `OpUConvert`/`OpSConvert` require the widths to differ and `OpBitcast` requires
+them to match — so `int64(someUint)` is a widen in the *source's* signedness followed by a
+reinterpretation, and doing it the other way round sign-extends a number that was never signed. And
+every place the backend asked `component == UInt` to pick between a signed and an unsigned opcode had
+to start asking whether it is *unsigned* — right while 32 bits was the only width, and exactly wrong
+for a packed key whose top bit is data.
+
+⚠ **A 64-bit component cannot cross a stage boundary.** Vulkan's interface slots are four 32-bit
+components wide, so a wide one consumes two locations and stops matching the numbers `StreamPlan`
+assigned. `StageInterface.CanCarry` now refuses it — which also closes the same defect for `double`,
+where it had been accepted and silently taking two locations all along.
+
+##### ✅ Workgroup-shared memory, and the barriers
+
+The storage class § A listed as the one the language could not declare. `groupshared var tile: float[64]`
+is a shader member that is deliberately **not a binding** — no descriptor, no `(set, binding)`, nothing
+the host writes — and deliberately not a local either: one copy per workgroup rather than one per
+invocation, which is the entire difference and the entire point. It is what a hierarchical traversal is
+made of ([virtualized-geometry.md § B1](../virtualized-geometry.md)), and what a reduction or a bitonic
+sort stages through.
+
+A modifier rather than an attribute, matching `stream` and `compose`: `[PushConstant]` and friends are
+markers *about* a binding, and this is not one. It costs a keyword, a token kind, a row in the parser's
+modifier table and two lines in the ANTLR oracle — which is what the grammar being executable
+specification means in practice.
+
+`barrier()` and `memoryBarrierShared()` come with it, named as GLSL names them for the reason the
+atomics are. `barrier()` is **both** an execution barrier and a memory barrier over shared storage,
+matching GLSL's definition in a compute stage rather than inventing a weaker primitive: an execution
+barrier alone guarantees that the other invocations arrived and not that what they wrote is visible,
+and the code after a barrier is without exception code that reads what they wrote. Both targets say the
+same thing — `OpControlBarrier` at workgroup scope with `AcquireRelease | WorkgroupMemory`, which is
+what glslang emits for the same GLSL.
+
+Two rules the compiler enforces rather than leaving to a backend:
+
+- **Only a compute stage may reach either** (`RVN3012`), decided by *reachability* rather than by where
+  the declaration sits — the same argument `RVN3008` makes about `discard`, since a helper belongs to
+  whichever stages call it. The alternative is not silence: `Workgroup` storage and a workgroup-scoped
+  barrier are legal only under the `GLCompute` execution model, so this would otherwise reach
+  `spirv-val`, about a module, with no span.
+- **A stage declares only what it reaches.** Workgroup memory is a budget a device only has to offer
+  16 KB of, so emitting every shader-level declaration into every stage's unit would spend one entry
+  point's tile against another's limit — a pipeline that fails to create, for storage the stage never
+  reads.
+
+And five things a declaration cannot be, each reported at the declaration because that is what has to
+change: not outside a shader (`RVN2131`), not also a `const`, a `[Permutation]` key, a `compose` slot
+or a `stream` (`RVN2132`), not a descriptor (`RVN2133`), not initialized (`RVN2134` — workgroup storage
+starts undefined in both targets, and one invocation writing what every other also writes is a race
+rather than an initialization), and not read-only (`RVN2135` — nothing else can ever write it, so every
+read would be undefined).
 
 ##### ✅ The writable bit did not survive being inherited
 

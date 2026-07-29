@@ -55,12 +55,36 @@ sealed class SpirvTypes {
             IrTypeKind.UInt => UInt,
             IrTypeKind.Float => Float,
             IrTypeKind.Double => Double(),
+            IrTypeKind.Int64 => Long(true),
+            IrTypeKind.UInt64 => Long(false),
             _ => Float
         };
 
     uint Double() {
         module.AddCapability(SpirvCapability.Float64);
         return module.Intern("f64", () => module.AddDeclaration(SpirvOp.TypeFloat, null, SpirvOperand.Literal(64)));
+    }
+
+    /// <summary>
+    ///     A 64-bit integer, and the capability that makes one legal.
+    /// </summary>
+    /// <remarks>
+    ///     Declared here rather than by whoever emits the atomic, because the type is what needs it:
+    ///     a module holding an <c>OpTypeInt 64</c> requires <c>Int64</c> whether or not anything
+    ///     atomic touches it, and <c>spirv-val</c> says so.
+    /// </remarks>
+    uint Long(bool signed) {
+        module.AddCapability(SpirvCapability.Int64);
+
+        return module.Intern(
+            signed ? "i64" : "u64",
+            () => module.AddDeclaration(
+                SpirvOp.TypeInt,
+                null,
+                SpirvOperand.Literal(64),
+                SpirvOperand.Literal(signed ? 1 : 0)
+            )
+        );
     }
 
     uint Integer(bool signed) =>
@@ -383,6 +407,27 @@ sealed class SpirvTypes {
             () => module.AddDeclaration(SpirvOp.Constant, UInt, SpirvOperand.Literal(value))
         );
 
+    /// <summary>A 64-bit integer constant, which SPIR-V spells as two literal words.</summary>
+    internal uint ConstantLong(long value) =>
+        module.Intern(
+            $"const i64 {value}",
+            () => module.AddDeclaration(
+                SpirvOp.Constant,
+                Scalar(IrScalarType.Int64),
+                SpirvOperand.Literal64(unchecked((ulong)value))
+            )
+        );
+
+    internal uint ConstantULong(ulong value) =>
+        module.Intern(
+            $"const u64 {value}",
+            () => module.AddDeclaration(
+                SpirvOp.Constant,
+                Scalar(IrScalarType.UInt64),
+                SpirvOperand.Literal64(value)
+            )
+        );
+
     internal uint ConstantFloat(float value) =>
         module.Intern(
             // Round-trip formatting, so -0.0 and 0.0 stay distinct constants.
@@ -406,6 +451,8 @@ sealed class SpirvTypes {
             { Kind: IrTypeKind.Bool } => ConstantBool(false),
             { Kind: IrTypeKind.Int } => ConstantInt(0),
             { Kind: IrTypeKind.UInt } => ConstantUInt(0),
+            { Kind: IrTypeKind.Int64 } => ConstantLong(0),
+            { Kind: IrTypeKind.UInt64 } => ConstantULong(0),
             { Kind: IrTypeKind.Float } => ConstantFloat(0),
             { Kind: IrTypeKind.Double } => ConstantDouble(0),
             _ => module.Intern(
@@ -421,6 +468,8 @@ sealed class SpirvTypes {
             bool flag => ConstantBool(flag),
             int number => ConstantInt(number),
             uint number => ConstantUInt(number),
+            long number => ConstantLong(number),
+            ulong number => ConstantULong(number),
             float number => ConstantFloat(number),
             double number => ConstantDouble(number),
             _ => ConstantNull(type)

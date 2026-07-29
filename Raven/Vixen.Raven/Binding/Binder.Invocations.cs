@@ -126,9 +126,9 @@ public abstract partial class Binder {
     ///         <b>And it has to be storage the dispatch shares.</b> An atomic on memory only one
     ///         invocation can reach has nothing to be indivisible against, and GLSL refuses it in so
     ///         many words — <i>"only l-values corresponding to shader block storage or shared
-    ///         variables"</i> — so a local target would bind here and fail in one backend. That
-    ///         admits exactly one kind of root today, a writable resource; workgroup-shared memory
-    ///         will be the second when the language can declare it.
+    ///         variables"</i> — so a local target would bind here and fail in one backend. Two
+    ///         roots satisfy it: a writable resource, which the whole dispatch reaches, and a
+    ///         <c>groupshared</c> variable, which one workgroup does.
     ///     </para>
     ///     <para>
     ///         Writability is <c>CheckAssignable</c>'s, not a rule of its own: a read-modify-write is
@@ -177,13 +177,18 @@ public abstract partial class Binder {
             return;
         }
 
-        if (RootBinding(target) is null) {
+        // Two roots qualify, and the reason is one rule rather than two: the storage has to be
+        // reachable by more than one invocation. A writable resource is the dispatch's;
+        // `groupshared` is the workgroup's. A local is nobody else's, which is why GLSL names
+        // exactly these two — "shader block storage or shared variables" — and refuses the rest.
+        if (RootBinding(target) is null && RootGroupShared(target) is null) {
             Report(
                 SemanticDiagnostics.AtomicTargetMustBeStorage,
                 location,
                 method.Name,
-                "an atomic operates on memory the whole dispatch can reach, and this is private to "
-                + $"one invocation — store into a '{BufferTypeSymbol.ReadWriteName}' instead"
+                "an atomic operates on memory more than one invocation can reach, and this is "
+                + $"private to one — store into a '{BufferTypeSymbol.ReadWriteName}' or a "
+                + "'groupshared' variable instead"
             );
 
             return;

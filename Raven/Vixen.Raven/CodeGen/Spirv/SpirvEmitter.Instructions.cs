@@ -27,6 +27,16 @@ readonly record struct SpirvPointer(
 );
 
 partial class SpirvEmitter {
+    /// <summary>
+    ///     Memory semantics for a barrier: <c>AcquireRelease</c> over <c>WorkgroupMemory</c>.
+    /// </summary>
+    /// <remarks>
+    ///     What glslang emits for the same GLSL, which is what keeps docs/plan/07 § C's differential
+    ///     comparing like with like — and what the operation means: everything this invocation wrote
+    ///     to shared storage before the barrier is visible after it, to everyone.
+    /// </remarks>
+    const uint WorkgroupRelease = 0x8 | 0x100;
+
     readonly Dictionary<IrVariable, uint> opaqueParameters = [];
     readonly Dictionary<IrVariable, uint> pointers = [];
     readonly Dictionary<int, uint> values = [];
@@ -333,6 +343,36 @@ partial class SpirvEmitter {
                 );
 
                 return;
+
+            // The barriers define nothing either, and take their scopes and semantics as constant
+            // ids rather than as literals — SPIR-V spells them that way so they can be
+            // specialization constants.
+            case IrIntrinsicInstruction { Result: null, Intrinsic: IrIntrinsic.ControlBarrier }:
+                Add(
+                    new(
+                        SpirvOp.ControlBarrier,
+                        null,
+                        null,
+                        SpirvOperand.Id(types.ConstantUInt((uint)SpirvScope.Workgroup)),
+                        SpirvOperand.Id(types.ConstantUInt((uint)SpirvScope.Workgroup)),
+                        SpirvOperand.Id(types.ConstantUInt(WorkgroupRelease))
+                    )
+                );
+
+                return;
+
+            case IrIntrinsicInstruction { Result: null, Intrinsic: IrIntrinsic.MemoryBarrierShared }:
+                Add(
+                    new(
+                        SpirvOp.MemoryBarrier,
+                        null,
+                        null,
+                        SpirvOperand.Id(types.ConstantUInt((uint)SpirvScope.Workgroup)),
+                        SpirvOperand.Id(types.ConstantUInt(WorkgroupRelease))
+                    )
+                );
+
+                return;
         }
 
         if (instruction.Result is not { } target) {
@@ -384,13 +424,13 @@ partial class SpirvEmitter {
             IrBinaryOp.Subtract => Real(component) ? SpirvOp.FSub : SpirvOp.ISub,
             IrBinaryOp.Multiply => Real(component) ? SpirvOp.FMul : SpirvOp.IMul,
             IrBinaryOp.Divide => Real(component) ? SpirvOp.FDiv
-                : component == IrTypeKind.UInt ? SpirvOp.UDiv : SpirvOp.SDiv,
+                : Unsigned(component) ? SpirvOp.UDiv : SpirvOp.SDiv,
             // `%` keeps the sign of its dividend, which is the remainder rather
             // than the modulus; the `mod` intrinsic is the other one.
             IrBinaryOp.Modulo => Real(component) ? SpirvOp.FRem
-                : component == IrTypeKind.UInt ? SpirvOp.UMod : SpirvOp.SRem,
+                : Unsigned(component) ? SpirvOp.UMod : SpirvOp.SRem,
             IrBinaryOp.ShiftLeft => SpirvOp.ShiftLeftLogical,
-            IrBinaryOp.ShiftRight when component == IrTypeKind.UInt => SpirvOp.ShiftRightLogical,
+            IrBinaryOp.ShiftRight when Unsigned(component) => SpirvOp.ShiftRightLogical,
             IrBinaryOp.ShiftRight => SpirvOp.ShiftRightArithmetic,
             IrBinaryOp.UnsignedShiftRight => SpirvOp.ShiftRightLogical,
             IrBinaryOp.BitwiseAnd => SpirvOp.BitwiseAnd,
@@ -454,8 +494,18 @@ partial class SpirvEmitter {
 
     static bool Real(IrTypeKind component) => component is IrTypeKind.Float or IrTypeKind.Double;
 
+    /// <summary>Whether an integer component is unsigned, at either width.</summary>
+    /// <remarks>
+    ///     Asked wherever SPIR-V splits an operation by signedness — division, remainder, the right
+    ///     shift, every ordered comparison. A test against <c>UInt</c> alone was right while 32 bits
+    ///     was the only width and would have made <c>uint64</c> arithmetic signed, which is exactly
+    ///     wrong for the packed word the whole type exists for: the top bit of a depth-above-id key
+    ///     is data, and a signed compare reads it as a sign.
+    /// </remarks>
+    static bool Unsigned(IrTypeKind component) => component is IrTypeKind.UInt or IrTypeKind.UInt64;
+
     static SpirvOp Comparison(IrTypeKind component, SpirvOp real, SpirvOp signed, SpirvOp unsigned) =>
-        Real(component) ? real : component == IrTypeKind.UInt ? unsigned : signed;
+        Real(component) ? real : Unsigned(component) ? unsigned : signed;
 
     uint EmitConvert(IrConvertInstruction convert) {
         var value = Value(convert.Operand);
@@ -473,13 +523,19 @@ partial class SpirvEmitter {
             return value;
         }
 
+        // Integer to integer is its own path, because SPIR-V splits what one Raven conversion does:
+        // a width change and a signedness change are two instructions, and the width-changing one
+        // cannot also change signedness.
+        if (IsInteger(from) && IsInteger(to)) {
+            return EmitIntegerConvert(convert, value, from, to);
+        }
+
         var op = (from, to) switch {
-            (IrTypeKind.Int, IrTypeKind.Float or IrTypeKind.Double) => SpirvOp.ConvertSToF,
-            (IrTypeKind.UInt, IrTypeKind.Float or IrTypeKind.Double) => SpirvOp.ConvertUToF,
-            (IrTypeKind.Float or IrTypeKind.Double, IrTypeKind.Int) => SpirvOp.ConvertFToS,
-            (IrTypeKind.Float or IrTypeKind.Double, IrTypeKind.UInt) => SpirvOp.ConvertFToU,
+            (IrTypeKind.Int or IrTypeKind.Int64, IrTypeKind.Float or IrTypeKind.Double) => SpirvOp.ConvertSToF,
+            (IrTypeKind.UInt or IrTypeKind.UInt64, IrTypeKind.Float or IrTypeKind.Double) => SpirvOp.ConvertUToF,
+            (IrTypeKind.Float or IrTypeKind.Double, IrTypeKind.Int or IrTypeKind.Int64) => SpirvOp.ConvertFToS,
+            (IrTypeKind.Float or IrTypeKind.Double, IrTypeKind.UInt or IrTypeKind.UInt64) => SpirvOp.ConvertFToU,
             (IrTypeKind.Float, IrTypeKind.Double) or (IrTypeKind.Double, IrTypeKind.Float) => SpirvOp.FConvert,
-            (IrTypeKind.Int, IrTypeKind.UInt) or (IrTypeKind.UInt, IrTypeKind.Int) => SpirvOp.Bitcast,
             _ => SpirvOp.Nop
         };
 
@@ -490,6 +546,58 @@ partial class SpirvEmitter {
             )
             : Emit(op, resultType, SpirvOperand.Id(value));
     }
+
+    /// <summary>
+    ///     Converts between two integer types, in up to two steps.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>OpSConvert</c> and <c>OpUConvert</c> change the <em>width</em> and require the
+    ///         widths to differ; <c>OpBitcast</c> changes the interpretation and requires them to
+    ///         match. So a conversion that does both — <c>uint</c> to <c>int64</c> — is a widen in
+    ///         the source's own signedness followed by a reinterpretation, and doing it the other
+    ///         way round would sign-extend a number that was never signed.
+    ///     </para>
+    ///     <para>
+    ///         Componentwise, so this holds for vectors too, even though nothing currently builds a
+    ///         64-bit one.
+    ///     </para>
+    /// </remarks>
+    uint EmitIntegerConvert(IrConvertInstruction convert, uint value, IrTypeKind from, IrTypeKind to) {
+        var resultType = types.Type(convert.Result.Type);
+
+        // Same width: the bits do not move, only what they are read as.
+        if (Wide(from) == Wide(to)) {
+            return Emit(SpirvOp.Bitcast, resultType, SpirvOperand.Id(value));
+        }
+
+        var widened = Unsigned(from) ? IrScalarType.UInt64 : IrScalarType.Int64;
+        var narrowed = Unsigned(from) ? IrScalarType.UInt : IrScalarType.Int;
+        var intermediate = Wide(to) ? widened : narrowed;
+
+        // The width change, keeping the source's signedness so the extension is the right one.
+        var converted = Emit(
+            Unsigned(from) ? SpirvOp.UConvert : SpirvOp.SConvert,
+            types.Type(Componentwise(convert.Result.Type, intermediate)),
+            SpirvOperand.Id(value)
+        );
+
+        return Unsigned(from) == Unsigned(to)
+            ? converted
+            : Emit(SpirvOp.Bitcast, resultType, SpirvOperand.Id(converted));
+    }
+
+    static bool IsInteger(IrTypeKind component) =>
+        component is IrTypeKind.Int or IrTypeKind.UInt or IrTypeKind.Int64 or IrTypeKind.UInt64;
+
+    static bool Wide(IrTypeKind component) => component is IrTypeKind.Int64 or IrTypeKind.UInt64;
+
+    /// <summary>The shape of <paramref name="type" /> with a different component scalar.</summary>
+    static IrType Componentwise(IrType type, IrScalarType component) =>
+        type switch {
+            IrVectorType vector => new IrVectorType(component, vector.Size),
+            _ => component
+        };
 
     /// <summary>
     ///     Builds an aggregate. A vector is easy — SPIR-V lets constituents be
@@ -688,6 +796,9 @@ partial class SpirvEmitter {
             case IrIntrinsic.SampleTextureLevel:
                 return EmitSampleLevel(intrinsic, resultType, arguments);
 
+            case IrIntrinsic.SampleTextureGrad:
+                return EmitSampleGrad(intrinsic, resultType, arguments);
+
             case IrIntrinsic.LoadTexture:
                 return EmitFetch(intrinsic, resultType, arguments);
 
@@ -780,6 +891,37 @@ partial class SpirvEmitter {
             // Image operands: bit 1 is Lod, and the level follows.
             SpirvOperand.Literal(0x2),
             arguments[3]
+        );
+    }
+
+    /// <summary>
+    ///     Samples with the caller's own gradients rather than the quad's.
+    /// </summary>
+    /// <remarks>
+    ///     The same <c>OpImageSampleExplicitLod</c> the other two explicit forms use, with the
+    ///     <c>Grad</c> operand instead of <c>Lod</c> — and the two are mutually exclusive, which is
+    ///     why this is a third method rather than a flag on <see cref="EmitSampleLevel" />. Both
+    ///     gradients follow the mask, in x-then-y order, and each has as many lanes as the image has
+    ///     coordinates.
+    /// </remarks>
+    uint EmitSampleGrad(IrIntrinsicInstruction intrinsic, uint resultType, SpirvOperand[] arguments) {
+        if (intrinsic.Arguments is not [{ Type: IrTextureType image }, { Type: IrSamplerType }, _, _, _]) {
+            return Unimplemented("This form of texture sampling", intrinsic.Result!.Type);
+        }
+
+        var combined = Emit(SpirvOp.SampledImage, types.SampledImage(types.Type(image)), arguments[0], arguments[1]);
+
+        return Emit(
+            SpirvOp.ImageSampleExplicitLod,
+            resultType,
+            [
+                SpirvOperand.Id(combined),
+                arguments[2],
+                // Image operands: bit 2 is Grad, and the two gradients follow.
+                SpirvOperand.Literal(0x4),
+                arguments[3],
+                arguments[4]
+            ]
         );
     }
 
@@ -1028,7 +1170,10 @@ partial class SpirvEmitter {
     ///         because a storage buffer is visible to the whole dispatch and a workgroup-scoped
     ///         atomic on one would be wrong wherever two workgroups touched the same counter;
     ///         relaxed because these operations order themselves and nothing else, which is all an
-    ///         allocator needs and all the language currently offers a way to ask for.
+    ///         allocator needs and all the language currently offers a way to ask for. Device stays
+    ///         the scope for a <c>groupshared</c> target too: a wider scope than the storage needs
+    ///         is always correct, and narrowing it here would make one atomic's spelling depend on
+    ///         where its place happened to root.
     ///     </para>
     ///     <para>
     ///         The pointer comes from the same <see cref="Resolve" /> a store uses, marked as a
@@ -1039,9 +1184,15 @@ partial class SpirvEmitter {
     uint EmitAtomic(IrAtomicInstruction instruction) {
         var pointer = Resolve(instruction.Place, write: true);
         var type = types.Type(instruction.Result.Type);
-        var scope = types.ConstantUInt(1);
+        var scope = types.ConstantUInt((uint)SpirvScope.Device);
         var relaxed = types.ConstantUInt(0);
-        var signed = instruction.Place.Type is IrScalarType { Kind: IrTypeKind.Int };
+        var signed = instruction.Place.Type is IrScalarType { IsUnsigned: false };
+
+        // The width is a capability of its own, and it is not the type's: a device may offer
+        // 64-bit integers and no atomics on them, which is two Vulkan features and two answers.
+        if (instruction.Place.Type is IrScalarType { Is64Bit: true }) {
+            module.AddCapability(SpirvCapability.Int64Atomics);
+        }
 
         if (instruction.Comparand is { } comparand) {
             // Equal and unequal semantics, in that order, and then value before comparator — the

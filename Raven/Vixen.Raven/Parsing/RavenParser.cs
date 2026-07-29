@@ -842,7 +842,8 @@ sealed class RavenParser : SyntaxParser {
         [RavenTokenKind.OverrideKeyword] = SyntaxKind.OverrideKeyword,
         [RavenTokenKind.ReadOnlyKeyword] = SyntaxKind.ReadOnlyKeyword,
         [RavenTokenKind.StaticKeyword] = SyntaxKind.StaticKeyword,
-        [RavenTokenKind.StreamKeyword] = SyntaxKind.StreamKeyword
+        [RavenTokenKind.StreamKeyword] = SyntaxKind.StreamKeyword,
+        [RavenTokenKind.GroupSharedKeyword] = SyntaxKind.GroupSharedKeyword
     };
 
     SyntaxList<SyntaxToken> ParseModifiers() {

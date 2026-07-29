@@ -170,6 +170,29 @@ public class ReadmeExampleTests {
         Assert.All(CodeGenTestBase.GenerateClean(source, "spirv"), SpirvTestBase.Validate);
     }
 
+    /// <summary>And the reduction, which is what workgroup-shared memory is for.</summary>
+    /// <remarks>
+    ///     The README's claim is that the storage is the workgroup's rather than the invocation's
+    ///     and that it costs nothing in the descriptor sets. The emitted GLSL says both: <c>shared</c>
+    ///     rather than a local, and no <c>set</c> or <c>binding</c> anywhere near it.
+    /// </remarks>
+    [Fact]
+    public void The_readme_group_shared_example_reduces_through_one_tile() {
+        var source = "package Vixen.Shaders\n\n" + ReadExample("### Workgroup-shared memory");
+
+        var tree = SyntaxTree.ParseText(source, path: "README.rvn");
+        Assert.Empty(tree.Diagnostics);
+
+        var compilation = Compilation.Create("Readme", tree);
+        Assert.Empty(compilation.GetDiagnostics());
+
+        var glsl = Assert.Single(CodeGenTestBase.GenerateClean(source));
+        Assert.Contains("shared float tile[64];", glsl.Code, StringComparison.Ordinal);
+        Assert.Contains("barrier();", glsl.Code, StringComparison.Ordinal);
+
+        Assert.All(CodeGenTestBase.GenerateClean(source, "spirv"), SpirvTestBase.Validate);
+    }
+
     static string ReadExample(string heading = "## Language Example") {
         var readme = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "README.md"));
 

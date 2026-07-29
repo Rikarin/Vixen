@@ -66,6 +66,29 @@ public enum IrIntrinsic {
     /// </summary>
     SampleTextureLevel,
 
+    /// <summary>
+    ///     Sample a texture through a sampler at a level of detail the caller's own gradients
+    ///     imply.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Neither <see cref="SampleTexture" /> nor <see cref="SampleTextureLevel" /> covers
+    ///         this, and the gap is not a convenience one. The first takes its gradients from the
+    ///         fragment quad, which means nothing where the pixel next door is a different triangle
+    ///         of a different material — every silhouette and every material boundary in a
+    ///         visibility-buffer resolve. The second states one number, and one number throws away
+    ///         anisotropy, which is visible as blur on every floor seen at a grazing angle.
+    ///     </para>
+    ///     <para>
+    ///         So the gradients arrive as values: computed analytically from the triangle's
+    ///         screen-space plane, propagated through the UV interpolation, and handed over. Both
+    ///         targets take them the same way — SPIR-V's <c>Grad</c> image operand and GLSL's
+    ///         <c>textureGrad</c> — and both accept them in every stage, because a stated gradient
+    ///         needs no quad to derive one from.
+    ///     </para>
+    /// </remarks>
+    SampleTextureGrad,
+
     /// <summary>Fetch a texel by integer coordinate.</summary>
     LoadTexture,
 
@@ -88,5 +111,36 @@ public enum IrIntrinsic {
     BitCast,
 
     /// <summary>Number of elements in an array.</summary>
-    ArrayLength
+    ArrayLength,
+
+    /// <summary>
+    ///     Waits until every invocation of the workgroup has reached this point, and until every
+    ///     write to workgroup storage made before it is visible to all of them.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Both halves, because separating them would be a trap. An execution barrier alone
+    ///         guarantees that the other invocations <em>arrived</em>, not that what they wrote can
+    ///         be seen — and the code that follows a barrier is, without exception, code that reads
+    ///         what they wrote. GLSL's <c>barrier()</c> in a compute stage is defined to do both,
+    ///         and this matches it rather than inventing a weaker primitive.
+    ///     </para>
+    ///     <para>
+    ///         Produces nothing, like <see cref="StoreImage" />, and unlike it is not even a store:
+    ///         it is a statement whose whole effect is on other invocations.
+    ///     </para>
+    /// </remarks>
+    ControlBarrier,
+
+    /// <summary>
+    ///     Orders this invocation's writes to workgroup storage against its later reads, without
+    ///     waiting for anybody.
+    /// </summary>
+    /// <remarks>
+    ///     The half of <see cref="ControlBarrier" /> that is about memory rather than about
+    ///     arrival. Rarely what a shader wants on its own — if another invocation wrote the value,
+    ///     visibility without arrival guarantees nothing — but it is the cheaper thing where the
+    ///     arrival is already established, so it is spelled separately rather than folded in.
+    /// </remarks>
+    MemoryBarrierShared
 }

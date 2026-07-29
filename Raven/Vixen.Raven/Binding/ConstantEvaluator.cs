@@ -50,6 +50,8 @@ public static class ConstantEvaluator {
                 SpecialType.UInt => System.Convert.ToUInt32(value),
                 SpecialType.Float => System.Convert.ToSingle(value),
                 SpecialType.Double => System.Convert.ToDouble(value),
+                SpecialType.Int64 => System.Convert.ToInt64(value),
+                SpecialType.UInt64 => System.Convert.ToUInt64(value),
                 _ => null
             };
         } catch (Exception e) when (e is OverflowException or InvalidCastException or FormatException) {

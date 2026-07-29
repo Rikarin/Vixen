@@ -11,6 +11,20 @@ public enum SpirvCapability {
     Shader = 1,
     Float64 = 10,
 
+    /// <summary>64-bit integer types. Optional on Vulkan, and absent from WebGPU entirely.</summary>
+    Int64 = 11,
+
+    /// <summary>
+    ///     An atomic on a 64-bit integer.
+    /// </summary>
+    /// <remarks>
+    ///     Separate from <see cref="Int64" /> and separately optional: <c>VK_KHR_shader_atomic_int64</c>
+    ///     is what a device advertises, and a device may have 64-bit integers without atomics on
+    ///     them. Declaring the type's capability alone would be a module <c>spirv-val</c> accepts
+    ///     and a driver refuses.
+    /// </remarks>
+    Int64Atomics = 12,
+
     /// <summary>Asking an image about itself — <c>OpImageQuerySizeLod</c> and its siblings.</summary>
     ImageQuery = 50,
 
@@ -72,11 +86,37 @@ public enum SpirvExecutionMode {
     LocalSize = 17
 }
 
+/// <summary>
+///     How far an atomic or a barrier reaches.
+/// </summary>
+/// <remarks>
+///     Not a decoration or a literal but an <em>id</em> everywhere it is used: SPIR-V spells scopes
+///     and memory semantics as constants so that a specialization constant can supply one. This
+///     enum is what those constants hold.
+/// </remarks>
+public enum SpirvScope {
+    /// <summary>The whole dispatch — what an atomic on a storage buffer needs.</summary>
+    Device = 1,
+
+    /// <summary>One workgroup — what a barrier waits for, and what shared memory is shared by.</summary>
+    Workgroup = 2
+}
+
 public enum SpirvStorageClass {
     UniformConstant = 0,
     Input = 1,
     Uniform = 2,
     Output = 3,
+
+    /// <summary>
+    ///     Storage one workgroup shares: one copy per group, gone when the group retires.
+    /// </summary>
+    /// <remarks>
+    ///     Legal only under the <c>GLCompute</c> execution model, which is why lowering refuses a
+    ///     <c>groupshared</c> variable any other stage can reach rather than leaving it here.
+    /// </remarks>
+    Workgroup = 4,
+
     Function = 7,
 
     /// <summary>

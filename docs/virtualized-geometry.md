@@ -55,6 +55,9 @@ answering the *difference* — is done and device-verified.
 | **Compaction** — survivors appended, one command per batch | ✅ | `GpuDrawArguments.Compact` |
 | Discrete LOD with hysteresis and dither cross-fade | ✅ | [LodRenderFeature.cs](../Core/Vixen.Rendering/Features/LodRenderFeature.cs) |
 | Deferred/GBuffer *shaders* | ✅ | `Pipeline/GBuffer.rvn`, `Pipeline/Deferred.rvn` |
+| **Workgroup-shared memory in Raven** — `groupshared`, `barrier()`, an atomic rooted in it | ✅ | B1 below |
+| **64-bit integers and atomics in Raven** — `int64`/`uint64`, `Int64`/`Int64Atomics` reported apart | ✅ | B2 below |
+| **`SampleGrad` in Raven** — gradients the caller computed, in every stage | ✅ | B3 below |
 | Deferred *pipeline* | ⬜ | Phase 10, cut-list #6 |
 | Meshlet generation in `ModelCompiler` | ⬜ | [08 § Compilers](plan/08-asset-pipeline-and-addressables.md) |
 | Any streaming manager at all | ⬜ | planned in 08, no code |
@@ -64,15 +67,17 @@ coarser granularity. Cluster culling is that traversal one level deeper. This is
 important fact in this document, because it means the plan extends a working system rather than
 standing up a parallel one.
 
-## What blocks it
+## What blocked it
 
-**Three things, where an earlier draft of this document said five.** The bindless plan closed the
-other two while this was being written — `GeometryBuffer` gave every mesh one shared vertex and index
+**All three are built.** An earlier draft of this document listed five, and the bindless plan closed
+two of them while it was being written — `GeometryBuffer` gave every mesh one shared vertex and index
 buffer, `DrawIndexedIndirectCount` gave a draw a count the host never learns, and material and
 transform records took the last per-object binds out of the run. Compaction, which those were blocking,
-is built. What follows is what is genuinely left.
+is built. The remaining three were all Raven's, and they have landed together; what follows is what
+each was and what it turned into, because the reasons stay useful and the phases below still refer to
+them.
 
-### B1. Raven has no workgroup-shared memory 🔴
+### B1. Workgroup-shared memory ✅
 
 Tracked as 🟡 in [07](plan/07-raven-shader-pipeline.md) — "a storage class the language cannot
 declare". Atomics landed without it, which was enough for a cull that gives one invocation one word
@@ -80,14 +85,20 @@ and needs no cooperation at all.
 
 Hierarchical traversal needs cooperation. A workgroup pops a node, tests its children, and pushes the
 survivors — a queue with a local head, which is shared memory or it is a global atomic per child and
-a dispatch that spends its life in memory traffic. The same gap blocks GPU sorting (#50) and a
+a dispatch that spends its life in memory traffic. The same gap blocked GPU sorting (#50) and a
 compaction with one counter per workgroup.
 
-**Nothing in phases 3 onward can start before this lands.**
+**Built.** `groupshared var tile: float[64]` is a shader member that is deliberately not a binding —
+no descriptor, no `(set, binding)`, nothing the host writes — and not a local either: one copy per
+workgroup rather than one per invocation. `barrier()` and `memoryBarrierShared()` came with it, and an
+atomic may now root in either a writable resource or a `groupshared` variable, which is the rule the
+atomics always meant. Only a compute stage may reach any of it (`RVN3012`), decided by reachability
+rather than by where the declaration sits. See
+[07 § Workgroup-shared memory](plan/07-raven-shader-pipeline.md).
 
-### B2. No 64-bit atomics 🟡
+### B2. 64-bit atomics ✅
 
-Raven's atomics are scalar `int`/`uint` — 32-bit, "the targets' limit rather than a choice" for
+Raven's atomics were scalar `int`/`uint` — 32-bit, "the targets' limit rather than a choice" for
 floats, but 64-bit integers are a separate matter: optional on Vulkan
 (`VK_KHR_shader_atomic_int64`), SM6.6 on D3D12, and absent from WebGPU entirely.
 
@@ -96,22 +107,29 @@ bits you get depth *or* a usable ID, not both, and the alternative is two passes
 triangles — a depth pass by `atomicMin` and an ID pass testing equality — which costs roughly what
 it sounds like.
 
-This blocks **phase 6 only**, and phase 6 is optional. Named here so it is not discovered late.
+**Built.** `int64` and `uint64` are scalar types resolved by name rather than by keyword, with every
+atomic declared at both widths and nothing widening into 64 bits implicitly — `uint64(x)` is written
+out, because a silent widening would let tie-breaking decide the width of an operation whose width is
+the entire point. A shader that uses one reports **two** capabilities, `Int64` and `Int64Atomics`,
+because a device may offer the type without offering atomics on it. This blocked **phase 6 only**, and
+phase 6 remains optional and gated on a measurement.
 
-### B3. Raven has no `SampleGrad` 🟡
+### B3. `SampleGrad` ✅
 
-`SampleLevel` landed; `Sample` takes its level from quad derivatives. A visibility-buffer resolve has
-neither — the pixel next door may be a different triangle of a different material, so the quad's
+`SampleLevel` had landed; `Sample` takes its level from quad derivatives. A visibility-buffer resolve
+has neither — the pixel next door may be a different triangle of a different material, so the quad's
 derivatives are meaningless at every silhouette and every material boundary.
 
 The fix is analytic: barycentric gradients from the triangle's screen-space plane, propagated through
 the UV interpolation and handed to the sample. `SampleLevel` alone will not do, because one LOD
 throws away anisotropy and that is visible as blur on every floor and every wall at a grazing angle.
 
-Roughly the size of the addition that already landed. It blocks **phase 5**, and it is the only
-prerequisite the Forward+ resolve adds that a GBuffer resolve would not also need.
+**Built**, on all three texture types, as SPIR-V's `Grad` image operand and GLSL's `textureGrad` —
+legal in every stage, because a stated gradient needs no quad to derive one from. It blocked **phase
+5**, and it was the only prerequisite the Forward+ resolve adds that a GBuffer resolve would not also
+need.
 
-### And two things that are no longer blockers
+### And two things that stopped being blockers earlier
 
 **A shared geometry buffer.** `GeometryBuffer` is built — many meshes in one vertex buffer and one
 index buffer, one buffer per vertex layout because `vertexOffset` is multiplied by the *pipeline's*
@@ -161,25 +179,28 @@ feature.
 
 ---
 
-### Phase 0 — Unblockers · ~1 EM
+### Phase 0 — Unblockers · ~1 EM · **mostly built**
 
 Nothing here is virtualized geometry. All of it is owed to something else already. **Two of the five
-items this phase used to hold are built** — the geometry arena is `GeometryBuffer` and the
-device-supplied draw count is `DrawIndexedIndirectCount`, both landed with the bindless plan, along
-with the material records that were the third.
+items this phase used to hold were built with the bindless plan** — the geometry arena is
+`GeometryBuffer` and the device-supplied draw count is `DrawIndexedIndirectCount`, along with the
+material records that were the third. **The two Raven items are now built too**, together with the
+64-bit atomics phase 6 wanted, so what is left of this phase is one upload rewrite.
 
-| | Work | Owed to |
-|---|---|---|
-| 0.1 | **Workgroup-shared memory in Raven** — the storage class, the barrier intrinsic, the diagnostic for an atomic on a local | B1, GPU sort (#50), a compaction with one counter per workgroup rather than one per dispatch |
-| 0.2 | **`SampleGrad` in Raven** — explicit gradients, so a sample outside a fragment quad filters correctly | B3, phase 5 |
-| 0.3 | **Incremental GPU scene** — [GpuVisibilityGroup.cs:523](../Core/Vixen.Rendering/GpuVisibilityGroup.cs:523) still repacks and re-uploads every object every frame. Dirty-tracked ranges, driven by the ECS change versions [04](plan/04-ecs-and-scripting.md) already exposes | everything; it is the cost floor at 100k instances |
+| | Work | Owed to | |
+|---|---|---|---|
+| 0.1 | **Workgroup-shared memory in Raven** — the storage class, the barrier intrinsics, the atomic root that is not a local | B1, GPU sort (#50), a compaction with one counter per workgroup rather than one per dispatch | ✅ |
+| 0.2 | **`SampleGrad` in Raven** — explicit gradients, so a sample outside a fragment quad filters correctly | B3, phase 5 | ✅ |
+| 0.3 | **Incremental GPU scene** — [GpuVisibilityGroup.cs:523](../Core/Vixen.Rendering/GpuVisibilityGroup.cs:523) still repacks and re-uploads every object every frame. Dirty-tracked ranges, driven by the ECS change versions [04](plan/04-ecs-and-scripting.md) already exposes | everything; it is the cost floor at 100k instances | ⬜ |
+| 0.4 | **64-bit integers and atomics in Raven** — `int64`/`uint64`, every atomic at both widths, `Int64` and `Int64Atomics` reported separately | B2, phase 6 | ✅ |
 
 **Exit:** a 100k-instance scene where a frame that moves one object uploads one object's worth of
 bytes, asserted by counting the upload. Deleting the dirty tracking makes the assertion fail rather
 than making the frame slower.
 
 0.3 is the one worth doing on its own merits whatever happens to the rest of this document: with
-compaction built, the per-frame repack is now the largest fixed CPU cost in a GPU-culled frame.
+compaction built, the per-frame repack is now the largest fixed CPU cost in a GPU-culled frame — and
+it is now the only thing standing between here and phase 1.
 
 ---
 
@@ -307,8 +328,11 @@ normal draw or a resolve.
 
 ### Phase 6 — Software raster · ~3 EM · **optional, capability-gated**
 
-Blocked on B2. Only worth doing once profiling shows sub-pixel triangles dominating, which is the
-regime it is for: hardware raster wastes roughly 4× on triangles smaller than a quad.
+B2 is built, so the language is no longer what stands in the way — but the gate was never the
+language. Only worth doing once profiling shows sub-pixel triangles dominating, which is the regime it
+is for: hardware raster wastes roughly 4× on triangles smaller than a quad. The capability gate is
+real and now reportable: a shader using the packed word asks for `Int64` and `Int64Atomics`, and the
+host picks the hardware-raster variant on a device that has neither.
 
 Compute-based scanline raster over small clusters, 64-bit `atomicMax` packing depth above ID.
 Clusters route to hardware or software by projected triangle size, decided during traversal.
@@ -433,7 +457,7 @@ being a mystery in a frame capture.
 
 | Phase | EM | Cumulative |
 |---|---|---|
-| 0 — Unblockers | ~1 | 1 |
+| 0 — Unblockers (0.1, 0.2, 0.4 built; 0.3 left) | ~1 | 1 |
 | 1 — Cluster DAG | ~3 | 4 |
 | 2 — Pages and residency | ~2 | 6 |
 | 3 — Hierarchical culling | ~2.5 | 8.5 |

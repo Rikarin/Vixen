@@ -46,6 +46,7 @@ public enum SyntaxKind : ushort {
     ReadOnlyKeyword,
     StaticKeyword,
     StreamKeyword,
+    GroupSharedKeyword,
     InOutKeyword,
     SelfExpression,
     BaseExpression,

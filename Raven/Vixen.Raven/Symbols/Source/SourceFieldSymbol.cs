@@ -36,6 +36,8 @@ public sealed class SourceFieldSymbol : FieldSymbol {
 
     public override bool IsStream => DeclarationFacts.Has(syntax.Modifiers, SyntaxKind.StreamKeyword);
 
+    public override bool IsGroupShared => DeclarationFacts.Has(syntax.Modifiers, SyntaxKind.GroupSharedKeyword);
+
     /// <summary>
     ///     The shader bound to this slot, or null when the field is not a slot or the
     ///     binding is missing or invalid.
@@ -206,10 +208,11 @@ public sealed class SourceFieldSymbol : FieldSymbol {
 
     public override ResourceKind ResourceKind {
         get {
-            // A stream is per-invocation, so it is never a binding however numeric it looks —
-            // checked before the resource types, so `stream var t: Texture2D` reports the type
-            // restriction (RVN2103) rather than quietly becoming a texture binding.
-            if (IsStream) {
+            // A stream is per-invocation and group-shared storage is the workgroup's, so neither is
+            // ever a binding however numeric it looks — checked before the resource types, so
+            // `stream var t: Texture2D` reports the type restriction (RVN2103) rather than quietly
+            // becoming a texture binding, and `groupshared var t: Texture2D` reports RVN2133.
+            if (IsStream || IsGroupShared) {
                 return ResourceKind.None;
             }
 

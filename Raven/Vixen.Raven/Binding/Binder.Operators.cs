@@ -86,7 +86,8 @@ public abstract partial class Binder {
     static bool IsIntegral(TypeSymbol type) =>
         type is PrimitiveTypeSymbol primitive
         && primitive.TypeKind is TypeKind.Scalar or TypeKind.Vector
-        && primitive.ComponentSpecialType is SpecialType.Int or SpecialType.UInt;
+        && primitive.ComponentSpecialType
+            is SpecialType.Int or SpecialType.UInt or SpecialType.Int64 or SpecialType.UInt64;
 
     /// <summary>Maps an operator token's text to the operation it performs.</summary>
     internal static BinaryOperatorKind? MapBinaryOperator(string text) =>
