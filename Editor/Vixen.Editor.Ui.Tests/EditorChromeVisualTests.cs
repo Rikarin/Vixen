@@ -89,11 +89,18 @@ public class EditorChromeVisualTests {
             // assertion about which panel is open, which is what this file exists for.
             Modes();
 
+            Transport();
+
             Shell.Toolbar.Show(
                 new ToolbarButton("view.palette"),
                 new ToolbarSeparator(),
                 new ToolbarGroup("test.translate", "test.rotate", "test.scale"),
                 new ToolbarButton("view.toggle-theme"),
+                new ToolbarSeparator(),
+                new ToolbarButton("test.play"),
+                new ToolbarButton("test.pause"),
+                new ToolbarButton("test.step"),
+                new ToolbarButton("test.stop"),
                 new ToolbarSeparator(),
                 new ToolbarDropdown(Title("Layout"), "layout", "view.layout.Default", null, "view.reset-layout")
             );
@@ -136,6 +143,29 @@ public class EditorChromeVisualTests {
         sealed class FixedClock(DateTimeOffset now) : TimeProvider {
             public override DateTimeOffset GetUtcNow() => now;
         }
+
+        /// <summary>The transport, mid-play, which is the state the colour is for.</summary>
+        /// <remarks>
+        ///     ⚠ <b>Playing, deliberately.</b> The picture worth checking is the filled one: whether
+        ///     a white glyph on a saturated green reads in both themes, and whether the two buttons
+        ///     that are merely coloured still read beside one that is filled. A stopped transport is
+        ///     four muted glyphs and says nothing about any of that.
+        /// </remarks>
+        void Transport() {
+            Play("test.play", "Play", EditorIcons.Play, "transport-play", on: true);
+            Play("test.pause", "Pause", EditorIcons.Pause, "transport-pause", on: false);
+            Play("test.step", "Step Frame", EditorIcons.Step, "transport-step", on: null);
+            Play("test.stop", "Stop", EditorIcons.Stop, "transport-stop", on: null);
+        }
+
+        void Play(string id, string title, PathBuilder icon, string className, bool? on) =>
+            Shell.Commands.Add(
+                new EditorCommand(id, Title(title), () => { }) {
+                    Icon = icon,
+                    ClassName = className,
+                    Checked = on is { } state ? () => state : null
+                }
+            );
 
         static StringId Title(string text) => new("test." + text, text);
 

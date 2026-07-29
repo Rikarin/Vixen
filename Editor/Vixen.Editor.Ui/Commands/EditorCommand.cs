@@ -89,6 +89,22 @@ public sealed class EditorCommand {
     /// <summary>The icon a toolbar draws for it, if it has one.</summary>
     public PathBuilder? Icon { get; init; }
 
+    /// <summary>A style class every view puts on the control it makes for this command.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What lets Play be green without the toolbar knowing what Play is.</b> A transport
+    ///         strip has to say which button is which by colour — a row of identical grey glyphs is
+    ///         one the eye has to read rather than recognise — and the alternative to a class is a
+    ///         presenter with a list of command ids in it, which is the registry's whole point
+    ///         undone.
+    ///     </para>
+    ///     <para>
+    ///         The class is the command's and the rules are the theme's, so a plugin can colour its
+    ///         own button by shipping a stylesheet rather than by asking the shell for a hook.
+    ///     </para>
+    /// </remarks>
+    public string? ClassName { get; init; }
+
     /// <summary>Whether it can be run right now, or <c>null</c> for "always".</summary>
     /// <remarks>Asked every time a view needs to know. It must be cheap and must not throw.</remarks>
     public Func<bool>? Enablement { get; init; }

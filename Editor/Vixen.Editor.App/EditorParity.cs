@@ -512,19 +512,18 @@ sealed partial class EditorApplication {
     ///     Ticking the simulation is Phase 6's, and it attaches here.
     /// </remarks>
     void PlayCommands() {
-        Verb(
-            "play.play",
-            new StringId("editor.command.play.play", "Play"),
-            CategoryPlay,
-            EnterPlay,
-            enabled: () => !play.IsPlaying,
-            on: () => play.IsPlaying
-        );
+        // ⚠ The four carry an icon and a colour class, and the transport is the one strip where that
+        // is not decoration. It is the most-clicked control in either reference editor, it is read at
+        // a glance rather than looked at, and — the part that matters most — "am I in play mode" has
+        // to be answerable without reading anything. A row of identical grey glyphs answers none of
+        // those. The theme fills the button when the command is on, so Play is a green button with a
+        // white triangle while the game is running and a green triangle when it is not.
+        Transport("play.play", "Play", EditorIcons.Play, EnterPlay, () => !play.IsPlaying, () => play.IsPlaying);
 
-        Verb(
+        Transport(
             "play.pause",
-            new StringId("editor.command.play.pause", "Pause"),
-            CategoryPlay,
+            "Pause",
+            EditorIcons.Pause,
             () => {
                 if (play.State == PlayState.Paused) {
                     play.Resume();
@@ -532,25 +531,19 @@ sealed partial class EditorApplication {
                     play.Pause();
                 }
             },
-            enabled: () => play.IsPlaying,
-            on: () => play.State == PlayState.Paused
+            () => play.IsPlaying,
+            () => play.State == PlayState.Paused
         );
 
-        Verb(
+        Transport(
             "play.step",
-            new StringId("editor.command.play.step", "Step Frame"),
-            CategoryPlay,
+            "Step Frame",
+            EditorIcons.Step,
             () => play.Step(),
-            enabled: () => play.State == PlayState.Paused
+            () => play.State == PlayState.Paused
         );
 
-        Verb(
-            "play.stop",
-            new StringId("editor.command.play.stop", "Stop"),
-            CategoryPlay,
-            LeavePlay,
-            enabled: () => play.IsPlaying
-        );
+        Transport("play.stop", "Stop", EditorIcons.Stop, LeavePlay, () => play.IsPlaying);
 
         Shell.Keys.SetDefault("play.play", new KeyChord(InputKey.F5, ModifierKeys.None));
         Shell.Keys.SetDefault("play.pause", new KeyChord(InputKey.P, ModifierKeys.Control | ModifierKeys.Shift));
@@ -914,7 +907,15 @@ sealed partial class EditorApplication {
                 "scene.toggle-projection"
             ),
             new ToolbarSeparator(),
-            new ToolbarGroup("play.play", "play.pause", "play.step", "play.stop"),
+
+            // ⚠ Four buttons and not a segmented group, which is the same argument as the one above
+            // read the other way. Translate/Rotate/Scale are boxed because they are one choice; Play,
+            // Pause, Step and Stop are two toggles and two actions, and boxing them would claim an
+            // exclusivity they do not have. What tells them apart here is colour, not a border.
+            new ToolbarButton("play.play"),
+            new ToolbarButton("play.pause"),
+            new ToolbarButton("play.step"),
+            new ToolbarButton("play.stop"),
             new ToolbarSeparator(),
             new ToolbarDropdown(
                 new StringId("editor.toolbar.layout", "Layout"),
@@ -941,6 +942,30 @@ sealed partial class EditorApplication {
         Shell.Commands.Add(
             new EditorCommand(id, title, run) {
                 Category = category,
+                Enablement = enabled,
+                Checked = on
+            }
+        );
+
+    /// <summary>Registers one of the four transport verbs: an icon, a colour, and a state.</summary>
+    /// <remarks>
+    ///     The class is the command's and the rules are the theme's — see
+    ///     <see cref="EditorCommand.ClassName" /> — so the toolbar stays a view over ids and does not
+    ///     acquire a list of which buttons are green.
+    /// </remarks>
+    void Transport(
+        string id,
+        string title,
+        PathBuilder icon,
+        Action run,
+        Func<bool>? enabled = null,
+        Func<bool>? on = null
+    ) =>
+        Shell.Commands.Add(
+            new EditorCommand(id, new StringId("editor.command." + id, title), run) {
+                Category = CategoryPlay,
+                Icon = icon,
+                ClassName = "transport-" + id["play.".Length..],
                 Enablement = enabled,
                 Checked = on
             }

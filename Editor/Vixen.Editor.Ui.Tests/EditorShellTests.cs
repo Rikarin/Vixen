@@ -62,8 +62,13 @@ public class EditorShellTests {
 
         Assert.False(shell.Palette.IsOpen);
 
+        // ⚠ The chord this machine's user presses — ⌘P on a Mac — rather than the one the keymap
+        // spells it with. A test that pressed Ctrl literally would pass on a PC and assert the
+        // opposite of the intended behaviour on a Mac.
+        var chord = new KeyChord(InputKey.P, ModifierKeys.Control).ForPlatform();
+
         shell.Document.Dispatch(
-            new KeyEvent { Key = InputKey.P, Action = KeyAction.Pressed, Modifiers = ModifierKeys.Control }
+            new KeyEvent { Key = chord.Key, Action = KeyAction.Pressed, Modifiers = chord.Modifiers }
         );
 
         Assert.True(shell.Palette.IsOpen);

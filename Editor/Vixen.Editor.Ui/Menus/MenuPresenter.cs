@@ -379,8 +379,12 @@ public sealed class MenuPresenter : IDisposable {
             item.Mark.Geometry = command.RadioGroup is null ? ControlIcons.Check : EditorIcons.RadioMark;
         }
 
+        // ⚠ Swapped out of the table's vocabulary before it is drawn: the keymap holds Ctrl+S and a
+        // Mac has to read ⌘S, which is the key its user will actually press. See
+        // `KeyChord.ForPlatform`.
         if (keys.ChordFor(command.Id) is { IsBound: true } chord) {
-            item.ShowShortcut(chord.Key, chord.Modifiers);
+            var shown = chord.ForPlatform();
+            item.ShowShortcut(shown.Key, shown.Modifiers);
         }
 
         return item;

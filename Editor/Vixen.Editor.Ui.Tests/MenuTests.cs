@@ -53,7 +53,10 @@ public class MenuTests : IDisposable {
         var item = Assert.Single(menu.Items);
         Assert.Equal("Save", item.Label);
         Assert.Equal(InputKey.S, item.Shortcut?.Key);
-        Assert.Equal(ModifierKeys.Control, item.Shortcut?.Modifiers);
+
+        // ⚠ What this machine's user presses, not what the keymap stores. The two are the same on a
+        // PC and differ on a Mac, where the bar has to read ⌘S — see `KeyChord.ForPlatform`.
+        Assert.Equal(new KeyChord(InputKey.S, ModifierKeys.Control).ForPlatform().Modifiers, item.Shortcut?.Modifiers);
     }
 
     [Fact]

@@ -70,7 +70,10 @@ public sealed class CommandDispatcher {
             return false;
         }
 
-        var chord = KeyChord.Of(args);
+        // ⚠ Swapped into the vocabulary the table is written in before anything is looked up. On a
+        // Mac the user pressed ⌘S and the keymap holds Ctrl+S — one portable spelling in the file
+        // and in the model, adapted at the two ends. See `KeyChord.ForPlatform`.
+        var chord = KeyChord.Of(args).ForPlatform();
 
         if (!chord.IsBound || !Available(document, chord)) {
             return false;
