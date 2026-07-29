@@ -32,6 +32,16 @@
     </ItemGroup>
 
     <!--
+      The shipped library files, linked rather than copied, so ShippedLibraryTests compiles the same
+      bytes a project consumes. Listed one by one on purpose: a glob would let a renamed file pass the
+      test by not being there, which is the failure this gate exists to catch.
+    -->
+    <ItemGroup>
+        <None Include="..\Library\Core\Math.rvn" Link="Library\Math.rvn" CopyToOutputDirectory="PreserveNewest"/>
+        <None Include="..\Library\Lighting\DistanceField.rvn" Link="Library\DistanceField.rvn" CopyToOutputDirectory="PreserveNewest"/>
+    </ItemGroup>
+
+    <!--
       The retired ANTLR front end lives on here as the differential oracle
       (docs/plan/18 § Keep the grammar): the grammar stays executable
       specification, and any divergence between it and the hand-written parser

@@ -1,0 +1,205 @@
+package Vixen.Shaders.Lighting
+
+import Vixen.Shaders.Core
+
+// Sphere tracing a signed distance field, and the two things everybody wants from it.
+//
+// The shader half of `Vixen.Rendering.DistanceFields.DistanceFieldTracer`. That one exists first and on
+// the CPU because there it can be checked: marching an analytic sphere has a closed-form answer, and a
+// tracer that agrees with arithmetic is the reference this one is compared against. Where the two
+// disagree, the C# is right and this is wrong — it is the one with tests that do not need a device.
+//
+// Everything here takes ONE level's volume. Selecting the finest level that contains a point means
+// indexing an array of textures by a value that varies per fragment, which is a descriptor-indexing
+// feature and not a decision to make in passing. Until then a caller binds the level it wants; the
+// near field is one level, and that is what a first frame needs.
+//
+// A style note that is a language constraint: Raven is newline-sensitive and has no line continuation,
+// so anything that does not fit on one line becomes a block body with named locals.
+
+/// One clipmap level's place in the world, as `GlobalDistanceFieldTexture.Apply` writes it.
+///
+/// The reciprocal of the cell rather than the cell, because turning a world position into a texture
+/// coordinate is a multiply and a divide per step is a divide nobody needs.
+struct DistanceFieldVolume {
+    var minimum: float3
+    var maximum: float3
+    var inverseCellSize: float
+    var maxDistance: float
+}
+
+/// What a march found, or did not.
+struct DistanceFieldHit {
+    var hit: bool
+    var distance: float
+    var position: float3
+
+    /// How many samples it took. The cost, and worth being able to see.
+    var steps: int
+}
+
+struct DistanceField {
+    /// The shortest step worth taking, so a march grazing a surface cannot stall.
+    const val MinStep = 0.0001f
+
+    // --- Reading the volume ------------------------------------------------
+
+    /// How many samples the level has along each axis.
+    ///
+    /// Derived rather than bound. The samples sit ON the grid points spanning the bounds inclusively,
+    /// so the extent is exactly `(count - 1)` cells — which makes the count a consequence of the two
+    /// numbers already here rather than a third that could disagree with them.
+    static func Resolution(volume: DistanceFieldVolume): float {
+        val extent = volume.maximum.x - volume.minimum.x
+        return extent * volume.inverseCellSize + 1f
+    }
+
+    /// Where a world position sits in the level's texture, as 0..1.
+    ///
+    /// The half-texel is not a fudge. A sample lives at the CENTRE of its texel, and the field's
+    /// sample `i` is the level's grid point `i` — so grid point `i` is at `(i + 0.5) / count`. Dropping
+    /// it shifts the whole field half a cell along every axis, which reads as geometry that is subtly
+    /// in the wrong place and is very hard to see in a still frame.
+    static func Uvw(volume: DistanceFieldVolume, world: float3): float3 {
+        val grid = (world - volume.minimum) * volume.inverseCellSize
+        return (grid + 0.5f) / Resolution(volume)
+    }
+
+    /// Whether a level covers a point at all.
+    static func Contains(volume: DistanceFieldVolume, world: float3): bool {
+        val above = world.x >= volume.minimum.x && world.y >= volume.minimum.y && world.z >= volume.minimum.z
+        val below = world.x <= volume.maximum.x && world.y <= volume.maximum.y && world.z <= volume.maximum.z
+        return above && below
+    }
+
+    /// The signed distance at a world position, negative inside.
+    ///
+    /// The sampler is expected to clamp, which is what makes a query just off the level read that
+    /// level's edge instead of wrapping to the far side of the world.
+    static func Sample(volume: DistanceFieldVolume, field: Texture3D, s: Sampler, world: float3): float {
+        return field.SampleLevel(s, Uvw(volume, world), 0f).r
+    }
+
+    /// Which way the distance grows fastest — the surface normal, near one.
+    ///
+    /// Central differences one cell wide. Narrower is not available: a difference inside one cell of a
+    /// trilinear field reads that cell's own constant gradient and carries nothing the sample did not.
+    static func Gradient(volume: DistanceFieldVolume, field: Texture3D, s: Sampler, world: float3): float3 {
+        val cell = 1f / volume.inverseCellSize
+        val dx = Sample(volume, field, s, world + float3(cell, 0f, 0f)) - Sample(volume, field, s, world - float3(cell, 0f, 0f))
+        val dy = Sample(volume, field, s, world + float3(0f, cell, 0f)) - Sample(volume, field, s, world - float3(0f, cell, 0f))
+        val dz = Sample(volume, field, s, world + float3(0f, 0f, cell)) - Sample(volume, field, s, world - float3(0f, 0f, cell))
+        return Math.SafeNormalize(float3(dx, dy, dz))
+    }
+
+    // --- Marching ----------------------------------------------------------
+
+    /// Marches a ray until it reaches a surface or runs out of road.
+    ///
+    /// `stepScale` below one is correctness rather than timidity. Sphere tracing is exact when the field
+    /// is exact — a step of `d` cannot cross a surface `d` away — and a trilinear field is not exact: it
+    /// over-reports near a convex corner, which is precisely a step that crosses the surface and a ray
+    /// that comes out the other side.
+    ///
+    /// A ray that begins inside geometry reports a hit at once, at its own origin. Marching out of the
+    /// solid it started in answers a question nobody asked, and indistinguishably.
+    static func Trace(volume: DistanceFieldVolume, field: Texture3D, s: Sampler, origin: float3, direction: float3, maxDistance: float, maxSteps: int, threshold: float, stepScale: float): DistanceFieldHit {
+        val ray = Math.SafeNormalize(direction)
+        var travelled = 0f
+        var result = DistanceFieldHit(false, maxDistance, origin, 0)
+
+        for (step in 0 .. maxSteps - 1) {
+            val position = origin + ray * travelled
+            val distance = Sample(volume, field, s, position)
+            result.steps = step + 1
+
+            if (distance < threshold) {
+                result.hit = true
+                result.distance = travelled
+                result.position = position
+                break
+            }
+
+            travelled += max(distance * stepScale, MinStep)
+
+            if (travelled > maxDistance) {
+                result.distance = maxDistance
+                result.position = origin + ray * maxDistance
+                break
+            }
+        }
+
+        return result
+    }
+
+    /// How much of a light reaches a point, marching once for a whole penumbra.
+    ///
+    /// This is the trick that makes distance fields worth having for shadows. A shadow map or a ray cast
+    /// answers one binary question and needs many samples to soften it; here the field already knows how
+    /// close the ray passed to something. At distance `t` with clearance `d` the occluder subtends about
+    /// `d / t`, and the smallest such ratio over the whole march IS the penumbra — one march, a soft
+    /// shadow, and softness that grows with distance from the occluder for free.
+    ///
+    /// `bias` starts the march off the surface, for the same reason and with the same failure mode a
+    /// shadow map's depth bias has: without it every lit surface shadows itself.
+    ///
+    /// `softness` is the reciprocal of the light's angular radius. Larger is sharper.
+    static func Shadow(volume: DistanceFieldVolume, field: Texture3D, s: Sampler, origin: float3, toLight: float3, lightDistance: float, softness: float, bias: float, maxSteps: int, threshold: float, stepScale: float): float {
+        val ray = Math.SafeNormalize(toLight)
+        var travelled = max(bias, MinStep)
+        var light = 1f
+
+        for (step in 0 .. maxSteps - 1) {
+            if (travelled >= lightDistance) {
+                break
+            }
+
+            val distance = Sample(volume, field, s, origin + ray * travelled)
+
+            // Nothing further along can make a fully blocked ray less blocked.
+            if (distance < threshold) {
+                light = 0f
+                break
+            }
+
+            light = min(light, softness * distance / travelled)
+            travelled += max(distance * stepScale, MinStep)
+        }
+
+        return clamp(light, 0f, 1f)
+    }
+
+    /// How enclosed a point is, from a few samples up its own normal.
+    ///
+    /// Over open ground the field a metre up reads a metre and the difference is nothing. In a corner it
+    /// reads less — something is nearer than the floor — and that shortfall IS the occlusion. No
+    /// hemisphere, no rays, no noise to denoise, and one sample per step.
+    ///
+    /// Each step counts for less than the one before it, because a surface far up the normal occludes a
+    /// smaller part of the hemisphere than one against the point. Without that falloff a distant wall
+    /// darkens a floor as much as a near one.
+    ///
+    /// This is large-scale occlusion and not a replacement for the screen-space kind: it sees geometry at
+    /// the field's own resolution and nothing finer. A renderer wants both.
+    static func Occlusion(volume: DistanceFieldVolume, field: Texture3D, s: Sampler, position: float3, normal: float3, radius: float, samples: int, strength: float): float {
+        val up = Math.SafeNormalize(normal)
+        var occlusion = 0f
+        var weight = 1f
+        var total = 0f
+
+        for (i in 1 .. samples) {
+            val height = radius * float(i) / float(samples)
+            val clearance = Sample(volume, field, s, position + up * height)
+
+            occlusion += max(height - clearance, 0f) * weight
+            total += height * weight
+            weight *= 0.5f
+        }
+
+        if (total <= Const.Epsilon) {
+            return 1f
+        }
+
+        return clamp(1f - strength * occlusion / total, 0f, 1f)
+    }
+}
