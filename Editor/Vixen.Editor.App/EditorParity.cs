@@ -664,7 +664,8 @@ sealed partial class EditorApplication {
             "entity.create-vfx",
             new StringId("editor.command.entity.create-vfx", "VFX Emitter"),
             CategoryEntity,
-            "The VFX graph is not reachable from the editor yet. Milestone E5."
+            "The graph is authorable now, but the runtime has no VFX emitter component for an entity "
+            + "to carry — an entity called VFX would reference nothing."
         );
 
         Planned(
@@ -1056,7 +1057,13 @@ sealed partial class EditorApplication {
 
         var assets = Shell.Menus.InsertMenu(++after, EditorStrings.MenuAssets);
 
-        assets.AddSubmenu(EditorStrings.MenuCreate).Add("assets.new-folder", "assets.create");
+        // ⚠ E5's seven asset kinds are on the Create submenu and not behind a dialog, because a
+        // format nobody can make a file of is a format nobody can reach. `assets.create` stays
+        // beside them as the general "from a template" line it always named.
+        assets.AddSubmenu(EditorStrings.MenuCreate)
+            .Add("assets.new-folder", "assets.create")
+            .AddSeparator()
+            .Add([.. CreatableIds]);
 
         assets.AddSeparator()
             .Add("assets.show-in-explorer", "assets.open", "assets.rename", "assets.delete", "assets.move-to")

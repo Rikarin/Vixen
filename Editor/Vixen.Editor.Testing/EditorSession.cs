@@ -122,6 +122,17 @@ public sealed class EditorSession : IDisposable {
         return new EditorSession(settings, directory, directory);
     }
 
+    /// <summary>The application itself, for the suites that drive what no panel exposes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Internal, and it stays internal.</b> The whole point of this harness is that a test
+    ///     says what a person does — click a row, run a command — rather than what a field holds, and
+    ///     everything that <i>can</i> be said that way is said that way above. What this is for is
+    ///     the handful of things a person does through a surface the harness has no vocabulary for
+    ///     yet: opening a second scene, reading the world settings. A public one would be an
+    ///     invitation to write the other kind of test.
+    /// </remarks>
+    internal EditorApplication Editor => editor;
+
     /// <summary>The document harness underneath: selectors, assertions, frames, pictures.</summary>
     /// <remarks>
     ///     ⚠ <b>A different object after <see cref="Restart" />.</b> The shell owns the document and

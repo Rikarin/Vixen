@@ -277,5 +277,174 @@ public static class AssetEditorTheme {
         /* ── The prefab editor ──────────────────────────────────────────────── */
         prefab-editor { flex-direction: column; }
         prefab-banner { flex-direction: row; align-items: center; gap: 8px; padding: 4px 8px; }
+
+        /* ── The shared node inspector ──────────────────────────────────────
+           Beside every graph rather than inside one, because a node's numbers live on the graph and
+           the port list that describes them is the registry's — so the same rows serve the VFX
+           blocks and the animation graph's states. */
+        node-inspector { flex-direction: column; gap: 2px; flex-shrink: 0; }
+        node-inspector-title { font-weight: 600; }
+        node-inspector-summary { color: var(--text-muted); font-size: 11px; }
+        lane-name { color: var(--text-muted); font-size: 11px; width: 10px; flex-shrink: 0; }
+        node-inspector fact-value { flex-direction: row; align-items: center; gap: 4px; }
+        node-inspector fact-value > numeric-input { flex-grow: 1; flex-basis: 0px; min-width: 0; }
+
+        /* ── The VFX editor ─────────────────────────────────────────────────
+           The canvas takes the width and the effect takes a fixed column, which is the way round a
+           node graph wants: a block chain is wide and a preview of particles reads fine small. */
+        vfx-editor { flex-direction: row; gap: 6px; }
+        vfx-editor > node-graph { flex-grow: 1; min-width: 0; }
+        vfx-side { flex-direction: column; width: 300px; flex-shrink: 0; gap: 6px; overflow-y: auto; }
+        vfx-transport { flex-direction: row; align-items: center; gap: 4px; flex-shrink: 0; }
+
+        vfx-preview {
+            height: 240px;
+            flex-shrink: 0;
+            background-color: var(--surface-sunken);
+            border-radius: var(--radius-panel, 5px);
+        }
+
+        vfx-readout { color: var(--text-muted); font-size: 11px; flex-shrink: 0; }
+
+        /* ── E5's authoring surfaces ────────────────────────────────────────
+           Six editors and one shape: a bar across the top, the thing being authored taking the
+           width, and a fixed column of fields beside it. Written once here rather than six times,
+           because six panels that drift apart is what a user reads as six different products. */
+        animation-editor, animgraph-editor, input-editor, mixer-editor, font-editor, sequence-editor {
+            flex-direction: column;
+            flex-grow: 1;
+            gap: 6px;
+            padding: 6px;
+            overflow: hidden;
+        }
+
+        animation-bar, animgraph-bar, input-bar, mixer-bar, font-bar, sequence-bar {
+            flex-direction: row;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        animation-side, animgraph-side, input-side, mixer-side, font-side, sequence-side {
+            flex-direction: column;
+            width: 300px;
+            flex-shrink: 0;
+            gap: 6px;
+            overflow-y: auto;
+        }
+
+        animation-fields, animgraph-fields, animgraph-parameters, input-fields, mixer-fields,
+        mixer-snapshots, font-facts, font-chain, font-blocks, sequence-fields {
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        animation-title, animgraph-title, input-title, mixer-title, font-title, sequence-title {
+            font-weight: 600;
+            margin-top: 4px;
+        }
+
+        animation-error { color: var(--danger, #f2696e); }
+        fact-row.error { color: var(--danger, #f2696e); }
+        fact-row.warning { color: var(--warning, #e2b341); }
+        fact-row.selected { background-color: var(--accent-deep, var(--surface-raised)); border-radius: 3px; }
+
+        /* ── The clip editor ────────────────────────────────────────────────
+           The sheet and the curve editor share one slot: two modes over one document, never two
+           panes, because a docked panel split in half gives each of them a height neither can use. */
+        animation-body { flex-direction: column; flex-grow: 1; min-height: 0; }
+        animation-body > timeline, animation-body > curve-editor { flex-grow: 1; min-height: 0; }
+        animation-editor { flex-direction: row; }
+        animation-editor > animation-body { flex-grow: 1; min-width: 0; }
+
+        /* ⚠ The bar is a child of the row, so it has to span it. Without this the three columns
+           would be bar | body | side and the buttons would be a narrow strip on the left. */
+        animation-editor > animation-bar, animgraph-editor > animgraph-bar,
+        input-editor > input-bar, mixer-editor > mixer-bar,
+        font-editor > font-bar, sequence-editor > sequence-bar {
+            flex-basis: 100%;
+        }
+
+        /* ── The animation graph ────────────────────────────────────────────
+           The arrows are drawn by the map and the state boxes are elements on top of it, because
+           text in this framework is an element — see StateMapView's own remarks. */
+        animgraph-editor { flex-direction: row; flex-wrap: wrap; }
+
+        state-map {
+            position: relative;
+            flex-grow: 1;
+            min-width: 0;
+            min-height: 0;
+            overflow: hidden;
+            background-color: var(--surface-sunken);
+            border-radius: var(--radius-panel, 5px);
+        }
+
+        state-box {
+            position: absolute;
+            flex-direction: column;
+            justify-content: center;
+            padding: 4px 8px;
+            gap: 2px;
+        }
+
+        state-box.parked { display: none; }
+        state-box-name { color: var(--text); }
+        state-box-motion { color: var(--text-muted); font-size: 11px; }
+
+        /* ── The input editor ───────────────────────────────────────────── */
+        input-editor { flex-direction: row; flex-wrap: wrap; }
+        input-editor > tree-view { flex-grow: 1; min-width: 0; min-height: 0; }
+
+        /* ── The mixer ──────────────────────────────────────────────────────
+           Strips side by side, which is the layout every mixer has had since the hardware ones: a
+           fader is a thing you compare against its neighbours. */
+        mixer-editor { flex-direction: row; flex-wrap: wrap; }
+
+        mixer-strips {
+            flex-direction: row;
+            align-items: stretch;
+            gap: 4px;
+            flex-grow: 1;
+            min-width: 0;
+            overflow-x: auto;
+        }
+
+        mixer-strip {
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            width: 76px;
+            flex-shrink: 0;
+            padding: 6px 4px;
+            border-radius: var(--radius-panel, 5px);
+            background-color: var(--surface-sunken);
+        }
+
+        mixer-strip.selected { background-color: var(--accent-deep, var(--surface-raised)); }
+        mixer-strip > slider { flex-grow: 1; min-height: 80px; }
+        mixer-strip-name { font-weight: 600; }
+        mixer-strip-parent, mixer-strip-gain { color: var(--text-muted); font-size: 11px; }
+        mixer-strip-buttons { flex-direction: row; gap: 4px; }
+        mixer-snapshot { padding: 2px 4px; border-radius: 3px; }
+        mixer-snapshot.selected { background-color: var(--accent-deep, var(--surface-raised)); }
+
+        /* ── The font editor ────────────────────────────────────────────── */
+        font-editor { flex-direction: row; flex-wrap: wrap; }
+
+        font-atlas {
+            flex-grow: 1;
+            min-width: 0;
+            min-height: 0;
+            background-color: var(--surface-sunken);
+            border-radius: var(--radius-panel, 5px);
+        }
+
+        font-chain-row { color: var(--text-muted); font-size: 11px; }
+        font-chain-row.error { color: var(--danger, #f2696e); }
+
+        /* ── The sequencer ──────────────────────────────────────────────── */
+        sequence-editor { flex-direction: row; flex-wrap: wrap; }
+        sequence-editor > timeline { flex-grow: 1; min-width: 0; min-height: 0; }
         """;
 }

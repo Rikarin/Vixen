@@ -2,12 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Ecs;
+using Vixen.Editor.AssetEditors.Animation;
+using Vixen.Editor.AssetEditors.Audio;
 using Vixen.Editor.AssetEditors.Code;
 using Vixen.Editor.AssetEditors.Compositor;
 using Vixen.Editor.AssetEditors.Content;
+using Vixen.Editor.AssetEditors.Fonts;
 using Vixen.Editor.AssetEditors.Importing;
+using Vixen.Editor.AssetEditors.Input;
 using Vixen.Editor.AssetEditors.Materials;
 using Vixen.Editor.AssetEditors.Scenes;
+using Vixen.Editor.AssetEditors.Sequencing;
+using Vixen.Editor.AssetEditors.Vfx;
 
 namespace Vixen.Editor.AssetEditors;
 
@@ -48,7 +54,14 @@ public static class StandardEditors {
             .Add(new ShaderEditorFactory())
             .Add(new MarkupEditorFactory())
             .Add(new AddressableGroupEditorFactory())
-            .Add(new CompositorEditorFactory());
+            .Add(new CompositorEditorFactory())
+            .Add(new VfxEditorFactory())
+            .Add(new AnimationClipEditorFactory())
+            .Add(new AnimationGraphEditorFactory())
+            .Add(new SequenceEditorFactory())
+            .Add(new AudioMixerEditorFactory())
+            .Add(new InputActionsEditorFactory())
+            .Add(new FontEditorFactory());
     }
 
     /// <summary>The editors that need nothing from the host, for a test or a headless tool.</summary>
@@ -66,5 +79,12 @@ public static class StandardEditors {
             .Add(new ShaderEditorFactory())
             .Add(new MarkupEditorFactory())
             .Add(new AddressableGroupEditorFactory())
-            .Add(new CompositorEditorFactory());
+            .Add(new CompositorEditorFactory())
+            .Add(new VfxEditorFactory())
+            .Add(new AnimationClipEditorFactory())
+            .Add(new AnimationGraphEditorFactory())
+            .Add(new SequenceEditorFactory())
+            .Add(new AudioMixerEditorFactory())
+            .Add(new InputActionsEditorFactory())
+            .Add(new FontEditorFactory());
 }
