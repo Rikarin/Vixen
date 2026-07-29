@@ -208,6 +208,17 @@ sealed partial class EditorApplication : IDisposable {
         picker = new ScenePicker(scene);
         play = new PlayModeController(world);
 
+        // ⚠ Every entity gets a *new handle* when a play-mode snapshot is restored, so the
+        // document's name and stable-id tables — both keyed by handle — name nothing at all
+        // afterwards. `SceneDocument.Remap` was written for exactly this and nothing called it: the
+        // outliner came back from play mode as a list of blank rows, which reads as the scene having
+        // been lost. Subscribed here rather than in `LeavePlay` so that it also covers a restore the
+        // controller performs for any other reason.
+        play.Restored += (_, translation) => {
+            scene.Remap(translation);
+            hierarchyStale = true;
+        };
+
         if (SceneSerializer.Load(scene, scenePath) == 0) {
             Seed();
 
@@ -592,6 +603,17 @@ sealed partial class EditorApplication : IDisposable {
                 };
 
                 hierarchy.Moved += (_, node) => Dropped(node);
+
+                // ⚠ Double-click renames here and opens the asset in the project browser, and the
+                // two are right for the same reason: a row's own name is the thing you edit in an
+                // outliner, and a file is the thing you open in a browser. F2 does the same, through
+                // the same command, so the keyboard and the pointer cannot disagree.
+                hierarchy.Activated += (_, node) => {
+                    if (node.Tag is Entity entity) {
+                        scene.Selection.Set([entity]);
+                        Rename();
+                    }
+                };
 
                 Contextualise(hierarchy);
                 hierarchyStale = true;

@@ -459,6 +459,19 @@ public sealed partial class DockingHost : Control {
 
         AddHandler<ClickEvent>(static (element, args) => ((DockingHost) element).Chosen(args));
         AddHandler<DragEvent>(static (element, args) => ((DockingHost) element).Dragged(args));
+
+        // ⚠ On the capture leg, so it runs before whatever was pressed does anything with the event
+        // — including marking it handled, which a tree row and a button both do. Which panel the
+        // user is working in is not something any of them should be able to swallow.
+        AddHandler<PointerEvent>(
+            static (element, args) => ((DockingHost) element).Pressed(args),
+            RoutingStrategy.Capture,
+            handledEventsToo: true
+        );
+
+        // Tab moves the focus without any pointer being involved, and the active panel has to follow
+        // it or the border says one thing while the keyboard does another.
+        AddHandler<FocusEvent>(static (element, args) => ((DockingHost) element).Focused(args));
     }
 
     /// <summary>Adds a panel, docking it if the arrangement does not already place it.</summary>
@@ -521,12 +534,89 @@ public sealed partial class DockingHost : Control {
         return true;
     }
 
+    /// <summary>Which panel the user last worked in, whether or not anything in it takes focus.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Focus alone is not enough, and this is the gap it leaves.</b> A tree row and a
+    ///         text field take focus, so the outliner and the scene lit up when clicked; a console
+    ///         row and an inspector's label do not, so those two panels never showed as focused
+    ///         however many times they were clicked. A dozen identical panes where the border is
+    ///         right for two of them is worse than no border at all — it is a signal that reads as
+    ///         broken rather than as absent.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A press outside the focused element's panel takes the focus with it.</b>
+    ///         Otherwise clicking the console would leave the outliner still holding the keyboard,
+    ///         and the next Delete would act on a panel the user had visibly left.
+    ///     </para>
+    /// </remarks>
+    DockPanel? pressed;
+
+    void Pressed(PointerEvent args) {
+        if (args.Action != PointerAction.Pressed || PanelUnder(args.Source) is not { } panel) {
+            return;
+        }
+
+        pressed = panel;
+
+        if (Document.Focused is { } focus && !ReferenceEquals(PanelUnder(focus), panel)) {
+            // Cleared rather than moved: what inside the new panel deserves the keyboard is that
+            // panel's business, and whatever is pressed takes it on the bubble leg anyway.
+            Document.Focus(null);
+        }
+
+        MarkActive();
+    }
+
+    void Focused(FocusEvent args) {
+        if (args.Gained && PanelUnder(args.Next) is { } panel) {
+            pressed = panel;
+        }
+
+        MarkActive();
+    }
+
+    /// <summary>The panel an element is inside, if it is inside one this host owns.</summary>
+    DockPanel? PanelUnder(UiElement? element) {
+        for (var walk = element; walk is not null; walk = walk.Parent) {
+            if (walk is DockPanel panel && panels.ContainsKey(panel.Id)) {
+                return panel;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Puts the <c>active</c> class on the group holding <see cref="Active" /> and no other.</summary>
+    /// <remarks>
+    ///     A class rather than a state, because <c>:focus-within</c> already carries the meaning for
+    ///     the panels that do take focus — a theme styles the two together and gets one rule.
+    /// </remarks>
+    internal void MarkActive() {
+        // ⚠ The panel the user is actually in, not `Active`. That property falls back to the front
+        // tab of the first group so that a command about "this panel" always has one — which is
+        // right for a command and wrong for a border: it would light a panel up before anybody had
+        // touched anything, saying the keyboard is somewhere it is not.
+        var active = PanelUnder(Document.Focused) ?? (pressed is { IsRemoved: false } ? pressed : null);
+
+        foreach (var view in groups) {
+            var holds = active is not null && view.Node?.IndexOf(active.Id) >= 0;
+
+            if (holds) {
+                view.AddClass("active");
+            } else {
+                view.RemoveClass("active");
+            }
+        }
+    }
+
     /// <summary>Moves a panel next to, or into, a group.</summary>
     /// <param name="id">The panel.</param>
     /// <param name="target">The group.</param>
     /// <param name="side">Which side of it, or its middle.</param>
-    public void Dock(string id, DockGroupNode target, DockZone side) {
-        Layout.Dock(id, target, side);
+    /// <param name="index">Where in the target's tab order, for a centre drop, or -1 for the end.</param>
+    public void Dock(string id, DockGroupNode target, DockZone side, int index = -1) {
+        Layout.Dock(id, target, side, index);
         Rebuild();
     }
 
@@ -630,6 +720,11 @@ public sealed partial class DockingHost : Control {
                 BuildFloating(floated, i);
             }
         }
+
+        // ⚠ The views are new, so the class is not on any of them. A rebuild is what every dock,
+        // float and layout change ends with — an active border that survived the arrangement it was
+        // drawn against would be a border on whichever group happened to be built in that slot.
+        MarkActive();
 
         LayoutChanged?.Invoke(this);
     }
@@ -831,6 +926,7 @@ public sealed partial class DockingHost : Control {
 
             hovered = node;
             zone = ZoneAt(bounds, pointer.X, pointer.Y);
+            index = zone == DockZone.Center ? InsertionAt(view, x, y) : -1;
 
             Show(view, zone);
             return;
@@ -841,6 +937,56 @@ public sealed partial class DockingHost : Control {
 
     /// <summary>Where the drag is now, in desktop space.</summary>
     Vector2 pointer;
+
+    /// <summary>Which place in the target's tab order a centre drop would take, or -1 for the end.</summary>
+    int index = -1;
+
+    /// <summary>Where in a group's strip a drop at a point belongs.</summary>
+    /// <param name="view">The group under the pointer.</param>
+    /// <param name="x">Where, in the *document's* space — the strip's rectangles are in it too.</param>
+    /// <param name="y">Ditto.</param>
+    /// <returns>The index to insert at, or -1 for the end.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What makes a stack re-orderable, and it has to come from the pointer.</b> Dropping
+    ///         onto a group's centre appended, so the only reordering anybody could perform was
+    ///         "send this to the end" — and dragging a tab two places to the left did nothing at all,
+    ///         which reads as the tabs not being draggable.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Before or after the tab under the pointer, decided by its midpoint.</b> Nearest-
+    ///         edge rather than "the tab you are over": dropping on the right half of the second tab
+    ///         plainly means third, and a rule that said second would make every leftward drag
+    ///         overshoot and every rightward one fall short.
+    ///     </para>
+    ///     <para>
+    ///         A pointer that is over the body rather than the strip gets -1, which is the end. That
+    ///         is the honest answer for a gesture that said nothing about order.
+    ///     </para>
+    /// </remarks>
+    static int InsertionAt(DockGroupView view, float x, float y) {
+        var strip = view.Tabs;
+
+        if (!Inside(strip.Bounds, x, y)) {
+            return -1;
+        }
+
+        var place = 0;
+
+        foreach (var child in strip.Children) {
+            if (child is not DockTab tab) {
+                continue;
+            }
+
+            if (x < tab.Bounds.X + (tab.Bounds.Width * 0.5f)) {
+                return place;
+            }
+
+            place++;
+        }
+
+        return -1;
+    }
 
     /// <summary>Takes the drop preview and the guides off every window.</summary>
     void Hide() {
@@ -961,12 +1107,13 @@ public sealed partial class DockingHost : Control {
     void Drop(DockTab tab) {
         var target = hovered;
         var side = zone;
+        var place = index;
         var where = pointer;
 
         Cancel();
 
         if (target is not null) {
-            Dock(tab.PanelId, target, side);
+            Dock(tab.PanelId, target, side, place);
             return;
         }
 
@@ -984,6 +1131,7 @@ public sealed partial class DockingHost : Control {
     void Cancel() {
         dragged = null;
         hovered = null;
+        index = -1;
 
         Hide();
     }

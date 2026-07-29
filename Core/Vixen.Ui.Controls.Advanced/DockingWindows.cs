@@ -66,6 +66,13 @@ public sealed partial class DockingHost {
                 }
             }
 
+            // ⚠ Then the panel last pressed in, which is the answer for every panel whose contents
+            // do not take focus — a console row, an inspector's label. Without it those panels could
+            // be clicked all day and the editor would still say the outliner was the active one.
+            if (pressed is { IsRemoved: false } clicked && panels.ContainsKey(clicked.Id)) {
+                return clicked;
+            }
+
             foreach (var group in Layout.Groups()) {
                 var index = Math.Clamp(group.Selected, 0, Math.Max(0, group.Panels.Count - 1));
 
