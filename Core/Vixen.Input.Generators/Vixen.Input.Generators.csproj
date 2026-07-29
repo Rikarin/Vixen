@@ -51,4 +51,23 @@
         <Compile Include="..\Vixen.Input\Assets\**\*.cs" LinkBase="Linked\Vixen.Input" />
     </ItemGroup>
 
+    <!--
+        Shared generator source. The compiler contracts and the ArgumentNullException throw helper
+        are the second language surface the linked front end above needs; EquatableArray is what an
+        incremental pipeline caches on. Files are listed rather than globbed on purpose —
+        ArgumentNullException.cs carries a compilation-wide `global using` alias and is linked only
+        where the linked source needs it.
+
+        Shared source rather than a shared assembly: a generator is loaded from the analyzer path
+        and `OutputItemType="Analyzer"` contributes exactly one DLL, so a ProjectReference from
+        here would not travel with it. See ..\Vixen.Generators.Shared\README.md.
+    -->
+    <ItemGroup>
+        <Compile Include="..\Vixen.Generators.Shared\IsExternalInit.cs" LinkBase="Linked\Shared" />
+        <Compile Include="..\Vixen.Generators.Shared\CallerArgumentExpressionAttribute.cs" LinkBase="Linked\Shared" />
+        <Compile Include="..\Vixen.Generators.Shared\ArgumentNullException.cs" LinkBase="Linked\Shared" />
+        <Compile Include="..\Vixen.Generators.Shared\EquatableArray.cs" LinkBase="Linked\Shared" />
+        <Using Include="Vixen.Generators.Shared" />
+    </ItemGroup>
+
 </Project>

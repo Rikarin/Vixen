@@ -433,7 +433,7 @@ public sealed class RpcGenerator : IIncrementalGenerator {
     static void EmitCase(StringBuilder source, HandlerModel handler, int index) {
         source.AppendLine($"            case {index.ToString(CultureInfo.InvariantCulture)}: {{");
 
-        for (var i = 0; i < handler.Arguments.Length; i++) {
+        for (var i = 0; i < handler.Arguments.Count; i++) {
             var argument = handler.Arguments[i];
             var local = $"argument{i.ToString(CultureInfo.InvariantCulture)}";
 
@@ -449,7 +449,7 @@ public sealed class RpcGenerator : IIncrementalGenerator {
             source.Append("context");
         }
 
-        for (var i = 0; i < handler.Arguments.Length; i++) {
+        for (var i = 0; i < handler.Arguments.Count; i++) {
             if (i > 0 || handler.TakesContext) {
                 source.Append(", ");
             }
@@ -468,7 +468,7 @@ public sealed class RpcGenerator : IIncrementalGenerator {
         source.AppendLine($"        /// <summary>Sends <c>{handler.Signature}</c>.</summary>");
         source.Append($"        public void {handler.Name}(");
 
-        for (var i = 0; i < handler.Arguments.Length; i++) {
+        for (var i = 0; i < handler.Arguments.Count; i++) {
             if (i > 0) {
                 source.Append(", ");
             }
