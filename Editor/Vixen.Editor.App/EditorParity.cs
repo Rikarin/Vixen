@@ -11,6 +11,7 @@ using Vixen.Engine.Transforms;
 using Vixen.Input;
 using Vixen.Platform;
 using Vixen.Ui;
+using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.App;
 
@@ -78,30 +79,30 @@ sealed partial class EditorApplication {
     // ── File ────────────────────────────────────────────────────────────────────────────────────
 
     void FileCommands() {
-        // ⚠ The two the shell's default menu has named since it was written and nothing registered,
-        // which is doc 20's first finding. Both need a project to be swapped underneath a live
-        // editor — a world, a scene, an asset database and every open document — and doc 20 puts
-        // that behind the startup Project Browser in E3. Declared and disabled is the honest state:
-        // the File menu has the lines a person looks for, and choosing one says what is missing.
-        Planned(
+        // ⚠ The two the shell's default menu has named since it was written, and doc 20 filed both
+        // behind "swapping a project underneath a live editor". They do not swap one: the editor is
+        // rebuilt over the new root by the host, which is the path every restart already takes. See
+        // `RequestProject`.
+        Verb(
             "file.new-project",
             EditorStrings.CommandNewProject,
             EditorStrings.CategoryFile,
-            "Creating and switching projects arrives with the startup Project Browser."
+            () => PickProjectDirectory("New Project", CreateProject),
+            enabled: () => services.CanPick
         );
 
-        Planned(
+        Verb(
             "file.open-project",
             EditorStrings.CommandOpenProject,
             EditorStrings.CategoryFile,
-            "Opening another project in place arrives with the startup Project Browser."
+            ShowProjectBrowser
         );
 
         Planned(
             "file.no-recent",
             new StringId("editor.command.file.no-recent", "No Recent Projects"),
             EditorStrings.CategoryFile,
-            "Recent projects are recorded once a project can be opened without restarting."
+            "Nothing but this project has been opened yet."
         );
 
         Verb(
@@ -150,31 +151,112 @@ sealed partial class EditorApplication {
             "Package export needs the dependency walk the content browser's Select Dependencies builds."
         );
 
-        Planned(
+        Verb(
             "file.project-settings",
             new StringId("editor.command.file.project-settings", "Project Settings…"),
             EditorStrings.CategoryFile,
-            "The Project Settings window is milestone E3."
+            () => Shell.Workspace.Open(ProjectSettingsPanel)
         );
 
         Shell.Keys.SetDefault("file.new-scene", new KeyChord(InputKey.N, ModifierKeys.Control));
         Shell.Keys.SetDefault("file.open-scene", new KeyChord(InputKey.O, ModifierKeys.Control));
+        Shell.Keys.SetDefault("file.open-project", new KeyChord(InputKey.O, ModifierKeys.Control | ModifierKeys.Shift));
         Shell.Keys.SetDefault("file.save-as", new KeyChord(InputKey.S, ModifierKeys.Control | ModifierKeys.Shift));
         Shell.Keys.SetDefault("file.save-all", new KeyChord(InputKey.S, ModifierKeys.Control | ModifierKeys.Alt));
 
+        RecentProjectCommands();
+    }
+
+    /// <summary>One command per project in the history, which is what Open Recent is made of.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Commands rather than paths, which <c>EditorShell.Recent</c> insists on and is
+    ///         right to.</b> A dynamic menu is a set of ids because a line has to have a title, an
+    ///         enablement and a place in the palette, and only a registered command has all three —
+    ///         so "open the project I was in on Tuesday" is findable in the palette by typing its
+    ///         name, which is the behaviour that makes the list worth keeping.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Registered once, because the list only changes when the editor reopens.</b>
+    ///         Opening another project closes this editor and builds a new one — see
+    ///         <see cref="RequestProject" /> — so there is no moment at which the history changes
+    ///         under a live menu, and registering from inside the menu's own builder would be a
+    ///         registration that rebuilds the menu it is being built for.
+    ///     </para>
+    ///     <para>
+    ///         The project that is already open is left out: a line that reopens what you are
+    ///         looking at is one people choose once.
+    ///     </para>
+    /// </remarks>
+    void RecentProjectCommands() {
+        List<string> ids = [];
+
+        foreach (var entry in Recent.Entries) {
+            if (string.Equals(entry.Path, project.Paths.Root, StringComparison.Ordinal)) {
+                continue;
+            }
+
+            var path = entry.Path;
+
+            // ⚠ Asked once. `Exists` is a stat call, and the list is where a path to an unmounted
+            // share lives — the one place where asking four times is four chances to block.
+            var exists = entry.Exists;
+
+            Verb(
+                RecentCommand(path),
+
+                // ⚠ A null id, which `Strings.Get` answers with the source text. A directory the
+                // user happens to have called "Prototype" is not a string a translator should ever
+                // be shown, and giving it a catalogue id would put every project name they have
+                // opened into the localisation vocabulary.
+                new StringId(null!, entry.Name),
+                EditorStrings.CategoryFile,
+                () => RequestProject(path),
+
+                // A project on a volume that is not mounted is greyed rather than absent, for
+                // `ProjectHistory`'s reason: forgetting it is the one thing there is no way back
+                // from.
+                enabled: () => exists
+            );
+
+            ids.Add(RecentCommand(path));
+        }
+
         // The submenu is a dynamic over ids, so the fallback line is what an empty list shows —
         // a submenu that opens onto nothing at all reads as a broken menu rather than an empty one.
-        Shell.Recent = () => ["file.no-recent"];
+        Shell.Recent = ids.Count == 0 ? () => ["file.no-recent"] : () => ids;
+    }
+
+    /// <summary>What the command that reopens a project is called.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Derived from the path rather than from the entry's position in the list.</b> A
+    ///     positional id — <c>file.recent.0</c> — names a different project every time the order
+    ///     changes, which is every time one is opened. A keybinding on it would be a shortcut that
+    ///     silently moves to another project, and the keymap file would record an id whose meaning
+    ///     changes between sessions.
+    /// </remarks>
+    static string RecentCommand(string path) {
+        // ⚠ FNV-1a rather than `string.GetHashCode`, which is randomised per process — an id that
+        // changed on every launch would defeat the whole point — and rather than a cryptographic
+        // hash, which this is not: it names a menu line, and a collision costs one duplicate id that
+        // the registry refuses out loud.
+        var hash = 2166136261u;
+
+        foreach (var character in path) {
+            hash = (hash ^ character) * 16777619u;
+        }
+
+        return string.Create(System.Globalization.CultureInfo.InvariantCulture, $"file.recent.{hash:x8}");
     }
 
     // ── Edit ────────────────────────────────────────────────────────────────────────────────────
 
     void EditingCommands() {
-        Planned(
+        Verb(
             "edit.undo-history",
             new StringId("editor.command.edit.undo-history", "Undo History…"),
             EditorStrings.CategoryEdit,
-            "A window over the command stack is milestone E3."
+            () => Shell.Workspace.Open(HistoryPanel)
         );
 
         // ⚠ Scoped to the outliner, which is what lets the content browser's twin have the same key.
@@ -258,33 +340,44 @@ sealed partial class EditorApplication {
             new KeyChord(InputKey.A, ModifierKeys.Control | ModifierKeys.Shift)
         );
 
-        Planned(
-            "edit.search-everywhere",
-            new StringId("editor.command.edit.search-everywhere", "Search Everywhere…"),
-            EditorStrings.CategoryEdit,
-            "Search over content, entities and settings is milestone E3."
+        // ⚠ `edit.search-everywhere` is registered by the shell rather than here, because the
+        // overlay is the shell's. What this application adds is the sources — see `SearchSources` —
+        // and the command greys itself out where nothing has added any.
+        Shell.Search.AddSource(new AssetSearchSource(project, RevealAsset));
+        Shell.Search.AddSource(new EntitySearchSource(() => inspected ?? scene, RevealEntity));
+
+        Shell.Search.AddSource(
+            new CommandPaletteSource(Shell.Commands, Shell.Keys) {
+                // ⚠ Its own category so the block reads "Command" rather than being scattered across
+                // File, Edit and Scene. In the palette the command's own category is the useful
+                // answer; in a search across four kinds of thing, which *kind* it is comes first.
+                Uniform = true
+            }
         );
 
-        Planned(
+        Verb(
             "edit.find-references",
             new StringId("editor.command.edit.find-references", "Find References"),
             EditorStrings.CategoryEdit,
-            "The reference index answers this already; the panel that shows it is milestone E3."
+            FindReferences,
+            enabled: () => project.Selection.Count > 0
         );
 
-        Planned(
+        Verb(
             "edit.preferences",
             EditorStrings.CommandPreferences,
             EditorStrings.CategoryEdit,
-            "The Preferences window is milestone E3. Scene navigation preferences are on the Scene menu."
+            () => Shell.Workspace.Open(PreferencesPanel)
         );
 
-        Planned(
+        Verb(
             "edit.keybindings",
             new StringId("editor.command.edit.keybindings", "Keyboard Shortcuts…"),
             EditorStrings.CategoryEdit,
-            "The keybinding editor is milestone E3. Bindings can be edited in keymap.yaml."
+            () => Shell.Workspace.Open(EditorShell.KeyBindingsPanel)
         );
+
+        Shell.Keys.SetDefault("edit.preferences", new KeyChord(InputKey.Comma, ModifierKeys.Control));
     }
 
     // ── Assets ──────────────────────────────────────────────────────────────────────────────────
@@ -343,15 +436,17 @@ sealed partial class EditorApplication {
             enabled: () => browser is not null
         );
 
-        // ⚠ Still declared rather than wired, because the destination is the question and there is
-        // no folder picker to ask it with. Dragging a row onto a folder is the gesture people
-        // actually use and it goes through the same `AssetOperations.Move`; this is the menu line
-        // for the case where the destination is off screen, and it needs E3's dialog.
-        Planned(
+        // ⚠ Through a drawn folder chooser rather than a native one, and that is the whole point of
+        // the distinction `DialogService` draws. A native picker is about the user's disk; this is a
+        // question about the *project*, whose folders carry GUIDs and whose paths are relative — and
+        // a native dialog would happily answer with a directory outside the project, which is the
+        // one answer `AssetOperations.Move` cannot take.
+        Verb(
             "assets.move-to",
             new StringId("editor.command.assets.move-to", "Move To…"),
             CategoryAssets,
-            "Choosing a destination folder needs the browser dialog from milestone E3. Drag a row onto a folder."
+            MoveSelectedAssets,
+            enabled: () => browser is not null && project.Selection.Count > 0
         );
 
         Planned(
@@ -369,20 +464,142 @@ sealed partial class EditorApplication {
             enabled: () => !content.IsBusy
         );
 
-        Planned(
+        // ⚠ Doc 20's A8: "Find References is the same query and belongs in three places at once."
+        // Two of the three are these — the browser's context menu and the Assets menu — and they are
+        // the *same command* rather than two, which is what stops them disagreeing. The third,
+        // an asset field's own menu, is the inspector's and is not built.
+        Verb(
             "assets.find-references",
             new StringId("editor.command.assets.find-references", "Find References"),
             CategoryAssets,
-            "The reference index answers this already; the panel that shows it is milestone E3."
+            FindReferences,
+            enabled: () => project.Selection.Count > 0
         );
 
-        Planned(
+        Verb(
             "assets.select-dependencies",
             new StringId("editor.command.assets.select-dependencies", "Select Dependencies"),
             CategoryAssets,
-            "Selecting an asset's dependencies arrives with the content browser, milestone E1."
+            SelectDependencies,
+            enabled: () => project.Selection.Count > 0
+        );
+    }
+
+    /// <summary>Selects everything that points at what is selected, and says how much.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The answer is a selection rather than a list, and that is the useful shape.</b>
+    ///         <c>ReferenceIndex</c> answers "who points at this" in one lookup; what somebody does
+    ///         with the answer is open one of them, delete the lot, or look at what they have in
+    ///         common — all three of which are things the browser already does to a selection.
+    ///         A read-only list would be a fourth panel that can only be read.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A selection of nothing is left alone and reported.</b> Replacing the selection
+    ///         with an empty one would look exactly like the command having failed, and "nothing
+    ///         references this" is the answer people are usually checking for.
+    ///     </para>
+    /// </remarks>
+    void FindReferences() =>
+        Gather(project.References.ReferrersOf, "Nothing references that.", "referrer");
+
+    /// <summary>Selects everything the selection points at.</summary>
+    void SelectDependencies() =>
+        Gather(
+            asset => project.References.ReferencesFrom(asset).Select(reference => reference.Asset),
+            "That does not reference anything.",
+            "dependency"
         );
 
+    /// <summary>Walks one edge of the reference graph from the selection, and shows what it found.</summary>
+    /// <param name="edge">Which way to walk: what points at an asset, or what it points at.</param>
+    /// <param name="empty">What to say when the answer is nothing.</param>
+    /// <param name="noun">What one result is called.</param>
+    /// <remarks>
+    ///     ⚠ <b>A set for membership and a list for order.</b> The two verbs differ only in which
+    ///     direction they walk, and both can reach the same asset from several selected ones — a
+    ///     linear <c>Contains</c> per hit is quadratic in the answer, which a select-all over a
+    ///     heavily cross-referenced project is exactly the shape of.
+    /// </remarks>
+    void Gather(Func<AssetId, IEnumerable<AssetId>> edge, string empty, string noun) {
+        List<AssetId> found = [];
+        HashSet<AssetId> seen = [];
+
+        foreach (var asset in project.Selection) {
+            foreach (var reached in edge(asset)) {
+                if (seen.Add(reached)) {
+                    found.Add(reached);
+                }
+            }
+        }
+
+        if (found.Count == 0) {
+            Shell.Notifications.Show(empty, NotificationSeverity.Info);
+            return;
+        }
+
+        Select(found);
+        Shell.Notifications.Success(found.Count == 1 ? $"1 {noun}" : $"{found.Count} {noun}s");
+    }
+
+    /// <summary>Selects some assets and puts the editor in the browser's context.</summary>
+    void Select(IReadOnlyList<AssetId> assets) {
+        project.Selection.Set(assets);
+        Shell.Context = AssetContext;
+    }
+
+    /// <summary>Asks which of the project's folders to move the selection into.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every folder in the project, flat, by path.</b> A tree would be prettier and would
+    ///     need the browser's own tree in a dialog; a sorted list of relative paths is searchable by
+    ///     eye, is what the operation actually takes, and cannot express a destination outside the
+    ///     project — which is the one answer <c>AssetOperations.Move</c> refuses.
+    /// </remarks>
+    void MoveSelectedAssets() {
+        List<AssetId> assets = [.. project.Selection];
+
+        if (assets.Count == 0) {
+            return;
+        }
+
+        var folders = project.Assets.Entries
+            .Where(entry => entry.IsFolder)
+            .Select(entry => entry.Path)
+            .Append("Assets")
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        _ = Ask();
+
+        async Task Ask() {
+            var destination = await ChooseAsync(
+                assets.Count == 1 ? "Move to which folder?" : $"Move {assets.Count} assets to which folder?",
+                folders,
+                folder => folder
+            ).ConfigureAwait(true);
+
+            if (destination is not { Length: > 0 } folder) {
+                return;
+            }
+
+            var failures = 0;
+
+            foreach (var asset in assets) {
+                var result = AssetOperations.Move(project, asset, folder);
+
+                if (!result.Ok) {
+                    failures++;
+                    Shell.Notifications.Show("Could not move", NotificationSeverity.Error, result.Message);
+                }
+            }
+
+            browser?.Rescan();
+
+            if (failures == 0) {
+                Shell.Notifications.Success($"Moved to {folder}");
+            }
+        }
     }
 
     // ── Entity ──────────────────────────────────────────────────────────────────────────────────
@@ -733,11 +950,11 @@ sealed partial class EditorApplication {
             "The application has no handle on its window yet; the host owns it."
         );
 
-        Planned(
+        Verb(
             "tools.plugins",
             new StringId("editor.command.tools.plugins", "Plugins…"),
             CategoryTools,
-            "The plugin manager is milestone E3. Reload Plugins works today."
+            () => Shell.Workspace.Open(PluginsPanel)
         );
 
         Planned(
@@ -1399,7 +1616,12 @@ sealed partial class EditorApplication {
     ///     <c>Install</c> is idempotent, so re-running the five is a restyle rather than a reload.
     /// </remarks>
     void ReloadStyles() {
-        Shell.Theme.LoadTokens(store.Read("theme.yaml"));
+        // ⚠ Re-read, and the cached copy the Appearance page seeds from is dropped with it — that
+        // page exists to edit this file, so a hot reload that left it showing the old text would be
+        // an editor disagreeing with itself about what the theme is.
+        tokens = null;
+
+        Shell.Theme.LoadTokens(store.Read(ThemeFile));
         Shell.Notifications.Success("Styles reloaded");
     }
 
@@ -1423,7 +1645,69 @@ sealed partial class EditorApplication {
             return;
         }
 
+        // ⚠ The external-tool setting doc 20's A7 names, now that there is a preferences window to
+        // hold it. What is still honest is the limit: a stack frame carries a file and a line only
+        // in a build with symbols beside it, so what this can offer the tool is the project root.
+        // With no tool configured it reveals the folder, which is what it did before.
+        if (preferences.ExternalEditor is { Length: > 0 } tool) {
+            OpenInExternalEditor(tool, project.Paths.Root, line: 0);
+            return;
+        }
+
         Browse(new Uri(project.Paths.Root).AbsoluteUri);
+    }
+
+    /// <summary>Runs the configured external tool over a file.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Started detached and never waited on.</b> An editor that blocked its frame loop on
+    ///     somebody's IDE launching would be one that appears to hang for the four seconds a cold
+    ///     start takes — and the process is deliberately not tracked afterwards, because the user's
+    ///     editor outliving this one is the normal case.
+    /// </remarks>
+    void OpenInExternalEditor(string tool, string file, int line) {
+        var command = tool
+            .Replace("{file}", file, StringComparison.Ordinal)
+            .Replace("{line}", line.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
+
+        // The first token is the program and the rest are its arguments, which is the smallest rule
+        // that handles `code -g {file}:{line}` and `rider --line {line} {file}` without a shell.
+        var parts = command.Split(' ', 2, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length == 0) {
+            return;
+        }
+
+        try {
+            using var process = new System.Diagnostics.Process();
+
+            process.StartInfo.FileName = parts[0];
+            process.StartInfo.Arguments = parts.Length > 1 ? parts[1] : string.Empty;
+            process.StartInfo.UseShellExecute = false;
+
+            process.Start();
+        } catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException or IOException) {
+            Shell.Notifications.Show(
+                "Could not run the external editor",
+                NotificationSeverity.Warning,
+                exception.Message + " — check Preferences ▸ General."
+            );
+        }
+    }
+
+    /// <summary>Shows an asset in the project browser, which is what a search result means.</summary>
+    void RevealAsset(AssetId asset) {
+        Shell.Workspace.Open("project");
+        Select([asset]);
+    }
+
+    /// <summary>Selects an entity and frames it, which is what a search result for one means.</summary>
+    void RevealEntity(Entity entity) {
+        Shell.Workspace.Open("hierarchy");
+
+        (inspected ?? scene).Selection.Set([entity]);
+        Shell.Context = SceneContext;
+
+        hierarchyStale = true;
     }
 
     void Browse(string url) {
@@ -1640,6 +1924,11 @@ sealed partial class EditorApplication {
                     break;
 
                 default:
+                    // ⚠ A cancelled prompt is a decision, not a deferred one. `RequestProject` sets
+                    // a pending root before asking, and leaving it set would make the *next* close —
+                    // the one where they meant to quit — silently reopen the editor over a project
+                    // they backed out of choosing.
+                    PendingProject = null;
                     break;
             }
         }

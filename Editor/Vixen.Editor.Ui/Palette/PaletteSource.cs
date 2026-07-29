@@ -9,7 +9,27 @@ namespace Vixen.Editor.Ui;
 /// <param name="Score">How well it matched, from <see cref="FuzzyMatcher" />.</param>
 /// <param name="Detail">What is shown on the right — a shortcut, a path — or <c>null</c>.</param>
 /// <param name="Run">What choosing it does.</param>
-public readonly record struct PaletteItem(string Title, string Category, int Score, string? Detail, Action Run);
+public readonly record struct PaletteItem(string Title, string Category, int Score, string? Detail, Action Run) {
+    /// <summary>What the preview pane shows while this line is highlighted, or <c>null</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Doc 20's A8 asks for a preview pane and this is the whole of what a source has to
+    ///         supply for one.</b> It is separate from <see cref="Detail" /> because the two answer
+    ///         different questions: the detail is what fits on the right of a row — a shortcut, a
+    ///         folder — and the preview is the paragraph you read before deciding, which no row has
+    ///         room for. A source with nothing more to say leaves it null and the pane shows the
+    ///         detail instead.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A delegate rather than a string, because only one of them is ever read.</b> A
+    ///         source answers every match — thousands, on a two-letter query over a real project —
+    ///         and the palette then keeps <see cref="CommandPalette.Limit" /> of them and shows the
+    ///         preview of exactly one. Composing the paragraph eagerly means building thousands of
+    ///         strings per keystroke to throw all but one away.
+    ///     </para>
+    /// </remarks>
+    public Func<string>? Preview { get; init; }
+}
 
 /// <summary>Somewhere the palette looks.</summary>
 /// <remarks>
@@ -63,6 +83,17 @@ public sealed class CommandPaletteSource : IPaletteSource {
     /// <inheritdoc />
     public string Category => "Command";
 
+    /// <summary>Whether every result is filed under <see cref="Category" /> rather than its own.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Off in the palette and on in search-everywhere, and the two want opposite
+    ///     answers.</b> A palette is entirely commands, so "File", "Edit" and "Scene" are the useful
+    ///     distinction and "Command" would be a column of one word. A search across assets, entities
+    ///     and commands wants the opposite: which <i>kind</i> of thing a result is comes first, and
+    ///     a grouped list whose command results were scattered into six categories would have six
+    ///     one-row blocks in it.
+    /// </remarks>
+    public bool Uniform { get; init; }
+
     /// <inheritdoc />
     public void Search(string query, List<PaletteItem> results, int limit) {
         ArgumentNullException.ThrowIfNull(results);
@@ -73,7 +104,7 @@ public sealed class CommandPaletteSource : IPaletteSource {
             }
 
             var title = command.Title.Text;
-            var category = command.Category.Id is null ? Category : command.Category.Text;
+            var category = Uniform || command.Category.Id is null ? Category : command.Category.Text;
 
             // Matched against the category as well, so `view reset` finds "Reset Layout" under
             // View. The two are scored together rather than separately because a query that spans

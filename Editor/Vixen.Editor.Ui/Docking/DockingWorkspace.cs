@@ -22,6 +22,27 @@ namespace Vixen.Editor.Ui;
 public sealed record PanelDescriptor(string Id, StringId Title, Action<DockPanel> Build) {
     /// <summary>Whether the user may close it.</summary>
     public bool CanClose { get; init; } = true;
+
+    /// <summary>Called after the panel leaves the arrangement, however it left.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The mirror of <see cref="Build" />, and without it a factory is half a
+    ///         contract.</b> Nothing durable may live in a panel — a factory runs again on every
+    ///         reopen — so anything durable is held by whoever registered it, which leaves that
+    ///         object holding a control the moment the tab is closed. A viewport asked for its width
+    ///         after removal throws; an undo history polled after removal quietly rewrites rows
+    ///         nobody can see. Both are the same missing half.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>"However it left" is the part that has to be true.</b> A panel goes through
+    ///         <see cref="DockingWorkspace.Close" />, through the tab's own close button, through
+    ///         <see cref="DockingWorkspace.Unregister" />, and through a whole arrangement being
+    ///         replaced — and only the first of those four is a call anybody could hang a callback
+    ///         off. So the workspace watches what the host is actually showing rather than trusting
+    ///         the paths it knows about.
+    ///     </para>
+    /// </remarks>
+    public Action? Closed { get; init; }
 }
 
 /// <summary>The docked arrangement, the panels in it, and the presets it can be put back to.</summary>
@@ -45,6 +66,16 @@ public sealed class DockingWorkspace {
     readonly Dictionary<string, Func<DockLayout>> presets = new(StringComparer.Ordinal);
     readonly List<PanelDescriptor> ordered = [];
 
+    /// <summary>What was in the arrangement last time the host rebuilt it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What makes <see cref="PanelDescriptor.Closed" /> fire however a panel left.</b> The
+    ///     host raises <c>LayoutChanged</c> at the end of every rebuild, and a rebuild is what every
+    ///     close, dock, float and applied arrangement ends with — so comparing what it is showing
+    ///     against what it was showing catches the tab's close button, which no call into this class
+    ///     goes through.
+    /// </remarks>
+    readonly HashSet<string> shown = new(StringComparer.Ordinal);
+
     string fallback = string.Empty;
 
     /// <summary>Builds a docking host into an element.</summary>
@@ -53,7 +84,32 @@ public sealed class DockingWorkspace {
         ArgumentNullException.ThrowIfNull(host);
 
         Host = host.Add<DockingHost>();
-        Host.LayoutChanged += _ => Changed?.Invoke(this);
+
+        Host.LayoutChanged += _ => {
+            Retire();
+            Changed?.Invoke(this);
+        };
+    }
+
+    /// <summary>Tells the descriptors of panels that have left the arrangement that they have.</summary>
+    void Retire() {
+        // ⚠ Grown first, so a panel opened and closed between two rebuilds is not reported as having
+        // closed without ever having been seen to open.
+        foreach (var id in Host.Panels.Keys) {
+            shown.Add(id);
+        }
+
+        if (shown.Count == Host.Panels.Count) {
+            return;
+        }
+
+        foreach (var id in shown.Where(id => !Host.Panels.ContainsKey(id)).ToList()) {
+            shown.Remove(id);
+
+            if (descriptors.TryGetValue(id, out var descriptor)) {
+                descriptor.Closed?.Invoke();
+            }
+        }
     }
 
     /// <summary>The control showing the arrangement.</summary>
@@ -79,6 +135,26 @@ public sealed class DockingWorkspace {
     ///     is what <see cref="DockingHost.LayoutChanged" /> says, forwarded so that a caller does
     ///     not have to know the host exists.</remarks>
     public event Action<DockingWorkspace>? Changed;
+
+    /// <summary>Asked to register a panel a saved arrangement names and nothing declared.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Doc 20's A6: "open documents belong to an arrangement".</b> A panel a plugin
+    ///         registers exists before the layout is applied, which is why the ordering note in this
+    ///         class's own remarks works. An asset editor's panel does not: it is registered on demand
+    ///         when somebody double-clicks a file, and named by the asset's GUID — so a restored
+    ///         arrangement holding <c>asset.9e8a44c9…</c> would come back with the tab silently
+    ///         missing and the id still in the file, which is the worst of both.
+    ///     </para>
+    ///     <para>
+    ///         <b>A hook rather than a list of open documents in the layout file.</b> What a panel id
+    ///         <i>means</i> is the application's — a GUID, a search query, a device — and a workspace
+    ///         that knew would be a workspace that knows what an asset is. Answering
+    ///         <see langword="true" /> means "I have registered it now"; answering false leaves the
+    ///         id in the arrangement, which is the same bargain a plugin's panel already gets.
+    ///     </para>
+    /// </remarks>
+    public Func<string, bool>? Resolve { get; set; }
 
     /// <summary>Declares a panel.</summary>
     /// <param name="descriptor">What it is.</param>
@@ -122,14 +198,20 @@ public sealed class DockingWorkspace {
     public bool Unregister(string id) {
         ArgumentNullException.ThrowIfNull(id);
 
-        if (!descriptors.Remove(id, out var descriptor)) {
+        if (!descriptors.TryGetValue(id, out var descriptor)) {
             return false;
         }
 
-        ordered.Remove(descriptor);
+        // ⚠ Closed while the descriptor is still registered, so `Retire` can find it and run the
+        // panel's teardown. Removing it first would make unregistering the one path that silently
+        // skips `PanelDescriptor.Closed` — and unloading a plugin is exactly when the thing being
+        // released matters most.
         Close(id);
-        Changed?.Invoke(this);
 
+        descriptors.Remove(id);
+        ordered.Remove(descriptor);
+
+        Changed?.Invoke(this);
         return true;
     }
 
@@ -151,7 +233,13 @@ public sealed class DockingWorkspace {
     public DockPanel? Open(string id) {
         ArgumentNullException.ThrowIfNull(id);
 
-        if (!descriptors.TryGetValue(id, out var descriptor)) {
+        if (!descriptors.TryGetValue(id, out var descriptor)
+            && (Resolve?.Invoke(id) ?? false)
+            && descriptors.TryGetValue(id, out var registered)) {
+            descriptor = registered;
+        }
+
+        if (descriptor is null) {
             return null;
         }
 

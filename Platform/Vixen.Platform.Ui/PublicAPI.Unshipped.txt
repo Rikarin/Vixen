@@ -21,6 +21,8 @@ Vixen.Platform.Ui.PlatformWindowHost : Vixen.Ui.IUiWindowHost
 Vixen.Platform.Ui.PlatformWindowHost.CanOpen.get -> bool
 Vixen.Platform.Ui.PlatformWindowHost.Dispose() -> void
 Vixen.Platform.Ui.PlatformWindowHost.Handle(in Vixen.Platform.PlatformEvent platformEvent) -> bool
+Vixen.Platform.Ui.PlatformWindowHost.IsReachable(System.Collections.Generic.IReadOnlyList<Vixen.Platform.DisplayInfo> displays, float x, float y, float width, float height) -> bool
+Vixen.Platform.Ui.PlatformWindowHost.IsReachable(Vixen.Platform.IPlatform platform, float x, float y, float width, float height) -> bool
 Vixen.Platform.Ui.PlatformWindowHost.Main.get -> Vixen.Platform.IWindow
 Vixen.Platform.Ui.PlatformWindowHost.Open(Vixen.Ui.UiDocument document, in Vixen.Ui.UiWindowRequest request) -> Vixen.Ui.IUiWindow?
 Vixen.Platform.Ui.PlatformWindowHost.PlatformWindowHost(Vixen.Platform.IPlatform platform, Vixen.Ui.UiDocument document, Vixen.Platform.IWindow main) -> void

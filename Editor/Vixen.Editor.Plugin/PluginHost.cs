@@ -35,6 +35,7 @@ public sealed class PluginHost {
     readonly EditorShell shell;
     readonly List<LoadedPlugin> plugins = [];
     readonly List<PluginDiagnostic> diagnostics = [];
+    readonly HashSet<string> suppressed = new(StringComparer.Ordinal);
 
     /// <summary>Creates a host over a shell.</summary>
     /// <param name="shell">The editor's chrome, which is what a plugin registers into.</param>
@@ -61,6 +62,84 @@ public sealed class PluginHost {
     /// <summary>Raised after a plugin activates or is unloaded.</summary>
     /// <remarks>What a plugin-management panel listens to in order to redraw its list.</remarks>
     public event Action<LoadedPlugin>? Changed;
+
+    /// <summary>The plugins the user has switched off, whatever their manifests say.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The user's set, kept apart from <see cref="PluginManifest.Enabled" />.</b> The
+    ///     manifest's flag is the <i>author's</i> and lives in the plugin's own directory — which
+    ///     for a plugin checked into a repository is a file the whole team shares and for one
+    ///     installed globally may not be writable at all. Somebody switching a plugin off in the
+    ///     manager is making a statement about their machine, so it is recorded beside their layout
+    ///     and their keymap. Either flag alone is enough to keep a plugin out.
+    /// </remarks>
+    public IReadOnlyCollection<string> Suppressed => suppressed;
+
+    /// <summary>Declares which plugins the user has switched off, before anything is loaded.</summary>
+    /// <param name="ids">Their ids.</param>
+    /// <remarks>
+    ///     Called with what the user store had in it, so that a plugin switched off last session is
+    ///     not activated and then unloaded — which would run its <c>Activate</c>, and a plugin
+    ///     somebody switched off because it broke the editor is exactly the one whose <c>Activate</c>
+    ///     must not run.
+    /// </remarks>
+    public void Suppress(IEnumerable<string> ids) {
+        ArgumentNullException.ThrowIfNull(ids);
+
+        suppressed.Clear();
+
+        foreach (var id in ids) {
+            if (!string.IsNullOrEmpty(id)) {
+                suppressed.Add(id);
+            }
+        }
+    }
+
+    /// <summary>Switches a plugin off, now and for the next session.</summary>
+    /// <param name="id">Its id.</param>
+    /// <returns>Whether there is a plugin under that id.</returns>
+    public bool Disable(string id) {
+        ArgumentNullException.ThrowIfNull(id);
+
+        if (Find(id) is not { } plugin) {
+            return false;
+        }
+
+        suppressed.Add(id);
+
+        if (plugin.State == PluginState.Active) {
+            Deactivate(plugin);
+        } else {
+            plugin.State = PluginState.Disabled;
+        }
+
+        Changed?.Invoke(plugin);
+        return true;
+    }
+
+    /// <summary>Switches one back on and starts it.</summary>
+    /// <param name="id">Its id.</param>
+    /// <returns>What happened, which for a plugin that then fails to start says why.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Through <see cref="Reload" />, which re-reads the manifest and the assembly.</b> A
+    ///     plugin switched off in one session and on in the next is one whose files may have changed
+    ///     in between — and a plugin the user is switching on <i>because</i> they have just fixed it
+    ///     is the ordinary case. Reusing a descriptor read at start-up would load the copy that did
+    ///     not work.
+    /// </remarks>
+    public PluginReport Enable(string id) {
+        ArgumentNullException.ThrowIfNull(id);
+        suppressed.Remove(id);
+
+        return Reload(id);
+    }
+
+    /// <summary>Whether a plugin is switched off, by its author or by the user.</summary>
+    /// <param name="id">Its id.</param>
+    /// <returns>Whether it is.</returns>
+    public bool IsSuppressed(string id) {
+        ArgumentNullException.ThrowIfNull(id);
+        return suppressed.Contains(id) || Find(id) is { Manifest.Enabled: false };
+    }
 
     /// <summary>The plugin with an id, or <c>null</c>.</summary>
     /// <param name="id">The id.</param>
@@ -224,7 +303,9 @@ public sealed class PluginHost {
             var plugin = new LoadedPlugin(descriptor);
             plugins.Add(plugin);
 
-            if (!descriptor.Manifest.Enabled) {
+            // Either switch is enough to keep it out: the author's, in the manifest, and the
+            // user's, which the plugin manager writes beside their layout.
+            if (!descriptor.Manifest.Enabled || suppressed.Contains(descriptor.Id)) {
                 plugin.State = PluginState.Disabled;
                 continue;
             }

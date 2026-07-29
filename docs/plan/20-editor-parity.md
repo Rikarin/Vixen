@@ -32,17 +32,17 @@ than a plan.
 ## Where the editor actually is
 
 Reconciled against the code in `Editor/`, not against doc 11's aspirations, and **as of the end of
-[E1](#e1--the-three-panels-people-live-in-20-em)**. The counts came out of the registry rather than
+[E3](#e3--settings-keys-layouts-plugins-10-em)**. The counts came out of the registry rather than
 from counting `Add` calls, because half of the commands are registered in loops.
 
 | | Built | Missing |
 |---|---|---|
-| **Panels** | Hierarchy, Inspector, Scene viewport, Project browser, Console, one per open asset document | ~24 more, listed in [Part B](#part-b--the-panel-inventory) |
+| **Panels** | Hierarchy, Inspector, Scene viewport, Project browser, Console, Message Log, Keyboard Shortcuts, Preferences, Project Settings, Plugins, Undo History, one per open asset document | ~18 more, listed in [Part B](#part-b--the-panel-inventory) |
 | **Menus** | All ten of [Part C](#part-c--the-menu-bar-entry-by-entry): File, Edit, Assets, Entity, Scene, Play, Window, Build, Tools, Help | Nothing structural. Individual lines are disabled-with-a-reason rather than absent |
-| **Commands** | 153 registered ids, of which 51 are declared-and-disabled with the milestone that builds them | The 51, plus whatever E2–E6 adds |
-| **Windows** | One OS window, a floating dock group promoted to a real one, and drawn modal dialogs | Preferences, Project Settings, Keybindings, Plugin manager, Project browser (startup), About |
-| **Layouts** | Five presets, saved/named arrangements, `current.vxlayout`, floating groups with their geometry | Open documents are not part of an arrangement |
-| **Shell services** | Commands with contexts and scopes, keymap, palette, menus, context menus, toolbar with sections and groups, status bar, notifications, background tasks, theming, localisation, docking, plugins, dialogs, icons, MRU, **an automation harness** | Modes, search-everywhere, keymap presets |
+| **Commands** | Every id [Part C](#part-c--the-menu-bar-entry-by-entry) names, plus Open Recent's one per project. The declared-and-disabled ones now name E2, E4, E5 and E6 — none of them names E3 | Whatever E2 and E4–E6 add |
+| **Windows** | One OS window, a floating dock group promoted to a real one with an off-display rule, drawn modal dialogs, and the startup Project Browser | About is still a notification rather than a window |
+| **Layouts** | Five presets, saved/named arrangements, `current.vxlayout`, floating groups with their geometry, **and the open documents** | `Profiling` and `Sequencing`, which wait on B4 and B5 |
+| **Shell services** | Commands with contexts and scopes, a three-layer keymap with presets, palette, **search-everywhere**, menus, context menus, toolbar with sections and groups, status bar, notifications, background tasks, theming, localisation, docking, plugins, dialogs, icons, MRU, **a settings mechanism**, **an automation harness** | Modes |
 
 The three findings this document opened with are all closed, and they are kept because the reasoning
 is the record of why E0 was shaped the way it was:
@@ -50,8 +50,9 @@ is the record of why E0 was shaped the way it was:
 - ✅ **Five menu lines already named commands nobody registered.** `file.new-project`,
   `file.open-project`, `file.save-all`, `edit.preferences` and `help.documentation` — the bar was
   *already shaped* for the editor this document describes, and registering them was the smallest
-  possible first commit. All five exist; two of them are still declared-and-disabled, because
-  swapping a project underneath a live editor is [E3](#e3--settings-keys-layouts-plugins-10-em).
+  possible first commit. All five exist and all five now do something: the last two were
+  declared-and-disabled until [E3](#e3--settings-keys-layouts-plugins-10-em) found that swapping a
+  project underneath a live editor is a problem you solve by not swapping one.
 - ✅ **The file-dialog blocker was gone and the READMEs had not caught up.** `INativeDialogs` is now
   reached through `IPlatformSupplement` and `EditorServices`, and Open Scene, Save As and Import grey
   themselves out on a platform without pickers rather than being absent.
@@ -66,13 +67,13 @@ is the record of why E0 was shaped the way it was:
 These are the things every panel in Part B needs and none of them should build twice. Nothing in Part
 B should start before the piece of Part A it stands on.
 
-> ⚠️ **A1–A3 and A7 are built, and the prose below is kept in the present tense on purpose.** It is
-> the record of *why* each piece is shaped the way it is, which is the part a reader still needs and
-> the part a checklist loses. Where a section's opening sentence describes the editor as it was
-> before [E0](#e0--the-frame-15-em) — "three of those five exist", "everything modal is currently
-> unbuildable" — read it as the problem statement it was written as. What is genuinely still owed is
-> called out in each section and summarised in the table above: **the mode bar, keymap presets,
-> search-everywhere, the Message Log panel, command repeat, and palette recency.**
+> ⚠️ **All eight are built bar three items, and the prose below is kept in the present tense on
+> purpose.** It is the record of *why* each piece is shaped the way it is, which is the part a reader
+> still needs and the part a checklist loses. Where a section's opening sentence describes the editor
+> as it was before [E0](#e0--the-frame-15-em) — "three of those five exist", "everything modal is
+> currently unbuildable", "there is no UI" — read it as the problem statement it was written as. What
+> is genuinely still owed is called out in each section and summarised in the table above: **the mode
+> bar, command repeat, and palette recency.**
 
 ### A1 — The application frame
 
@@ -116,19 +117,25 @@ currently unbuildable.
   capability is a runtime question (`PlatformCapabilities.NativeDialogs`), so the commands grey
   themselves out on Web and Android rather than being absent — the same rule `view.float-panel`
   already follows.
-- **Promoting a floating dock group to a real OS window** is doc 11's remaining docking gap, and it is
-  now nearly closed. `EditorPane` proves a second surface, swapchain and input queue;
+- ✅ **Promoting a floating dock group to a real OS window** is doc 11's remaining docking gap, and it
+  is closed. `EditorPane` proves a second surface, swapchain and input queue;
   `--run view.float-panel` is validation-clean; and ⚠ **the claim that `DockLayout` does not record
   which groups were promoted is stale** — `DockFloat(Group, X, Y, Width, Height)` is serialised with
   the arrangement, and whether one becomes an OS window or a rectangle inside the host is
-  `IUiWindowHost`'s answer at restore time rather than something the file has to state. What is
-  genuinely left is the second half of the original sentence: **a rule about what happens when a
-  saved window is off every current display**, which today restores a panel somewhere nobody can
-  reach it.
-- **A startup Project Browser window.** Unreal's project browser and Unity Hub exist because the
+  `IUiWindowHost`'s answer at restore time rather than something the file has to state. The second
+  half of the original sentence — **a rule about what happens when a saved window is off every
+  current display** — is `PlatformWindowHost.IsReachable`: a hundred and twenty points of title bar
+  has to land on something, or the position is dropped and the platform places the window. It is the
+  same rule the main window's own geometry goes through, shared rather than written twice.
+- ✅ **A startup Project Browser window.** Unreal's project browser and Unity Hub exist because the
   first question an editor is asked is "which project", and `--project` is not an answer for a user.
-  Recent projects with their last-opened time, a New Project pane over `Tools/Vixen.Templates`, and a
-  Browse button. It is the last thing in this section to build and the first thing a new user sees.
+  Recent projects with their last-opened time, a Browse button and a New Project one.
+  ⚠ **It is a drawn dialog rather than an OS window, which is this section's own rule applied to its
+  own example** — the first thing a new user sees is precisely the screen a regression must not be
+  able to hide in, so it has to be photographable by the golden suite and drivable by the harness.
+  ⚠ **And New Project makes four directories rather than instantiating a template**:
+  `Tools/Vixen.Templates` is reached with `dotnet new` and produces a *solution*, which is a different
+  thing from the folder an editor opens.
 
 ### A3 — Command system, completed
 
@@ -150,74 +157,125 @@ feel fast.
 
 ### A4 — Preferences and Project Settings
 
-Two windows, one mechanism, and the mechanism already exists twice.
+Two windows, one mechanism, and the mechanism already exists twice. **All three bullets are built**,
+and `SettingsView` is the mechanism: a rail, a pane, a search over every setting on every page, a
+Reset per page and an Apply. The only difference between the two windows is whose store the pages are
+over.
 
-- **Project Settings** edits `[DataContract]` types under `ProjectSettings/` through
+- ✅ **Project Settings** edits `[DataContract]` types under `ProjectSettings/` through
   `ProjectSettingsStore` and draws them with `InspectorView`. Doc 11's claim that "adding a project
-  setting is declaring a type, not also writing a dialog" is already true in the model and there is no
-  window over it. Left rail of categories, right pane of drawers, a search box over every setting in
-  every category, and a Reset per category.
-- **Preferences** is the same window over the *user's* store rather than the project's, and its first
-  categories are General, Appearance (theme, font, density), Scene View (the three navigation
-  preferences currently living as ticked commands), Keybindings (A5), Colours, External Tools, and
-  Plugins. ⚠ **The three navigation preferences stay as commands.** They are palette-searchable and
-  rebindable there, and the preferences window shows the *same* commands rather than a second copy of
-  the state — two writers to one setting is how a preferences window and a menu tick disagree.
-- ⚠ **A setting is not saved on every keystroke.** The layout file's rule (`written on the way down`)
-  applies here for the same reason, with an explicit Apply for anything that costs something to
-  change.
+  setting is declaring a type, not also writing a dialog" is now true end to end: `ProjectInfo` and
+  `ContentBuild` are two contract types with `[Inspector]` on their members and no dialog code at all.
+  ⚠ **Both have a reader, which is the bar a shipped setting has to clear** — the product name is what
+  the title bar says and the content target is what the import and the build run for. A settings page
+  of fields nothing reads teaches people that the settings do not work.
+- ✅ **Preferences** is the same window over the *user's* store rather than the project's: General,
+  Appearance, Scene View, Keybindings and Plugins. ⚠ **The three navigation preferences stay as
+  commands, and so does the theme.** They are palette-searchable and rebindable there, and the
+  window draws the *same* commands as toggles rather than a second copy of the state — two writers to
+  one setting is how a preferences window and a menu tick disagree. The last two pages are a sentence
+  and a button that opens the panel, for the same reason: a keybinding table of two hundred rows is
+  not a page in a dialog.
+- ✅ **A setting is not saved on every keystroke.** The layout file's rule (`written on the way down`)
+  applies here for the same reason, with an explicit Apply — which the two settings that cost
+  something to change are exactly why: lowering the undo depth drops history immediately, and
+  changing the content target invalidates an import.
+
+⚠ **Colours turned out to be a text area over `theme.yaml` rather than a colour-ramp editor.**
+`ThemeService.LoadTokens` already reads that file and `tools.reload-styles` already re-reads it — the
+only thing missing was a way to reach it without knowing where it is. A second representation of the
+ramp would be a second thing to keep in step with the sheet.
 
 ### A5 — The keybinding editor
 
 `KeyMap` has conflict detection, per-command overrides, defaults-vs-overrides separation, and reset.
-There is no UI, which doc 11 already flags. The panel is a `DataGrid` of command / category /
-binding / source, a filter box, a "press a key" capture through `Vixen.Input`'s rebinding path,
-conflict reporting inline, per-row and global reset, and import/export of a keymap file.
+There is no UI, which doc 11 already flags. **The panel is built**: a `DataGrid` of command /
+category / binding / source, a filter box, a "press a key" capture, conflict reporting inline,
+per-row and global reset, and import/export of a keymap file.
 
 ⚠ **Presets matter more than they look.** A Unity user and an Unreal user disagree about what `W`
-does and both are certain. Shipping `Vixen`, `Unity` and `Unreal` keymap presets — a YAML file each,
-which is the format `KeyMap`'s override layer already reads — converts a week of friction into a
-dropdown.
+does and both are certain — they happen to agree about `W`, and disagree about Play, Duplicate and
+Save All. `Vixen`, `Unity` and `Unreal` ship, and choosing one is a dropdown.
 
 ⚠ **`KeyMap` has no notion of a preset**, and "the override layer already reads it" is about the
 *file format* rather than about the mechanism. A preset is a third layer between the shipped defaults
 and the user's own overrides, because choosing Unreal and then rebinding one key has to leave the
 other two hundred following the preset rather than being copied into the user's file — otherwise the
 next preset update reaches nobody who has ever rebound anything. That layer is the work; the dropdown
-is not.
+is not. ✅ **It is built as a layer**, and two things fell out of building it that way:
+
+- **The composition takes a chord off whatever held it, so a preset can be twenty lines.** Unity puts
+  Play on `Ctrl+P`, which is this editor's palette; the preset says where the palette goes and says
+  nothing at all about the command it displaced, because the composition works that out. The rule is
+  most-specific-layer-first, and within a layer in command-id order so the answer is the same on
+  every machine.
+- **`Vixen`'s preset is empty, and that is not a stub.** The shipped defaults *are* the Vixen keymap
+  — they are declared beside the commands, where a default belongs — so a preset restating them would
+  be a second copy of the same table. Choosing `Vixen` means "no layer".
+
+⚠ **Capture is a mode rather than a modal, and it is what makes the panel testable.** A dialog that
+swallows keystrokes to record them cannot be driven by the automation harness, which is
+[A2](#a2--windows-dialogs-and-a-dialog-service)'s argument turned round. The consequence worth stating
+is that Escape is the one chord this panel will not bind, because Escape is how capture ends.
 
 ### A6 — Layouts, completed
 
-- **Open documents belong to an arrangement.** `current.vxlayout` records the panels; an asset editor
-  opened by double-click is registered on demand and named by GUID, so it is *nameable* — the layout
-  just does not carry the list. Recording it, and reopening those documents on restore, is what makes
-  "the editor comes back how I left it" true.
-- **A layout per mode is a menu, not five presets.** Window ▸ Layouts ▸ with the presets, the user's
-  saved ones (currently a palette source only), Save Layout As…, and Reset. ⚠ The palette source
+- ✅ **Open documents belong to an arrangement.** `current.vxlayout` records the panels; an asset
+  editor opened by double-click is registered on demand and named by GUID, so it is *nameable* — the
+  layout just does not carry the list. ⚠ **The fix turned out not to be a list in the file.** The
+  arrangement already held `asset.<guid>`; what was missing was anything able to build one on the way
+  back, so the id was written and the tab came back absent. `DockingWorkspace.Resolve` is a hook the
+  workspace asks before giving up, and the application answers it by opening the document — the same
+  path a double-click takes. A workspace that knew what a GUID meant would be a workspace that knows
+  what an asset is.
+- ✅ **A layout per mode is a menu, not five presets.** Window ▸ Layouts ▸ with the presets, the
+  user's saved ones (also a palette source), Save Layout As…, and Reset. ⚠ The palette source
   stays — an unbounded list belongs there — but a menu with the five presets on it is what a new user
   finds.
 - **Two more presets to ship**: `Profiling` and `Sequencing`, once Parts B4 and B5 exist.
 
 ### A7 — Notifications, messages, and the Console
 
-- **A Message Log panel** over `NotificationCenter`'s history, which is kept and bounded and has no
-  view. Errors already do not expire; what is missing is the place they accumulate.
+- ✅ **A Message Log panel** over `NotificationCenter`'s history, which is kept and bounded and has no
+  view. Errors already do not expire; what is missing is the place they accumulate. ⚠ **It is not the
+  Console, and the difference is who wrote the line.** The console is the whole of the diagnostics
+  ring — every category, every level, the game's lines and the engine's. This is what the *editor*
+  decided was worth interrupting somebody about, which is two orders of magnitude shorter and the one
+  you scan after something went wrong. The mirror means every entry here is in the console too; the
+  reverse is emphatically not true.
 - **The Console is a real panel** (this is the largest single item in Part A): a virtualised list over
   `Vixen.Core.Diagnostics`' ring buffer, with level toggles (error/warn/info/debug counts as badges),
   a category filter, a search box, collapse-duplicates, clear, clear-on-play, a detail pane showing
-  the full record and stack, and double-click-to-open-source through the external-tool setting.
+  the full record and stack, and double-click-to-open-source through the external-tool setting — which
+  is `EditorPreferences.ExternalEditor` now that there is a window to hold it. ⚠ **What is still
+  honest about that is the limit**: a stack frame carries a file and a line only in a build with
+  symbols beside it, so what the editor can hand the tool is the project root.
   ⚠ **It must not allocate per line.** A game logging per frame into a panel that keeps strings is a
   leak with a UI; the ring buffer is fixed-size and the panel virtualises over it.
 
 ### A8 — Search everywhere
 
-`Ctrl+P` is a command palette over `IPaletteSource`. `Ctrl+Shift+F` should be the same machinery over
-*content*: assets by name and type, entities by name and component, settings, menu actions, and
-in-file matches from `ReferenceIndex`. The sources do their own matching (already the contract), so
-the asset source can index rather than scan. Results are grouped by source with a preview pane.
+`Ctrl+P` is a command palette over `IPaletteSource`. `Ctrl+Shift+F` is **the same machinery over
+*content***: assets by name and path, entities by name, and the commands themselves. The sources do
+their own matching (already the contract), so the asset source can index rather than scan — today it
+scans the database's own dictionary, which is a few thousand cheap comparisons per keystroke and
+measurably nothing beside the layout pass that follows. Results are grouped by source with a preview
+pane.
+
+⚠ **A second palette rather than a mode on the first, and the two want opposite answers to three
+questions.** Grouping: a palette is entirely commands, so the useful distinction is File / Edit /
+Scene; a search across four kinds of thing wants the *kind* first. The empty query: a palette opened
+and not yet typed into should offer what the editor can do, and a search-everywhere offering twenty
+commands would push out the first asset that matches. And Return: one runs a verb, the other reveals
+a thing, and a mode would be an overlay whose Return means two things.
 
 ⚠ **Find References is the same query and belongs in three places at once** — the browser's context
-menu, the inspector's asset field, and here. `ReferenceIndex` answers it already.
+menu, the inspector's asset field, and here. `ReferenceIndex` answers it already. **Two of the three
+are built and they are one command rather than two**, which is what stops them disagreeing; the
+answer is a *selection* in the browser rather than a read-only list, because what somebody does with
+it is open one, delete the lot, or look at what they have in common, and the browser already does all
+three to a selection. ⚠ **The inspector's asset field is not built**: it is a change to `AssetDrawer`
+rather than to this, and claiming it would be claiming a menu nobody can reach.
 
 ---
 
@@ -235,8 +293,11 @@ is the assembly that should hold it. Status: ✅ built, 🟡 partial, ⛔ absent
 | **Scene viewport** | Level Viewport / Scene | `.SceneView` | 🟡 | See [B2](#b2--the-viewport) |
 | **Project browser** | Content Browser / Project | `.App` | 🟡 | Grid view with thumbnails, saved filters, collections/favourites, drag-and-drop out (see E1's table), source-control column, folder tree beside the list rather than one tree |
 | **Console** | Output Log / Console | `.Ui` | ✅ | — |
-| **Message log** | Message Log | `.Ui` | ⛔ | A view over the notification history |
-| **Command palette** | — (both have search) | `.Ui` | ✅ | Recency boosting, more sources ([A8](#a8--search-everywhere)) |
+| **Message log** | Message Log | `.Ui` | ✅ | — |
+| **Command palette** | — (both have search) | `.Ui` | ✅ | Recency boosting. Search-everywhere is a second palette over content ([A8](#a8--search-everywhere)) |
+| **Preferences / Project Settings** | Preferences / Project Settings | `.Ui` + `.App` | ✅ | More settings types, as the runtime grows things worth setting |
+| **Keyboard shortcuts** | Keyboard Shortcuts / Shortcuts | `.Ui` | ✅ | — |
+| **Undo history** | Undo History / — | `.App` | ✅ | — |
 
 ### B2 — The viewport
 
@@ -323,7 +384,7 @@ editor. The same panel over the same rings, with a source selector.
 |---|---|---|---|
 | **Build settings** | Project Launcher / Build Settings | ⛔ | Target, configuration, scenes-in-build, variant, output path, over `Tools/Vixen.Cli`'s existing calls |
 | **Device manager / deploy** | Device Manager / Build & Run | ⛔ | List devices, deploy, launch, attach the remote inspector |
-| **Plugin manager** | Plugins / Package Manager | ⛔ | A list over `PluginHost.Plugins` with enable, disable, reload. Doc 11 calls it "a view and nothing more" and it is |
+| **Plugin manager** | Plugins / Package Manager | ✅ | A list over `PluginHost.Plugins` with enable, disable, reload. ⚠ The two switches are kept apart: `plugin.yaml`'s `enabled:` is the author's and is shared by a team, and the user's is recorded beside their layout |
 | **Source control** | Revision Control / Version Control | ⛔ | P2. Status column in the browser, and check-out/revert/diff/history over a provider interface with a git implementation |
 | **Crash reporter** | Crash Reporter (both) | ⛔ | Out-of-process, minidump plus the last N log lines plus the undo history, with consent |
 | **Session recovery** | Auto-save recovery (both) | ⛔ | A journal, and a kill-and-restore loop that tests it |
@@ -551,6 +612,41 @@ search everywhere, startup Project Browser.
 the editor restores its full arrangement including open documents; a plugin can be enabled, disabled
 and reloaded from a panel.
 
+**Where E3 stands.** All three exit sentences run as tests in `Vixen.Editor.App.Tests`, and every
+line of Part C that named E3 as its milestone now names nothing. Five things came out differently
+from how this document described them, and each is worth the sentence:
+
+| What the plan said | What it turned out to be |
+|---|---|
+| **New and Open Project need "a project swapped underneath a live editor"** — a world, a scene, an asset database and every open document | Nothing is swapped. The request closes this editor and hands `Program` the next root, which builds another host over the same window — so the new editor is assembled by exactly the code that assembles it at launch, and by the code every restart in the test harness already proves. Half a dozen fields reassigned in place would have been half a dozen chances to leave a panel pointing at a dead world |
+| **The layout does not carry its open documents** | It always did. The arrangement held `asset.<guid>`; what was missing was anything able to *build* one on the way back, because an asset editor's panel is registered on demand. One hook on the workspace, answered by the application |
+| **Two windows** for Preferences and Project Settings | Two *panels*, which dock, tab, and become real OS windows through `view.float-panel`. [A2](#a2--windows-dialogs-and-a-dialog-service)'s own rule — everything modal is drawn, so the golden suite can photograph it — points the same way, and a settings window is the one thing people leave open beside what they are changing |
+| **Colours** as a settings category | A text area over `theme.yaml`, which `ThemeService` already reads. A colour-ramp editor would be a second representation of the palette to keep in step with the sheet |
+| **A preset is a YAML file, "which is the format the override layer already reads"** | True of the format and beside the point. The work was the third layer, and the part that made presets small was letting the *composition* take a chord off whatever held it — so Unity's preset says where the palette went and nothing about the twenty commands it did not displace |
+
+⚠ **Two defects fell out of writing the tests rather than out of writing the features**, and both are
+the kind Part F exists to catch. Closing the Scene tab left the application holding a viewport whose
+control had been removed, and the next frame asked a removed element for its width — the
+panel-lifecycle row, found the first time every registered panel was closed and reopened in one test.
+And `RangeBase` threw from a property setter for any `[Range]` whose minimum exceeded one, because the
+bounds are two properties and are necessarily set one at a time: the first `[Range]` int in the
+codebase was the undo depth, and it took the preferences window down with it.
+
+⚠ **The first of those two was fixed at the wrong depth and then at the right one, which is worth
+recording.** Nulling the viewport when its control turns out to be removed fixes the panel that
+crashed and leaves the mechanism missing: `PanelDescriptor` had a `Build` and no teardown, so *every*
+panel whose owner keeps a reference to what the factory made has the same hole — the undo history had
+it too, and was polled for the rest of the session after being closed once. `PanelDescriptor.Closed`
+is the missing half, and the workspace fires it by comparing what the host is showing against what it
+was showing, because the commonest way a panel closes — the tab's own button — is not a call into the
+workspace at all.
+
+Three things this milestone is *not*, said plainly: **About is still a notification** rather than the
+window Part C's Help menu implies; **Find References does not reach the inspector's asset field**,
+which is a change to `AssetDrawer` rather than to any of this; and **New Project makes four
+directories** rather than instantiating one of `Tools/Vixen.Templates`, which produces a solution and
+is a different thing from the folder an editor opens.
+
 ### E4 — Diagnostics (2.0 EM)
 
 `Vixen.Editor.Profiler` and `Vixen.Editor.Debugger` as projects. CPU flame chart, GPU timeline,
@@ -596,9 +692,14 @@ lost work; a signed installer exists for three desktops; the performance bar is 
 
 E0 → E1 → E2 is strictly sequential: E1's context menus are E0's, and E2's overlay toolbar is E0's
 toolbar work. **E3 and E4 are independent of each other and of E2**, so with more than one engineer
-they run in parallel from the end of E1. E5 depends on E1 (thumbnails, browser) and partly on E2
-(previews). E6 depends on everything and should start its automation harness during E1, not after E5
-— a harness written last is a harness written against a frozen target.
+they run in parallel from the end of E1 — and E3 was in fact taken before E2, which cost nothing and
+is the evidence for the claim. E5 depends on E1 (thumbnails, browser) and partly on E2 (previews). E6
+depends on everything and should start its automation harness during E1, not after E5 — a harness
+written last is a harness written against a frozen target.
+
+⚠ **E2 is now the only thing between here and a viewport that is not a wireframe**, which the risk
+table below already calls the first thing anybody notices. Nothing in E3 changed that and nothing in
+E3 was blocked by it.
 
 ---
 
@@ -609,9 +710,9 @@ about the *shell* rather than the model.
 
 | Level | Mechanism |
 |---|---|
-| **Menu and command coverage** | A test that walks `MenuModel` and asserts every `MenuCommand` names a registered command. The five dangling ids found while writing this document are exactly what it catches, and it is about fifteen lines |
-| **Keymap presets** | Each preset file is asserted to bind only registered commands and to raise no conflict. A preset that silently drops a binding is worse than no preset |
-| **Panel lifecycle** | Every registered panel is built, docked, floated, closed and rebuilt in one test. `A panel's factory runs again when it is reopened` is already a documented hazard and nothing currently proves a given panel survives it |
+| **Menu and command coverage** ✅ | A test that walks `MenuModel` and asserts every `MenuCommand` names a registered command. The five dangling ids found while writing this document are exactly what it catches, and it is about fifteen lines |
+| **Keymap presets** ✅ | Each preset file is asserted to bind only registered commands and to raise no conflict. A preset that silently drops a binding is worse than no preset. ⚠ The conflict half is asserted against the *whole real registry* rather than against the preset alone: a chord free among a preset's own twenty entries can still be held by one of the editor's two hundred |
+| **Panel lifecycle** 🟡 | Every registered panel is built, docked, floated, closed and rebuilt in one test. `A panel's factory runs again when it is reopened` is already a documented hazard and nothing currently proves a given panel survives it. Closed-and-reopened is covered and found a real defect on the first run; **floated is not**, because tearing a panel out needs a window host and the harness has none |
 | Editor UI automation | As doc 11: a headless host driving synthetic input against the real element tree. Extended with one scenario per milestone exit above |
 | Golden screenshots | As doc 11, plus: every layout preset, both themes, the full menu bar open, and one per viewport view mode |
 

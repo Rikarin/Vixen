@@ -97,6 +97,26 @@ public sealed class ProjectSettingsStore {
     /// <summary>Whether anything has been marked changed and not yet written.</summary>
     public bool HasUnsavedChanges => changed.Count > 0;
 
+    /// <summary>Puts one settings type back to its declared defaults, in memory.</summary>
+    /// <typeparam name="T">The settings type.</typeparam>
+    /// <remarks>
+    ///     <para>
+    ///         What a settings window's per-category Reset does. Marked changed rather than written,
+    ///         because a reset is an edit like any other and the window's Apply is what commits it —
+    ///         which is also what makes Revert able to take it back.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A new instance, so anything still holding the old one is detached.</b> The same
+    ///         bargain <see cref="Reload" /> makes and for the same reason: the object it was reading
+    ///         no longer describes the project. Callers that keep a settings object across a reset —
+    ///         a subsystem rather than a drawer — should ask for it again.
+    ///     </para>
+    /// </remarks>
+    public void Reset<T>() where T : class, new() {
+        loaded[typeof(T)] = new T();
+        changed.Add(typeof(T));
+    }
+
     /// <summary>Writes one settings type to disk.</summary>
     /// <typeparam name="T">The settings type.</typeparam>
     /// <remarks>Writes whether or not it was marked changed; <see cref="SaveAll" /> is the one that filters.</remarks>

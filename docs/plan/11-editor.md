@@ -96,9 +96,11 @@ public interface IEditorCommand
 > tree above implies by ordering: a command is an id and a delegate and a panel is an id and a
 > factory, so the shell knows nothing about projects, documents or undo stacks — which is what makes
 > the whole of the editor's chrome testable against a bare `UiDocument`, and it is what doc 11's own
-> "headless editor host" line asks for. `Vixen.Editor.App` joins the two. **Undock to a separate OS
-> window is still half-built**: `DockFloat` is a group floating within the document, and promoting
-> one to a real window needs a second surface, swapchain and input queue from `Vixen.Platform`.
+> "headless editor host" line asks for. `Vixen.Editor.App` joins the two. ~~**Undock to a separate OS
+> window is still half-built**~~ — it is built: `IUiWindowHost` is the seam this assembly declares
+> and `Vixen.Platform.Ui` fills, the arrangement records where a promoted group was, and a saved
+> position that lands on no current display is dropped rather than restoring a window nobody can
+> reach.
 > **`Strings.Resource` is not generated yet** — `EditorStrings` is hand-written in the shape the
 > generator will emit, so no call site changes when it lands, but an id used nowhere is not yet a
 > build error.
@@ -109,9 +111,11 @@ public interface IEditorCommand
 > the ordering, the folder synthesis and the search are tested without a document. `Ctrl+R` rescans.
 > It does not watch the file system, and says so rather than pretending.
 >
-> The remaining gap is a keybinding editor: the model has conflict detection, per-command
-> customisation and reset, and there is no UI over it. Plugin loading has since landed — see
-> [`Vixen.Editor.Plugin`](#vixeneditorplugin) below.
+> ~~The remaining gap is a keybinding editor~~ — `KeyBindingsView` is that panel, and the model
+> underneath it gained the third layer it needed for presets: shipped defaults, a preset, and the
+> user's own overrides, with only the last saved. `Vixen`, `Unity` and `Unreal` ship. Plugin loading
+> has since landed — see [`Vixen.Editor.Plugin`](#vixeneditorplugin) below — and so has a panel over
+> it with enable, disable and reload.
 
 ### `Vixen.Editor.Inspector`
 

@@ -65,6 +65,18 @@
                           ReferenceOutputAssembly="false" />
 
         <!--
+            And the reflection generator, for the same reason and about the other attribute. The
+            settings assets this application ships — what a project is called, what it builds for —
+            are ordinary [DataContract] types, because that is what makes "adding a project setting
+            is declaring a type" true: the same YAML binder reads them that reads a .meta file, and
+            ProjectSettingsStore names their file after the contract's alias rather than after the
+            C# type so that renaming the type does not orphan every project's settings.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!--
             The window, the device and the four steps of a frame. Deliberately assembled here rather
             than taken from Tools/Vixen.App: that host owns a frame loop built around an ECS world
             and a fixed-step accumulator, and the editor's loop is an interface that redraws when

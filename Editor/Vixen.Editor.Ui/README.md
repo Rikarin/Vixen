@@ -66,9 +66,27 @@ edge of the window, on whichever frame the application happened to register its 
 
 ## Keybindings
 
-Two layers: the defaults the application ships and the overrides the user made, and only the second
-is saved. A keymap file holding every binding freezes the defaults at the version the user first ran
-— every editor that shipped one has a support burden to prove it.
+Three layers: the defaults the application ships, a **preset**, and the overrides the user made. Only
+the last is saved, plus the preset's name. A keymap file holding every binding freezes the defaults at
+the version the user first ran — every editor that shipped one has a support burden to prove it.
+
+`Vixen`, `Unity` and `Unreal` ship (`KeyMapPresets`), and a team's own is one YAML file in the same
+format. ⚠ **A preset is a layer and not an edit**, because choosing Unreal and then rebinding one key
+has to leave the other two hundred following the preset — applied by copying, the next preset update
+would reach nobody who had ever rebound anything. ⚠ **`Vixen`'s preset is empty and that is not a
+stub**: the shipped defaults *are* the Vixen keymap, declared beside the commands where a default
+belongs, so choosing it means "no layer".
+
+⚠ **The composition takes a chord off whatever held it**, most-specific layer first and within a
+layer in command-id order. That is what lets a preset be twenty lines: Unity puts Play on `Ctrl+P`,
+which is this editor's palette, and the preset says where the palette goes rather than enumerating
+everything it displaced.
+
+`KeyBindingsView` is the panel over all of it — command, category, binding and which layer it came
+from, with a filter, a preset picker, a "press a key" capture, inline conflict reporting, per-row and
+global reset, and import/export raised as events for whoever has a file picker. ⚠ **Capture is a mode
+rather than a modal**, so the harness can drive it; the consequence is that Escape is the one chord it
+will not bind.
 
 Conflicts are **detected, not resolved**: a chord belongs to one command *per context*, and binding
 an occupied chord fails and says who has it. Across contexts, sharing a chord is the point rather
@@ -115,10 +133,16 @@ the same bargain `KeyMap` makes with a plugin's shortcut. `MenuModel.Remove` and
 are the same story for a menu, and remove **by identity**: `MenuCommand` is a record, so removing
 "the line naming `file.save`" would take out whichever of them compared equal first.
 
-## The palette
+## The palette, and search-everywhere
 
 `Ctrl/Cmd+P`, fuzzy, over an ordered list of `IPaletteSource`. Commands are one source; assets,
 scene objects and settings are others and are not this assembly's business.
+
+`EditorShell.Search` is a **second** `CommandPalette` on `Ctrl+Shift+F`, grouped by source and with a
+preview pane, and it starts with no sources at all — the shell knows what a command is and nothing
+else. ⚠ **A second overlay rather than a mode on the first**, because the two want opposite answers to
+three questions: whether to group by source or by the command's own category, whether an empty query
+should list anything, and what Return means. One runs a verb; the other reveals a thing.
 
 The matching is subsequence-with-bonuses — a run beats scattered letters, a word start beats the
 middle, a shorter candidate beats a longer one that matched equally well. A source does its **own**
@@ -233,9 +257,15 @@ is English. `Strings.Missing` is the list a translator works from.
   here knows what a project, a document or an undo stack is, which is what lets the whole assembly be
   tested against a bare `UiDocument` — the same bargain `Vixen.Ui` makes with `Vixen.Platform`.
   Joining the two is `Vixen.Editor.App`'s job.
-- **A window.** Floating dock groups float *within the document*; promoting one to an OS window needs
-  a second surface, swapchain and input queue, which belong to `Vixen.Platform` and the app head.
-  `EditorShell.Title` is composed here and *applied* by the host, for the same reason.
+- **A window.** A floating dock group becomes a real one through `IUiWindowHost`, which this assembly
+  declares and cannot implement: a second surface, swapchain and input queue belong to
+  `Vixen.Platform` and the app head. Whether a *saved* window position is still on a display is the
+  host's answer too, for the same reason — `PlatformWindowHost.IsReachable`. `EditorShell.Title` is
+  composed here and *applied* by the host, on the same terms.
+- **A settings store.** `SettingsView` is a rail, a pane, a search over every page and an Apply, and
+  it has no idea what a setting is: a page is an id, a title and something that fills an element.
+  Which store the pages are over — the user's or the project's — and what draws them is
+  `Vixen.Editor.App`'s, because the inspector is not this assembly's business either.
 - **A native file picker.** `DialogService` is the editor's own modal questions — confirm, prompt,
   choose — drawn as a `Vixen.Ui.Controls` `Dialog` in the shell's document, because a modal that is
   an OS window cannot be screenshotted by the golden suite or driven by the automation harness. The
@@ -244,10 +274,10 @@ is English. `Strings.Missing` is the list a translator works from.
 
 ## Known gaps
 
-- **A keybinding editor.** `KeyMap` has the model — conflict detection, per-command customisation,
-  reset — and no UI. Interactive "press a key" capture is `Vixen.Input`'s rebinding path.
-- **A notification panel.** The history is kept and bounded; only the toasts and the task centre have
-  views.
+- **Palette recency.** Doc 20 calls "recently used" boosting the single cheapest thing that makes a
+  palette feel fast, and the ranking is still score-only.
+- **Command history and repeat.** `CommandRegistry.Executed` fires for every run and nothing keeps
+  the list, so there is no `Ctrl+Shift+R`.
 - **An icon set.** `EditorIcons` is the two dozen glyphs the chrome cannot be drawn without, on the
   same 24×24 grid `ControlIcons` uses and reachable by id so a plugin can name one. Doc 20 puts the
   real set at about a hundred and twenty and calls it a design dependency; the mitigation is that
@@ -256,4 +286,5 @@ is English. `Strings.Missing` is the list a translator works from.
 - **`Strings.Resource` generation.** `EditorStrings` is hand-written in the shape the generator will
   emit, so nothing at a call site changes when it lands — but an id used nowhere and an id declared
   nowhere are not yet build errors.
-- **Layout presets do not remember floating groups' promotion**, because nothing can promote one yet.
+- **A mode bar.** `IEditorMode` — the seam Select / Landscape / Foliage would hang off — does not
+  exist, which doc 20's A1 calls the one structural addition still owed to the frame.

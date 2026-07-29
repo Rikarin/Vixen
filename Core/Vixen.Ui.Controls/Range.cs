@@ -75,14 +75,24 @@ public abstract partial class RangeBase : Control {
             value = Minimum + (MathF.Round((value - Minimum) / Step) * Step);
         }
 
-        return Math.Clamp(value, Minimum, Maximum);
+        return Clamp(value);
     }
 
     /// <summary>Brings a value inside the bounds and onto a step.</summary>
     protected float Snap(float value) =>
-        Step > 0f
-            ? Math.Clamp(Minimum + (MathF.Round((value - Minimum) / Step) * Step), Minimum, Maximum)
-            : Math.Clamp(value, Minimum, Maximum);
+        Clamp(Step > 0f ? Minimum + (MathF.Round((value - Minimum) / Step) * Step) : value);
+
+    /// <summary>Brings a value inside the bounds, whichever way round they currently are.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not <c>Math.Clamp(value, Minimum, Maximum)</c>, and the reason is that the bounds are
+    ///     two properties.</b> They are therefore set one at a time, so a caller configuring a
+    ///     slider for <c>[Range(8, 4096)]</c> passes through an instant where <see cref="Minimum" />
+    ///     is 8 and <see cref="Maximum" /> is still its default 1 — and each setter re-snaps the
+    ///     value, so <c>Math.Clamp</c> throws from inside a property assignment. A control that
+    ///     cannot be configured in the order its own API offers is the bug; an inverted range for one
+    ///     statement is not.
+    /// </remarks>
+    float Clamp(float value) => Math.Clamp(value, MathF.Min(Minimum, Maximum), MathF.Max(Minimum, Maximum));
 
     /// <summary>The strip the fill and the thumbs are drawn on.</summary>
     /// <remarks>
@@ -485,7 +495,8 @@ public sealed partial class ProgressBar : RangeBase {
         }
     }
 
-    float CoerceValue(float value) => Math.Clamp(value, Minimum, Maximum);
+    /// <inheritdoc cref="RangeBase.Snap" />
+    float CoerceValue(float value) => Snap(value);
 
     void OnIndeterminateChanged(bool previous, bool current) {
         if (current) {

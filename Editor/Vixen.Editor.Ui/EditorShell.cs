@@ -126,6 +126,16 @@ public sealed class EditorShell : IDisposable {
         Palette = Document.Root.Add<CommandPalette>();
         Palette.AddSource(new CommandPaletteSource(Commands, Keys));
 
+        // ⚠ The same machinery with different sources and a different question, which is doc 20's
+        // A8 in one line: `Ctrl+P` is "run the thing I am naming" and `Ctrl+Shift+F` is "where is
+        // this word in my project". Grouped by source with a preview, because the second question's
+        // answer is four short lists rather than one ranked one — and a second palette rather than a
+        // mode on the first, because a mode would be a palette whose Return means two things.
+        Search = Document.Root.Add<CommandPalette>();
+        Search.GroupBySource = true;
+        Search.RequiresQuery = true;
+        Search.Limit = 20;
+
         Dialogs = new DialogService(Document);
 
         // ⚠ Wired both ways, once, here. The registry answers "what context is this command in" so
@@ -149,7 +159,78 @@ public sealed class EditorShell : IDisposable {
         Tasks.Ended += Announce;
 
         RegisterViewCommands();
+        RegisterShellPanels();
     }
+
+    /// <summary>The keybinding editor, while its panel is open.</summary>
+    public KeyBindingsView? Keyboard { get; private set; }
+
+    /// <summary>The message log, while its panel is open.</summary>
+    public MessageLogView? Messages { get; private set; }
+
+    /// <summary>Raised when the keybinding panel is built, so a host can wire what it cannot.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Import and export need a file picker, which this assembly deliberately has no way to
+    ///     reach.</b> The panel says what the user asked for and something with an
+    ///     <c>INativeDialogs</c> answers — and a host with none disables the two buttons rather than
+    ///     leaving a pair that do nothing. Raised every time the panel is built, because a panel's
+    ///     factory runs again when it is reopened and the view is a new one each time.
+    /// </remarks>
+    public event Action<KeyBindingsView>? KeyboardBuilt;
+
+    /// <summary>The two panels that are views over what the shell itself owns.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The shell registers these two and no others, and the line is not arbitrary.</b>
+    ///         Everything else in the editor is a view over something the <i>application</i> has — a
+    ///         project, a scene, a plugin host — and a shell that registered those would be a shell
+    ///         that knows what they are, which is the one thing this class is built not to. The
+    ///         keybinding editor is a view over <see cref="Commands" /> and <see cref="Keys" />; the
+    ///         message log is a view over <see cref="Notifications" />. All four are here.
+    ///     </para>
+    ///     <para>
+    ///         The consequence is the one worth having: any host of this shell — the editor, a
+    ///         sample, a test — gets both, and doc 20's Part A calls them shell infrastructure for
+    ///         exactly that reason.
+    ///     </para>
+    /// </remarks>
+    void RegisterShellPanels() {
+        RegisterPanel(
+            new PanelDescriptor(
+                KeyBindingsPanel,
+                EditorStrings.PanelKeys,
+                panel => {
+                    Keyboard = panel.Add<KeyBindingsView>();
+                    Keyboard.Show(Commands, Keys);
+
+                    KeyboardBuilt?.Invoke(Keyboard);
+                }
+            ) {
+                // ⚠ Both halves of the factory's contract. A field holding a control from a closed
+                // panel is a pointer into a detached tree — see `PanelDescriptor.Closed`.
+                Closed = () => Keyboard = null
+            }
+        );
+
+        RegisterPanel(
+            new PanelDescriptor(
+                MessageLogPanel,
+                EditorStrings.PanelMessages,
+                panel => {
+                    Messages = panel.Add<MessageLogView>();
+                    Messages.Show(Notifications);
+                }
+            ) {
+                Closed = () => Messages = null
+            }
+        );
+    }
+
+    /// <summary>What the keybinding editor's panel is called in an arrangement.</summary>
+    public const string KeyBindingsPanel = "keybindings";
+
+    /// <summary>And the message log's.</summary>
+    public const string MessageLogPanel = "messages";
 
     /// <summary>The document the host lays out, draws and dispatches into.</summary>
     public UiDocument Document { get; }
@@ -206,6 +287,16 @@ public sealed class EditorShell : IDisposable {
 
     /// <summary>Fuzzy search over everything.</summary>
     public CommandPalette Palette { get; }
+
+    /// <summary>Fuzzy search over everything the editor <i>has</i>: assets, entities, settings.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Empty until something adds a source, and that is the shell being honest.</b> The
+    ///     shell knows what a command is and nothing else — there is no project here, no scene and no
+    ///     asset database — so the sources are the application's to add, exactly as
+    ///     <see cref="Palette" />'s extra ones are. What the shell supplies is the overlay, the
+    ///     ranking, the grouping, the preview and the key.
+    /// </remarks>
+    public CommandPalette Search { get; }
 
     /// <summary>How the editor asks a question.</summary>
     public DialogService Dialogs { get; }
@@ -547,6 +638,24 @@ public sealed class EditorShell : IDisposable {
                 // line the user reads once, chooses once, and finds nothing happens.
                 IsHiddenFromPalette = true
             }
+        );
+
+        // ⚠ Registered by the shell rather than by the application, unlike every other `edit.*` id.
+        // The overlay is the shell's — see `Search` — and doc 20's Part C puts the line on the Edit
+        // menu, which the shell's own default model already names. An application that adds no
+        // sources gets an empty search rather than a dangling menu line, which is the same bargain
+        // the palette makes.
+        Commands.Add(
+            new EditorCommand("edit.search-everywhere", EditorStrings.CommandSearchEverywhere, () => Search.OpenPalette()) {
+                Category = EditorStrings.CategoryEdit,
+                Enablement = () => Search.Sources.Count > 0,
+                IsHiddenFromPalette = true
+            }
+        );
+
+        Keys.SetDefault(
+            "edit.search-everywhere",
+            new KeyChord(InputKey.F, ModifierKeys.Control | ModifierKeys.Shift)
         );
 
         Commands.Add(

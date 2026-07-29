@@ -80,6 +80,10 @@ sealed class EditorHost : IDisposable {
             RenderScale = Scale
         };
 
+        // ⚠ Only the host asks the editor to greet, which is what keeps the startup Project Browser
+        // out of every test that builds an application. See `EditorApplication.Greets`.
+        editor.Greets = true;
+
         // ⚠ Pushed on change rather than set once. The title carries the scene's name and its dirty
         // marker — `<scene>* — <project> — Vixen` — and it is the only affordance that answers
         // "which project is this window" when three of them are open. The shell composes it and
@@ -110,6 +114,17 @@ sealed class EditorHost : IDisposable {
     ///     directly would prove only what the CLI already proves.
     /// </remarks>
     public string? Command { get; set; }
+
+    /// <summary>Which project the editor should be rebuilt over, or <see langword="null" /> to stop.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read by <c>Program</c> after <see cref="Run" /> returns, which is what makes Open
+    ///     Project work without a restart.</b> Doc 20 filed swapping a project as "a world, a scene,
+    ///     an asset database and every open document" — and it is, which is why nothing is swapped:
+    ///     this host is disposed and another is built over the same window, so the new editor is
+    ///     assembled by exactly the code that assembles it at launch. See
+    ///     <c>EditorApplication.RequestProject</c>.
+    /// </remarks>
+    public string? NextProject => editor.PendingProject;
 
     /// <summary>Runs until the window closes, or for a fixed number of frames.</summary>
     /// <param name="frames">How many, or zero for as many as it takes.</param>

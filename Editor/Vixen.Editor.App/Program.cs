@@ -34,13 +34,18 @@ namespace Vixen.Editor.App;
 static class Program {
     static int Main(string[] arguments) {
         var frames = Frames(arguments);
-        var project = Project(arguments);
 
         // ⚠ The surface has to be asked for at creation. SDL needs the Vulkan window flag when the
         // window is made, and one made without it has nothing to present to.
         using var platform = new DesktopPlatform(
             new() { Organisation = "Vixen", Application = "Editor", RequestGpuSurface = true }
         );
+
+        // ⚠ `--project` first, then the last project this user had open, then the scratch one. Doc
+        // 20's A2 is blunt that "which project" is the first question an editor is asked and that
+        // `--project` is not an answer for a user; reopening what they were in is what every editor
+        // that keeps a recent list does, and the startup browser is what a first run gets instead.
+        var project = Project(arguments) ?? LastProject(platform.FileSystem.DataDirectory);
 
         // ⚠ Before the window, because a window's size is decided when it is made. Everything else
         // about the editor's shape already persists — the arrangement, the keymap, the theme — and
@@ -65,8 +70,50 @@ static class Program {
             }
         );
 
-        using var host = new EditorHost(platform, window, project) { Command = Option(arguments, "--run") };
-        return host.Run(frames);
+        // ⚠ A loop, and it is the whole of "open another project without restarting". Each pass owns
+        // one editor over one project; choosing another leaves the loop's body, disposes everything
+        // that editor built — world, documents, plugins, device — and builds the next one over the
+        // same window. Doc 20 called swapping a project underneath a live editor the reason New and
+        // Open Project were declared-and-disabled, and this is the answer: nothing is swapped.
+        var command = Option(arguments, "--run");
+
+        while (true) {
+            var host = new EditorHost(platform, window, project) { Command = command };
+
+            try {
+                var code = host.Run(frames);
+
+                if (code != 0 || host.NextProject is not { } next) {
+                    return code;
+                }
+
+                project = next;
+
+                // ⚠ The one-shot command and the frame budget belong to the run that was asked for.
+                // A `--run` repeated against every project the user then opened would be a CI flag
+                // that fires an unbounded number of times.
+                command = null;
+                frames = 0;
+            } finally {
+                host.Dispose();
+            }
+        }
+    }
+
+    /// <summary>The most recent project that is still on disk, or nothing.</summary>
+    /// <remarks>
+    ///     Read straight out of the user's history file, in the same position
+    ///     <see cref="WindowPlacement" /> is read from and for the same reason: this happens before
+    ///     there is a window, a log, or any way to tell somebody that it went wrong.
+    /// </remarks>
+    static string? LastProject(string dataDirectory) {
+        foreach (var entry in new ProjectHistory(dataDirectory).Entries) {
+            if (entry.Exists) {
+                return entry.Path;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Reads an option that takes a value, or null.</summary>

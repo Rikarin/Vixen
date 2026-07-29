@@ -765,6 +765,21 @@ public static class EditorTheme {
         palette-row:checked palette-category, palette-row:checked palette-detail { color: var(--accent-text); }
         palette-detail { color: var(--text-muted); font-size: 0.85em; }
 
+        /* ⚠ Hidden by default and shown only by search-everywhere, which is what
+           `CommandPalette.GroupBySource` decides. A command palette that grew a
+           paragraph would stop being one keystroke and a Return. */
+        palette-preview {
+            display: none;
+            flex-direction: column;
+            flex-shrink: 0;
+            margin-top: 4px;
+            padding: 6px 9px;
+            border-top-width: 1px;
+            border-color: var(--border);
+            color: var(--text-muted);
+            font-size: 0.85em;
+        }
+
         /* ── Console ────────────────────────────────────────────────────────────
            A strip, a virtualised list and a detail pane, in a column. The list is
            the only part that grows: a console whose detail pane grew with the
@@ -871,5 +886,252 @@ public static class EditorTheme {
         console-detail-heading { color: var(--text); }
         console-detail-meta { color: var(--text-muted); font-size: 0.85em; }
         console-detail-stack { color: var(--text-muted); font-size: 0.85em; white-space: pre; }
+
+        /* ── Message log ────────────────────────────────────────────────────────
+           The console's shape with a shorter list and a wider message, because
+           what is in it is a sentence somebody wrote for a person rather than a
+           category and a stack. Sharing the console's *tokens* rather than its
+           rules: the two panels sit beside each other often enough that a
+           different row height would read as one of them being broken. */
+        message-log { flex-direction: column; flex-grow: 1; flex-basis: 0px; min-height: 0px; gap: 0px; }
+
+        message-log-toolbar {
+            flex-direction: row;
+            align-items: center;
+            flex-shrink: 0;
+            gap: 4px;
+            padding: 4px 6px;
+            border-bottom-width: 1px;
+            border-color: var(--border);
+        }
+
+        message-log-toolbar search-box { flex-grow: 1; min-width: 80px; }
+        message-log-toolbar select { width: 150px; flex-shrink: 0; }
+        message-log virtualizing-panel { flex-grow: 1; flex-basis: 0px; min-height: 0px; }
+
+        message-row {
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+            padding: 0px 8px;
+            border-width: 0px;
+            background-color: transparent;
+            color: var(--text);
+            font-size: 0.9em;
+        }
+
+        message-row:hover { background-color: var(--surface-hover); }
+        message-row:checked { background-color: var(--accent); color: var(--accent-text); }
+        message-row.parked { display: none; }
+
+        message-mark { width: 3px; height: 12px; flex-shrink: 0; border-radius: 2px; }
+        message-mark.level-error { background-color: var(--danger); }
+        message-mark.level-warning { background-color: var(--warning); }
+        message-mark.level-success { background-color: var(--play); }
+        message-mark.level-info { background-color: var(--accent); }
+
+        message-time { width: 62px; flex-shrink: 0; color: var(--text-muted); font-size: 0.9em; }
+        message-text { flex-shrink: 0; max-width: 340px; overflow: hidden; }
+        message-detail-text { flex-grow: 1; overflow: hidden; color: var(--text-muted); }
+
+        message-row:checked message-time, message-row:checked message-detail-text { color: var(--accent-text); }
+
+        message-log-detail {
+            flex-direction: column;
+            flex-shrink: 0;
+            height: 96px;
+            gap: 3px;
+            padding: 7px 9px;
+            border-top-width: 1px;
+            border-color: var(--border);
+            background-color: var(--surface-sunken);
+            overflow: auto;
+        }
+
+        message-log-detail.empty { height: auto; padding: 5px 9px; color: var(--text-muted); }
+        message-detail-heading { color: var(--text); }
+        message-detail-meta { color: var(--text-muted); font-size: 0.85em; }
+        message-detail-body { color: var(--text-muted); font-size: 0.85em; white-space: pre; }
+
+        /* ── Keybindings ────────────────────────────────────────────────────────
+           A strip, a grid and a status line. The status line is the part that is
+           easy to leave out and is the whole of "conflict reporting inline": a
+           rebind that is refused with no explanation is one the user repeats. */
+        keybindings-view { flex-direction: column; flex-grow: 1; flex-basis: 0px; min-height: 0px; gap: 0px; }
+
+        keybindings-toolbar {
+            flex-direction: row;
+            align-items: center;
+            flex-shrink: 0;
+            flex-wrap: wrap;
+            gap: 4px;
+            padding: 4px 6px;
+            border-bottom-width: 1px;
+            border-color: var(--border);
+        }
+
+        keybindings-toolbar search-box { flex-grow: 1; min-width: 90px; }
+        keybindings-toolbar select { width: 110px; flex-shrink: 0; }
+        keybindings-view data-grid { flex-grow: 1; flex-basis: 0px; min-height: 0px; }
+
+        keybindings-status {
+            flex-shrink: 0;
+            padding: 4px 9px;
+            border-top-width: 1px;
+            border-color: var(--border);
+            background-color: var(--surface-sunken);
+            color: var(--text-muted);
+            font-size: 0.85em;
+        }
+
+        /* ⚠ Coloured only while there is a conflict. A status line that is always
+           red is one nobody reads the day it matters. */
+        keybindings-status.conflict { color: var(--danger); }
+
+        /* ── Settings ───────────────────────────────────────────────────────────
+           A search over everything, a rail of pages, a pane, and a footer whose
+           two buttons are disabled until something has been typed. The rail is a
+           fixed width: a settings window whose category list resizes with its
+           longest label is one whose pane jumps as you move between pages. */
+        settings-view { flex-direction: column; flex-grow: 1; flex-basis: 0px; min-height: 0px; gap: 0px; }
+
+        settings-header {
+            flex-direction: row;
+            align-items: center;
+            flex-shrink: 0;
+            padding: 5px 6px;
+            border-bottom-width: 1px;
+            border-color: var(--border);
+        }
+
+        settings-header search-box { flex-grow: 1; }
+        settings-body { flex-direction: row; flex-grow: 1; flex-basis: 0px; min-height: 0px; gap: 0px; }
+
+        settings-rail {
+            flex-direction: column;
+            flex-shrink: 0;
+            width: 168px;
+            gap: 1px;
+            padding: 5px;
+            border-right-width: 1px;
+            border-color: var(--border);
+            background-color: var(--surface-sunken);
+            overflow: auto;
+        }
+
+        /* ⚠ Left-aligned and full width, because a rail is a list rather than a
+           row of buttons that happen to be stacked. The checked state is the
+           selection and there is no hover rule fighting it, for the palette
+           row's reason. */
+        settings-rail > button.settings-tab {
+            justify-content: flex-start;
+            width: 100%;
+            padding: 4px 8px;
+            border-width: 0px;
+            border-radius: var(--radius-row);
+            background-color: transparent;
+            color: var(--text);
+        }
+
+        settings-rail > button.settings-tab:hover { background-color: var(--surface-hover); }
+        settings-rail > button.settings-tab:checked { background-color: var(--accent); color: var(--accent-text); }
+
+        settings-pane {
+            flex-direction: column;
+            flex-grow: 1;
+            flex-basis: 0px;
+            min-width: 0px;
+            gap: 4px;
+            padding: 8px 10px;
+            overflow: auto;
+        }
+
+        settings-footer {
+            flex-direction: row;
+            align-items: center;
+            flex-shrink: 0;
+            gap: 6px;
+            padding: 5px 8px;
+            border-top-width: 1px;
+            border-color: var(--border);
+            background-color: var(--surface-sunken);
+        }
+
+        settings-spacer { flex-grow: 1; }
+
+        /* ── Plugins and history ────────────────────────────────────────────────
+           Two grids over lists the editor already keeps. Neither needs anything
+           the data grid does not already draw; what they need is a strip and a
+           line of prose for the state that a table cannot say — a plugin that
+           failed, and an undo entry that is where "saved" was. */
+        plugin-manager, history-view {
+            flex-direction: column;
+            flex-grow: 1;
+            flex-basis: 0px;
+            min-height: 0px;
+            gap: 0px;
+        }
+
+        plugin-toolbar, history-toolbar {
+            flex-direction: row;
+            align-items: center;
+            flex-shrink: 0;
+            gap: 4px;
+            padding: 4px 6px;
+            border-bottom-width: 1px;
+            border-color: var(--border);
+        }
+
+        plugin-toolbar search-box, history-toolbar search-box { flex-grow: 1; min-width: 80px; }
+        plugin-manager data-grid, history-view data-grid { flex-grow: 1; flex-basis: 0px; min-height: 0px; }
+
+        plugin-detail {
+            flex-direction: column;
+            flex-shrink: 0;
+            gap: 3px;
+            padding: 6px 9px;
+            border-top-width: 1px;
+            border-color: var(--border);
+            background-color: var(--surface-sunken);
+            color: var(--text-muted);
+            font-size: 0.85em;
+        }
+
+        plugin-detail.failed { color: var(--danger); }
+
+        /* ── Choosing one of a list, in a dialog ────────────────────────────────
+           The startup project browser and "move to which folder?" are the same
+           question about two kinds of thing, so they are one control and one
+           rule. ⚠ Deliberately *not* named after either: the first version of
+           this styled the folder chooser with the project browser's own class
+           names, which made restyling one silently restyle the other. */
+        choice-list {
+            flex-direction: column;
+            gap: 2px;
+            min-width: 420px;
+            max-height: 320px;
+            overflow: auto;
+        }
+
+        /* ⚠ A column, not a row, because a choice is a name and a line about it.
+           Left-aligned for the reason the settings rail is: a list of buttons
+           that centre their labels reads as a toolbar. */
+        choice-list > button.choice {
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: flex-start;
+            gap: 1px;
+            padding: 5px 8px;
+            border-width: 0px;
+            border-radius: var(--radius-row);
+            background-color: transparent;
+            color: var(--text);
+        }
+
+        choice-list > button.choice:hover { background-color: var(--surface-hover); }
+        choice-list > button.choice:checked { background-color: var(--accent); color: var(--accent-text); }
+        choice-detail { color: var(--text-muted); font-size: 0.85em; }
+        button.choice:checked choice-detail { color: var(--accent-text); }
+        button.choice-action { margin-top: 6px; }
         """;
 }

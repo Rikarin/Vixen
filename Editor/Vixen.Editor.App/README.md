@@ -14,17 +14,22 @@ the ordinary way to start one.
 presents and stops without a validation error or a hang — the flag `Samples/01` introduced and for
 the same reason. With no `--frames` it runs until the window closes.
 
-## Three files, three jobs
+## The files, and what each is for
 
 | | |
 |---|---|
-| `Program.cs` | the platform and the main window |
+| `Program.cs` | the platform, the main window, and the loop that reopens the editor over another project |
 | `EditorHost.cs` | the device, the windows and the four steps of a frame |
 | `EditorPane.cs` | one window's half of a frame: a swapchain, a renderer and the geometry between them |
 | `EditorApplication.cs` | the project, the scene, which panels exist, which layouts, and what persists |
+| `EditorParity.cs` | every menu of doc 20's Part C, and the verbs behind them |
+| `EditorSettingsPanels.cs` | the Preferences and Project Settings pages, and the plugin and history panels |
+| `EditorProjects.cs` | which project, asked at start-up and answered without a restart |
+| `EditorSettings.cs` | the settings assets the editor ships: two of the project's and one of the user's |
+| `SearchSources.cs` | what `Ctrl+Shift+F` looks in that is not a command |
 | `SceneEntity.cs` | the join: one entity as a row of editors and as something a gizmo can drag |
 
-The fourth is the one a game team would fork. The loop is four steps worth naming: pump the
+`EditorApplication` and its four partials are the part a game team would fork. The loop is four steps worth naming: pump the
 platform's events into the document, run the layout and draw passes, turn the draw lists into
 geometry, record that geometry into frames. Only the last knows what a GPU is — which is why
 `--frames` means something on a machine with no Vulkan at all.
@@ -63,9 +68,13 @@ The user's — not the project's, which is `ProjectSettings/` and `Vixen.Editor.
 
 | File | What |
 |---|---|
-| `current.vxlayout` | the arrangement the editor was left in |
+| `current.vxlayout` | the arrangement the editor was left in, open documents included |
 | `<name>.vxlayout` | arrangements the user saved by name |
-| `keybindings.yaml` | only the bindings that differ from the defaults |
+| `keybindings.yaml` | the chosen keymap preset, and only the bindings that differ from it |
+| `preferences.yaml` | the editor's own preferences: external editor, undo depth, and two limits |
+| `plugins.yaml` | which plugins *this user* has switched off, which is not the same as the author's `enabled:` |
+| `projects.yaml` | which projects have been opened, and when |
+| `window.yaml` | the main window's size and place |
 | `theme.yaml` | token overrides, if the user wrote any |
 
 They live in the platform's data directory — `%APPDATA%`, `~/Library/Application Support`,
@@ -83,21 +92,39 @@ layout over the one the user spent the afternoon arranging.
 ## Load order, which is not arbitrary
 
 1. Register panels, layouts and commands.
-2. Load the plugins — **after** the editor's own commands, so a plugin naming one that already
+2. Load the preferences — **after** the commands, because the undo depth is pushed into stacks that
+   exist by then, and because the Preferences panel the previous step registered can write them back.
+3. Load the plugins — **after** the editor's own commands, so a plugin naming one that already
    exists is refused rather than shadowing it, and **before** the two steps below, because a
-   plugin's commands own keymap defaults and a plugin's panels are named by saved layouts.
-3. Load the keymap — **after** the commands that own its defaults, or every override in the file
+   plugin's commands own keymap defaults and a plugin's panels are named by saved layouts. The
+   user's list of switched-off plugins is read **before** anything is activated, because a plugin
+   somebody disabled because it broke the editor is the one whose `Activate` must not run.
+4. Load the keymap — **after** the commands that own its defaults, or every override in the file
    lands on a command with no default and the file rewrites itself with the whole map in it.
-4. Load the theme tokens.
-5. Apply the saved layout — **after** the panels are registered, or a saved arrangement names panels
-   the workspace cannot build.
+5. Load the theme tokens.
+6. Apply the saved layout — **after** the panels are registered, or a saved arrangement names panels
+   the workspace cannot build. ⚠ An asset editor's panel is registered on *demand* and cannot be, so
+   `DockingWorkspace.Resolve` asks this class to open the document rather than the arrangement
+   silently losing the tab.
 
-A first run has none of the three files and opens on the Default preset in dark.
+A first run has none of the files and opens on the Default preset in dark.
+
+## Which project, and how another one is opened
+
+`--project` first, then the most recent one that is still on disk, then a scratch project under the
+user's data directory. A genuine first run — scratch, and nothing in the history — puts the project
+browser up once; after that the editor reopens what you were in.
+
+⚠ **Opening another project does not swap one underneath the editor.** `RequestProject` asks about
+unsaved work through the same prompt the window's close button uses, then closes this editor and
+leaves the root in `PendingProject`; `Program`'s loop disposes the host and builds another over the
+same window. The new editor is therefore assembled by exactly the code that assembles it at launch —
+half a dozen fields reassigned in place would be half a dozen chances to leave a panel pointing at a
+dead world.
 
 ## The panels, and which of them are real now
 
-`Vixen.Editor.Inspector` and `Vixen.Editor.SceneView` have landed, so three of the five panels are
-looking at a real model:
+Every one of them is looking at a real model rather than at a placeholder:
 
 | Panel | What it is |
 |---|---|
@@ -107,6 +134,18 @@ looking at a real model:
 | Project | `ProjectBrowser`: the asset database as a tree, with a search box, over the real `Assets/` directory. Double-clicking a row opens the asset |
 | An asset | one per open document, built by whichever of the nine asset editors claims the file |
 | Console | a virtualised list over the editor's log ring: level toggles with counts, a category filter, search, collapse-duplicates, clear-on-play, and a detail pane with the stack |
+| Preferences | a `SettingsView` over the user's store: General, Appearance, Scene View, and two pages that open the panels they are about |
+| Project Settings | the same control over `ProjectSettingsStore`, drawing two `[DataContract]` types with `InspectorView` |
+| Plugins | a grid over `PluginHost.Plugins` with enable, disable and reload, and the failure under it as a sentence |
+| Undo History | the active document's stack, where choosing a step undoes back to it |
+
+The shell registers two more of its own — **Keyboard Shortcuts** and **Message Log** — because both
+are views over things `EditorShell` owns rather than over anything here.
+
+⚠ **A settings page is drawn from a settings object or from *commands*, never from both.** The scene
+navigation preferences and the theme are ticked commands: palette-searchable, rebindable, on a menu.
+The window draws those same commands as toggles rather than a copy of their state, because two
+writers to one setting is how a preferences window and a menu tick come to disagree.
 
 `Vixen.Editor.App.Tests` drives that arrangement the way `EditorHost` does — a real application, a
 real project in a temporary directory, real pointer events into the panels, no GPU — because what
@@ -358,19 +397,18 @@ warning would toast, log, toast, log.
 
 ## Known gaps
 
-- **A document's panel is not in any layout preset.** It is opened on demand and closed by hand, so
-  the five presets show the five standing panels and an asset editor lands wherever the workspace
-  puts a new one. Remembering which documents were open across a restart is the arrangement's job and
-  `current.vxlayout` does not hold it.
-- **No plugin-management panel.** Plugins load, but the only way to see what is installed is the
-  notification on the way up. The panel is a list over `PluginHost.Plugins` with enable, disable and
-  reload on it, and nothing in the loader is missing for it.
-- **No "open project…", and it is no longer the dialog's fault.** `INativeDialogs` exists, has
-  implementations on every desktop, and this application reaches it through `EditorServices` — Open
-  Scene, Save Scene As and Import Assets are all one call each and all work. What Open Project needs
-  is a *project swapped underneath a live editor*: a world, an asset database and every open document
-  replaced without tearing the window down. Doc 20 puts that behind the startup Project Browser in
-  E3, and the two commands are registered, greyed and carrying that sentence meanwhile.
+- ~~**A document's panel is not in any layout preset.**~~ It still is not — an asset editor is opened
+  on demand and lands wherever the workspace puts a new one — but the half that mattered is closed:
+  `current.vxlayout` always *named* the panel, and what was missing was anything able to build one on
+  the way back. `DockingWorkspace.Resolve` asks, `ReopenDocument` answers by opening the asset, and
+  `EditorPreferences.RestoreOpenDocuments` is how somebody asks for a clean start instead.
+- ~~**No plugin-management panel.**~~ `PluginManagerView` is a grid over `PluginHost.Plugins` with
+  enable, disable and reload. ⚠ What is still owed is a plugin *browser*: this lists what is
+  installed, and installing one is still copying a folder.
+- ~~**No "open project…".**~~ It opens the project browser, and choosing one closes this editor and
+  reopens it over the new root — see above. ⚠ **New Project makes four directories rather than
+  instantiating a template**: `Tools/Vixen.Templates` is reached with `dotnet new` and produces a
+  solution, which is a different thing from the folder an editor opens.
 - ~~**Reparenting is not undoable.**~~ `ReparentCommand` records the sibling that was in front —
   `Hierarchy.PreviousSiblingOf`, restored through `SetParentAfter` — so an undo puts the third of
   five children back third rather than first. Dragging in the outliner goes through it, and the

@@ -1,0 +1,113 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core;
+using Vixen.Editor.Inspector;
+
+namespace Vixen.Editor.App;
+
+/// <summary>What a project is called, by whom, and at what version.</summary>
+/// <remarks>
+///     <para>
+///         <b>The first settings asset the editor ships, and the reason it is one rather than a
+///         dialog is doc 11's claim that "adding a project setting is declaring a type".</b> It
+///         carries <c>[DataContract]</c> so <c>ProjectSettingsStore</c> can read and write it with
+///         the same YAML binder that reads a <c>.meta</c> file, and <c>[Inspector]</c> so the
+///         settings window draws it with the same rows that draw a material. Neither attribute knows
+///         about the other and this type does nothing except hold four strings.
+///     </para>
+///     <para>
+///         ⚠ <b>Every member here has a reader, which is the bar a shipped setting has to clear.</b>
+///         <see cref="ProductName" /> is what the title bar says when it is set — the directory's
+///         name is a fallback rather than the answer — and it is what About reports. A settings page
+///         of fields nothing reads is a page that teaches people the settings do not work.
+///     </para>
+/// </remarks>
+[DataContract("ProjectInfo")]
+public sealed class ProjectInfoSettings {
+    /// <summary>What the game is called, which need not be the folder's name.</summary>
+    [Inspector]
+    [Tooltip("What the title bar and About say. Empty means the project directory's own name.")]
+    public string ProductName { get; set; } = string.Empty;
+
+    /// <summary>Who is making it.</summary>
+    [Inspector]
+    [Tooltip("Shown in About, and what a packaged build is attributed to.")]
+    public string Company { get; set; } = string.Empty;
+
+    /// <summary>Which version this is.</summary>
+    [Inspector]
+    [Tooltip("The project's own version. The editor does not interpret it.")]
+    public string Version { get; set; } = "0.1.0";
+}
+
+/// <summary>What the content pipeline imports and packs for.</summary>
+/// <remarks>
+///     ⚠ <b>Empty means "this machine", which is what <c>ContentTasks</c> has always done.</b> A
+///     content build is target-specific — the same texture is BC7 on a desktop and ASTC on a phone —
+///     so there is no neutral answer, and the one that surprises nobody is the computer the editor is
+///     running on. What this adds is the ability to say otherwise, which is what a team building for
+///     a console from a workstation needs and what <c>build.target</c> is greyed out waiting for.
+/// </remarks>
+[DataContract("ContentBuild")]
+public sealed class ContentBuildSettings {
+    /// <summary>Which runtime target the import and the build are for.</summary>
+    [Inspector]
+    [Tooltip("The content target: windows-x64, macos-arm64, and so on. Empty builds for this machine.")]
+    public string Target { get; set; } = string.Empty;
+}
+
+/// <summary>The editor's own preferences, which belong to the user rather than to the project.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>What is <i>not</i> here is the point.</b> Doc 20's A4 is explicit that the three
+///         scene-navigation preferences stay as ticked commands and the preferences window shows the
+///         <i>same</i> commands rather than a second copy of their state — two writers to one setting
+///         is how a preferences window and a menu tick come to disagree. The same rule keeps the
+///         theme out of this type: <c>view.toggle-theme</c> owns it, and the Appearance page draws
+///         that command.
+///     </para>
+///     <para>
+///         So what is here is the set that has no command, and every one of them has a reader:
+///         <see cref="ExternalEditor" /> is what a double-clicked console line opens,
+///         <see cref="UndoDepth" /> is every command stack's capacity,
+///         <see cref="RestoreOpenDocuments" /> decides whether a saved arrangement reopens the asset
+///         editors it names, and <see cref="RecentProjects" /> bounds the startup browser's list.
+///     </para>
+/// </remarks>
+[DataContract("EditorPreferences")]
+public sealed class EditorPreferences {
+    /// <summary>The command line that opens a source file, or empty for the file manager.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Doc 20's A7 asks the console for "double-click-to-open-source through the
+    ///     external-tool setting", and this is that setting.</b> <c>{file}</c> and <c>{line}</c> are
+    ///     substituted; anything else is passed through. Left empty, a double-click reveals the
+    ///     project folder, which is what it did before there was anywhere to say otherwise.
+    /// </remarks>
+    [Inspector]
+    [Tooltip("How to open a source file: a program and its arguments, with {file} and {line} substituted.")]
+    public string ExternalEditor { get; set; } = string.Empty;
+
+    /// <summary>How many steps every undo history keeps.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Lowering it drops the oldest entries immediately</b>, which <c>CommandStack.Capacity</c>
+    ///     says and which is worth knowing before it is typed: if the last-saved point was among
+    ///     them the document stays dirty for good, because there is no longer a sequence of undos
+    ///     that reaches what is on disk.
+    /// </remarks>
+    [Inspector]
+    [Tooltip("How many steps Undo remembers, per document. Lowering it forgets the oldest immediately.")]
+    [Range(8, 4096)]
+    public int UndoDepth { get; set; } = 256;
+
+    /// <summary>Whether a restored arrangement reopens the asset editors it names.</summary>
+    [Inspector]
+    [Tooltip("Whether reopening the editor also reopens the assets that were open when it closed.")]
+    public bool RestoreOpenDocuments { get; set; } = true;
+
+    /// <summary>How many projects the startup browser lists.</summary>
+    [Inspector]
+    [Tooltip("How many entries Open Recent and the startup browser keep.")]
+    [Range(1, 40)]
+    public int RecentProjects { get; set; } = 12;
+}

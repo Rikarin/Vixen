@@ -259,6 +259,22 @@ public sealed class EditorSession : IDisposable {
         return Find<TreeView>(Panel(id)) ?? throw Fail($"The '{id}' panel has no tree in it.");
     }
 
+    /// <summary>The one control of a type inside a panel, opening the panel if it is closed.</summary>
+    /// <typeparam name="T">What to look for.</typeparam>
+    /// <param name="id">Which panel.</param>
+    /// <returns>The control.</returns>
+    /// <remarks>
+    ///     ⚠ <b>By panel rather than by type, for the reason <see cref="Tree" /> gives.</b> A
+    ///     document with four inspectors and three grids in it has no useful answer to "the first
+    ///     one" — it depends on which side of the window the layout put them. Every suite that
+    ///     reached into a panel was writing its own recursive walk to do this; there is one now.
+    /// </remarks>
+    public T Control<T>(string id) where T : UiElement {
+        Open(id);
+
+        return Find<T>(Panel(id)) ?? throw Fail($"The '{id}' panel has no {typeof(T).Name} in it.");
+    }
+
     /// <summary>Everything inside a panel, as a subject to select within.</summary>
     /// <param name="id">Which panel.</param>
     /// <returns>A subject over the panel itself; chain <c>Find</c> from it.</returns>
@@ -510,6 +526,35 @@ public sealed class EditorSession : IDisposable {
 
     /// <summary>Whether the editor has been asked to close and agreed to.</summary>
     public bool IsClosing => editor.IsClosing;
+
+    /// <summary>Where the editor has been asked to reopen, or <see langword="null" />.</summary>
+    /// <remarks>
+    ///     What <c>Program</c> reads after the loop returns. A test asserts on it for the same reason
+    ///     it asserts on <see cref="IsClosing" />: opening another project is a <i>request</i>, and
+    ///     what a harness can check is that the request was made and survived the prompt.
+    /// </remarks>
+    public string? PendingProject => editor.PendingProject;
+
+    /// <summary>The projects this editor has opened, newest first, as paths and times.</summary>
+    /// <remarks>
+    ///     Flattened to primitives rather than handed out as the application's own record, because
+    ///     that type is internal to the head and a public member of this class cannot return one.
+    /// </remarks>
+    public IReadOnlyList<(string Path, DateTime Opened)> RecentProjects =>
+        [.. editor.Recent.Entries.Select(entry => (entry.Path, entry.Opened))];
+
+    /// <summary>Asks the editor to close this project and reopen over another.</summary>
+    /// <param name="root">The new project's root.</param>
+    /// <returns>This.</returns>
+    /// <remarks>
+    ///     ⚠ <b>An ask, exactly as <see cref="RequestClose" /> is.</b> With unsaved work it puts the
+    ///     save prompt up and changes nothing until <see cref="Answer" /> presses one of its buttons
+    ///     — which is the case doc 20's A2 names beside closing the window.
+    /// </remarks>
+    public EditorSession RequestProject(string root) {
+        editor.RequestProject(root);
+        return Settle();
+    }
 
     /// <summary>Asks the editor to close, the way the window's close button does.</summary>
     /// <returns>This.</returns>
