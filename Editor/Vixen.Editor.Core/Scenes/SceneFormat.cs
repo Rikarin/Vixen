@@ -159,6 +159,25 @@ public sealed class SceneEntityData {
     /// </remarks>
     public SceneLightData? Light { get; set; }
 
+    /// <summary>The asset this entity is an instance of, in <c>vx:</c> form, or empty for none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Written as the reference text rather than as a bare id, and that is what makes it
+    ///         findable.</b> <c>ReferenceIndex</c> answers "what breaks if I delete this" by scanning
+    ///         every file for <c>vx:</c> followed by thirty-two hex digits — doc 08 chose that form
+    ///         partly so a grep would work — and an <c>AssetId</c> serialised as a bare scalar, which
+    ///         is what the binder would do with one, is invisible to it. A scene that referenced an
+    ///         asset the index could not see is a scene the editor would offer to delete the asset out
+    ///         from under.
+    ///     </para>
+    ///     <para>
+    ///         Its own key rather than an entry in <see cref="Components" />, for the reason
+    ///         <see cref="Light" /> gives: the component carrying it is the editor's, because the
+    ///         runtime has nothing that holds an <c>AssetId</c> yet.
+    ///     </para>
+    /// </remarks>
+    public string Asset { get; set; } = string.Empty;
+
     /// <summary>What hangs from it, in order.</summary>
     /// <remarks>
     ///     ⚠ <b>Settable, which a collection property usually should not be.</b> The YAML binder

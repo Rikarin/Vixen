@@ -28,4 +28,13 @@
         <ProjectReference Include="..\..\Core\Vixen.Ui.Testing\Vixen.Ui.Testing.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+        <!--
+            The head's own suite reaches `Application` for the few assertions that are about the head
+            rather than about the interface — installing a thumbnail uploader, for one. Everything
+            else this assembly publishes is public.
+        -->
+        <InternalsVisibleTo Include="Vixen.Editor.App.Tests" />
+    </ItemGroup>
+
 </Project>

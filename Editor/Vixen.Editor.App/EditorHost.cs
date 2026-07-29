@@ -55,6 +55,9 @@ sealed class EditorHost : IDisposable {
     VulkanDevice? device;
     TransientResourcePool? pool;
     RenderGraph? graph;
+
+    /// <summary>What turns a decoded thumbnail into a texture, once there is a device and a renderer.</summary>
+    ThumbnailSurface? thumbnails;
     UiShaders shaders;
 
     bool running = true;
@@ -270,6 +273,19 @@ sealed class EditorHost : IDisposable {
     ///     to be told would be a second place that has to agree with the first.
     /// </remarks>
     void Sync() {
+        // ⚠ Installed here rather than beside the device, because it needs the *renderer* as well —
+        // an `Image` number is resolved against the one that draws the surface it appears on, and
+        // the main pane's is made lazily on its first frame. Once, on the frame it becomes possible.
+        if (thumbnails is null && panes.Count > 0 && panes[0].Renderer is { } renderer && device is { } ready) {
+            thumbnails = new ThumbnailSurface(ready, renderer);
+            editor.ThumbnailSurface = thumbnails;
+        }
+
+        // ⚠ After the wait the loop below performs, and before anything draws again. A tile scrolled
+        // off screen released its image while a frame that sampled it was still in flight; retiring
+        // here is the moment that is known to be over.
+        thumbnails?.Retire();
+
         for (var i = panes.Count - 1; i >= 0; i--) {
             if (!panes[i].Surface.IsRemoved) {
                 continue;
@@ -550,6 +566,12 @@ sealed class EditorHost : IDisposable {
 
     void Release() {
         device?.WaitIdle();
+
+        // Before the device, and before the application is told, so that nothing hands out an image
+        // number that resolves against a renderer which is going.
+        editor.ThumbnailSurface = null;
+        thumbnails?.Dispose();
+        thumbnails = null;
 
         scene?.Dispose();
 

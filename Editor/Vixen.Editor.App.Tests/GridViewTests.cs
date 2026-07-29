@@ -33,7 +33,7 @@ public class GridViewTests {
     }
 
     static IReadOnlyList<string> Captions(EditorSession editor) =>
-        [.. Grid(editor).Tiles.Select(tile => tile.Node?.Name ?? "")];
+        [.. Grid(editor).Items.Select(item => item.Name)];
 
     [Fact]
     public void The_toggle_swaps_the_tree_for_the_grid_and_back() {
@@ -194,11 +194,67 @@ public class GridViewTests {
         Assert.Equal("Assets", Grid(editor).Folder?.Name);
     }
 
-    static AssetTile Tile(EditorSession editor, string name) =>
-        Grid(editor).Tiles.FirstOrDefault(tile => tile.Node?.Name == name)
-        ?? throw editor.Fail(
-            $"no tile for '{name}'. Showing: " + string.Join(", ", Captions(editor)) + "."
-        );
+    /// <summary>
+    ///     ⚠ <b>The claim virtualising is for.</b> A folder of two thousand files is two thousand of
+    ///     the browser's own objects and a pool of tiles the size of the viewport — and the last of
+    ///     them is reachable, which is what separates pooling from a cap.
+    /// </summary>
+    [Fact]
+    public void A_folder_of_thousands_costs_a_pool_rather_than_thousands_of_elements() {
+        using var editor = Started();
+
+        var many = Path.Combine(editor.ProjectRoot, "Assets", "Many");
+
+        Directory.CreateDirectory(many);
+
+        for (var index = 0; index < 2000; index++) {
+            File.WriteAllText(Path.Combine(many, $"file{index:0000}.png"), "x");
+        }
+
+        editor.Run("assets.refresh");
+        DoubleClick(editor, "Many");
+
+        var grid = Grid(editor);
+
+        Assert.Equal(2000, grid.Items.Count);
+
+        // A pool the size of the viewport, not of the folder. The bound is generous — how many fit
+        // depends on the panel's width — and the point is the order of magnitude.
+        Assert.True(grid.Tiles.Count < 200, $"the grid realised {grid.Tiles.Count} tiles for 2000 items");
+
+        // And the last one can still be reached, which a cap would have made impossible.
+        var last = Tile(editor, "file1999.png");
+
+        Assert.Equal("file1999.png", last.Node?.Name);
+    }
+
+    /// <summary>The realised tile for a name, scrolling it into view first.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Scrolled to rather than searched for.</b> The tiles are a pool, so the one showing
+    ///     item four hundred does not exist until the grid is scrolled to it — which is the whole
+    ///     point of virtualising and the thing a test has to respect rather than work around.
+    /// </remarks>
+    static AssetTile Tile(EditorSession editor, string name) {
+        var grid = Grid(editor);
+        var index = -1;
+
+        for (var candidate = 0; candidate < grid.Items.Count; candidate++) {
+            if (grid.Items[candidate].Name == name) {
+                index = candidate;
+                break;
+            }
+        }
+
+        if (index < 0) {
+            throw editor.Fail($"no tile for '{name}'. Showing: " + string.Join(", ", Captions(editor)) + ".");
+        }
+
+        grid.ScrollIntoView(index);
+        editor.Settle();
+
+        return Grid(editor).TileOf(index)
+            ?? throw editor.Fail($"the tile for '{name}' is not realised after scrolling to it");
+    }
 
     static void DoubleClick(EditorSession editor, string name) {
         var tile = Tile(editor, name);

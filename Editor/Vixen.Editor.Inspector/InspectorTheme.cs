@@ -246,27 +246,24 @@ public static class BrowserTheme {
         asset-path { flex-direction: row; flex-wrap: wrap; align-items: center; flex-shrink: 0; gap: 2px; }
         .asset-crumb { flex-shrink: 0; }
 
-        asset-tiles {
-            flex-direction: row;
-            flex-wrap: wrap;
-            align-content: flex-start;
-            flex-grow: 1;
-            gap: 4px;
-            padding: 4px;
-            overflow-y: auto;
-        }
+        /* ⚠ The tile size is a custom property rather than a rule on the tile, because the grid
+           does the placing: it needs the number to work out how many fit across and where item
+           40 000 is, and a size the control could only discover by measuring an element would
+           defeat the whole arrangement. */
+        asset-tiles { --tile-width: 82px; --tile-height: 84px; flex-grow: 1; min-height: 0; }
 
+        /* Absolutely positioned by the grid, so the tile styles what is *inside* it and nothing
+           about where it is. */
         asset-tile {
+            position: absolute;
             flex-direction: column;
             align-items: center;
-            width: 78px;
-            flex-basis: 78px;
-            flex-grow: 0;
-            flex-shrink: 0;
             padding: 8px 4px;
             gap: 6px;
             border-radius: var(--radius-row, 6px);
         }
+
+        asset-tile.parked { display: none; }
 
         asset-tile:hover { background-color: var(--surface-hover, var(--surface-sunken)); }
 
@@ -279,12 +276,16 @@ public static class BrowserTheme {
            from across the panel. */
         asset-tile > icon { width: 40px; height: 40px; }
 
+        /* The picture takes the glyph's place and its size, so a tile is the same shape whether its
+           asset has one or not — a grid whose rows changed height as thumbnails arrived would
+           reflow under the pointer. */
+        asset-tile > image { width: 40px; height: 40px; }
+        asset-tile > .hidden { display: none; }
+
         /* Two lines and then clipped: a tile whose height followed its name would make every row of
            the grid a different height and the whole thing impossible to scan. */
         asset-caption { text-align: center; font-size: 0.85em; max-height: 30px; overflow: hidden; }
 
-        .asset-note { color: var(--text-muted); font-size: 0.85em; padding: 2px 6px; }
-        .asset-note.hidden { display: none; }
 
         /* ── The component foldouts ─────────────────────────────────────────────
            One block per component, under the inspector's own rows and separated from them

@@ -233,7 +233,7 @@ is the assembly that should hold it. Status: ✅ built, 🟡 partial, ⛔ absent
 | **Hierarchy** | Outliner / Hierarchy | `.App` → `.SceneView` | ✅ | — |
 | **Inspector** | Details / Inspector | `.Inspector` | 🟡 | Multiple inspector windows, pinned/favourite members, debug (raw) mode |
 | **Scene viewport** | Level Viewport / Scene | `.SceneView` | 🟡 | See [B2](#b2--the-viewport) |
-| **Project browser** | Content Browser / Project | `.App` | 🟡 | Picture thumbnails (the grid ships type glyphs — see E1's table), saved filters, collections/favourites, drag-and-drop out, source-control column, a virtualising grid |
+| **Project browser** | Content Browser / Project | `.App` | 🟡 | Saved filters, collections/favourites, source-control column, a folder tree beside the grid |
 | **Console** | Output Log / Console | `.Ui` | ✅ | — |
 | **Message log** | Message Log | `.Ui` | ⛔ | A view over the notification history |
 | **Command palette** | — (both have search) | `.Ui` | ✅ | Recency boosting, more sources ([A8](#a8--search-everywhere)) |
@@ -526,14 +526,17 @@ from the `[DataContract]` description the serializer already generates, so a com
 carry `[Inspector]` — which it must not, since that would be a runtime assembly referencing an editor
 one. A game's components appear with nothing asked of the game.
 
-Three things are not built, and each is a gap in the *runtime* or in the control set rather than in
-the panel:
+The three gaps this section used to name are closed, and each turned out to be a piece of the
+*runtime* or of the control set rather than of a panel — which is why they were last:
 
-| Not built | What it actually needs |
+| Was owed | What it needed, and what it is now |
 |---|---|
-| **Drag from the browser into the scene** | No runtime component carries an `AssetId`, so there is nothing for an entity to hold a mesh or a texture *in*. A drop that made an entity named after the file would be the editor pretending. The scenario puts a cube in through the Entity menu instead and says so where it does it |
-| **Picture thumbnails** | The grid ships, with a type glyph and a colour per importer. A *picture* needs a decode and a GPU upload: `Image.Texture` takes a number from `UiRenderer.RegisterImage`, which needs a device the application deliberately does not have, and nothing in `Vixen.Core.Imaging` decodes a PNG — it handles KTX2 and mips, which are what an import produces rather than what a browser is pointed at. It is the same decode-cache-evict machinery E5's asset previews need and belongs with them |
-| **A virtualising grid** | `VirtualizingPanel` pools rows; a wrapping grid needs how-many-fit-per-line arithmetic, which is a different control. The grid draws 400 tiles and says how many it did not, rather than truncating silently |
+| **Drag from the browser into the scene** | Nothing in the runtime carried an `AssetId`, so an entity had nowhere to hold "this is the crate". `AssetInstance` is that component, editor-side beside `Light` and `MeshShape` for the same reason they are. ⚠ **It is a reference, not a renderer** — nothing draws an asset yet — but the reference is authored, saved, editable through the inspector's existing asset field, and written in `vx:` form so `ReferenceIndex` counts it and deleting the asset warns about the scene |
+| **Picture thumbnails** | A decode and a GPU upload. `IThumbnailSurface` is the seam: the application decides what is worth a picture and reduces it on the thread pool, the host uploads it on the frame thread, and null — a headless run, every test — falls back to the type glyph. Bounded and evicting, because a cache with no ceiling is a leak with a picture on it |
+| **A virtualising grid** | `VirtualizingGrid`, beside `VirtualizingPanel` rather than inside it. ⚠ The difference is one number: a list's row is at `n × height` and a grid's item is at a position that depends on the *measured* width, so the same resize that changes the viewport changes which item is where and the content height with it |
+
+What is still owed there is smaller and is in the table above: saved filters, collections, a
+source-control column, and a folder tree beside the grid rather than a breadcrumb.
 
 ⚠ **"Rename with reference fixup" turned out not to be a rewrite**, and the note above about it being
 the fastest way to corrupt a project is right for a reason worth recording. Doc 08 chose a GUID in a

@@ -618,6 +618,23 @@ Vixen.Ui.Controls.ValueChangedEvent<T>.Previous.init -> T?
 Vixen.Ui.Controls.ValueChangedEvent<T>.Value.get -> T?
 Vixen.Ui.Controls.ValueChangedEvent<T>.Value.init -> T?
 Vixen.Ui.Controls.ValueChangedEvent<T>.ValueChangedEvent() -> void
+Vixen.Ui.Controls.VirtualizingGrid -> sealed class
+Vixen.Ui.Controls.VirtualizingGrid.BindTile.get -> System.Action<Vixen.Ui.UiElement, int>?
+Vixen.Ui.Controls.VirtualizingGrid.BindTile.set -> void
+Vixen.Ui.Controls.VirtualizingGrid.Columns.get -> int
+Vixen.Ui.Controls.VirtualizingGrid.Count.get -> int
+Vixen.Ui.Controls.VirtualizingGrid.Count.set -> void
+Vixen.Ui.Controls.VirtualizingGrid.CreateTile.get -> System.Func<Vixen.Ui.Controls.VirtualizingGrid, Vixen.Ui.UiElement>?
+Vixen.Ui.Controls.VirtualizingGrid.CreateTile.set -> void
+Vixen.Ui.Controls.VirtualizingGrid.FirstItem.get -> int
+Vixen.Ui.Controls.VirtualizingGrid.Realise() -> void
+Vixen.Ui.Controls.VirtualizingGrid.ScrollIntoView(int item) -> void
+Vixen.Ui.Controls.VirtualizingGrid.Scroller.get -> Vixen.Ui.Controls.ScrollView
+Vixen.Ui.Controls.VirtualizingGrid.TileHeight.get -> float
+Vixen.Ui.Controls.VirtualizingGrid.TileOf(int item) -> Vixen.Ui.UiElement?
+Vixen.Ui.Controls.VirtualizingGrid.TileWidth.get -> float
+Vixen.Ui.Controls.VirtualizingGrid.Tiles.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.UiElement>
+Vixen.Ui.Controls.VirtualizingGrid.VirtualizingGrid() -> void
 Vixen.Ui.Controls.VirtualizingPanel -> sealed class
 Vixen.Ui.Controls.VirtualizingPanel : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.VirtualizingPanel.BindRow.get -> System.Action<Vixen.Ui.UiElement, int>?
@@ -636,6 +653,7 @@ Vixen.Ui.Controls.VirtualizingPanel.ScrollIntoView(int item) -> void
 Vixen.Ui.Controls.VirtualizingPanel.Scroller.get -> Vixen.Ui.Controls.ScrollView
 Vixen.Ui.Controls.VirtualizingPanel.VirtualizingPanel() -> void
 abstract Vixen.Ui.Controls.SelectBase.OnOptionChosen(Vixen.Ui.Controls.Option option) -> void
+const Vixen.Ui.Controls.VirtualizingGrid.Overscan = 2 -> int
 const Vixen.Ui.Controls.VirtualizingPanel.Overscan = 2 -> int
 override Vixen.Ui.Controls.Accordion.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Accordion.OnCreated() -> void

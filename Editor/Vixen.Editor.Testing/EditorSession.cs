@@ -143,6 +143,15 @@ public sealed class EditorSession : IDisposable {
     /// <summary>The shell: commands, keymap, menus, docking, dialogs, notifications.</summary>
     public EditorShell Shell => editor.Shell;
 
+    /// <summary>The application itself, for the suite that lives beside it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Internal, and it stays that way.</b> Everything this harness publishes is a public
+    ///     type belonging to the assembly that owns it — a panel, a document, a command registry —
+    ///     which is what lets a plugin's tests use it. The head's own internals are for the head's
+    ///     own suite, which is already a friend of it.
+    /// </remarks>
+    internal EditorApplication Application => editor;
+
     /// <summary>The interface tree, which is the shell's.</summary>
     public UiDocument Document => editor.Shell.Document;
 
