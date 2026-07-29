@@ -1,0 +1,505 @@
+#nullable enable
+Vixen.Video.Audio.AudioPacketDecoderRegistry -> static class
+Vixen.Video.Audio.AudioTrackInfo -> readonly struct
+Vixen.Video.Audio.AudioTrackInfo : System.IEquatable<Vixen.Video.Audio.AudioTrackInfo>
+Vixen.Video.Audio.AudioTrackInfo.AudioTrackInfo() -> void
+Vixen.Video.Audio.AudioTrackInfo.AudioTrackInfo(string CodecId, int SampleRate, int Channels, int BitDepth = 0, System.ReadOnlyMemory<byte> CodecPrivate = default(System.ReadOnlyMemory<byte>), System.TimeSpan CodecDelay = default(System.TimeSpan)) -> void
+Vixen.Video.Audio.AudioTrackInfo.BitDepth.get -> int
+Vixen.Video.Audio.AudioTrackInfo.BitDepth.init -> int
+Vixen.Video.Audio.AudioTrackInfo.Channels.get -> int
+Vixen.Video.Audio.AudioTrackInfo.Channels.init -> int
+Vixen.Video.Audio.AudioTrackInfo.CodecDelay.get -> System.TimeSpan
+Vixen.Video.Audio.AudioTrackInfo.CodecDelay.init -> System.TimeSpan
+Vixen.Video.Audio.AudioTrackInfo.CodecId.get -> string
+Vixen.Video.Audio.AudioTrackInfo.CodecId.init -> string
+Vixen.Video.Audio.AudioTrackInfo.CodecPrivate.get -> System.ReadOnlyMemory<byte>
+Vixen.Video.Audio.AudioTrackInfo.CodecPrivate.init -> System.ReadOnlyMemory<byte>
+Vixen.Video.Audio.AudioTrackInfo.SampleRate.get -> int
+Vixen.Video.Audio.AudioTrackInfo.SampleRate.init -> int
+Vixen.Video.Audio.IAudioPacketDecoder -> interface
+Vixen.Video.Audio.IAudioPacketDecoder : System.IDisposable
+Vixen.Video.Audio.IAudioPacketDecoder.Decode(System.ReadOnlySpan<byte> packet, System.Span<float> destination) -> int
+Vixen.Video.Audio.IAudioPacketDecoder.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Video.Audio.IAudioPacketDecoder.MaxFramesPerPacket.get -> int
+Vixen.Video.Audio.IAudioPacketDecoder.Reset() -> void
+Vixen.Video.Audio.IAudioPacketDecoderFactory -> interface
+Vixen.Video.Audio.IAudioPacketDecoderFactory.CanDecode(in Vixen.Video.Audio.AudioTrackInfo track) -> bool
+Vixen.Video.Audio.IAudioPacketDecoderFactory.Create(in Vixen.Video.Audio.AudioTrackInfo track) -> Vixen.Video.Audio.IAudioPacketDecoder
+Vixen.Video.Audio.IAudioPacketDecoderFactory.Name.get -> string
+Vixen.Video.Audio.MatroskaAudioStreamDecoder -> sealed class
+Vixen.Video.Audio.MatroskaAudioStreamDecoder : System.IDisposable
+Vixen.Video.Audio.MatroskaAudioStreamDecoder : Vixen.Audio.Streaming.IAudioStreamDecoder
+Vixen.Video.Audio.MatroskaAudioStreamDecoder.CanSeek.get -> bool
+Vixen.Video.Audio.MatroskaAudioStreamDecoder.Decode(System.Span<float> destination, int frameCount) -> int
+Vixen.Video.Audio.MatroskaAudioStreamDecoder.Dispose() -> void
+Vixen.Video.Audio.MatroskaAudioStreamDecoder.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Video.Audio.MatroskaAudioStreamDecoder.FrameCount.get -> long
+Vixen.Video.Audio.MatroskaAudioStreamDecoder.MatroskaAudioStreamDecoder(Vixen.Video.Containers.MatroskaDemuxer demuxer, Vixen.Video.Containers.MatroskaTrack track, Vixen.Video.Audio.IAudioPacketDecoder decoder, bool ownsDemuxer = false, bool ownsDecoder = true) -> void
+Vixen.Video.Audio.MatroskaAudioStreamDecoder.Position.get -> long
+Vixen.Video.Audio.MatroskaAudioStreamDecoder.Seek(long frame) -> void
+Vixen.Video.Audio.MatroskaAudioStreamDecoder.Track.get -> Vixen.Video.Containers.MatroskaTrack
+Vixen.Video.Audio.PcmPacketDecoder -> sealed class
+Vixen.Video.Audio.PcmPacketDecoder : System.IDisposable
+Vixen.Video.Audio.PcmPacketDecoder : Vixen.Video.Audio.IAudioPacketDecoder
+Vixen.Video.Audio.PcmPacketDecoder.Decode(System.ReadOnlySpan<byte> packet, System.Span<float> destination) -> int
+Vixen.Video.Audio.PcmPacketDecoder.Dispose() -> void
+Vixen.Video.Audio.PcmPacketDecoder.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Video.Audio.PcmPacketDecoder.MaxFramesPerPacket.get -> int
+Vixen.Video.Audio.PcmPacketDecoder.PcmPacketDecoder(Vixen.Audio.AudioFormat format, int bitDepth, bool isFloat) -> void
+Vixen.Video.Audio.PcmPacketDecoder.Reset() -> void
+Vixen.Video.Audio.PcmPacketDecoderFactory -> sealed class
+Vixen.Video.Audio.PcmPacketDecoderFactory : Vixen.Video.Audio.IAudioPacketDecoderFactory
+Vixen.Video.Audio.PcmPacketDecoderFactory.CanDecode(in Vixen.Video.Audio.AudioTrackInfo track) -> bool
+Vixen.Video.Audio.PcmPacketDecoderFactory.Create(in Vixen.Video.Audio.AudioTrackInfo track) -> Vixen.Video.Audio.IAudioPacketDecoder
+Vixen.Video.Audio.PcmPacketDecoderFactory.Name.get -> string
+Vixen.Video.Audio.PcmPacketDecoderFactory.PcmPacketDecoderFactory() -> void
+Vixen.Video.Codecs.IVideoCodec -> interface
+Vixen.Video.Codecs.IVideoCodec : System.IDisposable
+Vixen.Video.Codecs.IVideoCodec.Decode(in Vixen.Video.Codecs.VideoPacket packet, Vixen.Video.VideoFrame destination) -> Vixen.Video.VideoDecodeStatus
+Vixen.Video.Codecs.IVideoCodec.Drain(Vixen.Video.VideoFrame destination) -> Vixen.Video.VideoDecodeStatus
+Vixen.Video.Codecs.IVideoCodec.Format.get -> Vixen.Video.VideoFormat
+Vixen.Video.Codecs.IVideoCodec.Reset() -> void
+Vixen.Video.Codecs.IVideoCodecFactory -> interface
+Vixen.Video.Codecs.IVideoCodecFactory.CanDecode(in Vixen.Video.Codecs.VideoTrackInfo track) -> bool
+Vixen.Video.Codecs.IVideoCodecFactory.Create(in Vixen.Video.Codecs.VideoTrackInfo track) -> Vixen.Video.Codecs.IVideoCodec
+Vixen.Video.Codecs.IVideoCodecFactory.Name.get -> string
+Vixen.Video.Codecs.UncompressedVideoCodec -> sealed class
+Vixen.Video.Codecs.UncompressedVideoCodec : System.IDisposable
+Vixen.Video.Codecs.UncompressedVideoCodec : Vixen.Video.Codecs.IVideoCodec
+Vixen.Video.Codecs.UncompressedVideoCodec.Decode(in Vixen.Video.Codecs.VideoPacket packet, Vixen.Video.VideoFrame destination) -> Vixen.Video.VideoDecodeStatus
+Vixen.Video.Codecs.UncompressedVideoCodec.Dispose() -> void
+Vixen.Video.Codecs.UncompressedVideoCodec.Drain(Vixen.Video.VideoFrame destination) -> Vixen.Video.VideoDecodeStatus
+Vixen.Video.Codecs.UncompressedVideoCodec.Format.get -> Vixen.Video.VideoFormat
+Vixen.Video.Codecs.UncompressedVideoCodec.Reset() -> void
+Vixen.Video.Codecs.UncompressedVideoCodec.UncompressedVideoCodec(in Vixen.Video.Codecs.VideoTrackInfo track) -> void
+Vixen.Video.Codecs.UncompressedVideoCodecFactory -> sealed class
+Vixen.Video.Codecs.UncompressedVideoCodecFactory : Vixen.Video.Codecs.IVideoCodecFactory
+Vixen.Video.Codecs.UncompressedVideoCodecFactory.CanDecode(in Vixen.Video.Codecs.VideoTrackInfo track) -> bool
+Vixen.Video.Codecs.UncompressedVideoCodecFactory.Create(in Vixen.Video.Codecs.VideoTrackInfo track) -> Vixen.Video.Codecs.IVideoCodec
+Vixen.Video.Codecs.UncompressedVideoCodecFactory.Name.get -> string
+Vixen.Video.Codecs.UncompressedVideoCodecFactory.UncompressedVideoCodecFactory() -> void
+Vixen.Video.Codecs.VideoCodecRegistry -> static class
+Vixen.Video.Codecs.VideoPacket -> readonly ref struct
+Vixen.Video.Codecs.VideoPacket.Data.get -> System.ReadOnlySpan<byte>
+Vixen.Video.Codecs.VideoPacket.Duration.get -> System.TimeSpan
+Vixen.Video.Codecs.VideoPacket.IsKeyFrame.get -> bool
+Vixen.Video.Codecs.VideoPacket.Timestamp.get -> System.TimeSpan
+Vixen.Video.Codecs.VideoPacket.VideoPacket() -> void
+Vixen.Video.Codecs.VideoPacket.VideoPacket(System.ReadOnlySpan<byte> data, System.TimeSpan timestamp, System.TimeSpan duration, bool isKeyFrame) -> void
+Vixen.Video.Codecs.VideoTrackInfo -> readonly struct
+Vixen.Video.Codecs.VideoTrackInfo : System.IEquatable<Vixen.Video.Codecs.VideoTrackInfo>
+Vixen.Video.Codecs.VideoTrackInfo.CodecId.get -> string
+Vixen.Video.Codecs.VideoTrackInfo.CodecId.init -> string
+Vixen.Video.Codecs.VideoTrackInfo.CodecPrivate.get -> System.ReadOnlyMemory<byte>
+Vixen.Video.Codecs.VideoTrackInfo.CodecPrivate.init -> System.ReadOnlyMemory<byte>
+Vixen.Video.Codecs.VideoTrackInfo.FourCc.get -> string
+Vixen.Video.Codecs.VideoTrackInfo.FourCc.init -> string
+Vixen.Video.Codecs.VideoTrackInfo.FrameRate.get -> Vixen.Video.VideoRational
+Vixen.Video.Codecs.VideoTrackInfo.FrameRate.init -> Vixen.Video.VideoRational
+Vixen.Video.Codecs.VideoTrackInfo.Height.get -> int
+Vixen.Video.Codecs.VideoTrackInfo.Height.init -> int
+Vixen.Video.Codecs.VideoTrackInfo.Matrix.get -> Vixen.Video.VideoColourMatrix
+Vixen.Video.Codecs.VideoTrackInfo.Matrix.init -> Vixen.Video.VideoColourMatrix
+Vixen.Video.Codecs.VideoTrackInfo.Range.get -> Vixen.Video.VideoColourRange
+Vixen.Video.Codecs.VideoTrackInfo.Range.init -> Vixen.Video.VideoColourRange
+Vixen.Video.Codecs.VideoTrackInfo.VideoTrackInfo() -> void
+Vixen.Video.Codecs.VideoTrackInfo.VideoTrackInfo(string CodecId, int Width, int Height, System.ReadOnlyMemory<byte> CodecPrivate = default(System.ReadOnlyMemory<byte>), string FourCc = "", Vixen.Video.VideoRational FrameRate = default(Vixen.Video.VideoRational), Vixen.Video.VideoColourRange Range = Vixen.Video.VideoColourRange.Limited, Vixen.Video.VideoColourMatrix Matrix = Vixen.Video.VideoColourMatrix.Bt709) -> void
+Vixen.Video.Codecs.VideoTrackInfo.Width.get -> int
+Vixen.Video.Codecs.VideoTrackInfo.Width.init -> int
+Vixen.Video.Containers.EbmlElement -> readonly struct
+Vixen.Video.Containers.EbmlElement : System.IEquatable<Vixen.Video.Containers.EbmlElement>
+Vixen.Video.Containers.EbmlElement.EbmlElement() -> void
+Vixen.Video.Containers.EbmlElement.EbmlElement(uint Id, long Size, int HeaderSize) -> void
+Vixen.Video.Containers.EbmlElement.HeaderSize.get -> int
+Vixen.Video.Containers.EbmlElement.HeaderSize.init -> int
+Vixen.Video.Containers.EbmlElement.Id.get -> uint
+Vixen.Video.Containers.EbmlElement.Id.init -> uint
+Vixen.Video.Containers.EbmlElement.IsUnknownSize.get -> bool
+Vixen.Video.Containers.EbmlElement.Size.get -> long
+Vixen.Video.Containers.EbmlElement.Size.init -> long
+Vixen.Video.Containers.EbmlReader -> sealed class
+Vixen.Video.Containers.EbmlReader.AtEnd.get -> bool
+Vixen.Video.Containers.EbmlReader.EbmlReader(System.IO.Stream stream) -> void
+Vixen.Video.Containers.EbmlReader.Length.get -> long
+Vixen.Video.Containers.EbmlReader.Position.get -> long
+Vixen.Video.Containers.EbmlReader.Position.set -> long
+Vixen.Video.Containers.EbmlReader.ReadBytes(System.Span<byte> destination) -> void
+Vixen.Video.Containers.EbmlReader.ReadFloat(long size) -> double
+Vixen.Video.Containers.EbmlReader.ReadSigned(long size) -> long
+Vixen.Video.Containers.EbmlReader.ReadSize(out int length) -> long
+Vixen.Video.Containers.EbmlReader.ReadString(long size) -> string
+Vixen.Video.Containers.EbmlReader.ReadUnsigned(long size) -> ulong
+Vixen.Video.Containers.EbmlReader.Skip(long size) -> void
+Vixen.Video.Containers.EbmlReader.Stream.get -> System.IO.Stream
+Vixen.Video.Containers.EbmlReader.TryReadElement(out Vixen.Video.Containers.EbmlElement element) -> bool
+Vixen.Video.Containers.MatroskaDemuxer -> sealed class
+Vixen.Video.Containers.MatroskaDemuxer : System.IDisposable
+Vixen.Video.Containers.MatroskaDemuxer.CanSeek.get -> bool
+Vixen.Video.Containers.MatroskaDemuxer.Dispose() -> void
+Vixen.Video.Containers.MatroskaDemuxer.DocType.get -> string
+Vixen.Video.Containers.MatroskaDemuxer.Duration.get -> System.TimeSpan
+Vixen.Video.Containers.MatroskaDemuxer.FindTrack(Vixen.Video.Containers.MatroskaTrackKind kind) -> Vixen.Video.Containers.MatroskaTrack?
+Vixen.Video.Containers.MatroskaDemuxer.Follow(int trackNumber) -> void
+Vixen.Video.Containers.MatroskaDemuxer.HasCues.get -> bool
+Vixen.Video.Containers.MatroskaDemuxer.MatroskaDemuxer(System.IO.Stream stream, bool leaveOpen = false) -> void
+Vixen.Video.Containers.MatroskaDemuxer.MatroskaDemuxer(string path) -> void
+Vixen.Video.Containers.MatroskaDemuxer.ReadPacket(int trackNumber) -> Vixen.Video.Containers.MatroskaPacket?
+Vixen.Video.Containers.MatroskaDemuxer.Release(Vixen.Video.Containers.MatroskaPacket packet) -> void
+Vixen.Video.Containers.MatroskaDemuxer.SeekTo(System.TimeSpan position, int trackNumber) -> void
+Vixen.Video.Containers.MatroskaDemuxer.Tracks.get -> System.Collections.Generic.IReadOnlyList<Vixen.Video.Containers.MatroskaTrack>
+Vixen.Video.Containers.MatroskaPacket -> sealed class
+Vixen.Video.Containers.MatroskaPacket.Data.get -> System.ReadOnlySpan<byte>
+Vixen.Video.Containers.MatroskaPacket.Duration.get -> System.TimeSpan
+Vixen.Video.Containers.MatroskaPacket.IsKeyFrame.get -> bool
+Vixen.Video.Containers.MatroskaPacket.Length.get -> int
+Vixen.Video.Containers.MatroskaPacket.MatroskaPacket() -> void
+Vixen.Video.Containers.MatroskaPacket.Timestamp.get -> System.TimeSpan
+Vixen.Video.Containers.MatroskaPacket.TrackNumber.get -> int
+Vixen.Video.Containers.MatroskaTrack -> sealed class
+Vixen.Video.Containers.MatroskaTrack.BitDepth.get -> int
+Vixen.Video.Containers.MatroskaTrack.Channels.get -> int
+Vixen.Video.Containers.MatroskaTrack.CodecDelay.get -> System.TimeSpan
+Vixen.Video.Containers.MatroskaTrack.CodecId.get -> string
+Vixen.Video.Containers.MatroskaTrack.CodecPrivate.get -> System.ReadOnlyMemory<byte>
+Vixen.Video.Containers.MatroskaTrack.ColourMatrix.get -> Vixen.Video.VideoColourMatrix
+Vixen.Video.Containers.MatroskaTrack.ColourRange.get -> Vixen.Video.VideoColourRange
+Vixen.Video.Containers.MatroskaTrack.ColourSpace.get -> string
+Vixen.Video.Containers.MatroskaTrack.DefaultDuration.get -> System.TimeSpan
+Vixen.Video.Containers.MatroskaTrack.DisplayHeight.get -> int
+Vixen.Video.Containers.MatroskaTrack.DisplayWidth.get -> int
+Vixen.Video.Containers.MatroskaTrack.Kind.get -> Vixen.Video.Containers.MatroskaTrackKind
+Vixen.Video.Containers.MatroskaTrack.MatroskaTrack() -> void
+Vixen.Video.Containers.MatroskaTrack.Number.get -> int
+Vixen.Video.Containers.MatroskaTrack.PixelHeight.get -> int
+Vixen.Video.Containers.MatroskaTrack.PixelWidth.get -> int
+Vixen.Video.Containers.MatroskaTrack.SampleRate.get -> int
+Vixen.Video.Containers.MatroskaTrack.SeekPreRoll.get -> System.TimeSpan
+Vixen.Video.Containers.MatroskaTrack.Uid.get -> ulong
+Vixen.Video.Containers.MatroskaTrackKind -> enum : byte
+Vixen.Video.Containers.MatroskaTrackKind.Audio = 2 -> Vixen.Video.Containers.MatroskaTrackKind
+Vixen.Video.Containers.MatroskaTrackKind.MatroskaTrackKind() -> void
+Vixen.Video.Containers.MatroskaTrackKind.Other = 0 -> Vixen.Video.Containers.MatroskaTrackKind
+Vixen.Video.Containers.MatroskaTrackKind.Video = 1 -> Vixen.Video.Containers.MatroskaTrackKind
+Vixen.Video.DelegatedVideoContentSource -> sealed class
+Vixen.Video.DelegatedVideoContentSource : Vixen.Video.IVideoContentSource
+Vixen.Video.DelegatedVideoContentSource.DelegatedVideoContentSource(System.Func<string, System.IO.Stream> open, System.Func<string, bool>? exists = null) -> void
+Vixen.Video.DelegatedVideoContentSource.Exists(string address) -> bool
+Vixen.Video.DelegatedVideoContentSource.Open(string address) -> System.IO.Stream
+Vixen.Video.Ecs.VideoPlaybackInfo -> struct
+Vixen.Video.Ecs.VideoPlaybackInfo.DecodeStalls -> long
+Vixen.Video.Ecs.VideoPlaybackInfo.FrameVersion -> uint
+Vixen.Video.Ecs.VideoPlaybackInfo.FramesDropped -> long
+Vixen.Video.Ecs.VideoPlaybackInfo.Position -> System.TimeSpan
+Vixen.Video.Ecs.VideoPlaybackInfo.State -> Vixen.Video.Playback.VideoPlaybackState
+Vixen.Video.Ecs.VideoPlaybackInfo.VideoPlaybackInfo() -> void
+Vixen.Video.Ecs.VideoScreenPlacement -> struct
+Vixen.Video.Ecs.VideoScreenPlacement.Area -> Vixen.Core.Mathematics.Rectangle
+Vixen.Video.Ecs.VideoScreenPlacement.Order -> uint
+Vixen.Video.Ecs.VideoScreenPlacement.Scaling -> Vixen.Video.Gpu.VideoScaling
+Vixen.Video.Ecs.VideoScreenPlacement.Tint -> Vixen.Core.Mathematics.Color4
+Vixen.Video.Ecs.VideoScreenPlacement.VideoScreenPlacement() -> void
+Vixen.Video.Ecs.VideoSurface -> struct
+Vixen.Video.Ecs.VideoSurface.Loop -> bool
+Vixen.Video.Ecs.VideoSurface.OverridesLoop -> bool
+Vixen.Video.Ecs.VideoSurface.PlayOnStart -> bool
+Vixen.Video.Ecs.VideoSurface.Player -> Vixen.Video.Playback.VideoPlayer?
+Vixen.Video.Ecs.VideoSurface.Started -> bool
+Vixen.Video.Ecs.VideoSurface.VideoSurface() -> void
+Vixen.Video.Ecs.VideoSystem -> sealed class
+Vixen.Video.Ecs.VideoSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Video.Ecs.VideoSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Video.Ecs.VideoSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Video.Ecs.VideoSystem.Step(Vixen.Ecs.World world, System.TimeSpan delta) -> void
+Vixen.Video.Ecs.VideoSystem.VideoSystem() -> void
+Vixen.Video.FileVideoContentSource -> sealed class
+Vixen.Video.FileVideoContentSource : Vixen.Video.IVideoContentSource
+Vixen.Video.FileVideoContentSource.Exists(string address) -> bool
+Vixen.Video.FileVideoContentSource.FileVideoContentSource(string root, string extension = ".webm") -> void
+Vixen.Video.FileVideoContentSource.Open(string address) -> System.IO.Stream
+Vixen.Video.FileVideoContentSource.PathOf(string address) -> string
+Vixen.Video.Gpu.VideoFit -> static class
+Vixen.Video.Gpu.VideoPlacement -> readonly struct
+Vixen.Video.Gpu.VideoPlacement : System.IEquatable<Vixen.Video.Gpu.VideoPlacement>
+Vixen.Video.Gpu.VideoPlacement.Target.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Video.Gpu.VideoPlacement.Target.init -> Vixen.Core.Mathematics.Rectangle
+Vixen.Video.Gpu.VideoPlacement.TextureOffset.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Video.Gpu.VideoPlacement.TextureOffset.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Video.Gpu.VideoPlacement.TextureScale.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Video.Gpu.VideoPlacement.TextureScale.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Video.Gpu.VideoPlacement.VideoPlacement() -> void
+Vixen.Video.Gpu.VideoPlacement.VideoPlacement(Vixen.Core.Mathematics.Rectangle Target, Vixen.Core.Mathematics.Vector2 TextureScale, Vixen.Core.Mathematics.Vector2 TextureOffset) -> void
+Vixen.Video.Gpu.VideoScaling -> enum : byte
+Vixen.Video.Gpu.VideoScaling.Contain = 1 -> Vixen.Video.Gpu.VideoScaling
+Vixen.Video.Gpu.VideoScaling.Cover = 2 -> Vixen.Video.Gpu.VideoScaling
+Vixen.Video.Gpu.VideoScaling.Stretch = 0 -> Vixen.Video.Gpu.VideoScaling
+Vixen.Video.Gpu.VideoScaling.VideoScaling() -> void
+Vixen.Video.Gpu.VideoTexture -> sealed class
+Vixen.Video.Gpu.VideoTexture : System.IDisposable
+Vixen.Video.Gpu.VideoTexture.Coefficients.get -> Vixen.Video.VideoColourCoefficients
+Vixen.Video.Gpu.VideoTexture.Dispose() -> void
+Vixen.Video.Gpu.VideoTexture.Format.get -> Vixen.Video.VideoFormat
+Vixen.Video.Gpu.VideoTexture.Plane(int plane) -> Vixen.Graphics.TextureHandle
+Vixen.Video.Gpu.VideoTexture.PlaneCount.get -> int
+Vixen.Video.Gpu.VideoTexture.PlaneView(int plane) -> Vixen.Graphics.TextureViewHandle
+Vixen.Video.Gpu.VideoTexture.Sampler.get -> Vixen.Graphics.SamplerHandle
+Vixen.Video.Gpu.VideoTexture.Upload(Vixen.Graphics.ICommandList commands, Vixen.Video.Playback.VideoPlayer player) -> bool
+Vixen.Video.Gpu.VideoTexture.Upload(Vixen.Graphics.ICommandList commands, Vixen.Video.VideoFrame frame) -> void
+Vixen.Video.Gpu.VideoTexture.UploadedVersion.get -> uint
+Vixen.Video.Gpu.VideoTexture.VideoTexture(Vixen.Graphics.IGraphicsDevice device, string name = "video") -> void
+Vixen.Video.IVideoContentSource -> interface
+Vixen.Video.IVideoContentSource.Exists(string address) -> bool
+Vixen.Video.IVideoContentSource.Open(string address) -> System.IO.Stream
+Vixen.Video.IVideoStreamDecoder -> interface
+Vixen.Video.IVideoStreamDecoder : System.IDisposable
+Vixen.Video.IVideoStreamDecoder.CanSeek.get -> bool
+Vixen.Video.IVideoStreamDecoder.DecodeNext(Vixen.Video.VideoFrame destination) -> Vixen.Video.VideoDecodeStatus
+Vixen.Video.IVideoStreamDecoder.DisplaySize.get -> Vixen.Core.Mathematics.Int2
+Vixen.Video.IVideoStreamDecoder.Duration.get -> System.TimeSpan
+Vixen.Video.IVideoStreamDecoder.Format.get -> Vixen.Video.VideoFormat
+Vixen.Video.IVideoStreamDecoder.Position.get -> System.TimeSpan
+Vixen.Video.IVideoStreamDecoder.Seek(System.TimeSpan position) -> void
+Vixen.Video.Playback.VideoClock -> sealed class
+Vixen.Video.Playback.VideoClock.Advance(System.TimeSpan delta) -> void
+Vixen.Video.Playback.VideoClock.IsRunning.get -> bool
+Vixen.Video.Playback.VideoClock.IsSlaved.get -> bool
+Vixen.Video.Playback.VideoClock.Master.get -> System.Func<System.TimeSpan>?
+Vixen.Video.Playback.VideoClock.Master.set -> System.Func<System.TimeSpan>?
+Vixen.Video.Playback.VideoClock.Rate.get -> double
+Vixen.Video.Playback.VideoClock.Rate.set -> double
+Vixen.Video.Playback.VideoClock.Reset(System.TimeSpan time) -> void
+Vixen.Video.Playback.VideoClock.Start() -> void
+Vixen.Video.Playback.VideoClock.Stop() -> void
+Vixen.Video.Playback.VideoClock.Time.get -> System.TimeSpan
+Vixen.Video.Playback.VideoClock.VideoClock() -> void
+Vixen.Video.Playback.VideoPlayback -> sealed class
+Vixen.Video.Playback.VideoPlayback : System.IDisposable
+Vixen.Video.Playback.VideoPlayback.Audio.get -> Vixen.Video.Audio.MatroskaAudioStreamDecoder?
+Vixen.Video.Playback.VideoPlayback.AudioUnavailableReason.get -> string
+Vixen.Video.Playback.VideoPlayback.Clip.get -> Vixen.Video.VideoClip
+Vixen.Video.Playback.VideoPlayback.Dispose() -> void
+Vixen.Video.Playback.VideoPlayback.FollowAudio(Vixen.Audio.Sources.IAudioSampleProvider provider, System.TimeSpan offset = default(System.TimeSpan)) -> bool
+Vixen.Video.Playback.VideoPlayback.Player.get -> Vixen.Video.Playback.VideoPlayer
+Vixen.Video.Playback.VideoPlaybackOptions -> sealed record
+Vixen.Video.Playback.VideoPlaybackOptions : System.IEquatable<Vixen.Video.Playback.VideoPlaybackOptions>
+Vixen.Video.Playback.VideoPlaybackOptions.AudioNeedsOwnReader.get -> bool
+Vixen.Video.Playback.VideoPlaybackOptions.AutoPlay.get -> bool
+Vixen.Video.Playback.VideoPlaybackOptions.AutoPlay.init -> bool
+Vixen.Video.Playback.VideoPlaybackOptions.Loop.get -> bool
+Vixen.Video.Playback.VideoPlaybackOptions.Loop.init -> bool
+Vixen.Video.Playback.VideoPlaybackOptions.OpenAudio.get -> bool
+Vixen.Video.Playback.VideoPlaybackOptions.OpenAudio.init -> bool
+Vixen.Video.Playback.VideoPlaybackOptions.Player.get -> Vixen.Video.Playback.VideoPlayerOptions
+Vixen.Video.Playback.VideoPlaybackOptions.Player.init -> Vixen.Video.Playback.VideoPlayerOptions
+Vixen.Video.Playback.VideoPlaybackOptions.SeparateAudioReader.get -> bool?
+Vixen.Video.Playback.VideoPlaybackOptions.SeparateAudioReader.init -> bool?
+Vixen.Video.Playback.VideoPlaybackOptions.VideoPlaybackOptions() -> void
+Vixen.Video.Playback.VideoPlaybackState -> enum : byte
+Vixen.Video.Playback.VideoPlaybackState.Ended = 3 -> Vixen.Video.Playback.VideoPlaybackState
+Vixen.Video.Playback.VideoPlaybackState.Paused = 2 -> Vixen.Video.Playback.VideoPlaybackState
+Vixen.Video.Playback.VideoPlaybackState.Playing = 1 -> Vixen.Video.Playback.VideoPlaybackState
+Vixen.Video.Playback.VideoPlaybackState.Stopped = 0 -> Vixen.Video.Playback.VideoPlaybackState
+Vixen.Video.Playback.VideoPlaybackState.VideoPlaybackState() -> void
+Vixen.Video.Playback.VideoPlayer -> sealed class
+Vixen.Video.Playback.VideoPlayer : System.IDisposable
+Vixen.Video.Playback.VideoPlayer.Clock.get -> Vixen.Video.Playback.VideoClock
+Vixen.Video.Playback.VideoPlayer.CurrentFrame.get -> Vixen.Video.VideoFrame?
+Vixen.Video.Playback.VideoPlayer.DecodeStalls.get -> long
+Vixen.Video.Playback.VideoPlayer.Decoder.get -> Vixen.Video.IVideoStreamDecoder
+Vixen.Video.Playback.VideoPlayer.DisplaySize.get -> Vixen.Core.Mathematics.Int2
+Vixen.Video.Playback.VideoPlayer.Dispose() -> void
+Vixen.Video.Playback.VideoPlayer.Duration.get -> System.TimeSpan
+Vixen.Video.Playback.VideoPlayer.FollowAudio(Vixen.Audio.Sources.IAudioSampleProvider audio, System.TimeSpan offset = default(System.TimeSpan)) -> void
+Vixen.Video.Playback.VideoPlayer.FrameVersion.get -> uint
+Vixen.Video.Playback.VideoPlayer.FramesDropped.get -> long
+Vixen.Video.Playback.VideoPlayer.FramesShown.get -> long
+Vixen.Video.Playback.VideoPlayer.Loop.get -> bool
+Vixen.Video.Playback.VideoPlayer.Loop.set -> bool
+Vixen.Video.Playback.VideoPlayer.Options.get -> Vixen.Video.Playback.VideoPlayerOptions
+Vixen.Video.Playback.VideoPlayer.Pause() -> void
+Vixen.Video.Playback.VideoPlayer.Play() -> void
+Vixen.Video.Playback.VideoPlayer.Position.get -> System.TimeSpan
+Vixen.Video.Playback.VideoPlayer.QueuedFrames.get -> int
+Vixen.Video.Playback.VideoPlayer.Seek(System.TimeSpan position) -> void
+Vixen.Video.Playback.VideoPlayer.Service() -> bool
+Vixen.Video.Playback.VideoPlayer.State.get -> Vixen.Video.Playback.VideoPlaybackState
+Vixen.Video.Playback.VideoPlayer.Stop() -> void
+Vixen.Video.Playback.VideoPlayer.Update(System.TimeSpan delta) -> void
+Vixen.Video.Playback.VideoPlayer.VideoPlayer(Vixen.Video.IVideoStreamDecoder decoder) -> void
+Vixen.Video.Playback.VideoPlayer.VideoPlayer(Vixen.Video.IVideoStreamDecoder decoder, Vixen.Video.Playback.VideoPlayerOptions options) -> void
+Vixen.Video.Playback.VideoPlayerOptions -> readonly struct
+Vixen.Video.Playback.VideoPlayerOptions : System.IEquatable<Vixen.Video.Playback.VideoPlayerOptions>
+Vixen.Video.Playback.VideoPlayerOptions.Loop.get -> bool
+Vixen.Video.Playback.VideoPlayerOptions.Loop.init -> bool
+Vixen.Video.Playback.VideoPlayerOptions.QueueCapacity.get -> int
+Vixen.Video.Playback.VideoPlayerOptions.QueueCapacity.init -> int
+Vixen.Video.Playback.VideoPlayerOptions.UseDecodeThread.get -> bool
+Vixen.Video.Playback.VideoPlayerOptions.UseDecodeThread.init -> bool
+Vixen.Video.Playback.VideoPlayerOptions.VideoPlayerOptions() -> void
+Vixen.Video.VideoClip -> sealed record
+Vixen.Video.VideoClip : System.IEquatable<Vixen.Video.VideoClip>
+Vixen.Video.VideoClip.Address.get -> string
+Vixen.Video.VideoClip.Address.set -> string
+Vixen.Video.VideoClip.AudioCodecId.get -> string
+Vixen.Video.VideoClip.AudioCodecId.set -> string
+Vixen.Video.VideoClip.CodecId.get -> string
+Vixen.Video.VideoClip.CodecId.set -> string
+Vixen.Video.VideoClip.ContainerAddress.get -> string
+Vixen.Video.VideoClip.ContainerAddress.set -> string
+Vixen.Video.VideoClip.Duration.get -> System.TimeSpan
+Vixen.Video.VideoClip.Duration.set -> System.TimeSpan
+Vixen.Video.VideoClip.FourCc.get -> string
+Vixen.Video.VideoClip.FourCc.set -> string
+Vixen.Video.VideoClip.FrameRate.get -> Vixen.Video.VideoRational
+Vixen.Video.VideoClip.FrameRateDenominator.get -> int
+Vixen.Video.VideoClip.FrameRateDenominator.set -> int
+Vixen.Video.VideoClip.FrameRateNumerator.get -> int
+Vixen.Video.VideoClip.FrameRateNumerator.set -> int
+Vixen.Video.VideoClip.HasAudio.get -> bool
+Vixen.Video.VideoClip.HasAudio.set -> bool
+Vixen.Video.VideoClip.Height.get -> int
+Vixen.Video.VideoClip.Height.set -> int
+Vixen.Video.VideoClip.VideoClip() -> void
+Vixen.Video.VideoClip.Width.get -> int
+Vixen.Video.VideoClip.Width.set -> int
+Vixen.Video.VideoColourCoefficients -> readonly struct
+Vixen.Video.VideoColourCoefficients : System.IEquatable<Vixen.Video.VideoColourCoefficients>
+Vixen.Video.VideoColourCoefficients.BlueU.get -> float
+Vixen.Video.VideoColourCoefficients.BlueU.init -> float
+Vixen.Video.VideoColourCoefficients.GreenU.get -> float
+Vixen.Video.VideoColourCoefficients.GreenU.init -> float
+Vixen.Video.VideoColourCoefficients.GreenV.get -> float
+Vixen.Video.VideoColourCoefficients.GreenV.init -> float
+Vixen.Video.VideoColourCoefficients.LumaOffset.get -> float
+Vixen.Video.VideoColourCoefficients.LumaOffset.init -> float
+Vixen.Video.VideoColourCoefficients.LumaScale.get -> float
+Vixen.Video.VideoColourCoefficients.LumaScale.init -> float
+Vixen.Video.VideoColourCoefficients.RedV.get -> float
+Vixen.Video.VideoColourCoefficients.RedV.init -> float
+Vixen.Video.VideoColourCoefficients.VideoColourCoefficients() -> void
+Vixen.Video.VideoColourCoefficients.VideoColourCoefficients(float LumaOffset, float LumaScale, float RedV, float GreenU, float GreenV, float BlueU) -> void
+Vixen.Video.VideoColourConversion -> static class
+Vixen.Video.VideoColourMatrix -> enum : byte
+Vixen.Video.VideoColourMatrix.Bt601 = 0 -> Vixen.Video.VideoColourMatrix
+Vixen.Video.VideoColourMatrix.Bt709 = 1 -> Vixen.Video.VideoColourMatrix
+Vixen.Video.VideoColourMatrix.VideoColourMatrix() -> void
+Vixen.Video.VideoColourRange -> enum : byte
+Vixen.Video.VideoColourRange.Full = 1 -> Vixen.Video.VideoColourRange
+Vixen.Video.VideoColourRange.Limited = 0 -> Vixen.Video.VideoColourRange
+Vixen.Video.VideoColourRange.VideoColourRange() -> void
+Vixen.Video.VideoContentMissingException -> sealed class
+Vixen.Video.VideoContentMissingException : System.Exception
+Vixen.Video.VideoContentMissingException.Address.get -> string
+Vixen.Video.VideoContentMissingException.VideoContentMissingException(string address, string reason, System.Exception? inner = null) -> void
+Vixen.Video.VideoDecodeStatus -> enum : byte
+Vixen.Video.VideoDecodeStatus.Decoded = 0 -> Vixen.Video.VideoDecodeStatus
+Vixen.Video.VideoDecodeStatus.EndOfStream = 2 -> Vixen.Video.VideoDecodeStatus
+Vixen.Video.VideoDecodeStatus.FormatChanged = 3 -> Vixen.Video.VideoDecodeStatus
+Vixen.Video.VideoDecodeStatus.NeedMoreData = 1 -> Vixen.Video.VideoDecodeStatus
+Vixen.Video.VideoDecodeStatus.VideoDecodeStatus() -> void
+Vixen.Video.VideoFormat -> readonly struct
+Vixen.Video.VideoFormat : System.IEquatable<Vixen.Video.VideoFormat>
+Vixen.Video.VideoFormat.FrameRate.get -> Vixen.Video.VideoRational
+Vixen.Video.VideoFormat.FrameRate.init -> Vixen.Video.VideoRational
+Vixen.Video.VideoFormat.FrameSize.get -> int
+Vixen.Video.VideoFormat.Height.get -> int
+Vixen.Video.VideoFormat.Height.init -> int
+Vixen.Video.VideoFormat.IsCompatibleWith(in Vixen.Video.VideoFormat other) -> bool
+Vixen.Video.VideoFormat.IsValid.get -> bool
+Vixen.Video.VideoFormat.Layout.get -> Vixen.Video.VideoPixelLayout
+Vixen.Video.VideoFormat.Layout.init -> Vixen.Video.VideoPixelLayout
+Vixen.Video.VideoFormat.Matrix.get -> Vixen.Video.VideoColourMatrix
+Vixen.Video.VideoFormat.Matrix.init -> Vixen.Video.VideoColourMatrix
+Vixen.Video.VideoFormat.PlaneCount.get -> int
+Vixen.Video.VideoFormat.PlaneHeight(int plane) -> int
+Vixen.Video.VideoFormat.PlaneWidth(int plane) -> int
+Vixen.Video.VideoFormat.Range.get -> Vixen.Video.VideoColourRange
+Vixen.Video.VideoFormat.Range.init -> Vixen.Video.VideoColourRange
+Vixen.Video.VideoFormat.VideoFormat() -> void
+Vixen.Video.VideoFormat.VideoFormat(int Width, int Height, Vixen.Video.VideoPixelLayout Layout, Vixen.Video.VideoRational FrameRate = default(Vixen.Video.VideoRational), Vixen.Video.VideoColourRange Range = Vixen.Video.VideoColourRange.Limited, Vixen.Video.VideoColourMatrix Matrix = Vixen.Video.VideoColourMatrix.Bt709) -> void
+Vixen.Video.VideoFormat.Width.get -> int
+Vixen.Video.VideoFormat.Width.init -> int
+Vixen.Video.VideoFrame -> sealed class
+Vixen.Video.VideoFrame.Clear() -> void
+Vixen.Video.VideoFrame.CopyFrom(Vixen.Video.VideoFrame source) -> void
+Vixen.Video.VideoFrame.Duration.get -> System.TimeSpan
+Vixen.Video.VideoFrame.Duration.set -> System.TimeSpan
+Vixen.Video.VideoFrame.Format.get -> Vixen.Video.VideoFormat
+Vixen.Video.VideoFrame.IsKeyFrame.get -> bool
+Vixen.Video.VideoFrame.IsKeyFrame.set -> bool
+Vixen.Video.VideoFrame.Offset(int plane) -> int
+Vixen.Video.VideoFrame.Pixels.get -> System.ReadOnlySpan<byte>
+Vixen.Video.VideoFrame.Plane(int plane) -> System.Span<byte>
+Vixen.Video.VideoFrame.Reset(in Vixen.Video.VideoFormat format) -> void
+Vixen.Video.VideoFrame.Row(int plane, int row) -> System.Span<byte>
+Vixen.Video.VideoFrame.Size.get -> int
+Vixen.Video.VideoFrame.Stride(int plane) -> int
+Vixen.Video.VideoFrame.Timestamp.get -> System.TimeSpan
+Vixen.Video.VideoFrame.Timestamp.set -> System.TimeSpan
+Vixen.Video.VideoFrame.VideoFrame() -> void
+Vixen.Video.VideoFramePool -> sealed class
+Vixen.Video.VideoFramePool.Allocations.get -> int
+Vixen.Video.VideoFramePool.Available.get -> int
+Vixen.Video.VideoFramePool.Capacity.get -> int
+Vixen.Video.VideoFramePool.Clear() -> void
+Vixen.Video.VideoFramePool.Rent(in Vixen.Video.VideoFormat format) -> Vixen.Video.VideoFrame
+Vixen.Video.VideoFramePool.Return(Vixen.Video.VideoFrame frame) -> void
+Vixen.Video.VideoFramePool.VideoFramePool(int capacity = 8) -> void
+Vixen.Video.VideoPixelLayout -> enum : byte
+Vixen.Video.VideoPixelLayout.Bgra8 = 5 -> Vixen.Video.VideoPixelLayout
+Vixen.Video.VideoPixelLayout.Grey8 = 1 -> Vixen.Video.VideoPixelLayout
+Vixen.Video.VideoPixelLayout.Unknown = 0 -> Vixen.Video.VideoPixelLayout
+Vixen.Video.VideoPixelLayout.VideoPixelLayout() -> void
+Vixen.Video.VideoPixelLayout.Yuv420Planar = 2 -> Vixen.Video.VideoPixelLayout
+Vixen.Video.VideoPixelLayout.Yuv422Planar = 3 -> Vixen.Video.VideoPixelLayout
+Vixen.Video.VideoPixelLayout.Yuv444Planar = 4 -> Vixen.Video.VideoPixelLayout
+Vixen.Video.VideoRational -> readonly struct
+Vixen.Video.VideoRational : System.IEquatable<Vixen.Video.VideoRational>
+Vixen.Video.VideoRational.Denominator.get -> int
+Vixen.Video.VideoRational.Denominator.init -> int
+Vixen.Video.VideoRational.FrameDuration.get -> System.TimeSpan
+Vixen.Video.VideoRational.Hz.get -> double
+Vixen.Video.VideoRational.IsKnown.get -> bool
+Vixen.Video.VideoRational.Numerator.get -> int
+Vixen.Video.VideoRational.Numerator.init -> int
+Vixen.Video.VideoRational.VideoRational() -> void
+Vixen.Video.VideoRational.VideoRational(int Numerator, int Denominator) -> void
+Vixen.Video.WebMVideoStreamDecoder -> sealed class
+Vixen.Video.WebMVideoStreamDecoder : System.IDisposable
+Vixen.Video.WebMVideoStreamDecoder : Vixen.Video.IVideoStreamDecoder
+Vixen.Video.WebMVideoStreamDecoder.CanSeek.get -> bool
+Vixen.Video.WebMVideoStreamDecoder.Container.get -> Vixen.Video.Containers.MatroskaDemuxer
+Vixen.Video.WebMVideoStreamDecoder.DecodeNext(Vixen.Video.VideoFrame destination) -> Vixen.Video.VideoDecodeStatus
+Vixen.Video.WebMVideoStreamDecoder.DisplaySize.get -> Vixen.Core.Mathematics.Int2
+Vixen.Video.WebMVideoStreamDecoder.Dispose() -> void
+Vixen.Video.WebMVideoStreamDecoder.Duration.get -> System.TimeSpan
+Vixen.Video.WebMVideoStreamDecoder.Format.get -> Vixen.Video.VideoFormat
+Vixen.Video.WebMVideoStreamDecoder.Position.get -> System.TimeSpan
+Vixen.Video.WebMVideoStreamDecoder.Seek(System.TimeSpan position) -> void
+Vixen.Video.WebMVideoStreamDecoder.Track.get -> Vixen.Video.Containers.MatroskaTrack
+Vixen.Video.WebMVideoStreamDecoder.WebMVideoStreamDecoder(System.IO.Stream stream, bool leaveOpen = false) -> void
+Vixen.Video.WebMVideoStreamDecoder.WebMVideoStreamDecoder(Vixen.Video.Containers.MatroskaDemuxer demuxer, bool ownsDemuxer) -> void
+Vixen.Video.WebMVideoStreamDecoder.WebMVideoStreamDecoder(string path) -> void
+override Vixen.Video.Ecs.VideoSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+static Vixen.Video.Audio.AudioPacketDecoderRegistry.Register(Vixen.Video.Audio.IAudioPacketDecoderFactory factory) -> void
+static Vixen.Video.Audio.AudioPacketDecoderRegistry.RegisteredNames() -> System.Collections.Generic.IReadOnlyList<string>
+static Vixen.Video.Audio.AudioPacketDecoderRegistry.TryCreate(in Vixen.Video.Audio.AudioTrackInfo track, out Vixen.Video.Audio.IAudioPacketDecoder? decoder) -> bool
+static Vixen.Video.Audio.MatroskaAudioStreamDecoder.TryOpen(Vixen.Video.Containers.MatroskaDemuxer demuxer, out Vixen.Video.Audio.MatroskaAudioStreamDecoder? stream) -> bool
+static Vixen.Video.Codecs.UncompressedVideoCodec.LayoutOf(string fourCc) -> Vixen.Video.VideoPixelLayout
+static Vixen.Video.Codecs.VideoCodecRegistry.CanDecode(in Vixen.Video.Codecs.VideoTrackInfo track) -> bool
+static Vixen.Video.Codecs.VideoCodecRegistry.Register(Vixen.Video.Codecs.IVideoCodecFactory factory) -> void
+static Vixen.Video.Codecs.VideoCodecRegistry.RegisteredNames() -> System.Collections.Generic.IReadOnlyList<string>
+static Vixen.Video.Codecs.VideoCodecRegistry.TryCreate(in Vixen.Video.Codecs.VideoTrackInfo track, out Vixen.Video.Codecs.IVideoCodec? codec) -> bool
+static Vixen.Video.Containers.EbmlReader.LengthOf(byte first) -> int
+static Vixen.Video.Ecs.VideoScreenPlacement.Opaque.get -> Vixen.Video.Ecs.VideoScreenPlacement
+static Vixen.Video.Gpu.VideoFit.Place(Vixen.Video.Gpu.VideoScaling scaling, Vixen.Core.Mathematics.Vector2 source, Vixen.Core.Mathematics.Rectangle target) -> Vixen.Video.Gpu.VideoPlacement
+static Vixen.Video.Gpu.VideoFit.Place(Vixen.Video.Gpu.VideoScaling scaling, Vixen.Video.Playback.VideoPlayer source, Vixen.Core.Mathematics.Rectangle target) -> Vixen.Video.Gpu.VideoPlacement
+static Vixen.Video.Gpu.VideoPlacement.Filling(Vixen.Core.Mathematics.Rectangle target) -> Vixen.Video.Gpu.VideoPlacement
+static Vixen.Video.Playback.VideoPlayback.CanPlay(Vixen.Video.VideoClip clip) -> bool
+static Vixen.Video.Playback.VideoPlayback.Open(Vixen.Video.VideoClip clip, Vixen.Video.IVideoContentSource content, Vixen.Video.Playback.VideoPlaybackOptions? options = null) -> Vixen.Video.Playback.VideoPlayback
+static Vixen.Video.VideoColourCoefficients.For(Vixen.Video.VideoColourMatrix matrix, Vixen.Video.VideoColourRange range) -> Vixen.Video.VideoColourCoefficients
+static Vixen.Video.VideoColourConversion.BgraSize(in Vixen.Video.VideoFormat format) -> int
+static Vixen.Video.VideoColourConversion.ToBgra(Vixen.Video.VideoFrame frame, System.Span<byte> destination) -> void
+static Vixen.Video.VideoRational.Cinema24.get -> Vixen.Video.VideoRational
+static Vixen.Video.VideoRational.Ntsc30.get -> Vixen.Video.VideoRational
+static Vixen.Video.VideoRational.Pal50.get -> Vixen.Video.VideoRational
+static Vixen.Video.VideoRational.Unknown.get -> Vixen.Video.VideoRational

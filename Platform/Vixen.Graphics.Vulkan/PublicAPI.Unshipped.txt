@@ -31,6 +31,8 @@ Vixen.Graphics.Vulkan.VulkanDevice.EndFrame() -> void
 Vixen.Graphics.Vulkan.VulkanDevice.Features.get -> Vixen.Graphics.GraphicsDeviceFeatures
 Vixen.Graphics.Vulkan.VulkanDevice.FramesInFlight.get -> int
 Vixen.Graphics.Vulkan.VulkanDevice.GraphicsQueue.get -> Vixen.Graphics.ICommandSubmitter
+Vixen.Graphics.Vulkan.VulkanDevice.ImportImage(nint image, in Vixen.Graphics.TextureDescription description) -> Vixen.Graphics.TextureHandle
+Vixen.Graphics.Vulkan.VulkanDevice.NativeHandles.get -> Vixen.Graphics.Vulkan.VulkanNativeHandles
 Vixen.Graphics.Vulkan.VulkanDevice.Read(Vixen.Graphics.BufferHandle buffer, long offset, System.Span<byte> destination) -> void
 Vixen.Graphics.Vulkan.VulkanDevice.TransferQueue.get -> Vixen.Graphics.ICommandSubmitter
 Vixen.Graphics.Vulkan.VulkanDevice.UpdateDescriptorSet(Vixen.Graphics.DescriptorSetHandle descriptors, System.ReadOnlySpan<Vixen.Graphics.DescriptorWrite> writes) -> void
@@ -46,6 +48,12 @@ Vixen.Graphics.Vulkan.VulkanDeviceOptions.Logger.get -> Microsoft.Extensions.Log
 Vixen.Graphics.Vulkan.VulkanDeviceOptions.Logger.init -> Microsoft.Extensions.Logging.ILogger?
 Vixen.Graphics.Vulkan.VulkanDeviceOptions.PreferRenderPassObjects.get -> bool
 Vixen.Graphics.Vulkan.VulkanDeviceOptions.PreferRenderPassObjects.init -> bool
+Vixen.Graphics.Vulkan.VulkanDeviceOptions.PreferredPhysicalDevice.get -> nint
+Vixen.Graphics.Vulkan.VulkanDeviceOptions.PreferredPhysicalDevice.init -> nint
+Vixen.Graphics.Vulkan.VulkanDeviceOptions.RequiredDeviceExtensions.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Graphics.Vulkan.VulkanDeviceOptions.RequiredDeviceExtensions.init -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Graphics.Vulkan.VulkanDeviceOptions.RequiredInstanceExtensions.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Graphics.Vulkan.VulkanDeviceOptions.RequiredInstanceExtensions.init -> System.Collections.Generic.IReadOnlyList<string>
 Vixen.Graphics.Vulkan.VulkanDeviceOptions.Surface.get -> Vixen.Core.SurfaceHandle
 Vixen.Graphics.Vulkan.VulkanDeviceOptions.Surface.init -> Vixen.Core.SurfaceHandle
 Vixen.Graphics.Vulkan.VulkanDeviceOptions.VulkanDeviceOptions() -> void
@@ -74,6 +82,20 @@ Vixen.Graphics.Vulkan.VulkanInstanceOptions.Logger.init -> Microsoft.Extensions.
 Vixen.Graphics.Vulkan.VulkanInstanceOptions.RequiredExtensions.get -> System.Collections.Generic.IReadOnlyList<string>
 Vixen.Graphics.Vulkan.VulkanInstanceOptions.RequiredExtensions.init -> System.Collections.Generic.IReadOnlyList<string>
 Vixen.Graphics.Vulkan.VulkanInstanceOptions.VulkanInstanceOptions() -> void
+Vixen.Graphics.Vulkan.VulkanNativeHandles -> readonly struct
+Vixen.Graphics.Vulkan.VulkanNativeHandles : System.IEquatable<Vixen.Graphics.Vulkan.VulkanNativeHandles>
+Vixen.Graphics.Vulkan.VulkanNativeHandles.Device.get -> nint
+Vixen.Graphics.Vulkan.VulkanNativeHandles.Device.init -> nint
+Vixen.Graphics.Vulkan.VulkanNativeHandles.GraphicsQueueFamily.get -> uint
+Vixen.Graphics.Vulkan.VulkanNativeHandles.GraphicsQueueFamily.init -> uint
+Vixen.Graphics.Vulkan.VulkanNativeHandles.GraphicsQueueIndex.get -> uint
+Vixen.Graphics.Vulkan.VulkanNativeHandles.GraphicsQueueIndex.init -> uint
+Vixen.Graphics.Vulkan.VulkanNativeHandles.Instance.get -> nint
+Vixen.Graphics.Vulkan.VulkanNativeHandles.Instance.init -> nint
+Vixen.Graphics.Vulkan.VulkanNativeHandles.PhysicalDevice.get -> nint
+Vixen.Graphics.Vulkan.VulkanNativeHandles.PhysicalDevice.init -> nint
+Vixen.Graphics.Vulkan.VulkanNativeHandles.VulkanNativeHandles() -> void
+Vixen.Graphics.Vulkan.VulkanNativeHandles.VulkanNativeHandles(nint Instance, nint PhysicalDevice, nint Device, uint GraphicsQueueFamily, uint GraphicsQueueIndex) -> void
 const Vixen.Graphics.Vulkan.VulkanDiagnostics.Capacity = 64 -> int
 static Vixen.Graphics.Vulkan.VulkanDevice.Create() -> Vixen.Graphics.Vulkan.VulkanDevice
 static Vixen.Graphics.Vulkan.VulkanDevice.Create(Vixen.Graphics.Vulkan.VulkanDeviceOptions options) -> Vixen.Graphics.Vulkan.VulkanDevice

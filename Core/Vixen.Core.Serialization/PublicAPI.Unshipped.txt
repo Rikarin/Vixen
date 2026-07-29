@@ -183,6 +183,7 @@ Vixen.Core.Serialization.Storage.ObjectDatabase.Mount(Vixen.Core.Serialization.S
 Vixen.Core.Serialization.Storage.ObjectDatabase.ObjectDatabase(params Vixen.Core.Serialization.Storage.IOdbBackend[] backends) -> void
 Vixen.Core.Serialization.Storage.ObjectDatabase.Read<T>(Vixen.Core.ObjectId id) -> T
 Vixen.Core.Serialization.Storage.ObjectDatabase.ReadObject(Vixen.Core.ObjectId id) -> object
+Vixen.Core.Serialization.Storage.ObjectDatabase.ReadRaw(Vixen.Core.ObjectId id, out ulong typeId) -> byte[]
 Vixen.Core.Serialization.Storage.ObjectDatabase.TryDescribe(Vixen.Core.ObjectId id, out Vixen.Core.Serialization.Storage.ChunkInfo info) -> bool
 Vixen.Core.Serialization.Storage.ObjectDatabase.Verify(Vixen.Core.ObjectId id) -> bool
 Vixen.Core.Serialization.Storage.ObjectDatabase.Write<T>(in T value, System.ReadOnlySpan<Vixen.Core.ObjectId> references = default(System.ReadOnlySpan<Vixen.Core.ObjectId>), Vixen.Core.Serialization.Storage.CompressionMethod? compression = null) -> Vixen.Core.ObjectId

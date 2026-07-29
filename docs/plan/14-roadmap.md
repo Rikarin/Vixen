@@ -4224,7 +4224,65 @@ holds its bandwidth, CPU, and allocation budgets for 30 minutes.
   [spikes/web-webgl2](spikes/web-webgl2/RESULT.md)).
 - `Samples/06-CanvasStress` — **P2, cuttable**: huge scrollable canvas, layers, tool overlays. Demoted
   from a phase gate because the editor is now the application-platform proof.
-- `Vixen.Video`, VR/XR via `Silk.NET.OpenXR` (stretch).
+- ✅ **`Vixen.Video`, and VR/XR via `Silk.NET.OpenXR`** — both landed early, and both are cleanly
+  separable exactly as the cut list says.
+
+  **Video ships the seam and one decoder, not a codec.** `MatroskaDemuxer` turns a WebM into packets
+  and `IVideoCodec` turns packets into pictures, and neither knows about the other — which is what
+  lets an MP4 reader arrive later and reuse every codec, and a VP9 codec arrive later and play out of
+  both containers. The one decoder that ships is `UncompressedVideoCodec`, which is to video exactly
+  what `PcmStreamDecoder` is to audio: the implementation that needs no codec, so a game with a
+  rendered logo sting carries none. A managed VP9 is thousands of hours and would not hit frame rate;
+  a native one is a binary per RID with no answer for the browser.
+
+  **Audio is the master clock**, the picture is chosen to match it, and late frames are dropped rather
+  than shown late. A video's sound is in the same segment as its picture and is read by the same
+  demuxer, presented as an ordinary `IAudioStreamDecoder` — so the mixer needs to know nothing about
+  video.
+
+  **XR is a core module with no runtime in it and a backend with the runtime in it.** `Vixen.Xr` has
+  the session state machine, the four-angle asymmetric projection in the engine's own reverse-Z
+  convention, the runtime-owned swapchain seam, the action model and the ECS rig; `Vixen.Xr.OpenXR`
+  binds Silk.NET.OpenXR to all of it. `NullXrBackend` simulates a headset well enough that the frame
+  loop, the stereo views, the focus rules and the tracking bridge are all tested on a machine with no
+  hardware — which matters more here than anywhere else in the engine, because a CI runner genuinely
+  cannot have a headset.
+
+  **VR is not in 1.0.** The modules are here, they are tested, and nothing else in the tree references
+  them — which is exactly the property the cut list asked for, and it means the decision costs nothing
+  to take or to reverse. What is *not* done is the half that would make a game shippable in a headset:
+  nothing renders into the eye buffers, single-pass multiview is unwritten, and none of it has met a
+  runtime, because there is no OpenXR on macOS and the tests skip themselves accordingly. Treat
+  `Vixen.Xr` as a spike that landed early and is parked, not as a feature with an exit criterion.
+
+  **Video, by contrast, is finished.** WebM in, Opus for the sound, the picture following the sound's
+  own clock, the planes on the GPU with the coefficients a shader converts them by, an importer that
+  writes down what a game needs before it opens the file, and `Samples/11-VideoPlayback` playing all
+  of it at once.
+
+  **And it is now drawn as well as decoded.** `Vixen.Video.Rendering` holds the pipeline, the
+  sixty-four-byte push block, a descriptor set per texture, `VideoRenderFeature` for a compositor and
+  `VideoSurfaceUploader` for the ECS path — which is the `PreRender` step `VideoSystem`'s own remarks
+  had been naming and not doing. `VideoRenderTarget` runs the same conversion into a target of its own,
+  which is what makes a video nameable by anything that binds one view — a user interface's image
+  command, a material slot, a thumbnail — because three R8 planes are not something a consumer can be
+  handed. ⚠ A first attempt gave the draw list a second command kind for this and it was the wrong
+  answer: `DrawCommandKind.Image` already existed, and a video that costs one texture and one pass is
+  cheaper than two mechanisms for "a picture the interface does not own". The join is now one line in
+  a game — `ui.RegisterImage(handle, target.View)` — and neither assembly references the other.
+
+  **A clip can be played.** `VideoPlayback.Open` turns the record the importer wrote into a player,
+  its sound and everything holding the file, through an `IVideoContentSource` that keeps `Vixen.Video`
+  off `Vixen.Assets` — nothing else in `Core/` depends on the asset system and video was not going to
+  be the first. `AssetManager.Open` is the other half: a stream over a bundle entry, claiming nothing,
+  which is what content that is streamed rather than loaded has always needed and what `WriteRaw` had
+  no counterpart for.
+
+  **Owed on video:** MP4, which is additive behind `IVideoStreamDecoder`; a **material**, so a video
+  can be a lit texture on a mesh rather than only a rectangle of the screen — that is
+  `MaterialRenderFeature`'s and Raven's, and the three plane views are what it would consume; and
+  frame-accurate seeking, without which a scrubber lands on cue points. Never measured above 320×180
+  and never run on the web target.
 
 **Exit:** deferred and forward+ both pass the golden-image suite. `Samples/02` and `Samples/06` run in
 three browsers within the download-size budget. `Samples/06` holds 60 fps with a 4 K canvas and 20

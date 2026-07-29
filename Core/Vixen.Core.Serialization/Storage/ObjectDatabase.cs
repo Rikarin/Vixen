@@ -186,6 +186,34 @@ public sealed class ObjectDatabase {
         return serializer.DeserializeObject(ref reader);
     }
 
+    /// <summary>Reads a chunk's payload without deserialising it.</summary>
+    /// <param name="id">The chunk.</param>
+    /// <param name="typeId">Which type wrote it, per <see cref="ContentHash.TypeId" />.</param>
+    /// <returns>The bytes, decompressed, with the chunk header stripped.</returns>
+    /// <exception cref="SerializationException">It is not here.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The counterpart to <see cref="WriteRaw" />, and it exists for the same content the
+    ///         content build put in with that.</b> A payload produced by a tool that is not this
+    ///         serializer — a compressed texture, an audio bitstream, a video container — has no
+    ///         serializer to read it back with, so <see cref="Read{T}" /> cannot and
+    ///         <see cref="ReadObject" /> cannot. This is how it comes out.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The type is reported rather than checked, which is the opposite of
+    ///         <see cref="Read{T}" />.</b> There is no type to check against: the caller asked for
+    ///         bytes, and what would make the check meaningful — a serializer registered for that id —
+    ///         is precisely what this path is for the absence of. A caller that cares compares the
+    ///         number it is handed.
+    ///     </para>
+    /// </remarks>
+    public byte[] ReadRaw(ObjectId id, out ulong typeId) {
+        var chunk = ReadChunk(id);
+        var payload = ChunkFormat.ReadHeader(chunk, out typeId, out _);
+
+        return chunk.AsSpan(payload).ToArray();
+    }
+
     /// <summary>Reads a chunk's header without deserialising it.</summary>
     /// <param name="id">The chunk.</param>
     /// <param name="info">What it says about itself.</param>

@@ -1,0 +1,378 @@
+#nullable enable
+Vixen.Xr.Ecs.XrOrigin -> struct
+Vixen.Xr.Ecs.XrOrigin.UnitsPerMetre -> float
+Vixen.Xr.Ecs.XrOrigin.XrOrigin() -> void
+Vixen.Xr.Ecs.XrTrackedDevice -> enum : byte
+Vixen.Xr.Ecs.XrTrackedDevice.Head = 0 -> Vixen.Xr.Ecs.XrTrackedDevice
+Vixen.Xr.Ecs.XrTrackedDevice.LeftHand = 1 -> Vixen.Xr.Ecs.XrTrackedDevice
+Vixen.Xr.Ecs.XrTrackedDevice.RightHand = 2 -> Vixen.Xr.Ecs.XrTrackedDevice
+Vixen.Xr.Ecs.XrTrackedDevice.XrTrackedDevice() -> void
+Vixen.Xr.Ecs.XrTrackedPose -> struct
+Vixen.Xr.Ecs.XrTrackedPose.ApplyPosition -> bool
+Vixen.Xr.Ecs.XrTrackedPose.ApplyRotation -> bool
+Vixen.Xr.Ecs.XrTrackedPose.Device -> Vixen.Xr.Ecs.XrTrackedDevice
+Vixen.Xr.Ecs.XrTrackedPose.IsTracked -> bool
+Vixen.Xr.Ecs.XrTrackedPose.Pose -> Vixen.Xr.XrPose
+Vixen.Xr.Ecs.XrTrackedPose.XrTrackedPose() -> void
+Vixen.Xr.Ecs.XrTrackingSystem -> sealed class
+Vixen.Xr.Ecs.XrTrackingSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Xr.Ecs.XrTrackingSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Xr.Ecs.XrTrackingSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Xr.Ecs.XrTrackingSystem.HandPoseAction.get -> Vixen.Xr.Input.XrAction?
+Vixen.Xr.Ecs.XrTrackingSystem.HandPoseAction.set -> Vixen.Xr.Input.XrAction?
+Vixen.Xr.Ecs.XrTrackingSystem.Publish(Vixen.Ecs.World world) -> void
+Vixen.Xr.Ecs.XrTrackingSystem.Session.get -> Vixen.Xr.IXrSession
+Vixen.Xr.Ecs.XrTrackingSystem.XrTrackingSystem(Vixen.Xr.IXrSession session) -> void
+Vixen.Xr.IXrBackend -> interface
+Vixen.Xr.IXrBackend : System.IDisposable
+Vixen.Xr.IXrBackend.CreateSession(in Vixen.Xr.XrVulkanBinding binding, in Vixen.Xr.XrSessionOptions options, Vixen.Xr.IXrImageImporter? importer = null) -> Vixen.Xr.IXrSession
+Vixen.Xr.IXrBackend.GetVulkanPhysicalDevice(nint vulkanInstance) -> nint
+Vixen.Xr.IXrBackend.GetVulkanRequirements() -> Vixen.Xr.XrVulkanRequirements
+Vixen.Xr.IXrBackend.IsAvailable.get -> bool
+Vixen.Xr.IXrBackend.Name.get -> string
+Vixen.Xr.IXrBackend.TryGetSystem(out Vixen.Xr.XrSystemInfo system) -> bool
+Vixen.Xr.IXrBackend.UnavailableReason.get -> string
+Vixen.Xr.IXrImageImporter -> interface
+Vixen.Xr.IXrImageImporter.CreateView(Vixen.Graphics.TextureHandle texture) -> Vixen.Graphics.TextureViewHandle
+Vixen.Xr.IXrImageImporter.Import(nint nativeImage, in Vixen.Graphics.TextureDescription description) -> Vixen.Graphics.TextureHandle
+Vixen.Xr.IXrImageImporter.Release(Vixen.Graphics.TextureHandle texture) -> void
+Vixen.Xr.IXrImageImporter.Release(Vixen.Graphics.TextureViewHandle view) -> void
+Vixen.Xr.IXrSession -> interface
+Vixen.Xr.IXrSession : System.IDisposable
+Vixen.Xr.IXrSession.ApplyHaptics(Vixen.Xr.Input.XrAction action, Vixen.Xr.XrHand hand, in Vixen.Xr.Input.XrHapticPulse request) -> void
+Vixen.Xr.IXrSession.AttachActionSets(System.ReadOnlySpan<Vixen.Xr.Input.XrActionSet> sets) -> void
+Vixen.Xr.IXrSession.BeginFrame(out Vixen.Xr.XrFrameState frame) -> bool
+Vixen.Xr.IXrSession.CreateSwapchain(in Vixen.Xr.XrSwapchainDescription description) -> Vixen.Xr.IXrSwapchain
+Vixen.Xr.IXrSession.EndFrame(in Vixen.Xr.XrFrameState frame, System.ReadOnlySpan<Vixen.Xr.XrCompositionView> views) -> void
+Vixen.Xr.IXrSession.HasFocus.get -> bool
+Vixen.Xr.IXrSession.IsRunning.get -> bool
+Vixen.Xr.IXrSession.LocateSpace(Vixen.Xr.XrReferenceSpace space, in Vixen.Xr.XrFrameState frame, out Vixen.Xr.XrPose pose) -> bool
+Vixen.Xr.IXrSession.LocateViews(in Vixen.Xr.XrFrameState frame) -> System.ReadOnlySpan<Vixen.Xr.XrView>
+Vixen.Xr.IXrSession.PollEvents() -> bool
+Vixen.Xr.IXrSession.ReferenceSpace.get -> Vixen.Xr.XrReferenceSpace
+Vixen.Xr.IXrSession.RequestExit() -> void
+Vixen.Xr.IXrSession.State.get -> Vixen.Xr.XrSessionState
+Vixen.Xr.IXrSession.SyncActions() -> void
+Vixen.Xr.IXrSession.System.get -> Vixen.Xr.XrSystemInfo
+Vixen.Xr.IXrSession.ViewCount.get -> int
+Vixen.Xr.IXrSession.Views.get -> System.ReadOnlySpan<Vixen.Xr.XrView>
+Vixen.Xr.IXrSwapchain -> interface
+Vixen.Xr.IXrSwapchain : System.IDisposable
+Vixen.Xr.IXrSwapchain.AcquireImage() -> int
+Vixen.Xr.IXrSwapchain.AcquiredIndex.get -> int
+Vixen.Xr.IXrSwapchain.ArrayLayers.get -> int
+Vixen.Xr.IXrSwapchain.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Xr.IXrSwapchain.Image(int index) -> Vixen.Graphics.TextureHandle
+Vixen.Xr.IXrSwapchain.ImageCount.get -> int
+Vixen.Xr.IXrSwapchain.ReleaseImage() -> void
+Vixen.Xr.IXrSwapchain.Size.get -> Vixen.Core.Mathematics.Int2
+Vixen.Xr.IXrSwapchain.View(int index) -> Vixen.Graphics.TextureViewHandle
+Vixen.Xr.Input.XrAction -> sealed class
+Vixen.Xr.Input.XrAction.BackendHandle.get -> object?
+Vixen.Xr.Input.XrAction.BackendHandle.set -> object?
+Vixen.Xr.Input.XrAction.Deactivate() -> void
+Vixen.Xr.Input.XrAction.IsPressed.get -> bool
+Vixen.Xr.Input.XrAction.LocalisedName.get -> string
+Vixen.Xr.Input.XrAction.Name.get -> string
+Vixen.Xr.Input.XrAction.Publish(Vixen.Xr.XrHand hand, in Vixen.Xr.Input.XrActionState state) -> void
+Vixen.Xr.Input.XrAction.Set.get -> Vixen.Xr.Input.XrActionSet
+Vixen.Xr.Input.XrAction.State(Vixen.Xr.XrHand hand) -> Vixen.Xr.Input.XrActionState
+Vixen.Xr.Input.XrAction.Type.get -> Vixen.Xr.Input.XrActionType
+Vixen.Xr.Input.XrAction.WasPressedThisFrame.get -> bool
+Vixen.Xr.Input.XrActionSet -> sealed class
+Vixen.Xr.Input.XrActionSet.Actions.get -> System.Collections.Generic.IReadOnlyList<Vixen.Xr.Input.XrAction>
+Vixen.Xr.Input.XrActionSet.BackendHandle.get -> object?
+Vixen.Xr.Input.XrActionSet.BackendHandle.set -> object?
+Vixen.Xr.Input.XrActionSet.Bindings.get -> System.Collections.Generic.IReadOnlyList<Vixen.Xr.Input.XrSuggestedBinding>
+Vixen.Xr.Input.XrActionSet.CreateAction(string name, Vixen.Xr.Input.XrActionType type, string localisedName = "") -> Vixen.Xr.Input.XrAction
+Vixen.Xr.Input.XrActionSet.IsActive.get -> bool
+Vixen.Xr.Input.XrActionSet.IsActive.set -> bool
+Vixen.Xr.Input.XrActionSet.IsAttached.get -> bool
+Vixen.Xr.Input.XrActionSet.LocalisedName.get -> string
+Vixen.Xr.Input.XrActionSet.MarkAttached() -> void
+Vixen.Xr.Input.XrActionSet.Name.get -> string
+Vixen.Xr.Input.XrActionSet.Priority.get -> int
+Vixen.Xr.Input.XrActionSet.SuggestBinding(string interactionProfile, Vixen.Xr.Input.XrAction action, string bindingPath) -> void
+Vixen.Xr.Input.XrActionSet.SuggestBindingForBothHands(string interactionProfile, Vixen.Xr.Input.XrAction action, string component) -> void
+Vixen.Xr.Input.XrActionSet.XrActionSet(string name, string localisedName = "", int priority = 0) -> void
+Vixen.Xr.Input.XrActionState -> readonly struct
+Vixen.Xr.Input.XrActionState : System.IEquatable<Vixen.Xr.Input.XrActionState>
+Vixen.Xr.Input.XrActionState.Boolean.get -> bool
+Vixen.Xr.Input.XrActionState.Boolean.init -> bool
+Vixen.Xr.Input.XrActionState.Changed.get -> bool
+Vixen.Xr.Input.XrActionState.Changed.init -> bool
+Vixen.Xr.Input.XrActionState.Float.get -> float
+Vixen.Xr.Input.XrActionState.Float.init -> float
+Vixen.Xr.Input.XrActionState.IsActive.get -> bool
+Vixen.Xr.Input.XrActionState.IsActive.init -> bool
+Vixen.Xr.Input.XrActionState.IsTracked.get -> bool
+Vixen.Xr.Input.XrActionState.IsTracked.init -> bool
+Vixen.Xr.Input.XrActionState.Pose.get -> Vixen.Xr.XrPose
+Vixen.Xr.Input.XrActionState.Pose.init -> Vixen.Xr.XrPose
+Vixen.Xr.Input.XrActionState.Vector.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Xr.Input.XrActionState.Vector.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Xr.Input.XrActionState.XrActionState() -> void
+Vixen.Xr.Input.XrActionState.XrActionState(bool IsActive, bool Changed = false, bool Boolean = false, float Float = 0, Vixen.Core.Mathematics.Vector2 Vector = default(Vixen.Core.Mathematics.Vector2), Vixen.Xr.XrPose Pose = default(Vixen.Xr.XrPose), bool IsTracked = false) -> void
+Vixen.Xr.Input.XrActionType -> enum : byte
+Vixen.Xr.Input.XrActionType.Boolean = 0 -> Vixen.Xr.Input.XrActionType
+Vixen.Xr.Input.XrActionType.Float = 1 -> Vixen.Xr.Input.XrActionType
+Vixen.Xr.Input.XrActionType.Haptic = 4 -> Vixen.Xr.Input.XrActionType
+Vixen.Xr.Input.XrActionType.Pose = 3 -> Vixen.Xr.Input.XrActionType
+Vixen.Xr.Input.XrActionType.Vector2 = 2 -> Vixen.Xr.Input.XrActionType
+Vixen.Xr.Input.XrActionType.XrActionType() -> void
+Vixen.Xr.Input.XrHapticPulse -> readonly struct
+Vixen.Xr.Input.XrHapticPulse : System.IEquatable<Vixen.Xr.Input.XrHapticPulse>
+Vixen.Xr.Input.XrHapticPulse.Amplitude.get -> float
+Vixen.Xr.Input.XrHapticPulse.Amplitude.init -> float
+Vixen.Xr.Input.XrHapticPulse.Duration.get -> System.TimeSpan
+Vixen.Xr.Input.XrHapticPulse.Duration.init -> System.TimeSpan
+Vixen.Xr.Input.XrHapticPulse.Frequency.get -> float
+Vixen.Xr.Input.XrHapticPulse.Frequency.init -> float
+Vixen.Xr.Input.XrHapticPulse.XrHapticPulse() -> void
+Vixen.Xr.Input.XrHapticPulse.XrHapticPulse(System.TimeSpan Duration, float Frequency = 0, float Amplitude = 1) -> void
+Vixen.Xr.Input.XrInteractionProfiles -> static class
+Vixen.Xr.Input.XrPaths -> static class
+Vixen.Xr.Input.XrSuggestedBinding -> readonly struct
+Vixen.Xr.Input.XrSuggestedBinding : System.IEquatable<Vixen.Xr.Input.XrSuggestedBinding>
+Vixen.Xr.Input.XrSuggestedBinding.Action.get -> Vixen.Xr.Input.XrAction
+Vixen.Xr.Input.XrSuggestedBinding.Action.init -> Vixen.Xr.Input.XrAction
+Vixen.Xr.Input.XrSuggestedBinding.BindingPath.get -> string
+Vixen.Xr.Input.XrSuggestedBinding.BindingPath.init -> string
+Vixen.Xr.Input.XrSuggestedBinding.InteractionProfile.get -> string
+Vixen.Xr.Input.XrSuggestedBinding.InteractionProfile.init -> string
+Vixen.Xr.Input.XrSuggestedBinding.XrSuggestedBinding() -> void
+Vixen.Xr.Input.XrSuggestedBinding.XrSuggestedBinding(string InteractionProfile, Vixen.Xr.Input.XrAction Action, string BindingPath) -> void
+Vixen.Xr.NullXrBackend -> sealed class
+Vixen.Xr.NullXrBackend : System.IDisposable
+Vixen.Xr.NullXrBackend : Vixen.Xr.IXrBackend
+Vixen.Xr.NullXrBackend.CreateSession(in Vixen.Xr.XrVulkanBinding binding, in Vixen.Xr.XrSessionOptions options, Vixen.Xr.IXrImageImporter? importer = null) -> Vixen.Xr.IXrSession
+Vixen.Xr.NullXrBackend.Dispose() -> void
+Vixen.Xr.NullXrBackend.GetVulkanPhysicalDevice(nint vulkanInstance) -> nint
+Vixen.Xr.NullXrBackend.GetVulkanRequirements() -> Vixen.Xr.XrVulkanRequirements
+Vixen.Xr.NullXrBackend.IsAvailable.get -> bool
+Vixen.Xr.NullXrBackend.Name.get -> string
+Vixen.Xr.NullXrBackend.NullXrBackend(Vixen.Graphics.IGraphicsDevice? device = null, Vixen.Xr.XrSystemInfo? system = null) -> void
+Vixen.Xr.NullXrBackend.PretendUnavailable.get -> bool
+Vixen.Xr.NullXrBackend.PretendUnavailable.set -> bool
+Vixen.Xr.NullXrBackend.System.get -> Vixen.Xr.XrSystemInfo
+Vixen.Xr.NullXrBackend.TryGetSystem(out Vixen.Xr.XrSystemInfo system) -> bool
+Vixen.Xr.NullXrBackend.UnavailableReason.get -> string
+Vixen.Xr.NullXrSession -> sealed class
+Vixen.Xr.NullXrSession : System.IDisposable
+Vixen.Xr.NullXrSession : Vixen.Xr.IXrSession
+Vixen.Xr.NullXrSession.ApplyHaptics(Vixen.Xr.Input.XrAction action, Vixen.Xr.XrHand hand, in Vixen.Xr.Input.XrHapticPulse request) -> void
+Vixen.Xr.NullXrSession.AttachActionSets(System.ReadOnlySpan<Vixen.Xr.Input.XrActionSet> sets) -> void
+Vixen.Xr.NullXrSession.AttachedActionSets.get -> System.Collections.Generic.IReadOnlyList<Vixen.Xr.Input.XrActionSet>
+Vixen.Xr.NullXrSession.BeginFrame(out Vixen.Xr.XrFrameState frame) -> bool
+Vixen.Xr.NullXrSession.CreateSwapchain(in Vixen.Xr.XrSwapchainDescription description) -> Vixen.Xr.IXrSwapchain
+Vixen.Xr.NullXrSession.Dispose() -> void
+Vixen.Xr.NullXrSession.EndFrame(in Vixen.Xr.XrFrameState frame, System.ReadOnlySpan<Vixen.Xr.XrCompositionView> views) -> void
+Vixen.Xr.NullXrSession.FieldOfView.get -> Vixen.Xr.XrFieldOfView
+Vixen.Xr.NullXrSession.FieldOfView.set -> Vixen.Xr.XrFieldOfView
+Vixen.Xr.NullXrSession.FrameCount.get -> long
+Vixen.Xr.NullXrSession.FramePeriod.get -> System.TimeSpan
+Vixen.Xr.NullXrSession.FramePeriod.set -> System.TimeSpan
+Vixen.Xr.NullXrSession.Haptics.get -> System.Collections.Generic.List<(Vixen.Xr.Input.XrAction Action, Vixen.Xr.XrHand Hand, Vixen.Xr.Input.XrHapticPulse Pulse)>
+Vixen.Xr.NullXrSession.HeadPose.get -> Vixen.Xr.XrPose
+Vixen.Xr.NullXrSession.HeadPose.set -> Vixen.Xr.XrPose
+Vixen.Xr.NullXrSession.InterpupillaryDistance.get -> float
+Vixen.Xr.NullXrSession.InterpupillaryDistance.set -> float
+Vixen.Xr.NullXrSession.LocateSpace(Vixen.Xr.XrReferenceSpace space, in Vixen.Xr.XrFrameState frame, out Vixen.Xr.XrPose pose) -> bool
+Vixen.Xr.NullXrSession.LocateViews(in Vixen.Xr.XrFrameState frame) -> System.ReadOnlySpan<Vixen.Xr.XrView>
+Vixen.Xr.NullXrSession.PollEvents() -> bool
+Vixen.Xr.NullXrSession.ReferenceSpace.get -> Vixen.Xr.XrReferenceSpace
+Vixen.Xr.NullXrSession.RenderedFrames.get -> long
+Vixen.Xr.NullXrSession.RequestExit() -> void
+Vixen.Xr.NullXrSession.State.get -> Vixen.Xr.XrSessionState
+Vixen.Xr.NullXrSession.SyncActions() -> void
+Vixen.Xr.NullXrSession.System.get -> Vixen.Xr.XrSystemInfo
+Vixen.Xr.NullXrSession.ViewCount.get -> int
+Vixen.Xr.NullXrSession.Views.get -> System.ReadOnlySpan<Vixen.Xr.XrView>
+Vixen.Xr.XrCompositionView -> readonly struct
+Vixen.Xr.XrCompositionView : System.IEquatable<Vixen.Xr.XrCompositionView>
+Vixen.Xr.XrCompositionView.Fov.get -> Vixen.Xr.XrFieldOfView
+Vixen.Xr.XrCompositionView.Fov.init -> Vixen.Xr.XrFieldOfView
+Vixen.Xr.XrCompositionView.ImageArrayIndex.get -> int
+Vixen.Xr.XrCompositionView.ImageArrayIndex.init -> int
+Vixen.Xr.XrCompositionView.Pose.get -> Vixen.Xr.XrPose
+Vixen.Xr.XrCompositionView.Pose.init -> Vixen.Xr.XrPose
+Vixen.Xr.XrCompositionView.Swapchain.get -> Vixen.Xr.IXrSwapchain
+Vixen.Xr.XrCompositionView.Swapchain.init -> Vixen.Xr.IXrSwapchain
+Vixen.Xr.XrCompositionView.Viewport.get -> Vixen.Xr.XrViewport
+Vixen.Xr.XrCompositionView.Viewport.init -> Vixen.Xr.XrViewport
+Vixen.Xr.XrCompositionView.XrCompositionView() -> void
+Vixen.Xr.XrCompositionView.XrCompositionView(Vixen.Xr.IXrSwapchain Swapchain, int ImageArrayIndex, Vixen.Xr.XrViewport Viewport, Vixen.Xr.XrPose Pose, Vixen.Xr.XrFieldOfView Fov) -> void
+Vixen.Xr.XrEye -> enum : byte
+Vixen.Xr.XrEye.Left = 0 -> Vixen.Xr.XrEye
+Vixen.Xr.XrEye.Right = 1 -> Vixen.Xr.XrEye
+Vixen.Xr.XrEye.XrEye() -> void
+Vixen.Xr.XrFieldOfView -> readonly struct
+Vixen.Xr.XrFieldOfView : System.IEquatable<Vixen.Xr.XrFieldOfView>
+Vixen.Xr.XrFieldOfView.AngleDown.get -> float
+Vixen.Xr.XrFieldOfView.AngleDown.init -> float
+Vixen.Xr.XrFieldOfView.AngleLeft.get -> float
+Vixen.Xr.XrFieldOfView.AngleLeft.init -> float
+Vixen.Xr.XrFieldOfView.AngleRight.get -> float
+Vixen.Xr.XrFieldOfView.AngleRight.init -> float
+Vixen.Xr.XrFieldOfView.AngleUp.get -> float
+Vixen.Xr.XrFieldOfView.AngleUp.init -> float
+Vixen.Xr.XrFieldOfView.IsValid.get -> bool
+Vixen.Xr.XrFieldOfView.XrFieldOfView() -> void
+Vixen.Xr.XrFieldOfView.XrFieldOfView(float AngleLeft, float AngleRight, float AngleUp, float AngleDown) -> void
+Vixen.Xr.XrFrameState -> readonly struct
+Vixen.Xr.XrFrameState : System.IEquatable<Vixen.Xr.XrFrameState>
+Vixen.Xr.XrFrameState.PredictedDisplayPeriod.get -> System.TimeSpan
+Vixen.Xr.XrFrameState.PredictedDisplayPeriod.init -> System.TimeSpan
+Vixen.Xr.XrFrameState.PredictedDisplayTime.get -> long
+Vixen.Xr.XrFrameState.PredictedDisplayTime.init -> long
+Vixen.Xr.XrFrameState.ShouldRender.get -> bool
+Vixen.Xr.XrFrameState.ShouldRender.init -> bool
+Vixen.Xr.XrFrameState.XrFrameState() -> void
+Vixen.Xr.XrFrameState.XrFrameState(long PredictedDisplayTime, System.TimeSpan PredictedDisplayPeriod, bool ShouldRender) -> void
+Vixen.Xr.XrHand -> enum : byte
+Vixen.Xr.XrHand.Left = 0 -> Vixen.Xr.XrHand
+Vixen.Xr.XrHand.Right = 1 -> Vixen.Xr.XrHand
+Vixen.Xr.XrHand.XrHand() -> void
+Vixen.Xr.XrPose -> readonly struct
+Vixen.Xr.XrPose : System.IEquatable<Vixen.Xr.XrPose>
+Vixen.Xr.XrPose.Orientation.get -> Vixen.Core.Mathematics.Quaternion
+Vixen.Xr.XrPose.Orientation.init -> Vixen.Core.Mathematics.Quaternion
+Vixen.Xr.XrPose.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Xr.XrPose.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Xr.XrPose.RelativeTo(in Vixen.Xr.XrPose origin) -> Vixen.Xr.XrPose
+Vixen.Xr.XrPose.ToMatrix() -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Xr.XrPose.ToViewMatrix() -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Xr.XrPose.XrPose() -> void
+Vixen.Xr.XrPose.XrPose(Vixen.Core.Mathematics.Vector3 Position, Vixen.Core.Mathematics.Quaternion Orientation) -> void
+Vixen.Xr.XrProjection -> static class
+Vixen.Xr.XrReferenceSpace -> enum : byte
+Vixen.Xr.XrReferenceSpace.Local = 0 -> Vixen.Xr.XrReferenceSpace
+Vixen.Xr.XrReferenceSpace.Stage = 1 -> Vixen.Xr.XrReferenceSpace
+Vixen.Xr.XrReferenceSpace.View = 2 -> Vixen.Xr.XrReferenceSpace
+Vixen.Xr.XrReferenceSpace.XrReferenceSpace() -> void
+Vixen.Xr.XrSessionOptions -> readonly struct
+Vixen.Xr.XrSessionOptions : System.IEquatable<Vixen.Xr.XrSessionOptions>
+Vixen.Xr.XrSessionOptions.PreferPassthrough.get -> bool
+Vixen.Xr.XrSessionOptions.PreferPassthrough.init -> bool
+Vixen.Xr.XrSessionOptions.ReferenceSpace.get -> Vixen.Xr.XrReferenceSpace
+Vixen.Xr.XrSessionOptions.ReferenceSpace.init -> Vixen.Xr.XrReferenceSpace
+Vixen.Xr.XrSessionOptions.XrSessionOptions() -> void
+Vixen.Xr.XrSessionState -> enum : byte
+Vixen.Xr.XrSessionState.Exiting = 6 -> Vixen.Xr.XrSessionState
+Vixen.Xr.XrSessionState.Focused = 4 -> Vixen.Xr.XrSessionState
+Vixen.Xr.XrSessionState.Idle = 0 -> Vixen.Xr.XrSessionState
+Vixen.Xr.XrSessionState.Lost = 7 -> Vixen.Xr.XrSessionState
+Vixen.Xr.XrSessionState.Ready = 1 -> Vixen.Xr.XrSessionState
+Vixen.Xr.XrSessionState.Stopping = 5 -> Vixen.Xr.XrSessionState
+Vixen.Xr.XrSessionState.Synchronised = 2 -> Vixen.Xr.XrSessionState
+Vixen.Xr.XrSessionState.Visible = 3 -> Vixen.Xr.XrSessionState
+Vixen.Xr.XrSessionState.XrSessionState() -> void
+Vixen.Xr.XrSwapchainDescription -> readonly struct
+Vixen.Xr.XrSwapchainDescription : System.IEquatable<Vixen.Xr.XrSwapchainDescription>
+Vixen.Xr.XrSwapchainDescription.ArrayLayers.get -> int
+Vixen.Xr.XrSwapchainDescription.ArrayLayers.init -> int
+Vixen.Xr.XrSwapchainDescription.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Xr.XrSwapchainDescription.Format.init -> Vixen.Graphics.PixelFormat
+Vixen.Xr.XrSwapchainDescription.Name.get -> string
+Vixen.Xr.XrSwapchainDescription.Name.init -> string
+Vixen.Xr.XrSwapchainDescription.SampleCount.get -> int
+Vixen.Xr.XrSwapchainDescription.SampleCount.init -> int
+Vixen.Xr.XrSwapchainDescription.Size.get -> Vixen.Core.Mathematics.Int2
+Vixen.Xr.XrSwapchainDescription.Size.init -> Vixen.Core.Mathematics.Int2
+Vixen.Xr.XrSwapchainDescription.Usage.get -> Vixen.Graphics.TextureUsage
+Vixen.Xr.XrSwapchainDescription.Usage.init -> Vixen.Graphics.TextureUsage
+Vixen.Xr.XrSwapchainDescription.XrSwapchainDescription() -> void
+Vixen.Xr.XrSwapchainDescription.XrSwapchainDescription(Vixen.Core.Mathematics.Int2 Size, Vixen.Graphics.PixelFormat Format = Vixen.Graphics.PixelFormat.Rgba8UNormSrgb, int ArrayLayers = 1, int SampleCount = 1, Vixen.Graphics.TextureUsage Usage = Vixen.Graphics.TextureUsage.Sampled | Vixen.Graphics.TextureUsage.ColourTarget, string Name = "") -> void
+Vixen.Xr.XrSystemInfo -> readonly struct
+Vixen.Xr.XrSystemInfo : System.IEquatable<Vixen.Xr.XrSystemInfo>
+Vixen.Xr.XrSystemInfo.HasPositionTracking.get -> bool
+Vixen.Xr.XrSystemInfo.HasPositionTracking.init -> bool
+Vixen.Xr.XrSystemInfo.MaximumImageSize.get -> Vixen.Core.Mathematics.Int2
+Vixen.Xr.XrSystemInfo.MaximumImageSize.init -> Vixen.Core.Mathematics.Int2
+Vixen.Xr.XrSystemInfo.Name.get -> string
+Vixen.Xr.XrSystemInfo.Name.init -> string
+Vixen.Xr.XrSystemInfo.RecommendedImageSize.get -> Vixen.Core.Mathematics.Int2
+Vixen.Xr.XrSystemInfo.RecommendedImageSize.init -> Vixen.Core.Mathematics.Int2
+Vixen.Xr.XrSystemInfo.RecommendedSampleCount.get -> int
+Vixen.Xr.XrSystemInfo.RecommendedSampleCount.init -> int
+Vixen.Xr.XrSystemInfo.ViewCount.get -> int
+Vixen.Xr.XrSystemInfo.ViewCount.init -> int
+Vixen.Xr.XrSystemInfo.XrSystemInfo() -> void
+Vixen.Xr.XrSystemInfo.XrSystemInfo(string Name, int ViewCount, Vixen.Core.Mathematics.Int2 RecommendedImageSize, Vixen.Core.Mathematics.Int2 MaximumImageSize, int RecommendedSampleCount, bool HasPositionTracking) -> void
+Vixen.Xr.XrView -> readonly struct
+Vixen.Xr.XrView : System.IEquatable<Vixen.Xr.XrView>
+Vixen.Xr.XrView.Fov.get -> Vixen.Xr.XrFieldOfView
+Vixen.Xr.XrView.Fov.init -> Vixen.Xr.XrFieldOfView
+Vixen.Xr.XrView.Pose.get -> Vixen.Xr.XrPose
+Vixen.Xr.XrView.Pose.init -> Vixen.Xr.XrPose
+Vixen.Xr.XrView.Projection(float nearPlane = 0.05, float farPlane = 0) -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Xr.XrView.ViewMatrix.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Xr.XrView.XrView() -> void
+Vixen.Xr.XrView.XrView(Vixen.Xr.XrPose Pose, Vixen.Xr.XrFieldOfView Fov) -> void
+Vixen.Xr.XrViewport -> readonly struct
+Vixen.Xr.XrViewport : System.IEquatable<Vixen.Xr.XrViewport>
+Vixen.Xr.XrViewport.Height.get -> int
+Vixen.Xr.XrViewport.Height.init -> int
+Vixen.Xr.XrViewport.Width.get -> int
+Vixen.Xr.XrViewport.Width.init -> int
+Vixen.Xr.XrViewport.X.get -> int
+Vixen.Xr.XrViewport.X.init -> int
+Vixen.Xr.XrViewport.XrViewport() -> void
+Vixen.Xr.XrViewport.XrViewport(int X, int Y, int Width, int Height) -> void
+Vixen.Xr.XrViewport.Y.get -> int
+Vixen.Xr.XrViewport.Y.init -> int
+Vixen.Xr.XrVulkanBinding -> readonly struct
+Vixen.Xr.XrVulkanBinding : System.IEquatable<Vixen.Xr.XrVulkanBinding>
+Vixen.Xr.XrVulkanBinding.Device.get -> nint
+Vixen.Xr.XrVulkanBinding.Device.init -> nint
+Vixen.Xr.XrVulkanBinding.Instance.get -> nint
+Vixen.Xr.XrVulkanBinding.Instance.init -> nint
+Vixen.Xr.XrVulkanBinding.PhysicalDevice.get -> nint
+Vixen.Xr.XrVulkanBinding.PhysicalDevice.init -> nint
+Vixen.Xr.XrVulkanBinding.QueueFamilyIndex.get -> uint
+Vixen.Xr.XrVulkanBinding.QueueFamilyIndex.init -> uint
+Vixen.Xr.XrVulkanBinding.QueueIndex.get -> uint
+Vixen.Xr.XrVulkanBinding.QueueIndex.init -> uint
+Vixen.Xr.XrVulkanBinding.XrVulkanBinding() -> void
+Vixen.Xr.XrVulkanBinding.XrVulkanBinding(nint Instance, nint PhysicalDevice, nint Device, uint QueueFamilyIndex, uint QueueIndex) -> void
+Vixen.Xr.XrVulkanRequirements -> readonly struct
+Vixen.Xr.XrVulkanRequirements : System.IEquatable<Vixen.Xr.XrVulkanRequirements>
+Vixen.Xr.XrVulkanRequirements.DeviceExtensions.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Xr.XrVulkanRequirements.DeviceExtensions.init -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Xr.XrVulkanRequirements.InstanceExtensions.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Xr.XrVulkanRequirements.InstanceExtensions.init -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Xr.XrVulkanRequirements.MaximumApiVersion.get -> System.Version
+Vixen.Xr.XrVulkanRequirements.MaximumApiVersion.init -> System.Version
+Vixen.Xr.XrVulkanRequirements.MinimumApiVersion.get -> System.Version
+Vixen.Xr.XrVulkanRequirements.MinimumApiVersion.init -> System.Version
+Vixen.Xr.XrVulkanRequirements.XrVulkanRequirements() -> void
+Vixen.Xr.XrVulkanRequirements.XrVulkanRequirements(System.Collections.Generic.IReadOnlyList<string> InstanceExtensions, System.Collections.Generic.IReadOnlyList<string> DeviceExtensions, System.Version MinimumApiVersion, System.Version MaximumApiVersion) -> void
+const Vixen.Xr.Input.XrInteractionProfiles.HtcVive = "/interaction_profiles/htc/vive_controller" -> string
+const Vixen.Xr.Input.XrInteractionProfiles.MixedReality = "/interaction_profiles/microsoft/motion_controller" -> string
+const Vixen.Xr.Input.XrInteractionProfiles.OculusTouch = "/interaction_profiles/oculus/touch_controller" -> string
+const Vixen.Xr.Input.XrInteractionProfiles.Simple = "/interaction_profiles/khr/simple_controller" -> string
+const Vixen.Xr.Input.XrInteractionProfiles.ValveIndex = "/interaction_profiles/valve/index_controller" -> string
+const Vixen.Xr.Input.XrPaths.AimPose = "input/aim/pose" -> string
+const Vixen.Xr.Input.XrPaths.GripPose = "input/grip/pose" -> string
+const Vixen.Xr.Input.XrPaths.Haptic = "output/haptic" -> string
+const Vixen.Xr.Input.XrPaths.LeftHand = "/user/hand/left" -> string
+const Vixen.Xr.Input.XrPaths.MenuClick = "input/menu/click" -> string
+const Vixen.Xr.Input.XrPaths.PrimaryButton = "input/x/click" -> string
+const Vixen.Xr.Input.XrPaths.RightHand = "/user/hand/right" -> string
+const Vixen.Xr.Input.XrPaths.SelectClick = "input/select/click" -> string
+const Vixen.Xr.Input.XrPaths.SqueezeClick = "input/squeeze/click" -> string
+const Vixen.Xr.Input.XrPaths.SqueezeValue = "input/squeeze/value" -> string
+const Vixen.Xr.Input.XrPaths.ThumbstickClick = "input/thumbstick/click" -> string
+const Vixen.Xr.Input.XrPaths.ThumbstickPosition = "input/thumbstick" -> string
+const Vixen.Xr.Input.XrPaths.TriggerClick = "input/trigger/click" -> string
+const Vixen.Xr.Input.XrPaths.TriggerValue = "input/trigger/value" -> string
+override Vixen.Xr.Ecs.XrTrackingSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+static Vixen.Xr.Ecs.XrOrigin.Default() -> Vixen.Xr.Ecs.XrOrigin
+static Vixen.Xr.Ecs.XrTrackedPose.Following(Vixen.Xr.Ecs.XrTrackedDevice device) -> Vixen.Xr.Ecs.XrTrackedPose
+static Vixen.Xr.Input.XrHapticPulse.Click.get -> Vixen.Xr.Input.XrHapticPulse
+static Vixen.Xr.NullXrBackend.DefaultSystem.get -> Vixen.Xr.XrSystemInfo
+static Vixen.Xr.XrFieldOfView.Symmetric(float horizontal, float vertical) -> Vixen.Xr.XrFieldOfView
+static Vixen.Xr.XrPose.Identity.get -> Vixen.Xr.XrPose
+static Vixen.Xr.XrProjection.FromFieldOfView(in Vixen.Xr.XrFieldOfView fov, float nearPlane = 0.05, float farPlane = 0) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Xr.XrViewport.Covering(Vixen.Core.Mathematics.Int2 size) -> Vixen.Xr.XrViewport
+static Vixen.Xr.XrVulkanRequirements.None.get -> Vixen.Xr.XrVulkanRequirements

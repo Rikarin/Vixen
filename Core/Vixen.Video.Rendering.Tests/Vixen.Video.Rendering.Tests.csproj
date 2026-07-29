@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Raven.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Video.Rendering\Vixen.Video.Rendering.csproj" />
+
+        <!-- The interface path is asserted against the real UI renderer rather than a stand-in,
+             because what is being tested is that a video's target really is an ordinary picture as
+             far as `UiRenderer.RegisterImage` is concerned. Nothing shipped joins these two: the
+             join is one line in a game. -->
+        <ProjectReference Include="..\Vixen.Ui.Renderer\Vixen.Ui.Renderer.csproj" />
+
+        <!-- The backend that records what it was asked to do rather than doing it. A test project may
+             reference across layers; nothing shipped does. -->
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
+    </ItemGroup>
+
+    <!-- Measured, the guarded allocation measurement. See Testing/Vixen.Testing.props. -->
+    <Import Project="..\..\Testing\Vixen.Testing.props" />
+
+</Project>

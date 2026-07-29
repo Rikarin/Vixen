@@ -64,7 +64,10 @@ One version for all packages (rationale in [02](02-repository-layout.md)).
 | `Vixen.Rendering` | + `Vixen.Rendering.PostFx` |
 | `Vixen.Assets` | runtime content |
 | `Vixen.Engine` | scenes, behaviours, game loop |
-| `Vixen.Input`, `Vixen.Audio`, `Vixen.Physics`, `Vixen.Animation`, `Vixen.Vfx`, `Vixen.Navigation`, `Vixen.Video` | one each — these are genuinely optional |
+| `Vixen.Input`, `Vixen.Audio`, `Vixen.Physics`, `Vixen.Animation`, `Vixen.Vfx`, `Vixen.Navigation`, `Vixen.Video`, `Vixen.Xr` | one each — these are genuinely optional |
+| `Vixen.Video.Codecs` | Opus for a video's audio track, so `Vixen.Video` links no codec of its own |
+| `Vixen.Video.Rendering` | drawing one, so `Vixen.Video` needs no renderer and `Vixen.Rendering` no demuxer |
+| `Vixen.Xr.OpenXR` | the XR backend, with no native payload: the OpenXR loader belongs to the runtime that owns the headset |
 | `Vixen.Net` + `Vixen.Net.Transport.{Udp,WebSocket,Local,Relay}` | networking ([16](16-networking.md)); optional, and a project that never references it pays nothing |
 | `Vixen.Ui` | the whole `Vixen.Ui.*` set except `HotReload` and `Testing` |
 | `Vixen.Ui.HotReload` | dev-only; `DevelopmentDependency=true` |

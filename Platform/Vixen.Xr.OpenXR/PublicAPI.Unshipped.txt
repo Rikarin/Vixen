@@ -1,0 +1,70 @@
+#nullable enable
+Vixen.Xr.OpenXR.OpenXrBackend -> sealed class
+Vixen.Xr.OpenXR.OpenXrBackend : System.IDisposable
+Vixen.Xr.OpenXR.OpenXrBackend : Vixen.Xr.IXrBackend
+Vixen.Xr.OpenXR.OpenXrBackend.CreateSession(in Vixen.Xr.XrVulkanBinding binding, in Vixen.Xr.XrSessionOptions options, Vixen.Xr.IXrImageImporter? importer = null) -> Vixen.Xr.IXrSession
+Vixen.Xr.OpenXR.OpenXrBackend.Dispose() -> void
+Vixen.Xr.OpenXR.OpenXrBackend.GetVulkanPhysicalDevice(nint vulkanInstance) -> nint
+Vixen.Xr.OpenXR.OpenXrBackend.GetVulkanRequirements() -> Vixen.Xr.XrVulkanRequirements
+Vixen.Xr.OpenXR.OpenXrBackend.IsAvailable.get -> bool
+Vixen.Xr.OpenXR.OpenXrBackend.Name.get -> string
+Vixen.Xr.OpenXR.OpenXrBackend.OpenXrBackend(Vixen.Xr.OpenXR.OpenXrOptions options = default(Vixen.Xr.OpenXR.OpenXrOptions)) -> void
+Vixen.Xr.OpenXR.OpenXrBackend.System.get -> Vixen.Xr.XrSystemInfo
+Vixen.Xr.OpenXR.OpenXrBackend.TryGetSystem(out Vixen.Xr.XrSystemInfo system) -> bool
+Vixen.Xr.OpenXR.OpenXrBackend.UnavailableReason.get -> string
+Vixen.Xr.OpenXR.OpenXrException -> sealed class
+Vixen.Xr.OpenXR.OpenXrException : System.Exception
+Vixen.Xr.OpenXR.OpenXrException.OpenXrException() -> void
+Vixen.Xr.OpenXR.OpenXrException.OpenXrException(string call, Silk.NET.OpenXR.Result result) -> void
+Vixen.Xr.OpenXR.OpenXrException.OpenXrException(string message) -> void
+Vixen.Xr.OpenXR.OpenXrException.OpenXrException(string message, System.Exception innerException) -> void
+Vixen.Xr.OpenXR.OpenXrException.Result.get -> Silk.NET.OpenXR.Result
+Vixen.Xr.OpenXR.OpenXrOptions -> readonly struct
+Vixen.Xr.OpenXR.OpenXrOptions : System.IEquatable<Vixen.Xr.OpenXR.OpenXrOptions>
+Vixen.Xr.OpenXR.OpenXrOptions.ApplicationName.get -> string
+Vixen.Xr.OpenXR.OpenXrOptions.ApplicationName.init -> string
+Vixen.Xr.OpenXR.OpenXrOptions.Handheld.get -> bool
+Vixen.Xr.OpenXR.OpenXrOptions.Handheld.init -> bool
+Vixen.Xr.OpenXR.OpenXrOptions.Logger.get -> Microsoft.Extensions.Logging.ILogger?
+Vixen.Xr.OpenXR.OpenXrOptions.Logger.init -> Microsoft.Extensions.Logging.ILogger?
+Vixen.Xr.OpenXR.OpenXrOptions.OpenXrOptions() -> void
+Vixen.Xr.OpenXR.OpenXrSession -> sealed class
+Vixen.Xr.OpenXR.OpenXrSession : System.IDisposable
+Vixen.Xr.OpenXR.OpenXrSession : Vixen.Xr.IXrSession
+Vixen.Xr.OpenXR.OpenXrSession.ApplyHaptics(Vixen.Xr.Input.XrAction action, Vixen.Xr.XrHand hand, in Vixen.Xr.Input.XrHapticPulse request) -> void
+Vixen.Xr.OpenXR.OpenXrSession.AttachActionSets(System.ReadOnlySpan<Vixen.Xr.Input.XrActionSet> sets) -> void
+Vixen.Xr.OpenXR.OpenXrSession.BeginFrame(out Vixen.Xr.XrFrameState frame) -> bool
+Vixen.Xr.OpenXR.OpenXrSession.CreateSwapchain(in Vixen.Xr.XrSwapchainDescription description) -> Vixen.Xr.IXrSwapchain
+Vixen.Xr.OpenXR.OpenXrSession.Dispose() -> void
+Vixen.Xr.OpenXR.OpenXrSession.EndFrame(in Vixen.Xr.XrFrameState frame, System.ReadOnlySpan<Vixen.Xr.XrCompositionView> views) -> void
+Vixen.Xr.OpenXR.OpenXrSession.IsPassthrough.get -> bool
+Vixen.Xr.OpenXR.OpenXrSession.LocateSpace(Vixen.Xr.XrReferenceSpace space, in Vixen.Xr.XrFrameState frame, out Vixen.Xr.XrPose pose) -> bool
+Vixen.Xr.OpenXR.OpenXrSession.LocateViews(in Vixen.Xr.XrFrameState frame) -> System.ReadOnlySpan<Vixen.Xr.XrView>
+Vixen.Xr.OpenXR.OpenXrSession.PollEvents() -> bool
+Vixen.Xr.OpenXR.OpenXrSession.ReferenceSpace.get -> Vixen.Xr.XrReferenceSpace
+Vixen.Xr.OpenXR.OpenXrSession.RequestExit() -> void
+Vixen.Xr.OpenXR.OpenXrSession.State.get -> Vixen.Xr.XrSessionState
+Vixen.Xr.OpenXR.OpenXrSession.SyncActions() -> void
+Vixen.Xr.OpenXR.OpenXrSession.System.get -> Vixen.Xr.XrSystemInfo
+Vixen.Xr.OpenXR.OpenXrSession.ViewCount.get -> int
+Vixen.Xr.OpenXR.OpenXrSession.Views.get -> System.ReadOnlySpan<Vixen.Xr.XrView>
+Vixen.Xr.OpenXR.OpenXrSwapchain -> sealed class
+Vixen.Xr.OpenXR.OpenXrSwapchain : System.IDisposable
+Vixen.Xr.OpenXR.OpenXrSwapchain : Vixen.Xr.IXrSwapchain
+Vixen.Xr.OpenXR.OpenXrSwapchain.AcquireImage() -> int
+Vixen.Xr.OpenXR.OpenXrSwapchain.AcquiredIndex.get -> int
+Vixen.Xr.OpenXR.OpenXrSwapchain.ArrayLayers.get -> int
+Vixen.Xr.OpenXR.OpenXrSwapchain.Dispose() -> void
+Vixen.Xr.OpenXR.OpenXrSwapchain.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Xr.OpenXR.OpenXrSwapchain.Image(int index) -> Vixen.Graphics.TextureHandle
+Vixen.Xr.OpenXR.OpenXrSwapchain.ImageCount.get -> int
+Vixen.Xr.OpenXR.OpenXrSwapchain.ReleaseImage() -> void
+Vixen.Xr.OpenXR.OpenXrSwapchain.Size.get -> Vixen.Core.Mathematics.Int2
+Vixen.Xr.OpenXR.OpenXrSwapchain.View(int index) -> Vixen.Graphics.TextureViewHandle
+Vixen.Xr.OpenXR.VulkanXrImageImporter -> sealed class
+Vixen.Xr.OpenXR.VulkanXrImageImporter : Vixen.Xr.IXrImageImporter
+Vixen.Xr.OpenXR.VulkanXrImageImporter.CreateView(Vixen.Graphics.TextureHandle texture) -> Vixen.Graphics.TextureViewHandle
+Vixen.Xr.OpenXR.VulkanXrImageImporter.Import(nint nativeImage, in Vixen.Graphics.TextureDescription description) -> Vixen.Graphics.TextureHandle
+Vixen.Xr.OpenXR.VulkanXrImageImporter.Release(Vixen.Graphics.TextureHandle texture) -> void
+Vixen.Xr.OpenXR.VulkanXrImageImporter.Release(Vixen.Graphics.TextureViewHandle view) -> void
+Vixen.Xr.OpenXR.VulkanXrImageImporter.VulkanXrImageImporter(Vixen.Graphics.Vulkan.VulkanDevice device) -> void

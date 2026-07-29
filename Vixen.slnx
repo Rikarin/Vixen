@@ -109,6 +109,14 @@
     <Project Path="Core/Vixen.Animation.Tests/Vixen.Animation.Tests.csproj" />
     <Project Path="Core/Vixen.Vfx/Vixen.Vfx.csproj" />
     <Project Path="Core/Vixen.Vfx.Tests/Vixen.Vfx.Tests.csproj" />
+    <Project Path="Core/Vixen.Video/Vixen.Video.csproj" />
+    <Project Path="Core/Vixen.Video.Tests/Vixen.Video.Tests.csproj" />
+    <Project Path="Core/Vixen.Video.Codecs/Vixen.Video.Codecs.csproj" />
+    <Project Path="Core/Vixen.Video.Codecs.Tests/Vixen.Video.Codecs.Tests.csproj" />
+    <Project Path="Core/Vixen.Video.Rendering/Vixen.Video.Rendering.csproj" />
+    <Project Path="Core/Vixen.Video.Rendering.Tests/Vixen.Video.Rendering.Tests.csproj" />
+    <Project Path="Core/Vixen.Xr/Vixen.Xr.csproj" />
+    <Project Path="Core/Vixen.Xr.Tests/Vixen.Xr.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Reactive/Vixen.Ui.Reactive.csproj" />
     <Project Path="Core/Vixen.Ui.Reactive.Tests/Vixen.Ui.Reactive.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Layout/Vixen.Ui.Layout.csproj" />
@@ -213,6 +221,14 @@
     <Project Path="Platform/Vixen.Platform.Web.Tests/Vixen.Platform.Web.Tests.csproj" />
     <Project Path="Platform/Vixen.Audio.Backend.OpenAL/Vixen.Audio.Backend.OpenAL.csproj" />
     <Project Path="Platform/Vixen.Audio.Backend.OpenAL.Tests/Vixen.Audio.Backend.OpenAL.Tests.csproj" />
+    <!--
+      The OpenXR backend ships bindings and no native payload: the loader belongs to whatever
+      runtime owns the headset, and a copy inside a game would shadow it. A machine with no
+      headset therefore has no loader either, which is why the backend is written to survive
+      that and why its tests skip rather than fail.
+    -->
+    <Project Path="Platform/Vixen.Xr.OpenXR/Vixen.Xr.OpenXR.csproj" />
+    <Project Path="Platform/Vixen.Xr.OpenXR.Tests/Vixen.Xr.OpenXR.Tests.csproj" />
   </Folder>
 
   <!--
@@ -323,7 +339,8 @@
   <Project Path="Samples/07-AddressablesRemote/AddressablesRemote.csproj" />
   <Project Path="Samples/08-Multiplayer/Multiplayer.csproj" />
   <Project Path="Samples/09-NetworkSoak/NetworkSoak.csproj" />
-    <Project Path="Samples/10-VoiceChat/VoiceChat.csproj" />
+  <Project Path="Samples/10-VoiceChat/VoiceChat.csproj" />
+  <Project Path="Samples/11-VideoPlayback/VideoPlayback.csproj" />
 
 
 </Solution>

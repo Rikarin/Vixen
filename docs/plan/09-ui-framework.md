@@ -555,19 +555,8 @@ public abstract class UiElement
 - **Rendering**: the element tree emits a retained **draw list** of primitives (rounded rect, border,
   gradient, texture quad, MSDF text run, path fill/stroke, clip push/pop, blur backdrop, custom
   callback). The draw list is diffed against the previous frame at the *command* level, so a static UI
-  re-submits a cached command buffer. Batching merges by (texture, shader, clip, blend); clipping uses
-  scissor for rect clips and stencil for arbitrary paths; the whole thing is one `RootRenderFeature`
-  in the renderer ([06](06-rendering-pipeline.md)).
-- **Path rendering** for icons/vector art: analytic coverage AA for stroked/filled paths, with a
-  tessellation cache keyed on (path, transform scale bucket). Needed for the node graph editor's
-  bezier wires and for SVG icons.
-- **Virtualisation** is a first-class primitive (`VirtualizingPanel`), not a control feature —
-  a 1 000 000-row table must be a supported case.
-- **Multi-window and per-monitor DPI** from the start. A Blender-class app has floating tool windows;
-  retrofitting multi-window into a single-surface UI is a rewrite.
-- **Accessibility**: a UIA/AT-SPI/NSAccessibility bridge exposing the element tree with roles, names,
-  values, and actions. Scoped as P2, but the element model reserves the hooks (`AutomationPeer`) now,
-  because bolting accessibility onto a custom-drawn UI later is famously expensive.
+  re-submits a cached command buffer.
+
 
 ## Control library
 

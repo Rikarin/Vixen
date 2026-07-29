@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Xr.OpenXR</RootNamespace>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <Description>
+            The XR backend for the desktops and Android: OpenXR behind the session, swapchain and
+            action seams Vixen.Xr defines. Instance and system, the runtime-paced frame loop, per-eye
+            poses, runtime-owned eye buffers adopted into the Vulkan device, and action sets with
+            suggested bindings.
+        </Description>
+        <PackageTags>vr;ar;xr;openxr;vulkan;backend;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Xr\Vixen.Xr.csproj" />
+
+        <!--
+            The runtime allocates the eye buffers and hands over VkImages, and something has to adopt
+            them into the RHI's tables. That is the whole of this reference — see
+            VulkanXrImageImporter, which is the only file in the module that knows what a VkImage is.
+        -->
+        <ProjectReference Include="..\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+
+        <!-- The bindings. There is no native payload here, deliberately: unlike OpenAL, the OpenXR
+             loader is installed by the runtime — SteamVR, the Oculus software, Monado — and a copy
+             shipped in the game would shadow the one that knows where the headset is. -->
+        <PackageReference Include="Silk.NET.OpenXR" />
+        <PackageReference Include="Silk.NET.OpenXR.Extensions.KHR" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Xr.OpenXR.Tests" />
+    </ItemGroup>
+
+</Project>

@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Video</RootNamespace>
+        <Description>
+            Video playback: a managed WebM demuxer, a codec seam nothing is linked behind by default,
+            a player that decodes ahead of a clock the audio track can drive, and the planes on the
+            GPU with the coefficients a shader converts them by.
+        </Description>
+        <PackageTags>video;webm;matroska;playback;streaming;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Collections\Vixen.Core.Collections.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\Vixen.Ecs\Vixen.Ecs.csproj" />
+
+        <!-- The planes are uploaded as textures, so the RHI is a dependency and the renderer is not:
+             what a material does with three R8 planes is the renderer's business, and this module
+             stops at handing over the views and the coefficients. -->
+        <ProjectReference Include="..\Vixen.Graphics\Vixen.Graphics.csproj" />
+
+        <!-- A video's sound is in the same file as its picture, and the mixer already knows how to
+             stream an IAudioStreamDecoder. See Audio/MatroskaAudioStreamDecoder. -->
+        <ProjectReference Include="..\Vixen.Audio\Vixen.Audio.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            A VideoClip is written by a content build and read by a player, so it carries
+            [DataContract] and this emits its serializer at compile time. ADR-002: no reflection,
+            no IL weaving, and the generated C# is on disk and steppable.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Video.Tests" />
+    </ItemGroup>
+
+</Project>

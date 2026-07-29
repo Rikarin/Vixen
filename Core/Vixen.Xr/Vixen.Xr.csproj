@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Xr</RootNamespace>
+        <Description>
+            VR and AR, backend-agnostic: the session state machine, per-eye poses and asymmetric
+            projections, runtime-owned swapchains, the action-based input model, and an ECS bridge —
+            plus a simulated headset, so all of it runs on a machine that has none.
+        </Description>
+        <PackageTags>vr;ar;xr;openxr;stereo;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\Vixen.Ecs\Vixen.Ecs.csproj" />
+
+        <!-- A runtime hands out its own images, and they have to become textures the RHI can render
+             into. See IXrSwapchain, which is where the difference from ISwapChain lives. -->
+        <ProjectReference Include="..\Vixen.Graphics\Vixen.Graphics.csproj" />
+
+        <!-- LocalTransform, for the tracking bridge. The same dependency Vixen.Navigation takes and
+             for the same reason: a system that moves entities writes the transform component. -->
+        <ProjectReference Include="..\Vixen.Engine\Vixen.Engine.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Xr.Tests" />
+        <InternalsVisibleTo Include="Vixen.Xr.OpenXR" />
+    </ItemGroup>
+
+</Project>

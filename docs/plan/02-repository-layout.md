@@ -143,8 +143,14 @@ Core/
 ├── Vixen.Net.Transport.WebSocket/      # + .Tests
 ├── Vixen.Net.Transport.Local/          # in-process: host mode, offline, and every test
 ├── Vixen.Net.Transport.Relay/          # + .Tests
-├── Vixen.Video/
+├── Vixen.Video/                        # ✅ WebM demux, codec seam, player, planes on the GPU
 ├── Vixen.Video.Tests/
+├── Vixen.Video.Codecs/                 # ✅ Opus behind IAudioPacketDecoder — a video's sound
+├── Vixen.Video.Codecs.Tests/
+├── Vixen.Video.Rendering/              # ✅ The pipeline, the render feature, the ECS uploader, the offscreen target
+├── Vixen.Video.Rendering.Tests/
+├── Vixen.Xr/                           # ✅ session, stereo views, actions, ECS — no runtime in it
+├── Vixen.Xr.Tests/
 │
 ├── Vixen.Ui/                           # element tree, properties, events, input routing, rendering
 ├── Vixen.Ui.Tests/
@@ -219,6 +225,9 @@ Platform/
 ├── Vixen.Audio.Backend.OpenAL.Tests/
 ├── Vixen.Audio.Backend.WebAudio/       # ✅ net10.0-browser — scheduled AudioBufferSourceNode queue
 │                                       #   NOT in Vixen.slnx — needs the wasm-tools workload
+│
+├── Vixen.Xr.OpenXR/                    # ✅ desktop + Android: OpenXR behind Vixen.Xr's seams.
+├── Vixen.Xr.OpenXR.Tests/              #   Bindings only — the loader belongs to the runtime
 └── Vixen.Platform.Native/              # ✅ RID mapping, runtimes/ layout, DllImportResolver (acquisition owed)
 ```
 
@@ -345,7 +354,11 @@ Samples/
 ├── 04-EcsStressTest/             # 100k entities
 ├── 05-PlatformerGame/            # physics, input, animation, audio, VFX end to end
 ├── 06-CanvasStress/              # P2: huge scrollable 2D canvas, layers, tool overlays, floating palettes
-└── 07-AddressablesRemote/        # remote catalog + delta update on mobile
+├── 07-AddressablesRemote/        # remote catalog + delta update on mobile
+├── 08-Multiplayer/               # session, replication, prediction-shaped tick loop
+├── 09-NetworkSoak/               # a day of traffic in an hour
+├── 10-VoiceChat/                 # capture, Opus, jitter buffer, spatialised playback
+└── 11-VideoPlayback/             # ✅ WebM → three planes → the sampler. Generates its own content
 
 Benchmarks/
 ├── Vixen.Benchmarks.Ecs/         # ported from Arch's suite (ADR-004)

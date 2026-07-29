@@ -1,0 +1,21 @@
+#nullable enable
+Vixen.Video.Codecs.OpusAudioPacketDecoder -> sealed class
+Vixen.Video.Codecs.OpusAudioPacketDecoder : System.IDisposable
+Vixen.Video.Codecs.OpusAudioPacketDecoder : Vixen.Video.Audio.IAudioPacketDecoder
+Vixen.Video.Codecs.OpusAudioPacketDecoder.Decode(System.ReadOnlySpan<byte> packet, System.Span<float> destination) -> int
+Vixen.Video.Codecs.OpusAudioPacketDecoder.Dispose() -> void
+Vixen.Video.Codecs.OpusAudioPacketDecoder.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Video.Codecs.OpusAudioPacketDecoder.MaxFramesPerPacket.get -> int
+Vixen.Video.Codecs.OpusAudioPacketDecoder.OpusAudioPacketDecoder(in Vixen.Video.Audio.AudioTrackInfo track) -> void
+Vixen.Video.Codecs.OpusAudioPacketDecoder.PreSkip.get -> int
+Vixen.Video.Codecs.OpusAudioPacketDecoder.Reset() -> void
+Vixen.Video.Codecs.OpusAudioPacketDecoderFactory -> sealed class
+Vixen.Video.Codecs.OpusAudioPacketDecoderFactory : Vixen.Video.Audio.IAudioPacketDecoderFactory
+Vixen.Video.Codecs.OpusAudioPacketDecoderFactory.CanDecode(in Vixen.Video.Audio.AudioTrackInfo track) -> bool
+Vixen.Video.Codecs.OpusAudioPacketDecoderFactory.Create(in Vixen.Video.Audio.AudioTrackInfo track) -> Vixen.Video.Audio.IAudioPacketDecoder
+Vixen.Video.Codecs.OpusAudioPacketDecoderFactory.Name.get -> string
+Vixen.Video.Codecs.OpusAudioPacketDecoderFactory.OpusAudioPacketDecoderFactory() -> void
+Vixen.Video.Codecs.VideoAudioCodecs -> static class
+const Vixen.Video.Codecs.OpusAudioPacketDecoder.MaximumFrames = 2880 -> int
+static Vixen.Video.Codecs.OpusAudioPacketDecoder.PreSkipOf(in Vixen.Video.Audio.AudioTrackInfo track) -> int
+static Vixen.Video.Codecs.VideoAudioCodecs.RegisterOpus() -> void
