@@ -264,6 +264,14 @@ public sealed class SceneViewport : IDisposable {
     /// </remarks>
     public PickingBuffer? Picking { get; set; }
 
+    /// <summary>What answers "which entity is under this ray" when there is no device to ask.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The fallback, not the replacement.</b> <see cref="Picking" /> is checked first and is
+    ///     the right answer for geometry a shader moved — see <c>ScenePicker</c> for why both exist.
+    ///     Null leaves clicking in the viewport doing nothing, which is where the editor was.
+    /// </remarks>
+    public IScenePicker? Picker { get; set; }
+
     /// <summary>Raised after a gizmo drag has been recorded.</summary>
     public event Action<SceneViewport>? Transformed;
 
@@ -391,49 +399,78 @@ public sealed class SceneViewport : IDisposable {
     /// <param name="additive">Whether the answer extends the selection.</param>
     /// <returns>Whether the question could be asked.</returns>
     /// <remarks>
-    ///     The answer arrives frames later — see <see cref="PickingBuffer" /> — and reaches the
-    ///     selection through <see cref="Resolve" />. Splitting the two is what keeps a click off the
-    ///     GPU's critical path.
+    ///     <para>
+    ///         <b>Two ways to answer it, and the one that needs a device is preferred.</b> With a
+    ///         <see cref="Picking" /> buffer the question goes to the GPU and the answer arrives
+    ///         frames later through <see cref="Resolve" />, which is what keeps a click off the
+    ///         critical path and what is right for geometry a shader moved. With a
+    ///         <see cref="Picker" /> it is a ray test and the answer is immediate.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>With neither, a click in the viewport selected nothing at all.</b> That was the
+    ///         state the editor shipped in: the picking stage is written and tested, nothing sets a
+    ///         buffer for it, and so the only way to select an entity was the hierarchy panel — and
+    ///         clicking empty space did not even deselect. This returning <see langword="false" /> is
+    ///         still that state, and it is now reachable only by a host that has set up neither.
+    ///     </para>
     /// </remarks>
     public bool Pick(Vector2 point, bool additive = false) {
-        if (Picking is not { } buffer || Control.RenderWidth <= 0 || Control.RenderHeight <= 0) {
+        if (Control.RenderWidth <= 0 || Control.RenderHeight <= 0) {
             return false;
         }
 
-        var x = Math.Clamp((int) point.X, 0, Control.RenderWidth - 1);
-        var y = Math.Clamp((int) point.Y, 0, Control.RenderHeight - 1);
-        var sequence = buffer.Request(x, y, additive);
+        if (Picking is { } buffer) {
+            var x = Math.Clamp((int) point.X, 0, Control.RenderWidth - 1);
+            var y = Math.Clamp((int) point.Y, 0, Control.RenderHeight - 1);
+            var sequence = buffer.Request(x, y, additive);
 
-        PickRequested?.Invoke(this, new(x, y, additive, sequence));
+            PickRequested?.Invoke(this, new(x, y, additive, sequence));
+            return true;
+        }
+
+        if (Picker is not { } picker) {
+            return false;
+        }
+
+        Select(picker.Under(Ray(point), Camera, Control.RenderWidth, Control.RenderHeight), additive);
         return true;
     }
 
     /// <summary>Turns a pick that has come back into a selection change.</summary>
     /// <param name="result">The answer.</param>
     /// <param name="resolve">Turns an id into an entity. The host owns the mapping.</param>
-    /// <remarks>
-    ///     ⚠ <b>A miss clears the selection, and only when the pick was not additive.</b> Clicking
-    ///     empty space deselects — which every editor does — but shift-clicking empty space must not,
-    ///     because that is the miss at the end of a rubber-band that grabbed nothing.
-    /// </remarks>
     public void Resolve(PickResult result, Func<uint, Vixen.Core.Entity> resolve) {
         ArgumentNullException.ThrowIfNull(resolve);
 
-        if (!result.IsHit) {
-            if (!result.Additive) {
+        Select(result.IsHit ? resolve(result.Id) : Vixen.Core.Entity.Null, result.Additive);
+    }
+
+    /// <summary>Puts an entity in the selection, or clears it.</summary>
+    /// <param name="entity">What was picked, or <see cref="Vixen.Core.Entity.Null" /> for a miss.</param>
+    /// <param name="additive">Whether the answer extends the selection rather than replacing it.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A miss clears the selection, and only when the pick was not additive.</b> Clicking
+    ///         empty space deselects — which every editor does — but shift-clicking empty space must
+    ///         not, because that is the miss at the end of a rubber-band that grabbed nothing.
+    ///     </para>
+    ///     <para>
+    ///         <b>Additive <i>toggles</i> rather than adds</b>, so the same modifier that extends a
+    ///         selection is the one that takes something back out of it. Two gestures for the two
+    ///         halves of one idea is what makes people click an already-selected object and wonder why
+    ///         nothing happened.
+    ///     </para>
+    /// </remarks>
+    public void Select(Vixen.Core.Entity entity, bool additive) {
+        if (entity.IsNull) {
+            if (!additive) {
                 selection.Clear();
             }
 
             return;
         }
 
-        var entity = resolve(result.Id);
-
-        if (entity.IsNull) {
-            return;
-        }
-
-        if (result.Additive) {
+        if (additive) {
             selection.Toggle(entity);
         } else {
             selection.Set(entity);

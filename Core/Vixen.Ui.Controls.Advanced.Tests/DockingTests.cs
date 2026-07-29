@@ -192,9 +192,13 @@ public class DockingTests {
         fixture.Update();
 
         var group = Assert.Single(host.Groups);
-        Assert.Equal(2, group.Strip.Children.Count);
 
-        var tabs = group.Strip.Children.OfType<DockTab>().ToList();
+        // ⚠ The tabs are in `Tabs`, which is inside `Strip` alongside the two overflow arrows. The
+        // strip is the row; the list is the part of it that scrolls.
+        Assert.Equal(2, group.Tabs.Children.Count);
+        Assert.Equal(3, group.Strip.Children.Count);
+
+        var tabs = group.Tabs.Children.OfType<DockTab>().ToList();
         Assert.Equal(["scene", "game"], tabs.Select(static tab => tab.PanelId));
         Assert.Equal("Scene", tabs[0].Label);
     }
@@ -218,7 +222,7 @@ public class DockingTests {
         Assert.True(game.Height > 0f);
         Assert.Equal(0f, scene.Height);
 
-        var tabs = host.Groups[0].Strip.Children.OfType<DockTab>().ToList();
+        var tabs = host.Groups[0].Tabs.Children.OfType<DockTab>().ToList();
         fixture.Click(tabs[0]);
 
         Assert.True(scene.Height > 0f);
@@ -336,7 +340,7 @@ public class DockingTests {
         host.AddPanel("console", "Console");
         fixture.Update();
 
-        var tab = host.Groups[0].Strip.Children.OfType<DockTab>().First(static t => t.PanelId == "console");
+        var tab = host.Groups[0].Tabs.Children.OfType<DockTab>().First(static t => t.PanelId == "console");
         var bounds = host.Groups[0].Bounds;
 
         fixture.Press(tab.Bounds.X + 4f, tab.Bounds.Y + 4f);
@@ -355,6 +359,94 @@ public class DockingTests {
     }
 
     [Fact]
+    public void A_strip_with_more_tabs_than_fit_gets_arrows_and_scrolls() {
+        using var fixture = new AdvancedFixture();
+
+        var host = fixture.Add<DockingHost>();
+
+        for (var i = 0; i < 12; i++) {
+            host.AddPanel($"panel{i}", $"A Panel Named {i}");
+        }
+
+        fixture.Update();
+
+        var group = Assert.Single(host.Groups);
+
+        // ⚠ A group is how many panels somebody stacked into one place, and that is unbounded.
+        // Without somewhere for the tabs to go, flexbox either shrinks every one until none of the
+        // titles can be read or pushes the last of them out of the box — and in both cases the panels
+        // on the end are ones the user cannot get back to.
+        Assert.True(group.Overflows, "twelve titled tabs fit in the strip, so this fixture proves nothing");
+        Assert.False(group.Previous.HasClass("hidden"));
+        Assert.False(group.Next.HasClass("hidden"));
+
+        // ⚠ Wound back first, because the strip does *not* start at zero: the last panel registered
+        // is the selected one and its tab has already been scrolled into view. Asserting from here
+        // rather than from wherever that left it is what keeps this fixture about the arrows.
+        group.ScrollTo(0f);
+
+        Assert.True(group.Previous.Disabled);
+        Assert.False(group.Next.Disabled);
+
+        fixture.Click(group.Next);
+
+        Assert.True(group.ScrollLeft > 0f);
+        Assert.False(group.Previous.Disabled);
+
+        // And it stops at the end rather than scrolling into empty space.
+        for (var press = 0; press < 20; press++) {
+            fixture.Click(group.Next);
+        }
+
+        Assert.Equal(group.MaximumScroll, group.ScrollLeft, 2);
+        Assert.True(group.Next.Disabled);
+    }
+
+    [Fact]
+    public void A_strip_whose_tabs_fit_has_no_arrows() {
+        using var fixture = new AdvancedFixture();
+
+        var host = fixture.Add<DockingHost>();
+        host.AddPanel("scene", "Scene");
+        fixture.Update();
+
+        var group = Assert.Single(host.Groups);
+
+        Assert.False(group.Overflows);
+        Assert.True(group.Previous.HasClass("hidden"));
+        Assert.True(group.Next.HasClass("hidden"));
+    }
+
+    [Fact]
+    public void Selecting_a_panel_scrolls_its_tab_into_view() {
+        using var fixture = new AdvancedFixture();
+
+        var host = fixture.Add<DockingHost>();
+
+        for (var i = 0; i < 12; i++) {
+            host.AddPanel($"panel{i}", $"A Panel Named {i}");
+        }
+
+        fixture.Update();
+
+        var group = Assert.Single(host.Groups);
+
+        Assert.True(group.Overflows);
+
+        // The last panel registered is the selected one, and its tab is the one off the end. A strip
+        // that showed the selected panel's body while its tab sat past the edge reads as the
+        // selection having been lost.
+        Assert.True(group.ScrollLeft > 0f, "the selected tab was not scrolled into view");
+
+        var tab = group.Tabs.Children.OfType<DockTab>().Last();
+
+        Assert.True(tab.AbsoluteLeft >= group.Tabs.Parent!.AbsoluteLeft - Tolerance);
+        Assert.True(
+            tab.AbsoluteLeft + tab.Width <= group.Tabs.Parent!.AbsoluteLeft + group.Tabs.Parent!.Width + Tolerance
+        );
+    }
+
+    [Fact]
     public void Closing_a_tab_takes_the_panel_out_of_the_document() {
         using var fixture = new AdvancedFixture();
 
@@ -363,7 +455,7 @@ public class DockingTests {
         var console = host.AddPanel("console", "Console");
         fixture.Update();
 
-        var tab = host.Groups[0].Strip.Children.OfType<DockTab>().First(static t => t.PanelId == "console");
+        var tab = host.Groups[0].Tabs.Children.OfType<DockTab>().First(static t => t.PanelId == "console");
         fixture.Click(tab.CloseButton!);
 
         Assert.True(console.IsRemoved);
@@ -381,7 +473,7 @@ public class DockingTests {
         panel.CanClose = false;
         host.Rebuild();
 
-        var tab = Assert.Single(host.Groups[0].Strip.Children.OfType<DockTab>());
+        var tab = Assert.Single(host.Groups[0].Tabs.Children.OfType<DockTab>());
         Assert.Null(tab.CloseButton);
     }
 
@@ -459,7 +551,7 @@ public class DockingTests {
         host.AddPanel("game");
         fixture.Update();
 
-        var tabs = host.Groups[0].Strip.Children.OfType<DockTab>().ToList();
+        var tabs = host.Groups[0].Tabs.Children.OfType<DockTab>().ToList();
 
         Assert.Equal(ElementState.None, tabs[0].State & ElementState.Checked);
         Assert.True((tabs[1].State & ElementState.Checked) != 0);

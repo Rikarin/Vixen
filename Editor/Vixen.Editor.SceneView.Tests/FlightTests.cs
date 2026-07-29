@@ -30,10 +30,13 @@ sealed class Pane : IDisposable {
 
         Control.Refresh();
 
-        Viewport = new SceneViewport(Control, new Selection<Entity>()) {
+        Viewport = new SceneViewport(Control, Selection) {
             TargetsFactory = () => Targets
         };
     }
+
+    /// <summary>What is selected, which is what a pick changes.</summary>
+    public Selection<Entity> Selection { get; } = new();
 
     public UiDocument Document { get; }
 

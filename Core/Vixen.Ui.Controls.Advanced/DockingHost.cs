@@ -66,15 +66,48 @@ public sealed partial class DockTab : ButtonBase {
 }
 
 /// <summary>A group's tab strip and the panel it is showing.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The strip scrolls, and it has to.</b> A group is how many panels somebody stacked
+///         into one place, and that is unbounded — six tabs in a pane a quarter of the window wide is
+///         an ordinary arrangement. Without somewhere for them to go, flexbox either shrinks every
+///         tab until none of the titles can be read or pushes the last of them out of the box, and in
+///         both cases the panels on the end are ones the user cannot get back to.
+///     </para>
+///     <para>
+///         <b>Four elements, and the middle one is the only one that moves.</b> The strip is a row
+///         holding a previous button, a clipping viewport, a next button; the viewport holds a list
+///         that keeps its natural width and is slid sideways by <see cref="UiElement.OffsetX" />. The
+///         clipping is <c>overflow: hidden</c> in the theme, which is the draw list's clip stack —
+///         the same mechanism <c>ScrollView</c> uses, and deliberately not <c>ScrollView</c> itself,
+///         because a tab strip with a scrollbar under it is two rows of chrome to save one.
+///     </para>
+/// </remarks>
 public sealed partial class DockGroupView : Control {
+    /// <summary>How much of the visible width one press of an arrow moves.</summary>
+    /// <remarks>
+    ///     Not all of it: a page that moved the full width would leave nothing on screen that was
+    ///     there before, and the tab you were looking for is the one you have just scrolled past.
+    /// </remarks>
+    public const float PageFraction = 0.75f;
+
     /// <inheritdoc />
     protected override string TagName => "dock-group";
 
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
 
-    /// <summary>The strip along the top.</summary>
+    /// <summary>The strip along the top: the arrows and the tabs between them.</summary>
     public UiElement Strip { get; private set; } = null!;
+
+    /// <summary>Where the tabs live. Inside <see cref="Strip" />, and what scrolls.</summary>
+    public UiElement Tabs { get; private set; } = null!;
+
+    /// <summary>The arrow that scrolls towards the first tab, shown only when there is one off-screen.</summary>
+    public IconButton Previous { get; private set; } = null!;
+
+    /// <summary>The arrow that scrolls towards the last.</summary>
+    public IconButton Next { get; private set; } = null!;
 
     /// <summary>Where the panels live.</summary>
     public UiElement Body { get; private set; } = null!;
@@ -82,12 +115,163 @@ public sealed partial class DockGroupView : Control {
     /// <summary>The arrangement node this is showing.</summary>
     public DockGroupNode? Node { get; internal set; }
 
+    /// <summary>How far the tabs are scrolled, in pixels from the first one.</summary>
+    public float ScrollLeft { get; private set; }
+
+    /// <summary>How far they can be scrolled.</summary>
+    public float MaximumScroll => MathF.Max(0f, Tabs.Width - Viewport.Width);
+
+    /// <summary>Whether there are tabs the strip is not showing.</summary>
+    public bool Overflows => MaximumScroll > 0.5f;
+
+    /// <summary>The clipping box the tabs are slid inside.</summary>
+    UiElement Viewport { get; set; } = null!;
+
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
 
         Strip = Part("dock-tabstrip");
+
+        Previous = Strip.Add<IconButton>();
+        Previous.LeadingIcon.Geometry = ControlIcons.ChevronLeft;
+        Previous.Variant = ControlVariant.Subtle;
+        Previous.Label = "Previous tab";
+        Previous.TabIndex = -1;
+
+        Viewport = Strip.Add("dock-tabs-viewport");
+        Tabs = Viewport.Add("dock-tabs");
+
+        Next = Strip.Add<IconButton>();
+        Next.LeadingIcon.Geometry = ControlIcons.ChevronRight;
+        Next.Variant = ControlVariant.Subtle;
+        Next.Label = "Next tab";
+        Next.TabIndex = -1;
+
         Body = Part("dock-body");
+
+        Previous.Clicked += _ => Scroll(-Viewport.Width * PageFraction);
+        Next.Clicked += _ => Scroll(Viewport.Width * PageFraction);
+
+        // ⚠ Subscribed to the pass directly rather than through `Control.WhenResized`, and it is the
+        // case `WhenResized` documents as not being its own: whether the tabs fit depends on the
+        // *tabs*, not on this. A panel added, closed or renamed changes the strip's content without
+        // changing the group's box at all — so a refresh gated on this element's size would leave the
+        // arrows saying what was true two panels ago.
+        settle = _ => Refresh();
+        Document.LayoutFinished += settle;
+    }
+
+    Action<UiDocument>? settle;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>And it must, because these are built and thrown away constantly.</b> Every structural
+    ///     change rebuilds the views from the arrangement, so a group view that left a handler on the
+    ///     document would leak one per dock, per drag, per rename — and every stale handler would go
+    ///     on measuring an element that is no longer in the tree.
+    /// </remarks>
+    protected override void OnRemoved() {
+        if (settle is not null) {
+            Document.LayoutFinished -= settle;
+            settle = null;
+        }
+
+        base.OnRemoved();
+    }
+
+    /// <summary>Scrolls the tabs by a distance, clamped to what there is.</summary>
+    /// <param name="delta">How far, positive towards the last tab.</param>
+    public void Scroll(float delta) => ScrollTo(ScrollLeft + delta);
+
+    /// <summary>Scrolls the tabs to a position, clamped to what there is.</summary>
+    /// <param name="offset">How far from the first tab.</param>
+    public void ScrollTo(float offset) {
+        ScrollLeft = Math.Clamp(offset, 0f, MaximumScroll);
+
+        Tabs.OffsetX = -ScrollLeft;
+        Update();
+    }
+
+    /// <summary>Scrolls until a tab is wholly visible, if it is not already.</summary>
+    /// <param name="tab">The tab.</param>
+    /// <remarks>
+    ///     ⚠ <b>What makes a scrolling strip usable rather than merely possible.</b> Selecting a panel
+    ///     from a menu, closing the tab in front of the one you wanted, or restoring a layout all put
+    ///     the current tab wherever it happens to fall — and a strip that showed the selected panel's
+    ///     body while its tab sat off the end reads as the selection having been lost.
+    /// </remarks>
+    public void Reveal(UiElement tab) {
+        ArgumentNullException.ThrowIfNull(tab);
+
+        if (!Overflows) {
+            return;
+        }
+
+        var left = tab.AbsoluteLeft - Tabs.AbsoluteLeft;
+        var right = left + tab.Width;
+
+        if (left < ScrollLeft) {
+            ScrollTo(left);
+        } else if (right > ScrollLeft + Viewport.Width) {
+            ScrollTo(right - Viewport.Width);
+        }
+    }
+
+    /// <summary>Asks for a tab to be revealed once there are boxes to measure.</summary>
+    /// <param name="tab">The tab, or <see langword="null" /> to forget a pending request.</param>
+    /// <remarks>
+    ///     What a rebuild uses: the tabs it has just created are all zero-sized until the pass that
+    ///     follows it, so "scroll until the selected one is visible" cannot be answered yet. One
+    ///     pending request rather than a queue — the only thing that ever asks is the rebuild, and the
+    ///     only tab worth revealing is the one that ends up selected.
+    /// </remarks>
+    public void RevealAfterLayout(UiElement? tab) => pending = tab;
+
+    UiElement? pending;
+
+    /// <summary>Brings the arrows and the scroll offset up to date with the tabs.</summary>
+    /// <remarks>
+    ///     Public and idempotent for the same reason <c>ScrollView.Settle</c> is: a caller that has
+    ///     just filled a strip and wants to read <see cref="Overflows" /> before the next pass has a
+    ///     way to say so.
+    /// </remarks>
+    public void Refresh() {
+        // ⚠ Clamped again here, not only when scrolled. Widening the pane or closing a tab shortens
+        // the range, and an offset left past the end of it is a strip scrolled into empty space with
+        // the arrows greyed out and no way back.
+        ScrollTo(ScrollLeft);
+
+        if (pending is not { } tab) {
+            return;
+        }
+
+        // ⚠ Cleared before the reveal, not after. `Reveal` scrolls, a scroll is a change, and a
+        // change runs the settle loop round again — so a request left in place would be honoured on
+        // every pass and would fight anybody scrolling the strip by hand.
+        pending = null;
+        Reveal(tab);
+    }
+
+    void Update() {
+        var overflows = Overflows;
+
+        Toggle(Previous, overflows);
+        Toggle(Next, overflows);
+
+        // ⚠ Disabled rather than hidden at the ends. An arrow that vanished when it ran out would
+        // move the other one and the whole strip sideways on every scroll, so the button under the
+        // pointer would be a different button by the time it was pressed again.
+        Previous.Disabled = ScrollLeft <= 0.5f;
+        Next.Disabled = ScrollLeft >= MaximumScroll - 0.5f;
+    }
+
+    static void Toggle(UiElement element, bool shown) {
+        if (shown) {
+            element.RemoveClass("hidden");
+        } else {
+            element.AddClass("hidden");
+        }
     }
 }
 
@@ -485,7 +669,7 @@ public sealed partial class DockingHost : Control {
                 continue;
             }
 
-            var tab = view.Strip.Add<DockTab>();
+            var tab = view.Tabs.Add<DockTab>();
             tab.PanelId = id;
             tab.Label = panel.Title;
 
@@ -498,6 +682,11 @@ public sealed partial class DockingHost : Control {
             if (i == node.Selected) {
                 tab.State |= ElementState.Checked;
                 panel.AddClass("selected");
+
+                // ⚠ Asked for rather than done, because a tab that has just been created has no box
+                // to measure against yet — `Reveal` reads widths and offsets, and every one of them
+                // is zero until the pass that follows this rebuild.
+                view.RevealAfterLayout(tab);
             } else {
                 panel.RemoveClass("selected");
             }

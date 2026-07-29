@@ -86,6 +86,28 @@ A tab dragged off the host entirely tears out; a drop inside it docks. Both are 
 *inside* the arrangement are six-pixel splitters, and floating a panel when a drag misses one would
 make a fumble cost the user their layout.
 
+**The tab strip scrolls, with an arrow at each end.** A group holds as many panels as somebody stacked
+into it, and without somewhere for the tabs to go flexbox either shrinks every one until no title can
+be read or pushes the last of them out of the box — in both cases the panels on the end are ones the
+user cannot get back to. `Strip` is the row; `Tabs` inside it is the part that slides, by `OffsetX`
+against a clipping viewport. The arrows are disabled rather than hidden at the ends, or the button
+under the pointer would be a different button by the time it was pressed again.
+
+- ⚠ **`flex-basis: 0px` on the viewport is what makes an overflow possible.** Without it the viewport
+  takes its base size from its content, so it is always exactly as wide as the tabs and never
+  overflows — twelve tabs produced a strip two thousand pixels wide, which propagated up through the
+  group, the split, the surface and the host. A docking area wider than the window, with arrows that
+  never appeared because nothing had overflowed anything. `min-width: 0px` on the host and the surface
+  is the other half: a flex item's automatic minimum is its content.
+- ⚠ **A group view subscribes to `LayoutFinished` directly rather than through `Control.WhenResized`**,
+  which is the case that method documents as not being its own: whether the tabs fit depends on the
+  *tabs*, not on the group. It unsubscribes on removal, and it must — every structural change rebuilds
+  the views, so a handler left behind would leak one per dock, per drag, per rename.
+- **Selecting a panel scrolls its tab into view**, asked for during the rebuild and honoured on the
+  pass after it, because a tab that has just been created has no box to measure yet. A strip that
+  showed the selected panel's body while its tab sat off the end reads as the selection having been
+  lost.
+
 ### TreeView
 
 Virtualised rows, lazy children, multi-select, rename in place, drag-reorder with a three-zone drop

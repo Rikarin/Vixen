@@ -34,13 +34,17 @@ public static class AdvancedTheme {
 
     const string Sheet = """
         /* ── Docking ────────────────────────────────────────────────────────── */
-        docking-host { flex-direction: column; position: relative; flex-grow: 1; }
+        /* ⚠ `min-width: 0px` so a tab strip too wide for the window cannot widen the whole docking
+           area — see `dock-tabs-viewport` for the other half of it. `dock-group` has always had the
+           declaration and nothing above it did, so the group dutifully clipped a box that everything
+           between it and the root had already agreed to make big enough. */
+        docking-host { flex-direction: column; position: relative; flex-grow: 1; min-width: 0px; }
 
         /* Where panels wait. `display: none` rather than removal, because an element outside a
            document is a removed element and removal is final. */
         dock-detached { display: none; }
 
-        dock-surface { flex-direction: column; flex-grow: 1; overflow: hidden; }
+        dock-surface { flex-direction: column; flex-grow: 1; min-width: 0px; overflow: hidden; }
 
         dock-split { flex-grow: 1; }
         dock-split.horizontal { flex-direction: row; }
@@ -66,11 +70,42 @@ public static class AdvancedTheme {
 
         dock-tabstrip {
             flex-direction: row;
+            align-items: stretch;
             flex-shrink: 0;
             background-color: var(--surface-sunken);
             border-width: 0px 0px 1px 0px;
             border-color: var(--border);
         }
+
+        /*
+         * The clipping box the tabs slide inside, and the list that slides.
+         *
+         * ⚠ `flex-basis: 0px` is what makes an overflow possible at all, and it is the same
+         * declaration and the same reason `tree-view virtualizing-panel` gives: without it the
+         * viewport takes its base size from its *content*, so it is always exactly as wide as the
+         * tabs inside it and never overflows. Twelve tabs then produced a strip two thousand pixels
+         * wide, which propagated up through the group, the split, the surface and the host — a
+         * docking area wider than the window, with the arrows this exists to show never appearing
+         * because nothing had overflowed anything. `min-width: 0px` here and on the two ancestors
+         * below is the other half: a flex item's automatic minimum is its content, so the demand
+         * survives the base size being zeroed.
+         */
+        dock-tabs-viewport {
+            flex-direction: row;
+            flex-grow: 1;
+            flex-basis: 0px;
+            min-width: 0px;
+            overflow: hidden;
+        }
+
+        dock-tabs {
+            flex-direction: row;
+            flex-shrink: 0;
+            align-items: stretch;
+        }
+
+        /* The arrows keep their width whatever the tabs do, or they are the first thing squeezed out. */
+        dock-tabstrip > icon-button { flex-shrink: 0; align-self: center; }
 
         dock-tab {
             flex-direction: row;
