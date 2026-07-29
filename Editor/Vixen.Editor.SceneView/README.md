@@ -95,6 +95,47 @@ Hit-testing is in screen space, not by ray against solid handle geometry: an arm
 wide, and a ray test against a cylinder that thin misses more often than it hits. Innermost handles are
 tested first, because the plane quads overlap the arms they sit between.
 
+### It has to be attached every frame, not on the press that grabs it
+
+`GizmoGeometry` draws what the gizmo is attached to. A gizmo pointed at the selection only by
+`BeginManipulate` therefore has no handles to draw until something has already been clicked in the
+viewport — and the click that would attach them is the click that hit-tests against an empty gizmo.
+A selection made in the hierarchy panel got no handles at all, which is indistinguishable from
+handles that cannot be dragged. `SceneViewport.Update` attaches once a frame, and skips it mid-drag
+because the targets a drag started on are the ones the rest of it has to be applied to.
+
+The same shape of gap sat on the pointer: a move with nothing held carries `PointerButton.None`, so a
+handler that checked for the primary button before doing anything never asked what was under the
+cursor — no handle ever lit up, and the only way to find out whether a press would grab an arm was to
+press and see what moved. Escape now cancels a drag from the viewport too, immediately rather than
+through the stack, and is *not* consumed when there is no drag: it is also the key that closes a
+dialog and cancels a rename.
+
+### Thick lines are several thin ones
+
+`LineRenderer` draws one-pixel lines and deliberately will not offer anything else — `lineWidth`
+above one is an optional Vulkan feature most tiled GPUs lack, so a renderer that offered it would draw
+a different picture on different machines. Its own remarks say a thick line belongs to whoever wants
+one, and `GizmoGeometry` is that: every segment is emitted `TransformGizmo.Thickness` times, each
+shifted a pixel further along `segment × view` — the one offset that is "across the line on screen"
+in world space, so the strokes stay a fixed number of pixels apart from every angle instead of
+collapsing into one line at some of them. A segment pointing straight at the camera has no such
+perpendicular and falls back to the camera's own right; without that, the arm nearest the eye quietly
+goes back to a hairline.
+
+⚠ **`GrabRadius` is floored at half the thickness.** A gizmo drawn thicker than it is tested has a rim
+of pixels that ignores clicks, which fails at the edges of an arm and works in the middle of it — and
+reads as the tool being unreliable rather than as a number being wrong. `Tolerance` is the floored
+value and is what every hit test uses.
+
+### Two handles the hit test answered for and nothing drew
+
+`HitTest` has always returned `Screen` for a circle outside the three rotation rings, and `Uniform`
+for a square in the middle of a scale gizmo. Neither was drawn, so a click out there turned the
+selection about the view axis and a click in the middle scaled everything — both discoverable only by
+accident. `GizmoGeometry` now draws both, from the same numbers (`ScreenRingScale`, `CentreRadius`)
+the test reads, in grey rather than an axis colour because they belong to no axis.
+
 ⚠ **A plane handle seen edge-on is not offered.** Its quad projects to a sliver lying along the third
 arm and would take that arm's clicks, and dragging in a plane you are looking along the edge of is not
 something anyone can aim. Every editor hides these handles; here it has to affect the *test* too,

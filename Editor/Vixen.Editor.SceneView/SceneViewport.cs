@@ -266,10 +266,26 @@ public sealed class SceneViewport : IDisposable {
     ///         one, which is a whole frame of lag on the only navigation that is continuous — and it
     ///         is invisible until somebody flies alongside a moving object and finds it swimming.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The gizmo is pointed at the selection here, once a frame, and not at the press
+    ///         that grabs a handle.</b> <c>GizmoGeometry</c> draws what the gizmo is attached to, so
+    ///         a gizmo attached only by <see cref="BeginManipulate" /> has no handles to draw until
+    ///         somebody has already clicked — and the click that would attach them is the click that
+    ///         hit-tests against nothing. That is a gizmo which appears one click late and never over
+    ///         a selection made in the hierarchy panel, which reads exactly like handles that cannot
+    ///         be dragged. It also keeps the targets honest against an undo, a delete or a script
+    ///         that changed the selection since the last frame.
+    ///     </para>
     /// </remarks>
     public void Update(TimeSpan delta) {
         Control.Refresh();
         Fly(delta);
+
+        // Skipped mid-drag, which `Attach` refuses anyway: the targets a drag started on are the
+        // ones the rest of it has to be applied to.
+        if (!Gizmo.IsDragging) {
+            Gizmo.Attach(Targets());
+        }
 
         Control.ViewRotation = Camera.Rotation;
 
@@ -512,6 +528,10 @@ public sealed class SceneViewport : IDisposable {
             Gizmo.Mode switch {
                 GizmoMode.Rotate => "Rotate",
                 GizmoMode.Scale => "Scale",
+
+                // The combined gizmo's middle box is the uniform scale handle, so the undo entry has
+                // to say what the drag did rather than what the tool is called.
+                GizmoMode.Transform when Gizmo.Active == GizmoHandle.Uniform => "Scale",
                 _ => "Move"
             },
             targets,
@@ -561,22 +581,36 @@ public sealed class SceneViewport : IDisposable {
     /// </remarks>
     public Func<IReadOnlyList<IGizmoTarget>>? TargetsFactory { get; set; }
 
-    /// <summary>Turns a press into a grab and a release into a recorded drag.</summary>
+    /// <summary>Turns a move into a highlight, a press into a grab and a release into a recorded drag.</summary>
     /// <remarks>
-    ///     ⚠ <b>Only the primary button, and only when it did not start a camera move.</b> Alt+left
-    ///     orbits, and a press that also grabbed a handle would move the object the camera was
-    ///     supposed to be swinging around.
+    ///     <para>
+    ///         ⚠ <b>Only the primary button grabs, and only when it did not start a camera move.</b>
+    ///         Alt+left orbits, and a press that also grabbed a handle would move the object the
+    ///         camera was supposed to be swinging around.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A move with nothing held carries <see cref="PointerButton.None" />, which is why
+    ///         the hover test is before the primary-button check rather than inside it.</b> Nothing
+    ///         else in the editor asks what is under the pointer, so without this the handle the
+    ///         cursor is over never lights up and the only way to find out whether a press will grab
+    ///         an arm is to press and see what moves.
+    ///     </para>
     /// </remarks>
     void OnPointer(UiElement element, PointerEvent args) {
         if (Flies(args.Button) && args.Action is PointerAction.Pressed or PointerAction.Released) {
             Flying(args.Action == PointerAction.Pressed);
         }
 
-        if (args.Button != PointerButton.Primary) {
+        var point = Control.ToRender(args.X, args.Y);
+
+        if (args.Action == PointerAction.Moved && args.Button == PointerButton.None) {
+            Hover(point);
             return;
         }
 
-        var point = Control.ToRender(args.X, args.Y);
+        if (args.Button != PointerButton.Primary) {
+            return;
+        }
 
         switch (args.Action) {
             case PointerAction.Pressed
@@ -636,6 +670,15 @@ public sealed class SceneViewport : IDisposable {
     ///     is a set of held keys does not.
     /// </remarks>
     void OnKey(UiElement element, KeyEvent args) {
+        // ⚠ Escape before flight, and it is a drag being cancelled rather than a command. `Cancel`
+        // puts the targets back at once instead of pushing a command to be rolled back, so the
+        // viewport is redrawn from the model on the frame the key was pressed — see its own remarks.
+        // A drag with no way out is one people finish by dragging back to roughly where they started.
+        if (args is { Key: InputKey.Escape, Action: KeyAction.Pressed } && Gizmo.Cancel()) {
+            args.Handled = true;
+            return;
+        }
+
         if (!IsFlying) {
             return;
         }

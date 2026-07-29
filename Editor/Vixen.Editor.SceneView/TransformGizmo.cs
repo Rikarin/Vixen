@@ -44,10 +44,36 @@ public sealed class TransformGizmo {
     float dragStartAngle;
 
     /// <summary>How long an arm is, in render pixels.</summary>
-    public float HandleLength { get; set; } = 90f;
+    /// <remarks>
+    ///     <b>A gizmo is aimed at rather than read, so it is sized like a control and not like a
+    ///     glyph.</b> The ninety this used to be is about a centimetre on a scaled display — a handle
+    ///     that has to be found before it can be grabbed, and the arms of every editor people come
+    ///     from are nearer twice that. It is also what sizes <see cref="PlaneOffset" /> and
+    ///     <see cref="PlaneSize" />, which are fractions of it, so a short arm makes plane quads too
+    ///     small to aim at as well.
+    /// </remarks>
+    public float HandleLength { get; set; } = 150f;
 
     /// <summary>How near the pointer has to be to an arm to grab it, in render pixels.</summary>
-    public float GrabRadius { get; set; } = 9f;
+    /// <remarks>
+    ///     ⚠ <b>What the hit test uses is <see cref="Tolerance" />, which floors this at half of
+    ///     <see cref="Thickness" />.</b> A grab tolerance narrower than the arm it is a tolerance for
+    ///     leaves a rim of drawn pixels that does not answer to a click — which fails at the edges of
+    ///     an arm and works in the middle of it, and so reads as the tool being unreliable rather
+    ///     than as a number being wrong.
+    /// </remarks>
+    public float GrabRadius { get; set; } = 14f;
+
+    /// <summary>How thick the handles are drawn, in render pixels.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The renderer draws one-pixel lines and will not draw anything else.</b>
+    ///     <c>lineWidth</c> above one is an optional Vulkan feature that most tiled GPUs do not have,
+    ///     so <c>LineRenderer</c> deliberately refuses to offer it — see its own remarks. A thick arm
+    ///     is therefore several parallel thin ones, which <c>GizmoGeometry</c> is what builds; this is
+    ///     how many pixels across the result is, and it is here rather than there because the hit test
+    ///     has to know how wide the thing it is testing looks.
+    /// </remarks>
+    public float Thickness { get; set; } = 5f;
 
     /// <summary>How far along the arms the plane quads sit, as a fraction of the arm.</summary>
     public float PlaneOffset { get; set; } = 0.35f;
@@ -56,7 +82,14 @@ public sealed class TransformGizmo {
     public float PlaneSize { get; set; } = 0.22f;
 
     /// <summary>How big the middle box is, in render pixels.</summary>
-    public float CentreRadius { get; set; } = 12f;
+    public float CentreRadius { get; set; } = 18f;
+
+    /// <summary>How far out the screen-facing rotation ring sits, as a fraction of the arm.</summary>
+    /// <remarks>
+    ///     Outside the three axis rings, so it can be aimed at from any angle — and so that it is
+    ///     tested before them, which <see cref="HitTest" /> is what does.
+    /// </remarks>
+    public float ScreenRingScale { get; set; } = 1.15f;
 
     /// <summary>What the gizmo changes.</summary>
     public GizmoMode Mode { get; set; } = GizmoMode.Translate;
@@ -81,6 +114,13 @@ public sealed class TransformGizmo {
 
     /// <summary>What the gizmo is moving, in selection order.</summary>
     public IReadOnlyList<IGizmoTarget> Targets => targets;
+
+    /// <summary>How near the pointer has to be to a handle to grab it, in render pixels.</summary>
+    /// <remarks>
+    ///     <see cref="GrabRadius" />, floored at half of <see cref="Thickness" /> so that a gizmo
+    ///     drawn thicker than it is tested cannot have a rim of pixels that ignores clicks.
+    /// </remarks>
+    public float Tolerance => MathF.Max(GrabRadius, Thickness * 0.5f);
 
     /// <summary>Points the gizmo at a selection.</summary>
     /// <param name="selection">What to move, in selection order. The last one is the primary.</param>
@@ -210,10 +250,10 @@ public sealed class TransformGizmo {
 
         if (Mode is GizmoMode.Rotate) {
             // The screen-facing ring sits outside the three axis rings, so it is tested first.
-            var radius = HandleLength;
+            var radius = HandleLength * ScreenRingScale;
             var distance = Vector2.Distance(point, centre);
 
-            if (MathF.Abs(distance - (radius * 1.15f)) <= GrabRadius) {
+            if (MathF.Abs(distance - radius) <= Tolerance) {
                 return GizmoHandle.Screen;
             }
 
@@ -229,7 +269,7 @@ public sealed class TransformGizmo {
         for (var axis = 0; axis < 3; axis++) {
             var end = Flat(camera.Project(origin + (Axis(basis, axis) * scale), width, height));
 
-            if (DistanceToSegment(point, centre, end) <= GrabRadius) {
+            if (DistanceToSegment(point, centre, end) <= Tolerance) {
                 return axis switch {
                     0 => GizmoHandle.AxisX,
                     1 => GizmoHandle.AxisY,
@@ -512,7 +552,7 @@ public sealed class TransformGizmo {
         int height
     ) {
         var best = GizmoHandle.None;
-        var nearest = GrabRadius;
+        var nearest = Tolerance;
 
         for (var axis = 0; axis < 3; axis++) {
             var normal = Axis(basis, axis);

@@ -93,6 +93,28 @@ closes. `Ctrl+S` saves; the menu item greys itself out from the document's own d
 project before that file is written, so without the rescan a first run shows a browser with no scene
 in it — the one file the editor is certain exists, because it just made it.
 
+## The Scene menu
+
+Everything the viewport can be told to do is an `EditorCommand`, so it is on `W`/`E`/`R`, in the
+palette, rebindable, and greyed out when the scene panel is closed. What it was *not* was reachable
+with a mouse: the shell's default bar is File, Edit, View and Help, and none of them is where a
+gizmo mode belongs. `MenuModel.InsertMenu` puts a Scene menu third, with the modes and the space,
+pivot and snap toggles under a Gizmo submenu, the numpad views and the projection under a Camera one,
+and focus, frame-all and the grid alongside.
+
+- **The three modes are ticked, not merely listed.** A menu of Translate, Rotate and Scale with
+  nothing saying which is current is one where the only way to find out what a drag will do is to
+  drag. Every toggle carries a `Checked` predicate for the same reason, and the same predicate draws
+  its toolbar button pressed — one answer, three views.
+- ⚠ **`Checked` is null for a command that is not a toggle.** `MenuPresenter` grows the tick column
+  only for commands that have one, so a lambda returning false on every line would indent the whole
+  menu by an empty tick.
+- ⚠ **The model is described after the commands are registered.** An entry naming a command nothing
+  has registered is skipped when the bar is built — which is what lets the shell name `file.save`
+  without owning it, and what would silently swallow every line of this menu the other way round.
+  The bar is then rebuilt once explicitly, because the last `Commands.Add` already rebuilt it against
+  a model that did not yet have this menu in it.
+
 ## The project browser
 
 `ProjectBrowser` is the Project panel: a `SearchBox` and a `TreeView` over `AssetTree.Build`. The
