@@ -71,6 +71,44 @@ public sealed class RenderedIrradianceCaptures : IIrradianceCaptureSource, IDisp
     /// </remarks>
     public BoundingBox? Bounds { get; set; }
 
+    /// <summary>What to run once per probe, before its six passes are recorded.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Because six views cannot be culled from inside a render pass.</b> A capture that
+    ///         draws the real scene draws it through <c>RenderSystem</c>, which wants the frame's
+    ///         views set, culled, prepared and sorted before anything records — and the six views a
+    ///         probe needs are not known until the probe's position is. This is where that happens.
+    ///     </para>
+    ///     <para>
+    ///         Also where a descriptor allocator's frame begins, for the same reason: a capture is a
+    ///         frame's worth of descriptors and there is no frame around it to begin one.
+    ///     </para>
+    ///     <para>
+    ///         Null for a caller drawing something simpler than a scene — a fixture with one pipeline
+    ///         and one vertex buffer needs no preparation at all, and most of the tests here are that.
+    ///     </para>
+    /// </remarks>
+    public Action<Vector3>? Prepare { get; set; }
+
+    /// <summary>Run once a probe's list is recorded and before it is submitted.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The last point at which a validation layer's verdict is still actionable.</b>
+    ///         Everything a layer has to say about <i>recording</i> — a set the pipeline needs and
+    ///         nothing bound, attachment formats that disagree with the pass — it has already said by
+    ///         the time the list is finished. Submitting anyway submits work the driver has been told
+    ///         is invalid, and that is a GPU fault and a dead process rather than a failure anybody
+    ///         can read. <c>Fixture.Render</c> in the golden tests learnt this at the cost of
+    ///         fifty-six tests that never ran.
+    ///     </para>
+    ///     <para>
+    ///         Throwing from here is the intended use. It is a hook rather than a check of this
+    ///         type's own because what counts as a diagnostic belongs to a backend, and nothing in
+    ///         <c>Vixen.Rendering</c> knows which one is underneath.
+    ///     </para>
+    /// </remarks>
+    public Action? Recorded { get; set; }
+
     /// <summary>How many probes were captured.</summary>
     public int Captured { get; private set; }
 
@@ -84,11 +122,17 @@ public sealed class RenderedIrradianceCaptures : IIrradianceCaptureSource, IDisp
             return false;
         }
 
+        // ⚠ Before the frame begins, not inside it. Culling and sorting touch nothing on the device,
+        // and a caller that begins a descriptor frame here needs to do it before the list that
+        // allocates from it exists.
+        Prepare?.Invoke(position);
+
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "irradiance capture")) {
             cube.Record(commands, position, draw);
             commands.Finish();
+            Recorded?.Invoke();
             device.GraphicsQueue.Submit([commands]);
         }
 

@@ -63,6 +63,14 @@ public readonly record struct IrradianceProbe(
     /// <summary>The diffuse lighting this probe gives a surface facing a direction, divided by π.</summary>
     /// <param name="normal">The surface normal, normalised.</param>
     /// <returns>The irradiance over π — what a shader multiplies by albedo.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Unclamped, and it can be negative.</b> Four coefficients cannot represent a hemisphere
+    ///     sharply, so a probe lit entirely from one side evaluates below zero for a normal pointing
+    ///     the other way. That is what the basis says and this answers it; the clamp belongs one level
+    ///     up, at <see cref="IrradianceField.Irradiance(Vector3, Vector3)" />, where the number stops
+    ///     being arithmetic and becomes light. Clamping here instead would also quietly make this a
+    ///     lossy readout of what a brick holds, which is what several addressing tests use it as.
+    /// </remarks>
     public Vector3 Irradiance(Vector3 normal) => Radiance.Irradiance(normal);
 
     /// <summary>One probe blended toward another.</summary>

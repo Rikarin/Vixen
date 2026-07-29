@@ -182,6 +182,24 @@ The two offsets are **summed** and the lookup is fetched once, which is what the
 with no camera passes no view direction and gets the normal term alone — a bake has no camera, and a
 bias toward one that is not there would push the lookup wherever zero happens to point.
 
+### And the answer is clamped at zero
+
+`IrradianceField.Irradiance` never returns negative light, and an L1 band genuinely needs saying so.
+Four coefficients cannot represent a hemisphere sharply, so **a probe lit entirely from one side
+evaluates below zero for a normal facing the other way** — the linear band subtracts more than the
+constant band has. That is not a small error; it is light with the wrong sign, and a surface given it
+comes out darker than an unlit one.
+
+⚠ It was found by doc 19 § L2's bounce, which is the first thing that ever fed a field back into the
+scene that filled it. A sunlit floor produces light arriving entirely from below and evaluated to −0.047
+for the floor's own upward normal, so the second pass came out *dimmer* than the first. Every earlier
+test used a near-uniform environment, where the linear band is small and this never shows.
+
+The clamp is **here rather than on `IrradianceProbe.Irradiance`**, which stays raw arithmetic over a
+basis: it is the exact readout several addressing tests use to say which texel was reached, and clamping
+it would make that readout lossy. `IrradianceFieldProbes.Sample` clamps in the matching place, because
+the two sides are held against each other.
+
 ## The filler here is the reference, and the shipping one is checked against it
 
 `TracedIrradianceFiller` is doc 19 § L2's filler A written where it can be checked: sixty-four

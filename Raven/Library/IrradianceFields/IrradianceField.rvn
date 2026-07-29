@@ -165,6 +165,12 @@ struct IrradianceField {
     ///
     /// Over π, which is the quantity a shader multiplies by albedo. Getting that factor wrong is the
     /// classic "everything is π times too bright", and the band constants below are already divided by it.
+    ///
+    /// ⚠ UNCLAMPED, and it can be negative. Four coefficients cannot represent a hemisphere sharply, so
+    /// a probe lit entirely from one side evaluates below zero for a normal pointing the other way.
+    /// That is what the basis says and this answers it; the clamp is in `IrradianceFieldProbes.Sample`,
+    /// where the number stops being arithmetic and becomes light. `IrradianceProbe.Irradiance` in C# is
+    /// unclamped for the same reason, and the two are held against each other to the last coefficient.
     static func Irradiance(probe: IrradianceProbe, normal: float3): float3 {
         val constant = probe.l00 * Constant
         val linear = probe.l1m1 * normal.y + probe.l10 * normal.z + probe.l11 * normal.x
@@ -296,7 +302,19 @@ shader IrradianceFieldProbes : IIrradianceSource {
 
     func Sample(world: float3, normal: float3, view: float3): IrradianceSample {
         val probe = Probe(world, normal, view)
-        val lit = IrradianceField.Irradiance(probe, normal)
+
+        // CLAMPED AT ZERO, and an L1 band genuinely needs it. Four coefficients cannot represent a
+        // hemisphere sharply, so a probe lit entirely from one side evaluates NEGATIVE for a normal
+        // pointing the other way — the linear band subtracts more than the constant band has. That is
+        // light with the wrong sign, and a shading pass given it makes a surface darker than an unlit
+        // one.
+        //
+        // ⚠ Found by doc 19 § L2's bounce, the first thing that ever fed a field back into the scene
+        // that filled it: a sunlit floor produces light arriving entirely from below, and feeding that
+        // back as the floor's own ambient made the second pass DIMMER than the first. Every earlier
+        // test used a near-uniform environment, where the linear band is small and this never shows.
+        val lit = max(IrradianceField.Irradiance(probe, normal), float3(0f, 0f, 0f))
+
         return IrradianceSample(lit, probe.sunShadow, saturate(probe.validity))
     }
 }

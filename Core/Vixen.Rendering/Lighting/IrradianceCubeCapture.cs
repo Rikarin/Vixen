@@ -47,6 +47,24 @@ public sealed class IrradianceCubeCapture : IDisposable {
     /// <param name="viewProjection">Its world-to-clip transform.</param>
     public delegate void DrawFace(ICommandList commands, CubeFace face, Matrix4x4 viewProjection);
 
+    /// <summary>The attachments a face is rendered into, for whoever builds the pipelines.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A caller cannot guess these, and guessing wrong is not an error.</b> A pipeline whose
+    ///         attachment formats disagree with the render pass it is used in is undefined behaviour
+    ///         rather than a validation failure on most drivers — it faults the GPU and takes the
+    ///         process with it, which is what a <see cref="DrawFace" /> drawing through
+    ///         <c>RenderSystem</c> does when its <c>RenderDrawContext.Output</c> is left at its default
+    ///         of no attachments at all.
+    ///     </para>
+    ///     <para>
+    ///         So the formats are part of the callback's contract and are published rather than
+    ///         private. A caller building pipelines by hand passes them to the pipeline description; a
+    ///         caller drawing a scene puts this in the draw context and the describer does the rest.
+    ///     </para>
+    /// </remarks>
+    public static RenderOutput Output { get; } = new([PixelFormat.Rgba32Float], PixelFormat.Depth32Float);
+
     /// <summary>What a colour texel weighs, and it is four floats rather than four bytes.</summary>
     /// <remarks>
     ///     <b>A bake is the one place radiance must not be clamped.</b> A cube read back through an
@@ -407,7 +425,7 @@ public sealed class IrradianceCubeCapture : IDisposable {
             new() {
                 Width = Size, Height = Size, Depth = 1, MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
                 Dimension = TextureDimension.Texture2D,
-                Format = PixelFormat.Rgba32Float,
+                Format = Output.ColourFormats[0],
                 Usage = TextureUsage.ColourTarget | TextureUsage.CopySource,
                 Name = "IrradianceCubeCapture.Colour"
             }
@@ -417,7 +435,7 @@ public sealed class IrradianceCubeCapture : IDisposable {
             new() {
                 Width = Size, Height = Size, Depth = 1, MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
                 Dimension = TextureDimension.Texture2D,
-                Format = PixelFormat.Depth32Float,
+                Format = Output.DepthFormat,
                 Usage = TextureUsage.DepthStencilTarget | TextureUsage.CopySource,
                 Name = "IrradianceCubeCapture.Depth"
             }

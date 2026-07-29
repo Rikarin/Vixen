@@ -440,8 +440,42 @@ the one validity cannot catch, because a probe that sees nothing looks exactly l
 
 ⚠ It stalls the GPU once per probe. That is the right shape for a build step and the wrong one for
 anything else; batching a budget's probes into one submit wants a ring of targets rather than the one
-this reuses, and is not done. The bounce iteration is now only a matter of calling the same source twice
-with a draw callback that shades from the field — nothing further is owed for it.
+this reuses, and is not done.
+
+**And the bounce runs.** `IrradianceBounceDeviceTests` draws each cube face through `RenderSystem` —
+`MeshRenderFeature`, `MaterialRenderFeature`, `ForwardLightingRenderFeature`, the three a frame uses —
+so a probe sees the scene as `ForwardPlus` shades it, with the field composed into that shading. Bake,
+upload, bake again: the second pass shades the scene with the first pass's answer. A sunlit floor and a
+wall the sun cannot reach (its *N*·*L* is zero, so every photon it holds came off the floor) went
+0.254 → 0.331 → 0.324, against a flat 0.254 with the field switched off.
+
+Contracting rather than monotone, and that is the scheme: each pass re-gathers the whole field from a
+scene shaded with the previous one, so it is a Jacobi iteration that overshoots slightly and settles. The
+assertions are the shape of the series — it grows, it stays, the change shrinks — because a cube capture
+of a finite room projected into four coefficients has no closed form and pretending otherwise would be a
+tolerance nobody could defend.
+
+⚠ **It found that an L1 field can return negative light, and did.** Four coefficients cannot represent a
+hemisphere sharply, so a probe lit entirely from one side evaluates *below zero* for a normal facing the
+other way — the linear band subtracts more than the constant band has. A sunlit floor produces exactly
+that: light arriving entirely from below, evaluating to **−0.047** for the floor's own upward normal.
+Fed back as ambient, the second pass came out *dimmer* than the first. Nothing had caught it because
+every earlier test used a near-uniform environment, where the linear band is small and this never
+happens — a bounce is the first thing that ever asks a field about a direction its own light does not
+come from.
+
+The clamp is at the field-sampling boundary on both sides — `IrradianceField.Irradiance` in C#,
+`IrradianceFieldProbes.Sample` in Raven — and deliberately *not* at the probe evaluation, which stays
+raw arithmetic over a basis. Clamping there would also have made `IrradianceProbe.Irradiance` a lossy
+readout of what a brick holds, which is what the addressing tests use it as; three of them said so
+immediately.
+
+Two more things had to be right about the *scene* before any bounce appeared, and each read as the
+feedback being broken. **A flat floor cannot light itself** — every ray leaving it goes up and never
+returns — so the first fixture produced one pass and then nothing. And **a field answers nothing outside
+its own box**, so the wall, standing beyond it, received no indirect light however many passes ran.
+Neither is a defect; both are properties a project has to get right, and they are now written down where
+somebody will hit them.
 
 **Writing it found the one convention that was not derived.** The engine's clip space is +Y up, which the
 Vulkan backend expresses as a negative-height viewport — so a framebuffer's first row is *v = +1*, while

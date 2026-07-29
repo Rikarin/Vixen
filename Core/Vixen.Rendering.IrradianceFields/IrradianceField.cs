@@ -653,9 +653,34 @@ public sealed class IrradianceField {
     /// <param name="normal">Which way it faces, normalised.</param>
     /// <param name="view">Which way the camera is, from the surface, normalised. Zero for none.</param>
     /// <returns>The irradiance over π, or zero where the field has nothing.</returns>
-    /// <remarks>See <see cref="ViewBias" /> for why the second direction is worth a second overload.</remarks>
+    /// <remarks>
+    ///     <para>See <see cref="ViewBias" /> for why the second direction is worth a second overload.</para>
+    ///     <para>
+    ///         <b>Clamped at zero, and an L1 band genuinely needs it.</b> Four coefficients cannot
+    ///         represent a hemisphere sharply, so a probe lit entirely from one side evaluates
+    ///         <i>negative</i> for a normal pointing the other way — the linear band subtracts more
+    ///         than the constant band has. That is not a small error: it is light with the wrong sign,
+    ///         and a shading pass given it makes a surface darker than an unlit one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Found by doc 19 § L2's bounce, which is the first thing that ever fed a field back
+    ///         into the scene that filled it. A sunlit floor produces a field whose light all arrives
+    ///         from below; feeding that back as the floor's own ambient evaluated to −0.047 and made
+    ///         the second pass <i>dimmer</i> than the first. Every earlier test used a near-uniform
+    ///         environment, where the linear band is small and this never shows.
+    ///     </para>
+    ///     <para>
+    ///         Here rather than in <see cref="IrradianceProbe.Irradiance" />, which is arithmetic over
+    ///         a basis and has every right to answer what the basis says — and which several tests use
+    ///         as an exact readout of what a brick holds. This is where the number stops being
+    ///         arithmetic and becomes light. <c>IrradianceFieldProbes.Sample</c> clamps in the matching
+    ///         place, because the two are held against each other.
+    ///     </para>
+    /// </remarks>
     public Vector3 Irradiance(Vector3 world, Vector3 normal, Vector3 view) =>
-        TrySample(world, normal, view, out var probe) ? probe.Irradiance(normal) : Vector3.Zero;
+        TrySample(world, normal, view, out var probe)
+            ? Vector3.Max(probe.Irradiance(normal), Vector3.Zero)
+            : Vector3.Zero;
 
     /// <summary>The probe nearest a world position, out of whichever brick covers it.</summary>
     /// <param name="world">The position.</param>

@@ -1473,6 +1473,10 @@ Vixen.Rendering.Lighting.RenderedIrradianceCaptures.Bounds.get -> Vixen.Core.Mat
 Vixen.Rendering.Lighting.RenderedIrradianceCaptures.Bounds.set -> Vixen.Core.Mathematics.BoundingBox?
 Vixen.Rendering.Lighting.RenderedIrradianceCaptures.Captured.get -> int
 Vixen.Rendering.Lighting.RenderedIrradianceCaptures.Dispose() -> void
+Vixen.Rendering.Lighting.RenderedIrradianceCaptures.Prepare.get -> System.Action<Vixen.Core.Mathematics.Vector3>?
+Vixen.Rendering.Lighting.RenderedIrradianceCaptures.Prepare.set -> System.Action<Vixen.Core.Mathematics.Vector3>?
+Vixen.Rendering.Lighting.RenderedIrradianceCaptures.Recorded.get -> System.Action?
+Vixen.Rendering.Lighting.RenderedIrradianceCaptures.Recorded.set -> System.Action?
 Vixen.Rendering.Lighting.RenderedIrradianceCaptures.RenderedIrradianceCaptures(Vixen.Graphics.IGraphicsDevice device, Vixen.Rendering.Lighting.IrradianceCubeCapture capture, Vixen.Rendering.Lighting.IrradianceCubeCapture.DrawFace draw) -> void
 Vixen.Rendering.Lighting.RenderedIrradianceCaptures.TryCapture(Vixen.Core.Mathematics.Vector3 position, out Vixen.Rendering.Lighting.IrradianceCapture capture) -> bool
 Vixen.Rendering.Lighting.SceneLighting -> sealed class
@@ -2868,6 +2872,7 @@ static Vixen.Rendering.Lighting.EnvironmentBaker.Prefilter(Vixen.Rendering.Light
 static Vixen.Rendering.Lighting.EnvironmentBaker.RoughnessOf(int mip, int mipCount) -> float
 static Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.LevelBinding(int level, string shaderName) -> string
 static Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.SamplerBinding(string shaderName) -> string
+static Vixen.Rendering.Lighting.IrradianceCubeCapture.Output.get -> Vixen.Rendering.RenderOutput
 static Vixen.Rendering.Lighting.IrradianceFieldTexture.IndirectionBinding(string shaderName) -> string
 static Vixen.Rendering.Lighting.IrradianceFieldTexture.PointSamplerBinding(string shaderName) -> string
 static Vixen.Rendering.Lighting.IrradianceFieldTexture.PoolBinding(int channel, string shaderName) -> string
