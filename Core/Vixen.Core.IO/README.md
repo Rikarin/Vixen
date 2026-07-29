@@ -26,6 +26,9 @@ directory.
 | `Watch.FileChangeCoalescer` | Raw filesystem events → what actually happened. |
 | `Watch.FileWatcher` | `FileSystemWatcher` feeding the coalescer, drained at a frame point. |
 
+Beside it, [`Vixen.Core.IO.Analyzers`](../Vixen.Core.IO.Analyzers/README.md) is the rule about all of
+this made checkable: engine code that names `System.IO.Path` fails the build.
+
 ## The decisions, and what they cost
 
 **Case-sensitive everywhere, including where the filesystem is not.** `Texture.PNG` and `texture.png`
@@ -106,9 +109,13 @@ the bundle-backed read-only provider. The first three need `Vixen.Platform` and 
 object database, so each arrives with the thing it reads from. The interface is shaped for them —
 that is why `TryMap` is allowed to decline and why paths reaching a provider are mount-relative.
 
-**The analyzer.** [Doc 10](../../docs/plan/10-platforms.md) bans `System.IO.Path` outside
-`Vixen.Platform.*` and editor code, and bans synchronous IO in runtime hot paths, both
-analyzer-enforced. That is a Roslyn analyzer project, which does not exist yet; the rule is real and
-currently rests on review.
+**The synchronous half of the analyzer.** [Doc 10](../../docs/plan/10-platforms.md)'s ban on
+`System.IO.Path` in engine code is now enforced by
+[`Vixen.Core.IO.Analyzers`](../Vixen.Core.IO.Analyzers/README.md) — `VXIO0001`, an error in every
+`Core/` project, off by name in the seven places whose job is the host filesystem. The other half of
+that sentence, [doc 03](../../docs/plan/03-core-foundation.md)'s ban on the synchronous open
+overloads in runtime hot paths, is not enforced: `IOdbBackend.TryRead` and `ContentUpdate` call them
+today from interfaces that are synchronous by contract, so the rule is a decision about those
+contracts before it is an analyzer.
 
 Licensed under Apache-2.0.

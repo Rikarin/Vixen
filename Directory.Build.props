@@ -85,7 +85,8 @@
                              $(MSBuildProjectDirectory.Contains('$(MSBuildThisFileDirectory)Platform'))) AND
                             !$(MSBuildProjectName.EndsWith('.Tests')) AND
                             !$(MSBuildProjectName.EndsWith('.Generator')) AND
-                            !$(MSBuildProjectName.EndsWith('.Generators'))">
+                            !$(MSBuildProjectName.EndsWith('.Generators')) AND
+                            !$(MSBuildProjectName.EndsWith('.Analyzers'))">
     <IsPackable>true</IsPackable>
     <IsAotCompatible>true</IsAotCompatible>
     <IsTrimmable>true</IsTrimmable>
@@ -97,15 +98,17 @@
 
   <!--
     ============================================================================
-    Profile: GENERATOR  —  *.Generator / *.Generators, wherever they live.
-    Source generators run inside the compiler, so they target netstandard2.0/2.1
-    and are never published: AOT, trimming and single-file analysis do not apply
-    to them, and the Runtime profile above would demand all three of a project
-    that cannot satisfy them. Excluded there, handled here.
+    Profile: COMPILER PLUGIN  —  *.Generator / *.Generators / *.Analyzers,
+    wherever they live.
+    Generators and analyzers run inside the compiler, so they target
+    netstandard2.0/2.1 and are never published: AOT, trimming and single-file
+    analysis do not apply to them, and the Runtime profile above would demand all
+    three of a project that cannot satisfy them. Excluded there, handled here.
     ============================================================================
   -->
   <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('.Generator')) OR
-                            $(MSBuildProjectName.EndsWith('.Generators'))">
+                            $(MSBuildProjectName.EndsWith('.Generators')) OR
+                            $(MSBuildProjectName.EndsWith('.Analyzers'))">
     <IsPackable>false</IsPackable>
     <IsAotCompatible>false</IsAotCompatible>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
@@ -148,6 +151,34 @@
     -->
     <VSTestLogger>trx%3bLogFileName=$(MSBuildProjectName).trx</VSTestLogger>
   </PropertyGroup>
+
+  <!--
+    ============================================================================
+    The virtual-path rule, enforced.
+    docs/plan/10-platforms.md § "Cross-platform discipline": only virtual paths in
+    engine code; System.IO.Path is for Vixen.Platform.*, the editor and the tools.
+
+    Referenced here rather than per project, because a rule that has to be opted
+    into is a rule the next library forgets. Scope is Core/** minus tests,
+    generators and the analyzer itself: Platform/**, Editor/**, Tools/** and
+    Raven/** are where translating to a host path is the job, so they do not get
+    the analyzer at all rather than getting it and switching it off.
+
+    Where it still fires inside Core — PhysicalFileProvider, the watcher, the disk
+    caches — .editorconfig turns it off by name with a reason, beside every other
+    named exclusion.
+    ============================================================================
+  -->
+  <ItemGroup Condition="$(MSBuildProjectDirectory.Contains('$(MSBuildThisFileDirectory)Core')) AND
+                        !$(MSBuildProjectName.EndsWith('.Tests')) AND
+                        !$(MSBuildProjectName.EndsWith('.Generator')) AND
+                        !$(MSBuildProjectName.EndsWith('.Generators')) AND
+                        !$(MSBuildProjectName.EndsWith('.Analyzers'))">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)Core\Vixen.Core.IO.Analyzers\Vixen.Core.IO.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
+  </ItemGroup>
 
   <!--
     Apache-2.0 §4(d) requires the NOTICE to travel with every distribution, so it goes

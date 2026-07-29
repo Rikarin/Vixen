@@ -66,7 +66,7 @@ public sealed class Effect : ReactiveNode, IDisposable {
     /// </remarks>
     string Origin => originFile is null
         ? "an unknown location"
-        : $"{Path.GetFileName(originFile)}:{originLine.ToString(CultureInfo.InvariantCulture)}";
+        : $"{FileNameOf(originFile)}:{originLine.ToString(CultureInfo.InvariantCulture)}";
 
     /// <summary>Whether this effect has been suspended after misbehaving.</summary>
     /// <remarks>
@@ -190,4 +190,14 @@ public sealed class Effect : ReactiveNode, IDisposable {
         queued = true;
         scheduler.Enqueue(this);
     }
+
+    /// <summary>The last segment of a compile-time source path.</summary>
+    /// <remarks>
+    ///     Not <c>System.IO.Path</c>, and not because of the rule for its own sake: a
+    ///     <see cref="CallerFilePathAttribute" /> string is something the compiler wrote down on the
+    ///     machine that built this assembly, so it is separated the way <i>that</i> machine separates
+    ///     paths — which is why both separators are looked for and why asking the running platform
+    ///     would be asking the wrong one.
+    /// </remarks>
+    static ReadOnlySpan<char> FileNameOf(string path) => path.AsSpan(path.AsSpan().LastIndexOfAny('/', '\\') + 1);
 }

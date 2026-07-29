@@ -61,7 +61,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Thread pinning / affinity | ⬜ | — | ⛔ needs `Vixen.Platform.Windows/.Linux/.MacOS`; contract half (`IProcessorTopology`) exists |
 | Job priorities / long-running tier | ⬜ | — | |
 | `Vixen.Core.IO` — `VirtualPath`, mount table, providers, mmap, coalesced watch | ✅ | Core/Vixen.Core.IO | 123 tests. Android `AAssetManager` and Web IndexedDB/fetch providers landed with their platforms |
-| `System.IO.Path` analyzer | ⬜ | — | |
+| `System.IO.Path` analyzer | ✅ | Core/Vixen.Core.IO.Analyzers | `VXIO0001`, 12 tests. Referenced by every `Core/` project from `Directory.Build.props`; off by name in the seven host-filesystem places. The synchronous-IO half of the rule is still review-only |
 | `Vixen.Core.Serialization` + generator + `ObjectDatabase` | ✅ | Core/Vixen.Core.Serialization | 53 tests; LZ4/Zstd chunks, CRC-checked bundles |
 | `Vixen.Core.Reflection` generator | ✅ | Core/Vixen.Core.Reflection | Generic types still unsupported |
 | `Vixen.Core.Syntax` + generator (green/red trees) | ✅ | Core/Vixen.Core.Syntax | Shared by Raven, VXML — the Phase 0 extraction, and it paid off |
@@ -480,7 +480,7 @@ Ground truth is [`Directory.Packages.props`](../Directory.Packages.props); the p
 | `OpenTelemetry` + OTLP/Console exporters + Runtime instrumentation | 1.17.0 | ✅ | `Vixen.Net.Telemetry` | Added beyond doc 01's register |
 | `YamlDotNet` | 18.1.0 | ✅ | `Vixen.Core.Yaml`, `Vixen.Editor.Core` | |
 | `Antlr4.Runtime` / `Antlr4.CodeGenerator` | 4.6.6 | 🟡 | Raven **tests only** | Kept as a differential oracle after the Phase 5b migration |
-| `Microsoft.CodeAnalysis.CSharp` / `.Analyzers` | 4.11.0 / 3.3.4 | ✅ | every `*.Generators` project | |
+| `Microsoft.CodeAnalysis.CSharp` / `.Analyzers` | 4.11.0 / 3.3.4 | ✅ | every `*.Generators` project, and `Vixen.Core.IO.Analyzers` | |
 | `Nuke.Common` | 10.1.0 | ✅ | `build/_build.csproj` | |
 | `System.CommandLine` | 2.0.10 | ✅ | `Vixen.Cli` and the tools | |
 | `BenchmarkDotNet` | 0.15.8 | ✅ | `Benchmarks/*` | |
@@ -665,7 +665,7 @@ UDP congestion control / ack piggybacking / path MTU / DTLS; `SharpFuzz` instrum
 structure-aware mutation; per-axis `NetworkTransform`; team/room/fog-of-war interest rules and
 resolver composition; `SyncVar` dirty-marking system; `ReplicationChannel` helper; OpenTelemetry
 traces and the client-side metrics route; Raven string interpolation; blend shapes; punctual shadow
-caching; parallel asset import; `System.IO.Path` analyzer; ECS read/write inference generator;
+caching; parallel asset import; ECS read/write inference generator;
 `WhenAny` in coroutines; `GpuUploadRing`; transform decomposition.
 
 ---
@@ -683,7 +683,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 3 | `Vixen.Core.Threading` | `VIXEN_JOB_SAFETY` access declarations | Correctness | ECS declarations |
 | 4 | `Vixen.Core.Threading` | Thread pinning / affinity | Perf | K3 per-OS assemblies |
 | 5 | `Vixen.Core.Threading` | Job priority tier for streaming/decode | Perf | — |
-| 6 | `Vixen.Core.IO` | `System.IO.Path` analyzer | Discipline | — |
+| 6 | `Vixen.Core.IO` | The synchronous-IO ban (the `System.IO.Path` half is built) | Discipline | A decision about `IOdbBackend`'s synchronous contract |
 | 7 | `Vixen.Core.Reflection` | Generic type support | Feature | — |
 | 8 | `Vixen.Core.Diagnostics` | ZLogger/console/platform/remote/`EventSource` sinks | Feature | — |
 | 9 | `Vixen.Core.Diagnostics` | Rate limiting; UTF-8 record packing | Perf | — |

@@ -113,6 +113,7 @@ partial class Build {
             .Where(path => !path.NameWithoutExtension.EndsWith(".Tests", StringComparison.Ordinal))
             .Where(path => !path.NameWithoutExtension.EndsWith(".Generator", StringComparison.Ordinal))
             .Where(path => !path.NameWithoutExtension.EndsWith(".Generators", StringComparison.Ordinal))
+            .Where(path => !path.NameWithoutExtension.EndsWith(".Analyzers", StringComparison.Ordinal))
             .Where(IsPackable)
             .Where(path => TargetFrameworkOf(path) == ApiFramework)
             .OrderBy(path => path.NameWithoutExtension, StringComparer.Ordinal)

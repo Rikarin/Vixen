@@ -82,6 +82,8 @@ Core/
 ├── Vixen.Core.Threading/               # job system, JobHandle, ParallelFor, MainThread affinity
 ├── Vixen.Core.Threading.Tests/
 ├── Vixen.Core.IO/                      # VFS, virtual paths, async streams, mmap, file watcher
+├── Vixen.Core.IO.Analyzers/            # ── analyzer: System.IO.Path in engine code ──
+├── Vixen.Core.IO.Analyzers.Tests/
 ├── Vixen.Core.IO.Tests/
 ├── Vixen.Core.Serialization/           # binary serializer runtime, chunks, content refs, LZ4/Zstd
 ├── Vixen.Core.Serialization.Generators/ # ── source generator ──
@@ -430,16 +432,22 @@ project, and this is neither. It is where the shared test infrastructure of
 </PropertyGroup>
 ```
 
-Then, conditioned on the folder, three profiles:
+Then, conditioned on the folder, four profiles:
 
 | Profile | Applies to | Adds |
 |---|---|---|
 | **Runtime** | `Core/**`, `Platform/**` (non-test) | `IsAotCompatible=true`, `IsTrimmable=true`, `EnableTrimAnalyzer`, `EnableAotAnalyzer`, `EnableSingleFileAnalyzer`, `IsPackable=true`, PublicAPI analyzer |
+| **Compiler plugin** | `*.Generator`, `*.Generators`, `*.Analyzers` | `IsPackable=false`, AOT and trimming off — they run inside the compiler and are never published |
 | **Tooling** | `Editor/**`, `Tools/**`, `Raven/**` | reflection/LINQ allowed, `IsAotCompatible` off except `Vixen.Editor.App` |
 | **Test** | `**/*.Tests` | xunit v3 + NSubstitute + Shouldly refs auto-added, `IsPackable=false`, `InternalsVisibleTo` back-reference generated |
 
 Auto-wiring test references from `Directory.Build.targets` (rather than repeating them in 60 csproj
 files) is worth the small amount of MSBuild magic; it also guarantees nobody quietly uses MSTest.
+
+The same argument wires `Core/Vixen.Core.IO.Analyzers` — the `System.IO.Path` ban of
+[10](10-platforms.md) § "Cross-platform discipline" — into every `Core/` project from
+`Directory.Build.props` rather than from sixty csproj files. A discipline rule that has to be opted
+into is a rule the next library forgets.
 
 **Versioning.** Single `VersionPrefix` in `Directory.Build.props`, with build metadata from Nuke via
 GitVersion-style computation. All packages version in lockstep — the engine is one product, and
