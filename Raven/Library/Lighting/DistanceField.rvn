@@ -9,10 +9,15 @@ import Vixen.Shaders.Core
 // tracer that agrees with arithmetic is the reference this one is compared against. Where the two
 // disagree, the C# is right and this is wrong — it is the one with tests that do not need a device.
 //
-// Everything here takes ONE level's volume. Selecting the finest level that contains a point means
-// indexing an array of textures by a value that varies per fragment, which is a descriptor-indexing
-// feature and not a decision to make in passing. Until then a caller binds the level it wants; the
-// near field is one level, and that is what a first frame needs.
+// `struct DistanceField` takes ONE level's volume and knows nothing about clipmaps. `shader
+// GlobalDistanceField` below owns the array of them and picks the finest that contains a point.
+//
+// The split is what makes the selection portable. A level index varies per fragment — one pixel is in
+// the near level and its neighbour is not — so it is NOT dynamically uniform, and indexing an array of
+// textures with it would need `shaderSampledImageArrayNonUniformIndexing`: a Vulkan 1.2 feature this
+// engine capability-gates and WebGL2 does not have at all. Making `LevelCount` a permutation instead
+// means the loop unrolls at compile time and every texture index is a literal, which is core
+// everywhere. The same trick `MaterialLayersSurface` uses for layers, for the same reason.
 //
 // A style note that is a language constraint: Raven is newline-sensitive and has no line continuation,
 // so anything that does not fit on one line becomes a block body with named locals.
@@ -190,6 +195,174 @@ struct DistanceField {
         for (i in 1 .. samples) {
             val height = radius * float(i) / float(samples)
             val clearance = Sample(volume, field, s, position + up * height)
+
+            occlusion += max(height - clearance, 0f) * weight
+            total += height * weight
+            weight *= 0.5f
+        }
+
+        if (total <= Const.Epsilon) {
+            return 1f
+        }
+
+        return clamp(1f - strength * occlusion / total, 0f, 1f)
+    }
+}
+
+/// What a pass needs from a distance field, whatever is behind it.
+///
+/// A `protocol` rather than a shader a pass hard-codes, for the reason `IMaterialSurface` is one: the
+/// slot is resolved at compile time with no dispatch, so a pass that traces is written once and a
+/// project that has no clipmap fills the slot with something that answers "nothing is near" — no
+/// permutation in the pass, no branch, and no bindings it does not use.
+protocol IDistanceFieldSource {
+    /// The signed distance at a world position, negative inside, never over-reported.
+    func SampleField(world: float3): float
+
+    /// Which way the distance grows fastest — the surface normal, near one.
+    func GradientField(world: float3): float3
+}
+
+/// The clipmap: nested volumes following the camera, finest first.
+///
+/// Bound by `Vixen.Rendering.Lighting.GlobalDistanceFieldTexture`, and the names here are that type's
+/// contract — `distanceFieldVolumes[i].inverseCellSize` is written by `Apply` and read below, so a
+/// rename on either side is a binding that silently resolves to nothing.
+///
+/// `LevelCount` is a permutation rather than a uniform, which is not a micro-optimisation: it is what
+/// unrolls the search so every texture index is a literal. See the note at the top of the file. It also
+/// means the count cannot disagree with the number of descriptors bound, because it *is* the number of
+/// descriptors bound.
+shader GlobalDistanceField : IDistanceFieldSource {
+    /// How many nested volumes the clipmap has, finest first.
+    [Permutation] val LevelCount: int = 4
+
+    [PerFrame] var distanceFieldLevels: Texture3D[LevelCount]
+    [PerFrame] var distanceFieldSampler: Sampler
+    [PerFrame] var distanceFieldVolumes: DistanceFieldVolume[LevelCount]
+
+    /// The signed distance at a world position, off the finest level that covers it.
+    ///
+    /// A point outside every level gets the coarsest level's own clamp — "at least this far", which is
+    /// all anything knows about somewhere nobody sampled, and a step a tracer may safely take.
+    func SampleField(world: float3): float {
+        var result = distanceFieldVolumes[LevelCount - 1].maxDistance
+        var found = false
+
+        for (level in 0 .. LevelCount - 1) {
+            if (!found && DistanceField.Contains(distanceFieldVolumes[level], world)) {
+                result = DistanceField.Sample(distanceFieldVolumes[level], distanceFieldLevels[level], distanceFieldSampler, world)
+                found = true
+            }
+        }
+
+        return result
+    }
+
+    /// Which way the distance grows fastest, differenced over the cell of whichever level answers.
+    ///
+    /// A difference finer than a cell reads that cell's own constant gradient and learns nothing. The
+    /// step is taken from the level that covers the point, so a normal is as sharp as the data under it.
+    func GradientField(world: float3): float3 {
+        var cell = 1f / distanceFieldVolumes[LevelCount - 1].inverseCellSize
+        var found = false
+
+        for (level in 0 .. LevelCount - 1) {
+            if (!found && DistanceField.Contains(distanceFieldVolumes[level], world)) {
+                cell = 1f / distanceFieldVolumes[level].inverseCellSize
+                found = true
+            }
+        }
+
+        val dx = SampleField(world + float3(cell, 0f, 0f)) - SampleField(world - float3(cell, 0f, 0f))
+        val dy = SampleField(world + float3(0f, cell, 0f)) - SampleField(world - float3(0f, cell, 0f))
+        val dz = SampleField(world + float3(0f, 0f, cell)) - SampleField(world - float3(0f, 0f, cell))
+
+        return Math.SafeNormalize(float3(dx, dy, dz))
+    }
+
+    /// Marches a ray through the whole clipmap.
+    ///
+    /// Identical to `DistanceField.Trace` but reading across levels, so a ray leaving the near volume
+    /// keeps going in a coarser one instead of stopping at a boundary the world does not have.
+    func TraceField(origin: float3, direction: float3, maxDistance: float, maxSteps: int, threshold: float, stepScale: float): DistanceFieldHit {
+        val ray = Math.SafeNormalize(direction)
+        var travelled = 0f
+        var result = DistanceFieldHit(false, maxDistance, origin, 0)
+        var done = false
+
+        for (step in 0 .. maxSteps - 1) {
+            if (!done) {
+                val position = origin + ray * travelled
+                val distance = SampleField(position)
+                result.steps = step + 1
+
+                if (distance < threshold) {
+                    result.hit = true
+                    result.distance = travelled
+                    result.position = position
+                    done = true
+                }
+
+                if (!done) {
+                    travelled += max(distance * stepScale, DistanceField.MinStep)
+
+                    if (travelled > maxDistance) {
+                        result.distance = maxDistance
+                        result.position = origin + ray * maxDistance
+                        done = true
+                    }
+                }
+            }
+        }
+
+        return result
+    }
+
+    /// How much of a light reaches a point, across the whole clipmap.
+    ///
+    /// The penumbra is the smallest ratio of clearance to distance over the march — see
+    /// `DistanceField.Shadow`. Reading across levels is what lets a shadow be cast by something far
+    /// enough away to have left the near volume, which is most of what a sun shadow is.
+    func ShadowField(origin: float3, toLight: float3, lightDistance: float, softness: float, bias: float, maxSteps: int, threshold: float, stepScale: float): float {
+        val ray = Math.SafeNormalize(toLight)
+        var travelled = max(bias, DistanceField.MinStep)
+        var light = 1f
+        var done = false
+
+        for (step in 0 .. maxSteps - 1) {
+            if (!done && travelled >= lightDistance) {
+                done = true
+            }
+
+            if (!done) {
+                val distance = SampleField(origin + ray * travelled)
+
+                if (distance < threshold) {
+                    light = 0f
+                    done = true
+                }
+
+                if (!done) {
+                    light = min(light, softness * distance / travelled)
+                    travelled += max(distance * stepScale, DistanceField.MinStep)
+                }
+            }
+        }
+
+        return clamp(light, 0f, 1f)
+    }
+
+    /// How enclosed a point is, from a few samples up its own normal, across the whole clipmap.
+    func OcclusionField(position: float3, normal: float3, radius: float, samples: int, strength: float): float {
+        val up = Math.SafeNormalize(normal)
+        var occlusion = 0f
+        var weight = 1f
+        var total = 0f
+
+        for (i in 1 .. samples) {
+            val height = radius * float(i) / float(samples)
+            val clearance = SampleField(position + up * height)
 
             occlusion += max(height - clearance, 0f) * weight
             total += height * weight

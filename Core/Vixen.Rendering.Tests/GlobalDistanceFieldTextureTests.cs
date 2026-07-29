@@ -113,7 +113,10 @@ public class GlobalDistanceFieldTextureTests {
 
         mirror.Apply(parameters);
 
-        Assert.Equal(2f, parameters.Get(ParameterKeys.New<float>("ForwardPlus.distanceFieldLevelCount")));
+        // The level count is deliberately absent: it is the shader's LevelCount permutation, which is
+        // what unrolls the level search so every texture index is a literal. A uniform beside it would
+        // be a second number free to disagree with the descriptors actually bound.
+        Assert.False(parameters.Has(ParameterKeys.New<float>("ForwardPlus.distanceFieldLevelCount")));
 
         for (var level = 0; level < 2; level++) {
             var slot = $"ForwardPlus.distanceFieldVolumes[{level}]";

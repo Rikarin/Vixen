@@ -151,12 +151,17 @@ public sealed class GlobalDistanceFieldTexture : IDisposable {
     ///         world position into a texture coordinate by multiplying, and a divide per level per
     ///         step is a divide nobody needs.
     ///     </para>
+    ///     <para>
+    ///         <b>The level count is not written, and that is deliberate.</b> It is the shader's
+    ///         <c>LevelCount</c> permutation, which is what unrolls the level search so every texture
+    ///         index is a literal — and therefore what keeps multi-level tracing off descriptor
+    ///         indexing and running on every target. Writing it here as well would be a second number
+    ///         that could disagree with the number of descriptors actually bound. Ask the effect.
+    ///     </para>
     /// </remarks>
     public void Apply(ParameterCollection parameters, string shaderName = "ForwardPlus") {
         ArgumentNullException.ThrowIfNull(parameters);
         ArgumentException.ThrowIfNullOrEmpty(shaderName);
-
-        parameters.Set(ParameterKeys.New<float>($"{shaderName}.distanceFieldLevelCount"), Field.LevelCount);
 
         for (var level = 0; level < Field.LevelCount; level++) {
             var index = level.ToString(CultureInfo.InvariantCulture);
