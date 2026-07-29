@@ -155,7 +155,7 @@ public sealed class DistanceFieldAoRenderer() : PostEffectRenderer(
 
         // Without this the slot is unbound, the compiler refuses the variant, and the pass draws
         // nothing while looking exactly like a pass nobody scheduled.
-        Pass.Composition = ShaderComposition.Of([new KeyValuePair<string, string>(Slot, Source)]);
+        Pass.Composition = MaterialCompiler.PassComposition(Slot, Source);
 
         parameters.Set(DistanceFieldAoKeys.SunShadow, SunShadow);
 

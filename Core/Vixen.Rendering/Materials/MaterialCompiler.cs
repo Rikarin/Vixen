@@ -81,8 +81,60 @@ public static class MaterialCompiler {
         // And the indirect pass's field, for the same reason and with the same shape. Its filler
         // answers "no indirect light and nothing shadowing the sun", which are two different right
         // answers rather than one convenient zero.
-        ("IndirectDiffuse", "irradiance", EmptyIrradianceShader)
+        ("IndirectDiffuse", "irradiance", EmptyIrradianceShader),
+
+        // And the fill shader's, which traces the same clipmap the traced pass does. A material never
+        // reaches a compute shader, and that is exactly why this is here: a slot has to be bound
+        // wherever it is *declared*, not wherever it is used.
+        ("IrradianceFill", "distanceField", EmptyFieldShader)
     ];
+
+    /// <summary>The typed slots a pass has to name whether or not it reaches them, and their fillers.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Bare slot names rather than qualified ones, because a pass is compiled against a source
+    ///         set rather than against a material: a bare binding fills the slot wherever it is
+    ///         declared, which is what a compilation holding two shaders that each declare one needs.
+    ///     </para>
+    ///     <para>
+    ///         The material path uses <see cref="OptionalSlots" /> for the same job and cannot share
+    ///         this list, because there the qualification is what keeps one shader's slot from
+    ///         accidentally filling another's. The two answer different questions about the same
+    ///         fillers, and <c>ComposeSlotInventoryTests</c> holds them against each other.
+    ///     </para>
+    /// </remarks>
+    internal static readonly (string Slot, string Filler)[] PassSlots = [
+        ("distanceField", EmptyFieldShader),
+        ("irradiance", EmptyIrradianceShader)
+    ];
+
+    /// <summary>A pass's composition, with every typed slot it did not name filled by its default.</summary>
+    /// <param name="slot">The slot this pass actually cares about.</param>
+    /// <param name="filler">What to put behind it.</param>
+    /// <returns>The composition.</returns>
+    /// <exception cref="ArgumentException">The slot or the filler is empty.</exception>
+    /// <remarks>
+    ///     <b>Every slot a compilation's sources declare has to be bound, whether or not the shader
+    ///     being compiled reaches it.</b> A post pass composing one of them therefore cannot compile
+    ///     beside a shader declaring another unless it names a filler for that one too — which is the
+    ///     same job <see cref="OptionalSlots" /> does for a material, and the same failure when it is
+    ///     not done: the compiler refuses the variant, the effect system records a miss, and the node
+    ///     draws nothing while looking exactly like a pass nobody scheduled.
+    /// </remarks>
+    public static ShaderComposition PassComposition(string slot, string filler) {
+        ArgumentException.ThrowIfNullOrEmpty(slot);
+        ArgumentException.ThrowIfNullOrEmpty(filler);
+
+        Dictionary<string, string> bindings = new(StringComparer.Ordinal);
+
+        foreach (var (name, fallback) in PassSlots) {
+            bindings[name] = fallback;
+        }
+
+        bindings[slot] = filler;
+
+        return ShaderComposition.Of(bindings);
+    }
 
     /// <summary>The shader that fills a slot nothing else does.</summary>
     public const string IdentityShader = "IdentitySurface";

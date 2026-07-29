@@ -133,12 +133,14 @@ public sealed class IndirectDiffuseImageTests {
 
         // ⚠ Not the whole library: a source set holding the material tree compiles nothing without a
         // material's composition, because every slot the sources declare has to be bound whether or
-        // not this shader reaches it.
+        // not this shader reaches it. DistanceFields is in the set for that reason and not because
+        // this pass traces anything — IrradianceFill declares a slot, so this compilation has to name
+        // a filler for it, and the filler has to be somewhere the compiler can see.
         effects.AddProvider(
             new Compiling(
                 loader,
                 _ => RavenEffects.Only(
-                    ["Core", "Geometry", "Shading", "IrradianceFields"],
+                    ["Core", "Geometry", "Shading", "DistanceFields", "IrradianceFields"],
                     Path.Combine("PostFx", "Fullscreen.rvn"),
                     Path.Combine("PostFx", "IndirectDiffuse.rvn")
                 )

@@ -61,14 +61,52 @@ public class ComposeSlotInventoryTests {
     ///     And a slot's filler has to be a shader that satisfies its protocol, which the identity
     ///     surface does not for a distance field.
     /// </summary>
-    [Fact]
-    public void ADistanceFieldSlotIsFilledByAFieldRatherThanASurface() {
-        var (_, _, filler) = Assert.Single(
-            MaterialCompiler.OptionalSlots,
-            entry => entry.Slot == "distanceField"
-        );
+    /// <param name="slot">The slot, which more than one shader may declare.</param>
+    /// <param name="expected">What every one of them has to be filled with.</param>
+    /// <remarks>
+    ///     Every entry rather than the only one, because a slot is not unique to a shader: both the
+    ///     traced pass and the fill shader declare <c>distanceField</c>, and each has to be filled
+    ///     where it is <i>declared</i> rather than where it is used.
+    /// </remarks>
+    [Theory]
+    [InlineData("distanceField", MaterialCompiler.EmptyFieldShader)]
+    [InlineData("irradiance", MaterialCompiler.EmptyIrradianceShader)]
+    public void ATypedSlotIsFilledByItsOwnKindRatherThanASurface(string slot, string expected) {
+        var entries = MaterialCompiler.OptionalSlots.Where(entry => entry.Slot == slot).ToArray();
 
-        Assert.Equal(MaterialCompiler.EmptyFieldShader, filler);
-        Assert.NotEqual(MaterialCompiler.IdentityShader, filler);
+        Assert.NotEmpty(entries);
+
+        foreach (var (_, _, filler) in entries) {
+            Assert.Equal(expected, filler);
+            Assert.NotEqual(MaterialCompiler.IdentityShader, filler);
+        }
+    }
+
+    /// <summary>
+    ///     <b>The material path and the pass path fill the same slots with the same shaders.</b> They
+    ///     are two lists because they answer different questions — one qualifies a slot by the shader
+    ///     declaring it and the other does not — and two lists of the same fillers is exactly the
+    ///     arrangement that drifts.
+    /// </summary>
+    [Fact]
+    public void ThePassPathAndTheMaterialPathAgreeOnFillers() {
+        foreach (var (slot, filler) in MaterialCompiler.PassSlots) {
+            foreach (var entry in MaterialCompiler.OptionalSlots.Where(other => other.Slot == slot)) {
+                Assert.Equal(filler, entry.Filler);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     And a pass naming one typed slot still names the others, because a compilation refuses an
+    ///     unbound slot wherever its sources declare it — not only where the shader reaches it.
+    /// </summary>
+    [Fact]
+    public void APassComposesEveryTypedSlotAndNotOnlyItsOwn() {
+        var composition = MaterialCompiler.PassComposition("irradiance", "IrradianceFieldProbes");
+        var slots = composition.Slots.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+
+        Assert.Equal("IrradianceFieldProbes", slots["irradiance"]);
+        Assert.Equal(MaterialCompiler.EmptyFieldShader, slots["distanceField"]);
     }
 }

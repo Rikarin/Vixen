@@ -106,7 +106,7 @@ public sealed class IndirectDiffuseRenderer() : PostEffectRenderer(
 
         // Without this the slot is unbound, the compiler refuses the variant, and the pass draws
         // nothing while looking exactly like a pass nobody scheduled.
-        Pass.Composition = ShaderComposition.Of([new KeyValuePair<string, string>(Slot, Source)]);
+        Pass.Composition = MaterialCompiler.PassComposition(Slot, Source);
 
         parameters.Set(IndirectDiffuseKeys.InverseViewProjection, InverseViewProjection);
         parameters.Set(IndirectDiffuseKeys.Intensity, Intensity);

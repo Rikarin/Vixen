@@ -291,9 +291,37 @@ rather than the end state: a compose slot on `ForwardPlus` and `Deferred` would 
 every material in every project until each named a filler. What comes out is a buffer, which is what a
 payload stored over π is for.
 
-Owed, in the order they change the picture: filler A on a GPU and filler B at all; the shading models
-reading the buffer; a policy that decides *where* to refine, which § 3 says is renderer bounds and the
-`VisibilityGroup` already has; and the view bias.
+**Filler A's shader exists and nothing dispatches it.** `IrradianceFill` — one workgroup per brick,
+one invocation per probe, the bricks to do in a buffer indexed by the group — compiles, lowers and has
+its reflection checked in, with `TracedIrradianceFiller` as the reference it will be compared against.
+`IrradianceFieldTexture.PoolIsWritten` is the storage half: set, the pool is a storage image the
+dispatch owns and the mirror uploads only the index volume, because allocation and refinement stay a
+CPU decision and only the probes move.
+
+What is not there is the node that dispatches it. Three things are known about it, all of them found
+by trying:
+
+- **It cannot be a `ComputeRenderer`.** That node binds resources by graph name, and the fill writes
+  four storage images the graph does not own. `HiZPyramid` is the shape — a hand-rolled node writing
+  its own descriptors and its own barriers.
+- **Its set and binding indices have to come from the compiled effect, not from the generated
+  constants.** Reflection describes *one* variant, and the fill compiles whichever the composition
+  asks for.
+- **A first attempt produced garbage**, including in the sun scalar, which is the discriminating
+  channel: it comes from a different part of the shader than the radiance and does not depend on the
+  uniform block, so garbage there means the dispatch's writes are not reaching the texels the sampler
+  reads rather than that the projection is wrong. The next step is a pool readback, which distinguishes
+  "wrote nothing" from "wrote elsewhere". Reverted rather than landed half-working.
+
+Adding the fill shader also found that **a slot has to be filled where it is *declared*, not where it
+is used**: `IrradianceFill` declares `distanceField`, so every material in every project needed a
+filler for a slot no material can reach. `MaterialCompiler.PassSlots` and `PassComposition` are the
+pass-side counterpart of `OptionalSlots`, because a full-screen pass composing one typed slot cannot
+compile beside a shader declaring another unless it names both.
+
+Owed, in the order they change the picture: the node that dispatches filler A, and filler B at all;
+the shading models reading the buffer; a policy that decides *where* to refine, which § 3 says is
+renderer bounds and the `VisibilityGroup` already has; and the view bias.
 
 ### L3 — Screen probe gather *(3.0 EM)*
 

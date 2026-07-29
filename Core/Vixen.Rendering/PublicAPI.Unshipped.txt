@@ -2390,6 +2390,7 @@ static Vixen.Rendering.Lighting.SphericalHarmonics.Accumulate(ref Vixen.Renderin
 static Vixen.Rendering.Lighting.SphericalHarmonics.Evaluate(in Vixen.Rendering.Lighting.ShCoefficients coefficients, Vixen.Core.Mathematics.Vector3 normal) -> Vixen.Core.Mathematics.Vector3
 static Vixen.Rendering.Lighting.SphericalHarmonics.Project(Vixen.Rendering.Lighting.CubeImage environment) -> Vixen.Rendering.Lighting.ShCoefficients
 static Vixen.Rendering.Materials.MaterialCompiler.Compile(Vixen.Rendering.Materials.MaterialDescriptor descriptor) -> Vixen.Rendering.Materials.MaterialCompilation
+static Vixen.Rendering.Materials.MaterialCompiler.PassComposition(string slot, string filler) -> Vixen.Shaders.ShaderComposition
 static Vixen.Rendering.Materials.MaterialKeys.LayerCount(string shaderName) -> Vixen.Shaders.PermutationKey<int>
 static Vixen.Rendering.MeshPrimitives.Capsule(float radius = 0.25, float height = 1, int segments = 32, int rings = 16) -> Vixen.Rendering.MeshData
 static Vixen.Rendering.MeshPrimitives.Cone(float radius = 0.5, float height = 1, int segments = 32) -> Vixen.Rendering.MeshData
