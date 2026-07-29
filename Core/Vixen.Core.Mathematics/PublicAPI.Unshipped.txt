@@ -98,6 +98,16 @@ Vixen.Core.Mathematics.ContainmentType.ContainmentType() -> void
 Vixen.Core.Mathematics.ContainmentType.Contains = 1 -> Vixen.Core.Mathematics.ContainmentType
 Vixen.Core.Mathematics.ContainmentType.Disjoint = 0 -> Vixen.Core.Mathematics.ContainmentType
 Vixen.Core.Mathematics.ContainmentType.Intersects = 2 -> Vixen.Core.Mathematics.ContainmentType
+Vixen.Core.Mathematics.DelaunayTetrahedralization -> sealed class
+Vixen.Core.Mathematics.DelaunayTetrahedralization.CellCount.get -> int
+Vixen.Core.Mathematics.DelaunayTetrahedralization.CellNeighbours.get -> System.ReadOnlySpan<int>
+Vixen.Core.Mathematics.DelaunayTetrahedralization.CellVertices.get -> System.ReadOnlySpan<int>
+Vixen.Core.Mathematics.DelaunayTetrahedralization.FillsConvexHull.get -> bool
+Vixen.Core.Mathematics.DelaunayTetrahedralization.IsDegenerate.get -> bool
+Vixen.Core.Mathematics.DelaunayTetrahedralization.TryFind(Vixen.Core.Mathematics.Vector3 position, int hint, out int cell, out Vixen.Core.Mathematics.Vector4 weights) -> bool
+Vixen.Core.Mathematics.DelaunayTetrahedralization.TryFind(Vixen.Core.Mathematics.Vector3 position, out int cell, out Vixen.Core.Mathematics.Vector4 weights) -> bool
+Vixen.Core.Mathematics.DelaunayTetrahedralization.Vertices.get -> System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3>
+Vixen.Core.Mathematics.ExactPredicates -> static class
 Vixen.Core.Mathematics.Int2 -> readonly struct
 Vixen.Core.Mathematics.Int2 : System.IEquatable<Vixen.Core.Mathematics.Int2>
 Vixen.Core.Mathematics.Int2 : System.IFormattable
@@ -543,6 +553,10 @@ static Vixen.Core.Mathematics.Color4.operator ==(Vixen.Core.Mathematics.Color4 l
 static Vixen.Core.Mathematics.ColorSpace.LinearToSrgb(float value) -> float
 static Vixen.Core.Mathematics.ColorSpace.Luminance(Vixen.Core.Mathematics.Vector3 linear) -> float
 static Vixen.Core.Mathematics.ColorSpace.SrgbToLinear(float value) -> float
+static Vixen.Core.Mathematics.DelaunayTetrahedralization.Build(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> positions) -> Vixen.Core.Mathematics.DelaunayTetrahedralization
+static Vixen.Core.Mathematics.ExactPredicates.InSphere(Vixen.Core.Mathematics.Vector3 a, Vixen.Core.Mathematics.Vector3 b, Vixen.Core.Mathematics.Vector3 c, Vixen.Core.Mathematics.Vector3 d, Vixen.Core.Mathematics.Vector3 e) -> int
+static Vixen.Core.Mathematics.ExactPredicates.InSphere(Vixen.Core.Mathematics.Vector3 a, Vixen.Core.Mathematics.Vector3 b, Vixen.Core.Mathematics.Vector3 c, Vixen.Core.Mathematics.Vector3 d, Vixen.Core.Mathematics.Vector3 e, int indexA, int indexB, int indexC, int indexD, int indexE) -> int
+static Vixen.Core.Mathematics.ExactPredicates.Orient3D(Vixen.Core.Mathematics.Vector3 a, Vixen.Core.Mathematics.Vector3 b, Vixen.Core.Mathematics.Vector3 c, Vixen.Core.Mathematics.Vector3 d) -> int
 static Vixen.Core.Mathematics.Int2.Clamp(Vixen.Core.Mathematics.Int2 value, Vixen.Core.Mathematics.Int2 min, Vixen.Core.Mathematics.Int2 max) -> Vixen.Core.Mathematics.Int2
 static Vixen.Core.Mathematics.Int2.Max(Vixen.Core.Mathematics.Int2 left, Vixen.Core.Mathematics.Int2 right) -> Vixen.Core.Mathematics.Int2
 static Vixen.Core.Mathematics.Int2.Min(Vixen.Core.Mathematics.Int2 left, Vixen.Core.Mathematics.Int2 right) -> Vixen.Core.Mathematics.Int2

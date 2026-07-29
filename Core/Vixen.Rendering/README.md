@@ -568,6 +568,74 @@ exists to refuse — and the real obstacle was the compiler: Raven folded an arr
 uniform block*, an opaque type in a `Block`-decorated struct, which `glslc` rejects outright and which
 `spirv-val` accepts and no driver would.
 
+## Light probes, and the predicates they turned out to need
+
+An environment map says what is around the *scene*; a reflection probe says what is around a *room*.
+A light probe says what is around **here**, for a thing that moves — and the answer for a position
+between probes is a blend of the four that surround it. `LightProbeVolume` is that, and it is short,
+because spherical harmonics make the blend free: a weighted sum of projections is the projection of
+the weighted sum, so four probes cost nine multiply-adds rather than four evaluations. Everything
+difficult is in *which four*.
+
+Which four is a **Delaunay tetrahedralisation** of the probe positions, and Delaunay specifically
+rather than any tetrahedral mesh over the same points: the empty-circumsphere property is what makes
+the four probes a position blends between its natural neighbours. Group them any other way and an
+object lights differently depending on which arbitrary seam it is standing on.
+
+**This section used to say the tetrahedralisation was written, found wrong by its own tests, and
+withdrawn.** It was, and the reason was always the same reason under three disguises. Bowyer–Watson
+is fifteen lines — delete every cell whose circumsphere contains the new point, then join the point
+to the cavity's boundary — and every one of those lines rests on a question whose answer is one of
+three values. Floating point cannot answer that question. It returns a number that is nearly right,
+and *nearly right* is a category error for a sign: an in-sphere test that says `-1e-19` where the
+truth is `0` has not made a small error, it has given the wrong answer, and the cavity built on it is
+not star-shaped and the mesh that comes out is not a mesh. The three disguises were an enclosing
+tetrahedron whose circumspheres swallowed the domain, a grid of probes that is *cospherical* so a
+strict test found no cavity, and a near-degenerate cell whose circumsphere ate the mesh on the next
+insertion. All three are the same defect.
+
+So the fix is not in the mesh builder. It is `Vixen.Core.Mathematics.ExactPredicates`, and it has
+three parts:
+
+- **Filtered evaluation.** Each predicate runs in `double` alongside a bound on its own rounding
+  error — the permanent of the same expression, which is what you get by replacing every term with
+  its absolute value. Further from zero than the bound and the sign is certain, which is the case for
+  essentially every call. That is the fast path and it is the only path most inputs ever take.
+- **An exact fallback.** When the value and the bound overlap, the same determinant is evaluated in
+  `BigInteger` over the inputs rescaled to integers — every binary float already *is* an integer
+  times a power of two, so factoring out the smallest exponent loses nothing and the determinants are
+  homogeneous, so the common factor cannot change a sign.
+- **Simulation of simplicity.** Zero is a real answer and a common one — eight probes on the corners
+  of a cube are cospherical, and so is every grid anybody authors — so the tie is broken by
+  *symbolically* raising each point off the paraboloid by an infinitesimal ordered by index. The
+  in-sphere test is a determinant and a determinant is linear in each row, so the perturbed value is
+  exactly `S + Σ δᵢ·Cᵢ` with **no cross terms at all**: two rows perturbed in the same column are two
+  identical rows and contribute nothing. The answer is therefore the sign of the first non-zero `Cᵢ`,
+  each of which is an orientation of the other four points, and the one belonging to the point being
+  tested is the cell's own orientation — non-zero by construction, so the scan always terminates with
+  a decision.
+
+**And the mesh checks itself.** The points are inserted into an enclosing tetrahedron and the cells
+touching its corners are dropped at the end, which is the textbook arrangement and has the textbook
+hazard: an enclosure that is not large enough silently loses cells near the hull, and everything that
+remains still looks Delaunay because it *is* Delaunay. What it leaves is a dent. So
+`FillsConvexHull` is asserted rather than assumed — a complex of empty-sphere cells that uses every
+point and whose boundary is closed and convex is the Delaunay tetrahedralisation, and a failed check
+grows the enclosure and rebuilds. The convexity is checked edge by edge rather than point by point,
+because on a grid both counts are in the thousands and every one of those tests lands on the exact
+path.
+
+Outside the hull, `Sample` returns the **nearest** probe rather than extrapolating. An order-2 fit
+pushed past the data it was fitted to produces negative irradiance, which is a surface that removes
+light from the frame; a flat seam at the edge of the bake is visible, and a black patch on a
+character is a bug report. Probes all on one plane — a single-height grid over a floor, which is a
+reasonable thing to author — have no tetrahedralisation at all, and `IsTetrahedral` says so rather
+than an exception saying it.
+
+What is **not** here is the GPU half: nothing yet uploads a probe volume or samples one in a shader,
+and `ForwardLightingRenderFeature` still takes its ambient term from the environment. The CPU side is
+complete and tested, which is the part that needed the predicates.
+
 ## Area lights
 
 Five light kinds now share one eighty-byte record and one loop: directional, point, spot, tube and
@@ -1344,15 +1412,11 @@ is the caller's, and is what the ring above is for.
 Blend shapes. Punctual shadows are not cached — only the directional cascades are, and a spot light
 over static geometry has the same argument waiting for it.
 
-**Light probes.** Doc 06 asks for spherical-harmonic probes interpolated tetrahedrally, and the SH
-half is here — projection, linear blending, evaluation, all tested — while the tetrahedralisation is
-not. Bowyer–Watson over probe positions is fifteen lines of idea and a wall of robustness: an
-enclosing tetrahedron sized generously makes every circumsphere swallow the domain, so four probes
-produce no cells at all; a grid of probes is *cospherical*, so a strict in-sphere test finds no cavity
-to re-triangulate; and with both of those fixed, a single near-degenerate cell still has a circumsphere
-large enough to eat the mesh on the next insertion. Doing it properly means exact predicates. It was
-written, found wrong by its own tests, and taken back out rather than shipped producing a mesh that is
-not Delaunay.
+**Light probes reach a frame.** The tetrahedralisation and the interpolation are built and tested —
+see [Light probes](#light-probes-and-the-predicates-they-turned-out-to-need) — and what is still owed
+is the GPU half: a buffer of coefficients, a per-object index or a compute lookup, and an ambient
+term in `ForwardLightingRenderFeature` that comes from a probe rather than from the environment.
+`LightProbeVolume.Sample` is a CPU call, which is enough for a bake and not enough for a frame.
 
 Transmission has a surface feature's worth of channels and no shading model, deliberately: refraction
 needs either the scene colour or an environment sample, both of which belong to the pass rather than

@@ -2744,10 +2744,16 @@ never been driven against a running window.
   `Ibl.SpecularLod` and `environmentMipCount` were dead — and the diffuse term took a radiance sample
   where irradiance belongs, which is where a missing `1/π` was hiding.
 
-  ⚠ **Light probes are not built.** The spherical-harmonic half is, and the tetrahedral interpolation
-  doc 06 asks for is not: Bowyer–Watson over probe positions needs exact predicates to survive the
-  inputs people actually author — a grid of probes is cospherical, and a near-degenerate cell's
-  circumsphere is large enough to eat the mesh. Written, found wrong by its own tests, withdrawn.
+  ✅ **Light probes interpolate tetrahedrally, on the CPU.** This paragraph used to say they were
+  not built, and that the tetrahedralisation had been written, found wrong by its own tests and
+  withdrawn. The missing piece was never the mesh: `ExactPredicates` in `Vixen.Core.Mathematics`
+  answers orientation and in-sphere exactly — a filtered `double` evaluation with a `BigInteger`
+  fallback, plus simulation of simplicity for the cospherical ties every authored grid produces — and
+  `DelaunayTetrahedralization` is Bowyer–Watson over those, checking that what it produced fills the
+  convex hull rather than assuming its enclosure was big enough. `LightProbeVolume` blends the four
+  probes a position sits between, and falls back to the nearest one outside the hull rather than
+  extrapolating a fit into negative irradiance. What is still owed is the **GPU half**: nothing
+  uploads a volume or samples one in a shader yet.
 
   ⚠ **A reflection probe applies per group, not per object.** A probe's cube is a texture, so
   per-object selection needs a descriptor set per probe bound per draw, and the per-draw set is owned
