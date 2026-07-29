@@ -42,4 +42,13 @@
     <!-- Measured, the guarded allocation measurement. See Testing/Vixen.Testing.props. -->
     <Import Project="..\..\Testing\Vixen.Testing.props" />
 
+    <!--
+      Every shipped shader, so ComposeSlotInventoryTests can check the engine binds every slot they
+      declare. A glob rather than a list: the failure this guards against arrives as a NEW file, and a
+      glob is what sees one.
+    -->
+    <ItemGroup>
+        <None Include="..\..\Raven\Library\**\*.rvn" LinkBase="Shaders" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
 </Project>

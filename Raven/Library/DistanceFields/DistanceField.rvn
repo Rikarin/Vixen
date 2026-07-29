@@ -390,3 +390,29 @@ shader GlobalDistanceField : IDistanceFieldSource {
         return clamp(1f - strength * occlusion / total, 0f, 1f)
     }
 }
+
+/// A world with nothing in it, for a project that traces no field.
+///
+/// Every compose slot a compilation declares has to be bound, whether or not anything reaches it — so
+/// a pass that *can* trace forces every material compiled beside it to name something for the slot.
+/// This is that something: no bindings, no clipmap, no descriptors, and answers that mean "nothing is
+/// near" rather than "the field is empty", which are different. An empty field would report zero, and
+/// zero means a surface here.
+shader NoDistanceField : IDistanceFieldSource {
+    /// Further than any march is allowed to go, so a tracer steps its whole budget and stops.
+    const val Nothing = 1e8f
+
+    func SampleField(world: float3): float => Nothing
+
+    func GradientField(world: float3): float3 => float3(0f, 1f, 0f)
+
+    func TraceField(origin: float3, direction: float3, maxDistance: float, maxSteps: int, threshold: float, stepScale: float): DistanceFieldHit {
+        return DistanceFieldHit(false, maxDistance, origin + Math.SafeNormalize(direction) * maxDistance, 0)
+    }
+
+    /// Nothing blocks anything.
+    func ShadowField(origin: float3, toLight: float3, lightDistance: float, softness: float, bias: float, maxSteps: int, threshold: float, stepScale: float): float => 1f
+
+    /// And nothing encloses anything.
+    func OcclusionField(position: float3, normal: float3, radius: float, samples: int, strength: float): float => 1f
+}

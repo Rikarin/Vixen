@@ -56,7 +56,7 @@ public static class MaterialCompiler {
     ///     because that is a base workflow plus every optional feature the library has, and because a
     ///     ninth would be a slot every material pays a binding for.
     /// </remarks>
-    static readonly string[] ChainSlots = [
+    internal static readonly string[] ChainSlots = [
         "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth"
     ];
 
@@ -68,13 +68,22 @@ public static class MaterialCompiler {
     ///     added to the library and not added here shows up as <c>RVN2073</c> the first time
     ///     something compiles a material, which is a loud failure rather than a quiet one.
     /// </remarks>
-    static readonly (string Shader, string Slot)[] OptionalSlots = [
-        ("BlendSurface", "under"),
-        ("BlendSurface", "over")
+    internal static readonly (string Shader, string Slot, string Filler)[] OptionalSlots = [
+        ("BlendSurface", "under", IdentityShader),
+        ("BlendSurface", "over", IdentityShader),
+
+        // The traced pass's field. Its filler is not the identity surface — a slot is typed, and this
+        // one wants an IDistanceFieldSource rather than an IMaterialSurface. A material compiled
+        // beside a pass that can trace has to name something for it even though it never reaches it,
+        // and what it names answers "nothing is near".
+        ("DistanceFieldAo", "distanceField", EmptyFieldShader)
     ];
 
     /// <summary>The shader that fills a slot nothing else does.</summary>
     public const string IdentityShader = "IdentitySurface";
+
+    /// <summary>The shader that fills a distance-field slot for a project that traces nothing.</summary>
+    public const string EmptyFieldShader = "NoDistanceField";
 
     /// <summary>The chain a material's features are composed through.</summary>
     public const string ChainShader = "CompositeSurface";
@@ -175,11 +184,11 @@ public static class MaterialCompiler {
             }
         }
 
-        foreach (var (shader, slot) in OptionalSlots) {
+        foreach (var (shader, slot, filler) in OptionalSlots) {
             var qualified = $"{shader}.{slot}";
 
             if (!composition.ContainsKey(qualified)) {
-                composition[qualified] = IdentityShader;
+                composition[qualified] = filler;
             }
         }
     }

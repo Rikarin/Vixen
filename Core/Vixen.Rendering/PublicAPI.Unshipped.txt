@@ -2072,6 +2072,7 @@ const Vixen.Rendering.GpuCulling.WordsPerInvocation = 1 -> int
 const Vixen.Rendering.GpuCulling.WorkgroupSize = 64 -> int
 const Vixen.Rendering.GpuDrawArguments.Stride = 20 -> int
 const Vixen.Rendering.Materials.MaterialCompiler.ChainShader = "CompositeSurface" -> string
+const Vixen.Rendering.Materials.MaterialCompiler.EmptyFieldShader = "NoDistanceField" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.IdentityShader = "IdentitySurface" -> string
 const Vixen.Rendering.Materials.MaterialKeys.DefaultLayerCount = 2 -> int
 const Vixen.Rendering.MeshPrimitives.DefaultRings = 16 -> int
