@@ -40,7 +40,7 @@ namespace Vixen.Editor.App;
 ///         and it starts being a running game only when play mode says so.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The selection is polled once a frame rather than subscribed to.</b>
+///         ⚠ <b>Every selection is polled once a frame rather than subscribed to.</b>
 ///         <c>Selection&lt;T&gt;</c> is signal-backed, and an <c>Effect</c> over it would be the
 ///         better wiring — but nothing in this loop flushes the reactive scheduler, and adding one
 ///         changes the loop's contract for notifications and background tasks too. A comparison of a
@@ -64,7 +64,21 @@ sealed class EditorApplication : IDisposable {
     readonly ContentTasks content;
     readonly PluginHost plugins;
     readonly string scenePath;
-    readonly List<Entity> shown = [];
+
+    /// <summary>What each open scene had selected when the inspector was last brought up to date.</summary>
+    /// <remarks>
+    ///     One entry per open scene rather than one list, because the editor's own scene is not the
+    ///     only one with a selection: a scene or a prefab opened as an asset has a hierarchy of its
+    ///     own, and a click in it is what this is here to notice.
+    /// </remarks>
+    readonly Dictionary<SceneDocument, List<Entity>> watched = [];
+
+    /// <summary>And the same for the project browser's.</summary>
+    readonly List<AssetId> shownAssets = [];
+
+    /// <summary>The open scenes, rebuilt in place once a frame rather than allocated.</summary>
+    readonly List<SceneDocument> scenes = [];
+
     readonly AssetEditorRegistry editors;
     readonly HashSet<string> assetPanels = new(StringComparer.Ordinal);
 
@@ -78,6 +92,12 @@ sealed class EditorApplication : IDisposable {
     ProjectBrowser? browser;
     ViewBookmark camera;
     bool hierarchyStale = true;
+
+    /// <summary>Whether the inspector is showing the project's selection rather than a scene's.</summary>
+    bool inspectingAssets;
+
+    /// <summary>Which scene's selection it is showing, or <see langword="null" /> for this editor's own.</summary>
+    SceneDocument? inspected;
 
     /// <summary>Builds the editor's interface into a new document.</summary>
     /// <param name="width">The surface's width in device-independent pixels.</param>
@@ -248,9 +268,7 @@ sealed class EditorApplication : IDisposable {
             RebuildHierarchy();
         }
 
-        if (Changed()) {
-            ShowSelection();
-        }
+        FollowSelection();
 
         if (viewport is not { } pane) {
             return;
@@ -437,8 +455,9 @@ sealed class EditorApplication : IDisposable {
                 inspector.EditedDocument = scene;
 
                 // The rows were built against the previous instance of this panel, so what is
-                // selected has to be pushed into the new one rather than waited for.
-                shown.Clear();
+                // selected has to be pushed into the new one rather than waited for — and from
+                // whichever selection the inspector was already following, which is what the two
+                // fields behind `ShowSelection` are for.
                 ShowSelection();
             }
         );
@@ -1150,14 +1169,149 @@ sealed class EditorApplication : IDisposable {
         }
     }
 
-    /// <summary>Whether the selection differs from what the inspector is showing.</summary>
-    bool Changed() {
-        if (shown.Count != scene.Selection.Count) {
+    /// <summary>Brings the inspector into line with whichever panel the selection changed in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Several selections and one inspector, so something has to arbitrate.</b> There is
+    ///         one per open scene — the editor's own, and one more for every scene or prefab opened
+    ///         as an asset — and one for the project browser. Only the first was ever read: a click
+    ///         in the Project panel, or in the hierarchy of a scene opened from it, moved a highlight
+    ///         and ended there. Showing them together is not an option either;
+    ///         <c>InspectorRegistry.CommonType</c> draws nothing for a selection with no single type
+    ///         in it, which an entity and a texture do not have.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The one that changed is the one that was clicked in, and it wins.</b> Two
+    ///         changing in one frame is this method's own doing — clearing a loser is itself a change
+    ///         — and there the one that gained something is the click.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The losers this application owns the views for are cleared rather than left
+    ///         highlighted.</b> Two panels showing a selection while the inspector can only show one
+    ///         is a picture that lies about which of them the next Delete, the next gizmo drag or the
+    ///         next rename will act on. A document opened as an asset is the exception and not an
+    ///         oversight: its hierarchy owns its own rows and takes selection outwards only — see
+    ///         <c>SceneHierarchyView</c> — so clearing its document's selection from here would leave
+    ///         a row highlighted with nothing behind it, which is worse than leaving it be.
+    ///     </para>
+    /// </remarks>
+    void FollowSelection() {
+        CollectScenes();
+
+        // A document that has been closed cannot be what the inspector is showing, and its snapshot
+        // would keep it alive for as long as the editor runs.
+        var closed = Forget();
+
+        SceneDocument? changed = null;
+
+        foreach (var document in scenes) {
+            if (Differs(Snapshot(document), document.Selection)) {
+                changed = document;
+                break;
+            }
+        }
+
+        var assets = Differs(shownAssets, project.Selection);
+
+        if (changed is null && !assets && !closed) {
+            return;
+        }
+
+        inspectingAssets = changed is null || (assets && project.Selection.Count > 0);
+
+        if (inspectingAssets) {
+            DeselectEntities();
+        } else {
+            inspected = changed;
+            DeselectAssets();
+
+            // The editor's own scene keeps the gizmo and the hierarchy pointed at it, so it is only
+            // dropped when the click was somewhere else entirely.
+            if (!ReferenceEquals(changed, scene)) {
+                DeselectEntities();
+            }
+        }
+
+        // ⚠ Snapshotted after the clears rather than before, so that the changes this method just
+        // made to the losing selections are not read as clicks in those panels on the next frame —
+        // which would hand the inspector straight back to the panel the user had just left.
+        foreach (var document in scenes) {
+            var snapshot = Snapshot(document);
+
+            snapshot.Clear();
+            snapshot.AddRange(document.Selection);
+        }
+
+        shownAssets.Clear();
+        shownAssets.AddRange(project.Selection);
+
+        ShowSelection();
+    }
+
+    /// <summary>Fills <see cref="scenes" /> with every scene the editor has open, its own first.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Into a list this object keeps, because this runs every frame.</b> The class's own
+    ///     remarks say a comparison of a handful of handles once a frame is not a cost; a pair of
+    ///     lists allocated per frame for the rest of the session would be a different claim.
+    ///     <para>
+    ///         Its own scene is put in explicitly rather than trusted to be somewhere particular in
+    ///         <see cref="EditorProject.Documents" />: it is the one that must win a tie, because it
+    ///         is the one the scene panel and the gizmo are looking at.
+    ///     </para>
+    /// </remarks>
+    void CollectScenes() {
+        scenes.Clear();
+        scenes.Add(scene);
+
+        foreach (var document in project.Documents) {
+            if (document is SceneDocument open && !ReferenceEquals(open, scene)) {
+                scenes.Add(open);
+            }
+        }
+    }
+
+    /// <summary>The snapshot of a document's selection, made on first sight.</summary>
+    List<Entity> Snapshot(SceneDocument document) {
+        if (!watched.TryGetValue(document, out var snapshot)) {
+            watched[document] = snapshot = [];
+        }
+
+        return snapshot;
+    }
+
+    /// <summary>Drops the snapshots of documents that are no longer open.</summary>
+    /// <returns>Whether the one the inspector was showing was among them.</returns>
+    /// <remarks>
+    ///     The count is checked first so that the ordinary frame — nothing opened, nothing closed —
+    ///     does not walk the dictionary at all.
+    /// </remarks>
+    bool Forget() {
+        if (watched.Count <= scenes.Count) {
+            return false;
+        }
+
+        var lost = false;
+
+        foreach (var document in watched.Keys.Where(document => !scenes.Contains(document)).ToList()) {
+            watched.Remove(document);
+
+            if (ReferenceEquals(inspected, document)) {
+                inspected = null;
+                lost = true;
+            }
+        }
+
+        return lost;
+    }
+
+    /// <summary>Whether a selection differs from the snapshot of it the inspector was built from.</summary>
+    static bool Differs<T>(List<T> shown, IReadOnlyList<T> selection) where T : notnull {
+        if (shown.Count != selection.Count) {
             return true;
         }
 
         for (var index = 0; index < shown.Count; index++) {
-            if (shown[index] != scene.Selection[index]) {
+            if (!EqualityComparer<T>.Default.Equals(shown[index], selection[index])) {
                 return true;
             }
         }
@@ -1165,18 +1319,71 @@ sealed class EditorApplication : IDisposable {
         return false;
     }
 
+    /// <summary>Drops the scene selection, through the hierarchy when it is open.</summary>
+    /// <remarks>
+    ///     The rows' highlight is the tree's own state and the document's selection is written from
+    ///     it, so clearing only the document would leave a row that looks selected. With the panel
+    ///     closed there is no tree to clear and the document is all there is.
+    /// </remarks>
+    void DeselectEntities() {
+        if (scene.Selection.Count == 0) {
+            return;
+        }
+
+        if (hierarchy is { } tree) {
+            tree.Select(null);
+        } else {
+            scene.Selection.Clear();
+        }
+    }
+
+    /// <inheritdoc cref="DeselectEntities" />
+    void DeselectAssets() {
+        if (project.Selection.Count == 0) {
+            return;
+        }
+
+        if (browser is { } open) {
+            open.Deselect();
+        } else {
+            project.Selection.Clear();
+        }
+    }
+
+    /// <summary>Puts whatever is selected into the inspector, and names it in the status bar.</summary>
+    /// <remarks>
+    ///     One view object per selected thing, made fresh every time: each holds a handle and the
+    ///     model it reads through and nothing else, so keeping a cache of them would be bookkeeping
+    ///     in exchange for nothing.
+    /// </remarks>
     void ShowSelection() {
-        shown.Clear();
-        shown.AddRange(scene.Selection);
+        if (inspectingAssets) {
+            inspector?.Inspect([.. project.Selection.Select(asset => new ProjectAsset(project, asset))]);
 
-        // One SceneEntity per selected entity, made fresh: it holds a handle and a document and
-        // nothing else, so keeping a cache of them would be bookkeeping in exchange for nothing.
-        inspector?.Inspect([.. shown.Select(entity => new SceneEntity(scene, entity))]);
+            Shell.Status = project.Selection.Count switch {
+                0 => project.Name,
+                1 => project.Assets.TryGetByGuid(project.Selection[0], out var entry) ? entry.Name : project.Name,
+                _ => $"{project.Selection.Count} selected"
+            };
 
-        Shell.Status = shown.Count switch {
+            return;
+        }
+
+        var document = inspected ?? scene;
+
+        if (inspector is { } view) {
+            // ⚠ The document whose entities these are, not the editor's own scene. An inspector edit
+            // is recorded on the stack of the document it changed, and a scene opened as an asset
+            // has one of its own — so an edit made here with the wrong document set would be undone
+            // by a Ctrl+Z aimed at something else entirely.
+            view.EditedDocument = document;
+            view.Inspect([.. document.Selection.Select(entity => new SceneEntity(document, entity))]);
+        }
+
+        Shell.Status = document.Selection.Count switch {
             0 => project.Name,
-            1 => scene.NameOf(shown[0]),
-            _ => $"{shown.Count} selected"
+            1 => document.NameOf(document.Selection[0]),
+            _ => $"{document.Selection.Count} selected"
         };
     }
 
