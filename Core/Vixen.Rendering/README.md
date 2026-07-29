@@ -234,13 +234,18 @@ and `UploadBuffer` are already built on. The readback path hides this behind its
 exactly why it stayed hidden: it takes two frames in flight to see, and every test that submits and
 waits is a test that cannot.
 
-**It zeroes instance counts; it does not compact.** Not because of the shader — claiming a slot needs
-an `atomicAdd` and Raven has one — but because of the draw: a single command covers a compacted run
-only if its count comes from the device *and* every draw in the run shares its bindings, and neither
-holds here. So the buffer holds one record per object slot *at that slot*, and a culled object gets
-zero instances, which every API defines as a draw that fetches and rasterises nothing. The cost is a
-command submitted per object; the saving is the round trip. See *What is not here* for the two things
-that would change it.
+**It zeroes instance counts, and compacts when it is asked to.** Zeroing is the floor and the
+default: the buffer holds one record per object slot *at that slot*, a culled object gets zero
+instances, and every API defines that as a draw that fetches and rasterises nothing. The cost is a
+command submitted per object; the saving is the round trip.
+
+`Compact` appends survivors instead, behind the `atomicAdd` Raven has had since the atomics landed,
+and `MeshRenderFeature` draws the run with one `DrawIndexedIndirectCount` whose count comes out of a
+buffer the host never reads. **This used to be recorded here as blocked on two things, and neither
+exists now.** The device-supplied count is `GraphicsDeviceFeatures.HasDrawIndirectCount`; the shared
+bindings are `GeometryBuffer`, the material records and the transform records together, which between
+them mean a run of objects binds nothing at all between its draws. Zeroing stays as the fallback,
+because it is what a device without the capability — and WebGL2 forever — still does.
 
 **The host's answer becomes conservative, and that is the one place the two groups differ.** With the
 readback off, `Words` holds every live object the view's stages want — everything that *could* be

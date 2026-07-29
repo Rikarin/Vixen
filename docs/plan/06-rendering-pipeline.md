@@ -172,9 +172,17 @@ Vixen keeps all three, with these changes:
   cannot — the render system's visibility group, the arguments every drawing feature reads, and the
   descriptor-ring depths that two nodes of a kind in one frame imply. The resources stay
   host-supplied, so one document runs on a target with no compute and gets the CPU path.
-  Still open: **compaction**, blocked on an indirect draw whose count comes from the device *and* on
-  bindless materials, since each object binds its own vertex buffer and material set — see
-  `Vixen.Rendering/README.md § Culling`.
+  ✅ **And compaction**, which this document recorded as blocked on two things that no longer exist.
+  `GpuDrawArguments.Compact` appends survivors to a run per batch behind an `atomicAdd`, and
+  `MeshRenderFeature` draws that run with one `DrawIndexedIndirectCount` whose count comes out of a
+  buffer the host never reads. What unblocked it was the rest of the bindless plan:
+  [bindless-materials.md](../bindless-materials.md) — `GeometryBuffer` puts many meshes in one vertex
+  and one index buffer, material records replace the per-material set, and transform records take the
+  matrix out of the command buffer, so a run of objects binds nothing between its draws and what
+  separates two of them is the numbers in their arguments. Three conditions gate the merge — same
+  batch, same effect and buffers, and the run must be the *whole* batch, since a stage holding half a
+  batch would otherwise draw the other half into itself. Zeroed instance counts stay as the fallback
+  wherever the capability is absent. See `Vixen.Rendering/README.md § Culling`.
 
 ## Frame structure
 
