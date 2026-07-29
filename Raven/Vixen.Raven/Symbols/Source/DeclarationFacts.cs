@@ -262,6 +262,33 @@ public static class DeclarationFacts {
     }
 
     /// <summary>
+    ///     The permutation a <c>[MaterialIndex("Key")]</c> is conditional on, or null when it is
+    ///     unconditional.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>What makes one pass able to be both.</strong> Records are what a device with
+    ///         bindless wants and a descriptor set per material is what GL, WebGL2 and MoltenVK below
+    ///         argument-buffer tier 2 need (ADR-011) — so a pass that could only be one of the two
+    ///         would have to be written twice, and the shipped forward pass is four hundred lines.
+    ///     </para>
+    ///     <para>
+    ///         A permutation is the right conditional and not merely the available one: the two forms
+    ///         are different <em>compilations</em> with different descriptor layouts, which is exactly
+    ///         what a permutation already means everywhere else in this language. Folding a branch is
+    ///         the usual consequence; changing the shape of a set is a larger one, and it is the same
+    ///         mechanism.
+    ///     </para>
+    ///     <para>
+    ///         Gating on the marked field being <em>used</em> would have been the tempting alternative
+    ///         and does not work: a binding is a declared field, so it survives its last reader
+    ///         folding away — which a probe confirmed before this existed.
+    ///     </para>
+    /// </remarks>
+    public static string? GetMaterialIndexCondition(SyntaxList<AttributeListSyntax> attributeLists) =>
+        StringArgumentOf(attributeLists, "MaterialIndex");
+
+    /// <summary>
     ///     The texel format a declaration is tagged with — <c>[Format("rgba16f")]</c> — or null.
     /// </summary>
     /// <remarks>

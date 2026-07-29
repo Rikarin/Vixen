@@ -173,6 +173,18 @@ the opposite of the point. What several materials genuinely share is their **eff
 group is already the engine's name for "resolved to the same effect". Keyed by that, every record in
 one buffer has the same layout by construction rather than by a check.
 
+✅ **And the marker can be conditional**, which is what makes one pass able to be both.
+`[MaterialIndex("UseRecords")]` applies only in the variants where that permutation is true, so a
+device with bindless compiles the records form and GL, WebGL2 and MoltenVK below argument-buffer tier
+2 compile the set form — out of one shader. Without it the shipped forward pass would have to be
+written twice, and it is four hundred lines.
+
+⚠ Gating on the marked field being *used* was the tempting alternative and does not work. A binding
+is a declared field, so it survives its last reader folding away: a shader written that way reports a
+record in **both** variants, which a probe established before the conditional marker existed. The
+permutation is also the right conditional rather than merely the available one — the two forms are
+different compilations with different descriptor layouts, which is what a permutation already means.
+
 **What is left**, and it is the part that touches the shipped pass:
 
 - A per-object value carrying the record index into the per-draw data, the way
@@ -269,6 +281,7 @@ Raven got atomics; what was missing was 2 and 3.
 | 2c. A shader-library feature that samples through the table | ✅ built — `TexturedMetalRoughnessSurface`, and `uv` on `MaterialData` |
 | 2b. The block as a record — shader half | ✅ built — `[MaterialIndex]`, both backends, reflection |
 | 2b. The block as a record — engine half (records written) | ✅ built — `MaterialRecords`, one buffer per effect |
+| 2b. A marker a permutation can switch off | ✅ built — `[MaterialIndex("Key")]`, so one pass is both |
 | 2b. The block as a record — the shipped pass | ⬜ — an index in the per-object data, and `ForwardPlus` declaring the marker |
 | 3. An indirect draw whose count comes from the device | ⬜ |
 | 4. Compaction | ⬜ |

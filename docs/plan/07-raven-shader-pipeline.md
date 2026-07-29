@@ -217,6 +217,12 @@ what lets two materials' draws be the same draw. The packing moves with it, std1
 reflection reports a `StorageBuffer` at the offsets it was emitted at: reporting a uniform buffer for
 a shader that reads a `BufferBlock` is a descriptor of the wrong type, which no API checks.
 
+The marker takes an optional permutation — `[MaterialIndex("UseRecords")]` — and applies only where
+that permutation is true, which is what lets one pass be a records pass on a bindless device and a
+bound-per-material one on GL, WebGL2 and MoltenVK below argument-buffer tier 2. ⚠ Gating on the
+marked field being *used* does not work and was checked: a binding is a declared field, so it
+survives its last reader folding away.
+
 ⚠ **Every subscript of one is decorated non-uniform, and both halves of it are.** SPIR-V marks the
 index *and* the pointer the access chain produced; GLSL wraps the index in `nonuniformEXT`. A module
 carrying one and not the other is valid SPIR-V that a driver may read one descriptor per subgroup

@@ -189,13 +189,70 @@ public class MaterialRecordTests {
         }
     }
 
+    /// <summary>The same shader, with the marker made conditional on a permutation.</summary>
+    const string Conditional = """
+                               package A
+
+                               shader S {
+                                   [Permutation] val UseRecords: bool = false
+
+                                   var tint: float4 = float4(1f, 1f, 1f, 1f)
+
+                                   [PerDraw] [MaterialIndex("UseRecords")] var materialIndex: uint = 0u
+
+                                   [FragmentShader]
+                                   func Fragment(): float4 {
+                                       return tint
+                                   }
+                               }
+
+                               """;
+
+    /// <summary>
+    ///     A conditional marker makes one shader both, chosen per variant.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>What the shipped pass needs.</strong> Records are what a bindless device wants
+    ///         and a set per material is what GL, WebGL2 and MoltenVK below argument-buffer tier 2
+    ///         need (ADR-011) — so a pass that could only be one of the two would have to be written
+    ///         twice, and the forward pass is four hundred lines.
+    ///     </para>
+    ///     <para>
+    ///         Gating on the field being <em>used</em> was the tempting alternative and does not
+    ///         work: a binding is a declared field, so it survives its last reader folding away. Both
+    ///         variants of a shader written that way report a record, which is what a probe found
+    ///         before this test existed.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_conditional_marker_follows_its_permutation(bool enabled) {
+        var values = PermutationValues.Create([new("UseRecords", enabled)]);
+        var block = Assert.Single(Plan(Conditional, values), b => b.IsBlock && b.Set == ResourceSet.PerMaterial);
+
+        Assert.Equal(enabled, block.IsRecord);
+    }
+
+    /// <summary>An unsupplied condition is the fallback, which is the safe half of the pair.</summary>
+    [Fact]
+    public void An_unsupplied_condition_is_a_block() {
+        var block = Assert.Single(
+            Plan(Conditional, PermutationValues.Empty),
+            b => b.IsBlock && b.Set == ResourceSet.PerMaterial
+        );
+
+        Assert.False(block.IsRecord);
+    }
+
     // --- The fixture -------------------------------------------------------
 
-    static IrShader Shader(string source) {
+    static IrShader Shader(string source, PermutationValues? values = null) {
         var tree = SyntaxTree.ParseText(source, path: "Test.rvn");
         Assert.Empty(tree.Diagnostics);
 
-        var compilation = Compilation.Create("Test", tree);
+        var compilation = Compilation.Create("Test", values ?? PermutationValues.Empty, [tree]);
         Assert.Empty(compilation.GetDiagnostics());
 
         var bag = new DiagnosticBag();
@@ -206,7 +263,8 @@ public class MaterialRecordTests {
         return FindShader(module, "S");
     }
 
-    static IReadOnlyList<PlannedBinding> Plan(string source) => BindingPlan.Of(Shader(source));
+    static IReadOnlyList<PlannedBinding> Plan(string source, PermutationValues? values = null) =>
+        BindingPlan.Of(Shader(source, values));
 
     static RavenReflection Reflect(string source) => ReflectionBuilder.Describe(Shader(source), []);
 }
