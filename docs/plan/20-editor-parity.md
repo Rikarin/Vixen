@@ -210,11 +210,11 @@ is the assembly that should hold it. Status: ✅ built, 🟡 partial, ⛔ absent
 
 | Panel | UE / Unity | Owner | Status | What is owed |
 |---|---|---|---|---|
-| **Hierarchy** | Outliner / Hierarchy | `.App` → `.SceneView` | 🟡 | Multi-select, drag-to-reparent (undoably — the primitive `Hierarchy.SetParentAfter` exists, the command does not), search and type filter, visibility and lock columns, sort modes, context menu, selection *into* the tree, virtualisation |
-| **Inspector** | Details / Inspector | `.Inspector` | 🟡 | Nested-object drawer, list/array drawer, component add/remove UI, asset-picker browser, lock button, multiple inspector windows, pinned/favourite members, debug (raw) mode, per-row context menu |
+| **Hierarchy** | Outliner / Hierarchy | `.App` → `.SceneView` | ✅ | — |
+| **Inspector** | Details / Inspector | `.Inspector` | 🟡 | Component add/remove UI (see E1's table for what it needs), multiple inspector windows, pinned/favourite members, debug (raw) mode |
 | **Scene viewport** | Level Viewport / Scene | `.SceneView` | 🟡 | See [B2](#b2--the-viewport) |
-| **Project browser** | Content Browser / Project | `.App` | 🟡 | Grid view with thumbnails, filters and saved filters, collections/favourites, create-asset menu, rename/move/delete with reference fixup, drag-and-drop out, source-control column, folder tree beside the list rather than one tree |
-| **Console** | Output Log / Console | `.Ui` | ⛔ | All of [A7](#a7--notifications-messages-and-the-console) |
+| **Project browser** | Content Browser / Project | `.App` | 🟡 | Grid view with thumbnails, saved filters, collections/favourites, drag-and-drop out (see E1's table), source-control column, folder tree beside the list rather than one tree |
+| **Console** | Output Log / Console | `.Ui` | ✅ | — |
 | **Message log** | Message Log | `.Ui` | ⛔ | A view over the notification history |
 | **Command palette** | — (both have search) | `.Ui` | ✅ | Recency boosting, more sources ([A8](#a8--search-everywhere)) |
 
@@ -492,6 +492,25 @@ browser. Inspector: nested drawer, list drawer, component add/remove, lock, cont
 **Exit:** the scenario test in doc 11's testing table runs end to end — create project, import asset,
 drag into scene, edit property, undo, save, reopen, assert — and a second one that renames the asset
 and asserts the scene still resolves it.
+
+**Where E1 stands.** Both exit scenarios run, in `Vixen.Editor.App.Tests/ScenarioTests`, through the
+`Vixen.Editor.Testing` harness — which E6 owns and this milestone's ordering note said to build here.
+The console, the outliner and the browser's verbs are done, as are the inspector's nested and list
+drawers, its lock and its row menu. Three things are not, and each is a gap in the *runtime* rather
+than in the panel:
+
+| Not built | What it actually needs |
+|---|---|
+| **Drag from the browser into the scene** | No runtime component carries an `AssetId`, so there is nothing for an entity to hold a mesh or a texture *in*. A drop that made an entity named after the file would be the editor pretending. The scenario puts a cube in through the Entity menu instead and says so where it does it |
+| **Component add/remove in the inspector** | Two halves. `ISceneComponentBinder` already does boxed `ValueOn`/`AddTo`; it needs `Has`, `RemoveFrom` and an enumeration of what is registered. And the inspector draws an `[Inspector]` descriptor, which no runtime component carries — so it needs an adapter from `Vixen.Core.Reflection`'s `TypeDescriptor`, whose boxed accessors every `[DataContract]` component already has. The write-back is the nested drawer's by-value path, which `InspectorField.WriteEach` exists for |
+| **Grid view and thumbnails** | A thumbnail service and a second view over the same tree. The one item here that is cosmetic rather than structural |
+
+⚠ **"Rename with reference fixup" turned out not to be a rewrite**, and the note above about it being
+the fastest way to corrupt a project is right for a reason worth recording. Doc 08 chose a GUID in a
+prefixed scalar over a path, so a referrer needs nothing done to it when a file moves. The corruption
+is leaving the **sidecar** behind: the next scan finds an asset with no identity, mints a new one, and
+every reference in the project dangles with nothing having reported an error — invisible until
+somebody opens a scene. `AssetOperations` is that one invariant and the bookkeeping around it.
 
 ### E2 — The viewport (2.0 EM)
 
