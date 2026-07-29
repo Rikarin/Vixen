@@ -33,6 +33,9 @@ namespace Tests;
 ///     </para>
 /// </remarks>
 public sealed class DrawCompactionTests : IDisposable {
+    static readonly PermutationKey<bool> UseTransformRecords =
+        ParameterKeys.NewPermutation(false, "ForwardPlus.UseTransformRecords");
+
     readonly NullDevice device;
     readonly EffectSystem effects = new();
     readonly DescriptorSetLayoutHandle arguments;
@@ -215,17 +218,17 @@ public sealed class DrawCompactionTests : IDisposable {
     ///     A sub-feature that records per object stops the merge, because it has to.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <strong>This is the reason the shipped forward pass is not merged yet.</strong>
-    ///     <c>TransformRenderFeature</c> pushes each object's world matrix as a push constant, and a
-    ///     merged command has no place to push the second object's. The fix is the same one
-    ///     <c>[MaterialIndex]</c> was: put the transforms in a buffer and carry the index in the
-    ///     draw's own <c>firstInstance</c>, which the compaction shader already copies. Until then
-    ///     the gate keeps the picture right rather than fast.
+    ///     A transform feature left to push is the case: it puts each object's world matrix in the
+    ///     command buffer, and a merged command has no point inside it at which the second object's
+    ///     could go. The gate keeps the picture right rather than fast, and this is the side of it
+    ///     that gives up the merge.
     /// </remarks>
     [Fact]
     public void A_per_object_contributor_stops_the_merge() {
         using var harness = Build();
-        harness.Meshes.Add(new TransformRenderFeature());
+        using var transforms = new TransformRenderFeature { Device = device };
+
+        harness.Meshes.Add(transforms);
 
         AddMeshes(harness, 3);
         Frame(harness);
@@ -233,8 +236,141 @@ public sealed class DrawCompactionTests : IDisposable {
         device.Recorder!.Clear();
         RecordStage(harness);
 
+        Assert.False(transforms.UseRecords);
         Assert.Equal(0, device.Recorder.CountOf(RecordedCommandKind.DrawIndexedIndirectCount));
         Assert.Equal(3, device.Recorder.CountOf(RecordedCommandKind.DrawIndexedIndirect));
+    }
+
+    /// <summary>
+    ///     And with its records on it stops nothing: the same three objects are one command.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>The pair above and below is the whole fix.</strong> Same feature, same three
+    ///         objects, same device — the only difference is where the matrix goes. Pushed, it is a
+    ///         command per node and there are three draws; recorded, the vertex stage reads it out of
+    ///         a buffer at the slot the draw's own <c>firstInstance</c> names, nothing at all happens
+    ///         between the nodes, and the run collapses into one.
+    ///     </para>
+    ///     <para>
+    ///         Asserted through the recorded commands rather than through <c>IsRecording</c>, because
+    ///         the flag is the mechanism and the command count is the claim.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_transform_in_a_buffer_does_not() {
+        using var harness = Build();
+        using var transforms = new TransformRenderFeature { Device = device };
+
+        harness.Meshes.Add(transforms);
+        Assert.True(transforms.EnableRecords(UseTransformRecords));
+
+        AddMeshes(harness, 3);
+        Frame(harness);
+
+        device.Recorder!.Clear();
+        RecordStage(harness);
+
+        Assert.Equal(1, device.Recorder.CountOf(RecordedCommandKind.DrawIndexedIndirectCount));
+        Assert.Equal(0, device.Recorder.CountOf(RecordedCommandKind.PushConstants));
+    }
+
+    /// <summary>
+    ///     Each object's record index is in the argument the GPU will draw with.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <strong>The host never records these draws, so this is the only place the index can
+    ///     be.</strong> A merged command reads its arguments out of the compacted buffer, and the
+    ///     compaction shader copies <c>firstInstance</c> from the template unchanged — so a template
+    ///     left at zero would draw every object in the batch with object zero's matrix. Which is a
+    ///     picture, and a plausible one: everything in the batch sitting on top of the first thing.
+    /// </remarks>
+    [Fact]
+    public void The_record_index_reaches_the_argument_template() {
+        using var harness = Build();
+        using var transforms = new TransformRenderFeature { Device = device };
+
+        harness.Meshes.Add(transforms);
+        transforms.EnableRecords(UseTransformRecords);
+
+        AddMeshes(harness, 3);
+        harness.System.Draw();
+
+        var commands = harness.Arguments.Fill(harness.System.Objects.Count);
+        harness.Meshes.FillArguments(harness.System, commands);
+
+        Assert.Equal(0u, commands[0].FirstInstance);
+        Assert.Equal(1u, commands[1].FirstInstance);
+        Assert.Equal(2u, commands[2].FirstInstance);
+    }
+
+    /// <summary>
+    ///     Without a device-side draw count the records stay off, and the matrix stays pushed.
+    /// </summary>
+    /// <remarks>
+    ///     <strong>The gate is not about what can read a buffer.</strong> Any device can read a matrix
+    ///     out of one in the vertex stage. What the capability decides is whether it is worth it:
+    ///     with no <c>DrawIndexedIndirectCount</c> there is no compacted list, with no compacted list
+    ///     there is no merged command, and a dependent buffer read per vertex against a constant
+    ///     already in the command stream is a straight loss. This is what GL, WebGL2 and Metal run.
+    /// </remarks>
+    [Fact]
+    public void Without_a_device_draw_count_the_matrix_stays_pushed() {
+        using var plain = new DrawCompactionTests(counting: false);
+        using var harness = plain.Build();
+        using var transforms = new TransformRenderFeature { Device = plain.device };
+
+        harness.Meshes.Add(transforms);
+
+        Assert.False(transforms.EnableRecords(UseTransformRecords));
+        Assert.True(transforms.IsRecording);
+
+        AddMeshes(harness, 3);
+        plain.Frame(harness);
+
+        plain.device.Recorder!.Clear();
+        plain.RecordStage(harness);
+
+        Assert.Equal(3, plain.device.Recorder.CountOf(RecordedCommandKind.PushConstants));
+    }
+
+    /// <summary>
+    ///     A light block bound per object stops the merge too, and clustered lighting does not.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>The transform was not the only per-node contributor, and this is the other
+    ///         one.</strong> With a uniform light list, each object's block is at its own dynamic
+    ///         offset in one buffer — and a dynamic offset travels in the bind, not in the block, so
+    ///         there is nowhere inside a merged command to change it. With clustering on the feature
+    ///         binds nothing per object at all, because a fragment finds its own lights in the grid.
+    ///     </para>
+    ///     <para>
+    ///         So the gate asks what a sub-feature is <em>doing</em> this frame rather than what type
+    ///         it is. Asking the type would have given the same answer to both of these, and the
+    ///         answer would have been wrong for one of them.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(true, 1, 0)]
+    [InlineData(false, 0, 3)]
+    public void Clustered_lighting_leaves_the_merge_alone(bool clustered, int merged, int separate) {
+        using var harness = Build();
+        using var transforms = new TransformRenderFeature { Device = device };
+        using var lights = new ForwardLightingRenderFeature { Device = device, Clustered = clustered };
+
+        harness.Meshes.Add(transforms);
+        harness.Meshes.Add(lights);
+        transforms.EnableRecords(UseTransformRecords);
+
+        AddMeshes(harness, 3);
+        Frame(harness);
+
+        device.Recorder!.Clear();
+        RecordStage(harness);
+
+        Assert.Equal(merged, device.Recorder.CountOf(RecordedCommandKind.DrawIndexedIndirectCount));
+        Assert.Equal(separate, device.Recorder.CountOf(RecordedCommandKind.DrawIndexedIndirect));
     }
 
     /// <summary>Two batches are two commands, not one.</summary>

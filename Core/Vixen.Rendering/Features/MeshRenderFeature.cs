@@ -84,6 +84,7 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
 
         var draws = system.Objects.Data.Data(Draws);
         var instances = SubFeatures.OfType<IInstanceSource>().FirstOrDefault();
+        var transforms = SubFeatures.OfType<ITransformRecordSource>().FirstOrDefault();
 
         for (var index = 0; index < commands.Length && index < draws.Length; index++) {
             ref readonly var draw = ref draws[index];
@@ -100,7 +101,7 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
                 InstanceCount = (uint)Math.Max(batch > 0 ? batch : draw.InstanceCount, 1),
                 FirstIndex = (uint)draw.FirstIndex,
                 VertexOffset = (uint)draw.VertexOffset,
-                FirstInstance = (uint)(batch > 0 ? instances!.FirstInstanceOf(system, id) : 0)
+                FirstInstance = (uint)FirstInstanceOf(system, id, batch, instances, transforms)
             };
         }
     }
@@ -167,6 +168,7 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
         var draws = system.Objects.Data.Data(Draws);
         var materials = MaterialsOf(system);
         var instances = SubFeatures.OfType<IInstanceSource>().FirstOrDefault();
+        var transforms = SubFeatures.OfType<ITransformRecordSource>().FirstOrDefault();
 
         var boundPipeline = default(PipelineHandle);
         var boundDescriptors = default(DescriptorSetHandle);
@@ -179,11 +181,13 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
 
         // Whether a run of nodes could become one command at all. Every per-node contributor is a
         // reason it cannot: a sub-feature that pushes this object's world matrix has to be given the
-        // chance to push the next one's, and there is no next one inside a merged draw. Asked once
-        // rather than per node, and it is the honest gate — see MergeableRunAt.
+        // chance to push the next one's, and there is no next one inside a merged draw. A transform
+        // feature whose records are on pushes nothing and therefore does not count — which is the
+        // whole point of the record path. Asked once rather than per node, and it is the honest gate
+        // — see MergeableRunAt.
         var merging = Arguments is { IsCompacted: true }
             && context.View is not null
-            && !SubFeatures.Any(feature => feature is IDrawSubFeature);
+            && !SubFeatures.Any(feature => feature is IDrawSubFeature { IsRecording: true });
 
         var remaining = 0;
 
@@ -262,7 +266,7 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
             context.Effect = effect;
 
             foreach (var subFeature in SubFeatures) {
-                if (subFeature is IDrawSubFeature contributor) {
+                if (subFeature is IDrawSubFeature { IsRecording: true } contributor) {
                     contributor.Draw(system, context, node);
                 }
             }
@@ -283,7 +287,7 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
             // buffer with no descriptor and no alignment of its own.
             var batch = instances?.InstanceCountOf(system, node.Object) ?? 0;
             var count = Math.Max(batch > 0 ? batch : draw.InstanceCount, 1);
-            var first = batch > 0 ? instances!.FirstInstanceOf(system, node.Object) : 0;
+            var first = FirstInstanceOf(system, node.Object, batch, instances, transforms);
 
             if (draw.IsIndexed) {
                 // ⚠ The format as well as the handle. Two buffers may be the same object at
@@ -395,6 +399,36 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
         return length == Arguments.BatchSizeOf(batch) && length > 1 ? length : null;
     }
 
+    /// <summary>
+    ///     What a draw carries in <c>firstInstance</c>: an instance batch's start, a transform
+    ///     record's index, or nothing.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>One field, two claimants, and instancing wins.</strong> An instanced draw reads
+    ///         its own run of transforms out of the instancing feature's buffer, so the field has to
+    ///         be where that run starts; a draw of one reads a single matrix out of the transform
+    ///         feature's, so the field is which one. They cannot both be in it, and an object that is
+    ///         instanced already has its transforms somewhere the record path is not.
+    ///     </para>
+    ///     <para>
+    ///         Zero when neither applies, which is what every draw carried before either existed.
+    ///     </para>
+    /// </remarks>
+    static int FirstInstanceOf(
+        RenderSystem system,
+        RenderObjectId id,
+        int batch,
+        IInstanceSource? instances,
+        ITransformRecordSource? transforms
+    ) {
+        if (batch > 0) {
+            return instances!.FirstInstanceOf(system, id);
+        }
+
+        return transforms?.RecordIndexOf(system, id) is { } record && record >= 0 ? record : 0;
+    }
+
     /// <summary>Where this object's arguments are for this view, or null to draw directly.</summary>
     /// <remarks>
     ///     Every one of these conditions is a way the buffer can be present and not apply: a view the
@@ -458,4 +492,22 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
 public interface IDrawSubFeature {
     /// <summary>Records this sub-feature's contribution for one node.</summary>
     void Draw(RenderSystem system, RenderDrawContext context, in RenderNode node);
+
+    /// <summary>Whether it has anything to record per node this frame.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         True unless a sub-feature says otherwise, because a sub-feature that implements this
+    ///         interface at all normally does record. What it exists for is the one that stops:
+    ///         <see cref="TransformRenderFeature" /> pushes a matrix per node until its records are on
+    ///         and then pushes nothing, and the difference is not an optimisation but the whole
+    ///         question of whether a run of nodes can become one command.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Answered for the frame rather than per node. A sub-feature that recorded for some
+    ///         objects and not others would have to be asked inside the run scan, and a run that was
+    ///         mergeable except at one node is a run that is not mergeable — so there would be nothing
+    ///         to gain from the finer answer.
+    ///     </para>
+    /// </remarks>
+    bool IsRecording => true;
 }

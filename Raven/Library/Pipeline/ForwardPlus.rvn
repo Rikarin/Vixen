@@ -64,6 +64,20 @@ shader ForwardPlus {
     /// host asks for this only where the device said yes, and gets the pass it always had otherwise.
     [Permutation] val UseMaterialRecords: bool = false
 
+    /// Whether the object's world matrix comes from a buffer instead of from a push constant.
+    ///
+    /// The other half of the same argument. Bindless materials stop a draw needing a descriptor set of
+    /// its own; this stops it needing a *push* of its own — and a push is per draw by definition, so a
+    /// pass that keeps one can never merge two draws however little else they differ in. On it, the
+    /// matrix is at the object's slot in `transforms` and the draw carries the slot in its own
+    /// `firstInstance`, which the API adds into `SV_InstanceID` before this shader runs.
+    ///
+    /// ⚠ Off by default, and off is not degraded. A pushed `mat4` costs no memory read at all, so
+    /// this is a straight loss on any frame that is not merging — which is every frame on a device
+    /// without `HasDrawIndirectCount`, since without a device-side draw count there is no compacted
+    /// list to merge over. `TransformRenderFeature.EnableRecords` gates on exactly that.
+    [Permutation] val UseTransformRecords: bool = false
+
     /// How many entries the uniform light list has room for. Unused when clustering is on.
     ///
     /// A permutation rather than a constant because it is the *host's* budget: it sizes a uniform
@@ -80,12 +94,17 @@ shader ForwardPlus {
     // and neither said so. A set marker per binding is what makes the four-set convention a thing
     // the shader states rather than a thing a host remembers.
 
-    /// Object to world, pushed rather than bound.
+    /// Object to world, pushed rather than bound. Unused when `UseTransformRecords` is on.
     ///
     /// A push constant because that is what `TransformRenderFeature` already does with it, and the
     /// shader saying anything else would be the same silent disagreement this whole audit is about.
     /// It also leaves the per-draw block with exactly one owner — the lighting feature — where a
     /// block holding both a transform and a light list needs two features to agree on its layout.
+    ///
+    /// ⚠ Still declared with the records on, and the range is still in the pipeline layout. A binding
+    /// is in the plan because it is declared and not because a variant reads it — the note at the top
+    /// of this file — and a push constant is no different. Nothing pushes it in that variant, which
+    /// costs the layout 64 of its guaranteed 128 bytes and costs a frame nothing.
     ///
     /// `worldViewProjection` is gone with it: it was world × the view's matrix, computed per object
     /// on the CPU and uploaded per object, where the vertex stage can multiply two matrices it
@@ -152,9 +171,29 @@ shader ForwardPlus {
 
     // --- Set 0: the scene ----------------------------------------------------
 
+    /// Every object's world matrix, at the object's own slot. Read when `UseTransformRecords` is on.
+    ///
+    /// Per *frame* and not per view, because where an object is does not depend on who is looking —
+    /// which is what lets the shadow pass and the camera pass read one buffer, and what would make a
+    /// per-view copy of it so much waste.
+    [PerFrame] var transforms: Buffer<ObjectTransform>
+
     /// The sun, kept separate from the list: it has no position to cull against, so it is in every
     /// cluster and paying list traversal for it would be paying for nothing.
     [PerFrame] var lightDirection: float3
+
+    /// Which record this frame's objects start at, added to the instance index.
+    ///
+    /// **An index rather than a bound offset, and the reason is the host's.** The buffer holds one
+    /// region per frame in flight — a descriptor bound at zero reads the region another frame is
+    /// writing — and the route a resource takes to a set carries a handle a host named and has
+    /// nowhere to put an offset. So the whole ring is bound and this says where this frame begins.
+    /// `UploadBuffer` recommends the same thing for everything else it holds.
+    ///
+    /// Declared here rather than at the top of the block for the same reason `materialIndex` sits
+    /// where it does: std140 leaves four bytes after a `float3`, so put here it costs the block
+    /// nothing and put first it would cost sixteen.
+    [PerFrame] var transformBase: int = 0
 
     [PerFrame] var lightColor: float3
 
@@ -269,12 +308,27 @@ shader ForwardPlus {
     /// and a stream nothing writes is not an output.
     stream var positionVS: float3
 
+    /// The vertex stage.
+    ///
+    /// `SV_InstanceID` is taken whether or not the records are on, and taking it costs nothing: it is
+    /// a built-in the stage is handed, not an input anybody has to bind. Reading it *conditionally*
+    /// would be the wrong shape — a parameter cannot appear inside a permutation — and this way the
+    /// two variants differ only in where the matrix comes from.
     [VertexShader]
     [Semantic("SV_Position")]
-    func Vertex(position: float3, normal: float3, tangent: float4, texcoord: float2): float4 {
-        positionWS = Math.TransformPoint(world, position)
-        normalWS = Math.TransformNormalRigid(world, normal)
-        tangentWS = float4(Math.TransformDirection(world, tangent.xyz), tangent.w)
+    func Vertex(position: float3, normal: float3, tangent: float4, texcoord: float2, [Semantic("SV_InstanceID")] instance: int): float4 {
+        // Whichever way the host sends it. The permutation folds, so the variant that pushes has no
+        // buffer read and the variant that reads has no push — rather than a branch every vertex takes
+        // on a value that is the same for the whole frame.
+        var objectToWorld = world
+
+        if (UseTransformRecords) {
+            objectToWorld = transforms[transformBase + instance].world
+        }
+
+        positionWS = Math.TransformPoint(objectToWorld, position)
+        normalWS = Math.TransformNormalRigid(objectToWorld, normal)
+        tangentWS = float4(Math.TransformDirection(objectToWorld, tangent.xyz), tangent.w)
         uv = texcoord
 
         if (UseClusteredLights) {

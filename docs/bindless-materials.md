@@ -17,8 +17,12 @@ one. Everything else follows.
 **None of those three clauses is true any more.** A material is a record of a buffer bound once per
 effect (2b), a mesh's geometry is a range of a buffer shared with every other mesh of its layout (5),
 and a run of objects that bind alike is one command whose draw count the host never learns (3 and 4).
-What remains between that and the shipped forward pass is one push constant, and it holds a
-*transform* rather than a material — see the last section.
+The push constant that held the world matrix is gone with them (6) — it was not a binding, and it
+stopped a merge anyway, because data in the command buffer is per command by construction.
+
+What remains is the per-object *light block*, and only on the path that has one: with a uniform light
+list each object binds its block at its own dynamic offset, and a dynamic offset travels in the bind.
+With clustering on nothing is bound per object and a run does merge. See the last two sections.
 
 ## What is built
 
@@ -397,23 +401,59 @@ second buffer, which costs one bind between the two runs and nothing within eith
 | 3. An indirect draw whose count comes from the device | ✅ built — `DrawIndexedIndirectCount`, behind its own capability |
 | 4. Compaction | ✅ built — one command per batch, three conditions checked |
 | 5. The geometry half | ✅ built — `GeometryBuffer`, one bind per run |
+| 6. The transform out of the command buffer | ✅ built — `UseTransformRecords`, the index in `firstInstance` |
 
-## The one thing between this and the shipped forward pass
+## 6. The transform, which was not a material and was still in the way
 
-⚠ **`TransformRenderFeature` pushes each object's world matrix as a push constant**, and a merged
-command has no place to push the second object's. So `MeshRenderFeature` will not merge a run when
-any sub-feature records per node — a gate that is checked rather than assumed, with a test on each
-side of it, and it is why `ForwardPlus` still draws one command per object today.
+✅ **Built** — `TransformRenderFeature.EnableRecords`, `ForwardPlusKeys.UseTransformRecords`.
 
-The fix is the same one `[MaterialIndex]` was, and it is a change to the shipped shader rather than
-to any mechanism here: put the transforms in a buffer and carry the index in the draw's own
-`firstInstance`, which the compaction shader already copies and which Vulkan feeds to
-`gl_InstanceIndex` before the vertex stage runs. `InstancingRenderFeature` already uses that field for
-exactly this purpose, so the two would become one mechanism rather than two.
+A push constant is not a binding, which is why nothing above touched it, and it stopped a merge all
+the same: it is data travelling in the command buffer, so it is per command by construction. Three
+objects that bind nothing between them still could not become one command while each had a matrix to
+push, and a merged command has no point inside it at which the second object's could go.
 
-Everything else is in place: the table is bound, the records are bound, the geometry is shared, the
-count-buffer draw exists and compaction runs. This is the last per-object binding, and it is a
-transform rather than a material — which is why it was never in this plan.
+The fix is the same one `[MaterialIndex]` was. Every object's matrix goes into one buffer at its own
+slot, and the draw carries the slot in its own `firstInstance` — which the compaction shader already
+copies and which the API adds into `SV_InstanceID` before the vertex stage runs. Not a new mechanism:
+`InstancingRenderFeature` has always used that field for exactly this, so the two are now one thing
+with a run of one.
+
+Three details that are not obvious:
+
+- **The buffer is bound whole and the shader is told where the frame starts.** The ring has a region
+  per frame in flight, and a resource reaches a set through a handle a host named, with nowhere to
+  put an offset. So `transformBase` is an index, added to the instance index — and it costs the
+  block nothing, filling the four bytes std140 already left after `lightDirection`.
+- **A record index is the object's own slot**, so there is nothing to allocate, nothing to rebuild
+  when an object goes away, and no second copy of the map for the compaction shader to read.
+- **There is a buffer even with the records off.** `transforms` is declared whichever way the
+  permutation went, and a set short one entry is not bound at all — so a frame that pushed its
+  matrices and left this empty would lose the whole of set 0 and go dark. One identity record.
+
+The gate is `HasDrawIndirectCount`, which is not what reads the buffer — every device can read a
+matrix out of one. It is what decides whether the read is worth it: no device-side draw count means
+no compaction, no compaction means no merged command, and then a push constant is strictly cheaper.
+
+## What is still between this and the shipped forward pass
+
+⚠ **The transform was not the only per-node contributor.** With a uniform light list,
+`ForwardLightingRenderFeature` binds each object's block at its own dynamic offset — and a dynamic
+offset travels in the *bind*, not in the block, so there is nowhere inside a merged command to change
+it. That path cannot merge, and no gate can talk it out of that.
+
+With clustering on it binds nothing per object, because a fragment finds its own lights in the grid.
+So a clustered `ForwardPlus` frame with transform records on does merge, and there is a test on each
+side of that pair. The gate asks what a sub-feature is *doing* this frame rather than what type it is
+— `IDrawSubFeature.IsRecording` — because asking the type gives the same answer to both of these and
+that answer is wrong for one of them.
+
+⚠ **And the clustered path has a pre-existing hole this makes newly relevant.** It binds no per-draw
+set at all, so the whole set-3 block — `probeIndex`, `probeWeight`, `lightCount` and, since 2b,
+`materialIndex` — is not bound in a clustered frame. That is not caused by anything here and it is
+not fixed by anything here, but it is the reason "the clustered pass merges" is not yet the same
+sentence as "the clustered pass is right". The fix is the same shape once more: those scalars are per
+object, the instance index already addresses per-object records, and one more record buffer beside
+the transforms would carry them.
 
 ## Two things deliberately not planned here
 

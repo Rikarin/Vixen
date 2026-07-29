@@ -83,26 +83,27 @@ Vixen.Graphics.Null.RecordedCommand.Sequence.init -> int
 Vixen.Graphics.Null.RecordedCommand.Text.get -> string?
 Vixen.Graphics.Null.RecordedCommand.Text.init -> string?
 Vixen.Graphics.Null.RecordedCommandKind -> enum : byte
-Vixen.Graphics.Null.RecordedCommandKind.Barrier = 16 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.Barrier = 17 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.BeginRenderPass = 0 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.BindDescriptorSet = 7 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.BindIndexBuffer = 10 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.BindPipeline = 6 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.BindVertexBuffer = 9 -> Vixen.Graphics.Null.RecordedCommandKind
-Vixen.Graphics.Null.RecordedCommandKind.CopyBuffer = 17 -> Vixen.Graphics.Null.RecordedCommandKind
-Vixen.Graphics.Null.RecordedCommandKind.CopyBufferToTexture = 18 -> Vixen.Graphics.Null.RecordedCommandKind
-Vixen.Graphics.Null.RecordedCommandKind.CopyTexture = 20 -> Vixen.Graphics.Null.RecordedCommandKind
-Vixen.Graphics.Null.RecordedCommandKind.CopyTextureToBuffer = 19 -> Vixen.Graphics.Null.RecordedCommandKind
-Vixen.Graphics.Null.RecordedCommandKind.Dispatch = 14 -> Vixen.Graphics.Null.RecordedCommandKind
-Vixen.Graphics.Null.RecordedCommandKind.DispatchIndirect = 15 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.CopyBuffer = 18 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.CopyBufferToTexture = 19 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.CopyTexture = 21 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.CopyTextureToBuffer = 20 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.Dispatch = 15 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.DispatchIndirect = 16 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.Draw = 11 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.DrawIndexed = 12 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.DrawIndexedIndirect = 13 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.DrawIndexedIndirectCount = 14 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.EndRenderPass = 1 -> Vixen.Graphics.Null.RecordedCommandKind
-Vixen.Graphics.Null.RecordedCommandKind.InsertDebugMarker = 23 -> Vixen.Graphics.Null.RecordedCommandKind
-Vixen.Graphics.Null.RecordedCommandKind.PopDebugGroup = 22 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.InsertDebugMarker = 24 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.PopDebugGroup = 23 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.PushConstants = 8 -> Vixen.Graphics.Null.RecordedCommandKind
-Vixen.Graphics.Null.RecordedCommandKind.PushDebugGroup = 21 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.PushDebugGroup = 22 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.RecordedCommandKind() -> void
 Vixen.Graphics.Null.RecordedCommandKind.SetBlendConstant = 4 -> Vixen.Graphics.Null.RecordedCommandKind
 Vixen.Graphics.Null.RecordedCommandKind.SetScissor = 3 -> Vixen.Graphics.Null.RecordedCommandKind

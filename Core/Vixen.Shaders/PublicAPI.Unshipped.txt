@@ -148,6 +148,8 @@ Vixen.Shaders.EffectKey.ShaderName.get -> string
 Vixen.Shaders.EffectKey.Values.get -> System.Collections.Immutable.ImmutableArray<System.Collections.Generic.KeyValuePair<string, string>>
 Vixen.Shaders.EffectKey.With(Vixen.Shaders.ShaderComposition composition) -> Vixen.Shaders.EffectKey
 Vixen.Shaders.EffectLoader -> sealed class
+Vixen.Shaders.EffectLoader.BindlessCapacity.get -> int
+Vixen.Shaders.EffectLoader.BindlessCapacity.set -> int
 Vixen.Shaders.EffectLoader.Clear() -> void
 Vixen.Shaders.EffectLoader.Device.get -> Vixen.Graphics.IGraphicsDevice
 Vixen.Shaders.EffectLoader.EffectLoader(Vixen.Graphics.IGraphicsDevice device) -> void

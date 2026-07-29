@@ -250,6 +250,23 @@ public sealed class ForwardLightingRenderFeature
     /// </remarks>
     public DescriptorSetHandle Descriptors => descriptors;
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         Exactly the condition <see cref="Draw" /> returns early on, stated once so a draw loop
+    ///         can ask before the run instead of finding out per node. The clustered path assigns no
+    ///         lights per object — a fragment looks itself up in the grid — so it binds nothing per
+    ///         node and a run of nodes stays mergeable.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The uniform-list path is the other answer, and it is not one a gate can talk out of:
+    ///         each object's light block is at its own dynamic offset in one buffer, and a dynamic
+    ///         offset travels in the bind rather than in the block. There is no place inside a merged
+    ///         command to change it.
+    ///     </para>
+    /// </remarks>
+    public bool IsRecording => !Clustered && descriptors.IsValid;
+
     /// <summary>The layout that set was made from.</summary>
     public DescriptorSetLayoutHandle Layout => layout;
 

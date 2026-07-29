@@ -115,6 +115,11 @@ Three things the implementation settled that the sketch above leaves open:
   which the API adds into `gl_InstanceIndex` before the shader runs and which therefore costs no
   binding at all. Reaching for one mechanism for all three would have meant padding every bone
   palette up to `minStorageBufferOffsetAlignment` and picking a maximum bone count in advance.
+  ⚠ **A fourth problem sorted them by a different question: which of them survives a merged draw.**
+  Only the last does. A dynamic offset travels in the bind and a push constant travels in the command
+  buffer, so both are per command whatever else they are — which is why the transform moved onto
+  `firstInstance` beside instancing rather than staying pushed. See
+  [bindless-materials.md](../bindless-materials.md) § 6.
 - **A pass's own bindings need a lifetime the RHI does not have**, and
   `Vixen.Graphics.DescriptorAllocator` is it. A pass sampling the shadow atlas cannot own a set,
   because the atlas is a graph resource whose handle does not exist until the graph compiles and
@@ -330,6 +335,12 @@ set 0 the scene, set 1 the shared view block, set 2 the material (1888 bytes to 
 object. `world` is a push constant, because that is what `TransformRenderFeature` already does with it
 — which also leaves the per-draw block with exactly one owner. `ForwardPlusLayoutTests` holds the
 offsets against the checked-in reflection, so the two cannot drift apart again quietly.
+
+⚠ **And `world` is a push constant only in the variant that is not merging draws.**
+`UseTransformRecords` reads it from `transforms[transformBase + SV_InstanceID]` instead, because a
+push constant is per *command* — so a run of objects that bind nothing between them still could not
+become one command while each had a matrix to push. Same field instancing already uses, which is the
+point: `firstInstance` carries the record index, and the two are now one mechanism with a run of one.
 
 ✅ **And a material binds its own resources**, which was the last thing a host had to do by hand. A
 material knows it has a texture called `albedo`; which binding index that is belongs to the compiled
