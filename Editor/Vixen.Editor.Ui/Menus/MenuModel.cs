@@ -119,4 +119,22 @@ public sealed class MenuModel {
 
         return group;
     }
+
+    /// <summary>Adds a menu at a place along the bar.</summary>
+    /// <param name="index">Where, clamped to the ends.</param>
+    /// <param name="title">Its name on the bar.</param>
+    /// <returns>The menu.</returns>
+    /// <remarks>
+    ///     For the application's own menus, which are registered after the shell has already put
+    ///     File, Edit, View and Help on the bar — and which belong <i>among</i> them rather than
+    ///     after Help. Clamped rather than checked, because the position is a preference about where
+    ///     a menu reads best and not an index into something the caller owns: a shell that gains a
+    ///     menu should not turn an application's "third from the left" into an exception.
+    /// </remarks>
+    public MenuGroup InsertMenu(int index, StringId title) {
+        var group = new MenuGroup(title);
+        menus.Insert(Math.Clamp(index, 0, menus.Count), group);
+
+        return group;
+    }
 }

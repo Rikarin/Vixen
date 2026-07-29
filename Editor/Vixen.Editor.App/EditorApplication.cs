@@ -487,7 +487,24 @@ sealed class EditorApplication : IDisposable {
 
         Shell.Keys.SetDefault("file.exit", new KeyChord(InputKey.Q, ModifierKeys.Control));
 
-        Shell.Toolbar.Show("view.palette", null, "view.reset-layout", "view.toggle-theme");
+        // The three gizmo modes and the two toggles that change what a drag does, which are the
+        // things somebody reaches for between one edit and the next. They show their state — a
+        // command with a `Checked` predicate draws its button pressed — so the strip also answers
+        // "what will dragging do right now" without anything being opened.
+        Shell.Toolbar.Show(
+            "view.palette",
+            null,
+            "scene.translate",
+            "scene.rotate",
+            "scene.scale",
+            null,
+            "scene.toggle-space",
+            "scene.toggle-snap",
+            "scene.toggle-grid",
+            null,
+            "view.reset-layout",
+            "view.toggle-theme"
+        );
 
         // The saved arrangements are a palette source rather than a menu, because there is no bound
         // on how many of them somebody makes and a menu with forty lines in it is a list nobody
@@ -503,6 +520,8 @@ sealed class EditorApplication : IDisposable {
                 }
             )
         );
+
+        SceneMenu();
     }
 
     /// <summary>Undo and redo, over whichever document is active.</summary>
@@ -562,46 +581,70 @@ sealed class EditorApplication : IDisposable {
 
         Shell.Keys.SetDefault("scene.delete-entity", new KeyChord(InputKey.Delete, ModifierKeys.None));
 
+        // ⚠ Ticked, and that is what makes the three modes read as one choice rather than as three
+        // buttons. A menu of Translate, Rotate and Scale with nothing saying which is current is one
+        // where the only way to find out what a drag will do is to drag — and the tick costs a
+        // predicate, which both the menu and the toolbar already ask for.
         Mode("scene.translate", "Translate", GizmoMode.Translate, InputKey.W);
         Mode("scene.rotate", "Rotate", GizmoMode.Rotate, InputKey.E);
         Mode("scene.scale", "Scale", GizmoMode.Scale, InputKey.R);
 
-        Add("scene.toggle-space", "Toggle Gizmo Space", pane =>
-            pane.Gizmo.Space = pane.Gizmo.Space == GizmoSpace.World ? GizmoSpace.Local : GizmoSpace.World
+        Add(
+            "scene.toggle-space",
+            "Local Space",
+            pane => pane.Gizmo.Space = pane.Gizmo.Space == GizmoSpace.World ? GizmoSpace.Local : GizmoSpace.World,
+            on: pane => pane.Gizmo.Space != GizmoSpace.World
         );
 
-        Add("scene.toggle-pivot", "Toggle Pivot", pane =>
-            pane.Gizmo.Pivot = pane.Gizmo.Pivot == PivotMode.Pivot ? PivotMode.Center : PivotMode.Pivot
+        Add(
+            "scene.toggle-pivot",
+            "Pivot at Centre",
+            pane => pane.Gizmo.Pivot = pane.Gizmo.Pivot == PivotMode.Pivot ? PivotMode.Center : PivotMode.Pivot,
+            on: pane => pane.Gizmo.Pivot == PivotMode.Center
         );
 
-        Add("scene.toggle-snap", "Toggle Snapping", pane => {
-            var on = !pane.Gizmo.Snap.SnapPosition;
+        Add(
+            "scene.toggle-snap",
+            "Snapping",
+            pane => {
+                var on = !pane.Gizmo.Snap.SnapPosition;
 
-            pane.Gizmo.Snap.SnapPosition = on;
-            pane.Gizmo.Snap.SnapRotation = on;
-            pane.Gizmo.Snap.SnapScale = on;
-        });
-
-        Add("scene.toggle-grid", "Toggle Grid", pane => pane.Grid.Enabled = !pane.Grid.Enabled);
-
-        Add("scene.toggle-projection", "Toggle Orthographic", pane =>
-            pane.Camera.IsOrthographic = !pane.Camera.IsOrthographic
+                pane.Gizmo.Snap.SnapPosition = on;
+                pane.Gizmo.Snap.SnapRotation = on;
+                pane.Gizmo.Snap.SnapScale = on;
+            },
+            on: pane => pane.Gizmo.Snap.SnapPosition
         );
 
-        Add("scene.focus", "Focus Selection", pane => pane.FocusSelection(SelectionBounds()), InputKey.F);
-        Add("scene.frame-all", "Frame All", pane => pane.Camera.Focus(SceneBounds()), InputKey.A);
+        Add("scene.toggle-grid", "Grid", pane => pane.Grid.Enabled = !pane.Grid.Enabled, on: pane => pane.Grid.Enabled);
+
+        Add(
+            "scene.toggle-projection",
+            "Orthographic",
+            pane => pane.Camera.IsOrthographic = !pane.Camera.IsOrthographic,
+            on: pane => pane.Camera.IsOrthographic
+        );
+
+        Add("scene.focus", "Focus Selection", pane => pane.FocusSelection(SelectionBounds()), key: InputKey.F);
+        Add("scene.frame-all", "Frame All", pane => pane.Camera.Focus(SceneBounds()), key: InputKey.A);
 
         View("scene.view-front", "Front View", ViewDirection.Front, InputKey.Keypad1);
         View("scene.view-right", "Right View", ViewDirection.Right, InputKey.Keypad3);
         View("scene.view-top", "Top View", ViewDirection.Top, InputKey.Keypad7);
 
         void Mode(string id, string label, GizmoMode mode, InputKey key) =>
-            Add(id, label, pane => pane.Gizmo.Mode = mode, key);
+            Add(id, label, pane => pane.Gizmo.Mode = mode, pane => pane.Gizmo.Mode == mode, key);
 
         void View(string id, string label, ViewDirection direction, InputKey key) =>
-            Add(id, label, pane => pane.Camera.LookFrom(direction), key);
+            Add(id, label, pane => pane.Camera.LookFrom(direction), key: key);
 
-        void Add(string id, string label, Action<SceneViewport> action, InputKey key = InputKey.Unknown) {
+        void Add(
+            string id,
+            string label,
+            Action<SceneViewport> action,
+            Func<SceneViewport, bool>? on = null,
+            InputKey key = InputKey.Unknown
+        ) {
             Shell.Commands.Add(
                 new EditorCommand(id, new StringId("editor.command." + id, label), () => {
                         if (viewport is { } pane) {
@@ -610,7 +653,12 @@ sealed class EditorApplication : IDisposable {
                     }
                 ) {
                     Category = new StringId("editor.category.scene", "Scene"),
-                    Enablement = () => viewport is not null
+                    Enablement = () => viewport is not null,
+
+                    // ⚠ Null when the command is not a toggle, rather than a predicate that answers
+                    // false. `MenuPresenter` grows the tick column only for commands that have one,
+                    // so a lambda here would indent every line of the Scene menu by an empty tick.
+                    Checked = on is null ? null : () => viewport is { } pane && on(pane)
                 }
             );
 
@@ -618,6 +666,50 @@ sealed class EditorApplication : IDisposable {
                 Shell.Keys.SetDefault(id, new KeyChord(key, ModifierKeys.None));
             }
         }
+    }
+
+    /// <summary>The Scene menu, and what the application adds to the shell's own.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The menu is described after the commands are registered, not before.</b> A menu
+    ///         entry naming a command nothing has registered is skipped when the bar is built — which
+    ///         is the behaviour that lets the shell name <c>file.save</c> without owning it, and
+    ///         which would silently swallow every line of this menu if the order were the other way
+    ///         round.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Inserted rather than appended.</b> <c>MenuModel.AddMenu</c> puts a menu at the
+    ///         end of the bar, which for the shell's default set is after Help — and a menu bar
+    ///         reading File, Edit, View, Help, Scene is one where the most-used menu in a 3D editor
+    ///         is past the point where people stop looking.
+    ///     </para>
+    /// </remarks>
+    void SceneMenu() {
+        var menu = Shell.Menus.InsertMenu(2, new StringId("editor.menu.scene", "Scene"));
+
+        menu.Add("scene.create-entity", "scene.delete-entity").AddSeparator();
+
+        menu.AddSubmenu(new StringId("editor.menu.gizmo", "Gizmo"))
+            .Add("scene.translate", "scene.rotate", "scene.scale")
+            .AddSeparator()
+            .Add("scene.toggle-space", "scene.toggle-pivot", "scene.toggle-snap");
+
+        menu.AddSubmenu(new StringId("editor.menu.camera", "Camera"))
+            .Add("scene.view-front", "scene.view-right", "scene.view-top")
+            .AddSeparator()
+            .Add("scene.toggle-projection");
+
+        menu.AddSeparator().Add("scene.focus", "scene.frame-all");
+        menu.AddSeparator().Add("scene.toggle-grid");
+
+        // The View menu is the shell's, and this is the one thing the application has to put on it:
+        // saving an arrangement needs somewhere to save it, which is the user store this owns.
+        Shell.View.AddSeparator().Add("view.save-layout");
+
+        // ⚠ Rebuilt here rather than left to the one a registration triggers, which is why this runs
+        // last. Every `Commands.Add` and every `Keys.SetDefault` above rebuilt the bar against a
+        // model that did not yet have this menu in it, and nothing after this point registers either.
+        Shell.MenuBar.Rebuild();
     }
 
     /// <summary>Whether the selection differs from what the inspector is showing.</summary>

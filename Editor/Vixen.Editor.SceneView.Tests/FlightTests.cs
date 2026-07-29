@@ -29,7 +29,10 @@ sealed class Pane : IDisposable {
         Document.Update();
 
         Control.Refresh();
-        Viewport = new SceneViewport(Control, new Selection<Entity>());
+
+        Viewport = new SceneViewport(Control, new Selection<Entity>()) {
+            TargetsFactory = () => Targets
+        };
     }
 
     public UiDocument Document { get; }
@@ -40,9 +43,22 @@ sealed class Pane : IDisposable {
 
     public EditorCamera Camera => Viewport.Camera;
 
-    public void Press(PointerButton button) => Pointer(PointerAction.Pressed, button);
+    /// <summary>What the gizmo would be moving, standing in for a selection in a world.</summary>
+    public List<IGizmoTarget> Targets { get; } = [];
 
-    public void Release(PointerButton button) => Pointer(PointerAction.Released, button);
+    public void Press(PointerButton button, Vector2? at = null) => Pointer(PointerAction.Pressed, button, at);
+
+    public void Release(PointerButton button, Vector2? at = null) => Pointer(PointerAction.Released, button, at);
+
+    /// <summary>A pointer move, which carries no button even while one is held — see PlatformInput.</summary>
+    public void Move(Vector2 at) => Pointer(PointerAction.Moved, PointerButton.None, at);
+
+    /// <summary>Where a world point is in the pane, in render pixels.</summary>
+    public Vector2 Screen(Vector3 world) {
+        var projected = Camera.Project(world, Control.RenderWidth, Control.RenderHeight);
+
+        return new(projected.X, projected.Y);
+    }
 
     /// <summary>Sends a key and says whether anything took it.</summary>
     public bool Key(InputKey key, KeyAction action, ModifierKeys modifiers = ModifierKeys.None) {
@@ -69,13 +85,16 @@ sealed class Pane : IDisposable {
         Document.Dispose();
     }
 
-    void Pointer(PointerAction action, PointerButton button) {
+    void Pointer(PointerAction action, PointerButton button, Vector2? at = null) {
         clock += TimeSpan.FromMilliseconds(16);
+
+        // The middle of the pane by default, which is where every test that does not care wants it.
+        var point = at ?? new Vector2(400f, 300f);
 
         Document.Dispatch(
             new PointerEvent {
-                X = 400f,
-                Y = 300f,
+                X = point.X,
+                Y = point.Y,
                 Action = action,
                 Button = button,
                 Timestamp = clock
