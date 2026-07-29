@@ -108,6 +108,50 @@ public sealed class Effect {
         return default;
     }
 
+    /// <summary>
+    ///     The per-material <em>record</em> a shader reads, when its block is an element of a buffer.
+    /// </summary>
+    /// <param name="slot">Which set. The per-material one in every case that exists so far.</param>
+    /// <remarks>
+    ///     <para>
+    ///         The same members <see cref="BlockOf" /> reports and a different binding: a shader that
+    ///         declared a <c>[MaterialIndex]</c> has its per-material values in a storage buffer, so
+    ///         <see cref="BlockOf" /> — which only matches the uniform kinds — finds nothing at all.
+    ///         Two methods rather than one that answers either, because a caller has to bind
+    ///         differently and write differently, and a single answer would let it not notice which
+    ///         it got.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="EffectBlock.Size" /> is one record's stride, which is what the reflection
+    ///         reports for a storage buffer's element and what a host advances by between materials.
+    ///     </para>
+    /// </remarks>
+    public EffectBlock RecordOf(DescriptorSetSlot slot) {
+        foreach (var binding in Bindings) {
+            if (binding.Set != slot || binding.Kind is not DescriptorKind.StorageBuffer || binding.Size <= 0) {
+                continue;
+            }
+
+            var members = ImmutableArray.CreateBuilder<EffectParameter>();
+
+            foreach (var parameter in Parameters) {
+                if (parameter.Set == slot) {
+                    members.Add(parameter);
+                }
+            }
+
+            // A storage buffer with no members is somebody's own data — a light list, a cluster grid
+            // — rather than a material record. The members are what make it one.
+            if (members.Count == 0) {
+                continue;
+            }
+
+            return new(binding.Binding, binding.Size, members.ToImmutable());
+        }
+
+        return default;
+    }
+
     /// <summary>Where a named resource sits, or null when this variant has no such name.</summary>
     /// <remarks>
     ///     Linear over a handful of entries rather than a dictionary: a shader has a few resources,

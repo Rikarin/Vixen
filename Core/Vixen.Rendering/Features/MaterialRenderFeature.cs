@@ -96,6 +96,12 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     /// </remarks>
     readonly Dictionary<(Material Material, ParameterKey<uint> Key), TextureViewHandle> indexed = [];
 
+    /// <summary>One record buffer per sort group, which is one per effect.</summary>
+    readonly Dictionary<uint, MaterialRecords> records = [];
+
+    /// <summary>Which record each variant's material occupies, and in which group's buffer.</summary>
+    readonly Dictionary<int, (uint Group, int Index)> placed = [];
+
     /// <summary>Variant × stage → the variant that stage's shader override resolved to, or 0.</summary>
     /// <remarks>
     ///     A flat array rather than a dictionary because it is read once per draw. Variants are tens
@@ -232,6 +238,31 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     /// </remarks>
     public Dictionary<ParameterKey<uint>, ParameterKey<TextureViewHandle>> TextureIndices { get; } = [];
 
+    /// <summary>Whether a material's values go into a record buffer rather than a descriptor set.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Off by default, and it needs a shader that asked for it: a variant whose effect has no
+    ///         per-material <see cref="Effect.RecordOf" /> keeps the descriptor set whatever this
+    ///         says. So turning it on is safe for a mixed frame, where some passes declared a
+    ///         <c>[MaterialIndex]</c> and some did not.
+    ///     </para>
+    ///     <para>
+    ///         What it buys is the thing the whole plan is about: a draw that binds no per-material
+    ///         set is a draw that can be merged with its neighbour. What it costs is a buffer per
+    ///         effect and an index the per-object data has to carry.
+    ///     </para>
+    /// </remarks>
+    public bool UseRecords { get; set; }
+
+    /// <summary>The record buffers, one per effect, for a host that binds them.</summary>
+    /// <remarks>
+    ///     Keyed by sort group, which is the engine's name for "these objects resolved to the same
+    ///     effect" — see <see cref="SortGroupOf" />. That is the right key and a variant is not: a
+    ///     variant is a <c>(material, flags, shader)</c> triple, so one variant is one material, and
+    ///     a buffer per variant would be a buffer per material with one record in it.
+    /// </remarks>
+    public IReadOnlyDictionary<uint, MaterialRecords> Records => records;
+
     /// <summary>How many table slots this feature currently holds a reference to.</summary>
     /// <remarks>
     ///     The number a leak test wants: a scene that settles stops growing, and a material released
@@ -250,8 +281,15 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     /// </remarks>
     public DescriptorAllocator? Descriptors { get; set; }
 
-    /// <summary>How many variants have a set this feature wrote.</summary>
+    /// <summary>How many variants have a set this feature wrote, or a record it filled.</summary>
     public int BoundCount { get; private set; }
+
+    /// <summary>How many record buffers went to the device this frame.</summary>
+    /// <remarks>
+    ///     Zero for a settled scene, which is the assertion worth having: the bytes are what costs,
+    ///     and a buffer nobody changed must not go back on the bus because a frame happened.
+    /// </remarks>
+    public int UploadedRecordCount { get; private set; }
 
     /// <summary>How many times a material's uniform block has actually gone to the GPU.</summary>
     /// <remarks>
@@ -374,6 +412,10 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
         // the same economy the variant table itself exists for. Ten thousand objects over twenty
         // materials is twenty descriptor sets.
         Bind();
+
+        // And the record buffers after that, so a frame that touched one material of forty uploads
+        // one buffer rather than one per variant that mentioned it.
+        UploadedRecordCount = Upload();
     }
 
     /// <summary>
@@ -414,13 +456,23 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
                 continue;
             }
 
+            var material = materials[variant.Material];
+
+            // A record before the set layout is even looked at, and only where the shader asked for
+            // one. A shader whose materials are records has no per-material set to have a layout
+            // for, so checking the layout first would skip exactly the variants this path exists
+            // for. A variant whose effect declares no record keeps the set whatever UseRecords says,
+            // which is what makes a frame mixing the two work.
+            if (UseRecords && Record(index, variant, effect, material)) {
+                continue;
+            }
+
             const int slot = (int)DescriptorSetSlot.PerMaterial;
 
             if (effect.SetLayouts.Length <= slot || !effect.SetLayouts[slot].IsValid) {
                 continue;
             }
 
-            var material = materials[variant.Material];
             var block = Constants(index, effect, material);
 
             // Every binding or none. A set short of an entry is a validation error on one backend and
@@ -499,6 +551,85 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
                 }
             }
         }
+    }
+
+    /// <summary>
+    ///     Writes one variant's material into its effect's record buffer, and says whether it did.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Keyed by the variant's <em>group</em>, which is the engine's name for "resolved to the
+    ///         same effect". That is the right key and a variant is not: a variant is a
+    ///         <c>(material, flags, shader)</c> triple, so one variant is one material and a buffer
+    ///         per variant would hold a single record. Materials that share an effect share a layout
+    ///         by construction, which is what makes them records of one buffer rather than a
+    ///         coincidence that has to be checked.
+    ///     </para>
+    ///     <para>
+    ///         The bytes come from <see cref="EffectConstants" /> exactly as the descriptor-set path's
+    ///         do — same parameters, same declared members, same defaults — and only the destination
+    ///         differs. That is deliberate: a record and a block that disagreed about what a material
+    ///         contains would be two answers to a question with one.
+    ///     </para>
+    /// </remarks>
+    bool Record(int index, Variant variant, Effect effect, Material material) {
+        var declared = effect.RecordOf(DescriptorSetSlot.PerMaterial);
+
+        if (!declared.Exists) {
+            return false;
+        }
+
+        var block = blocks[index] ??= new(Device!, material.ShaderName);
+        block.Update(effect, declared.Size, declared.Members.AsSpan(), material.Parameters);
+
+        if (!records.TryGetValue(variant.Group, out var buffer)) {
+            records[variant.Group] = buffer = new(Device!, declared.Size, $"{material.ShaderName}.Records");
+        }
+
+        var slot = buffer.IndexOf(index);
+        buffer.Write(slot, block.Bytes);
+        placed[index] = (variant.Group, slot);
+
+        BoundCount++;
+        return true;
+    }
+
+    /// <summary>Puts every record buffer on the device, and answers how many had anything to say.</summary>
+    /// <remarks>
+    ///     Separate from writing them because an upload is a device call and writing is not: a frame
+    ///     that touched one material of forty should upload one buffer, and a frame that touched none
+    ///     should upload nothing at all. Called at the end of <see cref="Prepare" />, after every
+    ///     variant has had its say.
+    /// </remarks>
+    int Upload() {
+        var uploaded = 0;
+
+        foreach (var buffer in records.Values) {
+            if (buffer.Upload().IsValid) {
+                uploaded++;
+            }
+        }
+
+        return uploaded;
+    }
+
+    /// <summary>Which record of which buffer an object's material occupies.</summary>
+    /// <param name="system">The render system.</param>
+    /// <param name="id">The object.</param>
+    /// <param name="stage">The stage drawing it, for the same reason <see cref="EffectOf" /> takes one.</param>
+    /// <returns>
+    ///     The group whose buffer holds it and the record within that buffer, or null when this
+    ///     object's material is bound as a set rather than written as a record.
+    /// </returns>
+    /// <remarks>
+    ///     The number a host writes into the per-object data, where the shader's
+    ///     <c>[MaterialIndex]</c> reads it. Null rather than zero for "no record", because zero is a
+    ///     record that exists and a caller that treated the two alike would draw every object with
+    ///     the first material.
+    /// </remarks>
+    public (uint Group, int Index)? RecordOf(RenderSystem system, RenderObjectId id, RenderStage? stage = null) {
+        ArgumentNullException.ThrowIfNull(system);
+        return placed.TryGetValue(IndexFor(system, id, stage), out var found) ? found : null;
     }
 
     /// <summary>The variant's material block, created on first use and refilled when values change.</summary>
@@ -746,6 +877,13 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
         }
 
         indexed.Clear();
+
+        foreach (var buffer in records.Values) {
+            buffer.Dispose();
+        }
+
+        records.Clear();
+        placed.Clear();
     }
 
     IReadOnlyList<ParameterKey> KeysFor(string shaderName) =>

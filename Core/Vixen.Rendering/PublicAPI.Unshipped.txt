@@ -938,11 +938,16 @@ Vixen.Rendering.Features.MaterialRenderFeature.MaterialRenderFeature() -> void
 Vixen.Rendering.Features.MaterialRenderFeature.Materials.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Material>
 Vixen.Rendering.Features.MaterialRenderFeature.PermutationKeys.get -> System.Collections.Generic.Dictionary<string, System.Collections.Generic.IReadOnlyList<Vixen.Shaders.ParameterKey>>
 Vixen.Rendering.Features.MaterialRenderFeature.PermutationSources.get -> System.Collections.Generic.Dictionary<Vixen.Shaders.PermutationKey<bool>, Vixen.Shaders.PermutationKey<bool>>
+Vixen.Rendering.Features.MaterialRenderFeature.RecordOf(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, Vixen.Rendering.RenderStage? stage = null) -> (uint Group, int Index)?
+Vixen.Rendering.Features.MaterialRenderFeature.Records.get -> System.Collections.Generic.IReadOnlyDictionary<uint, Vixen.Rendering.MaterialRecords>
 Vixen.Rendering.Features.MaterialRenderFeature.SortGroupOf(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, Vixen.Rendering.RenderStage? stage = null) -> uint
 Vixen.Rendering.Features.MaterialRenderFeature.TextureIndices.get -> System.Collections.Generic.Dictionary<Vixen.Shaders.ParameterKey<uint>, Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>>
 Vixen.Rendering.Features.MaterialRenderFeature.Textures.get -> Vixen.Graphics.BindlessTable?
 Vixen.Rendering.Features.MaterialRenderFeature.Textures.set -> Vixen.Graphics.BindlessTable?
 Vixen.Rendering.Features.MaterialRenderFeature.UploadCount.get -> int
+Vixen.Rendering.Features.MaterialRenderFeature.UploadedRecordCount.get -> int
+Vixen.Rendering.Features.MaterialRenderFeature.UseRecords.get -> bool
+Vixen.Rendering.Features.MaterialRenderFeature.UseRecords.set -> bool
 Vixen.Rendering.Features.MaterialRenderFeature.VariantCount.get -> int
 Vixen.Rendering.Features.MaterialRenderFeature.VariantIndex.get -> Vixen.Rendering.RenderDataKey<int>
 Vixen.Rendering.Features.MeshRenderFeature -> sealed class
@@ -1257,6 +1262,18 @@ Vixen.Rendering.Material.Descriptors.set -> Vixen.Graphics.DescriptorSetHandle
 Vixen.Rendering.Material.Material(string shaderName) -> void
 Vixen.Rendering.Material.Parameters.get -> Vixen.Shaders.ParameterCollection
 Vixen.Rendering.Material.ShaderName.get -> string
+Vixen.Rendering.MaterialRecords -> sealed class
+Vixen.Rendering.MaterialRecords : System.IDisposable
+Vixen.Rendering.MaterialRecords.Buffer.get -> Vixen.Graphics.BufferHandle
+Vixen.Rendering.MaterialRecords.Bytes.get -> System.ReadOnlySpan<byte>
+Vixen.Rendering.MaterialRecords.Count.get -> int
+Vixen.Rendering.MaterialRecords.Dispose() -> void
+Vixen.Rendering.MaterialRecords.IndexOf(int variant) -> int
+Vixen.Rendering.MaterialRecords.MaterialRecords(Vixen.Graphics.IGraphicsDevice device, int stride, string name = "MaterialRecords") -> void
+Vixen.Rendering.MaterialRecords.Stride.get -> int
+Vixen.Rendering.MaterialRecords.Upload() -> Vixen.Graphics.BufferHandle
+Vixen.Rendering.MaterialRecords.UploadCount.get -> int
+Vixen.Rendering.MaterialRecords.Write(int index, System.ReadOnlySpan<byte> bytes) -> bool
 Vixen.Rendering.Materials.AnisotropicShading -> sealed record
 Vixen.Rendering.Materials.AnisotropicShading : System.IEquatable<Vixen.Rendering.Materials.AnisotropicShading>
 Vixen.Rendering.Materials.AnisotropicShading : Vixen.Rendering.Materials.IMaterialShading

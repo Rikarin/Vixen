@@ -16,6 +16,7 @@ Vixen.Shaders.Effect.Parameters.get -> System.Collections.Immutable.ImmutableArr
 Vixen.Shaders.Effect.Parameters.init -> System.Collections.Immutable.ImmutableArray<Vixen.Shaders.EffectParameter>
 Vixen.Shaders.Effect.PushConstants.get -> System.Collections.Immutable.ImmutableArray<Vixen.Shaders.EffectPushConstant>
 Vixen.Shaders.Effect.PushConstants.init -> System.Collections.Immutable.ImmutableArray<Vixen.Shaders.EffectPushConstant>
+Vixen.Shaders.Effect.RecordOf(Vixen.Graphics.DescriptorSetSlot slot) -> Vixen.Shaders.EffectBlock
 Vixen.Shaders.Effect.SetLayouts.get -> System.Collections.Immutable.ImmutableArray<Vixen.Graphics.DescriptorSetLayoutHandle>
 Vixen.Shaders.Effect.SetLayouts.init -> System.Collections.Immutable.ImmutableArray<Vixen.Graphics.DescriptorSetLayoutHandle>
 Vixen.Shaders.Effect.UsedPermutationKeys.get -> System.Collections.Immutable.ImmutableArray<Vixen.Shaders.ParameterKey>

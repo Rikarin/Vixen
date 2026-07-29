@@ -161,7 +161,27 @@ type, which no API checks and which reads as a frame lit by whatever those bytes
 Without the marker nothing changes at all, which is the control worth keeping: the bound-per-material
 path is what runs on GL, on WebGL2 and on every device with no bindless, so it is not a legacy branch.
 
-**What is left is the engine half**, and it is the larger one:
+✅ **And the engine half writes them.** `MaterialRenderFeature.UseRecords` turns the per-variant
+descriptor set into a record: `MaterialRecords` is one buffer per effect, each material a record in
+it, and `RecordOf` gives back the group whose buffer holds an object's material and the record
+within it. A shader whose effect declares no record keeps its set whatever the setting says, so a
+frame mixing a pass that asked for records with one that did not is the same renderer.
+
+⚠ **Per effect, which corrects the sketch below.** It said one buffer per *variant*. A variant is a
+`(material, flags, shader)` triple, so that is one buffer per material with a single record in it —
+the opposite of the point. What several materials genuinely share is their **effect**, and the sort
+group is already the engine's name for "resolved to the same effect". Keyed by that, every record in
+one buffer has the same layout by construction rather than by a check.
+
+**What is left**, and it is the part that touches the shipped pass:
+
+- A per-object value carrying the record index into the per-draw data, the way
+  `ForwardLightingRenderFeature` already carries a probe index and weight.
+- `MeshRenderFeature` binding the record buffer for the frame instead of a set per object.
+- `ForwardPlus` declaring the `[MaterialIndex]` — one line, and the one that moves the shipped
+  shader's binding layout, its checked-in reflection oracle and the golden images with it.
+
+The sketch this replaces:
 
 - `MaterialRenderFeature` writes records into one buffer instead of a descriptor set per variant,
   and hands out the index each variant landed at.
@@ -248,7 +268,8 @@ Raven got atomics; what was missing was 2 and 3.
 | 2a′. A binding shared across composed features | ✅ built — `[Shared]`, collapsed by `BindingPlan`, aliased in both backends |
 | 2c. A shader-library feature that samples through the table | ✅ built — `TexturedMetalRoughnessSurface`, and `uv` on `MaterialData` |
 | 2b. The block as a record — shader half | ✅ built — `[MaterialIndex]`, both backends, reflection |
-| 2b. The block as a record — engine half | ⬜ — the one compacted draws and per-object probes wait on |
+| 2b. The block as a record — engine half (records written) | ✅ built — `MaterialRecords`, one buffer per effect |
+| 2b. The block as a record — the shipped pass | ⬜ — an index in the per-object data, and `ForwardPlus` declaring the marker |
 | 3. An indirect draw whose count comes from the device | ⬜ |
 | 4. Compaction | ⬜ |
 
