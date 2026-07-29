@@ -335,11 +335,27 @@ public sealed partial class TreeView : Control {
         editor.SelectAll();
 
         editor.Submitted += _ => CommitRename(row, true);
+
         editor.AddHandler<KeyEvent>(
             (_, args) => {
                 if (args is { Action: KeyAction.Pressed, Key: InputKey.Escape }) {
                     CommitRename(row, false);
                     args.Handled = true;
+                }
+            }
+        );
+
+        // ⚠ Losing the focus commits, which is the third way out and the one people use without
+        // meaning to. Enter and Escape are deliberate; clicking on something else is how a rename
+        // actually ends most of the time, and an editor that threw the typed name away then is one
+        // that loses a rename every session. Committing is also the safer of the two: a name typed
+        // and abandoned can be undone, and a name typed and discarded cannot be recovered.
+        editor.AddHandler<FocusEvent>(
+            (_, args) => {
+                // The rename may already have ended — `CommitRename` moves the focus itself, which
+                // raises this on the way out — and asking twice would run the handler twice.
+                if (!args.Gained && row.Editor is not null) {
+                    CommitRename(row, true);
                 }
             }
         );

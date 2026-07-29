@@ -349,8 +349,15 @@ public static class EditorTheme {
         /* ⚠ The focused panel says so on its own edge. A dozen identical panes and a
            keyboard that goes to one of them is an editor where Delete is a guess —
            and a tinted hairline is the cheapest possible way to answer "which one",
-           costing no layout and no second element. */
-        dock-group:focus-within { border-color: var(--border-active); }
+           costing no layout and no second element.
+
+           ⚠ Two selectors, because focus alone does not reach every panel. A tree row
+           and a text field take focus, so the outliner and the scene lit up; a console
+           row and an inspector's label do not, so those two never showed as focused
+           however often they were clicked. `dock-group.active` is the docking host's
+           own answer — the panel last worked in — and a border that is right for two
+           panels out of four reads as broken rather than as absent. */
+        dock-group:focus-within, dock-group.active { border-color: var(--border-active); }
 
         dock-splitter { background-color: transparent; }
         dock-split.horizontal > dock-splitter { width: 3px; }
@@ -385,7 +392,7 @@ public static class EditorTheme {
            readable at a glance: a tinted hairline says *a* panel is focused, and the
            accent on its tab's own label says *which*, from across the window and
            without counting borders. */
-        dock-group:focus-within dock-tab:checked { color: var(--accent); }
+        dock-group:focus-within dock-tab:checked, dock-group.active dock-tab:checked { color: var(--accent); }
 
         dock-panel { padding: 3px; }
 

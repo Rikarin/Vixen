@@ -179,6 +179,11 @@ sealed class EditorHost : IDisposable {
         // would write an empty layout over the one the user spent the afternoon arranging.
         editor.Persist();
 
+        // The window's own geometry, which `Program` reads back before the next window exists. On
+        // the way down rather than on every resize, for the reason the layout is: a file written per
+        // frame of a corner drag is the noisiest thing on the disk.
+        WindowPlacement.Save(platform.FileSystem.DataDirectory, window);
+
         return 0;
     }
 
