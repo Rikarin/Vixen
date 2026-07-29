@@ -167,9 +167,11 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | `Vixen.Sdk` MSBuild integration | ✅ | Tools/Vixen.Sdk | 7 tests, each a real `dotnet build` |
 | SDK ships the `vixen` CLI in the package | ⬜ | — | Consumer still needs the tool restored or installed |
 | Platform packaging (APK assets, iOS bundle, `wwwroot`) | ⬜ | — | Waits for those platforms |
-| `Vixen.Cli` — `import`, `content build`, `content serve`, `doctor`, `new`, `build`, `run` | ✅ | Tools/Vixen.Cli | 41 tests incl. a byte-for-byte determinism gate |
+| `Vixen.Cli` — `import`, `content build`, `content serve`, `doctor`, `new`, `build`, `run` | ✅ | Tools/Vixen.Cli | 47 tests incl. a byte-for-byte determinism gate |
 | Signing, notarisation, DMG/IPA/AAB | ⬜ | — | Doc 17's table is still Nuke's |
-| `app` / `plugin` / `tool` templates; `Tools/Vixen.Templates` | ⬜ | — | `game` scaffolds today; the project does not exist |
+| `Tools/Vixen.Templates` — `vixen-game` / `vixen-app` / `vixen-lib` | ✅ | Tools/Vixen.Templates | 28 tests; one file tree, packed for `dotnet new` and embedded in `vixen new`. Each template's C# is compiled by Roslyn against the assemblies its packages resolve to |
+| `vixen-plugin` template | ⬜ | — | Blocked on `Vixen.Editor.Plugin` (W0-12): a template pinning a package nobody publishes will not restore |
+| `vixen-tool` template; per-platform heads in `vixen-game` | ⬜ | — | Unblocked — `Vixen.Platform.Headless` is built |
 | `vixen doctor systems` | ⬜ | — | Needs a game assembly to load |
 
 ## 1.7 UI framework
@@ -610,7 +612,7 @@ since. The rest can run in parallel.
 | ~~W0-10~~ | ~~Wire `LineWrapper` into `TextRun`/controls~~ | Built (`TextLayout`). What is left is the *editing* half — a caret that moves between lines — and `CodeEditor`'s own wrap |
 | W0-11 | `Vixen.Core.Diagnostics` sinks (ZLogger file, console, platform, remote, `EventSource`) + rate limiting | Editor console · remote inspector · `Vixen.Editor.Profiler`/`.Debugger` |
 | W0-12 | `Vixen.Editor.Plugin` (`AssemblyLoadContext`) | Editor extensibility; lets `Vixen.Editor.App` state its AOT position |
-| W0-13 | `Tools/Vixen.Templates` (`vixen-game`/`app`/`lib`/`plugin`) | Phase 11's clean-machine criterion |
+| ~~W0-13~~ | ~~`Tools/Vixen.Templates` (`vixen-game`/`app`/`lib`/`plugin`)~~ | Built, three of four. `vixen-game`, `vixen-app` and `vixen-lib` ship as one file tree that `dotnet new` packs and `vixen new` embeds; `vixen-plugin` waits on W0-12, because a template pinning `Vixen.Editor.Plugin` cannot restore. Phase 11's clean-machine criterion now needs a feed, not a template |
 | W0-14 | Pin a static `libjoltc.a` for `ios-arm64` | Physics on iOS → `Samples/05` on iOS |
 | W0-15 | Add `astcenc` + `ispc_texcomp` to `native-dependencies.json` | ASTC/ETC2 · full BC7/BC6H · mobile texture budgets. Also proves R10's schema generalises |
 | ~~W0-16~~ | ~~ECS entity-handle **reservation**~~ | Built (`World.TryRecreate`), and spent: create/delete/rename are undoable in the scene view |
@@ -800,8 +802,8 @@ it is deliberately distinct from "not started" in Part 1.
 
 | | |
 |---|---|
-| `.csproj` on disk | 218 (`Core` 122 · `Platform` 34 · `Editor` 19 · `Tools` 21 · `Samples` 11 · `Benchmarks` 7 · `Raven` 3) — counting test siblings and generators, per ADR-014 |
-| Planned projects not created | `Vixen.Graphics.Direct3D12`, `Vixen.Net.Transport.Relay`, `Vixen.Editor.AnimationGraph/.Profiler/.Debugger/.Plugin`, `Vixen.Templates`, `Vixen.Raven.Transpile` |
+| `.csproj` on disk | 220 (`Core` 122 · `Platform` 34 · `Editor` 19 · `Tools` 23 · `Samples` 11 · `Benchmarks` 7 · `Raven` 3) — counting test siblings and generators, per ADR-014 |
+| Planned projects not created | `Vixen.Graphics.Direct3D12`, `Vixen.Net.Transport.Relay`, `Vixen.Editor.AnimationGraph/.Profiler/.Debugger/.Plugin`, `Vixen.Raven.Transpile` |
 | Conformance cases green | 534 Yoga · 22 048 UAX#14/#29 · 91 707 UAX#9 · 328/413 shaping · 100 variable-font |
 | Golden image fixtures | 40 |
 | Fuzz targets / cases per build | 12 / ~11 M in ~7 s |

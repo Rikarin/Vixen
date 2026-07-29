@@ -1,0 +1,26 @@
+{
+    "$schema": "http://json.schemastore.org/template",
+    "author": "Rikarin",
+    "classifications": [ "Vixen", "Game" ],
+    "identity": "Vixen.Templates.Game",
+    "groupIdentity": "Vixen.Templates.Game",
+    "name": "Vixen Game",
+    "description": "A game: a Game subclass, a one-line host, an Assets/ folder, and a Dockerfile for the dedicated-server variant.",
+    "shortName": [ "vixen-game" ],
+    "tags": {
+        "language": "C#",
+        "type": "project"
+    },
+    "sourceName": "VixenGame1",
+    "defaultName": "VixenGame1",
+    "preferNameDirectory": true,
+    "sources": [
+        {
+            "modifiers": [
+                {
+                    "exclude": [ "**/[Bb]in/**", "**/[Oo]bj/**", "**/Library/**", "**/Build/**" ]
+                }
+            ]
+        }
+    ]
+}

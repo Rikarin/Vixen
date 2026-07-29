@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <OutputType>Exe</OutputType>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ No Vixen.App and no Vixen.Engine, and that absence is the point of this template.
+            Vixen.App references Vixen.Engine, so taking the convenient host would drag a scene, an
+            ECS world and a fixed-step accumulator into an application that is a user interface.
+            Everything that host would have done — the window, the device, the frame loop — is
+            Program.cs and AppHost.cs, and it is two hundred lines you own and can edit.
+
+            There is also no Vixen.Sdk here: an application with no Assets/ folder has nothing to
+            import and no content to build, so the SDK would add two no-op build steps and a tool
+            dependency for nothing. Add it — `<Project Sdk="Vixen.Sdk/x.y.z">` — the day this
+            application starts shipping content.
+        -->
+        <PackageReference Include="Vixen.Ui.Controls" Version="VIXEN_PACKAGE_VERSION" />
+        <PackageReference Include="Vixen.Ui.Renderer" Version="VIXEN_PACKAGE_VERSION" />
+        <PackageReference Include="Vixen.Graphics.RenderGraph" Version="VIXEN_PACKAGE_VERSION" />
+        <PackageReference Include="Vixen.Platform.Desktop" Version="VIXEN_PACKAGE_VERSION" />
+        <PackageReference Include="Vixen.Graphics.Vulkan" Version="VIXEN_PACKAGE_VERSION" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The four modules UiRenderer draws with, as SPIR-V, committed. Turning shader source into
+            modules belongs to Raven; until that path is wired a caller hands the renderer whatever
+            it has, and these are byte for byte the ones the engine's own samples and golden-image
+            fixtures use.
+
+            Regenerating: `glslc Shaders/ui.vert -o Shaders/ui.vert.spv`, and likewise for the three
+            fragment stages.
+        -->
+        <EmbeddedResource Include="Shaders\*.spv" />
+    </ItemGroup>
+
+</Project>

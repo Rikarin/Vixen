@@ -1,0 +1,5 @@
+bin/
+obj/
+
+# Reproducible from Assets/ and the .meta files beside them. Never committed.
+Library/
