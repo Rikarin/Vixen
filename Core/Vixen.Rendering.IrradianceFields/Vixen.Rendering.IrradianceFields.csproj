@@ -23,6 +23,13 @@
         <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
         <ProjectReference Include="..\Vixen.Core.Imaging\Vixen.Core.Imaging.csproj" />
         <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+
+        <!--
+            For the traced filler, which marches a scene's distance field to find out what a probe
+            sees. The arrow doc 19 § 3 draws from the tracing substrate into the irradiance field, and
+            it runs one way: the storage half compiles without knowing a tracer exists.
+        -->
+        <ProjectReference Include="..\Vixen.Rendering.DistanceFields\Vixen.Rendering.DistanceFields.csproj" />
     </ItemGroup>
 
     <ItemGroup>

@@ -212,9 +212,22 @@ Both failures have tests asserting that they *do* leak, so the day refinement fi
 which one it fixed. That makes refinement a leak fix rather than a memory optimisation, which is not
 how § 3 currently reads.
 
-Owed, in the order they change the picture: the two fillers; refinement, which arrives as a brick size
-stored beside the slot; the view bias; and the GPU mirror, whose sampling convention is already pinned
-from the CPU side the way `MeshDistanceField.TextureCoordinate` is.
+**Filler A now has a CPU reference**, the way the distance-field tracer had one before its shader port:
+sixty-four Fibonacci directions per probe marched through an `IDistanceField`, cosine-projected into
+L1, validity from the field's sign, a sun-shadow ray, hysteresis, and a resumable budget. The exit
+criterion above is asserted end to end against it — a field filled inside a closed box, dilated and
+synced, is dark at every interior point, because each ray hit the inside of the shell before it
+reached anything bright.
+
+It also corrected this section. **The backface vote cannot fire against an exact field**: sphere
+tracing stops where the field crosses zero on the way down and the gradient there always opposes the
+ray, so the sign answers every time. The vote earns its place against a *sampled* field, where an
+over-reported step lands past a thin wall and the surface it then finds is seen from behind. Both are
+implemented; § L2's bullet should say which one answers when, rather than naming the vote alone.
+
+Owed, in the order they change the picture: filler A on a GPU and filler B at all; refinement, which
+arrives as a brick size stored beside the slot; the view bias; and the GPU mirror, whose sampling
+convention is already pinned from the CPU side the way `MeshDistanceField.TextureCoordinate` is.
 
 ### L3 — Screen probe gather *(3.0 EM)*
 

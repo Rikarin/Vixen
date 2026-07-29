@@ -20,6 +20,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Rendering.IrradianceFields\Vixen.Rendering.IrradianceFields.csproj" />
+        <ProjectReference Include="..\Vixen.Rendering.DistanceFields\Vixen.Rendering.DistanceFields.csproj" />
     </ItemGroup>
 
     <Import Project="..\..\Testing\Vixen.Testing.props" />

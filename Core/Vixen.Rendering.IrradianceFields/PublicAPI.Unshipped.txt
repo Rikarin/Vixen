@@ -1,4 +1,7 @@
 #nullable enable
+Vixen.Rendering.IrradianceFields.IRadianceSource -> interface
+Vixen.Rendering.IrradianceFields.IRadianceSource.Sky(Vixen.Core.Mathematics.Vector3 direction) -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.IrradianceFields.IRadianceSource.Surface(Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 normal, Vixen.Core.Mathematics.Vector3 direction) -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.IrradianceFields.IrradianceBrickPool -> sealed class
 Vixen.Rendering.IrradianceFields.IrradianceBrickPool.Capacity.get -> int
 Vixen.Rendering.IrradianceFields.IrradianceBrickPool.Clear() -> void
@@ -41,6 +44,20 @@ Vixen.Rendering.IrradianceFields.IrradianceField.TryAllocate(Vixen.Core.Mathemat
 Vixen.Rendering.IrradianceFields.IrradianceField.TryGetLattice(Vixen.Core.Mathematics.Int3 lattice, out Vixen.Rendering.IrradianceFields.IrradianceProbe probe) -> bool
 Vixen.Rendering.IrradianceFields.IrradianceField.TrySample(Vixen.Core.Mathematics.Vector3 world, Vixen.Core.Mathematics.Vector3 normal, out Vixen.Rendering.IrradianceFields.IrradianceProbe probe) -> bool
 Vixen.Rendering.IrradianceFields.IrradianceField.TrySample(Vixen.Core.Mathematics.Vector3 world, out Vixen.Rendering.IrradianceFields.IrradianceProbe probe) -> bool
+Vixen.Rendering.IrradianceFields.IrradianceFillSettings -> readonly struct
+Vixen.Rendering.IrradianceFields.IrradianceFillSettings : System.IEquatable<Vixen.Rendering.IrradianceFields.IrradianceFillSettings>
+Vixen.Rendering.IrradianceFields.IrradianceFillSettings.Hysteresis.get -> float
+Vixen.Rendering.IrradianceFields.IrradianceFillSettings.Hysteresis.init -> float
+Vixen.Rendering.IrradianceFields.IrradianceFillSettings.IrradianceFillSettings() -> void
+Vixen.Rendering.IrradianceFields.IrradianceFillSettings.MaxDistance.get -> float
+Vixen.Rendering.IrradianceFields.IrradianceFillSettings.MaxDistance.init -> float
+Vixen.Rendering.IrradianceFields.IrradianceFillSettings.RayCount.get -> int
+Vixen.Rendering.IrradianceFields.IrradianceFillSettings.RayCount.init -> int
+Vixen.Rendering.IrradianceFields.IrradianceFillSettings.SunDirection.get -> Vixen.Core.Mathematics.Vector3?
+Vixen.Rendering.IrradianceFields.IrradianceFillSettings.SunDirection.init -> Vixen.Core.Mathematics.Vector3?
+Vixen.Rendering.IrradianceFields.IrradianceFillSettings.SunSoftness.get -> float
+Vixen.Rendering.IrradianceFields.IrradianceFillSettings.SunSoftness.init -> float
+Vixen.Rendering.IrradianceFields.IrradianceFillSettings.Validate() -> void
 Vixen.Rendering.IrradianceFields.IrradianceIndirection -> sealed class
 Vixen.Rendering.IrradianceFields.IrradianceIndirection.Bounds.get -> Vixen.Core.Mathematics.BoundingBox
 Vixen.Rendering.IrradianceFields.IrradianceIndirection.CellBounds(Vixen.Core.Mathematics.Int3 cell) -> Vixen.Core.Mathematics.BoundingBox
@@ -66,6 +83,13 @@ Vixen.Rendering.IrradianceFields.IrradianceProbe.SunShadow.get -> float
 Vixen.Rendering.IrradianceFields.IrradianceProbe.SunShadow.init -> float
 Vixen.Rendering.IrradianceFields.IrradianceProbe.Validity.get -> float
 Vixen.Rendering.IrradianceFields.IrradianceProbe.Validity.init -> float
+Vixen.Rendering.IrradianceFields.TracedIrradianceFiller -> sealed class
+Vixen.Rendering.IrradianceFields.TracedIrradianceFiller.Cursor.get -> int
+Vixen.Rendering.IrradianceFields.TracedIrradianceFiller.Fill(Vixen.Rendering.IrradianceFields.IrradianceField field) -> int
+Vixen.Rendering.IrradianceFields.TracedIrradianceFiller.Fill(Vixen.Rendering.IrradianceFields.IrradianceField field, int budget) -> int
+Vixen.Rendering.IrradianceFields.TracedIrradianceFiller.Settings.get -> Vixen.Rendering.IrradianceFields.IrradianceFillSettings
+Vixen.Rendering.IrradianceFields.TracedIrradianceFiller.Trace(Vixen.Core.Mathematics.Vector3 position, Vixen.Rendering.IrradianceFields.IrradianceProbe previous) -> Vixen.Rendering.IrradianceFields.IrradianceProbe
+Vixen.Rendering.IrradianceFields.TracedIrradianceFiller.TracedIrradianceFiller(Vixen.Rendering.DistanceFields.IDistanceField geometry, Vixen.Rendering.IrradianceFields.IRadianceSource radiance, Vixen.Rendering.IrradianceFields.IrradianceFillSettings? options = null) -> void
 const Vixen.Rendering.IrradianceFields.IrradianceBrickPool.BrickResolution = 4 -> int
 const Vixen.Rendering.IrradianceFields.IrradianceBrickPool.PaddedResolution = 5 -> int
 const Vixen.Rendering.IrradianceFields.IrradianceBrickPool.TexelsPerBrick = 125 -> int

@@ -127,6 +127,33 @@ It lives on the field rather than on a caller because it is a constant the shade
 does nothing for a wall thinner than a probe spacing: it moves along the *surface's* normal, and a
 floor's normal is not the direction a thin wall is thin in.
 
+## One filler exists, and it is the reference rather than the shipping one
+
+`TracedIrradianceFiller` is doc 19 § L2's filler A written where it can be checked: sixty-four
+Fibonacci directions per probe, marched through an `IDistanceField`, cosine-projected into L1. The
+shipping version is a compute shader doing N bricks a frame. This is the same arithmetic with nothing
+between it and a closed form — the arrangement `DistanceFieldTracer` already has with its Raven port,
+and it exists for the same reason: a shader can only be compared against *something*.
+
+**A distance field says where geometry is and nothing about its colour**, so `IRadianceSource` is who
+the filler asks. Separating it out keeps the tracing honest — the filler owns which directions matter
+and how much of the sphere each stands for, and nothing else. On a GPU that answer eventually comes
+from Lumen's surface cache (§ L4); until then it comes from whatever the caller can work out, which
+for a bootstrap is the previous iteration's own irradiance times an albedo.
+
+**Validity is the field's sign, with the backface vote behind it.** Doc 19 names the vote as *the*
+mechanism, and against an exact field it cannot fire at all: sphere tracing stops where the field
+crosses zero on the way down, and the gradient there always opposes the ray. The vote earns its place
+against a *sampled* field, where an over-reported step lands past a thin wall and the surface it then
+finds is seen from behind — a case the probe's own position says nothing about. Both are implemented;
+which one answers depends on how good the field is, and that is worth knowing rather than assuming.
+
+**Hysteresis defaults to zero because zero is what can be tested.** A single fill of a uniform
+environment of radiance *L* then gives a probe that lights everything with exactly *L* — the same
+closed form the projection itself is checked against, now reached through traced rays. A filler
+running per frame wants something near nine-tenths, which averages away the noise in a sixty-four-ray
+estimate at the cost of lagging a light that moved.
+
 ## The pool has a fixed capacity, and that is a decision
 
 A pool that grows reallocates the texture it is a mirror of, mid-frame, at the exact moment a scene
@@ -143,8 +170,9 @@ gets blamed on the temporal filter.
 - **Refinement.** Every cell is one brick at one size. Doc 19 § 3 wants bricks subdividing near
   geometry from renderer bounds, up to three levels; when it lands it lands as a brick size stored
   beside the slot, the way Epic's does, and the sampling formula gains a divide.
-- **The fillers.** Neither the runtime ray tracer (filler A, where `HasCompute`) nor the offline cube
-  capture (filler B) exists. This is the half they both write into.
+- **Filler A on a GPU**, and filler B at all. The CPU tracer above is filler A's reference; the
+  compute shader that does N bricks a frame, and the offline cube capture for targets without
+  compute, are both still owed.
 - **View bias.** Dilation and the normal bias are here; the offset along the view ray, which is what
   helps at grazing angles, is not.
 - **The GPU mirror.** One volume texture per coefficient plus the index texture, staged and copied,
