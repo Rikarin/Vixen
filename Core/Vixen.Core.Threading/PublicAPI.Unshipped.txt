@@ -1,0 +1,49 @@
+#nullable enable
+Vixen.Core.Threading.IJob -> interface
+Vixen.Core.Threading.IJob.Execute() -> void
+Vixen.Core.Threading.IJobParallelFor -> interface
+Vixen.Core.Threading.IJobParallelFor.Execute(int index) -> void
+Vixen.Core.Threading.JobExecutionException -> sealed class
+Vixen.Core.Threading.JobExecutionException : System.Exception
+Vixen.Core.Threading.JobExecutionException.JobExecutionException() -> void
+Vixen.Core.Threading.JobExecutionException.JobExecutionException(string message) -> void
+Vixen.Core.Threading.JobExecutionException.JobExecutionException(string message, System.Exception innerException) -> void
+Vixen.Core.Threading.JobHandle -> readonly struct
+Vixen.Core.Threading.JobHandle : System.IEquatable<Vixen.Core.Threading.JobHandle>
+Vixen.Core.Threading.JobHandle.Complete() -> void
+Vixen.Core.Threading.JobHandle.IsCompleted.get -> bool
+Vixen.Core.Threading.JobHandle.IsNull.get -> bool
+Vixen.Core.Threading.JobHandle.JobHandle() -> void
+Vixen.Core.Threading.JobScheduler -> sealed class
+Vixen.Core.Threading.JobScheduler : System.IDisposable
+Vixen.Core.Threading.JobScheduler.Complete(Vixen.Core.Threading.JobHandle handle) -> void
+Vixen.Core.Threading.JobScheduler.Dispose() -> void
+Vixen.Core.Threading.JobScheduler.Id.get -> int
+Vixen.Core.Threading.JobScheduler.IsCompleted(Vixen.Core.Threading.JobHandle handle) -> bool
+Vixen.Core.Threading.JobScheduler.IsSingleThreaded.get -> bool
+Vixen.Core.Threading.JobScheduler.IsWorkerThread.get -> bool
+Vixen.Core.Threading.JobScheduler.JobScheduler() -> void
+Vixen.Core.Threading.JobScheduler.JobScheduler(int workerCount) -> void
+Vixen.Core.Threading.JobScheduler.OutstandingJobs.get -> int
+Vixen.Core.Threading.JobScheduler.ParallelFor<TJob>(in TJob job, int length, int batchSize = 0) -> void
+Vixen.Core.Threading.JobScheduler.Schedule<TJob>(in TJob job, System.ReadOnlySpan<Vixen.Core.Threading.JobHandle> dependsOn) -> Vixen.Core.Threading.JobHandle
+Vixen.Core.Threading.JobScheduler.Schedule<TJob>(in TJob job, Vixen.Core.Threading.JobHandle dependsOn = default(Vixen.Core.Threading.JobHandle)) -> Vixen.Core.Threading.JobHandle
+Vixen.Core.Threading.JobScheduler.ScheduleParallel<TJob>(in TJob job, int length, int batchSize = 0, Vixen.Core.Threading.JobHandle dependsOn = default(Vixen.Core.Threading.JobHandle)) -> Vixen.Core.Threading.JobHandle
+Vixen.Core.Threading.JobScheduler.ScheduleParallel<TJob>(in TJob job, int length, int batchSize, System.ReadOnlySpan<Vixen.Core.Threading.JobHandle> dependsOn) -> Vixen.Core.Threading.JobHandle
+Vixen.Core.Threading.JobScheduler.WorkerCount.get -> int
+Vixen.Core.Threading.MainThreadDispatcher -> sealed class
+Vixen.Core.Threading.MainThreadDispatcher.AssertMainThread() -> void
+Vixen.Core.Threading.MainThreadDispatcher.Drain() -> int
+Vixen.Core.Threading.MainThreadDispatcher.IsMainThread.get -> bool
+Vixen.Core.Threading.MainThreadDispatcher.MainThreadDispatcher() -> void
+Vixen.Core.Threading.MainThreadDispatcher.MainThreadDispatcher(int threadId) -> void
+Vixen.Core.Threading.MainThreadDispatcher.PendingCount.get -> int
+Vixen.Core.Threading.MainThreadDispatcher.Post(System.Action action) -> void
+Vixen.Core.Threading.MainThreadDispatcher.Post<TState>(System.Action<TState> action, TState state) -> void
+Vixen.Core.Threading.MainThreadDispatcher.Send(System.Action action) -> void
+Vixen.Core.Threading.MainThreadDispatcher.ThreadId.get -> int
+const Vixen.Core.Threading.JobScheduler.MaxJobsInFlight = 1024 -> int
+const Vixen.Core.Threading.JobScheduler.MaxSchedulers = 8 -> int
+const Vixen.Core.Threading.JobScheduler.SafetyChecksEnabled = false -> bool
+override Vixen.Core.Threading.JobHandle.ToString() -> string
+static Vixen.Core.Threading.JobHandle.Combine(params System.ReadOnlySpan<Vixen.Core.Threading.JobHandle> handles) -> Vixen.Core.Threading.JobHandle

@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <OutputType>Exe</OutputType>
+        <RootNamespace>Vixen.ApiCheck</RootNamespace>
+        <AssemblyName>vixen-api-check</AssemblyName>
+
+        <!--
+            Not shipped. This is the subject of `nuke CheckApi` and nothing else: a package that
+            diffs the public surface of other packages is of no use to anybody consuming the engine,
+            and shipping it would put Roslyn in a restore graph that has no other reason to carry it.
+        -->
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            Roslyn reads the metadata and formats the signatures. The alternative — System.Reflection
+            over a MetadataLoadContext — would mean writing a C# signature formatter by hand, and the
+            output has to agree with what Microsoft.CodeAnalysis.PublicApiAnalyzers writes, because
+            the baseline files this tool maintains are that analyzer's file format. Using the same
+            library that produces those files is the cheapest way to keep the two in agreement.
+        -->
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.ApiCheck.Tests" />
+    </ItemGroup>
+
+</Project>

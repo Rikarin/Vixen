@@ -1,0 +1,19 @@
+#nullable enable
+Vixen.Net.Transport.Composite.CompositeTransport -> sealed class
+Vixen.Net.Transport.Composite.CompositeTransport : System.IDisposable
+Vixen.Net.Transport.Composite.CompositeTransport : Vixen.Net.Transport.ITransport
+Vixen.Net.Transport.Composite.CompositeTransport.Capabilities.get -> Vixen.Net.Transport.TransportCapabilities
+Vixen.Net.Transport.Composite.CompositeTransport.ClientState.get -> Vixen.Net.Transport.TransportState
+Vixen.Net.Transport.Composite.CompositeTransport.ClientTransport.get -> Vixen.Net.Transport.ITransport
+Vixen.Net.Transport.Composite.CompositeTransport.CompositeTransport(System.Collections.Generic.IReadOnlyList<Vixen.Net.Transport.ITransport> transports, int clientTransport = 0) -> void
+Vixen.Net.Transport.Composite.CompositeTransport.Disconnect(Vixen.Net.ConnectionId connection) -> void
+Vixen.Net.Transport.Composite.CompositeTransport.Dispose() -> void
+Vixen.Net.Transport.Composite.CompositeTransport.Poll(System.TimeSpan elapsed, Vixen.Net.Transport.ITransportEvents events) -> void
+Vixen.Net.Transport.Composite.CompositeTransport.SendToClient(Vixen.Net.ConnectionId connection, System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> void
+Vixen.Net.Transport.Composite.CompositeTransport.SendToServer(System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> void
+Vixen.Net.Transport.Composite.CompositeTransport.ServerState.get -> Vixen.Net.Transport.TransportState
+Vixen.Net.Transport.Composite.CompositeTransport.StartClient() -> void
+Vixen.Net.Transport.Composite.CompositeTransport.StartServer() -> void
+Vixen.Net.Transport.Composite.CompositeTransport.StopClient() -> void
+Vixen.Net.Transport.Composite.CompositeTransport.StopServer() -> void
+Vixen.Net.Transport.Composite.CompositeTransport.Transports.get -> System.Collections.Generic.IReadOnlyList<Vixen.Net.Transport.ITransport>

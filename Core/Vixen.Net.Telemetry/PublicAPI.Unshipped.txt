@@ -1,0 +1,26 @@
+#nullable enable
+Vixen.Net.Telemetry.NetworkTelemetry -> sealed class
+Vixen.Net.Telemetry.NetworkTelemetry : System.IDisposable
+Vixen.Net.Telemetry.NetworkTelemetry.Dispose() -> void
+Vixen.Net.Telemetry.NetworkTelemetry.Flush(System.TimeSpan timeout) -> bool
+Vixen.Net.Telemetry.NetworkTelemetry.Metrics.get -> Vixen.Net.Diagnostics.NetworkMetrics
+Vixen.Net.Telemetry.TelemetryOptions -> sealed record
+Vixen.Net.Telemetry.TelemetryOptions : System.IEquatable<Vixen.Net.Telemetry.TelemetryOptions>
+Vixen.Net.Telemetry.TelemetryOptions.AlsoWriteToConsole.get -> bool
+Vixen.Net.Telemetry.TelemetryOptions.AlsoWriteToConsole.init -> bool
+Vixen.Net.Telemetry.TelemetryOptions.Attributes.get -> System.Collections.Generic.IReadOnlyDictionary<string, object>?
+Vixen.Net.Telemetry.TelemetryOptions.Attributes.init -> System.Collections.Generic.IReadOnlyDictionary<string, object>?
+Vixen.Net.Telemetry.TelemetryOptions.Endpoint.get -> System.Uri?
+Vixen.Net.Telemetry.TelemetryOptions.Endpoint.init -> System.Uri?
+Vixen.Net.Telemetry.TelemetryOptions.ExportInterval.get -> System.TimeSpan
+Vixen.Net.Telemetry.TelemetryOptions.ExportInterval.init -> System.TimeSpan
+Vixen.Net.Telemetry.TelemetryOptions.IncludeRuntimeMetrics.get -> bool
+Vixen.Net.Telemetry.TelemetryOptions.IncludeRuntimeMetrics.init -> bool
+Vixen.Net.Telemetry.TelemetryOptions.ServiceInstanceId.get -> string?
+Vixen.Net.Telemetry.TelemetryOptions.ServiceInstanceId.init -> string?
+Vixen.Net.Telemetry.TelemetryOptions.ServiceName.get -> string
+Vixen.Net.Telemetry.TelemetryOptions.ServiceName.init -> string
+Vixen.Net.Telemetry.TelemetryOptions.ServiceVersion.get -> string?
+Vixen.Net.Telemetry.TelemetryOptions.ServiceVersion.init -> string?
+Vixen.Net.Telemetry.TelemetryOptions.TelemetryOptions() -> void
+static Vixen.Net.Telemetry.NetworkTelemetry.Start(Vixen.Net.Telemetry.TelemetryOptions? options = null) -> Vixen.Net.Telemetry.NetworkTelemetry

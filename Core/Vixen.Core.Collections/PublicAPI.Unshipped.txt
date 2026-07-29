@@ -1,0 +1,175 @@
+#nullable enable
+Vixen.Core.Collections.BitSet -> sealed class
+Vixen.Core.Collections.BitSet.BitSet(int bitCapacity = 64) -> void
+Vixen.Core.Collections.BitSet.Capacity.get -> int
+Vixen.Core.Collections.BitSet.Clear() -> void
+Vixen.Core.Collections.BitSet.Clear(int index) -> void
+Vixen.Core.Collections.BitSet.Contains(Vixen.Core.Collections.BitSet other) -> bool
+Vixen.Core.Collections.BitSet.Enumerator -> struct
+Vixen.Core.Collections.BitSet.Enumerator.Enumerator() -> void
+Vixen.Core.Collections.BitSet.Enumerator.MoveNext() -> bool
+Vixen.Core.Collections.BitSet.ExceptWith(Vixen.Core.Collections.BitSet other) -> void
+Vixen.Core.Collections.BitSet.GetEnumerator() -> Vixen.Core.Collections.BitSet.Enumerator
+Vixen.Core.Collections.BitSet.IntersectWith(Vixen.Core.Collections.BitSet other) -> void
+Vixen.Core.Collections.BitSet.Intersects(Vixen.Core.Collections.BitSet other) -> bool
+Vixen.Core.Collections.BitSet.IsEmpty() -> bool
+Vixen.Core.Collections.BitSet.PopCount() -> int
+Vixen.Core.Collections.BitSet.Set(int index) -> void
+Vixen.Core.Collections.BitSet.UnionWith(Vixen.Core.Collections.BitSet other) -> void
+Vixen.Core.Collections.BitSet.Words.get -> System.ReadOnlySpan<ulong>
+Vixen.Core.Collections.BitSet.this[int index].get -> bool
+Vixen.Core.Collections.BitSet.this[int index].set -> bool
+Vixen.Core.Collections.Buffer16<T> -> struct
+Vixen.Core.Collections.Buffer16<T> : Vixen.Core.Collections.IInlineBuffer<T>
+Vixen.Core.Collections.Buffer16<T>.Buffer16() -> void
+Vixen.Core.Collections.Buffer32<T> -> struct
+Vixen.Core.Collections.Buffer32<T> : Vixen.Core.Collections.IInlineBuffer<T>
+Vixen.Core.Collections.Buffer32<T>.Buffer32() -> void
+Vixen.Core.Collections.Buffer4<T> -> struct
+Vixen.Core.Collections.Buffer4<T> : Vixen.Core.Collections.IInlineBuffer<T>
+Vixen.Core.Collections.Buffer4<T>.Buffer4() -> void
+Vixen.Core.Collections.Buffer8<T> -> struct
+Vixen.Core.Collections.Buffer8<T> : Vixen.Core.Collections.IInlineBuffer<T>
+Vixen.Core.Collections.Buffer8<T>.Buffer8() -> void
+Vixen.Core.Collections.ChunkedArray<T> -> sealed class
+Vixen.Core.Collections.ChunkedArray<T>.Add(T item) -> int
+Vixen.Core.Collections.ChunkedArray<T>.ChunkCount.get -> int
+Vixen.Core.Collections.ChunkedArray<T>.ChunkSize.get -> int
+Vixen.Core.Collections.ChunkedArray<T>.ChunkedArray(int chunkSize = 1024) -> void
+Vixen.Core.Collections.ChunkedArray<T>.Clear() -> void
+Vixen.Core.Collections.ChunkedArray<T>.Count.get -> int
+Vixen.Core.Collections.ChunkedArray<T>.Enumerator -> struct
+Vixen.Core.Collections.ChunkedArray<T>.Enumerator.Enumerator() -> void
+Vixen.Core.Collections.ChunkedArray<T>.Enumerator.MoveNext() -> bool
+Vixen.Core.Collections.ChunkedArray<T>.GetChunk(int chunkIndex) -> System.Span<T>
+Vixen.Core.Collections.ChunkedArray<T>.GetEnumerator() -> Vixen.Core.Collections.ChunkedArray<T>.Enumerator
+Vixen.Core.Collections.ChunkedArray<T>.Grow(int count) -> void
+Vixen.Core.Collections.ChunkedArray<T>.Reset() -> void
+Vixen.Core.Collections.ChunkedArray<T>.this[int index].get -> T
+Vixen.Core.Collections.FreeList<T> -> sealed class
+Vixen.Core.Collections.FreeList<T>.Add(T item) -> int
+Vixen.Core.Collections.FreeList<T>.Clear() -> void
+Vixen.Core.Collections.FreeList<T>.Count.get -> int
+Vixen.Core.Collections.FreeList<T>.Enumerator -> struct
+Vixen.Core.Collections.FreeList<T>.Enumerator.Enumerator() -> void
+Vixen.Core.Collections.FreeList<T>.Enumerator.MoveNext() -> bool
+Vixen.Core.Collections.FreeList<T>.FreeList(int capacity = 16) -> void
+Vixen.Core.Collections.FreeList<T>.GetEnumerator() -> Vixen.Core.Collections.FreeList<T>.Enumerator
+Vixen.Core.Collections.FreeList<T>.IsLive(int index) -> bool
+Vixen.Core.Collections.FreeList<T>.Release(int index) -> void
+Vixen.Core.Collections.FreeList<T>.SlotCount.get -> int
+Vixen.Core.Collections.FreeList<T>.this[int index].get -> T?
+Vixen.Core.Collections.Handle<T> -> readonly struct
+Vixen.Core.Collections.Handle<T> : System.IComparable<Vixen.Core.Collections.Handle<T>>
+Vixen.Core.Collections.Handle<T> : System.IEquatable<Vixen.Core.Collections.Handle<T>>
+Vixen.Core.Collections.Handle<T> : System.IFormattable
+Vixen.Core.Collections.Handle<T>.CompareTo(Vixen.Core.Collections.Handle<T> other) -> int
+Vixen.Core.Collections.Handle<T>.Generation.get -> uint
+Vixen.Core.Collections.Handle<T>.Generation.init -> uint
+Vixen.Core.Collections.Handle<T>.Handle() -> void
+Vixen.Core.Collections.Handle<T>.Handle(uint Index, uint Generation) -> void
+Vixen.Core.Collections.Handle<T>.Index.get -> uint
+Vixen.Core.Collections.Handle<T>.Index.init -> uint
+Vixen.Core.Collections.Handle<T>.IsNull.get -> bool
+Vixen.Core.Collections.Handle<T>.Packed.get -> ulong
+Vixen.Core.Collections.Handle<T>.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.Collections.HandlePool<T> -> sealed class
+Vixen.Core.Collections.HandlePool<T>.Add(T item) -> Vixen.Core.Collections.Handle<T>
+Vixen.Core.Collections.HandlePool<T>.Capacity.get -> int
+Vixen.Core.Collections.HandlePool<T>.Clear() -> void
+Vixen.Core.Collections.HandlePool<T>.Contains(Vixen.Core.Collections.Handle<T> handle) -> bool
+Vixen.Core.Collections.HandlePool<T>.Count.get -> int
+Vixen.Core.Collections.HandlePool<T>.Enumerator -> struct
+Vixen.Core.Collections.HandlePool<T>.Enumerator.Enumerator() -> void
+Vixen.Core.Collections.HandlePool<T>.Enumerator.MoveNext() -> bool
+Vixen.Core.Collections.HandlePool<T>.Get(Vixen.Core.Collections.Handle<T> handle) -> T
+Vixen.Core.Collections.HandlePool<T>.GetEnumerator() -> Vixen.Core.Collections.HandlePool<T>.Enumerator
+Vixen.Core.Collections.HandlePool<T>.GetReference(Vixen.Core.Collections.Handle<T> handle) -> T?
+Vixen.Core.Collections.HandlePool<T>.HandlePool(int capacity = 16) -> void
+Vixen.Core.Collections.HandlePool<T>.Remove(Vixen.Core.Collections.Handle<T> handle) -> bool
+Vixen.Core.Collections.HandlePool<T>.TryGet(Vixen.Core.Collections.Handle<T> handle, out T item) -> bool
+Vixen.Core.Collections.IInlineBuffer<T> -> interface
+Vixen.Core.Collections.IInlineBuffer<T>.Capacity.get -> int
+Vixen.Core.Collections.IndexedPriorityQueue<TPriority> -> sealed class
+Vixen.Core.Collections.IndexedPriorityQueue<TPriority>.Clear() -> void
+Vixen.Core.Collections.IndexedPriorityQueue<TPriority>.Contains(int id) -> bool
+Vixen.Core.Collections.IndexedPriorityQueue<TPriority>.Count.get -> int
+Vixen.Core.Collections.IndexedPriorityQueue<TPriority>.Enqueue(int id, TPriority priority) -> void
+Vixen.Core.Collections.IndexedPriorityQueue<TPriority>.IdCapacity.get -> int
+Vixen.Core.Collections.IndexedPriorityQueue<TPriority>.IndexedPriorityQueue(int idCapacity = 64, int capacity = 16) -> void
+Vixen.Core.Collections.IndexedPriorityQueue<TPriority>.IsEmpty.get -> bool
+Vixen.Core.Collections.IndexedPriorityQueue<TPriority>.Remove(int id) -> bool
+Vixen.Core.Collections.IndexedPriorityQueue<TPriority>.SetPriority(int id, TPriority priority) -> void
+Vixen.Core.Collections.IndexedPriorityQueue<TPriority>.TryDecreasePriority(int id, TPriority priority) -> bool
+Vixen.Core.Collections.IndexedPriorityQueue<TPriority>.TryDequeue(out int id, out TPriority priority) -> bool
+Vixen.Core.Collections.IndexedPriorityQueue<TPriority>.TryPeek(out int id, out TPriority priority) -> bool
+Vixen.Core.Collections.RingBuffer<T> -> sealed class
+Vixen.Core.Collections.RingBuffer<T>.Capacity.get -> int
+Vixen.Core.Collections.RingBuffer<T>.Clear() -> void
+Vixen.Core.Collections.RingBuffer<T>.CopyTo(System.Span<T> destination) -> int
+Vixen.Core.Collections.RingBuffer<T>.Count.get -> int
+Vixen.Core.Collections.RingBuffer<T>.Enqueue(T item) -> void
+Vixen.Core.Collections.RingBuffer<T>.Enumerator -> struct
+Vixen.Core.Collections.RingBuffer<T>.Enumerator.Enumerator() -> void
+Vixen.Core.Collections.RingBuffer<T>.Enumerator.MoveNext() -> bool
+Vixen.Core.Collections.RingBuffer<T>.GetEnumerator() -> Vixen.Core.Collections.RingBuffer<T>.Enumerator
+Vixen.Core.Collections.RingBuffer<T>.IsEmpty.get -> bool
+Vixen.Core.Collections.RingBuffer<T>.IsFull.get -> bool
+Vixen.Core.Collections.RingBuffer<T>.OverwrittenCount.get -> long
+Vixen.Core.Collections.RingBuffer<T>.RingBuffer(int capacity) -> void
+Vixen.Core.Collections.RingBuffer<T>.TryDequeue(out T item) -> bool
+Vixen.Core.Collections.RingBuffer<T>.TryEnqueue(T item) -> bool
+Vixen.Core.Collections.RingBuffer<T>.TryPeek(out T item) -> bool
+Vixen.Core.Collections.RingBuffer<T>.this[int index].get -> T
+Vixen.Core.Collections.SmallList<T, TBuffer> -> struct
+Vixen.Core.Collections.SmallList<T, TBuffer> : System.IDisposable
+Vixen.Core.Collections.SmallList<T, TBuffer>.Add(T item) -> void
+Vixen.Core.Collections.SmallList<T, TBuffer>.AddRange(System.ReadOnlySpan<T> items) -> void
+Vixen.Core.Collections.SmallList<T, TBuffer>.Clear() -> void
+Vixen.Core.Collections.SmallList<T, TBuffer>.Contains(T item) -> bool
+Vixen.Core.Collections.SmallList<T, TBuffer>.Dispose() -> void
+Vixen.Core.Collections.SmallList<T, TBuffer>.GetEnumerator() -> System.Span<T>.Enumerator
+Vixen.Core.Collections.SmallList<T, TBuffer>.RemoveAt(int index) -> void
+Vixen.Core.Collections.SmallList<T, TBuffer>.RemoveAtSwapBack(int index) -> void
+Vixen.Core.Collections.SmallList<T, TBuffer>.SmallList() -> void
+Vixen.Core.Collections.SmallList<T, TBuffer>.Span.get -> System.Span<T>
+Vixen.Core.Collections.SmallList<T, TBuffer>.ToArray() -> T[]
+Vixen.Core.Collections.SmallList<T, TBuffer>.this[int index].get -> T
+Vixen.Core.Collections.SparseSet<T> -> sealed class
+Vixen.Core.Collections.SparseSet<T>.Clear() -> void
+Vixen.Core.Collections.SparseSet<T>.Contains(int key) -> bool
+Vixen.Core.Collections.SparseSet<T>.Count.get -> int
+Vixen.Core.Collections.SparseSet<T>.Enumerator -> struct
+Vixen.Core.Collections.SparseSet<T>.Enumerator.Enumerator() -> void
+Vixen.Core.Collections.SparseSet<T>.Enumerator.MoveNext() -> bool
+Vixen.Core.Collections.SparseSet<T>.GetEnumerator() -> Vixen.Core.Collections.SparseSet<T>.Enumerator
+Vixen.Core.Collections.SparseSet<T>.GetReference(int key) -> T
+Vixen.Core.Collections.SparseSet<T>.KeyCapacity.get -> int
+Vixen.Core.Collections.SparseSet<T>.Keys.get -> System.ReadOnlySpan<int>
+Vixen.Core.Collections.SparseSet<T>.Remove(int key) -> bool
+Vixen.Core.Collections.SparseSet<T>.Set(int key, T value) -> void
+Vixen.Core.Collections.SparseSet<T>.SparseSet(int keyCapacity = 64, int capacity = 16) -> void
+Vixen.Core.Collections.SparseSet<T>.TryGetValue(int key, out T value) -> bool
+Vixen.Core.Collections.SparseSet<T>.Values.get -> System.Span<T>
+override Vixen.Core.Collections.Handle<T>.GetHashCode() -> int
+override Vixen.Core.Collections.Handle<T>.ToString() -> string
+readonly Vixen.Core.Collections.BitSet.Enumerator.Current.get -> int
+readonly Vixen.Core.Collections.ChunkedArray<T>.Enumerator.Current.get -> T
+readonly Vixen.Core.Collections.FreeList<T>.Enumerator.Current.get -> (int Index, T Item)
+readonly Vixen.Core.Collections.HandlePool<T>.Enumerator.Current.get -> (Vixen.Core.Collections.Handle<T> Handle, T Item)
+readonly Vixen.Core.Collections.RingBuffer<T>.Enumerator.Current.get -> T
+readonly Vixen.Core.Collections.SmallList<T, TBuffer>.Count.get -> int
+readonly Vixen.Core.Collections.SmallList<T, TBuffer>.HasSpilled.get -> bool
+readonly Vixen.Core.Collections.SmallList<T, TBuffer>.IsEmpty.get -> bool
+readonly Vixen.Core.Collections.SparseSet<T>.Enumerator.Current.get -> (int Key, T Value)
+static Vixen.Core.Collections.Buffer16<T>.Capacity.get -> int
+static Vixen.Core.Collections.Buffer32<T>.Capacity.get -> int
+static Vixen.Core.Collections.Buffer4<T>.Capacity.get -> int
+static Vixen.Core.Collections.Buffer8<T>.Capacity.get -> int
+static Vixen.Core.Collections.Handle<T>.FromPacked(ulong packed) -> Vixen.Core.Collections.Handle<T>
+static Vixen.Core.Collections.Handle<T>.Null.get -> Vixen.Core.Collections.Handle<T>
+static Vixen.Core.Collections.Handle<T>.operator <(Vixen.Core.Collections.Handle<T> left, Vixen.Core.Collections.Handle<T> right) -> bool
+static Vixen.Core.Collections.Handle<T>.operator <=(Vixen.Core.Collections.Handle<T> left, Vixen.Core.Collections.Handle<T> right) -> bool
+static Vixen.Core.Collections.Handle<T>.operator >(Vixen.Core.Collections.Handle<T> left, Vixen.Core.Collections.Handle<T> right) -> bool
+static Vixen.Core.Collections.Handle<T>.operator >=(Vixen.Core.Collections.Handle<T> left, Vixen.Core.Collections.Handle<T> right) -> bool
+static Vixen.Core.Collections.SmallList<T, TBuffer>.InlineCapacity.get -> int

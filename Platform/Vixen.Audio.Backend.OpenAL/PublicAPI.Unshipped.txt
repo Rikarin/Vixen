@@ -1,0 +1,14 @@
+#nullable enable
+Vixen.Audio.Backend.OpenAL.OpenALBackend -> sealed class
+Vixen.Audio.Backend.OpenAL.OpenALBackend : System.IDisposable
+Vixen.Audio.Backend.OpenAL.OpenALBackend : Vixen.Audio.Devices.IAudioBackend
+Vixen.Audio.Backend.OpenAL.OpenALBackend.Dispose() -> void
+Vixen.Audio.Backend.OpenAL.OpenALBackend.EnumerateCaptureDevices() -> System.Collections.Generic.IReadOnlyList<Vixen.Audio.Devices.AudioDeviceInfo>
+Vixen.Audio.Backend.OpenAL.OpenALBackend.EnumerateDevices() -> System.Collections.Generic.IReadOnlyList<Vixen.Audio.Devices.AudioDeviceInfo>
+Vixen.Audio.Backend.OpenAL.OpenALBackend.IsAvailable.get -> bool
+Vixen.Audio.Backend.OpenAL.OpenALBackend.Name.get -> string
+Vixen.Audio.Backend.OpenAL.OpenALBackend.OpenALBackend(Microsoft.Extensions.Logging.ILogger? logger = null) -> void
+Vixen.Audio.Backend.OpenAL.OpenALBackend.OpenCaptureDevice(in Vixen.Audio.Devices.AudioCaptureOptions options) -> Vixen.Audio.Devices.IAudioCaptureDevice
+Vixen.Audio.Backend.OpenAL.OpenALBackend.OpenDevice(in Vixen.Audio.Devices.AudioDeviceOptions options) -> Vixen.Audio.Devices.IAudioDevice
+Vixen.Audio.Backend.OpenAL.OpenALBackend.SupportsCapture.get -> bool
+static Vixen.Audio.Backend.OpenAL.OpenALBackend.LibraryPath.get -> string?

@@ -1,0 +1,324 @@
+#nullable enable
+Vixen.Vfx.ParticleBuffer -> sealed class
+Vixen.Vfx.ParticleBuffer : System.IDisposable
+Vixen.Vfx.ParticleBuffer.Age.get -> System.Span<float>
+Vixen.Vfx.ParticleBuffer.AngularVelocity.get -> System.Span<float>
+Vixen.Vfx.ParticleBuffer.Attributes.get -> Vixen.Vfx.VfxAttribute
+Vixen.Vfx.ParticleBuffer.Capacity.get -> int
+Vixen.Vfx.ParticleBuffer.Clear() -> void
+Vixen.Vfx.ParticleBuffer.Colour.get -> System.Span<Vixen.Core.Mathematics.Vector4>
+Vixen.Vfx.ParticleBuffer.Count.get -> int
+Vixen.Vfx.ParticleBuffer.Custom(int slot) -> System.Span<float>
+Vixen.Vfx.ParticleBuffer.CustomCount.get -> int
+Vixen.Vfx.ParticleBuffer.Dispose() -> void
+Vixen.Vfx.ParticleBuffer.Free.get -> int
+Vixen.Vfx.ParticleBuffer.Has(Vixen.Vfx.VfxAttribute attribute) -> bool
+Vixen.Vfx.ParticleBuffer.Identifier.get -> System.Span<uint>
+Vixen.Vfx.ParticleBuffer.Lanes(int slot) -> int
+Vixen.Vfx.ParticleBuffer.Lifetime.get -> System.Span<float>
+Vixen.Vfx.ParticleBuffer.NextIdentifier.get -> uint
+Vixen.Vfx.ParticleBuffer.ParticleBuffer(Vixen.Vfx.VfxAttribute attributes, int capacity, System.ReadOnlySpan<Vixen.Vfx.VfxCustomAttribute> declared = default(System.ReadOnlySpan<Vixen.Vfx.VfxCustomAttribute>)) -> void
+Vixen.Vfx.ParticleBuffer.Position.get -> System.Span<Vixen.Core.Mathematics.Vector3>
+Vixen.Vfx.ParticleBuffer.Reap() -> int
+Vixen.Vfx.ParticleBuffer.Reap(System.Span<Vixen.Core.Mathematics.Vector3> graveyard) -> int
+Vixen.Vfx.ParticleBuffer.RemoveAt(int index) -> void
+Vixen.Vfx.ParticleBuffer.Rotation.get -> System.Span<float>
+Vixen.Vfx.ParticleBuffer.Size.get -> System.Span<float>
+Vixen.Vfx.ParticleBuffer.Spawn(int count, out int first) -> int
+Vixen.Vfx.ParticleBuffer.Velocity.get -> System.Span<Vixen.Core.Mathematics.Vector3>
+Vixen.Vfx.ParticleInstance -> readonly struct
+Vixen.Vfx.ParticleInstance : System.IEquatable<Vixen.Vfx.ParticleInstance>
+Vixen.Vfx.ParticleInstance.Colour.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Vfx.ParticleInstance.Colour.init -> Vixen.Core.Mathematics.Vector4
+Vixen.Vfx.ParticleInstance.ParticleInstance() -> void
+Vixen.Vfx.ParticleInstance.ParticleInstance(Vixen.Core.Mathematics.Vector4 Row0, Vixen.Core.Mathematics.Vector4 Row1, Vixen.Core.Mathematics.Vector4 Row2, Vixen.Core.Mathematics.Vector4 Colour) -> void
+Vixen.Vfx.ParticleInstance.Row0.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Vfx.ParticleInstance.Row0.init -> Vixen.Core.Mathematics.Vector4
+Vixen.Vfx.ParticleInstance.Row1.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Vfx.ParticleInstance.Row1.init -> Vixen.Core.Mathematics.Vector4
+Vixen.Vfx.ParticleInstance.Row2.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Vfx.ParticleInstance.Row2.init -> Vixen.Core.Mathematics.Vector4
+Vixen.Vfx.ParticleVertex -> readonly struct
+Vixen.Vfx.ParticleVertex : System.IEquatable<Vixen.Vfx.ParticleVertex>
+Vixen.Vfx.ParticleVertex.Colour.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Vfx.ParticleVertex.Colour.init -> Vixen.Core.Mathematics.Vector4
+Vixen.Vfx.ParticleVertex.ParticleVertex() -> void
+Vixen.Vfx.ParticleVertex.ParticleVertex(Vixen.Core.Mathematics.Vector3 Position, Vixen.Core.Mathematics.Vector2 Texture, Vixen.Core.Mathematics.Vector4 Colour) -> void
+Vixen.Vfx.ParticleVertex.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Vfx.ParticleVertex.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Vfx.ParticleVertex.Texture.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Vfx.ParticleVertex.Texture.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Vfx.VfxAttribute -> enum : uint
+Vixen.Vfx.VfxAttribute.Age = 32 -> Vixen.Vfx.VfxAttribute
+Vixen.Vfx.VfxAttribute.AngularVelocity = 128 -> Vixen.Vfx.VfxAttribute
+Vixen.Vfx.VfxAttribute.Colour = 8 -> Vixen.Vfx.VfxAttribute
+Vixen.Vfx.VfxAttribute.Identifier = 256 -> Vixen.Vfx.VfxAttribute
+Vixen.Vfx.VfxAttribute.Lifetime = 16 -> Vixen.Vfx.VfxAttribute
+Vixen.Vfx.VfxAttribute.None = 0 -> Vixen.Vfx.VfxAttribute
+Vixen.Vfx.VfxAttribute.Position = 1 -> Vixen.Vfx.VfxAttribute
+Vixen.Vfx.VfxAttribute.Rotation = 64 -> Vixen.Vfx.VfxAttribute
+Vixen.Vfx.VfxAttribute.Size = 4 -> Vixen.Vfx.VfxAttribute
+Vixen.Vfx.VfxAttribute.Velocity = 2 -> Vixen.Vfx.VfxAttribute
+Vixen.Vfx.VfxAttribute.VfxAttribute() -> void
+Vixen.Vfx.VfxAttributeType -> enum : int
+Vixen.Vfx.VfxAttributeType.Float = 0 -> Vixen.Vfx.VfxAttributeType
+Vixen.Vfx.VfxAttributeType.Float3 = 1 -> Vixen.Vfx.VfxAttributeType
+Vixen.Vfx.VfxAttributeType.Float4 = 2 -> Vixen.Vfx.VfxAttributeType
+Vixen.Vfx.VfxAttributeType.UInt = 3 -> Vixen.Vfx.VfxAttributeType
+Vixen.Vfx.VfxAttributeType.VfxAttributeType() -> void
+Vixen.Vfx.VfxAttributes -> static class
+Vixen.Vfx.VfxBillboardAlignment -> enum : int
+Vixen.Vfx.VfxBillboardAlignment.Camera = 0 -> Vixen.Vfx.VfxBillboardAlignment
+Vixen.Vfx.VfxBillboardAlignment.FixedAxis = 2 -> Vixen.Vfx.VfxBillboardAlignment
+Vixen.Vfx.VfxBillboardAlignment.Velocity = 1 -> Vixen.Vfx.VfxBillboardAlignment
+Vixen.Vfx.VfxBillboardAlignment.VfxBillboardAlignment() -> void
+Vixen.Vfx.VfxCamera -> readonly struct
+Vixen.Vfx.VfxCamera : System.IEquatable<Vixen.Vfx.VfxCamera>
+Vixen.Vfx.VfxCamera.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Vfx.VfxCamera.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Vfx.VfxCamera.Right.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Vfx.VfxCamera.Right.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Vfx.VfxCamera.Up.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Vfx.VfxCamera.Up.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Vfx.VfxCamera.VfxCamera() -> void
+Vixen.Vfx.VfxCamera.VfxCamera(Vixen.Core.Mathematics.Vector3 Position, Vixen.Core.Mathematics.Vector3 Right, Vixen.Core.Mathematics.Vector3 Up) -> void
+Vixen.Vfx.VfxCompiledGraph -> sealed class
+Vixen.Vfx.VfxCompiledGraph.Attributes.get -> Vixen.Vfx.VfxAttribute
+Vixen.Vfx.VfxCompiledGraph.BytesPerParticle.get -> int
+Vixen.Vfx.VfxCompiledGraph.Capacity.get -> int
+Vixen.Vfx.VfxCompiledGraph.Customs.get -> Vixen.Vfx.VfxCustomAttribute[]
+Vixen.Vfx.VfxCompiledGraph.Initializers.get -> Vixen.Vfx.VfxOperation[]
+Vixen.Vfx.VfxCompiledGraph.Renderer.get -> Vixen.Vfx.VfxRenderer?
+Vixen.Vfx.VfxCompiledGraph.SlotOf(string name) -> int
+Vixen.Vfx.VfxCompiledGraph.Spawners.get -> Vixen.Vfx.VfxSpawner[]
+Vixen.Vfx.VfxCompiledGraph.Updaters.get -> Vixen.Vfx.VfxOperation[]
+Vixen.Vfx.VfxCustomAttribute -> readonly struct
+Vixen.Vfx.VfxCustomAttribute : System.IEquatable<Vixen.Vfx.VfxCustomAttribute>
+Vixen.Vfx.VfxCustomAttribute.Name.get -> string
+Vixen.Vfx.VfxCustomAttribute.Name.init -> string
+Vixen.Vfx.VfxCustomAttribute.Type.get -> Vixen.Vfx.VfxAttributeType
+Vixen.Vfx.VfxCustomAttribute.Type.init -> Vixen.Vfx.VfxAttributeType
+Vixen.Vfx.VfxCustomAttribute.VfxCustomAttribute() -> void
+Vixen.Vfx.VfxCustomAttribute.VfxCustomAttribute(string Name, Vixen.Vfx.VfxAttributeType Type) -> void
+Vixen.Vfx.VfxEmitEvent -> enum : int
+Vixen.Vfx.VfxEmitEvent.Birth = 0 -> Vixen.Vfx.VfxEmitEvent
+Vixen.Vfx.VfxEmitEvent.Death = 1 -> Vixen.Vfx.VfxEmitEvent
+Vixen.Vfx.VfxEmitEvent.Trail = 2 -> Vixen.Vfx.VfxEmitEvent
+Vixen.Vfx.VfxEmitEvent.VfxEmitEvent() -> void
+Vixen.Vfx.VfxGeometryBuilder -> sealed class
+Vixen.Vfx.VfxGeometryBuilder.Build(Vixen.Vfx.VfxSystem system, in Vixen.Vfx.VfxCamera camera, System.Span<Vixen.Vfx.ParticleVertex> vertices) -> int
+Vixen.Vfx.VfxGeometryBuilder.BuildInstances(Vixen.Vfx.VfxSystem system, in Vixen.Vfx.VfxCamera camera, System.Span<Vixen.Vfx.ParticleInstance> instances) -> int
+Vixen.Vfx.VfxGeometryBuilder.BuildRibbons(Vixen.Vfx.VfxSystem system, in Vixen.Vfx.VfxCamera camera, System.Span<Vixen.Vfx.ParticleVertex> vertices, System.Span<uint> indices, out int indexCount) -> int
+Vixen.Vfx.VfxGeometryBuilder.LastCount.get -> int
+Vixen.Vfx.VfxGeometryBuilder.Order.get -> System.ReadOnlySpan<int>
+Vixen.Vfx.VfxGeometryBuilder.VfxGeometryBuilder() -> void
+Vixen.Vfx.VfxNoise -> static class
+Vixen.Vfx.VfxOpcode -> enum : int
+Vixen.Vfx.VfxOpcode.Attract = 17 -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOpcode.CollidePlane = 20 -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOpcode.CollideSphere = 21 -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOpcode.ColourOverLife = 16 -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOpcode.CustomOverLife = 24 -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOpcode.Drag = 13 -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOpcode.Gravity = 12 -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOpcode.Integrate = 11 -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOpcode.PositionInBox = 2 -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOpcode.PositionInSphere = 1 -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOpcode.RandomCustom = 23 -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOpcode.Rotate = 14 -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOpcode.SetAngularVelocity = 10 -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOpcode.SetColour = 8 -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOpcode.SetCustom = 22 -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOpcode.SetLifetime = 6 -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOpcode.SetPosition = 0 -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOpcode.SetRotation = 9 -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOpcode.SetSize = 7 -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOpcode.SetVelocity = 3 -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOpcode.SizeOverLife = 15 -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOpcode.Turbulence = 19 -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOpcode.VelocityInCone = 5 -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOpcode.VelocityRandomDirection = 4 -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOpcode.VfxOpcode() -> void
+Vixen.Vfx.VfxOpcode.Vortex = 18 -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOpcodes -> static class
+Vixen.Vfx.VfxOperation -> readonly struct
+Vixen.Vfx.VfxOperation : System.IEquatable<Vixen.Vfx.VfxOperation>
+Vixen.Vfx.VfxOperation.A.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Vfx.VfxOperation.A.init -> Vixen.Core.Mathematics.Vector4
+Vixen.Vfx.VfxOperation.B.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Vfx.VfxOperation.B.init -> Vixen.Core.Mathematics.Vector4
+Vixen.Vfx.VfxOperation.Opcode.get -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOperation.Opcode.init -> Vixen.Vfx.VfxOpcode
+Vixen.Vfx.VfxOperation.Salt.get -> uint
+Vixen.Vfx.VfxOperation.Salt.init -> uint
+Vixen.Vfx.VfxOperation.Slot.get -> int
+Vixen.Vfx.VfxOperation.Slot.init -> int
+Vixen.Vfx.VfxOperation.VfxOperation() -> void
+Vixen.Vfx.VfxOperation.VfxOperation(Vixen.Vfx.VfxOpcode Opcode, uint Salt, Vixen.Core.Mathematics.Vector4 A, Vixen.Core.Mathematics.Vector4 B, int Slot = 0) -> void
+Vixen.Vfx.VfxOperation.VfxOperation(Vixen.Vfx.VfxOpcode opcode, Vixen.Core.Mathematics.Vector4 a, uint salt = 0) -> void
+Vixen.Vfx.VfxOperation.VfxOperation(Vixen.Vfx.VfxOpcode opcode, uint salt = 0) -> void
+Vixen.Vfx.VfxRandom -> static class
+Vixen.Vfx.VfxRenderer -> readonly struct
+Vixen.Vfx.VfxRenderer : System.IEquatable<Vixen.Vfx.VfxRenderer>
+Vixen.Vfx.VfxRenderer.Alignment.get -> Vixen.Vfx.VfxBillboardAlignment
+Vixen.Vfx.VfxRenderer.Alignment.init -> Vixen.Vfx.VfxBillboardAlignment
+Vixen.Vfx.VfxRenderer.Axis.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Vfx.VfxRenderer.Axis.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Vfx.VfxRenderer.Intensity.get -> float
+Vixen.Vfx.VfxRenderer.Intensity.init -> float
+Vixen.Vfx.VfxRenderer.Kind.get -> Vixen.Vfx.VfxRendererKind
+Vixen.Vfx.VfxRenderer.Kind.init -> Vixen.Vfx.VfxRendererKind
+Vixen.Vfx.VfxRenderer.Range.get -> float
+Vixen.Vfx.VfxRenderer.Range.init -> float
+Vixen.Vfx.VfxRenderer.Reads.get -> Vixen.Vfx.VfxAttribute
+Vixen.Vfx.VfxRenderer.RibbonSlot.get -> int
+Vixen.Vfx.VfxRenderer.RibbonSlot.init -> int
+Vixen.Vfx.VfxRenderer.Sort.get -> Vixen.Vfx.VfxSortMode
+Vixen.Vfx.VfxRenderer.Sort.init -> Vixen.Vfx.VfxSortMode
+Vixen.Vfx.VfxRenderer.Stretch.get -> float
+Vixen.Vfx.VfxRenderer.Stretch.init -> float
+Vixen.Vfx.VfxRenderer.VfxRenderer() -> void
+Vixen.Vfx.VfxRenderer.VfxRenderer(Vixen.Vfx.VfxRendererKind Kind = Vixen.Vfx.VfxRendererKind.Billboard, Vixen.Vfx.VfxBillboardAlignment Alignment = Vixen.Vfx.VfxBillboardAlignment.Camera, Vixen.Vfx.VfxSortMode Sort = Vixen.Vfx.VfxSortMode.None, Vixen.Core.Mathematics.Vector3 Axis = default(Vixen.Core.Mathematics.Vector3), float Stretch = 0, int RibbonSlot = 0, float Intensity = 1, float Range = 4) -> void
+Vixen.Vfx.VfxRendererKind -> enum : int
+Vixen.Vfx.VfxRendererKind.Billboard = 0 -> Vixen.Vfx.VfxRendererKind
+Vixen.Vfx.VfxRendererKind.Light = 3 -> Vixen.Vfx.VfxRendererKind
+Vixen.Vfx.VfxRendererKind.Mesh = 1 -> Vixen.Vfx.VfxRendererKind
+Vixen.Vfx.VfxRendererKind.Ribbon = 2 -> Vixen.Vfx.VfxRendererKind
+Vixen.Vfx.VfxRendererKind.VfxRendererKind() -> void
+Vixen.Vfx.VfxShader -> sealed class
+Vixen.Vfx.VfxShader.Bindings.get -> System.Collections.Generic.IReadOnlyList<Vixen.Vfx.VfxShaderBinding>
+Vixen.Vfx.VfxShader.CommonShader.get -> string
+Vixen.Vfx.VfxShader.HasInitialize.get -> bool
+Vixen.Vfx.VfxShader.HasUpdate.get -> bool
+Vixen.Vfx.VfxShader.InitializeShader.get -> string
+Vixen.Vfx.VfxShader.Name.get -> string
+Vixen.Vfx.VfxShader.Source.get -> string
+Vixen.Vfx.VfxShader.UpdateShader.get -> string
+Vixen.Vfx.VfxShaderBinding -> readonly struct
+Vixen.Vfx.VfxShaderBinding : System.IEquatable<Vixen.Vfx.VfxShaderBinding>
+Vixen.Vfx.VfxShaderBinding.Attribute.get -> Vixen.Vfx.VfxAttribute
+Vixen.Vfx.VfxShaderBinding.Attribute.init -> Vixen.Vfx.VfxAttribute
+Vixen.Vfx.VfxShaderBinding.IsWritten.get -> bool
+Vixen.Vfx.VfxShaderBinding.IsWritten.init -> bool
+Vixen.Vfx.VfxShaderBinding.Name.get -> string
+Vixen.Vfx.VfxShaderBinding.Name.init -> string
+Vixen.Vfx.VfxShaderBinding.Slot.get -> int
+Vixen.Vfx.VfxShaderBinding.Slot.init -> int
+Vixen.Vfx.VfxShaderBinding.Stride.get -> int
+Vixen.Vfx.VfxShaderBinding.Stride.init -> int
+Vixen.Vfx.VfxShaderBinding.VfxShaderBinding() -> void
+Vixen.Vfx.VfxShaderBinding.VfxShaderBinding(string Name, Vixen.Vfx.VfxAttribute Attribute, int Stride, bool IsWritten, int Slot = -1) -> void
+Vixen.Vfx.VfxShaderEmitter -> static class
+Vixen.Vfx.VfxShaderPacking -> static class
+Vixen.Vfx.VfxShaderUniforms -> struct
+Vixen.Vfx.VfxShaderUniforms.DeltaTime -> float
+Vixen.Vfx.VfxShaderUniforms.First -> int
+Vixen.Vfx.VfxShaderUniforms.ParticleCount -> int
+Vixen.Vfx.VfxShaderUniforms.Seed -> uint
+Vixen.Vfx.VfxShaderUniforms.Time -> float
+Vixen.Vfx.VfxShaderUniforms.VfxShaderUniforms() -> void
+Vixen.Vfx.VfxSimulation -> static class
+Vixen.Vfx.VfxSortMode -> enum : int
+Vixen.Vfx.VfxSortMode.ByAge = 2 -> Vixen.Vfx.VfxSortMode
+Vixen.Vfx.VfxSortMode.ByDepth = 1 -> Vixen.Vfx.VfxSortMode
+Vixen.Vfx.VfxSortMode.None = 0 -> Vixen.Vfx.VfxSortMode
+Vixen.Vfx.VfxSortMode.VfxSortMode() -> void
+Vixen.Vfx.VfxSpawner -> readonly struct
+Vixen.Vfx.VfxSpawner : System.IEquatable<Vixen.Vfx.VfxSpawner>
+Vixen.Vfx.VfxSpawner.Count.get -> int
+Vixen.Vfx.VfxSpawner.Count.init -> int
+Vixen.Vfx.VfxSpawner.Interval.get -> float
+Vixen.Vfx.VfxSpawner.Interval.init -> float
+Vixen.Vfx.VfxSpawner.Kind.get -> Vixen.Vfx.VfxSpawnerKind
+Vixen.Vfx.VfxSpawner.Kind.init -> Vixen.Vfx.VfxSpawnerKind
+Vixen.Vfx.VfxSpawner.Rate.get -> float
+Vixen.Vfx.VfxSpawner.Rate.init -> float
+Vixen.Vfx.VfxSpawner.Time.get -> float
+Vixen.Vfx.VfxSpawner.Time.init -> float
+Vixen.Vfx.VfxSpawner.VfxSpawner() -> void
+Vixen.Vfx.VfxSpawner.VfxSpawner(Vixen.Vfx.VfxSpawnerKind Kind, float Rate = 0, int Count = 0, float Time = 0, float Interval = 0) -> void
+Vixen.Vfx.VfxSpawnerKind -> enum : int
+Vixen.Vfx.VfxSpawnerKind.Burst = 0 -> Vixen.Vfx.VfxSpawnerKind
+Vixen.Vfx.VfxSpawnerKind.Rate = 1 -> Vixen.Vfx.VfxSpawnerKind
+Vixen.Vfx.VfxSpawnerKind.VfxSpawnerKind() -> void
+Vixen.Vfx.VfxSubEmitter -> sealed class
+Vixen.Vfx.VfxSubEmitter.Count.get -> int
+Vixen.Vfx.VfxSubEmitter.InheritVelocity.get -> float
+Vixen.Vfx.VfxSubEmitter.InheritVelocity.set -> float
+Vixen.Vfx.VfxSubEmitter.Interval.get -> float
+Vixen.Vfx.VfxSubEmitter.LastEmitted.get -> int
+Vixen.Vfx.VfxSubEmitter.LastRefused.get -> int
+Vixen.Vfx.VfxSubEmitter.Step(float deltaTime) -> void
+Vixen.Vfx.VfxSubEmitter.Trigger.get -> Vixen.Vfx.VfxEmitEvent
+Vixen.Vfx.VfxSubEmitter.VfxSubEmitter(Vixen.Vfx.VfxSystem source, Vixen.Vfx.VfxSystem target, Vixen.Vfx.VfxEmitEvent trigger = Vixen.Vfx.VfxEmitEvent.Death, int count = 1, float interval = 0.1) -> void
+Vixen.Vfx.VfxSystem -> sealed class
+Vixen.Vfx.VfxSystem : System.IDisposable
+Vixen.Vfx.VfxSystem.Count.get -> int
+Vixen.Vfx.VfxSystem.Deaths.get -> System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3>
+Vixen.Vfx.VfxSystem.Dispose() -> void
+Vixen.Vfx.VfxSystem.Emitting.get -> bool
+Vixen.Vfx.VfxSystem.Emitting.set -> bool
+Vixen.Vfx.VfxSystem.FirstSpawned.get -> int
+Vixen.Vfx.VfxSystem.Graph.get -> Vixen.Vfx.VfxCompiledGraph
+Vixen.Vfx.VfxSystem.LastDied.get -> int
+Vixen.Vfx.VfxSystem.LastRefused.get -> int
+Vixen.Vfx.VfxSystem.LastSpawned.get -> int
+Vixen.Vfx.VfxSystem.LastStepWasParallel.get -> bool
+Vixen.Vfx.VfxSystem.ParallelThreshold.get -> int
+Vixen.Vfx.VfxSystem.ParallelThreshold.set -> int
+Vixen.Vfx.VfxSystem.Particles.get -> Vixen.Vfx.ParticleBuffer
+Vixen.Vfx.VfxSystem.RecordDeaths.get -> bool
+Vixen.Vfx.VfxSystem.RecordDeaths.set -> bool
+Vixen.Vfx.VfxSystem.Reset() -> void
+Vixen.Vfx.VfxSystem.Scheduler.get -> Vixen.Core.Threading.JobScheduler?
+Vixen.Vfx.VfxSystem.Scheduler.set -> Vixen.Core.Threading.JobScheduler?
+Vixen.Vfx.VfxSystem.Seed.get -> uint
+Vixen.Vfx.VfxSystem.Step(float deltaTime) -> void
+Vixen.Vfx.VfxSystem.Time.get -> float
+Vixen.Vfx.VfxSystem.VfxSystem(Vixen.Vfx.VfxCompiledGraph graph, uint seed = 1) -> void
+const Vixen.Vfx.VfxGeometryBuilder.IndicesPerParticle = 6 -> int
+const Vixen.Vfx.VfxGeometryBuilder.IndicesPerRibbonSegment = 6 -> int
+const Vixen.Vfx.VfxGeometryBuilder.VerticesPerParticle = 4 -> int
+const Vixen.Vfx.VfxGeometryBuilder.VerticesPerRibbonParticle = 2 -> int
+const Vixen.Vfx.VfxNoise.Epsilon = 0.1 -> float
+const Vixen.Vfx.VfxRandom.FirstSalt = 0 -> uint
+const Vixen.Vfx.VfxShader.WorkgroupSize = 64 -> int
+const Vixen.Vfx.VfxShaderUniforms.Size = 20 -> int
+static Vixen.Vfx.VfxAttributes.All.get -> System.ReadOnlySpan<Vixen.Vfx.VfxAttribute>
+static Vixen.Vfx.VfxAttributes.BytesPerParticle(Vixen.Vfx.VfxAttribute set) -> int
+static Vixen.Vfx.VfxAttributes.Lanes(Vixen.Vfx.VfxAttributeType type) -> int
+static Vixen.Vfx.VfxAttributes.TypeOf(Vixen.Vfx.VfxAttribute attribute) -> Vixen.Vfx.VfxAttributeType
+static Vixen.Vfx.VfxCamera.Looking(Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 forward, Vixen.Core.Mathematics.Vector3 up) -> Vixen.Vfx.VfxCamera
+static Vixen.Vfx.VfxCompiledGraph.Compile(System.ReadOnlySpan<Vixen.Vfx.VfxSpawner> spawners, System.ReadOnlySpan<Vixen.Vfx.VfxOperation> initializers, System.ReadOnlySpan<Vixen.Vfx.VfxOperation> updaters, int capacity, Vixen.Vfx.VfxRenderer? renderer = null, System.ReadOnlySpan<Vixen.Vfx.VfxCustomAttribute> customs = default(System.ReadOnlySpan<Vixen.Vfx.VfxCustomAttribute>)) -> Vixen.Vfx.VfxCompiledGraph
+static Vixen.Vfx.VfxGeometryBuilder.WriteQuadIndices(System.Span<uint> indices, int particles) -> int
+static Vixen.Vfx.VfxNoise.Curl(Vixen.Core.Mathematics.Vector3 point, uint seed) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Vfx.VfxNoise.Turbulence(Vixen.Core.Mathematics.Vector3 point, uint seed, int octaves) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Vfx.VfxNoise.Value(Vixen.Core.Mathematics.Vector3 point, uint seed) -> float
+static Vixen.Vfx.VfxOpcodes.IsCustom(Vixen.Vfx.VfxOpcode opcode) -> bool
+static Vixen.Vfx.VfxOpcodes.IsRandom(Vixen.Vfx.VfxOpcode opcode) -> bool
+static Vixen.Vfx.VfxOpcodes.IsUpdater(Vixen.Vfx.VfxOpcode opcode) -> bool
+static Vixen.Vfx.VfxOpcodes.NeedsSalt(Vixen.Vfx.VfxOpcode opcode) -> bool
+static Vixen.Vfx.VfxOpcodes.Reads(Vixen.Vfx.VfxOpcode opcode) -> Vixen.Vfx.VfxAttribute
+static Vixen.Vfx.VfxOpcodes.Writes(Vixen.Vfx.VfxOpcode opcode) -> Vixen.Vfx.VfxAttribute
+static Vixen.Vfx.VfxRandom.Direction(uint particle, uint seed, uint salt) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Vfx.VfxRandom.Hash(uint particle, uint seed, uint salt) -> uint
+static Vixen.Vfx.VfxRandom.Hash(uint value) -> uint
+static Vixen.Vfx.VfxRandom.Range(uint particle, uint seed, uint salt, float minimum, float maximum) -> float
+static Vixen.Vfx.VfxRandom.Value(uint particle, uint seed, uint salt) -> float
+static Vixen.Vfx.VfxRandom.Value3(uint particle, uint seed, uint salt) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Vfx.VfxRenderer.Billboard.get -> Vixen.Vfx.VfxRenderer
+static Vixen.Vfx.VfxRenderer.Instanced(Vixen.Vfx.VfxBillboardAlignment alignment = Vixen.Vfx.VfxBillboardAlignment.Camera, Vixen.Core.Mathematics.Vector3 axis = default(Vixen.Core.Mathematics.Vector3)) -> Vixen.Vfx.VfxRenderer
+static Vixen.Vfx.VfxRenderer.Light(float intensity = 1, float range = 4) -> Vixen.Vfx.VfxRenderer
+static Vixen.Vfx.VfxRenderer.Ribbon(int slot) -> Vixen.Vfx.VfxRenderer
+static Vixen.Vfx.VfxRenderer.SortedBillboard.get -> Vixen.Vfx.VfxRenderer
+static Vixen.Vfx.VfxRenderer.Streak(float stretch = 0.1) -> Vixen.Vfx.VfxRenderer
+static Vixen.Vfx.VfxShaderEmitter.Emit(Vixen.Vfx.VfxCompiledGraph graph, string name = "Effect") -> Vixen.Vfx.VfxShader
+static Vixen.Vfx.VfxShaderPacking.Pack(Vixen.Vfx.ParticleBuffer particles, in Vixen.Vfx.VfxShaderBinding binding, int count, System.Span<byte> destination) -> void
+static Vixen.Vfx.VfxShaderPacking.Size(in Vixen.Vfx.VfxShaderBinding binding, int count) -> int
+static Vixen.Vfx.VfxShaderPacking.Unpack(System.ReadOnlySpan<byte> source, in Vixen.Vfx.VfxShaderBinding binding, int count, Vixen.Vfx.ParticleBuffer particles) -> void
+static Vixen.Vfx.VfxSimulation.Initialize(Vixen.Vfx.ParticleBuffer buffer, System.ReadOnlySpan<Vixen.Vfx.VfxOperation> operations, int first, int count, uint seed) -> void
+static Vixen.Vfx.VfxSimulation.Update(Vixen.Vfx.ParticleBuffer buffer, System.ReadOnlySpan<Vixen.Vfx.VfxOperation> operations, float deltaTime, float time = 0, System.Span<Vixen.Core.Mathematics.Vector3> graveyard = default(System.Span<Vixen.Core.Mathematics.Vector3>)) -> int
+static Vixen.Vfx.VfxSimulation.Update(Vixen.Vfx.ParticleBuffer buffer, Vixen.Vfx.VfxOperation[] operations, float deltaTime, float time, Vixen.Core.Threading.JobScheduler scheduler, int batchSize = 0, System.Span<Vixen.Core.Mathematics.Vector3> graveyard = default(System.Span<Vixen.Core.Mathematics.Vector3>)) -> int
+static Vixen.Vfx.VfxSpawner.AtRate(float perSecond) -> Vixen.Vfx.VfxSpawner
+static Vixen.Vfx.VfxSpawner.Burst(int count, float time = 0) -> Vixen.Vfx.VfxSpawner
+static Vixen.Vfx.VfxSpawner.Repeating(int count, float interval, float time = 0) -> Vixen.Vfx.VfxSpawner

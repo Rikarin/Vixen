@@ -1,0 +1,103 @@
+#nullable enable
+Vixen.Audio.Codecs.OpusPacketDecoder -> sealed class
+Vixen.Audio.Codecs.OpusPacketDecoder : System.IDisposable
+Vixen.Audio.Codecs.OpusPacketDecoder.Conceal(System.Span<float> pcm, System.ReadOnlySpan<byte> next = default(System.ReadOnlySpan<byte>)) -> int
+Vixen.Audio.Codecs.OpusPacketDecoder.Concealed.get -> long
+Vixen.Audio.Codecs.OpusPacketDecoder.Decode(System.ReadOnlySpan<byte> packet, System.Span<float> pcm) -> int
+Vixen.Audio.Codecs.OpusPacketDecoder.Dispose() -> void
+Vixen.Audio.Codecs.OpusPacketDecoder.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Audio.Codecs.OpusPacketDecoder.FrameSize.get -> int
+Vixen.Audio.Codecs.OpusPacketDecoder.OpusPacketDecoder(int channels = 1, int frameMilliseconds = 20) -> void
+Vixen.Audio.Codecs.OpusPacketDecoder.Reset() -> void
+Vixen.Audio.Codecs.OpusPacketEncoder -> sealed class
+Vixen.Audio.Codecs.OpusPacketEncoder : System.IDisposable
+Vixen.Audio.Codecs.OpusPacketEncoder.Bitrate.get -> int
+Vixen.Audio.Codecs.OpusPacketEncoder.Bitrate.set -> int
+Vixen.Audio.Codecs.OpusPacketEncoder.Dispose() -> void
+Vixen.Audio.Codecs.OpusPacketEncoder.Encode(System.ReadOnlySpan<float> pcm, System.Span<byte> packet) -> int
+Vixen.Audio.Codecs.OpusPacketEncoder.ExpectedPacketLoss.get -> int
+Vixen.Audio.Codecs.OpusPacketEncoder.ExpectedPacketLoss.set -> int
+Vixen.Audio.Codecs.OpusPacketEncoder.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Audio.Codecs.OpusPacketEncoder.FrameSize.get -> int
+Vixen.Audio.Codecs.OpusPacketEncoder.OpusPacketEncoder(int channels = 1, int frameMilliseconds = 20, int bitrate = 24000) -> void
+Vixen.Audio.Codecs.OpusPacketEncoder.Reset() -> void
+Vixen.Audio.Codecs.OpusPacketEncoder.UseDiscontinuous.get -> bool
+Vixen.Audio.Codecs.OpusPacketEncoder.UseDiscontinuous.set -> bool
+Vixen.Audio.Codecs.OpusStreamDecoder -> sealed class
+Vixen.Audio.Codecs.OpusStreamDecoder : System.IDisposable
+Vixen.Audio.Codecs.OpusStreamDecoder : Vixen.Audio.Streaming.IAudioStreamDecoder
+Vixen.Audio.Codecs.OpusStreamDecoder.CanSeek.get -> bool
+Vixen.Audio.Codecs.OpusStreamDecoder.Decode(System.Span<float> destination, int frameCount) -> int
+Vixen.Audio.Codecs.OpusStreamDecoder.Dispose() -> void
+Vixen.Audio.Codecs.OpusStreamDecoder.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Audio.Codecs.OpusStreamDecoder.FrameCount.get -> long
+Vixen.Audio.Codecs.OpusStreamDecoder.OpusStreamDecoder(System.IO.Stream stream, bool leaveOpen = false) -> void
+Vixen.Audio.Codecs.OpusStreamDecoder.OpusStreamDecoder(string path) -> void
+Vixen.Audio.Codecs.OpusStreamDecoder.Position.get -> long
+Vixen.Audio.Codecs.OpusStreamDecoder.Seek(long frame) -> void
+Vixen.Audio.Codecs.VoicePacketHeader -> readonly struct
+Vixen.Audio.Codecs.VoicePacketHeader : System.IEquatable<Vixen.Audio.Codecs.VoicePacketHeader>
+Vixen.Audio.Codecs.VoicePacketHeader.Sequence.get -> ushort
+Vixen.Audio.Codecs.VoicePacketHeader.Sequence.init -> ushort
+Vixen.Audio.Codecs.VoicePacketHeader.Timestamp.get -> uint
+Vixen.Audio.Codecs.VoicePacketHeader.Timestamp.init -> uint
+Vixen.Audio.Codecs.VoicePacketHeader.VoicePacketHeader() -> void
+Vixen.Audio.Codecs.VoicePacketHeader.VoicePacketHeader(ushort Sequence, uint Timestamp) -> void
+Vixen.Audio.Codecs.VoiceReceiver -> sealed class
+Vixen.Audio.Codecs.VoiceReceiver : System.IDisposable
+Vixen.Audio.Codecs.VoiceReceiver.Concealed.get -> long
+Vixen.Audio.Codecs.VoiceReceiver.Depth.get -> int
+Vixen.Audio.Codecs.VoiceReceiver.Dispose() -> void
+Vixen.Audio.Codecs.VoiceReceiver.Flush() -> int
+Vixen.Audio.Codecs.VoiceReceiver.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Audio.Codecs.VoiceReceiver.Late.get -> long
+Vixen.Audio.Codecs.VoiceReceiver.Provider.get -> Vixen.Audio.Sources.LiveSampleProvider
+Vixen.Audio.Codecs.VoiceReceiver.Pump() -> int
+Vixen.Audio.Codecs.VoiceReceiver.Receive(in Vixen.Audio.Codecs.VoicePacketHeader header, System.ReadOnlySpan<byte> packet) -> bool
+Vixen.Audio.Codecs.VoiceReceiver.Received.get -> long
+Vixen.Audio.Codecs.VoiceReceiver.Reordered.get -> long
+Vixen.Audio.Codecs.VoiceReceiver.Reset() -> void
+Vixen.Audio.Codecs.VoiceReceiver.Silences.get -> long
+Vixen.Audio.Codecs.VoiceReceiver.VoiceReceiver(Vixen.Audio.Codecs.OpusPacketDecoder decoder, int depth = 2) -> void
+Vixen.Audio.Codecs.VoiceReceiver.VoiceReceiver(int channels = 1, int frameMilliseconds = 20, int depth = 2) -> void
+Vixen.Audio.Codecs.VoiceSender -> sealed class
+Vixen.Audio.Codecs.VoiceSender : System.IDisposable
+Vixen.Audio.Codecs.VoiceSender.Available.get -> int
+Vixen.Audio.Codecs.VoiceSender.Bitrate.get -> int
+Vixen.Audio.Codecs.VoiceSender.Bitrate.set -> int
+Vixen.Audio.Codecs.VoiceSender.Dispose() -> void
+Vixen.Audio.Codecs.VoiceSender.ExpectedPacketLoss.get -> int
+Vixen.Audio.Codecs.VoiceSender.ExpectedPacketLoss.set -> int
+Vixen.Audio.Codecs.VoiceSender.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Audio.Codecs.VoiceSender.FrameSize.get -> int
+Vixen.Audio.Codecs.VoiceSender.Gate.get -> Vixen.Audio.Effects.GateEffect
+Vixen.Audio.Codecs.VoiceSender.IsTransmitting.get -> bool
+Vixen.Audio.Codecs.VoiceSender.Overrun.get -> long
+Vixen.Audio.Codecs.VoiceSender.Reset() -> void
+Vixen.Audio.Codecs.VoiceSender.SendWhileSilent.get -> bool
+Vixen.Audio.Codecs.VoiceSender.SendWhileSilent.set -> bool
+Vixen.Audio.Codecs.VoiceSender.Sent.get -> long
+Vixen.Audio.Codecs.VoiceSender.Suppressed.get -> long
+Vixen.Audio.Codecs.VoiceSender.TryRead(System.Span<byte> destination, out Vixen.Audio.Codecs.VoicePacketHeader header, out int length) -> bool
+Vixen.Audio.Codecs.VoiceSender.VoiceSender(Vixen.Audio.Codecs.OpusPacketEncoder encoder) -> void
+Vixen.Audio.Codecs.VoiceSender.VoiceSender(int channels = 1, int frameMilliseconds = 20, int bitrate = 24000) -> void
+Vixen.Audio.Codecs.VoiceSender.Write(System.ReadOnlySpan<float> pcm) -> int
+Vixen.Audio.Codecs.VorbisStreamDecoder -> sealed class
+Vixen.Audio.Codecs.VorbisStreamDecoder : System.IDisposable
+Vixen.Audio.Codecs.VorbisStreamDecoder : Vixen.Audio.Streaming.IAudioStreamDecoder
+Vixen.Audio.Codecs.VorbisStreamDecoder.CanSeek.get -> bool
+Vixen.Audio.Codecs.VorbisStreamDecoder.Decode(System.Span<float> destination, int frameCount) -> int
+Vixen.Audio.Codecs.VorbisStreamDecoder.Dispose() -> void
+Vixen.Audio.Codecs.VorbisStreamDecoder.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Audio.Codecs.VorbisStreamDecoder.FrameCount.get -> long
+Vixen.Audio.Codecs.VorbisStreamDecoder.Position.get -> long
+Vixen.Audio.Codecs.VorbisStreamDecoder.Seek(long frame) -> void
+Vixen.Audio.Codecs.VorbisStreamDecoder.VorbisStreamDecoder(System.IO.Stream stream, bool leaveOpen = false) -> void
+Vixen.Audio.Codecs.VorbisStreamDecoder.VorbisStreamDecoder(string path) -> void
+const Vixen.Audio.Codecs.OpusPacketDecoder.Rate = 48000 -> int
+const Vixen.Audio.Codecs.OpusPacketEncoder.MaxPacketBytes = 1275 -> int
+const Vixen.Audio.Codecs.OpusPacketEncoder.Rate = 48000 -> int
+const Vixen.Audio.Codecs.OpusStreamDecoder.DecodeRate = 48000 -> int
+const Vixen.Audio.Codecs.VoiceReceiver.MaxSilenceFrames = 24000 -> int
+const Vixen.Audio.Codecs.VoiceReceiver.Window = 16 -> int
+const Vixen.Audio.Codecs.VoiceSender.Backlog = 8 -> int

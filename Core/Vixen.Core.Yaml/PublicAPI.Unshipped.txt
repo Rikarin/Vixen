@@ -1,0 +1,190 @@
+#nullable enable
+Vixen.Core.Yaml.Meta.AddressableInfo -> sealed record
+Vixen.Core.Yaml.Meta.AddressableInfo : System.IEquatable<Vixen.Core.Yaml.Meta.AddressableInfo>
+Vixen.Core.Yaml.Meta.AddressableInfo.Address.get -> string?
+Vixen.Core.Yaml.Meta.AddressableInfo.Address.init -> string?
+Vixen.Core.Yaml.Meta.AddressableInfo.AddressableInfo() -> void
+Vixen.Core.Yaml.Meta.AddressableInfo.Group.get -> string?
+Vixen.Core.Yaml.Meta.AddressableInfo.Group.init -> string?
+Vixen.Core.Yaml.Meta.AddressableInfo.Labels.get -> string[]
+Vixen.Core.Yaml.Meta.AddressableInfo.Labels.init -> string[]
+Vixen.Core.Yaml.Meta.AssetMeta -> sealed record
+Vixen.Core.Yaml.Meta.AssetMeta : System.IEquatable<Vixen.Core.Yaml.Meta.AssetMeta>
+Vixen.Core.Yaml.Meta.AssetMeta.Addressable.get -> Vixen.Core.Yaml.Meta.AddressableInfo?
+Vixen.Core.Yaml.Meta.AssetMeta.Addressable.init -> Vixen.Core.Yaml.Meta.AddressableInfo?
+Vixen.Core.Yaml.Meta.AssetMeta.AssetMeta() -> void
+Vixen.Core.Yaml.Meta.AssetMeta.Extensions.get -> System.Collections.Generic.Dictionary<string, string>
+Vixen.Core.Yaml.Meta.AssetMeta.Extensions.init -> System.Collections.Generic.Dictionary<string, string>
+Vixen.Core.Yaml.Meta.AssetMeta.Guid.get -> Vixen.Core.AssetId
+Vixen.Core.Yaml.Meta.AssetMeta.Guid.init -> Vixen.Core.AssetId
+Vixen.Core.Yaml.Meta.AssetMeta.Importer.get -> Vixen.Core.Yaml.Meta.IImportSettings?
+Vixen.Core.Yaml.Meta.AssetMeta.Importer.init -> Vixen.Core.Yaml.Meta.IImportSettings?
+Vixen.Core.Yaml.Meta.AssetMeta.MetaVersion.get -> int
+Vixen.Core.Yaml.Meta.AssetMeta.MetaVersion.init -> int
+Vixen.Core.Yaml.Meta.AssetMeta.SubAssets.get -> Vixen.Core.Yaml.Meta.SubAssetEntry[]
+Vixen.Core.Yaml.Meta.AssetMeta.SubAssets.init -> Vixen.Core.Yaml.Meta.SubAssetEntry[]
+Vixen.Core.Yaml.Meta.AssetMetaFile -> static class
+Vixen.Core.Yaml.Meta.IImportSettings -> interface
+Vixen.Core.Yaml.Meta.IImportSettings.Version.get -> int
+Vixen.Core.Yaml.Meta.MetaEnvelope -> readonly struct
+Vixen.Core.Yaml.Meta.MetaEnvelope : System.IEquatable<Vixen.Core.Yaml.Meta.MetaEnvelope>
+Vixen.Core.Yaml.Meta.MetaEnvelope.Guid.get -> Vixen.Core.AssetId
+Vixen.Core.Yaml.Meta.MetaEnvelope.Guid.init -> Vixen.Core.AssetId
+Vixen.Core.Yaml.Meta.MetaEnvelope.ImporterTag.get -> string?
+Vixen.Core.Yaml.Meta.MetaEnvelope.ImporterTag.init -> string?
+Vixen.Core.Yaml.Meta.MetaEnvelope.IsValid.get -> bool
+Vixen.Core.Yaml.Meta.MetaEnvelope.MetaEnvelope() -> void
+Vixen.Core.Yaml.Meta.MetaEnvelope.MetaEnvelope(Vixen.Core.AssetId Guid, int MetaVersion, string? ImporterTag) -> void
+Vixen.Core.Yaml.Meta.MetaEnvelope.MetaVersion.get -> int
+Vixen.Core.Yaml.Meta.MetaEnvelope.MetaVersion.init -> int
+Vixen.Core.Yaml.Meta.MetaMigrationChain -> sealed class
+Vixen.Core.Yaml.Meta.MetaMigrationChain.Add(int fromVersion, System.Action<Vixen.Core.Yaml.YamlMapping> step) -> Vixen.Core.Yaml.Meta.MetaMigrationChain
+Vixen.Core.Yaml.Meta.MetaMigrationChain.Apply(Vixen.Core.Yaml.YamlMapping root) -> int
+Vixen.Core.Yaml.Meta.MetaMigrationChain.MetaMigrationChain(int targetVersion = 1) -> void
+Vixen.Core.Yaml.Meta.MetaMigrationChain.TargetVersion.get -> int
+Vixen.Core.Yaml.Meta.MetaScanner -> static class
+Vixen.Core.Yaml.Meta.MetaVersionException -> sealed class
+Vixen.Core.Yaml.Meta.MetaVersionException : System.Exception
+Vixen.Core.Yaml.Meta.MetaVersionException.CurrentVersion.get -> int
+Vixen.Core.Yaml.Meta.MetaVersionException.FileVersion.get -> int
+Vixen.Core.Yaml.Meta.MetaVersionException.MetaVersionException(int fileVersion, int currentVersion) -> void
+Vixen.Core.Yaml.Meta.SubAssetCollisionException -> sealed class
+Vixen.Core.Yaml.Meta.SubAssetCollisionException : System.Exception
+Vixen.Core.Yaml.Meta.SubAssetCollisionException.First.get -> string
+Vixen.Core.Yaml.Meta.SubAssetCollisionException.Id.get -> Vixen.Core.SubAssetId
+Vixen.Core.Yaml.Meta.SubAssetCollisionException.Second.get -> string
+Vixen.Core.Yaml.Meta.SubAssetCollisionException.SubAssetCollisionException(Vixen.Core.SubAssetId id, string first, string second) -> void
+Vixen.Core.Yaml.Meta.SubAssetEntry -> sealed record
+Vixen.Core.Yaml.Meta.SubAssetEntry : System.IEquatable<Vixen.Core.Yaml.Meta.SubAssetEntry>
+Vixen.Core.Yaml.Meta.SubAssetEntry.Id.get -> Vixen.Core.SubAssetId
+Vixen.Core.Yaml.Meta.SubAssetEntry.Id.init -> Vixen.Core.SubAssetId
+Vixen.Core.Yaml.Meta.SubAssetEntry.Name.get -> string
+Vixen.Core.Yaml.Meta.SubAssetEntry.Name.init -> string
+Vixen.Core.Yaml.Meta.SubAssetEntry.SubAssetEntry() -> void
+Vixen.Core.Yaml.Meta.SubAssetEntry.Type.get -> string
+Vixen.Core.Yaml.Meta.SubAssetEntry.Type.init -> string
+Vixen.Core.Yaml.Meta.SubAssets -> static class
+Vixen.Core.Yaml.Meta.TargetOverrides -> static class
+Vixen.Core.Yaml.YamlBindingException -> sealed class
+Vixen.Core.Yaml.YamlBindingException : System.Exception
+Vixen.Core.Yaml.YamlBindingException.Path.get -> string
+Vixen.Core.Yaml.YamlBindingException.YamlBindingException(string path, string message, System.Exception? inner = null) -> void
+Vixen.Core.Yaml.YamlCollectionStyle -> enum : int
+Vixen.Core.Yaml.YamlCollectionStyle.Any = 0 -> Vixen.Core.Yaml.YamlCollectionStyle
+Vixen.Core.Yaml.YamlCollectionStyle.Block = 1 -> Vixen.Core.Yaml.YamlCollectionStyle
+Vixen.Core.Yaml.YamlCollectionStyle.Flow = 2 -> Vixen.Core.Yaml.YamlCollectionStyle
+Vixen.Core.Yaml.YamlCollectionStyle.YamlCollectionStyle() -> void
+Vixen.Core.Yaml.YamlMapping -> sealed class
+Vixen.Core.Yaml.YamlMapping : System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string, Vixen.Core.Yaml.YamlNode>>
+Vixen.Core.Yaml.YamlMapping : System.Collections.IEnumerable
+Vixen.Core.Yaml.YamlMapping : Vixen.Core.Yaml.YamlNode
+Vixen.Core.Yaml.YamlMapping.Count.get -> int
+Vixen.Core.Yaml.YamlMapping.Entries.get -> System.Collections.Generic.IReadOnlyList<System.Collections.Generic.KeyValuePair<string, Vixen.Core.Yaml.YamlNode>>
+Vixen.Core.Yaml.YamlMapping.GetEnumerator() -> System.Collections.Generic.IEnumerator<System.Collections.Generic.KeyValuePair<string, Vixen.Core.Yaml.YamlNode>>
+Vixen.Core.Yaml.YamlMapping.Keys.get -> System.Collections.Generic.IEnumerable<string>
+Vixen.Core.Yaml.YamlMapping.Remove(string key) -> bool
+Vixen.Core.Yaml.YamlMapping.Set(string key, Vixen.Core.Yaml.YamlNode value) -> Vixen.Core.Yaml.YamlMapping
+Vixen.Core.Yaml.YamlMapping.Style.get -> Vixen.Core.Yaml.YamlCollectionStyle
+Vixen.Core.Yaml.YamlMapping.Style.set -> Vixen.Core.Yaml.YamlCollectionStyle
+Vixen.Core.Yaml.YamlMapping.TryGet(string key, out Vixen.Core.Yaml.YamlNode? value) -> bool
+Vixen.Core.Yaml.YamlMapping.YamlMapping() -> void
+Vixen.Core.Yaml.YamlMapping.this[string key].get -> Vixen.Core.Yaml.YamlNode?
+Vixen.Core.Yaml.YamlNamingPolicy -> enum : int
+Vixen.Core.Yaml.YamlNamingPolicy.CamelCase = 0 -> Vixen.Core.Yaml.YamlNamingPolicy
+Vixen.Core.Yaml.YamlNamingPolicy.Verbatim = 1 -> Vixen.Core.Yaml.YamlNamingPolicy
+Vixen.Core.Yaml.YamlNamingPolicy.YamlNamingPolicy() -> void
+Vixen.Core.Yaml.YamlNode -> abstract class
+Vixen.Core.Yaml.YamlNode.LeadingComments.get -> System.Collections.Generic.List<string>
+Vixen.Core.Yaml.YamlNode.Tag.get -> string?
+Vixen.Core.Yaml.YamlNode.Tag.set -> string?
+Vixen.Core.Yaml.YamlNode.TrailingComment.get -> string?
+Vixen.Core.Yaml.YamlNode.TrailingComment.set -> string?
+Vixen.Core.Yaml.YamlNode.YamlNode() -> void
+Vixen.Core.Yaml.YamlParseException -> sealed class
+Vixen.Core.Yaml.YamlParseException : System.Exception
+Vixen.Core.Yaml.YamlParseException.Column.get -> long
+Vixen.Core.Yaml.YamlParseException.Line.get -> long
+Vixen.Core.Yaml.YamlParseException.YamlParseException(string message, long line = 0, long column = 0, System.Exception? inner = null) -> void
+Vixen.Core.Yaml.YamlReader -> static class
+Vixen.Core.Yaml.YamlScalar -> sealed class
+Vixen.Core.Yaml.YamlScalar : Vixen.Core.Yaml.YamlNode
+Vixen.Core.Yaml.YamlScalar.Style.get -> Vixen.Core.Yaml.YamlScalarStyle
+Vixen.Core.Yaml.YamlScalar.Style.set -> Vixen.Core.Yaml.YamlScalarStyle
+Vixen.Core.Yaml.YamlScalar.Value.get -> string
+Vixen.Core.Yaml.YamlScalar.Value.set -> string
+Vixen.Core.Yaml.YamlScalar.YamlScalar(string value, Vixen.Core.Yaml.YamlScalarStyle style = Vixen.Core.Yaml.YamlScalarStyle.Any) -> void
+Vixen.Core.Yaml.YamlScalarConverter -> sealed record
+Vixen.Core.Yaml.YamlScalarConverter : System.IEquatable<Vixen.Core.Yaml.YamlScalarConverter>
+Vixen.Core.Yaml.YamlScalarConverter.AcceptsNull.get -> bool
+Vixen.Core.Yaml.YamlScalarConverter.AcceptsNull.init -> bool
+Vixen.Core.Yaml.YamlScalarConverter.Format.get -> System.Func<object, string>
+Vixen.Core.Yaml.YamlScalarConverter.Format.init -> System.Func<object, string>
+Vixen.Core.Yaml.YamlScalarConverter.Parse.get -> System.Func<string, object>
+Vixen.Core.Yaml.YamlScalarConverter.Parse.init -> System.Func<string, object>
+Vixen.Core.Yaml.YamlScalarConverter.Style.get -> Vixen.Core.Yaml.YamlScalarStyle
+Vixen.Core.Yaml.YamlScalarConverter.Style.init -> Vixen.Core.Yaml.YamlScalarStyle
+Vixen.Core.Yaml.YamlScalarConverter.YamlScalarConverter(System.Func<string, object> Parse, System.Func<object, string> Format, Vixen.Core.Yaml.YamlScalarStyle Style = Vixen.Core.Yaml.YamlScalarStyle.Any, bool AcceptsNull = false) -> void
+Vixen.Core.Yaml.YamlScalarConverters -> static class
+Vixen.Core.Yaml.YamlScalarStyle -> enum : int
+Vixen.Core.Yaml.YamlScalarStyle.Any = 0 -> Vixen.Core.Yaml.YamlScalarStyle
+Vixen.Core.Yaml.YamlScalarStyle.DoubleQuoted = 3 -> Vixen.Core.Yaml.YamlScalarStyle
+Vixen.Core.Yaml.YamlScalarStyle.Folded = 5 -> Vixen.Core.Yaml.YamlScalarStyle
+Vixen.Core.Yaml.YamlScalarStyle.Literal = 4 -> Vixen.Core.Yaml.YamlScalarStyle
+Vixen.Core.Yaml.YamlScalarStyle.Plain = 1 -> Vixen.Core.Yaml.YamlScalarStyle
+Vixen.Core.Yaml.YamlScalarStyle.SingleQuoted = 2 -> Vixen.Core.Yaml.YamlScalarStyle
+Vixen.Core.Yaml.YamlScalarStyle.YamlScalarStyle() -> void
+Vixen.Core.Yaml.YamlSequence -> sealed class
+Vixen.Core.Yaml.YamlSequence : System.Collections.Generic.IEnumerable<Vixen.Core.Yaml.YamlNode>
+Vixen.Core.Yaml.YamlSequence : System.Collections.IEnumerable
+Vixen.Core.Yaml.YamlSequence : Vixen.Core.Yaml.YamlNode
+Vixen.Core.Yaml.YamlSequence.Add(Vixen.Core.Yaml.YamlNode node) -> Vixen.Core.Yaml.YamlSequence
+Vixen.Core.Yaml.YamlSequence.Count.get -> int
+Vixen.Core.Yaml.YamlSequence.GetEnumerator() -> System.Collections.Generic.IEnumerator<Vixen.Core.Yaml.YamlNode>
+Vixen.Core.Yaml.YamlSequence.Items.get -> System.Collections.Generic.List<Vixen.Core.Yaml.YamlNode>
+Vixen.Core.Yaml.YamlSequence.Style.get -> Vixen.Core.Yaml.YamlCollectionStyle
+Vixen.Core.Yaml.YamlSequence.Style.set -> Vixen.Core.Yaml.YamlCollectionStyle
+Vixen.Core.Yaml.YamlSequence.YamlSequence() -> void
+Vixen.Core.Yaml.YamlSequence.this[int index].get -> Vixen.Core.Yaml.YamlNode
+Vixen.Core.Yaml.YamlSerializer -> static class
+Vixen.Core.Yaml.YamlSerializerOptions -> sealed record
+Vixen.Core.Yaml.YamlSerializerOptions : System.IEquatable<Vixen.Core.Yaml.YamlSerializerOptions>
+Vixen.Core.Yaml.YamlSerializerOptions.KeyFor(string memberName) -> string
+Vixen.Core.Yaml.YamlSerializerOptions.Naming.get -> Vixen.Core.Yaml.YamlNamingPolicy
+Vixen.Core.Yaml.YamlSerializerOptions.Naming.init -> Vixen.Core.Yaml.YamlNamingPolicy
+Vixen.Core.Yaml.YamlSerializerOptions.OmitDefaults.get -> bool
+Vixen.Core.Yaml.YamlSerializerOptions.OmitDefaults.init -> bool
+Vixen.Core.Yaml.YamlSerializerOptions.OnUnknownKey.get -> System.Action<string>?
+Vixen.Core.Yaml.YamlSerializerOptions.OnUnknownKey.init -> System.Action<string>?
+Vixen.Core.Yaml.YamlSerializerOptions.YamlSerializerOptions(Vixen.Core.Yaml.YamlNamingPolicy Naming = Vixen.Core.Yaml.YamlNamingPolicy.CamelCase, bool OmitDefaults = false, System.Action<string>? OnUnknownKey = null) -> void
+Vixen.Core.Yaml.YamlWriter -> static class
+const Vixen.Core.Yaml.Meta.AssetMetaFile.Extension = ".meta" -> string
+const Vixen.Core.Yaml.Meta.MetaMigrationChain.CurrentVersion = 1 -> int
+const Vixen.Core.Yaml.Meta.TargetOverrides.OverridesKey = "overrides" -> string
+const Vixen.Core.Yaml.Meta.TargetOverrides.TargetKey = "target" -> string
+const Vixen.Core.Yaml.YamlWriter.FlowWidthLimit = 60 -> int
+override Vixen.Core.Yaml.YamlScalar.ToString() -> string
+static Vixen.Core.Yaml.Meta.AssetMetaFile.PathFor(string assetPath) -> string
+static Vixen.Core.Yaml.Meta.AssetMetaFile.Read(string text, Vixen.Core.Yaml.Meta.MetaMigrationChain? chain = null, System.Action<string>? onUnknownKey = null) -> Vixen.Core.Yaml.Meta.AssetMeta
+static Vixen.Core.Yaml.Meta.AssetMetaFile.ReadFile(string path, Vixen.Core.Yaml.Meta.MetaMigrationChain? chain = null, System.Action<string>? onUnknownKey = null) -> Vixen.Core.Yaml.Meta.AssetMeta
+static Vixen.Core.Yaml.Meta.AssetMetaFile.Write(Vixen.Core.Yaml.Meta.AssetMeta meta) -> string
+static Vixen.Core.Yaml.Meta.AssetMetaFile.WriteFile(string path, Vixen.Core.Yaml.Meta.AssetMeta meta) -> void
+static Vixen.Core.Yaml.Meta.MetaMigrationChain.Current.get -> Vixen.Core.Yaml.Meta.MetaMigrationChain
+static Vixen.Core.Yaml.Meta.MetaMigrationChain.VersionOf(Vixen.Core.Yaml.YamlMapping root) -> int
+static Vixen.Core.Yaml.Meta.MetaScanner.TryScan(System.ReadOnlySpan<char> text, out Vixen.Core.Yaml.Meta.MetaEnvelope envelope) -> bool
+static Vixen.Core.Yaml.Meta.MetaScanner.TryScanFile(string path, out Vixen.Core.Yaml.Meta.MetaEnvelope envelope) -> bool
+static Vixen.Core.Yaml.Meta.SubAssets.Derive(string importerType, string kind, string name) -> Vixen.Core.SubAssetId
+static Vixen.Core.Yaml.Meta.SubAssets.EnsureDistinct(System.Collections.Generic.IEnumerable<Vixen.Core.Yaml.Meta.SubAssetEntry> entries) -> void
+static Vixen.Core.Yaml.Meta.TargetOverrides.Resolve(Vixen.Core.Yaml.YamlMapping settings, string target) -> Vixen.Core.Yaml.YamlMapping
+static Vixen.Core.Yaml.YamlReader.Read(System.IO.TextReader input) -> Vixen.Core.Yaml.YamlNode
+static Vixen.Core.Yaml.YamlReader.Read(string text) -> Vixen.Core.Yaml.YamlNode
+static Vixen.Core.Yaml.YamlScalarConverters.Register(System.Type type, System.Func<string, object> parse, System.Func<object, string> format, Vixen.Core.Yaml.YamlScalarStyle style = Vixen.Core.Yaml.YamlScalarStyle.Any, bool acceptsNull = false) -> void
+static Vixen.Core.Yaml.YamlScalarConverters.TryGet(System.Type type, out Vixen.Core.Yaml.YamlScalarConverter? converter) -> bool
+static Vixen.Core.Yaml.YamlSerializer.Deserialize(Vixen.Core.Yaml.YamlNode node, System.Type expected, Vixen.Core.Yaml.YamlSerializerOptions? options = null) -> object?
+static Vixen.Core.Yaml.YamlSerializer.Deserialize<T>(Vixen.Core.Yaml.YamlNode node, Vixen.Core.Yaml.YamlSerializerOptions? options = null) -> T
+static Vixen.Core.Yaml.YamlSerializer.Parse<T>(string yaml, Vixen.Core.Yaml.YamlSerializerOptions? options = null) -> T
+static Vixen.Core.Yaml.YamlSerializer.Serialize(object? value, System.Type declared, Vixen.Core.Yaml.YamlSerializerOptions? options = null) -> Vixen.Core.Yaml.YamlNode
+static Vixen.Core.Yaml.YamlSerializer.Serialize<T>(T value, Vixen.Core.Yaml.YamlSerializerOptions? options = null) -> Vixen.Core.Yaml.YamlNode
+static Vixen.Core.Yaml.YamlSerializer.ToYaml<T>(T value, Vixen.Core.Yaml.YamlSerializerOptions? options = null) -> string
+static Vixen.Core.Yaml.YamlSerializerOptions.Default.get -> Vixen.Core.Yaml.YamlSerializerOptions
+static Vixen.Core.Yaml.YamlWriter.Write(System.IO.TextWriter output, Vixen.Core.Yaml.YamlNode root) -> void
+static Vixen.Core.Yaml.YamlWriter.Write(Vixen.Core.Yaml.YamlNode root) -> string

@@ -157,8 +157,11 @@ jobs:
           key: nuget-checks-${{ hashFiles('**/Directory.Packages.props', 'global.json') }}
           restore-keys: nuget-checks-
 
-      - name: Architecture and format
-        run: ./build.sh CheckArchitecture CheckFormat --configuration Release
+      # CheckApi builds — it reads the assemblies rather than the source — which is why this leg
+      # takes longer than the other two checks put together and why it is worth having: the diff it
+      # fails on is the one nobody would have looked at otherwise.
+      - name: Architecture, API and format
+        run: ./build.sh CheckArchitecture CheckApi CheckFormat --configuration Release
         shell: bash
 
   pack:

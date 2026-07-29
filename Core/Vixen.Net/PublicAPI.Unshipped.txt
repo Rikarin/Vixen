@@ -1,0 +1,1189 @@
+#nullable enable
+Vixen.Net.Channel -> enum : byte
+Vixen.Net.Channel.Channel() -> void
+Vixen.Net.Channel.Reliable = 0 -> Vixen.Net.Channel
+Vixen.Net.Channel.ReliableUnordered = 1 -> Vixen.Net.Channel
+Vixen.Net.Channel.Sequenced = 3 -> Vixen.Net.Channel
+Vixen.Net.Channel.Unreliable = 2 -> Vixen.Net.Channel
+Vixen.Net.ChannelExtensions -> static class
+Vixen.Net.ConnectionId -> readonly struct
+Vixen.Net.ConnectionId : System.IEquatable<Vixen.Net.ConnectionId>
+Vixen.Net.ConnectionId.ConnectionId() -> void
+Vixen.Net.ConnectionId.ConnectionId(uint Value) -> void
+Vixen.Net.ConnectionId.IsValid.get -> bool
+Vixen.Net.ConnectionId.Value.get -> uint
+Vixen.Net.ConnectionId.Value.init -> uint
+Vixen.Net.Diagnostics.BandwidthEntry -> readonly struct
+Vixen.Net.Diagnostics.BandwidthEntry : System.IEquatable<Vixen.Net.Diagnostics.BandwidthEntry>
+Vixen.Net.Diagnostics.BandwidthEntry.BandwidthEntry() -> void
+Vixen.Net.Diagnostics.BandwidthEntry.BandwidthEntry(string Name, long Bits, long Count) -> void
+Vixen.Net.Diagnostics.BandwidthEntry.Bits.get -> long
+Vixen.Net.Diagnostics.BandwidthEntry.Bits.init -> long
+Vixen.Net.Diagnostics.BandwidthEntry.Bytes.get -> double
+Vixen.Net.Diagnostics.BandwidthEntry.Count.get -> long
+Vixen.Net.Diagnostics.BandwidthEntry.Count.init -> long
+Vixen.Net.Diagnostics.BandwidthEntry.MeanBits.get -> double
+Vixen.Net.Diagnostics.BandwidthEntry.Name.get -> string
+Vixen.Net.Diagnostics.BandwidthEntry.Name.init -> string
+Vixen.Net.Diagnostics.BandwidthLedger -> sealed class
+Vixen.Net.Diagnostics.BandwidthLedger.Advance(System.TimeSpan elapsed) -> void
+Vixen.Net.Diagnostics.BandwidthLedger.BandwidthLedger() -> void
+Vixen.Net.Diagnostics.BandwidthLedger.DeltaCount.get -> long
+Vixen.Net.Diagnostics.BandwidthLedger.Elapsed.get -> System.TimeSpan
+Vixen.Net.Diagnostics.BandwidthLedger.KilobitsPerSecond.get -> double
+Vixen.Net.Diagnostics.BandwidthLedger.Record(Vixen.Net.Sessions.PlayerId to, Vixen.Net.Replication.NetworkId of, string typeName, int bits, bool asDelta) -> void
+Vixen.Net.Diagnostics.BandwidthLedger.RecordCall(Vixen.Net.Sessions.PlayerId with, string method, int bits) -> void
+Vixen.Net.Diagnostics.BandwidthLedger.RecordFields(string typeName, System.ReadOnlySpan<Vixen.Net.Messaging.WireLane> lanes, System.ReadOnlySpan<int> costs) -> void
+Vixen.Net.Diagnostics.BandwidthLedger.Reset() -> void
+Vixen.Net.Diagnostics.BandwidthLedger.TopCalls(int count = 10) -> System.Collections.Generic.IReadOnlyList<Vixen.Net.Diagnostics.BandwidthEntry>
+Vixen.Net.Diagnostics.BandwidthLedger.TopComponents(int count = 10) -> System.Collections.Generic.IReadOnlyList<Vixen.Net.Diagnostics.BandwidthEntry>
+Vixen.Net.Diagnostics.BandwidthLedger.TopConnections(int count = 10) -> System.Collections.Generic.IReadOnlyList<Vixen.Net.Diagnostics.BandwidthEntry>
+Vixen.Net.Diagnostics.BandwidthLedger.TopFields(int count = 10) -> System.Collections.Generic.IReadOnlyList<Vixen.Net.Diagnostics.BandwidthEntry>
+Vixen.Net.Diagnostics.BandwidthLedger.TopObjects(int count = 10) -> System.Collections.Generic.IReadOnlyList<Vixen.Net.Diagnostics.BandwidthEntry>
+Vixen.Net.Diagnostics.BandwidthLedger.TotalBits.get -> long
+Vixen.Net.Diagnostics.BandwidthLedger.TotalCount.get -> long
+Vixen.Net.Diagnostics.BandwidthLedger.TrackObjects.get -> bool
+Vixen.Net.Diagnostics.BandwidthLedger.TrackObjects.set -> bool
+Vixen.Net.Diagnostics.BandwidthLedger.WholeCount.get -> long
+Vixen.Net.Diagnostics.NetworkMetrics -> sealed class
+Vixen.Net.Diagnostics.NetworkMetrics : System.IDisposable
+Vixen.Net.Diagnostics.NetworkMetrics.Dispose() -> void
+Vixen.Net.Diagnostics.NetworkMetrics.Ledger.get -> Vixen.Net.Diagnostics.BandwidthLedger?
+Vixen.Net.Diagnostics.NetworkMetrics.Ledger.set -> Vixen.Net.Diagnostics.BandwidthLedger?
+Vixen.Net.Diagnostics.NetworkMetrics.NetworkMetrics(string? version = null) -> void
+Vixen.Net.Diagnostics.NetworkMetrics.RecordSnapshot(int bytes) -> void
+Vixen.Net.Diagnostics.NetworkMetrics.RecordTick(System.TimeSpan elapsed) -> void
+Vixen.Net.Diagnostics.NetworkMetrics.Replication.get -> Vixen.Net.Replication.ReplicationServer?
+Vixen.Net.Diagnostics.NetworkMetrics.Replication.set -> Vixen.Net.Replication.ReplicationServer?
+Vixen.Net.Diagnostics.NetworkMetrics.Rpc.get -> Vixen.Net.Rpc.RpcRouter?
+Vixen.Net.Diagnostics.NetworkMetrics.Rpc.set -> Vixen.Net.Rpc.RpcRouter?
+Vixen.Net.Diagnostics.NetworkMetrics.Sample() -> void
+Vixen.Net.Diagnostics.NetworkMetrics.Session.get -> Vixen.Net.Sessions.NetworkSession?
+Vixen.Net.Diagnostics.NetworkMetrics.Session.set -> Vixen.Net.Sessions.NetworkSession?
+Vixen.Net.Diagnostics.SnapshotContents -> readonly struct
+Vixen.Net.Diagnostics.SnapshotContents : System.IEquatable<Vixen.Net.Diagnostics.SnapshotContents>
+Vixen.Net.Diagnostics.SnapshotContents.Bits.get -> int
+Vixen.Net.Diagnostics.SnapshotContents.Bits.init -> int
+Vixen.Net.Diagnostics.SnapshotContents.Complete.get -> bool
+Vixen.Net.Diagnostics.SnapshotContents.Complete.init -> bool
+Vixen.Net.Diagnostics.SnapshotContents.Records.get -> System.Collections.Generic.IReadOnlyList<Vixen.Net.Diagnostics.SnapshotRecord>
+Vixen.Net.Diagnostics.SnapshotContents.Records.init -> System.Collections.Generic.IReadOnlyList<Vixen.Net.Diagnostics.SnapshotRecord>
+Vixen.Net.Diagnostics.SnapshotContents.Removals.get -> System.Collections.Generic.IReadOnlyList<Vixen.Net.Replication.NetworkId>
+Vixen.Net.Diagnostics.SnapshotContents.Removals.init -> System.Collections.Generic.IReadOnlyList<Vixen.Net.Replication.NetworkId>
+Vixen.Net.Diagnostics.SnapshotContents.SnapshotContents() -> void
+Vixen.Net.Diagnostics.SnapshotContents.SnapshotContents(Vixen.Net.Tick Tick, int Bits, System.Collections.Generic.IReadOnlyList<Vixen.Net.Replication.NetworkId> Removals, System.Collections.Generic.IReadOnlyList<Vixen.Net.Diagnostics.SnapshotRecord> Records, bool Complete) -> void
+Vixen.Net.Diagnostics.SnapshotContents.Tick.get -> Vixen.Net.Tick
+Vixen.Net.Diagnostics.SnapshotContents.Tick.init -> Vixen.Net.Tick
+Vixen.Net.Diagnostics.SnapshotInspector -> static class
+Vixen.Net.Diagnostics.SnapshotRecord -> readonly struct
+Vixen.Net.Diagnostics.SnapshotRecord : System.IEquatable<Vixen.Net.Diagnostics.SnapshotRecord>
+Vixen.Net.Diagnostics.SnapshotRecord.BaselineAt.get -> Vixen.Net.Tick
+Vixen.Net.Diagnostics.SnapshotRecord.BaselineAt.init -> Vixen.Net.Tick
+Vixen.Net.Diagnostics.SnapshotRecord.Bits.get -> int
+Vixen.Net.Diagnostics.SnapshotRecord.Bits.init -> int
+Vixen.Net.Diagnostics.SnapshotRecord.CapturedAt.get -> Vixen.Net.Tick
+Vixen.Net.Diagnostics.SnapshotRecord.CapturedAt.init -> Vixen.Net.Tick
+Vixen.Net.Diagnostics.SnapshotRecord.IsDelta.get -> bool
+Vixen.Net.Diagnostics.SnapshotRecord.IsDelta.init -> bool
+Vixen.Net.Diagnostics.SnapshotRecord.Object.get -> Vixen.Net.Replication.NetworkId
+Vixen.Net.Diagnostics.SnapshotRecord.Object.init -> Vixen.Net.Replication.NetworkId
+Vixen.Net.Diagnostics.SnapshotRecord.SnapshotRecord() -> void
+Vixen.Net.Diagnostics.SnapshotRecord.SnapshotRecord(Vixen.Net.Replication.NetworkId Object, string TypeName, bool IsDelta, Vixen.Net.Tick CapturedAt, Vixen.Net.Tick BaselineAt, int Bits) -> void
+Vixen.Net.Diagnostics.SnapshotRecord.TypeName.get -> string
+Vixen.Net.Diagnostics.SnapshotRecord.TypeName.init -> string
+Vixen.Net.DisconnectReason -> enum : byte
+Vixen.Net.DisconnectReason.ConnectionRefused = 4 -> Vixen.Net.DisconnectReason
+Vixen.Net.DisconnectReason.DisconnectReason() -> void
+Vixen.Net.DisconnectReason.Kicked = 3 -> Vixen.Net.DisconnectReason
+Vixen.Net.DisconnectReason.RemoteRequested = 1 -> Vixen.Net.DisconnectReason
+Vixen.Net.DisconnectReason.Requested = 0 -> Vixen.Net.DisconnectReason
+Vixen.Net.DisconnectReason.ServerStopped = 2 -> Vixen.Net.DisconnectReason
+Vixen.Net.DisconnectReason.Timeout = 5 -> Vixen.Net.DisconnectReason
+Vixen.Net.DisconnectReason.TransportError = 6 -> Vixen.Net.DisconnectReason
+Vixen.Net.Messaging.BitReader -> ref struct
+Vixen.Net.Messaging.BitReader.Align() -> bool
+Vixen.Net.Messaging.BitReader.BitReader() -> void
+Vixen.Net.Messaging.BitReader.BitReader(System.ReadOnlySpan<byte> buffer) -> void
+Vixen.Net.Messaging.BitReader.Rewind(int bitPosition) -> void
+Vixen.Net.Messaging.BitReader.TryCopyTo(ref Vixen.Net.Messaging.BitWriter destination, int count) -> bool
+Vixen.Net.Messaging.BitReader.TryRead(int count, out uint value) -> bool
+Vixen.Net.Messaging.BitReader.TryReadBitsOver(int count) -> bool
+Vixen.Net.Messaging.BitReader.TryReadBool(out bool value) -> bool
+Vixen.Net.Messaging.BitReader.TryReadBytes(int count, out System.ReadOnlySpan<byte> bytes) -> bool
+Vixen.Net.Messaging.BitReader.TryReadInt32(out int value) -> bool
+Vixen.Net.Messaging.BitReader.TryReadQuantized(in Vixen.Net.Messaging.QuantizeRange range, out float value) -> bool
+Vixen.Net.Messaging.BitReader.TryReadSingle(out float value) -> bool
+Vixen.Net.Messaging.BitReader.TryReadUInt32(out uint value) -> bool
+Vixen.Net.Messaging.BitReader.TryReadVariable(out uint value) -> bool
+Vixen.Net.Messaging.BitWriter -> ref struct
+Vixen.Net.Messaging.BitWriter.Align() -> void
+Vixen.Net.Messaging.BitWriter.BitWriter() -> void
+Vixen.Net.Messaging.BitWriter.BitWriter(System.Span<byte> buffer) -> void
+Vixen.Net.Messaging.BitWriter.Rewind(int bitPosition) -> void
+Vixen.Net.Messaging.BitWriter.Write(uint value, int count) -> void
+Vixen.Net.Messaging.BitWriter.WriteBitsFrom(System.ReadOnlySpan<byte> source, int count) -> void
+Vixen.Net.Messaging.BitWriter.WriteBool(bool value) -> void
+Vixen.Net.Messaging.BitWriter.WriteBytes(System.ReadOnlySpan<byte> bytes) -> void
+Vixen.Net.Messaging.BitWriter.WriteInt32(int value) -> void
+Vixen.Net.Messaging.BitWriter.WriteQuantized(float value, in Vixen.Net.Messaging.QuantizeRange range) -> void
+Vixen.Net.Messaging.BitWriter.WriteSingle(float value) -> void
+Vixen.Net.Messaging.BitWriter.WriteUInt32(uint value) -> void
+Vixen.Net.Messaging.BitWriter.WriteVariable(uint value) -> void
+Vixen.Net.Messaging.BroadcastLimits -> sealed record
+Vixen.Net.Messaging.BroadcastLimits : System.IEquatable<Vixen.Net.Messaging.BroadcastLimits>
+Vixen.Net.Messaging.BroadcastLimits.BroadcastLimits() -> void
+Vixen.Net.Messaging.BroadcastLimits.Burst.get -> int
+Vixen.Net.Messaging.BroadcastLimits.Burst.init -> int
+Vixen.Net.Messaging.BroadcastLimits.PerSecond.get -> int
+Vixen.Net.Messaging.BroadcastLimits.PerSecond.init -> int
+Vixen.Net.Messaging.BroadcastRouter -> sealed class
+Vixen.Net.Messaging.BroadcastRouter.Advance(System.TimeSpan elapsed) -> void
+Vixen.Net.Messaging.BroadcastRouter.BroadcastRouter(int maxPayloadBytes = 1200) -> void
+Vixen.Net.Messaging.BroadcastRouter.DeliveredCount.get -> long
+Vixen.Net.Messaging.BroadcastRouter.Forget(Vixen.Net.Sessions.PlayerId player) -> void
+Vixen.Net.Messaging.BroadcastRouter.Limits.get -> Vixen.Net.Messaging.BroadcastLimits?
+Vixen.Net.Messaging.BroadcastRouter.Limits.set -> Vixen.Net.Messaging.BroadcastLimits?
+Vixen.Net.Messaging.BroadcastRouter.Receive(Vixen.Net.Sessions.PlayerId from, System.ReadOnlySpan<byte> payload) -> bool
+Vixen.Net.Messaging.BroadcastRouter.RefusedByPayloadCount.get -> long
+Vixen.Net.Messaging.BroadcastRouter.RefusedByRateLimitCount.get -> long
+Vixen.Net.Messaging.BroadcastRouter.RefusedByRegistryCount.get -> long
+Vixen.Net.Messaging.BroadcastRouter.RegisteredCount.get -> int
+Vixen.Net.Messaging.BroadcastRouter.Subscribe<T>(System.Action<Vixen.Net.Sessions.PlayerId, T> handler) -> void
+Vixen.Net.Messaging.BroadcastRouter.TryEncode<T>(in T message, out System.ReadOnlySpan<byte> payload) -> bool
+Vixen.Net.Messaging.DeltaCodec -> static class
+Vixen.Net.Messaging.IBroadcast<TSelf> -> interface
+Vixen.Net.Messaging.IBroadcast<TSelf>.BroadcastName.get -> string
+Vixen.Net.Messaging.IBroadcast<TSelf>.TryRead(ref Vixen.Net.Messaging.BitReader reader, out TSelf value) -> bool
+Vixen.Net.Messaging.IBroadcast<TSelf>.Write(ref Vixen.Net.Messaging.BitWriter writer) -> void
+Vixen.Net.Messaging.MathCodec -> static class
+Vixen.Net.Messaging.PacketReader -> ref struct
+Vixen.Net.Messaging.PacketReader.PacketReader() -> void
+Vixen.Net.Messaging.PacketReader.PacketReader(System.ReadOnlySpan<byte> buffer) -> void
+Vixen.Net.Messaging.PacketReader.Reject() -> bool
+Vixen.Net.Messaging.PacketReader.TryReadBlob(int maxBytes, out System.ReadOnlySpan<byte> bytes) -> bool
+Vixen.Net.Messaging.PacketReader.TryReadBool(out bool value) -> bool
+Vixen.Net.Messaging.PacketReader.TryReadByte(out byte value) -> bool
+Vixen.Net.Messaging.PacketReader.TryReadInt32(out int value) -> bool
+Vixen.Net.Messaging.PacketReader.TryReadRaw(int count, out System.ReadOnlySpan<byte> bytes) -> bool
+Vixen.Net.Messaging.PacketReader.TryReadSingle(out float value) -> bool
+Vixen.Net.Messaging.PacketReader.TryReadString(int maxBytes, out string value) -> bool
+Vixen.Net.Messaging.PacketReader.TryReadTick(out Vixen.Net.Tick value) -> bool
+Vixen.Net.Messaging.PacketReader.TryReadUInt16(out ushort value) -> bool
+Vixen.Net.Messaging.PacketReader.TryReadUInt32(out uint value) -> bool
+Vixen.Net.Messaging.PacketReader.TryReadUInt64(out ulong value) -> bool
+Vixen.Net.Messaging.PacketReader.TryReadVariable(out uint value) -> bool
+Vixen.Net.Messaging.PacketWriter -> ref struct
+Vixen.Net.Messaging.PacketWriter.PacketWriter() -> void
+Vixen.Net.Messaging.PacketWriter.PacketWriter(System.Span<byte> buffer) -> void
+Vixen.Net.Messaging.PacketWriter.WriteBlob(System.ReadOnlySpan<byte> bytes) -> void
+Vixen.Net.Messaging.PacketWriter.WriteBool(bool value) -> void
+Vixen.Net.Messaging.PacketWriter.WriteByte(byte value) -> void
+Vixen.Net.Messaging.PacketWriter.WriteInt32(int value) -> void
+Vixen.Net.Messaging.PacketWriter.WriteRaw(System.ReadOnlySpan<byte> bytes) -> void
+Vixen.Net.Messaging.PacketWriter.WriteSingle(float value) -> void
+Vixen.Net.Messaging.PacketWriter.WriteString(string? value) -> void
+Vixen.Net.Messaging.PacketWriter.WriteTick(Vixen.Net.Tick value) -> void
+Vixen.Net.Messaging.PacketWriter.WriteUInt16(ushort value) -> void
+Vixen.Net.Messaging.PacketWriter.WriteUInt32(uint value) -> void
+Vixen.Net.Messaging.PacketWriter.WriteUInt64(ulong value) -> void
+Vixen.Net.Messaging.PacketWriter.WriteVariable(uint value) -> void
+Vixen.Net.Messaging.QuantizeRange -> readonly struct
+Vixen.Net.Messaging.QuantizeRange : System.IEquatable<Vixen.Net.Messaging.QuantizeRange>
+Vixen.Net.Messaging.QuantizeRange.Bits.get -> int
+Vixen.Net.Messaging.QuantizeRange.Bits.init -> int
+Vixen.Net.Messaging.QuantizeRange.Decode(uint encoded) -> float
+Vixen.Net.Messaging.QuantizeRange.Encode(float value) -> uint
+Vixen.Net.Messaging.QuantizeRange.IsValid.get -> bool
+Vixen.Net.Messaging.QuantizeRange.Levels.get -> uint
+Vixen.Net.Messaging.QuantizeRange.Max.get -> float
+Vixen.Net.Messaging.QuantizeRange.Max.init -> float
+Vixen.Net.Messaging.QuantizeRange.MaxError.get -> float
+Vixen.Net.Messaging.QuantizeRange.Min.get -> float
+Vixen.Net.Messaging.QuantizeRange.Min.init -> float
+Vixen.Net.Messaging.QuantizeRange.QuantizeRange() -> void
+Vixen.Net.Messaging.QuantizeRange.QuantizeRange(float Min, float Max, int Bits) -> void
+Vixen.Net.Messaging.WireLane -> readonly struct
+Vixen.Net.Messaging.WireLane : System.IEquatable<Vixen.Net.Messaging.WireLane>
+Vixen.Net.Messaging.WireLane.Bits.get -> int
+Vixen.Net.Messaging.WireLane.Bits.init -> int
+Vixen.Net.Messaging.WireLane.Name.get -> string
+Vixen.Net.Messaging.WireLane.Name.init -> string
+Vixen.Net.Messaging.WireLane.Offset.get -> bool
+Vixen.Net.Messaging.WireLane.Offset.init -> bool
+Vixen.Net.Messaging.WireLane.WireLane() -> void
+Vixen.Net.Messaging.WireLane.WireLane(string Name, int Bits, bool Offset) -> void
+Vixen.Net.Motion.NetworkTransform -> struct
+Vixen.Net.Motion.NetworkTransform.NetworkTransform() -> void
+Vixen.Net.Motion.NetworkTransform.Position -> Vixen.Core.Mathematics.Vector3
+Vixen.Net.Motion.NetworkTransform.Rotation -> Vixen.Core.Mathematics.Quaternion
+Vixen.Net.Motion.NetworkTransform.TeleportCount -> byte
+Vixen.Net.Motion.NetworkTransformReplicator -> sealed class
+Vixen.Net.Motion.NetworkTransformReplicator : Vixen.Net.Replication.IComponentReplicator
+Vixen.Net.Motion.NetworkTransformReplicator.Apply(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitReader reader) -> bool
+Vixen.Net.Motion.NetworkTransformReplicator.ChangedQuery.get -> Vixen.Ecs.QueryDescription
+Vixen.Net.Motion.NetworkTransformReplicator.Channel.get -> Vixen.Net.Channel
+Vixen.Net.Motion.NetworkTransformReplicator.ComponentType.get -> Vixen.Core.ComponentTypeId
+Vixen.Net.Motion.NetworkTransformReplicator.Has(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> bool
+Vixen.Net.Motion.NetworkTransformReplicator.Lanes.get -> System.ReadOnlySpan<Vixen.Net.Messaging.WireLane>
+Vixen.Net.Motion.NetworkTransformReplicator.NetworkTransformReplicator() -> void
+Vixen.Net.Motion.NetworkTransformReplicator.Priority.get -> int
+Vixen.Net.Motion.NetworkTransformReplicator.TypeId.get -> uint
+Vixen.Net.Motion.NetworkTransformReplicator.TypeName.get -> string
+Vixen.Net.Motion.NetworkTransformReplicator.Write(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitWriter writer) -> void
+Vixen.Net.Motion.OwnerSmoothing -> sealed class
+Vixen.Net.Motion.OwnerSmoothing.Apply(in Vixen.Core.Mathematics.Vector3 simulated, System.TimeSpan elapsed) -> Vixen.Core.Mathematics.Vector3
+Vixen.Net.Motion.OwnerSmoothing.Correct(in Vixen.Core.Mathematics.Vector3 from, in Vixen.Core.Mathematics.Vector3 to) -> void
+Vixen.Net.Motion.OwnerSmoothing.CorrectionCount.get -> long
+Vixen.Net.Motion.OwnerSmoothing.Error.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Net.Motion.OwnerSmoothing.HalfLife.get -> System.TimeSpan
+Vixen.Net.Motion.OwnerSmoothing.HalfLife.init -> System.TimeSpan
+Vixen.Net.Motion.OwnerSmoothing.IsSmoothing.get -> bool
+Vixen.Net.Motion.OwnerSmoothing.OwnerSmoothing() -> void
+Vixen.Net.Motion.OwnerSmoothing.Reset() -> void
+Vixen.Net.Motion.OwnerSmoothing.SnapCount.get -> long
+Vixen.Net.Motion.OwnerSmoothing.SnapDistance.get -> float
+Vixen.Net.Motion.OwnerSmoothing.SnapDistance.init -> float
+Vixen.Net.Motion.SnapshotBuffer -> sealed class
+Vixen.Net.Motion.SnapshotBuffer.Add(in Vixen.Net.Motion.TransformSample sample) -> bool
+Vixen.Net.Motion.SnapshotBuffer.Capacity.get -> int
+Vixen.Net.Motion.SnapshotBuffer.Clear() -> void
+Vixen.Net.Motion.SnapshotBuffer.Count.get -> int
+Vixen.Net.Motion.SnapshotBuffer.ExtrapolatedCount.get -> long
+Vixen.Net.Motion.SnapshotBuffer.InterpolatedCount.get -> long
+Vixen.Net.Motion.SnapshotBuffer.Newest.get -> Vixen.Net.Motion.TransformSample
+Vixen.Net.Motion.SnapshotBuffer.Oldest.get -> Vixen.Net.Motion.TransformSample
+Vixen.Net.Motion.SnapshotBuffer.Options.get -> Vixen.Net.Motion.SnapshotBufferOptions
+Vixen.Net.Motion.SnapshotBuffer.SnappedCount.get -> long
+Vixen.Net.Motion.SnapshotBuffer.SnapshotBuffer(int capacity = 32, Vixen.Net.Motion.SnapshotBufferOptions? options = null) -> void
+Vixen.Net.Motion.SnapshotBuffer.StaleCount.get -> long
+Vixen.Net.Motion.SnapshotBuffer.StarvedCount.get -> long
+Vixen.Net.Motion.SnapshotBuffer.TrySample(Vixen.Net.Tick tick, float fraction, out Vixen.Net.Motion.TransformSample sample) -> bool
+Vixen.Net.Motion.SnapshotBufferOptions -> sealed record
+Vixen.Net.Motion.SnapshotBufferOptions : System.IEquatable<Vixen.Net.Motion.SnapshotBufferOptions>
+Vixen.Net.Motion.SnapshotBufferOptions.MaxExtrapolationTicks.get -> int
+Vixen.Net.Motion.SnapshotBufferOptions.MaxExtrapolationTicks.init -> int
+Vixen.Net.Motion.SnapshotBufferOptions.SnapDistance.get -> float
+Vixen.Net.Motion.SnapshotBufferOptions.SnapDistance.init -> float
+Vixen.Net.Motion.SnapshotBufferOptions.SnapshotBufferOptions() -> void
+Vixen.Net.Motion.TransformSample -> readonly struct
+Vixen.Net.Motion.TransformSample : System.IEquatable<Vixen.Net.Motion.TransformSample>
+Vixen.Net.Motion.TransformSample.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Net.Motion.TransformSample.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Net.Motion.TransformSample.Rotation.get -> Vixen.Core.Mathematics.Quaternion
+Vixen.Net.Motion.TransformSample.Rotation.init -> Vixen.Core.Mathematics.Quaternion
+Vixen.Net.Motion.TransformSample.Tick.get -> Vixen.Net.Tick
+Vixen.Net.Motion.TransformSample.Tick.init -> Vixen.Net.Tick
+Vixen.Net.Motion.TransformSample.TransformSample() -> void
+Vixen.Net.Motion.TransformSample.TransformSample(Vixen.Net.Tick Tick, Vixen.Core.Mathematics.Vector3 Position, Vixen.Core.Mathematics.Quaternion Rotation) -> void
+Vixen.Net.Prediction.ClientPrediction<T> -> sealed class
+Vixen.Net.Prediction.ClientPrediction<T>.Clear() -> void
+Vixen.Net.Prediction.ClientPrediction<T>.ClientPrediction(Vixen.Net.Replication.ReplicationRegistry registry, Vixen.Net.Prediction.InputLog<T> log, Vixen.Net.Prediction.PredictedStep<T> step, int depth = 32) -> void
+Vixen.Net.Prediction.ClientPrediction<T>.ConfirmedCount.get -> long
+Vixen.Net.Prediction.ClientPrediction<T>.Corrections.get -> System.Collections.Generic.IReadOnlyList<Vixen.Net.Prediction.PredictionCorrection>
+Vixen.Net.Prediction.ClientPrediction<T>.Current.get -> Vixen.Net.Tick
+Vixen.Net.Prediction.ClientPrediction<T>.HasSimulated.get -> bool
+Vixen.Net.Prediction.ClientPrediction<T>.History.get -> Vixen.Net.Prediction.PredictionHistory
+Vixen.Net.Prediction.ClientPrediction<T>.LostHistoryCount.get -> long
+Vixen.Net.Prediction.ClientPrediction<T>.MispredictionCount.get -> long
+Vixen.Net.Prediction.ClientPrediction<T>.PredictedTickCount.get -> long
+Vixen.Net.Prediction.ClientPrediction<T>.Reconcile(Vixen.Ecs.World world, Vixen.Net.Tick confirmed) -> int
+Vixen.Net.Prediction.ClientPrediction<T>.ResimulatedTickCount.get -> long
+Vixen.Net.Prediction.ClientPrediction<T>.Step(Vixen.Ecs.World world, Vixen.Net.Tick tick, in T input) -> void
+Vixen.Net.Prediction.IPredictedInput<TSelf> -> interface
+Vixen.Net.Prediction.IPredictedInput<TSelf>.TryRead(ref Vixen.Net.Messaging.BitReader reader, out TSelf value) -> bool
+Vixen.Net.Prediction.IPredictedInput<TSelf>.Write(ref Vixen.Net.Messaging.BitWriter writer) -> void
+Vixen.Net.Prediction.InputBuffer<T> -> sealed class
+Vixen.Net.Prediction.InputBuffer<T>.Acknowledged.get -> Vixen.Net.Tick
+Vixen.Net.Prediction.InputBuffer<T>.Capacity.get -> int
+Vixen.Net.Prediction.InputBuffer<T>.Capacity.init -> int
+Vixen.Net.Prediction.InputBuffer<T>.Clear() -> void
+Vixen.Net.Prediction.InputBuffer<T>.Depth.get -> int
+Vixen.Net.Prediction.InputBuffer<T>.DuplicateCount.get -> long
+Vixen.Net.Prediction.InputBuffer<T>.HasAcknowledged.get -> bool
+Vixen.Net.Prediction.InputBuffer<T>.HasAny.get -> bool
+Vixen.Net.Prediction.InputBuffer<T>.Health.get -> Vixen.Net.Prediction.InputHealth
+Vixen.Net.Prediction.InputBuffer<T>.InputBuffer() -> void
+Vixen.Net.Prediction.InputBuffer<T>.LateCount.get -> long
+Vixen.Net.Prediction.InputBuffer<T>.MalformedCount.get -> long
+Vixen.Net.Prediction.InputBuffer<T>.Newest.get -> Vixen.Net.Tick
+Vixen.Net.Prediction.InputBuffer<T>.Offer(Vixen.Net.Tick tick, in T input, Vixen.Net.Tick simulated) -> void
+Vixen.Net.Prediction.InputBuffer<T>.RefusedCount.get -> long
+Vixen.Net.Prediction.InputBuffer<T>.StarvedCount.get -> long
+Vixen.Net.Prediction.InputBuffer<T>.TargetDepth.get -> int
+Vixen.Net.Prediction.InputBuffer<T>.TargetDepth.init -> int
+Vixen.Net.Prediction.InputBuffer<T>.TryReceive(System.ReadOnlySpan<byte> payload, Vixen.Net.Tick simulated) -> bool
+Vixen.Net.Prediction.InputBuffer<T>.TryTake(Vixen.Net.Tick tick, out T input) -> bool
+Vixen.Net.Prediction.InputHealth -> readonly struct
+Vixen.Net.Prediction.InputHealth : System.IEquatable<Vixen.Net.Prediction.InputHealth>
+Vixen.Net.Prediction.InputHealth.Depth.get -> int
+Vixen.Net.Prediction.InputHealth.Depth.init -> int
+Vixen.Net.Prediction.InputHealth.Duplicate.get -> long
+Vixen.Net.Prediction.InputHealth.Duplicate.init -> long
+Vixen.Net.Prediction.InputHealth.InputHealth() -> void
+Vixen.Net.Prediction.InputHealth.InputHealth(int Depth, long Starved, long Late, long Duplicate) -> void
+Vixen.Net.Prediction.InputHealth.Late.get -> long
+Vixen.Net.Prediction.InputHealth.Late.init -> long
+Vixen.Net.Prediction.InputHealth.Starved.get -> long
+Vixen.Net.Prediction.InputHealth.Starved.init -> long
+Vixen.Net.Prediction.InputLog<T> -> sealed class
+Vixen.Net.Prediction.InputLog<T>.Acknowledge(Vixen.Net.Tick tick) -> void
+Vixen.Net.Prediction.InputLog<T>.Acknowledged.get -> Vixen.Net.Tick
+Vixen.Net.Prediction.InputLog<T>.Capacity.get -> int
+Vixen.Net.Prediction.InputLog<T>.Capacity.init -> int
+Vixen.Net.Prediction.InputLog<T>.Clear() -> void
+Vixen.Net.Prediction.InputLog<T>.Count.get -> int
+Vixen.Net.Prediction.InputLog<T>.HasAcknowledged.get -> bool
+Vixen.Net.Prediction.InputLog<T>.HasAny.get -> bool
+Vixen.Net.Prediction.InputLog<T>.InputLog() -> void
+Vixen.Net.Prediction.InputLog<T>.Newest.get -> Vixen.Net.Tick
+Vixen.Net.Prediction.InputLog<T>.OverflowCount.get -> long
+Vixen.Net.Prediction.InputLog<T>.Record(Vixen.Net.Tick tick, in T input) -> void
+Vixen.Net.Prediction.InputLog<T>.Redundancy.get -> int
+Vixen.Net.Prediction.InputLog<T>.Redundancy.init -> int
+Vixen.Net.Prediction.InputLog<T>.TryGet(Vixen.Net.Tick tick, out T input) -> bool
+Vixen.Net.Prediction.InputLog<T>.TryWrite(System.Span<byte> buffer, out System.ReadOnlySpan<byte> payload) -> bool
+Vixen.Net.Prediction.Predicted -> struct
+Vixen.Net.Prediction.Predicted : Vixen.Ecs.ITagComponent
+Vixen.Net.Prediction.Predicted.Predicted() -> void
+Vixen.Net.Prediction.PredictedOwnershipSystem -> sealed class
+Vixen.Net.Prediction.PredictedOwnershipSystem.AddedCount.get -> long
+Vixen.Net.Prediction.PredictedOwnershipSystem.Local.get -> Vixen.Net.Sessions.PlayerId
+Vixen.Net.Prediction.PredictedOwnershipSystem.Local.set -> Vixen.Net.Sessions.PlayerId
+Vixen.Net.Prediction.PredictedOwnershipSystem.PredictedCount.get -> int
+Vixen.Net.Prediction.PredictedOwnershipSystem.PredictedOwnershipSystem() -> void
+Vixen.Net.Prediction.PredictedOwnershipSystem.RemovedCount.get -> long
+Vixen.Net.Prediction.PredictedOwnershipSystem.Rules.get -> Vixen.Net.Rules.NetworkRulesRegistry?
+Vixen.Net.Prediction.PredictedOwnershipSystem.Rules.set -> Vixen.Net.Rules.NetworkRulesRegistry?
+Vixen.Net.Prediction.PredictedOwnershipSystem.Update(Vixen.Ecs.World world) -> void
+Vixen.Net.Prediction.PredictedStep<T> -> delegate
+Vixen.Net.Prediction.PredictionCorrection -> readonly struct
+Vixen.Net.Prediction.PredictionCorrection : System.IEquatable<Vixen.Net.Prediction.PredictionCorrection>
+Vixen.Net.Prediction.PredictionCorrection.From.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Net.Prediction.PredictionCorrection.From.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Net.Prediction.PredictionCorrection.Id.get -> Vixen.Net.Replication.NetworkId
+Vixen.Net.Prediction.PredictionCorrection.Id.init -> Vixen.Net.Replication.NetworkId
+Vixen.Net.Prediction.PredictionCorrection.PredictionCorrection() -> void
+Vixen.Net.Prediction.PredictionCorrection.PredictionCorrection(Vixen.Net.Replication.NetworkId Id, Vixen.Core.Mathematics.Vector3 From, Vixen.Core.Mathematics.Vector3 To) -> void
+Vixen.Net.Prediction.PredictionCorrection.To.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Net.Prediction.PredictionCorrection.To.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Net.Prediction.PredictionHealth -> readonly struct
+Vixen.Net.Prediction.PredictionHealth : System.IEquatable<Vixen.Net.Prediction.PredictionHealth>
+Vixen.Net.Prediction.PredictionHealth : Vixen.Net.Messaging.IBroadcast<Vixen.Net.Prediction.PredictionHealth>
+Vixen.Net.Prediction.PredictionHealth.Depth.get -> int
+Vixen.Net.Prediction.PredictionHealth.Depth.init -> int
+Vixen.Net.Prediction.PredictionHealth.Late.get -> int
+Vixen.Net.Prediction.PredictionHealth.Late.init -> int
+Vixen.Net.Prediction.PredictionHealth.PredictionHealth() -> void
+Vixen.Net.Prediction.PredictionHealth.PredictionHealth(int Depth, int Starved, int Late) -> void
+Vixen.Net.Prediction.PredictionHealth.Starved.get -> int
+Vixen.Net.Prediction.PredictionHealth.Starved.init -> int
+Vixen.Net.Prediction.PredictionHealth.Write(ref Vixen.Net.Messaging.BitWriter writer) -> void
+Vixen.Net.Prediction.PredictionHealthReporter -> sealed class
+Vixen.Net.Prediction.PredictionHealthReporter.Period.get -> int
+Vixen.Net.Prediction.PredictionHealthReporter.Period.init -> int
+Vixen.Net.Prediction.PredictionHealthReporter.PredictionHealthReporter() -> void
+Vixen.Net.Prediction.PredictionHealthReporter.ReportCount.get -> long
+Vixen.Net.Prediction.PredictionHealthReporter.TryAdvance(in Vixen.Net.Prediction.InputHealth health, out Vixen.Net.Prediction.PredictionHealth report) -> bool
+Vixen.Net.Prediction.PredictionHistory -> sealed class
+Vixen.Net.Prediction.PredictionHistory.Clear() -> void
+Vixen.Net.Prediction.PredictionHistory.Count.get -> int
+Vixen.Net.Prediction.PredictionHistory.Depth.get -> int
+Vixen.Net.Prediction.PredictionHistory.Has(Vixen.Net.Tick tick) -> bool
+Vixen.Net.Prediction.PredictionHistory.Matches(Vixen.Ecs.World world, Vixen.Net.Tick tick) -> bool
+Vixen.Net.Prediction.PredictionHistory.PredictionHistory(Vixen.Net.Replication.ReplicationRegistry registry, int depth = 32) -> void
+Vixen.Net.Prediction.PredictionHistory.Record(Vixen.Ecs.World world, Vixen.Net.Tick tick) -> void
+Vixen.Net.Prediction.PredictionHistory.TryRestore(Vixen.Ecs.World world, Vixen.Net.Tick tick) -> bool
+Vixen.Net.Prediction.PredictionSmoother -> sealed class
+Vixen.Net.Prediction.PredictionSmoother.Advance(System.TimeSpan elapsed) -> void
+Vixen.Net.Prediction.PredictionSmoother.CorrectionCount.get -> long
+Vixen.Net.Prediction.PredictionSmoother.Count.get -> int
+Vixen.Net.Prediction.PredictionSmoother.Draw(Vixen.Net.Replication.NetworkId id, in Vixen.Core.Mathematics.Vector3 simulated) -> Vixen.Core.Mathematics.Vector3
+Vixen.Net.Prediction.PredictionSmoother.Forget(Vixen.Net.Replication.NetworkId id) -> bool
+Vixen.Net.Prediction.PredictionSmoother.HalfLife.get -> System.TimeSpan
+Vixen.Net.Prediction.PredictionSmoother.HalfLife.init -> System.TimeSpan
+Vixen.Net.Prediction.PredictionSmoother.PredictionSmoother() -> void
+Vixen.Net.Prediction.PredictionSmoother.SnapCount.get -> long
+Vixen.Net.Prediction.PredictionSmoother.SnapDistance.get -> float
+Vixen.Net.Prediction.PredictionSmoother.SnapDistance.init -> float
+Vixen.Net.Prediction.PredictionSmoother.Take(System.Collections.Generic.IReadOnlyList<Vixen.Net.Prediction.PredictionCorrection> corrections) -> void
+Vixen.Net.Prediction.TickLeadController -> sealed class
+Vixen.Net.Prediction.TickLeadController.Apply(Vixen.Net.Time.TickManager ticks, in Vixen.Net.Prediction.PredictionHealth report) -> int
+Vixen.Net.Prediction.TickLeadController.GrewCount.get -> long
+Vixen.Net.Prediction.TickLeadController.MaxBias.get -> int
+Vixen.Net.Prediction.TickLeadController.MaxBias.init -> int
+Vixen.Net.Prediction.TickLeadController.PatienceToGrow.get -> int
+Vixen.Net.Prediction.TickLeadController.PatienceToGrow.init -> int
+Vixen.Net.Prediction.TickLeadController.PatienceToShrink.get -> int
+Vixen.Net.Prediction.TickLeadController.PatienceToShrink.init -> int
+Vixen.Net.Prediction.TickLeadController.Reset() -> void
+Vixen.Net.Prediction.TickLeadController.ShrankCount.get -> long
+Vixen.Net.Prediction.TickLeadController.TargetDepth.get -> int
+Vixen.Net.Prediction.TickLeadController.TargetDepth.init -> int
+Vixen.Net.Prediction.TickLeadController.TickLeadController() -> void
+Vixen.Net.Replication.AllNetworkedSource -> sealed class
+Vixen.Net.Replication.AllNetworkedSource : Vixen.Net.Replication.IInterestSource
+Vixen.Net.Replication.AllNetworkedSource.AllNetworkedSource() -> void
+Vixen.Net.Replication.AllNetworkedSource.Candidates(Vixen.Ecs.World world, Vixen.Net.Sessions.PlayerId player, System.Collections.Generic.List<Vixen.Core.Entity> into) -> void
+Vixen.Net.Replication.BandwidthBudget -> sealed record
+Vixen.Net.Replication.BandwidthBudget : System.IEquatable<Vixen.Net.Replication.BandwidthBudget>
+Vixen.Net.Replication.BandwidthBudget.BandwidthBudget() -> void
+Vixen.Net.Replication.BandwidthBudget.BytesPerSnapshot.get -> int
+Vixen.Net.Replication.BandwidthBudget.BytesPerSnapshot.init -> int
+Vixen.Net.Replication.BaselineKey -> readonly struct
+Vixen.Net.Replication.BaselineKey : System.IEquatable<Vixen.Net.Replication.BaselineKey>
+Vixen.Net.Replication.BaselineKey.BaselineKey() -> void
+Vixen.Net.Replication.BaselineKey.BaselineKey(Vixen.Net.Replication.NetworkId Entity, uint TypeId) -> void
+Vixen.Net.Replication.BaselineKey.Entity.get -> Vixen.Net.Replication.NetworkId
+Vixen.Net.Replication.BaselineKey.Entity.init -> Vixen.Net.Replication.NetworkId
+Vixen.Net.Replication.BaselineKey.TypeId.get -> uint
+Vixen.Net.Replication.BaselineKey.TypeId.init -> uint
+Vixen.Net.Replication.ConnectionBaseline -> sealed class
+Vixen.Net.Replication.ConnectionBaseline.Acknowledge(Vixen.Net.Tick tick) -> bool
+Vixen.Net.Replication.ConnectionBaseline.AcknowledgedTick.get -> Vixen.Net.Tick
+Vixen.Net.Replication.ConnectionBaseline.BaselineCount.get -> int
+Vixen.Net.Replication.ConnectionBaseline.Clear() -> void
+Vixen.Net.Replication.ConnectionBaseline.ConnectionBaseline() -> void
+Vixen.Net.Replication.ConnectionBaseline.Forget(Vixen.Net.Replication.NetworkId id) -> void
+Vixen.Net.Replication.ConnectionBaseline.HasAcknowledged.get -> bool
+Vixen.Net.Replication.ConnectionBaseline.IsCurrent(in Vixen.Net.Replication.BaselineKey key, uint hash) -> bool
+Vixen.Net.Replication.ConnectionBaseline.PendingTickCount.get -> int
+Vixen.Net.Replication.ConnectionBaseline.RecordSent(Vixen.Net.Tick tick, in Vixen.Net.Replication.BaselineKey key, uint hash, Vixen.Net.Tick capturedAt) -> void
+Vixen.Net.Replication.ConnectionBaseline.TryGetBaseline(in Vixen.Net.Replication.BaselineKey key, out Vixen.Net.Tick capturedAt, out uint hash) -> bool
+Vixen.Net.Replication.ConnectionBaseline.WasSentRecently(in Vixen.Net.Replication.BaselineKey key, uint hash, Vixen.Net.Tick now, int within) -> bool
+Vixen.Net.Replication.DistanceReplicationRate -> sealed class
+Vixen.Net.Replication.DistanceReplicationRate : Vixen.Net.Replication.IReplicationRate
+Vixen.Net.Replication.DistanceReplicationRate.Bands.get -> System.Collections.Generic.IList<(float Distance, int Divider)>
+Vixen.Net.Replication.DistanceReplicationRate.DistanceReplicationRate() -> void
+Vixen.Net.Replication.DistanceReplicationRate.Forget(Vixen.Net.Sessions.PlayerId player) -> bool
+Vixen.Net.Replication.DistanceReplicationRate.SentCount.get -> long
+Vixen.Net.Replication.DistanceReplicationRate.SetViewpoint(Vixen.Net.Sessions.PlayerId player, in Vixen.Core.Mathematics.Vector3 at) -> void
+Vixen.Net.Replication.DistanceReplicationRate.ShouldSend(Vixen.Ecs.World world, Vixen.Net.Sessions.PlayerId player, Vixen.Core.Entity entity, Vixen.Net.Replication.NetworkId id, Vixen.Net.Tick tick) -> bool
+Vixen.Net.Replication.DistanceReplicationRate.SkippedCount.get -> long
+Vixen.Net.Replication.ExplicitInterestRule -> sealed class
+Vixen.Net.Replication.ExplicitInterestRule : Vixen.Net.Replication.IInterestRule
+Vixen.Net.Replication.ExplicitInterestRule.Clear(Vixen.Net.Sessions.PlayerId player, Vixen.Net.Replication.NetworkId id) -> bool
+Vixen.Net.Replication.ExplicitInterestRule.Decide(Vixen.Ecs.World world, Vixen.Net.Sessions.PlayerId player, Vixen.Core.Entity entity) -> Vixen.Net.Replication.Interest
+Vixen.Net.Replication.ExplicitInterestRule.ExplicitInterestRule() -> void
+Vixen.Net.Replication.ExplicitInterestRule.Forget(Vixen.Net.Replication.NetworkId id) -> void
+Vixen.Net.Replication.ExplicitInterestRule.Forget(Vixen.Net.Sessions.PlayerId player) -> void
+Vixen.Net.Replication.ExplicitInterestRule.Hide(Vixen.Net.Sessions.PlayerId player, Vixen.Net.Replication.NetworkId id) -> void
+Vixen.Net.Replication.ExplicitInterestRule.PlayerCount.get -> int
+Vixen.Net.Replication.ExplicitInterestRule.Show(Vixen.Net.Sessions.PlayerId player, Vixen.Net.Replication.NetworkId id) -> void
+Vixen.Net.Replication.IComponentReplicator -> interface
+Vixen.Net.Replication.IComponentReplicator.Apply(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitReader reader) -> bool
+Vixen.Net.Replication.IComponentReplicator.ChangedQuery.get -> Vixen.Ecs.QueryDescription
+Vixen.Net.Replication.IComponentReplicator.Channel.get -> Vixen.Net.Channel
+Vixen.Net.Replication.IComponentReplicator.ComponentType.get -> Vixen.Core.ComponentTypeId
+Vixen.Net.Replication.IComponentReplicator.Has(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> bool
+Vixen.Net.Replication.IComponentReplicator.Lanes.get -> System.ReadOnlySpan<Vixen.Net.Messaging.WireLane>
+Vixen.Net.Replication.IComponentReplicator.Priority.get -> int
+Vixen.Net.Replication.IComponentReplicator.TypeId.get -> uint
+Vixen.Net.Replication.IComponentReplicator.TypeName.get -> string
+Vixen.Net.Replication.IComponentReplicator.Write(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitWriter writer) -> void
+Vixen.Net.Replication.IInterestResolver -> interface
+Vixen.Net.Replication.IInterestResolver.Resolve(Vixen.Ecs.World world, Vixen.Net.Sessions.PlayerId player, System.Collections.Generic.List<Vixen.Core.Entity> observed) -> void
+Vixen.Net.Replication.IInterestRule -> interface
+Vixen.Net.Replication.IInterestRule.Decide(Vixen.Ecs.World world, Vixen.Net.Sessions.PlayerId player, Vixen.Core.Entity entity) -> Vixen.Net.Replication.Interest
+Vixen.Net.Replication.IInterestSource -> interface
+Vixen.Net.Replication.IInterestSource.Candidates(Vixen.Ecs.World world, Vixen.Net.Sessions.PlayerId player, System.Collections.Generic.List<Vixen.Core.Entity> into) -> void
+Vixen.Net.Replication.IReplicationRate -> interface
+Vixen.Net.Replication.IReplicationRate.ShouldSend(Vixen.Ecs.World world, Vixen.Net.Sessions.PlayerId player, Vixen.Core.Entity entity, Vixen.Net.Replication.NetworkId id, Vixen.Net.Tick tick) -> bool
+Vixen.Net.Replication.Interest -> enum : byte
+Vixen.Net.Replication.Interest.Hidden = 2 -> Vixen.Net.Replication.Interest
+Vixen.Net.Replication.Interest.Interest() -> void
+Vixen.Net.Replication.Interest.Observed = 1 -> Vixen.Net.Replication.Interest
+Vixen.Net.Replication.Interest.Undecided = 0 -> Vixen.Net.Replication.Interest
+Vixen.Net.Replication.InterestChain -> sealed class
+Vixen.Net.Replication.InterestChain : Vixen.Net.Replication.IInterestResolver
+Vixen.Net.Replication.InterestChain.ConsideredCount.get -> int
+Vixen.Net.Replication.InterestChain.Decide(Vixen.Ecs.World world, Vixen.Net.Sessions.PlayerId player, Vixen.Core.Entity entity) -> Vixen.Net.Replication.Interest
+Vixen.Net.Replication.InterestChain.Fallback.get -> Vixen.Net.Replication.Interest
+Vixen.Net.Replication.InterestChain.Fallback.set -> Vixen.Net.Replication.Interest
+Vixen.Net.Replication.InterestChain.HiddenCount.get -> int
+Vixen.Net.Replication.InterestChain.InterestChain() -> void
+Vixen.Net.Replication.InterestChain.Resolve(Vixen.Ecs.World world, Vixen.Net.Sessions.PlayerId player, System.Collections.Generic.List<Vixen.Core.Entity> observed) -> void
+Vixen.Net.Replication.InterestChain.Rules.get -> System.Collections.Generic.IList<Vixen.Net.Replication.IInterestRule>
+Vixen.Net.Replication.InterestChain.Source.get -> Vixen.Net.Replication.IInterestSource
+Vixen.Net.Replication.InterestChain.Source.set -> Vixen.Net.Replication.IInterestSource
+Vixen.Net.Replication.InterestGrid -> sealed class
+Vixen.Net.Replication.InterestGrid : Vixen.Net.Replication.IInterestSource
+Vixen.Net.Replication.InterestGrid.Candidates(Vixen.Ecs.World world, Vixen.Net.Sessions.PlayerId player, System.Collections.Generic.List<Vixen.Core.Entity> into) -> void
+Vixen.Net.Replication.InterestGrid.CellCount.get -> int
+Vixen.Net.Replication.InterestGrid.CellSize.get -> float
+Vixen.Net.Replication.InterestGrid.CellSize.init -> float
+Vixen.Net.Replication.InterestGrid.Forget(Vixen.Net.Sessions.PlayerId player) -> bool
+Vixen.Net.Replication.InterestGrid.Hysteresis.get -> float
+Vixen.Net.Replication.InterestGrid.Hysteresis.set -> float
+Vixen.Net.Replication.InterestGrid.InterestGrid() -> void
+Vixen.Net.Replication.InterestGrid.PositionedCount.get -> int
+Vixen.Net.Replication.InterestGrid.Radius.get -> float
+Vixen.Net.Replication.InterestGrid.Radius.set -> float
+Vixen.Net.Replication.InterestGrid.Rebuild(Vixen.Ecs.World world) -> void
+Vixen.Net.Replication.InterestGrid.SetViewpoint(Vixen.Net.Sessions.PlayerId player, in Vixen.Core.Mathematics.Vector3 at) -> void
+Vixen.Net.Replication.InterestGrid.UnpositionedCount.get -> int
+Vixen.Net.Replication.InterestGrid.ViewpointlessCount.get -> long
+Vixen.Net.Replication.NetworkId -> readonly struct
+Vixen.Net.Replication.NetworkId : System.IEquatable<Vixen.Net.Replication.NetworkId>
+Vixen.Net.Replication.NetworkId.IsBaked.get -> bool
+Vixen.Net.Replication.NetworkId.IsValid.get -> bool
+Vixen.Net.Replication.NetworkId.NetworkId() -> void
+Vixen.Net.Replication.NetworkId.NetworkId(uint Value) -> void
+Vixen.Net.Replication.NetworkId.Value.get -> uint
+Vixen.Net.Replication.NetworkId.Value.init -> uint
+Vixen.Net.Replication.NetworkIdAllocator -> sealed class
+Vixen.Net.Replication.NetworkIdAllocator.Count.get -> uint
+Vixen.Net.Replication.NetworkIdAllocator.NetworkIdAllocator() -> void
+Vixen.Net.Replication.NetworkIdAllocator.Next() -> Vixen.Net.Replication.NetworkId
+Vixen.Net.Replication.NetworkIdAllocator.Reserve(int count) -> Vixen.Net.Replication.NetworkId
+Vixen.Net.Replication.NetworkInstance -> struct
+Vixen.Net.Replication.NetworkInstance : Vixen.Ecs.ITagComponent
+Vixen.Net.Replication.NetworkInstance.NetworkInstance() -> void
+Vixen.Net.Replication.NetworkPrefabId -> readonly struct
+Vixen.Net.Replication.NetworkPrefabId : System.IEquatable<Vixen.Net.Replication.NetworkPrefabId>
+Vixen.Net.Replication.NetworkPrefabId.IsValid.get -> bool
+Vixen.Net.Replication.NetworkPrefabId.NetworkPrefabId() -> void
+Vixen.Net.Replication.NetworkPrefabId.NetworkPrefabId(uint Value) -> void
+Vixen.Net.Replication.NetworkPrefabId.Value.get -> uint
+Vixen.Net.Replication.NetworkPrefabId.Value.init -> uint
+Vixen.Net.Replication.NetworkSpawn -> struct
+Vixen.Net.Replication.NetworkSpawn.NetworkSpawn() -> void
+Vixen.Net.Replication.NetworkSpawn.Owner -> uint
+Vixen.Net.Replication.NetworkSpawn.Prefab -> uint
+Vixen.Net.Replication.NetworkSpawn.Scene -> uint
+Vixen.Net.Replication.NetworkSpawnReplicator -> sealed class
+Vixen.Net.Replication.NetworkSpawnReplicator : Vixen.Net.Replication.IComponentReplicator
+Vixen.Net.Replication.NetworkSpawnReplicator.Apply(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitReader reader) -> bool
+Vixen.Net.Replication.NetworkSpawnReplicator.ChangedQuery.get -> Vixen.Ecs.QueryDescription
+Vixen.Net.Replication.NetworkSpawnReplicator.Channel.get -> Vixen.Net.Channel
+Vixen.Net.Replication.NetworkSpawnReplicator.ComponentType.get -> Vixen.Core.ComponentTypeId
+Vixen.Net.Replication.NetworkSpawnReplicator.Has(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> bool
+Vixen.Net.Replication.NetworkSpawnReplicator.Lanes.get -> System.ReadOnlySpan<Vixen.Net.Messaging.WireLane>
+Vixen.Net.Replication.NetworkSpawnReplicator.NetworkSpawnReplicator() -> void
+Vixen.Net.Replication.NetworkSpawnReplicator.Priority.get -> int
+Vixen.Net.Replication.NetworkSpawnReplicator.TypeId.get -> uint
+Vixen.Net.Replication.NetworkSpawnReplicator.TypeName.get -> string
+Vixen.Net.Replication.NetworkSpawnReplicator.Write(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitWriter writer) -> void
+Vixen.Net.Replication.QuantizeAttribute -> sealed class
+Vixen.Net.Replication.QuantizeAttribute : System.Attribute
+Vixen.Net.Replication.QuantizeAttribute.Bits.get -> int
+Vixen.Net.Replication.QuantizeAttribute.Max.get -> float
+Vixen.Net.Replication.QuantizeAttribute.Min.get -> float
+Vixen.Net.Replication.QuantizeAttribute.QuantizeAttribute(float min, float max, int bits) -> void
+Vixen.Net.Replication.ReplicateEverythingResolver -> sealed class
+Vixen.Net.Replication.ReplicateEverythingResolver : Vixen.Net.Replication.IInterestResolver
+Vixen.Net.Replication.ReplicateEverythingResolver.ReplicateEverythingResolver() -> void
+Vixen.Net.Replication.ReplicateEverythingResolver.Resolve(Vixen.Ecs.World world, Vixen.Net.Sessions.PlayerId player, System.Collections.Generic.List<Vixen.Core.Entity> observed) -> void
+Vixen.Net.Replication.ReplicatedAttribute -> sealed class
+Vixen.Net.Replication.ReplicatedAttribute : System.Attribute
+Vixen.Net.Replication.ReplicatedAttribute.Channel.get -> Vixen.Net.Channel
+Vixen.Net.Replication.ReplicatedAttribute.Channel.set -> Vixen.Net.Channel
+Vixen.Net.Replication.ReplicatedAttribute.Priority.get -> int
+Vixen.Net.Replication.ReplicatedAttribute.Priority.set -> int
+Vixen.Net.Replication.ReplicatedAttribute.ReplicatedAttribute() -> void
+Vixen.Net.Replication.ReplicatedAttribute.SendRate.get -> int
+Vixen.Net.Replication.ReplicatedAttribute.SendRate.set -> int
+Vixen.Net.Replication.ReplicationClient -> sealed class
+Vixen.Net.Replication.ReplicationClient.AppliedTick.get -> Vixen.Net.Tick
+Vixen.Net.Replication.ReplicationClient.Bind(Vixen.Net.Replication.NetworkId id, Vixen.Core.Entity entity) -> void
+Vixen.Net.Replication.ReplicationClient.Clear() -> void
+Vixen.Net.Replication.ReplicationClient.EntityCount.get -> int
+Vixen.Net.Replication.ReplicationClient.HasApplied.get -> bool
+Vixen.Net.Replication.ReplicationClient.RejectedSnapshotCount.get -> int
+Vixen.Net.Replication.ReplicationClient.ReplicationClient(Vixen.Net.Replication.ReplicationRegistry registry) -> void
+Vixen.Net.Replication.ReplicationClient.StaleSnapshotCount.get -> int
+Vixen.Net.Replication.ReplicationClient.TryApply(Vixen.Ecs.World world, System.ReadOnlySpan<byte> snapshot) -> bool
+Vixen.Net.Replication.ReplicationClient.TryGetEntity(Vixen.Net.Replication.NetworkId id, out Vixen.Core.Entity entity) -> bool
+Vixen.Net.Replication.ReplicationRegistry -> sealed class
+Vixen.Net.Replication.ReplicationRegistry.Count.get -> int
+Vixen.Net.Replication.ReplicationRegistry.IndexOf(uint typeId) -> int
+Vixen.Net.Replication.ReplicationRegistry.ManifestHash.get -> uint
+Vixen.Net.Replication.ReplicationRegistry.Register(Vixen.Net.Replication.IComponentReplicator replicator) -> void
+Vixen.Net.Replication.ReplicationRegistry.ReplicationRegistry() -> void
+Vixen.Net.Replication.ReplicationRegistry.Replicators.get -> System.Collections.Generic.IReadOnlyList<Vixen.Net.Replication.IComponentReplicator>
+Vixen.Net.Replication.ReplicationRegistry.TryGet(uint typeId, out Vixen.Net.Replication.IComponentReplicator? replicator) -> bool
+Vixen.Net.Replication.ReplicationRegistry.TryGetByIndex(uint index, out Vixen.Net.Replication.IComponentReplicator? replicator) -> bool
+Vixen.Net.Replication.ReplicationServer -> sealed class
+Vixen.Net.Replication.ReplicationServer.Acknowledge(Vixen.Net.Sessions.PlayerId player, Vixen.Net.Tick tick) -> void
+Vixen.Net.Replication.ReplicationServer.BaselineOf(Vixen.Net.Sessions.PlayerId player) -> Vixen.Net.Replication.ConnectionBaseline
+Vixen.Net.Replication.ReplicationServer.Budget.get -> Vixen.Net.Replication.BandwidthBudget
+Vixen.Net.Replication.ReplicationServer.Budget.set -> Vixen.Net.Replication.BandwidthBudget
+Vixen.Net.Replication.ReplicationServer.Capture(Vixen.Ecs.World world, Vixen.Net.Tick capturedAt = default(Vixen.Net.Tick)) -> void
+Vixen.Net.Replication.ReplicationServer.DeltaRecordCount.get -> long
+Vixen.Net.Replication.ReplicationServer.Despawn(Vixen.Net.Replication.NetworkId id) -> void
+Vixen.Net.Replication.ReplicationServer.Forget(Vixen.Net.Sessions.PlayerId player) -> void
+Vixen.Net.Replication.ReplicationServer.LastCapturedCount.get -> int
+Vixen.Net.Replication.ReplicationServer.Ledger.get -> Vixen.Net.Diagnostics.BandwidthLedger?
+Vixen.Net.Replication.ReplicationServer.Ledger.set -> Vixen.Net.Diagnostics.BandwidthLedger?
+Vixen.Net.Replication.ReplicationServer.Rate.get -> Vixen.Net.Replication.IReplicationRate?
+Vixen.Net.Replication.ReplicationServer.Rate.set -> Vixen.Net.Replication.IReplicationRate?
+Vixen.Net.Replication.ReplicationServer.RateSkippedRecordCount.get -> long
+Vixen.Net.Replication.ReplicationServer.ReplicationServer(Vixen.Net.Replication.ReplicationRegistry registry, Vixen.Net.Replication.IInterestResolver? interest = null) -> void
+Vixen.Net.Replication.ReplicationServer.ResendDelayTicks.get -> int
+Vixen.Net.Replication.ReplicationServer.ResendDelayTicks.set -> int
+Vixen.Net.Replication.ReplicationServer.SuppressedRecordCount.get -> long
+Vixen.Net.Replication.ReplicationServer.TrackedValueCount.get -> int
+Vixen.Net.Replication.ReplicationServer.TryWriteSnapshot(Vixen.Ecs.World world, Vixen.Net.Sessions.PlayerId player, Vixen.Net.Tick tick, System.Span<byte> buffer, out System.ReadOnlySpan<byte> snapshot) -> bool
+Vixen.Net.Replication.ReplicationServer.WholeRecordCount.get -> long
+Vixen.Net.Rpc.ClientRpcAttribute -> sealed class
+Vixen.Net.Rpc.ClientRpcAttribute : System.Attribute
+Vixen.Net.Rpc.ClientRpcAttribute.Channel.get -> Vixen.Net.Channel
+Vixen.Net.Rpc.ClientRpcAttribute.Channel.set -> Vixen.Net.Channel
+Vixen.Net.Rpc.ClientRpcAttribute.ClientRpcAttribute() -> void
+Vixen.Net.Rpc.ClientRpcAttribute.Target.get -> Vixen.Net.Rpc.RpcTarget
+Vixen.Net.Rpc.ClientRpcAttribute.Target.set -> Vixen.Net.Rpc.RpcTarget
+Vixen.Net.Rpc.IRpcInvoker -> interface
+Vixen.Net.Rpc.IRpcInvoker.Invoke(uint methodIndex, in Vixen.Net.Rpc.RpcContext context, ref Vixen.Net.Messaging.BitReader reader) -> bool
+Vixen.Net.Rpc.IRpcInvoker.RpcTypeId.get -> uint
+Vixen.Net.Rpc.IRpcObject -> interface
+Vixen.Net.Rpc.IRpcObject.NetworkId.get -> Vixen.Net.Replication.NetworkId
+Vixen.Net.Rpc.IRpcObject.RpcRouter.get -> Vixen.Net.Rpc.RpcRouter?
+Vixen.Net.Rpc.IRpcObservers -> interface
+Vixen.Net.Rpc.IRpcObservers.Resolve(Vixen.Net.Replication.NetworkId target, System.Collections.Generic.List<Vixen.Net.Sessions.PlayerId> into) -> void
+Vixen.Net.Rpc.IRpcTransport -> interface
+Vixen.Net.Rpc.IRpcTransport.SendToAll(System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> void
+Vixen.Net.Rpc.IRpcTransport.SendToPlayer(Vixen.Net.Sessions.PlayerId player, System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> void
+Vixen.Net.Rpc.IRpcTransport.SendToServer(System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> void
+Vixen.Net.Rpc.NetworkOwnership -> sealed class
+Vixen.Net.Rpc.NetworkOwnership.Count.get -> int
+Vixen.Net.Rpc.NetworkOwnership.Forget(Vixen.Net.Replication.NetworkId id) -> bool
+Vixen.Net.Rpc.NetworkOwnership.IsOwnedBy(Vixen.Net.Replication.NetworkId id, Vixen.Net.Sessions.PlayerId player) -> bool
+Vixen.Net.Rpc.NetworkOwnership.NetworkOwnership() -> void
+Vixen.Net.Rpc.NetworkOwnership.OwnedBy(Vixen.Net.Sessions.PlayerId player, System.Collections.Generic.List<Vixen.Net.Replication.NetworkId> into) -> int
+Vixen.Net.Rpc.NetworkOwnership.OwnerChanged -> System.Action<Vixen.Net.Replication.NetworkId, Vixen.Net.Sessions.PlayerId, Vixen.Net.Sessions.PlayerId>?
+Vixen.Net.Rpc.NetworkOwnership.SetOwner(Vixen.Net.Replication.NetworkId id, Vixen.Net.Sessions.PlayerId owner) -> bool
+Vixen.Net.Rpc.NetworkOwnership.TransferAll(Vixen.Net.Sessions.PlayerId player, Vixen.Net.Sessions.PlayerId transferTo = default(Vixen.Net.Sessions.PlayerId)) -> int
+Vixen.Net.Rpc.NetworkOwnership.TryGetOwner(Vixen.Net.Replication.NetworkId id, out Vixen.Net.Sessions.PlayerId owner) -> bool
+Vixen.Net.Rpc.RpcArguments -> delegate
+Vixen.Net.Rpc.RpcContext -> readonly struct
+Vixen.Net.Rpc.RpcContext : System.IEquatable<Vixen.Net.Rpc.RpcContext>
+Vixen.Net.Rpc.RpcContext.CorrelationId.get -> uint
+Vixen.Net.Rpc.RpcContext.CorrelationId.init -> uint
+Vixen.Net.Rpc.RpcContext.ExpectsReply.get -> bool
+Vixen.Net.Rpc.RpcContext.Method.get -> Vixen.Net.Rpc.RpcMethod
+Vixen.Net.Rpc.RpcContext.Method.init -> Vixen.Net.Rpc.RpcMethod
+Vixen.Net.Rpc.RpcContext.RpcContext() -> void
+Vixen.Net.Rpc.RpcContext.RpcContext(Vixen.Net.Sessions.PlayerId Sender, Vixen.Net.Replication.NetworkId Target, Vixen.Net.Rpc.RpcMethod Method, uint CorrelationId = 0) -> void
+Vixen.Net.Rpc.RpcContext.Sender.get -> Vixen.Net.Sessions.PlayerId
+Vixen.Net.Rpc.RpcContext.Sender.init -> Vixen.Net.Sessions.PlayerId
+Vixen.Net.Rpc.RpcContext.Target.get -> Vixen.Net.Replication.NetworkId
+Vixen.Net.Rpc.RpcContext.Target.init -> Vixen.Net.Replication.NetworkId
+Vixen.Net.Rpc.RpcFailedException -> sealed class
+Vixen.Net.Rpc.RpcFailedException : System.Exception
+Vixen.Net.Rpc.RpcFailedException.Failure.get -> Vixen.Net.Rpc.RpcFailure
+Vixen.Net.Rpc.RpcFailedException.Method.get -> string
+Vixen.Net.Rpc.RpcFailedException.RpcFailedException(Vixen.Net.Rpc.RpcFailure Failure, string Method) -> void
+Vixen.Net.Rpc.RpcFailure -> enum : byte
+Vixen.Net.Rpc.RpcFailure.Disconnected = 1 -> Vixen.Net.Rpc.RpcFailure
+Vixen.Net.Rpc.RpcFailure.Malformed = 2 -> Vixen.Net.Rpc.RpcFailure
+Vixen.Net.Rpc.RpcFailure.NotSent = 3 -> Vixen.Net.Rpc.RpcFailure
+Vixen.Net.Rpc.RpcFailure.RpcFailure() -> void
+Vixen.Net.Rpc.RpcFailure.TimedOut = 0 -> Vixen.Net.Rpc.RpcFailure
+Vixen.Net.Rpc.RpcKind -> enum : byte
+Vixen.Net.Rpc.RpcKind.Client = 1 -> Vixen.Net.Rpc.RpcKind
+Vixen.Net.Rpc.RpcKind.RpcKind() -> void
+Vixen.Net.Rpc.RpcKind.Server = 0 -> Vixen.Net.Rpc.RpcKind
+Vixen.Net.Rpc.RpcLimits -> sealed record
+Vixen.Net.Rpc.RpcLimits : System.IEquatable<Vixen.Net.Rpc.RpcLimits>
+Vixen.Net.Rpc.RpcLimits.Burst.get -> int
+Vixen.Net.Rpc.RpcLimits.Burst.init -> int
+Vixen.Net.Rpc.RpcLimits.CallsPerSecond.get -> int
+Vixen.Net.Rpc.RpcLimits.CallsPerSecond.init -> int
+Vixen.Net.Rpc.RpcLimits.RpcLimits() -> void
+Vixen.Net.Rpc.RpcManifest -> sealed class
+Vixen.Net.Rpc.RpcManifest.IndexOf(uint typeId) -> int
+Vixen.Net.Rpc.RpcManifest.ManifestHash.get -> uint
+Vixen.Net.Rpc.RpcManifest.MethodCount.get -> int
+Vixen.Net.Rpc.RpcManifest.Register(Vixen.Net.Rpc.RpcMethod[] methods) -> void
+Vixen.Net.Rpc.RpcManifest.RpcManifest() -> void
+Vixen.Net.Rpc.RpcManifest.TryGet(uint typeIndex, uint methodIndex, out Vixen.Net.Rpc.RpcMethod? method) -> bool
+Vixen.Net.Rpc.RpcManifest.TypeCount.get -> int
+Vixen.Net.Rpc.RpcMethod -> sealed class
+Vixen.Net.Rpc.RpcMethod.Channel.get -> Vixen.Net.Channel
+Vixen.Net.Rpc.RpcMethod.DeclaringType.get -> string
+Vixen.Net.Rpc.RpcMethod.ExpectsReply.get -> bool
+Vixen.Net.Rpc.RpcMethod.Kind.get -> Vixen.Net.Rpc.RpcKind
+Vixen.Net.Rpc.RpcMethod.MethodId.get -> uint
+Vixen.Net.Rpc.RpcMethod.MethodIndex.get -> int
+Vixen.Net.Rpc.RpcMethod.RequireOwnership.get -> bool
+Vixen.Net.Rpc.RpcMethod.RpcMethod(string declaringType, string signature, Vixen.Net.Rpc.RpcKind kind, bool requireOwnership, Vixen.Net.Channel channel, Vixen.Net.Rpc.RpcTarget target, bool expectsReply = false) -> void
+Vixen.Net.Rpc.RpcMethod.Signature.get -> string
+Vixen.Net.Rpc.RpcMethod.Target.get -> Vixen.Net.Rpc.RpcTarget
+Vixen.Net.Rpc.RpcMethod.TypeId.get -> uint
+Vixen.Net.Rpc.RpcMethod.TypeIndex.get -> int
+Vixen.Net.Rpc.RpcResult<T> -> delegate
+Vixen.Net.Rpc.RpcRole -> enum : byte
+Vixen.Net.Rpc.RpcRole.Client = 0 -> Vixen.Net.Rpc.RpcRole
+Vixen.Net.Rpc.RpcRole.Host = 2 -> Vixen.Net.Rpc.RpcRole
+Vixen.Net.Rpc.RpcRole.RpcRole() -> void
+Vixen.Net.Rpc.RpcRole.Server = 1 -> Vixen.Net.Rpc.RpcRole
+Vixen.Net.Rpc.RpcRouter -> sealed class
+Vixen.Net.Rpc.RpcRouter.AcceptedCount.get -> long
+Vixen.Net.Rpc.RpcRouter.Advance(System.TimeSpan elapsed) -> void
+Vixen.Net.Rpc.RpcRouter.AnsweredCount.get -> long
+Vixen.Net.Rpc.RpcRouter.BeginCall(Vixen.Net.Rpc.RpcMethod method, Vixen.Net.Replication.NetworkId target) -> Vixen.Net.Messaging.BitWriter
+Vixen.Net.Rpc.RpcRouter.CallAsync<T>(Vixen.Net.Rpc.RpcMethod method, Vixen.Net.Replication.NetworkId target, Vixen.Net.Rpc.RpcArguments? arguments, Vixen.Net.Rpc.RpcResult<T> result, System.TimeSpan? timeout = null) -> System.Threading.Tasks.Task<T>
+Vixen.Net.Rpc.RpcRouter.CancelAllPending() -> void
+Vixen.Net.Rpc.RpcRouter.CancelPending(Vixen.Net.Sessions.PlayerId player) -> int
+Vixen.Net.Rpc.RpcRouter.DefaultTimeout.get -> System.TimeSpan
+Vixen.Net.Rpc.RpcRouter.DefaultTimeout.set -> System.TimeSpan
+Vixen.Net.Rpc.RpcRouter.EndCall(Vixen.Net.Rpc.RpcMethod method, Vixen.Net.Replication.NetworkId target, ref Vixen.Net.Messaging.BitWriter writer) -> bool
+Vixen.Net.Rpc.RpcRouter.Forget(Vixen.Net.Replication.NetworkId id) -> void
+Vixen.Net.Rpc.RpcRouter.IsClient.get -> bool
+Vixen.Net.Rpc.RpcRouter.IsServer.get -> bool
+Vixen.Net.Rpc.RpcRouter.Ledger.get -> Vixen.Net.Diagnostics.BandwidthLedger?
+Vixen.Net.Rpc.RpcRouter.Ledger.set -> Vixen.Net.Diagnostics.BandwidthLedger?
+Vixen.Net.Rpc.RpcRouter.Ownership.get -> Vixen.Net.Rpc.NetworkOwnership
+Vixen.Net.Rpc.RpcRouter.PendingCallCount.get -> int
+Vixen.Net.Rpc.RpcRouter.Receive(Vixen.Net.Sessions.PlayerId from, System.ReadOnlySpan<byte> payload) -> bool
+Vixen.Net.Rpc.RpcRouter.ReceiveReply(Vixen.Net.Sessions.PlayerId from, System.ReadOnlySpan<byte> payload) -> bool
+Vixen.Net.Rpc.RpcRouter.RefusedByArgumentsCount.get -> long
+Vixen.Net.Rpc.RpcRouter.RefusedByDirectionCount.get -> long
+Vixen.Net.Rpc.RpcRouter.RefusedByManifestCount.get -> long
+Vixen.Net.Rpc.RpcRouter.RefusedByOwnershipCount.get -> long
+Vixen.Net.Rpc.RpcRouter.RefusedByRateLimitCount.get -> long
+Vixen.Net.Rpc.RpcRouter.RefusedByRulesCount.get -> long
+Vixen.Net.Rpc.RpcRouter.RefusedByUnknownObjectCount.get -> long
+Vixen.Net.Rpc.RpcRouter.RefusedToSendCount.get -> long
+Vixen.Net.Rpc.RpcRouter.Register(Vixen.Net.Replication.NetworkId id, Vixen.Net.Rpc.IRpcInvoker invoker) -> void
+Vixen.Net.Rpc.RpcRouter.RegisteredCount.get -> int
+Vixen.Net.Rpc.RpcRouter.Reply(in Vixen.Net.Rpc.RpcContext context, Vixen.Net.Rpc.RpcArguments? result) -> bool
+Vixen.Net.Rpc.RpcRouter.Role.get -> Vixen.Net.Rpc.RpcRole
+Vixen.Net.Rpc.RpcRouter.Role.set -> Vixen.Net.Rpc.RpcRole
+Vixen.Net.Rpc.RpcRouter.RpcRouter(Vixen.Net.Rpc.RpcManifest manifest, Vixen.Net.Rpc.IRpcTransport transport, Vixen.Net.Rpc.RpcRole role, Vixen.Net.Rpc.NetworkOwnership? ownership = null, Vixen.Net.Rpc.IRpcObservers? observers = null, Vixen.Net.Rpc.RpcLimits? limits = null, Vixen.Net.Rules.NetworkRulesRegistry? rules = null, int maxPayloadBytes = 1200) -> void
+Vixen.Net.Rpc.RpcRouter.Rules.get -> Vixen.Net.Rules.NetworkRulesRegistry
+Vixen.Net.Rpc.RpcRouter.TimedOutCount.get -> long
+Vixen.Net.Rpc.RpcRouter.TryTransferOwnership(Vixen.Net.Replication.NetworkId id, Vixen.Net.Sessions.PlayerId requester, Vixen.Net.Sessions.PlayerId newOwner) -> bool
+Vixen.Net.Rpc.RpcRouter.UnmatchedReplyCount.get -> long
+Vixen.Net.Rpc.RpcRouter.Unregister(Vixen.Net.Replication.NetworkId id, Vixen.Net.Rpc.IRpcInvoker invoker) -> bool
+Vixen.Net.Rpc.RpcTarget -> enum : byte
+Vixen.Net.Rpc.RpcTarget.All = 2 -> Vixen.Net.Rpc.RpcTarget
+Vixen.Net.Rpc.RpcTarget.Observers = 0 -> Vixen.Net.Rpc.RpcTarget
+Vixen.Net.Rpc.RpcTarget.Owner = 1 -> Vixen.Net.Rpc.RpcTarget
+Vixen.Net.Rpc.RpcTarget.RpcTarget() -> void
+Vixen.Net.Rpc.ServerRpcAttribute -> sealed class
+Vixen.Net.Rpc.ServerRpcAttribute : System.Attribute
+Vixen.Net.Rpc.ServerRpcAttribute.Channel.get -> Vixen.Net.Channel
+Vixen.Net.Rpc.ServerRpcAttribute.Channel.set -> Vixen.Net.Channel
+Vixen.Net.Rpc.ServerRpcAttribute.RequireOwnership.get -> bool
+Vixen.Net.Rpc.ServerRpcAttribute.RequireOwnership.set -> bool
+Vixen.Net.Rpc.ServerRpcAttribute.ServerRpcAttribute() -> void
+Vixen.Net.Rpc.SessionRpcTransport -> sealed class
+Vixen.Net.Rpc.SessionRpcTransport : Vixen.Net.Rpc.IRpcTransport
+Vixen.Net.Rpc.SessionRpcTransport.DroppedCount.get -> long
+Vixen.Net.Rpc.SessionRpcTransport.SendToAll(System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> void
+Vixen.Net.Rpc.SessionRpcTransport.SendToPlayer(Vixen.Net.Sessions.PlayerId player, System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> void
+Vixen.Net.Rpc.SessionRpcTransport.SendToServer(System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> void
+Vixen.Net.Rpc.SessionRpcTransport.Session.get -> Vixen.Net.Sessions.NetworkSession
+Vixen.Net.Rpc.SessionRpcTransport.SessionRpcTransport(Vixen.Net.Sessions.NetworkSession session) -> void
+Vixen.Net.Rules.DisconnectAction -> readonly struct
+Vixen.Net.Rules.DisconnectAction : System.IEquatable<Vixen.Net.Rules.DisconnectAction>
+Vixen.Net.Rules.DisconnectAction.Behaviour.get -> Vixen.Net.Rules.DisconnectBehaviour
+Vixen.Net.Rules.DisconnectAction.Behaviour.init -> Vixen.Net.Rules.DisconnectBehaviour
+Vixen.Net.Rules.DisconnectAction.DisconnectAction() -> void
+Vixen.Net.Rules.DisconnectAction.DisconnectAction(Vixen.Net.Replication.NetworkId Object, Vixen.Net.Rules.DisconnectBehaviour Behaviour) -> void
+Vixen.Net.Rules.DisconnectAction.Object.get -> Vixen.Net.Replication.NetworkId
+Vixen.Net.Rules.DisconnectAction.Object.init -> Vixen.Net.Replication.NetworkId
+Vixen.Net.Rules.DisconnectBehaviour -> enum : byte
+Vixen.Net.Rules.DisconnectBehaviour.Destroy = 0 -> Vixen.Net.Rules.DisconnectBehaviour
+Vixen.Net.Rules.DisconnectBehaviour.DisconnectBehaviour() -> void
+Vixen.Net.Rules.DisconnectBehaviour.Persist = 2 -> Vixen.Net.Rules.DisconnectBehaviour
+Vixen.Net.Rules.DisconnectBehaviour.TransferToServer = 1 -> Vixen.Net.Rules.DisconnectBehaviour
+Vixen.Net.Rules.NetworkRules -> sealed record
+Vixen.Net.Rules.NetworkRules : System.IEquatable<Vixen.Net.Rules.NetworkRules>
+Vixen.Net.Rules.NetworkRules.CallServerRpc.get -> Vixen.Net.Rules.RuleAudience
+Vixen.Net.Rules.NetworkRules.CallServerRpc.init -> Vixen.Net.Rules.RuleAudience
+Vixen.Net.Rules.NetworkRules.ChangeOwner.get -> Vixen.Net.Rules.RuleAudience
+Vixen.Net.Rules.NetworkRules.ChangeOwner.init -> Vixen.Net.Rules.RuleAudience
+Vixen.Net.Rules.NetworkRules.Claim.get -> Vixen.Net.Rules.OwnershipClaim
+Vixen.Net.Rules.NetworkRules.Claim.init -> Vixen.Net.Rules.OwnershipClaim
+Vixen.Net.Rules.NetworkRules.Despawn.get -> Vixen.Net.Rules.RuleAudience
+Vixen.Net.Rules.NetworkRules.Despawn.init -> Vixen.Net.Rules.RuleAudience
+Vixen.Net.Rules.NetworkRules.NetworkRules() -> void
+Vixen.Net.Rules.NetworkRules.OnOwnerDisconnect.get -> Vixen.Net.Rules.DisconnectBehaviour
+Vixen.Net.Rules.NetworkRules.OnOwnerDisconnect.init -> Vixen.Net.Rules.DisconnectBehaviour
+Vixen.Net.Rules.NetworkRules.Spawn.get -> Vixen.Net.Rules.RuleAudience
+Vixen.Net.Rules.NetworkRules.Spawn.init -> Vixen.Net.Rules.RuleAudience
+Vixen.Net.Rules.NetworkRules.Write.get -> Vixen.Net.Rules.RuleAudience
+Vixen.Net.Rules.NetworkRules.Write.init -> Vixen.Net.Rules.RuleAudience
+Vixen.Net.Rules.NetworkRulesRegistry -> sealed class
+Vixen.Net.Rules.NetworkRulesRegistry.Clear(Vixen.Net.Replication.NetworkId id) -> bool
+Vixen.Net.Rules.NetworkRulesRegistry.Default.get -> Vixen.Net.Rules.NetworkRules
+Vixen.Net.Rules.NetworkRulesRegistry.Default.set -> Vixen.Net.Rules.NetworkRules
+Vixen.Net.Rules.NetworkRulesRegistry.For(Vixen.Net.Replication.NetworkId id) -> Vixen.Net.Rules.NetworkRules
+Vixen.Net.Rules.NetworkRulesRegistry.MayCallServerRpc(Vixen.Net.Replication.NetworkId id, Vixen.Net.Sessions.PlayerId requester, bool requiresOwnership) -> bool
+Vixen.Net.Rules.NetworkRulesRegistry.MayChangeOwner(Vixen.Net.Replication.NetworkId id, Vixen.Net.Sessions.PlayerId requester) -> bool
+Vixen.Net.Rules.NetworkRulesRegistry.MayDespawn(Vixen.Net.Replication.NetworkId id, Vixen.Net.Sessions.PlayerId requester) -> bool
+Vixen.Net.Rules.NetworkRulesRegistry.MaySpawn(Vixen.Net.Replication.NetworkId id, Vixen.Net.Sessions.PlayerId requester) -> bool
+Vixen.Net.Rules.NetworkRulesRegistry.MayWrite(Vixen.Net.Replication.NetworkId id, Vixen.Net.Sessions.PlayerId requester) -> bool
+Vixen.Net.Rules.NetworkRulesRegistry.NetworkRulesRegistry(Vixen.Net.Rpc.NetworkOwnership ownership) -> void
+Vixen.Net.Rules.NetworkRulesRegistry.OnOwnerLeft(Vixen.Net.Sessions.PlayerId player, System.Collections.Generic.List<Vixen.Net.Rules.DisconnectAction> actions) -> int
+Vixen.Net.Rules.NetworkRulesRegistry.OverrideCount.get -> int
+Vixen.Net.Rules.NetworkRulesRegistry.Set(Vixen.Net.Replication.NetworkId id, Vixen.Net.Rules.NetworkRules rules) -> void
+Vixen.Net.Rules.OwnershipClaim -> enum : byte
+Vixen.Net.Rules.OwnershipClaim.Anytime = 0 -> Vixen.Net.Rules.OwnershipClaim
+Vixen.Net.Rules.OwnershipClaim.OwnershipClaim() -> void
+Vixen.Net.Rules.OwnershipClaim.WhenUnowned = 1 -> Vixen.Net.Rules.OwnershipClaim
+Vixen.Net.Rules.RuleAudience -> enum : byte
+Vixen.Net.Rules.RuleAudience.Everyone = 2 -> Vixen.Net.Rules.RuleAudience
+Vixen.Net.Rules.RuleAudience.Owner = 1 -> Vixen.Net.Rules.RuleAudience
+Vixen.Net.Rules.RuleAudience.RuleAudience() -> void
+Vixen.Net.Rules.RuleAudience.ServerOnly = 0 -> Vixen.Net.Rules.RuleAudience
+Vixen.Net.Sessions.AuthenticationDecision -> readonly struct
+Vixen.Net.Sessions.AuthenticationDecision : System.IEquatable<Vixen.Net.Sessions.AuthenticationDecision>
+Vixen.Net.Sessions.AuthenticationDecision.AuthenticationDecision() -> void
+Vixen.Net.Sessions.AuthenticationDecision.AuthenticationDecision(Vixen.Net.Sessions.AuthenticationOutcome Outcome, string Identity, string Reason) -> void
+Vixen.Net.Sessions.AuthenticationDecision.Identity.get -> string
+Vixen.Net.Sessions.AuthenticationDecision.Identity.init -> string
+Vixen.Net.Sessions.AuthenticationDecision.Outcome.get -> Vixen.Net.Sessions.AuthenticationOutcome
+Vixen.Net.Sessions.AuthenticationDecision.Outcome.init -> Vixen.Net.Sessions.AuthenticationOutcome
+Vixen.Net.Sessions.AuthenticationDecision.Reason.get -> string
+Vixen.Net.Sessions.AuthenticationDecision.Reason.init -> string
+Vixen.Net.Sessions.AuthenticationOutcome -> enum : byte
+Vixen.Net.Sessions.AuthenticationOutcome.Accept = 1 -> Vixen.Net.Sessions.AuthenticationOutcome
+Vixen.Net.Sessions.AuthenticationOutcome.AuthenticationOutcome() -> void
+Vixen.Net.Sessions.AuthenticationOutcome.Pending = 0 -> Vixen.Net.Sessions.AuthenticationOutcome
+Vixen.Net.Sessions.AuthenticationOutcome.Reject = 2 -> Vixen.Net.Sessions.AuthenticationOutcome
+Vixen.Net.Sessions.AuthenticationRequest -> readonly ref struct
+Vixen.Net.Sessions.AuthenticationRequest.AuthenticationRequest() -> void
+Vixen.Net.Sessions.AuthenticationRequest.AuthenticationRequest(Vixen.Net.ConnectionId connection, System.ReadOnlySpan<byte> payload, bool isReconnect) -> void
+Vixen.Net.Sessions.AuthenticationRequest.Connection.get -> Vixen.Net.ConnectionId
+Vixen.Net.Sessions.AuthenticationRequest.IsReconnect.get -> bool
+Vixen.Net.Sessions.AuthenticationRequest.Payload.get -> System.ReadOnlySpan<byte>
+Vixen.Net.Sessions.ISessionAuthenticator -> interface
+Vixen.Net.Sessions.ISessionAuthenticator.Authenticate(in Vixen.Net.Sessions.AuthenticationRequest request) -> Vixen.Net.Sessions.AuthenticationDecision
+Vixen.Net.Sessions.ISessionMessageHandler -> interface
+Vixen.Net.Sessions.ISessionMessageHandler.OnMessage(Vixen.Net.Sessions.PlayerId from, Vixen.Net.Channel channel, System.ReadOnlySpan<byte> payload) -> void
+Vixen.Net.Sessions.NetworkPayload -> static class
+Vixen.Net.Sessions.NetworkPlayer -> sealed class
+Vixen.Net.Sessions.NetworkPlayer.Connection.get -> Vixen.Net.ConnectionId
+Vixen.Net.Sessions.NetworkPlayer.Id.get -> Vixen.Net.Sessions.PlayerId
+Vixen.Net.Sessions.NetworkPlayer.Identity.get -> string
+Vixen.Net.Sessions.NetworkPlayer.IsConnected.get -> bool
+Vixen.Net.Sessions.NetworkPlayer.IsLocal.get -> bool
+Vixen.Net.Sessions.NetworkPlayer.JoinedAt.get -> Vixen.Net.Tick
+Vixen.Net.Sessions.NetworkPlayer.ReconnectCount.get -> int
+Vixen.Net.Sessions.NetworkPlayer.RoundTrip.get -> Vixen.Net.Time.RoundTripEstimator
+Vixen.Net.Sessions.NetworkSession -> sealed class
+Vixen.Net.Sessions.NetworkSession : System.IDisposable
+Vixen.Net.Sessions.NetworkSession : Vixen.Net.Transport.ITransportEvents
+Vixen.Net.Sessions.NetworkSession.Clock.get -> Vixen.Net.Time.TickManager
+Vixen.Net.Sessions.NetworkSession.Connected -> System.Action<Vixen.Net.Sessions.NetworkPlayer>?
+Vixen.Net.Sessions.NetworkSession.Disconnected -> System.Action<Vixen.Net.DisconnectReason>?
+Vixen.Net.Sessions.NetworkSession.Dispose() -> void
+Vixen.Net.Sessions.NetworkSession.IsClient.get -> bool
+Vixen.Net.Sessions.NetworkSession.IsServer.get -> bool
+Vixen.Net.Sessions.NetworkSession.Kick(Vixen.Net.Sessions.PlayerId player, string reason = "") -> bool
+Vixen.Net.Sessions.NetworkSession.LocalPlayer.get -> Vixen.Net.Sessions.NetworkPlayer?
+Vixen.Net.Sessions.NetworkSession.NetworkSession(Vixen.Net.Transport.ITransport transport, Vixen.Net.Sessions.SessionOptions? options = null, Vixen.Net.Sessions.ISessionAuthenticator? authenticator = null, bool ownsTransport = false) -> void
+Vixen.Net.Sessions.NetworkSession.Options.get -> Vixen.Net.Sessions.SessionOptions
+Vixen.Net.Sessions.NetworkSession.PlayerConnectionChanged -> System.Action<Vixen.Net.Sessions.NetworkPlayer>?
+Vixen.Net.Sessions.NetworkSession.PlayerJoined -> System.Action<Vixen.Net.Sessions.NetworkPlayer>?
+Vixen.Net.Sessions.NetworkSession.PlayerLeft -> System.Action<Vixen.Net.Sessions.NetworkPlayer, Vixen.Net.Sessions.PlayerLeaveReason>?
+Vixen.Net.Sessions.NetworkSession.Players.get -> System.Collections.Generic.IReadOnlyList<Vixen.Net.Sessions.NetworkPlayer>
+Vixen.Net.Sessions.NetworkSession.PresentReconnectToken(System.ReadOnlySpan<byte> token) -> void
+Vixen.Net.Sessions.NetworkSession.ReconnectToken.get -> System.ReadOnlySpan<byte>
+Vixen.Net.Sessions.NetworkSession.Rejected -> System.Action<Vixen.Net.Sessions.SessionRejectReason, string>?
+Vixen.Net.Sessions.NetworkSession.SendToAll(System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> int
+Vixen.Net.Sessions.NetworkSession.SendToPlayer(Vixen.Net.Sessions.PlayerId player, System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> bool
+Vixen.Net.Sessions.NetworkSession.SendToServer(System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> bool
+Vixen.Net.Sessions.NetworkSession.StartClient() -> void
+Vixen.Net.Sessions.NetworkSession.StartHost() -> void
+Vixen.Net.Sessions.NetworkSession.StartOffline() -> void
+Vixen.Net.Sessions.NetworkSession.StartServer() -> void
+Vixen.Net.Sessions.NetworkSession.State.get -> Vixen.Net.Sessions.SessionState
+Vixen.Net.Sessions.NetworkSession.Stop() -> void
+Vixen.Net.Sessions.NetworkSession.Tick.get -> Vixen.Net.Tick
+Vixen.Net.Sessions.NetworkSession.Topology.get -> Vixen.Net.Sessions.SessionTopology
+Vixen.Net.Sessions.NetworkSession.Transport.get -> Vixen.Net.Transport.ITransport
+Vixen.Net.Sessions.NetworkSession.TryGetPlayer(Vixen.Net.Sessions.PlayerId id, out Vixen.Net.Sessions.NetworkPlayer? player) -> bool
+Vixen.Net.Sessions.NetworkSession.Update(System.TimeSpan elapsed, Vixen.Net.Sessions.ISessionMessageHandler? messages = null) -> int
+Vixen.Net.Sessions.PayloadKind -> enum : byte
+Vixen.Net.Sessions.PayloadKind.Broadcast = 3 -> Vixen.Net.Sessions.PayloadKind
+Vixen.Net.Sessions.PayloadKind.Game = 0 -> Vixen.Net.Sessions.PayloadKind
+Vixen.Net.Sessions.PayloadKind.Input = 4 -> Vixen.Net.Sessions.PayloadKind
+Vixen.Net.Sessions.PayloadKind.Last = 4 -> Vixen.Net.Sessions.PayloadKind
+Vixen.Net.Sessions.PayloadKind.PayloadKind() -> void
+Vixen.Net.Sessions.PayloadKind.Replication = 1 -> Vixen.Net.Sessions.PayloadKind
+Vixen.Net.Sessions.PayloadKind.Rpc = 2 -> Vixen.Net.Sessions.PayloadKind
+Vixen.Net.Sessions.PlayerId -> readonly struct
+Vixen.Net.Sessions.PlayerId : System.IEquatable<Vixen.Net.Sessions.PlayerId>
+Vixen.Net.Sessions.PlayerId.IsValid.get -> bool
+Vixen.Net.Sessions.PlayerId.PlayerId() -> void
+Vixen.Net.Sessions.PlayerId.PlayerId(uint Value) -> void
+Vixen.Net.Sessions.PlayerId.Value.get -> uint
+Vixen.Net.Sessions.PlayerId.Value.init -> uint
+Vixen.Net.Sessions.PlayerLeaveReason -> enum : byte
+Vixen.Net.Sessions.PlayerLeaveReason.Disconnected = 0 -> Vixen.Net.Sessions.PlayerLeaveReason
+Vixen.Net.Sessions.PlayerLeaveReason.Kicked = 2 -> Vixen.Net.Sessions.PlayerLeaveReason
+Vixen.Net.Sessions.PlayerLeaveReason.PlayerLeaveReason() -> void
+Vixen.Net.Sessions.PlayerLeaveReason.ReconnectWindowExpired = 3 -> Vixen.Net.Sessions.PlayerLeaveReason
+Vixen.Net.Sessions.PlayerLeaveReason.SessionStopped = 4 -> Vixen.Net.Sessions.PlayerLeaveReason
+Vixen.Net.Sessions.PlayerLeaveReason.TimedOut = 1 -> Vixen.Net.Sessions.PlayerLeaveReason
+Vixen.Net.Sessions.SessionOptions -> sealed record
+Vixen.Net.Sessions.SessionOptions : System.IEquatable<Vixen.Net.Sessions.SessionOptions>
+Vixen.Net.Sessions.SessionOptions.AuthenticationPayload.get -> byte[]
+Vixen.Net.Sessions.SessionOptions.AuthenticationPayload.init -> byte[]
+Vixen.Net.Sessions.SessionOptions.AuthenticationTimeout.get -> System.TimeSpan
+Vixen.Net.Sessions.SessionOptions.AuthenticationTimeout.init -> System.TimeSpan
+Vixen.Net.Sessions.SessionOptions.ContentHash.get -> ulong
+Vixen.Net.Sessions.SessionOptions.ContentHash.init -> ulong
+Vixen.Net.Sessions.SessionOptions.MaxAuthenticationPayloadBytes.get -> int
+Vixen.Net.Sessions.SessionOptions.MaxAuthenticationPayloadBytes.init -> int
+Vixen.Net.Sessions.SessionOptions.MaxPlayers.get -> int
+Vixen.Net.Sessions.SessionOptions.MaxPlayers.init -> int
+Vixen.Net.Sessions.SessionOptions.PingInterval.get -> System.TimeSpan
+Vixen.Net.Sessions.SessionOptions.PingInterval.init -> System.TimeSpan
+Vixen.Net.Sessions.SessionOptions.ProtocolVersion.get -> uint
+Vixen.Net.Sessions.SessionOptions.ProtocolVersion.init -> uint
+Vixen.Net.Sessions.SessionOptions.ReconnectWindow.get -> System.TimeSpan
+Vixen.Net.Sessions.SessionOptions.ReconnectWindow.init -> System.TimeSpan
+Vixen.Net.Sessions.SessionOptions.SessionOptions() -> void
+Vixen.Net.Sessions.SessionOptions.TickRate.get -> Vixen.Net.Time.TickRate
+Vixen.Net.Sessions.SessionOptions.TickRate.init -> Vixen.Net.Time.TickRate
+Vixen.Net.Sessions.SessionOptions.Timeout.get -> System.TimeSpan
+Vixen.Net.Sessions.SessionOptions.Timeout.init -> System.TimeSpan
+Vixen.Net.Sessions.SessionRejectReason -> enum : byte
+Vixen.Net.Sessions.SessionRejectReason.AuthenticationFailed = 4 -> Vixen.Net.Sessions.SessionRejectReason
+Vixen.Net.Sessions.SessionRejectReason.AuthenticationTimedOut = 5 -> Vixen.Net.Sessions.SessionRejectReason
+Vixen.Net.Sessions.SessionRejectReason.BadHandshake = 6 -> Vixen.Net.Sessions.SessionRejectReason
+Vixen.Net.Sessions.SessionRejectReason.ContentMismatch = 2 -> Vixen.Net.Sessions.SessionRejectReason
+Vixen.Net.Sessions.SessionRejectReason.None = 0 -> Vixen.Net.Sessions.SessionRejectReason
+Vixen.Net.Sessions.SessionRejectReason.ProtocolMismatch = 1 -> Vixen.Net.Sessions.SessionRejectReason
+Vixen.Net.Sessions.SessionRejectReason.ServerFull = 3 -> Vixen.Net.Sessions.SessionRejectReason
+Vixen.Net.Sessions.SessionRejectReason.SessionRejectReason() -> void
+Vixen.Net.Sessions.SessionState -> enum : byte
+Vixen.Net.Sessions.SessionState.Running = 2 -> Vixen.Net.Sessions.SessionState
+Vixen.Net.Sessions.SessionState.SessionState() -> void
+Vixen.Net.Sessions.SessionState.Starting = 1 -> Vixen.Net.Sessions.SessionState
+Vixen.Net.Sessions.SessionState.Stopped = 0 -> Vixen.Net.Sessions.SessionState
+Vixen.Net.Sessions.SessionState.Stopping = 3 -> Vixen.Net.Sessions.SessionState
+Vixen.Net.Sessions.SessionTopology -> enum : byte
+Vixen.Net.Sessions.SessionTopology.Client = 2 -> Vixen.Net.Sessions.SessionTopology
+Vixen.Net.Sessions.SessionTopology.Host = 3 -> Vixen.Net.Sessions.SessionTopology
+Vixen.Net.Sessions.SessionTopology.None = 0 -> Vixen.Net.Sessions.SessionTopology
+Vixen.Net.Sessions.SessionTopology.Offline = 4 -> Vixen.Net.Sessions.SessionTopology
+Vixen.Net.Sessions.SessionTopology.Server = 1 -> Vixen.Net.Sessions.SessionTopology
+Vixen.Net.Sessions.SessionTopology.SessionTopology() -> void
+Vixen.Net.Tick -> readonly struct
+Vixen.Net.Tick : System.IEquatable<Vixen.Net.Tick>
+Vixen.Net.Tick.Add(int ticks) -> Vixen.Net.Tick
+Vixen.Net.Tick.IsAfter(Vixen.Net.Tick other) -> bool
+Vixen.Net.Tick.IsBefore(Vixen.Net.Tick other) -> bool
+Vixen.Net.Tick.Next.get -> Vixen.Net.Tick
+Vixen.Net.Tick.Previous.get -> Vixen.Net.Tick
+Vixen.Net.Tick.Subtract(Vixen.Net.Tick earlier) -> int
+Vixen.Net.Tick.Subtract(int ticks) -> Vixen.Net.Tick
+Vixen.Net.Tick.Tick() -> void
+Vixen.Net.Tick.Tick(uint Value) -> void
+Vixen.Net.Tick.Value.get -> uint
+Vixen.Net.Tick.Value.init -> uint
+Vixen.Net.Time.RoundTripEstimator -> sealed class
+Vixen.Net.Time.RoundTripEstimator.Add(System.TimeSpan sample) -> void
+Vixen.Net.Time.RoundTripEstimator.HasSamples.get -> bool
+Vixen.Net.Time.RoundTripEstimator.Jitter.get -> System.TimeSpan
+Vixen.Net.Time.RoundTripEstimator.OneWay.get -> System.TimeSpan
+Vixen.Net.Time.RoundTripEstimator.Reset() -> void
+Vixen.Net.Time.RoundTripEstimator.RoundTrip.get -> System.TimeSpan
+Vixen.Net.Time.RoundTripEstimator.RoundTripEstimator() -> void
+Vixen.Net.Time.RoundTripEstimator.SampleCount.get -> long
+Vixen.Net.Time.TickManager -> sealed class
+Vixen.Net.Time.TickManager.Advance(System.TimeSpan elapsed) -> int
+Vixen.Net.Time.TickManager.Alpha.get -> float
+Vixen.Net.Time.TickManager.Current.get -> Vixen.Net.Tick
+Vixen.Net.Time.TickManager.DriftScale.get -> double
+Vixen.Net.Time.TickManager.DroppedTicks.get -> long
+Vixen.Net.Time.TickManager.EstimatedServerTick.get -> Vixen.Net.Tick
+Vixen.Net.Time.TickManager.InterpolationDelayTicks.get -> int
+Vixen.Net.Time.TickManager.InterpolationTick.get -> Vixen.Net.Tick
+Vixen.Net.Time.TickManager.IsSynchronized.get -> bool
+Vixen.Net.Time.TickManager.LeadBias.get -> int
+Vixen.Net.Time.TickManager.LeadBias.set -> int
+Vixen.Net.Time.TickManager.LeadTicks.get -> int
+Vixen.Net.Time.TickManager.MaxDriftRatio.get -> double
+Vixen.Net.Time.TickManager.MaxTicksPerAdvance.get -> int
+Vixen.Net.Time.TickManager.Rate.get -> Vixen.Net.Time.TickRate
+Vixen.Net.Time.TickManager.Reset(Vixen.Net.Tick tick) -> void
+Vixen.Net.Time.TickManager.RoundTrip.get -> Vixen.Net.Time.RoundTripEstimator
+Vixen.Net.Time.TickManager.SnapCount.get -> long
+Vixen.Net.Time.TickManager.SnapThresholdTicks.get -> int
+Vixen.Net.Time.TickManager.Synchronize(Vixen.Net.Tick serverTick, System.TimeSpan roundTrip) -> void
+Vixen.Net.Time.TickManager.TargetTick.get -> Vixen.Net.Tick
+Vixen.Net.Time.TickManager.TickError.get -> int
+Vixen.Net.Time.TickManager.TickManager(Vixen.Net.Time.TickRate rate, int maxTicksPerAdvance = 8, double maxDriftRatio = 0.1, int? snapThresholdTicks = null) -> void
+Vixen.Net.Time.TickManager.TotalTicks.get -> long
+Vixen.Net.Time.TickRate -> readonly struct
+Vixen.Net.Time.TickRate : System.IEquatable<Vixen.Net.Time.TickRate>
+Vixen.Net.Time.TickRate.Duration.get -> System.TimeSpan
+Vixen.Net.Time.TickRate.IsValid.get -> bool
+Vixen.Net.Time.TickRate.TickRate() -> void
+Vixen.Net.Time.TickRate.TickRate(int TicksPerSecond) -> void
+Vixen.Net.Time.TickRate.TicksPerSecond.get -> int
+Vixen.Net.Time.TickRate.ToTicks(System.TimeSpan time) -> int
+Vixen.Net.Time.TickRate.ToTime(int ticks) -> System.TimeSpan
+Vixen.Net.Transport.ITransport -> interface
+Vixen.Net.Transport.ITransport : System.IDisposable
+Vixen.Net.Transport.ITransport.Capabilities.get -> Vixen.Net.Transport.TransportCapabilities
+Vixen.Net.Transport.ITransport.ClientState.get -> Vixen.Net.Transport.TransportState
+Vixen.Net.Transport.ITransport.Disconnect(Vixen.Net.ConnectionId connection) -> void
+Vixen.Net.Transport.ITransport.Poll(System.TimeSpan elapsed, Vixen.Net.Transport.ITransportEvents events) -> void
+Vixen.Net.Transport.ITransport.SendToClient(Vixen.Net.ConnectionId connection, System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> void
+Vixen.Net.Transport.ITransport.SendToServer(System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> void
+Vixen.Net.Transport.ITransport.ServerState.get -> Vixen.Net.Transport.TransportState
+Vixen.Net.Transport.ITransport.StartClient() -> void
+Vixen.Net.Transport.ITransport.StartServer() -> void
+Vixen.Net.Transport.ITransport.StopClient() -> void
+Vixen.Net.Transport.ITransport.StopServer() -> void
+Vixen.Net.Transport.ITransportEvents -> interface
+Vixen.Net.Transport.ITransportEvents.OnConnected(Vixen.Net.Transport.TransportRole role, Vixen.Net.ConnectionId connection) -> void
+Vixen.Net.Transport.ITransportEvents.OnData(Vixen.Net.Transport.TransportRole role, Vixen.Net.ConnectionId connection, Vixen.Net.Channel channel, System.ReadOnlySpan<byte> payload) -> void
+Vixen.Net.Transport.ITransportEvents.OnDisconnected(Vixen.Net.Transport.TransportRole role, Vixen.Net.ConnectionId connection, Vixen.Net.DisconnectReason reason) -> void
+Vixen.Net.Transport.NetworkSimulation -> sealed class
+Vixen.Net.Transport.NetworkSimulation : System.IDisposable
+Vixen.Net.Transport.NetworkSimulation : Vixen.Net.Transport.ITransport
+Vixen.Net.Transport.NetworkSimulation.Capabilities.get -> Vixen.Net.Transport.TransportCapabilities
+Vixen.Net.Transport.NetworkSimulation.ClientState.get -> Vixen.Net.Transport.TransportState
+Vixen.Net.Transport.NetworkSimulation.Disconnect(Vixen.Net.ConnectionId connection) -> void
+Vixen.Net.Transport.NetworkSimulation.Dispose() -> void
+Vixen.Net.Transport.NetworkSimulation.DroppedPayloadCount.get -> long
+Vixen.Net.Transport.NetworkSimulation.DuplicatedPayloadCount.get -> long
+Vixen.Net.Transport.NetworkSimulation.Inner.get -> Vixen.Net.Transport.ITransport
+Vixen.Net.Transport.NetworkSimulation.NetworkSimulation(Vixen.Net.Transport.ITransport inner, Vixen.Net.Transport.NetworkSimulationProfile profile, ulong seed, bool ownsInner = true) -> void
+Vixen.Net.Transport.NetworkSimulation.PendingPayloadCount.get -> int
+Vixen.Net.Transport.NetworkSimulation.Poll(System.TimeSpan elapsed, Vixen.Net.Transport.ITransportEvents events) -> void
+Vixen.Net.Transport.NetworkSimulation.Profile.get -> Vixen.Net.Transport.NetworkSimulationProfile
+Vixen.Net.Transport.NetworkSimulation.Profile.set -> Vixen.Net.Transport.NetworkSimulationProfile
+Vixen.Net.Transport.NetworkSimulation.SendToClient(Vixen.Net.ConnectionId connection, System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> void
+Vixen.Net.Transport.NetworkSimulation.SendToServer(System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> void
+Vixen.Net.Transport.NetworkSimulation.SentPayloadCount.get -> long
+Vixen.Net.Transport.NetworkSimulation.ServerState.get -> Vixen.Net.Transport.TransportState
+Vixen.Net.Transport.NetworkSimulation.StartClient() -> void
+Vixen.Net.Transport.NetworkSimulation.StartServer() -> void
+Vixen.Net.Transport.NetworkSimulation.StopClient() -> void
+Vixen.Net.Transport.NetworkSimulation.StopServer() -> void
+Vixen.Net.Transport.NetworkSimulationProfile -> sealed record
+Vixen.Net.Transport.NetworkSimulationProfile : System.IEquatable<Vixen.Net.Transport.NetworkSimulationProfile>
+Vixen.Net.Transport.NetworkSimulationProfile.DuplicateChance.get -> double
+Vixen.Net.Transport.NetworkSimulationProfile.DuplicateChance.init -> double
+Vixen.Net.Transport.NetworkSimulationProfile.Jitter.get -> System.TimeSpan
+Vixen.Net.Transport.NetworkSimulationProfile.Jitter.init -> System.TimeSpan
+Vixen.Net.Transport.NetworkSimulationProfile.Latency.get -> System.TimeSpan
+Vixen.Net.Transport.NetworkSimulationProfile.Latency.init -> System.TimeSpan
+Vixen.Net.Transport.NetworkSimulationProfile.LossChance.get -> double
+Vixen.Net.Transport.NetworkSimulationProfile.LossChance.init -> double
+Vixen.Net.Transport.NetworkSimulationProfile.NetworkSimulationProfile() -> void
+Vixen.Net.Transport.TransportCapabilities -> readonly struct
+Vixen.Net.Transport.TransportCapabilities : System.IEquatable<Vixen.Net.Transport.TransportCapabilities>
+Vixen.Net.Transport.TransportCapabilities.IsInProcess.get -> bool
+Vixen.Net.Transport.TransportCapabilities.IsInProcess.init -> bool
+Vixen.Net.Transport.TransportCapabilities.IsLossy.get -> bool
+Vixen.Net.Transport.TransportCapabilities.IsLossy.init -> bool
+Vixen.Net.Transport.TransportCapabilities.MaxPayloadBytes.get -> int
+Vixen.Net.Transport.TransportCapabilities.MaxPayloadBytes.init -> int
+Vixen.Net.Transport.TransportCapabilities.TransportCapabilities() -> void
+Vixen.Net.Transport.TransportCapabilities.TransportCapabilities(int MaxPayloadBytes, bool IsInProcess, bool IsLossy) -> void
+Vixen.Net.Transport.TransportException -> sealed class
+Vixen.Net.Transport.TransportException : System.InvalidOperationException
+Vixen.Net.Transport.TransportException.TransportException() -> void
+Vixen.Net.Transport.TransportException.TransportException(string message) -> void
+Vixen.Net.Transport.TransportException.TransportException(string message, System.Exception innerException) -> void
+Vixen.Net.Transport.TransportRole -> enum : byte
+Vixen.Net.Transport.TransportRole.Client = 1 -> Vixen.Net.Transport.TransportRole
+Vixen.Net.Transport.TransportRole.Server = 0 -> Vixen.Net.Transport.TransportRole
+Vixen.Net.Transport.TransportRole.TransportRole() -> void
+Vixen.Net.Transport.TransportState -> enum : byte
+Vixen.Net.Transport.TransportState.Running = 2 -> Vixen.Net.Transport.TransportState
+Vixen.Net.Transport.TransportState.Starting = 1 -> Vixen.Net.Transport.TransportState
+Vixen.Net.Transport.TransportState.Stopped = 0 -> Vixen.Net.Transport.TransportState
+Vixen.Net.Transport.TransportState.Stopping = 3 -> Vixen.Net.Transport.TransportState
+Vixen.Net.Transport.TransportState.TransportState() -> void
+const Vixen.Net.Diagnostics.NetworkMetrics.MeterName = "Vixen.Net" -> string
+const Vixen.Net.Messaging.DeltaCodec.MinimumOffsetBits = 9 -> int
+const Vixen.Net.Messaging.DeltaCodec.SelectorBits = 2 -> int
+const Vixen.Net.Messaging.MathCodec.RotationBits = 10 -> int
+const Vixen.Net.Motion.NetworkTransformReplicator.PositionBits = 16 -> int
+const Vixen.Net.Replication.ConnectionBaseline.MaxPendingTicks = 64 -> int
+const Vixen.Net.Replication.NetworkId.FirstBaked = 2147483648 -> uint
+const Vixen.Net.Replication.NetworkSpawnReplicator.SpawnPriority = 1000 -> int
+const Vixen.Net.Replication.ReplicationServer.BaselineAgeBits = 4 -> int
+const Vixen.Net.Replication.ReplicationServer.MaxBaselineAge = 16 -> int
+override Vixen.Net.ConnectionId.ToString() -> string
+override Vixen.Net.Diagnostics.BandwidthEntry.ToString() -> string
+override Vixen.Net.Diagnostics.SnapshotRecord.ToString() -> string
+override Vixen.Net.Replication.NetworkId.ToString() -> string
+override Vixen.Net.Replication.NetworkPrefabId.ToString() -> string
+override Vixen.Net.Rpc.RpcMethod.ToString() -> string
+override Vixen.Net.Sessions.NetworkPlayer.ToString() -> string
+override Vixen.Net.Sessions.PlayerId.ToString() -> string
+override Vixen.Net.Tick.ToString() -> string
+override Vixen.Net.Time.TickRate.ToString() -> string
+readonly Vixen.Net.Messaging.BitReader.BitsRead.get -> int
+readonly Vixen.Net.Messaging.BitReader.BitsRemaining.get -> int
+readonly Vixen.Net.Messaging.BitReader.Failed.get -> bool
+readonly Vixen.Net.Messaging.BitWriter.BitsRemaining.get -> int
+readonly Vixen.Net.Messaging.BitWriter.BitsWritten.get -> int
+readonly Vixen.Net.Messaging.BitWriter.BytesWritten.get -> int
+readonly Vixen.Net.Messaging.BitWriter.Overflowed.get -> bool
+readonly Vixen.Net.Messaging.BitWriter.TryFinish(out System.ReadOnlySpan<byte> packet) -> bool
+readonly Vixen.Net.Messaging.PacketReader.Failed.get -> bool
+readonly Vixen.Net.Messaging.PacketReader.IsComplete.get -> bool
+readonly Vixen.Net.Messaging.PacketReader.Position.get -> int
+readonly Vixen.Net.Messaging.PacketReader.Remaining.get -> int
+readonly Vixen.Net.Messaging.PacketReader.RemainingBytes.get -> System.ReadOnlySpan<byte>
+readonly Vixen.Net.Messaging.PacketWriter.Capacity.get -> int
+readonly Vixen.Net.Messaging.PacketWriter.Overflowed.get -> bool
+readonly Vixen.Net.Messaging.PacketWriter.Position.get -> int
+readonly Vixen.Net.Messaging.PacketWriter.Remaining.get -> int
+readonly Vixen.Net.Messaging.PacketWriter.TryFinish(out System.ReadOnlySpan<byte> packet) -> bool
+readonly Vixen.Net.Messaging.PacketWriter.Written.get -> System.ReadOnlySpan<byte>
+static Vixen.Net.ChannelExtensions.IsOrdered(this Vixen.Net.Channel channel) -> bool
+static Vixen.Net.ChannelExtensions.IsReliable(this Vixen.Net.Channel channel) -> bool
+static Vixen.Net.ChannelExtensions.MayDrop(this Vixen.Net.Channel channel) -> bool
+static Vixen.Net.ChannelExtensions.MayDuplicate(this Vixen.Net.Channel channel) -> bool
+static Vixen.Net.ConnectionId.None.get -> Vixen.Net.ConnectionId
+static Vixen.Net.Diagnostics.SnapshotInspector.Inspect(Vixen.Net.Replication.ReplicationRegistry registry, System.ReadOnlySpan<byte> snapshot) -> Vixen.Net.Diagnostics.SnapshotContents
+static Vixen.Net.Messaging.BroadcastRouter.Identify<T>() -> uint
+static Vixen.Net.Messaging.DeltaCodec.MaxBits(System.ReadOnlySpan<Vixen.Net.Messaging.WireLane> lanes) -> int
+static Vixen.Net.Messaging.DeltaCodec.OffsetWidth(uint selector, int bits) -> int
+static Vixen.Net.Messaging.DeltaCodec.TotalBits(System.ReadOnlySpan<Vixen.Net.Messaging.WireLane> lanes) -> int
+static Vixen.Net.Messaging.DeltaCodec.TryDecode(System.ReadOnlySpan<Vixen.Net.Messaging.WireLane> lanes, ref Vixen.Net.Messaging.BitReader previous, ref Vixen.Net.Messaging.BitReader delta, ref Vixen.Net.Messaging.BitWriter current) -> bool
+static Vixen.Net.Messaging.DeltaCodec.TryEncode(System.ReadOnlySpan<Vixen.Net.Messaging.WireLane> lanes, ref Vixen.Net.Messaging.BitReader previous, ref Vixen.Net.Messaging.BitReader current, ref Vixen.Net.Messaging.BitWriter delta, System.Span<int> costs = default(System.Span<int>)) -> bool
+static Vixen.Net.Messaging.MathCodec.PackRotation(in Vixen.Core.Mathematics.Quaternion value) -> uint
+static Vixen.Net.Messaging.MathCodec.RotationRange.get -> Vixen.Net.Messaging.QuantizeRange
+static Vixen.Net.Messaging.MathCodec.TryReadRotation(this ref Vixen.Net.Messaging.BitReader reader, out Vixen.Core.Mathematics.Quaternion value) -> bool
+static Vixen.Net.Messaging.MathCodec.TryReadVector3(this ref Vixen.Net.Messaging.BitReader reader, in Vixen.Net.Messaging.QuantizeRange range, out Vixen.Core.Mathematics.Vector3 value) -> bool
+static Vixen.Net.Messaging.MathCodec.TryReadVector3(this ref Vixen.Net.Messaging.BitReader reader, out Vixen.Core.Mathematics.Vector3 value) -> bool
+static Vixen.Net.Messaging.MathCodec.UnpackRotation(uint packed) -> Vixen.Core.Mathematics.Quaternion
+static Vixen.Net.Messaging.MathCodec.WriteRotation(this ref Vixen.Net.Messaging.BitWriter writer, in Vixen.Core.Mathematics.Quaternion value) -> void
+static Vixen.Net.Messaging.MathCodec.WriteVector3(this ref Vixen.Net.Messaging.BitWriter writer, in Vixen.Core.Mathematics.Vector3 value) -> void
+static Vixen.Net.Messaging.MathCodec.WriteVector3(this ref Vixen.Net.Messaging.BitWriter writer, in Vixen.Core.Mathematics.Vector3 value, in Vixen.Net.Messaging.QuantizeRange range) -> void
+static Vixen.Net.Motion.NetworkTransformReplicator.PositionRange.get -> Vixen.Net.Messaging.QuantizeRange
+static Vixen.Net.Prediction.PredictionHealth.BroadcastName.get -> string
+static Vixen.Net.Prediction.PredictionHealth.TryRead(ref Vixen.Net.Messaging.BitReader reader, out Vixen.Net.Prediction.PredictionHealth value) -> bool
+static Vixen.Net.Replication.NetworkId.None.get -> Vixen.Net.Replication.NetworkId
+static Vixen.Net.Replication.NetworkPrefabId.From(string address) -> Vixen.Net.Replication.NetworkPrefabId
+static Vixen.Net.Replication.NetworkPrefabId.None.get -> Vixen.Net.Replication.NetworkPrefabId
+static Vixen.Net.Replication.ReplicationRegistry.HashTypeName(string fullName) -> uint
+static Vixen.Net.Rpc.RpcMethod.Hash(string name) -> uint
+static Vixen.Net.Rules.NetworkRules.Allows(Vixen.Net.Rules.RuleAudience audience, Vixen.Net.Sessions.PlayerId requester, bool isOwner) -> bool
+static Vixen.Net.Rules.NetworkRules.OwnerAuthoritative.get -> Vixen.Net.Rules.NetworkRules
+static Vixen.Net.Rules.NetworkRules.ServerAuthoritative.get -> Vixen.Net.Rules.NetworkRules
+static Vixen.Net.Sessions.AuthenticationDecision.Accept.get -> Vixen.Net.Sessions.AuthenticationDecision
+static Vixen.Net.Sessions.AuthenticationDecision.As(string identity) -> Vixen.Net.Sessions.AuthenticationDecision
+static Vixen.Net.Sessions.AuthenticationDecision.Pending.get -> Vixen.Net.Sessions.AuthenticationDecision
+static Vixen.Net.Sessions.AuthenticationDecision.Refuse(string reason) -> Vixen.Net.Sessions.AuthenticationDecision
+static Vixen.Net.Sessions.NetworkPayload.TryUnwrap(System.ReadOnlySpan<byte> wrapped, out Vixen.Net.Sessions.PayloadKind kind, out System.ReadOnlySpan<byte> payload) -> bool
+static Vixen.Net.Sessions.NetworkPayload.TryWrap(Vixen.Net.Sessions.PayloadKind kind, System.ReadOnlySpan<byte> payload, System.Span<byte> buffer, out System.ReadOnlySpan<byte> wrapped) -> bool
+static Vixen.Net.Sessions.PlayerId.None.get -> Vixen.Net.Sessions.PlayerId
+static Vixen.Net.Tick.Zero.get -> Vixen.Net.Tick
+static Vixen.Net.Tick.operator +(Vixen.Net.Tick tick, int ticks) -> Vixen.Net.Tick
+static Vixen.Net.Tick.operator -(Vixen.Net.Tick later, Vixen.Net.Tick earlier) -> int
+static Vixen.Net.Tick.operator -(Vixen.Net.Tick tick, int ticks) -> Vixen.Net.Tick
+static Vixen.Net.Time.TickRate.Default.get -> Vixen.Net.Time.TickRate
+static Vixen.Net.Transport.NetworkSimulationProfile.Awful.get -> Vixen.Net.Transport.NetworkSimulationProfile
+static Vixen.Net.Transport.NetworkSimulationProfile.Broadband.get -> Vixen.Net.Transport.NetworkSimulationProfile
+static Vixen.Net.Transport.NetworkSimulationProfile.Lan.get -> Vixen.Net.Transport.NetworkSimulationProfile
+static Vixen.Net.Transport.NetworkSimulationProfile.Mobile.get -> Vixen.Net.Transport.NetworkSimulationProfile
+static Vixen.Net.Transport.NetworkSimulationProfile.Perfect.get -> Vixen.Net.Transport.NetworkSimulationProfile
+virtual Vixen.Net.Prediction.PredictedStep<T>.Invoke(Vixen.Ecs.World world, Vixen.Net.Tick tick, in T input) -> void
+virtual Vixen.Net.Rpc.RpcArguments.Invoke(ref Vixen.Net.Messaging.BitWriter writer) -> void
+virtual Vixen.Net.Rpc.RpcResult<T>.Invoke(ref Vixen.Net.Messaging.BitReader reader, out T value) -> bool

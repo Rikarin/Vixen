@@ -1,0 +1,122 @@
+#nullable enable
+Vixen.Ui.Reactive.AsyncComputed<TRequest, T> -> sealed class
+Vixen.Ui.Reactive.AsyncComputed<TRequest, T> : System.IDisposable
+Vixen.Ui.Reactive.AsyncComputed<TRequest, T> : Vixen.Ui.Reactive.IReadOnlySignal<Vixen.Ui.Reactive.AsyncValue<T>>
+Vixen.Ui.Reactive.AsyncComputed<TRequest, T>.AsyncComputed(System.Func<TRequest> request, System.Func<TRequest, System.Threading.CancellationToken, System.Threading.Tasks.Task<T>> load, Vixen.Ui.Reactive.EffectScheduler? scheduler = null) -> void
+Vixen.Ui.Reactive.AsyncComputed<TRequest, T>.Dispose() -> void
+Vixen.Ui.Reactive.AsyncComputed<TRequest, T>.IsDisposed.get -> bool
+Vixen.Ui.Reactive.AsyncComputed<TRequest, T>.Peek() -> Vixen.Ui.Reactive.AsyncValue<T>
+Vixen.Ui.Reactive.AsyncComputed<TRequest, T>.Value.get -> Vixen.Ui.Reactive.AsyncValue<T>
+Vixen.Ui.Reactive.AsyncStatus -> enum : int
+Vixen.Ui.Reactive.AsyncStatus.AsyncStatus() -> void
+Vixen.Ui.Reactive.AsyncStatus.Failure = 2 -> Vixen.Ui.Reactive.AsyncStatus
+Vixen.Ui.Reactive.AsyncStatus.Loading = 0 -> Vixen.Ui.Reactive.AsyncStatus
+Vixen.Ui.Reactive.AsyncStatus.Success = 1 -> Vixen.Ui.Reactive.AsyncStatus
+Vixen.Ui.Reactive.AsyncValue<T> -> readonly struct
+Vixen.Ui.Reactive.AsyncValue<T> : System.IEquatable<Vixen.Ui.Reactive.AsyncValue<T>>
+Vixen.Ui.Reactive.AsyncValue<T>.AsyncValue() -> void
+Vixen.Ui.Reactive.AsyncValue<T>.AsyncValue(Vixen.Ui.Reactive.AsyncStatus Status, T? Value = default(T?), System.Exception? Error = null) -> void
+Vixen.Ui.Reactive.AsyncValue<T>.Error.get -> System.Exception?
+Vixen.Ui.Reactive.AsyncValue<T>.Error.init -> System.Exception?
+Vixen.Ui.Reactive.AsyncValue<T>.HasValue.get -> bool
+Vixen.Ui.Reactive.AsyncValue<T>.IsLoading.get -> bool
+Vixen.Ui.Reactive.AsyncValue<T>.Status.get -> Vixen.Ui.Reactive.AsyncStatus
+Vixen.Ui.Reactive.AsyncValue<T>.Status.init -> Vixen.Ui.Reactive.AsyncStatus
+Vixen.Ui.Reactive.AsyncValue<T>.Value.get -> T?
+Vixen.Ui.Reactive.AsyncValue<T>.Value.init -> T?
+Vixen.Ui.Reactive.CollectionChange -> readonly struct
+Vixen.Ui.Reactive.CollectionChange : System.IEquatable<Vixen.Ui.Reactive.CollectionChange>
+Vixen.Ui.Reactive.CollectionChange.CollectionChange() -> void
+Vixen.Ui.Reactive.CollectionChange.CollectionChange(Vixen.Ui.Reactive.CollectionChangeKind Kind, int Index, int Target = -1) -> void
+Vixen.Ui.Reactive.CollectionChange.Index.get -> int
+Vixen.Ui.Reactive.CollectionChange.Index.init -> int
+Vixen.Ui.Reactive.CollectionChange.Kind.get -> Vixen.Ui.Reactive.CollectionChangeKind
+Vixen.Ui.Reactive.CollectionChange.Kind.init -> Vixen.Ui.Reactive.CollectionChangeKind
+Vixen.Ui.Reactive.CollectionChange.Target.get -> int
+Vixen.Ui.Reactive.CollectionChange.Target.init -> int
+Vixen.Ui.Reactive.CollectionChangeKind -> enum : int
+Vixen.Ui.Reactive.CollectionChangeKind.CollectionChangeKind() -> void
+Vixen.Ui.Reactive.CollectionChangeKind.Inserted = 0 -> Vixen.Ui.Reactive.CollectionChangeKind
+Vixen.Ui.Reactive.CollectionChangeKind.Moved = 3 -> Vixen.Ui.Reactive.CollectionChangeKind
+Vixen.Ui.Reactive.CollectionChangeKind.Removed = 1 -> Vixen.Ui.Reactive.CollectionChangeKind
+Vixen.Ui.Reactive.CollectionChangeKind.Replaced = 2 -> Vixen.Ui.Reactive.CollectionChangeKind
+Vixen.Ui.Reactive.CollectionSignal<T> -> sealed class
+Vixen.Ui.Reactive.CollectionSignal<T> : System.Collections.Generic.IEnumerable<T>
+Vixen.Ui.Reactive.CollectionSignal<T> : System.Collections.Generic.IReadOnlyCollection<T>
+Vixen.Ui.Reactive.CollectionSignal<T> : System.Collections.Generic.IReadOnlyList<T>
+Vixen.Ui.Reactive.CollectionSignal<T> : System.Collections.IEnumerable
+Vixen.Ui.Reactive.CollectionSignal<T> : Vixen.Ui.Reactive.ReactiveNode
+Vixen.Ui.Reactive.CollectionSignal<T>.Add(T item) -> void
+Vixen.Ui.Reactive.CollectionSignal<T>.ChangeLogCapacity.get -> int
+Vixen.Ui.Reactive.CollectionSignal<T>.Clear() -> void
+Vixen.Ui.Reactive.CollectionSignal<T>.CollectionSignal(System.Collections.Generic.IEnumerable<T> initial, int changeLogCapacity = 64) -> void
+Vixen.Ui.Reactive.CollectionSignal<T>.CollectionSignal(int capacity = 0, int changeLogCapacity = 64) -> void
+Vixen.Ui.Reactive.CollectionSignal<T>.Count.get -> int
+Vixen.Ui.Reactive.CollectionSignal<T>.GetEnumerator() -> System.Collections.Generic.List<T>.Enumerator
+Vixen.Ui.Reactive.CollectionSignal<T>.Insert(int index, T item) -> void
+Vixen.Ui.Reactive.CollectionSignal<T>.Move(int from, int to) -> void
+Vixen.Ui.Reactive.CollectionSignal<T>.Peek() -> System.ReadOnlySpan<T>
+Vixen.Ui.Reactive.CollectionSignal<T>.Remove(T item) -> bool
+Vixen.Ui.Reactive.CollectionSignal<T>.RemoveAt(int index) -> void
+Vixen.Ui.Reactive.CollectionSignal<T>.Revision.get -> long
+Vixen.Ui.Reactive.CollectionSignal<T>.TryGetChangesSince(long revision, out System.ReadOnlySpan<Vixen.Ui.Reactive.CollectionChange> changes) -> bool
+Vixen.Ui.Reactive.CollectionSignal<T>.this[int index].get -> T
+Vixen.Ui.Reactive.CollectionSignal<T>.this[int index].set -> T
+Vixen.Ui.Reactive.Computed<T> -> sealed class
+Vixen.Ui.Reactive.Computed<T> : Vixen.Ui.Reactive.IReadOnlySignal<T>
+Vixen.Ui.Reactive.Computed<T> : Vixen.Ui.Reactive.ReactiveNode
+Vixen.Ui.Reactive.Computed<T>.Computed(System.Func<T> compute, System.Collections.Generic.IEqualityComparer<T>? comparer = null) -> void
+Vixen.Ui.Reactive.Computed<T>.Peek() -> T
+Vixen.Ui.Reactive.Computed<T>.Value.get -> T
+Vixen.Ui.Reactive.Effect -> sealed class
+Vixen.Ui.Reactive.Effect : System.IDisposable
+Vixen.Ui.Reactive.Effect : Vixen.Ui.Reactive.ReactiveNode
+Vixen.Ui.Reactive.Effect.Dispose() -> void
+Vixen.Ui.Reactive.Effect.Effect(System.Action action, Vixen.Ui.Reactive.EffectScheduler? scheduler = null, string? origin = null, int line = 0) -> void
+Vixen.Ui.Reactive.Effect.Invalidate() -> void
+Vixen.Ui.Reactive.Effect.IsDisposed.get -> bool
+Vixen.Ui.Reactive.Effect.IsSuspended.get -> bool
+Vixen.Ui.Reactive.Effect.Resume() -> void
+Vixen.Ui.Reactive.EffectScheduler -> sealed class
+Vixen.Ui.Reactive.EffectScheduler.EffectScheduler(Microsoft.Extensions.Logging.ILogger? logger = null) -> void
+Vixen.Ui.Reactive.EffectScheduler.Flush() -> int
+Vixen.Ui.Reactive.EffectScheduler.IsFlushing.get -> bool
+Vixen.Ui.Reactive.EffectScheduler.MaximumRunsPerEffect.get -> int
+Vixen.Ui.Reactive.EffectScheduler.MaximumRunsPerEffect.set -> int
+Vixen.Ui.Reactive.EffectScheduler.MaximumRunsPerFlush.get -> int
+Vixen.Ui.Reactive.EffectScheduler.MaximumRunsPerFlush.set -> int
+Vixen.Ui.Reactive.EffectScheduler.PendingCount.get -> int
+Vixen.Ui.Reactive.EffectScheduler.Post(System.Action work) -> void
+Vixen.Ui.Reactive.IReadOnlySignal<T>.Peek() -> out T
+Vixen.Ui.Reactive.IReadOnlySignal<T>.Value.get -> out T
+Vixen.Ui.Reactive.IReadOnlySignal<out T> -> interface
+Vixen.Ui.Reactive.LinkedSignal<TSource, T> -> sealed class
+Vixen.Ui.Reactive.LinkedSignal<TSource, T> : Vixen.Ui.Reactive.IReadOnlySignal<T>
+Vixen.Ui.Reactive.LinkedSignal<TSource, T> : Vixen.Ui.Reactive.ReactiveNode
+Vixen.Ui.Reactive.LinkedSignal<TSource, T>.LinkedSignal(System.Func<TSource> source, System.Func<TSource, T, T> compute, System.Collections.Generic.IEqualityComparer<TSource>? sourceComparer = null, System.Collections.Generic.IEqualityComparer<T>? comparer = null) -> void
+Vixen.Ui.Reactive.LinkedSignal<TSource, T>.Peek() -> T
+Vixen.Ui.Reactive.LinkedSignal<TSource, T>.Value.get -> T
+Vixen.Ui.Reactive.LinkedSignal<TSource, T>.Value.set -> T
+Vixen.Ui.Reactive.ReactiveGraph -> static class
+Vixen.Ui.Reactive.ReactiveNode -> abstract class
+Vixen.Ui.Reactive.ReactiveNode.ReactiveNode() -> void
+Vixen.Ui.Reactive.Signal<T> -> sealed class
+Vixen.Ui.Reactive.Signal<T> : Vixen.Ui.Reactive.IReadOnlySignal<T>
+Vixen.Ui.Reactive.Signal<T> : Vixen.Ui.Reactive.ReactiveNode
+Vixen.Ui.Reactive.Signal<T>.Invalidate() -> void
+Vixen.Ui.Reactive.Signal<T>.Peek() -> T
+Vixen.Ui.Reactive.Signal<T>.Signal(T initial, System.Collections.Generic.IEqualityComparer<T>? comparer = null) -> void
+Vixen.Ui.Reactive.Signal<T>.Update(System.Func<T, T> update) -> void
+Vixen.Ui.Reactive.Signal<T>.Update<TState>(TState state, System.Func<T, TState, T> update) -> void
+Vixen.Ui.Reactive.Signal<T>.Value.get -> T
+Vixen.Ui.Reactive.Signal<T>.Value.set -> T
+Vixen.Ui.Reactive.SignalComparer -> static class
+static Vixen.Ui.Reactive.EffectScheduler.Default.get -> Vixen.Ui.Reactive.EffectScheduler
+static Vixen.Ui.Reactive.ReactiveGraph.Batch(System.Action action) -> void
+static Vixen.Ui.Reactive.ReactiveGraph.InBatch.get -> bool
+static Vixen.Ui.Reactive.ReactiveGraph.OwningThread.get -> System.Threading.Thread?
+static Vixen.Ui.Reactive.ReactiveGraph.OwningThread.set -> System.Threading.Thread?
+static Vixen.Ui.Reactive.ReactiveGraph.Untracked(System.Action action) -> void
+static Vixen.Ui.Reactive.ReactiveGraph.Untracked<T>(System.Func<T> read) -> T
+static Vixen.Ui.Reactive.SignalComparer.Never<T>() -> System.Collections.Generic.IEqualityComparer<T>
+static Vixen.Ui.Reactive.SignalComparer.Reference<T>() -> System.Collections.Generic.IEqualityComparer<T>

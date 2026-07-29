@@ -1,0 +1,303 @@
+#nullable enable
+Vixen.Ui.Layout.Align -> enum : byte
+Vixen.Ui.Layout.Align.Align() -> void
+Vixen.Ui.Layout.Align.Auto = 0 -> Vixen.Ui.Layout.Align
+Vixen.Ui.Layout.Align.Baseline = 5 -> Vixen.Ui.Layout.Align
+Vixen.Ui.Layout.Align.Center = 2 -> Vixen.Ui.Layout.Align
+Vixen.Ui.Layout.Align.FlexEnd = 3 -> Vixen.Ui.Layout.Align
+Vixen.Ui.Layout.Align.FlexStart = 1 -> Vixen.Ui.Layout.Align
+Vixen.Ui.Layout.Align.SpaceAround = 7 -> Vixen.Ui.Layout.Align
+Vixen.Ui.Layout.Align.SpaceBetween = 6 -> Vixen.Ui.Layout.Align
+Vixen.Ui.Layout.Align.SpaceEvenly = 8 -> Vixen.Ui.Layout.Align
+Vixen.Ui.Layout.Align.Stretch = 4 -> Vixen.Ui.Layout.Align
+Vixen.Ui.Layout.BaselineFunction -> delegate
+Vixen.Ui.Layout.BoxSizing -> enum : byte
+Vixen.Ui.Layout.BoxSizing.BorderBox = 0 -> Vixen.Ui.Layout.BoxSizing
+Vixen.Ui.Layout.BoxSizing.BoxSizing() -> void
+Vixen.Ui.Layout.BoxSizing.ContentBox = 1 -> Vixen.Ui.Layout.BoxSizing
+Vixen.Ui.Layout.CachedMeasurement -> struct
+Vixen.Ui.Layout.CachedMeasurement.AvailableHeight -> float
+Vixen.Ui.Layout.CachedMeasurement.AvailableWidth -> float
+Vixen.Ui.Layout.CachedMeasurement.CachedMeasurement() -> void
+Vixen.Ui.Layout.CachedMeasurement.ComputedHeight -> float
+Vixen.Ui.Layout.CachedMeasurement.ComputedWidth -> float
+Vixen.Ui.Layout.CachedMeasurement.HeightMeasureMode -> Vixen.Ui.Layout.MeasureMode
+Vixen.Ui.Layout.CachedMeasurement.IsPopulated -> bool
+Vixen.Ui.Layout.CachedMeasurement.WidthMeasureMode -> Vixen.Ui.Layout.MeasureMode
+Vixen.Ui.Layout.CachedMeasurements -> struct
+Vixen.Ui.Layout.CachedMeasurements.CachedMeasurements() -> void
+Vixen.Ui.Layout.Dimension -> enum : byte
+Vixen.Ui.Layout.Dimension.Dimension() -> void
+Vixen.Ui.Layout.Dimension.Height = 1 -> Vixen.Ui.Layout.Dimension
+Vixen.Ui.Layout.Dimension.Width = 0 -> Vixen.Ui.Layout.Dimension
+Vixen.Ui.Layout.DimensionLengths -> struct
+Vixen.Ui.Layout.DimensionLengths.DimensionLengths() -> void
+Vixen.Ui.Layout.DimensionValues -> struct
+Vixen.Ui.Layout.DimensionValues.DimensionValues() -> void
+Vixen.Ui.Layout.Direction -> enum : byte
+Vixen.Ui.Layout.Direction.Direction() -> void
+Vixen.Ui.Layout.Direction.Inherit = 0 -> Vixen.Ui.Layout.Direction
+Vixen.Ui.Layout.Direction.Ltr = 1 -> Vixen.Ui.Layout.Direction
+Vixen.Ui.Layout.Direction.Rtl = 2 -> Vixen.Ui.Layout.Direction
+Vixen.Ui.Layout.Display -> enum : byte
+Vixen.Ui.Layout.Display.Display() -> void
+Vixen.Ui.Layout.Display.Flex = 0 -> Vixen.Ui.Layout.Display
+Vixen.Ui.Layout.Display.None = 1 -> Vixen.Ui.Layout.Display
+Vixen.Ui.Layout.Edge -> enum : byte
+Vixen.Ui.Layout.Edge.All = 8 -> Vixen.Ui.Layout.Edge
+Vixen.Ui.Layout.Edge.Bottom = 3 -> Vixen.Ui.Layout.Edge
+Vixen.Ui.Layout.Edge.Edge() -> void
+Vixen.Ui.Layout.Edge.End = 5 -> Vixen.Ui.Layout.Edge
+Vixen.Ui.Layout.Edge.Horizontal = 6 -> Vixen.Ui.Layout.Edge
+Vixen.Ui.Layout.Edge.Left = 0 -> Vixen.Ui.Layout.Edge
+Vixen.Ui.Layout.Edge.Right = 2 -> Vixen.Ui.Layout.Edge
+Vixen.Ui.Layout.Edge.Start = 4 -> Vixen.Ui.Layout.Edge
+Vixen.Ui.Layout.Edge.Top = 1 -> Vixen.Ui.Layout.Edge
+Vixen.Ui.Layout.Edge.Vertical = 7 -> Vixen.Ui.Layout.Edge
+Vixen.Ui.Layout.EdgeLengths -> struct
+Vixen.Ui.Layout.EdgeLengths.EdgeLengths() -> void
+Vixen.Ui.Layout.EdgeValues -> struct
+Vixen.Ui.Layout.EdgeValues.EdgeValues() -> void
+Vixen.Ui.Layout.FlexDirection -> enum : byte
+Vixen.Ui.Layout.FlexDirection.Column = 0 -> Vixen.Ui.Layout.FlexDirection
+Vixen.Ui.Layout.FlexDirection.ColumnReverse = 1 -> Vixen.Ui.Layout.FlexDirection
+Vixen.Ui.Layout.FlexDirection.FlexDirection() -> void
+Vixen.Ui.Layout.FlexDirection.Row = 2 -> Vixen.Ui.Layout.FlexDirection
+Vixen.Ui.Layout.FlexDirection.RowReverse = 3 -> Vixen.Ui.Layout.FlexDirection
+Vixen.Ui.Layout.Gutter -> enum : byte
+Vixen.Ui.Layout.Gutter.All = 2 -> Vixen.Ui.Layout.Gutter
+Vixen.Ui.Layout.Gutter.Column = 0 -> Vixen.Ui.Layout.Gutter
+Vixen.Ui.Layout.Gutter.Gutter() -> void
+Vixen.Ui.Layout.Gutter.Row = 1 -> Vixen.Ui.Layout.Gutter
+Vixen.Ui.Layout.GutterLengths -> struct
+Vixen.Ui.Layout.GutterLengths.GutterLengths() -> void
+Vixen.Ui.Layout.Justify -> enum : byte
+Vixen.Ui.Layout.Justify.Center = 1 -> Vixen.Ui.Layout.Justify
+Vixen.Ui.Layout.Justify.FlexEnd = 2 -> Vixen.Ui.Layout.Justify
+Vixen.Ui.Layout.Justify.FlexStart = 0 -> Vixen.Ui.Layout.Justify
+Vixen.Ui.Layout.Justify.Justify() -> void
+Vixen.Ui.Layout.Justify.SpaceAround = 4 -> Vixen.Ui.Layout.Justify
+Vixen.Ui.Layout.Justify.SpaceBetween = 3 -> Vixen.Ui.Layout.Justify
+Vixen.Ui.Layout.Justify.SpaceEvenly = 5 -> Vixen.Ui.Layout.Justify
+Vixen.Ui.Layout.LayoutLimits -> static class
+Vixen.Ui.Layout.LayoutLinks -> struct
+Vixen.Ui.Layout.LayoutLinks.ChildCapacity -> int
+Vixen.Ui.Layout.LayoutLinks.ChildCount -> int
+Vixen.Ui.Layout.LayoutLinks.ChildOffset -> int
+Vixen.Ui.Layout.LayoutLinks.LayoutLinks() -> void
+Vixen.Ui.Layout.LayoutLinks.Parent -> int
+Vixen.Ui.Layout.LayoutNodeId -> readonly struct
+Vixen.Ui.Layout.LayoutNodeId : System.IEquatable<Vixen.Ui.Layout.LayoutNodeId>
+Vixen.Ui.Layout.LayoutNodeId.Index.get -> int
+Vixen.Ui.Layout.LayoutNodeId.Index.init -> int
+Vixen.Ui.Layout.LayoutNodeId.IsValid.get -> bool
+Vixen.Ui.Layout.LayoutNodeId.LayoutNodeId() -> void
+Vixen.Ui.Layout.LayoutNodeId.LayoutNodeId(int Index) -> void
+Vixen.Ui.Layout.LayoutNodeState -> enum : byte
+Vixen.Ui.Layout.LayoutNodeState.Dirty = 2 -> Vixen.Ui.Layout.LayoutNodeState
+Vixen.Ui.Layout.LayoutNodeState.HasBaselineFunction = 16 -> Vixen.Ui.Layout.LayoutNodeState
+Vixen.Ui.Layout.LayoutNodeState.HasMeasureFunction = 8 -> Vixen.Ui.Layout.LayoutNodeState
+Vixen.Ui.Layout.LayoutNodeState.HasNewLayout = 4 -> Vixen.Ui.Layout.LayoutNodeState
+Vixen.Ui.Layout.LayoutNodeState.IsReferenceBaseline = 32 -> Vixen.Ui.Layout.LayoutNodeState
+Vixen.Ui.Layout.LayoutNodeState.LayoutNodeState() -> void
+Vixen.Ui.Layout.LayoutNodeState.Live = 1 -> Vixen.Ui.Layout.LayoutNodeState
+Vixen.Ui.Layout.LayoutNodeState.None = 0 -> Vixen.Ui.Layout.LayoutNodeState
+Vixen.Ui.Layout.LayoutResult -> struct
+Vixen.Ui.Layout.LayoutResult.Border -> Vixen.Ui.Layout.EdgeValues
+Vixen.Ui.Layout.LayoutResult.CachedLayout -> Vixen.Ui.Layout.CachedMeasurement
+Vixen.Ui.Layout.LayoutResult.CachedMeasurements -> Vixen.Ui.Layout.CachedMeasurements
+Vixen.Ui.Layout.LayoutResult.ComputedAutoMinMainSize -> float
+Vixen.Ui.Layout.LayoutResult.ComputedFlexBasis -> float
+Vixen.Ui.Layout.LayoutResult.ComputedFlexBasisGeneration -> uint
+Vixen.Ui.Layout.LayoutResult.Dimensions -> Vixen.Ui.Layout.DimensionValues
+Vixen.Ui.Layout.LayoutResult.Direction -> Vixen.Ui.Layout.Direction
+Vixen.Ui.Layout.LayoutResult.GenerationCount -> uint
+Vixen.Ui.Layout.LayoutResult.HadOverflow -> bool
+Vixen.Ui.Layout.LayoutResult.ImplGeneration -> uint
+Vixen.Ui.Layout.LayoutResult.LastOwnerDirection -> Vixen.Ui.Layout.Direction
+Vixen.Ui.Layout.LayoutResult.LayoutResult() -> void
+Vixen.Ui.Layout.LayoutResult.LineIndex -> int
+Vixen.Ui.Layout.LayoutResult.Margin -> Vixen.Ui.Layout.EdgeValues
+Vixen.Ui.Layout.LayoutResult.MeasuredDimensions -> Vixen.Ui.Layout.DimensionValues
+Vixen.Ui.Layout.LayoutResult.MinContentOwnerHeight -> float
+Vixen.Ui.Layout.LayoutResult.MinContentOwnerWidth -> float
+Vixen.Ui.Layout.LayoutResult.MinContentSizes -> Vixen.Ui.Layout.DimensionValues
+Vixen.Ui.Layout.LayoutResult.NextCachedMeasurementsIndex -> uint
+Vixen.Ui.Layout.LayoutResult.Padding -> Vixen.Ui.Layout.EdgeValues
+Vixen.Ui.Layout.LayoutResult.Position -> Vixen.Ui.Layout.EdgeValues
+Vixen.Ui.Layout.LayoutResult.RoundedAbsoluteLeft -> float
+Vixen.Ui.Layout.LayoutResult.RoundedAbsoluteTop -> float
+Vixen.Ui.Layout.LayoutResult.RoundedDimensions -> Vixen.Ui.Layout.DimensionValues
+Vixen.Ui.Layout.LayoutResult.RoundedPosition -> Vixen.Ui.Layout.EdgeValues
+Vixen.Ui.Layout.LayoutSize -> readonly struct
+Vixen.Ui.Layout.LayoutSize : System.IEquatable<Vixen.Ui.Layout.LayoutSize>
+Vixen.Ui.Layout.LayoutSize.Height.get -> float
+Vixen.Ui.Layout.LayoutSize.Height.init -> float
+Vixen.Ui.Layout.LayoutSize.LayoutSize() -> void
+Vixen.Ui.Layout.LayoutSize.LayoutSize(float Width, float Height) -> void
+Vixen.Ui.Layout.LayoutSize.Width.get -> float
+Vixen.Ui.Layout.LayoutSize.Width.init -> float
+Vixen.Ui.Layout.LayoutStyle -> struct
+Vixen.Ui.Layout.LayoutStyle.AlignContent -> Vixen.Ui.Layout.Align
+Vixen.Ui.Layout.LayoutStyle.AlignItems -> Vixen.Ui.Layout.Align
+Vixen.Ui.Layout.LayoutStyle.AlignSelf -> Vixen.Ui.Layout.Align
+Vixen.Ui.Layout.LayoutStyle.AspectRatio -> float
+Vixen.Ui.Layout.LayoutStyle.Border -> Vixen.Ui.Layout.EdgeLengths
+Vixen.Ui.Layout.LayoutStyle.BoxSizing -> Vixen.Ui.Layout.BoxSizing
+Vixen.Ui.Layout.LayoutStyle.Dimensions -> Vixen.Ui.Layout.DimensionLengths
+Vixen.Ui.Layout.LayoutStyle.Direction -> Vixen.Ui.Layout.Direction
+Vixen.Ui.Layout.LayoutStyle.Display -> Vixen.Ui.Layout.Display
+Vixen.Ui.Layout.LayoutStyle.Flex -> float
+Vixen.Ui.Layout.LayoutStyle.FlexBasis -> Vixen.Ui.Layout.StyleLength
+Vixen.Ui.Layout.LayoutStyle.FlexDirection -> Vixen.Ui.Layout.FlexDirection
+Vixen.Ui.Layout.LayoutStyle.FlexGrow -> float
+Vixen.Ui.Layout.LayoutStyle.FlexShrink -> float
+Vixen.Ui.Layout.LayoutStyle.FlexWrap -> Vixen.Ui.Layout.Wrap
+Vixen.Ui.Layout.LayoutStyle.Gap -> Vixen.Ui.Layout.GutterLengths
+Vixen.Ui.Layout.LayoutStyle.JustifyContent -> Vixen.Ui.Layout.Justify
+Vixen.Ui.Layout.LayoutStyle.LayoutStyle() -> void
+Vixen.Ui.Layout.LayoutStyle.Margin -> Vixen.Ui.Layout.EdgeLengths
+Vixen.Ui.Layout.LayoutStyle.MaxDimensions -> Vixen.Ui.Layout.DimensionLengths
+Vixen.Ui.Layout.LayoutStyle.MinDimensions -> Vixen.Ui.Layout.DimensionLengths
+Vixen.Ui.Layout.LayoutStyle.Overflow -> Vixen.Ui.Layout.Overflow
+Vixen.Ui.Layout.LayoutStyle.Padding -> Vixen.Ui.Layout.EdgeLengths
+Vixen.Ui.Layout.LayoutStyle.Position -> Vixen.Ui.Layout.EdgeLengths
+Vixen.Ui.Layout.LayoutStyle.PositionType -> Vixen.Ui.Layout.PositionType
+Vixen.Ui.Layout.LayoutTree -> sealed class
+Vixen.Ui.Layout.LayoutTree : System.IDisposable
+Vixen.Ui.Layout.LayoutTree.AddChild(Vixen.Ui.Layout.LayoutNodeId parent, Vixen.Ui.Layout.LayoutNodeId child) -> void
+Vixen.Ui.Layout.LayoutTree.CalculateLayout(Vixen.Ui.Layout.LayoutNodeId node, float ownerWidth, float ownerHeight, Vixen.Ui.Layout.Direction ownerDirection) -> void
+Vixen.Ui.Layout.LayoutTree.ClearNewLayout(Vixen.Ui.Layout.LayoutNodeId node) -> void
+Vixen.Ui.Layout.LayoutTree.CreateNode() -> Vixen.Ui.Layout.LayoutNodeId
+Vixen.Ui.Layout.LayoutTree.DestroyRecursive(Vixen.Ui.Layout.LayoutNodeId node) -> void
+Vixen.Ui.Layout.LayoutTree.Dispose() -> void
+Vixen.Ui.Layout.LayoutTree.GetBottom(Vixen.Ui.Layout.LayoutNodeId node) -> float
+Vixen.Ui.Layout.LayoutTree.GetChild(Vixen.Ui.Layout.LayoutNodeId node, int index) -> Vixen.Ui.Layout.LayoutNodeId
+Vixen.Ui.Layout.LayoutTree.GetChildCount(Vixen.Ui.Layout.LayoutNodeId node) -> int
+Vixen.Ui.Layout.LayoutTree.GetComputedBorder(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge) -> float
+Vixen.Ui.Layout.LayoutTree.GetComputedDirection(Vixen.Ui.Layout.LayoutNodeId node) -> Vixen.Ui.Layout.Direction
+Vixen.Ui.Layout.LayoutTree.GetComputedMargin(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge) -> float
+Vixen.Ui.Layout.LayoutTree.GetComputedPadding(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge) -> float
+Vixen.Ui.Layout.LayoutTree.GetContext(Vixen.Ui.Layout.LayoutNodeId node) -> object?
+Vixen.Ui.Layout.LayoutTree.GetHadOverflow(Vixen.Ui.Layout.LayoutNodeId node) -> bool
+Vixen.Ui.Layout.LayoutTree.GetHeight(Vixen.Ui.Layout.LayoutNodeId node) -> float
+Vixen.Ui.Layout.LayoutTree.GetLeft(Vixen.Ui.Layout.LayoutNodeId node) -> float
+Vixen.Ui.Layout.LayoutTree.GetParent(Vixen.Ui.Layout.LayoutNodeId node) -> Vixen.Ui.Layout.LayoutNodeId
+Vixen.Ui.Layout.LayoutTree.GetPosition(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge) -> float
+Vixen.Ui.Layout.LayoutTree.GetRight(Vixen.Ui.Layout.LayoutNodeId node) -> float
+Vixen.Ui.Layout.LayoutTree.GetStyle(Vixen.Ui.Layout.LayoutNodeId node) -> Vixen.Ui.Layout.LayoutStyle
+Vixen.Ui.Layout.LayoutTree.GetTop(Vixen.Ui.Layout.LayoutNodeId node) -> float
+Vixen.Ui.Layout.LayoutTree.GetWidth(Vixen.Ui.Layout.LayoutNodeId node) -> float
+Vixen.Ui.Layout.LayoutTree.HasNewLayout(Vixen.Ui.Layout.LayoutNodeId node) -> bool
+Vixen.Ui.Layout.LayoutTree.InsertChild(Vixen.Ui.Layout.LayoutNodeId parent, Vixen.Ui.Layout.LayoutNodeId child, int index) -> void
+Vixen.Ui.Layout.LayoutTree.IsDirty(Vixen.Ui.Layout.LayoutNodeId node) -> bool
+Vixen.Ui.Layout.LayoutTree.LayoutTree() -> void
+Vixen.Ui.Layout.LayoutTree.MarkDirty(Vixen.Ui.Layout.LayoutNodeId node) -> void
+Vixen.Ui.Layout.LayoutTree.NodeCount.get -> int
+Vixen.Ui.Layout.LayoutTree.PointScaleFactor.get -> float
+Vixen.Ui.Layout.LayoutTree.PointScaleFactor.set -> float
+Vixen.Ui.Layout.LayoutTree.RemoveChild(Vixen.Ui.Layout.LayoutNodeId parent, Vixen.Ui.Layout.LayoutNodeId child) -> bool
+Vixen.Ui.Layout.LayoutTree.SetAlignContent(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Align align) -> void
+Vixen.Ui.Layout.LayoutTree.SetAlignItems(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Align align) -> void
+Vixen.Ui.Layout.LayoutTree.SetAlignSelf(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Align align) -> void
+Vixen.Ui.Layout.LayoutTree.SetAspectRatio(Vixen.Ui.Layout.LayoutNodeId node, float aspectRatio) -> void
+Vixen.Ui.Layout.LayoutTree.SetBaselineFunction(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.BaselineFunction? baseline) -> void
+Vixen.Ui.Layout.LayoutTree.SetBorder(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge, Vixen.Ui.Layout.StyleLength border) -> void
+Vixen.Ui.Layout.LayoutTree.SetBoxSizing(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.BoxSizing boxSizing) -> void
+Vixen.Ui.Layout.LayoutTree.SetContext(Vixen.Ui.Layout.LayoutNodeId node, object? context) -> void
+Vixen.Ui.Layout.LayoutTree.SetDimension(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Dimension dimension, Vixen.Ui.Layout.StyleLength length) -> void
+Vixen.Ui.Layout.LayoutTree.SetDirection(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Direction direction) -> void
+Vixen.Ui.Layout.LayoutTree.SetDisplay(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Display display) -> void
+Vixen.Ui.Layout.LayoutTree.SetFlex(Vixen.Ui.Layout.LayoutNodeId node, float flex) -> void
+Vixen.Ui.Layout.LayoutTree.SetFlexBasis(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.StyleLength basis) -> void
+Vixen.Ui.Layout.LayoutTree.SetFlexDirection(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.FlexDirection direction) -> void
+Vixen.Ui.Layout.LayoutTree.SetFlexGrow(Vixen.Ui.Layout.LayoutNodeId node, float flexGrow) -> void
+Vixen.Ui.Layout.LayoutTree.SetFlexShrink(Vixen.Ui.Layout.LayoutNodeId node, float flexShrink) -> void
+Vixen.Ui.Layout.LayoutTree.SetFlexWrap(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Wrap wrap) -> void
+Vixen.Ui.Layout.LayoutTree.SetGap(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Gutter gutter, Vixen.Ui.Layout.StyleLength gap) -> void
+Vixen.Ui.Layout.LayoutTree.SetJustifyContent(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Justify justify) -> void
+Vixen.Ui.Layout.LayoutTree.SetMargin(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge, Vixen.Ui.Layout.StyleLength margin) -> void
+Vixen.Ui.Layout.LayoutTree.SetMaxDimension(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Dimension dimension, Vixen.Ui.Layout.StyleLength length) -> void
+Vixen.Ui.Layout.LayoutTree.SetMeasureFunction(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.MeasureFunction? measure) -> void
+Vixen.Ui.Layout.LayoutTree.SetMinDimension(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Dimension dimension, Vixen.Ui.Layout.StyleLength length) -> void
+Vixen.Ui.Layout.LayoutTree.SetOverflow(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Overflow overflow) -> void
+Vixen.Ui.Layout.LayoutTree.SetPadding(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge, Vixen.Ui.Layout.StyleLength padding) -> void
+Vixen.Ui.Layout.LayoutTree.SetPosition(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.Edge edge, Vixen.Ui.Layout.StyleLength position) -> void
+Vixen.Ui.Layout.LayoutTree.SetPositionType(Vixen.Ui.Layout.LayoutNodeId node, Vixen.Ui.Layout.PositionType positionType) -> void
+Vixen.Ui.Layout.LayoutTree.SetStyle(Vixen.Ui.Layout.LayoutNodeId node, in Vixen.Ui.Layout.LayoutStyle style) -> void
+Vixen.Ui.Layout.LayoutUnit -> enum : byte
+Vixen.Ui.Layout.LayoutUnit.Auto = 3 -> Vixen.Ui.Layout.LayoutUnit
+Vixen.Ui.Layout.LayoutUnit.FitContent = 5 -> Vixen.Ui.Layout.LayoutUnit
+Vixen.Ui.Layout.LayoutUnit.LayoutUnit() -> void
+Vixen.Ui.Layout.LayoutUnit.MaxContent = 4 -> Vixen.Ui.Layout.LayoutUnit
+Vixen.Ui.Layout.LayoutUnit.Percent = 2 -> Vixen.Ui.Layout.LayoutUnit
+Vixen.Ui.Layout.LayoutUnit.Point = 1 -> Vixen.Ui.Layout.LayoutUnit
+Vixen.Ui.Layout.LayoutUnit.Stretch = 6 -> Vixen.Ui.Layout.LayoutUnit
+Vixen.Ui.Layout.LayoutUnit.Undefined = 0 -> Vixen.Ui.Layout.LayoutUnit
+Vixen.Ui.Layout.MeasureFunction -> delegate
+Vixen.Ui.Layout.MeasureMode -> enum : byte
+Vixen.Ui.Layout.MeasureMode.AtMost = 2 -> Vixen.Ui.Layout.MeasureMode
+Vixen.Ui.Layout.MeasureMode.Exactly = 1 -> Vixen.Ui.Layout.MeasureMode
+Vixen.Ui.Layout.MeasureMode.MeasureMode() -> void
+Vixen.Ui.Layout.MeasureMode.Undefined = 0 -> Vixen.Ui.Layout.MeasureMode
+Vixen.Ui.Layout.MeasureRequest -> readonly struct
+Vixen.Ui.Layout.MeasureRequest : System.IEquatable<Vixen.Ui.Layout.MeasureRequest>
+Vixen.Ui.Layout.MeasureRequest.AvailableHeight.get -> float
+Vixen.Ui.Layout.MeasureRequest.AvailableHeight.init -> float
+Vixen.Ui.Layout.MeasureRequest.AvailableWidth.get -> float
+Vixen.Ui.Layout.MeasureRequest.AvailableWidth.init -> float
+Vixen.Ui.Layout.MeasureRequest.Context.get -> object?
+Vixen.Ui.Layout.MeasureRequest.Context.init -> object?
+Vixen.Ui.Layout.MeasureRequest.HeightMode.get -> Vixen.Ui.Layout.MeasureMode
+Vixen.Ui.Layout.MeasureRequest.HeightMode.init -> Vixen.Ui.Layout.MeasureMode
+Vixen.Ui.Layout.MeasureRequest.MeasureRequest() -> void
+Vixen.Ui.Layout.MeasureRequest.MeasureRequest(Vixen.Ui.Layout.LayoutTree Tree, Vixen.Ui.Layout.LayoutNodeId Node, object? Context, float AvailableWidth, Vixen.Ui.Layout.MeasureMode WidthMode, float AvailableHeight, Vixen.Ui.Layout.MeasureMode HeightMode) -> void
+Vixen.Ui.Layout.MeasureRequest.Node.get -> Vixen.Ui.Layout.LayoutNodeId
+Vixen.Ui.Layout.MeasureRequest.Node.init -> Vixen.Ui.Layout.LayoutNodeId
+Vixen.Ui.Layout.MeasureRequest.Tree.get -> Vixen.Ui.Layout.LayoutTree
+Vixen.Ui.Layout.MeasureRequest.Tree.init -> Vixen.Ui.Layout.LayoutTree
+Vixen.Ui.Layout.MeasureRequest.WidthMode.get -> Vixen.Ui.Layout.MeasureMode
+Vixen.Ui.Layout.MeasureRequest.WidthMode.init -> Vixen.Ui.Layout.MeasureMode
+Vixen.Ui.Layout.Overflow -> enum : byte
+Vixen.Ui.Layout.Overflow.Hidden = 1 -> Vixen.Ui.Layout.Overflow
+Vixen.Ui.Layout.Overflow.Overflow() -> void
+Vixen.Ui.Layout.Overflow.Scroll = 2 -> Vixen.Ui.Layout.Overflow
+Vixen.Ui.Layout.Overflow.Visible = 0 -> Vixen.Ui.Layout.Overflow
+Vixen.Ui.Layout.PositionType -> enum : byte
+Vixen.Ui.Layout.PositionType.Absolute = 2 -> Vixen.Ui.Layout.PositionType
+Vixen.Ui.Layout.PositionType.PositionType() -> void
+Vixen.Ui.Layout.PositionType.Relative = 1 -> Vixen.Ui.Layout.PositionType
+Vixen.Ui.Layout.PositionType.Static = 0 -> Vixen.Ui.Layout.PositionType
+Vixen.Ui.Layout.StyleLength -> readonly struct
+Vixen.Ui.Layout.StyleLength : System.IEquatable<Vixen.Ui.Layout.StyleLength>
+Vixen.Ui.Layout.StyleLength.Equals(Vixen.Ui.Layout.StyleLength other) -> bool
+Vixen.Ui.Layout.StyleLength.IsDefined.get -> bool
+Vixen.Ui.Layout.StyleLength.IsResolvable.get -> bool
+Vixen.Ui.Layout.StyleLength.Resolve(float referenceLength) -> float
+Vixen.Ui.Layout.StyleLength.StyleLength() -> void
+Vixen.Ui.Layout.StyleLength.StyleLength(float value, Vixen.Ui.Layout.LayoutUnit unit) -> void
+Vixen.Ui.Layout.Wrap -> enum : byte
+Vixen.Ui.Layout.Wrap.NoWrap = 0 -> Vixen.Ui.Layout.Wrap
+Vixen.Ui.Layout.Wrap.Wrap = 1 -> Vixen.Ui.Layout.Wrap
+Vixen.Ui.Layout.Wrap.Wrap() -> void
+Vixen.Ui.Layout.Wrap.WrapReverse = 2 -> Vixen.Ui.Layout.Wrap
+const Vixen.Ui.Layout.LayoutLimits.MaximumCachedMeasurements = 8 -> int
+const Vixen.Ui.Layout.LayoutLimits.MaximumLayoutDepth = 60 -> int
+override Vixen.Ui.Layout.LayoutNodeId.ToString() -> string
+override Vixen.Ui.Layout.StyleLength.Equals(object? obj) -> bool
+override Vixen.Ui.Layout.StyleLength.GetHashCode() -> int
+override Vixen.Ui.Layout.StyleLength.ToString() -> string
+readonly Vixen.Ui.Layout.StyleLength.Unit -> Vixen.Ui.Layout.LayoutUnit
+readonly Vixen.Ui.Layout.StyleLength.Value -> float
+static Vixen.Ui.Layout.StyleLength.Keyword(Vixen.Ui.Layout.LayoutUnit unit) -> Vixen.Ui.Layout.StyleLength
+static Vixen.Ui.Layout.StyleLength.Percent(float value) -> Vixen.Ui.Layout.StyleLength
+static Vixen.Ui.Layout.StyleLength.Points(float value) -> Vixen.Ui.Layout.StyleLength
+static Vixen.Ui.Layout.StyleLength.operator !=(Vixen.Ui.Layout.StyleLength left, Vixen.Ui.Layout.StyleLength right) -> bool
+static Vixen.Ui.Layout.StyleLength.operator ==(Vixen.Ui.Layout.StyleLength left, Vixen.Ui.Layout.StyleLength right) -> bool
+static readonly Vixen.Ui.Layout.LayoutNodeId.Invalid -> Vixen.Ui.Layout.LayoutNodeId
+static readonly Vixen.Ui.Layout.LayoutStyle.Default -> Vixen.Ui.Layout.LayoutStyle
+static readonly Vixen.Ui.Layout.StyleLength.Auto -> Vixen.Ui.Layout.StyleLength
+static readonly Vixen.Ui.Layout.StyleLength.Undefined -> Vixen.Ui.Layout.StyleLength
+static readonly Vixen.Ui.Layout.StyleLength.Zero -> Vixen.Ui.Layout.StyleLength
+virtual Vixen.Ui.Layout.BaselineFunction.Invoke(Vixen.Ui.Layout.LayoutNodeId node, float width, float height, object? context) -> float
+virtual Vixen.Ui.Layout.MeasureFunction.Invoke(in Vixen.Ui.Layout.MeasureRequest request) -> Vixen.Ui.Layout.LayoutSize

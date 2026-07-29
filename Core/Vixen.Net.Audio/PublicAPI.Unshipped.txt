@@ -1,0 +1,54 @@
+#nullable enable
+Vixen.Net.Audio.NetworkAudioApplySystem -> sealed class
+Vixen.Net.Audio.NetworkAudioApplySystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Net.Audio.NetworkAudioApplySystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Net.Audio.NetworkAudioApplySystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Net.Audio.NetworkAudioApplySystem.AppliedCount.get -> long
+Vixen.Net.Audio.NetworkAudioApplySystem.Apply(Vixen.Ecs.World world) -> void
+Vixen.Net.Audio.NetworkAudioApplySystem.Forget(Vixen.Net.Replication.NetworkId id) -> void
+Vixen.Net.Audio.NetworkAudioApplySystem.IsAuthority(Vixen.Net.Replication.NetworkId id) -> bool
+Vixen.Net.Audio.NetworkAudioApplySystem.Local.get -> Vixen.Net.Sessions.PlayerId
+Vixen.Net.Audio.NetworkAudioApplySystem.Local.set -> Vixen.Net.Sessions.PlayerId
+Vixen.Net.Audio.NetworkAudioApplySystem.NetworkAudioApplySystem() -> void
+Vixen.Net.Audio.NetworkAudioApplySystem.RestartedCount.get -> long
+Vixen.Net.Audio.NetworkAudioApplySystem.Rules.get -> Vixen.Net.Rules.NetworkRulesRegistry?
+Vixen.Net.Audio.NetworkAudioApplySystem.Rules.set -> Vixen.Net.Rules.NetworkRulesRegistry?
+Vixen.Net.Audio.NetworkAudioCaptureSystem -> sealed class
+Vixen.Net.Audio.NetworkAudioCaptureSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Net.Audio.NetworkAudioCaptureSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Net.Audio.NetworkAudioCaptureSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Net.Audio.NetworkAudioCaptureSystem.IsAuthority(Vixen.Net.Replication.NetworkId id) -> bool
+Vixen.Net.Audio.NetworkAudioCaptureSystem.Local.get -> Vixen.Net.Sessions.PlayerId
+Vixen.Net.Audio.NetworkAudioCaptureSystem.Local.set -> Vixen.Net.Sessions.PlayerId
+Vixen.Net.Audio.NetworkAudioCaptureSystem.NetworkAudioCaptureSystem() -> void
+Vixen.Net.Audio.NetworkAudioCaptureSystem.Publish(Vixen.Ecs.World world) -> void
+Vixen.Net.Audio.NetworkAudioCaptureSystem.PublishedCount.get -> long
+Vixen.Net.Audio.NetworkAudioCaptureSystem.Rules.get -> Vixen.Net.Rules.NetworkRulesRegistry?
+Vixen.Net.Audio.NetworkAudioCaptureSystem.Rules.set -> Vixen.Net.Rules.NetworkRulesRegistry?
+Vixen.Net.Audio.NetworkAudioCaptureSystem.TriggeredCount.get -> long
+Vixen.Net.Audio.NetworkAudioSource -> struct
+Vixen.Net.Audio.NetworkAudioSource.Gain -> float
+Vixen.Net.Audio.NetworkAudioSource.NetworkAudioSource() -> void
+Vixen.Net.Audio.NetworkAudioSource.Pitch -> float
+Vixen.Net.Audio.NetworkAudioSource.Playback -> byte
+Vixen.Net.Audio.NetworkAudioSource.Trigger -> byte
+Vixen.Net.Audio.NetworkAudioSourceReplicator -> sealed class
+Vixen.Net.Audio.NetworkAudioSourceReplicator : Vixen.Net.Replication.IComponentReplicator
+Vixen.Net.Audio.NetworkAudioSourceReplicator.Apply(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitReader reader) -> bool
+Vixen.Net.Audio.NetworkAudioSourceReplicator.ChangedQuery.get -> Vixen.Ecs.QueryDescription
+Vixen.Net.Audio.NetworkAudioSourceReplicator.Channel.get -> Vixen.Net.Channel
+Vixen.Net.Audio.NetworkAudioSourceReplicator.ComponentType.get -> Vixen.Core.ComponentTypeId
+Vixen.Net.Audio.NetworkAudioSourceReplicator.Has(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> bool
+Vixen.Net.Audio.NetworkAudioSourceReplicator.Lanes.get -> System.ReadOnlySpan<Vixen.Net.Messaging.WireLane>
+Vixen.Net.Audio.NetworkAudioSourceReplicator.NetworkAudioSourceReplicator() -> void
+Vixen.Net.Audio.NetworkAudioSourceReplicator.Priority.get -> int
+Vixen.Net.Audio.NetworkAudioSourceReplicator.TypeId.get -> uint
+Vixen.Net.Audio.NetworkAudioSourceReplicator.TypeName.get -> string
+Vixen.Net.Audio.NetworkAudioSourceReplicator.Write(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitWriter writer) -> void
+Vixen.Net.Audio.NetworkAudioTrigger -> struct
+Vixen.Net.Audio.NetworkAudioTrigger : Vixen.Ecs.ITagComponent
+Vixen.Net.Audio.NetworkAudioTrigger.NetworkAudioTrigger() -> void
+override Vixen.Net.Audio.NetworkAudioApplySystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Net.Audio.NetworkAudioCaptureSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+static Vixen.Net.Audio.NetworkAudioSourceReplicator.GainRange.get -> Vixen.Net.Messaging.QuantizeRange
+static Vixen.Net.Audio.NetworkAudioSourceReplicator.PitchRange.get -> Vixen.Net.Messaging.QuantizeRange

@@ -1,0 +1,83 @@
+#nullable enable
+Vixen.Graphics.RenderGraph.GraphBuffer -> readonly struct
+Vixen.Graphics.RenderGraph.GraphBuffer : System.IEquatable<Vixen.Graphics.RenderGraph.GraphBuffer>
+Vixen.Graphics.RenderGraph.GraphBuffer.Generation.get -> int
+Vixen.Graphics.RenderGraph.GraphBuffer.Generation.init -> int
+Vixen.Graphics.RenderGraph.GraphBuffer.GraphBuffer() -> void
+Vixen.Graphics.RenderGraph.GraphBuffer.GraphBuffer(int Index, int Generation) -> void
+Vixen.Graphics.RenderGraph.GraphBuffer.Index.get -> int
+Vixen.Graphics.RenderGraph.GraphBuffer.Index.init -> int
+Vixen.Graphics.RenderGraph.GraphBuffer.IsValid.get -> bool
+Vixen.Graphics.RenderGraph.GraphTexture -> readonly struct
+Vixen.Graphics.RenderGraph.GraphTexture : System.IEquatable<Vixen.Graphics.RenderGraph.GraphTexture>
+Vixen.Graphics.RenderGraph.GraphTexture.Generation.get -> int
+Vixen.Graphics.RenderGraph.GraphTexture.Generation.init -> int
+Vixen.Graphics.RenderGraph.GraphTexture.GraphTexture() -> void
+Vixen.Graphics.RenderGraph.GraphTexture.GraphTexture(int Index, int Generation) -> void
+Vixen.Graphics.RenderGraph.GraphTexture.Index.get -> int
+Vixen.Graphics.RenderGraph.GraphTexture.Index.init -> int
+Vixen.Graphics.RenderGraph.GraphTexture.IsValid.get -> bool
+Vixen.Graphics.RenderGraph.PassKind -> enum : byte
+Vixen.Graphics.RenderGraph.PassKind.Compute = 1 -> Vixen.Graphics.RenderGraph.PassKind
+Vixen.Graphics.RenderGraph.PassKind.Graphics = 0 -> Vixen.Graphics.RenderGraph.PassKind
+Vixen.Graphics.RenderGraph.PassKind.PassKind() -> void
+Vixen.Graphics.RenderGraph.PassKind.Transfer = 2 -> Vixen.Graphics.RenderGraph.PassKind
+Vixen.Graphics.RenderGraph.RenderGraph -> sealed class
+Vixen.Graphics.RenderGraph.RenderGraph.AddPass(string name, System.Action<Vixen.Graphics.RenderGraph.RenderGraphPassBuilder> setup) -> void
+Vixen.Graphics.RenderGraph.RenderGraph.BarrierCount.get -> int
+Vixen.Graphics.RenderGraph.RenderGraph.BufferOf(Vixen.Graphics.RenderGraph.GraphBuffer buffer) -> Vixen.Graphics.BufferHandle
+Vixen.Graphics.RenderGraph.RenderGraph.Compile() -> void
+Vixen.Graphics.RenderGraph.RenderGraph.CreateBuffer(in Vixen.Graphics.BufferDescription description) -> Vixen.Graphics.RenderGraph.GraphBuffer
+Vixen.Graphics.RenderGraph.RenderGraph.CreateTexture(in Vixen.Graphics.TextureDescription description) -> Vixen.Graphics.RenderGraph.GraphTexture
+Vixen.Graphics.RenderGraph.RenderGraph.DisposePool() -> void
+Vixen.Graphics.RenderGraph.RenderGraph.Execute(Vixen.Graphics.ICommandList commandList) -> void
+Vixen.Graphics.RenderGraph.RenderGraph.ImportBuffer(Vixen.Graphics.BufferHandle handle, in Vixen.Graphics.BufferDescription description, Vixen.Graphics.ResourceState entryState = Vixen.Graphics.ResourceState.Undefined, Vixen.Graphics.ResourceState exitState = Vixen.Graphics.ResourceState.Undefined) -> Vixen.Graphics.RenderGraph.GraphBuffer
+Vixen.Graphics.RenderGraph.RenderGraph.ImportTexture(Vixen.Graphics.TextureHandle handle, Vixen.Graphics.TextureViewHandle view, in Vixen.Graphics.TextureDescription description, Vixen.Graphics.ResourceState entryState = Vixen.Graphics.ResourceState.Undefined, Vixen.Graphics.ResourceState exitState = Vixen.Graphics.ResourceState.Undefined) -> Vixen.Graphics.RenderGraph.GraphTexture
+Vixen.Graphics.RenderGraph.RenderGraph.PassCount.get -> int
+Vixen.Graphics.RenderGraph.RenderGraph.Pool.get -> Vixen.Graphics.RenderGraph.TransientResourcePool
+Vixen.Graphics.RenderGraph.RenderGraph.RenderGraph(Vixen.Graphics.IGraphicsDevice device) -> void
+Vixen.Graphics.RenderGraph.RenderGraph.RenderGraph(Vixen.Graphics.IGraphicsDevice device, Vixen.Graphics.RenderGraph.TransientResourcePool pool) -> void
+Vixen.Graphics.RenderGraph.RenderGraph.Reset() -> void
+Vixen.Graphics.RenderGraph.RenderGraph.ResourceCount.get -> int
+Vixen.Graphics.RenderGraph.RenderGraph.SurvivingPassCount.get -> int
+Vixen.Graphics.RenderGraph.RenderGraph.TextureOf(Vixen.Graphics.RenderGraph.GraphTexture texture) -> Vixen.Graphics.TextureHandle
+Vixen.Graphics.RenderGraph.RenderGraph.ToGraphviz() -> string
+Vixen.Graphics.RenderGraph.RenderGraph.ViewOf(Vixen.Graphics.RenderGraph.GraphTexture texture) -> Vixen.Graphics.TextureViewHandle
+Vixen.Graphics.RenderGraph.RenderGraphContext -> sealed class
+Vixen.Graphics.RenderGraph.RenderGraphContext.Buffer(Vixen.Graphics.RenderGraph.GraphBuffer buffer) -> Vixen.Graphics.BufferHandle
+Vixen.Graphics.RenderGraph.RenderGraphContext.CommandList.get -> Vixen.Graphics.ICommandList
+Vixen.Graphics.RenderGraph.RenderGraphContext.RenderArea.get -> Vixen.Core.Mathematics.Int2
+Vixen.Graphics.RenderGraph.RenderGraphContext.Texture(Vixen.Graphics.RenderGraph.GraphTexture texture) -> Vixen.Graphics.TextureHandle
+Vixen.Graphics.RenderGraph.RenderGraphContext.View(Vixen.Graphics.RenderGraph.GraphTexture texture) -> Vixen.Graphics.TextureViewHandle
+Vixen.Graphics.RenderGraph.RenderGraphException -> sealed class
+Vixen.Graphics.RenderGraph.RenderGraphException : System.Exception
+Vixen.Graphics.RenderGraph.RenderGraphException.RenderGraphException() -> void
+Vixen.Graphics.RenderGraph.RenderGraphException.RenderGraphException(string message) -> void
+Vixen.Graphics.RenderGraph.RenderGraphException.RenderGraphException(string message, System.Exception innerException) -> void
+Vixen.Graphics.RenderGraph.RenderGraphPassBuilder -> sealed class
+Vixen.Graphics.RenderGraph.RenderGraphPassBuilder.ColourAttachment(Vixen.Graphics.RenderGraph.GraphTexture texture, Vixen.Graphics.LoadAction load = Vixen.Graphics.LoadAction.Clear, Vixen.Core.Mathematics.Color4 clear = default(Vixen.Core.Mathematics.Color4), Vixen.Graphics.StoreAction? store = null) -> void
+Vixen.Graphics.RenderGraph.RenderGraphPassBuilder.DepthAttachment(Vixen.Graphics.RenderGraph.GraphTexture texture, Vixen.Graphics.LoadAction load = Vixen.Graphics.LoadAction.Clear, float clearDepth = 0, byte clearStencil = 0, bool readOnly = false, Vixen.Graphics.StoreAction? store = null) -> void
+Vixen.Graphics.RenderGraph.RenderGraphPassBuilder.Execute(System.Action<Vixen.Graphics.RenderGraph.RenderGraphContext> body) -> void
+Vixen.Graphics.RenderGraph.RenderGraphPassBuilder.Kind.get -> Vixen.Graphics.RenderGraph.PassKind
+Vixen.Graphics.RenderGraph.RenderGraphPassBuilder.Kind.set -> Vixen.Graphics.RenderGraph.PassKind
+Vixen.Graphics.RenderGraph.RenderGraphPassBuilder.Reads(Vixen.Graphics.RenderGraph.GraphBuffer buffer, Vixen.Graphics.ResourceState state = Vixen.Graphics.ResourceState.ShaderRead) -> void
+Vixen.Graphics.RenderGraph.RenderGraphPassBuilder.Reads(Vixen.Graphics.RenderGraph.GraphTexture texture, Vixen.Graphics.ResourceState state = Vixen.Graphics.ResourceState.ShaderRead) -> void
+Vixen.Graphics.RenderGraph.RenderGraphPassBuilder.SideEffect() -> void
+Vixen.Graphics.RenderGraph.RenderGraphPassBuilder.Writes(Vixen.Graphics.RenderGraph.GraphBuffer buffer, Vixen.Graphics.ResourceState state = Vixen.Graphics.ResourceState.ShaderWrite) -> void
+Vixen.Graphics.RenderGraph.RenderGraphPassBuilder.Writes(Vixen.Graphics.RenderGraph.GraphTexture texture, Vixen.Graphics.ResourceState state = Vixen.Graphics.ResourceState.ShaderWrite) -> void
+Vixen.Graphics.RenderGraph.TransientResourcePool -> sealed class
+Vixen.Graphics.RenderGraph.TransientResourcePool : System.IDisposable
+Vixen.Graphics.RenderGraph.TransientResourcePool.AcquireBuffer(in Vixen.Graphics.BufferDescription description) -> int
+Vixen.Graphics.RenderGraph.TransientResourcePool.AcquireTexture(in Vixen.Graphics.TextureDescription description) -> int
+Vixen.Graphics.RenderGraph.TransientResourcePool.BufferAt(int slot) -> Vixen.Graphics.BufferHandle
+Vixen.Graphics.RenderGraph.TransientResourcePool.Count.get -> int
+Vixen.Graphics.RenderGraph.TransientResourcePool.Dispose() -> void
+Vixen.Graphics.RenderGraph.TransientResourcePool.InUse.get -> int
+Vixen.Graphics.RenderGraph.TransientResourcePool.Release(int slot) -> void
+Vixen.Graphics.RenderGraph.TransientResourcePool.ReleaseAll() -> void
+Vixen.Graphics.RenderGraph.TransientResourcePool.Reuses.get -> int
+Vixen.Graphics.RenderGraph.TransientResourcePool.TextureAt(int slot) -> Vixen.Graphics.TextureHandle
+Vixen.Graphics.RenderGraph.TransientResourcePool.TransientResourcePool(Vixen.Graphics.IGraphicsDevice device) -> void
+Vixen.Graphics.RenderGraph.TransientResourcePool.ViewAt(int slot) -> Vixen.Graphics.TextureViewHandle
+static Vixen.Graphics.RenderGraph.GraphBuffer.None.get -> Vixen.Graphics.RenderGraph.GraphBuffer
+static Vixen.Graphics.RenderGraph.GraphTexture.None.get -> Vixen.Graphics.RenderGraph.GraphTexture

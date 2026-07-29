@@ -1,0 +1,2122 @@
+#nullable enable
+Vixen.Audio.Assets.AudioAutomationAsset -> sealed record
+Vixen.Audio.Assets.AudioAutomationAsset : System.IEquatable<Vixen.Audio.Assets.AudioAutomationAsset>
+Vixen.Audio.Assets.AudioAutomationAsset.AudioAutomationAsset() -> void
+Vixen.Audio.Assets.AudioAutomationAsset.Curve.get -> Vixen.Audio.Assets.AudioCurveAsset
+Vixen.Audio.Assets.AudioAutomationAsset.Curve.init -> Vixen.Audio.Assets.AudioCurveAsset
+Vixen.Audio.Assets.AudioAutomationAsset.Target.get -> Vixen.Audio.Parameters.AudioParameterTarget
+Vixen.Audio.Assets.AudioAutomationAsset.Target.init -> Vixen.Audio.Parameters.AudioParameterTarget
+Vixen.Audio.Assets.AudioBusAutomationAsset -> sealed record
+Vixen.Audio.Assets.AudioBusAutomationAsset : System.IEquatable<Vixen.Audio.Assets.AudioBusAutomationAsset>
+Vixen.Audio.Assets.AudioBusAutomationAsset.AudioBusAutomationAsset() -> void
+Vixen.Audio.Assets.AudioBusAutomationAsset.Bus.get -> string
+Vixen.Audio.Assets.AudioBusAutomationAsset.Bus.init -> string
+Vixen.Audio.Assets.AudioBusAutomationAsset.Curve.get -> Vixen.Audio.Assets.AudioCurveAsset
+Vixen.Audio.Assets.AudioBusAutomationAsset.Curve.init -> Vixen.Audio.Assets.AudioCurveAsset
+Vixen.Audio.Assets.AudioBusAutomationAsset.Effect.get -> int
+Vixen.Audio.Assets.AudioBusAutomationAsset.Effect.init -> int
+Vixen.Audio.Assets.AudioBusAutomationAsset.Property.get -> string
+Vixen.Audio.Assets.AudioBusAutomationAsset.Property.init -> string
+Vixen.Audio.Assets.AudioBusAutomationAsset.Send.get -> string
+Vixen.Audio.Assets.AudioBusAutomationAsset.Send.init -> string
+Vixen.Audio.Assets.AudioBusAutomationAsset.Target.get -> Vixen.Audio.Parameters.AudioBusParameterTarget
+Vixen.Audio.Assets.AudioBusAutomationAsset.Target.init -> Vixen.Audio.Parameters.AudioBusParameterTarget
+Vixen.Audio.Assets.AudioBusParameterAsset -> sealed record
+Vixen.Audio.Assets.AudioBusParameterAsset : System.IEquatable<Vixen.Audio.Assets.AudioBusParameterAsset>
+Vixen.Audio.Assets.AudioBusParameterAsset.AudioBusParameterAsset() -> void
+Vixen.Audio.Assets.AudioBusParameterAsset.Automation.get -> Vixen.Audio.Assets.AudioBusAutomationAsset[]
+Vixen.Audio.Assets.AudioBusParameterAsset.Automation.init -> Vixen.Audio.Assets.AudioBusAutomationAsset[]
+Vixen.Audio.Assets.AudioBusParameterAsset.Default.get -> float
+Vixen.Audio.Assets.AudioBusParameterAsset.Default.init -> float
+Vixen.Audio.Assets.AudioBusParameterAsset.Maximum.get -> float
+Vixen.Audio.Assets.AudioBusParameterAsset.Maximum.init -> float
+Vixen.Audio.Assets.AudioBusParameterAsset.Minimum.get -> float
+Vixen.Audio.Assets.AudioBusParameterAsset.Minimum.init -> float
+Vixen.Audio.Assets.AudioBusParameterAsset.Name.get -> string
+Vixen.Audio.Assets.AudioBusParameterAsset.Name.init -> string
+Vixen.Audio.Assets.AudioBusParameterAsset.SeekSeconds.get -> float
+Vixen.Audio.Assets.AudioBusParameterAsset.SeekSeconds.init -> float
+Vixen.Audio.Assets.AudioBusParameterAsset.ToDefinition() -> Vixen.Audio.Parameters.AudioBusParameterDefinition
+Vixen.Audio.Assets.AudioCurveAsset -> sealed record
+Vixen.Audio.Assets.AudioCurveAsset : System.IEquatable<Vixen.Audio.Assets.AudioCurveAsset>
+Vixen.Audio.Assets.AudioCurveAsset.AudioCurveAsset() -> void
+Vixen.Audio.Assets.AudioCurveAsset.Interpolation.get -> Vixen.Audio.Parameters.AudioCurveInterpolation
+Vixen.Audio.Assets.AudioCurveAsset.Interpolation.init -> Vixen.Audio.Parameters.AudioCurveInterpolation
+Vixen.Audio.Assets.AudioCurveAsset.Points.get -> Vixen.Audio.Assets.AudioCurvePointAsset[]
+Vixen.Audio.Assets.AudioCurveAsset.Points.init -> Vixen.Audio.Assets.AudioCurvePointAsset[]
+Vixen.Audio.Assets.AudioCurveAsset.ToCurve() -> Vixen.Audio.Parameters.AudioCurve
+Vixen.Audio.Assets.AudioCurvePointAsset -> sealed record
+Vixen.Audio.Assets.AudioCurvePointAsset : System.IEquatable<Vixen.Audio.Assets.AudioCurvePointAsset>
+Vixen.Audio.Assets.AudioCurvePointAsset.AudioCurvePointAsset() -> void
+Vixen.Audio.Assets.AudioCurvePointAsset.Position.get -> float
+Vixen.Audio.Assets.AudioCurvePointAsset.Position.init -> float
+Vixen.Audio.Assets.AudioCurvePointAsset.Value.get -> float
+Vixen.Audio.Assets.AudioCurvePointAsset.Value.init -> float
+Vixen.Audio.Assets.AudioEventAsset -> sealed record
+Vixen.Audio.Assets.AudioEventAsset : System.IEquatable<Vixen.Audio.Assets.AudioEventAsset>
+Vixen.Audio.Assets.AudioEventAsset.AudioEventAsset() -> void
+Vixen.Audio.Assets.AudioEventAsset.Bus.get -> string
+Vixen.Audio.Assets.AudioEventAsset.Bus.init -> string
+Vixen.Audio.Assets.AudioEventAsset.GainDb.get -> float
+Vixen.Audio.Assets.AudioEventAsset.GainDb.init -> float
+Vixen.Audio.Assets.AudioEventAsset.GainVarianceDb.get -> float
+Vixen.Audio.Assets.AudioEventAsset.GainVarianceDb.init -> float
+Vixen.Audio.Assets.AudioEventAsset.Layers.get -> Vixen.Audio.Assets.AudioEventLayerAsset[]
+Vixen.Audio.Assets.AudioEventAsset.Layers.init -> Vixen.Audio.Assets.AudioEventLayerAsset[]
+Vixen.Audio.Assets.AudioEventAsset.Loop.get -> bool
+Vixen.Audio.Assets.AudioEventAsset.Loop.init -> bool
+Vixen.Audio.Assets.AudioEventAsset.MaxInstances.get -> int
+Vixen.Audio.Assets.AudioEventAsset.MaxInstances.init -> int
+Vixen.Audio.Assets.AudioEventAsset.Name.get -> string
+Vixen.Audio.Assets.AudioEventAsset.Name.init -> string
+Vixen.Audio.Assets.AudioEventAsset.Parameters.get -> Vixen.Audio.Assets.AudioParameterAsset[]
+Vixen.Audio.Assets.AudioEventAsset.Parameters.init -> Vixen.Audio.Assets.AudioParameterAsset[]
+Vixen.Audio.Assets.AudioEventAsset.PitchVarianceSemitones.get -> float
+Vixen.Audio.Assets.AudioEventAsset.PitchVarianceSemitones.init -> float
+Vixen.Audio.Assets.AudioEventAsset.Priority.get -> int
+Vixen.Audio.Assets.AudioEventAsset.Priority.init -> int
+Vixen.Audio.Assets.AudioEventAsset.Seed.get -> uint
+Vixen.Audio.Assets.AudioEventAsset.Seed.init -> uint
+Vixen.Audio.Assets.AudioEventAsset.Selection.get -> Vixen.Audio.Events.VariantSelection
+Vixen.Audio.Assets.AudioEventAsset.Selection.init -> Vixen.Audio.Events.VariantSelection
+Vixen.Audio.Assets.AudioEventAsset.Spatial.get -> Vixen.Audio.Assets.AudioEventSpatialAsset?
+Vixen.Audio.Assets.AudioEventAsset.Spatial.init -> Vixen.Audio.Assets.AudioEventSpatialAsset?
+Vixen.Audio.Assets.AudioEventAsset.Steal.get -> Vixen.Audio.Events.EventStealMode
+Vixen.Audio.Assets.AudioEventAsset.Steal.init -> Vixen.Audio.Events.EventStealMode
+Vixen.Audio.Assets.AudioEventAsset.Variants.get -> Vixen.Audio.Assets.AudioEventVariantAsset[]
+Vixen.Audio.Assets.AudioEventAsset.Variants.init -> Vixen.Audio.Assets.AudioEventVariantAsset[]
+Vixen.Audio.Assets.AudioEventBuilder -> static class
+Vixen.Audio.Assets.AudioEventLayerAsset -> sealed record
+Vixen.Audio.Assets.AudioEventLayerAsset : System.IEquatable<Vixen.Audio.Assets.AudioEventLayerAsset>
+Vixen.Audio.Assets.AudioEventLayerAsset.AudioEventLayerAsset() -> void
+Vixen.Audio.Assets.AudioEventLayerAsset.DelaySeconds.get -> float
+Vixen.Audio.Assets.AudioEventLayerAsset.DelaySeconds.init -> float
+Vixen.Audio.Assets.AudioEventLayerAsset.Event.get -> string
+Vixen.Audio.Assets.AudioEventLayerAsset.Event.init -> string
+Vixen.Audio.Assets.AudioEventLayerAsset.GainDb.get -> float
+Vixen.Audio.Assets.AudioEventLayerAsset.GainDb.init -> float
+Vixen.Audio.Assets.AudioEventLayerAsset.PitchSemitones.get -> float
+Vixen.Audio.Assets.AudioEventLayerAsset.PitchSemitones.init -> float
+Vixen.Audio.Assets.AudioEventLayerAsset.Probability.get -> float
+Vixen.Audio.Assets.AudioEventLayerAsset.Probability.init -> float
+Vixen.Audio.Assets.AudioEventSpatialAsset -> sealed record
+Vixen.Audio.Assets.AudioEventSpatialAsset : System.IEquatable<Vixen.Audio.Assets.AudioEventSpatialAsset>
+Vixen.Audio.Assets.AudioEventSpatialAsset.AirAbsorption.get -> float
+Vixen.Audio.Assets.AudioEventSpatialAsset.AirAbsorption.init -> float
+Vixen.Audio.Assets.AudioEventSpatialAsset.AirAbsorptionCutoff.get -> float
+Vixen.Audio.Assets.AudioEventSpatialAsset.AirAbsorptionCutoff.init -> float
+Vixen.Audio.Assets.AudioEventSpatialAsset.Attenuation.get -> Vixen.Audio.Spatial.AttenuationModel
+Vixen.Audio.Assets.AudioEventSpatialAsset.Attenuation.init -> Vixen.Audio.Spatial.AttenuationModel
+Vixen.Audio.Assets.AudioEventSpatialAsset.AudioEventSpatialAsset() -> void
+Vixen.Audio.Assets.AudioEventSpatialAsset.ConeInnerAngle.get -> float
+Vixen.Audio.Assets.AudioEventSpatialAsset.ConeInnerAngle.init -> float
+Vixen.Audio.Assets.AudioEventSpatialAsset.ConeOuterAngle.get -> float
+Vixen.Audio.Assets.AudioEventSpatialAsset.ConeOuterAngle.init -> float
+Vixen.Audio.Assets.AudioEventSpatialAsset.ConeOuterGain.get -> float
+Vixen.Audio.Assets.AudioEventSpatialAsset.ConeOuterGain.init -> float
+Vixen.Audio.Assets.AudioEventSpatialAsset.DopplerFactor.get -> float
+Vixen.Audio.Assets.AudioEventSpatialAsset.DopplerFactor.init -> float
+Vixen.Audio.Assets.AudioEventSpatialAsset.MaxDistance.get -> float
+Vixen.Audio.Assets.AudioEventSpatialAsset.MaxDistance.init -> float
+Vixen.Audio.Assets.AudioEventSpatialAsset.MinDistance.get -> float
+Vixen.Audio.Assets.AudioEventSpatialAsset.MinDistance.init -> float
+Vixen.Audio.Assets.AudioEventSpatialAsset.RolloffFactor.get -> float
+Vixen.Audio.Assets.AudioEventSpatialAsset.RolloffFactor.init -> float
+Vixen.Audio.Assets.AudioEventSpatialAsset.Spread.get -> float
+Vixen.Audio.Assets.AudioEventSpatialAsset.Spread.init -> float
+Vixen.Audio.Assets.AudioEventSpatialAsset.ToSettings() -> Vixen.Audio.Spatial.SpatialSettings
+Vixen.Audio.Assets.AudioEventVariantAsset -> sealed record
+Vixen.Audio.Assets.AudioEventVariantAsset : System.IEquatable<Vixen.Audio.Assets.AudioEventVariantAsset>
+Vixen.Audio.Assets.AudioEventVariantAsset.AudioEventVariantAsset() -> void
+Vixen.Audio.Assets.AudioEventVariantAsset.Clip.get -> Vixen.Core.Serialization.ContentReference<Vixen.Audio.AudioClip>?
+Vixen.Audio.Assets.AudioEventVariantAsset.Clip.init -> Vixen.Core.Serialization.ContentReference<Vixen.Audio.AudioClip>?
+Vixen.Audio.Assets.AudioEventVariantAsset.GainDb.get -> float
+Vixen.Audio.Assets.AudioEventVariantAsset.GainDb.init -> float
+Vixen.Audio.Assets.AudioEventVariantAsset.PitchSemitones.get -> float
+Vixen.Audio.Assets.AudioEventVariantAsset.PitchSemitones.init -> float
+Vixen.Audio.Assets.AudioEventVariantAsset.Weight.get -> float
+Vixen.Audio.Assets.AudioEventVariantAsset.Weight.init -> float
+Vixen.Audio.Assets.AudioParameterAsset -> sealed record
+Vixen.Audio.Assets.AudioParameterAsset : System.IEquatable<Vixen.Audio.Assets.AudioParameterAsset>
+Vixen.Audio.Assets.AudioParameterAsset.AudioParameterAsset() -> void
+Vixen.Audio.Assets.AudioParameterAsset.Automation.get -> Vixen.Audio.Assets.AudioAutomationAsset[]
+Vixen.Audio.Assets.AudioParameterAsset.Automation.init -> Vixen.Audio.Assets.AudioAutomationAsset[]
+Vixen.Audio.Assets.AudioParameterAsset.Builtin.get -> Vixen.Audio.Parameters.AudioBuiltinParameter
+Vixen.Audio.Assets.AudioParameterAsset.Builtin.init -> Vixen.Audio.Parameters.AudioBuiltinParameter
+Vixen.Audio.Assets.AudioParameterAsset.Default.get -> float
+Vixen.Audio.Assets.AudioParameterAsset.Default.init -> float
+Vixen.Audio.Assets.AudioParameterAsset.Maximum.get -> float
+Vixen.Audio.Assets.AudioParameterAsset.Maximum.init -> float
+Vixen.Audio.Assets.AudioParameterAsset.Minimum.get -> float
+Vixen.Audio.Assets.AudioParameterAsset.Minimum.init -> float
+Vixen.Audio.Assets.AudioParameterAsset.Name.get -> string
+Vixen.Audio.Assets.AudioParameterAsset.Name.init -> string
+Vixen.Audio.Assets.AudioParameterAsset.SeekSeconds.get -> float
+Vixen.Audio.Assets.AudioParameterAsset.SeekSeconds.init -> float
+Vixen.Audio.Assets.AudioParameterAsset.ToDefinition() -> Vixen.Audio.Parameters.AudioParameterDefinition
+Vixen.Audio.Assets.AudioScattererAsset -> sealed record
+Vixen.Audio.Assets.AudioScattererAsset : System.IEquatable<Vixen.Audio.Assets.AudioScattererAsset>
+Vixen.Audio.Assets.AudioScattererAsset.AudioScattererAsset() -> void
+Vixen.Audio.Assets.AudioScattererAsset.Event.get -> string
+Vixen.Audio.Assets.AudioScattererAsset.Event.init -> string
+Vixen.Audio.Assets.AudioScattererAsset.FollowListener.get -> bool
+Vixen.Audio.Assets.AudioScattererAsset.FollowListener.init -> bool
+Vixen.Audio.Assets.AudioScattererAsset.MaximumDistance.get -> float
+Vixen.Audio.Assets.AudioScattererAsset.MaximumDistance.init -> float
+Vixen.Audio.Assets.AudioScattererAsset.MaximumInterval.get -> float
+Vixen.Audio.Assets.AudioScattererAsset.MaximumInterval.init -> float
+Vixen.Audio.Assets.AudioScattererAsset.MinimumDistance.get -> float
+Vixen.Audio.Assets.AudioScattererAsset.MinimumDistance.init -> float
+Vixen.Audio.Assets.AudioScattererAsset.MinimumInterval.get -> float
+Vixen.Audio.Assets.AudioScattererAsset.MinimumInterval.init -> float
+Vixen.Audio.Assets.AudioScattererAsset.Name.get -> string
+Vixen.Audio.Assets.AudioScattererAsset.Name.init -> string
+Vixen.Audio.Assets.AudioScattererAsset.Seed.get -> uint
+Vixen.Audio.Assets.AudioScattererAsset.Seed.init -> uint
+Vixen.Audio.Assets.AudioScattererAsset.ToSettings() -> Vixen.Audio.Events.AudioScattererSettings
+Vixen.Audio.Assets.AudioScattererAsset.VerticalSpread.get -> float
+Vixen.Audio.Assets.AudioScattererAsset.VerticalSpread.init -> float
+Vixen.Audio.Assets.AudioZoneAsset -> sealed record
+Vixen.Audio.Assets.AudioZoneAsset : System.IEquatable<Vixen.Audio.Assets.AudioZoneAsset>
+Vixen.Audio.Assets.AudioZoneAsset.AudioZoneAsset() -> void
+Vixen.Audio.Assets.AudioZoneAsset.Blend.get -> float
+Vixen.Audio.Assets.AudioZoneAsset.Blend.init -> float
+Vixen.Audio.Assets.AudioZoneAsset.Extent.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Assets.AudioZoneAsset.Extent.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Assets.AudioZoneAsset.Name.get -> string
+Vixen.Audio.Assets.AudioZoneAsset.Name.init -> string
+Vixen.Audio.Assets.AudioZoneAsset.Parameter.get -> string
+Vixen.Audio.Assets.AudioZoneAsset.Parameter.init -> string
+Vixen.Audio.Assets.AudioZoneAsset.Priority.get -> int
+Vixen.Audio.Assets.AudioZoneAsset.Priority.init -> int
+Vixen.Audio.Assets.AudioZoneAsset.Shape.get -> Vixen.Audio.Spatial.AudioZoneShape
+Vixen.Audio.Assets.AudioZoneAsset.Shape.init -> Vixen.Audio.Spatial.AudioZoneShape
+Vixen.Audio.Assets.AudioZoneAsset.Strength.get -> float
+Vixen.Audio.Assets.AudioZoneAsset.Strength.init -> float
+Vixen.Audio.Assets.AudioZoneAsset.ToZone() -> Vixen.Audio.Spatial.AudioReverbZone
+Vixen.Audio.Assets.BitCrusherEffectAsset -> sealed record
+Vixen.Audio.Assets.BitCrusherEffectAsset : System.IEquatable<Vixen.Audio.Assets.BitCrusherEffectAsset>
+Vixen.Audio.Assets.BitCrusherEffectAsset : Vixen.Audio.Assets.IAudioEffectAsset
+Vixen.Audio.Assets.BitCrusherEffectAsset.BitCrusherEffectAsset() -> void
+Vixen.Audio.Assets.BitCrusherEffectAsset.Bits.get -> float
+Vixen.Audio.Assets.BitCrusherEffectAsset.Bits.init -> float
+Vixen.Audio.Assets.BitCrusherEffectAsset.Create() -> Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Assets.BitCrusherEffectAsset.Downsample.get -> float
+Vixen.Audio.Assets.BitCrusherEffectAsset.Downsample.init -> float
+Vixen.Audio.Assets.BitCrusherEffectAsset.Enabled.get -> bool
+Vixen.Audio.Assets.BitCrusherEffectAsset.Enabled.init -> bool
+Vixen.Audio.Assets.BitCrusherEffectAsset.Mix.get -> float
+Vixen.Audio.Assets.BitCrusherEffectAsset.Mix.init -> float
+Vixen.Audio.Assets.CompressorEffectAsset -> sealed record
+Vixen.Audio.Assets.CompressorEffectAsset : System.IEquatable<Vixen.Audio.Assets.CompressorEffectAsset>
+Vixen.Audio.Assets.CompressorEffectAsset : Vixen.Audio.Assets.IAudioEffectAsset
+Vixen.Audio.Assets.CompressorEffectAsset.AttackSeconds.get -> float
+Vixen.Audio.Assets.CompressorEffectAsset.AttackSeconds.init -> float
+Vixen.Audio.Assets.CompressorEffectAsset.CompressorEffectAsset() -> void
+Vixen.Audio.Assets.CompressorEffectAsset.Create() -> Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Assets.CompressorEffectAsset.Enabled.get -> bool
+Vixen.Audio.Assets.CompressorEffectAsset.Enabled.init -> bool
+Vixen.Audio.Assets.CompressorEffectAsset.KneeDb.get -> float
+Vixen.Audio.Assets.CompressorEffectAsset.KneeDb.init -> float
+Vixen.Audio.Assets.CompressorEffectAsset.MakeupDb.get -> float
+Vixen.Audio.Assets.CompressorEffectAsset.MakeupDb.init -> float
+Vixen.Audio.Assets.CompressorEffectAsset.Ratio.get -> float
+Vixen.Audio.Assets.CompressorEffectAsset.Ratio.init -> float
+Vixen.Audio.Assets.CompressorEffectAsset.ReleaseSeconds.get -> float
+Vixen.Audio.Assets.CompressorEffectAsset.ReleaseSeconds.init -> float
+Vixen.Audio.Assets.CompressorEffectAsset.ThresholdDb.get -> float
+Vixen.Audio.Assets.CompressorEffectAsset.ThresholdDb.init -> float
+Vixen.Audio.Assets.DelayEffectAsset -> sealed record
+Vixen.Audio.Assets.DelayEffectAsset : System.IEquatable<Vixen.Audio.Assets.DelayEffectAsset>
+Vixen.Audio.Assets.DelayEffectAsset : Vixen.Audio.Assets.IAudioEffectAsset
+Vixen.Audio.Assets.DelayEffectAsset.Create() -> Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Assets.DelayEffectAsset.DampingHz.get -> float
+Vixen.Audio.Assets.DelayEffectAsset.DampingHz.init -> float
+Vixen.Audio.Assets.DelayEffectAsset.DelayEffectAsset() -> void
+Vixen.Audio.Assets.DelayEffectAsset.DelaySeconds.get -> float
+Vixen.Audio.Assets.DelayEffectAsset.DelaySeconds.init -> float
+Vixen.Audio.Assets.DelayEffectAsset.Dry.get -> float
+Vixen.Audio.Assets.DelayEffectAsset.Dry.init -> float
+Vixen.Audio.Assets.DelayEffectAsset.Enabled.get -> bool
+Vixen.Audio.Assets.DelayEffectAsset.Enabled.init -> bool
+Vixen.Audio.Assets.DelayEffectAsset.Feedback.get -> float
+Vixen.Audio.Assets.DelayEffectAsset.Feedback.init -> float
+Vixen.Audio.Assets.DelayEffectAsset.MaxDelaySeconds.get -> float
+Vixen.Audio.Assets.DelayEffectAsset.MaxDelaySeconds.init -> float
+Vixen.Audio.Assets.DelayEffectAsset.PingPong.get -> bool
+Vixen.Audio.Assets.DelayEffectAsset.PingPong.init -> bool
+Vixen.Audio.Assets.DelayEffectAsset.Wet.get -> float
+Vixen.Audio.Assets.DelayEffectAsset.Wet.init -> float
+Vixen.Audio.Assets.DistortionEffectAsset -> sealed record
+Vixen.Audio.Assets.DistortionEffectAsset : System.IEquatable<Vixen.Audio.Assets.DistortionEffectAsset>
+Vixen.Audio.Assets.DistortionEffectAsset : Vixen.Audio.Assets.IAudioEffectAsset
+Vixen.Audio.Assets.DistortionEffectAsset.Create() -> Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Assets.DistortionEffectAsset.Curve.get -> Vixen.Audio.Effects.DistortionCurve
+Vixen.Audio.Assets.DistortionEffectAsset.Curve.init -> Vixen.Audio.Effects.DistortionCurve
+Vixen.Audio.Assets.DistortionEffectAsset.DistortionEffectAsset() -> void
+Vixen.Audio.Assets.DistortionEffectAsset.DriveDb.get -> float
+Vixen.Audio.Assets.DistortionEffectAsset.DriveDb.init -> float
+Vixen.Audio.Assets.DistortionEffectAsset.Enabled.get -> bool
+Vixen.Audio.Assets.DistortionEffectAsset.Enabled.init -> bool
+Vixen.Audio.Assets.DistortionEffectAsset.Mix.get -> float
+Vixen.Audio.Assets.DistortionEffectAsset.Mix.init -> float
+Vixen.Audio.Assets.DistortionEffectAsset.OutputDb.get -> float
+Vixen.Audio.Assets.DistortionEffectAsset.OutputDb.init -> float
+Vixen.Audio.Assets.EqualizerBandAsset -> sealed record
+Vixen.Audio.Assets.EqualizerBandAsset : System.IEquatable<Vixen.Audio.Assets.EqualizerBandAsset>
+Vixen.Audio.Assets.EqualizerBandAsset.EqualizerBandAsset() -> void
+Vixen.Audio.Assets.EqualizerBandAsset.Frequency.get -> float
+Vixen.Audio.Assets.EqualizerBandAsset.Frequency.init -> float
+Vixen.Audio.Assets.EqualizerBandAsset.GainDb.get -> float
+Vixen.Audio.Assets.EqualizerBandAsset.GainDb.init -> float
+Vixen.Audio.Assets.EqualizerBandAsset.Kind.get -> Vixen.Audio.Effects.BiquadFilterKind
+Vixen.Audio.Assets.EqualizerBandAsset.Kind.init -> Vixen.Audio.Effects.BiquadFilterKind
+Vixen.Audio.Assets.EqualizerBandAsset.Q.get -> float
+Vixen.Audio.Assets.EqualizerBandAsset.Q.init -> float
+Vixen.Audio.Assets.EqualizerEffectAsset -> sealed record
+Vixen.Audio.Assets.EqualizerEffectAsset : System.IEquatable<Vixen.Audio.Assets.EqualizerEffectAsset>
+Vixen.Audio.Assets.EqualizerEffectAsset : Vixen.Audio.Assets.IAudioEffectAsset
+Vixen.Audio.Assets.EqualizerEffectAsset.Bands.get -> Vixen.Audio.Assets.EqualizerBandAsset[]
+Vixen.Audio.Assets.EqualizerEffectAsset.Bands.init -> Vixen.Audio.Assets.EqualizerBandAsset[]
+Vixen.Audio.Assets.EqualizerEffectAsset.Create() -> Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Assets.EqualizerEffectAsset.Enabled.get -> bool
+Vixen.Audio.Assets.EqualizerEffectAsset.Enabled.init -> bool
+Vixen.Audio.Assets.EqualizerEffectAsset.EqualizerEffectAsset() -> void
+Vixen.Audio.Assets.FilterEffectAsset -> sealed record
+Vixen.Audio.Assets.FilterEffectAsset : System.IEquatable<Vixen.Audio.Assets.FilterEffectAsset>
+Vixen.Audio.Assets.FilterEffectAsset : Vixen.Audio.Assets.IAudioEffectAsset
+Vixen.Audio.Assets.FilterEffectAsset.Create() -> Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Assets.FilterEffectAsset.Enabled.get -> bool
+Vixen.Audio.Assets.FilterEffectAsset.Enabled.init -> bool
+Vixen.Audio.Assets.FilterEffectAsset.FilterEffectAsset() -> void
+Vixen.Audio.Assets.FilterEffectAsset.Frequency.get -> float
+Vixen.Audio.Assets.FilterEffectAsset.Frequency.init -> float
+Vixen.Audio.Assets.FilterEffectAsset.GainDb.get -> float
+Vixen.Audio.Assets.FilterEffectAsset.GainDb.init -> float
+Vixen.Audio.Assets.FilterEffectAsset.Kind.get -> Vixen.Audio.Effects.BiquadFilterKind
+Vixen.Audio.Assets.FilterEffectAsset.Kind.init -> Vixen.Audio.Effects.BiquadFilterKind
+Vixen.Audio.Assets.FilterEffectAsset.Q.get -> float
+Vixen.Audio.Assets.FilterEffectAsset.Q.init -> float
+Vixen.Audio.Assets.GateEffectAsset -> sealed record
+Vixen.Audio.Assets.GateEffectAsset : System.IEquatable<Vixen.Audio.Assets.GateEffectAsset>
+Vixen.Audio.Assets.GateEffectAsset : Vixen.Audio.Assets.IAudioEffectAsset
+Vixen.Audio.Assets.GateEffectAsset.AttackSeconds.get -> float
+Vixen.Audio.Assets.GateEffectAsset.AttackSeconds.init -> float
+Vixen.Audio.Assets.GateEffectAsset.Create() -> Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Assets.GateEffectAsset.Enabled.get -> bool
+Vixen.Audio.Assets.GateEffectAsset.Enabled.init -> bool
+Vixen.Audio.Assets.GateEffectAsset.GateEffectAsset() -> void
+Vixen.Audio.Assets.GateEffectAsset.HoldSeconds.get -> float
+Vixen.Audio.Assets.GateEffectAsset.HoldSeconds.init -> float
+Vixen.Audio.Assets.GateEffectAsset.KneeDb.get -> float
+Vixen.Audio.Assets.GateEffectAsset.KneeDb.init -> float
+Vixen.Audio.Assets.GateEffectAsset.RangeDb.get -> float
+Vixen.Audio.Assets.GateEffectAsset.RangeDb.init -> float
+Vixen.Audio.Assets.GateEffectAsset.ReleaseSeconds.get -> float
+Vixen.Audio.Assets.GateEffectAsset.ReleaseSeconds.init -> float
+Vixen.Audio.Assets.GateEffectAsset.ThresholdDb.get -> float
+Vixen.Audio.Assets.GateEffectAsset.ThresholdDb.init -> float
+Vixen.Audio.Assets.IAudioEffectAsset -> interface
+Vixen.Audio.Assets.IAudioEffectAsset.Create() -> Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Assets.IAudioEffectAsset.Enabled.get -> bool
+Vixen.Audio.Assets.IAudioEventLibrary -> interface
+Vixen.Audio.Assets.IAudioEventLibrary.Find(string name) -> Vixen.Audio.Events.AudioEvent?
+Vixen.Audio.Assets.LimiterEffectAsset -> sealed record
+Vixen.Audio.Assets.LimiterEffectAsset : System.IEquatable<Vixen.Audio.Assets.LimiterEffectAsset>
+Vixen.Audio.Assets.LimiterEffectAsset : Vixen.Audio.Assets.IAudioEffectAsset
+Vixen.Audio.Assets.LimiterEffectAsset.CeilingDb.get -> float
+Vixen.Audio.Assets.LimiterEffectAsset.CeilingDb.init -> float
+Vixen.Audio.Assets.LimiterEffectAsset.Create() -> Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Assets.LimiterEffectAsset.Enabled.get -> bool
+Vixen.Audio.Assets.LimiterEffectAsset.Enabled.init -> bool
+Vixen.Audio.Assets.LimiterEffectAsset.LimiterEffectAsset() -> void
+Vixen.Audio.Assets.LimiterEffectAsset.LookAheadSeconds.get -> float
+Vixen.Audio.Assets.LimiterEffectAsset.LookAheadSeconds.init -> float
+Vixen.Audio.Assets.LimiterEffectAsset.ReleaseSeconds.get -> float
+Vixen.Audio.Assets.LimiterEffectAsset.ReleaseSeconds.init -> float
+Vixen.Audio.Assets.MixerAsset -> sealed record
+Vixen.Audio.Assets.MixerAsset : System.IEquatable<Vixen.Audio.Assets.MixerAsset>
+Vixen.Audio.Assets.MixerAsset.Buses.get -> Vixen.Audio.Assets.MixerBusAsset[]
+Vixen.Audio.Assets.MixerAsset.Buses.init -> Vixen.Audio.Assets.MixerBusAsset[]
+Vixen.Audio.Assets.MixerAsset.DefaultSnapshot.get -> string
+Vixen.Audio.Assets.MixerAsset.DefaultSnapshot.init -> string
+Vixen.Audio.Assets.MixerAsset.MixerAsset() -> void
+Vixen.Audio.Assets.MixerAsset.Parameters.get -> Vixen.Audio.Assets.AudioBusParameterAsset[]
+Vixen.Audio.Assets.MixerAsset.Parameters.init -> Vixen.Audio.Assets.AudioBusParameterAsset[]
+Vixen.Audio.Assets.MixerAsset.Snapshots.get -> Vixen.Audio.Assets.MixerSnapshotAsset[]
+Vixen.Audio.Assets.MixerAsset.Snapshots.init -> Vixen.Audio.Assets.MixerSnapshotAsset[]
+Vixen.Audio.Assets.MixerBuilder -> static class
+Vixen.Audio.Assets.MixerBuilder.MixerBuildResult -> readonly struct
+Vixen.Audio.Assets.MixerBuilder.MixerBuildResult : System.IEquatable<Vixen.Audio.Assets.MixerBuilder.MixerBuildResult>
+Vixen.Audio.Assets.MixerBuilder.MixerBuildResult.MixerBuildResult() -> void
+Vixen.Audio.Assets.MixerBuilder.MixerBuildResult.MixerBuildResult(Vixen.Audio.Assets.MixerSnapshots Snapshots, System.Collections.Generic.IReadOnlyList<string> Problems) -> void
+Vixen.Audio.Assets.MixerBuilder.MixerBuildResult.Problems.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Audio.Assets.MixerBuilder.MixerBuildResult.Problems.init -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Audio.Assets.MixerBuilder.MixerBuildResult.Snapshots.get -> Vixen.Audio.Assets.MixerSnapshots
+Vixen.Audio.Assets.MixerBuilder.MixerBuildResult.Snapshots.init -> Vixen.Audio.Assets.MixerSnapshots
+Vixen.Audio.Assets.MixerBusAsset -> sealed record
+Vixen.Audio.Assets.MixerBusAsset : System.IEquatable<Vixen.Audio.Assets.MixerBusAsset>
+Vixen.Audio.Assets.MixerBusAsset.Effects.get -> Vixen.Audio.Assets.IAudioEffectAsset[]
+Vixen.Audio.Assets.MixerBusAsset.Effects.init -> Vixen.Audio.Assets.IAudioEffectAsset[]
+Vixen.Audio.Assets.MixerBusAsset.GainDb.get -> float
+Vixen.Audio.Assets.MixerBusAsset.GainDb.init -> float
+Vixen.Audio.Assets.MixerBusAsset.MixerBusAsset() -> void
+Vixen.Audio.Assets.MixerBusAsset.Muted.get -> bool
+Vixen.Audio.Assets.MixerBusAsset.Muted.init -> bool
+Vixen.Audio.Assets.MixerBusAsset.Name.get -> string
+Vixen.Audio.Assets.MixerBusAsset.Name.init -> string
+Vixen.Audio.Assets.MixerBusAsset.Parent.get -> string
+Vixen.Audio.Assets.MixerBusAsset.Parent.init -> string
+Vixen.Audio.Assets.MixerBusAsset.Sends.get -> Vixen.Audio.Assets.MixerSendAsset[]
+Vixen.Audio.Assets.MixerBusAsset.Sends.init -> Vixen.Audio.Assets.MixerSendAsset[]
+Vixen.Audio.Assets.MixerBusAsset.Sidechain.get -> string
+Vixen.Audio.Assets.MixerBusAsset.Sidechain.init -> string
+Vixen.Audio.Assets.MixerSendAsset -> sealed record
+Vixen.Audio.Assets.MixerSendAsset : System.IEquatable<Vixen.Audio.Assets.MixerSendAsset>
+Vixen.Audio.Assets.MixerSendAsset.LevelDb.get -> float
+Vixen.Audio.Assets.MixerSendAsset.LevelDb.init -> float
+Vixen.Audio.Assets.MixerSendAsset.MixerSendAsset() -> void
+Vixen.Audio.Assets.MixerSendAsset.PreFader.get -> bool
+Vixen.Audio.Assets.MixerSendAsset.PreFader.init -> bool
+Vixen.Audio.Assets.MixerSendAsset.Target.get -> string
+Vixen.Audio.Assets.MixerSendAsset.Target.init -> string
+Vixen.Audio.Assets.MixerSnapshotAsset -> sealed record
+Vixen.Audio.Assets.MixerSnapshotAsset : System.IEquatable<Vixen.Audio.Assets.MixerSnapshotAsset>
+Vixen.Audio.Assets.MixerSnapshotAsset.Buses.get -> Vixen.Audio.Assets.SnapshotBusAsset[]
+Vixen.Audio.Assets.MixerSnapshotAsset.Buses.init -> Vixen.Audio.Assets.SnapshotBusAsset[]
+Vixen.Audio.Assets.MixerSnapshotAsset.MixerSnapshotAsset() -> void
+Vixen.Audio.Assets.MixerSnapshotAsset.Name.get -> string
+Vixen.Audio.Assets.MixerSnapshotAsset.Name.init -> string
+Vixen.Audio.Assets.MixerSnapshotAsset.Sends.get -> Vixen.Audio.Assets.SnapshotSendAsset[]
+Vixen.Audio.Assets.MixerSnapshotAsset.Sends.init -> Vixen.Audio.Assets.SnapshotSendAsset[]
+Vixen.Audio.Assets.MixerSnapshots -> sealed class
+Vixen.Audio.Assets.MixerSnapshots.Current.get -> string?
+Vixen.Audio.Assets.MixerSnapshots.Has(string name) -> bool
+Vixen.Audio.Assets.MixerSnapshots.IsTransitioning.get -> bool
+Vixen.Audio.Assets.MixerSnapshots.Names.get -> System.Collections.Generic.IEnumerable<string>
+Vixen.Audio.Assets.MixerSnapshots.TransitionTo(string name, System.TimeSpan duration) -> bool
+Vixen.Audio.Assets.ModulatedDelayEffectAsset -> sealed record
+Vixen.Audio.Assets.ModulatedDelayEffectAsset : System.IEquatable<Vixen.Audio.Assets.ModulatedDelayEffectAsset>
+Vixen.Audio.Assets.ModulatedDelayEffectAsset : Vixen.Audio.Assets.IAudioEffectAsset
+Vixen.Audio.Assets.ModulatedDelayEffectAsset.Create() -> Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Assets.ModulatedDelayEffectAsset.DelaySeconds.get -> float
+Vixen.Audio.Assets.ModulatedDelayEffectAsset.DelaySeconds.init -> float
+Vixen.Audio.Assets.ModulatedDelayEffectAsset.DepthSeconds.get -> float
+Vixen.Audio.Assets.ModulatedDelayEffectAsset.DepthSeconds.init -> float
+Vixen.Audio.Assets.ModulatedDelayEffectAsset.Dry.get -> float
+Vixen.Audio.Assets.ModulatedDelayEffectAsset.Dry.init -> float
+Vixen.Audio.Assets.ModulatedDelayEffectAsset.Enabled.get -> bool
+Vixen.Audio.Assets.ModulatedDelayEffectAsset.Enabled.init -> bool
+Vixen.Audio.Assets.ModulatedDelayEffectAsset.Feedback.get -> float
+Vixen.Audio.Assets.ModulatedDelayEffectAsset.Feedback.init -> float
+Vixen.Audio.Assets.ModulatedDelayEffectAsset.Kind.get -> Vixen.Audio.Effects.ModulatedDelayKind
+Vixen.Audio.Assets.ModulatedDelayEffectAsset.Kind.init -> Vixen.Audio.Effects.ModulatedDelayKind
+Vixen.Audio.Assets.ModulatedDelayEffectAsset.ModulatedDelayEffectAsset() -> void
+Vixen.Audio.Assets.ModulatedDelayEffectAsset.RateHz.get -> float
+Vixen.Audio.Assets.ModulatedDelayEffectAsset.RateHz.init -> float
+Vixen.Audio.Assets.ModulatedDelayEffectAsset.StereoSpread.get -> float
+Vixen.Audio.Assets.ModulatedDelayEffectAsset.StereoSpread.init -> float
+Vixen.Audio.Assets.ModulatedDelayEffectAsset.Voices.get -> int
+Vixen.Audio.Assets.ModulatedDelayEffectAsset.Voices.init -> int
+Vixen.Audio.Assets.ModulatedDelayEffectAsset.Wet.get -> float
+Vixen.Audio.Assets.ModulatedDelayEffectAsset.Wet.init -> float
+Vixen.Audio.Assets.MusicAsset -> sealed record
+Vixen.Audio.Assets.MusicAsset : System.IEquatable<Vixen.Audio.Assets.MusicAsset>
+Vixen.Audio.Assets.MusicAsset.Bus.get -> string
+Vixen.Audio.Assets.MusicAsset.Bus.init -> string
+Vixen.Audio.Assets.MusicAsset.CrossfadeSeconds.get -> float
+Vixen.Audio.Assets.MusicAsset.CrossfadeSeconds.init -> float
+Vixen.Audio.Assets.MusicAsset.MusicAsset() -> void
+Vixen.Audio.Assets.MusicAsset.Name.get -> string
+Vixen.Audio.Assets.MusicAsset.Name.init -> string
+Vixen.Audio.Assets.MusicAsset.Segments.get -> Vixen.Audio.Assets.MusicSegmentAsset[]
+Vixen.Audio.Assets.MusicAsset.Segments.init -> Vixen.Audio.Assets.MusicSegmentAsset[]
+Vixen.Audio.Assets.MusicAsset.Start.get -> string
+Vixen.Audio.Assets.MusicAsset.Start.init -> string
+Vixen.Audio.Assets.MusicAsset.Transitions.get -> Vixen.Audio.Assets.MusicTransitionAsset[]
+Vixen.Audio.Assets.MusicAsset.Transitions.init -> Vixen.Audio.Assets.MusicTransitionAsset[]
+Vixen.Audio.Assets.MusicBuilder -> static class
+Vixen.Audio.Assets.MusicMarkerAsset -> sealed record
+Vixen.Audio.Assets.MusicMarkerAsset : System.IEquatable<Vixen.Audio.Assets.MusicMarkerAsset>
+Vixen.Audio.Assets.MusicMarkerAsset.Beat.get -> float
+Vixen.Audio.Assets.MusicMarkerAsset.Beat.init -> float
+Vixen.Audio.Assets.MusicMarkerAsset.MusicMarkerAsset() -> void
+Vixen.Audio.Assets.MusicMarkerAsset.Name.get -> string
+Vixen.Audio.Assets.MusicMarkerAsset.Name.init -> string
+Vixen.Audio.Assets.MusicSegmentAsset -> sealed record
+Vixen.Audio.Assets.MusicSegmentAsset : System.IEquatable<Vixen.Audio.Assets.MusicSegmentAsset>
+Vixen.Audio.Assets.MusicSegmentAsset.BeatsPerBar.get -> int
+Vixen.Audio.Assets.MusicSegmentAsset.BeatsPerBar.init -> int
+Vixen.Audio.Assets.MusicSegmentAsset.BeatsPerMinute.get -> float
+Vixen.Audio.Assets.MusicSegmentAsset.BeatsPerMinute.init -> float
+Vixen.Audio.Assets.MusicSegmentAsset.Clip.get -> Vixen.Core.Serialization.ContentReference<Vixen.Audio.AudioClip>?
+Vixen.Audio.Assets.MusicSegmentAsset.Clip.init -> Vixen.Core.Serialization.ContentReference<Vixen.Audio.AudioClip>?
+Vixen.Audio.Assets.MusicSegmentAsset.LoopCount.get -> int
+Vixen.Audio.Assets.MusicSegmentAsset.LoopCount.init -> int
+Vixen.Audio.Assets.MusicSegmentAsset.Markers.get -> Vixen.Audio.Assets.MusicMarkerAsset[]
+Vixen.Audio.Assets.MusicSegmentAsset.Markers.init -> Vixen.Audio.Assets.MusicMarkerAsset[]
+Vixen.Audio.Assets.MusicSegmentAsset.MusicSegmentAsset() -> void
+Vixen.Audio.Assets.MusicSegmentAsset.Name.get -> string
+Vixen.Audio.Assets.MusicSegmentAsset.Name.init -> string
+Vixen.Audio.Assets.MusicSegmentAsset.Next.get -> string
+Vixen.Audio.Assets.MusicSegmentAsset.Next.init -> string
+Vixen.Audio.Assets.MusicSegmentAsset.Sustains.get -> bool
+Vixen.Audio.Assets.MusicSegmentAsset.Sustains.init -> bool
+Vixen.Audio.Assets.MusicSegmentAsset.TempoChanges.get -> Vixen.Audio.Assets.MusicTempoChangeAsset[]
+Vixen.Audio.Assets.MusicSegmentAsset.TempoChanges.init -> Vixen.Audio.Assets.MusicTempoChangeAsset[]
+Vixen.Audio.Assets.MusicSegmentAsset.ToSegment() -> Vixen.Audio.Music.MusicSegment
+Vixen.Audio.Assets.MusicTempoChangeAsset -> sealed record
+Vixen.Audio.Assets.MusicTempoChangeAsset : System.IEquatable<Vixen.Audio.Assets.MusicTempoChangeAsset>
+Vixen.Audio.Assets.MusicTempoChangeAsset.Beat.get -> float
+Vixen.Audio.Assets.MusicTempoChangeAsset.Beat.init -> float
+Vixen.Audio.Assets.MusicTempoChangeAsset.BeatsPerBar.get -> int
+Vixen.Audio.Assets.MusicTempoChangeAsset.BeatsPerBar.init -> int
+Vixen.Audio.Assets.MusicTempoChangeAsset.BeatsPerMinute.get -> float
+Vixen.Audio.Assets.MusicTempoChangeAsset.BeatsPerMinute.init -> float
+Vixen.Audio.Assets.MusicTempoChangeAsset.MusicTempoChangeAsset() -> void
+Vixen.Audio.Assets.MusicTransitionAsset -> sealed record
+Vixen.Audio.Assets.MusicTransitionAsset : System.IEquatable<Vixen.Audio.Assets.MusicTransitionAsset>
+Vixen.Audio.Assets.MusicTransitionAsset.From.get -> string
+Vixen.Audio.Assets.MusicTransitionAsset.From.init -> string
+Vixen.Audio.Assets.MusicTransitionAsset.Maximum.get -> float
+Vixen.Audio.Assets.MusicTransitionAsset.Maximum.init -> float
+Vixen.Audio.Assets.MusicTransitionAsset.Minimum.get -> float
+Vixen.Audio.Assets.MusicTransitionAsset.Minimum.init -> float
+Vixen.Audio.Assets.MusicTransitionAsset.MusicTransitionAsset() -> void
+Vixen.Audio.Assets.MusicTransitionAsset.Parameter.get -> string
+Vixen.Audio.Assets.MusicTransitionAsset.Parameter.init -> string
+Vixen.Audio.Assets.MusicTransitionAsset.Quantize.get -> Vixen.Audio.Music.MusicQuantize
+Vixen.Audio.Assets.MusicTransitionAsset.Quantize.init -> Vixen.Audio.Music.MusicQuantize
+Vixen.Audio.Assets.MusicTransitionAsset.To.get -> string
+Vixen.Audio.Assets.MusicTransitionAsset.To.init -> string
+Vixen.Audio.Assets.MusicTransitionAsset.ToTransition() -> Vixen.Audio.Music.MusicTransition
+Vixen.Audio.Assets.PhaserEffectAsset -> sealed record
+Vixen.Audio.Assets.PhaserEffectAsset : System.IEquatable<Vixen.Audio.Assets.PhaserEffectAsset>
+Vixen.Audio.Assets.PhaserEffectAsset : Vixen.Audio.Assets.IAudioEffectAsset
+Vixen.Audio.Assets.PhaserEffectAsset.Create() -> Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Assets.PhaserEffectAsset.Dry.get -> float
+Vixen.Audio.Assets.PhaserEffectAsset.Dry.init -> float
+Vixen.Audio.Assets.PhaserEffectAsset.Enabled.get -> bool
+Vixen.Audio.Assets.PhaserEffectAsset.Enabled.init -> bool
+Vixen.Audio.Assets.PhaserEffectAsset.Feedback.get -> float
+Vixen.Audio.Assets.PhaserEffectAsset.Feedback.init -> float
+Vixen.Audio.Assets.PhaserEffectAsset.MaxFrequency.get -> float
+Vixen.Audio.Assets.PhaserEffectAsset.MaxFrequency.init -> float
+Vixen.Audio.Assets.PhaserEffectAsset.MinFrequency.get -> float
+Vixen.Audio.Assets.PhaserEffectAsset.MinFrequency.init -> float
+Vixen.Audio.Assets.PhaserEffectAsset.PhaserEffectAsset() -> void
+Vixen.Audio.Assets.PhaserEffectAsset.RateHz.get -> float
+Vixen.Audio.Assets.PhaserEffectAsset.RateHz.init -> float
+Vixen.Audio.Assets.PhaserEffectAsset.Stages.get -> int
+Vixen.Audio.Assets.PhaserEffectAsset.Stages.init -> int
+Vixen.Audio.Assets.PhaserEffectAsset.StereoSpread.get -> float
+Vixen.Audio.Assets.PhaserEffectAsset.StereoSpread.init -> float
+Vixen.Audio.Assets.PhaserEffectAsset.Wet.get -> float
+Vixen.Audio.Assets.PhaserEffectAsset.Wet.init -> float
+Vixen.Audio.Assets.PitchShiftEffectAsset -> sealed record
+Vixen.Audio.Assets.PitchShiftEffectAsset : System.IEquatable<Vixen.Audio.Assets.PitchShiftEffectAsset>
+Vixen.Audio.Assets.PitchShiftEffectAsset : Vixen.Audio.Assets.IAudioEffectAsset
+Vixen.Audio.Assets.PitchShiftEffectAsset.Create() -> Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Assets.PitchShiftEffectAsset.Enabled.get -> bool
+Vixen.Audio.Assets.PitchShiftEffectAsset.Enabled.init -> bool
+Vixen.Audio.Assets.PitchShiftEffectAsset.GrainSeconds.get -> float
+Vixen.Audio.Assets.PitchShiftEffectAsset.GrainSeconds.init -> float
+Vixen.Audio.Assets.PitchShiftEffectAsset.Mix.get -> float
+Vixen.Audio.Assets.PitchShiftEffectAsset.Mix.init -> float
+Vixen.Audio.Assets.PitchShiftEffectAsset.PitchShiftEffectAsset() -> void
+Vixen.Audio.Assets.PitchShiftEffectAsset.Semitones.get -> float
+Vixen.Audio.Assets.PitchShiftEffectAsset.Semitones.init -> float
+Vixen.Audio.Assets.ReverbEffectAsset -> sealed record
+Vixen.Audio.Assets.ReverbEffectAsset : System.IEquatable<Vixen.Audio.Assets.ReverbEffectAsset>
+Vixen.Audio.Assets.ReverbEffectAsset : Vixen.Audio.Assets.IAudioEffectAsset
+Vixen.Audio.Assets.ReverbEffectAsset.Create() -> Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Assets.ReverbEffectAsset.Damping.get -> float
+Vixen.Audio.Assets.ReverbEffectAsset.Damping.init -> float
+Vixen.Audio.Assets.ReverbEffectAsset.Dry.get -> float
+Vixen.Audio.Assets.ReverbEffectAsset.Dry.init -> float
+Vixen.Audio.Assets.ReverbEffectAsset.Enabled.get -> bool
+Vixen.Audio.Assets.ReverbEffectAsset.Enabled.init -> bool
+Vixen.Audio.Assets.ReverbEffectAsset.ReverbEffectAsset() -> void
+Vixen.Audio.Assets.ReverbEffectAsset.RoomSize.get -> float
+Vixen.Audio.Assets.ReverbEffectAsset.RoomSize.init -> float
+Vixen.Audio.Assets.ReverbEffectAsset.Wet.get -> float
+Vixen.Audio.Assets.ReverbEffectAsset.Wet.init -> float
+Vixen.Audio.Assets.ReverbEffectAsset.Width.get -> float
+Vixen.Audio.Assets.ReverbEffectAsset.Width.init -> float
+Vixen.Audio.Assets.SnapshotBusAsset -> sealed record
+Vixen.Audio.Assets.SnapshotBusAsset : System.IEquatable<Vixen.Audio.Assets.SnapshotBusAsset>
+Vixen.Audio.Assets.SnapshotBusAsset.Bus.get -> string
+Vixen.Audio.Assets.SnapshotBusAsset.Bus.init -> string
+Vixen.Audio.Assets.SnapshotBusAsset.GainDb.get -> float
+Vixen.Audio.Assets.SnapshotBusAsset.GainDb.init -> float
+Vixen.Audio.Assets.SnapshotBusAsset.Muted.get -> bool
+Vixen.Audio.Assets.SnapshotBusAsset.Muted.init -> bool
+Vixen.Audio.Assets.SnapshotBusAsset.SnapshotBusAsset() -> void
+Vixen.Audio.Assets.SnapshotSendAsset -> sealed record
+Vixen.Audio.Assets.SnapshotSendAsset : System.IEquatable<Vixen.Audio.Assets.SnapshotSendAsset>
+Vixen.Audio.Assets.SnapshotSendAsset.Bus.get -> string
+Vixen.Audio.Assets.SnapshotSendAsset.Bus.init -> string
+Vixen.Audio.Assets.SnapshotSendAsset.LevelDb.get -> float
+Vixen.Audio.Assets.SnapshotSendAsset.LevelDb.init -> float
+Vixen.Audio.Assets.SnapshotSendAsset.SnapshotSendAsset() -> void
+Vixen.Audio.Assets.SnapshotSendAsset.Target.get -> string
+Vixen.Audio.Assets.SnapshotSendAsset.Target.init -> string
+Vixen.Audio.Assets.SpectrumAnalyzerEffectAsset -> sealed record
+Vixen.Audio.Assets.SpectrumAnalyzerEffectAsset : System.IEquatable<Vixen.Audio.Assets.SpectrumAnalyzerEffectAsset>
+Vixen.Audio.Assets.SpectrumAnalyzerEffectAsset : Vixen.Audio.Assets.IAudioEffectAsset
+Vixen.Audio.Assets.SpectrumAnalyzerEffectAsset.Create() -> Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Assets.SpectrumAnalyzerEffectAsset.Enabled.get -> bool
+Vixen.Audio.Assets.SpectrumAnalyzerEffectAsset.Enabled.init -> bool
+Vixen.Audio.Assets.SpectrumAnalyzerEffectAsset.Size.get -> int
+Vixen.Audio.Assets.SpectrumAnalyzerEffectAsset.Size.init -> int
+Vixen.Audio.Assets.SpectrumAnalyzerEffectAsset.Smoothing.get -> float
+Vixen.Audio.Assets.SpectrumAnalyzerEffectAsset.Smoothing.init -> float
+Vixen.Audio.Assets.SpectrumAnalyzerEffectAsset.SpectrumAnalyzerEffectAsset() -> void
+Vixen.Audio.AudioClip -> sealed record
+Vixen.Audio.AudioClip : System.IEquatable<Vixen.Audio.AudioClip>
+Vixen.Audio.AudioClip.AsFloat32() -> System.ReadOnlySpan<float>
+Vixen.Audio.AudioClip.AsInt16() -> System.ReadOnlySpan<short>
+Vixen.Audio.AudioClip.AudioClip() -> void
+Vixen.Audio.AudioClip.BytesPerSample.get -> int
+Vixen.Audio.AudioClip.Channels.get -> int
+Vixen.Audio.AudioClip.Channels.set -> int
+Vixen.Audio.AudioClip.Duration.get -> System.TimeSpan
+Vixen.Audio.AudioClip.Format.get -> Vixen.Audio.AudioSampleFormat
+Vixen.Audio.AudioClip.Format.set -> Vixen.Audio.AudioSampleFormat
+Vixen.Audio.AudioClip.FrameCount.get -> int
+Vixen.Audio.AudioClip.SampleRate.get -> int
+Vixen.Audio.AudioClip.SampleRate.set -> int
+Vixen.Audio.AudioClip.Samples.get -> byte[]
+Vixen.Audio.AudioClip.Samples.set -> byte[]
+Vixen.Audio.AudioEngine -> sealed class
+Vixen.Audio.AudioEngine : System.IDisposable
+Vixen.Audio.AudioEngine : Vixen.Audio.Devices.IAudioRenderSource
+Vixen.Audio.AudioEngine.AttachParameters(Vixen.Audio.Mixing.VoiceHandle handle, Vixen.Audio.Parameters.AudioParameterSheet sheet) -> bool
+Vixen.Audio.AudioEngine.AudibilityOf(Vixen.Audio.Mixing.VoiceHandle handle) -> float
+Vixen.Audio.AudioEngine.AudibleVoices.get -> int
+Vixen.Audio.AudioEngine.AudioEngine(Vixen.Audio.Devices.IAudioDevice device, in Vixen.Audio.AudioEngineOptions options, Microsoft.Extensions.Logging.ILogger? logger = null) -> void
+Vixen.Audio.AudioEngine.Control.get -> Vixen.Audio.Diagnostics.MixControl
+Vixen.Audio.AudioEngine.CreateBus(string name, Vixen.Audio.Mixing.AudioBus? parent = null) -> Vixen.Audio.Mixing.AudioBus
+Vixen.Audio.AudioEngine.Device.get -> Vixen.Audio.Devices.IAudioDevice
+Vixen.Audio.AudioEngine.Dispose() -> void
+Vixen.Audio.AudioEngine.DroppedLayers.get -> long
+Vixen.Audio.AudioEngine.FadeOutAndStop(Vixen.Audio.Mixing.VoiceHandle handle, System.TimeSpan duration, Vixen.Audio.Mixing.AudioFadeCurve curve = Vixen.Audio.Mixing.AudioFadeCurve.Decibel) -> void
+Vixen.Audio.AudioEngine.FadeTo(Vixen.Audio.Mixing.VoiceHandle handle, float gain, System.TimeSpan duration, Vixen.Audio.Mixing.AudioFadeCurve curve = Vixen.Audio.Mixing.AudioFadeCurve.Decibel) -> void
+Vixen.Audio.AudioEngine.FindBus(string name) -> Vixen.Audio.Mixing.AudioBus?
+Vixen.Audio.AudioEngine.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Audio.AudioEngine.GainOf(Vixen.Audio.Mixing.VoiceHandle handle) -> float
+Vixen.Audio.AudioEngine.IsFading(Vixen.Audio.Mixing.VoiceHandle handle) -> bool
+Vixen.Audio.AudioEngine.IsPlaying(Vixen.Audio.Mixing.VoiceHandle handle) -> bool
+Vixen.Audio.AudioEngine.Limiter.get -> Vixen.Audio.Effects.LimiterEffect?
+Vixen.Audio.AudioEngine.Listener.get -> Vixen.Audio.Spatial.AudioListener
+Vixen.Audio.AudioEngine.ListenerCount.get -> int
+Vixen.Audio.AudioEngine.Listeners.get -> Vixen.Audio.Spatial.AudioListenerSet
+Vixen.Audio.AudioEngine.LoadEvent(Vixen.Audio.Assets.AudioEventAsset asset, out System.Collections.Generic.IReadOnlyList<string> problems, Vixen.Audio.Assets.IAudioEventLibrary? library = null) -> Vixen.Audio.Events.AudioEvent
+Vixen.Audio.AudioEngine.LoadMixer(Vixen.Audio.Assets.MixerAsset asset) -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Audio.AudioEngine.LoadParameters(System.Collections.Generic.IReadOnlyList<Vixen.Audio.Parameters.AudioBusParameterDefinition> definitions, out System.Collections.Generic.IReadOnlyList<string> problems) -> Vixen.Audio.Parameters.MixerParameters
+Vixen.Audio.AudioEngine.LowPassOf(Vixen.Audio.Mixing.VoiceHandle handle) -> float
+Vixen.Audio.AudioEngine.Master.get -> Vixen.Audio.Mixing.AudioBus
+Vixen.Audio.AudioEngine.Mixer.get -> Vixen.Audio.Mixing.AudioMixer
+Vixen.Audio.AudioEngine.Occlusion.get -> Vixen.Audio.Spatial.AudioOcclusion
+Vixen.Audio.AudioEngine.OcclusionOf(Vixen.Audio.Mixing.VoiceHandle handle) -> float
+Vixen.Audio.AudioEngine.ParameterOf(Vixen.Audio.Mixing.VoiceHandle handle, int parameter) -> float
+Vixen.Audio.AudioEngine.Parameters.get -> Vixen.Audio.Parameters.MixerParameters?
+Vixen.Audio.AudioEngine.ParametersOf(Vixen.Audio.Mixing.VoiceHandle handle) -> Vixen.Audio.Parameters.AudioParameterSheet?
+Vixen.Audio.AudioEngine.Pause(Vixen.Audio.Mixing.VoiceHandle handle) -> void
+Vixen.Audio.AudioEngine.PendingLayers.get -> int
+Vixen.Audio.AudioEngine.PitchOf(Vixen.Audio.Mixing.VoiceHandle handle) -> float
+Vixen.Audio.AudioEngine.Play(Vixen.Audio.AudioClip clip) -> Vixen.Audio.Mixing.VoiceHandle
+Vixen.Audio.AudioEngine.Play(Vixen.Audio.AudioClip clip, in Vixen.Audio.Mixing.PlaybackSettings settings) -> Vixen.Audio.Mixing.VoiceHandle
+Vixen.Audio.AudioEngine.Play(Vixen.Audio.Sources.IAudioSampleProvider source, in Vixen.Audio.Mixing.PlaybackSettings settings) -> Vixen.Audio.Mixing.VoiceHandle
+Vixen.Audio.AudioEngine.PlayStream(Vixen.Audio.Streaming.IAudioStreamDecoder decoder, in Vixen.Audio.Mixing.PlaybackSettings settings) -> Vixen.Audio.Mixing.VoiceHandle
+Vixen.Audio.AudioEngine.RenderedFrames.get -> long
+Vixen.Audio.AudioEngine.Resume(Vixen.Audio.Mixing.VoiceHandle handle) -> void
+Vixen.Audio.AudioEngine.ReverbZones.get -> Vixen.Audio.Spatial.AudioReverbZones
+Vixen.Audio.AudioEngine.SendBusOf(Vixen.Audio.Mixing.VoiceHandle handle) -> int
+Vixen.Audio.AudioEngine.SendLevelOf(Vixen.Audio.Mixing.VoiceHandle handle) -> float
+Vixen.Audio.AudioEngine.SetGain(Vixen.Audio.Mixing.VoiceHandle handle, float gain) -> void
+Vixen.Audio.AudioEngine.SetListener(in Vixen.Audio.Spatial.AudioListener value) -> void
+Vixen.Audio.AudioEngine.SetListeners(in Vixen.Audio.Spatial.AudioListenerSet value) -> void
+Vixen.Audio.AudioEngine.SetPan(Vixen.Audio.Mixing.VoiceHandle handle, float pan) -> void
+Vixen.Audio.AudioEngine.SetParameter(Vixen.Audio.Mixing.VoiceHandle handle, int parameter, float value) -> bool
+Vixen.Audio.AudioEngine.SetParameter(Vixen.Audio.Mixing.VoiceHandle handle, string name, float value) -> bool
+Vixen.Audio.AudioEngine.SetPitch(Vixen.Audio.Mixing.VoiceHandle handle, float pitch) -> void
+Vixen.Audio.AudioEngine.SetSend(Vixen.Audio.Mixing.VoiceHandle handle, int bus, float level) -> bool
+Vixen.Audio.AudioEngine.SetSpatial(Vixen.Audio.Mixing.VoiceHandle handle, in Vixen.Audio.Spatial.SpatialSettings settings) -> void
+Vixen.Audio.AudioEngine.Snapshots.get -> Vixen.Audio.Assets.MixerSnapshots?
+Vixen.Audio.AudioEngine.Start() -> void
+Vixen.Audio.AudioEngine.StateOf(Vixen.Audio.Mixing.VoiceHandle handle) -> Vixen.Audio.Mixing.VoiceState
+Vixen.Audio.AudioEngine.Statistics.get -> Vixen.Audio.Diagnostics.AudioStatistics
+Vixen.Audio.AudioEngine.Stop(Vixen.Audio.Mixing.VoiceHandle handle) -> void
+Vixen.Audio.AudioEngine.StopAll() -> void
+Vixen.Audio.AudioEngine.Streams.get -> Vixen.Audio.Streaming.AudioStreamPump
+Vixen.Audio.AudioEngine.Suspend() -> void
+Vixen.Audio.AudioEngine.Update() -> void
+Vixen.Audio.AudioEngine.Update(float deltaSeconds) -> void
+Vixen.Audio.AudioEngine.UseHrtf.get -> bool
+Vixen.Audio.AudioEngine.UseHrtf.set -> bool
+Vixen.Audio.AudioEngine.Validate() -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Audio.AudioEngine.VoiceCapacity.get -> int
+Vixen.Audio.AudioEngineOptions -> readonly struct
+Vixen.Audio.AudioEngineOptions : System.IEquatable<Vixen.Audio.AudioEngineOptions>
+Vixen.Audio.AudioEngineOptions.AudibleVoices.get -> int
+Vixen.Audio.AudioEngineOptions.AudibleVoices.init -> int
+Vixen.Audio.AudioEngineOptions.AudioEngineOptions() -> void
+Vixen.Audio.AudioEngineOptions.AutoStart.get -> bool
+Vixen.Audio.AudioEngineOptions.AutoStart.init -> bool
+Vixen.Audio.AudioEngineOptions.Device.get -> Vixen.Audio.Devices.AudioDeviceOptions
+Vixen.Audio.AudioEngineOptions.Device.init -> Vixen.Audio.Devices.AudioDeviceOptions
+Vixen.Audio.AudioEngineOptions.MasterLimiter.get -> bool
+Vixen.Audio.AudioEngineOptions.MasterLimiter.init -> bool
+Vixen.Audio.AudioEngineOptions.StreamOnOwnThread.get -> bool
+Vixen.Audio.AudioEngineOptions.StreamOnOwnThread.init -> bool
+Vixen.Audio.AudioEngineOptions.VoiceCapacity.get -> int
+Vixen.Audio.AudioEngineOptions.VoiceCapacity.init -> int
+Vixen.Audio.AudioFormat -> readonly struct
+Vixen.Audio.AudioFormat : System.IEquatable<Vixen.Audio.AudioFormat>
+Vixen.Audio.AudioFormat.AudioFormat() -> void
+Vixen.Audio.AudioFormat.AudioFormat(int SampleRate, int Channels) -> void
+Vixen.Audio.AudioFormat.Channels.get -> int
+Vixen.Audio.AudioFormat.Channels.init -> int
+Vixen.Audio.AudioFormat.DurationOf(long frames) -> System.TimeSpan
+Vixen.Audio.AudioFormat.FramesFor(System.TimeSpan duration) -> int
+Vixen.Audio.AudioFormat.IsValid.get -> bool
+Vixen.Audio.AudioFormat.SampleRate.get -> int
+Vixen.Audio.AudioFormat.SampleRate.init -> int
+Vixen.Audio.AudioFormat.SamplesPerFrame.get -> int
+Vixen.Audio.AudioSampleFormat -> enum : int
+Vixen.Audio.AudioSampleFormat.AudioSampleFormat() -> void
+Vixen.Audio.AudioSampleFormat.Float32 = 1 -> Vixen.Audio.AudioSampleFormat
+Vixen.Audio.AudioSampleFormat.Int16 = 0 -> Vixen.Audio.AudioSampleFormat
+Vixen.Audio.Devices.AudioCaptureOptions -> readonly struct
+Vixen.Audio.Devices.AudioCaptureOptions : System.IEquatable<Vixen.Audio.Devices.AudioCaptureOptions>
+Vixen.Audio.Devices.AudioCaptureOptions.AudioCaptureOptions() -> void
+Vixen.Audio.Devices.AudioCaptureOptions.BufferedFrames.get -> int
+Vixen.Audio.Devices.AudioCaptureOptions.BufferedFrames.init -> int
+Vixen.Audio.Devices.AudioCaptureOptions.DeviceId.get -> string?
+Vixen.Audio.Devices.AudioCaptureOptions.DeviceId.init -> string?
+Vixen.Audio.Devices.AudioCaptureOptions.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Audio.Devices.AudioCaptureOptions.Format.init -> Vixen.Audio.AudioFormat
+Vixen.Audio.Devices.AudioDeviceException -> sealed class
+Vixen.Audio.Devices.AudioDeviceException : System.Exception
+Vixen.Audio.Devices.AudioDeviceException.AudioDeviceException() -> void
+Vixen.Audio.Devices.AudioDeviceException.AudioDeviceException(string message) -> void
+Vixen.Audio.Devices.AudioDeviceException.AudioDeviceException(string message, System.Exception innerException) -> void
+Vixen.Audio.Devices.AudioDeviceInfo -> readonly struct
+Vixen.Audio.Devices.AudioDeviceInfo : System.IEquatable<Vixen.Audio.Devices.AudioDeviceInfo>
+Vixen.Audio.Devices.AudioDeviceInfo.AudioDeviceInfo() -> void
+Vixen.Audio.Devices.AudioDeviceInfo.AudioDeviceInfo(string Id, string Name, bool IsDefault, Vixen.Audio.AudioFormat PreferredFormat) -> void
+Vixen.Audio.Devices.AudioDeviceInfo.Id.get -> string
+Vixen.Audio.Devices.AudioDeviceInfo.Id.init -> string
+Vixen.Audio.Devices.AudioDeviceInfo.IsDefault.get -> bool
+Vixen.Audio.Devices.AudioDeviceInfo.IsDefault.init -> bool
+Vixen.Audio.Devices.AudioDeviceInfo.Name.get -> string
+Vixen.Audio.Devices.AudioDeviceInfo.Name.init -> string
+Vixen.Audio.Devices.AudioDeviceInfo.PreferredFormat.get -> Vixen.Audio.AudioFormat
+Vixen.Audio.Devices.AudioDeviceInfo.PreferredFormat.init -> Vixen.Audio.AudioFormat
+Vixen.Audio.Devices.AudioDeviceOptions -> readonly struct
+Vixen.Audio.Devices.AudioDeviceOptions : System.IEquatable<Vixen.Audio.Devices.AudioDeviceOptions>
+Vixen.Audio.Devices.AudioDeviceOptions.AudioDeviceOptions() -> void
+Vixen.Audio.Devices.AudioDeviceOptions.BufferCount.get -> int
+Vixen.Audio.Devices.AudioDeviceOptions.BufferCount.init -> int
+Vixen.Audio.Devices.AudioDeviceOptions.BufferFrames.get -> int
+Vixen.Audio.Devices.AudioDeviceOptions.BufferFrames.init -> int
+Vixen.Audio.Devices.AudioDeviceOptions.DeviceId.get -> string?
+Vixen.Audio.Devices.AudioDeviceOptions.DeviceId.init -> string?
+Vixen.Audio.Devices.AudioDeviceOptions.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Audio.Devices.AudioDeviceOptions.Format.init -> Vixen.Audio.AudioFormat
+Vixen.Audio.Devices.IAudioBackend -> interface
+Vixen.Audio.Devices.IAudioBackend : System.IDisposable
+Vixen.Audio.Devices.IAudioBackend.EnumerateCaptureDevices() -> System.Collections.Generic.IReadOnlyList<Vixen.Audio.Devices.AudioDeviceInfo>
+Vixen.Audio.Devices.IAudioBackend.EnumerateDevices() -> System.Collections.Generic.IReadOnlyList<Vixen.Audio.Devices.AudioDeviceInfo>
+Vixen.Audio.Devices.IAudioBackend.IsAvailable.get -> bool
+Vixen.Audio.Devices.IAudioBackend.Name.get -> string
+Vixen.Audio.Devices.IAudioBackend.OpenCaptureDevice(in Vixen.Audio.Devices.AudioCaptureOptions options) -> Vixen.Audio.Devices.IAudioCaptureDevice
+Vixen.Audio.Devices.IAudioBackend.OpenDevice(in Vixen.Audio.Devices.AudioDeviceOptions options) -> Vixen.Audio.Devices.IAudioDevice
+Vixen.Audio.Devices.IAudioBackend.SupportsCapture.get -> bool
+Vixen.Audio.Devices.IAudioCaptureDevice -> interface
+Vixen.Audio.Devices.IAudioCaptureDevice : System.IDisposable
+Vixen.Audio.Devices.IAudioCaptureDevice.Available.get -> int
+Vixen.Audio.Devices.IAudioCaptureDevice.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Audio.Devices.IAudioCaptureDevice.Info.get -> Vixen.Audio.Devices.AudioDeviceInfo
+Vixen.Audio.Devices.IAudioCaptureDevice.IsRunning.get -> bool
+Vixen.Audio.Devices.IAudioCaptureDevice.Overruns.get -> long
+Vixen.Audio.Devices.IAudioCaptureDevice.Read(System.Span<float> destination, int frameCount) -> int
+Vixen.Audio.Devices.IAudioCaptureDevice.Start() -> void
+Vixen.Audio.Devices.IAudioCaptureDevice.Stop() -> void
+Vixen.Audio.Devices.IAudioDevice -> interface
+Vixen.Audio.Devices.IAudioDevice : System.IDisposable
+Vixen.Audio.Devices.IAudioDevice.BufferFrames.get -> int
+Vixen.Audio.Devices.IAudioDevice.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Audio.Devices.IAudioDevice.Info.get -> Vixen.Audio.Devices.AudioDeviceInfo
+Vixen.Audio.Devices.IAudioDevice.IsRunning.get -> bool
+Vixen.Audio.Devices.IAudioDevice.Start(Vixen.Audio.Devices.IAudioRenderSource source) -> void
+Vixen.Audio.Devices.IAudioDevice.Stop() -> void
+Vixen.Audio.Devices.IAudioDevice.Underruns.get -> long
+Vixen.Audio.Devices.IAudioRenderSource -> interface
+Vixen.Audio.Devices.IAudioRenderSource.Prepare(in Vixen.Audio.AudioFormat format, int maxFrames) -> void
+Vixen.Audio.Devices.IAudioRenderSource.Render(System.Span<float> destination, int frameCount) -> void
+Vixen.Audio.Devices.NullAudioBackend -> sealed class
+Vixen.Audio.Devices.NullAudioBackend : System.IDisposable
+Vixen.Audio.Devices.NullAudioBackend : Vixen.Audio.Devices.IAudioBackend
+Vixen.Audio.Devices.NullAudioBackend.Dispose() -> void
+Vixen.Audio.Devices.NullAudioBackend.EnumerateCaptureDevices() -> System.Collections.Generic.IReadOnlyList<Vixen.Audio.Devices.AudioDeviceInfo>
+Vixen.Audio.Devices.NullAudioBackend.EnumerateDevices() -> System.Collections.Generic.IReadOnlyList<Vixen.Audio.Devices.AudioDeviceInfo>
+Vixen.Audio.Devices.NullAudioBackend.IsAvailable.get -> bool
+Vixen.Audio.Devices.NullAudioBackend.Name.get -> string
+Vixen.Audio.Devices.NullAudioBackend.NullAudioBackend() -> void
+Vixen.Audio.Devices.NullAudioBackend.OpenCaptureDevice(in Vixen.Audio.Devices.AudioCaptureOptions options) -> Vixen.Audio.Devices.IAudioCaptureDevice
+Vixen.Audio.Devices.NullAudioBackend.OpenDevice(in Vixen.Audio.Devices.AudioDeviceOptions options) -> Vixen.Audio.Devices.IAudioDevice
+Vixen.Audio.Devices.NullAudioBackend.Paced.get -> bool
+Vixen.Audio.Devices.NullAudioBackend.Paced.init -> bool
+Vixen.Audio.Devices.NullAudioBackend.SupportsCapture.get -> bool
+Vixen.Audio.Devices.NullAudioCaptureDevice -> sealed class
+Vixen.Audio.Devices.NullAudioCaptureDevice : System.IDisposable
+Vixen.Audio.Devices.NullAudioCaptureDevice : Vixen.Audio.Devices.IAudioCaptureDevice
+Vixen.Audio.Devices.NullAudioCaptureDevice.Available.get -> int
+Vixen.Audio.Devices.NullAudioCaptureDevice.Dispose() -> void
+Vixen.Audio.Devices.NullAudioCaptureDevice.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Audio.Devices.NullAudioCaptureDevice.Info.get -> Vixen.Audio.Devices.AudioDeviceInfo
+Vixen.Audio.Devices.NullAudioCaptureDevice.IsRunning.get -> bool
+Vixen.Audio.Devices.NullAudioCaptureDevice.NullAudioCaptureDevice(in Vixen.Audio.Devices.AudioCaptureOptions options) -> void
+Vixen.Audio.Devices.NullAudioCaptureDevice.Overruns.get -> long
+Vixen.Audio.Devices.NullAudioCaptureDevice.Push(System.ReadOnlySpan<float> samples) -> int
+Vixen.Audio.Devices.NullAudioCaptureDevice.Read(System.Span<float> destination, int frameCount) -> int
+Vixen.Audio.Devices.NullAudioCaptureDevice.Start() -> void
+Vixen.Audio.Devices.NullAudioCaptureDevice.Stop() -> void
+Vixen.Audio.Devices.NullAudioDevice -> sealed class
+Vixen.Audio.Devices.NullAudioDevice : System.IDisposable
+Vixen.Audio.Devices.NullAudioDevice : Vixen.Audio.Devices.IAudioDevice
+Vixen.Audio.Devices.NullAudioDevice.Advance(int frames) -> void
+Vixen.Audio.Devices.NullAudioDevice.BufferFrames.get -> int
+Vixen.Audio.Devices.NullAudioDevice.Dispose() -> void
+Vixen.Audio.Devices.NullAudioDevice.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Audio.Devices.NullAudioDevice.Info.get -> Vixen.Audio.Devices.AudioDeviceInfo
+Vixen.Audio.Devices.NullAudioDevice.IsRunning.get -> bool
+Vixen.Audio.Devices.NullAudioDevice.Render(System.Span<float> destination) -> int
+Vixen.Audio.Devices.NullAudioDevice.RenderedFrames.get -> long
+Vixen.Audio.Devices.NullAudioDevice.Start(Vixen.Audio.Devices.IAudioRenderSource source) -> void
+Vixen.Audio.Devices.NullAudioDevice.Stop() -> void
+Vixen.Audio.Devices.NullAudioDevice.Underruns.get -> long
+Vixen.Audio.Diagnostics.AudioStatistics -> readonly struct
+Vixen.Audio.Diagnostics.AudioStatistics : System.IEquatable<Vixen.Audio.Diagnostics.AudioStatistics>
+Vixen.Audio.Diagnostics.AudioStatistics.ActiveVoices.get -> int
+Vixen.Audio.Diagnostics.AudioStatistics.ActiveVoices.init -> int
+Vixen.Audio.Diagnostics.AudioStatistics.AudioStatistics() -> void
+Vixen.Audio.Diagnostics.AudioStatistics.DeviceUnderruns.get -> long
+Vixen.Audio.Diagnostics.AudioStatistics.DeviceUnderruns.init -> long
+Vixen.Audio.Diagnostics.AudioStatistics.DroppedRequests.get -> long
+Vixen.Audio.Diagnostics.AudioStatistics.DroppedRequests.init -> long
+Vixen.Audio.Diagnostics.AudioStatistics.LastRenderTime.get -> System.TimeSpan
+Vixen.Audio.Diagnostics.AudioStatistics.LastRenderTime.init -> System.TimeSpan
+Vixen.Audio.Diagnostics.AudioStatistics.Load.get -> double
+Vixen.Audio.Diagnostics.AudioStatistics.Load.init -> double
+Vixen.Audio.Diagnostics.AudioStatistics.MasterPeak.get -> float
+Vixen.Audio.Diagnostics.AudioStatistics.MasterPeak.init -> float
+Vixen.Audio.Diagnostics.AudioStatistics.RenderedFrames.get -> long
+Vixen.Audio.Diagnostics.AudioStatistics.RenderedFrames.init -> long
+Vixen.Audio.Diagnostics.AudioStatistics.StolenVoices.get -> long
+Vixen.Audio.Diagnostics.AudioStatistics.StolenVoices.init -> long
+Vixen.Audio.Diagnostics.AudioStatistics.StreamCount.get -> int
+Vixen.Audio.Diagnostics.AudioStatistics.StreamCount.init -> int
+Vixen.Audio.Diagnostics.AudioStatistics.StreamUnderruns.get -> long
+Vixen.Audio.Diagnostics.AudioStatistics.StreamUnderruns.init -> long
+Vixen.Audio.Diagnostics.AudioStatistics.VirtualVoices.get -> int
+Vixen.Audio.Diagnostics.AudioStatistics.VirtualVoices.init -> int
+Vixen.Audio.Diagnostics.AudioStatistics.VoiceCapacity.get -> int
+Vixen.Audio.Diagnostics.AudioStatistics.VoiceCapacity.init -> int
+Vixen.Audio.Diagnostics.MixControl -> sealed class
+Vixen.Audio.Diagnostics.MixControl.Enumerate() -> System.Collections.Generic.IReadOnlyList<Vixen.Audio.Diagnostics.MixControlInfo>
+Vixen.Audio.Diagnostics.MixControl.MixControl(Vixen.Audio.AudioEngine engine) -> void
+Vixen.Audio.Diagnostics.MixControl.TryGet(string path, out float value) -> bool
+Vixen.Audio.Diagnostics.MixControl.TrySet(string path, float value) -> bool
+Vixen.Audio.Diagnostics.MixControlInfo -> readonly struct
+Vixen.Audio.Diagnostics.MixControlInfo : System.IEquatable<Vixen.Audio.Diagnostics.MixControlInfo>
+Vixen.Audio.Diagnostics.MixControlInfo.Kind.get -> Vixen.Audio.Diagnostics.MixControlKind
+Vixen.Audio.Diagnostics.MixControlInfo.Kind.init -> Vixen.Audio.Diagnostics.MixControlKind
+Vixen.Audio.Diagnostics.MixControlInfo.Maximum.get -> float
+Vixen.Audio.Diagnostics.MixControlInfo.Maximum.init -> float
+Vixen.Audio.Diagnostics.MixControlInfo.Minimum.get -> float
+Vixen.Audio.Diagnostics.MixControlInfo.Minimum.init -> float
+Vixen.Audio.Diagnostics.MixControlInfo.MixControlInfo() -> void
+Vixen.Audio.Diagnostics.MixControlInfo.MixControlInfo(string Path, Vixen.Audio.Diagnostics.MixControlKind Kind, float Value, float Minimum, float Maximum) -> void
+Vixen.Audio.Diagnostics.MixControlInfo.Path.get -> string
+Vixen.Audio.Diagnostics.MixControlInfo.Path.init -> string
+Vixen.Audio.Diagnostics.MixControlInfo.Value.get -> float
+Vixen.Audio.Diagnostics.MixControlInfo.Value.init -> float
+Vixen.Audio.Diagnostics.MixControlKind -> enum : int
+Vixen.Audio.Diagnostics.MixControlKind.BusGain = 0 -> Vixen.Audio.Diagnostics.MixControlKind
+Vixen.Audio.Diagnostics.MixControlKind.BusMute = 1 -> Vixen.Audio.Diagnostics.MixControlKind
+Vixen.Audio.Diagnostics.MixControlKind.EffectProperty = 3 -> Vixen.Audio.Diagnostics.MixControlKind
+Vixen.Audio.Diagnostics.MixControlKind.MixControlKind() -> void
+Vixen.Audio.Diagnostics.MixControlKind.Parameter = 4 -> Vixen.Audio.Diagnostics.MixControlKind
+Vixen.Audio.Diagnostics.MixControlKind.SendLevel = 2 -> Vixen.Audio.Diagnostics.MixControlKind
+Vixen.Audio.Diagnostics.MixControlServer -> sealed class
+Vixen.Audio.Diagnostics.MixControlServer : System.IDisposable
+Vixen.Audio.Diagnostics.MixControlServer.AppliedChanges.get -> long
+Vixen.Audio.Diagnostics.MixControlServer.Dispose() -> void
+Vixen.Audio.Diagnostics.MixControlServer.EndPoint.get -> System.Net.IPEndPoint?
+Vixen.Audio.Diagnostics.MixControlServer.IsConnected.get -> bool
+Vixen.Audio.Diagnostics.MixControlServer.IsRunning.get -> bool
+Vixen.Audio.Diagnostics.MixControlServer.MixControlServer(Vixen.Audio.Diagnostics.MixControl control) -> void
+Vixen.Audio.Diagnostics.MixControlServer.Port.get -> int
+Vixen.Audio.Diagnostics.MixControlServer.RefreshHz.get -> int
+Vixen.Audio.Diagnostics.MixControlServer.RefreshHz.set -> int
+Vixen.Audio.Diagnostics.MixControlServer.Start(int port = 0) -> void
+Vixen.Audio.Diagnostics.MixControlServer.Stop() -> void
+Vixen.Audio.Diagnostics.MixControlServer.Update() -> void
+Vixen.Audio.Dsp.Fft -> sealed class
+Vixen.Audio.Dsp.Fft.Fft(int size) -> void
+Vixen.Audio.Dsp.Fft.Forward(System.Span<float> real, System.Span<float> imaginary) -> void
+Vixen.Audio.Dsp.Fft.Inverse(System.Span<float> real, System.Span<float> imaginary) -> void
+Vixen.Audio.Dsp.Fft.Size.get -> int
+Vixen.Audio.Dsp.Oversampler -> sealed class
+Vixen.Audio.Dsp.Oversampler.Channels.get -> int
+Vixen.Audio.Dsp.Oversampler.Collapse(int channel, System.ReadOnlySpan<float> samples) -> float
+Vixen.Audio.Dsp.Oversampler.Expand(int channel, float sample, System.Span<float> destination) -> void
+Vixen.Audio.Dsp.Oversampler.Factor.get -> int
+Vixen.Audio.Dsp.Oversampler.Latency.get -> int
+Vixen.Audio.Dsp.Oversampler.Oversampler(int channels, int factor = 4) -> void
+Vixen.Audio.Dsp.Oversampler.Reset() -> void
+Vixen.Audio.Dsp.RealFft -> sealed class
+Vixen.Audio.Dsp.RealFft.Bins.get -> int
+Vixen.Audio.Dsp.RealFft.Forward(System.ReadOnlySpan<float> samples, System.Span<float> real, System.Span<float> imaginary) -> void
+Vixen.Audio.Dsp.RealFft.Inverse(System.ReadOnlySpan<float> real, System.ReadOnlySpan<float> imaginary, System.Span<float> samples) -> void
+Vixen.Audio.Dsp.RealFft.Magnitudes(System.ReadOnlySpan<float> real, System.ReadOnlySpan<float> imaginary, System.Span<float> magnitudes) -> void
+Vixen.Audio.Dsp.RealFft.RealFft(int size) -> void
+Vixen.Audio.Dsp.RealFft.Size.get -> int
+Vixen.Audio.Dsp.SincTable -> static class
+Vixen.Audio.Dsp.TruePeakMeter -> sealed class
+Vixen.Audio.Dsp.TruePeakMeter.Channels.get -> int
+Vixen.Audio.Dsp.TruePeakMeter.Peak.get -> float
+Vixen.Audio.Dsp.TruePeakMeter.PeakDbTp.get -> float
+Vixen.Audio.Dsp.TruePeakMeter.Push(int channel, float sample) -> void
+Vixen.Audio.Dsp.TruePeakMeter.Reset() -> void
+Vixen.Audio.Dsp.TruePeakMeter.TruePeakMeter(int channelCount) -> void
+Vixen.Audio.Ecs.AudioClipRef -> struct
+Vixen.Audio.Ecs.AudioClipRef.AudioClipRef() -> void
+Vixen.Audio.Ecs.AudioClipRef.Clip -> Vixen.Audio.AudioClip?
+Vixen.Audio.Ecs.AudioEventRef -> struct
+Vixen.Audio.Ecs.AudioEventRef.AudioEventRef() -> void
+Vixen.Audio.Ecs.AudioEventRef.Event -> Vixen.Audio.Events.AudioEvent?
+Vixen.Audio.Ecs.AudioListenerComponent -> struct
+Vixen.Audio.Ecs.AudioListenerComponent.AudioListenerComponent() -> void
+Vixen.Audio.Ecs.AudioListenerComponent.AutoVelocity -> bool
+Vixen.Audio.Ecs.AudioListenerComponent.Gain -> float
+Vixen.Audio.Ecs.AudioListenerComponent.HasPreviousPosition -> bool
+Vixen.Audio.Ecs.AudioListenerComponent.PreviousPosition -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Ecs.AudioListenerComponent.Velocity -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Ecs.AudioListenerComponent.Weight -> float
+Vixen.Audio.Ecs.AudioPlayback -> enum : int
+Vixen.Audio.Ecs.AudioPlayback.AudioPlayback() -> void
+Vixen.Audio.Ecs.AudioPlayback.Paused = 2 -> Vixen.Audio.Ecs.AudioPlayback
+Vixen.Audio.Ecs.AudioPlayback.Playing = 1 -> Vixen.Audio.Ecs.AudioPlayback
+Vixen.Audio.Ecs.AudioPlayback.Stopped = 0 -> Vixen.Audio.Ecs.AudioPlayback
+Vixen.Audio.Ecs.AudioReverbZoneRef -> struct
+Vixen.Audio.Ecs.AudioReverbZoneRef.AudioReverbZoneRef() -> void
+Vixen.Audio.Ecs.AudioReverbZoneRef.Enabled -> bool
+Vixen.Audio.Ecs.AudioReverbZoneRef.Zone -> Vixen.Audio.Spatial.AudioReverbZone?
+Vixen.Audio.Ecs.AudioSource -> struct
+Vixen.Audio.Ecs.AudioSource.AudioSource() -> void
+Vixen.Audio.Ecs.AudioSource.Bus -> int
+Vixen.Audio.Ecs.AudioSource.Gain -> float
+Vixen.Audio.Ecs.AudioSource.Loop -> bool
+Vixen.Audio.Ecs.AudioSource.Pan -> float
+Vixen.Audio.Ecs.AudioSource.Pitch -> float
+Vixen.Audio.Ecs.AudioSource.Playback -> Vixen.Audio.Ecs.AudioPlayback
+Vixen.Audio.Ecs.AudioSource.Priority -> int
+Vixen.Audio.Ecs.AudioSource.Voice -> Vixen.Audio.Mixing.VoiceHandle
+Vixen.Audio.Ecs.AudioSource.VoiceGainScale -> float
+Vixen.Audio.Ecs.AudioSource.VoicePitchScale -> float
+Vixen.Audio.Ecs.AudioSpatial -> struct
+Vixen.Audio.Ecs.AudioSpatial.Attenuation -> Vixen.Audio.Spatial.AttenuationModel
+Vixen.Audio.Ecs.AudioSpatial.AudioSpatial() -> void
+Vixen.Audio.Ecs.AudioSpatial.AutoVelocity -> bool
+Vixen.Audio.Ecs.AudioSpatial.ConeInnerAngle -> float
+Vixen.Audio.Ecs.AudioSpatial.ConeOuterAngle -> float
+Vixen.Audio.Ecs.AudioSpatial.ConeOuterGain -> float
+Vixen.Audio.Ecs.AudioSpatial.DopplerFactor -> float
+Vixen.Audio.Ecs.AudioSpatial.HasPreviousPosition -> bool
+Vixen.Audio.Ecs.AudioSpatial.MaxDistance -> float
+Vixen.Audio.Ecs.AudioSpatial.MinDistance -> float
+Vixen.Audio.Ecs.AudioSpatial.PreviousPosition -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Ecs.AudioSpatial.RolloffFactor -> float
+Vixen.Audio.Ecs.AudioSpatial.Spread -> float
+Vixen.Audio.Ecs.AudioSpatial.Velocity -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Ecs.AudioSystem -> sealed class
+Vixen.Audio.Ecs.AudioSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Audio.Ecs.AudioSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Audio.Ecs.AudioSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Audio.Ecs.AudioSystem.AudioSystem(Vixen.Audio.AudioEngine engine) -> void
+Vixen.Audio.Ecs.AudioSystem.ListenerCount.get -> int
+Vixen.Audio.Ecs.AudioSystem.Synchronize(Vixen.Ecs.World world, float deltaSeconds) -> void
+Vixen.Audio.Ecs.AudioSystem.ZoneCount.get -> int
+Vixen.Audio.Effects.BiquadCoefficients -> readonly struct
+Vixen.Audio.Effects.BiquadCoefficients : System.IEquatable<Vixen.Audio.Effects.BiquadCoefficients>
+Vixen.Audio.Effects.BiquadCoefficients.A1.get -> float
+Vixen.Audio.Effects.BiquadCoefficients.A1.init -> float
+Vixen.Audio.Effects.BiquadCoefficients.A2.get -> float
+Vixen.Audio.Effects.BiquadCoefficients.A2.init -> float
+Vixen.Audio.Effects.BiquadCoefficients.B0.get -> float
+Vixen.Audio.Effects.BiquadCoefficients.B0.init -> float
+Vixen.Audio.Effects.BiquadCoefficients.B1.get -> float
+Vixen.Audio.Effects.BiquadCoefficients.B1.init -> float
+Vixen.Audio.Effects.BiquadCoefficients.B2.get -> float
+Vixen.Audio.Effects.BiquadCoefficients.B2.init -> float
+Vixen.Audio.Effects.BiquadCoefficients.BiquadCoefficients() -> void
+Vixen.Audio.Effects.BiquadCoefficients.BiquadCoefficients(float B0, float B1, float B2, float A1, float A2) -> void
+Vixen.Audio.Effects.BiquadFilterEffect -> sealed class
+Vixen.Audio.Effects.BiquadFilterEffect : Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Effects.BiquadFilterEffect.BiquadFilterEffect() -> void
+Vixen.Audio.Effects.BiquadFilterEffect.Coefficients.get -> Vixen.Audio.Effects.BiquadCoefficients
+Vixen.Audio.Effects.BiquadFilterEffect.Enabled.get -> bool
+Vixen.Audio.Effects.BiquadFilterEffect.Enabled.set -> bool
+Vixen.Audio.Effects.BiquadFilterEffect.Frequency.get -> float
+Vixen.Audio.Effects.BiquadFilterEffect.Frequency.set -> float
+Vixen.Audio.Effects.BiquadFilterEffect.GainDb.get -> float
+Vixen.Audio.Effects.BiquadFilterEffect.GainDb.set -> float
+Vixen.Audio.Effects.BiquadFilterEffect.Kind.get -> Vixen.Audio.Effects.BiquadFilterKind
+Vixen.Audio.Effects.BiquadFilterEffect.Kind.set -> Vixen.Audio.Effects.BiquadFilterKind
+Vixen.Audio.Effects.BiquadFilterEffect.Prepare(in Vixen.Audio.AudioFormat format, int maxFrames) -> void
+Vixen.Audio.Effects.BiquadFilterEffect.Process(System.Span<float> buffer, int frameCount, int channels) -> void
+Vixen.Audio.Effects.BiquadFilterEffect.Properties.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Audio.Effects.BiquadFilterEffect.Q.get -> float
+Vixen.Audio.Effects.BiquadFilterEffect.Q.set -> float
+Vixen.Audio.Effects.BiquadFilterEffect.Reset() -> void
+Vixen.Audio.Effects.BiquadFilterEffect.TryGetProperty(string name, out float value) -> bool
+Vixen.Audio.Effects.BiquadFilterEffect.TrySetProperty(string name, float value) -> bool
+Vixen.Audio.Effects.BiquadFilterKind -> enum : int
+Vixen.Audio.Effects.BiquadFilterKind.BandPass = 2 -> Vixen.Audio.Effects.BiquadFilterKind
+Vixen.Audio.Effects.BiquadFilterKind.BiquadFilterKind() -> void
+Vixen.Audio.Effects.BiquadFilterKind.HighPass = 1 -> Vixen.Audio.Effects.BiquadFilterKind
+Vixen.Audio.Effects.BiquadFilterKind.HighShelf = 6 -> Vixen.Audio.Effects.BiquadFilterKind
+Vixen.Audio.Effects.BiquadFilterKind.LowPass = 0 -> Vixen.Audio.Effects.BiquadFilterKind
+Vixen.Audio.Effects.BiquadFilterKind.LowShelf = 5 -> Vixen.Audio.Effects.BiquadFilterKind
+Vixen.Audio.Effects.BiquadFilterKind.Notch = 3 -> Vixen.Audio.Effects.BiquadFilterKind
+Vixen.Audio.Effects.BiquadFilterKind.Peaking = 4 -> Vixen.Audio.Effects.BiquadFilterKind
+Vixen.Audio.Effects.BitCrusherEffect -> sealed class
+Vixen.Audio.Effects.BitCrusherEffect : Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Effects.BitCrusherEffect.BitCrusherEffect() -> void
+Vixen.Audio.Effects.BitCrusherEffect.Bits.get -> float
+Vixen.Audio.Effects.BitCrusherEffect.Bits.set -> float
+Vixen.Audio.Effects.BitCrusherEffect.Downsample.get -> float
+Vixen.Audio.Effects.BitCrusherEffect.Downsample.set -> float
+Vixen.Audio.Effects.BitCrusherEffect.Enabled.get -> bool
+Vixen.Audio.Effects.BitCrusherEffect.Enabled.set -> bool
+Vixen.Audio.Effects.BitCrusherEffect.Mix.get -> float
+Vixen.Audio.Effects.BitCrusherEffect.Mix.set -> float
+Vixen.Audio.Effects.BitCrusherEffect.Prepare(in Vixen.Audio.AudioFormat format, int maxFrames) -> void
+Vixen.Audio.Effects.BitCrusherEffect.Process(System.Span<float> buffer, int frameCount, int channels) -> void
+Vixen.Audio.Effects.BitCrusherEffect.Properties.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Audio.Effects.BitCrusherEffect.Reset() -> void
+Vixen.Audio.Effects.BitCrusherEffect.TryGetProperty(string name, out float value) -> bool
+Vixen.Audio.Effects.BitCrusherEffect.TrySetProperty(string name, float value) -> bool
+Vixen.Audio.Effects.CompressorEffect -> sealed class
+Vixen.Audio.Effects.CompressorEffect : Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Effects.CompressorEffect : Vixen.Audio.Effects.ISidechainEffect
+Vixen.Audio.Effects.CompressorEffect.AttackSeconds.get -> float
+Vixen.Audio.Effects.CompressorEffect.AttackSeconds.set -> float
+Vixen.Audio.Effects.CompressorEffect.CompressorEffect() -> void
+Vixen.Audio.Effects.CompressorEffect.Enabled.get -> bool
+Vixen.Audio.Effects.CompressorEffect.Enabled.set -> bool
+Vixen.Audio.Effects.CompressorEffect.GainReductionDb.get -> float
+Vixen.Audio.Effects.CompressorEffect.KneeDb.get -> float
+Vixen.Audio.Effects.CompressorEffect.KneeDb.set -> float
+Vixen.Audio.Effects.CompressorEffect.MakeupDb.get -> float
+Vixen.Audio.Effects.CompressorEffect.MakeupDb.set -> float
+Vixen.Audio.Effects.CompressorEffect.Prepare(in Vixen.Audio.AudioFormat format, int maxFrames) -> void
+Vixen.Audio.Effects.CompressorEffect.Process(System.Span<float> buffer, System.ReadOnlySpan<float> key, int frameCount, int channels) -> void
+Vixen.Audio.Effects.CompressorEffect.Process(System.Span<float> buffer, int frameCount, int channels) -> void
+Vixen.Audio.Effects.CompressorEffect.Properties.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Audio.Effects.CompressorEffect.Ratio.get -> float
+Vixen.Audio.Effects.CompressorEffect.Ratio.set -> float
+Vixen.Audio.Effects.CompressorEffect.ReleaseSeconds.get -> float
+Vixen.Audio.Effects.CompressorEffect.ReleaseSeconds.set -> float
+Vixen.Audio.Effects.CompressorEffect.Reset() -> void
+Vixen.Audio.Effects.CompressorEffect.ThresholdDb.get -> float
+Vixen.Audio.Effects.CompressorEffect.ThresholdDb.set -> float
+Vixen.Audio.Effects.CompressorEffect.TryGetProperty(string name, out float value) -> bool
+Vixen.Audio.Effects.CompressorEffect.TrySetProperty(string name, float value) -> bool
+Vixen.Audio.Effects.ConvolutionReverbEffect -> sealed class
+Vixen.Audio.Effects.ConvolutionReverbEffect : Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Effects.ConvolutionReverbEffect.ConvolutionReverbEffect(Vixen.Audio.AudioClip response) -> void
+Vixen.Audio.Effects.ConvolutionReverbEffect.Dry.get -> float
+Vixen.Audio.Effects.ConvolutionReverbEffect.Dry.set -> float
+Vixen.Audio.Effects.ConvolutionReverbEffect.Enabled.get -> bool
+Vixen.Audio.Effects.ConvolutionReverbEffect.Enabled.set -> bool
+Vixen.Audio.Effects.ConvolutionReverbEffect.IsRateMatched.get -> bool
+Vixen.Audio.Effects.ConvolutionReverbEffect.LatencyFrames.get -> int
+Vixen.Audio.Effects.ConvolutionReverbEffect.PartitionCount.get -> int
+Vixen.Audio.Effects.ConvolutionReverbEffect.Prepare(in Vixen.Audio.AudioFormat format, int maxFrames) -> void
+Vixen.Audio.Effects.ConvolutionReverbEffect.Process(System.Span<float> buffer, int frameCount, int channels) -> void
+Vixen.Audio.Effects.ConvolutionReverbEffect.Properties.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Audio.Effects.ConvolutionReverbEffect.Reset() -> void
+Vixen.Audio.Effects.ConvolutionReverbEffect.ResponseChannels.get -> int
+Vixen.Audio.Effects.ConvolutionReverbEffect.ResponseFrames.get -> int
+Vixen.Audio.Effects.ConvolutionReverbEffect.ResponseSampleRate.get -> int
+Vixen.Audio.Effects.ConvolutionReverbEffect.TryGetProperty(string name, out float value) -> bool
+Vixen.Audio.Effects.ConvolutionReverbEffect.TrySetProperty(string name, float value) -> bool
+Vixen.Audio.Effects.ConvolutionReverbEffect.Wet.get -> float
+Vixen.Audio.Effects.ConvolutionReverbEffect.Wet.set -> float
+Vixen.Audio.Effects.Decibels -> static class
+Vixen.Audio.Effects.DelayEffect -> sealed class
+Vixen.Audio.Effects.DelayEffect : Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Effects.DelayEffect.DampingHz.get -> float
+Vixen.Audio.Effects.DelayEffect.DampingHz.set -> float
+Vixen.Audio.Effects.DelayEffect.DelayEffect() -> void
+Vixen.Audio.Effects.DelayEffect.DelaySeconds.get -> float
+Vixen.Audio.Effects.DelayEffect.DelaySeconds.set -> float
+Vixen.Audio.Effects.DelayEffect.Dry.get -> float
+Vixen.Audio.Effects.DelayEffect.Dry.set -> float
+Vixen.Audio.Effects.DelayEffect.Enabled.get -> bool
+Vixen.Audio.Effects.DelayEffect.Enabled.set -> bool
+Vixen.Audio.Effects.DelayEffect.Feedback.get -> float
+Vixen.Audio.Effects.DelayEffect.Feedback.set -> float
+Vixen.Audio.Effects.DelayEffect.MaxDelaySeconds.get -> float
+Vixen.Audio.Effects.DelayEffect.MaxDelaySeconds.init -> float
+Vixen.Audio.Effects.DelayEffect.PingPong.get -> bool
+Vixen.Audio.Effects.DelayEffect.PingPong.set -> bool
+Vixen.Audio.Effects.DelayEffect.Prepare(in Vixen.Audio.AudioFormat format, int maxFrames) -> void
+Vixen.Audio.Effects.DelayEffect.Process(System.Span<float> buffer, int frameCount, int channels) -> void
+Vixen.Audio.Effects.DelayEffect.Properties.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Audio.Effects.DelayEffect.Reset() -> void
+Vixen.Audio.Effects.DelayEffect.TryGetProperty(string name, out float value) -> bool
+Vixen.Audio.Effects.DelayEffect.TrySetProperty(string name, float value) -> bool
+Vixen.Audio.Effects.DelayEffect.Wet.get -> float
+Vixen.Audio.Effects.DelayEffect.Wet.set -> float
+Vixen.Audio.Effects.DistortionCurve -> enum : int
+Vixen.Audio.Effects.DistortionCurve.DistortionCurve() -> void
+Vixen.Audio.Effects.DistortionCurve.Foldback = 3 -> Vixen.Audio.Effects.DistortionCurve
+Vixen.Audio.Effects.DistortionCurve.HardClip = 1 -> Vixen.Audio.Effects.DistortionCurve
+Vixen.Audio.Effects.DistortionCurve.Overdrive = 2 -> Vixen.Audio.Effects.DistortionCurve
+Vixen.Audio.Effects.DistortionCurve.SoftClip = 0 -> Vixen.Audio.Effects.DistortionCurve
+Vixen.Audio.Effects.DistortionEffect -> sealed class
+Vixen.Audio.Effects.DistortionEffect : Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Effects.DistortionEffect.Curve.get -> Vixen.Audio.Effects.DistortionCurve
+Vixen.Audio.Effects.DistortionEffect.Curve.set -> Vixen.Audio.Effects.DistortionCurve
+Vixen.Audio.Effects.DistortionEffect.DistortionEffect() -> void
+Vixen.Audio.Effects.DistortionEffect.DriveDb.get -> float
+Vixen.Audio.Effects.DistortionEffect.DriveDb.set -> float
+Vixen.Audio.Effects.DistortionEffect.Enabled.get -> bool
+Vixen.Audio.Effects.DistortionEffect.Enabled.set -> bool
+Vixen.Audio.Effects.DistortionEffect.Mix.get -> float
+Vixen.Audio.Effects.DistortionEffect.Mix.set -> float
+Vixen.Audio.Effects.DistortionEffect.OutputDb.get -> float
+Vixen.Audio.Effects.DistortionEffect.OutputDb.set -> float
+Vixen.Audio.Effects.DistortionEffect.Oversampling.get -> int
+Vixen.Audio.Effects.DistortionEffect.Oversampling.set -> int
+Vixen.Audio.Effects.DistortionEffect.Prepare(in Vixen.Audio.AudioFormat format, int maxFrames) -> void
+Vixen.Audio.Effects.DistortionEffect.Process(System.Span<float> buffer, int frameCount, int channels) -> void
+Vixen.Audio.Effects.DistortionEffect.Properties.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Audio.Effects.DistortionEffect.Reset() -> void
+Vixen.Audio.Effects.DistortionEffect.TryGetProperty(string name, out float value) -> bool
+Vixen.Audio.Effects.DistortionEffect.TrySetProperty(string name, float value) -> bool
+Vixen.Audio.Effects.EqualizerEffect -> sealed class
+Vixen.Audio.Effects.EqualizerEffect : Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Effects.EqualizerEffect.AddBand(Vixen.Audio.Effects.BiquadFilterKind kind, float frequency, float q = 0.70710677, float gainDb = 0) -> Vixen.Audio.Effects.BiquadFilterEffect
+Vixen.Audio.Effects.EqualizerEffect.Bands.get -> System.Collections.Generic.IReadOnlyList<Vixen.Audio.Effects.BiquadFilterEffect>
+Vixen.Audio.Effects.EqualizerEffect.Enabled.get -> bool
+Vixen.Audio.Effects.EqualizerEffect.Enabled.set -> bool
+Vixen.Audio.Effects.EqualizerEffect.EqualizerEffect() -> void
+Vixen.Audio.Effects.EqualizerEffect.Prepare(in Vixen.Audio.AudioFormat format, int maxFrames) -> void
+Vixen.Audio.Effects.EqualizerEffect.Process(System.Span<float> buffer, int frameCount, int channels) -> void
+Vixen.Audio.Effects.EqualizerEffect.RemoveBand(Vixen.Audio.Effects.BiquadFilterEffect band) -> bool
+Vixen.Audio.Effects.EqualizerEffect.Reset() -> void
+Vixen.Audio.Effects.GateEffect -> sealed class
+Vixen.Audio.Effects.GateEffect : Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Effects.GateEffect : Vixen.Audio.Effects.ISidechainEffect
+Vixen.Audio.Effects.GateEffect.AttackSeconds.get -> float
+Vixen.Audio.Effects.GateEffect.AttackSeconds.set -> float
+Vixen.Audio.Effects.GateEffect.Enabled.get -> bool
+Vixen.Audio.Effects.GateEffect.Enabled.set -> bool
+Vixen.Audio.Effects.GateEffect.GainReductionDb.get -> float
+Vixen.Audio.Effects.GateEffect.GateEffect() -> void
+Vixen.Audio.Effects.GateEffect.HoldSeconds.get -> float
+Vixen.Audio.Effects.GateEffect.HoldSeconds.set -> float
+Vixen.Audio.Effects.GateEffect.IsOpen.get -> bool
+Vixen.Audio.Effects.GateEffect.KneeDb.get -> float
+Vixen.Audio.Effects.GateEffect.KneeDb.set -> float
+Vixen.Audio.Effects.GateEffect.Prepare(in Vixen.Audio.AudioFormat format, int maxFrames) -> void
+Vixen.Audio.Effects.GateEffect.Process(System.Span<float> buffer, System.ReadOnlySpan<float> key, int frameCount, int channels) -> void
+Vixen.Audio.Effects.GateEffect.Process(System.Span<float> buffer, int frameCount, int channels) -> void
+Vixen.Audio.Effects.GateEffect.Properties.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Audio.Effects.GateEffect.RangeDb.get -> float
+Vixen.Audio.Effects.GateEffect.RangeDb.set -> float
+Vixen.Audio.Effects.GateEffect.ReleaseSeconds.get -> float
+Vixen.Audio.Effects.GateEffect.ReleaseSeconds.set -> float
+Vixen.Audio.Effects.GateEffect.Reset() -> void
+Vixen.Audio.Effects.GateEffect.ThresholdDb.get -> float
+Vixen.Audio.Effects.GateEffect.ThresholdDb.set -> float
+Vixen.Audio.Effects.GateEffect.TryGetProperty(string name, out float value) -> bool
+Vixen.Audio.Effects.GateEffect.TrySetProperty(string name, float value) -> bool
+Vixen.Audio.Effects.IAudioEffect -> interface
+Vixen.Audio.Effects.IAudioEffect.Enabled.get -> bool
+Vixen.Audio.Effects.IAudioEffect.Enabled.set -> bool
+Vixen.Audio.Effects.IAudioEffect.Prepare(in Vixen.Audio.AudioFormat format, int maxFrames) -> void
+Vixen.Audio.Effects.IAudioEffect.Process(System.Span<float> buffer, int frameCount, int channels) -> void
+Vixen.Audio.Effects.IAudioEffect.Properties.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Audio.Effects.IAudioEffect.Reset() -> void
+Vixen.Audio.Effects.IAudioEffect.TryGetProperty(string name, out float value) -> bool
+Vixen.Audio.Effects.IAudioEffect.TrySetProperty(string name, float value) -> bool
+Vixen.Audio.Effects.ISidechainEffect -> interface
+Vixen.Audio.Effects.ISidechainEffect : Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Effects.ISidechainEffect.Process(System.Span<float> buffer, System.ReadOnlySpan<float> key, int frameCount, int channels) -> void
+Vixen.Audio.Effects.LimiterEffect -> sealed class
+Vixen.Audio.Effects.LimiterEffect : Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Effects.LimiterEffect.CeilingDb.get -> float
+Vixen.Audio.Effects.LimiterEffect.CeilingDb.set -> float
+Vixen.Audio.Effects.LimiterEffect.Enabled.get -> bool
+Vixen.Audio.Effects.LimiterEffect.Enabled.set -> bool
+Vixen.Audio.Effects.LimiterEffect.GainReductionDb.get -> float
+Vixen.Audio.Effects.LimiterEffect.LatencyFrames.get -> int
+Vixen.Audio.Effects.LimiterEffect.LimiterEffect() -> void
+Vixen.Audio.Effects.LimiterEffect.LookAheadSeconds.get -> float
+Vixen.Audio.Effects.LimiterEffect.LookAheadSeconds.init -> float
+Vixen.Audio.Effects.LimiterEffect.Prepare(in Vixen.Audio.AudioFormat format, int maxFrames) -> void
+Vixen.Audio.Effects.LimiterEffect.Process(System.Span<float> buffer, int frameCount, int channels) -> void
+Vixen.Audio.Effects.LimiterEffect.Properties.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Audio.Effects.LimiterEffect.ReleaseSeconds.get -> float
+Vixen.Audio.Effects.LimiterEffect.ReleaseSeconds.set -> float
+Vixen.Audio.Effects.LimiterEffect.Reset() -> void
+Vixen.Audio.Effects.LimiterEffect.TryGetProperty(string name, out float value) -> bool
+Vixen.Audio.Effects.LimiterEffect.TrySetProperty(string name, float value) -> bool
+Vixen.Audio.Effects.LoudnessMeterEffect -> sealed class
+Vixen.Audio.Effects.LoudnessMeterEffect : Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Effects.LoudnessMeterEffect.Enabled.get -> bool
+Vixen.Audio.Effects.LoudnessMeterEffect.Enabled.set -> bool
+Vixen.Audio.Effects.LoudnessMeterEffect.GatedBlocks.get -> long
+Vixen.Audio.Effects.LoudnessMeterEffect.Integrated.get -> float
+Vixen.Audio.Effects.LoudnessMeterEffect.LoudnessMeterEffect() -> void
+Vixen.Audio.Effects.LoudnessMeterEffect.LoudnessRange.get -> float
+Vixen.Audio.Effects.LoudnessMeterEffect.MeasureTruePeak.get -> bool
+Vixen.Audio.Effects.LoudnessMeterEffect.MeasureTruePeak.set -> bool
+Vixen.Audio.Effects.LoudnessMeterEffect.Momentary.get -> float
+Vixen.Audio.Effects.LoudnessMeterEffect.Prepare(in Vixen.Audio.AudioFormat format, int maxFrames) -> void
+Vixen.Audio.Effects.LoudnessMeterEffect.Process(System.Span<float> buffer, int frameCount, int channels) -> void
+Vixen.Audio.Effects.LoudnessMeterEffect.Reset() -> void
+Vixen.Audio.Effects.LoudnessMeterEffect.SamplePeak.get -> float
+Vixen.Audio.Effects.LoudnessMeterEffect.ShortTerm.get -> float
+Vixen.Audio.Effects.LoudnessMeterEffect.TruePeak.get -> float
+Vixen.Audio.Effects.LoudnessMeterEffect.TruePeakDbTp.get -> float
+Vixen.Audio.Effects.ModulatedDelayEffect -> sealed class
+Vixen.Audio.Effects.ModulatedDelayEffect : Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Effects.ModulatedDelayEffect.DelaySeconds.get -> float
+Vixen.Audio.Effects.ModulatedDelayEffect.DelaySeconds.set -> float
+Vixen.Audio.Effects.ModulatedDelayEffect.DepthSeconds.get -> float
+Vixen.Audio.Effects.ModulatedDelayEffect.DepthSeconds.set -> float
+Vixen.Audio.Effects.ModulatedDelayEffect.Dry.get -> float
+Vixen.Audio.Effects.ModulatedDelayEffect.Dry.set -> float
+Vixen.Audio.Effects.ModulatedDelayEffect.Enabled.get -> bool
+Vixen.Audio.Effects.ModulatedDelayEffect.Enabled.set -> bool
+Vixen.Audio.Effects.ModulatedDelayEffect.Feedback.get -> float
+Vixen.Audio.Effects.ModulatedDelayEffect.Feedback.set -> float
+Vixen.Audio.Effects.ModulatedDelayEffect.Kind.get -> Vixen.Audio.Effects.ModulatedDelayKind
+Vixen.Audio.Effects.ModulatedDelayEffect.Kind.init -> Vixen.Audio.Effects.ModulatedDelayKind
+Vixen.Audio.Effects.ModulatedDelayEffect.ModulatedDelayEffect() -> void
+Vixen.Audio.Effects.ModulatedDelayEffect.Prepare(in Vixen.Audio.AudioFormat format, int maxFrames) -> void
+Vixen.Audio.Effects.ModulatedDelayEffect.Process(System.Span<float> buffer, int frameCount, int channels) -> void
+Vixen.Audio.Effects.ModulatedDelayEffect.Properties.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Audio.Effects.ModulatedDelayEffect.RateHz.get -> float
+Vixen.Audio.Effects.ModulatedDelayEffect.RateHz.set -> float
+Vixen.Audio.Effects.ModulatedDelayEffect.Reset() -> void
+Vixen.Audio.Effects.ModulatedDelayEffect.StereoSpread.get -> float
+Vixen.Audio.Effects.ModulatedDelayEffect.StereoSpread.set -> float
+Vixen.Audio.Effects.ModulatedDelayEffect.TryGetProperty(string name, out float value) -> bool
+Vixen.Audio.Effects.ModulatedDelayEffect.TrySetProperty(string name, float value) -> bool
+Vixen.Audio.Effects.ModulatedDelayEffect.Voices.get -> int
+Vixen.Audio.Effects.ModulatedDelayEffect.Voices.set -> int
+Vixen.Audio.Effects.ModulatedDelayEffect.Wet.get -> float
+Vixen.Audio.Effects.ModulatedDelayEffect.Wet.set -> float
+Vixen.Audio.Effects.ModulatedDelayKind -> enum : int
+Vixen.Audio.Effects.ModulatedDelayKind.Chorus = 1 -> Vixen.Audio.Effects.ModulatedDelayKind
+Vixen.Audio.Effects.ModulatedDelayKind.Flanger = 0 -> Vixen.Audio.Effects.ModulatedDelayKind
+Vixen.Audio.Effects.ModulatedDelayKind.ModulatedDelayKind() -> void
+Vixen.Audio.Effects.ModulatedDelayKind.Vibrato = 2 -> Vixen.Audio.Effects.ModulatedDelayKind
+Vixen.Audio.Effects.PhaserEffect -> sealed class
+Vixen.Audio.Effects.PhaserEffect : Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Effects.PhaserEffect.Dry.get -> float
+Vixen.Audio.Effects.PhaserEffect.Dry.set -> float
+Vixen.Audio.Effects.PhaserEffect.Enabled.get -> bool
+Vixen.Audio.Effects.PhaserEffect.Enabled.set -> bool
+Vixen.Audio.Effects.PhaserEffect.Feedback.get -> float
+Vixen.Audio.Effects.PhaserEffect.Feedback.set -> float
+Vixen.Audio.Effects.PhaserEffect.MaxFrequency.get -> float
+Vixen.Audio.Effects.PhaserEffect.MaxFrequency.set -> float
+Vixen.Audio.Effects.PhaserEffect.MinFrequency.get -> float
+Vixen.Audio.Effects.PhaserEffect.MinFrequency.set -> float
+Vixen.Audio.Effects.PhaserEffect.PhaserEffect() -> void
+Vixen.Audio.Effects.PhaserEffect.Prepare(in Vixen.Audio.AudioFormat format, int maxFrames) -> void
+Vixen.Audio.Effects.PhaserEffect.Process(System.Span<float> buffer, int frameCount, int channels) -> void
+Vixen.Audio.Effects.PhaserEffect.Properties.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Audio.Effects.PhaserEffect.RateHz.get -> float
+Vixen.Audio.Effects.PhaserEffect.RateHz.set -> float
+Vixen.Audio.Effects.PhaserEffect.Reset() -> void
+Vixen.Audio.Effects.PhaserEffect.Stages.get -> int
+Vixen.Audio.Effects.PhaserEffect.Stages.set -> int
+Vixen.Audio.Effects.PhaserEffect.StereoSpread.get -> float
+Vixen.Audio.Effects.PhaserEffect.StereoSpread.set -> float
+Vixen.Audio.Effects.PhaserEffect.TryGetProperty(string name, out float value) -> bool
+Vixen.Audio.Effects.PhaserEffect.TrySetProperty(string name, float value) -> bool
+Vixen.Audio.Effects.PhaserEffect.Wet.get -> float
+Vixen.Audio.Effects.PhaserEffect.Wet.set -> float
+Vixen.Audio.Effects.PitchShiftEffect -> sealed class
+Vixen.Audio.Effects.PitchShiftEffect : Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Effects.PitchShiftEffect.Enabled.get -> bool
+Vixen.Audio.Effects.PitchShiftEffect.Enabled.set -> bool
+Vixen.Audio.Effects.PitchShiftEffect.GrainSeconds.get -> float
+Vixen.Audio.Effects.PitchShiftEffect.GrainSeconds.set -> float
+Vixen.Audio.Effects.PitchShiftEffect.Mix.get -> float
+Vixen.Audio.Effects.PitchShiftEffect.Mix.set -> float
+Vixen.Audio.Effects.PitchShiftEffect.PitchShiftEffect() -> void
+Vixen.Audio.Effects.PitchShiftEffect.Prepare(in Vixen.Audio.AudioFormat format, int maxFrames) -> void
+Vixen.Audio.Effects.PitchShiftEffect.Process(System.Span<float> buffer, int frameCount, int channels) -> void
+Vixen.Audio.Effects.PitchShiftEffect.Properties.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Audio.Effects.PitchShiftEffect.Ratio.get -> float
+Vixen.Audio.Effects.PitchShiftEffect.Reset() -> void
+Vixen.Audio.Effects.PitchShiftEffect.Semitones.get -> float
+Vixen.Audio.Effects.PitchShiftEffect.Semitones.set -> float
+Vixen.Audio.Effects.PitchShiftEffect.TryGetProperty(string name, out float value) -> bool
+Vixen.Audio.Effects.PitchShiftEffect.TrySetProperty(string name, float value) -> bool
+Vixen.Audio.Effects.PitchVocoderEffect -> sealed class
+Vixen.Audio.Effects.PitchVocoderEffect : Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Effects.PitchVocoderEffect.Enabled.get -> bool
+Vixen.Audio.Effects.PitchVocoderEffect.Enabled.set -> bool
+Vixen.Audio.Effects.PitchVocoderEffect.FftSize.get -> int
+Vixen.Audio.Effects.PitchVocoderEffect.FftSize.set -> int
+Vixen.Audio.Effects.PitchVocoderEffect.Latency.get -> int
+Vixen.Audio.Effects.PitchVocoderEffect.Mix.get -> float
+Vixen.Audio.Effects.PitchVocoderEffect.Mix.set -> float
+Vixen.Audio.Effects.PitchVocoderEffect.PitchVocoderEffect() -> void
+Vixen.Audio.Effects.PitchVocoderEffect.Prepare(in Vixen.Audio.AudioFormat format, int maxFrames) -> void
+Vixen.Audio.Effects.PitchVocoderEffect.Process(System.Span<float> buffer, int frameCount, int channels) -> void
+Vixen.Audio.Effects.PitchVocoderEffect.Properties.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Audio.Effects.PitchVocoderEffect.Ratio.get -> float
+Vixen.Audio.Effects.PitchVocoderEffect.Reset() -> void
+Vixen.Audio.Effects.PitchVocoderEffect.Semitones.get -> float
+Vixen.Audio.Effects.PitchVocoderEffect.Semitones.set -> float
+Vixen.Audio.Effects.PitchVocoderEffect.TransientSensitivity.get -> float
+Vixen.Audio.Effects.PitchVocoderEffect.TransientSensitivity.set -> float
+Vixen.Audio.Effects.PitchVocoderEffect.TryGetProperty(string name, out float value) -> bool
+Vixen.Audio.Effects.PitchVocoderEffect.TrySetProperty(string name, float value) -> bool
+Vixen.Audio.Effects.ReverbEffect -> sealed class
+Vixen.Audio.Effects.ReverbEffect : Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Effects.ReverbEffect.Damping.get -> float
+Vixen.Audio.Effects.ReverbEffect.Damping.set -> float
+Vixen.Audio.Effects.ReverbEffect.Dry.get -> float
+Vixen.Audio.Effects.ReverbEffect.Dry.set -> float
+Vixen.Audio.Effects.ReverbEffect.Enabled.get -> bool
+Vixen.Audio.Effects.ReverbEffect.Enabled.set -> bool
+Vixen.Audio.Effects.ReverbEffect.Prepare(in Vixen.Audio.AudioFormat format, int maxFrames) -> void
+Vixen.Audio.Effects.ReverbEffect.Process(System.Span<float> buffer, int frameCount, int channels) -> void
+Vixen.Audio.Effects.ReverbEffect.Properties.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Audio.Effects.ReverbEffect.Reset() -> void
+Vixen.Audio.Effects.ReverbEffect.ReverbEffect() -> void
+Vixen.Audio.Effects.ReverbEffect.RoomSize.get -> float
+Vixen.Audio.Effects.ReverbEffect.RoomSize.set -> float
+Vixen.Audio.Effects.ReverbEffect.TryGetProperty(string name, out float value) -> bool
+Vixen.Audio.Effects.ReverbEffect.TrySetProperty(string name, float value) -> bool
+Vixen.Audio.Effects.ReverbEffect.Wet.get -> float
+Vixen.Audio.Effects.ReverbEffect.Wet.set -> float
+Vixen.Audio.Effects.ReverbEffect.Width.get -> float
+Vixen.Audio.Effects.ReverbEffect.Width.set -> float
+Vixen.Audio.Effects.SpectrumAnalyzerEffect -> sealed class
+Vixen.Audio.Effects.SpectrumAnalyzerEffect : Vixen.Audio.Effects.IAudioEffect
+Vixen.Audio.Effects.SpectrumAnalyzerEffect.BinCount.get -> int
+Vixen.Audio.Effects.SpectrumAnalyzerEffect.BinWidthHz.get -> float
+Vixen.Audio.Effects.SpectrumAnalyzerEffect.Enabled.get -> bool
+Vixen.Audio.Effects.SpectrumAnalyzerEffect.Enabled.set -> bool
+Vixen.Audio.Effects.SpectrumAnalyzerEffect.Prepare(in Vixen.Audio.AudioFormat format, int maxFrames) -> void
+Vixen.Audio.Effects.SpectrumAnalyzerEffect.Process(System.Span<float> buffer, int frameCount, int channels) -> void
+Vixen.Audio.Effects.SpectrumAnalyzerEffect.Properties.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Audio.Effects.SpectrumAnalyzerEffect.Reset() -> void
+Vixen.Audio.Effects.SpectrumAnalyzerEffect.Size.get -> int
+Vixen.Audio.Effects.SpectrumAnalyzerEffect.Smoothing.get -> float
+Vixen.Audio.Effects.SpectrumAnalyzerEffect.Smoothing.set -> float
+Vixen.Audio.Effects.SpectrumAnalyzerEffect.SpectrumAnalyzerEffect(int size = 1024) -> void
+Vixen.Audio.Effects.SpectrumAnalyzerEffect.TryCopyTo(System.Span<float> destination) -> bool
+Vixen.Audio.Effects.SpectrumAnalyzerEffect.TryGetProperty(string name, out float value) -> bool
+Vixen.Audio.Effects.SpectrumAnalyzerEffect.TrySetProperty(string name, float value) -> bool
+Vixen.Audio.Events.AudioEvent -> sealed class
+Vixen.Audio.Events.AudioEvent.AudioEvent(Vixen.Audio.AudioEngine engine, Vixen.Audio.Events.AudioEventDescription description) -> void
+Vixen.Audio.Events.AudioEvent.Bus.get -> int
+Vixen.Audio.Events.AudioEvent.FadeOutAll(System.TimeSpan duration, Vixen.Audio.Mixing.AudioFadeCurve curve = Vixen.Audio.Mixing.AudioFadeCurve.Decibel) -> void
+Vixen.Audio.Events.AudioEvent.InstanceCount.get -> int
+Vixen.Audio.Events.AudioEvent.IsSpatial.get -> bool
+Vixen.Audio.Events.AudioEvent.LastGain.get -> float
+Vixen.Audio.Events.AudioEvent.LastPitch.get -> float
+Vixen.Audio.Events.AudioEvent.Layers.get -> System.Collections.Generic.IReadOnlyList<Vixen.Audio.Events.AudioEventLayer>
+Vixen.Audio.Events.AudioEvent.MaxInstances.get -> int
+Vixen.Audio.Events.AudioEvent.Name.get -> string
+Vixen.Audio.Events.AudioEvent.Parameters.get -> Vixen.Audio.Parameters.AudioParameterSheet?
+Vixen.Audio.Events.AudioEvent.Place(Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 velocity, Vixen.Core.Mathematics.Vector3 coneDirection) -> Vixen.Audio.Spatial.SpatialSettings
+Vixen.Audio.Events.AudioEvent.Play() -> Vixen.Audio.Mixing.VoiceHandle
+Vixen.Audio.Events.AudioEvent.Play(Vixen.Audio.Sources.IAudioSampleProvider source, in Vixen.Audio.Events.AudioEventPlayback attributes) -> Vixen.Audio.Mixing.VoiceHandle
+Vixen.Audio.Events.AudioEvent.Play(Vixen.Core.Mathematics.Vector3 position) -> Vixen.Audio.Mixing.VoiceHandle
+Vixen.Audio.Events.AudioEvent.Play(in Vixen.Audio.Events.AudioEventPlayback attributes) -> Vixen.Audio.Mixing.VoiceHandle
+Vixen.Audio.Events.AudioEvent.PlayCount.get -> int
+Vixen.Audio.Events.AudioEvent.SetParameter(Vixen.Audio.Mixing.VoiceHandle handle, string name, float value) -> bool
+Vixen.Audio.Events.AudioEvent.Spatial.get -> Vixen.Audio.Spatial.SpatialSettings
+Vixen.Audio.Events.AudioEvent.Steal.get -> Vixen.Audio.Events.EventStealMode
+Vixen.Audio.Events.AudioEvent.StopAll() -> void
+Vixen.Audio.Events.AudioEvent.VariantCount.get -> int
+Vixen.Audio.Events.AudioEvent.Variants.get -> Vixen.Audio.Events.VariantSelector
+Vixen.Audio.Events.AudioEventDescription -> sealed record
+Vixen.Audio.Events.AudioEventDescription : System.IEquatable<Vixen.Audio.Events.AudioEventDescription>
+Vixen.Audio.Events.AudioEventDescription.AudioEventDescription() -> void
+Vixen.Audio.Events.AudioEventDescription.Bus.get -> int
+Vixen.Audio.Events.AudioEventDescription.Bus.init -> int
+Vixen.Audio.Events.AudioEventDescription.GainDb.get -> float
+Vixen.Audio.Events.AudioEventDescription.GainDb.init -> float
+Vixen.Audio.Events.AudioEventDescription.GainVarianceDb.get -> float
+Vixen.Audio.Events.AudioEventDescription.GainVarianceDb.init -> float
+Vixen.Audio.Events.AudioEventDescription.IsSpatial.get -> bool
+Vixen.Audio.Events.AudioEventDescription.IsSpatial.init -> bool
+Vixen.Audio.Events.AudioEventDescription.Layers.get -> Vixen.Audio.Events.AudioEventLayer[]
+Vixen.Audio.Events.AudioEventDescription.Layers.init -> Vixen.Audio.Events.AudioEventLayer[]
+Vixen.Audio.Events.AudioEventDescription.Loop.get -> bool
+Vixen.Audio.Events.AudioEventDescription.Loop.init -> bool
+Vixen.Audio.Events.AudioEventDescription.MaxInstances.get -> int
+Vixen.Audio.Events.AudioEventDescription.MaxInstances.init -> int
+Vixen.Audio.Events.AudioEventDescription.Name.get -> string
+Vixen.Audio.Events.AudioEventDescription.Name.init -> string
+Vixen.Audio.Events.AudioEventDescription.Parameters.get -> Vixen.Audio.Parameters.AudioParameterSheet?
+Vixen.Audio.Events.AudioEventDescription.Parameters.init -> Vixen.Audio.Parameters.AudioParameterSheet?
+Vixen.Audio.Events.AudioEventDescription.PitchVarianceSemitones.get -> float
+Vixen.Audio.Events.AudioEventDescription.PitchVarianceSemitones.init -> float
+Vixen.Audio.Events.AudioEventDescription.Priority.get -> int
+Vixen.Audio.Events.AudioEventDescription.Priority.init -> int
+Vixen.Audio.Events.AudioEventDescription.Seed.get -> uint
+Vixen.Audio.Events.AudioEventDescription.Seed.init -> uint
+Vixen.Audio.Events.AudioEventDescription.Selection.get -> Vixen.Audio.Events.VariantSelection
+Vixen.Audio.Events.AudioEventDescription.Selection.init -> Vixen.Audio.Events.VariantSelection
+Vixen.Audio.Events.AudioEventDescription.Spatial.get -> Vixen.Audio.Spatial.SpatialSettings
+Vixen.Audio.Events.AudioEventDescription.Spatial.init -> Vixen.Audio.Spatial.SpatialSettings
+Vixen.Audio.Events.AudioEventDescription.Steal.get -> Vixen.Audio.Events.EventStealMode
+Vixen.Audio.Events.AudioEventDescription.Steal.init -> Vixen.Audio.Events.EventStealMode
+Vixen.Audio.Events.AudioEventDescription.Variants.get -> Vixen.Audio.Events.AudioEventVariant[]
+Vixen.Audio.Events.AudioEventDescription.Variants.init -> Vixen.Audio.Events.AudioEventVariant[]
+Vixen.Audio.Events.AudioEventLayer -> sealed record
+Vixen.Audio.Events.AudioEventLayer : System.IEquatable<Vixen.Audio.Events.AudioEventLayer>
+Vixen.Audio.Events.AudioEventLayer.AudioEventLayer(Vixen.Audio.Events.AudioEvent Sound) -> void
+Vixen.Audio.Events.AudioEventLayer.DelaySeconds.get -> float
+Vixen.Audio.Events.AudioEventLayer.DelaySeconds.init -> float
+Vixen.Audio.Events.AudioEventLayer.GainDb.get -> float
+Vixen.Audio.Events.AudioEventLayer.GainDb.init -> float
+Vixen.Audio.Events.AudioEventLayer.PitchSemitones.get -> float
+Vixen.Audio.Events.AudioEventLayer.PitchSemitones.init -> float
+Vixen.Audio.Events.AudioEventLayer.Probability.get -> float
+Vixen.Audio.Events.AudioEventLayer.Probability.init -> float
+Vixen.Audio.Events.AudioEventLayer.Sound.get -> Vixen.Audio.Events.AudioEvent
+Vixen.Audio.Events.AudioEventLayer.Sound.init -> Vixen.Audio.Events.AudioEvent
+Vixen.Audio.Events.AudioEventPlayback -> readonly struct
+Vixen.Audio.Events.AudioEventPlayback : System.IEquatable<Vixen.Audio.Events.AudioEventPlayback>
+Vixen.Audio.Events.AudioEventPlayback.AudioEventPlayback() -> void
+Vixen.Audio.Events.AudioEventPlayback.ConeDirection.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Events.AudioEventPlayback.ConeDirection.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Events.AudioEventPlayback.Gain.get -> float
+Vixen.Audio.Events.AudioEventPlayback.Gain.init -> float
+Vixen.Audio.Events.AudioEventPlayback.Pitch.get -> float
+Vixen.Audio.Events.AudioEventPlayback.Pitch.init -> float
+Vixen.Audio.Events.AudioEventPlayback.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Events.AudioEventPlayback.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Events.AudioEventPlayback.StartPaused.get -> bool
+Vixen.Audio.Events.AudioEventPlayback.StartPaused.init -> bool
+Vixen.Audio.Events.AudioEventPlayback.Velocity.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Events.AudioEventPlayback.Velocity.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Events.AudioEventVariant -> readonly struct
+Vixen.Audio.Events.AudioEventVariant : System.IEquatable<Vixen.Audio.Events.AudioEventVariant>
+Vixen.Audio.Events.AudioEventVariant.AudioEventVariant() -> void
+Vixen.Audio.Events.AudioEventVariant.AudioEventVariant(Vixen.Audio.AudioClip Clip) -> void
+Vixen.Audio.Events.AudioEventVariant.Clip.get -> Vixen.Audio.AudioClip
+Vixen.Audio.Events.AudioEventVariant.Clip.init -> Vixen.Audio.AudioClip
+Vixen.Audio.Events.AudioEventVariant.GainDb.get -> float
+Vixen.Audio.Events.AudioEventVariant.GainDb.init -> float
+Vixen.Audio.Events.AudioEventVariant.PitchSemitones.get -> float
+Vixen.Audio.Events.AudioEventVariant.PitchSemitones.init -> float
+Vixen.Audio.Events.AudioEventVariant.Weight.get -> float
+Vixen.Audio.Events.AudioEventVariant.Weight.init -> float
+Vixen.Audio.Events.AudioScatterer -> sealed class
+Vixen.Audio.Events.AudioScatterer.AudioScatterer(Vixen.Audio.AudioEngine engine, Vixen.Audio.Events.AudioEvent sound, Vixen.Audio.Events.AudioScattererSettings settings) -> void
+Vixen.Audio.Events.AudioScatterer.IsRunning.get -> bool
+Vixen.Audio.Events.AudioScatterer.NextSpawnSeconds.get -> float
+Vixen.Audio.Events.AudioScatterer.Origin.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Events.AudioScatterer.Origin.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Events.AudioScatterer.Scatter() -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Events.AudioScatterer.Settings.get -> Vixen.Audio.Events.AudioScattererSettings
+Vixen.Audio.Events.AudioScatterer.SpawnCount.get -> int
+Vixen.Audio.Events.AudioScatterer.SpawnNow() -> Vixen.Audio.Mixing.VoiceHandle
+Vixen.Audio.Events.AudioScatterer.Start() -> void
+Vixen.Audio.Events.AudioScatterer.Stop() -> void
+Vixen.Audio.Events.AudioScatterer.StopAll() -> void
+Vixen.Audio.Events.AudioScatterer.Update(float deltaSeconds) -> Vixen.Audio.Mixing.VoiceHandle
+Vixen.Audio.Events.AudioScattererSettings -> sealed record
+Vixen.Audio.Events.AudioScattererSettings : System.IEquatable<Vixen.Audio.Events.AudioScattererSettings>
+Vixen.Audio.Events.AudioScattererSettings.AudioScattererSettings() -> void
+Vixen.Audio.Events.AudioScattererSettings.FollowListener.get -> bool
+Vixen.Audio.Events.AudioScattererSettings.FollowListener.init -> bool
+Vixen.Audio.Events.AudioScattererSettings.MaximumDistance.get -> float
+Vixen.Audio.Events.AudioScattererSettings.MaximumDistance.init -> float
+Vixen.Audio.Events.AudioScattererSettings.MaximumInterval.get -> float
+Vixen.Audio.Events.AudioScattererSettings.MaximumInterval.init -> float
+Vixen.Audio.Events.AudioScattererSettings.MinimumDistance.get -> float
+Vixen.Audio.Events.AudioScattererSettings.MinimumDistance.init -> float
+Vixen.Audio.Events.AudioScattererSettings.MinimumInterval.get -> float
+Vixen.Audio.Events.AudioScattererSettings.MinimumInterval.init -> float
+Vixen.Audio.Events.AudioScattererSettings.Seed.get -> uint
+Vixen.Audio.Events.AudioScattererSettings.Seed.init -> uint
+Vixen.Audio.Events.AudioScattererSettings.VerticalSpread.get -> float
+Vixen.Audio.Events.AudioScattererSettings.VerticalSpread.init -> float
+Vixen.Audio.Events.EventStealMode -> enum : int
+Vixen.Audio.Events.EventStealMode.EventStealMode() -> void
+Vixen.Audio.Events.EventStealMode.Newest = 2 -> Vixen.Audio.Events.EventStealMode
+Vixen.Audio.Events.EventStealMode.None = 0 -> Vixen.Audio.Events.EventStealMode
+Vixen.Audio.Events.EventStealMode.Oldest = 1 -> Vixen.Audio.Events.EventStealMode
+Vixen.Audio.Events.EventStealMode.Quietest = 3 -> Vixen.Audio.Events.EventStealMode
+Vixen.Audio.Events.VariantSelection -> enum : int
+Vixen.Audio.Events.VariantSelection.Random = 1 -> Vixen.Audio.Events.VariantSelection
+Vixen.Audio.Events.VariantSelection.RandomNoRepeat = 2 -> Vixen.Audio.Events.VariantSelection
+Vixen.Audio.Events.VariantSelection.Sequential = 3 -> Vixen.Audio.Events.VariantSelection
+Vixen.Audio.Events.VariantSelection.Shuffle = 0 -> Vixen.Audio.Events.VariantSelection
+Vixen.Audio.Events.VariantSelection.VariantSelection() -> void
+Vixen.Audio.Events.VariantSelector -> sealed class
+Vixen.Audio.Events.VariantSelector.Count.get -> int
+Vixen.Audio.Events.VariantSelector.Last.get -> int
+Vixen.Audio.Events.VariantSelector.Mode.get -> Vixen.Audio.Events.VariantSelection
+Vixen.Audio.Events.VariantSelector.Next() -> int
+Vixen.Audio.Events.VariantSelector.Reset() -> void
+Vixen.Audio.Events.VariantSelector.VariantSelector(System.ReadOnlySpan<float> weights, Vixen.Audio.Events.VariantSelection mode, uint seed = 0) -> void
+Vixen.Audio.Mixing.AudioBus -> sealed class
+Vixen.Audio.Mixing.AudioBus.AddEffect(Vixen.Audio.Effects.IAudioEffect effect) -> void
+Vixen.Audio.Mixing.AudioBus.AddSend(Vixen.Audio.Mixing.AudioBus target, float level = 1, bool preFader = false) -> Vixen.Audio.Mixing.AudioSend
+Vixen.Audio.Mixing.AudioBus.CancelFade() -> void
+Vixen.Audio.Mixing.AudioBus.Children.get -> System.Collections.Generic.IReadOnlyList<Vixen.Audio.Mixing.AudioBus>
+Vixen.Audio.Mixing.AudioBus.Depth.get -> int
+Vixen.Audio.Mixing.AudioBus.Effects.get -> System.Collections.Generic.IReadOnlyList<Vixen.Audio.Effects.IAudioEffect>
+Vixen.Audio.Mixing.AudioBus.FadeTo(float gain, System.TimeSpan duration, Vixen.Audio.Mixing.AudioFadeCurve curve = Vixen.Audio.Mixing.AudioFadeCurve.Decibel) -> void
+Vixen.Audio.Mixing.AudioBus.Gain.get -> float
+Vixen.Audio.Mixing.AudioBus.Gain.set -> float
+Vixen.Audio.Mixing.AudioBus.Index.get -> int
+Vixen.Audio.Mixing.AudioBus.IsFading.get -> bool
+Vixen.Audio.Mixing.AudioBus.Muted.get -> bool
+Vixen.Audio.Mixing.AudioBus.Muted.set -> bool
+Vixen.Audio.Mixing.AudioBus.Name.get -> string
+Vixen.Audio.Mixing.AudioBus.ParameterGain.get -> float
+Vixen.Audio.Mixing.AudioBus.ParameterGain.set -> float
+Vixen.Audio.Mixing.AudioBus.Parent.get -> Vixen.Audio.Mixing.AudioBus?
+Vixen.Audio.Mixing.AudioBus.PeakLevel.get -> float
+Vixen.Audio.Mixing.AudioBus.RemoveEffect(Vixen.Audio.Effects.IAudioEffect effect) -> bool
+Vixen.Audio.Mixing.AudioBus.RemoveSend(Vixen.Audio.Mixing.AudioSend send) -> bool
+Vixen.Audio.Mixing.AudioBus.ResetEffects() -> void
+Vixen.Audio.Mixing.AudioBus.Sends.get -> System.Collections.Generic.IReadOnlyList<Vixen.Audio.Mixing.AudioSend>
+Vixen.Audio.Mixing.AudioBus.SetSidechain(Vixen.Audio.Mixing.AudioBus? source) -> void
+Vixen.Audio.Mixing.AudioBus.SidechainSource.get -> Vixen.Audio.Mixing.AudioBus?
+Vixen.Audio.Mixing.AudioFade -> static class
+Vixen.Audio.Mixing.AudioFadeCurve -> enum : int
+Vixen.Audio.Mixing.AudioFadeCurve.AudioFadeCurve() -> void
+Vixen.Audio.Mixing.AudioFadeCurve.Decibel = 1 -> Vixen.Audio.Mixing.AudioFadeCurve
+Vixen.Audio.Mixing.AudioFadeCurve.Linear = 0 -> Vixen.Audio.Mixing.AudioFadeCurve
+Vixen.Audio.Mixing.AudioMixer -> sealed class
+Vixen.Audio.Mixing.AudioMixer.ActiveVoices.get -> int
+Vixen.Audio.Mixing.AudioMixer.AudioMixer(int voiceCapacity = 64) -> void
+Vixen.Audio.Mixing.AudioMixer.Buses.get -> System.Collections.Generic.IReadOnlyList<Vixen.Audio.Mixing.AudioBus>
+Vixen.Audio.Mixing.AudioMixer.CreateBus(string name, Vixen.Audio.Mixing.AudioBus? parent = null) -> Vixen.Audio.Mixing.AudioBus
+Vixen.Audio.Mixing.AudioMixer.FindBus(string name) -> Vixen.Audio.Mixing.AudioBus?
+Vixen.Audio.Mixing.AudioMixer.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Audio.Mixing.AudioMixer.Master.get -> Vixen.Audio.Mixing.AudioBus
+Vixen.Audio.Mixing.AudioMixer.MaxFrames.get -> int
+Vixen.Audio.Mixing.AudioMixer.Prepare(in Vixen.Audio.AudioFormat deviceFormat, int frames) -> void
+Vixen.Audio.Mixing.AudioMixer.Render(System.Span<float> destination, int frameCount, in Vixen.Audio.Spatial.AudioListenerSet listeners, long blockStart = 0) -> void
+Vixen.Audio.Mixing.AudioMixer.StopAll() -> void
+Vixen.Audio.Mixing.AudioMixer.UseHrtf.get -> bool
+Vixen.Audio.Mixing.AudioMixer.UseHrtf.set -> bool
+Vixen.Audio.Mixing.AudioMixer.VoiceCapacity.get -> int
+Vixen.Audio.Mixing.AudioSend -> sealed class
+Vixen.Audio.Mixing.AudioSend.Level.get -> float
+Vixen.Audio.Mixing.AudioSend.Level.set -> float
+Vixen.Audio.Mixing.AudioSend.ParameterLevel.get -> float
+Vixen.Audio.Mixing.AudioSend.ParameterLevel.set -> float
+Vixen.Audio.Mixing.AudioSend.PreFader.get -> bool
+Vixen.Audio.Mixing.AudioSend.Target.get -> Vixen.Audio.Mixing.AudioBus
+Vixen.Audio.Mixing.PlaybackSettings -> readonly struct
+Vixen.Audio.Mixing.PlaybackSettings : System.IEquatable<Vixen.Audio.Mixing.PlaybackSettings>
+Vixen.Audio.Mixing.PlaybackSettings.Bus.get -> int
+Vixen.Audio.Mixing.PlaybackSettings.Bus.init -> int
+Vixen.Audio.Mixing.PlaybackSettings.Gain.get -> float
+Vixen.Audio.Mixing.PlaybackSettings.Gain.init -> float
+Vixen.Audio.Mixing.PlaybackSettings.IsSpatial.get -> bool
+Vixen.Audio.Mixing.PlaybackSettings.IsSpatial.init -> bool
+Vixen.Audio.Mixing.PlaybackSettings.Loop.get -> bool
+Vixen.Audio.Mixing.PlaybackSettings.Loop.init -> bool
+Vixen.Audio.Mixing.PlaybackSettings.Pan.get -> float
+Vixen.Audio.Mixing.PlaybackSettings.Pan.init -> float
+Vixen.Audio.Mixing.PlaybackSettings.Pitch.get -> float
+Vixen.Audio.Mixing.PlaybackSettings.Pitch.init -> float
+Vixen.Audio.Mixing.PlaybackSettings.PlaybackSettings() -> void
+Vixen.Audio.Mixing.PlaybackSettings.Priority.get -> int
+Vixen.Audio.Mixing.PlaybackSettings.Priority.init -> int
+Vixen.Audio.Mixing.PlaybackSettings.SendBus.get -> int
+Vixen.Audio.Mixing.PlaybackSettings.SendBus.init -> int
+Vixen.Audio.Mixing.PlaybackSettings.SendLevel.get -> float
+Vixen.Audio.Mixing.PlaybackSettings.SendLevel.init -> float
+Vixen.Audio.Mixing.PlaybackSettings.Spatial.get -> Vixen.Audio.Spatial.SpatialSettings
+Vixen.Audio.Mixing.PlaybackSettings.Spatial.init -> Vixen.Audio.Spatial.SpatialSettings
+Vixen.Audio.Mixing.PlaybackSettings.StartFrame.get -> long
+Vixen.Audio.Mixing.PlaybackSettings.StartFrame.init -> long
+Vixen.Audio.Mixing.PlaybackSettings.StartPaused.get -> bool
+Vixen.Audio.Mixing.PlaybackSettings.StartPaused.init -> bool
+Vixen.Audio.Mixing.VoiceHandle -> readonly struct
+Vixen.Audio.Mixing.VoiceHandle : System.IEquatable<Vixen.Audio.Mixing.VoiceHandle>
+Vixen.Audio.Mixing.VoiceHandle.Generation.get -> int
+Vixen.Audio.Mixing.VoiceHandle.Generation.init -> int
+Vixen.Audio.Mixing.VoiceHandle.Index.get -> int
+Vixen.Audio.Mixing.VoiceHandle.Index.init -> int
+Vixen.Audio.Mixing.VoiceHandle.IsValid.get -> bool
+Vixen.Audio.Mixing.VoiceHandle.VoiceHandle() -> void
+Vixen.Audio.Mixing.VoiceHandle.VoiceHandle(int Index, int Generation) -> void
+Vixen.Audio.Mixing.VoiceState -> enum : int
+Vixen.Audio.Mixing.VoiceState.Claimed = 1 -> Vixen.Audio.Mixing.VoiceState
+Vixen.Audio.Mixing.VoiceState.Finished = 5 -> Vixen.Audio.Mixing.VoiceState
+Vixen.Audio.Mixing.VoiceState.Free = 0 -> Vixen.Audio.Mixing.VoiceState
+Vixen.Audio.Mixing.VoiceState.Paused = 3 -> Vixen.Audio.Mixing.VoiceState
+Vixen.Audio.Mixing.VoiceState.Playing = 2 -> Vixen.Audio.Mixing.VoiceState
+Vixen.Audio.Mixing.VoiceState.Stopping = 4 -> Vixen.Audio.Mixing.VoiceState
+Vixen.Audio.Mixing.VoiceState.VoiceState() -> void
+Vixen.Audio.Music.MusicMarker -> readonly struct
+Vixen.Audio.Music.MusicMarker : System.IEquatable<Vixen.Audio.Music.MusicMarker>
+Vixen.Audio.Music.MusicMarker.Beat.get -> float
+Vixen.Audio.Music.MusicMarker.Beat.init -> float
+Vixen.Audio.Music.MusicMarker.MusicMarker() -> void
+Vixen.Audio.Music.MusicMarker.MusicMarker(string Name, float Beat) -> void
+Vixen.Audio.Music.MusicMarker.Name.get -> string
+Vixen.Audio.Music.MusicMarker.Name.init -> string
+Vixen.Audio.Music.MusicPlayer -> sealed class
+Vixen.Audio.Music.MusicPlayer.Add(Vixen.Audio.Music.MusicSegment segment) -> void
+Vixen.Audio.Music.MusicPlayer.AddTransition(Vixen.Audio.Music.MusicTransition transition) -> void
+Vixen.Audio.Music.MusicPlayer.BarPassed -> System.Action<long>?
+Vixen.Audio.Music.MusicPlayer.BeatPassed -> System.Action<long>?
+Vixen.Audio.Music.MusicPlayer.Bus.get -> int
+Vixen.Audio.Music.MusicPlayer.CrossfadeSeconds.get -> float
+Vixen.Audio.Music.MusicPlayer.CrossfadeSeconds.set -> float
+Vixen.Audio.Music.MusicPlayer.Current.get -> Vixen.Audio.Music.MusicSegment?
+Vixen.Audio.Music.MusicPlayer.Find(string name) -> Vixen.Audio.Music.MusicSegment?
+Vixen.Audio.Music.MusicPlayer.IsPlaying.get -> bool
+Vixen.Audio.Music.MusicPlayer.IsSustaining.get -> bool
+Vixen.Audio.Music.MusicPlayer.MarkerPassed -> System.Action<string>?
+Vixen.Audio.Music.MusicPlayer.MusicPlayer(Vixen.Audio.AudioEngine engine, int bus = 0) -> void
+Vixen.Audio.Music.MusicPlayer.Play(string name) -> bool
+Vixen.Audio.Music.MusicPlayer.PlayStinger(Vixen.Audio.AudioClip clip, Vixen.Audio.Music.MusicQuantize quantize = Vixen.Audio.Music.MusicQuantize.Beat, float gainDb = 0) -> Vixen.Audio.Mixing.VoiceHandle
+Vixen.Audio.Music.MusicPlayer.Queued.get -> Vixen.Audio.Music.MusicSegment?
+Vixen.Audio.Music.MusicPlayer.QueuedAtFrame.get -> long
+Vixen.Audio.Music.MusicPlayer.Release() -> bool
+Vixen.Audio.Music.MusicPlayer.SegmentStarted -> System.Action<Vixen.Audio.Music.MusicSegment>?
+Vixen.Audio.Music.MusicPlayer.Stop(Vixen.Audio.Music.MusicQuantize quantize = Vixen.Audio.Music.MusicQuantize.Immediate) -> void
+Vixen.Audio.Music.MusicPlayer.TransitionTo(string name, Vixen.Audio.Music.MusicQuantize quantize = Vixen.Audio.Music.MusicQuantize.Bar) -> bool
+Vixen.Audio.Music.MusicPlayer.Transport.get -> Vixen.Audio.Music.MusicTransport
+Vixen.Audio.Music.MusicPlayer.Update() -> void
+Vixen.Audio.Music.MusicQuantize -> enum : int
+Vixen.Audio.Music.MusicQuantize.Bar = 2 -> Vixen.Audio.Music.MusicQuantize
+Vixen.Audio.Music.MusicQuantize.Beat = 1 -> Vixen.Audio.Music.MusicQuantize
+Vixen.Audio.Music.MusicQuantize.Immediate = 0 -> Vixen.Audio.Music.MusicQuantize
+Vixen.Audio.Music.MusicQuantize.MusicQuantize() -> void
+Vixen.Audio.Music.MusicQuantize.Segment = 3 -> Vixen.Audio.Music.MusicQuantize
+Vixen.Audio.Music.MusicSegment -> sealed record
+Vixen.Audio.Music.MusicSegment : System.IEquatable<Vixen.Audio.Music.MusicSegment>
+Vixen.Audio.Music.MusicSegment.Clip.get -> Vixen.Audio.AudioClip?
+Vixen.Audio.Music.MusicSegment.Clip.init -> Vixen.Audio.AudioClip?
+Vixen.Audio.Music.MusicSegment.LoopCount.get -> int
+Vixen.Audio.Music.MusicSegment.LoopCount.init -> int
+Vixen.Audio.Music.MusicSegment.Markers.get -> Vixen.Audio.Music.MusicMarker[]
+Vixen.Audio.Music.MusicSegment.Markers.init -> Vixen.Audio.Music.MusicMarker[]
+Vixen.Audio.Music.MusicSegment.MusicSegment() -> void
+Vixen.Audio.Music.MusicSegment.Name.get -> string
+Vixen.Audio.Music.MusicSegment.Name.init -> string
+Vixen.Audio.Music.MusicSegment.Next.get -> string
+Vixen.Audio.Music.MusicSegment.Next.init -> string
+Vixen.Audio.Music.MusicSegment.Sustains.get -> bool
+Vixen.Audio.Music.MusicSegment.Sustains.init -> bool
+Vixen.Audio.Music.MusicSegment.Tempo.get -> Vixen.Audio.Music.MusicTempo
+Vixen.Audio.Music.MusicSegment.Tempo.init -> Vixen.Audio.Music.MusicTempo
+Vixen.Audio.Music.MusicSegment.TempoChanges.get -> Vixen.Audio.Music.MusicTempoChange[]
+Vixen.Audio.Music.MusicSegment.TempoChanges.init -> Vixen.Audio.Music.MusicTempoChange[]
+Vixen.Audio.Music.MusicTempo -> readonly struct
+Vixen.Audio.Music.MusicTempo : System.IEquatable<Vixen.Audio.Music.MusicTempo>
+Vixen.Audio.Music.MusicTempo.BeatsPerBar.get -> int
+Vixen.Audio.Music.MusicTempo.BeatsPerBar.init -> int
+Vixen.Audio.Music.MusicTempo.BeatsPerMinute.get -> float
+Vixen.Audio.Music.MusicTempo.BeatsPerMinute.init -> float
+Vixen.Audio.Music.MusicTempo.FramesPerBar(int sampleRate) -> long
+Vixen.Audio.Music.MusicTempo.FramesPerBeat(int sampleRate) -> long
+Vixen.Audio.Music.MusicTempo.MusicTempo() -> void
+Vixen.Audio.Music.MusicTempo.SecondsPerBar.get -> float
+Vixen.Audio.Music.MusicTempo.SecondsPerBeat.get -> float
+Vixen.Audio.Music.MusicTempoChange -> readonly struct
+Vixen.Audio.Music.MusicTempoChange : System.IEquatable<Vixen.Audio.Music.MusicTempoChange>
+Vixen.Audio.Music.MusicTempoChange.Beat.get -> float
+Vixen.Audio.Music.MusicTempoChange.Beat.init -> float
+Vixen.Audio.Music.MusicTempoChange.MusicTempoChange() -> void
+Vixen.Audio.Music.MusicTempoChange.MusicTempoChange(float Beat, Vixen.Audio.Music.MusicTempo Tempo) -> void
+Vixen.Audio.Music.MusicTempoChange.Tempo.get -> Vixen.Audio.Music.MusicTempo
+Vixen.Audio.Music.MusicTempoChange.Tempo.init -> Vixen.Audio.Music.MusicTempo
+Vixen.Audio.Music.MusicTempoMap -> sealed class
+Vixen.Audio.Music.MusicTempoMap.BarAt(long offset) -> long
+Vixen.Audio.Music.MusicTempoMap.BeatAt(long offset) -> long
+Vixen.Audio.Music.MusicTempoMap.FrameAtBeat(long beat) -> long
+Vixen.Audio.Music.MusicTempoMap.MusicTempoMap(in Vixen.Audio.Music.MusicTempo tempo, System.ReadOnlySpan<Vixen.Audio.Music.MusicTempoChange> changes, int sampleRate) -> void
+Vixen.Audio.Music.MusicTempoMap.NextBar(long offset) -> long
+Vixen.Audio.Music.MusicTempoMap.NextBeat(long offset) -> long
+Vixen.Audio.Music.MusicTempoMap.SampleRate.get -> int
+Vixen.Audio.Music.MusicTempoMap.SectionCount.get -> int
+Vixen.Audio.Music.MusicTempoMap.Tempo.get -> Vixen.Audio.Music.MusicTempo
+Vixen.Audio.Music.MusicTransition -> sealed record
+Vixen.Audio.Music.MusicTransition : System.IEquatable<Vixen.Audio.Music.MusicTransition>
+Vixen.Audio.Music.MusicTransition.From.get -> string
+Vixen.Audio.Music.MusicTransition.From.init -> string
+Vixen.Audio.Music.MusicTransition.Maximum.get -> float
+Vixen.Audio.Music.MusicTransition.Maximum.init -> float
+Vixen.Audio.Music.MusicTransition.Minimum.get -> float
+Vixen.Audio.Music.MusicTransition.Minimum.init -> float
+Vixen.Audio.Music.MusicTransition.MusicTransition() -> void
+Vixen.Audio.Music.MusicTransition.Parameter.get -> string
+Vixen.Audio.Music.MusicTransition.Parameter.init -> string
+Vixen.Audio.Music.MusicTransition.Quantize.get -> Vixen.Audio.Music.MusicQuantize
+Vixen.Audio.Music.MusicTransition.Quantize.init -> Vixen.Audio.Music.MusicQuantize
+Vixen.Audio.Music.MusicTransition.To.get -> string
+Vixen.Audio.Music.MusicTransition.To.init -> string
+Vixen.Audio.Music.MusicTransport -> sealed class
+Vixen.Audio.Music.MusicTransport.BarAt(long frame) -> long
+Vixen.Audio.Music.MusicTransport.BeatAt(long frame) -> long
+Vixen.Audio.Music.MusicTransport.Map.get -> Vixen.Audio.Music.MusicTempoMap
+Vixen.Audio.Music.MusicTransport.MusicTransport(int sampleRate) -> void
+Vixen.Audio.Music.MusicTransport.NextBoundary(long frame, Vixen.Audio.Music.MusicQuantize quantize, long segmentFrames = 0) -> long
+Vixen.Audio.Music.MusicTransport.Origin.get -> long
+Vixen.Audio.Music.MusicTransport.PositionAt(long frame) -> long
+Vixen.Audio.Music.MusicTransport.SampleRate.get -> int
+Vixen.Audio.Music.MusicTransport.Start(long frame, Vixen.Audio.Music.MusicTempoMap map) -> void
+Vixen.Audio.Music.MusicTransport.Start(long frame, in Vixen.Audio.Music.MusicTempo tempo) -> void
+Vixen.Audio.Music.MusicTransport.Tempo.get -> Vixen.Audio.Music.MusicTempo
+Vixen.Audio.Parameters.AudioAutomation -> sealed record
+Vixen.Audio.Parameters.AudioAutomation : System.IEquatable<Vixen.Audio.Parameters.AudioAutomation>
+Vixen.Audio.Parameters.AudioAutomation.AudioAutomation(Vixen.Audio.Parameters.AudioParameterTarget Target, Vixen.Audio.Parameters.AudioCurve Curve) -> void
+Vixen.Audio.Parameters.AudioAutomation.Curve.get -> Vixen.Audio.Parameters.AudioCurve
+Vixen.Audio.Parameters.AudioAutomation.Curve.init -> Vixen.Audio.Parameters.AudioCurve
+Vixen.Audio.Parameters.AudioAutomation.Target.get -> Vixen.Audio.Parameters.AudioParameterTarget
+Vixen.Audio.Parameters.AudioAutomation.Target.init -> Vixen.Audio.Parameters.AudioParameterTarget
+Vixen.Audio.Parameters.AudioBuiltinParameter -> enum : int
+Vixen.Audio.Parameters.AudioBuiltinParameter.AudioBuiltinParameter() -> void
+Vixen.Audio.Parameters.AudioBuiltinParameter.Direction = 2 -> Vixen.Audio.Parameters.AudioBuiltinParameter
+Vixen.Audio.Parameters.AudioBuiltinParameter.Distance = 1 -> Vixen.Audio.Parameters.AudioBuiltinParameter
+Vixen.Audio.Parameters.AudioBuiltinParameter.Elevation = 3 -> Vixen.Audio.Parameters.AudioBuiltinParameter
+Vixen.Audio.Parameters.AudioBuiltinParameter.None = 0 -> Vixen.Audio.Parameters.AudioBuiltinParameter
+Vixen.Audio.Parameters.AudioBuiltinParameter.Occlusion = 5 -> Vixen.Audio.Parameters.AudioBuiltinParameter
+Vixen.Audio.Parameters.AudioBuiltinParameter.Speed = 4 -> Vixen.Audio.Parameters.AudioBuiltinParameter
+Vixen.Audio.Parameters.AudioBusAutomation -> sealed record
+Vixen.Audio.Parameters.AudioBusAutomation : System.IEquatable<Vixen.Audio.Parameters.AudioBusAutomation>
+Vixen.Audio.Parameters.AudioBusAutomation.AudioBusAutomation() -> void
+Vixen.Audio.Parameters.AudioBusAutomation.Bus.get -> string
+Vixen.Audio.Parameters.AudioBusAutomation.Bus.init -> string
+Vixen.Audio.Parameters.AudioBusAutomation.Curve.get -> Vixen.Audio.Parameters.AudioCurve
+Vixen.Audio.Parameters.AudioBusAutomation.Curve.init -> Vixen.Audio.Parameters.AudioCurve
+Vixen.Audio.Parameters.AudioBusAutomation.Effect.get -> int
+Vixen.Audio.Parameters.AudioBusAutomation.Effect.init -> int
+Vixen.Audio.Parameters.AudioBusAutomation.Property.get -> string
+Vixen.Audio.Parameters.AudioBusAutomation.Property.init -> string
+Vixen.Audio.Parameters.AudioBusAutomation.Send.get -> string
+Vixen.Audio.Parameters.AudioBusAutomation.Send.init -> string
+Vixen.Audio.Parameters.AudioBusAutomation.Target.get -> Vixen.Audio.Parameters.AudioBusParameterTarget
+Vixen.Audio.Parameters.AudioBusAutomation.Target.init -> Vixen.Audio.Parameters.AudioBusParameterTarget
+Vixen.Audio.Parameters.AudioBusParameterDefinition -> sealed record
+Vixen.Audio.Parameters.AudioBusParameterDefinition : System.IEquatable<Vixen.Audio.Parameters.AudioBusParameterDefinition>
+Vixen.Audio.Parameters.AudioBusParameterDefinition.AudioBusParameterDefinition() -> void
+Vixen.Audio.Parameters.AudioBusParameterDefinition.Automation.get -> Vixen.Audio.Parameters.AudioBusAutomation[]
+Vixen.Audio.Parameters.AudioBusParameterDefinition.Automation.init -> Vixen.Audio.Parameters.AudioBusAutomation[]
+Vixen.Audio.Parameters.AudioBusParameterDefinition.Default.get -> float
+Vixen.Audio.Parameters.AudioBusParameterDefinition.Default.init -> float
+Vixen.Audio.Parameters.AudioBusParameterDefinition.Maximum.get -> float
+Vixen.Audio.Parameters.AudioBusParameterDefinition.Maximum.init -> float
+Vixen.Audio.Parameters.AudioBusParameterDefinition.Minimum.get -> float
+Vixen.Audio.Parameters.AudioBusParameterDefinition.Minimum.init -> float
+Vixen.Audio.Parameters.AudioBusParameterDefinition.Name.get -> string
+Vixen.Audio.Parameters.AudioBusParameterDefinition.Name.init -> string
+Vixen.Audio.Parameters.AudioBusParameterDefinition.SeekSeconds.get -> float
+Vixen.Audio.Parameters.AudioBusParameterDefinition.SeekSeconds.init -> float
+Vixen.Audio.Parameters.AudioBusParameterTarget -> enum : int
+Vixen.Audio.Parameters.AudioBusParameterTarget.AudioBusParameterTarget() -> void
+Vixen.Audio.Parameters.AudioBusParameterTarget.EffectProperty = 2 -> Vixen.Audio.Parameters.AudioBusParameterTarget
+Vixen.Audio.Parameters.AudioBusParameterTarget.GainDb = 0 -> Vixen.Audio.Parameters.AudioBusParameterTarget
+Vixen.Audio.Parameters.AudioBusParameterTarget.SendDb = 1 -> Vixen.Audio.Parameters.AudioBusParameterTarget
+Vixen.Audio.Parameters.AudioCurve -> sealed class
+Vixen.Audio.Parameters.AudioCurve.AudioCurve(System.ReadOnlySpan<Vixen.Audio.Parameters.AudioCurvePoint> points, Vixen.Audio.Parameters.AudioCurveInterpolation interpolation = Vixen.Audio.Parameters.AudioCurveInterpolation.Linear) -> void
+Vixen.Audio.Parameters.AudioCurve.Evaluate(float position) -> float
+Vixen.Audio.Parameters.AudioCurve.Interpolation.get -> Vixen.Audio.Parameters.AudioCurveInterpolation
+Vixen.Audio.Parameters.AudioCurve.Points.get -> System.ReadOnlySpan<Vixen.Audio.Parameters.AudioCurvePoint>
+Vixen.Audio.Parameters.AudioCurveInterpolation -> enum : int
+Vixen.Audio.Parameters.AudioCurveInterpolation.AudioCurveInterpolation() -> void
+Vixen.Audio.Parameters.AudioCurveInterpolation.Linear = 0 -> Vixen.Audio.Parameters.AudioCurveInterpolation
+Vixen.Audio.Parameters.AudioCurveInterpolation.Smooth = 2 -> Vixen.Audio.Parameters.AudioCurveInterpolation
+Vixen.Audio.Parameters.AudioCurveInterpolation.Step = 1 -> Vixen.Audio.Parameters.AudioCurveInterpolation
+Vixen.Audio.Parameters.AudioCurvePoint -> readonly struct
+Vixen.Audio.Parameters.AudioCurvePoint : System.IEquatable<Vixen.Audio.Parameters.AudioCurvePoint>
+Vixen.Audio.Parameters.AudioCurvePoint.AudioCurvePoint() -> void
+Vixen.Audio.Parameters.AudioCurvePoint.AudioCurvePoint(float Position, float Value) -> void
+Vixen.Audio.Parameters.AudioCurvePoint.Position.get -> float
+Vixen.Audio.Parameters.AudioCurvePoint.Position.init -> float
+Vixen.Audio.Parameters.AudioCurvePoint.Value.get -> float
+Vixen.Audio.Parameters.AudioCurvePoint.Value.init -> float
+Vixen.Audio.Parameters.AudioParameterDefinition -> sealed record
+Vixen.Audio.Parameters.AudioParameterDefinition : System.IEquatable<Vixen.Audio.Parameters.AudioParameterDefinition>
+Vixen.Audio.Parameters.AudioParameterDefinition.AudioParameterDefinition() -> void
+Vixen.Audio.Parameters.AudioParameterDefinition.Automation.get -> Vixen.Audio.Parameters.AudioAutomation[]
+Vixen.Audio.Parameters.AudioParameterDefinition.Automation.init -> Vixen.Audio.Parameters.AudioAutomation[]
+Vixen.Audio.Parameters.AudioParameterDefinition.Builtin.get -> Vixen.Audio.Parameters.AudioBuiltinParameter
+Vixen.Audio.Parameters.AudioParameterDefinition.Builtin.init -> Vixen.Audio.Parameters.AudioBuiltinParameter
+Vixen.Audio.Parameters.AudioParameterDefinition.Default.get -> float
+Vixen.Audio.Parameters.AudioParameterDefinition.Default.init -> float
+Vixen.Audio.Parameters.AudioParameterDefinition.Maximum.get -> float
+Vixen.Audio.Parameters.AudioParameterDefinition.Maximum.init -> float
+Vixen.Audio.Parameters.AudioParameterDefinition.Minimum.get -> float
+Vixen.Audio.Parameters.AudioParameterDefinition.Minimum.init -> float
+Vixen.Audio.Parameters.AudioParameterDefinition.Name.get -> string
+Vixen.Audio.Parameters.AudioParameterDefinition.Name.init -> string
+Vixen.Audio.Parameters.AudioParameterDefinition.SeekSeconds.get -> float
+Vixen.Audio.Parameters.AudioParameterDefinition.SeekSeconds.init -> float
+Vixen.Audio.Parameters.AudioParameterResult -> readonly struct
+Vixen.Audio.Parameters.AudioParameterResult : System.IEquatable<Vixen.Audio.Parameters.AudioParameterResult>
+Vixen.Audio.Parameters.AudioParameterResult.AudioParameterResult() -> void
+Vixen.Audio.Parameters.AudioParameterResult.AudioParameterResult(float GainDb, float PitchSemitones, float LowPassHz, float HighPassHz) -> void
+Vixen.Audio.Parameters.AudioParameterResult.GainDb.get -> float
+Vixen.Audio.Parameters.AudioParameterResult.GainDb.init -> float
+Vixen.Audio.Parameters.AudioParameterResult.HighPassHz.get -> float
+Vixen.Audio.Parameters.AudioParameterResult.HighPassHz.init -> float
+Vixen.Audio.Parameters.AudioParameterResult.LowPassHz.get -> float
+Vixen.Audio.Parameters.AudioParameterResult.LowPassHz.init -> float
+Vixen.Audio.Parameters.AudioParameterResult.PitchSemitones.get -> float
+Vixen.Audio.Parameters.AudioParameterResult.PitchSemitones.init -> float
+Vixen.Audio.Parameters.AudioParameterSheet -> sealed class
+Vixen.Audio.Parameters.AudioParameterSheet.AudioParameterSheet(System.Collections.Generic.IReadOnlyList<Vixen.Audio.Parameters.AudioParameterDefinition> parameters) -> void
+Vixen.Audio.Parameters.AudioParameterSheet.CopyDefaultsTo(System.Span<float> values) -> void
+Vixen.Audio.Parameters.AudioParameterSheet.Count.get -> int
+Vixen.Audio.Parameters.AudioParameterSheet.Evaluate(System.ReadOnlySpan<float> values) -> Vixen.Audio.Parameters.AudioParameterResult
+Vixen.Audio.Parameters.AudioParameterSheet.HasBuiltins.get -> bool
+Vixen.Audio.Parameters.AudioParameterSheet.IndexOf(string name) -> int
+Vixen.Audio.Parameters.AudioParameterSheet.Normalize(int index, float value) -> float
+Vixen.Audio.Parameters.AudioParameterSheet.Seek(int index, ref float current, float target, float deltaSeconds) -> void
+Vixen.Audio.Parameters.AudioParameterSheet.this[int index].get -> Vixen.Audio.Parameters.AudioParameterDefinition
+Vixen.Audio.Parameters.AudioParameterTarget -> enum : int
+Vixen.Audio.Parameters.AudioParameterTarget.AudioParameterTarget() -> void
+Vixen.Audio.Parameters.AudioParameterTarget.GainDb = 0 -> Vixen.Audio.Parameters.AudioParameterTarget
+Vixen.Audio.Parameters.AudioParameterTarget.HighPassHz = 3 -> Vixen.Audio.Parameters.AudioParameterTarget
+Vixen.Audio.Parameters.AudioParameterTarget.LowPassHz = 2 -> Vixen.Audio.Parameters.AudioParameterTarget
+Vixen.Audio.Parameters.AudioParameterTarget.PitchSemitones = 1 -> Vixen.Audio.Parameters.AudioParameterTarget
+Vixen.Audio.Parameters.MixerParameters -> sealed class
+Vixen.Audio.Parameters.MixerParameters.Count.get -> int
+Vixen.Audio.Parameters.MixerParameters.IndexOf(string name) -> int
+Vixen.Audio.Parameters.MixerParameters.MixerParameters(Vixen.Audio.Mixing.AudioMixer mixer, System.Collections.Generic.IReadOnlyList<Vixen.Audio.Parameters.AudioBusParameterDefinition> definitions, out System.Collections.Generic.IReadOnlyList<string> problems) -> void
+Vixen.Audio.Parameters.MixerParameters.Set(int index, float value) -> bool
+Vixen.Audio.Parameters.MixerParameters.Set(string name, float value) -> bool
+Vixen.Audio.Parameters.MixerParameters.Step(float deltaSeconds) -> void
+Vixen.Audio.Parameters.MixerParameters.ValueOf(int index) -> float
+Vixen.Audio.Parameters.MixerParameters.this[int index].get -> Vixen.Audio.Parameters.AudioBusParameterDefinition
+Vixen.Audio.Sources.CaptureSampleProvider -> sealed class
+Vixen.Audio.Sources.CaptureSampleProvider : Vixen.Audio.Sources.IAudioSampleProvider
+Vixen.Audio.Sources.CaptureSampleProvider.CaptureSampleProvider(Vixen.Audio.Devices.IAudioCaptureDevice device) -> void
+Vixen.Audio.Sources.CaptureSampleProvider.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Audio.Sources.CaptureSampleProvider.FrameCount.get -> long
+Vixen.Audio.Sources.CaptureSampleProvider.IsLooping.get -> bool
+Vixen.Audio.Sources.CaptureSampleProvider.Position.get -> long
+Vixen.Audio.Sources.CaptureSampleProvider.Read(System.Span<float> destination, int frameCount) -> int
+Vixen.Audio.Sources.CaptureSampleProvider.Seek(long frame) -> void
+Vixen.Audio.Sources.CaptureSampleProvider.Starved.get -> long
+Vixen.Audio.Sources.ClipSampleProvider -> sealed class
+Vixen.Audio.Sources.ClipSampleProvider : Vixen.Audio.Sources.IAudioSampleProvider
+Vixen.Audio.Sources.ClipSampleProvider.Clip.get -> Vixen.Audio.AudioClip
+Vixen.Audio.Sources.ClipSampleProvider.ClipSampleProvider(Vixen.Audio.AudioClip clip, bool loop = false) -> void
+Vixen.Audio.Sources.ClipSampleProvider.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Audio.Sources.ClipSampleProvider.FrameCount.get -> long
+Vixen.Audio.Sources.ClipSampleProvider.IsLooping.get -> bool
+Vixen.Audio.Sources.ClipSampleProvider.Position.get -> long
+Vixen.Audio.Sources.ClipSampleProvider.Read(System.Span<float> destination, int frameCount) -> int
+Vixen.Audio.Sources.ClipSampleProvider.Seek(long frame) -> void
+Vixen.Audio.Sources.IAudioSampleProvider -> interface
+Vixen.Audio.Sources.IAudioSampleProvider.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Audio.Sources.IAudioSampleProvider.FrameCount.get -> long
+Vixen.Audio.Sources.IAudioSampleProvider.IsLooping.get -> bool
+Vixen.Audio.Sources.IAudioSampleProvider.Position.get -> long
+Vixen.Audio.Sources.IAudioSampleProvider.Read(System.Span<float> destination, int frameCount) -> int
+Vixen.Audio.Sources.IAudioSampleProvider.Seek(long frame) -> void
+Vixen.Audio.Sources.LiveSampleProvider -> sealed class
+Vixen.Audio.Sources.LiveSampleProvider : Vixen.Audio.Sources.IAudioSampleProvider
+Vixen.Audio.Sources.LiveSampleProvider.BufferedFrames.get -> int
+Vixen.Audio.Sources.LiveSampleProvider.Complete() -> void
+Vixen.Audio.Sources.LiveSampleProvider.DroppedFrames.get -> long
+Vixen.Audio.Sources.LiveSampleProvider.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Audio.Sources.LiveSampleProvider.FrameCount.get -> long
+Vixen.Audio.Sources.LiveSampleProvider.IsCompleted.get -> bool
+Vixen.Audio.Sources.LiveSampleProvider.IsLooping.get -> bool
+Vixen.Audio.Sources.LiveSampleProvider.LiveSampleProvider(Vixen.Audio.AudioFormat format, int bufferedFrames = 4800) -> void
+Vixen.Audio.Sources.LiveSampleProvider.Position.get -> long
+Vixen.Audio.Sources.LiveSampleProvider.Read(System.Span<float> destination, int frameCount) -> int
+Vixen.Audio.Sources.LiveSampleProvider.Seek(long frame) -> void
+Vixen.Audio.Sources.LiveSampleProvider.Underruns.get -> long
+Vixen.Audio.Sources.LiveSampleProvider.Write(System.ReadOnlySpan<float> samples) -> int
+Vixen.Audio.Spatial.AttenuationModel -> enum : int
+Vixen.Audio.Spatial.AttenuationModel.AttenuationModel() -> void
+Vixen.Audio.Spatial.AttenuationModel.Exponential = 3 -> Vixen.Audio.Spatial.AttenuationModel
+Vixen.Audio.Spatial.AttenuationModel.Inverse = 2 -> Vixen.Audio.Spatial.AttenuationModel
+Vixen.Audio.Spatial.AttenuationModel.Linear = 1 -> Vixen.Audio.Spatial.AttenuationModel
+Vixen.Audio.Spatial.AttenuationModel.None = 0 -> Vixen.Audio.Spatial.AttenuationModel
+Vixen.Audio.Spatial.AudioListener -> readonly struct
+Vixen.Audio.Spatial.AudioListener : System.IEquatable<Vixen.Audio.Spatial.AudioListener>
+Vixen.Audio.Spatial.AudioListener.AudioListener() -> void
+Vixen.Audio.Spatial.AudioListener.Forward.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Spatial.AudioListener.Forward.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Spatial.AudioListener.Gain.get -> float
+Vixen.Audio.Spatial.AudioListener.Gain.init -> float
+Vixen.Audio.Spatial.AudioListener.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Spatial.AudioListener.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Spatial.AudioListener.Up.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Spatial.AudioListener.Up.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Spatial.AudioListener.Velocity.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Spatial.AudioListener.Velocity.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Spatial.AudioListenerSet -> struct
+Vixen.Audio.Spatial.AudioListenerSet.AudioListenerSet() -> void
+Vixen.Audio.Spatial.AudioListenerSet.Clear() -> void
+Vixen.Audio.Spatial.AudioListenerSet.TryAdd(in Vixen.Audio.Spatial.AudioListener listener, float weight = 1) -> bool
+Vixen.Audio.Spatial.AudioOcclusion -> sealed class
+Vixen.Audio.Spatial.AudioOcclusion.AudioOcclusion(int capacity) -> void
+Vixen.Audio.Spatial.AudioOcclusion.Budget.get -> int
+Vixen.Audio.Spatial.AudioOcclusion.Budget.set -> int
+Vixen.Audio.Spatial.AudioOcclusion.Provider.get -> Vixen.Audio.Spatial.IAudioOcclusionProvider?
+Vixen.Audio.Spatial.AudioOcclusion.Provider.set -> Vixen.Audio.Spatial.IAudioOcclusionProvider?
+Vixen.Audio.Spatial.AudioOcclusion.Queries.get -> long
+Vixen.Audio.Spatial.AudioOcclusion.Reset() -> void
+Vixen.Audio.Spatial.AudioOcclusion.SeekSeconds.get -> float
+Vixen.Audio.Spatial.AudioOcclusion.SeekSeconds.set -> float
+Vixen.Audio.Spatial.AudioReverbZone -> sealed record
+Vixen.Audio.Spatial.AudioReverbZone : System.IEquatable<Vixen.Audio.Spatial.AudioReverbZone>
+Vixen.Audio.Spatial.AudioReverbZone.AudioReverbZone() -> void
+Vixen.Audio.Spatial.AudioReverbZone.Blend.get -> float
+Vixen.Audio.Spatial.AudioReverbZone.Blend.init -> float
+Vixen.Audio.Spatial.AudioReverbZone.Evaluate(in Vixen.Core.Mathematics.Vector3 listener) -> float
+Vixen.Audio.Spatial.AudioReverbZone.Evaluate(in Vixen.Core.Mathematics.Vector3 listener, in Vixen.Core.Mathematics.Vector3 centre) -> float
+Vixen.Audio.Spatial.AudioReverbZone.Extent.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Spatial.AudioReverbZone.Extent.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Spatial.AudioReverbZone.Parameter.get -> string
+Vixen.Audio.Spatial.AudioReverbZone.Parameter.init -> string
+Vixen.Audio.Spatial.AudioReverbZone.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Spatial.AudioReverbZone.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Spatial.AudioReverbZone.Priority.get -> int
+Vixen.Audio.Spatial.AudioReverbZone.Priority.init -> int
+Vixen.Audio.Spatial.AudioReverbZone.Shape.get -> Vixen.Audio.Spatial.AudioZoneShape
+Vixen.Audio.Spatial.AudioReverbZone.Shape.init -> Vixen.Audio.Spatial.AudioZoneShape
+Vixen.Audio.Spatial.AudioReverbZone.Strength.get -> float
+Vixen.Audio.Spatial.AudioReverbZone.Strength.init -> float
+Vixen.Audio.Spatial.AudioReverbZones -> sealed class
+Vixen.Audio.Spatial.AudioReverbZones.Add(Vixen.Audio.Spatial.AudioReverbZone zone) -> void
+Vixen.Audio.Spatial.AudioReverbZones.Apply(in Vixen.Core.Mathematics.Vector3 listener, Vixen.Audio.Parameters.MixerParameters? parameters) -> void
+Vixen.Audio.Spatial.AudioReverbZones.AudioReverbZones() -> void
+Vixen.Audio.Spatial.AudioReverbZones.BeginSync() -> void
+Vixen.Audio.Spatial.AudioReverbZones.Clear() -> void
+Vixen.Audio.Spatial.AudioReverbZones.Count.get -> int
+Vixen.Audio.Spatial.AudioReverbZones.Remove(Vixen.Audio.Spatial.AudioReverbZone zone) -> bool
+Vixen.Audio.Spatial.AudioReverbZones.StrengthOf(string parameter) -> float
+Vixen.Audio.Spatial.AudioReverbZones.Sync(Vixen.Audio.Spatial.AudioReverbZone zone, in Vixen.Core.Mathematics.Vector3 position) -> void
+Vixen.Audio.Spatial.AudioZoneShape -> enum : int
+Vixen.Audio.Spatial.AudioZoneShape.AudioZoneShape() -> void
+Vixen.Audio.Spatial.AudioZoneShape.Box = 1 -> Vixen.Audio.Spatial.AudioZoneShape
+Vixen.Audio.Spatial.AudioZoneShape.Sphere = 0 -> Vixen.Audio.Spatial.AudioZoneShape
+Vixen.Audio.Spatial.HrtfPanner -> sealed class
+Vixen.Audio.Spatial.HrtfPanner.HrtfPanner(int rate) -> void
+Vixen.Audio.Spatial.HrtfPanner.Process(float sample, float azimuth, float elevation, out float left, out float right) -> void
+Vixen.Audio.Spatial.HrtfPanner.Reset() -> void
+Vixen.Audio.Spatial.IAudioOcclusionProvider -> interface
+Vixen.Audio.Spatial.IAudioOcclusionProvider.Occlusion(in Vixen.Core.Mathematics.Vector3 source, in Vixen.Core.Mathematics.Vector3 listener) -> float
+Vixen.Audio.Spatial.SpatialResult -> readonly struct
+Vixen.Audio.Spatial.SpatialResult : System.IEquatable<Vixen.Audio.Spatial.SpatialResult>
+Vixen.Audio.Spatial.SpatialResult.Attenuation.get -> float
+Vixen.Audio.Spatial.SpatialResult.Attenuation.init -> float
+Vixen.Audio.Spatial.SpatialResult.Azimuth.get -> float
+Vixen.Audio.Spatial.SpatialResult.Azimuth.init -> float
+Vixen.Audio.Spatial.SpatialResult.ConeGain.get -> float
+Vixen.Audio.Spatial.SpatialResult.ConeGain.init -> float
+Vixen.Audio.Spatial.SpatialResult.Distance.get -> float
+Vixen.Audio.Spatial.SpatialResult.Distance.init -> float
+Vixen.Audio.Spatial.SpatialResult.DopplerRatio.get -> float
+Vixen.Audio.Spatial.SpatialResult.DopplerRatio.init -> float
+Vixen.Audio.Spatial.SpatialResult.Elevation.get -> float
+Vixen.Audio.Spatial.SpatialResult.Elevation.init -> float
+Vixen.Audio.Spatial.SpatialResult.LowPassHz.get -> float
+Vixen.Audio.Spatial.SpatialResult.LowPassHz.init -> float
+Vixen.Audio.Spatial.SpatialResult.SourceSpeed.get -> float
+Vixen.Audio.Spatial.SpatialResult.SourceSpeed.init -> float
+Vixen.Audio.Spatial.SpatialResult.SpatialResult() -> void
+Vixen.Audio.Spatial.SpatialResult.SpatialResult(float Distance, float Attenuation, float ConeGain, float DopplerRatio, float LowPassHz = 0, float Azimuth = 0, float Elevation = 0, float SourceSpeed = 0) -> void
+Vixen.Audio.Spatial.SpatialSettings -> readonly struct
+Vixen.Audio.Spatial.SpatialSettings : System.IEquatable<Vixen.Audio.Spatial.SpatialSettings>
+Vixen.Audio.Spatial.SpatialSettings.AirAbsorption.get -> float
+Vixen.Audio.Spatial.SpatialSettings.AirAbsorption.init -> float
+Vixen.Audio.Spatial.SpatialSettings.AirAbsorptionCutoff.get -> float
+Vixen.Audio.Spatial.SpatialSettings.AirAbsorptionCutoff.init -> float
+Vixen.Audio.Spatial.SpatialSettings.Attenuation.get -> Vixen.Audio.Spatial.AttenuationModel
+Vixen.Audio.Spatial.SpatialSettings.Attenuation.init -> Vixen.Audio.Spatial.AttenuationModel
+Vixen.Audio.Spatial.SpatialSettings.ConeDirection.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Spatial.SpatialSettings.ConeDirection.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Spatial.SpatialSettings.ConeInnerAngle.get -> float
+Vixen.Audio.Spatial.SpatialSettings.ConeInnerAngle.init -> float
+Vixen.Audio.Spatial.SpatialSettings.ConeOuterAngle.get -> float
+Vixen.Audio.Spatial.SpatialSettings.ConeOuterAngle.init -> float
+Vixen.Audio.Spatial.SpatialSettings.ConeOuterGain.get -> float
+Vixen.Audio.Spatial.SpatialSettings.ConeOuterGain.init -> float
+Vixen.Audio.Spatial.SpatialSettings.DopplerFactor.get -> float
+Vixen.Audio.Spatial.SpatialSettings.DopplerFactor.init -> float
+Vixen.Audio.Spatial.SpatialSettings.MaxDistance.get -> float
+Vixen.Audio.Spatial.SpatialSettings.MaxDistance.init -> float
+Vixen.Audio.Spatial.SpatialSettings.MinDistance.get -> float
+Vixen.Audio.Spatial.SpatialSettings.MinDistance.init -> float
+Vixen.Audio.Spatial.SpatialSettings.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Spatial.SpatialSettings.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Spatial.SpatialSettings.RolloffFactor.get -> float
+Vixen.Audio.Spatial.SpatialSettings.RolloffFactor.init -> float
+Vixen.Audio.Spatial.SpatialSettings.SpatialSettings() -> void
+Vixen.Audio.Spatial.SpatialSettings.SpeedOfSound.get -> float
+Vixen.Audio.Spatial.SpatialSettings.SpeedOfSound.init -> float
+Vixen.Audio.Spatial.SpatialSettings.Spread.get -> float
+Vixen.Audio.Spatial.SpatialSettings.Spread.init -> float
+Vixen.Audio.Spatial.SpatialSettings.Velocity.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Spatial.SpatialSettings.Velocity.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Audio.Spatial.Spatializer -> static class
+Vixen.Audio.Spatial.SpeakerLayout -> static class
+Vixen.Audio.Streaming.Adpcm -> static class
+Vixen.Audio.Streaming.Adpcm.State -> struct
+Vixen.Audio.Streaming.Adpcm.State.Index.get -> int
+Vixen.Audio.Streaming.Adpcm.State.Index.set -> int
+Vixen.Audio.Streaming.Adpcm.State.Predictor.get -> int
+Vixen.Audio.Streaming.Adpcm.State.Predictor.set -> int
+Vixen.Audio.Streaming.Adpcm.State.State() -> void
+Vixen.Audio.Streaming.AdpcmStreamDecoder -> sealed class
+Vixen.Audio.Streaming.AdpcmStreamDecoder : System.IDisposable
+Vixen.Audio.Streaming.AdpcmStreamDecoder : Vixen.Audio.Streaming.IAudioStreamDecoder
+Vixen.Audio.Streaming.AdpcmStreamDecoder.AdpcmStreamDecoder(byte[] data, in Vixen.Audio.AudioFormat format, int samplesPerBlock, long frameCount = -1) -> void
+Vixen.Audio.Streaming.AdpcmStreamDecoder.CanSeek.get -> bool
+Vixen.Audio.Streaming.AdpcmStreamDecoder.Decode(System.Span<float> destination, int frameCount) -> int
+Vixen.Audio.Streaming.AdpcmStreamDecoder.Dispose() -> void
+Vixen.Audio.Streaming.AdpcmStreamDecoder.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Audio.Streaming.AdpcmStreamDecoder.FrameCount.get -> long
+Vixen.Audio.Streaming.AdpcmStreamDecoder.Position.get -> long
+Vixen.Audio.Streaming.AdpcmStreamDecoder.Seek(long frame) -> void
+Vixen.Audio.Streaming.AudioRingBuffer -> sealed class
+Vixen.Audio.Streaming.AudioRingBuffer.AudioRingBuffer(int capacity) -> void
+Vixen.Audio.Streaming.AudioRingBuffer.Capacity.get -> int
+Vixen.Audio.Streaming.AudioRingBuffer.Clear() -> void
+Vixen.Audio.Streaming.AudioRingBuffer.Count.get -> int
+Vixen.Audio.Streaming.AudioRingBuffer.Free.get -> int
+Vixen.Audio.Streaming.AudioRingBuffer.Read(System.Span<float> destination) -> int
+Vixen.Audio.Streaming.AudioRingBuffer.Write(System.ReadOnlySpan<float> source) -> int
+Vixen.Audio.Streaming.AudioStreamPump -> sealed class
+Vixen.Audio.Streaming.AudioStreamPump : System.IDisposable
+Vixen.Audio.Streaming.AudioStreamPump.AudioStreamPump() -> void
+Vixen.Audio.Streaming.AudioStreamPump.Dispose() -> void
+Vixen.Audio.Streaming.AudioStreamPump.Interval.get -> System.TimeSpan
+Vixen.Audio.Streaming.AudioStreamPump.Interval.init -> System.TimeSpan
+Vixen.Audio.Streaming.AudioStreamPump.IsRunning.get -> bool
+Vixen.Audio.Streaming.AudioStreamPump.Pump() -> int
+Vixen.Audio.Streaming.AudioStreamPump.Register(Vixen.Audio.Streaming.StreamingSampleProvider provider) -> void
+Vixen.Audio.Streaming.AudioStreamPump.Start() -> void
+Vixen.Audio.Streaming.AudioStreamPump.Stop() -> void
+Vixen.Audio.Streaming.AudioStreamPump.StreamCount.get -> int
+Vixen.Audio.Streaming.AudioStreamPump.Unregister(Vixen.Audio.Streaming.StreamingSampleProvider provider) -> void
+Vixen.Audio.Streaming.IAudioStreamDecoder -> interface
+Vixen.Audio.Streaming.IAudioStreamDecoder : System.IDisposable
+Vixen.Audio.Streaming.IAudioStreamDecoder.CanSeek.get -> bool
+Vixen.Audio.Streaming.IAudioStreamDecoder.Decode(System.Span<float> destination, int frameCount) -> int
+Vixen.Audio.Streaming.IAudioStreamDecoder.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Audio.Streaming.IAudioStreamDecoder.FrameCount.get -> long
+Vixen.Audio.Streaming.IAudioStreamDecoder.Position.get -> long
+Vixen.Audio.Streaming.IAudioStreamDecoder.Seek(long frame) -> void
+Vixen.Audio.Streaming.PcmStreamDecoder -> sealed class
+Vixen.Audio.Streaming.PcmStreamDecoder : System.IDisposable
+Vixen.Audio.Streaming.PcmStreamDecoder : Vixen.Audio.Streaming.IAudioStreamDecoder
+Vixen.Audio.Streaming.PcmStreamDecoder.CanSeek.get -> bool
+Vixen.Audio.Streaming.PcmStreamDecoder.Decode(System.Span<float> destination, int frameCount) -> int
+Vixen.Audio.Streaming.PcmStreamDecoder.Dispose() -> void
+Vixen.Audio.Streaming.PcmStreamDecoder.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Audio.Streaming.PcmStreamDecoder.FrameCount.get -> long
+Vixen.Audio.Streaming.PcmStreamDecoder.PcmStreamDecoder(System.IO.Stream stream, Vixen.Audio.AudioFormat format, Vixen.Audio.AudioSampleFormat sampleFormat = Vixen.Audio.AudioSampleFormat.Int16, long dataOffset = 0, long dataLength = -1, bool ownsStream = true) -> void
+Vixen.Audio.Streaming.PcmStreamDecoder.Position.get -> long
+Vixen.Audio.Streaming.PcmStreamDecoder.Seek(long frame) -> void
+Vixen.Audio.Streaming.StreamingSampleProvider -> sealed class
+Vixen.Audio.Streaming.StreamingSampleProvider : System.IDisposable
+Vixen.Audio.Streaming.StreamingSampleProvider : Vixen.Audio.Sources.IAudioSampleProvider
+Vixen.Audio.Streaming.StreamingSampleProvider.BufferedFrames.get -> int
+Vixen.Audio.Streaming.StreamingSampleProvider.Dispose() -> void
+Vixen.Audio.Streaming.StreamingSampleProvider.Fill() -> int
+Vixen.Audio.Streaming.StreamingSampleProvider.Format.get -> Vixen.Audio.AudioFormat
+Vixen.Audio.Streaming.StreamingSampleProvider.FrameCount.get -> long
+Vixen.Audio.Streaming.StreamingSampleProvider.IsExhausted.get -> bool
+Vixen.Audio.Streaming.StreamingSampleProvider.IsLooping.get -> bool
+Vixen.Audio.Streaming.StreamingSampleProvider.Position.get -> long
+Vixen.Audio.Streaming.StreamingSampleProvider.Read(System.Span<float> destination, int frameCount) -> int
+Vixen.Audio.Streaming.StreamingSampleProvider.Seek(long frame) -> void
+Vixen.Audio.Streaming.StreamingSampleProvider.StreamingSampleProvider(Vixen.Audio.Streaming.IAudioStreamDecoder decoder, bool loop = false, int bufferedFrames = 24000) -> void
+Vixen.Audio.Streaming.StreamingSampleProvider.Underruns.get -> long
+const Vixen.Audio.AudioFormat.MaxChannels = 8 -> int
+const Vixen.Audio.Diagnostics.MixControl.SilenceDb = -80 -> float
+const Vixen.Audio.Dsp.SincTable.Bands = 8 -> int
+const Vixen.Audio.Dsp.SincTable.Phases = 512 -> int
+const Vixen.Audio.Dsp.SincTable.Taps = 32 -> int
+const Vixen.Audio.Dsp.TruePeakMeter.Oversampling = 4 -> int
+const Vixen.Audio.Dsp.TruePeakMeter.Taps = 16 -> int
+const Vixen.Audio.Mixing.AudioFade.FloorDb = -80 -> float
+const Vixen.Audio.Parameters.AudioParameterSheet.MaxParameters = 8 -> int
+const Vixen.Audio.Spatial.AudioListenerSet.MaxListeners = 4 -> int
+const Vixen.Audio.Spatial.HrtfPanner.HeadRadius = 0.0875 -> float
+const Vixen.Audio.Spatial.HrtfPanner.SpeedOfSound = 343 -> float
+override Vixen.Audio.AudioFormat.ToString() -> string
+override Vixen.Audio.Ecs.AudioSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+readonly Vixen.Audio.Ecs.AudioSpatial.ToSettings(Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 coneDirection) -> Vixen.Audio.Spatial.SpatialSettings
+readonly Vixen.Audio.Spatial.AudioListenerSet.Count.get -> int
+readonly Vixen.Audio.Spatial.AudioListenerSet.Get(int index) -> Vixen.Audio.Spatial.AudioListener
+readonly Vixen.Audio.Spatial.AudioListenerSet.WeightOf(int index) -> float
+static Vixen.Audio.Assets.AudioEventBuilder.Build(Vixen.Audio.AudioEngine engine, Vixen.Audio.Assets.AudioEventAsset asset, out System.Collections.Generic.IReadOnlyList<string> problems, Vixen.Audio.Assets.IAudioEventLibrary? library = null) -> Vixen.Audio.Events.AudioEvent
+static Vixen.Audio.Assets.MixerBuilder.Build(Vixen.Audio.Mixing.AudioMixer mixer, Vixen.Audio.Assets.MixerAsset asset) -> Vixen.Audio.Assets.MixerBuilder.MixerBuildResult
+static Vixen.Audio.Assets.MusicBuilder.Build(Vixen.Audio.AudioEngine engine, Vixen.Audio.Assets.MusicAsset asset, out System.Collections.Generic.IReadOnlyList<string> problems) -> Vixen.Audio.Music.MusicPlayer
+static Vixen.Audio.AudioEngine.Create(Vixen.Audio.Devices.IAudioBackend backend, Microsoft.Extensions.Logging.ILogger? logger = null) -> Vixen.Audio.AudioEngine
+static Vixen.Audio.AudioEngine.Create(Vixen.Audio.Devices.IAudioBackend backend, in Vixen.Audio.AudioEngineOptions options, Microsoft.Extensions.Logging.ILogger? logger = null) -> Vixen.Audio.AudioEngine
+static Vixen.Audio.AudioFormat.Mono48k.get -> Vixen.Audio.AudioFormat
+static Vixen.Audio.AudioFormat.Stereo48k.get -> Vixen.Audio.AudioFormat
+static Vixen.Audio.Dsp.Fft.NextSize(int value) -> int
+static Vixen.Audio.Dsp.SincTable.BandFor(double ratio) -> int
+static Vixen.Audio.Dsp.SincTable.Cutoff(int band) -> float
+static Vixen.Audio.Dsp.SincTable.Window(double fraction, double ratio = 1) -> System.ReadOnlySpan<float>
+static Vixen.Audio.Ecs.AudioListenerComponent.Default.get -> Vixen.Audio.Ecs.AudioListenerComponent
+static Vixen.Audio.Ecs.AudioReverbZoneRef.Of(Vixen.Audio.Spatial.AudioReverbZone zone) -> Vixen.Audio.Ecs.AudioReverbZoneRef
+static Vixen.Audio.Ecs.AudioSource.Default.get -> Vixen.Audio.Ecs.AudioSource
+static Vixen.Audio.Ecs.AudioSource.Playing.get -> Vixen.Audio.Ecs.AudioSource
+static Vixen.Audio.Ecs.AudioSpatial.Default.get -> Vixen.Audio.Ecs.AudioSpatial
+static Vixen.Audio.Effects.BiquadCoefficients.Design(Vixen.Audio.Effects.BiquadFilterKind kind, int sampleRate, float frequency, float q = 0.70710677, float gainDb = 0) -> Vixen.Audio.Effects.BiquadCoefficients
+static Vixen.Audio.Effects.BiquadCoefficients.Identity.get -> Vixen.Audio.Effects.BiquadCoefficients
+static Vixen.Audio.Effects.Decibels.FromLinear(float linear) -> float
+static Vixen.Audio.Effects.Decibels.ToLinear(float decibels) -> float
+static Vixen.Audio.Effects.DistortionEffect.Shape(float value, Vixen.Audio.Effects.DistortionCurve curve) -> float
+static Vixen.Audio.Effects.ModulatedDelayEffect.Chorus() -> Vixen.Audio.Effects.ModulatedDelayEffect
+static Vixen.Audio.Effects.ModulatedDelayEffect.Flanger() -> Vixen.Audio.Effects.ModulatedDelayEffect
+static Vixen.Audio.Effects.ModulatedDelayEffect.Vibrato() -> Vixen.Audio.Effects.ModulatedDelayEffect
+static Vixen.Audio.Mixing.AudioFade.Evaluate(float from, float to, float t, Vixen.Audio.Mixing.AudioFadeCurve curve = Vixen.Audio.Mixing.AudioFadeCurve.Decibel) -> float
+static Vixen.Audio.Mixing.VoiceHandle.None.get -> Vixen.Audio.Mixing.VoiceHandle
+static Vixen.Audio.Parameters.AudioCurve.Constant(float value) -> Vixen.Audio.Parameters.AudioCurve
+static Vixen.Audio.Parameters.AudioCurve.Ramp(float from, float to) -> Vixen.Audio.Parameters.AudioCurve
+static Vixen.Audio.Parameters.AudioParameterResult.None.get -> Vixen.Audio.Parameters.AudioParameterResult
+static Vixen.Audio.Spatial.AudioListener.Default.get -> Vixen.Audio.Spatial.AudioListener
+static Vixen.Audio.Spatial.AudioListenerSet.Default.get -> Vixen.Audio.Spatial.AudioListenerSet
+static Vixen.Audio.Spatial.AudioListenerSet.Single(in Vixen.Audio.Spatial.AudioListener listener) -> Vixen.Audio.Spatial.AudioListenerSet
+static Vixen.Audio.Spatial.Spatializer.Evaluate(in Vixen.Audio.Spatial.AudioListener listener, in Vixen.Audio.Spatial.SpatialSettings source, int outputChannels, System.Span<float> gains) -> Vixen.Audio.Spatial.SpatialResult
+static Vixen.Audio.Spatial.Spatializer.Evaluate(in Vixen.Audio.Spatial.AudioListenerSet listeners, in Vixen.Audio.Spatial.SpatialSettings source, int outputChannels, System.Span<float> gains, System.Span<float> scratch) -> Vixen.Audio.Spatial.SpatialResult
+static Vixen.Audio.Spatial.Spatializer.Pan(in Vixen.Audio.Spatial.AudioListener listener, Vixen.Core.Mathematics.Vector3 direction) -> float
+static Vixen.Audio.Spatial.SpeakerLayout.Angles(int channels) -> System.ReadOnlySpan<float>
+static Vixen.Audio.Spatial.SpeakerLayout.IsKnown(int channels) -> bool
+static Vixen.Audio.Spatial.SpeakerLayout.LowFrequencyChannel(int channels) -> int
+static Vixen.Audio.Streaming.Adpcm.BlockBytes(int samplesPerBlock, int channels) -> int
+static Vixen.Audio.Streaming.Adpcm.BlockFrames(int blockBytes, int channels) -> int
+static Vixen.Audio.Streaming.Adpcm.Compress(System.ReadOnlySpan<float> samples, int channels, int samplesPerBlock = 505) -> byte[]
+static Vixen.Audio.Streaming.Adpcm.Decode(int code, ref Vixen.Audio.Streaming.Adpcm.State state) -> int
+static Vixen.Audio.Streaming.Adpcm.Decompress(System.ReadOnlySpan<byte> block, int channels, int samplesPerBlock, System.Span<float> destination) -> int
+static Vixen.Audio.Streaming.Adpcm.Encode(int sample, ref Vixen.Audio.Streaming.Adpcm.State state) -> int

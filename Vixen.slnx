@@ -261,6 +261,8 @@
   -->
   <Folder Name="/Tools/">
     <Project Path="Tools/Vixen.AotProbe/Vixen.AotProbe.csproj" />
+    <Project Path="Tools/Vixen.ApiCheck/Vixen.ApiCheck.csproj" />
+    <Project Path="Tools/Vixen.ApiCheck.Tests/Vixen.ApiCheck.Tests.csproj" />
     <Project Path="Tools/Vixen.App/Vixen.App.csproj" />
     <Project Path="Tools/Vixen.App.Tests/Vixen.App.Tests.csproj" />
     <Project Path="Tools/Vixen.AssetCompiler/Vixen.AssetCompiler.csproj" />

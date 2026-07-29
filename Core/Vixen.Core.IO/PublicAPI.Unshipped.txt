@@ -1,0 +1,185 @@
+#nullable enable
+Vixen.Core.IO.FileEntry -> readonly struct
+Vixen.Core.IO.FileEntry : System.IEquatable<Vixen.Core.IO.FileEntry>
+Vixen.Core.IO.FileEntry.FileEntry() -> void
+Vixen.Core.IO.FileEntry.FileEntry(Vixen.Core.IO.VirtualPath Path, long Length, System.DateTimeOffset LastWriteUtc, bool IsDirectory) -> void
+Vixen.Core.IO.FileEntry.IsDirectory.get -> bool
+Vixen.Core.IO.FileEntry.IsDirectory.init -> bool
+Vixen.Core.IO.FileEntry.LastWriteUtc.get -> System.DateTimeOffset
+Vixen.Core.IO.FileEntry.LastWriteUtc.init -> System.DateTimeOffset
+Vixen.Core.IO.FileEntry.Length.get -> long
+Vixen.Core.IO.FileEntry.Length.init -> long
+Vixen.Core.IO.FileEntry.Path.get -> Vixen.Core.IO.VirtualPath
+Vixen.Core.IO.FileEntry.Path.init -> Vixen.Core.IO.VirtualPath
+Vixen.Core.IO.IFileProvider -> interface
+Vixen.Core.IO.IFileProvider.CreateDirectory(Vixen.Core.IO.VirtualPath path) -> void
+Vixen.Core.IO.IFileProvider.Delete(Vixen.Core.IO.VirtualPath path) -> bool
+Vixen.Core.IO.IFileProvider.Enumerate(Vixen.Core.IO.VirtualPath directory, bool recursive = false) -> System.Collections.Generic.IEnumerable<Vixen.Core.IO.FileEntry>
+Vixen.Core.IO.IFileProvider.Exists(Vixen.Core.IO.VirtualPath path) -> bool
+Vixen.Core.IO.IFileProvider.IsReadOnly.get -> bool
+Vixen.Core.IO.IFileProvider.OpenAppend(Vixen.Core.IO.VirtualPath path) -> System.IO.Stream
+Vixen.Core.IO.IFileProvider.OpenAppendAsync(Vixen.Core.IO.VirtualPath path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.IO.Stream>
+Vixen.Core.IO.IFileProvider.OpenRead(Vixen.Core.IO.VirtualPath path) -> System.IO.Stream
+Vixen.Core.IO.IFileProvider.OpenReadAsync(Vixen.Core.IO.VirtualPath path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.IO.Stream>
+Vixen.Core.IO.IFileProvider.OpenWrite(Vixen.Core.IO.VirtualPath path) -> System.IO.Stream
+Vixen.Core.IO.IFileProvider.OpenWriteAsync(Vixen.Core.IO.VirtualPath path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.IO.Stream>
+Vixen.Core.IO.IFileProvider.TryGetEntry(Vixen.Core.IO.VirtualPath path, out Vixen.Core.IO.FileEntry entry) -> bool
+Vixen.Core.IO.IFileProvider.TryMap(Vixen.Core.IO.VirtualPath path, out Vixen.Core.IO.IMappedFile? mapped) -> bool
+Vixen.Core.IO.IMappedFile -> interface
+Vixen.Core.IO.IMappedFile : System.IDisposable
+Vixen.Core.IO.IMappedFile.Memory.get -> System.ReadOnlyMemory<byte>
+Vixen.Core.IO.MemoryFileProvider -> sealed class
+Vixen.Core.IO.MemoryFileProvider : Vixen.Core.IO.IFileProvider
+Vixen.Core.IO.MemoryFileProvider.CreateDirectory(Vixen.Core.IO.VirtualPath path) -> void
+Vixen.Core.IO.MemoryFileProvider.Delete(Vixen.Core.IO.VirtualPath path) -> bool
+Vixen.Core.IO.MemoryFileProvider.Enumerate(Vixen.Core.IO.VirtualPath directory, bool recursive = false) -> System.Collections.Generic.IEnumerable<Vixen.Core.IO.FileEntry>
+Vixen.Core.IO.MemoryFileProvider.Exists(Vixen.Core.IO.VirtualPath path) -> bool
+Vixen.Core.IO.MemoryFileProvider.FileCount.get -> int
+Vixen.Core.IO.MemoryFileProvider.IsReadOnly.get -> bool
+Vixen.Core.IO.MemoryFileProvider.MemoryFileProvider() -> void
+Vixen.Core.IO.MemoryFileProvider.MemoryFileProvider(bool isReadOnly) -> void
+Vixen.Core.IO.MemoryFileProvider.OpenAppend(Vixen.Core.IO.VirtualPath path) -> System.IO.Stream
+Vixen.Core.IO.MemoryFileProvider.OpenAppendAsync(Vixen.Core.IO.VirtualPath path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.IO.Stream>
+Vixen.Core.IO.MemoryFileProvider.OpenRead(Vixen.Core.IO.VirtualPath path) -> System.IO.Stream
+Vixen.Core.IO.MemoryFileProvider.OpenReadAsync(Vixen.Core.IO.VirtualPath path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.IO.Stream>
+Vixen.Core.IO.MemoryFileProvider.OpenWrite(Vixen.Core.IO.VirtualPath path) -> System.IO.Stream
+Vixen.Core.IO.MemoryFileProvider.OpenWriteAsync(Vixen.Core.IO.VirtualPath path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.IO.Stream>
+Vixen.Core.IO.MemoryFileProvider.Seed(Vixen.Core.IO.VirtualPath path, System.ReadOnlySpan<byte> contents) -> void
+Vixen.Core.IO.MemoryFileProvider.Seed(Vixen.Core.IO.VirtualPath path, string contents) -> void
+Vixen.Core.IO.MemoryFileProvider.TryGetEntry(Vixen.Core.IO.VirtualPath path, out Vixen.Core.IO.FileEntry entry) -> bool
+Vixen.Core.IO.MemoryFileProvider.TryMap(Vixen.Core.IO.VirtualPath path, out Vixen.Core.IO.IMappedFile? mapped) -> bool
+Vixen.Core.IO.MountPoints -> static class
+Vixen.Core.IO.PhysicalFileProvider -> sealed class
+Vixen.Core.IO.PhysicalFileProvider : Vixen.Core.IO.IFileProvider
+Vixen.Core.IO.PhysicalFileProvider.CreateDirectory(Vixen.Core.IO.VirtualPath path) -> void
+Vixen.Core.IO.PhysicalFileProvider.Delete(Vixen.Core.IO.VirtualPath path) -> bool
+Vixen.Core.IO.PhysicalFileProvider.EnforcesCaseSensitivity.get -> bool
+Vixen.Core.IO.PhysicalFileProvider.Enumerate(Vixen.Core.IO.VirtualPath directory, bool recursive = false) -> System.Collections.Generic.IEnumerable<Vixen.Core.IO.FileEntry>
+Vixen.Core.IO.PhysicalFileProvider.Exists(Vixen.Core.IO.VirtualPath path) -> bool
+Vixen.Core.IO.PhysicalFileProvider.IsReadOnly.get -> bool
+Vixen.Core.IO.PhysicalFileProvider.OpenAppend(Vixen.Core.IO.VirtualPath path) -> System.IO.Stream
+Vixen.Core.IO.PhysicalFileProvider.OpenAppendAsync(Vixen.Core.IO.VirtualPath path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.IO.Stream>
+Vixen.Core.IO.PhysicalFileProvider.OpenRead(Vixen.Core.IO.VirtualPath path) -> System.IO.Stream
+Vixen.Core.IO.PhysicalFileProvider.OpenReadAsync(Vixen.Core.IO.VirtualPath path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.IO.Stream>
+Vixen.Core.IO.PhysicalFileProvider.OpenWrite(Vixen.Core.IO.VirtualPath path) -> System.IO.Stream
+Vixen.Core.IO.PhysicalFileProvider.OpenWriteAsync(Vixen.Core.IO.VirtualPath path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.IO.Stream>
+Vixen.Core.IO.PhysicalFileProvider.PhysicalFileProvider(string rootDirectory, bool isReadOnly = false, bool? enforceCaseSensitivity = null) -> void
+Vixen.Core.IO.PhysicalFileProvider.RootDirectory.get -> string
+Vixen.Core.IO.PhysicalFileProvider.TryGetEntry(Vixen.Core.IO.VirtualPath path, out Vixen.Core.IO.FileEntry entry) -> bool
+Vixen.Core.IO.PhysicalFileProvider.TryMap(Vixen.Core.IO.VirtualPath path, out Vixen.Core.IO.IMappedFile? mapped) -> bool
+Vixen.Core.IO.VirtualFileSystem -> sealed class
+Vixen.Core.IO.VirtualFileSystem.CreateDirectory(Vixen.Core.IO.VirtualPath path) -> void
+Vixen.Core.IO.VirtualFileSystem.Delete(Vixen.Core.IO.VirtualPath path) -> bool
+Vixen.Core.IO.VirtualFileSystem.Enumerate(Vixen.Core.IO.VirtualPath directory, bool recursive = false) -> System.Collections.Generic.IEnumerable<Vixen.Core.IO.FileEntry>
+Vixen.Core.IO.VirtualFileSystem.Exists(Vixen.Core.IO.VirtualPath path) -> bool
+Vixen.Core.IO.VirtualFileSystem.Mount(Vixen.Core.IO.VirtualPath path, Vixen.Core.IO.IFileProvider provider) -> void
+Vixen.Core.IO.VirtualFileSystem.Mounts.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.IO.VirtualPath>
+Vixen.Core.IO.VirtualFileSystem.OpenAppend(Vixen.Core.IO.VirtualPath path) -> System.IO.Stream
+Vixen.Core.IO.VirtualFileSystem.OpenAppendAsync(Vixen.Core.IO.VirtualPath path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.IO.Stream>
+Vixen.Core.IO.VirtualFileSystem.OpenRead(Vixen.Core.IO.VirtualPath path) -> System.IO.Stream
+Vixen.Core.IO.VirtualFileSystem.OpenReadAsync(Vixen.Core.IO.VirtualPath path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.IO.Stream>
+Vixen.Core.IO.VirtualFileSystem.OpenWrite(Vixen.Core.IO.VirtualPath path) -> System.IO.Stream
+Vixen.Core.IO.VirtualFileSystem.OpenWriteAsync(Vixen.Core.IO.VirtualPath path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.IO.Stream>
+Vixen.Core.IO.VirtualFileSystem.ReadAllBytesAsync(Vixen.Core.IO.VirtualPath path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<byte[]>
+Vixen.Core.IO.VirtualFileSystem.ReadAllTextAsync(Vixen.Core.IO.VirtualPath path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<string>
+Vixen.Core.IO.VirtualFileSystem.TryGetEntry(Vixen.Core.IO.VirtualPath path, out Vixen.Core.IO.FileEntry entry) -> bool
+Vixen.Core.IO.VirtualFileSystem.TryMap(Vixen.Core.IO.VirtualPath path, out Vixen.Core.IO.IMappedFile? mapped) -> bool
+Vixen.Core.IO.VirtualFileSystem.TryResolve(Vixen.Core.IO.VirtualPath path, out Vixen.Core.IO.IFileProvider? provider, out Vixen.Core.IO.VirtualPath providerPath) -> bool
+Vixen.Core.IO.VirtualFileSystem.Unmount(Vixen.Core.IO.VirtualPath path) -> bool
+Vixen.Core.IO.VirtualFileSystem.VirtualFileSystem() -> void
+Vixen.Core.IO.VirtualFileSystem.WriteAllBytesAsync(Vixen.Core.IO.VirtualPath path, System.ReadOnlyMemory<byte> contents, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Vixen.Core.IO.VirtualFileSystem.WriteAllTextAsync(Vixen.Core.IO.VirtualPath path, string contents, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Vixen.Core.IO.VirtualPath -> readonly struct
+Vixen.Core.IO.VirtualPath : System.IComparable<Vixen.Core.IO.VirtualPath>
+Vixen.Core.IO.VirtualPath : System.IEquatable<Vixen.Core.IO.VirtualPath>
+Vixen.Core.IO.VirtualPath : System.IFormattable
+Vixen.Core.IO.VirtualPath : System.ISpanFormattable
+Vixen.Core.IO.VirtualPath.Combine(string relative) -> Vixen.Core.IO.VirtualPath
+Vixen.Core.IO.VirtualPath.CompareTo(Vixen.Core.IO.VirtualPath other) -> int
+Vixen.Core.IO.VirtualPath.Contains(Vixen.Core.IO.VirtualPath other) -> bool
+Vixen.Core.IO.VirtualPath.EnumerateSegments() -> Vixen.Core.IO.VirtualPath.SegmentEnumerator
+Vixen.Core.IO.VirtualPath.Extension.get -> System.ReadOnlySpan<char>
+Vixen.Core.IO.VirtualPath.FileName.get -> System.ReadOnlySpan<char>
+Vixen.Core.IO.VirtualPath.FileNameWithoutExtension.get -> System.ReadOnlySpan<char>
+Vixen.Core.IO.VirtualPath.IsEmpty.get -> bool
+Vixen.Core.IO.VirtualPath.IsRoot.get -> bool
+Vixen.Core.IO.VirtualPath.Mount.get -> Vixen.Core.IO.VirtualPath
+Vixen.Core.IO.VirtualPath.Parent.get -> Vixen.Core.IO.VirtualPath
+Vixen.Core.IO.VirtualPath.RelativeTo(Vixen.Core.IO.VirtualPath prefix) -> Vixen.Core.IO.VirtualPath
+Vixen.Core.IO.VirtualPath.SegmentEnumerator -> ref struct
+Vixen.Core.IO.VirtualPath.SegmentEnumerator.MoveNext() -> bool
+Vixen.Core.IO.VirtualPath.SegmentEnumerator.SegmentEnumerator() -> void
+Vixen.Core.IO.VirtualPath.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.IO.VirtualPath.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format, System.IFormatProvider? provider) -> bool
+Vixen.Core.IO.VirtualPath.Value.get -> string
+Vixen.Core.IO.VirtualPath.VirtualPath() -> void
+Vixen.Core.IO.VirtualPath.VirtualPath(string path) -> void
+Vixen.Core.IO.VirtualPath.WithExtension(string extension) -> Vixen.Core.IO.VirtualPath
+Vixen.Core.IO.Watch.FileChange -> readonly struct
+Vixen.Core.IO.Watch.FileChange : System.IEquatable<Vixen.Core.IO.Watch.FileChange>
+Vixen.Core.IO.Watch.FileChange.FileChange() -> void
+Vixen.Core.IO.Watch.FileChange.FileChange(Vixen.Core.IO.VirtualPath Path, Vixen.Core.IO.Watch.FileChangeKind Kind, Vixen.Core.IO.VirtualPath OldPath = default(Vixen.Core.IO.VirtualPath)) -> void
+Vixen.Core.IO.Watch.FileChange.Kind.get -> Vixen.Core.IO.Watch.FileChangeKind
+Vixen.Core.IO.Watch.FileChange.Kind.init -> Vixen.Core.IO.Watch.FileChangeKind
+Vixen.Core.IO.Watch.FileChange.OldPath.get -> Vixen.Core.IO.VirtualPath
+Vixen.Core.IO.Watch.FileChange.OldPath.init -> Vixen.Core.IO.VirtualPath
+Vixen.Core.IO.Watch.FileChange.Path.get -> Vixen.Core.IO.VirtualPath
+Vixen.Core.IO.Watch.FileChange.Path.init -> Vixen.Core.IO.VirtualPath
+Vixen.Core.IO.Watch.FileChangeCoalescer -> sealed class
+Vixen.Core.IO.Watch.FileChangeCoalescer.Clear() -> void
+Vixen.Core.IO.Watch.FileChangeCoalescer.Debounce.get -> System.TimeSpan
+Vixen.Core.IO.Watch.FileChangeCoalescer.Debounce.set -> System.TimeSpan
+Vixen.Core.IO.Watch.FileChangeCoalescer.Drain(long timestamp, System.Collections.Generic.ICollection<Vixen.Core.IO.Watch.FileChange> into) -> int
+Vixen.Core.IO.Watch.FileChangeCoalescer.DroppedCount.get -> long
+Vixen.Core.IO.Watch.FileChangeCoalescer.FileChangeCoalescer(int capacity = 4096) -> void
+Vixen.Core.IO.Watch.FileChangeCoalescer.PendingCount.get -> int
+Vixen.Core.IO.Watch.FileChangeCoalescer.Record(Vixen.Core.IO.Watch.FileChange change, long timestamp) -> void
+Vixen.Core.IO.Watch.FileChangeCoalescer.Suppress(Vixen.Core.IO.VirtualPath path, long timestamp) -> void
+Vixen.Core.IO.Watch.FileChangeCoalescer.SuppressionWindow.get -> System.TimeSpan
+Vixen.Core.IO.Watch.FileChangeCoalescer.SuppressionWindow.set -> System.TimeSpan
+Vixen.Core.IO.Watch.FileChangeKind -> enum : int
+Vixen.Core.IO.Watch.FileChangeKind.Changed = 1 -> Vixen.Core.IO.Watch.FileChangeKind
+Vixen.Core.IO.Watch.FileChangeKind.Created = 0 -> Vixen.Core.IO.Watch.FileChangeKind
+Vixen.Core.IO.Watch.FileChangeKind.Deleted = 2 -> Vixen.Core.IO.Watch.FileChangeKind
+Vixen.Core.IO.Watch.FileChangeKind.FileChangeKind() -> void
+Vixen.Core.IO.Watch.FileChangeKind.Renamed = 3 -> Vixen.Core.IO.Watch.FileChangeKind
+Vixen.Core.IO.Watch.FileWatcher -> sealed class
+Vixen.Core.IO.Watch.FileWatcher : System.IDisposable
+Vixen.Core.IO.Watch.FileWatcher : Vixen.Core.IO.Watch.IFileWatcher
+Vixen.Core.IO.Watch.FileWatcher.ClearOverflow() -> void
+Vixen.Core.IO.Watch.FileWatcher.Debounce.get -> System.TimeSpan
+Vixen.Core.IO.Watch.FileWatcher.Debounce.set -> System.TimeSpan
+Vixen.Core.IO.Watch.FileWatcher.Dispose() -> void
+Vixen.Core.IO.Watch.FileWatcher.Drain(System.Collections.Generic.ICollection<Vixen.Core.IO.Watch.FileChange> into) -> int
+Vixen.Core.IO.Watch.FileWatcher.DroppedCount.get -> long
+Vixen.Core.IO.Watch.FileWatcher.FileWatcher(string rootDirectory, Vixen.Core.IO.VirtualPath virtualRoot) -> void
+Vixen.Core.IO.Watch.FileWatcher.HasOverflowed.get -> bool
+Vixen.Core.IO.Watch.FileWatcher.Root.get -> Vixen.Core.IO.VirtualPath
+Vixen.Core.IO.Watch.FileWatcher.Suppress(Vixen.Core.IO.VirtualPath path) -> void
+Vixen.Core.IO.Watch.IFileWatcher -> interface
+Vixen.Core.IO.Watch.IFileWatcher : System.IDisposable
+Vixen.Core.IO.Watch.IFileWatcher.ClearOverflow() -> void
+Vixen.Core.IO.Watch.IFileWatcher.Debounce.get -> System.TimeSpan
+Vixen.Core.IO.Watch.IFileWatcher.Debounce.set -> System.TimeSpan
+Vixen.Core.IO.Watch.IFileWatcher.Drain(System.Collections.Generic.ICollection<Vixen.Core.IO.Watch.FileChange> into) -> int
+Vixen.Core.IO.Watch.IFileWatcher.HasOverflowed.get -> bool
+Vixen.Core.IO.Watch.IFileWatcher.Root.get -> Vixen.Core.IO.VirtualPath
+Vixen.Core.IO.Watch.IFileWatcher.Suppress(Vixen.Core.IO.VirtualPath path) -> void
+const Vixen.Core.IO.VirtualPath.Separator = '/' -> char
+override Vixen.Core.IO.VirtualPath.ToString() -> string
+readonly Vixen.Core.IO.VirtualPath.SegmentEnumerator.Current.get -> System.ReadOnlySpan<char>
+readonly Vixen.Core.IO.VirtualPath.SegmentEnumerator.GetEnumerator() -> Vixen.Core.IO.VirtualPath.SegmentEnumerator
+static Vixen.Core.IO.MountPoints.All.get -> System.ReadOnlySpan<Vixen.Core.IO.VirtualPath>
+static Vixen.Core.IO.MountPoints.App.get -> Vixen.Core.IO.VirtualPath
+static Vixen.Core.IO.MountPoints.Cache.get -> Vixen.Core.IO.VirtualPath
+static Vixen.Core.IO.MountPoints.Data.get -> Vixen.Core.IO.VirtualPath
+static Vixen.Core.IO.MountPoints.Database.get -> Vixen.Core.IO.VirtualPath
+static Vixen.Core.IO.MountPoints.Project.get -> Vixen.Core.IO.VirtualPath
+static Vixen.Core.IO.MountPoints.Temp.get -> Vixen.Core.IO.VirtualPath
+static Vixen.Core.IO.VirtualPath.Root.get -> Vixen.Core.IO.VirtualPath
+static Vixen.Core.IO.VirtualPath.TryCreate(string? path, out Vixen.Core.IO.VirtualPath result) -> bool
+static Vixen.Core.IO.VirtualPath.operator /(Vixen.Core.IO.VirtualPath left, string right) -> Vixen.Core.IO.VirtualPath
+static Vixen.Core.IO.VirtualPath.operator <(Vixen.Core.IO.VirtualPath left, Vixen.Core.IO.VirtualPath right) -> bool
+static Vixen.Core.IO.VirtualPath.operator <=(Vixen.Core.IO.VirtualPath left, Vixen.Core.IO.VirtualPath right) -> bool
+static Vixen.Core.IO.VirtualPath.operator >(Vixen.Core.IO.VirtualPath left, Vixen.Core.IO.VirtualPath right) -> bool
+static Vixen.Core.IO.VirtualPath.operator >=(Vixen.Core.IO.VirtualPath left, Vixen.Core.IO.VirtualPath right) -> bool

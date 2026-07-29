@@ -1,0 +1,62 @@
+#nullable enable
+Vixen.Core.Memory.ArenaAllocator -> sealed class
+Vixen.Core.Memory.ArenaAllocator : System.IDisposable
+Vixen.Core.Memory.ArenaAllocator.Allocate(nuint byteCount, int alignment = 16) -> void*
+Vixen.Core.Memory.ArenaAllocator.Allocate<T>(int count) -> System.Span<T>
+Vixen.Core.Memory.ArenaAllocator.AllocateZeroed<T>(int count) -> System.Span<T>
+Vixen.Core.Memory.ArenaAllocator.ArenaAllocator(int blockSize = 1048576, string? name = null) -> void
+Vixen.Core.Memory.ArenaAllocator.BlockCount.get -> int
+Vixen.Core.Memory.ArenaAllocator.BytesAllocated.get -> long
+Vixen.Core.Memory.ArenaAllocator.BytesReserved.get -> long
+Vixen.Core.Memory.ArenaAllocator.Dispose() -> void
+Vixen.Core.Memory.ArenaAllocator.PeakBytesAllocated.get -> long
+Vixen.Core.Memory.ArenaAllocator.Push() -> Vixen.Core.Memory.ArenaAllocator.Scope
+Vixen.Core.Memory.ArenaAllocator.Reset() -> void
+Vixen.Core.Memory.ArenaAllocator.Scope -> readonly struct
+Vixen.Core.Memory.ArenaAllocator.Scope : System.IDisposable
+Vixen.Core.Memory.ArenaAllocator.Scope.Dispose() -> void
+Vixen.Core.Memory.ArenaAllocator.Scope.Scope() -> void
+Vixen.Core.Memory.BuddyAllocator -> sealed class
+Vixen.Core.Memory.BuddyAllocator.AllocatedBytes.get -> long
+Vixen.Core.Memory.BuddyAllocator.AllocationCount.get -> int
+Vixen.Core.Memory.BuddyAllocator.BuddyAllocator(long totalSize, long minimumBlockSize = 256) -> void
+Vixen.Core.Memory.BuddyAllocator.Free(long offset) -> bool
+Vixen.Core.Memory.BuddyAllocator.FreeBytes.get -> long
+Vixen.Core.Memory.BuddyAllocator.IsAllocated(long offset) -> bool
+Vixen.Core.Memory.BuddyAllocator.LargestFreeBlock.get -> long
+Vixen.Core.Memory.BuddyAllocator.Reset() -> void
+Vixen.Core.Memory.BuddyAllocator.TotalSize.get -> long
+Vixen.Core.Memory.BuddyAllocator.TryAllocate(long size, long alignment, out long offset) -> bool
+Vixen.Core.Memory.BuddyAllocator.TryGetSize(long offset, out long size) -> bool
+Vixen.Core.Memory.FrameArena -> static class
+Vixen.Core.Memory.NativeArray<T> -> readonly struct
+Vixen.Core.Memory.NativeArray<T> : System.IDisposable
+Vixen.Core.Memory.NativeArray<T> : System.IEquatable<Vixen.Core.Memory.NativeArray<T>>
+Vixen.Core.Memory.NativeArray<T>.AsBytes() -> System.Span<byte>
+Vixen.Core.Memory.NativeArray<T>.AsSpan() -> System.Span<T>
+Vixen.Core.Memory.NativeArray<T>.AsSpan(int start, int count) -> System.Span<T>
+Vixen.Core.Memory.NativeArray<T>.ByteLength.get -> long
+Vixen.Core.Memory.NativeArray<T>.Dispose() -> void
+Vixen.Core.Memory.NativeArray<T>.Equals(Vixen.Core.Memory.NativeArray<T> other) -> bool
+Vixen.Core.Memory.NativeArray<T>.GetEnumerator() -> System.Span<T>.Enumerator
+Vixen.Core.Memory.NativeArray<T>.IsEmpty.get -> bool
+Vixen.Core.Memory.NativeArray<T>.Length.get -> int
+Vixen.Core.Memory.NativeArray<T>.NativeArray() -> void
+Vixen.Core.Memory.NativeArray<T>.NativeArray(int length, int alignment = 64, string? name = null) -> void
+Vixen.Core.Memory.NativeArray<T>.Pointer.get -> T*
+Vixen.Core.Memory.NativeArray<T>.this[int index].get -> T
+const Vixen.Core.Memory.ArenaAllocator.DefaultBlockSize = 1048576 -> int
+const Vixen.Core.Memory.NativeArray<T>.DefaultAlignment = 64 -> int
+override Vixen.Core.Memory.NativeArray<T>.Equals(object? obj) -> bool
+override Vixen.Core.Memory.NativeArray<T>.GetHashCode() -> int
+override Vixen.Core.Memory.NativeArray<T>.ToString() -> string
+static Vixen.Core.Memory.FrameArena.Frame.get -> Vixen.Core.Memory.ArenaAllocator
+static Vixen.Core.Memory.FrameArena.PushTemp() -> Vixen.Core.Memory.ArenaAllocator.Scope
+static Vixen.Core.Memory.FrameArena.Release() -> void
+static Vixen.Core.Memory.FrameArena.ResetFrame() -> void
+static Vixen.Core.Memory.FrameArena.Temp.get -> Vixen.Core.Memory.ArenaAllocator
+static Vixen.Core.Memory.NativeArray<T>.Empty.get -> Vixen.Core.Memory.NativeArray<T>
+static Vixen.Core.Memory.NativeArray<T>.From(System.ReadOnlySpan<T> source, int alignment = 64, string? name = null) -> Vixen.Core.Memory.NativeArray<T>
+static Vixen.Core.Memory.NativeArray<T>.Zeroed(int length, int alignment = 64, string? name = null) -> Vixen.Core.Memory.NativeArray<T>
+static Vixen.Core.Memory.NativeArray<T>.operator !=(Vixen.Core.Memory.NativeArray<T> left, Vixen.Core.Memory.NativeArray<T> right) -> bool
+static Vixen.Core.Memory.NativeArray<T>.operator ==(Vixen.Core.Memory.NativeArray<T> left, Vixen.Core.Memory.NativeArray<T> right) -> bool

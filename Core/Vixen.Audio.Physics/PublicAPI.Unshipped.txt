@@ -1,0 +1,13 @@
+#nullable enable
+Vixen.Audio.Physics.PhysicsOcclusionProvider -> sealed class
+Vixen.Audio.Physics.PhysicsOcclusionProvider : Vixen.Audio.Spatial.IAudioOcclusionProvider
+Vixen.Audio.Physics.PhysicsOcclusionProvider.Casts.get -> long
+Vixen.Audio.Physics.PhysicsOcclusionProvider.Layers.get -> Vixen.Physics.PhysicsLayerMask
+Vixen.Audio.Physics.PhysicsOcclusionProvider.Layers.set -> Vixen.Physics.PhysicsLayerMask
+Vixen.Audio.Physics.PhysicsOcclusionProvider.Occlusion(in Vixen.Core.Mathematics.Vector3 source, in Vixen.Core.Mathematics.Vector3 listener) -> float
+Vixen.Audio.Physics.PhysicsOcclusionProvider.PhysicsOcclusionProvider(Vixen.Physics.PhysicsWorld world) -> void
+Vixen.Audio.Physics.PhysicsOcclusionProvider.Rays.get -> int
+Vixen.Audio.Physics.PhysicsOcclusionProvider.Rays.set -> int
+Vixen.Audio.Physics.PhysicsOcclusionProvider.Spread.get -> float
+Vixen.Audio.Physics.PhysicsOcclusionProvider.Spread.set -> float
+const Vixen.Audio.Physics.PhysicsOcclusionProvider.MaxRays = 5 -> int

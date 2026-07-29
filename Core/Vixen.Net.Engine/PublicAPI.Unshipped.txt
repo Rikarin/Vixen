@@ -1,0 +1,227 @@
+#nullable enable
+Vixen.Net.Engine.ISyncCodec<T> -> interface
+Vixen.Net.Engine.ISyncCodec<T>.Lanes.get -> System.ReadOnlySpan<Vixen.Net.Messaging.WireLane>
+Vixen.Net.Engine.ISyncCodec<T>.Read(ref Vixen.Net.Messaging.BitReader reader, out T value) -> bool
+Vixen.Net.Engine.ISyncCodec<T>.Write(ref Vixen.Net.Messaging.BitWriter writer, in T value) -> void
+Vixen.Net.Engine.ISyncField -> interface
+Vixen.Net.Engine.ISyncField.Apply(ref Vixen.Net.Messaging.BitReader reader) -> bool
+Vixen.Net.Engine.ISyncField.ClearDirty() -> void
+Vixen.Net.Engine.ISyncField.IsDirty.get -> bool
+Vixen.Net.Engine.ISyncField.Lanes.get -> System.ReadOnlySpan<Vixen.Net.Messaging.WireLane>
+Vixen.Net.Engine.ISyncField.Name.get -> string
+Vixen.Net.Engine.ISyncField.Rename(string name) -> void
+Vixen.Net.Engine.ISyncField.Write(ref Vixen.Net.Messaging.BitWriter writer) -> void
+Vixen.Net.Engine.ISyncList -> interface
+Vixen.Net.Engine.ISyncList.Apply(ref Vixen.Net.Messaging.BitReader reader) -> bool
+Vixen.Net.Engine.ISyncList.ClearPending() -> void
+Vixen.Net.Engine.ISyncList.Count.get -> int
+Vixen.Net.Engine.ISyncList.Name.get -> string
+Vixen.Net.Engine.ISyncList.Rename(string name) -> void
+Vixen.Net.Engine.ISyncList.WriteWhole(ref Vixen.Net.Messaging.BitWriter writer) -> bool
+Vixen.Net.Engine.NetworkBehaviour -> abstract class
+Vixen.Net.Engine.NetworkBehaviour : Vixen.Engine.Behaviors.Behavior
+Vixen.Net.Engine.NetworkBehaviour.DeclareList<TList>(TList list, string name) -> TList
+Vixen.Net.Engine.NetworkBehaviour.IsServer.get -> bool
+Vixen.Net.Engine.NetworkBehaviour.IsServer.set -> bool
+Vixen.Net.Engine.NetworkBehaviour.Lists.get -> System.Collections.Generic.IReadOnlyList<Vixen.Net.Engine.ISyncList>
+Vixen.Net.Engine.NetworkBehaviour.MarkChanged() -> void
+Vixen.Net.Engine.NetworkBehaviour.MarkListsChanged() -> void
+Vixen.Net.Engine.NetworkBehaviour.NetworkBehaviour() -> void
+Vixen.Net.Engine.NetworkBehaviour.NetworkId.get -> Vixen.Net.Replication.NetworkId
+Vixen.Net.Engine.NetworkBehaviour.State.get -> Vixen.Net.Engine.NetworkModule
+Vixen.Net.Engine.NetworkModule -> abstract class
+Vixen.Net.Engine.NetworkModule.Apply(ref Vixen.Net.Messaging.BitReader reader) -> bool
+Vixen.Net.Engine.NetworkModule.ClearDirty() -> void
+Vixen.Net.Engine.NetworkModule.Declare<TField>(TField field, string name) -> TField
+Vixen.Net.Engine.NetworkModule.Fields.get -> System.Collections.Generic.IReadOnlyList<Vixen.Net.Engine.ISyncField>
+Vixen.Net.Engine.NetworkModule.IsDirty.get -> bool
+Vixen.Net.Engine.NetworkModule.Lanes.get -> System.ReadOnlySpan<Vixen.Net.Messaging.WireLane>
+Vixen.Net.Engine.NetworkModule.Name.get -> string
+Vixen.Net.Engine.NetworkModule.Nest<TModule>(TModule module, string name) -> TModule
+Vixen.Net.Engine.NetworkModule.NetworkModule() -> void
+Vixen.Net.Engine.NetworkModule.Seal(string path = "") -> void
+Vixen.Net.Engine.NetworkModule.Write(ref Vixen.Net.Messaging.BitWriter writer) -> void
+Vixen.Net.Engine.NetworkPrefab -> sealed record
+Vixen.Net.Engine.NetworkPrefab : System.IEquatable<Vixen.Net.Engine.NetworkPrefab>
+Vixen.Net.Engine.NetworkPrefab.Address.get -> string
+Vixen.Net.Engine.NetworkPrefab.Address.init -> string
+Vixen.Net.Engine.NetworkPrefab.Id.get -> Vixen.Net.Replication.NetworkPrefabId
+Vixen.Net.Engine.NetworkPrefab.Id.init -> Vixen.Net.Replication.NetworkPrefabId
+Vixen.Net.Engine.NetworkPrefab.IdCount.get -> int
+Vixen.Net.Engine.NetworkPrefab.NetworkPrefab(string Address, Vixen.Net.Replication.NetworkPrefabId Id, Vixen.Engine.Scenes.Prefab Prefab, int[] Networked) -> void
+Vixen.Net.Engine.NetworkPrefab.Networked.get -> int[]
+Vixen.Net.Engine.NetworkPrefab.Networked.init -> int[]
+Vixen.Net.Engine.NetworkPrefab.Prefab.get -> Vixen.Engine.Scenes.Prefab
+Vixen.Net.Engine.NetworkPrefab.Prefab.init -> Vixen.Engine.Scenes.Prefab
+Vixen.Net.Engine.NetworkPrefabRegistry -> sealed class
+Vixen.Net.Engine.NetworkPrefabRegistry.Count.get -> int
+Vixen.Net.Engine.NetworkPrefabRegistry.NetworkPrefabRegistry() -> void
+Vixen.Net.Engine.NetworkPrefabRegistry.Prefabs.get -> System.Collections.Generic.IEnumerable<Vixen.Net.Engine.NetworkPrefab>
+Vixen.Net.Engine.NetworkPrefabRegistry.Register(string address, Vixen.Engine.Scenes.Prefab prefab) -> Vixen.Net.Replication.NetworkPrefabId
+Vixen.Net.Engine.NetworkPrefabRegistry.Require(string address) -> Vixen.Net.Engine.NetworkPrefab
+Vixen.Net.Engine.NetworkPrefabRegistry.TryGet(Vixen.Net.Replication.NetworkPrefabId id, out Vixen.Net.Engine.NetworkPrefab? prefab) -> bool
+Vixen.Net.Engine.NetworkPrefabRegistry.TryGet(string address, out Vixen.Net.Engine.NetworkPrefab? prefab) -> bool
+Vixen.Net.Engine.NetworkSceneId -> readonly struct
+Vixen.Net.Engine.NetworkSceneId : System.IEquatable<Vixen.Net.Engine.NetworkSceneId>
+Vixen.Net.Engine.NetworkSceneId.BakedId(int index) -> Vixen.Net.Replication.NetworkId
+Vixen.Net.Engine.NetworkSceneId.IsValid.get -> bool
+Vixen.Net.Engine.NetworkSceneId.NetworkSceneId() -> void
+Vixen.Net.Engine.NetworkSceneId.NetworkSceneId(uint Value) -> void
+Vixen.Net.Engine.NetworkSceneId.Value.get -> uint
+Vixen.Net.Engine.NetworkSceneId.Value.init -> uint
+Vixen.Net.Engine.NetworkSceneMap -> sealed class
+Vixen.Net.Engine.NetworkSceneMap.Count.get -> int
+Vixen.Net.Engine.NetworkSceneMap.Forget(Vixen.Engine.Scenes.SceneHandle scene) -> bool
+Vixen.Net.Engine.NetworkSceneMap.IdOf(Vixen.Engine.Scenes.SceneHandle scene) -> Vixen.Net.Engine.NetworkSceneId
+Vixen.Net.Engine.NetworkSceneMap.NetworkSceneMap() -> void
+Vixen.Net.Engine.NetworkSceneMap.Track(string name, Vixen.Engine.Scenes.SceneHandle scene) -> Vixen.Net.Engine.NetworkSceneId
+Vixen.Net.Engine.NetworkSceneMap.TryResolve(Vixen.Net.Engine.NetworkSceneId id, out Vixen.Engine.Scenes.SceneHandle scene) -> bool
+Vixen.Net.Engine.NetworkSpawnSystem -> sealed class
+Vixen.Net.Engine.NetworkSpawnSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Net.Engine.NetworkSpawnSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Net.Engine.NetworkSpawnSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Net.Engine.NetworkSpawnSystem.Build(Vixen.Ecs.World world) -> int
+Vixen.Net.Engine.NetworkSpawnSystem.BuiltCount.get -> long
+Vixen.Net.Engine.NetworkSpawnSystem.Client.get -> Vixen.Net.Replication.ReplicationClient?
+Vixen.Net.Engine.NetworkSpawnSystem.Client.set -> Vixen.Net.Replication.ReplicationClient?
+Vixen.Net.Engine.NetworkSpawnSystem.NetworkSpawnSystem(Vixen.Net.Engine.NetworkPrefabRegistry prefabs) -> void
+Vixen.Net.Engine.NetworkSpawnSystem.Ownership.get -> Vixen.Net.Rpc.NetworkOwnership?
+Vixen.Net.Engine.NetworkSpawnSystem.Ownership.set -> Vixen.Net.Rpc.NetworkOwnership?
+Vixen.Net.Engine.NetworkSpawnSystem.PendingCount.get -> int
+Vixen.Net.Engine.NetworkSpawnSystem.SceneIds.get -> Vixen.Net.Engine.NetworkSceneMap?
+Vixen.Net.Engine.NetworkSpawnSystem.SceneIds.set -> Vixen.Net.Engine.NetworkSceneMap?
+Vixen.Net.Engine.NetworkSpawnSystem.Scenes.get -> Vixen.Engine.Scenes.SceneManager?
+Vixen.Net.Engine.NetworkSpawnSystem.Scenes.set -> Vixen.Engine.Scenes.SceneManager?
+Vixen.Net.Engine.NetworkSpawner -> sealed class
+Vixen.Net.Engine.NetworkSpawner.Despawn(Vixen.Ecs.World world, Vixen.Core.Entity root) -> int
+Vixen.Net.Engine.NetworkSpawner.DespawnScene(Vixen.Ecs.World world, Vixen.Engine.Scenes.SceneHandle scene) -> int
+Vixen.Net.Engine.NetworkSpawner.DespawnedCount.get -> long
+Vixen.Net.Engine.NetworkSpawner.MaySpawn(Vixen.Net.Sessions.PlayerId requester) -> bool
+Vixen.Net.Engine.NetworkSpawner.NetworkSpawner(Vixen.Net.Engine.NetworkPrefabRegistry prefabs, Vixen.Net.Replication.NetworkIdAllocator ids) -> void
+Vixen.Net.Engine.NetworkSpawner.Ownership.get -> Vixen.Net.Rpc.NetworkOwnership?
+Vixen.Net.Engine.NetworkSpawner.Ownership.set -> Vixen.Net.Rpc.NetworkOwnership?
+Vixen.Net.Engine.NetworkSpawner.Replication.get -> Vixen.Net.Replication.ReplicationServer?
+Vixen.Net.Engine.NetworkSpawner.Replication.set -> Vixen.Net.Replication.ReplicationServer?
+Vixen.Net.Engine.NetworkSpawner.Rules.get -> Vixen.Net.Rules.NetworkRulesRegistry?
+Vixen.Net.Engine.NetworkSpawner.Rules.set -> Vixen.Net.Rules.NetworkRulesRegistry?
+Vixen.Net.Engine.NetworkSpawner.SceneIds.get -> Vixen.Net.Engine.NetworkSceneMap?
+Vixen.Net.Engine.NetworkSpawner.SceneIds.set -> Vixen.Net.Engine.NetworkSceneMap?
+Vixen.Net.Engine.NetworkSpawner.Scenes.get -> Vixen.Engine.Scenes.SceneManager?
+Vixen.Net.Engine.NetworkSpawner.Scenes.set -> Vixen.Engine.Scenes.SceneManager?
+Vixen.Net.Engine.NetworkSpawner.Spawn(Vixen.Ecs.World world, Vixen.Net.Engine.NetworkPrefab prefab, Vixen.Engine.Transforms.LocalTransform? at = null, Vixen.Engine.Scenes.SceneHandle scene = default(Vixen.Engine.Scenes.SceneHandle), Vixen.Net.Sessions.PlayerId owner = default(Vixen.Net.Sessions.PlayerId)) -> Vixen.Core.Entity
+Vixen.Net.Engine.NetworkSpawner.Spawn(Vixen.Ecs.World world, string address, Vixen.Engine.Transforms.LocalTransform? at = null, Vixen.Engine.Scenes.SceneHandle scene = default(Vixen.Engine.Scenes.SceneHandle), Vixen.Net.Sessions.PlayerId owner = default(Vixen.Net.Sessions.PlayerId)) -> Vixen.Core.Entity
+Vixen.Net.Engine.NetworkSpawner.SpawnedCount.get -> long
+Vixen.Net.Engine.NetworkTeleport -> struct
+Vixen.Net.Engine.NetworkTeleport : Vixen.Ecs.ITagComponent
+Vixen.Net.Engine.NetworkTeleport.NetworkTeleport() -> void
+Vixen.Net.Engine.NetworkTransformApplySystem -> sealed class
+Vixen.Net.Engine.NetworkTransformApplySystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Net.Engine.NetworkTransformApplySystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Net.Engine.NetworkTransformApplySystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Net.Engine.NetworkTransformApplySystem.AppliedCount.get -> long
+Vixen.Net.Engine.NetworkTransformApplySystem.Apply(Vixen.Ecs.World world) -> void
+Vixen.Net.Engine.NetworkTransformApplySystem.NetworkTransformApplySystem() -> void
+Vixen.Net.Engine.NetworkTransformCaptureSystem -> sealed class
+Vixen.Net.Engine.NetworkTransformCaptureSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Net.Engine.NetworkTransformCaptureSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Net.Engine.NetworkTransformCaptureSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Net.Engine.NetworkTransformCaptureSystem.NetworkTransformCaptureSystem() -> void
+Vixen.Net.Engine.NetworkTransformCaptureSystem.Publish(Vixen.Ecs.World world) -> void
+Vixen.Net.Engine.NetworkTransformCaptureSystem.PublishedCount.get -> long
+Vixen.Net.Engine.NetworkTransformCaptureSystem.TeleportCount.get -> long
+Vixen.Net.Engine.SceneInterestRule -> sealed class
+Vixen.Net.Engine.SceneInterestRule : Vixen.Net.Replication.IInterestRule
+Vixen.Net.Engine.SceneInterestRule.CountFor(Vixen.Net.Sessions.PlayerId player) -> int
+Vixen.Net.Engine.SceneInterestRule.Decide(Vixen.Ecs.World world, Vixen.Net.Sessions.PlayerId player, Vixen.Core.Entity entity) -> Vixen.Net.Replication.Interest
+Vixen.Net.Engine.SceneInterestRule.Enter(Vixen.Net.Sessions.PlayerId player, Vixen.Engine.Scenes.SceneHandle scene) -> void
+Vixen.Net.Engine.SceneInterestRule.Forget(Vixen.Net.Sessions.PlayerId player) -> void
+Vixen.Net.Engine.SceneInterestRule.Leave(Vixen.Net.Sessions.PlayerId player, Vixen.Engine.Scenes.SceneHandle scene) -> bool
+Vixen.Net.Engine.SceneInterestRule.SceneInterestRule() -> void
+Vixen.Net.Engine.SyncCodecs -> static class
+Vixen.Net.Engine.SyncList<T> -> sealed class
+Vixen.Net.Engine.SyncList<T> : System.Collections.Generic.IEnumerable<T>
+Vixen.Net.Engine.SyncList<T> : System.Collections.Generic.IReadOnlyCollection<T>
+Vixen.Net.Engine.SyncList<T> : System.Collections.Generic.IReadOnlyList<T>
+Vixen.Net.Engine.SyncList<T> : System.Collections.IEnumerable
+Vixen.Net.Engine.SyncList<T> : Vixen.Net.Engine.ISyncList
+Vixen.Net.Engine.SyncList<T>.Add(T item) -> void
+Vixen.Net.Engine.SyncList<T>.Apply(ref Vixen.Net.Messaging.BitReader reader) -> bool
+Vixen.Net.Engine.SyncList<T>.Changed -> System.Action<Vixen.Net.Engine.SyncListChange, int, T>?
+Vixen.Net.Engine.SyncList<T>.Clear() -> void
+Vixen.Net.Engine.SyncList<T>.ClearPending() -> void
+Vixen.Net.Engine.SyncList<T>.Count.get -> int
+Vixen.Net.Engine.SyncList<T>.GetEnumerator() -> System.Collections.Generic.IEnumerator<T>
+Vixen.Net.Engine.SyncList<T>.HasPending.get -> bool
+Vixen.Net.Engine.SyncList<T>.Insert(int index, T item) -> void
+Vixen.Net.Engine.SyncList<T>.Name.get -> string
+Vixen.Net.Engine.SyncList<T>.RemoveAt(int index) -> void
+Vixen.Net.Engine.SyncList<T>.Rename(string name) -> void
+Vixen.Net.Engine.SyncList<T>.Replace(int index, T item) -> void
+Vixen.Net.Engine.SyncList<T>.SyncList() -> void
+Vixen.Net.Engine.SyncList<T>.WritePending(ref Vixen.Net.Messaging.BitWriter writer) -> bool
+Vixen.Net.Engine.SyncList<T>.WriteWhole(ref Vixen.Net.Messaging.BitWriter writer) -> bool
+Vixen.Net.Engine.SyncList<T>.this[int index].get -> T
+Vixen.Net.Engine.SyncListChange -> enum : byte
+Vixen.Net.Engine.SyncListChange.Added = 0 -> Vixen.Net.Engine.SyncListChange
+Vixen.Net.Engine.SyncListChange.Cleared = 4 -> Vixen.Net.Engine.SyncListChange
+Vixen.Net.Engine.SyncListChange.Inserted = 1 -> Vixen.Net.Engine.SyncListChange
+Vixen.Net.Engine.SyncListChange.Removed = 2 -> Vixen.Net.Engine.SyncListChange
+Vixen.Net.Engine.SyncListChange.Replaced = 3 -> Vixen.Net.Engine.SyncListChange
+Vixen.Net.Engine.SyncListChange.SyncListChange() -> void
+Vixen.Net.Engine.SyncListReplicator<T> -> sealed class
+Vixen.Net.Engine.SyncListReplicator<T> : Vixen.Net.Replication.IComponentReplicator
+Vixen.Net.Engine.SyncListReplicator<T>.Apply(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitReader reader) -> bool
+Vixen.Net.Engine.SyncListReplicator<T>.ChangedQuery.get -> Vixen.Ecs.QueryDescription
+Vixen.Net.Engine.SyncListReplicator<T>.Channel.get -> Vixen.Net.Channel
+Vixen.Net.Engine.SyncListReplicator<T>.ComponentType.get -> Vixen.Core.ComponentTypeId
+Vixen.Net.Engine.SyncListReplicator<T>.Has(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> bool
+Vixen.Net.Engine.SyncListReplicator<T>.Lanes.get -> System.ReadOnlySpan<Vixen.Net.Messaging.WireLane>
+Vixen.Net.Engine.SyncListReplicator<T>.Priority.get -> int
+Vixen.Net.Engine.SyncListReplicator<T>.SyncListReplicator(Vixen.Engine.Behaviors.BehaviorStore store) -> void
+Vixen.Net.Engine.SyncListReplicator<T>.TypeId.get -> uint
+Vixen.Net.Engine.SyncListReplicator<T>.TypeName.get -> string
+Vixen.Net.Engine.SyncListReplicator<T>.Write(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitWriter writer) -> void
+Vixen.Net.Engine.SyncListVersion -> struct
+Vixen.Net.Engine.SyncListVersion.SyncListVersion() -> void
+Vixen.Net.Engine.SyncListVersion.Value -> uint
+Vixen.Net.Engine.SyncStateReplicator<T> -> sealed class
+Vixen.Net.Engine.SyncStateReplicator<T> : Vixen.Net.Replication.IComponentReplicator
+Vixen.Net.Engine.SyncStateReplicator<T>.Apply(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitReader reader) -> bool
+Vixen.Net.Engine.SyncStateReplicator<T>.ChangedQuery.get -> Vixen.Ecs.QueryDescription
+Vixen.Net.Engine.SyncStateReplicator<T>.Channel.get -> Vixen.Net.Channel
+Vixen.Net.Engine.SyncStateReplicator<T>.ComponentType.get -> Vixen.Core.ComponentTypeId
+Vixen.Net.Engine.SyncStateReplicator<T>.Has(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> bool
+Vixen.Net.Engine.SyncStateReplicator<T>.Lanes.get -> System.ReadOnlySpan<Vixen.Net.Messaging.WireLane>
+Vixen.Net.Engine.SyncStateReplicator<T>.Priority.get -> int
+Vixen.Net.Engine.SyncStateReplicator<T>.SyncStateReplicator(Vixen.Engine.Behaviors.BehaviorStore store) -> void
+Vixen.Net.Engine.SyncStateReplicator<T>.TypeId.get -> uint
+Vixen.Net.Engine.SyncStateReplicator<T>.TypeName.get -> string
+Vixen.Net.Engine.SyncStateReplicator<T>.Write(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitWriter writer) -> void
+Vixen.Net.Engine.SyncStateVersion -> struct
+Vixen.Net.Engine.SyncStateVersion.SyncStateVersion() -> void
+Vixen.Net.Engine.SyncStateVersion.Value -> uint
+Vixen.Net.Engine.SyncVar<T> -> sealed class
+Vixen.Net.Engine.SyncVar<T> : Vixen.Net.Engine.ISyncField
+Vixen.Net.Engine.SyncVar<T>.Apply(ref Vixen.Net.Messaging.BitReader reader) -> bool
+Vixen.Net.Engine.SyncVar<T>.Changed -> System.Action<T, T>?
+Vixen.Net.Engine.SyncVar<T>.ClearDirty() -> void
+Vixen.Net.Engine.SyncVar<T>.IsDirty.get -> bool
+Vixen.Net.Engine.SyncVar<T>.Lanes.get -> System.ReadOnlySpan<Vixen.Net.Messaging.WireLane>
+Vixen.Net.Engine.SyncVar<T>.Name.get -> string
+Vixen.Net.Engine.SyncVar<T>.Rename(string name) -> void
+Vixen.Net.Engine.SyncVar<T>.SyncVar(T initial = default(T), System.Collections.Generic.IEqualityComparer<T>? comparer = null) -> void
+Vixen.Net.Engine.SyncVar<T>.Value.get -> T
+Vixen.Net.Engine.SyncVar<T>.Value.set -> T
+Vixen.Net.Engine.SyncVar<T>.Write(ref Vixen.Net.Messaging.BitWriter writer) -> void
+abstract Vixen.Net.Engine.NetworkBehaviour.Build() -> Vixen.Net.Engine.NetworkModule
+const Vixen.Net.Engine.NetworkSceneId.MaxBakedObjects = 32768 -> int
+override Vixen.Net.Engine.NetworkSceneId.ToString() -> string
+override Vixen.Net.Engine.NetworkSpawnSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Net.Engine.NetworkTransformApplySystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Net.Engine.NetworkTransformCaptureSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Net.Engine.SyncVar<T>.ToString() -> string
+static Vixen.Net.Engine.NetworkSceneId.From(string name) -> Vixen.Net.Engine.NetworkSceneId
+static Vixen.Net.Engine.NetworkSceneId.None.get -> Vixen.Net.Engine.NetworkSceneId
+static Vixen.Net.Engine.SyncCodecs.For<T>() -> Vixen.Net.Engine.ISyncCodec<T>
+static Vixen.Net.Engine.SyncCodecs.Register<T>(Vixen.Net.Engine.ISyncCodec<T> codec) -> void
+static Vixen.Net.Engine.SyncVar<T>.implicit operator T(Vixen.Net.Engine.SyncVar<T> variable) -> T
