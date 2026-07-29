@@ -111,6 +111,7 @@ public abstract partial class TextField : Control {
         AddHandler<KeyEvent>(static (element, args) => ((TextField) element).Keyed(args));
         AddHandler<TextInputEvent>(static (element, args) => ((TextField) element).Typed(args));
         AddHandler<PointerEvent>(static (element, args) => ((TextField) element).Pointed(args));
+        AddHandler<TapEvent>(static (element, args) => ((TextField) element).Tapped(args));
         AddHandler<FocusEvent>(static (element, args) => ((TextField) element).Refocused(args));
     }
 
@@ -139,6 +140,29 @@ public abstract partial class TextField : Control {
     public void SelectAll() {
         SelectionAnchor = 0;
         CaretIndex = Value?.Length ?? 0;
+
+        Reveal();
+    }
+
+    /// <summary>Selects the word an index falls inside.</summary>
+    /// <param name="index">A UTF-16 index into <see cref="Value" />.</param>
+    /// <remarks>
+    ///     ⚠ <b>The anchor at the start and the caret at the end</b>, for the reason
+    ///     <see cref="SelectAll" /> does it: a Shift-Right after a double click has to grow the
+    ///     selection rightwards rather than eat the word from its left.
+    /// </remarks>
+    public void SelectWord(int index) {
+        if (Value is not { Length: > 0 } value) {
+            return;
+        }
+
+        // UAX#29 rather than a scan for spaces, which is the same reason the caret steps by
+        // graphemes: "don't" is one word and "編集する" is three, and neither is decided by
+        // whitespace.
+        var (start, end) = WordBreaker.WordAt(value, Math.Clamp(index, 0, value.Length));
+
+        SelectionAnchor = start;
+        CaretIndex = end;
 
         Reveal();
     }
@@ -198,6 +222,22 @@ public abstract partial class TextField : Control {
 
     /// <summary>Called when Enter is pressed, before <see cref="Submitted" /> is raised.</summary>
     protected virtual void OnSubmit() {
+    }
+
+    /// <summary>What a repeated tap selects.</summary>
+    /// <param name="index">Where the tap landed, as a UTF-16 index into <see cref="Value" />.</param>
+    /// <param name="count">How many taps in a row, two or more.</param>
+    /// <remarks>
+    ///     Two selects the word and three selects the lot, which is what every editor does — and it
+    ///     is a method rather than a switch inside the handler because what counts as a word is a
+    ///     field's own business: see <see cref="NumericInput" />.
+    /// </remarks>
+    protected virtual void SelectAt(int index, int count) {
+        if (count >= 3) {
+            SelectAll();
+        } else {
+            SelectWord(index);
+        }
     }
 
     /// <inheritdoc />
@@ -355,6 +395,23 @@ public abstract partial class TextField : Control {
             default:
                 break;
         }
+    }
+
+    /// <summary>Turns the second and third taps of a run into a selection.</summary>
+    /// <remarks>
+    ///     ⚠ <b>On the tap rather than on the press.</b> The press that completes a double click has
+    ///     already been through <see cref="Pointed" /> and put the caret where it landed — which is
+    ///     what a single click means and is the right thing to have done until the release says
+    ///     otherwise. Widening it here is why the caret ends up at the end of the word rather than
+    ///     wherever inside it the pointer was.
+    /// </remarks>
+    void Tapped(TapEvent args) {
+        if (args.Count < 2) {
+            return;
+        }
+
+        SelectAt(IndexAt(args.X), args.Count);
+        args.Handled = true;
     }
 
     /// <summary>Which caret index a document-space x lands on.</summary>

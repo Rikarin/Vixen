@@ -553,6 +553,7 @@ Vixen.Ui.Controls.TextField.ReadOnly.get -> bool
 Vixen.Ui.Controls.TextField.ReadOnly.set -> bool
 Vixen.Ui.Controls.TextField.Replace(string insertion) -> void
 Vixen.Ui.Controls.TextField.SelectAll() -> void
+Vixen.Ui.Controls.TextField.SelectWord(int index) -> void
 Vixen.Ui.Controls.TextField.SelectedText.get -> string
 Vixen.Ui.Controls.TextField.SelectionAnchor.get -> int
 Vixen.Ui.Controls.TextField.SelectionEnd.get -> int
@@ -682,6 +683,7 @@ override Vixen.Ui.Controls.MultiSelect.TagName.get -> string
 override Vixen.Ui.Controls.NumericInput.Coerce(string? value) -> string?
 override Vixen.Ui.Controls.NumericInput.OnCreated() -> void
 override Vixen.Ui.Controls.NumericInput.OnSubmit() -> void
+override Vixen.Ui.Controls.NumericInput.SelectAt(int index, int count) -> void
 override Vixen.Ui.Controls.NumericInput.TagName.get -> string
 override Vixen.Ui.Controls.Option.TagName.get -> string
 override Vixen.Ui.Controls.Overlay.AcceptsFocus.get -> bool
@@ -848,5 +850,6 @@ virtual Vixen.Ui.Controls.RangeBase.OnBoundsChanged() -> void
 virtual Vixen.Ui.Controls.SelectBase.OnOptionAdded(Vixen.Ui.Controls.Option option) -> void
 virtual Vixen.Ui.Controls.TextField.Coerce(string? value) -> string?
 virtual Vixen.Ui.Controls.TextField.OnSubmit() -> void
+virtual Vixen.Ui.Controls.TextField.SelectAt(int index, int count) -> void
 virtual Vixen.Ui.Controls.ToggleBase.CanUncheck.get -> bool
 virtual Vixen.Ui.Controls.ToggleBase.OnChecked(bool current) -> void

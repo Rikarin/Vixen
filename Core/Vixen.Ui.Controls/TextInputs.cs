@@ -179,6 +179,16 @@ public sealed partial class NumericInput : TextField {
         Commit();
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Any repeated tap takes the whole number, rather than the word under it.</b> A number
+    ///     is one thing to the person editing it, and the word breaker is not wrong to disagree —
+    ///     <c>-1.5e3</c> is four words by UAX#29 — it is answering a question nobody asked here.
+    ///     Double-clicking a field to type a new value into it and getting one digit group selected
+    ///     is the field arguing with the gesture.
+    /// </remarks>
+    protected override void SelectAt(int index, int count) => SelectAll();
+
     /// <summary>Reads the text back into the number and then writes it out again.</summary>
     /// <remarks>
     ///     ⚠ <b>Both halves, and the second is not redundant.</b> Rereading <c>007</c> gives seven,

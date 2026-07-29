@@ -332,6 +332,117 @@ public class TextFieldTests {
     }
 
     [Fact]
+    public void A_double_click_selects_the_word_under_it_and_a_third_takes_the_lot() {
+        using var fixture = new ControlFixture();
+
+        var field = fixture.Add<TextBox>();
+        field.Value = "hello brave world";
+        fixture.Update();
+
+        // Into the middle word rather than at its start, because a double click selects the word the
+        // pointer is inside and a test that clicked on a boundary would pass against one that only
+        // ever grew rightwards.
+        var part = field.Children.Single(child => child.Text == field.Value);
+        var bounds = part.Bounds;
+        var y = bounds.Y + (bounds.Height * 0.5f);
+        var x = bounds.X + part.Block()!.Lines[0].CaretOffset(8);
+
+        fixture.Click(x, y);
+        Assert.False(field.HasSelection);
+
+        fixture.Click(x, y);
+        Assert.Equal("brave", field.SelectedText);
+        Assert.Equal(11, field.CaretIndex);
+
+        fixture.Click(x, y);
+        Assert.Equal("hello brave world", field.SelectedText);
+    }
+
+    [Fact]
+    public void A_double_click_on_a_numeric_field_takes_the_whole_number() {
+        using var fixture = new ControlFixture();
+
+        var field = fixture.Add<NumericInput>();
+        field.Decimals = 2;
+        field.Number = 12.5d;
+        fixture.Update();
+
+        fixture.Click(field);
+        fixture.Click(field);
+
+        // A number is one thing to whoever is editing it, and the word breaker would have handed
+        // back "12".
+        Assert.Equal("12.50", field.SelectedText);
+    }
+
+    [Fact]
+    public void Clicking_away_from_a_field_takes_the_focus_off_it() {
+        using var fixture = new ControlFixture();
+
+        var field = fixture.Add<TextBox>();
+        fixture.Update();
+
+        fixture.Click(field);
+        Assert.True(field.IsFocused);
+
+        // The document's background, which holds no focus of its own.
+        fixture.Click(400f, 500f);
+
+        Assert.False(field.IsFocused);
+        Assert.Null(fixture.Document.Focused);
+    }
+
+    [Fact]
+    public void Dragging_a_scrollbar_does_not_take_the_focus_off_a_field() {
+        using var fixture = new ControlFixture();
+
+        var view = fixture.Add<ScrollView>();
+        var field = view.Content.Add<TextBox>();
+
+        // Enough content for the bar to have somewhere to go, or the press below is a press on a
+        // scrollbar with nothing to drag.
+        view.Content.Add("div").SetStyle("height", "4000px");
+        fixture.Update();
+
+        fixture.Click(field);
+        Assert.True(field.IsFocused);
+
+        var bar = view.VerticalBar.Bounds;
+        var x = bar.X + (bar.Width * 0.5f);
+
+        fixture.Press(x, bar.Y + 10f);
+        fixture.MovePointer(x, bar.Y + 60f);
+        fixture.Release(x, bar.Y + 60f);
+
+        // A scrollbar cannot hold the focus and does not want it. Taking the caret and the selection
+        // out of a field because the panel around it was scrolled is the bug this exempts.
+        Assert.True(view.ScrollTop > 0f);
+        Assert.True(field.IsFocused);
+    }
+
+    [Fact]
+    public void A_selection_drag_that_leaves_the_field_keeps_it() {
+        using var fixture = new ControlFixture();
+
+        var field = fixture.Add<TextBox>();
+        field.Value = "hello";
+        fixture.Update();
+
+        var bounds = field.Bounds;
+        var y = bounds.Y + (bounds.Height * 0.5f);
+
+        fixture.Press(bounds.X + 5f, y);
+        fixture.MovePointer(bounds.X + bounds.Width + 200f, y);
+
+        // A drag that has captured the pointer is not a click on whatever is under it, and the field
+        // it started in must not lose the focus part-way through a selection.
+        Assert.True(field.IsFocused);
+
+        fixture.Release(bounds.X + bounds.Width + 200f, y);
+        Assert.True(field.IsFocused);
+    }
+
+    [Fact]
     public void A_focused_field_draws_a_caret_and_a_selection_band() {
         using var fixture = new ControlFixture();
 

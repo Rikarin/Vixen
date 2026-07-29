@@ -136,6 +136,53 @@ public class FocusTests {
     }
 
     [Fact]
+    public void A_press_on_something_that_cannot_hold_the_focus_takes_it_away() {
+        using var document = new UiDocument(200f, 200f);
+
+        document.Load("""
+            root { width: 200px; height: 200px; flex-direction: row; }
+            div { width: 100px; height: 200px; }
+        """);
+
+        var stop = Stop(document.Root);
+        var background = document.Root.Add("div");
+        document.Update();
+
+        document.Focus(stop);
+        Assert.Same(background, document.HitTest(150f, 100f));
+
+        document.Dispatch(new PointerEvent { X = 150f, Y = 100f, Action = PointerAction.Pressed, Button = PointerButton.Primary });
+
+        Assert.Null(document.Focused);
+        Assert.False(stop.IsFocused);
+    }
+
+    [Fact]
+    public void A_press_inside_the_focused_element_leaves_the_focus_where_it_is() {
+        using var document = new UiDocument(200f, 200f);
+
+        document.Load("""
+            root { width: 200px; height: 200px; }
+            div { width: 100px; height: 100px; }
+        """);
+
+        var stop = Stop(document.Root);
+
+        // The part a control draws itself out of. It is what a press actually lands on, and it holds
+        // no focus of its own — blurring on that would take the focus off every control the moment
+        // it was clicked.
+        var part = stop.Add("div");
+        document.Update();
+
+        document.Focus(stop);
+        Assert.Same(part, document.HitTest(50f, 50f));
+
+        document.Dispatch(new PointerEvent { X = 50f, Y = 50f, Action = PointerAction.Pressed, Button = PointerButton.Primary });
+
+        Assert.Same(stop, document.Focused);
+    }
+
+    [Fact]
     public void Focus_and_focus_within_reach_the_cascade() {
         using var document = new UiDocument(200f, 200f);
 

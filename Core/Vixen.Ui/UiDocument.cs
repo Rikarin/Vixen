@@ -977,8 +977,22 @@ public sealed partial class UiDocument : IDisposable {
         // afterwards would answer every handler with the previous frame's arrangement.
         Track(args);
 
-        var target = Captured ?? HitTest(args.X, args.Y);
+        var captured = Captured;
+        var target = captured ?? HitTest(args.X, args.Y);
+
+        // ⚠ Read before the route rather than after it. What decides whether a press clicked *away*
+        // from the focus is where the focus was when the press landed, and by the time the route has
+        // finished a control may have moved it.
+        var focused = Focused;
+
         target?.Raise(args);
+
+        // After the route, so that a control which focuses itself on the press has already done so
+        // and this can tell that it did; and only when nothing was already captured, because a
+        // pointer in the middle of a gesture is not a click on whatever it is passing over.
+        if (args.Action == PointerAction.Pressed && captured is null) {
+            Defocus(target, focused);
+        }
 
         // After the raw event rather than instead of it. A gesture is a reading of the pointer
         // stream, not a replacement for it, and a control that wants presses and a control that
