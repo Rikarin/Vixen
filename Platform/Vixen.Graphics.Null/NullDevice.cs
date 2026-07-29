@@ -260,6 +260,7 @@ public sealed class NullDevice : IGraphicsDevice {
         HasMeshShaders = true,
         HasBindless = true,
         HasMultiDrawIndirect = true,
+        HasDrawIndirectCount = true,
         HasTimelineSemaphores = true,
         HasAsyncCompute = true,
         HasAsyncTransfer = true,
@@ -643,7 +644,7 @@ public sealed class NullDevice : IGraphicsDevice {
     /// <inheritdoc />
     public ICommandList BeginCommandList(QueueKind kind = QueueKind.Graphics, string name = "") {
         ObjectDisposedException.ThrowIf(disposed, this);
-        return new NullCommandList(kind, name);
+        return new NullCommandList(kind, name, Features.HasDrawIndirectCount);
     }
 
     /// <inheritdoc />

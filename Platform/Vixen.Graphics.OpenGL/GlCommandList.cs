@@ -294,6 +294,28 @@ sealed class GlCommandList(GlDevice device, QueueKind kind, string name) : IComm
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     Refused rather than emulated. Reading the count back to the host and issuing that many
+    ///     draws is the emulation, and it is a full pipeline stall in the middle of a frame — the
+    ///     round trip this whole path exists to avoid. The honest fallback is the padded form, which
+    ///     is what <c>GpuDrawArguments</c> writes when the capability is absent.
+    /// </remarks>
+    public void DrawIndexedIndirectCount(
+        BufferHandle arguments,
+        BufferHandle count,
+        long offset = 0,
+        long countOffset = 0,
+        int maxDrawCount = 1,
+        int stride = 20
+    ) =>
+        throw new NotSupportedException(
+            "A draw whose count comes from a buffer needs glMultiDrawElementsIndirectCount, which is "
+            + "core in GL 4.6 and this backend targets 4.5 at most — Features.HasDrawIndirectCount "
+            + "reports false here at every profile. Issue DrawIndexedIndirect at the run's maximum "
+            + "length with the culled arguments zeroed instead."
+        );
+
+    /// <inheritdoc />
     public void Dispatch(int groupsX, int groupsY = 1, int groupsZ = 1) {
         Recording();
 

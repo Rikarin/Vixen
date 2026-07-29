@@ -22,7 +22,7 @@ namespace Vixen.Graphics.Null;
 ///         wrong.
 ///     </para>
 /// </remarks>
-sealed class NullCommandList(QueueKind kind, string name) : ICommandList {
+sealed class NullCommandList(QueueKind kind, string name, bool hasDrawIndirectCount = false) : ICommandList {
     readonly List<RecordedCommand> commands = [];
 
     int passDepth;
@@ -176,6 +176,45 @@ sealed class NullCommandList(QueueKind kind, string name) : ICommandList {
     public void DrawIndexedIndirect(BufferHandle arguments, long offset = 0, int drawCount = 1, int stride = 20) {
         ThrowIfNotDrawing(nameof(DrawIndexedIndirect));
         Add(new(RecordedCommandKind.DrawIndexedIndirect, 0, (long)arguments.Value.Packed, offset, drawCount, stride));
+    }
+
+    /// <remarks>
+    ///     The capability is checked here rather than left to a real backend, on the same terms as
+    ///     the unbounded-binding refusal in <c>NullDevice.CreateDescriptorSetLayout</c>: a host that
+    ///     skipped its check finds out in a test rather than on whichever driver it reaches first.
+    ///     ⚠ Five arguments fit in a recorded command and this call takes six, so the count buffer's
+    ///     offset is the one left out — it is four-byte-aligned bookkeeping, where the two handles,
+    ///     the argument offset and the ceiling are what an assertion is actually about.
+    /// </remarks>
+    public void DrawIndexedIndirectCount(
+        BufferHandle arguments,
+        BufferHandle count,
+        long offset = 0,
+        long countOffset = 0,
+        int maxDrawCount = 1,
+        int stride = 20
+    ) {
+        ThrowIfNotDrawing(nameof(DrawIndexedIndirectCount));
+
+        if (!hasDrawIndirectCount) {
+            throw new InvalidOperationException(
+                "DrawIndexedIndirectCount needs GraphicsDeviceFeatures.HasDrawIndirectCount. This "
+                + "device reports it absent, and the fallback is DrawIndexedIndirect at the run's "
+                + "maximum length with the culled arguments zeroed."
+            );
+        }
+
+        Add(
+            new(
+                RecordedCommandKind.DrawIndexedIndirectCount,
+                0,
+                (long)arguments.Value.Packed,
+                (long)count.Value.Packed,
+                offset,
+                maxDrawCount,
+                stride
+            )
+        );
     }
 
     public void Dispatch(int groupsX, int groupsY = 1, int groupsZ = 1) {

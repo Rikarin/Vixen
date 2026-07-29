@@ -63,6 +63,27 @@ public readonly record struct GraphicsDeviceFeatures {
     /// <summary>One indirect call may issue many draws.</summary>
     public bool HasMultiDrawIndirect { get; init; }
 
+    /// <summary>
+    ///     And the number of them may come from a buffer rather than from the host.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The difference between a compacted draw list and a padded one.
+    ///         <see cref="ICommandList.DrawIndexedIndirect" /> takes its count as a host integer, so
+    ///         a run the GPU compacted has to be issued at its <em>maximum</em> length with the tail
+    ///         zeroed — every culled object still costing a command the front end reads and discards.
+    ///         With this, one command covers exactly the survivors and the host never learns how many
+    ///         there were.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Strictly stronger than <see cref="HasMultiDrawIndirect" /> and not implied by it.
+    ///         Vulkan spells it as a separate extension promoted to core in 1.2; GL wants 4.6; and
+    ///         WebGPU and Metal have no equivalent, so the padded form is what runs there and is not
+    ///         going away.
+    ///     </para>
+    /// </remarks>
+    public bool HasDrawIndirectCount { get; init; }
+
     /// <summary>Timeline semaphores, rather than binary ones.</summary>
     public bool HasTimelineSemaphores { get; init; }
 

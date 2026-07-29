@@ -252,6 +252,7 @@ in the engine may assume.
 | `HasBindless` | ✓ four opt-in features | ✓ | ✗ | ✗ | ✗ | ✗ | ⚠ tier-dependent |
 | `MaxBindlessDescriptors` | lesser of the two update-after-bind ceilings | SM6.6 heap size | 0 | 0 | 0 | 0 | as MoltenVK reports |
 | `HasMultiDrawIndirect` | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ |
+| `HasDrawIndirectCount` | ✓ `VK_KHR_draw_indirect_count` | ✓ count buffer on `ExecuteIndirect` | ✗ (4.6) | ✗ | ✗ | ✗ | ✗ |
 | `HasTimelineSemaphores` | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ |
 | `HasAsyncCompute` | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ |
 | `HasSparseResources` | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ |

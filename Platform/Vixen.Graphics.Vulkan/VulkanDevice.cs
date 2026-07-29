@@ -116,6 +116,7 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
     readonly KhrSwapchain? khrSwapchain;
     readonly KhrSurface? khrSurface;
     readonly KhrDynamicRendering? khrDynamicRendering;
+    readonly KhrDrawIndirectCount? khrDrawIndirectCount;
     readonly ExtDebugUtils? debugUtils;
     readonly SurfaceKHR surface;
 
@@ -177,6 +178,15 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
         if (adapter.UsableApiVersion < VulkanFeatures.Version13
             && adapter.Extensions.Contains(KhrDynamicRendering.ExtensionName)) {
             api.TryGetDeviceExtension(instance.Handle, device, out khrDynamicRendering);
+        }
+
+        // ⚠ Loaded from the *extension* whatever the version is, and the extension is what device
+        // creation enabled. On a 1.2 device the commands are also core, but core spells them behind
+        // VkPhysicalDeviceVulkan12Features::drawIndirectCount — a feature this device never asks
+        // for. Going through the extension makes the enable and the call the same decision instead
+        // of two that have to agree.
+        if (adapter.Features.HasDrawIndirectCount) {
+            api.TryGetDeviceExtension(instance.Handle, device, out khrDrawIndirectCount);
         }
 
         allocator = new(api, device, adapter.Memory);
@@ -304,6 +314,9 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
     bool IsCoreDynamicRendering => adapter.UsableApiVersion >= VulkanFeatures.Version13;
 
     internal KhrDynamicRendering? DynamicRendering => khrDynamicRendering;
+
+    /// <summary>The draw-indirect-count entry points, or null where the extension was not enabled.</summary>
+    internal KhrDrawIndirectCount? DrawIndirectCount => khrDrawIndirectCount;
 
     internal RenderPassCache RenderPasses => renderPasses;
 
@@ -796,6 +809,14 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
 
         if (wantsBindless && adapter.UsableApiVersion < VulkanFeatures.Version12) {
             extensions.Add(VulkanFeatures.DescriptorIndexing);
+        }
+
+        // The count-buffer draw, at every version. Promoted to core in 1.2, where it is behind
+        // VkPhysicalDeviceVulkan12Features::drawIndirectCount — a feature structure nothing else
+        // here needs — while the extension carries its own permission and is still advertised by
+        // every driver that promoted it. One decision rather than two that have to agree.
+        if (adapter.Features.HasDrawIndirectCount) {
+            extensions.Add(KhrDrawIndirectCount.ExtensionName);
         }
 
         var missing = extensions.Where(name => !adapter.Extensions.Contains(name)).ToArray();

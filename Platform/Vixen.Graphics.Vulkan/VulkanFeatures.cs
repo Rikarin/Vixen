@@ -53,6 +53,15 @@ static class VulkanFeatures {
     /// </remarks>
     internal const string DescriptorIndexing = "VK_EXT_descriptor_indexing";
 
+    /// <summary>The count-buffer draw, core in 1.2 and an extension at every version.</summary>
+    /// <remarks>
+    ///     Named here rather than taken from <c>KhrDrawIndirectCount.ExtensionName</c> for the same
+    ///     reason <see cref="DescriptorIndexing" /> is: the translation and device creation have to
+    ///     name the same string, and two spellings is one typo away from a capability that reports
+    ///     present on a device that was never asked for it.
+    /// </remarks>
+    internal const string DrawIndirectCount = "VK_KHR_draw_indirect_count";
+
     /// <summary>How many sets a pipeline binds once one of them is a bindless table.</summary>
     /// <remarks>
     ///     The engine's four, plus <c>DescriptorSetSlot.Bindless</c>. Vulkan's floor for
@@ -112,6 +121,12 @@ static class VulkanFeatures {
             HasBindless = bindless,
 
             HasMultiDrawIndirect = features.MultiDrawIndirect,
+
+            // The extension, at every version. It is core from 1.2 and gated there behind
+            // VkPhysicalDeviceVulkan12Features::drawIndirectCount, which this backend does not query
+            // — and every driver that promoted it still advertises it, so asking for the extension
+            // is both sufficient and the same question device creation enables.
+            HasDrawIndirectCount = extensions.Contains(DrawIndirectCount),
             HasTimelineSemaphores = apiVersion >= Version12 || extensions.Contains(TimelineSemaphore),
             HasAsyncCompute = queues.HasAsyncCompute,
             HasAsyncTransfer = queues.HasAsyncTransfer,
