@@ -254,6 +254,65 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     /// </remarks>
     public bool UseRecords { get; set; }
 
+    /// <summary>
+    ///     Permutation values that belong to the frame rather than to an object or a material.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>The third layer, and the one that outranks the other two.</strong> A material's
+    ///         parameters say what a surface is; a sub-feature's contribution says what is true of one
+    ///         object — that it is skinned, that it is instanced. Neither can answer "does this device
+    ///         have descriptor indexing", which is a fact about the machine and identical for every
+    ///         object in the frame. Applied last, so a material that happened to set the same key
+    ///         cannot claim a capability the device does not have.
+    ///     </para>
+    ///     <para>
+    ///         The keys are the shader's own, as <see cref="PermutationKeys" /> registers them — not a
+    ///         renderer flag routed through <see cref="PermutationSources" />, because there is no
+    ///         per-object source to route from.
+    ///     </para>
+    /// </remarks>
+    public ParameterCollection Permutations { get; } = new();
+
+    /// <summary>
+    ///     Turns the record path on where the device can take it, and leaves it off where it cannot.
+    /// </summary>
+    /// <param name="shaderKey">
+    ///     The shader's own permutation — <c>ForwardPlusKeys.UseMaterialRecords</c> for the shipped
+    ///     forward pass.
+    /// </param>
+    /// <returns>Whether records were turned on.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>Both halves, which is the whole reason this exists as one call.</strong>
+    ///         <see cref="UseRecords" /> decides where the host writes a material's bytes, and the
+    ///         permutation decides which shader is compiled to read them. Setting one without the
+    ///         other is not a degraded frame but a wrong one: records written for a shader that binds
+    ///         a per-material set are records nothing reads, and a shader compiled to subscript a
+    ///         record buffer that the host is still filling descriptor sets for reads whatever is at
+    ///         index zero. Neither fails, and both draw a picture.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Off is the correct answer, not the degraded one. It is what runs on GL, on WebGL2
+    ///         and on MoltenVK below argument-buffer tier 2 (ADR-011), and the same materials draw
+    ///         the same image through a descriptor set per material.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Call this before the first <c>Prepare</c>. Variants are cached by their effect key,
+    ///         so a permutation that changed after one was resolved would leave already-resolved
+    ///         variants compiled for the old value — and those are exactly the ones a settled scene
+    ///         keeps using.
+    ///     </para>
+    /// </remarks>
+    public bool EnableRecords(PermutationKey<bool> shaderKey) {
+        var supported = Device?.Features is { HasBindless: true };
+
+        UseRecords = supported;
+        Permutations.Set(shaderKey, supported);
+
+        return supported;
+    }
+
     /// <summary>The record buffers, one per effect, for a host that binds them.</summary>
     /// <remarks>
     ///     Keyed by sort group, which is the engine's name for "these objects resolved to the same
@@ -878,6 +937,10 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
         foreach (var (shaderKey, source) in PermutationSources) {
             scratch.Set(shaderKey, scratch.Get(source));
         }
+
+        // And the frame's own last of all, because they are facts about the device: a material must
+        // not be able to claim a capability the machine does not have by setting the same key.
+        scratch.Apply(Permutations);
     }
 
     /// <summary>One object's contributed permutations, packed into a bit per key.</summary>

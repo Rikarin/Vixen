@@ -126,6 +126,7 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
         var boundDescriptors = default(DescriptorSetHandle);
         var boundView = false;
         var boundScene = false;
+        var boundTable = false;
 
         foreach (var node in nodes) {
             var draw = draws[node.Object.Index];
@@ -167,6 +168,21 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
             // compatible up to set 1, which covers set 0 as well.
             if (!boundScene && context.SceneConstants is { } scene) {
                 boundScene = scene.Bind(context.CommandList, effect);
+            }
+
+            // The material table, on the same terms and once. It is not written here and not written
+            // per frame at all — the table owns its set and updates descriptors in place as textures
+            // enter it — so all a frame does is name it once, at the set the shader declared it in.
+            //
+            // ⚠ Only where the effect declares the set. A variant compiled without the table has a
+            // four-set pipeline layout, and binding a fifth against it is a validation error rather
+            // than a harmless extra call — which is exactly the mixed frame this is written for, since
+            // the non-bindless variant of the same shader is the one every other device compiles.
+            if (!boundTable
+                && materials.Textures is { Set.IsValid: true } table
+                && HasBindlessSet(effect)) {
+                context.CommandList.BindDescriptorSet(DescriptorSetSlot.Bindless, table.Set);
+                boundTable = true;
             }
 
             // Only when the resolved effect actually has a per-material set. A stage that overrode
@@ -253,6 +269,19 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
         const int slot = (int)DescriptorSetSlot.PerMaterial;
         return effect.SetLayouts.Length == 0
             || (effect.SetLayouts.Length > slot && effect.SetLayouts[slot].IsValid);
+    }
+
+    /// <summary>Whether an effect declares the bindless table's set.</summary>
+    /// <remarks>
+    ///     ⚠ The opposite default to <see cref="HasMaterialSet" />, and deliberately. That one treats
+    ///     an effect with no layouts as having a material set, so a fixture with no reflection is not
+    ///     silently switched off. This one treats it as <em>not</em> having a table, because a fifth
+    ///     set is the rare case: assuming it were present would make every four-set pipeline in a
+    ///     bindless frame the target of a bind its layout does not declare.
+    /// </remarks>
+    static bool HasBindlessSet(Effect effect) {
+        const int slot = (int)DescriptorSetSlot.Bindless;
+        return effect.SetLayouts.Length > slot && effect.SetLayouts[slot].IsValid;
     }
 }
 
