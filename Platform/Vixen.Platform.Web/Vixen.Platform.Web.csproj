@@ -1,0 +1,74 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!--
+          net10.0-browser, not net10.0. [JSImport] and [JSExport] live in
+          System.Runtime.InteropServices.JavaScript, which only exists in the browser runtime pack,
+          and the source generator that emits their marshalling only runs for a browser target. Same
+          reasoning, and the same consequence, as Vixen.Audio.Backend.WebAudio: this project needs
+          the `wasm-tools` workload to evaluate, so — like Vixen.Platform.Android and
+          Vixen.Platform.iOS — it is NOT in Vixen.slnx. See the README.
+
+          Note this is the *library's* TFM. An application head that publishes a page uses
+          Sdk="Microsoft.NET.Sdk.WebAssembly" with TargetFramework net10.0, which is what the spike
+          in docs/plan/spikes/web-webgl2 measured; build/Vixen.Platform.Web.targets is what carries
+          the emcc flags and the publish settings across to it.
+        -->
+        <TargetFramework>net10.0-browser</TargetFramework>
+        <RootNamespace>Vixen.Platform.Web</RootNamespace>
+        <AssemblyName>Vixen.Platform.Web</AssemblyName>
+
+        <!--
+          For the event ring: the drain crosses as a Span<double> MemoryView, and [JSImport]
+          generates unsafe marshalling for one whether or not the signature says so.
+        -->
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+        <Description>
+            A browser tab through IPlatform: a canvas as the surface, requestAnimationFrame driving
+            the frame loop, pointer/keyboard/touch/gamepad input drained from one ring per frame,
+            IndexedDB behind /data and /cache, and fetch with HTTP range requests behind /app.
+        </Description>
+        <PackageTags>web;wasm;browser;canvas;indexeddb;platform;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          The browser half. It has to be fetchable by URL at run time — JSHost.ImportAsync takes a
+          path, not a stream — so it is copied beside the assembly rather than embedded, and packed
+          as a content file an application head can place wherever its assets live.
+        -->
+        <None Include="wwwroot\vixen-platform.js"
+              CopyToOutputDirectory="PreserveNewest"
+              Pack="true"
+              PackagePath="contentFiles/any/any/" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          The emcc flags, the WebGL2 assertion and the size settings, shipped rather than documented.
+          docs/plan/10 § Web: omitting -sMIN_WEBGL_VERSION=2 does not error, it silently hands back a
+          WebGL 1 context whose failure mode is an ArgumentOutOfRangeException inside a shader
+          info-log getter. A consumer should not be able to get that wrong by forgetting a line.
+        -->
+        <None Include="build\Vixen.Platform.Web.props" Pack="true" PackagePath="build/" Visible="true" />
+        <None Include="build\Vixen.Platform.Web.targets" Pack="true" PackagePath="build/" Visible="true" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.IO\Vixen.Core.IO.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\Vixen.Platform\Vixen.Platform.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Platform.Web.Tests" />
+    </ItemGroup>
+
+</Project>

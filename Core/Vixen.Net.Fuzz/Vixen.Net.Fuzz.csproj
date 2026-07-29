@@ -20,6 +20,14 @@
         -->
         <ProjectReference Include="..\Vixen.Net\Vixen.Net.csproj" />
         <ProjectReference Include="..\Vixen.Net.Engine\Vixen.Net.Engine.csproj" />
+
+        <!--
+          The transports, because they are the code an attacker reaches first: everything else here
+          is parsed only after a connection exists, and a datagram is parsed by a server listening on
+          a public port.
+        -->
+        <ProjectReference Include="..\Vixen.Net.Transport.Udp\Vixen.Net.Transport.Udp.csproj" />
+        <ProjectReference Include="..\Vixen.Net.Transport.WebSocket\Vixen.Net.Transport.WebSocket.csproj" />
     </ItemGroup>
 
 </Project>

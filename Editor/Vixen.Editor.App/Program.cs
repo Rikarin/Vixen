@@ -26,12 +26,15 @@ namespace Vixen.Editor.App;
 ///     <para>
 ///         <c>--frames N</c> runs exactly N frames and exits, which is how CI proves the whole stack
 ///         starts, presents and stops without a validation error or a hang — the same flag
-///         <c>Samples/01</c> introduced and for the same reason.
+///         <c>Samples/01</c> introduced and for the same reason. <c>--run ID</c> executes one editor
+///         command on the first frame, which is how the frames after it prove that a background task
+///         the editor started actually finished.
 ///     </para>
 /// </remarks>
 static class Program {
     static int Main(string[] arguments) {
         var frames = Frames(arguments);
+        var project = Project(arguments);
 
         // ⚠ The surface has to be asked for at creation. SDL needs the Vulkan window flag when the
         // window is made, and one made without it has nothing to present to.
@@ -48,8 +51,35 @@ static class Program {
             }
         );
 
-        using var host = new EditorHost(platform, window);
+        using var host = new EditorHost(platform, window, project) { Command = Option(arguments, "--run") };
         return host.Run(frames);
+    }
+
+    /// <summary>Reads an option that takes a value, or null.</summary>
+    static string? Option(string[] arguments, string name) {
+        for (var i = 0; i < arguments.Length - 1; i++) {
+            if (arguments[i] == name) {
+                return arguments[i + 1];
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Reads <c>--project PATH</c>, or nothing for the scratch project.</summary>
+    /// <remarks>
+    ///     A directory that does not exist yet is fine and is the ordinary way to start one: the
+    ///     asset database tolerates a missing <c>Assets/</c> and creates what it needs when something
+    ///     is first written.
+    /// </remarks>
+    static string? Project(ReadOnlySpan<string> arguments) {
+        for (var i = 0; i + 1 < arguments.Length; i++) {
+            if (arguments[i] == "--project") {
+                return arguments[i + 1];
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Reads <c>--frames N</c>, or zero for "until the window is closed".</summary>

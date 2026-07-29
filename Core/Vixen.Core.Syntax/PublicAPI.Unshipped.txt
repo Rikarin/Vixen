@@ -1,0 +1,236 @@
+#nullable enable
+Vixen.Core.Syntax.Diagnostics.Diagnostic -> sealed class
+Vixen.Core.Syntax.Diagnostics.Diagnostic.Descriptor.get -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+Vixen.Core.Syntax.Diagnostics.Diagnostic.GetMessage() -> string
+Vixen.Core.Syntax.Diagnostics.Diagnostic.Id.get -> string
+Vixen.Core.Syntax.Diagnostics.Diagnostic.IsError.get -> bool
+Vixen.Core.Syntax.Diagnostics.Diagnostic.Location.get -> Vixen.Core.Syntax.Diagnostics.Location
+Vixen.Core.Syntax.Diagnostics.Diagnostic.Severity.get -> Vixen.Core.Syntax.Diagnostics.DiagnosticSeverity
+Vixen.Core.Syntax.Diagnostics.DiagnosticBag -> sealed class
+Vixen.Core.Syntax.Diagnostics.DiagnosticBag : System.Collections.Generic.IEnumerable<Vixen.Core.Syntax.Diagnostics.Diagnostic>
+Vixen.Core.Syntax.Diagnostics.DiagnosticBag : System.Collections.IEnumerable
+Vixen.Core.Syntax.Diagnostics.DiagnosticBag.Add(Vixen.Core.Syntax.Diagnostics.Diagnostic diagnostic) -> void
+Vixen.Core.Syntax.Diagnostics.DiagnosticBag.Add(Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor descriptor, Vixen.Core.Syntax.Diagnostics.Location location, params object[] arguments) -> void
+Vixen.Core.Syntax.Diagnostics.DiagnosticBag.AddRange(System.Collections.Generic.IEnumerable<Vixen.Core.Syntax.Diagnostics.Diagnostic> items) -> void
+Vixen.Core.Syntax.Diagnostics.DiagnosticBag.DiagnosticBag() -> void
+Vixen.Core.Syntax.Diagnostics.DiagnosticBag.GetEnumerator() -> System.Collections.Generic.IEnumerator<Vixen.Core.Syntax.Diagnostics.Diagnostic>
+Vixen.Core.Syntax.Diagnostics.DiagnosticBag.HasErrors.get -> bool
+Vixen.Core.Syntax.Diagnostics.DiagnosticBag.IsEmpty.get -> bool
+Vixen.Core.Syntax.Diagnostics.DiagnosticBag.ToArray() -> Vixen.Core.Syntax.Diagnostics.Diagnostic[]
+Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor -> sealed class
+Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor.Category.get -> string
+Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor.DefaultSeverity.get -> Vixen.Core.Syntax.Diagnostics.DiagnosticSeverity
+Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor.DiagnosticDescriptor(string id, string title, string messageFormat, string category, Vixen.Core.Syntax.Diagnostics.DiagnosticSeverity defaultSeverity) -> void
+Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor.Id.get -> string
+Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor.MessageFormat.get -> string
+Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor.Title.get -> string
+Vixen.Core.Syntax.Diagnostics.DiagnosticFormatter -> static class
+Vixen.Core.Syntax.Diagnostics.DiagnosticFormatterOptions -> sealed record
+Vixen.Core.Syntax.Diagnostics.DiagnosticFormatterOptions : System.IEquatable<Vixen.Core.Syntax.Diagnostics.DiagnosticFormatterOptions>
+Vixen.Core.Syntax.Diagnostics.DiagnosticFormatterOptions.DiagnosticFormatterOptions() -> void
+Vixen.Core.Syntax.Diagnostics.DiagnosticFormatterOptions.ShowSource.get -> bool
+Vixen.Core.Syntax.Diagnostics.DiagnosticFormatterOptions.ShowSource.init -> bool
+Vixen.Core.Syntax.Diagnostics.DiagnosticFormatterOptions.UseColor.get -> bool
+Vixen.Core.Syntax.Diagnostics.DiagnosticFormatterOptions.UseColor.init -> bool
+Vixen.Core.Syntax.Diagnostics.DiagnosticSeverity -> enum : int
+Vixen.Core.Syntax.Diagnostics.DiagnosticSeverity.DiagnosticSeverity() -> void
+Vixen.Core.Syntax.Diagnostics.DiagnosticSeverity.Error = 3 -> Vixen.Core.Syntax.Diagnostics.DiagnosticSeverity
+Vixen.Core.Syntax.Diagnostics.DiagnosticSeverity.Hidden = 0 -> Vixen.Core.Syntax.Diagnostics.DiagnosticSeverity
+Vixen.Core.Syntax.Diagnostics.DiagnosticSeverity.Info = 1 -> Vixen.Core.Syntax.Diagnostics.DiagnosticSeverity
+Vixen.Core.Syntax.Diagnostics.DiagnosticSeverity.Warning = 2 -> Vixen.Core.Syntax.Diagnostics.DiagnosticSeverity
+Vixen.Core.Syntax.Diagnostics.Location -> sealed class
+Vixen.Core.Syntax.Diagnostics.Location.FilePath.get -> string
+Vixen.Core.Syntax.Diagnostics.Location.GetLineSpan() -> Vixen.Core.Syntax.Text.LinePositionSpan
+Vixen.Core.Syntax.Diagnostics.Location.IsNone.get -> bool
+Vixen.Core.Syntax.Diagnostics.Location.SourceSpan.get -> Vixen.Core.Syntax.Text.TextSpan
+Vixen.Core.Syntax.Diagnostics.Location.SourceText.get -> Vixen.Core.Syntax.Text.SourceText?
+Vixen.Core.Syntax.ExceptionUtilities -> static class
+Vixen.Core.Syntax.ISyntaxTree -> interface
+Vixen.Core.Syntax.ISyntaxTree.FilePath.get -> string
+Vixen.Core.Syntax.ISyntaxTree.Text.get -> Vixen.Core.Syntax.Text.SourceText?
+Vixen.Core.Syntax.SeparatedSyntaxList<TNode> -> readonly struct
+Vixen.Core.Syntax.SeparatedSyntaxList<TNode> : System.Collections.Generic.IEnumerable<TNode>
+Vixen.Core.Syntax.SeparatedSyntaxList<TNode> : System.Collections.IEnumerable
+Vixen.Core.Syntax.SeparatedSyntaxList<TNode>.Any() -> bool
+Vixen.Core.Syntax.SeparatedSyntaxList<TNode>.Count.get -> int
+Vixen.Core.Syntax.SeparatedSyntaxList<TNode>.Equals(Vixen.Core.Syntax.SeparatedSyntaxList<TNode> other) -> bool
+Vixen.Core.Syntax.SeparatedSyntaxList<TNode>.GetEnumerator() -> System.Collections.Generic.IEnumerator<TNode>
+Vixen.Core.Syntax.SeparatedSyntaxList<TNode>.GetSeparator(int index) -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Core.Syntax.SeparatedSyntaxList<TNode>.SeparatedSyntaxList() -> void
+Vixen.Core.Syntax.SeparatedSyntaxList<TNode>.SeparatorCount.get -> int
+Vixen.Core.Syntax.SeparatedSyntaxList<TNode>.this[int index].get -> TNode
+Vixen.Core.Syntax.SyntaxKinds -> static class
+Vixen.Core.Syntax.SyntaxList<TNode> -> readonly struct
+Vixen.Core.Syntax.SyntaxList<TNode> : System.IEquatable<Vixen.Core.Syntax.SyntaxList<TNode>>
+Vixen.Core.Syntax.SyntaxList<TNode>.AddRange(System.Collections.Generic.IEnumerable<TNode> nodes) -> Vixen.Core.Syntax.SyntaxList<TNode>
+Vixen.Core.Syntax.SyntaxList<TNode>.Any() -> bool
+Vixen.Core.Syntax.SyntaxList<TNode>.Any(int rawKind) -> bool
+Vixen.Core.Syntax.SyntaxList<TNode>.Count.get -> int
+Vixen.Core.Syntax.SyntaxList<TNode>.Enumerator -> struct
+Vixen.Core.Syntax.SyntaxList<TNode>.Enumerator.Current.get -> TNode
+Vixen.Core.Syntax.SyntaxList<TNode>.Enumerator.Enumerator() -> void
+Vixen.Core.Syntax.SyntaxList<TNode>.Enumerator.MoveNext() -> bool
+Vixen.Core.Syntax.SyntaxList<TNode>.Equals(Vixen.Core.Syntax.SyntaxList<TNode> other) -> bool
+Vixen.Core.Syntax.SyntaxList<TNode>.GetEnumerator() -> Vixen.Core.Syntax.SyntaxList<TNode>.Enumerator
+Vixen.Core.Syntax.SyntaxList<TNode>.SyntaxList() -> void
+Vixen.Core.Syntax.SyntaxList<TNode>.this[int index].get -> TNode?
+Vixen.Core.Syntax.SyntaxListNode -> sealed class
+Vixen.Core.Syntax.SyntaxListNode : Vixen.Core.Syntax.SyntaxNode
+Vixen.Core.Syntax.SyntaxNode -> abstract class
+Vixen.Core.Syntax.SyntaxNode.Ancestors() -> System.Collections.Generic.IEnumerable<Vixen.Core.Syntax.SyntaxNode>
+Vixen.Core.Syntax.SyntaxNode.AncestorsAndSelf() -> System.Collections.Generic.IEnumerable<Vixen.Core.Syntax.SyntaxNode>
+Vixen.Core.Syntax.SyntaxNode.ChildNodes() -> System.Collections.Generic.IEnumerable<Vixen.Core.Syntax.SyntaxNode>
+Vixen.Core.Syntax.SyntaxNode.ChildNodesAndTokens() -> System.Collections.Generic.IEnumerable<Vixen.Core.Syntax.SyntaxNode>
+Vixen.Core.Syntax.SyntaxNode.ChildNodesAndTokensFlattened() -> System.Collections.Generic.IEnumerable<Vixen.Core.Syntax.SyntaxNode>
+Vixen.Core.Syntax.SyntaxNode.ChildTokens() -> System.Collections.Generic.IEnumerable<Vixen.Core.Syntax.SyntaxToken>
+Vixen.Core.Syntax.SyntaxNode.Contains(Vixen.Core.Syntax.SyntaxNode? node) -> bool
+Vixen.Core.Syntax.SyntaxNode.DescendantNodes() -> System.Collections.Generic.IEnumerable<Vixen.Core.Syntax.SyntaxNode>
+Vixen.Core.Syntax.SyntaxNode.DescendantNodesAndSelf() -> System.Collections.Generic.IEnumerable<Vixen.Core.Syntax.SyntaxNode>
+Vixen.Core.Syntax.SyntaxNode.DescendantNodesAndTokens() -> System.Collections.Generic.IEnumerable<Vixen.Core.Syntax.SyntaxNode>
+Vixen.Core.Syntax.SyntaxNode.DescendantTokens() -> System.Collections.Generic.IEnumerable<Vixen.Core.Syntax.SyntaxToken>
+Vixen.Core.Syntax.SyntaxNode.FindNode(Vixen.Core.Syntax.Text.TextSpan span) -> Vixen.Core.Syntax.SyntaxNode?
+Vixen.Core.Syntax.SyntaxNode.FindToken(int position) -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Core.Syntax.SyntaxNode.FirstAncestorOrSelf<TNode>() -> TNode?
+Vixen.Core.Syntax.SyntaxNode.FullSpan.get -> Vixen.Core.Syntax.Text.TextSpan
+Vixen.Core.Syntax.SyntaxNode.GetFirstToken() -> Vixen.Core.Syntax.SyntaxToken?
+Vixen.Core.Syntax.SyntaxNode.GetLastToken() -> Vixen.Core.Syntax.SyntaxToken?
+Vixen.Core.Syntax.SyntaxNode.GetLocation() -> Vixen.Core.Syntax.Diagnostics.Location
+Vixen.Core.Syntax.SyntaxNode.GetRed(int index) -> Vixen.Core.Syntax.SyntaxNode?
+Vixen.Core.Syntax.SyntaxNode.IsEquivalentTo(Vixen.Core.Syntax.SyntaxNode? other) -> bool
+Vixen.Core.Syntax.SyntaxNode.IsList.get -> bool
+Vixen.Core.Syntax.SyntaxNode.Parent.get -> Vixen.Core.Syntax.SyntaxNode?
+Vixen.Core.Syntax.SyntaxNode.RawKind.get -> int
+Vixen.Core.Syntax.SyntaxNode.SlotCount.get -> int
+Vixen.Core.Syntax.SyntaxNode.Span.get -> Vixen.Core.Syntax.Text.TextSpan
+Vixen.Core.Syntax.SyntaxNode.SyntaxTree.get -> Vixen.Core.Syntax.ISyntaxTree?
+Vixen.Core.Syntax.SyntaxNode.ToFullString() -> string
+Vixen.Core.Syntax.SyntaxNodeOrToken -> readonly struct
+Vixen.Core.Syntax.SyntaxNodeOrToken : System.IEquatable<Vixen.Core.Syntax.SyntaxNodeOrToken>
+Vixen.Core.Syntax.SyntaxNodeOrToken.Node.get -> Vixen.Core.Syntax.SyntaxNode?
+Vixen.Core.Syntax.SyntaxNodeOrToken.SyntaxNodeOrToken() -> void
+Vixen.Core.Syntax.SyntaxNodeOrToken.Token.get -> Vixen.Core.Syntax.SyntaxToken?
+Vixen.Core.Syntax.SyntaxToken -> class
+Vixen.Core.Syntax.SyntaxToken : Vixen.Core.Syntax.SyntaxNode
+Vixen.Core.Syntax.SyntaxToken.IsMissing.get -> bool
+Vixen.Core.Syntax.SyntaxToken.LeadingTrivia.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Syntax.SyntaxTrivia>
+Vixen.Core.Syntax.SyntaxToken.Text.get -> string
+Vixen.Core.Syntax.SyntaxToken.TrailingTrivia.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Syntax.SyntaxTrivia>
+Vixen.Core.Syntax.SyntaxToken.Value.get -> object?
+Vixen.Core.Syntax.SyntaxToken.ValueText.get -> string
+Vixen.Core.Syntax.SyntaxTrivia -> readonly struct
+Vixen.Core.Syntax.SyntaxTrivia : System.IEquatable<Vixen.Core.Syntax.SyntaxTrivia>
+Vixen.Core.Syntax.SyntaxTrivia.Position.get -> int
+Vixen.Core.Syntax.SyntaxTrivia.Position.init -> int
+Vixen.Core.Syntax.SyntaxTrivia.RawKind.get -> int
+Vixen.Core.Syntax.SyntaxTrivia.RawKind.init -> int
+Vixen.Core.Syntax.SyntaxTrivia.Span.get -> Vixen.Core.Syntax.Text.TextSpan
+Vixen.Core.Syntax.SyntaxTrivia.SyntaxTrivia() -> void
+Vixen.Core.Syntax.SyntaxTrivia.SyntaxTrivia(int RawKind, string Text, int Position) -> void
+Vixen.Core.Syntax.SyntaxTrivia.Text.get -> string
+Vixen.Core.Syntax.SyntaxTrivia.Text.init -> string
+Vixen.Core.Syntax.Text.LinePosition -> readonly struct
+Vixen.Core.Syntax.Text.LinePosition : System.IComparable<Vixen.Core.Syntax.Text.LinePosition>
+Vixen.Core.Syntax.Text.LinePosition : System.IEquatable<Vixen.Core.Syntax.Text.LinePosition>
+Vixen.Core.Syntax.Text.LinePosition.Character.get -> int
+Vixen.Core.Syntax.Text.LinePosition.Character.init -> int
+Vixen.Core.Syntax.Text.LinePosition.CompareTo(Vixen.Core.Syntax.Text.LinePosition other) -> int
+Vixen.Core.Syntax.Text.LinePosition.Line.get -> int
+Vixen.Core.Syntax.Text.LinePosition.Line.init -> int
+Vixen.Core.Syntax.Text.LinePosition.LinePosition() -> void
+Vixen.Core.Syntax.Text.LinePosition.LinePosition(int Line, int Character) -> void
+Vixen.Core.Syntax.Text.LinePositionSpan -> readonly struct
+Vixen.Core.Syntax.Text.LinePositionSpan : System.IEquatable<Vixen.Core.Syntax.Text.LinePositionSpan>
+Vixen.Core.Syntax.Text.LinePositionSpan.End.get -> Vixen.Core.Syntax.Text.LinePosition
+Vixen.Core.Syntax.Text.LinePositionSpan.End.init -> Vixen.Core.Syntax.Text.LinePosition
+Vixen.Core.Syntax.Text.LinePositionSpan.LinePositionSpan() -> void
+Vixen.Core.Syntax.Text.LinePositionSpan.LinePositionSpan(Vixen.Core.Syntax.Text.LinePosition Start, Vixen.Core.Syntax.Text.LinePosition End) -> void
+Vixen.Core.Syntax.Text.LinePositionSpan.Start.get -> Vixen.Core.Syntax.Text.LinePosition
+Vixen.Core.Syntax.Text.LinePositionSpan.Start.init -> Vixen.Core.Syntax.Text.LinePosition
+Vixen.Core.Syntax.Text.SourceText -> sealed class
+Vixen.Core.Syntax.Text.SourceText.GetChangeRanges(Vixen.Core.Syntax.Text.SourceText oldText) -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Syntax.Text.TextChangeRange>
+Vixen.Core.Syntax.Text.SourceText.GetLinePosition(int position) -> Vixen.Core.Syntax.Text.LinePosition
+Vixen.Core.Syntax.Text.SourceText.GetLinePositionSpan(Vixen.Core.Syntax.Text.TextSpan span) -> Vixen.Core.Syntax.Text.LinePositionSpan
+Vixen.Core.Syntax.Text.SourceText.GetLineStart(int line) -> int
+Vixen.Core.Syntax.Text.SourceText.GetLineText(int line) -> string
+Vixen.Core.Syntax.Text.SourceText.Length.get -> int
+Vixen.Core.Syntax.Text.SourceText.LineCount.get -> int
+Vixen.Core.Syntax.Text.SourceText.ToString(Vixen.Core.Syntax.Text.TextSpan span) -> string
+Vixen.Core.Syntax.Text.SourceText.WithChanges(System.Collections.Generic.IEnumerable<Vixen.Core.Syntax.Text.TextChange> changes) -> Vixen.Core.Syntax.Text.SourceText
+Vixen.Core.Syntax.Text.SourceText.WithChanges(params Vixen.Core.Syntax.Text.TextChange[] changes) -> Vixen.Core.Syntax.Text.SourceText
+Vixen.Core.Syntax.Text.SourceText.this[int position].get -> char
+Vixen.Core.Syntax.Text.TextChange -> readonly struct
+Vixen.Core.Syntax.Text.TextChange : System.IEquatable<Vixen.Core.Syntax.Text.TextChange>
+Vixen.Core.Syntax.Text.TextChange.Delta.get -> int
+Vixen.Core.Syntax.Text.TextChange.NewText.get -> string
+Vixen.Core.Syntax.Text.TextChange.NewText.init -> string
+Vixen.Core.Syntax.Text.TextChange.Span.get -> Vixen.Core.Syntax.Text.TextSpan
+Vixen.Core.Syntax.Text.TextChange.Span.init -> Vixen.Core.Syntax.Text.TextSpan
+Vixen.Core.Syntax.Text.TextChange.TextChange() -> void
+Vixen.Core.Syntax.Text.TextChange.TextChange(Vixen.Core.Syntax.Text.TextSpan Span, string NewText) -> void
+Vixen.Core.Syntax.Text.TextChangeRange -> readonly struct
+Vixen.Core.Syntax.Text.TextChangeRange : System.IEquatable<Vixen.Core.Syntax.Text.TextChangeRange>
+Vixen.Core.Syntax.Text.TextChangeRange.Delta.get -> int
+Vixen.Core.Syntax.Text.TextChangeRange.NewLength.get -> int
+Vixen.Core.Syntax.Text.TextChangeRange.NewLength.init -> int
+Vixen.Core.Syntax.Text.TextChangeRange.Span.get -> Vixen.Core.Syntax.Text.TextSpan
+Vixen.Core.Syntax.Text.TextChangeRange.Span.init -> Vixen.Core.Syntax.Text.TextSpan
+Vixen.Core.Syntax.Text.TextChangeRange.TextChangeRange() -> void
+Vixen.Core.Syntax.Text.TextChangeRange.TextChangeRange(Vixen.Core.Syntax.Text.TextSpan Span, int NewLength) -> void
+Vixen.Core.Syntax.Text.TextSpan -> readonly struct
+Vixen.Core.Syntax.Text.TextSpan : System.IComparable<Vixen.Core.Syntax.Text.TextSpan>
+Vixen.Core.Syntax.Text.TextSpan : System.IEquatable<Vixen.Core.Syntax.Text.TextSpan>
+Vixen.Core.Syntax.Text.TextSpan.CompareTo(Vixen.Core.Syntax.Text.TextSpan other) -> int
+Vixen.Core.Syntax.Text.TextSpan.Contains(Vixen.Core.Syntax.Text.TextSpan span) -> bool
+Vixen.Core.Syntax.Text.TextSpan.Contains(int position) -> bool
+Vixen.Core.Syntax.Text.TextSpan.End.get -> int
+Vixen.Core.Syntax.Text.TextSpan.IsEmpty.get -> bool
+Vixen.Core.Syntax.Text.TextSpan.Length.get -> int
+Vixen.Core.Syntax.Text.TextSpan.Length.init -> int
+Vixen.Core.Syntax.Text.TextSpan.OverlapsWith(Vixen.Core.Syntax.Text.TextSpan other) -> bool
+Vixen.Core.Syntax.Text.TextSpan.Start.get -> int
+Vixen.Core.Syntax.Text.TextSpan.Start.init -> int
+Vixen.Core.Syntax.Text.TextSpan.TextSpan() -> void
+Vixen.Core.Syntax.Text.TextSpan.TextSpan(int Start, int Length) -> void
+abstract Vixen.Core.Syntax.SyntaxNode.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
+const Vixen.Core.Syntax.SyntaxKinds.List = 1 -> int
+override Vixen.Core.Syntax.Diagnostics.Diagnostic.ToString() -> string
+override Vixen.Core.Syntax.Diagnostics.Location.ToString() -> string
+override Vixen.Core.Syntax.SeparatedSyntaxList<TNode>.Equals(object? obj) -> bool
+override Vixen.Core.Syntax.SeparatedSyntaxList<TNode>.GetHashCode() -> int
+override Vixen.Core.Syntax.SyntaxList<TNode>.Equals(object? obj) -> bool
+override Vixen.Core.Syntax.SyntaxList<TNode>.GetHashCode() -> int
+override Vixen.Core.Syntax.SyntaxListNode.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
+override Vixen.Core.Syntax.SyntaxNode.ToString() -> string
+override Vixen.Core.Syntax.SyntaxToken.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
+override Vixen.Core.Syntax.SyntaxToken.ToString() -> string
+override Vixen.Core.Syntax.SyntaxTrivia.ToString() -> string
+override Vixen.Core.Syntax.Text.LinePosition.ToString() -> string
+override Vixen.Core.Syntax.Text.LinePositionSpan.ToString() -> string
+override Vixen.Core.Syntax.Text.SourceText.ToString() -> string
+override Vixen.Core.Syntax.Text.TextChange.ToString() -> string
+override Vixen.Core.Syntax.Text.TextChangeRange.ToString() -> string
+override Vixen.Core.Syntax.Text.TextSpan.ToString() -> string
+static Vixen.Core.Syntax.Diagnostics.Diagnostic.Create(Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor descriptor, Vixen.Core.Syntax.Diagnostics.Location location, params object[] arguments) -> Vixen.Core.Syntax.Diagnostics.Diagnostic
+static Vixen.Core.Syntax.Diagnostics.DiagnosticFormatter.Format(System.Collections.Generic.IEnumerable<Vixen.Core.Syntax.Diagnostics.Diagnostic> diagnostics, Vixen.Core.Syntax.Diagnostics.DiagnosticFormatterOptions? options = null) -> string
+static Vixen.Core.Syntax.Diagnostics.DiagnosticFormatter.Format(Vixen.Core.Syntax.Diagnostics.Diagnostic diagnostic, Vixen.Core.Syntax.Diagnostics.DiagnosticFormatterOptions? options = null) -> string
+static Vixen.Core.Syntax.Diagnostics.Location.Create(string filePath, Vixen.Core.Syntax.Text.TextSpan span, Vixen.Core.Syntax.Text.SourceText text) -> Vixen.Core.Syntax.Diagnostics.Location
+static Vixen.Core.Syntax.ExceptionUtilities.Unreachable(string? path = null, int line = 0) -> System.Exception
+static Vixen.Core.Syntax.SeparatedSyntaxList<TNode>.operator !=(Vixen.Core.Syntax.SeparatedSyntaxList<TNode> left, Vixen.Core.Syntax.SeparatedSyntaxList<TNode> right) -> bool
+static Vixen.Core.Syntax.SeparatedSyntaxList<TNode>.operator ==(Vixen.Core.Syntax.SeparatedSyntaxList<TNode> left, Vixen.Core.Syntax.SeparatedSyntaxList<TNode> right) -> bool
+static Vixen.Core.Syntax.SyntaxList<TNode>.implicit operator Vixen.Core.Syntax.SyntaxList<TNode>(TNode node) -> Vixen.Core.Syntax.SyntaxList<TNode>
+static Vixen.Core.Syntax.SyntaxList<TNode>.operator !=(Vixen.Core.Syntax.SyntaxList<TNode> left, Vixen.Core.Syntax.SyntaxList<TNode> right) -> bool
+static Vixen.Core.Syntax.SyntaxList<TNode>.operator ==(Vixen.Core.Syntax.SyntaxList<TNode> left, Vixen.Core.Syntax.SyntaxList<TNode> right) -> bool
+static Vixen.Core.Syntax.Text.LinePosition.operator <(Vixen.Core.Syntax.Text.LinePosition left, Vixen.Core.Syntax.Text.LinePosition right) -> bool
+static Vixen.Core.Syntax.Text.LinePosition.operator <=(Vixen.Core.Syntax.Text.LinePosition left, Vixen.Core.Syntax.Text.LinePosition right) -> bool
+static Vixen.Core.Syntax.Text.LinePosition.operator >(Vixen.Core.Syntax.Text.LinePosition left, Vixen.Core.Syntax.Text.LinePosition right) -> bool
+static Vixen.Core.Syntax.Text.LinePosition.operator >=(Vixen.Core.Syntax.Text.LinePosition left, Vixen.Core.Syntax.Text.LinePosition right) -> bool
+static Vixen.Core.Syntax.Text.SourceText.From(string text) -> Vixen.Core.Syntax.Text.SourceText
+static Vixen.Core.Syntax.Text.TextChange.Delete(Vixen.Core.Syntax.Text.TextSpan span) -> Vixen.Core.Syntax.Text.TextChange
+static Vixen.Core.Syntax.Text.TextChange.Insert(int position, string text) -> Vixen.Core.Syntax.Text.TextChange
+static Vixen.Core.Syntax.Text.TextSpan.FromBounds(int start, int end) -> Vixen.Core.Syntax.Text.TextSpan
+static Vixen.Core.Syntax.Text.TextSpan.operator <(Vixen.Core.Syntax.Text.TextSpan left, Vixen.Core.Syntax.Text.TextSpan right) -> bool
+static Vixen.Core.Syntax.Text.TextSpan.operator <=(Vixen.Core.Syntax.Text.TextSpan left, Vixen.Core.Syntax.Text.TextSpan right) -> bool
+static Vixen.Core.Syntax.Text.TextSpan.operator >(Vixen.Core.Syntax.Text.TextSpan left, Vixen.Core.Syntax.Text.TextSpan right) -> bool
+static Vixen.Core.Syntax.Text.TextSpan.operator >=(Vixen.Core.Syntax.Text.TextSpan left, Vixen.Core.Syntax.Text.TextSpan right) -> bool
+static readonly Vixen.Core.Syntax.Diagnostics.DiagnosticFormatterOptions.Plain -> Vixen.Core.Syntax.Diagnostics.DiagnosticFormatterOptions
+static readonly Vixen.Core.Syntax.Diagnostics.Location.None -> Vixen.Core.Syntax.Diagnostics.Location

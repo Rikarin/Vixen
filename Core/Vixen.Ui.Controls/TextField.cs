@@ -16,7 +16,7 @@ namespace Vixen.Ui.Controls;
 ///         field where Ctrl-Left works and one where it does not.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Single line, because <see cref="TextRun" /> is.</b> Nothing in the framework breaks
+///         ⚠ <b>Single line, because <see cref="TextLine" /> is.</b> Nothing in the framework breaks
 ///         a paragraph across lines yet — <c>Vixen.Ui.Text</c> has the UAX#14 breaker and the draw
 ///         path does not use it — so a value longer than the box scrolls sideways rather than
 ///         wrapping, and <see cref="TextArea" /> is a taller box rather than a different control.
@@ -209,17 +209,17 @@ public abstract partial class TextField : Control {
     protected override void OnDraw(DrawContext context) {
         base.OnDraw(context);
 
-        if (!IsFocused || text.Run() is not { } run) {
+        if (!IsFocused || text.Line() is not { } line) {
             return;
         }
 
         var origin = text.AbsoluteLeft;
         var top = text.AbsoluteTop;
-        var height = run.Height;
+        var height = line.Height;
 
         if (HasSelection) {
-            var from = origin + Offset(run, SelectionStart);
-            var to = origin + Offset(run, SelectionEnd);
+            var from = origin + line.CaretOffset(SelectionStart);
+            var to = origin + line.CaretOffset(SelectionEnd);
 
             context.FillRectangle(
                 new Rectangle(MathF.Min(from, to), top, MathF.Abs(to - from), height),
@@ -231,13 +231,10 @@ public abstract partial class TextField : Control {
         // end you are extending from, and hiding it during a Shift-Arrow leaves the user unable to
         // tell which way the next keystroke will grow the selection.
         context.FillRectangle(
-            new Rectangle(origin + Offset(run, CaretIndex), top, 1f, height),
+            new Rectangle(origin + line.CaretOffset(CaretIndex), top, 1f, height),
             Document.ColorOf(Style, caretColor) ?? context.Foreground
         );
     }
-
-    /// <summary>Where a caret index sits, in pixels from the start of the text.</summary>
-    static float Offset(TextRun run, int index) => run.Shaped.CaretOffset(index) * run.Scale;
 
     string? CoerceValue(string? value) => Coerce(value);
 
@@ -283,7 +280,7 @@ public abstract partial class TextField : Control {
     ///     matters is the one the user is typing into a field that is already on screen.
     /// </remarks>
     void Reveal() {
-        if (text.Run() is not { } run) {
+        if (text.Line() is not { } line) {
             text.OffsetX = 0f;
             return;
         }
@@ -293,7 +290,7 @@ public abstract partial class TextField : Control {
             return;
         }
 
-        var caret = Offset(run, CaretIndex);
+        var caret = line.CaretOffset(CaretIndex);
         var shift = -text.OffsetX;
 
         // A margin of one caret width at each edge, so that the caret is never flush against the
@@ -306,7 +303,7 @@ public abstract partial class TextField : Control {
 
         // Never past the end: a field whose text has just been shortened must not keep scrolling
         // through the space the deleted characters used to occupy.
-        shift = Math.Clamp(shift, 0f, MathF.Max(0f, run.Width - viewport + 2f));
+        shift = Math.Clamp(shift, 0f, MathF.Max(0f, line.Width - viewport + 2f));
         text.OffsetX = -shift;
     }
 
@@ -356,14 +353,14 @@ public abstract partial class TextField : Control {
 
     /// <summary>Which caret index a document-space x lands on.</summary>
     int IndexAt(float x) {
-        if (text.Run() is not { } run) {
+        if (text.Line() is not { } line) {
             return 0;
         }
 
-        // Back through the scroll offset and into design units, which is what the shaped text works
-        // in — passing pixels would put the caret roughly font-size times too far along.
-        var local = (x - text.AbsoluteLeft) / run.Scale;
-        return run.Shaped.CaretIndexAt(local);
+        // Pixels all the way, which is what changed when a line became several runs: a mixed-font
+        // line has no single design-unit scale to divide by, so the conversion belongs inside each
+        // run rather than out here.
+        return line.CaretIndexAt(x - text.AbsoluteLeft);
     }
 
     void Typed(TextInputEvent args) {

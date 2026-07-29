@@ -1,0 +1,1017 @@
+#nullable enable
+Vixen.Graphics.WebGPU.IWebGpuBinding -> interface
+Vixen.Graphics.WebGPU.IWebGpuBinding : System.IDisposable
+Vixen.Graphics.WebGPU.IWebGpuBinding.AcquireSurfaceTexture(out Vixen.Graphics.WebGPU.WebGpuObject texture) -> Vixen.Graphics.WebGPU.WgpuSurfaceStatus
+Vixen.Graphics.WebGPU.IWebGpuBinding.AdapterInfo.get -> Vixen.Graphics.WebGPU.WebGpuAdapterInfo
+Vixen.Graphics.WebGPU.IWebGpuBinding.BeginComputePass(Vixen.Graphics.WebGPU.WebGpuObject encoder, string label) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.IWebGpuBinding.BeginRenderPass(Vixen.Graphics.WebGPU.WebGpuObject encoder, in Vixen.Graphics.WebGPU.WgpuRenderPassDescriptor descriptor) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.IWebGpuBinding.ComputePassDispatch(Vixen.Graphics.WebGPU.WebGpuObject pass, uint groupsX, uint groupsY, uint groupsZ) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.ComputePassDispatchIndirect(Vixen.Graphics.WebGPU.WebGpuObject pass, Vixen.Graphics.WebGPU.WebGpuObject arguments, long offset) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.ComputePassInsertDebugMarker(Vixen.Graphics.WebGPU.WebGpuObject pass, string name) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.ComputePassPopDebugGroup(Vixen.Graphics.WebGPU.WebGpuObject pass) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.ComputePassPushDebugGroup(Vixen.Graphics.WebGPU.WebGpuObject pass, string name) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.ComputePassSetBindGroup(Vixen.Graphics.WebGPU.WebGpuObject pass, uint group, Vixen.Graphics.WebGPU.WebGpuObject bindGroup, System.ReadOnlySpan<uint> dynamicOffsets) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.ComputePassSetPipeline(Vixen.Graphics.WebGPU.WebGpuObject pass, Vixen.Graphics.WebGPU.WebGpuObject pipeline) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.ConfigureSurface(in Vixen.Graphics.WebGPU.WgpuSurfaceConfiguration configuration) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.CopyBufferToBuffer(Vixen.Graphics.WebGPU.WebGpuObject encoder, Vixen.Graphics.WebGPU.WebGpuObject source, long sourceOffset, Vixen.Graphics.WebGPU.WebGpuObject destination, long destinationOffset, long size) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.CopyBufferToTexture(Vixen.Graphics.WebGPU.WebGpuObject encoder, in Vixen.Graphics.WebGPU.WgpuImageCopyBuffer source, in Vixen.Graphics.WebGPU.WgpuImageCopyTexture destination, int width, int height, int depthOrLayers) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.CopyTextureToBuffer(Vixen.Graphics.WebGPU.WebGpuObject encoder, in Vixen.Graphics.WebGPU.WgpuImageCopyTexture source, in Vixen.Graphics.WebGPU.WgpuImageCopyBuffer destination, int width, int height, int depthOrLayers) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.CopyTextureToTexture(Vixen.Graphics.WebGPU.WebGpuObject encoder, in Vixen.Graphics.WebGPU.WgpuImageCopyTexture source, in Vixen.Graphics.WebGPU.WgpuImageCopyTexture destination, int width, int height, int depthOrLayers) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.CreateBindGroup(in Vixen.Graphics.WebGPU.WgpuBindGroupDescriptor descriptor) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.IWebGpuBinding.CreateBindGroupLayout(in Vixen.Graphics.WebGPU.WgpuBindGroupLayoutDescriptor descriptor) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.IWebGpuBinding.CreateBuffer(in Vixen.Graphics.WebGPU.WgpuBufferDescriptor descriptor) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.IWebGpuBinding.CreateCommandEncoder(string label) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.IWebGpuBinding.CreateComputePipeline(in Vixen.Graphics.WebGPU.WgpuComputePipelineDescriptor descriptor) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.IWebGpuBinding.CreatePipelineLayout(in Vixen.Graphics.WebGPU.WgpuPipelineLayoutDescriptor descriptor) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.IWebGpuBinding.CreateRenderPipeline(in Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor descriptor) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.IWebGpuBinding.CreateSampler(in Vixen.Graphics.WebGPU.WgpuSamplerDescriptor descriptor) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.IWebGpuBinding.CreateShaderModule(in Vixen.Graphics.WebGPU.WgpuShaderModuleDescriptor descriptor) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.IWebGpuBinding.CreateTexture(in Vixen.Graphics.WebGPU.WgpuTextureDescriptor descriptor) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.IWebGpuBinding.CreateTextureView(Vixen.Graphics.WebGPU.WebGpuObject texture, in Vixen.Graphics.WebGPU.WgpuTextureViewDescriptor descriptor) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.IWebGpuBinding.EncoderInsertDebugMarker(Vixen.Graphics.WebGPU.WebGpuObject encoder, string name) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.EncoderPopDebugGroup(Vixen.Graphics.WebGPU.WebGpuObject encoder) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.EncoderPushDebugGroup(Vixen.Graphics.WebGPU.WebGpuObject encoder, string name) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.EndComputePass(Vixen.Graphics.WebGPU.WebGpuObject pass) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.EndRenderPass(Vixen.Graphics.WebGPU.WebGpuObject pass) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.FinishCommandEncoder(Vixen.Graphics.WebGPU.WebGpuObject encoder, string label) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.IWebGpuBinding.HasFeature(Vixen.Graphics.WebGPU.WgpuFeatureName feature) -> bool
+Vixen.Graphics.WebGPU.IWebGpuBinding.HasSurface.get -> bool
+Vixen.Graphics.WebGPU.IWebGpuBinding.Limits.get -> Vixen.Graphics.WebGPU.WebGpuLimits
+Vixen.Graphics.WebGPU.IWebGpuBinding.PreferredSurfaceFormat.get -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.IWebGpuBinding.PresentSurface() -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.ReadBuffer(Vixen.Graphics.WebGPU.WebGpuObject buffer, long offset, System.Span<byte> destination) -> bool
+Vixen.Graphics.WebGPU.IWebGpuBinding.Release(Vixen.Graphics.WebGPU.WebGpuObjectKind kind, Vixen.Graphics.WebGPU.WebGpuObject handle) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.RenderPassDraw(Vixen.Graphics.WebGPU.WebGpuObject pass, uint vertexCount, uint instanceCount, uint firstVertex, uint firstInstance) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.RenderPassDrawIndexed(Vixen.Graphics.WebGPU.WebGpuObject pass, uint indexCount, uint instanceCount, uint firstIndex, int baseVertex, uint firstInstance) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.RenderPassDrawIndexedIndirect(Vixen.Graphics.WebGPU.WebGpuObject pass, Vixen.Graphics.WebGPU.WebGpuObject arguments, long offset) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.RenderPassInsertDebugMarker(Vixen.Graphics.WebGPU.WebGpuObject pass, string name) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.RenderPassPopDebugGroup(Vixen.Graphics.WebGPU.WebGpuObject pass) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.RenderPassPushDebugGroup(Vixen.Graphics.WebGPU.WebGpuObject pass, string name) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.RenderPassSetBindGroup(Vixen.Graphics.WebGPU.WebGpuObject pass, uint group, Vixen.Graphics.WebGPU.WebGpuObject bindGroup, System.ReadOnlySpan<uint> dynamicOffsets) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.RenderPassSetBlendConstant(Vixen.Graphics.WebGPU.WebGpuObject pass, double r, double g, double b, double a) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.RenderPassSetIndexBuffer(Vixen.Graphics.WebGPU.WebGpuObject pass, Vixen.Graphics.WebGPU.WebGpuObject buffer, Vixen.Graphics.WebGPU.WgpuIndexFormat format, long offset, long size) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.RenderPassSetPipeline(Vixen.Graphics.WebGPU.WebGpuObject pass, Vixen.Graphics.WebGPU.WebGpuObject pipeline) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.RenderPassSetScissorRect(Vixen.Graphics.WebGPU.WebGpuObject pass, uint x, uint y, uint width, uint height) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.RenderPassSetStencilReference(Vixen.Graphics.WebGPU.WebGpuObject pass, uint reference) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.RenderPassSetVertexBuffer(Vixen.Graphics.WebGPU.WebGpuObject pass, uint slot, Vixen.Graphics.WebGPU.WebGpuObject buffer, long offset, long size) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.RenderPassSetViewport(Vixen.Graphics.WebGPU.WebGpuObject pass, float x, float y, float width, float height, float minDepth, float maxDepth) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.Submit(System.ReadOnlySpan<Vixen.Graphics.WebGPU.WebGpuObject> commands) -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.Tick() -> void
+Vixen.Graphics.WebGPU.IWebGpuBinding.WaitIdle() -> bool
+Vixen.Graphics.WebGPU.IWebGpuBinding.WriteBuffer(Vixen.Graphics.WebGPU.WebGpuObject buffer, long offset, System.ReadOnlySpan<byte> data) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding -> sealed class
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding : System.IDisposable
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding : Vixen.Graphics.WebGPU.IWebGpuBinding
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.AcquireSurfaceTexture(out Vixen.Graphics.WebGPU.WebGpuObject texture) -> Vixen.Graphics.WebGPU.WgpuSurfaceStatus
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.AdapterInfo.get -> Vixen.Graphics.WebGPU.WebGpuAdapterInfo
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.BeginComputePass(Vixen.Graphics.WebGPU.WebGpuObject encoder, string label) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.BeginRenderPass(Vixen.Graphics.WebGPU.WebGpuObject encoder, in Vixen.Graphics.WebGPU.WgpuRenderPassDescriptor descriptor) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.ComputePassDispatch(Vixen.Graphics.WebGPU.WebGpuObject pass, uint groupsX, uint groupsY, uint groupsZ) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.ComputePassDispatchIndirect(Vixen.Graphics.WebGPU.WebGpuObject pass, Vixen.Graphics.WebGPU.WebGpuObject arguments, long offset) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.ComputePassInsertDebugMarker(Vixen.Graphics.WebGPU.WebGpuObject pass, string name) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.ComputePassPopDebugGroup(Vixen.Graphics.WebGPU.WebGpuObject pass) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.ComputePassPushDebugGroup(Vixen.Graphics.WebGPU.WebGpuObject pass, string name) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.ComputePassSetBindGroup(Vixen.Graphics.WebGPU.WebGpuObject pass, uint group, Vixen.Graphics.WebGPU.WebGpuObject bindGroup, System.ReadOnlySpan<uint> dynamicOffsets) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.ComputePassSetPipeline(Vixen.Graphics.WebGPU.WebGpuObject pass, Vixen.Graphics.WebGPU.WebGpuObject pipeline) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.ConfigureSurface(in Vixen.Graphics.WebGPU.WgpuSurfaceConfiguration configuration) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.CopyBufferToBuffer(Vixen.Graphics.WebGPU.WebGpuObject encoder, Vixen.Graphics.WebGPU.WebGpuObject source, long sourceOffset, Vixen.Graphics.WebGPU.WebGpuObject destination, long destinationOffset, long size) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.CopyBufferToTexture(Vixen.Graphics.WebGPU.WebGpuObject encoder, in Vixen.Graphics.WebGPU.WgpuImageCopyBuffer source, in Vixen.Graphics.WebGPU.WgpuImageCopyTexture destination, int width, int height, int depthOrLayers) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.CopyTextureToBuffer(Vixen.Graphics.WebGPU.WebGpuObject encoder, in Vixen.Graphics.WebGPU.WgpuImageCopyTexture source, in Vixen.Graphics.WebGPU.WgpuImageCopyBuffer destination, int width, int height, int depthOrLayers) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.CopyTextureToTexture(Vixen.Graphics.WebGPU.WebGpuObject encoder, in Vixen.Graphics.WebGPU.WgpuImageCopyTexture source, in Vixen.Graphics.WebGPU.WgpuImageCopyTexture destination, int width, int height, int depthOrLayers) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.CreateBindGroup(in Vixen.Graphics.WebGPU.WgpuBindGroupDescriptor descriptor) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.CreateBindGroupLayout(in Vixen.Graphics.WebGPU.WgpuBindGroupLayoutDescriptor descriptor) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.CreateBuffer(in Vixen.Graphics.WebGPU.WgpuBufferDescriptor descriptor) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.CreateCommandEncoder(string label) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.CreateComputePipeline(in Vixen.Graphics.WebGPU.WgpuComputePipelineDescriptor descriptor) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.CreatePipelineLayout(in Vixen.Graphics.WebGPU.WgpuPipelineLayoutDescriptor descriptor) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.CreateRenderPipeline(in Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor descriptor) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.CreateSampler(in Vixen.Graphics.WebGPU.WgpuSamplerDescriptor descriptor) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.CreateShaderModule(in Vixen.Graphics.WebGPU.WgpuShaderModuleDescriptor descriptor) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.CreateTexture(in Vixen.Graphics.WebGPU.WgpuTextureDescriptor descriptor) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.CreateTextureView(Vixen.Graphics.WebGPU.WebGpuObject texture, in Vixen.Graphics.WebGPU.WgpuTextureViewDescriptor descriptor) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.Dispose() -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.EncoderInsertDebugMarker(Vixen.Graphics.WebGPU.WebGpuObject encoder, string name) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.EncoderPopDebugGroup(Vixen.Graphics.WebGPU.WebGpuObject encoder) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.EncoderPushDebugGroup(Vixen.Graphics.WebGPU.WebGpuObject encoder, string name) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.EndComputePass(Vixen.Graphics.WebGPU.WebGpuObject pass) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.EndRenderPass(Vixen.Graphics.WebGPU.WebGpuObject pass) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.FinishCommandEncoder(Vixen.Graphics.WebGPU.WebGpuObject encoder, string label) -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.HasFeature(Vixen.Graphics.WebGPU.WgpuFeatureName feature) -> bool
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.HasSurface.get -> bool
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.Limits.get -> Vixen.Graphics.WebGPU.WebGpuLimits
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.PreferredSurfaceFormat.get -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.PresentSurface() -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.ReadBuffer(Vixen.Graphics.WebGPU.WebGpuObject buffer, long offset, System.Span<byte> destination) -> bool
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.Release(Vixen.Graphics.WebGPU.WebGpuObjectKind kind, Vixen.Graphics.WebGPU.WebGpuObject handle) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.RenderPassDraw(Vixen.Graphics.WebGPU.WebGpuObject pass, uint vertexCount, uint instanceCount, uint firstVertex, uint firstInstance) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.RenderPassDrawIndexed(Vixen.Graphics.WebGPU.WebGpuObject pass, uint indexCount, uint instanceCount, uint firstIndex, int baseVertex, uint firstInstance) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.RenderPassDrawIndexedIndirect(Vixen.Graphics.WebGPU.WebGpuObject pass, Vixen.Graphics.WebGPU.WebGpuObject arguments, long offset) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.RenderPassInsertDebugMarker(Vixen.Graphics.WebGPU.WebGpuObject pass, string name) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.RenderPassPopDebugGroup(Vixen.Graphics.WebGPU.WebGpuObject pass) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.RenderPassPushDebugGroup(Vixen.Graphics.WebGPU.WebGpuObject pass, string name) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.RenderPassSetBindGroup(Vixen.Graphics.WebGPU.WebGpuObject pass, uint group, Vixen.Graphics.WebGPU.WebGpuObject bindGroup, System.ReadOnlySpan<uint> dynamicOffsets) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.RenderPassSetBlendConstant(Vixen.Graphics.WebGPU.WebGpuObject pass, double r, double g, double b, double a) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.RenderPassSetIndexBuffer(Vixen.Graphics.WebGPU.WebGpuObject pass, Vixen.Graphics.WebGPU.WebGpuObject buffer, Vixen.Graphics.WebGPU.WgpuIndexFormat format, long offset, long size) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.RenderPassSetPipeline(Vixen.Graphics.WebGPU.WebGpuObject pass, Vixen.Graphics.WebGPU.WebGpuObject pipeline) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.RenderPassSetScissorRect(Vixen.Graphics.WebGPU.WebGpuObject pass, uint x, uint y, uint width, uint height) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.RenderPassSetStencilReference(Vixen.Graphics.WebGPU.WebGpuObject pass, uint reference) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.RenderPassSetVertexBuffer(Vixen.Graphics.WebGPU.WebGpuObject pass, uint slot, Vixen.Graphics.WebGPU.WebGpuObject buffer, long offset, long size) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.RenderPassSetViewport(Vixen.Graphics.WebGPU.WebGpuObject pass, float x, float y, float width, float height, float minDepth, float maxDepth) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.Submit(System.ReadOnlySpan<Vixen.Graphics.WebGPU.WebGpuObject> commands) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.Tick() -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.WaitIdle() -> bool
+Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.WriteBuffer(Vixen.Graphics.WebGPU.WebGpuObject buffer, long offset, System.ReadOnlySpan<byte> data) -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuOptions -> readonly struct
+Vixen.Graphics.WebGPU.Native.NativeWebGpuOptions : System.IEquatable<Vixen.Graphics.WebGPU.Native.NativeWebGpuOptions>
+Vixen.Graphics.WebGPU.Native.NativeWebGpuOptions.Logger.get -> Microsoft.Extensions.Logging.ILogger?
+Vixen.Graphics.WebGPU.Native.NativeWebGpuOptions.Logger.init -> Microsoft.Extensions.Logging.ILogger?
+Vixen.Graphics.WebGPU.Native.NativeWebGpuOptions.NativeWebGpuOptions() -> void
+Vixen.Graphics.WebGPU.Native.NativeWebGpuOptions.PowerPreference.get -> Vixen.Graphics.WebGPU.WgpuPowerPreference
+Vixen.Graphics.WebGPU.Native.NativeWebGpuOptions.PowerPreference.init -> Vixen.Graphics.WebGPU.WgpuPowerPreference
+Vixen.Graphics.WebGPU.Native.NativeWebGpuOptions.Surface.get -> Vixen.Core.SurfaceHandle
+Vixen.Graphics.WebGPU.Native.NativeWebGpuOptions.Surface.init -> Vixen.Core.SurfaceHandle
+Vixen.Graphics.WebGPU.WebGpuAdapterInfo -> readonly struct
+Vixen.Graphics.WebGPU.WebGpuAdapterInfo : System.IEquatable<Vixen.Graphics.WebGPU.WebGpuAdapterInfo>
+Vixen.Graphics.WebGPU.WebGpuAdapterInfo.DriverDescription.get -> string
+Vixen.Graphics.WebGPU.WebGpuAdapterInfo.DriverDescription.init -> string
+Vixen.Graphics.WebGPU.WebGpuAdapterInfo.Kind.get -> Vixen.Graphics.WebGPU.WgpuAdapterType
+Vixen.Graphics.WebGPU.WebGpuAdapterInfo.Kind.init -> Vixen.Graphics.WebGPU.WgpuAdapterType
+Vixen.Graphics.WebGPU.WebGpuAdapterInfo.Name.get -> string
+Vixen.Graphics.WebGPU.WebGpuAdapterInfo.Name.init -> string
+Vixen.Graphics.WebGPU.WebGpuAdapterInfo.WebGpuAdapterInfo() -> void
+Vixen.Graphics.WebGPU.WebGpuAdapterInfo.WebGpuAdapterInfo(string Name, Vixen.Graphics.WebGPU.WgpuAdapterType Kind, string DriverDescription) -> void
+Vixen.Graphics.WebGPU.WebGpuCapabilities -> static class
+Vixen.Graphics.WebGPU.WebGpuCommand -> readonly struct
+Vixen.Graphics.WebGPU.WebGpuCommand : System.IEquatable<Vixen.Graphics.WebGPU.WebGpuCommand>
+Vixen.Graphics.WebGPU.WebGpuCommand.A.get -> int
+Vixen.Graphics.WebGPU.WebGpuCommand.A.init -> int
+Vixen.Graphics.WebGPU.WebGpuCommand.B.get -> int
+Vixen.Graphics.WebGPU.WebGpuCommand.B.init -> int
+Vixen.Graphics.WebGPU.WebGpuCommand.C.get -> int
+Vixen.Graphics.WebGPU.WebGpuCommand.C.init -> int
+Vixen.Graphics.WebGPU.WebGpuCommand.D.get -> int
+Vixen.Graphics.WebGPU.WebGpuCommand.D.init -> int
+Vixen.Graphics.WebGPU.WebGpuCommand.E.get -> long
+Vixen.Graphics.WebGPU.WebGpuCommand.E.init -> long
+Vixen.Graphics.WebGPU.WebGpuCommand.F.get -> long
+Vixen.Graphics.WebGPU.WebGpuCommand.F.init -> long
+Vixen.Graphics.WebGPU.WebGpuCommand.G.get -> long
+Vixen.Graphics.WebGPU.WebGpuCommand.G.init -> long
+Vixen.Graphics.WebGPU.WebGpuCommand.Kind.get -> Vixen.Graphics.WebGPU.WebGpuCommandKind
+Vixen.Graphics.WebGPU.WebGpuCommand.Kind.init -> Vixen.Graphics.WebGPU.WebGpuCommandKind
+Vixen.Graphics.WebGPU.WebGpuCommand.Object0.get -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WebGpuCommand.Object0.init -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WebGpuCommand.Object1.get -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WebGpuCommand.Object1.init -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WebGpuCommand.WebGpuCommand() -> void
+Vixen.Graphics.WebGPU.WebGpuCommand.WebGpuCommand(Vixen.Graphics.WebGPU.WebGpuCommandKind Kind, int A = 0, int B = 0, int C = 0, int D = 0, long E = 0, long F = 0, long G = 0, Vixen.Graphics.WebGPU.WebGpuObject Object0 = default(Vixen.Graphics.WebGPU.WebGpuObject), Vixen.Graphics.WebGPU.WebGpuObject Object1 = default(Vixen.Graphics.WebGPU.WebGpuObject)) -> void
+Vixen.Graphics.WebGPU.WebGpuCommandKind -> enum : byte
+Vixen.Graphics.WebGPU.WebGpuCommandKind.BeginRenderPass = 0 -> Vixen.Graphics.WebGPU.WebGpuCommandKind
+Vixen.Graphics.WebGPU.WebGpuCommandKind.BindDescriptorSet = 7 -> Vixen.Graphics.WebGPU.WebGpuCommandKind
+Vixen.Graphics.WebGPU.WebGpuCommandKind.BindIndexBuffer = 10 -> Vixen.Graphics.WebGPU.WebGpuCommandKind
+Vixen.Graphics.WebGPU.WebGpuCommandKind.BindPipeline = 6 -> Vixen.Graphics.WebGPU.WebGpuCommandKind
+Vixen.Graphics.WebGPU.WebGpuCommandKind.BindVertexBuffer = 9 -> Vixen.Graphics.WebGPU.WebGpuCommandKind
+Vixen.Graphics.WebGPU.WebGpuCommandKind.CopyBuffer = 16 -> Vixen.Graphics.WebGPU.WebGpuCommandKind
+Vixen.Graphics.WebGPU.WebGpuCommandKind.CopyBufferToTexture = 17 -> Vixen.Graphics.WebGPU.WebGpuCommandKind
+Vixen.Graphics.WebGPU.WebGpuCommandKind.CopyTexture = 19 -> Vixen.Graphics.WebGPU.WebGpuCommandKind
+Vixen.Graphics.WebGPU.WebGpuCommandKind.CopyTextureToBuffer = 18 -> Vixen.Graphics.WebGPU.WebGpuCommandKind
+Vixen.Graphics.WebGPU.WebGpuCommandKind.Dispatch = 14 -> Vixen.Graphics.WebGPU.WebGpuCommandKind
+Vixen.Graphics.WebGPU.WebGpuCommandKind.DispatchIndirect = 15 -> Vixen.Graphics.WebGPU.WebGpuCommandKind
+Vixen.Graphics.WebGPU.WebGpuCommandKind.Draw = 11 -> Vixen.Graphics.WebGPU.WebGpuCommandKind
+Vixen.Graphics.WebGPU.WebGpuCommandKind.DrawIndexed = 12 -> Vixen.Graphics.WebGPU.WebGpuCommandKind
+Vixen.Graphics.WebGPU.WebGpuCommandKind.DrawIndexedIndirect = 13 -> Vixen.Graphics.WebGPU.WebGpuCommandKind
+Vixen.Graphics.WebGPU.WebGpuCommandKind.EndRenderPass = 1 -> Vixen.Graphics.WebGPU.WebGpuCommandKind
+Vixen.Graphics.WebGPU.WebGpuCommandKind.InsertDebugMarker = 22 -> Vixen.Graphics.WebGPU.WebGpuCommandKind
+Vixen.Graphics.WebGPU.WebGpuCommandKind.PopDebugGroup = 21 -> Vixen.Graphics.WebGPU.WebGpuCommandKind
+Vixen.Graphics.WebGPU.WebGpuCommandKind.PushConstants = 8 -> Vixen.Graphics.WebGPU.WebGpuCommandKind
+Vixen.Graphics.WebGPU.WebGpuCommandKind.PushDebugGroup = 20 -> Vixen.Graphics.WebGPU.WebGpuCommandKind
+Vixen.Graphics.WebGPU.WebGpuCommandKind.SetBlendConstant = 4 -> Vixen.Graphics.WebGPU.WebGpuCommandKind
+Vixen.Graphics.WebGPU.WebGpuCommandKind.SetScissor = 3 -> Vixen.Graphics.WebGPU.WebGpuCommandKind
+Vixen.Graphics.WebGPU.WebGpuCommandKind.SetStencilReference = 5 -> Vixen.Graphics.WebGPU.WebGpuCommandKind
+Vixen.Graphics.WebGPU.WebGpuCommandKind.SetViewport = 2 -> Vixen.Graphics.WebGPU.WebGpuCommandKind
+Vixen.Graphics.WebGPU.WebGpuCommandKind.WebGpuCommandKind() -> void
+Vixen.Graphics.WebGPU.WebGpuConversions -> static class
+Vixen.Graphics.WebGPU.WebGpuDevice -> sealed class
+Vixen.Graphics.WebGPU.WebGpuDevice : System.IDisposable
+Vixen.Graphics.WebGPU.WebGpuDevice : Vixen.Graphics.IGraphicsDevice
+Vixen.Graphics.WebGPU.WebGpuDevice.Adapter.get -> Vixen.Graphics.IGraphicsAdapter
+Vixen.Graphics.WebGPU.WebGpuDevice.BeginCommandList(Vixen.Graphics.QueueKind kind = Vixen.Graphics.QueueKind.Graphics, string name = "") -> Vixen.Graphics.ICommandList
+Vixen.Graphics.WebGPU.WebGpuDevice.BeginFrame() -> void
+Vixen.Graphics.WebGPU.WebGpuDevice.ComputeQueue.get -> Vixen.Graphics.ICommandSubmitter
+Vixen.Graphics.WebGPU.WebGpuDevice.CreateBuffer(in Vixen.Graphics.BufferDescription description) -> Vixen.Graphics.BufferHandle
+Vixen.Graphics.WebGPU.WebGpuDevice.CreateComputePipeline(in Vixen.Graphics.ComputePipelineDescription description) -> Vixen.Graphics.PipelineHandle
+Vixen.Graphics.WebGPU.WebGpuDevice.CreateDescriptorSet(Vixen.Graphics.DescriptorSetLayoutHandle layout, string name = "") -> Vixen.Graphics.DescriptorSetHandle
+Vixen.Graphics.WebGPU.WebGpuDevice.CreateDescriptorSetLayout(in Vixen.Graphics.DescriptorSetLayoutDescription description) -> Vixen.Graphics.DescriptorSetLayoutHandle
+Vixen.Graphics.WebGPU.WebGpuDevice.CreateGraphicsPipeline(in Vixen.Graphics.GraphicsPipelineDescription description) -> Vixen.Graphics.PipelineHandle
+Vixen.Graphics.WebGPU.WebGpuDevice.CreatePipelineLayout(in Vixen.Graphics.PipelineLayoutDescription description) -> Vixen.Graphics.PipelineLayoutHandle
+Vixen.Graphics.WebGPU.WebGpuDevice.CreateSampler(in Vixen.Graphics.SamplerDescription description) -> Vixen.Graphics.SamplerHandle
+Vixen.Graphics.WebGPU.WebGpuDevice.CreateShader(Vixen.Graphics.ShaderStage stage, System.ReadOnlySpan<byte> bytecode, string name = "") -> Vixen.Graphics.ShaderHandle
+Vixen.Graphics.WebGPU.WebGpuDevice.CreateSwapChain(in Vixen.Graphics.SwapChainDescription description) -> Vixen.Graphics.ISwapChain
+Vixen.Graphics.WebGPU.WebGpuDevice.CreateTexture(in Vixen.Graphics.TextureDescription description) -> Vixen.Graphics.TextureHandle
+Vixen.Graphics.WebGPU.WebGpuDevice.CreateTextureView(Vixen.Graphics.TextureHandle texture, Vixen.Graphics.PixelFormat format = Vixen.Graphics.PixelFormat.Undefined, int baseMipLevel = 0, int mipLevelCount = 0, int baseArrayLayer = 0, int arrayLayerCount = 0) -> Vixen.Graphics.TextureViewHandle
+Vixen.Graphics.WebGPU.WebGpuDevice.Destroy(Vixen.Graphics.BufferHandle handle) -> void
+Vixen.Graphics.WebGPU.WebGpuDevice.Destroy(Vixen.Graphics.DescriptorSetHandle handle) -> void
+Vixen.Graphics.WebGPU.WebGpuDevice.Destroy(Vixen.Graphics.DescriptorSetLayoutHandle handle) -> void
+Vixen.Graphics.WebGPU.WebGpuDevice.Destroy(Vixen.Graphics.PipelineHandle handle) -> void
+Vixen.Graphics.WebGPU.WebGpuDevice.Destroy(Vixen.Graphics.PipelineLayoutHandle handle) -> void
+Vixen.Graphics.WebGPU.WebGpuDevice.Destroy(Vixen.Graphics.SamplerHandle handle) -> void
+Vixen.Graphics.WebGPU.WebGpuDevice.Destroy(Vixen.Graphics.ShaderHandle handle) -> void
+Vixen.Graphics.WebGPU.WebGpuDevice.Destroy(Vixen.Graphics.TextureHandle handle) -> void
+Vixen.Graphics.WebGPU.WebGpuDevice.Destroy(Vixen.Graphics.TextureViewHandle handle) -> void
+Vixen.Graphics.WebGPU.WebGpuDevice.Dispose() -> void
+Vixen.Graphics.WebGPU.WebGpuDevice.EndFrame() -> void
+Vixen.Graphics.WebGPU.WebGpuDevice.Features.get -> Vixen.Graphics.GraphicsDeviceFeatures
+Vixen.Graphics.WebGPU.WebGpuDevice.FrameCount.get -> long
+Vixen.Graphics.WebGPU.WebGpuDevice.FramesInFlight.get -> int
+Vixen.Graphics.WebGPU.WebGpuDevice.GraphicsQueue.get -> Vixen.Graphics.ICommandSubmitter
+Vixen.Graphics.WebGPU.WebGpuDevice.LiveResourceCount.get -> int
+Vixen.Graphics.WebGPU.WebGpuDevice.Read(Vixen.Graphics.BufferHandle buffer, long offset, System.Span<byte> destination) -> void
+Vixen.Graphics.WebGPU.WebGpuDevice.TransferQueue.get -> Vixen.Graphics.ICommandSubmitter
+Vixen.Graphics.WebGPU.WebGpuDevice.UpdateDescriptorSet(Vixen.Graphics.DescriptorSetHandle descriptors, System.ReadOnlySpan<Vixen.Graphics.DescriptorWrite> writes) -> void
+Vixen.Graphics.WebGPU.WebGpuDevice.WaitIdle() -> void
+Vixen.Graphics.WebGPU.WebGpuDevice.WebGpuDevice(Vixen.Graphics.WebGPU.IWebGpuBinding binding) -> void
+Vixen.Graphics.WebGPU.WebGpuDevice.WebGpuDevice(Vixen.Graphics.WebGPU.IWebGpuBinding binding, Vixen.Graphics.WebGPU.WebGpuDeviceOptions options) -> void
+Vixen.Graphics.WebGPU.WebGpuDevice.Write(Vixen.Graphics.BufferHandle buffer, long offset, System.ReadOnlySpan<byte> data) -> void
+Vixen.Graphics.WebGPU.WebGpuDeviceOptions -> readonly struct
+Vixen.Graphics.WebGPU.WebGpuDeviceOptions : System.IEquatable<Vixen.Graphics.WebGPU.WebGpuDeviceOptions>
+Vixen.Graphics.WebGPU.WebGpuDeviceOptions.FramesInFlight.get -> int
+Vixen.Graphics.WebGPU.WebGpuDeviceOptions.FramesInFlight.init -> int
+Vixen.Graphics.WebGPU.WebGpuDeviceOptions.Logger.get -> Microsoft.Extensions.Logging.ILogger?
+Vixen.Graphics.WebGPU.WebGpuDeviceOptions.Logger.init -> Microsoft.Extensions.Logging.ILogger?
+Vixen.Graphics.WebGPU.WebGpuDeviceOptions.PushConstantSlotsPerFrame.get -> int
+Vixen.Graphics.WebGPU.WebGpuDeviceOptions.PushConstantSlotsPerFrame.init -> int
+Vixen.Graphics.WebGPU.WebGpuDeviceOptions.WebGpuDeviceOptions() -> void
+Vixen.Graphics.WebGPU.WebGpuFormats -> static class
+Vixen.Graphics.WebGPU.WebGpuLimits -> readonly struct
+Vixen.Graphics.WebGPU.WebGpuLimits : System.IEquatable<Vixen.Graphics.WebGPU.WebGpuLimits>
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxBindGroups.get -> int
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxBindGroups.init -> int
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxBufferSize.get -> long
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxBufferSize.init -> long
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxColorAttachments.get -> int
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxColorAttachments.init -> int
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxComputeWorkgroupSizeX.get -> int
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxComputeWorkgroupSizeX.init -> int
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxComputeWorkgroupSizeY.get -> int
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxComputeWorkgroupSizeY.init -> int
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxComputeWorkgroupSizeZ.get -> int
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxComputeWorkgroupSizeZ.init -> int
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxDynamicUniformBuffersPerPipelineLayout.get -> int
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxDynamicUniformBuffersPerPipelineLayout.init -> int
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxTextureArrayLayers.get -> int
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxTextureArrayLayers.init -> int
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxTextureDimension2D.get -> int
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxTextureDimension2D.init -> int
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxTextureDimension3D.get -> int
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxTextureDimension3D.init -> int
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxUniformBufferBindingSize.get -> long
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxUniformBufferBindingSize.init -> long
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxVertexAttributes.get -> int
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxVertexAttributes.init -> int
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxVertexBuffers.get -> int
+Vixen.Graphics.WebGPU.WebGpuLimits.MaxVertexBuffers.init -> int
+Vixen.Graphics.WebGPU.WebGpuLimits.MinUniformBufferOffsetAlignment.get -> int
+Vixen.Graphics.WebGPU.WebGpuLimits.MinUniformBufferOffsetAlignment.init -> int
+Vixen.Graphics.WebGPU.WebGpuLimits.OrGuaranteed() -> Vixen.Graphics.WebGPU.WebGpuLimits
+Vixen.Graphics.WebGPU.WebGpuLimits.WebGpuLimits() -> void
+Vixen.Graphics.WebGPU.WebGpuObject -> readonly struct
+Vixen.Graphics.WebGPU.WebGpuObject : System.IEquatable<Vixen.Graphics.WebGPU.WebGpuObject>
+Vixen.Graphics.WebGPU.WebGpuObject.IsValid.get -> bool
+Vixen.Graphics.WebGPU.WebGpuObject.Value.get -> ulong
+Vixen.Graphics.WebGPU.WebGpuObject.Value.init -> ulong
+Vixen.Graphics.WebGPU.WebGpuObject.WebGpuObject() -> void
+Vixen.Graphics.WebGPU.WebGpuObject.WebGpuObject(ulong Value) -> void
+Vixen.Graphics.WebGPU.WebGpuObjectKind -> enum : byte
+Vixen.Graphics.WebGPU.WebGpuObjectKind.BindGroup = 7 -> Vixen.Graphics.WebGPU.WebGpuObjectKind
+Vixen.Graphics.WebGPU.WebGpuObjectKind.BindGroupLayout = 5 -> Vixen.Graphics.WebGPU.WebGpuObjectKind
+Vixen.Graphics.WebGPU.WebGpuObjectKind.Buffer = 0 -> Vixen.Graphics.WebGPU.WebGpuObjectKind
+Vixen.Graphics.WebGPU.WebGpuObjectKind.CommandBuffer = 10 -> Vixen.Graphics.WebGPU.WebGpuObjectKind
+Vixen.Graphics.WebGPU.WebGpuObjectKind.ComputePipeline = 9 -> Vixen.Graphics.WebGPU.WebGpuObjectKind
+Vixen.Graphics.WebGPU.WebGpuObjectKind.PipelineLayout = 6 -> Vixen.Graphics.WebGPU.WebGpuObjectKind
+Vixen.Graphics.WebGPU.WebGpuObjectKind.RenderPipeline = 8 -> Vixen.Graphics.WebGPU.WebGpuObjectKind
+Vixen.Graphics.WebGPU.WebGpuObjectKind.Sampler = 3 -> Vixen.Graphics.WebGPU.WebGpuObjectKind
+Vixen.Graphics.WebGPU.WebGpuObjectKind.ShaderModule = 4 -> Vixen.Graphics.WebGPU.WebGpuObjectKind
+Vixen.Graphics.WebGPU.WebGpuObjectKind.Texture = 1 -> Vixen.Graphics.WebGPU.WebGpuObjectKind
+Vixen.Graphics.WebGPU.WebGpuObjectKind.TextureView = 2 -> Vixen.Graphics.WebGPU.WebGpuObjectKind
+Vixen.Graphics.WebGPU.WebGpuObjectKind.WebGpuObjectKind() -> void
+Vixen.Graphics.WebGPU.WgpuAdapterType -> enum : uint
+Vixen.Graphics.WebGPU.WgpuAdapterType.Cpu = 2 -> Vixen.Graphics.WebGPU.WgpuAdapterType
+Vixen.Graphics.WebGPU.WgpuAdapterType.DiscreteGpu = 0 -> Vixen.Graphics.WebGPU.WgpuAdapterType
+Vixen.Graphics.WebGPU.WgpuAdapterType.IntegratedGpu = 1 -> Vixen.Graphics.WebGPU.WgpuAdapterType
+Vixen.Graphics.WebGPU.WgpuAdapterType.Unknown = 3 -> Vixen.Graphics.WebGPU.WgpuAdapterType
+Vixen.Graphics.WebGPU.WgpuAdapterType.WgpuAdapterType() -> void
+Vixen.Graphics.WebGPU.WgpuAddressMode -> enum : uint
+Vixen.Graphics.WebGPU.WgpuAddressMode.ClampToEdge = 2 -> Vixen.Graphics.WebGPU.WgpuAddressMode
+Vixen.Graphics.WebGPU.WgpuAddressMode.MirrorRepeat = 1 -> Vixen.Graphics.WebGPU.WgpuAddressMode
+Vixen.Graphics.WebGPU.WgpuAddressMode.Repeat = 0 -> Vixen.Graphics.WebGPU.WgpuAddressMode
+Vixen.Graphics.WebGPU.WgpuAddressMode.WgpuAddressMode() -> void
+Vixen.Graphics.WebGPU.WgpuBindGroupDescriptor -> readonly struct
+Vixen.Graphics.WebGPU.WgpuBindGroupDescriptor : System.IEquatable<Vixen.Graphics.WebGPU.WgpuBindGroupDescriptor>
+Vixen.Graphics.WebGPU.WgpuBindGroupDescriptor.Entries.get -> Vixen.Graphics.WebGPU.WgpuBindGroupEntry[]
+Vixen.Graphics.WebGPU.WgpuBindGroupDescriptor.Entries.init -> Vixen.Graphics.WebGPU.WgpuBindGroupEntry[]
+Vixen.Graphics.WebGPU.WgpuBindGroupDescriptor.Label.get -> string
+Vixen.Graphics.WebGPU.WgpuBindGroupDescriptor.Label.init -> string
+Vixen.Graphics.WebGPU.WgpuBindGroupDescriptor.Layout.get -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuBindGroupDescriptor.Layout.init -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuBindGroupDescriptor.WgpuBindGroupDescriptor() -> void
+Vixen.Graphics.WebGPU.WgpuBindGroupDescriptor.WgpuBindGroupDescriptor(Vixen.Graphics.WebGPU.WebGpuObject Layout, Vixen.Graphics.WebGPU.WgpuBindGroupEntry[] Entries, string Label = "") -> void
+Vixen.Graphics.WebGPU.WgpuBindGroupEntry -> readonly struct
+Vixen.Graphics.WebGPU.WgpuBindGroupEntry : System.IEquatable<Vixen.Graphics.WebGPU.WgpuBindGroupEntry>
+Vixen.Graphics.WebGPU.WgpuBindGroupEntry.Binding.get -> uint
+Vixen.Graphics.WebGPU.WgpuBindGroupEntry.Binding.init -> uint
+Vixen.Graphics.WebGPU.WgpuBindGroupEntry.Buffer.get -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuBindGroupEntry.Buffer.init -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuBindGroupEntry.Offset.get -> long
+Vixen.Graphics.WebGPU.WgpuBindGroupEntry.Offset.init -> long
+Vixen.Graphics.WebGPU.WgpuBindGroupEntry.Sampler.get -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuBindGroupEntry.Sampler.init -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuBindGroupEntry.Size.get -> long
+Vixen.Graphics.WebGPU.WgpuBindGroupEntry.Size.init -> long
+Vixen.Graphics.WebGPU.WgpuBindGroupEntry.TextureView.get -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuBindGroupEntry.TextureView.init -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuBindGroupEntry.WgpuBindGroupEntry() -> void
+Vixen.Graphics.WebGPU.WgpuBindGroupEntry.WgpuBindGroupEntry(uint Binding, Vixen.Graphics.WebGPU.WebGpuObject Buffer = default(Vixen.Graphics.WebGPU.WebGpuObject), long Offset = 0, long Size = 0, Vixen.Graphics.WebGPU.WebGpuObject Sampler = default(Vixen.Graphics.WebGPU.WebGpuObject), Vixen.Graphics.WebGPU.WebGpuObject TextureView = default(Vixen.Graphics.WebGPU.WebGpuObject)) -> void
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutDescriptor -> readonly struct
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutDescriptor : System.IEquatable<Vixen.Graphics.WebGPU.WgpuBindGroupLayoutDescriptor>
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutDescriptor.Entries.get -> Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry[]
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutDescriptor.Entries.init -> Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry[]
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutDescriptor.Label.get -> string
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutDescriptor.Label.init -> string
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutDescriptor.WgpuBindGroupLayoutDescriptor() -> void
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutDescriptor.WgpuBindGroupLayoutDescriptor(Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry[] Entries, string Label = "") -> void
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry -> readonly struct
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry : System.IEquatable<Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry>
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry.Binding.get -> uint
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry.Binding.init -> uint
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry.BufferType.get -> Vixen.Graphics.WebGPU.WgpuBufferBindingType
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry.BufferType.init -> Vixen.Graphics.WebGPU.WgpuBufferBindingType
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry.HasDynamicOffset.get -> bool
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry.HasDynamicOffset.init -> bool
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry.Multisampled.get -> bool
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry.Multisampled.init -> bool
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry.SamplerType.get -> Vixen.Graphics.WebGPU.WgpuSamplerBindingType
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry.SamplerType.init -> Vixen.Graphics.WebGPU.WgpuSamplerBindingType
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry.StorageAccess.get -> Vixen.Graphics.WebGPU.WgpuStorageTextureAccess
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry.StorageAccess.init -> Vixen.Graphics.WebGPU.WgpuStorageTextureAccess
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry.StorageFormat.get -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry.StorageFormat.init -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry.TextureSampleType.get -> Vixen.Graphics.WebGPU.WgpuTextureSampleType
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry.TextureSampleType.init -> Vixen.Graphics.WebGPU.WgpuTextureSampleType
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry.TextureViewDimension.get -> Vixen.Graphics.WebGPU.WgpuTextureViewDimension
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry.TextureViewDimension.init -> Vixen.Graphics.WebGPU.WgpuTextureViewDimension
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry.Visibility.get -> Vixen.Graphics.WebGPU.WgpuShaderStage
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry.Visibility.init -> Vixen.Graphics.WebGPU.WgpuShaderStage
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry.WgpuBindGroupLayoutEntry() -> void
+Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry.WgpuBindGroupLayoutEntry(uint Binding, Vixen.Graphics.WebGPU.WgpuShaderStage Visibility, Vixen.Graphics.WebGPU.WgpuBufferBindingType BufferType = Vixen.Graphics.WebGPU.WgpuBufferBindingType.Undefined, bool HasDynamicOffset = false, Vixen.Graphics.WebGPU.WgpuSamplerBindingType SamplerType = Vixen.Graphics.WebGPU.WgpuSamplerBindingType.Undefined, Vixen.Graphics.WebGPU.WgpuTextureSampleType TextureSampleType = Vixen.Graphics.WebGPU.WgpuTextureSampleType.Undefined, Vixen.Graphics.WebGPU.WgpuTextureViewDimension TextureViewDimension = Vixen.Graphics.WebGPU.WgpuTextureViewDimension.Undefined, bool Multisampled = false, Vixen.Graphics.WebGPU.WgpuStorageTextureAccess StorageAccess = Vixen.Graphics.WebGPU.WgpuStorageTextureAccess.Undefined, Vixen.Graphics.WebGPU.WgpuTextureFormat StorageFormat = Vixen.Graphics.WebGPU.WgpuTextureFormat.Undefined) -> void
+Vixen.Graphics.WebGPU.WgpuBlendComponent -> readonly struct
+Vixen.Graphics.WebGPU.WgpuBlendComponent : System.IEquatable<Vixen.Graphics.WebGPU.WgpuBlendComponent>
+Vixen.Graphics.WebGPU.WgpuBlendComponent.DestinationFactor.get -> Vixen.Graphics.WebGPU.WgpuBlendFactor
+Vixen.Graphics.WebGPU.WgpuBlendComponent.DestinationFactor.init -> Vixen.Graphics.WebGPU.WgpuBlendFactor
+Vixen.Graphics.WebGPU.WgpuBlendComponent.Operation.get -> Vixen.Graphics.WebGPU.WgpuBlendOperation
+Vixen.Graphics.WebGPU.WgpuBlendComponent.Operation.init -> Vixen.Graphics.WebGPU.WgpuBlendOperation
+Vixen.Graphics.WebGPU.WgpuBlendComponent.SourceFactor.get -> Vixen.Graphics.WebGPU.WgpuBlendFactor
+Vixen.Graphics.WebGPU.WgpuBlendComponent.SourceFactor.init -> Vixen.Graphics.WebGPU.WgpuBlendFactor
+Vixen.Graphics.WebGPU.WgpuBlendComponent.WgpuBlendComponent() -> void
+Vixen.Graphics.WebGPU.WgpuBlendComponent.WgpuBlendComponent(Vixen.Graphics.WebGPU.WgpuBlendOperation Operation, Vixen.Graphics.WebGPU.WgpuBlendFactor SourceFactor, Vixen.Graphics.WebGPU.WgpuBlendFactor DestinationFactor) -> void
+Vixen.Graphics.WebGPU.WgpuBlendFactor -> enum : uint
+Vixen.Graphics.WebGPU.WgpuBlendFactor.Constant = 11 -> Vixen.Graphics.WebGPU.WgpuBlendFactor
+Vixen.Graphics.WebGPU.WgpuBlendFactor.Dst = 6 -> Vixen.Graphics.WebGPU.WgpuBlendFactor
+Vixen.Graphics.WebGPU.WgpuBlendFactor.DstAlpha = 8 -> Vixen.Graphics.WebGPU.WgpuBlendFactor
+Vixen.Graphics.WebGPU.WgpuBlendFactor.One = 1 -> Vixen.Graphics.WebGPU.WgpuBlendFactor
+Vixen.Graphics.WebGPU.WgpuBlendFactor.OneMinusConstant = 12 -> Vixen.Graphics.WebGPU.WgpuBlendFactor
+Vixen.Graphics.WebGPU.WgpuBlendFactor.OneMinusDst = 7 -> Vixen.Graphics.WebGPU.WgpuBlendFactor
+Vixen.Graphics.WebGPU.WgpuBlendFactor.OneMinusDstAlpha = 9 -> Vixen.Graphics.WebGPU.WgpuBlendFactor
+Vixen.Graphics.WebGPU.WgpuBlendFactor.OneMinusSrc = 3 -> Vixen.Graphics.WebGPU.WgpuBlendFactor
+Vixen.Graphics.WebGPU.WgpuBlendFactor.OneMinusSrcAlpha = 5 -> Vixen.Graphics.WebGPU.WgpuBlendFactor
+Vixen.Graphics.WebGPU.WgpuBlendFactor.Src = 2 -> Vixen.Graphics.WebGPU.WgpuBlendFactor
+Vixen.Graphics.WebGPU.WgpuBlendFactor.SrcAlpha = 4 -> Vixen.Graphics.WebGPU.WgpuBlendFactor
+Vixen.Graphics.WebGPU.WgpuBlendFactor.SrcAlphaSaturated = 10 -> Vixen.Graphics.WebGPU.WgpuBlendFactor
+Vixen.Graphics.WebGPU.WgpuBlendFactor.WgpuBlendFactor() -> void
+Vixen.Graphics.WebGPU.WgpuBlendFactor.Zero = 0 -> Vixen.Graphics.WebGPU.WgpuBlendFactor
+Vixen.Graphics.WebGPU.WgpuBlendOperation -> enum : uint
+Vixen.Graphics.WebGPU.WgpuBlendOperation.Add = 0 -> Vixen.Graphics.WebGPU.WgpuBlendOperation
+Vixen.Graphics.WebGPU.WgpuBlendOperation.Max = 4 -> Vixen.Graphics.WebGPU.WgpuBlendOperation
+Vixen.Graphics.WebGPU.WgpuBlendOperation.Min = 3 -> Vixen.Graphics.WebGPU.WgpuBlendOperation
+Vixen.Graphics.WebGPU.WgpuBlendOperation.ReverseSubtract = 2 -> Vixen.Graphics.WebGPU.WgpuBlendOperation
+Vixen.Graphics.WebGPU.WgpuBlendOperation.Subtract = 1 -> Vixen.Graphics.WebGPU.WgpuBlendOperation
+Vixen.Graphics.WebGPU.WgpuBlendOperation.WgpuBlendOperation() -> void
+Vixen.Graphics.WebGPU.WgpuBufferBindingType -> enum : uint
+Vixen.Graphics.WebGPU.WgpuBufferBindingType.ReadOnlyStorage = 3 -> Vixen.Graphics.WebGPU.WgpuBufferBindingType
+Vixen.Graphics.WebGPU.WgpuBufferBindingType.Storage = 2 -> Vixen.Graphics.WebGPU.WgpuBufferBindingType
+Vixen.Graphics.WebGPU.WgpuBufferBindingType.Undefined = 0 -> Vixen.Graphics.WebGPU.WgpuBufferBindingType
+Vixen.Graphics.WebGPU.WgpuBufferBindingType.Uniform = 1 -> Vixen.Graphics.WebGPU.WgpuBufferBindingType
+Vixen.Graphics.WebGPU.WgpuBufferBindingType.WgpuBufferBindingType() -> void
+Vixen.Graphics.WebGPU.WgpuBufferDescriptor -> readonly struct
+Vixen.Graphics.WebGPU.WgpuBufferDescriptor : System.IEquatable<Vixen.Graphics.WebGPU.WgpuBufferDescriptor>
+Vixen.Graphics.WebGPU.WgpuBufferDescriptor.Label.get -> string
+Vixen.Graphics.WebGPU.WgpuBufferDescriptor.Label.init -> string
+Vixen.Graphics.WebGPU.WgpuBufferDescriptor.Size.get -> long
+Vixen.Graphics.WebGPU.WgpuBufferDescriptor.Size.init -> long
+Vixen.Graphics.WebGPU.WgpuBufferDescriptor.Usage.get -> Vixen.Graphics.WebGPU.WgpuBufferUsage
+Vixen.Graphics.WebGPU.WgpuBufferDescriptor.Usage.init -> Vixen.Graphics.WebGPU.WgpuBufferUsage
+Vixen.Graphics.WebGPU.WgpuBufferDescriptor.WgpuBufferDescriptor() -> void
+Vixen.Graphics.WebGPU.WgpuBufferDescriptor.WgpuBufferDescriptor(long Size, Vixen.Graphics.WebGPU.WgpuBufferUsage Usage, string Label = "") -> void
+Vixen.Graphics.WebGPU.WgpuBufferUsage -> enum : uint
+Vixen.Graphics.WebGPU.WgpuBufferUsage.CopyDst = 8 -> Vixen.Graphics.WebGPU.WgpuBufferUsage
+Vixen.Graphics.WebGPU.WgpuBufferUsage.CopySrc = 4 -> Vixen.Graphics.WebGPU.WgpuBufferUsage
+Vixen.Graphics.WebGPU.WgpuBufferUsage.Index = 16 -> Vixen.Graphics.WebGPU.WgpuBufferUsage
+Vixen.Graphics.WebGPU.WgpuBufferUsage.Indirect = 256 -> Vixen.Graphics.WebGPU.WgpuBufferUsage
+Vixen.Graphics.WebGPU.WgpuBufferUsage.MapRead = 1 -> Vixen.Graphics.WebGPU.WgpuBufferUsage
+Vixen.Graphics.WebGPU.WgpuBufferUsage.MapWrite = 2 -> Vixen.Graphics.WebGPU.WgpuBufferUsage
+Vixen.Graphics.WebGPU.WgpuBufferUsage.None = 0 -> Vixen.Graphics.WebGPU.WgpuBufferUsage
+Vixen.Graphics.WebGPU.WgpuBufferUsage.QueryResolve = 512 -> Vixen.Graphics.WebGPU.WgpuBufferUsage
+Vixen.Graphics.WebGPU.WgpuBufferUsage.Storage = 128 -> Vixen.Graphics.WebGPU.WgpuBufferUsage
+Vixen.Graphics.WebGPU.WgpuBufferUsage.Uniform = 64 -> Vixen.Graphics.WebGPU.WgpuBufferUsage
+Vixen.Graphics.WebGPU.WgpuBufferUsage.Vertex = 32 -> Vixen.Graphics.WebGPU.WgpuBufferUsage
+Vixen.Graphics.WebGPU.WgpuBufferUsage.WgpuBufferUsage() -> void
+Vixen.Graphics.WebGPU.WgpuColorWriteMask -> enum : uint
+Vixen.Graphics.WebGPU.WgpuColorWriteMask.All = Vixen.Graphics.WebGPU.WgpuColorWriteMask.Red | Vixen.Graphics.WebGPU.WgpuColorWriteMask.Green | Vixen.Graphics.WebGPU.WgpuColorWriteMask.Blue | Vixen.Graphics.WebGPU.WgpuColorWriteMask.Alpha -> Vixen.Graphics.WebGPU.WgpuColorWriteMask
+Vixen.Graphics.WebGPU.WgpuColorWriteMask.Alpha = 8 -> Vixen.Graphics.WebGPU.WgpuColorWriteMask
+Vixen.Graphics.WebGPU.WgpuColorWriteMask.Blue = 4 -> Vixen.Graphics.WebGPU.WgpuColorWriteMask
+Vixen.Graphics.WebGPU.WgpuColorWriteMask.Green = 2 -> Vixen.Graphics.WebGPU.WgpuColorWriteMask
+Vixen.Graphics.WebGPU.WgpuColorWriteMask.None = 0 -> Vixen.Graphics.WebGPU.WgpuColorWriteMask
+Vixen.Graphics.WebGPU.WgpuColorWriteMask.Red = 1 -> Vixen.Graphics.WebGPU.WgpuColorWriteMask
+Vixen.Graphics.WebGPU.WgpuColorWriteMask.WgpuColorWriteMask() -> void
+Vixen.Graphics.WebGPU.WgpuColourAttachment -> readonly struct
+Vixen.Graphics.WebGPU.WgpuColourAttachment : System.IEquatable<Vixen.Graphics.WebGPU.WgpuColourAttachment>
+Vixen.Graphics.WebGPU.WgpuColourAttachment.ClearA.get -> double
+Vixen.Graphics.WebGPU.WgpuColourAttachment.ClearA.init -> double
+Vixen.Graphics.WebGPU.WgpuColourAttachment.ClearB.get -> double
+Vixen.Graphics.WebGPU.WgpuColourAttachment.ClearB.init -> double
+Vixen.Graphics.WebGPU.WgpuColourAttachment.ClearG.get -> double
+Vixen.Graphics.WebGPU.WgpuColourAttachment.ClearG.init -> double
+Vixen.Graphics.WebGPU.WgpuColourAttachment.ClearR.get -> double
+Vixen.Graphics.WebGPU.WgpuColourAttachment.ClearR.init -> double
+Vixen.Graphics.WebGPU.WgpuColourAttachment.LoadOp.get -> Vixen.Graphics.WebGPU.WgpuLoadOp
+Vixen.Graphics.WebGPU.WgpuColourAttachment.LoadOp.init -> Vixen.Graphics.WebGPU.WgpuLoadOp
+Vixen.Graphics.WebGPU.WgpuColourAttachment.ResolveTarget.get -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuColourAttachment.ResolveTarget.init -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuColourAttachment.StoreOp.get -> Vixen.Graphics.WebGPU.WgpuStoreOp
+Vixen.Graphics.WebGPU.WgpuColourAttachment.StoreOp.init -> Vixen.Graphics.WebGPU.WgpuStoreOp
+Vixen.Graphics.WebGPU.WgpuColourAttachment.View.get -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuColourAttachment.View.init -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuColourAttachment.WgpuColourAttachment() -> void
+Vixen.Graphics.WebGPU.WgpuColourAttachment.WgpuColourAttachment(Vixen.Graphics.WebGPU.WebGpuObject View, Vixen.Graphics.WebGPU.WebGpuObject ResolveTarget, Vixen.Graphics.WebGPU.WgpuLoadOp LoadOp, Vixen.Graphics.WebGPU.WgpuStoreOp StoreOp, double ClearR, double ClearG, double ClearB, double ClearA) -> void
+Vixen.Graphics.WebGPU.WgpuColourTargetState -> readonly struct
+Vixen.Graphics.WebGPU.WgpuColourTargetState : System.IEquatable<Vixen.Graphics.WebGPU.WgpuColourTargetState>
+Vixen.Graphics.WebGPU.WgpuColourTargetState.Alpha.get -> Vixen.Graphics.WebGPU.WgpuBlendComponent
+Vixen.Graphics.WebGPU.WgpuColourTargetState.Alpha.init -> Vixen.Graphics.WebGPU.WgpuBlendComponent
+Vixen.Graphics.WebGPU.WgpuColourTargetState.BlendEnabled.get -> bool
+Vixen.Graphics.WebGPU.WgpuColourTargetState.BlendEnabled.init -> bool
+Vixen.Graphics.WebGPU.WgpuColourTargetState.Colour.get -> Vixen.Graphics.WebGPU.WgpuBlendComponent
+Vixen.Graphics.WebGPU.WgpuColourTargetState.Colour.init -> Vixen.Graphics.WebGPU.WgpuBlendComponent
+Vixen.Graphics.WebGPU.WgpuColourTargetState.Format.get -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuColourTargetState.Format.init -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuColourTargetState.WgpuColourTargetState() -> void
+Vixen.Graphics.WebGPU.WgpuColourTargetState.WgpuColourTargetState(Vixen.Graphics.WebGPU.WgpuTextureFormat Format, bool BlendEnabled, Vixen.Graphics.WebGPU.WgpuBlendComponent Colour, Vixen.Graphics.WebGPU.WgpuBlendComponent Alpha, Vixen.Graphics.WebGPU.WgpuColorWriteMask WriteMask) -> void
+Vixen.Graphics.WebGPU.WgpuColourTargetState.WriteMask.get -> Vixen.Graphics.WebGPU.WgpuColorWriteMask
+Vixen.Graphics.WebGPU.WgpuColourTargetState.WriteMask.init -> Vixen.Graphics.WebGPU.WgpuColorWriteMask
+Vixen.Graphics.WebGPU.WgpuCompareFunction -> enum : uint
+Vixen.Graphics.WebGPU.WgpuCompareFunction.Always = 8 -> Vixen.Graphics.WebGPU.WgpuCompareFunction
+Vixen.Graphics.WebGPU.WgpuCompareFunction.Equal = 6 -> Vixen.Graphics.WebGPU.WgpuCompareFunction
+Vixen.Graphics.WebGPU.WgpuCompareFunction.Greater = 4 -> Vixen.Graphics.WebGPU.WgpuCompareFunction
+Vixen.Graphics.WebGPU.WgpuCompareFunction.GreaterEqual = 5 -> Vixen.Graphics.WebGPU.WgpuCompareFunction
+Vixen.Graphics.WebGPU.WgpuCompareFunction.Less = 2 -> Vixen.Graphics.WebGPU.WgpuCompareFunction
+Vixen.Graphics.WebGPU.WgpuCompareFunction.LessEqual = 3 -> Vixen.Graphics.WebGPU.WgpuCompareFunction
+Vixen.Graphics.WebGPU.WgpuCompareFunction.Never = 1 -> Vixen.Graphics.WebGPU.WgpuCompareFunction
+Vixen.Graphics.WebGPU.WgpuCompareFunction.NotEqual = 7 -> Vixen.Graphics.WebGPU.WgpuCompareFunction
+Vixen.Graphics.WebGPU.WgpuCompareFunction.Undefined = 0 -> Vixen.Graphics.WebGPU.WgpuCompareFunction
+Vixen.Graphics.WebGPU.WgpuCompareFunction.WgpuCompareFunction() -> void
+Vixen.Graphics.WebGPU.WgpuCompositeAlphaMode -> enum : uint
+Vixen.Graphics.WebGPU.WgpuCompositeAlphaMode.Auto = 0 -> Vixen.Graphics.WebGPU.WgpuCompositeAlphaMode
+Vixen.Graphics.WebGPU.WgpuCompositeAlphaMode.Inherit = 4 -> Vixen.Graphics.WebGPU.WgpuCompositeAlphaMode
+Vixen.Graphics.WebGPU.WgpuCompositeAlphaMode.Opaque = 1 -> Vixen.Graphics.WebGPU.WgpuCompositeAlphaMode
+Vixen.Graphics.WebGPU.WgpuCompositeAlphaMode.Premultiplied = 2 -> Vixen.Graphics.WebGPU.WgpuCompositeAlphaMode
+Vixen.Graphics.WebGPU.WgpuCompositeAlphaMode.Unpremultiplied = 3 -> Vixen.Graphics.WebGPU.WgpuCompositeAlphaMode
+Vixen.Graphics.WebGPU.WgpuCompositeAlphaMode.WgpuCompositeAlphaMode() -> void
+Vixen.Graphics.WebGPU.WgpuComputePipelineDescriptor -> readonly struct
+Vixen.Graphics.WebGPU.WgpuComputePipelineDescriptor : System.IEquatable<Vixen.Graphics.WebGPU.WgpuComputePipelineDescriptor>
+Vixen.Graphics.WebGPU.WgpuComputePipelineDescriptor.EntryPoint.get -> string
+Vixen.Graphics.WebGPU.WgpuComputePipelineDescriptor.EntryPoint.init -> string
+Vixen.Graphics.WebGPU.WgpuComputePipelineDescriptor.Label.get -> string
+Vixen.Graphics.WebGPU.WgpuComputePipelineDescriptor.Label.init -> string
+Vixen.Graphics.WebGPU.WgpuComputePipelineDescriptor.Layout.get -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuComputePipelineDescriptor.Layout.init -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuComputePipelineDescriptor.Module.get -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuComputePipelineDescriptor.Module.init -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuComputePipelineDescriptor.WgpuComputePipelineDescriptor() -> void
+Vixen.Graphics.WebGPU.WgpuComputePipelineDescriptor.WgpuComputePipelineDescriptor(Vixen.Graphics.WebGPU.WebGpuObject Layout, Vixen.Graphics.WebGPU.WebGpuObject Module, string EntryPoint, string Label = "") -> void
+Vixen.Graphics.WebGPU.WgpuCullMode -> enum : uint
+Vixen.Graphics.WebGPU.WgpuCullMode.Back = 2 -> Vixen.Graphics.WebGPU.WgpuCullMode
+Vixen.Graphics.WebGPU.WgpuCullMode.Front = 1 -> Vixen.Graphics.WebGPU.WgpuCullMode
+Vixen.Graphics.WebGPU.WgpuCullMode.None = 0 -> Vixen.Graphics.WebGPU.WgpuCullMode
+Vixen.Graphics.WebGPU.WgpuCullMode.WgpuCullMode() -> void
+Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment -> readonly struct
+Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment : System.IEquatable<Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment>
+Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment.DepthClearValue.get -> float
+Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment.DepthClearValue.init -> float
+Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment.DepthLoadOp.get -> Vixen.Graphics.WebGPU.WgpuLoadOp
+Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment.DepthLoadOp.init -> Vixen.Graphics.WebGPU.WgpuLoadOp
+Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment.DepthReadOnly.get -> bool
+Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment.DepthReadOnly.init -> bool
+Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment.DepthStoreOp.get -> Vixen.Graphics.WebGPU.WgpuStoreOp
+Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment.DepthStoreOp.init -> Vixen.Graphics.WebGPU.WgpuStoreOp
+Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment.StencilClearValue.get -> uint
+Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment.StencilClearValue.init -> uint
+Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment.StencilLoadOp.get -> Vixen.Graphics.WebGPU.WgpuLoadOp
+Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment.StencilLoadOp.init -> Vixen.Graphics.WebGPU.WgpuLoadOp
+Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment.StencilReadOnly.get -> bool
+Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment.StencilReadOnly.init -> bool
+Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment.StencilStoreOp.get -> Vixen.Graphics.WebGPU.WgpuStoreOp
+Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment.StencilStoreOp.init -> Vixen.Graphics.WebGPU.WgpuStoreOp
+Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment.View.get -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment.View.init -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment.WgpuDepthStencilAttachment() -> void
+Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment.WgpuDepthStencilAttachment(Vixen.Graphics.WebGPU.WebGpuObject View, Vixen.Graphics.WebGPU.WgpuLoadOp DepthLoadOp, Vixen.Graphics.WebGPU.WgpuStoreOp DepthStoreOp, float DepthClearValue, bool DepthReadOnly, Vixen.Graphics.WebGPU.WgpuLoadOp StencilLoadOp, Vixen.Graphics.WebGPU.WgpuStoreOp StencilStoreOp, uint StencilClearValue, bool StencilReadOnly) -> void
+Vixen.Graphics.WebGPU.WgpuDepthStencilState -> readonly struct
+Vixen.Graphics.WebGPU.WgpuDepthStencilState : System.IEquatable<Vixen.Graphics.WebGPU.WgpuDepthStencilState>
+Vixen.Graphics.WebGPU.WgpuDepthStencilState.Back.get -> Vixen.Graphics.WebGPU.WgpuStencilFaceState
+Vixen.Graphics.WebGPU.WgpuDepthStencilState.Back.init -> Vixen.Graphics.WebGPU.WgpuStencilFaceState
+Vixen.Graphics.WebGPU.WgpuDepthStencilState.DepthBias.get -> int
+Vixen.Graphics.WebGPU.WgpuDepthStencilState.DepthBias.init -> int
+Vixen.Graphics.WebGPU.WgpuDepthStencilState.DepthBiasClamp.get -> float
+Vixen.Graphics.WebGPU.WgpuDepthStencilState.DepthBiasClamp.init -> float
+Vixen.Graphics.WebGPU.WgpuDepthStencilState.DepthBiasSlopeScale.get -> float
+Vixen.Graphics.WebGPU.WgpuDepthStencilState.DepthBiasSlopeScale.init -> float
+Vixen.Graphics.WebGPU.WgpuDepthStencilState.DepthCompare.get -> Vixen.Graphics.WebGPU.WgpuCompareFunction
+Vixen.Graphics.WebGPU.WgpuDepthStencilState.DepthCompare.init -> Vixen.Graphics.WebGPU.WgpuCompareFunction
+Vixen.Graphics.WebGPU.WgpuDepthStencilState.DepthWriteEnabled.get -> bool
+Vixen.Graphics.WebGPU.WgpuDepthStencilState.DepthWriteEnabled.init -> bool
+Vixen.Graphics.WebGPU.WgpuDepthStencilState.Format.get -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuDepthStencilState.Format.init -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuDepthStencilState.Front.get -> Vixen.Graphics.WebGPU.WgpuStencilFaceState
+Vixen.Graphics.WebGPU.WgpuDepthStencilState.Front.init -> Vixen.Graphics.WebGPU.WgpuStencilFaceState
+Vixen.Graphics.WebGPU.WgpuDepthStencilState.StencilReadMask.get -> uint
+Vixen.Graphics.WebGPU.WgpuDepthStencilState.StencilReadMask.init -> uint
+Vixen.Graphics.WebGPU.WgpuDepthStencilState.StencilWriteMask.get -> uint
+Vixen.Graphics.WebGPU.WgpuDepthStencilState.StencilWriteMask.init -> uint
+Vixen.Graphics.WebGPU.WgpuDepthStencilState.WgpuDepthStencilState() -> void
+Vixen.Graphics.WebGPU.WgpuDepthStencilState.WgpuDepthStencilState(Vixen.Graphics.WebGPU.WgpuTextureFormat Format, bool DepthWriteEnabled, Vixen.Graphics.WebGPU.WgpuCompareFunction DepthCompare, Vixen.Graphics.WebGPU.WgpuStencilFaceState Front, Vixen.Graphics.WebGPU.WgpuStencilFaceState Back, uint StencilReadMask, uint StencilWriteMask, int DepthBias, float DepthBiasSlopeScale, float DepthBiasClamp) -> void
+Vixen.Graphics.WebGPU.WgpuFeatureName -> enum : uint
+Vixen.Graphics.WebGPU.WgpuFeatureName.Bgra8UnormStorage = 10 -> Vixen.Graphics.WebGPU.WgpuFeatureName
+Vixen.Graphics.WebGPU.WgpuFeatureName.Depth32FloatStencil8 = 2 -> Vixen.Graphics.WebGPU.WgpuFeatureName
+Vixen.Graphics.WebGPU.WgpuFeatureName.DepthClipControl = 1 -> Vixen.Graphics.WebGPU.WgpuFeatureName
+Vixen.Graphics.WebGPU.WgpuFeatureName.Float32Filterable = 11 -> Vixen.Graphics.WebGPU.WgpuFeatureName
+Vixen.Graphics.WebGPU.WgpuFeatureName.IndirectFirstInstance = 7 -> Vixen.Graphics.WebGPU.WgpuFeatureName
+Vixen.Graphics.WebGPU.WgpuFeatureName.Rg11B10UfloatRenderable = 9 -> Vixen.Graphics.WebGPU.WgpuFeatureName
+Vixen.Graphics.WebGPU.WgpuFeatureName.ShaderF16 = 8 -> Vixen.Graphics.WebGPU.WgpuFeatureName
+Vixen.Graphics.WebGPU.WgpuFeatureName.TextureCompressionAstc = 6 -> Vixen.Graphics.WebGPU.WgpuFeatureName
+Vixen.Graphics.WebGPU.WgpuFeatureName.TextureCompressionBc = 4 -> Vixen.Graphics.WebGPU.WgpuFeatureName
+Vixen.Graphics.WebGPU.WgpuFeatureName.TextureCompressionEtc2 = 5 -> Vixen.Graphics.WebGPU.WgpuFeatureName
+Vixen.Graphics.WebGPU.WgpuFeatureName.TimestampQuery = 3 -> Vixen.Graphics.WebGPU.WgpuFeatureName
+Vixen.Graphics.WebGPU.WgpuFeatureName.Undefined = 0 -> Vixen.Graphics.WebGPU.WgpuFeatureName
+Vixen.Graphics.WebGPU.WgpuFeatureName.WgpuFeatureName() -> void
+Vixen.Graphics.WebGPU.WgpuFilterMode -> enum : uint
+Vixen.Graphics.WebGPU.WgpuFilterMode.Linear = 1 -> Vixen.Graphics.WebGPU.WgpuFilterMode
+Vixen.Graphics.WebGPU.WgpuFilterMode.Nearest = 0 -> Vixen.Graphics.WebGPU.WgpuFilterMode
+Vixen.Graphics.WebGPU.WgpuFilterMode.WgpuFilterMode() -> void
+Vixen.Graphics.WebGPU.WgpuFrontFace -> enum : uint
+Vixen.Graphics.WebGPU.WgpuFrontFace.Ccw = 0 -> Vixen.Graphics.WebGPU.WgpuFrontFace
+Vixen.Graphics.WebGPU.WgpuFrontFace.Cw = 1 -> Vixen.Graphics.WebGPU.WgpuFrontFace
+Vixen.Graphics.WebGPU.WgpuFrontFace.WgpuFrontFace() -> void
+Vixen.Graphics.WebGPU.WgpuImageCopyBuffer -> readonly struct
+Vixen.Graphics.WebGPU.WgpuImageCopyBuffer : System.IEquatable<Vixen.Graphics.WebGPU.WgpuImageCopyBuffer>
+Vixen.Graphics.WebGPU.WgpuImageCopyBuffer.Buffer.get -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuImageCopyBuffer.Buffer.init -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuImageCopyBuffer.BytesPerRow.get -> int
+Vixen.Graphics.WebGPU.WgpuImageCopyBuffer.BytesPerRow.init -> int
+Vixen.Graphics.WebGPU.WgpuImageCopyBuffer.Offset.get -> long
+Vixen.Graphics.WebGPU.WgpuImageCopyBuffer.Offset.init -> long
+Vixen.Graphics.WebGPU.WgpuImageCopyBuffer.RowsPerImage.get -> int
+Vixen.Graphics.WebGPU.WgpuImageCopyBuffer.RowsPerImage.init -> int
+Vixen.Graphics.WebGPU.WgpuImageCopyBuffer.WgpuImageCopyBuffer() -> void
+Vixen.Graphics.WebGPU.WgpuImageCopyBuffer.WgpuImageCopyBuffer(Vixen.Graphics.WebGPU.WebGpuObject Buffer, long Offset, int BytesPerRow, int RowsPerImage) -> void
+Vixen.Graphics.WebGPU.WgpuImageCopyTexture -> readonly struct
+Vixen.Graphics.WebGPU.WgpuImageCopyTexture : System.IEquatable<Vixen.Graphics.WebGPU.WgpuImageCopyTexture>
+Vixen.Graphics.WebGPU.WgpuImageCopyTexture.Aspect.get -> Vixen.Graphics.WebGPU.WgpuTextureAspect
+Vixen.Graphics.WebGPU.WgpuImageCopyTexture.Aspect.init -> Vixen.Graphics.WebGPU.WgpuTextureAspect
+Vixen.Graphics.WebGPU.WgpuImageCopyTexture.MipLevel.get -> int
+Vixen.Graphics.WebGPU.WgpuImageCopyTexture.MipLevel.init -> int
+Vixen.Graphics.WebGPU.WgpuImageCopyTexture.OriginX.get -> int
+Vixen.Graphics.WebGPU.WgpuImageCopyTexture.OriginX.init -> int
+Vixen.Graphics.WebGPU.WgpuImageCopyTexture.OriginY.get -> int
+Vixen.Graphics.WebGPU.WgpuImageCopyTexture.OriginY.init -> int
+Vixen.Graphics.WebGPU.WgpuImageCopyTexture.OriginZ.get -> int
+Vixen.Graphics.WebGPU.WgpuImageCopyTexture.OriginZ.init -> int
+Vixen.Graphics.WebGPU.WgpuImageCopyTexture.Texture.get -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuImageCopyTexture.Texture.init -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuImageCopyTexture.WgpuImageCopyTexture() -> void
+Vixen.Graphics.WebGPU.WgpuImageCopyTexture.WgpuImageCopyTexture(Vixen.Graphics.WebGPU.WebGpuObject Texture, int MipLevel, int OriginX, int OriginY, int OriginZ, Vixen.Graphics.WebGPU.WgpuTextureAspect Aspect) -> void
+Vixen.Graphics.WebGPU.WgpuIndexFormat -> enum : uint
+Vixen.Graphics.WebGPU.WgpuIndexFormat.Uint16 = 1 -> Vixen.Graphics.WebGPU.WgpuIndexFormat
+Vixen.Graphics.WebGPU.WgpuIndexFormat.Uint32 = 2 -> Vixen.Graphics.WebGPU.WgpuIndexFormat
+Vixen.Graphics.WebGPU.WgpuIndexFormat.Undefined = 0 -> Vixen.Graphics.WebGPU.WgpuIndexFormat
+Vixen.Graphics.WebGPU.WgpuIndexFormat.WgpuIndexFormat() -> void
+Vixen.Graphics.WebGPU.WgpuLoadOp -> enum : uint
+Vixen.Graphics.WebGPU.WgpuLoadOp.Clear = 1 -> Vixen.Graphics.WebGPU.WgpuLoadOp
+Vixen.Graphics.WebGPU.WgpuLoadOp.Load = 2 -> Vixen.Graphics.WebGPU.WgpuLoadOp
+Vixen.Graphics.WebGPU.WgpuLoadOp.Undefined = 0 -> Vixen.Graphics.WebGPU.WgpuLoadOp
+Vixen.Graphics.WebGPU.WgpuLoadOp.WgpuLoadOp() -> void
+Vixen.Graphics.WebGPU.WgpuMipmapFilterMode -> enum : uint
+Vixen.Graphics.WebGPU.WgpuMipmapFilterMode.Linear = 1 -> Vixen.Graphics.WebGPU.WgpuMipmapFilterMode
+Vixen.Graphics.WebGPU.WgpuMipmapFilterMode.Nearest = 0 -> Vixen.Graphics.WebGPU.WgpuMipmapFilterMode
+Vixen.Graphics.WebGPU.WgpuMipmapFilterMode.WgpuMipmapFilterMode() -> void
+Vixen.Graphics.WebGPU.WgpuPipelineLayoutDescriptor -> readonly struct
+Vixen.Graphics.WebGPU.WgpuPipelineLayoutDescriptor : System.IEquatable<Vixen.Graphics.WebGPU.WgpuPipelineLayoutDescriptor>
+Vixen.Graphics.WebGPU.WgpuPipelineLayoutDescriptor.BindGroupLayouts.get -> Vixen.Graphics.WebGPU.WebGpuObject[]
+Vixen.Graphics.WebGPU.WgpuPipelineLayoutDescriptor.BindGroupLayouts.init -> Vixen.Graphics.WebGPU.WebGpuObject[]
+Vixen.Graphics.WebGPU.WgpuPipelineLayoutDescriptor.Label.get -> string
+Vixen.Graphics.WebGPU.WgpuPipelineLayoutDescriptor.Label.init -> string
+Vixen.Graphics.WebGPU.WgpuPipelineLayoutDescriptor.WgpuPipelineLayoutDescriptor() -> void
+Vixen.Graphics.WebGPU.WgpuPipelineLayoutDescriptor.WgpuPipelineLayoutDescriptor(Vixen.Graphics.WebGPU.WebGpuObject[] BindGroupLayouts, string Label = "") -> void
+Vixen.Graphics.WebGPU.WgpuPowerPreference -> enum : uint
+Vixen.Graphics.WebGPU.WgpuPowerPreference.HighPerformance = 2 -> Vixen.Graphics.WebGPU.WgpuPowerPreference
+Vixen.Graphics.WebGPU.WgpuPowerPreference.LowPower = 1 -> Vixen.Graphics.WebGPU.WgpuPowerPreference
+Vixen.Graphics.WebGPU.WgpuPowerPreference.Undefined = 0 -> Vixen.Graphics.WebGPU.WgpuPowerPreference
+Vixen.Graphics.WebGPU.WgpuPowerPreference.WgpuPowerPreference() -> void
+Vixen.Graphics.WebGPU.WgpuPresentMode -> enum : uint
+Vixen.Graphics.WebGPU.WgpuPresentMode.Fifo = 0 -> Vixen.Graphics.WebGPU.WgpuPresentMode
+Vixen.Graphics.WebGPU.WgpuPresentMode.FifoRelaxed = 1 -> Vixen.Graphics.WebGPU.WgpuPresentMode
+Vixen.Graphics.WebGPU.WgpuPresentMode.Immediate = 2 -> Vixen.Graphics.WebGPU.WgpuPresentMode
+Vixen.Graphics.WebGPU.WgpuPresentMode.Mailbox = 3 -> Vixen.Graphics.WebGPU.WgpuPresentMode
+Vixen.Graphics.WebGPU.WgpuPresentMode.WgpuPresentMode() -> void
+Vixen.Graphics.WebGPU.WgpuPrimitiveTopology -> enum : uint
+Vixen.Graphics.WebGPU.WgpuPrimitiveTopology.LineList = 1 -> Vixen.Graphics.WebGPU.WgpuPrimitiveTopology
+Vixen.Graphics.WebGPU.WgpuPrimitiveTopology.LineStrip = 2 -> Vixen.Graphics.WebGPU.WgpuPrimitiveTopology
+Vixen.Graphics.WebGPU.WgpuPrimitiveTopology.PointList = 0 -> Vixen.Graphics.WebGPU.WgpuPrimitiveTopology
+Vixen.Graphics.WebGPU.WgpuPrimitiveTopology.TriangleList = 3 -> Vixen.Graphics.WebGPU.WgpuPrimitiveTopology
+Vixen.Graphics.WebGPU.WgpuPrimitiveTopology.TriangleStrip = 4 -> Vixen.Graphics.WebGPU.WgpuPrimitiveTopology
+Vixen.Graphics.WebGPU.WgpuPrimitiveTopology.WgpuPrimitiveTopology() -> void
+Vixen.Graphics.WebGPU.WgpuRenderPassDescriptor -> readonly struct
+Vixen.Graphics.WebGPU.WgpuRenderPassDescriptor : System.IEquatable<Vixen.Graphics.WebGPU.WgpuRenderPassDescriptor>
+Vixen.Graphics.WebGPU.WgpuRenderPassDescriptor.ColourAttachmentCount.get -> int
+Vixen.Graphics.WebGPU.WgpuRenderPassDescriptor.ColourAttachmentCount.init -> int
+Vixen.Graphics.WebGPU.WgpuRenderPassDescriptor.ColourAttachments.get -> Vixen.Graphics.WebGPU.WgpuColourAttachment[]
+Vixen.Graphics.WebGPU.WgpuRenderPassDescriptor.ColourAttachments.init -> Vixen.Graphics.WebGPU.WgpuColourAttachment[]
+Vixen.Graphics.WebGPU.WgpuRenderPassDescriptor.DepthStencil.get -> Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment?
+Vixen.Graphics.WebGPU.WgpuRenderPassDescriptor.DepthStencil.init -> Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment?
+Vixen.Graphics.WebGPU.WgpuRenderPassDescriptor.Label.get -> string
+Vixen.Graphics.WebGPU.WgpuRenderPassDescriptor.Label.init -> string
+Vixen.Graphics.WebGPU.WgpuRenderPassDescriptor.WgpuRenderPassDescriptor() -> void
+Vixen.Graphics.WebGPU.WgpuRenderPassDescriptor.WgpuRenderPassDescriptor(Vixen.Graphics.WebGPU.WgpuColourAttachment[] ColourAttachments, int ColourAttachmentCount, Vixen.Graphics.WebGPU.WgpuDepthStencilAttachment? DepthStencil, string Label = "") -> void
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor -> readonly struct
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor : System.IEquatable<Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor>
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.ColourTargets.get -> Vixen.Graphics.WebGPU.WgpuColourTargetState[]
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.ColourTargets.init -> Vixen.Graphics.WebGPU.WgpuColourTargetState[]
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.CullMode.get -> Vixen.Graphics.WebGPU.WgpuCullMode
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.CullMode.init -> Vixen.Graphics.WebGPU.WgpuCullMode
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.DepthStencil.get -> Vixen.Graphics.WebGPU.WgpuDepthStencilState?
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.DepthStencil.init -> Vixen.Graphics.WebGPU.WgpuDepthStencilState?
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.FragmentEntryPoint.get -> string
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.FragmentEntryPoint.init -> string
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.FragmentModule.get -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.FragmentModule.init -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.FrontFace.get -> Vixen.Graphics.WebGPU.WgpuFrontFace
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.FrontFace.init -> Vixen.Graphics.WebGPU.WgpuFrontFace
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.Label.get -> string
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.Label.init -> string
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.Layout.get -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.Layout.init -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.SampleCount.get -> int
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.SampleCount.init -> int
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.StripIndexFormat.get -> Vixen.Graphics.WebGPU.WgpuIndexFormat
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.StripIndexFormat.init -> Vixen.Graphics.WebGPU.WgpuIndexFormat
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.Topology.get -> Vixen.Graphics.WebGPU.WgpuPrimitiveTopology
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.Topology.init -> Vixen.Graphics.WebGPU.WgpuPrimitiveTopology
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.UnclippedDepth.get -> bool
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.UnclippedDepth.init -> bool
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.VertexBuffers.get -> Vixen.Graphics.WebGPU.WgpuVertexBufferLayout[]
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.VertexBuffers.init -> Vixen.Graphics.WebGPU.WgpuVertexBufferLayout[]
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.VertexEntryPoint.get -> string
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.VertexEntryPoint.init -> string
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.VertexModule.get -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.VertexModule.init -> Vixen.Graphics.WebGPU.WebGpuObject
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.WgpuRenderPipelineDescriptor() -> void
+Vixen.Graphics.WebGPU.WgpuRenderPipelineDescriptor.WgpuRenderPipelineDescriptor(Vixen.Graphics.WebGPU.WebGpuObject Layout, Vixen.Graphics.WebGPU.WebGpuObject VertexModule, string VertexEntryPoint, Vixen.Graphics.WebGPU.WgpuVertexBufferLayout[] VertexBuffers, Vixen.Graphics.WebGPU.WebGpuObject FragmentModule, string FragmentEntryPoint, Vixen.Graphics.WebGPU.WgpuColourTargetState[] ColourTargets, Vixen.Graphics.WebGPU.WgpuPrimitiveTopology Topology, Vixen.Graphics.WebGPU.WgpuIndexFormat StripIndexFormat, Vixen.Graphics.WebGPU.WgpuFrontFace FrontFace, Vixen.Graphics.WebGPU.WgpuCullMode CullMode, bool UnclippedDepth, Vixen.Graphics.WebGPU.WgpuDepthStencilState? DepthStencil, int SampleCount, string Label = "") -> void
+Vixen.Graphics.WebGPU.WgpuSamplerBindingType -> enum : uint
+Vixen.Graphics.WebGPU.WgpuSamplerBindingType.Comparison = 3 -> Vixen.Graphics.WebGPU.WgpuSamplerBindingType
+Vixen.Graphics.WebGPU.WgpuSamplerBindingType.Filtering = 1 -> Vixen.Graphics.WebGPU.WgpuSamplerBindingType
+Vixen.Graphics.WebGPU.WgpuSamplerBindingType.NonFiltering = 2 -> Vixen.Graphics.WebGPU.WgpuSamplerBindingType
+Vixen.Graphics.WebGPU.WgpuSamplerBindingType.Undefined = 0 -> Vixen.Graphics.WebGPU.WgpuSamplerBindingType
+Vixen.Graphics.WebGPU.WgpuSamplerBindingType.WgpuSamplerBindingType() -> void
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor -> readonly struct
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor : System.IEquatable<Vixen.Graphics.WebGPU.WgpuSamplerDescriptor>
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor.AddressU.get -> Vixen.Graphics.WebGPU.WgpuAddressMode
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor.AddressU.init -> Vixen.Graphics.WebGPU.WgpuAddressMode
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor.AddressV.get -> Vixen.Graphics.WebGPU.WgpuAddressMode
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor.AddressV.init -> Vixen.Graphics.WebGPU.WgpuAddressMode
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor.AddressW.get -> Vixen.Graphics.WebGPU.WgpuAddressMode
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor.AddressW.init -> Vixen.Graphics.WebGPU.WgpuAddressMode
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor.Compare.get -> Vixen.Graphics.WebGPU.WgpuCompareFunction
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor.Compare.init -> Vixen.Graphics.WebGPU.WgpuCompareFunction
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor.Label.get -> string
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor.Label.init -> string
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor.LodMaxClamp.get -> float
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor.LodMaxClamp.init -> float
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor.LodMinClamp.get -> float
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor.LodMinClamp.init -> float
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor.MagFilter.get -> Vixen.Graphics.WebGPU.WgpuFilterMode
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor.MagFilter.init -> Vixen.Graphics.WebGPU.WgpuFilterMode
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor.MaxAnisotropy.get -> ushort
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor.MaxAnisotropy.init -> ushort
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor.MinFilter.get -> Vixen.Graphics.WebGPU.WgpuFilterMode
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor.MinFilter.init -> Vixen.Graphics.WebGPU.WgpuFilterMode
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor.MipmapFilter.get -> Vixen.Graphics.WebGPU.WgpuMipmapFilterMode
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor.MipmapFilter.init -> Vixen.Graphics.WebGPU.WgpuMipmapFilterMode
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor.WgpuSamplerDescriptor() -> void
+Vixen.Graphics.WebGPU.WgpuSamplerDescriptor.WgpuSamplerDescriptor(Vixen.Graphics.WebGPU.WgpuAddressMode AddressU, Vixen.Graphics.WebGPU.WgpuAddressMode AddressV, Vixen.Graphics.WebGPU.WgpuAddressMode AddressW, Vixen.Graphics.WebGPU.WgpuFilterMode MagFilter, Vixen.Graphics.WebGPU.WgpuFilterMode MinFilter, Vixen.Graphics.WebGPU.WgpuMipmapFilterMode MipmapFilter, float LodMinClamp, float LodMaxClamp, Vixen.Graphics.WebGPU.WgpuCompareFunction Compare, ushort MaxAnisotropy, string Label = "") -> void
+Vixen.Graphics.WebGPU.WgpuShaderModuleDescriptor -> readonly struct
+Vixen.Graphics.WebGPU.WgpuShaderModuleDescriptor : System.IEquatable<Vixen.Graphics.WebGPU.WgpuShaderModuleDescriptor>
+Vixen.Graphics.WebGPU.WgpuShaderModuleDescriptor.Code.get -> byte[]
+Vixen.Graphics.WebGPU.WgpuShaderModuleDescriptor.Code.init -> byte[]
+Vixen.Graphics.WebGPU.WgpuShaderModuleDescriptor.Label.get -> string
+Vixen.Graphics.WebGPU.WgpuShaderModuleDescriptor.Label.init -> string
+Vixen.Graphics.WebGPU.WgpuShaderModuleDescriptor.Source.get -> Vixen.Graphics.WebGPU.WgpuShaderSource
+Vixen.Graphics.WebGPU.WgpuShaderModuleDescriptor.Source.init -> Vixen.Graphics.WebGPU.WgpuShaderSource
+Vixen.Graphics.WebGPU.WgpuShaderModuleDescriptor.WgpuShaderModuleDescriptor() -> void
+Vixen.Graphics.WebGPU.WgpuShaderModuleDescriptor.WgpuShaderModuleDescriptor(Vixen.Graphics.WebGPU.WgpuShaderSource Source, byte[] Code, string Label = "") -> void
+Vixen.Graphics.WebGPU.WgpuShaderSource -> enum : byte
+Vixen.Graphics.WebGPU.WgpuShaderSource.SpirV = 1 -> Vixen.Graphics.WebGPU.WgpuShaderSource
+Vixen.Graphics.WebGPU.WgpuShaderSource.WgpuShaderSource() -> void
+Vixen.Graphics.WebGPU.WgpuShaderSource.Wgsl = 0 -> Vixen.Graphics.WebGPU.WgpuShaderSource
+Vixen.Graphics.WebGPU.WgpuShaderStage -> enum : uint
+Vixen.Graphics.WebGPU.WgpuShaderStage.Compute = 4 -> Vixen.Graphics.WebGPU.WgpuShaderStage
+Vixen.Graphics.WebGPU.WgpuShaderStage.Fragment = 2 -> Vixen.Graphics.WebGPU.WgpuShaderStage
+Vixen.Graphics.WebGPU.WgpuShaderStage.None = 0 -> Vixen.Graphics.WebGPU.WgpuShaderStage
+Vixen.Graphics.WebGPU.WgpuShaderStage.Vertex = 1 -> Vixen.Graphics.WebGPU.WgpuShaderStage
+Vixen.Graphics.WebGPU.WgpuShaderStage.WgpuShaderStage() -> void
+Vixen.Graphics.WebGPU.WgpuStencilFaceState -> readonly struct
+Vixen.Graphics.WebGPU.WgpuStencilFaceState : System.IEquatable<Vixen.Graphics.WebGPU.WgpuStencilFaceState>
+Vixen.Graphics.WebGPU.WgpuStencilFaceState.Compare.get -> Vixen.Graphics.WebGPU.WgpuCompareFunction
+Vixen.Graphics.WebGPU.WgpuStencilFaceState.Compare.init -> Vixen.Graphics.WebGPU.WgpuCompareFunction
+Vixen.Graphics.WebGPU.WgpuStencilFaceState.DepthFailOp.get -> Vixen.Graphics.WebGPU.WgpuStencilOperation
+Vixen.Graphics.WebGPU.WgpuStencilFaceState.DepthFailOp.init -> Vixen.Graphics.WebGPU.WgpuStencilOperation
+Vixen.Graphics.WebGPU.WgpuStencilFaceState.FailOp.get -> Vixen.Graphics.WebGPU.WgpuStencilOperation
+Vixen.Graphics.WebGPU.WgpuStencilFaceState.FailOp.init -> Vixen.Graphics.WebGPU.WgpuStencilOperation
+Vixen.Graphics.WebGPU.WgpuStencilFaceState.PassOp.get -> Vixen.Graphics.WebGPU.WgpuStencilOperation
+Vixen.Graphics.WebGPU.WgpuStencilFaceState.PassOp.init -> Vixen.Graphics.WebGPU.WgpuStencilOperation
+Vixen.Graphics.WebGPU.WgpuStencilFaceState.WgpuStencilFaceState() -> void
+Vixen.Graphics.WebGPU.WgpuStencilFaceState.WgpuStencilFaceState(Vixen.Graphics.WebGPU.WgpuCompareFunction Compare, Vixen.Graphics.WebGPU.WgpuStencilOperation FailOp, Vixen.Graphics.WebGPU.WgpuStencilOperation DepthFailOp, Vixen.Graphics.WebGPU.WgpuStencilOperation PassOp) -> void
+Vixen.Graphics.WebGPU.WgpuStencilOperation -> enum : uint
+Vixen.Graphics.WebGPU.WgpuStencilOperation.DecrementClamp = 5 -> Vixen.Graphics.WebGPU.WgpuStencilOperation
+Vixen.Graphics.WebGPU.WgpuStencilOperation.DecrementWrap = 7 -> Vixen.Graphics.WebGPU.WgpuStencilOperation
+Vixen.Graphics.WebGPU.WgpuStencilOperation.IncrementClamp = 4 -> Vixen.Graphics.WebGPU.WgpuStencilOperation
+Vixen.Graphics.WebGPU.WgpuStencilOperation.IncrementWrap = 6 -> Vixen.Graphics.WebGPU.WgpuStencilOperation
+Vixen.Graphics.WebGPU.WgpuStencilOperation.Invert = 3 -> Vixen.Graphics.WebGPU.WgpuStencilOperation
+Vixen.Graphics.WebGPU.WgpuStencilOperation.Keep = 0 -> Vixen.Graphics.WebGPU.WgpuStencilOperation
+Vixen.Graphics.WebGPU.WgpuStencilOperation.Replace = 2 -> Vixen.Graphics.WebGPU.WgpuStencilOperation
+Vixen.Graphics.WebGPU.WgpuStencilOperation.WgpuStencilOperation() -> void
+Vixen.Graphics.WebGPU.WgpuStencilOperation.Zero = 1 -> Vixen.Graphics.WebGPU.WgpuStencilOperation
+Vixen.Graphics.WebGPU.WgpuStorageTextureAccess -> enum : uint
+Vixen.Graphics.WebGPU.WgpuStorageTextureAccess.ReadOnly = 2 -> Vixen.Graphics.WebGPU.WgpuStorageTextureAccess
+Vixen.Graphics.WebGPU.WgpuStorageTextureAccess.ReadWrite = 3 -> Vixen.Graphics.WebGPU.WgpuStorageTextureAccess
+Vixen.Graphics.WebGPU.WgpuStorageTextureAccess.Undefined = 0 -> Vixen.Graphics.WebGPU.WgpuStorageTextureAccess
+Vixen.Graphics.WebGPU.WgpuStorageTextureAccess.WgpuStorageTextureAccess() -> void
+Vixen.Graphics.WebGPU.WgpuStorageTextureAccess.WriteOnly = 1 -> Vixen.Graphics.WebGPU.WgpuStorageTextureAccess
+Vixen.Graphics.WebGPU.WgpuStoreOp -> enum : uint
+Vixen.Graphics.WebGPU.WgpuStoreOp.Discard = 2 -> Vixen.Graphics.WebGPU.WgpuStoreOp
+Vixen.Graphics.WebGPU.WgpuStoreOp.Store = 1 -> Vixen.Graphics.WebGPU.WgpuStoreOp
+Vixen.Graphics.WebGPU.WgpuStoreOp.Undefined = 0 -> Vixen.Graphics.WebGPU.WgpuStoreOp
+Vixen.Graphics.WebGPU.WgpuStoreOp.WgpuStoreOp() -> void
+Vixen.Graphics.WebGPU.WgpuSurfaceConfiguration -> readonly struct
+Vixen.Graphics.WebGPU.WgpuSurfaceConfiguration : System.IEquatable<Vixen.Graphics.WebGPU.WgpuSurfaceConfiguration>
+Vixen.Graphics.WebGPU.WgpuSurfaceConfiguration.AlphaMode.get -> Vixen.Graphics.WebGPU.WgpuCompositeAlphaMode
+Vixen.Graphics.WebGPU.WgpuSurfaceConfiguration.AlphaMode.init -> Vixen.Graphics.WebGPU.WgpuCompositeAlphaMode
+Vixen.Graphics.WebGPU.WgpuSurfaceConfiguration.Format.get -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuSurfaceConfiguration.Format.init -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuSurfaceConfiguration.Height.get -> int
+Vixen.Graphics.WebGPU.WgpuSurfaceConfiguration.Height.init -> int
+Vixen.Graphics.WebGPU.WgpuSurfaceConfiguration.PresentMode.get -> Vixen.Graphics.WebGPU.WgpuPresentMode
+Vixen.Graphics.WebGPU.WgpuSurfaceConfiguration.PresentMode.init -> Vixen.Graphics.WebGPU.WgpuPresentMode
+Vixen.Graphics.WebGPU.WgpuSurfaceConfiguration.Usage.get -> Vixen.Graphics.WebGPU.WgpuTextureUsage
+Vixen.Graphics.WebGPU.WgpuSurfaceConfiguration.Usage.init -> Vixen.Graphics.WebGPU.WgpuTextureUsage
+Vixen.Graphics.WebGPU.WgpuSurfaceConfiguration.WgpuSurfaceConfiguration() -> void
+Vixen.Graphics.WebGPU.WgpuSurfaceConfiguration.WgpuSurfaceConfiguration(Vixen.Graphics.WebGPU.WgpuTextureFormat Format, Vixen.Graphics.WebGPU.WgpuTextureUsage Usage, int Width, int Height, Vixen.Graphics.WebGPU.WgpuPresentMode PresentMode, Vixen.Graphics.WebGPU.WgpuCompositeAlphaMode AlphaMode) -> void
+Vixen.Graphics.WebGPU.WgpuSurfaceConfiguration.Width.get -> int
+Vixen.Graphics.WebGPU.WgpuSurfaceConfiguration.Width.init -> int
+Vixen.Graphics.WebGPU.WgpuSurfaceStatus -> enum : uint
+Vixen.Graphics.WebGPU.WgpuSurfaceStatus.DeviceLost = 5 -> Vixen.Graphics.WebGPU.WgpuSurfaceStatus
+Vixen.Graphics.WebGPU.WgpuSurfaceStatus.Lost = 3 -> Vixen.Graphics.WebGPU.WgpuSurfaceStatus
+Vixen.Graphics.WebGPU.WgpuSurfaceStatus.OutOfMemory = 4 -> Vixen.Graphics.WebGPU.WgpuSurfaceStatus
+Vixen.Graphics.WebGPU.WgpuSurfaceStatus.Outdated = 2 -> Vixen.Graphics.WebGPU.WgpuSurfaceStatus
+Vixen.Graphics.WebGPU.WgpuSurfaceStatus.Success = 0 -> Vixen.Graphics.WebGPU.WgpuSurfaceStatus
+Vixen.Graphics.WebGPU.WgpuSurfaceStatus.Timeout = 1 -> Vixen.Graphics.WebGPU.WgpuSurfaceStatus
+Vixen.Graphics.WebGPU.WgpuSurfaceStatus.WgpuSurfaceStatus() -> void
+Vixen.Graphics.WebGPU.WgpuTextureAspect -> enum : uint
+Vixen.Graphics.WebGPU.WgpuTextureAspect.All = 0 -> Vixen.Graphics.WebGPU.WgpuTextureAspect
+Vixen.Graphics.WebGPU.WgpuTextureAspect.DepthOnly = 2 -> Vixen.Graphics.WebGPU.WgpuTextureAspect
+Vixen.Graphics.WebGPU.WgpuTextureAspect.StencilOnly = 1 -> Vixen.Graphics.WebGPU.WgpuTextureAspect
+Vixen.Graphics.WebGPU.WgpuTextureAspect.WgpuTextureAspect() -> void
+Vixen.Graphics.WebGPU.WgpuTextureDescriptor -> readonly struct
+Vixen.Graphics.WebGPU.WgpuTextureDescriptor : System.IEquatable<Vixen.Graphics.WebGPU.WgpuTextureDescriptor>
+Vixen.Graphics.WebGPU.WgpuTextureDescriptor.DepthOrArrayLayers.get -> int
+Vixen.Graphics.WebGPU.WgpuTextureDescriptor.DepthOrArrayLayers.init -> int
+Vixen.Graphics.WebGPU.WgpuTextureDescriptor.Dimension.get -> Vixen.Graphics.WebGPU.WgpuTextureDimension
+Vixen.Graphics.WebGPU.WgpuTextureDescriptor.Dimension.init -> Vixen.Graphics.WebGPU.WgpuTextureDimension
+Vixen.Graphics.WebGPU.WgpuTextureDescriptor.Format.get -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureDescriptor.Format.init -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureDescriptor.Height.get -> int
+Vixen.Graphics.WebGPU.WgpuTextureDescriptor.Height.init -> int
+Vixen.Graphics.WebGPU.WgpuTextureDescriptor.Label.get -> string
+Vixen.Graphics.WebGPU.WgpuTextureDescriptor.Label.init -> string
+Vixen.Graphics.WebGPU.WgpuTextureDescriptor.MipLevelCount.get -> int
+Vixen.Graphics.WebGPU.WgpuTextureDescriptor.MipLevelCount.init -> int
+Vixen.Graphics.WebGPU.WgpuTextureDescriptor.SampleCount.get -> int
+Vixen.Graphics.WebGPU.WgpuTextureDescriptor.SampleCount.init -> int
+Vixen.Graphics.WebGPU.WgpuTextureDescriptor.Usage.get -> Vixen.Graphics.WebGPU.WgpuTextureUsage
+Vixen.Graphics.WebGPU.WgpuTextureDescriptor.Usage.init -> Vixen.Graphics.WebGPU.WgpuTextureUsage
+Vixen.Graphics.WebGPU.WgpuTextureDescriptor.WgpuTextureDescriptor() -> void
+Vixen.Graphics.WebGPU.WgpuTextureDescriptor.WgpuTextureDescriptor(Vixen.Graphics.WebGPU.WgpuTextureFormat Format, int Width, int Height, int DepthOrArrayLayers, int MipLevelCount, int SampleCount, Vixen.Graphics.WebGPU.WgpuTextureDimension Dimension, Vixen.Graphics.WebGPU.WgpuTextureUsage Usage, string Label = "") -> void
+Vixen.Graphics.WebGPU.WgpuTextureDescriptor.Width.get -> int
+Vixen.Graphics.WebGPU.WgpuTextureDescriptor.Width.init -> int
+Vixen.Graphics.WebGPU.WgpuTextureDimension -> enum : uint
+Vixen.Graphics.WebGPU.WgpuTextureDimension.Dimension1D = 0 -> Vixen.Graphics.WebGPU.WgpuTextureDimension
+Vixen.Graphics.WebGPU.WgpuTextureDimension.Dimension2D = 1 -> Vixen.Graphics.WebGPU.WgpuTextureDimension
+Vixen.Graphics.WebGPU.WgpuTextureDimension.Dimension3D = 2 -> Vixen.Graphics.WebGPU.WgpuTextureDimension
+Vixen.Graphics.WebGPU.WgpuTextureDimension.WgpuTextureDimension() -> void
+Vixen.Graphics.WebGPU.WgpuTextureFormat -> enum : uint
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Astc4X4Unorm = 68 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Astc4X4UnormSrgb = 69 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Astc8X8Unorm = 82 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Astc8X8UnormSrgb = 83 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Bc1RgbaUnorm = 44 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Bc1RgbaUnormSrgb = 45 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Bc3RgbaUnorm = 48 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Bc3RgbaUnormSrgb = 49 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Bc4RUnorm = 50 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Bc5RgUnorm = 52 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Bc6HRgbUfloat = 54 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Bc7RgbaUnorm = 56 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Bc7RgbaUnormSrgb = 57 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Bgra8Unorm = 23 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Bgra8UnormSrgb = 24 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Depth16Unorm = 39 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Depth24Plus = 40 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Depth24PlusStencil8 = 41 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Depth32Float = 42 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Depth32FloatStencil8 = 43 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Etc2Rgb8A1Unorm = 60 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Etc2Rgba8Unorm = 62 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.R16Float = 7 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.R16Sint = 6 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.R16Uint = 5 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.R32Float = 12 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.R32Sint = 14 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.R32Uint = 13 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.R8Sint = 4 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.R8Snorm = 2 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.R8Uint = 3 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.R8Unorm = 1 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Rg11B10Ufloat = 27 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Rg16Float = 17 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Rg16Sint = 16 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Rg16Uint = 15 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Rg32Float = 29 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Rg32Sint = 31 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Rg32Uint = 30 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Rg8Sint = 11 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Rg8Snorm = 9 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Rg8Uint = 10 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Rg8Unorm = 8 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Rgb10A2Uint = 25 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Rgb10A2Unorm = 26 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Rgb9E5Ufloat = 28 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Rgba16Float = 34 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Rgba16Sint = 33 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Rgba16Uint = 32 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Rgba32Float = 35 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Rgba32Sint = 37 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Rgba32Uint = 36 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Rgba8Sint = 22 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Rgba8Snorm = 20 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Rgba8Uint = 21 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Rgba8Unorm = 18 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Rgba8UnormSrgb = 19 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Stencil8 = 38 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.Undefined = 0 -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureFormat.WgpuTextureFormat() -> void
+Vixen.Graphics.WebGPU.WgpuTextureSampleType -> enum : uint
+Vixen.Graphics.WebGPU.WgpuTextureSampleType.Depth = 3 -> Vixen.Graphics.WebGPU.WgpuTextureSampleType
+Vixen.Graphics.WebGPU.WgpuTextureSampleType.Float = 1 -> Vixen.Graphics.WebGPU.WgpuTextureSampleType
+Vixen.Graphics.WebGPU.WgpuTextureSampleType.Sint = 4 -> Vixen.Graphics.WebGPU.WgpuTextureSampleType
+Vixen.Graphics.WebGPU.WgpuTextureSampleType.Uint = 5 -> Vixen.Graphics.WebGPU.WgpuTextureSampleType
+Vixen.Graphics.WebGPU.WgpuTextureSampleType.Undefined = 0 -> Vixen.Graphics.WebGPU.WgpuTextureSampleType
+Vixen.Graphics.WebGPU.WgpuTextureSampleType.UnfilterableFloat = 2 -> Vixen.Graphics.WebGPU.WgpuTextureSampleType
+Vixen.Graphics.WebGPU.WgpuTextureSampleType.WgpuTextureSampleType() -> void
+Vixen.Graphics.WebGPU.WgpuTextureUsage -> enum : uint
+Vixen.Graphics.WebGPU.WgpuTextureUsage.CopyDst = 2 -> Vixen.Graphics.WebGPU.WgpuTextureUsage
+Vixen.Graphics.WebGPU.WgpuTextureUsage.CopySrc = 1 -> Vixen.Graphics.WebGPU.WgpuTextureUsage
+Vixen.Graphics.WebGPU.WgpuTextureUsage.None = 0 -> Vixen.Graphics.WebGPU.WgpuTextureUsage
+Vixen.Graphics.WebGPU.WgpuTextureUsage.RenderAttachment = 16 -> Vixen.Graphics.WebGPU.WgpuTextureUsage
+Vixen.Graphics.WebGPU.WgpuTextureUsage.StorageBinding = 8 -> Vixen.Graphics.WebGPU.WgpuTextureUsage
+Vixen.Graphics.WebGPU.WgpuTextureUsage.TextureBinding = 4 -> Vixen.Graphics.WebGPU.WgpuTextureUsage
+Vixen.Graphics.WebGPU.WgpuTextureUsage.WgpuTextureUsage() -> void
+Vixen.Graphics.WebGPU.WgpuTextureViewDescriptor -> readonly struct
+Vixen.Graphics.WebGPU.WgpuTextureViewDescriptor : System.IEquatable<Vixen.Graphics.WebGPU.WgpuTextureViewDescriptor>
+Vixen.Graphics.WebGPU.WgpuTextureViewDescriptor.ArrayLayerCount.get -> int
+Vixen.Graphics.WebGPU.WgpuTextureViewDescriptor.ArrayLayerCount.init -> int
+Vixen.Graphics.WebGPU.WgpuTextureViewDescriptor.Aspect.get -> Vixen.Graphics.WebGPU.WgpuTextureAspect
+Vixen.Graphics.WebGPU.WgpuTextureViewDescriptor.Aspect.init -> Vixen.Graphics.WebGPU.WgpuTextureAspect
+Vixen.Graphics.WebGPU.WgpuTextureViewDescriptor.BaseArrayLayer.get -> int
+Vixen.Graphics.WebGPU.WgpuTextureViewDescriptor.BaseArrayLayer.init -> int
+Vixen.Graphics.WebGPU.WgpuTextureViewDescriptor.BaseMipLevel.get -> int
+Vixen.Graphics.WebGPU.WgpuTextureViewDescriptor.BaseMipLevel.init -> int
+Vixen.Graphics.WebGPU.WgpuTextureViewDescriptor.Dimension.get -> Vixen.Graphics.WebGPU.WgpuTextureViewDimension
+Vixen.Graphics.WebGPU.WgpuTextureViewDescriptor.Dimension.init -> Vixen.Graphics.WebGPU.WgpuTextureViewDimension
+Vixen.Graphics.WebGPU.WgpuTextureViewDescriptor.Format.get -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureViewDescriptor.Format.init -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+Vixen.Graphics.WebGPU.WgpuTextureViewDescriptor.Label.get -> string
+Vixen.Graphics.WebGPU.WgpuTextureViewDescriptor.Label.init -> string
+Vixen.Graphics.WebGPU.WgpuTextureViewDescriptor.MipLevelCount.get -> int
+Vixen.Graphics.WebGPU.WgpuTextureViewDescriptor.MipLevelCount.init -> int
+Vixen.Graphics.WebGPU.WgpuTextureViewDescriptor.WgpuTextureViewDescriptor() -> void
+Vixen.Graphics.WebGPU.WgpuTextureViewDescriptor.WgpuTextureViewDescriptor(Vixen.Graphics.WebGPU.WgpuTextureFormat Format, Vixen.Graphics.WebGPU.WgpuTextureViewDimension Dimension, int BaseMipLevel, int MipLevelCount, int BaseArrayLayer, int ArrayLayerCount, Vixen.Graphics.WebGPU.WgpuTextureAspect Aspect, string Label = "") -> void
+Vixen.Graphics.WebGPU.WgpuTextureViewDimension -> enum : uint
+Vixen.Graphics.WebGPU.WgpuTextureViewDimension.Cube = 4 -> Vixen.Graphics.WebGPU.WgpuTextureViewDimension
+Vixen.Graphics.WebGPU.WgpuTextureViewDimension.CubeArray = 5 -> Vixen.Graphics.WebGPU.WgpuTextureViewDimension
+Vixen.Graphics.WebGPU.WgpuTextureViewDimension.Dimension1D = 1 -> Vixen.Graphics.WebGPU.WgpuTextureViewDimension
+Vixen.Graphics.WebGPU.WgpuTextureViewDimension.Dimension2D = 2 -> Vixen.Graphics.WebGPU.WgpuTextureViewDimension
+Vixen.Graphics.WebGPU.WgpuTextureViewDimension.Dimension2DArray = 3 -> Vixen.Graphics.WebGPU.WgpuTextureViewDimension
+Vixen.Graphics.WebGPU.WgpuTextureViewDimension.Dimension3D = 6 -> Vixen.Graphics.WebGPU.WgpuTextureViewDimension
+Vixen.Graphics.WebGPU.WgpuTextureViewDimension.Undefined = 0 -> Vixen.Graphics.WebGPU.WgpuTextureViewDimension
+Vixen.Graphics.WebGPU.WgpuTextureViewDimension.WgpuTextureViewDimension() -> void
+Vixen.Graphics.WebGPU.WgpuVertexBufferLayout -> readonly struct
+Vixen.Graphics.WebGPU.WgpuVertexBufferLayout : System.IEquatable<Vixen.Graphics.WebGPU.WgpuVertexBufferLayout>
+Vixen.Graphics.WebGPU.WgpuVertexBufferLayout.ArrayStride.get -> long
+Vixen.Graphics.WebGPU.WgpuVertexBufferLayout.ArrayStride.init -> long
+Vixen.Graphics.WebGPU.WgpuVertexBufferLayout.Attributes.get -> Vixen.Graphics.WebGPU.WgpuVertexElement[]
+Vixen.Graphics.WebGPU.WgpuVertexBufferLayout.Attributes.init -> Vixen.Graphics.WebGPU.WgpuVertexElement[]
+Vixen.Graphics.WebGPU.WgpuVertexBufferLayout.StepMode.get -> Vixen.Graphics.WebGPU.WgpuVertexStepMode
+Vixen.Graphics.WebGPU.WgpuVertexBufferLayout.StepMode.init -> Vixen.Graphics.WebGPU.WgpuVertexStepMode
+Vixen.Graphics.WebGPU.WgpuVertexBufferLayout.WgpuVertexBufferLayout() -> void
+Vixen.Graphics.WebGPU.WgpuVertexBufferLayout.WgpuVertexBufferLayout(long ArrayStride, Vixen.Graphics.WebGPU.WgpuVertexStepMode StepMode, Vixen.Graphics.WebGPU.WgpuVertexElement[] Attributes) -> void
+Vixen.Graphics.WebGPU.WgpuVertexElement -> readonly struct
+Vixen.Graphics.WebGPU.WgpuVertexElement : System.IEquatable<Vixen.Graphics.WebGPU.WgpuVertexElement>
+Vixen.Graphics.WebGPU.WgpuVertexElement.Format.get -> Vixen.Graphics.WebGPU.WgpuVertexFormat
+Vixen.Graphics.WebGPU.WgpuVertexElement.Format.init -> Vixen.Graphics.WebGPU.WgpuVertexFormat
+Vixen.Graphics.WebGPU.WgpuVertexElement.Offset.get -> long
+Vixen.Graphics.WebGPU.WgpuVertexElement.Offset.init -> long
+Vixen.Graphics.WebGPU.WgpuVertexElement.ShaderLocation.get -> uint
+Vixen.Graphics.WebGPU.WgpuVertexElement.ShaderLocation.init -> uint
+Vixen.Graphics.WebGPU.WgpuVertexElement.WgpuVertexElement() -> void
+Vixen.Graphics.WebGPU.WgpuVertexElement.WgpuVertexElement(Vixen.Graphics.WebGPU.WgpuVertexFormat Format, long Offset, uint ShaderLocation) -> void
+Vixen.Graphics.WebGPU.WgpuVertexFormat -> enum : uint
+Vixen.Graphics.WebGPU.WgpuVertexFormat.Float16X2 = 17 -> Vixen.Graphics.WebGPU.WgpuVertexFormat
+Vixen.Graphics.WebGPU.WgpuVertexFormat.Float16X4 = 18 -> Vixen.Graphics.WebGPU.WgpuVertexFormat
+Vixen.Graphics.WebGPU.WgpuVertexFormat.Float32 = 19 -> Vixen.Graphics.WebGPU.WgpuVertexFormat
+Vixen.Graphics.WebGPU.WgpuVertexFormat.Float32X2 = 20 -> Vixen.Graphics.WebGPU.WgpuVertexFormat
+Vixen.Graphics.WebGPU.WgpuVertexFormat.Float32X3 = 21 -> Vixen.Graphics.WebGPU.WgpuVertexFormat
+Vixen.Graphics.WebGPU.WgpuVertexFormat.Float32X4 = 22 -> Vixen.Graphics.WebGPU.WgpuVertexFormat
+Vixen.Graphics.WebGPU.WgpuVertexFormat.Snorm16X4 = 16 -> Vixen.Graphics.WebGPU.WgpuVertexFormat
+Vixen.Graphics.WebGPU.WgpuVertexFormat.Snorm8X4 = 8 -> Vixen.Graphics.WebGPU.WgpuVertexFormat
+Vixen.Graphics.WebGPU.WgpuVertexFormat.Uint32 = 23 -> Vixen.Graphics.WebGPU.WgpuVertexFormat
+Vixen.Graphics.WebGPU.WgpuVertexFormat.Uint8X4 = 2 -> Vixen.Graphics.WebGPU.WgpuVertexFormat
+Vixen.Graphics.WebGPU.WgpuVertexFormat.Undefined = 0 -> Vixen.Graphics.WebGPU.WgpuVertexFormat
+Vixen.Graphics.WebGPU.WgpuVertexFormat.Unorm16X2 = 13 -> Vixen.Graphics.WebGPU.WgpuVertexFormat
+Vixen.Graphics.WebGPU.WgpuVertexFormat.Unorm8X4 = 6 -> Vixen.Graphics.WebGPU.WgpuVertexFormat
+Vixen.Graphics.WebGPU.WgpuVertexFormat.WgpuVertexFormat() -> void
+Vixen.Graphics.WebGPU.WgpuVertexStepMode -> enum : uint
+Vixen.Graphics.WebGPU.WgpuVertexStepMode.Instance = 1 -> Vixen.Graphics.WebGPU.WgpuVertexStepMode
+Vixen.Graphics.WebGPU.WgpuVertexStepMode.Vertex = 0 -> Vixen.Graphics.WebGPU.WgpuVertexStepMode
+Vixen.Graphics.WebGPU.WgpuVertexStepMode.VertexBufferNotUsed = 2 -> Vixen.Graphics.WebGPU.WgpuVertexStepMode
+Vixen.Graphics.WebGPU.WgpuVertexStepMode.WgpuVertexStepMode() -> void
+const Vixen.Graphics.WebGPU.WebGpuCapabilities.PushConstantSize = 128 -> int
+const Vixen.Graphics.WebGPU.WebGpuDevice.EntryPoint = "main" -> string
+const Vixen.Graphics.WebGPU.WebGpuFormats.SupportedSampleCounts = 5 -> int
+static Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.LibraryPath.get -> string?
+static Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding.TryCreate(Vixen.Graphics.WebGPU.Native.NativeWebGpuOptions options, out Vixen.Graphics.WebGPU.Native.NativeWebGpuBinding? binding, out string? reason) -> bool
+static Vixen.Graphics.WebGPU.WebGpuCapabilities.Describe(in Vixen.Graphics.WebGPU.WebGpuLimits reported, Vixen.Graphics.WebGPU.WgpuAdapterType adapter, System.Func<Vixen.Graphics.WebGPU.WgpuFeatureName, bool> hasFeature) -> Vixen.Graphics.GraphicsDeviceFeatures
+static Vixen.Graphics.WebGPU.WebGpuCapabilities.Wanted(System.Func<Vixen.Graphics.WebGPU.WgpuFeatureName, bool> available) -> Vixen.Graphics.WebGPU.WgpuFeatureName[]
+static Vixen.Graphics.WebGPU.WebGpuConversions.IsStrip(Vixen.Graphics.PrimitiveTopology topology) -> bool
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToEngine(Vixen.Graphics.WebGPU.WgpuSurfaceStatus status, bool suboptimal) -> Vixen.Graphics.SwapChainStatus
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToMipmapFilter(Vixen.Graphics.FilterMode filter) -> Vixen.Graphics.WebGPU.WgpuMipmapFilterMode
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToViewDimension(Vixen.Graphics.TextureDimension dimension, int arrayLayers) -> Vixen.Graphics.WebGPU.WgpuTextureViewDimension
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.AddressMode mode) -> Vixen.Graphics.WebGPU.WgpuAddressMode
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.BlendFactor factor) -> Vixen.Graphics.WebGPU.WgpuBlendFactor
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.BlendOperation operation) -> Vixen.Graphics.WebGPU.WgpuBlendOperation
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.BufferUsage usage, Vixen.Graphics.MemoryAccess access) -> Vixen.Graphics.WebGPU.WgpuBufferUsage
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.ColourWriteMask mask) -> Vixen.Graphics.WebGPU.WgpuColorWriteMask
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.CompareFunction compare) -> Vixen.Graphics.WebGPU.WgpuCompareFunction
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.CullMode cull) -> Vixen.Graphics.WebGPU.WgpuCullMode
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.FilterMode filter) -> Vixen.Graphics.WebGPU.WgpuFilterMode
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.FrontFace face) -> Vixen.Graphics.WebGPU.WgpuFrontFace
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.IndexFormat format) -> Vixen.Graphics.WebGPU.WgpuIndexFormat
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.LoadAction load) -> Vixen.Graphics.WebGPU.WgpuLoadOp
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.PresentMode mode) -> Vixen.Graphics.WebGPU.WgpuPresentMode
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.PrimitiveTopology topology) -> Vixen.Graphics.WebGPU.WgpuPrimitiveTopology
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.ShaderStage stages) -> Vixen.Graphics.WebGPU.WgpuShaderStage
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.StencilOperation operation) -> Vixen.Graphics.WebGPU.WgpuStencilOperation
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.StoreAction store) -> Vixen.Graphics.WebGPU.WgpuStoreOp
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.TextureDimension dimension) -> Vixen.Graphics.WebGPU.WgpuTextureDimension
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(Vixen.Graphics.TextureUsage usage) -> Vixen.Graphics.WebGPU.WgpuTextureUsage
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(in Vixen.Graphics.BufferDescription description) -> Vixen.Graphics.WebGPU.WgpuBufferDescriptor
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(in Vixen.Graphics.ColourTargetState target) -> Vixen.Graphics.WebGPU.WgpuColourTargetState
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(in Vixen.Graphics.DepthStencilState state, Vixen.Graphics.PixelFormat format, in Vixen.Graphics.RasterizerState rasterizer) -> Vixen.Graphics.WebGPU.WgpuDepthStencilState
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(in Vixen.Graphics.DescriptorBinding binding) -> Vixen.Graphics.WebGPU.WgpuBindGroupLayoutEntry
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(in Vixen.Graphics.SamplerDescription description, bool anisotropySupported) -> Vixen.Graphics.WebGPU.WgpuSamplerDescriptor
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(in Vixen.Graphics.StencilFaceState face) -> Vixen.Graphics.WebGPU.WgpuStencilFaceState
+static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(in Vixen.Graphics.TextureDescription description) -> Vixen.Graphics.WebGPU.WgpuTextureDescriptor
+static Vixen.Graphics.WebGPU.WebGpuFormats.CanCopy(this Vixen.Graphics.PixelFormat format) -> bool
+static Vixen.Graphics.WebGPU.WebGpuFormats.Require(this Vixen.Graphics.PixelFormat format, string what) -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+static Vixen.Graphics.WebGPU.WebGpuFormats.SampleType(this Vixen.Graphics.PixelFormat format, bool float32Filterable) -> Vixen.Graphics.WebGPU.WgpuTextureSampleType
+static Vixen.Graphics.WebGPU.WebGpuFormats.SampledAspect(this Vixen.Graphics.PixelFormat format) -> Vixen.Graphics.WebGPU.WgpuTextureAspect
+static Vixen.Graphics.WebGPU.WebGpuFormats.ToEngine(this Vixen.Graphics.WebGPU.WgpuTextureFormat format) -> Vixen.Graphics.PixelFormat
+static Vixen.Graphics.WebGPU.WebGpuFormats.ToWebGpu(this Vixen.Graphics.PixelFormat format) -> Vixen.Graphics.WebGPU.WgpuTextureFormat
+static Vixen.Graphics.WebGPU.WebGpuFormats.ToWebGpu(this Vixen.Graphics.VertexFormat format) -> Vixen.Graphics.WebGPU.WgpuVertexFormat
+static Vixen.Graphics.WebGPU.WebGpuLimits.Guaranteed.get -> Vixen.Graphics.WebGPU.WebGpuLimits
+static Vixen.Graphics.WebGPU.WebGpuObject.Null.get -> Vixen.Graphics.WebGPU.WebGpuObject

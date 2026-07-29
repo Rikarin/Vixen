@@ -1,0 +1,90 @@
+#nullable enable
+Vixen.Ui.Styling.Utilities.ApplyExpander -> sealed class
+Vixen.Ui.Styling.Utilities.ApplyExpander.ApplyExpander(Vixen.Ui.Styling.Utilities.ThemeTokens tokens) -> void
+Vixen.Ui.Styling.Utilities.ApplyExpander.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Ui.Styling.Utilities.ApplyExpander.Expand(string css) -> string
+Vixen.Ui.Styling.Utilities.CandidateScanner -> static class
+Vixen.Ui.Styling.Utilities.DarkModeStrategy -> enum : byte
+Vixen.Ui.Styling.Utilities.DarkModeStrategy.Class = 1 -> Vixen.Ui.Styling.Utilities.DarkModeStrategy
+Vixen.Ui.Styling.Utilities.DarkModeStrategy.DarkModeStrategy() -> void
+Vixen.Ui.Styling.Utilities.DarkModeStrategy.Media = 0 -> Vixen.Ui.Styling.Utilities.DarkModeStrategy
+Vixen.Ui.Styling.Utilities.FontSizeToken -> readonly struct
+Vixen.Ui.Styling.Utilities.FontSizeToken : System.IEquatable<Vixen.Ui.Styling.Utilities.FontSizeToken>
+Vixen.Ui.Styling.Utilities.FontSizeToken.FontSizeToken() -> void
+Vixen.Ui.Styling.Utilities.FontSizeToken.FontSizeToken(float Size, float LineHeight) -> void
+Vixen.Ui.Styling.Utilities.FontSizeToken.LineHeight.get -> float
+Vixen.Ui.Styling.Utilities.FontSizeToken.LineHeight.init -> float
+Vixen.Ui.Styling.Utilities.FontSizeToken.Size.get -> float
+Vixen.Ui.Styling.Utilities.FontSizeToken.Size.init -> float
+Vixen.Ui.Styling.Utilities.ThemeTokens -> sealed class
+Vixen.Ui.Styling.Utilities.ThemeTokens.Colors.get -> System.Collections.Generic.Dictionary<string, string>
+Vixen.Ui.Styling.Utilities.ThemeTokens.Content.get -> System.Collections.Generic.List<string>
+Vixen.Ui.Styling.Utilities.ThemeTokens.DarkMode.get -> Vixen.Ui.Styling.Utilities.DarkModeStrategy
+Vixen.Ui.Styling.Utilities.ThemeTokens.DarkMode.set -> Vixen.Ui.Styling.Utilities.DarkModeStrategy
+Vixen.Ui.Styling.Utilities.ThemeTokens.Diagnostics.get -> System.Collections.Generic.List<string>
+Vixen.Ui.Styling.Utilities.ThemeTokens.FontSize.get -> System.Collections.Generic.Dictionary<string, Vixen.Ui.Styling.Utilities.FontSizeToken>
+Vixen.Ui.Styling.Utilities.ThemeTokens.FontWeight.get -> System.Collections.Generic.Dictionary<string, float>
+Vixen.Ui.Styling.Utilities.ThemeTokens.Radius.get -> System.Collections.Generic.Dictionary<string, float>
+Vixen.Ui.Styling.Utilities.ThemeTokens.Screens.get -> System.Collections.Generic.Dictionary<string, float>
+Vixen.Ui.Styling.Utilities.ThemeTokens.Shadow.get -> System.Collections.Generic.Dictionary<string, string>
+Vixen.Ui.Styling.Utilities.ThemeTokens.SpacingBase.get -> float
+Vixen.Ui.Styling.Utilities.ThemeTokens.SpacingBase.set -> float
+Vixen.Ui.Styling.Utilities.ThemeTokens.ThemeTokens() -> void
+Vixen.Ui.Styling.Utilities.ThemeTokens.TryGetColor(string name, out string value) -> bool
+Vixen.Ui.Styling.Utilities.UtilityCandidate -> readonly struct
+Vixen.Ui.Styling.Utilities.UtilityCandidate : System.IEquatable<Vixen.Ui.Styling.Utilities.UtilityCandidate>
+Vixen.Ui.Styling.Utilities.UtilityCandidate.Arbitrary.get -> string?
+Vixen.Ui.Styling.Utilities.UtilityCandidate.Arbitrary.init -> string?
+Vixen.Ui.Styling.Utilities.UtilityCandidate.Important.get -> bool
+Vixen.Ui.Styling.Utilities.UtilityCandidate.Important.init -> bool
+Vixen.Ui.Styling.Utilities.UtilityCandidate.Name.get -> string
+Vixen.Ui.Styling.Utilities.UtilityCandidate.Name.init -> string
+Vixen.Ui.Styling.Utilities.UtilityCandidate.Negative.get -> bool
+Vixen.Ui.Styling.Utilities.UtilityCandidate.Negative.init -> bool
+Vixen.Ui.Styling.Utilities.UtilityCandidate.Opacity.get -> float?
+Vixen.Ui.Styling.Utilities.UtilityCandidate.Opacity.init -> float?
+Vixen.Ui.Styling.Utilities.UtilityCandidate.Original.get -> string
+Vixen.Ui.Styling.Utilities.UtilityCandidate.Original.init -> string
+Vixen.Ui.Styling.Utilities.UtilityCandidate.SlashSuffix.get -> string?
+Vixen.Ui.Styling.Utilities.UtilityCandidate.SlashSuffix.init -> string?
+Vixen.Ui.Styling.Utilities.UtilityCandidate.UtilityCandidate() -> void
+Vixen.Ui.Styling.Utilities.UtilityCandidate.UtilityCandidate(string Original, System.Collections.Generic.IReadOnlyList<string> Variants, string Name, string Value, bool Negative, string? Arbitrary, float? Opacity, string? SlashSuffix, bool Important) -> void
+Vixen.Ui.Styling.Utilities.UtilityCandidate.Value.get -> string
+Vixen.Ui.Styling.Utilities.UtilityCandidate.Value.init -> string
+Vixen.Ui.Styling.Utilities.UtilityCandidate.Variants.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Ui.Styling.Utilities.UtilityCandidate.Variants.init -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Ui.Styling.Utilities.UtilityDeclaration -> readonly struct
+Vixen.Ui.Styling.Utilities.UtilityDeclaration : System.IEquatable<Vixen.Ui.Styling.Utilities.UtilityDeclaration>
+Vixen.Ui.Styling.Utilities.UtilityDeclaration.Property.get -> string
+Vixen.Ui.Styling.Utilities.UtilityDeclaration.Property.init -> string
+Vixen.Ui.Styling.Utilities.UtilityDeclaration.UtilityDeclaration() -> void
+Vixen.Ui.Styling.Utilities.UtilityDeclaration.UtilityDeclaration(string Property, string Value) -> void
+Vixen.Ui.Styling.Utilities.UtilityDeclaration.Value.get -> string
+Vixen.Ui.Styling.Utilities.UtilityDeclaration.Value.init -> string
+Vixen.Ui.Styling.Utilities.UtilityFamilies -> static class
+Vixen.Ui.Styling.Utilities.UtilityGenerator -> sealed class
+Vixen.Ui.Styling.Utilities.UtilityGenerator.Generate(System.Collections.Generic.IEnumerable<string> candidates) -> string
+Vixen.Ui.Styling.Utilities.UtilityGenerator.RuleCount.get -> int
+Vixen.Ui.Styling.Utilities.UtilityGenerator.Unrecognised.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Ui.Styling.Utilities.UtilityGenerator.UtilityGenerator(Vixen.Ui.Styling.Utilities.ThemeTokens tokens) -> void
+Vixen.Ui.Styling.Utilities.UtilityParser -> static class
+Vixen.Ui.Styling.Utilities.VariantEffect -> readonly struct
+Vixen.Ui.Styling.Utilities.VariantEffect : System.IEquatable<Vixen.Ui.Styling.Utilities.VariantEffect>
+Vixen.Ui.Styling.Utilities.VariantEffect.AtRule.get -> string?
+Vixen.Ui.Styling.Utilities.VariantEffect.AtRule.init -> string?
+Vixen.Ui.Styling.Utilities.VariantEffect.SelectorPrefix.get -> string
+Vixen.Ui.Styling.Utilities.VariantEffect.SelectorPrefix.init -> string
+Vixen.Ui.Styling.Utilities.VariantEffect.SelectorSuffix.get -> string
+Vixen.Ui.Styling.Utilities.VariantEffect.SelectorSuffix.init -> string
+Vixen.Ui.Styling.Utilities.VariantEffect.VariantEffect() -> void
+Vixen.Ui.Styling.Utilities.VariantEffect.VariantEffect(string SelectorSuffix, string SelectorPrefix, string? AtRule) -> void
+Vixen.Ui.Styling.Utilities.Variants -> static class
+const Vixen.Ui.Styling.Utilities.ThemeTokens.DefaultKey = "DEFAULT" -> string
+static Vixen.Ui.Styling.Utilities.CandidateScanner.Scan(string text, System.Collections.Generic.ISet<string> into) -> void
+static Vixen.Ui.Styling.Utilities.ThemeTokens.Parse(string yaml) -> Vixen.Ui.Styling.Utilities.ThemeTokens
+static Vixen.Ui.Styling.Utilities.UtilityFamilies.SplitName(string whole) -> (string Name, string Value)
+static Vixen.Ui.Styling.Utilities.UtilityFamilies.TryResolve(Vixen.Ui.Styling.Utilities.UtilityCandidate candidate, Vixen.Ui.Styling.Utilities.ThemeTokens tokens, System.Collections.Generic.List<Vixen.Ui.Styling.Utilities.UtilityDeclaration> declarations) -> bool
+static Vixen.Ui.Styling.Utilities.UtilityGenerator.Escape(string name) -> string
+static Vixen.Ui.Styling.Utilities.UtilityParser.TryParse(string candidate, out Vixen.Ui.Styling.Utilities.UtilityCandidate parsed) -> bool
+static Vixen.Ui.Styling.Utilities.Variants.IsArbitrary(Vixen.Ui.Styling.Utilities.VariantEffect effect) -> bool
+static Vixen.Ui.Styling.Utilities.Variants.TryResolve(string variant, Vixen.Ui.Styling.Utilities.ThemeTokens tokens, out Vixen.Ui.Styling.Utilities.VariantEffect effect) -> bool

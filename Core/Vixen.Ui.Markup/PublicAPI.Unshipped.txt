@@ -1,0 +1,601 @@
+#nullable enable
+Vixen.Ui.Markup.Binding.Binder -> sealed class
+Vixen.Ui.Markup.Binding.BoundAttribute -> sealed record
+Vixen.Ui.Markup.Binding.BoundAttribute : System.IEquatable<Vixen.Ui.Markup.Binding.BoundAttribute>
+Vixen.Ui.Markup.Binding.BoundAttribute.BoundAttribute(Vixen.Ui.Markup.Binding.BoundAttributeKind Kind, string Name, System.Collections.Immutable.ImmutableArray<string> Modifiers, System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundValuePart> Value, Vixen.Core.Syntax.Text.LinePositionSpan NamePosition) -> void
+Vixen.Ui.Markup.Binding.BoundAttribute.Expression.get -> Vixen.Ui.Markup.Binding.BoundExpression?
+Vixen.Ui.Markup.Binding.BoundAttribute.IsDynamic.get -> bool
+Vixen.Ui.Markup.Binding.BoundAttribute.Kind.get -> Vixen.Ui.Markup.Binding.BoundAttributeKind
+Vixen.Ui.Markup.Binding.BoundAttribute.Kind.init -> Vixen.Ui.Markup.Binding.BoundAttributeKind
+Vixen.Ui.Markup.Binding.BoundAttribute.Literal.get -> string?
+Vixen.Ui.Markup.Binding.BoundAttribute.Modifiers.get -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Ui.Markup.Binding.BoundAttribute.Modifiers.init -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Ui.Markup.Binding.BoundAttribute.Name.get -> string
+Vixen.Ui.Markup.Binding.BoundAttribute.Name.init -> string
+Vixen.Ui.Markup.Binding.BoundAttribute.NamePosition.get -> Vixen.Core.Syntax.Text.LinePositionSpan
+Vixen.Ui.Markup.Binding.BoundAttribute.NamePosition.init -> Vixen.Core.Syntax.Text.LinePositionSpan
+Vixen.Ui.Markup.Binding.BoundAttribute.Value.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundValuePart>
+Vixen.Ui.Markup.Binding.BoundAttribute.Value.init -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundValuePart>
+Vixen.Ui.Markup.Binding.BoundAttributeKind -> enum : int
+Vixen.Ui.Markup.Binding.BoundAttributeKind.Bind = 2 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
+Vixen.Ui.Markup.Binding.BoundAttributeKind.BoundAttributeKind() -> void
+Vixen.Ui.Markup.Binding.BoundAttributeKind.Event = 1 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
+Vixen.Ui.Markup.Binding.BoundAttributeKind.Key = 3 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
+Vixen.Ui.Markup.Binding.BoundAttributeKind.Parameter = 0 -> Vixen.Ui.Markup.Binding.BoundAttributeKind
+Vixen.Ui.Markup.Binding.BoundBranch -> sealed record
+Vixen.Ui.Markup.Binding.BoundBranch : System.IEquatable<Vixen.Ui.Markup.Binding.BoundBranch>
+Vixen.Ui.Markup.Binding.BoundBranch.Body.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
+Vixen.Ui.Markup.Binding.BoundBranch.Body.init -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
+Vixen.Ui.Markup.Binding.BoundBranch.BoundBranch(Vixen.Ui.Markup.Binding.BoundExpression Condition, System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode> Body) -> void
+Vixen.Ui.Markup.Binding.BoundBranch.Condition.get -> Vixen.Ui.Markup.Binding.BoundExpression
+Vixen.Ui.Markup.Binding.BoundBranch.Condition.init -> Vixen.Ui.Markup.Binding.BoundExpression
+Vixen.Ui.Markup.Binding.BoundCase -> sealed record
+Vixen.Ui.Markup.Binding.BoundCase : System.IEquatable<Vixen.Ui.Markup.Binding.BoundCase>
+Vixen.Ui.Markup.Binding.BoundCase.Body.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
+Vixen.Ui.Markup.Binding.BoundCase.Body.init -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
+Vixen.Ui.Markup.Binding.BoundCase.BoundCase(Vixen.Ui.Markup.Binding.BoundExpression? Pattern, System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode> Body) -> void
+Vixen.Ui.Markup.Binding.BoundCase.Pattern.get -> Vixen.Ui.Markup.Binding.BoundExpression?
+Vixen.Ui.Markup.Binding.BoundCase.Pattern.init -> Vixen.Ui.Markup.Binding.BoundExpression?
+Vixen.Ui.Markup.Binding.BoundComponent -> sealed record
+Vixen.Ui.Markup.Binding.BoundComponent : System.IEquatable<Vixen.Ui.Markup.Binding.BoundComponent>
+Vixen.Ui.Markup.Binding.BoundComponent.BoundComponent(string Name, string? Namespace, System.Collections.Immutable.ImmutableArray<string> Usings, System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundExpression> Code, System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode> Content, string? Css, bool CssIsScoped) -> void
+Vixen.Ui.Markup.Binding.BoundComponent.Code.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundExpression>
+Vixen.Ui.Markup.Binding.BoundComponent.Code.init -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundExpression>
+Vixen.Ui.Markup.Binding.BoundComponent.Content.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
+Vixen.Ui.Markup.Binding.BoundComponent.Content.init -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
+Vixen.Ui.Markup.Binding.BoundComponent.Css.get -> string?
+Vixen.Ui.Markup.Binding.BoundComponent.Css.init -> string?
+Vixen.Ui.Markup.Binding.BoundComponent.CssIsScoped.get -> bool
+Vixen.Ui.Markup.Binding.BoundComponent.CssIsScoped.init -> bool
+Vixen.Ui.Markup.Binding.BoundComponent.Name.get -> string
+Vixen.Ui.Markup.Binding.BoundComponent.Name.init -> string
+Vixen.Ui.Markup.Binding.BoundComponent.Namespace.get -> string?
+Vixen.Ui.Markup.Binding.BoundComponent.Namespace.init -> string?
+Vixen.Ui.Markup.Binding.BoundComponent.Usings.get -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Ui.Markup.Binding.BoundComponent.Usings.init -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Ui.Markup.Binding.BoundElement -> sealed record
+Vixen.Ui.Markup.Binding.BoundElement : System.IEquatable<Vixen.Ui.Markup.Binding.BoundElement>
+Vixen.Ui.Markup.Binding.BoundElement : Vixen.Ui.Markup.Binding.BoundNode
+Vixen.Ui.Markup.Binding.BoundElement.Attributes.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundAttribute>
+Vixen.Ui.Markup.Binding.BoundElement.Attributes.init -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundAttribute>
+Vixen.Ui.Markup.Binding.BoundElement.BoundElement(string Tag, bool IsComponent, System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundAttribute> Attributes, System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode> Children, Vixen.Core.Syntax.Text.LinePositionSpan TagPosition) -> void
+Vixen.Ui.Markup.Binding.BoundElement.Children.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
+Vixen.Ui.Markup.Binding.BoundElement.Children.init -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
+Vixen.Ui.Markup.Binding.BoundElement.IsComponent.get -> bool
+Vixen.Ui.Markup.Binding.BoundElement.IsComponent.init -> bool
+Vixen.Ui.Markup.Binding.BoundElement.Key.get -> Vixen.Ui.Markup.Binding.BoundExpression?
+Vixen.Ui.Markup.Binding.BoundElement.Tag.get -> string
+Vixen.Ui.Markup.Binding.BoundElement.Tag.init -> string
+Vixen.Ui.Markup.Binding.BoundElement.TagPosition.get -> Vixen.Core.Syntax.Text.LinePositionSpan
+Vixen.Ui.Markup.Binding.BoundElement.TagPosition.init -> Vixen.Core.Syntax.Text.LinePositionSpan
+Vixen.Ui.Markup.Binding.BoundExpression -> sealed record
+Vixen.Ui.Markup.Binding.BoundExpression : System.IEquatable<Vixen.Ui.Markup.Binding.BoundExpression>
+Vixen.Ui.Markup.Binding.BoundExpression.BoundExpression(string Text, Vixen.Core.Syntax.Text.LinePositionSpan Position) -> void
+Vixen.Ui.Markup.Binding.BoundExpression.Position.get -> Vixen.Core.Syntax.Text.LinePositionSpan
+Vixen.Ui.Markup.Binding.BoundExpression.Position.init -> Vixen.Core.Syntax.Text.LinePositionSpan
+Vixen.Ui.Markup.Binding.BoundExpression.Text.get -> string
+Vixen.Ui.Markup.Binding.BoundExpression.Text.init -> string
+Vixen.Ui.Markup.Binding.BoundExpressionPart -> sealed record
+Vixen.Ui.Markup.Binding.BoundExpressionPart : System.IEquatable<Vixen.Ui.Markup.Binding.BoundExpressionPart>
+Vixen.Ui.Markup.Binding.BoundExpressionPart : Vixen.Ui.Markup.Binding.BoundValuePart
+Vixen.Ui.Markup.Binding.BoundExpressionPart.BoundExpressionPart(Vixen.Ui.Markup.Binding.BoundExpression Expression) -> void
+Vixen.Ui.Markup.Binding.BoundExpressionPart.Expression.get -> Vixen.Ui.Markup.Binding.BoundExpression
+Vixen.Ui.Markup.Binding.BoundExpressionPart.Expression.init -> Vixen.Ui.Markup.Binding.BoundExpression
+Vixen.Ui.Markup.Binding.BoundFor -> sealed record
+Vixen.Ui.Markup.Binding.BoundFor : System.IEquatable<Vixen.Ui.Markup.Binding.BoundFor>
+Vixen.Ui.Markup.Binding.BoundFor : Vixen.Ui.Markup.Binding.BoundNode
+Vixen.Ui.Markup.Binding.BoundFor.Body.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
+Vixen.Ui.Markup.Binding.BoundFor.Body.init -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
+Vixen.Ui.Markup.Binding.BoundFor.BoundFor(string Variable, Vixen.Ui.Markup.Binding.BoundExpression Sequence, Vixen.Ui.Markup.Binding.BoundExpression? Key, System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode> Body) -> void
+Vixen.Ui.Markup.Binding.BoundFor.Key.get -> Vixen.Ui.Markup.Binding.BoundExpression?
+Vixen.Ui.Markup.Binding.BoundFor.Key.init -> Vixen.Ui.Markup.Binding.BoundExpression?
+Vixen.Ui.Markup.Binding.BoundFor.Sequence.get -> Vixen.Ui.Markup.Binding.BoundExpression
+Vixen.Ui.Markup.Binding.BoundFor.Sequence.init -> Vixen.Ui.Markup.Binding.BoundExpression
+Vixen.Ui.Markup.Binding.BoundFor.Variable.get -> string
+Vixen.Ui.Markup.Binding.BoundFor.Variable.init -> string
+Vixen.Ui.Markup.Binding.BoundIf -> sealed record
+Vixen.Ui.Markup.Binding.BoundIf : System.IEquatable<Vixen.Ui.Markup.Binding.BoundIf>
+Vixen.Ui.Markup.Binding.BoundIf : Vixen.Ui.Markup.Binding.BoundNode
+Vixen.Ui.Markup.Binding.BoundIf.BoundIf(System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundBranch> Branches, System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode> Else) -> void
+Vixen.Ui.Markup.Binding.BoundIf.Branches.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundBranch>
+Vixen.Ui.Markup.Binding.BoundIf.Branches.init -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundBranch>
+Vixen.Ui.Markup.Binding.BoundIf.Else.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
+Vixen.Ui.Markup.Binding.BoundIf.Else.init -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundNode>
+Vixen.Ui.Markup.Binding.BoundInterpolation -> sealed record
+Vixen.Ui.Markup.Binding.BoundInterpolation : System.IEquatable<Vixen.Ui.Markup.Binding.BoundInterpolation>
+Vixen.Ui.Markup.Binding.BoundInterpolation : Vixen.Ui.Markup.Binding.BoundNode
+Vixen.Ui.Markup.Binding.BoundInterpolation.BoundInterpolation(Vixen.Ui.Markup.Binding.BoundExpression Expression) -> void
+Vixen.Ui.Markup.Binding.BoundInterpolation.Expression.get -> Vixen.Ui.Markup.Binding.BoundExpression
+Vixen.Ui.Markup.Binding.BoundInterpolation.Expression.init -> Vixen.Ui.Markup.Binding.BoundExpression
+Vixen.Ui.Markup.Binding.BoundLiteralPart -> sealed record
+Vixen.Ui.Markup.Binding.BoundLiteralPart : System.IEquatable<Vixen.Ui.Markup.Binding.BoundLiteralPart>
+Vixen.Ui.Markup.Binding.BoundLiteralPart : Vixen.Ui.Markup.Binding.BoundValuePart
+Vixen.Ui.Markup.Binding.BoundLiteralPart.BoundLiteralPart(string Text) -> void
+Vixen.Ui.Markup.Binding.BoundLiteralPart.Text.get -> string
+Vixen.Ui.Markup.Binding.BoundLiteralPart.Text.init -> string
+Vixen.Ui.Markup.Binding.BoundNode -> abstract record
+Vixen.Ui.Markup.Binding.BoundNode : System.IEquatable<Vixen.Ui.Markup.Binding.BoundNode>
+Vixen.Ui.Markup.Binding.BoundNode.BoundNode() -> void
+Vixen.Ui.Markup.Binding.BoundSlot -> sealed record
+Vixen.Ui.Markup.Binding.BoundSlot : System.IEquatable<Vixen.Ui.Markup.Binding.BoundSlot>
+Vixen.Ui.Markup.Binding.BoundSlot : Vixen.Ui.Markup.Binding.BoundNode
+Vixen.Ui.Markup.Binding.BoundSlot.BoundSlot(string Name) -> void
+Vixen.Ui.Markup.Binding.BoundSlot.Name.get -> string
+Vixen.Ui.Markup.Binding.BoundSlot.Name.init -> string
+Vixen.Ui.Markup.Binding.BoundSwitch -> sealed record
+Vixen.Ui.Markup.Binding.BoundSwitch : System.IEquatable<Vixen.Ui.Markup.Binding.BoundSwitch>
+Vixen.Ui.Markup.Binding.BoundSwitch : Vixen.Ui.Markup.Binding.BoundNode
+Vixen.Ui.Markup.Binding.BoundSwitch.BoundSwitch(Vixen.Ui.Markup.Binding.BoundExpression Subject, System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundCase> Cases) -> void
+Vixen.Ui.Markup.Binding.BoundSwitch.Cases.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundCase>
+Vixen.Ui.Markup.Binding.BoundSwitch.Cases.init -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Markup.Binding.BoundCase>
+Vixen.Ui.Markup.Binding.BoundSwitch.Subject.get -> Vixen.Ui.Markup.Binding.BoundExpression
+Vixen.Ui.Markup.Binding.BoundSwitch.Subject.init -> Vixen.Ui.Markup.Binding.BoundExpression
+Vixen.Ui.Markup.Binding.BoundText -> sealed record
+Vixen.Ui.Markup.Binding.BoundText : System.IEquatable<Vixen.Ui.Markup.Binding.BoundText>
+Vixen.Ui.Markup.Binding.BoundText : Vixen.Ui.Markup.Binding.BoundNode
+Vixen.Ui.Markup.Binding.BoundText.BoundText(string Text) -> void
+Vixen.Ui.Markup.Binding.BoundText.Text.get -> string
+Vixen.Ui.Markup.Binding.BoundText.Text.init -> string
+Vixen.Ui.Markup.Binding.BoundValuePart -> abstract record
+Vixen.Ui.Markup.Binding.BoundValuePart : System.IEquatable<Vixen.Ui.Markup.Binding.BoundValuePart>
+Vixen.Ui.Markup.Binding.BoundValuePart.BoundValuePart() -> void
+Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics -> static class
+Vixen.Ui.Markup.Emit.ComponentEmitter -> sealed class
+Vixen.Ui.Markup.Syntax.AttributeSyntax -> sealed class
+Vixen.Ui.Markup.Syntax.AttributeSyntax : Vixen.Ui.Markup.Syntax.VxmlSyntaxNode
+Vixen.Ui.Markup.Syntax.AttributeSyntax.EqualsToken.get -> Vixen.Core.Syntax.SyntaxToken?
+Vixen.Ui.Markup.Syntax.AttributeSyntax.Name.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.AttributeSyntax.Update(Vixen.Core.Syntax.SyntaxToken name, Vixen.Core.Syntax.SyntaxToken? equalsToken, Vixen.Ui.Markup.Syntax.AttributeValueSyntax? value) -> Vixen.Ui.Markup.Syntax.AttributeSyntax
+Vixen.Ui.Markup.Syntax.AttributeSyntax.Value.get -> Vixen.Ui.Markup.Syntax.AttributeValueSyntax?
+Vixen.Ui.Markup.Syntax.AttributeSyntax.WithEqualsToken(Vixen.Core.Syntax.SyntaxToken equalsToken) -> Vixen.Ui.Markup.Syntax.AttributeSyntax
+Vixen.Ui.Markup.Syntax.AttributeSyntax.WithName(Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.AttributeSyntax
+Vixen.Ui.Markup.Syntax.AttributeSyntax.WithValue(Vixen.Ui.Markup.Syntax.AttributeValueSyntax? value) -> Vixen.Ui.Markup.Syntax.AttributeSyntax
+Vixen.Ui.Markup.Syntax.AttributeValueSyntax -> abstract class
+Vixen.Ui.Markup.Syntax.AttributeValueSyntax : Vixen.Ui.Markup.Syntax.VxmlSyntaxNode
+Vixen.Ui.Markup.Syntax.CodeBlockSyntax -> sealed class
+Vixen.Ui.Markup.Syntax.CodeBlockSyntax : Vixen.Ui.Markup.Syntax.MarkupSyntax
+Vixen.Ui.Markup.Syntax.CodeBlockSyntax.Body.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.CodeBlockSyntax.CloseBraceToken.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.CodeBlockSyntax.CodeKeyword.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.CodeBlockSyntax.OpenBraceToken.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.CodeBlockSyntax.Update(Vixen.Core.Syntax.SyntaxToken codeKeyword, Vixen.Core.Syntax.SyntaxToken openBraceToken, Vixen.Core.Syntax.SyntaxToken body, Vixen.Core.Syntax.SyntaxToken closeBraceToken) -> Vixen.Ui.Markup.Syntax.CodeBlockSyntax
+Vixen.Ui.Markup.Syntax.CodeBlockSyntax.WithBody(Vixen.Core.Syntax.SyntaxToken body) -> Vixen.Ui.Markup.Syntax.CodeBlockSyntax
+Vixen.Ui.Markup.Syntax.CodeBlockSyntax.WithCloseBraceToken(Vixen.Core.Syntax.SyntaxToken closeBraceToken) -> Vixen.Ui.Markup.Syntax.CodeBlockSyntax
+Vixen.Ui.Markup.Syntax.CodeBlockSyntax.WithCodeKeyword(Vixen.Core.Syntax.SyntaxToken codeKeyword) -> Vixen.Ui.Markup.Syntax.CodeBlockSyntax
+Vixen.Ui.Markup.Syntax.CodeBlockSyntax.WithOpenBraceToken(Vixen.Core.Syntax.SyntaxToken openBraceToken) -> Vixen.Ui.Markup.Syntax.CodeBlockSyntax
+Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax -> sealed class
+Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax : Vixen.Ui.Markup.Syntax.VxmlSyntaxNode
+Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax.ComponentKeyword.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax.Identifier.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax.Update(Vixen.Core.Syntax.SyntaxToken componentKeyword, Vixen.Core.Syntax.SyntaxToken identifier) -> Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax
+Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax.WithComponentKeyword(Vixen.Core.Syntax.SyntaxToken componentKeyword) -> Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax
+Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax.WithIdentifier(Vixen.Core.Syntax.SyntaxToken identifier) -> Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax
+Vixen.Ui.Markup.Syntax.DocumentSyntax -> sealed class
+Vixen.Ui.Markup.Syntax.DocumentSyntax : Vixen.Ui.Markup.Syntax.VxmlSyntaxNode
+Vixen.Ui.Markup.Syntax.DocumentSyntax.Component.get -> Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax?
+Vixen.Ui.Markup.Syntax.DocumentSyntax.Content.get -> Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax>
+Vixen.Ui.Markup.Syntax.DocumentSyntax.EndOfFileToken.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.DocumentSyntax.Namespace.get -> Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax?
+Vixen.Ui.Markup.Syntax.DocumentSyntax.Update(Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax? component, Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax? namespace, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax> usings, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax> content, Vixen.Core.Syntax.SyntaxToken endOfFileToken) -> Vixen.Ui.Markup.Syntax.DocumentSyntax
+Vixen.Ui.Markup.Syntax.DocumentSyntax.Usings.get -> Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax>
+Vixen.Ui.Markup.Syntax.DocumentSyntax.WithComponent(Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax? component) -> Vixen.Ui.Markup.Syntax.DocumentSyntax
+Vixen.Ui.Markup.Syntax.DocumentSyntax.WithContent(Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax> content) -> Vixen.Ui.Markup.Syntax.DocumentSyntax
+Vixen.Ui.Markup.Syntax.DocumentSyntax.WithEndOfFileToken(Vixen.Core.Syntax.SyntaxToken endOfFileToken) -> Vixen.Ui.Markup.Syntax.DocumentSyntax
+Vixen.Ui.Markup.Syntax.DocumentSyntax.WithNamespace(Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax? namespace) -> Vixen.Ui.Markup.Syntax.DocumentSyntax
+Vixen.Ui.Markup.Syntax.DocumentSyntax.WithUsings(Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax> usings) -> Vixen.Ui.Markup.Syntax.DocumentSyntax
+Vixen.Ui.Markup.Syntax.ElementSyntax -> sealed class
+Vixen.Ui.Markup.Syntax.ElementSyntax : Vixen.Ui.Markup.Syntax.MarkupSyntax
+Vixen.Ui.Markup.Syntax.ElementSyntax.Content.get -> Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax>
+Vixen.Ui.Markup.Syntax.ElementSyntax.EndTag.get -> Vixen.Ui.Markup.Syntax.EndTagSyntax?
+Vixen.Ui.Markup.Syntax.ElementSyntax.StartTag.get -> Vixen.Ui.Markup.Syntax.StartTagSyntax
+Vixen.Ui.Markup.Syntax.ElementSyntax.Update(Vixen.Ui.Markup.Syntax.StartTagSyntax startTag, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax> content, Vixen.Ui.Markup.Syntax.EndTagSyntax? endTag) -> Vixen.Ui.Markup.Syntax.ElementSyntax
+Vixen.Ui.Markup.Syntax.ElementSyntax.WithContent(Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax> content) -> Vixen.Ui.Markup.Syntax.ElementSyntax
+Vixen.Ui.Markup.Syntax.ElementSyntax.WithEndTag(Vixen.Ui.Markup.Syntax.EndTagSyntax? endTag) -> Vixen.Ui.Markup.Syntax.ElementSyntax
+Vixen.Ui.Markup.Syntax.ElementSyntax.WithStartTag(Vixen.Ui.Markup.Syntax.StartTagSyntax startTag) -> Vixen.Ui.Markup.Syntax.ElementSyntax
+Vixen.Ui.Markup.Syntax.ElseClauseSyntax -> sealed class
+Vixen.Ui.Markup.Syntax.ElseClauseSyntax : Vixen.Ui.Markup.Syntax.VxmlSyntaxNode
+Vixen.Ui.Markup.Syntax.ElseClauseSyntax.Body.get -> Vixen.Ui.Markup.Syntax.MarkupSyntax
+Vixen.Ui.Markup.Syntax.ElseClauseSyntax.ElseKeyword.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.ElseClauseSyntax.Update(Vixen.Core.Syntax.SyntaxToken elseKeyword, Vixen.Ui.Markup.Syntax.MarkupSyntax body) -> Vixen.Ui.Markup.Syntax.ElseClauseSyntax
+Vixen.Ui.Markup.Syntax.ElseClauseSyntax.WithBody(Vixen.Ui.Markup.Syntax.MarkupSyntax body) -> Vixen.Ui.Markup.Syntax.ElseClauseSyntax
+Vixen.Ui.Markup.Syntax.ElseClauseSyntax.WithElseKeyword(Vixen.Core.Syntax.SyntaxToken elseKeyword) -> Vixen.Ui.Markup.Syntax.ElseClauseSyntax
+Vixen.Ui.Markup.Syntax.EndTagSyntax -> sealed class
+Vixen.Ui.Markup.Syntax.EndTagSyntax : Vixen.Ui.Markup.Syntax.VxmlSyntaxNode
+Vixen.Ui.Markup.Syntax.EndTagSyntax.GreaterThanToken.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.EndTagSyntax.LessThanSlashToken.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.EndTagSyntax.Name.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.EndTagSyntax.Update(Vixen.Core.Syntax.SyntaxToken lessThanSlashToken, Vixen.Core.Syntax.SyntaxToken name, Vixen.Core.Syntax.SyntaxToken greaterThanToken) -> Vixen.Ui.Markup.Syntax.EndTagSyntax
+Vixen.Ui.Markup.Syntax.EndTagSyntax.WithGreaterThanToken(Vixen.Core.Syntax.SyntaxToken greaterThanToken) -> Vixen.Ui.Markup.Syntax.EndTagSyntax
+Vixen.Ui.Markup.Syntax.EndTagSyntax.WithLessThanSlashToken(Vixen.Core.Syntax.SyntaxToken lessThanSlashToken) -> Vixen.Ui.Markup.Syntax.EndTagSyntax
+Vixen.Ui.Markup.Syntax.EndTagSyntax.WithName(Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.EndTagSyntax
+Vixen.Ui.Markup.Syntax.ExpressionAttributeValueSyntax -> sealed class
+Vixen.Ui.Markup.Syntax.ExpressionAttributeValueSyntax : Vixen.Ui.Markup.Syntax.AttributeValueSyntax
+Vixen.Ui.Markup.Syntax.ExpressionAttributeValueSyntax.Expression.get -> Vixen.Ui.Markup.Syntax.InterpolationSyntax
+Vixen.Ui.Markup.Syntax.ExpressionAttributeValueSyntax.Update(Vixen.Ui.Markup.Syntax.InterpolationSyntax expression) -> Vixen.Ui.Markup.Syntax.ExpressionAttributeValueSyntax
+Vixen.Ui.Markup.Syntax.ExpressionAttributeValueSyntax.WithExpression(Vixen.Ui.Markup.Syntax.InterpolationSyntax expression) -> Vixen.Ui.Markup.Syntax.ExpressionAttributeValueSyntax
+Vixen.Ui.Markup.Syntax.ForSyntax -> sealed class
+Vixen.Ui.Markup.Syntax.ForSyntax : Vixen.Ui.Markup.Syntax.MarkupSyntax
+Vixen.Ui.Markup.Syntax.ForSyntax.Body.get -> Vixen.Ui.Markup.Syntax.MarkupBlockSyntax
+Vixen.Ui.Markup.Syntax.ForSyntax.CloseParenToken.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.ForSyntax.ForKeyword.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.ForSyntax.Identifier.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.ForSyntax.InKeyword.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.ForSyntax.OpenParenToken.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.ForSyntax.Sequence.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.ForSyntax.Update(Vixen.Core.Syntax.SyntaxToken forKeyword, Vixen.Core.Syntax.SyntaxToken openParenToken, Vixen.Core.Syntax.SyntaxToken varKeyword, Vixen.Core.Syntax.SyntaxToken identifier, Vixen.Core.Syntax.SyntaxToken inKeyword, Vixen.Core.Syntax.SyntaxToken sequence, Vixen.Core.Syntax.SyntaxToken closeParenToken, Vixen.Ui.Markup.Syntax.MarkupBlockSyntax body) -> Vixen.Ui.Markup.Syntax.ForSyntax
+Vixen.Ui.Markup.Syntax.ForSyntax.VarKeyword.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.ForSyntax.WithBody(Vixen.Ui.Markup.Syntax.MarkupBlockSyntax body) -> Vixen.Ui.Markup.Syntax.ForSyntax
+Vixen.Ui.Markup.Syntax.ForSyntax.WithCloseParenToken(Vixen.Core.Syntax.SyntaxToken closeParenToken) -> Vixen.Ui.Markup.Syntax.ForSyntax
+Vixen.Ui.Markup.Syntax.ForSyntax.WithForKeyword(Vixen.Core.Syntax.SyntaxToken forKeyword) -> Vixen.Ui.Markup.Syntax.ForSyntax
+Vixen.Ui.Markup.Syntax.ForSyntax.WithIdentifier(Vixen.Core.Syntax.SyntaxToken identifier) -> Vixen.Ui.Markup.Syntax.ForSyntax
+Vixen.Ui.Markup.Syntax.ForSyntax.WithInKeyword(Vixen.Core.Syntax.SyntaxToken inKeyword) -> Vixen.Ui.Markup.Syntax.ForSyntax
+Vixen.Ui.Markup.Syntax.ForSyntax.WithOpenParenToken(Vixen.Core.Syntax.SyntaxToken openParenToken) -> Vixen.Ui.Markup.Syntax.ForSyntax
+Vixen.Ui.Markup.Syntax.ForSyntax.WithSequence(Vixen.Core.Syntax.SyntaxToken sequence) -> Vixen.Ui.Markup.Syntax.ForSyntax
+Vixen.Ui.Markup.Syntax.ForSyntax.WithVarKeyword(Vixen.Core.Syntax.SyntaxToken varKeyword) -> Vixen.Ui.Markup.Syntax.ForSyntax
+Vixen.Ui.Markup.Syntax.IfSyntax -> sealed class
+Vixen.Ui.Markup.Syntax.IfSyntax : Vixen.Ui.Markup.Syntax.MarkupSyntax
+Vixen.Ui.Markup.Syntax.IfSyntax.Body.get -> Vixen.Ui.Markup.Syntax.MarkupBlockSyntax
+Vixen.Ui.Markup.Syntax.IfSyntax.CloseParenToken.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.IfSyntax.Condition.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.IfSyntax.Else.get -> Vixen.Ui.Markup.Syntax.ElseClauseSyntax?
+Vixen.Ui.Markup.Syntax.IfSyntax.IfKeyword.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.IfSyntax.OpenParenToken.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.IfSyntax.Update(Vixen.Core.Syntax.SyntaxToken ifKeyword, Vixen.Core.Syntax.SyntaxToken openParenToken, Vixen.Core.Syntax.SyntaxToken condition, Vixen.Core.Syntax.SyntaxToken closeParenToken, Vixen.Ui.Markup.Syntax.MarkupBlockSyntax body, Vixen.Ui.Markup.Syntax.ElseClauseSyntax? else) -> Vixen.Ui.Markup.Syntax.IfSyntax
+Vixen.Ui.Markup.Syntax.IfSyntax.WithBody(Vixen.Ui.Markup.Syntax.MarkupBlockSyntax body) -> Vixen.Ui.Markup.Syntax.IfSyntax
+Vixen.Ui.Markup.Syntax.IfSyntax.WithCloseParenToken(Vixen.Core.Syntax.SyntaxToken closeParenToken) -> Vixen.Ui.Markup.Syntax.IfSyntax
+Vixen.Ui.Markup.Syntax.IfSyntax.WithCondition(Vixen.Core.Syntax.SyntaxToken condition) -> Vixen.Ui.Markup.Syntax.IfSyntax
+Vixen.Ui.Markup.Syntax.IfSyntax.WithElse(Vixen.Ui.Markup.Syntax.ElseClauseSyntax? else) -> Vixen.Ui.Markup.Syntax.IfSyntax
+Vixen.Ui.Markup.Syntax.IfSyntax.WithIfKeyword(Vixen.Core.Syntax.SyntaxToken ifKeyword) -> Vixen.Ui.Markup.Syntax.IfSyntax
+Vixen.Ui.Markup.Syntax.IfSyntax.WithOpenParenToken(Vixen.Core.Syntax.SyntaxToken openParenToken) -> Vixen.Ui.Markup.Syntax.IfSyntax
+Vixen.Ui.Markup.Syntax.InterpolationSyntax -> sealed class
+Vixen.Ui.Markup.Syntax.InterpolationSyntax : Vixen.Ui.Markup.Syntax.MarkupSyntax
+Vixen.Ui.Markup.Syntax.InterpolationSyntax.AtToken.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.InterpolationSyntax.Expression.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.InterpolationSyntax.Update(Vixen.Core.Syntax.SyntaxToken atToken, Vixen.Core.Syntax.SyntaxToken expression) -> Vixen.Ui.Markup.Syntax.InterpolationSyntax
+Vixen.Ui.Markup.Syntax.InterpolationSyntax.WithAtToken(Vixen.Core.Syntax.SyntaxToken atToken) -> Vixen.Ui.Markup.Syntax.InterpolationSyntax
+Vixen.Ui.Markup.Syntax.InterpolationSyntax.WithExpression(Vixen.Core.Syntax.SyntaxToken expression) -> Vixen.Ui.Markup.Syntax.InterpolationSyntax
+Vixen.Ui.Markup.Syntax.MarkupBlockSyntax -> sealed class
+Vixen.Ui.Markup.Syntax.MarkupBlockSyntax : Vixen.Ui.Markup.Syntax.MarkupSyntax
+Vixen.Ui.Markup.Syntax.MarkupBlockSyntax.CloseBraceToken.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.MarkupBlockSyntax.Content.get -> Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax>
+Vixen.Ui.Markup.Syntax.MarkupBlockSyntax.OpenBraceToken.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.MarkupBlockSyntax.Update(Vixen.Core.Syntax.SyntaxToken openBraceToken, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax> content, Vixen.Core.Syntax.SyntaxToken closeBraceToken) -> Vixen.Ui.Markup.Syntax.MarkupBlockSyntax
+Vixen.Ui.Markup.Syntax.MarkupBlockSyntax.WithCloseBraceToken(Vixen.Core.Syntax.SyntaxToken closeBraceToken) -> Vixen.Ui.Markup.Syntax.MarkupBlockSyntax
+Vixen.Ui.Markup.Syntax.MarkupBlockSyntax.WithContent(Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax> content) -> Vixen.Ui.Markup.Syntax.MarkupBlockSyntax
+Vixen.Ui.Markup.Syntax.MarkupBlockSyntax.WithOpenBraceToken(Vixen.Core.Syntax.SyntaxToken openBraceToken) -> Vixen.Ui.Markup.Syntax.MarkupBlockSyntax
+Vixen.Ui.Markup.Syntax.MarkupSyntax -> abstract class
+Vixen.Ui.Markup.Syntax.MarkupSyntax : Vixen.Ui.Markup.Syntax.VxmlSyntaxNode
+Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax -> sealed class
+Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax : Vixen.Ui.Markup.Syntax.VxmlSyntaxNode
+Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax.Name.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax.NamespaceKeyword.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax.Update(Vixen.Core.Syntax.SyntaxToken namespaceKeyword, Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax
+Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax.WithName(Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax
+Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax.WithNamespaceKeyword(Vixen.Core.Syntax.SyntaxToken namespaceKeyword) -> Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax
+Vixen.Ui.Markup.Syntax.QuotedAttributeValueSyntax -> sealed class
+Vixen.Ui.Markup.Syntax.QuotedAttributeValueSyntax : Vixen.Ui.Markup.Syntax.AttributeValueSyntax
+Vixen.Ui.Markup.Syntax.QuotedAttributeValueSyntax.CloseQuoteToken.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.QuotedAttributeValueSyntax.Content.get -> Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax>
+Vixen.Ui.Markup.Syntax.QuotedAttributeValueSyntax.OpenQuoteToken.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.QuotedAttributeValueSyntax.Update(Vixen.Core.Syntax.SyntaxToken openQuoteToken, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax> content, Vixen.Core.Syntax.SyntaxToken closeQuoteToken) -> Vixen.Ui.Markup.Syntax.QuotedAttributeValueSyntax
+Vixen.Ui.Markup.Syntax.QuotedAttributeValueSyntax.WithCloseQuoteToken(Vixen.Core.Syntax.SyntaxToken closeQuoteToken) -> Vixen.Ui.Markup.Syntax.QuotedAttributeValueSyntax
+Vixen.Ui.Markup.Syntax.QuotedAttributeValueSyntax.WithContent(Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax> content) -> Vixen.Ui.Markup.Syntax.QuotedAttributeValueSyntax
+Vixen.Ui.Markup.Syntax.QuotedAttributeValueSyntax.WithOpenQuoteToken(Vixen.Core.Syntax.SyntaxToken openQuoteToken) -> Vixen.Ui.Markup.Syntax.QuotedAttributeValueSyntax
+Vixen.Ui.Markup.Syntax.StartTagSyntax -> sealed class
+Vixen.Ui.Markup.Syntax.StartTagSyntax : Vixen.Ui.Markup.Syntax.VxmlSyntaxNode
+Vixen.Ui.Markup.Syntax.StartTagSyntax.Attributes.get -> Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.AttributeSyntax>
+Vixen.Ui.Markup.Syntax.StartTagSyntax.GreaterThanToken.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.StartTagSyntax.LessThanToken.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.StartTagSyntax.Name.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.StartTagSyntax.Update(Vixen.Core.Syntax.SyntaxToken lessThanToken, Vixen.Core.Syntax.SyntaxToken name, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.AttributeSyntax> attributes, Vixen.Core.Syntax.SyntaxToken greaterThanToken) -> Vixen.Ui.Markup.Syntax.StartTagSyntax
+Vixen.Ui.Markup.Syntax.StartTagSyntax.WithAttributes(Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.AttributeSyntax> attributes) -> Vixen.Ui.Markup.Syntax.StartTagSyntax
+Vixen.Ui.Markup.Syntax.StartTagSyntax.WithGreaterThanToken(Vixen.Core.Syntax.SyntaxToken greaterThanToken) -> Vixen.Ui.Markup.Syntax.StartTagSyntax
+Vixen.Ui.Markup.Syntax.StartTagSyntax.WithLessThanToken(Vixen.Core.Syntax.SyntaxToken lessThanToken) -> Vixen.Ui.Markup.Syntax.StartTagSyntax
+Vixen.Ui.Markup.Syntax.StartTagSyntax.WithName(Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.StartTagSyntax
+Vixen.Ui.Markup.Syntax.StyleBlockSyntax -> sealed class
+Vixen.Ui.Markup.Syntax.StyleBlockSyntax : Vixen.Ui.Markup.Syntax.MarkupSyntax
+Vixen.Ui.Markup.Syntax.StyleBlockSyntax.Css.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.StyleBlockSyntax.EndTag.get -> Vixen.Ui.Markup.Syntax.EndTagSyntax?
+Vixen.Ui.Markup.Syntax.StyleBlockSyntax.StartTag.get -> Vixen.Ui.Markup.Syntax.StartTagSyntax
+Vixen.Ui.Markup.Syntax.StyleBlockSyntax.Update(Vixen.Ui.Markup.Syntax.StartTagSyntax startTag, Vixen.Core.Syntax.SyntaxToken css, Vixen.Ui.Markup.Syntax.EndTagSyntax? endTag) -> Vixen.Ui.Markup.Syntax.StyleBlockSyntax
+Vixen.Ui.Markup.Syntax.StyleBlockSyntax.WithCss(Vixen.Core.Syntax.SyntaxToken css) -> Vixen.Ui.Markup.Syntax.StyleBlockSyntax
+Vixen.Ui.Markup.Syntax.StyleBlockSyntax.WithEndTag(Vixen.Ui.Markup.Syntax.EndTagSyntax? endTag) -> Vixen.Ui.Markup.Syntax.StyleBlockSyntax
+Vixen.Ui.Markup.Syntax.StyleBlockSyntax.WithStartTag(Vixen.Ui.Markup.Syntax.StartTagSyntax startTag) -> Vixen.Ui.Markup.Syntax.StyleBlockSyntax
+Vixen.Ui.Markup.Syntax.SwitchSectionSyntax -> sealed class
+Vixen.Ui.Markup.Syntax.SwitchSectionSyntax : Vixen.Ui.Markup.Syntax.VxmlSyntaxNode
+Vixen.Ui.Markup.Syntax.SwitchSectionSyntax.ColonToken.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.SwitchSectionSyntax.Content.get -> Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax>
+Vixen.Ui.Markup.Syntax.SwitchSectionSyntax.Keyword.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.SwitchSectionSyntax.Pattern.get -> Vixen.Core.Syntax.SyntaxToken?
+Vixen.Ui.Markup.Syntax.SwitchSectionSyntax.Update(Vixen.Core.Syntax.SyntaxToken keyword, Vixen.Core.Syntax.SyntaxToken? pattern, Vixen.Core.Syntax.SyntaxToken colonToken, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax> content) -> Vixen.Ui.Markup.Syntax.SwitchSectionSyntax
+Vixen.Ui.Markup.Syntax.SwitchSectionSyntax.WithColonToken(Vixen.Core.Syntax.SyntaxToken colonToken) -> Vixen.Ui.Markup.Syntax.SwitchSectionSyntax
+Vixen.Ui.Markup.Syntax.SwitchSectionSyntax.WithContent(Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax> content) -> Vixen.Ui.Markup.Syntax.SwitchSectionSyntax
+Vixen.Ui.Markup.Syntax.SwitchSectionSyntax.WithKeyword(Vixen.Core.Syntax.SyntaxToken keyword) -> Vixen.Ui.Markup.Syntax.SwitchSectionSyntax
+Vixen.Ui.Markup.Syntax.SwitchSectionSyntax.WithPattern(Vixen.Core.Syntax.SyntaxToken pattern) -> Vixen.Ui.Markup.Syntax.SwitchSectionSyntax
+Vixen.Ui.Markup.Syntax.SwitchSyntax -> sealed class
+Vixen.Ui.Markup.Syntax.SwitchSyntax : Vixen.Ui.Markup.Syntax.MarkupSyntax
+Vixen.Ui.Markup.Syntax.SwitchSyntax.CloseBraceToken.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.SwitchSyntax.CloseParenToken.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.SwitchSyntax.OpenBraceToken.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.SwitchSyntax.OpenParenToken.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.SwitchSyntax.Sections.get -> Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.SwitchSectionSyntax>
+Vixen.Ui.Markup.Syntax.SwitchSyntax.Subject.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.SwitchSyntax.SwitchKeyword.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.SwitchSyntax.Update(Vixen.Core.Syntax.SyntaxToken switchKeyword, Vixen.Core.Syntax.SyntaxToken openParenToken, Vixen.Core.Syntax.SyntaxToken subject, Vixen.Core.Syntax.SyntaxToken closeParenToken, Vixen.Core.Syntax.SyntaxToken openBraceToken, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.SwitchSectionSyntax> sections, Vixen.Core.Syntax.SyntaxToken closeBraceToken) -> Vixen.Ui.Markup.Syntax.SwitchSyntax
+Vixen.Ui.Markup.Syntax.SwitchSyntax.WithCloseBraceToken(Vixen.Core.Syntax.SyntaxToken closeBraceToken) -> Vixen.Ui.Markup.Syntax.SwitchSyntax
+Vixen.Ui.Markup.Syntax.SwitchSyntax.WithCloseParenToken(Vixen.Core.Syntax.SyntaxToken closeParenToken) -> Vixen.Ui.Markup.Syntax.SwitchSyntax
+Vixen.Ui.Markup.Syntax.SwitchSyntax.WithOpenBraceToken(Vixen.Core.Syntax.SyntaxToken openBraceToken) -> Vixen.Ui.Markup.Syntax.SwitchSyntax
+Vixen.Ui.Markup.Syntax.SwitchSyntax.WithOpenParenToken(Vixen.Core.Syntax.SyntaxToken openParenToken) -> Vixen.Ui.Markup.Syntax.SwitchSyntax
+Vixen.Ui.Markup.Syntax.SwitchSyntax.WithSections(Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.SwitchSectionSyntax> sections) -> Vixen.Ui.Markup.Syntax.SwitchSyntax
+Vixen.Ui.Markup.Syntax.SwitchSyntax.WithSubject(Vixen.Core.Syntax.SyntaxToken subject) -> Vixen.Ui.Markup.Syntax.SwitchSyntax
+Vixen.Ui.Markup.Syntax.SwitchSyntax.WithSwitchKeyword(Vixen.Core.Syntax.SyntaxToken switchKeyword) -> Vixen.Ui.Markup.Syntax.SwitchSyntax
+Vixen.Ui.Markup.Syntax.SyntaxFactory -> static class
+Vixen.Ui.Markup.Syntax.SyntaxFacts -> static class
+Vixen.Ui.Markup.Syntax.SyntaxKind -> enum : ushort
+Vixen.Ui.Markup.Syntax.SyntaxKind.AtToken = 40 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.Attribute = 12 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.CaseKeyword = 32 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.CloseBraceToken = 44 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.CloseParenToken = 42 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.CodeBlock = 6 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.CodeKeyword = 25 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.CodeToken = 50 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.ColonToken = 45 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.CommentTrivia = 54 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.ComponentDirective = 3 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.ComponentKeyword = 22 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.CssToken = 51 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.DefaultKeyword = 33 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.Document = 2 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.Element = 10 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.ElseClause = 18 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.ElseKeyword = 27 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.EndOfFileToken = 52 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.EndTag = 9 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.EqualsToken = 38 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.ExpressionAttributeValue = 14 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.ExpressionToken = 49 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.For = 19 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.ForKeyword = 28 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.GreaterThanToken = 36 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.IdentifierToken = 46 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.If = 17 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.IfKeyword = 26 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.InKeyword = 30 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.Interpolation = 16 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.LessThanSlashToken = 35 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.LessThanToken = 34 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.ListKind = 1 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.MarkupBlock = 7 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.NameToken = 47 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.NamespaceDirective = 5 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.NamespaceKeyword = 24 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.None = 0 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.OpenBraceToken = 43 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.OpenParenToken = 41 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.QuoteToken = 39 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.QuotedAttributeValue = 13 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.SkippedTokensTrivia = 55 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.SlashGreaterThanToken = 37 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.StartTag = 8 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.StyleBlock = 11 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.Switch = 20 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.SwitchKeyword = 31 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.SwitchSection = 21 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.SyntaxKind() -> void
+Vixen.Ui.Markup.Syntax.SyntaxKind.Text = 15 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.TextToken = 48 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.UsingDirective = 4 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.UsingKeyword = 23 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.VarKeyword = 29 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.WhitespaceTrivia = 53 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxRewriter -> class
+Vixen.Ui.Markup.Syntax.SyntaxRewriter : Vixen.Ui.Markup.Syntax.SyntaxVisitor<Vixen.Core.Syntax.SyntaxNode>
+Vixen.Ui.Markup.Syntax.SyntaxRewriter.SyntaxRewriter() -> void
+Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitList<TNode>(Vixen.Core.Syntax.SyntaxList<TNode> list) -> Vixen.Core.Syntax.SyntaxList<TNode>
+Vixen.Ui.Markup.Syntax.SyntaxTree -> sealed class
+Vixen.Ui.Markup.Syntax.SyntaxTree : Vixen.Core.Syntax.ISyntaxTree
+Vixen.Ui.Markup.Syntax.SyntaxTree.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Syntax.Diagnostics.Diagnostic>
+Vixen.Ui.Markup.Syntax.SyntaxTree.Encoding.get -> System.Text.Encoding?
+Vixen.Ui.Markup.Syntax.SyntaxTree.FilePath.get -> string
+Vixen.Ui.Markup.Syntax.SyntaxTree.GetDocument() -> Vixen.Ui.Markup.Syntax.DocumentSyntax
+Vixen.Ui.Markup.Syntax.SyntaxTree.GetRoot() -> Vixen.Core.Syntax.SyntaxNode
+Vixen.Ui.Markup.Syntax.SyntaxTree.Length.get -> int
+Vixen.Ui.Markup.Syntax.SyntaxTree.ReusedNodes.get -> int
+Vixen.Ui.Markup.Syntax.SyntaxTree.SyntaxTree() -> void
+Vixen.Ui.Markup.Syntax.SyntaxTree.Text.get -> Vixen.Core.Syntax.Text.SourceText?
+Vixen.Ui.Markup.Syntax.SyntaxTree.TryGetRoot(out Vixen.Core.Syntax.SyntaxNode? root) -> bool
+Vixen.Ui.Markup.Syntax.SyntaxTree.WithChangedText(Vixen.Core.Syntax.Text.SourceText newText) -> Vixen.Ui.Markup.Syntax.SyntaxTree
+Vixen.Ui.Markup.Syntax.SyntaxVisitor -> abstract class
+Vixen.Ui.Markup.Syntax.SyntaxVisitor.SyntaxVisitor() -> void
+Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> -> abstract class
+Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.SyntaxVisitor() -> void
+Vixen.Ui.Markup.Syntax.TextSyntax -> sealed class
+Vixen.Ui.Markup.Syntax.TextSyntax : Vixen.Ui.Markup.Syntax.MarkupSyntax
+Vixen.Ui.Markup.Syntax.TextSyntax.TextToken.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.TextSyntax.Update(Vixen.Core.Syntax.SyntaxToken textToken) -> Vixen.Ui.Markup.Syntax.TextSyntax
+Vixen.Ui.Markup.Syntax.TextSyntax.WithTextToken(Vixen.Core.Syntax.SyntaxToken textToken) -> Vixen.Ui.Markup.Syntax.TextSyntax
+Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax -> sealed class
+Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax : Vixen.Ui.Markup.Syntax.VxmlSyntaxNode
+Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax.Name.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax.Update(Vixen.Core.Syntax.SyntaxToken usingKeyword, Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax
+Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax.UsingKeyword.get -> Vixen.Core.Syntax.SyntaxToken
+Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax.WithName(Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax
+Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax.WithUsingKeyword(Vixen.Core.Syntax.SyntaxToken usingKeyword) -> Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax
+Vixen.Ui.Markup.Syntax.VxmlSyntaxExtensions -> static class
+Vixen.Ui.Markup.Syntax.VxmlSyntaxExtensions.<G>$7B1EA48CCC2BB39DA1D1E341962695C5 -> sealed class
+Vixen.Ui.Markup.Syntax.VxmlSyntaxExtensions.<G>$7B1EA48CCC2BB39DA1D1E341962695C5.<M>$932AAD0A0D9D67B956721CD7F9CDA72D -> static class
+Vixen.Ui.Markup.Syntax.VxmlSyntaxExtensions.<G>$7B1EA48CCC2BB39DA1D1E341962695C5.Kind.get -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.VxmlSyntaxNode -> abstract class
+Vixen.Ui.Markup.Syntax.VxmlSyntaxNode : Vixen.Core.Syntax.SyntaxNode
+Vixen.Ui.Markup.Syntax.VxmlSyntaxNode.Kind.get -> Vixen.Ui.Markup.Syntax.SyntaxKind
+abstract Vixen.Ui.Markup.Syntax.VxmlSyntaxNode.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
+abstract Vixen.Ui.Markup.Syntax.VxmlSyntaxNode.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult?
+const Vixen.Ui.Markup.Emit.ComponentEmitter.RuntimeNamespace = "global::Vixen.Ui.Composition" -> string
+override Vixen.Ui.Markup.Syntax.AttributeSyntax.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
+override Vixen.Ui.Markup.Syntax.AttributeSyntax.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult
+override Vixen.Ui.Markup.Syntax.AttributeSyntax.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
+override Vixen.Ui.Markup.Syntax.CodeBlockSyntax.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
+override Vixen.Ui.Markup.Syntax.CodeBlockSyntax.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult
+override Vixen.Ui.Markup.Syntax.CodeBlockSyntax.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
+override Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
+override Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult
+override Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
+override Vixen.Ui.Markup.Syntax.DocumentSyntax.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
+override Vixen.Ui.Markup.Syntax.DocumentSyntax.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult
+override Vixen.Ui.Markup.Syntax.DocumentSyntax.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
+override Vixen.Ui.Markup.Syntax.ElementSyntax.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
+override Vixen.Ui.Markup.Syntax.ElementSyntax.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult
+override Vixen.Ui.Markup.Syntax.ElementSyntax.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
+override Vixen.Ui.Markup.Syntax.ElseClauseSyntax.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
+override Vixen.Ui.Markup.Syntax.ElseClauseSyntax.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult
+override Vixen.Ui.Markup.Syntax.ElseClauseSyntax.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
+override Vixen.Ui.Markup.Syntax.EndTagSyntax.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
+override Vixen.Ui.Markup.Syntax.EndTagSyntax.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult
+override Vixen.Ui.Markup.Syntax.EndTagSyntax.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
+override Vixen.Ui.Markup.Syntax.ExpressionAttributeValueSyntax.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
+override Vixen.Ui.Markup.Syntax.ExpressionAttributeValueSyntax.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult
+override Vixen.Ui.Markup.Syntax.ExpressionAttributeValueSyntax.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
+override Vixen.Ui.Markup.Syntax.ForSyntax.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
+override Vixen.Ui.Markup.Syntax.ForSyntax.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult
+override Vixen.Ui.Markup.Syntax.ForSyntax.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
+override Vixen.Ui.Markup.Syntax.IfSyntax.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
+override Vixen.Ui.Markup.Syntax.IfSyntax.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult
+override Vixen.Ui.Markup.Syntax.IfSyntax.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
+override Vixen.Ui.Markup.Syntax.InterpolationSyntax.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
+override Vixen.Ui.Markup.Syntax.InterpolationSyntax.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult
+override Vixen.Ui.Markup.Syntax.InterpolationSyntax.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
+override Vixen.Ui.Markup.Syntax.MarkupBlockSyntax.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
+override Vixen.Ui.Markup.Syntax.MarkupBlockSyntax.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult
+override Vixen.Ui.Markup.Syntax.MarkupBlockSyntax.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
+override Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
+override Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult
+override Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
+override Vixen.Ui.Markup.Syntax.QuotedAttributeValueSyntax.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
+override Vixen.Ui.Markup.Syntax.QuotedAttributeValueSyntax.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult
+override Vixen.Ui.Markup.Syntax.QuotedAttributeValueSyntax.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
+override Vixen.Ui.Markup.Syntax.StartTagSyntax.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
+override Vixen.Ui.Markup.Syntax.StartTagSyntax.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult
+override Vixen.Ui.Markup.Syntax.StartTagSyntax.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
+override Vixen.Ui.Markup.Syntax.StyleBlockSyntax.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
+override Vixen.Ui.Markup.Syntax.StyleBlockSyntax.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult
+override Vixen.Ui.Markup.Syntax.StyleBlockSyntax.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
+override Vixen.Ui.Markup.Syntax.SwitchSectionSyntax.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
+override Vixen.Ui.Markup.Syntax.SwitchSectionSyntax.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult
+override Vixen.Ui.Markup.Syntax.SwitchSectionSyntax.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
+override Vixen.Ui.Markup.Syntax.SwitchSyntax.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
+override Vixen.Ui.Markup.Syntax.SwitchSyntax.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult
+override Vixen.Ui.Markup.Syntax.SwitchSyntax.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
+override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitAttribute(Vixen.Ui.Markup.Syntax.AttributeSyntax node) -> Vixen.Core.Syntax.SyntaxNode
+override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitCodeBlock(Vixen.Ui.Markup.Syntax.CodeBlockSyntax node) -> Vixen.Core.Syntax.SyntaxNode
+override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitComponentDirective(Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax node) -> Vixen.Core.Syntax.SyntaxNode
+override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitDocument(Vixen.Ui.Markup.Syntax.DocumentSyntax node) -> Vixen.Core.Syntax.SyntaxNode
+override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitElement(Vixen.Ui.Markup.Syntax.ElementSyntax node) -> Vixen.Core.Syntax.SyntaxNode
+override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitElseClause(Vixen.Ui.Markup.Syntax.ElseClauseSyntax node) -> Vixen.Core.Syntax.SyntaxNode
+override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitEndTag(Vixen.Ui.Markup.Syntax.EndTagSyntax node) -> Vixen.Core.Syntax.SyntaxNode
+override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitExpressionAttributeValue(Vixen.Ui.Markup.Syntax.ExpressionAttributeValueSyntax node) -> Vixen.Core.Syntax.SyntaxNode
+override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitFor(Vixen.Ui.Markup.Syntax.ForSyntax node) -> Vixen.Core.Syntax.SyntaxNode
+override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitIf(Vixen.Ui.Markup.Syntax.IfSyntax node) -> Vixen.Core.Syntax.SyntaxNode
+override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitInterpolation(Vixen.Ui.Markup.Syntax.InterpolationSyntax node) -> Vixen.Core.Syntax.SyntaxNode
+override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitMarkupBlock(Vixen.Ui.Markup.Syntax.MarkupBlockSyntax node) -> Vixen.Core.Syntax.SyntaxNode
+override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitNamespaceDirective(Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax node) -> Vixen.Core.Syntax.SyntaxNode
+override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitQuotedAttributeValue(Vixen.Ui.Markup.Syntax.QuotedAttributeValueSyntax node) -> Vixen.Core.Syntax.SyntaxNode
+override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitStartTag(Vixen.Ui.Markup.Syntax.StartTagSyntax node) -> Vixen.Core.Syntax.SyntaxNode
+override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitStyleBlock(Vixen.Ui.Markup.Syntax.StyleBlockSyntax node) -> Vixen.Core.Syntax.SyntaxNode
+override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitSwitch(Vixen.Ui.Markup.Syntax.SwitchSyntax node) -> Vixen.Core.Syntax.SyntaxNode
+override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitSwitchSection(Vixen.Ui.Markup.Syntax.SwitchSectionSyntax node) -> Vixen.Core.Syntax.SyntaxNode
+override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitText(Vixen.Ui.Markup.Syntax.TextSyntax node) -> Vixen.Core.Syntax.SyntaxNode
+override Vixen.Ui.Markup.Syntax.SyntaxRewriter.VisitUsingDirective(Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax node) -> Vixen.Core.Syntax.SyntaxNode
+override Vixen.Ui.Markup.Syntax.TextSyntax.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
+override Vixen.Ui.Markup.Syntax.TextSyntax.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult
+override Vixen.Ui.Markup.Syntax.TextSyntax.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
+override Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax.Accept(Vixen.Ui.Markup.Syntax.SyntaxVisitor visitor) -> void
+override Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax.Accept<TResult>(Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> visitor) -> TResult
+override Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax.GetSlot(int index) -> Vixen.Core.Syntax.SyntaxNode?
+static Vixen.Ui.Markup.Binding.Binder.Bind(Vixen.Ui.Markup.Syntax.SyntaxTree tree, out System.Collections.Immutable.ImmutableArray<Vixen.Core.Syntax.Diagnostics.Diagnostic> diagnostics) -> Vixen.Ui.Markup.Binding.BoundComponent?
+static Vixen.Ui.Markup.Emit.ComponentEmitter.Emit(Vixen.Ui.Markup.Binding.BoundComponent component, string filePath, string? namespace = null) -> string
+static Vixen.Ui.Markup.Syntax.SyntaxFactory.Attribute(Vixen.Core.Syntax.SyntaxToken name, Vixen.Core.Syntax.SyntaxToken? equalsToken, Vixen.Ui.Markup.Syntax.AttributeValueSyntax? value) -> Vixen.Ui.Markup.Syntax.AttributeSyntax
+static Vixen.Ui.Markup.Syntax.SyntaxFactory.CodeBlock(Vixen.Core.Syntax.SyntaxToken codeKeyword, Vixen.Core.Syntax.SyntaxToken openBraceToken, Vixen.Core.Syntax.SyntaxToken body, Vixen.Core.Syntax.SyntaxToken closeBraceToken) -> Vixen.Ui.Markup.Syntax.CodeBlockSyntax
+static Vixen.Ui.Markup.Syntax.SyntaxFactory.ComponentDirective(Vixen.Core.Syntax.SyntaxToken componentKeyword, Vixen.Core.Syntax.SyntaxToken identifier) -> Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax
+static Vixen.Ui.Markup.Syntax.SyntaxFactory.Document(Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax? component, Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax? namespace, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax> usings, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax> content, Vixen.Core.Syntax.SyntaxToken endOfFileToken) -> Vixen.Ui.Markup.Syntax.DocumentSyntax
+static Vixen.Ui.Markup.Syntax.SyntaxFactory.Element(Vixen.Ui.Markup.Syntax.StartTagSyntax startTag, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax> content, Vixen.Ui.Markup.Syntax.EndTagSyntax? endTag) -> Vixen.Ui.Markup.Syntax.ElementSyntax
+static Vixen.Ui.Markup.Syntax.SyntaxFactory.ElseClause(Vixen.Core.Syntax.SyntaxToken elseKeyword, Vixen.Ui.Markup.Syntax.MarkupSyntax body) -> Vixen.Ui.Markup.Syntax.ElseClauseSyntax
+static Vixen.Ui.Markup.Syntax.SyntaxFactory.EndTag(Vixen.Core.Syntax.SyntaxToken lessThanSlashToken, Vixen.Core.Syntax.SyntaxToken name, Vixen.Core.Syntax.SyntaxToken greaterThanToken) -> Vixen.Ui.Markup.Syntax.EndTagSyntax
+static Vixen.Ui.Markup.Syntax.SyntaxFactory.ExpressionAttributeValue(Vixen.Ui.Markup.Syntax.InterpolationSyntax expression) -> Vixen.Ui.Markup.Syntax.ExpressionAttributeValueSyntax
+static Vixen.Ui.Markup.Syntax.SyntaxFactory.For(Vixen.Core.Syntax.SyntaxToken forKeyword, Vixen.Core.Syntax.SyntaxToken openParenToken, Vixen.Core.Syntax.SyntaxToken varKeyword, Vixen.Core.Syntax.SyntaxToken identifier, Vixen.Core.Syntax.SyntaxToken inKeyword, Vixen.Core.Syntax.SyntaxToken sequence, Vixen.Core.Syntax.SyntaxToken closeParenToken, Vixen.Ui.Markup.Syntax.MarkupBlockSyntax body) -> Vixen.Ui.Markup.Syntax.ForSyntax
+static Vixen.Ui.Markup.Syntax.SyntaxFactory.If(Vixen.Core.Syntax.SyntaxToken ifKeyword, Vixen.Core.Syntax.SyntaxToken openParenToken, Vixen.Core.Syntax.SyntaxToken condition, Vixen.Core.Syntax.SyntaxToken closeParenToken, Vixen.Ui.Markup.Syntax.MarkupBlockSyntax body, Vixen.Ui.Markup.Syntax.ElseClauseSyntax? else) -> Vixen.Ui.Markup.Syntax.IfSyntax
+static Vixen.Ui.Markup.Syntax.SyntaxFactory.Interpolation(Vixen.Core.Syntax.SyntaxToken atToken, Vixen.Core.Syntax.SyntaxToken expression) -> Vixen.Ui.Markup.Syntax.InterpolationSyntax
+static Vixen.Ui.Markup.Syntax.SyntaxFactory.MarkupBlock(Vixen.Core.Syntax.SyntaxToken openBraceToken, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax> content, Vixen.Core.Syntax.SyntaxToken closeBraceToken) -> Vixen.Ui.Markup.Syntax.MarkupBlockSyntax
+static Vixen.Ui.Markup.Syntax.SyntaxFactory.NamespaceDirective(Vixen.Core.Syntax.SyntaxToken namespaceKeyword, Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax
+static Vixen.Ui.Markup.Syntax.SyntaxFactory.QuotedAttributeValue(Vixen.Core.Syntax.SyntaxToken openQuoteToken, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax> content, Vixen.Core.Syntax.SyntaxToken closeQuoteToken) -> Vixen.Ui.Markup.Syntax.QuotedAttributeValueSyntax
+static Vixen.Ui.Markup.Syntax.SyntaxFactory.StartTag(Vixen.Core.Syntax.SyntaxToken lessThanToken, Vixen.Core.Syntax.SyntaxToken name, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.AttributeSyntax> attributes, Vixen.Core.Syntax.SyntaxToken greaterThanToken) -> Vixen.Ui.Markup.Syntax.StartTagSyntax
+static Vixen.Ui.Markup.Syntax.SyntaxFactory.StyleBlock(Vixen.Ui.Markup.Syntax.StartTagSyntax startTag, Vixen.Core.Syntax.SyntaxToken css, Vixen.Ui.Markup.Syntax.EndTagSyntax? endTag) -> Vixen.Ui.Markup.Syntax.StyleBlockSyntax
+static Vixen.Ui.Markup.Syntax.SyntaxFactory.Switch(Vixen.Core.Syntax.SyntaxToken switchKeyword, Vixen.Core.Syntax.SyntaxToken openParenToken, Vixen.Core.Syntax.SyntaxToken subject, Vixen.Core.Syntax.SyntaxToken closeParenToken, Vixen.Core.Syntax.SyntaxToken openBraceToken, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.SwitchSectionSyntax> sections, Vixen.Core.Syntax.SyntaxToken closeBraceToken) -> Vixen.Ui.Markup.Syntax.SwitchSyntax
+static Vixen.Ui.Markup.Syntax.SyntaxFactory.SwitchSection(Vixen.Core.Syntax.SyntaxToken keyword, Vixen.Core.Syntax.SyntaxToken? pattern, Vixen.Core.Syntax.SyntaxToken colonToken, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax> content) -> Vixen.Ui.Markup.Syntax.SwitchSectionSyntax
+static Vixen.Ui.Markup.Syntax.SyntaxFactory.Text(Vixen.Core.Syntax.SyntaxToken textToken) -> Vixen.Ui.Markup.Syntax.TextSyntax
+static Vixen.Ui.Markup.Syntax.SyntaxFactory.UsingDirective(Vixen.Core.Syntax.SyntaxToken usingKeyword, Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax
+static Vixen.Ui.Markup.Syntax.SyntaxFacts.GetText(Vixen.Ui.Markup.Syntax.SyntaxKind kind) -> string
+static Vixen.Ui.Markup.Syntax.SyntaxFacts.IsComponentName(string name) -> bool
+static Vixen.Ui.Markup.Syntax.SyntaxTree.ParseText(string text, string? path = "", System.Text.Encoding? encoding = null) -> Vixen.Ui.Markup.Syntax.SyntaxTree
+static Vixen.Ui.Markup.Syntax.VxmlSyntaxExtensions.get_Kind(Vixen.Core.Syntax.SyntaxToken token) -> Vixen.Ui.Markup.Syntax.SyntaxKind
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.DuplicateAttribute -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.DuplicateSlot -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.EmptyComponent -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.ExpectedExpression -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.ExpectedExpressionValue -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.InvalidParameterName -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.MismatchedEndTag -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.MissingComponentDirective -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.MissingKey -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.SyntaxError -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.UnbalancedDelimiter -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.UnclosedElement -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.UnclosedStyleBlock -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.UnknownAttributeDirective -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.UnknownEventModifier -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.DefaultVisit(Vixen.Core.Syntax.SyntaxNode node) -> void
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.Visit(Vixen.Core.Syntax.SyntaxNode? node) -> void
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitAttribute(Vixen.Ui.Markup.Syntax.AttributeSyntax node) -> void
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitCodeBlock(Vixen.Ui.Markup.Syntax.CodeBlockSyntax node) -> void
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitComponentDirective(Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax node) -> void
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitDocument(Vixen.Ui.Markup.Syntax.DocumentSyntax node) -> void
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitElement(Vixen.Ui.Markup.Syntax.ElementSyntax node) -> void
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitElseClause(Vixen.Ui.Markup.Syntax.ElseClauseSyntax node) -> void
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitEndTag(Vixen.Ui.Markup.Syntax.EndTagSyntax node) -> void
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitExpressionAttributeValue(Vixen.Ui.Markup.Syntax.ExpressionAttributeValueSyntax node) -> void
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitFor(Vixen.Ui.Markup.Syntax.ForSyntax node) -> void
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitIf(Vixen.Ui.Markup.Syntax.IfSyntax node) -> void
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitInterpolation(Vixen.Ui.Markup.Syntax.InterpolationSyntax node) -> void
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitMarkupBlock(Vixen.Ui.Markup.Syntax.MarkupBlockSyntax node) -> void
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitNamespaceDirective(Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax node) -> void
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitQuotedAttributeValue(Vixen.Ui.Markup.Syntax.QuotedAttributeValueSyntax node) -> void
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitStartTag(Vixen.Ui.Markup.Syntax.StartTagSyntax node) -> void
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitStyleBlock(Vixen.Ui.Markup.Syntax.StyleBlockSyntax node) -> void
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitSwitch(Vixen.Ui.Markup.Syntax.SwitchSyntax node) -> void
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitSwitchSection(Vixen.Ui.Markup.Syntax.SwitchSectionSyntax node) -> void
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitText(Vixen.Ui.Markup.Syntax.TextSyntax node) -> void
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitToken(Vixen.Core.Syntax.SyntaxToken token) -> void
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor.VisitUsingDirective(Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax node) -> void
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.DefaultVisit(Vixen.Core.Syntax.SyntaxNode node) -> TResult?
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.Visit(Vixen.Core.Syntax.SyntaxNode? node) -> TResult?
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitAttribute(Vixen.Ui.Markup.Syntax.AttributeSyntax node) -> TResult?
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitCodeBlock(Vixen.Ui.Markup.Syntax.CodeBlockSyntax node) -> TResult?
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitComponentDirective(Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax node) -> TResult?
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitDocument(Vixen.Ui.Markup.Syntax.DocumentSyntax node) -> TResult?
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitElement(Vixen.Ui.Markup.Syntax.ElementSyntax node) -> TResult?
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitElseClause(Vixen.Ui.Markup.Syntax.ElseClauseSyntax node) -> TResult?
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitEndTag(Vixen.Ui.Markup.Syntax.EndTagSyntax node) -> TResult?
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitExpressionAttributeValue(Vixen.Ui.Markup.Syntax.ExpressionAttributeValueSyntax node) -> TResult?
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitFor(Vixen.Ui.Markup.Syntax.ForSyntax node) -> TResult?
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitIf(Vixen.Ui.Markup.Syntax.IfSyntax node) -> TResult?
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitInterpolation(Vixen.Ui.Markup.Syntax.InterpolationSyntax node) -> TResult?
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitMarkupBlock(Vixen.Ui.Markup.Syntax.MarkupBlockSyntax node) -> TResult?
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitNamespaceDirective(Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax node) -> TResult?
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitQuotedAttributeValue(Vixen.Ui.Markup.Syntax.QuotedAttributeValueSyntax node) -> TResult?
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitStartTag(Vixen.Ui.Markup.Syntax.StartTagSyntax node) -> TResult?
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitStyleBlock(Vixen.Ui.Markup.Syntax.StyleBlockSyntax node) -> TResult?
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitSwitch(Vixen.Ui.Markup.Syntax.SwitchSyntax node) -> TResult?
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitSwitchSection(Vixen.Ui.Markup.Syntax.SwitchSectionSyntax node) -> TResult?
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitText(Vixen.Ui.Markup.Syntax.TextSyntax node) -> TResult?
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitToken(Vixen.Core.Syntax.SyntaxToken token) -> TResult?
+virtual Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.VisitUsingDirective(Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax node) -> TResult?

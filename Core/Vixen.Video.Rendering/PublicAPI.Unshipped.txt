@@ -1,0 +1,84 @@
+#nullable enable
+Vixen.Video.Rendering.VideoConstants -> readonly struct
+Vixen.Video.Rendering.VideoConstants.VideoConstants() -> void
+Vixen.Video.Rendering.VideoDraw -> readonly struct
+Vixen.Video.Rendering.VideoDraw : System.IEquatable<Vixen.Video.Rendering.VideoDraw>
+Vixen.Video.Rendering.VideoDraw.Order.get -> uint
+Vixen.Video.Rendering.VideoDraw.Order.init -> uint
+Vixen.Video.Rendering.VideoDraw.Target.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Video.Rendering.VideoDraw.Target.init -> Vixen.Core.Mathematics.Rectangle
+Vixen.Video.Rendering.VideoDraw.Texture.get -> Vixen.Video.Gpu.VideoTexture
+Vixen.Video.Rendering.VideoDraw.Texture.init -> Vixen.Video.Gpu.VideoTexture
+Vixen.Video.Rendering.VideoDraw.TextureOffset.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Video.Rendering.VideoDraw.TextureOffset.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Video.Rendering.VideoDraw.TextureScale.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Video.Rendering.VideoDraw.TextureScale.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Video.Rendering.VideoDraw.Tint.get -> Vixen.Core.Mathematics.Color4
+Vixen.Video.Rendering.VideoDraw.Tint.init -> Vixen.Core.Mathematics.Color4
+Vixen.Video.Rendering.VideoDraw.VideoDraw() -> void
+Vixen.Video.Rendering.VideoDraw.VideoDraw(Vixen.Video.Gpu.VideoTexture Texture, Vixen.Core.Mathematics.Rectangle Target, Vixen.Core.Mathematics.Vector2 TextureScale, Vixen.Core.Mathematics.Vector2 TextureOffset, Vixen.Core.Mathematics.Color4 Tint, uint Order = 0) -> void
+Vixen.Video.Rendering.VideoRenderFeature -> sealed class
+Vixen.Video.Rendering.VideoRenderFeature : Vixen.Rendering.RootRenderFeature
+Vixen.Video.Rendering.VideoRenderFeature.Remove(Vixen.Rendering.RenderObjectId id) -> bool
+Vixen.Video.Rendering.VideoRenderFeature.Renderer.get -> Vixen.Video.Rendering.VideoRenderer?
+Vixen.Video.Rendering.VideoRenderFeature.Renderer.set -> Vixen.Video.Rendering.VideoRenderer?
+Vixen.Video.Rendering.VideoRenderFeature.Set(Vixen.Rendering.RenderObjectId id, in Vixen.Video.Rendering.VideoDraw draw) -> void
+Vixen.Video.Rendering.VideoRenderFeature.Surface.get -> Vixen.Core.Mathematics.Int2
+Vixen.Video.Rendering.VideoRenderFeature.Surface.set -> Vixen.Core.Mathematics.Int2
+Vixen.Video.Rendering.VideoRenderFeature.TryGet(Vixen.Rendering.RenderObjectId id, out Vixen.Video.Rendering.VideoDraw draw) -> bool
+Vixen.Video.Rendering.VideoRenderFeature.VideoRenderFeature() -> void
+Vixen.Video.Rendering.VideoRenderTarget -> sealed class
+Vixen.Video.Rendering.VideoRenderTarget : System.IDisposable
+Vixen.Video.Rendering.VideoRenderTarget.Dispose() -> void
+Vixen.Video.Rendering.VideoRenderTarget.Draw(Vixen.Graphics.ICommandList commands, Vixen.Video.Gpu.VideoTexture planes, Vixen.Core.Mathematics.Int2 size) -> bool
+Vixen.Video.Rendering.VideoRenderTarget.Draw(Vixen.Graphics.ICommandList commands, Vixen.Video.Gpu.VideoTexture planes, Vixen.Video.Playback.VideoPlayer player) -> bool
+Vixen.Video.Rendering.VideoRenderTarget.Revision.get -> int
+Vixen.Video.Rendering.VideoRenderTarget.Size.get -> Vixen.Core.Mathematics.Int2
+Vixen.Video.Rendering.VideoRenderTarget.Texture.get -> Vixen.Graphics.TextureHandle
+Vixen.Video.Rendering.VideoRenderTarget.VideoRenderTarget(Vixen.Graphics.IGraphicsDevice device, Vixen.Video.Rendering.VideoRenderer renderer, string name = "video target") -> void
+Vixen.Video.Rendering.VideoRenderTarget.VideoRenderTarget(Vixen.Graphics.IGraphicsDevice device, Vixen.Video.Rendering.VideoShaders shaders, string name = "video target") -> void
+Vixen.Video.Rendering.VideoRenderTarget.View.get -> Vixen.Graphics.TextureViewHandle
+Vixen.Video.Rendering.VideoRenderer -> sealed class
+Vixen.Video.Rendering.VideoRenderer : System.IDisposable
+Vixen.Video.Rendering.VideoRenderer.Begin() -> void
+Vixen.Video.Rendering.VideoRenderer.DescriptorWrites.get -> int
+Vixen.Video.Rendering.VideoRenderer.Dispose() -> void
+Vixen.Video.Rendering.VideoRenderer.Draws.get -> int
+Vixen.Video.Rendering.VideoRenderer.Forget(Vixen.Video.Gpu.VideoTexture texture) -> bool
+Vixen.Video.Rendering.VideoRenderer.Record(Vixen.Graphics.ICommandList commands, in Vixen.Video.Rendering.VideoDraw draw, Vixen.Core.Mathematics.Int2 surface) -> bool
+Vixen.Video.Rendering.VideoRenderer.VideoRenderer(Vixen.Graphics.IGraphicsDevice device, Vixen.Video.Rendering.VideoShaders shaders, Vixen.Rendering.RenderOutput output, string name = "video") -> void
+Vixen.Video.Rendering.VideoSampleMode -> enum : int
+Vixen.Video.Rendering.VideoSampleMode.Grey = 1 -> Vixen.Video.Rendering.VideoSampleMode
+Vixen.Video.Rendering.VideoSampleMode.Packed = 2 -> Vixen.Video.Rendering.VideoSampleMode
+Vixen.Video.Rendering.VideoSampleMode.Planar = 0 -> Vixen.Video.Rendering.VideoSampleMode
+Vixen.Video.Rendering.VideoSampleMode.VideoSampleMode() -> void
+Vixen.Video.Rendering.VideoShaders -> readonly struct
+Vixen.Video.Rendering.VideoShaders : System.IEquatable<Vixen.Video.Rendering.VideoShaders>
+Vixen.Video.Rendering.VideoShaders.Fragment.get -> Vixen.Graphics.ShaderHandle
+Vixen.Video.Rendering.VideoShaders.Fragment.init -> Vixen.Graphics.ShaderHandle
+Vixen.Video.Rendering.VideoShaders.Vertex.get -> Vixen.Graphics.ShaderHandle
+Vixen.Video.Rendering.VideoShaders.Vertex.init -> Vixen.Graphics.ShaderHandle
+Vixen.Video.Rendering.VideoShaders.VideoShaders() -> void
+Vixen.Video.Rendering.VideoShaders.VideoShaders(Vixen.Graphics.ShaderHandle Vertex, Vixen.Graphics.ShaderHandle Fragment) -> void
+Vixen.Video.Rendering.VideoSurfaceUploader -> sealed class
+Vixen.Video.Rendering.VideoSurfaceUploader : System.IDisposable
+Vixen.Video.Rendering.VideoSurfaceUploader.Dispose() -> void
+Vixen.Video.Rendering.VideoSurfaceUploader.Extract(Vixen.Ecs.World world, Vixen.Rendering.RenderSystem system, Vixen.Video.Rendering.VideoRenderFeature feature, Vixen.Core.Mathematics.Int2 surface) -> void
+Vixen.Video.Rendering.VideoSurfaceUploader.TextureCount.get -> int
+Vixen.Video.Rendering.VideoSurfaceUploader.TextureFor(Vixen.Video.Playback.VideoPlayer player) -> Vixen.Video.Gpu.VideoTexture?
+Vixen.Video.Rendering.VideoSurfaceUploader.Upload(Vixen.Ecs.World world, Vixen.Graphics.ICommandList commands) -> void
+Vixen.Video.Rendering.VideoSurfaceUploader.Uploads.get -> int
+Vixen.Video.Rendering.VideoSurfaceUploader.VideoSurfaceUploader(Vixen.Graphics.IGraphicsDevice device, Vixen.Rendering.RenderStage stage) -> void
+const Vixen.Video.Rendering.VideoConstants.Size = 64 -> int
+const Vixen.Video.Rendering.VideoRenderTarget.Format = Vixen.Graphics.PixelFormat.Rgba8UNorm -> Vixen.Graphics.PixelFormat
+override Vixen.Video.Rendering.VideoRenderFeature.Draw(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderDrawContext context, System.ReadOnlySpan<Vixen.Rendering.RenderNode> nodes) -> void
+override Vixen.Video.Rendering.VideoRenderFeature.Name.get -> string
+override Vixen.Video.Rendering.VideoRenderFeature.SortGroupOf(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, Vixen.Rendering.RenderStage stage) -> uint
+readonly Vixen.Video.Rendering.VideoConstants.Chroma -> Vixen.Core.Mathematics.Vector4
+readonly Vixen.Video.Rendering.VideoConstants.Crop -> Vixen.Core.Mathematics.Vector4
+readonly Vixen.Video.Rendering.VideoConstants.Luma -> Vixen.Core.Mathematics.Vector4
+readonly Vixen.Video.Rendering.VideoConstants.Placement -> Vixen.Core.Mathematics.Vector4
+static Vixen.Video.Rendering.VideoConstants.For(in Vixen.Video.Rendering.VideoDraw draw, Vixen.Core.Mathematics.Int2 surface) -> Vixen.Video.Rendering.VideoConstants
+static Vixen.Video.Rendering.VideoConstants.ModeOf(Vixen.Video.Gpu.VideoTexture? texture) -> Vixen.Video.Rendering.VideoSampleMode
+static Vixen.Video.Rendering.VideoDraw.Filling(Vixen.Video.Gpu.VideoTexture texture, Vixen.Core.Mathematics.Rectangle target) -> Vixen.Video.Rendering.VideoDraw
+static Vixen.Video.Rendering.VideoDraw.From(Vixen.Video.Gpu.VideoTexture texture, in Vixen.Video.Gpu.VideoPlacement placement) -> Vixen.Video.Rendering.VideoDraw

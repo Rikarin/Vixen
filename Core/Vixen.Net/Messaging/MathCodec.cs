@@ -102,7 +102,28 @@ public static class MathCodec {
     ///         dropping a small one would mean the square root amplifying its neighbours' error.
     ///     </para>
     /// </remarks>
-    public static void WriteRotation(this ref BitWriter writer, in Quaternion value) {
+    public static void WriteRotation(this ref BitWriter writer, in Quaternion value) =>
+        writer.Write(PackRotation(value), 32);
+
+    /// <summary>The same 32 bits, as a value rather than as a write.</summary>
+    /// <param name="value">The rotation.</param>
+    /// <returns>The packed rotation.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         For the things that hold a rotation in its packed form rather than encoding one on the
+    ///         way out — a replicated pose keeps a bone this way so that a bone which did not move is
+    ///         <i>bit-identical</i> to last tick and costs the delta codec one bit. Storing the
+    ///         quaternion and packing per connection would also be four times the bytes in a chunk.
+    ///     </para>
+    ///     <para>
+    ///         <b>Identical to what <see cref="WriteRotation" /> emits</b>, which is not a coincidence
+    ///         to be maintained by hand: that method is written in terms of this one, and the wire
+    ///         golden pins the result. <see cref="BitWriter" /> packs least-significant-bit first, so
+    ///         one 32-bit field and the four narrower fields it is assembled from are the same bits in
+    ///         the same order.
+    ///     </para>
+    /// </remarks>
+    public static uint PackRotation(in Quaternion value) {
         var quaternion = Quaternion.Normalize(value);
         Span<float> components = [quaternion.X, quaternion.Y, quaternion.Z, quaternion.W];
 
@@ -117,14 +138,52 @@ public static class MathCodec {
         // q and -q are the same rotation, so the sender picks the one whose dropped component is
         // positive and the receiver never has to be told the sign.
         var flip = components[largest] < 0f ? -1f : 1f;
-
-        writer.Write((uint)largest, 2);
+        var packed = (uint)largest;
+        var offset = 2;
 
         for (var i = 0; i < 4; i++) {
-            if (i != largest) {
-                writer.WriteQuantized(components[i] * flip, RotationRange);
+            if (i == largest) {
+                continue;
             }
+
+            packed |= RotationRange.Encode(components[i] * flip) << offset;
+            offset += RotationBits;
         }
+
+        return packed;
+    }
+
+    /// <summary>Turns a packed rotation back into one.</summary>
+    /// <param name="packed">The packed rotation.</param>
+    /// <returns>The rotation.</returns>
+    /// <remarks>
+    ///     Every 32-bit pattern decodes to <i>a</i> rotation, so there is nothing to reject: the two
+    ///     bits always name a component and the three fields are always inside the range they are read
+    ///     from. That is why this returns a value where the reader returns a bool — the reader can run
+    ///     out of bits and this cannot be given a wrong answer.
+    /// </remarks>
+    public static Quaternion UnpackRotation(uint packed) {
+        var largest = (int)(packed & 3);
+        var offset = 2;
+        Span<float> components = [0f, 0f, 0f, 0f];
+        var squares = 0f;
+
+        for (var i = 0; i < 4; i++) {
+            if (i == largest) {
+                continue;
+            }
+
+            var component = RotationRange.Decode((packed >> offset) & ((1u << RotationBits) - 1));
+            offset += RotationBits;
+            components[i] = component;
+            squares += component * component;
+        }
+
+        // Clamped at zero: the three components come back a fraction larger than they went out, and
+        // a negative under the root would be a NaN rotation propagating into a scene.
+        components[largest] = MathF.Sqrt(Math.Max(0f, 1f - squares));
+
+        return Quaternion.Normalize(new(components[0], components[1], components[2], components[3]));
     }
 
     /// <summary>Reads a rotation written by <see cref="WriteRotation" />.</summary>
@@ -134,30 +193,11 @@ public static class MathCodec {
     public static bool TryReadRotation(this ref BitReader reader, out Quaternion value) {
         value = Quaternion.Identity;
 
-        if (!reader.TryRead(2, out var largest)) {
+        if (!reader.TryRead(32, out var packed)) {
             return false;
         }
 
-        Span<float> components = [0f, 0f, 0f, 0f];
-        var squares = 0f;
-
-        for (var i = 0; i < 4; i++) {
-            if (i == (int)largest) {
-                continue;
-            }
-
-            if (!reader.TryReadQuantized(RotationRange, out var component)) {
-                return false;
-            }
-
-            components[i] = component;
-            squares += component * component;
-        }
-
-        // Clamped at zero: the three components come back a fraction larger than they went out, and
-        // a negative under the root would be a NaN rotation propagating into a scene.
-        components[(int)largest] = MathF.Sqrt(Math.Max(0f, 1f - squares));
-        value = Quaternion.Normalize(new(components[0], components[1], components[2], components[3]));
+        value = UnpackRotation(packed);
 
         return true;
     }

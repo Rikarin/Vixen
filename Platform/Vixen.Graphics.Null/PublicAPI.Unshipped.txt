@@ -1,0 +1,112 @@
+#nullable enable
+Vixen.Graphics.Null.CommandRecorder -> sealed class
+Vixen.Graphics.Null.CommandRecorder.Clear() -> void
+Vixen.Graphics.Null.CommandRecorder.CommandRecorder() -> void
+Vixen.Graphics.Null.CommandRecorder.Commands.get -> System.Collections.Generic.IReadOnlyList<Vixen.Graphics.Null.RecordedCommand>
+Vixen.Graphics.Null.CommandRecorder.Contains(params System.ReadOnlySpan<Vixen.Graphics.Null.RecordedCommand> expected) -> bool
+Vixen.Graphics.Null.CommandRecorder.Count.get -> int
+Vixen.Graphics.Null.CommandRecorder.CountOf(Vixen.Graphics.Null.RecordedCommandKind kind) -> int
+Vixen.Graphics.Null.CommandRecorder.Dump() -> string
+Vixen.Graphics.Null.CommandRecorder.OfKind(Vixen.Graphics.Null.RecordedCommandKind kind) -> System.Collections.Generic.IReadOnlyList<Vixen.Graphics.Null.RecordedCommand>
+Vixen.Graphics.Null.CommandRecorder.Record(Vixen.Graphics.Null.RecordedCommand command) -> Vixen.Graphics.Null.RecordedCommand
+Vixen.Graphics.Null.NullDevice -> sealed class
+Vixen.Graphics.Null.NullDevice : System.IDisposable
+Vixen.Graphics.Null.NullDevice : Vixen.Graphics.IGraphicsDevice
+Vixen.Graphics.Null.NullDevice.Adapter.get -> Vixen.Graphics.IGraphicsAdapter
+Vixen.Graphics.Null.NullDevice.BeginCommandList(Vixen.Graphics.QueueKind kind = Vixen.Graphics.QueueKind.Graphics, string name = "") -> Vixen.Graphics.ICommandList
+Vixen.Graphics.Null.NullDevice.BeginFrame() -> void
+Vixen.Graphics.Null.NullDevice.ComputeQueue.get -> Vixen.Graphics.ICommandSubmitter
+Vixen.Graphics.Null.NullDevice.CreateBuffer(in Vixen.Graphics.BufferDescription description) -> Vixen.Graphics.BufferHandle
+Vixen.Graphics.Null.NullDevice.CreateComputePipeline(in Vixen.Graphics.ComputePipelineDescription description) -> Vixen.Graphics.PipelineHandle
+Vixen.Graphics.Null.NullDevice.CreateDescriptorSet(Vixen.Graphics.DescriptorSetLayoutHandle layout, string name = "") -> Vixen.Graphics.DescriptorSetHandle
+Vixen.Graphics.Null.NullDevice.CreateDescriptorSetLayout(in Vixen.Graphics.DescriptorSetLayoutDescription description) -> Vixen.Graphics.DescriptorSetLayoutHandle
+Vixen.Graphics.Null.NullDevice.CreateGraphicsPipeline(in Vixen.Graphics.GraphicsPipelineDescription description) -> Vixen.Graphics.PipelineHandle
+Vixen.Graphics.Null.NullDevice.CreatePipelineLayout(in Vixen.Graphics.PipelineLayoutDescription description) -> Vixen.Graphics.PipelineLayoutHandle
+Vixen.Graphics.Null.NullDevice.CreateSampler(in Vixen.Graphics.SamplerDescription description) -> Vixen.Graphics.SamplerHandle
+Vixen.Graphics.Null.NullDevice.CreateShader(Vixen.Graphics.ShaderStage stage, System.ReadOnlySpan<byte> bytecode, string name = "") -> Vixen.Graphics.ShaderHandle
+Vixen.Graphics.Null.NullDevice.CreateSwapChain(in Vixen.Graphics.SwapChainDescription description) -> Vixen.Graphics.ISwapChain
+Vixen.Graphics.Null.NullDevice.CreateTexture(in Vixen.Graphics.TextureDescription description) -> Vixen.Graphics.TextureHandle
+Vixen.Graphics.Null.NullDevice.CreateTextureView(Vixen.Graphics.TextureHandle texture, Vixen.Graphics.PixelFormat format = Vixen.Graphics.PixelFormat.Undefined, int baseMipLevel = 0, int mipLevelCount = 0, int baseArrayLayer = 0, int arrayLayerCount = 0) -> Vixen.Graphics.TextureViewHandle
+Vixen.Graphics.Null.NullDevice.Destroy(Vixen.Graphics.BufferHandle handle) -> void
+Vixen.Graphics.Null.NullDevice.Destroy(Vixen.Graphics.DescriptorSetHandle handle) -> void
+Vixen.Graphics.Null.NullDevice.Destroy(Vixen.Graphics.DescriptorSetLayoutHandle handle) -> void
+Vixen.Graphics.Null.NullDevice.Destroy(Vixen.Graphics.PipelineHandle handle) -> void
+Vixen.Graphics.Null.NullDevice.Destroy(Vixen.Graphics.PipelineLayoutHandle handle) -> void
+Vixen.Graphics.Null.NullDevice.Destroy(Vixen.Graphics.SamplerHandle handle) -> void
+Vixen.Graphics.Null.NullDevice.Destroy(Vixen.Graphics.ShaderHandle handle) -> void
+Vixen.Graphics.Null.NullDevice.Destroy(Vixen.Graphics.TextureHandle handle) -> void
+Vixen.Graphics.Null.NullDevice.Destroy(Vixen.Graphics.TextureViewHandle handle) -> void
+Vixen.Graphics.Null.NullDevice.Dispose() -> void
+Vixen.Graphics.Null.NullDevice.EndFrame() -> void
+Vixen.Graphics.Null.NullDevice.Features.get -> Vixen.Graphics.GraphicsDeviceFeatures
+Vixen.Graphics.Null.NullDevice.FrameCount.get -> long
+Vixen.Graphics.Null.NullDevice.FramesInFlight.get -> int
+Vixen.Graphics.Null.NullDevice.GraphicsQueue.get -> Vixen.Graphics.ICommandSubmitter
+Vixen.Graphics.Null.NullDevice.LiveResourceCount.get -> int
+Vixen.Graphics.Null.NullDevice.NullDevice() -> void
+Vixen.Graphics.Null.NullDevice.NullDevice(Vixen.Graphics.Null.NullDeviceOptions options) -> void
+Vixen.Graphics.Null.NullDevice.Read(Vixen.Graphics.BufferHandle buffer, long offset, System.Span<byte> destination) -> void
+Vixen.Graphics.Null.NullDevice.Recorder.get -> Vixen.Graphics.Null.CommandRecorder?
+Vixen.Graphics.Null.NullDevice.TransferQueue.get -> Vixen.Graphics.ICommandSubmitter
+Vixen.Graphics.Null.NullDevice.UpdateDescriptorSet(Vixen.Graphics.DescriptorSetHandle descriptors, System.ReadOnlySpan<Vixen.Graphics.DescriptorWrite> writes) -> void
+Vixen.Graphics.Null.NullDevice.WaitIdle() -> void
+Vixen.Graphics.Null.NullDevice.Write(Vixen.Graphics.BufferHandle buffer, long offset, System.ReadOnlySpan<byte> data) -> void
+Vixen.Graphics.Null.NullDeviceOptions -> readonly struct
+Vixen.Graphics.Null.NullDeviceOptions : System.IEquatable<Vixen.Graphics.Null.NullDeviceOptions>
+Vixen.Graphics.Null.NullDeviceOptions.Features.get -> Vixen.Graphics.GraphicsDeviceFeatures?
+Vixen.Graphics.Null.NullDeviceOptions.Features.init -> Vixen.Graphics.GraphicsDeviceFeatures?
+Vixen.Graphics.Null.NullDeviceOptions.FramesInFlight.get -> int
+Vixen.Graphics.Null.NullDeviceOptions.FramesInFlight.init -> int
+Vixen.Graphics.Null.NullDeviceOptions.NullDeviceOptions() -> void
+Vixen.Graphics.Null.NullDeviceOptions.Record.get -> bool
+Vixen.Graphics.Null.NullDeviceOptions.Record.init -> bool
+Vixen.Graphics.Null.RecordedCommand -> readonly struct
+Vixen.Graphics.Null.RecordedCommand : System.IEquatable<Vixen.Graphics.Null.RecordedCommand>
+Vixen.Graphics.Null.RecordedCommand.A.get -> long
+Vixen.Graphics.Null.RecordedCommand.A.init -> long
+Vixen.Graphics.Null.RecordedCommand.B.get -> long
+Vixen.Graphics.Null.RecordedCommand.B.init -> long
+Vixen.Graphics.Null.RecordedCommand.C.get -> long
+Vixen.Graphics.Null.RecordedCommand.C.init -> long
+Vixen.Graphics.Null.RecordedCommand.D.get -> long
+Vixen.Graphics.Null.RecordedCommand.D.init -> long
+Vixen.Graphics.Null.RecordedCommand.E.get -> long
+Vixen.Graphics.Null.RecordedCommand.E.init -> long
+Vixen.Graphics.Null.RecordedCommand.Kind.get -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommand.Kind.init -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommand.Matches(Vixen.Graphics.Null.RecordedCommand other) -> bool
+Vixen.Graphics.Null.RecordedCommand.RecordedCommand() -> void
+Vixen.Graphics.Null.RecordedCommand.RecordedCommand(Vixen.Graphics.Null.RecordedCommandKind Kind, int Sequence, long A = 0, long B = 0, long C = 0, long D = 0, long E = 0, string? Text = null) -> void
+Vixen.Graphics.Null.RecordedCommand.Sequence.get -> int
+Vixen.Graphics.Null.RecordedCommand.Sequence.init -> int
+Vixen.Graphics.Null.RecordedCommand.Text.get -> string?
+Vixen.Graphics.Null.RecordedCommand.Text.init -> string?
+Vixen.Graphics.Null.RecordedCommandKind -> enum : byte
+Vixen.Graphics.Null.RecordedCommandKind.Barrier = 16 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.BeginRenderPass = 0 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.BindDescriptorSet = 7 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.BindIndexBuffer = 10 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.BindPipeline = 6 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.BindVertexBuffer = 9 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.CopyBuffer = 17 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.CopyBufferToTexture = 18 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.CopyTexture = 20 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.CopyTextureToBuffer = 19 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.Dispatch = 14 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.DispatchIndirect = 15 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.Draw = 11 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.DrawIndexed = 12 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.DrawIndexedIndirect = 13 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.EndRenderPass = 1 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.InsertDebugMarker = 23 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.PopDebugGroup = 22 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.PushConstants = 8 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.PushDebugGroup = 21 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.RecordedCommandKind() -> void
+Vixen.Graphics.Null.RecordedCommandKind.SetBlendConstant = 4 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.SetScissor = 3 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.SetStencilReference = 5 -> Vixen.Graphics.Null.RecordedCommandKind
+Vixen.Graphics.Null.RecordedCommandKind.SetViewport = 2 -> Vixen.Graphics.Null.RecordedCommandKind
+override Vixen.Graphics.Null.CommandRecorder.ToString() -> string
+override Vixen.Graphics.Null.RecordedCommand.ToString() -> string
+static Vixen.Graphics.Null.NullDevice.Everything.get -> Vixen.Graphics.GraphicsDeviceFeatures

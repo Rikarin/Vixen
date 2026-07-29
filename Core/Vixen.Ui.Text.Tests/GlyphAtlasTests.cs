@@ -222,6 +222,52 @@ public class GlyphAtlasTests {
         Assert.False(atlas.Dirty);
     }
 
+    /// <summary>
+    ///     ⚠ <b>Adding a glyph moves the revision even though it moves no region</b>, which is the
+    ///     distinction an uploader lives or dies by. Gating an upload on the version instead sends
+    ///     the texture once and never again: every glyph the interface meets after its first frame
+    ///     is packed into a region the GPU's copy has nothing in, so words come out with characters
+    ///     missing and a reused slot draws some earlier glyph in their place.
+    /// </summary>
+    [Fact]
+    public void A_glyph_added_moves_the_revision_and_leaves_the_version_where_it_was() {
+        var atlas = new GlyphAtlas(64, 64);
+        Assert.True(atlas.Add(new GlyphKey(0, 1, 32), Field(8, 8), out _));
+
+        var version = atlas.Version;
+        var revision = atlas.Revision;
+
+        Assert.True(atlas.Add(new GlyphKey(0, 2, 32), Field(8, 8), out _));
+
+        Assert.Equal(version, atlas.Version);
+        Assert.NotEqual(revision, atlas.Revision);
+
+        // A hit changes no pixels, so it must leave the revision alone for the same reason it leaves
+        // the dirty flag alone — otherwise a static interface re-uploads the texture every frame.
+        revision = atlas.Revision;
+        Assert.True(atlas.TryGet(new GlyphKey(0, 1, 32), out _));
+        Assert.Equal(revision, atlas.Revision);
+    }
+
+    [Fact]
+    public void Repacking_and_clearing_move_the_revision_too() {
+        var atlas = new GlyphAtlas(16, 16, padding: 0);
+
+        for (ushort glyph = 1; glyph <= 4; glyph++) {
+            Assert.True(atlas.Add(new GlyphKey(0, glyph, 32), Field(8, 8), out _));
+        }
+
+        var revision = atlas.Revision;
+
+        // Wider than any hole eviction can make, so this is the compaction path.
+        Assert.True(atlas.Add(new GlyphKey(0, 9, 32), Field(16, 8), out _));
+        Assert.NotEqual(revision, atlas.Revision);
+
+        revision = atlas.Revision;
+        atlas.Clear();
+        Assert.NotEqual(revision, atlas.Revision);
+    }
+
     // ------------------------------------------------------------ End to end
 
     /// <summary>

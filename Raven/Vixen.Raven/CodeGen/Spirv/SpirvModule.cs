@@ -115,9 +115,16 @@ public sealed class SpirvModule {
         );
     }
 
+    /// <summary>Names a result, for a debugger and for whatever cross-compiles this.</summary>
+    /// <remarks>
+    ///     Through <see cref="SpirvNames.Of" />, because the second of those readers turns the name
+    ///     into a variable declaration in a language with its own keywords — see that file for the
+    ///     word that found it.
+    /// </remarks>
     public void AddName(uint target, string name) =>
-        debug.Add(new(SpirvOp.Name, null, null, SpirvOperand.Id(target), SpirvOperand.String(name)));
+        debug.Add(new(SpirvOp.Name, null, null, SpirvOperand.Id(target), SpirvOperand.String(SpirvNames.Of(name))));
 
+    /// <summary>Names one member of a struct, on the same terms.</summary>
     public void AddMemberName(uint target, int member, string name) =>
         debug.Add(
             new(
@@ -126,7 +133,7 @@ public sealed class SpirvModule {
                 null,
                 SpirvOperand.Id(target),
                 SpirvOperand.Literal(member),
-                SpirvOperand.String(name)
+                SpirvOperand.String(SpirvNames.Of(name))
             )
         );
 

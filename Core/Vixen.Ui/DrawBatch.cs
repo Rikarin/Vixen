@@ -36,21 +36,14 @@ public enum BatchKind : byte {
     /// <summary>Glyph runs in one font.</summary>
     Text,
 
+    /// <summary>Rectangles sampling one texture.</summary>
+    Image,
+
     /// <summary>The inside of paths under one fill rule.</summary>
     PathFill,
 
     /// <summary>Lines along paths.</summary>
     PathStroke,
-
-    /// <summary>One external picture, drawn by somebody who knows what it is.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Never more than one command, and not for the reason <see cref="Clip" /> is not.</b> Two
-    ///     surfaces are two textures, and two textures are two descriptor sets — so merging them would
-    ///     produce a batch a renderer cannot bind for. Two commands drawing the <i>same</i> surface
-    ///     could legitimately merge, and are still kept apart: the drawer is handed a rectangle, and a
-    ///     batch of two rectangles would need a geometry buffer this kind does not have.
-    /// </remarks>
-    Surface,
 
     /// <summary>A clip pushed or popped. Always exactly one command.</summary>
     /// <remarks>
@@ -75,7 +68,15 @@ public readonly record struct DrawBatch(
     int Count,
     int Font,
     PathFillRule FillRule
-);
+) {
+    /// <summary>Which texture, for <see cref="BatchKind.Image" />. Zero and unread otherwise.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Part of what decides whether a command joins a batch.</b> A texture is a descriptor
+    ///     set the renderer binds, so two images from different textures are two draws however
+    ///     adjacent they are — merging them would draw the second one with the first one's picture.
+    /// </remarks>
+    public ulong Image { get; init; }
+}
 
 /// <summary>Groups a frame's commands into runs that can be drawn as one.</summary>
 /// <remarks>
@@ -148,19 +149,17 @@ public static class DrawBatcher {
 
         for (var i = 0; i < commands.Count; i++) {
             var (kind, font, rule) = KeyOf(commands[i]);
+            var image = kind == BatchKind.Image ? commands[i].Image : 0ul;
 
             // ⚠ A clip never joins anything, not even another clip. Two pushes in a row would merge
             // into a batch of two under the general rule, and a batch is a thing to draw — a state
-            // change that arrives as part of a draw is a state change somebody will apply once. A
-            // surface stands alone for a different reason, given at BatchKind.Surface.
-            if (kind is not (BatchKind.Clip or BatchKind.Surface)
-                && into.Count > 0
-                && Extends(into[^1], kind, font, rule)) {
+            // change that arrives as part of a draw is a state change somebody will apply once.
+            if (kind != BatchKind.Clip && into.Count > 0 && Extends(into[^1], kind, font, rule, image)) {
                 into[^1] = into[^1] with { Count = into[^1].Count + 1 };
                 continue;
             }
 
-            into.Add(new DrawBatch(kind, i, 1, font, rule));
+            into.Add(new DrawBatch(kind, i, 1, font, rule) { Image = image });
         }
     }
 
@@ -170,8 +169,8 @@ public static class DrawBatcher {
     ///     ask whether the last batch was a clip: it cannot be extended, because its key is
     ///     <see cref="BatchKind.Clip" /> and nothing else has that key.
     /// </remarks>
-    static bool Extends(DrawBatch batch, BatchKind kind, int font, PathFillRule rule) =>
-        batch.Kind == kind && batch.Font == font && batch.FillRule == rule;
+    static bool Extends(DrawBatch batch, BatchKind kind, int font, PathFillRule rule, ulong image) =>
+        batch.Kind == kind && batch.Font == font && batch.FillRule == rule && batch.Image == image;
 
     /// <summary>What decides which batch a command can join.</summary>
     /// <remarks>
@@ -205,13 +204,9 @@ public static class DrawBatcher {
             DrawCommandKind.Rectangle or DrawCommandKind.Border or DrawCommandKind.Shadow =>
                 (BatchKind.Geometry, 0, default),
             DrawCommandKind.Text => (BatchKind.Text, command.Font, default),
+            DrawCommandKind.Image => (BatchKind.Image, 0, default),
             DrawCommandKind.Path => (BatchKind.PathFill, 0, command.FillRule),
             DrawCommandKind.PathStroke => (BatchKind.PathStroke, 0, default),
-
-            // ⚠ Named explicitly rather than left to the fallback, which maps to Clip. A kind added
-            // to the enum and forgotten here becomes a state change that draws nothing, silently —
-            // and the enum has grown once already.
-            DrawCommandKind.Surface => (BatchKind.Surface, 0, default),
             _ => (BatchKind.Clip, 0, default)
         };
 }

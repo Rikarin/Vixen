@@ -72,9 +72,18 @@ No staging copy. The usual advice is the opposite and it is about data the GPU r
 interface geometry is read once, by one draw, and thrown away. A staging copy would add a transfer
 and a barrier to save nothing.
 
-The atlas is the exception — it is a texture, it persists, and it is uploaded only when its version
-changes. `AtlasUploads` counts them, because "a frame drawing text it has drawn before uploads
-nothing" is a claim nobody can check otherwise.
+The atlas is the exception — it is a texture, it persists, and it is uploaded only when its
+**revision** changes. `AtlasUploads` counts them, because "a frame drawing text it has drawn before
+uploads nothing" is a claim nobody can check otherwise.
+
+⚠ **The revision and not the version, and the two are not interchangeable.** A version moves when the
+packing changes, which only compaction does; a glyph merely added leaves every existing region where
+it was, so it moves the revision and not the version. Gating the upload on the version uploads on the
+first frame and never again — and every glyph the interface meets after that samples whatever its
+region held in the GPU's copy before it was allocated. That is text with characters missing out of
+the middle of words, and another glyph's field in their place wherever the atlas reused a slot; it
+appears as the user opens menus and expands trees, which is why it reads as a fault in the controls
+rather than in the upload.
 
 ### Where the shaders come from
 
@@ -105,30 +114,6 @@ and an interface has none.
 
 The batch list was not a wasted guess and is not the thing to delete. It is what `UiGeometryBuilder`
 turns into one `UiDraw` each, behind the frame diff, so a still interface regroups nothing.
-
-## Pictures this renderer does not understand
-
-A video, a render target, a camera feed, a sprite page. `Vixen.Ui` touches no device and cannot hold
-a texture, so `DrawCommandKind.Surface` names one the way a text command names a font: an index into
-a side list of `object`. This is where that index is resolved — by handing the source to each
-registered `IUiSurfaceDrawer` until one claims it.
-
-```csharp
-ui.SurfaceDrawers.Add(new VideoSurfaceDrawer(videoRenderer, uploader.TextureFor));
-```
-
-⚠ **Everything this renderer had bound is reset afterwards, unconditionally.** A drawer binds its own
-pipeline, and Vulkan disturbs every descriptor set from the first one two pipeline layouts disagree
-about — so a panel drawn after a video would sample the video's planes through the atlas's binding.
-That is undefined rather than an error, and on the driver this was written against it happens to look
-correct.
-
-The rectangle and the tint are read back off the surface's own quad rather than carried on the
-`UiDraw`: the four vertices `UiGeometryBuilder` emitted are exactly the rectangle the element asked
-for and exactly the tint, already faded by `opacity`, so the geometry is the answer and two more
-fields would be two more things that could disagree with it. A source nobody claims draws nothing and
-is counted in `SurfacesUnclaimed` — a wiring mistake shows as a hole in a panel, so throwing would
-take a game down over one.
 
 ## Gates
 

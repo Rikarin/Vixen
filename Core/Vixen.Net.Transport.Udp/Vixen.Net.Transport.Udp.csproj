@@ -19,4 +19,16 @@
         <ProjectReference Include="..\Vixen.Net\Vixen.Net.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Net.Transport.Udp.Tests" />
+
+        <!--
+          The fuzz harness seeds its corpus with well-formed datagrams of every kind, which needs the
+          writers. Exposing UdpProtocol publicly instead would make a wire format an API surface for
+          the sake of a test — and a corpus written by hand against a copy of the layout is one that
+          goes stale silently, which for a fuzzer means a seed that guides nothing.
+        -->
+        <InternalsVisibleTo Include="Vixen.Net.Fuzz" />
+    </ItemGroup>
+
 </Project>

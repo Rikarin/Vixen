@@ -137,6 +137,39 @@ Vixen keeps all three, with these changes:
   transient memory are automatic. The compositor declares; the graph compiles.
 - **GPU-driven culling** where capabilities allow: object bounds uploaded once, frustum + Hi-Z
   occlusion culling in compute, output an indirect draw buffer. The CPU path remains for GL/WebGL.
+  ✅ **Both culls are here.** `IVisibilityGroup` is the seam, `GpuVisibilityGroup` packs the scene
+  into two storage buffers and dispatches `Library/Pipeline/Culling.rvn`, and
+  `RenderSystem.Visibility` is where a host chooses. One invocation owns one 32-object word, so the
+  pass needs no atomic; one dispatch covers every view, which is why the counts travel in the view
+  record rather than in a uniform block. Occlusion is the `Occlusion` permutation of the same shader
+  over a `HiZPyramid` — last frame's depth min-reduced by `Library/Pipeline/HiZReduce.rvn`, built by
+  the `HiZRenderer` compositor node, which exists because declaring the depth *read* is what orders
+  the dispatch after the pass that filled it. Minimum because depth is reversed, 3×3 because a
+  floored mip chain leaves a trailing row, and per view because only a view whose matrix was seen in
+  the frame the pyramid was built in may be projected with it. It falls back to the CPU whenever it
+  cannot run — no pipeline, a variant still compiling, a pyramid not yet built — which is what "the
+  CPU path remains" is, made automatic.
+  ✅ **And the indirect draw buffer.** `GpuVisibilityGroup.ReadBack = false` submits and waits for
+  nothing: `Compositor/GpuCullingRenderer` records the cull and `Library/Pipeline/DrawArguments.rvn`
+  in the frame's own list — the only ordering an RHI with no fences can express — and
+  `MeshRenderFeature` draws through `DrawIndexedIndirect` at each object's own slot. It zeroes
+  instance counts rather than compacting; the host's bitset then holds what *could* be seen, and the
+  device removes the rest. With the readback on, everything is as before: the bits are this frame's
+  and the work list is exact.
+  ✅ **And in two phases**, which is what removes the frame of staleness one-phase occlusion culling
+  cannot avoid. The `Late` permutation of the same shader reads the visibility word before it writes
+  it and answers with the *difference* — visible against a pyramid rebuilt from the main pass's own
+  depth, and not already drawn — into the same buffer, so the late draws are the same draws reading
+  an argument buffer whose contents changed. A frame with no pyramid still dispatches it and gets an
+  empty difference, because skipping it would leave the main pass's bits for the late draws to find.
+  ✅ **And it is a compositor document**: `!GpuCulling` and `!HiZ` are node kinds with `readBack`,
+  `indirectDraws` and `phase` as their flags, and `CompositorBuilder` makes the assignments a file
+  cannot — the render system's visibility group, the arguments every drawing feature reads, and the
+  descriptor-ring depths that two nodes of a kind in one frame imply. The resources stay
+  host-supplied, so one document runs on a target with no compute and gets the CPU path.
+  Still open: **compaction**, blocked on an indirect draw whose count comes from the device *and* on
+  bindless materials, since each object binds its own vertex buffer and material set — see
+  `Vixen.Rendering/README.md § Culling`.
 
 ## Frame structure
 
@@ -174,13 +207,17 @@ with clustered light lookup → transparent pass → post FX.
   cluster buffer and the shading pass *reads* it, so the graph orders them and places the barrier.
   The buffer is declared rather than imported, so a cull nothing consumes is dropped with its
   dispatch, and the node binds what it declared out of the per-frame descriptor allocator rather than
-  through a host callback. Clustered lighting then costs **nothing per object** — no selection, no
+  through a host callback — and it fills its own uniform block from `ConstantBinding`, without which
+  the culler's camera, planes and light count had no way in at all. Clustered lighting then costs
+  **nothing per object** — no selection, no
   per-draw block, no descriptor per draw. The grid is right-handed like the rest of the engine, which
   it was not: `Transform.ViewRay` pointed down +Z while `Matrix4x4.LookAt` looks down −Z, so every
   cluster's box was mirrored in z from the lights tested against it and every list came back empty —
   a handedness mistake gives an empty result rather than a wrong-looking one. `ClusterGrid.DepthOf`
   is now the single place the two conventions meet, on both sides, and a test holds the fragment's
-  own cluster against the box the culler built for it. Falls back to tiled (2D) on GLES and to
+  own cluster against the box the culler built for it. The pass is also **dispatched on a device** and
+  its buffer read back, against that same oracle over all 3456 clusters — reverting the handedness
+  fails it with `expected [0], got []`. Falls back to tiled (2D) on GLES and to
   per-object light lists (Stride's `ForwardLightingRenderFeature` approach, max N lights per draw) on
   WebGL2 where compute is absent.
 - **Why default:** MSAA works, transparency works, material variety is unconstrained, memory
@@ -245,7 +282,7 @@ Priority column: **P1** = required for the 1.0 renderer, **P2** = post-1.0.
 | Ambient / environment (IBL) | ✅ | Both halves, and the producers for them: `EnvironmentBaker` prefilters a cube per roughness by GGX importance sampling and `SphericalHarmonics` projects it into nine coefficients, on the CPU where a bake belongs and where closed forms can check it. Two defects fell out — the pass sampled the reflection at mip zero whatever the roughness said, so `Ibl.SpecularLod` and `environmentMipCount` were both dead; and the diffuse term fed it a *radiance* sample where irradiance belongs, which is where the missing `1/π` in `Ibl.Diffuse` was hiding |
 | Light probes (SH, tetrahedral interpolation) | P1 | Stride has this (`LightProbes`); it is the pragmatic indirect-diffuse answer. ⚠ **Attempted and withdrawn.** Bowyer–Watson over the probe positions is fifteen lines of idea and a wall of robustness: an oversized enclosing tetrahedron makes every circumsphere swallow the domain (four probes produced no cells at all), a grid of probes is *cospherical* so a strict in-sphere test finds no cavity, and even with both fixed a near-degenerate cell's circumsphere is large enough to eat the mesh. Doing it properly means exact predicates. The SH side it would feed — projection, linear blending, evaluation — is built and tested |
 | Reflection probes (box/sphere projected, blended) | ✅ | Parallax-corrected against a box or a sphere, faded against the environment over the probe's own blend distance, and selected by priority then volume so a cupboard inside a room wins inside the cupboard. Selected **per object**, and it costs an `int`: the cubes are one binding with a count bound for the frame, the volumes are an array beside them, and `ForwardLightingRenderFeature` writes the index and the weight into the padding std140 already left after the light count. `SceneLighting` fills that array from the same selector in the same order — the array's length off the shader's own plan, the spare slots taking the sky's cube, since the shader samples the slot before it weighs it. ⚠ Blended against the **sky** rather than against a second probe |
-| Shadow maps: CSM (directional) | ✅ | `ShadowMapRenderer` — **a cascade is a view**: four `RenderView`s over one stage, culled and sorted by machinery that knows nothing about shadows, into four tiles of one atlas in one pass. Crawl is fixed at its two sources: a *sphere* fit (so turning does not resize the cascade) and texel snapping (so sub-texel movement gives a bit-identical matrix). What a shading pass reads is published into set 0 by the node itself — the matrix with its atlas tile folded in, the texel size, the biases and the sampler. ⚠ **Cascade zero only**: `ForwardPlus.rvn` declares one `lightViewProjection` and one `shadowMap`, so a fragment past the nearest cascade is unshadowed rather than shadowed by the wrong slice. Selecting a cascade per fragment is shader work, not host work |
+| Shadow maps: CSM (directional) | ✅ | `ShadowMapRenderer` — **a cascade is a view**: four `RenderView`s over one stage, culled and sorted by machinery that knows nothing about shadows, into four tiles of one atlas in one pass. Crawl is fixed at its two sources: a *sphere* fit (so turning does not resize the cascade) and texel snapping (so sub-texel movement gives a bit-identical matrix). What a shading pass reads is published into set 0 by the node itself — the matrix with its atlas tile folded in, the texel size, the biases and the sampler. Selection is **per fragment**: the block holds a `ShadowCascade[CascadeCount]` — a matrix and the distance it is valid to, together — and a fragment picks the nearest one that still covers it from its own view depth. It read one matrix and one distance until then, so everything past the nearest slice projected outside its tile and came back unshadowed, which reads as a shadow distance far shorter than the setting. The last cascade's end is ramped by `Lighting.CascadeFade` rather than stopping at a line across the ground |
 | Shadow maps: cube (point), perspective (spot) | ✅ | `PunctualShadowRenderer`. Short where cascades are long, and the reason is worth stating: a punctual light *already is* a volume, so nothing has to be invented from the camera and nothing has to be stabilised. Six 90° frusta tile the sphere exactly — asserted over ten thousand directions, because a seam in a shadow cube is light through a wall along one line. A point light is six tiles and a spot is one, and a light that does not fit is dropped **whole** and counted |
 | Shadow filtering: PCF, PCSS, VSM option | P1 | PCF default, PCSS for soft area shadows |
 | Shadow atlas + caching for static casters | ✅ | Directional cascades. Two things had to be true together: the projection has to stop moving, which `ShadowMapRenderer.Slack` buys by cutting the cascade wider than its slice and keeping it while it still covers one — trading resolution for stability, since the same texels then cover 1.5625× the area at 25%; and the static casters have to be separable, which a second `RenderStage` already is, so no filtering machinery was needed. The cache is redrawn only when a cascade re-fits or the host bumps `StaticVersion`, and `StaticRebuilds` is what makes "it caches" checkable. Punctual lights are still redrawn every frame |
@@ -382,7 +419,7 @@ compute and a fullscreen-triangle variant so WebGL2 has a path.
 | Trails / ribbons | P2 |
 | Line/gizmo/debug renderer | P1 — editor dependency |
 | Text in 3D (MSDF) | P1 |
-| Video textures | P2 — ✅ `Vixen.Video`: WebM in, Opus for the sound, the picture on the sound's clock, three `R8` planes and the coefficients a shader converts them by. ✅ `Vixen.Video.Rendering` draws them — one pipeline, a quad in any rectangle, `VideoRenderFeature` in a `ByGroup` stage, `VideoSurfaceUploader` for the ECS path — and ✅ `Vixen.Video.Ui` puts one in an interface panel. **Screen-space only**: a video lit as a texture on a mesh is a material, and that is what is owed |
+| Video textures | P2 — ✅ `Vixen.Video`: WebM in, Opus for the sound, the picture on the sound's clock, three `R8` planes and the coefficients a shader converts them by. ✅ `Vixen.Video.Rendering` draws them — one pipeline, a quad in any rectangle, `VideoRenderFeature` in a `ByGroup` stage, `VideoSurfaceUploader` for the ECS path — and `VideoRenderTarget` converts one into an ordinary colour texture, which is what makes a video nameable by `UiRenderer.RegisterImage` and by anything else that binds one view. **Screen-space only**: a video lit as a texture on a mesh is a material, and that is what is owed |
 | VR/XR stereo (multiview, OpenXR) | P2, **not in 1.0** — `Vixen.Xr` + `Vixen.Xr.OpenXR` exist and are tested against a simulated headset: session, per-eye asymmetric projections, runtime-owned swapchains, actions. Nothing renders into the eye buffers yet and single-pass multiview is unwritten, so treat it as a parked spike rather than a feature. See [14](14-roadmap.md) |
 
 ## VFX pipeline

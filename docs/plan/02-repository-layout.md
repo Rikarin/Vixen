@@ -147,9 +147,8 @@ Core/
 ├── Vixen.Video.Tests/
 ├── Vixen.Video.Codecs/                 # ✅ Opus behind IAudioPacketDecoder — a video's sound
 ├── Vixen.Video.Codecs.Tests/
-├── Vixen.Video.Rendering/              # ✅ The pipeline, the push block, the render feature, the ECS uploader
+├── Vixen.Video.Rendering/              # ✅ The pipeline, the render feature, the ECS uploader, the offscreen target
 ├── Vixen.Video.Rendering.Tests/
-├── Vixen.Video.Ui/                     # ✅ A video as an element: the surface drawer and VideoView
 ├── Vixen.Xr/                           # ✅ session, stereo views, actions, ECS — no runtime in it
 ├── Vixen.Xr.Tests/
 │
@@ -213,10 +212,12 @@ Platform/
 ├── Vixen.Graphics.Vulkan.Tests/
 ├── Vixen.Graphics.Direct3D12/
 ├── Vixen.Graphics.Direct3D12.Tests/
-├── Vixen.Graphics.OpenGL/              # GL 4.5 core (desktop) + GLES 3.0/3.2 (mobile) + WebGL2 (browser)
-├── Vixen.Graphics.OpenGL.Tests/
-├── Vixen.Graphics.WebGPU/
+├── Vixen.Graphics.OpenGL/              # ✅ GL 4.5 core (desktop) + GLES 3.0/3.2 (mobile) + WebGL2 (browser)
+├── Vixen.Graphics.OpenGL.Tests/        # ✅ drives a recording IGlApi, so the translation is tested without a driver
+├── Vixen.Graphics.WebGPU/              # ✅ shared backend + the native Dawn/wgpu surface
 ├── Vixen.Graphics.WebGPU.Tests/
+├── Vixen.Graphics.WebGPU.Browser/      # ✅ net10.0-browser — navigator.gpu behind the same IWebGpuBinding
+│                                       #   NOT in Vixen.slnx — needs the wasm-tools workload
 ├── Vixen.Graphics.Null/                # ✅ headless: CI graphics tests AND the shipping dedicated-server backend (17)
 ├── Vixen.Graphics.Null.Tests/
 │
@@ -330,7 +331,8 @@ Tools/
 ├── Vixen.App/                    # meta-package: sensible default reference set for an app head
 ├── Vixen.Templates/              # dotnet new templates: vixen-game, vixen-app, vixen-lib, vixen-plugin
 │   └── Vixen.Templates.Tests/
-├── Vixen.ApiCheck/               # public API surface diffing, run in CI
+├── Vixen.ApiCheck/               # ✅ public API surface diffing, run in CI as `nuke CheckApi`
+│   └── Vixen.ApiCheck.Tests/
 ├── Vixen.AotProbe/               # the subject of `nuke CheckAot`: every runtime assembly, rooted
 └── Vixen.AotProbe.iOS/           # the same for `ios-arm64` — outside the solution, needs the ios workload
 ```

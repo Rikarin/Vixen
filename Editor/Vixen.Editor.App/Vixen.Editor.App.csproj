@@ -23,6 +23,32 @@
         <ProjectReference Include="..\Vixen.Editor.Core\Vixen.Editor.Core.csproj" />
 
         <!--
+            The importers and the content build, which the editor runs on a background task and the
+            CLI runs from a terminal. Shared rather than reimplemented: two orchestrations over these
+            components drift, and the way that drift shows up is the editor and `vixen content build`
+            producing different output for one project.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Assets\Vixen.Editor.Assets.csproj" />
+
+        <!--
+            The two panels that are more than chrome. Neither references the other and neither
+            references the shell — joining them is this assembly's job, which is also why the
+            [Inspector]-annotated bridge from an entity to a row of editors lives here rather than in
+            either of them. An inspector that knew what an ECS entity was, or a viewport that knew
+            what a property drawer was, would be a coupling the editor's own layering does not need.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Inspector\Vixen.Editor.Inspector.csproj" />
+        <ProjectReference Include="..\Vixen.Editor.SceneView\Vixen.Editor.SceneView.csproj" />
+
+        <!--
+            Analyzers do not flow transitively through a ProjectReference, so an assembly declaring
+            [Inspector] members of its own — which SceneEntity does — has to name the generator.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Inspector.Generator\Vixen.Editor.Inspector.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!--
             The window, the device and the four steps of a frame. Deliberately assembled here rather
             than taken from Tools/Vixen.App: that host owns a frame loop built around an ECS world
             and a fixed-step accumulator, and the editor's loop is an interface that redraws when

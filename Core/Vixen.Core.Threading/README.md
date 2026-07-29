@@ -59,6 +59,23 @@ that gets scheduled allocates a payload array of that length, so the bound is a 
 much as a concurrency one. Scheduling past it does not fail: the thread asking for a slot pays for
 one by finishing a job that is already scheduled.
 
+**Zero workers is a supported count, not a degenerate one.** `new JobScheduler(0)` keeps the graph,
+the slot ring, the failure log and the batching, and drops the only thing a browser tab cannot have:
+threads. Work then runs when somebody reaches `Complete` — which already executes ready work rather
+than parking, so there is no second code path and nothing that only the web exercises. `Dispose`
+drains for the same reason it always did.
+
+```csharp
+// A browser tab that is not cross-origin isolated. new JobScheduler() picks this itself
+// on browser-wasm, because Thread.Start() there throws rather than being slow.
+using var jobs = new JobScheduler(workerCount: 0);
+```
+
+Two things do change, and both are stated rather than smoothed over. Scheduled-and-never-completed
+work never runs, where with workers it happens anyway — code that relies on that has a bug on the
+web. And `ScheduleParallel` with an automatic batch size emits one batch instead of four per
+participant, because four batches for one thread is three extra work items and nobody to steal them.
+
 **Failures survive the slot.** A slot is reused the moment its job finishes, which means it can no
 longer answer "did that throw" — and the answer must not depend on how quickly the caller asked. So
 the last `JobFailureLog.Capacity` failures move to a side table on the way out, and both

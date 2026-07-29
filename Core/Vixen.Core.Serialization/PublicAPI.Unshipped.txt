@@ -1,0 +1,239 @@
+#nullable enable
+Vixen.Core.Serialization.ContentReference<T> -> sealed class
+Vixen.Core.Serialization.ContentReference<T>.ContentReference(Vixen.Core.ObjectId id) -> void
+Vixen.Core.Serialization.ContentReference<T>.ContentReference(Vixen.Core.ObjectId id, T? value) -> void
+Vixen.Core.Serialization.ContentReference<T>.Id.get -> Vixen.Core.ObjectId
+Vixen.Core.Serialization.ContentReference<T>.IsResolved.get -> bool
+Vixen.Core.Serialization.ContentReference<T>.Require() -> T
+Vixen.Core.Serialization.ContentReference<T>.Resolve(T? value) -> void
+Vixen.Core.Serialization.ContentReference<T>.Value.get -> T?
+Vixen.Core.Serialization.ContentReferenceSerializer<T> -> sealed class
+Vixen.Core.Serialization.ContentReferenceSerializer<T> : Vixen.Core.Serialization.DataSerializer<Vixen.Core.Serialization.ContentReference<T>>
+Vixen.Core.Serialization.ContentReferenceSerializer<T>.ContentReferenceSerializer() -> void
+Vixen.Core.Serialization.ContentResolution -> static class
+Vixen.Core.Serialization.ContentResolution.Scope -> readonly struct
+Vixen.Core.Serialization.ContentResolution.Scope : System.IDisposable
+Vixen.Core.Serialization.ContentResolution.Scope.Dispose() -> void
+Vixen.Core.Serialization.ContentResolution.Scope.Scope() -> void
+Vixen.Core.Serialization.ContentResolution.Scope.Scope(Vixen.Core.Serialization.IContentResolver? previous) -> void
+Vixen.Core.Serialization.DataSerializer -> abstract class
+Vixen.Core.Serialization.DataSerializer.DataSerializer() -> void
+Vixen.Core.Serialization.DataSerializer<T> -> abstract class
+Vixen.Core.Serialization.DataSerializer<T> : Vixen.Core.Serialization.DataSerializer
+Vixen.Core.Serialization.DataSerializer<T>.DataSerializer() -> void
+Vixen.Core.Serialization.Framing -> static class
+Vixen.Core.Serialization.IContentResolver -> interface
+Vixen.Core.Serialization.IContentResolver.TryResolve(Vixen.Core.ObjectId id, out object? value) -> bool
+Vixen.Core.Serialization.SerializationException -> class
+Vixen.Core.Serialization.SerializationException : System.Exception
+Vixen.Core.Serialization.SerializationException.SerializationException() -> void
+Vixen.Core.Serialization.SerializationException.SerializationException(string message) -> void
+Vixen.Core.Serialization.SerializationException.SerializationException(string message, System.Exception innerException) -> void
+Vixen.Core.Serialization.SerializationReader -> ref struct
+Vixen.Core.Serialization.SerializationReader.ReadArray<T>() -> T[]?
+Vixen.Core.Serialization.SerializationReader.ReadBlittable<T>(System.Span<T> destination) -> void
+Vixen.Core.Serialization.SerializationReader.ReadBlittableArray<T>() -> T[]?
+Vixen.Core.Serialization.SerializationReader.ReadBoolean() -> bool
+Vixen.Core.Serialization.SerializationReader.ReadByte() -> byte
+Vixen.Core.Serialization.SerializationReader.ReadBytes(int count) -> System.ReadOnlySpan<byte>
+Vixen.Core.Serialization.SerializationReader.ReadChar() -> char
+Vixen.Core.Serialization.SerializationReader.ReadDateTime() -> System.DateTime
+Vixen.Core.Serialization.SerializationReader.ReadDateTimeOffset() -> System.DateTimeOffset
+Vixen.Core.Serialization.SerializationReader.ReadDecimal() -> decimal
+Vixen.Core.Serialization.SerializationReader.ReadDictionary<TKey, TValue>() -> System.Collections.Generic.Dictionary<TKey, TValue>?
+Vixen.Core.Serialization.SerializationReader.ReadDouble() -> double
+Vixen.Core.Serialization.SerializationReader.ReadGuid() -> System.Guid
+Vixen.Core.Serialization.SerializationReader.ReadHalf() -> System.Half
+Vixen.Core.Serialization.SerializationReader.ReadInt16() -> short
+Vixen.Core.Serialization.SerializationReader.ReadInt32() -> int
+Vixen.Core.Serialization.SerializationReader.ReadInt64() -> long
+Vixen.Core.Serialization.SerializationReader.ReadList<T>() -> System.Collections.Generic.List<T>?
+Vixen.Core.Serialization.SerializationReader.ReadNullable<T>() -> T?
+Vixen.Core.Serialization.SerializationReader.ReadPolymorphic<TBase>() -> TBase?
+Vixen.Core.Serialization.SerializationReader.ReadReference<T>() -> T?
+Vixen.Core.Serialization.SerializationReader.ReadSByte() -> sbyte
+Vixen.Core.Serialization.SerializationReader.ReadSingle() -> float
+Vixen.Core.Serialization.SerializationReader.ReadString() -> string?
+Vixen.Core.Serialization.SerializationReader.ReadTimeSpan() -> System.TimeSpan
+Vixen.Core.Serialization.SerializationReader.ReadUInt16() -> ushort
+Vixen.Core.Serialization.SerializationReader.ReadUInt32() -> uint
+Vixen.Core.Serialization.SerializationReader.ReadUInt64() -> ulong
+Vixen.Core.Serialization.SerializationReader.ReadValue<T>() -> T
+Vixen.Core.Serialization.SerializationReader.ReadVarInt64() -> long
+Vixen.Core.Serialization.SerializationReader.ReadVarUInt64() -> ulong
+Vixen.Core.Serialization.SerializationReader.SerializationReader() -> void
+Vixen.Core.Serialization.SerializationReader.SerializationReader(System.ReadOnlySpan<byte> source) -> void
+Vixen.Core.Serialization.SerializationVersionException -> sealed class
+Vixen.Core.Serialization.SerializationVersionException : Vixen.Core.Serialization.SerializationException
+Vixen.Core.Serialization.SerializationVersionException.ContractName.get -> string
+Vixen.Core.Serialization.SerializationVersionException.CurrentVersion.get -> int
+Vixen.Core.Serialization.SerializationVersionException.DataVersion.get -> int
+Vixen.Core.Serialization.SerializationVersionException.SerializationVersionException() -> void
+Vixen.Core.Serialization.SerializationVersionException.SerializationVersionException(string contractName, int dataVersion, int currentVersion) -> void
+Vixen.Core.Serialization.SerializationVersionException.SerializationVersionException(string message) -> void
+Vixen.Core.Serialization.SerializationVersionException.SerializationVersionException(string message, System.Exception innerException) -> void
+Vixen.Core.Serialization.SerializationWriter -> ref struct
+Vixen.Core.Serialization.SerializationWriter.Flush() -> void
+Vixen.Core.Serialization.SerializationWriter.SerializationWriter() -> void
+Vixen.Core.Serialization.SerializationWriter.SerializationWriter(System.Buffers.IBufferWriter<byte> sink) -> void
+Vixen.Core.Serialization.SerializationWriter.SerializationWriter(System.Span<byte> destination) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteArray<T>(T[]? value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteBlittable<T>(System.ReadOnlySpan<T> value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteBlittableArray<T>(T[]? value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteBoolean(bool value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteByte(byte value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteBytes(System.ReadOnlySpan<byte> value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteChar(char value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteDateTime(System.DateTime value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteDateTimeOffset(System.DateTimeOffset value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteDecimal(decimal value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteDictionary<TKey, TValue>(System.Collections.Generic.Dictionary<TKey, TValue>? value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteDouble(double value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteGuid(System.Guid value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteHalf(System.Half value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteInt16(short value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteInt32(int value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteInt64(long value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteList<T>(System.Collections.Generic.List<T>? value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteNullable<T>(T? value) -> void
+Vixen.Core.Serialization.SerializationWriter.WritePolymorphic<TBase>(TBase? value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteReference<T>(T? value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteSByte(sbyte value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteSingle(float value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteString(string? value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteTimeSpan(System.TimeSpan value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteUInt16(ushort value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteUInt32(uint value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteUInt64(ulong value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteValue<T>(in T value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteVarInt64(long value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteVarUInt64(ulong value) -> void
+Vixen.Core.Serialization.Serializer -> static class
+Vixen.Core.Serialization.SerializerRegistry -> static class
+Vixen.Core.Serialization.Storage.BundleFormat -> static class
+Vixen.Core.Serialization.Storage.BundleOdbBackend -> sealed class
+Vixen.Core.Serialization.Storage.BundleOdbBackend : System.IDisposable
+Vixen.Core.Serialization.Storage.BundleOdbBackend : Vixen.Core.Serialization.Storage.IOdbBackend
+Vixen.Core.Serialization.Storage.BundleOdbBackend.BundleOdbBackend(System.ReadOnlyMemory<byte> bundle, bool verifyChecksum = false, System.IDisposable? owner = null) -> void
+Vixen.Core.Serialization.Storage.BundleOdbBackend.Count.get -> int
+Vixen.Core.Serialization.Storage.BundleOdbBackend.Delete(Vixen.Core.ObjectId id) -> bool
+Vixen.Core.Serialization.Storage.BundleOdbBackend.Dispose() -> void
+Vixen.Core.Serialization.Storage.BundleOdbBackend.Enumerate() -> System.Collections.Generic.IEnumerable<Vixen.Core.ObjectId>
+Vixen.Core.Serialization.Storage.BundleOdbBackend.Exists(Vixen.Core.ObjectId id) -> bool
+Vixen.Core.Serialization.Storage.BundleOdbBackend.IsReadOnly.get -> bool
+Vixen.Core.Serialization.Storage.BundleOdbBackend.TryRead(Vixen.Core.ObjectId id, out Vixen.Core.Serialization.Storage.IOdbBlob? blob) -> bool
+Vixen.Core.Serialization.Storage.BundleOdbBackend.Write(Vixen.Core.ObjectId id, System.ReadOnlySpan<byte> blob) -> bool
+Vixen.Core.Serialization.Storage.BundleWriter -> sealed class
+Vixen.Core.Serialization.Storage.BundleWriter.Add(Vixen.Core.ObjectId id, System.ReadOnlyMemory<byte> blob) -> void
+Vixen.Core.Serialization.Storage.BundleWriter.AddAll(Vixen.Core.Serialization.Storage.IOdbBackend backend) -> void
+Vixen.Core.Serialization.Storage.BundleWriter.Build() -> byte[]
+Vixen.Core.Serialization.Storage.BundleWriter.BundleWriter() -> void
+Vixen.Core.Serialization.Storage.BundleWriter.Count.get -> int
+Vixen.Core.Serialization.Storage.ChunkFormat -> static class
+Vixen.Core.Serialization.Storage.ChunkInfo -> readonly struct
+Vixen.Core.Serialization.Storage.ChunkInfo : System.IEquatable<Vixen.Core.Serialization.Storage.ChunkInfo>
+Vixen.Core.Serialization.Storage.ChunkInfo.ChunkInfo() -> void
+Vixen.Core.Serialization.Storage.ChunkInfo.ChunkInfo(Vixen.Core.ObjectId Id, ulong TypeId, System.Collections.Immutable.ImmutableArray<Vixen.Core.ObjectId> References, int PayloadLength, Vixen.Core.Serialization.Storage.CompressionMethod Compression, int StoredLength) -> void
+Vixen.Core.Serialization.Storage.ChunkInfo.Compression.get -> Vixen.Core.Serialization.Storage.CompressionMethod
+Vixen.Core.Serialization.Storage.ChunkInfo.Compression.init -> Vixen.Core.Serialization.Storage.CompressionMethod
+Vixen.Core.Serialization.Storage.ChunkInfo.Id.get -> Vixen.Core.ObjectId
+Vixen.Core.Serialization.Storage.ChunkInfo.Id.init -> Vixen.Core.ObjectId
+Vixen.Core.Serialization.Storage.ChunkInfo.PayloadLength.get -> int
+Vixen.Core.Serialization.Storage.ChunkInfo.PayloadLength.init -> int
+Vixen.Core.Serialization.Storage.ChunkInfo.References.get -> System.Collections.Immutable.ImmutableArray<Vixen.Core.ObjectId>
+Vixen.Core.Serialization.Storage.ChunkInfo.References.init -> System.Collections.Immutable.ImmutableArray<Vixen.Core.ObjectId>
+Vixen.Core.Serialization.Storage.ChunkInfo.StoredLength.get -> int
+Vixen.Core.Serialization.Storage.ChunkInfo.StoredLength.init -> int
+Vixen.Core.Serialization.Storage.ChunkInfo.TypeId.get -> ulong
+Vixen.Core.Serialization.Storage.ChunkInfo.TypeId.init -> ulong
+Vixen.Core.Serialization.Storage.CompressionMethod -> enum : byte
+Vixen.Core.Serialization.Storage.CompressionMethod.CompressionMethod() -> void
+Vixen.Core.Serialization.Storage.CompressionMethod.Lz4 = 1 -> Vixen.Core.Serialization.Storage.CompressionMethod
+Vixen.Core.Serialization.Storage.CompressionMethod.None = 0 -> Vixen.Core.Serialization.Storage.CompressionMethod
+Vixen.Core.Serialization.Storage.CompressionMethod.Zstd = 2 -> Vixen.Core.Serialization.Storage.CompressionMethod
+Vixen.Core.Serialization.Storage.ContentHash -> static class
+Vixen.Core.Serialization.Storage.FileOdbBackend -> sealed class
+Vixen.Core.Serialization.Storage.FileOdbBackend : Vixen.Core.Serialization.Storage.IOdbBackend
+Vixen.Core.Serialization.Storage.FileOdbBackend.Delete(Vixen.Core.ObjectId id) -> bool
+Vixen.Core.Serialization.Storage.FileOdbBackend.Enumerate() -> System.Collections.Generic.IEnumerable<Vixen.Core.ObjectId>
+Vixen.Core.Serialization.Storage.FileOdbBackend.Exists(Vixen.Core.ObjectId id) -> bool
+Vixen.Core.Serialization.Storage.FileOdbBackend.FileOdbBackend(Vixen.Core.IO.VirtualFileSystem files, Vixen.Core.IO.VirtualPath root, bool isReadOnly = false) -> void
+Vixen.Core.Serialization.Storage.FileOdbBackend.IsReadOnly.get -> bool
+Vixen.Core.Serialization.Storage.FileOdbBackend.Root.get -> Vixen.Core.IO.VirtualPath
+Vixen.Core.Serialization.Storage.FileOdbBackend.TryRead(Vixen.Core.ObjectId id, out Vixen.Core.Serialization.Storage.IOdbBlob? blob) -> bool
+Vixen.Core.Serialization.Storage.FileOdbBackend.Write(Vixen.Core.ObjectId id, System.ReadOnlySpan<byte> blob) -> bool
+Vixen.Core.Serialization.Storage.IOdbBackend -> interface
+Vixen.Core.Serialization.Storage.IOdbBackend.Delete(Vixen.Core.ObjectId id) -> bool
+Vixen.Core.Serialization.Storage.IOdbBackend.Enumerate() -> System.Collections.Generic.IEnumerable<Vixen.Core.ObjectId>
+Vixen.Core.Serialization.Storage.IOdbBackend.Exists(Vixen.Core.ObjectId id) -> bool
+Vixen.Core.Serialization.Storage.IOdbBackend.IsReadOnly.get -> bool
+Vixen.Core.Serialization.Storage.IOdbBackend.TryRead(Vixen.Core.ObjectId id, out Vixen.Core.Serialization.Storage.IOdbBlob? blob) -> bool
+Vixen.Core.Serialization.Storage.IOdbBackend.Write(Vixen.Core.ObjectId id, System.ReadOnlySpan<byte> blob) -> bool
+Vixen.Core.Serialization.Storage.IOdbBlob -> interface
+Vixen.Core.Serialization.Storage.IOdbBlob : System.IDisposable
+Vixen.Core.Serialization.Storage.IOdbBlob.Bytes.get -> System.ReadOnlyMemory<byte>
+Vixen.Core.Serialization.Storage.ObjectDatabase -> sealed class
+Vixen.Core.Serialization.Storage.ObjectDatabase.Backends.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Serialization.Storage.IOdbBackend>
+Vixen.Core.Serialization.Storage.ObjectDatabase.Closure(params System.ReadOnlySpan<Vixen.Core.ObjectId> roots) -> System.Collections.Immutable.ImmutableArray<Vixen.Core.ObjectId>
+Vixen.Core.Serialization.Storage.ObjectDatabase.DefaultCompression.get -> Vixen.Core.Serialization.Storage.CompressionMethod
+Vixen.Core.Serialization.Storage.ObjectDatabase.DefaultCompression.set -> Vixen.Core.Serialization.Storage.CompressionMethod
+Vixen.Core.Serialization.Storage.ObjectDatabase.Enumerate() -> System.Collections.Generic.IEnumerable<Vixen.Core.ObjectId>
+Vixen.Core.Serialization.Storage.ObjectDatabase.Exists(Vixen.Core.ObjectId id) -> bool
+Vixen.Core.Serialization.Storage.ObjectDatabase.Mount(Vixen.Core.Serialization.Storage.IOdbBackend backend) -> bool
+Vixen.Core.Serialization.Storage.ObjectDatabase.ObjectDatabase(params Vixen.Core.Serialization.Storage.IOdbBackend[] backends) -> void
+Vixen.Core.Serialization.Storage.ObjectDatabase.Read<T>(Vixen.Core.ObjectId id) -> T
+Vixen.Core.Serialization.Storage.ObjectDatabase.ReadObject(Vixen.Core.ObjectId id) -> object
+Vixen.Core.Serialization.Storage.ObjectDatabase.ReadRaw(Vixen.Core.ObjectId id, out ulong typeId) -> byte[]
+Vixen.Core.Serialization.Storage.ObjectDatabase.TryDescribe(Vixen.Core.ObjectId id, out Vixen.Core.Serialization.Storage.ChunkInfo info) -> bool
+Vixen.Core.Serialization.Storage.ObjectDatabase.Verify(Vixen.Core.ObjectId id) -> bool
+Vixen.Core.Serialization.Storage.ObjectDatabase.Write<T>(in T value, System.ReadOnlySpan<Vixen.Core.ObjectId> references = default(System.ReadOnlySpan<Vixen.Core.ObjectId>), Vixen.Core.Serialization.Storage.CompressionMethod? compression = null) -> Vixen.Core.ObjectId
+Vixen.Core.Serialization.Storage.ObjectDatabase.WriteRaw(ulong typeId, System.ReadOnlySpan<Vixen.Core.ObjectId> references, System.ReadOnlySpan<byte> payload, Vixen.Core.Serialization.Storage.CompressionMethod? compression = null) -> Vixen.Core.ObjectId
+abstract Vixen.Core.Serialization.DataSerializer.DeserializeObject(ref Vixen.Core.Serialization.SerializationReader reader) -> object
+abstract Vixen.Core.Serialization.DataSerializer.SerializeObject(ref Vixen.Core.Serialization.SerializationWriter writer, object value) -> void
+abstract Vixen.Core.Serialization.DataSerializer.SerializedType.get -> System.Type
+abstract Vixen.Core.Serialization.DataSerializer<T>.Deserialize(ref Vixen.Core.Serialization.SerializationReader reader, ref T value) -> void
+abstract Vixen.Core.Serialization.DataSerializer<T>.Serialize(ref Vixen.Core.Serialization.SerializationWriter writer, in T value) -> void
+const Vixen.Core.Serialization.Framing.MaximumLength = 536870912 -> int
+const Vixen.Core.Serialization.Storage.BundleFormat.EntrySize = 24 -> int
+const Vixen.Core.Serialization.Storage.BundleFormat.HeaderSize = 24 -> int
+const Vixen.Core.Serialization.Storage.BundleFormat.Version = 1 -> int
+const Vixen.Core.Serialization.Storage.ChunkFormat.MinimumCompressedSize = 256 -> int
+const Vixen.Core.Serialization.Storage.ChunkFormat.Version = 1 -> int
+override Vixen.Core.Serialization.ContentReference<T>.ToString() -> string
+override Vixen.Core.Serialization.ContentReferenceSerializer<T>.Deserialize(ref Vixen.Core.Serialization.SerializationReader reader, ref Vixen.Core.Serialization.ContentReference<T> value) -> void
+override Vixen.Core.Serialization.ContentReferenceSerializer<T>.Serialize(ref Vixen.Core.Serialization.SerializationWriter writer, in Vixen.Core.Serialization.ContentReference<T> value) -> void
+override sealed Vixen.Core.Serialization.DataSerializer<T>.DeserializeObject(ref Vixen.Core.Serialization.SerializationReader reader) -> object
+override sealed Vixen.Core.Serialization.DataSerializer<T>.SerializeObject(ref Vixen.Core.Serialization.SerializationWriter writer, object value) -> void
+override sealed Vixen.Core.Serialization.DataSerializer<T>.SerializedType.get -> System.Type
+readonly Vixen.Core.Serialization.SerializationReader.BytesRead.get -> int
+readonly Vixen.Core.Serialization.SerializationReader.Remaining.get -> int
+readonly Vixen.Core.Serialization.SerializationWriter.BytesWritten.get -> long
+static Vixen.Core.Serialization.ContentReference<T>.Empty.get -> Vixen.Core.Serialization.ContentReference<T>
+static Vixen.Core.Serialization.ContentResolution.Current.get -> Vixen.Core.Serialization.IContentResolver?
+static Vixen.Core.Serialization.ContentResolution.Push(Vixen.Core.Serialization.IContentResolver resolver) -> Vixen.Core.Serialization.ContentResolution.Scope
+static Vixen.Core.Serialization.Framing.ReadAsync<T>(System.IO.Stream stream, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T?>
+static Vixen.Core.Serialization.Framing.WriteAsync<T>(System.IO.Stream stream, T value, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task
+static Vixen.Core.Serialization.Serializer.Read<T>(System.ReadOnlySpan<byte> source) -> T
+static Vixen.Core.Serialization.Serializer.Read<T>(System.ReadOnlySpan<byte> source, ref T value) -> void
+static Vixen.Core.Serialization.Serializer.ToBytes<T>(in T value) -> byte[]
+static Vixen.Core.Serialization.Serializer.Write<T>(System.Buffers.IBufferWriter<byte> destination, in T value) -> long
+static Vixen.Core.Serialization.Serializer.Write<T>(System.Span<byte> destination, in T value) -> int
+static Vixen.Core.Serialization.SerializerRegistry.Count.get -> int
+static Vixen.Core.Serialization.SerializerRegistry.Get<T>() -> Vixen.Core.Serialization.DataSerializer<T>
+static Vixen.Core.Serialization.SerializerRegistry.IsRegistered(System.Type type) -> bool
+static Vixen.Core.Serialization.SerializerRegistry.IsRegistered<T>() -> bool
+static Vixen.Core.Serialization.SerializerRegistry.Register<T>(Vixen.Core.Serialization.DataSerializer<T> serializer) -> void
+static Vixen.Core.Serialization.SerializerRegistry.Register<T>(string alias, Vixen.Core.Serialization.DataSerializer<T> serializer, params string[] formerAliases) -> void
+static Vixen.Core.Serialization.SerializerRegistry.RegisteredTypes.get -> System.Collections.Generic.IReadOnlyCollection<System.Type>
+static Vixen.Core.Serialization.SerializerRegistry.TryGet<T>(out Vixen.Core.Serialization.DataSerializer<T>? serializer) -> bool
+static Vixen.Core.Serialization.SerializerRegistry.TryGetAlias(System.Type type, out string? alias) -> bool
+static Vixen.Core.Serialization.SerializerRegistry.TryGetByAlias(string alias, out Vixen.Core.Serialization.DataSerializer? serializer) -> bool
+static Vixen.Core.Serialization.SerializerRegistry.TryGetByTypeId(ulong typeId, out Vixen.Core.Serialization.DataSerializer? serializer) -> bool
+static Vixen.Core.Serialization.Storage.BundleFormat.Magic.get -> System.ReadOnlySpan<byte>
+static Vixen.Core.Serialization.Storage.BundleOdbBackend.Open(Vixen.Core.IO.VirtualFileSystem files, Vixen.Core.IO.VirtualPath path, bool verifyChecksum = false) -> Vixen.Core.Serialization.Storage.BundleOdbBackend
+static Vixen.Core.Serialization.Storage.ChunkFormat.BuildChunk(ulong typeId, System.ReadOnlySpan<Vixen.Core.ObjectId> references, System.ReadOnlySpan<byte> payload) -> byte[]
+static Vixen.Core.Serialization.Storage.ChunkFormat.Pack(System.ReadOnlySpan<byte> chunk, Vixen.Core.Serialization.Storage.CompressionMethod method) -> byte[]
+static Vixen.Core.Serialization.Storage.ChunkFormat.ReadHeader(System.ReadOnlySpan<byte> chunk, out ulong typeId, out System.Collections.Immutable.ImmutableArray<Vixen.Core.ObjectId> references) -> int
+static Vixen.Core.Serialization.Storage.ChunkFormat.Unpack(System.ReadOnlySpan<byte> blob, out Vixen.Core.Serialization.Storage.CompressionMethod method) -> byte[]
+static Vixen.Core.Serialization.Storage.ContentHash.Compute(System.ReadOnlySpan<byte> content) -> Vixen.Core.ObjectId
+static Vixen.Core.Serialization.Storage.ContentHash.TypeId(System.Type type) -> ulong

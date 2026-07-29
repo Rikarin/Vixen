@@ -22,6 +22,16 @@ itself or a depth that disagrees with the parent chain.
 Adding or removing a child is O(1) with no allocation, which is what makes reparenting cheap enough
 to do in gameplay code rather than only at load.
 
+⚠ **Linking prepends, and `SetParentAfter` exists because undo cannot live with that.** Putting a new
+child at the head is the right default — it is the O(1) one — and it means undoing a delete or a
+reparent returns the entity to the *front* of its old parent's children rather than to where it was.
+A user who moves the third of five children and presses Ctrl+Z has not undone anything.
+
+**The position is recorded as a neighbour, not an index.** `PreviousSiblingOf` before the move,
+`SetParentAfter` to put it back. An index would have to be counted from the head, be invalidated by
+every insertion in front of it, and mean nothing once a sibling was itself deleted; the entity that
+used to be in front survives all three, and is what the list already stores.
+
 **`TransformSystem` touches nothing that did not move.** It starts from the chunks whose
 `LocalTransform` column has been written since it last ran, and walks down from there; a frame in
 which nothing moved visits nothing. Reparenting and creation are caught for free, because both move

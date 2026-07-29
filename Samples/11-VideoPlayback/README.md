@@ -137,10 +137,10 @@ between them — deliberately, exactly as `01-HelloTriangle` is the RHI and noth
 inside a `RenderSystem`, and `VideoSurfaceUploader` is what drives it from an ECS world; neither is
 exercised here, and both are asserted headlessly in `Vixen.Video.Rendering.Tests`.
 
-**No interface.** A video inside a UI panel is
-[`Vixen.Video.Ui`](../../Core/Vixen.Video.Ui/README.md), which needs a document, a theme and a font
-atlas — a second sample's worth of setup for a path whose wiring is asserted end to end over the null
-backend in `VideoInUiTests`.
+**No interface.** A video inside a UI panel is `VideoRenderTarget` plus one call to
+`UiRenderer.RegisterImage`, after which it is an ordinary `Image` element — a second sample's worth of
+document, theme and font-atlas setup for two lines of wiring, which is asserted end to end over the
+null backend in `VideoInUiTests` instead.
 
 **No material.** A video lit as a texture on a mesh in a scene is `MaterialRenderFeature`'s and, once
 it lands, Raven's. The three plane views and six coefficients this binds are exactly what such a

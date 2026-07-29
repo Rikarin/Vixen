@@ -87,12 +87,30 @@ public sealed class EffectLoader(IGraphicsDevice device) {
             Key = key,
             Stages = stages.ToImmutable(),
             SetLayouts = [.. sets],
-            Layout = Device.CreatePipelineLayout(new(sets, null, key.ShaderName)),
+            Layout = Device.CreatePipelineLayout(new(sets, [.. Pushed(data)], key.ShaderName)),
             ConstantBufferSize = data.ConstantBufferSize,
             Parameters = parameters.ToImmutable(),
             Bindings = bindings.ToImmutable(),
             UsedPermutationKeys = permutations.ToImmutable()
         };
+    }
+
+    /// <summary>
+    ///     The push-constant ranges a variant's pipeline layout declares.
+    /// </summary>
+    /// <remarks>
+    ///     A layout was created with none of them for a while, which is the sort of omission that
+    ///     produces no error and no picture: a push against a layout that declares no range is dropped
+    ///     by a release driver and refused by the validation layers, and what
+    ///     <c>ForwardPlus.rvn</c> pushes is the world matrix — so every object in the frame draws at
+    ///     the origin.
+    /// </remarks>
+    static IEnumerable<PushConstantRange> Pushed(EffectData data) {
+        foreach (var range in data.PushConstants) {
+            if (range is { Size: > 0, Stages: not ShaderStage.None }) {
+                yield return new(range.Stages, range.Offset, range.Size);
+            }
+        }
     }
 
     /// <summary>Forgets every cached layout, without destroying anything.</summary>

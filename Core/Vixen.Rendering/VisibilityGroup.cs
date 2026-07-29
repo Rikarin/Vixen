@@ -8,7 +8,7 @@ using Vixen.Core.Threading;
 namespace Vixen.Rendering;
 
 /// <summary>
-///     Which objects each view can see, as one bit per object per view.
+///     Which objects each view can see, as one bit per object per view, decided on the CPU.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -23,16 +23,21 @@ namespace Vixen.Rendering;
 ///         repeated — the stage mask filters afterwards, when the work list is built, where it is an
 ///         <c>and</c> on a value already loaded.
 ///     </para>
+///     <para>
+///         The default implementation of <see cref="IVisibilityGroup" />, and the one that runs
+///         everywhere: it needs no device, no compute support and no shader, which is why it is what
+///         a GL or WebGL target uses and what <see cref="GpuVisibilityGroup" /> falls back to.
+///     </para>
 /// </remarks>
-public sealed class VisibilityGroup : IDisposable {
+public sealed class VisibilityGroup : IVisibilityGroup {
     readonly List<NativeArray<ulong>> perView = [];
     int wordsPerView;
     bool disposed;
 
-    /// <summary>How many views have results.</summary>
+    /// <inheritdoc />
     public int ViewCount => perView.Count;
 
-    /// <summary>Whether an object is visible in a view.</summary>
+    /// <inheritdoc />
     public bool IsVisible(int viewIndex, RenderObjectId id) {
         ObjectDisposedException.ThrowIf(disposed, this);
 
@@ -44,28 +49,11 @@ public sealed class VisibilityGroup : IDisposable {
         return word < perView[viewIndex].Length && (perView[viewIndex][word] & (1UL << (id.Index & 63))) != 0;
     }
 
-    /// <summary>The raw visibility words for a view, for a consumer that walks them itself.</summary>
+    /// <inheritdoc />
     public ReadOnlySpan<ulong> Words(int viewIndex) =>
         viewIndex >= 0 && viewIndex < perView.Count ? perView[viewIndex].AsSpan() : default;
 
-    /// <summary>
-    ///     Removes an object from a view after culling has run.
-    /// </summary>
-    /// <remarks>
-    ///     <para>
-    ///         The seam a refinement pass needs. Frustum culling answers "could this be seen"; LOD
-    ///         answers "is this the copy that should be", and the second question can only be asked
-    ///         once the first has been — an object outside the frustum has no screen size to measure.
-    ///         So a feature narrows the set rather than replacing the test, which is also why this
-    ///         only ever clears a bit: a pass that could <em>add</em> visibility would be one that
-    ///         could draw something the frustum rejected.
-    ///     </para>
-    ///     <para>
-    ///         Call it between <see cref="RenderSystem.Cull" /> and
-    ///         <see cref="RenderSystem.Sort" />; a feature's <c>Prepare</c> is exactly that window.
-    ///         Hiding after sorting would leave the object in a list something already built.
-    ///     </para>
-    /// </remarks>
+    /// <inheritdoc />
     public void Hide(int viewIndex, RenderObjectId id) {
         ObjectDisposedException.ThrowIf(disposed, this);
 
@@ -80,7 +68,7 @@ public sealed class VisibilityGroup : IDisposable {
         }
     }
 
-    /// <summary>How many objects are visible in a view.</summary>
+    /// <inheritdoc />
     public int VisibleCount(int viewIndex) {
         var total = 0;
 
@@ -91,10 +79,11 @@ public sealed class VisibilityGroup : IDisposable {
         return total;
     }
 
-    /// <summary>
-    ///     Tests every object against every view, in parallel over the objects.
-    /// </summary>
+    /// <inheritdoc cref="IVisibilityGroup.Cull" />
     /// <remarks>
+    ///     <para>
+    ///         Tests every object against every view, in parallel over the objects.
+    ///     </para>
     ///     <para>
     ///         Parallel over objects rather than over views, which is the partitioning that stays
     ///         balanced: a frame typically has a handful of views and tens of thousands of objects,
@@ -134,6 +123,35 @@ public sealed class VisibilityGroup : IDisposable {
 
         // One index per word, so the unit of work is the unit of ownership.
         scheduler.ParallelFor(job, wordsPerView, BatchWords);
+    }
+
+    /// <summary>
+    ///     Makes room for a frame and clears it, for a producer that is not <see cref="Cull" />.
+    /// </summary>
+    /// <param name="viewCount">How many views the frame has.</param>
+    /// <param name="objectCount">How many object slots the store holds.</param>
+    /// <remarks>
+    ///     This and <see cref="Fill" /> are the two halves of one seam, and it exists for exactly one
+    ///     caller: <see cref="GpuVisibilityGroup" /> computes the same bits on the device and needs
+    ///     somewhere to put them that every consumer already knows how to read. Sharing the storage
+    ///     rather than duplicating it is also what makes <see cref="Hide" />, <see cref="Words" /> and
+    ///     the rest identical between the two paths instead of merely similar.
+    /// </remarks>
+    internal void Reset(int viewCount, int objectCount) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        EnsureCapacity(viewCount, objectCount);
+
+        foreach (var set in perView) {
+            set.AsSpan().Clear();
+        }
+    }
+
+    /// <summary>One view's words, to be written into. Valid until the next <see cref="Reset" />.</summary>
+    /// <param name="viewIndex">Which view.</param>
+    internal Span<ulong> Fill(int viewIndex) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+        return viewIndex >= 0 && viewIndex < perView.Count ? perView[viewIndex].AsSpan() : default;
     }
 
     /// <summary>How many 64-object words one job batch covers.</summary>

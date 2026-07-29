@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
+using Vixen.Core.Mathematics;
 using Vixen.Input;
 
 namespace Vixen.Ui.Controls;
@@ -62,16 +63,11 @@ public sealed partial class Badge : Control {
 
 /// <summary>A person or an entity, as a circle with their initials in it.</summary>
 /// <remarks>
-///     ⚠ <s><b>Initials only, for now, and it is the draw list rather than this control that says
-///     so.</b> There is no texture command — <c>DrawCommandKind</c> has rectangles, borders, text,
-///     paths and clips — so an avatar cannot show a picture until one exists.</s>
-///     <para>
-///         <b>There is one now.</b> <see cref="SurfaceView" /> draws whatever a renderer's surface
-///         drawer recognises, so an avatar with a picture is this control with one of those inside
-///         it, and the picture is no longer owed by the draw list. <see cref="Initials" /> stays as
-///         what it always was: the fallback every avatar needs anyway, for the person whose portrait
-///         has not loaded or was never set.
-///     </para>
+///     ⚠ <b>Initials only, for now, and it is the draw list rather than this control that says so.</b>
+///     There is no texture command — <c>DrawCommandKind</c> has rectangles, borders, text, paths and
+///     clips — so an avatar cannot show a picture until one exists. <see cref="Initials" /> derives
+///     from a name so that the fallback every avatar needs anyway is the thing that works today, and
+///     the picture is owed.
 /// </remarks>
 public sealed partial class Avatar : Control {
     /// <inheritdoc />
@@ -138,12 +134,18 @@ public sealed partial class Skeleton : Control {
 
 /// <summary>A picture.</summary>
 /// <remarks>
-///     ⚠ <b>It reserves the space and draws nothing, and that is the honest state of it.</b> The draw
-///     list has no texture command — see <c>DrawCommandKind</c> — so there is nowhere for pixels to
-///     go. What this does do is the half that does not need one: <see cref="Source" /> names the
-///     asset, and <c>aspect-ratio</c> in the stylesheet keeps the box the right shape so a layout
-///     built against images does not reflow when they finally appear. A background colour on it is a
-///     perfectly good placeholder in the meantime.
+///     <para>
+///         <b>Two halves, and only one of them is here.</b> <see cref="Source" /> names the asset the
+///         way the application's asset system names things, and <c>aspect-ratio</c> in the stylesheet
+///         keeps the box the right shape. What turns a name into pixels is the application's: it
+///         loads the asset, registers the texture with the renderer, and puts the number it was given
+///         in <see cref="Texture" />.
+///     </para>
+///     <para>
+///         ⚠ <b>An unset <see cref="Texture" /> draws nothing</b>, which is what an image whose asset
+///         has not finished loading should do. A background colour on it is a perfectly good
+///         placeholder in the meantime.
+///     </para>
 /// </remarks>
 public sealed partial class Image : Control {
     /// <inheritdoc />
@@ -159,6 +161,31 @@ public sealed partial class Image : Control {
     /// <summary>What it is a picture of, for a tooltip and for the accessibility bridge.</summary>
     [UiProperty]
     public partial string? Description { get; set; }
+
+    /// <summary>The renderer's number for the texture to draw, or zero for none.</summary>
+    /// <remarks>
+    ///     Opaque, for the reason <c>DrawCommand.Image</c> gives: a texture view is the graphics
+    ///     layer's vocabulary and this assembly does not reference it. The application registers a
+    ///     texture with <c>UiRenderer.RegisterImage</c> and puts the number it was handed here.
+    /// </remarks>
+    public ulong Texture { get; set; }
+
+    /// <summary>Which part of the texture to draw, in UVs. The whole of it by default.</summary>
+    /// <remarks>
+    ///     Not called <c>Source</c> because that name is taken by the asset this shows, and the two
+    ///     are different questions: one is <i>which picture</i>, this is <i>which part of it</i> — a
+    ///     sprite sheet's cell, a flipped video frame.
+    /// </remarks>
+    public Rectangle SourceRectangle { get; set; } = new(0f, 0f, 1f, 1f);
+
+    /// <inheritdoc />
+    protected override void OnDraw(DrawContext context) {
+        base.OnDraw(context);
+
+        if (Texture != 0) {
+            context.DrawImage(context.Bounds, Texture, source: SourceRectangle);
+        }
+    }
 }
 
 /// <summary>A key combination, drawn the way a menu draws one.</summary>

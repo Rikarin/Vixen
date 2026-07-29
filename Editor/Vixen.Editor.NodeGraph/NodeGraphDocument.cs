@@ -80,6 +80,30 @@ public sealed record GraphCommentAsset {
     public float Height { get; init; }
 }
 
+/// <summary>One port of a graph's sub-graph interface, as a file holds it.</summary>
+/// <remarks>
+///     Written down rather than derived from the boundary nodes, for the reason
+///     <see cref="NodeGraphModel.Interface" /> gives: a signature that came and went with a node
+///     would change under every containing graph when somebody deleted one.
+/// </remarks>
+[DataContract("GraphPort")]
+public sealed record GraphPortAsset {
+    /// <summary>What the port is called. An edge in a containing graph names it by this.</summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>Which way it faces, as seen from a graph containing this one.</summary>
+    public PortDirection Direction { get; init; }
+
+    /// <summary>What it carries.</summary>
+    public PortKind Kind { get; init; }
+
+    /// <summary>What an unconnected input takes, one float per lane.</summary>
+    public float[] Default { get; init; } = [];
+
+    /// <summary>One line saying what it means.</summary>
+    public string Summary { get; init; } = string.Empty;
+}
+
 /// <summary>
 ///     A whole graph, as a file holds it.
 /// </summary>
@@ -124,6 +148,9 @@ public sealed record NodeGraphAsset {
 
     /// <summary>Its sticky notes.</summary>
     public GraphCommentAsset[] Comments { get; init; } = [];
+
+    /// <summary>The ports it has when another graph contains it as a node.</summary>
+    public GraphPortAsset[] Interface { get; init; } = [];
 }
 
 /// <summary>Between the model and the file shape.</summary>
@@ -179,13 +206,26 @@ public static class NodeGraphDocument {
             });
         }
 
+        List<GraphPortAsset> ports = [];
+
+        foreach (var port in graph.Interface) {
+            ports.Add(new() {
+                Name = port.Name,
+                Direction = port.Direction,
+                Kind = port.Kind,
+                Default = [.. port.Default],
+                Summary = port.Summary
+            });
+        }
+
         return new() {
             Version = Version,
             Name = graph.Name,
             Nodes = [.. nodes],
             Edges = [.. edges],
             Groups = [.. groups],
-            Comments = [.. comments]
+            Comments = [.. comments],
+            Interface = [.. ports]
         };
     }
 
@@ -222,6 +262,31 @@ public static class NodeGraphDocument {
 
         List<NodeDiagnostic> found = [];
         var graph = new NodeGraphModel { Name = asset.Name };
+
+        // Before the nodes, because the boundary nodes a sub-graph's entry and exit are drawn from
+        // read it — see SubGraphs. A duplicate is dropped rather than kept: two ports of one name is
+        // a signature where a containing graph's edge does not say which it arrives at.
+        HashSet<(string Name, PortDirection Direction)> declared = [];
+
+        foreach (var entry in asset.Interface) {
+            if (string.IsNullOrWhiteSpace(entry.Name)) {
+                found.Add(new("NG0103", "A port of the graph's interface has no name, and an edge is stored by port name.", NodeId.None));
+
+                continue;
+            }
+
+            if (!declared.Add((entry.Name, entry.Direction))) {
+                found.Add(new(
+                    "NG0103",
+                    $"The graph's interface declares two {entry.Direction} ports called '{entry.Name}'. The second was dropped.",
+                    NodeId.None
+                ));
+
+                continue;
+            }
+
+            graph.Interface.Add(new(entry.Name, entry.Direction, entry.Kind, [.. entry.Default], entry.Summary));
+        }
 
         // The identities are the file's, not fresh ones. See NodeGraphModel.Add(NodeId, ...).
         foreach (var entry in asset.Nodes) {

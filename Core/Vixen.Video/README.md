@@ -144,11 +144,11 @@ that sentence rather than letting an `.mp4` become an unplayable byte blob.
 **Ten-bit and BT.2020.** Both belong with a wider pixel format than this module has. They are absent
 rather than present and wrong.
 
-~~**A render feature.**~~ [Vixen.Video.Rendering](../Vixen.Video.Rendering/README.md) draws it and
-[Vixen.Video.Ui](../Vixen.Video.Ui/README.md) puts it in an interface. This module still stops at
-handing over the views, the sampler and the coefficients, which is what those two consume. What is
-still owed is a **material** — a video lit as a texture on a mesh in a scene, which is
-`MaterialRenderFeature`'s and Raven's.
+~~**A render feature.**~~ [Vixen.Video.Rendering](../Vixen.Video.Rendering/README.md) draws it, and
+its `VideoRenderTarget` converts it into an ordinary colour texture — which is what a user interface's
+image command, and anything else that binds one view, needs. This module still stops at handing over
+the plane views, the sampler and the coefficients. What is still owed is a **material** — a video lit
+as a texture on a mesh in a scene, which is `MaterialRenderFeature`'s and Raven's.
 
 **Frame-accurate seeking.** `Seek` lands on the last cue at or before where it was asked for, which is
 right for a loop point and wrong for a scrubber. A cue bisect and a decode-forward-to-the-frame pass

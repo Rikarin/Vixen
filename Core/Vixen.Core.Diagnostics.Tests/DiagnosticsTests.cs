@@ -136,6 +136,51 @@ public class DiagnosticsTests : IDisposable {
     }
 
     [Fact]
+    public void A_reset_on_one_thread_is_seen_by_the_others() {
+        // The recorder pointer is thread-static but the registration list is shared, so a reset on
+        // this thread has to be noticed by a worker that was already holding a recorder of its own.
+        // If it is not, the worker keeps writing into a ring the profiler has forgotten and its
+        // samples are silently dropped by Collect — which is how a run's samples end up belonging to
+        // whichever thread the runner happened to reuse.
+        Profiler.IsEnabled = true;
+
+        using var recordedBeforeReset = new ManualResetEventSlim();
+        using var resetDone = new ManualResetEventSlim();
+        var cancellation = TestContext.Current.CancellationToken;
+
+        var worker = new Thread(() => {
+                Thread.CurrentThread.Name = "worker";
+
+                using (Profiler.Begin(Inner)) { }
+
+                recordedBeforeReset.Set();
+                resetDone.Wait(cancellation);
+
+                using (Profiler.Begin(Outer)) { }
+            }
+        );
+
+        worker.Start();
+
+        Assert.True(
+            recordedBeforeReset.Wait(TimeSpan.FromSeconds(30), cancellation),
+            "The worker never recorded."
+        );
+        Profiler.Reset();
+        resetDone.Set();
+        worker.Join();
+
+        // Only the worker recorded after the reset, and only the scope it opened afterwards survives.
+        var thread = Assert.Single(Profiler.Collect());
+
+        Assert.Equal("worker", thread.ThreadName);
+
+        var sample = Assert.Single(thread.Samples);
+        Assert.Equal(Outer, sample.Key);
+        Assert.Equal(0, sample.Depth);
+    }
+
+    [Fact]
     public void Collecting_empties_the_rings() {
         Profiler.IsEnabled = true;
         using (Profiler.Begin(Outer)) { }

@@ -1,0 +1,108 @@
+#nullable enable
+Vixen.Core.Imaging.BlockCompression.BlockCompressor -> static class
+Vixen.Core.Imaging.BrdfLut -> static class
+Vixen.Core.Imaging.CubeMap -> static class
+Vixen.Core.Imaging.DataFormatDescriptor -> static class
+Vixen.Core.Imaging.EnvironmentPrefilter -> static class
+Vixen.Core.Imaging.Ktx2 -> static class
+Vixen.Core.Imaging.Ktx2Exception -> sealed class
+Vixen.Core.Imaging.Ktx2Exception : System.Exception
+Vixen.Core.Imaging.Ktx2Exception.Ktx2Exception(string message) -> void
+Vixen.Core.Imaging.MipChain -> static class
+Vixen.Core.Imaging.MipChain.Srgb -> static class
+Vixen.Core.Imaging.MipOptions -> readonly struct
+Vixen.Core.Imaging.MipOptions : System.IEquatable<Vixen.Core.Imaging.MipOptions>
+Vixen.Core.Imaging.MipOptions.AlphaWeighted.get -> bool
+Vixen.Core.Imaging.MipOptions.AlphaWeighted.init -> bool
+Vixen.Core.Imaging.MipOptions.MipOptions() -> void
+Vixen.Core.Imaging.MipOptions.RenormaliseNormals.get -> bool
+Vixen.Core.Imaging.MipOptions.RenormaliseNormals.init -> bool
+Vixen.Core.Imaging.MipOptions.Srgb.get -> bool
+Vixen.Core.Imaging.MipOptions.Srgb.init -> bool
+Vixen.Core.Imaging.SphericalHarmonicsL2 -> sealed class
+Vixen.Core.Imaging.SphericalHarmonicsL2.Coefficients.get -> System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3>
+Vixen.Core.Imaging.SphericalHarmonicsL2.Irradiance(Vixen.Core.Mathematics.Vector3 normal) -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Imaging.SphericalHarmonicsL2.SphericalHarmonicsL2() -> void
+Vixen.Core.Imaging.SphericalHarmonicsL2.SphericalHarmonicsL2(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> coefficients) -> void
+Vixen.Core.Imaging.TextureData -> sealed class
+Vixen.Core.Imaging.TextureData.ByteLength.get -> int
+Vixen.Core.Imaging.TextureData.Depth.get -> int
+Vixen.Core.Imaging.TextureData.FaceCount.get -> int
+Vixen.Core.Imaging.TextureData.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Core.Imaging.TextureData.Height.get -> int
+Vixen.Core.Imaging.TextureData.LayerCount.get -> int
+Vixen.Core.Imaging.TextureData.Level(int level) -> System.ReadOnlySpan<byte>
+Vixen.Core.Imaging.TextureData.LevelCount.get -> int
+Vixen.Core.Imaging.TextureData.LevelSpan(int level) -> System.Span<byte>
+Vixen.Core.Imaging.TextureData.Levels.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Imaging.TextureLevel>
+Vixen.Core.Imaging.TextureData.PixelSpan() -> System.Span<byte>
+Vixen.Core.Imaging.TextureData.Pixels.get -> System.ReadOnlySpan<byte>
+Vixen.Core.Imaging.TextureData.TextureData(Vixen.Graphics.PixelFormat format, int width, int height, int levelCount = 0, int depth = 1, int layerCount = 1, int faceCount = 1) -> void
+Vixen.Core.Imaging.TextureData.Width.get -> int
+Vixen.Core.Imaging.TextureLevel -> readonly struct
+Vixen.Core.Imaging.TextureLevel : System.IEquatable<Vixen.Core.Imaging.TextureLevel>
+Vixen.Core.Imaging.TextureLevel.Depth.get -> int
+Vixen.Core.Imaging.TextureLevel.Depth.init -> int
+Vixen.Core.Imaging.TextureLevel.Height.get -> int
+Vixen.Core.Imaging.TextureLevel.Height.init -> int
+Vixen.Core.Imaging.TextureLevel.Length.get -> int
+Vixen.Core.Imaging.TextureLevel.Length.init -> int
+Vixen.Core.Imaging.TextureLevel.Level.get -> int
+Vixen.Core.Imaging.TextureLevel.Level.init -> int
+Vixen.Core.Imaging.TextureLevel.Offset.get -> int
+Vixen.Core.Imaging.TextureLevel.Offset.init -> int
+Vixen.Core.Imaging.TextureLevel.TextureLevel() -> void
+Vixen.Core.Imaging.TextureLevel.TextureLevel(int Level, int Width, int Height, int Depth, int Offset, int Length) -> void
+Vixen.Core.Imaging.TextureLevel.Width.get -> int
+Vixen.Core.Imaging.TextureLevel.Width.init -> int
+Vixen.Core.Imaging.VkFormats -> static class
+const Vixen.Core.Imaging.BrdfLut.DefaultSamples = 1024 -> int
+const Vixen.Core.Imaging.BrdfLut.DefaultSize = 128 -> int
+const Vixen.Core.Imaging.CubeMap.Faces = 6 -> int
+const Vixen.Core.Imaging.DataFormatDescriptor.BasicBlockLength = 24 -> int
+const Vixen.Core.Imaging.DataFormatDescriptor.SampleLength = 16 -> int
+const Vixen.Core.Imaging.EnvironmentPrefilter.DefaultSamples = 128 -> int
+const Vixen.Core.Imaging.Ktx2.HeaderLength = 80 -> int
+const Vixen.Core.Imaging.Ktx2.LevelIndexEntryLength = 24 -> int
+const Vixen.Core.Imaging.SphericalHarmonicsL2.Count = 9 -> int
+static Vixen.Core.Imaging.BlockCompression.BlockCompressor.CanEncode(Vixen.Graphics.PixelFormat format) -> bool
+static Vixen.Core.Imaging.BlockCompression.BlockCompressor.Decode(Vixen.Core.Imaging.TextureData source) -> Vixen.Core.Imaging.TextureData
+static Vixen.Core.Imaging.BlockCompression.BlockCompressor.DecodeBlock(Vixen.Graphics.PixelFormat source, System.ReadOnlySpan<byte> block, System.Span<byte> rgba) -> void
+static Vixen.Core.Imaging.BlockCompression.BlockCompressor.DecodeHdrBlock(System.ReadOnlySpan<byte> block, System.Span<ushort> rgb) -> void
+static Vixen.Core.Imaging.BlockCompression.BlockCompressor.Encode(Vixen.Core.Imaging.TextureData source, Vixen.Graphics.PixelFormat target) -> Vixen.Core.Imaging.TextureData
+static Vixen.Core.Imaging.BlockCompression.BlockCompressor.EncodeBlock(Vixen.Graphics.PixelFormat target, System.ReadOnlySpan<byte> rgba, System.Span<byte> block) -> void
+static Vixen.Core.Imaging.BlockCompression.BlockCompressor.EncodeHdrBlock(System.ReadOnlySpan<ushort> rgb, System.Span<byte> block) -> void
+static Vixen.Core.Imaging.BlockCompression.BlockCompressor.IsHighDynamicRange(Vixen.Graphics.PixelFormat format) -> bool
+static Vixen.Core.Imaging.BrdfLut.Generate(int size = 128, int samples = 1024) -> Vixen.Core.Imaging.TextureData
+static Vixen.Core.Imaging.BrdfLut.Integrate(float cosine, float roughness, int samples) -> (float Scale, float Bias)
+static Vixen.Core.Imaging.BrdfLut.Read(Vixen.Core.Imaging.TextureData table, int x, int y) -> (float Scale, float Bias)
+static Vixen.Core.Imaging.CubeMap.DirectionOf(int face, float u, float v) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Imaging.CubeMap.DirectionOfTexel(int face, int x, int y, int size) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Imaging.CubeMap.FaceOf(Vixen.Core.Mathematics.Vector3 direction) -> (int Face, float U, float V)
+static Vixen.Core.Imaging.CubeMap.ReadTexel(Vixen.Core.Imaging.TextureData cube, int level, int face, int x, int y) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Imaging.CubeMap.Require(Vixen.Core.Imaging.TextureData cube, string name) -> void
+static Vixen.Core.Imaging.CubeMap.Sample(Vixen.Core.Imaging.TextureData cube, int level, Vixen.Core.Mathematics.Vector3 direction) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Imaging.CubeMap.SolidAngleOfTexel(int x, int y, int size) -> float
+static Vixen.Core.Imaging.CubeMap.WriteTexel(Vixen.Core.Imaging.TextureData cube, int level, int face, int x, int y, Vixen.Core.Mathematics.Vector3 radiance) -> void
+static Vixen.Core.Imaging.DataFormatDescriptor.Build(Vixen.Graphics.PixelFormat format) -> byte[]
+static Vixen.Core.Imaging.EnvironmentPrefilter.RoughnessOf(int level, int levelCount) -> float
+static Vixen.Core.Imaging.EnvironmentPrefilter.Specular(Vixen.Core.Imaging.TextureData cube, int levelCount = 0, int samples = 128) -> Vixen.Core.Imaging.TextureData
+static Vixen.Core.Imaging.Ktx2.Identifier.get -> System.ReadOnlySpan<byte>
+static Vixen.Core.Imaging.Ktx2.Read(System.ReadOnlySpan<byte> file) -> Vixen.Core.Imaging.TextureData
+static Vixen.Core.Imaging.Ktx2.Write(Vixen.Core.Imaging.TextureData texture) -> byte[]
+static Vixen.Core.Imaging.MipChain.ExtentOf(int width, int height, int depth, int level) -> (int Width, int Height, int Depth)
+static Vixen.Core.Imaging.MipChain.Generate(Vixen.Core.Imaging.TextureData texture) -> void
+static Vixen.Core.Imaging.MipChain.Generate(Vixen.Core.Imaging.TextureData texture, Vixen.Core.Imaging.MipOptions options) -> void
+static Vixen.Core.Imaging.MipChain.Srgb.FromLinear(float linear) -> byte
+static Vixen.Core.Imaging.MipChain.Srgb.ToLinearTable.get -> System.ReadOnlySpan<float>
+static Vixen.Core.Imaging.MipChain.ToLinear(float encoded) -> float
+static Vixen.Core.Imaging.MipChain.ToSrgb(float linear) -> float
+static Vixen.Core.Imaging.MipOptions.Colour.get -> Vixen.Core.Imaging.MipOptions
+static Vixen.Core.Imaging.MipOptions.CutoutColour.get -> Vixen.Core.Imaging.MipOptions
+static Vixen.Core.Imaging.MipOptions.Linear.get -> Vixen.Core.Imaging.MipOptions
+static Vixen.Core.Imaging.MipOptions.NormalMap.get -> Vixen.Core.Imaging.MipOptions
+static Vixen.Core.Imaging.SphericalHarmonicsL2.Evaluate(Vixen.Core.Mathematics.Vector3 direction, System.Span<float> basis) -> void
+static Vixen.Core.Imaging.SphericalHarmonicsL2.Project(Vixen.Core.Imaging.TextureData cube, int level = 0) -> Vixen.Core.Imaging.SphericalHarmonicsL2
+static Vixen.Core.Imaging.VkFormats.From(Vixen.Graphics.PixelFormat format) -> uint
+static Vixen.Core.Imaging.VkFormats.Supported.get -> System.Collections.Generic.IEnumerable<Vixen.Graphics.PixelFormat>
+static Vixen.Core.Imaging.VkFormats.To(uint vkFormat) -> Vixen.Graphics.PixelFormat

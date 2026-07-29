@@ -150,6 +150,23 @@ convention hopes for.
 real mistake with no other way to detect it: both slots exist, and the versions agree far more often
 than anyone expects.
 
+**A destroyed handle can be given back, and only when nothing has happened to the slot.**
+`TryRecreate` is what undoing a delete needs: `Create` hands out whatever slot is free, so a redo
+would produce a *different* handle and every reference still holding the old one would be quietly
+addressing nothing.
+
+It is allowed only when the slot's version is *exactly* one past the requested one — meaning the
+entity was destroyed and nothing has been issued since. That is the whole safety argument, and the
+restriction is not conservatism: if the slot had since been created as `(id, 4)` and destroyed again,
+restoring `(id, 3)` would let the next destroy-and-create hand out `(id, 4)` a second time, to a
+third entity. A handle naming two entities across its life is precisely what the version prevents,
+and rewinding further would reintroduce it. `A_slot_that_was_taken_in_the_meantime_is_refused_for_ever`
+is that test.
+
+⚠ **So it can fail, and a caller needs an answer.** One other `Create` is enough to take the slot,
+because the free list is last-in-first-out. The answer is a stable identity of the caller's own to
+remap — which is why the editor's `SceneDocument` keeps one per entity.
+
 **Removal fills the hole from the tail chunk**, not just from within the row's own chunk. Without
 that, a world that creates and destroys in waves keeps every chunk it ever needed, each half empty,
 and pays for all of them in every query for ever. `SurvivorsStayPackedIntoAsFewChunksAsTheyNeed`

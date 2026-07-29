@@ -1,0 +1,108 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Defaults for an application head that publishes a Vixen page.
+
+    Everything here is conditioned on being unset, so a consumer that wants something else says so
+    in its own csproj and wins. Nothing here is conditioned on Configuration: a Debug browser build
+    with the trimmer on is the build people actually iterate against, and one that behaves
+    differently from the published one is a build that hides its own trimming bugs until release.
+
+    Spec: docs/plan/10-platforms.md § Web, whose measurements these come from.
+-->
+<Project>
+
+    <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'browser-wasm' OR '$(UsingMicrosoftNETSdkWebAssembly)' == 'true'">
+
+        <!--
+            ICU is ~600 KB of the payload and is fully removable. Directory.Build.props already sets
+            this repository-wide; repeated here because these targets are also consumed from a NuGet
+            package by an application head that has never seen that file, and 600 KB is not a detail
+            to leave to a consumer remembering.
+        -->
+        <InvariantGlobalization Condition="'$(InvariantGlobalization)' == ''">true</InvariantGlobalization>
+
+        <!--
+            ── Trimming ────────────────────────────────────────────────────────────────────────
+            Measured, in the spike: 1.99 MB Brotli by default, 0.93 MB with InvariantGlobalization
+            and PublishTrimmed. The trimmer takes Silk.NET.OpenGLES from ~2 MB to 25 KB on its own.
+            The WebAssembly SDK already defaults PublishTrimmed to true; `full` is ours, and it is
+            what makes the difference on the engine's own IL rather than on the framework's.
+        -->
+        <PublishTrimmed Condition="'$(PublishTrimmed)' == ''">true</PublishTrimmed>
+        <TrimMode Condition="'$(TrimMode)' == ''">full</TrimMode>
+
+        <!--
+            ── Feature switches ────────────────────────────────────────────────────────────────
+            Each of these lets the trimmer delete a subsystem outright rather than merely the parts
+            it cannot see a call to. None of them is on a path Vixen uses in a browser:
+
+              EventSource            — EventPipe diagnostics; the browser has no listener to send to.
+              MetadataUpdater        — hot reload; a published build is not being edited.
+              UseSystemResourceKeys  — exception messages become resource keys. Costs readability in
+                                       a crash report and saves the whole framework resource table;
+                                       a consumer that would rather have the messages sets it false.
+              HttpActivityPropagation — distributed-tracing headers on HttpClient.
+              NullabilityInfoContext — reflection over nullable annotations.
+              BinaryFormatter / UTF-7 — removed from .NET and refused here so nothing drags them back.
+        -->
+        <EventSourceSupport Condition="'$(EventSourceSupport)' == ''">false</EventSourceSupport>
+        <MetadataUpdaterSupport Condition="'$(MetadataUpdaterSupport)' == '' AND '$(Configuration)' != 'Debug'">false</MetadataUpdaterSupport>
+        <UseSystemResourceKeys Condition="'$(UseSystemResourceKeys)' == ''">true</UseSystemResourceKeys>
+        <HttpActivityPropagationSupport Condition="'$(HttpActivityPropagationSupport)' == ''">false</HttpActivityPropagationSupport>
+        <NullabilityInfoContextSupport Condition="'$(NullabilityInfoContextSupport)' == ''">false</NullabilityInfoContextSupport>
+        <EnableUnsafeBinaryFormatterSerialization Condition="'$(EnableUnsafeBinaryFormatterSerialization)' == ''">false</EnableUnsafeBinaryFormatterSerialization>
+        <EnableUnsafeUTF7Encoding Condition="'$(EnableUnsafeUTF7Encoding)' == ''">false</EnableUnsafeUTF7Encoding>
+
+        <!--
+            ── SIMD ────────────────────────────────────────────────────────────────────────────
+            WebAssembly's 128-bit fixed-width SIMD, which is what Vector128<T> and every
+            Vector128-shaped path in Vixen.Core.Mathematics compile down to. Baseline in every
+            browser since 2021 — Chrome 91, Firefox 89, Safari 16.4 — so the compatibility cost is
+            Safari 15, and the benefit is the maths library not falling back to scalar.
+
+            It is on by default in the SDK; stated explicitly because it is the property somebody
+            turns off while debugging a codegen problem and then does not turn back on, and a
+            silently scalar build is not a difference anybody notices from the payload size.
+        -->
+        <WasmEnableSIMD Condition="'$(WasmEnableSIMD)' == ''">true</WasmEnableSIMD>
+
+        <!--
+            Native exception handling rather than the JavaScript-based emulation. Smaller and
+            faster, and baseline in every browser that has SIMD.
+        -->
+        <WasmEnableExceptionHandling Condition="'$(WasmEnableExceptionHandling)' == ''">true</WasmEnableExceptionHandling>
+
+        <!--
+            ── Brotli ──────────────────────────────────────────────────────────────────────────
+            The static-web-assets pipeline already emits .br alongside every publish asset. What is
+            set here is the level: the SDK's default trades compression for build time, which is the
+            right default for a web app that rebuilds all day and the wrong one for a payload the
+            whole download-size story is measured on. SmallestSize is Brotli quality 11 and costs
+            seconds on a publish, once.
+
+            **The value is a System.IO.Compression.CompressionLevel name and not a number.** A
+            numeric quality — 11, the value Brotli's own documentation uses — does not fail the
+            build: the compression task writes a **zero-byte** .br for every asset, and a server
+            doing content negotiation then serves empty files to every browser that asks for
+            Brotli. Measured, by publishing and looking; there is no diagnostic for it.
+
+            _BlazorBrotliCompressionLevel is an SDK-internal name and is set deliberately: as of
+            10.0.301 the *publish* compression path reads that property and the public
+            BrotliCompressionLevel only reaches the build path. Both are set so that a future SDK
+            which unifies them gets the same answer.
+        -->
+        <BrotliCompressionLevel Condition="'$(BrotliCompressionLevel)' == ''">SmallestSize</BrotliCompressionLevel>
+        <_BlazorBrotliCompressionLevel Condition="'$(_BlazorBrotliCompressionLevel)' == ''">SmallestSize</_BlazorBrotliCompressionLevel>
+
+        <!--
+            ── Emscripten ──────────────────────────────────────────────────────────────────────
+            Relink with emcc, which is what makes the link flags below mean anything. Without it the
+            prebuilt runtime is used as-is and -sMIN_WEBGL_VERSION=2 is quietly ignored.
+        -->
+        <WasmBuildNative Condition="'$(WasmBuildNative)' == ''">true</WasmBuildNative>
+
+    </PropertyGroup>
+
+</Project>

@@ -1,0 +1,812 @@
+#nullable enable
+Vixen.Ui.AccessKey -> static class
+Vixen.Ui.AccessKeyEvent -> sealed class
+Vixen.Ui.AccessKeyEvent : Vixen.Ui.UiEvent
+Vixen.Ui.AccessKeyEvent.AccessKeyEvent() -> void
+Vixen.Ui.AccessKeyEvent.Key.get -> char
+Vixen.Ui.AccessKeyEvent.Key.init -> char
+Vixen.Ui.BatchKind -> enum : byte
+Vixen.Ui.BatchKind.BatchKind() -> void
+Vixen.Ui.BatchKind.Clip = 5 -> Vixen.Ui.BatchKind
+Vixen.Ui.BatchKind.Geometry = 0 -> Vixen.Ui.BatchKind
+Vixen.Ui.BatchKind.Image = 2 -> Vixen.Ui.BatchKind
+Vixen.Ui.BatchKind.PathFill = 3 -> Vixen.Ui.BatchKind
+Vixen.Ui.BatchKind.PathStroke = 4 -> Vixen.Ui.BatchKind
+Vixen.Ui.BatchKind.Text = 1 -> Vixen.Ui.BatchKind
+Vixen.Ui.BoxStyle -> readonly struct
+Vixen.Ui.BoxStyle : System.IEquatable<Vixen.Ui.BoxStyle>
+Vixen.Ui.BoxStyle.BoxStyle() -> void
+Vixen.Ui.BoxStyle.BoxStyle(Vixen.Ui.CornerRadii Corners, Vixen.Core.Mathematics.Color4 GradientEnd, Vixen.Core.Mathematics.Vector2 GradientAxis) -> void
+Vixen.Ui.BoxStyle.Corners.get -> Vixen.Ui.CornerRadii
+Vixen.Ui.BoxStyle.Corners.init -> Vixen.Ui.CornerRadii
+Vixen.Ui.BoxStyle.GradientAxis.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.BoxStyle.GradientAxis.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.BoxStyle.GradientEnd.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.BoxStyle.GradientEnd.init -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.BoxStyle.HasGradient.get -> bool
+Vixen.Ui.Composition.BuildContext -> sealed class
+Vixen.Ui.Composition.BuildContext.Anchor.get -> Vixen.Ui.UiElement
+Vixen.Ui.Composition.BuildContext.Attribute(Vixen.Ui.UiElement target, string name, string value) -> void
+Vixen.Ui.Composition.BuildContext.Bind(System.Action assign) -> void
+Vixen.Ui.Composition.BuildContext.Bind(Vixen.Ui.UiElement target, string name, System.Func<object?> value) -> void
+Vixen.Ui.Composition.BuildContext.Child<T>(Vixen.Ui.UiElement? parent) -> T
+Vixen.Ui.Composition.BuildContext.Document.get -> Vixen.Ui.UiDocument
+Vixen.Ui.Composition.BuildContext.Element(Vixen.Ui.UiElement? parent, string tag) -> Vixen.Ui.UiElement
+Vixen.Ui.Composition.BuildContext.For<T>(Vixen.Ui.UiElement? parent, System.Func<System.Collections.Generic.IEnumerable<T>> items, System.Func<T, object> key, System.Action<Vixen.Ui.Composition.BuildContext, Vixen.Ui.UiElement, T> build) -> void
+Vixen.Ui.Composition.BuildContext.Mount.get -> Vixen.Ui.UiElement
+Vixen.Ui.Composition.BuildContext.On(Vixen.Ui.UiElement target, string name, System.Action handler, params string[] modifiers) -> void
+Vixen.Ui.Composition.BuildContext.On<TEvent>(Vixen.Ui.UiElement target, string name, System.Action<TEvent> handler, params string[] modifiers) -> void
+Vixen.Ui.Composition.BuildContext.Rebuild(Vixen.Ui.Composition.Component component) -> void
+Vixen.Ui.Composition.BuildContext.Slot(Vixen.Ui.UiElement? parent, string name) -> void
+Vixen.Ui.Composition.BuildContext.Switch(Vixen.Ui.UiElement? parent, System.Func<int> arm, System.Action<Vixen.Ui.Composition.BuildContext, Vixen.Ui.UiElement, int> build) -> void
+Vixen.Ui.Composition.BuildContext.Text(Vixen.Ui.UiElement? parent, System.Func<object?> text) -> Vixen.Ui.UiElement
+Vixen.Ui.Composition.BuildContext.Text(Vixen.Ui.UiElement? parent, string text) -> Vixen.Ui.UiElement
+Vixen.Ui.Composition.BuildContext.TwoWay<T>(Vixen.Ui.UiElement target, string name, System.Func<T> get, System.Action<T> set) -> void
+Vixen.Ui.Composition.Component -> abstract class
+Vixen.Ui.Composition.Component.Component() -> void
+Vixen.Ui.Composition.Component.Content.get -> Vixen.Ui.UiElement
+Vixen.Ui.Composition.Component.Root.get -> Vixen.Ui.UiElement
+Vixen.Ui.CornerRadii -> readonly struct
+Vixen.Ui.CornerRadii : System.IEquatable<Vixen.Ui.CornerRadii>
+Vixen.Ui.CornerRadii.BottomLeft.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.CornerRadii.BottomLeft.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.CornerRadii.BottomRight.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.CornerRadii.BottomRight.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.CornerRadii.CornerRadii() -> void
+Vixen.Ui.CornerRadii.CornerRadii(Vixen.Core.Mathematics.Vector2 TopLeft, Vixen.Core.Mathematics.Vector2 TopRight, Vixen.Core.Mathematics.Vector2 BottomRight, Vixen.Core.Mathematics.Vector2 BottomLeft) -> void
+Vixen.Ui.CornerRadii.IsSquare.get -> bool
+Vixen.Ui.CornerRadii.TopLeft.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.CornerRadii.TopLeft.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.CornerRadii.TopRight.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.CornerRadii.TopRight.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.DragEvent -> sealed class
+Vixen.Ui.DragEvent : Vixen.Ui.UiEvent
+Vixen.Ui.DragEvent.DeltaX.get -> float
+Vixen.Ui.DragEvent.DeltaX.init -> float
+Vixen.Ui.DragEvent.DeltaY.get -> float
+Vixen.Ui.DragEvent.DeltaY.init -> float
+Vixen.Ui.DragEvent.DragEvent() -> void
+Vixen.Ui.DragEvent.PointerId.get -> int
+Vixen.Ui.DragEvent.PointerId.init -> int
+Vixen.Ui.DragEvent.Stage.get -> Vixen.Ui.DragStage
+Vixen.Ui.DragEvent.Stage.init -> Vixen.Ui.DragStage
+Vixen.Ui.DragEvent.TotalX.get -> float
+Vixen.Ui.DragEvent.TotalX.init -> float
+Vixen.Ui.DragEvent.TotalY.get -> float
+Vixen.Ui.DragEvent.TotalY.init -> float
+Vixen.Ui.DragEvent.X.get -> float
+Vixen.Ui.DragEvent.X.init -> float
+Vixen.Ui.DragEvent.Y.get -> float
+Vixen.Ui.DragEvent.Y.init -> float
+Vixen.Ui.DragStage -> enum : byte
+Vixen.Ui.DragStage.Cancelled = 3 -> Vixen.Ui.DragStage
+Vixen.Ui.DragStage.Completed = 2 -> Vixen.Ui.DragStage
+Vixen.Ui.DragStage.DragStage() -> void
+Vixen.Ui.DragStage.Moved = 1 -> Vixen.Ui.DragStage
+Vixen.Ui.DragStage.Started = 0 -> Vixen.Ui.DragStage
+Vixen.Ui.DrawBatch -> readonly struct
+Vixen.Ui.DrawBatch : System.IEquatable<Vixen.Ui.DrawBatch>
+Vixen.Ui.DrawBatch.Count.get -> int
+Vixen.Ui.DrawBatch.Count.init -> int
+Vixen.Ui.DrawBatch.DrawBatch() -> void
+Vixen.Ui.DrawBatch.DrawBatch(Vixen.Ui.BatchKind Kind, int First, int Count, int Font, Vixen.Ui.PathFillRule FillRule) -> void
+Vixen.Ui.DrawBatch.FillRule.get -> Vixen.Ui.PathFillRule
+Vixen.Ui.DrawBatch.FillRule.init -> Vixen.Ui.PathFillRule
+Vixen.Ui.DrawBatch.First.get -> int
+Vixen.Ui.DrawBatch.First.init -> int
+Vixen.Ui.DrawBatch.Font.get -> int
+Vixen.Ui.DrawBatch.Font.init -> int
+Vixen.Ui.DrawBatch.Image.get -> ulong
+Vixen.Ui.DrawBatch.Image.init -> ulong
+Vixen.Ui.DrawBatch.Kind.get -> Vixen.Ui.BatchKind
+Vixen.Ui.DrawBatch.Kind.init -> Vixen.Ui.BatchKind
+Vixen.Ui.DrawBatcher -> static class
+Vixen.Ui.DrawCommand -> readonly struct
+Vixen.Ui.DrawCommand : System.IEquatable<Vixen.Ui.DrawCommand>
+Vixen.Ui.DrawCommand.Cap.get -> Vixen.Ui.LineCap
+Vixen.Ui.DrawCommand.Cap.init -> Vixen.Ui.LineCap
+Vixen.Ui.DrawCommand.Color.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.DrawCommand.Color.init -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.DrawCommand.DrawCommand() -> void
+Vixen.Ui.DrawCommand.DrawCommand(Vixen.Ui.DrawCommandKind Kind, float X, float Y, float Width, float Height, Vixen.Core.Mathematics.Color4 Color, float Radius, float Thickness) -> void
+Vixen.Ui.DrawCommand.FillRule.get -> Vixen.Ui.PathFillRule
+Vixen.Ui.DrawCommand.FillRule.init -> Vixen.Ui.PathFillRule
+Vixen.Ui.DrawCommand.Font.get -> int
+Vixen.Ui.DrawCommand.Font.init -> int
+Vixen.Ui.DrawCommand.FontSize.get -> float
+Vixen.Ui.DrawCommand.FontSize.init -> float
+Vixen.Ui.DrawCommand.HasStyle.get -> bool
+Vixen.Ui.DrawCommand.Height.get -> float
+Vixen.Ui.DrawCommand.Height.init -> float
+Vixen.Ui.DrawCommand.Image.get -> ulong
+Vixen.Ui.DrawCommand.Image.init -> ulong
+Vixen.Ui.DrawCommand.Join.get -> Vixen.Ui.LineJoin
+Vixen.Ui.DrawCommand.Join.init -> Vixen.Ui.LineJoin
+Vixen.Ui.DrawCommand.Kind.get -> Vixen.Ui.DrawCommandKind
+Vixen.Ui.DrawCommand.Kind.init -> Vixen.Ui.DrawCommandKind
+Vixen.Ui.DrawCommand.Length.get -> int
+Vixen.Ui.DrawCommand.Length.init -> int
+Vixen.Ui.DrawCommand.MiterLimit.get -> float
+Vixen.Ui.DrawCommand.MiterLimit.init -> float
+Vixen.Ui.DrawCommand.Offset.get -> int
+Vixen.Ui.DrawCommand.Offset.init -> int
+Vixen.Ui.DrawCommand.Radius.get -> float
+Vixen.Ui.DrawCommand.Radius.init -> float
+Vixen.Ui.DrawCommand.Source.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.DrawCommand.Source.init -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.DrawCommand.Thickness.get -> float
+Vixen.Ui.DrawCommand.Thickness.init -> float
+Vixen.Ui.DrawCommand.Width.get -> float
+Vixen.Ui.DrawCommand.Width.init -> float
+Vixen.Ui.DrawCommand.X.get -> float
+Vixen.Ui.DrawCommand.X.init -> float
+Vixen.Ui.DrawCommand.Y.get -> float
+Vixen.Ui.DrawCommand.Y.init -> float
+Vixen.Ui.DrawCommandKind -> enum : byte
+Vixen.Ui.DrawCommandKind.Border = 1 -> Vixen.Ui.DrawCommandKind
+Vixen.Ui.DrawCommandKind.ClipPop = 8 -> Vixen.Ui.DrawCommandKind
+Vixen.Ui.DrawCommandKind.ClipPush = 7 -> Vixen.Ui.DrawCommandKind
+Vixen.Ui.DrawCommandKind.DrawCommandKind() -> void
+Vixen.Ui.DrawCommandKind.Image = 4 -> Vixen.Ui.DrawCommandKind
+Vixen.Ui.DrawCommandKind.Path = 5 -> Vixen.Ui.DrawCommandKind
+Vixen.Ui.DrawCommandKind.PathStroke = 6 -> Vixen.Ui.DrawCommandKind
+Vixen.Ui.DrawCommandKind.Rectangle = 0 -> Vixen.Ui.DrawCommandKind
+Vixen.Ui.DrawCommandKind.Shadow = 2 -> Vixen.Ui.DrawCommandKind
+Vixen.Ui.DrawCommandKind.Text = 3 -> Vixen.Ui.DrawCommandKind
+Vixen.Ui.DrawContext -> readonly struct
+Vixen.Ui.DrawContext.Bounds.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.DrawContext.DrawContext() -> void
+Vixen.Ui.DrawContext.DrawImage(Vixen.Core.Mathematics.Rectangle rectangle, ulong image, Vixen.Core.Mathematics.Color4 tint = default(Vixen.Core.Mathematics.Color4), Vixen.Core.Mathematics.Rectangle source = default(Vixen.Core.Mathematics.Rectangle)) -> void
+Vixen.Ui.DrawContext.Element.get -> Vixen.Ui.UiElement
+Vixen.Ui.DrawContext.Fill(Vixen.Ui.PathBuilder path, Vixen.Core.Mathematics.Color4 color, Vixen.Ui.PathFillRule rule = Vixen.Ui.PathFillRule.NonZero) -> void
+Vixen.Ui.DrawContext.FillRectangle(Vixen.Core.Mathematics.Rectangle rectangle, Vixen.Core.Mathematics.Color4 color, Vixen.Ui.BoxStyle style) -> void
+Vixen.Ui.DrawContext.FillRectangle(Vixen.Core.Mathematics.Rectangle rectangle, Vixen.Core.Mathematics.Color4 color, float radius = 0) -> void
+Vixen.Ui.DrawContext.Foreground.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.DrawContext.List.get -> Vixen.Ui.DrawList
+Vixen.Ui.DrawContext.Stroke(Vixen.Ui.PathBuilder path, Vixen.Core.Mathematics.Color4 color, float thickness, Vixen.Ui.LineJoin join = Vixen.Ui.LineJoin.Miter, Vixen.Ui.LineCap cap = Vixen.Ui.LineCap.Butt, float miterLimit = 0) -> void
+Vixen.Ui.DrawContext.StrokeRectangle(Vixen.Core.Mathematics.Rectangle rectangle, Vixen.Core.Mathematics.Color4 color, float thickness, Vixen.Ui.BoxStyle style = default(Vixen.Ui.BoxStyle)) -> void
+Vixen.Ui.DrawList -> sealed class
+Vixen.Ui.DrawList.Add(Vixen.Ui.DrawCommand command) -> void
+Vixen.Ui.DrawList.AddBox(Vixen.Ui.BoxStyle style) -> int
+Vixen.Ui.DrawList.AddFont(Vixen.Ui.Text.FontFace font) -> int
+Vixen.Ui.DrawList.AddGlyphs(System.Collections.Generic.List<Vixen.Ui.PositionedGlyph> run) -> int
+Vixen.Ui.DrawList.AddPath(Vixen.Ui.PathBuilder path) -> int
+Vixen.Ui.DrawList.Batched.get -> int
+Vixen.Ui.DrawList.Batches.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.DrawBatch>
+Vixen.Ui.DrawList.BeginFrame() -> void
+Vixen.Ui.DrawList.Boxes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.BoxStyle>
+Vixen.Ui.DrawList.ChangedLastFrame.get -> bool
+Vixen.Ui.DrawList.Commands.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.DrawCommand>
+Vixen.Ui.DrawList.DrawList() -> void
+Vixen.Ui.DrawList.EndFrame() -> bool
+Vixen.Ui.DrawList.Fonts.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Text.FontFace>
+Vixen.Ui.DrawList.Glyphs.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.PositionedGlyph>
+Vixen.Ui.DrawList.Segments.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.PathSegment>
+Vixen.Ui.DrawList.Version.get -> int
+Vixen.Ui.DrawListBuilder -> sealed class
+Vixen.Ui.DrawListBuilder.Build(Vixen.Ui.UiDocument document, Vixen.Ui.DrawList into) -> bool
+Vixen.Ui.DrawListBuilder.DrawListBuilder(Vixen.Ui.Styling.NameTable properties, Vixen.Ui.Styling.NameTable values, Vixen.Ui.Styling.NameTable keywords) -> void
+Vixen.Ui.EventRouter -> static class
+Vixen.Ui.FocusDirection -> enum : byte
+Vixen.Ui.FocusDirection.FocusDirection() -> void
+Vixen.Ui.FocusDirection.Next = 0 -> Vixen.Ui.FocusDirection
+Vixen.Ui.FocusDirection.Previous = 1 -> Vixen.Ui.FocusDirection
+Vixen.Ui.FocusEvent -> sealed class
+Vixen.Ui.FocusEvent : Vixen.Ui.UiEvent
+Vixen.Ui.FocusEvent.FocusEvent() -> void
+Vixen.Ui.FocusEvent.Gained.get -> bool
+Vixen.Ui.FocusEvent.Gained.init -> bool
+Vixen.Ui.FocusEvent.Next.get -> Vixen.Ui.UiElement?
+Vixen.Ui.FocusEvent.Next.init -> Vixen.Ui.UiElement?
+Vixen.Ui.FocusEvent.Previous.get -> Vixen.Ui.UiElement?
+Vixen.Ui.FocusEvent.Previous.init -> Vixen.Ui.UiElement?
+Vixen.Ui.FontRegistry -> sealed class
+Vixen.Ui.FontRegistry.AddFallback(Vixen.Ui.Text.FontFace font) -> void
+Vixen.Ui.FontRegistry.Chain(string? declaration, int weight, Vixen.Ui.FontStyle style, System.Collections.Generic.List<Vixen.Ui.Text.FontFace> into) -> void
+Vixen.Ui.FontRegistry.Count.get -> int
+Vixen.Ui.FontRegistry.Default.get -> Vixen.Ui.Text.FontFace?
+Vixen.Ui.FontRegistry.Default.set -> Vixen.Ui.Text.FontFace?
+Vixen.Ui.FontRegistry.Fallbacks.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Text.FontFace>
+Vixen.Ui.FontRegistry.FontRegistry() -> void
+Vixen.Ui.FontRegistry.Register(string family, Vixen.Ui.Text.FontFace font, int weight = 400, Vixen.Ui.FontStyle style = Vixen.Ui.FontStyle.Normal) -> void
+Vixen.Ui.FontRegistry.Resolve(string? declaration, int weight = 400, Vixen.Ui.FontStyle style = Vixen.Ui.FontStyle.Normal) -> Vixen.Ui.Text.FontFace?
+Vixen.Ui.FontRegistry.Revision.get -> int
+Vixen.Ui.FontRegistry.Variants(string family) -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.FontVariant>
+Vixen.Ui.FontSpan -> readonly struct
+Vixen.Ui.FontSpan : System.IEquatable<Vixen.Ui.FontSpan>
+Vixen.Ui.FontSpan.Font.get -> Vixen.Ui.Text.FontFace
+Vixen.Ui.FontSpan.Font.init -> Vixen.Ui.Text.FontFace
+Vixen.Ui.FontSpan.FontSpan() -> void
+Vixen.Ui.FontSpan.FontSpan(Vixen.Ui.Text.FontFace Font, int Start, int Length) -> void
+Vixen.Ui.FontSpan.Length.get -> int
+Vixen.Ui.FontSpan.Length.init -> int
+Vixen.Ui.FontSpan.Start.get -> int
+Vixen.Ui.FontSpan.Start.init -> int
+Vixen.Ui.FontStyle -> enum : byte
+Vixen.Ui.FontStyle.FontStyle() -> void
+Vixen.Ui.FontStyle.Italic = 1 -> Vixen.Ui.FontStyle
+Vixen.Ui.FontStyle.Normal = 0 -> Vixen.Ui.FontStyle
+Vixen.Ui.FontStyle.Oblique = 2 -> Vixen.Ui.FontStyle
+Vixen.Ui.FontVariant -> readonly struct
+Vixen.Ui.FontVariant : System.IEquatable<Vixen.Ui.FontVariant>
+Vixen.Ui.FontVariant.Font.get -> Vixen.Ui.Text.FontFace
+Vixen.Ui.FontVariant.Font.init -> Vixen.Ui.Text.FontFace
+Vixen.Ui.FontVariant.FontVariant() -> void
+Vixen.Ui.FontVariant.FontVariant(Vixen.Ui.Text.FontFace Font, int Weight, Vixen.Ui.FontStyle Style) -> void
+Vixen.Ui.FontVariant.Style.get -> Vixen.Ui.FontStyle
+Vixen.Ui.FontVariant.Style.init -> Vixen.Ui.FontStyle
+Vixen.Ui.FontVariant.Weight.get -> int
+Vixen.Ui.FontVariant.Weight.init -> int
+Vixen.Ui.GestureRecognizer -> sealed class
+Vixen.Ui.GestureRecognizer.Cancel(int pointerId) -> bool
+Vixen.Ui.GestureRecognizer.GestureRecognizer(Vixen.Ui.GestureSettings? settings = null) -> void
+Vixen.Ui.GestureRecognizer.Process(Vixen.Ui.PointerEvent args, Vixen.Ui.UiElement? target) -> void
+Vixen.Ui.GestureRecognizer.Settings.get -> Vixen.Ui.GestureSettings
+Vixen.Ui.GestureRecognizer.Settings.set -> Vixen.Ui.GestureSettings
+Vixen.Ui.GestureRecognizer.Tick(System.TimeSpan now) -> void
+Vixen.Ui.GestureSettings -> readonly struct
+Vixen.Ui.GestureSettings : System.IEquatable<Vixen.Ui.GestureSettings>
+Vixen.Ui.GestureSettings.GestureSettings() -> void
+Vixen.Ui.GestureSettings.GestureSettings(System.TimeSpan LongPress, System.TimeSpan MultiTapInterval, float TouchSlop, float MultiTapSlop, float RotationSlop) -> void
+Vixen.Ui.GestureSettings.LongPress.get -> System.TimeSpan
+Vixen.Ui.GestureSettings.LongPress.init -> System.TimeSpan
+Vixen.Ui.GestureSettings.MultiTapInterval.get -> System.TimeSpan
+Vixen.Ui.GestureSettings.MultiTapInterval.init -> System.TimeSpan
+Vixen.Ui.GestureSettings.MultiTapSlop.get -> float
+Vixen.Ui.GestureSettings.MultiTapSlop.init -> float
+Vixen.Ui.GestureSettings.RotationSlop.get -> float
+Vixen.Ui.GestureSettings.RotationSlop.init -> float
+Vixen.Ui.GestureSettings.TouchSlop.get -> float
+Vixen.Ui.GestureSettings.TouchSlop.init -> float
+Vixen.Ui.KeyAction -> enum : byte
+Vixen.Ui.KeyAction.KeyAction() -> void
+Vixen.Ui.KeyAction.Pressed = 0 -> Vixen.Ui.KeyAction
+Vixen.Ui.KeyAction.Released = 1 -> Vixen.Ui.KeyAction
+Vixen.Ui.KeyEvent -> sealed class
+Vixen.Ui.KeyEvent : Vixen.Ui.UiEvent
+Vixen.Ui.KeyEvent.Action.get -> Vixen.Ui.KeyAction
+Vixen.Ui.KeyEvent.Action.init -> Vixen.Ui.KeyAction
+Vixen.Ui.KeyEvent.Has(Vixen.Ui.ModifierKeys modifiers) -> bool
+Vixen.Ui.KeyEvent.IsRepeat.get -> bool
+Vixen.Ui.KeyEvent.IsRepeat.init -> bool
+Vixen.Ui.KeyEvent.Key.get -> Vixen.Input.InputKey
+Vixen.Ui.KeyEvent.Key.init -> Vixen.Input.InputKey
+Vixen.Ui.KeyEvent.KeyEvent() -> void
+Vixen.Ui.KeyEvent.Modifiers.get -> Vixen.Ui.ModifierKeys
+Vixen.Ui.KeyEvent.Modifiers.init -> Vixen.Ui.ModifierKeys
+Vixen.Ui.KeyEvent.Timestamp.get -> System.TimeSpan
+Vixen.Ui.KeyEvent.Timestamp.init -> System.TimeSpan
+Vixen.Ui.LayoutStyleBuilder -> sealed class
+Vixen.Ui.LayoutStyleBuilder.Build(Vixen.Ui.Styling.ComputedStyle style, in Vixen.Ui.LengthContext context) -> Vixen.Ui.Layout.LayoutStyle
+Vixen.Ui.LayoutStyleBuilder.LayoutStyleBuilder(Vixen.Ui.Styling.NameTable properties, Vixen.Ui.Styling.NameTable values, Vixen.Ui.Styling.NameTable keywordNames) -> void
+Vixen.Ui.LayoutStyleBuilder.LetterSpacingId.get -> int
+Vixen.Ui.LayoutStyleBuilder.ResolveFontSize(Vixen.Ui.Styling.ComputedStyle style, float parentFontSize, in Vixen.Ui.LengthContext context) -> float
+Vixen.Ui.LayoutStyleBuilder.TextIndentId.get -> int
+Vixen.Ui.LayoutStyleBuilder.TryLineHeight(Vixen.Ui.Styling.ComputedStyle style, in Vixen.Ui.LengthContext context, out float? factor, out float points) -> bool
+Vixen.Ui.LayoutStyleBuilder.TryTextLength(Vixen.Ui.Styling.ComputedStyle style, int property, in Vixen.Ui.LengthContext context, out float points) -> bool
+Vixen.Ui.LayoutStyleBuilder.WordSpacingId.get -> int
+Vixen.Ui.LengthContext -> readonly struct
+Vixen.Ui.LengthContext : System.IEquatable<Vixen.Ui.LengthContext>
+Vixen.Ui.LengthContext.FontSize.get -> float
+Vixen.Ui.LengthContext.FontSize.init -> float
+Vixen.Ui.LengthContext.LengthContext() -> void
+Vixen.Ui.LengthContext.LengthContext(float FontSize, float RootFontSize, float ViewportWidth, float ViewportHeight) -> void
+Vixen.Ui.LengthContext.PixelsPer(Vixen.Ui.Styling.StyleUnit unit) -> float
+Vixen.Ui.LengthContext.RootFontSize.get -> float
+Vixen.Ui.LengthContext.RootFontSize.init -> float
+Vixen.Ui.LengthContext.ToLength(Vixen.Ui.Styling.StyleValue value) -> Vixen.Ui.Layout.StyleLength
+Vixen.Ui.LengthContext.ViewportHeight.get -> float
+Vixen.Ui.LengthContext.ViewportHeight.init -> float
+Vixen.Ui.LengthContext.ViewportWidth.get -> float
+Vixen.Ui.LengthContext.ViewportWidth.init -> float
+Vixen.Ui.LengthContext.WithFontSize(float fontSize) -> Vixen.Ui.LengthContext
+Vixen.Ui.LineCap -> enum : byte
+Vixen.Ui.LineCap.Butt = 0 -> Vixen.Ui.LineCap
+Vixen.Ui.LineCap.LineCap() -> void
+Vixen.Ui.LineCap.Round = 1 -> Vixen.Ui.LineCap
+Vixen.Ui.LineCap.Square = 2 -> Vixen.Ui.LineCap
+Vixen.Ui.LineJoin -> enum : byte
+Vixen.Ui.LineJoin.Bevel = 2 -> Vixen.Ui.LineJoin
+Vixen.Ui.LineJoin.LineJoin() -> void
+Vixen.Ui.LineJoin.Miter = 0 -> Vixen.Ui.LineJoin
+Vixen.Ui.LineJoin.Round = 1 -> Vixen.Ui.LineJoin
+Vixen.Ui.LongPressEvent -> sealed class
+Vixen.Ui.LongPressEvent : Vixen.Ui.UiEvent
+Vixen.Ui.LongPressEvent.LongPressEvent() -> void
+Vixen.Ui.LongPressEvent.PointerId.get -> int
+Vixen.Ui.LongPressEvent.PointerId.init -> int
+Vixen.Ui.LongPressEvent.X.get -> float
+Vixen.Ui.LongPressEvent.X.init -> float
+Vixen.Ui.LongPressEvent.Y.get -> float
+Vixen.Ui.LongPressEvent.Y.init -> float
+Vixen.Ui.ModifierKeys -> enum : byte
+Vixen.Ui.ModifierKeys.Alt = 4 -> Vixen.Ui.ModifierKeys
+Vixen.Ui.ModifierKeys.Control = 2 -> Vixen.Ui.ModifierKeys
+Vixen.Ui.ModifierKeys.Meta = 8 -> Vixen.Ui.ModifierKeys
+Vixen.Ui.ModifierKeys.ModifierKeys() -> void
+Vixen.Ui.ModifierKeys.None = 0 -> Vixen.Ui.ModifierKeys
+Vixen.Ui.ModifierKeys.Shift = 1 -> Vixen.Ui.ModifierKeys
+Vixen.Ui.NavigationDirection -> enum : byte
+Vixen.Ui.NavigationDirection.Down = 3 -> Vixen.Ui.NavigationDirection
+Vixen.Ui.NavigationDirection.Left = 0 -> Vixen.Ui.NavigationDirection
+Vixen.Ui.NavigationDirection.NavigationDirection() -> void
+Vixen.Ui.NavigationDirection.Right = 2 -> Vixen.Ui.NavigationDirection
+Vixen.Ui.NavigationDirection.Up = 1 -> Vixen.Ui.NavigationDirection
+Vixen.Ui.PathBuilder -> sealed class
+Vixen.Ui.PathBuilder.AddEllipse(Vixen.Core.Mathematics.Rectangle bounds) -> Vixen.Ui.PathBuilder
+Vixen.Ui.PathBuilder.AddRectangle(Vixen.Core.Mathematics.Rectangle rectangle) -> Vixen.Ui.PathBuilder
+Vixen.Ui.PathBuilder.Clear() -> Vixen.Ui.PathBuilder
+Vixen.Ui.PathBuilder.Close() -> Vixen.Ui.PathBuilder
+Vixen.Ui.PathBuilder.Count.get -> int
+Vixen.Ui.PathBuilder.CubicTo(Vixen.Core.Mathematics.Vector2 first, Vixen.Core.Mathematics.Vector2 second, Vixen.Core.Mathematics.Vector2 point) -> Vixen.Ui.PathBuilder
+Vixen.Ui.PathBuilder.Current.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.PathBuilder.LineTo(Vixen.Core.Mathematics.Vector2 point) -> Vixen.Ui.PathBuilder
+Vixen.Ui.PathBuilder.MoveTo(Vixen.Core.Mathematics.Vector2 point) -> Vixen.Ui.PathBuilder
+Vixen.Ui.PathBuilder.PathBuilder() -> void
+Vixen.Ui.PathBuilder.QuadraticTo(Vixen.Core.Mathematics.Vector2 control, Vixen.Core.Mathematics.Vector2 point) -> Vixen.Ui.PathBuilder
+Vixen.Ui.PathBuilder.Segments.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.PathSegment>
+Vixen.Ui.PathFillRule -> enum : byte
+Vixen.Ui.PathFillRule.EvenOdd = 1 -> Vixen.Ui.PathFillRule
+Vixen.Ui.PathFillRule.NonZero = 0 -> Vixen.Ui.PathFillRule
+Vixen.Ui.PathFillRule.PathFillRule() -> void
+Vixen.Ui.PathSegment -> readonly struct
+Vixen.Ui.PathSegment : System.IEquatable<Vixen.Ui.PathSegment>
+Vixen.Ui.PathSegment.P0.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.PathSegment.P0.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.PathSegment.P1.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.PathSegment.P1.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.PathSegment.P2.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.PathSegment.P2.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.PathSegment.PathSegment() -> void
+Vixen.Ui.PathSegment.PathSegment(Vixen.Ui.PathVerb Verb, Vixen.Core.Mathematics.Vector2 P0, Vixen.Core.Mathematics.Vector2 P1, Vixen.Core.Mathematics.Vector2 P2) -> void
+Vixen.Ui.PathSegment.Verb.get -> Vixen.Ui.PathVerb
+Vixen.Ui.PathSegment.Verb.init -> Vixen.Ui.PathVerb
+Vixen.Ui.PathVerb -> enum : byte
+Vixen.Ui.PathVerb.Close = 4 -> Vixen.Ui.PathVerb
+Vixen.Ui.PathVerb.Cubic = 3 -> Vixen.Ui.PathVerb
+Vixen.Ui.PathVerb.Line = 1 -> Vixen.Ui.PathVerb
+Vixen.Ui.PathVerb.Move = 0 -> Vixen.Ui.PathVerb
+Vixen.Ui.PathVerb.PathVerb() -> void
+Vixen.Ui.PathVerb.Quadratic = 2 -> Vixen.Ui.PathVerb
+Vixen.Ui.PointerAction -> enum : byte
+Vixen.Ui.PointerAction.Entered = 3 -> Vixen.Ui.PointerAction
+Vixen.Ui.PointerAction.Exited = 4 -> Vixen.Ui.PointerAction
+Vixen.Ui.PointerAction.Moved = 0 -> Vixen.Ui.PointerAction
+Vixen.Ui.PointerAction.PointerAction() -> void
+Vixen.Ui.PointerAction.Pressed = 1 -> Vixen.Ui.PointerAction
+Vixen.Ui.PointerAction.Released = 2 -> Vixen.Ui.PointerAction
+Vixen.Ui.PointerButton -> enum : byte
+Vixen.Ui.PointerButton.Middle = 3 -> Vixen.Ui.PointerButton
+Vixen.Ui.PointerButton.None = 0 -> Vixen.Ui.PointerButton
+Vixen.Ui.PointerButton.PointerButton() -> void
+Vixen.Ui.PointerButton.Primary = 1 -> Vixen.Ui.PointerButton
+Vixen.Ui.PointerButton.Secondary = 2 -> Vixen.Ui.PointerButton
+Vixen.Ui.PointerEvent -> sealed class
+Vixen.Ui.PointerEvent : Vixen.Ui.UiEvent
+Vixen.Ui.PointerEvent.Action.get -> Vixen.Ui.PointerAction
+Vixen.Ui.PointerEvent.Action.init -> Vixen.Ui.PointerAction
+Vixen.Ui.PointerEvent.Button.get -> Vixen.Ui.PointerButton
+Vixen.Ui.PointerEvent.Button.init -> Vixen.Ui.PointerButton
+Vixen.Ui.PointerEvent.Modifiers.get -> Vixen.Ui.ModifierKeys
+Vixen.Ui.PointerEvent.Modifiers.init -> Vixen.Ui.ModifierKeys
+Vixen.Ui.PointerEvent.PointerEvent() -> void
+Vixen.Ui.PointerEvent.PointerId.get -> int
+Vixen.Ui.PointerEvent.PointerId.init -> int
+Vixen.Ui.PointerEvent.Timestamp.get -> System.TimeSpan
+Vixen.Ui.PointerEvent.Timestamp.init -> System.TimeSpan
+Vixen.Ui.PointerEvent.X.get -> float
+Vixen.Ui.PointerEvent.X.init -> float
+Vixen.Ui.PointerEvent.Y.get -> float
+Vixen.Ui.PointerEvent.Y.init -> float
+Vixen.Ui.PositionedGlyph -> readonly struct
+Vixen.Ui.PositionedGlyph : System.IEquatable<Vixen.Ui.PositionedGlyph>
+Vixen.Ui.PositionedGlyph.GlyphId.get -> ushort
+Vixen.Ui.PositionedGlyph.GlyphId.init -> ushort
+Vixen.Ui.PositionedGlyph.PositionedGlyph() -> void
+Vixen.Ui.PositionedGlyph.PositionedGlyph(ushort GlyphId, float X, float Y) -> void
+Vixen.Ui.PositionedGlyph.X.get -> float
+Vixen.Ui.PositionedGlyph.X.init -> float
+Vixen.Ui.PositionedGlyph.Y.get -> float
+Vixen.Ui.PositionedGlyph.Y.init -> float
+Vixen.Ui.Rendering.Contour -> readonly struct
+Vixen.Ui.Rendering.Contour : System.IEquatable<Vixen.Ui.Rendering.Contour>
+Vixen.Ui.Rendering.Contour.Closed.get -> bool
+Vixen.Ui.Rendering.Contour.Closed.init -> bool
+Vixen.Ui.Rendering.Contour.Contour() -> void
+Vixen.Ui.Rendering.Contour.Contour(int First, int Count, bool Closed) -> void
+Vixen.Ui.Rendering.Contour.Count.get -> int
+Vixen.Ui.Rendering.Contour.Count.init -> int
+Vixen.Ui.Rendering.Contour.First.get -> int
+Vixen.Ui.Rendering.Contour.First.init -> int
+Vixen.Ui.Rendering.PathFlattener -> static class
+Vixen.Ui.Rendering.PathTessellator -> static class
+Vixen.Ui.Rendering.PathVertex -> readonly struct
+Vixen.Ui.Rendering.PathVertex : System.IEquatable<Vixen.Ui.Rendering.PathVertex>
+Vixen.Ui.Rendering.PathVertex.Coverage.get -> float
+Vixen.Ui.Rendering.PathVertex.Coverage.init -> float
+Vixen.Ui.Rendering.PathVertex.PathVertex() -> void
+Vixen.Ui.Rendering.PathVertex.PathVertex(Vixen.Core.Mathematics.Vector2 Position, float Coverage) -> void
+Vixen.Ui.Rendering.PathVertex.Position.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Rendering.PathVertex.Position.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Rendering.UiDraw -> readonly struct
+Vixen.Ui.Rendering.UiDraw : System.IEquatable<Vixen.Ui.Rendering.UiDraw>
+Vixen.Ui.Rendering.UiDraw.Clip.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Rendering.UiDraw.Clip.init -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Rendering.UiDraw.Count.get -> int
+Vixen.Ui.Rendering.UiDraw.Count.init -> int
+Vixen.Ui.Rendering.UiDraw.First.get -> int
+Vixen.Ui.Rendering.UiDraw.First.init -> int
+Vixen.Ui.Rendering.UiDraw.Font.get -> int
+Vixen.Ui.Rendering.UiDraw.Font.init -> int
+Vixen.Ui.Rendering.UiDraw.Image.get -> ulong
+Vixen.Ui.Rendering.UiDraw.Image.init -> ulong
+Vixen.Ui.Rendering.UiDraw.Kind.get -> Vixen.Ui.BatchKind
+Vixen.Ui.Rendering.UiDraw.Kind.init -> Vixen.Ui.BatchKind
+Vixen.Ui.Rendering.UiDraw.UiDraw() -> void
+Vixen.Ui.Rendering.UiDraw.UiDraw(Vixen.Ui.BatchKind Kind, int First, int Count, int Font, Vixen.Core.Mathematics.Rectangle Clip) -> void
+Vixen.Ui.Rendering.UiGeometry -> readonly struct
+Vixen.Ui.Rendering.UiGeometry : System.IEquatable<Vixen.Ui.Rendering.UiGeometry>
+Vixen.Ui.Rendering.UiGeometry.Draws.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiDraw>
+Vixen.Ui.Rendering.UiGeometry.Draws.init -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiDraw>
+Vixen.Ui.Rendering.UiGeometry.Indices.get -> System.Collections.Generic.IReadOnlyList<uint>
+Vixen.Ui.Rendering.UiGeometry.Indices.init -> System.Collections.Generic.IReadOnlyList<uint>
+Vixen.Ui.Rendering.UiGeometry.Shapes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiShape>
+Vixen.Ui.Rendering.UiGeometry.Shapes.init -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiShape>
+Vixen.Ui.Rendering.UiGeometry.UiGeometry() -> void
+Vixen.Ui.Rendering.UiGeometry.UiGeometry(System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiVertex> Vertices, System.Collections.Generic.IReadOnlyList<uint> Indices, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiDraw> Draws, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiShape> Shapes) -> void
+Vixen.Ui.Rendering.UiGeometry.Vertices.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiVertex>
+Vixen.Ui.Rendering.UiGeometry.Vertices.init -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiVertex>
+Vixen.Ui.Rendering.UiGeometryBuilder -> sealed class
+Vixen.Ui.Rendering.UiGeometryBuilder.AtlasChanged.get -> bool
+Vixen.Ui.Rendering.UiGeometryBuilder.Build(Vixen.Ui.DrawList list, Vixen.Ui.Text.Rasterizing.GlyphFieldCache glyphs, Vixen.Core.Mathematics.Rectangle viewport) -> Vixen.Ui.Rendering.UiGeometry
+Vixen.Ui.Rendering.UiGeometryBuilder.DroppedGlyphs.get -> int
+Vixen.Ui.Rendering.UiGeometryBuilder.Fringe.get -> float
+Vixen.Ui.Rendering.UiGeometryBuilder.Fringe.set -> float
+Vixen.Ui.Rendering.UiGeometryBuilder.Tolerance.get -> float
+Vixen.Ui.Rendering.UiGeometryBuilder.Tolerance.set -> float
+Vixen.Ui.Rendering.UiGeometryBuilder.UiGeometryBuilder() -> void
+Vixen.Ui.Rendering.UiShape -> readonly struct
+Vixen.Ui.Rendering.UiShape : System.IEquatable<Vixen.Ui.Rendering.UiShape>
+Vixen.Ui.Rendering.UiShape.Axis.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Ui.Rendering.UiShape.End.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Ui.Rendering.UiShape.RadiiX.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Ui.Rendering.UiShape.RadiiY.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Ui.Rendering.UiShape.Size.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Ui.Rendering.UiShape.UiShape() -> void
+Vixen.Ui.Rendering.UiShape.UiShape(Vixen.Core.Mathematics.Vector2 half, float thickness, Vixen.Ui.CornerRadii corners, Vixen.Core.Mathematics.Color4 gradientEnd, Vixen.Core.Mathematics.Vector2 gradientAxis, float blur = 0) -> void
+Vixen.Ui.Rendering.UiVertex -> readonly struct
+Vixen.Ui.Rendering.UiVertex : System.IEquatable<Vixen.Ui.Rendering.UiVertex>
+Vixen.Ui.Rendering.UiVertex.Color.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Rendering.UiVertex.Color.init -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Rendering.UiVertex.Position.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Rendering.UiVertex.Position.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Rendering.UiVertex.Shape.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Ui.Rendering.UiVertex.Shape.init -> Vixen.Core.Mathematics.Vector4
+Vixen.Ui.Rendering.UiVertex.Texture.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Rendering.UiVertex.Texture.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Rendering.UiVertex.UiVertex() -> void
+Vixen.Ui.Rendering.UiVertex.UiVertex(Vixen.Core.Mathematics.Vector2 Position, Vixen.Core.Mathematics.Vector2 Texture, Vixen.Core.Mathematics.Color4 Color, Vixen.Core.Mathematics.Vector4 Shape) -> void
+Vixen.Ui.RoutingPhase -> enum : byte
+Vixen.Ui.RoutingPhase.Bubble = 2 -> Vixen.Ui.RoutingPhase
+Vixen.Ui.RoutingPhase.Capture = 0 -> Vixen.Ui.RoutingPhase
+Vixen.Ui.RoutingPhase.RoutingPhase() -> void
+Vixen.Ui.RoutingPhase.Target = 1 -> Vixen.Ui.RoutingPhase
+Vixen.Ui.RoutingStrategy -> enum : byte
+Vixen.Ui.RoutingStrategy.Bubble = 1 -> Vixen.Ui.RoutingStrategy
+Vixen.Ui.RoutingStrategy.Capture = 0 -> Vixen.Ui.RoutingStrategy
+Vixen.Ui.RoutingStrategy.Direct = 2 -> Vixen.Ui.RoutingStrategy
+Vixen.Ui.RoutingStrategy.RoutingStrategy() -> void
+Vixen.Ui.TapEvent -> sealed class
+Vixen.Ui.TapEvent : Vixen.Ui.UiEvent
+Vixen.Ui.TapEvent.Count.get -> int
+Vixen.Ui.TapEvent.Count.init -> int
+Vixen.Ui.TapEvent.Modifiers.get -> Vixen.Ui.ModifierKeys
+Vixen.Ui.TapEvent.Modifiers.init -> Vixen.Ui.ModifierKeys
+Vixen.Ui.TapEvent.PointerId.get -> int
+Vixen.Ui.TapEvent.PointerId.init -> int
+Vixen.Ui.TapEvent.TapEvent() -> void
+Vixen.Ui.TapEvent.X.get -> float
+Vixen.Ui.TapEvent.X.init -> float
+Vixen.Ui.TapEvent.Y.get -> float
+Vixen.Ui.TapEvent.Y.init -> float
+Vixen.Ui.TextInputEvent -> sealed class
+Vixen.Ui.TextInputEvent : Vixen.Ui.UiEvent
+Vixen.Ui.TextInputEvent.Text.get -> string
+Vixen.Ui.TextInputEvent.Text.init -> string
+Vixen.Ui.TextInputEvent.TextInputEvent() -> void
+Vixen.Ui.TextInputEvent.Timestamp.get -> System.TimeSpan
+Vixen.Ui.TextInputEvent.Timestamp.init -> System.TimeSpan
+Vixen.Ui.TextLine -> sealed class
+Vixen.Ui.TextLine.Baseline.get -> float
+Vixen.Ui.TextLine.CaretIndexAt(float x) -> int
+Vixen.Ui.TextLine.CaretOffset(int index) -> float
+Vixen.Ui.TextLine.Height.get -> float
+Vixen.Ui.TextLine.PenOf(int run) -> float
+Vixen.Ui.TextLine.Place(System.Collections.Generic.List<Vixen.Ui.PositionedGlyph> into) -> void
+Vixen.Ui.TextLine.Runs.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.TextRun>
+Vixen.Ui.TextLine.TextLine(System.Collections.Immutable.ImmutableArray<Vixen.Ui.TextRun> runs) -> void
+Vixen.Ui.TextLine.Width.get -> float
+Vixen.Ui.TextRun -> sealed record
+Vixen.Ui.TextRun : System.IEquatable<Vixen.Ui.TextRun>
+Vixen.Ui.TextRun.Baseline.get -> float
+Vixen.Ui.TextRun.CaretIndexAt(float x) -> int
+Vixen.Ui.TextRun.CaretOffset(int index) -> float
+Vixen.Ui.TextRun.Clusters.get -> int
+Vixen.Ui.TextRun.Font.get -> Vixen.Ui.Text.FontFace
+Vixen.Ui.TextRun.Font.init -> Vixen.Ui.Text.FontFace
+Vixen.Ui.TextRun.Height.get -> float
+Vixen.Ui.TextRun.Leading.get -> float
+Vixen.Ui.TextRun.Leading.init -> float
+Vixen.Ui.TextRun.Place(System.Collections.Generic.List<Vixen.Ui.PositionedGlyph> into, float penX = 0) -> void
+Vixen.Ui.TextRun.Scale.get -> float
+Vixen.Ui.TextRun.Shaped.get -> Vixen.Ui.Text.ShapedText
+Vixen.Ui.TextRun.Shaped.init -> Vixen.Ui.Text.ShapedText
+Vixen.Ui.TextRun.Size.get -> float
+Vixen.Ui.TextRun.Size.init -> float
+Vixen.Ui.TextRun.Start.get -> int
+Vixen.Ui.TextRun.Start.init -> int
+Vixen.Ui.TextRun.TextRun(Vixen.Ui.Text.FontFace Font, Vixen.Ui.Text.ShapedText Shaped, float Size, float Tracking = 0, float Leading = NaN, int Start = 0) -> void
+Vixen.Ui.TextRun.Tracking.get -> float
+Vixen.Ui.TextRun.Tracking.init -> float
+Vixen.Ui.TextRun.Width.get -> float
+Vixen.Ui.TransformEvent -> sealed class
+Vixen.Ui.TransformEvent : Vixen.Ui.UiEvent
+Vixen.Ui.TransformEvent.DeltaRotation.get -> float
+Vixen.Ui.TransformEvent.DeltaRotation.init -> float
+Vixen.Ui.TransformEvent.DeltaScale.get -> float
+Vixen.Ui.TransformEvent.DeltaScale.init -> float
+Vixen.Ui.TransformEvent.DeltaX.get -> float
+Vixen.Ui.TransformEvent.DeltaX.init -> float
+Vixen.Ui.TransformEvent.DeltaY.get -> float
+Vixen.Ui.TransformEvent.DeltaY.init -> float
+Vixen.Ui.TransformEvent.FirstPointerId.get -> int
+Vixen.Ui.TransformEvent.FirstPointerId.init -> int
+Vixen.Ui.TransformEvent.Modifiers.get -> Vixen.Ui.ModifierKeys
+Vixen.Ui.TransformEvent.Modifiers.init -> Vixen.Ui.ModifierKeys
+Vixen.Ui.TransformEvent.Rotation.get -> float
+Vixen.Ui.TransformEvent.Rotation.init -> float
+Vixen.Ui.TransformEvent.Scale.get -> float
+Vixen.Ui.TransformEvent.Scale.init -> float
+Vixen.Ui.TransformEvent.SecondPointerId.get -> int
+Vixen.Ui.TransformEvent.SecondPointerId.init -> int
+Vixen.Ui.TransformEvent.Stage.get -> Vixen.Ui.TransformStage
+Vixen.Ui.TransformEvent.Stage.init -> Vixen.Ui.TransformStage
+Vixen.Ui.TransformEvent.TransformEvent() -> void
+Vixen.Ui.TransformEvent.X.get -> float
+Vixen.Ui.TransformEvent.X.init -> float
+Vixen.Ui.TransformEvent.Y.get -> float
+Vixen.Ui.TransformEvent.Y.init -> float
+Vixen.Ui.TransformStage -> enum : byte
+Vixen.Ui.TransformStage.Cancelled = 3 -> Vixen.Ui.TransformStage
+Vixen.Ui.TransformStage.Completed = 2 -> Vixen.Ui.TransformStage
+Vixen.Ui.TransformStage.Started = 0 -> Vixen.Ui.TransformStage
+Vixen.Ui.TransformStage.TransformStage() -> void
+Vixen.Ui.TransformStage.Updated = 1 -> Vixen.Ui.TransformStage
+Vixen.Ui.UiCursor -> enum : byte
+Vixen.Ui.UiCursor.Auto = 0 -> Vixen.Ui.UiCursor
+Vixen.Ui.UiCursor.ColumnResize = 12 -> Vixen.Ui.UiCursor
+Vixen.Ui.UiCursor.Crosshair = 9 -> Vixen.Ui.UiCursor
+Vixen.Ui.UiCursor.Default = 1 -> Vixen.Ui.UiCursor
+Vixen.Ui.UiCursor.EastWest = 14 -> Vixen.Ui.UiCursor
+Vixen.Ui.UiCursor.Grab = 7 -> Vixen.Ui.UiCursor
+Vixen.Ui.UiCursor.Grabbing = 8 -> Vixen.Ui.UiCursor
+Vixen.Ui.UiCursor.Move = 5 -> Vixen.Ui.UiCursor
+Vixen.Ui.UiCursor.None = 2 -> Vixen.Ui.UiCursor
+Vixen.Ui.UiCursor.NorthSouth = 15 -> Vixen.Ui.UiCursor
+Vixen.Ui.UiCursor.NotAllowed = 6 -> Vixen.Ui.UiCursor
+Vixen.Ui.UiCursor.Pointer = 3 -> Vixen.Ui.UiCursor
+Vixen.Ui.UiCursor.Progress = 11 -> Vixen.Ui.UiCursor
+Vixen.Ui.UiCursor.RowResize = 13 -> Vixen.Ui.UiCursor
+Vixen.Ui.UiCursor.Text = 4 -> Vixen.Ui.UiCursor
+Vixen.Ui.UiCursor.UiCursor() -> void
+Vixen.Ui.UiCursor.Wait = 10 -> Vixen.Ui.UiCursor
+Vixen.Ui.UiDocument -> sealed class
+Vixen.Ui.UiDocument : System.IDisposable
+Vixen.Ui.UiDocument.Builder.get -> Vixen.Ui.LayoutStyleBuilder
+Vixen.Ui.UiDocument.CapturePointer(Vixen.Ui.UiElement element) -> void
+Vixen.Ui.UiDocument.Captured.get -> Vixen.Ui.UiElement?
+Vixen.Ui.UiDocument.ColorOf(Vixen.Ui.Styling.ComputedStyle style, int property) -> Vixen.Core.Mathematics.Color4?
+Vixen.Ui.UiDocument.CompactStyles() -> bool
+Vixen.Ui.UiDocument.Create(string tag, Vixen.Ui.UiElement? parent, string? id = null, params System.ReadOnlySpan<string> classNames) -> Vixen.Ui.UiElement
+Vixen.Ui.UiDocument.Create<T>(string? tag, Vixen.Ui.UiElement? parent, string? id = null, params System.ReadOnlySpan<string> classNames) -> T
+Vixen.Ui.UiDocument.Cursor.get -> Vixen.Ui.UiCursor
+Vixen.Ui.UiDocument.CursorOf(Vixen.Ui.Styling.ComputedStyle style) -> Vixen.Ui.UiCursor
+Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.KeyEvent args) -> Vixen.Ui.UiElement?
+Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.PointerEvent args) -> Vixen.Ui.UiElement?
+Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.TextInputEvent args) -> Vixen.Ui.UiElement?
+Vixen.Ui.UiDocument.Dispatch(Vixen.Ui.WheelEvent args) -> Vixen.Ui.UiElement?
+Vixen.Ui.UiDocument.Dispose() -> void
+Vixen.Ui.UiDocument.Draw() -> bool
+Vixen.Ui.UiDocument.Drawing.get -> Vixen.Ui.DrawList
+Vixen.Ui.UiDocument.FindInDirection(Vixen.Ui.UiElement origin, Vixen.Ui.NavigationDirection direction) -> Vixen.Ui.UiElement?
+Vixen.Ui.UiDocument.Focus(Vixen.Ui.UiElement? element) -> bool
+Vixen.Ui.UiDocument.Focused.get -> Vixen.Ui.UiElement?
+Vixen.Ui.UiDocument.Fonts.get -> Vixen.Ui.FontRegistry
+Vixen.Ui.UiDocument.ForegroundOf(Vixen.Ui.UiElement element) -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.UiDocument.Gestures.get -> Vixen.Ui.GestureRecognizer
+Vixen.Ui.UiDocument.HitTest(float x, float y) -> Vixen.Ui.UiElement?
+Vixen.Ui.UiDocument.Hovered.get -> Vixen.Ui.UiElement?
+Vixen.Ui.UiDocument.Invalidate() -> void
+Vixen.Ui.UiDocument.InvokeAccessKey(char key) -> bool
+Vixen.Ui.UiDocument.KeyboardMode.get -> bool
+Vixen.Ui.UiDocument.LastPassWasCold.get -> bool
+Vixen.Ui.UiDocument.Layout.get -> Vixen.Ui.Layout.LayoutTree
+Vixen.Ui.UiDocument.LayoutFinished -> System.Action<Vixen.Ui.UiDocument>?
+Vixen.Ui.UiDocument.LengthOf(Vixen.Ui.Styling.ComputedStyle style, int property) -> float?
+Vixen.Ui.UiDocument.Load(string css, Vixen.Ui.Styling.StyleOrigin origin = Vixen.Ui.Styling.StyleOrigin.Author) -> int
+Vixen.Ui.UiDocument.Move(Vixen.Ui.UiElement element, int index) -> void
+Vixen.Ui.UiDocument.MoveFocus(Vixen.Ui.FocusDirection direction) -> bool
+Vixen.Ui.UiDocument.MoveFocus(Vixen.Ui.NavigationDirection direction) -> bool
+Vixen.Ui.UiDocument.Now.get -> System.TimeSpan
+Vixen.Ui.UiDocument.NumberOf(Vixen.Ui.Styling.ComputedStyle style, int property) -> float?
+Vixen.Ui.UiDocument.PropertyId(string name) -> int
+Vixen.Ui.UiDocument.ReleasePointer() -> void
+Vixen.Ui.UiDocument.ReloadStyles(int sheet, string css) -> void
+Vixen.Ui.UiDocument.Remove(Vixen.Ui.UiElement element) -> void
+Vixen.Ui.UiDocument.Reparent(Vixen.Ui.UiElement element, Vixen.Ui.UiElement parent, int index = -1) -> void
+Vixen.Ui.UiDocument.Resize(float width, float height) -> void
+Vixen.Ui.UiDocument.Restyler.get -> Vixen.Ui.Styling.StyleUpdater
+Vixen.Ui.UiDocument.Root.get -> Vixen.Ui.UiElement
+Vixen.Ui.UiDocument.Settled.get -> bool
+Vixen.Ui.UiDocument.SettlingPasses.get -> int
+Vixen.Ui.UiDocument.Shaping.get -> Vixen.Ui.Text.ShapingCache
+Vixen.Ui.UiDocument.StyleCompactions.get -> int
+Vixen.Ui.UiDocument.Styles.get -> Vixen.Ui.Styling.StyleEngine
+Vixen.Ui.UiDocument.StylesApplied.get -> int
+Vixen.Ui.UiDocument.StylesResolved.get -> int
+Vixen.Ui.UiDocument.Tick(System.TimeSpan now) -> void
+Vixen.Ui.UiDocument.Ticked -> System.Action<Vixen.Ui.UiDocument, System.TimeSpan>?
+Vixen.Ui.UiDocument.UiDocument(float width, float height, float rootFontSize = 16) -> void
+Vixen.Ui.UiDocument.Update() -> bool
+Vixen.Ui.UiDocument.Viewport.get -> Vixen.Ui.LengthContext
+Vixen.Ui.UiElement -> class
+Vixen.Ui.UiElement.AbsoluteLeft.get -> float
+Vixen.Ui.UiElement.AbsoluteTop.get -> float
+Vixen.Ui.UiElement.AccessKey.get -> char
+Vixen.Ui.UiElement.AccessKey.set -> char
+Vixen.Ui.UiElement.Add(string tag, string? id = null, params System.ReadOnlySpan<string> classNames) -> Vixen.Ui.UiElement
+Vixen.Ui.UiElement.Add<T>(string? tag = null, string? id = null, params System.ReadOnlySpan<string> classNames) -> T
+Vixen.Ui.UiElement.AddClass(string className) -> bool
+Vixen.Ui.UiElement.AddHandler<T>(System.Action<Vixen.Ui.UiElement, T> handler, Vixen.Ui.RoutingStrategy strategy = Vixen.Ui.RoutingStrategy.Bubble, bool handledEventsToo = false) -> void
+Vixen.Ui.UiElement.Bounds.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.UiElement.Children.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.UiElement>
+Vixen.Ui.UiElement.ClearAccessKey() -> void
+Vixen.Ui.UiElement.ClearFocusable() -> void
+Vixen.Ui.UiElement.ClearIsFocusScope() -> void
+Vixen.Ui.UiElement.ClearOffsetX() -> void
+Vixen.Ui.UiElement.ClearOffsetY() -> void
+Vixen.Ui.UiElement.ClearStyle() -> void
+Vixen.Ui.UiElement.ClearTabIndex() -> void
+Vixen.Ui.UiElement.ClearText() -> void
+Vixen.Ui.UiElement.Document.get -> Vixen.Ui.UiDocument
+Vixen.Ui.UiElement.Focusable.get -> bool
+Vixen.Ui.UiElement.Focusable.set -> bool
+Vixen.Ui.UiElement.FontSize.get -> float
+Vixen.Ui.UiElement.GetStyle(string property) -> string?
+Vixen.Ui.UiElement.HasClass(string className) -> bool
+Vixen.Ui.UiElement.HasInlineStyle.get -> bool
+Vixen.Ui.UiElement.Height.get -> float
+Vixen.Ui.UiElement.IndexInParent.get -> int
+Vixen.Ui.UiElement.IsFocusScope.get -> bool
+Vixen.Ui.UiElement.IsFocusScope.set -> bool
+Vixen.Ui.UiElement.IsFocused.get -> bool
+Vixen.Ui.UiElement.IsHitTestVisible.get -> bool
+Vixen.Ui.UiElement.IsRemoved.get -> bool
+Vixen.Ui.UiElement.Left.get -> float
+Vixen.Ui.UiElement.LetterSpacing.get -> float
+Vixen.Ui.UiElement.Line() -> Vixen.Ui.TextLine?
+Vixen.Ui.UiElement.LineHeight.get -> float
+Vixen.Ui.UiElement.OffsetX.get -> float
+Vixen.Ui.UiElement.OffsetX.set -> float
+Vixen.Ui.UiElement.OffsetY.get -> float
+Vixen.Ui.UiElement.OffsetY.set -> float
+Vixen.Ui.UiElement.Parent.get -> Vixen.Ui.UiElement?
+Vixen.Ui.UiElement.PropertyChanged -> System.Action<Vixen.Ui.UiElement, Vixen.Ui.UiPropertyKey>?
+Vixen.Ui.UiElement.Raise<T>(T args) -> void
+Vixen.Ui.UiElement.RaisePropertyChanged(Vixen.Ui.UiPropertyKey key) -> void
+Vixen.Ui.UiElement.Remove() -> void
+Vixen.Ui.UiElement.RemoveClass(string className) -> bool
+Vixen.Ui.UiElement.RemoveHandler<T>(System.Action<Vixen.Ui.UiElement, T> handler) -> bool
+Vixen.Ui.UiElement.SetStyle(string property, string? value) -> void
+Vixen.Ui.UiElement.State.get -> Vixen.Ui.Styling.ElementState
+Vixen.Ui.UiElement.State.set -> Vixen.Ui.Styling.ElementState
+Vixen.Ui.UiElement.Style.get -> Vixen.Ui.Styling.ComputedStyle
+Vixen.Ui.UiElement.TabIndex.get -> int
+Vixen.Ui.UiElement.TabIndex.set -> int
+Vixen.Ui.UiElement.Tag.get -> string
+Vixen.Ui.UiElement.Text.get -> string?
+Vixen.Ui.UiElement.Text.set -> string?
+Vixen.Ui.UiElement.Top.get -> float
+Vixen.Ui.UiElement.UiElement() -> void
+Vixen.Ui.UiElement.Width.get -> float
+Vixen.Ui.UiElement.ZIndex.get -> int
+Vixen.Ui.UiEvent -> abstract class
+Vixen.Ui.UiEvent.Current.get -> Vixen.Ui.UiElement?
+Vixen.Ui.UiEvent.Handled.get -> bool
+Vixen.Ui.UiEvent.Handled.set -> bool
+Vixen.Ui.UiEvent.Phase.get -> Vixen.Ui.RoutingPhase
+Vixen.Ui.UiEvent.Source.get -> Vixen.Ui.UiElement?
+Vixen.Ui.UiEvent.UiEvent() -> void
+Vixen.Ui.UiPropertyAttribute -> sealed class
+Vixen.Ui.UiPropertyAttribute : System.Attribute
+Vixen.Ui.UiPropertyAttribute.Changed.get -> string?
+Vixen.Ui.UiPropertyAttribute.Changed.set -> string?
+Vixen.Ui.UiPropertyAttribute.Coerce.get -> string?
+Vixen.Ui.UiPropertyAttribute.Coerce.set -> string?
+Vixen.Ui.UiPropertyAttribute.Default.get -> object?
+Vixen.Ui.UiPropertyAttribute.Default.set -> object?
+Vixen.Ui.UiPropertyAttribute.Inherits.get -> bool
+Vixen.Ui.UiPropertyAttribute.Inherits.set -> bool
+Vixen.Ui.UiPropertyAttribute.UiPropertyAttribute() -> void
+Vixen.Ui.UiPropertyKey -> sealed class
+Vixen.Ui.UiPropertyKey.GetValue(Vixen.Ui.UiElement element) -> object?
+Vixen.Ui.UiPropertyKey.Inherits.get -> bool
+Vixen.Ui.UiPropertyKey.Name.get -> string
+Vixen.Ui.UiPropertyKey.OwnerType.get -> System.Type
+Vixen.Ui.UiPropertyKey.SetValue(Vixen.Ui.UiElement element, object? value) -> void
+Vixen.Ui.UiPropertyKey.ValueType.get -> System.Type
+Vixen.Ui.UiPropertyRegistry -> static class
+Vixen.Ui.WheelEvent -> sealed class
+Vixen.Ui.WheelEvent : Vixen.Ui.UiEvent
+Vixen.Ui.WheelEvent.DeltaX.get -> float
+Vixen.Ui.WheelEvent.DeltaX.init -> float
+Vixen.Ui.WheelEvent.DeltaY.get -> float
+Vixen.Ui.WheelEvent.DeltaY.init -> float
+Vixen.Ui.WheelEvent.Modifiers.get -> Vixen.Ui.ModifierKeys
+Vixen.Ui.WheelEvent.Modifiers.init -> Vixen.Ui.ModifierKeys
+Vixen.Ui.WheelEvent.PointerId.get -> int
+Vixen.Ui.WheelEvent.PointerId.init -> int
+Vixen.Ui.WheelEvent.Timestamp.get -> System.TimeSpan
+Vixen.Ui.WheelEvent.Timestamp.init -> System.TimeSpan
+Vixen.Ui.WheelEvent.WheelEvent() -> void
+Vixen.Ui.WheelEvent.X.get -> float
+Vixen.Ui.WheelEvent.X.init -> float
+Vixen.Ui.WheelEvent.Y.get -> float
+Vixen.Ui.WheelEvent.Y.init -> float
+abstract Vixen.Ui.Composition.Component.Build(Vixen.Ui.Composition.BuildContext ctx) -> void
+const Vixen.Ui.AccessKey.Marker = '_' -> char
+const Vixen.Ui.Composition.BuildContext.DefaultSlot = "default" -> string
+const Vixen.Ui.FontRegistry.BoldWeight = 700 -> int
+const Vixen.Ui.FontRegistry.RegularWeight = 400 -> int
+const Vixen.Ui.LengthContext.InitialFontSize = 16 -> float
+const Vixen.Ui.Rendering.PathTessellator.DefaultMiterLimit = 4 -> float
+const Vixen.Ui.UiDocument.SettlePasses = 3 -> int
+override Vixen.Ui.UiPropertyKey.ToString() -> string
+static Vixen.Ui.AccessKey.Parse(string? label, out char key) -> string
+static Vixen.Ui.BoxStyle.Rounded(Vixen.Ui.CornerRadii corners) -> Vixen.Ui.BoxStyle
+static Vixen.Ui.BoxStyle.Vertical(Vixen.Core.Mathematics.Color4 end, Vixen.Ui.CornerRadii corners = default(Vixen.Ui.CornerRadii)) -> Vixen.Ui.BoxStyle
+static Vixen.Ui.Composition.BuildContext.Build<T>(Vixen.Ui.UiDocument document, Vixen.Ui.UiElement mount) -> T
+static Vixen.Ui.Composition.BuildContext.BuildInto(Vixen.Ui.Composition.Component component, Vixen.Ui.UiDocument document, Vixen.Ui.UiElement mount) -> Vixen.Ui.Composition.BuildContext
+static Vixen.Ui.CornerRadii.Circular(float topLeft, float topRight, float bottomRight, float bottomLeft) -> Vixen.Ui.CornerRadii
+static Vixen.Ui.CornerRadii.Uniform(float radius) -> Vixen.Ui.CornerRadii
+static Vixen.Ui.DrawBatcher.Build(System.Collections.Generic.IReadOnlyList<Vixen.Ui.DrawCommand> commands, System.Collections.Generic.List<Vixen.Ui.DrawBatch> into) -> void
+static Vixen.Ui.EventRouter.Direct<T>(Vixen.Ui.UiElement target, T args) -> void
+static Vixen.Ui.EventRouter.Raise<T>(Vixen.Ui.UiElement target, T args) -> void
+static Vixen.Ui.FontRegistry.Cover(string text, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Text.FontFace> chain, System.Collections.Generic.List<Vixen.Ui.FontSpan> into) -> void
+static Vixen.Ui.GestureSettings.Default.get -> Vixen.Ui.GestureSettings
+static Vixen.Ui.LengthContext.ForViewport(float width, float height, float rootFontSize = 16) -> Vixen.Ui.LengthContext
+static Vixen.Ui.Rendering.PathFlattener.Flatten(System.Collections.Generic.IReadOnlyList<Vixen.Ui.PathSegment> segments, int offset, int length, float tolerance, System.Collections.Generic.List<Vixen.Core.Mathematics.Vector2> points, System.Collections.Generic.List<Vixen.Ui.Rendering.Contour> contours) -> void
+static Vixen.Ui.Rendering.PathTessellator.Fill(System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> points, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.Contour> contours, Vixen.Ui.PathFillRule rule, System.Collections.Generic.List<Vixen.Ui.Rendering.PathVertex> triangles) -> void
+static Vixen.Ui.Rendering.PathTessellator.FillFringe(System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> points, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.Contour> contours, Vixen.Ui.PathFillRule rule, float width, System.Collections.Generic.List<Vixen.Ui.Rendering.PathVertex> triangles) -> void
+static Vixen.Ui.Rendering.PathTessellator.Stroke(System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> points, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.Contour> contours, float width, Vixen.Ui.LineJoin join, Vixen.Ui.LineCap cap, float tolerance, System.Collections.Generic.List<Vixen.Ui.Rendering.PathVertex> triangles, float miterLimit = 4, float fringe = 0) -> void
+static Vixen.Ui.TextLine.Measure(in Vixen.Ui.Layout.MeasureRequest request) -> Vixen.Ui.Layout.LayoutSize
+static Vixen.Ui.UiDocument.TabOrder(Vixen.Ui.UiElement scope) -> System.Collections.Generic.List<Vixen.Ui.UiElement>
+static Vixen.Ui.UiPropertyRegistry.Of(System.Type ownerType) -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.UiPropertyKey>
+static Vixen.Ui.UiPropertyRegistry.Register(string name, System.Type ownerType, System.Type valueType, bool inherits, System.Func<Vixen.Ui.UiElement, object?> get, System.Action<Vixen.Ui.UiElement, object?> set) -> Vixen.Ui.UiPropertyKey
+static Vixen.Ui.UiPropertyRegistry.TryFind(System.Type ownerType, string name, out Vixen.Ui.UiPropertyKey? key) -> bool
+static Vixen.Ui.UiPropertyRegistry.TryFindFor(Vixen.Ui.UiElement element, string name, out Vixen.Ui.UiPropertyKey? key) -> bool
+static readonly Vixen.Ui.LayoutStyleBuilder.CssInitial -> Vixen.Ui.Layout.LayoutStyle
+static readonly Vixen.Ui.UiElement.AccessKeyProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.UiElement.FocusableProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.UiElement.IsFocusScopeProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.UiElement.OffsetXProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.UiElement.OffsetYProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.UiElement.TabIndexProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.UiElement.TextProperty -> Vixen.Ui.UiPropertyKey
+virtual Vixen.Ui.Composition.Component.Style.get -> string?
+virtual Vixen.Ui.Composition.Component.StyleIsScoped.get -> bool
+virtual Vixen.Ui.UiElement.OnCreated() -> void
+virtual Vixen.Ui.UiElement.OnDraw(Vixen.Ui.DrawContext context) -> void
+virtual Vixen.Ui.UiElement.OnPropertyChanged(Vixen.Ui.UiPropertyKey key) -> void
+virtual Vixen.Ui.UiElement.OnRemoved() -> void
+virtual Vixen.Ui.UiElement.TagName.get -> string

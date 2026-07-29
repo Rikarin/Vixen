@@ -22,6 +22,25 @@
         <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
 
+        <!--
+          The undo stack an edit is recorded on. Doc 11 puts the view in this assembly beside the
+          model, and a view whose gestures did not produce IEditorCommands would be a second way to
+          change a graph — which is the one thing Vixen.Editor.Core exists to prevent. The same
+          argument Vixen.Editor.Inspector's csproj makes, and the same reference.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Core\Vixen.Editor.Core.csproj" />
+
+        <!--
+          NodeCanvas, NodeMinimap and the wire layer: doc 09 built them for exactly this consumer.
+          Vixen.Ui and Vixen.Ui.Controls arrive with it.
+
+          ⚠ This is what makes the assembly a UI assembly, and it is worth being awake to: anything
+          that only wants to *compile* a graph — a build task, an importer — now links the interface
+          framework through it. Splitting the view out would fix that and would split the model from
+          the only thing that edits it; doc 11 names one assembly, and this is it.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Controls.Advanced\Vixen.Ui.Controls.Advanced.csproj" />
+
         <!-- The descriptors the generator writes are TypeDescriptors, so the assembly needs the type. -->
         <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
 

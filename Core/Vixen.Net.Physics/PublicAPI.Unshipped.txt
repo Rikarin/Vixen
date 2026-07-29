@@ -1,0 +1,117 @@
+#nullable enable
+Vixen.Net.Physics.BodyHistory -> sealed class
+Vixen.Net.Physics.BodyHistory.Add(in Vixen.Net.Physics.BodyPose pose) -> void
+Vixen.Net.Physics.BodyHistory.BodyHistory(int depth) -> void
+Vixen.Net.Physics.BodyHistory.Clear() -> void
+Vixen.Net.Physics.BodyHistory.Count.get -> int
+Vixen.Net.Physics.BodyHistory.Depth.get -> int
+Vixen.Net.Physics.BodyHistory.Newest.get -> Vixen.Net.Physics.BodyPose
+Vixen.Net.Physics.BodyHistory.Oldest.get -> Vixen.Net.Physics.BodyPose
+Vixen.Net.Physics.BodyHistory.TrySample(Vixen.Net.Tick at, float fraction, bool interpolate, out Vixen.Net.Physics.BodyPose pose) -> bool
+Vixen.Net.Physics.BodyPose -> readonly struct
+Vixen.Net.Physics.BodyPose : System.IEquatable<Vixen.Net.Physics.BodyPose>
+Vixen.Net.Physics.BodyPose.At.get -> Vixen.Net.Tick
+Vixen.Net.Physics.BodyPose.At.init -> Vixen.Net.Tick
+Vixen.Net.Physics.BodyPose.BodyPose() -> void
+Vixen.Net.Physics.BodyPose.BodyPose(Vixen.Net.Tick At, Vixen.Core.Mathematics.Vector3 Position, Vixen.Core.Mathematics.Quaternion Rotation) -> void
+Vixen.Net.Physics.BodyPose.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Net.Physics.BodyPose.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Net.Physics.BodyPose.Rotation.get -> Vixen.Core.Mathematics.Quaternion
+Vixen.Net.Physics.BodyPose.Rotation.init -> Vixen.Core.Mathematics.Quaternion
+Vixen.Net.Physics.LagCompensationSettings -> sealed record
+Vixen.Net.Physics.LagCompensationSettings : System.IEquatable<Vixen.Net.Physics.LagCompensationSettings>
+Vixen.Net.Physics.LagCompensationSettings.HistoryTicks.get -> int
+Vixen.Net.Physics.LagCompensationSettings.HistoryTicks.init -> int
+Vixen.Net.Physics.LagCompensationSettings.Interpolate.get -> bool
+Vixen.Net.Physics.LagCompensationSettings.Interpolate.init -> bool
+Vixen.Net.Physics.LagCompensationSettings.InterpolationSlackTicks.get -> int
+Vixen.Net.Physics.LagCompensationSettings.InterpolationSlackTicks.init -> int
+Vixen.Net.Physics.LagCompensationSettings.LagCompensationSettings() -> void
+Vixen.Net.Physics.LagCompensationSettings.MaxRewind.get -> System.TimeSpan
+Vixen.Net.Physics.LagCompensationSettings.MaxRewind.init -> System.TimeSpan
+Vixen.Net.Physics.LagCompensator -> sealed class
+Vixen.Net.Physics.LagCompensator.Capture(Vixen.Net.Tick at) -> void
+Vixen.Net.Physics.LagCompensator.ClampFor(Vixen.Net.Tick claimed, System.TimeSpan roundTrip) -> Vixen.Net.Tick
+Vixen.Net.Physics.LagCompensator.ClampedCount.get -> long
+Vixen.Net.Physics.LagCompensator.Clear() -> void
+Vixen.Net.Physics.LagCompensator.Forget(Vixen.Physics.Bodies.BodyHandle body) -> bool
+Vixen.Net.Physics.LagCompensator.HasCaptured.get -> bool
+Vixen.Net.Physics.LagCompensator.IsRewound.get -> bool
+Vixen.Net.Physics.LagCompensator.IsTracked(Vixen.Physics.Bodies.BodyHandle body) -> bool
+Vixen.Net.Physics.LagCompensator.LagCompensator(Vixen.Physics.PhysicsWorld world, Vixen.Net.Time.TickRate rate, Vixen.Net.Physics.LagCompensationSettings? settings = null) -> void
+Vixen.Net.Physics.LagCompensator.NewestTick.get -> Vixen.Net.Tick
+Vixen.Net.Physics.LagCompensator.Rewind(Vixen.Net.Tick at, float fraction = 0) -> Vixen.Net.Physics.RewindScope
+Vixen.Net.Physics.LagCompensator.RewindCount.get -> long
+Vixen.Net.Physics.LagCompensator.RewindFor(Vixen.Net.Tick claimed, System.TimeSpan roundTrip, float fraction = 0) -> Vixen.Net.Physics.RewindScope
+Vixen.Net.Physics.LagCompensator.Settings.get -> Vixen.Net.Physics.LagCompensationSettings
+Vixen.Net.Physics.LagCompensator.Track(Vixen.Physics.Bodies.BodyHandle body) -> void
+Vixen.Net.Physics.LagCompensator.TrackedCount.get -> int
+Vixen.Net.Physics.LagCompensator.TryGetHistory(Vixen.Physics.Bodies.BodyHandle body, out Vixen.Net.Physics.BodyHistory? history) -> bool
+Vixen.Net.Physics.NetworkRigidBody -> struct
+Vixen.Net.Physics.NetworkRigidBody.AngularVelocity -> Vixen.Core.Mathematics.Vector3
+Vixen.Net.Physics.NetworkRigidBody.IsResting -> bool
+Vixen.Net.Physics.NetworkRigidBody.LinearVelocity -> Vixen.Core.Mathematics.Vector3
+Vixen.Net.Physics.NetworkRigidBody.NetworkRigidBody() -> void
+Vixen.Net.Physics.NetworkRigidBodyCaptureSystem -> sealed class
+Vixen.Net.Physics.NetworkRigidBodyCaptureSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Net.Physics.NetworkRigidBodyCaptureSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Net.Physics.NetworkRigidBodyCaptureSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Net.Physics.NetworkRigidBodyCaptureSystem.IsAuthority(Vixen.Net.Replication.NetworkId id) -> bool
+Vixen.Net.Physics.NetworkRigidBodyCaptureSystem.Local.get -> Vixen.Net.Sessions.PlayerId
+Vixen.Net.Physics.NetworkRigidBodyCaptureSystem.Local.set -> Vixen.Net.Sessions.PlayerId
+Vixen.Net.Physics.NetworkRigidBodyCaptureSystem.NetworkRigidBodyCaptureSystem() -> void
+Vixen.Net.Physics.NetworkRigidBodyCaptureSystem.Publish(Vixen.Ecs.World world) -> void
+Vixen.Net.Physics.NetworkRigidBodyCaptureSystem.PublishedCount.get -> long
+Vixen.Net.Physics.NetworkRigidBodyCaptureSystem.RestingCount.get -> long
+Vixen.Net.Physics.NetworkRigidBodyCaptureSystem.Rules.get -> Vixen.Net.Rules.NetworkRulesRegistry?
+Vixen.Net.Physics.NetworkRigidBodyCaptureSystem.Rules.set -> Vixen.Net.Rules.NetworkRulesRegistry?
+Vixen.Net.Physics.NetworkRigidBodyCorrection -> struct
+Vixen.Net.Physics.NetworkRigidBodyCorrection.HardSnapAngle -> float
+Vixen.Net.Physics.NetworkRigidBodyCorrection.HardSnapDistance -> float
+Vixen.Net.Physics.NetworkRigidBodyCorrection.NetworkRigidBodyCorrection() -> void
+Vixen.Net.Physics.NetworkRigidBodyCorrection.PositionStrength -> float
+Vixen.Net.Physics.NetworkRigidBodyCorrection.RotationStrength -> float
+Vixen.Net.Physics.NetworkRigidBodyCorrectionSystem -> sealed class
+Vixen.Net.Physics.NetworkRigidBodyCorrectionSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Net.Physics.NetworkRigidBodyCorrectionSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Net.Physics.NetworkRigidBodyCorrectionSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Net.Physics.NetworkRigidBodyCorrectionSystem.Correct(Vixen.Ecs.World world, float step) -> void
+Vixen.Net.Physics.NetworkRigidBodyCorrectionSystem.CorrectedCount.get -> long
+Vixen.Net.Physics.NetworkRigidBodyCorrectionSystem.IsAuthority(Vixen.Net.Replication.NetworkId id) -> bool
+Vixen.Net.Physics.NetworkRigidBodyCorrectionSystem.Local.get -> Vixen.Net.Sessions.PlayerId
+Vixen.Net.Physics.NetworkRigidBodyCorrectionSystem.Local.set -> Vixen.Net.Sessions.PlayerId
+Vixen.Net.Physics.NetworkRigidBodyCorrectionSystem.NetworkRigidBodyCorrectionSystem() -> void
+Vixen.Net.Physics.NetworkRigidBodyCorrectionSystem.Rules.get -> Vixen.Net.Rules.NetworkRulesRegistry?
+Vixen.Net.Physics.NetworkRigidBodyCorrectionSystem.Rules.set -> Vixen.Net.Rules.NetworkRulesRegistry?
+Vixen.Net.Physics.NetworkRigidBodyCorrectionSystem.SnappedCount.get -> long
+Vixen.Net.Physics.NetworkRigidBodyReplicator -> sealed class
+Vixen.Net.Physics.NetworkRigidBodyReplicator : Vixen.Net.Replication.IComponentReplicator
+Vixen.Net.Physics.NetworkRigidBodyReplicator.Apply(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitReader reader) -> bool
+Vixen.Net.Physics.NetworkRigidBodyReplicator.ChangedQuery.get -> Vixen.Ecs.QueryDescription
+Vixen.Net.Physics.NetworkRigidBodyReplicator.Channel.get -> Vixen.Net.Channel
+Vixen.Net.Physics.NetworkRigidBodyReplicator.ComponentType.get -> Vixen.Core.ComponentTypeId
+Vixen.Net.Physics.NetworkRigidBodyReplicator.Has(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> bool
+Vixen.Net.Physics.NetworkRigidBodyReplicator.Lanes.get -> System.ReadOnlySpan<Vixen.Net.Messaging.WireLane>
+Vixen.Net.Physics.NetworkRigidBodyReplicator.NetworkRigidBodyReplicator() -> void
+Vixen.Net.Physics.NetworkRigidBodyReplicator.Priority.get -> int
+Vixen.Net.Physics.NetworkRigidBodyReplicator.TypeId.get -> uint
+Vixen.Net.Physics.NetworkRigidBodyReplicator.TypeName.get -> string
+Vixen.Net.Physics.NetworkRigidBodyReplicator.Write(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitWriter writer) -> void
+Vixen.Net.Physics.RewindScope -> readonly struct
+Vixen.Net.Physics.RewindScope : System.IDisposable
+Vixen.Net.Physics.RewindScope : System.IEquatable<Vixen.Net.Physics.RewindScope>
+Vixen.Net.Physics.RewindScope.At.get -> Vixen.Net.Tick
+Vixen.Net.Physics.RewindScope.BodyCount.get -> int
+Vixen.Net.Physics.RewindScope.Dispose() -> void
+Vixen.Net.Physics.RewindScope.Equals(Vixen.Net.Physics.RewindScope other) -> bool
+Vixen.Net.Physics.RewindScope.RewindScope() -> void
+const Vixen.Net.Physics.NetworkRigidBodyCaptureSystem.RestSpeed = 0.01 -> float
+const Vixen.Net.Physics.NetworkRigidBodyReplicator.VelocityBits = 12 -> int
+override Vixen.Net.Physics.NetworkRigidBodyCaptureSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Net.Physics.NetworkRigidBodyCorrectionSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Net.Physics.RewindScope.Equals(object? obj) -> bool
+override Vixen.Net.Physics.RewindScope.GetHashCode() -> int
+static Vixen.Net.Physics.NetworkRigidBodyCorrection.Default.get -> Vixen.Net.Physics.NetworkRigidBodyCorrection
+static Vixen.Net.Physics.NetworkRigidBodyReplicator.VelocityRange.get -> Vixen.Net.Messaging.QuantizeRange
+static Vixen.Net.Physics.RewindScope.operator !=(Vixen.Net.Physics.RewindScope left, Vixen.Net.Physics.RewindScope right) -> bool
+static Vixen.Net.Physics.RewindScope.operator ==(Vixen.Net.Physics.RewindScope left, Vixen.Net.Physics.RewindScope right) -> bool

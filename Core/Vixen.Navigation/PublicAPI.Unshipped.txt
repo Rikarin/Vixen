@@ -1,0 +1,517 @@
+#nullable enable
+Vixen.Navigation.Agents.AvoidanceNeighbour -> readonly struct
+Vixen.Navigation.Agents.AvoidanceNeighbour : System.IEquatable<Vixen.Navigation.Agents.AvoidanceNeighbour>
+Vixen.Navigation.Agents.AvoidanceNeighbour.AvoidanceNeighbour() -> void
+Vixen.Navigation.Agents.AvoidanceNeighbour.AvoidanceNeighbour(Vixen.Core.Mathematics.Vector3 Position, Vixen.Core.Mathematics.Vector3 Velocity, float Radius) -> void
+Vixen.Navigation.Agents.AvoidanceNeighbour.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.Agents.AvoidanceNeighbour.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.Agents.AvoidanceNeighbour.Radius.get -> float
+Vixen.Navigation.Agents.AvoidanceNeighbour.Radius.init -> float
+Vixen.Navigation.Agents.AvoidanceNeighbour.Velocity.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.Agents.AvoidanceNeighbour.Velocity.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.Agents.Crowd -> sealed class
+Vixen.Navigation.Agents.Crowd.AddAgent(Vixen.Core.Mathematics.Vector3 position, Vixen.Navigation.Agents.CrowdAgentParams parameters) -> Vixen.Navigation.Agents.CrowdAgentHandle
+Vixen.Navigation.Agents.Crowd.AgentCount.get -> int
+Vixen.Navigation.Agents.Crowd.AgentEnumerator -> struct
+Vixen.Navigation.Agents.Crowd.AgentEnumerator.AgentEnumerator() -> void
+Vixen.Navigation.Agents.Crowd.AgentEnumerator.GetEnumerator() -> Vixen.Navigation.Agents.Crowd.AgentEnumerator
+Vixen.Navigation.Agents.Crowd.AgentEnumerator.MoveNext() -> bool
+Vixen.Navigation.Agents.Crowd.Agents.get -> Vixen.Navigation.Agents.Crowd.AgentEnumerator
+Vixen.Navigation.Agents.Crowd.ClearTarget(Vixen.Navigation.Agents.CrowdAgentHandle handle) -> bool
+Vixen.Navigation.Agents.Crowd.Crowd(Vixen.Navigation.NavMesh mesh, int maxPathLength = 256, Vixen.Navigation.Agents.LocalAvoidanceSettings avoidanceSettings = default(Vixen.Navigation.Agents.LocalAvoidanceSettings)) -> void
+Vixen.Navigation.Agents.Crowd.Filter.get -> Vixen.Navigation.NavQueryFilter
+Vixen.Navigation.Agents.Crowd.Filter.set -> Vixen.Navigation.NavQueryFilter
+Vixen.Navigation.Agents.Crowd.MaxPathLength.get -> int
+Vixen.Navigation.Agents.Crowd.Mesh.get -> Vixen.Navigation.NavMesh
+Vixen.Navigation.Agents.Crowd.PathIterationsPerUpdate.get -> int
+Vixen.Navigation.Agents.Crowd.PathIterationsPerUpdate.set -> int
+Vixen.Navigation.Agents.Crowd.Paths.get -> Vixen.Navigation.Agents.NavPathQueue
+Vixen.Navigation.Agents.Crowd.Query.get -> Vixen.Navigation.NavMeshQuery
+Vixen.Navigation.Agents.Crowd.RemoveAgent(Vixen.Navigation.Agents.CrowdAgentHandle handle) -> bool
+Vixen.Navigation.Agents.Crowd.SearchExtents.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.Agents.Crowd.SearchExtents.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.Agents.Crowd.SetParams(Vixen.Navigation.Agents.CrowdAgentHandle handle, Vixen.Navigation.Agents.CrowdAgentParams parameters) -> bool
+Vixen.Navigation.Agents.Crowd.SetTarget(Vixen.Navigation.Agents.CrowdAgentHandle handle, Vixen.Core.Mathematics.Vector3 target) -> bool
+Vixen.Navigation.Agents.Crowd.SetTarget(Vixen.Navigation.Agents.CrowdAgentHandle handle, Vixen.Navigation.NavPolyRef poly, Vixen.Core.Mathematics.Vector3 point) -> bool
+Vixen.Navigation.Agents.Crowd.Teleport(Vixen.Navigation.Agents.CrowdAgentHandle handle, Vixen.Core.Mathematics.Vector3 position) -> bool
+Vixen.Navigation.Agents.Crowd.TryGetHandle(int index, out Vixen.Navigation.Agents.CrowdAgentHandle handle) -> bool
+Vixen.Navigation.Agents.Crowd.TryGetParams(Vixen.Navigation.Agents.CrowdAgentHandle handle, out Vixen.Navigation.Agents.CrowdAgentParams parameters) -> bool
+Vixen.Navigation.Agents.Crowd.TryGetState(Vixen.Navigation.Agents.CrowdAgentHandle handle, out Vixen.Navigation.Agents.CrowdAgentState state) -> bool
+Vixen.Navigation.Agents.Crowd.Update(float deltaTime) -> void
+Vixen.Navigation.Agents.CrowdAgentHandle -> readonly struct
+Vixen.Navigation.Agents.CrowdAgentHandle : System.IEquatable<Vixen.Navigation.Agents.CrowdAgentHandle>
+Vixen.Navigation.Agents.CrowdAgentHandle.CrowdAgentHandle() -> void
+Vixen.Navigation.Agents.CrowdAgentHandle.CrowdAgentHandle(int Index, uint Generation) -> void
+Vixen.Navigation.Agents.CrowdAgentHandle.Generation.get -> uint
+Vixen.Navigation.Agents.CrowdAgentHandle.Generation.init -> uint
+Vixen.Navigation.Agents.CrowdAgentHandle.Index.get -> int
+Vixen.Navigation.Agents.CrowdAgentHandle.Index.init -> int
+Vixen.Navigation.Agents.CrowdAgentHandle.IsNull.get -> bool
+Vixen.Navigation.Agents.CrowdAgentParams -> readonly struct
+Vixen.Navigation.Agents.CrowdAgentParams : System.IEquatable<Vixen.Navigation.Agents.CrowdAgentParams>
+Vixen.Navigation.Agents.CrowdAgentParams.ArrivalRadius.get -> float
+Vixen.Navigation.Agents.CrowdAgentParams.ArrivalRadius.init -> float
+Vixen.Navigation.Agents.CrowdAgentParams.AvoidanceEnabled.get -> bool
+Vixen.Navigation.Agents.CrowdAgentParams.AvoidanceEnabled.init -> bool
+Vixen.Navigation.Agents.CrowdAgentParams.CrowdAgentParams() -> void
+Vixen.Navigation.Agents.CrowdAgentParams.Height.get -> float
+Vixen.Navigation.Agents.CrowdAgentParams.Height.init -> float
+Vixen.Navigation.Agents.CrowdAgentParams.MaxAcceleration.get -> float
+Vixen.Navigation.Agents.CrowdAgentParams.MaxAcceleration.init -> float
+Vixen.Navigation.Agents.CrowdAgentParams.MaxSpeed.get -> float
+Vixen.Navigation.Agents.CrowdAgentParams.MaxSpeed.init -> float
+Vixen.Navigation.Agents.CrowdAgentParams.Radius.get -> float
+Vixen.Navigation.Agents.CrowdAgentParams.Radius.init -> float
+Vixen.Navigation.Agents.CrowdAgentParams.SeparationWeight.get -> float
+Vixen.Navigation.Agents.CrowdAgentParams.SeparationWeight.init -> float
+Vixen.Navigation.Agents.CrowdAgentParams.SlowdownRadius.get -> float
+Vixen.Navigation.Agents.CrowdAgentParams.SlowdownRadius.init -> float
+Vixen.Navigation.Agents.CrowdAgentState -> readonly struct
+Vixen.Navigation.Agents.CrowdAgentState : System.IEquatable<Vixen.Navigation.Agents.CrowdAgentState>
+Vixen.Navigation.Agents.CrowdAgentState.CrowdAgentState() -> void
+Vixen.Navigation.Agents.CrowdAgentState.CrowdAgentState(Vixen.Core.Mathematics.Vector3 Position, Vixen.Core.Mathematics.Vector3 Velocity, Vixen.Core.Mathematics.Vector3 DesiredVelocity, Vixen.Navigation.NavPolyRef Poly, Vixen.Core.Mathematics.Vector3 Target, Vixen.Navigation.Agents.CrowdTargetState State, Vixen.Navigation.Agents.CrowdOffMeshTraversal? OffMesh = null) -> void
+Vixen.Navigation.Agents.CrowdAgentState.DesiredVelocity.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.Agents.CrowdAgentState.DesiredVelocity.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.Agents.CrowdAgentState.OffMesh.get -> Vixen.Navigation.Agents.CrowdOffMeshTraversal?
+Vixen.Navigation.Agents.CrowdAgentState.OffMesh.init -> Vixen.Navigation.Agents.CrowdOffMeshTraversal?
+Vixen.Navigation.Agents.CrowdAgentState.Poly.get -> Vixen.Navigation.NavPolyRef
+Vixen.Navigation.Agents.CrowdAgentState.Poly.init -> Vixen.Navigation.NavPolyRef
+Vixen.Navigation.Agents.CrowdAgentState.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.Agents.CrowdAgentState.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.Agents.CrowdAgentState.State.get -> Vixen.Navigation.Agents.CrowdTargetState
+Vixen.Navigation.Agents.CrowdAgentState.State.init -> Vixen.Navigation.Agents.CrowdTargetState
+Vixen.Navigation.Agents.CrowdAgentState.Target.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.Agents.CrowdAgentState.Target.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.Agents.CrowdAgentState.Velocity.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.Agents.CrowdAgentState.Velocity.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.Agents.CrowdOffMeshTraversal -> readonly struct
+Vixen.Navigation.Agents.CrowdOffMeshTraversal : System.IEquatable<Vixen.Navigation.Agents.CrowdOffMeshTraversal>
+Vixen.Navigation.Agents.CrowdOffMeshTraversal.CrowdOffMeshTraversal() -> void
+Vixen.Navigation.Agents.CrowdOffMeshTraversal.CrowdOffMeshTraversal(uint UserId, Vixen.Core.Mathematics.Vector3 Start, Vixen.Core.Mathematics.Vector3 End, float Progress) -> void
+Vixen.Navigation.Agents.CrowdOffMeshTraversal.End.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.Agents.CrowdOffMeshTraversal.End.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.Agents.CrowdOffMeshTraversal.Progress.get -> float
+Vixen.Navigation.Agents.CrowdOffMeshTraversal.Progress.init -> float
+Vixen.Navigation.Agents.CrowdOffMeshTraversal.Start.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.Agents.CrowdOffMeshTraversal.Start.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.Agents.CrowdOffMeshTraversal.UserId.get -> uint
+Vixen.Navigation.Agents.CrowdOffMeshTraversal.UserId.init -> uint
+Vixen.Navigation.Agents.CrowdTargetState -> enum : int
+Vixen.Navigation.Agents.CrowdTargetState.Arrived = 3 -> Vixen.Navigation.Agents.CrowdTargetState
+Vixen.Navigation.Agents.CrowdTargetState.CrowdTargetState() -> void
+Vixen.Navigation.Agents.CrowdTargetState.Failed = 4 -> Vixen.Navigation.Agents.CrowdTargetState
+Vixen.Navigation.Agents.CrowdTargetState.Following = 2 -> Vixen.Navigation.Agents.CrowdTargetState
+Vixen.Navigation.Agents.CrowdTargetState.None = 0 -> Vixen.Navigation.Agents.CrowdTargetState
+Vixen.Navigation.Agents.CrowdTargetState.Requested = 1 -> Vixen.Navigation.Agents.CrowdTargetState
+Vixen.Navigation.Agents.LocalAvoidance -> sealed class
+Vixen.Navigation.Agents.LocalAvoidance.LocalAvoidance(Vixen.Navigation.Agents.LocalAvoidanceSettings settings = default(Vixen.Navigation.Agents.LocalAvoidanceSettings)) -> void
+Vixen.Navigation.Agents.LocalAvoidance.Sample(Vixen.Core.Mathematics.Vector3 position, float radius, Vixen.Core.Mathematics.Vector3 velocity, Vixen.Core.Mathematics.Vector3 desired, float maxSpeed, System.ReadOnlySpan<Vixen.Navigation.Agents.AvoidanceNeighbour> neighbours) -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.Agents.LocalAvoidance.Settings.get -> Vixen.Navigation.Agents.LocalAvoidanceSettings
+Vixen.Navigation.Agents.LocalAvoidanceSettings -> readonly struct
+Vixen.Navigation.Agents.LocalAvoidanceSettings : System.IEquatable<Vixen.Navigation.Agents.LocalAvoidanceSettings>
+Vixen.Navigation.Agents.LocalAvoidanceSettings.CurrentWeight.get -> float
+Vixen.Navigation.Agents.LocalAvoidanceSettings.CurrentWeight.init -> float
+Vixen.Navigation.Agents.LocalAvoidanceSettings.DesiredWeight.get -> float
+Vixen.Navigation.Agents.LocalAvoidanceSettings.DesiredWeight.init -> float
+Vixen.Navigation.Agents.LocalAvoidanceSettings.LocalAvoidanceSettings() -> void
+Vixen.Navigation.Agents.LocalAvoidanceSettings.Rings.get -> int
+Vixen.Navigation.Agents.LocalAvoidanceSettings.Rings.init -> int
+Vixen.Navigation.Agents.LocalAvoidanceSettings.Samples.get -> int
+Vixen.Navigation.Agents.LocalAvoidanceSettings.Samples.init -> int
+Vixen.Navigation.Agents.LocalAvoidanceSettings.SideWeight.get -> float
+Vixen.Navigation.Agents.LocalAvoidanceSettings.SideWeight.init -> float
+Vixen.Navigation.Agents.LocalAvoidanceSettings.TimeHorizon.get -> float
+Vixen.Navigation.Agents.LocalAvoidanceSettings.TimeHorizon.init -> float
+Vixen.Navigation.Agents.LocalAvoidanceSettings.TimeWeight.get -> float
+Vixen.Navigation.Agents.LocalAvoidanceSettings.TimeWeight.init -> float
+Vixen.Navigation.Agents.NavPathQueue -> sealed class
+Vixen.Navigation.Agents.NavPathQueue.Cancel(Vixen.Navigation.Agents.NavPathRequest request) -> bool
+Vixen.Navigation.Agents.NavPathQueue.GetState(Vixen.Navigation.Agents.NavPathRequest request) -> Vixen.Navigation.Agents.NavPathRequestState
+Vixen.Navigation.Agents.NavPathQueue.LastIterations.get -> int
+Vixen.Navigation.Agents.NavPathQueue.Mesh.get -> Vixen.Navigation.NavMesh
+Vixen.Navigation.Agents.NavPathQueue.NavPathQueue(Vixen.Navigation.NavMesh mesh, int capacity = 64, int maximumPathLength = 256, int parallelSearches = 4) -> void
+Vixen.Navigation.Agents.NavPathQueue.PendingCount.get -> int
+Vixen.Navigation.Agents.NavPathQueue.Scheduler.get -> Vixen.Core.Threading.JobScheduler?
+Vixen.Navigation.Agents.NavPathQueue.Scheduler.set -> Vixen.Core.Threading.JobScheduler?
+Vixen.Navigation.Agents.NavPathQueue.Submit(Vixen.Navigation.NavPolyRef start, Vixen.Navigation.NavPolyRef end, Vixen.Core.Mathematics.Vector3 startPosition, Vixen.Core.Mathematics.Vector3 endPosition, Vixen.Navigation.NavQueryFilter filter) -> Vixen.Navigation.Agents.NavPathRequest
+Vixen.Navigation.Agents.NavPathQueue.TryTakeResult(Vixen.Navigation.Agents.NavPathRequest request, System.Span<Vixen.Navigation.NavPolyRef> path, out int count, out Vixen.Navigation.NavPathStatus status) -> bool
+Vixen.Navigation.Agents.NavPathQueue.Update(int iterations = 128) -> void
+Vixen.Navigation.Agents.NavPathRequest -> readonly struct
+Vixen.Navigation.Agents.NavPathRequest : System.IEquatable<Vixen.Navigation.Agents.NavPathRequest>
+Vixen.Navigation.Agents.NavPathRequest.Generation.get -> uint
+Vixen.Navigation.Agents.NavPathRequest.Generation.init -> uint
+Vixen.Navigation.Agents.NavPathRequest.Index.get -> int
+Vixen.Navigation.Agents.NavPathRequest.Index.init -> int
+Vixen.Navigation.Agents.NavPathRequest.IsNull.get -> bool
+Vixen.Navigation.Agents.NavPathRequest.NavPathRequest() -> void
+Vixen.Navigation.Agents.NavPathRequest.NavPathRequest(int Index, uint Generation) -> void
+Vixen.Navigation.Agents.NavPathRequestState -> enum : int
+Vixen.Navigation.Agents.NavPathRequestState.NavPathRequestState() -> void
+Vixen.Navigation.Agents.NavPathRequestState.Queued = 1 -> Vixen.Navigation.Agents.NavPathRequestState
+Vixen.Navigation.Agents.NavPathRequestState.Ready = 3 -> Vixen.Navigation.Agents.NavPathRequestState
+Vixen.Navigation.Agents.NavPathRequestState.Unknown = 0 -> Vixen.Navigation.Agents.NavPathRequestState
+Vixen.Navigation.Agents.NavPathRequestState.Working = 2 -> Vixen.Navigation.Agents.NavPathRequestState
+Vixen.Navigation.Agents.PathCorridor -> sealed class
+Vixen.Navigation.Agents.PathCorridor.Count.get -> int
+Vixen.Navigation.Agents.PathCorridor.EnsureCapacity(int capacity) -> void
+Vixen.Navigation.Agents.PathCorridor.FindCorners(Vixen.Navigation.NavMeshQuery query, System.Span<Vixen.Navigation.NavPathPoint> corners) -> int
+Vixen.Navigation.Agents.PathCorridor.FirstPoly.get -> Vixen.Navigation.NavPolyRef
+Vixen.Navigation.Agents.PathCorridor.LastPoly.get -> Vixen.Navigation.NavPolyRef
+Vixen.Navigation.Agents.PathCorridor.MovePosition(Vixen.Core.Mathematics.Vector3 wanted, Vixen.Navigation.NavMeshQuery query, Vixen.Navigation.NavQueryFilter filter) -> bool
+Vixen.Navigation.Agents.PathCorridor.Optimize(Vixen.Navigation.NavMeshQuery query, Vixen.Navigation.NavQueryFilter filter, float distance = 6) -> void
+Vixen.Navigation.Agents.PathCorridor.Path.get -> System.ReadOnlySpan<Vixen.Navigation.NavPolyRef>
+Vixen.Navigation.Agents.PathCorridor.PathCorridor(int capacity = 256) -> void
+Vixen.Navigation.Agents.PathCorridor.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.Agents.PathCorridor.Reset(Vixen.Navigation.NavPolyRef poly, Vixen.Core.Mathematics.Vector3 position) -> void
+Vixen.Navigation.Agents.PathCorridor.SetPath(Vixen.Core.Mathematics.Vector3 target, System.ReadOnlySpan<Vixen.Navigation.NavPolyRef> corridor) -> void
+Vixen.Navigation.Agents.PathCorridor.Target.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.Agents.PathCorridor.TryUseOffMeshConnection(Vixen.Navigation.NavMesh mesh, float reach, out Vixen.Navigation.NavPolyRef connection, out Vixen.Core.Mathematics.Vector3 entry, out Vixen.Core.Mathematics.Vector3 exit) -> bool
+Vixen.Navigation.Agents.ProximityGrid -> sealed class
+Vixen.Navigation.Agents.ProximityGrid.Add(int item, Vixen.Core.Mathematics.Vector3 position) -> void
+Vixen.Navigation.Agents.ProximityGrid.CellSize.get -> float
+Vixen.Navigation.Agents.ProximityGrid.Clear() -> void
+Vixen.Navigation.Agents.ProximityGrid.ProximityGrid(float cellSize) -> void
+Vixen.Navigation.Agents.ProximityGrid.Query(Vixen.Core.Mathematics.Vector3 position, float range, System.Span<int> results) -> int
+Vixen.Navigation.Baking.NavAreaVolume -> sealed class
+Vixen.Navigation.Baking.NavAreaVolume.Area.get -> byte
+Vixen.Navigation.Baking.NavAreaVolume.Bounds.get -> Vixen.Core.Mathematics.BoundingBox
+Vixen.Navigation.Baking.NavAreaVolume.MaximumY.get -> float
+Vixen.Navigation.Baking.NavAreaVolume.MinimumY.get -> float
+Vixen.Navigation.Baking.NavAreaVolume.Shape.get -> System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3>
+Vixen.Navigation.Baking.NavMeshBakeResult -> readonly struct
+Vixen.Navigation.Baking.NavMeshBakeResult : System.IEquatable<Vixen.Navigation.Baking.NavMeshBakeResult>
+Vixen.Navigation.Baking.NavMeshBakeResult.NavMeshBakeResult() -> void
+Vixen.Navigation.Baking.NavMeshBakeResult.NavMeshBakeResult(Vixen.Navigation.NavMeshParams Params, System.Collections.Generic.IReadOnlyList<Vixen.Navigation.NavMeshTileData> Tiles) -> void
+Vixen.Navigation.Baking.NavMeshBakeResult.Params.get -> Vixen.Navigation.NavMeshParams
+Vixen.Navigation.Baking.NavMeshBakeResult.Params.init -> Vixen.Navigation.NavMeshParams
+Vixen.Navigation.Baking.NavMeshBakeResult.Tiles.get -> System.Collections.Generic.IReadOnlyList<Vixen.Navigation.NavMeshTileData>
+Vixen.Navigation.Baking.NavMeshBakeResult.Tiles.init -> System.Collections.Generic.IReadOnlyList<Vixen.Navigation.NavMeshTileData>
+Vixen.Navigation.Baking.NavMeshBaker -> static class
+Vixen.Navigation.Baking.NavMeshBuildSettings -> readonly struct
+Vixen.Navigation.Baking.NavMeshBuildSettings : System.IEquatable<Vixen.Navigation.Baking.NavMeshBuildSettings>
+Vixen.Navigation.Baking.NavMeshBuildSettings.AgentHeight.get -> float
+Vixen.Navigation.Baking.NavMeshBuildSettings.AgentHeight.init -> float
+Vixen.Navigation.Baking.NavMeshBuildSettings.AgentMaxClimb.get -> float
+Vixen.Navigation.Baking.NavMeshBuildSettings.AgentMaxClimb.init -> float
+Vixen.Navigation.Baking.NavMeshBuildSettings.AgentMaxSlope.get -> float
+Vixen.Navigation.Baking.NavMeshBuildSettings.AgentMaxSlope.init -> float
+Vixen.Navigation.Baking.NavMeshBuildSettings.AgentRadius.get -> float
+Vixen.Navigation.Baking.NavMeshBuildSettings.AgentRadius.init -> float
+Vixen.Navigation.Baking.NavMeshBuildSettings.CellHeight.get -> float
+Vixen.Navigation.Baking.NavMeshBuildSettings.CellHeight.init -> float
+Vixen.Navigation.Baking.NavMeshBuildSettings.CellSize.get -> float
+Vixen.Navigation.Baking.NavMeshBuildSettings.CellSize.init -> float
+Vixen.Navigation.Baking.NavMeshBuildSettings.DetailSampleDistance.get -> float
+Vixen.Navigation.Baking.NavMeshBuildSettings.DetailSampleDistance.init -> float
+Vixen.Navigation.Baking.NavMeshBuildSettings.DetailSampleMaxError.get -> float
+Vixen.Navigation.Baking.NavMeshBuildSettings.DetailSampleMaxError.init -> float
+Vixen.Navigation.Baking.NavMeshBuildSettings.MaxEdgeLength.get -> float
+Vixen.Navigation.Baking.NavMeshBuildSettings.MaxEdgeLength.init -> float
+Vixen.Navigation.Baking.NavMeshBuildSettings.MaxSimplificationError.get -> float
+Vixen.Navigation.Baking.NavMeshBuildSettings.MaxSimplificationError.init -> float
+Vixen.Navigation.Baking.NavMeshBuildSettings.MaxVerticesPerPoly.get -> int
+Vixen.Navigation.Baking.NavMeshBuildSettings.MaxVerticesPerPoly.init -> int
+Vixen.Navigation.Baking.NavMeshBuildSettings.MergeRegionArea.get -> int
+Vixen.Navigation.Baking.NavMeshBuildSettings.MergeRegionArea.init -> int
+Vixen.Navigation.Baking.NavMeshBuildSettings.MinRegionArea.get -> int
+Vixen.Navigation.Baking.NavMeshBuildSettings.MinRegionArea.init -> int
+Vixen.Navigation.Baking.NavMeshBuildSettings.NavMeshBuildSettings() -> void
+Vixen.Navigation.Baking.NavMeshBuildSettings.Partitioning.get -> Vixen.Navigation.Baking.NavMeshPartitioning
+Vixen.Navigation.Baking.NavMeshBuildSettings.Partitioning.init -> Vixen.Navigation.Baking.NavMeshPartitioning
+Vixen.Navigation.Baking.NavMeshBuildSettings.Validate() -> void
+Vixen.Navigation.Baking.NavMeshBuildSettings.WalkableArea.get -> byte
+Vixen.Navigation.Baking.NavMeshBuildSettings.WalkableArea.init -> byte
+Vixen.Navigation.Baking.NavMeshBuildSettings.WalkableClimbInCells.get -> int
+Vixen.Navigation.Baking.NavMeshBuildSettings.WalkableFlags.get -> Vixen.Navigation.NavPolyFlags
+Vixen.Navigation.Baking.NavMeshBuildSettings.WalkableFlags.init -> Vixen.Navigation.NavPolyFlags
+Vixen.Navigation.Baking.NavMeshBuildSettings.WalkableHeightInCells.get -> int
+Vixen.Navigation.Baking.NavMeshBuildSettings.WalkableRadiusInCells.get -> int
+Vixen.Navigation.Baking.NavMeshPartitioning -> enum : int
+Vixen.Navigation.Baking.NavMeshPartitioning.Monotone = 1 -> Vixen.Navigation.Baking.NavMeshPartitioning
+Vixen.Navigation.Baking.NavMeshPartitioning.NavMeshPartitioning() -> void
+Vixen.Navigation.Baking.NavMeshPartitioning.Watershed = 0 -> Vixen.Navigation.Baking.NavMeshPartitioning
+Vixen.Navigation.Baking.NavObstacleHandle -> readonly struct
+Vixen.Navigation.Baking.NavObstacleHandle : System.IEquatable<Vixen.Navigation.Baking.NavObstacleHandle>
+Vixen.Navigation.Baking.NavObstacleHandle.Generation.get -> int
+Vixen.Navigation.Baking.NavObstacleHandle.Generation.init -> int
+Vixen.Navigation.Baking.NavObstacleHandle.Index.get -> int
+Vixen.Navigation.Baking.NavObstacleHandle.Index.init -> int
+Vixen.Navigation.Baking.NavObstacleHandle.IsNull.get -> bool
+Vixen.Navigation.Baking.NavObstacleHandle.NavObstacleHandle() -> void
+Vixen.Navigation.Baking.NavObstacleHandle.NavObstacleHandle(int Index, int Generation) -> void
+Vixen.Navigation.Baking.NavTileCache -> sealed class
+Vixen.Navigation.Baking.NavTileCache.AddObstacle(Vixen.Navigation.Baking.NavAreaVolume shape) -> Vixen.Navigation.Baking.NavObstacleHandle
+Vixen.Navigation.Baking.NavTileCache.Columns.get -> int
+Vixen.Navigation.Baking.NavTileCache.CreateNavMesh() -> Vixen.Navigation.NavMesh
+Vixen.Navigation.Baking.NavTileCache.ObstacleCount.get -> int
+Vixen.Navigation.Baking.NavTileCache.Params.get -> Vixen.Navigation.NavMeshParams
+Vixen.Navigation.Baking.NavTileCache.PendingTiles.get -> int
+Vixen.Navigation.Baking.NavTileCache.RemoveObstacle(Vixen.Navigation.Baking.NavObstacleHandle handle) -> bool
+Vixen.Navigation.Baking.NavTileCache.ResidentBytes.get -> long
+Vixen.Navigation.Baking.NavTileCache.Rows.get -> int
+Vixen.Navigation.Baking.NavTileCache.Update(Vixen.Navigation.NavMesh mesh, int maxTiles = 1) -> int
+Vixen.Navigation.Diagnostics.NavMeshDebugDraw -> static class
+Vixen.Navigation.Diagnostics.NavMeshDrawStyle -> readonly struct
+Vixen.Navigation.Diagnostics.NavMeshDrawStyle : System.IEquatable<Vixen.Navigation.Diagnostics.NavMeshDrawStyle>
+Vixen.Navigation.Diagnostics.NavMeshDrawStyle.Border.get -> Vixen.Core.Mathematics.Color4
+Vixen.Navigation.Diagnostics.NavMeshDrawStyle.Border.init -> Vixen.Core.Mathematics.Color4
+Vixen.Navigation.Diagnostics.NavMeshDrawStyle.Disabled.get -> Vixen.Core.Mathematics.Color4
+Vixen.Navigation.Diagnostics.NavMeshDrawStyle.Disabled.init -> Vixen.Core.Mathematics.Color4
+Vixen.Navigation.Diagnostics.NavMeshDrawStyle.Interior.get -> Vixen.Core.Mathematics.Color4
+Vixen.Navigation.Diagnostics.NavMeshDrawStyle.Interior.init -> Vixen.Core.Mathematics.Color4
+Vixen.Navigation.Diagnostics.NavMeshDrawStyle.Lift.get -> float
+Vixen.Navigation.Diagnostics.NavMeshDrawStyle.Lift.init -> float
+Vixen.Navigation.Diagnostics.NavMeshDrawStyle.NavMeshDrawStyle() -> void
+Vixen.Navigation.Diagnostics.NavMeshDrawStyle.NavMeshDrawStyle(Vixen.Core.Mathematics.Color4 Interior, Vixen.Core.Mathematics.Color4 Border, Vixen.Core.Mathematics.Color4 Portal, Vixen.Core.Mathematics.Color4 Disabled, float Lift = 0.05) -> void
+Vixen.Navigation.Diagnostics.NavMeshDrawStyle.Portal.get -> Vixen.Core.Mathematics.Color4
+Vixen.Navigation.Diagnostics.NavMeshDrawStyle.Portal.init -> Vixen.Core.Mathematics.Color4
+Vixen.Navigation.Ecs.NavigationAgent -> struct
+Vixen.Navigation.Ecs.NavigationAgent.AppliedDestination -> uint
+Vixen.Navigation.Ecs.NavigationAgent.AvoidanceEnabled -> bool
+Vixen.Navigation.Ecs.NavigationAgent.Handle -> Vixen.Navigation.Agents.CrowdAgentHandle
+Vixen.Navigation.Ecs.NavigationAgent.Height -> float
+Vixen.Navigation.Ecs.NavigationAgent.MaxAcceleration -> float
+Vixen.Navigation.Ecs.NavigationAgent.MaxSpeed -> float
+Vixen.Navigation.Ecs.NavigationAgent.NavigationAgent() -> void
+Vixen.Navigation.Ecs.NavigationAgent.Radius -> float
+Vixen.Navigation.Ecs.NavigationDestination -> struct
+Vixen.Navigation.Ecs.NavigationDestination.NavigationDestination() -> void
+Vixen.Navigation.Ecs.NavigationDestination.Value -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.Ecs.NavigationDestination.Version -> uint
+Vixen.Navigation.Ecs.NavigationState -> struct
+Vixen.Navigation.Ecs.NavigationState.NavigationState() -> void
+Vixen.Navigation.Ecs.NavigationState.Position -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.Ecs.NavigationState.Target -> Vixen.Navigation.Agents.CrowdTargetState
+Vixen.Navigation.Ecs.NavigationState.Velocity -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.Ecs.NavigationSystem -> sealed class
+Vixen.Navigation.Ecs.NavigationSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Navigation.Ecs.NavigationSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Navigation.Ecs.NavigationSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Navigation.Ecs.NavigationSystem.Crowd.get -> Vixen.Navigation.Agents.Crowd
+Vixen.Navigation.Ecs.NavigationSystem.NavigationSystem(Vixen.Navigation.Agents.Crowd crowd) -> void
+Vixen.Navigation.Ecs.NavigationSystem.Step(Vixen.Ecs.World world, float deltaTime) -> void
+Vixen.Navigation.NavArea -> static class
+Vixen.Navigation.NavMesh -> sealed class
+Vixen.Navigation.NavMesh.AddTile(Vixen.Navigation.NavMeshTileData data) -> Vixen.Navigation.NavMeshTile
+Vixen.Navigation.NavMesh.GetEdgeMidpoint(Vixen.Navigation.NavPolyRef from, Vixen.Navigation.NavPolyRef to, out Vixen.Core.Mathematics.Vector3 point) -> bool
+Vixen.Navigation.NavMesh.GetPolyVertices(Vixen.Navigation.NavPolyRef reference, System.Span<Vixen.Core.Mathematics.Vector3> destination) -> int
+Vixen.Navigation.NavMesh.GetPortalPoints(Vixen.Navigation.NavPolyRef from, Vixen.Navigation.NavPolyRef to, out Vixen.Core.Mathematics.Vector3 left, out Vixen.Core.Mathematics.Vector3 right) -> bool
+Vixen.Navigation.NavMesh.IsOffMeshConnection(Vixen.Navigation.NavPolyRef reference) -> bool
+Vixen.Navigation.NavMesh.IsValid(Vixen.Navigation.NavPolyRef reference) -> bool
+Vixen.Navigation.NavMesh.NavMesh(Vixen.Navigation.NavMeshParams parameters) -> void
+Vixen.Navigation.NavMesh.Neighbour -> readonly struct
+Vixen.Navigation.NavMesh.Neighbour : System.IEquatable<Vixen.Navigation.NavMesh.Neighbour>
+Vixen.Navigation.NavMesh.Neighbour.Edge.get -> int
+Vixen.Navigation.NavMesh.Neighbour.Edge.init -> int
+Vixen.Navigation.NavMesh.Neighbour.IsOffMesh.get -> bool
+Vixen.Navigation.NavMesh.Neighbour.IsOffMesh.init -> bool
+Vixen.Navigation.NavMesh.Neighbour.Max.get -> float
+Vixen.Navigation.NavMesh.Neighbour.Max.init -> float
+Vixen.Navigation.NavMesh.Neighbour.Min.get -> float
+Vixen.Navigation.NavMesh.Neighbour.Min.init -> float
+Vixen.Navigation.NavMesh.Neighbour.Neighbour() -> void
+Vixen.Navigation.NavMesh.Neighbour.Neighbour(Vixen.Navigation.NavPolyRef Reference, int Edge, float Min, float Max, bool IsOffMesh = false) -> void
+Vixen.Navigation.NavMesh.Neighbour.Reference.get -> Vixen.Navigation.NavPolyRef
+Vixen.Navigation.NavMesh.Neighbour.Reference.init -> Vixen.Navigation.NavPolyRef
+Vixen.Navigation.NavMesh.NeighbourEnumerator -> struct
+Vixen.Navigation.NavMesh.NeighbourEnumerator.GetEnumerator() -> Vixen.Navigation.NavMesh.NeighbourEnumerator
+Vixen.Navigation.NavMesh.NeighbourEnumerator.MoveNext() -> bool
+Vixen.Navigation.NavMesh.NeighbourEnumerator.NeighbourEnumerator() -> void
+Vixen.Navigation.NavMesh.Neighbours(Vixen.Navigation.NavPolyRef reference) -> Vixen.Navigation.NavMesh.NeighbourEnumerator
+Vixen.Navigation.NavMesh.Params.get -> Vixen.Navigation.NavMeshParams
+Vixen.Navigation.NavMesh.RemoveTile(int x, int z) -> bool
+Vixen.Navigation.NavMesh.SetPolyFlags(Vixen.Navigation.NavPolyRef reference, Vixen.Navigation.NavPolyFlags flags) -> bool
+Vixen.Navigation.NavMesh.TileAt(int x, int z) -> Vixen.Navigation.NavMeshTile?
+Vixen.Navigation.NavMesh.TileCoordinates(Vixen.Core.Mathematics.Vector3 position) -> (int X, int Z)
+Vixen.Navigation.NavMesh.TileCount.get -> int
+Vixen.Navigation.NavMesh.Tiles.get -> System.Collections.Generic.IEnumerable<Vixen.Navigation.NavMeshTile>
+Vixen.Navigation.NavMesh.TryGetDetailHeight(Vixen.Navigation.NavPolyRef reference, Vixen.Core.Mathematics.Vector3 position, out float height) -> bool
+Vixen.Navigation.NavMesh.TryGetOffMeshConnection(Vixen.Navigation.NavPolyRef reference, out Vixen.Navigation.NavOffMeshConnectionData connection) -> bool
+Vixen.Navigation.NavMesh.TryGetPoly(Vixen.Navigation.NavPolyRef reference, out Vixen.Navigation.NavMeshTile tile, out int poly) -> bool
+Vixen.Navigation.NavMesh.TryGetPolyAttributes(Vixen.Navigation.NavPolyRef reference, out byte area, out Vixen.Navigation.NavPolyFlags flags) -> bool
+Vixen.Navigation.NavMeshAsset -> sealed record
+Vixen.Navigation.NavMeshAsset : System.IEquatable<Vixen.Navigation.NavMeshAsset>
+Vixen.Navigation.NavMeshAsset.NavMeshAsset() -> void
+Vixen.Navigation.NavMeshAsset.Params.get -> Vixen.Navigation.NavMeshParams
+Vixen.Navigation.NavMeshAsset.Params.set -> Vixen.Navigation.NavMeshParams
+Vixen.Navigation.NavMeshAsset.PolyCount.get -> int
+Vixen.Navigation.NavMeshAsset.Tiles.get -> Vixen.Navigation.NavMeshTileData[]
+Vixen.Navigation.NavMeshAsset.Tiles.set -> Vixen.Navigation.NavMeshTileData[]
+Vixen.Navigation.NavMeshAsset.ToNavMesh() -> Vixen.Navigation.NavMesh
+Vixen.Navigation.NavMeshDetailData -> struct
+Vixen.Navigation.NavMeshDetailData.FirstTriangle -> int
+Vixen.Navigation.NavMeshDetailData.FirstVertex -> int
+Vixen.Navigation.NavMeshDetailData.NavMeshDetailData() -> void
+Vixen.Navigation.NavMeshDetailData.TriangleCount -> int
+Vixen.Navigation.NavMeshDetailData.VertexCount -> int
+Vixen.Navigation.NavMeshParams -> readonly struct
+Vixen.Navigation.NavMeshParams : System.IEquatable<Vixen.Navigation.NavMeshParams>
+Vixen.Navigation.NavMeshParams.BorderTolerance.get -> float
+Vixen.Navigation.NavMeshParams.BorderTolerance.init -> float
+Vixen.Navigation.NavMeshParams.ClimbTolerance.get -> float
+Vixen.Navigation.NavMeshParams.ClimbTolerance.init -> float
+Vixen.Navigation.NavMeshParams.NavMeshParams() -> void
+Vixen.Navigation.NavMeshParams.NavMeshParams(Vixen.Core.Mathematics.Vector3 Origin, float TileWidth, float TileDepth, float BorderTolerance = 0.05, float ClimbTolerance = 0.9) -> void
+Vixen.Navigation.NavMeshParams.Origin.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.NavMeshParams.Origin.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.NavMeshParams.TileDepth.get -> float
+Vixen.Navigation.NavMeshParams.TileDepth.init -> float
+Vixen.Navigation.NavMeshParams.TileWidth.get -> float
+Vixen.Navigation.NavMeshParams.TileWidth.init -> float
+Vixen.Navigation.NavMeshPolyData -> struct
+Vixen.Navigation.NavMeshPolyData.Area -> byte
+Vixen.Navigation.NavMeshPolyData.FirstVertex -> int
+Vixen.Navigation.NavMeshPolyData.Flags -> Vixen.Navigation.NavPolyFlags
+Vixen.Navigation.NavMeshPolyData.NavMeshPolyData() -> void
+Vixen.Navigation.NavMeshPolyData.VertexCount -> byte
+Vixen.Navigation.NavMeshQuery -> sealed class
+Vixen.Navigation.NavMeshQuery.ClosestPointOnPoly(Vixen.Navigation.NavPolyRef reference, Vixen.Core.Mathematics.Vector3 position, out Vixen.Core.Mathematics.Vector3 closest, out bool isOverPoly) -> bool
+Vixen.Navigation.NavMeshQuery.FinalizeSlicedFindPath(System.Span<Vixen.Navigation.NavPolyRef> path, out int count) -> Vixen.Navigation.NavPathStatus
+Vixen.Navigation.NavMeshQuery.FindNearestPoly(Vixen.Core.Mathematics.Vector3 center, Vixen.Core.Mathematics.Vector3 halfExtents, Vixen.Navigation.NavQueryFilter filter, out Vixen.Navigation.NavPolyRef poly, out Vixen.Core.Mathematics.Vector3 point) -> bool
+Vixen.Navigation.NavMeshQuery.FindPath(Vixen.Navigation.NavPolyRef start, Vixen.Navigation.NavPolyRef end, Vixen.Core.Mathematics.Vector3 startPosition, Vixen.Core.Mathematics.Vector3 endPosition, Vixen.Navigation.NavQueryFilter filter, System.Span<Vixen.Navigation.NavPolyRef> path, out int count) -> Vixen.Navigation.NavPathStatus
+Vixen.Navigation.NavMeshQuery.FindStraightPath(Vixen.Core.Mathematics.Vector3 startPosition, Vixen.Core.Mathematics.Vector3 endPosition, System.ReadOnlySpan<Vixen.Navigation.NavPolyRef> path, System.Span<Vixen.Navigation.NavPathPoint> points) -> int
+Vixen.Navigation.NavMeshQuery.GetPolyHeight(Vixen.Navigation.NavPolyRef reference, Vixen.Core.Mathematics.Vector3 position, out float height) -> bool
+Vixen.Navigation.NavMeshQuery.InitSlicedFindPath(Vixen.Navigation.NavPolyRef start, Vixen.Navigation.NavPolyRef end, Vixen.Core.Mathematics.Vector3 startPosition, Vixen.Core.Mathematics.Vector3 endPosition, Vixen.Navigation.NavQueryFilter filter) -> Vixen.Navigation.NavPathStatus
+Vixen.Navigation.NavMeshQuery.LastSearchNodes.get -> int
+Vixen.Navigation.NavMeshQuery.LastStraightPathSteps.get -> int
+Vixen.Navigation.NavMeshQuery.Mesh.get -> Vixen.Navigation.NavMesh
+Vixen.Navigation.NavMeshQuery.MoveAlongSurface(Vixen.Navigation.NavPolyRef start, Vixen.Core.Mathematics.Vector3 startPosition, Vixen.Core.Mathematics.Vector3 endPosition, Vixen.Navigation.NavQueryFilter filter, out Vixen.Core.Mathematics.Vector3 position, out Vixen.Navigation.NavPolyRef poly) -> bool
+Vixen.Navigation.NavMeshQuery.NavMeshQuery(Vixen.Navigation.NavMesh mesh) -> void
+Vixen.Navigation.NavMeshQuery.Raycast(Vixen.Navigation.NavPolyRef start, Vixen.Core.Mathematics.Vector3 startPosition, Vixen.Core.Mathematics.Vector3 endPosition, Vixen.Navigation.NavQueryFilter filter, out Vixen.Navigation.NavRaycastHit hit) -> bool
+Vixen.Navigation.NavMeshQuery.Raycast(Vixen.Navigation.NavPolyRef start, Vixen.Core.Mathematics.Vector3 startPosition, Vixen.Core.Mathematics.Vector3 endPosition, Vixen.Navigation.NavQueryFilter filter, out Vixen.Navigation.NavRaycastHit hit, System.Span<Vixen.Navigation.NavPolyRef> visited, out int visitedCount) -> bool
+Vixen.Navigation.NavMeshQuery.UpdateSlicedFindPath(int maximumIterations, out int performed) -> Vixen.Navigation.NavPathStatus
+Vixen.Navigation.NavMeshTile -> sealed class
+Vixen.Navigation.NavMeshTile.Data.get -> Vixen.Navigation.NavMeshTileData
+Vixen.Navigation.NavMeshTile.PolyCount.get -> int
+Vixen.Navigation.NavMeshTile.Salt.get -> uint
+Vixen.Navigation.NavMeshTile.Slot.get -> int
+Vixen.Navigation.NavMeshTile.SurfacePolyCount.get -> int
+Vixen.Navigation.NavMeshTileData -> sealed class
+Vixen.Navigation.NavMeshTileData.Bounds.get -> Vixen.Core.Mathematics.BoundingBox
+Vixen.Navigation.NavMeshTileData.Detail.get -> Vixen.Navigation.NavMeshDetailData[]
+Vixen.Navigation.NavMeshTileData.Detail.init -> Vixen.Navigation.NavMeshDetailData[]
+Vixen.Navigation.NavMeshTileData.DetailTriangles.get -> int[]
+Vixen.Navigation.NavMeshTileData.DetailTriangles.init -> int[]
+Vixen.Navigation.NavMeshTileData.DetailVertices.get -> Vixen.Core.Mathematics.Vector3[]
+Vixen.Navigation.NavMeshTileData.DetailVertices.init -> Vixen.Core.Mathematics.Vector3[]
+Vixen.Navigation.NavMeshTileData.NavMeshTileData() -> void
+Vixen.Navigation.NavMeshTileData.NavMeshTileData(int x, int z, Vixen.Core.Mathematics.Vector3[] vertices, Vixen.Navigation.NavMeshPolyData[] polys, int[] polyVertices, int[] polyNeighbours) -> void
+Vixen.Navigation.NavMeshTileData.OffMeshConnections.get -> Vixen.Navigation.NavOffMeshConnectionData[]
+Vixen.Navigation.NavMeshTileData.OffMeshConnections.init -> Vixen.Navigation.NavOffMeshConnectionData[]
+Vixen.Navigation.NavMeshTileData.PolyNeighbours.get -> int[]
+Vixen.Navigation.NavMeshTileData.PolyNeighbours.init -> int[]
+Vixen.Navigation.NavMeshTileData.PolyVertices.get -> int[]
+Vixen.Navigation.NavMeshTileData.PolyVertices.init -> int[]
+Vixen.Navigation.NavMeshTileData.Polys.get -> Vixen.Navigation.NavMeshPolyData[]
+Vixen.Navigation.NavMeshTileData.Polys.init -> Vixen.Navigation.NavMeshPolyData[]
+Vixen.Navigation.NavMeshTileData.Validate() -> void
+Vixen.Navigation.NavMeshTileData.Vertices.get -> Vixen.Core.Mathematics.Vector3[]
+Vixen.Navigation.NavMeshTileData.Vertices.init -> Vixen.Core.Mathematics.Vector3[]
+Vixen.Navigation.NavMeshTileData.X.get -> int
+Vixen.Navigation.NavMeshTileData.X.init -> int
+Vixen.Navigation.NavMeshTileData.Z.get -> int
+Vixen.Navigation.NavMeshTileData.Z.init -> int
+Vixen.Navigation.NavOffMeshConnectionData -> struct
+Vixen.Navigation.NavOffMeshConnectionData.Area -> byte
+Vixen.Navigation.NavOffMeshConnectionData.Bidirectional -> bool
+Vixen.Navigation.NavOffMeshConnectionData.End -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.NavOffMeshConnectionData.Flags -> Vixen.Navigation.NavPolyFlags
+Vixen.Navigation.NavOffMeshConnectionData.NavOffMeshConnectionData() -> void
+Vixen.Navigation.NavOffMeshConnectionData.Radius -> float
+Vixen.Navigation.NavOffMeshConnectionData.Start -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.NavOffMeshConnectionData.UserId -> uint
+Vixen.Navigation.NavPathPoint -> readonly struct
+Vixen.Navigation.NavPathPoint : System.IEquatable<Vixen.Navigation.NavPathPoint>
+Vixen.Navigation.NavPathPoint.NavPathPoint() -> void
+Vixen.Navigation.NavPathPoint.NavPathPoint(Vixen.Core.Mathematics.Vector3 Position, Vixen.Navigation.NavPolyRef Poly) -> void
+Vixen.Navigation.NavPathPoint.Poly.get -> Vixen.Navigation.NavPolyRef
+Vixen.Navigation.NavPathPoint.Poly.init -> Vixen.Navigation.NavPolyRef
+Vixen.Navigation.NavPathPoint.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.NavPathPoint.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.NavPathStatus -> enum : int
+Vixen.Navigation.NavPathStatus.Complete = 2 -> Vixen.Navigation.NavPathStatus
+Vixen.Navigation.NavPathStatus.Failed = 0 -> Vixen.Navigation.NavPathStatus
+Vixen.Navigation.NavPathStatus.NavPathStatus() -> void
+Vixen.Navigation.NavPathStatus.Partial = 1 -> Vixen.Navigation.NavPathStatus
+Vixen.Navigation.NavPolyFlags -> enum : ushort
+Vixen.Navigation.NavPolyFlags.All = 65535 -> Vixen.Navigation.NavPolyFlags
+Vixen.Navigation.NavPolyFlags.Disabled = 16 -> Vixen.Navigation.NavPolyFlags
+Vixen.Navigation.NavPolyFlags.Door = 4 -> Vixen.Navigation.NavPolyFlags
+Vixen.Navigation.NavPolyFlags.Jump = 8 -> Vixen.Navigation.NavPolyFlags
+Vixen.Navigation.NavPolyFlags.NavPolyFlags() -> void
+Vixen.Navigation.NavPolyFlags.None = 0 -> Vixen.Navigation.NavPolyFlags
+Vixen.Navigation.NavPolyFlags.Swim = 2 -> Vixen.Navigation.NavPolyFlags
+Vixen.Navigation.NavPolyFlags.Walk = 1 -> Vixen.Navigation.NavPolyFlags
+Vixen.Navigation.NavPolyRef -> readonly struct
+Vixen.Navigation.NavPolyRef : System.IEquatable<Vixen.Navigation.NavPolyRef>
+Vixen.Navigation.NavPolyRef.Equals(Vixen.Navigation.NavPolyRef other) -> bool
+Vixen.Navigation.NavPolyRef.IsNull.get -> bool
+Vixen.Navigation.NavPolyRef.NavPolyRef() -> void
+Vixen.Navigation.NavPolyRef.Poly.get -> int
+Vixen.Navigation.NavPolyRef.Salt.get -> uint
+Vixen.Navigation.NavPolyRef.Tile.get -> int
+Vixen.Navigation.NavPolyRef.ToUInt64() -> ulong
+Vixen.Navigation.NavQueryFilter -> sealed class
+Vixen.Navigation.NavQueryFilter.ExcludeFlags.get -> Vixen.Navigation.NavPolyFlags
+Vixen.Navigation.NavQueryFilter.ExcludeFlags.set -> Vixen.Navigation.NavPolyFlags
+Vixen.Navigation.NavQueryFilter.GetAreaCost(int area) -> float
+Vixen.Navigation.NavQueryFilter.IncludeFlags.get -> Vixen.Navigation.NavPolyFlags
+Vixen.Navigation.NavQueryFilter.IncludeFlags.set -> Vixen.Navigation.NavPolyFlags
+Vixen.Navigation.NavQueryFilter.NavQueryFilter() -> void
+Vixen.Navigation.NavQueryFilter.Passes(Vixen.Navigation.NavPolyFlags flags) -> bool
+Vixen.Navigation.NavQueryFilter.SetAreaCost(int area, float cost) -> void
+Vixen.Navigation.NavRaycastHit -> readonly struct
+Vixen.Navigation.NavRaycastHit : System.IEquatable<Vixen.Navigation.NavRaycastHit>
+Vixen.Navigation.NavRaycastHit.Distance.get -> float
+Vixen.Navigation.NavRaycastHit.Distance.init -> float
+Vixen.Navigation.NavRaycastHit.Hit.get -> bool
+Vixen.Navigation.NavRaycastHit.Hit.init -> bool
+Vixen.Navigation.NavRaycastHit.LastPoly.get -> Vixen.Navigation.NavPolyRef
+Vixen.Navigation.NavRaycastHit.LastPoly.init -> Vixen.Navigation.NavPolyRef
+Vixen.Navigation.NavRaycastHit.NavRaycastHit() -> void
+Vixen.Navigation.NavRaycastHit.NavRaycastHit(bool Hit, float Distance, Vixen.Core.Mathematics.Vector3 Position, Vixen.Core.Mathematics.Vector3 Normal, Vixen.Navigation.NavPolyRef LastPoly) -> void
+Vixen.Navigation.NavRaycastHit.Normal.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.NavRaycastHit.Normal.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.NavRaycastHit.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Navigation.NavRaycastHit.Position.init -> Vixen.Core.Mathematics.Vector3
+const Vixen.Navigation.NavArea.Count = 64 -> int
+const Vixen.Navigation.NavArea.Null = 0 -> byte
+const Vixen.Navigation.NavArea.Walkable = 63 -> byte
+const Vixen.Navigation.NavMesh.MaxVerticesPerPoly = 6 -> int
+const Vixen.Navigation.NavMesh.NoEdge = 255 -> int
+override Vixen.Navigation.Ecs.NavigationSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Navigation.NavPolyRef.Equals(object? obj) -> bool
+override Vixen.Navigation.NavPolyRef.GetHashCode() -> int
+override Vixen.Navigation.NavPolyRef.ToString() -> string
+readonly Vixen.Navigation.Agents.Crowd.AgentEnumerator.Current.get -> Vixen.Navigation.Agents.CrowdAgentHandle
+readonly Vixen.Navigation.NavMesh.NeighbourEnumerator.Current.get -> Vixen.Navigation.NavMesh.Neighbour
+static Vixen.Navigation.Agents.CrowdAgentHandle.Null.get -> Vixen.Navigation.Agents.CrowdAgentHandle
+static Vixen.Navigation.Agents.NavPathRequest.Null.get -> Vixen.Navigation.Agents.NavPathRequest
+static Vixen.Navigation.Baking.NavAreaVolume.Box(Vixen.Core.Mathematics.BoundingBox bounds, byte area) -> Vixen.Navigation.Baking.NavAreaVolume
+static Vixen.Navigation.Baking.NavAreaVolume.Convex(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> footprint, float minimumY, float maximumY, byte area) -> Vixen.Navigation.Baking.NavAreaVolume
+static Vixen.Navigation.Baking.NavAreaVolume.Cylinder(Vixen.Core.Mathematics.Vector3 centre, float radius, float height, byte area, int segments = 12) -> Vixen.Navigation.Baking.NavAreaVolume
+static Vixen.Navigation.Baking.NavMeshBaker.Bake(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> vertices, System.ReadOnlySpan<int> indices, Vixen.Core.Mathematics.BoundingBox bounds, Vixen.Navigation.Baking.NavMeshBuildSettings settings, System.ReadOnlySpan<Vixen.Navigation.Baking.NavAreaVolume> volumes = default(System.ReadOnlySpan<Vixen.Navigation.Baking.NavAreaVolume>), System.ReadOnlySpan<Vixen.Navigation.NavOffMeshConnectionData> connections = default(System.ReadOnlySpan<Vixen.Navigation.NavOffMeshConnectionData>)) -> Vixen.Navigation.NavMeshTileData?
+static Vixen.Navigation.Baking.NavMeshBaker.Bake(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> vertices, System.ReadOnlySpan<int> indices, Vixen.Navigation.Baking.NavMeshBuildSettings settings, System.ReadOnlySpan<Vixen.Navigation.Baking.NavAreaVolume> volumes = default(System.ReadOnlySpan<Vixen.Navigation.Baking.NavAreaVolume>), System.ReadOnlySpan<Vixen.Navigation.NavOffMeshConnectionData> connections = default(System.ReadOnlySpan<Vixen.Navigation.NavOffMeshConnectionData>)) -> Vixen.Navigation.NavMeshTileData?
+static Vixen.Navigation.Baking.NavMeshBaker.BakeTiles(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> vertices, System.ReadOnlySpan<int> indices, Vixen.Core.Mathematics.BoundingBox bounds, Vixen.Navigation.Baking.NavMeshBuildSettings settings, int tileSize = 64, System.ReadOnlySpan<Vixen.Navigation.Baking.NavAreaVolume> volumes = default(System.ReadOnlySpan<Vixen.Navigation.Baking.NavAreaVolume>), System.ReadOnlySpan<Vixen.Navigation.NavOffMeshConnectionData> connections = default(System.ReadOnlySpan<Vixen.Navigation.NavOffMeshConnectionData>)) -> Vixen.Navigation.Baking.NavMeshBakeResult
+static Vixen.Navigation.Baking.NavMeshBaker.Volume(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> vertices, Vixen.Navigation.Baking.NavMeshBuildSettings settings) -> Vixen.Core.Mathematics.BoundingBox
+static Vixen.Navigation.Baking.NavObstacleHandle.Null.get -> Vixen.Navigation.Baking.NavObstacleHandle
+static Vixen.Navigation.Baking.NavTileCache.Build(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> vertices, System.ReadOnlySpan<int> indices, Vixen.Core.Mathematics.BoundingBox bounds, Vixen.Navigation.Baking.NavMeshBuildSettings settings, int tileSize = 48, System.ReadOnlySpan<Vixen.Navigation.Baking.NavAreaVolume> volumes = default(System.ReadOnlySpan<Vixen.Navigation.Baking.NavAreaVolume>), System.ReadOnlySpan<Vixen.Navigation.NavOffMeshConnectionData> connections = default(System.ReadOnlySpan<Vixen.Navigation.NavOffMeshConnectionData>)) -> Vixen.Navigation.Baking.NavTileCache
+static Vixen.Navigation.Diagnostics.NavMeshDebugDraw.DrawCorridor(Vixen.Engine.Diagnostics.DebugDraw draw, Vixen.Navigation.NavMesh mesh, System.ReadOnlySpan<Vixen.Navigation.NavPolyRef> corridor, Vixen.Core.Mathematics.Color4 colour, float lift = 0.06, float seconds = 0) -> void
+static Vixen.Navigation.Diagnostics.NavMeshDebugDraw.DrawCrowd(Vixen.Engine.Diagnostics.DebugDraw draw, Vixen.Navigation.Agents.Crowd crowd, float seconds = 0) -> void
+static Vixen.Navigation.Diagnostics.NavMeshDebugDraw.DrawDetail(Vixen.Engine.Diagnostics.DebugDraw draw, Vixen.Navigation.NavMesh mesh, Vixen.Core.Mathematics.Color4 colour, float lift = 0.05, float seconds = 0) -> void
+static Vixen.Navigation.Diagnostics.NavMeshDebugDraw.DrawMesh(Vixen.Engine.Diagnostics.DebugDraw draw, Vixen.Navigation.NavMesh mesh, Vixen.Navigation.Diagnostics.NavMeshDrawStyle style = default(Vixen.Navigation.Diagnostics.NavMeshDrawStyle), Vixen.Navigation.NavQueryFilter? filter = null, float seconds = 0) -> void
+static Vixen.Navigation.Diagnostics.NavMeshDebugDraw.DrawPath(Vixen.Engine.Diagnostics.DebugDraw draw, System.ReadOnlySpan<Vixen.Navigation.NavPathPoint> path, Vixen.Core.Mathematics.Color4 colour, float lift = 0.1, float seconds = 0) -> void
+static Vixen.Navigation.Diagnostics.NavMeshDrawStyle.Default.get -> Vixen.Navigation.Diagnostics.NavMeshDrawStyle
+static Vixen.Navigation.Ecs.NavigationAgent.Default() -> Vixen.Navigation.Ecs.NavigationAgent
+static Vixen.Navigation.NavMesh.ReferenceOf(Vixen.Navigation.NavMeshTile tile, int poly) -> Vixen.Navigation.NavPolyRef
+static Vixen.Navigation.NavMeshAsset.FromBake(Vixen.Navigation.Baking.NavMeshBakeResult result) -> Vixen.Navigation.NavMeshAsset
+static Vixen.Navigation.NavMeshAsset.FromTile(Vixen.Navigation.NavMeshTileData tile) -> Vixen.Navigation.NavMeshAsset
+static Vixen.Navigation.NavMeshParams.Single.get -> Vixen.Navigation.NavMeshParams
+static Vixen.Navigation.NavPolyRef.Encode(uint salt, int tile, int poly) -> Vixen.Navigation.NavPolyRef
+static Vixen.Navigation.NavPolyRef.FromUInt64(ulong value) -> Vixen.Navigation.NavPolyRef
+static Vixen.Navigation.NavPolyRef.MaxPolysPerTile.get -> int
+static Vixen.Navigation.NavPolyRef.MaxTiles.get -> int
+static Vixen.Navigation.NavPolyRef.Null.get -> Vixen.Navigation.NavPolyRef
+static Vixen.Navigation.NavPolyRef.operator !=(Vixen.Navigation.NavPolyRef left, Vixen.Navigation.NavPolyRef right) -> bool
+static Vixen.Navigation.NavPolyRef.operator ==(Vixen.Navigation.NavPolyRef left, Vixen.Navigation.NavPolyRef right) -> bool
+static Vixen.Navigation.NavQueryFilter.Default.get -> Vixen.Navigation.NavQueryFilter

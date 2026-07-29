@@ -10,192 +10,170 @@ using Vixen.Ui.Renderer;
 using Vixen.Ui.Rendering;
 using Vixen.Ui.Text.Rasterizing;
 using Vixen.Video.Gpu;
-using Vixen.Video.Ui;
 using Xunit;
 
 namespace Vixen.Video.Rendering.Tests;
 
-/// <summary>A video inside a user interface, end to end and without a device that draws.</summary>
+/// <summary>A video inside a user interface, and there is no seam between them.</summary>
 /// <remarks>
 ///     <para>
-///         <b>What this asserts is that the two ends of one seam meet.</b> A draw list names a picture
-///         it knows nothing about; a renderer hands it to a drawer; a drawer recognises a video and
-///         draws it. Each half is testable alone and each half passing means nothing on its own —
-///         the failure this exists to catch is the interface being wired to nobody, which shows as a
-///         hole in a panel and nothing in a log.
+///         <b>What this asserts is that a video is an ordinary picture by the time a UI sees one.</b>
+///         <c>UiRenderer</c> already draws a texture nobody there wrote: an element puts a number in
+///         an image command and the host registers a view against that number. A video's planes
+///         cannot be that view — there are three of them and they are not colour — so
+///         <see cref="VideoRenderTarget" /> runs the conversion into a target of its own, and what
+///         comes out is a view like any other.
 ///     </para>
 ///     <para>
-///         Driven through <c>UiRenderer</c> rather than a <c>RenderSystem</c>, for the reason that
-///         class was split out at all: the part that touches a device can be driven without a scene,
-///         a camera or a compositor.
+///         ⚠ <b>Nothing shipped joins these two assemblies.</b> The join is one line in a game —
+///         <c>ui.RegisterImage(handle, target.View)</c> — which is exactly the property worth having,
+///         and exactly the property a test has to check on purpose, because there is no code anywhere
+///         that would fail to compile if it stopped being true.
 ///     </para>
 /// </remarks>
 public sealed class VideoInUiTests {
-    [Fact]
-    public void ASurfaceCommandBecomesItsOwnBatchAndItsOwnDraw() {
-        var list = new DrawList();
-        var source = new object();
-
-        list.BeginFrame();
-        list.Add(Rectangle(0, 0, 10, 10));
-        list.Add(SurfaceCommand(list, source, new Rectangle(2, 2, 6, 6)));
-        list.Add(Rectangle(0, 0, 10, 10));
-        list.EndFrame();
-
-        // ⚠ Three batches, not two. A surface never merges with its neighbours — two surfaces are two
-        // textures and two descriptor sets — and it must not reorder past them either, because order
-        // is the only answer a UI has to what is in front.
-        Assert.Equal(3, list.Batches.Count);
-        Assert.Equal(BatchKind.Geometry, list.Batches[0].Kind);
-        Assert.Equal(BatchKind.Surface, list.Batches[1].Kind);
-        Assert.Equal(BatchKind.Geometry, list.Batches[2].Kind);
-        Assert.Same(source, list.Surfaces[0]);
-    }
+    const ulong Handle = 7;
 
     [Fact]
-    public void SwappingTheSourceChangesTheFrameEvenThoughTheCommandsMatch() {
-        var list = new DrawList();
-
-        Frame(list, new object());
-        var first = list.Version;
-
-        Frame(list, new object());
-
-        // ⚠ The failure this prevents: a video element cutting from one clip to another emits
-        // byte-identical commands — same rectangle, same index — so a diff over the commands alone
-        // reports the frame unchanged and the cached geometry keeps drawing the first clip.
-        Assert.NotEqual(first, list.Version);
-    }
-
-    [Fact]
-    public void DrawingTheSameSourceAgainChangesNothing() {
-        var list = new DrawList();
-        var source = new object();
-
-        Frame(list, source);
-        var first = list.Version;
-
-        Frame(list, source);
-
-        // The ordinary case: a video hands over the same texture every frame while its contents
-        // change entirely. A version that moved would throw the cached frame away sixty times a
-        // second to redraw the same quad.
-        Assert.Equal(first, list.Version);
-    }
-
-    [Fact]
-    public void AVideoPlayerReachesTheVideoRendererThroughTheDrawList() {
+    public void AVideosTargetIsAViewAUiRendererWillDraw() {
         using var device = new NullDevice(new NullDeviceOptions { Record = true });
-        using var video = VideoRendererTests.Renderer(device);
-        using var texture = VideoRendererTests.Uploaded(device, 64, 32);
+        using var planes = VideoRendererTests.Uploaded(device, 64, 32);
+        using var target = Target(device);
         using var ui = UiRenderer(device);
 
-        var drawer = new VideoSurfaceDrawer(video, _ => texture);
-        ui.SurfaceDrawers.Add(drawer);
+        Convert(device, target, planes, new Int2(64, 32));
+        ui.RegisterImage(Handle, target.View);
 
-        var geometry = Geometry(texture, new Rectangle(10, 20, 100, 50));
+        Record(device, ui, Geometry(new Rectangle(10, 20, 100, 50)));
 
-        using var commands = device.BeginCommandList(QueueKind.Graphics, "ui");
-
-        commands.BeginRenderPass(
-            new RenderPassDescription([new ColourAttachment(VideoRendererTests.Target(device))], name: "ui")
-        );
-
-        ui.Record(commands, geometry, new Int2(400, 300));
-
-        commands.EndRenderPass();
-        commands.Finish();
-        device.GraphicsQueue.Submit([commands]);
-
+        // The whole claim: one draw, through the interface's own image pipeline, of a picture that
+        // was three R8 planes a moment ago.
         Assert.Equal(1, ui.Draws);
-        Assert.Equal(0, ui.SurfacesUnclaimed);
-        Assert.Equal(1, video.Draws);
-        Assert.Equal(1, device.Recorder!.CountOf(RecordedCommandKind.Draw));
     }
 
     [Fact]
-    public void AnUnclaimedSurfaceIsCountedRatherThanThrown() {
+    public void AnUnregisteredNumberDrawsNothing() {
         using var device = new NullDevice(new NullDeviceOptions { Record = true });
         using var ui = UiRenderer(device);
 
-        var geometry = Geometry(new object(), new Rectangle(0, 0, 10, 10));
+        Record(device, ui, Geometry(new Rectangle(0, 0, 10, 10)));
 
-        using var commands = device.BeginCommandList(QueueKind.Graphics, "ui");
-
-        commands.BeginRenderPass(
-            new RenderPassDescription([new ColourAttachment(VideoRendererTests.Target(device))], name: "ui")
-        );
-
-        ui.Record(commands, geometry, new Int2(400, 300));
-
-        commands.EndRenderPass();
-        commands.Finish();
-        device.GraphicsQueue.Submit([commands]);
-
-        // A source and a drawer that were never introduced is a wiring mistake, not a corrupt frame.
-        // Throwing here would take down a game over a hole in a panel.
-        Assert.Equal(1, ui.SurfacesUnclaimed);
+        // ⚠ Nothing, and specifically not the atlas. Drawing an unregistered number through the image
+        // shader would sample the glyph atlas — a rectangle of scrambled letters where the video
+        // should be — which is why `UiRenderer` skips rather than falls back.
         Assert.Equal(0, ui.Draws);
     }
 
     [Fact]
-    public void TheRectangleAndTheTintSurviveTheRoundTrip() {
+    public void ResizingTheVideoMakesANewViewAndSaysSo() {
         using var device = new NullDevice(new NullDeviceOptions());
-        using var video = VideoRendererTests.Renderer(device);
-        using var texture = VideoRendererTests.Uploaded(device, 64, 32);
-        using var ui = UiRenderer(device);
+        using var planes = new VideoTexture(device, "test");
+        using var target = Target(device);
 
-        var seen = new List<UiSurfaceDraw>();
-        ui.SurfaceDrawers.Add(new Watcher(seen));
+        VideoRendererTests.Upload(device, planes, VideoRendererTests.Frame(64, 32));
+        Convert(device, target, planes, new Int2(64, 32));
 
-        var geometry = Geometry(texture, new Rectangle(10, 20, 100, 50), new Color4(1f, 1f, 1f, 0.25f));
+        var first = target.Revision;
+        var view = target.View;
 
+        VideoRendererTests.Upload(device, planes, VideoRendererTests.Frame(128, 64));
+        Convert(device, target, planes, new Int2(128, 64));
+
+        // ⚠ The revision is what a consumer holding the view has to watch. A resize destroys the
+        // texture, so a descriptor set still naming the old view names freed memory — undefined
+        // rather than an error, and it shows as a picture that is fine until the window is dragged.
+        Assert.NotEqual(first, target.Revision);
+        Assert.NotEqual(view, target.View);
+        Assert.Equal(new Int2(128, 64), target.Size);
+    }
+
+    [Fact]
+    public void RedrawingAtTheSameSizeKeepsTheView() {
+        using var device = new NullDevice(new NullDeviceOptions());
+        using var planes = VideoRendererTests.Uploaded(device, 64, 32);
+        using var target = Target(device);
+
+        Convert(device, target, planes, new Int2(64, 32));
+
+        var revision = target.Revision;
+        var view = target.View;
+
+        Convert(device, target, planes, new Int2(64, 32));
+
+        // The ordinary case, twenty-five times a second: the contents change and the handle does not,
+        // so nothing has to be registered again.
+        Assert.Equal(revision, target.Revision);
+        Assert.Equal(view, target.View);
+    }
+
+    [Fact]
+    public void TheConversionIsAPassOfItsOwnWithABarrierEitherSide() {
+        using var device = new NullDevice(new NullDeviceOptions { Record = true });
+        using var planes = VideoRendererTests.Uploaded(device, 64, 32);
+        using var target = Target(device);
+
+        // The recorder is cumulative across submissions and the upload above already put two barriers
+        // in it, so what is asserted is the difference this call makes.
+        var before = device.Recorder!.CountOf(RecordedCommandKind.Barrier);
+
+        using (var commands = device.BeginCommandList(QueueKind.Graphics, "convert")) {
+            target.Draw(commands, planes, new Int2(64, 32));
+            commands.Finish();
+            device.GraphicsQueue.Submit([commands]);
+        }
+
+        // ⚠ Into the attachment state and back out. A pass declares what its attachments need; the
+        // transition *out* is the caller's, and a target left in ColourTarget is one the consumer's
+        // shader reads as undefined.
+        Assert.Equal(1, device.Recorder.CountOf(RecordedCommandKind.BeginRenderPass));
+        Assert.Equal(before + 2, device.Recorder.CountOf(RecordedCommandKind.Barrier));
+    }
+
+    [Fact]
+    public void ADegenerateSizeDrawsNothingRatherThanCreatingAZeroTexture() {
+        using var device = new NullDevice(new NullDeviceOptions());
+        using var planes = VideoRendererTests.Uploaded(device, 64, 32);
+        using var target = Target(device);
+
+        using var commands = device.BeginCommandList(QueueKind.Graphics, "convert");
+
+        // A player whose first frame has not arrived reports nothing for a size, and a zero-extent
+        // texture is a validation error on every backend.
+        Assert.False(target.Draw(commands, planes, new Int2(0, 32)));
+        Assert.False(target.View.IsValid);
+    }
+
+    static VideoRenderTarget Target(NullDevice device) =>
+        new(
+            device,
+            new VideoShaders(
+                device.CreateShader(ShaderStage.Vertex, [1, 2, 3, 4], "video vertex"),
+                device.CreateShader(ShaderStage.Fragment, [1, 2, 3, 4], "video fragment")
+            )
+        );
+
+    static void Convert(NullDevice device, VideoRenderTarget target, VideoTexture planes, Int2 size) {
+        using var commands = device.BeginCommandList(QueueKind.Graphics, "convert");
+
+        target.Draw(commands, planes, size);
+        commands.Finish();
+        device.GraphicsQueue.Submit([commands]);
+    }
+
+    static void Record(NullDevice device, UiRenderer ui, UiGeometry geometry) {
         using var commands = device.BeginCommandList(QueueKind.Graphics, "ui");
+
+        ui.Upload(commands, geometry, new GlyphAtlas(64, 64));
 
         commands.BeginRenderPass(
             new RenderPassDescription([new ColourAttachment(VideoRendererTests.Target(device))], name: "ui")
         );
 
         ui.Record(commands, geometry, new Int2(400, 300));
+
         commands.EndRenderPass();
-
-        // ⚠ Both are read back off the quad rather than carried on the draw, so this is what says the
-        // geometry really is the answer. A fade applied by `opacity` arrives here in the alpha.
-        var draw = Assert.Single(seen);
-
-        Assert.Equal(10f, draw.Rectangle.X, 3);
-        Assert.Equal(20f, draw.Rectangle.Y, 3);
-        Assert.Equal(100f, draw.Rectangle.Width, 3);
-        Assert.Equal(50f, draw.Rectangle.Height, 3);
-        Assert.Equal(0.25f, draw.Tint.A, 3);
-        Assert.Equal(new Int2(400, 300), draw.Surface);
-    }
-
-    [Fact]
-    public void APlayerWithNothingUploadedYetIsCountedRatherThanDrawn() {
-        using var device = new NullDevice(new NullDeviceOptions());
-        using var video = VideoRendererTests.Renderer(device);
-
-        var drawer = new VideoSurfaceDrawer(video, _ => null);
-
-        using var commands = device.BeginCommandList(QueueKind.Graphics, "ui");
-
-        var player = new Playback.VideoPlayer(new SilentDecoder());
-
-        try {
-            var drawn = drawer.Draw(
-                commands,
-                new UiSurfaceDraw(player, new Rectangle(0, 0, 10, 10), Color4.White, default, new Int2(100, 100), 1f)
-            );
-
-            // The first frame or two of every cutscene, and not an error — but a number that keeps
-            // climbing means the uploader is not being run, which otherwise looks exactly like a
-            // video that never decoded.
-            Assert.False(drawn);
-            Assert.Equal(1, drawer.NotReady);
-        } finally {
-            player.Dispose();
-        }
+        commands.Finish();
+        device.GraphicsQueue.Submit([commands]);
     }
 
     static UiRenderer UiRenderer(NullDevice device) =>
@@ -206,66 +184,38 @@ public sealed class VideoInUiTests {
                 device.CreateShader(ShaderStage.Fragment, [1, 2, 3, 4], "ui box"),
                 device.CreateShader(ShaderStage.Fragment, [1, 2, 3, 4], "ui text"),
                 device.CreateShader(ShaderStage.Fragment, [1, 2, 3, 4], "ui solid")
-            ),
+            ) {
+                Image = device.CreateShader(ShaderStage.Fragment, [1, 2, 3, 4], "ui image")
+            },
             new RenderOutput([PixelFormat.Bgra8UNorm])
         );
 
-    static UiGeometry Geometry(object source, Rectangle where, Color4 tint = default) {
+    static UiGeometry Geometry(Rectangle where) {
         var list = new DrawList();
 
         list.BeginFrame();
-        list.Add(SurfaceCommand(list, source, where, tint));
+
+        list.Add(
+            new Vixen.Ui.DrawCommand(
+                DrawCommandKind.Image,
+                where.X,
+                where.Y,
+                where.Width,
+                where.Height,
+                Color4.White,
+                0f,
+                0f
+            ) {
+                Image = Handle
+            }
+        );
+
         list.EndFrame();
 
-        return new UiGeometryBuilder().Build(list, new GlyphFieldCache(new GlyphAtlas(64, 64)), new Rectangle(0, 0, 400, 300));
-    }
-
-    static void Frame(DrawList list, object source) {
-        list.BeginFrame();
-        list.Add(SurfaceCommand(list, source, new Rectangle(0, 0, 10, 10)));
-        list.EndFrame();
-    }
-
-    static DrawCommand SurfaceCommand(DrawList list, object source, Rectangle where, Color4 tint = default) =>
-        new(
-            DrawCommandKind.Surface,
-            where.X,
-            where.Y,
-            where.Width,
-            where.Height,
-            tint == default ? Color4.White : tint,
-            0f,
-            0f
-        ) {
-            Surface = list.AddSurface(source)
-        };
-
-    static DrawCommand Rectangle(float x, float y, float width, float height) =>
-        new(DrawCommandKind.Rectangle, x, y, width, height, Color4.White, 0f, 0f);
-
-    /// <summary>Claims everything and records what it was handed.</summary>
-    sealed class Watcher(List<UiSurfaceDraw> seen) : IUiSurfaceDrawer {
-        public bool Draw(ICommandList commands, in UiSurfaceDraw draw) {
-            seen.Add(draw);
-
-            return true;
-        }
-    }
-
-    /// <summary>A decoder that produces nothing, so the player never has a frame to upload.</summary>
-    sealed class SilentDecoder : IVideoStreamDecoder {
-        public VideoFormat Format => new(16, 16, VideoPixelLayout.Yuv420Planar);
-
-        public TimeSpan Duration => TimeSpan.Zero;
-
-        public TimeSpan Position => TimeSpan.Zero;
-
-        public bool CanSeek => false;
-
-        public VideoDecodeStatus DecodeNext(VideoFrame destination) => VideoDecodeStatus.EndOfStream;
-
-        public void Seek(TimeSpan position) { }
-
-        public void Dispose() { }
+        return new UiGeometryBuilder().Build(
+            list,
+            new GlyphFieldCache(new GlyphAtlas(64, 64)),
+            new Rectangle(0, 0, 400, 300)
+        );
     }
 }

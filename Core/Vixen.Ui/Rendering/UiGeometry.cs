@@ -43,13 +43,13 @@ public readonly record struct UiVertex(Vector2 Position, Vector2 Texture, Color4
 ///     one — and never has to be told that a batch it skipped had left a clip behind.
 /// </remarks>
 public readonly record struct UiDraw(BatchKind Kind, int First, int Count, int Font, Rectangle Clip) {
-    /// <summary>Which external picture, as an index into <c>DrawList.Surfaces</c>.</summary>
+    /// <summary>Which texture, for <see cref="BatchKind.Image" />. Zero and unread otherwise.</summary>
     /// <remarks>
-    ///     Only meaningful for <see cref="BatchKind.Surface" />; zero and unread otherwise, like every
-    ///     other field a kind does not use. Init-only rather than positional so that the four kinds
-    ///     that never had one are still constructed with the five arguments they always were.
+    ///     Carried through from the batch, because a texture is a descriptor set the renderer binds
+    ///     and the renderer sees only this list. Opaque here for the reason it is opaque on the
+    ///     command: naming a texture view would mean this assembly referenced the graphics layer.
     /// </remarks>
-    public int Surface { get; init; }
+    public ulong Image { get; init; }
 }
 
 /// <summary>A frame's worth of interface geometry.</summary>
@@ -71,12 +71,4 @@ public readonly record struct UiGeometry(
     IReadOnlyList<uint> Indices,
     IReadOnlyList<UiDraw> Draws,
     IReadOnlyList<UiShape> Shapes
-) {
-    /// <summary>The external pictures the surface draws refer to, by index.</summary>
-    /// <remarks>
-    ///     Carried through from <c>DrawList.Surfaces</c> rather than resolved here, because resolving
-    ///     one means knowing what it is and this assembly is the one that does not. Empty for a frame
-    ///     with none, which is almost every frame.
-    /// </remarks>
-    public IReadOnlyList<object> Surfaces { get; init; } = [];
-}
+);

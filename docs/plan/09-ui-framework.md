@@ -557,25 +557,6 @@ public abstract class UiElement
   callback). The draw list is diffed against the previous frame at the *command* level, so a static UI
   re-submits a cached command buffer.
 
-  ✅ **The texture quad is `DrawCommandKind.Surface`, and it names a picture rather than holding one.**
-  `Vixen.Ui` touches no device — which is what lets every one of its tests run without one — so a
-  surface is an index into a side list of `object`, resolved by a registered `IUiSurfaceDrawer` in
-  `Vixen.Ui.Renderer`. `Vixen.Video.Ui` is the first implementation and puts a playing video in a
-  panel; a render target, a camera feed and a sprite page take the same route without either side
-  learning about the other. The side list is compared by *reference* in the frame diff, because a
-  video element that cut from one clip to another emits byte-identical commands. Batching merges by (texture, shader, clip, blend); clipping uses
-  scissor for rect clips and stencil for arbitrary paths; the whole thing is one `RootRenderFeature`
-  in the renderer ([06](06-rendering-pipeline.md)).
-- **Path rendering** for icons/vector art: analytic coverage AA for stroked/filled paths, with a
-  tessellation cache keyed on (path, transform scale bucket). Needed for the node graph editor's
-  bezier wires and for SVG icons.
-- **Virtualisation** is a first-class primitive (`VirtualizingPanel`), not a control feature —
-  a 1 000 000-row table must be a supported case.
-- **Multi-window and per-monitor DPI** from the start. A Blender-class app has floating tool windows;
-  retrofitting multi-window into a single-surface UI is a rewrite.
-- **Accessibility**: a UIA/AT-SPI/NSAccessibility bridge exposing the element tree with roles, names,
-  values, and actions. Scoped as P2, but the element model reserves the hooks (`AutomationPeer`) now,
-  because bolting accessibility onto a custom-drawn UI later is famously expensive.
 
 ## Control library
 

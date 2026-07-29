@@ -252,19 +252,46 @@ Silk.NET 2.23.0, Chromium.
   simulation, GTAO, compute post FX, and GPU culling all need fullscreen-fragment or CPU fallbacks.
   [06](06-rendering-pipeline.md) requires every post effect to declare a non-compute variant for exactly
   this reason — designed in, not discovered late.
-- **Threads** need `SharedArrayBuffer` and therefore COOP/COEP headers. The job system must have a
-  correct single-threaded mode (a `workerCount == 0` CI leg already enforces this).
-- **Size beyond the floor.** 930 KB is the runtime baseline; the engine's own IL adds to it. Lazy
-  assembly loading and splitting so a 2D/UI app does not download the 3D renderer remain worthwhile.
+- **Threads** need `SharedArrayBuffer` and therefore COOP/COEP headers. ✅ **`JobScheduler` takes
+  `workerCount == 0`**: the graph, the slot ring, the failure log and the batching are unchanged, and
+  work runs when a thread reaches `Complete` — which already executed ready work rather than parking,
+  so there is no second code path and nothing that only the browser exercises.
+  `new JobScheduler()` picks zero on `browser-wasm`, because `Thread.Start` there throws rather than
+  being slow. Two things do change and are stated in that project's README: scheduled-and-never-completed
+  work never runs, and an automatic parallel-for batch size is one batch rather than four per
+  participant. Covered by `SingleThreadedJobSchedulerTests`. **An earlier draft of this document said
+  a `workerCount == 0` CI leg already enforced this. There was no such leg and there is not one yet** —
+  running the whole suite single-threaded needs the schedulers the rest of the engine constructs to
+  take the count from somewhere, which is its own change.
+- **Size beyond the floor.** 930 KB is the runtime baseline; the engine's own IL adds to it. ✅
+  **Lazy assembly loading is implemented** — `VixenWebLazyAssembly` takes a named assembly out of the
+  boot manifest at publish and `WebLazyAssemblies.LoadAsync` fetches it on demand; see
+  [`Vixen.Platform.Web`'s README](../../Platform/Vixen.Platform.Web/README.md) for the three
+  constraints that come with it. Measured for a head that stands the platform up and runs the loop:
+  **978 KB Brotli**, of which the platform layer and everything of Vixen's it needs is 50 KB.
 
 ### Path
 
 1. ~~Spike~~ ✅ **done** — [`spikes/web-webgl2/`](spikes/web-webgl2/) holds the working project and the
    full write-up. The fallback plan (hand-written WebGL2 binding via `[JSImport]`) is no longer needed.
-2. `Vixen.Platform.Web`: canvas surface, pointer/keyboard/gamepad/touch events,
-   `requestAnimationFrame` loop, resize observer, DPI, fullscreen, clipboard (async API),
+2. ~~`Vixen.Platform.Web`~~ ✅ **done** — canvas surface, pointer/keyboard/gamepad/touch events, IME
+   through an invisible input over the caret, `requestAnimationFrame` loop with a *measured* refresh
+   rate, `ResizeObserver`, DPI, fullscreen, pointer lock, clipboard from the paste event,
    IndexedDB-backed `/data` and `/cache`, `fetch`-based `/app` provider with HTTP range requests for
-   streaming. Ships the emcc flags and the WebGL2 version assertion in its `.targets`.
+   streaming, and the emcc flags in its `.targets`.
+
+   Three things the build measured that this plan had wrong or did not know:
+
+   - **The application head is `net10.0-browser`**, not `net10.0` with the WebAssembly SDK. The spike
+     used `net10.0` because it referenced nothing; a head that references `Vixen.Platform.Web` cannot,
+     because a `net10.0` project cannot reference a `net10.0-browser` one — `NU1201`, at restore. The
+     WebAssembly SDK is unchanged.
+   - **`BrotliCompressionLevel` takes a `CompressionLevel` name and not a number.** Setting it to `11`
+     writes a zero-byte `.br` for every asset, with no diagnostic, and a server doing content
+     negotiation then serves empty files to every browser that asks for Brotli.
+   - **`System.Text.Json` costs 59 KB Brotli** — six per cent of the payload — so the content
+     manifest's reader is hand-written. The generated-context approach the rest of the engine uses is
+     trim-clean and is still the wrong trade on the one platform where the payload is the product.
 3. `Vixen.Graphics.OpenGL` in its WebGL2 profile, using the verified bridge.
 4. Addressable remote groups map naturally to HTTP — Web is where the addressable design pays off most,
    since everything is remote by definition.
@@ -291,7 +318,7 @@ under budget; single-threaded job-system mode verified.
 | Floating point | No reliance on cross-platform FP bit-identity for gameplay. Deterministic simulation, where needed, uses fixed-point or a documented deterministic subset. |
 | Feature detection | Always a runtime capability query with a fallback, never `#if PLATFORM`. `#if` is for P/Invoke surface only. |
 | Time | `Stopwatch`-based monotonic time; never `DateTime.Now` in the loop. |
-| Threading | Every subsystem works with `workerCount == 0`. Enforced by a test mode that runs the whole test suite single-threaded. |
+| Threading | Every subsystem works with `workerCount == 0`. `JobScheduler` supports it and is tested for it; the test mode that would run the *whole* suite single-threaded does not exist yet — see § Web, where the same claim was corrected. |
 | Native binaries | One `Vixen.Platform.Native` project owns RID→binary mapping, `runtimes/<rid>/native/` layout, checksum verification at acquisition time, and a licence manifest. Native binaries are never committed; they are restored by a Nuke target from pinned, checksummed URLs. |
 
 ## Platform CI matrix

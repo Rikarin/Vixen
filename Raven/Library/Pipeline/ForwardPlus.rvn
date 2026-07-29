@@ -20,9 +20,15 @@ import Vixen.Shaders.Material
 //        lights, where a dispatch and a 450 KB buffer cost more than iterating all of them.
 //   on   the cluster list, read from the buffer the culling pass wrote.
 //
-// It is a permutation rather than a branch because the two need different *bindings*: off, the
-// clustered variant's buffers and its `positionVS` stream fold away entirely, and the host binds
-// nothing for them. A runtime branch would keep both descriptor sets alive in every variant.
+// It is a permutation rather than a branch because the two need different *code*: off, the clustered
+// variant's `positionVS` stream folds away entirely, and with it the interpolator every fragment
+// would otherwise pay for. A runtime branch would keep both loops in every variant.
+//
+// ⚠ It does **not** fold the bindings. A binding is in the plan because it is declared, not because
+// a variant reads it, so a shader compiled with clustering on still declares the per-object light
+// list and one with `UseImageBasedLighting` off still declares the environment cube — and a host
+// still has to bind them, because a set is written wholly or not at all. Eliminating bindings no
+// variant reads is a compiler feature Raven does not have; this comment claimed it did.
 
 shader ForwardPlus {
     /// The material's surface features, chosen per material.
@@ -36,8 +42,9 @@ shader ForwardPlus {
     /// them together would be one shader per pair.
     compose val shading: IShadingModel
 
-    /// Whether to add image-based ambient. Off gives a pure punctual-lit look, and folds every IBL
-    /// binding and its arithmetic out of the variant entirely.
+    /// Whether to add image-based ambient. Off gives a pure punctual-lit look, and folds the IBL
+    /// arithmetic out of the variant — though not its bindings, which are declared rather than
+    /// discovered. See the note at the top of the file.
     [Permutation] val UseImageBasedLighting: bool = true
 
     /// Whether to sample a shadow map for the directional light.
@@ -151,7 +158,30 @@ shader ForwardPlus {
     [PerFrame] var nearPlane: float = 0.1f
     [PerFrame] var farPlane: float = 1000f
 
-    [PerFrame] var lightViewProjection: mat4
+    /// How many cascades the shadow atlas holds.
+    ///
+    /// A permutation because it sizes an array *in the block*, so the block's size differs per
+    /// variant — the same argument as `MaxLights`, and the reason neither is a `const`. A project
+    /// shipping one cascade should not carry four matrices it never reads, and
+    /// `ShadowMapRenderer.CascadeCount` has to match: the host fills as many slots as it fitted, and
+    /// a shader reading past them projects with a matrix nobody wrote.
+    [Permutation] val CascadeCount: int = 4
+
+    /// The directional light's cascades, near first, each mapping into its own tile of the atlas.
+    ///
+    /// This was one matrix and one distance, which meant one cascade: everything past the nearest
+    /// slice projected outside its tile and came back unshadowed. Four matrices and the distances
+    /// they are valid to is what makes a cascaded atlas actually cascade, and the *selection* is
+    /// per fragment because that is what a cascade is — a fragment's own distance deciding which
+    /// resolution it is shadowed at.
+    [PerFrame] var cascades: ShadowCascade[CascadeCount]
+
+    /// Over what distance shadows fade out at the last cascade's end.
+    ///
+    /// Without it the shadow term stops at a line across the ground, which reads as a rendering
+    /// error rather than as the end of the shadow distance. `Lighting.CascadeFade` is the ramp.
+    [PerFrame] var shadowFadeRange: float = 10f
+
     [PerFrame] var shadowMap: Texture2D
     [PerFrame] var shadowSampler: Sampler
     [PerFrame] var shadowTexelSize: float2 = float2(0.0009765625f, 0.0009765625f)
@@ -165,9 +195,12 @@ shader ForwardPlus {
 
     /// Whether local reflection probes stand in for the environment where they apply.
     ///
-    /// A permutation rather than a weight of zero, because it is the *bindings* that differ: with it
-    /// off, the probe cubes, their sampler and their volumes fold away entirely and a host binds
-    /// nothing for them. A scene with no probes should not carry cubes it never samples.
+    /// A permutation rather than a weight of zero, because the *work* differs: with it off there is
+    /// no parallax correction, no second cube sample and no blend, which is most of the ambient term.
+    ///
+    /// ⚠ The cubes are still declared, and a host still binds them — see the note at the top of the
+    /// file. A scene with no probes carries four cube descriptors it never samples, which is the cost
+    /// this comment used to claim the permutation avoided.
     [Permutation] val UseReflectionProbe: bool = false
 
     /// How many probes a frame may have bound at once.
@@ -361,15 +394,56 @@ shader ForwardPlus {
         return shading.Shade(d, angles, s, sample.alphaPrime) * sample.radiance
     }
 
+    /// Which cascade shades a fragment at this distance.
+    ///
+    /// The nearest one that still covers it, which is the whole idea: the cascades are fitted to
+    /// successive slices of the camera's frustum, so the first whose `split` a fragment is inside is
+    /// the highest-resolution map that contains it. Falling through to the last is what a fragment
+    /// beyond the shadow distance gets, and `Lighting.CascadeFade` is what stops that being a line.
+    ///
+    /// Bounded by the permutation and broken out of, the same shape the light loop has: the bound is
+    /// what lets a driver unroll it and what keeps the index provably inside the array.
+    func CascadeOf(viewDepth: float): int {
+        var index = CascadeCount - 1
+
+        for (i in 0 .. CascadeCount - 1) {
+            if (viewDepth <= cascades[i].split) {
+                index = i
+                break
+            }
+        }
+
+        return index
+    }
+
     /// The shadow term for this pixel, biased both ways — see `Lighting.ShadowBias`.
+    ///
+    /// The cascade is chosen from the fragment's own view depth rather than handed to the draw,
+    /// which is what makes one atlas cover a whole frustum: a fragment two metres away and one two
+    /// hundred metres away read different tiles of the same texture, at the resolution each needs.
+    ///
+    /// `view` is multiplied here rather than interpolated. A stream would cost every fragment in
+    /// every variant a location, where this costs one matrix multiply in the shadowed one — and
+    /// `positionVS` already exists for the clustered variant, which is the case that has a second
+    /// use for it.
     func Shadow(n: float3, NdotL: float): float {
+        val viewDepth = ClusterGrid.DepthOf(Math.TransformPoint(view, positionWS))
+        val cascade = cascades[CascadeOf(viewDepth)]
+
         val offset = Lighting.NormalOffset(positionWS, n, NdotL, shadowTexelSize.x * 64f)
-        val clip = lightViewProjection * float4(offset, 1f)
+        val clip = cascade.viewProjection * float4(offset, 1f)
         val ndc = Math.ClipToNdc(clip)
         val shadowUv = Transform.NdcToUv(ndc)
 
         val bias = Lighting.ShadowBias(NdotL, shadowConstantBias, shadowSlopeBias)
-        return Lighting.ShadowPcf3x3(shadowMap, shadowSampler, shadowUv, ndc.z - bias, shadowTexelSize)
+        val shadow = Lighting.ShadowPcf3x3(shadowMap, shadowSampler, shadowUv, ndc.z - bias, shadowTexelSize)
+
+        // Faded against the *last* cascade's end, which is where the shadow distance actually runs
+        // out. Fading at every boundary would be the other thing this could mean, and it is not what
+        // is wanted: a fragment crossing from one cascade to the next should keep its shadow, at a
+        // different resolution.
+        val fade = Lighting.CascadeFade(viewDepth, cascades[CascadeCount - 1].split, shadowFadeRange)
+        return lerp(1f, shadow, fade)
     }
 
     /// Image-based ambient: a prefiltered environment for specular, spherical harmonics for diffuse.

@@ -78,6 +78,22 @@ jobs:
         if: matrix.os == 'macos-14'
         run: brew install sdl2
 
+      # Keyed on the manifest, because that is the only thing that changes what would be downloaded.
+      # A version bump is a new key and a fresh fetch; anything else is a hit.
+      - name: Cache native dependencies
+        uses: actions/cache@v4
+        with:
+          path: artifacts/native/.cache
+          key: native-${{ matrix.os }}-${{ hashFiles('build/native-dependencies.json') }}
+
+      # Nothing ships a WebGPU implementation — no operating system has one and Silk.NET.WebGPU is
+      # bindings only — so without this every Vixen.Graphics.WebGPU test that needs a device skips
+      # itself and the backend's real half is never run. The pin is checksummed
+      # (build/native-dependencies.json); see docs/plan/05 § Vixen.Graphics.WebGPU.
+      - name: Restore native dependencies
+        run: ./build.sh RestoreNativeDeps
+        shell: bash
+
       - name: Test
         run: ./build.sh Test --configuration Release
         shell: bash
@@ -87,6 +103,19 @@ jobs:
           # is the most expensive kind of green there is — and is precisely why the SDL install step
           # above exists too.
           VIXEN_REQUIRE_VULKAN: ${{ matrix.os == 'ubuntu-latest' && '1' || '' }}
+
+          # The same argument, on the leg where it has been observed to hold. macOS is where
+          # wgpu-native was actually brought up against this backend — Metal, an Apple-silicon
+          # adapter, the whole suite green including the offscreen draws — so a skip there is a
+          # regression and is treated as one.
+          #
+          # OWED: the Linux leg. wgpu-native would run on the lavapipe this workflow already
+          # installs, which would be a *second* implementation and therefore where the interesting
+          # bugs are, exactly as it is for Vulkan. It is not gated here because nobody has watched it
+          # come up on that runner yet, and turning on a gate for a claim nobody has checked is how a
+          # leg starts failing for reasons unrelated to the change that tripped it. Watch one run,
+          # then add ubuntu-latest to this condition.
+          VIXEN_REQUIRE_WEBGPU: ${{ matrix.os == 'macos-14' && '1' || '' }}
 
       - name: Upload test results
         if: always()
@@ -128,8 +157,11 @@ jobs:
           key: nuget-checks-${{ hashFiles('**/Directory.Packages.props', 'global.json') }}
           restore-keys: nuget-checks-
 
-      - name: Architecture and format
-        run: ./build.sh CheckArchitecture CheckFormat --configuration Release
+      # CheckApi builds — it reads the assemblies rather than the source — which is why this leg
+      # takes longer than the other two checks put together and why it is worth having: the diff it
+      # fails on is the one nobody would have looked at otherwise.
+      - name: Architecture, API and format
+        run: ./build.sh CheckArchitecture CheckApi CheckFormat --configuration Release
         shell: bash
 
   pack:

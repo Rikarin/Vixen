@@ -53,11 +53,31 @@ fail that check on every send: correct, and useless. Worse, lane-by-lane differe
 wrong* for a list, because inserting at the front shifts every element and a one-item insert would
 difference as "all of it changed".
 
-So a list replicates as **what happened to it** — append, insert, remove, replace, clear. Ops travel
-reliably and in order, which is what makes per-connection differencing unnecessary: everyone receives
-every op exactly once, so nobody needs telling which they missed. A late joiner gets the list whole
-once and ops from then on. That is doc 16's "reliable-eventual semantics for `SyncVar`-style state"
-taken literally.
+So a list goes **whole**, on the reliable channel, on the tick it changes.
+
+**This paragraph used to say the opposite, and wiring it up is what showed the difference.** It said a
+list replicates as *what happened to it* — append, insert, remove, replace, clear — and that ops
+travelling reliably and in order makes per-connection bookkeeping unnecessary, because everyone
+receives every op exactly once. That is true of a broadcast and false of a snapshot: a snapshot goes
+to the connections an interest resolver returns, so somebody who was not observing has received
+nothing at all, and an object crossing into their interest has to be told the list rather than the
+last thing that happened to it. It was never wired up, which is the shape that claim leaves behind.
+
+Sending the state instead makes a late joiner, a reconnect, a lost snapshot, an interest change and a
+player who was in another scene the **same case**: here is the list. Nothing had to be added to the
+wire for it — the record format was never fixed-width, only the *delta* path is, and it correctly
+declines a replicator that declares no lanes.
+
+The cost is bandwidth proportional to the list on the tick it changes. A hundred-item inventory is a
+few hundred bytes when somebody picks something up, seconds apart, on a channel that will deliver it.
+A list changing every tick is a list being used as something it is not — and if one genuinely must be,
+the shape that fixes it is the one `NetworkAnimatorParameters` and `NetworkBones` use: a fixed
+capacity, which buys back per-element delta encoding at one bit for an element that did not move. That
+needs a fixed-width element type, which a general `SyncList<T>` does not have.
+
+**The op log is not wasted.** It still drives `SyncList<T>.Changed`, which is what a UI binds to — "one
+item was inserted at index three" is exactly the notification a caller wants, and exactly not what a
+receiver should be sent.
 
 ## Spawning is a replicated component, not a message
 
@@ -102,20 +122,20 @@ the join between the two on each peer.
   object the scene's unload never sweeps, standing in the middle of the next map. `PendingCount` is
   where that becomes visible, and a number that never comes down is a client that will never have the
   content.
-- **`SceneInterestResolver`** is doc 16's first resolver: a player is told about the scenes they have
-  loaded, and about anything in no scene at all. The second half is deliberate — a resolver whose
-  default is "vanish" is one everybody debugs.
+- **`SceneInterestRule`** is doc 16's first resolver, and it goes in an `InterestChain` beside the
+  explicit overrides and the distance grid. It **hides and never shows**: being in the right scene is
+  not a reason to be told about something, only the absence of a reason not to be, so an object in a
+  loaded scene comes back `Undecided` and the grid after it gets its say. An entity in no scene is
+  left to everybody — a rule whose default is "vanish" is one everybody debugs.
 - **Scene-placed objects derive their ids** from the scene and their index in it rather than being
   allocated one, so a designer's crate is addressable the moment the scene loads and before anybody
   has connected. Those live above `NetworkId.FirstBaked`, which the allocator will not reach.
 
 ## Owed
 
-- **The sync system.** `MarkChanged()` is called by hand today. A system that walks dirty modules once
-  a frame and marks them is a few lines and wants the engine's scheduler, which is where it will go.
-- **`SyncList` in the snapshot.** The op log is built and tested, but its ops are not yet carried by
-  `ReplicationServer` — a list needs a variable-length record kind beside the fixed-lane one, which is
-  a wire-format addition rather than a design question.
+- **The sync system.** `MarkChanged()` and `MarkListsChanged()` are called by hand today. A system that
+  walks dirty modules and lists once a frame and marks them is a few lines and wants the engine's
+  scheduler, which is where it will go — `SyncList.HasPending` is already the question it would ask.
 - **Codecs beyond the built-in set.** `SyncCodecs.Register` is the door; only the types the generator
   already understands are through it.
 - **Registering prefabs from the catalog.** `NetworkPrefabRegistry.Register(address, prefab)` is called

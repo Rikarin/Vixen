@@ -19,8 +19,16 @@ namespace Vixen.Ui;
 /// <param name="Y">Its origin's y, on the baseline, positive downwards like everything else here.</param>
 public readonly record struct PositionedGlyph(ushort GlyphId, float X, float Y);
 
-/// <summary>An element's text, shaped and measured at its font size.</summary>
+/// <summary>One stretch of an element's text: one face, shaped and measured at one size.</summary>
 /// <remarks>
+///     <para>
+///         <b>A run is one face, and a line is a list of them.</b> See <see cref="TextLine" />: a
+///         string whose characters are not all in one font becomes several runs, and so would a rich
+///         text span carrying its own size. Everything on this type is about the one face, so a
+///         consumer that reaches for <see cref="Font" /> or <see cref="Scale" /> is asking a question
+///         only a run can answer — the line is where a mixed-font width or caret lives, because those
+///         can only be composed in pixels.
+///     </para>
 ///     <para>
 ///         ⚠ <b>One line.</b> Nothing here breaks a paragraph across lines, so a string wider than
 ///         its element overflows it rather than wrapping — the measure function ignores the width it
@@ -45,12 +53,17 @@ public readonly record struct PositionedGlyph(ushort GlyphId, float X, float Y);
 ///     The computed <c>line-height</c> in pixels, or <see cref="float.NaN" /> for the font's own
 ///     recommendation. NaN rather than zero, because zero is a line height somebody might mean.
 /// </param>
+/// <param name="Start">
+///     Where this run's text begins in the element's, as a UTF-16 index. Zero for a line that is one
+///     run, and what lets a caret index reach the run it belongs to.
+/// </param>
 public sealed record TextRun(
     FontFace Font,
     ShapedText Shaped,
     float Size,
     float Tracking = 0f,
-    float Leading = float.NaN
+    float Leading = float.NaN,
+    int Start = 0
 ) {
     /// <summary>What multiplies a design unit to give a pixel.</summary>
     public float Scale => Size / Font.UnitsPerEm;
@@ -124,8 +137,27 @@ public sealed record TextRun(
         }
     }
 
+    /// <summary>How far along the run a caret index sits, in pixels.</summary>
+    /// <param name="index">A UTF-16 index into the element's text, not into the run's.</param>
+    /// <returns>The distance from the run's own start.</returns>
+    /// <remarks>
+    ///     ⚠ <b><see cref="Tracking" /> is not counted.</b> The shaped text knows nothing about
+    ///     letter spacing, so a caret in a tracked run sits progressively short of the glyph it
+    ///     belongs to — and <see cref="Width" />, which does count it, disagrees with the offset of
+    ///     the last index. Recorded rather than fixed: no control sets tracking on an editable field
+    ///     today, and fixing it means counting clusters up to an index, which is a different walk
+    ///     from the one the caret code does.
+    /// </remarks>
+    public float CaretOffset(int index) => Shaped.CaretOffset(Math.Clamp(index - Start, 0, Shaped.Text.Length)) * Scale;
+
+    /// <summary>Which caret index a distance from the run's start lands on.</summary>
+    /// <param name="x">The distance, in pixels.</param>
+    /// <returns>A UTF-16 index into the element's text.</returns>
+    public int CaretIndexAt(float x) => Shaped.CaretIndexAt(x / Scale) + Start;
+
     /// <summary>Places every glyph relative to the start of the line.</summary>
     /// <param name="into">Where to put them.</param>
+    /// <param name="penX">Where the run begins, in pixels from the start of the line.</param>
     /// <remarks>
     ///     ⚠ <b>The y is negated.</b> Shaping puts y positive upwards, because that is how a font's
     ///     design grid is drawn; the draw list is in document space, where y grows downwards. Getting
@@ -133,7 +165,7 @@ public sealed record TextRun(
     ///     offset — and flips every mark in Arabic and Devanagari to the other side of the letter it
     ///     belongs to.
     /// </remarks>
-    public void Place(List<PositionedGlyph> into) {
+    public void Place(List<PositionedGlyph> into, float penX = 0f) {
         ArgumentNullException.ThrowIfNull(into);
 
         var scale = Scale;
@@ -141,7 +173,7 @@ public sealed record TextRun(
         // Tracking accumulates once per cluster rather than once per glyph, so a combining mark
         // moves with the letter it belongs to instead of away from it. Kept out of the common path
         // entirely: text with no tracking runs the loop it always ran.
-        var offset = 0f;
+        var offset = penX;
         var previous = int.MinValue;
 
         foreach (var placement in Shaped.Placements()) {
@@ -157,18 +189,4 @@ public sealed record TextRun(
         }
     }
 
-    /// <summary>Measures a leaf whose size is its text.</summary>
-    /// <param name="request">What the layout algorithm is asking.</param>
-    /// <returns>How big the line is.</returns>
-    /// <remarks>
-    ///     ⚠ <b>The available width is ignored</b>, which is exactly the single-line limitation above
-    ///     wearing its working clothes: a wrapping implementation reads
-    ///     <see cref="MeasureRequest.AvailableWidth" /> and this one has nothing to do with it. The
-    ///     measure cache keys on the request, so an answer that ignores part of the question is still
-    ///     a pure function of it and the cache stays correct.
-    /// </remarks>
-    public static LayoutSize Measure(in MeasureRequest request) =>
-        request.Context is UiElement element && element.Run() is { } run
-            ? new LayoutSize(run.Width, run.Height)
-            : new LayoutSize(0f, 0f);
 }

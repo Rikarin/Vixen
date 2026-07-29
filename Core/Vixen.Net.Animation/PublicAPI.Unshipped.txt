@@ -1,0 +1,121 @@
+#nullable enable
+Vixen.Net.Animation.NetworkAnimator -> struct
+Vixen.Net.Animation.NetworkAnimator.NetworkAnimator() -> void
+Vixen.Net.Animation.NetworkAnimator.NormalizedTime -> float
+Vixen.Net.Animation.NetworkAnimator.Speed -> float
+Vixen.Net.Animation.NetworkAnimator.State -> ushort
+Vixen.Net.Animation.NetworkAnimatorApplySystem -> sealed class
+Vixen.Net.Animation.NetworkAnimatorApplySystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Net.Animation.NetworkAnimatorApplySystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Net.Animation.NetworkAnimatorApplySystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Net.Animation.NetworkAnimatorApplySystem.AppliedCount.get -> long
+Vixen.Net.Animation.NetworkAnimatorApplySystem.Apply(Vixen.Ecs.World world) -> void
+Vixen.Net.Animation.NetworkAnimatorApplySystem.CorrectedCount.get -> long
+Vixen.Net.Animation.NetworkAnimatorApplySystem.IsAuthority(Vixen.Net.Replication.NetworkId id) -> bool
+Vixen.Net.Animation.NetworkAnimatorApplySystem.Local.get -> Vixen.Net.Sessions.PlayerId
+Vixen.Net.Animation.NetworkAnimatorApplySystem.Local.set -> Vixen.Net.Sessions.PlayerId
+Vixen.Net.Animation.NetworkAnimatorApplySystem.NetworkAnimatorApplySystem() -> void
+Vixen.Net.Animation.NetworkAnimatorApplySystem.Rules.get -> Vixen.Net.Rules.NetworkRulesRegistry?
+Vixen.Net.Animation.NetworkAnimatorApplySystem.Rules.set -> Vixen.Net.Rules.NetworkRulesRegistry?
+Vixen.Net.Animation.NetworkAnimatorCaptureSystem -> sealed class
+Vixen.Net.Animation.NetworkAnimatorCaptureSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Net.Animation.NetworkAnimatorCaptureSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Net.Animation.NetworkAnimatorCaptureSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Net.Animation.NetworkAnimatorCaptureSystem.IsAuthority(Vixen.Net.Replication.NetworkId id) -> bool
+Vixen.Net.Animation.NetworkAnimatorCaptureSystem.Local.get -> Vixen.Net.Sessions.PlayerId
+Vixen.Net.Animation.NetworkAnimatorCaptureSystem.Local.set -> Vixen.Net.Sessions.PlayerId
+Vixen.Net.Animation.NetworkAnimatorCaptureSystem.NetworkAnimatorCaptureSystem() -> void
+Vixen.Net.Animation.NetworkAnimatorCaptureSystem.Publish(Vixen.Ecs.World world) -> void
+Vixen.Net.Animation.NetworkAnimatorCaptureSystem.PublishedCount.get -> long
+Vixen.Net.Animation.NetworkAnimatorCaptureSystem.Rules.get -> Vixen.Net.Rules.NetworkRulesRegistry?
+Vixen.Net.Animation.NetworkAnimatorCaptureSystem.Rules.set -> Vixen.Net.Rules.NetworkRulesRegistry?
+Vixen.Net.Animation.NetworkAnimatorParameters -> struct
+Vixen.Net.Animation.NetworkAnimatorParameters.Count -> byte
+Vixen.Net.Animation.NetworkAnimatorParameters.NetworkAnimatorParameters() -> void
+Vixen.Net.Animation.NetworkAnimatorParameters.ParameterBlock -> struct
+Vixen.Net.Animation.NetworkAnimatorParameters.ParameterBlock.ParameterBlock() -> void
+Vixen.Net.Animation.NetworkAnimatorParameters.Values -> Vixen.Net.Animation.NetworkAnimatorParameters.ParameterBlock
+Vixen.Net.Animation.NetworkAnimatorParametersReplicator -> sealed class
+Vixen.Net.Animation.NetworkAnimatorParametersReplicator : Vixen.Net.Replication.IComponentReplicator
+Vixen.Net.Animation.NetworkAnimatorParametersReplicator.Apply(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitReader reader) -> bool
+Vixen.Net.Animation.NetworkAnimatorParametersReplicator.ChangedQuery.get -> Vixen.Ecs.QueryDescription
+Vixen.Net.Animation.NetworkAnimatorParametersReplicator.Channel.get -> Vixen.Net.Channel
+Vixen.Net.Animation.NetworkAnimatorParametersReplicator.ComponentType.get -> Vixen.Core.ComponentTypeId
+Vixen.Net.Animation.NetworkAnimatorParametersReplicator.Has(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> bool
+Vixen.Net.Animation.NetworkAnimatorParametersReplicator.Lanes.get -> System.ReadOnlySpan<Vixen.Net.Messaging.WireLane>
+Vixen.Net.Animation.NetworkAnimatorParametersReplicator.NetworkAnimatorParametersReplicator() -> void
+Vixen.Net.Animation.NetworkAnimatorParametersReplicator.Priority.get -> int
+Vixen.Net.Animation.NetworkAnimatorParametersReplicator.TypeId.get -> uint
+Vixen.Net.Animation.NetworkAnimatorParametersReplicator.TypeName.get -> string
+Vixen.Net.Animation.NetworkAnimatorParametersReplicator.Write(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitWriter writer) -> void
+Vixen.Net.Animation.NetworkAnimatorReplicator -> sealed class
+Vixen.Net.Animation.NetworkAnimatorReplicator : Vixen.Net.Replication.IComponentReplicator
+Vixen.Net.Animation.NetworkAnimatorReplicator.Apply(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitReader reader) -> bool
+Vixen.Net.Animation.NetworkAnimatorReplicator.ChangedQuery.get -> Vixen.Ecs.QueryDescription
+Vixen.Net.Animation.NetworkAnimatorReplicator.Channel.get -> Vixen.Net.Channel
+Vixen.Net.Animation.NetworkAnimatorReplicator.ComponentType.get -> Vixen.Core.ComponentTypeId
+Vixen.Net.Animation.NetworkAnimatorReplicator.Has(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> bool
+Vixen.Net.Animation.NetworkAnimatorReplicator.Lanes.get -> System.ReadOnlySpan<Vixen.Net.Messaging.WireLane>
+Vixen.Net.Animation.NetworkAnimatorReplicator.NetworkAnimatorReplicator() -> void
+Vixen.Net.Animation.NetworkAnimatorReplicator.Priority.get -> int
+Vixen.Net.Animation.NetworkAnimatorReplicator.TypeId.get -> uint
+Vixen.Net.Animation.NetworkAnimatorReplicator.TypeName.get -> string
+Vixen.Net.Animation.NetworkAnimatorReplicator.Write(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitWriter writer) -> void
+Vixen.Net.Animation.NetworkBoneSelection -> struct
+Vixen.Net.Animation.NetworkBoneSelection.Joints -> int[]?
+Vixen.Net.Animation.NetworkBoneSelection.NetworkBoneSelection() -> void
+Vixen.Net.Animation.NetworkBones -> struct
+Vixen.Net.Animation.NetworkBones.Count -> byte
+Vixen.Net.Animation.NetworkBones.NetworkBones() -> void
+Vixen.Net.Animation.NetworkBones.RotationBlock -> struct
+Vixen.Net.Animation.NetworkBones.RotationBlock.RotationBlock() -> void
+Vixen.Net.Animation.NetworkBones.Rotations -> Vixen.Net.Animation.NetworkBones.RotationBlock
+Vixen.Net.Animation.NetworkBonesApplySystem -> sealed class
+Vixen.Net.Animation.NetworkBonesApplySystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Net.Animation.NetworkBonesApplySystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Net.Animation.NetworkBonesApplySystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Net.Animation.NetworkBonesApplySystem.AppliedCount.get -> long
+Vixen.Net.Animation.NetworkBonesApplySystem.Apply(Vixen.Ecs.World world) -> void
+Vixen.Net.Animation.NetworkBonesApplySystem.IsAuthority(Vixen.Net.Replication.NetworkId id) -> bool
+Vixen.Net.Animation.NetworkBonesApplySystem.Local.get -> Vixen.Net.Sessions.PlayerId
+Vixen.Net.Animation.NetworkBonesApplySystem.Local.set -> Vixen.Net.Sessions.PlayerId
+Vixen.Net.Animation.NetworkBonesApplySystem.MismatchedCount.get -> long
+Vixen.Net.Animation.NetworkBonesApplySystem.NetworkBonesApplySystem() -> void
+Vixen.Net.Animation.NetworkBonesApplySystem.Rules.get -> Vixen.Net.Rules.NetworkRulesRegistry?
+Vixen.Net.Animation.NetworkBonesApplySystem.Rules.set -> Vixen.Net.Rules.NetworkRulesRegistry?
+Vixen.Net.Animation.NetworkBonesCaptureSystem -> sealed class
+Vixen.Net.Animation.NetworkBonesCaptureSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Net.Animation.NetworkBonesCaptureSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Net.Animation.NetworkBonesCaptureSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Net.Animation.NetworkBonesCaptureSystem.BoneCount.get -> long
+Vixen.Net.Animation.NetworkBonesCaptureSystem.IsAuthority(Vixen.Net.Replication.NetworkId id) -> bool
+Vixen.Net.Animation.NetworkBonesCaptureSystem.Local.get -> Vixen.Net.Sessions.PlayerId
+Vixen.Net.Animation.NetworkBonesCaptureSystem.Local.set -> Vixen.Net.Sessions.PlayerId
+Vixen.Net.Animation.NetworkBonesCaptureSystem.NetworkBonesCaptureSystem() -> void
+Vixen.Net.Animation.NetworkBonesCaptureSystem.Publish(Vixen.Ecs.World world) -> void
+Vixen.Net.Animation.NetworkBonesCaptureSystem.PublishedCount.get -> long
+Vixen.Net.Animation.NetworkBonesCaptureSystem.Rules.get -> Vixen.Net.Rules.NetworkRulesRegistry?
+Vixen.Net.Animation.NetworkBonesCaptureSystem.Rules.set -> Vixen.Net.Rules.NetworkRulesRegistry?
+Vixen.Net.Animation.NetworkBonesReplicator -> sealed class
+Vixen.Net.Animation.NetworkBonesReplicator : Vixen.Net.Replication.IComponentReplicator
+Vixen.Net.Animation.NetworkBonesReplicator.Apply(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitReader reader) -> bool
+Vixen.Net.Animation.NetworkBonesReplicator.ChangedQuery.get -> Vixen.Ecs.QueryDescription
+Vixen.Net.Animation.NetworkBonesReplicator.Channel.get -> Vixen.Net.Channel
+Vixen.Net.Animation.NetworkBonesReplicator.ComponentType.get -> Vixen.Core.ComponentTypeId
+Vixen.Net.Animation.NetworkBonesReplicator.Has(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> bool
+Vixen.Net.Animation.NetworkBonesReplicator.Lanes.get -> System.ReadOnlySpan<Vixen.Net.Messaging.WireLane>
+Vixen.Net.Animation.NetworkBonesReplicator.NetworkBonesReplicator() -> void
+Vixen.Net.Animation.NetworkBonesReplicator.Priority.get -> int
+Vixen.Net.Animation.NetworkBonesReplicator.TypeId.get -> uint
+Vixen.Net.Animation.NetworkBonesReplicator.TypeName.get -> string
+Vixen.Net.Animation.NetworkBonesReplicator.Write(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitWriter writer) -> void
+const Vixen.Net.Animation.NetworkAnimatorApplySystem.CorrectionCrossfade = 0.1 -> float
+const Vixen.Net.Animation.NetworkAnimatorReplicator.MaxParameters = 16 -> int
+const Vixen.Net.Animation.NetworkAnimatorReplicator.TimeBits = 8 -> int
+const Vixen.Net.Animation.NetworkBonesReplicator.MaxBones = 24 -> int
+override Vixen.Net.Animation.NetworkAnimatorApplySystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Net.Animation.NetworkAnimatorCaptureSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Net.Animation.NetworkBonesApplySystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Net.Animation.NetworkBonesCaptureSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+static Vixen.Net.Animation.NetworkAnimatorReplicator.SpeedRange.get -> Vixen.Net.Messaging.QuantizeRange
+static Vixen.Net.Animation.NetworkAnimatorReplicator.TimeRange.get -> Vixen.Net.Messaging.QuantizeRange

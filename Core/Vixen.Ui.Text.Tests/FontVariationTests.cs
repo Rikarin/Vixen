@@ -9,11 +9,11 @@ namespace Vixen.Ui.Text.Tests;
 
 /// <summary>Axis normalisation, <c>avar</c>, and the two cache keys a variable font would break.</summary>
 /// <remarks>
-///     ⚠ <b>No font is loaded here and that is on purpose.</b> None of the fifteen committed faces has
-///     an <c>fvar</c> — the Consortium's variable-font fixtures live in the reference clone and are
-///     not committed yet — so a test that needed one could not run in CI. What is under test is the
-///     arithmetic and the keying, both of which are decidable without a file, and both of which have
-///     to be right before <c>gvar</c>'s deltas are worth reading.
+///     The arithmetic and the keying, both decidable without a file, and both of which have to be
+///     right before <c>gvar</c>'s deltas are worth reading. What the deltas then do is
+///     <see cref="VariationConformanceTests" />, against the Consortium's hundred cases; the two
+///     tests at the end here read real <c>fvar</c> tables because the padding in a font's tags is not
+///     something a hand-written axis would ever have.
 /// </remarks>
 public class FontVariationTests {
     static readonly FontAxis Weight = new("wght", 100f, 400f, 900f);
@@ -155,4 +155,67 @@ public class FontVariationTests {
         // one assignment away from being something else.
         Assert.NotEqual(new GlyphKey(0, 42, 64), regular);
     }
+
+    [Fact]
+    public void A_fonts_axes_come_back_in_the_fonts_own_order() {
+        var font = TestFonts.Load("Zycon.ttf");
+
+        Assert.True(font.IsVariable);
+        Assert.Equal(["T1  ", "T2  ", "T3  ", "T4  ", "M1  ", "M2  "], font.Axes.Select(axis => axis.Tag));
+
+        // ⚠ Order, not sorted order, and it is load-bearing: every variation table names an axis by
+        // its index. Sorting these would read `M1`'s deltas against `T1`'s coordinate.
+        Assert.Equal(0f, font.Axes[0].Minimum);
+        Assert.Equal(-1f, font.Axes[4].Minimum);
+
+        // A static face answers empty rather than throwing, which is what makes `IsVariable` a
+        // question a caller can ask about any font.
+        Assert.False(TestFonts.Load("TestShapeLana.ttf").IsVariable);
+    }
+
+    [Fact]
+    public void An_axis_asked_for_without_its_padding_is_still_found() {
+        // ⚠ **This was a real bug and the conformance suite found it.** A tag is four bytes, so
+        // Zycon's axes are `M1  ` and `T1  ` on disk, and every caller that names one — CSS, the
+        // Consortium's case files, a person — writes `M1`. Matching only the stored form left all
+        // six axes at their defaults, which is indistinguishable on screen from a font with no
+        // variation data at all: 32 of the suite's cases drew the same glyph nine times.
+        var font = TestFonts.Load("Zycon.ttf");
+
+        var trimmed = font.Variation(new Dictionary<string, float> { ["M1"] = 1f });
+        var padded = font.Variation(new Dictionary<string, float> { ["M1  "] = 1f });
+
+        Assert.Equal(padded, trimmed);
+        Assert.Equal(1f, trimmed.Coordinates[4]);
+
+        // And nothing else moved, so the lookup is not matching on a prefix.
+        Assert.Equal(0f, trimmed.Coordinates[0]);
+    }
+
+    [Fact]
+    public void Shaping_an_instance_moves_the_advances_too() {
+        // ⚠ **The outline is not the whole of an instance.** A bold is wider as well as heavier, and
+        // the width comes from `HVAR` through the shaper rather than from `gvar`. Before this was
+        // wired, `ShapingCache` had a key that told two instances apart and a shaper that gave them
+        // the same answer — a cache that was correct about a distinction nothing downstream made.
+        var font = TestFonts.Load("TestGVARFour.ttf");
+
+        Assert.Equal(["cntr", "wght"], font.Axes.Select(axis => axis.Tag));
+
+        var light = TextShaper.Shape(font, "OIO", ParagraphDirection.Auto, font.Variation(Weights(0f)));
+        var heavy = TextShaper.Shape(font, "OIO", ParagraphDirection.Auto, font.Variation(Weights(1000f)));
+
+        Assert.NotEqual(light.Advance, heavy.Advance);
+
+        // And it goes back: the face carries the instance, so a paragraph that asks for nothing must
+        // not inherit whatever the last one set. `wght` defaults to its own maximum in this font, so
+        // shaping with no instance has to agree with shaping at 1000 and disagree with 0.
+        var plain = TextShaper.Shape(font, "OIO");
+
+        Assert.Equal(FontVariation.None, font.Instance);
+        Assert.Equal(heavy.Advance, plain.Advance);
+        Assert.NotEqual(light.Advance, plain.Advance);
+    }
+
+    static Dictionary<string, float> Weights(float weight) => new(StringComparer.Ordinal) { ["wght"] = weight };
 }

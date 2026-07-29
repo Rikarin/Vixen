@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Graphics.WebGPU</RootNamespace>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <Description>
+            The WebGPU backend. Bind groups are descriptor sets, render pipelines are PSOs and passes
+            are explicit, so the RHI maps onto it almost one for one — which is what makes it the
+            long-term web story rather than WebGL2. Ships the native Dawn/wgpu surface; the browser
+            surface is Vixen.Graphics.WebGPU.Browser.
+        </Description>
+        <PackageTags>webgpu;wgpu;dawn;graphics;rhi;web;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Collections\Vixen.Core.Collections.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Graphics\Vixen.Graphics.csproj" />
+
+        <!-- The loader search: the application's own runtimes/<rid>/native/ layout and the RID
+             chain. Nothing ships Dawn or wgpu-native as part of an OS, so this matters more here
+             than it does for Vulkan. See WebGpuLoader and R11. -->
+        <ProjectReference Include="..\Vixen.Platform.Native\Vixen.Platform.Native.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+
+        <!--
+          Only the Native/ folder touches this. Everything above it is written against
+          IWebGpuBinding, which is what lets the browser surface reuse the whole backend
+          without dragging a P/Invoke binding into a WebAssembly download.
+        -->
+        <PackageReference Include="Silk.NET.WebGPU" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Graphics.WebGPU.Tests" />
+        <InternalsVisibleTo Include="Vixen.Graphics.WebGPU.Browser" />
+    </ItemGroup>
+
+    <!--
+      Puts the restored wgpu-native into runtimes/<rid>/native/, where NativeSearch looks first.
+      Silent when it has not been restored: that is the ordinary state of a clone, and the backend
+      reporting itself unavailable is backend selection working. See the targets file.
+    -->
+    <Import Project="..\Vixen.Platform.Native\build\WgpuNative.targets" />
+
+</Project>

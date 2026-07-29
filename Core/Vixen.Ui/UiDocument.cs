@@ -67,6 +67,9 @@ public sealed partial class UiDocument : IDisposable {
 
     bool dirty = true;
 
+    /// <summary>Whether a pass is running, so that a nested <see cref="Update" /> can refuse.</summary>
+    bool updating;
+
     /// <summary>Creates a document over a surface of a given size.</summary>
     /// <param name="width">The surface's width in device-independent pixels.</param>
     /// <param name="height">Its height.</param>
@@ -505,12 +508,31 @@ public sealed partial class UiDocument : IDisposable {
 
     /// <summary>Runs the passes, if anything has changed since the last one.</summary>
     /// <returns>Whether any work was done.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A call from inside a pass does nothing, and leaves the document dirty.</b> Several
+    ///     controls run a pass in the middle of their own refresh — <c>TreeView</c>, <c>DataGrid</c>
+    ///     and <c>CodeEditor</c> all write a content height as a declaration and then need it as a
+    ///     measurement — and those same refreshes are what <see cref="LayoutFinished" /> exists to
+    ///     call. Without this guard, hanging one on the event re-enters <c>Update</c> from inside
+    ///     <see cref="Settle" />, which invokes the handlers again from a nested frame: the recursion
+    ///     terminates only because the document runs out of changes, and the
+    ///     <see cref="SettlePasses" /> budget that is supposed to bound it is reset by every nested
+    ///     call. Refusing the nested call instead makes the settle loop the one place a pass is run,
+    ///     and the refresh gets its measurement on the next turn of that loop rather than from a
+    ///     stack frame underneath itself.
+    /// </remarks>
     public bool Update() {
-        if (!dirty) {
-            StylesApplied = 0;
+        // Not cleared on the way out of the guard: the caller's writes are still pending, and the
+        // loop that is already running is what will pick them up.
+        if (updating || !dirty) {
+            if (!updating) {
+                StylesApplied = 0;
+            }
+
             return false;
         }
 
+        updating = true;
         dirty = false;
         StylesApplied = 0;
         StylesResolved = 0;
@@ -531,7 +553,15 @@ public sealed partial class UiDocument : IDisposable {
         Layout.CalculateLayout(Root.LayoutNode, Viewport.ViewportWidth, Viewport.ViewportHeight, Direction.Ltr);
         Accumulate(Root, 0f, 0f);
 
-        Settle();
+        try {
+            Settle();
+        } finally {
+            // In a finally, because a handler is application code and is entitled to throw. A flag
+            // left set would make every later Update a silent no-op — an interface that stops
+            // repainting, with nothing in the exception to say why.
+            updating = false;
+        }
+
         return true;
     }
 

@@ -103,6 +103,12 @@ public interface IEditorCommand
 > generator will emit, so no call site changes when it lands, but an id used nowhere is not yet a
 > build error.
 >
+> **The project browser is `ProjectBrowser` in `Vixen.Editor.App`**, not a shell panel, and for the
+> same reason as the first correction: it needs the asset database, and the shell may not see one.
+> Its shape is `AssetTree` in `Vixen.Editor.Core` — a flat index in, an immutable tree out — so
+> the ordering, the folder synthesis and the search are tested without a document. `Ctrl+R` rescans.
+> It does not watch the file system, and says so rather than pretending.
+>
 > The gaps are a keybinding editor (the model has conflict detection, per-command customisation and
 > reset; there is no UI over it) and plugin loading, which needs `Vixen.Editor.Plugin` to exist.
 
@@ -133,6 +139,30 @@ public sealed partial class WaterMaterial : Behavior
   inspector** — the small affordances that make an inspector feel finished.
 - Every edit produces an `IEditorCommand`, so undo works without per-drawer effort.
 
+> **As built** (see [`Editor/Vixen.Editor.Inspector/README.md`](../../Editor/Vixen.Editor.Inspector/README.md)).
+> All of the above is in, with one correction and two gaps.
+>
+> The correction is what the generator is *for*. `Vixen.Core.Reflection` already emits a descriptor
+> per type and `Vixen.Ui.Controls.Advanced`'s `PropertyGrid` is built on it, so a second generator
+> needed a reason. It has one, and it is the sentence above about `ref` access: the reflection
+> layer's accessors pass values as `object`, which is why `PropertyGrid` documents that a struct
+> member of a struct member cannot be written back. `InspectorMember<TOwner, TValue>` takes a
+> `ref` to a *field* — `static (Foo o) => ref o.Tint` — and falls back to accessors for a
+> *property*, because a property has no reference to take. Attributes that both layers care about
+> (`[Range]`, `[Tooltip]`, `[Category]`) are `Vixen.Core`'s and are read by simple name, so the
+> vocabulary did not fork; the editor-only ones live in the inspector assembly.
+>
+> One thing this section does not say and should. **Refreshing a mixed row will destroy the values
+> it is showing** unless something stops it: putting a value into a control raises the control's
+> changed event, a mixed field has no value to re-write, and the neutral position the control was
+> parked at gets written to every selected object. `InspectorField.Refreshing()` is the guard, held
+> by the view rather than by each drawer so a third-party drawer gets it too. Every inspector has
+> this bug once.
+>
+> The gaps are a drawer for a nested described type — the field binding supports it, the row
+> grouping does not — and the asset picker's browser, which is a shell panel this raises an event
+> for.
+
 ### `Vixen.Editor.SceneView`
 
 - Viewport hosting a `RenderView` into a render target displayed by a `Viewport` control. Multiple
@@ -162,6 +192,39 @@ public sealed partial class WaterMaterial : Behavior
     game needs a server plus several clients ([16](16-networking.md)) — and doubles as the way to verify
     release-config behaviour and to isolate a game that hangs. The remote inspector already exists
     ([13](13-diagnostics.md)), so the incremental cost is process launch and a session panel.
+
+> **As built** (see [`Editor/Vixen.Editor.SceneView/README.md`](../../Editor/Vixen.Editor.SceneView/README.md)).
+> The camera, the gizmos, the picking stage, the view modes, the grid, drag-and-drop placement and
+> both play topologies are in. Everything that decides *where* is here; everything that puts
+> triangles on screen is not, and that division is the reason the whole assembly is tested with no
+> device.
+>
+> Three notes on how it came out.
+>
+> - **A gizmo drag is recomputed from mouse-down every frame, never accumulated.** That one choice
+>   is what makes snapping land *on* the grid however slowly the drag was made, makes a drag that
+>   goes out and comes back end exactly where it began, and makes drift impossible rather than
+>   small. The obvious implementation — add this frame's delta — has all three bugs and none of them
+>   reproduce.
+> - **A plane handle seen edge-on is not offered, and that had to affect the hit test and not only
+>   the drawing.** Its quad projects to a sliver lying along the third arm and takes that arm's
+>   clicks. A handle that is hidden and still grabbable is worse than one that is neither.
+> - **The picking pass could not declare its own draw pass.** `CompositorFrame.Context` is internal
+>   to `Vixen.Rendering`, rightly — a draw context is the renderer's plumbing — so `PickingRenderer`
+>   owns a `RenderPassRenderer` and drives it through the `BuildChild` seam, and adds only the
+>   transfer pass that copies one pixel out. That seam was widened for exactly this case and this is
+>   the first thing outside `Vixen.Rendering` to use it.
+>
+> Two things this section asks for that are only half here. **Vertex snapping** is in the settings
+> model and is not honoured: it needs the mesh under the pointer, which is the readback picking
+> already does but for a position rather than an id. **Rubber-band selection** likewise — the
+> picking stage answers one pixel, and a marquee is a different copy and a different resolve.
+>
+> One correction to the play-mode paragraph. It says a snapshot is taken and restored, and leaves
+> out that **every entity gets a new handle**, so the editor's selection — which is outside the
+> world — has to be translated. `WorldSnapshot.Restore` returns the table rather than being a
+> `void`, because a selection that was not translated names whatever landed in those slots, which
+> presents as a rendering fault.
 
 ### `Vixen.Editor.NodeGraph` — one framework, three graphs
 
@@ -206,9 +269,8 @@ port model from the start.
 
 > **As built** (see [`Vixen.Editor.NodeGraph`](../../Editor/Vixen.Editor.NodeGraph/README.md),
 > [`.ShaderGraph`](../../Editor/Vixen.Editor.ShaderGraph/README.md) and
-> [`.VfxGraph`](../../Editor/Vixen.Editor.VfxGraph/README.md)). The model, the generated registry and
-> the compiler are in, and so are two of the three graphs — everything above the line marked
-> `NodeGraphView`. The example in this section compiles as written.
+> [`.VfxGraph`](../../Editor/Vixen.Editor.VfxGraph/README.md)). All four boxes are in, and so are two
+> of the three graphs. The example in this section compiles as written.
 >
 > Three notes on how it came out:
 >
@@ -224,10 +286,41 @@ port model from the start.
 >   against it, so a graph that produces the array produces the Raven too. There is no second lowering
 >   and no way for the two halves to have understood the graph differently.
 >
-> Not in: the view, sub-graphs, the animation graph, and mapping a *generated shader's* diagnostics
-> back to the node that emitted the line — every diagnostic the graph compilers raise names a node and
-> a port, but Raven's own complaints about the generated text are not yet mapped, which needs the
-> emitters to record spans as they write.
+> Four more from building the view and sub-graphs on top:
+>
+> - **A sub-graph is inlined, not called.** Every target here is a straight-line program over values —
+>   Raven source with no function to call, a VFX operation array with no stack to put one on — so
+>   `SubGraphs.Flatten` turns a graph containing sub-graph nodes into one containing none, and the
+>   compiler that walks the result has no idea sub-graphs exist. It cost the compiler one property and
+>   four lines. The interface is *declared* on the model rather than derived from the entry and exit
+>   nodes, because a signature that came and went with a node would change under every containing
+>   graph when somebody deleted one.
+> - **The view is a projection and it is one direction.** The model is the document and the canvas's
+>   own `NodeGraph` is boxes with sockets on; `NodeGraphView` rebuilds the picture from the model on
+>   every structural change rather than editing it incrementally, because the canvas already culls to
+>   the viewport — so the cost is bounded by the screen — and a projection that is rebuilt cannot
+>   drift. A drag is the exception, and writes positions in place.
+> - **Two of the canvas's behaviours had to be intercepted rather than configured, and neither needed
+>   a change to `Vixen.Ui.Controls.Advanced`.** Delete is claimed by a capture-phase key handler,
+>   because the canvas would otherwise remove nodes from its own copy and tell nobody. And the canvas's
+>   reroute gesture — picking a wire up off a connected input, which it performs by disconnecting its
+>   own graph with no event for it — is found by comparing the model's edges against the picture's
+>   wires. Both are recorded in the view's README, because both are the kind of thing that reads as a
+>   bug until you know why.
+> - **Two things the section asks for are half here.** A preview is drawn either as a colour or as a
+>   render target — the same image command and the same flip question as `Viewport` — but nothing yet
+>   *renders* one: compiling a single node's sub-expression, running it over a quad and keeping the
+>   target alive across edits belongs to `.ShaderGraph`, so the framework's own fixture answers with a
+>   swatch. And a node the model has in two groups is drawn in one of them, because the canvas's group
+>   membership is a back-pointer on the node; the model keeps both, since a document should not lose
+>   an author's grouping to a drawing limitation.
+>
+> Not in: the animation graph, selectable wires, editing a sticky note in place, and mapping a
+> *generated shader's* diagnostics back to the node that emitted the line — every diagnostic the graph
+> compilers raise names a node and a port, but Raven's own complaints about the generated text are not
+> yet mapped, which needs the emitters to record spans as they write. A diagnostic about a node that
+> came *out of* a sub-graph names a synthetic identity the author cannot select, for the same
+> want of a source map.
 
 ### `Vixen.Editor.Profiler` and `.Debugger`
 

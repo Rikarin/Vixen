@@ -8,6 +8,7 @@ using Vixen.Graphics;
 using Vixen.Graphics.RenderGraph;
 using Vixen.Graphics.Vulkan;
 using Vixen.Platform;
+using Vixen.Rendering;
 using Vixen.Ui.Renderer;
 using Vixen.Ui.Rendering;
 using Vixen.Ui.Text;
@@ -39,6 +40,7 @@ sealed class EditorHost : IDisposable {
     readonly UiGeometryBuilder geometry = new();
     readonly GlyphFieldCache glyphs = new(new GlyphAtlas(1024, 1024));
 
+    ScenePresenter? scene;
     VulkanDevice? device;
     TransientResourcePool? pool;
     RenderGraph? graph;
@@ -59,18 +61,30 @@ sealed class EditorHost : IDisposable {
     bool lost;
     bool resized;
 
-    public EditorHost(IPlatform platform, IWindow window) {
+    public EditorHost(IPlatform platform, IWindow window, string? projectRoot = null) {
         this.platform = platform;
         this.window = window;
 
         editor = new EditorApplication(
             window.FramebufferSize.X / Scale,
             window.FramebufferSize.Y / Scale,
-            platform.FileSystem.DataDirectory
-        );
+            platform.FileSystem.DataDirectory,
+            projectRoot
+        ) {
+            RenderScale = Scale
+        };
 
         Fonts.Install(editor.Shell.Document);
     }
+
+    /// <summary>A command to run once, on the first frame, and then forget.</summary>
+    /// <remarks>
+    ///     ⚠ <b>For CI, and it goes through the command registry rather than round it.</b> The point
+    ///     of proving an import or a content build from here is that it is the <i>editor's</i> path —
+    ///     enablement, background task, notification and all. Calling the underlying pipeline
+    ///     directly would prove only what the CLI already proves.
+    /// </remarks>
+    public string? Command { get; set; }
 
     /// <summary>Runs until the window closes, or for a fixed number of frames.</summary>
     /// <param name="frames">How many, or zero for as many as it takes.</param>
@@ -101,16 +115,36 @@ sealed class EditorHost : IDisposable {
                 resized = false;
 
                 editor.Shell.Resize(window.FramebufferSize.X / Scale, window.FramebufferSize.Y / Scale);
+                editor.RenderScale = Scale;
                 Recreate();
             }
 
             editor.Shell.Tick(now, delta);
 
             editor.Shell.Document.Update();
+
+            // ⚠ Between the two, and it is not arbitrary. A viewport measures itself in render pixels
+            // from a box the layout pass is what produces, and the axis cross it draws comes from the
+            // camera this brings up to date — so either side of this pair puts the picture a frame
+            // behind whatever the user just did with the mouse.
+            editor.Update();
+
             editor.Shell.Document.Draw();
 
             Present(Build());
             drawn++;
+
+            // ⚠ After the first frame rather than before the loop, so the command runs against a
+            // shell that has laid itself out and a project that has finished opening — which is the
+            // state a person clicking a menu item is in, and the only state worth proving works.
+            if (drawn == 1 && Command is { Length: > 0 } once) {
+                Command = null;
+
+                if (!editor.Shell.Commands.Execute(once)) {
+                    Console.Error.WriteLine($"There is no enabled command called '{once}'.");
+                    return 2;
+                }
+            }
         }
 
         device?.WaitIdle();
@@ -205,14 +239,33 @@ sealed class EditorHost : IDisposable {
 
             // ⚠ Before the pass, not inside it. The atlas upload is a transfer and a layout
             // transition, and a render pass is the one place a Vulkan command list may not do
-            // either.
+            // either. The scene's lines are a buffer write and are here for the same reason.
             renderer!.Upload(commands, frame, glyphs.Atlas);
+
+            // ⚠ Declared before the interface's pass, so the graph orders the two from the read: the
+            // interface samples what the scene wrote, and the barrier between them is derived rather
+            // than placed by hand.
+            var sampled = default(GraphTexture);
+            var hasScene = false;
+
+            if (editor.Viewport is { } pane && scene is not null && scene.Resize(pane, renderer)) {
+                scene.Upload(editor.Scene, pane);
+                hasScene = scene.Declare(graph, pane, out sampled);
+            }
 
             graph.AddPass(
                 "ui",
                 pass => {
                     pass.ColourAttachment(backbuffer, LoadAction.Clear, new Color4(0.06f, 0.07f, 0.09f, 1f));
                     pass.SideEffect();
+
+                    // ⚠ The scene's target is sampled through a descriptor set, which the graph
+                    // cannot see. Saying so here is what orders the scene's pass before this one and
+                    // puts the layout transition between them — without it the target is still a
+                    // colour attachment when the fragment shader reads it.
+                    if (hasScene) {
+                        pass.Reads(sampled);
+                    }
 
                     // ⚠ The logical surface and the DPI scale, not the swapchain's size. The
                     // geometry is in device-independent units and the scissor comes out in
@@ -308,8 +361,26 @@ sealed class EditorHost : IDisposable {
                 device.CreateShader(ShaderStage.Fragment, Module("ui-box.frag.spv"), "ui box"),
                 device.CreateShader(ShaderStage.Fragment, Module("ui-text.frag.spv"), "ui text"),
                 device.CreateShader(ShaderStage.Fragment, Module("ui-solid.frag.spv"), "ui solid")
-            ),
+            ) {
+                // The stage a viewport's render target is drawn through. Supplied here rather than
+                // assumed by the renderer, for the reason UiShaders gives: turning source into
+                // modules is Raven's job and this host hands over what it has.
+                Image = device.CreateShader(ShaderStage.Fragment, Module("ui-image.frag.spv"), "ui image")
+            },
             new Rendering.RenderOutput([swapChain.Format])
+        );
+
+        // ⚠ A colour format the swapchain's is not. The scene is sampled by the interface rather
+        // than presented, so it wants a linear target — a UNorm-sRGB one would be decoded on the way
+        // in and encoded again on the way out, which is a scene visibly washed out next to the panels
+        // around it.
+        scene = new ScenePresenter(
+            device,
+            new LineShaders(
+                device.CreateShader(ShaderStage.Vertex, Module("line.vert.spv"), "line vertex"),
+                device.CreateShader(ShaderStage.Fragment, Module("line.frag.spv"), "line fragment")
+            ),
+            PixelFormat.Rgba8UNorm
         );
 
         return true;
@@ -340,11 +411,13 @@ sealed class EditorHost : IDisposable {
     void Release() {
         device?.WaitIdle();
 
+        scene?.Dispose();
         renderer?.Dispose();
         swapChain?.Dispose();
         pool?.Dispose();
         device?.Dispose();
 
+        scene = null;
         renderer = null;
         swapChain = null;
         graph = null;

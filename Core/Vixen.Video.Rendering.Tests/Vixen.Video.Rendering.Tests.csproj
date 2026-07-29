@@ -21,11 +21,11 @@
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Video.Rendering\Vixen.Video.Rendering.csproj" />
 
-        <!-- The interface path is asserted here rather than in a project of its own, because what is
-             being tested is that the two ends of one seam meet: a UI draw list names a picture and a
-             video draws it. Splitting that across two suites would leave each half asserting its own
-             half. -->
-        <ProjectReference Include="..\Vixen.Video.Ui\Vixen.Video.Ui.csproj" />
+        <!-- The interface path is asserted against the real UI renderer rather than a stand-in,
+             because what is being tested is that a video's target really is an ordinary picture as
+             far as `UiRenderer.RegisterImage` is concerned. Nothing shipped joins these two: the
+             join is one line in a game. -->
+        <ProjectReference Include="..\Vixen.Ui.Renderer\Vixen.Ui.Renderer.csproj" />
 
         <!-- The backend that records what it was asked to do rather than doing it. A test project may
              reference across layers; nothing shipped does. -->

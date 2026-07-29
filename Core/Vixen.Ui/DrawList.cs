@@ -26,28 +26,19 @@ public enum DrawCommandKind : byte {
     /// <summary>A run of positioned glyphs in one font.</summary>
     Text,
 
+    /// <summary>A texture, stretched over a rectangle.</summary>
+    /// <remarks>
+    ///     An image, a video frame, a viewport's render target. What the texture <i>is</i> belongs to
+    ///     the renderer — see <see cref="DrawCommand.Image" /> for why this layer names it with a
+    ///     number rather than a handle.
+    /// </remarks>
+    Image,
+
     /// <summary>The inside of a path.</summary>
     Path,
 
     /// <summary>A line along a path.</summary>
     PathStroke,
-
-    /// <summary>A picture somebody else owns and draws — a video, a render target, a sprite atlas.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>The one command whose contents this assembly does not understand, and that is the
-    ///         point.</b> <c>Vixen.Ui</c> describes a frame and touches no device — which is what lets
-    ///         every one of its tests run without one — so it cannot hold a texture, and a UI framework
-    ///         that grew a dependency on a video decoder to be able to show one would be paying for
-    ///         video in every game that draws a button.
-    ///     </para>
-    ///     <para>
-    ///         So a surface is named the way a font is named: an index into a side list the element
-    ///         put its source into, resolved by whoever is drawing. <c>Vixen.Ui.Renderer</c> hands the
-    ///         source to an <c>IUiSurfaceDrawer</c> and re-binds afterwards.
-    ///     </para>
-    /// </remarks>
-    Surface,
 
     /// <summary>Everything after this is clipped to a rectangle, until the matching pop.</summary>
     ClipPush,
@@ -105,17 +96,6 @@ public readonly record struct DrawCommand(
     /// <summary>How many entries of the side buffer this command uses.</summary>
     public int Length { get; init; }
 
-    /// <summary>Which surface, as an index into <see cref="DrawList.Surfaces" />.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Its own field rather than <see cref="Offset" />, which every other variable-length kind
-    ///     uses.</b> A surface is not a range of a side buffer — it is one reference, and the batcher
-    ///     has to compare it to decide whether two commands can be drawn together, exactly as it
-    ///     compares <see cref="Font" />. Putting it in <c>Offset</c> would make the key depend on a
-    ///     field whose meaning changes per kind, which is the sort of thing that works until somebody
-    ///     adds a kind.
-    /// </remarks>
-    public int Surface { get; init; }
-
     /// <summary>Which font, as an index into <see cref="DrawList.Fonts" />.</summary>
     /// <remarks>
     ///     An index rather than the face itself, so that the command stays a struct with no reference
@@ -124,6 +104,29 @@ public readonly record struct DrawCommand(
     ///     fields a kind does not use.
     /// </remarks>
     public int Font { get; init; }
+
+    /// <summary>Which texture, as the renderer's own name for one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Opaque on purpose, exactly as <c>Viewport.RenderTarget</c> is.</b> A texture view
+    ///         is <c>Vixen.Graphics</c>' vocabulary and this assembly does not reference it — the
+    ///         whole bargain <c>Vixen.Ui</c> makes is that it describes what to draw and knows nothing
+    ///         about how. A renderer registers a number for a texture it owns and is handed the number
+    ///         back; nothing in between has to know what it stands for.
+    ///     </para>
+    ///     <para>
+    ///         Zero is "no image", which is what a command of any other kind carries.
+    ///     </para>
+    /// </remarks>
+    public ulong Image { get; init; }
+
+    /// <summary>Which part of the texture to draw, as UVs from the top-left.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Zero-to-one and not pixels</b>, because the command does not know how big the texture
+    ///     is — only the renderer does. A sub-rectangle is how a sprite sheet, a nine-slice and a
+    ///     flipped video frame are all expressed, and the default covers the whole texture.
+    /// </remarks>
+    public Rectangle Source { get; init; } = new(0f, 0f, 1f, 1f);
 
     /// <summary>The font size in pixels, which is what scales a glyph's outline.</summary>
     /// <remarks>
@@ -195,8 +198,6 @@ public sealed class DrawList {
     readonly List<BoxStyle> boxes = [];
     readonly List<BoxStyle> previousBoxes = [];
     readonly List<FontFace> fonts = [];
-    readonly List<object> surfaces = [];
-    readonly List<object> previousSurfaces = [];
     readonly List<DrawBatch> batches = [];
 
     /// <summary>The commands, in the order they are drawn.</summary>
@@ -221,25 +222,6 @@ public sealed class DrawList {
 
     /// <summary>The faces the text commands refer to, in the order they were first used.</summary>
     public IReadOnlyList<FontFace> Fonts => fonts;
-
-    /// <summary>The pictures the surface commands refer to, in the order they were first used.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         <see langword="object" />, and deliberately not an interface. Anything this assembly
-    ///         could name would be a claim about what an external picture is, and the whole point is
-    ///         that it does not know: a <c>VideoTexture</c>, a render target, a sprite page and a
-    ///         platform surface have nothing in common that a UI framework can express. The renderer
-    ///         is where the type is known, because that is where the device is.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Compared by reference in the frame diff, so a source swapped for another changes
-    ///         the version even though the commands are byte-identical.</b> A video element that cut
-    ///         from one clip to another would otherwise keep drawing the first one for as long as
-    ///         nothing else on screen moved — the same failure the glyph comparison exists to prevent,
-    ///         one list along.
-    ///     </para>
-    /// </remarks>
-    public IReadOnlyList<object> Surfaces => surfaces;
 
     /// <summary>The commands grouped into runs a renderer can submit together.</summary>
     /// <remarks>
@@ -285,15 +267,6 @@ public sealed class DrawList {
         // that a face nothing draws with any more is not held alive by the list that stopped using
         // it.
         fonts.Clear();
-
-        // ⚠ The surfaces *are* kept, and the difference from the fonts is real rather than an
-        // inconsistency. A face is interned by value and two frames drawing the same text in the
-        // same face produce the same index; a surface is interned by reference, so a frame that
-        // swapped one video for another produces the same index for a different picture. Without the
-        // comparison below that frame reports itself unchanged.
-        previousSurfaces.Clear();
-        previousSurfaces.AddRange(surfaces);
-        surfaces.Clear();
     }
 
     /// <summary>Adds a command.</summary>
@@ -330,29 +303,6 @@ public sealed class DrawList {
         segments.AddRange(path.Segments);
 
         return offset;
-    }
-
-    /// <summary>Finds or adds an external picture.</summary>
-    /// <param name="surface">Whatever the renderer will recognise.</param>
-    /// <returns>Its index, for the command that draws it.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="surface" /> is null.</exception>
-    /// <remarks>
-    ///     Reference equality and a linear search, for the reason <see cref="AddFont" /> uses one: an
-    ///     interface has a handful of these at most, and a dictionary would cost a hash per command to
-    ///     avoid comparing a few pointers.
-    /// </remarks>
-    public int AddSurface(object surface) {
-        ArgumentNullException.ThrowIfNull(surface);
-
-        for (var index = 0; index < surfaces.Count; index++) {
-            if (ReferenceEquals(surfaces[index], surface)) {
-                return index;
-            }
-        }
-
-        surfaces.Add(surface);
-
-        return surfaces.Count - 1;
     }
 
     /// <summary>Finds or adds a font.</summary>
@@ -403,20 +353,8 @@ public sealed class DrawList {
         if (commands.Count != previous.Count
             || glyphs.Count != previousGlyphs.Count
             || segments.Count != previousSegments.Count
-            || boxes.Count != previousBoxes.Count
-            || surfaces.Count != previousSurfaces.Count) {
+            || boxes.Count != previousBoxes.Count) {
             return true;
-        }
-
-        // ⚠ Reference equality over the side list, which is the only comparison available and the
-        // only one that is right. A video element hands over the same texture every frame while its
-        // contents change entirely — a value comparison would report that changed every frame and
-        // throw the cache away — and hands over a *different* texture when the clip cuts, which is
-        // the one moment the frame really did change.
-        for (var i = 0; i < surfaces.Count; i++) {
-            if (!ReferenceEquals(surfaces[i], previousSurfaces[i])) {
-                return true;
-            }
         }
 
         for (var i = 0; i < commands.Count; i++) {

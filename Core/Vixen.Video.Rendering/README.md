@@ -31,6 +31,7 @@ game that draws a mesh.
 | `VideoConstants` | the sixty-four bytes, laid out to match the shader's block field for field. |
 | `VideoRenderFeature` | one render object per video, drawn in a stage that sorts `ByGroup`. |
 | `VideoSurfaceUploader` | the ECS bridge: a texture per player, uploaded and extracted once a frame. |
+| `VideoRenderTarget` | the same conversion into a target of its own, for consumers that bind one view. |
 
 `VideoRenderer` is separate from `VideoRenderFeature` so a sample or a golden image can drive it
 without a `RenderSystem`, a camera or a compositor — which is the only way to find out whether the
@@ -82,6 +83,34 @@ An entity draws when it has a `VideoScreenPlacement` beside its `VideoSurface`, 
 fraction of the target rather than pixels — so a cutscene written as `(0, 0, 1, 1)` is full-screen on
 every display. A texture is owned per *player*, not per entity, so a video on a wall and the same
 video in a mirror decode once and draw twice.
+
+## A video as an ordinary texture
+
+`VideoRenderer` draws planes straight into whatever pass it is recorded in, which is the cheapest
+thing for a cutscene and no use at all to a consumer that can only bind *one* view — a user
+interface's image command, a material slot, a thumbnail. `VideoRenderTarget` runs the same conversion
+into a target of its own and hands over the view:
+
+```csharp
+target.Draw(commands, planes, player);        // outside any pass
+ui.RegisterImage(handle, target.View);        // whenever target.Revision changes
+```
+
+That is the whole of "a video in a user interface". `Vixen.Ui` already draws a texture nobody there
+wrote — an element puts a number in an image command and the host registers a view against it — so
+nothing had to be added to it, and neither assembly references the other.
+
+⚠ **It costs a texture and a pass per video per frame, and that is the whole trade.** A full-screen
+cutscene should not use it. What it buys is that three R8 planes stop being something every consumer
+has to understand.
+
+⚠ **Watch `Revision`.** A resize destroys the texture and makes a new one, so a descriptor set still
+naming the old view names freed memory — undefined rather than an error, and it shows as a picture
+that is fine until the window is dragged.
+
+The target is sized to the picture's *display* size, so anamorphic content is resampled to square
+pixels once here rather than leaving every consumer to remember that this particular texture is not
+the shape it claims.
 
 ## What is not here
 

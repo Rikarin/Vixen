@@ -1,0 +1,916 @@
+#nullable enable
+Vixen.Graphics.AdapterKind -> enum : byte
+Vixen.Graphics.AdapterKind.AdapterKind() -> void
+Vixen.Graphics.AdapterKind.Discrete = 1 -> Vixen.Graphics.AdapterKind
+Vixen.Graphics.AdapterKind.Integrated = 2 -> Vixen.Graphics.AdapterKind
+Vixen.Graphics.AdapterKind.Software = 3 -> Vixen.Graphics.AdapterKind
+Vixen.Graphics.AdapterKind.Unknown = 0 -> Vixen.Graphics.AdapterKind
+Vixen.Graphics.AddressMode -> enum : byte
+Vixen.Graphics.AddressMode.AddressMode() -> void
+Vixen.Graphics.AddressMode.ClampToBorder = 3 -> Vixen.Graphics.AddressMode
+Vixen.Graphics.AddressMode.ClampToEdge = 2 -> Vixen.Graphics.AddressMode
+Vixen.Graphics.AddressMode.MirrorRepeat = 1 -> Vixen.Graphics.AddressMode
+Vixen.Graphics.AddressMode.Repeat = 0 -> Vixen.Graphics.AddressMode
+Vixen.Graphics.BarrierGroup -> readonly ref struct
+Vixen.Graphics.BarrierGroup.BarrierGroup() -> void
+Vixen.Graphics.BarrierGroup.BarrierGroup(System.ReadOnlySpan<Vixen.Graphics.BufferBarrier> buffers, System.ReadOnlySpan<Vixen.Graphics.TextureBarrier> textures) -> void
+Vixen.Graphics.BarrierGroup.Buffers.get -> System.ReadOnlySpan<Vixen.Graphics.BufferBarrier>
+Vixen.Graphics.BarrierGroup.IsEmpty.get -> bool
+Vixen.Graphics.BarrierGroup.Textures.get -> System.ReadOnlySpan<Vixen.Graphics.TextureBarrier>
+Vixen.Graphics.BlendFactor -> enum : byte
+Vixen.Graphics.BlendFactor.BlendFactor() -> void
+Vixen.Graphics.BlendFactor.Constant = 10 -> Vixen.Graphics.BlendFactor
+Vixen.Graphics.BlendFactor.DestinationAlpha = 8 -> Vixen.Graphics.BlendFactor
+Vixen.Graphics.BlendFactor.DestinationColour = 6 -> Vixen.Graphics.BlendFactor
+Vixen.Graphics.BlendFactor.One = 1 -> Vixen.Graphics.BlendFactor
+Vixen.Graphics.BlendFactor.OneMinusConstant = 11 -> Vixen.Graphics.BlendFactor
+Vixen.Graphics.BlendFactor.OneMinusDestinationAlpha = 9 -> Vixen.Graphics.BlendFactor
+Vixen.Graphics.BlendFactor.OneMinusDestinationColour = 7 -> Vixen.Graphics.BlendFactor
+Vixen.Graphics.BlendFactor.OneMinusSourceAlpha = 5 -> Vixen.Graphics.BlendFactor
+Vixen.Graphics.BlendFactor.OneMinusSourceColour = 3 -> Vixen.Graphics.BlendFactor
+Vixen.Graphics.BlendFactor.SourceAlpha = 4 -> Vixen.Graphics.BlendFactor
+Vixen.Graphics.BlendFactor.SourceAlphaSaturated = 12 -> Vixen.Graphics.BlendFactor
+Vixen.Graphics.BlendFactor.SourceColour = 2 -> Vixen.Graphics.BlendFactor
+Vixen.Graphics.BlendFactor.Zero = 0 -> Vixen.Graphics.BlendFactor
+Vixen.Graphics.BlendOperation -> enum : byte
+Vixen.Graphics.BlendOperation.Add = 0 -> Vixen.Graphics.BlendOperation
+Vixen.Graphics.BlendOperation.BlendOperation() -> void
+Vixen.Graphics.BlendOperation.Max = 4 -> Vixen.Graphics.BlendOperation
+Vixen.Graphics.BlendOperation.Min = 3 -> Vixen.Graphics.BlendOperation
+Vixen.Graphics.BlendOperation.ReverseSubtract = 2 -> Vixen.Graphics.BlendOperation
+Vixen.Graphics.BlendOperation.Subtract = 1 -> Vixen.Graphics.BlendOperation
+Vixen.Graphics.BlendState -> readonly struct
+Vixen.Graphics.BlendState : System.IEquatable<Vixen.Graphics.BlendState>
+Vixen.Graphics.BlendState.AlphaOperation.get -> Vixen.Graphics.BlendOperation
+Vixen.Graphics.BlendState.AlphaOperation.init -> Vixen.Graphics.BlendOperation
+Vixen.Graphics.BlendState.BlendState() -> void
+Vixen.Graphics.BlendState.BlendState(bool Enabled = false, Vixen.Graphics.BlendFactor SourceColour = Vixen.Graphics.BlendFactor.One, Vixen.Graphics.BlendFactor DestinationColour = Vixen.Graphics.BlendFactor.Zero, Vixen.Graphics.BlendOperation ColourOperation = Vixen.Graphics.BlendOperation.Add, Vixen.Graphics.BlendFactor SourceAlpha = Vixen.Graphics.BlendFactor.One, Vixen.Graphics.BlendFactor DestinationAlpha = Vixen.Graphics.BlendFactor.Zero, Vixen.Graphics.BlendOperation AlphaOperation = Vixen.Graphics.BlendOperation.Add, Vixen.Graphics.ColourWriteMask WriteMask = Vixen.Graphics.ColourWriteMask.All) -> void
+Vixen.Graphics.BlendState.ColourOperation.get -> Vixen.Graphics.BlendOperation
+Vixen.Graphics.BlendState.ColourOperation.init -> Vixen.Graphics.BlendOperation
+Vixen.Graphics.BlendState.DestinationAlpha.get -> Vixen.Graphics.BlendFactor
+Vixen.Graphics.BlendState.DestinationAlpha.init -> Vixen.Graphics.BlendFactor
+Vixen.Graphics.BlendState.DestinationColour.get -> Vixen.Graphics.BlendFactor
+Vixen.Graphics.BlendState.DestinationColour.init -> Vixen.Graphics.BlendFactor
+Vixen.Graphics.BlendState.Enabled.get -> bool
+Vixen.Graphics.BlendState.Enabled.init -> bool
+Vixen.Graphics.BlendState.SourceAlpha.get -> Vixen.Graphics.BlendFactor
+Vixen.Graphics.BlendState.SourceAlpha.init -> Vixen.Graphics.BlendFactor
+Vixen.Graphics.BlendState.SourceColour.get -> Vixen.Graphics.BlendFactor
+Vixen.Graphics.BlendState.SourceColour.init -> Vixen.Graphics.BlendFactor
+Vixen.Graphics.BlendState.WriteMask.get -> Vixen.Graphics.ColourWriteMask
+Vixen.Graphics.BlendState.WriteMask.init -> Vixen.Graphics.ColourWriteMask
+Vixen.Graphics.BorderColour -> enum : byte
+Vixen.Graphics.BorderColour.BorderColour() -> void
+Vixen.Graphics.BorderColour.OpaqueBlack = 1 -> Vixen.Graphics.BorderColour
+Vixen.Graphics.BorderColour.OpaqueWhite = 2 -> Vixen.Graphics.BorderColour
+Vixen.Graphics.BorderColour.TransparentBlack = 0 -> Vixen.Graphics.BorderColour
+Vixen.Graphics.BufferBarrier -> readonly struct
+Vixen.Graphics.BufferBarrier : System.IEquatable<Vixen.Graphics.BufferBarrier>
+Vixen.Graphics.BufferBarrier.After.get -> Vixen.Graphics.ResourceState
+Vixen.Graphics.BufferBarrier.After.init -> Vixen.Graphics.ResourceState
+Vixen.Graphics.BufferBarrier.Before.get -> Vixen.Graphics.ResourceState
+Vixen.Graphics.BufferBarrier.Before.init -> Vixen.Graphics.ResourceState
+Vixen.Graphics.BufferBarrier.Buffer.get -> Vixen.Graphics.BufferHandle
+Vixen.Graphics.BufferBarrier.Buffer.init -> Vixen.Graphics.BufferHandle
+Vixen.Graphics.BufferBarrier.BufferBarrier() -> void
+Vixen.Graphics.BufferBarrier.BufferBarrier(Vixen.Graphics.BufferHandle Buffer, Vixen.Graphics.ResourceState Before, Vixen.Graphics.ResourceState After) -> void
+Vixen.Graphics.BufferDescription -> readonly struct
+Vixen.Graphics.BufferDescription : System.IEquatable<Vixen.Graphics.BufferDescription>
+Vixen.Graphics.BufferDescription.Access.get -> Vixen.Graphics.MemoryAccess
+Vixen.Graphics.BufferDescription.Access.init -> Vixen.Graphics.MemoryAccess
+Vixen.Graphics.BufferDescription.BufferDescription() -> void
+Vixen.Graphics.BufferDescription.BufferDescription(long Size, Vixen.Graphics.BufferUsage Usage, Vixen.Graphics.MemoryAccess Access = Vixen.Graphics.MemoryAccess.DeviceLocal, string Name = "") -> void
+Vixen.Graphics.BufferDescription.Name.get -> string
+Vixen.Graphics.BufferDescription.Name.init -> string
+Vixen.Graphics.BufferDescription.Size.get -> long
+Vixen.Graphics.BufferDescription.Size.init -> long
+Vixen.Graphics.BufferDescription.Usage.get -> Vixen.Graphics.BufferUsage
+Vixen.Graphics.BufferDescription.Usage.init -> Vixen.Graphics.BufferUsage
+Vixen.Graphics.BufferDescription.Validate() -> void
+Vixen.Graphics.BufferHandle -> readonly struct
+Vixen.Graphics.BufferHandle : System.IEquatable<Vixen.Graphics.BufferHandle>
+Vixen.Graphics.BufferHandle.BufferHandle() -> void
+Vixen.Graphics.BufferHandle.BufferHandle(Vixen.Core.Collections.Handle<Vixen.Graphics.GpuBuffer> Value) -> void
+Vixen.Graphics.BufferHandle.IsValid.get -> bool
+Vixen.Graphics.BufferHandle.Value.get -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuBuffer>
+Vixen.Graphics.BufferHandle.Value.init -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuBuffer>
+Vixen.Graphics.BufferUsage -> enum : int
+Vixen.Graphics.BufferUsage.BufferUsage() -> void
+Vixen.Graphics.BufferUsage.CopyDestination = 64 -> Vixen.Graphics.BufferUsage
+Vixen.Graphics.BufferUsage.CopySource = 32 -> Vixen.Graphics.BufferUsage
+Vixen.Graphics.BufferUsage.Index = 2 -> Vixen.Graphics.BufferUsage
+Vixen.Graphics.BufferUsage.Indirect = 16 -> Vixen.Graphics.BufferUsage
+Vixen.Graphics.BufferUsage.None = 0 -> Vixen.Graphics.BufferUsage
+Vixen.Graphics.BufferUsage.Storage = 8 -> Vixen.Graphics.BufferUsage
+Vixen.Graphics.BufferUsage.Uniform = 4 -> Vixen.Graphics.BufferUsage
+Vixen.Graphics.BufferUsage.Vertex = 1 -> Vixen.Graphics.BufferUsage
+Vixen.Graphics.ColourAttachment -> readonly struct
+Vixen.Graphics.ColourAttachment : System.IEquatable<Vixen.Graphics.ColourAttachment>
+Vixen.Graphics.ColourAttachment.ClearColour.get -> Vixen.Core.Mathematics.Color4
+Vixen.Graphics.ColourAttachment.ClearColour.init -> Vixen.Core.Mathematics.Color4
+Vixen.Graphics.ColourAttachment.ColourAttachment() -> void
+Vixen.Graphics.ColourAttachment.ColourAttachment(Vixen.Graphics.TextureViewHandle View, Vixen.Graphics.LoadAction Load = Vixen.Graphics.LoadAction.Clear, Vixen.Graphics.StoreAction Store = Vixen.Graphics.StoreAction.Store, Vixen.Core.Mathematics.Color4 ClearColour = default(Vixen.Core.Mathematics.Color4), Vixen.Graphics.TextureViewHandle ResolveView = default(Vixen.Graphics.TextureViewHandle)) -> void
+Vixen.Graphics.ColourAttachment.Load.get -> Vixen.Graphics.LoadAction
+Vixen.Graphics.ColourAttachment.Load.init -> Vixen.Graphics.LoadAction
+Vixen.Graphics.ColourAttachment.ResolveView.get -> Vixen.Graphics.TextureViewHandle
+Vixen.Graphics.ColourAttachment.ResolveView.init -> Vixen.Graphics.TextureViewHandle
+Vixen.Graphics.ColourAttachment.Store.get -> Vixen.Graphics.StoreAction
+Vixen.Graphics.ColourAttachment.Store.init -> Vixen.Graphics.StoreAction
+Vixen.Graphics.ColourAttachment.View.get -> Vixen.Graphics.TextureViewHandle
+Vixen.Graphics.ColourAttachment.View.init -> Vixen.Graphics.TextureViewHandle
+Vixen.Graphics.ColourTargetState -> readonly struct
+Vixen.Graphics.ColourTargetState : System.IEquatable<Vixen.Graphics.ColourTargetState>
+Vixen.Graphics.ColourTargetState.Blend.get -> Vixen.Graphics.BlendState
+Vixen.Graphics.ColourTargetState.Blend.init -> Vixen.Graphics.BlendState
+Vixen.Graphics.ColourTargetState.ColourTargetState() -> void
+Vixen.Graphics.ColourTargetState.ColourTargetState(Vixen.Graphics.PixelFormat Format, Vixen.Graphics.BlendState Blend = default(Vixen.Graphics.BlendState)) -> void
+Vixen.Graphics.ColourTargetState.EffectiveBlend.get -> Vixen.Graphics.BlendState
+Vixen.Graphics.ColourTargetState.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.ColourTargetState.Format.init -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.ColourWriteMask -> enum : byte
+Vixen.Graphics.ColourWriteMask.All = Vixen.Graphics.ColourWriteMask.Red | Vixen.Graphics.ColourWriteMask.Green | Vixen.Graphics.ColourWriteMask.Blue | Vixen.Graphics.ColourWriteMask.Alpha -> Vixen.Graphics.ColourWriteMask
+Vixen.Graphics.ColourWriteMask.Alpha = 8 -> Vixen.Graphics.ColourWriteMask
+Vixen.Graphics.ColourWriteMask.Blue = 4 -> Vixen.Graphics.ColourWriteMask
+Vixen.Graphics.ColourWriteMask.ColourWriteMask() -> void
+Vixen.Graphics.ColourWriteMask.Green = 2 -> Vixen.Graphics.ColourWriteMask
+Vixen.Graphics.ColourWriteMask.None = 0 -> Vixen.Graphics.ColourWriteMask
+Vixen.Graphics.ColourWriteMask.Red = 1 -> Vixen.Graphics.ColourWriteMask
+Vixen.Graphics.CompareFunction -> enum : byte
+Vixen.Graphics.CompareFunction.Always = 7 -> Vixen.Graphics.CompareFunction
+Vixen.Graphics.CompareFunction.CompareFunction() -> void
+Vixen.Graphics.CompareFunction.Equal = 2 -> Vixen.Graphics.CompareFunction
+Vixen.Graphics.CompareFunction.Greater = 4 -> Vixen.Graphics.CompareFunction
+Vixen.Graphics.CompareFunction.GreaterEqual = 6 -> Vixen.Graphics.CompareFunction
+Vixen.Graphics.CompareFunction.Less = 1 -> Vixen.Graphics.CompareFunction
+Vixen.Graphics.CompareFunction.LessEqual = 3 -> Vixen.Graphics.CompareFunction
+Vixen.Graphics.CompareFunction.Never = 0 -> Vixen.Graphics.CompareFunction
+Vixen.Graphics.CompareFunction.NotEqual = 5 -> Vixen.Graphics.CompareFunction
+Vixen.Graphics.ComputePipelineDescription -> readonly struct
+Vixen.Graphics.ComputePipelineDescription : System.IEquatable<Vixen.Graphics.ComputePipelineDescription>
+Vixen.Graphics.ComputePipelineDescription.Compute.get -> Vixen.Graphics.ShaderHandle
+Vixen.Graphics.ComputePipelineDescription.Compute.init -> Vixen.Graphics.ShaderHandle
+Vixen.Graphics.ComputePipelineDescription.ComputePipelineDescription() -> void
+Vixen.Graphics.ComputePipelineDescription.ComputePipelineDescription(Vixen.Graphics.ShaderHandle Compute, Vixen.Graphics.PipelineLayoutHandle Layout, string Name = "") -> void
+Vixen.Graphics.ComputePipelineDescription.Layout.get -> Vixen.Graphics.PipelineLayoutHandle
+Vixen.Graphics.ComputePipelineDescription.Layout.init -> Vixen.Graphics.PipelineLayoutHandle
+Vixen.Graphics.ComputePipelineDescription.Name.get -> string
+Vixen.Graphics.ComputePipelineDescription.Name.init -> string
+Vixen.Graphics.ComputePipelineDescription.Validate() -> void
+Vixen.Graphics.CullMode -> enum : byte
+Vixen.Graphics.CullMode.Back = 2 -> Vixen.Graphics.CullMode
+Vixen.Graphics.CullMode.CullMode() -> void
+Vixen.Graphics.CullMode.Front = 1 -> Vixen.Graphics.CullMode
+Vixen.Graphics.CullMode.None = 0 -> Vixen.Graphics.CullMode
+Vixen.Graphics.DepthStencilAttachment -> readonly struct
+Vixen.Graphics.DepthStencilAttachment : System.IEquatable<Vixen.Graphics.DepthStencilAttachment>
+Vixen.Graphics.DepthStencilAttachment.ClearDepth.get -> float
+Vixen.Graphics.DepthStencilAttachment.ClearDepth.init -> float
+Vixen.Graphics.DepthStencilAttachment.ClearStencil.get -> byte
+Vixen.Graphics.DepthStencilAttachment.ClearStencil.init -> byte
+Vixen.Graphics.DepthStencilAttachment.DepthLoad.get -> Vixen.Graphics.LoadAction
+Vixen.Graphics.DepthStencilAttachment.DepthLoad.init -> Vixen.Graphics.LoadAction
+Vixen.Graphics.DepthStencilAttachment.DepthStencilAttachment() -> void
+Vixen.Graphics.DepthStencilAttachment.DepthStencilAttachment(Vixen.Graphics.TextureViewHandle View, Vixen.Graphics.LoadAction DepthLoad = Vixen.Graphics.LoadAction.Clear, Vixen.Graphics.StoreAction DepthStore = Vixen.Graphics.StoreAction.Store, float ClearDepth = 0, Vixen.Graphics.LoadAction StencilLoad = Vixen.Graphics.LoadAction.DontCare, Vixen.Graphics.StoreAction StencilStore = Vixen.Graphics.StoreAction.DontCare, byte ClearStencil = 0, bool IsReadOnly = false) -> void
+Vixen.Graphics.DepthStencilAttachment.DepthStore.get -> Vixen.Graphics.StoreAction
+Vixen.Graphics.DepthStencilAttachment.DepthStore.init -> Vixen.Graphics.StoreAction
+Vixen.Graphics.DepthStencilAttachment.IsReadOnly.get -> bool
+Vixen.Graphics.DepthStencilAttachment.IsReadOnly.init -> bool
+Vixen.Graphics.DepthStencilAttachment.StencilLoad.get -> Vixen.Graphics.LoadAction
+Vixen.Graphics.DepthStencilAttachment.StencilLoad.init -> Vixen.Graphics.LoadAction
+Vixen.Graphics.DepthStencilAttachment.StencilStore.get -> Vixen.Graphics.StoreAction
+Vixen.Graphics.DepthStencilAttachment.StencilStore.init -> Vixen.Graphics.StoreAction
+Vixen.Graphics.DepthStencilAttachment.View.get -> Vixen.Graphics.TextureViewHandle
+Vixen.Graphics.DepthStencilAttachment.View.init -> Vixen.Graphics.TextureViewHandle
+Vixen.Graphics.DepthStencilState -> readonly struct
+Vixen.Graphics.DepthStencilState : System.IEquatable<Vixen.Graphics.DepthStencilState>
+Vixen.Graphics.DepthStencilState.Back.get -> Vixen.Graphics.StencilFaceState
+Vixen.Graphics.DepthStencilState.Back.init -> Vixen.Graphics.StencilFaceState
+Vixen.Graphics.DepthStencilState.DepthCompare.get -> Vixen.Graphics.CompareFunction
+Vixen.Graphics.DepthStencilState.DepthCompare.init -> Vixen.Graphics.CompareFunction
+Vixen.Graphics.DepthStencilState.DepthStencilState() -> void
+Vixen.Graphics.DepthStencilState.DepthStencilState(bool DepthTest = true, bool DepthWrite = true, Vixen.Graphics.CompareFunction DepthCompare = Vixen.Graphics.CompareFunction.Greater, bool StencilTest = false, Vixen.Graphics.StencilFaceState Front = default(Vixen.Graphics.StencilFaceState), Vixen.Graphics.StencilFaceState Back = default(Vixen.Graphics.StencilFaceState), byte StencilReadMask = 255, byte StencilWriteMask = 255) -> void
+Vixen.Graphics.DepthStencilState.DepthTest.get -> bool
+Vixen.Graphics.DepthStencilState.DepthTest.init -> bool
+Vixen.Graphics.DepthStencilState.DepthWrite.get -> bool
+Vixen.Graphics.DepthStencilState.DepthWrite.init -> bool
+Vixen.Graphics.DepthStencilState.Front.get -> Vixen.Graphics.StencilFaceState
+Vixen.Graphics.DepthStencilState.Front.init -> Vixen.Graphics.StencilFaceState
+Vixen.Graphics.DepthStencilState.StencilReadMask.get -> byte
+Vixen.Graphics.DepthStencilState.StencilReadMask.init -> byte
+Vixen.Graphics.DepthStencilState.StencilTest.get -> bool
+Vixen.Graphics.DepthStencilState.StencilTest.init -> bool
+Vixen.Graphics.DepthStencilState.StencilWriteMask.get -> byte
+Vixen.Graphics.DepthStencilState.StencilWriteMask.init -> byte
+Vixen.Graphics.DescriptorAllocator -> sealed class
+Vixen.Graphics.DescriptorAllocator : System.IDisposable
+Vixen.Graphics.DescriptorAllocator.Allocate(Vixen.Graphics.DescriptorSetLayoutHandle layout, System.ReadOnlySpan<Vixen.Graphics.DescriptorWrite> writes) -> Vixen.Graphics.DescriptorSetHandle
+Vixen.Graphics.DescriptorAllocator.BeginFrame() -> void
+Vixen.Graphics.DescriptorAllocator.DescriptorAllocator(Vixen.Graphics.IGraphicsDevice device, string name = "Frame") -> void
+Vixen.Graphics.DescriptorAllocator.Dispose() -> void
+Vixen.Graphics.DescriptorAllocator.FramesInFlight.get -> int
+Vixen.Graphics.DescriptorAllocator.Reset() -> void
+Vixen.Graphics.DescriptorAllocator.ReuseCount.get -> int
+Vixen.Graphics.DescriptorAllocator.SetCount.get -> int
+Vixen.Graphics.DescriptorAllocator.WriteCount.get -> int
+Vixen.Graphics.DescriptorBinding -> readonly struct
+Vixen.Graphics.DescriptorBinding : System.IEquatable<Vixen.Graphics.DescriptorBinding>
+Vixen.Graphics.DescriptorBinding.Binding.get -> uint
+Vixen.Graphics.DescriptorBinding.Binding.init -> uint
+Vixen.Graphics.DescriptorBinding.Count.get -> int
+Vixen.Graphics.DescriptorBinding.Count.init -> int
+Vixen.Graphics.DescriptorBinding.DescriptorBinding() -> void
+Vixen.Graphics.DescriptorBinding.DescriptorBinding(uint Binding, Vixen.Graphics.DescriptorKind Kind, Vixen.Graphics.ShaderStage Stages, int Count = 1) -> void
+Vixen.Graphics.DescriptorBinding.Kind.get -> Vixen.Graphics.DescriptorKind
+Vixen.Graphics.DescriptorBinding.Kind.init -> Vixen.Graphics.DescriptorKind
+Vixen.Graphics.DescriptorBinding.Stages.get -> Vixen.Graphics.ShaderStage
+Vixen.Graphics.DescriptorBinding.Stages.init -> Vixen.Graphics.ShaderStage
+Vixen.Graphics.DescriptorKind -> enum : byte
+Vixen.Graphics.DescriptorKind.DescriptorKind() -> void
+Vixen.Graphics.DescriptorKind.DynamicStorageBuffer = 3 -> Vixen.Graphics.DescriptorKind
+Vixen.Graphics.DescriptorKind.DynamicUniformBuffer = 1 -> Vixen.Graphics.DescriptorKind
+Vixen.Graphics.DescriptorKind.SampledTexture = 4 -> Vixen.Graphics.DescriptorKind
+Vixen.Graphics.DescriptorKind.Sampler = 6 -> Vixen.Graphics.DescriptorKind
+Vixen.Graphics.DescriptorKind.StorageBuffer = 2 -> Vixen.Graphics.DescriptorKind
+Vixen.Graphics.DescriptorKind.StorageTexture = 5 -> Vixen.Graphics.DescriptorKind
+Vixen.Graphics.DescriptorKind.UniformBuffer = 0 -> Vixen.Graphics.DescriptorKind
+Vixen.Graphics.DescriptorSetHandle -> readonly struct
+Vixen.Graphics.DescriptorSetHandle : System.IEquatable<Vixen.Graphics.DescriptorSetHandle>
+Vixen.Graphics.DescriptorSetHandle.DescriptorSetHandle() -> void
+Vixen.Graphics.DescriptorSetHandle.DescriptorSetHandle(Vixen.Core.Collections.Handle<Vixen.Graphics.GpuDescriptorSet> Value) -> void
+Vixen.Graphics.DescriptorSetHandle.IsValid.get -> bool
+Vixen.Graphics.DescriptorSetHandle.Value.get -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuDescriptorSet>
+Vixen.Graphics.DescriptorSetHandle.Value.init -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuDescriptorSet>
+Vixen.Graphics.DescriptorSetLayoutDescription -> readonly struct
+Vixen.Graphics.DescriptorSetLayoutDescription : System.IEquatable<Vixen.Graphics.DescriptorSetLayoutDescription>
+Vixen.Graphics.DescriptorSetLayoutDescription.Bindings.get -> Vixen.Graphics.DescriptorBinding[]
+Vixen.Graphics.DescriptorSetLayoutDescription.Bindings.init -> Vixen.Graphics.DescriptorBinding[]
+Vixen.Graphics.DescriptorSetLayoutDescription.DescriptorSetLayoutDescription() -> void
+Vixen.Graphics.DescriptorSetLayoutDescription.DescriptorSetLayoutDescription(Vixen.Graphics.DescriptorSetSlot Slot, Vixen.Graphics.DescriptorBinding[] Bindings, string Name = "") -> void
+Vixen.Graphics.DescriptorSetLayoutDescription.Name.get -> string
+Vixen.Graphics.DescriptorSetLayoutDescription.Name.init -> string
+Vixen.Graphics.DescriptorSetLayoutDescription.Slot.get -> Vixen.Graphics.DescriptorSetSlot
+Vixen.Graphics.DescriptorSetLayoutDescription.Slot.init -> Vixen.Graphics.DescriptorSetSlot
+Vixen.Graphics.DescriptorSetLayoutDescription.Validate() -> void
+Vixen.Graphics.DescriptorSetLayoutHandle -> readonly struct
+Vixen.Graphics.DescriptorSetLayoutHandle : System.IEquatable<Vixen.Graphics.DescriptorSetLayoutHandle>
+Vixen.Graphics.DescriptorSetLayoutHandle.DescriptorSetLayoutHandle() -> void
+Vixen.Graphics.DescriptorSetLayoutHandle.DescriptorSetLayoutHandle(Vixen.Core.Collections.Handle<Vixen.Graphics.GpuDescriptorSetLayout> Value) -> void
+Vixen.Graphics.DescriptorSetLayoutHandle.IsValid.get -> bool
+Vixen.Graphics.DescriptorSetLayoutHandle.Value.get -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuDescriptorSetLayout>
+Vixen.Graphics.DescriptorSetLayoutHandle.Value.init -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuDescriptorSetLayout>
+Vixen.Graphics.DescriptorSetSlot -> enum : byte
+Vixen.Graphics.DescriptorSetSlot.DescriptorSetSlot() -> void
+Vixen.Graphics.DescriptorSetSlot.PerDraw = 3 -> Vixen.Graphics.DescriptorSetSlot
+Vixen.Graphics.DescriptorSetSlot.PerFrame = 0 -> Vixen.Graphics.DescriptorSetSlot
+Vixen.Graphics.DescriptorSetSlot.PerMaterial = 2 -> Vixen.Graphics.DescriptorSetSlot
+Vixen.Graphics.DescriptorSetSlot.PerView = 1 -> Vixen.Graphics.DescriptorSetSlot
+Vixen.Graphics.DescriptorWrite -> readonly struct
+Vixen.Graphics.DescriptorWrite : System.IEquatable<Vixen.Graphics.DescriptorWrite>
+Vixen.Graphics.DescriptorWrite.ArrayIndex.get -> int
+Vixen.Graphics.DescriptorWrite.ArrayIndex.init -> int
+Vixen.Graphics.DescriptorWrite.Binding.get -> uint
+Vixen.Graphics.DescriptorWrite.Binding.init -> uint
+Vixen.Graphics.DescriptorWrite.Buffer.get -> Vixen.Graphics.BufferHandle
+Vixen.Graphics.DescriptorWrite.Buffer.init -> Vixen.Graphics.BufferHandle
+Vixen.Graphics.DescriptorWrite.DescriptorWrite() -> void
+Vixen.Graphics.DescriptorWrite.DescriptorWrite(uint Binding, Vixen.Graphics.DescriptorKind Kind, Vixen.Graphics.BufferHandle Buffer = default(Vixen.Graphics.BufferHandle), long Offset = 0, long Size = 0, Vixen.Graphics.TextureViewHandle TextureView = default(Vixen.Graphics.TextureViewHandle), Vixen.Graphics.SamplerHandle Sampler = default(Vixen.Graphics.SamplerHandle), int ArrayIndex = 0) -> void
+Vixen.Graphics.DescriptorWrite.Kind.get -> Vixen.Graphics.DescriptorKind
+Vixen.Graphics.DescriptorWrite.Kind.init -> Vixen.Graphics.DescriptorKind
+Vixen.Graphics.DescriptorWrite.Offset.get -> long
+Vixen.Graphics.DescriptorWrite.Offset.init -> long
+Vixen.Graphics.DescriptorWrite.Sampler.get -> Vixen.Graphics.SamplerHandle
+Vixen.Graphics.DescriptorWrite.Sampler.init -> Vixen.Graphics.SamplerHandle
+Vixen.Graphics.DescriptorWrite.Size.get -> long
+Vixen.Graphics.DescriptorWrite.Size.init -> long
+Vixen.Graphics.DescriptorWrite.TextureView.get -> Vixen.Graphics.TextureViewHandle
+Vixen.Graphics.DescriptorWrite.TextureView.init -> Vixen.Graphics.TextureViewHandle
+Vixen.Graphics.FillMode -> enum : byte
+Vixen.Graphics.FillMode.FillMode() -> void
+Vixen.Graphics.FillMode.Solid = 0 -> Vixen.Graphics.FillMode
+Vixen.Graphics.FillMode.Wireframe = 1 -> Vixen.Graphics.FillMode
+Vixen.Graphics.FilterMode -> enum : byte
+Vixen.Graphics.FilterMode.FilterMode() -> void
+Vixen.Graphics.FilterMode.Linear = 1 -> Vixen.Graphics.FilterMode
+Vixen.Graphics.FilterMode.Nearest = 0 -> Vixen.Graphics.FilterMode
+Vixen.Graphics.FrontFace -> enum : byte
+Vixen.Graphics.FrontFace.Clockwise = 1 -> Vixen.Graphics.FrontFace
+Vixen.Graphics.FrontFace.CounterClockwise = 0 -> Vixen.Graphics.FrontFace
+Vixen.Graphics.FrontFace.FrontFace() -> void
+Vixen.Graphics.GpuBuffer -> abstract class
+Vixen.Graphics.GpuBuffer.GpuBuffer() -> void
+Vixen.Graphics.GpuDescriptorSet -> abstract class
+Vixen.Graphics.GpuDescriptorSet.GpuDescriptorSet() -> void
+Vixen.Graphics.GpuDescriptorSetLayout -> abstract class
+Vixen.Graphics.GpuDescriptorSetLayout.GpuDescriptorSetLayout() -> void
+Vixen.Graphics.GpuPipeline -> abstract class
+Vixen.Graphics.GpuPipeline.GpuPipeline() -> void
+Vixen.Graphics.GpuPipelineLayout -> abstract class
+Vixen.Graphics.GpuPipelineLayout.GpuPipelineLayout() -> void
+Vixen.Graphics.GpuSampler -> abstract class
+Vixen.Graphics.GpuSampler.GpuSampler() -> void
+Vixen.Graphics.GpuShader -> abstract class
+Vixen.Graphics.GpuShader.GpuShader() -> void
+Vixen.Graphics.GpuTexture -> abstract class
+Vixen.Graphics.GpuTexture.GpuTexture() -> void
+Vixen.Graphics.GpuTextureView -> abstract class
+Vixen.Graphics.GpuTextureView.GpuTextureView() -> void
+Vixen.Graphics.GraphicsDeviceFeatures -> readonly struct
+Vixen.Graphics.GraphicsDeviceFeatures : System.IEquatable<Vixen.Graphics.GraphicsDeviceFeatures>
+Vixen.Graphics.GraphicsDeviceFeatures.GraphicsDeviceFeatures() -> void
+Vixen.Graphics.GraphicsDeviceFeatures.HasAnisotropicFiltering.get -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasAnisotropicFiltering.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasAsyncCompute.get -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasAsyncCompute.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasAsyncTransfer.get -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasAsyncTransfer.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasBindless.get -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasBindless.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasCompute.get -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasCompute.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasDepthClamp.get -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasDepthClamp.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasDynamicRendering.get -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasDynamicRendering.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasFloat64.get -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasFloat64.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasGeometryShaders.get -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasGeometryShaders.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasIndependentBlend.get -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasIndependentBlend.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasMeshShaders.get -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasMeshShaders.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasMultiDrawIndirect.get -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasMultiDrawIndirect.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasPipelineStatistics.get -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasPipelineStatistics.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasSparseResources.get -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasSparseResources.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasSubgroupOperations.get -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasSubgroupOperations.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasTessellation.get -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasTessellation.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasTimelineSemaphores.get -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasTimelineSemaphores.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasUnifiedMemory.get -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasUnifiedMemory.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasWireframe.get -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasWireframe.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.MaxAnisotropy.get -> float
+Vixen.Graphics.GraphicsDeviceFeatures.MaxAnisotropy.init -> float
+Vixen.Graphics.GraphicsDeviceFeatures.MaxColourAttachments.get -> int
+Vixen.Graphics.GraphicsDeviceFeatures.MaxColourAttachments.init -> int
+Vixen.Graphics.GraphicsDeviceFeatures.MaxComputeWorkgroupSize.get -> (int X, int Y, int Z)
+Vixen.Graphics.GraphicsDeviceFeatures.MaxComputeWorkgroupSize.init -> (int X, int Y, int Z)
+Vixen.Graphics.GraphicsDeviceFeatures.MaxDescriptorSets.get -> int
+Vixen.Graphics.GraphicsDeviceFeatures.MaxDescriptorSets.init -> int
+Vixen.Graphics.GraphicsDeviceFeatures.MaxPushConstantSize.get -> int
+Vixen.Graphics.GraphicsDeviceFeatures.MaxPushConstantSize.init -> int
+Vixen.Graphics.GraphicsDeviceFeatures.MaxTextureArrayLayers.get -> int
+Vixen.Graphics.GraphicsDeviceFeatures.MaxTextureArrayLayers.init -> int
+Vixen.Graphics.GraphicsDeviceFeatures.MaxTextureSize.get -> int
+Vixen.Graphics.GraphicsDeviceFeatures.MaxTextureSize.init -> int
+Vixen.Graphics.GraphicsDeviceFeatures.MaxVertexBuffers.get -> int
+Vixen.Graphics.GraphicsDeviceFeatures.MaxVertexBuffers.init -> int
+Vixen.Graphics.GraphicsDeviceFeatures.SupportedSampleCounts.get -> int
+Vixen.Graphics.GraphicsDeviceFeatures.SupportedSampleCounts.init -> int
+Vixen.Graphics.GraphicsDeviceFeatures.SupportsSampleCount(int samples) -> bool
+Vixen.Graphics.GraphicsPipelineDescription -> readonly struct
+Vixen.Graphics.GraphicsPipelineDescription : System.IEquatable<Vixen.Graphics.GraphicsPipelineDescription>
+Vixen.Graphics.GraphicsPipelineDescription.ColourTargets.get -> Vixen.Graphics.ColourTargetState[]
+Vixen.Graphics.GraphicsPipelineDescription.ColourTargets.init -> Vixen.Graphics.ColourTargetState[]
+Vixen.Graphics.GraphicsPipelineDescription.DepthFormat.get -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.GraphicsPipelineDescription.DepthFormat.init -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.GraphicsPipelineDescription.DepthStencil.get -> Vixen.Graphics.DepthStencilState
+Vixen.Graphics.GraphicsPipelineDescription.DepthStencil.init -> Vixen.Graphics.DepthStencilState
+Vixen.Graphics.GraphicsPipelineDescription.Fragment.get -> Vixen.Graphics.ShaderHandle
+Vixen.Graphics.GraphicsPipelineDescription.Fragment.init -> Vixen.Graphics.ShaderHandle
+Vixen.Graphics.GraphicsPipelineDescription.GraphicsPipelineDescription() -> void
+Vixen.Graphics.GraphicsPipelineDescription.GraphicsPipelineDescription(Vixen.Graphics.ShaderHandle Vertex, Vixen.Graphics.ShaderHandle Fragment, Vixen.Graphics.PipelineLayoutHandle Layout, Vixen.Graphics.ColourTargetState[] ColourTargets, Vixen.Graphics.VertexBufferLayout[]? VertexBuffers = null, Vixen.Graphics.PrimitiveTopology Topology = Vixen.Graphics.PrimitiveTopology.TriangleList, Vixen.Graphics.RasterizerState Rasterizer = default(Vixen.Graphics.RasterizerState), Vixen.Graphics.DepthStencilState DepthStencil = default(Vixen.Graphics.DepthStencilState), Vixen.Graphics.PixelFormat DepthFormat = Vixen.Graphics.PixelFormat.Undefined, int SampleCount = 1, string Name = "") -> void
+Vixen.Graphics.GraphicsPipelineDescription.Layout.get -> Vixen.Graphics.PipelineLayoutHandle
+Vixen.Graphics.GraphicsPipelineDescription.Layout.init -> Vixen.Graphics.PipelineLayoutHandle
+Vixen.Graphics.GraphicsPipelineDescription.Name.get -> string
+Vixen.Graphics.GraphicsPipelineDescription.Name.init -> string
+Vixen.Graphics.GraphicsPipelineDescription.Rasterizer.get -> Vixen.Graphics.RasterizerState
+Vixen.Graphics.GraphicsPipelineDescription.Rasterizer.init -> Vixen.Graphics.RasterizerState
+Vixen.Graphics.GraphicsPipelineDescription.SampleCount.get -> int
+Vixen.Graphics.GraphicsPipelineDescription.SampleCount.init -> int
+Vixen.Graphics.GraphicsPipelineDescription.Topology.get -> Vixen.Graphics.PrimitiveTopology
+Vixen.Graphics.GraphicsPipelineDescription.Topology.init -> Vixen.Graphics.PrimitiveTopology
+Vixen.Graphics.GraphicsPipelineDescription.Validate() -> void
+Vixen.Graphics.GraphicsPipelineDescription.Vertex.get -> Vixen.Graphics.ShaderHandle
+Vixen.Graphics.GraphicsPipelineDescription.Vertex.init -> Vixen.Graphics.ShaderHandle
+Vixen.Graphics.GraphicsPipelineDescription.VertexBuffers.get -> Vixen.Graphics.VertexBufferLayout[]?
+Vixen.Graphics.GraphicsPipelineDescription.VertexBuffers.init -> Vixen.Graphics.VertexBufferLayout[]?
+Vixen.Graphics.ICommandList -> interface
+Vixen.Graphics.ICommandList : System.IDisposable
+Vixen.Graphics.ICommandList.Barrier(in Vixen.Graphics.BarrierGroup barriers) -> void
+Vixen.Graphics.ICommandList.BeginRenderPass(in Vixen.Graphics.RenderPassDescription description) -> void
+Vixen.Graphics.ICommandList.BindDescriptorSet(Vixen.Graphics.DescriptorSetSlot slot, Vixen.Graphics.DescriptorSetHandle descriptors, System.ReadOnlySpan<uint> dynamicOffsets = default(System.ReadOnlySpan<uint>)) -> void
+Vixen.Graphics.ICommandList.BindIndexBuffer(Vixen.Graphics.BufferHandle buffer, Vixen.Graphics.IndexFormat format = Vixen.Graphics.IndexFormat.UInt16, long offset = 0) -> void
+Vixen.Graphics.ICommandList.BindPipeline(Vixen.Graphics.PipelineHandle pipeline) -> void
+Vixen.Graphics.ICommandList.BindVertexBuffer(int slot, Vixen.Graphics.BufferHandle buffer, long offset = 0) -> void
+Vixen.Graphics.ICommandList.CopyBuffer(Vixen.Graphics.BufferHandle source, long sourceOffset, Vixen.Graphics.BufferHandle destination, long destinationOffset, long size) -> void
+Vixen.Graphics.ICommandList.CopyBufferToTexture(Vixen.Graphics.BufferHandle source, long sourceOffset, in Vixen.Graphics.TextureRegion destination, Vixen.Core.Mathematics.Int3 size) -> void
+Vixen.Graphics.ICommandList.CopyTexture(in Vixen.Graphics.TextureRegion source, in Vixen.Graphics.TextureRegion destination, Vixen.Core.Mathematics.Int3 size) -> void
+Vixen.Graphics.ICommandList.CopyTextureToBuffer(in Vixen.Graphics.TextureRegion source, Vixen.Core.Mathematics.Int3 size, Vixen.Graphics.BufferHandle destination, long destinationOffset) -> void
+Vixen.Graphics.ICommandList.Dispatch(int groupsX, int groupsY = 1, int groupsZ = 1) -> void
+Vixen.Graphics.ICommandList.DispatchIndirect(Vixen.Graphics.BufferHandle arguments, long offset = 0) -> void
+Vixen.Graphics.ICommandList.Draw(int vertexCount, int instanceCount = 1, int firstVertex = 0, int firstInstance = 0) -> void
+Vixen.Graphics.ICommandList.DrawIndexed(int indexCount, int instanceCount = 1, int firstIndex = 0, int vertexOffset = 0, int firstInstance = 0) -> void
+Vixen.Graphics.ICommandList.DrawIndexedIndirect(Vixen.Graphics.BufferHandle arguments, long offset = 0, int drawCount = 1, int stride = 20) -> void
+Vixen.Graphics.ICommandList.EndRenderPass() -> void
+Vixen.Graphics.ICommandList.Finish() -> void
+Vixen.Graphics.ICommandList.InsertDebugMarker(string name) -> void
+Vixen.Graphics.ICommandList.IsRecorded.get -> bool
+Vixen.Graphics.ICommandList.Kind.get -> Vixen.Graphics.QueueKind
+Vixen.Graphics.ICommandList.PopDebugGroup() -> void
+Vixen.Graphics.ICommandList.PushConstants(Vixen.Graphics.ShaderStage stages, int offset, System.ReadOnlySpan<byte> data) -> void
+Vixen.Graphics.ICommandList.PushDebugGroup(string name) -> void
+Vixen.Graphics.ICommandList.SetBlendConstant(in Vixen.Core.Mathematics.Color4 colour) -> void
+Vixen.Graphics.ICommandList.SetScissor(in Vixen.Graphics.ScissorRect scissor) -> void
+Vixen.Graphics.ICommandList.SetStencilReference(uint reference) -> void
+Vixen.Graphics.ICommandList.SetViewport(in Vixen.Core.Mathematics.Viewport viewport) -> void
+Vixen.Graphics.ICommandSubmitter -> interface
+Vixen.Graphics.ICommandSubmitter.Kind.get -> Vixen.Graphics.QueueKind
+Vixen.Graphics.ICommandSubmitter.Submit(System.ReadOnlySpan<Vixen.Graphics.ICommandList> lists) -> void
+Vixen.Graphics.ICommandSubmitter.WaitIdle() -> void
+Vixen.Graphics.IGraphicsAdapter -> interface
+Vixen.Graphics.IGraphicsAdapter.DeviceMemory.get -> ulong
+Vixen.Graphics.IGraphicsAdapter.DriverVersion.get -> string
+Vixen.Graphics.IGraphicsAdapter.Features.get -> Vixen.Graphics.GraphicsDeviceFeatures
+Vixen.Graphics.IGraphicsAdapter.Kind.get -> Vixen.Graphics.AdapterKind
+Vixen.Graphics.IGraphicsAdapter.Name.get -> string
+Vixen.Graphics.IGraphicsDevice -> interface
+Vixen.Graphics.IGraphicsDevice : System.IDisposable
+Vixen.Graphics.IGraphicsDevice.Adapter.get -> Vixen.Graphics.IGraphicsAdapter
+Vixen.Graphics.IGraphicsDevice.BeginCommandList(Vixen.Graphics.QueueKind kind = Vixen.Graphics.QueueKind.Graphics, string name = "") -> Vixen.Graphics.ICommandList
+Vixen.Graphics.IGraphicsDevice.BeginFrame() -> void
+Vixen.Graphics.IGraphicsDevice.ComputeQueue.get -> Vixen.Graphics.ICommandSubmitter
+Vixen.Graphics.IGraphicsDevice.CreateBuffer(in Vixen.Graphics.BufferDescription description) -> Vixen.Graphics.BufferHandle
+Vixen.Graphics.IGraphicsDevice.CreateComputePipeline(in Vixen.Graphics.ComputePipelineDescription description) -> Vixen.Graphics.PipelineHandle
+Vixen.Graphics.IGraphicsDevice.CreateDescriptorSet(Vixen.Graphics.DescriptorSetLayoutHandle layout, string name = "") -> Vixen.Graphics.DescriptorSetHandle
+Vixen.Graphics.IGraphicsDevice.CreateDescriptorSetLayout(in Vixen.Graphics.DescriptorSetLayoutDescription description) -> Vixen.Graphics.DescriptorSetLayoutHandle
+Vixen.Graphics.IGraphicsDevice.CreateGraphicsPipeline(in Vixen.Graphics.GraphicsPipelineDescription description) -> Vixen.Graphics.PipelineHandle
+Vixen.Graphics.IGraphicsDevice.CreatePipelineLayout(in Vixen.Graphics.PipelineLayoutDescription description) -> Vixen.Graphics.PipelineLayoutHandle
+Vixen.Graphics.IGraphicsDevice.CreateSampler(in Vixen.Graphics.SamplerDescription description) -> Vixen.Graphics.SamplerHandle
+Vixen.Graphics.IGraphicsDevice.CreateShader(Vixen.Graphics.ShaderStage stage, System.ReadOnlySpan<byte> bytecode, string name = "") -> Vixen.Graphics.ShaderHandle
+Vixen.Graphics.IGraphicsDevice.CreateSwapChain(in Vixen.Graphics.SwapChainDescription description) -> Vixen.Graphics.ISwapChain
+Vixen.Graphics.IGraphicsDevice.CreateTexture(in Vixen.Graphics.TextureDescription description) -> Vixen.Graphics.TextureHandle
+Vixen.Graphics.IGraphicsDevice.CreateTextureView(Vixen.Graphics.TextureHandle texture, Vixen.Graphics.PixelFormat format = Vixen.Graphics.PixelFormat.Undefined, int baseMipLevel = 0, int mipLevelCount = 0, int baseArrayLayer = 0, int arrayLayerCount = 0) -> Vixen.Graphics.TextureViewHandle
+Vixen.Graphics.IGraphicsDevice.Destroy(Vixen.Graphics.BufferHandle handle) -> void
+Vixen.Graphics.IGraphicsDevice.Destroy(Vixen.Graphics.DescriptorSetHandle handle) -> void
+Vixen.Graphics.IGraphicsDevice.Destroy(Vixen.Graphics.DescriptorSetLayoutHandle handle) -> void
+Vixen.Graphics.IGraphicsDevice.Destroy(Vixen.Graphics.PipelineHandle handle) -> void
+Vixen.Graphics.IGraphicsDevice.Destroy(Vixen.Graphics.PipelineLayoutHandle handle) -> void
+Vixen.Graphics.IGraphicsDevice.Destroy(Vixen.Graphics.SamplerHandle handle) -> void
+Vixen.Graphics.IGraphicsDevice.Destroy(Vixen.Graphics.ShaderHandle handle) -> void
+Vixen.Graphics.IGraphicsDevice.Destroy(Vixen.Graphics.TextureHandle handle) -> void
+Vixen.Graphics.IGraphicsDevice.Destroy(Vixen.Graphics.TextureViewHandle handle) -> void
+Vixen.Graphics.IGraphicsDevice.EndFrame() -> void
+Vixen.Graphics.IGraphicsDevice.Features.get -> Vixen.Graphics.GraphicsDeviceFeatures
+Vixen.Graphics.IGraphicsDevice.FramesInFlight.get -> int
+Vixen.Graphics.IGraphicsDevice.GraphicsQueue.get -> Vixen.Graphics.ICommandSubmitter
+Vixen.Graphics.IGraphicsDevice.Read(Vixen.Graphics.BufferHandle buffer, long offset, System.Span<byte> destination) -> void
+Vixen.Graphics.IGraphicsDevice.TransferQueue.get -> Vixen.Graphics.ICommandSubmitter
+Vixen.Graphics.IGraphicsDevice.UpdateDescriptorSet(Vixen.Graphics.DescriptorSetHandle descriptors, System.ReadOnlySpan<Vixen.Graphics.DescriptorWrite> writes) -> void
+Vixen.Graphics.IGraphicsDevice.WaitIdle() -> void
+Vixen.Graphics.IGraphicsDevice.Write(Vixen.Graphics.BufferHandle buffer, long offset, System.ReadOnlySpan<byte> data) -> void
+Vixen.Graphics.ISwapChain -> interface
+Vixen.Graphics.ISwapChain : System.IDisposable
+Vixen.Graphics.ISwapChain.AcquireNextImage(out Vixen.Graphics.TextureViewHandle view) -> Vixen.Graphics.SwapChainStatus
+Vixen.Graphics.ISwapChain.CurrentTexture.get -> Vixen.Graphics.TextureHandle
+Vixen.Graphics.ISwapChain.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.ISwapChain.ImageCount.get -> int
+Vixen.Graphics.ISwapChain.Present() -> Vixen.Graphics.SwapChainStatus
+Vixen.Graphics.ISwapChain.PresentMode.get -> Vixen.Graphics.PresentMode
+Vixen.Graphics.ISwapChain.Resize(Vixen.Core.Mathematics.Int2 size) -> void
+Vixen.Graphics.ISwapChain.Size.get -> Vixen.Core.Mathematics.Int2
+Vixen.Graphics.IndexFormat -> enum : byte
+Vixen.Graphics.IndexFormat.IndexFormat() -> void
+Vixen.Graphics.IndexFormat.UInt16 = 0 -> Vixen.Graphics.IndexFormat
+Vixen.Graphics.IndexFormat.UInt32 = 1 -> Vixen.Graphics.IndexFormat
+Vixen.Graphics.LoadAction -> enum : byte
+Vixen.Graphics.LoadAction.Clear = 1 -> Vixen.Graphics.LoadAction
+Vixen.Graphics.LoadAction.DontCare = 2 -> Vixen.Graphics.LoadAction
+Vixen.Graphics.LoadAction.Load = 0 -> Vixen.Graphics.LoadAction
+Vixen.Graphics.LoadAction.LoadAction() -> void
+Vixen.Graphics.MemoryAccess -> enum : byte
+Vixen.Graphics.MemoryAccess.DeviceLocal = 0 -> Vixen.Graphics.MemoryAccess
+Vixen.Graphics.MemoryAccess.HostReadback = 2 -> Vixen.Graphics.MemoryAccess
+Vixen.Graphics.MemoryAccess.HostUpload = 1 -> Vixen.Graphics.MemoryAccess
+Vixen.Graphics.MemoryAccess.MemoryAccess() -> void
+Vixen.Graphics.PipelineHandle -> readonly struct
+Vixen.Graphics.PipelineHandle : System.IEquatable<Vixen.Graphics.PipelineHandle>
+Vixen.Graphics.PipelineHandle.IsValid.get -> bool
+Vixen.Graphics.PipelineHandle.PipelineHandle() -> void
+Vixen.Graphics.PipelineHandle.PipelineHandle(Vixen.Core.Collections.Handle<Vixen.Graphics.GpuPipeline> Value) -> void
+Vixen.Graphics.PipelineHandle.Value.get -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuPipeline>
+Vixen.Graphics.PipelineHandle.Value.init -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuPipeline>
+Vixen.Graphics.PipelineLayoutDescription -> readonly struct
+Vixen.Graphics.PipelineLayoutDescription : System.IEquatable<Vixen.Graphics.PipelineLayoutDescription>
+Vixen.Graphics.PipelineLayoutDescription.Name.get -> string
+Vixen.Graphics.PipelineLayoutDescription.Name.init -> string
+Vixen.Graphics.PipelineLayoutDescription.PipelineLayoutDescription() -> void
+Vixen.Graphics.PipelineLayoutDescription.PipelineLayoutDescription(Vixen.Graphics.DescriptorSetLayoutHandle[] Sets, Vixen.Graphics.PushConstantRange[]? PushConstants = null, string Name = "") -> void
+Vixen.Graphics.PipelineLayoutDescription.PushConstants.get -> Vixen.Graphics.PushConstantRange[]?
+Vixen.Graphics.PipelineLayoutDescription.PushConstants.init -> Vixen.Graphics.PushConstantRange[]?
+Vixen.Graphics.PipelineLayoutDescription.Sets.get -> Vixen.Graphics.DescriptorSetLayoutHandle[]
+Vixen.Graphics.PipelineLayoutDescription.Sets.init -> Vixen.Graphics.DescriptorSetLayoutHandle[]
+Vixen.Graphics.PipelineLayoutHandle -> readonly struct
+Vixen.Graphics.PipelineLayoutHandle : System.IEquatable<Vixen.Graphics.PipelineLayoutHandle>
+Vixen.Graphics.PipelineLayoutHandle.IsValid.get -> bool
+Vixen.Graphics.PipelineLayoutHandle.PipelineLayoutHandle() -> void
+Vixen.Graphics.PipelineLayoutHandle.PipelineLayoutHandle(Vixen.Core.Collections.Handle<Vixen.Graphics.GpuPipelineLayout> Value) -> void
+Vixen.Graphics.PipelineLayoutHandle.Value.get -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuPipelineLayout>
+Vixen.Graphics.PipelineLayoutHandle.Value.init -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuPipelineLayout>
+Vixen.Graphics.PixelFormat -> enum : ushort
+Vixen.Graphics.PixelFormat.Astc4X4UNorm = 110 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Astc4X4UNormSrgb = 111 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Astc8X8UNorm = 112 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Astc8X8UNormSrgb = 113 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Bc1RgbaUNorm = 80 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Bc1RgbaUNormSrgb = 81 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Bc3RgbaUNorm = 82 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Bc3RgbaUNormSrgb = 83 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Bc4RUNorm = 84 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Bc5RgUNorm = 85 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Bc6HRgbUFloat = 86 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Bc7RgbaUNorm = 87 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Bc7RgbaUNormSrgb = 88 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Bgra8UNorm = 22 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Bgra8UNormSrgb = 23 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Depth16UNorm = 60 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Depth24UNormStencil8 = 62 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Depth32Float = 61 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Depth32FloatStencil8 = 63 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Etc2Rgb8A1UNorm = 100 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Etc2Rgba8UNorm = 101 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.PixelFormat() -> void
+Vixen.Graphics.PixelFormat.R16Float = 12 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.R16UInt = 13 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.R16UNorm = 14 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.R32Float = 26 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.R32UInt = 27 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.R8SInt = 4 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.R8SNorm = 2 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.R8UInt = 3 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.R8UNorm = 1 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Rg11B10Float = 29 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Rg16Float = 25 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Rg32Float = 41 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Rg8SNorm = 11 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Rg8UNorm = 10 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Rgb10A2UNorm = 28 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Rgba16Float = 40 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Rgba16UNorm = 42 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Rgba32Float = 50 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Rgba32UInt = 51 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Rgba8SNorm = 24 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Rgba8UNorm = 20 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Rgba8UNormSrgb = 21 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormat.Undefined = 0 -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.PixelFormats -> static class
+Vixen.Graphics.PresentMode -> enum : byte
+Vixen.Graphics.PresentMode.Fifo = 0 -> Vixen.Graphics.PresentMode
+Vixen.Graphics.PresentMode.FifoRelaxed = 1 -> Vixen.Graphics.PresentMode
+Vixen.Graphics.PresentMode.Immediate = 3 -> Vixen.Graphics.PresentMode
+Vixen.Graphics.PresentMode.Mailbox = 2 -> Vixen.Graphics.PresentMode
+Vixen.Graphics.PresentMode.PresentMode() -> void
+Vixen.Graphics.PrimitiveTopology -> enum : byte
+Vixen.Graphics.PrimitiveTopology.LineList = 1 -> Vixen.Graphics.PrimitiveTopology
+Vixen.Graphics.PrimitiveTopology.LineStrip = 2 -> Vixen.Graphics.PrimitiveTopology
+Vixen.Graphics.PrimitiveTopology.PointList = 0 -> Vixen.Graphics.PrimitiveTopology
+Vixen.Graphics.PrimitiveTopology.PrimitiveTopology() -> void
+Vixen.Graphics.PrimitiveTopology.TriangleList = 3 -> Vixen.Graphics.PrimitiveTopology
+Vixen.Graphics.PrimitiveTopology.TriangleStrip = 4 -> Vixen.Graphics.PrimitiveTopology
+Vixen.Graphics.PushConstantRange -> readonly struct
+Vixen.Graphics.PushConstantRange : System.IEquatable<Vixen.Graphics.PushConstantRange>
+Vixen.Graphics.PushConstantRange.Offset.get -> int
+Vixen.Graphics.PushConstantRange.Offset.init -> int
+Vixen.Graphics.PushConstantRange.PushConstantRange() -> void
+Vixen.Graphics.PushConstantRange.PushConstantRange(Vixen.Graphics.ShaderStage Stages, int Offset, int Size) -> void
+Vixen.Graphics.PushConstantRange.Size.get -> int
+Vixen.Graphics.PushConstantRange.Size.init -> int
+Vixen.Graphics.PushConstantRange.Stages.get -> Vixen.Graphics.ShaderStage
+Vixen.Graphics.PushConstantRange.Stages.init -> Vixen.Graphics.ShaderStage
+Vixen.Graphics.QueueKind -> enum : byte
+Vixen.Graphics.QueueKind.Compute = 1 -> Vixen.Graphics.QueueKind
+Vixen.Graphics.QueueKind.Graphics = 0 -> Vixen.Graphics.QueueKind
+Vixen.Graphics.QueueKind.QueueKind() -> void
+Vixen.Graphics.QueueKind.Transfer = 2 -> Vixen.Graphics.QueueKind
+Vixen.Graphics.RasterizerState -> readonly struct
+Vixen.Graphics.RasterizerState : System.IEquatable<Vixen.Graphics.RasterizerState>
+Vixen.Graphics.RasterizerState.Cull.get -> Vixen.Graphics.CullMode
+Vixen.Graphics.RasterizerState.Cull.init -> Vixen.Graphics.CullMode
+Vixen.Graphics.RasterizerState.DepthBias.get -> float
+Vixen.Graphics.RasterizerState.DepthBias.init -> float
+Vixen.Graphics.RasterizerState.DepthBiasSlope.get -> float
+Vixen.Graphics.RasterizerState.DepthBiasSlope.init -> float
+Vixen.Graphics.RasterizerState.DepthClamp.get -> bool
+Vixen.Graphics.RasterizerState.DepthClamp.init -> bool
+Vixen.Graphics.RasterizerState.Fill.get -> Vixen.Graphics.FillMode
+Vixen.Graphics.RasterizerState.Fill.init -> Vixen.Graphics.FillMode
+Vixen.Graphics.RasterizerState.FrontFace.get -> Vixen.Graphics.FrontFace
+Vixen.Graphics.RasterizerState.FrontFace.init -> Vixen.Graphics.FrontFace
+Vixen.Graphics.RasterizerState.RasterizerState() -> void
+Vixen.Graphics.RasterizerState.RasterizerState(Vixen.Graphics.CullMode Cull = Vixen.Graphics.CullMode.Back, Vixen.Graphics.FrontFace FrontFace = Vixen.Graphics.FrontFace.CounterClockwise, Vixen.Graphics.FillMode Fill = Vixen.Graphics.FillMode.Solid, bool DepthClamp = false, float DepthBias = 0, float DepthBiasSlope = 0) -> void
+Vixen.Graphics.RenderPassDescription -> readonly ref struct
+Vixen.Graphics.RenderPassDescription.ColourAttachments.get -> System.ReadOnlySpan<Vixen.Graphics.ColourAttachment>
+Vixen.Graphics.RenderPassDescription.DepthStencil.get -> Vixen.Graphics.DepthStencilAttachment?
+Vixen.Graphics.RenderPassDescription.Name.get -> string
+Vixen.Graphics.RenderPassDescription.RenderPassDescription() -> void
+Vixen.Graphics.RenderPassDescription.RenderPassDescription(System.ReadOnlySpan<Vixen.Graphics.ColourAttachment> colourAttachments, Vixen.Graphics.DepthStencilAttachment? depthStencil = null, string name = "") -> void
+Vixen.Graphics.ResourceState -> enum : int
+Vixen.Graphics.ResourceState.ColourTarget = 32 -> Vixen.Graphics.ResourceState
+Vixen.Graphics.ResourceState.CopyDestination = 512 -> Vixen.Graphics.ResourceState
+Vixen.Graphics.ResourceState.CopySource = 256 -> Vixen.Graphics.ResourceState
+Vixen.Graphics.ResourceState.DepthStencilRead = 128 -> Vixen.Graphics.ResourceState
+Vixen.Graphics.ResourceState.DepthStencilWrite = 64 -> Vixen.Graphics.ResourceState
+Vixen.Graphics.ResourceState.HostAccess = 2048 -> Vixen.Graphics.ResourceState
+Vixen.Graphics.ResourceState.IndirectArgument = 2 -> Vixen.Graphics.ResourceState
+Vixen.Graphics.ResourceState.Present = 1024 -> Vixen.Graphics.ResourceState
+Vixen.Graphics.ResourceState.ResourceState() -> void
+Vixen.Graphics.ResourceState.ShaderRead = 8 -> Vixen.Graphics.ResourceState
+Vixen.Graphics.ResourceState.ShaderWrite = 16 -> Vixen.Graphics.ResourceState
+Vixen.Graphics.ResourceState.Undefined = 0 -> Vixen.Graphics.ResourceState
+Vixen.Graphics.ResourceState.UniformRead = 4 -> Vixen.Graphics.ResourceState
+Vixen.Graphics.ResourceState.VertexInput = 1 -> Vixen.Graphics.ResourceState
+Vixen.Graphics.SamplerDescription -> readonly struct
+Vixen.Graphics.SamplerDescription : System.IEquatable<Vixen.Graphics.SamplerDescription>
+Vixen.Graphics.SamplerDescription.AddressU.get -> Vixen.Graphics.AddressMode
+Vixen.Graphics.SamplerDescription.AddressU.init -> Vixen.Graphics.AddressMode
+Vixen.Graphics.SamplerDescription.AddressV.get -> Vixen.Graphics.AddressMode
+Vixen.Graphics.SamplerDescription.AddressV.init -> Vixen.Graphics.AddressMode
+Vixen.Graphics.SamplerDescription.AddressW.get -> Vixen.Graphics.AddressMode
+Vixen.Graphics.SamplerDescription.AddressW.init -> Vixen.Graphics.AddressMode
+Vixen.Graphics.SamplerDescription.Anisotropy.get -> float
+Vixen.Graphics.SamplerDescription.Anisotropy.init -> float
+Vixen.Graphics.SamplerDescription.Border.get -> Vixen.Graphics.BorderColour
+Vixen.Graphics.SamplerDescription.Border.init -> Vixen.Graphics.BorderColour
+Vixen.Graphics.SamplerDescription.Compare.get -> Vixen.Graphics.CompareFunction?
+Vixen.Graphics.SamplerDescription.Compare.init -> Vixen.Graphics.CompareFunction?
+Vixen.Graphics.SamplerDescription.LodBias.get -> float
+Vixen.Graphics.SamplerDescription.LodBias.init -> float
+Vixen.Graphics.SamplerDescription.MagFilter.get -> Vixen.Graphics.FilterMode
+Vixen.Graphics.SamplerDescription.MagFilter.init -> Vixen.Graphics.FilterMode
+Vixen.Graphics.SamplerDescription.MaxLod.get -> float
+Vixen.Graphics.SamplerDescription.MaxLod.init -> float
+Vixen.Graphics.SamplerDescription.MinFilter.get -> Vixen.Graphics.FilterMode
+Vixen.Graphics.SamplerDescription.MinFilter.init -> Vixen.Graphics.FilterMode
+Vixen.Graphics.SamplerDescription.MinLod.get -> float
+Vixen.Graphics.SamplerDescription.MinLod.init -> float
+Vixen.Graphics.SamplerDescription.MipFilter.get -> Vixen.Graphics.FilterMode
+Vixen.Graphics.SamplerDescription.MipFilter.init -> Vixen.Graphics.FilterMode
+Vixen.Graphics.SamplerDescription.Name.get -> string
+Vixen.Graphics.SamplerDescription.Name.init -> string
+Vixen.Graphics.SamplerDescription.SamplerDescription() -> void
+Vixen.Graphics.SamplerDescription.SamplerDescription(Vixen.Graphics.FilterMode MinFilter = Vixen.Graphics.FilterMode.Linear, Vixen.Graphics.FilterMode MagFilter = Vixen.Graphics.FilterMode.Linear, Vixen.Graphics.FilterMode MipFilter = Vixen.Graphics.FilterMode.Linear, Vixen.Graphics.AddressMode AddressU = Vixen.Graphics.AddressMode.Repeat, Vixen.Graphics.AddressMode AddressV = Vixen.Graphics.AddressMode.Repeat, Vixen.Graphics.AddressMode AddressW = Vixen.Graphics.AddressMode.Repeat, float Anisotropy = 1, Vixen.Graphics.CompareFunction? Compare = null, Vixen.Graphics.BorderColour Border = Vixen.Graphics.BorderColour.TransparentBlack, float MinLod = 0, float MaxLod = 1000, float LodBias = 0, string Name = "") -> void
+Vixen.Graphics.SamplerHandle -> readonly struct
+Vixen.Graphics.SamplerHandle : System.IEquatable<Vixen.Graphics.SamplerHandle>
+Vixen.Graphics.SamplerHandle.IsValid.get -> bool
+Vixen.Graphics.SamplerHandle.SamplerHandle() -> void
+Vixen.Graphics.SamplerHandle.SamplerHandle(Vixen.Core.Collections.Handle<Vixen.Graphics.GpuSampler> Value) -> void
+Vixen.Graphics.SamplerHandle.Value.get -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuSampler>
+Vixen.Graphics.SamplerHandle.Value.init -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuSampler>
+Vixen.Graphics.ScissorRect -> readonly struct
+Vixen.Graphics.ScissorRect : System.IEquatable<Vixen.Graphics.ScissorRect>
+Vixen.Graphics.ScissorRect.Height.get -> int
+Vixen.Graphics.ScissorRect.Height.init -> int
+Vixen.Graphics.ScissorRect.ScissorRect() -> void
+Vixen.Graphics.ScissorRect.ScissorRect(int X, int Y, int Width, int Height) -> void
+Vixen.Graphics.ScissorRect.Width.get -> int
+Vixen.Graphics.ScissorRect.Width.init -> int
+Vixen.Graphics.ScissorRect.X.get -> int
+Vixen.Graphics.ScissorRect.X.init -> int
+Vixen.Graphics.ScissorRect.Y.get -> int
+Vixen.Graphics.ScissorRect.Y.init -> int
+Vixen.Graphics.ShaderHandle -> readonly struct
+Vixen.Graphics.ShaderHandle : System.IEquatable<Vixen.Graphics.ShaderHandle>
+Vixen.Graphics.ShaderHandle.IsValid.get -> bool
+Vixen.Graphics.ShaderHandle.ShaderHandle() -> void
+Vixen.Graphics.ShaderHandle.ShaderHandle(Vixen.Core.Collections.Handle<Vixen.Graphics.GpuShader> Value) -> void
+Vixen.Graphics.ShaderHandle.Value.get -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuShader>
+Vixen.Graphics.ShaderHandle.Value.init -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuShader>
+Vixen.Graphics.ShaderStage -> enum : int
+Vixen.Graphics.ShaderStage.All = Vixen.Graphics.ShaderStage.Compute | Vixen.Graphics.ShaderStage.AllGraphics | Vixen.Graphics.ShaderStage.Task | Vixen.Graphics.ShaderStage.Mesh -> Vixen.Graphics.ShaderStage
+Vixen.Graphics.ShaderStage.AllGraphics = Vixen.Graphics.ShaderStage.Vertex | Vixen.Graphics.ShaderStage.Fragment | Vixen.Graphics.ShaderStage.Geometry | Vixen.Graphics.ShaderStage.TessellationControl | Vixen.Graphics.ShaderStage.TessellationEvaluation -> Vixen.Graphics.ShaderStage
+Vixen.Graphics.ShaderStage.Compute = 4 -> Vixen.Graphics.ShaderStage
+Vixen.Graphics.ShaderStage.Fragment = 2 -> Vixen.Graphics.ShaderStage
+Vixen.Graphics.ShaderStage.Geometry = 8 -> Vixen.Graphics.ShaderStage
+Vixen.Graphics.ShaderStage.Mesh = 128 -> Vixen.Graphics.ShaderStage
+Vixen.Graphics.ShaderStage.None = 0 -> Vixen.Graphics.ShaderStage
+Vixen.Graphics.ShaderStage.ShaderStage() -> void
+Vixen.Graphics.ShaderStage.Task = 64 -> Vixen.Graphics.ShaderStage
+Vixen.Graphics.ShaderStage.TessellationControl = 16 -> Vixen.Graphics.ShaderStage
+Vixen.Graphics.ShaderStage.TessellationEvaluation = 32 -> Vixen.Graphics.ShaderStage
+Vixen.Graphics.ShaderStage.Vertex = 1 -> Vixen.Graphics.ShaderStage
+Vixen.Graphics.StencilFaceState -> readonly struct
+Vixen.Graphics.StencilFaceState : System.IEquatable<Vixen.Graphics.StencilFaceState>
+Vixen.Graphics.StencilFaceState.Compare.get -> Vixen.Graphics.CompareFunction
+Vixen.Graphics.StencilFaceState.Compare.init -> Vixen.Graphics.CompareFunction
+Vixen.Graphics.StencilFaceState.DepthFail.get -> Vixen.Graphics.StencilOperation
+Vixen.Graphics.StencilFaceState.DepthFail.init -> Vixen.Graphics.StencilOperation
+Vixen.Graphics.StencilFaceState.Fail.get -> Vixen.Graphics.StencilOperation
+Vixen.Graphics.StencilFaceState.Fail.init -> Vixen.Graphics.StencilOperation
+Vixen.Graphics.StencilFaceState.Pass.get -> Vixen.Graphics.StencilOperation
+Vixen.Graphics.StencilFaceState.Pass.init -> Vixen.Graphics.StencilOperation
+Vixen.Graphics.StencilFaceState.StencilFaceState() -> void
+Vixen.Graphics.StencilFaceState.StencilFaceState(Vixen.Graphics.CompareFunction Compare = Vixen.Graphics.CompareFunction.Always, Vixen.Graphics.StencilOperation Fail = Vixen.Graphics.StencilOperation.Keep, Vixen.Graphics.StencilOperation DepthFail = Vixen.Graphics.StencilOperation.Keep, Vixen.Graphics.StencilOperation Pass = Vixen.Graphics.StencilOperation.Keep) -> void
+Vixen.Graphics.StencilOperation -> enum : byte
+Vixen.Graphics.StencilOperation.DecrementClamp = 4 -> Vixen.Graphics.StencilOperation
+Vixen.Graphics.StencilOperation.DecrementWrap = 7 -> Vixen.Graphics.StencilOperation
+Vixen.Graphics.StencilOperation.IncrementClamp = 3 -> Vixen.Graphics.StencilOperation
+Vixen.Graphics.StencilOperation.IncrementWrap = 6 -> Vixen.Graphics.StencilOperation
+Vixen.Graphics.StencilOperation.Invert = 5 -> Vixen.Graphics.StencilOperation
+Vixen.Graphics.StencilOperation.Keep = 0 -> Vixen.Graphics.StencilOperation
+Vixen.Graphics.StencilOperation.Replace = 2 -> Vixen.Graphics.StencilOperation
+Vixen.Graphics.StencilOperation.StencilOperation() -> void
+Vixen.Graphics.StencilOperation.Zero = 1 -> Vixen.Graphics.StencilOperation
+Vixen.Graphics.StoreAction -> enum : byte
+Vixen.Graphics.StoreAction.DontCare = 1 -> Vixen.Graphics.StoreAction
+Vixen.Graphics.StoreAction.Resolve = 2 -> Vixen.Graphics.StoreAction
+Vixen.Graphics.StoreAction.Store = 0 -> Vixen.Graphics.StoreAction
+Vixen.Graphics.StoreAction.StoreAction() -> void
+Vixen.Graphics.SwapChainDescription -> readonly struct
+Vixen.Graphics.SwapChainDescription : System.IEquatable<Vixen.Graphics.SwapChainDescription>
+Vixen.Graphics.SwapChainDescription.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.SwapChainDescription.Format.init -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.SwapChainDescription.ImageCount.get -> int
+Vixen.Graphics.SwapChainDescription.ImageCount.init -> int
+Vixen.Graphics.SwapChainDescription.PresentMode.get -> Vixen.Graphics.PresentMode
+Vixen.Graphics.SwapChainDescription.PresentMode.init -> Vixen.Graphics.PresentMode
+Vixen.Graphics.SwapChainDescription.Size.get -> Vixen.Core.Mathematics.Int2
+Vixen.Graphics.SwapChainDescription.Size.init -> Vixen.Core.Mathematics.Int2
+Vixen.Graphics.SwapChainDescription.Surface.get -> Vixen.Core.SurfaceHandle
+Vixen.Graphics.SwapChainDescription.Surface.init -> Vixen.Core.SurfaceHandle
+Vixen.Graphics.SwapChainDescription.SwapChainDescription() -> void
+Vixen.Graphics.SwapChainDescription.SwapChainDescription(Vixen.Core.SurfaceHandle Surface, Vixen.Core.Mathematics.Int2 Size, Vixen.Graphics.PixelFormat Format = Vixen.Graphics.PixelFormat.Bgra8UNormSrgb, Vixen.Graphics.PresentMode PresentMode = Vixen.Graphics.PresentMode.Fifo, int ImageCount = 3) -> void
+Vixen.Graphics.SwapChainStatus -> enum : byte
+Vixen.Graphics.SwapChainStatus.DeviceLost = 3 -> Vixen.Graphics.SwapChainStatus
+Vixen.Graphics.SwapChainStatus.OutOfDate = 1 -> Vixen.Graphics.SwapChainStatus
+Vixen.Graphics.SwapChainStatus.Ready = 0 -> Vixen.Graphics.SwapChainStatus
+Vixen.Graphics.SwapChainStatus.Suboptimal = 2 -> Vixen.Graphics.SwapChainStatus
+Vixen.Graphics.SwapChainStatus.SwapChainStatus() -> void
+Vixen.Graphics.TextureBarrier -> readonly struct
+Vixen.Graphics.TextureBarrier : System.IEquatable<Vixen.Graphics.TextureBarrier>
+Vixen.Graphics.TextureBarrier.After.get -> Vixen.Graphics.ResourceState
+Vixen.Graphics.TextureBarrier.After.init -> Vixen.Graphics.ResourceState
+Vixen.Graphics.TextureBarrier.ArrayLayerCount.get -> int
+Vixen.Graphics.TextureBarrier.ArrayLayerCount.init -> int
+Vixen.Graphics.TextureBarrier.BaseArrayLayer.get -> int
+Vixen.Graphics.TextureBarrier.BaseArrayLayer.init -> int
+Vixen.Graphics.TextureBarrier.BaseMipLevel.get -> int
+Vixen.Graphics.TextureBarrier.BaseMipLevel.init -> int
+Vixen.Graphics.TextureBarrier.Before.get -> Vixen.Graphics.ResourceState
+Vixen.Graphics.TextureBarrier.Before.init -> Vixen.Graphics.ResourceState
+Vixen.Graphics.TextureBarrier.MipLevelCount.get -> int
+Vixen.Graphics.TextureBarrier.MipLevelCount.init -> int
+Vixen.Graphics.TextureBarrier.Texture.get -> Vixen.Graphics.TextureHandle
+Vixen.Graphics.TextureBarrier.Texture.init -> Vixen.Graphics.TextureHandle
+Vixen.Graphics.TextureBarrier.TextureBarrier() -> void
+Vixen.Graphics.TextureBarrier.TextureBarrier(Vixen.Graphics.TextureHandle Texture, Vixen.Graphics.ResourceState Before, Vixen.Graphics.ResourceState After, int BaseMipLevel = 0, int MipLevelCount = 0, int BaseArrayLayer = 0, int ArrayLayerCount = 0) -> void
+Vixen.Graphics.TextureDescription -> readonly struct
+Vixen.Graphics.TextureDescription : System.IEquatable<Vixen.Graphics.TextureDescription>
+Vixen.Graphics.TextureDescription.ArrayLayers.get -> int
+Vixen.Graphics.TextureDescription.ArrayLayers.init -> int
+Vixen.Graphics.TextureDescription.Depth.get -> int
+Vixen.Graphics.TextureDescription.Depth.init -> int
+Vixen.Graphics.TextureDescription.Dimension.get -> Vixen.Graphics.TextureDimension
+Vixen.Graphics.TextureDescription.Dimension.init -> Vixen.Graphics.TextureDimension
+Vixen.Graphics.TextureDescription.EffectiveMipLevels.get -> int
+Vixen.Graphics.TextureDescription.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.TextureDescription.Format.init -> Vixen.Graphics.PixelFormat
+Vixen.Graphics.TextureDescription.Height.get -> int
+Vixen.Graphics.TextureDescription.Height.init -> int
+Vixen.Graphics.TextureDescription.MipLevels.get -> int
+Vixen.Graphics.TextureDescription.MipLevels.init -> int
+Vixen.Graphics.TextureDescription.Name.get -> string
+Vixen.Graphics.TextureDescription.Name.init -> string
+Vixen.Graphics.TextureDescription.SampleCount.get -> int
+Vixen.Graphics.TextureDescription.SampleCount.init -> int
+Vixen.Graphics.TextureDescription.TextureDescription() -> void
+Vixen.Graphics.TextureDescription.TextureDescription(Vixen.Graphics.PixelFormat Format, int Width, int Height, Vixen.Graphics.TextureUsage Usage, int Depth = 1, int MipLevels = 1, int ArrayLayers = 1, int SampleCount = 1, Vixen.Graphics.TextureDimension Dimension = Vixen.Graphics.TextureDimension.Texture2D, string Name = "") -> void
+Vixen.Graphics.TextureDescription.TotalSize.get -> long
+Vixen.Graphics.TextureDescription.Usage.get -> Vixen.Graphics.TextureUsage
+Vixen.Graphics.TextureDescription.Usage.init -> Vixen.Graphics.TextureUsage
+Vixen.Graphics.TextureDescription.Validate() -> void
+Vixen.Graphics.TextureDescription.Width.get -> int
+Vixen.Graphics.TextureDescription.Width.init -> int
+Vixen.Graphics.TextureDimension -> enum : byte
+Vixen.Graphics.TextureDimension.Texture1D = 0 -> Vixen.Graphics.TextureDimension
+Vixen.Graphics.TextureDimension.Texture2D = 1 -> Vixen.Graphics.TextureDimension
+Vixen.Graphics.TextureDimension.Texture3D = 2 -> Vixen.Graphics.TextureDimension
+Vixen.Graphics.TextureDimension.TextureCube = 3 -> Vixen.Graphics.TextureDimension
+Vixen.Graphics.TextureDimension.TextureDimension() -> void
+Vixen.Graphics.TextureHandle -> readonly struct
+Vixen.Graphics.TextureHandle : System.IEquatable<Vixen.Graphics.TextureHandle>
+Vixen.Graphics.TextureHandle.IsValid.get -> bool
+Vixen.Graphics.TextureHandle.TextureHandle() -> void
+Vixen.Graphics.TextureHandle.TextureHandle(Vixen.Core.Collections.Handle<Vixen.Graphics.GpuTexture> Value) -> void
+Vixen.Graphics.TextureHandle.Value.get -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuTexture>
+Vixen.Graphics.TextureHandle.Value.init -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuTexture>
+Vixen.Graphics.TextureRegion -> readonly struct
+Vixen.Graphics.TextureRegion : System.IEquatable<Vixen.Graphics.TextureRegion>
+Vixen.Graphics.TextureRegion.ArrayLayer.get -> int
+Vixen.Graphics.TextureRegion.ArrayLayer.init -> int
+Vixen.Graphics.TextureRegion.MipLevel.get -> int
+Vixen.Graphics.TextureRegion.MipLevel.init -> int
+Vixen.Graphics.TextureRegion.Origin.get -> Vixen.Core.Mathematics.Int3
+Vixen.Graphics.TextureRegion.Origin.init -> Vixen.Core.Mathematics.Int3
+Vixen.Graphics.TextureRegion.Texture.get -> Vixen.Graphics.TextureHandle
+Vixen.Graphics.TextureRegion.Texture.init -> Vixen.Graphics.TextureHandle
+Vixen.Graphics.TextureRegion.TextureRegion() -> void
+Vixen.Graphics.TextureRegion.TextureRegion(Vixen.Graphics.TextureHandle Texture, int MipLevel = 0, int ArrayLayer = 0, Vixen.Core.Mathematics.Int3 Origin = default(Vixen.Core.Mathematics.Int3)) -> void
+Vixen.Graphics.TextureUsage -> enum : int
+Vixen.Graphics.TextureUsage.ColourTarget = 4 -> Vixen.Graphics.TextureUsage
+Vixen.Graphics.TextureUsage.CopyDestination = 32 -> Vixen.Graphics.TextureUsage
+Vixen.Graphics.TextureUsage.CopySource = 16 -> Vixen.Graphics.TextureUsage
+Vixen.Graphics.TextureUsage.DepthStencilTarget = 8 -> Vixen.Graphics.TextureUsage
+Vixen.Graphics.TextureUsage.None = 0 -> Vixen.Graphics.TextureUsage
+Vixen.Graphics.TextureUsage.Sampled = 1 -> Vixen.Graphics.TextureUsage
+Vixen.Graphics.TextureUsage.Storage = 2 -> Vixen.Graphics.TextureUsage
+Vixen.Graphics.TextureUsage.TextureUsage() -> void
+Vixen.Graphics.TextureViewHandle -> readonly struct
+Vixen.Graphics.TextureViewHandle : System.IEquatable<Vixen.Graphics.TextureViewHandle>
+Vixen.Graphics.TextureViewHandle.IsValid.get -> bool
+Vixen.Graphics.TextureViewHandle.TextureViewHandle() -> void
+Vixen.Graphics.TextureViewHandle.TextureViewHandle(Vixen.Core.Collections.Handle<Vixen.Graphics.GpuTextureView> Value) -> void
+Vixen.Graphics.TextureViewHandle.Value.get -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuTextureView>
+Vixen.Graphics.TextureViewHandle.Value.init -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuTextureView>
+Vixen.Graphics.VertexBufferLayout -> readonly struct
+Vixen.Graphics.VertexBufferLayout : System.IEquatable<Vixen.Graphics.VertexBufferLayout>
+Vixen.Graphics.VertexBufferLayout.Attributes.get -> Vixen.Graphics.VertexElement[]
+Vixen.Graphics.VertexBufferLayout.Attributes.init -> Vixen.Graphics.VertexElement[]
+Vixen.Graphics.VertexBufferLayout.StepMode.get -> Vixen.Graphics.VertexStepMode
+Vixen.Graphics.VertexBufferLayout.StepMode.init -> Vixen.Graphics.VertexStepMode
+Vixen.Graphics.VertexBufferLayout.Stride.get -> int
+Vixen.Graphics.VertexBufferLayout.Stride.init -> int
+Vixen.Graphics.VertexBufferLayout.VertexBufferLayout() -> void
+Vixen.Graphics.VertexBufferLayout.VertexBufferLayout(int Stride, Vixen.Graphics.VertexElement[] Attributes, Vixen.Graphics.VertexStepMode StepMode = Vixen.Graphics.VertexStepMode.Vertex) -> void
+Vixen.Graphics.VertexElement -> readonly struct
+Vixen.Graphics.VertexElement : System.IEquatable<Vixen.Graphics.VertexElement>
+Vixen.Graphics.VertexElement.Format.get -> Vixen.Graphics.VertexFormat
+Vixen.Graphics.VertexElement.Format.init -> Vixen.Graphics.VertexFormat
+Vixen.Graphics.VertexElement.Location.get -> uint
+Vixen.Graphics.VertexElement.Location.init -> uint
+Vixen.Graphics.VertexElement.Offset.get -> int
+Vixen.Graphics.VertexElement.Offset.init -> int
+Vixen.Graphics.VertexElement.VertexElement() -> void
+Vixen.Graphics.VertexElement.VertexElement(uint Location, Vixen.Graphics.VertexFormat Format, int Offset) -> void
+Vixen.Graphics.VertexFormat -> enum : byte
+Vixen.Graphics.VertexFormat.Float16X2 = 4 -> Vixen.Graphics.VertexFormat
+Vixen.Graphics.VertexFormat.Float16X4 = 5 -> Vixen.Graphics.VertexFormat
+Vixen.Graphics.VertexFormat.Float32 = 0 -> Vixen.Graphics.VertexFormat
+Vixen.Graphics.VertexFormat.Float32X2 = 1 -> Vixen.Graphics.VertexFormat
+Vixen.Graphics.VertexFormat.Float32X3 = 2 -> Vixen.Graphics.VertexFormat
+Vixen.Graphics.VertexFormat.Float32X4 = 3 -> Vixen.Graphics.VertexFormat
+Vixen.Graphics.VertexFormat.SNorm16X4 = 11 -> Vixen.Graphics.VertexFormat
+Vixen.Graphics.VertexFormat.SNorm8X4 = 7 -> Vixen.Graphics.VertexFormat
+Vixen.Graphics.VertexFormat.UInt32 = 9 -> Vixen.Graphics.VertexFormat
+Vixen.Graphics.VertexFormat.UInt8X4 = 8 -> Vixen.Graphics.VertexFormat
+Vixen.Graphics.VertexFormat.UNorm16X2 = 10 -> Vixen.Graphics.VertexFormat
+Vixen.Graphics.VertexFormat.UNorm8X4 = 6 -> Vixen.Graphics.VertexFormat
+Vixen.Graphics.VertexFormat.VertexFormat() -> void
+Vixen.Graphics.VertexStepMode -> enum : byte
+Vixen.Graphics.VertexStepMode.Instance = 1 -> Vixen.Graphics.VertexStepMode
+Vixen.Graphics.VertexStepMode.Vertex = 0 -> Vixen.Graphics.VertexStepMode
+Vixen.Graphics.VertexStepMode.VertexStepMode() -> void
+static Vixen.Graphics.BlendState.Additive.get -> Vixen.Graphics.BlendState
+static Vixen.Graphics.BlendState.AlphaBlend.get -> Vixen.Graphics.BlendState
+static Vixen.Graphics.BlendState.Opaque.get -> Vixen.Graphics.BlendState
+static Vixen.Graphics.BlendState.PremultipliedAlpha.get -> Vixen.Graphics.BlendState
+static Vixen.Graphics.BufferHandle.Null.get -> Vixen.Graphics.BufferHandle
+static Vixen.Graphics.DepthStencilState.Default.get -> Vixen.Graphics.DepthStencilState
+static Vixen.Graphics.DepthStencilState.Disabled.get -> Vixen.Graphics.DepthStencilState
+static Vixen.Graphics.DepthStencilState.TestOnly.get -> Vixen.Graphics.DepthStencilState
+static Vixen.Graphics.DescriptorSetHandle.Null.get -> Vixen.Graphics.DescriptorSetHandle
+static Vixen.Graphics.DescriptorSetLayoutHandle.Null.get -> Vixen.Graphics.DescriptorSetLayoutHandle
+static Vixen.Graphics.DescriptorWrite.SamplerAt(uint binding, Vixen.Graphics.SamplerHandle sampler) -> Vixen.Graphics.DescriptorWrite
+static Vixen.Graphics.DescriptorWrite.Storage(uint binding, Vixen.Graphics.BufferHandle buffer, long offset = 0, long size = 0) -> Vixen.Graphics.DescriptorWrite
+static Vixen.Graphics.DescriptorWrite.Texture(uint binding, Vixen.Graphics.TextureViewHandle view, int arrayIndex = 0) -> Vixen.Graphics.DescriptorWrite
+static Vixen.Graphics.DescriptorWrite.Uniform(uint binding, Vixen.Graphics.BufferHandle buffer, long offset = 0, long size = 0) -> Vixen.Graphics.DescriptorWrite
+static Vixen.Graphics.GraphicsDeviceFeatures.Minimum.get -> Vixen.Graphics.GraphicsDeviceFeatures
+static Vixen.Graphics.PipelineHandle.Null.get -> Vixen.Graphics.PipelineHandle
+static Vixen.Graphics.PipelineLayoutHandle.Null.get -> Vixen.Graphics.PipelineLayoutHandle
+static Vixen.Graphics.PixelFormats.BlockExtent(this Vixen.Graphics.PixelFormat format) -> (int Width, int Height)
+static Vixen.Graphics.PixelFormats.BlockSize(this Vixen.Graphics.PixelFormat format) -> int
+static Vixen.Graphics.PixelFormats.HasDepth(this Vixen.Graphics.PixelFormat format) -> bool
+static Vixen.Graphics.PixelFormats.HasStencil(this Vixen.Graphics.PixelFormat format) -> bool
+static Vixen.Graphics.PixelFormats.IsCompressed(this Vixen.Graphics.PixelFormat format) -> bool
+static Vixen.Graphics.PixelFormats.IsDepthStencil(this Vixen.Graphics.PixelFormat format) -> bool
+static Vixen.Graphics.PixelFormats.IsSrgb(this Vixen.Graphics.PixelFormat format) -> bool
+static Vixen.Graphics.PixelFormats.LevelSize(this Vixen.Graphics.PixelFormat format, int width, int height, int depth = 1) -> long
+static Vixen.Graphics.PixelFormats.MipLevelCount(int width, int height, int depth = 1) -> int
+static Vixen.Graphics.PixelFormats.ToLinear(this Vixen.Graphics.PixelFormat format) -> Vixen.Graphics.PixelFormat
+static Vixen.Graphics.PixelFormats.ToSrgb(this Vixen.Graphics.PixelFormat format) -> Vixen.Graphics.PixelFormat
+static Vixen.Graphics.RasterizerState.Default.get -> Vixen.Graphics.RasterizerState
+static Vixen.Graphics.RasterizerState.TwoSided.get -> Vixen.Graphics.RasterizerState
+static Vixen.Graphics.SamplerDescription.LinearClamp.get -> Vixen.Graphics.SamplerDescription
+static Vixen.Graphics.SamplerDescription.LinearRepeat.get -> Vixen.Graphics.SamplerDescription
+static Vixen.Graphics.SamplerDescription.PointClamp.get -> Vixen.Graphics.SamplerDescription
+static Vixen.Graphics.SamplerDescription.Shadow.get -> Vixen.Graphics.SamplerDescription
+static Vixen.Graphics.SamplerHandle.Null.get -> Vixen.Graphics.SamplerHandle
+static Vixen.Graphics.ScissorRect.Full(Vixen.Core.Mathematics.Int2 size) -> Vixen.Graphics.ScissorRect
+static Vixen.Graphics.ShaderHandle.Null.get -> Vixen.Graphics.ShaderHandle
+static Vixen.Graphics.TextureHandle.Null.get -> Vixen.Graphics.TextureHandle
+static Vixen.Graphics.TextureViewHandle.Null.get -> Vixen.Graphics.TextureViewHandle

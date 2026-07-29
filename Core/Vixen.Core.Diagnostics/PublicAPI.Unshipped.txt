@@ -1,0 +1,98 @@
+#nullable enable
+Vixen.Core.Diagnostics.LogRecord -> sealed record
+Vixen.Core.Diagnostics.LogRecord : System.IEquatable<Vixen.Core.Diagnostics.LogRecord>
+Vixen.Core.Diagnostics.LogRecord.Category.get -> string
+Vixen.Core.Diagnostics.LogRecord.Category.init -> string
+Vixen.Core.Diagnostics.LogRecord.EventId.get -> Microsoft.Extensions.Logging.EventId
+Vixen.Core.Diagnostics.LogRecord.EventId.init -> Microsoft.Extensions.Logging.EventId
+Vixen.Core.Diagnostics.LogRecord.Exception.get -> System.Exception?
+Vixen.Core.Diagnostics.LogRecord.Exception.init -> System.Exception?
+Vixen.Core.Diagnostics.LogRecord.Level.get -> Microsoft.Extensions.Logging.LogLevel
+Vixen.Core.Diagnostics.LogRecord.Level.init -> Microsoft.Extensions.Logging.LogLevel
+Vixen.Core.Diagnostics.LogRecord.LogRecord(System.DateTimeOffset Timestamp, Microsoft.Extensions.Logging.LogLevel Level, Microsoft.Extensions.Logging.EventId EventId, string Category, string Message, System.Exception? Exception, int ThreadId) -> void
+Vixen.Core.Diagnostics.LogRecord.Message.get -> string
+Vixen.Core.Diagnostics.LogRecord.Message.init -> string
+Vixen.Core.Diagnostics.LogRecord.ThreadId.get -> int
+Vixen.Core.Diagnostics.LogRecord.ThreadId.init -> int
+Vixen.Core.Diagnostics.LogRecord.Timestamp.get -> System.DateTimeOffset
+Vixen.Core.Diagnostics.LogRecord.Timestamp.init -> System.DateTimeOffset
+Vixen.Core.Diagnostics.Profiler -> static class
+Vixen.Core.Diagnostics.Profiler.Scope -> readonly ref struct
+Vixen.Core.Diagnostics.Profiler.Scope.Dispose() -> void
+Vixen.Core.Diagnostics.Profiler.Scope.Scope() -> void
+Vixen.Core.Diagnostics.ProfilerSample -> readonly struct
+Vixen.Core.Diagnostics.ProfilerSample : System.IEquatable<Vixen.Core.Diagnostics.ProfilerSample>
+Vixen.Core.Diagnostics.ProfilerSample.BeginTicks.get -> long
+Vixen.Core.Diagnostics.ProfilerSample.BeginTicks.init -> long
+Vixen.Core.Diagnostics.ProfilerSample.Depth.get -> int
+Vixen.Core.Diagnostics.ProfilerSample.Depth.init -> int
+Vixen.Core.Diagnostics.ProfilerSample.DurationMicroseconds.get -> double
+Vixen.Core.Diagnostics.ProfilerSample.DurationMilliseconds.get -> double
+Vixen.Core.Diagnostics.ProfilerSample.DurationTicks.get -> int
+Vixen.Core.Diagnostics.ProfilerSample.DurationTicks.init -> int
+Vixen.Core.Diagnostics.ProfilerSample.FrameIndex.get -> int
+Vixen.Core.Diagnostics.ProfilerSample.FrameIndex.init -> int
+Vixen.Core.Diagnostics.ProfilerSample.Key.get -> Vixen.Core.Diagnostics.ProfilingKey
+Vixen.Core.Diagnostics.ProfilerSample.Key.init -> Vixen.Core.Diagnostics.ProfilingKey
+Vixen.Core.Diagnostics.ProfilerSample.ProfilerSample() -> void
+Vixen.Core.Diagnostics.ProfilerSample.ProfilerSample(Vixen.Core.Diagnostics.ProfilingKey Key, int Depth, long BeginTicks, int DurationTicks, int FrameIndex) -> void
+Vixen.Core.Diagnostics.ProfilerThreadSamples -> sealed record
+Vixen.Core.Diagnostics.ProfilerThreadSamples : System.IEquatable<Vixen.Core.Diagnostics.ProfilerThreadSamples>
+Vixen.Core.Diagnostics.ProfilerThreadSamples.ProfilerThreadSamples(int ThreadId, string ThreadName, Vixen.Core.Diagnostics.ProfilerSample[] Samples) -> void
+Vixen.Core.Diagnostics.ProfilerThreadSamples.Samples.get -> Vixen.Core.Diagnostics.ProfilerSample[]
+Vixen.Core.Diagnostics.ProfilerThreadSamples.Samples.init -> Vixen.Core.Diagnostics.ProfilerSample[]
+Vixen.Core.Diagnostics.ProfilerThreadSamples.ThreadId.get -> int
+Vixen.Core.Diagnostics.ProfilerThreadSamples.ThreadId.init -> int
+Vixen.Core.Diagnostics.ProfilerThreadSamples.ThreadName.get -> string
+Vixen.Core.Diagnostics.ProfilerThreadSamples.ThreadName.init -> string
+Vixen.Core.Diagnostics.ProfilingKey -> readonly struct
+Vixen.Core.Diagnostics.ProfilingKey : System.IComparable<Vixen.Core.Diagnostics.ProfilingKey>
+Vixen.Core.Diagnostics.ProfilingKey : System.IEquatable<Vixen.Core.Diagnostics.ProfilingKey>
+Vixen.Core.Diagnostics.ProfilingKey.CompareTo(Vixen.Core.Diagnostics.ProfilingKey other) -> int
+Vixen.Core.Diagnostics.ProfilingKey.Id.get -> int
+Vixen.Core.Diagnostics.ProfilingKey.Id.init -> int
+Vixen.Core.Diagnostics.ProfilingKey.IsValid.get -> bool
+Vixen.Core.Diagnostics.ProfilingKey.Name.get -> string
+Vixen.Core.Diagnostics.ProfilingKey.ProfilingKey() -> void
+Vixen.Core.Diagnostics.ProfilingKey.ProfilingKey(int Id) -> void
+Vixen.Core.Diagnostics.RingBufferSink -> sealed class
+Vixen.Core.Diagnostics.RingBufferSink : System.IDisposable
+Vixen.Core.Diagnostics.RingBufferSink.Capacity.get -> int
+Vixen.Core.Diagnostics.RingBufferSink.Clear() -> void
+Vixen.Core.Diagnostics.RingBufferSink.ClearCategoryLevels() -> void
+Vixen.Core.Diagnostics.RingBufferSink.Count.get -> int
+Vixen.Core.Diagnostics.RingBufferSink.CreateLogger(string categoryName) -> Microsoft.Extensions.Logging.ILogger
+Vixen.Core.Diagnostics.RingBufferSink.Dispose() -> void
+Vixen.Core.Diagnostics.RingBufferSink.DroppedCount.get -> long
+Vixen.Core.Diagnostics.RingBufferSink.IsEnabled(string category, Microsoft.Extensions.Logging.LogLevel level) -> bool
+Vixen.Core.Diagnostics.RingBufferSink.MinimumLevel.get -> Microsoft.Extensions.Logging.LogLevel
+Vixen.Core.Diagnostics.RingBufferSink.MinimumLevel.set -> Microsoft.Extensions.Logging.LogLevel
+Vixen.Core.Diagnostics.RingBufferSink.RingBufferSink(int capacity = 100000) -> void
+Vixen.Core.Diagnostics.RingBufferSink.SetCategoryLevel(string categoryPrefix, Microsoft.Extensions.Logging.LogLevel level) -> void
+Vixen.Core.Diagnostics.RingBufferSink.Snapshot() -> Vixen.Core.Diagnostics.LogRecord[]
+Vixen.Core.Diagnostics.TraceExporter -> static class
+const Vixen.Core.Diagnostics.Profiler.DefaultCapacityPerThread = 65536 -> int
+const Vixen.Core.Diagnostics.Profiler.IsSupported = true -> bool
+const Vixen.Core.Diagnostics.RingBufferSink.DefaultCapacity = 100000 -> int
+override Vixen.Core.Diagnostics.ProfilingKey.ToString() -> string
+static Vixen.Core.Diagnostics.Profiler.Begin(Vixen.Core.Diagnostics.ProfilingKey key) -> Vixen.Core.Diagnostics.Profiler.Scope
+static Vixen.Core.Diagnostics.Profiler.BeginFrame() -> int
+static Vixen.Core.Diagnostics.Profiler.CapacityPerThread.get -> int
+static Vixen.Core.Diagnostics.Profiler.CapacityPerThread.set -> int
+static Vixen.Core.Diagnostics.Profiler.Collect() -> Vixen.Core.Diagnostics.ProfilerThreadSamples[]
+static Vixen.Core.Diagnostics.Profiler.DroppedSampleCount.get -> long
+static Vixen.Core.Diagnostics.Profiler.FrameIndex.get -> int
+static Vixen.Core.Diagnostics.Profiler.IsEnabled.get -> bool
+static Vixen.Core.Diagnostics.Profiler.IsEnabled.set -> bool
+static Vixen.Core.Diagnostics.Profiler.Reset() -> void
+static Vixen.Core.Diagnostics.ProfilingKey.None.get -> Vixen.Core.Diagnostics.ProfilingKey
+static Vixen.Core.Diagnostics.ProfilingKey.Register(string name) -> Vixen.Core.Diagnostics.ProfilingKey
+static Vixen.Core.Diagnostics.ProfilingKey.RegisteredCount.get -> int
+static Vixen.Core.Diagnostics.ProfilingKey.TryGet(string name, out Vixen.Core.Diagnostics.ProfilingKey key) -> bool
+static Vixen.Core.Diagnostics.ProfilingKey.operator <(Vixen.Core.Diagnostics.ProfilingKey left, Vixen.Core.Diagnostics.ProfilingKey right) -> bool
+static Vixen.Core.Diagnostics.ProfilingKey.operator <=(Vixen.Core.Diagnostics.ProfilingKey left, Vixen.Core.Diagnostics.ProfilingKey right) -> bool
+static Vixen.Core.Diagnostics.ProfilingKey.operator >(Vixen.Core.Diagnostics.ProfilingKey left, Vixen.Core.Diagnostics.ProfilingKey right) -> bool
+static Vixen.Core.Diagnostics.ProfilingKey.operator >=(Vixen.Core.Diagnostics.ProfilingKey left, Vixen.Core.Diagnostics.ProfilingKey right) -> bool
+static Vixen.Core.Diagnostics.TraceExporter.Summarize(System.Collections.Generic.IReadOnlyList<Vixen.Core.Diagnostics.ProfilerThreadSamples> threads) -> string
+static Vixen.Core.Diagnostics.TraceExporter.WriteChromeTrace(System.Collections.Generic.IReadOnlyList<Vixen.Core.Diagnostics.ProfilerThreadSamples> threads, System.IO.Stream destination) -> void
+static Vixen.Core.Diagnostics.TraceExporter.WriteChromeTrace(System.Collections.Generic.IReadOnlyList<Vixen.Core.Diagnostics.ProfilerThreadSamples> threads, string path) -> void

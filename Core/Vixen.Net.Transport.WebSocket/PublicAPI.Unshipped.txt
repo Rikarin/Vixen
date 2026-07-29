@@ -1,0 +1,66 @@
+#nullable enable
+Vixen.Net.Transport.WebSocket.IWebSocketChannel -> interface
+Vixen.Net.Transport.WebSocket.IWebSocketChannel : System.IDisposable
+Vixen.Net.Transport.WebSocket.IWebSocketChannel.Close() -> void
+Vixen.Net.Transport.WebSocket.IWebSocketChannel.Pump() -> void
+Vixen.Net.Transport.WebSocket.IWebSocketChannel.Send(System.ReadOnlySpan<byte> message) -> void
+Vixen.Net.Transport.WebSocket.IWebSocketChannel.State.get -> Vixen.Net.Transport.WebSocket.WebSocketChannelState
+Vixen.Net.Transport.WebSocket.IWebSocketChannel.TryReceive(System.Span<byte> buffer, out int length) -> bool
+Vixen.Net.Transport.WebSocket.IWebSocketFactory -> interface
+Vixen.Net.Transport.WebSocket.IWebSocketFactory.Connect(System.Uri address) -> Vixen.Net.Transport.WebSocket.IWebSocketChannel
+Vixen.Net.Transport.WebSocket.IWebSocketFactory.Listen(System.Uri address) -> Vixen.Net.Transport.WebSocket.IWebSocketListener
+Vixen.Net.Transport.WebSocket.IWebSocketListener -> interface
+Vixen.Net.Transport.WebSocket.IWebSocketListener : System.IDisposable
+Vixen.Net.Transport.WebSocket.IWebSocketListener.Address.get -> System.Uri
+Vixen.Net.Transport.WebSocket.IWebSocketListener.Pump() -> void
+Vixen.Net.Transport.WebSocket.IWebSocketListener.TryAccept(out Vixen.Net.Transport.WebSocket.IWebSocketChannel? channel) -> bool
+Vixen.Net.Transport.WebSocket.SystemWebSocketFactory -> sealed class
+Vixen.Net.Transport.WebSocket.SystemWebSocketFactory : Vixen.Net.Transport.WebSocket.IWebSocketFactory
+Vixen.Net.Transport.WebSocket.SystemWebSocketFactory.Connect(System.Uri address) -> Vixen.Net.Transport.WebSocket.IWebSocketChannel
+Vixen.Net.Transport.WebSocket.SystemWebSocketFactory.Listen(System.Uri address) -> Vixen.Net.Transport.WebSocket.IWebSocketListener
+Vixen.Net.Transport.WebSocket.SystemWebSocketFactory.SystemWebSocketFactory() -> void
+Vixen.Net.Transport.WebSocket.WebSocketChannelState -> enum : byte
+Vixen.Net.Transport.WebSocket.WebSocketChannelState.Closed = 2 -> Vixen.Net.Transport.WebSocket.WebSocketChannelState
+Vixen.Net.Transport.WebSocket.WebSocketChannelState.Connecting = 0 -> Vixen.Net.Transport.WebSocket.WebSocketChannelState
+Vixen.Net.Transport.WebSocket.WebSocketChannelState.Open = 1 -> Vixen.Net.Transport.WebSocket.WebSocketChannelState
+Vixen.Net.Transport.WebSocket.WebSocketChannelState.WebSocketChannelState() -> void
+Vixen.Net.Transport.WebSocket.WebSocketTransport -> sealed class
+Vixen.Net.Transport.WebSocket.WebSocketTransport : System.IDisposable
+Vixen.Net.Transport.WebSocket.WebSocketTransport : Vixen.Net.Transport.ITransport
+Vixen.Net.Transport.WebSocket.WebSocketTransport.Capabilities.get -> Vixen.Net.Transport.TransportCapabilities
+Vixen.Net.Transport.WebSocket.WebSocketTransport.ClientState.get -> Vixen.Net.Transport.TransportState
+Vixen.Net.Transport.WebSocket.WebSocketTransport.ConnectionCount.get -> int
+Vixen.Net.Transport.WebSocket.WebSocketTransport.Disconnect(Vixen.Net.ConnectionId connection) -> void
+Vixen.Net.Transport.WebSocket.WebSocketTransport.Dispose() -> void
+Vixen.Net.Transport.WebSocket.WebSocketTransport.ListeningOn.get -> System.Uri?
+Vixen.Net.Transport.WebSocket.WebSocketTransport.Poll(System.TimeSpan elapsed, Vixen.Net.Transport.ITransportEvents events) -> void
+Vixen.Net.Transport.WebSocket.WebSocketTransport.SendToClient(Vixen.Net.ConnectionId connection, System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> void
+Vixen.Net.Transport.WebSocket.WebSocketTransport.SendToServer(System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> void
+Vixen.Net.Transport.WebSocket.WebSocketTransport.ServerState.get -> Vixen.Net.Transport.TransportState
+Vixen.Net.Transport.WebSocket.WebSocketTransport.StartClient() -> void
+Vixen.Net.Transport.WebSocket.WebSocketTransport.StartServer() -> void
+Vixen.Net.Transport.WebSocket.WebSocketTransport.StopClient() -> void
+Vixen.Net.Transport.WebSocket.WebSocketTransport.StopServer() -> void
+Vixen.Net.Transport.WebSocket.WebSocketTransport.WebSocketTransport(Vixen.Net.Transport.WebSocket.IWebSocketFactory factory, Vixen.Net.Transport.WebSocket.WebSocketTransportOptions? options = null) -> void
+Vixen.Net.Transport.WebSocket.WebSocketTransportOptions -> sealed record
+Vixen.Net.Transport.WebSocket.WebSocketTransportOptions : System.IEquatable<Vixen.Net.Transport.WebSocket.WebSocketTransportOptions>
+Vixen.Net.Transport.WebSocket.WebSocketTransportOptions.ConnectTimeout.get -> System.TimeSpan
+Vixen.Net.Transport.WebSocket.WebSocketTransportOptions.ConnectTimeout.init -> System.TimeSpan
+Vixen.Net.Transport.WebSocket.WebSocketTransportOptions.KeepAliveInterval.get -> System.TimeSpan
+Vixen.Net.Transport.WebSocket.WebSocketTransportOptions.KeepAliveInterval.init -> System.TimeSpan
+Vixen.Net.Transport.WebSocket.WebSocketTransportOptions.ListenAddress.get -> System.Uri
+Vixen.Net.Transport.WebSocket.WebSocketTransportOptions.ListenAddress.init -> System.Uri
+Vixen.Net.Transport.WebSocket.WebSocketTransportOptions.MaxConnections.get -> int
+Vixen.Net.Transport.WebSocket.WebSocketTransportOptions.MaxConnections.init -> int
+Vixen.Net.Transport.WebSocket.WebSocketTransportOptions.RemoteAddress.get -> System.Uri
+Vixen.Net.Transport.WebSocket.WebSocketTransportOptions.RemoteAddress.init -> System.Uri
+Vixen.Net.Transport.WebSocket.WebSocketTransportOptions.Timeout.get -> System.TimeSpan
+Vixen.Net.Transport.WebSocket.WebSocketTransportOptions.Timeout.init -> System.TimeSpan
+Vixen.Net.Transport.WebSocket.WebSocketTransportOptions.WebSocketTransportOptions() -> void
+Vixen.Net.Transport.WebSocket.WebSocketUpgrade -> static class
+const Vixen.Net.Transport.WebSocket.WebSocketTransport.MaxPayloadBytes = 65536 -> int
+const Vixen.Net.Transport.WebSocket.WebSocketUpgrade.AcceptGuid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11" -> string
+const Vixen.Net.Transport.WebSocket.WebSocketUpgrade.MaxRequestBytes = 4096 -> int
+static Vixen.Net.Transport.WebSocket.WebSocketUpgrade.Accept(string key) -> byte[]
+static Vixen.Net.Transport.WebSocket.WebSocketUpgrade.IsComplete(System.ReadOnlySpan<byte> request, int from, out int length) -> bool
+static Vixen.Net.Transport.WebSocket.WebSocketUpgrade.TryReadKey(System.ReadOnlySpan<byte> request, out string key) -> bool

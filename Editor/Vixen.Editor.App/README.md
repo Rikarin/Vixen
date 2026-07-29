@@ -6,6 +6,10 @@ The editor's executable: a platform, a window, a device, and a frame loop over a
 dotnet run --project Editor/Vixen.Editor.App -- --frames 5
 ```
 
+`--project PATH` opens a project. With none, a scratch one under the user's data directory is used,
+so a first run with no arguments still opens something real — a directory that does not exist yet is
+the ordinary way to start one.
+
 `--frames N` runs exactly N frames and exits, which is how CI proves the whole stack starts,
 presents and stops without a validation error or a hang — the flag `Samples/01` introduced and for
 the same reason. With no `--frames` it runs until the window closes.
@@ -16,7 +20,8 @@ the same reason. With no `--frames` it runs until the window closes.
 |---|---|
 | `Program.cs` | the platform and the window |
 | `EditorHost.cs` | the device and the four steps of a frame |
-| `EditorApplication.cs` | which panels exist, which layouts, and what persists |
+| `EditorApplication.cs` | the project, the scene, which panels exist, which layouts, and what persists |
+| `SceneEntity.cs` | the join: one entity as a row of editors and as something a gizmo can drag |
 
 The third is the one a game team would fork. The first two are the same hundred lines
 `Samples/02-HelloUi` has, and the loop is four steps worth naming: pump the platform's events into
@@ -66,25 +71,136 @@ layout over the one the user spent the afternoon arranging.
 
 A first run has none of the three files and opens on the Default preset in dark.
 
-## The panels are placeholders and are meant to read as such
+## The panels, and which of them are real now
 
-`Vixen.Editor.SceneView`, `.Inspector`, `.NodeGraph`, `.Profiler` and `.Debugger` are separate
-assemblies in doc 11's tree and none of them exists yet. What is here is a hierarchy and a project
-browser built from `TreeView`, an inspector that is a bare `PropertyGrid`, a console that is a line
-of text, and a scene panel that says what will replace it. They exist so the shell is exercised by
-something real rather than by five empty boxes, and each becomes a one-line change when its assembly
-lands — because a panel is an id and a factory.
+`Vixen.Editor.Inspector` and `Vixen.Editor.SceneView` have landed, so three of the five panels are
+looking at a real model:
+
+| Panel | What it is |
+|---|---|
+| Hierarchy | a `TreeView` over the scene's entities; selecting drives the shared selection, and renaming, creating and deleting are all undo entries |
+| Inspector | an `InspectorView` over the selection, recording every edit on the scene document's stack |
+| Scene | a `SceneViewport`: orbit, pan, zoom, the axis cross, gizmo modes and snapping, drawn into the panel — as lines, for the reason below |
+| Project | `ProjectBrowser`: the asset database as a tree, with a search box, over the real `Assets/` directory |
+| Console | still a line of text |
+
+The scene lives at `Assets/Scenes/Main.vxscene` and is opened on launch. A project that has none gets
+the seeded one written immediately — the only time the editor saves without being asked, so that a new
+project contains the scene you are looking at rather than something that exists until the window
+closes. `Ctrl+S` saves; the menu item greys itself out from the document's own dirty signal.
+
+⚠ **The seeded scene is scanned a second time, and has to be.** `EditorProject.Open` indexes the
+project before that file is written, so without the rescan a first run shows a browser with no scene
+in it — the one file the editor is certain exists, because it just made it.
+
+## The project browser
+
+`ProjectBrowser` is the Project panel: a `SearchBox` and a `TreeView` over `AssetTree.Build`. The
+shape — folder synthesis, ordering, search — is `Vixen.Editor.Core`'s and is tested there without a
+document; what is left here is rows, selection and when to rebuild. `Ctrl+R` rescans, saves the index
+and rebuilds the reverse-reference index with it, and reports what the scan repaired rather than only
+how many assets it found.
+
+⚠ **Not watched.** A file added outside the editor appears on the next refresh. A file-system watcher
+needs debouncing, a rename heuristic and a way not to fight the editor's own writes; one that missed
+half the events while claiming to be live would be worse than a Refresh that says what it does.
+
+⚠ **Only indexed nodes reach the selection.** A folder scanned read-only has no sidecar and so no
+GUID, and putting `AssetId.Empty` in `EditorProject.Selection` would make every such folder select the
+same nothing and look like one asset.
+
+⚠ **Untested at the panel level**, in common with every other panel here — the app is an executable
+with no test project. The model underneath it has 16.
+
+## Importing and building content
+
+`Import Assets` and `Build Content` (`Ctrl+Shift+B`) run `ContentPipeline` on the shell's background
+task manager — the same call `vixen import` and `vixen content build` make. The orchestration moved
+into `Vixen.Editor.Assets` so there is one of it: two would drift, and the way that drift shows up is
+the editor and the CLI producing different output for one project.
+
+⚠ **One at a time**, and the guard is `Interlocked.CompareExchange` rather than a bool. Two imports
+write the same sidecars, artefact store and cache file at once; the second does not produce a worse
+build, it produces a corrupt `Library/`. A menu item and a keybinding dispatched in one frame would
+both see a plain flag unset.
+
+⚠ **Build imports first.** The plan reads the import cache, so building without importing packs the
+previous import's artefacts — a build that succeeds and ships yesterday's content.
+
+⚠ **The workspace has its own `AssetDatabase`.** `Scan` clears and repopulates its dictionaries and
+the import runs on a pool thread, so sharing the one the panels read would be a race. The editor
+rescans afterwards, on the frame thread, which is what `ContentTasks.Rescan` is for.
+
+⚠ **The progress bar fills at the end.** `ImportAllAsync` returns when it is finished, so what drives
+the bar is a walk over what happened rather than a live feed. Honest, and fixed by giving the import
+pipeline a progress callback of its own.
+
+`--run ID` executes one editor command on the first frame, which is how CI proves an import or a
+build through the *editor's* path — enablement, background task and notification — rather than
+through the pipeline the CLI already covers. It exits 2 for a command that is not there or not
+enabled.
+
+**The scene panel is live.** `ScenePresenter` renders into an offscreen colour target, registers it
+with `UiRenderer.RegisterImage`, and the viewport control draws it — so the scene arrives in the
+interface as an ordinary element that panels can be drawn over.
+
+⚠ **What it draws is lines**: the grid, a three-axis marker per entity, a line to each parent, and the
+gizmo. There is no material system wired to an editor viewport and no model importer feeding one, so
+there is nothing to draw as a mesh yet — and a grid, markers and a gizmo is what any editor shows for
+a scene of empties regardless. A mesh pass is a second `SceneRenderer` into the same target.
+
+⚠ **Resizing re-registers the number rather than surrendering it.** A dragged splitter resizes the
+pane once a frame, and `UnregisterImage` destroys the number's descriptor sets — which the Vulkan
+backend cannot reclaim, because its pools are deliberately created without `FreeDescriptorSetBit`. So
+a set per resize is a leak that neither the picture nor the validation layers ever mention.
+`UiRenderer` holds one set per frame in flight per registered number and repoints each when that
+frame comes round; `UiRenderer.ImageSets` is what makes the claim checkable.
+
+⚠ **The interface's pass declares that it reads the scene's target**, and has to. The interface
+samples it through a descriptor set, which the render graph cannot see — it orders passes and places
+barriers from what they *say* they touch. Without the declaration the target is still a colour
+attachment when the fragment shader reads it, which validation reports as a layout mismatch and which
+on a driver that does not check is a scene drawn from memory nothing had finished writing.
+
+## The world, and why the editor has one
+
+`Program.cs` says the editor's loop is an interface and has no world. It now owns one, and that is
+not a contradiction: nothing here ticks systems, runs a fixed step or updates behaviours. The world
+is a **document** — the thing the hierarchy lists, the inspector edits and the gizmo drags — and it
+starts being a running game only when play mode says so.
+
+`SceneEntity` is the join, and it lives here rather than in either library on purpose. An entity is a
+handle and a set of chunk rows; an inspector shows the members of an *object*. Something has to be
+that object, and putting it in the application is what keeps `Vixen.Editor.Inspector` from knowing
+what an ECS is and `Vixen.Editor.SceneView` from knowing what a property drawer is. It is also the
+gizmo's target, so a drag and a typed number cannot disagree about what "position" means.
+
+⚠ **The selection is polled once a frame rather than subscribed to.** `Selection<T>` is
+signal-backed and an `Effect` would be the better wiring, but nothing in this loop flushes the
+reactive scheduler and adding one changes the loop's contract for notifications and background tasks
+as well. Comparing a handful of handles once a frame is not a cost.
+
+⚠ **A panel's factory runs again when it is reopened**, so nothing durable may live in one. The
+camera is kept as a `ViewBookmark` on `EditorApplication` and restored when the scene panel is
+rebuilt; without it, closing and reopening the viewport puts the user back at the origin.
 
 ## Known gaps
 
 - **No plugin loading.** Doc 11 puts it here, and `Vixen.Editor.Plugin` — the contract, the manifest,
   the `AssemblyLoadContext` — does not exist yet. It is the reason this project is not NativeAOT, and
   the `PublishAot` property says so already.
-- **No project is opened.** `Vixen.Editor.Core` is referenced and not yet used: `file.open-project`
-  needs a file dialog, which is `Vixen.Platform`'s and not built.
+- **No file dialog, so no "open project…".** A project comes from `--project` or is the scratch one;
+  choosing one at run time needs a dialog, which is `Vixen.Platform`'s and not built.
+- **Reparenting is not undoable.** Dragging in the hierarchy is not wired up either; the primitive
+  undo was waiting on — `Hierarchy.SetParentAfter`, which puts a child back where it was rather than
+  at the head — now exists, so what is missing is the command.
+- **Clicking in the viewport does not select.** Picking needs the id target the missing texture
+  command also blocks; the gizmo can be dragged, and what it drags comes from the hierarchy.
 - **It redraws every frame.** Redrawing only on change is the right end state and is not free — every
   animation, toast expiry and task progress has to say so, and one that forgets leaves a progress bar
   frozen at forty per cent.
+- **One scene per project, chosen by path rather than by a dialog.** `Assets/Scenes/Main.vxscene`,
+  because picking another needs a file dialog that `Vixen.Platform` does not have.
 - **The four SPIR-V modules are committed here and in `Samples/02-HelloUi`**, byte for byte. They
   belong in one place once Raven's `Ui/*.rvn` path is wired; until then a caller hands the renderer
   whatever it has.

@@ -416,6 +416,11 @@ public sealed partial class CodeEditor : Control {
         Scroller.Scrolled += _ => Realise();
         buffer.Changed += OnBufferChanged;
 
+        // ⚠ Gated on the size, and here that gate is doing real work rather than tidying: Refresh
+        // walks every line in the buffer to rebuild the row list, so a hundred-thousand-line file
+        // would pay for that on every frame of every pass. See Control.WhenResized.
+        WhenResized(Refresh);
+
         AddHandler<KeyEvent>(static (element, args) => ((CodeEditor) element).Keyed(args));
         AddHandler<TextInputEvent>(static (element, args) => ((CodeEditor) element).Typed(args));
         AddHandler<PointerEvent>(static (element, args) => ((CodeEditor) element).Pointed(args));
@@ -446,9 +451,13 @@ public sealed partial class CodeEditor : Control {
         measuredFontSize = FontSize;
         measuredLineHeight = LineHeight;
 
-        if (Probe.Run() is { } run) {
-            characterWidth = run.Width > 0f ? run.Width : characterWidth;
-            lineHeight = run.Height > 0f ? run.Height : lineHeight;
+        // A line rather than a run, since a character picks its own font: the probe is one digit and
+        // will be one run, but asking for the run would be asking the element for something it no
+        // longer has — `font-family` is a per-character chain and an element's text can be in
+        // several faces at once.
+        if (Probe.Line() is { } line) {
+            characterWidth = line.Width > 0f ? line.Width : characterWidth;
+            lineHeight = line.Height > 0f ? line.Height : lineHeight;
         }
 
         // The cascade's `line-height`, which resolves relative units against the right font size

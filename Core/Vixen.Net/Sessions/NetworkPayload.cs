@@ -26,7 +26,21 @@ public enum PayloadKind : byte {
     ///     that distinction is worth a payload kind rather than being folded into
     ///     <see cref="Rpc" />.
     /// </remarks>
-    Broadcast = 3
+    Broadcast = 3,
+
+    /// <summary>A client's inputs for a run of ticks, which is what prediction rests on.</summary>
+    Input = 4,
+
+    /// <summary>The largest kind there is. Anything above it did not come from this engine.</summary>
+    /// <remarks>
+    ///     <b>Kept beside the members rather than written into <see cref="NetworkPayload.TryUnwrap" />,
+    ///     because it was once written into it and went stale.</b> The check read "greater than
+    ///     <see cref="Rpc" />" and stayed that way when <see cref="Broadcast" /> was added — so every
+    ///     broadcast that went through the session layer was refused as malformed, silently, while the
+    ///     router's own tests passed because they never went through it. There is now a test that
+    ///     enumerates this enum and round-trips every member, so the next kind cannot repeat it.
+    /// </remarks>
+    Last = Input
 }
 
 /// <summary>Puts the kind byte on, and takes it off.</summary>
@@ -71,7 +85,7 @@ public static class NetworkPayload {
         kind = PayloadKind.Game;
         payload = default;
 
-        if (wrapped.IsEmpty || wrapped[0] > (byte)PayloadKind.Rpc) {
+        if (wrapped.IsEmpty || wrapped[0] > (byte)PayloadKind.Last) {
             return false;
         }
 

@@ -270,11 +270,11 @@ enum CanvasDrag : byte {
 ///         ten thousand <see cref="GraphNode" />s and a few dozen <see cref="NodeItem" />s.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nothing tells an element that its box changed</b>, so a canvas that is resized
-///         without being panned realises against the previous size until something calls
-///         <see cref="Refresh" /> — the same gap <c>TreeView</c> and <c>ScrollView</c> have, and it
-///         closes with a "layout finished" callback on <c>UiDocument</c> rather than with anything
-///         here.
+///         <b>A resize is noticed rather than announced.</b> What the canvas realises is what its own
+///         box reaches, which is a result of the layout pass — so <c>Control.WhenResized</c> hangs
+///         <see cref="Refresh" /> on <see cref="UiDocument.LayoutFinished" /> and it runs on the
+///         passes where the box actually moved. Panning and zooming realise for themselves, because
+///         those are writes this control makes and can see.
 ///     </para>
 /// </remarks>
 public sealed partial class NodeCanvas : Control {
@@ -514,6 +514,10 @@ public sealed partial class NodeCanvas : Control {
         Minimap.Canvas = this;
 
         graph.Changed += OnGraphChanged;
+
+        // A resize changes what the viewport covers, so it changes which nodes are realised — and a
+        // canvas that is resized without being panned has nothing else to hear about it from.
+        WhenResized(Refresh);
 
         AddHandler<PointerEvent>(static (element, args) => ((NodeCanvas) element).Pointed(args));
         AddHandler<WheelEvent>(static (element, args) => ((NodeCanvas) element).Wheeled(args));

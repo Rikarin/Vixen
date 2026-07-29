@@ -1,0 +1,852 @@
+#nullable enable
+Vixen.Ui.Controls.Accordion -> sealed class
+Vixen.Ui.Controls.Accordion : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Accordion.Accordion() -> void
+Vixen.Ui.Controls.Accordion.AddSection(string? label = null) -> Vixen.Ui.Controls.Expander
+Vixen.Ui.Controls.Accordion.AllowMultiple.get -> bool
+Vixen.Ui.Controls.Accordion.AllowMultiple.set -> bool
+Vixen.Ui.Controls.Accordion.ClearAllowMultiple() -> void
+Vixen.Ui.Controls.Accordion.Sections.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Expander>
+Vixen.Ui.Controls.ActivationDevice -> enum : byte
+Vixen.Ui.Controls.ActivationDevice.ActivationDevice() -> void
+Vixen.Ui.Controls.ActivationDevice.Code = 2 -> Vixen.Ui.Controls.ActivationDevice
+Vixen.Ui.Controls.ActivationDevice.Keyboard = 1 -> Vixen.Ui.Controls.ActivationDevice
+Vixen.Ui.Controls.ActivationDevice.Pointer = 0 -> Vixen.Ui.Controls.ActivationDevice
+Vixen.Ui.Controls.Alert -> sealed class
+Vixen.Ui.Controls.Alert : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Alert.Alert() -> void
+Vixen.Ui.Controls.Alert.Body.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Alert.LeadingIcon.get -> Vixen.Ui.Controls.Icon
+Vixen.Ui.Controls.Alert.Message.get -> string?
+Vixen.Ui.Controls.Alert.Message.set -> string?
+Vixen.Ui.Controls.Alert.MessagePart.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Alert.Title.get -> string?
+Vixen.Ui.Controls.Alert.Title.set -> string?
+Vixen.Ui.Controls.Alert.TitlePart.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Avatar -> sealed class
+Vixen.Ui.Controls.Avatar : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Avatar.Avatar() -> void
+Vixen.Ui.Controls.Avatar.ClearName() -> void
+Vixen.Ui.Controls.Avatar.Initials.get -> string?
+Vixen.Ui.Controls.Avatar.Initials.set -> string?
+Vixen.Ui.Controls.Avatar.Name.get -> string?
+Vixen.Ui.Controls.Avatar.Name.set -> string?
+Vixen.Ui.Controls.Badge -> sealed class
+Vixen.Ui.Controls.Badge : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Badge.Badge() -> void
+Vixen.Ui.Controls.Breadcrumb -> sealed class
+Vixen.Ui.Controls.Breadcrumb : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Breadcrumb.AddStep(string? label, string? value = null) -> Vixen.Ui.Controls.BreadcrumbItem
+Vixen.Ui.Controls.Breadcrumb.Breadcrumb() -> void
+Vixen.Ui.Controls.Breadcrumb.Navigated -> System.Action<Vixen.Ui.Controls.Breadcrumb, Vixen.Ui.Controls.BreadcrumbItem>?
+Vixen.Ui.Controls.Breadcrumb.Steps.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.BreadcrumbItem>
+Vixen.Ui.Controls.BreadcrumbItem -> sealed class
+Vixen.Ui.Controls.BreadcrumbItem : Vixen.Ui.Controls.ButtonBase
+Vixen.Ui.Controls.BreadcrumbItem.BreadcrumbItem() -> void
+Vixen.Ui.Controls.BreadcrumbItem.ClearValue() -> void
+Vixen.Ui.Controls.BreadcrumbItem.Value.get -> string?
+Vixen.Ui.Controls.BreadcrumbItem.Value.set -> string?
+Vixen.Ui.Controls.Button -> sealed class
+Vixen.Ui.Controls.Button : Vixen.Ui.Controls.ButtonBase
+Vixen.Ui.Controls.Button.Button() -> void
+Vixen.Ui.Controls.ButtonBase -> abstract class
+Vixen.Ui.Controls.ButtonBase : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.ButtonBase.Activate() -> void
+Vixen.Ui.Controls.ButtonBase.ButtonBase() -> void
+Vixen.Ui.Controls.ButtonBase.HasIcon.get -> bool
+Vixen.Ui.Controls.ButtonBase.Label.get -> string?
+Vixen.Ui.Controls.ButtonBase.Label.set -> string?
+Vixen.Ui.Controls.ButtonBase.LabelPart.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.ButtonBase.LeadingIcon.get -> Vixen.Ui.Controls.Icon
+Vixen.Ui.Controls.Card -> sealed class
+Vixen.Ui.Controls.Card : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Card.Body.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Card.Card() -> void
+Vixen.Ui.Controls.Card.Footer.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Card.Header.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.CheckBox -> sealed class
+Vixen.Ui.Controls.CheckBox : Vixen.Ui.Controls.ToggleBase
+Vixen.Ui.Controls.CheckBox.Box.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.CheckBox.CheckBox() -> void
+Vixen.Ui.Controls.CheckBox.ClearIsIndeterminate() -> void
+Vixen.Ui.Controls.CheckBox.IsIndeterminate.get -> bool
+Vixen.Ui.Controls.CheckBox.IsIndeterminate.set -> bool
+Vixen.Ui.Controls.ClickEvent -> sealed class
+Vixen.Ui.Controls.ClickEvent : Vixen.Ui.UiEvent
+Vixen.Ui.Controls.ClickEvent.ClickEvent() -> void
+Vixen.Ui.Controls.ClickEvent.Count.get -> int
+Vixen.Ui.Controls.ClickEvent.Count.init -> int
+Vixen.Ui.Controls.ClickEvent.Device.get -> Vixen.Ui.Controls.ActivationDevice
+Vixen.Ui.Controls.ClickEvent.Device.init -> Vixen.Ui.Controls.ActivationDevice
+Vixen.Ui.Controls.ClickEvent.Modifiers.get -> Vixen.Ui.ModifierKeys
+Vixen.Ui.Controls.ClickEvent.Modifiers.init -> Vixen.Ui.ModifierKeys
+Vixen.Ui.Controls.CloseReason -> enum : byte
+Vixen.Ui.Controls.CloseReason.Cancelled = 1 -> Vixen.Ui.Controls.CloseReason
+Vixen.Ui.Controls.CloseReason.CloseReason() -> void
+Vixen.Ui.Controls.CloseReason.Code = 0 -> Vixen.Ui.Controls.CloseReason
+Vixen.Ui.Controls.CloseReason.Committed = 3 -> Vixen.Ui.Controls.CloseReason
+Vixen.Ui.Controls.CloseReason.LightDismissed = 2 -> Vixen.Ui.Controls.CloseReason
+Vixen.Ui.Controls.ComboBox -> sealed class
+Vixen.Ui.Controls.ComboBox : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.ComboBox.AddOption(string value, string? label = null) -> Vixen.Ui.Controls.Option
+Vixen.Ui.Controls.ComboBox.ComboBox() -> void
+Vixen.Ui.Controls.ComboBox.Editor.get -> Vixen.Ui.Controls.TextBox
+Vixen.Ui.Controls.ComboBox.List.get -> Vixen.Ui.Controls.Popover
+Vixen.Ui.Controls.ComboBox.Options.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Option>
+Vixen.Ui.Controls.ComboBox.Toggle.get -> Vixen.Ui.Controls.IconButton
+Vixen.Ui.Controls.ComboBox.Value.get -> string?
+Vixen.Ui.Controls.ComboBox.Value.set -> string?
+Vixen.Ui.Controls.ComboBox.ValueChanged -> System.Action<Vixen.Ui.Controls.ComboBox, string?>?
+Vixen.Ui.Controls.ContextMenu -> sealed class
+Vixen.Ui.Controls.ContextMenu : Vixen.Ui.Controls.Menu
+Vixen.Ui.Controls.ContextMenu.Attach(Vixen.Ui.UiElement target) -> void
+Vixen.Ui.Controls.ContextMenu.ContextMenu() -> void
+Vixen.Ui.Controls.ContextMenu.OpenAt(float x, float y) -> void
+Vixen.Ui.Controls.Control -> abstract class
+Vixen.Ui.Controls.Control : Vixen.Ui.UiElement
+Vixen.Ui.Controls.Control.ClearDisabled() -> void
+Vixen.Ui.Controls.Control.ClearSize() -> void
+Vixen.Ui.Controls.Control.ClearVariant() -> void
+Vixen.Ui.Controls.Control.Clicked -> System.Action<Vixen.Ui.Controls.Control>?
+Vixen.Ui.Controls.Control.Control() -> void
+Vixen.Ui.Controls.Control.Disabled.get -> bool
+Vixen.Ui.Controls.Control.Disabled.set -> bool
+Vixen.Ui.Controls.Control.Part(string tag, params string[] classNames) -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Control.Part<T>(string? tag = null, params string[] classNames) -> T
+Vixen.Ui.Controls.Control.RaiseClick(Vixen.Ui.Controls.ActivationDevice device, int count = 1, Vixen.Ui.ModifierKeys modifiers = Vixen.Ui.ModifierKeys.None) -> void
+Vixen.Ui.Controls.Control.Size.get -> Vixen.Ui.Controls.ControlSize
+Vixen.Ui.Controls.Control.Size.set -> Vixen.Ui.Controls.ControlSize
+Vixen.Ui.Controls.Control.Variant.get -> Vixen.Ui.Controls.ControlVariant
+Vixen.Ui.Controls.Control.Variant.set -> Vixen.Ui.Controls.ControlVariant
+Vixen.Ui.Controls.Control.WhenResized(System.Action handler) -> void
+Vixen.Ui.Controls.ControlIcons -> static class
+Vixen.Ui.Controls.ControlSize -> enum : byte
+Vixen.Ui.Controls.ControlSize.ControlSize() -> void
+Vixen.Ui.Controls.ControlSize.Large = 2 -> Vixen.Ui.Controls.ControlSize
+Vixen.Ui.Controls.ControlSize.Medium = 1 -> Vixen.Ui.Controls.ControlSize
+Vixen.Ui.Controls.ControlSize.Small = 0 -> Vixen.Ui.Controls.ControlSize
+Vixen.Ui.Controls.ControlTheme -> static class
+Vixen.Ui.Controls.ControlVariant -> enum : byte
+Vixen.Ui.Controls.ControlVariant.ControlVariant() -> void
+Vixen.Ui.Controls.ControlVariant.Danger = 5 -> Vixen.Ui.Controls.ControlVariant
+Vixen.Ui.Controls.ControlVariant.Default = 0 -> Vixen.Ui.Controls.ControlVariant
+Vixen.Ui.Controls.ControlVariant.Primary = 1 -> Vixen.Ui.Controls.ControlVariant
+Vixen.Ui.Controls.ControlVariant.Subtle = 2 -> Vixen.Ui.Controls.ControlVariant
+Vixen.Ui.Controls.ControlVariant.Success = 3 -> Vixen.Ui.Controls.ControlVariant
+Vixen.Ui.Controls.ControlVariant.Warning = 4 -> Vixen.Ui.Controls.ControlVariant
+Vixen.Ui.Controls.Dialog -> sealed class
+Vixen.Ui.Controls.Dialog : Vixen.Ui.Controls.Overlay
+Vixen.Ui.Controls.Dialog.Backdrop.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Dialog.Body.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Dialog.CloseButton.get -> Vixen.Ui.Controls.IconButton
+Vixen.Ui.Controls.Dialog.Dialog() -> void
+Vixen.Ui.Controls.Dialog.Footer.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Dialog.Header.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Dialog.Surface.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Dialog.Title.get -> string?
+Vixen.Ui.Controls.Dialog.Title.set -> string?
+Vixen.Ui.Controls.Dialog.TitlePart.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Drawer -> sealed class
+Vixen.Ui.Controls.Drawer : Vixen.Ui.Controls.Overlay
+Vixen.Ui.Controls.Drawer.Backdrop.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Drawer.Body.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Drawer.ClearSide() -> void
+Vixen.Ui.Controls.Drawer.Drawer() -> void
+Vixen.Ui.Controls.Drawer.Side.get -> Vixen.Ui.Controls.DrawerSide
+Vixen.Ui.Controls.Drawer.Side.set -> Vixen.Ui.Controls.DrawerSide
+Vixen.Ui.Controls.Drawer.Surface.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.DrawerSide -> enum : byte
+Vixen.Ui.Controls.DrawerSide.Bottom = 3 -> Vixen.Ui.Controls.DrawerSide
+Vixen.Ui.Controls.DrawerSide.DrawerSide() -> void
+Vixen.Ui.Controls.DrawerSide.Left = 0 -> Vixen.Ui.Controls.DrawerSide
+Vixen.Ui.Controls.DrawerSide.Right = 1 -> Vixen.Ui.Controls.DrawerSide
+Vixen.Ui.Controls.DrawerSide.Top = 2 -> Vixen.Ui.Controls.DrawerSide
+Vixen.Ui.Controls.EmptyState -> sealed class
+Vixen.Ui.Controls.EmptyState : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.EmptyState.Actions.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.EmptyState.Description.get -> string?
+Vixen.Ui.Controls.EmptyState.Description.set -> string?
+Vixen.Ui.Controls.EmptyState.DescriptionPart.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.EmptyState.EmptyState() -> void
+Vixen.Ui.Controls.EmptyState.Illustration.get -> Vixen.Ui.Controls.Icon
+Vixen.Ui.Controls.EmptyState.Title.get -> string?
+Vixen.Ui.Controls.EmptyState.Title.set -> string?
+Vixen.Ui.Controls.EmptyState.TitlePart.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Expander -> sealed class
+Vixen.Ui.Controls.Expander : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Expander.ClearIsExpanded() -> void
+Vixen.Ui.Controls.Expander.Content.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Expander.Expanded -> System.Action<Vixen.Ui.Controls.Expander, bool>?
+Vixen.Ui.Controls.Expander.Expander() -> void
+Vixen.Ui.Controls.Expander.Header.get -> Vixen.Ui.Controls.ExpanderHeader
+Vixen.Ui.Controls.Expander.IsExpanded.get -> bool
+Vixen.Ui.Controls.Expander.IsExpanded.set -> bool
+Vixen.Ui.Controls.Expander.Label.get -> string?
+Vixen.Ui.Controls.Expander.Label.set -> string?
+Vixen.Ui.Controls.ExpanderHeader -> sealed class
+Vixen.Ui.Controls.ExpanderHeader : Vixen.Ui.Controls.ButtonBase
+Vixen.Ui.Controls.ExpanderHeader.Chevron.get -> Vixen.Ui.Controls.Icon
+Vixen.Ui.Controls.ExpanderHeader.ExpanderHeader() -> void
+Vixen.Ui.Controls.Icon -> sealed class
+Vixen.Ui.Controls.Icon : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Icon.ClearFillRule() -> void
+Vixen.Ui.Controls.Icon.ClearGeometry() -> void
+Vixen.Ui.Controls.Icon.ClearViewBox() -> void
+Vixen.Ui.Controls.Icon.FillRule.get -> Vixen.Ui.PathFillRule
+Vixen.Ui.Controls.Icon.FillRule.set -> Vixen.Ui.PathFillRule
+Vixen.Ui.Controls.Icon.Geometry.get -> Vixen.Ui.PathBuilder?
+Vixen.Ui.Controls.Icon.Geometry.set -> Vixen.Ui.PathBuilder?
+Vixen.Ui.Controls.Icon.Icon() -> void
+Vixen.Ui.Controls.Icon.ViewBox.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Controls.Icon.ViewBox.set -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Controls.IconButton -> sealed class
+Vixen.Ui.Controls.IconButton : Vixen.Ui.Controls.ButtonBase
+Vixen.Ui.Controls.IconButton.IconButton() -> void
+Vixen.Ui.Controls.Image -> sealed class
+Vixen.Ui.Controls.Image : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Image.ClearDescription() -> void
+Vixen.Ui.Controls.Image.ClearSource() -> void
+Vixen.Ui.Controls.Image.Description.get -> string?
+Vixen.Ui.Controls.Image.Description.set -> string?
+Vixen.Ui.Controls.Image.Image() -> void
+Vixen.Ui.Controls.Image.Source.get -> string?
+Vixen.Ui.Controls.Image.Source.set -> string?
+Vixen.Ui.Controls.Image.SourceRectangle.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Controls.Image.SourceRectangle.set -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Controls.Image.Texture.get -> ulong
+Vixen.Ui.Controls.Image.Texture.set -> ulong
+Vixen.Ui.Controls.KeyboardShortcut -> sealed class
+Vixen.Ui.Controls.KeyboardShortcut : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.KeyboardShortcut.ClearKey() -> void
+Vixen.Ui.Controls.KeyboardShortcut.ClearModifiers() -> void
+Vixen.Ui.Controls.KeyboardShortcut.Key.get -> Vixen.Input.InputKey
+Vixen.Ui.Controls.KeyboardShortcut.Key.set -> Vixen.Input.InputKey
+Vixen.Ui.Controls.KeyboardShortcut.KeyboardShortcut() -> void
+Vixen.Ui.Controls.KeyboardShortcut.Modifiers.get -> Vixen.Ui.ModifierKeys
+Vixen.Ui.Controls.KeyboardShortcut.Modifiers.set -> Vixen.Ui.ModifierKeys
+Vixen.Ui.Controls.Link -> sealed class
+Vixen.Ui.Controls.Link : Vixen.Ui.Controls.ButtonBase
+Vixen.Ui.Controls.Link.ClearHref() -> void
+Vixen.Ui.Controls.Link.Href.get -> string?
+Vixen.Ui.Controls.Link.Href.set -> string?
+Vixen.Ui.Controls.Link.Link() -> void
+Vixen.Ui.Controls.Menu -> class
+Vixen.Ui.Controls.Menu : Vixen.Ui.Controls.Overlay
+Vixen.Ui.Controls.Menu.AddItem(string? label = null) -> Vixen.Ui.Controls.MenuItem
+Vixen.Ui.Controls.Menu.AddSeparator() -> Vixen.Ui.Controls.Separator
+Vixen.Ui.Controls.Menu.AddSubmenu(string? label = null) -> Vixen.Ui.Controls.Menu
+Vixen.Ui.Controls.Menu.CloseChain(Vixen.Ui.Controls.CloseReason reason) -> void
+Vixen.Ui.Controls.Menu.Items.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.MenuItem>
+Vixen.Ui.Controls.Menu.Menu() -> void
+Vixen.Ui.Controls.Menu.ParentMenu.get -> Vixen.Ui.Controls.Menu?
+Vixen.Ui.Controls.MenuBar -> sealed class
+Vixen.Ui.Controls.MenuBar : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.MenuBar.AddMenu(string? label = null) -> Vixen.Ui.Controls.Menu
+Vixen.Ui.Controls.MenuBar.Current.get -> Vixen.Ui.Controls.Menu?
+Vixen.Ui.Controls.MenuBar.Items.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.MenuBarItem>
+Vixen.Ui.Controls.MenuBar.MenuBar() -> void
+Vixen.Ui.Controls.MenuBarItem -> sealed class
+Vixen.Ui.Controls.MenuBarItem : Vixen.Ui.Controls.ButtonBase
+Vixen.Ui.Controls.MenuBarItem.Menu.get -> Vixen.Ui.Controls.Menu
+Vixen.Ui.Controls.MenuBarItem.MenuBarItem() -> void
+Vixen.Ui.Controls.MenuItem -> sealed class
+Vixen.Ui.Controls.MenuItem : Vixen.Ui.Controls.ButtonBase
+Vixen.Ui.Controls.MenuItem.Mark.get -> Vixen.Ui.Controls.Icon
+Vixen.Ui.Controls.MenuItem.MenuItem() -> void
+Vixen.Ui.Controls.MenuItem.Shortcut.get -> Vixen.Ui.Controls.KeyboardShortcut?
+Vixen.Ui.Controls.MenuItem.ShowShortcut(Vixen.Input.InputKey key, Vixen.Ui.ModifierKeys modifiers = Vixen.Ui.ModifierKeys.None) -> Vixen.Ui.Controls.KeyboardShortcut
+Vixen.Ui.Controls.MenuItem.Submenu.get -> Vixen.Ui.Controls.Menu?
+Vixen.Ui.Controls.MultiSelect -> sealed class
+Vixen.Ui.Controls.MultiSelect : Vixen.Ui.Controls.SelectBase
+Vixen.Ui.Controls.MultiSelect.ClearPlaceholder() -> void
+Vixen.Ui.Controls.MultiSelect.MultiSelect() -> void
+Vixen.Ui.Controls.MultiSelect.Placeholder.get -> string?
+Vixen.Ui.Controls.MultiSelect.Placeholder.set -> string?
+Vixen.Ui.Controls.MultiSelect.Select(string value, bool isSelected) -> bool
+Vixen.Ui.Controls.MultiSelect.SelectionChanged -> System.Action<Vixen.Ui.Controls.MultiSelect>?
+Vixen.Ui.Controls.MultiSelect.Values.get -> System.Collections.Generic.IReadOnlyCollection<string>
+Vixen.Ui.Controls.NumericInput -> sealed class
+Vixen.Ui.Controls.NumericInput : Vixen.Ui.Controls.TextField
+Vixen.Ui.Controls.NumericInput.ClearDecimals() -> void
+Vixen.Ui.Controls.NumericInput.ClearMaximum() -> void
+Vixen.Ui.Controls.NumericInput.ClearMinimum() -> void
+Vixen.Ui.Controls.NumericInput.ClearNumber() -> void
+Vixen.Ui.Controls.NumericInput.ClearStep() -> void
+Vixen.Ui.Controls.NumericInput.Decimals.get -> int
+Vixen.Ui.Controls.NumericInput.Decimals.set -> int
+Vixen.Ui.Controls.NumericInput.Maximum.get -> double
+Vixen.Ui.Controls.NumericInput.Maximum.set -> double
+Vixen.Ui.Controls.NumericInput.Minimum.get -> double
+Vixen.Ui.Controls.NumericInput.Minimum.set -> double
+Vixen.Ui.Controls.NumericInput.Nudge(double steps) -> void
+Vixen.Ui.Controls.NumericInput.Number.get -> double
+Vixen.Ui.Controls.NumericInput.Number.set -> double
+Vixen.Ui.Controls.NumericInput.NumberChanged -> System.Action<Vixen.Ui.Controls.NumericInput, double>?
+Vixen.Ui.Controls.NumericInput.NumericInput() -> void
+Vixen.Ui.Controls.NumericInput.Step.get -> double
+Vixen.Ui.Controls.NumericInput.Step.set -> double
+Vixen.Ui.Controls.OpenChangedEvent -> sealed class
+Vixen.Ui.Controls.OpenChangedEvent : Vixen.Ui.UiEvent
+Vixen.Ui.Controls.OpenChangedEvent.IsOpen.get -> bool
+Vixen.Ui.Controls.OpenChangedEvent.IsOpen.init -> bool
+Vixen.Ui.Controls.OpenChangedEvent.OpenChangedEvent() -> void
+Vixen.Ui.Controls.Option -> sealed class
+Vixen.Ui.Controls.Option : Vixen.Ui.Controls.ButtonBase
+Vixen.Ui.Controls.Option.ClearValue() -> void
+Vixen.Ui.Controls.Option.IsSelected.get -> bool
+Vixen.Ui.Controls.Option.Mark.get -> Vixen.Ui.Controls.Icon?
+Vixen.Ui.Controls.Option.Option() -> void
+Vixen.Ui.Controls.Option.Value.get -> string?
+Vixen.Ui.Controls.Option.Value.set -> string?
+Vixen.Ui.Controls.Orientation -> enum : byte
+Vixen.Ui.Controls.Orientation.Horizontal = 0 -> Vixen.Ui.Controls.Orientation
+Vixen.Ui.Controls.Orientation.Orientation() -> void
+Vixen.Ui.Controls.Orientation.Vertical = 1 -> Vixen.Ui.Controls.Orientation
+Vixen.Ui.Controls.Overlay -> abstract class
+Vixen.Ui.Controls.Overlay : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Overlay.Anchor.get -> Vixen.Ui.UiElement?
+Vixen.Ui.Controls.Overlay.ClearCloseOnEscape() -> void
+Vixen.Ui.Controls.Overlay.ClearGap() -> void
+Vixen.Ui.Controls.Overlay.ClearLightDismiss() -> void
+Vixen.Ui.Controls.Overlay.ClearPlacement() -> void
+Vixen.Ui.Controls.Overlay.Close(Vixen.Ui.Controls.CloseReason reason = Vixen.Ui.Controls.CloseReason.Code) -> void
+Vixen.Ui.Controls.Overlay.CloseOnEscape.get -> bool
+Vixen.Ui.Controls.Overlay.CloseOnEscape.set -> bool
+Vixen.Ui.Controls.Overlay.Gap.get -> float
+Vixen.Ui.Controls.Overlay.Gap.set -> float
+Vixen.Ui.Controls.Overlay.IsOpen.get -> bool
+Vixen.Ui.Controls.Overlay.LightDismiss.get -> bool
+Vixen.Ui.Controls.Overlay.LightDismiss.set -> bool
+Vixen.Ui.Controls.Overlay.MoveTo(float x, float y) -> void
+Vixen.Ui.Controls.Overlay.Open(Vixen.Ui.UiElement? target = null) -> void
+Vixen.Ui.Controls.Overlay.OpenChanged -> System.Action<Vixen.Ui.Controls.Overlay, bool>?
+Vixen.Ui.Controls.Overlay.Overlay() -> void
+Vixen.Ui.Controls.Overlay.Placement.get -> Vixen.Ui.Controls.Placement
+Vixen.Ui.Controls.Overlay.Placement.set -> Vixen.Ui.Controls.Placement
+Vixen.Ui.Controls.Overlay.Reposition() -> void
+Vixen.Ui.Controls.PageButton -> sealed class
+Vixen.Ui.Controls.PageButton : Vixen.Ui.Controls.ButtonBase
+Vixen.Ui.Controls.PageButton.Page.get -> int
+Vixen.Ui.Controls.PageButton.PageButton() -> void
+Vixen.Ui.Controls.Pagination -> sealed class
+Vixen.Ui.Controls.Pagination : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Pagination.ClearCurrentPage() -> void
+Vixen.Ui.Controls.Pagination.ClearPageCount() -> void
+Vixen.Ui.Controls.Pagination.ClearWindow() -> void
+Vixen.Ui.Controls.Pagination.CurrentPage.get -> int
+Vixen.Ui.Controls.Pagination.CurrentPage.set -> int
+Vixen.Ui.Controls.Pagination.PageChanged -> System.Action<Vixen.Ui.Controls.Pagination, int>?
+Vixen.Ui.Controls.Pagination.PageCount.get -> int
+Vixen.Ui.Controls.Pagination.PageCount.set -> int
+Vixen.Ui.Controls.Pagination.Pagination() -> void
+Vixen.Ui.Controls.Pagination.Window.get -> int
+Vixen.Ui.Controls.Pagination.Window.set -> int
+Vixen.Ui.Controls.Panel -> sealed class
+Vixen.Ui.Controls.Panel : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Panel.Panel() -> void
+Vixen.Ui.Controls.Placement -> enum : byte
+Vixen.Ui.Controls.Placement.Bottom = 0 -> Vixen.Ui.Controls.Placement
+Vixen.Ui.Controls.Placement.Left = 3 -> Vixen.Ui.Controls.Placement
+Vixen.Ui.Controls.Placement.Placement() -> void
+Vixen.Ui.Controls.Placement.Right = 2 -> Vixen.Ui.Controls.Placement
+Vixen.Ui.Controls.Placement.Top = 1 -> Vixen.Ui.Controls.Placement
+Vixen.Ui.Controls.Popover -> sealed class
+Vixen.Ui.Controls.Popover : Vixen.Ui.Controls.Overlay
+Vixen.Ui.Controls.Popover.Content.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Popover.Popover() -> void
+Vixen.Ui.Controls.ProgressBar -> sealed class
+Vixen.Ui.Controls.ProgressBar : Vixen.Ui.Controls.RangeBase
+Vixen.Ui.Controls.ProgressBar.ClearIsIndeterminate() -> void
+Vixen.Ui.Controls.ProgressBar.ClearPhase() -> void
+Vixen.Ui.Controls.ProgressBar.ClearValue() -> void
+Vixen.Ui.Controls.ProgressBar.IsIndeterminate.get -> bool
+Vixen.Ui.Controls.ProgressBar.IsIndeterminate.set -> bool
+Vixen.Ui.Controls.ProgressBar.Phase.get -> float
+Vixen.Ui.Controls.ProgressBar.Phase.set -> float
+Vixen.Ui.Controls.ProgressBar.ProgressBar() -> void
+Vixen.Ui.Controls.ProgressBar.Value.get -> float
+Vixen.Ui.Controls.ProgressBar.Value.set -> float
+Vixen.Ui.Controls.RadioButton -> sealed class
+Vixen.Ui.Controls.RadioButton : Vixen.Ui.Controls.ToggleBase
+Vixen.Ui.Controls.RadioButton.Box.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.RadioButton.ClearValue() -> void
+Vixen.Ui.Controls.RadioButton.RadioButton() -> void
+Vixen.Ui.Controls.RadioButton.Value.get -> string?
+Vixen.Ui.Controls.RadioButton.Value.set -> string?
+Vixen.Ui.Controls.RadioGroup -> sealed class
+Vixen.Ui.Controls.RadioGroup : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.RadioGroup.AddOption(string value, string? label = null) -> Vixen.Ui.Controls.RadioButton
+Vixen.Ui.Controls.RadioGroup.ClearValue() -> void
+Vixen.Ui.Controls.RadioGroup.Options.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.RadioButton>
+Vixen.Ui.Controls.RadioGroup.RadioGroup() -> void
+Vixen.Ui.Controls.RadioGroup.Value.get -> string?
+Vixen.Ui.Controls.RadioGroup.Value.set -> string?
+Vixen.Ui.Controls.RadioGroup.ValueChanged -> System.Action<Vixen.Ui.Controls.RadioGroup, string?>?
+Vixen.Ui.Controls.RangeBase -> abstract class
+Vixen.Ui.Controls.RangeBase : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.RangeBase.ClearMaximum() -> void
+Vixen.Ui.Controls.RangeBase.ClearMinimum() -> void
+Vixen.Ui.Controls.RangeBase.ClearStep() -> void
+Vixen.Ui.Controls.RangeBase.DrawThumb(Vixen.Ui.DrawContext context, Vixen.Core.Mathematics.Rectangle rail, float fraction) -> void
+Vixen.Ui.Controls.RangeBase.DrawTrack(Vixen.Ui.DrawContext context, Vixen.Core.Mathematics.Rectangle rail) -> void
+Vixen.Ui.Controls.RangeBase.FillColor.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.RangeBase.Fraction(float value) -> float
+Vixen.Ui.Controls.RangeBase.Maximum.get -> float
+Vixen.Ui.Controls.RangeBase.Maximum.set -> float
+Vixen.Ui.Controls.RangeBase.Minimum.get -> float
+Vixen.Ui.Controls.RangeBase.Minimum.set -> float
+Vixen.Ui.Controls.RangeBase.Rail(Vixen.Core.Mathematics.Rectangle bounds) -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Controls.RangeBase.RangeBase() -> void
+Vixen.Ui.Controls.RangeBase.Snap(float value) -> float
+Vixen.Ui.Controls.RangeBase.Step.get -> float
+Vixen.Ui.Controls.RangeBase.Step.set -> float
+Vixen.Ui.Controls.RangeBase.ThumbColor.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.RangeBase.ThumbSize.get -> float
+Vixen.Ui.Controls.RangeBase.TrackColor.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.RangeBase.ValueAt(float fraction) -> float
+Vixen.Ui.Controls.RangeSlider -> sealed class
+Vixen.Ui.Controls.RangeSlider : Vixen.Ui.Controls.RangeBase
+Vixen.Ui.Controls.RangeSlider.ClearHigh() -> void
+Vixen.Ui.Controls.RangeSlider.ClearLow() -> void
+Vixen.Ui.Controls.RangeSlider.High.get -> float
+Vixen.Ui.Controls.RangeSlider.High.set -> float
+Vixen.Ui.Controls.RangeSlider.Low.get -> float
+Vixen.Ui.Controls.RangeSlider.Low.set -> float
+Vixen.Ui.Controls.RangeSlider.RangeSlider() -> void
+Vixen.Ui.Controls.RangeSlider.SpanChanged -> System.Action<Vixen.Ui.Controls.RangeSlider, float, float>?
+Vixen.Ui.Controls.ScrollBar -> sealed class
+Vixen.Ui.Controls.ScrollBar : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.ScrollBar.ClearContentSize() -> void
+Vixen.Ui.Controls.ScrollBar.ClearOrientation() -> void
+Vixen.Ui.Controls.ScrollBar.ClearValue() -> void
+Vixen.Ui.Controls.ScrollBar.ClearViewportSize() -> void
+Vixen.Ui.Controls.ScrollBar.ContentSize.get -> float
+Vixen.Ui.Controls.ScrollBar.ContentSize.set -> float
+Vixen.Ui.Controls.ScrollBar.Orientation.get -> Vixen.Ui.Controls.Orientation
+Vixen.Ui.Controls.ScrollBar.Orientation.set -> Vixen.Ui.Controls.Orientation
+Vixen.Ui.Controls.ScrollBar.Range.get -> float
+Vixen.Ui.Controls.ScrollBar.ScrollBar() -> void
+Vixen.Ui.Controls.ScrollBar.Scrolled -> System.Action<Vixen.Ui.Controls.ScrollBar, float>?
+Vixen.Ui.Controls.ScrollBar.Value.get -> float
+Vixen.Ui.Controls.ScrollBar.Value.set -> float
+Vixen.Ui.Controls.ScrollBar.ViewportSize.get -> float
+Vixen.Ui.Controls.ScrollBar.ViewportSize.set -> float
+Vixen.Ui.Controls.ScrollView -> sealed class
+Vixen.Ui.Controls.ScrollView : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.ScrollView.ClearScrollLeft() -> void
+Vixen.Ui.Controls.ScrollView.ClearScrollTop() -> void
+Vixen.Ui.Controls.ScrollView.Content.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.ScrollView.HorizontalBar.get -> Vixen.Ui.Controls.ScrollBar
+Vixen.Ui.Controls.ScrollView.MaximumLeft.get -> float
+Vixen.Ui.Controls.ScrollView.MaximumTop.get -> float
+Vixen.Ui.Controls.ScrollView.Refresh() -> void
+Vixen.Ui.Controls.ScrollView.ScrollIntoView(Vixen.Ui.UiElement element) -> void
+Vixen.Ui.Controls.ScrollView.ScrollLeft.get -> float
+Vixen.Ui.Controls.ScrollView.ScrollLeft.set -> float
+Vixen.Ui.Controls.ScrollView.ScrollTop.get -> float
+Vixen.Ui.Controls.ScrollView.ScrollTop.set -> float
+Vixen.Ui.Controls.ScrollView.ScrollView() -> void
+Vixen.Ui.Controls.ScrollView.Scrolled -> System.Action<Vixen.Ui.Controls.ScrollView>?
+Vixen.Ui.Controls.ScrollView.VerticalBar.get -> Vixen.Ui.Controls.ScrollBar
+Vixen.Ui.Controls.SearchBox -> sealed class
+Vixen.Ui.Controls.SearchBox : Vixen.Ui.Controls.TextField
+Vixen.Ui.Controls.SearchBox.ClearButton.get -> Vixen.Ui.Controls.IconButton
+Vixen.Ui.Controls.SearchBox.SearchBox() -> void
+Vixen.Ui.Controls.SearchBox.SearchIcon.get -> Vixen.Ui.Controls.Icon
+Vixen.Ui.Controls.Select -> sealed class
+Vixen.Ui.Controls.Select : Vixen.Ui.Controls.SelectBase
+Vixen.Ui.Controls.Select.ClearPlaceholder() -> void
+Vixen.Ui.Controls.Select.ClearValue() -> void
+Vixen.Ui.Controls.Select.Placeholder.get -> string?
+Vixen.Ui.Controls.Select.Placeholder.set -> string?
+Vixen.Ui.Controls.Select.Select() -> void
+Vixen.Ui.Controls.Select.Selected.get -> Vixen.Ui.Controls.Option?
+Vixen.Ui.Controls.Select.SelectionChanged -> System.Action<Vixen.Ui.Controls.Select, string?>?
+Vixen.Ui.Controls.Select.Value.get -> string?
+Vixen.Ui.Controls.Select.Value.set -> string?
+Vixen.Ui.Controls.SelectBase -> abstract class
+Vixen.Ui.Controls.SelectBase : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.SelectBase.AddOption(string value, string? label = null) -> Vixen.Ui.Controls.Option
+Vixen.Ui.Controls.SelectBase.Chevron.get -> Vixen.Ui.Controls.Icon
+Vixen.Ui.Controls.SelectBase.CloseList(Vixen.Ui.Controls.CloseReason reason = Vixen.Ui.Controls.CloseReason.Code) -> void
+Vixen.Ui.Controls.SelectBase.Field.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.SelectBase.Highlight(int step) -> void
+Vixen.Ui.Controls.SelectBase.IsOpen.get -> bool
+Vixen.Ui.Controls.SelectBase.List.get -> Vixen.Ui.Controls.Popover
+Vixen.Ui.Controls.SelectBase.Open() -> void
+Vixen.Ui.Controls.SelectBase.Options.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Option>
+Vixen.Ui.Controls.SelectBase.SelectBase() -> void
+Vixen.Ui.Controls.Separator -> sealed class
+Vixen.Ui.Controls.Separator : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Separator.ClearOrientation() -> void
+Vixen.Ui.Controls.Separator.Orientation.get -> Vixen.Ui.Controls.Orientation
+Vixen.Ui.Controls.Separator.Orientation.set -> Vixen.Ui.Controls.Orientation
+Vixen.Ui.Controls.Separator.Separator() -> void
+Vixen.Ui.Controls.Skeleton -> sealed class
+Vixen.Ui.Controls.Skeleton : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Skeleton.Skeleton() -> void
+Vixen.Ui.Controls.Slider -> sealed class
+Vixen.Ui.Controls.Slider : Vixen.Ui.Controls.RangeBase
+Vixen.Ui.Controls.Slider.ClearValue() -> void
+Vixen.Ui.Controls.Slider.Slider() -> void
+Vixen.Ui.Controls.Slider.Value.get -> float
+Vixen.Ui.Controls.Slider.Value.set -> float
+Vixen.Ui.Controls.Slider.ValueChanged -> System.Action<Vixen.Ui.Controls.Slider, float>?
+Vixen.Ui.Controls.Spinner -> sealed class
+Vixen.Ui.Controls.Spinner : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Spinner.ClearPhase() -> void
+Vixen.Ui.Controls.Spinner.ClearSweep() -> void
+Vixen.Ui.Controls.Spinner.ClearThickness() -> void
+Vixen.Ui.Controls.Spinner.Phase.get -> float
+Vixen.Ui.Controls.Spinner.Phase.set -> float
+Vixen.Ui.Controls.Spinner.Spinner() -> void
+Vixen.Ui.Controls.Spinner.Sweep.get -> float
+Vixen.Ui.Controls.Spinner.Sweep.set -> float
+Vixen.Ui.Controls.Spinner.Thickness.get -> float
+Vixen.Ui.Controls.Spinner.Thickness.set -> float
+Vixen.Ui.Controls.Switch -> sealed class
+Vixen.Ui.Controls.Switch : Vixen.Ui.Controls.ToggleBase
+Vixen.Ui.Controls.Switch.Knob.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Switch.Switch() -> void
+Vixen.Ui.Controls.Switch.Track.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.TabItem -> sealed class
+Vixen.Ui.Controls.TabItem : Vixen.Ui.Controls.ButtonBase
+Vixen.Ui.Controls.TabItem.IsSelected.get -> bool
+Vixen.Ui.Controls.TabItem.Panel.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.TabItem.TabItem() -> void
+Vixen.Ui.Controls.Tabs -> sealed class
+Vixen.Ui.Controls.Tabs : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Tabs.AddTab(string? label = null) -> Vixen.Ui.Controls.TabItem
+Vixen.Ui.Controls.Tabs.ClearSelectedIndex() -> void
+Vixen.Ui.Controls.Tabs.Items.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.TabItem>
+Vixen.Ui.Controls.Tabs.Panels.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Tabs.RemoveTab(Vixen.Ui.Controls.TabItem tab) -> bool
+Vixen.Ui.Controls.Tabs.Selected.get -> Vixen.Ui.Controls.TabItem?
+Vixen.Ui.Controls.Tabs.SelectedIndex.get -> int
+Vixen.Ui.Controls.Tabs.SelectedIndex.set -> int
+Vixen.Ui.Controls.Tabs.SelectionChanged -> System.Action<Vixen.Ui.Controls.Tabs, int>?
+Vixen.Ui.Controls.Tabs.Strip.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Tabs.Tabs() -> void
+Vixen.Ui.Controls.TextArea -> sealed class
+Vixen.Ui.Controls.TextArea : Vixen.Ui.Controls.TextField
+Vixen.Ui.Controls.TextArea.TextArea() -> void
+Vixen.Ui.Controls.TextBlock -> sealed class
+Vixen.Ui.Controls.TextBlock : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.TextBlock.TextBlock() -> void
+Vixen.Ui.Controls.TextBox -> sealed class
+Vixen.Ui.Controls.TextBox : Vixen.Ui.Controls.TextField
+Vixen.Ui.Controls.TextBox.TextBox() -> void
+Vixen.Ui.Controls.TextField -> abstract class
+Vixen.Ui.Controls.TextField : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.TextField.CaretIndex.get -> int
+Vixen.Ui.Controls.TextField.ClearMaxLength() -> void
+Vixen.Ui.Controls.TextField.ClearPlaceholder() -> void
+Vixen.Ui.Controls.TextField.ClearReadOnly() -> void
+Vixen.Ui.Controls.TextField.ClearValue() -> void
+Vixen.Ui.Controls.TextField.HasSelection.get -> bool
+Vixen.Ui.Controls.TextField.MaxLength.get -> int
+Vixen.Ui.Controls.TextField.MaxLength.set -> int
+Vixen.Ui.Controls.TextField.MoveCaret(int index, bool extend = false) -> void
+Vixen.Ui.Controls.TextField.Placeholder.get -> string?
+Vixen.Ui.Controls.TextField.Placeholder.set -> string?
+Vixen.Ui.Controls.TextField.ReadOnly.get -> bool
+Vixen.Ui.Controls.TextField.ReadOnly.set -> bool
+Vixen.Ui.Controls.TextField.Replace(string insertion) -> void
+Vixen.Ui.Controls.TextField.SelectAll() -> void
+Vixen.Ui.Controls.TextField.SelectedText.get -> string
+Vixen.Ui.Controls.TextField.SelectionAnchor.get -> int
+Vixen.Ui.Controls.TextField.SelectionEnd.get -> int
+Vixen.Ui.Controls.TextField.SelectionStart.get -> int
+Vixen.Ui.Controls.TextField.Submitted -> System.Action<Vixen.Ui.Controls.TextField>?
+Vixen.Ui.Controls.TextField.TextField() -> void
+Vixen.Ui.Controls.TextField.TextPart.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.TextField.Value.get -> string?
+Vixen.Ui.Controls.TextField.Value.set -> string?
+Vixen.Ui.Controls.TextField.ValueChanged -> System.Action<Vixen.Ui.Controls.TextField, string?>?
+Vixen.Ui.Controls.Toast -> sealed class
+Vixen.Ui.Controls.Toast : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Toast.ClearDuration() -> void
+Vixen.Ui.Controls.Toast.CloseButton.get -> Vixen.Ui.Controls.IconButton
+Vixen.Ui.Controls.Toast.Duration.get -> System.TimeSpan
+Vixen.Ui.Controls.Toast.Duration.set -> System.TimeSpan
+Vixen.Ui.Controls.Toast.LeadingIcon.get -> Vixen.Ui.Controls.Icon
+Vixen.Ui.Controls.Toast.Message.get -> string?
+Vixen.Ui.Controls.Toast.Message.set -> string?
+Vixen.Ui.Controls.Toast.MessagePart.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Toast.Toast() -> void
+Vixen.Ui.Controls.ToastHost -> sealed class
+Vixen.Ui.Controls.ToastHost : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.ToastHost.Dismiss(Vixen.Ui.Controls.Toast toast) -> bool
+Vixen.Ui.Controls.ToastHost.Live.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Toast>
+Vixen.Ui.Controls.ToastHost.Show(string? message, Vixen.Ui.Controls.ControlVariant variant = Vixen.Ui.Controls.ControlVariant.Default, System.TimeSpan duration = default(System.TimeSpan)) -> Vixen.Ui.Controls.Toast
+Vixen.Ui.Controls.ToastHost.Tick(System.TimeSpan now) -> void
+Vixen.Ui.Controls.ToastHost.ToastHost() -> void
+Vixen.Ui.Controls.ToggleBase -> abstract class
+Vixen.Ui.Controls.ToggleBase : Vixen.Ui.Controls.ButtonBase
+Vixen.Ui.Controls.ToggleBase.CheckedChanged -> System.Action<Vixen.Ui.Controls.ToggleBase, bool>?
+Vixen.Ui.Controls.ToggleBase.ClearIsChecked() -> void
+Vixen.Ui.Controls.ToggleBase.IsChecked.get -> bool
+Vixen.Ui.Controls.ToggleBase.IsChecked.set -> bool
+Vixen.Ui.Controls.ToggleBase.ToggleBase() -> void
+Vixen.Ui.Controls.ToggleButton -> sealed class
+Vixen.Ui.Controls.ToggleButton : Vixen.Ui.Controls.ToggleBase
+Vixen.Ui.Controls.ToggleButton.ToggleButton() -> void
+Vixen.Ui.Controls.Tooltip -> sealed class
+Vixen.Ui.Controls.Tooltip : Vixen.Ui.Controls.Overlay
+Vixen.Ui.Controls.Tooltip.Attach(Vixen.Ui.UiElement target) -> void
+Vixen.Ui.Controls.Tooltip.ClearDelay() -> void
+Vixen.Ui.Controls.Tooltip.Delay.get -> System.TimeSpan
+Vixen.Ui.Controls.Tooltip.Delay.set -> System.TimeSpan
+Vixen.Ui.Controls.Tooltip.Label.get -> string?
+Vixen.Ui.Controls.Tooltip.Label.set -> string?
+Vixen.Ui.Controls.Tooltip.Tick(System.TimeSpan now) -> void
+Vixen.Ui.Controls.Tooltip.Tooltip() -> void
+Vixen.Ui.Controls.ValueChangedEvent<T> -> sealed class
+Vixen.Ui.Controls.ValueChangedEvent<T> : Vixen.Ui.UiEvent
+Vixen.Ui.Controls.ValueChangedEvent<T>.Previous.get -> T?
+Vixen.Ui.Controls.ValueChangedEvent<T>.Previous.init -> T?
+Vixen.Ui.Controls.ValueChangedEvent<T>.Value.get -> T?
+Vixen.Ui.Controls.ValueChangedEvent<T>.Value.init -> T?
+Vixen.Ui.Controls.ValueChangedEvent<T>.ValueChangedEvent() -> void
+abstract Vixen.Ui.Controls.SelectBase.OnOptionChosen(Vixen.Ui.Controls.Option option) -> void
+override Vixen.Ui.Controls.Accordion.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Accordion.OnCreated() -> void
+override Vixen.Ui.Controls.Accordion.TagName.get -> string
+override Vixen.Ui.Controls.Alert.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Alert.OnCreated() -> void
+override Vixen.Ui.Controls.Alert.TagName.get -> string
+override Vixen.Ui.Controls.Avatar.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Avatar.TagName.get -> string
+override Vixen.Ui.Controls.Badge.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Badge.TagName.get -> string
+override Vixen.Ui.Controls.Breadcrumb.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Breadcrumb.OnCreated() -> void
+override Vixen.Ui.Controls.Breadcrumb.TagName.get -> string
+override Vixen.Ui.Controls.BreadcrumbItem.TagName.get -> string
+override Vixen.Ui.Controls.Button.TagName.get -> string
+override Vixen.Ui.Controls.ButtonBase.OnCreated() -> void
+override Vixen.Ui.Controls.Card.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Card.OnCreated() -> void
+override Vixen.Ui.Controls.Card.TagName.get -> string
+override Vixen.Ui.Controls.CheckBox.Activate(Vixen.Ui.Controls.ActivationDevice device, int count, Vixen.Ui.ModifierKeys modifiers) -> void
+override Vixen.Ui.Controls.CheckBox.OnCreated() -> void
+override Vixen.Ui.Controls.CheckBox.TagName.get -> string
+override Vixen.Ui.Controls.ComboBox.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.ComboBox.OnCreated() -> void
+override Vixen.Ui.Controls.ComboBox.OnRemoved() -> void
+override Vixen.Ui.Controls.ComboBox.TagName.get -> string
+override Vixen.Ui.Controls.ContextMenu.TagName.get -> string
+override Vixen.Ui.Controls.Control.OnCreated() -> void
+override Vixen.Ui.Controls.Control.OnRemoved() -> void
+override Vixen.Ui.Controls.Dialog.OnClosed(Vixen.Ui.Controls.CloseReason reason) -> void
+override Vixen.Ui.Controls.Dialog.OnCreated() -> void
+override Vixen.Ui.Controls.Dialog.OnOpened() -> void
+override Vixen.Ui.Controls.Dialog.TagName.get -> string
+override Vixen.Ui.Controls.Drawer.OnCreated() -> void
+override Vixen.Ui.Controls.Drawer.TagName.get -> string
+override Vixen.Ui.Controls.EmptyState.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.EmptyState.OnCreated() -> void
+override Vixen.Ui.Controls.EmptyState.TagName.get -> string
+override Vixen.Ui.Controls.Expander.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Expander.OnCreated() -> void
+override Vixen.Ui.Controls.Expander.TagName.get -> string
+override Vixen.Ui.Controls.ExpanderHeader.OnCreated() -> void
+override Vixen.Ui.Controls.ExpanderHeader.TagName.get -> string
+override Vixen.Ui.Controls.Icon.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Icon.OnCreated() -> void
+override Vixen.Ui.Controls.Icon.OnDraw(Vixen.Ui.DrawContext context) -> void
+override Vixen.Ui.Controls.Icon.TagName.get -> string
+override Vixen.Ui.Controls.IconButton.OnCreated() -> void
+override Vixen.Ui.Controls.IconButton.TagName.get -> string
+override Vixen.Ui.Controls.Image.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Image.OnDraw(Vixen.Ui.DrawContext context) -> void
+override Vixen.Ui.Controls.Image.TagName.get -> string
+override Vixen.Ui.Controls.KeyboardShortcut.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.KeyboardShortcut.TagName.get -> string
+override Vixen.Ui.Controls.Link.TagName.get -> string
+override Vixen.Ui.Controls.Menu.IsOutside(Vixen.Ui.UiElement? hit) -> bool
+override Vixen.Ui.Controls.Menu.OnClosed(Vixen.Ui.Controls.CloseReason reason) -> void
+override Vixen.Ui.Controls.Menu.OnCreated() -> void
+override Vixen.Ui.Controls.Menu.OnOpened() -> void
+override Vixen.Ui.Controls.Menu.OnRemoved() -> void
+override Vixen.Ui.Controls.Menu.TagName.get -> string
+override Vixen.Ui.Controls.MenuBar.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.MenuBar.OnCreated() -> void
+override Vixen.Ui.Controls.MenuBar.OnRemoved() -> void
+override Vixen.Ui.Controls.MenuBar.TagName.get -> string
+override Vixen.Ui.Controls.MenuBarItem.TagName.get -> string
+override Vixen.Ui.Controls.MenuItem.TagName.get -> string
+override Vixen.Ui.Controls.MultiSelect.OnOptionAdded(Vixen.Ui.Controls.Option option) -> void
+override Vixen.Ui.Controls.MultiSelect.OnOptionChosen(Vixen.Ui.Controls.Option option) -> void
+override Vixen.Ui.Controls.MultiSelect.TagName.get -> string
+override Vixen.Ui.Controls.NumericInput.Coerce(string? value) -> string?
+override Vixen.Ui.Controls.NumericInput.OnCreated() -> void
+override Vixen.Ui.Controls.NumericInput.OnSubmit() -> void
+override Vixen.Ui.Controls.NumericInput.TagName.get -> string
+override Vixen.Ui.Controls.Option.TagName.get -> string
+override Vixen.Ui.Controls.Overlay.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Overlay.OnCreated() -> void
+override Vixen.Ui.Controls.Overlay.OnRemoved() -> void
+override Vixen.Ui.Controls.PageButton.TagName.get -> string
+override Vixen.Ui.Controls.Pagination.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Pagination.OnCreated() -> void
+override Vixen.Ui.Controls.Pagination.TagName.get -> string
+override Vixen.Ui.Controls.Panel.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Panel.TagName.get -> string
+override Vixen.Ui.Controls.Popover.OnCreated() -> void
+override Vixen.Ui.Controls.Popover.TagName.get -> string
+override Vixen.Ui.Controls.ProgressBar.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.ProgressBar.OnDraw(Vixen.Ui.DrawContext context) -> void
+override Vixen.Ui.Controls.ProgressBar.TagName.get -> string
+override Vixen.Ui.Controls.RadioButton.CanUncheck.get -> bool
+override Vixen.Ui.Controls.RadioButton.OnCreated() -> void
+override Vixen.Ui.Controls.RadioButton.TagName.get -> string
+override Vixen.Ui.Controls.RadioGroup.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.RadioGroup.OnCreated() -> void
+override Vixen.Ui.Controls.RadioGroup.TagName.get -> string
+override Vixen.Ui.Controls.RangeBase.OnCreated() -> void
+override Vixen.Ui.Controls.RangeSlider.OnBoundsChanged() -> void
+override Vixen.Ui.Controls.RangeSlider.OnCreated() -> void
+override Vixen.Ui.Controls.RangeSlider.OnDraw(Vixen.Ui.DrawContext context) -> void
+override Vixen.Ui.Controls.RangeSlider.TagName.get -> string
+override Vixen.Ui.Controls.ScrollBar.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.ScrollBar.OnCreated() -> void
+override Vixen.Ui.Controls.ScrollBar.OnDraw(Vixen.Ui.DrawContext context) -> void
+override Vixen.Ui.Controls.ScrollBar.TagName.get -> string
+override Vixen.Ui.Controls.ScrollView.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.ScrollView.OnCreated() -> void
+override Vixen.Ui.Controls.ScrollView.OnRemoved() -> void
+override Vixen.Ui.Controls.ScrollView.TagName.get -> string
+override Vixen.Ui.Controls.SearchBox.OnCreated() -> void
+override Vixen.Ui.Controls.SearchBox.TagName.get -> string
+override Vixen.Ui.Controls.Select.OnOptionAdded(Vixen.Ui.Controls.Option option) -> void
+override Vixen.Ui.Controls.Select.OnOptionChosen(Vixen.Ui.Controls.Option option) -> void
+override Vixen.Ui.Controls.Select.TagName.get -> string
+override Vixen.Ui.Controls.SelectBase.OnCreated() -> void
+override Vixen.Ui.Controls.SelectBase.OnRemoved() -> void
+override Vixen.Ui.Controls.Separator.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Separator.OnCreated() -> void
+override Vixen.Ui.Controls.Separator.TagName.get -> string
+override Vixen.Ui.Controls.Skeleton.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Skeleton.TagName.get -> string
+override Vixen.Ui.Controls.Slider.OnBoundsChanged() -> void
+override Vixen.Ui.Controls.Slider.OnCreated() -> void
+override Vixen.Ui.Controls.Slider.OnDraw(Vixen.Ui.DrawContext context) -> void
+override Vixen.Ui.Controls.Slider.TagName.get -> string
+override Vixen.Ui.Controls.Spinner.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Spinner.OnDraw(Vixen.Ui.DrawContext context) -> void
+override Vixen.Ui.Controls.Spinner.TagName.get -> string
+override Vixen.Ui.Controls.Switch.OnCreated() -> void
+override Vixen.Ui.Controls.Switch.TagName.get -> string
+override Vixen.Ui.Controls.TabItem.Activate(Vixen.Ui.Controls.ActivationDevice device, int count, Vixen.Ui.ModifierKeys modifiers) -> void
+override Vixen.Ui.Controls.TabItem.TagName.get -> string
+override Vixen.Ui.Controls.Tabs.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Tabs.OnCreated() -> void
+override Vixen.Ui.Controls.Tabs.TagName.get -> string
+override Vixen.Ui.Controls.TextArea.TagName.get -> string
+override Vixen.Ui.Controls.TextBlock.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.TextBlock.TagName.get -> string
+override Vixen.Ui.Controls.TextBox.TagName.get -> string
+override Vixen.Ui.Controls.TextField.OnCreated() -> void
+override Vixen.Ui.Controls.TextField.OnDraw(Vixen.Ui.DrawContext context) -> void
+override Vixen.Ui.Controls.TextField.TagName.get -> string
+override Vixen.Ui.Controls.Toast.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Toast.OnCreated() -> void
+override Vixen.Ui.Controls.Toast.TagName.get -> string
+override Vixen.Ui.Controls.ToastHost.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.ToastHost.OnCreated() -> void
+override Vixen.Ui.Controls.ToastHost.OnRemoved() -> void
+override Vixen.Ui.Controls.ToastHost.TagName.get -> string
+override Vixen.Ui.Controls.ToggleBase.Activate(Vixen.Ui.Controls.ActivationDevice device, int count, Vixen.Ui.ModifierKeys modifiers) -> void
+override Vixen.Ui.Controls.ToggleBase.ActivatesOnEnter.get -> bool
+override Vixen.Ui.Controls.ToggleButton.ActivatesOnEnter.get -> bool
+override Vixen.Ui.Controls.ToggleButton.TagName.get -> string
+override Vixen.Ui.Controls.Tooltip.OnCreated() -> void
+override Vixen.Ui.Controls.Tooltip.OnRemoved() -> void
+override Vixen.Ui.Controls.Tooltip.TagName.get -> string
+static Vixen.Ui.Controls.Avatar.Of(string? name) -> string
+static Vixen.Ui.Controls.ControlIcons.Check.get -> Vixen.Ui.PathBuilder
+static Vixen.Ui.Controls.ControlIcons.ChevronDown.get -> Vixen.Ui.PathBuilder
+static Vixen.Ui.Controls.ControlIcons.ChevronLeft.get -> Vixen.Ui.PathBuilder
+static Vixen.Ui.Controls.ControlIcons.ChevronRight.get -> Vixen.Ui.PathBuilder
+static Vixen.Ui.Controls.ControlIcons.ChevronUp.get -> Vixen.Ui.PathBuilder
+static Vixen.Ui.Controls.ControlIcons.Close.get -> Vixen.Ui.PathBuilder
+static Vixen.Ui.Controls.ControlIcons.Dash.get -> Vixen.Ui.PathBuilder
+static Vixen.Ui.Controls.ControlIcons.Search.get -> Vixen.Ui.PathBuilder
+static Vixen.Ui.Controls.ControlTheme.Css.get -> string
+static Vixen.Ui.Controls.ControlTheme.Install(Vixen.Ui.UiDocument document) -> int
+static Vixen.Ui.Controls.KeyboardShortcut.Describe(Vixen.Input.InputKey key, Vixen.Ui.ModifierKeys modifiers) -> string
+static readonly Vixen.Ui.Controls.Accordion.AllowMultipleProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Avatar.NameProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.BreadcrumbItem.ValueProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.CheckBox.IsIndeterminateProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Control.DisabledProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Control.SizeProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Control.VariantProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Drawer.SideProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Expander.IsExpandedProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Icon.FillRuleProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Icon.GeometryProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Icon.ViewBoxProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Image.DescriptionProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Image.SourceProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.KeyboardShortcut.KeyProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.KeyboardShortcut.ModifiersProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Link.HrefProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.MultiSelect.PlaceholderProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.NumericInput.DecimalsProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.NumericInput.MaximumProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.NumericInput.MinimumProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.NumericInput.NumberProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.NumericInput.StepProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Option.ValueProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Overlay.CloseOnEscapeProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Overlay.GapProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Overlay.LightDismissProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Overlay.PlacementProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Pagination.CurrentPageProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Pagination.PageCountProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Pagination.WindowProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.ProgressBar.IsIndeterminateProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.ProgressBar.PhaseProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.ProgressBar.ValueProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.RadioButton.ValueProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.RadioGroup.ValueProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.RangeBase.MaximumProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.RangeBase.MinimumProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.RangeBase.StepProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.RangeSlider.HighProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.RangeSlider.LowProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.ScrollBar.ContentSizeProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.ScrollBar.OrientationProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.ScrollBar.ValueProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.ScrollBar.ViewportSizeProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.ScrollView.ScrollLeftProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.ScrollView.ScrollTopProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Select.PlaceholderProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Select.ValueProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Separator.OrientationProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Slider.ValueProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Spinner.PhaseProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Spinner.SweepProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Spinner.ThicknessProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Tabs.SelectedIndexProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.TextField.MaxLengthProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.TextField.PlaceholderProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.TextField.ReadOnlyProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.TextField.ValueProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Toast.DurationProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.ToggleBase.IsCheckedProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Tooltip.DelayProperty -> Vixen.Ui.UiPropertyKey
+virtual Vixen.Ui.Controls.ButtonBase.Activate(Vixen.Ui.Controls.ActivationDevice device, int count, Vixen.Ui.ModifierKeys modifiers) -> void
+virtual Vixen.Ui.Controls.ButtonBase.ActivatesOnEnter.get -> bool
+virtual Vixen.Ui.Controls.Control.AcceptsFocus.get -> bool
+virtual Vixen.Ui.Controls.Overlay.IsOutside(Vixen.Ui.UiElement? hit) -> bool
+virtual Vixen.Ui.Controls.Overlay.OnClosed(Vixen.Ui.Controls.CloseReason reason) -> void
+virtual Vixen.Ui.Controls.Overlay.OnOpened() -> void
+virtual Vixen.Ui.Controls.RangeBase.OnBoundsChanged() -> void
+virtual Vixen.Ui.Controls.SelectBase.OnOptionAdded(Vixen.Ui.Controls.Option option) -> void
+virtual Vixen.Ui.Controls.TextField.Coerce(string? value) -> string?
+virtual Vixen.Ui.Controls.TextField.OnSubmit() -> void
+virtual Vixen.Ui.Controls.ToggleBase.CanUncheck.get -> bool
+virtual Vixen.Ui.Controls.ToggleBase.OnChecked(bool current) -> void

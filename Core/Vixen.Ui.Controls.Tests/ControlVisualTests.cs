@@ -272,14 +272,11 @@ public class ControlVisualTests {
 
         ui.Frame();
 
-        // ⚠ <b>Without this the bar is not drawn at all, and that is documented rather than broken.</b>
-        // `ScrollView` syncs its bars on a scroll and on nothing else, because there is no
-        // "the layout finished" callback to hang it on — so a view whose content has just been
-        // filled shows no scrollbar until something scrolls it. `Refresh` is the stated workaround
-        // and the real fix is a change to `UiDocument`. The first version of this picture recorded
-        // an empty view and would have made that limitation the standard everything else is
-        // measured against.
-        scroll.Refresh();
+        // This used to need an explicit `scroll.Refresh()` between the two frames, because the bars
+        // synced on a scroll and on nothing else — a view whose content had just been filled showed
+        // no scrollbar until something scrolled it. `ScrollView` is on `UiDocument.LayoutFinished`
+        // now, so the frame above is enough. The second frame stays: the first is what makes the
+        // content's height a measurement rather than a declaration.
         ui.Frame();
 
         // The picture that would have caught the orientation bug. A vertical scrollbar carrying the

@@ -306,13 +306,19 @@ public sealed partial class Popover : Overlay {
 /// <summary>A short label that appears beside something the pointer is resting on.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The delay needs a clock this assembly does not have.</b> A tooltip is supposed to
-///         wait half a second before appearing, and nothing here is told what time it is except
-///         through input events — which stop arriving precisely when the pointer is resting. So
-///         <see cref="Tick" /> exists and the host calls it, the same bargain
-///         <c>GestureRecognizer.Tick</c> makes for a long press and for the same reason. A host that
-///         never calls it gets a tooltip that appears at once, which is worse than the right
-///         behaviour and better than none.
+///         <b>The delay needs a clock, and the document now has one.</b> A tooltip waits half a
+///         second before appearing, and nothing here is told what time it is except through input
+///         events — which stop arriving precisely when the pointer is resting. So it subscribes to
+///         <see cref="UiDocument.Ticked" />, which a host with a frame loop drives through
+///         <see cref="UiDocument.Tick" />, the same clock <c>GestureRecognizer</c> uses for a long
+///         press.
+///     </para>
+///     <para>
+///         ⚠ <b>A host that never ticks gets a tooltip that never appears.</b> <see cref="Tick" /> is
+///         still public and a caller may drive it directly; what is gone is the arrangement where
+///         every application had to remember to. Which of "never" and "instantly" is the better
+///         failure is arguable — what is not is that the difference used to be a method call in
+///         somebody else's loop.
 ///     </para>
 ///     <para>
 ///         It is never focusable and never takes the pointer: <c>pointer-events: none</c> in the
@@ -337,6 +343,8 @@ public sealed partial class Tooltip : Overlay {
         set => Text = value;
     }
 
+    Action<UiDocument, TimeSpan>? ticked;
+
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
@@ -347,6 +355,21 @@ public sealed partial class Tooltip : Overlay {
         if (Delay == TimeSpan.Zero) {
             Delay = TimeSpan.FromMilliseconds(500);
         }
+
+        // ⚠ Held in a field, because an event cannot be unsubscribed from a lambda it was never
+        // given a name for. The same reason `Overlay` keeps its two capture handlers.
+        ticked = (_, now) => Tick(now);
+        Document.Ticked += ticked;
+    }
+
+    /// <inheritdoc />
+    protected override void OnRemoved() {
+        if (ticked is not null) {
+            Document.Ticked -= ticked;
+            ticked = null;
+        }
+
+        base.OnRemoved();
     }
 
     /// <summary>Attaches it to an element, so that hovering that element shows it.</summary>

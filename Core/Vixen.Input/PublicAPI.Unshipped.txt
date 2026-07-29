@@ -1,0 +1,722 @@
+#nullable enable
+Vixen.Input.ClampProcessor -> sealed record
+Vixen.Input.ClampProcessor : System.IEquatable<Vixen.Input.ClampProcessor>
+Vixen.Input.ClampProcessor : Vixen.Input.IInputProcessor
+Vixen.Input.ClampProcessor.ClampProcessor(float Min = 0, float Max = 1) -> void
+Vixen.Input.ClampProcessor.Max.get -> float
+Vixen.Input.ClampProcessor.Max.init -> float
+Vixen.Input.ClampProcessor.Min.get -> float
+Vixen.Input.ClampProcessor.Min.init -> float
+Vixen.Input.ClampProcessor.Name.get -> string
+Vixen.Input.ClampProcessor.Process(Vixen.Core.Mathematics.Vector2 value, int dimensions) -> Vixen.Core.Mathematics.Vector2
+Vixen.Input.GamepadControl -> enum : ushort
+Vixen.Input.GamepadControl.Back = 5 -> Vixen.Input.GamepadControl
+Vixen.Input.GamepadControl.DPadDown = 13 -> Vixen.Input.GamepadControl
+Vixen.Input.GamepadControl.DPadLeft = 14 -> Vixen.Input.GamepadControl
+Vixen.Input.GamepadControl.DPadRight = 15 -> Vixen.Input.GamepadControl
+Vixen.Input.GamepadControl.DPadUp = 12 -> Vixen.Input.GamepadControl
+Vixen.Input.GamepadControl.DPadX = 38 -> Vixen.Input.GamepadControl
+Vixen.Input.GamepadControl.DPadY = 39 -> Vixen.Input.GamepadControl
+Vixen.Input.GamepadControl.East = 2 -> Vixen.Input.GamepadControl
+Vixen.Input.GamepadControl.GamepadControl() -> void
+Vixen.Input.GamepadControl.Guide = 6 -> Vixen.Input.GamepadControl
+Vixen.Input.GamepadControl.LeftShoulder = 10 -> Vixen.Input.GamepadControl
+Vixen.Input.GamepadControl.LeftStick = 8 -> Vixen.Input.GamepadControl
+Vixen.Input.GamepadControl.LeftStickX = 32 -> Vixen.Input.GamepadControl
+Vixen.Input.GamepadControl.LeftStickY = 33 -> Vixen.Input.GamepadControl
+Vixen.Input.GamepadControl.LeftTrigger = 36 -> Vixen.Input.GamepadControl
+Vixen.Input.GamepadControl.None = 0 -> Vixen.Input.GamepadControl
+Vixen.Input.GamepadControl.North = 4 -> Vixen.Input.GamepadControl
+Vixen.Input.GamepadControl.RightShoulder = 11 -> Vixen.Input.GamepadControl
+Vixen.Input.GamepadControl.RightStick = 9 -> Vixen.Input.GamepadControl
+Vixen.Input.GamepadControl.RightStickX = 34 -> Vixen.Input.GamepadControl
+Vixen.Input.GamepadControl.RightStickY = 35 -> Vixen.Input.GamepadControl
+Vixen.Input.GamepadControl.RightTrigger = 37 -> Vixen.Input.GamepadControl
+Vixen.Input.GamepadControl.South = 1 -> Vixen.Input.GamepadControl
+Vixen.Input.GamepadControl.Start = 7 -> Vixen.Input.GamepadControl
+Vixen.Input.GamepadControl.Touchpad = 16 -> Vixen.Input.GamepadControl
+Vixen.Input.GamepadControl.West = 3 -> Vixen.Input.GamepadControl
+Vixen.Input.GamepadDevice -> sealed class
+Vixen.Input.GamepadDevice : Vixen.Input.IInputDevice
+Vixen.Input.GamepadDevice.DeviceId.get -> int
+Vixen.Input.GamepadDevice.GetAxis(Vixen.Input.GamepadControl axis) -> float
+Vixen.Input.GamepadDevice.IsConnected.get -> bool
+Vixen.Input.GamepadDevice.IsDown(Vixen.Input.GamepadControl button) -> bool
+Vixen.Input.GamepadDevice.Kind.get -> Vixen.Input.InputDeviceKind
+Vixen.Input.GamepadDevice.Name.get -> string
+Vixen.Input.GamepadDevice.ReadValue(Vixen.Input.InputControl control) -> float
+Vixen.Input.HoldInteraction -> sealed class
+Vixen.Input.HoldInteraction : Vixen.Input.IInputInteraction
+Vixen.Input.HoldInteraction.HoldInteraction(float duration = 0.4, float pressPoint = 0.5) -> void
+Vixen.Input.HoldInteraction.Name.get -> string
+Vixen.Input.HoldInteraction.Process(in Vixen.Input.InputInteractionSample sample) -> Vixen.Input.InputInteractionResult
+Vixen.Input.HoldInteraction.Reset() -> void
+Vixen.Input.IInputDevice -> interface
+Vixen.Input.IInputDevice.DeviceId.get -> int
+Vixen.Input.IInputDevice.IsConnected.get -> bool
+Vixen.Input.IInputDevice.Kind.get -> Vixen.Input.InputDeviceKind
+Vixen.Input.IInputDevice.Name.get -> string
+Vixen.Input.IInputDevice.ReadValue(Vixen.Input.InputControl control) -> float
+Vixen.Input.IInputInteraction -> interface
+Vixen.Input.IInputInteraction.Name.get -> string
+Vixen.Input.IInputInteraction.Process(in Vixen.Input.InputInteractionSample sample) -> Vixen.Input.InputInteractionResult
+Vixen.Input.IInputInteraction.Reset() -> void
+Vixen.Input.IInputProcessor -> interface
+Vixen.Input.IInputProcessor.Name.get -> string
+Vixen.Input.IInputProcessor.Process(Vixen.Core.Mathematics.Vector2 value, int dimensions) -> Vixen.Core.Mathematics.Vector2
+Vixen.Input.InputAction -> sealed class
+Vixen.Input.InputAction.ActiveBinding.get -> Vixen.Input.InputBinding?
+Vixen.Input.InputAction.Bindings.get -> System.Collections.Generic.IReadOnlyList<Vixen.Input.InputBinding>
+Vixen.Input.InputAction.Canceled -> System.Action<Vixen.Input.InputActionContext>?
+Vixen.Input.InputAction.CollectControls(System.Collections.Generic.List<Vixen.Input.InputControl> into) -> void
+Vixen.Input.InputAction.ControlType.get -> Vixen.Input.InputControlType
+Vixen.Input.InputAction.Data.get -> Vixen.Input.InputActionData
+Vixen.Input.InputAction.IsEnabled.get -> bool
+Vixen.Input.InputAction.IsPressed.get -> bool
+Vixen.Input.InputAction.Magnitude.get -> float
+Vixen.Input.InputAction.Map.get -> Vixen.Input.InputActionMap
+Vixen.Input.InputAction.Name.get -> string
+Vixen.Input.InputAction.OverrideBinding(int bindingIndex, string? path, int partIndex = -1) -> void
+Vixen.Input.InputAction.Path.get -> string
+Vixen.Input.InputAction.Performed -> System.Action<Vixen.Input.InputActionContext>?
+Vixen.Input.InputAction.Phase.get -> Vixen.Input.InputActionPhase
+Vixen.Input.InputAction.ReadFloat() -> float
+Vixen.Input.InputAction.ReadValue<T>() -> T
+Vixen.Input.InputAction.ReadVector2() -> Vixen.Core.Mathematics.Vector2
+Vixen.Input.InputAction.RemoveBindingOverrides() -> void
+Vixen.Input.InputAction.Started -> System.Action<Vixen.Input.InputActionContext>?
+Vixen.Input.InputAction.Type.get -> Vixen.Input.InputActionType
+Vixen.Input.InputAction.Value.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Input.InputAction.WasCanceledThisFrame.get -> bool
+Vixen.Input.InputAction.WasPerformedThisFrame.get -> bool
+Vixen.Input.InputAction.WasPressedThisFrame.get -> bool
+Vixen.Input.InputAction.WasReleasedThisFrame.get -> bool
+Vixen.Input.InputAction.WasStartedThisFrame.get -> bool
+Vixen.Input.InputActionAssetData -> sealed record
+Vixen.Input.InputActionAssetData : System.IEquatable<Vixen.Input.InputActionAssetData>
+Vixen.Input.InputActionAssetData.ControlSchemes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Input.InputControlSchemeData>
+Vixen.Input.InputActionAssetData.ControlSchemes.init -> System.Collections.Generic.IReadOnlyList<Vixen.Input.InputControlSchemeData>
+Vixen.Input.InputActionAssetData.InputActionAssetData(string Name, System.Collections.Generic.IReadOnlyList<Vixen.Input.InputActionMapData>? Maps = null, System.Collections.Generic.IReadOnlyList<Vixen.Input.InputControlSchemeData>? ControlSchemes = null, int Version = 1) -> void
+Vixen.Input.InputActionAssetData.Maps.get -> System.Collections.Generic.IReadOnlyList<Vixen.Input.InputActionMapData>
+Vixen.Input.InputActionAssetData.Maps.init -> System.Collections.Generic.IReadOnlyList<Vixen.Input.InputActionMapData>
+Vixen.Input.InputActionAssetData.Name.get -> string
+Vixen.Input.InputActionAssetData.Name.init -> string
+Vixen.Input.InputActionAssetData.Version.get -> int
+Vixen.Input.InputActionAssetData.Version.init -> int
+Vixen.Input.InputActionAssetReader -> static class
+Vixen.Input.InputActionAssetWriter -> static class
+Vixen.Input.InputActionContext -> readonly struct
+Vixen.Input.InputActionContext : System.IEquatable<Vixen.Input.InputActionContext>
+Vixen.Input.InputActionContext.Action.get -> Vixen.Input.InputAction
+Vixen.Input.InputActionContext.Action.init -> Vixen.Input.InputAction
+Vixen.Input.InputActionContext.Binding.get -> Vixen.Input.InputBinding?
+Vixen.Input.InputActionContext.Binding.init -> Vixen.Input.InputBinding?
+Vixen.Input.InputActionContext.InputActionContext() -> void
+Vixen.Input.InputActionContext.InputActionContext(Vixen.Input.InputAction Action, Vixen.Input.InputActionPhase Phase, Vixen.Core.Mathematics.Vector2 Value, float Magnitude, Vixen.Input.InputBinding? Binding) -> void
+Vixen.Input.InputActionContext.Magnitude.get -> float
+Vixen.Input.InputActionContext.Magnitude.init -> float
+Vixen.Input.InputActionContext.Phase.get -> Vixen.Input.InputActionPhase
+Vixen.Input.InputActionContext.Phase.init -> Vixen.Input.InputActionPhase
+Vixen.Input.InputActionContext.ReadValue<T>() -> T
+Vixen.Input.InputActionContext.Value.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Input.InputActionContext.Value.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Input.InputActionData -> sealed record
+Vixen.Input.InputActionData : System.IEquatable<Vixen.Input.InputActionData>
+Vixen.Input.InputActionData.Bindings.get -> System.Collections.Generic.IReadOnlyList<Vixen.Input.InputBindingData>
+Vixen.Input.InputActionData.Bindings.init -> System.Collections.Generic.IReadOnlyList<Vixen.Input.InputBindingData>
+Vixen.Input.InputActionData.ControlType.get -> Vixen.Input.InputControlType
+Vixen.Input.InputActionData.ControlType.init -> Vixen.Input.InputControlType
+Vixen.Input.InputActionData.InputActionData(string Name, Vixen.Input.InputActionType Type = Vixen.Input.InputActionType.Button, Vixen.Input.InputControlType ControlType = Vixen.Input.InputControlType.Button, System.Collections.Generic.IReadOnlyList<Vixen.Input.InputBindingData>? Bindings = null) -> void
+Vixen.Input.InputActionData.Name.get -> string
+Vixen.Input.InputActionData.Name.init -> string
+Vixen.Input.InputActionData.Type.get -> Vixen.Input.InputActionType
+Vixen.Input.InputActionData.Type.init -> Vixen.Input.InputActionType
+Vixen.Input.InputActionMap -> sealed class
+Vixen.Input.InputActionMap.Actions.get -> System.Collections.Generic.IReadOnlyList<Vixen.Input.InputAction>
+Vixen.Input.InputActionMap.Asset.get -> Vixen.Input.InputActions
+Vixen.Input.InputActionMap.Data.get -> Vixen.Input.InputActionMapData
+Vixen.Input.InputActionMap.Disable() -> void
+Vixen.Input.InputActionMap.Enable() -> void
+Vixen.Input.InputActionMap.IsEnabled.get -> bool
+Vixen.Input.InputActionMap.Name.get -> string
+Vixen.Input.InputActionMap.TryFind(string? name, out Vixen.Input.InputAction? action) -> bool
+Vixen.Input.InputActionMap.this[string name].get -> Vixen.Input.InputAction
+Vixen.Input.InputActionMapData -> sealed record
+Vixen.Input.InputActionMapData : System.IEquatable<Vixen.Input.InputActionMapData>
+Vixen.Input.InputActionMapData.Actions.get -> System.Collections.Generic.IReadOnlyList<Vixen.Input.InputActionData>
+Vixen.Input.InputActionMapData.Actions.init -> System.Collections.Generic.IReadOnlyList<Vixen.Input.InputActionData>
+Vixen.Input.InputActionMapData.InputActionMapData(string Name, System.Collections.Generic.IReadOnlyList<Vixen.Input.InputActionData>? Actions = null) -> void
+Vixen.Input.InputActionMapData.Name.get -> string
+Vixen.Input.InputActionMapData.Name.init -> string
+Vixen.Input.InputActionPhase -> enum : byte
+Vixen.Input.InputActionPhase.Canceled = 4 -> Vixen.Input.InputActionPhase
+Vixen.Input.InputActionPhase.Disabled = 0 -> Vixen.Input.InputActionPhase
+Vixen.Input.InputActionPhase.InputActionPhase() -> void
+Vixen.Input.InputActionPhase.Performed = 3 -> Vixen.Input.InputActionPhase
+Vixen.Input.InputActionPhase.Started = 2 -> Vixen.Input.InputActionPhase
+Vixen.Input.InputActionPhase.Waiting = 1 -> Vixen.Input.InputActionPhase
+Vixen.Input.InputActionType -> enum : byte
+Vixen.Input.InputActionType.Button = 0 -> Vixen.Input.InputActionType
+Vixen.Input.InputActionType.InputActionType() -> void
+Vixen.Input.InputActionType.PassThrough = 2 -> Vixen.Input.InputActionType
+Vixen.Input.InputActionType.Value = 1 -> Vixen.Input.InputActionType
+Vixen.Input.InputActions -> sealed class
+Vixen.Input.InputActions.ActiveControlScheme.get -> Vixen.Input.InputControlScheme?
+Vixen.Input.InputActions.AutoSwitchControlSchemes.get -> bool
+Vixen.Input.InputActions.AutoSwitchControlSchemes.set -> bool
+Vixen.Input.InputActions.ControlSchemeChanged -> System.Action<Vixen.Input.InputControlScheme?>?
+Vixen.Input.InputActions.ControlSchemes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Input.InputControlScheme>
+Vixen.Input.InputActions.Data.get -> Vixen.Input.InputActionAssetData
+Vixen.Input.InputActions.Disable() -> void
+Vixen.Input.InputActions.Enable() -> void
+Vixen.Input.InputActions.FindAction(string path) -> Vixen.Input.InputAction
+Vixen.Input.InputActions.FindConflicts(Vixen.Input.InputControl control, System.Collections.Generic.List<Vixen.Input.InputBindingConflict> into, Vixen.Input.InputAction? except = null, string? scheme = null) -> void
+Vixen.Input.InputActions.GamepadSlot.get -> int
+Vixen.Input.InputActions.GamepadSlot.set -> int
+Vixen.Input.InputActions.LoadBindingOverrides(string? text) -> int
+Vixen.Input.InputActions.Maps.get -> System.Collections.Generic.IReadOnlyList<Vixen.Input.InputActionMap>
+Vixen.Input.InputActions.Name.get -> string
+Vixen.Input.InputActions.RemoveAllBindingOverrides() -> void
+Vixen.Input.InputActions.SaveBindingOverrides() -> string
+Vixen.Input.InputActions.SetControlScheme(string? name) -> bool
+Vixen.Input.InputActions.TryFindAction(string? path, out Vixen.Input.InputAction? action) -> bool
+Vixen.Input.InputActions.TryFindMap(string? name, out Vixen.Input.InputActionMap? map) -> bool
+Vixen.Input.InputActions.Update(Vixen.Input.InputDeviceSet devices, Vixen.Core.GameTime time) -> void
+Vixen.Input.InputActions.Update(Vixen.Input.InputDeviceSet devices, double time) -> void
+Vixen.Input.InputActions.this[string name].get -> Vixen.Input.InputActionMap
+Vixen.Input.InputAssetDiagnostic -> readonly struct
+Vixen.Input.InputAssetDiagnostic : System.IEquatable<Vixen.Input.InputAssetDiagnostic>
+Vixen.Input.InputAssetDiagnostic.Column.get -> int
+Vixen.Input.InputAssetDiagnostic.Column.init -> int
+Vixen.Input.InputAssetDiagnostic.InputAssetDiagnostic() -> void
+Vixen.Input.InputAssetDiagnostic.InputAssetDiagnostic(string Message, int Line, int Column) -> void
+Vixen.Input.InputAssetDiagnostic.Line.get -> int
+Vixen.Input.InputAssetDiagnostic.Line.init -> int
+Vixen.Input.InputAssetDiagnostic.Message.get -> string
+Vixen.Input.InputAssetDiagnostic.Message.init -> string
+Vixen.Input.InputAssetException -> sealed class
+Vixen.Input.InputAssetException : System.Exception
+Vixen.Input.InputAssetException.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Vixen.Input.InputAssetDiagnostic>
+Vixen.Input.InputAssetException.InputAssetException() -> void
+Vixen.Input.InputAssetException.InputAssetException(string asset, System.Collections.Generic.IReadOnlyList<Vixen.Input.InputAssetDiagnostic> diagnostics) -> void
+Vixen.Input.InputAssetException.InputAssetException(string message) -> void
+Vixen.Input.InputAssetException.InputAssetException(string message, System.Exception innerException) -> void
+Vixen.Input.InputAssetReadResult -> readonly struct
+Vixen.Input.InputAssetReadResult : System.IEquatable<Vixen.Input.InputAssetReadResult>
+Vixen.Input.InputAssetReadResult.Asset.get -> Vixen.Input.InputActionAssetData?
+Vixen.Input.InputAssetReadResult.Asset.init -> Vixen.Input.InputActionAssetData?
+Vixen.Input.InputAssetReadResult.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Vixen.Input.InputAssetDiagnostic>
+Vixen.Input.InputAssetReadResult.Diagnostics.init -> System.Collections.Generic.IReadOnlyList<Vixen.Input.InputAssetDiagnostic>
+Vixen.Input.InputAssetReadResult.InputAssetReadResult() -> void
+Vixen.Input.InputAssetReadResult.InputAssetReadResult(Vixen.Input.InputActionAssetData? Asset, System.Collections.Generic.IReadOnlyList<Vixen.Input.InputAssetDiagnostic> Diagnostics) -> void
+Vixen.Input.InputAssetReadResult.Succeeded.get -> bool
+Vixen.Input.InputBinding -> sealed class
+Vixen.Input.InputBinding.Action.get -> Vixen.Input.InputAction
+Vixen.Input.InputBinding.BelongsTo(string? scheme) -> bool
+Vixen.Input.InputBinding.CollectControls(System.Collections.Generic.List<Vixen.Input.InputControl> into) -> void
+Vixen.Input.InputBinding.CollectDevices(System.Collections.Generic.List<Vixen.Input.InputDeviceKind> into) -> void
+Vixen.Input.InputBinding.Composite.get -> Vixen.Input.InputCompositeKind
+Vixen.Input.InputBinding.Control.get -> Vixen.Input.InputControl
+Vixen.Input.InputBinding.ControlY.get -> Vixen.Input.InputControl
+Vixen.Input.InputBinding.Data.get -> Vixen.Input.InputBindingData
+Vixen.Input.InputBinding.EffectivePath.get -> string
+Vixen.Input.InputBinding.Groups.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Input.InputBinding.Interactions.get -> System.Collections.Generic.IReadOnlyList<Vixen.Input.IInputInteraction>
+Vixen.Input.InputBinding.IsComposite.get -> bool
+Vixen.Input.InputBinding.IsResolved.get -> bool
+Vixen.Input.InputBinding.OverridePath.get -> string?
+Vixen.Input.InputBinding.Parts.get -> System.Collections.Generic.IReadOnlyList<Vixen.Input.InputBindingPart>
+Vixen.Input.InputBinding.Processors.get -> System.Collections.Generic.IReadOnlyList<Vixen.Input.IInputProcessor>
+Vixen.Input.InputBindingConflict -> readonly struct
+Vixen.Input.InputBindingConflict : System.IEquatable<Vixen.Input.InputBindingConflict>
+Vixen.Input.InputBindingConflict.Action.get -> Vixen.Input.InputAction
+Vixen.Input.InputBindingConflict.Action.init -> Vixen.Input.InputAction
+Vixen.Input.InputBindingConflict.BindingIndex.get -> int
+Vixen.Input.InputBindingConflict.BindingIndex.init -> int
+Vixen.Input.InputBindingConflict.Control.get -> Vixen.Input.InputControl
+Vixen.Input.InputBindingConflict.Control.init -> Vixen.Input.InputControl
+Vixen.Input.InputBindingConflict.InputBindingConflict() -> void
+Vixen.Input.InputBindingConflict.InputBindingConflict(Vixen.Input.InputAction Action, int BindingIndex, int PartIndex, Vixen.Input.InputControl Control) -> void
+Vixen.Input.InputBindingConflict.PartIndex.get -> int
+Vixen.Input.InputBindingConflict.PartIndex.init -> int
+Vixen.Input.InputBindingData -> sealed record
+Vixen.Input.InputBindingData : System.IEquatable<Vixen.Input.InputBindingData>
+Vixen.Input.InputBindingData.Composite.get -> Vixen.Input.InputCompositeKind
+Vixen.Input.InputBindingData.Composite.init -> Vixen.Input.InputCompositeKind
+Vixen.Input.InputBindingData.Groups.get -> string?
+Vixen.Input.InputBindingData.Groups.init -> string?
+Vixen.Input.InputBindingData.InputBindingData(string Path, string? Name = null, string? Groups = null, string? Interactions = null, string? Processors = null, Vixen.Input.InputCompositeKind Composite = Vixen.Input.InputCompositeKind.None, System.Collections.Generic.IReadOnlyList<Vixen.Input.InputBindingPartData>? Parts = null) -> void
+Vixen.Input.InputBindingData.Interactions.get -> string?
+Vixen.Input.InputBindingData.Interactions.init -> string?
+Vixen.Input.InputBindingData.Name.get -> string?
+Vixen.Input.InputBindingData.Name.init -> string?
+Vixen.Input.InputBindingData.Parts.get -> System.Collections.Generic.IReadOnlyList<Vixen.Input.InputBindingPartData>
+Vixen.Input.InputBindingData.Parts.init -> System.Collections.Generic.IReadOnlyList<Vixen.Input.InputBindingPartData>
+Vixen.Input.InputBindingData.Path.get -> string
+Vixen.Input.InputBindingData.Path.init -> string
+Vixen.Input.InputBindingData.Processors.get -> string?
+Vixen.Input.InputBindingData.Processors.init -> string?
+Vixen.Input.InputBindingPart -> sealed class
+Vixen.Input.InputBindingPart.Control.get -> Vixen.Input.InputControl
+Vixen.Input.InputBindingPart.Data.get -> Vixen.Input.InputBindingPartData
+Vixen.Input.InputBindingPart.EffectivePath.get -> string
+Vixen.Input.InputBindingPart.OverridePath.get -> string?
+Vixen.Input.InputBindingPart.Part.get -> string
+Vixen.Input.InputBindingPart.Processors.get -> System.Collections.Generic.IReadOnlyList<Vixen.Input.IInputProcessor>
+Vixen.Input.InputBindingPartData -> sealed record
+Vixen.Input.InputBindingPartData : System.IEquatable<Vixen.Input.InputBindingPartData>
+Vixen.Input.InputBindingPartData.InputBindingPartData(string Part, string Path, string? Processors = null) -> void
+Vixen.Input.InputBindingPartData.Part.get -> string
+Vixen.Input.InputBindingPartData.Part.init -> string
+Vixen.Input.InputBindingPartData.Path.get -> string
+Vixen.Input.InputBindingPartData.Path.init -> string
+Vixen.Input.InputBindingPartData.Processors.get -> string?
+Vixen.Input.InputBindingPartData.Processors.init -> string?
+Vixen.Input.InputCompositeKind -> enum : byte
+Vixen.Input.InputCompositeKind.Axis1D = 1 -> Vixen.Input.InputCompositeKind
+Vixen.Input.InputCompositeKind.ButtonWithModifiers = 3 -> Vixen.Input.InputCompositeKind
+Vixen.Input.InputCompositeKind.InputCompositeKind() -> void
+Vixen.Input.InputCompositeKind.None = 0 -> Vixen.Input.InputCompositeKind
+Vixen.Input.InputCompositeKind.Vector2 = 2 -> Vixen.Input.InputCompositeKind
+Vixen.Input.InputControl -> readonly struct
+Vixen.Input.InputControl : System.IEquatable<Vixen.Input.InputControl>
+Vixen.Input.InputControl.Code.get -> ushort
+Vixen.Input.InputControl.Code.init -> ushort
+Vixen.Input.InputControl.Device.get -> Vixen.Input.InputDeviceKind
+Vixen.Input.InputControl.Device.init -> Vixen.Input.InputDeviceKind
+Vixen.Input.InputControl.Index.get -> byte
+Vixen.Input.InputControl.Index.init -> byte
+Vixen.Input.InputControl.InputControl() -> void
+Vixen.Input.InputControl.InputControl(Vixen.Input.InputDeviceKind Device, ushort Code, byte Index = 0) -> void
+Vixen.Input.InputControl.IsAnalogue.get -> bool
+Vixen.Input.InputControl.IsValid.get -> bool
+Vixen.Input.InputControlPath -> static class
+Vixen.Input.InputControlScheme -> sealed class
+Vixen.Input.InputControlScheme.Data.get -> Vixen.Input.InputControlSchemeData
+Vixen.Input.InputControlScheme.Devices.get -> System.Collections.Generic.IReadOnlyList<Vixen.Input.InputDeviceRequirementData>
+Vixen.Input.InputControlScheme.IsSupportedBy(Vixen.Input.InputDeviceSet devices) -> bool
+Vixen.Input.InputControlScheme.Name.get -> string
+Vixen.Input.InputControlScheme.Uses(Vixen.Input.InputDeviceKind kind) -> bool
+Vixen.Input.InputControlSchemeData -> sealed record
+Vixen.Input.InputControlSchemeData : System.IEquatable<Vixen.Input.InputControlSchemeData>
+Vixen.Input.InputControlSchemeData.Devices.get -> System.Collections.Generic.IReadOnlyList<Vixen.Input.InputDeviceRequirementData>
+Vixen.Input.InputControlSchemeData.Devices.init -> System.Collections.Generic.IReadOnlyList<Vixen.Input.InputDeviceRequirementData>
+Vixen.Input.InputControlSchemeData.InputControlSchemeData(string Name, System.Collections.Generic.IReadOnlyList<Vixen.Input.InputDeviceRequirementData>? Devices = null) -> void
+Vixen.Input.InputControlSchemeData.Name.get -> string
+Vixen.Input.InputControlSchemeData.Name.init -> string
+Vixen.Input.InputControlType -> enum : byte
+Vixen.Input.InputControlType.Axis = 1 -> Vixen.Input.InputControlType
+Vixen.Input.InputControlType.Button = 0 -> Vixen.Input.InputControlType
+Vixen.Input.InputControlType.InputControlType() -> void
+Vixen.Input.InputControlType.Vector2 = 2 -> Vixen.Input.InputControlType
+Vixen.Input.InputDeviceKind -> enum : byte
+Vixen.Input.InputDeviceKind.Gamepad = 3 -> Vixen.Input.InputDeviceKind
+Vixen.Input.InputDeviceKind.InputDeviceKind() -> void
+Vixen.Input.InputDeviceKind.Keyboard = 1 -> Vixen.Input.InputDeviceKind
+Vixen.Input.InputDeviceKind.Mouse = 2 -> Vixen.Input.InputDeviceKind
+Vixen.Input.InputDeviceKind.None = 0 -> Vixen.Input.InputDeviceKind
+Vixen.Input.InputDeviceKind.Touch = 4 -> Vixen.Input.InputDeviceKind
+Vixen.Input.InputDeviceRequirementData -> sealed record
+Vixen.Input.InputDeviceRequirementData : System.IEquatable<Vixen.Input.InputDeviceRequirementData>
+Vixen.Input.InputDeviceRequirementData.Device.get -> Vixen.Input.InputDeviceKind
+Vixen.Input.InputDeviceRequirementData.Device.init -> Vixen.Input.InputDeviceKind
+Vixen.Input.InputDeviceRequirementData.InputDeviceRequirementData(Vixen.Input.InputDeviceKind Device, bool Optional = false) -> void
+Vixen.Input.InputDeviceRequirementData.Optional.get -> bool
+Vixen.Input.InputDeviceRequirementData.Optional.init -> bool
+Vixen.Input.InputDeviceSet -> sealed class
+Vixen.Input.InputDeviceSet.Actuated(float threshold = 0.5) -> System.Collections.Generic.IReadOnlyList<Vixen.Input.InputControl>
+Vixen.Input.InputDeviceSet.BeginFrame() -> void
+Vixen.Input.InputDeviceSet.ChangedThisFrame.get -> bool
+Vixen.Input.InputDeviceSet.ConnectGamepad(int deviceId, string name = "Gamepad") -> Vixen.Input.GamepadDevice
+Vixen.Input.InputDeviceSet.DeviceChanged -> System.Action<Vixen.Input.GamepadDevice>?
+Vixen.Input.InputDeviceSet.DisconnectGamepad(int deviceId) -> bool
+Vixen.Input.InputDeviceSet.Gamepads.get -> System.Collections.Generic.IReadOnlyList<Vixen.Input.GamepadDevice>
+Vixen.Input.InputDeviceSet.Has(Vixen.Input.InputDeviceKind kind) -> bool
+Vixen.Input.InputDeviceSet.InputDeviceSet() -> void
+Vixen.Input.InputDeviceSet.Keyboard.get -> Vixen.Input.KeyboardDevice
+Vixen.Input.InputDeviceSet.LastUsedDevice.get -> Vixen.Input.InputDeviceKind
+Vixen.Input.InputDeviceSet.LastUsedGamepadSlot.get -> int
+Vixen.Input.InputDeviceSet.Mouse.get -> Vixen.Input.MouseDevice
+Vixen.Input.InputDeviceSet.ReadValue(Vixen.Input.InputControl control, int gamepadSlot = 0) -> float
+Vixen.Input.InputDeviceSet.RemoveDisconnected() -> void
+Vixen.Input.InputDeviceSet.ResetHeldState() -> void
+Vixen.Input.InputDeviceSet.SubmitGamepadAxis(int deviceId, Vixen.Input.GamepadControl axis, float value) -> void
+Vixen.Input.InputDeviceSet.SubmitGamepadButton(int deviceId, Vixen.Input.GamepadControl button, bool pressed) -> void
+Vixen.Input.InputDeviceSet.SubmitKey(Vixen.Input.InputKey key, bool pressed) -> void
+Vixen.Input.InputDeviceSet.SubmitMouseButton(Vixen.Input.MouseControl button, bool pressed) -> void
+Vixen.Input.InputDeviceSet.SubmitMouseMove(Vixen.Core.Mathematics.Vector2 position, Vixen.Core.Mathematics.Vector2 delta) -> void
+Vixen.Input.InputDeviceSet.SubmitMouseScroll(Vixen.Core.Mathematics.Vector2 delta) -> void
+Vixen.Input.InputDeviceSet.SubmitTouch(int finger, Vixen.Input.TouchPhase phase, Vixen.Core.Mathematics.Vector2 position, Vixen.Core.Mathematics.Vector2 delta = default(Vixen.Core.Mathematics.Vector2), float pressure = 1) -> void
+Vixen.Input.InputDeviceSet.Touch.get -> Vixen.Input.TouchDevice
+Vixen.Input.InputDeviceSet.TryGetGamepad(int deviceId, out Vixen.Input.GamepadDevice? device) -> bool
+Vixen.Input.InputInteractionFactory -> static class
+Vixen.Input.InputInteractionResult -> enum : byte
+Vixen.Input.InputInteractionResult.Canceled = 4 -> Vixen.Input.InputInteractionResult
+Vixen.Input.InputInteractionResult.InputInteractionResult() -> void
+Vixen.Input.InputInteractionResult.None = 0 -> Vixen.Input.InputInteractionResult
+Vixen.Input.InputInteractionResult.Performed = 2 -> Vixen.Input.InputInteractionResult
+Vixen.Input.InputInteractionResult.Started = 1 -> Vixen.Input.InputInteractionResult
+Vixen.Input.InputInteractionSample -> readonly struct
+Vixen.Input.InputInteractionSample : System.IEquatable<Vixen.Input.InputInteractionSample>
+Vixen.Input.InputInteractionSample.InputInteractionSample() -> void
+Vixen.Input.InputInteractionSample.InputInteractionSample(bool IsActuated, float Magnitude, double Time) -> void
+Vixen.Input.InputInteractionSample.IsActuated.get -> bool
+Vixen.Input.InputInteractionSample.IsActuated.init -> bool
+Vixen.Input.InputInteractionSample.Magnitude.get -> float
+Vixen.Input.InputInteractionSample.Magnitude.init -> float
+Vixen.Input.InputInteractionSample.Time.get -> double
+Vixen.Input.InputInteractionSample.Time.init -> double
+Vixen.Input.InputKey -> enum : ushort
+Vixen.Input.InputKey.A = 4 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Apostrophe = 52 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Application = 101 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.B = 5 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Back = 512 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Backslash = 49 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Backspace = 42 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.C = 6 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.CapsLock = 57 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Comma = 54 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.D = 7 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Delete = 76 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Down = 81 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.E = 8 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.End = 77 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Enter = 40 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Equals = 46 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Escape = 41 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.F = 9 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.F1 = 58 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.F10 = 67 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.F11 = 68 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.F12 = 69 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.F13 = 104 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.F14 = 105 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.F15 = 106 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.F16 = 107 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.F17 = 108 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.F18 = 109 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.F19 = 110 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.F2 = 59 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.F20 = 111 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.F21 = 112 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.F22 = 113 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.F23 = 114 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.F24 = 115 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.F3 = 60 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.F4 = 61 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.F5 = 62 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.F6 = 63 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.F7 = 64 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.F8 = 65 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.F9 = 66 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.G = 10 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Grave = 53 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.H = 11 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Home = 74 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.I = 12 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.InputKey() -> void
+Vixen.Input.InputKey.Insert = 73 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.J = 13 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.K = 14 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Keypad0 = 98 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Keypad1 = 89 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Keypad2 = 90 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Keypad3 = 91 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Keypad4 = 92 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Keypad5 = 93 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Keypad6 = 94 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Keypad7 = 95 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Keypad8 = 96 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Keypad9 = 97 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.KeypadDivide = 84 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.KeypadEnter = 88 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.KeypadMinus = 86 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.KeypadMultiply = 85 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.KeypadPeriod = 99 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.KeypadPlus = 87 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.L = 15 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Left = 80 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.LeftAlt = 226 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.LeftBracket = 47 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.LeftControl = 224 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.LeftMeta = 227 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.LeftShift = 225 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.M = 16 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Minus = 45 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.N = 17 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.NonUsBackslash = 100 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.NumLock = 83 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Number0 = 39 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Number1 = 30 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Number2 = 31 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Number3 = 32 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Number4 = 33 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Number5 = 34 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Number6 = 35 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Number7 = 36 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Number8 = 37 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Number9 = 38 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.O = 18 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.P = 19 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.PageDown = 78 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.PageUp = 75 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Pause = 72 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Period = 55 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.PrintScreen = 70 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Q = 20 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.R = 21 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Right = 79 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.RightAlt = 230 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.RightBracket = 48 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.RightControl = 228 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.RightMeta = 231 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.RightShift = 229 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.S = 22 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.ScrollLock = 71 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Semicolon = 51 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Slash = 56 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Space = 44 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.T = 23 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Tab = 43 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.U = 24 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Unknown = 0 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Up = 82 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.V = 25 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.W = 26 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.X = 27 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Y = 28 -> Vixen.Input.InputKey
+Vixen.Input.InputKey.Z = 29 -> Vixen.Input.InputKey
+Vixen.Input.InputProcessorFactory -> static class
+Vixen.Input.InputRebindingOperation -> sealed class
+Vixen.Input.InputRebindingOperation.Action.get -> Vixen.Input.InputAction
+Vixen.Input.InputRebindingOperation.Actions.get -> Vixen.Input.InputActions
+Vixen.Input.InputRebindingOperation.AllowConflicts.get -> bool
+Vixen.Input.InputRebindingOperation.AllowConflicts.set -> bool
+Vixen.Input.InputRebindingOperation.ApplyAnyway() -> void
+Vixen.Input.InputRebindingOperation.BindingIndex.get -> int
+Vixen.Input.InputRebindingOperation.Cancel() -> void
+Vixen.Input.InputRebindingOperation.CandidateSelected -> System.Action<Vixen.Input.InputRebindingOperation>?
+Vixen.Input.InputRebindingOperation.ConflictScheme.get -> string?
+Vixen.Input.InputRebindingOperation.ConflictScheme.set -> string?
+Vixen.Input.InputRebindingOperation.Conflicts.get -> System.Collections.Generic.IReadOnlyList<Vixen.Input.InputBindingConflict>
+Vixen.Input.InputRebindingOperation.DisableActionsWhileListening.get -> bool
+Vixen.Input.InputRebindingOperation.DisableActionsWhileListening.set -> bool
+Vixen.Input.InputRebindingOperation.Excluding(Vixen.Input.InputControl control) -> Vixen.Input.InputRebindingOperation
+Vixen.Input.InputRebindingOperation.Finished -> System.Action<Vixen.Input.InputRebindingOperation>?
+Vixen.Input.InputRebindingOperation.InputRebindingOperation(Vixen.Input.InputActions actions, Vixen.Input.InputAction action, int bindingIndex, int partIndex = -1) -> void
+Vixen.Input.InputRebindingOperation.PartIndex.get -> int
+Vixen.Input.InputRebindingOperation.SelectedControl.get -> Vixen.Input.InputControl
+Vixen.Input.InputRebindingOperation.SettleTime.get -> float
+Vixen.Input.InputRebindingOperation.SettleTime.set -> float
+Vixen.Input.InputRebindingOperation.Start() -> Vixen.Input.InputRebindingOperation
+Vixen.Input.InputRebindingOperation.State.get -> Vixen.Input.InputRebindingState
+Vixen.Input.InputRebindingOperation.Threshold.get -> float
+Vixen.Input.InputRebindingOperation.Threshold.set -> float
+Vixen.Input.InputRebindingOperation.Update(Vixen.Input.InputDeviceSet devices, double time) -> void
+Vixen.Input.InputRebindingOperation.WithDevice(Vixen.Input.InputDeviceKind kind) -> Vixen.Input.InputRebindingOperation
+Vixen.Input.InputRebindingState -> enum : byte
+Vixen.Input.InputRebindingState.Blocked = 2 -> Vixen.Input.InputRebindingState
+Vixen.Input.InputRebindingState.Canceled = 4 -> Vixen.Input.InputRebindingState
+Vixen.Input.InputRebindingState.Completed = 3 -> Vixen.Input.InputRebindingState
+Vixen.Input.InputRebindingState.Idle = 0 -> Vixen.Input.InputRebindingState
+Vixen.Input.InputRebindingState.InputRebindingState() -> void
+Vixen.Input.InputRebindingState.Listening = 1 -> Vixen.Input.InputRebindingState
+Vixen.Input.InputService -> sealed class
+Vixen.Input.InputService.Add(Vixen.Input.InputActions actions) -> Vixen.Input.InputActions
+Vixen.Input.InputService.Assets.get -> System.Collections.Generic.IReadOnlyList<Vixen.Input.InputActions>
+Vixen.Input.InputService.BeginFrame() -> void
+Vixen.Input.InputService.Devices.get -> Vixen.Input.InputDeviceSet
+Vixen.Input.InputService.InputService() -> void
+Vixen.Input.InputService.InputService(Vixen.Input.InputDeviceSet devices) -> void
+Vixen.Input.InputService.Rebinding.get -> Vixen.Input.InputRebindingOperation?
+Vixen.Input.InputService.Rebinding.set -> Vixen.Input.InputRebindingOperation?
+Vixen.Input.InputService.Remove(Vixen.Input.InputActions actions) -> bool
+Vixen.Input.InputService.ResetHeldState() -> void
+Vixen.Input.InputService.Update(Vixen.Core.GameTime time) -> void
+Vixen.Input.InputService.Update(double time) -> void
+Vixen.Input.InputSettings -> static class
+Vixen.Input.InvertProcessor -> sealed record
+Vixen.Input.InvertProcessor : System.IEquatable<Vixen.Input.InvertProcessor>
+Vixen.Input.InvertProcessor : Vixen.Input.IInputProcessor
+Vixen.Input.InvertProcessor.InvertProcessor(bool X = true, bool Y = true) -> void
+Vixen.Input.InvertProcessor.Name.get -> string
+Vixen.Input.InvertProcessor.Process(Vixen.Core.Mathematics.Vector2 value, int dimensions) -> Vixen.Core.Mathematics.Vector2
+Vixen.Input.InvertProcessor.X.get -> bool
+Vixen.Input.InvertProcessor.X.init -> bool
+Vixen.Input.InvertProcessor.Y.get -> bool
+Vixen.Input.InvertProcessor.Y.init -> bool
+Vixen.Input.KeyboardDevice -> sealed class
+Vixen.Input.KeyboardDevice : Vixen.Input.IInputDevice
+Vixen.Input.KeyboardDevice.DeviceId.get -> int
+Vixen.Input.KeyboardDevice.IsConnected.get -> bool
+Vixen.Input.KeyboardDevice.IsDown(Vixen.Input.InputKey key) -> bool
+Vixen.Input.KeyboardDevice.KeyboardDevice() -> void
+Vixen.Input.KeyboardDevice.Kind.get -> Vixen.Input.InputDeviceKind
+Vixen.Input.KeyboardDevice.Name.get -> string
+Vixen.Input.KeyboardDevice.ReadValue(Vixen.Input.InputControl control) -> float
+Vixen.Input.MouseControl -> enum : ushort
+Vixen.Input.MouseControl.DeltaX = 16 -> Vixen.Input.MouseControl
+Vixen.Input.MouseControl.DeltaY = 17 -> Vixen.Input.MouseControl
+Vixen.Input.MouseControl.Extra1 = 4 -> Vixen.Input.MouseControl
+Vixen.Input.MouseControl.Extra2 = 5 -> Vixen.Input.MouseControl
+Vixen.Input.MouseControl.Middle = 3 -> Vixen.Input.MouseControl
+Vixen.Input.MouseControl.MouseControl() -> void
+Vixen.Input.MouseControl.None = 0 -> Vixen.Input.MouseControl
+Vixen.Input.MouseControl.PositionX = 20 -> Vixen.Input.MouseControl
+Vixen.Input.MouseControl.PositionY = 21 -> Vixen.Input.MouseControl
+Vixen.Input.MouseControl.Primary = 1 -> Vixen.Input.MouseControl
+Vixen.Input.MouseControl.ScrollX = 18 -> Vixen.Input.MouseControl
+Vixen.Input.MouseControl.ScrollY = 19 -> Vixen.Input.MouseControl
+Vixen.Input.MouseControl.Secondary = 2 -> Vixen.Input.MouseControl
+Vixen.Input.MouseDevice -> sealed class
+Vixen.Input.MouseDevice : Vixen.Input.IInputDevice
+Vixen.Input.MouseDevice.Delta.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Input.MouseDevice.DeviceId.get -> int
+Vixen.Input.MouseDevice.IsConnected.get -> bool
+Vixen.Input.MouseDevice.IsDown(Vixen.Input.MouseControl button) -> bool
+Vixen.Input.MouseDevice.Kind.get -> Vixen.Input.InputDeviceKind
+Vixen.Input.MouseDevice.MouseDevice() -> void
+Vixen.Input.MouseDevice.Name.get -> string
+Vixen.Input.MouseDevice.Position.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Input.MouseDevice.ReadValue(Vixen.Input.InputControl control) -> float
+Vixen.Input.MouseDevice.Scroll.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Input.MultiTapInteraction -> sealed class
+Vixen.Input.MultiTapInteraction : Vixen.Input.IInputInteraction
+Vixen.Input.MultiTapInteraction.MultiTapInteraction(int tapCount = 2, float tapDuration = 0.2, float tapDelay = 0.75, float pressPoint = 0.5) -> void
+Vixen.Input.MultiTapInteraction.Name.get -> string
+Vixen.Input.MultiTapInteraction.Process(in Vixen.Input.InputInteractionSample sample) -> Vixen.Input.InputInteractionResult
+Vixen.Input.MultiTapInteraction.Reset() -> void
+Vixen.Input.NormalizeProcessor -> sealed record
+Vixen.Input.NormalizeProcessor : System.IEquatable<Vixen.Input.NormalizeProcessor>
+Vixen.Input.NormalizeProcessor : Vixen.Input.IInputProcessor
+Vixen.Input.NormalizeProcessor.Name.get -> string
+Vixen.Input.NormalizeProcessor.NormalizeProcessor() -> void
+Vixen.Input.NormalizeProcessor.Process(Vixen.Core.Mathematics.Vector2 value, int dimensions) -> Vixen.Core.Mathematics.Vector2
+Vixen.Input.PressInteraction -> sealed class
+Vixen.Input.PressInteraction : Vixen.Input.IInputInteraction
+Vixen.Input.PressInteraction.Name.get -> string
+Vixen.Input.PressInteraction.PressInteraction(float pressPoint = 0.5) -> void
+Vixen.Input.PressInteraction.Process(in Vixen.Input.InputInteractionSample sample) -> Vixen.Input.InputInteractionResult
+Vixen.Input.PressInteraction.Reset() -> void
+Vixen.Input.ProcessorArguments -> sealed class
+Vixen.Input.ProcessorArguments.Flag(string name, bool fallback) -> bool
+Vixen.Input.ProcessorArguments.Integer(string name, int fallback) -> int
+Vixen.Input.ProcessorArguments.Number(string name, float fallback) -> float
+Vixen.Input.ScaleProcessor -> sealed record
+Vixen.Input.ScaleProcessor : System.IEquatable<Vixen.Input.ScaleProcessor>
+Vixen.Input.ScaleProcessor : Vixen.Input.IInputProcessor
+Vixen.Input.ScaleProcessor.Factor.get -> float
+Vixen.Input.ScaleProcessor.Factor.init -> float
+Vixen.Input.ScaleProcessor.Name.get -> string
+Vixen.Input.ScaleProcessor.Process(Vixen.Core.Mathematics.Vector2 value, int dimensions) -> Vixen.Core.Mathematics.Vector2
+Vixen.Input.ScaleProcessor.ScaleProcessor(float Factor = 1) -> void
+Vixen.Input.SlowTapInteraction -> sealed class
+Vixen.Input.SlowTapInteraction : Vixen.Input.IInputInteraction
+Vixen.Input.SlowTapInteraction.Name.get -> string
+Vixen.Input.SlowTapInteraction.Process(in Vixen.Input.InputInteractionSample sample) -> Vixen.Input.InputInteractionResult
+Vixen.Input.SlowTapInteraction.Reset() -> void
+Vixen.Input.SlowTapInteraction.SlowTapInteraction(float duration = 0.5, float pressPoint = 0.5) -> void
+Vixen.Input.StickDeadzoneProcessor -> sealed record
+Vixen.Input.StickDeadzoneProcessor : System.IEquatable<Vixen.Input.StickDeadzoneProcessor>
+Vixen.Input.StickDeadzoneProcessor : Vixen.Input.IInputProcessor
+Vixen.Input.StickDeadzoneProcessor.Max.get -> float
+Vixen.Input.StickDeadzoneProcessor.Max.init -> float
+Vixen.Input.StickDeadzoneProcessor.Min.get -> float
+Vixen.Input.StickDeadzoneProcessor.Min.init -> float
+Vixen.Input.StickDeadzoneProcessor.Name.get -> string
+Vixen.Input.StickDeadzoneProcessor.Process(Vixen.Core.Mathematics.Vector2 value, int dimensions) -> Vixen.Core.Mathematics.Vector2
+Vixen.Input.StickDeadzoneProcessor.StickDeadzoneProcessor(float Min = 0.125, float Max = 0.925) -> void
+Vixen.Input.TapInteraction -> sealed class
+Vixen.Input.TapInteraction : Vixen.Input.IInputInteraction
+Vixen.Input.TapInteraction.Name.get -> string
+Vixen.Input.TapInteraction.Process(in Vixen.Input.InputInteractionSample sample) -> Vixen.Input.InputInteractionResult
+Vixen.Input.TapInteraction.Reset() -> void
+Vixen.Input.TapInteraction.TapInteraction(float duration = 0.2, float pressPoint = 0.5) -> void
+Vixen.Input.TouchControl -> enum : ushort
+Vixen.Input.TouchControl.DeltaX = 16 -> Vixen.Input.TouchControl
+Vixen.Input.TouchControl.DeltaY = 17 -> Vixen.Input.TouchControl
+Vixen.Input.TouchControl.None = 0 -> Vixen.Input.TouchControl
+Vixen.Input.TouchControl.PositionX = 18 -> Vixen.Input.TouchControl
+Vixen.Input.TouchControl.PositionY = 19 -> Vixen.Input.TouchControl
+Vixen.Input.TouchControl.Press = 1 -> Vixen.Input.TouchControl
+Vixen.Input.TouchControl.TouchControl() -> void
+Vixen.Input.TouchDevice -> sealed class
+Vixen.Input.TouchDevice : Vixen.Input.IInputDevice
+Vixen.Input.TouchDevice.ActiveTouches.get -> int
+Vixen.Input.TouchDevice.DeviceId.get -> int
+Vixen.Input.TouchDevice.IsConnected.get -> bool
+Vixen.Input.TouchDevice.Kind.get -> Vixen.Input.InputDeviceKind
+Vixen.Input.TouchDevice.Name.get -> string
+Vixen.Input.TouchDevice.ReadValue(Vixen.Input.InputControl control) -> float
+Vixen.Input.TouchDevice.TouchDevice() -> void
+Vixen.Input.TouchDevice.TryGetPosition(int finger, out Vixen.Core.Mathematics.Vector2? position) -> bool
+Vixen.Input.TouchPhase -> enum : byte
+Vixen.Input.TouchPhase.Began = 0 -> Vixen.Input.TouchPhase
+Vixen.Input.TouchPhase.Ended = 2 -> Vixen.Input.TouchPhase
+Vixen.Input.TouchPhase.Moved = 1 -> Vixen.Input.TouchPhase
+Vixen.Input.TouchPhase.TouchPhase() -> void
+Vixen.Input.VxInputMapping -> sealed class
+Vixen.Input.VxInputMapping : Vixen.Input.VxInputNode
+Vixen.Input.VxInputMapping.Entries.get -> System.Collections.Generic.IReadOnlyList<System.Collections.Generic.KeyValuePair<string, Vixen.Input.VxInputNode>>
+Vixen.Input.VxInputMapping.TryGet(string key, out Vixen.Input.VxInputNode? value) -> bool
+Vixen.Input.VxInputMapping.VxInputMapping(int line, System.Collections.Generic.IReadOnlyList<System.Collections.Generic.KeyValuePair<string, Vixen.Input.VxInputNode>> entries) -> void
+Vixen.Input.VxInputNode -> abstract class
+Vixen.Input.VxInputNode.Line.get -> int
+Vixen.Input.VxInputParseException -> sealed class
+Vixen.Input.VxInputParseException : System.Exception
+Vixen.Input.VxInputParseException.Column.get -> int
+Vixen.Input.VxInputParseException.Detail.get -> string
+Vixen.Input.VxInputParseException.Line.get -> int
+Vixen.Input.VxInputParseException.VxInputParseException() -> void
+Vixen.Input.VxInputParseException.VxInputParseException(string message) -> void
+Vixen.Input.VxInputParseException.VxInputParseException(string message, System.Exception innerException) -> void
+Vixen.Input.VxInputParseException.VxInputParseException(string message, int line, int column) -> void
+Vixen.Input.VxInputReader -> static class
+Vixen.Input.VxInputScalar -> sealed class
+Vixen.Input.VxInputScalar : Vixen.Input.VxInputNode
+Vixen.Input.VxInputScalar.Value.get -> string
+Vixen.Input.VxInputScalar.VxInputScalar(int line, string value) -> void
+Vixen.Input.VxInputSequence -> sealed class
+Vixen.Input.VxInputSequence : Vixen.Input.VxInputNode
+Vixen.Input.VxInputSequence.Items.get -> System.Collections.Generic.IReadOnlyList<Vixen.Input.VxInputNode>
+Vixen.Input.VxInputSequence.VxInputSequence(int line, System.Collections.Generic.IReadOnlyList<Vixen.Input.VxInputNode> items) -> void
+const Vixen.Input.InputActionAssetData.CurrentVersion = 1 -> int
+const Vixen.Input.InputSettings.DefaultPressPoint = 0.5 -> float
+const Vixen.Input.InputSettings.DefaultRebindThreshold = 0.7 -> float
+const Vixen.Input.TouchDevice.MaximumTouches = 10 -> int
+override Vixen.Input.InputAction.ToString() -> string
+override Vixen.Input.InputActionMap.ToString() -> string
+override Vixen.Input.InputActions.ToString() -> string
+override Vixen.Input.InputAssetDiagnostic.ToString() -> string
+override Vixen.Input.InputBindingConflict.ToString() -> string
+override Vixen.Input.InputControl.ToString() -> string
+override Vixen.Input.InputControlScheme.ToString() -> string
+override Vixen.Input.VxInputMapping.ToString() -> string
+override Vixen.Input.VxInputScalar.ToString() -> string
+override Vixen.Input.VxInputSequence.ToString() -> string
+static Vixen.Input.InputActionAssetReader.Read(string text, string defaultName = "InputActions") -> Vixen.Input.InputAssetReadResult
+static Vixen.Input.InputActionAssetWriter.Write(Vixen.Input.InputActionAssetData asset) -> string
+static Vixen.Input.InputActions.From(Vixen.Input.InputActionAssetData data) -> Vixen.Input.InputActions
+static Vixen.Input.InputActions.Load(string text, string name = "InputActions") -> Vixen.Input.InputActions
+static Vixen.Input.InputActions.TryLoad(string text, out Vixen.Input.InputActions? actions, out System.Collections.Generic.IReadOnlyList<Vixen.Input.InputAssetDiagnostic> diagnostics, string name = "InputActions") -> bool
+static Vixen.Input.InputControl.Gamepad(Vixen.Input.GamepadControl control, byte index = 0) -> Vixen.Input.InputControl
+static Vixen.Input.InputControl.Key(Vixen.Input.InputKey key) -> Vixen.Input.InputControl
+static Vixen.Input.InputControl.Mouse(Vixen.Input.MouseControl control) -> Vixen.Input.InputControl
+static Vixen.Input.InputControl.None.get -> Vixen.Input.InputControl
+static Vixen.Input.InputControl.Touch(Vixen.Input.TouchControl control, byte finger = 0) -> Vixen.Input.InputControl
+static Vixen.Input.InputControlPath.Describe(Vixen.Input.InputControl control) -> string
+static Vixen.Input.InputControlPath.Format(Vixen.Input.InputControl control) -> string
+static Vixen.Input.InputControlPath.Format(Vixen.Input.InputControl x, Vixen.Input.InputControl y) -> string
+static Vixen.Input.InputControlPath.TryParse(string? path, out Vixen.Input.InputControl control) -> bool
+static Vixen.Input.InputControlPath.TryParse(string? path, out Vixen.Input.InputControl x, out Vixen.Input.InputControl y) -> bool
+static Vixen.Input.InputInteractionFactory.IsKnown(string name) -> bool
+static Vixen.Input.InputInteractionFactory.Parse(string? text, System.Action<string>? unknown = null) -> System.Collections.Generic.IReadOnlyList<Vixen.Input.IInputInteraction>
+static Vixen.Input.InputInteractionFactory.Register(string name, System.Func<Vixen.Input.ProcessorArguments, Vixen.Input.IInputInteraction> factory) -> void
+static Vixen.Input.InputProcessorFactory.Apply(System.Collections.Generic.IReadOnlyList<Vixen.Input.IInputProcessor> processors, Vixen.Core.Mathematics.Vector2 value, int dimensions) -> Vixen.Core.Mathematics.Vector2
+static Vixen.Input.InputProcessorFactory.IsKnown(string name) -> bool
+static Vixen.Input.InputProcessorFactory.Parse(string? text, System.Action<string>? unknown = null) -> System.Collections.Generic.IReadOnlyList<Vixen.Input.IInputProcessor>
+static Vixen.Input.InputProcessorFactory.Register(string name, System.Func<Vixen.Input.ProcessorArguments, Vixen.Input.IInputProcessor> factory) -> void
+static Vixen.Input.ProcessorArguments.Empty.get -> Vixen.Input.ProcessorArguments
+static Vixen.Input.ProcessorArguments.Split(string term, out Vixen.Input.ProcessorArguments arguments) -> string
+static Vixen.Input.VxInputReader.Read(string text) -> Vixen.Input.VxInputNode

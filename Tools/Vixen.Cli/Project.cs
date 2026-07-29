@@ -1,15 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Runtime.InteropServices;
 using Vixen.Core.IO;
 using Vixen.Core.Serialization.Storage;
-using Vixen.Core.Yaml;
 using Vixen.Editor.Assets;
-using Vixen.Editor.Assets.Audio;
 using Vixen.Editor.Assets.Content;
-using Vixen.Editor.Assets.Models;
-using Vixen.Editor.Assets.Textures;
 using Vixen.Editor.Core;
 
 namespace Vixen.Cli;
@@ -17,50 +12,43 @@ namespace Vixen.Cli;
 /// <summary>A project on disk, and everything a command needs to work on it.</summary>
 /// <remarks>
 ///     <para>
-///         Built once per command rather than passed around as four separate objects, because every
-///         command needs the same four and getting one of them pointed at the wrong directory is the
-///         kind of mistake that produces a build with no content in it and no error.
+///         ⚠ <b>The stores themselves are <see cref="ProjectWorkspace" />'s, in
+///         <c>Vixen.Editor.Assets</c>.</b> They moved there when the editor grew import and build
+///         commands of its own: two ways of opening the same four things is two ways for one of them
+///         to be pointed at the wrong directory. What is left here is finding the project a command
+///         is meant to work on, which is a command-line concern and only that.
 ///     </para>
 ///     <para>
-///         <b>Nothing here is lazy.</b> Opening a project means the directories exist, the index is
-///         readable and the artefact store can be written to — all of which are better discovered
-///         before an import has run for two minutes than after.
+///         The properties are kept as forwarders rather than deleted, so that every call site reads
+///         the way it did — <c>project.Database</c>, not <c>project.Workspace.Database</c>.
 ///     </para>
 /// </remarks>
 public sealed class Project {
+    /// <summary>The stores, opened together.</summary>
+    public ProjectWorkspace Workspace { get; }
+
     /// <summary>What a project's directories are called.</summary>
-    public ProjectPaths Paths { get; }
+    public ProjectPaths Paths => Workspace.Paths;
 
     /// <summary>The GUID index over <c>Assets/</c>.</summary>
-    public AssetDatabase Database { get; }
+    public AssetDatabase Database => Workspace.Database;
 
     /// <summary>Where imported chunks are stored, under <c>Library/</c>.</summary>
-    public ObjectDatabase Artifacts { get; }
+    public ObjectDatabase Artifacts => Workspace.Artifacts;
 
     /// <summary>The store behind <see cref="Artifacts" />, which is what a content build packs from.</summary>
-    public IOdbBackend Chunks { get; }
+    public IOdbBackend Chunks => Workspace.Chunks;
 
     /// <summary>What the last import of each asset produced.</summary>
-    public ImportCache Cache { get; } = new();
+    public ImportCache Cache => Workspace.Cache;
 
     /// <summary>Where the import cache is written.</summary>
-    public string CacheFile => System.IO.Path.Combine(Paths.Library, "ImportCache");
+    public string CacheFile => Workspace.CacheFile;
 
     /// <summary>Source files, rooted at the project, which is what an importer's paths are relative to.</summary>
-    public IFileProvider Files { get; }
+    public IFileProvider Files => Workspace.Files;
 
-    Project(ProjectPaths paths) {
-        Paths = paths;
-        Database = new(paths);
-
-        var files = new VirtualFileSystem();
-        files.Mount(new("/library"), new PhysicalFileProvider(paths.Library));
-
-        Chunks = new FileOdbBackend(files, new("/library/ArtifactDb"));
-        Artifacts = new(Chunks);
-        Files = new PhysicalFileProvider(paths.Root, isReadOnly: true);
-        Cache.TryLoad(CacheFile);
-    }
+    Project(ProjectPaths paths) => Workspace = new(paths);
 
     /// <summary>Finds the project a command is meant to work on.</summary>
     /// <param name="given">What <c>--project</c> said, or <see langword="null" /> for "work it out".</param>
@@ -85,7 +73,7 @@ public sealed class Project {
                 return false;
             }
 
-            if (!IsProject(root)) {
+            if (!ProjectWorkspace.IsProject(root)) {
                 error = $"'{root}' is not a Vixen project: it has no Assets/ directory.";
                 return false;
             }
@@ -95,7 +83,7 @@ public sealed class Project {
         }
 
         for (var directory = Environment.CurrentDirectory; directory is { Length: > 0 };) {
-            if (IsProject(directory)) {
+            if (ProjectWorkspace.IsProject(directory)) {
                 project = new(new(directory));
                 return true;
             }
@@ -116,80 +104,21 @@ public sealed class Project {
     }
 
     /// <summary>Which importers this build of the tool has.</summary>
-    /// <remarks>
-    ///     <see cref="BuiltInImporters" />'s list and not a second one. The worker processes
-    ///     <c>Tools/Vixen.AssetCompiler</c> starts build their registry from the same call, because a
-    ///     worker with a different set produces different artefacts for the same file — and that
-    ///     shows up as a cache that never hits, or as a build whose output depends on the machine.
-    /// </remarks>
-    public static ImporterRegistry Importers() => BuiltInImporters.Create();
+    public static ImporterRegistry Importers() => ProjectWorkspace.Importers();
 
     /// <summary>The build target to assume when nobody said.</summary>
-    /// <remarks>
-    ///     The machine the tool is running on. A content build is target-specific — the same texture
-    ///     is BC7 on a desktop and ASTC on a phone — so there is no neutral default, and the one that
-    ///     surprises nobody is "for this computer".
-    /// </remarks>
-    public static string HostTarget =>
-        RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "Windows"
-        : RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "MacOS"
-        : "Linux";
+    public static string HostTarget => ProjectWorkspace.HostTarget;
 
     /// <summary>Where a build for a target goes when nobody said.</summary>
     /// <param name="target">The target.</param>
     /// <returns>The directory.</returns>
-    public string DefaultOutput(string target) =>
-        System.IO.Path.Combine(Paths.Build, target.Replace('/', '-'));
+    public string DefaultOutput(string target) => Workspace.DefaultOutput(target);
 
     /// <summary>Reads every <c>.vxgroup</c> the project defines.</summary>
     /// <param name="failures">What could not be read, and why.</param>
     /// <returns>The groups, in name order.</returns>
-    /// <remarks>
-    ///     A group file that will not parse is reported and skipped rather than thrown on: the assets
-    ///     that name it will each say so with their own path attached, which is more use than one
-    ///     stack trace about a file the author may not have touched.
-    /// </remarks>
-    public List<AddressableGroup> Groups(out List<string> failures) {
-        var groups = new List<AddressableGroup>();
-        failures = [];
-
-        if (!Directory.Exists(Paths.Assets)) {
-            return groups;
-        }
-
-        foreach (var file in Directory.EnumerateFiles(Paths.Assets, "*.vxgroup", SearchOption.AllDirectories)
-                     .OrderBy(path => path, StringComparer.Ordinal)) {
-            try {
-                var group = YamlSerializer.Parse<AddressableGroup>(File.ReadAllText(file));
-
-                if (group.Name.Length == 0) {
-                    failures.Add($"'{Paths.Relative(file)}' names no group, so nothing can be put in it.");
-                    continue;
-                }
-
-                groups.Add(group);
-            } catch (Exception failure) when (failure is YamlBindingException or YamlParseException or IOException) {
-                failures.Add($"'{Paths.Relative(file)}' could not be read: {failure.Message}");
-            }
-        }
-
-        var duplicates = groups.GroupBy(group => group.Name, StringComparer.Ordinal).Where(named => named.Count() > 1);
-
-        foreach (var duplicate in duplicates) {
-            failures.Add(
-                $"Two .vxgroup files both define '{duplicate.Key}'. A group's policy has to have one answer."
-            );
-        }
-
-        groups.Sort(static (left, right) => string.CompareOrdinal(left.Name, right.Name));
-        return groups;
-    }
+    public List<AddressableGroup> Groups(out List<string> failures) => Workspace.Groups(out failures);
 
     /// <summary>Writes the index and the import cache back.</summary>
-    public void Save() {
-        Database.Save();
-        Cache.Save(CacheFile);
-    }
-
-    static bool IsProject(string directory) => Directory.Exists(System.IO.Path.Combine(directory, "Assets"));
+    public void Save() => Workspace.Save();
 }

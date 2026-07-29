@@ -23,6 +23,12 @@ public enum FontStyle : byte {
 /// <param name="Style">Which way it slants.</param>
 public readonly record struct FontVariant(FontFace Font, int Weight, FontStyle Style);
 
+/// <summary>One stretch of a string that one face draws.</summary>
+/// <param name="Font">The face.</param>
+/// <param name="Start">Where the stretch begins, as a UTF-16 index into the whole string.</param>
+/// <param name="Length">How many UTF-16 units it covers.</param>
+public readonly record struct FontSpan(FontFace Font, int Start, int Length);
+
 /// <summary>What a <c>font-family</c> declaration names.</summary>
 /// <remarks>
 ///     <para>
@@ -40,10 +46,18 @@ public readonly record struct FontVariant(FontFace Font, int Weight, FontStyle S
 ///         says what the face is, so it is a line of the caller's code either way.
 ///     </para>
 ///     <para>
-///         ⚠ This is not <b>font fallback</b>, which is the other thing the word means. The list in
-///         a declaration is tried in order until a <i>registered</i> family is found; it is not tried
-///         per character until one that has a glyph is found. A registered font missing the code
-///         point draws <c>.notdef</c>. Per-glyph fallback is owed with the rest of the text work.
+///         <b>A declaration is a fallback chain, not a first-registered-wins list.</b>
+///         <see cref="Chain" /> turns <c>font-family: Inter, Noto Sans JP</c> into both faces in that
+///         order and <see cref="Cover" /> hands each grapheme cluster to the first of them that can
+///         draw it — which is what CSS means by the list. <see cref="Resolve" /> answers the head of
+///         that chain, and is what something wanting one face for one purpose asks.
+///     </para>
+///     <para>
+///         ⚠ <b>The chain ends in <see cref="Fallbacks" /> and then <see cref="Default" />, so a
+///         string can still reach <c>.notdef</c>.</b> Nothing here synthesises a glyph or goes looking
+///         on the machine: if no registered face has the code point, the primary draws its
+///         <c>.notdef</c> box. That is the honest outcome and a visible one, which is the point — a
+///         silent blank would look like a layout bug.
 ///     </para>
 /// </remarks>
 public sealed class FontRegistry {
@@ -54,6 +68,8 @@ public sealed class FontRegistry {
     public const int BoldWeight = 700;
 
     readonly Dictionary<string, List<FontVariant>> families = new(StringComparer.OrdinalIgnoreCase);
+    readonly List<FontFace> fallbacks = [];
+    FontFace? standby;
 
     /// <summary>The face used when a declaration names nothing that is registered.</summary>
     /// <remarks>
@@ -61,10 +77,33 @@ public sealed class FontRegistry {
     ///     stylesheet has a typo in a family name draws in some font rather than not at all, which is
     ///     both what a browser does and what makes the typo findable.
     /// </remarks>
-    public FontFace? Default { get; set; }
+    public FontFace? Default {
+        get => standby;
+        set {
+            standby = value;
+            Revision++;
+        }
+    }
 
     /// <summary>How many families are registered.</summary>
     public int Count => families.Count;
+
+    /// <summary>Bumped whenever anything registered here changes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>So that a cached line knows to be rebuilt.</b> <see cref="UiElement.Line" /> keeps the
+    ///     runs it last built and rebuilds them when its text or its font properties change — and
+    ///     registering a face changes neither, while changing what the same declaration resolves to.
+    ///     Without this, a font registered after the first frame is a font that never appears.
+    /// </remarks>
+    public int Revision { get; private set; }
+
+    /// <summary>The faces tried after everything a declaration names, in order.</summary>
+    /// <remarks>
+    ///     What a stylesheet cannot say. A declaration names the families a designer chose; an emoji
+    ///     face or a CJK face is wanted behind <i>every</i> declaration in the application, and
+    ///     writing it into each one is both noise and a thing to forget.
+    /// </remarks>
+    public IReadOnlyList<FontFace> Fallbacks => fallbacks;
 
     /// <summary>Registers a face under a family name.</summary>
     /// <param name="family">The name a stylesheet will use.</param>
@@ -96,7 +135,20 @@ public sealed class FontRegistry {
             variants.Add(entry);
         }
 
-        Default ??= font;
+        standby ??= font;
+        Revision++;
+    }
+
+    /// <summary>Adds a face to the end of the chain every declaration falls back to.</summary>
+    /// <param name="font">The face.</param>
+    /// <remarks>Registering the same face twice does nothing: a chain is an order, not a multiset.</remarks>
+    public void AddFallback(FontFace font) {
+        ArgumentNullException.ThrowIfNull(font);
+
+        if (!fallbacks.Contains(font)) {
+            fallbacks.Add(font);
+            Revision++;
+        }
     }
 
     /// <summary>The face a <c>font-family</c> declaration resolves to.</summary>
@@ -131,6 +183,163 @@ public sealed class FontRegistry {
         }
 
         return Default;
+    }
+
+    /// <summary>The whole fallback chain a <c>font-family</c> declaration names.</summary>
+    /// <param name="declaration">The declaration's value, most wanted first.</param>
+    /// <param name="weight">The weight wanted, on CSS's 1–1000 scale.</param>
+    /// <param name="style">The slant wanted.</param>
+    /// <param name="into">Filled with the faces to try, in order. Cleared first.</param>
+    /// <remarks>
+    ///     <para>
+    ///         Every registered family the declaration names, then <see cref="Fallbacks" /> —
+    ///         de-duplicated, because the same face reached twice is a face asked the same question
+    ///         twice and answering it the second time cannot help.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="Default" /> only appears when nothing else did.</b> It is a
+    ///         <i>substitute</i> for a declaration that names nothing registered, not a tail on every
+    ///         chain — putting it on the end of all of them would mean the first font ever registered
+    ///         quietly drawing whatever the declared families happen to be missing, which is a
+    ///         fallback nobody asked for and cannot see. <see cref="Fallbacks" /> is where a face that
+    ///         should stand behind every declaration goes, and saying so is one line.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The weight is chosen per family, not once for the chain.</b> A declaration asking
+    ///         for 700 gets each family's best answer to 700, so a fallback that ships only a regular
+    ///         contributes its regular rather than being skipped for not having a bold. Skipping it
+    ///         would mean a missing glyph rather than a glyph at the wrong weight, and one of those
+    ///         is legible.
+    ///     </para>
+    /// </remarks>
+    public void Chain(string? declaration, int weight, FontStyle style, List<FontFace> into) {
+        ArgumentNullException.ThrowIfNull(into);
+        into.Clear();
+
+        if (!string.IsNullOrWhiteSpace(declaration)) {
+            foreach (var range in declaration.AsSpan().Split(',')) {
+                var name = declaration.AsSpan(range).Trim().Trim("\"'");
+
+                if (!name.IsEmpty && families.TryGetValue(name.ToString(), out var variants)
+                    && Best(variants, weight, style) is { } face) {
+                    Append(into, face);
+                }
+            }
+        }
+
+        // ⚠ Before the fallbacks and not after them. A declaration that named nothing registered has
+        // no primary, and `Default` is what stands in for one — putting it behind the fallbacks would
+        // make an element with no `font-family` draw in whatever face was added as a last resort for
+        // some other script.
+        if (into.Count == 0 && standby is { } substitute) {
+            into.Add(substitute);
+        }
+
+        foreach (var face in fallbacks) {
+            Append(into, face);
+        }
+    }
+
+    /// <summary>Splits a string into the stretches each face of a chain draws.</summary>
+    /// <param name="text">The string.</param>
+    /// <param name="chain">The faces to try, in order, as <see cref="Chain" /> gives them.</param>
+    /// <param name="into">Filled with the spans, in text order and tiling the string. Cleared first.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>By grapheme cluster, not by code point.</b> A base letter and the marks on it are
+    ///         one cluster and have to be shaped together — splitting an <c>é</c> written as <c>e</c>
+    ///         plus a combining acute across two faces puts the accent at the pen position of a
+    ///         different font, which is a floating accent rather than a missing glyph. A cluster goes
+    ///         to the first face that covers <i>all</i> of it for the same reason.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A cluster nothing covers goes to the head of the chain</b>, which draws its
+    ///         <c>.notdef</c>. Sending it to the last face instead would put the tofu in whichever
+    ///         font happened to be registered last, so a missing glyph would change appearance for
+    ///         reasons unrelated to the text.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Adjacent clusters on the same face are merged, and that is not only tidiness.</b>
+    ///         Each span is shaped on its own, so a boundary is a place where kerning, ligatures and
+    ///         Arabic joining all stop — see <c>TextShaper</c>'s remarks on run context. Splitting a
+    ///         word that one face covers into two spans would silently unjoin it.
+    ///     </para>
+    /// </remarks>
+    public static void Cover(string text, IReadOnlyList<FontFace> chain, List<FontSpan> into) {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(chain);
+        ArgumentNullException.ThrowIfNull(into);
+
+        into.Clear();
+
+        if (text.Length == 0 || chain.Count == 0) {
+            return;
+        }
+
+        // The overwhelmingly common case, and worth its own path: one face draws the whole string,
+        // so nothing is broken into clusters and no substring is taken. Every label in a Latin
+        // interface lands here.
+        if (chain.Count == 1 || Covers(chain[0], text, 0, text.Length)) {
+            into.Add(new FontSpan(chain[0], 0, text.Length));
+            return;
+        }
+
+        var boundaries = new List<int>();
+        GraphemeBreaker.Collect(text, boundaries);
+
+        for (var i = 0; i + 1 < boundaries.Count; i++) {
+            var start = boundaries[i];
+            var length = boundaries[i + 1] - start;
+            var font = chain[0];
+
+            foreach (var candidate in chain) {
+                if (Covers(candidate, text, start, length)) {
+                    font = candidate;
+                    break;
+                }
+            }
+
+            if (into.Count > 0 && ReferenceEquals(into[^1].Font, font)) {
+                into[^1] = into[^1] with { Length = into[^1].Length + length };
+            } else {
+                into.Add(new FontSpan(font, start, length));
+            }
+        }
+    }
+
+    /// <summary>Whether one face can draw every code point of a stretch.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A surrogate pair is one code point.</b> Reading a string a <c>char</c> at a time asks
+    ///     the font about two halves of an emoji, neither of which any font has — so every
+    ///     astral character would fall to the end of the chain and be drawn by whatever is there.
+    /// </remarks>
+    static bool Covers(FontFace font, string text, int start, int length) {
+        var end = start + length;
+
+        for (var i = start; i < end;) {
+            if (char.IsHighSurrogate(text[i]) && i + 1 < end && char.IsLowSurrogate(text[i + 1])) {
+                if (!font.Supports(char.ConvertToUtf32(text[i], text[i + 1]))) {
+                    return false;
+                }
+
+                i += 2;
+                continue;
+            }
+
+            if (!font.Supports(text[i])) {
+                return false;
+            }
+
+            i++;
+        }
+
+        return true;
+    }
+
+    static void Append(List<FontFace> into, FontFace face) {
+        if (!into.Contains(face)) {
+            into.Add(face);
+        }
     }
 
     /// <summary>The variants registered under a family name.</summary>

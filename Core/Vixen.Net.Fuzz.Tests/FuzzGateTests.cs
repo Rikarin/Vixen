@@ -30,19 +30,56 @@ namespace Vixen.Net.Fuzz.Tests;
 ///     </para>
 /// </remarks>
 public sealed class FuzzGateTests(ITestOutputHelper output) {
+    /// <summary>How many cases each target gets, chosen from how fast it runs.</summary>
+    /// <remarks>
+    ///     A dictionary rather than a list of <c>[InlineData]</c>, and that is a fix rather than a
+    ///     preference. Three targets were written, registered and named, and were <b>not in the
+    ///     theory's rows</b> — so they existed, passed <see cref="EveryNameBuilds" />, and never ran.
+    ///     The rows are now generated from <see cref="FuzzTargets.Names" />, so a target that exists
+    ///     is a target the gate runs; forgetting to give it a budget makes
+    ///     <see cref="EveryTargetHasABudget" /> fail rather than making it disappear.
+    /// </remarks>
+    static readonly Dictionary<string, long> Budgets = new(StringComparer.Ordinal) {
+        ["packet"] = 1_200_000,
+        ["bits"] = 1_200_000,
+        ["handshake"] = 400_000,
+        ["client"] = 700_000,
+        ["snapshot"] = 700_000,
+        ["inspect"] = 700_000,
+        ["delta"] = 1_500_000,
+        ["rpc"] = 1_500_000,
+        ["synclist"] = 1_500_000,
+        ["input"] = 700_000,
+
+        // Smaller than the rest, because these three do far more per case — a transport poll walks a
+        // connection table, an input run files several entries, and a handshake scan re-reads a request — and the gate's job is to catch a
+        // regression quickly rather than to search deeply. Depth is the nightly's, which is bounded by
+        // seconds rather than by cases and gives every target the same ten minutes.
+        ["udp"] = 500_000,
+        ["upgrade"] = 400_000
+    };
+
+    /// <summary>One row per registered target, so a new one cannot be left out.</summary>
+    public static TheoryData<string, long> Targets {
+        get {
+            var data = new TheoryData<string, long>();
+
+            foreach (var name in FuzzTargets.Names) {
+                // A target with no budget still runs, at a figure small enough not to slow the build
+                // while EveryTargetHasABudget says so out loud. Skipping it instead would reproduce
+                // exactly the silence this replaced.
+                data.Add(name, Budgets.GetValueOrDefault(name, 200_000));
+            }
+
+            return data;
+        }
+    }
+
     /// <summary>Every target survives everything the mutator can make of its own seeds.</summary>
     /// <param name="name">Which decoder.</param>
     /// <param name="cases">How many inputs to push through it.</param>
     [Theory]
-    [InlineData("packet", 1_200_000)]
-    [InlineData("bits", 1_200_000)]
-    [InlineData("handshake", 400_000)]
-    [InlineData("client", 700_000)]
-    [InlineData("snapshot", 700_000)]
-    [InlineData("inspect", 700_000)]
-    [InlineData("delta", 1_500_000)]
-    [InlineData("rpc", 1_500_000)]
-    [InlineData("synclist", 1_500_000)]
+    [MemberData(nameof(Targets))]
     public void NothingEscapes(string name, long cases) {
         var target = FuzzTargets.Named(name);
 
@@ -79,6 +116,19 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
         } finally {
             (target as IDisposable)?.Dispose();
         }
+    }
+
+    /// <summary>Every registered target has a case budget somebody chose.</summary>
+    /// <remarks>
+    ///     The other half of running every target: one that runs on a default budget is one nobody
+    ///     decided how hard to test, and a decoder's right number depends on how fast it is — the
+    ///     spread here is four hundred thousand to one and a half million.
+    /// </remarks>
+    [Fact]
+    public void EveryTargetHasABudget() {
+        var missing = FuzzTargets.Names.Where(name => !Budgets.ContainsKey(name)).ToArray();
+
+        Assert.True(missing.Length == 0, $"No case budget for: {string.Join(", ", missing)}.");
     }
 
     /// <summary>Every named target is one that can actually be built.</summary>

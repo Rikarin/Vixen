@@ -1,0 +1,26 @@
+#nullable enable
+Vixen.Net.Transport.Local.LocalNetwork -> sealed class
+Vixen.Net.Transport.Local.LocalNetwork.IsListening(string address) -> bool
+Vixen.Net.Transport.Local.LocalNetwork.ListenerCount.get -> int
+Vixen.Net.Transport.Local.LocalNetwork.LocalNetwork() -> void
+Vixen.Net.Transport.Local.LocalTransport -> sealed class
+Vixen.Net.Transport.Local.LocalTransport : System.IDisposable
+Vixen.Net.Transport.Local.LocalTransport : Vixen.Net.Transport.ITransport
+Vixen.Net.Transport.Local.LocalTransport.Address.get -> string
+Vixen.Net.Transport.Local.LocalTransport.Capabilities.get -> Vixen.Net.Transport.TransportCapabilities
+Vixen.Net.Transport.Local.LocalTransport.ClientState.get -> Vixen.Net.Transport.TransportState
+Vixen.Net.Transport.Local.LocalTransport.ConnectionCount.get -> int
+Vixen.Net.Transport.Local.LocalTransport.Disconnect(Vixen.Net.ConnectionId connection) -> void
+Vixen.Net.Transport.Local.LocalTransport.Dispose() -> void
+Vixen.Net.Transport.Local.LocalTransport.LocalTransport(Vixen.Net.Transport.Local.LocalNetwork network, string address = "local") -> void
+Vixen.Net.Transport.Local.LocalTransport.Network.get -> Vixen.Net.Transport.Local.LocalNetwork
+Vixen.Net.Transport.Local.LocalTransport.Poll(System.TimeSpan elapsed, Vixen.Net.Transport.ITransportEvents events) -> void
+Vixen.Net.Transport.Local.LocalTransport.SendToClient(Vixen.Net.ConnectionId connection, System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> void
+Vixen.Net.Transport.Local.LocalTransport.SendToServer(System.ReadOnlySpan<byte> payload, Vixen.Net.Channel channel) -> void
+Vixen.Net.Transport.Local.LocalTransport.ServerState.get -> Vixen.Net.Transport.TransportState
+Vixen.Net.Transport.Local.LocalTransport.StartClient() -> void
+Vixen.Net.Transport.Local.LocalTransport.StartServer() -> void
+Vixen.Net.Transport.Local.LocalTransport.StopClient() -> void
+Vixen.Net.Transport.Local.LocalTransport.StopServer() -> void
+const Vixen.Net.Transport.Local.LocalNetwork.DefaultAddress = "local" -> string
+const Vixen.Net.Transport.Local.LocalTransport.MaxPayloadBytes = 65536 -> int

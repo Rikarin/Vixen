@@ -1,0 +1,109 @@
+#nullable enable
+Vixen.Graphics.Vulkan.VulkanDevice -> sealed class
+Vixen.Graphics.Vulkan.VulkanDevice : System.IDisposable
+Vixen.Graphics.Vulkan.VulkanDevice : Vixen.Graphics.IGraphicsDevice
+Vixen.Graphics.Vulkan.VulkanDevice.Adapter.get -> Vixen.Graphics.IGraphicsAdapter
+Vixen.Graphics.Vulkan.VulkanDevice.BeginCommandList(Vixen.Graphics.QueueKind kind = Vixen.Graphics.QueueKind.Graphics, string name = "") -> Vixen.Graphics.ICommandList
+Vixen.Graphics.Vulkan.VulkanDevice.BeginFrame() -> void
+Vixen.Graphics.Vulkan.VulkanDevice.ComputeQueue.get -> Vixen.Graphics.ICommandSubmitter
+Vixen.Graphics.Vulkan.VulkanDevice.CreateBuffer(in Vixen.Graphics.BufferDescription description) -> Vixen.Graphics.BufferHandle
+Vixen.Graphics.Vulkan.VulkanDevice.CreateComputePipeline(in Vixen.Graphics.ComputePipelineDescription description) -> Vixen.Graphics.PipelineHandle
+Vixen.Graphics.Vulkan.VulkanDevice.CreateDescriptorSet(Vixen.Graphics.DescriptorSetLayoutHandle layout, string name = "") -> Vixen.Graphics.DescriptorSetHandle
+Vixen.Graphics.Vulkan.VulkanDevice.CreateDescriptorSetLayout(in Vixen.Graphics.DescriptorSetLayoutDescription description) -> Vixen.Graphics.DescriptorSetLayoutHandle
+Vixen.Graphics.Vulkan.VulkanDevice.CreateGraphicsPipeline(in Vixen.Graphics.GraphicsPipelineDescription description) -> Vixen.Graphics.PipelineHandle
+Vixen.Graphics.Vulkan.VulkanDevice.CreatePipelineLayout(in Vixen.Graphics.PipelineLayoutDescription description) -> Vixen.Graphics.PipelineLayoutHandle
+Vixen.Graphics.Vulkan.VulkanDevice.CreateSampler(in Vixen.Graphics.SamplerDescription description) -> Vixen.Graphics.SamplerHandle
+Vixen.Graphics.Vulkan.VulkanDevice.CreateShader(Vixen.Graphics.ShaderStage stage, System.ReadOnlySpan<byte> bytecode, string name = "") -> Vixen.Graphics.ShaderHandle
+Vixen.Graphics.Vulkan.VulkanDevice.CreateSwapChain(in Vixen.Graphics.SwapChainDescription description) -> Vixen.Graphics.ISwapChain
+Vixen.Graphics.Vulkan.VulkanDevice.CreateTexture(in Vixen.Graphics.TextureDescription description) -> Vixen.Graphics.TextureHandle
+Vixen.Graphics.Vulkan.VulkanDevice.CreateTextureView(Vixen.Graphics.TextureHandle texture, Vixen.Graphics.PixelFormat format = Vixen.Graphics.PixelFormat.Undefined, int baseMipLevel = 0, int mipLevelCount = 0, int baseArrayLayer = 0, int arrayLayerCount = 0) -> Vixen.Graphics.TextureViewHandle
+Vixen.Graphics.Vulkan.VulkanDevice.Destroy(Vixen.Graphics.BufferHandle handle) -> void
+Vixen.Graphics.Vulkan.VulkanDevice.Destroy(Vixen.Graphics.DescriptorSetHandle handle) -> void
+Vixen.Graphics.Vulkan.VulkanDevice.Destroy(Vixen.Graphics.DescriptorSetLayoutHandle handle) -> void
+Vixen.Graphics.Vulkan.VulkanDevice.Destroy(Vixen.Graphics.PipelineHandle handle) -> void
+Vixen.Graphics.Vulkan.VulkanDevice.Destroy(Vixen.Graphics.PipelineLayoutHandle handle) -> void
+Vixen.Graphics.Vulkan.VulkanDevice.Destroy(Vixen.Graphics.SamplerHandle handle) -> void
+Vixen.Graphics.Vulkan.VulkanDevice.Destroy(Vixen.Graphics.ShaderHandle handle) -> void
+Vixen.Graphics.Vulkan.VulkanDevice.Destroy(Vixen.Graphics.TextureHandle handle) -> void
+Vixen.Graphics.Vulkan.VulkanDevice.Destroy(Vixen.Graphics.TextureViewHandle handle) -> void
+Vixen.Graphics.Vulkan.VulkanDevice.Dispose() -> void
+Vixen.Graphics.Vulkan.VulkanDevice.EndFrame() -> void
+Vixen.Graphics.Vulkan.VulkanDevice.Features.get -> Vixen.Graphics.GraphicsDeviceFeatures
+Vixen.Graphics.Vulkan.VulkanDevice.FramesInFlight.get -> int
+Vixen.Graphics.Vulkan.VulkanDevice.GraphicsQueue.get -> Vixen.Graphics.ICommandSubmitter
+Vixen.Graphics.Vulkan.VulkanDevice.ImportImage(nint image, in Vixen.Graphics.TextureDescription description) -> Vixen.Graphics.TextureHandle
+Vixen.Graphics.Vulkan.VulkanDevice.NativeHandles.get -> Vixen.Graphics.Vulkan.VulkanNativeHandles
+Vixen.Graphics.Vulkan.VulkanDevice.Read(Vixen.Graphics.BufferHandle buffer, long offset, System.Span<byte> destination) -> void
+Vixen.Graphics.Vulkan.VulkanDevice.TransferQueue.get -> Vixen.Graphics.ICommandSubmitter
+Vixen.Graphics.Vulkan.VulkanDevice.UpdateDescriptorSet(Vixen.Graphics.DescriptorSetHandle descriptors, System.ReadOnlySpan<Vixen.Graphics.DescriptorWrite> writes) -> void
+Vixen.Graphics.Vulkan.VulkanDevice.UsesDynamicRendering.get -> bool
+Vixen.Graphics.Vulkan.VulkanDevice.ValidationEnabled.get -> bool
+Vixen.Graphics.Vulkan.VulkanDevice.WaitIdle() -> void
+Vixen.Graphics.Vulkan.VulkanDevice.Write(Vixen.Graphics.BufferHandle buffer, long offset, System.ReadOnlySpan<byte> data) -> void
+Vixen.Graphics.Vulkan.VulkanDeviceOptions -> readonly struct
+Vixen.Graphics.Vulkan.VulkanDeviceOptions : System.IEquatable<Vixen.Graphics.Vulkan.VulkanDeviceOptions>
+Vixen.Graphics.Vulkan.VulkanDeviceOptions.FramesInFlight.get -> int
+Vixen.Graphics.Vulkan.VulkanDeviceOptions.FramesInFlight.init -> int
+Vixen.Graphics.Vulkan.VulkanDeviceOptions.Logger.get -> Microsoft.Extensions.Logging.ILogger?
+Vixen.Graphics.Vulkan.VulkanDeviceOptions.Logger.init -> Microsoft.Extensions.Logging.ILogger?
+Vixen.Graphics.Vulkan.VulkanDeviceOptions.PreferRenderPassObjects.get -> bool
+Vixen.Graphics.Vulkan.VulkanDeviceOptions.PreferRenderPassObjects.init -> bool
+Vixen.Graphics.Vulkan.VulkanDeviceOptions.PreferredPhysicalDevice.get -> nint
+Vixen.Graphics.Vulkan.VulkanDeviceOptions.PreferredPhysicalDevice.init -> nint
+Vixen.Graphics.Vulkan.VulkanDeviceOptions.RequiredDeviceExtensions.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Graphics.Vulkan.VulkanDeviceOptions.RequiredDeviceExtensions.init -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Graphics.Vulkan.VulkanDeviceOptions.RequiredInstanceExtensions.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Graphics.Vulkan.VulkanDeviceOptions.RequiredInstanceExtensions.init -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Graphics.Vulkan.VulkanDeviceOptions.Surface.get -> Vixen.Core.SurfaceHandle
+Vixen.Graphics.Vulkan.VulkanDeviceOptions.Surface.init -> Vixen.Core.SurfaceHandle
+Vixen.Graphics.Vulkan.VulkanDeviceOptions.VulkanDeviceOptions() -> void
+Vixen.Graphics.Vulkan.VulkanDiagnostics -> static class
+Vixen.Graphics.Vulkan.VulkanException -> sealed class
+Vixen.Graphics.Vulkan.VulkanException : System.Exception
+Vixen.Graphics.Vulkan.VulkanException.VulkanException() -> void
+Vixen.Graphics.Vulkan.VulkanException.VulkanException(string message) -> void
+Vixen.Graphics.Vulkan.VulkanException.VulkanException(string message, System.Exception innerException) -> void
+Vixen.Graphics.Vulkan.VulkanInstance -> sealed class
+Vixen.Graphics.Vulkan.VulkanInstance : System.IDisposable
+Vixen.Graphics.Vulkan.VulkanInstance.Api.get -> Silk.NET.Vulkan.Vk
+Vixen.Graphics.Vulkan.VulkanInstance.ApiVersion.get -> uint
+Vixen.Graphics.Vulkan.VulkanInstance.Dispose() -> void
+Vixen.Graphics.Vulkan.VulkanInstance.Handle.get -> Silk.NET.Vulkan.Instance
+Vixen.Graphics.Vulkan.VulkanInstance.PortabilityEnabled.get -> bool
+Vixen.Graphics.Vulkan.VulkanInstance.ValidationEnabled.get -> bool
+Vixen.Graphics.Vulkan.VulkanInstanceOptions -> readonly struct
+Vixen.Graphics.Vulkan.VulkanInstanceOptions : System.IEquatable<Vixen.Graphics.Vulkan.VulkanInstanceOptions>
+Vixen.Graphics.Vulkan.VulkanInstanceOptions.ApplicationName.get -> string
+Vixen.Graphics.Vulkan.VulkanInstanceOptions.ApplicationName.init -> string
+Vixen.Graphics.Vulkan.VulkanInstanceOptions.EnableValidation.get -> bool
+Vixen.Graphics.Vulkan.VulkanInstanceOptions.EnableValidation.init -> bool
+Vixen.Graphics.Vulkan.VulkanInstanceOptions.Logger.get -> Microsoft.Extensions.Logging.ILogger?
+Vixen.Graphics.Vulkan.VulkanInstanceOptions.Logger.init -> Microsoft.Extensions.Logging.ILogger?
+Vixen.Graphics.Vulkan.VulkanInstanceOptions.RequiredExtensions.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Graphics.Vulkan.VulkanInstanceOptions.RequiredExtensions.init -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Graphics.Vulkan.VulkanInstanceOptions.VulkanInstanceOptions() -> void
+Vixen.Graphics.Vulkan.VulkanNativeHandles -> readonly struct
+Vixen.Graphics.Vulkan.VulkanNativeHandles : System.IEquatable<Vixen.Graphics.Vulkan.VulkanNativeHandles>
+Vixen.Graphics.Vulkan.VulkanNativeHandles.Device.get -> nint
+Vixen.Graphics.Vulkan.VulkanNativeHandles.Device.init -> nint
+Vixen.Graphics.Vulkan.VulkanNativeHandles.GraphicsQueueFamily.get -> uint
+Vixen.Graphics.Vulkan.VulkanNativeHandles.GraphicsQueueFamily.init -> uint
+Vixen.Graphics.Vulkan.VulkanNativeHandles.GraphicsQueueIndex.get -> uint
+Vixen.Graphics.Vulkan.VulkanNativeHandles.GraphicsQueueIndex.init -> uint
+Vixen.Graphics.Vulkan.VulkanNativeHandles.Instance.get -> nint
+Vixen.Graphics.Vulkan.VulkanNativeHandles.Instance.init -> nint
+Vixen.Graphics.Vulkan.VulkanNativeHandles.PhysicalDevice.get -> nint
+Vixen.Graphics.Vulkan.VulkanNativeHandles.PhysicalDevice.init -> nint
+Vixen.Graphics.Vulkan.VulkanNativeHandles.VulkanNativeHandles() -> void
+Vixen.Graphics.Vulkan.VulkanNativeHandles.VulkanNativeHandles(nint Instance, nint PhysicalDevice, nint Device, uint GraphicsQueueFamily, uint GraphicsQueueIndex) -> void
+const Vixen.Graphics.Vulkan.VulkanDiagnostics.Capacity = 64 -> int
+static Vixen.Graphics.Vulkan.VulkanDevice.Create() -> Vixen.Graphics.Vulkan.VulkanDevice
+static Vixen.Graphics.Vulkan.VulkanDevice.Create(Vixen.Graphics.Vulkan.VulkanDeviceOptions options) -> Vixen.Graphics.Vulkan.VulkanDevice
+static Vixen.Graphics.Vulkan.VulkanDevice.TryCreate(Vixen.Graphics.Vulkan.VulkanDeviceOptions options, out Vixen.Graphics.Vulkan.VulkanDevice? device, out string? reason) -> bool
+static Vixen.Graphics.Vulkan.VulkanDiagnostics.ErrorCount.get -> int
+static Vixen.Graphics.Vulkan.VulkanDiagnostics.Messages.get -> System.Collections.Generic.IReadOnlyCollection<string>
+static Vixen.Graphics.Vulkan.VulkanDiagnostics.Reset() -> void
+static Vixen.Graphics.Vulkan.VulkanDiagnostics.WarningCount.get -> int
+static Vixen.Graphics.Vulkan.VulkanInstance.Create() -> Vixen.Graphics.Vulkan.VulkanInstance
+static Vixen.Graphics.Vulkan.VulkanInstance.Create(Vixen.Graphics.Vulkan.VulkanInstanceOptions options) -> Vixen.Graphics.Vulkan.VulkanInstance
+static Vixen.Graphics.Vulkan.VulkanInstance.TryCreate(Vixen.Graphics.Vulkan.VulkanInstanceOptions options, out Vixen.Graphics.Vulkan.VulkanInstance? instance, out string? reason) -> bool
