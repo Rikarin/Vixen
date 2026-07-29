@@ -74,6 +74,7 @@ sealed class GlslEmitter {
     int loopCounter;
     int discardCounter;
     bool samplerlessFetch;
+    bool nonUniformIndexing;
 
     /// <summary>
     ///     The function being emitted, for naming a by-reference argument's variable — a name is
@@ -215,9 +216,16 @@ sealed class GlslEmitter {
                 // emitting the same declaration.
                 var format = resource.Type is IrStorageImageType image ? image.Format + ", " : string.Empty;
 
+                // A descriptor array is declared with an empty extent — `uniform texture2D t[];` —
+                // which is the one place outside a storage block where GLSL allows one. Reached
+                // through DeclareRuntime for exactly that reason; Declare would report it as a type
+                // it cannot spell.
+                var declaration = IsDescriptorArray(resource.Type)
+                    ? DeclareRuntime(resource.Type, name, resource.Name)
+                    : Declare(resource.Type, name, resource.Name);
+
                 writer.Line(
-                    $"layout({format}{layout}) uniform {Declare(resource.Type, name, resource.Name)};"
-                    + Comment(resource.Semantic)
+                    $"layout({format}{layout}) uniform {declaration};" + Comment(resource.Semantic)
                 );
 
                 opaque = true;
@@ -912,6 +920,15 @@ sealed class GlslEmitter {
                     builder.Append('.').Append(GlslTypes.Identifier(structType.Fields[field.Index].Name));
                     break;
 
+                // Indexing a descriptor array is the one subscript that has to say the number is not
+                // uniform across the subgroup. Without `nonuniformEXT` the driver may hoist the
+                // descriptor read, which is right for every other array here and wrong for the one
+                // whose whole purpose is a different texture per fragment.
+                case IrIndexAccess index when IsDescriptorArray(type):
+                    nonUniformIndexing = true;
+                    builder.Append("[nonuniformEXT(").Append(Value(index.Index)).Append(")]");
+                    break;
+
                 case IrIndexAccess index:
                     builder.Append('[').Append(Value(index.Index)).Append(']');
                     break;
@@ -989,6 +1006,16 @@ sealed class GlslEmitter {
     string DeclareRuntime(IrType type, string name, string what) =>
         GlslTypes.Declare(type, name, true) ?? $"{Unsupported(type, what)} {name}";
 
+    /// <summary>Whether this is a descriptor array rather than a laid-out one.</summary>
+    /// <remarks>
+    ///     The same question <c>SpirvTypes.IsDescriptorArray</c> asks, and asked separately on
+    ///     purpose: a backend reaching into the other one for a predicate is how the two come to
+    ///     share a bug rather than a rule. The rule itself is the IR's — an unsized array of textures
+    ///     — and both read it off the IR.
+    /// </remarks>
+    static bool IsDescriptorArray(IrType type) =>
+        type is IrArrayType { Length: null, Element: IrTextureType };
+
     string Unsupported(IrType type, string what) {
         Report(
             BackendDiagnostics.NotExpressible,
@@ -1064,6 +1091,13 @@ sealed class GlslEmitter {
 
         if (samplerlessFetch) {
             prologue.Line("#extension GL_EXT_samplerless_texture_functions : require");
+        }
+
+        // Only where something actually indexed a descriptor array. A shader that declares one and
+        // never subscripts it needs the empty extent and not the qualifier, and declaring an
+        // extension a unit does not use is something a driver is allowed to reject.
+        if (nonUniformIndexing) {
+            prologue.Line("#extension GL_EXT_nonuniform_qualifier : require");
         }
 
         prologue.Blank();

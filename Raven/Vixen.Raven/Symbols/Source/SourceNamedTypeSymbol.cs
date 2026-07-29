@@ -863,7 +863,12 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
                 outerBinder.Diagnostics.Add(
                     SemanticDiagnostics.ResourceMustBeShaderField,
                     field.DeclaringSyntax?.GetLocation() ?? Location.None,
-                    field.Type.Name
+
+                    // ToDisplayString, not Name. An array type has no name — `Name` is deliberately
+                    // empty for a symbol nobody declared — so a `Texture2D[]` in a struct reported
+                    // "A resource of type '' can only be declared as a shader field", which names
+                    // the rule and not the field that broke it.
+                    field.Type.ToDisplayString()
                 );
                 continue;
             }

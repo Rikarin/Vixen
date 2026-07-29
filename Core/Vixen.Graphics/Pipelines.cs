@@ -170,15 +170,43 @@ public static class DescriptorBindingExtensions {
 /// <param name="Slot">Which of the four conventional sets this is.</param>
 /// <param name="Bindings">What it contains.</param>
 /// <param name="Name">A name for the debugger and the validation layers.</param>
+/// <param name="BindlessCapacity">
+///     How many descriptors an unbounded binding in this set holds, or <c>0</c> for the device's
+///     <see cref="GraphicsDeviceFeatures.MaxBindlessDescriptors" />.
+/// </param>
 public readonly record struct DescriptorSetLayoutDescription(
     DescriptorSetSlot Slot,
     DescriptorBinding[] Bindings,
-    string Name = ""
+    string Name = "",
+    int BindlessCapacity = 0
 ) {
+    /// <summary>How long an unbounded binding in this set actually is, on a given device.</summary>
+    /// <param name="features">What the device reported.</param>
+    /// <remarks>
+    ///     <para>
+    ///         "Unbounded" is the shader's word. The shader declares a runtime array and never asks
+    ///         how long it is; the layout has to state a number, and this is where that number comes
+    ///         from — the host's, or the device's ceiling when the host had no opinion.
+    ///     </para>
+    ///     <para>
+    ///         Worth stating rather than always taking the maximum, because the maximum is not free:
+    ///         a descriptor pool is sized from the layout, and a desktop driver's ceiling is a number
+    ///         with six digits in it. A host that knows it will hold a thousand textures should not
+    ///         reserve a million descriptors to hold them, and a host that does not know should not
+    ///         have to guess.
+    ///     </para>
+    /// </remarks>
+    public int CapacityFor(in GraphicsDeviceFeatures features) =>
+        BindlessCapacity > 0 ? BindlessCapacity : features.MaxBindlessDescriptors;
+
     /// <summary>Checks the layout is one a backend could build.</summary>
     /// <exception cref="ArgumentException">It is not.</exception>
     public void Validate() {
         ArgumentNullException.ThrowIfNull(Bindings);
+
+        if (BindlessCapacity < 0) {
+            throw new ArgumentException($"Descriptor set '{Name}' asked for a negative bindless capacity.");
+        }
 
         var seen = new HashSet<uint>();
 

@@ -1510,7 +1510,7 @@ Vixen.Rendering.MeshRenderer.IndexCapacity.get -> int
 Vixen.Rendering.MeshRenderer.LightDirection.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.MeshRenderer.LightDirection.set -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.MeshRenderer.MeshRenderer(Vixen.Graphics.IGraphicsDevice device, Vixen.Rendering.MeshShaders shaders, Vixen.Rendering.RenderOutput output, int vertexCapacity = 65536, int indexCapacity = 262144) -> void
-Vixen.Rendering.MeshRenderer.Record(Vixen.Graphics.ICommandList commands, in Vixen.Core.Mathematics.Matrix4x4 viewProjection) -> void
+Vixen.Rendering.MeshRenderer.Record(Vixen.Graphics.ICommandList commands, in Vixen.Core.Mathematics.Matrix4x4 viewProjection, bool depthTested = true) -> void
 Vixen.Rendering.MeshRenderer.Region.get -> int
 Vixen.Rendering.MeshRenderer.Regions.get -> int
 Vixen.Rendering.MeshRenderer.Upload(System.ReadOnlySpan<Vixen.Rendering.MeshVertex> mesh, System.ReadOnlySpan<uint> triangles) -> void

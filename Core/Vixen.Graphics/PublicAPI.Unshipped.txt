@@ -272,8 +272,11 @@ Vixen.Graphics.DescriptorSetLayoutDescription -> readonly struct
 Vixen.Graphics.DescriptorSetLayoutDescription : System.IEquatable<Vixen.Graphics.DescriptorSetLayoutDescription>
 Vixen.Graphics.DescriptorSetLayoutDescription.Bindings.get -> Vixen.Graphics.DescriptorBinding[]
 Vixen.Graphics.DescriptorSetLayoutDescription.Bindings.init -> Vixen.Graphics.DescriptorBinding[]
+Vixen.Graphics.DescriptorSetLayoutDescription.BindlessCapacity.get -> int
+Vixen.Graphics.DescriptorSetLayoutDescription.BindlessCapacity.init -> int
+Vixen.Graphics.DescriptorSetLayoutDescription.CapacityFor(in Vixen.Graphics.GraphicsDeviceFeatures features) -> int
 Vixen.Graphics.DescriptorSetLayoutDescription.DescriptorSetLayoutDescription() -> void
-Vixen.Graphics.DescriptorSetLayoutDescription.DescriptorSetLayoutDescription(Vixen.Graphics.DescriptorSetSlot Slot, Vixen.Graphics.DescriptorBinding[] Bindings, string Name = "") -> void
+Vixen.Graphics.DescriptorSetLayoutDescription.DescriptorSetLayoutDescription(Vixen.Graphics.DescriptorSetSlot Slot, Vixen.Graphics.DescriptorBinding[] Bindings, string Name = "", int BindlessCapacity = 0) -> void
 Vixen.Graphics.DescriptorSetLayoutDescription.Name.get -> string
 Vixen.Graphics.DescriptorSetLayoutDescription.Name.init -> string
 Vixen.Graphics.DescriptorSetLayoutDescription.Slot.get -> Vixen.Graphics.DescriptorSetSlot

@@ -189,6 +189,22 @@ that value lives.
 namespace per set. Within a set the uniform block comes first so that adding a texture never
 renumbers it, then textures, then samplers, each in declaration order.
 
+✅ **A binding may be a table.** `var textures: Texture2D[]` — an array of textures with no length —
+is the one unsized array outside a storage block, and the only one that is descriptors rather than
+memory. There is no stride, nothing is packed, and the host sizes nothing from it: the shader
+indexes it with a number it was handed and never asks how long it is. Both emitters say so their own
+way — `OpTypeRuntimeArray` with no `ArrayStride` under `RuntimeDescriptorArray` and
+`ShaderNonUniform`; `uniform texture2D t[]` under `GL_EXT_nonuniform_qualifier` — and the reflection
+reports `Count == 0`, which is what the RHI already reads for an unbounded binding.
+
+⚠ **Every subscript of one is decorated non-uniform, and both halves of it are.** SPIR-V marks the
+index *and* the pointer the access chain produced; GLSL wraps the index in `nonuniformEXT`. A module
+carrying one and not the other is valid SPIR-V that a driver may read one descriptor per subgroup
+from — which is the correct picture for any draw that happens to use a single material, and
+therefore for almost every test that is not written to catch it. The one that is written to catch it
+is `BindlessSamplingDeviceTests`, on a device, with sixty-four invocations reading sixty-four
+different slots. Nothing shorter can see it. See [bindless-materials.md](../bindless-materials.md).
+
 **"Both emitters must agree" is structural rather than checked.** `Vixen.Raven.Reflection.BindingPlan`
 is the only code that assigns a `(set, binding)` pair; both emitters and `ReflectionBuilder` read
 the plan. There is nothing to keep in step, which is the same reasoning as the shared `ShaderLayout`
