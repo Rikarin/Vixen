@@ -4,8 +4,10 @@
 using Vixen.Core;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
+using Vixen.Engine.Cameras;
 using Vixen.Engine.Scenes;
 using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 
@@ -424,23 +426,53 @@ sealed partial class ComponentsView : Control {
         scene.Stack.Seal();
     }
 
-    /// <summary>The components the editor can show, runtime ones first.</summary>
+    /// <summary>The components the editor can show.</summary>
     /// <remarks>
-    ///     ⚠ <b>Both kinds, and the editor-side two are not an afterthought.</b> <c>Light</c> and
-    ///     <c>MeshShape</c> live in the scene view because the runtime has nowhere to name them yet,
-    ///     and they are what the seeded scene is mostly made of — a component panel that showed only
-    ///     what <c>SceneComponentRegistry</c> holds would omit the light on the light.
+    ///     <para>
+    ///         <b>The loop and nothing else, which is the whole of what this method has to be.</b> A
+    ///         component carrying <c>[Component]</c> and <c>[DataContract]</c> is declared to
+    ///         <c>SceneComponentRegistry</c> by the engine's component generator, so it appears here —
+    ///         and in the Add Component menu, in the <c>.vxscene</c> and in the compiled scene — with no
+    ///         registration call and nothing added to this list. That holds for a game's own components
+    ///         and for the engine's alike; <c>Light</c> and <c>PrimitiveShape</c> were hand-written
+    ///         entries here until they became <c>Vixen.Rendering</c>'s, and their going is the
+    ///         arrangement working rather than a special case being removed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A component is here only once its declaring assembly has been loaded</b>, because a
+    ///         module initializer runs on assembly load. The editor references the subsystems it draws
+    ///         for, and a project's own assemblies have to be loaded before this is asked — which is
+    ///         also what makes a scene naming a component from an unloaded assembly fail at the load
+    ///         with a message rather than silently.
+    ///     </para>
     /// </remarks>
     public static IReadOnlyList<IComponentBridge> Default() {
-        List<IComponentBridge> found = [
-            new ComponentBridge<Light>("Light", () => Lights.Default(LightKind.Point)),
-            new ComponentBridge<MeshShape>("Mesh Shape")
-        ];
+        List<IComponentBridge> found = [];
 
         foreach (var binder in SceneComponentRegistry.Binders) {
-            found.Add(new SceneComponentBridge(binder));
+            found.Add(new SceneComponentBridge(binder, Initial(binder.ComponentType)));
         }
 
         return found;
+    }
+
+    /// <summary>What a freshly added component of a type should hold, when zero is the wrong answer.</summary>
+    /// <param name="component">The component type.</param>
+    /// <returns>A factory, or <see langword="null" /> to take the zeroed struct.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Two entries, and both are here because a zeroed value of that type is not merely
+    ///     unhelpful but looks like a defect.</b> A black light reads as a broken renderer and a camera
+    ///     with a zero far plane produces a degenerate projection — see
+    ///     <c>SceneComponentBridge</c>'s own remarks. This is deliberately a short list keyed by type
+    ///     rather than a convention the registry enforces: most components are data whose zero is a
+    ///     perfectly good starting point, and a mechanism obliging every one of them to declare a
+    ///     default would be paid for by all of them to serve these two.
+    /// </remarks>
+    static Func<object>? Initial(Type component) {
+        if (component == typeof(Light)) {
+            return static () => Lights.Default(LightKind.Point);
+        }
+
+        return component == typeof(Camera) ? static () => Camera.Perspective : null;
     }
 }

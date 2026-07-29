@@ -3,6 +3,7 @@
 
 using Vixen.Editor.SceneView;
 using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 using Vixen.Editor.Testing;
 using Vixen.Editor.Ui;
 using Vixen.Ui;

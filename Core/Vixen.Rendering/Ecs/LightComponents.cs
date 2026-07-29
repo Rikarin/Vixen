@@ -3,11 +3,9 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Core.Serialization;
 using Vixen.Ecs;
-using Vixen.Rendering;
 
-namespace Vixen.Editor.SceneView;
+namespace Vixen.Rendering.Ecs;
 
 /// <summary>An entity that lights the scene.</summary>
 /// <remarks>
@@ -19,33 +17,28 @@ namespace Vixen.Editor.SceneView;
 ///         points.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It lives in the editor, and that is a statement about what exists rather than about
-///         where it belongs</b> — the same statement <see cref="MeshShape" /> makes and for the same
-///         reason. "Which light is this" is a runtime question whose answer is a component in the
-///         engine, but <c>Vixen.Engine</c> deliberately does not reference <c>Vixen.Rendering</c>,
-///         so there is nowhere in the runtime to name <see cref="LightKind" /> today. The renderer's
-///         own <see cref="RenderLight" /> is the per-frame record fed to the lighting feature; this
-///         is the authored one, and the fields line up so that the system that eventually bridges
-///         them is a copy rather than a translation.
+///         <b>The authored light, against <see cref="RenderLight" />'s per-frame one.</b> This is what
+///         a <c>.vxscene</c> holds and an inspector edits; that is what the lighting feature reads,
+///         with the transform already folded in. The fields line up so that
+///         <see cref="LightExtractionSystem" /> is a copy rather than a translation.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Consequently a light is written as its own field of the scene file rather than as one
-///         of the entity's components.</b> A component in the <c>Components</c> list has to be
-///         registered with <c>SceneComponentRegistry</c>, and a scene naming a type no <i>build</i>
-///         declares is exactly what a content compile refuses — so an editor-only component listed
-///         there would author scenes that cannot be compiled. <see cref="MeshShape" /> is written the
-///         same way for the same reason, and both become ordinary components on the day the runtime
-///         grows them.
+///         ⚠ <b>It lives here because this is the assembly that knows what a light is.</b>
+///         <c>Vixen.Engine</c> references no graphics API and cannot name <see cref="LightKind" />, so
+///         this component spent a while in the editor's scene view — authored, saved, and invisible to
+///         any build. The arrangement that fixes it is the one <c>Vixen.Physics</c> and
+///         <c>Vixen.Audio</c> already use: the subsystem references the ECS and the engine, and owns
+///         both its components and the system that bridges them.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>[DataContract]</c> and <i>not</i> <c>SceneComponentRegistry.Register</c>, and the
-///         two are different claims.</b> The attribute gives it a serializer and a member
-///         description, which is what lets the inspector draw its rows without the runtime ever
-///         referencing an editor assembly — see <c>ReflectedDescriptor</c>. Registering it would be
-///         the separate claim that a <i>compiled scene</i> may name it, which is the one that would
-///         author files no build can load.
+///         ⚠ <b><c>[Component]</c> and <c>[DataContract]</c>, which together are what declares it to
+///         <c>SceneComponentRegistry</c>.</b> The contract gives it a serializer and a member
+///         description — the rows an inspector draws — and the pair is the claim that a compiled scene
+///         may name it. Nothing calls a registration method; the engine's component generator emits
+///         one declaration per assembly from these two attributes.
 ///     </para>
 /// </remarks>
+[Component]
 [DataContract]
 public struct Light {
     /// <summary>Which of the five kinds it is.</summary>
@@ -78,7 +71,7 @@ public static class Lights {
     /// <summary>Every kind, in the order a menu should offer them.</summary>
     /// <remarks>
     ///     ⚠ <b>Written out rather than taken from <c>Enum.GetValues</c></b>, for the reason
-    ///     <see cref="MeshShapes.All" /> gives: the enum's order is a wire format shared with
+    ///     <see cref="PrimitiveShapes.All" /> gives: the enum's order is a wire format shared with
     ///     <c>Raven/Library/Shading/Lighting.rvn</c> and must not change, and a menu's order is what
     ///     somebody reaches for most. Directional and Point are first because they are what a scene
     ///     gets lit with; the two area kinds are last because they are what it gets finished with.
@@ -119,7 +112,7 @@ public static class Lights {
     /// <returns>Whether it named one.</returns>
     /// <remarks>
     ///     An unrecognised name is <see langword="false" /> rather than an exception, which is
-    ///     <see cref="MeshShapes.TryParse" />'s argument exactly: a scene written by a newer editor
+    ///     <see cref="PrimitiveShapes.TryParse" />'s argument exactly: a scene written by a newer editor
     ///     that knows a sixth kind should open, minus that entity's light.
     /// </remarks>
     public static bool TryParse(string? text, out LightKind kind) {

@@ -50,6 +50,20 @@
         <ProjectReference Include="..\Vixen.Vfx\Vixen.Vfx.csproj" />
 
         <!--
+            Ecs and Engine, so this assembly can declare the components a scene places a light and a
+            mesh with — the arrangement Vixen.Physics, Vixen.Audio and Vixen.Animation already use,
+            each owning its own components and the system that bridges them.
+
+            ⚠ The arrow points *this* way and only this way. Vixen.Engine references no graphics API,
+            which is what lets Vixen.Physics and Vixen.Audio produce debug geometry without linking
+            one, and is why Vixen.Engine.Renderer exists for the debug-draw join in particular — that
+            join needs both directions and this one does not. Vixen.Animation already references both
+            of these and Vixen.Rendering, so nothing here is new ground.
+        -->
+        <ProjectReference Include="..\Vixen.Ecs\Vixen.Ecs.csproj" />
+        <ProjectReference Include="..\Vixen.Engine\Vixen.Engine.csproj" />
+
+        <!--
           The compositor asset's model types are [DataContract]s of this assembly's own, so it runs
           the descriptor generator over itself — the same arrangement Vixen.Core.Yaml uses for the
           .meta model, and for the same reason: analyzers do not flow through a ProjectReference.
@@ -84,6 +98,11 @@
           drift from the shaders without a test saying so.
         -->
         <ProjectReference Include="..\Vixen.Shaders.Generators\Vixen.Shaders.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!-- Declares this assembly's [Component] [DataContract] types to SceneComponentRegistry. -->
+        <ProjectReference Include="..\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
     </ItemGroup>

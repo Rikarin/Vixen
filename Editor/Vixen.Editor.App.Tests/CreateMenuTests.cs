@@ -6,6 +6,7 @@ using Vixen.Editor.SceneView;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 using Vixen.Ui.Controls;
 using Vixen.Editor.Testing;
 using Xunit;
@@ -29,8 +30,8 @@ public class CreateMenuTests {
         Assert.True(commands.TryGet("scene.create-entity", out _));
         Assert.True(commands.TryGet("scene.create-camera", out _));
 
-        foreach (var kind in MeshShapes.All) {
-            var id = "scene.create-" + MeshShapes.NameOf(kind).ToLowerInvariant();
+        foreach (var kind in PrimitiveShapes.All) {
+            var id = "scene.create-" + PrimitiveShapes.NameOf(kind).ToLowerInvariant();
             Assert.True(commands.TryGet(id, out _), $"{id} is on the menu and is not registered");
         }
 

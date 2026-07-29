@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 
 namespace Vixen.Editor.SceneView;
 
@@ -182,7 +183,7 @@ public sealed class SceneMeshes {
         var world = document.World;
 
         foreach (var entity in document.Entities) {
-            if (!MeshShapes.TryGet(world, entity, out var kind) || !world.Has<WorldTransform>(entity)) {
+            if (!PrimitiveShapes.TryGet(world, entity, out var kind) || !world.Has<WorldTransform>(entity)) {
                 continue;
             }
 

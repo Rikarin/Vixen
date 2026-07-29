@@ -18,6 +18,7 @@ using Vixen.Engine.Cameras;
 using Vixen.Engine.Transforms;
 using Vixen.Input;
 using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -841,7 +842,7 @@ sealed partial class EditorApplication : IDisposable {
                 parent
             );
 
-            MeshShapes.Attach(world, entity, kind);
+            PrimitiveShapes.Attach(world, entity, kind);
         }
     }
 
@@ -1878,13 +1879,13 @@ sealed partial class EditorApplication : IDisposable {
     ///     command with an id, a title and an enablement — that is what the palette searches, what the
     ///     keymap binds and what a menu line is built from — so "Create Cube" being findable in the
     ///     palette and bindable to a key means it has to be its own entry. Generated from
-    ///     <see cref="MeshShapes.All" />, so a shape added there appears everywhere without anything
+    ///     <see cref="PrimitiveShapes.All" />, so a shape added there appears everywhere without anything
     ///     here being edited.
     /// </remarks>
     void ShapeCommands() {
-        foreach (var kind in MeshShapes.All) {
+        foreach (var kind in PrimitiveShapes.All) {
             var shape = kind;
-            var name = MeshShapes.NameOf(shape);
+            var name = PrimitiveShapes.NameOf(shape);
 
             Shell.Commands.Add(
                 new EditorCommand(
@@ -1900,7 +1901,7 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>What a shape's create command is called in the registry.</summary>
     static string ShapeCommandId(PrimitiveKind kind) =>
-        "scene.create-" + MeshShapes.NameOf(kind).ToLowerInvariant();
+        "scene.create-" + PrimitiveShapes.NameOf(kind).ToLowerInvariant();
 
     /// <summary>One command per kind of light, and one for a camera.</summary>
     /// <remarks>
@@ -1966,7 +1967,7 @@ sealed partial class EditorApplication : IDisposable {
     static void Creatable(MenuGroup menu) {
         var shapes = menu.AddSubmenu(new StringId("editor.menu.create-shape", "3D Object"));
 
-        foreach (var kind in MeshShapes.All) {
+        foreach (var kind in PrimitiveShapes.All) {
             shapes.Add(ShapeCommandId(kind));
         }
 
@@ -2330,7 +2331,7 @@ sealed partial class EditorApplication : IDisposable {
     ///     <para>
     ///         ⚠ <b>What it makes is an entity carrying an <c>AssetInstance</c>, and that is a
     ///         reference rather than a renderer.</b> Nothing in the runtime turns an asset into
-    ///         geometry yet — see <c>MeshShape</c>'s remarks for why it lives in the editor at all —
+    ///         geometry yet — see <c>PrimitiveShape</c>'s remarks for why it lives in the editor at all —
     ///         so the crate does not appear in the viewport. What is real is everything else: the
     ///         entity is named after the asset, the reference is authored and saved, the inspector's
     ///         asset field shows and can change it, and <c>ReferenceIndex</c> counts it, so deleting
@@ -2511,7 +2512,7 @@ sealed partial class EditorApplication : IDisposable {
             return EditorIcons.Camera;
         }
 
-        return world.Has<MeshShape>(entity) ? EditorIcons.Cube : EditorIcons.Entity;
+        return world.Has<PrimitiveShape>(entity) ? EditorIcons.Cube : EditorIcons.Entity;
     }
 
     /// <summary>An entity's children, as a list a sort can be applied to.</summary>
@@ -2758,7 +2759,7 @@ sealed partial class EditorApplication : IDisposable {
             var matrix = world.Read<WorldTransform>(entity).Value;
             var position = matrix.Translation;
 
-            var extent = MeshShapes.TryGet(world, entity, out _)
+            var extent = PrimitiveShapes.TryGet(world, entity, out _)
                 ? new Vector3(
                     matrix.Right.Length(),
                     matrix.Up.Length(),

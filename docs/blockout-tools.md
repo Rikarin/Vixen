@@ -175,7 +175,7 @@ against the plan docs.
 |---|---|---|
 | `MeshData` — parallel typed arrays, empty means absent | ✅ | [MeshData.cs](../Core/Vixen.Rendering/MeshData.cs) |
 | `MeshPrimitives` — eight shapes, every one fitting the unit cube, CCW, no device | ✅ | [MeshPrimitives.cs](../Core/Vixen.Rendering/MeshPrimitives.cs) |
-| `MeshShape` + `MeshShapes` — a primitive kind per entity, in the scene file | ✅ | [ShapeComponents.cs](../Editor/Vixen.Editor.SceneView/ShapeComponents.cs) |
+| `PrimitiveShape` + `PrimitiveShapes` — a primitive kind per entity, as a runtime component a scene names | ✅ | [MeshComponents.cs](../Core/Vixen.Rendering/Ecs/MeshComponents.cs) |
 | `SceneMeshes` — every shaped entity as one world-space triangle buffer | 🟡 | [SceneMeshes.cs](../Editor/Vixen.Editor.SceneView/SceneMeshes.cs) |
 | `MeshRenderer` — solid geometry, overlay pipeline, sized for tens of thousands of vertices | ✅ | [MeshRenderer.cs](../Core/Vixen.Rendering/MeshRenderer.cs) |
 | `TransformGizmo` — four modes, four spaces, two pivots, **recomputed from mouse-down** | ✅ | [TransformGizmo.cs](../Editor/Vixen.Editor.SceneView/TransformGizmo.cs) |
@@ -251,22 +251,39 @@ keys that already mean something.** `1`/`2`/`3` for vertex/edge/face is the univ
 right. A mode that owns its keys while active and releases them when it is not is the only
 resolution that does not make one of them worse.
 
-### B3. Nothing at run time can hold a mesh 🟡
+### B3. Nothing at run time can hold a mesh ✅
 
-`MeshShape` is an editor component, and its own remarks explain why: `Vixen.Engine` deliberately does
-not reference `Vixen.Rendering`, so there is nowhere to name a mesh in a runtime component.
-[20 § E1](plan/20-editor-parity.md#e1--the-three-panels-people-live-in-20-em) records the same gap
-from the other end — dragging an asset into the scene is not built because "no runtime component
-carries an `AssetId`, so there is nothing for an entity to hold a mesh or a texture *in*".
+**Resolved, and the reasoning below is kept because it is what the resolution answers.** The claim was
+that `Vixen.Engine` deliberately does not reference `Vixen.Rendering`, so there is nowhere to name a
+mesh in a runtime component — and that is still true. What was wrong was the conclusion: the reference
+that was needed runs the *other* way. `Vixen.Rendering` now references `Vixen.Ecs` and `Vixen.Engine`
+and declares `MeshRenderable`, `PrimitiveShape` and `Light` itself, which is what `Vixen.Physics`,
+`Vixen.Audio`, `Vixen.Animation` and `Vixen.Navigation` had all been doing the whole time.
+[20 § E1](plan/20-editor-parity.md#e1--the-three-panels-people-live-in-20-em) records the same gap from
+the other end — dragging an asset into the scene, because "no runtime component carries an `AssetId`, so
+there is nothing for an entity to hold a mesh or a texture *in*" — and it closes the same way.
 
-A blockout mesh has exactly this problem, and `MeshShape` has already established the answer: it is a
-key of its own in the `.vxscene` rather than an entry in the registered-component list, because a
-component no build declares is what a content compile refuses. Blockout geometry takes the same
-bargain and inherits the same migration — the day the runtime grows a mesh component, both become
-ordinary entries and the change is in the reader.
+The old answer was that a shape is a key of its own in the `.vxscene` rather than an entry in the
+registered-component list, because a component no build declares is what a content compile refuses; and
+that blockout geometry would take the same bargain until the runtime grew a mesh component, at which
+point both would become ordinary entries and the change would be in the reader. That is exactly what
+happened, and the migration cost what it was predicted to cost — `SceneSerializer` still reads the two
+legacy keys and no longer writes them.
 
-⚠ **What is genuinely blocked is only the last phase.** [P7](#p7--handoff-10-em) bakes a block-out
-into an asset and points an entity at it, and *that* needs a component holding an `AssetId`.
+**How it closed:** `Vixen.Rendering` references `Vixen.Ecs` and
+`Vixen.Engine` and owns `Ecs/MeshComponents.cs`, so `MeshRenderable` and `PrimitiveShape` are runtime
+components a compiled scene names — as is `Light`, which moved out of the editor at the same time. The
+loading half is closed too: a catalog entry carries its `vx:` reference, `ContentCatalog.TryGetAddress`
+resolves one into an address, and `AssetManager.LoadAsync<T>(reference)` turns an `AssetId` into an
+asset.
+
+What is still owed for a block-out is the *drawing*: a mesh extraction system, which needs a residency
+cache over `GeometryBuffer` and a material resolved to a `Material`. `LightExtractionSystem` is the
+finished example of the shape it takes.
+
+⚠ **What was genuinely blocked was only the last phase, and it is now unblocked.**
+[P7](#p7--handoff-10-em) bakes a block-out into an asset and points an entity at it, and *that* needed a
+component holding an `AssetId`: `MeshRenderable.Mesh` is one.
 Everything before it stores the geometry in the scene file, which is where a block-out belongs
 anyway: it is level data, not a shared asset, and a designer who has to save six meshes to disk to
 try a corridor has been given the DCC round-trip back under a different name.
@@ -635,10 +652,11 @@ the argument for putting it last despite it being the most requested item.
 
 ### P7 — Handoff (1.0 EM)
 
-Bake to a `.vxmesh` asset through the existing importer machinery, with the entity pointed at it —
-the one part genuinely blocked on a runtime component carrying an `AssetId`
-([B3](#b3-nothing-at-run-time-can-hold-a-mesh-)). Collision generation into `ShapeDescription`. OBJ
-and glTF export. Import-back-as-editable.
+Bake to a `.vxmesh` asset through the existing importer machinery, with the entity pointed at it.
+This was the one part genuinely blocked on a runtime component carrying an `AssetId`; that component
+exists now — `MeshRenderable.Mesh` — so what is left here is the bake itself
+([B3](#b3-nothing-at-run-time-can-hold-a-mesh-)). Collision generation into `ShapeDescription`. OBJ and
+glTF export. Import-back-as-editable.
 
 **Exit:** a block-out becomes an asset, an artist opens it in a DCC, replaces it, and the level does
 not change shape.
@@ -654,7 +672,7 @@ not change shape.
 | P4 — Creation | 1.5 | P1, P3 |
 | P5 — Surfaces | 1.0 | 🔴 the material system in the editor viewport |
 | P6 — CSG | 2.0 | P1 |
-| P7 — Handoff | 1.0 | 🟡 a runtime component holding an `AssetId` |
+| P7 — Handoff | 1.0 | mesh *drawing* — the extraction system over `GeometryBuffer` |
 | | **11.0** | |
 
 **And one cost that is not in the table.** [B1](#b1-every-mesh-in-the-viewport-goes-through-the-cpu-every-frame-)
