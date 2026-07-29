@@ -1585,6 +1585,15 @@ transform feature's: `SV_InstanceID` holds the object's slot only because `first
 Every flag is a request the device answers, so one authored frame runs on a machine with descriptor
 indexing and on one without — `CompositorBuilder.GpuDriven` reports which.
 
+⚠ **Except the table itself, which nothing outside the tests creates.** `MaterialRenderFeature.Textures`
+and `TextureIndices` are still host-supplied, so a material that samples through
+`TexturedMetalRoughnessSurface` keeps `baseColorIndex = 0` unless a host wired one. Worse, that
+surface declares set 4 whatever the permutation says — bindings are declared, not discovered — so its
+pipeline layout has five sets while the draw loop binds the fifth only when a table exists. A table
+needs a capacity and a *fallback view*, and both are project decisions; see
+[docs/bindless-materials.md](../../docs/bindless-materials.md) § *The one thing left* for the two
+shapes it could take and the guard that belongs with either.
+
 ## Testing
 
 `Vixen.Rendering.Tests` holds culling to a **brute-force oracle over randomised scenes** (doc 06's

@@ -24,7 +24,11 @@ What remains is the per-object *light block*, and only on the path that has one:
 list each object binds its block at its own dynamic offset, and a dynamic offset travels in the bind.
 With clustering on nothing is bound per object and a run does merge.
 
-And a compositor document can now ask for all of it — see the last three sections.
+And a compositor document can now ask for all of it — see the last four sections.
+
+⚠ **One step short of usable from a document alone.** Nothing outside the tests creates the
+`BindlessTable` itself, so a material feature that samples still needs a host to wire one by hand —
+§ *The one thing left*.
 
 ## What is built
 
@@ -407,6 +411,7 @@ second buffer, which costs one bind between the two runs and nothing within eith
 | 7. The material record out of the per-object block | ✅ built — a push constant, per run, at the offset the effect declares |
 | 8. The probe scalars out of it as well | ✅ built — `UseObjectRecords`, and `Flat` in Raven to carry the index |
 | 9. A document that asks for all of it | ✅ built — `gpuDriven:` on the asset root, `compact:` on the culling node |
+| 10. **Something that creates the table** | ⬜ **not built** — see below, and it is the one thing left |
 
 ## 6. The transform, which was not a material and was still in the way
 
@@ -528,6 +533,43 @@ was actually turned on, so "the device said no" and "nobody asked" are not the s
 The frame-wide flags are on the asset root rather than on a node, because they are not a pass: they
 decide where a material's values live and where an object's matrix lives, and the answer has to be the
 same for every pass that draws.
+
+## The one thing left: nothing creates the table
+
+⬜ **Not built.** Every mechanism above is complete and exercised, and the shipped library has the
+consumer — `TexturedMetalRoughnessSurface` inherits `MaterialTextures` and samples through
+`SampleMap`. But **nothing outside the tests constructs a `BindlessTable` or fills
+`MaterialRenderFeature.TextureIndices`**:
+
+```bash
+grep -rn "new BindlessTable" --include="*.cs" Core Editor Platform | grep -v Tests
+```
+
+returns nothing. So a project that asks for `materialRecords: true` gets records without a texture
+table, and a material naming a base-colour map keeps `baseColorIndex = 0` because the registration is
+skipped when `Textures` is null.
+
+⚠ **And there is a sharper edge behind it, which the records flag does not cause.** A material
+composed from `TexturedMetalRoughnessSurface` declares the table *whatever the permutation says* — a
+binding is in the plan because it was declared, which is the rule this whole document keeps running
+into. So its pipeline layout has five sets, while `MeshRenderFeature` binds set 4 only when
+`materials.Textures is { Set.IsValid: true }`. With no table that is a five-set layout drawing with
+four sets bound: a validation error on a real device, not a missing texture.
+
+**Why it stopped here rather than being finished with the rest.** A table needs a capacity and a
+*fallback texture view* — slot zero, what a material with no map samples. Both are project decisions
+and the fallback is an actual asset, so inventing a 1×1 white texture inside `CompositorBuilder` would
+have made the silent default one nobody chose. The two honest shapes are:
+
+- the document names it — `bindlessTextures: { capacity: 4096, fallback: <asset> }` inside
+  `gpuDriven:`, which keeps the rule that a file says *which* and a host binds it; or
+- the builder creates the table with a generated 1×1 white view when `materialRecords` is on, and a
+  host overrides it.
+
+Whichever it is, the guard belongs with it and is worth having either way: **an effect that declares
+set 4 with no table available should refuse to draw** rather than issue a draw whose layout it cannot
+satisfy. Today that combination is only reachable by hand, which is the only reason it has not been
+hit.
 
 ## Two things deliberately not planned here
 
