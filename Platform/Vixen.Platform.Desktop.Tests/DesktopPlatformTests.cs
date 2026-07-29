@@ -32,7 +32,13 @@ public sealed class DesktopPlatformTests : IDisposable {
                     Application = "Vixen.Tests",
                     EnableGameControllers = false,
                     VideoDriver = PreferredVideoDriver(),
-                    RequestGpuSurface = PreferredVideoDriver() is not "dummy"
+                    RequestGpuSurface = PreferredVideoDriver() is not "dummy",
+
+                    // The subject here is what SDL does, so the per-OS supplement is off. With it on
+                    // these tests would assert three different things on three operating systems —
+                    // and the clipboard and the pickers they check for the absence of are exactly
+                    // what it supplies. Its own wiring is DesktopSupplementTests.
+                    UseNativeSupplement = false
                 }
             );
         } catch (PlatformNotSupportedException exception) {

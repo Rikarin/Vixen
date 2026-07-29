@@ -182,6 +182,19 @@
     <Project Path="Platform/Vixen.Platform.Headless.Tests/Vixen.Platform.Headless.Tests.csproj" />
     <Project Path="Platform/Vixen.Platform.Desktop/Vixen.Platform.Desktop.csproj" />
     <Project Path="Platform/Vixen.Platform.Desktop.Tests/Vixen.Platform.Desktop.Tests.csproj" />
+    <!--
+      The three per-OS assemblies. All of them are here and all of them build everywhere, because
+      each is net10.0 and its platform-specific half is [LibraryImport] behind
+      [SupportedOSPlatform] rather than a Windows-versioned target framework — which is what keeps
+      them out of the workload problem that Vixen.Platform.Android and .iOS have, and inside
+      `nuke CheckApi`.
+    -->
+    <Project Path="Platform/Vixen.Platform.Windows/Vixen.Platform.Windows.csproj" />
+    <Project Path="Platform/Vixen.Platform.Windows.Tests/Vixen.Platform.Windows.Tests.csproj" />
+    <Project Path="Platform/Vixen.Platform.Linux/Vixen.Platform.Linux.csproj" />
+    <Project Path="Platform/Vixen.Platform.Linux.Tests/Vixen.Platform.Linux.Tests.csproj" />
+    <Project Path="Platform/Vixen.Platform.MacOS/Vixen.Platform.MacOS.csproj" />
+    <Project Path="Platform/Vixen.Platform.MacOS.Tests/Vixen.Platform.MacOS.Tests.csproj" />
     <Project Path="Platform/Vixen.Platform.Native/Vixen.Platform.Native.csproj" />
     <Project Path="Platform/Vixen.Platform.Native.Tests/Vixen.Platform.Native.Tests.csproj" />
     <Project Path="Platform/Vixen.Graphics.Null/Vixen.Graphics.Null.csproj" />

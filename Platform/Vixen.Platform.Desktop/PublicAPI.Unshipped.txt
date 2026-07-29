@@ -79,6 +79,10 @@ Vixen.Platform.Desktop.DesktopPlatformOptions.Organisation.get -> string
 Vixen.Platform.Desktop.DesktopPlatformOptions.Organisation.init -> string
 Vixen.Platform.Desktop.DesktopPlatformOptions.RequestGpuSurface.get -> bool
 Vixen.Platform.Desktop.DesktopPlatformOptions.RequestGpuSurface.init -> bool
+Vixen.Platform.Desktop.DesktopPlatformOptions.Supplement.get -> Vixen.Platform.IPlatformSupplement?
+Vixen.Platform.Desktop.DesktopPlatformOptions.Supplement.init -> Vixen.Platform.IPlatformSupplement?
+Vixen.Platform.Desktop.DesktopPlatformOptions.UseNativeSupplement.get -> bool
+Vixen.Platform.Desktop.DesktopPlatformOptions.UseNativeSupplement.init -> bool
 Vixen.Platform.Desktop.DesktopPlatformOptions.VideoDriver.get -> string?
 Vixen.Platform.Desktop.DesktopPlatformOptions.VideoDriver.init -> string?
 Vixen.Platform.Desktop.DesktopPowerInfo -> sealed class
@@ -99,6 +103,7 @@ Vixen.Platform.Desktop.DesktopProcessorTopology.PerformanceCores.get -> int
 Vixen.Platform.Desktop.DesktopProcessorTopology.PhysicalCores.get -> int
 Vixen.Platform.Desktop.DesktopProcessorTopology.SupportsAffinity.get -> bool
 Vixen.Platform.Desktop.DesktopProcessorTopology.TrySetAffinity(int processor) -> bool
+Vixen.Platform.Desktop.DesktopSupplements -> static class
 Vixen.Platform.Desktop.DesktopTextInput -> sealed class
 Vixen.Platform.Desktop.DesktopTextInput : Vixen.Platform.ITextInput
 Vixen.Platform.Desktop.DesktopTextInput.Activate(Vixen.Platform.IWindow window) -> void
@@ -143,6 +148,7 @@ Vixen.Platform.Desktop.DesktopWindow.Surface.get -> Vixen.Platform.ISurface
 Vixen.Platform.Desktop.DesktopWindow.Title.get -> string
 Vixen.Platform.Desktop.DesktopWindow.Title.set -> string
 Vixen.Platform.Desktop.SdlLibrary -> static class
+static Vixen.Platform.Desktop.DesktopSupplements.ForCurrentOperatingSystem() -> Vixen.Platform.IPlatformSupplement?
 static Vixen.Platform.Desktop.SdlLibrary.IsAvailable.get -> bool
 static Vixen.Platform.Desktop.SdlLibrary.Load() -> Silk.NET.SDL.Sdl
 static Vixen.Platform.Desktop.SdlLibrary.TryLoad(out Silk.NET.SDL.Sdl? api) -> bool

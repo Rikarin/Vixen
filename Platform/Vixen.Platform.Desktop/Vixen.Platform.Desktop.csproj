@@ -23,6 +23,14 @@
         <!-- The loader search: the application's own runtimes/<rid>/native/ layout before the
              system's. See SdlLibrary and R11. -->
         <ProjectReference Include="..\Vixen.Platform.Native\Vixen.Platform.Native.csproj" />
+
+        <!-- All three, and one of them is chosen at runtime. The dependency points this way round
+             because .NET loads an assembly when something calls into it, so an assembly that
+             registered itself would only do so once something else had already used it. See
+             DesktopSupplements. -->
+        <ProjectReference Include="..\Vixen.Platform.Windows\Vixen.Platform.Windows.csproj" />
+        <ProjectReference Include="..\Vixen.Platform.Linux\Vixen.Platform.Linux.csproj" />
+        <ProjectReference Include="..\Vixen.Platform.MacOS\Vixen.Platform.MacOS.csproj" />
     </ItemGroup>
 
     <ItemGroup>

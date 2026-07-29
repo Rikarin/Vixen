@@ -44,13 +44,36 @@ never going to run it.
 | ✅ | Display enumeration, modes, work areas |
 | ✅ | Battery and charging state |
 | ✅ | Message boxes — the OS's own, which is what a fatal-error path needs before there is a renderer |
-| ❌ | **File pickers.** SDL 2 has none. Left missing rather than drawn: a picker carries the user's places, tags and cloud providers, and inside a sandbox it is what grants permission to read what was picked. `PlatformCapabilities.NativeDialogs` is not reported for this reason, and `ShowMessageAsync` works regardless. |
+| ❌ | **File pickers.** SDL 2 has none. Left missing rather than drawn: a picker carries the user's places, tags and cloud providers, and inside a sandbox it is what grants permission to read what was picked. |
 | ❌ | **Clipboard images and custom formats.** Needs Win32 registered formats, `NSPasteboard` UTIs, X11 atoms — three namespaces with nothing in common. |
-| ❌ | **Thread affinity.** `IProcessorTopology.SupportsAffinity` is `false`; pinning is per-OS. |
-| ❌ | **Thermal and power-mode state.** SDL cannot answer either. Real signals on mobile, where the platform assemblies that can answer them will. |
+| ❌ | **Thread affinity.** SDL has no affinity API at all. |
+| ❌ | **Thermal and power-mode state.** SDL cannot answer either. |
 
-Each of these belongs to `Vixen.Platform.Windows` / `.Linux` / `.MacOS`, which
-[doc 02](../../docs/plan/02-repository-layout.md) already reserves for exactly this.
+## The four gaps are filled from outside, by whichever OS this is
+
+Each of those belongs to `Vixen.Platform.Windows`, `.Linux` or `.MacOS`, and each of those exists.
+They arrive through `IPlatformSupplement`: this implementation builds the four services it can,
+`DesktopSupplements.ForCurrentOperatingSystem()` picks the assembly for the machine, and it replaces
+what it can do better and hands the rest back.
+
+```csharp
+// On by default. Off leaves SDL's four in place, which is what a test that wants the same
+// behaviour on three machines wants.
+new DesktopPlatform(new() { UseNativeSupplement = false });
+```
+
+Nothing above this assembly has to know which one it got — the services arrive through the same
+interfaces either way. What does change is `Capabilities`: `PlatformCapabilities.NativeDialogs`
+covers pickers and message boxes together, so SDL cannot report it on its own and the supplement is
+what adds it. On Windows and macOS that is unconditional; on Linux it depends on whether the session
+has `zenity` or `kdialog`, which is a runtime question with a runtime answer. Message boxes work
+regardless — `ShowMessageAsync` is always safe to call, and all three supplements keep SDL's, because
+SDL's *are* the OS's own.
+
+**The dependency points from here to them**, not the other way round: .NET loads an assembly when
+something first calls into it, so a per-OS assembly that registered itself in a module initialiser
+would only do so once something else had already touched it. A RID-specific publish keeps one of the
+three; a portable one carries all three, which is a few tens of kilobytes of IL.
 
 ## The decisions
 

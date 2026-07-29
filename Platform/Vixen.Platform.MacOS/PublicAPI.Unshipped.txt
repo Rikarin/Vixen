@@ -1,0 +1,46 @@
+#nullable enable
+Vixen.Platform.MacOS.MacOSClipboard -> sealed class
+Vixen.Platform.MacOS.MacOSClipboard : Vixen.Platform.IClipboard
+Vixen.Platform.MacOS.MacOSClipboard.Clear() -> void
+Vixen.Platform.MacOS.MacOSClipboard.HasImage.get -> bool
+Vixen.Platform.MacOS.MacOSClipboard.HasText.get -> bool
+Vixen.Platform.MacOS.MacOSClipboard.MacOSClipboard(Vixen.Platform.IClipboard fallback) -> void
+Vixen.Platform.MacOS.MacOSClipboard.SetData(string format, System.ReadOnlySpan<byte> data) -> bool
+Vixen.Platform.MacOS.MacOSClipboard.SetImage(in Vixen.Platform.ClipboardImage image) -> bool
+Vixen.Platform.MacOS.MacOSClipboard.SetText(string text) -> bool
+Vixen.Platform.MacOS.MacOSClipboard.TryGetData(string format, out System.ReadOnlyMemory<byte> data) -> bool
+Vixen.Platform.MacOS.MacOSClipboard.TryGetImage(out Vixen.Platform.ClipboardImage image) -> bool
+Vixen.Platform.MacOS.MacOSClipboard.TryGetText(out string? text) -> bool
+Vixen.Platform.MacOS.MacOSDialogs -> sealed class
+Vixen.Platform.MacOS.MacOSDialogs : Vixen.Platform.INativeDialogs
+Vixen.Platform.MacOS.MacOSDialogs.MacOSDialogs(Vixen.Platform.INativeDialogs fallback) -> void
+Vixen.Platform.MacOS.MacOSDialogs.OpenFileAsync(Vixen.Platform.FileDialogOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<string?>
+Vixen.Platform.MacOS.MacOSDialogs.OpenFilesAsync(Vixen.Platform.FileDialogOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<string>>
+Vixen.Platform.MacOS.MacOSDialogs.OpenFolderAsync(Vixen.Platform.FileDialogOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<string?>
+Vixen.Platform.MacOS.MacOSDialogs.SaveFileAsync(Vixen.Platform.FileDialogOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<string?>
+Vixen.Platform.MacOS.MacOSDialogs.ShowMessageAsync(Vixen.Platform.MessageBoxOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Platform.MessageBoxResult>
+Vixen.Platform.MacOS.MacOSPlatformSupplement -> sealed class
+Vixen.Platform.MacOS.MacOSPlatformSupplement : System.IDisposable
+Vixen.Platform.MacOS.MacOSPlatformSupplement : Vixen.Platform.IPlatformSupplement
+Vixen.Platform.MacOS.MacOSPlatformSupplement.Augment(in Vixen.Platform.PlatformServices baseline) -> Vixen.Platform.PlatformServices
+Vixen.Platform.MacOS.MacOSPlatformSupplement.Dispose() -> void
+Vixen.Platform.MacOS.MacOSPlatformSupplement.MacOSPlatformSupplement() -> void
+Vixen.Platform.MacOS.MacOSPlatformSupplement.Name.get -> string
+Vixen.Platform.MacOS.MacOSPowerInfo -> sealed class
+Vixen.Platform.MacOS.MacOSPowerInfo : Vixen.Platform.IPowerInfo
+Vixen.Platform.MacOS.MacOSPowerInfo.BatteryLevel.get -> float?
+Vixen.Platform.MacOS.MacOSPowerInfo.EstimatedTimeRemaining.get -> System.TimeSpan?
+Vixen.Platform.MacOS.MacOSPowerInfo.IsLowPowerMode.get -> bool
+Vixen.Platform.MacOS.MacOSPowerInfo.MacOSPowerInfo(Vixen.Platform.IPowerInfo fallback) -> void
+Vixen.Platform.MacOS.MacOSPowerInfo.Source.get -> Vixen.Platform.PowerSource
+Vixen.Platform.MacOS.MacOSPowerInfo.Thermal.get -> Vixen.Platform.ThermalState
+Vixen.Platform.MacOS.MacOSProcessorTopology -> sealed class
+Vixen.Platform.MacOS.MacOSProcessorTopology : Vixen.Platform.IProcessorTopology
+Vixen.Platform.MacOS.MacOSProcessorTopology.AvailableProcessors.get -> int
+Vixen.Platform.MacOS.MacOSProcessorTopology.ClassOf(int processor) -> Vixen.Platform.ProcessorClass
+Vixen.Platform.MacOS.MacOSProcessorTopology.ClearAffinity() -> void
+Vixen.Platform.MacOS.MacOSProcessorTopology.MacOSProcessorTopology() -> void
+Vixen.Platform.MacOS.MacOSProcessorTopology.PerformanceCores.get -> int
+Vixen.Platform.MacOS.MacOSProcessorTopology.PhysicalCores.get -> int
+Vixen.Platform.MacOS.MacOSProcessorTopology.SupportsAffinity.get -> bool
+Vixen.Platform.MacOS.MacOSProcessorTopology.TrySetAffinity(int processor) -> bool

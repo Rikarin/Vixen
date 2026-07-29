@@ -58,6 +58,24 @@ public readonly record struct DesktopPlatformOptions() {
     ///     visible time to startup and on Linux needs permissions a headless build may not have.
     /// </remarks>
     public bool EnableGameControllers { get; init; } = true;
+
+    /// <summary>Whether to take the file pickers, clipboard and affinity from the per-OS assembly.</summary>
+    /// <remarks>
+    ///     On by default, and the reason a desktop head gets a real file picker without asking for
+    ///     one. Turning it off leaves the SDL implementations in place, which is what a test that
+    ///     wants the same behaviour on all three machines wants — and what anything that has to be
+    ///     sure it is not going to start <c>zenity</c> wants.
+    /// </remarks>
+    public bool UseNativeSupplement { get; init; } = true;
+
+    /// <summary>A specific supplement to use, or <see langword="null" /> to choose by operating
+    /// system.</summary>
+    /// <remarks>
+    ///     Overrides <see cref="UseNativeSupplement" /> when set. Two uses: a test that wants to
+    ///     observe what a supplement is asked and told, and a head that has its own — an embedder
+    ///     with a file picker of its own, or a platform this repository does not know about.
+    /// </remarks>
+    public IPlatformSupplement? Supplement { get; init; }
 }
 
 /// <summary>Windows, Linux and macOS, through one SDL implementation.</summary>
@@ -65,8 +83,12 @@ public readonly record struct DesktopPlatformOptions() {
 ///     <para>
 ///         One implementation for all three, because SDL already absorbed the differences that
 ///         matter for windowing, input, gamepads, clipboard text and IME. What it does not cover —
-///         file dialogs, per-OS window chrome, thread affinity — is left visibly missing here rather
-///         than approximated, and belongs to the per-OS assemblies <c>docs/plan/02</c> reserves.
+///         file pickers, clipboard images and application-defined formats, thread affinity, thermal
+///         state — comes from <c>Vixen.Platform.Windows</c>, <c>.Linux</c> or <c>.MacOS</c> through
+///         an <see cref="IPlatformSupplement" />, chosen at construction and turned off with
+///         <see cref="DesktopPlatformOptions.UseNativeSupplement" />. Nothing above this assembly
+///         has to know which one it got: the services arrive through the same interfaces either way,
+///         and <see cref="Capabilities" /> is what says whether the pickers are real.
 ///     </para>
 ///     <para>
 ///         Owned by the thread that constructed it. That is SDL's rule and the operating systems'
@@ -82,6 +104,7 @@ public sealed unsafe class DesktopPlatform : IPlatform {
     readonly long startTimestamp;
     readonly uint startTicks;
     readonly bool requestGpuSurface;
+    readonly IPlatformSupplement? supplement;
 
     bool disposed;
 
@@ -135,15 +158,33 @@ public sealed unsafe class DesktopPlatform : IPlatform {
 
         FileSystem = options.FileSystem ?? new StandardFileSystemHost(organisation, application);
         Displays = new DesktopDisplays(sdl);
-        Clipboard = new DesktopClipboard(sdl);
-        Dialogs = new DesktopDialogs(sdl);
         Lifecycle = new DesktopLifecycle(events);
         Input = new DesktopInputSource(sdl);
         TextInput = new DesktopTextInput(sdl);
-        Power = new DesktopPowerInfo(sdl);
-        Processors = new DesktopProcessorTopology(sdl);
 
-        Capabilities = DetectCapabilities(options.EnableGameControllers);
+        // Everything SDL can do, offered to the operating system's own assembly, which replaces what
+        // it can do better and hands the rest back. On a machine with no supplement — or with one
+        // turned off — this is the whole of it, which is what it was before there were any.
+        var services = new PlatformServices(
+            new DesktopClipboard(sdl),
+            new DesktopDialogs(sdl),
+            new DesktopPowerInfo(sdl),
+            new DesktopProcessorTopology(sdl),
+            DetectCapabilities(options.EnableGameControllers)
+        );
+
+        supplement = options.Supplement
+            ?? (options.UseNativeSupplement ? DesktopSupplements.ForCurrentOperatingSystem() : null);
+
+        if (supplement is not null) {
+            services = supplement.Augment(services);
+        }
+
+        Clipboard = services.Clipboard;
+        Dialogs = services.Dialogs;
+        Power = services.Power;
+        Processors = services.Processors;
+        Capabilities = services.Capabilities;
     }
 
     /// <inheritdoc />
@@ -162,10 +203,13 @@ public sealed unsafe class DesktopPlatform : IPlatform {
     ///         chose is the only way to know.
     ///     </para>
     ///     <para>
-    ///         <see cref="PlatformCapabilities.NativeDialogs" /> is <em>not</em> reported, because
-    ///         SDL 2 has no file picker and the capability covers pickers and message boxes
-    ///         together. Message boxes work regardless — <see cref="INativeDialogs.ShowMessageAsync" />
-    ///         is safe to call — and the flag turns on when a per-OS assembly supplies the pickers.
+    ///         <see cref="PlatformCapabilities.NativeDialogs" /> is not SDL's to report: SDL 2 has no
+    ///         file picker, and the capability covers pickers and message boxes together. Message
+    ///         boxes work regardless — <see cref="INativeDialogs.ShowMessageAsync" /> is always safe
+    ///         to call — and the flag is added by the per-OS supplement that supplies the pickers.
+    ///         On Windows and macOS that is unconditional; on Linux it depends on whether the
+    ///         session has <c>zenity</c> or <c>kdialog</c>, which is a runtime question with a
+    ///         runtime answer and exactly what the capability model is for.
     ///     </para>
     /// </remarks>
     public PlatformCapabilities Capabilities { get; }
@@ -325,6 +369,10 @@ public sealed unsafe class DesktopPlatform : IPlatform {
         windows.Clear();
         byId.Clear();
         events.Clear();
+
+        // Before SDL quits, because a supplement's services were built over SDL's and one of them
+        // may still be holding what it was given.
+        supplement?.Dispose();
         sdl.Quit();
     }
 

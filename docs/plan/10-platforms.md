@@ -83,8 +83,14 @@ bootstrap on Web). Game/app code lives in a platform-neutral library that all he
   specifying barriers against Vulkan `synchronization2` so D3D12 *Enhanced Barriers* map directly.
   The eventual motivation is Windows GPU tooling (PIX, GPU crash dumps), IHV driver reliability, and
   `DirectStorage`/HDR interop. Until then, Windows Vulkan driver quality is good enough on all three IHVs.
-- `net10.0-windows` for `Vixen.Platform.Windows` only, for WinRT file pickers, jump lists, taskbar
-  progress, and `DXGI` output enumeration for HDR.
+- ~~`net10.0-windows` for `Vixen.Platform.Windows` only, for WinRT file pickers~~ — **corrected when it
+  was built.** `Vixen.Platform.Windows` targets plain `net10.0`: the Windows-versioned framework is
+  only needed for WinRT and WPF/WinForms projections, it would spread from that project to every
+  consumer that references it, and it would take the assembly out of `nuke CheckApi`, which covers
+  `net10.0`. WinRT's picker in a desktop application is a wrapper over `IFileDialog`, which is what is
+  used instead — through `[LibraryImport]` behind `[SupportedOSPlatform("windows")]`, so the project
+  builds and its pure tests run on all three desktops. Jump lists, taskbar progress and `DXGI` output
+  enumeration for HDR are still owed and would not change this.
 - Publish: `PublishSingleFile` + `PublishReadyToRun`; NativeAOT for the editor as an opt-in build
   variant (measured startup win, but rules out editor plugin loading — hence opt-in).
 - Gates: `Samples/01` renders; editor runs; all tests green on `windows-latest` CI.
@@ -140,8 +146,12 @@ bootstrap on Web). Game/app code lives in a platform-neutral library that all he
   simulator smoke tests in CI meaningful rather than theatre.
 - Surface: `VK_EXT_metal_surface` over a `CAMetalLayer` attached to the SDL window's `NSView`.
 - ObjC interop in `Vixen.Platform.MacOS` via `[LibraryImport]` against `objc_msgSend` for the handful
-  of calls needed (window chrome, `NSOpenPanel`, `NSPasteboard`, accessibility). No Xamarin.Mac
-  bindings.
+  of calls needed (`NSOpenPanel`, `NSPasteboard`, `NSProcessInfo`; window chrome and accessibility are
+  still owed). No Xamarin.Mac bindings. **Built, and it moved the main-thread rule**: AppKit's
+  `0xbad4007` abort is not limited to windows — `TIFFRepresentation` on an `NSBitmapImageRep` does it
+  too, from a thread that never went near one. Everything in that assembly which touches AppKit checks
+  `NSThread.isMainThread` and refuses rather than aborting; the pasteboard's own reads and writes and
+  `NSProcessInfo` are thread-safe and are exercised from a test runner on every run.
 - **Packaging is the real work**: `.app` bundle layout, `Info.plist`, universal binary (`osx-x64` +
   `osx-arm64` via `lipo`), hardened runtime entitlements, codesigning with a Developer ID, and
   notarisation. All scripted in Nuke (`Build.Release.cs`) and run in CI on `macos-14`.

@@ -194,6 +194,10 @@ Vixen.Platform.IPlatform.TextInput.get -> Vixen.Platform.ITextInput
 Vixen.Platform.IPlatform.TryGetWindow(uint id, out Vixen.Platform.IWindow? window) -> bool
 Vixen.Platform.IPlatform.TryOpenUrl(string url) -> bool
 Vixen.Platform.IPlatform.Windows.get -> System.Collections.Generic.IReadOnlyList<Vixen.Platform.IWindow>
+Vixen.Platform.IPlatformSupplement -> interface
+Vixen.Platform.IPlatformSupplement : System.IDisposable
+Vixen.Platform.IPlatformSupplement.Augment(in Vixen.Platform.PlatformServices baseline) -> Vixen.Platform.PlatformServices
+Vixen.Platform.IPlatformSupplement.Name.get -> string
 Vixen.Platform.IPowerInfo -> interface
 Vixen.Platform.IPowerInfo.BatteryLevel.get -> float?
 Vixen.Platform.IPowerInfo.EstimatedTimeRemaining.get -> System.TimeSpan?
@@ -537,6 +541,20 @@ Vixen.Platform.PlatformEventKind.WindowResized = 4 -> Vixen.Platform.PlatformEve
 Vixen.Platform.PlatformEventKind.WindowRestored = 9 -> Vixen.Platform.PlatformEventKind
 Vixen.Platform.PlatformEventKind.WindowShown = 1 -> Vixen.Platform.PlatformEventKind
 Vixen.Platform.PlatformExtensions -> static class
+Vixen.Platform.PlatformServices -> readonly struct
+Vixen.Platform.PlatformServices : System.IEquatable<Vixen.Platform.PlatformServices>
+Vixen.Platform.PlatformServices.Capabilities.get -> Vixen.Platform.PlatformCapabilities
+Vixen.Platform.PlatformServices.Capabilities.init -> Vixen.Platform.PlatformCapabilities
+Vixen.Platform.PlatformServices.Clipboard.get -> Vixen.Platform.IClipboard
+Vixen.Platform.PlatformServices.Clipboard.init -> Vixen.Platform.IClipboard
+Vixen.Platform.PlatformServices.Dialogs.get -> Vixen.Platform.INativeDialogs
+Vixen.Platform.PlatformServices.Dialogs.init -> Vixen.Platform.INativeDialogs
+Vixen.Platform.PlatformServices.PlatformServices() -> void
+Vixen.Platform.PlatformServices.PlatformServices(Vixen.Platform.IClipboard Clipboard, Vixen.Platform.INativeDialogs Dialogs, Vixen.Platform.IPowerInfo Power, Vixen.Platform.IProcessorTopology Processors, Vixen.Platform.PlatformCapabilities Capabilities) -> void
+Vixen.Platform.PlatformServices.Power.get -> Vixen.Platform.IPowerInfo
+Vixen.Platform.PlatformServices.Power.init -> Vixen.Platform.IPowerInfo
+Vixen.Platform.PlatformServices.Processors.get -> Vixen.Platform.IProcessorTopology
+Vixen.Platform.PlatformServices.Processors.init -> Vixen.Platform.IProcessorTopology
 Vixen.Platform.PowerSource -> enum : byte
 Vixen.Platform.PowerSource.Battery = 2 -> Vixen.Platform.PowerSource
 Vixen.Platform.PowerSource.Charging = 3 -> Vixen.Platform.PowerSource

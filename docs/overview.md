@@ -58,7 +58,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | `Vixen.Core.Memory` — `NativeArray`, arena, buddy allocator | ✅ | Core/Vixen.Core.Memory | `GpuUploadRing` still owed |
 | `Vixen.Core.Threading` — Chase–Lev deques, `JobHandle` DAG, `ScheduleParallel` | ✅ | Core/Vixen.Core.Threading | 45 tests |
 | `VIXEN_JOB_SAFETY` access declarations | ⬜ | — | Needs the ECS to supply declarations |
-| Thread pinning / affinity | ⬜ | — | ⛔ needs `Vixen.Platform.Windows/.Linux/.MacOS`; contract half (`IProcessorTopology`) exists |
+| Thread pinning / affinity | ✅ | Platform/Vixen.Platform.{Windows,Linux} | The platform half. `SetThreadGroupAffinity` and `sched_setaffinity`, with performance/efficiency core classes; macOS reports `SupportsAffinity = false` and means it. What is owed is the scheduler asking |
 | Job priorities / long-running tier | ⬜ | — | |
 | `Vixen.Core.IO` — `VirtualPath`, mount table, providers, mmap, coalesced watch | ✅ | Core/Vixen.Core.IO | 123 tests. Android `AAssetManager` and Web IndexedDB/fetch providers landed with their platforms |
 | `System.IO.Path` analyzer | ⬜ | — | |
@@ -123,9 +123,9 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 |---|---|---|---|
 | `Vixen.Platform` contracts (window, surface, display, files, clipboard, dialogs, lifecycle, input, IME, power, topology) | ✅ | Platform/Vixen.Platform | 26 tests |
 | `Vixen.Platform.Headless` | ✅ | Platform/Vixen.Platform.Headless | 31 tests; drives the dedicated server |
-| `Vixen.Platform.Desktop` (SDL **2** via Silk.NET) | ✅ | Platform/Vixen.Platform.Desktop | 55 tests. Doc 01 said SDL 3 and was wrong |
-| File pickers, clipboard images/custom formats, thread affinity, thermal state | ⬜ | — | ⛔ SDL 2 has no file dialog; these belong to the per-OS assemblies |
-| `Vixen.Platform.Windows` / `.Linux` / `.MacOS` | ⬜ | — | Reserved in doc 02, no projects. **Blocks four desktop capabilities and the editor's "open project…"** |
+| `Vixen.Platform.Desktop` (SDL **2** via Silk.NET) | ✅ | Platform/Vixen.Platform.Desktop | 58 tests. Doc 01 said SDL 3 and was wrong |
+| File pickers, clipboard images/custom formats, thread affinity, thermal state | ✅ | Platform/Vixen.Platform.{Windows,Linux,MacOS} | SDL 2 has none of them; they arrive through `IPlatformSupplement`, chosen by operating system in `DesktopSupplements` |
+| `Vixen.Platform.Windows` / `.Linux` / `.MacOS` | ✅ | Platform/Vixen.Platform.{Windows,Linux,MacOS} | 67 tests. `IFileDialog` · `zenity`/`kdialog` · `NSOpenPanel`; `CF_DIBV5` · `image/png` · `NSPasteboard`; affinity on two of the three; thermal on two of the three |
 | `Vixen.Platform.Native` — RID chain, `runtimes/` search, `DllImportResolver`, `RestoreNativeDeps` | ✅ | Platform/Vixen.Platform.Native | Retired R11's desktop half with **no suppression** |
 | Native-dependency acquisition beyond MoltenVK | 🟡 | [build/native-dependencies.json](../build/native-dependencies.json) | Holds MoltenVK (`ios-arm64`) and wgpu-native; R10 lists five more |
 | `Vixen.Platform.iOS` (UIKit, `CAMetalLayer`, `CADisplayLink`, multi-touch, IME) | 🟡 | Platform/Vixen.Platform.iOS | Runs in the **Simulator**. Physical device ⛔ on a provisioning profile (an Apple account, not a build setting) |
@@ -344,7 +344,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | **Import Assets / Build Content from the editor** (`ContentPipeline` on the background task manager) | ✅ | Editor/Vixen.Editor.App | The same call the CLI makes, so the two cannot produce different output for one project |
 | Redraw-on-change (it redraws every frame today) | ⬜ | — | Every animation, toast expiry and task progress would have to say so, and one that forgets freezes a progress bar |
 | Plugin loading (`Vixen.Editor.Plugin`, `AssemblyLoadContext`) | ⬜ | — | The reason `Vixen.Editor.App` is not NativeAOT |
-| "Open project…" file dialog | ⛔ | — | Needs `Vixen.Platform.Windows/.Linux/.MacOS` |
+| "Open project…" file dialog | ⬜ | — | Unblocked: `platform.Dialogs` is the OS's own picker on all three desktops (K3). What is left is the editor calling it |
 | Asset editors: texture, model, material, prefab, shader, UI, addressable groups, compositor | ⬜ | — | Shell + inspector exist, so these are unblocked |
 | Scene editor (as an asset editor) | ⛔ | — | Needs the scene format |
 | `Vixen.Editor.Profiler` (frame graph, frame debugger, memory view) | ⬜ | — | ⛔ partly on `Vixen.Core.Diagnostics`' GPU/memory tracks |
@@ -558,13 +558,15 @@ K2  Compute-node in the compositor + GPU buffer upload/readback
     ├──→ Raven per-backend layout gate
     └──→ Phase 7 exit criterion (CPU/GPU VFX agreement)
 
-K3  Per-OS platform assemblies
-    (Vixen.Platform.Windows / .Linux / .MacOS)
+K3  Per-OS platform assemblies                                            ✅ BUILT
+    (Vixen.Platform.Windows / .Linux / .MacOS, reached through IPlatformSupplement)
     │
-    ├──→ File pickers ──→ Editor "open project…" ──→ a usable editor for a stranger
-    ├──→ Clipboard images and custom formats
-    ├──→ Thread affinity      (closes Vixen.Core.Threading's last deferral)
-    ├──→ Thermal state        (closes the quality-scaling policy loop)
+    ├──✅ File pickers        ──→ Editor "open project…" ──→ a usable editor for a stranger
+    ├──✅ Clipboard images and custom formats
+    ├──✅ Thread affinity      (closes Vixen.Core.Threading's last deferral on Windows and
+    │                          Linux; macOS answers "no" and is right to — see its README)
+    ├──✅ Thermal state        (closes the quality-scaling policy loop on macOS and Linux;
+    │                          Windows has no user-mode API for it and says so)
     └──→ Floating dock groups in real OS windows (with multi-window + DPI)
 
 K4  Silk.NET.OpenGLES + an EGL context
@@ -583,7 +585,7 @@ since. The rest can run in parallel.
 |---|---|---|
 | W0-1 | **K1** — `SceneCompiler` + runtime scene/prefab asset | 7 downstream items (§3.1) |
 | W0-2 | **K2** — compute node + GPU buffer upload/readback | 5 downstream items |
-| W0-3 | **K3** — `Vixen.Platform.Windows/.Linux/.MacOS` | 5 downstream items |
+| ~~W0-3~~ | ~~**K3** — `Vixen.Platform.Windows/.Linux/.MacOS`~~ | Built. Four of the five downstream items are closed; the docking one needs multi-window + DPI, not this |
 | W0-4 | **K4** — `Silk.NET.OpenGLES` + EGL | 3 downstream items |
 | W0-5 | `DescriptorBinding` sample type + comparison sampler (RHI) | WebGPU shadow maps → deferred/forward parity on the web |
 | ~~W0-6~~ | ~~`Tools/Vixen.ApiCheck` + first `PublicAPI.Shipped.txt`~~ | Built. The gate is in CI; what is left is the Phase 11 reading of what it baselined |
@@ -616,9 +618,9 @@ since. The rest can run in parallel.
 | Networking: scene load/unload messages, baked scene index | W0-1 | Turns "waiting for its scene" from a state into a handshake |
 | VFX GPU dispatch · reaping · GPU sort · indirect draw | W0-2 | Then mesh/ribbon/light renderers and the remaining updaters |
 | `AutoExposure` wiring · Raven numeric + layout gates | W0-2 | |
-| Editor "open project…" dialog | W0-3 | |
-| Thread affinity · thermal state · clipboard images | W0-3 | Closes three long-standing deferrals at once |
-| Floating dock groups in OS windows | W0-3 + W0-23 (multi-window) | |
+| Editor "open project…" dialog | — | Unblocked: the picker is there, the menu item is not |
+| ~~Thread affinity · thermal state · clipboard images~~ | ~~W0-3~~ | Built. Three long-standing deferrals closed, each on the platforms where the OS has an answer |
+| Floating dock groups in OS windows | W0-23 (multi-window) | |
 | Android GLES fallback + capability deny-list | W0-4 | |
 | `Samples/02` in three browsers + Playwright leg | W0-4 | Phase 10 exit criterion |
 | WebGPU shadow maps; WebGPU Linux CI leg | W0-5 + W0-7 | |
@@ -676,7 +678,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 1 | `Vixen.Core.Memory` | `GpuUploadRing` | Feature | — |
 | 2 | `Vixen.Core.Collections` | `RobinHoodDictionary`, `FixedBitSet<N>` | Feature | ECS component budget (for `N`) |
 | 3 | `Vixen.Core.Threading` | `VIXEN_JOB_SAFETY` access declarations | Correctness | ECS declarations |
-| 4 | `Vixen.Core.Threading` | Thread pinning / affinity | Perf | K3 per-OS assemblies |
+| 4 | `Vixen.Core.Threading` | Thread pinning / affinity — **the platform half is built (K3)**; what is owed is the scheduler using it | Perf | — |
 | 5 | `Vixen.Core.Threading` | Job priority tier for streaming/decode | Perf | — |
 | 6 | `Vixen.Core.IO` | `System.IO.Path` analyzer | Discipline | — |
 | 7 | `Vixen.Core.Reflection` | Generic type support | Feature | — |
@@ -696,7 +698,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 22 | `Vixen.Graphics.Vulkan` | Swapchain acquire/present coverage; timeline semaphores; MSAA resolve; query pools | Coverage / feature | Windowed test host |
 | 23 | `Vixen.Graphics.OpenGL` | `Silk.NET.OpenGLES` + EGL context; `glBindImageTexture` | Feature | **K4** |
 | 24 | `Vixen.Graphics.WebGPU` | Sampled depth + comparison sampler; timestamp queries; Linux CI leg | Feature | #19 |
-| 25 | `Vixen.Platform.Desktop` | File pickers, clipboard images/custom formats, thread affinity, thermal state | Feature | **K3** |
+| 25 | ~~`Vixen.Platform.Desktop`~~ | ~~File pickers, clipboard images/custom formats, thread affinity, thermal state~~ | Built (K3) — supplied by `Vixen.Platform.Windows`/`.Linux`/`.MacOS` through `IPlatformSupplement` | — |
 | 26 | `Vixen.Platform.Native` | R10's remaining five native dependencies | Infra | — |
 | 27 | `Vixen.Platform.iOS` | Physical-device run; sensors, haptics, HDR layer; scene-delegate lifecycle | Verification | Provisioning profile |
 | 28 | `Vixen.Platform.Android` | GLES fallback + deny-list; key translation; safe-area insets; sensors; default-runtime AOT gate | Feature | **K4** (fallback) |
@@ -705,7 +707,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 31 | Asset pipeline | `SceneCompiler` + scene/prefab asset | Feature | — (**K1** itself) |
 | 32 | Asset pipeline | `.cube` LUT importer; server content profile | Feature | — |
 | 33 | `Vixen.Sdk` | CLI shipped in the package; platform packaging; diagnostic file paths | Infra | — |
-| 34 | `Vixen.Cli` | Signing/notarisation/packaging; `app`/`plugin`/`tool` templates; `doctor systems` | Infra | K3 (signing), Vixen.Ui maturity (`app`) |
+| 34 | `Vixen.Cli` | Signing/notarisation/packaging; `app`/`plugin`/`tool` templates; `doctor systems` | Infra | Nuke `Build.Release.cs` (signing), Vixen.Ui maturity (`app`) |
 | 35 | `Vixen.Ui.Styling` | `UiDocument.Update` → incremental cascade | **Perf (largest in Phase 4)** | — |
 | 36 | `Vixen.Ui.Styling` | Transform decomposition | Feature | A transform property |
 | 37 | `Vixen.Ui.Text` | `TextEditor` model with IME + caret affinity | Feature | — |
@@ -751,7 +753,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 77 | `Vixen.Editor.Ui` | Keybinding editor; notification panel; `Strings.Resource` generation | Feature | — |
 | 78 | `Vixen.Editor.Inspector` | Curve multi-edit; asset-picker browser | Feature | — |
 | 79 | `Vixen.Editor.SceneView` | Undoable reparent command; hierarchy drag-and-drop; viewport click-to-select; meshes in the viewport | Feature | An id target; the material system |
-| 80 | `Vixen.Editor.App` | Plugin loading; file dialog | Feature | `Vixen.Editor.Plugin`, **K3** |
+| 80 | `Vixen.Editor.App` | Plugin loading; file dialog | Feature | `Vixen.Editor.Plugin` (K3 is built, so the dialog is only owed a caller) |
 | 81 | `Vixen.Editor.NodeGraph` | Selectable wires; sticky-note editing; a node in two groups; inlined-node → source-node map; Raven-span diagnostics | Feature | Emitter span recording, for the last |
 | 82 | `Vixen.Editor.ShaderGraph` | Procedural + custom-code nodes; Post/UI masters; previews; diagnostic mapping | Feature | Emitter span recording |
 | 83 | `Vixen.Editor.VfxGraph` | Operator nodes; remaining opcode blocks; sub-emitters/trails; live preview | Feature | — |
@@ -769,12 +771,12 @@ it is deliberately distinct from "not started" in Part 1.
 |---|---|---|
 | Blocked on **K1** (scene format) | 9 | The single highest-leverage unblock |
 | Blocked on **K2** (compute/readback) | 5 | Closes Phase 7's exit criterion |
-| Blocked on **K3** (per-OS assemblies) | 5 | Closes three deferrals dating to Phase 1 |
+| ~~Blocked on **K3**~~ (per-OS assemblies) | 0 | Built. Four of the five are closed; floating dock groups wanted multi-window + DPI rather than this |
 | Blocked on **K4** (`OpenGLES` + EGL) | 3 | Closes Phase 10's browser criterion |
 | Blocked on a **decision**, not code | 2 | Relay scope; D3D12 (already answered: post-1.0) |
 | Blocked on **hardware or an account** | 3 | iPhone provisioning; an Android device; the IHV matrix |
 | Genuinely independent | ~40 | Can be picked up in any order (§3.5) |
-| Closed since the first revision of this page | 8 | `CheckApi` · `LayoutFinished` · `NodeGraphView` · handle reservation · line wrapping · `VirtualizingPanel` · `scoped`/per-type stylesheets · the image draw command |
+| Closed since the first revision of this page | 9 | `CheckApi` · `LayoutFinished` · `NodeGraphView` · handle reservation · line wrapping · `VirtualizingPanel` · `scoped`/per-type stylesheets · the image draw command · **K3** |
 
 ---
 
@@ -782,8 +784,8 @@ it is deliberately distinct from "not started" in Part 1.
 
 | | |
 |---|---|
-| `.csproj` on disk | 209 (`Core` 120 · `Platform` 28 · `Editor` 19 · `Tools` 21 · `Samples` 11 · `Benchmarks` 7 · `Raven` 3) — counting test siblings and generators, per ADR-014 |
-| Planned projects not created | `Vixen.Graphics.Direct3D12`, `Vixen.Platform.Windows/.Linux/.MacOS`, `Vixen.Net.Transport.Relay`, `Vixen.Editor.AnimationGraph/.Profiler/.Debugger/.Plugin`, `Vixen.Templates`, `Vixen.Raven.Transpile` |
+| `.csproj` on disk | 215 (`Core` 120 · `Platform` 34 · `Editor` 19 · `Tools` 21 · `Samples` 11 · `Benchmarks` 7 · `Raven` 3) — counting test siblings and generators, per ADR-014 |
+| Planned projects not created | `Vixen.Graphics.Direct3D12`, `Vixen.Net.Transport.Relay`, `Vixen.Editor.AnimationGraph/.Profiler/.Debugger/.Plugin`, `Vixen.Templates`, `Vixen.Raven.Transpile` |
 | Conformance cases green | 534 Yoga · 22 048 UAX#14/#29 · 91 707 UAX#9 · 328/413 shaping · 100 variable-font |
 | Golden image fixtures | 40 |
 | Fuzz targets / cases per build | 12 / ~11 M in ~7 s |
