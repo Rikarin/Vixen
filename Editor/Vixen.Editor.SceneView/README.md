@@ -213,11 +213,42 @@ silhouette, turning moves it directly towards or away from the viewer, so no poi
 means anything. It is also the physical answer — a hoop seen edge-on is turned by pushing the part
 closest to you sideways.
 
-**The handles are an overlay.** `LineRenderer` has had a second pipeline differing only in the depth
-test from the start, and nothing could use it: `Record` drew the whole buffer with one of them, so the
-world's lines and the gizmo's had to agree, and they agreed on the depth test — which hides the
-handles inside the object they are moving. `Record` now takes a vertex range, `SceneLines` has always
-kept the two lists apart, and `ScenePresenter` uploads once and draws twice.
+### The heads are solid and the shafts are not
+
+An arm is a line and its head is a shape, and the head used to be a wire outline too: four ribs from
+the tip to a square around the shaft, and the square. From the one angle it was built for that reads
+as an arrow; from every other it is four unrelated lines crossing near the end of a segment. It is
+also the part of a gizmo people aim at — the head is the target and the shaft only says which way —
+so it was exactly the wrong part to draw as a hint.
+
+`GizmoGeometry.BuildSolid` is the second half: a cone on a translate arm, a cube on a scale one, both
+from `MeshPrimitives` and both placed by a matrix. The geometry is cached because it never changes;
+what changes every frame is the matrix, because the gizmo is a constant size on screen and so its head
+is a different size in world units at every distance. The cone's normals are the fiddly part — its tip
+is a *row* of vertices with different normals, or it is lit as though a spotlight were on one side of
+it — and that is solved and tested in `MeshPrimitives` rather than here.
+
+- ⚠ **Drawn exactly when the arm is grabbable**, from the same `IsAxisVisible` call the shaft and the
+  hit test ask. A head left behind on an arm that is a dot is a solid lump over the middle of the
+  gizmo, hiding the handle that does answer there.
+- ⚠ **Centred on its own middle, not on the tip.** Both primitives straddle their local origin, so a
+  head placed at the end of the arm buries half of itself in the shaft and leaves the arm looking half
+  a head short.
+- ⚠ **Indices are offset by where the head's vertices started.** `MeshRenderer` deliberately does not
+  do it — a caller building a frame knows where each mesh began and it does not — and an unoffset
+  index names another head's vertex, which draws a triangle stretched between two arms.
+- ⚠ **The frame is right-handed on purpose.** Either handedness produces a box the shape fits into,
+  and the wrong one is a mirror: every triangle wound backwards. Nothing would show it today, because
+  the pipeline is two-sided and the normals go through the inverse transpose and come out right
+  regardless — which is precisely why it would be left in place to be discovered by whatever turns
+  culling on next.
+
+**The handles are an overlay, in both kinds.** `LineRenderer` has had a second pipeline differing only
+in the depth test from the start, for exactly this; `MeshRenderer` did not, and now does. The need is
+sharper for the solid half: a wire head behind a cube still shows a few pixels through it, and a solid
+one is simply gone. `SceneLines` keeps three lists — the world's segments, the gizmo's segments, and
+the gizmo's triangles — and `ScenePresenter` gives each its own renderer, because one renderer holds
+one buffer and draws all of it with one pipeline.
 
 **Snapping is two different things and only one of them puts objects on the grid.** By default — and
 this is what Blender, Unity and Unreal all do — a drag moves by a whole number of steps, so something
@@ -486,10 +517,16 @@ port present as "the remote inspector does not work with more than one client".
 
 ## Not in
 
-**Solid handles.** `GizmoGeometry` and `SceneLines` turn the gizmo, the grid and an entity marker into
-line segments that `Vixen.Rendering`'s `LineRenderer` draws — so the viewport shows them now. Cones,
-rings and a selection outline want a mesh path the editor does not have, and lines are what an editor
-draws for a scene of empties anyway.
+**Solid rings and plane quads.** ~~Solid handles.~~ The arm heads are cones and cubes through
+`MeshRenderer` — see above. What is still wire is everything else: a rotation ring is a polyline
+rather than a torus, and a plane quad is an outline rather than a filled square. The second of those
+is the one worth doing next, because the hit test already treats a plane handle as a *filled* quad —
+`InQuad`, not a distance to its border — so the outline understates what answers a click by the whole
+of its middle.
+
+**A selection outline.** The one thing here that is not geometry a tool can build: it wants the
+silhouette of whatever is selected, which is a post effect over a stencil rather than a mesh, and it
+wants a render pass the editor's viewport does not have.
 
 **Vertex snapping.** `SnapSettings.SnapToVertex` and its radius are in the model and are not honoured
 yet: it needs the mesh under the pointer, which is the same readback picking does but for a position
