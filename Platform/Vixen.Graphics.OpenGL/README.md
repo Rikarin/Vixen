@@ -16,7 +16,10 @@ which is the ADR's fourth measure and the place to look before changing the RHI'
 | File | What it answers |
 |---|---|
 | `IGlApi` | Every GL entry point the backend calls, behind an interface |
-| `SilkGlApi` | …and the one implementation of it, over `Silk.NET.OpenGL` |
+| `SilkGlApi` | …one implementation of it, over `Silk.NET.OpenGL` — desktop |
+| `SilkGlesApi` | …and the other, over `Silk.NET.OpenGLES` — GLES and WebGL2 |
+| `IEglApi` · `NativeEglApi` | The EGL entry points, and the hand-loaded `libEGL` behind them |
+| `EglContext` | A GLES context on a native window or a pbuffer, as a Silk `IGLContext` |
 | `GlProfile` | Which dialect, and what each one has |
 | `GlslTranslator` | Vulkan-style bindings → GL's flat namespaces; Vulkan clip space → GL's |
 | `GlBindingPlan` | Four descriptor sets → one binding index sequence per resource class |
@@ -34,9 +37,16 @@ Every GL call goes through `IGlApi`. That is not tidiness: the part of this back
 one level down. That one asserts what the engine asked the RHI for; this asserts what the RHI asked
 GL for.
 
-So `SilkGlApi` is the one file the suite does not touch, and there is nothing in it but
-transcription, which a compiler checks. What it needs instead is a driver, which CI provides on the
-Mesa leg ([`docs/plan/05`](../../docs/plan/05-graphics-rhi.md) § Cross-backend equivalence).
+So `SilkGlApi`, `SilkGlesApi` and `NativeEglApi` are the files the suite does not touch, and there is
+nothing in them but transcription, which a compiler checks. What they need instead is a driver, which
+CI provides on the Mesa leg ([`docs/plan/05`](../../docs/plan/05-graphics-rhi.md) § Cross-backend
+equivalence) and an Android device provides for the rest.
+
+The same seam is repeated one layer out for EGL. What can be wrong about bringing a context up is the
+*sequence* — which attribute list, in what order, what happens when a driver refuses GLES 3.2,
+whether a half-built context is torn down in the reverse of the order it was built — and all of it is
+decidable from the call stream. So `EglContext` talks to `IEglApi` and the tests drive
+`RecordingEglApi`, which is how a machine with no EGL on it checks the part that matters.
 
 ## Concessions, stated up front
 
@@ -69,9 +79,48 @@ RHI's copy boundary, where the "row 0 is the top row" contract is stated. The co
 triangle winding, so counter-clockwise in the RHI reaches the rasteriser clockwise. `GlEnums.Winding`
 does it and `GlslTranslator` does the flip; they are one change and are wrong separately.
 
-## Adding the GLES profiles
+## Running the GLES profiles
 
-`GlProfile` already models GLES 3.0, 3.2 and WebGL2, and the translation layer already differs by
-profile — that is what most of the test suite is about. What is missing is `Silk.NET.OpenGLES` and an
-EGL context, neither of which any app head in this repository creates yet. Adding them is one class
-implementing `IGlApi` and no change above it.
+`GlProfile` has modelled GLES 3.0, 3.2 and WebGL2 since this backend was written, and the translation
+layer has differed by profile throughout — that is what most of the test suite is about. What was
+missing was a binding and a context, and they are here now: `SilkGlesApi` over `Silk.NET.OpenGLES`,
+and `EglContext` over a hand-loaded `libEGL`. Nothing above `IGlApi` changed to accommodate either,
+which is the claim the seam was built to make good on.
+
+```csharp
+if (!NativeEglApi.TryLoad(out var egl, out var reason)) {
+    // No EGL on this machine. That is an ordinary answer on a desktop without ANGLE.
+    return;
+}
+
+using var context = new EglContext(egl, new EglContextOptions(nativeWindow));
+using var api = new SilkGlesApi(context, context.Profile);
+using var device = new GlDevice(new GlDeviceOptions(api, context.SwapBuffers));
+```
+
+`context.Profile` is the ladder's answer rather than a request: a driver is asked for GLES 3.2 and
+then, if it refuses, for 3.0, because `GL_VERSION` can only be read through a context that already
+exists. Everything the renderer gates on — compute, storage buffers, indirect draws — follows from
+which rung answered.
+
+**There is no `Silk.NET.EGL` for Silk.NET 2**; the package stops at 1.9.0, and Silk.NET 2's GLES
+windowing reaches EGL through GLFW or SDL rather than binding it. So `NativeEglApi` loads nineteen
+entry points out of the platform's `libEGL` itself, through `Vixen.Platform.Native` — the same
+search the Vulkan loader uses, for the same reasons.
+
+Three things this file is the place to say about GLES, each of which the translation layer already
+knew and none of which needed changing when a real context arrived:
+
+- **`GL_FRAMEBUFFER_SRGB` is desktop-only**, and enabling it on GLES is `GL_INVALID_ENUM` rather than
+  a no-op. It is now gated on `GlProfiles.HasFramebufferSrgbControl`. Its absence costs nothing: GLES
+  encodes for an attachment whose format is sRGB and does not for any other, which is precisely what
+  the RHI means by a format. The switch is the odd one out.
+- **A readback is a map and a copy.** GLES has no `glGetBufferSubData` at any version, which
+  `IGlApi` already said, and `SilkGlesApi` is where it becomes `glMapBufferRange`.
+- **A multi-draw is a loop.** GLES 3.1 has `glDrawElementsIndirect` for exactly one draw and no
+  multi-draw at any version, which is why `HasMultiDrawIndirect` is false on every GLES profile: the
+  draws happen, one call each.
+
+WebGL2 uses the same binding over a browser context rather than an EGL one — the arrangement
+[the spike](../../docs/plan/spikes/web-webgl2/RESULT.md) verified, and the reason `SilkGlesApi`
+refuses only `GlProfile.Core45`.

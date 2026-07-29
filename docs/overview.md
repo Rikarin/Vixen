@@ -108,8 +108,8 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | `Vixen.Graphics.Vulkan` — whole device + command list | ✅ | Platform/Vixen.Graphics.Vulkan | 155 tests, validation-clean on MoltenVK 1.4.2 and lavapipe |
 | Vulkan swapchain acquire/present automated coverage | ⬜ | — | Needs a window; AppKit aborts off the main thread. `Samples/01` exercises it |
 | Timeline semaphores, MSAA resolve, query pools | ⬜ | — | |
-| `Vixen.Graphics.OpenGL` — GL 4.5 core / GLES 3.0-3.2 / WebGL2 translation | ✅ | Platform/Vixen.Graphics.OpenGL | 92 tests against a recording `IGlApi` |
-| `Silk.NET.OpenGLES` + EGL context | ⬜ | — | ⛔ **The GLES profiles are modelled, not runnable.** One class implementing `IGlApi`; the package is deliberately absent from `Directory.Packages.props` |
+| `Vixen.Graphics.OpenGL` — GL 4.5 core / GLES 3.0-3.2 / WebGL2 translation | ✅ | Platform/Vixen.Graphics.OpenGL | 131 tests against a recording `IGlApi` and a recording `IEglApi` |
+| `Silk.NET.OpenGLES` + EGL context | ✅ | Platform/Vixen.Graphics.OpenGL | `SilkGlesApi` + `EglContext`. No `Silk.NET.EGL` exists for Silk.NET 2, so 19 entry points are loaded from `libEGL` through `Vixen.Platform.Native`. Nothing above `IGlApi` changed; `GL_FRAMEBUFFER_SRGB` is now gated, being desktop-only |
 | `glBindImageTexture` (storage images) | ⬜ | — | Every compute path has a fullscreen-fragment variant meanwhile |
 | `Vixen.Graphics.WebGPU` (native, Dawn/wgpu) | ✅ | Platform/Vixen.Graphics.WebGPU | Renders against pinned wgpu-native; push constants emulated as a dynamic UBO |
 | `Vixen.Graphics.WebGPU.Browser` (`navigator.gpu`) | ✅ | Platform/Vixen.Graphics.WebGPU.Browser | Tested against a recording fake with no browser |
@@ -131,7 +131,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | `Vixen.Platform.iOS` (UIKit, `CAMetalLayer`, `CADisplayLink`, multi-touch, IME) | 🟡 | Platform/Vixen.Platform.iOS | Runs in the **Simulator**. Physical device ⛔ on a provisioning profile (an Apple account, not a build setting) |
 | iOS sensors, haptics, Metal-layer HDR, `UIWindowSceneDelegate` | ⬜ | — | File dialogs, clipboard images, gamepads and hardware keyboard refused with reasons |
 | `Vixen.Platform.Android` (SurfaceView, lifecycle, Choreographer, `AAssetManager`) | 🟡 | Platform/Vixen.Platform.Android | Runs on the **emulator** (`-gpu swiftshader_indirect` required). No physical device attached |
-| Android GLES fallback + device-capability deny-list | ⬜ | — | ⛔ needs `Silk.NET.OpenGLES` + EGL |
+| Android GLES fallback + device-capability deny-list | ⬜ | — | Unblocked: the binding and the context are built. What is left is the head choosing GL over Vulkan and the deny-list that decides when |
 | Android key translation, safe-area insets, sensors | ⬜ | — | |
 | Android AOT gate (on its *default* runtime, not NativeAOT) | ⬜ | — | `XA1040` calls NativeAOT experimental on Android |
 | `Vixen.Platform.Web` — canvas, all input, IndexedDB, fetch + ranges, single-thread job mode, lazy assemblies | ✅ | Platform/Vixen.Platform.Web | Not in `Vixen.slnx` (needs `wasm-tools` to evaluate) |
@@ -460,6 +460,7 @@ Ground truth is [`Directory.Packages.props`](../Directory.Packages.props); the p
 | `Silk.NET.Vulkan` + `.Extensions.KHR` / `.EXT` | 2.23.0 | ✅ | `Vixen.Graphics.Vulkan` | Primary backend. `Vk.GetApi()` is never called (R11) |
 | `Silk.NET.SDL` | 2.23.0 | ✅ | `Vixen.Platform.Desktop` | **SDL 2, not SDL 3** — doc 01 corrected. Bindings only; `libSDL2` comes from the system or `Platform.Native` |
 | `Silk.NET.OpenGL` | 2.23.0 | ✅ | `Vixen.Graphics.OpenGL` | Desktop GL 4.5 core |
+| `Silk.NET.OpenGLES` | 2.23.0 | ✅ | `Vixen.Graphics.OpenGL` | The GLES 3.0/3.2 and WebGL2 profiles. A second package because libGL and libGLESv2 are two libraries. **No `Silk.NET.EGL` exists for 2.x** — it stops at 1.9.0 — so `NativeEglApi` binds EGL itself |
 | `Silk.NET.WebGPU` | 2.23.0 | ✅ | `Vixen.Graphics.WebGPU` | ⚠ Matches **no** wgpu-native release; the pin carries a refusal and a struct override |
 | `Silk.NET.OpenXR` + `.Extensions.KHR` | 2.23.0 | ✅ | `Vixen.Xr.OpenXR` | Doc 14 lists VR/XR as a stretch; it landed early |
 | `Silk.NET.OpenAL` + `.Extensions.*` | 2.23.0 | ✅ | `Vixen.Audio.Backend.OpenAL` | |
@@ -489,7 +490,6 @@ Ground truth is [`Directory.Packages.props`](../Directory.Packages.props); the p
 
 | Package | Planned for | Status | Blocks |
 |---|---|---|---|
-| `Silk.NET.OpenGLES` | `Vixen.Graphics.OpenGL` GLES/WebGL2 profiles | ⬜ | Runnable GLES on Android/Web; Android GLES fallback. Verified in the spike; deliberately not added yet |
 | `Silk.NET.SPIRV.Cross.Native` | `Vixen.Raven.Transpile` | ⬜ | HLSL/MSL/WGSL output (ADR-012) |
 | `Silk.NET.Shaderc` / `.Native` | Raven's differential oracle | ⬜ | The `glslc`-vs-SPIR-V oracle is described as running; the package is not in the register |
 | `Silk.NET.Direct3D.Compilers` | D3D12 backend | ✂️ | Postponed with the backend |
@@ -534,7 +534,8 @@ be finished honestly) until A lands.
 ## 3.1 The four keystones
 
 Four items unblock disproportionately more than anything else. If work is being scheduled, these go
-first.
+first. **K4 has since landed** and is kept below with what it unblocked struck through, because a
+dependency tree with the resolved edges deleted reads as though they were never there.
 
 ```
 K1  Compiled scene + prefab content
@@ -567,16 +568,19 @@ K3  Per-OS platform assemblies
     ├──→ Thermal state        (closes the quality-scaling policy loop)
     └──→ Floating dock groups in real OS windows (with multi-window + DPI)
 
-K4  Silk.NET.OpenGLES + an EGL context
+K4  Silk.NET.OpenGLES + an EGL context                      ✅ BUILT
+    (SilkGlesApi over Silk.NET.OpenGLES · EglContext over a hand-loaded libEGL, because
+     there is no Silk.NET.EGL for Silk.NET 2 · nothing above IGlApi changed)
     │
-    ├──→ GLES 3.0/3.2 actually runs on Android  ──→ Android GLES fallback + deny-list
-    ├──→ WebGL2 runs from the browser build     ──→ Samples/02 in Chrome/Firefox/Safari
-    └──→ Phase 10's browser exit criterion
+    ├──→ GLES 3.0/3.2 actually runs      ──→ Android GLES fallback + deny-list: now a head
+    │                                        choosing GL over Vulkan, not a missing binding
+    ├──→ WebGL2 has its binding          ──→ Samples/02 in a browser needs the head, not this
+    └──→ Phase 10's browser exit criterion — its graphics half is no longer the blocker
 ```
 
 ## 3.2 Wave 0 — startable today, fully parallel
 
-No unmet dependency. Twenty-three tracks as first written; four are struck through, having landed
+No unmet dependency. Twenty-three tracks as first written; five are struck through, having landed
 since. The rest can run in parallel.
 
 | # | Track | Unblocks |
@@ -584,7 +588,7 @@ since. The rest can run in parallel.
 | W0-1 | **K1** — `SceneCompiler` + runtime scene/prefab asset | 7 downstream items (§3.1) |
 | W0-2 | **K2** — compute node + GPU buffer upload/readback | 5 downstream items |
 | W0-3 | **K3** — `Vixen.Platform.Windows/.Linux/.MacOS` | 5 downstream items |
-| W0-4 | **K4** — `Silk.NET.OpenGLES` + EGL | 3 downstream items |
+| ~~W0-4~~ | ~~**K4** — `Silk.NET.OpenGLES` + EGL~~ | Built. `SilkGlesApi` + `EglContext`, with no change above `IGlApi`. What the three downstream items now want is an app head that asks for a GL device, not a binding |
 | W0-5 | `DescriptorBinding` sample type + comparison sampler (RHI) | WebGPU shadow maps → deferred/forward parity on the web |
 | ~~W0-6~~ | ~~`Tools/Vixen.ApiCheck` + first `PublicAPI.Shipped.txt`~~ | Built. The gate is in CI; what is left is the Phase 11 reading of what it baselined |
 | W0-7 | CI legs: Windows/Linux Vulkan, NativeAOT publish, run-a-sample, WebGPU-on-lavapipe | Content determinism across 3 OSes; `Samples/01` on Windows/Linux; the AOT gate becoming continuous |
@@ -694,12 +698,12 @@ it is deliberately distinct from "not started" in Part 1.
 | 20 | `Vixen.Graphics` | Placed resources (true aliasing) | Perf | Two backends cannot express it |
 | 21 | `Vixen.Graphics.RenderGraph` | Async-compute queue scheduling | Perf | — |
 | 22 | `Vixen.Graphics.Vulkan` | Swapchain acquire/present coverage; timeline semaphores; MSAA resolve; query pools | Coverage / feature | Windowed test host |
-| 23 | `Vixen.Graphics.OpenGL` | `Silk.NET.OpenGLES` + EGL context; `glBindImageTexture` | Feature | **K4** |
+| 23 | `Vixen.Graphics.OpenGL` | `glBindImageTexture` (storage images) | Feature | — (`Silk.NET.OpenGLES` + EGL is built) |
 | 24 | `Vixen.Graphics.WebGPU` | Sampled depth + comparison sampler; timestamp queries; Linux CI leg | Feature | #19 |
 | 25 | `Vixen.Platform.Desktop` | File pickers, clipboard images/custom formats, thread affinity, thermal state | Feature | **K3** |
 | 26 | `Vixen.Platform.Native` | R10's remaining five native dependencies | Infra | — |
 | 27 | `Vixen.Platform.iOS` | Physical-device run; sensors, haptics, HDR layer; scene-delegate lifecycle | Verification | Provisioning profile |
-| 28 | `Vixen.Platform.Android` | GLES fallback + deny-list; key translation; safe-area insets; sensors; default-runtime AOT gate | Feature | **K4** (fallback) |
+| 28 | `Vixen.Platform.Android` | GLES fallback + deny-list; key translation; safe-area insets; sensors; default-runtime AOT gate | Feature | — (the GLES binding and the EGL context now exist) |
 | 29 | `Vixen.Platform.Web` | Playwright smoke test; `AudioWorklet` path; a browser transport | Coverage / feature | CI leg |
 | 30 | `Vixen.Assets` / pipeline | Parallel import; persisted per-entry index; the import-budget gate | Perf | — |
 | 31 | Asset pipeline | `SceneCompiler` + scene/prefab asset | Feature | — (**K1** itself) |
@@ -770,11 +774,11 @@ it is deliberately distinct from "not started" in Part 1.
 | Blocked on **K1** (scene format) | 9 | The single highest-leverage unblock |
 | Blocked on **K2** (compute/readback) | 5 | Closes Phase 7's exit criterion |
 | Blocked on **K3** (per-OS assemblies) | 5 | Closes three deferrals dating to Phase 1 |
-| Blocked on **K4** (`OpenGLES` + EGL) | 3 | Closes Phase 10's browser criterion |
+| ~~Blocked on **K4** (`OpenGLES` + EGL)~~ | ~~3~~ | K4 is built. The three are now app-head work: a head that asks for a GL device on Android or in a browser |
 | Blocked on a **decision**, not code | 2 | Relay scope; D3D12 (already answered: post-1.0) |
 | Blocked on **hardware or an account** | 3 | iPhone provisioning; an Android device; the IHV matrix |
 | Genuinely independent | ~40 | Can be picked up in any order (§3.5) |
-| Closed since the first revision of this page | 8 | `CheckApi` · `LayoutFinished` · `NodeGraphView` · handle reservation · line wrapping · `VirtualizingPanel` · `scoped`/per-type stylesheets · the image draw command |
+| Closed since the first revision of this page | 9 | **K4** · `CheckApi` · `LayoutFinished` · `NodeGraphView` · handle reservation · line wrapping · `VirtualizingPanel` · `scoped`/per-type stylesheets · the image draw command |
 
 ---
 

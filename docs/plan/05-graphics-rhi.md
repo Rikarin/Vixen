@@ -198,8 +198,23 @@ findings are worth naming here because they are about the *abstraction* rather t
 
 Every GL call goes through `IGlApi`, and the test assembly drives a recording implementation of it —
 so the translation layer is checked on every build rather than only on the CI leg that has Mesa. The
-Silk.NET binding is one file, is nothing but transcription, and is the only file the suite does not
-touch.
+Silk.NET bindings are one file each, are nothing but transcription, and are the only files the suite
+does not touch.
+
+**The GLES profiles run.** `SilkGlesApi` is the second binding — libGL and libGLESv2 are different
+libraries with different entry-point tables, which is why `Silk.NET.OpenGL` and `Silk.NET.OpenGLES`
+are two packages — and `EglContext` is the context they need. There is no `Silk.NET.EGL` for
+Silk.NET 2 (the package stops at 1.9.0; Silk.NET 2 reaches EGL through GLFW or SDL), so nineteen
+entry points are loaded from the platform's `libEGL` through `Vixen.Platform.Native`. The same seam
+is applied one layer out: `EglContext` talks to `IEglApi`, so the bring-up sequence — the version
+ladder, the attribute lists, the teardown of a half-built context — is checked without a driver, and
+`NativeEglApi` is transcription like the other two.
+
+Nothing above `IGlApi` changed for it, which was the point. One thing below did, and it is the kind
+of finding a modelled profile cannot produce: `GL_FRAMEBUFFER_SRGB` is desktop-only, and enabling it
+on a GLES context is `GL_INVALID_ENUM` rather than a no-op. GLES needs no such switch — it encodes
+for an attachment whose format is sRGB and does not for any other, which is exactly what the RHI
+means by a format, so desktop GL's global is the exception rather than the rule.
 
 Known concessions, documented up front so nobody is surprised:
 - No true multithreaded command recording. Command lists are recorded into a deferred, replayable
