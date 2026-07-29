@@ -1525,14 +1525,21 @@ node that does not compile, with no hint as to why.
 Bloom has no lens flare and no light streak, and the tonemap pass has no grading LUT as an asset —
 the shader takes one, nothing loads one.
 
-**Compacted draws, and the bindless materials they need.** Indirect draws here are one command per
-object with the culled ones zeroed. The reason is not the shader — claiming a slot needs an
-`atomicAdd` and Raven has one. It is the draw, twice over: a single command covers a compacted run
-only if its count comes from the device, and `ICommandList.DrawIndexedIndirect` takes `drawCount` as
-a host integer; and a single command covers several objects only if they share their bindings, and
-`MeshRenderFeature` binds a vertex buffer, an index buffer and a material set per object. **Bindless
-materials** are the deeper of the two and the one to do first — an indirect-count draw is a small
-RHI addition that buys nothing on its own.
+**Compacted draws are built**, and this section used to say they were the thing blocked on
+everything. `GpuDrawArguments.Compact` appends survivors to a run per batch and
+`MeshRenderFeature` covers a whole batch with one `DrawIndexedIndirectCount` — see
+[docs/bindless-materials.md](../../docs/bindless-materials.md), which is the record of the whole
+chain. Both halves of the old objection are gone: the count comes from a buffer the host never reads,
+and objects share their bindings because a material is a record (`MaterialRecords`) and geometry is a
+range of a shared buffer (`GeometryBuffer`).
+
+**What still keeps `ForwardPlus` at one command per object is a push constant holding a
+transform.** `TransformRenderFeature` pushes each object's world matrix, and a merged command has no
+place to push the second object's — so the merge is gated on no sub-feature recording per node, which
+is checked rather than assumed and has a test on each side. The fix is the one `[MaterialIndex]`
+already demonstrates: transforms in a buffer, the index carried in the draw's own `firstInstance`,
+which the compaction shader copies and Vulkan feeds to `gl_InstanceIndex`.
+`InstancingRenderFeature` already uses that field for exactly this, so the two become one mechanism.
 
 ## Testing
 

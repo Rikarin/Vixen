@@ -632,7 +632,7 @@ since. The rest can run in parallel.
 | W0-14 | Pin a static `libjoltc.a` for `ios-arm64` | Physics on iOS → `Samples/05` on iOS |
 | W0-15 | Add `astcenc` + `ispc_texcomp` to `native-dependencies.json` | ASTC/ETC2 · full BC7/BC6H · mobile texture budgets. Also proves R10's schema generalises |
 | ~~W0-16~~ | ~~ECS entity-handle **reservation**~~ | Built (`World.TryRecreate`), and spent: create/delete/rename are undoable in the scene view |
-| 🟡 W0-17 | Bindless material binding plan | **The RHI and the shader halves are built** — `BindlessTable` and descriptor indexing in the Vulkan backend, plus Raven's `Texture2D[]`; both device-verified, the second by sixty-four invocations reading sixty-four different slots. **Material texture features are closed** — a texture is a slot in the table and a `uint` in the material's block. What is left is written down in [bindless-materials.md](bindless-materials.md): the block itself becoming a *record* rather than a per-material set, then an indirect-count draw, then compaction. Compacted draws and per-object reflection probes wait on the first of those. **Two-phase occlusion landed without it** |
+| ~~W0-17~~ | ~~Bindless material binding plan~~ | **Built end to end**, and the record is [bindless-materials.md](bindless-materials.md). `BindlessTable` and descriptor indexing in the Vulkan backend; Raven's `Texture2D[]`, `[Shared]`, `[MaterialIndex("…")]` and `[Bindless]`; materials as records of one buffer bound per effect; `GeometryBuffer` so meshes share one vertex and index buffer; `DrawIndexedIndirectCount` behind its own capability; and compaction — one command per batch, with the count read from a buffer the host never sees. ⚠ A table is **set 4**, because a content-addressed per-frame set cannot hold one, so `HasBindless` also requires five bindable sets. ⚠ What still keeps `ForwardPlus` at one command per object is `TransformRenderFeature`'s per-object push constant — a *transform*, not a material, and the merge is gated on it rather than assumed |
 | ~~W0-18~~ | ~~Light-probe exact predicates (robust Bowyer–Watson)~~ | Built, and spent: `LightProbeVolume` interpolates tetrahedrally. `ExactPredicates` is general — an exact orientation and in-sphere live in `Vixen.Core.Mathematics` now, for whatever else needs a sign rather than a number |
 | ~~W0-19~~ | ~~`NodeGraphView` (pan/zoom/wires/minimap/search-to-create)~~ | Built. Shader-graph and VFX-graph authoring is now a matter of nodes, not of a canvas |
 | W0-20 | Non-scene asset editors: texture, model, material, shader, UI, addressable groups, compositor | Phase 6's exit criterion, minus the scene half |
@@ -661,7 +661,8 @@ since. The rest can run in parallel.
 | ASTC/ETC2 output + full-quality BC7 | W0-15 | Then `ktx validate` + reference-decoder verification |
 | Undoable **reparenting** command + hierarchy drag-and-drop | — | Unblocked: `SetParentAfter` is in. Create/delete/rename already landed |
 | Viewport click-to-select | An id render target | The gizmo already drags what the hierarchy selects |
-| Compacted draws; per-object reflection probes | W0-17 | |
+| ~~Compacted draws~~ | ~~W0-17~~ | Built — `GpuDrawArguments.Compact`. Gated on no per-node contributor, which `ForwardPlus` still has |
+| Per-object reflection probes | W0-17 | Unblocked: the table and the per-object index both exist |
 | Shader-graph procedural/custom-code nodes, Post + UI masters, previews | — | Unblocked: `NodeGraphView` is in and its preview layer already draws a render target |
 | VFX-graph operator nodes, remaining opcode blocks, live preview | W1(VFX GPU) | The view half is in; the live preview is the runtime's |
 | `Relay` transport + transport fallback | W0-21 | |

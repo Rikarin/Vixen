@@ -14,6 +14,12 @@ is designed:
 A draw that binds a descriptor set is a draw that cannot be merged with a draw that binds a different
 one. Everything else follows.
 
+**None of those three clauses is true any more.** A material is a record of a buffer bound once per
+effect (2b), a mesh's geometry is a range of a buffer shared with every other mesh of its layout (5),
+and a run of objects that bind alike is one command whose draw count the host never learns (3 and 4).
+What remains between that and the shipped forward pass is one push constant, and it holds a
+*transform* rather than a material — see the last section.
+
 ## What is built
 
 **The RHI half.** `Vixen.Graphics.BindlessTable`, `GraphicsDeviceFeatures.MaxBindlessDescriptors`,
@@ -220,9 +226,7 @@ rather than to the draw loop.
 replaces it when it grows, so a set written earlier would point at a buffer that no longer exists —
 the one failure the RHI's deferred destroy cannot save a caller from.
 
-**2b is complete.** What is left in the plan is a host asking for the `UseMaterialRecords` variant
-where the device reports `HasBindless` — a wiring decision rather than a mechanism — then the
-indirect-count draw, then compaction.
+**2b is complete**, and so is the rest of the plan — see steps 2d, 3, 4 and 5 below.
 
 The sketch this replaces:
 
@@ -288,18 +292,92 @@ concatenation of runs rather than a flat array. Worth deciding explicitly rather
 one buffer per variant is simpler and costs a bind per variant, which is exactly the cost being
 removed.
 
-### 3. The indirect draw whose count comes from the device
+### 2d. ~~A set of its own, and a frame that actually takes the path~~ — built
 
-Small, and buys nothing until 2 is done. `ICommandList.DrawIndexedIndirect` takes `drawCount` as a
-host integer; a compacted run needs `vkCmdDrawIndexedIndirectCount`, `ExecuteIndirect` with a count
-buffer, or `glMultiDrawElementsIndirectCount`. Behind a capability, with the zeroed-instance-count
-form as the fallback — which is what `GpuDrawArguments` does today and will keep doing on WebGL2
-forever.
+⚠ **The blocker for using any of it, found the same way 2a′ was: by trying.** Nothing outside the
+tests built a `BindlessTable`, set `TextureIndices`, turned `UseRecords` on, or asked for the
+`UseMaterialRecords` variant. That was called "a wiring decision rather than a mechanism" above, and
+it was not: two mechanisms were missing.
 
-### 4. Then compaction
+**A table cannot live in the frame's descriptor set.** Sets 0 to 3 are written each frame by
+`DescriptorAllocator`, which is content-addressed — a set whose write list differs by a byte is a
+different set object. A table's descriptors are written one at a time as textures enter it and there
+may be thousands, so a table in set 0 would be written out again in full whenever a uniform block
+moved within its upload ring. That is precisely the cost a table exists to remove.
+`DescriptorSetSlot.Bindless` is set 4, Raven's `[Bindless]` marker puts a binding there, and
+`HasBindless` gained a fifth requirement — `MaxDescriptorSets >= 5`, which Vulkan does *not*
+guarantee and which a device answering on the indexing bits alone would fail at
+`vkCreatePipelineLayout` rather than at a capability check. Only a shader that declares a table gets
+the fifth layout; a variant compiled without it is the four-set layout it always was.
 
-`GpuDrawArguments` appends survivors instead of zeroing them. The atomic add has been available since
-Raven got atomics; what was missing was 2 and 3.
+**And `EffectSetWriter` would have made a table into a missing binding.** It counts what a set wants
+and refuses to bind one short of an entry, which is right. An unbounded array is not one of those
+entries — the table owns it — so counting it made every set holding one permanently incomplete, and
+the caller's answer to incomplete is to bind *nothing*: a shader that gained a table would have lost
+the set it was already binding, and the frame would go dark rather than untextured.
+
+`MaterialRenderFeature.EnableRecords(shaderKey)` is the decision, and it sets **both** halves. Either
+alone draws: records nothing reads, or a subscript into a buffer the host is still filling descriptor
+sets for. `Permutations` is a third layer applied after the material's values and after every
+sub-feature's, because a material is authored on one machine and drawn on another and must not be
+able to claim a capability the device does not have.
+
+### 3. ~~The indirect draw whose count comes from the device~~ — built
+
+`ICommandList.DrawIndexedIndirectCount` and `GraphicsDeviceFeatures.HasDrawIndirectCount`: Vulkan
+through `VK_KHR_draw_indirect_count`, the Null backend recording it, GL and WebGPU refusing it with
+the fallback named in the message. GL refuses rather than emulating — reading the count back and
+issuing that many draws is a full pipeline stall mid-frame, which is the round trip this whole path
+exists to avoid.
+
+⚠ **Its own capability, and `HasMultiDrawIndirect` does not imply it.** They come apart on every API
+that has both: Vulkan spells the count buffer as an extension promoted in 1.2, GL wants 4.6 where
+multi-draw wants 4.3, and WebGPU and Metal have neither. MoltenVK reports multi-draw and not this, so
+a host reading the wrong flag finds out on the first Mac it runs on.
+
+⚠ **Asked as the extension at every Vulkan version.** The commands are core from 1.2 and gated there
+behind `VkPhysicalDeviceVulkan12Features::drawIndirectCount`, a structure this backend does not
+query; every driver that promoted the extension still advertises it. Asking for the extension makes
+the capability, the enable and the loaded entry point one decision instead of three that must agree.
+
+### 4. ~~Then compaction~~ — built
+
+`DrawArguments.rvn` gains `[Permutation] val Compact`; survivors claim a slot with `atomicAdd` into
+their batch's run and a culled object writes nothing at all. `GpuDrawArguments` lays the runs out —
+a histogram and a prefix sum over the batch ids a source supplies — and `MeshRenderFeature` covers a
+whole batch with one `DrawIndexedIndirectCount`.
+
+Compaction costs an atomic and **no memory**: batches partition the objects, so their runs partition
+a view's region and the buffer is exactly the size the padded form needed.
+
+⚠ **Three conditions on a merged run, and each rules out a picture rather than an error.** Same
+batch, or the command draws arguments belonging to geometry it is not bound for. Same effect and same
+buffers, because one command binds one of each. And the run must be the *whole* batch — a batch is a
+fact about objects and a run is a fact about one stage's node list, so a shadow cascade seeing half a
+batch would otherwise draw the other half into the cascade. The third is the one that would have been
+missed.
+
+⚠ **The counts are cleared on the device before every dispatch.** An `atomicAdd` onto last frame's
+count appends past the end of a batch's run and into the next batch's, which draws one batch's
+geometry with another's arguments — and does so only in the frames where something became invisible.
+Copied from a buffer of zeros rather than written from the host, because a host write into a buffer
+an unfinished frame may still be reading is the hazard the upload ring exists for, and a source
+written once and never again has none of it.
+
+### 5. ~~The geometry half~~ — built
+
+`GeometryBuffer` puts many meshes in one vertex buffer and one index buffer at their own offsets, and
+`MeshRenderFeature` binds each only when it changed. Three meshes now cost one vertex bind, one index
+bind and no per-material set — so the sentence at the top of this document has nothing left in it.
+
+⚠ **One buffer per vertex layout, and it has to be.** A draw's `vertexOffset` is a vertex *count* the
+GPU multiplies by the pipeline's stride, so two formats in one buffer would each be read at the
+other's. The stride belongs to the buffer, which is the same reason `MeshDraw.VertexLayout` is
+already part of `PipelineKey`.
+
+⚠ **Fixed capacity: dropped rather than grown.** Growing means new handles, and the handles are the
+problem — every `MeshDraw` already built holds the old ones. A caller needing more space makes a
+second buffer, which costs one bind between the two runs and nothing within either.
 
 ## Where this stands
 
@@ -315,8 +393,27 @@ Raven got atomics; what was missing was 2 and 3.
 | 2b. A marker a permutation can switch off | ✅ built — `[MaterialIndex("Key")]`, so one pass is both |
 | 2b. The shipped pass declares it, and the index reaches the block | ✅ built — and it cost no layout, filling padding that was already there |
 | 2b. Binding the record buffer once per group | ✅ built — two materials of one effect are one bind |
-| 3. An indirect draw whose count comes from the device | ⬜ |
-| 4. Compaction | ⬜ |
+| 2d. A set of its own, and a frame that takes the path | ✅ built — `DescriptorSetSlot.Bindless`, `EnableRecords` |
+| 3. An indirect draw whose count comes from the device | ✅ built — `DrawIndexedIndirectCount`, behind its own capability |
+| 4. Compaction | ✅ built — one command per batch, three conditions checked |
+| 5. The geometry half | ✅ built — `GeometryBuffer`, one bind per run |
+
+## The one thing between this and the shipped forward pass
+
+⚠ **`TransformRenderFeature` pushes each object's world matrix as a push constant**, and a merged
+command has no place to push the second object's. So `MeshRenderFeature` will not merge a run when
+any sub-feature records per node — a gate that is checked rather than assumed, with a test on each
+side of it, and it is why `ForwardPlus` still draws one command per object today.
+
+The fix is the same one `[MaterialIndex]` was, and it is a change to the shipped shader rather than
+to any mechanism here: put the transforms in a buffer and carry the index in the draw's own
+`firstInstance`, which the compaction shader already copies and which Vulkan feeds to
+`gl_InstanceIndex` before the vertex stage runs. `InstancingRenderFeature` already uses that field for
+exactly this purpose, so the two would become one mechanism rather than two.
+
+Everything else is in place: the table is bound, the records are bound, the geometry is shared, the
+count-buffer draw exists and compaction runs. This is the last per-object binding, and it is a
+transform rather than a material — which is why it was never in this plan.
 
 ## Two things deliberately not planned here
 
