@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Ui;
+using Vixen.Ui.Controls.Advanced;
+using Vixen.Editor.Testing;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -18,7 +21,7 @@ namespace Vixen.Editor.App.Tests;
 public class SelectionTests {
     [Fact]
     public void Clicking_an_entity_in_the_hierarchy_shows_it_in_the_inspector() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("hierarchy");
         fixture.ClickRow(fixture.Hierarchy, "Main Camera");
@@ -26,7 +29,7 @@ public class SelectionTests {
         var target = Assert.IsType<SceneEntity>(Assert.Single(fixture.Inspector.Targets));
 
         Assert.Equal("Main Camera", target.Name);
-        Assert.Equal("Main Camera", fixture.Editor.Shell.Status);
+        Assert.Equal("Main Camera", fixture.Shell.Status);
 
         // The rows themselves, not only the target: an inspector handed an object it has no
         // descriptor for shows an empty state and no rows at all, which from the far end looks
@@ -36,11 +39,11 @@ public class SelectionTests {
 
     [Fact]
     public void Clicking_an_asset_in_the_project_browser_shows_it_in_the_inspector() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("project");
-        fixture.ExpandAll(fixture.Project);
-        fixture.ClickRow(fixture.Project, "Main.vxscene");
+        fixture.ExpandAll(fixture.Assets);
+        fixture.ClickRow(fixture.Assets, "Main.vxscene");
 
         var target = Assert.IsType<ProjectAsset>(Assert.Single(fixture.Inspector.Targets));
 
@@ -51,7 +54,7 @@ public class SelectionTests {
         // The GUID is what everything else refers to the file by, so a blank one is the failure this
         // row exists to make visible.
         Assert.NotEmpty(target.Identity);
-        Assert.Equal("Main.vxscene", fixture.Editor.Shell.Status);
+        Assert.Equal("Main.vxscene", fixture.Shell.Status);
         Assert.NotEmpty(fixture.Inspector.Rows);
     }
 
@@ -61,23 +64,23 @@ public class SelectionTests {
     /// </summary>
     [Fact]
     public void The_panel_that_was_clicked_in_wins_and_the_other_is_deselected() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("hierarchy");
         fixture.ClickRow(fixture.Hierarchy, "Ground");
 
-        Assert.Single(fixture.Editor.Scene.Selection);
+        Assert.Single(fixture.Scene.Selection);
 
         fixture.Open("project");
-        fixture.ExpandAll(fixture.Project);
-        fixture.ClickRow(fixture.Project, "Scenes");
+        fixture.ExpandAll(fixture.Assets);
+        fixture.ClickRow(fixture.Assets, "Scenes");
 
         Assert.IsType<ProjectAsset>(Assert.Single(fixture.Inspector.Targets));
 
         // ⚠ Both ends of it. Dropping the document's selection while the tree still draws the row
         // highlighted is the half-done version, and the one that makes the next Delete look like it
         // acted on something nobody had selected.
-        Assert.Empty(fixture.Editor.Scene.Selection);
+        Assert.Empty(fixture.Scene.Selection);
         Assert.Empty(fixture.Hierarchy.Selection);
 
         fixture.Open("hierarchy");
@@ -95,15 +98,15 @@ public class SelectionTests {
     /// </summary>
     [Fact]
     public void Reopening_the_inspector_shows_what_is_already_selected() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("project");
-        fixture.ExpandAll(fixture.Project);
-        fixture.ClickRow(fixture.Project, "Scenes");
+        fixture.ExpandAll(fixture.Assets);
+        fixture.ClickRow(fixture.Assets, "Scenes");
 
         Assert.IsType<ProjectAsset>(Assert.Single(fixture.Inspector.Targets));
 
-        fixture.Editor.Shell.Workspace.Close("inspector");
+        fixture.Shell.Workspace.Close("inspector");
         fixture.Frames(2);
 
         fixture.Open("inspector");
@@ -124,13 +127,13 @@ public class SelectionTests {
     /// </remarks>
     [Fact]
     public void Clicking_in_an_opened_scenes_own_hierarchy_shows_that_scenes_entity() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("project");
-        fixture.ExpandAll(fixture.Project);
-        fixture.DoubleClickRow(fixture.Project, "Main.vxscene");
+        fixture.ExpandAll(fixture.Assets);
+        fixture.DoubleClickRow(fixture.Assets, "Main.vxscene");
 
-        var opened = fixture.OpenedAssetTree;
+        var opened = OpenedAssetTree(fixture);
 
         Assert.NotEmpty(opened.Rows);
         fixture.Click(opened.Rows.First(row => row.Node is not null && !row.HasClass("parked")));
@@ -139,7 +142,7 @@ public class SelectionTests {
 
         // ⚠ And against that document's stack, not the editor's own scene's. An edit recorded on the
         // wrong stack is undone by a Ctrl+Z aimed at something else entirely.
-        Assert.NotSame(fixture.Editor.Scene, fixture.Inspector.EditedDocument);
+        Assert.NotSame(fixture.Scene, fixture.Inspector.EditedDocument);
     }
 
     /// <summary>
@@ -153,16 +156,42 @@ public class SelectionTests {
     /// </remarks>
     [Fact]
     public void A_row_with_no_guid_behind_it_is_not_a_selection() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("hierarchy");
         fixture.ClickRow(fixture.Hierarchy, "Ground");
 
         fixture.Open("project");
-        fixture.ClickRow(fixture.Project, "Assets");
+        fixture.ClickRow(fixture.Assets, "Assets");
 
         var target = Assert.IsType<SceneEntity>(Assert.Single(fixture.Inspector.Targets));
 
         Assert.Equal("Ground", target.Name);
+    }
+
+    /// <summary>The tree inside the panel an opened asset was given, whichever GUID it was named after.</summary>
+    /// <remarks>
+    ///     A panel per document, registered on demand and named after the asset's GUID — so there is
+    ///     no fixed id to ask the session for, and the prefix is the only handle there is.
+    /// </remarks>
+    static TreeView OpenedAssetTree(EditorSession fixture) =>
+        fixture.Panels
+            .Where(panel => panel.Id.StartsWith("asset.", StringComparison.Ordinal))
+            .Select(Find<TreeView>)
+            .FirstOrDefault(tree => tree is not null)
+        ?? throw new InvalidOperationException("no asset panel with a tree in it is open");
+
+    static T? Find<T>(UiElement element) where T : UiElement {
+        if (element is T match) {
+            return match;
+        }
+
+        foreach (var child in element.Children) {
+            if (Find<T>(child) is { } found) {
+                return found;
+            }
+        }
+
+        return null;
     }
 }

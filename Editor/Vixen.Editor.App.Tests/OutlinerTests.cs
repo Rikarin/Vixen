@@ -5,6 +5,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Engine.Transforms;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
+using Vixen.Editor.Testing;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -20,14 +21,14 @@ namespace Vixen.Editor.App.Tests;
 public class OutlinerTests {
     [Fact]
     public void Selecting_an_entity_anywhere_highlights_its_row() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("hierarchy");
 
-        var crate = fixture.Editor.Scene.Entities.First(entity => fixture.Editor.Scene.NameOf(entity) == "Crate");
+        var crate = fixture.Scene.Entities.First(entity => fixture.Scene.NameOf(entity) == "Crate");
 
         // Not through the tree: this is what a viewport click, a command or an undo does.
-        fixture.Editor.Scene.Selection.Set([crate]);
+        fixture.Scene.Selection.Set([crate]);
         fixture.Frames(2);
 
         var selected = Assert.Single(fixture.Hierarchy.Selection);
@@ -36,11 +37,11 @@ public class OutlinerTests {
 
     [Fact]
     public void Restoring_a_multiple_selection_does_not_collapse_it_to_one() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("hierarchy");
 
-        var scene = fixture.Editor.Scene;
+        var scene = fixture.Scene;
         var picked = scene.Entities.Where(entity => scene.NameOf(entity) is "Crate" or "Barrel").ToList();
 
         Assert.Equal(2, picked.Count);
@@ -57,7 +58,7 @@ public class OutlinerTests {
 
     [Fact]
     public void The_filter_keeps_a_matching_row_and_the_parents_it_hangs_from() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("hierarchy");
 
@@ -78,7 +79,7 @@ public class OutlinerTests {
 
     [Fact]
     public void Clearing_the_filter_brings_everything_back() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("hierarchy");
 
@@ -93,11 +94,11 @@ public class OutlinerTests {
 
     [Fact]
     public void A_drag_onto_another_row_reparents_the_entity_undoably() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("hierarchy");
 
-        var scene = fixture.Editor.Scene;
+        var scene = fixture.Scene;
         var world = scene.World;
 
         var camera = scene.Entities.First(entity => scene.NameOf(entity) == "Main Camera");
@@ -112,7 +113,7 @@ public class OutlinerTests {
 
         Assert.Equal(ground, Hierarchy.ParentOf(world, camera));
 
-        Assert.True(fixture.Editor.Shell.Commands.Execute("edit.undo"));
+        Assert.True(fixture.Shell.Commands.Execute("edit.undo"));
         fixture.Frames(2);
 
         Assert.NotEqual(ground, Hierarchy.ParentOf(world, camera));
@@ -120,11 +121,11 @@ public class OutlinerTests {
 
     [Fact]
     public void A_drag_that_would_make_a_cycle_leaves_the_tree_showing_the_truth() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("hierarchy");
 
-        var scene = fixture.Editor.Scene;
+        var scene = fixture.Scene;
         var world = scene.World;
         var ground = scene.Entities.First(entity => scene.NameOf(entity) == "Ground");
         var before = Hierarchy.ParentOf(world, ground);
@@ -141,11 +142,11 @@ public class OutlinerTests {
 
     [Fact]
     public void Dragging_one_of_several_selected_rows_moves_all_of_them() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("hierarchy");
 
-        var scene = fixture.Editor.Scene;
+        var scene = fixture.Scene;
         var world = scene.World;
 
         var crate = scene.Entities.First(entity => scene.NameOf(entity) == "Crate");
@@ -164,7 +165,7 @@ public class OutlinerTests {
         Assert.Equal(root, Hierarchy.ParentOf(world, barrel));
     }
 
-    static void Filter(EditorFixture fixture, string text) {
+    static void Filter(EditorSession fixture, string text) {
         var box = Find<SearchBox>(fixture.Document.Root)
             ?? throw new InvalidOperationException("the outliner has no filter box");
 
@@ -178,7 +179,7 @@ public class OutlinerTests {
     ///     test of the gesture recogniser — which has its own. What this is about is what the
     ///     application does with the <c>Moved</c> event at the end of one.
     /// </remarks>
-    static void Move(EditorFixture fixture, string what, string onto) {
+    static void Move(EditorSession fixture, string what, string onto) {
         var tree = fixture.Hierarchy;
 
         var node = Node(tree, what);
