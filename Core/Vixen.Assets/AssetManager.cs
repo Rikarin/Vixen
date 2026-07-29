@@ -113,6 +113,55 @@ public sealed class AssetManager {
         return handle;
     }
 
+    /// <summary>Starts loading whatever a <c>vx:</c> reference points at.</summary>
+    /// <typeparam name="T">What to load it as.</typeparam>
+    /// <param name="reference">The reference a component, material or prefab holds.</param>
+    /// <param name="cancellationToken">Cancels the load.</param>
+    /// <returns>A handle, which the caller releases.</returns>
+    /// <exception cref="ReferenceNotFoundException">This build shipped nothing under that identity.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The overload a runtime component actually needs.</b> An entity holds an
+    ///         <see cref="AssetId" /> because that is what survives renaming a file, and every other
+    ///         entry point here takes an address, so until this existed there was no way for a component
+    ///         to name something loadable — see <c>ContentCatalog.TryGetAddress</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A resolution failure is its own exception, not <see cref="AddressNotFoundException" />.</b>
+    ///         The two say different things to whoever reads the log: a missing address is a typo in a
+    ///         call, and a missing reference is content that was not built — an asset excluded from the
+    ///         build, or a scene saved against something since deleted. Reporting the second as the first
+    ///         would send somebody looking for a spelling mistake in a string they never wrote.
+    ///     </para>
+    /// </remarks>
+    public AssetHandle<T> LoadAsync<T>(AssetReference reference, CancellationToken cancellationToken = default)
+        where T : class =>
+        LoadAsync<T>(AddressOf(reference), cancellationToken);
+
+    /// <summary>Loads whatever a <c>vx:</c> reference points at, blocking until it is there.</summary>
+    /// <typeparam name="T">What to load it as.</typeparam>
+    /// <param name="reference">The reference.</param>
+    /// <param name="cancellationToken">Cancels the load.</param>
+    /// <returns>A handle whose result is already available.</returns>
+    /// <exception cref="ReferenceNotFoundException">This build shipped nothing under that identity.</exception>
+    public AssetHandle<T> Load<T>(AssetReference reference, CancellationToken cancellationToken = default)
+        where T : class =>
+        Load<T>(AddressOf(reference), cancellationToken);
+
+    /// <summary>What address a reference resolves to.</summary>
+    /// <param name="reference">The reference.</param>
+    /// <returns>The address.</returns>
+    /// <exception cref="ReferenceNotFoundException">This build shipped nothing under that identity.</exception>
+    /// <remarks>
+    ///     Public because a caller that holds a reference and wants the address rather than the asset —
+    ///     a diagnostic, a dependency walk, a "what would this cost to download" — should not have to
+    ///     load it to find out.
+    /// </remarks>
+    public string AddressOf(AssetReference reference) =>
+        Catalog.TryGetAddress(reference, out var address)
+            ? address
+            : throw new ReferenceNotFoundException(reference);
+
     /// <summary>Loads everything carrying a label.</summary>
     /// <typeparam name="T">What to load them as.</typeparam>
     /// <param name="label">The label.</param>
@@ -185,7 +234,8 @@ public sealed class AssetManager {
     /// <param name="cancellationToken">Cancels the fetch.</param>
     /// <returns>A seekable stream over its payload, which the caller disposes.</returns>
     /// <remarks>
-    ///     Honest rather than hidden, for the reason <see cref="Load{T}" /> is: the alternative pushes
+    ///     Honest rather than hidden, for the reason <see cref="Load{T}(string, CancellationToken)" />
+    ///     is: the alternative pushes
     ///     people towards <c>.Result</c> on the asynchronous form, which deadlocks on a
     ///     synchronisation context.
     /// </remarks>

@@ -294,6 +294,44 @@ public sealed class BuildPlannerTests {
     }
 
     /// <summary>
+    ///     Every planned entry carries the <c>vx:</c> identity that names it, which is what lets a
+    ///     runtime resolve what a component holds into something loadable.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the only place in the build that holds both halves.</b> A sub-asset's address
+    ///     carries its <i>name</i> and its reference carries its <i>id</i> — see
+    ///     <c>BuildPlanner.SubAssetAddress</c> — so neither can be recovered from the other later. If
+    ///     the reference is not written down here it cannot be written down at all.
+    /// </remarks>
+    [Fact]
+    public void EveryPlannedEntryCarriesTheReferenceThatNamesIt() {
+        var project = new PlannedProject();
+
+        var asset = project.Add(
+            "Models/hero.fbx",
+            address: "characters/hero",
+            group: "UiCore",
+            subAssets: ["Hero_Mesh"]
+        );
+
+        project.Group("UiCore");
+
+        var plan = project.Plan();
+
+        Assert.True(plan.Succeeded);
+
+        Assert.Equal(
+            new AssetReference(asset),
+            plan.Assets.Single(planned => planned.Address == "characters/hero").Reference
+        );
+
+        Assert.Equal(
+            new AssetReference(asset, SubAssets.Derive("TextureImporter", "Mesh", "Hero_Mesh")),
+            plan.Assets.Single(planned => planned.Address == "characters/hero#Hero_Mesh").Reference
+        );
+    }
+
+    /// <summary>
     ///     <b>The reason sub-assets are in the catalog at all.</b> A chunk is only reachable once the
     ///     bundle holding it is mounted, and what mounts a bundle is an address in the load closure —
     ///     so the asset depends on its own parts, and a group that packs every address separately

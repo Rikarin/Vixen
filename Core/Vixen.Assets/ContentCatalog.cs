@@ -25,6 +25,18 @@ public enum ContentProvider {
 /// <param name="Dependencies">Other addresses that have to load first.</param>
 /// <param name="Labels">Groupings a caller can load or download by.</param>
 /// <param name="Size">How many bytes the chunk is, uncompressed.</param>
+/// <param name="Reference">
+///     What the editor calls it — the <c>vx:</c> identity a scene, material or prefab stores — or
+///     <see cref="AssetReference.Null" /> for a chunk no authored asset claims.
+/// </param>
+/// <remarks>
+///     ⚠ <b>An address and a reference are the same thing named twice, and both have to be here.</b>
+///     An address is what a person types into <c>LoadAsync</c> and is chosen by a build; a reference is
+///     what a component holds and never changes when a file is renamed. Carrying the reference on the
+///     entry is what lets a runtime resolve the second into the first — see
+///     <see cref="ContentCatalog.TryGetAddress(AssetReference, out string)" /> — and until it did,
+///     nothing in the runtime could turn an <see cref="AssetId" /> into anything loadable at all.
+/// </remarks>
 public readonly record struct CatalogEntry(
     string Address,
     ObjectId Id,
@@ -32,7 +44,8 @@ public readonly record struct CatalogEntry(
     ContentProvider Provider,
     ImmutableArray<string> Dependencies,
     ImmutableArray<string> Labels,
-    long Size
+    long Size,
+    AssetReference Reference = default
 ) {
     /// <summary>Whether two entries describe the same thing.</summary>
     /// <param name="other">The other entry.</param>
@@ -51,11 +64,13 @@ public readonly record struct CatalogEntry(
         && Bundle == other.Bundle
         && Provider == other.Provider
         && Size == other.Size
+        && Reference == other.Reference
         && SameStrings(Dependencies, other.Dependencies)
         && SameStrings(Labels, other.Labels);
 
     /// <inheritdoc />
-    public override int GetHashCode() => HashCode.Combine(Address, Id, Bundle, Provider, Size, Dependencies.Length);
+    public override int GetHashCode() =>
+        HashCode.Combine(Address, Id, Bundle, Provider, Size, Reference, Dependencies.Length);
 
     internal static bool SameStrings(ImmutableArray<string> left, ImmutableArray<string> right) {
         if (left.IsDefaultOrEmpty || right.IsDefaultOrEmpty) {
@@ -125,6 +140,7 @@ public sealed class ContentCatalog {
     readonly Dictionary<string, CatalogEntry> entries;
     readonly Dictionary<string, CatalogBundle> bundles;
     readonly Dictionary<string, ImmutableArray<string>> labels;
+    readonly Dictionary<AssetReference, string> addresses;
 
     /// <summary>The catalog format's version, so an old runtime refuses a new file rather than misreading it.</summary>
     public int Version { get; }
@@ -187,6 +203,30 @@ public sealed class ContentCatalog {
             }
         }
 
+        // Derived rather than stored, for the reason the label index below gives. A second table of
+        // references that disagreed with the entries carrying them is a bug nothing would report, and
+        // it would disagree first on exactly the entry a content update replaced.
+        //
+        // ⚠ A null reference is not indexed and is not a collision. Most entries have one — a
+        // sub-asset chunk of an asset that declares no parts, anything a test builds by hand — and
+        // treating "no authored identity" as an identity would make the first two of them a build
+        // error.
+        addresses = [];
+
+        foreach (var entry in this.entries.Values) {
+            if (entry.Reference.IsNull) {
+                continue;
+            }
+
+            if (!addresses.TryAdd(entry.Reference, entry.Address)) {
+                throw new ArgumentException(
+                    $"'{addresses[entry.Reference]}' and '{entry.Address}' both claim to be {entry.Reference}. A "
+                    + "reference is what a component holds, so a build cannot leave two addresses answering it.",
+                    nameof(entries)
+                );
+            }
+        }
+
         // The label index is derived rather than stored, because a label list that disagreed with the
         // entries it indexes is a bug nothing would report.
         var building = new Dictionary<string, List<string>>(StringComparer.Ordinal);
@@ -217,6 +257,48 @@ public sealed class ContentCatalog {
     /// <param name="entry">Its entry.</param>
     /// <returns>Whether the catalog has it.</returns>
     public bool TryGet(string address, out CatalogEntry entry) => entries.TryGetValue(address, out entry);
+
+    /// <summary>What address answers a <c>vx:</c> reference.</summary>
+    /// <param name="reference">The reference a component, material or prefab holds.</param>
+    /// <param name="address">The address, or empty if nothing shipped under that identity.</param>
+    /// <returns>Whether this build has it.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The direction the runtime needs and did not have.</b> Everything a game holds a
+    ///         reference in — a mesh on an entity, a clip on an audio source, a material on a
+    ///         renderable — stores an <see cref="AssetId" />, because that is what survives renaming
+    ///         the file. Everything that loads takes an address. This is the join, and it is a
+    ///         dictionary lookup rather than a scan because a scene of two thousand entities resolves
+    ///         two thousand of them in a frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>False is the answer for content this build did not ship, and it is not an error
+    ///         here.</b> An asset excluded from a build, a reference into a group that was not packed,
+    ///         or a scene saved against content that has since been deleted all arrive as this — and
+    ///         which of them it is, and whether it should be fatal, is the caller's to decide. What
+    ///         must not happen is a silent empty address that fails later as a missing file.
+    ///     </para>
+    /// </remarks>
+    public bool TryGetAddress(AssetReference reference, out string address) {
+        if (!reference.IsNull && addresses.TryGetValue(reference, out var found)) {
+            address = found;
+            return true;
+        }
+
+        address = string.Empty;
+        return false;
+    }
+
+    /// <summary>What address answers an asset's main object.</summary>
+    /// <param name="asset">The asset.</param>
+    /// <param name="address">The address, or empty if nothing shipped under that identity.</param>
+    /// <returns>Whether this build has it.</returns>
+    /// <remarks>
+    ///     The common case spelled out, because a component holding a bare <see cref="AssetId" /> means
+    ///     the main object and writing <c>new AssetReference(id)</c> at every call site would be noise.
+    /// </remarks>
+    public bool TryGetAddress(AssetId asset, out string address) =>
+        TryGetAddress(new AssetReference(asset), out address);
 
     /// <summary>Finds the bundle an entry names.</summary>
     /// <param name="name">The bundle's name.</param>
@@ -336,6 +418,18 @@ public sealed class ContentCatalog {
         }
 
         var merged = new Dictionary<string, CatalogEntry>(entries, StringComparer.Ordinal);
+
+        // ⚠ An update that moves an asset to a different address makes the old address stale, and a
+        // merge keyed by address cannot see that on its own: the old entry would stay, claiming the
+        // same reference as the new one, and two addresses answering one reference is precisely what
+        // the constructor refuses. The reference is what says they are the same asset.
+        foreach (var entry in update.entries.Values) {
+            if (!entry.Reference.IsNull
+                && TryGetAddress(entry.Reference, out var previous)
+                && previous != entry.Address) {
+                merged.Remove(previous);
+            }
+        }
 
         foreach (var entry in update.entries.Values) {
             merged[entry.Address] = entry;
@@ -480,6 +574,24 @@ public sealed class AddressNotFoundException(string address)
     ) {
     /// <summary>The address that was asked for.</summary>
     public string Address { get; } = address;
+}
+
+/// <summary>A <c>vx:</c> reference this build shipped nothing for.</summary>
+/// <param name="reference">The reference that was asked for.</param>
+/// <remarks>
+///     ⚠ <b>Separate from <see cref="AddressNotFoundException" />, because they mean different
+///     things.</b> An address nobody shipped is usually a typo in a call somebody wrote. A reference
+///     nobody shipped is content: an asset left out of the build, a group that was not packed, or a
+///     scene still holding an identity whose asset has been deleted. Nobody typed the identity, so
+///     "check the spelling" is the wrong advice and would send them looking in the wrong place.
+/// </remarks>
+public sealed class ReferenceNotFoundException(AssetReference reference)
+    : Exception(
+        $"This build shipped nothing for {reference}. Either the asset it names was excluded from the "
+        + "build, or it has been deleted since whatever holds this reference was saved."
+    ) {
+    /// <summary>The reference that was asked for.</summary>
+    public AssetReference Reference { get; } = reference;
 }
 
 /// <summary>Extensions that read better than a <c>TryGet</c> at a call site.</summary>
