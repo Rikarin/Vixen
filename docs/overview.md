@@ -84,7 +84,8 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Read/write **inference** from query bodies | ⬜ | — | Attributes and programmatic declaration exist; the generator does not |
 | World serialisation | ⛔ | — | Needs per-component serialisers from doc 08's scene work. `WorldDigest` (canonical hash) exists |
 | `VIXEN_ECS_EVENTS` hooks | ⬜ | — | |
-| Entity handle **reservation** (reissue a specific handle) | ⬜ | — | ⛔ blocks undoable entity create/destroy in the scene view |
+| Entity handle **reservation** (`World.TryRecreate`) | ✅ | Core/Vixen.Ecs | Allowed only when the slot's version is *exactly* one past the requested one — anything else would let one handle name two entities across its life |
+| `Hierarchy.SetParentAfter` / `PreviousSiblingOf` | ✅ | Core/Vixen.Engine | Linking prepends, so undo needs a neighbour rather than an index — an index is invalidated by every insertion in front of it |
 | Transform hierarchy with dirty propagation | 🟡 | Core/Vixen.Engine | Not depth-split — needs shared components. One visit per moved entity either way |
 | `Vixen.Engine` — loop, fixed-step accumulator, `Behavior`, scenes, `SceneTag`, additive load | ✅ | Core/Vixen.Engine | 58 tests |
 | Prefabs (capture + instantiate) | ✅ | Core/Vixen.Engine | |
@@ -145,6 +146,8 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Asset database — GUID index, reverse refs, duplicate repair, orphan quarantine | ✅ | Editor/Vixen.Editor.Core | 26 tests; 10 000 assets inside budget |
 | `Vixen.Assets` catalog, `AssetHandle`, ref-counted scopes, label/glob loading | ✅ | Core/Vixen.Assets | 48 + 64 tests |
 | Content references (`ContentReference<T>`) | ✅ | Core/Vixen.Core.Serialization | |
+| Streamed content — `assets.Open(address)` over `ObjectDatabase.ReadRaw` | ✅ | Core/Vixen.Assets | Claims and caches nothing, so two callers get two independent streams — which is what a video whose picture and sound both seek needs. Build such payloads uncompressed |
+| `ProjectWorkspace` + `ContentPipeline` (scan → import → plan → pack → write) | ✅ | Editor/Vixen.Editor.Assets | Moved out of `Vixen.Cli` so the editor and `vixen content build` cannot drift; the CLI keeps the console formatting and the worker pool |
 | Content build — `.vxgroup`, `ContentBuilder`, content-hash bundle names, deterministic | ✅ | Editor/Vixen.Editor.Assets | 77 tests |
 | `BuildPlanner` + sub-asset addressing (`characters/hero#Hero_Mesh`) | ✅ | Editor/Vixen.Editor.Assets | |
 | Remote content — HTTP + ranges, `BundleCache`, resume, CRC | ✅ | Core/Vixen.Assets | 31 tests over a hostile transport |
@@ -186,9 +189,10 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Cluster reconciliation, shaping cache, font fallback chain | ✅ | Core/Vixen.Ui.Text, Core/Vixen.Ui | |
 | Glyph outlines (`glyf` + `CFF`), variable fonts (`fvar`/`avar`/`gvar`) | ✅ | Core/Vixen.Ui.Text | 100 Consortium variable-font cases green. `Vixen.Ui.Text/README.md`'s "owed: `gvar`" line is stale |
 | `CVAR`, `CFF2` variation, direct `HVAR` | ⬜ | — | 6 cases excluded with the reason recorded |
-| Rasteriser, MSDF, atlas, `GlyphFieldCache` | ✅ | Core/Vixen.Ui.Text | Gated by Green's theorem and by field reconstruction |
+| Rasteriser, MSDF, atlas, `GlyphFieldCache` | ✅ | Core/Vixen.Ui.Text | Gated by Green's theorem and by field reconstruction. ⚠ The atlas carries a `Version` (coordinates moved) *and* a `Revision` (bytes changed); an uploader watching the wrong one sends the texture once and never again |
 | Line wrapping (`LineWrapper`) | ✅ | Core/Vixen.Ui.Text | Greedy first-fit, deliberately not Knuth–Plass |
-| **Wrapping wired into `TextRun`/controls** | ⬜ | — | ⛔ blocks `TextArea` being more than a tall `TextBox`, and `CodeEditor` wrap |
+| **Wrapping wired through** — `TextLayout` over `TextLine` over `TextRun`, `white-space`/`overflow-wrap` from the cascade | ✅ | Core/Vixen.Ui | Wrapping lives in `Vixen.Ui` because the widths do: a paragraph in two faces has no single design-unit scale. ⚠ Each wrapped line is re-shaped on its own — a ligature does not cross a break |
+| `CodeEditor` wrap; the *editing* half of `TextArea` (caret between lines, Enter starting one) | ⬜ | — | The box grows downwards now; moving a caret through it is the text editor's item |
 | `TextEditor` model — IME, caret affinity | ⬜ | — | Affinity is what makes bidi hit-testing answerable |
 | Rich-text runs from markup (which stretch is bold) | ⬜ | — | The run list already carries face/size/tracking/leading |
 | Geometry builder, path tessellation + antialiasing fringe, batching | ✅ | Core/Vixen.Ui | Trapezoid sweep, not ear clipping |
@@ -197,8 +201,10 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Element removal, style-slot compaction, `Move`, reparenting | ✅ | Core/Vixen.Ui | Tombstone + compaction, not slot reuse — the ordering invariant is why |
 | Pinch and rotate gestures | ⬜ | — | One pointer at a time in `GestureRecognizer`; `Vixen.Ui.Testing` has a two-pointer transform |
 | `Vixen.Ui.Composition` — `Component`, `@if`/`@switch`, keyed `@for` | ✅ | Core/Vixen.Ui | |
-| Named slot projection, `scoped` scoping, per-type component stylesheet, LIS reorder | ⬜ | — | |
-| Virtualisation primitive / `VirtualizingPanel` | ⬜ | — | `ScrollView` keeps everything in the tree; individual advanced controls virtualise themselves |
+| `scoped` scoping + a component stylesheet loaded once per **type** | ✅ | Core/Vixen.Ui | `StyleIsScoped` was parsed, carried, and then read by nothing |
+| Named slot projection; LIS reorder pass | ⬜ | — | The second is correctness-neutral — a move that changes nothing returns immediately |
+| `VirtualizingPanel` — the virtualisation primitive doc 09 asks for | ✅ | Core/Vixen.Ui.Controls | Realises on `LayoutFinished`. ⚠ Fixed row heights only — variable heights need a running-sum index, which is a different control. `TreeView` is migrated onto it |
+| Image / texture draw command (`DrawContext.DrawImage`, `BatchKind.Image`) | ✅ | Core/Vixen.Ui | Unblocked `Image`, `Viewport` drawing a `RenderTarget`, and the node-graph preview layer |
 | Multi-window and DPI | ⬜ | — | Also what floating dock groups need |
 | `Vixen.Ui.Markup` — VXML lexer/parser/binder/emitter, `#line` spans, incremental reparse | ✅ | Core/Vixen.Ui.Markup | 100 tests; byte-exact round trip over every *prefix* of a real file |
 | `bind:` update events | ⬜ | — | |
@@ -210,7 +216,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | `Vixen.Ui.Controls.Advanced` — Docking, TreeView, PropertyGrid, NodeCanvas, CodeEditor, DataGrid, Viewport, ColorPicker, CurveEditor, GradientEditor, Timeline | ✅ | Core/Vixen.Ui.Controls.Advanced | 253 tests |
 | `UiDocument` "layout finished" callback | ✅ | Core/Vixen.Ui | All six controls on it. `Control.WhenResized` gates on the box changing; `Update` refuses a nested call, which is what lets a `Refresh` that runs its own pass be hung on the event |
 | Undo inside controls | ⬜ | — | The four `Changed` events are the seams a real stack subscribes to |
-| `Canvas2D` | ⬜ | — | Doc 09's P2, no editor consumer |
+| `Canvas2D` | ⬜ | — | Doc 09's P2, no editor consumer — see `Samples/06-CanvasStress` |
 | `OkLch.ToSrgb` real gamut mapping | ⬜ | — | Clamps per channel today, which shifts hue |
 | `StyleTree.AppendChild` O(children) | ⬜ | — | Every current control virtualises clear of it |
 | `Vixen.Ui.Testing` harness + software rasteriser | ✅ | Core/Vixen.Ui.Testing | Group opacity, a third finger, and box assertions owed |
@@ -243,14 +249,15 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | `Tools/Vixen.ShaderCompiler` (`PermutationClosure`, `EffectBundleBuilder`) | ✅ | Tools/Vixen.ShaderCompiler | Zero-runtime-compilation criterion asserted by test |
 | `Tools/Vixen.ShaderCompilerService` | ✅ | Tools/Vixen.ShaderCompilerService | |
 
-## 1.9 Rendering
+## 1.9 Rendering, video and XR
 
 | Feature | Status | Where | Blocked by / note |
 |---|---|---|---|
 | `RenderSystem`, `RenderObject`/`RenderNode`, features, views, stages, sort modes | ✅ | Core/Vixen.Rendering | |
 | `VisibilityGroup` (job-parallel) + `GpuVisibilityGroup` (Hi-Z, indirect args) | ✅ | Core/Vixen.Rendering | Falls back where it cannot run |
 | Mesh, transform, skinning, instancing, material, lighting, shadow-caster features | ✅ | Core/Vixen.Rendering | Roadmap §Phase 5 still lists these "open"; the code says otherwise |
-| Two-phase occlusion + compacted draws | ⬜ | — | ⛔ wants bindless materials first |
+| **Two-phase occlusion culling** (`GpuVisibilityGroup.TwoPhase`, the `Late` permutation of `Culling.rvn`) | ✅ | Core/Vixen.Rendering | Removes the frame of staleness. The late pass writes a **difference**, not an answer — the union would draw every visible object twice. Needs the readback off; `LatePhaseRan` says which happened |
+| Compacted draws | ⬜ | — | ⛔ wants bindless materials first |
 | `GraphicsCompositor` as an asset, resolvable by address | ✅ | Core/Vixen.Rendering | Asserted in `Vixen.Assets.Tests` |
 | Materials — composable feature tree, 2 workflows, 7 shading models, both layering forms | ✅ | Core/Vixen.Rendering | Every combination through `glslc` + `spirv-val` |
 | Transmission / refraction | ⬜ | — | Needs the scene colour or an environment sample — a pass concern, not a lobe |
@@ -268,8 +275,16 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Deferred pipeline — GBuffer, shading-model dispatch, forward routing, decals | ⬜ | — | Phase 10; cut-list #6 |
 | Volumetric fog, contact shadows, light shafts, SSS blur, upscaler + FSR1 | ⬜ | — | Phase 10 |
 | Mesh shaders / meshlet culling behind capability flags | ⬜ | — | Phase 10 |
-| Golden-image fixture suite (40) | ✅ | Platform/Vixen.Graphics.Golden.Tests | One fixture per state bit a backend can silently ignore |
+| Golden-image fixture suite | ✅ | Platform/Vixen.Graphics.Golden.Tests | One fixture per state bit a backend can silently ignore, plus `ClusteredShadingDeviceTests` — one composed Forward+ frame. It caught two engine bugs **nothing but a picture could see**: a composed material parameter's qualified name depending on lowering order, and one Raven struct used in both a uniform block and a storage buffer collapsing to one MSL type |
 | `Samples/03-PbrShowcase` | 🟡 | Samples/03-PbrShowcase | Ambient is the analytic constant-radiance environment; nothing casts a shadow — both need content the importer does not produce |
+| **`Vixen.Video`** — managed WebM demuxer, codec seam, player with an audio-driven clock, YUV planes + conversion coefficients | ✅ | Core/Vixen.Video | 144 tests. Doc 06 § Other renderables. Landed far ahead of its Phase 10 slot |
+| **`Vixen.Video.Codecs`** (Opus over loose WebM packets) | ✅ | Core/Vixen.Video.Codecs | Split so a game with an uncompressed logo sting links no Concentus |
+| **`Vixen.Video.Rendering`** — one pipeline, three plane bindings, `VideoRenderTarget` | ✅ | Core/Vixen.Video.Rendering | Converts to an ordinary colour texture, which is what the UI image command binds |
+| Video: MP4; a **material** (video lit on a mesh); frame-accurate seek; audio-track choice; subtitles; 10-bit / BT.2020 | ⬜ | — | MP4 is additive behind `IVideoStreamDecoder`; the material is `MaterialRenderFeature`'s and Raven's |
+| **`Vixen.Xr`** — session state machine, per-eye poses, asymmetric projections, runtime-owned swapchains, action input, ECS bridge, simulated headset | ✅ | Core/Vixen.Xr | All of it runs on a machine with no headset |
+| **`Vixen.Xr.OpenXR`** — the three desktops and Android | ✅ | Platform/Vixen.Xr.OpenXR | The Vulkan instance/device/GPU are the *runtime's* choice, and the API shape makes that order impossible to get wrong |
+| XR: a render feature; single-pass multiview; hand/eye tracking, passthrough, anchors | ⬜ | — | Multiview's hook is `XrSwapchainDescription.ArrayLayers`; the `VK_KHR_multiview` half is `Vixen.Graphics`'s. Two passes work today |
+| Shader reflection: vertex input locations + push-constant stage coverage | ✅ | Core/Vixen.Shaders | A binding index is declaration order, so a literal in C# survives a renumbering and a generated constant does not — and the failure is silent CPU fallback, every frame |
 
 ## 1.10 Gameplay subsystems
 
@@ -299,8 +314,14 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 
 ## 1.11 Editor
 
-> The roadmap's Phase 6 bullets are stale. The projects below exist with real implementations
-> (line counts from `find … -name '*.cs'`), and their READMEs carry the current gap lists.
+> **Phase 6's exit sentence is met.** The editor opens a project, imports assets, builds content,
+> edits a scene, saves, and runs the game — entirely in `Vixen.Ui`, with no other toolkit anywhere in
+> the dependency graph. What the sentence does not cover and Phase 6 still lists: the asset editors,
+> the profiler and debugger, plugin loading, the automation harness, and `PublishEditor`. The
+> editor-shell performance bar is unmeasured.
+>
+> ⚠ **The viewport draws lines, not meshes.** A scene of empties looks right; a scene with a model in
+> it does not show the model. That wants a material system wired to an editor viewport.
 
 | Feature | Status | Where | Blocked by / note |
 |---|---|---|---|
@@ -308,14 +329,20 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | `Vixen.Editor.Ui` — shell, docking, command registry, menus/toolbars/context/palette as views, theming, notifications, background tasks, localisation | ✅ | Editor/Vixen.Editor.Ui | ~4 100 lines |
 | Keybinding editor UI; notification panel; `Strings.Resource` generation | ⬜ | — | Models exist, views do not |
 | `Vixen.Editor.Inspector` — generated drawers, attribute set, multi-object editing, `ref` accessors | ✅ | Editor/Vixen.Editor.Inspector | ~2 800 lines |
-| Nested-object drawer; multi-edit of a curve; the asset picker's browser | ⬜ | — | Browser belongs to the shell |
+| Nested-object drawer / nested struct editing | ✅ | Core/Vixen.Ui.Controls.Advanced | The `ref`-accessor argument was wrong: set the leaf, then write each *owner* into its own owner innermost-first. `PropertyRow` carries a path where it used to carry a member |
+| Multi-edit of a curve; the asset picker's browser | ⬜ | — | Browser belongs to the shell |
 | `Vixen.Editor.SceneView` — viewport, gizmos, picking, camera nav, grid, outline, debug view modes, `SceneDocument`, `.vxscene` | ✅ | Editor/Vixen.Editor.SceneView | ~4 900 lines |
 | Undoable entity create/destroy | ⛔ | — | `Vixen.Ecs` cannot reserve a handle, so redo would hand back a different one |
-| Undoable reparenting | ⬜ | — | The intrusive list records a neighbour, not a position |
+| Undoable entity **create / delete / rename**, handle surviving a delete-and-undo | ✅ | Editor/Vixen.Editor.SceneView | Five things come back: the handle (`TryRecreate`), the components (a scratch world — the only thing that can hold an arbitrary unconstrained struct is a chunk), the name, the stable id, and its place among its siblings. A delete takes the whole subtree |
+| Undoable **reparenting** | ⬜ | — | The primitive (`SetParentAfter`) exists; the command does not. Hierarchy drag-and-drop is not wired either |
+| Clicking in the viewport to select | ⬜ | — | Picking needs an id target; the gizmo can be dragged and what it drags comes from the hierarchy |
 | `ISceneWriter` / `SceneFileWriter` / scene save | ✅ | Editor/Vixen.Editor.SceneView | |
 | Play-in-editor, **in-process** (`WorldSnapshot` + `PlayModeController`, leak detection) | ✅ | Editor/Vixen.Editor.SceneView | Restore clears first; the selection is translated through the handle table |
 | Play-in-editor, **out-of-process** (`PlayerSessions`) | ✅ | Editor/Vixen.Editor.SceneView | Ports assigned by the set; a hung player is killed. **Supersedes the roadmap's "genuinely blocked" note in Phase 9** |
-| `Vixen.Editor.App` — platform, window, device, frame loop, `--frames N` | ✅ | Editor/Vixen.Editor.App | ~1 800 lines |
+| `Vixen.Editor.App` — platform, window, device, frame loop, `--frames N` | ✅ | Editor/Vixen.Editor.App | Panels are untested at the panel level (the app has no test project); the models under them are |
+| **Project browser** (`AssetTree` + `ProjectBrowser`) — the asset database as a searchable tree over the real `Assets/` | ✅ | Editor/Vixen.Editor.Core, Editor/Vixen.Editor.App | ⚠ Not watched: a file added outside the editor appears on `Ctrl+R`. A watcher that missed half the events while claiming to be live would be worse |
+| **Import Assets / Build Content from the editor** (`ContentPipeline` on the background task manager) | ✅ | Editor/Vixen.Editor.App | The same call the CLI makes, so the two cannot produce different output for one project |
+| Redraw-on-change (it redraws every frame today) | ⬜ | — | Every animation, toast expiry and task progress would have to say so, and one that forgets freezes a progress bar |
 | Plugin loading (`Vixen.Editor.Plugin`, `AssemblyLoadContext`) | ⬜ | — | The reason `Vixen.Editor.App` is not NativeAOT |
 | "Open project…" file dialog | ⛔ | — | Needs `Vixen.Platform.Windows/.Linux/.MacOS` |
 | Asset editors: texture, model, material, prefab, shader, UI, addressable groups, compositor | ⬜ | — | Shell + inspector exist, so these are unblocked |
@@ -398,6 +425,7 @@ Phase 9 is the most complete phase in the repository — **all five exit criteri
 | `06-CanvasStress` | ⬜ | P2, cut-list #4 — the editor is the application-platform proof |
 | `07-AddressablesRemote` | ✅ | 144.6 KB cold → 48.6 KB update, asserted |
 | `08-Multiplayer`, `09-NetworkSoak`, `10-VoiceChat` | ✅ | |
+| `11-VideoPlayback` | ✅ | The half of video only a running frame exercises: three planes reaching the GPU at their own sizes, in order |
 
 ## 1.14 Documentation and release (Phase 11)
 
@@ -408,7 +436,7 @@ Phase 9 is the most complete phase in the repository — **all five exit criteri
 | `docs/rhi-backend-mapping.md` | ✅ |
 | DocFX API reference | ⬜ |
 | Manual: getting started, per-subsystem guides, UI tutorial, Raven reference, Unity migration | ⬜ |
-| 12+ runnable samples | 🟡 (10 exist) |
+| 12+ runnable samples | 🟡 (11 exist) |
 | `dotnet new` templates verified on six targets | ⬜ |
 | `PublicAPI.Shipped.txt` freeze + API review | 🟡 (baselines exist and are gated; the freeze is folding `Unshipped` into `Shipped` at the release, and the review pass is the reading nobody has done yet) |
 | Release automation (tag → signed builds + NuGet + GitHub Release) | ⬜ |
@@ -433,6 +461,7 @@ Ground truth is [`Directory.Packages.props`](../Directory.Packages.props); the p
 | `Silk.NET.SDL` | 2.23.0 | ✅ | `Vixen.Platform.Desktop` | **SDL 2, not SDL 3** — doc 01 corrected. Bindings only; `libSDL2` comes from the system or `Platform.Native` |
 | `Silk.NET.OpenGL` | 2.23.0 | ✅ | `Vixen.Graphics.OpenGL` | Desktop GL 4.5 core |
 | `Silk.NET.WebGPU` | 2.23.0 | ✅ | `Vixen.Graphics.WebGPU` | ⚠ Matches **no** wgpu-native release; the pin carries a refusal and a struct override |
+| `Silk.NET.OpenXR` + `.Extensions.KHR` | 2.23.0 | ✅ | `Vixen.Xr.OpenXR` | Doc 14 lists VR/XR as a stretch; it landed early |
 | `Silk.NET.OpenAL` + `.Extensions.*` | 2.23.0 | ✅ | `Vixen.Audio.Backend.OpenAL` | |
 | `Silk.NET.OpenAL.Soft.Native` | 1.23.1 | ✅ | `Vixen.Audio.Backend.OpenAL` | OpenAL Soft's own version, unrelated to Silk.NET's |
 | `Silk.NET.Assimp` | 2.23.0 | ✅ | `Vixen.Editor.Assets` | Import-time only, never in a runtime assembly |
@@ -445,7 +474,7 @@ Ground truth is [`Directory.Packages.props`](../Directory.Packages.props); the p
 | `System.IO.Hashing` | 10.0.10 | ✅ | `Vixen.Core` | XxHash128 |
 | `Microsoft.Extensions.Logging.Abstractions` | 10.0.10 | ✅ | `Vixen.Core.Diagnostics` | Interface only |
 | `NVorbis` | 0.10.5 | ✅ | `Vixen.Audio.Codecs` | |
-| `Concentus` | 2.2.2 | ✅ | `Vixen.Audio.Codecs` | Pinned to the **managed** path — the native libopus fallback ignored its bitrate |
+| `Concentus` | 2.2.2 | ✅ | `Vixen.Audio.Codecs`, `Vixen.Video.Codecs` | Pinned to the **managed** path — the native libopus fallback ignored its bitrate |
 | `OpenTelemetry` + OTLP/Console exporters + Runtime instrumentation | 1.17.0 | ✅ | `Vixen.Net.Telemetry` | Added beyond doc 01's register |
 | `YamlDotNet` | 18.1.0 | ✅ | `Vixen.Core.Yaml`, `Vixen.Editor.Core` | |
 | `Antlr4.Runtime` / `Antlr4.CodeGenerator` | 4.6.6 | 🟡 | Raven **tests only** | Kept as a differential oracle after the Phase 5b migration |
@@ -547,7 +576,8 @@ K4  Silk.NET.OpenGLES + an EGL context
 
 ## 3.2 Wave 0 — startable today, fully parallel
 
-No unmet dependency. Twenty-three independent tracks.
+No unmet dependency. Twenty-three tracks as first written; four are struck through, having landed
+since. The rest can run in parallel.
 
 | # | Track | Unblocks |
 |---|---|---|
@@ -560,20 +590,20 @@ No unmet dependency. Twenty-three independent tracks.
 | W0-7 | CI legs: Windows/Linux Vulkan, NativeAOT publish, run-a-sample, WebGPU-on-lavapipe | Content determinism across 3 OSes; `Samples/01` on Windows/Linux; the AOT gate becoming continuous |
 | W0-8 | `UiDocument.Update` → `StyleUpdater` (incremental cascade) | The largest UI perf item; nothing depends on it, everything benefits |
 | ~~W0-9~~ | ~~`UiDocument` "layout finished" callback~~ | Built. The resize lag in `ScrollView`, `TreeView`, `DataGrid`, `CodeEditor`, `NodeCanvas` and `Viewport` is closed |
-| W0-10 | Wire `LineWrapper` into `TextRun`/controls | `TextArea` · `CodeEditor` wrap · rich text |
+| ~~W0-10~~ | ~~Wire `LineWrapper` into `TextRun`/controls~~ | Built (`TextLayout`). What is left is the *editing* half — a caret that moves between lines — and `CodeEditor`'s own wrap |
 | W0-11 | `Vixen.Core.Diagnostics` sinks (ZLogger file, console, platform, remote, `EventSource`) + rate limiting | Editor console · remote inspector · `Vixen.Editor.Profiler`/`.Debugger` |
 | W0-12 | `Vixen.Editor.Plugin` (`AssemblyLoadContext`) | Editor extensibility; lets `Vixen.Editor.App` state its AOT position |
 | W0-13 | `Tools/Vixen.Templates` (`vixen-game`/`app`/`lib`/`plugin`) | Phase 11's clean-machine criterion |
 | W0-14 | Pin a static `libjoltc.a` for `ios-arm64` | Physics on iOS → `Samples/05` on iOS |
 | W0-15 | Add `astcenc` + `ispc_texcomp` to `native-dependencies.json` | ASTC/ETC2 · full BC7/BC6H · mobile texture budgets. Also proves R10's schema generalises |
-| W0-16 | ECS entity-handle **reservation** | Undoable entity create/destroy in the scene view |
-| W0-17 | Bindless material binding plan | Two-phase occlusion + compacted draws · per-object reflection probes · material texture features |
+| ~~W0-16~~ | ~~ECS entity-handle **reservation**~~ | Built (`World.TryRecreate`), and spent: create/delete/rename are undoable in the scene view |
+| W0-17 | Bindless material binding plan | Compacted draws · per-object reflection probes · material texture features. **Two-phase occlusion landed without it** |
 | W0-18 | Light-probe exact predicates (robust Bowyer–Watson) | Tetrahedral light-probe interpolation |
 | ~~W0-19~~ | ~~`NodeGraphView` (pan/zoom/wires/minimap/search-to-create)~~ | Built. Shader-graph and VFX-graph authoring is now a matter of nodes, not of a canvas |
 | W0-20 | Non-scene asset editors: texture, model, material, shader, UI, addressable groups, compositor | Phase 6's exit criterion, minus the scene half |
 | W0-21 | Relay **scope decision** (host one? in-box or addon?) | The `Relay` transport + transport fallback |
 | W0-22 | `Vixen.Raven.Transpile` (SPIRV-Cross) | HLSL/MSL/WGSL targets + the cross-compilation test pass |
-| W0-23 | CSS Grid · `Canvas2D` · `VirtualizingPanel` · pinch/rotate · multi-window + DPI | Independent UI gaps; each is its own track |
+| W0-23 | CSS Grid · `Canvas2D` · pinch/rotate · multi-window + DPI | Independent UI gaps; each is its own track. `VirtualizingPanel` and the image draw command are done |
 
 ## 3.3 Wave 1 — one dependency deep
 
@@ -594,8 +624,9 @@ No unmet dependency. Twenty-three independent tracks.
 | WebGPU shadow maps; WebGPU Linux CI leg | W0-5 + W0-7 | |
 | API review pass | — | Unblocked: the gate is wired and the surface is written down. Reading 22 807 entries and deciding which of them should not be `public` is the Phase 11 work |
 | ASTC/ETC2 output + full-quality BC7 | W0-15 | Then `ktx validate` + reference-decoder verification |
-| Undoable entity create/destroy; undoable reparenting | W0-16 | |
-| Two-phase occlusion + compacted draws; per-object reflection probes | W0-17 | |
+| Undoable **reparenting** command + hierarchy drag-and-drop | — | Unblocked: `SetParentAfter` is in. Create/delete/rename already landed |
+| Viewport click-to-select | An id render target | The gizmo already drags what the hierarchy selects |
+| Compacted draws; per-object reflection probes | W0-17 | |
 | Shader-graph procedural/custom-code nodes, Post + UI masters, previews | — | Unblocked: `NodeGraphView` is in and its preview layer already draws a render target |
 | VFX-graph operator nodes, remaining opcode blocks, live preview | W1(VFX GPU) | The view half is in; the live preview is the runtime's |
 | `Relay` transport + transport fallback | W0-21 | |
@@ -620,7 +651,7 @@ No unmet dependency. Twenty-three independent tracks.
 | 24 h editor / 24 h game soak | A complete editor and a complete game sample |
 | Perf bars measured on the IHV matrix | Real hardware + all CI legs |
 | DocFX + manual + 12 samples + templates verified clean-machine | Effectively everything |
-| `Vixen.Video` · VR/XR (`Silk.NET.OpenXR`) | ✂️ stretch — cut-list #1 |
+| Video **material** (a video lit on a mesh); XR render feature + single-pass multiview | The material system / `VK_KHR_multiview` in the RHI. Both modules themselves are ✅ |
 
 ## 3.5 Independent of everything (pure additions)
 
@@ -656,7 +687,6 @@ it is deliberately distinct from "not started" in Part 1.
 | 12 | `Vixen.Core.Imaging` | `ktx validate` + reference-decoder verification | Correctness | — |
 | 13 | `Vixen.Ecs` | World serialisation | Feature | **K1** |
 | 14 | `Vixen.Ecs` | Read/write inference generator; `VIXEN_ECS_EVENTS` | Feature | — |
-| 15 | `Vixen.Ecs` | Handle reservation | Feature | — |
 | 16 | `Vixen.Engine` | Depth-split transform hierarchy | Perf | Shared components |
 | 17 | `Vixen.Engine` | `DebugDraw` drawing + doc 13 overlays | Feature | — (renderer now exists) |
 | 18 | `Vixen.Engine` | `WhenAny` in coroutines | Feature | — |
@@ -680,15 +710,15 @@ it is deliberately distinct from "not started" in Part 1.
 | 36 | `Vixen.Ui.Styling` | Transform decomposition | Feature | A transform property |
 | 37 | `Vixen.Ui.Text` | `TextEditor` model with IME + caret affinity | Feature | — |
 | 38 | `Vixen.Ui.Text` | `CVAR`, `CFF2` variation, direct `HVAR` | Feature | — |
-| 39 | `Vixen.Ui` | Rich-text runs from markup; line wrapping wired through | Feature | — |
-| 40 | `Vixen.Ui` | Named slot projection; `scoped`; per-type component stylesheet; LIS reorder | Feature | — |
-| 41 | `Vixen.Ui` | Pinch and rotate; virtualisation primitive; multi-window + DPI | Feature | — |
+| 39 | `Vixen.Ui` | Rich-text runs from markup (which stretch is bold) | Feature | — |
+| 40 | `Vixen.Ui` | Named slot projection; LIS reorder pass | Feature | — |
+| 41 | `Vixen.Ui` | Pinch and rotate; multi-window + DPI | Feature | — |
 | 42 | `Vixen.Ui` | Per-corner radii on `DrawCommand` (one radius carried, rest dropped) | Feature | — |
 | 43 | `Vixen.Ui` | Computed-value stage for `line-height`/`letter-spacing`/`word-spacing`/`text-indent` | Correctness | — |
 | 44 | `Vixen.Ui.Markup` | `bind:` update events; CLI path emitting generated C# to disk | Feature | — |
 | 45 | `Vixen.Ui.HotReload` | Driven against a running window | Verification | — |
-| 46 | `Vixen.Ui.Controls` | `VirtualizingPanel`; `TextArea` real wrapping | Feature | #39 |
-| 47 | `Vixen.Ui.Controls.Advanced` | Layout-finished callback; undo; `OkLch` gamut mapping; `AppendChild` O(n); nested struct members; `Canvas2D` | Feature / perf | — |
+| 46 | `Vixen.Ui.Controls` | `TextArea`'s editing half (caret between lines, Enter starting one); variable-height virtualisation | Feature | The text editor model |
+| 47 | `Vixen.Ui.Controls.Advanced` | Undo; `CodeEditor` wrap + caret blink; `OkLch` gamut mapping; `AppendChild` O(n); `Canvas2D` | Feature / perf | — |
 | 48 | `Vixen.Ui.Testing` | Group opacity; a third finger; layout-box assertions | Feature | Compositor decision (opacity) |
 | 49 | `Vixen.Ui.Renderer` | Reconcile per-vertex box params with `Raven/Library/Ui`'s per-uniform ones | Consistency | Raven taking over UI shader compilation |
 | 50 | Raven | String interpolation; workgroup-shared memory | Language | — |
@@ -696,7 +726,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 52 | Raven | `CompileShaderLibrary` Nuke target; SPDX enforcement | Infra | — |
 | 53 | Raven | Numeric BRDF gate; per-backend layout gate; negative diagnostic fixtures | Coverage | **K2** / a device |
 | 54 | Raven | Stream interpolation control; per-module flat IR namespace | Feature | — |
-| 55 | `Vixen.Rendering` | Two-phase occlusion + compacted draws | Perf | Bindless materials |
+| 55 | `Vixen.Rendering` | Compacted draws | Perf | Bindless materials |
 | 56 | `Vixen.Rendering` | Transmission; bindless material textures; blend shapes | Feature | Pass-level scene colour |
 | 57 | `Vixen.Rendering` | Light probes (tetrahedral); per-object reflection probes; punctual shadow caching | Feature | Exact predicates / binding plan |
 | 58 | `Vixen.Rendering.PostFx` | SMAA, MSAA resolve, GTAO, SSR, DoF, motion blur, LUT asset, `AutoExposure` | Feature | **K2** (AutoExposure) |
@@ -719,16 +749,18 @@ it is deliberately distinct from "not started" in Part 1.
 | 75 | Networking | Editor network panel; RTT/jitter/loss graphs | Tooling | Panel host |
 | 76 | Server variant | Container image; server content profile | Infra | CI / asset pipeline |
 | 77 | `Vixen.Editor.Ui` | Keybinding editor; notification panel; `Strings.Resource` generation | Feature | — |
-| 78 | `Vixen.Editor.Inspector` | Nested-object drawer; curve multi-edit; asset-picker browser | Feature | — |
-| 79 | `Vixen.Editor.SceneView` | Undoable entity create/destroy and reparent | Feature | #15 (handle reservation) |
+| 78 | `Vixen.Editor.Inspector` | Curve multi-edit; asset-picker browser | Feature | — |
+| 79 | `Vixen.Editor.SceneView` | Undoable reparent command; hierarchy drag-and-drop; viewport click-to-select; meshes in the viewport | Feature | An id target; the material system |
 | 80 | `Vixen.Editor.App` | Plugin loading; file dialog | Feature | `Vixen.Editor.Plugin`, **K3** |
-| 81 | `Vixen.Editor.NodeGraph` | Selectable wires; sticky-note editing; inlined-node → source-node map; Raven-span diagnostics | Feature | Emitter span recording, for the last |
+| 81 | `Vixen.Editor.NodeGraph` | Selectable wires; sticky-note editing; a node in two groups; inlined-node → source-node map; Raven-span diagnostics | Feature | Emitter span recording, for the last |
 | 82 | `Vixen.Editor.ShaderGraph` | Procedural + custom-code nodes; Post/UI masters; previews; diagnostic mapping | Feature | Emitter span recording |
 | 83 | `Vixen.Editor.VfxGraph` | Operator nodes; remaining opcode blocks; sub-emitters/trails; live preview | Feature | — |
-| 84 | Editor | Asset editors; `Vixen.Editor.Profiler`/`.Debugger`/`.Plugin`/`.AnimationGraph`; golden screenshots; `PublishEditor` | Feature | Various |
+| 84 | Editor | Asset editors; `Vixen.Editor.Profiler`/`.Debugger`/`.Plugin`/`.AnimationGraph`; golden screenshots; `PublishEditor`; redraw-on-change; the shell perf bar | Feature | Various |
 | 85 | Build/CI | NativeAOT leg; sample-running leg; Playwright leg; 3-OS determinism run | Infra | — |
 | 86 | Build/CI | Per-file SPDX enforcement; third-party attribution manifest | Licence obligation (ADR-015) | — |
 | 87 | Samples | `05-PlatformerGame`; `06-CanvasStress`; `01` on Windows/Linux and physical devices | Coverage | **K1**, #59, CI legs |
+| 89 | `Vixen.Video` | MP4; a material; frame-accurate seek; audio-track choice; subtitles; 10-bit / BT.2020; Vorbis; >2 channels | Feature | A wider pixel format, for the last two |
+| 90 | `Vixen.Xr` | A render feature; single-pass multiview; hand/eye tracking; passthrough; anchors | Feature | `VK_KHR_multiview` in `Vixen.Graphics` |
 | 88 | Docs | DocFX; manual; templates; release automation; soak tests; triage + compatibility policy | Phase 11 | Everything |
 
 ## 4.1 Owed by weight
@@ -742,6 +774,7 @@ it is deliberately distinct from "not started" in Part 1.
 | Blocked on a **decision**, not code | 2 | Relay scope; D3D12 (already answered: post-1.0) |
 | Blocked on **hardware or an account** | 3 | iPhone provisioning; an Android device; the IHV matrix |
 | Genuinely independent | ~40 | Can be picked up in any order (§3.5) |
+| Closed since the first revision of this page | 8 | `CheckApi` · `LayoutFinished` · `NodeGraphView` · handle reservation · line wrapping · `VirtualizingPanel` · `scoped`/per-type stylesheets · the image draw command |
 
 ---
 
@@ -749,14 +782,14 @@ it is deliberately distinct from "not started" in Part 1.
 
 | | |
 |---|---|
-| `.csproj` on disk | 198 (`Core` 112 · `Platform` 26 · `Editor` 19 · `Tools` 21 · `Samples` 10 · `Benchmarks` 7 · `Raven` 3) — counting test siblings and generators, per ADR-014 |
-| Planned projects not created | `Vixen.Graphics.Direct3D12`, `Vixen.Platform.Windows/.Linux/.MacOS`, `Vixen.Video`, `Vixen.Net.Transport.Relay`, `Vixen.Editor.AnimationGraph/.Profiler/.Debugger/.Plugin`, `Vixen.Templates`, `Vixen.Raven.Transpile` |
+| `.csproj` on disk | 209 (`Core` 120 · `Platform` 28 · `Editor` 19 · `Tools` 21 · `Samples` 11 · `Benchmarks` 7 · `Raven` 3) — counting test siblings and generators, per ADR-014 |
+| Planned projects not created | `Vixen.Graphics.Direct3D12`, `Vixen.Platform.Windows/.Linux/.MacOS`, `Vixen.Net.Transport.Relay`, `Vixen.Editor.AnimationGraph/.Profiler/.Debugger/.Plugin`, `Vixen.Templates`, `Vixen.Raven.Transpile` |
 | Conformance cases green | 534 Yoga · 22 048 UAX#14/#29 · 91 707 UAX#9 · 328/413 shaping · 100 variable-font |
 | Golden image fixtures | 40 |
 | Fuzz targets / cases per build | 12 / ~11 M in ~7 s |
-| Phases complete | 0, 1, 2, 3 (bar CI legs and physical devices), 4, 5b, 9 |
-| Phases partial | 5 (renderer — PostFx and D3D12), 6 (editor — shell done, tooling not), 7 (VFX GPU path), 8 (samples) |
-| Phases not started | 10 (deferred/advanced rendering), 11 (polish and 1.0) |
-| Roadmap estimate remaining | ~10–13 EM of the original ~48, concentrated in Phases 6, 7, 10 and 11 |
+| Phases complete | 0, 1, 2, 3 (bar CI legs and physical devices), 4, 5b, 6 (the exit sentence; the tooling around it is not), 9 |
+| Phases partial | 5 (renderer — PostFx and D3D12), 7 (VFX GPU path), 8 (samples), 10 (WebGPU, Video and XR landed early; deferred rendering and the browser run did not) |
+| Phases not started | 11 (polish and 1.0) |
+| Roadmap estimate remaining | ~8–11 EM of the original ~48, concentrated in Phase 6's tooling, Phase 7's GPU path, Phase 10's deferred pipeline, and Phase 11 |
 
 *Generated from the documentation set and the repository as of 2026-07-29. Licensed under Apache-2.0.*

@@ -8,6 +8,13 @@ general-purpose.
 This directory is the authoritative design record. Read it in order the first time; after that,
 treat each file as the spec for its subsystem.
 
+**For *state* rather than design, read [`../overview.md`](../overview.md) first.** These documents say
+what Vixen is meant to be and record why each decision was taken; the overview says which of it
+exists. It carries every feature and every library with a status, a dependency tree over what is left
+so independent tracks can be scheduled in parallel, and one table of what is owed. Where it and a
+document here disagree, the overview is checked against the code and says so — which is how a design
+record that is kept for its reasoning stays useful without also having to be a status board.
+
 | # | Document | Scope |
 |---|---|---|
 | 00 | [Vision and Principles](00-vision-and-principles.md) | Non-negotiables, quality bars, what Vixen is *not* |
@@ -30,6 +37,7 @@ treat each file as the spec for its subsystem.
 | 17 | [App Heads and Shipping](17-app-heads-and-shipping.md) | What a shipped game *is*, build variants, dedicated server, play-mode topology, trimming policy |
 | 18 | [Raven Parser Migration](18-raven-parser-migration.md) | ⚠️ Amends ADR-009 — why ANTLR should give way to a hand-written parser, and the plan to swap it safely |
 | — | [spikes/web-webgl2](spikes/web-webgl2/RESULT.md) | ✅ Executed spike: Silk.NET.OpenGLES on `browser-wasm`, with working code and measurements |
+| — | [Implementation Overview](../overview.md) | **Not a design document.** What is built, what is not, what blocks what, and what is owed — reconciled against the code |
 
 ## Read this first
 
