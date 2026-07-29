@@ -231,9 +231,9 @@ is the assembly that should hold it. Status: ✅ built, 🟡 partial, ⛔ absent
 | Panel | UE / Unity | Owner | Status | What is owed |
 |---|---|---|---|---|
 | **Hierarchy** | Outliner / Hierarchy | `.App` → `.SceneView` | ✅ | — |
-| **Inspector** | Details / Inspector | `.Inspector` | 🟡 | Component add/remove UI (see E1's table for what it needs), multiple inspector windows, pinned/favourite members, debug (raw) mode |
+| **Inspector** | Details / Inspector | `.Inspector` | 🟡 | Multiple inspector windows, pinned/favourite members, debug (raw) mode |
 | **Scene viewport** | Level Viewport / Scene | `.SceneView` | 🟡 | See [B2](#b2--the-viewport) |
-| **Project browser** | Content Browser / Project | `.App` | 🟡 | Grid view with thumbnails, saved filters, collections/favourites, drag-and-drop out (see E1's table), source-control column, folder tree beside the list rather than one tree |
+| **Project browser** | Content Browser / Project | `.App` | 🟡 | Picture thumbnails (the grid ships type glyphs — see E1's table), saved filters, collections/favourites, drag-and-drop out, source-control column, a virtualising grid |
 | **Console** | Output Log / Console | `.Ui` | ✅ | — |
 | **Message log** | Message Log | `.Ui` | ⛔ | A view over the notification history |
 | **Command palette** | — (both have search) | `.Ui` | ✅ | Recency boosting, more sources ([A8](#a8--search-everywhere)) |
@@ -515,15 +515,25 @@ and asserts the scene still resolves it.
 
 **Where E1 stands.** Both exit scenarios run, in `Vixen.Editor.App.Tests/ScenarioTests`, through the
 `Vixen.Editor.Testing` harness — which E6 owns and this milestone's ordering note said to build here.
-The console, the outliner and the browser's verbs are done, as are the inspector's nested and list
-drawers, its lock and its row menu. Three things are not, and each is a gap in the *runtime* rather
-than in the panel:
+The console, the outliner and the browser are done, as is the inspector: nested and list drawers, the
+lock, the row menu, and component add/remove.
+
+⚠ **Component add/remove needed two things neither side could supply, and both are now there.**
+`ISceneComponentBinder` gained `Has` and `RemoveFrom` and the registry an enumeration, because an
+archetype knows dense ids handed out in first-touch order and a panel knows names — asking each
+registered component in turn is the only direction that works. And `ReflectedDescriptor` draws rows
+from the `[DataContract]` description the serializer already generates, so a component never has to
+carry `[Inspector]` — which it must not, since that would be a runtime assembly referencing an editor
+one. A game's components appear with nothing asked of the game.
+
+Three things are not built, and each is a gap in the *runtime* or in the control set rather than in
+the panel:
 
 | Not built | What it actually needs |
 |---|---|
 | **Drag from the browser into the scene** | No runtime component carries an `AssetId`, so there is nothing for an entity to hold a mesh or a texture *in*. A drop that made an entity named after the file would be the editor pretending. The scenario puts a cube in through the Entity menu instead and says so where it does it |
-| **Component add/remove in the inspector** | Two halves. `ISceneComponentBinder` already does boxed `ValueOn`/`AddTo`; it needs `Has`, `RemoveFrom` and an enumeration of what is registered. And the inspector draws an `[Inspector]` descriptor, which no runtime component carries — so it needs an adapter from `Vixen.Core.Reflection`'s `TypeDescriptor`, whose boxed accessors every `[DataContract]` component already has. The write-back is the nested drawer's by-value path, which `InspectorField.WriteEach` exists for |
-| **Grid view and thumbnails** | A thumbnail service and a second view over the same tree. The one item here that is cosmetic rather than structural |
+| **Picture thumbnails** | The grid ships, with a type glyph and a colour per importer. A *picture* needs a decode and a GPU upload: `Image.Texture` takes a number from `UiRenderer.RegisterImage`, which needs a device the application deliberately does not have, and nothing in `Vixen.Core.Imaging` decodes a PNG — it handles KTX2 and mips, which are what an import produces rather than what a browser is pointed at. It is the same decode-cache-evict machinery E5's asset previews need and belongs with them |
+| **A virtualising grid** | `VirtualizingPanel` pools rows; a wrapping grid needs how-many-fit-per-line arithmetic, which is a different control. The grid draws 400 tiles and says how many it did not, rather than truncating silently |
 
 ⚠ **"Rename with reference fixup" turned out not to be a rewrite**, and the note above about it being
 the fastest way to corrupt a project is right for a reason worth recording. Doc 08 chose a GUID in a

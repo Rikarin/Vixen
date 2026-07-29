@@ -579,6 +579,10 @@ public sealed partial class TreeView : Control {
 
     void Tapped(TapEvent args) {
         if (args.Count == 2 && RowAt(args.X, args.Y) is { Node: { } node }) {
+            // ⚠ The run ends with the activation. Expanding a folder moves a different row under a
+            // pointer that has not moved, so the next double-click would otherwise be counted as
+            // taps three and four and would activate nothing.
+            Document.Gestures.EndTapRun();
             Activated?.Invoke(this, node);
             args.Handled = true;
         }

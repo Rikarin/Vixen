@@ -428,6 +428,7 @@ sealed partial class EditorApplication : IDisposable {
         // highlighting whatever was clicked in it last. Comparing a handful of handles is the same
         // trade this class already makes for the selections themselves.
         SyncTreeSelection();
+        browser?.SyncSelection();
 
         if (viewport is not { } pane) {
             return;
