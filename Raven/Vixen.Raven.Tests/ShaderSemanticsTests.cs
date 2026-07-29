@@ -24,8 +24,8 @@ public class ShaderSemanticsTests {
                     return float4(position, 1)
                 }
 
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     return float4(1, 1, 1, 1)
                 }
 
@@ -40,7 +40,7 @@ public class ShaderSemanticsTests {
         var shader = FindType(compilation, "Lit");
 
         Assert.Equal(ShaderStage.Vertex, GetMember<MethodSymbol>(shader, "Vertex").Stage);
-        Assert.Equal(ShaderStage.Pixel, GetMember<MethodSymbol>(shader, "Pixel").Stage);
+        Assert.Equal(ShaderStage.Fragment, GetMember<MethodSymbol>(shader, "Fragment").Stage);
         Assert.Equal(ShaderStage.None, GetMember<MethodSymbol>(shader, "Helper").Stage);
 
         var entryPoints = compilation.GetEntryPoints();
@@ -154,8 +154,8 @@ public class ShaderSemanticsTests {
                 var albedo: Texture2D
                 var linearSampler: Sampler
 
-                [PixelShader]
-                func Pixel(uv: float2): float4 {
+                [FragmentShader]
+                func Fragment(uv: float2): float4 {
                     return albedo.Sample(linearSampler, uv)
                 }
             }
@@ -173,9 +173,9 @@ public class ShaderSemanticsTests {
                 [Semantic("WORLD")]
                 var world: mat4
 
-                [PixelShader]
+                [FragmentShader]
                 [Semantic("SV_Target")]
-                func Pixel([Semantic("TEXCOORD0")] uv: float2): float4 {
+                func Fragment([Semantic("TEXCOORD0")] uv: float2): float4 {
                     return float4(uv, 0, 1)
                 }
             }
@@ -187,11 +187,11 @@ public class ShaderSemanticsTests {
 
         Assert.Equal("WORLD", GetMember<FieldSymbol>(shader, "world").SemanticName);
 
-        var pixel = GetMember<MethodSymbol>(shader, "Pixel");
-        Assert.Equal("SV_Target", pixel.SemanticName);
+        var fragment = GetMember<MethodSymbol>(shader, "Fragment");
+        Assert.Equal("SV_Target", fragment.SemanticName);
 
         // A parameter carries its semantic inline, on the same line as the parameter.
-        Assert.Equal("TEXCOORD0", Assert.Single(pixel.Parameters).SemanticName);
+        Assert.Equal("TEXCOORD0", Assert.Single(fragment.Parameters).SemanticName);
     }
 
     [Fact]
@@ -240,8 +240,8 @@ public class ShaderSemanticsTests {
                     return world * float4(position, 1)
                 }
 
-                [PixelShader]
-                func Pixel(normal: float3, uv: float2): float4 {
+                [FragmentShader]
+                func Fragment(normal: float3, uv: float2): float4 {
                     val sampled = albedo.Sample(albedoSampler, uv)
                     return float4(sampled.rgb * baseColor.rgb * Diffuse(normal), sampled.a)
                 }
@@ -253,6 +253,6 @@ public class ShaderSemanticsTests {
         var shader = FindType(compilation, "Lambert");
         Assert.Equal(TypeKind.Shader, shader.TypeKind);
         Assert.Equal(2, compilation.GetEntryPoints().Count);
-        Assert.Equal("float4", GetMember<MethodSymbol>(shader, "Pixel").ReturnType.ToDisplayString());
+        Assert.Equal("float4", GetMember<MethodSymbol>(shader, "Fragment").ReturnType.ToDisplayString());
     }
 }

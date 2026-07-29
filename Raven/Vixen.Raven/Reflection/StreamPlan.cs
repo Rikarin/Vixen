@@ -66,7 +66,7 @@ public static class StreamPlan {
     ///     interface for it to reach.
     /// </remarks>
     public static int OutputBase(IrShader shader, ShaderStage stage) =>
-        stage == ShaderStage.Pixel ? 0 : ParameterBase(shader);
+        stage == ShaderStage.Fragment ? 0 : ParameterBase(shader);
 
     /// <summary>
     ///     The location each of a stage's own parameters occupies, in order — <c>null</c> for one

@@ -27,8 +27,8 @@ public class SyntaxNavigationTests {
                               // the tint the material sets
                               var tint: float4
 
-                              [PixelShader]
-                              func Pixel(uv: float2): float4 {
+                              [FragmentShader]
+                              func Fragment(uv: float2): float4 {
                                   return tint
                               }
                           }

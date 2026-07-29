@@ -23,7 +23,7 @@ namespace Tests;
 ///     </para>
 /// </remarks>
 public class SwitchTests {
-    static string Pixel(string body) =>
+    static string Fragment(string body) =>
         GenerateOne(
             $$"""
               package A
@@ -32,8 +32,8 @@ public class SwitchTests {
                   var mode: int
                   var tint: float4
 
-                  [PixelShader]
-                  func Pixel(): float4 {
+                  [FragmentShader]
+                  func Fragment(): float4 {
               {{body}}
                   }
               }
@@ -47,7 +47,7 @@ public class SwitchTests {
     /// </summary>
     [Fact]
     public void The_governing_expression_is_evaluated_once() {
-        var glsl = Pixel(
+        var glsl = Fragment(
             """
                     switch (mode) {
                         case 0:
@@ -65,7 +65,7 @@ public class SwitchTests {
 
     [Fact]
     public void A_case_becomes_an_equality_test_and_default_becomes_the_final_else() {
-        var glsl = Pixel(
+        var glsl = Fragment(
             """
                     var result = tint
                     switch (mode) {
@@ -90,7 +90,7 @@ public class SwitchTests {
     /// <summary>Several labels on one section become a disjunction of the tests.</summary>
     [Fact]
     public void Labels_sharing_a_section_are_tested_together() {
-        var glsl = Pixel(
+        var glsl = Fragment(
             """
                     var result = tint
                     switch (mode) {
@@ -117,7 +117,7 @@ public class SwitchTests {
     /// </summary>
     [Fact]
     public void A_trailing_break_is_dropped_rather_than_emitted() {
-        var glsl = Pixel(
+        var glsl = Fragment(
             """
                     var result = tint
                     switch (mode) {
@@ -176,15 +176,15 @@ public class SwitchTests {
                                     """;
 
         Assert.Equal(
-            Occurrences(Pixel(WithoutBreak), "break;") + 1,
-            Occurrences(Pixel(WithBreak), "break;")
+            Occurrences(Fragment(WithoutBreak), "break;") + 1,
+            Occurrences(Fragment(WithBreak), "break;")
         );
     }
 
     /// <summary>A switch with no default simply has no final else.</summary>
     [Fact]
     public void A_switch_without_a_default_leaves_the_value_alone() {
-        var glsl = Pixel(
+        var glsl = Fragment(
             """
                     var result = tint
                     switch (mode) {
@@ -205,7 +205,7 @@ public class SwitchTests {
     /// </summary>
     [Fact]
     public void A_local_in_one_section_does_not_leak_into_the_next() {
-        var glsl = Pixel(
+        var glsl = Fragment(
             """
                     var result = tint
                     switch (mode) {
@@ -239,8 +239,8 @@ public class SwitchTests {
                                   var mode: int
                                   var tint: float4
 
-                                  [PixelShader]
-                                  func Pixel(): float4 {
+                                  [FragmentShader]
+                                  func Fragment(): float4 {
                                       var result = tint
                                       switch (mode) {
                                           case 0:

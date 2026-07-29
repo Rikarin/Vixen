@@ -528,11 +528,6 @@ Vixen.Rendering.Compositor.SequenceAsset.Enabled.init -> bool
 Vixen.Rendering.Compositor.SequenceAsset.Name.get -> string
 Vixen.Rendering.Compositor.SequenceAsset.Name.init -> string
 Vixen.Rendering.Compositor.SequenceAsset.SequenceAsset() -> void
-Vixen.Rendering.Compositor.ShaderStages -> enum : int
-Vixen.Rendering.Compositor.ShaderStages.Pixel = 1 -> Vixen.Rendering.Compositor.ShaderStages
-Vixen.Rendering.Compositor.ShaderStages.ShaderStages() -> void
-Vixen.Rendering.Compositor.ShaderStages.Vertex = 0 -> Vixen.Rendering.Compositor.ShaderStages
-Vixen.Rendering.Compositor.ShaderStages.VertexAndPixel = 2 -> Vixen.Rendering.Compositor.ShaderStages
 Vixen.Rendering.Compositor.ShadowMapAsset -> sealed record
 Vixen.Rendering.Compositor.ShadowMapAsset : System.IEquatable<Vixen.Rendering.Compositor.ShadowMapAsset>
 Vixen.Rendering.Compositor.ShadowMapAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
@@ -656,8 +651,8 @@ Vixen.Rendering.Compositor.ViewBlockAsset.Set.get -> Vixen.Graphics.DescriptorSe
 Vixen.Rendering.Compositor.ViewBlockAsset.Set.init -> Vixen.Graphics.DescriptorSetSlot
 Vixen.Rendering.Compositor.ViewBlockAsset.Size.get -> int
 Vixen.Rendering.Compositor.ViewBlockAsset.Size.init -> int
-Vixen.Rendering.Compositor.ViewBlockAsset.Stages.get -> Vixen.Rendering.Compositor.ShaderStages
-Vixen.Rendering.Compositor.ViewBlockAsset.Stages.init -> Vixen.Rendering.Compositor.ShaderStages
+Vixen.Rendering.Compositor.ViewBlockAsset.Stages.get -> Vixen.Graphics.ShaderStage
+Vixen.Rendering.Compositor.ViewBlockAsset.Stages.init -> Vixen.Graphics.ShaderStage
 Vixen.Rendering.Compositor.ViewBlockAsset.ViewBlockAsset() -> void
 Vixen.Rendering.Compositor.ViewMemberAsset -> sealed record
 Vixen.Rendering.Compositor.ViewMemberAsset : System.IEquatable<Vixen.Rendering.Compositor.ViewMemberAsset>

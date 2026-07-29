@@ -42,9 +42,9 @@ shader DepthOnly {
     /// whole point: a returned zero still writes depth, so a cut-out leaf would fill the prepass with
     /// depth for texels it does not cover and occlude whatever is behind it. `discard` writes no
     /// depth, which is the only correct thing for a prepass to do with a texel that is not there.
-    [PixelShader]
+    [FragmentShader]
     [Semantic("SV_Target")]
-    func Pixel(): float4 {
+    func Fragment(): float4 {
         if (AlphaTested) {
             val opacity = opacityMap.Sample(opacitySampler, uv).a
             if (opacity < alphaCutoff) {

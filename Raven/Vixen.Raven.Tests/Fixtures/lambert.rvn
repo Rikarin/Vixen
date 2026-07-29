@@ -24,9 +24,9 @@ shader Lambert {
         return world * float4(position, 1)
     }
 
-    [PixelShader]
+    [FragmentShader]
     [Semantic("SV_Target")]
-    func Pixel(normal: float3, uv: float2): float4 {
+    func Fragment(normal: float3, uv: float2): float4 {
         var shade = 0f
         for (i in 0 .. 2) {
             shade += Diffuse(normal, float3(0, 1, 0))

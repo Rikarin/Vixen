@@ -25,7 +25,7 @@ import_directive
 // The trailing newline is NOT part of this rule: a declaration writes its
 // attributes as `(attribute_list NL*)*` so they may sit on their own line(s),
 // while a parameter writes `attribute_list*` and carries them inline —
-// `func Pixel([Semantic("TEXCOORD0")] uv: float2)`.
+// `func Fragment([Semantic("TEXCOORD0")] uv: float2)`.
 attribute_list
     : '[' attribute (',' attribute)* ']'
     ;

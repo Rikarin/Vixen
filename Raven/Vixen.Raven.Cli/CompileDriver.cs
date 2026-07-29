@@ -200,7 +200,7 @@ public static class CompileDriver {
         TextWriter error
     ) {
         // An output path that names a file can only take one unit; a shader with
-        // both a vertex and a pixel stage needs somewhere to put both.
+        // both a vertex and a fragment stage needs somewhere to put both.
         var single = Path.GetExtension(request.Output).Length > 0;
 
         if (single && generated.Count > 1) {

@@ -35,7 +35,7 @@ public class ConstructorTests {
                        }
                        """;
 
-    static string Pixel(string types, string body) =>
+    static string Fragment(string types, string body) =>
         $$"""
           package A
 
@@ -44,8 +44,8 @@ public class ConstructorTests {
           shader S {
               var colour: float3
 
-              [PixelShader]
-              func Pixel(): float4 {
+              [FragmentShader]
+              func Fragment(): float4 {
           {{body}}
               }
           }
@@ -61,7 +61,7 @@ public class ConstructorTests {
     [Fact]
     public void A_declared_constructor_lowers_to_a_function_returning_the_value() {
         var glsl = GenerateOne(
-            Pixel(
+            Fragment(
                 """
                 struct Ray {
                     var origin: float3
@@ -91,7 +91,7 @@ public class ConstructorTests {
     /// </summary>
     [Fact]
     public void A_struct_with_no_constructor_is_built_from_its_fields() {
-        var glsl = GenerateOne(Pixel(Ray, "        val r = Ray(colour, colour)\n        return float4(r.origin, 1)"));
+        var glsl = GenerateOne(Fragment(Ray, "        val r = Ray(colour, colour)\n        return float4(r.origin, 1)"));
 
         // Straight through to GLSL's own constructor — no generated function in between.
         Assert.Contains("Ray(", glsl, StringComparison.Ordinal);
@@ -101,7 +101,7 @@ public class ConstructorTests {
     [Fact]
     public void The_positional_form_converts_each_argument_to_its_field_type() {
         var glsl = GenerateOne(
-            Pixel(
+            Fragment(
                 "struct Weights {\n    var scale: float\n    var count: float\n}",
                 "        val w = Weights(1, 2)\n        return float4(w.scale, w.count, 0, 1)"
             )
@@ -113,7 +113,7 @@ public class ConstructorTests {
 
     [Fact]
     public void A_zero_argument_build_still_zero_initializes() =>
-        Assert.NotEmpty(GenerateOne(Pixel(Ray, "        val r = Ray()\n        return float4(r.origin, 1)")));
+        Assert.NotEmpty(GenerateOne(Fragment(Ray, "        val r = Ray()\n        return float4(r.origin, 1)")));
 
     [Theory]
     // One argument per field, so a short or long list is an arity error naming the count.
@@ -124,7 +124,7 @@ public class ConstructorTests {
     // direction of (1, 1, 1) exactly as `val v: float3 = 1f` would.
     [InlineData("        val c = Counted(colour, 1)\n        return float4(1, 1, 1, 1)", "RVN2020")]
     public void The_positional_form_is_checked(string body, string id) {
-        var diagnostics = Diagnose(Pixel(Ray + "\n\nstruct Counted {\n    var n: int\n    var scale: float\n}", body));
+        var diagnostics = Diagnose(Fragment(Ray + "\n\nstruct Counted {\n    var n: int\n    var scale: float\n}", body));
 
         Assert.Contains(id, diagnostics.Select(d => d.Id));
     }
@@ -137,7 +137,7 @@ public class ConstructorTests {
     [Fact]
     public void A_declared_constructor_takes_over_from_the_positional_form() =>
         AssertDiagnostics(
-            Pixel(
+            Fragment(
                 """
                 struct Ray {
                     var origin: float3
@@ -176,7 +176,7 @@ public class ConstructorTests {
     public void Declaring_a_value_and_reading_it_unfilled_is_refused() {
         var error = Assert.Single(
             SemanticTestBase.Diagnose(
-                Pixel(
+                Fragment(
                     """
                     struct Ray {
                         var origin: float3
@@ -200,7 +200,7 @@ public class ConstructorTests {
     public void Declaring_a_value_and_filling_it_by_field_compiles() =>
         Assert.NotEmpty(
             GenerateOne(
-                Pixel(
+                Fragment(
                     """
                     struct Ray {
                         var origin: float3
@@ -236,8 +236,8 @@ public class ConstructorTests {
                         val ignored = t
                     }
 
-                    [PixelShader]
-                    func Pixel(): float4 {
+                    [FragmentShader]
+                    func Fragment(): float4 {
                         return tint
                     }
                 }
@@ -260,8 +260,8 @@ public class ConstructorTests {
             shader S {
                 var tint: float4 = float4(1, 1, 1, 1)
 
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     return tint
                 }
             }

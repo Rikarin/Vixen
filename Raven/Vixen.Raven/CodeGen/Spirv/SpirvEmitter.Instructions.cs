@@ -746,7 +746,7 @@ partial class SpirvEmitter {
 
         // An implicit level of detail needs derivatives, which only a fragment
         // shader has; every other stage has to ask for an explicit one.
-        if (entryPoint.Stage == ShaderStage.Pixel) {
+        if (entryPoint.Stage == ShaderStage.Fragment) {
             return Emit(SpirvOp.ImageSampleImplicitLod, resultType, SpirvOperand.Id(combined), arguments[2]);
         }
 

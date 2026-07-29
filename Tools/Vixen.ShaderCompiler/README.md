@@ -11,7 +11,7 @@ build-time library that references both, and nothing that ships references it.
 
 | | |
 |---|---|
-| `EffectTranslator` | Raven's `CompiledEffect` → the engine's `EffectData`. Every rename lives here: `Pixel` becomes `Fragment`, a bare `exposure` becomes `Lighting.exposure`, and `lights[].color` becomes one key per element |
+| `EffectTranslator` | Raven's `CompiledEffect` → the engine's `EffectData`. Every rename lives here: a bare `exposure` becomes `Lighting.exposure`, and `lights[].color` becomes one key per element |
 | `RavenEffectCompiler` | An `IEffectSource` that compiles a variant in process. Sources are parsed once and the compilation is redone per variant, because that is exactly what differs |
 | `PermutationClosure` | Every variant a shader actually has, found by compiling until the answer stops changing |
 | `EffectBundleBuilder` | The bundle a shipping build loads, from a manifest, a closure, or both |

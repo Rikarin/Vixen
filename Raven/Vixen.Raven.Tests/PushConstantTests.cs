@@ -35,9 +35,9 @@ public class PushConstantTests {
                                   return float4(p.x, p.y, 0f, 1f)
                               }
 
-                              [PixelShader]
+                              [FragmentShader]
                               [Semantic("SV_Target")]
-                              func Pixel(): float4 => tint
+                              func Fragment(): float4 => tint
                           }
 
                           """;
@@ -193,8 +193,8 @@ public class PushConstantTests {
                 [PushConstant] var world: mat4
                 [PushConstant] var view: mat4
 
-                [PixelShader]
-                func Pixel(): float4 => (world * view)[0]
+                [FragmentShader]
+                func Fragment(): float4 => (world * view)[0]
             }
 
             """

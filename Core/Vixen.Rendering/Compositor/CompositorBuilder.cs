@@ -318,14 +318,8 @@ public sealed class CompositorBuilder(RenderSystem system) {
         // Touched so that the standard keys are interned before anything looks one up by name.
         _ = ViewConstants.ViewProjection;
 
-        var stages = declared.Stages switch {
-            ShaderStages.Vertex => ShaderStage.Vertex,
-            ShaderStages.Pixel => ShaderStage.Fragment,
-            _ => ShaderStage.Vertex | ShaderStage.Fragment
-        };
-
         var layout = Device!.CreateDescriptorSetLayout(
-            new(declared.Set, [new(declared.Binding, DescriptorKind.UniformBuffer, stages)], "View")
+            new(declared.Set, [new(declared.Binding, DescriptorKind.UniformBuffer, declared.Stages)], "View")
         );
 
         var block = new ViewConstants(Device) {

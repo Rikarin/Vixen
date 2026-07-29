@@ -238,7 +238,7 @@ shader ForwardPlus {
 
     /// View-space position, for finding the fragment's cluster.
     ///
-    /// Carried from the vertex stage rather than recovered in the pixel stage, because Raven has no
+    /// Carried from the vertex stage rather than recovered in the fragment stage, because Raven has no
     /// fragment-stage position built-in — there is no `SV_Position` to read on the way in, only to
     /// write on the way out. Interpolating it costs a location, which the unclustered variant does
     /// not pay: the write below is inside the permutation, so with clustering off there is no write,
@@ -261,9 +261,9 @@ shader ForwardPlus {
         return Transform.ObjectToClip(viewProjection, positionWS)
     }
 
-    [PixelShader]
+    [FragmentShader]
     [Semantic("SV_Target")]
-    func Pixel(): float4 {
+    func Fragment(): float4 {
         // The material fills the surface. Every feature reads what the previous one left, which is
         // what `inout` buys: adding a feature to the chain changes no other feature's signature.
         var d: MaterialData
@@ -454,7 +454,7 @@ shader ForwardPlus {
     /// `Ibl.SpecularLod` were both dead. A rough metal reflecting a sharp environment reads as a
     /// material problem rather than as a missing argument, which is why it survived.
     ///
-    /// `SampleLevel` rather than `Sample`, and not only to state the level: a pixel shader's implicit
+    /// `SampleLevel` rather than `Sample`, and not only to state the level: a fragment shader's implicit
     /// derivatives are undefined under non-uniform flow, and this is called from inside one.
     func Ambient(d: MaterialData, n: float3, v: float3): float3 {
         val NdotV = saturate(dot(n, v))

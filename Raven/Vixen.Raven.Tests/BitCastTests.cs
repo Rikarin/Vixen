@@ -25,8 +25,8 @@ public class BitCastTests {
           shader S {
               var packed: Buffer<uint>
 
-              [PixelShader]
-              func Pixel(): float4 {
+              [FragmentShader]
+              func Fragment(): float4 {
           {{body}}
               }
           }

@@ -46,9 +46,9 @@ shader Placeholder {
         return clip
     }
 
-    [PixelShader]
+    [FragmentShader]
     [Semantic("SV_Target")]
-    func Pixel(): float4 {
+    func Fragment(): float4 {
         val cell = floor((ndc * 0.5f + float2(0.5f, 0.5f)) * float(Cells))
         val checker = mod(cell.x + cell.y, 2f)
 

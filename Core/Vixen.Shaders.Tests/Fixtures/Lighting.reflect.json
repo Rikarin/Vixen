@@ -8,7 +8,7 @@
           "Name": "LightingPerMaterialUniforms",
           "Type": "UniformBuffer",
           "Count": 1,
-          "Stages": "Vertex, Pixel",
+          "Stages": "Vertex, Fragment",
           "Members": [
             {
               "Name": "worldViewProjection",
@@ -226,7 +226,7 @@
           "Name": "albedo",
           "Type": "SampledTexture",
           "Count": 1,
-          "Stages": "Vertex, Pixel",
+          "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
           "IsWritable": false
@@ -236,7 +236,7 @@
           "Name": "linear",
           "Type": "Sampler",
           "Count": 1,
-          "Stages": "Vertex, Pixel",
+          "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
           "IsWritable": false
@@ -246,7 +246,7 @@
           "Name": "overflow",
           "Type": "StorageBuffer",
           "Count": 0,
-          "Stages": "Vertex, Pixel",
+          "Stages": "Vertex, Fragment",
           "Members": [
             {
               "Name": "overflow",
@@ -733,6 +733,6 @@
   ],
   "Stages": [
     "Vertex",
-    "Pixel"
+    "Fragment"
   ]
 }

@@ -50,9 +50,9 @@ public class InOutTests {
                            shader Lit {
                                var baseColor: float3
 
-                               [PixelShader]
+                               [FragmentShader]
                                [Semantic("SV_Target")]
-                               func Pixel(): float4 {
+                               func Fragment(): float4 {
                                    var s: Surface
                                    s.color = baseColor
                                    s.roughness = 0.5f
@@ -171,9 +171,9 @@ public class InOutTests {
             package A
 
             shader S {
-                [PixelShader]
+                [FragmentShader]
                 [Semantic("SV_Target")]
-                func Pixel(inout uv: float2): float4 {
+                func Fragment(inout uv: float2): float4 {
                     return float4(uv, 0f, 1f)
                 }
             }
@@ -199,11 +199,11 @@ public class InOutTests {
     [Fact]
     public void TheCallSiteCopiesThroughALocalTemp() {
         var module = Lower(Surface);
-        var pixel = FindFunction(module, "Pixel");
+        var fragment = FindFunction(module, "Fragment");
 
-        var temp = Assert.Single(pixel.Locals, local => local.Name.Contains("#inout", StringComparison.Ordinal));
+        var temp = Assert.Single(fragment.Locals, local => local.Name.Contains("#inout", StringComparison.Ordinal));
 
-        var call = Assert.Single(Calls(pixel.Body));
+        var call = Assert.Single(Calls(fragment.Body));
         var reference = Assert.Single(call.Arguments, a => a.IsByReference);
         Assert.Same(temp, reference.Reference);
 
@@ -314,14 +314,14 @@ public class InOutTests {
     [Fact]
     public void TheCopyOutStoresIntoTheCallersStorage() {
         var module = Lower(Surface);
-        var pixel = FindFunction(module, "Pixel");
+        var fragment = FindFunction(module, "Fragment");
 
-        var statements = Flatten(pixel.Body).ToArray();
+        var statements = Flatten(fragment.Body).ToArray();
         var callIndex = Array.FindIndex(statements, s => s is IrCallInstruction);
         Assert.True(callIndex >= 0);
 
-        var temp = Assert.Single(pixel.Locals, local => local.Name.Contains("#inout", StringComparison.Ordinal));
-        var target = Assert.Single(pixel.Locals, local => local.Name == "s");
+        var temp = Assert.Single(fragment.Locals, local => local.Name.Contains("#inout", StringComparison.Ordinal));
+        var target = Assert.Single(fragment.Locals, local => local.Name == "s");
 
         // After the call: a load of the temp, then a store into the caller's own local.
         var copyOut = statements
@@ -400,9 +400,9 @@ public class InOutTests {
                                 shader Lit {
                                     var baseColor: float3
 
-                                    [PixelShader]
+                                    [FragmentShader]
                                     [Semantic("SV_Target")]
-                                    func Pixel(): float4 {
+                                    func Fragment(): float4 {
                                         var s: Surface
                                         s.color = baseColor
                                         s.roughness = 0.5f

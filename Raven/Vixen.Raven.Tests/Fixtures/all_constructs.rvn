@@ -193,7 +193,7 @@ shader Everything : ExampleBase, CustomShader {
         return world * float4(scaled, 1)
     }
 
-    [PixelShader]
+    [FragmentShader]
     [Semantic("SV_Target")]
     func PSMain([Semantic("TEXCOORD0")] uv: float2): float4 {
         val lit = saturate(dot(tint.rgb, tint.rgb))
@@ -204,7 +204,7 @@ shader Everything : ExampleBase, CustomShader {
 shader Blur<val TapCount: int> {
     var source: Texture2D
 
-    [PixelShader]
+    [FragmentShader]
     func PS(uv: float2): float4 {
         if (TapCount > 4) {
             return float4(0, 0, 0, 1)

@@ -240,8 +240,8 @@ public class SpirvValidationTests {
                   var albedo: Texture2D
                   var linear: Sampler
 
-                  [PixelShader]
-                  func Pixel(): float4 {
+                  [FragmentShader]
+                  func Fragment(): float4 {
               {{body}}
                   }
               }

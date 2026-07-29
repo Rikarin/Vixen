@@ -26,15 +26,15 @@ public static class SpirvTestBase {
         return unit;
     }
 
-    /// <summary>The assembly listing of a shader with one pixel entry point.</summary>
-    public static string Pixel(string body, string members = "", string signature = "func Pixel(): float4") =>
+    /// <summary>The assembly listing of a shader with one fragment entry point.</summary>
+    public static string Fragment(string body, string members = "", string signature = "func Fragment(): float4") =>
         One(
                 $$"""
                   package A
 
                   shader S {
                   {{members}}
-                      [PixelShader]
+                      [FragmentShader]
                       {{signature}} {
                   {{body}}
                       }

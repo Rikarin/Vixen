@@ -6,12 +6,12 @@ namespace Vixen.Raven.Symbols;
 
 /// <summary>
 ///     The pipeline stage a method is an entry point for, taken from a stage
-///     attribute (<c>[VertexShader]</c>, <c>[PixelShader]</c>, …).
+///     attribute (<c>[VertexShader]</c>, <c>[FragmentShader]</c>, …).
 /// </summary>
 public enum ShaderStage {
     None,
     Vertex,
-    Pixel,
+    Fragment,
     Geometry,
     Compute
 }

@@ -117,7 +117,7 @@ shader TestShader : ExampleBase, CustomShader {
         return world * float4(scaled, 1)
     }
 
-    [PixelShader]
+    [FragmentShader]
     [Semantic("SV_Target")]
     func PSMain(uv: float2): float4 {
         val sampled = albedo.Sample(albedoSampler, uv)

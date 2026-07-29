@@ -137,7 +137,7 @@ public class ShaderCompilerServiceTests {
     [Fact]
     public void A_broken_shader_sends_back_its_diagnostics() {
         var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("n") + ".rvn");
-        File.WriteAllText(path, "package Vixen.Fixtures\n\nshader Broken {\n    var tint: float3\n\n    [PixelShader]\n    [Semantic(\"SV_Target\")]\n    func Pixel(): float4 { return nonsense }\n}\n");
+        File.WriteAllText(path, "package Vixen.Fixtures\n\nshader Broken {\n    var tint: float3\n\n    [FragmentShader]\n    [Semantic(\"SV_Target\")]\n    func Fragment(): float4 { return nonsense }\n}\n");
 
         using var server = Serving(_ => new RavenEffectCompiler([path]));
         using var source = new RemoteEffectSource("localhost", server.Port);

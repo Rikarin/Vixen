@@ -39,7 +39,7 @@ struct Normals {
     /// A tangent frame with no authored tangent, derived from the UV gradient.
     ///
     /// For geometry with no tangent channel — terrain, procedural surfaces, decals. Uses screen-space
-    /// derivatives, so it only works in a pixel stage and produces a frame that is constant across a
+    /// derivatives, so it only works in a fragment stage and produces a frame that is constant across a
     /// 2×2 quad. Good enough for a detail map, not for a baked normal map that assumed a specific
     /// unwrap.
     static func FrameFromDerivatives(normal: float3, position: float3, uv: float2): TangentFrame {

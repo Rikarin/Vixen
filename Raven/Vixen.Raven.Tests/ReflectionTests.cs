@@ -52,8 +52,8 @@ public class ReflectionTests {
                                 var direction: float3
                                 var albedo: Texture2D
 
-                                [PixelShader]
-                                func Pixel(): float4 {
+                                [FragmentShader]
+                                func Fragment(): float4 {
                                     return tint
                                 }
                             }
@@ -98,8 +98,8 @@ public class ReflectionTests {
                 var linear: Sampler
                 [PerDraw] var world: mat4
 
-                [PixelShader]
-                func Pixel(uv: float2): float4 {
+                [FragmentShader]
+                func Fragment(uv: float2): float4 {
                     return albedo.Sample(linear, uv) * tint * time + viewProjection * world * tint
                 }
             }
@@ -132,8 +132,8 @@ public class ReflectionTests {
                     [PerFrame] var time: float
                     var tint: float4
 
-                    [PixelShader]
-                    func Pixel(): float4 {
+                    [FragmentShader]
+                    func Fragment(): float4 {
                         return tint * time
                     }
                 }
@@ -173,8 +173,8 @@ public class ReflectionTests {
                         var transform: mat4
                         var scale: float
 
-                        [PixelShader]
-                        func Pixel(): float4 {
+                        [FragmentShader]
+                        func Fragment(): float4 {
                             return float4(scale, scale, scale, scale)
                         }
                     }
@@ -257,8 +257,8 @@ public class ReflectionTests {
         var reflection = Describe(Material);
         var block = Assert.Single(reflection.Sets).Bindings[0];
 
-        Assert.Equal(ShaderStages.Pixel, block.Stages);
-        Assert.Equal([ShaderStage.Pixel], reflection.Stages);
+        Assert.Equal(ShaderStages.Fragment, block.Stages);
+        Assert.Equal([ShaderStage.Fragment], reflection.Stages);
     }
 
     // --- The flattened parameter list ---------------------------------------
@@ -306,8 +306,8 @@ public class ReflectionTests {
                 var enabled: bool = true
                 var tint: float4
 
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     return tint * exposure
                 }
             }
@@ -345,8 +345,8 @@ public class ReflectionTests {
                 var fog: Fog
                 var scale: float = 3f
 
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     return float4(fog.density * scale, 0f, 0f, 1f)
                 }
             }
@@ -396,8 +396,8 @@ public class ReflectionTests {
             shader S {
                 var lights: Light[4]
 
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     return float4(lights[0].color, lights[1].range)
                 }
             }
@@ -435,8 +435,8 @@ public class ReflectionTests {
                                   var tint: float4
                                   var volume: Texture3D
 
-                                  [PixelShader]
-                                  func Pixel(): float4 {
+                                  [FragmentShader]
+                                  func Fragment(): float4 {
                                       if (Precise) {
                                           var wide = 2.0
                                           return tint * float(wide)
@@ -471,8 +471,8 @@ public class ReflectionTests {
 
                                   var tint: float4
 
-                                  [PixelShader]
-                                  func Pixel(): float4 {
+                                  [FragmentShader]
+                                  func Fragment(): float4 {
                                       if (UseDetail) {
                                           return tint * 2.0f
                                       }
@@ -504,8 +504,8 @@ public class ReflectionTests {
 
                                 var tint: float4
 
-                                [PixelShader]
-                                func Pixel(): float4 {
+                                [FragmentShader]
+                                func Fragment(): float4 {
                                     if (UseDetail) {
                                         return tint * float(CascadeCount) * float(TapCount)
                                     }
@@ -618,8 +618,8 @@ public class ReflectionTests {
             package A
 
             shader S {
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     return float4(1.0f, 1.0f, 1.0f, 1.0f)
                 }
             }
@@ -640,8 +640,8 @@ public class ReflectionTests {
             shader First {
                 var a: float4
 
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     return a
                 }
             }
@@ -649,8 +649,8 @@ public class ReflectionTests {
             shader Second {
                 var b: float4
 
-                [PixelShader]
-                func Pixel(): float4 {
+                [FragmentShader]
+                func Fragment(): float4 {
                     return b
                 }
             }

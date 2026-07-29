@@ -573,9 +573,9 @@ public sealed class VixenCommandTests : IDisposable {
                     return float4(position, 1f)
                 }
 
-                [PixelShader]
+                [FragmentShader]
                 [Semantic("SV_Target")]
-                func Pixel(): float4 {
+                func Fragment(): float4 {
                     var color = tint
 
                     if (Bright) {

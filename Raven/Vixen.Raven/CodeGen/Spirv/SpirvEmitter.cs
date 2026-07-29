@@ -609,7 +609,7 @@ sealed partial class SpirvEmitter {
 
         module.AddEntryPoint(ExecutionModel(entryPoint.Stage), main, "main", interfaceIds);
 
-        if (entryPoint.Stage == ShaderStage.Pixel) {
+        if (entryPoint.Stage == ShaderStage.Fragment) {
             // A fragment shader has to say where its origin is, and Vulkan only
             // accepts the upper-left one.
             module.AddExecutionMode(main, SpirvExecutionMode.OriginUpperLeft);

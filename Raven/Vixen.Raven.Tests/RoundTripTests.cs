@@ -59,8 +59,8 @@ public class RoundTripTests {
     [InlineData("package A.B\n\nprotocol P {\n    func First()\n    func Second(a: int): int\n}\n")]
     [InlineData("package A.B\n\nprotocol P { func Test() }\n")]
     // Inline parameter attributes (no newline after the attribute list)
-    [InlineData("package A.B\n\nshader Foo {\n    func Pixel([Semantic(\"TEXCOORD0\")] uv: float2) {\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func Pixel([A] [B] uv: float2) {\n    }\n}\n")]
+    [InlineData("package A.B\n\nshader Foo {\n    func Fragment([Semantic(\"TEXCOORD0\")] uv: float2) {\n    }\n}\n")]
+    [InlineData("package A.B\n\nshader Foo {\n    func Fragment([A] [B] uv: float2) {\n    }\n}\n")]
     [InlineData(
         "package A.B\n\nshader Foo {\n    func Vertex([Semantic(\"POSITION\")] p: float3, [Semantic(\"NORMAL\")] n: float3) {\n    }\n}\n"
     )]

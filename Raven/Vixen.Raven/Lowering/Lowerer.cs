@@ -845,7 +845,7 @@ public sealed partial class Lowerer {
     ///     untrue about where the value ends up.
     /// </remarks>
     void ReportUnconsumedStreams(IrShader shader, IrEntryPoint entryPoint) {
-        if (entryPoint.Stage != ShaderStage.Pixel) {
+        if (entryPoint.Stage != ShaderStage.Fragment) {
             return;
         }
 
@@ -885,7 +885,7 @@ public sealed partial class Lowerer {
         HashSet<IrFunction> said = [];
 
         foreach (var entryPoint in module.Shaders.SelectMany(shader => shader.EntryPoints)) {
-            if (entryPoint.Stage == ShaderStage.Pixel) {
+            if (entryPoint.Stage == ShaderStage.Fragment) {
                 continue;
             }
 
@@ -1030,7 +1030,7 @@ public sealed partial class Lowerer {
             return [];
         }
 
-        if (method.Stage != ShaderStage.Pixel || function.ReturnType is not IrStructType targets) {
+        if (method.Stage != ShaderStage.Fragment || function.ReturnType is not IrStructType targets) {
             return [new IrStageIo("result", function.ReturnType, method.SemanticName)];
         }
 

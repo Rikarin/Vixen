@@ -37,8 +37,8 @@ public class CompiledEffectTests {
                                   return float4(position.x, position.y, position.z, 1.0f)
                               }
 
-                              [PixelShader]
-                              func Pixel(): float4 {
+                              [FragmentShader]
+                              func Fragment(): float4 {
                                   if (UseDetail) {
                                       return tint * 2.0f
                                   }
@@ -116,7 +116,7 @@ public class CompiledEffectTests {
 
         Assert.Equal(2, effect.Modules.Length);
         Assert.NotNull(effect.ModuleFor(ShaderStage.Vertex));
-        Assert.NotNull(effect.ModuleFor(ShaderStage.Pixel));
+        Assert.NotNull(effect.ModuleFor(ShaderStage.Fragment));
         Assert.Null(effect.ModuleFor(ShaderStage.Compute));
     }
 
@@ -127,7 +127,7 @@ public class CompiledEffectTests {
     [Fact]
     public void A_spirv_module_keeps_its_magic_word() {
         var effect = CompiledEffectReader.Read(CompiledEffectWriter.Write(Build()));
-        var module = effect.ModuleFor(ShaderStage.Pixel)!;
+        var module = effect.ModuleFor(ShaderStage.Fragment)!;
 
         Assert.True(module.IsBinary);
         Assert.Equal([0x03, 0x02, 0x23, 0x07], module.Bytes.Take(4));
@@ -136,7 +136,7 @@ public class CompiledEffectTests {
     [Fact]
     public void A_source_target_round_trips_as_text() {
         var effect = CompiledEffectReader.Read(CompiledEffectWriter.Write(Build(target: "glsl")));
-        var module = effect.ModuleFor(ShaderStage.Pixel)!;
+        var module = effect.ModuleFor(ShaderStage.Fragment)!;
 
         Assert.False(module.IsBinary);
         Assert.Contains("#version 450", module.AsText(), StringComparison.Ordinal);
