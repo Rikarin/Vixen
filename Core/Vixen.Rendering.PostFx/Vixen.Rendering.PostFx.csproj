@@ -71,6 +71,7 @@
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\Outline.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\Ssao.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\Taa.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\PostFx\DistanceFieldAo.reflect.json" />
     </ItemGroup>
 
 </Project>

@@ -58,6 +58,7 @@ public class LibraryReflectionTests {
         ("PostFx", "Outline"),
         ("PostFx", "Ssao"),
         ("PostFx", "Taa"),
+        ("PostFx", "DistanceFieldAo"),
         ("Pipeline", "ForwardPlus"),
 
         // The GPU culling passes, whose host binds every one of their buffers by name — see
