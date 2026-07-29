@@ -362,6 +362,42 @@ The `.vxml` live-preview pane is worth calling out: it is the editor feature tha
 pleasant, and it is nearly free once hot reload works, because the preview pane is just another host for
 the same component tree.
 
+> **Nine of those thirteen are built**, in `Vixen.Editor.AssetEditors` — one assembly, because they
+> are one shape: a document with an undo stack, a control over it, and a registry saying which one
+> claims a file. What each of them cost is [in its
+> README](../../Editor/Vixen.Editor.AssetEditors/README.md); five things are worth pulling up here.
+>
+> - **Import settings edit the sidecar's node tree, not a bound `AssetMeta`.** Binding and re-emitting
+>   would silently delete two things a file carries and the schema does not: the per-target
+>   `overrides` block, which no settings type has a member for, and any key a newer editor wrote.
+>   An editor that dropped either would make *opening* a file an edit.
+> - **The override matrix's cells are the inspector's own drawers.** A cell is an `InspectorField`
+>   over one target's settings object, so a setting added to an importer appears here with the right
+>   editor and a plugin's drawer works without knowing the matrix exists. What is sparse is the set
+>   of *marked* members rather than the set of non-null ones, because "override this to null" and "do
+>   not override this" have to stay different things.
+> - **Three previews are a request rather than a renderer.** A texture's pixels, a material's sphere
+>   and a scene's viewport all need a device this assembly does not have, so each view owns the
+>   channels, the level or the shape and the application uploads. It is the split `ScenePresenter`
+>   already had, and the mip inspector turned out to need no device at all — how many levels and what
+>   they cost is arithmetic over the extent, the limit and the format.
+> - **The compositor is a chain and a pass is a branch off it.** Every other graph on the node
+>   framework is data flow; a frame is a *sequence*, so a node has one flow in and one flow out and
+>   the chain is the order. It needed two things from `Vixen.Editor.NodeGraph`, both because a
+>   compositor is made of **names** where the other graphs are made of numbers: `GraphNode.Texts`
+>   beside `Values`, and a rule letting a key no port claimed reach the node that reads it.
+> - **What "live" means differs per file type, and the pane says which it is.** A `.vcss` preview is
+>   the real cascade — `StyleEngine.Replace` and a restyle. A `.vxml` preview is the *structure*: the
+>   element tree with its literal attributes, and a placeholder where an expression would go, because
+>   a truly live one means compiling the generated partial class. Layout and styling are right in
+>   that picture; state and bindings are not there at all.
+>
+> Not in: the animation clip, VFX, input-action and font editors — four rows this table has and that
+> assembly does not. The VFX graph's model and compiler already exist and want a document and a
+> factory; the other three want their formats first. Also not in: a LOD preview, which needs the
+> `ModelCompiler` [08](08-asset-pipeline-and-addressables.md) specifies, and an importer for a
+> compositor graph, which is the one place a `.vxcomp` still has to be compiled by its host.
+
 ## Input system
 
 Your brief left this open between Stride's and Unity's. **Take Unity's new Input System model, with

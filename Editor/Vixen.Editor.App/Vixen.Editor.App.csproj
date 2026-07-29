@@ -41,6 +41,14 @@
         <ProjectReference Include="..\Vixen.Editor.SceneView\Vixen.Editor.SceneView.csproj" />
 
         <!--
+            The nine per-asset editors from doc 11's table. This is the assembly that turns a
+            double-click in the project browser into a document and a panel; which editor claims a
+            file and what its view is made of are AssetEditors' business, and where the panel lands
+            is this one's.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.AssetEditors\Vixen.Editor.AssetEditors.csproj" />
+
+        <!--
             Analyzers do not flow transitively through a ProjectReference, so an assembly declaring
             [Inspector] members of its own — which SceneEntity does — has to name the generator.
         -->

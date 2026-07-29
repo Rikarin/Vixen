@@ -211,6 +211,7 @@ public abstract class NodeGraphCompiler<TArtefact> where TArtefact : class {
         Dictionary<string, string> inputs = new(StringComparer.Ordinal);
         Dictionary<string, string> outputs = new(StringComparer.Ordinal);
         Dictionary<string, float[]> values = new(StringComparer.Ordinal);
+        Dictionary<string, string> texts = new(node.Texts, StringComparer.Ordinal);
         HashSet<string> connected = new(StringComparer.Ordinal);
 
         foreach (var port in definition.Ports) {
@@ -243,7 +244,18 @@ public abstract class NodeGraphCompiler<TArtefact> where TArtefact : class {
             inputs[port.Name] = Incoming(graph, node, port, kind);
         }
 
-        return new(inputs, outputs, values, connected, resolved);
+        // ⚠ Values the node carries under a key that is *not* a port. The graphics compositor's
+        // settings are keyed like ports and are not ports — nothing connects to them — so without
+        // this they would round-trip through the file and never reach the node that reads them. Only
+        // the unclaimed keys, and after the loop: a connected port must keep answering "no inline
+        // value", or a VFX node would read the number an author typed before wiring something up.
+        foreach (var (key, lanes) in node.Values) {
+            if (!values.ContainsKey(key) && !inputs.ContainsKey(key) && !outputs.ContainsKey(key)) {
+                values[key] = lanes;
+            }
+        }
+
+        return new(inputs, outputs, values, texts, connected, resolved);
     }
 
     /// <summary>What arrives at one input: an upstream value, an inline one, or a default.</summary>

@@ -39,6 +39,15 @@ sealed class ProjectBrowser {
 
     AssetTreeNode root;
 
+    /// <summary>Raised when a row is activated — a double-click, or Enter on the keyboard.</summary>
+    /// <remarks>
+    ///     What opens an asset. The browser deliberately does not open it itself: which editor claims
+    ///     a file is <c>AssetEditorRegistry</c>'s and where the resulting document goes is the
+    ///     workspace's, and a browser that knew both would be the third thing that has to be told
+    ///     when either changes.
+    /// </remarks>
+    public event Action<AssetId>? Activated;
+
     /// <summary>Builds the panel's contents into a container.</summary>
     /// <param name="project">The project being browsed.</param>
     /// <param name="panel">Where to put the rows.</param>
@@ -57,6 +66,14 @@ sealed class ProjectBrowser {
 
         tree = panel.Add<TreeView>();
         tree.MultiSelect = true;
+
+        tree.Activated += (_, node) => {
+            // ⚠ Only what the database has an identity for, and never a folder — the same rule the
+            // selection follows, for the same reason.
+            if (node.Tag is AssetTreeNode { IsIndexed: true, IsFolder: false } asset) {
+                Activated?.Invoke(asset.Guid);
+            }
+        };
 
         tree.SelectionChanged += changed => {
             List<AssetId> picked = [];

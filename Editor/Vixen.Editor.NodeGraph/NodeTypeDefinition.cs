@@ -122,24 +122,27 @@ public sealed class NodeBinding {
     readonly Dictionary<string, string> inputs;
     readonly Dictionary<string, string> outputs;
     readonly Dictionary<string, float[]> values;
+    readonly Dictionary<string, string> texts;
     readonly HashSet<string> connected;
 
     internal NodeBinding(
         Dictionary<string, string> inputs,
         Dictionary<string, string> outputs,
         Dictionary<string, float[]> values,
+        Dictionary<string, string> texts,
         HashSet<string> connected,
         PortKind resolved
     ) {
         this.inputs = inputs;
         this.outputs = outputs;
         this.values = values;
+        this.texts = texts;
         this.connected = connected;
         Resolved = resolved;
     }
 
     /// <summary>A binding with nothing in it, for a node nobody has compiled yet.</summary>
-    public static NodeBinding Empty { get; } = new([], [], [], [], PortKind.Float);
+    public static NodeBinding Empty { get; } = new([], [], [], [], [], PortKind.Float);
 
     /// <summary>The constant an unconnected input carries, as lanes.</summary>
     /// <param name="name">The port's name.</param>
@@ -152,6 +155,17 @@ public sealed class NodeBinding {
     ///     are handed over.
     /// </remarks>
     public ReadOnlySpan<float> Value(string name) => values.TryGetValue(name, out var lanes) ? lanes : [];
+
+    /// <summary>The text an input was given on this node, or an empty string.</summary>
+    /// <param name="name">The port's name.</param>
+    /// <returns>What the author typed.</returns>
+    /// <remarks>
+    ///     The other half of <see cref="Value" />, for the ports made of names — see
+    ///     <see cref="GraphNode.Texts" /> for why a graphics compositor needs them and the other two
+    ///     graphs do not. It is taken straight off the node rather than resolved through an edge: a
+    ///     name is authored on the node that uses it, and there is no expression to interpolate.
+    /// </remarks>
+    public string Text(string name) => texts.TryGetValue(name, out var value) ? value : string.Empty;
 
     /// <summary>Whether an input has an edge arriving at it.</summary>
     /// <param name="name">The port's name.</param>

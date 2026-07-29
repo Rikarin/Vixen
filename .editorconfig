@@ -723,3 +723,16 @@ dotnet_diagnostic.VXIO0001.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [Core/Vixen.Ui.HotReload/HotReloadWatcher.cs]
 dotnet_diagnostic.VXIO0001.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Editor/Vixen.Editor.AssetEditors/Compositor/*.cs
+#
+# CA1051 (do not declare visible instance fields). A node's ports *are* its
+# fields — docs/plan/11's design, and what lets a node read as
+# `[Input] public Flow In;`. `Vixen.Editor.ShaderGraph` and
+# `Vixen.Editor.VfxGraph` suppress it for their whole assembly for the same
+# reason; this one holds documents and views as well as nodes, so the exemption
+# is scoped to the folder the node library lives in rather than to the project.
+# ─────────────────────────────────────────────────────────────────────────────
+[Editor/Vixen.Editor.AssetEditors/Compositor/*.cs]
+dotnet_diagnostic.CA1051.severity = none

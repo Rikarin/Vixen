@@ -198,8 +198,12 @@ reference `Vixen.Ecs`, so the command stack and the asset database stay testable
 Multi-object editing and the generated drawer descriptors are in
 [`Vixen.Editor.Inspector`](../Vixen.Editor.Inspector/README.md).
 
-**Still not written: a `MaterialDocument`**, and the asset editors generally — a material, a texture,
-a model and an addressable group each want a document and a view, and none has one.
+✅ **The asset editors are in [`Vixen.Editor.AssetEditors`](../Vixen.Editor.AssetEditors/README.md)**
+— a material, a texture, a model, a prefab, a shader, a stylesheet, an addressable group and a
+graphics compositor each have a document and a view, and one registry says which of them claims a
+file. They are there rather than here for the reason `SceneDocument` is: a document belongs beside
+its subject, and this project deliberately references neither the interface framework nor the
+importers.
 
 **Watch-driven re-import** belongs to the import pipeline in `Vixen.Editor.Assets` and is not built:
 the shell rescans on `Ctrl+R`. A watcher needs debouncing, a rename heuristic and a way not to fight

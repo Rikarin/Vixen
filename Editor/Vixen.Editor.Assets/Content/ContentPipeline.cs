@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Immutable;
 using System.Diagnostics;
 using Vixen.Assets;
 using Vixen.Core.Serialization.Storage;
@@ -297,6 +298,32 @@ public static class ContentPipeline {
 
         File.WriteAllBytes(catalogPath, catalog);
         File.WriteAllText(catalogPath + HashFileSuffix, ContentHash.Compute(catalog).ToString());
+    }
+
+    /// <summary>Plans a build without packing one, for whatever wants to know what it would say.</summary>
+    /// <param name="workspace">The stores.</param>
+    /// <param name="report">Where the group-reading failures go.</param>
+    /// <returns>The plan, empty when a <c>.vxgroup</c> could not be read.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The same call <see cref="Build" /> makes, deliberately.</b> The editor's addressable
+    ///     analysis view exists to answer "what would a build say", and one that reimplemented the
+    ///     planner's rules would be a second set of rules — the drift showing up as a panel calling a
+    ///     project clean and the build refusing it. Nothing here writes: an analysis that packed a
+    ///     bundle as a side effect of being looked at would be a surprising thing for a panel to do.
+    /// </remarks>
+    public static BuildPlan Analyse(ProjectWorkspace workspace, Action<ContentDiagnostic> report) {
+        ArgumentNullException.ThrowIfNull(workspace);
+        ArgumentNullException.ThrowIfNull(report);
+
+        var groups = workspace.Groups(out var unreadable);
+
+        foreach (var failure in unreadable) {
+            report(new(ImportSeverity.Error, ContentStage.Plan, string.Empty, failure));
+        }
+
+        return unreadable.Count > 0
+            ? new(ImmutableArray<BuildableAsset>.Empty, ImmutableArray<AddressableGroup>.Empty, ImmutableArray<ImportDiagnostic>.Empty)
+            : BuildPlanner.Plan(workspace.Database.Entries, workspace.Cache, entry => ReadMeta(workspace, entry), groups);
     }
 
     static AssetMeta? ReadMeta(ProjectWorkspace workspace, AssetEntry entry) {

@@ -485,6 +485,17 @@ same-bytes round-trip test is what holds this honest if `Link` ever changes.
 bound as far as it goes: a scene half-read is a scene saved back with the other half gone, which is
 the one failure a version field exists to prevent.
 
+**`SceneSerializer.Instantiate` is `Load` for a subtree that is not the document's own.** It creates
+one file entity and everything under it, and takes a map instead of adopting the file's identities.
+Reading a scene *is* adoption — that is what makes a save, load and save cycle a no-op in the diff —
+and a **prefab instance** is the case that must not: two instances of one prefab in one scene would
+otherwise both claim the template's ids, and every reference between entities would name whichever
+was reached last. The map records where each entity came from, which is also exactly what an override
+comparison needs. See
+[`Vixen.Editor.AssetEditors`](../Vixen.Editor.AssetEditors/README.md) for the prefab editor built on
+it, and for `PrefabFileWriter`, which refuses a document that is not a single subtree at the save
+rather than at somebody else's build.
+
 ## Play mode, both topologies
 
 **In-process** is `WorldSnapshot` plus `PlayModeController`. A snapshot is a walk over the archetypes

@@ -47,6 +47,7 @@ public readonly record struct GraphEdge(PortRef From, PortRef To);
 /// </remarks>
 public sealed class GraphNode {
     readonly Dictionary<string, float[]> values = new(StringComparer.Ordinal);
+    readonly Dictionary<string, string> texts = new(StringComparer.Ordinal);
 
     internal GraphNode(NodeId id, string type, Vector2 position) {
         Id = id;
@@ -84,6 +85,42 @@ public sealed class GraphNode {
     /// <param name="port">The input port's name.</param>
     /// <returns><see langword="true" /> if there was one.</returns>
     public bool ClearValue(string port) => values.Remove(port);
+
+    /// <summary>The inline <i>text</i> its unconnected inputs have been given.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A second table rather than a widened <see cref="Values" />.</b> Every graph this
+    ///         framework was built for is numbers all the way down — a shader graph interpolates
+    ///         expressions, a VFX graph fills <c>Vector4</c>s — and lanes of <c>float</c> is the right
+    ///         shape for those. The graphics compositor is the first graph made of <i>names</i>: a
+    ///         pass names its targets, a full-screen node names its shader, a stage names itself.
+    ///         There is no float encoding of a name that is not an index into a table somebody has to
+    ///         keep, which is the thing the compositor's asset model deliberately does not have.
+    ///     </para>
+    ///     <para>
+    ///         A port carries one or the other and never both: which it is follows from the node
+    ///         type's declaration, and a compiler reads whichever its ports are made of.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyDictionary<string, string> Texts => texts;
+
+    /// <summary>Sets an inline text.</summary>
+    /// <param name="port">The input port's name.</param>
+    /// <param name="value">What it says.</param>
+    public void SetText(string port, string value) {
+        ArgumentNullException.ThrowIfNull(value);
+        texts[port] = value;
+    }
+
+    /// <summary>Forgets an inline text.</summary>
+    /// <param name="port">The input port's name.</param>
+    /// <returns><see langword="true" /> if there was one.</returns>
+    public bool ClearText(string port) => texts.Remove(port);
+
+    /// <summary>The text a port carries, or an empty string.</summary>
+    /// <param name="port">The input port's name.</param>
+    /// <returns>The text.</returns>
+    public string TextOf(string port) => texts.TryGetValue(port, out var value) ? value : string.Empty;
 }
 
 /// <summary>A box drawn round some nodes, with a title.</summary>

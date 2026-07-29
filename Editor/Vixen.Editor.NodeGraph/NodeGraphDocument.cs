@@ -28,6 +28,10 @@ public sealed record GraphNodeAsset {
 
     /// <summary>The inline values its unconnected inputs were given, port name to lanes.</summary>
     public Dictionary<string, float[]> Values { get; init; } = [];
+
+    /// <summary>The inline texts its unconnected inputs were given, port name to text.</summary>
+    /// <remarks>See <see cref="GraphNode.Texts" /> for why a name is not a lane of float.</remarks>
+    public Dictionary<string, string> Texts { get; init; } = [];
 }
 
 /// <summary>One connection, as a file holds it.</summary>
@@ -173,7 +177,8 @@ public static class NodeGraphDocument {
                 Type = node.Type,
                 X = node.Position.X,
                 Y = node.Position.Y,
-                Values = new(node.Values)
+                Values = new(node.Values),
+                Texts = new(node.Texts)
             });
         }
 
@@ -308,6 +313,10 @@ public static class NodeGraphDocument {
 
             foreach (var (port, value) in entry.Values) {
                 node.SetValue(port, value);
+            }
+
+            foreach (var (port, value) in entry.Texts) {
+                node.SetText(port, value);
             }
         }
 

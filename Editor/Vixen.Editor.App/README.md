@@ -101,8 +101,28 @@ looking at a real model:
 | Hierarchy | a `TreeView` over the scene's entities; selecting drives the shared selection, and renaming, creating and deleting are all undo entries |
 | Inspector | an `InspectorView` over the selection, recording every edit on the scene document's stack |
 | Scene | a `SceneViewport`: orbit, pan, zoom, the axis cross, gizmo modes and snapping, drawn into the panel — as lines, for the reason below |
-| Project | `ProjectBrowser`: the asset database as a tree, with a search box, over the real `Assets/` directory |
+| Project | `ProjectBrowser`: the asset database as a tree, with a search box, over the real `Assets/` directory. Double-clicking a row opens the asset |
+| An asset | one per open document, built by whichever of the nine asset editors claims the file |
 | Console | still a line of text |
+
+**Double-clicking an asset opens it in a panel of its own.** `ProjectBrowser` raises `Activated`,
+`AssetEditorRegistry` says which of the nine editors in
+[`Vixen.Editor.AssetEditors`](../Vixen.Editor.AssetEditors/README.md) claims the file, and the
+document lands in a dock panel registered on demand.
+
+- ⚠ **The panel is named after the asset's GUID.** A path would be shorter and would leave a panel
+  nobody can reopen the moment the file moved; the GUID is the identity precisely so that it does not.
+- ⚠ **Registered once, reopened afterwards**, because the workspace refuses a second registration
+  under one id and the registry already hands back the document that is open — so a second
+  double-click brings the tab forward rather than building a second view over one undo stack.
+- ⚠ **A file nothing claims raises a notification.** There is no fallback editor, and a double-click
+  that did nothing at all reads as a broken application.
+- **One world for every scene and a fresh one per prefab.** Sharing the editor's world across scenes
+  is what makes an entity handle mean one thing here; a prefab must not share it, because "isolated"
+  is the claim that its entities are not in the level.
+
+The addressable analysis is wired to a `ProjectWorkspace` of its own rather than to the editor's
+database, for the reason `ContentTasks` already gives: `Scan` clears and repopulates its dictionaries.
 
 The scene lives at `Assets/Scenes/Main.vxscene` and is opened on launch. A project that has none gets
 the seeded one written immediately — the only time the editor saves without being asked, so that a new
@@ -256,6 +276,10 @@ rebuilt; without it, closing and reopening the viewport puts the user back at th
 
 ## Known gaps
 
+- **A document's panel is not in any layout preset.** It is opened on demand and closed by hand, so
+  the five presets show the five standing panels and an asset editor lands wherever the workspace
+  puts a new one. Remembering which documents were open across a restart is the arrangement's job and
+  `current.vxlayout` does not hold it.
 - **No plugin loading.** Doc 11 puts it here, and `Vixen.Editor.Plugin` — the contract, the manifest,
   the `AssemblyLoadContext` — does not exist yet. It is the reason this project is not NativeAOT, and
   the `PublishAot` property says so already.

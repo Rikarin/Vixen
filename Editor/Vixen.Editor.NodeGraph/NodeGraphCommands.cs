@@ -496,6 +496,104 @@ public sealed class SetPortValueCommand : NodeGraphCommand {
     }
 }
 
+/// <summary>Setting the inline text on one of a node's inputs.</summary>
+/// <remarks>
+///     <see cref="SetPortValueCommand" />'s twin, for the ports made of names rather than of lanes —
+///     see <see cref="GraphNode.Texts" /> for why those exist. Everything about it is the same
+///     argument: whether there <i>was</i> a text is recorded as well as what it was, and a merge
+///     keeps the earlier one's, so typing a resource name is one undo entry rather than one a
+///     keystroke.
+/// </remarks>
+public sealed class SetPortTextCommand : NodeGraphCommand {
+    readonly NodeId node;
+    readonly string port;
+    readonly string value;
+    readonly string? previous;
+    readonly bool had;
+
+    /// <summary>Describes setting an inline text.</summary>
+    /// <param name="graph">The graph.</param>
+    /// <param name="node">The node.</param>
+    /// <param name="port">Which of its inputs.</param>
+    /// <param name="value">What it says.</param>
+    /// <param name="document">The document, if the graph belongs to one.</param>
+    public SetPortTextCommand(
+        NodeGraphModel graph,
+        NodeId node,
+        string port,
+        string value,
+        EditorDocument? document = null
+    ) : base(graph, document) {
+        ArgumentException.ThrowIfNullOrEmpty(port);
+        ArgumentNullException.ThrowIfNull(value);
+
+        this.node = node;
+        this.port = port;
+        this.value = value;
+
+        string? held = null;
+
+        had = graph.TryGet(node, out var target) && target.Texts.TryGetValue(port, out held);
+        previous = held;
+    }
+
+    SetPortTextCommand(
+        NodeGraphModel graph,
+        NodeId node,
+        string port,
+        string value,
+        string? previous,
+        bool had,
+        EditorDocument? document
+    ) : base(graph, document) {
+        this.node = node;
+        this.port = port;
+        this.value = value;
+        this.previous = previous;
+        this.had = had;
+    }
+
+    /// <inheritdoc />
+    public override string Name => $"Set {port}";
+
+    /// <inheritdoc />
+    protected override void Apply() {
+        if (Graph.TryGet(node, out var target)) {
+            target.SetText(port, value);
+        }
+    }
+
+    /// <inheritdoc />
+    protected override void Revert() {
+        if (!Graph.TryGet(node, out var target)) {
+            return;
+        }
+
+        if (had && previous is not null) {
+            target.SetText(port, previous);
+        } else {
+            target.ClearText(port);
+        }
+    }
+
+    /// <inheritdoc />
+    /// <inheritdoc cref="SetPortValueCommand.TryMergeWith" path="/remarks" />
+    public override bool TryMergeWith(IEditorCommand previous, [NotNullWhen(true)] out IEditorCommand? merged) {
+        merged = null;
+
+        if (previous is not SetPortTextCommand earlier
+            || !ReferenceEquals(earlier.Graph, Graph)
+            || earlier.node != node
+            || !string.Equals(earlier.port, port, StringComparison.Ordinal)) {
+            return false;
+        }
+
+        merged = new SetPortTextCommand(Graph, node, port, value, earlier.previous, earlier.had, Document);
+
+        return true;
+    }
+}
+
 /// <summary>Drawing a box round some nodes.</summary>
 public sealed class AddGroupCommand : NodeGraphCommand {
     readonly GraphGroup group;
