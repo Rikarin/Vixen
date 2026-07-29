@@ -85,6 +85,35 @@ Vixen.Rendering.PostFx.BloomRenderer.SourceBinding.get -> uint
 Vixen.Rendering.PostFx.BloomRenderer.SourceBinding.set -> uint
 Vixen.Rendering.PostFx.BloomRenderer.Threshold.get -> float
 Vixen.Rendering.PostFx.BloomRenderer.Threshold.set -> float
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer -> sealed class
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.DistanceFieldAoRenderer() -> void
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.InverseViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.InverseViewProjection.set -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.OcclusionRadius.get -> float
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.OcclusionRadius.set -> float
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.OcclusionSamples.get -> int
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.OcclusionSamples.set -> int
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.OcclusionStrength.get -> float
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.OcclusionStrength.set -> float
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.Scale.get -> float
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.Scale.set -> float
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.ShadowBias.get -> float
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.ShadowBias.set -> float
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.ShadowSteps.get -> int
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.ShadowSteps.set -> int
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.StepScale.get -> float
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.StepScale.set -> float
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.SunDirection.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.SunDirection.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.SunDistance.get -> float
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.SunDistance.set -> float
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.SunShadow.get -> bool
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.SunShadow.set -> bool
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.SunSoftness.get -> float
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.SunSoftness.set -> float
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.SurfaceThreshold.get -> float
+Vixen.Rendering.PostFx.DistanceFieldAoRenderer.SurfaceThreshold.set -> float
 Vixen.Rendering.PostFx.FogRenderer -> sealed class
 Vixen.Rendering.PostFx.FogRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
 Vixen.Rendering.PostFx.FogRenderer.CameraPosition.get -> Vixen.Core.Mathematics.Vector3
@@ -259,6 +288,28 @@ Vixen.Rendering.PostFx.VignetteRenderer.VignetteIntensity.set -> float
 Vixen.Rendering.PostFx.VignetteRenderer.VignetteRenderer() -> void
 Vixen.Rendering.PostFx.VignetteRenderer.VignetteSmoothness.get -> float
 Vixen.Rendering.PostFx.VignetteRenderer.VignetteSmoothness.set -> float
+Vixen.Shaders.Generated.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement -> struct
+Vixen.Shaders.Generated.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement() -> void
+Vixen.Shaders.Generated.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement.InverseCellSize -> float
+Vixen.Shaders.Generated.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement.MaxDistance -> float
+Vixen.Shaders.Generated.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement.Maximum -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement.Minimum -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.DistanceFieldAoKeys -> static class
+Vixen.Shaders.Generated.DistanceFieldAoPerFrameConstants -> struct
+Vixen.Shaders.Generated.DistanceFieldAoPerFrameConstants.DistanceFieldAoPerFrameConstants() -> void
+Vixen.Shaders.Generated.DistanceFieldAoPerMaterialConstants -> struct
+Vixen.Shaders.Generated.DistanceFieldAoPerMaterialConstants.DistanceFieldAoPerMaterialConstants() -> void
+Vixen.Shaders.Generated.DistanceFieldAoPerMaterialConstants.InverseViewProjection -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Shaders.Generated.DistanceFieldAoPerMaterialConstants.OcclusionRadius -> float
+Vixen.Shaders.Generated.DistanceFieldAoPerMaterialConstants.OcclusionSamples -> int
+Vixen.Shaders.Generated.DistanceFieldAoPerMaterialConstants.OcclusionStrength -> float
+Vixen.Shaders.Generated.DistanceFieldAoPerMaterialConstants.ShadowBias -> float
+Vixen.Shaders.Generated.DistanceFieldAoPerMaterialConstants.ShadowSteps -> int
+Vixen.Shaders.Generated.DistanceFieldAoPerMaterialConstants.StepScale -> float
+Vixen.Shaders.Generated.DistanceFieldAoPerMaterialConstants.SunDirection -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.DistanceFieldAoPerMaterialConstants.SunDistance -> float
+Vixen.Shaders.Generated.DistanceFieldAoPerMaterialConstants.SunSoftness -> float
+Vixen.Shaders.Generated.DistanceFieldAoPerMaterialConstants.SurfaceThreshold -> float
 Vixen.Shaders.Generated.FogConstants -> struct
 Vixen.Shaders.Generated.FogConstants.CameraPosition -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.FogConstants.Density -> float
@@ -320,6 +371,31 @@ Vixen.Shaders.Generated.VignetteConstants.VignetteIntensity -> float
 Vixen.Shaders.Generated.VignetteConstants.VignetteSmoothness -> float
 Vixen.Shaders.Generated.VignetteKeys -> static class
 abstract Vixen.Rendering.PostFx.PostEffectRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
+const Vixen.Shaders.Generated.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement.BaseOffset = 0 -> int
+const Vixen.Shaders.Generated.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement.Count = 4 -> int
+const Vixen.Shaders.Generated.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement.Stride = 48 -> int
+const Vixen.Shaders.Generated.DistanceFieldAoKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.DistanceFieldAoKeys.ConstantBufferSet = 0 -> int
+const Vixen.Shaders.Generated.DistanceFieldAoKeys.ConstantBufferSize = 192 -> int
+const Vixen.Shaders.Generated.DistanceFieldAoKeys.DepthBufferBinding = 1 -> uint
+const Vixen.Shaders.Generated.DistanceFieldAoKeys.DepthBufferSet = 2 -> int
+const Vixen.Shaders.Generated.DistanceFieldAoKeys.GlobalDistanceFieldDistanceFieldLevelsBinding = 1 -> uint
+const Vixen.Shaders.Generated.DistanceFieldAoKeys.GlobalDistanceFieldDistanceFieldLevelsSet = 0 -> int
+const Vixen.Shaders.Generated.DistanceFieldAoKeys.GlobalDistanceFieldDistanceFieldSamplerBinding = 2 -> uint
+const Vixen.Shaders.Generated.DistanceFieldAoKeys.GlobalDistanceFieldDistanceFieldSamplerSet = 0 -> int
+const Vixen.Shaders.Generated.DistanceFieldAoKeys.NormalBufferBinding = 2 -> uint
+const Vixen.Shaders.Generated.DistanceFieldAoKeys.NormalBufferSet = 2 -> int
+const Vixen.Shaders.Generated.DistanceFieldAoKeys.PerFrameBlockBinding = 0 -> uint
+const Vixen.Shaders.Generated.DistanceFieldAoKeys.PerFrameBlockSet = 0 -> int
+const Vixen.Shaders.Generated.DistanceFieldAoKeys.PerFrameBlockSize = 192 -> int
+const Vixen.Shaders.Generated.DistanceFieldAoKeys.PerMaterialBlockBinding = 0 -> uint
+const Vixen.Shaders.Generated.DistanceFieldAoKeys.PerMaterialBlockSet = 2 -> int
+const Vixen.Shaders.Generated.DistanceFieldAoKeys.PerMaterialBlockSize = 128 -> int
+const Vixen.Shaders.Generated.DistanceFieldAoKeys.PointSamplerBinding = 3 -> uint
+const Vixen.Shaders.Generated.DistanceFieldAoKeys.PointSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.DistanceFieldAoKeys.ShaderName = "DistanceFieldAo" -> string
+const Vixen.Shaders.Generated.DistanceFieldAoPerFrameConstants.Size = 192 -> int
+const Vixen.Shaders.Generated.DistanceFieldAoPerMaterialConstants.Size = 128 -> int
 const Vixen.Shaders.Generated.FogConstants.Size = 144 -> int
 const Vixen.Shaders.Generated.FogKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.FogKeys.ConstantBufferSet = 2 -> int
@@ -404,6 +480,8 @@ const Vixen.Shaders.Generated.VignetteKeys.SourceSet = 2 -> int
 override Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.AmbientOcclusionRenderer.TargetSize(Vixen.Core.Mathematics.Int2 frame) -> Vixen.Core.Mathematics.Int2
 override Vixen.Rendering.PostFx.BloomRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
+override Vixen.Rendering.PostFx.DistanceFieldAoRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
+override Vixen.Rendering.PostFx.DistanceFieldAoRenderer.TargetSize(Vixen.Core.Mathematics.Int2 frame) -> Vixen.Core.Mathematics.Int2
 override Vixen.Rendering.PostFx.FogRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.FxaaRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.OutlineRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
@@ -414,6 +492,9 @@ override Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.DeclareOutput(Vixen
 override Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.Dispose(bool disposing) -> void
 override Vixen.Rendering.PostFx.TonemapRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.VignetteRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
+readonly Vixen.Shaders.Generated.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement.Write(System.Span<byte> buffer, int index) -> void
+readonly Vixen.Shaders.Generated.DistanceFieldAoPerFrameConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.DistanceFieldAoPerMaterialConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.FogConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.FxaaConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.OutlineConstants.Write(System.Span<byte> buffer) -> void
@@ -427,6 +508,10 @@ required Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Normals.get -> string
 required Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Normals.init -> string
 required Vixen.Rendering.PostFx.BloomRenderer.Source.get -> string
 required Vixen.Rendering.PostFx.BloomRenderer.Source.init -> string
+required Vixen.Rendering.PostFx.DistanceFieldAoRenderer.Depth.get -> string
+required Vixen.Rendering.PostFx.DistanceFieldAoRenderer.Depth.init -> string
+required Vixen.Rendering.PostFx.DistanceFieldAoRenderer.Normals.get -> string
+required Vixen.Rendering.PostFx.DistanceFieldAoRenderer.Normals.init -> string
 required Vixen.Rendering.PostFx.FogRenderer.Depth.get -> string
 required Vixen.Rendering.PostFx.FogRenderer.Depth.init -> string
 required Vixen.Rendering.PostFx.FogRenderer.Source.get -> string
@@ -452,6 +537,24 @@ required Vixen.Rendering.PostFx.VignetteRenderer.Source.init -> string
 static Vixen.Rendering.PostFx.PostEffectRenderer.Sample(System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings, uint binding, Vixen.Graphics.SamplerHandle sampler) -> void
 static Vixen.Rendering.PostFx.PostEffectRenderer.TexelSize(Vixen.Core.Mathematics.Int2 size) -> Vixen.Core.Mathematics.Vector2
 static Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.Jitter(int frameIndex) -> Vixen.Core.Mathematics.Vector2
+static readonly Vixen.Shaders.Generated.DistanceFieldAoKeys.DepthBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.DistanceFieldAoKeys.GlobalDistanceFieldDistanceFieldLevels -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.DistanceFieldAoKeys.GlobalDistanceFieldDistanceFieldSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.DistanceFieldAoKeys.InverseViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
+static readonly Vixen.Shaders.Generated.DistanceFieldAoKeys.NormalBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.DistanceFieldAoKeys.OcclusionRadius -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.DistanceFieldAoKeys.OcclusionSamples -> Vixen.Shaders.ParameterKey<int>
+static readonly Vixen.Shaders.Generated.DistanceFieldAoKeys.OcclusionStrength -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.DistanceFieldAoKeys.PointSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.DistanceFieldAoKeys.ShadowBias -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.DistanceFieldAoKeys.ShadowSteps -> Vixen.Shaders.ParameterKey<int>
+static readonly Vixen.Shaders.Generated.DistanceFieldAoKeys.StepScale -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.DistanceFieldAoKeys.SunDirection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.DistanceFieldAoKeys.SunDistance -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.DistanceFieldAoKeys.SunShadow -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.DistanceFieldAoKeys.SunSoftness -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.DistanceFieldAoKeys.SurfaceThreshold -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.DistanceFieldAoKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
 static readonly Vixen.Shaders.Generated.FogKeys.CameraPosition -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.FogKeys.Density -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.FogKeys.DepthBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>

@@ -58,8 +58,14 @@ public sealed class GlobalDistanceFieldRenderer : SceneRenderer, IDisposable {
     /// <remarks>Null writes nothing, which is what a node kept for its clipmap alone wants.</remarks>
     public SceneConstants? SceneConstants { get; set; }
 
-    /// <summary>The pass whose keys to write.</summary>
-    public string ShaderName { get; set; } = "ForwardPlus";
+    /// <summary>The compose-slot prefix the clipmap's names are written under.</summary>
+    /// <remarks>
+    ///     A slot's bindings are named for the <i>slot</i> rather than for the shader that declared
+    ///     them, so this is <c>DistanceFieldAo.GlobalDistanceField</c> and not <c>ForwardPlus</c> —
+    ///     the pass, then the slot, then the name. Get it wrong and every binding resolves to nothing,
+    ///     silently, which is why the default is the one consumer that exists rather than a guess.
+    /// </remarks>
+    public string ShaderName { get; set; } = "DistanceFieldAo.GlobalDistanceField";
 
     /// <summary>What the clipmap covers.</summary>
     /// <remarks>

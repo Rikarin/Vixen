@@ -121,7 +121,7 @@ public class GlobalDistanceFieldRendererTests {
         Record(node, context);
 
         Assert.Equal(1, node.Composites);
-        Assert.True(scene.Parameters.Has(ParameterKeys.New<float>("ForwardPlus.distanceFieldVolumes[0].maxDistance")));
+        Assert.True(scene.Parameters.Has(ParameterKeys.New<float>("DistanceFieldAo.GlobalDistanceField.distanceFieldVolumes[0].maxDistance")));
     }
 
     [Fact]
