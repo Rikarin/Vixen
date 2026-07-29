@@ -129,6 +129,36 @@ public sealed class UiTest : IDisposable {
         return test;
     }
 
+    /// <summary>Drives an interface somebody else built.</summary>
+    /// <param name="document">The document to take charge of.</param>
+    /// <param name="options">How long commands wait and where pictures live.</param>
+    /// <returns>A harness over it.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A harness that can only make its own document cannot test anything that owns
+    ///         one</b> — which is every shell, every application and every control set that installs
+    ///         its own stylesheets on the way up. <c>EditorShell</c> is the case this was added for:
+    ///         it builds a document in its constructor, and a screenshot of a <i>different</i> one
+    ///         would be a picture of an empty viewport while the thing under test laid itself out
+    ///         somewhere else.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Adopting does not mean owning.</b> <see cref="Dispose" /> disposes the document
+    ///         either way, so the caller that built it should be the one that outlives the harness —
+    ///         a shell disposed twice is the shape of the bug this is warning about, and disposing
+    ///         the harness first is the arrangement that avoids it.
+    ///     </para>
+    ///     <para>
+    ///         No frame is run here, unlike <see cref="Create(float, float, UiTestOptions)" />. An adopted document has usually
+    ///         had its tree built already and may want a clock, a resize or a stylesheet before it is
+    ///         laid out — so the first frame is the caller's to place.
+    ///     </para>
+    /// </remarks>
+    public static UiTest Adopt(UiDocument document, UiTestOptions? options = null) {
+        ArgumentNullException.ThrowIfNull(document);
+        return new UiTest(document, options ?? new UiTestOptions());
+    }
+
     /// <summary>Adds a stylesheet.</summary>
     /// <param name="css">Its text.</param>
     /// <returns>Its index, for <see cref="UiDocument.ReloadStyles" />.</returns>

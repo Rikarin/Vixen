@@ -170,6 +170,7 @@ override Vixen.Ui.Testing.CommandLog.ToString() -> string
 override Vixen.Ui.Testing.LoggedCommand.ToString() -> string
 override Vixen.Ui.Testing.UiSubject.ToString() -> string
 override Vixen.Ui.Testing.Visual.ImageComparison.ToString() -> string
+static Vixen.Ui.Testing.UiTest.Adopt(Vixen.Ui.UiDocument document, Vixen.Ui.Testing.UiTestOptions? options = null) -> Vixen.Ui.Testing.UiTest
 static Vixen.Ui.Testing.UiTest.Create(float width = 1280, float height = 720, Vixen.Ui.Testing.UiTestOptions? options = null) -> Vixen.Ui.Testing.UiTest
 static Vixen.Ui.Testing.Visual.ImageComparer.Compare(in Vixen.Ui.Testing.Visual.Bitmap rendered, in Vixen.Ui.Testing.Visual.Bitmap expected, Vixen.Ui.Testing.Visual.ImageTolerance tolerance) -> Vixen.Ui.Testing.Visual.ImageComparison
 static Vixen.Ui.Testing.Visual.ImageComparer.Diff(in Vixen.Ui.Testing.Visual.Bitmap rendered, in Vixen.Ui.Testing.Visual.Bitmap expected, Vixen.Ui.Testing.Visual.ImageTolerance tolerance) -> Vixen.Ui.Testing.Visual.Bitmap

@@ -99,6 +99,39 @@ The sheet order is `ControlTheme` → `AdvancedTheme` → `EditorTheme`, and it 
 against tokens the one before declares, and a custom property nothing declared substitutes to
 nothing.
 
+`EditorTheme` also **overrides** the control set's tokens rather than only adding to them, which is
+the mechanism `ControlTheme`'s own remarks nominate for exactly this: an application shipping a
+button gets the neutral palette, and a tool window is a different room. Neither of the other two
+sheets is edited, so a game that never installs this one is untouched — and the control screenshots
+still show what a game gets.
+
+### What it is trying to look like
+
+The near-black neutral density of a 3D tool, and the layered rounded materiality of a modern audio
+workstation. The join is the **desk**: `--workspace` is the darkest thing on screen and the panels
+are cards laid on it, separated by their own margins rather than by a splitter drawn as furniture.
+That is what gives depth without a single gradient.
+
+- **Four surfaces, one hairline.** `--workspace` → `--surface-sunken` → `--surface` →
+  `--surface-raised`. Depth is a luminance step; the border is nearly invisible and is there for
+  edges the fill cannot describe. Raised where you press, sunken where you type.
+- ⚠ **The well is a fill, not an inner shadow.** `DrawListBuilder` refuses `inset` box-shadows
+  outright and says why, so a recessed field is two steps down the ramp and nothing else. That is
+  the reason the ramp has four entries rather than three.
+- **`--elevation` and `--card` are tokens**, so what floats and how far is one edit rather than
+  forty. Everything that leaves the plane — menu, popover, dialog, palette, toast, floating panel —
+  shares the deep one; a docked panel gets the shallow one.
+- **`--accent-deep` for resting selection, `--accent` for what you just did.** A list is mostly
+  selection, and the accent at full strength is the brightest thing in a dark editor, so the
+  outliner sits a step below the palette's highlight.
+- **Focus is answered twice.** `dock-group:focus-within` tints the focused panel's hairline, and its
+  selected tab's label turns accent — one says *a* panel has the keyboard, the other says which.
+
+`EditorChromeVisualTests` holds all of it to a picture, in both themes and with the palette open.
+The tests beside it ask which panel is open and which command ran, which stays true through any
+palette at all — the inspector bugs that started this work were invisible to every one of them and
+obvious in the first screenshot.
+
 ## Notifications and background work
 
 A toast **and** a history, because the thing a user does after an import fails is look away, look
