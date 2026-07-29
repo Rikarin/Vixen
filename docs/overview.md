@@ -271,7 +271,8 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Transmission / refraction | ⬜ | — | Needs the scene colour or an environment sample — a pass concern, not a lobe |
 | Bindless material textures (a feature that samples needs a binding index) | ⬜ | — | ⛔ the same gap as the compositor's authored nodes |
 | Lighting — directional/point/spot/tube/rect, clustered binning, IBL, reflection probes | ✅ | Core/Vixen.Rendering | `EnvironmentBaker` + `SphericalHarmonics` on the CPU |
-| **Light probes** (tetrahedral interpolation) | ⛔ | — | Bowyer–Watson needs exact predicates; written, found wrong by its own tests, withdrawn |
+| **Light probes** (tetrahedral interpolation) | ⛔ | — | Superseded by [plan/19](plan/19-lighting-and-global-illumination.md) § L2, not owed. Bowyer–Watson needs exact predicates; written, found wrong by its own tests, withdrawn. The replacement is a brick-and-indirection irradiance field, which cannot fail that way |
+| **Distance fields** (bake, clipmap, tracer, traced pass) | ✅ | `Vixen.Rendering.DistanceFields` | [plan/19](plan/19-lighting-and-global-illumination.md) § L1. Exact bake with a voted sign, camera-snapped clipmap that scrolls, CPU tracer, volume textures, compositor node, Raven module, `DistanceFieldAo`. ⚠ Compiles and binds on a device; nothing has drawn with it |
 | Per-object reflection probe selection | ⬜ | — | ⛔ needs the binding-plan work |
 | Shadows — CSM, cube, spot, atlas, static caching, PCF/PCSS | ✅ | Core/Vixen.Rendering | |
 | Punctual shadow caching | ⬜ | — | Only the directional cascades are cached |
@@ -759,7 +760,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 54 | Raven | Stream interpolation control; per-module flat IR namespace | Feature | — |
 | 55 | `Vixen.Rendering` | Compacted draws | Perf | Bindless materials |
 | 56 | `Vixen.Rendering` | Transmission; bindless material textures; blend shapes | Feature | Pass-level scene colour |
-| 57 | `Vixen.Rendering` | Light probes (tetrahedral); per-object reflection probes; punctual shadow caching | Feature | Exact predicates / binding plan |
+| 57 | `Vixen.Rendering` | Per-object reflection probes; punctual shadow caching | Feature | Binding plan |
 | 58 | `Vixen.Rendering.PostFx` | SMAA, MSAA resolve, GTAO, SSR, DoF, motion blur, LUT asset, `AutoExposure` | Feature | — (**K2** landed; `AutoExposure` is now a chain to write) |
 | 59 | `Vixen.Physics` | iOS slice; per-pair suppression; vehicles/ragdolls/soft bodies; double precision | Platform / feature | Static `libjoltc.a` |
 | 60 | `Vixen.Audio` | Measured HRTF sets; per-title certification work | Content | — |

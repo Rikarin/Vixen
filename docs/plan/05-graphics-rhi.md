@@ -126,6 +126,20 @@ hard floor:
 **Minimum spec:** Vulkan 1.1 / D3D12 feature level 11_0 / GLES 3.0 / WebGL2. Below that, Vixen does
 not run. Stated once, in the docs, and enforced at device selection with a readable error.
 
+**Declared and unimplemented: ray-tracing acceleration structures.** There is no concept for one in
+the RHI today — no build, no instance, no query — and
+[19](19-lighting-and-global-illumination.md) § L6 is what would want it, as an alternative tracer
+behind the same interface the distance fields already sit behind. Written down here so that phase has
+somewhere to land rather than arriving as a surprise about the device layer.
+
+Two capabilities the lighting path leans on are worth naming beside the floor, because both are
+capability-gated and both change what it can do rather than how fast it does it:
+
+| Capability | Where it bites |
+|---|---|
+| `HasCompute` | **False on WebGL2.** Everything in doc 19 that fills a field at runtime needs it; the field's own sampling does not, which is why that document's architecture is one sampler with two fillers |
+| `shaderSampledImageArrayNonUniformIndexing` | Not modelled, and deliberately unused. Selecting a clipmap level per fragment would need it; making the level count a permutation unrolls the search instead, so multi-level tracing costs no minimum spec |
+
 ## Backend implementation order and shape
 
 ### `Vixen.Graphics.Null` — first
