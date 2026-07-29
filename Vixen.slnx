@@ -105,6 +105,14 @@
     <Project Path="Core/Vixen.Rendering.Tests/Vixen.Rendering.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering.PostFx/Vixen.Rendering.PostFx.csproj" />
     <Project Path="Core/Vixen.Rendering.PostFx.Tests/Vixen.Rendering.PostFx.Tests.csproj" />
+
+    <!--
+      The debug-geometry join, listed here rather than beside Vixen.Engine because it belongs to the
+      renderer half of the pair: Vixen.Engine accumulates without a device and this draws. Same
+      arrangement, and same reason, as Vixen.Ui.Renderer.
+    -->
+    <Project Path="Core/Vixen.Engine.Renderer/Vixen.Engine.Renderer.csproj" />
+    <Project Path="Core/Vixen.Engine.Renderer.Tests/Vixen.Engine.Renderer.Tests.csproj" />
     <Project Path="Core/Vixen.Animation/Vixen.Animation.csproj" />
     <Project Path="Core/Vixen.Animation.Tests/Vixen.Animation.Tests.csproj" />
     <Project Path="Core/Vixen.Vfx/Vixen.Vfx.csproj" />

@@ -336,10 +336,21 @@ Vulkan validation clean under lavapipe in CI. Zero-allocation gate green for an 
   `CreateMany` per distinct archetype plus a row copy each. The hierarchy is rebuilt from recorded
   indices rather than remapped, which also collapses the archetype count — without stripping the
   hierarchy components every depth would be its own archetype.
-- 🟡 `DebugDraw` — the accumulator is built (lines, rays, boxes, spheres, axes, per-line lifetimes,
-  aged in `PostRender` after a renderer would have drained). 9 tests. **The drawing is owed**, and
-  needs a renderer; a subsystem written against this today needs no change when it arrives. The
-  diagnostic overlays from [13](13-diagnostics.md) wait on the same thing.
+- ✅ `DebugDraw` — accumulator and drawing both. The shape set [13](13-diagnostics.md) names
+  (lines, rays, arrows, boxes axis-aligned and oriented, spheres, circles, capsules, cones, frustums,
+  crosses, axes, world labels, screen-space lines/rectangles/fills/text), per-primitive lifetimes,
+  aged in `PostRender` after the drain. `Vixen.Engine.Renderer` drains it into two line draws — world
+  and screen — and is a separate assembly for the reason `Vixen.Ui.Renderer` is: physics, navigation
+  and audio produce debug geometry without linking a graphics API. Verified by golden image, because
+  the two things that matter — whether the screen projection agrees with the engine's +y up, and
+  whether the stroke font comes out as letters — pass every unit test either way.
+- ✅ The [13](13-diagnostics.md) overlays, four of the nine: frame stats with a frame-time graph, a
+  mini flame chart off the profiler's rings, the tail of the log ring, and a console with
+  `[ConsoleCommand]` registration, history and completion. `IDiagnosticOverlay` is the seam, so
+  `Vixen.Audio` registers its own and `Vixen.Physics` draws colliders straight into the accumulator.
+  **Owed:** render mode (needs shader debug views in the compositor), UI debug and streaming — the
+  last two because `Vixen.Ui` and `Vixen.Assets` may not reference `Vixen.Engine` (doc 02), so each
+  needs a join assembly or a reporting seam of its own.
 - ~~ImGui debug overlay behind `VIXEN_DEBUG_IMGUI`~~ **cut, not deferred.** This plan already
   scheduled it for deletion in Phase 6, so building it would have meant standing up a second
   immediate-mode renderer, a font atlas and an input bridge in order to throw all three away. The
@@ -363,9 +374,10 @@ frame. ✅ `Behavior` lifecycle golden-ordering test green. ✅ Determinism test
 input log, 10 000 steps, one running direct and the other through a command buffer's parallel writer,
 compared by `WorldDigest` throughout.
 
-**Not met:** the drawing half of `DebugDraw` and the [13](13-diagnostics.md) overlays, both waiting
-on a renderer — Phase 2's goal line says "rendering nothing but debug lines" and nothing renders yet,
-which is the one part of this phase Phase 4 has to carry.
+**Met late:** the drawing half of `DebugDraw` and the [13](13-diagnostics.md) overlays. Phase 2's
+goal line says "rendering nothing but debug lines" and Phase 2 rendered none; the pipeline arrived
+with `LineRenderer` in Phase 4 and the accumulator was drained against it after that, which is what
+the note about a subsystem needing no change when the drawing arrived was a bet on. It did not.
 
 **Owed inside the coroutines:** `WhenAny`, which needs a completion source of its own rather than the
 sequential awaits `WhenAll` gets away with; and stopping a *single* launched coroutine, which the

@@ -173,19 +173,57 @@ that everything is behind everything else.
 
 ```csharp
 draw.Line(contact, contact + normal, Color4.Red, seconds: 2f);
-draw.Box(bounds, Color4.Green);
-draw.Axes(transform.LocalToWorld);
+draw.Capsule(feet, head, radius, Color4.Green);
+draw.Frustum(new BoundingFrustum(camera.ViewProjection), Color4.Yellow);
+draw.Arrow(position, position + velocity, Color4.Cyan);
+draw.Text(position, name, Color4.White, size: 0.2f);
 ```
 
 Immediate mode: a call site owns nothing, creates nothing and disposes nothing, and removing the
-investigation means removing the call. Every shape is lines, including the round ones — a sphere is
-three rings and reads as a sphere, where a mesh would mean a second pipeline plus a depth decision
-plus a lighting decision for geometry whose whole job is to be unmistakably not part of the scene.
+investigation means removing the call. Lines, rays, arrows, boxes (axis-aligned and oriented),
+spheres, circles, capsules, cones, frustums, crosses, axes, world labels, and screen-space lines,
+rectangles, fills and text.
 
-**This is the accumulator, not the renderer.** A renderer drains `Lines` once a frame; there is no
-renderer yet, so what is closed here is the half every subsystem needs to be able to *call*, and a
-subsystem written against it today needs no change when the drawing arrives. `DebugDrawSystem` ages
-the geometry in `PostRender` — after the draining, or a line asked for during a frame would never be
-seen.
+Every shape is lines, including the round ones and the lettered ones — a sphere is three rings and
+reads as a sphere, where a mesh would mean a second pipeline plus a depth decision plus a lighting
+decision for geometry whose whole job is to be unmistakably not part of the scene. Text is
+`DebugFont`'s strokes for the same reason, and because a debug overlay has to work in the frame where
+the font atlas is the thing that is broken.
+
+**This is the accumulator, not the renderer.** `Vixen.Engine.Renderer` is the other half: it drains
+the three lists once a frame into two line draws. That split is what lets `Vixen.Physics`,
+`Vixen.Navigation` and `Vixen.Audio` produce debug geometry without linking a graphics API.
+
+`DebugDrawSystem` ages the geometry in `PostRender` — after the draining, or a line asked for during
+a frame would never be seen.
+
+## Diagnostic overlays
+
+```csharp
+var overlays = new DiagnosticOverlays();
+overlays.Add(new FrameStatsOverlay());
+overlays.Add(new FrameGraphOverlay());
+overlays.Add(new LogOverlay(sink));
+overlays.Add(new ConsoleOverlay(commands));
+overlays.RegisterCommands(commands);
+
+loop.Add(new DiagnosticOverlaySystem(overlays, draw) { Viewport = target.Size });
+```
+
+The toggleable panels [docs/plan/13](../../docs/plan/13-diagnostics.md) § Diagnostic overlays asks
+for, drawn out of `DebugDraw`'s screen-space list — so they are present **in every build**, with no
+editor attached, no interface running and no font asset resident. A panel is a background fill, a
+border, a title and rows of text, all of it line segments.
+
+`IDiagnosticOverlay` is the seam. The four whose numbers are already in `Vixen.Core.Diagnostics` live
+here — frame stats with a frame-time graph, a mini flame chart off the profiler's rings, the tail of
+the log ring, and a console. The rest belong to the subsystems that own their data: `Vixen.Physics`
+draws colliders and contacts into the accumulator directly, and `Vixen.Audio` registers an
+`AudioOverlay`.
+
+⚠ **The console does not read a keyboard.** `Type`, `Backspace`, `Submit` and the history moves are
+pushed in by the host, because which device produces a character — and whether the game should stop
+seeing it — is a platform's question. `IsCapturingInput` is what a host polls to know that typing
+`reload` must not also make the player reload.
 
 Licensed under Apache-2.0.

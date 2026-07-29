@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Engine.Renderer</RootNamespace>
+        <Description>
+            The GPU half of the debug geometry: the renderer that drains a DebugDraw once a frame —
+            world lines, billboarded labels and the screen-space diagnostic overlays — into two line
+            draws.
+        </Description>
+        <PackageTags>debug-draw;diagnostics;overlay;rendering;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The two halves this assembly exists to join, and the reason it is a separate assembly
+            rather than a folder in either of them — the same arrangement as Vixen.Ui.Renderer and
+            for the same reason. `Vixen.Engine` accumulates debug geometry and knows nothing about a
+            device, which is what lets physics, navigation and audio produce it without linking a
+            graphics API; `Vixen.Rendering` draws lines without knowing what a debug overlay is.
+            Putting the join in `Vixen.Engine` would drag a graphics API into the layer a game is
+            written against; putting it in `Vixen.Rendering` would drag the ECS into every renderer.
+        -->
+        <ProjectReference Include="..\Vixen.Engine\Vixen.Engine.csproj" />
+        <ProjectReference Include="..\Vixen.Rendering\Vixen.Rendering.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Engine.Renderer.Tests" />
+    </ItemGroup>
+
+</Project>

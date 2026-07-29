@@ -141,22 +141,39 @@ Vixen.Engine.Coroutines.ResumePoint.ResumePoint() -> void
 Vixen.Engine.Coroutines.ResumePoint.Update = 0 -> Vixen.Engine.Coroutines.ResumePoint
 Vixen.Engine.Diagnostics.DebugDraw -> sealed class
 Vixen.Engine.Diagnostics.DebugDraw.Advance(float seconds) -> void
+Vixen.Engine.Diagnostics.DebugDraw.Arrow(Vixen.Core.Mathematics.Vector3 from, Vixen.Core.Mathematics.Vector3 to, Vixen.Core.Mathematics.Color4 colour, float seconds = 0) -> void
 Vixen.Engine.Diagnostics.DebugDraw.Axes(Vixen.Core.Mathematics.Matrix4x4 transform, float length = 1, float seconds = 0) -> void
 Vixen.Engine.Diagnostics.DebugDraw.Box(Vixen.Core.Mathematics.BoundingBox box, Vixen.Core.Mathematics.Color4 colour, float seconds = 0) -> void
+Vixen.Engine.Diagnostics.DebugDraw.Box(Vixen.Core.Mathematics.BoundingBox box, in Vixen.Core.Mathematics.Matrix4x4 transform, Vixen.Core.Mathematics.Color4 colour, float seconds = 0) -> void
+Vixen.Engine.Diagnostics.DebugDraw.Capsule(Vixen.Core.Mathematics.Vector3 from, Vixen.Core.Mathematics.Vector3 to, float radius, Vixen.Core.Mathematics.Color4 colour, float seconds = 0) -> void
+Vixen.Engine.Diagnostics.DebugDraw.Circle(Vixen.Core.Mathematics.Vector3 centre, Vixen.Core.Mathematics.Vector3 normal, float radius, Vixen.Core.Mathematics.Color4 colour, float seconds = 0) -> void
 Vixen.Engine.Diagnostics.DebugDraw.Clear() -> void
+Vixen.Engine.Diagnostics.DebugDraw.Cone(Vixen.Core.Mathematics.Vector3 apex, Vixen.Core.Mathematics.Vector3 direction, float radius, Vixen.Core.Mathematics.Color4 colour, float seconds = 0) -> void
 Vixen.Engine.Diagnostics.DebugDraw.Count.get -> int
+Vixen.Engine.Diagnostics.DebugDraw.Cross(Vixen.Core.Mathematics.Vector3 position, float size, Vixen.Core.Mathematics.Color4 colour, float seconds = 0) -> void
 Vixen.Engine.Diagnostics.DebugDraw.DebugDraw() -> void
 Vixen.Engine.Diagnostics.DebugDraw.Enabled.get -> bool
 Vixen.Engine.Diagnostics.DebugDraw.Enabled.set -> bool
+Vixen.Engine.Diagnostics.DebugDraw.Frustum(in Vixen.Core.Mathematics.BoundingFrustum frustum, Vixen.Core.Mathematics.Color4 colour, float seconds = 0) -> void
 Vixen.Engine.Diagnostics.DebugDraw.Line(Vixen.Core.Mathematics.Vector3 from, Vixen.Core.Mathematics.Vector3 to, Vixen.Core.Mathematics.Color4 colour, float seconds = 0) -> void
 Vixen.Engine.Diagnostics.DebugDraw.Lines.get -> System.ReadOnlySpan<Vixen.Engine.Diagnostics.DebugLine>
 Vixen.Engine.Diagnostics.DebugDraw.Ray(Vixen.Core.Mathematics.Vector3 origin, Vixen.Core.Mathematics.Vector3 direction, Vixen.Core.Mathematics.Color4 colour, float seconds = 0) -> void
+Vixen.Engine.Diagnostics.DebugDraw.ScreenCount.get -> int
+Vixen.Engine.Diagnostics.DebugDraw.ScreenFill(Vixen.Core.Mathematics.Vector2 topLeft, Vixen.Core.Mathematics.Vector2 size, Vixen.Core.Mathematics.Color4 colour, float spacing = 1, float seconds = 0) -> void
+Vixen.Engine.Diagnostics.DebugDraw.ScreenLine(Vixen.Core.Mathematics.Vector2 from, Vixen.Core.Mathematics.Vector2 to, Vixen.Core.Mathematics.Color4 colour, float seconds = 0) -> void
+Vixen.Engine.Diagnostics.DebugDraw.ScreenLines.get -> System.ReadOnlySpan<Vixen.Engine.Diagnostics.DebugScreenLine>
+Vixen.Engine.Diagnostics.DebugDraw.ScreenRect(Vixen.Core.Mathematics.Vector2 topLeft, Vixen.Core.Mathematics.Vector2 size, Vixen.Core.Mathematics.Color4 colour, float seconds = 0) -> void
+Vixen.Engine.Diagnostics.DebugDraw.ScreenText(Vixen.Core.Mathematics.Vector2 position, System.ReadOnlySpan<char> text, Vixen.Core.Mathematics.Color4 colour, float size = 12, float seconds = 0) -> void
 Vixen.Engine.Diagnostics.DebugDraw.Sphere(Vixen.Core.Mathematics.BoundingSphere sphere, Vixen.Core.Mathematics.Color4 colour, float seconds = 0) -> void
+Vixen.Engine.Diagnostics.DebugDraw.Text(Vixen.Core.Mathematics.Vector3 position, string text, Vixen.Core.Mathematics.Color4 colour, float size = 0.25, float seconds = 0) -> void
+Vixen.Engine.Diagnostics.DebugDraw.TextCount.get -> int
+Vixen.Engine.Diagnostics.DebugDraw.Texts.get -> System.ReadOnlySpan<Vixen.Engine.Diagnostics.DebugText>
 Vixen.Engine.Diagnostics.DebugDrawSystem -> sealed class
 Vixen.Engine.Diagnostics.DebugDrawSystem : Vixen.Ecs.Systems.IDeclaredAccess
 Vixen.Engine.Diagnostics.DebugDrawSystem : Vixen.Ecs.Systems.SystemBase
 Vixen.Engine.Diagnostics.DebugDrawSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
 Vixen.Engine.Diagnostics.DebugDrawSystem.DebugDrawSystem(Vixen.Engine.Diagnostics.DebugDraw draw) -> void
+Vixen.Engine.Diagnostics.DebugFont -> static class
 Vixen.Engine.Diagnostics.DebugLine -> readonly struct
 Vixen.Engine.Diagnostics.DebugLine : System.IEquatable<Vixen.Engine.Diagnostics.DebugLine>
 Vixen.Engine.Diagnostics.DebugLine.Colour.get -> Vixen.Core.Mathematics.Color4
@@ -169,6 +186,254 @@ Vixen.Engine.Diagnostics.DebugLine.Remaining.get -> float
 Vixen.Engine.Diagnostics.DebugLine.Remaining.init -> float
 Vixen.Engine.Diagnostics.DebugLine.To.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Engine.Diagnostics.DebugLine.To.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Diagnostics.DebugLine.WithRemaining(float remaining) -> Vixen.Engine.Diagnostics.DebugLine
+Vixen.Engine.Diagnostics.DebugScreenLine -> readonly struct
+Vixen.Engine.Diagnostics.DebugScreenLine : System.IEquatable<Vixen.Engine.Diagnostics.DebugScreenLine>
+Vixen.Engine.Diagnostics.DebugScreenLine.Colour.get -> Vixen.Core.Mathematics.Color4
+Vixen.Engine.Diagnostics.DebugScreenLine.Colour.init -> Vixen.Core.Mathematics.Color4
+Vixen.Engine.Diagnostics.DebugScreenLine.DebugScreenLine() -> void
+Vixen.Engine.Diagnostics.DebugScreenLine.DebugScreenLine(Vixen.Core.Mathematics.Vector2 From, Vixen.Core.Mathematics.Vector2 To, Vixen.Core.Mathematics.Color4 Colour, float Remaining) -> void
+Vixen.Engine.Diagnostics.DebugScreenLine.From.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Engine.Diagnostics.DebugScreenLine.From.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Engine.Diagnostics.DebugScreenLine.Remaining.get -> float
+Vixen.Engine.Diagnostics.DebugScreenLine.Remaining.init -> float
+Vixen.Engine.Diagnostics.DebugScreenLine.To.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Engine.Diagnostics.DebugScreenLine.To.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Engine.Diagnostics.DebugScreenLine.WithRemaining(float remaining) -> Vixen.Engine.Diagnostics.DebugScreenLine
+Vixen.Engine.Diagnostics.DebugText -> readonly struct
+Vixen.Engine.Diagnostics.DebugText : System.IEquatable<Vixen.Engine.Diagnostics.DebugText>
+Vixen.Engine.Diagnostics.DebugText.Colour.get -> Vixen.Core.Mathematics.Color4
+Vixen.Engine.Diagnostics.DebugText.Colour.init -> Vixen.Core.Mathematics.Color4
+Vixen.Engine.Diagnostics.DebugText.DebugText() -> void
+Vixen.Engine.Diagnostics.DebugText.DebugText(Vixen.Core.Mathematics.Vector3 Position, string Text, Vixen.Core.Mathematics.Color4 Colour, float Size, float Remaining) -> void
+Vixen.Engine.Diagnostics.DebugText.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Diagnostics.DebugText.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Diagnostics.DebugText.Remaining.get -> float
+Vixen.Engine.Diagnostics.DebugText.Remaining.init -> float
+Vixen.Engine.Diagnostics.DebugText.Size.get -> float
+Vixen.Engine.Diagnostics.DebugText.Size.init -> float
+Vixen.Engine.Diagnostics.DebugText.Text.get -> string
+Vixen.Engine.Diagnostics.DebugText.Text.init -> string
+Vixen.Engine.Diagnostics.DebugText.WithRemaining(float remaining) -> Vixen.Engine.Diagnostics.DebugText
+Vixen.Engine.Diagnostics.IDebugFontSink -> interface
+Vixen.Engine.Diagnostics.IDebugFontSink.Segment(Vixen.Core.Mathematics.Vector2 head, Vixen.Core.Mathematics.Vector2 tail) -> void
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommand -> sealed record
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommand : System.IEquatable<Vixen.Engine.Diagnostics.Overlays.ConsoleCommand>
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommand.ConsoleCommand(string Name, string Help, System.Action<Vixen.Engine.Diagnostics.Overlays.ConsoleContext> Run) -> void
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommand.Help.get -> string
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommand.Help.init -> string
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommand.Name.get -> string
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommand.Name.init -> string
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommand.Run.get -> System.Action<Vixen.Engine.Diagnostics.Overlays.ConsoleContext>
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommand.Run.init -> System.Action<Vixen.Engine.Diagnostics.Overlays.ConsoleContext>
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommandAttribute -> sealed class
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommandAttribute : System.Attribute
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommandAttribute.ConsoleCommandAttribute(string name) -> void
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommandAttribute.Help.get -> string
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommandAttribute.Help.set -> string
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommandAttribute.Name.get -> string
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommands -> sealed class
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.Clear() -> void
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.Complete(System.ReadOnlySpan<char> prefix, System.Collections.Generic.List<string> matches) -> int
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.ConsoleCommands() -> void
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.Execute(string line) -> bool
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.History.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.Output.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.Register(string name, string help, System.Action<Vixen.Engine.Diagnostics.Overlays.ConsoleContext> run) -> void
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.RegisterFrom(System.Reflection.Assembly assembly) -> int
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.RegisterFrom(System.Type type) -> int
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.Registered.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Engine.Diagnostics.Overlays.ConsoleCommand>
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.Remove(string name) -> bool
+Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.Write(string text) -> void
+Vixen.Engine.Diagnostics.Overlays.ConsoleContext -> sealed class
+Vixen.Engine.Diagnostics.Overlays.ConsoleContext.Arguments.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Engine.Diagnostics.Overlays.ConsoleContext.Commands.get -> Vixen.Engine.Diagnostics.Overlays.ConsoleCommands
+Vixen.Engine.Diagnostics.Overlays.ConsoleContext.Count.get -> int
+Vixen.Engine.Diagnostics.Overlays.ConsoleContext.Line.get -> string
+Vixen.Engine.Diagnostics.Overlays.ConsoleContext.TryFlag(int index, out bool value) -> bool
+Vixen.Engine.Diagnostics.Overlays.ConsoleContext.TryNumber(int index, out float value) -> bool
+Vixen.Engine.Diagnostics.Overlays.ConsoleContext.Write(string text) -> void
+Vixen.Engine.Diagnostics.Overlays.ConsoleContext.this[int index].get -> string?
+Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay -> sealed class
+Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay : Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay
+Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay.Anchor.get -> Vixen.Engine.Diagnostics.Overlays.OverlayAnchor
+Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay.Anchor.set -> Vixen.Engine.Diagnostics.Overlays.OverlayAnchor
+Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay.Backspace() -> void
+Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay.ClearInput() -> void
+Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay.Commands.get -> Vixen.Engine.Diagnostics.Overlays.ConsoleCommands
+Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay.Complete() -> bool
+Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay.ConsoleOverlay(Vixen.Engine.Diagnostics.Overlays.ConsoleCommands commands) -> void
+Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay.Draw(Vixen.Engine.Diagnostics.Overlays.OverlaySurface surface, in Vixen.Core.GameTime time) -> void
+Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay.Enabled.get -> bool
+Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay.Enabled.set -> bool
+Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay.Input.get -> string
+Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay.IsCapturingInput.get -> bool
+Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay.Lines.get -> int
+Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay.Lines.set -> int
+Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay.Name.get -> string
+Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay.Recall(bool back) -> void
+Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay.Submit() -> bool
+Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay.Type(System.ReadOnlySpan<char> text) -> void
+Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay.Type(char character) -> void
+Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay.Width.get -> float
+Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay.Width.set -> float
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlaySystem -> sealed class
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlaySystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlaySystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlaySystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlaySystem.DiagnosticOverlaySystem(Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays overlays, Vixen.Engine.Diagnostics.DebugDraw draw) -> void
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlaySystem.Viewport.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlaySystem.Viewport.set -> Vixen.Core.Mathematics.Vector2
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays -> sealed class
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays.Add(Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay overlay) -> void
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays.DiagnosticOverlays() -> void
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays.DisableAll() -> void
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays.Draw(Vixen.Engine.Diagnostics.DebugDraw draw, Vixen.Core.Mathematics.Vector2 viewport, in Vixen.Core.GameTime time) -> void
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays.DrawnCount.get -> int
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays.Enabled.get -> bool
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays.Enabled.set -> bool
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays.Find(string? name) -> Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay?
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays.RegisterCommands(Vixen.Engine.Diagnostics.Overlays.ConsoleCommands commands) -> void
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays.Registered.get -> System.Collections.Generic.IReadOnlyList<Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay>
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays.Remove(string name) -> bool
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays.Set(string name, bool? enabled = null) -> bool?
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays.Theme.get -> Vixen.Engine.Diagnostics.Overlays.OverlayTheme
+Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays.Theme.set -> Vixen.Engine.Diagnostics.Overlays.OverlayTheme
+Vixen.Engine.Diagnostics.Overlays.FrameGraphOverlay -> sealed class
+Vixen.Engine.Diagnostics.Overlays.FrameGraphOverlay : Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay
+Vixen.Engine.Diagnostics.Overlays.FrameGraphOverlay.Anchor.get -> Vixen.Engine.Diagnostics.Overlays.OverlayAnchor
+Vixen.Engine.Diagnostics.Overlays.FrameGraphOverlay.Anchor.set -> Vixen.Engine.Diagnostics.Overlays.OverlayAnchor
+Vixen.Engine.Diagnostics.Overlays.FrameGraphOverlay.BarHeight.get -> float
+Vixen.Engine.Diagnostics.Overlays.FrameGraphOverlay.BarHeight.set -> float
+Vixen.Engine.Diagnostics.Overlays.FrameGraphOverlay.Capture(Vixen.Core.Diagnostics.ProfilerThreadSamples[] threads) -> void
+Vixen.Engine.Diagnostics.Overlays.FrameGraphOverlay.Collects.get -> bool
+Vixen.Engine.Diagnostics.Overlays.FrameGraphOverlay.Collects.set -> bool
+Vixen.Engine.Diagnostics.Overlays.FrameGraphOverlay.Draw(Vixen.Engine.Diagnostics.Overlays.OverlaySurface surface, in Vixen.Core.GameTime time) -> void
+Vixen.Engine.Diagnostics.Overlays.FrameGraphOverlay.Enabled.get -> bool
+Vixen.Engine.Diagnostics.Overlays.FrameGraphOverlay.Enabled.set -> bool
+Vixen.Engine.Diagnostics.Overlays.FrameGraphOverlay.FrameGraphOverlay() -> void
+Vixen.Engine.Diagnostics.Overlays.FrameGraphOverlay.FrameMilliseconds.get -> double
+Vixen.Engine.Diagnostics.Overlays.FrameGraphOverlay.Name.get -> string
+Vixen.Engine.Diagnostics.Overlays.FrameGraphOverlay.ScopeCount.get -> int
+Vixen.Engine.Diagnostics.Overlays.FrameGraphOverlay.Width.get -> float
+Vixen.Engine.Diagnostics.Overlays.FrameGraphOverlay.Width.set -> float
+Vixen.Engine.Diagnostics.Overlays.FrameStatistics -> readonly struct
+Vixen.Engine.Diagnostics.Overlays.FrameStatistics : System.IEquatable<Vixen.Engine.Diagnostics.Overlays.FrameStatistics>
+Vixen.Engine.Diagnostics.Overlays.FrameStatistics.Culled.get -> int
+Vixen.Engine.Diagnostics.Overlays.FrameStatistics.Culled.init -> int
+Vixen.Engine.Diagnostics.Overlays.FrameStatistics.DrawCalls.get -> int
+Vixen.Engine.Diagnostics.Overlays.FrameStatistics.DrawCalls.init -> int
+Vixen.Engine.Diagnostics.Overlays.FrameStatistics.FrameStatistics() -> void
+Vixen.Engine.Diagnostics.Overlays.FrameStatistics.GpuBytes.get -> long
+Vixen.Engine.Diagnostics.Overlays.FrameStatistics.GpuBytes.init -> long
+Vixen.Engine.Diagnostics.Overlays.FrameStatistics.GpuLatency.get -> int
+Vixen.Engine.Diagnostics.Overlays.FrameStatistics.GpuLatency.init -> int
+Vixen.Engine.Diagnostics.Overlays.FrameStatistics.GpuMilliseconds.get -> double
+Vixen.Engine.Diagnostics.Overlays.FrameStatistics.GpuMilliseconds.init -> double
+Vixen.Engine.Diagnostics.Overlays.FrameStatistics.Triangles.get -> long
+Vixen.Engine.Diagnostics.Overlays.FrameStatistics.Triangles.init -> long
+Vixen.Engine.Diagnostics.Overlays.FrameStatistics.Visible.get -> int
+Vixen.Engine.Diagnostics.Overlays.FrameStatistics.Visible.init -> int
+Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay -> sealed class
+Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay : Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay
+Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.Anchor.get -> Vixen.Engine.Diagnostics.Overlays.OverlayAnchor
+Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.Anchor.set -> Vixen.Engine.Diagnostics.Overlays.OverlayAnchor
+Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.Draw(Vixen.Engine.Diagnostics.Overlays.OverlaySurface surface, in Vixen.Core.GameTime time) -> void
+Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.Enabled.get -> bool
+Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.Enabled.set -> bool
+Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.FrameStatsOverlay() -> void
+Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.Name.get -> string
+Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.PeakMilliseconds.get -> float
+Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.Reset() -> void
+Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.SmoothedMilliseconds.get -> float
+Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.Statistics.get -> Vixen.Engine.Diagnostics.Overlays.FrameStatistics
+Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.Statistics.set -> Vixen.Engine.Diagnostics.Overlays.FrameStatistics
+Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.Width.get -> float
+Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.Width.set -> float
+Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay -> interface
+Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay.Anchor.get -> Vixen.Engine.Diagnostics.Overlays.OverlayAnchor
+Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay.Draw(Vixen.Engine.Diagnostics.Overlays.OverlaySurface surface, in Vixen.Core.GameTime time) -> void
+Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay.Enabled.get -> bool
+Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay.Enabled.set -> bool
+Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay.Name.get -> string
+Vixen.Engine.Diagnostics.Overlays.LogOverlay -> sealed class
+Vixen.Engine.Diagnostics.Overlays.LogOverlay : Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay
+Vixen.Engine.Diagnostics.Overlays.LogOverlay.Anchor.get -> Vixen.Engine.Diagnostics.Overlays.OverlayAnchor
+Vixen.Engine.Diagnostics.Overlays.LogOverlay.Anchor.set -> Vixen.Engine.Diagnostics.Overlays.OverlayAnchor
+Vixen.Engine.Diagnostics.Overlays.LogOverlay.Draw(Vixen.Engine.Diagnostics.Overlays.OverlaySurface surface, in Vixen.Core.GameTime time) -> void
+Vixen.Engine.Diagnostics.Overlays.LogOverlay.Enabled.get -> bool
+Vixen.Engine.Diagnostics.Overlays.LogOverlay.Enabled.set -> bool
+Vixen.Engine.Diagnostics.Overlays.LogOverlay.Lines.get -> int
+Vixen.Engine.Diagnostics.Overlays.LogOverlay.Lines.set -> int
+Vixen.Engine.Diagnostics.Overlays.LogOverlay.LogOverlay(Vixen.Core.Diagnostics.RingBufferSink sink) -> void
+Vixen.Engine.Diagnostics.Overlays.LogOverlay.MinimumLevel.get -> Microsoft.Extensions.Logging.LogLevel
+Vixen.Engine.Diagnostics.Overlays.LogOverlay.MinimumLevel.set -> Microsoft.Extensions.Logging.LogLevel
+Vixen.Engine.Diagnostics.Overlays.LogOverlay.Name.get -> string
+Vixen.Engine.Diagnostics.Overlays.LogOverlay.ShowCategory.get -> bool
+Vixen.Engine.Diagnostics.Overlays.LogOverlay.ShowCategory.set -> bool
+Vixen.Engine.Diagnostics.Overlays.LogOverlay.Width.get -> float
+Vixen.Engine.Diagnostics.Overlays.LogOverlay.Width.set -> float
+Vixen.Engine.Diagnostics.Overlays.OverlayAnchor -> enum : int
+Vixen.Engine.Diagnostics.Overlays.OverlayAnchor.BottomLeft = 2 -> Vixen.Engine.Diagnostics.Overlays.OverlayAnchor
+Vixen.Engine.Diagnostics.Overlays.OverlayAnchor.BottomRight = 3 -> Vixen.Engine.Diagnostics.Overlays.OverlayAnchor
+Vixen.Engine.Diagnostics.Overlays.OverlayAnchor.OverlayAnchor() -> void
+Vixen.Engine.Diagnostics.Overlays.OverlayAnchor.TopLeft = 0 -> Vixen.Engine.Diagnostics.Overlays.OverlayAnchor
+Vixen.Engine.Diagnostics.Overlays.OverlayAnchor.TopRight = 1 -> Vixen.Engine.Diagnostics.Overlays.OverlayAnchor
+Vixen.Engine.Diagnostics.Overlays.OverlayRegion -> readonly struct
+Vixen.Engine.Diagnostics.Overlays.OverlayRegion.Content.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Engine.Diagnostics.Overlays.OverlayRegion.ContentHeight.get -> float
+Vixen.Engine.Diagnostics.Overlays.OverlayRegion.ContentWidth.get -> float
+Vixen.Engine.Diagnostics.Overlays.OverlayRegion.Fill(Vixen.Core.Mathematics.Vector2 offset, Vixen.Core.Mathematics.Vector2 size, Vixen.Core.Mathematics.Color4 colour) -> void
+Vixen.Engine.Diagnostics.Overlays.OverlayRegion.IsEmpty.get -> bool
+Vixen.Engine.Diagnostics.Overlays.OverlayRegion.Line(Vixen.Core.Mathematics.Vector2 from, Vixen.Core.Mathematics.Vector2 to, Vixen.Core.Mathematics.Color4 colour) -> void
+Vixen.Engine.Diagnostics.Overlays.OverlayRegion.Meter(int row, System.ReadOnlySpan<char> label, System.ReadOnlySpan<char> value, float fraction, Vixen.Core.Mathematics.Color4 colour) -> void
+Vixen.Engine.Diagnostics.Overlays.OverlayRegion.Origin.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Engine.Diagnostics.Overlays.OverlayRegion.OverlayRegion() -> void
+Vixen.Engine.Diagnostics.Overlays.OverlayRegion.Rect(Vixen.Core.Mathematics.Vector2 offset, Vixen.Core.Mathematics.Vector2 size, Vixen.Core.Mathematics.Color4 colour) -> void
+Vixen.Engine.Diagnostics.Overlays.OverlayRegion.RowHeight.get -> float
+Vixen.Engine.Diagnostics.Overlays.OverlayRegion.Size.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Engine.Diagnostics.Overlays.OverlayRegion.Text(Vixen.Core.Mathematics.Vector2 offset, System.ReadOnlySpan<char> text, Vixen.Core.Mathematics.Color4 colour) -> void
+Vixen.Engine.Diagnostics.Overlays.OverlayRegion.Text(int row, System.ReadOnlySpan<char> text, Vixen.Core.Mathematics.Color4 colour) -> void
+Vixen.Engine.Diagnostics.Overlays.OverlayRegion.TextRight(int row, System.ReadOnlySpan<char> text, Vixen.Core.Mathematics.Color4 colour) -> void
+Vixen.Engine.Diagnostics.Overlays.OverlaySurface -> sealed class
+Vixen.Engine.Diagnostics.Overlays.OverlaySurface.Draw.get -> Vixen.Engine.Diagnostics.DebugDraw
+Vixen.Engine.Diagnostics.Overlays.OverlaySurface.HeightForRows(int rows, bool titled = true) -> float
+Vixen.Engine.Diagnostics.Overlays.OverlaySurface.MeasureWidth(System.ReadOnlySpan<char> text) -> float
+Vixen.Engine.Diagnostics.Overlays.OverlaySurface.Panel(Vixen.Engine.Diagnostics.Overlays.OverlayAnchor anchor, float width, float height, System.ReadOnlySpan<char> title = default(System.ReadOnlySpan<char>)) -> Vixen.Engine.Diagnostics.Overlays.OverlayRegion
+Vixen.Engine.Diagnostics.Overlays.OverlaySurface.Panel(Vixen.Engine.Diagnostics.Overlays.OverlayAnchor anchor, float width, int rows, System.ReadOnlySpan<char> title = default(System.ReadOnlySpan<char>)) -> Vixen.Engine.Diagnostics.Overlays.OverlayRegion
+Vixen.Engine.Diagnostics.Overlays.OverlaySurface.RowHeight.get -> float
+Vixen.Engine.Diagnostics.Overlays.OverlaySurface.Text(Vixen.Core.Mathematics.Vector2 position, System.ReadOnlySpan<char> text, Vixen.Core.Mathematics.Color4 colour) -> void
+Vixen.Engine.Diagnostics.Overlays.OverlaySurface.Theme.get -> Vixen.Engine.Diagnostics.Overlays.OverlayTheme
+Vixen.Engine.Diagnostics.Overlays.OverlaySurface.Viewport.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme -> readonly struct
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme : System.IEquatable<Vixen.Engine.Diagnostics.Overlays.OverlayTheme>
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Background.get -> Vixen.Core.Mathematics.Color4
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Background.init -> Vixen.Core.Mathematics.Color4
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Bad.get -> Vixen.Core.Mathematics.Color4
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Bad.init -> Vixen.Core.Mathematics.Color4
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Border.get -> Vixen.Core.Mathematics.Color4
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Border.init -> Vixen.Core.Mathematics.Color4
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.FillSpacing.get -> float
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.FillSpacing.init -> float
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Gap.get -> float
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Gap.init -> float
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Good.get -> Vixen.Core.Mathematics.Color4
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Good.init -> Vixen.Core.Mathematics.Color4
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Heading.get -> Vixen.Core.Mathematics.Color4
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Heading.init -> Vixen.Core.Mathematics.Color4
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Margin.get -> float
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Margin.init -> float
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Muted.get -> Vixen.Core.Mathematics.Color4
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Muted.init -> Vixen.Core.Mathematics.Color4
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.OverlayTheme() -> void
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Padding.get -> float
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Padding.init -> float
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Text.get -> Vixen.Core.Mathematics.Color4
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Text.init -> Vixen.Core.Mathematics.Color4
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.TextSize.get -> float
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.TextSize.init -> float
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Warning.get -> Vixen.Core.Mathematics.Color4
+Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Warning.init -> Vixen.Core.Mathematics.Color4
 Vixen.Engine.Frames.EngineLoop -> sealed class
 Vixen.Engine.Frames.EngineLoop : System.IDisposable
 Vixen.Engine.Frames.EngineLoop.Add(Vixen.Ecs.Systems.ISystem system) -> Vixen.Engine.Frames.EngineLoop
@@ -290,6 +555,19 @@ Vixen.Engine.Transforms.TransformSystem.TransformSystem() -> void
 Vixen.Engine.Transforms.WorldTransform -> struct
 Vixen.Engine.Transforms.WorldTransform.Value -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Engine.Transforms.WorldTransform.WorldTransform() -> void
+const Vixen.Engine.Diagnostics.DebugFont.FirstCharacter = ' ' -> char
+const Vixen.Engine.Diagnostics.DebugFont.GridAdvance = 5 -> int
+const Vixen.Engine.Diagnostics.DebugFont.GridBaseline = 2 -> int
+const Vixen.Engine.Diagnostics.DebugFont.GridCapHeight = 6 -> int
+const Vixen.Engine.Diagnostics.DebugFont.GridTop = 8 -> int
+const Vixen.Engine.Diagnostics.DebugFont.GridWidth = 4 -> int
+const Vixen.Engine.Diagnostics.DebugFont.LastCharacter = '~' -> char
+const Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.MaxHistory = 64 -> int
+const Vixen.Engine.Diagnostics.Overlays.ConsoleCommands.MaxOutput = 256 -> int
+const Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay.MaxInputLength = 512 -> int
+const Vixen.Engine.Diagnostics.Overlays.FrameGraphOverlay.MaxDepth = 8 -> int
+const Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.HistoryLength = 120 -> int
+const Vixen.Engine.Diagnostics.Overlays.LogOverlay.MaxLines = 40 -> int
 override Vixen.Engine.Behaviors.BehaviorLateUpdateSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Engine.Behaviors.BehaviorLifecycleSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Engine.Behaviors.BehaviorUpdateSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
@@ -300,6 +578,7 @@ override Vixen.Engine.Coroutines.CoroutineFixedStepSystem.Update(in Vixen.Ecs.Sy
 override Vixen.Engine.Coroutines.CoroutineLateUpdateSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Engine.Coroutines.CoroutineUpdateSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Engine.Diagnostics.DebugDrawSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlaySystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Engine.Input.InputUpdateSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Engine.Scenes.Prefab.ToString() -> string
 override Vixen.Engine.Transforms.Transform.ToString() -> string
@@ -318,6 +597,14 @@ static Vixen.Engine.Coroutines.Coroutine.WhenAll(params Vixen.Engine.Coroutines.
 static Vixen.Engine.Coroutines.CoroutineAwaitable.operator !=(Vixen.Engine.Coroutines.CoroutineAwaitable left, Vixen.Engine.Coroutines.CoroutineAwaitable right) -> bool
 static Vixen.Engine.Coroutines.CoroutineAwaitable.operator ==(Vixen.Engine.Coroutines.CoroutineAwaitable left, Vixen.Engine.Coroutines.CoroutineAwaitable right) -> bool
 static Vixen.Engine.Coroutines.CoroutineMethodBuilder.Create() -> Vixen.Engine.Coroutines.CoroutineMethodBuilder
+static Vixen.Engine.Diagnostics.DebugFont.AdvanceFor(float size) -> float
+static Vixen.Engine.Diagnostics.DebugFont.Emit<TSink>(System.ReadOnlySpan<char> text, Vixen.Core.Mathematics.Vector2 origin, float size, ref TSink sink) -> void
+static Vixen.Engine.Diagnostics.DebugFont.LineHeightFor(float size) -> float
+static Vixen.Engine.Diagnostics.DebugFont.MeasureHeight(System.ReadOnlySpan<char> text, float size) -> float
+static Vixen.Engine.Diagnostics.DebugFont.MeasureWidth(System.ReadOnlySpan<char> text, float size) -> float
+static Vixen.Engine.Diagnostics.DebugFont.SegmentCount(System.ReadOnlySpan<char> text) -> int
+static Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Default.get -> Vixen.Engine.Diagnostics.Overlays.OverlayTheme
+static Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Fade(Vixen.Core.Mathematics.Color4 colour, float alpha) -> Vixen.Core.Mathematics.Color4
 static Vixen.Engine.Scenes.Prefab.CaptureFrom(Vixen.Ecs.World world, Vixen.Core.Entity root, string name = "Prefab") -> Vixen.Engine.Scenes.Prefab
 static Vixen.Engine.Scenes.SceneHandle.None.get -> Vixen.Engine.Scenes.SceneHandle
 static Vixen.Engine.Transforms.Hierarchy.ChildrenOf(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> Vixen.Engine.Transforms.Hierarchy.ChildSequence
