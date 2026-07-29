@@ -50,8 +50,9 @@ public enum ViewMode {
 ///         06 made the compositor data for — and it needs the viewport to be driven by
 ///         <c>RenderSystem</c> through a <c>GraphicsCompositor</c>, which is Phase 7's material-system
 ///         wiring rather than this document's. What the editor draws today is
-///         <c>SceneMeshes</c> through <c>MeshRenderer</c>: world-space triangles, one flat colour per
-///         vertex, one directional term. This table is what that path can honestly express.
+///         <c>SceneMeshes</c> through <c>MeshInstanceRenderer</c>: device-resident shapes, one instance
+///         per entity, one colour and one directional term, and no material anywhere. This table is
+///         what that path can honestly express.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The three it cannot express say so rather than falling back.</b>
@@ -69,9 +70,9 @@ public static class ViewShading {
     ///         Roughness needs a material to read one off, and there are none: the shape colour is a
     ///         constant chosen by <c>SceneMeshes</c>. Light complexity needs the tiled light list,
     ///         which belongs to the clustered path. Overdraw needs an additive blend with the depth
-    ///         test off, which is a second pipeline in <c>MeshRenderer</c> — a change to a shipping
-    ///         renderer in <c>Vixen.Rendering</c> for a debug view of a tool path, made obsolete by
-    ///         the compositor swap that replaces the whole of this.
+    ///         test off, which is a third pipeline in <c>MeshInstanceRenderer</c> — a change to a
+    ///         shipping renderer in <c>Vixen.Rendering</c> for a debug view of an editor path, made
+    ///         obsolete by the compositor swap that replaces the whole of this.
     ///     </para>
     /// </remarks>
     /// <param name="mode">The mode.</param>
@@ -99,10 +100,11 @@ public static class ViewShading {
 
     /// <summary>Whether a surface is coloured by its normal rather than by what it is.</summary>
     /// <remarks>
-    ///     ⚠ <b>Written into the vertex colour rather than into a shader.</b> The tool path already
-    ///     puts a colour on every vertex and already computes the world normal there — see
-    ///     <c>SceneMeshes.Append</c> — so a normal view is one line at collect time and no new module,
-    ///     no new pipeline and no new push constant.
+    ///     ⚠ <b>A style lane on the instance rather than a shader of its own.</b> The vertex stage
+    ///     already computes the world normal, so a normal view is one flag on a
+    ///     <c>MeshInstance</c> and a branch in a stage that is already running — no new module, no new
+    ///     pipeline and no new push constant. It used to be a colour written per vertex at collect
+    ///     time, which was the same trade before there were no vertices here to write one on.
     /// </remarks>
     /// <param name="mode">The mode.</param>
     /// <returns>Whether it is.</returns>

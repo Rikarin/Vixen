@@ -3097,9 +3097,13 @@ nowhere in the dependency graph.
 > debugger, the automation harness, and `PublishEditor`. Plugin loading has since landed. The
 > performance bar is unmeasured — nothing runs the editor-shell benchmark yet.
 >
-> ⚠ **The viewport draws lines, not meshes.** A scene of empties looks right; a scene with a model in
-> it does not show the model. That wants a material system wired to an editor viewport, which is
-> Phase 7's neighbourhood rather than a gap in the wiring.
+> ⚠ **The viewport draws shapes, and still not models.** It draws the primitive an entity's `MeshShape`
+> names, from device-resident geometry with a transform per entity — `MeshInstanceRenderer`, built as the
+> precondition [blockout-tools § B1](../blockout-tools.md#b1-every-mesh-in-the-viewport-went-through-the-cpu-every-frame-)
+> argues for, ahead of the rest of this phase's viewport work. What is still missing is the *material*
+> system: a scene with an imported model in it does not show the model, and every surface that is drawn
+> is one flat colour under one directional term. That half is this phase's neighbourhood rather than a
+> gap in the wiring.
 
 ---
 

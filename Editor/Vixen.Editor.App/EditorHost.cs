@@ -538,7 +538,7 @@ sealed class EditorHost : IDisposable {
                     continue;
                 }
 
-                presenter.Upload(editor.Scene, viewport);
+                presenter.Upload(commands, editor.Scene, viewport);
 
                 if (presenter.Declare(graph, viewport, out var target)) {
                     sampled.Add(target);
@@ -689,6 +689,28 @@ sealed class EditorHost : IDisposable {
                 device.CreateShader(ShaderStage.Fragment, Module("Mesh.frag.spv"), "mesh fragment")
             ) {
                 Locations = new(MeshKeys.PositionLocation, MeshKeys.NormalLocation, MeshKeys.VertexColourLocation)
+            },
+            new MeshInstanceShaders(
+                device.CreateShader(ShaderStage.Vertex, Module("MeshInstanced.vert.spv"), "mesh instance vertex"),
+                device.CreateShader(ShaderStage.Fragment, Module("MeshInstanced.frag.spv"), "mesh instance fragment")
+            ) {
+                // ⚠ Eleven, in the renderer's own attribute order: the shape's pair first, then the
+                // entity's nine. A location short would leave that attribute bound to nothing and the
+                // stage reading whatever the driver left there — see `VertexLocations`, which is why
+                // these are read out of Raven's reflection rather than written down.
+                Locations = new(
+                    MeshInstancedKeys.PositionLocation,
+                    MeshInstancedKeys.NormalLocation,
+                    MeshInstancedKeys.Model0Location,
+                    MeshInstancedKeys.Model1Location,
+                    MeshInstancedKeys.Model2Location,
+                    MeshInstancedKeys.Model3Location,
+                    MeshInstancedKeys.Normal0Location,
+                    MeshInstancedKeys.Normal1Location,
+                    MeshInstancedKeys.Normal2Location,
+                    MeshInstancedKeys.TintLocation,
+                    MeshInstancedKeys.StyleLocation
+                )
             },
             PixelFormat.Rgba8UNorm,
             image

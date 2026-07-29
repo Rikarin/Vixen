@@ -58,6 +58,14 @@ public readonly record struct MeshShaders(ShaderHandle Vertex, ShaderHandle Frag
 ///         material system attached is worth more than throughput.
 ///     </para>
 ///     <para>
+///         ⚠ <b>And a scene's shapes are not that, which is what
+///         <see cref="MeshInstanceRenderer" /> is for.</b> The distinction is whether the geometry
+///         changes: a gizmo handle is a different size and colour at every camera position and there
+///         is one of it, so rebuilding it per frame is the cheap answer. A block-out mesh is the same
+///         geometry for as long as nobody edits it, and there are thousands, so paying per vertex per
+///         frame for it is the thing <c>docs/blockout-tools.md</c> § B1 called a blocker.
+///     </para>
+///     <para>
 ///         ⚠ <b>Indexed, unlike the line renderer, and it has to be.</b> A sphere's vertices are
 ///         shared by six triangles each; expanding them would sextuple the bytes that cross the bus
 ///         every frame for geometry that has not moved. The index buffer is a second ring, written in
