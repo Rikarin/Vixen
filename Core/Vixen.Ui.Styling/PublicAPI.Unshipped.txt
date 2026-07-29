@@ -246,6 +246,7 @@ Vixen.Ui.Styling.SelectorTable.CompoundCount.get -> int
 Vixen.Ui.Styling.SelectorTable.NestedCount.get -> int
 Vixen.Ui.Styling.SelectorTable.SelectorTable() -> void
 Vixen.Ui.Styling.SelectorTable.SimpleCount.get -> int
+Vixen.Ui.Styling.ShorthandExpansion -> static class
 Vixen.Ui.Styling.SimpleSelector -> readonly struct
 Vixen.Ui.Styling.SimpleSelector : System.IEquatable<Vixen.Ui.Styling.SimpleSelector>
 Vixen.Ui.Styling.SimpleSelector.Kind.get -> Vixen.Ui.Styling.SimpleSelectorKind
@@ -543,6 +544,8 @@ static Vixen.Ui.Styling.LayerRuleParser.IsLayerRule(string? text) -> bool
 static Vixen.Ui.Styling.LayerRuleParser.TryParse(string? text, out Vixen.Ui.Styling.LayerRule rule) -> bool
 static Vixen.Ui.Styling.MediaQuery.TryEvaluate(string? condition, Vixen.Ui.Styling.MediaContext context, out bool matches, out string? reason) -> bool
 static Vixen.Ui.Styling.NamedColors.TryGet(System.ReadOnlySpan<char> name, out Vixen.Core.Mathematics.Color colour) -> bool
+static Vixen.Ui.Styling.ShorthandExpansion.IsShorthand(string property) -> bool
+static Vixen.Ui.Styling.ShorthandExpansion.TryExpand(string property, string value, System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, string>> into) -> bool
 static Vixen.Ui.Styling.Specificity.operator <(Vixen.Ui.Styling.Specificity left, Vixen.Ui.Styling.Specificity right) -> bool
 static Vixen.Ui.Styling.Specificity.operator <=(Vixen.Ui.Styling.Specificity left, Vixen.Ui.Styling.Specificity right) -> bool
 static Vixen.Ui.Styling.Specificity.operator >(Vixen.Ui.Styling.Specificity left, Vixen.Ui.Styling.Specificity right) -> bool
