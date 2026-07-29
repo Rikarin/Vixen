@@ -22,6 +22,17 @@
         <ProjectReference Include="..\Vixen.Rendering.DistanceFields\Vixen.Rendering.DistanceFields.csproj" />
     </ItemGroup>
 
+    <!--
+      The shader half of the tracer, linked in so SamplingConventionTests can check that it computes
+      the texture coordinate the way this side does. Raven has no interpreter, so the shared
+      convention is guarded by reading the line rather than running it.
+    -->
+    <ItemGroup>
+        <None Include="..\..\Raven\Library\DistanceFields\DistanceField.rvn"
+              Link="Shaders\DistanceField.rvn"
+              CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
     <Import Project="..\..\Testing\Vixen.Testing.props" />
 
 </Project>

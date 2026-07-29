@@ -91,6 +91,32 @@ public sealed class MeshDistanceField : IDistanceField {
     public Vector3 PositionOf(int x, int y, int z) =>
         Bounds.Minimum + (CellSize * new Vector3(x, y, z));
 
+    /// <summary>Where a point sits in a volume texture holding <see cref="Distances" />, as 0..1.</summary>
+    /// <param name="position">The point, in the field's own space.</param>
+    /// <returns>The texture coordinate.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The one convention the CPU and the shader have to share, so it is written down once
+    ///         here and read from both sides.</b> A sample lives at the <i>centre</i> of its texel and
+    ///         sample <c>i</c> is grid point <c>i</c>, so grid point <c>i</c> is at
+    ///         <c>(i + ½) / count</c>. Drop the half and the whole field shifts half a cell along
+    ///         every axis — geometry subtly in the wrong place, invisible in a still frame, and
+    ///         exactly the defect two implementations tested separately against arithmetic would each
+    ///         pass.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="Sample" /> does not go through this: it interpolates the array directly,
+    ///         which is the same arithmetic with the texel grid divided out. That they agree is
+    ///         asserted rather than assumed.
+    ///     </para>
+    /// </remarks>
+    public Vector3 TextureCoordinate(Vector3 position) {
+        var grid = ToGrid(position);
+        var count = new Vector3(Resolution.X, Resolution.Y, Resolution.Z);
+
+        return (grid + new Vector3(0.5f)) / count;
+    }
+
     /// <summary>The signed distance at any point, trilinearly interpolated.</summary>
     /// <param name="position">The point, in the field's own space.</param>
     /// <returns>The distance, negative inside.</returns>

@@ -71,6 +71,13 @@ Resolution is per-axis, derived from the bounds so voxels stay near-cubic. A doo
 would otherwise be coarse along its length and absurdly fine across its thickness, and the thin axis
 is the one that decides whether the field leaks.
 
+**Which is reached far sooner than "thinner than a voxel" sounds like it is**, because the cell size
+comes from the *longest* axis. A 20 × 0.5 × 20 floor asked for 32 gets **two** samples across its
+thickness — the two ends of a single cell, both outside the slab — and bakes to a field with no
+interior at all. `RenderedSceneTests` was written with exactly that floor and rendered a world with
+no floor in it. A large flat object needs either real thickness or a resolution set from the axis
+that matters, and there is nothing in the bake that will tell you which you have.
+
 ## Parallelism does not change the answer
 
 Samples do not read each other, so splitting the bake by Z slice cannot change what any of them
@@ -139,6 +146,24 @@ occlusion. One sample per step, nothing to denoise. It sees geometry at the fiel
 nothing finer, so it complements the screen-space kind rather than replacing it — a flat floor
 correctly occludes nothing at all, which is the test that says the integral is measuring geometry and
 not its own step size.
+
+## What a rendered frame looks like
+
+`RenderedSceneTests` runs the whole chain — bake, place, composite, march — on a sphere over a floor
+and asserts things about the picture rather than about any one link: where the silhouette is, that
+the shadow falls under the sphere and softens at its edge, that the floor darkens toward what stands
+on it. A sign flipped anywhere between the bake and the march passes every closed-form test in this
+project and fails there.
+
+It found three things on its first run, and all three were the *scene* rather than the code — the
+floor above, a probe standing on the floor's own edge, and a camera whose rays left the world before
+they descended far enough to land on anything. That is what an end-to-end test is for: the parts were
+each right and the composition of them was not obvious.
+
+Two numbers in it are worth knowing. Open floor reads a little under one rather than exactly one,
+because a trilinear read half a cell above a flat surface under-reports the clearance — and an
+under-reported clearance *is* occlusion. It is the same conservatism that makes the tracer safe, seen
+from the other end, and a finer field converges on one.
 
 ## A trap worth naming
 

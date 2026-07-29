@@ -94,6 +94,7 @@ Vixen.Rendering.DistanceFields.MeshDistanceField.Resolution.get -> Vixen.Core.Ma
 Vixen.Rendering.DistanceFields.MeshDistanceField.Resolution.init -> Vixen.Core.Mathematics.Int3
 Vixen.Rendering.DistanceFields.MeshDistanceField.Sample(Vixen.Core.Mathematics.Vector3 position) -> float
 Vixen.Rendering.DistanceFields.MeshDistanceField.SampleGradient(Vixen.Core.Mathematics.Vector3 position) -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.DistanceFields.MeshDistanceField.TextureCoordinate(Vixen.Core.Mathematics.Vector3 position) -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.DistanceFields.MeshDistanceField.Validate() -> void
 Vixen.Rendering.DistanceFields.MeshDistanceField.this[int x, int y, int z].get -> float
 Vixen.Rendering.DistanceFields.MeshDistanceFieldBaker -> static class
