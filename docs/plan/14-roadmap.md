@@ -4421,9 +4421,22 @@ holds its bandwidth, CPU, and allocation budgets for 30 minutes.
   compositor node that keeps them, a Raven module and a traced pass that composes it. Baked lightmaps
   and tetrahedral probes are **retired** rather than deferred, which is where most of the saving is.
   ⚠ Nothing has drawn with it yet.
-- **L2, the irradiance field — 2.0 EM, and the cut line.** Doc 19's own: with L1 done this is what
-  delivers dynamic indirect diffuse on every platform, with no lightmapper and no tetrahedra. L3–L6
-  are a post-1.0 track.
+- 🟡 **L2, the irradiance field — the cut line, and it is nearly across.**
+  [19](19-lighting-and-global-illumination.md) § L2 delivers dynamic indirect diffuse on every platform
+  with no lightmapper and no tetrahedra, and the parts are built: the brick pool and indirection grid,
+  refinement from renderer bounds, both fillers, the dilation and border sync as dispatches, all four
+  of § G3's leak mitigations, `IndirectDiffuse` and `ForwardPlus` reading the field on a device, and
+  filler B rendering its own cubes so a target with no compute bakes what a compute shader would fill.
+  The bounce runs.
+
+  ⚠ **One defect is open and one thing is unbuilt.** The device repair's border phase reads border
+  texels its own dispatch is writing, because it never got the deferral `SyncBorders` has — an
+  intermittent one-texel disagreement, about one full-suite run in three, with a candidate fix already
+  tried and rejected as unproven. And `Deferred` has the same ambient term and has not been given the
+  slot, which is blocked on the deferred pass in this phase rather than on the field. Coarsening is a
+  feature nobody has needed yet: refinement only ever adds detail.
+
+  L3–L6 are a post-1.0 track.
 - Deferred pipeline: GBuffer layout, shading-model-ID dispatch, automatic forward routing for
   non-representable materials, decals.
 - Volumetric fog, contact shadows, light shafts, motion blur, SSS blur, upscaler interface + FSR1.

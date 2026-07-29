@@ -313,6 +313,18 @@ gets blamed on the temporal filter.
   renders filler B's cubes, so a field can be baked as well as traced — and a baked field is one a
   build step could size to the scene rather than to the camera, which is the case coarsening would
   actually pay for.
+- ⚠ **The device repair's border phase needs `SyncBorders`' deferral, and does not have it.** This
+  computes a whole size class into a deferred list and writes it afterwards, so every read sees the state
+  before the pass. `IrradianceRepair.rvn` writes every border of a class in one dispatch and reads border
+  texels while doing it — `Beyond`'s same-size path permits an index of four, and its cross-size path
+  interpolates through the border plane by design. The dilation phase was given the negated-validity
+  trick to avoid exactly this; the border phase never was.
+
+  It shows up as `IrradianceRepairDeviceTests` disagreeing at one border **edge** texel — two of three
+  coordinates on the border plane — in roughly one whole-solution run in three, never in isolation, at a
+  different texel each time. Not a tolerance: this side reads exactly zero and the dispatch reads a
+  value, so the two took different branches. **Where the two disagree this side is right**, so the
+  defect is the shader's; what is owed is a test that makes the race deterministic before any fix.
 - **A repair narrowed to what changed.** `IrradianceFieldRepair` dilates and syncs every brick every
   frame, which is what this does too and is not an oversight in either — a brick the budget did not
   refill still has neighbours that were, and a border is a copy of a probe that may have just changed.

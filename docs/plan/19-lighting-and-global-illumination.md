@@ -396,6 +396,28 @@ because the coarsest-first ordering exists for the refined case and a uniform fi
 Seeding a pool and then dispatching into it is not a test-only shape: it is filler B handing a field to
 filler A, and it is why the mirror carries both usages.
 
+⚠ **And that comparison has an open, intermittent disagreement.** Roughly one whole-solution run in
+three, the dispatched repair differs from the reference at a single texel — never in isolation, never in
+the golden suite alone across some fifteen runs. It is not a tolerance: the reference reads exactly zero
+and the dispatch reads a small value or a validity of one, so the two took different branches. Every
+observed case is a border **edge** texel, with exactly two of three coordinates on the border plane —
+`(4,4,0)`, `(4,4,1)`, `(4,0,4)` — on refined and uniform fields alike, at a different texel each time.
+
+The leading explanation is structural and visible by reading. `SyncBorders` computes a whole size class
+into a deferred list and writes it afterwards, so every read sees the state before the pass;
+`IrradianceRepair.rvn`'s border permutation writes every border of a class in one dispatch, and `Beyond`
+*reads* border texels — the same-size path through `Round(local, Owned, Last)`, which permits index four,
+and the cross-size path through `Lower`, whose upper tap is documented as reaching the border plane.
+Those are texels other invocations of the same dispatch are writing. **The dilation phase was given the
+negated-validity trick precisely to avoid this and the border phase never was.**
+
+⚠ One candidate fix has been tried and rejected. Clamping the same-size path to owned probes — which is
+what its own comment already claims it does — is plausible and unproven: a device-free fixture built to
+exercise it could not discriminate, because at the grid's outer face the neighbour's border texel falls
+back to its own probe and both indices read the same value. It was reverted rather than shipped, and
+green runs afterwards prove nothing, because green was already the common case. What is owed is a test
+that makes the race deterministic, and then the deferral.
+
 **And something decides where to refine.** `IrradianceRefinementPolicy` takes *bands* — a margin and a
 brick size — and applies them coarsest first around every renderer's bounds, which is what grades a
 field rather than making it uniformly fine. `IrradianceFieldRenderer.Refinement` is the half that knows
@@ -493,10 +515,18 @@ content varying *within* a face is not, which is why the test that can tell ligh
 weighting stays because it is right and because an L2 band would have no such luck — but the claim that
 it was load-bearing here was wrong, and four tests passed without it before one did not.
 
-Owed: `Deferred`, which has the same ambient term and has not been given the slot. Plus one optimisation
-that is now visible — the repair runs over every brick every frame, because a brick the budget did not
-refill still has neighbours that were, and narrowing it to the dirty bricks and their neighbours is real
-work nobody has done.
+Owed: the border phase's deferral, above, which is the only known *defect* left in L2. Then `Deferred`,
+which has the same ambient term and has not been given the slot — blocked rather than pending, since the
+pass itself is Phase 10 and unbuilt. Then two optimisations: the repair runs over every brick every
+frame, because a brick the budget did not refill still has neighbours that were, and narrowing it to the
+dirty bricks and their neighbours is real work nobody has done; and filler B stalls the GPU once per
+probe, which wants a ring of targets rather than the one the capture reuses. Neither has a scene large
+enough to measure against, which is why neither has been done.
+
+And coarsening, which is a feature rather than either: refinement only ever adds detail, so a scene that
+streams geometry through a region ratchets it toward its finest and never gives the slots back. It needs
+the pool to take slots back and a policy for when. Baking makes it worth more than it was — a field sized
+to the scene at build time is the case that actually pays for releasing slots.
 
 Composing the slot into the forward pass also turned up a defect that has nothing to do with the field.
 **The non-clustered forward variant cannot bind set 3**: `ForwardLightingRenderFeature` declares the
