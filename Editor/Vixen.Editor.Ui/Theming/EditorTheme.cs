@@ -429,6 +429,41 @@ public static class EditorTheme {
         }
 
         dialog-surface { border-radius: 8px; box-shadow: var(--elevation); }
+        dialog-body { gap: 8px; }
+
+        /* ⚠ A fixed height and its own scroller, not a list that grows with the
+           project. A picker sized to its contents is a dialog taller than the
+           window on the first project with two hundred textures in it — and the
+           search box, which is the way through a large project, would be the part
+           pushed off the top. */
+        asset-picker-list {
+            flex-direction: column;
+            gap: 1px;
+            height: 260px;
+            min-width: 320px;
+            padding: 3px;
+            border-width: 1px;
+            border-color: var(--border);
+            border-radius: var(--radius-control);
+            background-color: var(--surface-sunken);
+            overflow: auto;
+        }
+
+        asset-picker-list > text { padding: 8px 6px; color: var(--text-muted); }
+
+        /* Left-aligned rather than centred, because the list is read down its left
+           edge and a centred name is one the eye has to find on every row. */
+        button.asset-picker-row {
+            flex-shrink: 0;
+            justify-content: flex-start;
+            padding: 5px 8px;
+            border-width: 0px;
+            border-radius: var(--radius-row);
+            background-color: transparent;
+            color: var(--text);
+        }
+
+        button.asset-picker-row:hover { background-color: var(--surface-hover); }
         dialog-header, dialog-footer { border-color: var(--border); }
         drawer-surface { box-shadow: var(--elevation); }
 

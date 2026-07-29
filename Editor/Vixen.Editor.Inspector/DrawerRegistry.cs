@@ -33,6 +33,23 @@ public sealed class DrawerRegistry {
     /// <summary>The registry the inspector uses unless it is handed another.</summary>
     public static DrawerRegistry Default { get; } = CreateDefault();
 
+    /// <summary>Every drawer registered, once each, in no particular order.</summary>
+    /// <remarks>
+    ///     ⚠ <b>For a host that has to configure a drawer it did not create.</b>
+    ///     <see cref="AssetDrawer" /> needs a project to turn a GUID into a name and to open a
+    ///     picker, and <see cref="CreateDefault" /> makes two of them — one for the type and one for
+    ///     the attribute — before any project exists. The alternative is a registry that hands out
+    ///     the instances it made, which is a second API saying the same thing, or an application that
+    ///     builds its own default set, which is the same list maintained twice.
+    ///     <para>
+    ///         Distinct, because a drawer registered for both a type and an attribute is one drawer.
+    ///         A caller that subscribed to its event per registration would get two picker dialogs
+    ///         for one click.
+    ///     </para>
+    /// </remarks>
+    public IEnumerable<IPropertyDrawer> Drawers =>
+        byType.Values.Concat(byAttribute.Values).SelectMany(candidates => candidates).Concat(fallbacks).Distinct();
+
     /// <summary>Registers a drawer for a value type.</summary>
     /// <param name="type">The member type it edits.</param>
     /// <param name="drawer">The drawer.</param>
