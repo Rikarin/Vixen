@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Platform.MacOS</RootNamespace>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <Description>
+            What macOS can do that a portable desktop implementation cannot: NSOpenPanel and
+            NSSavePanel, NSPasteboard images and UTIs, the performance and efficiency core counts,
+            and the thermal state that ThermalState was defined from.
+        </Description>
+        <PackageTags>macos;appkit;objective-c;clipboard;dialogs;thermal;platform;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Platform\Vixen.Platform.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Platform.MacOS.Tests" />
+    </ItemGroup>
+
+</Project>

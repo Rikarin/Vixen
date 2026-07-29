@@ -201,9 +201,15 @@ Platform/
 ├── Vixen.Platform.Desktop.Tests/
 ├── Vixen.Platform.Headless/            # ✅ no window/GPU/audio: dedicated server + batch tooling (17)
 ├── Vixen.Platform.Headless.Tests/
-├── Vixen.Platform.Windows/             # net10.0-windows: DXGI enumeration, WinRT file dialogs, jump lists
-├── Vixen.Platform.Linux/               # Wayland/X11 quirks, XDG paths, portal dialogs
-├── Vixen.Platform.MacOS/               # net10.0 + ObjC interop: NSWindow chrome, sandbox paths, MoltenVK load
+├── Vixen.Platform.Windows/             # ✅ net10.0 (not -windows: see its README): IFileDialog pickers,
+│                                       #   CF_DIBV5 clipboard, processor classes + thread affinity
+├── Vixen.Platform.Windows.Tests/
+├── Vixen.Platform.Linux/               # ✅ zenity/kdialog pickers, wl-clipboard/xclip, sched_setaffinity,
+│                                       #   sysfs topology and thermal trip points
+├── Vixen.Platform.Linux.Tests/
+├── Vixen.Platform.MacOS/               # ✅ net10.0 + ObjC interop: NSOpenPanel, NSPasteboard,
+│                                       #   NSProcessInfo thermal state, hw.perflevel* core counts
+├── Vixen.Platform.MacOS.Tests/
 ├── Vixen.Platform.Android/             # net10.0-android: Activity lifecycle, JNI, AAssetManager, IME
 │                                       #   NOT in Vixen.slnx — needs the android workload to evaluate
 ├── Vixen.Platform.iOS/                 # net10.0-ios: UIViewController, CAMetalLayer for MoltenVK, IME

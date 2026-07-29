@@ -34,6 +34,7 @@ server with no display at all.
 | `ILifecycle`, `IPowerInfo` | Suspend, resume, memory pressure, battery, thermal. |
 | `IInputSource`, `IGamepad`, `IHaptics` | Raw devices. The action system is `Vixen.Input` in Phase 8. |
 | `IProcessorTopology` | Core counts and affinity — the contract half of the deferred thread-pinning work. |
+| `IPlatformSupplement` | How a per-OS assembly replaces the four services one operating system does better. |
 | `StandardFileSystemHost` | The desktop path conventions, shared by every head that runs on one. |
 
 ## The decisions
@@ -100,13 +101,28 @@ different vocabulary for the same three states. Both are genuinely shared and bo
 transitions worth testing being the ones nobody exercises by hand, like a repeated suspend that must
 not raise twice or a memory warning at an unchanged level that must.
 
+## One implementation may be built out of two, and `IPlatformSupplement` is how
+
+SDL covers Windows, Linux and macOS in one implementation, and covers most of it well. What it
+cannot cover is the part where the three operating systems have nothing in common: a file picker, an
+image on the clipboard, a thread pinned to a core, how hot the machine is. Those live in
+`Vixen.Platform.Windows`, `.Linux` and `.MacOS`, and this is the seam they arrive through — the
+portable implementation builds the four services it can, hands them over as a `PlatformServices`,
+and uses what comes back.
+
+Augmenting rather than replacing, because most supplements keep most of what they are given: macOS
+can answer `IPowerInfo.Thermal` and has no better answer than SDL's for `BatteryLevel`. And
+`Augment` returns the capabilities too, because a supplement that supplies pickers has earned
+`PlatformCapabilities.NativeDialogs` for the platform hosting it and nothing else is in a position
+to decide that.
+
 ## Still to come
 
-**The rest of the implementations.** Headless, Desktop, Android and iOS are built;
-[doc 02](../../docs/plan/02-repository-layout.md) also lists Windows, Linux, MacOS and Web, each of
-which adds what SDL does not cover well.
+**The rest of the implementations.** Headless, Desktop, Windows, Linux, MacOS, Android and iOS are
+built; [doc 02](../../docs/plan/02-repository-layout.md) also lists Web.
 
-**Affinity.** `IProcessorTopology` describes it; pinning a thread is per-OS work that lands with the
-per-OS assemblies, and `SupportsAffinity` reports `false` until then rather than pretending.
+**Affinity everywhere it exists.** `IProcessorTopology` describes it and Windows and Linux now do it.
+macOS reports `SupportsAffinity = false` and means it — Apple offers quality-of-service classes
+instead, and `Vixen.Platform.MacOS`'s README says why that is the right answer rather than a gap.
 
 Licensed under Apache-2.0.

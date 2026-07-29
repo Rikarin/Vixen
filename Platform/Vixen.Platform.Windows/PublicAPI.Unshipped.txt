@@ -1,0 +1,48 @@
+#nullable enable
+Vixen.Platform.Windows.WindowsClipboard -> sealed class
+Vixen.Platform.Windows.WindowsClipboard : Vixen.Platform.IClipboard
+Vixen.Platform.Windows.WindowsClipboard.Clear() -> void
+Vixen.Platform.Windows.WindowsClipboard.HasImage.get -> bool
+Vixen.Platform.Windows.WindowsClipboard.HasText.get -> bool
+Vixen.Platform.Windows.WindowsClipboard.SetData(string format, System.ReadOnlySpan<byte> data) -> bool
+Vixen.Platform.Windows.WindowsClipboard.SetImage(in Vixen.Platform.ClipboardImage image) -> bool
+Vixen.Platform.Windows.WindowsClipboard.SetText(string text) -> bool
+Vixen.Platform.Windows.WindowsClipboard.TryGetData(string format, out System.ReadOnlyMemory<byte> data) -> bool
+Vixen.Platform.Windows.WindowsClipboard.TryGetImage(out Vixen.Platform.ClipboardImage image) -> bool
+Vixen.Platform.Windows.WindowsClipboard.TryGetText(out string? text) -> bool
+Vixen.Platform.Windows.WindowsClipboard.WindowsClipboard(Vixen.Platform.IClipboard fallback) -> void
+Vixen.Platform.Windows.WindowsDialogs -> sealed class
+Vixen.Platform.Windows.WindowsDialogs : System.IDisposable
+Vixen.Platform.Windows.WindowsDialogs : Vixen.Platform.INativeDialogs
+Vixen.Platform.Windows.WindowsDialogs.Dispose() -> void
+Vixen.Platform.Windows.WindowsDialogs.OpenFileAsync(Vixen.Platform.FileDialogOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<string?>
+Vixen.Platform.Windows.WindowsDialogs.OpenFilesAsync(Vixen.Platform.FileDialogOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<string>>
+Vixen.Platform.Windows.WindowsDialogs.OpenFolderAsync(Vixen.Platform.FileDialogOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<string?>
+Vixen.Platform.Windows.WindowsDialogs.SaveFileAsync(Vixen.Platform.FileDialogOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<string?>
+Vixen.Platform.Windows.WindowsDialogs.ShowMessageAsync(Vixen.Platform.MessageBoxOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Platform.MessageBoxResult>
+Vixen.Platform.Windows.WindowsDialogs.WindowsDialogs(Vixen.Platform.INativeDialogs fallback) -> void
+Vixen.Platform.Windows.WindowsPlatformSupplement -> sealed class
+Vixen.Platform.Windows.WindowsPlatformSupplement : System.IDisposable
+Vixen.Platform.Windows.WindowsPlatformSupplement : Vixen.Platform.IPlatformSupplement
+Vixen.Platform.Windows.WindowsPlatformSupplement.Augment(in Vixen.Platform.PlatformServices baseline) -> Vixen.Platform.PlatformServices
+Vixen.Platform.Windows.WindowsPlatformSupplement.Dispose() -> void
+Vixen.Platform.Windows.WindowsPlatformSupplement.Name.get -> string
+Vixen.Platform.Windows.WindowsPlatformSupplement.WindowsPlatformSupplement() -> void
+Vixen.Platform.Windows.WindowsPowerInfo -> sealed class
+Vixen.Platform.Windows.WindowsPowerInfo : Vixen.Platform.IPowerInfo
+Vixen.Platform.Windows.WindowsPowerInfo.BatteryLevel.get -> float?
+Vixen.Platform.Windows.WindowsPowerInfo.EstimatedTimeRemaining.get -> System.TimeSpan?
+Vixen.Platform.Windows.WindowsPowerInfo.IsLowPowerMode.get -> bool
+Vixen.Platform.Windows.WindowsPowerInfo.Source.get -> Vixen.Platform.PowerSource
+Vixen.Platform.Windows.WindowsPowerInfo.Thermal.get -> Vixen.Platform.ThermalState
+Vixen.Platform.Windows.WindowsPowerInfo.WindowsPowerInfo(Vixen.Platform.IPowerInfo fallback) -> void
+Vixen.Platform.Windows.WindowsProcessorTopology -> sealed class
+Vixen.Platform.Windows.WindowsProcessorTopology : Vixen.Platform.IProcessorTopology
+Vixen.Platform.Windows.WindowsProcessorTopology.AvailableProcessors.get -> int
+Vixen.Platform.Windows.WindowsProcessorTopology.ClassOf(int processor) -> Vixen.Platform.ProcessorClass
+Vixen.Platform.Windows.WindowsProcessorTopology.ClearAffinity() -> void
+Vixen.Platform.Windows.WindowsProcessorTopology.PerformanceCores.get -> int
+Vixen.Platform.Windows.WindowsProcessorTopology.PhysicalCores.get -> int
+Vixen.Platform.Windows.WindowsProcessorTopology.SupportsAffinity.get -> bool
+Vixen.Platform.Windows.WindowsProcessorTopology.TrySetAffinity(int processor) -> bool
+Vixen.Platform.Windows.WindowsProcessorTopology.WindowsProcessorTopology() -> void
