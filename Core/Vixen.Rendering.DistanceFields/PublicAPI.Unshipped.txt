@@ -68,6 +68,7 @@ Vixen.Rendering.DistanceFields.GlobalDistanceField.FinestExtent.get -> float
 Vixen.Rendering.DistanceFields.GlobalDistanceField.GlobalDistanceField(int resolution = 32, float finestExtent = 8, int levelCount = 4) -> void
 Vixen.Rendering.DistanceFields.GlobalDistanceField.HasContent.get -> bool
 Vixen.Rendering.DistanceFields.GlobalDistanceField.LevelCount.get -> int
+Vixen.Rendering.DistanceFields.GlobalDistanceField.LevelData(int level) -> System.ReadOnlySpan<float>
 Vixen.Rendering.DistanceFields.GlobalDistanceField.MaxDistanceOf(int level) -> float
 Vixen.Rendering.DistanceFields.GlobalDistanceField.Resolution.get -> int
 Vixen.Rendering.DistanceFields.GlobalDistanceField.Sample(Vixen.Core.Mathematics.Vector3 position) -> float

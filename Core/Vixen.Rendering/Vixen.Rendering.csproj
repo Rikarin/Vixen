@@ -35,6 +35,13 @@
         <ProjectReference Include="..\Vixen.Shaders\Vixen.Shaders.csproj" />
 
         <!--
+            The distance-field bake and clipmap (docs/plan/19 § L1). One-way and it stays that way:
+            that project references no device at all, which is what lets the whole of it be checked
+            against closed forms. This is the side that owns the GPU mirror of it.
+        -->
+        <ProjectReference Include="..\Vixen.Rendering.DistanceFields\Vixen.Rendering.DistanceFields.csproj" />
+
+        <!--
             Rendering depends on Vfx and not the other way round, which is the direction doc 06
             names: ParticleRenderFeature sits beside MeshRenderFeature here, and Vixen.Vfx
             simulates without referencing a single graphics type.

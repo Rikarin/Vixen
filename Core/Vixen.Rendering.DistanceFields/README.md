@@ -159,6 +159,11 @@ grids — so scrolling is the next thing here, and it changes no result, only ho
 Instances are rejected against their bounds in a linear scan, early-outing against the best distance
 so far. A tree over the instances is what replaces that when the scan stops being enough.
 
-Nothing here has touched a GPU yet. Uploading a clipmap level into a 3D texture and porting the
-tracer to a shader — with this one as the reference it gets compared against — is the rest of doc
-19's L1, along with the importer stage that writes baked fields into the content pipeline.
+**Nothing in this assembly touches a GPU, and that is a property worth keeping.** It is what lets the
+whole of the hard half be checked against a sphere's own equation rather than a screenshot. The GPU
+mirror — one volume texture per clipmap level, staged, copied and named — lives on the other side of
+that line, in `Vixen.Rendering.Lighting.GlobalDistanceFieldTexture`, and the dependency runs one way.
+
+What is still owed for doc 19's L1: the shader port of `DistanceFieldTracer`, with the CPU one as the
+reference it gets compared against; and clipmap scrolling, so a camera that moved one cell dirties
+one slab per axis instead of every level.

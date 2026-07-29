@@ -114,6 +114,15 @@ public sealed class GlobalDistanceField : IDistanceField {
     /// <returns>The distance.</returns>
     public float this[int level, int x, int y, int z] => levels[level][x, y, z];
 
+    /// <summary>One level's samples, in the order a volume texture wants them.</summary>
+    /// <param name="level">Which level.</param>
+    /// <returns>The samples, X fastest then Y then Z.</returns>
+    /// <remarks>
+    ///     For whatever copies a level to a device. Read-only because the composite owns these — a
+    ///     caller that wrote here would be editing a field nothing recomputed the rest of.
+    /// </remarks>
+    public ReadOnlySpan<float> LevelData(int level) => levels[level].Distances;
+
     /// <summary>Recomposites every level around a view position.</summary>
     /// <param name="viewPosition">Where the camera is.</param>
     /// <param name="instances">Everything that might be in the volume.</param>
