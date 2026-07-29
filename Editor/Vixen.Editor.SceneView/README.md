@@ -16,7 +16,7 @@ foreach (var pane in layout.Panes) {
     pane.Picking = new PickingBuffer(device);
 }
 
-var views = layout.Update();   // once a frame, after the layout pass
+var views = layout.Update(delta);   // once a frame, after the layout pass
 ```
 
 ## What joins which halves
@@ -40,8 +40,16 @@ people use most.
 
 - **Pitch is clamped just short of vertical.** At exactly ninety degrees the forward vector is parallel
   to the world up, the basis is undefined, and the horizon spins. Every scene view has this bug once.
-- **Zoom is multiplicative.** A fixed step per notch takes forty notches to cross a level and then
-  punches straight through what you were approaching.
+- **Zoom is multiplicative, and it is per *notch*.** A fixed step per notch takes forty notches to
+  cross a level and then punches straight through what you were approaching. The wheel arrives in
+  pixels — that conversion belongs to the backend, which knows the device and the machine's settings
+  — so `SceneViewport.Notches` divides before the camera sees it, and negates: pushing the wheel away
+  from you moves in.
+- **Orbit is a turntable.** Sideways carries the scene and vertically carries the camera: dragging
+  right spins what you are looking at to the right, dragging up climbs over the top of it.
+- **Flight is orbiting from where you are.** WASDQE moves the *pivot* along the camera's basis rather
+  than switching to a second camera model, so leaving fly mode does not teleport the view and the
+  orbit afterwards is about something in front of you.
 - **Pan and fly are scaled by the distance.** Flying across a terrain and flying around a bolt are the
   same keys and want speeds three orders of magnitude apart.
 - **Focus keeps the angle.** Focus that also reset the direction is the one people undo by hand every
@@ -52,6 +60,26 @@ people use most.
 Bookmarks are the four numbers plus the projection, and the numpad views set the two angles and
 deliberately do *not* force orthographic — a key that changed two things at once is one people stop
 pressing.
+
+### Flight is the one gesture the keymap cannot hold
+
+Hold the right button and WASDQE flies; shift is four times faster. That is one gesture over six keys
+that already mean something else — W, E and R are the gizmo modes, A is frame-all — and a keymap of
+chords over commands can express neither half of it: it fires once on the press, and it does not know
+a mouse button is down. So `SceneViewport` reads the keys itself, **only** while the button is held,
+and **consumes** them so the shell's bindings cannot fire underneath. It stays one gesture rather
+than a second binding system: `FlyKeys` is the whole of it, and it is settable.
+
+- **The keys are positions.** `InputKey` names the physical key by its US-QWERTY legend, so the block
+  under the left hand is the same one on AZERTY — where `Q` is the key printed `A`.
+- **The direction is normalised**, so forwards-and-sideways is not forty per cent faster than either.
+- **Releasing the button drops the held keys.** Most people let go of the mouse first, so the release
+  of `W` arrives when the viewport is no longer listening — and a bit left set is a camera that sets
+  off by itself the next time the button goes down. Losing the focus ends it for the same reason.
+- **A frame longer than `MaximumFlyStep` is clamped.** A shader compile or a window dragged between
+  displays is not travel, and integrating it puts the camera somewhere nobody was going.
+- Only the focused pane flies, and nothing checks for that: keys reach the focus, and a four-pane
+  layout has one.
 
 ## Gizmos: recomputed, never accumulated
 
@@ -250,11 +278,6 @@ rather than an id.
 
 **Rubber-band selection.** The picking stage answers one pixel; a marquee wants a region, which is a
 different copy and a different resolve.
-
-**Camera flight input.** `EditorCamera.Fly` is there and nothing calls it: WASD belongs to the shell's
-keymap over commands, not to a second binding system inside the viewport. `Vixen.Editor.App` shows
-the shape — gizmo modes, snapping, focus and the numpad views are all commands there, so they appear
-in the palette and can be rebound.
 
 **Meshes.** `Vixen.Editor.App` renders the scene into an offscreen target and hands it to the
 interface, so the viewport is live. What goes in it is lines: there is no material system wired to an

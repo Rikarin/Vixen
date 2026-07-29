@@ -56,7 +56,9 @@ public class SceneTests {
     public void A_drop_with_nothing_under_it_lands_on_the_ground_plane() {
         var placement = new ScenePlacement();
         var camera = new EditorCamera { Distance = 10f };
-        camera.Orbit(0f, 200f);
+
+        // Dragged upwards, which climbs over the top and looks down — see EditorCamera.Orbit.
+        camera.Orbit(0f, -200f);
 
         var result = placement.Resolve(camera.PickingRay(new Vector2(500f, 400f), 1000, 800));
 
@@ -71,7 +73,7 @@ public class SceneTests {
 
         // Looking up at the sky: the ground plane is behind, and a drop still has to go somewhere
         // the user can see rather than at infinity.
-        camera.Orbit(0f, -200f);
+        camera.Orbit(0f, 200f);
 
         var ray = camera.PickingRay(new Vector2(500f, 400f), 1000, 800);
         var result = placement.Resolve(ray);

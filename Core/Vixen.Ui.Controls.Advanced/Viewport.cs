@@ -235,7 +235,15 @@ public sealed partial class Viewport : Control {
     /// <summary>Raised for every pointer move with a button down inside the viewport.</summary>
     public event Action<Viewport, ViewportDrag>? Dragged;
 
-    /// <summary>Raised for the wheel, in notches rather than pixels.</summary>
+    /// <summary>Raised for the wheel, carrying its vertical delta unchanged.</summary>
+    /// <remarks>
+    ///     ⚠ <b>In device-independent pixels and with the scroll's sign</b> — the units
+    ///     <c>WheelEvent</c> is in, positive meaning towards the content's end. Not notches: how many
+    ///     pixels a notch is worth is what the backend resolved from the device and the machine's
+    ///     settings, and a control that divided by a constant of its own would zoom at a speed
+    ///     nothing else on the machine scrolls at. A camera controller that wants notches converts,
+    ///     which is what <c>SceneViewport.Notches</c> is.
+    /// </remarks>
     public event Action<Viewport, float>? Zoomed;
 
     /// <summary>Raised when the viewport takes or gives up the pointer.</summary>

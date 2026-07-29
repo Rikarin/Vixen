@@ -19,6 +19,35 @@ public class CameraTests {
     }
 
     [Fact]
+    public void Dragging_up_climbs_over_the_top_and_dragging_down_goes_under() {
+        var camera = new EditorCamera { Distance = 10f };
+
+        camera.Orbit(0f, -100f);
+
+        // Above the pivot and looking down at it. The other sign is the "invert Y" setting, and
+        // having it on by default is what ViewportLayout's perspective preset was quietly asking for
+        // when it put its default view under the grid.
+        Assert.True(camera.Position.Y > camera.Pivot.Y);
+        Assert.True(camera.Forward.Y < 0f);
+
+        camera.Orbit(0f, 200f);
+
+        Assert.True(camera.Position.Y < camera.Pivot.Y);
+        Assert.True(camera.Forward.Y > 0f);
+    }
+
+    [Fact]
+    public void Dragging_sideways_spins_the_scene_the_way_the_pointer_went() {
+        var camera = new EditorCamera { Distance = 10f };
+
+        // The horizontal axis carries the scene rather than the camera: dragging right swings the
+        // camera left, which is what makes what you are looking at appear to follow the pointer.
+        camera.Orbit(100f, 0f);
+
+        Assert.True(camera.Position.X < camera.Pivot.X);
+    }
+
+    [Fact]
     public void Pitch_is_held_short_of_vertical() {
         var camera = new EditorCamera();
 
@@ -45,6 +74,22 @@ public class CameraTests {
         // notch would have gone through it and out the other side.
         Assert.True(camera.Distance > 0f);
         Assert.True(camera.Distance < 1f);
+    }
+
+    [Fact]
+    public void One_click_of_the_wheel_is_one_notch_rather_than_a_notch_a_pixel() {
+        var camera = new EditorCamera { Distance = 10f };
+
+        // What the wheel actually delivers: a line height of pixels, negative because the scroll's
+        // positive direction is down a document. Fed to Zoom unconverted it was forty-eight notches
+        // — a single click of the wheel from ten units to two thousandths of one.
+        camera.Zoom(SceneViewport.Notches(-48f, 48f));
+
+        Assert.Equal(10f * (1f - camera.ZoomSpeed), camera.Distance, 4);
+
+        camera.Zoom(SceneViewport.Notches(48f, 48f));
+
+        Assert.Equal(10f, camera.Distance, 4);
     }
 
     [Fact]
