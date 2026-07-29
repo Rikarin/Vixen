@@ -88,6 +88,14 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     readonly List<EffectConstants?> blocks = [];
     readonly List<DescriptorWrite> writes = [];
 
+    /// <summary>Which view each (material, index parameter) pair currently holds a table slot for.</summary>
+    /// <remarks>
+    ///     The table counts references, so registering the same view again every frame would raise a
+    ///     count nothing ever lowers and the slot would never come back. This is what makes the steady
+    ///     state free: a material whose texture has not changed is a dictionary hit and nothing else.
+    /// </remarks>
+    readonly Dictionary<(Material Material, ParameterKey<uint> Key), TextureViewHandle> indexed = [];
+
     /// <summary>Variant × stage → the variant that stage's shader override resolved to, or 0.</summary>
     /// <remarks>
     ///     A flat array rather than a dictionary because it is read once per draw. Variants are tens
@@ -183,6 +191,54 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     ///     what one that owns an unusual set still wants.
     /// </remarks>
     public IGraphicsDevice? Device { get; set; }
+
+    /// <summary>The global texture table a material's textures are registered in, or null.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         What closes doc 06's <em>"materials are values, not resources"</em>. A material feature
+    ///         that samples has always needed a binding index only the compiled shader knew, so a
+    ///         feature could carry channels and could not carry a texture. With a table it does not
+    ///         need one: the shader declares a <c>uint</c>, the texture goes in the table, and the
+    ///         index goes in the material's own uniform block beside the colours — which is what a
+    ///         material being a <em>value</em> means.
+    ///     </para>
+    ///     <para>
+    ///         Set this and <see cref="TextureIndices" /> together, or neither. Leaving the table null
+    ///         is the non-bindless path and is not a legacy concession: it is what runs on GL, on
+    ///         WebGL2 and on MoltenVK below argument-buffer tier 2 (ADR-011), where the same material
+    ///         binds the same texture through a descriptor set instead.
+    ///     </para>
+    /// </remarks>
+    public BindlessTable? Textures { get; set; }
+
+    /// <summary>Which of a shader's <c>uint</c> parameters is filled from which of a material's
+    /// textures.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Explicit rather than inferred, and for the reason <see cref="PermutationSources" />
+    ///         gives about its own pairing: the two names belong to different things. A shader's is
+    ///         the compiled parameter — <c>ForwardPlus.CompositeSurface.MetalRoughnessSurface.baseColorIndex</c>
+    ///         — and a material's is the texture an artist assigned. A convention that stripped
+    ///         <c>Index</c> and matched the rest would guess, and would guess silently: an unmatched
+    ///         pair leaves the index at zero, which is a valid slot holding some other material's
+    ///         texture.
+    ///     </para>
+    ///     <para>
+    ///         The table is reference-counted, so a material keeps its slot while anything holds it —
+    ///         but only if the same view is not registered twice for the same key. That is what
+    ///         <see cref="indexed" /> is for: a material whose texture has not changed costs nothing
+    ///         per frame, and one whose texture <em>has</em> gives the old slot back.
+    ///     </para>
+    /// </remarks>
+    public Dictionary<ParameterKey<uint>, ParameterKey<TextureViewHandle>> TextureIndices { get; } = [];
+
+    /// <summary>How many table slots this feature currently holds a reference to.</summary>
+    /// <remarks>
+    ///     The number a leak test wants: a scene that settles stops growing, and a material released
+    ///     gives its slots back. Distinct from the table's own count, which is shared with everything
+    ///     else that registers a texture.
+    /// </remarks>
+    public int IndexedTextureCount => indexed.Count;
 
     /// <summary>Where a material's descriptor set comes from.</summary>
     /// <remarks>
@@ -340,6 +396,11 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     ///     </para>
     /// </remarks>
     void Bind() {
+        // Before the device check, because a table is useful without one. A host that writes its own
+        // per-material sets — the path DescriptorsOf falls back to — still wants its textures
+        // indexed, and the indices are values in a block rather than anything descriptor-shaped.
+        Index();
+
         if (Device is null || Descriptors is null) {
             return;
         }
@@ -375,6 +436,68 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
             };
 
             BoundCount++;
+        }
+    }
+
+    /// <summary>
+    ///     Gives every material's textures a table slot, and writes the slot into the material.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Per <em>material</em> rather than per variant, unlike everything else in this class. A
+    ///         permutation can fold a texture out of the shader and therefore out of the block, but it
+    ///         cannot change which texture the material carries — and the table is global, so a slot
+    ///         given out for the variant that samples it is the same slot the variant that does not
+    ///         would have been given. Indexing per variant would take two references to one view and
+    ///         release neither.
+    ///     </para>
+    ///     <para>
+    ///         <strong>The index is written into the material's own parameters.</strong> That is what
+    ///         makes it a value: <see cref="EffectConstants" /> then fills it into the block from the
+    ///         same table of offsets it fills the base colour from, with no idea that this particular
+    ///         <c>uint</c> means a descriptor. And because
+    ///         <see cref="ParameterCollection.Set{T}(ParameterKey{T}, T)" /> does not bump the version
+    ///         when the value is unchanged, a settled material costs no upload.
+    ///     </para>
+    /// </remarks>
+    void Index() {
+        if (Textures is not { } table || TextureIndices.Count == 0) {
+            return;
+        }
+
+        for (var index = 1; index < materials.Count; index++) {
+            var material = materials[index];
+
+            foreach (var (slot, texture) in TextureIndices) {
+                var view = material.Parameters.Has(texture)
+                    ? material.Parameters.Get(texture)
+                    : TextureViewHandle.Null;
+
+                var key = (material, slot);
+
+                if (indexed.TryGetValue(key, out var held) && held == view) {
+                    continue;
+                }
+
+                // The new slot before the old one is released, so a material that reassigned a
+                // texture and then assigned it back does not churn the table's free list — and, more
+                // to the point, a view shared with the thing being released does not lose its last
+                // reference between the two calls.
+                if (view.IsValid) {
+                    material.Parameters.Set(slot, table.Add(view));
+                    indexed[key] = view;
+                } else {
+                    // Slot zero rather than nothing. A shader indexes the table whatever the host
+                    // had to say, so a material with no texture has to name one that exists —
+                    // BindlessTable's fallback is what makes zero a defined thing to sample.
+                    material.Parameters.Set(slot, 0u);
+                    indexed.Remove(key);
+                }
+
+                if (held.IsValid) {
+                    table.Remove(held);
+                }
+            }
         }
     }
 
@@ -427,6 +550,24 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
 
         var index = system.Objects.Data.Data(MaterialIndex)[id.Index];
         return index > 0 && index < materials.Count ? materials[index].Descriptors : default;
+    }
+
+    /// <summary>The bytes of an object's material block, as they were last filled.</summary>
+    /// <param name="system">The render system.</param>
+    /// <param name="id">The object.</param>
+    /// <param name="stage">The stage drawing it, for the same reason <see cref="EffectOf" /> takes one.</param>
+    /// <remarks>
+    ///     Empty when the variant has no block, or when this feature is not the one filling it.
+    ///     Exposed for the same reason <see cref="EffectConstants.Bytes" /> is: a device that took the
+    ///     bytes cannot be asked what they were, so this is the only way to check that a parameter
+    ///     landed at the offset the reflection said it would — which is the whole claim a material
+    ///     texture makes now that it is a number in the block rather than a descriptor beside it.
+    /// </remarks>
+    public ReadOnlySpan<byte> ConstantsOf(RenderSystem system, RenderObjectId id, RenderStage? stage = null) {
+        ArgumentNullException.ThrowIfNull(system);
+
+        var index = IndexFor(system, id, stage);
+        return index > 0 && index < blocks.Count && blocks[index] is { } block ? block.Bytes : default;
     }
 
     /// <summary>The sort group for an object: its variant's, so equal pipelines sort together.</summary>
@@ -594,6 +735,17 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
         }
 
         blocks.Clear();
+
+        // The table outlives this feature — it is the frame's, not a material's — so the references
+        // taken out of it have to go back. Without this a render system torn down and rebuilt walks
+        // the table's high-water mark up by a scene's worth of textures every time.
+        if (Textures is { } table) {
+            foreach (var view in indexed.Values) {
+                table.Remove(view);
+            }
+        }
+
+        indexed.Clear();
     }
 
     IReadOnlyList<ParameterKey> KeysFor(string shaderName) =>

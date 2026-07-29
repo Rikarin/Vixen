@@ -51,7 +51,78 @@ still refused with a second dimension, and still refused in a struct (`RVN2053`)
 (`RVN2103`). A resource-typed *local* or parameter is accepted by nothing downstream and reported by
 nothing — a gap `Texture2D[]` shares with a plain `Texture2D` rather than one it opened.
 
-### 2. A material becomes a record rather than a set
+### 2a. ~~A material's texture becomes a value~~ — built
+
+The half of step 2 that needs nothing new on the shader side beyond step 1, and the one that closes
+doc 06's *"materials are values, not resources"* outright.
+
+A material feature could carry channels and could not carry a texture, because sampling one needs a
+binding index only the compiled shader knows — and a feature is composed into a shader it has never
+seen. With a table it needs no index of the shader's. The shader declares a `uint`, the texture goes
+in the table, and the slot goes into the material's own uniform block beside the base colour, where
+`EffectConstants` writes it out of the same offset table it writes every other constant from. A
+material texture is now a *value*, in the only sense that was ever missing.
+
+`MaterialRenderFeature.Textures` is the table and `TextureIndices` is the pairing — explicit, for the
+reason `PermutationSources` gives about its own: a shader's parameter name and a material's texture
+name belong to different things, and a convention that stripped `Index` and matched the rest would
+guess silently. An unmatched pair leaves the index at zero, which is a valid slot holding somebody
+else's texture.
+
+⚠ The registration is per **material**, not per variant, and it is idempotent. A permutation can fold
+a texture out of the block but cannot change which texture the material carries, so indexing per
+variant would take two references to one view and release neither. And this runs in `Prepare`, every
+frame: a table asked for the same view sixty times a second raises a count nothing lowers, and the
+symptom is not a wrong picture but a table that fills up after a few minutes and refuses a texture.
+A settled material costs one dictionary hit, no table write and no upload.
+
+What this does **not** do is remove the per-material descriptor set — the block is still a uniform
+buffer in set 2, so a draw still binds one. That is 2b.
+
+### 2a′. A shared binding, which Raven does not have
+
+⚠ **The blocker for putting 2a to use, found by trying.** Nothing in `Raven/Library` declares a table
+and nothing outside the tests sets `TextureIndices`, so the next step was to give a real surface
+feature a base-colour map. It does not fit, and the reason is worth writing down before anything is
+built on the assumption that it does.
+
+A composed feature's bindings are **contributed**, and every contribution is qualified by the path it
+was reached through — which is right, and is what keeps three features that each declare a
+`strength` from colliding. But it means a binding declared by two features is two bindings. Compiling
+a chain of two features that each declare `[PerFrame] var textures: Texture2D[]` gives:
+
+```
+set0:0 Texture 'Composite.BaseColor.textures'
+set0:1 Texture 'Composite.NormalMap.textures'
+```
+
+Two unbounded arrays, two descriptor-array bindings, two pools of `MaxBindlessDescriptors` — and
+`CompositeSurface` chains up to eight features, most of which would want a map. The table is
+supposed to be *the* table: one array bound once for the frame, which is the entire economy.
+
+It compiles and it runs, so this is not a bug in what was built. It is a capability the language does
+not have: **a binding that is one resource for the whole compilation rather than a contribution from
+each feature that mentions it.**
+
+Three ways out, in increasing order of language surface:
+
+- **Deduplicate identical contributions.** Two features declaring the same declared name, kind and
+  set emit one binding. Cheap, and surprising in the way this codebase avoids: two features that
+  happened to name a texture `noise` would silently share one descriptor.
+- **Mark it.** A binding says for itself that it is shared — one resource named once, deduplicated by
+  its *declared* name and refused if two declarations disagree about kind or set. Explicit, local,
+  and reads as an extension of what `[PerFrame]` already means: a table is the extreme of "changes
+  once a frame". **This is the one to do.**
+- **Let a feature reach the composing shader's bindings**, through a protocol requirement or an
+  inherited base. The most general and the largest change to how composition works.
+
+Until one of them exists, a material feature can sample only if the pass declares the table and the
+feature is handed what it needs — which is the parameter-list contract `MaterialData` exists to
+avoid. So 2a is finished and unusable by the shader library, and this is the next thing to build,
+before 2b rather than after: 2b's material record is reached the same way and would hit the same
+wall.
+
+### 2b. A material becomes a record rather than a set
 
 This is the change the three blocked items are actually waiting for.
 
@@ -83,9 +154,8 @@ Three things this makes true, and they are the three blocked items:
   cubes did the frame bind" and becomes a number in the per-object block. `EffectSetWriter`'s
   remark about `probes[clamp(probeIndex, …)]` — a slot no probe occupies still has to hold a cube —
   stops being a constraint at all.
-- **A material feature may sample.** Its texture is a name the material carries and an index the
-  table hands out; nothing in the shader has to know a binding number, which is the authoring gap
-  doc 06 records.
+- ~~**A material feature may sample.**~~ Built in 2a — its texture is a name the material carries and
+  an index the table hands out, and nothing in the shader has to know a binding number.
 
 **The fallback is today's path, unchanged.** `MaterialRenderFeature` already forks on
 `Device`/`Descriptors` being set, and `DescriptorsOf` already falls back to `Material.Descriptors` —
@@ -121,7 +191,9 @@ Raven got atomics; what was missing was 2 and 3.
 |---|---|
 | The RHI: `BindlessTable`, the capability, the Vulkan backend | ✅ built, device-verified |
 | 1. Raven `Texture2D[]` | ✅ built, device-verified |
-| 2. A material record rather than a per-material set | ⬜ — the one the three blocked items wait on |
+| 2a. A material's texture as a value in its block | ✅ built — closes "materials are values, not resources" |
+| 2a′. A binding shared across composed features | ⬜ — **next**, and what stops a shader-library feature using 2a at all |
+| 2b. The block as a record rather than a per-material set | ⬜ — the one compacted draws and per-object probes wait on |
 | 3. An indirect draw whose count comes from the device | ⬜ |
 | 4. Compaction | ⬜ |
 

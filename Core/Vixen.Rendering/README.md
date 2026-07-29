@@ -528,6 +528,35 @@ set written for the variant that has it does not fit the layout of the variant t
 also what keeps a depth prepass from binding anything: its effect declares no per-material layout, so
 there is nothing to write.
 
+### A material's texture as a value
+
+Doc 06 says materials are values and not resources, and names what that cost: a feature that samples
+needs a binding index only the compiled shader knows, so a material feature could carry channels and
+could not carry a texture.
+
+With a `BindlessTable` it needs no index of the shader's. Give `MaterialRenderFeature` a `Textures`
+table and a `TextureIndices` pairing, and each material's texture takes a table slot whose number is
+written into the material's own parameters — from where `EffectConstants` fills it into the block out
+of the same offset table it fills the base colour from, with no idea that this particular `uint` means
+a descriptor. The shader declares `var albedoIndex: uint` and samples `textures[albedoIndex]`.
+
+**The pairing is explicit**, for the reason `PermutationSources` gives about its own: a shader's
+parameter name and a material's texture name belong to different things, and a convention that
+stripped `Index` and matched the rest would guess. An unmatched pair leaves the index at zero, which
+is a valid slot holding some other material's texture.
+
+**Per material, not per variant** — the one thing in this class that is. A permutation can fold a
+texture out of the block but cannot change which texture the material carries, and the table is
+global, so indexing per variant would take two references to one view and release neither.
+
+⚠ **And idempotently, because this runs every frame.** A table asked for the same view sixty times a
+second raises a reference count nothing lowers, and the symptom is not a wrong picture — it is a
+table that fills up after a few minutes of play and then refuses a texture on a machine with
+descriptors to spare. A settled material costs one dictionary hit, no table write and no upload.
+
+Leave the table null and none of this happens, which is the non-bindless path exactly as it was: what
+runs on GL, on WebGL2 and on MoltenVK below argument-buffer tier 2.
+
 **Every binding or none.** A material that set no `albedo` gets no set at all, rather than one with a
 hole in it. A partly-written set is a validation error on one backend and a sampled black texture on
 another, and neither says which material forgot which texture — where an object that does not draw is
