@@ -740,4 +740,50 @@ public class TextTests {
 
         Assert.True(shared > 0, "the test needs at least one adjacent pair of glyphs inside one cluster");
     }
+
+    /// <summary>
+    ///     A face registered after the interface has already been laid out re-measures the text that
+    ///     was laid out without one.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The regression is a whole interface of nought-pixel labels.</b> A host that builds its
+    ///     document and then installs a font — which is what the editor's does, because the font is
+    ///     the window's business and the shell's contents are not — laid out every label against an
+    ///     empty registry, measured zero, and never measured again: registering a face changes nothing
+    ///     on an element, so nothing is dirty, so nothing re-measures. The symptom is a menu bar and a
+    ///     toolbar with the right strings in them, at the right colour, none of which is on the screen.
+    /// </remarks>
+    [Fact]
+    public void A_face_registered_after_the_first_pass_measures_the_text_that_had_none() {
+        using var document = new UiDocument(400f, 200f);
+        document.Load("root { width: 400px; height: 200px; align-items: flex-start; }");
+
+        var label = document.Root.Add("label");
+        label.Text = "AB";
+
+        document.Update();
+
+        // Nothing to shape with, so nothing to measure — the honest outcome, and the state the
+        // registration below has to get the document out of.
+        Assert.Equal(0f, label.Bounds.Width, Tolerance);
+        Assert.Equal(0f, label.Bounds.Height, Tolerance);
+
+        document.Fonts.Register("Test", Font);
+
+        // ⚠ No `Invalidate` and nothing touched on the element: the point is that the pass on its own
+        // notices, because a caller that had to know to ask is a caller that will not.
+        Assert.True(document.Update());
+
+        // Within a pixel, for the reason the measure test above spells out: the layout snaps every
+        // edge to the pixel grid, so an element's width is its text's width rounded.
+        var run = label.Line()!;
+
+        Assert.True(run.Width > 0f);
+        Assert.Equal(run.Width, label.Width, 1f);
+        Assert.Equal(run.Height, label.Height, 1f);
+
+        // And it settles: a second pass with the same faces re-measures nothing, or every frame after
+        // a registration would be a cold one.
+        Assert.False(document.Update());
+    }
 }

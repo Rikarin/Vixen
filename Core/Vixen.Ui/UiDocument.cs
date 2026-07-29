@@ -506,6 +506,8 @@ public sealed partial class UiDocument : IDisposable {
     /// <summary>Runs the passes, if anything has changed since the last one.</summary>
     /// <returns>Whether any work was done.</returns>
     public bool Update() {
+        Refont();
+
         if (!dirty) {
             StylesApplied = 0;
             return false;
@@ -533,6 +535,61 @@ public sealed partial class UiDocument : IDisposable {
 
         Settle();
         return true;
+    }
+
+    /// <summary>What <see cref="FontRegistry.Revision" /> was when the text was last measured.</summary>
+    int measuredFonts;
+
+    /// <summary>Makes every element that measures text measure it again, if the faces have changed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The other half of <see cref="FontRegistry.Revision" />, and without it the first
+    ///         half buys nothing.</b> <see cref="UiElement.Line" /> compares the revision and so drops
+    ///         a line shaped against faces that have since changed — but a line is only rebuilt when
+    ///         somebody asks for one, and what asks is the measure function, and what calls the
+    ///         measure function is a layout pass over a node that is <i>dirty</i>. Registering a face
+    ///         changes nothing on an element, so nothing is dirty, so nothing measures: an element
+    ///         that measured zero because there was no face when it was first laid out keeps the zero
+    ///         for the life of the document.
+    ///     </para>
+    ///     <para>
+    ///         Which is the shape of the fault it repairs — a host that builds its interface and
+    ///         <i>then</i> installs a font gets an interface whose text is the right colour, the right
+    ///         string and nought pixels wide. The menu bar and the toolbar of the editor were exactly
+    ///         that, while every panel below them was fine, because a panel is rebuilt after the first
+    ///         frame and a menu bar is not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Before <see cref="Update" />'s early return rather than after it, because a
+    ///         registration is the one change that leaves the document clean: nothing else about it
+    ///         moved, so a pass that asked "is anything dirty" first would answer no and go home.
+    ///     </para>
+    /// </remarks>
+    void Refont() {
+        if (measuredFonts == Fonts.Revision) {
+            return;
+        }
+
+        measuredFonts = Fonts.Revision;
+
+        Remeasure(Root);
+        Invalidate();
+    }
+
+    /// <summary>Dirties the layout node of every element in a subtree that measures its own text.</summary>
+    /// <remarks>
+    ///     ⚠ Only the ones with text, because <see cref="LayoutTree.MarkDirty" /> throws for a node
+    ///     with no measure function — deliberately, and it is right to: nothing about a node laid out
+    ///     purely from its style and its children can have changed here.
+    /// </remarks>
+    void Remeasure(UiElement element) {
+        if (!string.IsNullOrEmpty(element.Text)) {
+            Layout.MarkDirty(element.LayoutNode);
+        }
+
+        foreach (var child in element.Children) {
+            Remeasure(child);
+        }
     }
 
     /// <summary>Raised when every box in the document is final for this frame.</summary>
