@@ -1415,6 +1415,42 @@ Vixen.Rendering.MeshDraw.MeshDraw() -> void
 Vixen.Rendering.MeshDraw.VertexBuffer -> Vixen.Graphics.BufferHandle
 Vixen.Rendering.MeshDraw.VertexLayout -> int
 Vixen.Rendering.MeshDraw.VertexOffset -> int
+Vixen.Rendering.MeshPrimitives -> static class
+Vixen.Rendering.MeshRenderer -> sealed class
+Vixen.Rendering.MeshRenderer : System.IDisposable
+Vixen.Rendering.MeshRenderer.Ambient.get -> float
+Vixen.Rendering.MeshRenderer.Ambient.set -> float
+Vixen.Rendering.MeshRenderer.Count.get -> int
+Vixen.Rendering.MeshRenderer.Dispose() -> void
+Vixen.Rendering.MeshRenderer.Draws.get -> int
+Vixen.Rendering.MeshRenderer.Dropped.get -> int
+Vixen.Rendering.MeshRenderer.IndexCapacity.get -> int
+Vixen.Rendering.MeshRenderer.LightDirection.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.MeshRenderer.LightDirection.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.MeshRenderer.MeshRenderer(Vixen.Graphics.IGraphicsDevice device, Vixen.Rendering.MeshShaders shaders, Vixen.Rendering.RenderOutput output, int vertexCapacity = 65536, int indexCapacity = 262144) -> void
+Vixen.Rendering.MeshRenderer.Record(Vixen.Graphics.ICommandList commands, in Vixen.Core.Mathematics.Matrix4x4 viewProjection) -> void
+Vixen.Rendering.MeshRenderer.Region.get -> int
+Vixen.Rendering.MeshRenderer.Regions.get -> int
+Vixen.Rendering.MeshRenderer.Upload(System.ReadOnlySpan<Vixen.Rendering.MeshVertex> mesh, System.ReadOnlySpan<uint> triangles) -> void
+Vixen.Rendering.MeshRenderer.VertexCapacity.get -> int
+Vixen.Rendering.MeshShaders -> readonly struct
+Vixen.Rendering.MeshShaders : System.IEquatable<Vixen.Rendering.MeshShaders>
+Vixen.Rendering.MeshShaders.Fragment.get -> Vixen.Graphics.ShaderHandle
+Vixen.Rendering.MeshShaders.Fragment.init -> Vixen.Graphics.ShaderHandle
+Vixen.Rendering.MeshShaders.MeshShaders() -> void
+Vixen.Rendering.MeshShaders.MeshShaders(Vixen.Graphics.ShaderHandle Vertex, Vixen.Graphics.ShaderHandle Fragment) -> void
+Vixen.Rendering.MeshShaders.Vertex.get -> Vixen.Graphics.ShaderHandle
+Vixen.Rendering.MeshShaders.Vertex.init -> Vixen.Graphics.ShaderHandle
+Vixen.Rendering.MeshVertex -> readonly struct
+Vixen.Rendering.MeshVertex : System.IEquatable<Vixen.Rendering.MeshVertex>
+Vixen.Rendering.MeshVertex.Colour.get -> Vixen.Core.Mathematics.Color4
+Vixen.Rendering.MeshVertex.Colour.init -> Vixen.Core.Mathematics.Color4
+Vixen.Rendering.MeshVertex.MeshVertex() -> void
+Vixen.Rendering.MeshVertex.MeshVertex(Vixen.Core.Mathematics.Vector3 Position, Vixen.Core.Mathematics.Vector3 Normal, Vixen.Core.Mathematics.Color4 Colour) -> void
+Vixen.Rendering.MeshVertex.Normal.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.MeshVertex.Normal.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.MeshVertex.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.MeshVertex.Position.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.ModelData -> sealed record
 Vixen.Rendering.ModelData : System.IEquatable<Vixen.Rendering.ModelData>
 Vixen.Rendering.ModelData.Animations.get -> string[]
@@ -1469,6 +1505,16 @@ Vixen.Rendering.PipelineKey.Stage.get -> int
 Vixen.Rendering.PipelineKey.Stage.init -> int
 Vixen.Rendering.PipelineKey.VertexLayout.get -> int
 Vixen.Rendering.PipelineKey.VertexLayout.init -> int
+Vixen.Rendering.PrimitiveKind -> enum : int
+Vixen.Rendering.PrimitiveKind.Capsule = 3 -> Vixen.Rendering.PrimitiveKind
+Vixen.Rendering.PrimitiveKind.Cone = 4 -> Vixen.Rendering.PrimitiveKind
+Vixen.Rendering.PrimitiveKind.Cube = 0 -> Vixen.Rendering.PrimitiveKind
+Vixen.Rendering.PrimitiveKind.Cylinder = 2 -> Vixen.Rendering.PrimitiveKind
+Vixen.Rendering.PrimitiveKind.Plane = 5 -> Vixen.Rendering.PrimitiveKind
+Vixen.Rendering.PrimitiveKind.PrimitiveKind() -> void
+Vixen.Rendering.PrimitiveKind.Quad = 6 -> Vixen.Rendering.PrimitiveKind
+Vixen.Rendering.PrimitiveKind.Sphere = 1 -> Vixen.Rendering.PrimitiveKind
+Vixen.Rendering.PrimitiveKind.Torus = 7 -> Vixen.Rendering.PrimitiveKind
 Vixen.Rendering.PunctualLightData -> struct
 Vixen.Rendering.PunctualLightData.Colour -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.PunctualLightData.CosInner -> float
@@ -1523,6 +1569,8 @@ Vixen.Rendering.RenderDrawContext -> sealed class
 Vixen.Rendering.RenderDrawContext.CommandList.get -> Vixen.Graphics.ICommandList
 Vixen.Rendering.RenderDrawContext.Device.get -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.RenderDrawContext.Device.init -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.RenderDrawContext.Effect.get -> Vixen.Shaders.Effect?
+Vixen.Rendering.RenderDrawContext.Effect.set -> Vixen.Shaders.Effect?
 Vixen.Rendering.RenderDrawContext.Effects.get -> Vixen.Shaders.EffectSystem
 Vixen.Rendering.RenderDrawContext.Output.get -> Vixen.Rendering.RenderOutput
 Vixen.Rendering.RenderDrawContext.Output.set -> Vixen.Rendering.RenderOutput
@@ -1913,6 +1961,9 @@ const Vixen.Rendering.GpuDrawArguments.Stride = 20 -> int
 const Vixen.Rendering.Materials.MaterialCompiler.ChainShader = "CompositeSurface" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.IdentityShader = "IdentitySurface" -> string
 const Vixen.Rendering.Materials.MaterialKeys.DefaultLayerCount = 2 -> int
+const Vixen.Rendering.MeshPrimitives.DefaultRings = 16 -> int
+const Vixen.Rendering.MeshPrimitives.DefaultSegments = 32 -> int
+const Vixen.Rendering.MeshPrimitives.MinimumSegments = 3 -> int
 const Vixen.Rendering.RenderStageMask.Capacity = 64 -> int
 const Vixen.Rendering.ShadowCascades.MaxCascades = 4 -> int
 const Vixen.Rendering.ShadowProjections.MaximumConeAngle = 1.48 -> float
@@ -2154,6 +2205,15 @@ static Vixen.Rendering.Lighting.SphericalHarmonics.Evaluate(in Vixen.Rendering.L
 static Vixen.Rendering.Lighting.SphericalHarmonics.Project(Vixen.Rendering.Lighting.CubeImage environment) -> Vixen.Rendering.Lighting.ShCoefficients
 static Vixen.Rendering.Materials.MaterialCompiler.Compile(Vixen.Rendering.Materials.MaterialDescriptor descriptor) -> Vixen.Rendering.Materials.MaterialCompilation
 static Vixen.Rendering.Materials.MaterialKeys.LayerCount(string shaderName) -> Vixen.Shaders.PermutationKey<int>
+static Vixen.Rendering.MeshPrimitives.Capsule(float radius = 0.25, float height = 1, int segments = 32, int rings = 16) -> Vixen.Rendering.MeshData
+static Vixen.Rendering.MeshPrimitives.Cone(float radius = 0.5, float height = 1, int segments = 32) -> Vixen.Rendering.MeshData
+static Vixen.Rendering.MeshPrimitives.Create(Vixen.Rendering.PrimitiveKind kind, int segments = 32, int rings = 16) -> Vixen.Rendering.MeshData
+static Vixen.Rendering.MeshPrimitives.Cube(float size = 1) -> Vixen.Rendering.MeshData
+static Vixen.Rendering.MeshPrimitives.Cylinder(float radius = 0.5, float height = 1, int segments = 32) -> Vixen.Rendering.MeshData
+static Vixen.Rendering.MeshPrimitives.Plane(float size = 1, int divisions = 4) -> Vixen.Rendering.MeshData
+static Vixen.Rendering.MeshPrimitives.Quad(float size = 1) -> Vixen.Rendering.MeshData
+static Vixen.Rendering.MeshPrimitives.Sphere(float radius = 0.5, int segments = 32, int rings = 16) -> Vixen.Rendering.MeshData
+static Vixen.Rendering.MeshPrimitives.Torus(float radius = 0.35, float tube = 0.15, int segments = 32, int sides = 16) -> Vixen.Rendering.MeshData
 static Vixen.Rendering.ParticleLights.Collect(Vixen.Vfx.VfxSystem system, System.Collections.Generic.IList<Vixen.Rendering.RenderLight> lights, int maximum = 2147483647) -> int
 static Vixen.Rendering.RenderCamera.Default.get -> Vixen.Rendering.RenderCamera
 static Vixen.Rendering.RenderLight.Directional(Vixen.Core.Mathematics.Vector3 direction, Vixen.Core.Mathematics.Color3 colour, float intensity = 1) -> Vixen.Rendering.RenderLight

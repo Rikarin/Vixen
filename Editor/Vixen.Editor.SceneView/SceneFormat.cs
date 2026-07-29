@@ -129,6 +129,23 @@ public sealed class SceneEntityData {
     /// <summary>How big it is, relative to its parent.</summary>
     public Vector3 Scale { get; set; } = Vector3.One;
 
+    /// <summary>Which built-in shape it is drawn as, or empty for an entity with no geometry.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The name and not the number.</b> A <c>PrimitiveKind</c> written as its integer
+    ///         would make the enum's declaration order part of the file format for ever — a member
+    ///         inserted in the middle would turn every saved cube into a sphere, in a diff that shows
+    ///         nothing wrong. <c>shape: Cylinder</c> costs a parse and says what it means to somebody
+    ///         reading the file.
+    ///     </para>
+    ///     <para>
+    ///         An empty string is "no shape", which is what an empty, a light and a camera all are.
+    ///         A name this editor does not recognise is read as empty rather than refused — see
+    ///         <c>MeshShapes.TryParse</c>.
+    ///     </para>
+    /// </remarks>
+    public string Shape { get; set; } = string.Empty;
+
     /// <summary>What hangs from it, in order.</summary>
     /// <remarks>
     ///     ⚠ <b>Settable, which a collection property usually should not be.</b> The YAML binder

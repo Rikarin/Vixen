@@ -10,6 +10,7 @@ using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Transforms;
 using Vixen.Input;
+using Vixen.Rendering;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -62,6 +63,7 @@ sealed class EditorApplication : IDisposable {
     SceneViewport? viewport;
     InspectorView? inspector;
     TreeView? hierarchy;
+    ContextMenu? hierarchyMenu;
     ProjectBrowser? browser;
     ViewBookmark camera;
     bool hierarchyStale = true;
@@ -290,13 +292,33 @@ sealed class EditorApplication : IDisposable {
         scene.Add("Main Camera", LocalTransform.At(new Vector3(0f, 1.5f, 6f)), root);
 
         var ground = scene.Add("Ground", LocalTransform.Identity, root);
-        scene.Add("Crate", LocalTransform.At(new Vector3(1.5f, 0.5f, 0f)), ground);
-        scene.Add("Barrel", LocalTransform.At(new Vector3(-2f, 0.5f, 1f)), ground);
 
+        // ⚠ Two of these carry a shape, so a first run shows geometry rather than a grid and four
+        // crosses — which is also the only exercise the mesh path gets without somebody having used
+        // the menu, and so the way a broken one shows up on launch rather than on a click.
+        Shape("Crate", PrimitiveKind.Cube, new Vector3(1.5f, 0.5f, 0f), Vector3.One, ground);
+        Shape("Barrel", PrimitiveKind.Cylinder, new Vector3(-2f, 0.5f, 1f), new Vector3(0.8f, 1f, 0.8f), ground);
+
+        // ⚠ Ground stays an empty, and the temptation is a scaled Plane. Two things go wrong with
+        // one. Its children inherit the scale, so a crate at 1.5 metres under a ground scaled
+        // twelvefold is eighteen metres away and twelve times too big; and the plane sits at exactly
+        // the height the floor grid does, so it wins the depth test and the grid vanishes underneath
+        // it. Both are correct behaviour and neither is what a first run should be a picture of.
+        //
         // The stack starts empty: seeding is not an edit somebody made, and an editor that opened
         // with five undo steps already on it is one where Ctrl+Z does something inexplicable.
         scene.Stack.Clear();
         scene.Stack.MarkClean();
+
+        void Shape(string name, PrimitiveKind kind, Vector3 position, Vector3 scale, Entity parent) {
+            var entity = scene.Add(
+                name,
+                new LocalTransform { Position = position, Rotation = Quaternion.Identity, Scale = scale },
+                parent
+            );
+
+            MeshShapes.Attach(world, entity, kind);
+        }
     }
 
     void Panels() {
@@ -325,6 +347,7 @@ sealed class EditorApplication : IDisposable {
                     }
                 };
 
+                Contextualise(hierarchy);
                 hierarchyStale = true;
             }
         );
@@ -562,6 +585,18 @@ sealed class EditorApplication : IDisposable {
 
         Shell.Keys.SetDefault("scene.delete-entity", new KeyChord(InputKey.Delete, ModifierKeys.None));
 
+        // ⚠ A command rather than only the tree's own F2, so that the context menu, the palette and
+        // the key all reach the same code — and so the menu line greys itself out when there is
+        // nothing selected instead of opening an editor on a row that is not there.
+        Shell.Commands.Add(
+            new EditorCommand("scene.rename-entity", new StringId("editor.command.rename-entity", "Rename"), Rename) {
+                Category = EditorStrings.CategoryEdit,
+                Enablement = () => hierarchy is not null && scene.Selection.Count > 0
+            }
+        );
+
+        ShapeCommands();
+
         Mode("scene.translate", "Translate", GizmoMode.Translate, InputKey.W);
         Mode("scene.rotate", "Rotate", GizmoMode.Rotate, InputKey.E);
         Mode("scene.scale", "Scale", GizmoMode.Scale, InputKey.R);
@@ -616,6 +651,131 @@ sealed class EditorApplication : IDisposable {
 
             if (key != InputKey.Unknown) {
                 Shell.Keys.SetDefault(id, new KeyChord(key, ModifierKeys.None));
+            }
+        }
+    }
+
+    /// <summary>One command per built-in shape, so that spawning one is not the menu's private trick.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Eight commands rather than one that takes an argument.</b> The registry's unit is a
+    ///     command with an id, a title and an enablement — that is what the palette searches, what the
+    ///     keymap binds and what a menu line is built from — so "Create Cube" being findable in the
+    ///     palette and bindable to a key means it has to be its own entry. Generated from
+    ///     <see cref="MeshShapes.All" />, so a shape added there appears everywhere without anything
+    ///     here being edited.
+    /// </remarks>
+    void ShapeCommands() {
+        foreach (var kind in MeshShapes.All) {
+            var shape = kind;
+            var name = MeshShapes.NameOf(shape);
+
+            Shell.Commands.Add(
+                new EditorCommand(
+                    ShapeCommandId(shape),
+                    new StringId("editor.command.create-" + name.ToLowerInvariant(), name),
+                    () => CreateShape(shape)
+                ) {
+                    Category = new StringId("editor.category.create", "Create")
+                }
+            );
+        }
+    }
+
+    /// <summary>What a shape's create command is called in the registry.</summary>
+    static string ShapeCommandId(PrimitiveKind kind) =>
+        "scene.create-" + MeshShapes.NameOf(kind).ToLowerInvariant();
+
+    /// <summary>The menu a secondary click in the hierarchy opens.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Built once and re-attached, rather than built per panel.</b> A panel's factory
+    ///         runs again every time it is reopened, and a menu is a child of the document root — so
+    ///         one built in the factory would leak an invisible overlay, still listening for pointer
+    ///         events, every time somebody closed and reopened the hierarchy. The handler goes on the
+    ///         tree, which <i>is</i> thrown away with the panel.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The click selects before the menu opens.</b> Every line here acts on the
+    ///         selection, and a right-click on a row that was not selected otherwise creates the cube
+    ///         under whatever was selected before — which looks like the menu ignoring the row it was
+    ///         opened on. A click already inside the selection leaves it alone, so right-clicking one
+    ///         of five selected rows still means all five.
+    ///     </para>
+    /// </remarks>
+    void Contextualise(TreeView tree) {
+        hierarchyMenu ??= HierarchyMenu();
+
+        tree.AddHandler<PointerEvent>(
+            (_, args) => {
+                if (args is not { Action: PointerAction.Pressed, Button: PointerButton.Secondary }) {
+                    return;
+                }
+
+                var node = tree.NodeAt(args.X, args.Y);
+
+                if (node is null || !tree.Selection.Contains(node)) {
+                    // Null clears it, which is what a click on empty space should mean: the next
+                    // Create Empty then makes a root rather than a child of whatever was last picked.
+                    tree.Select(node);
+                }
+            },
+
+            // ⚠ Registered before the menu's own handler and marked to run regardless, because that
+            // one marks the event handled — and this has to happen first either way, or the commands
+            // the menu enables are decided from the old selection.
+            handledEventsToo: true
+        );
+
+        hierarchyMenu.Attach(tree);
+    }
+
+    /// <summary>What is on that menu.</summary>
+    ContextMenu HierarchyMenu() {
+        var group = new MenuGroup(new StringId("editor.menu.hierarchy", "Hierarchy"));
+
+        group.Add("scene.create-entity");
+
+        var shapes = group.AddSubmenu(new StringId("editor.menu.create-shape", "3D Object"));
+
+        foreach (var kind in MeshShapes.All) {
+            shapes.Add(ShapeCommandId(kind));
+        }
+
+        group.AddSeparator();
+        group.Add("scene.rename-entity", "scene.delete-entity");
+        group.AddSeparator();
+        group.Add("scene.focus");
+
+        return MenuPresenter.Context(Shell.Document, group, Shell.Commands, Shell.Keys);
+    }
+
+    /// <summary>Renames whatever the hierarchy has selected, in place.</summary>
+    /// <remarks>
+    ///     Through the tree's own inline editor rather than a dialog, so that the menu line and F2 do
+    ///     the same thing — and so the commit goes through <c>TreeView.Renamed</c>, which is already
+    ///     wired to the document's undoable rename.
+    /// </remarks>
+    void Rename() {
+        if (hierarchy is not { } tree || scene.Selection.Count == 0) {
+            return;
+        }
+
+        var entity = scene.Selection[0];
+
+        foreach (var node in Descendants(tree.Root)) {
+            if (node.Tag is Entity tagged && tagged == entity) {
+                tree.BeginRename(node);
+                return;
+            }
+        }
+    }
+
+    static IEnumerable<TreeNode> Descendants(TreeNode node) {
+        foreach (var child in node.Children) {
+            yield return child;
+
+            foreach (var descendant in Descendants(child)) {
+                yield return descendant;
             }
         }
     }
@@ -694,12 +854,21 @@ sealed class EditorApplication : IDisposable {
             : Around(scene.Entities);
     }
 
-    /// <summary>A box around some entities' origins.</summary>
+    /// <summary>A box around some entities.</summary>
     /// <remarks>
-    ///     ⚠ <b>Origins, not render bounds.</b> Nothing here has a mesh yet, so "how big is it" has
-    ///     no answer — a padded box around the points is what makes focus and frame-all land
-    ///     somewhere sensible until there is geometry to measure. <c>EditorCamera.Focus</c> floors
-    ///     the radius anyway, so a single entity still gets a usable distance.
+    ///     <para>
+    ///         ⚠ <b>An entity with a shape is measured and one without is padded.</b> Every built-in
+    ///         shape fits the unit cube — see <c>MeshPrimitives</c> — so its extent is half its world
+    ///         scale, which is what makes focusing a plane scaled twelvefold frame the plane rather
+    ///         than a metre of its middle. An empty, a light or a camera still has no size, and half
+    ///         a unit either side of its origin is what keeps frame-all from collapsing onto a point.
+    ///     </para>
+    ///     <para>
+    ///         The scale is taken as the length of each of the matrix's three basis vectors, so a
+    ///         rotated entity is bounded by a box that is too big rather than one that clips it —
+    ///         which is the right way round for something a camera is about to be placed from.
+    ///         <c>EditorCamera.Focus</c> floors the radius anyway.
+    ///     </para>
     /// </remarks>
     BoundingBox Around(IEnumerable<Entity> entities) {
         var low = new Vector3(float.MaxValue);
@@ -711,16 +880,23 @@ sealed class EditorApplication : IDisposable {
                 continue;
             }
 
-            var position = new Transform(world, entity).Position;
+            var matrix = world.Read<WorldTransform>(entity).Value;
+            var position = matrix.Translation;
 
-            low = Vector3.Min(low, position);
-            high = Vector3.Max(high, position);
+            var extent = MeshShapes.TryGet(world, entity, out _)
+                ? new Vector3(
+                    matrix.Right.Length(),
+                    matrix.Up.Length(),
+                    matrix.Forward.Length()
+                ) * 0.5f
+                : new Vector3(0.5f);
+
+            low = Vector3.Min(low, position - extent);
+            high = Vector3.Max(high, position + extent);
             any = true;
         }
 
-        return any
-            ? new BoundingBox(low - new Vector3(0.5f), high + new Vector3(0.5f))
-            : new BoundingBox(new Vector3(-1f), new Vector3(1f));
+        return any ? new BoundingBox(low, high) : new BoundingBox(new Vector3(-1f), new Vector3(1f));
     }
 
     /// <summary>Writes the scene, and says so.</summary>
@@ -752,11 +928,31 @@ sealed class EditorApplication : IDisposable {
     ///     the next thing they do — rename it, drag it — land on the thing they just made.
     /// </remarks>
     void CreateEntity() {
-        var parent = scene.Selection.Count > 0 ? scene.Selection[0] : Entity.Null;
-        var created = scene.Create("Entity", LocalTransform.Identity, parent);
-
+        var created = scene.Create("Entity", LocalTransform.Identity, Under());
         scene.Selection.Set([created]);
     }
+
+    /// <summary>Creates one of the built-in shapes under the selection, and selects it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>At the parent's origin rather than in front of the camera.</b> Placing new geometry
+    ///     where the viewport is looking is what Unity does with a preference turned on, and it needs
+    ///     the camera's pivot taken back through the parent's inverse — which is a different answer
+    ///     for a spawn from the hierarchy, where there may be no viewport open at all. The identity is
+    ///     the one placement that means the same thing from both, and it is what Create Empty already
+    ///     does.
+    /// </remarks>
+    void CreateShape(PrimitiveKind kind) {
+        var created = scene.CreateShape(kind, LocalTransform.Identity, Under());
+        scene.Selection.Set([created]);
+    }
+
+    /// <summary>What a newly created entity hangs from.</summary>
+    /// <remarks>
+    ///     The first selected entity rather than the root, which is what every editor does and what
+    ///     somebody who has just clicked a parent means. Selecting the new one afterwards is what
+    ///     makes the next thing they do — rename it, drag it — land on the thing they just made.
+    /// </remarks>
+    Entity Under() => scene.Selection.Count > 0 ? scene.Selection[0] : Entity.Null;
 
     void RefreshAssets() {
         if (browser is not { } open) {

@@ -137,6 +137,15 @@ public sealed class CreateEntityCommand : IEditorCommand, IDisposable {
     /// <summary>The entity, once <c>Do</c> has run.</summary>
     public Entity Entity => created;
 
+    /// <summary>What to put on the entity beyond a transform and a name, if anything.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Run on the first <c>Do</c> and never again.</b> A redo restores the snapshot the undo
+    ///     took, which already carries every component the entity had — running this a second time
+    ///     would at best repeat itself and at worst overwrite whatever the user changed between the
+    ///     creation and the undo.
+    /// </remarks>
+    public Action<Entity>? Initialise { get; init; }
+
     /// <summary>Describes creating an entity.</summary>
     /// <param name="document">The document.</param>
     /// <param name="name">What to call it.</param>
@@ -165,6 +174,7 @@ public sealed class CreateEntityCommand : IEditorCommand, IDisposable {
             taken = null;
         } else {
             created = document.Add(name, local, parent);
+            Initialise?.Invoke(created);
         }
 
         document.RaiseStructureChanged();

@@ -20,11 +20,19 @@ namespace Vixen.Editor.App;
 ///         interface as an ordinary element that other elements can be drawn over.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Lines and nothing else, for now.</b> There is no mesh path in the editor: no material
-///         system wired to a viewport, no model importer feeding one. What a scene of empties looks
-///         like in any editor is a grid, a marker per entity and a gizmo — which is exactly what a
-///         line renderer draws, and it is useful rather than a placeholder. A mesh pass is a second
-///         <c>SceneRenderer</c> in the same target when there is something to put in it.
+///         ⚠ <b>Three draws into one target, in an order that is not arbitrary.</b> The shapes go
+///         first and write depth; the grid and the entity markers follow, depth-tested so that a
+///         marker behind a cube is behind it; the gizmo goes last with no depth test at all, because
+///         a handle you cannot reach through the thing it moves is a handle you cannot use. The last
+///         of the three is what a solid mesh pass made necessary — with only lines in the target
+///         there was nothing to be occluded by, which is why the overlay used to share the world
+///         list's pipeline.
+///     </para>
+///     <para>
+///         ⚠ <b>This is not the mesh path either.</b> <see cref="MeshRenderer" />'s own remarks say
+///         what it is: a tool renderer with no materials and no culling, whose cost is linear in
+///         vertices. It is what makes a spawned cube visible today; a viewport driven by
+///         <c>RenderSystem</c> through a <c>GraphicsCompositor</c> is what replaces it.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The target is recreated when the viewport resizes, and the registration is redone
@@ -43,8 +51,23 @@ sealed class ScenePresenter : IDisposable {
     public const ulong Image = 1;
 
     readonly IGraphicsDevice device;
+
+    /// <summary>The depth-tested lines: the grid, the markers, the parent lines.</summary>
     readonly LineRenderer lines;
+
+    /// <summary>The gizmo, in a renderer of its own so it can be drawn without the depth test.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A second instance rather than a second range in the first one.</b> One
+    ///     <see cref="LineRenderer" /> holds one buffer and draws all of it with one pipeline, so
+    ///     splitting the frame's lines across its two pipelines needs either a range on
+    ///     <c>Record</c> — public API in a shipping assembly, for a distinction only this file makes
+    ///     — or two of them. Two costs a second buffer of a few hundred vertices.
+    /// </remarks>
+    readonly LineRenderer overlay;
+
+    readonly MeshRenderer meshes;
     readonly SceneLines geometry = new();
+    readonly SceneMeshes surfaces = new();
     readonly List<LineVertex> pending = [];
 
     TextureHandle colour;
@@ -63,18 +86,31 @@ sealed class ScenePresenter : IDisposable {
     /// <summary>Whether there is a target to draw into.</summary>
     public bool IsReady => colourView.IsValid;
 
-    /// <summary>Builds the pipeline the scene's lines are drawn with.</summary>
+    /// <summary>Builds the pipelines the scene is drawn with.</summary>
     /// <param name="device">The device.</param>
-    /// <param name="shaders">The two stages.</param>
+    /// <param name="shaders">The two line stages.</param>
+    /// <param name="meshShaders">The two mesh stages.</param>
     /// <param name="format">What the target's colour format is.</param>
-    public ScenePresenter(IGraphicsDevice device, LineShaders shaders, PixelFormat format) {
+    public ScenePresenter(
+        IGraphicsDevice device,
+        LineShaders shaders,
+        MeshShaders meshShaders,
+        PixelFormat format
+    ) {
         ArgumentNullException.ThrowIfNull(device);
 
         this.device = device;
         Format = format;
 
-        lines = new(device, shaders, new RenderOutput([format], DepthFormat));
+        var output = new RenderOutput([format], DepthFormat);
+
+        lines = new(device, shaders, output);
+        overlay = new(device, shaders, output);
+        meshes = new(device, meshShaders, output);
     }
+
+    /// <summary>What the shapes in the scene are drawn as.</summary>
+    public SceneMeshes Surfaces => surfaces;
 
     /// <summary>The colour format the target and the pipeline agree on.</summary>
     public PixelFormat Format { get; }
@@ -132,11 +168,11 @@ sealed class ScenePresenter : IDisposable {
         return true;
     }
 
-    /// <summary>Collects the frame's lines and writes them.</summary>
+    /// <summary>Collects the frame's geometry and writes it.</summary>
     /// <param name="document">The scene.</param>
     /// <param name="viewport">The pane.</param>
     /// <remarks>
-    ///     ⚠ <b>Outside the render pass.</b> This writes a buffer, and a Vulkan command list may not
+    ///     ⚠ <b>Outside the render pass.</b> This writes buffers, and a Vulkan command list may not
     ///     transfer inside one — the same reason the glyph atlas is uploaded before the interface's
     ///     pass rather than in it.
     /// </remarks>
@@ -144,19 +180,30 @@ sealed class ScenePresenter : IDisposable {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(viewport);
 
+        surfaces.Build(document);
+        meshes.Upload(surfaces.Vertices, surfaces.Indices);
+
         geometry.Build(document, viewport, size.Y);
 
+        Write(lines, geometry.World);
+        Write(overlay, geometry.Overlay);
+    }
+
+    /// <summary>Copies a collected list into a renderer's buffer.</summary>
+    /// <remarks>
+    ///     Through <see cref="pending" /> rather than straight from the source, because
+    ///     <c>Upload</c> takes a span and <c>SceneLines</c> hands back an
+    ///     <see cref="IReadOnlyList{T}" /> — which is the right shape for something a test reads and
+    ///     the wrong one for something a device writes. One reused list, cleared per call.
+    /// </remarks>
+    void Write(LineRenderer renderer, IReadOnlyList<LineVertex> segments) {
         pending.Clear();
-        pending.AddRange(geometry.World);
 
-        // ⚠ Appended rather than drawn separately, and the depth test is what pays for it. Both
-        // halves go in one buffer and one draw; the overlay would need its own pipeline to escape
-        // the depth test, and a gizmo that is occluded is a gizmo nobody can grab. Which is the
-        // trade being made here: one draw, and the handles are depth-tested along with everything
-        // else until the second pass below is worth its cost.
-        pending.AddRange(geometry.Overlay);
+        foreach (var vertex in segments) {
+            pending.Add(vertex);
+        }
 
-        lines.Upload(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(pending));
+        renderer.Upload(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(pending));
     }
 
     /// <summary>Declares the pass that draws the scene.</summary>
@@ -209,12 +256,22 @@ sealed class ScenePresenter : IDisposable {
             pass => {
                 pass.ColourAttachment(target, LoadAction.Clear, new Color4(0.10f, 0.11f, 0.13f, 1f));
 
-                // Zero is *far* under the engine's reversed-Z convention, which the line pipeline's
-                // GREATER comparison agrees with.
+                // Zero is *far* under the engine's reversed-Z convention, which the mesh and line
+                // pipelines' GREATER comparison agrees with.
                 pass.DepthAttachment(depthTarget, LoadAction.Clear, 0f);
                 pass.SideEffect();
 
-                pass.Execute(context => lines.Record(context.CommandList, viewProjection));
+                pass.Execute(context => {
+                    // ⚠ The shapes first, because they are the only thing here that writes depth —
+                    // the two line pipelines test it and neither fills it. Drawn after the grid they
+                    // would be correct and pointless; drawn after nothing they are what the grid and
+                    // the markers are then tested against.
+                    meshes.Record(context.CommandList, viewProjection);
+                    lines.Record(context.CommandList, viewProjection);
+
+                    // Last, and with the depth test off. See the field's own remarks.
+                    overlay.Record(context.CommandList, viewProjection, depthTested: false);
+                });
             }
         );
 
@@ -230,7 +287,10 @@ sealed class ScenePresenter : IDisposable {
 
         disposed = true;
 
+        meshes.Dispose();
         lines.Dispose();
+        overlay.Dispose();
+
         Release();
     }
 

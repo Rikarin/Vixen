@@ -200,18 +200,82 @@ public sealed class MenuPresenter : IDisposable {
         return menu;
     }
 
-    void Fill(Menu menu, MenuGroup group) {
-        menus.Add(menu);
+    /// <summary>Builds a context menu from a described group, submenus and all.</summary>
+    /// <param name="document">The document it floats in.</param>
+    /// <param name="group">What is on it.</param>
+    /// <param name="commands">What its lines run.</param>
+    /// <param name="keys">What the shortcuts on it say.</param>
+    /// <returns>The menu, ready to be attached to something or opened at a point.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         The overload above takes a flat list of ids, which is most context menus. This one is
+    ///         for the ones with a submenu in them — the hierarchy's "3D Object" is eight commands
+    ///         that would otherwise be eight lines of a thirteen-line menu.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Built once and kept, unlike a menu bar, which is rebuilt whenever the registry
+    ///         changes.</b> A context menu is attached to a panel that outlives any single opening,
+    ///         and rebuilding it would mean re-attaching it; the enablement is still applied as it
+    ///         opens, so the part that goes stale is only the set of lines. A caller who registers
+    ///         commands after building one gets a menu missing them, which is why every caller here
+    ///         builds after <c>Commands</c> has run.
+    ///     </para>
+    /// </remarks>
+    public static ContextMenu Context(
+        UiDocument document,
+        MenuGroup group,
+        CommandRegistry commands,
+        KeyMap keys
+    ) {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(group);
+        ArgumentNullException.ThrowIfNull(commands);
+        ArgumentNullException.ThrowIfNull(keys);
+
+        var menu = document.Root.Add<ContextMenu>();
+        var map = new Dictionary<MenuItem, string>();
+
+        Fill(menu, group, commands, keys, map, null);
+        return menu;
+    }
+
+    void Fill(Menu menu, MenuGroup group) => Fill(menu, group, commands, keys, itemCommands, menus);
+
+    /// <summary>Puts a group's entries into a menu, and its submenus into menus of their own.</summary>
+    /// <param name="menu">The menu.</param>
+    /// <param name="group">What goes in it.</param>
+    /// <param name="commands">What its lines run.</param>
+    /// <param name="keys">What the shortcuts say.</param>
+    /// <param name="map">Where each line's command id is recorded, so a click can find it.</param>
+    /// <param name="track">
+    ///     Every menu built, for a caller that rebuilds — or <see langword="null" /> for one that
+    ///     does not. A context menu is removed with the panel that owns it and needs no list.
+    /// </param>
+    static void Fill(
+        Menu menu,
+        MenuGroup group,
+        CommandRegistry commands,
+        KeyMap keys,
+        Dictionary<MenuItem, string> map,
+        List<Menu>? track
+    ) {
+        track?.Add(menu);
 
         // ⚠ On the menu rather than on the bar, and this is not a detail. `MenuBar.AddMenu` puts
         // the dropdown on the *document root* so that it can hang below the bar without being
         // clipped by it — so the bar is not an ancestor of its own menu items, and a routed handler
         // on the bar sees a click on "File" and never sees the click on "Save".
-        menu.AddHandler<ClickEvent>((_, args) => Chosen(args));
+        menu.AddHandler<ClickEvent>(
+            (_, args) => {
+                if (args.Source is MenuItem item && map.TryGetValue(item, out var id)) {
+                    commands.Execute(id);
+                }
+            }
+        );
 
         menu.OpenChanged += (opened, isOpen) => {
             if (isOpen) {
-                Enable((Menu) opened, itemCommands, commands);
+                Enable((Menu) opened, map, commands);
             }
         };
 
@@ -229,14 +293,14 @@ public sealed class MenuPresenter : IDisposable {
 
                 case MenuSubmenu(var child):
                     Rule(menu, ref pending);
-                    Fill(menu.AddSubmenu(child.Title.Text), child);
+                    Fill(menu.AddSubmenu(child.Title.Text), child, commands, keys, map, track);
 
                     any = true;
                     break;
 
                 case MenuCommand(var id) when commands.TryGet(id, out var command):
                     Rule(menu, ref pending);
-                    itemCommands[Line(menu, command, keys)] = id;
+                    map[Line(menu, command, keys)] = id;
 
                     any = true;
                     break;
@@ -248,7 +312,7 @@ public sealed class MenuPresenter : IDisposable {
                         }
 
                         Rule(menu, ref pending);
-                        itemCommands[Line(menu, command, keys)] = id;
+                        map[Line(menu, command, keys)] = id;
 
                         any = true;
                     }
@@ -295,12 +359,6 @@ public sealed class MenuPresenter : IDisposable {
             if (command.Checked is not null) {
                 item.Mark.SetStyle("display", command.IsChecked ? "flex" : "none");
             }
-        }
-    }
-
-    void Chosen(ClickEvent args) {
-        if (args.Source is MenuItem item && itemCommands.TryGetValue(item, out var id)) {
-            commands.Execute(id);
         }
     }
 }

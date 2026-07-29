@@ -207,4 +207,65 @@ public class MenuTests : IDisposable {
         menu.Items[0].Raise(new ClickEvent { Device = ActivationDevice.Pointer });
         Assert.Equal(1, ran);
     }
+
+    [Fact]
+    public void A_context_menu_can_be_built_from_a_group_and_has_submenus() {
+        var ran = 0;
+
+        commands.Add("scene.create-entity", Title("Create Empty"), () => { });
+        commands.Add("scene.create-cube", Title("Cube"), () => ran++);
+        commands.Add("scene.create-sphere", Title("Sphere"), () => { });
+        commands.Add("scene.delete-entity", Title("Delete"), () => { });
+
+        var group = new MenuGroup(Title("Hierarchy"));
+        group.Add("scene.create-entity");
+
+        group.AddSubmenu(Title("3D Object"))
+            .Add("scene.create-cube")
+            .Add("scene.create-sphere");
+
+        group.AddSeparator();
+        group.Add("scene.delete-entity");
+
+        var menu = MenuPresenter.Context(document, group, commands, keys);
+
+        // Create Empty, the submenu's own line, and Delete. The separator is not an item.
+        Assert.Equal(3, menu.Items.Count);
+        Assert.Equal("3D Object", menu.Items[1].Label);
+
+        var shapes = Assert.IsType<Menu>(menu.Items[1].Submenu, exactMatch: false);
+        Assert.Equal(2, shapes.Items.Count);
+
+        // ⚠ Raised on the submenu's item, which is the case the flat overload cannot express: the
+        // click handler is on the submenu rather than on the menu it hangs off, because a submenu is
+        // a sibling of its parent rather than a child of it.
+        shapes.Items[0].Raise(new ClickEvent { Device = ActivationDevice.Pointer });
+        Assert.Equal(1, ran);
+    }
+
+    [Fact]
+    public void A_context_menus_lines_grey_themselves_out_as_it_opens() {
+        var enabled = false;
+
+        commands.Add(
+            new EditorCommand("scene.delete-entity", Title("Delete"), () => { }) { Enablement = () => enabled }
+        );
+
+        var group = new MenuGroup(Title("Hierarchy"));
+        group.Add("scene.delete-entity");
+
+        var menu = MenuPresenter.Context(document, group, commands, keys);
+        menu.Open();
+
+        Assert.True(menu.Items[0].Disabled);
+
+        menu.Close(CloseReason.Code);
+        enabled = true;
+        menu.Open();
+
+        // Opening is the last moment before the user reads it, which is why enablement is applied
+        // there rather than when the menu was built — a menu built at start-up would show whatever
+        // was true then, for ever.
+        Assert.False(menu.Items[0].Disabled);
+    }
 }

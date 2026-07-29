@@ -387,6 +387,20 @@ public sealed partial class TreeView : Control {
         return true;
     }
 
+    /// <summary>The node showing at a point.</summary>
+    /// <param name="x">Where, in document coordinates.</param>
+    /// <param name="y">Ditto.</param>
+    /// <returns>The node, or <c>null</c> if the point is not on a row.</returns>
+    /// <remarks>
+    ///     ⚠ <b>What a context menu needs, and the reason it is public.</b> A secondary click has to
+    ///     decide what it is <i>about</i> before anything is shown, and the answer is the row under
+    ///     the pointer rather than the selection — which is usually, but not always, the same thing.
+    ///     Without this the caller has to walk <see cref="Rows" /> and repeat the hit test, including
+    ///     the part about skipping parked rows, which is exactly the sort of duplicated arithmetic
+    ///     that stops agreeing.
+    /// </remarks>
+    public TreeNode? NodeAt(float x, float y) => RowAt(x, y)?.Node;
+
     /// <summary>The realised row showing a node, if it has one.</summary>
     /// <param name="node">The node.</param>
     /// <returns>The row, or <c>null</c> if it is not on screen.</returns>

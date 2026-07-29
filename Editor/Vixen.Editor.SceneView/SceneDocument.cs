@@ -8,6 +8,7 @@ using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
+using Vixen.Rendering;
 
 namespace Vixen.Editor.SceneView;
 
@@ -292,21 +293,43 @@ public sealed class SceneDocument : EditorDocument {
     /// <param name="name">What to call it.</param>
     /// <param name="local">Where it starts.</param>
     /// <param name="parent">What to hang it from, or <see cref="Entity.Null" /> for a root.</param>
+    /// <param name="initialise">
+    ///     What to put on it beyond a transform, or <see langword="null" />. Run once, on creation —
+    ///     see <see cref="CreateEntityCommand.Initialise" /> for why a redo does not run it again.
+    /// </param>
     /// <returns>The entity.</returns>
     /// <remarks>
     ///     What a shell puts behind a button, as against <see cref="Add" />, which is what a reader
     ///     or a test uses to build a scene without filling the undo stack with entries nobody made.
     /// </remarks>
-    public Entity Create(string name, LocalTransform local, Entity parent = default) {
+    public Entity Create(
+        string name,
+        LocalTransform local,
+        Entity parent = default,
+        Action<Entity>? initialise = null
+    ) {
         ArgumentException.ThrowIfNullOrEmpty(name);
 
-        var command = new CreateEntityCommand(this, name, local, parent);
+        var command = new CreateEntityCommand(this, name, local, parent) { Initialise = initialise };
 
         Stack.Execute(command);
         Stack.Seal();
 
         return command.Entity;
     }
+
+    /// <summary>Creates an entity drawn as one of the built-in shapes, undoably.</summary>
+    /// <param name="kind">Which shape.</param>
+    /// <param name="local">Where it starts.</param>
+    /// <param name="parent">What to hang it from, or <see cref="Entity.Null" /> for a root.</param>
+    /// <returns>The entity.</returns>
+    /// <remarks>
+    ///     Named after the shape, which is what every editor does and what makes a hierarchy of
+    ///     block-out geometry readable without clicking each row. Renaming it afterwards does not
+    ///     change what it is: the shape is <see cref="MeshShape" /> and the name is a label.
+    /// </remarks>
+    public Entity CreateShape(PrimitiveKind kind, LocalTransform local, Entity parent = default) =>
+        Create(MeshShapes.NameOf(kind), local, parent, entity => MeshShapes.Attach(World, entity, kind));
 
     /// <summary>Deletes entities and everything below them, undoably.</summary>
     /// <param name="entities">The subtree roots.</param>

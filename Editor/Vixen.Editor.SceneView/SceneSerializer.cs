@@ -164,7 +164,11 @@ public static class SceneSerializer {
             Name = document.NameOf(entity),
             Position = local.Position,
             Rotation = local.Rotation,
-            Scale = local.Scale
+            Scale = local.Scale,
+
+            Shape = MeshShapes.TryGet(document.World, entity, out var shape)
+                ? MeshShapes.NameOf(shape)
+                : string.Empty
         };
 
         foreach (var child in Hierarchy.ChildrenOf(document.World, entity)) {
@@ -190,6 +194,14 @@ public static class SceneSerializer {
 
         var entity = document.Add(data.Name, local, parent);
         document.Adopt(entity, data.Id);
+
+        // ⚠ Attached rather than skipped when the name is unknown, and `TryParse` is what decides
+        // which. A shape this editor has never heard of leaves the entity in place with no geometry;
+        // the next save then writes an empty shape, which does lose the field — the alternative is
+        // refusing to open the file at all, and doc 08's argument about unknown keys applies here too.
+        if (MeshShapes.TryParse(data.Shape, out var shape)) {
+            MeshShapes.Attach(document.World, entity, shape);
+        }
 
         var created = 1;
 
