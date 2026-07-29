@@ -85,7 +85,10 @@ logging", so the console provider is on.
 - **Content is not yet stripped.** Doc 17 says a server ships bundles "with no textures, audio or
   shaders". The content build does not know about variants yet, so a server carries the same bundles
   the client does.
-- **No `Dockerfile`.** Q5c decides one ships in the template. Not written.
+- ~~**No `Dockerfile`.**~~ Q5c's `Dockerfile` ships in `vixen-game`, so `vixen new game` and
+  `dotnet new vixen-game` both write one: multi-stage, chiselled base, non-root, and it builds the
+  Server variant because a client in a container has no display. What it produces is still a server
+  with nothing to connect to it — see the networking line above.
 
 ## The five variants
 

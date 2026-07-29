@@ -51,6 +51,13 @@ partial class Build {
                     .GlobFiles("Core/**/*.csproj", "Platform/**/*.csproj", "Editor/**/*.csproj", "Raven/**/*.csproj", "Tools/**/*.csproj", "Samples/**/*.csproj")
                     .Where(path => !path.ToString().Contains("/bin/", StringComparison.Ordinal))
                     .Where(path => !path.ToString().Contains("/obj/", StringComparison.Ordinal))
+
+                    // ⚠ Tools/Vixen.Templates/templates/ holds project files that are not this
+                    // repository's — they are what `dotnet new` writes into somebody else's
+                    // directory, they name packages rather than projects, and their layer is
+                    // whatever the person who scaffolds them decides. Checking them here would be
+                    // this build asserting rules about a project it does not own.
+                    .Where(path => !path.ToString().Contains("/Vixen.Templates/templates/", StringComparison.Ordinal))
                     .ToList();
 
                 Assert.True(projects.Count > 0, "Found no projects to check — the glob is wrong.");

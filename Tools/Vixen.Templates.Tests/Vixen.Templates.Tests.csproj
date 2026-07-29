@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Raven.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+
+        <!-- What compiles a scaffolded project without building one. See TemplateCompiler. -->
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The reader, and with it the embedded copy of the template tree. Referencing the CLI
+            rather than re-reading the files off disk is deliberate: what these tests are about is
+            the thing a person actually gets, and what a person gets is what TemplateCatalog hands
+            to ScaffoldRunner.
+        -->
+        <ProjectReference Include="..\Vixen.Cli\Vixen.Cli.csproj" />
+
+        <!--
+            ⚠ Everything a scaffolded project references, so that TemplateCompiler can compile the
+            C# the templates write against the same assemblies their PackageReferences resolve to.
+            Nothing here is called from a test; these are metadata references and nothing more, and
+            a template that names a type these assemblies do not have fails here rather than on the
+            machine of the first person to run `dotnet new vixen-app`.
+
+            The alternative — restore and build a real scaffolded project — needs the engine on a
+            NuGet feed, which is a thing CI can arrange and a developer's machine cannot.
+        -->
+        <ProjectReference Include="..\Vixen.App\Vixen.App.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Controls\Vixen.Ui.Controls.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Renderer\Vixen.Ui.Renderer.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Platform.Desktop\Vixen.Platform.Desktop.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
+    </ItemGroup>
+</Project>

@@ -1,0 +1,26 @@
+{
+    "$schema": "http://json.schemastore.org/template",
+    "author": "Rikarin",
+    "classifications": [ "Vixen", "UI", "Desktop" ],
+    "identity": "Vixen.Templates.App",
+    "groupIdentity": "Vixen.Templates.App",
+    "name": "Vixen Application",
+    "description": "A desktop application built on Vixen.Ui with no engine underneath it: no scene, no ECS world, no game loop.",
+    "shortName": [ "vixen-app" ],
+    "tags": {
+        "language": "C#",
+        "type": "project"
+    },
+    "sourceName": "VixenApp1",
+    "defaultName": "VixenApp1",
+    "preferNameDirectory": true,
+    "sources": [
+        {
+            "modifiers": [
+                {
+                    "exclude": [ "**/[Bb]in/**", "**/[Oo]bj/**" ]
+                }
+            ]
+        }
+    ]
+}

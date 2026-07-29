@@ -1,0 +1,164 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <IsPackable>true</IsPackable>
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
+
+        <!--
+            A package of files and nothing else. `dotnet new` reads the tree under `content/`; there
+            is no assembly to ship, so IncludeBuildOutput=false keeps `lib/` out and NU5128 — the
+            warning that a package with no `lib/` has a dependency group it cannot match — is
+            exactly the shape a content-only package has. Same arrangement, and the same three
+            lines, as Tools/Vixen.Sdk.
+        -->
+        <IncludeBuildOutput>false</IncludeBuildOutput>
+        <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+        <NoWarn>$(NoWarn);NU5128</NoWarn>
+
+        <!--
+            ⚠ Load-bearing. `templates/` holds .cs and .csproj files that are somebody else's project
+            rather than this one's, and the default globs would compile them into this assembly and
+            then fail on three `Main` methods and a package reference to an engine that is not built
+            yet. Nothing here is compiled; everything here is copied.
+        -->
+        <EnableDefaultItems>false</EnableDefaultItems>
+
+        <!--
+            ⚠ Also load-bearing. NuGet's default exclusions drop anything beginning with a dot, and
+            every template in this package is identified by a `.template.config/` directory — without
+            this the package builds, installs, and contains no templates at all.
+        -->
+        <NoDefaultExcludes>true</NoDefaultExcludes>
+
+        <!--
+            No symbols, against the repository-wide default: there is no assembly in this package to
+            debug into, so `dotnet pack` fails an empty symbol package with NU5017 *after* having
+            written the real one — which reads as a broken build.
+        -->
+        <IncludeSymbols>false</IncludeSymbols>
+
+        <PackageId>Vixen.Templates</PackageId>
+        <PackageType>Template</PackageType>
+        <Description>
+            `dotnet new` templates for Vixen: vixen-game, vixen-app and vixen-lib.
+        </Description>
+        <PackageTags>dotnet-new;templates;scaffolding;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <PropertyGroup>
+        <VixenTemplateSourceDirectory>$(MSBuildThisFileDirectory)templates/</VixenTemplateSourceDirectory>
+    </PropertyGroup>
+
+    <!--
+        ⚠ Copy-with-replace as a task, rather than `WriteLinesToFile` over a string built with
+        property functions. `Lines` is an `ITaskItem[]`: every line becomes an item, item specs are
+        path-normalised, and on a non-Windows machine that silently turns every backslash in the
+        file into a forward slash — which is a Dockerfile's line continuations and an
+        `EmbeddedResource Include="Shaders\*.spv"` quietly rewritten on the way into the package.
+        Found by doing it, once.
+    -->
+    <UsingTask TaskName="VixenCopyReplacing"
+               TaskFactory="RoslynCodeTaskFactory"
+               AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+        <ParameterGroup>
+            <Source ParameterType="System.String" Required="true" />
+            <Destination ParameterType="System.String" Required="true" />
+            <Token ParameterType="System.String" Required="true" />
+            <Value ParameterType="System.String" Required="true" />
+        </ParameterGroup>
+        <Task>
+            <Code Type="Fragment" Language="cs">
+                <![CDATA[
+                var text = System.IO.File.ReadAllText(Source).Replace(Token, Value);
+
+                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Destination));
+
+                // Written only when it differs, so an incremental build does not re-timestamp the
+                // whole staged tree and make every later step think it has work to do.
+                if (!System.IO.File.Exists(Destination) || System.IO.File.ReadAllText(Destination) != text) {
+                    System.IO.File.WriteAllText(Destination, text);
+                }
+                ]]>
+            </Code>
+        </Task>
+    </UsingTask>
+
+    <!--
+        ==============================================================================================
+        The one substitution, and why there is one at all.
+
+        A scaffolded project has to name a version — `<Project Sdk="Vixen.Sdk/x.y.z">` and every
+        `PackageReference` — and an SDK version is not allowed to be an MSBuild property, so there is
+        nowhere for the template to defer the question to. The alternative is a committed literal
+        that goes stale the first time the repository's version moves and produces projects that will
+        not restore.
+
+        So `VIXEN_PACKAGE_VERSION` is the token, the sources carry it, and it is replaced on the way
+        into the package. Tools/Vixen.Cli replaces the same token in the same files with its own
+        assembly version, which is what keeps `vixen new game` and `dotnet new vixen-game` from
+        drifting: one tree of files, one token, two things that resolve it.
+
+        The staged copy lives under obj/ because a build that edited its own sources would show up as
+        a dirty working tree after every `dotnet pack`.
+        ==============================================================================================
+    -->
+    <Target Name="StageTemplates" BeforeTargets="Build;_GetPackageFiles">
+        <!--
+            ⚠ Computed here rather than in a PropertyGroup in the project body. IntermediateOutputPath
+            is defined by Microsoft.Common.CurrentVersion.targets, which is imported *after* the body
+            — so at evaluation time it is empty, `obj/…/templates/` collapses to `templates/`, and
+            the staging step rewrites its own sources in place. Found by doing it, once.
+        -->
+        <PropertyGroup>
+            <VixenTemplateStageDirectory>$(IntermediateOutputPath)templates/</VixenTemplateStageDirectory>
+        </PropertyGroup>
+
+        <Error Condition="'$(IntermediateOutputPath)' == ''"
+               Text="IntermediateOutputPath is empty; staging would overwrite templates/ in place." />
+
+        <ItemGroup>
+            <VixenTemplateSource Include="$(VixenTemplateSourceDirectory)**/*"
+                                 Exclude="$(VixenTemplateSourceDirectory)**/*.csproj;$(VixenTemplateSourceDirectory)**/Dockerfile" />
+
+            <!-- The files that mention a version. A list rather than "every text file", because the
+                 substitution is a rewrite and rewriting a shader is not something to do by accident.
+                 Vixen.Templates.Tests asserts the token survives nowhere else. -->
+            <VixenTemplateVersioned Include="$(VixenTemplateSourceDirectory)**/*.csproj" />
+            <VixenTemplateVersioned Include="$(VixenTemplateSourceDirectory)**/Dockerfile" />
+        </ItemGroup>
+
+        <Copy SourceFiles="@(VixenTemplateSource)"
+              DestinationFiles="@(VixenTemplateSource->'$(VixenTemplateStageDirectory)%(RecursiveDir)%(Filename)%(Extension)')"
+              SkipUnchangedFiles="true" />
+
+        <VixenCopyReplacing
+            Source="%(VixenTemplateVersioned.FullPath)"
+            Destination="$(VixenTemplateStageDirectory)%(VixenTemplateVersioned.RecursiveDir)%(VixenTemplateVersioned.Filename)%(VixenTemplateVersioned.Extension)"
+            Token="VIXEN_PACKAGE_VERSION"
+            Value="$(Version)" />
+
+        <ItemGroup>
+            <VixenTemplateStaged Include="$(VixenTemplateStageDirectory)**/*" />
+
+            <!--
+                ⚠ One directory, and no `%(RecursiveDir)`. NuGet decides whether a PackagePath is a
+                file or a folder by looking for an extension on it, and appends the item's own
+                recursive path to a folder — so spelling the recursive path out gives every file its
+                directory twice, and spelling it out *without* an extension (`…/vixen-game/Dockerfile`)
+                gives that one file its path three times. Naming the root and letting NuGet lay the
+                tree out under it is the form that is right for all of them.
+            -->
+            <Content Include="@(VixenTemplateStaged)"
+                     Pack="true"
+                     PackagePath="content/templates/"
+                     Visible="false" />
+        </ItemGroup>
+    </Target>
+
+</Project>

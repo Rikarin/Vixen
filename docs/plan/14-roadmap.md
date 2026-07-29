@@ -656,10 +656,21 @@ the codebase is large enough for it to be expensive to fix.
   `-p:VixenVariant` rather than as the compiler configuration, because doc 17's variants are
   orthogonal to Debug/Release and a Development build is optimised.
 
+  **`Tools/Vixen.Templates` has since landed**, and with it `app`. There is one tree of template
+  files: the package puts it under `content/` for `dotnet new`, and `Vixen.Cli` **embeds** it, so
+  `vixen new game` and `dotnet new vixen-game` write the same directory rather than two that happen
+  to look alike — which is what the scaffold's own remarks asked for, in the opposite direction, and
+  the direction matters (`.template.config/template.json` is a file no C# string literal can
+  produce). `vixen-app` is the practical test that `Vixen.Ui` has no `Vixen.Engine` dependency, and
+  the test is real: it references neither that nor `Vixen.App`, and a test asserts it. Q5c's
+  `Dockerfile` ships in `vixen-game` with it.
+
   **Owed, and named:** nothing is signed, notarised or packaged beyond what `dotnet publish` emits, so
-  doc 17's DMG/IPA/AAB table is still Nuke's. The `app`, `plugin` and `tool` templates are not written
-  — `app` is the practical test that `Vixen.Ui` has no `Vixen.Engine` dependency and should wait until
-  there is enough of `Vixen.Ui` to scaffold against. `vixen doctor systems` from
+  doc 17's DMG/IPA/AAB table is still Nuke's. `vixen-plugin` was written down as **blocked** — it
+  would pin a `PackageReference` on `Vixen.Editor.Plugin`, and a template producing a project that
+  will not restore fails where a person has no context to debug it — and then `Vixen.Editor.Plugin`
+  landed in the same wave, which makes it owed rather than blocked. `vixen-tool` is unblocked and
+  unwritten too, as are `vixen-game`'s per-platform head projects. `vixen doctor systems` from
   [04](04-ecs-and-scripting.md) needs a game assembly to load, and the GPU and driver checks would
   put a graphics dependency in a tool that today needs none.
 - 🟡 **The NativeAOT gate** — `nuke CheckAot` publishes every runtime assembly ahead of time with all
@@ -4464,7 +4475,11 @@ layers.
 - Documentation: DocFX API reference, a manual (getting started, per-subsystem guides, a UI framework
   tutorial, a Raven language reference, migration notes from Unity), and 12+ runnable samples.
 - `dotnet new` templates for game, application, library, and editor plugin, verified from a clean
-  machine on all six targets.
+  machine on all six targets. Three of the four are built (`Tools/Vixen.Templates`, W0-13) and their
+  C# is compiled in CI against the assemblies their package references resolve to; the plugin one is
+  owed rather than blocked now that `Vixen.Editor.Plugin` exists, and "verified from a clean machine"
+  additionally wants a feed with the engine packages on it, which is what makes this a Phase 11 line
+  rather than a done one.
 - Release automation end to end: tag → signed editor builds for three desktops + NuGet push + GitHub
   Release with changelog.
 - Fuzzing corpora seeded and running nightly; soak tests (24 h editor session, 24 h game session) clean.

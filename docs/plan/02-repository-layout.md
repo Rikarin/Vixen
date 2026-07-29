@@ -337,8 +337,8 @@ Tools/
 ├── Vixen.Sdk/                    # MSBuild SDK: props/targets that wire .meta import + content build
 │   └── Vixen.Sdk.Tests/          #   into `dotnet build` for consumer projects
 ├── Vixen.App/                    # meta-package: sensible default reference set for an app head
-├── Vixen.Templates/              # dotnet new templates: vixen-game, vixen-app, vixen-lib, vixen-plugin
-│   └── Vixen.Templates.Tests/
+├── Vixen.Templates/              # ✅ dotnet new templates: vixen-game, vixen-app, vixen-lib.
+│   └── Vixen.Templates.Tests/    #   vixen-plugin and vixen-tool are owed, and neither is blocked
 ├── Vixen.ApiCheck/               # ✅ public API surface diffing, run in CI as `nuke CheckApi`
 │   └── Vixen.ApiCheck.Tests/
 ├── Vixen.AotProbe/               # the subject of `nuke CheckAot`: every runtime assembly, rooted
@@ -346,9 +346,10 @@ Tools/
 ```
 
 **What `Vixen.Cli` has so far, and one correction to the verb list above.** `import`,
-`content build`, `content serve` and `doctor` are built ([README](../../Tools/Vixen.Cli/README.md));
-`new`, `run` and `build` need the SDK package layout and the platform packaging and are absent rather
-than stubbed. `serve` is grouped under `content` rather than sitting at the top level, because
+`content build`, `content serve`, `doctor`, `new`, `run` and `build` are all built
+([README](../../Tools/Vixen.Cli/README.md)). `new` reads its templates out of
+`Vixen.Templates` — embedded, so that `vixen new game` and `dotnet new vixen-game` write the same
+directory rather than two that happen to look alike. `serve` is grouped under `content` rather than sitting at the top level, because
 [08](08-asset-pipeline-and-addressables.md) already writes `vixen content build` and the two commands
 are about the same directory — one noun, its verbs beneath it.
 

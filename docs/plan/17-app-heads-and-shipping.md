@@ -194,16 +194,28 @@ out-of-process for anyone who prefers certainty over speed.
 ## Project templates
 
 ```
-dotnet new vixen-game      # game: Program.cs + Game subclass + Assets/ + platform heads
-dotnet new vixen-app       # non-game application: Vixen.Ui only, no scene, no game loop
-dotnet new vixen-lib       # a library consumable by either
-dotnet new vixen-plugin    # editor plugin
-dotnet new vixen-tool      # headless batch tooling head (Q5d)
+dotnet new vixen-game      # ✅ game: Program.cs + Game subclass + Assets/ + Dockerfile (Q5c)
+dotnet new vixen-app       # ✅ non-game application: Vixen.Ui only, no scene, no game loop
+dotnet new vixen-lib       # ✅ a library consumable by either
+dotnet new vixen-plugin    # ⬜ editor plugin — unblocked, Vixen.Editor.Plugin now exists
+dotnet new vixen-tool      # ⬜ headless batch tooling head (Q5d)
 ```
+
+They live in [`Tools/Vixen.Templates`](../../Tools/Vixen.Templates/README.md) as **one tree of
+files**, packed for `dotnet new` and embedded in `Vixen.Cli` for `vixen new`, because two copies of
+every template is two copies waiting to disagree. `vixen-plugin` was written down as blocked — it would pin a
+`PackageReference` on an assembly nobody publishes, and a template producing a project that will not
+restore fails at the one moment a person has no context to debug it — but `Vixen.Editor.Plugin`
+landed in the same wave, so it is owed rather than blocked.
+
+`vixen-game` produces one project rather than the per-platform heads named above; `vixen build
+--target Android` publishes it, and the sibling head projects are owed.
 
 `vixen-app` matters for Q3's ordering: game developers are primary, but the application-framework claim
 needs a template that produces a UI application with **no engine dependency** — and its existence is
-also the practical test that the `Vixen.Ui` ⇸ `Vixen.Engine` boundary holds.
+also the practical test that the `Vixen.Ui` ⇸ `Vixen.Engine` boundary holds. It is written, and the
+test is real rather than rhetorical: it references neither `Vixen.Engine` nor `Vixen.App` (which
+would reach the engine the easy way), and `Vixen.Templates.Tests` asserts both absences.
 
 ## Sub-decisions — all resolved
 

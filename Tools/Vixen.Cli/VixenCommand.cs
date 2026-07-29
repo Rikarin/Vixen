@@ -328,8 +328,12 @@ public static class VixenCommand {
     ///     just made is the shortest thing that could work and is what they will type.
     /// </remarks>
     static Command New(TextWriter? output, TextWriter? error) {
-        var template = new Argument<Template>("template") {
-            Description = "What to write: game or library."
+        // ⚠ A string validated against the catalog rather than an enum. The templates and their
+        // names live in Tools/Vixen.Templates, and an enum here would be a second list of them —
+        // which is how `dotnet new vixen-app` and `vixen new app` end up disagreeing about what
+        // exists.
+        var template = new Argument<string>("template") {
+            Description = "What to write: " + string.Join(", ", TemplateCatalog.All.Select(known => known.ShortName)) + "."
         };
 
         var name = new Argument<string?>("name") {

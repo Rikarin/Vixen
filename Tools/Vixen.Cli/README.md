@@ -148,15 +148,25 @@ A step-by-step version of this, including the dedicated server, is in
 
 ```
 vixen new game Asteroids     # a project the SDK drives
+vixen new app Painter        # Vixen.Ui, a window, and no engine
+vixen new lib Physics        # a library either of them can reference
 vixen build --target iOS     # content, then dotnet publish
 vixen run -- --vixen-frames 5
 ```
 
+**`new` writes the same files `dotnet new vixen-game` writes, because it reads the same files.**
+[`Vixen.Templates`](../Vixen.Templates/README.md) owns one tree; the template package ships it and
+this assembly embeds it, and `TemplateCatalog` is the fifty lines that apply the one substitution the
+templates use. Until that existed the scaffold was C# string literals beside a template pack that did
+not exist yet — two copies of every file, waiting to disagree. Which templates `new` offers is
+therefore the pack's answer rather than this tool's: `game`, `app` and `lib` today, and the pack's
+short names with the `vixen-` prefix taken off in general.
+
 **`new` scaffolds against the SDK rather than against a package list.** A game project is
 `<Project Sdk="Vixen.Sdk/x.y.z">` plus one `PackageReference` for the host, and the import-before-compile
 and content-build-after-build wiring arrives with the SDK. A template that listed every package the
-engine currently needs would be wrong one release later. The SDK version it writes is read from this
-assembly, so a scaffolded project asks for the SDK matching the tool that made it.
+engine currently needs would be wrong one release later. The version it writes is read from this
+assembly, so a scaffolded project asks for the engine matching the tool that made it.
 
 It refuses rather than overwriting, and refuses *entirely*: every collision is found before anything is
 written, because a half-scaffolded directory is worse than an untouched one.
@@ -186,9 +196,10 @@ need credentials. `--target iOS` produces what the iOS SDK produces and says so.
 verified end to end against a local one — and until they are on nuget.org a scaffolded project needs a
 `nuget.config` pointing somewhere they exist.
 
-**`app`, `plugin` and `tool` templates are not written.** Doc 17 lists five; `game` and `library` are
-here. `app` in particular is the practical test that `Vixen.Ui` does not depend on `Vixen.Engine`, and
-it should be written when `Vixen.Ui` is far enough along to be worth scaffolding against.
+**`plugin` and `tool` templates are not written.** Doc 17 lists five; `game`, `app` and `lib` are
+here. Neither of the two is blocked any more — `plugin` was waiting on `Vixen.Editor.Plugin` and
+`tool` on `Vixen.Platform.Headless`, and both of those exist. See
+[`Vixen.Templates`](../Vixen.Templates/README.md) § Still to come.
 
 ## Still to come
 

@@ -712,6 +712,42 @@ public sealed class VixenCommandTests : IDisposable {
         Assert.DoesNotContain("Vixen.Sdk", project, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     An application head, and the shaders it needs, written byte for byte rather than decoded
+    ///     as text and written back — a compiled SPIR-V module that went through a string is a
+    ///     device lost rather than a compile error.
+    /// </summary>
+    [Fact]
+    public async Task NewApplicationWritesItsCompiledShadersUntouched() {
+        var where = Path.Combine(root, "App");
+
+        var (code, _, _) = await RunFull("new", "app", "Painter", "-o", where);
+
+        Assert.Equal(ExitCode.Success, code);
+
+        var module = await File.ReadAllBytesAsync(
+            Path.Combine(where, "Shaders", "ui.vert.spv"),
+            TestContext.Current.CancellationToken
+        );
+
+        // The SPIR-V magic number, little-endian, which is the whole point: it is the first thing a
+        // driver reads and the first thing a text round trip destroys.
+        Assert.Equal([0x03, 0x02, 0x23, 0x07], module[..4]);
+    }
+
+    /// <summary>
+    ///     A template that does not exist is answered with the ones that do, because the next thing
+    ///     the person is going to do is guess again.
+    /// </summary>
+    [Fact]
+    public async Task AnUnknownTemplateListsTheOnesThatExist() {
+        var (code, output, _) = await RunFull("new", "plugin", "Extension", "-o", Path.Combine(root, "None"));
+
+        Assert.Equal(ExitCode.UsageError, code);
+        Assert.Contains("is not a template", output, StringComparison.Ordinal);
+        Assert.Contains("game", output, StringComparison.Ordinal);
+    }
+
     // ── vixen build / run ───────────────────────────────────────────────────────────────────────
 
     /// <summary>
