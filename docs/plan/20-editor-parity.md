@@ -632,7 +632,7 @@ Named so that "missing" and "not doing" are different words.
 | **Terrain and foliage tools** | A whole subsystem — heightfields, layers, sculpting, procedural scatter, LOD, and a renderer for each — behind a mode. Post-1.0, and the `IEditorMode` seam in [A1](#a1--the-application-frame) is what it will attach to |
 | **A visual UI designer** | The VXML pane previews structure and the VCSS pane is genuinely live, which is the return on hot reload. A drag-and-drop designer is a second authoring model over the same document and should wait until the markup layer has stopped moving |
 | **Mesh editing / modelling tools** | Unreal ships them and they are not what an engine is for. Import from a DCC |
-| **Collaborative multi-user editing** | The document model's mutation vocabulary was chosen partly with this in mind (doc 11 names multi-user awareness), so it stays *possible*. It is not 1.0 |
+| **Collaborative multi-user editing** | The document model's mutation vocabulary was chosen partly with this in mind (doc 11 names multi-user awareness), so it stays *possible*. It is not 1.0. [21](21-realtime-collaboration.md) is what "possible" costs — ~5.75 EM in five milestones, of which only the first (presence, 1.0 EM, touching no document code) is worth building before the rest is funded |
 | **A native Metal or D3D12 editor backend** | Doc 14's decision, unchanged |
 
 ---
