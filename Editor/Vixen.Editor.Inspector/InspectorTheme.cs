@@ -51,7 +51,7 @@ public static class InspectorTheme {
 
     const string Sheet = """
         /* ── The view ───────────────────────────────────────────────────────── */
-        inspector { flex-direction: column; flex-grow: 1; gap: 6px; padding: 6px; overflow: hidden; }
+        inspector { flex-direction: column; flex-grow: 1; gap: 6px; padding: 2px; overflow: hidden; }
 
         /* The box keeps its height while the rows below it come and go — a search field that
            shrank when the selection emptied would move under the pointer mid-type. */
@@ -67,12 +67,13 @@ public static class InspectorTheme {
             flex-direction: row;
             align-items: center;
             gap: 8px;
-            padding: 2px 4px;
-            min-height: 24px;
+            padding: 2px 6px;
+            min-height: 26px;
+            border-radius: 6px;
         }
 
         inspector-row.filtered { display: none; }
-        inspector-row:hover { background-color: var(--surface-sunken); }
+        inspector-row:hover { background-color: var(--surface-hover, var(--surface-sunken)); }
 
         /* A share of the width rather than a fixed one, so a narrow panel gives the editor room
            instead of clipping it, with a floor a two-word name still fits inside. */
@@ -123,8 +124,8 @@ public static class InspectorTheme {
            stands in for. */
         inspector textbox, inspector textarea, inspector numeric-input, inspector search-box,
         inspector select, inspector multi-select, inspector combo-box {
-            padding: 3px 6px;
-            border-radius: 4px;
+            padding: 3px 8px;
+            border-radius: 6px;
             background-color: var(--surface-sunken);
         }
 
@@ -133,17 +134,17 @@ public static class InspectorTheme {
            pixels right of where the real text starts. The search box needs its own, because the
            magnifier is laid out before the text and an offset that ignores it draws "Search"
            through the icon. */
-        inspector field-placeholder { left: 6px; }
-        inspector search-box field-placeholder { left: 26px; }
+        inspector field-placeholder { left: 8px; }
+        inspector search-box field-placeholder { left: 28px; }
 
         /* ── Sections ───────────────────────────────────────────────────────────
            ⚠ The indent goes. `expander-content` is indented by twenty pixels for prose, and a
            [Header] does not start a nested thing — it names a group of members that are siblings of
            the ungrouped ones above it. Left as it comes, "Name" and "Position" are labels in two
            different columns of the same panel. */
-        inspector expander { border-width: 0px 0px 1px 0px; }
-        inspector expander-header { padding: 6px 4px; }
-        inspector expander-content { flex-direction: column; padding: 0px 0px 6px 0px; }
+        inspector expander { border-width: 0px 0px 1px 0px; border-color: var(--border); }
+        inspector expander-header { padding: 7px 6px; }
+        inspector expander-content { flex-direction: column; padding: 0px 0px 8px 0px; }
 
         /* ── Vectors ────────────────────────────────────────────────────────────
            ⚠ `flex-basis: 0px` on every component, not just a grow. A flex item's base size is its
@@ -161,16 +162,16 @@ public static class InspectorTheme {
             gap: 4px;
         }
 
-        vector-component > text { flex-shrink: 0; color: var(--text-muted); font-size: 0.9em; }
+        vector-component > text { flex-shrink: 0; color: var(--text-muted); font-size: 0.85em; }
         vector-component numeric-input { flex-grow: 1; flex-basis: 0px; min-width: 0; }
 
         /* The axis colours every 3D application uses, and they are worth having: the boxes are
            otherwise three identical fields and the letter beside them is one glyph wide. Literals
            rather than tokens — an axis is red, green and blue in a dark theme and in a light one,
            because it is naming X, Y and Z rather than following a palette. */
-        vector-component.axis-x > text { color: #e06c75; }
-        vector-component.axis-y > text { color: #98c379; }
-        vector-component.axis-z > text { color: #61afef; }
+        vector-component.axis-x > text { color: #f2696e; }
+        vector-component.axis-y > text { color: #7ece6b; }
+        vector-component.axis-z > text { color: #58a6ff; }
         vector-component.axis-w > text { color: var(--text-muted); }
         """;
 }

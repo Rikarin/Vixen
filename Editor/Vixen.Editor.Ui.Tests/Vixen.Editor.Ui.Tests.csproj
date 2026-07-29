@@ -19,7 +19,17 @@
     </ItemGroup>
 
     <ItemGroup>
+        <None Include="__screenshots__\**" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\Vixen.Editor.Ui\Vixen.Editor.Ui.csproj" />
+
+        <!--
+            What `EditorChromeVisualTests` renders through. A theme is a claim about pictures, and
+            the only way to hold one to it is to take one.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Testing\Vixen.Ui.Testing.csproj" />
     </ItemGroup>
 
 </Project>
