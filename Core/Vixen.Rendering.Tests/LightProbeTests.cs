@@ -50,10 +50,34 @@ public class LightProbeTests {
     ///     A linear field sampled anywhere inside the hull comes back as the same linear field.
     /// </summary>
     /// <remarks>
-    ///     The test that says the cell and the weights are both right. It is run over a grid
-    ///     because a grid is what people author and because a grid is cospherical eight probes at
-    ///     a time — every cell in this mesh exists because a tie was broken, and the property
-    ///     holds whichever way each one went.
+    ///     <para>
+    ///         The test that says the cell and the weights are both right. It is run over a grid
+    ///         because a grid is what people author and because a grid is cospherical eight probes
+    ///         at a time — every cell in this mesh exists because a tie was broken, and the
+    ///         property holds whichever way each one went.
+    ///     </para>
+    ///     <para>
+    ///         A relative tolerance rather than the decimal places the tests around it use.
+    ///         <c>Assert.Equal(expected, actual, precision)</c> rounds both values to that many
+    ///         places and compares them, which is a cliff and not a tolerance: two results a single
+    ///         ULP apart disagree whenever they land either side of a rounding boundary, and over
+    ///         generated positions something eventually does. That is what made this test fail
+    ///         about one run in ten while the arithmetic under it was never wrong — and asking for
+    ///         <em>more</em> places would have made it worse, not better, because it puts the
+    ///         boundaries closer together. The other tests here can use precision because they
+    ///         sample at a probe or outside the hull, where the answer comes back exact and there
+    ///         is no boundary to straddle.
+    ///     </para>
+    ///     <para>
+    ///         1e-5 because a couple of ULPs is the whole of the error. The weights are solved in
+    ///         <see langword="double" /> and only the four-term blend that applies them is float,
+    ///         so over 200,000 generated positions the worst relative error measured was 2.3e-7,
+    ///         which is about two ULPs at the magnitude this field reaches. Two orders above that
+    ///         leaves room for a JIT that reassociates the sum differently, and is still far below
+    ///         what the defects this test exists for would produce: a wrong cell, a mis-wound face
+    ///         or a weight in the wrong slot moves the answer by a fraction of the field, not by an
+    ///         ULP.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void A_linear_field_interpolates_exactly() {
@@ -65,9 +89,13 @@ public class LightProbeTests {
             .Sample(
                 query => {
                     var position = new Vector3(query.Item1, query.Item2, query.Item3);
+                    var expected = Field(position);
                     var sampled = volume.Sample(position);
 
-                    Assert.Equal(Field(position), sampled.L00.X, 3);
+                    Assert.True(
+                        MathUtil.NearEqual(expected, sampled.L00.X, 1e-5f),
+                        $"Expected {expected} at {position}, sampled {sampled.L00.X}."
+                    );
                 }
             );
     }
