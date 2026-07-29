@@ -120,6 +120,23 @@ public sealed class InspectorView : Control {
     /// </remarks>
     public ToggleButton Lock { get; private set; } = null!;
 
+    /// <summary>The region the rows scroll in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The header is outside it and has to be.</b> A search box that scrolled away with
+    ///         the rows is one you cannot reach at the moment you want it — the panel is long, which
+    ///         is the only reason it scrolls, which is the only reason you are filtering it.
+    ///     </para>
+    ///     <para>
+    ///         <b><see cref="ScrollView.Content" /> is public so that a host can put its own sections
+    ///         under the rows and have them scroll with them.</b> The application's component
+    ///         foldouts are the case: they are deliberately not part of this view — see
+    ///         <c>ComponentsView</c> — but a panel with two independent scroll regions in it is one
+    ///         where half the answer is always off screen.
+    ///     </para>
+    /// </remarks>
+    public ScrollView Scroll { get; private set; } = null!;
+
     /// <summary>Where the rows go.</summary>
     public UiElement Body { get; private set; } = null!;
 
@@ -179,7 +196,8 @@ public sealed class InspectorView : Control {
         Lock.AddClass("inspector-lock");
         Lock.CheckedChanged += (_, _) => LockChanged?.Invoke(this);
 
-        Body = Part("inspector-body");
+        Scroll = Part<ScrollView>();
+        Body = Scroll.Content.Add<UiElement>("inspector-body");
 
         Empty = Part<EmptyState>();
         Empty.AddClass("hidden");

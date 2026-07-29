@@ -158,13 +158,29 @@ public sealed class StringDrawer : PropertyDrawer<string, TextBox> {
         // On submit and on focus loss, not on every keystroke. A string is not a slider: recording an
         // undo entry per character makes the history unusable, and merging them all would make a name
         // typed in two sittings one entry.
-        box.Submitted += control => {
+        box.Submitted += Commit;
+
+        // ⚠ Focus loss is the other half and it was missing, which is the whole of what "renaming an
+        // entity in the inspector does nothing until Enter" was. Clicking away from a field is how
+        // most edits end — the pointer goes to the next thing rather than to the Return key — and a
+        // box that kept the typing on screen while writing nothing reads as the edit having landed.
+        // `Write` is a no-op when the value has not changed, so a click through a field nobody typed
+        // in records nothing.
+        box.AddHandler<FocusEvent>(
+            (element, args) => {
+                if (!args.Gained && ReferenceEquals(args.Source, element)) {
+                    Commit((TextBox) element);
+                }
+            }
+        );
+
+        return box;
+
+        void Commit(TextField control) {
             if (field.Write(control.Value ?? string.Empty)) {
                 field.Seal();
             }
-        };
-
-        return box;
+        }
     }
 
     /// <inheritdoc />
@@ -193,6 +209,17 @@ public sealed class MultilineDrawer : PropertyDrawer<string, TextArea> {
 
         area.ValueChanged += (control, _) => field.Write(control.Value ?? string.Empty);
         area.Submitted += _ => field.Seal();
+
+        // The value is already written per keystroke here, so what focus loss ends is the undo entry
+        // — the same thing Enter ends. Without it, everything typed before clicking away merges with
+        // whatever is typed next.
+        area.AddHandler<FocusEvent>(
+            (element, args) => {
+                if (!args.Gained && ReferenceEquals(args.Source, element)) {
+                    field.Seal();
+                }
+            }
+        );
 
         return area;
     }

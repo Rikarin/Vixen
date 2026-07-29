@@ -52,6 +52,25 @@ public sealed class VulkanEnumTests {
         AssertInjective<DescriptorKind, DescriptorType>(VulkanEnums.ToVulkan);
 
     /// <summary>
+    ///     ⚠ <b>The one mapping that is deliberately not the identity, and the reason is
+    ///     <c>VulkanCommandList.SetViewport</c>.</b> It submits a negative-height viewport so that
+    ///     the engine's +Y-up clip space reaches the screen the right way up; Vulkan then decides
+    ///     facing from the signed area in framebuffer coordinates, which that flip mirrors. So a
+    ///     mesh wound counter-clockwise seen from outside — which is what <c>MeshPrimitives</c>
+    ///     builds and what <see cref="FrontFace.CounterClockwise" /> names — arrives clockwise.
+    ///     Mapped straight through, <c>CullMode.Back</c> keeps the inside of every closed mesh and
+    ///     a shader reading <c>SV_IsFrontFace</c> flips exactly the normals that were already right.
+    /// </summary>
+    [Theory]
+    [InlineData(FrontFace.CounterClockwise, Silk.NET.Vulkan.FrontFace.Clockwise)]
+    [InlineData(FrontFace.Clockwise, Silk.NET.Vulkan.FrontFace.CounterClockwise)]
+    public void TheWindingIsInvertedToPayForTheFlippedViewport(
+        FrontFace face,
+        Silk.NET.Vulkan.FrontFace expected
+    ) =>
+        Assert.Equal(expected, VulkanEnums.ToVulkan(face));
+
+    /// <summary>
     ///     Every vertex format has to exist. <c>Undefined</c> is what an unmapped one produces, and a
     ///     vertex attribute with an undefined format is a pipeline that fails to compile with a
     ///     message about a format rather than about the attribute.

@@ -78,6 +78,18 @@ return MoltenVK's `VkPhysicalDevice` unless the instance carries `VK_KHR_portabi
 machine that works fine — so `AdapterSelection` says exactly that when it enumerates nothing, and a
 test asserts the message.
 
+**The viewport is submitted with a negative height, and the front-face winding is inverted to pay
+for it.** Vulkan's clip space has +Y down and the engine's has it up
+([Conventions.md](../../Core/Vixen.Core.Mathematics/Conventions.md)), so `SetViewport` flips Y the
+standard way rather than putting a flip in every vertex shader. What that costs is winding: facing is
+decided from the signed area in *framebuffer* coordinates, which the flip mirrors, so a mesh wound
+counter-clockwise seen from outside — what `MeshPrimitives` builds, and what `FrontFace.CounterClockwise`
+names — arrives clockwise. `VulkanEnums.ToVulkan(FrontFace)` is therefore the one mapping in this
+backend that is deliberately not the identity, and it is the only place the flip is visible to a
+caller. Mapped straight through, `CullMode.Back` keeps the *inside* of every closed mesh and a shader
+reading `SV_IsFrontFace` to light a two-sided surface flips exactly the normals that were already
+right — which is how it was found: the editor's gizmo heads shaded as though lit from inside them.
+
 **The failure message names every device and why each was rejected.** "No suitable GPU found" is the
 least useful error a graphics engine can produce, and every fact needed to do better is available at
 the moment it would be thrown away.

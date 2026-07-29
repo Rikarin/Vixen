@@ -326,6 +326,15 @@ public static class ControlTheme {
             background-color: var(--surface);
             color: var(--text);
             overflow: hidden;
+
+            /* ⚠ Load-bearing, and it is what the placeholder below is positioned against. An
+               absolutely-positioned child is placed by the nearest ancestor that is not `static`,
+               and `static` is the CSS initial — so without this the placeholder was laid out
+               against whatever `position: relative` happened to be somewhere above the field, which
+               in a docked panel is nothing at all. The symptom is a placeholder sitting at the left
+               edge of the *window* rather than of the box, which in the project browser reads as
+               "the placeholder overlaps the magnifying glass" because that is where it lands. */
+            position: relative;
         }
 
         textarea { min-height: 72px; align-items: flex-start; }
@@ -340,6 +349,14 @@ public static class ControlTheme {
         textarea field-text { flex-shrink: 1; white-space: normal; }
         field-placeholder { position: absolute; left: 8px; color: var(--text-muted); display: none; }
         .empty field-placeholder { display: flex; }
+
+        /* ⚠ Past the magnifying glass, because a search box has one and the other fields do not.
+           The offset is the field's own padding plus the icon and the gap after it — the place
+           `field-text` starts — so what the user typed appears exactly where the prompt for it was
+           rather than a glyph's width to the right of it. Absolute rather than in flow so that the
+           prompt does not decide how wide the box has to be: "Search assets" is wider than the
+           field the project browser gives it. */
+        search-box field-placeholder { left: 28px; }
 
         search-box icon { width: 14px; height: 14px; color: var(--text-muted); }
         search-box.empty icon-button { display: none; }

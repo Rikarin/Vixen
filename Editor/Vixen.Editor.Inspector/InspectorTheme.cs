@@ -59,7 +59,15 @@ public static class InspectorTheme {
         inspector-header > search-box { flex-grow: 1; min-width: 0; }
         inspector-header > .inspector-lock { flex-shrink: 0; }
 
-        inspector-body { flex-direction: column; }
+        /* ⚠ `min-height: 0` is what makes it scroll rather than grow. A flex item's automatic
+           minimum is its content, so a scroll view full of rows refuses to be shorter than all of
+           them and pushes the panel's own bottom off screen — the bar never appears and the last
+           component is unreachable. The same rule `inspector-editor` follows for width. */
+        inspector > scroll-view { flex-grow: 1; min-height: 0; }
+
+        /* The rows are the content and the content does not shrink: a body that shrank to fit the
+           viewport is a body with no overflow, which is a scroll view with nothing to scroll. */
+        inspector-body { flex-direction: column; flex-shrink: 0; }
 
         /* ── A row ──────────────────────────────────────────────────────────────
            Label, editor, reset — and a minimum height, so a row holding a check box
@@ -290,7 +298,14 @@ public static class BrowserTheme {
            One block per component, under the inspector's own rows and separated from them
            by a rule, because "what this entity is" and "what is on it" are two lists and a
            panel that ran them together reads as one long one. */
-        components { flex-direction: column; }
+        components { flex-direction: column; flex-shrink: 0; }
+
+        /* ⚠ Said out loud, because the initial value of `flex-direction` is `row` and nothing else
+           here sets it. `LayoutStyle.Default` is column — which is what a document with no
+           stylesheet gets — but every styled element is built from the CSS initial instead, so a
+           part with no rule of its own lays its children out across rather than down. The symptom
+           was three component foldouts side by side, each squeezed to a third of the panel. */
+        component-list { flex-direction: column; flex-shrink: 0; }
 
         expander.component { border-width: 1px 0px 0px 0px; border-color: var(--border); }
         expander.component > expander-header { flex-direction: row; align-items: center; }
