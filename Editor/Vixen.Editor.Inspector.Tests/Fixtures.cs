@@ -139,6 +139,79 @@ public sealed class SparkEmitter : Emitter {
     public float Spread = 0.25f;
 }
 
+/// <summary>A described object held by another, for the nested drawer.</summary>
+/// <remarks>
+///     ⚠ <b>A class, and not by choice.</b> <c>VXI0103</c> refuses <c>[Inspector]</c> on a member of
+///     a value type — <c>InspectorMember&lt;TOwner, TValue&gt;</c> constrains the owner to a class —
+///     so a struct is not describable and the nested drawer never sees one. Writing this as a
+///     <c>struct</c> is a compile error, which is the test that the rule is still the rule.
+/// </remarks>
+public sealed class Bounds {
+    /// <summary>The low corner.</summary>
+    [Inspector]
+    public Vector3 Low;
+
+    /// <summary>The high corner.</summary>
+    [Inspector]
+    public Vector3 High;
+
+    /// <summary>How much slack there is around it.</summary>
+    [Inspector]
+    [Range(0, 10)]
+    public float Padding;
+}
+
+/// <summary>A described class, for the nested drawer's by-reference half.</summary>
+public sealed class Attribution {
+    /// <summary>Who made it.</summary>
+    [Inspector]
+    public string Author = "";
+
+    /// <summary>Which year.</summary>
+    [Inspector]
+    public int Year = 2026;
+}
+
+/// <summary>A type whose members are the ones the composite drawers claim.</summary>
+public sealed class Volume {
+    /// <summary>A nested object, whose members become rows of their own.</summary>
+    [Inspector]
+    public Bounds Extent = new() { Low = new Vector3(-1f), High = new Vector3(1f), Padding = 0.5f };
+
+    /// <summary>Another, to prove the drawer is about the shape rather than about one type.</summary>
+    [Inspector]
+    public Attribution Credit = new();
+
+    /// <summary>A list of values.</summary>
+    [Inspector]
+    public List<float> Weights = [0.25f, 0.5f, 0.75f];
+
+    /// <summary>An array, whose elements inherit the range on the member.</summary>
+    [Inspector]
+    [Range(0, 1)]
+    public float[] Falloff = [0f, 1f];
+
+    /// <summary>A list of assets, to prove the element rows get the attribute's drawer.</summary>
+    [Inspector]
+    [AssetPicker(typeof(TextureAsset))]
+    public List<AssetId> Layers = [];
+}
+
+/// <summary>A type that contains itself, for the nested drawer's depth guard.</summary>
+/// <remarks>
+///     ⚠ A cycle is not exotic — a tree node, a linked settings block, a parent pointer. Without a
+///     bound the rows would be built until the stack ran out, at the moment somebody selected one.
+/// </remarks>
+public sealed class Recursive {
+    /// <summary>Itself.</summary>
+    [Inspector]
+    public Recursive? Inner;
+
+    /// <summary>Something to look at.</summary>
+    [Inspector]
+    public int Depth;
+}
+
 /// <summary>A type with no parameterless constructor, so it offers no defaults.</summary>
 /// <param name="size">How big.</param>
 public sealed class Uncreatable(int size) {

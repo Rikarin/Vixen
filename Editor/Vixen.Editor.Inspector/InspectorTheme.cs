@@ -53,9 +53,11 @@ public static class InspectorTheme {
         /* ── The view ───────────────────────────────────────────────────────── */
         inspector { flex-direction: column; flex-grow: 1; gap: 6px; padding: 2px; overflow: hidden; }
 
-        /* The box keeps its height while the rows below it come and go — a search field that
+        /* The strip keeps its height while the rows below it come and go — a search field that
            shrank when the selection emptied would move under the pointer mid-type. */
-        inspector > search-box { flex-shrink: 0; }
+        inspector-header { flex-direction: row; align-items: center; gap: 6px; flex-shrink: 0; }
+        inspector-header > search-box { flex-grow: 1; min-width: 0; }
+        inspector-header > .inspector-lock { flex-shrink: 0; }
 
         inspector-body { flex-direction: column; }
 
@@ -173,5 +175,36 @@ public static class InspectorTheme {
         vector-component.axis-y > text { color: #7ece6b; }
         vector-component.axis-z > text { color: #58a6ff; }
         vector-component.axis-w > text { color: var(--text-muted); }
+
+        /* ── Nested objects and lists ───────────────────────────────────────────
+           ⚠ The row's own label goes and the row stacks. A nested object is a block of rows rather
+           than a value, so it cannot sit in the editor column beside a name — the foldout carries
+           the name instead, and a row that kept both would say it twice with the second copy
+           squeezed into a third of the panel. */
+        inspector-row.nested { flex-direction: column; align-items: stretch; padding: 0px; }
+        inspector-row.nested > inspector-label { display: none; }
+        inspector-row.nested > inspector-editor { width: 100%; }
+        inspector-row.nested:hover { background-color: transparent; }
+
+        composite-editor { flex-direction: column; flex-grow: 1; min-width: 0; }
+
+        /* Indented after all, unlike a [Header]'s group — these members *are* a nested thing, and the
+           step is what says the four rows under "Bounds" belong to it rather than to the type. */
+        composite-editor expander-content { padding: 0px 0px 4px 10px; }
+        composite-editor expander { border-width: 0px; }
+
+        /* The element's own buttons, right of its editor and out of the tab order. Muted until the
+           row is hovered, because three buttons per element at full contrast is a wall of chrome
+           down the side of a list nobody is editing. */
+        .list-up, .list-down, .list-remove { flex-shrink: 0; opacity: 0.35; }
+        inspector-row:hover .list-up, inspector-row:hover .list-down, inspector-row:hover .list-remove {
+            opacity: 1;
+        }
+
+        .list-add { align-self: flex-start; margin: 4px 0px 0px 0px; }
+
+        /* The count, and whatever the last resort drew. Muted and small: it is a statement about the
+           value rather than a way of changing it. */
+        .property-readonly { color: var(--text-muted); font-size: 0.9em; }
         """;
 }

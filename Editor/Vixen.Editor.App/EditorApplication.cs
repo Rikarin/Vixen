@@ -664,6 +664,19 @@ sealed partial class EditorApplication : IDisposable {
                 inspector = panel.Add<InspectorView>();
                 inspector.EditedDocument = scene;
 
+                // ⚠ After it is in the tree, because the menu is a child of the document root and a
+                // control has no document until it is added to one.
+                inspector.Contextualise();
+
+                // ⚠ The panel refused every selection while it was locked, so it is showing
+                // something stale the moment the lock comes off — and nothing else would tell it,
+                // because the selection has not changed since.
+                inspector.LockChanged += view => {
+                    if (!view.IsLocked) {
+                        ShowSelection();
+                    }
+                };
+
                 // The rows were built against the previous instance of this panel, so what is
                 // selected has to be pushed into the new one rather than waited for — and from
                 // whichever selection the inspector was already following, which is what the two
