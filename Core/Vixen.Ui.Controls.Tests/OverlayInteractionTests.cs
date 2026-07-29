@@ -203,6 +203,86 @@ public class OverlayInteractionTests {
     }
 
     [Fact]
+    public void A_submenu_opens_on_hover_and_closes_when_the_pointer_moves_on() {
+        using var ui = Opened();
+        var menu = ui.Add<Menu>("actions");
+
+        var shapes = menu.AddSubmenu("3D Object");
+        shapes.AddItem("Cube");
+
+        menu.AddItem("Delete");
+        ui.Frame();
+
+        menu.Open();
+        ui.Frame();
+
+        Assert.False(shapes.IsOpen);
+
+        // ⚠ A hover and not a click. Reaching a nested command cost a click per level before, and
+        // no desktop menu anywhere works that way.
+        ui.Get("menu-item").First().Hover();
+        ui.Frame();
+
+        Assert.True(shapes.IsOpen);
+
+        // ⚠ And moving onto a sibling takes it away again. Without this the shapes hang over the
+        // line the pointer is now on, which is worse than never having opened them.
+        ui.Get("menu-item").Nth(1).Hover();
+        ui.Frame();
+
+        Assert.False(shapes.IsOpen);
+        Assert.True(menu.IsOpen);
+    }
+
+    [Fact]
+    public void Hovering_a_submenus_own_items_does_not_close_it() {
+        using var ui = Opened();
+        var menu = ui.Add<Menu>("actions");
+
+        var shapes = menu.AddSubmenu("3D Object");
+        var cube = shapes.AddItem("Cube");
+
+        menu.Open();
+        ui.Frame();
+
+        ui.Get("menu-item").First().Hover();
+        ui.Frame();
+
+        Assert.True(shapes.IsOpen);
+
+        // ⚠ The gesture the whole feature exists for, and the one a close-on-exit rule breaks: a
+        // submenu is placed *beside* its parent line, so reaching into it means leaving that line.
+        // Each menu only ever closes its own siblings' submenus, so travelling into this one is
+        // nothing to do with the menu it came from.
+        var inside = cube.Bounds;
+
+        ui.MovePointer(inside.X + (inside.Width * 0.5f), inside.Y + (inside.Height * 0.5f));
+        ui.Frame();
+
+        Assert.True(shapes.IsOpen);
+        Assert.True(menu.IsOpen);
+    }
+
+    [Fact]
+    public void A_line_that_opens_a_menu_says_so_with_an_arrow() {
+        using var ui = Opened();
+        var menu = ui.Add<Menu>("actions");
+
+        var opens = menu.Items.Count;
+        menu.AddSubmenu("3D Object");
+
+        var plain = menu.AddItem("Delete");
+        menu.Open();
+        ui.Frame();
+
+        // Otherwise the two lines are the same shape and there is no way to tell which one commits
+        // to something and which one only opens more.
+        Assert.NotNull(menu.Items[opens].Submenu);
+        Assert.Contains(menu.Items[opens].Children, static child => child.HasClass("submenu"));
+        Assert.DoesNotContain(plain.Children, static child => child.HasClass("submenu"));
+    }
+
+    [Fact]
     public void A_context_menu_opens_where_it_was_asked_to() {
         using var ui = Opened();
         var menu = ui.Add<ContextMenu>("context");

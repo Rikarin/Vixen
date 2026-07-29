@@ -8,6 +8,7 @@ using Vixen.Ecs;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
+using Vixen.Rendering;
 
 namespace Vixen.Editor.SceneView;
 
@@ -160,7 +161,9 @@ public static class SceneSerializer {
 
             Shape = MeshShapes.TryGet(document.World, entity, out var shape)
                 ? MeshShapes.NameOf(shape)
-                : string.Empty
+                : string.Empty,
+
+            Light = Lights.TryGet(document.World, entity, out var light) ? Written(light) : null
         };
 
         foreach (var binder in Carried(document.World, entity)) {
@@ -173,6 +176,37 @@ public static class SceneSerializer {
 
         return data;
     }
+
+    /// <summary>A light as the file holds it.</summary>
+    static SceneLightData Written(Light light) =>
+        new() {
+            Kind = Lights.NameOf(light.Kind),
+            Colour = light.Colour,
+            Intensity = light.Intensity,
+            Range = light.Range,
+            Radius = light.Radius,
+            InnerAngle = light.InnerAngle,
+            OuterAngle = light.OuterAngle,
+            HalfLength = light.HalfLength
+        };
+
+    /// <summary>A light as the world holds it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The kind is passed in already parsed</b> rather than read from the record, because
+    ///     the caller has had to parse it to know whether there is a light here at all — and doing it
+    ///     twice is how the two copies eventually disagree about what an unknown kind means.
+    /// </remarks>
+    static Light Read(SceneLightData data, LightKind kind) =>
+        new() {
+            Kind = kind,
+            Colour = data.Colour,
+            Intensity = data.Intensity,
+            Range = data.Range,
+            Radius = data.Radius,
+            InnerAngle = data.InnerAngle,
+            OuterAngle = data.OuterAngle,
+            HalfLength = data.HalfLength
+        };
 
     /// <summary>Which of an entity's components a scene file can hold, in name order.</summary>
     /// <remarks>
@@ -282,6 +316,13 @@ public static class SceneSerializer {
         // loop below refuses. When the runtime grows a mesh component this field becomes one of them.
         if (MeshShapes.TryParse(data.Shape, out var shape)) {
             MeshShapes.Attach(document.World, entity, shape);
+        }
+
+        // ⚠ The same tolerance, and it matters more here: a light has seven numbers behind its name,
+        // so an entity whose kind this editor does not recognise keeps its transform and its
+        // children and loses only the lighting. Refusing the file would cost the scene.
+        if (data.Light is { } written && Lights.TryParse(written.Kind, out var kind)) {
+            Lights.Attach(document.World, entity, Read(written, kind));
         }
 
         foreach (var component in data.Components) {

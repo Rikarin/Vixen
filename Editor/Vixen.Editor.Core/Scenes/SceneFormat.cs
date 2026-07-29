@@ -147,6 +147,18 @@ public sealed class SceneEntityData {
     /// </remarks>
     public string Shape { get; set; } = string.Empty;
 
+    /// <summary>What it lights the scene with, or <see langword="null" /> for an entity that lights nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Its own key rather than an entry in <see cref="Components" />, and the reason is the
+    ///     same one <see cref="Shape" /> gives.</b> A light is the editor's component today — the
+    ///     runtime has nowhere to name a <c>LightKind</c>, since <c>Vixen.Engine</c> does not
+    ///     reference <c>Vixen.Rendering</c> — so it has nothing to register with
+    ///     <c>SceneComponentRegistry</c>, and a component listed below that no build declares is what
+    ///     a content compile refuses. Authoring scenes that cannot be compiled is a worse bargain than
+    ///     one more key here, and the day the runtime grows a light component this becomes one of them.
+    /// </remarks>
+    public SceneLightData? Light { get; set; }
+
     /// <summary>What hangs from it, in order.</summary>
     /// <remarks>
     ///     ⚠ <b>Settable, which a collection property usually should not be.</b> The YAML binder
@@ -186,6 +198,58 @@ public sealed class SceneEntityData {
     /// <summary>Renders it as its name.</summary>
     /// <returns>The name.</returns>
     public override string ToString() => Name;
+}
+
+/// <summary>One entity's light, as a scene file holds it.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The kind is written as its name and not as its number</b>, the argument
+///         <see cref="SceneEntityData.Shape" /> makes at length: <c>LightKind</c>'s values are shared
+///         with the shader and are therefore fixed, but writing the integer would put that agreement
+///         into every saved scene as well — so a renumbering that a future format migration could
+///         otherwise handle in one place would silently turn every spot light in the project into a
+///         point light instead.
+///     </para>
+///     <para>
+///         <b>Where the light is and which way it faces are not here.</b> They are the entity's
+///         transform, and a light that carried its own would be a second answer to a question the
+///         file has already answered — the same rule that keeps <c>!LocalTransform</c> out of
+///         <see cref="SceneEntityData.Components" />.
+///     </para>
+///     <para>
+///         Angles are radians, matching the authored record they load into rather than the degrees an
+///         inspector shows: one conversion at the edge where a person types, and none in the file.
+///     </para>
+/// </remarks>
+[DataContract("SceneLight")]
+public sealed class SceneLightData {
+    /// <summary>Which kind of light — <c>Directional</c>, <c>Point</c>, <c>Spot</c>, <c>Rect</c> or <c>Tube</c>.</summary>
+    public string Kind { get; set; } = string.Empty;
+
+    /// <summary>Its colour, before intensity.</summary>
+    public Color3 Colour { get; set; } = new(1f, 1f, 1f);
+
+    /// <summary>How bright it is, as a multiplier on <see cref="Colour" />.</summary>
+    public float Intensity { get; set; } = 1f;
+
+    /// <summary>The distance at which it reaches zero. Unused by a directional light.</summary>
+    public float Range { get; set; }
+
+    /// <summary>Its sphere radius, or a rectangle's half-height.</summary>
+    public float Radius { get; set; }
+
+    /// <summary>The inner cone half-angle in radians.</summary>
+    public float InnerAngle { get; set; }
+
+    /// <summary>The outer cone half-angle in radians.</summary>
+    public float OuterAngle { get; set; }
+
+    /// <summary>Half a tube's length, or half a rectangle's width.</summary>
+    public float HalfLength { get; set; }
+
+    /// <summary>Renders it as its kind.</summary>
+    /// <returns>The kind.</returns>
+    public override string ToString() => Kind;
 }
 
 /// <summary>A scene file.</summary>

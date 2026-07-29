@@ -501,6 +501,21 @@ the binary serializer use for that component. Saving reads back exactly the comp
 nothing registered is **refused on load rather than dropped**, because an entity opened without its
 component is one that gets saved without it.
 
+⚠ **A shape and a light are keys of their own rather than entries in that list, and both are
+temporary.** `MeshShape` and `Light` are the *editor's* components: the runtime has nowhere to name
+a `PrimitiveKind` or a `LightKind`, because `Vixen.Engine` deliberately does not reference
+`Vixen.Rendering`. So neither has anything to register with `SceneComponentRegistry` — and a
+component in the list above that no build declares is exactly what a content compile refuses, which
+would mean the Create menu authoring scenes that cannot be built. One key each is the cheaper
+bargain, and the day the runtime grows those components both become ordinary entries. A `Camera`,
+which *is* a registered runtime component, already is one.
+
+⚠ **A `Color3` needs a scalar converter, the same as a `Vector3`.** Nothing in
+`Vixen.Core.Mathematics` carries the reflection generator, so every type of its that the format
+names has to be registered in `SceneScalars` — the symptom of forgetting is "Color3 has no
+descriptor", thrown from the serializer when somebody saves, which is to say after the work is done
+rather than when the field was added.
+
 **An entity is named by a GUID, not by its handle.** An `Entity` is a slot and a version in one
 world; loading the same scene twice reissues every one of them. `EntityId` is the identity that
 survives, and it is what a reference between entities, a prefab override and a multi-user session
