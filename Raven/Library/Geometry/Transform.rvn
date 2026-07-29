@@ -8,6 +8,20 @@ import Vixen.Shaders.Core
 // compose in. Matrix-first throughout (docs/plan/07 § E), and every function names the space it
 // produces, because a transform applied in the wrong space compiles and renders something plausible.
 
+/// One object's object-to-world matrix, as a record of a buffer the whole frame shares.
+///
+/// The alternative to pushing the matrix per draw, and the reason it exists is not bandwidth: a push
+/// constant is *per draw*, so a pass that pushes one cannot merge two draws into one command. Here the
+/// matrix is at the object's own slot and the draw carries the slot in `firstInstance`, which the API
+/// adds into `SV_InstanceID` before the vertex stage runs — the same mechanism instancing uses, with a
+/// run of one.
+///
+/// A struct of one member rather than a bare `Buffer<mat4>` so the layout is stated where a host can
+/// read it: sixty-four bytes, column-major, exactly the bytes `Matrix4x4` already holds.
+struct ObjectTransform {
+    var world: mat4
+}
+
 struct Transform {
     /// Object space to clip space, in one multiply per stage.
     static func ObjectToClip(worldViewProjection: mat4, position: float3): float4 {

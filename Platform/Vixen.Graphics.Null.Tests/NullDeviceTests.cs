@@ -302,5 +302,77 @@ public sealed class NullDeviceTests : IDisposable {
         Assert.Contains("HasBindless", refused.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     A draw whose count comes from a buffer needs its own capability, which multi-draw does not
+    ///     imply.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The two are separate on every API that has both: Vulkan spells the count buffer as an
+    ///         extension promoted in 1.2, GL wants 4.6 where multi-draw wants 4.3, and WebGPU and
+    ///         Metal have neither. A host that read <c>HasMultiDrawIndirect</c> and issued this would
+    ///         find out on whichever driver it reached first.
+    ///     </para>
+    ///     <para>
+    ///         The device under test reports multi-draw and not the count buffer, which is exactly
+    ///         the combination a real GL 4.5 device reports — so this is a configuration that exists
+    ///         rather than one invented to make the assertion possible.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ACountBufferDrawNeedsItsOwnCapability() {
+        using var limited = new NullDevice(
+            new() {
+                Features = NullDevice.Everything with { HasMultiDrawIndirect = true, HasDrawIndirectCount = false }
+            }
+        );
+
+        var arguments = limited.CreateBuffer(new(64, BufferUsage.Indirect, MemoryAccess.DeviceLocal));
+        var counts = limited.CreateBuffer(new(4, BufferUsage.Indirect, MemoryAccess.DeviceLocal));
+        var target = limited.CreateTextureView(
+            limited.CreateTexture(new(PixelFormat.Rgba8UNorm, 8, 8, TextureUsage.ColourTarget))
+        );
+
+        using var list = limited.BeginCommandList();
+        list.BeginRenderPass(new([new(target)]));
+
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => list.DrawIndexedIndirectCount(arguments, counts, maxDrawCount: 3)
+        );
+
+        Assert.Contains("HasDrawIndirectCount", refused.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>And with the capability it records, with the ceiling it was given.</summary>
+    /// <remarks>
+    ///     The ceiling is the part worth recording. It is not advisory — a device may read up to that
+    ///     many argument structures whatever the count buffer says — so a host that passed a larger
+    ///     one than the region holds is reading past the end of a buffer.
+    /// </remarks>
+    [Fact]
+    public void WithTheCapabilityItRecordsItsCeiling() {
+        using var capable = new NullDevice(new() { Record = true });
+
+        var arguments = capable.CreateBuffer(new(64, BufferUsage.Indirect, MemoryAccess.DeviceLocal));
+        var counts = capable.CreateBuffer(new(4, BufferUsage.Indirect, MemoryAccess.DeviceLocal));
+        var target = capable.CreateTextureView(
+            capable.CreateTexture(new(PixelFormat.Rgba8UNorm, 8, 8, TextureUsage.ColourTarget))
+        );
+
+        using var list = capable.BeginCommandList();
+        list.BeginRenderPass(new([new(target)]));
+        list.DrawIndexedIndirectCount(arguments, counts, offset: 20, maxDrawCount: 3);
+        list.EndRenderPass();
+        list.Finish();
+        capable.GraphicsQueue.Submit([list]);
+
+        var drawn = Assert.Single(capable.Recorder!.OfKind(RecordedCommandKind.DrawIndexedIndirectCount));
+
+        Assert.Equal((long)arguments.Value.Packed, drawn.A);
+        Assert.Equal((long)counts.Value.Packed, drawn.B);
+        Assert.Equal(20, drawn.C);
+        Assert.Equal(3, drawn.D);
+    }
+
     public void Dispose() => device.Dispose();
 }

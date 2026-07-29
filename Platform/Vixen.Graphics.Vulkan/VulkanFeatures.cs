@@ -53,6 +53,23 @@ static class VulkanFeatures {
     /// </remarks>
     internal const string DescriptorIndexing = "VK_EXT_descriptor_indexing";
 
+    /// <summary>The count-buffer draw, core in 1.2 and an extension at every version.</summary>
+    /// <remarks>
+    ///     Named here rather than taken from <c>KhrDrawIndirectCount.ExtensionName</c> for the same
+    ///     reason <see cref="DescriptorIndexing" /> is: the translation and device creation have to
+    ///     name the same string, and two spellings is one typo away from a capability that reports
+    ///     present on a device that was never asked for it.
+    /// </remarks>
+    internal const string DrawIndirectCount = "VK_KHR_draw_indirect_count";
+
+    /// <summary>How many sets a pipeline binds once one of them is a bindless table.</summary>
+    /// <remarks>
+    ///     The engine's four, plus <c>DescriptorSetSlot.Bindless</c>. Vulkan's floor for
+    ///     <c>maxBoundDescriptorSets</c> is four, so this is a real requirement rather than a
+    ///     formality — see the comment where it is applied.
+    /// </remarks>
+    const uint BindlessSetCount = 5;
+
     /// <summary>Translates a device's report into the RHI's vocabulary.</summary>
     /// <param name="features">What <c>vkGetPhysicalDeviceFeatures</c> said.</param>
     /// <param name="limits">What <c>vkGetPhysicalDeviceProperties</c> said.</param>
@@ -76,7 +93,15 @@ static class VulkanFeatures {
         in PhysicalDeviceDescriptorIndexingFeatures indexing = default,
         in PhysicalDeviceDescriptorIndexingProperties indexingLimits = default
     ) {
-        var bindless = HasDescriptorIndexing(extensions, apiVersion) && Bindless(indexing);
+        // ⚠ And a fifth bindable set, which is not part of descriptor indexing and is checked here
+        // because nothing else would check it. The engine's table is its own descriptor set — see
+        // DescriptorSetSlot.Bindless for why it cannot share one — so a shader that indexes a table
+        // binds five sets, and Vulkan guarantees four. Every device with descriptor indexing has
+        // reported eight or more so far; a device that reports four would build every layout
+        // successfully and fail at vkCreatePipelineLayout, which is a long way from the cause.
+        var bindless = HasDescriptorIndexing(extensions, apiVersion)
+            && Bindless(indexing)
+            && limits.MaxBoundDescriptorSets >= BindlessSetCount;
 
         return GraphicsDeviceFeatures.Minimum with {
             // Vulkan has no device without compute — unlike WebGL2, which is what the flag exists
@@ -96,6 +121,12 @@ static class VulkanFeatures {
             HasBindless = bindless,
 
             HasMultiDrawIndirect = features.MultiDrawIndirect,
+
+            // The extension, at every version. It is core from 1.2 and gated there behind
+            // VkPhysicalDeviceVulkan12Features::drawIndirectCount, which this backend does not query
+            // — and every driver that promoted it still advertises it, so asking for the extension
+            // is both sufficient and the same question device creation enables.
+            HasDrawIndirectCount = extensions.Contains(DrawIndirectCount),
             HasTimelineSemaphores = apiVersion >= Version12 || extensions.Contains(TimelineSemaphore),
             HasAsyncCompute = queues.HasAsyncCompute,
             HasAsyncTransfer = queues.HasAsyncTransfer,

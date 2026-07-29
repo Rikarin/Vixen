@@ -58,6 +58,18 @@ public static class EffectSetWriter {
                 continue;
             }
 
+            // ⚠ An unbounded array is not written from here and is not missing either. A BindlessTable
+            // owns its descriptors and writes them one at a time as textures enter it, which is why it
+            // is a set of its own — see DescriptorSetSlot.Bindless. Counting it as wanted would make
+            // every set holding one permanently incomplete, and the caller's response to incomplete is
+            // to bind *nothing*: a shader that gained a table would lose the set it was already
+            // binding, so the frame would go dark rather than untextured.
+            if (binding.Count == 0
+                && binding.Kind is DescriptorKind.SampledTexture or DescriptorKind.StorageTexture
+                    or DescriptorKind.Sampler) {
+                continue;
+            }
+
             // An array binding is as many descriptors as it declared, and every one of them has to
             // be written: a set with a hole in it is undefined at the element nobody filled, and the
             // shader indexes it with a number a host put in a per-object block.

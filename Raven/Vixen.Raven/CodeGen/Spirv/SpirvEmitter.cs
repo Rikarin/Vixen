@@ -27,7 +27,20 @@ sealed record SpirvGlobal(
     SpirvStorageClass Storage,
     int? Member = null,
     LayoutRule? Layout = null
-);
+) {
+    /// <summary>
+    ///     The binding whose value subscripts the record this member lives in, or null.
+    /// </summary>
+    /// <remarks>
+    ///     Set only for a member of a per-material block the shader turned into a record. The access
+    ///     chain then reads <c>buffer[0][index].member</c> rather than <c>block.member</c> — the
+    ///     leading zero being the runtime array inside the block, which is the same shape every
+    ///     storage buffer here has. The index is <em>loaded</em> where the access is emitted rather
+    ///     than hoisted, because it lives in the per-draw block and a load from a uniform is what
+    ///     every other read of it would be anyway.
+    /// </remarks>
+    public IrBinding? RecordIndex { get; init; }
+}
 
 /// <summary>
 ///     Emits one SPIR-V module for one entry point.
@@ -114,10 +127,19 @@ sealed partial class SpirvEmitter {
             }
 
             if (planned.Resource is { } resource) {
-                globals[resource.Variable] = new(
+                var declared = new SpirvGlobal(
                     DeclareOpaque(resource, planned),
                     SpirvStorageClass.UniformConstant
                 );
+
+                // Every declaration the plan collapsed into this one, not only the first. A shared
+                // binding is one resource named by several features, and each feature's body refers
+                // to the variable *it* was compiled against — so all of them have to reach the one
+                // OpVariable that was emitted, or the second feature's sample resolves to nothing.
+                foreach (var declaration in planned.Declarations) {
+                    globals[declaration.Variable] = declared;
+                }
+
                 continue;
             }
 
@@ -191,24 +213,54 @@ sealed partial class SpirvEmitter {
             Report(BackendDiagnostics.NotExpressible, $"The boolean in uniform binding '{uniform.Name}'");
         }
 
+        // std430 for a record and std140 for a block, because they are different objects: a record
+        // is an element of a storage buffer, and packing it std140 would round every member up to
+        // the rule a uniform block needs and leave the host writing a stride nothing agrees on.
+        var layout = planned.IsRecord ? LayoutRule.Std430 : LayoutRule.Std140;
+
         var members = uniforms.Select(u => u.Type).ToArray();
         var structId = module.AddDeclaration(
             SpirvOp.TypeStruct,
             null,
-            [.. members.Select(m => SpirvOperand.Id(types.Type(m, LayoutRule.Std140)))]
+            [.. members.Select(m => SpirvOperand.Id(types.Type(m, layout)))]
         );
 
         module.AddName(structId, planned.Name);
-        module.Decorate(structId, SpirvDecoration.Block);
-        types.DecorateLayout(structId, members, LayoutRule.Std140);
+
+        // Before the layout, which is where it has always been: the golden listings pin the order
+        // annotations come out in, and a `Block` that moved below the member offsets is a diff in
+        // every fixture for no change in meaning. A record carries `BufferBlock` on the struct that
+        // wraps it instead, which is emitted below.
+        if (!planned.IsRecord) {
+            module.Decorate(structId, SpirvDecoration.Block);
+        }
+
+        types.DecorateLayout(structId, members, layout);
 
         for (var i = 0; i < uniforms.Length; i++) {
             module.AddMemberName(structId, i, uniforms[i].Name);
         }
 
+        // A record is one element of a runtime array inside a BufferBlock — the same shape
+        // EmitStorageBuffer gives every storage buffer, and for the same reason: SPIR-V has no bare
+        // runtime-array variable, so the array is always member 0 of a block. An ordinary uniform
+        // block is the struct itself.
+        var blockId = structId;
+
+        if (planned.IsRecord) {
+            var records = types.RecordArray(structId, ShaderLayout.Members(members, LayoutRule.Std430).Size);
+            blockId = module.AddDeclaration(SpirvOp.TypeStruct, null, SpirvOperand.Id(records));
+
+            module.AddName(blockId, planned.Name + "Block");
+            module.AddMemberName(blockId, 0, "records");
+            module.Decorate(blockId, SpirvDecoration.BufferBlock);
+            module.DecorateMember(blockId, 0, SpirvDecoration.Offset, SpirvOperand.Literal(0));
+            module.DecorateMember(blockId, 0, SpirvDecoration.NonWritable);
+        }
+
         var variable = module.AddDeclaration(
             SpirvOp.Variable,
-            types.Pointer(SpirvStorageClass.Uniform, structId),
+            types.Pointer(SpirvStorageClass.Uniform, blockId),
             SpirvOperand.Enumerant(SpirvStorageClass.Uniform)
         );
 
@@ -216,7 +268,9 @@ sealed partial class SpirvEmitter {
         DecorateBinding(variable, planned);
 
         for (var i = 0; i < uniforms.Length; i++) {
-            globals[uniforms[i].Variable] = new(variable, SpirvStorageClass.Uniform, i, LayoutRule.Std140);
+            globals[uniforms[i].Variable] = new(variable, SpirvStorageClass.Uniform, i, layout) {
+                RecordIndex = planned.RecordIndex
+            };
         }
     }
 

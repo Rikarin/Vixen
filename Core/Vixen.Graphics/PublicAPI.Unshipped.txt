@@ -21,7 +21,7 @@ Vixen.Graphics.BindlessTable -> sealed class
 Vixen.Graphics.BindlessTable : System.IDisposable
 Vixen.Graphics.BindlessTable.Add(Vixen.Graphics.TextureViewHandle view) -> uint
 Vixen.Graphics.BindlessTable.BeginFrame() -> void
-Vixen.Graphics.BindlessTable.BindlessTable(Vixen.Graphics.IGraphicsDevice device, Vixen.Graphics.ShaderStage stages = Vixen.Graphics.ShaderStage.Fragment, int capacity = 0, uint binding = 0, Vixen.Graphics.DescriptorSetSlot slot = Vixen.Graphics.DescriptorSetSlot.PerFrame, Vixen.Graphics.DescriptorKind kind = Vixen.Graphics.DescriptorKind.SampledTexture, Vixen.Graphics.TextureViewHandle fallback = default(Vixen.Graphics.TextureViewHandle), string name = "Bindless") -> void
+Vixen.Graphics.BindlessTable.BindlessTable(Vixen.Graphics.IGraphicsDevice device, Vixen.Graphics.ShaderStage stages = Vixen.Graphics.ShaderStage.Fragment, int capacity = 0, uint binding = 0, Vixen.Graphics.DescriptorSetSlot slot = Vixen.Graphics.DescriptorSetSlot.Bindless, Vixen.Graphics.DescriptorKind kind = Vixen.Graphics.DescriptorKind.SampledTexture, Vixen.Graphics.TextureViewHandle fallback = default(Vixen.Graphics.TextureViewHandle), string name = "Bindless") -> void
 Vixen.Graphics.BindlessTable.Capacity.get -> int
 Vixen.Graphics.BindlessTable.Count.get -> int
 Vixen.Graphics.BindlessTable.Dispose() -> void
@@ -290,6 +290,7 @@ Vixen.Graphics.DescriptorSetLayoutHandle.IsValid.get -> bool
 Vixen.Graphics.DescriptorSetLayoutHandle.Value.get -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuDescriptorSetLayout>
 Vixen.Graphics.DescriptorSetLayoutHandle.Value.init -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuDescriptorSetLayout>
 Vixen.Graphics.DescriptorSetSlot -> enum : byte
+Vixen.Graphics.DescriptorSetSlot.Bindless = 4 -> Vixen.Graphics.DescriptorSetSlot
 Vixen.Graphics.DescriptorSetSlot.DescriptorSetSlot() -> void
 Vixen.Graphics.DescriptorSetSlot.PerDraw = 3 -> Vixen.Graphics.DescriptorSetSlot
 Vixen.Graphics.DescriptorSetSlot.PerFrame = 0 -> Vixen.Graphics.DescriptorSetSlot
@@ -360,6 +361,8 @@ Vixen.Graphics.GraphicsDeviceFeatures.HasCompute.get -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasCompute.init -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasDepthClamp.get -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasDepthClamp.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasDrawIndirectCount.get -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasDrawIndirectCount.init -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasDynamicRendering.get -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasDynamicRendering.init -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasFloat64.get -> bool
@@ -451,6 +454,7 @@ Vixen.Graphics.ICommandList.DispatchIndirect(Vixen.Graphics.BufferHandle argumen
 Vixen.Graphics.ICommandList.Draw(int vertexCount, int instanceCount = 1, int firstVertex = 0, int firstInstance = 0) -> void
 Vixen.Graphics.ICommandList.DrawIndexed(int indexCount, int instanceCount = 1, int firstIndex = 0, int vertexOffset = 0, int firstInstance = 0) -> void
 Vixen.Graphics.ICommandList.DrawIndexedIndirect(Vixen.Graphics.BufferHandle arguments, long offset = 0, int drawCount = 1, int stride = 20) -> void
+Vixen.Graphics.ICommandList.DrawIndexedIndirectCount(Vixen.Graphics.BufferHandle arguments, Vixen.Graphics.BufferHandle count, long offset = 0, long countOffset = 0, int maxDrawCount = 1, int stride = 20) -> void
 Vixen.Graphics.ICommandList.EndRenderPass() -> void
 Vixen.Graphics.ICommandList.Finish() -> void
 Vixen.Graphics.ICommandList.InsertDebugMarker(string name) -> void

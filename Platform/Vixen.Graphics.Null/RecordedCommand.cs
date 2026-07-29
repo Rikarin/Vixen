@@ -50,6 +50,9 @@ public enum RecordedCommandKind : byte {
     /// <summary>An indirect indexed draw.</summary>
     DrawIndexedIndirect,
 
+    /// <summary>An indexed indirect draw whose count came from a buffer.</summary>
+    DrawIndexedIndirectCount,
+
     /// <summary>A compute dispatch.</summary>
     Dispatch,
 

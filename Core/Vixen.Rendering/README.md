@@ -410,11 +410,18 @@ will bind the same pipeline get the same group, the key puts groups above depth,
 and the mesh feature sees one run and binds once. Break any link and four objects sharing a material
 become four pipeline binds — which is asserted, not assumed.
 
-The transform goes out as **push constants**: the smallest, most per-draw thing a frame has, with no
-descriptor, no upload-ring allocation and no offset to track. A `mat4` is 64 bytes against Vulkan's
-guaranteed 128, and Raven warns at `RVN3007` if a shader's block exceeds that, so both sides agree
-about the budget. The matrix is sent unchanged — see the `Matrix4x4` note in
+The transform goes out as **push constants** by default: the smallest, most per-draw thing a frame
+has, with no descriptor, no upload-ring allocation and no offset to track. A `mat4` is 64 bytes
+against Vulkan's guaranteed 128, and Raven warns at `RVN3007` if a shader's block exceeds that, so
+both sides agree about the budget. The matrix is sent unchanged — see the `Matrix4x4` note in
 [Vixen.Shaders](../Vixen.Shaders/README.md).
+
+**Or as a record, when the frame is merging draws.** `EnableRecords` puts every matrix in one buffer
+at the object's own slot and carries the slot in the draw's `firstInstance`; the shader's half is
+`UseTransformRecords`, and both move together because either alone draws a wrong picture rather than
+failing. What it buys is not bandwidth — it is that a push constant is *per command*, so a run of
+objects that bind nothing between them cannot become one command while each still has a matrix to
+push. See [Compacted draws](#what-is-not-here-yet).
 
 ## Lighting
 
@@ -1017,6 +1024,10 @@ and a light list needs two features to agree on its layout. `worldViewProjection
 world × the view's matrix, computed per object on the CPU and uploaded per object, where the vertex
 stage can multiply two matrices it already has.
 
+Set 0 has since gained `transforms` and `transformBase` beside them, which is where `world` reads from
+when `UseTransformRecords` is on — a push constant is per command, and that turned out to matter more
+than what it costs. The push-constant range is still declared either way.
+
 The per-draw block's declaration order is not a style choice either. std140 starts an array of
 structures on a sixteen-byte boundary, so the count and the two probe fields fill exactly the header
 `ForwardLightingRenderFeature.HeaderSize` was already writing — and `ForwardPlusLayoutTests` holds all
@@ -1525,14 +1536,35 @@ node that does not compile, with no hint as to why.
 Bloom has no lens flare and no light streak, and the tonemap pass has no grading LUT as an asset —
 the shader takes one, nothing loads one.
 
-**Compacted draws, and the bindless materials they need.** Indirect draws here are one command per
-object with the culled ones zeroed. The reason is not the shader — claiming a slot needs an
-`atomicAdd` and Raven has one. It is the draw, twice over: a single command covers a compacted run
-only if its count comes from the device, and `ICommandList.DrawIndexedIndirect` takes `drawCount` as
-a host integer; and a single command covers several objects only if they share their bindings, and
-`MeshRenderFeature` binds a vertex buffer, an index buffer and a material set per object. **Bindless
-materials** are the deeper of the two and the one to do first — an indirect-count draw is a small
-RHI addition that buys nothing on its own.
+**Compacted draws are built**, and this section used to say they were the thing blocked on
+everything. `GpuDrawArguments.Compact` appends survivors to a run per batch and
+`MeshRenderFeature` covers a whole batch with one `DrawIndexedIndirectCount` — see
+[docs/bindless-materials.md](../../docs/bindless-materials.md), which is the record of the whole
+chain. Both halves of the old objection are gone: the count comes from a buffer the host never reads,
+and objects share their bindings because a material is a record (`MaterialRecords`) and geometry is a
+range of a shared buffer (`GeometryBuffer`).
+
+**The transform is out of the command buffer too.** `TransformRenderFeature.EnableRecords` puts every
+object's matrix in one buffer at the object's own slot and carries the slot in the draw's own
+`firstInstance` — the field `InstancingRenderFeature` has always used, which the compaction shader
+copies and the API adds into `SV_InstanceID` before the vertex stage runs. A push constant is not a
+binding, which is why nothing in the bindless plan touched it, and it stopped a merge anyway: data in
+the command buffer is per command by construction. `ForwardPlusKeys.UseTransformRecords` is the
+shader's half, and the gate is `HasDrawIndirectCount` — not because a device could not read the
+buffer, but because without a merged command to gain the read is a straight loss.
+
+**What is left is the per-object light block, and only where there is one.** With a uniform light
+list `ForwardLightingRenderFeature` binds each object's block at its own dynamic offset, and a
+dynamic offset travels in the *bind* rather than in the block — nothing inside a merged command can
+change it. With clustering on it binds nothing per object, so a clustered frame with transform
+records does merge. That is why the gate asks a sub-feature what it is *doing* this frame
+(`IDrawSubFeature.IsRecording`) rather than what type it is: the type gives the same answer to both
+of those and it is wrong for one of them. There is a test on each side.
+
+⚠ The clustered path binds no per-draw set at all, so `probeIndex`, `probeWeight`, `lightCount` and
+`materialIndex` are not bound in a clustered frame. That is older than any of this and unfixed by it
+— see [docs/bindless-materials.md](../../docs/bindless-materials.md) — and it is why "the clustered
+pass merges" is not yet the same sentence as "the clustered pass is right".
 
 ## Testing
 

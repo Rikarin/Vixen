@@ -19,13 +19,18 @@ public static class DeclarationFacts {
 
     /// <summary>
     ///     Attribute names that place a binding in a descriptor set. One name per set, so the
-    ///     four-set convention is spelled rather than numbered — see <see cref="ResourceSet" />.
+    ///     convention is spelled rather than numbered — see <see cref="ResourceSet" />.
     /// </summary>
+    /// <remarks>
+    ///     <c>[Bindless]</c> is the odd one, and named for what it holds rather than for how often it
+    ///     changes: the other four say when a frame rebinds them and that one is never rebound.
+    /// </remarks>
     static readonly Dictionary<string, ResourceSet> SetAttributes = new(StringComparer.Ordinal) {
         ["PerFrame"] = ResourceSet.PerFrame,
         ["PerView"] = ResourceSet.PerView,
         ["PerMaterial"] = ResourceSet.PerMaterial,
-        ["PerDraw"] = ResourceSet.PerDraw
+        ["PerDraw"] = ResourceSet.PerDraw,
+        ["Bindless"] = ResourceSet.Bindless
     };
 
     public static bool Has(SyntaxList<SyntaxToken> modifiers, SyntaxKind kind) {
@@ -206,6 +211,87 @@ public static class DeclarationFacts {
 
         return false;
     }
+
+    /// <summary>Whether the declaration is marked <c>[Shared]</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         One resource for the whole compilation rather than a contribution from each feature
+    ///         that mentions it. A composed feature's bindings are qualified by the path they were
+    ///         reached through — which is what stops three features that each declare a
+    ///         <c>strength</c> from colliding — and that makes a binding declared by two features two
+    ///         bindings. For a value that is right. For the frame's texture table it is the opposite
+    ///         of what the table is: one unbounded array bound once, which two of is two descriptor
+    ///         arrays and two pools.
+    ///     </para>
+    ///     <para>
+    ///         Marked rather than inferred from the declarations matching, because the inference is
+    ///         the wrong default: two features that happened to name a texture <c>noise</c> would
+    ///         silently share one descriptor, and neither author would have said anything to that
+    ///         effect. Saying it is the whole point.
+    ///     </para>
+    /// </remarks>
+    public static bool IsShared(SyntaxList<AttributeListSyntax> attributeLists) {
+        foreach (var attribute in GetAttributes(attributeLists)) {
+            if (GetAttributeName(attribute) == "Shared") {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Whether the declaration is marked <c>[MaterialIndex]</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         One field carries it, and its presence changes the shape of a whole set: the
+    ///         per-material uniform block becomes one <em>record</em> of a buffer holding every
+    ///         material in the frame, and this is the index of the record a draw reads. Every
+    ///         reference to a per-material value is then <c>materials[index].value</c> rather than a
+    ///         member of a block bound per draw.
+    ///     </para>
+    ///     <para>
+    ///         Which is the point: a draw that binds a descriptor set per material cannot be merged
+    ///         with a draw that binds a different one. One buffer bound once for the frame and an
+    ///         index in the per-draw data is what makes two materials' draws identical in everything
+    ///         but their data — see <c>docs/bindless-materials.md</c>.
+    ///     </para>
+    /// </remarks>
+    public static bool IsMaterialIndex(SyntaxList<AttributeListSyntax> attributeLists) {
+        foreach (var attribute in GetAttributes(attributeLists)) {
+            if (GetAttributeName(attribute) == "MaterialIndex") {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     The permutation a <c>[MaterialIndex("Key")]</c> is conditional on, or null when it is
+    ///     unconditional.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>What makes one pass able to be both.</strong> Records are what a device with
+    ///         bindless wants and a descriptor set per material is what GL, WebGL2 and MoltenVK below
+    ///         argument-buffer tier 2 need (ADR-011) — so a pass that could only be one of the two
+    ///         would have to be written twice, and the shipped forward pass is four hundred lines.
+    ///     </para>
+    ///     <para>
+    ///         A permutation is the right conditional and not merely the available one: the two forms
+    ///         are different <em>compilations</em> with different descriptor layouts, which is exactly
+    ///         what a permutation already means everywhere else in this language. Folding a branch is
+    ///         the usual consequence; changing the shape of a set is a larger one, and it is the same
+    ///         mechanism.
+    ///     </para>
+    ///     <para>
+    ///         Gating on the marked field being <em>used</em> would have been the tempting alternative
+    ///         and does not work: a binding is a declared field, so it survives its last reader
+    ///         folding away — which a probe confirmed before this existed.
+    ///     </para>
+    /// </remarks>
+    public static string? GetMaterialIndexCondition(SyntaxList<AttributeListSyntax> attributeLists) =>
+        StringArgumentOf(attributeLists, "MaterialIndex");
 
     /// <summary>
     ///     The texel format a declaration is tagged with — <c>[Format("rgba16f")]</c> — or null.

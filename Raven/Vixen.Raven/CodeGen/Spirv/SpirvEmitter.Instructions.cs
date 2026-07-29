@@ -1142,6 +1142,15 @@ partial class SpirvEmitter {
             storage = global.Storage;
 
             if (global.Member is { } member) {
+                // A record's member is reached through two more subscripts than a block's: member 0
+                // of the block is the runtime array, then the record, then the member. The index is
+                // loaded here rather than hoisted, because it is a uniform like any other and this
+                // is the only place that knows a per-material access is being made.
+                if (global.RecordIndex is { } record && globals.TryGetValue(record.Variable, out var slot)) {
+                    indices.Add(SpirvOperand.Id(types.ConstantInt(0)));
+                    indices.Add(SpirvOperand.Id(LoadGlobal(slot, record.Type)));
+                }
+
                 indices.Add(SpirvOperand.Id(types.ConstantInt(member)));
             }
         } else if (pointers.TryGetValue(place.Root, out var pointer)) {
@@ -1225,6 +1234,29 @@ partial class SpirvEmitter {
         }
 
         return new(chain, type, layout, storage, trailing);
+    }
+
+    /// <summary>Loads a global's value — used for the index a material record is read at.</summary>
+    /// <remarks>
+    ///     A small access chain and a load rather than anything the value path offers, because the
+    ///     index is not an <c>IrValue</c> the body produced: it is a binding, and the body never
+    ///     mentions it. Emitted at each use rather than once, which is what a driver would do with it
+    ///     anyway — a uniform load is the cheapest thing in the shader and hoisting it here would
+    ///     mean deciding where "here" is across basic blocks.
+    /// </remarks>
+    uint LoadGlobal(SpirvGlobal global, IrType type) {
+        var pointer = global.Variable;
+
+        if (global.Member is { } member) {
+            pointer = Emit(
+                SpirvOp.AccessChain,
+                types.Pointer(global.Storage, types.Type(type, global.Layout)),
+                SpirvOperand.Id(global.Variable),
+                SpirvOperand.Id(types.ConstantInt(member))
+            );
+        }
+
+        return Emit(SpirvOp.Load, types.Type(type), SpirvOperand.Id(pointer));
     }
 
     // --- Values ------------------------------------------------------------

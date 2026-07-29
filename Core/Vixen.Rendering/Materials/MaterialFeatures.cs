@@ -66,6 +66,84 @@ public sealed record MetalRoughnessFeature : IMaterialFeature {
 }
 
 /// <summary>
+///     The metalness/roughness workflow with a base-colour map.
+/// </summary>
+/// <remarks>
+///     <para>
+///         <strong>The first material feature that samples a texture</strong>, which doc 06 records
+///         as a gap for as long as a feature had no way to name one: sampling needs a binding index
+///         only the compiled shader knows, and a feature is composed into a shader it has never seen.
+///     </para>
+///     <para>
+///         It carries no texture handle. What it carries is a <em>name</em> — the parameter the
+///         host writes a table slot into — and the texture itself is assigned on the material, paired
+///         to that name through <c>MaterialRenderFeature.TextureIndices</c>. That indirection is the
+///         whole of what "materials are values, not resources" means here: this record is data that
+///         serialises, and nothing in it is a handle to something on a device.
+///     </para>
+///     <para>
+///         Needs a device with <c>HasBindless</c> and a host that gave the material feature a
+///         <c>BindlessTable</c>. Without one the index stays zero and every material samples the
+///         table's fallback, so a project targeting GL or WebGL2 uses
+///         <see cref="MetalRoughnessFeature" /> and tints instead — which is the same fork ADR-011
+///         makes everywhere else.
+///     </para>
+/// </remarks>
+[DataContract("TexturedMetalRoughness")]
+public sealed record TexturedMetalRoughnessFeature : IMaterialFeature {
+    /// <summary>Multiplied into the map, so a shared map can be tinted per material.</summary>
+    public Vector3 BaseColor { get; init; } = Vector3.One;
+
+    /// <summary>How much of a conductor this is, 0..1.</summary>
+    public float Metalness { get; init; }
+
+    /// <summary>Perceptual roughness, as authored.</summary>
+    public float Roughness { get; init; } = 0.5f;
+
+    /// <summary>What the material calls the base-colour map it wants sampled.</summary>
+    /// <remarks>
+    ///     A name rather than a handle, because a material is authored and serialised on machines
+    ///     that have no device. The host pairs it with the shader parameter this feature declares —
+    ///     see <see cref="BaseColorIndexParameter" /> — and the pairing is explicit for the reason
+    ///     every other name-to-name join in the renderer is.
+    /// </remarks>
+    public string BaseColorMap { get; init; } = "baseColorMap";
+
+    /// <inheritdoc />
+    public string ShaderName => "TexturedMetalRoughnessSurface";
+
+    /// <summary>What the shader calls the slot, under a composition path.</summary>
+    /// <param name="path">
+    ///     The qualified prefix the feature was composed under, as
+    ///     <see cref="MaterialCompilationContext" /> builds it.
+    /// </param>
+    /// <remarks>
+    ///     Exposed because a host has to name both halves of the pairing and only the compiler knows
+    ///     the first: a feature's parameters belong to its composition path, so the same feature under
+    ///     <c>CompositeSurface.slot0</c> and <c>CompositeSurface.slot1</c> is two parameters. A host
+    ///     that wrote the name down would write down one of the two.
+    /// </remarks>
+    public static string BaseColorIndexParameter(string path) {
+        ArgumentNullException.ThrowIfNull(path);
+        return path + "baseColorIndex";
+    }
+
+    /// <inheritdoc />
+    public void Compile(MaterialCompilationContext context) {
+        ArgumentNullException.ThrowIfNull(context);
+
+        context.Set("baseColor", BaseColor);
+        context.Set("metalness", Metalness);
+        context.Set("roughness", Roughness);
+
+        // Zero, and it stays zero unless a host with a table writes a slot over it. Slot zero is the
+        // table's fallback view, so a material whose map never reached a table samples something
+        // defined and visibly wrong rather than whatever the driver left in an unwritten descriptor.
+        context.Set("baseColorIndex", 0u);
+    }
+}
+
+/// <summary>
 ///     The specular/glossiness workflow, for content authored before metalness won.
 /// </summary>
 /// <remarks>

@@ -32,6 +32,26 @@ public interface IDrawArgumentSource {
     /// <param name="system">The render system, for the per-object data.</param>
     /// <param name="commands">One record per object slot, cleared before the first source sees it.</param>
     void FillArguments(RenderSystem system, Span<DrawCommand> commands);
+
+    /// <summary>
+    ///     Says which batch each of this feature's objects belongs to, for a compacted buffer.
+    /// </summary>
+    /// <param name="system">The render system.</param>
+    /// <param name="batches">One id per object slot, cleared before the first source sees it.</param>
+    /// <remarks>
+    ///     <para>
+    ///         A batch is objects whose draws could be merged: same pipeline, same geometry, same
+    ///         material set. Only the feature that would bind those things knows, which is why this
+    ///         is here and not derived.
+    ///     </para>
+    ///     <para>
+    ///         Doing nothing is a correct implementation and puts everything in batch zero — which is
+    ///         right for a feature whose objects really do bind alike, and safe for one whose do not,
+    ///         because the draw side checks that a run is a whole batch before covering it with one
+    ///         command.
+    ///     </para>
+    /// </remarks>
+    void FillBatches(RenderSystem system, Span<uint> batches) { }
 }
 
 /// <summary>
@@ -107,6 +127,16 @@ public sealed class GpuCullingRenderer : SceneRenderer {
             foreach (var feature in system.Features) {
                 if (feature is IDrawArgumentSource source) {
                     source.FillArguments(system, commands);
+                }
+            }
+
+            // A second pass rather than one, because the two spans come from two arrays and handing
+            // out both at once would mean a source could hold one while the other was resized.
+            var batches = arguments.Batches(objectCount);
+
+            foreach (var feature in system.Features) {
+                if (feature is IDrawArgumentSource source) {
+                    source.FillBatches(system, batches);
                 }
             }
         }

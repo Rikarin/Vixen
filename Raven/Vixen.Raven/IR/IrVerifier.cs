@@ -51,6 +51,24 @@ public static class IrVerifier {
             }
         }
 
+        // A shared binding is one resource named by however many features declared it, so two
+        // declarations of one name that disagree about kind or set are not one resource at all —
+        // and collapsing them to whichever came first would compile a feature against something it
+        // did not declare.
+        foreach (var group in shader.Bindings.Where(b => b.IsShared).GroupBy(b => b.Name, StringComparer.Ordinal)) {
+            var shapes = group.Select(b => (b.Kind, b.Set)).Distinct().ToArray();
+
+            if (shapes.Length > 1) {
+                diagnostics.Add(
+                    LoweringDiagnostics.SharedBindingsDisagree,
+                    Location.None,
+                    group.Key,
+                    shader.Name,
+                    string.Join(", ", shapes.Select(shape => $"{shape.Kind} in {shape.Set}"))
+                );
+            }
+        }
+
         var stages = new HashSet<ShaderStage>();
 
         foreach (var entryPoint in shader.EntryPoints) {

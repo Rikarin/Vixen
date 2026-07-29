@@ -439,6 +439,27 @@ sealed class WebGpuCommandList : ICommandList {
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     WebGPU has neither multi-draw indirect nor a count buffer, and it is not an omission
+    ///     waiting to be filled: the count would have to be validated against the argument buffer's
+    ///     length on the GPU, which the specification's safety model does not have a mechanism for.
+    ///     The padded form is what runs here permanently.
+    /// </remarks>
+    public void DrawIndexedIndirectCount(
+        BufferHandle arguments,
+        BufferHandle count,
+        long offset = 0,
+        long countOffset = 0,
+        int maxDrawCount = 1,
+        int stride = 20
+    ) =>
+        throw new NotSupportedException(
+            "A draw whose count comes from a buffer is not something WebGPU has, which is what "
+            + "Features.HasDrawIndirectCount reports. Issue DrawIndexedIndirect at the run's maximum "
+            + "length with the culled arguments zeroed instead."
+        );
+
+    /// <inheritdoc />
     public void Dispatch(int groupsX, int groupsY = 1, int groupsZ = 1) {
         ThrowIfRecorded();
 

@@ -290,6 +290,41 @@ sealed unsafe class VulkanCommandList : ICommandList {
     }
 
     /// <inheritdoc />
+    public void DrawIndexedIndirectCount(
+        BufferHandle arguments,
+        BufferHandle count,
+        long offset = 0,
+        long countOffset = 0,
+        int maxDrawCount = 1,
+        int stride = 20
+    ) {
+        RequireRenderPass("DrawIndexedIndirectCount");
+        RequirePipeline("DrawIndexedIndirectCount");
+
+        // The entry point is loaded only where the extension was enabled, so this is the same
+        // question the capability answers — asked again, here, because a null here is a crash and a
+        // refusal is a sentence naming the flag.
+        if (device.DrawIndirectCount is not { } indirect) {
+            throw new InvalidOperationException(
+                "DrawIndexedIndirectCount needs GraphicsDeviceFeatures.HasDrawIndirectCount, which "
+                + "this device reports absent. The fallback is DrawIndexedIndirect at the run's "
+                + "maximum length with the culled arguments zeroed, which is what GpuDrawArguments "
+                + "writes when the capability is missing."
+            );
+        }
+
+        indirect.CmdDrawIndexedIndirectCount(
+            Buffer,
+            device.Resolve(arguments).Handle,
+            (ulong)offset,
+            device.Resolve(count).Handle,
+            (ulong)countOffset,
+            (uint)maxDrawCount,
+            (uint)stride
+        );
+    }
+
+    /// <inheritdoc />
     public void Dispatch(int groupsX, int groupsY = 1, int groupsZ = 1) {
         ThrowIfRecorded();
 

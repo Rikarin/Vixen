@@ -56,7 +56,9 @@ public sealed class IrBinding(
     ResourceSet set = ResourceSet.PerMaterial,
     string? name = null,
     bool writable = false,
-    object? defaultValue = null
+    object? defaultValue = null,
+    bool shared = false,
+    bool materialIndex = false
 ) {
     public IrVariable Variable { get; } = variable;
     public IrBindingKind Kind { get; } = kind;
@@ -122,6 +124,38 @@ public sealed class IrBinding(
     ///     </para>
     /// </remarks>
     public string Name { get; } = name ?? variable.Name;
+
+    /// <summary>
+    ///     Whether this is one resource for the whole compilation rather than a contribution from
+    ///     each feature that declared it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The exception to <see cref="Name" />'s rule, and it is narrow on purpose. A composed
+    ///         contribution is qualified because a feature's parameter belongs to the feature; a
+    ///         shared binding is not, because it does not belong to the feature at all — it belongs
+    ///         to the frame, and the feature is naming something it expects to already be there.
+    ///     </para>
+    ///     <para>
+    ///         Several bindings may carry this and be the same resource. They are collapsed by
+    ///         <c>BindingPlan</c>, which gives one <c>(set, binding)</c> pair to all of them and
+    ///         lists the rest as aliases — so every feature's own variable resolves to one
+    ///         declaration in both backends, and the reflection reports one binding rather than
+    ///         however many features mentioned it.
+    ///     </para>
+    /// </remarks>
+    public bool IsShared { get; } = shared;
+
+    /// <summary>
+    ///     Whether this is the index of the material record a draw reads.
+    /// </summary>
+    /// <remarks>
+    ///     Its presence is what makes the per-material block a record. Carried on the binding rather
+    ///     than on the shader because it is a field the author marked, and because the emitters need
+    ///     the <em>variable</em> — the index is loaded and used as the first subscript of every
+    ///     per-material access, so knowing that a shader is indexed is not enough.
+    /// </remarks>
+    public bool IsMaterialIndex { get; } = materialIndex;
 
     public IrType Type => Variable.Type;
 }

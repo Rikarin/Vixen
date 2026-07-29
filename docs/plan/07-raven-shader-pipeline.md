@@ -197,6 +197,32 @@ way — `OpTypeRuntimeArray` with no `ArrayStride` under `RuntimeDescriptorArray
 `ShaderNonUniform`; `uniform texture2D t[]` under `GL_EXT_nonuniform_qualifier` — and the reflection
 reports `Count == 0`, which is what the RHI already reads for an unbounded binding.
 
+✅ **And a binding may be *shared*.** `[Shared]` says a binding is one resource for the whole
+compilation rather than a contribution from each feature that names it. A composed feature's bindings
+are qualified by the path they were reached through — which is what stops three features that each
+declare a `strength` from colliding — and that makes a binding declared by two features two bindings.
+For a value that is right; for the frame's texture table it is the opposite of what the table is, and
+`CompositeSurface` chains up to eight features. `BindingPlan` collapses the declarations by their
+declared name into one `(set, binding)` pair and lists the rest as `Aliases`, which both emitters
+point at the single declaration they emitted — because each feature's body was compiled against its
+own variable and all of them have to resolve. Two shared declarations that disagree about kind or set
+are `RVN3011`: one of the two authors is wrong and nothing can say which.
+
+✅ **And a per-material block may be a *record*.** `[MaterialIndex]` on a per-draw field turns the
+shader's per-material block into one element of a buffer — a `BufferBlock` wrapping a strided runtime
+array in SPIR-V, a `readonly buffer` of a named struct in GLSL — read as
+`materials.records[index].value` at every use. The set and binding do not move; what changes is that
+the set holds every material at once and is bound for the frame rather than for the draw, which is
+what lets two materials' draws be the same draw. The packing moves with it, std140 to std430, and the
+reflection reports a `StorageBuffer` at the offsets it was emitted at: reporting a uniform buffer for
+a shader that reads a `BufferBlock` is a descriptor of the wrong type, which no API checks.
+
+The marker takes an optional permutation — `[MaterialIndex("UseRecords")]` — and applies only where
+that permutation is true, which is what lets one pass be a records pass on a bindless device and a
+bound-per-material one on GL, WebGL2 and MoltenVK below argument-buffer tier 2. ⚠ Gating on the
+marked field being *used* does not work and was checked: a binding is a declared field, so it
+survives its last reader folding away.
+
 ⚠ **Every subscript of one is decorated non-uniform, and both halves of it are.** SPIR-V marks the
 index *and* the pointer the access chain produced; GLSL wraps the index in `nonuniformEXT`. A module
 carrying one and not the other is valid SPIR-V that a driver may read one descriptor per subgroup

@@ -297,6 +297,70 @@ public sealed class VulkanFeatureTests {
     }
 
     /// <summary>
+    ///     The count-buffer draw is the extension, and multi-draw does not imply it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Two separate things on every API that has both, and a host that read
+    ///         <c>HasMultiDrawIndirect</c> and issued a count-buffer draw would find out on whichever
+    ///         driver it reached first. <c>multiDrawIndirect</c> on and the extension absent is what
+    ///         MoltenVK reports today, so this is the combination that actually ships rather than one
+    ///         invented for the assertion.
+    ///     </para>
+    ///     <para>
+    ///         Asked as the extension at every version. It is core from 1.2, where it is gated behind
+    ///         <c>VkPhysicalDeviceVulkan12Features::drawIndirectCount</c> — a structure this backend
+    ///         never queries — and every driver that promoted it still advertises it. Answering from
+    ///         the version instead would report a capability on a 1.2 device whose feature bit is off,
+    ///         and the failure is a validation error at the draw.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheCountBufferDrawIsItsOwnExtension() {
+        var multi = new PhysicalDeviceFeatures { MultiDrawIndirect = true };
+
+        Assert.True(Translate(features: multi).HasMultiDrawIndirect);
+        Assert.False(Translate(features: multi).HasDrawIndirectCount);
+        Assert.False(Translate(features: multi, apiVersion: VulkanFeatures.Version13).HasDrawIndirectCount);
+
+        var offered = new HashSet<string> { "VK_KHR_draw_indirect_count" };
+
+        Assert.True(Translate(extensions: offered).HasDrawIndirectCount);
+        Assert.False(Translate(extensions: offered).HasMultiDrawIndirect);
+    }
+
+    /// <summary>
+    ///     And a fifth bindable set, which descriptor indexing does not imply.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>The claim a wrong answer would hide.</strong> A table is its own descriptor set
+    ///         — see <c>DescriptorSetSlot.Bindless</c> — so a shader that indexes one binds five, and
+    ///         Vulkan's floor for <c>maxBoundDescriptorSets</c> is four. A device that answered this
+    ///         on the indexing bits alone would create every descriptor-set layout successfully, and
+    ///         then fail at <c>vkCreatePipelineLayout</c> — a long way from the cause, and in a call
+    ///         that says nothing about descriptor indexing.
+    ///     </para>
+    ///     <para>
+    ///         Four is not a hypothetical floor: it is the number the specification guarantees, so it
+    ///         is exactly what a conformant minimum device reports.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(4u, false)]
+    [InlineData(5u, true)]
+    [InlineData(8u, true)]
+    public void BindlessNeedsAFifthBindableSet(uint sets, bool expected) {
+        var limits = Limits();
+        limits.MaxBoundDescriptorSets = sets;
+
+        Assert.Equal(
+            expected,
+            Translate(limits: limits, apiVersion: VulkanFeatures.Version12, indexing: Indexing()).HasBindless
+        );
+    }
+
+    /// <summary>
     ///     A table is sized by the lesser of the two update-after-bind ceilings.
     /// </summary>
     /// <remarks>

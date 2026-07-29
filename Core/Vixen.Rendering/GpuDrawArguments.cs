@@ -84,11 +84,22 @@ public sealed class GpuDrawArguments : IDisposable {
 
     readonly IGraphicsDevice device;
     readonly UploadBuffer<DrawCommand> templates = new("DrawArguments.Templates");
-    readonly DescriptorWrite[] writes = new DescriptorWrite[3];
+    readonly UploadBuffer<uint> batching = new("DrawArguments.Batching");
+    readonly DescriptorWrite[] writes = new DescriptorWrite[6];
 
     DrawCommand[] packed = [];
+    uint[] batchOf = [];
+    int[] batchSizes = [];
+    uint[] batchBases = [];
+
     BufferHandle commands;
+    BufferHandle counts;
+    BufferHandle zeros;
     long capacity;
+    long countCapacity;
+
+    long batchOffset;
+    long baseOffset;
 
     // Whether the templates in `packed` have reached the device since the last Fill. A two-phase
     // frame dispatches twice over one set of templates, and uploading them again would advance the
@@ -100,6 +111,7 @@ public sealed class GpuDrawArguments : IDisposable {
     // What the argument buffer was left in. The draw that reads it needs IndirectArgument, and the
     // dispatch that writes it needs ShaderWrite, so it changes twice a frame and never settles.
     ResourceState state = ResourceState.Undefined;
+    ResourceState countState = ResourceState.Undefined;
 
     // One set per frame in flight, advanced with the frame. A set a submitted command buffer still
     // references may not be written — VUID-vkUpdateDescriptorSets-None-03047 — and the no-readback
@@ -124,7 +136,29 @@ public sealed class GpuDrawArguments : IDisposable {
 
         this.device = device;
         templates.Device = device;
+        batching.Device = device;
     }
+
+    /// <summary>
+    ///     Whether survivors are appended to a per-batch list rather than left at their own slot with
+    ///     a zeroed instance count.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Step 4 of <c>docs/bindless-materials.md</c>, and the payoff for everything before it. A
+    ///         padded buffer costs one command per <em>candidate</em> object, whatever the culling
+    ///         decided; a compacted one costs one command per <em>batch</em>, because
+    ///         <see cref="ICommandList.DrawIndexedIndirectCount" /> reads how many survivors there
+    ///         were out of a buffer the host never looks at.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Needs <see cref="GraphicsDeviceFeatures.HasDrawIndirectCount" />, and turning it on
+    ///         without one is a compacted list nothing can draw the right number of. <see cref="Update" />
+    ///         checks and falls back rather than refusing, because the decision is a device fact and a
+    ///         host that has to branch on it everywhere would branch on it wrongly somewhere.
+    ///     </para>
+    /// </remarks>
+    public bool Compact { get; set; }
 
     /// <summary>Where the compaction variant is resolved from. Null updates nothing.</summary>
     public EffectSystem? Effects { get; set; }
@@ -165,8 +199,82 @@ public sealed class GpuDrawArguments : IDisposable {
     /// <summary>Where one object's arguments start, for one view.</summary>
     /// <param name="viewIndex">Which view.</param>
     /// <param name="id">Which object.</param>
+    /// <remarks>Meaningless when <see cref="IsCompacted" />: a survivor's record is not at its own
+    /// slot, which is the entire point.</remarks>
     public long OffsetOf(int viewIndex, RenderObjectId id) =>
         (((long)viewIndex * ObjectCount) + id.Index) * Stride;
+
+    /// <summary>Whether the last update wrote a compacted list rather than a padded one.</summary>
+    /// <remarks>
+    ///     Distinct from <see cref="Compact" />, which is what a host asked for. This is what
+    ///     happened — false where the device has no count-buffer draw, and false in a frame that did
+    ///     not dispatch. A draw loop must read this rather than the request, because reading a
+    ///     compacted list as a padded one draws every object's arguments at every other object's
+    ///     slot.
+    /// </remarks>
+    public bool IsCompacted { get; private set; }
+
+    /// <summary>The per-batch survivor counts a count-buffer draw reads.</summary>
+    public BufferHandle Counts => counts;
+
+    /// <summary>How many batches the last update covered.</summary>
+    public int BatchCount { get; private set; }
+
+    /// <summary>Which batch an object was put in, or <c>0</c> for one nothing assigned.</summary>
+    public int BatchOf(RenderObjectId id) =>
+        id.Index >= 0 && id.Index < batchOf.Length ? (int)batchOf[id.Index] : 0;
+
+    /// <summary>
+    ///     How many objects are in a batch — the ceiling a count-buffer draw is given.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Candidates, not survivors. Survivors are what the count buffer says and only the device
+    ///     knows; this is how long the region is, which is what <c>maxDrawCount</c> means. It is also
+    ///     what a caller compares its run length against before drawing a whole batch at once — see
+    ///     <c>MeshRenderFeature</c>.
+    /// </remarks>
+    public int BatchSizeOf(int batch) =>
+        batch >= 0 && batch < batchSizes.Length ? batchSizes[batch] : 0;
+
+    /// <summary>Where a batch's compacted run starts, for one view.</summary>
+    public long BatchOffsetOf(int viewIndex, int batch) =>
+        (((long)viewIndex * ObjectCount) + (batch >= 0 && batch < batchBases.Length ? batchBases[batch] : 0)) * Stride;
+
+    /// <summary>Where a batch's survivor count is, for one view.</summary>
+    public long CountOffsetOf(int viewIndex, int batch) =>
+        (((long)viewIndex * BatchCount) + batch) * sizeof(uint);
+
+    /// <summary>
+    ///     One batch id per object slot, to be filled before an update.
+    /// </summary>
+    /// <param name="objectCount">How many slots the store holds.</param>
+    /// <returns>A span to write into, cleared to zero.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         A batch is objects that bind everything alike — same pipeline, same geometry, same
+    ///         material set — which is a fact about the renderer rather than about geometry, so the
+    ///         source says and this only lays them out. Ids need not be dense or ordered; what
+    ///         matters is that two objects share one exactly when their draws could be merged.
+    ///     </para>
+    ///     <para>
+    ///         Zero is a real batch and the default, so an object nobody assigned joins batch zero
+    ///         with everything else nobody assigned — which is correct when they genuinely bind
+    ///         alike and is why a source is expected to fill every slot it owns.
+    ///     </para>
+    /// </remarks>
+    public Span<uint> Batches(int objectCount) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+        ArgumentOutOfRangeException.ThrowIfNegative(objectCount);
+
+        if (batchOf.Length < objectCount) {
+            Array.Resize(ref batchOf, Math.Max(objectCount, Math.Max(batchOf.Length * 2, 256)));
+        }
+
+        var span = batchOf.AsSpan(0, objectCount);
+        span.Clear();
+
+        return span;
+    }
 
     /// <summary>
     ///     The templates to fill, one per object slot, before an update.
@@ -222,7 +330,18 @@ public sealed class GpuDrawArguments : IDisposable {
             return false;
         }
 
-        if (Effects.Resolve(EffectKey.Of(GpuCulling.ArgumentsShaderName)) is not { IsPlaceholder: false } effect) {
+        // What a host asked for, narrowed to what the device can draw. Falling back rather than
+        // refusing, because the capability is a machine fact: a host that had to branch on it at
+        // every call site would branch on it wrongly at one of them, and the wrong branch here is a
+        // compacted list read as a padded one — every object drawn with another's arguments.
+        var compacting = Compact && device.Features.HasDrawIndirectCount;
+
+        var key = EffectKey.Of(
+            GpuCulling.ArgumentsShaderName,
+            [new(DrawArgumentsKeys.Compact.Name, compacting ? "true" : "false")]
+        );
+
+        if (Effects.Resolve(key) is not { IsPlaceholder: false } effect) {
             return false;
         }
 
@@ -272,8 +391,51 @@ public sealed class GpuDrawArguments : IDisposable {
         );
 
         writes[2] = DescriptorWrite.Storage(DrawArgumentsKeys.CommandsBinding, commands, 0, (long)viewCount * objectCount * Stride);
+
+        // The batch layout, whether or not this variant reads it. A binding is a declared field and
+        // survives its last reader folding away — the same fact `[MaterialIndex("…")]` turns on — so
+        // the padded variant declares these three too and a set short of them is a validation error
+        // rather than an unused slot.
+        if (!Layout(objectCount, viewCount)) {
+            return false;
+        }
+
+        writes[3] = DescriptorWrite.Storage(
+            DrawArgumentsKeys.BatchesBinding,
+            batching.Buffer,
+            batchOffset,
+            (long)objectCount * sizeof(uint)
+        );
+
+        writes[4] = DescriptorWrite.Storage(
+            DrawArgumentsKeys.BasesBinding,
+            batching.Buffer,
+            baseOffset,
+            (long)BatchCount * sizeof(uint)
+        );
+
+        writes[5] = DescriptorWrite.Storage(
+            DrawArgumentsKeys.CountsBinding,
+            counts,
+            0,
+            (long)viewCount * BatchCount * sizeof(uint)
+        );
+
         ring = descriptors.Length == 0 ? 0 : (ring + 1) % descriptors.Length;
         device.UpdateDescriptorSet(descriptors[ring], writes);
+
+        // ⚠ Before the dispatch, every frame, and on the device. An atomicAdd onto last frame's
+        // count appends past the end of a batch's run and into the next batch's — which draws one
+        // batch's geometry with another's arguments, and does so only in the frames where something
+        // became invisible. Copied from a buffer of zeros rather than written from the host, because
+        // a host write into a buffer an unfinished frame may still be reading is the hazard the
+        // whole upload ring exists for and a constant source has none of it.
+        if (compacting) {
+            list.Barrier(new([new(counts, countState, ResourceState.CopyDestination)], []));
+            list.CopyBuffer(zeros, 0, counts, 0, (long)viewCount * BatchCount * sizeof(uint));
+            list.Barrier(new([new(counts, ResourceState.CopyDestination, ResourceState.ShaderWrite)], []));
+            countState = ResourceState.ShaderWrite;
+        }
 
         list.Barrier(new([new(commands, state, ResourceState.ShaderWrite)], []));
         list.BindPipeline(pipeline);
@@ -287,8 +449,118 @@ public sealed class GpuDrawArguments : IDisposable {
         list.Barrier(new([new(commands, ResourceState.ShaderWrite, ResourceState.IndirectArgument)], []));
         state = ResourceState.IndirectArgument;
 
+        // The counts are read as indirect arguments too — by the *count* parameter of the draw
+        // rather than by its arguments — so they need the same transition and would otherwise be
+        // read while the dispatch that wrote them was still running.
+        if (compacting) {
+            list.Barrier(new([new(counts, ResourceState.ShaderWrite, ResourceState.IndirectArgument)], []));
+            countState = ResourceState.IndirectArgument;
+        }
+
+        IsCompacted = compacting;
         IsFilled = true;
         return true;
+    }
+
+    /// <summary>
+    ///     Turns the batch ids into a run per batch, and puts both on the device.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A histogram and a prefix sum. Batches partition the objects, so the runs partition a
+    ///         view's region and the commands buffer is exactly the size the padded form needed —
+    ///         compaction costs an atomic and no memory.
+    ///     </para>
+    ///     <para>
+    ///         Ids are the source's and need not be dense, so the count is one past the largest.
+    ///         A sparse id space costs an empty run and nothing else, which is far cheaper than
+    ///         making every source renumber.
+    ///     </para>
+    /// </remarks>
+    bool Layout(int objectCount, int viewCount) {
+        if (batchOf.Length < objectCount) {
+            Batches(objectCount);
+        }
+
+        var highest = 0u;
+
+        for (var index = 0; index < objectCount; index++) {
+            highest = Math.Max(highest, batchOf[index]);
+        }
+
+        BatchCount = (int)highest + 1;
+
+        if (batchSizes.Length < BatchCount) {
+            Array.Resize(ref batchSizes, Math.Max(BatchCount, batchSizes.Length * 2));
+            Array.Resize(ref batchBases, batchSizes.Length);
+        }
+
+        Array.Clear(batchSizes, 0, BatchCount);
+
+        for (var index = 0; index < objectCount; index++) {
+            batchSizes[batchOf[index]]++;
+        }
+
+        var running = 0u;
+
+        for (var batch = 0; batch < BatchCount; batch++) {
+            batchBases[batch] = running;
+            running += (uint)batchSizes[batch];
+        }
+
+        // One upload holding both, at two offsets. Two UploadBuffers would be two rings advancing at
+        // the same rate for two arrays written in the same breath.
+        batching.Begin();
+        batchOffset = batching.Offset;
+        batching.Add(batchOf.AsSpan(0, objectCount));
+        baseOffset = batching.Offset + ((long)objectCount * sizeof(uint));
+        batching.Add(batchBases.AsSpan(0, BatchCount));
+        batching.Upload();
+
+        batchOffset = batching.Offset;
+        baseOffset = batchOffset + ((long)objectCount * sizeof(uint));
+
+        return EnsureCounts((long)viewCount * BatchCount * sizeof(uint));
+    }
+
+    /// <summary>The counts buffer and the buffer of zeros that clears it.</summary>
+    bool EnsureCounts(long bytes) {
+        if (counts.IsValid && bytes <= countCapacity) {
+            return true;
+        }
+
+        if (counts.IsValid) {
+            device.Destroy(counts);
+        }
+
+        if (zeros.IsValid) {
+            device.Destroy(zeros);
+        }
+
+        countCapacity = Math.Max(bytes, Math.Max(countCapacity * 2, 256));
+
+        counts = device.CreateBuffer(
+            new(
+                countCapacity,
+                BufferUsage.Storage | BufferUsage.Indirect | BufferUsage.CopyDestination | BufferUsage.CopySource,
+                MemoryAccess.DeviceLocal,
+                "DrawArguments.Counts"
+            )
+        );
+
+        // Written once and never again, which is what makes it safe to copy from every frame with no
+        // ring behind it: nothing the host does to this buffer can race a frame still reading it,
+        // because the host does nothing to it after this line.
+        zeros = device.CreateBuffer(
+            new(countCapacity, BufferUsage.CopySource, MemoryAccess.HostUpload, "DrawArguments.Zeros")
+        );
+
+        if (zeros.IsValid) {
+            device.Write(zeros, 0, new byte[countCapacity]);
+        }
+
+        countState = ResourceState.Undefined;
+        return counts.IsValid && zeros.IsValid;
     }
 
     bool TryAllocateSet(Effect effect) {
@@ -365,6 +637,7 @@ public sealed class GpuDrawArguments : IDisposable {
 
         disposed = true;
         IsFilled = false;
+        IsCompacted = false;
 
         DestroySets();
 
@@ -373,8 +646,24 @@ public sealed class GpuDrawArguments : IDisposable {
             commands = default;
         }
 
+        if (counts.IsValid) {
+            device.Destroy(counts);
+            counts = default;
+        }
+
+        if (zeros.IsValid) {
+            device.Destroy(zeros);
+            zeros = default;
+        }
+
         templates.Dispose();
+        batching.Dispose();
+
         packed = [];
+        batchOf = [];
+        batchSizes = [];
+        batchBases = [];
         capacity = 0;
+        countCapacity = 0;
     }
 }

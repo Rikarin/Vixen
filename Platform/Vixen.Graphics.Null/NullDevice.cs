@@ -260,6 +260,7 @@ public sealed class NullDevice : IGraphicsDevice {
         HasMeshShaders = true,
         HasBindless = true,
         HasMultiDrawIndirect = true,
+        HasDrawIndirectCount = true,
         HasTimelineSemaphores = true,
         HasAsyncCompute = true,
         HasAsyncTransfer = true,
@@ -281,6 +282,11 @@ public sealed class NullDevice : IGraphicsDevice {
         // against this is the thing a test is checking and a suspiciously tidy ceiling is one nobody
         // would notice being hit.
         MaxBindlessDescriptors = 500_000,
+
+        // Five, because a table is a set of its own and a shader that indexes one binds five. A
+        // device claiming bindless with four bindable sets is a combination no real device reports
+        // and one this file should not be the first to invent — see DescriptorSetSlot.Bindless.
+        MaxDescriptorSets = 8,
 
         SupportedSampleCounts = 0b11111
     };
@@ -638,7 +644,7 @@ public sealed class NullDevice : IGraphicsDevice {
     /// <inheritdoc />
     public ICommandList BeginCommandList(QueueKind kind = QueueKind.Graphics, string name = "") {
         ObjectDisposedException.ThrowIf(disposed, this);
-        return new NullCommandList(kind, name);
+        return new NullCommandList(kind, name, Features.HasDrawIndirectCount);
     }
 
     /// <inheritdoc />

@@ -5,7 +5,7 @@ using Vixen.Core.Mathematics;
 
 namespace Vixen.Graphics;
 
-/// <summary>Which of the four conventional descriptor sets a binding belongs to.</summary>
+/// <summary>Which of the conventional descriptor sets a binding belongs to.</summary>
 /// <remarks>
 ///     <para>
 ///         The set index is not a free choice. Four sets, ordered by how often they change, so a
@@ -20,6 +20,15 @@ namespace Vixen.Graphics;
 ///         module was decorated with ([07 § C](07-raven-shader-pipeline.md)). An unmarked binding is
 ///         per-material.
 ///     </para>
+///     <para>
+///         <strong>And a fifth, which is not part of that ordering.</strong>
+///         <see cref="Bindless" /> is the one set nothing in a frame writes: a
+///         <see cref="BindlessTable" /> owns it, updates individual descriptors in place, and hands
+///         out indices that shaders subscript it with. It is last rather than first — where its
+///         change frequency would put it — because the four below it are a convention every existing
+///         shader is compiled against, and renumbering them to gain one slot would be renumbering
+///         every set in the engine to move the one that never changes.
+///     </para>
 /// </remarks>
 public enum DescriptorSetSlot : byte {
     /// <summary>Camera, time, the lighting environment. Bound once a frame.</summary>
@@ -32,7 +41,27 @@ public enum DescriptorSetSlot : byte {
     PerMaterial = 2,
 
     /// <summary>Transforms and instance data, usually through a dynamic offset.</summary>
-    PerDraw = 3
+    PerDraw = 3,
+
+    /// <summary>The unbounded descriptor array a <see cref="BindlessTable" /> owns.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>Its own set because it cannot share one.</strong> The other four are written
+    ///         per frame from a <c>DescriptorAllocator</c>, which is content-addressed: a set whose
+    ///         write list differs by one byte is a different set. A table's descriptors are written
+    ///         once each, incrementally, and there may be a million of them — so a table living in a
+    ///         set that is reallocated whenever a uniform block moves would have to be written out
+    ///         again every time it moved, which is the entire cost the table exists to avoid.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ A fifth bound set is not free. Vulkan guarantees only four, so
+    ///         <see cref="GraphicsDeviceFeatures.HasBindless" /> requires
+    ///         <see cref="GraphicsDeviceFeatures.MaxDescriptorSets" /> of at least five — which every
+    ///         device with descriptor indexing has met so far, and which is checked rather than
+    ///         assumed.
+    ///     </para>
+    /// </remarks>
+    Bindless = 4
 }
 
 /// <summary>What kind of resource a descriptor binds.</summary>
