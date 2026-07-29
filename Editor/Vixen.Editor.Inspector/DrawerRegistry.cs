@@ -82,6 +82,39 @@ public sealed class DrawerRegistry {
         fallbacks.Insert(0, drawer);
     }
 
+    /// <summary>Takes a drawer out of everything it was registered for.</summary>
+    /// <param name="drawer">The drawer.</param>
+    /// <returns>Whether it was registered anywhere.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>By instance, and everywhere at once</b>, because one drawer is commonly registered
+    ///         for a type and for an attribute and its owner should not have to remember which.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What unloading a plugin does, and it is not optional.</b> <see cref="Default" />
+    ///         is a static, so a drawer left in it after its plugin was unloaded is a reference from
+    ///         a live registry into an assembly the editor is trying to collect — and the symptom is
+    ///         not a stale drawer, it is a load context that stays in memory for the session with
+    ///         nothing reporting it. Registrations that go through <c>PluginContext</c> are undone
+    ///         for the plugin; this one goes through <c>PluginContext.OnUnload</c>.
+    ///     </para>
+    /// </remarks>
+    public bool Remove(IPropertyDrawer drawer) {
+        ArgumentNullException.ThrowIfNull(drawer);
+
+        var removed = fallbacks.Remove(drawer);
+
+        foreach (var candidates in byType.Values) {
+            removed |= candidates.Remove(drawer);
+        }
+
+        foreach (var candidates in byAttribute.Values) {
+            removed |= candidates.Remove(drawer);
+        }
+
+        return removed;
+    }
+
     /// <summary>The drawer that edits a member.</summary>
     /// <param name="member">The member.</param>
     /// <returns>The drawer, or <see langword="null" /> when nothing can edit it.</returns>

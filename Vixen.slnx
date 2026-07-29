@@ -271,6 +271,12 @@
     a control and a viewport is arithmetic over an interface, so both are testable against
     a bare UiDocument with no shell, and joining them to the docking workspace is
     Vixen.Editor.App's job as it is for everything else.
+
+    Vixen.Editor.Plugin is the contract a third party writes against, and the only
+    project under Editor/ whose public surface is checked against a baseline — doc 11
+    asks for a stricter promise there than anywhere else in the editor. It references
+    Vixen.Editor.Ui and nothing else here, so that a plugin adding a menu item does not
+    build against a model importer.
   -->
   <Folder Name="/Editor/">
     <Project Path="Editor/Vixen.Editor.Core/Vixen.Editor.Core.csproj" />
@@ -291,6 +297,8 @@
     <Project Path="Editor/Vixen.Editor.SceneView.Tests/Vixen.Editor.SceneView.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Ui/Vixen.Editor.Ui.csproj" />
     <Project Path="Editor/Vixen.Editor.Ui.Tests/Vixen.Editor.Ui.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Plugin/Vixen.Editor.Plugin.csproj" />
+    <Project Path="Editor/Vixen.Editor.Plugin.Tests/Vixen.Editor.Plugin.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.App/Vixen.Editor.App.csproj" />
   </Folder>
 

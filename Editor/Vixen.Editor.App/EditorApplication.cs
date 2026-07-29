@@ -7,6 +7,7 @@ using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Inspector;
+using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Transforms;
@@ -50,11 +51,15 @@ namespace Vixen.Editor.App;
 ///     </para>
 /// </remarks>
 sealed class EditorApplication : IDisposable {
+    /// <summary>What the folder holding plugins is called, in both places it is looked for.</summary>
+    const string PluginsFolder = "Plugins";
+
     readonly EditorUserStore store;
     readonly World world = new("Editor");
     readonly EditorProject project;
     readonly SceneDocument scene;
     readonly ContentTasks content;
+    readonly PluginHost plugins;
     readonly string scenePath;
     readonly List<Entity> shown = [];
 
@@ -132,6 +137,12 @@ sealed class EditorApplication : IDisposable {
         Panels();
         Layouts();
         Commands();
+
+        // ⚠ Plugins go here and not later, and the two reasons are the two lines below. A plugin's
+        // commands have to exist before the keymap is read or the user's override for one lands on
+        // a command with no default; a plugin's panels have to be registered before the saved
+        // layout is applied or an arrangement that had one comes back without it.
+        plugins = LoadPlugins(directory);
 
         // ⚠ In this order and no other. The keymap has to be loaded after the commands that own its
         // defaults, or every override in the file lands on a command with no default and the file
@@ -274,7 +285,15 @@ sealed class EditorApplication : IDisposable {
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The plugins go first, and before the shell.</b> Unloading is what takes their
+    ///     commands and panels back out, and a plugin whose panel is closed by a disposed docking
+    ///     workspace would throw on the way down — which is the one place an exception costs the
+    ///     user their layout file.
+    /// </remarks>
     public void Dispose() {
+        plugins.UnloadAll();
+
         viewport?.Dispose();
         Shell.Dispose();
         world.Dispose();
@@ -398,6 +417,99 @@ sealed class EditorApplication : IDisposable {
         );
     }
 
+    /// <summary>Finds and starts the plugins, and says what it found.</summary>
+    /// <param name="directory">The user's data directory, which holds the second plugin folder.</param>
+    /// <returns>The host, kept so that the plugins can be unloaded on the way down.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Two roots, project before user</b>, so a plugin checked into a repository beats
+    ///         the copy the user installed globally and everybody on a team gets the same tools.
+    ///         Neither folder normally exists, which is not an error.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only the errors are shown.</b> A notification per plugin would put four toasts
+    ///         over the editor on every launch of a project that has plugins and is working; what
+    ///         the user needs to be told is the one that did not start.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two of doc 11's extension points are not published, and the reason is
+    ///         upstream.</b> Importers are built per run — <c>ContentPipeline</c> calls
+    ///         <c>ProjectWorkspace.Importers()</c> inside the background task, deliberately, so the
+    ///         editor and the CLI cannot disagree about the set — so there is no registry here for a
+    ///         plugin to add to, and giving it one would be the editor building a set the compiler
+    ///         workers do not have. Build steps are the same shape. Both want a registry that
+    ///         outlives a run, which is a change to <c>Vixen.Editor.Assets</c> rather than to this.
+    ///     </para>
+    /// </remarks>
+    PluginHost LoadPlugins(string directory) {
+        var services = new PluginServices()
+            .Add(project)
+            .Add(scene)
+
+            // The static the inspector reads by default, so a plugin's drawer is found by the panel
+            // that is already open rather than by one built afterwards.
+            .Add(DrawerRegistry.Default);
+
+        var host = new PluginHost(Shell, services);
+
+        var report = host.Load(
+            PluginDiscovery.Scan(
+                Path.Combine(project.Paths.Root, PluginsFolder),
+                Path.Combine(directory, PluginsFolder)
+            )
+        );
+
+        foreach (var diagnostic in report.Diagnostics.Where(diagnostic => diagnostic.Severity == PluginSeverity.Error)) {
+            Shell.Notifications.Error(diagnostic.PluginId, diagnostic.Message);
+        }
+
+        if (report.Activated.Count > 0) {
+            Shell.Notifications.Show(
+                $"{report.Activated.Count} plugin(s) loaded",
+                NotificationSeverity.Success,
+                string.Join(", ", report.Activated.Select(plugin => plugin.Manifest.Name))
+            );
+        }
+
+        return host;
+    }
+
+    /// <summary>Unloads every active plugin and loads it again from disk.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A plugin that does not go away is reported.</b> Its replacement loads either way —
+    ///     refusing would make one badly-behaved plugin block the whole reload — but the old copy is
+    ///     still in memory with its statics in it, and that is the failure the runtime says nothing
+    ///     about. Restarting the editor is the only cure and the notification says so.
+    /// </remarks>
+    void ReloadPlugins() {
+        var reloaded = 0;
+        var leaked = new List<string>();
+
+        foreach (var id in plugins.Plugins.Where(plugin => plugin.State == PluginState.Active).Select(plugin => plugin.Id).ToList()) {
+            var report = plugins.Reload(id);
+
+            if (!plugins.WaitForCollection(id, TimeSpan.FromSeconds(2))) {
+                leaked.Add(id);
+            }
+
+            foreach (var diagnostic in report.Diagnostics.Where(diagnostic => diagnostic.Severity == PluginSeverity.Error)) {
+                Shell.Notifications.Error(diagnostic.PluginId, diagnostic.Message);
+            }
+
+            reloaded += report.Activated.Count;
+        }
+
+        if (leaked.Count > 0) {
+            Shell.Notifications.Show(
+                "Plugins did not unload cleanly",
+                NotificationSeverity.Warning,
+                string.Join(", ", leaked) + " — the previous version is still in memory. Restart to clear it."
+            );
+        }
+
+        Shell.Notifications.Show($"{reloaded} plugin(s) reloaded", NotificationSeverity.Success);
+    }
+
     void Layouts() {
         // The five doc 11 names. They differ in which panels they show and how the middle is split,
         // which is the whole of what a layout preset is — the shapes come from `LayoutPresets` and
@@ -503,6 +615,19 @@ sealed class EditorApplication : IDisposable {
         Shell.Commands.Add(
             new EditorCommand("help.about", EditorStrings.CommandAbout, About) {
                 Category = EditorStrings.CategoryHelp
+            }
+        );
+
+        // The plugin-development loop, reachable from the palette. Enabled only when there is
+        // something to reload, so an editor with no plugins does not offer it.
+        Shell.Commands.Add(
+            new EditorCommand(
+                "plugins.reload",
+                new StringId("editor.command.reload-plugins", "Reload Plugins"),
+                ReloadPlugins
+            ) {
+                Category = EditorStrings.CategoryFile,
+                Enablement = () => plugins.Plugins.Any(plugin => plugin.State == PluginState.Active)
             }
         );
 

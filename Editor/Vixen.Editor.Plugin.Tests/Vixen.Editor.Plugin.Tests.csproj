@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Editor.Ui.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+
+        <!--
+            The plugin assemblies these tests load are compiled here, into a temp directory, from C#
+            written in the test that loads them.
+
+            ⚠ Deliberately not a fixture project copied into the output. A plugin has to be a file
+            on disk that the test can *replace between loads* — that is the whole claim of the
+            reload path, and a build artefact the test cannot rewrite proves the loader picked up a
+            different assembly rather than a different build of the same one. Compiling it here also
+            keeps the loader's shared-assembly rule honest: the emitted plugin references the very
+            Vixen.Editor.Plugin.dll the test process has loaded, so a context that resolved its own
+            copy would produce the "cannot cast IEditorPlugin to IEditorPlugin" failure this test
+            suite exists to prevent, rather than passing quietly.
+        -->
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Editor.Plugin\Vixen.Editor.Plugin.csproj" />
+    </ItemGroup>
+</Project>

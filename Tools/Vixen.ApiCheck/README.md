@@ -105,7 +105,12 @@ surface is a promise is the set somebody can install from nuget.org.
 
 The `net10.0-ios`, `-android` and `-browser` projects are not covered. They are outside
 `Vixen.slnx` for the reason `CompileMobile` documents, so `Compile` has not built them and there
-would be nothing to read. `Editor/`, `Raven/` and `Tools/` are not covered either: they are
-applications and build-time tooling. `Vixen.Editor.Plugin` will need covering when it exists —
-[docs/plan/11](../../docs/plan/11-editor.md) § Plugins asks for a stricter promise there than
-anywhere else.
+would be nothing to read. `Raven/` and `Tools/` are not covered: they are compilers and build-time
+tooling.
+
+`Editor/` is not covered **except for one project**. `Vixen.Editor.Plugin` is not an application, it
+is the contract a third party compiles against, and
+[docs/plan/11](../../docs/plan/11-editor.md) § `Vixen.Editor.Plugin` asks for a stricter
+compatibility policy there than anywhere else. A stricter promise nobody diffed is not a promise, so
+it is named explicitly in `ApiCheckedProjects` and carries its baselines like everything in the
+RUNTIME profile.

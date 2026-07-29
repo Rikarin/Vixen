@@ -1,0 +1,71 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.Plugin</RootNamespace>
+        <Description>
+            The contract a third-party editor plugin is written against: a manifest, a discovery
+            pass over the folders plugins live in, a collectible AssemblyLoadContext per plugin, and
+            a registration scope that makes everything a plugin added undoable — which is what lets
+            one be unloaded and reloaded while the editor is running.
+        </Description>
+        <PackageTags>editor;plugin;extensibility;assemblyloadcontext;hot-reload;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+
+        <!--
+            ⚠ The one project under Editor/ that documents itself, and the reason is the promise.
+            docs/plan/11 § Vixen.Editor.Plugin asks for a stricter compatibility policy here than
+            anywhere else in the editor, and a stricter promise that arrives without XML docs in the
+            package is a promise nobody can read from an IDE.
+        -->
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The shell, and deliberately the only editor assembly named here. Five of doc 11's eight
+            extension points — commands, menu items, panels, plus the notifications and background
+            tasks anything long-running needs — are the shell's vocabulary, and the shell does not
+            reference Vixen.Editor.Core, so the contract stays chrome-level.
+
+            ⚠ The other three — drawers, importers, node types, gizmos, build steps — are reached
+            through PluginServices rather than by referencing Vixen.Editor.Inspector,
+            .Assets, .SceneView and .NodeGraph from here. Not squeamishness about coupling:
+            Vixen.Editor.Assets carries Assimp and StbImageSharp, and a contract assembly that
+            dragged a two-dozen-format model importer into the build of every plugin that only
+            wanted to add a menu item would be charging all of them for one of them. A plugin that
+            does want to write an importer references that assembly itself, which is one line in its
+            own csproj and no lines in anybody else's.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Ui\Vixen.Editor.Ui.csproj" />
+
+        <!--
+            The manifest is a [DataContract] read by the same YAML binder as a .meta file and a
+            settings asset. One dialect, one parser, one set of rules about what an unknown key
+            means — a plugin manifest in a hand-rolled format would be the fourth thing in the
+            repository that parses YAML slightly differently.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            Analyzers do not flow transitively through a ProjectReference, so the assembly declaring
+            the manifest's [DataContract] has to name the generator that describes it. Without the
+            descriptor the binder has no member to bind a key to and every manifest reads as empty.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Editor.Plugin.Tests" />
+    </ItemGroup>
+
+</Project>

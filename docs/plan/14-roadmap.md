@@ -2955,7 +2955,9 @@ the shipping projects; a `.rvn` edit reparsing incrementally; the differential o
 - Asset editors: texture, model, material, scene, prefab, shader, UI, addressable groups, graphics
   compositor.
 - `Vixen.Editor.Profiler` + `.Debugger` (frame graph, frame debugger, memory view, remote inspector).
-- `Vixen.Editor.Plugin` with `AssemblyLoadContext` loading.
+- ✅ `Vixen.Editor.Plugin` with `AssemblyLoadContext` loading: a `plugin.yaml` manifest, two folders scanned at start-up (project before user), a **collectible** context per plugin, dependency ordering with cycle detection, and a registration scope that makes unloading a plugin the undo of everything it added. `Reload Plugins` is the development loop and it checks that the old context actually left memory, because the runtime does not say when one does not.
+
+  ⚠ **Two of doc 11's eight extension points are still unreachable**, and the reason is upstream: `ContentPipeline` builds its `ImporterRegistry` per run so that the editor, the CLI and the compiler workers cannot disagree about the set, so there is nothing here for a plugin to add an importer or a build step to.
 - Editor UI automation harness + golden screenshots.
 - ~~Delete the ImGui scaffold.~~ There is none: it was cut in Phase 2 rather than built.
 - `PublishEditor`, signing, notarisation, `.dmg`/AppImage/MSI.
@@ -2977,8 +2979,8 @@ nowhere in the dependency graph.
 > other toolkit anywhere in the dependency graph, and never was.
 >
 > What the sentence does not cover and Phase 6 still lists: the asset editors, the profiler and
-> debugger, plugin loading, the automation harness, and `PublishEditor`. The performance bar is
-> unmeasured — nothing runs the editor-shell benchmark yet.
+> debugger, the automation harness, and `PublishEditor`. Plugin loading has since landed. The
+> performance bar is unmeasured — nothing runs the editor-shell benchmark yet.
 >
 > ⚠ **The viewport draws lines, not meshes.** A scene of empties looks right; a scene with a model in
 > it does not show the model. That wants a material system wired to an editor viewport, which is
