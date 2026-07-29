@@ -23,17 +23,27 @@
         <ProjectReference Include="..\..\Core\Vixen.Core.Collections\Vixen.Core.Collections.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Graphics\Vixen.Graphics.csproj" />
+
+        <!-- The libEGL and libGLESv2 search: the application's own runtimes/<rid>/native/ layout,
+             the RID chain and the versioned soname. See NativeEglApi, which is VulkanLoader's
+             shape. -->
+        <ProjectReference Include="..\Vixen.Platform.Native\Vixen.Platform.Native.csproj" />
     </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
         <!--
-            Bindings only, and reached from exactly one file — `SilkGlApi`. Everything else in this
-            assembly talks to `IGlApi`, which is what makes the translation layer — the part that is
-            actually hard, and the part ADR-001 wants validated — testable on a machine with no GL
-            context at all.
+            Bindings only, and each reached from exactly one file — `SilkGlApi` and `SilkGlesApi`.
+            Everything else in this assembly talks to `IGlApi`, which is what makes the translation
+            layer — the part that is actually hard, and the part ADR-001 wants validated — testable
+            on a machine with no GL context at all.
+
+            Two packages rather than one because libGL and libGLESv2 are two libraries. Neither ships
+            an implementation: desktop GL comes from the driver, and GLES plus EGL come from the
+            platform (Android) or from ANGLE/Mesa.
         -->
         <PackageReference Include="Silk.NET.OpenGL" />
+        <PackageReference Include="Silk.NET.OpenGLES" />
     </ItemGroup>
 
     <ItemGroup>

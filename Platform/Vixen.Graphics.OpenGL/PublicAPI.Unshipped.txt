@@ -1,4 +1,47 @@
 #nullable enable
+Vixen.Graphics.OpenGL.EglConstants -> static class
+Vixen.Graphics.OpenGL.EglContext -> sealed class
+Vixen.Graphics.OpenGL.EglContext : System.IDisposable
+Vixen.Graphics.OpenGL.EglContext.Clear() -> void
+Vixen.Graphics.OpenGL.EglContext.Display.get -> nint
+Vixen.Graphics.OpenGL.EglContext.Dispose() -> void
+Vixen.Graphics.OpenGL.EglContext.EglContext(Vixen.Graphics.OpenGL.IEglApi egl, in Vixen.Graphics.OpenGL.EglContextOptions options) -> void
+Vixen.Graphics.OpenGL.EglContext.EglVersion.get -> (int Major, int Minor)
+Vixen.Graphics.OpenGL.EglContext.GetProcAddress(string proc, int? slot = null) -> nint
+Vixen.Graphics.OpenGL.EglContext.Handle.get -> nint
+Vixen.Graphics.OpenGL.EglContext.IsCurrent.get -> bool
+Vixen.Graphics.OpenGL.EglContext.MakeCurrent() -> void
+Vixen.Graphics.OpenGL.EglContext.Profile.get -> Vixen.Graphics.OpenGL.GlProfile
+Vixen.Graphics.OpenGL.EglContext.Size.get -> Vixen.Core.Mathematics.Int2
+Vixen.Graphics.OpenGL.EglContext.Source.get -> Silk.NET.Core.Contexts.IGLContextSource?
+Vixen.Graphics.OpenGL.EglContext.Surface.get -> nint
+Vixen.Graphics.OpenGL.EglContext.SwapBuffers() -> void
+Vixen.Graphics.OpenGL.EglContext.SwapInterval(int interval) -> void
+Vixen.Graphics.OpenGL.EglContext.TryGetProcAddress(string proc, out nint addr, int? slot = null) -> bool
+Vixen.Graphics.OpenGL.EglContextOptions -> readonly struct
+Vixen.Graphics.OpenGL.EglContextOptions : System.IEquatable<Vixen.Graphics.OpenGL.EglContextOptions>
+Vixen.Graphics.OpenGL.EglContextOptions.Debug.get -> bool
+Vixen.Graphics.OpenGL.EglContextOptions.Debug.init -> bool
+Vixen.Graphics.OpenGL.EglContextOptions.DepthBits.get -> int
+Vixen.Graphics.OpenGL.EglContextOptions.DepthBits.init -> int
+Vixen.Graphics.OpenGL.EglContextOptions.EglContextOptions() -> void
+Vixen.Graphics.OpenGL.EglContextOptions.EglContextOptions(nint NativeWindow, Vixen.Core.Mathematics.Int2 OffscreenSize = default(Vixen.Core.Mathematics.Int2), nint NativeDisplay = 0, Vixen.Graphics.OpenGL.GlProfile? Profile = null, int DepthBits = 24, int StencilBits = 8, int Samples = 1, bool Debug = false, nint ShareContext = 0, int SwapInterval = 1) -> void
+Vixen.Graphics.OpenGL.EglContextOptions.NativeDisplay.get -> nint
+Vixen.Graphics.OpenGL.EglContextOptions.NativeDisplay.init -> nint
+Vixen.Graphics.OpenGL.EglContextOptions.NativeWindow.get -> nint
+Vixen.Graphics.OpenGL.EglContextOptions.NativeWindow.init -> nint
+Vixen.Graphics.OpenGL.EglContextOptions.OffscreenSize.get -> Vixen.Core.Mathematics.Int2
+Vixen.Graphics.OpenGL.EglContextOptions.OffscreenSize.init -> Vixen.Core.Mathematics.Int2
+Vixen.Graphics.OpenGL.EglContextOptions.Profile.get -> Vixen.Graphics.OpenGL.GlProfile?
+Vixen.Graphics.OpenGL.EglContextOptions.Profile.init -> Vixen.Graphics.OpenGL.GlProfile?
+Vixen.Graphics.OpenGL.EglContextOptions.Samples.get -> int
+Vixen.Graphics.OpenGL.EglContextOptions.Samples.init -> int
+Vixen.Graphics.OpenGL.EglContextOptions.ShareContext.get -> nint
+Vixen.Graphics.OpenGL.EglContextOptions.ShareContext.init -> nint
+Vixen.Graphics.OpenGL.EglContextOptions.StencilBits.get -> int
+Vixen.Graphics.OpenGL.EglContextOptions.StencilBits.init -> int
+Vixen.Graphics.OpenGL.EglContextOptions.SwapInterval.get -> int
+Vixen.Graphics.OpenGL.EglContextOptions.SwapInterval.init -> int
 Vixen.Graphics.OpenGL.GlConstants -> static class
 Vixen.Graphics.OpenGL.GlDevice -> sealed class
 Vixen.Graphics.OpenGL.GlDevice : System.IDisposable
@@ -60,6 +103,27 @@ Vixen.Graphics.OpenGL.GlProfile.Es32 = 2 -> Vixen.Graphics.OpenGL.GlProfile
 Vixen.Graphics.OpenGL.GlProfile.GlProfile() -> void
 Vixen.Graphics.OpenGL.GlProfile.WebGl2 = 0 -> Vixen.Graphics.OpenGL.GlProfile
 Vixen.Graphics.OpenGL.GlProfiles -> static class
+Vixen.Graphics.OpenGL.IEglApi -> interface
+Vixen.Graphics.OpenGL.IEglApi.BindApi(uint api) -> bool
+Vixen.Graphics.OpenGL.IEglApi.ChooseConfig(nint display, System.ReadOnlySpan<int> attributes, System.Span<nint> configs, out int count) -> bool
+Vixen.Graphics.OpenGL.IEglApi.CreateContext(nint display, nint config, nint share, System.ReadOnlySpan<int> attributes) -> nint
+Vixen.Graphics.OpenGL.IEglApi.CreatePbufferSurface(nint display, nint config, System.ReadOnlySpan<int> attributes) -> nint
+Vixen.Graphics.OpenGL.IEglApi.CreateWindowSurface(nint display, nint config, nint window, System.ReadOnlySpan<int> attributes) -> nint
+Vixen.Graphics.OpenGL.IEglApi.DestroyContext(nint display, nint context) -> bool
+Vixen.Graphics.OpenGL.IEglApi.DestroySurface(nint display, nint surface) -> bool
+Vixen.Graphics.OpenGL.IEglApi.GetClientProcAddress(string name) -> nint
+Vixen.Graphics.OpenGL.IEglApi.GetCurrentContext() -> nint
+Vixen.Graphics.OpenGL.IEglApi.GetDisplay(nint nativeDisplay) -> nint
+Vixen.Graphics.OpenGL.IEglApi.GetError() -> uint
+Vixen.Graphics.OpenGL.IEglApi.GetProcAddress(string name) -> nint
+Vixen.Graphics.OpenGL.IEglApi.Initialise(nint display, out int major, out int minor) -> bool
+Vixen.Graphics.OpenGL.IEglApi.MakeCurrent(nint display, nint draw, nint read, nint context) -> bool
+Vixen.Graphics.OpenGL.IEglApi.QueryString(nint display, int name) -> string?
+Vixen.Graphics.OpenGL.IEglApi.QuerySurface(nint display, nint surface, int attribute, out int value) -> bool
+Vixen.Graphics.OpenGL.IEglApi.ReleaseThread() -> bool
+Vixen.Graphics.OpenGL.IEglApi.SwapBuffers(nint display, nint surface) -> bool
+Vixen.Graphics.OpenGL.IEglApi.SwapInterval(nint display, int interval) -> bool
+Vixen.Graphics.OpenGL.IEglApi.Terminate(nint display) -> bool
 Vixen.Graphics.OpenGL.IGlApi -> interface
 Vixen.Graphics.OpenGL.IGlApi.ActiveTexture(uint unit) -> void
 Vixen.Graphics.OpenGL.IGlApi.AttachShader(uint program, uint shader) -> void
@@ -159,6 +223,28 @@ Vixen.Graphics.OpenGL.IGlApi.VertexAttribDivisor(uint index, uint divisor) -> vo
 Vixen.Graphics.OpenGL.IGlApi.VertexAttribIPointer(uint index, int size, uint type, int stride, nint offset) -> void
 Vixen.Graphics.OpenGL.IGlApi.VertexAttribPointer(uint index, int size, uint type, bool normalised, int stride, nint offset) -> void
 Vixen.Graphics.OpenGL.IGlApi.Viewport(int x, int y, int width, int height) -> void
+Vixen.Graphics.OpenGL.NativeEglApi -> sealed class
+Vixen.Graphics.OpenGL.NativeEglApi : Vixen.Graphics.OpenGL.IEglApi
+Vixen.Graphics.OpenGL.NativeEglApi.BindApi(uint api) -> bool
+Vixen.Graphics.OpenGL.NativeEglApi.ChooseConfig(nint display, System.ReadOnlySpan<int> attributes, System.Span<nint> configs, out int count) -> bool
+Vixen.Graphics.OpenGL.NativeEglApi.CreateContext(nint display, nint config, nint share, System.ReadOnlySpan<int> attributes) -> nint
+Vixen.Graphics.OpenGL.NativeEglApi.CreatePbufferSurface(nint display, nint config, System.ReadOnlySpan<int> attributes) -> nint
+Vixen.Graphics.OpenGL.NativeEglApi.CreateWindowSurface(nint display, nint config, nint window, System.ReadOnlySpan<int> attributes) -> nint
+Vixen.Graphics.OpenGL.NativeEglApi.DestroyContext(nint display, nint context) -> bool
+Vixen.Graphics.OpenGL.NativeEglApi.DestroySurface(nint display, nint surface) -> bool
+Vixen.Graphics.OpenGL.NativeEglApi.GetClientProcAddress(string name) -> nint
+Vixen.Graphics.OpenGL.NativeEglApi.GetCurrentContext() -> nint
+Vixen.Graphics.OpenGL.NativeEglApi.GetDisplay(nint nativeDisplay) -> nint
+Vixen.Graphics.OpenGL.NativeEglApi.GetError() -> uint
+Vixen.Graphics.OpenGL.NativeEglApi.GetProcAddress(string name) -> nint
+Vixen.Graphics.OpenGL.NativeEglApi.Initialise(nint display, out int major, out int minor) -> bool
+Vixen.Graphics.OpenGL.NativeEglApi.MakeCurrent(nint display, nint draw, nint read, nint context) -> bool
+Vixen.Graphics.OpenGL.NativeEglApi.QueryString(nint display, int name) -> string?
+Vixen.Graphics.OpenGL.NativeEglApi.QuerySurface(nint display, nint surface, int attribute, out int value) -> bool
+Vixen.Graphics.OpenGL.NativeEglApi.ReleaseThread() -> bool
+Vixen.Graphics.OpenGL.NativeEglApi.SwapBuffers(nint display, nint surface) -> bool
+Vixen.Graphics.OpenGL.NativeEglApi.SwapInterval(nint display, int interval) -> bool
+Vixen.Graphics.OpenGL.NativeEglApi.Terminate(nint display) -> bool
 Vixen.Graphics.OpenGL.SilkGlApi -> sealed class
 Vixen.Graphics.OpenGL.SilkGlApi : System.IDisposable
 Vixen.Graphics.OpenGL.SilkGlApi : Vixen.Graphics.OpenGL.IGlApi
@@ -263,6 +349,156 @@ Vixen.Graphics.OpenGL.SilkGlApi.VertexAttribDivisor(uint index, uint divisor) ->
 Vixen.Graphics.OpenGL.SilkGlApi.VertexAttribIPointer(uint index, int size, uint type, int stride, nint offset) -> void
 Vixen.Graphics.OpenGL.SilkGlApi.VertexAttribPointer(uint index, int size, uint type, bool normalised, int stride, nint offset) -> void
 Vixen.Graphics.OpenGL.SilkGlApi.Viewport(int x, int y, int width, int height) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi -> sealed class
+Vixen.Graphics.OpenGL.SilkGlesApi : System.IDisposable
+Vixen.Graphics.OpenGL.SilkGlesApi : Vixen.Graphics.OpenGL.IGlApi
+Vixen.Graphics.OpenGL.SilkGlesApi.ActiveTexture(uint unit) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.AttachShader(uint program, uint shader) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.BindBuffer(uint target, uint buffer) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.BindBufferRange(uint target, uint index, uint buffer, nint offset, nuint size) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.BindFramebuffer(uint target, uint framebuffer) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.BindSampler(uint unit, uint sampler) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.BindTexture(uint target, uint texture) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.BindVertexArray(uint array) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.BlendColour(float red, float green, float blue, float alpha) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.BlendEquationSeparate(uint colour, uint alpha) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.BlendFuncSeparate(uint sourceColour, uint destinationColour, uint sourceAlpha, uint destinationAlpha) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.BlitFramebuffer(int sourceX0, int sourceY0, int sourceX1, int sourceY1, int destinationX0, int destinationY0, int destinationX1, int destinationY1, uint mask, uint filter) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.BufferData(uint target, nuint size, uint usage) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.BufferSubData(uint target, nint offset, System.ReadOnlySpan<byte> data) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.CheckFramebufferStatus(uint target) -> uint
+Vixen.Graphics.OpenGL.SilkGlesApi.ClearBuffer(uint buffer, int drawBuffer, System.ReadOnlySpan<float> value) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.ClearBuffer(uint buffer, int drawBuffer, System.ReadOnlySpan<int> value) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.ClearBufferDepthStencil(int drawBuffer, float depth, int stencil) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.ClipControl(uint origin, uint depth) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.ColourMask(bool red, bool green, bool blue, bool alpha) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.CompileShader(uint shader, string source) -> string?
+Vixen.Graphics.OpenGL.SilkGlesApi.CopyBufferSubData(uint readTarget, uint writeTarget, nint readOffset, nint writeOffset, nuint size) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.CopyImageSubData(uint sourceName, uint sourceTarget, int sourceLevel, int sourceX, int sourceY, int sourceZ, uint destinationName, uint destinationTarget, int destinationLevel, int destinationX, int destinationY, int destinationZ, int width, int height, int depth) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.CreateProgram() -> uint
+Vixen.Graphics.OpenGL.SilkGlesApi.CreateShader(uint type) -> uint
+Vixen.Graphics.OpenGL.SilkGlesApi.CullFace(uint face) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.DebugMarker(string name) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.DeleteBuffer(uint buffer) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.DeleteFramebuffer(uint framebuffer) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.DeleteProgram(uint program) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.DeleteSampler(uint sampler) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.DeleteShader(uint shader) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.DeleteTexture(uint texture) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.DeleteVertexArray(uint array) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.DepthFunc(uint comparison) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.DepthMask(bool write) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.DepthRange(float near, float far) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.Disable(uint capability) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.DisableVertexAttribArray(uint index) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.DispatchCompute(uint x, uint y, uint z) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.DispatchComputeIndirect(nint offset) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.Dispose() -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.DrawArraysInstanced(uint topology, int first, int count, int instanceCount) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.DrawArraysInstancedBaseInstance(uint topology, int first, int count, int instanceCount, uint baseInstance) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.DrawBuffers(System.ReadOnlySpan<uint> attachments) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.DrawElementsInstancedBaseVertex(uint topology, int count, uint indexType, nint offset, int instanceCount, int baseVertex) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.DrawElementsInstancedBaseVertexBaseInstance(uint topology, int count, uint indexType, nint offset, int instanceCount, int baseVertex, uint baseInstance) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.Enable(uint capability) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.EnableVertexAttribArray(uint index) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.Finish() -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.Flush() -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.FramebufferTexture2D(uint target, uint attachment, uint textureTarget, uint texture, int level) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.FramebufferTextureLayer(uint target, uint attachment, uint texture, int level, int layer) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.FrontFace(uint winding) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.GenBuffer() -> uint
+Vixen.Graphics.OpenGL.SilkGlesApi.GenFramebuffer() -> uint
+Vixen.Graphics.OpenGL.SilkGlesApi.GenSampler() -> uint
+Vixen.Graphics.OpenGL.SilkGlesApi.GenTexture() -> uint
+Vixen.Graphics.OpenGL.SilkGlesApi.GenVertexArray() -> uint
+Vixen.Graphics.OpenGL.SilkGlesApi.GenerateMipmap(uint target) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.GetBufferSubData(uint target, nint offset, System.Span<byte> destination) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.GetError() -> uint
+Vixen.Graphics.OpenGL.SilkGlesApi.GetStorageBlockIndex(uint program, string name) -> uint
+Vixen.Graphics.OpenGL.SilkGlesApi.GetUniformBlockIndex(uint program, string name) -> uint
+Vixen.Graphics.OpenGL.SilkGlesApi.GetUniformLocation(uint program, string name) -> int
+Vixen.Graphics.OpenGL.SilkGlesApi.InvalidateFramebuffer(uint target, System.ReadOnlySpan<uint> attachments) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.LinkProgram(uint program) -> string?
+Vixen.Graphics.OpenGL.SilkGlesApi.MemoryBarrier(uint bits) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.MultiDrawElementsIndirect(uint topology, uint indexType, nint offset, int drawCount, int stride) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.ObjectLabel(uint identifier, uint name, string label) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.PolygonMode(uint face, uint mode) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.PolygonOffset(float factor, float units) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.PopDebugGroup() -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.Profile.get -> Vixen.Graphics.OpenGL.GlProfile
+Vixen.Graphics.OpenGL.SilkGlesApi.PushDebugGroup(string name) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.ReadBuffer(uint attachment) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.ReadPixels(int x, int y, int width, int height, uint format, uint type, nint bufferOffset) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.SamplerParameter(uint sampler, uint parameter, System.ReadOnlySpan<float> values) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.SamplerParameter(uint sampler, uint parameter, float value) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.SamplerParameter(uint sampler, uint parameter, int value) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.Scissor(int x, int y, int width, int height) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.SilkGlesApi(Silk.NET.Core.Contexts.IGLContext context, Vixen.Graphics.OpenGL.GlProfile profile) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.SilkGlesApi(Silk.NET.OpenGLES.GL gl, Vixen.Graphics.OpenGL.GlProfile profile) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.StencilFuncSeparate(uint face, uint comparison, int reference, uint mask) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.StencilMaskSeparate(uint face, uint mask) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.StencilOpSeparate(uint face, uint fail, uint depthFail, uint pass) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.StorageBlockBinding(uint program, uint blockIndex, uint binding) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.TexParameter(uint target, uint parameter, int value) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.TexStorage2D(uint target, int levels, uint internalFormat, int width, int height) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.TexStorage2DMultisample(uint target, int samples, uint internalFormat, int width, int height) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.TexStorage3D(uint target, int levels, uint internalFormat, int width, int height, int depth) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.TexSubImage2D(uint target, int level, int x, int y, int width, int height, uint format, uint type, nint bufferOffset) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.TexSubImage3D(uint target, int level, int x, int y, int z, int width, int height, int depth, uint format, uint type, nint bufferOffset) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.Uniform(int location, int value) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.Uniform4(int location, System.ReadOnlySpan<float> values) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.UniformBlockBinding(uint program, uint blockIndex, uint binding) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.UseProgram(uint program) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.VertexAttribDivisor(uint index, uint divisor) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.VertexAttribIPointer(uint index, int size, uint type, int stride, nint offset) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.VertexAttribPointer(uint index, int size, uint type, bool normalised, int stride, nint offset) -> void
+Vixen.Graphics.OpenGL.SilkGlesApi.Viewport(int x, int y, int width, int height) -> void
+const Vixen.Graphics.OpenGL.EglConstants.AlphaSize = 12321 -> int
+const Vixen.Graphics.OpenGL.EglConstants.BadAccess = 12290 -> uint
+const Vixen.Graphics.OpenGL.EglConstants.BadAlloc = 12291 -> uint
+const Vixen.Graphics.OpenGL.EglConstants.BadAttribute = 12292 -> uint
+const Vixen.Graphics.OpenGL.EglConstants.BadConfig = 12293 -> uint
+const Vixen.Graphics.OpenGL.EglConstants.BadContext = 12294 -> uint
+const Vixen.Graphics.OpenGL.EglConstants.BadCurrentSurface = 12295 -> uint
+const Vixen.Graphics.OpenGL.EglConstants.BadDisplay = 12296 -> uint
+const Vixen.Graphics.OpenGL.EglConstants.BadMatch = 12297 -> uint
+const Vixen.Graphics.OpenGL.EglConstants.BadNativePixmap = 12298 -> uint
+const Vixen.Graphics.OpenGL.EglConstants.BadNativeWindow = 12299 -> uint
+const Vixen.Graphics.OpenGL.EglConstants.BadParameter = 12300 -> uint
+const Vixen.Graphics.OpenGL.EglConstants.BadSurface = 12301 -> uint
+const Vixen.Graphics.OpenGL.EglConstants.BlueSize = 12322 -> int
+const Vixen.Graphics.OpenGL.EglConstants.ConfigId = 12328 -> int
+const Vixen.Graphics.OpenGL.EglConstants.ContextDebug = 12720 -> int
+const Vixen.Graphics.OpenGL.EglConstants.ContextLost = 12302 -> uint
+const Vixen.Graphics.OpenGL.EglConstants.ContextMajorVersion = 12440 -> int
+const Vixen.Graphics.OpenGL.EglConstants.ContextMinorVersion = 12539 -> int
+const Vixen.Graphics.OpenGL.EglConstants.DefaultDisplay = 0 -> nint
+const Vixen.Graphics.OpenGL.EglConstants.DepthSize = 12325 -> int
+const Vixen.Graphics.OpenGL.EglConstants.Extensions = 12373 -> int
+const Vixen.Graphics.OpenGL.EglConstants.False = 0 -> int
+const Vixen.Graphics.OpenGL.EglConstants.GreenSize = 12323 -> int
+const Vixen.Graphics.OpenGL.EglConstants.Height = 12374 -> int
+const Vixen.Graphics.OpenGL.EglConstants.NoContext = 0 -> nint
+const Vixen.Graphics.OpenGL.EglConstants.NoDisplay = 0 -> nint
+const Vixen.Graphics.OpenGL.EglConstants.NoSurface = 0 -> nint
+const Vixen.Graphics.OpenGL.EglConstants.None = 12344 -> int
+const Vixen.Graphics.OpenGL.EglConstants.NotInitialised = 12289 -> uint
+const Vixen.Graphics.OpenGL.EglConstants.OpenGlEs2Bit = 4 -> int
+const Vixen.Graphics.OpenGL.EglConstants.OpenGlEs3Bit = 64 -> int
+const Vixen.Graphics.OpenGL.EglConstants.OpenGlEsApi = 12448 -> uint
+const Vixen.Graphics.OpenGL.EglConstants.PbufferBit = 1 -> int
+const Vixen.Graphics.OpenGL.EglConstants.RedSize = 12324 -> int
+const Vixen.Graphics.OpenGL.EglConstants.RenderableType = 12352 -> int
+const Vixen.Graphics.OpenGL.EglConstants.SampleBuffers = 12338 -> int
+const Vixen.Graphics.OpenGL.EglConstants.Samples = 12337 -> int
+const Vixen.Graphics.OpenGL.EglConstants.StencilSize = 12326 -> int
+const Vixen.Graphics.OpenGL.EglConstants.Success = 12288 -> uint
+const Vixen.Graphics.OpenGL.EglConstants.SurfaceType = 12339 -> int
+const Vixen.Graphics.OpenGL.EglConstants.True = 1 -> int
+const Vixen.Graphics.OpenGL.EglConstants.Vendor = 12371 -> int
+const Vixen.Graphics.OpenGL.EglConstants.Version = 12372 -> int
+const Vixen.Graphics.OpenGL.EglConstants.Width = 12375 -> int
+const Vixen.Graphics.OpenGL.EglConstants.WindowBit = 4 -> int
 const Vixen.Graphics.OpenGL.GlConstants.AllBarrierBits = 4294967295 -> uint
 const Vixen.Graphics.OpenGL.GlConstants.Always = 519 -> uint
 const Vixen.Graphics.OpenGL.GlConstants.ArrayBuffer = 34962 -> uint
@@ -424,8 +660,12 @@ static Vixen.Graphics.OpenGL.GlProfiles.HasClipControl(this Vixen.Graphics.OpenG
 static Vixen.Graphics.OpenGL.GlProfiles.HasCompute(this Vixen.Graphics.OpenGL.GlProfile profile) -> bool
 static Vixen.Graphics.OpenGL.GlProfiles.HasDebugOutput(this Vixen.Graphics.OpenGL.GlProfile profile) -> bool
 static Vixen.Graphics.OpenGL.GlProfiles.HasExplicitBindings(this Vixen.Graphics.OpenGL.GlProfile profile) -> bool
+static Vixen.Graphics.OpenGL.GlProfiles.HasFramebufferSrgbControl(this Vixen.Graphics.OpenGL.GlProfile profile) -> bool
 static Vixen.Graphics.OpenGL.GlProfiles.HasIndirect(this Vixen.Graphics.OpenGL.GlProfile profile) -> bool
 static Vixen.Graphics.OpenGL.GlProfiles.HasStorageBuffers(this Vixen.Graphics.OpenGL.GlProfile profile) -> bool
 static Vixen.Graphics.OpenGL.GlProfiles.HasStorageTextures(this Vixen.Graphics.OpenGL.GlProfile profile) -> bool
 static Vixen.Graphics.OpenGL.GlProfiles.HasWireframe(this Vixen.Graphics.OpenGL.GlProfile profile) -> bool
 static Vixen.Graphics.OpenGL.GlProfiles.ShaderVersion(this Vixen.Graphics.OpenGL.GlProfile profile) -> string
+static Vixen.Graphics.OpenGL.NativeEglApi.ResolvedClientPath.get -> string?
+static Vixen.Graphics.OpenGL.NativeEglApi.ResolvedEglPath.get -> string?
+static Vixen.Graphics.OpenGL.NativeEglApi.TryLoad(out Vixen.Graphics.OpenGL.NativeEglApi? api, out string? reason) -> bool

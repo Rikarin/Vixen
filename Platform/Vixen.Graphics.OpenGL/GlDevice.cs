@@ -124,9 +124,14 @@ public sealed partial class GlDevice : IGraphicsDevice {
         }
 
         // sRGB conversion is a property of the attachment's format in the RHI, as it is in Vulkan
-        // and D3D12. In GL it is a global switch that gates whether the format is honoured at all,
-        // so it is turned on once and never touched: a linear attachment is unaffected by it.
-        gl.Enable(GlConstants.FramebufferSrgb);
+        // and D3D12. In desktop GL it is a global switch that gates whether the format is honoured
+        // at all, so it is turned on once and never touched: a linear attachment is unaffected by
+        // it. GLES and WebGL2 have no such switch — GL_FRAMEBUFFER_SRGB is not an enumerant they
+        // accept, and enabling it is GL_INVALID_ENUM — because they already do what turning it on
+        // makes desktop GL do. See GlProfiles.HasFramebufferSrgbControl.
+        if (Profile.HasFramebufferSrgbControl()) {
+            gl.Enable(GlConstants.FramebufferSrgb);
+        }
 
         // Strip restart is the only topology the RHI has that needs it, and GLES 3.0 has no way to
         // choose the index — the fixed index is the only option, and it is what every other API
