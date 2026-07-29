@@ -41,12 +41,38 @@ public class GizmoGeometryTests {
 
         Assert.NotEmpty(translate);
 
-        // Four rings — the three axes and the screen-facing one — of thirty-two segments each, every
-        // segment drawn as many parallel strokes as the gizmo is pixels thick. A lot more than three
-        // arms and their heads, so this also says the two paths are not quietly the same one.
+        // Four rings — the three axes and the screen-facing one — of up to thirty-two segments each,
+        // every segment drawn as many parallel strokes as the gizmo is pixels thick. A lot more than
+        // three arms and their heads, so this also says the two paths are not quietly the same one.
+        //
+        // ⚠ A range rather than a count, and the range is the reason: the three axis rings are cut
+        // to the half facing the camera, and which sample lands exactly on the horizon is a cosine
+        // compared against zero. Asserting the count to the segment is asserting the sign of a float
+        // that is 1e−8 either way.
         var strokes = (int) MathF.Round(turning.Thickness);
+        var full = 4 * GizmoGeometry.RingSegments * strokes * 2;
 
-        Assert.Equal(4 * GizmoGeometry.RingSegments * strokes * 2, rotate.Count);
+        Assert.InRange(rotate.Count, full / 2, full - (strokes * 2));
+    }
+
+    [Fact]
+    public void The_far_half_of_a_rotation_ring_is_not_drawn() {
+        List<LineVertex> into = [];
+        var (gizmo, _, camera) = One(GizmoMode.Rotate);
+
+        GizmoGeometry.Build(gizmo, camera, Height, into);
+
+        var radius = gizmo.WorldPerPixel(camera, Height) * gizmo.HandleLength;
+        var slack = radius * 0.05f;
+
+        // Nothing at ring radius sits on the far side of the gizmo. Three full circles about one
+        // point cross each other twelve times, and every crossing is a click that lands on the back
+        // of one ring while aiming at the front of another. The screen-facing ring is a whole circle
+        // and is further out, so it is excluded by radius rather than by being special-cased.
+        Assert.DoesNotContain(
+            into,
+            vertex => vertex.Position.Length() <= radius + slack && vertex.Position.Z < -slack
+        );
     }
 
     [Fact]
@@ -110,15 +136,19 @@ public class GizmoGeometryTests {
         GizmoGeometry.Build(gizmo, camera, Height, into);
 
         var pixel = gizmo.WorldPerPixel(camera, Height);
+        var start = pixel * gizmo.HandleLength * gizmo.ArmStart;
 
         // The first five segments are the x arm's five strokes. They run parallel to the axis and
         // are spread across it, which is what makes the arm look five pixels wide from every angle
         // rather than one pixel wide from the angle it was built for.
         var origins = into.Where((_, index) => index % 2 == 0).Take(5).Select(vertex => vertex.Position).ToArray();
 
-        Assert.All(origins, position => Assert.Equal(0f, position.X, 5));
+        // ⚠ At `ArmStart` along the axis rather than at the origin. The arms are drawn from where the
+        // hit test starts testing them, so the middle of the gizmo belongs to the centre handle in
+        // the picture as well as in the arithmetic.
+        Assert.All(origins, position => Assert.Equal(start, position.X, 5));
 
-        var spread = origins.Max(position => position.Length());
+        var spread = origins.Max(position => MathF.Abs(position.Y));
 
         Assert.Equal(2f * pixel, spread, 5);
     }
@@ -145,26 +175,53 @@ public class GizmoGeometryTests {
     }
 
     [Fact]
-    public void The_scale_gizmo_draws_the_middle_box_and_the_translate_one_does_not() {
+    public void Both_the_scale_and_the_translate_gizmo_draw_the_middle_box() {
         List<LineVertex> resizing = [];
         List<LineVertex> moving = [];
+        List<LineVertex> turning = [];
 
         var (scale, _, camera) = One(GizmoMode.Scale);
         var (translate, _, _) = One(GizmoMode.Translate);
+        var (rotate, _, _) = One(GizmoMode.Rotate);
 
         GizmoGeometry.Build(scale, camera, Height, resizing);
         GizmoGeometry.Build(translate, camera, Height, moving);
+        GizmoGeometry.Build(rotate, camera, Height, turning);
 
         var pixel = scale.WorldPerPixel(camera, Height);
 
-        // The corners of a square whose half-side is the radius `HitTest` answers `Uniform` within.
-        // The most-used handle of a scale gizmo, and it was invisible: a click in the middle scaled
-        // everything at once and only somebody who tried it would know.
+        // The corners of a square whose half-side is the radius `HitTest` answers a middle handle
+        // within. One square, two meanings: uniform scale where there is a scale to do, and a drag in
+        // the view plane where there is not — and in both cases it is the thing the arms cannot do.
+        // Neither was drawn, and translate did not offer one at all, so the middle of a translate
+        // gizmo answered with whichever arm the loop reached first.
         var corner = MathF.Sqrt(2f) * pixel * scale.CentreRadius;
         var tolerance = pixel * scale.Thickness;
 
         Assert.Contains(resizing, vertex => MathF.Abs(vertex.Position.Length() - corner) <= tolerance);
-        Assert.DoesNotContain(moving, vertex => MathF.Abs(vertex.Position.Length() - corner) <= tolerance);
+        Assert.Contains(moving, vertex => MathF.Abs(vertex.Position.Length() - corner) <= tolerance);
+
+        // Rotate's middle is the screen-facing ring's business, and a box inside three rings is a
+        // fourth thing to aim at in the one place there is no room for it.
+        Assert.DoesNotContain(turning, vertex => MathF.Abs(vertex.Position.Length() - corner) <= tolerance);
+    }
+
+    [Fact]
+    public void An_arm_pointing_at_the_eye_is_not_drawn() {
+        List<LineVertex> into = [];
+        var (gizmo, _, camera) = One(GizmoMode.Translate);
+
+        // Looking straight down z, so the z arm projects to a dot in the middle of the gizmo. Drawn,
+        // it is a smudge over the other two; offered, it wins every click in the middle and then
+        // drags along a line that has no direction on screen.
+        GizmoGeometry.Build(gizmo, camera, Height, into);
+
+        var scale = gizmo.WorldPerPixel(camera, Height) * gizmo.HandleLength;
+
+        Assert.False(gizmo.IsAxisVisible(Vector3.UnitZ, camera));
+        Assert.True(gizmo.IsAxisVisible(Vector3.UnitX, camera));
+
+        Assert.DoesNotContain(into, vertex => MathF.Abs(vertex.Position.Z) > scale * 0.5f);
     }
 
     [Fact]

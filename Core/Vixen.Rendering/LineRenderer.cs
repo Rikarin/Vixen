@@ -149,13 +149,49 @@ public sealed class LineRenderer : IDisposable {
     /// <param name="commands">Where to record.</param>
     /// <param name="viewProjection">The world-to-clip matrix of the view being drawn.</param>
     /// <param name="depthTested">Whether the lines are hidden by geometry in front of them.</param>
-    public void Record(ICommandList commands, in Matrix4x4 viewProjection, bool depthTested = true) {
+    public void Record(ICommandList commands, in Matrix4x4 viewProjection, bool depthTested = true) =>
+        Record(commands, viewProjection, 0, Count, depthTested);
+
+    /// <summary>Draws part of what the last upload wrote.</summary>
+    /// <param name="commands">Where to record.</param>
+    /// <param name="viewProjection">The world-to-clip matrix of the view being drawn.</param>
+    /// <param name="first">Which vertex to start at.</param>
+    /// <param name="count">How many to draw. Rounded down to a whole number of segments.</param>
+    /// <param name="depthTested">Whether the lines are hidden by geometry in front of them.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What the second pipeline is for, and what it could not be used for until this
+    ///         existed.</b> A frame's lines are two kinds — the world's, which must be behind whatever
+    ///         is in front of them, and an overlay's, which must not be — and they differ only in a
+    ///         depth test. Uploading them once and drawing the buffer twice at two ranges is one write
+    ///         and two draws; the alternatives are two renderers with two buffers, or a single draw
+    ///         that has to pick one of the two behaviours for everything. It picked the depth test,
+    ///         which is the one that hides a gizmo inside the object it is moving.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The range is in vertices and is clamped to what was uploaded</b>, including the
+    ///         truncation an over-full frame took — so a caller that split its own list at a count the
+    ///         upload then dropped part of draws less rather than reading past the end of the region.
+    ///     </para>
+    /// </remarks>
+    public void Record(
+        ICommandList commands,
+        in Matrix4x4 viewProjection,
+        int first,
+        int count,
+        bool depthTested = true
+    ) {
         ArgumentNullException.ThrowIfNull(commands);
         ObjectDisposedException.ThrowIf(disposed, this);
 
         Draws = 0;
 
-        if (Count == 0) {
+        // Rounded to whole segments at both ends: the topology pairs vertices, and an odd first would
+        // pair every remaining vertex with the wrong partner rather than merely dropping one.
+        first = Math.Clamp(first, 0, Count) & ~1;
+        count = Math.Clamp(count, 0, Count - first) & ~1;
+
+        if (count == 0) {
             return;
         }
 
@@ -164,10 +200,10 @@ public sealed class LineRenderer : IDisposable {
         commands.BindPipeline(depthTested ? pipeline : overlayPipeline);
         commands.PushConstants(ShaderStage.Vertex, 0, MemoryMarshal.AsBytes(matrix));
 
-        // The vertex binding moves with the region, so the draw's first vertex stays zero — the same
-        // arrangement that makes UiRenderer's ring cost nothing downstream.
-        commands.BindVertexBuffer(0, vertices, (long) slot * capacity);
-        commands.Draw(Count);
+        // The vertex binding moves with the region and with the range, so the draw's first vertex
+        // stays zero — the same arrangement that makes UiRenderer's ring cost nothing downstream.
+        commands.BindVertexBuffer(0, vertices, ((long) slot * capacity) + ((long) first * Marshal.SizeOf<LineVertex>()));
+        commands.Draw(count);
 
         Draws = 1;
     }

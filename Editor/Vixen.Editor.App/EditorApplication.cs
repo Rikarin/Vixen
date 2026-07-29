@@ -623,21 +623,71 @@ sealed class EditorApplication : IDisposable {
             "scene.toggle-projection",
             "Orthographic",
             pane => pane.Camera.IsOrthographic = !pane.Camera.IsOrthographic,
-            on: pane => pane.Camera.IsOrthographic
+            on: pane => pane.Camera.IsOrthographic,
+            key: InputKey.Keypad5
+        );
+
+        // ⚠ The three navigation preferences, as ticked commands rather than as a dialog. Which
+        // point an orbit swings around is the one people notice within a minute of opening a scene
+        // and cannot otherwise change; the other two are the settings the same people ask for next.
+        // A palette entry and a menu tick is the whole of what a preference needs before there is a
+        // preferences window to put it in — and it is what makes them rebindable and searchable.
+        Add(
+            "scene.orbit-around-selection",
+            "Orbit Around Selection",
+            pane => pane.OrbitAround =
+                pane.OrbitAround == OrbitPivot.Selection ? OrbitPivot.View : OrbitPivot.Selection,
+            on: pane => pane.OrbitAround == OrbitPivot.Selection
+        );
+
+        Add(
+            "scene.zoom-to-cursor",
+            "Zoom to Mouse Position",
+            pane => pane.ZoomToCursor = !pane.ZoomToCursor,
+            on: pane => pane.ZoomToCursor
+        );
+
+        Add(
+            "scene.invert-orbit-y",
+            "Invert Orbit Y",
+            pane => pane.Camera.InvertOrbitY = !pane.Camera.InvertOrbitY,
+            on: pane => pane.Camera.InvertOrbitY
         );
 
         Add("scene.focus", "Focus Selection", pane => pane.FocusSelection(SelectionBounds()), key: InputKey.F);
         Add("scene.frame-all", "Frame All", pane => pane.Camera.Focus(SceneBounds()), key: InputKey.A);
 
+        // The six axis views on the six numpad keys every 3D editor puts them on, opposites included.
+        // Half of them existed and half did not, which meant the front view had a key and the back
+        // view could only be reached by orbiting a hundred and eighty degrees by hand.
         View("scene.view-front", "Front View", ViewDirection.Front, InputKey.Keypad1);
+        View("scene.view-back", "Back View", ViewDirection.Back, InputKey.Keypad9);
         View("scene.view-right", "Right View", ViewDirection.Right, InputKey.Keypad3);
+        View("scene.view-left", "Left View", ViewDirection.Left);
         View("scene.view-top", "Top View", ViewDirection.Top, InputKey.Keypad7);
+        View("scene.view-bottom", "Bottom View", ViewDirection.Bottom);
+
+        // ⚠ In degrees, through `Turn`. A keyboard orbit expressed as a pointer drag would move when
+        // the orbit speed is tuned and reverse when somebody sets "invert orbit Y" — and a key that
+        // says "turn left" has no business being affected by a preference about the mouse.
+        Step("scene.orbit-left", "Orbit Left", 15f, 0f, InputKey.Keypad4);
+        Step("scene.orbit-right", "Orbit Right", -15f, 0f, InputKey.Keypad6);
+        Step("scene.orbit-up", "Orbit Up", 0f, 15f, InputKey.Keypad8);
+        Step("scene.orbit-down", "Orbit Down", 0f, -15f, InputKey.Keypad2);
 
         void Mode(string id, string label, GizmoMode mode, InputKey key) =>
             Add(id, label, pane => pane.Gizmo.Mode = mode, pane => pane.Gizmo.Mode == mode, key);
 
-        void View(string id, string label, ViewDirection direction, InputKey key) =>
+        void View(string id, string label, ViewDirection direction, InputKey key = InputKey.Unknown) =>
             Add(id, label, pane => pane.Camera.LookFrom(direction), key: key);
+
+        void Step(string id, string label, float yaw, float pitch, InputKey key) =>
+            Add(
+                id,
+                label,
+                pane => pane.Camera.Turn(MathUtil.DegreesToRadians(yaw), MathUtil.DegreesToRadians(pitch)),
+                key: key
+            );
 
         void Add(
             string id,
@@ -696,9 +746,20 @@ sealed class EditorApplication : IDisposable {
             .Add("scene.toggle-space", "scene.toggle-pivot", "scene.toggle-snap");
 
         menu.AddSubmenu(new StringId("editor.menu.camera", "Camera"))
-            .Add("scene.view-front", "scene.view-right", "scene.view-top")
+            .Add("scene.view-front", "scene.view-back")
+            .Add("scene.view-right", "scene.view-left")
+            .Add("scene.view-top", "scene.view-bottom")
             .AddSeparator()
             .Add("scene.toggle-projection");
+
+        // ⚠ Its own submenu rather than three more lines on the Camera one. These are preferences —
+        // they change what every future drag does rather than doing anything now — and mixing them
+        // in with the six view keys would make a menu where half the entries move the camera and
+        // half of them silently change how it moves.
+        menu.AddSubmenu(new StringId("editor.menu.navigation", "Navigation"))
+            .Add("scene.orbit-around-selection", "scene.zoom-to-cursor", "scene.invert-orbit-y")
+            .AddSeparator()
+            .Add("scene.orbit-left", "scene.orbit-right", "scene.orbit-up", "scene.orbit-down");
 
         menu.AddSeparator().Add("scene.focus", "scene.frame-all");
         menu.AddSeparator().Add("scene.toggle-grid");

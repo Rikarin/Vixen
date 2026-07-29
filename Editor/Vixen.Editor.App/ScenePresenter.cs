@@ -47,6 +47,13 @@ sealed class ScenePresenter : IDisposable {
     readonly SceneLines geometry = new();
     readonly List<LineVertex> pending = [];
 
+    /// <summary>How many of the uploaded vertices are the depth-tested half.</summary>
+    /// <remarks>
+    ///     Where the frame's buffer is cut. Everything before it is the world — the grid, the entity
+    ///     markers — and everything after is the gizmo, which is drawn over the top.
+    /// </remarks>
+    int depthTested;
+
     TextureHandle colour;
     TextureViewHandle colourView;
     TextureHandle depth;
@@ -149,11 +156,12 @@ sealed class ScenePresenter : IDisposable {
         pending.Clear();
         pending.AddRange(geometry.World);
 
-        // ⚠ Appended rather than drawn separately, and the depth test is what pays for it. Both
-        // halves go in one buffer and one draw; the overlay would need its own pipeline to escape
-        // the depth test, and a gizmo that is occluded is a gizmo nobody can grab. Which is the
-        // trade being made here: one draw, and the handles are depth-tested along with everything
-        // else until the second pass below is worth its cost.
+        // ⚠ One buffer, two draws, and the boundary is remembered here. The two halves differ only
+        // in a depth test — `LineRenderer` has had the second pipeline for it from the start — so
+        // uploading them together and drawing the ranges separately costs one extra draw and buys a
+        // gizmo that can be grabbed through the thing it is moving. Drawing them as one meant the
+        // handles were hidden inside their own object, which is a gizmo you have to orbit to use.
+        depthTested = pending.Count;
         pending.AddRange(geometry.Overlay);
 
         lines.Upload(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(pending));
@@ -214,7 +222,12 @@ sealed class ScenePresenter : IDisposable {
                 pass.DepthAttachment(depthTarget, LoadAction.Clear, 0f);
                 pass.SideEffect();
 
-                pass.Execute(context => lines.Record(context.CommandList, viewProjection));
+                var split = depthTested;
+
+                pass.Execute(context => {
+                    lines.Record(context.CommandList, viewProjection, 0, split);
+                    lines.Record(context.CommandList, viewProjection, split, int.MaxValue, depthTested: false);
+                });
             }
         );
 

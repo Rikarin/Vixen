@@ -57,8 +57,11 @@ public class SceneTests {
         var placement = new ScenePlacement();
         var camera = new EditorCamera { Distance = 10f };
 
-        // Dragged upwards, which climbs over the top and looks down — see EditorCamera.Orbit.
-        camera.Orbit(0f, -200f);
+        // Dragged downwards, which tips the scene away and puts the eye above it looking down — see
+        // EditorCamera.Orbit.
+        camera.Orbit(0f, 200f);
+
+        Assert.True(camera.Position.Y > 0f);
 
         var result = placement.Resolve(camera.PickingRay(new Vector2(500f, 400f), 1000, 800));
 
@@ -69,17 +72,26 @@ public class SceneTests {
     [Fact]
     public void A_drop_with_the_ground_behind_the_camera_still_lands_in_front_of_it() {
         var placement = new ScenePlacement { FallbackDistance = 7f };
-        var camera = new EditorCamera { Distance = 10f };
 
-        // Looking up at the sky: the ground plane is behind, and a drop still has to go somewhere
-        // the user can see rather than at infinity.
-        camera.Orbit(0f, 200f);
+        // ⚠ Above the plane *and* looking up, which needs both a raised pivot and a positive pitch.
+        // Pitch alone puts the eye underneath the plane, and a ray from under the ground still
+        // crosses it going up — so the fallback below is never reached and the fixture asserts only
+        // that a ground hit is in front of the camera, which it always is.
+        var camera = new EditorCamera { Pivot = new Vector3(0f, 30f, 0f), Distance = 10f };
+
+        camera.Orbit(0f, -200f);
+
+        Assert.True(camera.Position.Y > 0f);
+        Assert.True(camera.Forward.Y > 0f);
 
         var ray = camera.PickingRay(new Vector2(500f, 400f), 1000, 800);
         var result = placement.Resolve(ray);
 
+        // Looking up at the sky: the ground plane is behind, and a drop still has to go somewhere the
+        // user can see rather than at infinity.
         Assert.False(result.OnSurface);
         Assert.True(Vector3.Dot(result.Position - camera.Position, camera.Forward) > 0f);
+        Assert.Equal(placement.FallbackDistance, (result.Position - ray.Origin).Length() / ray.Direction.Length(), 3);
     }
 
     [Fact]

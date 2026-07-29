@@ -99,8 +99,20 @@ Everything the viewport can be told to do is an `EditorCommand`, so it is on `W`
 palette, rebindable, and greyed out when the scene panel is closed. What it was *not* was reachable
 with a mouse: the shell's default bar is File, Edit, View and Help, and none of them is where a
 gizmo mode belongs. `MenuModel.InsertMenu` puts a Scene menu third, with the modes and the space,
-pivot and snap toggles under a Gizmo submenu, the numpad views and the projection under a Camera one,
-and focus, frame-all and the grid alongside.
+pivot and snap toggles under a Gizmo submenu, the six axis views and the projection under a Camera
+one, the navigation preferences under a Navigation one, and focus, frame-all and the grid alongside.
+
+- **All six axis views, not three.** Front, right and top had numpad keys and back, left and bottom
+  did not exist, so the opposite of a view could only be reached by orbiting a hundred and eighty
+  degrees by hand.
+- **The navigation preferences are ticked commands rather than a dialog.** Orbit-around-selection is
+  the one people notice within a minute of opening a scene and could not otherwise change;
+  zoom-to-cursor and invert-orbit-Y are what the same people ask for next. A palette entry and a menu
+  tick is the whole of what a preference needs before there is a preferences window to put it in — and
+  it is what makes them searchable and rebindable.
+- ⚠ **Its own submenu, not three more lines on Camera.** These change what every *future* drag does
+  rather than doing anything now, and a menu where half the entries move the camera and half silently
+  change how it moves is one nobody reads twice.
 
 - **The three modes are ticked, not merely listed.** A menu of Translate, Rotate and Scale with
   nothing saying which is current is one where the only way to find out what a drag will do is to

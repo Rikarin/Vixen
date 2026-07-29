@@ -32,6 +32,21 @@ public enum NavigationAction {
     Manipulate
 }
 
+/// <summary>What an orbit swings around.</summary>
+/// <remarks>
+///     Blender's <i>Orbit Around Selection</i>, and it is a preference because both answers are right
+///     for different work. The view's own pivot is predictable — the thing in the middle of the pane
+///     stays in the middle — and the selection is what you want the moment you are working on
+///     something that is not in the middle, which is most of the time.
+/// </remarks>
+public enum OrbitPivot {
+    /// <summary>The camera's own pivot, which is what focus and pan move.</summary>
+    View,
+
+    /// <summary>Whatever is selected, falling back to the view's pivot when nothing is.</summary>
+    Selection
+}
+
 /// <summary>Which way a viewport is being flown, as the keys that are down.</summary>
 /// <remarks>
 ///     Flags rather than one direction, because holding two is the ordinary case: forward and right
@@ -150,6 +165,16 @@ public sealed class SceneViewport : IDisposable {
     bool fast;
     bool disposed;
 
+    /// <summary>Where the pointer last was, in render pixels, for the gestures that need it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Remembered rather than asked for.</b> <c>Viewport.Zoomed</c> carries a scroll distance
+    ///     and nothing else — it is the wheel's own event and a wheel has no position — so a zoom at
+    ///     the pointer has to know where the pointer got to on the last move. The middle of the pane
+    ///     is the honest answer before there has been one, which is what a wheel from a pointer that
+    ///     entered the pane without moving inside it gets.
+    /// </remarks>
+    Vector2 pointer;
+
     /// <summary>The control the scene is drawn in.</summary>
     public ViewportControl Control { get; }
 
@@ -192,6 +217,34 @@ public sealed class SceneViewport : IDisposable {
 
     /// <summary>Which keys fly the camera while the fly button is held.</summary>
     public FlyBindings FlyKeys { get; set; } = FlyBindings.Wasdqe;
+
+    /// <summary>What an orbit swings around.</summary>
+    /// <remarks>
+    ///     The view's own pivot by default, which is what every navigation in
+    ///     <see cref="EditorCamera" /> is expressed against. <see cref="OrbitPivot.Selection" /> is
+    ///     Blender's preference of the same name and reaches the selection through
+    ///     <see cref="OrbitAnchor" />.
+    /// </remarks>
+    public OrbitPivot OrbitAround { get; set; } = OrbitPivot.View;
+
+    /// <summary>Whether the wheel zooms at the pointer rather than at the middle of the pane.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Off by default, as it is in Blender.</b> It is the better gesture for approaching
+    ///     something and the worse one for framing: a zoom at the pointer drags the view sideways, so
+    ///     somebody who is nudging the wheel while reading the middle of the pane watches the middle
+    ///     of the pane wander off. Both camps are large, which is what makes it a setting.
+    /// </remarks>
+    public bool ZoomToCursor { get; set; }
+
+    /// <summary>Where the selection is, for <see cref="OrbitPivot.Selection" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read from the gizmo rather than from the selection directly</b>, because the gizmo is
+    ///     already the thing that answers "where is the selection" — it honours
+    ///     <c>TransformGizmo.Pivot</c>, so orbiting around a multiple selection swings around whatever
+    ///     the handles are sitting on rather than around a second, differently-computed middle. A pane
+    ///     with nothing selected has no anchor and falls back to the view's pivot.
+    /// </remarks>
+    public Vector3? OrbitAnchor => Gizmo.Targets.Count > 0 ? Gizmo.Origin : null;
 
     /// <summary>Whether the fly button is down, so that the fly keys are live.</summary>
     /// <remarks>
@@ -421,17 +474,41 @@ public sealed class SceneViewport : IDisposable {
     /// <param name="button">Which button is down.</param>
     /// <param name="modifiers">What is held on the keyboard.</param>
     /// <returns>What to do.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Blender's middle-button set, plus Maya's Alt chords, plus the right button that
+    ///         flies.</b> The middle button orbits, shift pans and control dollies — which is the
+    ///         gesture most people bring with them and the one the whole rest of this type is written
+    ///         against. Alt with left, middle and right is the same three in Maya's spelling, and the
+    ///         two sets do not collide because Blender's use no modifier where Maya's use Alt.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The middle button used to pan whatever was held with it</b>, so shift+middle and
+    ///         middle were one branch written as two and there was no orbit on the middle button at
+    ///         all. Somebody arriving from Blender found the button that turns the view slides it
+    ///         instead, and the only orbit was on the right button — which is also the one that
+    ///         captures WASDQE, so trying it started a flight.
+    ///     </para>
+    ///     <para>
+    ///         Alt is checked before the plain button on the left, so holding it takes the left button
+    ///         away from the gizmo rather than fighting it.
+    ///     </para>
+    /// </remarks>
     public static NavigationAction Interpret(PointerButton button, ModifierKeys modifiers) {
         var alt = (modifiers & ModifierKeys.Alt) != 0;
         var shift = (modifiers & ModifierKeys.Shift) != 0;
+        var control = (modifiers & ModifierKeys.Control) != 0;
 
         return button switch {
-            // Alt+left is the Maya convention and the one most people's hands know. It is checked
-            // first, so holding Alt takes the left button away from the gizmo rather than fighting it.
             PointerButton.Primary when alt => NavigationAction.Orbit,
             PointerButton.Primary => NavigationAction.Manipulate,
-            PointerButton.Middle when shift => NavigationAction.Pan,
-            PointerButton.Middle => NavigationAction.Pan,
+
+            // ⚠ Control before shift. Both held is one gesture and it has to resolve to one action;
+            // control wins because a dolly is the harder of the two to reach any other way.
+            PointerButton.Middle when control => NavigationAction.Dolly,
+            PointerButton.Middle when shift || alt => NavigationAction.Pan,
+            PointerButton.Middle => NavigationAction.Orbit,
+
             PointerButton.Secondary when alt => NavigationAction.Dolly,
             PointerButton.Secondary => NavigationAction.Orbit,
             _ => NavigationAction.None
@@ -454,6 +531,36 @@ public sealed class SceneViewport : IDisposable {
     /// <summary>Zooms by one wheel event's worth of scrolling.</summary>
     /// <param name="delta">How far it scrolled, in device-independent pixels, positive downwards.</param>
     public void Wheel(float delta) => Camera.Zoom(Notches(delta, WheelNotch));
+
+    /// <summary>Zooms by one wheel event's worth of scrolling, at a point in the pane.</summary>
+    /// <param name="delta">How far it scrolled, in device-independent pixels, positive downwards.</param>
+    /// <param name="point">Where the pointer is, in render pixels.</param>
+    /// <remarks>
+    ///     Honours <see cref="ZoomToCursor" />: with it off this is <see cref="Wheel(float)" />, and
+    ///     the point is read and discarded rather than the caller having to know which it wants.
+    /// </remarks>
+    public void Wheel(float delta, Vector2 point) {
+        var notches = Notches(delta, WheelNotch);
+
+        if (!ZoomToCursor) {
+            Camera.Zoom(notches);
+            return;
+        }
+
+        Camera.ZoomTowards(Camera.OnPivotPlane(Ray(point)), notches);
+    }
+
+    /// <summary>Turns the camera, honouring <see cref="OrbitAround" />.</summary>
+    /// <param name="deltaX">How far the pointer moved horizontally, in render pixels.</param>
+    /// <param name="deltaY">How far it moved vertically, positive downwards.</param>
+    public void Orbit(float deltaX, float deltaY) {
+        if (OrbitAround == OrbitPivot.Selection && OrbitAnchor is { } anchor) {
+            Camera.OrbitAround(anchor, deltaX, deltaY);
+            return;
+        }
+
+        Camera.Orbit(deltaX, deltaY);
+    }
 
     /// <summary>Whether holding this button also flies the camera.</summary>
     /// <param name="button">Which button.</param>
@@ -602,6 +709,7 @@ public sealed class SceneViewport : IDisposable {
         }
 
         var point = Control.ToRender(args.X, args.Y);
+        pointer = point;
 
         if (args.Action == PointerAction.Moved && args.Button == PointerButton.None) {
             Hover(point);
@@ -640,7 +748,7 @@ public sealed class SceneViewport : IDisposable {
 
         switch (Interpret(drag.Button, drag.Modifiers)) {
             case NavigationAction.Orbit:
-                Camera.Orbit(drag.DeltaX, drag.DeltaY);
+                Orbit(drag.DeltaX, drag.DeltaY);
                 break;
 
             case NavigationAction.Pan:
@@ -660,7 +768,10 @@ public sealed class SceneViewport : IDisposable {
         }
     }
 
-    void OnZoomed(ViewportControl control, float delta) => Wheel(delta);
+    void OnZoomed(ViewportControl control, float delta) =>
+        Wheel(delta, pointer.IsZero ? Middle(control) : pointer);
+
+    static Vector2 Middle(ViewportControl control) => new(control.RenderWidth * 0.5f, control.RenderHeight * 0.5f);
 
     /// <summary>Tracks which fly keys are down, and takes them from everything else.</summary>
     /// <remarks>

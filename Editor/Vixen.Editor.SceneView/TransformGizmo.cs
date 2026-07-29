@@ -43,6 +43,21 @@ public sealed class TransformGizmo {
     float dragStartScalar;
     float dragStartAngle;
 
+    /// <summary>Whether this rotation drag is being measured along the screen, not in the ring's plane.</summary>
+    /// <remarks>
+    ///     Decided once, at <see cref="Begin" />, and never revisited — see <see cref="EdgeOnLimit" />
+    ///     for when and why. Deciding it per frame would swap between two measures that agree only at
+    ///     the grab, so the selection would jump the moment a drag carried the ring across the
+    ///     threshold.
+    /// </remarks>
+    bool dragAlongScreen;
+
+    /// <summary>Which way pointer motion turns the ring, for a screen-measured rotation.</summary>
+    Vector3 dragTangent;
+
+    /// <summary>How far the grab was from the ring's middle, for a screen-measured rotation.</summary>
+    float dragLever;
+
     /// <summary>How long an arm is, in render pixels.</summary>
     /// <remarks>
     ///     <b>A gizmo is aimed at rather than read, so it is sized like a control and not like a
@@ -90,6 +105,47 @@ public sealed class TransformGizmo {
     ///     tested before them, which <see cref="HitTest" /> is what does.
     /// </remarks>
     public float ScreenRingScale { get; set; } = 1.15f;
+
+    /// <summary>How far along an arm its grabbable part starts, as a fraction of the arm.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The three arms all pass through the origin, so without this the middle of the gizmo
+    ///     belongs to whichever one is tested first.</b> It was X, always — a click anywhere within
+    ///     the grab radius of the centre started an X drag, whatever the pointer looked like it was
+    ///     on, and the centre handle that should own that region could never be reached in translate
+    ///     mode because nothing drew or offered one. Starting the arms a little way out gives the
+    ///     middle to the handle that means "in the view plane" and gives each arm a stretch that is
+    ///     unambiguously its own.
+    /// </remarks>
+    public float ArmStart { get; set; } = 0.18f;
+
+    /// <summary>
+    ///     How short an arm may look before it stops being offered, in render pixels.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>An arm pointing at the eye projects to a dot.</b> Every pixel of it is within the grab
+    ///     radius of every other, so it wins the hit test over the two arms that are actually visible
+    ///     — and dragging it is a drag along a line that has no direction on screen, which moves the
+    ///     selection by whatever the ray's numerical error happens to be. The same threshold hides it
+    ///     in <c>GizmoGeometry</c>, because a handle that is drawn and not grabbable is worse than one
+    ///     that is neither.
+    /// </remarks>
+    public float MinimumAxisLength { get; set; } = 24f;
+
+    /// <summary>
+    ///     How nearly a rotation ring may be edge-on before its drag is measured along the screen
+    ///     instead of in its own plane, as the cosine of the angle to the view direction.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A ring seen edge-on has no usable plane to intersect.</b> The ray and the plane are
+    ///     nearly parallel, so the crossing point is hundreds of units away and moves by tens of them
+    ///     per pixel — and when they are exactly parallel there is no crossing at all, which
+    ///     <see cref="OnPlane" /> answers with the translate drag's start point, a field a rotation
+    ///     never wrote. That is a rotate gizmo that spins wildly and then jumps to a fixed angle, and
+    ///     it happens in the most ordinary pose there is: a horizontal camera, turning something about
+    ///     Y. <see cref="Begin" /> notices it once, at the grab, and measures the rest of that drag
+    ///     along the ring's screen tangent instead — which is what every editor does here.
+    /// </remarks>
+    public float EdgeOnLimit { get; set; } = 0.15f;
 
     /// <summary>What the gizmo changes.</summary>
     public GizmoMode Mode { get; set; } = GizmoMode.Translate;
@@ -212,6 +268,36 @@ public sealed class TransformGizmo {
         return 2f * depth * MathF.Tan(camera.FieldOfView * 0.5f) / height;
     }
 
+    /// <summary>Whether an arm along a direction is long enough on screen to be worth offering.</summary>
+    /// <param name="axis">The direction, in world space. Expected to be unit length.</param>
+    /// <param name="camera">The camera it is seen from.</param>
+    /// <returns>Whether it is drawn and grabbable.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         An arm of <see cref="HandleLength" /> pixels foreshortens to
+    ///         <c>HandleLength × sin θ</c>, where θ is the angle between it and the view direction —
+    ///         so this is one dot product and no projection, which is what lets
+    ///         <see cref="HitTest" /> and <c>GizmoGeometry</c> ask the same question rather than two
+    ///         that agree to within a pixel. See <see cref="MinimumAxisLength" /> for why the answer
+    ///         has to be the same in both.
+    ///     </para>
+    ///     <para>
+    ///         In orthographic the depth does not matter and the same formula is exact. In
+    ///         perspective it is the length at the gizmo's own depth, which is where the gizmo is.
+    ///     </para>
+    /// </remarks>
+    public bool IsAxisVisible(Vector3 axis, EditorCamera camera) {
+        ArgumentNullException.ThrowIfNull(camera);
+
+        if (HandleLength <= 0f) {
+            return false;
+        }
+
+        var along = Math.Clamp(Vector3.Dot(axis, camera.Forward), -1f, 1f);
+
+        return HandleLength * MathF.Sqrt(1f - (along * along)) >= MinimumAxisLength;
+    }
+
     /// <summary>Which handle is under a point.</summary>
     /// <param name="point">Where, in render pixels from the viewport's top-left.</param>
     /// <param name="camera">The camera.</param>
@@ -230,6 +316,19 @@ public sealed class TransformGizmo {
     ///         the plane quads overlap the arms they sit between and the arms all overlap at the
     ///         origin — testing the other way round makes the plane handles unreachable.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Among the arms it is the nearest that wins, not the first.</b> They cross on
+    ///         screen from most angles, and returning on the first one within tolerance meant the
+    ///         answer at a crossing depended on the order the loop happens to run in — X, always. An
+    ///         editor where two arms overlap and the wrong one lights up is one where the tool is
+    ///         reported as "not working from some angles", which is exactly what it is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing is offered that cannot be projected.</b> A gizmo behind the eye still has
+    ///         screen coordinates — see <c>EditorCamera.TryProject</c> — and they are mirrored through
+    ///         the middle of the pane, so the arms of a selection behind the camera lie across the
+    ///         viewport waiting to be clicked.
+    ///     </para>
     /// </remarks>
     public GizmoHandle HitTest(Vector2 point, EditorCamera camera, int width, int height) {
         ArgumentNullException.ThrowIfNull(camera);
@@ -241,11 +340,21 @@ public sealed class TransformGizmo {
         var origin = Origin;
         var basis = Basis(camera);
         var scale = WorldPerPixel(camera, height) * HandleLength;
-        var centre = Flat(camera.Project(origin, width, height));
 
+        if (!camera.TryProject(origin, width, height, out var centre)) {
+            return GizmoHandle.None;
+        }
+
+        // The middle. Uniform scale where there is a scale to do, and a view-plane translate where
+        // there is not — one square, two meanings, and both of them are what the mode's other
+        // handles do not offer.
         if (Mode is GizmoMode.Scale or GizmoMode.Transform
             && Vector2.Distance(point, centre) <= CentreRadius) {
             return GizmoHandle.Uniform;
+        }
+
+        if (Mode is GizmoMode.Translate && Vector2.Distance(point, centre) <= CentreRadius) {
+            return GizmoHandle.Screen;
         }
 
         if (Mode is GizmoMode.Rotate) {
@@ -266,11 +375,38 @@ public sealed class TransformGizmo {
             return plane;
         }
 
-        for (var axis = 0; axis < 3; axis++) {
-            var end = Flat(camera.Project(origin + (Axis(basis, axis) * scale), width, height));
+        return ArmUnder(point, camera, origin, basis, scale, centre, width, height);
+    }
 
-            if (DistanceToSegment(point, centre, end) <= Tolerance) {
-                return axis switch {
+    /// <summary>Which arm is nearest a point, if any is near enough.</summary>
+    GizmoHandle ArmUnder(
+        Vector2 point,
+        EditorCamera camera,
+        Vector3 origin,
+        Matrix4x4 basis,
+        float scale,
+        Vector2 centre,
+        int width,
+        int height
+    ) {
+        var best = GizmoHandle.None;
+        var nearest = Tolerance;
+
+        for (var axis = 0; axis < 3; axis++) {
+            var direction = Axis(basis, axis);
+
+            if (!IsAxisVisible(direction, camera)
+                || !camera.TryProject(origin + (direction * scale), width, height, out var end)) {
+                continue;
+            }
+
+            var from = Vector2.Lerp(centre, end, ArmStart);
+            var distance = DistanceToSegment(point, from, end);
+
+            if (distance < nearest) {
+                nearest = distance;
+
+                best = axis switch {
                     0 => GizmoHandle.AxisX,
                     1 => GizmoHandle.AxisY,
                     _ => GizmoHandle.AxisZ
@@ -278,7 +414,7 @@ public sealed class TransformGizmo {
             }
         }
 
-        return GizmoHandle.None;
+        return best;
     }
 
     /// <summary>Starts a drag.</summary>
@@ -305,7 +441,7 @@ public sealed class TransformGizmo {
 
         switch (Mode) {
             case GizmoMode.Rotate:
-                dragStartAngle = AngleOn(ray, handle, camera);
+                BeginTurn(ray, handle, camera);
                 break;
 
             case GizmoMode.Scale:
@@ -373,16 +509,34 @@ public sealed class TransformGizmo {
     public IReadOnlyList<(Vector3 Position, Quaternion Rotation, Vector3 Scale)> Captured() =>
         initial.Select(static state => (state.Position, state.Rotation, state.Scale)).ToArray();
 
+    /// <summary>Applies a translate drag.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What is rounded is the <i>whole</i> drag, and by default it is the drag rather than
+    ///     the position.</b> Rounding each frame's delta accumulates the rounding error, so a slow
+    ///     drag across ten squares lands between two of them and a quick one lands on a line — which
+    ///     is why everything here is recomputed from the captured state. Whether the *result* sits on
+    ///     the world lattice is a second question and a separate setting; see
+    ///     <see cref="SnapSettings.AbsoluteGrid" />.
+    /// </remarks>
     bool Move(Ray ray, EditorCamera camera) {
         var offset = PointOn(ray, Active, camera) - dragStartPoint;
 
         if (Active is GizmoHandle.AxisX or GizmoHandle.AxisY or GizmoHandle.AxisZ) {
             var axis = Axis(dragBasis, Active - GizmoHandle.AxisX);
-            offset = axis * Snap.Position(Vector3.Dot(offset, axis));
+            var along = Vector3.Dot(offset, axis);
+
+            // Measured from where the gizmo started rather than from zero, so an absolute snap along
+            // a local arm still lands on a lattice — the one through the object's own origin, which
+            // is the only lattice a rotated axis has.
+            var from = Snap.AbsoluteGrid ? Vector3.Dot(dragOrigin, axis) : 0f;
+
+            offset = axis * (Snap.Position(from + along) - from);
         } else {
             // A plane drag snaps in the gizmo's own axes rather than the world's, so a translate on
             // a rotated object's XY plane still lands on that object's grid.
-            offset = Local(dragBasis, Snap.Position(Unlocal(dragBasis, offset)));
+            var from = Snap.AbsoluteGrid ? Unlocal(dragBasis, dragOrigin) : Vector3.Zero;
+
+            offset = Local(dragBasis, Snap.Position(from + Unlocal(dragBasis, offset)) - from);
         }
 
         for (var index = 0; index < targets.Count && index < initial.Count; index++) {
@@ -390,6 +544,53 @@ public sealed class TransformGizmo {
         }
 
         return offset.LengthSquared() > 0f;
+    }
+
+    /// <summary>Records what the rest of a rotation drag is measured against.</summary>
+    /// <remarks>
+    ///     Both measures are set up here rather than one of them, because which is in use is a
+    ///     property of the pose at the grab and the drag has to be able to answer without asking the
+    ///     camera again — the camera moves during a drag whenever somebody nudges the wheel.
+    /// </remarks>
+    void BeginTurn(Ray ray, GizmoHandle handle, EditorCamera camera) {
+        var axis = AxisOf(handle, dragBasis, camera);
+
+        // ⚠ Before anything reads it. `OnPlane` answers with this when the ray and the plane are
+        // parallel, and a rotation that inherited whatever the last *translate* drag left there
+        // would begin at an angle nobody asked for.
+        dragStartPoint = dragOrigin;
+        dragAlongScreen = MathF.Abs(Vector3.Dot(axis, camera.Forward)) < EdgeOnLimit;
+
+        if (!dragAlongScreen) {
+            dragStartAngle = AngleOn(ray, handle, camera);
+            return;
+        }
+
+        // Edge-on. The ring's own plane is useless, so the grab is taken on the plane facing the
+        // camera and the drag is read as distance along the ring's tangent there — a straight line on
+        // screen, which is the one thing that is well behaved at this angle.
+        dragStartPoint = OnPlane(ray, camera.Forward);
+
+        var grab = OnPlane(ray, camera.Forward);
+
+        dragStartPoint = grab;
+
+        // ⚠ The tangent is taken at the point of the ring <i>nearest the eye</i>, not at the point
+        // that was grabbed. An edge-on ring draws as a straight line, and at the two ends of that
+        // line — its silhouette — turning moves the ring directly towards or away from the viewer, so
+        // no amount of pointer motion in the view plane means anything there. The near point is the
+        // one place on an edge-on ring whose tangent lies fully across the screen, and treating every
+        // grab as a grab there is what makes the whole line draggable. It is also the physical
+        // answer: a hoop seen edge-on is turned by pushing the part of it closest to you sideways.
+        var towards = GizmoGeometry.TowardsEye(camera, dragOrigin);
+        var near = towards - (axis * Vector3.Dot(towards, axis));
+
+        dragTangent = Perpendicular(axis, near.LengthSquared() > MathUtil.ZeroTolerance ? near : camera.Up);
+
+        // How far out the grab was, which for a click on the ring is the ring's radius — the one
+        // length available here, since `Begin` is not told how tall the viewport is.
+        dragLever = MathF.Max((grab - dragOrigin).Length(), MathUtil.ZeroTolerance);
+        dragStartAngle = 0f;
     }
 
     bool Turn(Ray ray, EditorCamera camera) {
@@ -473,6 +674,14 @@ public sealed class TransformGizmo {
 
     float AngleOn(Ray ray, GizmoHandle handle, EditorCamera camera) {
         var axis = AxisOf(handle, dragBasis, camera);
+
+        if (dragAlongScreen) {
+            // Arc length over radius. Linear in the pointer's motion rather than in an angle, which
+            // is what makes an edge-on ring draggable at all — and it is unbounded, so a long drag
+            // keeps turning past a full revolution instead of stopping at the edge of the ring.
+            return Vector3.Dot(OnPlane(ray, camera.Forward) - dragStartPoint, dragTangent) / dragLever;
+        }
+
         var point = OnPlane(ray, axis) - dragOrigin;
 
         // Two perpendiculars in the ring's plane, so the angle is measured in the plane rather than
@@ -529,10 +738,12 @@ public sealed class TransformGizmo {
 
             var corner = origin + ((first + second) * (scale * PlaneOffset));
 
-            var a = Flat(camera.Project(corner, width, height));
-            var b = Flat(camera.Project(corner + (first * (scale * PlaneSize)), width, height));
-            var c = Flat(camera.Project(corner + (second * (scale * PlaneSize)), width, height));
-            var d = Flat(camera.Project(corner + ((first + second) * (scale * PlaneSize)), width, height));
+            if (!camera.TryProject(corner, width, height, out var a)
+                || !camera.TryProject(corner + (first * (scale * PlaneSize)), width, height, out var b)
+                || !camera.TryProject(corner + (second * (scale * PlaneSize)), width, height, out var c)
+                || !camera.TryProject(corner + ((first + second) * (scale * PlaneSize)), width, height, out var d)) {
+                continue;
+            }
 
             if (InQuad(point, a, b, d, c)) {
                 return handles[index];
@@ -542,6 +753,15 @@ public sealed class TransformGizmo {
         return GizmoHandle.None;
     }
 
+    /// <summary>Which rotation ring is nearest a point, if any is near enough.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only the half of each ring facing the camera is tested, and only that half is
+    ///     drawn.</b> A ring is a circle in space and the far side of it is behind the thing being
+    ///     rotated: offering it means a click aimed at the front of the green ring lands on the back
+    ///     of the red one that crosses it there, and a click that appears to be in open space inside
+    ///     the gizmo grabs whatever ring passes behind. Every editor hides the back half, and the
+    ///     test has to agree with the picture or the two halves of the same handle behave differently.
+    /// </remarks>
     GizmoHandle RingUnder(
         Vector2 point,
         EditorCamera camera,
@@ -553,6 +773,7 @@ public sealed class TransformGizmo {
     ) {
         var best = GizmoHandle.None;
         var nearest = Tolerance;
+        var towards = GizmoGeometry.TowardsEye(camera, origin);
 
         for (var axis = 0; axis < 3; axis++) {
             var normal = Axis(basis, axis);
@@ -564,13 +785,19 @@ public sealed class TransformGizmo {
             // closest point is a quartic, and thirty-two samples is both faster and shorter than the
             // closed form for a test whose tolerance is nine pixels.
             var previous = Vector2.Zero;
+            var had = false;
 
-            for (var step = 0; step <= 32; step++) {
-                var angle = step / 32f * MathF.Tau;
-                var world = origin + ((u * MathF.Cos(angle)) + (v * MathF.Sin(angle))) * scale;
-                var screen = Flat(camera.Project(world, width, height));
+            for (var step = 0; step <= GizmoGeometry.RingSegments; step++) {
+                var angle = step / (float) GizmoGeometry.RingSegments * MathF.Tau;
+                var offset = (u * MathF.Cos(angle)) + (v * MathF.Sin(angle));
+                var facing = Vector3.Dot(offset, towards) >= 0f;
 
-                if (step > 0) {
+                if (!facing || !camera.TryProject(origin + (offset * scale), width, height, out var screen)) {
+                    had = false;
+                    continue;
+                }
+
+                if (had) {
                     var distance = DistanceToSegment(point, previous, screen);
 
                     if (distance < nearest) {
@@ -585,10 +812,31 @@ public sealed class TransformGizmo {
                 }
 
                 previous = screen;
+                had = true;
             }
         }
 
         return best;
+    }
+
+    /// <summary>A unit vector at right angles to two others, whichever way they happen to lie.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The zero vector is the answer to a cross product, not an error</b> — and
+    ///     <c>Vector3.Normalize</c> of it is not zero, it is <c>NaN</c>, which no <c>IsZero</c> test
+    ///     catches and which spreads through every number it touches. The length is checked before the
+    ///     divide rather than after it.
+    /// </remarks>
+    static Vector3 Perpendicular(Vector3 axis, Vector3 towards) {
+        var cross = Vector3.Cross(axis, towards);
+
+        if (cross.LengthSquared() > MathUtil.ZeroTolerance) {
+            return Vector3.Normalize(cross);
+        }
+
+        // Parallel. Any direction across the axis will do, and one of these two is not along it.
+        cross = Vector3.Cross(axis, MathF.Abs(axis.Y) > 0.9f ? Vector3.UnitX : Vector3.UnitY);
+
+        return cross.LengthSquared() > MathUtil.ZeroTolerance ? Vector3.Normalize(cross) : Vector3.UnitX;
     }
 
     static Vector3 AxisOf(GizmoHandle handle, Matrix4x4 basis, EditorCamera camera) =>
@@ -666,8 +914,6 @@ public sealed class TransformGizmo {
 
         return point + (direction * (((b * e) - d) / denominator));
     }
-
-    static Vector2 Flat(Vector3 projected) => new(projected.X, projected.Y);
 
     static float DistanceToSegment(Vector2 point, Vector2 from, Vector2 to) {
         var span = to - from;

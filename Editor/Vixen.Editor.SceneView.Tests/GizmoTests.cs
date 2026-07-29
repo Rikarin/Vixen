@@ -67,6 +67,150 @@ public class GizmoTests {
     }
 
     [Fact]
+    public void The_middle_of_a_translate_gizmo_drags_in_the_view_plane() {
+        var camera = Camera();
+        var (gizmo, target) = One();
+
+        var centre = Screen(camera, Vector3.Zero);
+
+        // ⚠ The regression, and it was two bugs wearing one coat. Translate offered no middle handle
+        // at all, and the three arms all pass through the middle — so a click there was answered by
+        // whichever arm the loop happened to reach first, which was X, always. Aiming at the centre
+        // of a gizmo and moving along X is the oldest complaint there is.
+        Assert.Equal(GizmoHandle.Screen, gizmo.HitTest(centre, camera, Width, Height));
+
+        gizmo.Begin(GizmoHandle.Screen, camera.PickingRay(centre, Width, Height), camera);
+        gizmo.Drag(camera.PickingRay(centre + new Vector2(60f, -40f), Width, Height), camera);
+
+        // Across the view, so both of the axes that are on screen moved and the one pointing at the
+        // eye did not.
+        Assert.True(target.Position.X > 0f);
+        Assert.True(target.Position.Y > 0f);
+        Assert.Equal(0f, target.Position.Z, 4);
+    }
+
+    [Fact]
+    public void Where_two_arms_cross_the_nearer_one_wins() {
+        // Turned so that the x and z arms lie close together on screen, which is where "the first one
+        // within tolerance" and "the nearest one" stop agreeing — and the first one was X whatever
+        // the pointer looked like it was on.
+        var camera = Camera();
+        camera.Orbit(-60f, -40f);
+
+        var (gizmo, _) = One();
+
+        var scale = gizmo.WorldPerPixel(camera, Height) * gizmo.HandleLength;
+        var onZ = Screen(camera, new Vector3(0f, 0f, scale * 0.85f));
+
+        Assert.Equal(GizmoHandle.AxisZ, gizmo.HitTest(onZ, camera, Width, Height));
+    }
+
+    [Fact]
+    public void An_arm_pointing_at_the_eye_is_not_offered() {
+        var camera = Camera();
+        var (gizmo, _) = One();
+
+        // Looking straight down z. The z arm projects to a dot on the origin, so every pixel of it is
+        // within the grab radius of every other and it would win the middle of the gizmo — and then
+        // drag along a line that has no direction on screen.
+        Assert.False(gizmo.IsAxisVisible(Vector3.UnitZ, camera));
+
+        var scale = gizmo.WorldPerPixel(camera, Height) * gizmo.HandleLength;
+        var justOffCentre = Screen(camera, Vector3.Zero) + new Vector2(gizmo.CentreRadius + 4f, 0f);
+
+        Assert.NotEqual(GizmoHandle.AxisZ, gizmo.HitTest(justOffCentre, camera, Width, Height));
+
+        // And once it is off the view axis it comes back, at the same threshold the geometry uses.
+        camera.Orbit(-200f, 0f);
+        Assert.True(gizmo.IsAxisVisible(Vector3.UnitZ, camera));
+        Assert.Equal(
+            GizmoHandle.AxisZ,
+            gizmo.HitTest(Screen(camera, new Vector3(0f, 0f, scale * 0.85f)), camera, Width, Height)
+        );
+    }
+
+    [Fact]
+    public void A_selection_behind_the_camera_has_nothing_to_grab() {
+        var camera = Camera();
+        var (gizmo, target) = One();
+
+        // Behind the eye, which sits at +10 on z. A perspective divide by a negative w still answers
+        // with a pixel position — mirrored through the middle of the pane — so the arms of this gizmo
+        // lie across the viewport as segments nothing drew, and the pointer is regularly inside their
+        // grab radius. Every one of those clicks starts a drag that leaps.
+        target.Position = new Vector3(0f, 0f, 40f);
+
+        for (var x = 0; x < Width; x += 40) {
+            for (var y = 0; y < Height; y += 40) {
+                Assert.Equal(GizmoHandle.None, gizmo.HitTest(new Vector2(x, y), camera, Width, Height));
+            }
+        }
+    }
+
+    [Fact]
+    public void An_edge_on_ring_can_still_be_dragged() {
+        // A horizontal camera turning something about Y: the ring lies in the plane the view is
+        // looking along, so the ray and the plane are nearly parallel and the crossing point is
+        // hundreds of units away and moves by tens of them per pixel. It is the most ordinary pose
+        // there is, and it used to spin wildly and then stick.
+        var camera = Camera();
+        var (gizmo, target) = One(GizmoMode.Rotate);
+
+        var start = Screen(camera, new Vector3(0f, 0f, 0f)) + new Vector2(0f, 90f);
+
+        Assert.True(gizmo.Begin(GizmoHandle.AxisY, camera.PickingRay(start, Width, Height), camera));
+
+        var turned = new List<float>();
+
+        for (var step = 1; step <= 20; step++) {
+            gizmo.Drag(camera.PickingRay(start + new Vector2(step * 6f, 0f), Width, Height), camera);
+            turned.Add(EulerDegrees(target.Rotation));
+        }
+
+        // Smooth, bounded and in one direction: an angle read off a plane that is nearly parallel to
+        // the ray gives none of those three.
+        Assert.All(turned, degrees => Assert.True(MathF.Abs(degrees) <= 180f, $"turned to {degrees}°"));
+
+        for (var step = 1; step < turned.Count; step++) {
+            Assert.True(
+                MathF.Abs(turned[step] - turned[step - 1]) < 30f,
+                $"one frame of the drag jumped from {turned[step - 1]}° to {turned[step]}°"
+            );
+        }
+
+        Assert.True(MathF.Abs(turned[^1]) > 1f, "a twenty-frame drag turned nothing at all");
+    }
+
+    [Fact]
+    public void Absolute_snapping_lands_on_the_world_grid_and_ordinary_snapping_does_not() {
+        var camera = Camera();
+        var (gizmo, target) = One();
+
+        target.Position = new Vector3(0.3f, 0f, 0f);
+        gizmo.Snap.SnapPosition = true;
+        gizmo.Snap.GridStep = 1f;
+
+        var start = Screen(camera, target.Position);
+        var scale = gizmo.WorldPerPixel(camera, Height) * gizmo.HandleLength;
+        var far = Screen(camera, target.Position + new Vector3(scale, 0f, 0f));
+
+        gizmo.Begin(GizmoHandle.AxisX, camera.PickingRay(start, Width, Height), camera);
+        gizmo.Drag(camera.PickingRay(far, Width, Height), camera);
+
+        // Off, the drag moves by whole steps — which is right for nudging something that is already
+        // where it should be, and useless for lining several things up.
+        Assert.Equal(0.3f, target.Position.X - MathF.Round(target.Position.X - 0.3f), 4);
+
+        gizmo.Cancel();
+        gizmo.Snap.AbsoluteGrid = true;
+
+        gizmo.Begin(GizmoHandle.AxisX, camera.PickingRay(start, Width, Height), camera);
+        gizmo.Drag(camera.PickingRay(far, Width, Height), camera);
+
+        Assert.Equal(MathF.Round(target.Position.X), target.Position.X, 4);
+    }
+
+    [Fact]
     public void The_handles_are_the_same_size_on_screen_however_far_away_they_are() {
         var near = new EditorCamera { Distance = 2f };
         var far = new EditorCamera { Distance = 200f };
@@ -156,10 +300,11 @@ public class GizmoTests {
 
     [Fact]
     public void Rotating_a_group_turns_it_about_the_gizmo_rather_than_in_place() {
-        // Pitched down, because a rotation about Y is measured in the XZ plane and a horizontal
-        // camera's rays are parallel to it — see TransformGizmo.OnPlane for what a parallel ray does.
+        // Looking down at it, because a rotation about Y is measured in the XZ plane and a horizontal
+        // camera's rays are parallel to it — which is the case TransformGizmo.EdgeOnLimit hands to a
+        // screen-measured drag instead, and this fixture is about the plane-measured one.
         var camera = Camera();
-        camera.Orbit(0f, -150f);
+        camera.Orbit(0f, 150f);
         var first = new StubTarget { Position = new(-5f, 0f, 0f) };
         var second = new StubTarget { Position = new(5f, 0f, 0f) };
 
@@ -178,7 +323,7 @@ public class GizmoTests {
     [Fact]
     public void Rotation_snapping_lands_on_whole_steps() {
         var camera = Camera();
-        camera.Orbit(0f, -150f);
+        camera.Orbit(0f, 150f);
         var (gizmo, target) = One(GizmoMode.Rotate);
 
         gizmo.Snap.SnapRotation = true;

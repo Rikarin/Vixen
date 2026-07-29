@@ -99,6 +99,24 @@ public sealed class SnapSettings {
     /// <summary>Whether a translate rounds to <see cref="GridStep" />.</summary>
     public bool SnapPosition { get; set; }
 
+    /// <summary>Whether a translate lands on the world grid rather than moving by whole steps of it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two different things are called snapping and only one of them puts objects on the
+    ///         grid.</b> Off — the default, and what Blender, Unity and Unreal all do — a drag moves
+    ///         by a whole number of steps, so something at 0.3 dragged one step lands at 1.3. That is
+    ///         the right answer for nudging a thing that is already where it should be, and it is
+    ///         useless for lining several things up. On, the drag rounds the resulting <i>position</i>,
+    ///         so everything dragged ends up on the same lattice however it started.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It only means anything for a world-aligned drag.</b> A local-space arm points
+    ///         somewhere the world grid has no lines along, so "the grid" has no answer; the gizmo
+    ///         rounds along the arm from the gizmo's own origin, which is the nearest thing to one.
+    ///     </para>
+    /// </remarks>
+    public bool AbsoluteGrid { get; set; }
+
     /// <summary>Whether a rotate rounds to <see cref="AngleStep" />.</summary>
     public bool SnapRotation { get; set; }
 

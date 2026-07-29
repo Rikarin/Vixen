@@ -184,6 +184,47 @@ public class ViewportTests {
     }
 
     [Fact]
+    public void A_render_target_is_sampled_as_it_stands() {
+        using var fixture = new AdvancedFixture();
+        var viewport = Hosted(fixture);
+
+        viewport.RenderTarget = 12;
+        fixture.Update();
+
+        var image = fixture.Document.Drawing.Commands.Single(static command => command.Kind == DrawCommandKind.Image);
+
+        // ⚠ The whole texture, the right way up. Both backends resolve the engine's +Y-up clip space
+        // where the API is — Vulkan with a negative-height viewport, OpenGL by flipping the viewport
+        // origin — so a colour target's row zero is already the *top* of the view, and UVs run from
+        // the top-left. `LineImageTests.AssertTheDiagonalFades` is that same fact from the other end:
+        // a vertex at clip y −0.8 lands at the bottom of the image.
+        //
+        // ⚠ Flipping it here mirrors the scene about the horizon, and almost nothing looks wrong: a
+        // grid is symmetric and the corner axis cross is an interface element that does not flip with
+        // it. What is noticed instead is that a gizmo cannot be clicked near the top or bottom of the
+        // pane, that hover lights up a handle the cursor is not on, and that a vertical pan goes the
+        // wrong way — because every one of those measures the unmirrored image.
+        Assert.Equal(0f, image.Source.Y);
+        Assert.Equal(1f, image.Source.Height);
+        Assert.False(viewport.FlipVertically);
+    }
+
+    [Fact]
+    public void A_host_whose_target_really_is_upside_down_can_still_say_so() {
+        using var fixture = new AdvancedFixture();
+        var viewport = Hosted(fixture);
+
+        viewport.RenderTarget = 12;
+        viewport.FlipVertically = true;
+        fixture.Update();
+
+        var image = fixture.Document.Drawing.Commands.Single(static command => command.Kind == DrawCommandKind.Image);
+
+        Assert.Equal(1f, image.Source.Y);
+        Assert.Equal(-1f, image.Source.Height);
+    }
+
+    [Fact]
     public void An_overlay_is_an_ordinary_element_over_the_scene() {
         using var fixture = new AdvancedFixture();
         var viewport = Hosted(fixture);

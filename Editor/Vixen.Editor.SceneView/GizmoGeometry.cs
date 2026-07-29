@@ -41,6 +41,35 @@ public static class GizmoGeometry {
     /// <remarks>Thirty-two, which is what the hit test samples it at — see <c>TransformGizmo</c>.</remarks>
     public const int RingSegments = 32;
 
+    /// <summary>Which way the eye is from a point, for deciding what faces it.</summary>
+    /// <param name="camera">The camera.</param>
+    /// <param name="origin">The point, usually the gizmo's.</param>
+    /// <returns>A unit vector from the point towards the eye.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>From the point, not the camera's forward.</b> They are the same only for something
+    ///         in the middle of the pane; a gizmo at the corner of a wide view is seen from twenty
+    ///         degrees off, and culling a ring's back half against the forward vector there hides a
+    ///         slice of the front of it and shows a slice of the back.
+    ///     </para>
+    ///     <para>
+    ///         Orthographic has no eye — every ray is parallel — so the forward vector <i>is</i> the
+    ///         answer there, and a camera sitting exactly on the point gets it too rather than a
+    ///         division by zero.
+    ///     </para>
+    /// </remarks>
+    public static Vector3 TowardsEye(EditorCamera camera, Vector3 origin) {
+        ArgumentNullException.ThrowIfNull(camera);
+
+        if (camera.IsOrthographic) {
+            return -camera.Forward;
+        }
+
+        var offset = camera.Position - origin;
+
+        return offset.LengthSquared() > MathUtil.ZeroTolerance ? Vector3.Normalize(offset) : -camera.Forward;
+    }
+
     /// <summary>How a segment is drawn: where the eye is, and how far apart the strokes go.</summary>
     /// <param name="Towards">Which way the camera looks, for the perpendicular a stroke is offset along.</param>
     /// <param name="Fallback">Which way to offset a segment that points straight at the camera.</param>
@@ -117,10 +146,10 @@ public static class GizmoGeometry {
         var active = gizmo.IsDragging ? gizmo.Active : gizmo.Hovered;
 
         if (gizmo.Mode == GizmoMode.Rotate) {
-            Rings(into, origin, basis, scale, active, pen);
+            Rings(into, camera, origin, basis, scale, active, pen);
             ScreenRing(into, camera, origin, scale * gizmo.ScreenRingScale, active, pen);
         } else {
-            Arms(into, origin, basis, scale, active, gizmo.Mode, pen);
+            Arms(into, camera, gizmo, origin, basis, scale, active, pen);
             Planes(into, origin, basis, scale, active, gizmo, camera.Forward, pen);
             Centre(into, camera, origin, worldPerPixel * gizmo.CentreRadius, active, gizmo.Mode, pen);
         }
@@ -130,19 +159,34 @@ public static class GizmoGeometry {
 
     static void Arms(
         List<LineVertex> into,
+        EditorCamera camera,
+        TransformGizmo gizmo,
         Vector3 origin,
         Matrix4x4 basis,
         float scale,
         GizmoHandle active,
-        GizmoMode mode,
         Pen pen
     ) {
+        var mode = gizmo.Mode;
+
         for (var axis = 0; axis < 3; axis++) {
             var direction = Axis(basis, axis);
+
+            // ⚠ Hidden when it is a dot, and hidden by the same call the hit test uses. An arm
+            // pointing at the eye draws as a smudge over the middle of the gizmo and would win every
+            // click in it — see `TransformGizmo.MinimumAxisLength`.
+            if (!gizmo.IsAxisVisible(direction, camera)) {
+                continue;
+            }
+
             var end = origin + (direction * scale);
             var colour = AxisColour(axis, active == GizmoHandle.AxisX + axis);
 
-            Segment(into, origin, end, colour, pen);
+            // ⚠ Started where the hit test starts it, so the middle of the gizmo belongs to the
+            // centre handle in the picture as well as in the arithmetic. An arm drawn through a
+            // region that answers for something else is the visible half of the oldest gizmo
+            // complaint there is: "it grabbed the wrong axis".
+            Segment(into, origin + (direction * (scale * gizmo.ArmStart)), end, colour, pen);
 
             // A head, so the two ends of an arm are told apart: a cube for scale, an arrow for
             // translate. Both are closed shapes rather than a cross, which at this thickness reads
@@ -215,12 +259,21 @@ public static class GizmoGeometry {
         }
     }
 
-    /// <summary>The box in the middle, which scales everything at once.</summary>
+    /// <summary>The box in the middle: uniform scale, or a drag in the view plane.</summary>
     /// <remarks>
-    ///     ⚠ <b>Drawn for exactly the modes whose hit test offers <see cref="GizmoHandle.Uniform" />.</b>
-    ///     The test has always answered for a square in the middle of a scale gizmo and nothing drew
-    ///     one, so the most-used handle of the three was invisible — a click that scaled everything
-    ///     uniformly, discoverable only by accident.
+    ///     <para>
+    ///         ⚠ <b>Drawn for exactly the modes whose hit test offers a middle handle.</b> The test
+    ///         has always answered <see cref="GizmoHandle.Uniform" /> for a square in the middle of a
+    ///         scale gizmo and nothing drew one, so the most-used handle of the three was invisible —
+    ///         a click that scaled everything uniformly, discoverable only by accident.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Translate has one too, and it is the handle that was missing rather than merely
+    ///         undrawn.</b> Dragging in the view plane is how anything gets moved that is not along an
+    ///         axis, and without it the middle of a translate gizmo — where three arms cross and every
+    ///         click is ambiguous — was answered by whichever arm the loop reached first. One square,
+    ///         two meanings, and in both cases it means "the thing the arms cannot do".
+    ///     </para>
     /// </remarks>
     static void Centre(
         List<LineVertex> into,
@@ -231,30 +284,48 @@ public static class GizmoGeometry {
         GizmoMode mode,
         Pen pen
     ) {
-        if (mode is not (GizmoMode.Scale or GizmoMode.Transform)) {
+        var handle = mode switch {
+            GizmoMode.Scale or GizmoMode.Transform => GizmoHandle.Uniform,
+            GizmoMode.Translate => GizmoHandle.Screen,
+            _ => GizmoHandle.None
+        };
+
+        if (handle == GizmoHandle.None) {
             return;
         }
 
         // Square to the camera rather than to the gizmo's basis, because it belongs to no axis: a
         // box on the object's own axes would be one the user has to orbit to see square.
-        Box(into, origin, camera.Right * radius, camera.Up * radius, NeutralColour(active == GizmoHandle.Uniform), pen);
+        Box(into, origin, camera.Right * radius, camera.Up * radius, NeutralColour(active == handle), pen);
     }
 
+    /// <summary>The three rings that turn about the gizmo's own axes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only the half of each facing the camera is drawn, exactly as the hit test only offers
+    ///     that half.</b> Three full circles about one point cross each other twelve times, and at
+    ///     every crossing the front of one ring is drawn over the back of another — so aiming at the
+    ///     green ring where the red one passes behind it is a coin toss, and the space inside the
+    ///     gizmo that looks empty is criss-crossed by the far sides of all three. Hiding the back half
+    ///     is also what makes a rotate gizmo read as a sphere rather than as a flat knot.
+    /// </remarks>
     static void Rings(
         List<LineVertex> into,
+        EditorCamera camera,
         Vector3 origin,
         Matrix4x4 basis,
         float scale,
         GizmoHandle active,
         Pen pen
     ) {
+        var towards = TowardsEye(camera, origin);
+
         for (var axis = 0; axis < 3; axis++) {
             var normal = Axis(basis, axis);
             var reference = MathF.Abs(Vector3.Dot(normal, Vector3.UnitY)) > 0.99f ? Vector3.UnitX : Vector3.UnitY;
             var u = Vector3.Normalize(Vector3.Cross(reference, normal));
             var v = Vector3.Cross(normal, u);
 
-            Ring(into, origin, u, v, scale, AxisColour(axis, active == GizmoHandle.AxisX + axis), pen);
+            Ring(into, origin, u, v, scale, AxisColour(axis, active == GizmoHandle.AxisX + axis), pen, towards);
         }
     }
 
@@ -275,6 +346,15 @@ public static class GizmoGeometry {
     ) =>
         Ring(into, origin, camera.Right, camera.Up, radius, NeutralColour(active == GizmoHandle.Screen), pen);
 
+    /// <summary>A circle, or the half of one that faces a direction.</summary>
+    /// <param name="into">Where to put the vertices.</param>
+    /// <param name="origin">The middle.</param>
+    /// <param name="u">One axis of its plane, unit length.</param>
+    /// <param name="v">The other.</param>
+    /// <param name="radius">How big.</param>
+    /// <param name="colour">What to draw it in.</param>
+    /// <param name="pen">How to draw it.</param>
+    /// <param name="towards">Which way to face, or <see langword="null" /> for the whole circle.</param>
     static void Ring(
         List<LineVertex> into,
         Vector3 origin,
@@ -282,16 +362,32 @@ public static class GizmoGeometry {
         Vector3 v,
         float radius,
         Color4 colour,
-        Pen pen
+        Pen pen,
+        Vector3? towards = null
     ) {
-        var previous = origin + (u * radius);
+        var previous = Vector3.Zero;
+        var had = false;
 
-        for (var step = 1; step <= RingSegments; step++) {
+        for (var step = 0; step <= RingSegments; step++) {
             var angle = step / (float) RingSegments * MathF.Tau;
-            var point = origin + (((u * MathF.Cos(angle)) + (v * MathF.Sin(angle))) * radius);
+            var offset = (u * MathF.Cos(angle)) + (v * MathF.Sin(angle));
 
-            Segment(into, previous, point, colour, pen);
+            // ⚠ The run is broken rather than the point skipped. Joining the last point before the
+            // horizon to the first one after it draws a chord straight across the gizmo, which is a
+            // line that belongs to no handle and that the hit test does not know about.
+            if (towards is { } eye && Vector3.Dot(offset, eye) < 0f) {
+                had = false;
+                continue;
+            }
+
+            var point = origin + (offset * radius);
+
+            if (had) {
+                Segment(into, previous, point, colour, pen);
+            }
+
             previous = point;
+            had = true;
         }
     }
 
