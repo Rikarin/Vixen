@@ -101,6 +101,7 @@ OVERRIDE:       'override';
 READONLY:       'readonly';
 STATIC:         'static';
 STREAM:         'stream';       // Interstage value: written by one stage, read by the next
+GROUPSHARED:    'groupshared';  // Workgroup-shared storage: one copy per workgroup, not a binding
 INOUT:          'inout';        // Parameter passed by reference: copy in, copy out
 
 

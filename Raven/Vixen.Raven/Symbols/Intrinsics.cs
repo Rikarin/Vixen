@@ -95,6 +95,7 @@ public static class Intrinsics {
         AddMatrixIntrinsics(methods);
         AddBitCastIntrinsics(methods);
         AddAtomicIntrinsics(methods);
+        AddBarrierIntrinsics(methods);
 
         ByName = methods
             .GroupBy(m => m.Name, StringComparer.Ordinal)
@@ -197,16 +198,24 @@ public static class Intrinsics {
     ///         its value.
     ///     </para>
     ///     <para>
-    ///         <b>Scalar <c>int</c> and <c>uint</c> only.</b> GLSL 4.5 core has no atomic on a float
-    ///         and none on a vector, so anything wider would be a signature one backend could not
-    ///         emit. The result is always the value found there before the operation, which is what
-    ///         makes an atomic add an index allocator rather than a counter nobody can read.
+    ///         <b>Scalar integers only.</b> GLSL 4.5 core has no atomic on a float and none on a
+    ///         vector, so anything else would be a signature one backend could not emit. The result
+    ///         is always the value found there before the operation, which is what makes an atomic
+    ///         add an index allocator rather than a counter nobody can read.
+    ///     </para>
+    ///     <para>
+    ///         <b>Both widths, and the 64-bit one is why the width matters.</b> A single-pass
+    ///         software rasterizer wants <c>atomicMax</c> on a word packing depth above id: with 32
+    ///         bits you get depth <em>or</em> a usable id, and the alternative is two passes over
+    ///         the same triangles. Nothing implicitly widens into the 64-bit overloads — see
+    ///         <c>Conversions.NumericScalars</c> — so which width an atomic operates at is always
+    ///         something the author wrote.
     ///     </para>
     /// </remarks>
     static void AddAtomicIntrinsics(List<MethodSymbol> methods) {
         string[] binary = ["atomicAdd", "atomicMin", "atomicMax", "atomicAnd", "atomicOr", "atomicXor", "atomicExchange"];
 
-        foreach (var type in new[] { BuiltInTypes.Int, BuiltInTypes.UInt }) {
+        foreach (var type in new[] { BuiltInTypes.Int, BuiltInTypes.UInt, BuiltInTypes.Int64, BuiltInTypes.UInt64 }) {
             foreach (var name in binary) {
                 methods.Add(Method(name, type, ("target", type), ("value", type)));
             }
@@ -216,6 +225,36 @@ public static class Intrinsics {
             methods.Add(Method("atomicCompareExchange", type, ("target", type), ("comparand", type), ("value", type)));
         }
     }
+
+    /// <summary>
+    ///     The barriers: the two things a workgroup can be made to agree about.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Named as GLSL names them, for the reason the atomics are — and with GLSL's meaning
+    ///         rather than a subset of it: in a compute stage <c>barrier()</c> is both an execution
+    ///         barrier and a memory barrier over shared storage, which is the only combination that
+    ///         makes the code after it correct. Splitting them would offer a primitive whose every
+    ///         plausible use is a bug.
+    ///     </para>
+    ///     <para>
+    ///         <b>Nullary and <c>void</c>.</b> There is nothing to pass and nothing to receive; the
+    ///         whole effect is on the other invocations of the group, which is why these are the
+    ///         only intrinsics with neither arguments nor a result.
+    ///     </para>
+    ///     <para>
+    ///         Legal in a compute stage and nowhere else — refused by lowering
+    ///         (<c>RVN3012</c>) rather than here, because which stages reach a function is a
+    ///         property of the call graph and not of the file the call is written in.
+    ///     </para>
+    /// </remarks>
+    static void AddBarrierIntrinsics(List<MethodSymbol> methods) {
+        methods.Add(Method("barrier", BuiltInTypes.Void));
+        methods.Add(Method("memoryBarrierShared", BuiltInTypes.Void));
+    }
+
+    /// <summary>Whether a name is one of the barriers, which a non-compute stage may not reach.</summary>
+    public static bool IsBarrier(string name) => name is "barrier" or "memoryBarrierShared";
 
     /// <summary>Whether a name is one of the atomics, whose first argument is storage.</summary>
     /// <remarks>

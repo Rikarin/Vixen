@@ -19,6 +19,19 @@ public enum SpecialType {
     Float,
     Double,
 
+    /// <summary>
+    ///     64-bit integers, which exist for one reason: a word wide enough to hold a depth above an
+    ///     id and be <c>atomicMax</c>'d as a unit.
+    /// </summary>
+    /// <remarks>
+    ///     No vectors and no matrices, unlike every other scalar here. Nothing wants a
+    ///     <c>uint64_2</c>, both targets' atomics are scalar anyway, and each lane would cost a
+    ///     name, a layout rule and a conversion table entry for a shape that has no use.
+    /// </remarks>
+    Int64,
+
+    UInt64,
+
     Bool2,
     Bool3,
     Bool4,

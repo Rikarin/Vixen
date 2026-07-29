@@ -160,6 +160,12 @@ public enum SpirvOp {
     AtomicOr = 241,
     AtomicXor = 242,
 
+    // The barriers. Both take a memory scope and a semantics mask; the control one takes an
+    // execution scope first, because it is two guarantees rather than one — everybody has arrived,
+    // and everything they wrote is visible.
+    ControlBarrier = 224,
+    MemoryBarrier = 225,
+
     LoopMerge = 246,
     SelectionMerge = 247,
     Label = 248,

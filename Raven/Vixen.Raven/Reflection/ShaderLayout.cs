@@ -129,7 +129,15 @@ public static class ShaderLayout {
     static int Round(int alignment, LayoutRule rule) =>
         rule == LayoutRule.Std140 ? RoundUp(alignment, 16) : alignment;
 
-    static int ScalarSize(IrScalarType scalar) => scalar.Kind == IrTypeKind.Double ? 8 : 4;
+    /// <summary>
+    ///     Four bytes, or eight for the 64-bit scalars.
+    /// </summary>
+    /// <remarks>
+    ///     Alignment follows size for a scalar in both std140 and std430, so a <c>uint64</c> member
+    ///     aligns to 8 and leaves a four-byte hole behind a <c>uint</c> — which is the host's
+    ///     problem to match and precisely why the offsets are reported rather than assumed.
+    /// </remarks>
+    static int ScalarSize(IrScalarType scalar) => scalar.Is64Bit ? 8 : 4;
 
     static int RoundUp(int value, int alignment) => (value + alignment - 1) / alignment * alignment;
 }

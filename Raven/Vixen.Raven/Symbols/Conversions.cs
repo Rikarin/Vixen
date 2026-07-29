@@ -17,8 +17,20 @@ public static class Conversions {
         [SpecialType.Float] = [SpecialType.Double]
     };
 
+    /// <summary>
+    ///     The scalars an explicit conversion may go between.
+    /// </summary>
+    /// <remarks>
+    ///     The 64-bit integers are here and deliberately <em>not</em> in
+    ///     <see cref="ImplicitScalar" />. Widening <c>uint</c> to <c>uint64</c> silently would make
+    ///     both the 32-bit and the 64-bit overload of every atomic applicable to the same call, and
+    ///     the one that wins would be decided by tie-breaking rules rather than by the author — for
+    ///     an operation whose width is the entire point. <c>uint64(x)</c> says which is meant, and
+    ///     it says it where the packing is being written anyway.
+    /// </remarks>
     static readonly SpecialType[] NumericScalars = [
-        SpecialType.Int, SpecialType.UInt, SpecialType.Float, SpecialType.Double
+        SpecialType.Int, SpecialType.UInt, SpecialType.Float, SpecialType.Double,
+        SpecialType.Int64, SpecialType.UInt64
     ];
 
     /// <summary>Classifies the conversion from <paramref name="source" /> to <paramref name="target" />.</summary>

@@ -86,6 +86,27 @@ public static class LibraryDiagnostics {
     );
 
     /// <summary>
+    ///     A body being exported touches <c>groupshared</c> storage, which belongs to the consuming
+    ///     dispatch's workgroups.
+    /// </summary>
+    /// <remarks>
+    ///     A third refusal for a third reason, on the argument <see cref="StreamNotExportable" />
+    ///     makes: what a library cannot carry is anything whose identity is decided by the shader
+    ///     that ends up holding it. A binding's is its descriptor, a stream's is its location, and a
+    ///     group-shared variable's is the workgroup — which belongs to the dispatch the consumer
+    ///     declares, not to the library. The fix is the same shape in every case: take the value as
+    ///     a parameter and let the consuming shader own the storage.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor GroupSharedNotExportable = new(
+        "RVN5008",
+        "Exported function uses group-shared storage",
+        "'{0}' uses the group-shared variable '{1}', so it cannot be exported to a library: "
+        + "workgroup storage belongs to the dispatch that declares it",
+        Export,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>
     ///     A library was compiled with a permutation key read, so its value is baked into the
     ///     exported bodies.
     /// </summary>

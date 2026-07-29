@@ -36,6 +36,18 @@ public abstract partial class Binder {
             },
             // A real constant never silently becomes an integer.
             SpecialType.Int => value is int or uint,
+
+            // A literal is the one thing that may widen to 64 bits without being asked to. It has
+            // no type of its own to be surprised by, and refusing it would make `atomicMax(p, 0)`
+            // read `atomicMax(p, uint64(0))` for no gain — while a *variable* still has to say
+            // `uint64(x)`, which is what keeps an atomic's width the author's choice.
+            SpecialType.Int64 => value is int or uint,
+            SpecialType.UInt64 => value switch {
+                int i => i >= 0,
+                uint => true,
+                _ => false
+            },
+
             SpecialType.Float or SpecialType.Double => value is int or uint or float or double,
             _ => false
         };

@@ -154,6 +154,37 @@ public static class LoweringDiagnostics {
         DiagnosticSeverity.Error
     );
 
+    /// <summary>
+    ///     Workgroup storage — a <c>groupshared</c> variable or a barrier — reached from a stage
+    ///     that has no workgroups.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Only a compute dispatch has groups. A vertex or fragment invocation belongs to
+    ///         nothing an author can name, so there is no "shared" for the storage to be shared
+    ///         between and nobody for a barrier to wait for.
+    ///     </para>
+    ///     <para>
+    ///         Reachability rather than where the declaration sits, for the reason
+    ///         <c>RVN3008</c> gives about <c>discard</c>: a helper belongs to whichever stages call
+    ///         it, and the file it is written in cannot say which those are. A tile reduction shared
+    ///         by a compute pass and a fullscreen fragment pass is wrong only in the second.
+    ///     </para>
+    ///     <para>
+    ///         An error rather than a warning, and again because the alternative is not silence:
+    ///         SPIR-V's <c>Workgroup</c> storage class and an <c>OpControlBarrier</c> at workgroup
+    ///         scope are valid only under the GLCompute execution model, so this would otherwise
+    ///         reach <c>spirv-val</c> — about a module, with no span.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor WorkgroupStorageOutsideCompute = new(
+        "RVN3012",
+        "Workgroup storage outside a compute stage",
+        "{0} is reachable from {1} entry point '{2}', and only a compute dispatch has workgroups",
+        Lowering,
+        DiagnosticSeverity.Error
+    );
+
     // --- Verification -----------------------------------------------------
 
     public static readonly DiagnosticDescriptor MalformedIr = new(

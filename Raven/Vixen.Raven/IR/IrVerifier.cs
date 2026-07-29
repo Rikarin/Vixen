@@ -240,10 +240,12 @@ public static class IrVerifier {
                 case IrAtomicInstruction atomic:
                     VerifyPlace(atomic.Place);
 
-                    // Scalar integers only. Both targets stop there — a float atomic needs an
-                    // extension in GLSL and a capability in SPIR-V, and neither has one on a vector
-                    // at all — so anything wider reaching a backend would have no instruction.
-                    if (atomic.Place.Type is not IrScalarType { Kind: IrTypeKind.Int or IrTypeKind.UInt }) {
+                    // Scalar integers only, of either width. Both targets stop there — a float
+                    // atomic needs an extension in GLSL and a capability in SPIR-V, and neither has
+                    // one on a vector at all — so anything else reaching a backend would have no
+                    // instruction. A 64-bit one does, and it needs a capability of its own, which
+                    // `IrCapabilities` reports off exactly this instruction.
+                    if (atomic.Place.Type is not IrScalarType { IsInteger: true }) {
                         Report($"{atomic.Result} is an atomic on {atomic.Place.Type.Name}, which is not a scalar integer");
                     }
 

@@ -105,6 +105,13 @@ public sealed partial class Lowerer {
     readonly Dictionary<IrFunction, SyntaxNode> discards = [];
 
     /// <summary>
+    ///     Where each function's first barrier was written, for the same reason and with the same
+    ///     shape as <see cref="discards" />: the rule is checked against the IR, and this is only
+    ///     consulted for somewhere to point.
+    /// </summary>
+    readonly Dictionary<IrFunction, SyntaxNode> barriers = [];
+
+    /// <summary>
     ///     A function created before its body was lowered: the signature, and the mapping
     ///     from parameter symbols to the IR variables holding them.
     /// </summary>
@@ -267,7 +274,9 @@ public sealed partial class Lowerer {
         // stage's reachable code does with it, which is only knowable once the module is settled.
         ImportPruner.Prune(module, importedStructs, importedFunctions);
         ResolveStreamDirections();
+        ResolveSharedVariables();
         ReportDiscardsOutsideFragmentStages();
+        ReportBarriersOutsideComputeStages();
 
         return module;
     }
@@ -606,6 +615,7 @@ public sealed partial class Lowerer {
 
         DeclareCompileTimeConstants(type, shader);
         DeclareStreams(type, shader);
+        DeclareSharedVariables(type, shader);
 
         foreach (var member in type.GetMembers()) {
             // A `const` field is folded at every use, so it needs no binding; a `stream` is
@@ -766,6 +776,198 @@ public sealed partial class Lowerer {
     }
 
     /// <summary>
+    ///     Declares the shader's <c>groupshared</c> fields as module-scope globals.
+    /// </summary>
+    /// <remarks>
+    ///     A global for the reason <see cref="DeclareStreams" /> gives — both targets model
+    ///     workgroup storage as a module-scope variable, so a read is an ordinary load and a write
+    ///     an ordinary store, and only the storage class differs. Which entry points may actually
+    ///     reach it is worked out afterwards, from the call graph: see
+    ///     <see cref="ResolveSharedVariables" />.
+    /// </remarks>
+    void DeclareSharedVariables(NamedTypeSymbol type, IrShader shader) {
+        foreach (var member in type.GetMembers()) {
+            if (member is not FieldSymbol { IsGroupShared: true, IsConst: false, IsCompose: false } field) {
+                continue;
+            }
+
+            var irType = LowerType(field.Type, field.DeclaringSyntax);
+            if (irType.IsVoid) {
+                continue;
+            }
+
+            var variable = new IrVariable(field.Name, irType, IrVariableKind.Global);
+            globals[field] = variable;
+            shader.Add(new IrSharedVariable(variable));
+        }
+    }
+
+    /// <summary>
+    ///     Decides, for every entry point, which of its shader's <c>groupshared</c> variables it
+    ///     can reach — and refuses the ones a stage with no workgroups reached.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Runs once the whole module is lowered, because it reads bodies, and answers by
+    ///         reachability rather than by shader membership for the reason
+    ///         <see cref="ResolveStreamDirections" /> gives. Two things come out of the same walk:
+    ///         what each compute stage's unit has to declare, and whether a stage that has no
+    ///         workgroups touched any of it.
+    ///     </para>
+    ///     <para>
+    ///         The refusal is not pedantry. <c>Workgroup</c> storage exists in neither target
+    ///         outside a compute stage — there is no group for it to belong to — so a fragment
+    ///         shader reaching a shared variable would either read a variable the unit never
+    ///         declared or, worse, be given one per invocation and quietly work in a test and race
+    ///         on a device.
+    ///     </para>
+    /// </remarks>
+    void ResolveSharedVariables() {
+        foreach (var shader in module.Shaders) {
+            if (shader.SharedVariables.Count == 0) {
+                continue;
+            }
+
+            var declared = shader.SharedVariables.Select(s => s.Variable).ToHashSet();
+
+            foreach (var entryPoint in shader.EntryPoints) {
+                HashSet<IrVariable> touched = [];
+
+                foreach (var function in CallGraph.Reachable(entryPoint.Function)) {
+                    CollectSharedUses(function.Body, declared, touched);
+                }
+
+                // Declaration order, so a unit's declarations come out in the order the author
+                // wrote them rather than in the order the body happened to reach them.
+                entryPoint.SetSharedVariables([.. shader.SharedVariables.Where(s => touched.Contains(s.Variable))]);
+
+                if (entryPoint.Stage == ShaderStage.Compute) {
+                    continue;
+                }
+
+                foreach (var shared in entryPoint.SharedVariables) {
+                    diagnostics.Add(
+                        LoweringDiagnostics.WorkgroupStorageOutsideCompute,
+                        LocationOf(SyntaxOf(shared.Variable)),
+                        $"the group-shared variable '{shared.Name}'",
+                        entryPoint.Stage.ToString().ToLowerInvariant(),
+                        entryPoint.Function.Name
+                    );
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Refuses a barrier some stage other than a compute one can reach.
+    /// </summary>
+    /// <remarks>
+    ///     The same shape and the same argument as
+    ///     <see cref="ReportDiscardsOutsideFragmentStages" />, one stage over: reachability decides
+    ///     which stages a helper belongs to, and it is reported once per offending function rather
+    ///     than once per entry point that reaches it. A barrier outside a compute stage is not
+    ///     merely useless — it is an <c>OpControlBarrier</c> with a <c>Workgroup</c> execution scope
+    ///     in an execution model that has no workgroups, which <c>spirv-val</c> rejects.
+    /// </remarks>
+    void ReportBarriersOutsideComputeStages() {
+        HashSet<IrFunction> said = [];
+
+        foreach (var entryPoint in module.Shaders.SelectMany(shader => shader.EntryPoints)) {
+            if (entryPoint.Stage == ShaderStage.Compute) {
+                continue;
+            }
+
+            foreach (var function in CallGraph.Reachable(entryPoint.Function)) {
+                if (!ContainsBarrier(function.Body) || !said.Add(function)) {
+                    continue;
+                }
+
+                diagnostics.Add(
+                    LoweringDiagnostics.WorkgroupStorageOutsideCompute,
+                    LocationOf(barriers.GetValueOrDefault(function)),
+                    "a barrier",
+                    entryPoint.Stage.ToString().ToLowerInvariant(),
+                    entryPoint.Function.Name
+                );
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Records which of <paramref name="shared" /> a body touches.
+    /// </summary>
+    /// <remarks>
+    ///     Calls are <em>not</em> expanded here, unlike <see cref="CollectStreamUses" />: the caller
+    ///     already walks every reachable function, so following calls as well would only revisit
+    ///     bodies. What the stream walk needs and this does not is <em>order</em> — a stream's
+    ///     direction depends on which use comes first, and a shared variable's declaration does
+    ///     not.
+    /// </remarks>
+    static void CollectSharedUses(IrStatement statement, HashSet<IrVariable> shared, HashSet<IrVariable> touched) {
+        switch (statement) {
+            case IrBlock block:
+                foreach (var nested in block.Statements) {
+                    CollectSharedUses(nested, shared, touched);
+                }
+
+                break;
+
+            case IrIfStatement conditional:
+                CollectSharedUses(conditional.Then, shared, touched);
+
+                if (conditional.Else is { } otherwise) {
+                    CollectSharedUses(otherwise, shared, touched);
+                }
+
+                break;
+
+            case IrLoopStatement loop:
+                CollectSharedUses(loop.Condition, shared, touched);
+                CollectSharedUses(loop.Body, shared, touched);
+
+                if (loop.Continue is { } step) {
+                    CollectSharedUses(step, shared, touched);
+                }
+
+                break;
+
+            case IrLoadInstruction load when shared.Contains(load.Place.Root):
+                touched.Add(load.Place.Root);
+                break;
+
+            case IrStoreInstruction store when shared.Contains(store.Place.Root):
+                touched.Add(store.Place.Root);
+                break;
+
+            // An atomic is the third way to reach one, and the reason the storage exists at all: a
+            // read-modify-write that never becomes a load or a store.
+            case IrAtomicInstruction atomic when shared.Contains(atomic.Place.Root):
+                touched.Add(atomic.Place.Root);
+                break;
+
+            case IrArrayLengthInstruction length when shared.Contains(length.Place.Root):
+                touched.Add(length.Place.Root);
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    /// <summary>Whether a body reaches a barrier anywhere, calls aside.</summary>
+    static bool ContainsBarrier(IrStatement statement) =>
+        statement switch {
+            IrIntrinsicInstruction { Intrinsic: IrIntrinsic.ControlBarrier or IrIntrinsic.MemoryBarrierShared } => true,
+            IrBlock block => block.Statements.Any(ContainsBarrier),
+            IrIfStatement conditional => ContainsBarrier(conditional.Then)
+                || (conditional.Else is { } otherwise && ContainsBarrier(otherwise)),
+            IrLoopStatement loop => ContainsBarrier(loop.Condition)
+                || ContainsBarrier(loop.Body)
+                || (loop.Continue is { } step && ContainsBarrier(step)),
+            _ => false
+        };
+
+    /// <summary>
     ///     Decides, for every entry point, which of its shader's streams are inputs and which are
     ///     outputs.
     /// </summary>
@@ -913,8 +1115,11 @@ public sealed partial class Lowerer {
     }
 
     /// <summary>The declaration a lowered stream came from, so the warning has a span.</summary>
-    SyntaxNode? SyntaxOf(IrShader shader, IrStream stream) =>
-        globals.FirstOrDefault(entry => ReferenceEquals(entry.Value, stream.Variable)).Key?.DeclaringSyntax;
+    SyntaxNode? SyntaxOf(IrShader shader, IrStream stream) => SyntaxOf(stream.Variable);
+
+    /// <summary>The declaration a lowered global came from, so a diagnostic about it has a span.</summary>
+    SyntaxNode? SyntaxOf(IrVariable variable) =>
+        globals.FirstOrDefault(entry => ReferenceEquals(entry.Value, variable)).Key?.DeclaringSyntax;
 
     /// <summary>
     ///     Walks a body in execution order, recording for each stream whether its first use is a

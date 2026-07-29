@@ -453,4 +453,5 @@ modifier
     | READONLY
     | STATIC
     | STREAM
+    | GROUPSHARED
     ;

@@ -40,8 +40,19 @@ namespace Vixen.Raven.Reflection;
 /// </remarks>
 public static class StageInterface {
     /// <summary>Whether a stage input or output may have this type.</summary>
+    /// <remarks>
+    ///     A 64-bit component is refused alongside a boolean, and for a neighbouring reason: it
+    ///     does not fit one location. Vulkan's interface slots are four 32-bit components wide, so a
+    ///     64-bit component consumes two of them and the numbering stops being the one
+    ///     <c>StreamPlan</c> assigns — the vertex stage's outputs and the fragment stage's inputs
+    ///     silently stop lining up. That covers <c>double</c> as well as the new integers, which was
+    ///     the same defect all along and had no way to announce itself: nothing in the engine wants
+    ///     64 bits across a stage boundary, and what does want them is a buffer an atomic operates
+    ///     on.
+    /// </remarks>
     public static bool CanCarry(IrType type) =>
-        type is IrScalarType { Kind: not IrTypeKind.Bool } or IrVectorType { Component.Kind: not IrTypeKind.Bool };
+        type is IrScalarType { Kind: not IrTypeKind.Bool, Is64Bit: false }
+            or IrVectorType { Component: { Kind: not IrTypeKind.Bool, Is64Bit: false } };
 
     /// <summary>
     ///     Whether a varying of this type has to be flat rather than interpolated.

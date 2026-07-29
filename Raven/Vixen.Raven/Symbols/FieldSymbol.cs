@@ -65,6 +65,32 @@ public abstract class FieldSymbol : Symbol {
     public virtual bool IsStream => false;
 
     /// <summary>
+    ///     Declared <c>groupshared</c>: storage every invocation of one workgroup reaches and no
+    ///     other workgroup does.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Not a binding, for the same reason a <c>stream</c> is not: there is no descriptor, no
+    ///         <c>(set, binding)</c>, and nothing the host writes. What distinguishes it from a
+    ///         local is <em>who</em> reaches it — one copy per workgroup rather than one per
+    ///         invocation — and that is exactly the property hierarchical traversal needs: a
+    ///         workgroup pops a node, tests its children and pushes the survivors through a queue
+    ///         with a local head, which is this or it is a global atomic per child.
+    ///     </para>
+    ///     <para>
+    ///         It is also the second thing an atomic may operate on. The first, a writable
+    ///         resource, is the whole dispatch's; this one is the workgroup's, and both are shared
+    ///         by more than one invocation, which is the only property an atomic actually requires.
+    ///     </para>
+    ///     <para>
+    ///         Compute only, and refused elsewhere rather than emitted: <c>Workgroup</c> storage
+    ///         exists in a graphics stage in neither target, and a fragment shader that declared one
+    ///         would be describing memory the pipeline has no groups to give it.
+    ///     </para>
+    /// </remarks>
+    public virtual bool IsGroupShared => false;
+
+    /// <summary>
     ///     The literal written in the declaration, or null when there is none.
     /// </summary>
     /// <remarks>
@@ -95,7 +121,8 @@ public abstract class FieldSymbol : Symbol {
     ///     binder let you assign to and the lowerer turned into a uniform, which both reference
     ///     compilers reject and neither Raven layer would have mentioned.
     /// </remarks>
-    public bool IsBinding => ContainingType is { TypeKind: TypeKind.Shader } && !IsConst && !IsCompose && !IsStream;
+    public bool IsBinding =>
+        ContainingType is { TypeKind: TypeKind.Shader } && !IsConst && !IsCompose && !IsStream && !IsGroupShared;
 
     /// <summary>
     ///     The descriptor set this field's binding belongs to, from a <c>[PerFrame]</c> /

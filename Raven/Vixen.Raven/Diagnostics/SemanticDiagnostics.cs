@@ -1060,4 +1060,91 @@ public static class SemanticDiagnostics {
         Binding,
         DiagnosticSeverity.Error
     );
+
+    // --- Workgroup-shared storage ------------------------------------------
+
+    /// <summary>
+    ///     <c>groupshared</c> outside a shader.
+    /// </summary>
+    /// <remarks>
+    ///     A workgroup is a property of a dispatch, so the storage belongs to the shader that
+    ///     declares the entry point. On a struct it would be a field with a storage class its
+    ///     containing value knows nothing about — and a struct is copied, which shared memory
+    ///     cannot be.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor GroupSharedMustBeShaderField = new(
+        "RVN2131",
+        "Group-shared storage must be a shader member",
+        "'{0}' is 'groupshared' but is not declared on a shader: workgroup storage belongs to a "
+        + "dispatch, which only a shader has",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>
+    ///     <c>groupshared</c> combined with something that decides where the value lives.
+    /// </summary>
+    /// <remarks>
+    ///     Each of these already answers the question <c>groupshared</c> answers, and differently: a
+    ///     <c>const</c> has no storage, a <c>compose</c> slot is not data, and a <c>stream</c> is
+    ///     per-invocation in the pipeline's interface. One declaration cannot be two of them.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor GroupSharedConflict = new(
+        "RVN2132",
+        "Group-shared storage conflicts with another modifier",
+        "'{0}' cannot be both 'groupshared' and {1}: the two say different things about where the "
+        + "value lives",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>A <c>groupshared</c> declaration of a type that cannot be workgroup storage.</summary>
+    /// <remarks>
+    ///     A descriptor is not a value: a texture, a sampler or a buffer is a handle the host binds,
+    ///     and neither target has a <c>Workgroup</c> variable of one. Reported at the declaration
+    ///     rather than as a backend failure, because the declaration is what has to change.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor GroupSharedTypeNotSupported = new(
+        "RVN2133",
+        "Group-shared type is not supported",
+        "'{0}' is 'groupshared' at type '{1}': workgroup storage holds values, and a resource is a "
+        + "descriptor the host binds",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>
+    ///     A <c>groupshared</c> declaration with an initializer.
+    /// </summary>
+    /// <remarks>
+    ///     There is nothing that could run it. Workgroup storage is uninitialized in both targets,
+    ///     and one invocation writing a value every other invocation would also write is a race
+    ///     rather than an initialization — which is exactly why the pattern is a store followed by a
+    ///     <c>barrier()</c>, written where the author can see it.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor GroupSharedCannotHaveInitializer = new(
+        "RVN2134",
+        "Group-shared storage cannot have an initializer",
+        "'{0}' is 'groupshared' and cannot have an initializer: workgroup storage starts undefined, "
+        + "so write it and then 'barrier()'",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>
+    ///     A <c>groupshared</c> declaration that is also <c>val</c> or <c>readonly</c>.
+    /// </summary>
+    /// <remarks>
+    ///     Reported rather than tolerated because it is the whole point of the storage: nothing else
+    ///     can ever write it — there is no host, no initializer and no pipeline stage upstream — so
+    ///     a read-only workgroup variable is guaranteed to be undefined at every read.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor GroupSharedCannotBeReadOnly = new(
+        "RVN2135",
+        "Group-shared storage cannot be read-only",
+        "'{0}' is 'groupshared' and read-only: nothing else can write workgroup storage, so every "
+        + "read of it would be undefined — declare it 'var'",
+        Shader,
+        DiagnosticSeverity.Error
+    );
 }
