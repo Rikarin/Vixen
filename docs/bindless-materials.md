@@ -185,13 +185,28 @@ record in **both** variants, which a probe established before the conditional ma
 permutation is also the right conditional rather than merely the available one — the two forms are
 different compilations with different descriptor layouts, which is what a permutation already means.
 
-**What is left**, and it is the part that touches the shipped pass:
+✅ **And the shipped pass declares it.** `ForwardPlus` carries
+`[Permutation] val UseMaterialRecords: bool = false` and
+`[PerDraw] [MaterialIndex("UseMaterialRecords")] var materialIndex: uint = 0u`, and
+`ForwardLightingRenderFeature` writes the record index into the per-draw header at
+`MaterialIndexOffset`.
 
-- A per-object value carrying the record index into the per-draw data, the way
-  `ForwardLightingRenderFeature` already carries a probe index and weight.
-- `MeshRenderFeature` binding the record buffer for the frame instead of a set per object.
-- `ForwardPlus` declaring the `[MaterialIndex]` — one line, and the one that moves the shipped
-  shader's binding layout, its checked-in reflection oracle and the golden images with it.
+⚠ It cost **nothing in layout**, and that was predicted rather than lucky: the shader's own comment
+said three scalars leave four bytes of padding before `lights`, because std140 starts an array of
+structures on a sixteen-byte boundary whatever precedes it. `materialIndex` is the fourth scalar and
+fills exactly that. The regenerated reflection puts it at offset 12, `lights` still starts at 16, and
+`HeaderSize` does not move — so nothing that writes that block had to change, and the golden images
+did not move either, because the default variant is the one they render.
+
+⚠ The index is written by the *lighting* feature although it is the material feature's number. The
+per-draw block is one allocation with the light list in it, so it has one owner; two features writing
+into one block at agreed offsets is worse than one feature asking the other for a value. It finds its
+sibling through `Parent.SubFeatures`, the way `MaterialRenderFeature` finds its permutation
+contributors, so the order a host calls `Add` in does not decide whether records reach the shader.
+
+**What is left** is the bind: `MeshRenderFeature` binding a group's record buffer for the frame
+rather than a set per object, and a host asking for the `UseMaterialRecords` variant where the device
+reports `HasBindless`. After that, the indirect-count draw and compaction.
 
 The sketch this replaces:
 
@@ -282,7 +297,8 @@ Raven got atomics; what was missing was 2 and 3.
 | 2b. The block as a record — shader half | ✅ built — `[MaterialIndex]`, both backends, reflection |
 | 2b. The block as a record — engine half (records written) | ✅ built — `MaterialRecords`, one buffer per effect |
 | 2b. A marker a permutation can switch off | ✅ built — `[MaterialIndex("Key")]`, so one pass is both |
-| 2b. The block as a record — the shipped pass | ⬜ — an index in the per-object data, and `ForwardPlus` declaring the marker |
+| 2b. The shipped pass declares it, and the index reaches the block | ✅ built — and it cost no layout, filling padding that was already there |
+| 2b. Binding the record buffer for the frame | ⬜ — the last piece of 2b |
 | 3. An indirect draw whose count comes from the device | ⬜ |
 | 4. Compaction | ⬜ |
 

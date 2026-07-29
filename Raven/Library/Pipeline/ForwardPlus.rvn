@@ -53,6 +53,17 @@ shader ForwardPlus {
     /// Whether to read the culled cluster list instead of a host-filled uniform array.
     [Permutation] val UseClusteredLights: bool = false
 
+    /// Whether this pass's materials are records of one buffer rather than a set bound per draw.
+    ///
+    /// What `docs/bindless-materials.md` is about: a draw that binds a descriptor set per material
+    /// cannot be merged with a draw that binds a different one. On it, the whole per-material block
+    /// below becomes one record of a buffer subscripted by `materialIndex`.
+    ///
+    /// ⚠ Off by default, and the default is the half that runs everywhere. Records need
+    /// `HasBindless`, which GL, WebGL2 and MoltenVK below argument-buffer tier 2 do not have — so a
+    /// host asks for this only where the device said yes, and gets the pass it always had otherwise.
+    [Permutation] val UseMaterialRecords: bool = false
+
     /// How many entries the uniform light list has room for. Unused when clustering is on.
     ///
     /// A permutation rather than a constant because it is the *host's* budget: it sizes a uniform
@@ -104,6 +115,19 @@ shader ForwardPlus {
     /// whole, and one near the edge fades back to the sky over the probe's falloff distance. Per
     /// object because that is what the falloff is a function of — where the object is.
     [PerDraw] var probeWeight: float = 0f
+
+    /// Which record of the material buffer this object's material is, when materials are records.
+    ///
+    /// The fourth scalar, and it costs nothing: std140 starts the array below on a sixteen-byte
+    /// boundary whatever precedes it, so three scalars already left four bytes of padding here and
+    /// this fills them. `ForwardLightingRenderFeature.HeaderSize` does not move.
+    ///
+    /// ⚠ `[MaterialIndex("UseMaterialRecords")]` rather than `[MaterialIndex]`: the marker turns this
+    /// shader's whole per-material block into one record of a buffer, and that is what a device with
+    /// bindless wants and not what GL, WebGL2 or MoltenVK below argument-buffer tier 2 can do
+    /// (ADR-011). Conditional on the permutation, one shader is both — and the *default is the
+    /// fallback*, so a host that never asked gets exactly the pass it had.
+    [PerDraw] [MaterialIndex("UseMaterialRecords")] var materialIndex: uint = 0u
 
     /// The host-filled light list. Read `lightCount` entries, not `MaxLights` — the rest is stale
     /// memory. Unused when clustering is on.

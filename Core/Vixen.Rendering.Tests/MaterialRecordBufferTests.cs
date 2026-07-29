@@ -222,6 +222,44 @@ public sealed class MaterialRecordBufferTests : IDisposable {
         Assert.True(h.Materials.DescriptorsOf(h.System, id).IsValid);
     }
 
+    /// <summary>The record index reaches the per-draw block, where the shader reads it.</summary>
+    /// <remarks>
+    ///     The last join in the chain, and the one nothing else asserts: a buffer full of correct
+    ///     records is useless if the number saying which record an object is never leaves the
+    ///     renderer. Read out of the bytes at the offset `ForwardPlus.rvn` declares — which the
+    ///     checked-in reflection puts at 12, in the padding the three scalars before it already left.
+    /// </remarks>
+    [Fact]
+    public void The_record_index_reaches_the_per_draw_block() {
+        using var h = Build(lighting: true);
+
+        var first = Lit(new(1f, 0f, 0f));
+        var second = Lit(new(0f, 1f, 0f));
+
+        var a = AddMesh(h, first);
+        var b = AddMesh(h, second);
+
+        Frame(h);
+
+        Assert.Equal(
+            (uint)h.Materials.RecordOf(h.System, a)!.Value.Index,
+            IndexInBlock(h, a)
+        );
+
+        Assert.Equal(
+            (uint)h.Materials.RecordOf(h.System, b)!.Value.Index,
+            IndexInBlock(h, b)
+        );
+    }
+
+    /// <summary>What the lighting feature wrote into one object's per-draw header.</summary>
+    static uint IndexInBlock(Harness h, RenderObjectId id) {
+        var block = h.Lighting!.Block(h.System, id);
+        Assert.False(block.IsEmpty, "the object has no per-draw block");
+
+        return BitConverter.ToUInt32(block[ForwardLightingRenderFeature.MaterialIndexOffset..]);
+    }
+
     // --- The fixture -------------------------------------------------------
 
     static float Read(MaterialRecords buffer, int index) =>
@@ -241,7 +279,7 @@ public sealed class MaterialRecordBufferTests : IDisposable {
         h.System.Draw();
     }
 
-    Harness Build(bool records = true) {
+    Harness Build(bool records = true, bool lighting = false) {
         var system = new RenderSystem();
         var opaque = system.AddStage(new("Opaque"));
 
@@ -256,6 +294,14 @@ public sealed class MaterialRecordBufferTests : IDisposable {
 
         meshes.Add(new TransformRenderFeature());
         meshes.Add(materials);
+
+        ForwardLightingRenderFeature? lights = null;
+
+        if (lighting) {
+            lights = new() { Device = device };
+            meshes.Add(lights);
+        }
+
         system.AddFeature(meshes);
 
         var view = Matrix4x4.LookAt(Vector3.Zero, new(0f, 0f, 1f), new(0f, 1f, 0f));
@@ -270,6 +316,7 @@ public sealed class MaterialRecordBufferTests : IDisposable {
             Opaque = opaque,
             Meshes = meshes,
             Materials = materials,
+            Lighting = lights,
             Vertices = device.CreateBuffer(new() { Size = 1024, Usage = BufferUsage.Vertex })
         };
     }
@@ -293,6 +340,7 @@ public sealed class MaterialRecordBufferTests : IDisposable {
         public required RenderStage Opaque { get; init; }
         public required MeshRenderFeature Meshes { get; init; }
         public required MaterialRenderFeature Materials { get; init; }
+        public ForwardLightingRenderFeature? Lighting { get; init; }
         public required BufferHandle Vertices { get; init; }
 
         public List<RenderObjectId> Objects { get; } = [];
