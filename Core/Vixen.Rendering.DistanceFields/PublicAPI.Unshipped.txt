@@ -13,6 +13,20 @@ Vixen.Rendering.DistanceFields.DistanceFieldBuildSettings.Resolution.init -> int
 Vixen.Rendering.DistanceFields.DistanceFieldBuildSettings.SignRayCount.get -> int
 Vixen.Rendering.DistanceFields.DistanceFieldBuildSettings.SignRayCount.init -> int
 Vixen.Rendering.DistanceFields.DistanceFieldBuildSettings.Validate() -> void
+Vixen.Rendering.DistanceFields.DistanceFieldHit -> readonly struct
+Vixen.Rendering.DistanceFields.DistanceFieldHit : System.IEquatable<Vixen.Rendering.DistanceFields.DistanceFieldHit>
+Vixen.Rendering.DistanceFields.DistanceFieldHit.Distance.get -> float
+Vixen.Rendering.DistanceFields.DistanceFieldHit.Distance.init -> float
+Vixen.Rendering.DistanceFields.DistanceFieldHit.DistanceFieldHit() -> void
+Vixen.Rendering.DistanceFields.DistanceFieldHit.DistanceFieldHit(bool Hit, float Distance, Vixen.Core.Mathematics.Vector3 Position, Vixen.Core.Mathematics.Vector3 Normal, int Steps) -> void
+Vixen.Rendering.DistanceFields.DistanceFieldHit.Hit.get -> bool
+Vixen.Rendering.DistanceFields.DistanceFieldHit.Hit.init -> bool
+Vixen.Rendering.DistanceFields.DistanceFieldHit.Normal.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.DistanceFields.DistanceFieldHit.Normal.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.DistanceFields.DistanceFieldHit.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.DistanceFields.DistanceFieldHit.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.DistanceFields.DistanceFieldHit.Steps.get -> int
+Vixen.Rendering.DistanceFields.DistanceFieldHit.Steps.init -> int
 Vixen.Rendering.DistanceFields.DistanceFieldInstance -> readonly struct
 Vixen.Rendering.DistanceFields.DistanceFieldInstance : System.IEquatable<Vixen.Rendering.DistanceFields.DistanceFieldInstance>
 Vixen.Rendering.DistanceFields.DistanceFieldInstance.DistanceFieldInstance() -> void
@@ -28,7 +42,25 @@ Vixen.Rendering.DistanceFields.DistanceFieldInstance.Scale.get -> float
 Vixen.Rendering.DistanceFields.DistanceFieldInstance.Scale.init -> float
 Vixen.Rendering.DistanceFields.DistanceFieldInstance.Validate() -> void
 Vixen.Rendering.DistanceFields.DistanceFieldInstance.WorldBounds.get -> Vixen.Core.Mathematics.BoundingBox
+Vixen.Rendering.DistanceFields.DistanceFieldTraceSettings -> readonly struct
+Vixen.Rendering.DistanceFields.DistanceFieldTraceSettings : System.IEquatable<Vixen.Rendering.DistanceFields.DistanceFieldTraceSettings>
+Vixen.Rendering.DistanceFields.DistanceFieldTraceSettings.DistanceFieldTraceSettings() -> void
+Vixen.Rendering.DistanceFields.DistanceFieldTraceSettings.MaxDistance.get -> float
+Vixen.Rendering.DistanceFields.DistanceFieldTraceSettings.MaxDistance.init -> float
+Vixen.Rendering.DistanceFields.DistanceFieldTraceSettings.MaxSteps.get -> int
+Vixen.Rendering.DistanceFields.DistanceFieldTraceSettings.MaxSteps.init -> int
+Vixen.Rendering.DistanceFields.DistanceFieldTraceSettings.MinStep.get -> float
+Vixen.Rendering.DistanceFields.DistanceFieldTraceSettings.MinStep.init -> float
+Vixen.Rendering.DistanceFields.DistanceFieldTraceSettings.StartDistance.get -> float
+Vixen.Rendering.DistanceFields.DistanceFieldTraceSettings.StartDistance.init -> float
+Vixen.Rendering.DistanceFields.DistanceFieldTraceSettings.StepScale.get -> float
+Vixen.Rendering.DistanceFields.DistanceFieldTraceSettings.StepScale.init -> float
+Vixen.Rendering.DistanceFields.DistanceFieldTraceSettings.SurfaceThreshold.get -> float
+Vixen.Rendering.DistanceFields.DistanceFieldTraceSettings.SurfaceThreshold.init -> float
+Vixen.Rendering.DistanceFields.DistanceFieldTraceSettings.Validate() -> void
+Vixen.Rendering.DistanceFields.DistanceFieldTracer -> static class
 Vixen.Rendering.DistanceFields.GlobalDistanceField -> sealed class
+Vixen.Rendering.DistanceFields.GlobalDistanceField : Vixen.Rendering.DistanceFields.IDistanceField
 Vixen.Rendering.DistanceFields.GlobalDistanceField.BoundsOf(int level) -> Vixen.Core.Mathematics.BoundingBox
 Vixen.Rendering.DistanceFields.GlobalDistanceField.CellSizeOf(int level) -> float
 Vixen.Rendering.DistanceFields.GlobalDistanceField.ExtentOf(int level) -> float
@@ -38,12 +70,17 @@ Vixen.Rendering.DistanceFields.GlobalDistanceField.HasContent.get -> bool
 Vixen.Rendering.DistanceFields.GlobalDistanceField.LevelCount.get -> int
 Vixen.Rendering.DistanceFields.GlobalDistanceField.MaxDistanceOf(int level) -> float
 Vixen.Rendering.DistanceFields.GlobalDistanceField.Resolution.get -> int
-Vixen.Rendering.DistanceFields.GlobalDistanceField.Sample(Vixen.Core.Mathematics.Vector3 world) -> float
+Vixen.Rendering.DistanceFields.GlobalDistanceField.Sample(Vixen.Core.Mathematics.Vector3 position) -> float
+Vixen.Rendering.DistanceFields.GlobalDistanceField.SampleGradient(Vixen.Core.Mathematics.Vector3 position) -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.DistanceFields.GlobalDistanceField.TryLevelFor(Vixen.Core.Mathematics.Vector3 world, out int level) -> bool
 Vixen.Rendering.DistanceFields.GlobalDistanceField.Update(Vixen.Core.Mathematics.Vector3 viewPosition, System.ReadOnlySpan<Vixen.Rendering.DistanceFields.DistanceFieldInstance> instances, bool parallel = true) -> void
 Vixen.Rendering.DistanceFields.GlobalDistanceField.ViewPosition.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.DistanceFields.GlobalDistanceField.this[int level, int x, int y, int z].get -> float
+Vixen.Rendering.DistanceFields.IDistanceField -> interface
+Vixen.Rendering.DistanceFields.IDistanceField.Sample(Vixen.Core.Mathematics.Vector3 position) -> float
+Vixen.Rendering.DistanceFields.IDistanceField.SampleGradient(Vixen.Core.Mathematics.Vector3 position) -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.DistanceFields.MeshDistanceField -> sealed class
+Vixen.Rendering.DistanceFields.MeshDistanceField : Vixen.Rendering.DistanceFields.IDistanceField
 Vixen.Rendering.DistanceFields.MeshDistanceField.Bounds.get -> Vixen.Core.Mathematics.BoundingBox
 Vixen.Rendering.DistanceFields.MeshDistanceField.Bounds.init -> Vixen.Core.Mathematics.BoundingBox
 Vixen.Rendering.DistanceFields.MeshDistanceField.CellSize.get -> Vixen.Core.Mathematics.Vector3
@@ -60,4 +97,7 @@ Vixen.Rendering.DistanceFields.MeshDistanceField.Validate() -> void
 Vixen.Rendering.DistanceFields.MeshDistanceField.this[int x, int y, int z].get -> float
 Vixen.Rendering.DistanceFields.MeshDistanceFieldBaker -> static class
 static Vixen.Rendering.DistanceFields.DistanceFieldInstance.At(Vixen.Rendering.DistanceFields.MeshDistanceField field, Vixen.Core.Mathematics.Vector3 position) -> Vixen.Rendering.DistanceFields.DistanceFieldInstance
-static Vixen.Rendering.DistanceFields.MeshDistanceFieldBaker.Bake(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> vertices, System.ReadOnlySpan<int> indices, Vixen.Rendering.DistanceFields.DistanceFieldBuildSettings settings = default(Vixen.Rendering.DistanceFields.DistanceFieldBuildSettings)) -> Vixen.Rendering.DistanceFields.MeshDistanceField
+static Vixen.Rendering.DistanceFields.DistanceFieldTracer.AmbientOcclusion(Vixen.Rendering.DistanceFields.IDistanceField field, Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 normal, float radius = 1, int samples = 5, float strength = 1) -> float
+static Vixen.Rendering.DistanceFields.DistanceFieldTracer.Shadow(Vixen.Rendering.DistanceFields.IDistanceField field, Vixen.Core.Mathematics.Vector3 origin, Vixen.Core.Mathematics.Vector3 toLight, float lightDistance, float softness = 8, Vixen.Rendering.DistanceFields.DistanceFieldTraceSettings? options = null) -> float
+static Vixen.Rendering.DistanceFields.DistanceFieldTracer.Trace(Vixen.Rendering.DistanceFields.IDistanceField field, Vixen.Core.Mathematics.Vector3 origin, Vixen.Core.Mathematics.Vector3 direction, Vixen.Rendering.DistanceFields.DistanceFieldTraceSettings? options = null) -> Vixen.Rendering.DistanceFields.DistanceFieldHit
+static Vixen.Rendering.DistanceFields.MeshDistanceFieldBaker.Bake(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> vertices, System.ReadOnlySpan<int> indices, Vixen.Rendering.DistanceFields.DistanceFieldBuildSettings? options = null) -> Vixen.Rendering.DistanceFields.MeshDistanceField

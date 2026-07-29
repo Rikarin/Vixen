@@ -38,7 +38,7 @@ namespace Vixen.Rendering.DistanceFields;
 ///     </para>
 /// </remarks>
 [DataContract("MeshDistanceField")]
-public sealed class MeshDistanceField {
+public sealed class MeshDistanceField : IDistanceField {
     /// <summary>Reconstructs a field from its parts.</summary>
     /// <param name="bounds">The box the field covers.</param>
     /// <param name="resolution">How many samples along each axis.</param>

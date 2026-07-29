@@ -46,15 +46,21 @@ public static class MeshDistanceFieldBaker {
     /// <summary>Bakes a field over a triangle soup.</summary>
     /// <param name="vertices">The positions.</param>
     /// <param name="indices">Three indices per triangle.</param>
-    /// <param name="settings">How finely, and how hard to work at the sign.</param>
+    /// <param name="options">How finely, and how hard to work at the sign. Omitted takes the defaults.</param>
     /// <returns>The field.</returns>
     /// <exception cref="ArgumentException">There are no triangles, or the indices are not whole triangles.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The settings are out of range.</exception>
+    /// <remarks>
+    ///     <b>Nullable rather than <c>= default</c>.</b> A struct's parameterless constructor is not
+    ///     run by <c>default(T)</c>, so an optional parameter defaulting to <c>default</c> would hand
+    ///     this a resolution of zero and every documented default would be a lie that threw.
+    /// </remarks>
     public static MeshDistanceField Bake(
         ReadOnlySpan<Vector3> vertices,
         ReadOnlySpan<int> indices,
-        DistanceFieldBuildSettings settings = default
+        DistanceFieldBuildSettings? options = null
     ) {
+        var settings = options ?? new DistanceFieldBuildSettings();
         settings.Validate();
 
         if (indices.Length == 0) {

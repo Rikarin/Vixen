@@ -112,6 +112,41 @@ It is still loose in the open gap between two objects — about a sixth low, wit
 in numbers. Under-reporting is the survivable direction: a tracer that thinks a surface is nearer
 takes an extra step; one that thinks it is further goes through it.
 
+## Marching it
+
+`DistanceFieldTracer` works on `IDistanceField`, which both the baked field and the clipmap
+implement. The interface earns its place twice: the tracer is written once for both, and a **test can
+march an exact analytic sphere**. Marching a sampled sphere measures the tracer and the interpolation
+together and cannot say which was wrong; marching an analytic one measures the tracer alone.
+
+The interface's contract is a *lower bound*, not an exact distance. Under-report and a tracer is
+still correct — it takes more steps. Over-report and a step of that length passes through the
+surface. Everything in this project fails in the first direction on purpose.
+
+**`StepScale` below one is correctness, not timidity.** Sphere tracing is exact when the field is
+exact: a step of *d* cannot cross a surface *d* away. A trilinear field over-reports near a convex
+corner, which is exactly a step that crosses the surface and a ray that comes out the other side.
+
+**`Shadow` is why distance fields are worth having for shadows at all.** A shadow map or a ray cast
+answers one binary question and needs many samples to soften it. Here the field already knows how
+close the ray passed: at distance *t* with clearance *d*, the occluder subtends about *d/t*, and the
+smallest such ratio over the march **is** the penumbra. One march, a soft shadow, and softness that
+grows with distance from the occluder for free — which is the part that reads as real.
+
+**`AmbientOcclusion` needs no rays and produces no noise.** Above open ground the field a metre up
+reads a metre and the difference is nothing; in a corner it reads less, and that shortfall *is* the
+occlusion. One sample per step, nothing to denoise. It sees geometry at the field's resolution and
+nothing finer, so it complements the screen-space kind rather than replacing it — a flat floor
+correctly occludes nothing at all, which is the test that says the integral is measuring geometry and
+not its own step size.
+
+## A trap worth naming
+
+`default(T)` does **not** run a struct's parameterless constructor. An optional parameter written
+`settings = default` therefore hands over zeroes, not the documented defaults — a resolution of zero,
+a step budget of zero. Both `Bake` and the tracer take `T?` and coalesce instead, and there is a test
+that omitting the settings agrees with passing `new()`.
+
 ## Not yet
 
 Stored as `float`, not quantised into a narrow band. Correctness first: a quantisation is measured
@@ -124,5 +159,6 @@ grids — so scrolling is the next thing here, and it changes no result, only ho
 Instances are rejected against their bounds in a linear scan, early-outing against the best distance
 so far. A tree over the instances is what replaces that when the scan stops being enough.
 
-Nothing here has touched a GPU yet. Uploading a level into a 3D texture, and the sphere tracer that
-reads it for distance-field shadows and occlusion, are the rest of doc 19's L1.
+Nothing here has touched a GPU yet. Uploading a clipmap level into a 3D texture and porting the
+tracer to a shader — with this one as the reference it gets compared against — is the rest of doc
+19's L1, along with the importer stage that writes baked fields into the content pipeline.

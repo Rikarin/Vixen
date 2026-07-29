@@ -38,7 +38,7 @@ namespace Vixen.Rendering.DistanceFields;
 ///         than over one mesh. Reusing it means one interpolation, tested once.
 ///     </para>
 /// </remarks>
-public sealed class GlobalDistanceField {
+public sealed class GlobalDistanceField : IDistanceField {
     readonly MeshDistanceField[] levels;
 
     /// <summary>How many samples along each axis, in every level.</summary>
@@ -158,18 +158,41 @@ public sealed class GlobalDistanceField {
     }
 
     /// <summary>The signed distance at a world-space point, off the finest level that has it.</summary>
-    /// <param name="world">The point.</param>
+    /// <param name="position">The point.</param>
     /// <returns>The distance, negative inside.</returns>
     /// <remarks>
     ///     A point outside every level gets the coarsest level's clamp — "at least this far", which
     ///     is all anything knows about somewhere nobody sampled.
     /// </remarks>
-    public float Sample(Vector3 world) {
-        if (!TryLevelFor(world, out var level)) {
+    public float Sample(Vector3 position) {
+        if (!TryLevelFor(position, out var level)) {
             return MaxDistanceOf(levels.Length - 1);
         }
 
-        return levels[level].Sample(world);
+        return levels[level].Sample(position);
+    }
+
+    /// <summary>Which way the distance grows fastest at a point.</summary>
+    /// <param name="position">The point.</param>
+    /// <returns>The normalised gradient, or zero where the field is flat.</returns>
+    /// <remarks>
+    ///     Differenced over the cell of whichever level answers, because a difference finer than a
+    ///     cell reads that cell's own constant gradient and learns nothing. Across a level boundary
+    ///     the offsets can land in different levels and the gradient takes a small step; a normal is
+    ///     wanted near surfaces, which is where the finest level is, so it does not show.
+    /// </remarks>
+    public Vector3 SampleGradient(Vector3 position) {
+        var step = CellSizeOf(TryLevelFor(position, out var level) ? level : levels.Length - 1);
+
+        var gradient = new Vector3(
+            Sample(position + new Vector3(step, 0, 0)) - Sample(position - new Vector3(step, 0, 0)),
+            Sample(position + new Vector3(0, step, 0)) - Sample(position - new Vector3(0, step, 0)),
+            Sample(position + new Vector3(0, 0, step)) - Sample(position - new Vector3(0, 0, step))
+        );
+
+        var length = gradient.Length();
+
+        return length > MathUtil.ZeroTolerance ? gradient / length : Vector3.Zero;
     }
 
     /// <summary>Which is the finest level covering a point.</summary>
