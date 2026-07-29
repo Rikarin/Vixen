@@ -178,6 +178,28 @@ public sealed class DockingWorkspace {
         return true;
     }
 
+    /// <summary>Takes the panel the user is in out into a window of its own.</summary>
+    /// <returns>Whether there was one to take out.</returns>
+    /// <remarks>
+    ///     The menu path to what dragging a tab off the window already does — there for the same
+    ///     reason every command in the editor has one: a gesture nobody discovers is a feature nobody
+    ///     has. Where there can be no second window it does nothing and says so, which is what the
+    ///     command's enablement reads.
+    /// </remarks>
+    public bool FloatActive() => Host.CanTearOut && Host.Active is { } panel && Host.Float(panel.Id);
+
+    /// <summary>Whether <see cref="FloatActive" /> would do anything.</summary>
+    /// <remarks>
+    ///     False for a panel that is already in a window of its own — the command would take it out
+    ///     of the window it is in and put it in an identical one, which is a menu item that appears
+    ///     to do nothing at all.
+    /// </remarks>
+    public bool CanFloatActive =>
+        Host.CanTearOut
+        && Host.Active is { } panel
+        && Host.Layout.Find(panel.Id) is var (group, _)
+        && Host.Layout.IndexOfFloating(group) < 0;
+
     /// <summary>Declares a named arrangement.</summary>
     /// <param name="name">What it is called.</param>
     /// <param name="layout">Builds it, fresh each time, because applying one mutates it.</param>

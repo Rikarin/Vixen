@@ -523,6 +523,43 @@ did not change still needs rebuilding when an ancestor's font size did, because 
 measures against a different number now — its computed style is the same interned object, so a check
 on the style alone skips it and `2em` keeps meaning twenty pixels while the text around it doubles.
 
+## Surfaces: several windows, one document
+
+A `UiSurface` is a rectangle the document is laid out into, drawn onto and clicked in. A new document
+has one — the primary, whose root *is* `Document.Root` — and `CreateSurface` adds another for every
+extra window.
+
+**A window is a surface rather than a document of its own, and that is the load-bearing decision.**
+A panel dragged from the main window into a torn-off one has to keep its scroll offset, its
+selection and whatever the user has half-typed, and the only operation that preserves those is
+`Reparent`, which is *within* a document by construction. Making a window a surface turns "move a
+panel to another window" into the reparent a docking host already performs.
+
+So every surface after the first is an ordinary element under `Root`. One style tree: a torn-off
+panel inherits the theme, matches the same stylesheets and resolves `rem` against the same root. One
+focus, one pointer capture, one gesture recogniser — which is what lets a drag that starts in one
+window finish in another. What a surface root does *not* do is take part in its parent's flex
+layout: it is removed from the layout tree's child list and laid out on its own, against its own
+size. Three passes stop at that boundary — the accumulator, the hit test and the draw list — and
+`UiElement.SurfaceRoot` is what they ask.
+
+`vw`, `vh` and `%` are the surface's own. `50vw` in a torn-off inspector means half of *that*
+window; resolving it against the main one would size a 400-pixel palette against a 3840-pixel
+display.
+
+**DPI is per surface, because two windows are routinely on two displays.** It is not a scale
+anything above the renderer applies — lengths stay in logical points everywhere — it is the grid the
+finished layout is snapped to, written into `LayoutTree.PointScaleFactor` before each surface's
+layout call. ⚠ Changing it also needs `LayoutTree.Invalidate`: nothing an element *declared* changed
+when a window was dragged onto a 2× display, so `SetStyle` compares equal, nothing is dirty, and the
+rounding pass — which is what reads the grid — never runs.
+
+A real operating-system window is asked for through `IUiWindowHost`, which this assembly declares and
+cannot fill: `Vixen.Platform` is a layer above `Core/`, and a UI framework that referenced it would
+stop being usable with no backend at all. `Vixen.Platform.Ui` is what fills it. `CanOpenWindows` is
+false on a browser tab, an Android activity and iOS, and a control that wanted a second window is
+expected to have something to do instead.
+
 ## Removal
 
 `UiElement.Remove()` takes an element and its subtree out of all three stores at once — which is why

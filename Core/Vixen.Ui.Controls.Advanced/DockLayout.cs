@@ -244,19 +244,32 @@ public sealed class DockGroupNode : DockNode {
     }
 }
 
-/// <summary>A group floating over the docked arrangement.</summary>
+/// <summary>A group outside the docked arrangement: a window of its own, or a rectangle over it.</summary>
 /// <param name="Group">What is in it.</param>
-/// <param name="X">Where its left edge is, in document space.</param>
+/// <param name="X">Where its left edge is.</param>
 /// <param name="Y">Its top edge.</param>
 /// <param name="Width">How wide it is.</param>
 /// <param name="Height">How tall.</param>
 /// <remarks>
-///     ⚠ <b>Floating within the document, not in an OS window of its own.</b> Doc 11 asks the editor
-///     for "undock to a separate OS window", and a second window is a second surface, a second
-///     swapchain and a second input queue — all of which belong to <c>Vixen.Platform</c> and the
-///     application head. What this assembly can do is the half above that line: a group that is not
-///     in the docked tree, positioned and sized in its own coordinates. Promoting one to a real
-///     window is then the app's business and this record is what it would be handed.
+///     <para>
+///         <b>Which of the two it becomes is the document's answer, not this record's.</b> Doc 11
+///         asks the editor for "undock to a separate OS window", and a second window is a second
+///         surface, a second swapchain and a second input queue — all of which belong to
+///         <c>Vixen.Platform</c> and the application head. <see cref="IUiWindowHost" /> is the seam
+///         that lets this assembly ask for one anyway: with a host installed and able to open
+///         windows, <see cref="DockingHost" /> gives every floating group a real one; without —
+///         a browser tab, an Android activity, iOS — it draws the same group as a panel floating
+///         inside the host, and the arrangement, the file and the panels are identical either way.
+///     </para>
+///     <para>
+///         ⚠ <b>So the coordinates mean two things, and it is worth saying out loud which.</b> They
+///         are the desktop's, in device-independent pixels, when the group has a window; they are
+///         the docking host's own when it does not. There is no third answer available — a window
+///         position that was not in desktop space would be unusable and a rectangle inside a host
+///         that was would be off-screen — and the consequence is that a layout saved on a desktop
+///         and reopened in a browser puts its floating panels somewhere arbitrary rather than
+///         somewhere wrong-looking-but-considered.
+///     </para>
 /// </remarks>
 public readonly record struct DockFloat(DockGroupNode Group, float X, float Y, float Width, float Height) {
     /// <summary>Writes it as a YAML node.</summary>

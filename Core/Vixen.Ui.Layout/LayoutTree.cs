@@ -250,6 +250,28 @@ public sealed partial class LayoutTree : IDisposable {
         MarkDirtyAndPropagate(index);
     }
 
+    /// <summary>Marks a subtree as needing layout whatever its styles say.</summary>
+    /// <param name="node">The root of the subtree.</param>
+    /// <remarks>
+    ///     ⚠ <b>The escape hatch <see cref="MarkDirty" /> deliberately is not, and it exists for one
+    ///     reason: <see cref="PointScaleFactor" />.</b> Everything else that can change a node's
+    ///     result is a style or a child, and both mark it — which is what makes the refusal in
+    ///     <c>MarkDirty</c> right. The pixel grid is neither. A window dragged onto a display with a
+    ///     different scale changes no declaration anywhere, so nothing is dirty, so
+    ///     <see cref="CalculateLayout" /> answers from the cache and the rounding pass — which is
+    ///     what reads the grid — never runs. The window then keeps the previous display's half-pixel
+    ///     seams for as long as nothing else about it changes.
+    ///
+    ///     Every node in the subtree rather than only its root, because the cache is per node: an
+    ///     ancestor that recomputes still serves its children's sizes from theirs.
+    /// </remarks>
+    public void Invalidate(LayoutNodeId node) {
+        var index = Validate(node);
+
+        MarkSubtreeDirty(index);
+        MarkDirtyAndPropagate(index);
+    }
+
     /// <summary>Whether this node's result changed in the last pass.</summary>
     /// <param name="node">The node.</param>
     /// <returns>Whether it is new.</returns>
@@ -342,6 +364,17 @@ public sealed partial class LayoutTree : IDisposable {
     internal BaselineFunction? BaselineFunctionOf(int index) => baselineFunctions?[index];
 
     internal object? ContextOf(int index) => contexts?[index];
+
+    void MarkSubtreeDirty(int index) {
+        flags[index] |= LayoutNodeState.Dirty;
+        results[index].ComputedFlexBasis = float.NaN;
+        results[index].MinContentSizes[0] = float.NaN;
+        results[index].MinContentSizes[1] = float.NaN;
+
+        foreach (var child in ChildIds(index)) {
+            MarkSubtreeDirty(child);
+        }
+    }
 
     void MarkDirtyAndPropagate(int index) {
         // Stopping at the first already-dirty ancestor is what makes marking a leaf cost O(1) in a

@@ -2,26 +2,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics;
-using Vixen.Platform;
 using Vixen.Ui;
-using PlatformKey = Vixen.Platform.Key;
 using PointerButton = Vixen.Ui.PointerButton;
 
-namespace Vixen.Editor.App;
+namespace Vixen.Platform.Ui;
 
-/// <summary>Turns what the window reports into what the document understands.</summary>
+/// <summary>Turns what a window reports into what a document understands.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The second copy of this file, and that is the point at which it should stop being
-///         copied.</b> <c>Vixen.Ui</c> is a <c>Core/</c> assembly and <c>Vixen.Platform</c> is not,
-///         so the framework cannot depend on the thing that produces these events — the layering doc
-///         00 makes non-negotiable, and the reason a UI framework stays usable with no backend at
-///         all. Something has to join them, and <c>Samples/02-HelloUi</c>'s own copy says a
-///         <c>Vixen.Platform.Ui</c> assembly is where this goes "when the editor becomes the second
-///         one". It now has. The assembly is not written here because moving the sample's copy into
-///         it is a change to the sample, and because the two files should be proved identical by a
-///         test before one of them is deleted — the wheel constant and the "not scaled" note below
-///         are each an afternoon somebody has already spent.
+///         <b>The assembly this was always going to live in.</b> <c>Vixen.Ui</c> is a <c>Core/</c>
+///         assembly and <c>Vixen.Platform</c> is not, so the framework cannot depend on the thing
+///         that produces these events — the layering doc 00 makes non-negotiable, and the reason a
+///         UI framework stays usable with no backend at all. <c>Samples/02-HelloUi</c> and
+///         <c>Vixen.Editor.App</c> each carried a copy of this file and each copy said the same
+///         thing: that a <c>Vixen.Platform.Ui</c> is where it goes once there is a second consumer.
 ///     </para>
 ///     <para>
 ///         <b>The key conversion is a cast, by construction.</b> <c>Vixen.Platform.Key</c> and
@@ -30,30 +24,66 @@ namespace Vixen.Editor.App;
 ///         translation table here and there must never be one, because a table is a thing that can
 ///         drift.
 ///     </para>
+///     <para>
+///         ⚠ <b>Every pointer event names the surface it happened in.</b> A document can be shown in
+///         several windows, and two windows do not share a coordinate space: an event delivered to
+///         the wrong one lands at the right numbers in the wrong place, which looks like a hit-test
+///         bug and is a routing one. The window id an event carries is what decides, and
+///         <see cref="PlatformWindowHost.TryResolve" /> is what turns it into a surface.
+///     </para>
 /// </remarks>
-static class PlatformInput {
-    /// <summary>Sends one platform event to a document.</summary>
+public static class PlatformInput {
+    /// <summary>How far one notch of the wheel scrolls, in device-independent pixels.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A constant, and one that should not be.</b> A wheel notch is not a pixel and every
+    ///     platform disagrees about how many it is worth; SDL 2 does not report the user's system
+    ///     setting, so this is an application's number standing in for the operating system's. It is
+    ///     public so an application that knows better can pass its own.
+    /// </remarks>
+    public const float WheelLineHeight = 48f;
+
+    /// <summary>Sends one platform event to a document's primary surface.</summary>
     /// <param name="document">The document.</param>
     /// <param name="platformEvent">What happened.</param>
     /// <returns>Whether the document did something with it.</returns>
     public static bool Dispatch(UiDocument document, in PlatformEvent platformEvent) {
+        ArgumentNullException.ThrowIfNull(document);
+        return Dispatch(document, document.Primary, platformEvent);
+    }
+
+    /// <summary>Sends one platform event to the surface the window it names is showing.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="surface">Which of its surfaces the event happened in.</param>
+    /// <param name="platformEvent">What happened.</param>
+    /// <param name="wheelLineHeight">How far a wheel notch scrolls.</param>
+    /// <returns>Whether the document did something with it.</returns>
+    public static bool Dispatch(
+        UiDocument document,
+        UiSurface surface,
+        in PlatformEvent platformEvent,
+        float wheelLineHeight = WheelLineHeight
+    ) {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(surface);
+
         // ⚠ Stopwatch ticks, not milliseconds. The platform's clock is monotonic and its unit is
         // whatever the machine's high-resolution timer counts in — a hundred nanoseconds here, a
         // nanosecond there — so converting by the wrong constant gives a gesture recogniser whose
-        // double-tap window is either eternity or nothing. It is also the same clock `Shell.Tick`
-        // reads through `Stopwatch.Elapsed`, which is what makes the two comparable at all.
+        // double-tap window is either eternity or nothing. It is also the same clock a host reads
+        // through `Stopwatch.Elapsed`, which is what makes the two comparable at all.
         var when = Stopwatch.GetElapsedTime(0, platformEvent.Timestamp);
         var modifiers = Modifiers(platformEvent.Modifiers);
 
         switch (platformEvent.Kind) {
             case PlatformEventKind.MouseMoved:
-                document.Dispatch(Pointer(platformEvent, PointerAction.Moved, PointerButton.None, modifiers, when));
+                document.Dispatch(surface, Pointer(platformEvent, PointerAction.Moved, PointerButton.None, modifiers, when));
 
                 return true;
 
             case PlatformEventKind.MouseButtonDown:
             case PlatformEventKind.MouseButtonUp:
                 document.Dispatch(
+                    surface,
                     Pointer(
                         platformEvent,
                         platformEvent.Kind == PlatformEventKind.MouseButtonDown
@@ -71,15 +101,15 @@ static class PlatformInput {
                 // ⚠ Negated, and scaled by a line height. A wheel notch reports positive for "away
                 // from the user" and a scroll offset grows downwards, so the two disagree by a sign;
                 // the multiplier is the backend's business everywhere except here, where there is no
-                // backend to ask. `WheelEvent`'s own remarks say a framework that invents a constant
-                // scrolls at a different speed from every other application on the machine — this
-                // one is the sample's, not the framework's.
+                // backend to ask.
                 document.Dispatch(
+                    surface,
                     new WheelEvent {
                         X = platformEvent.Position.X,
                         Y = platformEvent.Position.Y,
-                        DeltaX = -platformEvent.Delta.X * LineHeight,
-                        DeltaY = -platformEvent.Delta.Y * LineHeight,
+                        DeltaX = -platformEvent.Delta.X * wheelLineHeight,
+                        DeltaY = -platformEvent.Delta.Y * wheelLineHeight,
+                        Modifiers = modifiers,
                         Timestamp = when
                     }
                 );
@@ -88,6 +118,9 @@ static class PlatformInput {
 
             case PlatformEventKind.KeyDown:
             case PlatformEventKind.KeyUp:
+                // Not routed by surface: a key event goes to the focus, and the focus is the
+                // document's rather than a window's. Which window has it is the operating system's
+                // question and it has already answered by sending the event at all.
                 document.Dispatch(
                     new KeyEvent {
                         Key = (Vixen.Input.InputKey) (ushort) platformEvent.Key,
@@ -110,9 +143,6 @@ static class PlatformInput {
                 return false;
         }
     }
-
-    /// <summary>How far one notch of the wheel scrolls, in device-independent pixels.</summary>
-    const float LineHeight = 48f;
 
     /// <remarks>
     ///     ⚠ <b>Not scaled, and an earlier version of this divided by the DPI factor.</b> The
@@ -175,12 +205,4 @@ static class PlatformInput {
 
         return result;
     }
-
-    /// <summary>Whether a key is one the platform reports and this maps.</summary>
-    /// <remarks>
-    ///     Exists so the cast above is not silently wrong for a key nobody thought about: an unknown
-    ///     usage arrives as <c>Unknown</c> at both ends, which is a key the controls ignore rather
-    ///     than a key they mistake for another.
-    /// </remarks>
-    public static bool IsKnown(PlatformKey key) => key != PlatformKey.Unknown;
 }

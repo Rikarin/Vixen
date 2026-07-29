@@ -61,9 +61,30 @@ another keeps its scroll position, its selection and whatever the user had half-
 **A splitter drag rebuilds nothing.** It writes `flex-grow` on two elements, so moving one is a
 restyle of two rather than a tear-down at sixty hertz.
 
-Floating groups float *within the document*. A second OS window is a second surface, swapchain and
-input queue, which belong to `Vixen.Platform` and the app head; `DockFloat` is the record such a
-head would be handed.
+**Floating groups get a real OS window where there can be one.** A window is a `UiSurface` of the
+*same* document rather than a document of its own, which is the decision the whole feature rests on:
+moving a panel into a torn-off window is then the `Reparent` above, so it keeps its scroll position,
+its selection and its half-typed text on the way out. `IUiWindowHost` is the seam — declared in
+`Vixen.Ui`, filled by `Vixen.Platform.Ui` — and `UiDocument.CanOpenWindows` is what this host asks.
+Where the answer is no (a browser tab, an Android activity, iOS) the same group is drawn as a
+rectangle floating inside the host, with the same arrangement and the same saved file.
+
+Three things that follow, none of them obvious:
+
+- **Windows are keyed on the `DockGroupNode`, not on its index in `Layout.Floating`.** Every
+  structural change rebuilds the views and the index moves under it, so an index-keyed window blinks
+  off and on again the first time you dock something somewhere else.
+- **A drag is tracked in desktop space.** Two windows have two coordinate spaces, and a captured
+  pointer keeps reporting positions relative to the window the press happened in even once the cursor
+  has left it — so both the pointer and every group's rectangle are lifted through
+  `IUiWindowHost.TryLocate`. With one window that lift is the identity. Where the host cannot answer,
+  docking works inside each window and refuses to drag between them, which is the honest degradation.
+- **Closing a torn-off window brings its panels home** rather than closing them. The window's close
+  button is a foot away from the panel's, and one of them destroys work while the other rearranges it.
+
+A tab dragged off the host entirely tears out; a drop inside it docks. Both are needed: the gaps
+*inside* the arrangement are six-pixel splitters, and floating a panel when a drag misses one would
+make a fumble cost the user their layout.
 
 ### TreeView
 

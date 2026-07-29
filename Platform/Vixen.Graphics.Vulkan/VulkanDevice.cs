@@ -162,6 +162,7 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
         this.device = device;
         this.surface = surface;
         this.ownsInstance = ownsInstance;
+        Presenting = options.Surface;
         preferRenderPassObjects = options.PreferRenderPassObjects;
         logger = options.Logger;
         FramesInFlight = Math.Max(1, options.FramesInFlight);
@@ -673,6 +674,19 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
     internal KhrSurface? Surfaces => khrSurface;
 
     internal SurfaceKHR Surface => surface;
+
+    /// <summary>The window handle this device's own surface was made from.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What tells "present to the window the device was created for" from "present to a
+    ///     second one".</b> A device has exactly one <c>VkSurfaceKHR</c> of its own, made at creation
+    ///     because the queue families are chosen against it; a swapchain for any <i>other</i> window
+    ///     has to make and own one, which is what an editor with a torn-off panel needs and what a
+    ///     swapchain that always used the device's surface answered with
+    ///     <c>VK_ERROR_NATIVE_WINDOW_IN_USE_KHR</c>.
+    /// </remarks>
+    internal SurfaceHandle Presenting { get; }
+
+    internal VulkanInstance Instance => instance;
 
     internal VulkanAllocator Allocator => allocator;
 

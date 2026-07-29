@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Platform.Ui</RootNamespace>
+        <Description>
+            The join between Vixen.Platform and Vixen.Ui: platform events turned into document
+            events, and a docking host's request for a floating window turned into a real one.
+            Neither side may reference the other — Vixen.Ui is a Core assembly and a window is not —
+            so this is where the two meet, and it is the only assembly that knows both.
+        </Description>
+        <PackageTags>ui;windowing;input;multi-window;dpi;docking;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Platform\Vixen.Platform.csproj" />
+
+        <!--
+            The framework whose seams this fills: IUiWindowHost, and the document the events are
+            dispatched into. Nothing here reaches into Vixen.Ui.Controls — a window host has no
+            opinion about docking, and the docking host asks for a window through the interface
+            rather than through this assembly.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui\Vixen.Ui.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Platform.Ui.Tests" />
+    </ItemGroup>
+
+</Project>

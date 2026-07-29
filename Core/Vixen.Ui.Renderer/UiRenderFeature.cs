@@ -12,8 +12,15 @@ namespace Vixen.Ui.Renderer;
 /// <param name="Geometry">This frame's geometry.</param>
 /// <param name="Atlas">The glyph atlas its text draws from.</param>
 /// <param name="Surface">How large the target is, in document pixels.</param>
-/// <param name="Order">Where it sits among the surfaces, lowest drawn first.</param>
-public readonly record struct UiSurface(UiGeometry Geometry, GlyphAtlas Atlas, Int2 Surface, uint Order);
+/// <param name="Order">Where it sits among the interfaces, lowest drawn first.</param>
+/// <remarks>
+///     ⚠ <b>Called <c>UiInterface</c> rather than <c>UiSurface</c>, which is what it was.</b>
+///     <see cref="UiSurface" /> now means something in <c>Vixen.Ui</c> — one of the windows a
+///     document is shown in — and two types of that name a namespace apart is a trap rather than an
+///     ambiguity: a file that imports both compiles until somebody removes the wrong <c>using</c>,
+///     and the two are close enough in meaning that the mistake reads as correct.
+/// </remarks>
+public readonly record struct UiInterface(UiGeometry Geometry, GlyphAtlas Atlas, Int2 Surface, uint Order);
 
 /// <summary>Draws user interfaces inside somebody else's renderer.</summary>
 /// <remarks>
@@ -42,7 +49,7 @@ public readonly record struct UiSurface(UiGeometry Geometry, GlyphAtlas Atlas, I
 ///     </para>
 /// </remarks>
 public sealed class UiRenderFeature : RootRenderFeature {
-    readonly Dictionary<int, UiSurface> surfaces = [];
+    readonly Dictionary<int, UiInterface> surfaces = [];
 
     /// <inheritdoc />
     public override string Name => "Ui";
@@ -64,7 +71,7 @@ public sealed class UiRenderFeature : RootRenderFeature {
     ///     what is stored here is only valid until that builder runs again — which is exactly the
     ///     lifetime of a frame, and is why this is not a cache.
     /// </remarks>
-    public void Set(RenderObjectId id, in UiSurface surface) => surfaces[id.Index] = surface;
+    public void Set(RenderObjectId id, in UiInterface surface) => surfaces[id.Index] = surface;
 
     /// <summary>Forgets a surface, for an object that has gone away.</summary>
     public void Remove(RenderObjectId id) => surfaces.Remove(id.Index);

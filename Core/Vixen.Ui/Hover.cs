@@ -66,10 +66,17 @@ public sealed partial class UiDocument {
     ///     makes nested scrolling behave: the innermost thing that can scroll does, and the chaining
     ///     is <see cref="UiEvent.Handled" /> rather than a rule this has to know.
     /// </remarks>
-    public UiElement? Dispatch(WheelEvent args) {
+    public UiElement? Dispatch(WheelEvent args) => Dispatch(Primary, args);
+
+    /// <summary>Sends a wheel event to whatever is under it in one surface.</summary>
+    /// <param name="surface">Which window it happened in.</param>
+    /// <param name="args">The event, positioned in that surface's space.</param>
+    /// <returns>The element it went to, or <c>null</c> if nothing was under it.</returns>
+    public UiElement? Dispatch(UiSurface surface, WheelEvent args) {
+        ArgumentNullException.ThrowIfNull(surface);
         ArgumentNullException.ThrowIfNull(args);
 
-        var target = Captured ?? HitTest(args.X, args.Y);
+        var target = Captured ?? HitTest(surface, args.X, args.Y);
         target?.Raise(args);
         return target;
     }
@@ -88,14 +95,14 @@ public sealed partial class UiDocument {
     ///         that is what makes <c>.card:hover .button</c> work at all.
     ///     </para>
     /// </remarks>
-    void Track(PointerEvent args) {
+    void Track(UiSurface surface, PointerEvent args) {
         if (args.Action == PointerAction.Pressed) {
             // A press is the moment the pointer takes over the interaction. Moving a mouse across
             // the screen while somebody tabs through a form is not.
             LeaveKeyboardMode();
         }
 
-        var under = HitTest(args.X, args.Y);
+        var under = HitTest(surface, args.X, args.Y);
 
         chain.Clear();
         for (var element = under; element is not null; element = element.Parent) {

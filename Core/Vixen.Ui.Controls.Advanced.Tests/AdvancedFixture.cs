@@ -167,10 +167,32 @@ sealed class AdvancedFixture : IDisposable {
         Update();
     }
 
-    void Send(float x, float y, PointerAction action, PointerButton button, ModifierKeys modifiers) {
+    /// <summary>Presses in one of the document's other windows.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The coordinates are that surface's, not the main window's.</b> Two windows do not
+    ///     share a coordinate space, and an event sent to the wrong one lands at the right numbers in
+    ///     the wrong place — which is the routing mistake a torn-off panel makes easy and which reads
+    ///     as a hit-testing bug.
+    /// </remarks>
+    public void Press(UiSurface surface, float x, float y, PointerButton button = PointerButton.Primary) =>
+        Send(surface, x, y, PointerAction.Pressed, button, ModifierKeys.None);
+
+    /// <inheritdoc cref="Press(UiSurface,float,float,PointerButton)" />
+    public void Move(UiSurface surface, float x, float y) =>
+        Send(surface, x, y, PointerAction.Moved, PointerButton.None, ModifierKeys.None);
+
+    /// <inheritdoc cref="Press(UiSurface,float,float,PointerButton)" />
+    public void Release(UiSurface surface, float x, float y, PointerButton button = PointerButton.Primary) =>
+        Send(surface, x, y, PointerAction.Released, button, ModifierKeys.None);
+
+    void Send(float x, float y, PointerAction action, PointerButton button, ModifierKeys modifiers) =>
+        Send(Document.Primary, x, y, action, button, modifiers);
+
+    void Send(UiSurface surface, float x, float y, PointerAction action, PointerButton button, ModifierKeys modifiers) {
         clock += TimeSpan.FromMilliseconds(16);
 
         Document.Dispatch(
+            surface,
             new PointerEvent {
                 X = x,
                 Y = y,

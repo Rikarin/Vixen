@@ -1,0 +1,33 @@
+#nullable enable
+Vixen.Platform.Ui.PlatformInput -> static class
+Vixen.Platform.Ui.PlatformUiWindow -> sealed class
+Vixen.Platform.Ui.PlatformUiWindow : System.IDisposable
+Vixen.Platform.Ui.PlatformUiWindow : Vixen.Ui.IUiWindow
+Vixen.Platform.Ui.PlatformUiWindow.Bounds.get -> (float X, float Y, float Width, float Height)
+Vixen.Platform.Ui.PlatformUiWindow.Bounds.set -> (float X, float Y, float Width, float Height)
+Vixen.Platform.Ui.PlatformUiWindow.CloseRequested -> System.Action<Vixen.Ui.IUiWindow>?
+Vixen.Platform.Ui.PlatformUiWindow.Dispose() -> void
+Vixen.Platform.Ui.PlatformUiWindow.DpiScale.get -> float
+Vixen.Platform.Ui.PlatformUiWindow.Focus() -> void
+Vixen.Platform.Ui.PlatformUiWindow.IsClosed.get -> bool
+Vixen.Platform.Ui.PlatformUiWindow.Moved -> System.Action<Vixen.Ui.IUiWindow>?
+Vixen.Platform.Ui.PlatformUiWindow.Surface.get -> Vixen.Ui.UiSurface
+Vixen.Platform.Ui.PlatformUiWindow.Title.get -> string
+Vixen.Platform.Ui.PlatformUiWindow.Title.set -> string
+Vixen.Platform.Ui.PlatformUiWindow.Window.get -> Vixen.Platform.IWindow
+Vixen.Platform.Ui.PlatformWindowHost -> sealed class
+Vixen.Platform.Ui.PlatformWindowHost : System.IDisposable
+Vixen.Platform.Ui.PlatformWindowHost : Vixen.Ui.IUiWindowHost
+Vixen.Platform.Ui.PlatformWindowHost.CanOpen.get -> bool
+Vixen.Platform.Ui.PlatformWindowHost.Dispose() -> void
+Vixen.Platform.Ui.PlatformWindowHost.Handle(in Vixen.Platform.PlatformEvent platformEvent) -> bool
+Vixen.Platform.Ui.PlatformWindowHost.Main.get -> Vixen.Platform.IWindow
+Vixen.Platform.Ui.PlatformWindowHost.Open(Vixen.Ui.UiDocument document, in Vixen.Ui.UiWindowRequest request) -> Vixen.Ui.IUiWindow?
+Vixen.Platform.Ui.PlatformWindowHost.PlatformWindowHost(Vixen.Platform.IPlatform platform, Vixen.Ui.UiDocument document, Vixen.Platform.IWindow main) -> void
+Vixen.Platform.Ui.PlatformWindowHost.TryLocate(Vixen.Ui.UiSurface surface, out float x, out float y) -> bool
+Vixen.Platform.Ui.PlatformWindowHost.TryResolve(uint windowId, out Vixen.Ui.UiSurface? surface) -> bool
+Vixen.Platform.Ui.PlatformWindowHost.TryWindow(Vixen.Ui.UiSurface surface, out Vixen.Platform.IWindow? window) -> bool
+Vixen.Platform.Ui.PlatformWindowHost.Windows.get -> System.Collections.Generic.IReadOnlyList<Vixen.Platform.Ui.PlatformUiWindow>
+const Vixen.Platform.Ui.PlatformInput.WheelLineHeight = 48 -> float
+static Vixen.Platform.Ui.PlatformInput.Dispatch(Vixen.Ui.UiDocument document, Vixen.Ui.UiSurface surface, in Vixen.Platform.PlatformEvent platformEvent, float wheelLineHeight = 48) -> bool
+static Vixen.Platform.Ui.PlatformInput.Dispatch(Vixen.Ui.UiDocument document, in Vixen.Platform.PlatformEvent platformEvent) -> bool

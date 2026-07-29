@@ -24,7 +24,7 @@ accident: adding either reference fails the build with a message saying why.
 
 Only the last one knows what a GPU is:
 
-1. **Pump** — `platform.PumpEvents()` into `UiInput.Dispatch`, which turns a `PlatformEvent` into a
+1. **Pump** — `platform.PumpEvents()` into `PlatformInput.Dispatch`, which turns a `PlatformEvent` into a
    `PointerEvent`, a `KeyEvent`, a `TextInputEvent` or a `WheelEvent`.
 2. **Update** — the cascade, the font sizes, the layout style, flexbox.
 3. **Draw** — the walk that turns the laid-out tree into a `DrawList`, diffed against last frame's.
@@ -134,11 +134,10 @@ small rather than as a unit mismatch. `UiImageTests.Scaled` is the picture that 
 
 ## Known gaps
 
-- **`UiInput` lives here and should not.** `Vixen.Ui` is a `Core/` assembly and `Vixen.Platform` is
-  not, so the framework cannot depend on what produces its events — which is the layering doc 00
-  makes non-negotiable. Something has to join them, and until there is a second consumer that
-  something is the application. A `Vixen.Platform.Ui` assembly is where those fifty lines go when the
-  editor becomes the second one.
+- ~~**`UiInput` lives here and should not.**~~ Closed. `Vixen.Ui` is a `Core/` assembly and
+  `Vixen.Platform` is not, so the framework cannot depend on what produces its events; the editor
+  became the second consumer and `Vixen.Platform.Ui.PlatformInput` is where the fifty lines went.
+  This sample now references that assembly and has no copy.
 - **The web head is not built.** Doc 10 makes this sample the Web target's real goal; that is Phase
   10, and it needs `net10.0-browser` and the wasm workload.
 - **Resizing costs an explicit `Refresh`.** Nothing tells an element that its box changed, so the

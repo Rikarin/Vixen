@@ -27,6 +27,11 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
     readonly VulkanDevice device;
     readonly KhrSwapchain extension;
     readonly SurfaceKHR surface;
+
+    /// <summary>The surface this swapchain made for itself, if it made one.</summary>
+    /// <remarks>Destroyed with the swapchain. Zero when presenting to the device's own window.</remarks>
+    readonly SurfaceKHR owned;
+
     readonly VkSemaphore[] acquired;
     VkSemaphore[] presentable = [];
 
@@ -47,7 +52,22 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
                 + "was created without a surface. Pass the window's SurfaceHandle to VulkanDeviceOptions."
             );
 
-        surface = device.Surface;
+        // ⚠ A surface of its own for any window that is not the one the device was created for, and
+        // the device's own for the one that is. A `VkSurfaceKHR` may have exactly one swapchain at a
+        // time — a second swapchain built on the same surface fails with
+        // `VK_ERROR_NATIVE_WINDOW_IN_USE_KHR` — so an editor tearing a panel out onto the desktop
+        // needs one per window. The device's is still the device's: the queue families were selected
+        // against it, and destroying it here would take the device's ability to present with it.
+        if (description.Surface.CanPresent && description.Surface != device.Presenting) {
+            if (!VulkanSurface.TryCreate(device.Instance, description.Surface, out owned, out var refused)) {
+                throw new VulkanException($"A surface could not be created for a second window: {refused}");
+            }
+
+            surface = owned;
+            Supported();
+        } else {
+            surface = device.Surface;
+        }
 
         if (surface.Handle == 0) {
             throw new InvalidOperationException("This device has no surface, so it cannot present.");
@@ -208,6 +228,44 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
 
         foreach (var semaphore in acquired) {
             device.Api.DestroySemaphore(device.Handle, semaphore, null);
+        }
+
+        // Only the one this made. The device's own outlives every swapchain built on it, and
+        // destroying it here would leave a device that can no longer present to its own window.
+        if (owned.Handle != 0) {
+            device.Surfaces?.DestroySurface(device.Instance.Handle, owned, null);
+        }
+    }
+
+    /// <summary>Refuses a window the graphics queue cannot present to, rather than finding out later.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asked per surface, because the answer is per surface.</b> The queue family was chosen
+    ///     against the device's <i>first</i> window; a second window on another display, or driven by
+    ///     another GPU, can legitimately not be presentable from it. Every desktop driver in practice
+    ///     says yes, which is exactly why finding out by way of undefined behaviour on the one that
+    ///     does not would be finding out the hard way.
+    /// </remarks>
+    void Supported() {
+        var surfaces = device.Surfaces
+            ?? throw new InvalidOperationException("VK_KHR_surface is not loaded on this instance.");
+
+        var supported = new Silk.NET.Core.Bool32(false);
+
+        VulkanDevice.Check(
+            surfaces.GetPhysicalDeviceSurfaceSupport(
+                device.Adapters.Handle,
+                ((VulkanQueue) device.GraphicsQueue).Family,
+                surface,
+                &supported
+            ),
+            "vkGetPhysicalDeviceSurfaceSupport"
+        );
+
+        if (!supported) {
+            throw new VulkanException(
+                "This device's graphics queue cannot present to that window. It is on a display or a "
+                + "GPU the device was not created against, and presenting to it needs a device of its own."
+            );
         }
     }
 

@@ -80,12 +80,12 @@ public sealed partial class UiDocument : IDisposable {
     /// <param name="height">Its height.</param>
     /// <param name="rootFontSize">The font size <c>rem</c> measures against.</param>
     public UiDocument(float width, float height, float rootFontSize = LengthContext.InitialFontSize) {
+        this.rootFontSize = rootFontSize;
         Styles = new StyleEngine();
         Restyler = new StyleUpdater(Styles);
         Layout = new LayoutTree();
         Builder = new LayoutStyleBuilder(Styles.Properties, Styles.Values, Styles.Names);
         drawings = new DrawListBuilder(Styles.Properties, Styles.Values, Styles.Names);
-        Viewport = LengthContext.ForViewport(width, height, rootFontSize);
 
         reader = new StyleValueParser(Styles.Values, Styles.Names);
 
@@ -111,7 +111,16 @@ public sealed partial class UiDocument : IDisposable {
         InternCursors();
 
         Root = Create("root", null, null, []);
+
+        // ⚠ After the root, because a surface is a place a subtree is shown and the primary one
+        // shows the whole document. It is the first entry of `Surfaces` and the only one that
+        // cannot be removed, which is what makes every single-window caller — every test, every
+        // sample, the whole of `Vixen.Ui.Testing` — carry on meaning what it meant.
+        Adopt(new UiSurface(this, 0, Root, width, height, 1f, Drawing), width, height, 1f);
     }
+
+    /// <summary>What <c>rem</c> measures against, kept because a new surface needs it too.</summary>
+    readonly float rootFontSize;
 
     /// <summary>The cascade.</summary>
     public StyleEngine Styles { get; }
@@ -132,11 +141,18 @@ public sealed partial class UiDocument : IDisposable {
     /// <summary>The step between them.</summary>
     public LayoutStyleBuilder Builder { get; }
 
-    /// <summary>The commands the last <see cref="Draw" /> produced.</summary>
+    /// <summary>The commands the last <see cref="Draw()" /> produced.</summary>
     public DrawList Drawing { get; } = new();
 
-    /// <summary>The surface's size and root font size.</summary>
-    public LengthContext Viewport { get; private set; }
+    /// <summary>The primary surface's size and root font size.</summary>
+    /// <remarks>
+    ///     The <i>primary</i> one, now that there can be more than one — see <see cref="Surfaces" />.
+    ///     A length resolved against this is resolved against the main window, which is what every
+    ///     caller predating multiple surfaces meant by it; content in a torn-off window reads
+    ///     <see cref="UiSurface.Metrics" /> instead, and the pass hands it down rather than making
+    ///     anything ask.
+    /// </remarks>
+    public LengthContext Viewport => Primary.Metrics;
 
     /// <summary>The element every other one descends from.</summary>
     public UiElement Root { get; }
@@ -188,7 +204,7 @@ public sealed partial class UiDocument : IDisposable {
     /// <param name="css">The new text.</param>
     /// <remarks>
     ///     <para>
-    ///         Forgets what every element applied, for the same reason <see cref="Resize" /> does.
+    ///         Forgets what every element applied, for the same reason <see cref="Resize(float,float)" /> does.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>It is currently redundant, and kept anyway.</b> A reload rebuilds the interning
@@ -217,10 +233,7 @@ public sealed partial class UiDocument : IDisposable {
     ///     A document with no viewport-relative length pays for the rebuild, and finding out which
     ///     documents those are is not worth the bookkeeping: resizing happens at human speed.
     /// </remarks>
-    public void Resize(float width, float height) {
-        Viewport = Viewport with { ViewportWidth = width, ViewportHeight = height };
-        Forget();
-    }
+    public void Resize(float width, float height) => Resize(Primary, width, height, Primary.DpiScale);
 
     /// <summary>Marks the document as needing a fresh pass over every element.</summary>
     /// <remarks>
@@ -589,10 +602,7 @@ public sealed partial class UiDocument : IDisposable {
         }
 
         StylesResolved = Restyle();
-        Apply(Root, Viewport.RootFontSize, ComputedText.Initial);
-
-        Layout.CalculateLayout(Root.LayoutNode, Viewport.ViewportWidth, Viewport.ViewportHeight, Direction.Ltr);
-        Accumulate(Root, 0f, 0f);
+        Arrange();
 
         try {
             Settle();
@@ -731,9 +741,30 @@ public sealed partial class UiDocument : IDisposable {
             SettlingPasses++;
 
             StylesResolved += Restyle();
-            Apply(Root, Viewport.RootFontSize, ComputedText.Initial);
-            Layout.CalculateLayout(Root.LayoutNode, Viewport.ViewportWidth, Viewport.ViewportHeight, Direction.Ltr);
-            Accumulate(Root, 0f, 0f);
+            Arrange();
+        }
+    }
+
+    /// <summary>Resolves every element's style and lays out every surface.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One style walk and one layout call <i>per surface</i>, and the order matters.</b> The
+    ///     style walk is a single descent from the root — a surface root is an ordinary element and
+    ///     inherits from what is above it, which is what keeps one theme across every window — while
+    ///     layout is one call per surface, because each is sized by its own window and snapped to its
+    ///     own display's pixel grid.
+    /// </remarks>
+    void Arrange() {
+        Apply(Root, Viewport.RootFontSize, ComputedText.Initial, Viewport);
+
+        foreach (var surface in surfaces) {
+            // ⚠ Written before each call rather than once, because two windows on two displays have
+            // two grids. It is a field on the tree rather than an argument, so a surface laid out
+            // with the previous surface's factor is a whole window rounded to the wrong grid — half
+            // a pixel of seam on every border, which reads as a renderer bug.
+            Layout.PointScaleFactor = surface.DpiScale;
+
+            Layout.CalculateLayout(surface.Root.LayoutNode, surface.Width, surface.Height, Direction.Ltr);
+            Accumulate(surface.Root, 0f, 0f);
         }
     }
 
@@ -799,15 +830,24 @@ public sealed partial class UiDocument : IDisposable {
         public static ComputedText Initial => new(float.NaN, float.NaN, 0f);
     }
 
-    void Apply(UiElement element, float parentFontSize, ComputedText parentText) {
+    void Apply(UiElement element, float parentFontSize, ComputedText parentText, LengthContext metrics) {
+        // ⚠ The surface's own lengths from here down. `50vw` inside a torn-off inspector means half
+        // of that window, and resolving it against the main one would size a 400-pixel palette
+        // against a 3840-pixel display. Everything else — the cascade, inheritance, the font size —
+        // crosses the boundary unchanged, because a second window is a second *rectangle* and not a
+        // second theme.
+        if (element.SurfaceRoot is { } own) {
+            metrics = own.Metrics;
+        }
+
         var style = Restyler.StyleOf(element.StyleNode);
 
         element.Style = style;
-        element.FontSize = Builder.ResolveFontSize(style, parentFontSize, Viewport);
+        element.FontSize = Builder.ResolveFontSize(style, parentFontSize, metrics);
 
         // ⚠ After the font size and before the children, because both of these resolve against *this*
         // element's size and both are handed down in the form they came out as.
-        var text = ResolveText(style, element.FontSize, parentText);
+        var text = ResolveText(style, element.FontSize, parentText, metrics);
 
         element.LineHeight = float.IsNaN(text.LineHeightFactor)
             ? text.LineHeight
@@ -833,7 +873,7 @@ public sealed partial class UiDocument : IDisposable {
             element.AppliedFontSize = element.FontSize;
             StylesApplied++;
 
-            Layout.SetStyle(element.LayoutNode, Builder.Build(style, Viewport.WithFontSize(element.FontSize)));
+            Layout.SetStyle(element.LayoutNode, Builder.Build(style, metrics.WithFontSize(element.FontSize)));
         }
 
         // ⚠ Separately, because these change what the element *measures* rather than what its box is
@@ -858,7 +898,7 @@ public sealed partial class UiDocument : IDisposable {
         }
 
         foreach (var child in element.Children) {
-            Apply(child, element.FontSize, text);
+            Apply(child, element.FontSize, text, metrics);
         }
     }
 
@@ -866,6 +906,7 @@ public sealed partial class UiDocument : IDisposable {
     /// <param name="style">The element's computed style.</param>
     /// <param name="fontSize">Its own font size, which every relative unit here measures against.</param>
     /// <param name="parent">What its parent came out with.</param>
+    /// <param name="metrics">The surface's lengths, which the relative units resolve against.</param>
     /// <returns>What it comes out with, and what its children inherit.</returns>
     /// <remarks>
     ///     An element that declares nothing passes its parent's answer straight through, which is
@@ -873,7 +914,7 @@ public sealed partial class UiDocument : IDisposable {
     ///     as a factor, so a unitless <c>1.5</c> on a panel is one and a half times each descendant's
     ///     own size rather than one and a half times the panel's.
     /// </remarks>
-    ComputedText ResolveText(ComputedStyle style, float fontSize, ComputedText parent) {
+    ComputedText ResolveText(ComputedStyle style, float fontSize, ComputedText parent, LengthContext metrics) {
         var lineHeight = parent.LineHeight;
         var factor = parent.LineHeightFactor;
         var tracking = parent.LetterSpacing;
@@ -901,7 +942,7 @@ public sealed partial class UiDocument : IDisposable {
                     break;
 
                 case StyleValueKind.Length:
-                    lineHeight = value.Number * Viewport.WithFontSize(fontSize).PixelsPer(value.Unit);
+                    lineHeight = value.Number * metrics.WithFontSize(fontSize).PixelsPer(value.Unit);
                     factor = float.NaN;
                     break;
 
@@ -917,7 +958,7 @@ public sealed partial class UiDocument : IDisposable {
             var value = reader.Parse(spacing);
 
             tracking = value.Kind == StyleValueKind.Length
-                ? value.Number * Viewport.WithFontSize(fontSize).PixelsPer(value.Unit)
+                ? value.Number * metrics.WithFontSize(fontSize).PixelsPer(value.Unit)
                 : 0f;
         }
 
@@ -931,7 +972,28 @@ public sealed partial class UiDocument : IDisposable {
     ///     may want one without the other — a hit test needs layout and no drawing, and a window
     ///     that was merely uncovered needs the drawing and no layout.
     /// </remarks>
-    public bool Draw() => drawings.Build(this, Drawing);
+    public bool Draw() {
+        var changed = false;
+
+        foreach (var surface in surfaces) {
+            changed |= Draw(surface);
+        }
+
+        return changed;
+    }
+
+    /// <summary>Rebuilds one surface's draw list.</summary>
+    /// <param name="surface">The surface.</param>
+    /// <returns>Whether its drawing differs from the previous frame's.</returns>
+    /// <remarks>
+    ///     A host with two windows draws two frames and may well skip one — a minimised window is
+    ///     worth laying out and not worth drawing — so the per-surface call is the one that exists
+    ///     and <see cref="Draw()" /> is the loop over it.
+    /// </remarks>
+    public bool Draw(UiSurface surface) {
+        ArgumentNullException.ThrowIfNull(surface);
+        return drawings.Build(this, surface.Root, surface.Drawing);
+    }
 
     /// <summary>The element a pointer would land on.</summary>
     /// <param name="x">Its x, in document space.</param>
@@ -958,7 +1020,17 @@ public sealed partial class UiDocument : IDisposable {
     ///         measurement has not been taken.
     ///     </para>
     /// </remarks>
-    public UiElement? HitTest(float x, float y) => HitTest(Root, x, y);
+    public UiElement? HitTest(float x, float y) => HitTest(Primary, x, y);
+
+    /// <summary>The element a pointer would land on in one surface.</summary>
+    /// <param name="surface">The surface, which is to say the window.</param>
+    /// <param name="x">Its x, in that surface's space.</param>
+    /// <param name="y">Its y.</param>
+    /// <returns>The deepest element under the point, or <c>null</c> if none is.</returns>
+    public UiElement? HitTest(UiSurface surface, float x, float y) {
+        ArgumentNullException.ThrowIfNull(surface);
+        return HitTest(surface.Root, x, y);
+    }
 
     /// <summary>Sends a pointer event to whatever is under it.</summary>
     /// <param name="args">The event, positioned in document space.</param>
@@ -968,17 +1040,33 @@ public sealed partial class UiDocument : IDisposable {
     ///     point of capture: a drag that leaves the scrollbar it started on must keep reaching the
     ///     scrollbar. Hit testing during a drag is exactly the bug capture exists to prevent.
     /// </remarks>
-    public UiElement? Dispatch(PointerEvent args) {
+    public UiElement? Dispatch(PointerEvent args) => Dispatch(Primary, args);
+
+    /// <summary>Sends a pointer event to whatever is under it in one surface.</summary>
+    /// <param name="surface">Which window it happened in.</param>
+    /// <param name="args">The event, positioned in that surface's space.</param>
+    /// <returns>The element it went to, or <c>null</c> if nothing was under it.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The capture is the document's and not the surface's, which is what makes a drag
+    ///     between windows work at all.</b> A tab dragged out of the main window keeps receiving
+    ///     moves once the pointer is over the torn-off one, because the capturing element is asked
+    ///     before anything is hit-tested — and hit testing is what could not answer, since the two
+    ///     windows do not share a coordinate space.
+    /// </remarks>
+    public UiElement? Dispatch(UiSurface surface, PointerEvent args) {
+        ArgumentNullException.ThrowIfNull(surface);
         ArgumentNullException.ThrowIfNull(args);
+
+        PointerSurface = surface;
 
         // Before the event rather than after it. `:hover` and `:active` are what a handler reads to
         // find out what it is being asked about — a menu deciding whether the release it just got
         // belongs to the item under the cursor asks the item — and state brought up to date
         // afterwards would answer every handler with the previous frame's arrangement.
-        Track(args);
+        Track(surface, args);
 
         var captured = Captured;
-        var target = captured ?? HitTest(args.X, args.Y);
+        var target = captured ?? HitTest(surface, args.X, args.Y);
 
         // ⚠ Read before the route rather than after it. What decides whether a press clicked *away*
         // from the focus is where the focus was when the press landed, and by the time the route has
@@ -1008,6 +1096,17 @@ public sealed partial class UiDocument : IDisposable {
     ///     application's decision.
     /// </remarks>
     public GestureRecognizer Gestures { get; } = new();
+
+    /// <summary>Which surface the last pointer event was dispatched into.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Which window the pointer's coordinates are <i>in</i>, which is not the same as which
+    ///     window it is over.</b> While an element has the pointer captured every platform keeps
+    ///     reporting positions relative to the window the press happened in, even once the cursor has
+    ///     left it — so a drag out of the main window arrives as coordinates past its right edge
+    ///     rather than as coordinates in the window underneath. Anything that has to place a drag in
+    ///     the world, rather than in a tree, needs this to know what space it has been handed.
+    /// </remarks>
+    public UiSurface? PointerSurface { get; private set; }
 
     /// <summary>The element currently receiving every pointer event, if any.</summary>
     public UiElement? Captured { get; private set; }
@@ -1116,6 +1215,12 @@ public sealed partial class UiDocument : IDisposable {
         var order = element.PaintOrder;
 
         for (var i = order.Count - 1; i >= 0; i--) {
+            // Another surface is another window, and its coordinates are not these. A point in this
+            // one can never be in that one, whatever the two rectangles happen to overlap.
+            if (order[i].SurfaceRoot is not null) {
+                continue;
+            }
+
             if (HitTest(order[i], x, y) is { } hit) {
                 return hit;
             }
@@ -1153,6 +1258,13 @@ public sealed partial class UiDocument : IDisposable {
         element.AbsoluteTop = y + element.Top + element.OffsetY;
 
         foreach (var child in element.Children) {
+            // ⚠ Another surface's coordinates are its own window's, starting at its top-left, and
+            // walking into one from here would offset a torn-off window by wherever its root
+            // happened to sit in the main one. `Arrange` accumulates each surface from zero.
+            if (child.SurfaceRoot is not null) {
+                continue;
+            }
+
             Accumulate(child, element.AbsoluteLeft, element.AbsoluteTop);
         }
     }

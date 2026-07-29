@@ -122,6 +122,38 @@ public sealed partial class DockLayout {
         }
     }
 
+    /// <summary>Which floating entry holds a group.</summary>
+    /// <param name="group">The group.</param>
+    /// <returns>Its index in <see cref="Floating" />, or -1 if it is not floating.</returns>
+    /// <remarks>
+    ///     ⚠ <b>By reference, which is what makes a window survive a rebuild.</b> A host that opened
+    ///     an operating-system window for a floating group has to find that group again after every
+    ///     structural change, and the index it was at is not it: docking a panel elsewhere prunes the
+    ///     list underneath it. The group object is the one thing that stays the same across
+    ///     <see cref="SetFloating" />, which is how a window that has been dragged keeps being the
+    ///     same window.
+    /// </remarks>
+    public int IndexOfFloating(DockGroupNode group) {
+        ArgumentNullException.ThrowIfNull(group);
+
+        for (var i = 0; i < Floating.Count; i++) {
+            if (ReferenceEquals(Floating[i].Group, group)) {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>Every group in the docked tree, floating ones excluded.</summary>
+    /// <returns>The groups, in order.</returns>
+    public List<DockGroupNode> DockedGroups() {
+        var groups = new List<DockGroupNode>();
+        Root?.Collect(groups);
+
+        return groups;
+    }
+
     /// <summary>Whether a group is still part of the arrangement.</summary>
     /// <param name="group">The group.</param>
     /// <returns>Whether it is.</returns>

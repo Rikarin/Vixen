@@ -58,6 +58,15 @@
         <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Platform.Desktop\Vixen.Platform.Desktop.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
+
+        <!--
+            Platform events turned into document events, and a docking host's request for a floating
+            window turned into a real one. This file used to carry its own copy of the first half and
+            said, in a comment, that a Vixen.Platform.Ui was where it belonged once there was a
+            second consumer. Multi-window is that consumer: routing an event to the wrong surface is
+            a bug two copies would have to be fixed for twice.
+        -->
+        <ProjectReference Include="..\..\Platform\Vixen.Platform.Ui\Vixen.Platform.Ui.csproj" />
     </ItemGroup>
 
     <ItemGroup>

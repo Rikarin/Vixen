@@ -310,6 +310,17 @@ public sealed class EditorShell : IDisposable {
             }
         );
 
+        // ⚠ Greyed out where there can be no second window, rather than absent. A browser tab, an
+        // Android activity and iOS all have one window, and the enablement is a runtime question with
+        // a runtime answer — the same shape `PlatformCapabilities` uses, and the reason nothing above
+        // the platform layer carries a `#if`.
+        Commands.Add(
+            new EditorCommand("view.float-panel", EditorStrings.CommandFloatPanel, () => Workspace.FloatActive()) {
+                Category = EditorStrings.CategoryView,
+                Enablement = () => Workspace.CanFloatActive
+            }
+        );
+
         Commands.Add(
             new EditorCommand("view.toggle-theme", EditorStrings.CommandToggleTheme, Theme.Toggle) {
                 Category = EditorStrings.CategoryView,
@@ -327,7 +338,9 @@ public sealed class EditorShell : IDisposable {
         // — a plugin registers a panel, an application registers a layout — and a menu described
         // once at start-up would show whichever of them happened to exist by then.
         View.AddSubmenu(EditorStrings.MenuPanels)
-            .AddDynamic(() => Workspace.Panels.Select(panel => PanelCommand(panel.Id)));
+            .AddDynamic(() => Workspace.Panels.Select(panel => PanelCommand(panel.Id)))
+            .AddSeparator()
+            .Add("view.float-panel");
 
         View.AddSubmenu(EditorStrings.MenuLayout)
             .AddDynamic(() => Workspace.Presets.Order(StringComparer.Ordinal).Select(LayoutCommand))
