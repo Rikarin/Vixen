@@ -349,6 +349,26 @@ dotnet_diagnostic.CA1051.severity = none
 dotnet_diagnostic.CA1051.severity = none
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Core.Imaging/SphericalHarmonicsL1.cs
+#
+# CA1051 (do not declare visible instance fields). The third instance of the same
+# argument, and the clearest: a brick of an irradiance field is sixty-four of
+# these and a clipmap is thousands of bricks, and the array is copied into a
+# volume texture as bytes. The layout — four `Vector3`s in declaration order — is
+# therefore part of the contract with the shader that reads it, and auto-property
+# backing fields are laid out at the compiler's discretion rather than the type's.
+#
+# The fields are `readonly` and the type is immutable, so none of what the rule
+# guards against is available anyway: there is nothing to validate on write
+# because there is no write.
+#
+# Scoped to the one file. The nine-coefficient version next to it is a class with
+# a private array and still answers to the rule.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Core.Imaging/SphericalHarmonicsL1.cs]
+dotnet_diagnostic.CA1051.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Core/Vixen.Shaders/ParameterCollection.cs
 #
 # CA1711 (rename type so it does not end in 'Collection'). The rule reserves the

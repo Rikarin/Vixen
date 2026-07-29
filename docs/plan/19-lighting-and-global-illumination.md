@@ -155,6 +155,24 @@ discipline `EnvironmentBaker` and `SphericalHarmonics` already follow.
 **Exit:** a sphere's baked field matches its analytic distance to tolerance; the clipmap's traced
 occlusion matches a CPU reference on a fixture scene; two bakes are byte-identical.
 
+**Status: built, except that nothing has drawn with it.** The bake, the clipmap (which scrolls rather
+than recomposites), the CPU tracer, the importer stage, the volume textures, the compositor node, the
+Raven module and `DistanceFieldAo` all exist and are gated — the pass compiles on a device and its
+binding plan is held against the names the host writes. What has never happened is a *draw*: the
+shader's own arithmetic has not executed once.
+
+That is the outstanding item on L1 and it is worth naming precisely, because every previous time
+something real ran it found something the layer below had agreed with itself about — the unbound
+compose slot, the binding-name confusion, three errors in the first rendered scene, a
+float-associativity bug in the scroll. The parts checked only against their own mirrors are the parts
+most likely to be wrong, and right now that is the shader.
+
+What it needs, in order: a volume-texture upload path on the golden `Fixture` (it can upload 2D and
+nothing else); the `Compiling` effect provider lifted out of `ClusteredShadingDeviceTests` where it is
+private; and a graph pass that draws. Start with the `NoDistanceField` composition — no volumes to
+bind and the answer is knowable exactly, a frame uniformly `(1, 1, 0)`, where a shader that did not
+run gives black.
+
 ### L2 — The irradiance field *(2.0 EM)*
 
 §3's structure, both fillers.
