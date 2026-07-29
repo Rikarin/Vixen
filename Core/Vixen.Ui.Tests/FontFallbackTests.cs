@@ -111,7 +111,7 @@ public class FontFallbackTests {
         document.Fonts.AddFallback(Emoji);
         document.Load("root { width: 400px; height: 200px; } label { font-family: Test; }");
 
-        var line = Labelled(document, "A" + Astral + "A").Line()!;
+        var line = Labelled(document, "A" + Astral + "A").Block()!.Lines[0];
 
         // ⚠ **The surrogate pair is the test.** Reading the string a `char` at a time asks the font
         // about U+D83E and U+DD8E, and no font has either — so the lizard would be "covered by
@@ -125,7 +125,7 @@ public class FontFallbackTests {
     public void A_string_one_face_covers_is_one_run() {
         using var document = Documented();
 
-        var line = Labelled(document, Latin).Line()!;
+        var line = Labelled(document, Latin).Block()!.Lines[0];
 
         Assert.Same(Lana, Assert.Single(line.Runs).Font);
         Assert.Equal(0, line.Runs[0].Start);
@@ -135,7 +135,7 @@ public class FontFallbackTests {
     public void A_character_the_declared_face_cannot_draw_goes_to_the_fallback() {
         using var document = Documented();
 
-        var line = Labelled(document, Latin + Kannada).Line()!;
+        var line = Labelled(document, Latin + Kannada).Block()!.Lines[0];
 
         Assert.Equal(2, line.Runs.Length);
         Assert.Same(Lana, line.Runs[0].Font);
@@ -153,7 +153,7 @@ public class FontFallbackTests {
     public void It_switches_back_again_rather_than_staying_where_it_landed() {
         using var document = Documented();
 
-        var line = Labelled(document, Kannada + Latin + Kannada).Line()!;
+        var line = Labelled(document, Kannada + Latin + Kannada).Block()!.Lines[0];
 
         Assert.Equal([Serif, Lana, Serif], line.Runs.Select(run => run.Font));
     }
@@ -167,7 +167,7 @@ public class FontFallbackTests {
         // Both fonts draw a space, so it goes to the earlier face and then merges with the Latin
         // before it — three runs here would unjoin "AB" from "CD", which is a kerning pair and a
         // shaping context lost to a font decision that changed nothing visible.
-        var line = Labelled(document, "AB CD" + Kannada).Line()!;
+        var line = Labelled(document, "AB CD" + Kannada).Block()!.Lines[0];
 
         Assert.Equal(2, line.Runs.Length);
         Assert.Same(Lana, line.Runs[0].Font);
@@ -186,7 +186,7 @@ public class FontFallbackTests {
         // each half lands in a font that has it. What it actually does is shape a combining mark
         // alone, in a different font, at a pen position derived from a different em — an accent
         // floating somewhere near a letter. One visible tofu is the better failure.
-        var line = Labelled(document, "Aಾ").Line()!;
+        var line = Labelled(document, "Aಾ").Block()!.Lines[0];
 
         Assert.Same(Lana, Assert.Single(line.Runs).Font);
     }
@@ -195,7 +195,7 @@ public class FontFallbackTests {
     public void A_line_is_as_wide_as_its_runs_laid_end_to_end() {
         using var document = Documented();
 
-        var mixed = Labelled(document, Latin + Kannada).Line()!;
+        var mixed = Labelled(document, Latin + Kannada).Block()!.Lines[0];
 
         Assert.Equal(2, mixed.Runs.Length);
         Assert.Equal(mixed.Runs[0].Width + mixed.Runs[1].Width, mixed.Width, 0.01f);
@@ -210,7 +210,7 @@ public class FontFallbackTests {
     public void The_line_takes_the_deepest_ascender_and_the_deepest_descender() {
         using var document = Documented();
 
-        var mixed = Labelled(document, Latin + Kannada).Line()!;
+        var mixed = Labelled(document, Latin + Kannada).Block()!.Lines[0];
         var runs = mixed.Runs;
 
         // ⚠ Both sides separately, rather than the taller run's height whole. The runs share a
@@ -246,7 +246,7 @@ public class FontFallbackTests {
         Assert.Equal(2, commands.Count);
         Assert.NotEqual(commands[0].Font, commands[1].Font);
 
-        var line = label.Line()!;
+        var line = label.Block()!.Lines[0];
         Assert.Equal(line.Runs[0].Width, commands[1].X - commands[0].X, 0.01f);
 
         // A shared baseline, which is the other half of being one line rather than two.
@@ -257,7 +257,7 @@ public class FontFallbackTests {
     public void A_caret_crosses_a_run_boundary_without_jumping() {
         using var document = Documented();
 
-        var line = Labelled(document, Latin + Kannada).Line()!;
+        var line = Labelled(document, Latin + Kannada).Block()!.Lines[0];
 
         Assert.Equal(0f, line.CaretOffset(0), 0.01f);
         Assert.Equal(line.Runs[0].Width, line.CaretOffset(Latin.Length), 0.01f);
@@ -278,12 +278,41 @@ public class FontFallbackTests {
     public void Hit_testing_finds_the_run_a_point_is_in() {
         using var document = Documented();
 
-        var line = Labelled(document, Latin + Kannada).Line()!;
+        var line = Labelled(document, Latin + Kannada).Block()!.Lines[0];
         var join = line.Runs[0].Width;
 
         Assert.Equal(0, line.CaretIndexAt(-10f));
         Assert.True(line.CaretIndexAt(join + 1f) >= Latin.Length, "a point past the join is in the second run");
         Assert.Equal(Latin.Length + Kannada.Length, line.CaretIndexAt(line.Width + 10f));
+    }
+
+    [Fact]
+    public void A_wrapped_block_stacks_lines_of_different_heights() {
+        var document = new UiDocument(400f, 300f);
+        using var owned = document;
+
+        document.Fonts.Register("Test", Lana);
+        document.Fonts.AddFallback(Serif);
+        document.Load(
+            "root { width: 400px; height: 300px; align-items: flex-start; } label { font-family: Test; width: 60px; }"
+        );
+
+        var label = document.Root.Add("label");
+        label.Text = "AAAA " + Kannada + Kannada;
+        document.Update();
+
+        var block = label.Block()!;
+
+        Assert.True(block.Lines.Length > 1, $"expected wrapping, got {block.Lines.Length} line(s)");
+
+        // ⚠ **The lines are in different faces and therefore different heights**, which is what makes
+        // this the only test that can see a block stacking its lines by *each* line's height rather
+        // than by the first one's. With one font every line is the same height and the two are the
+        // same number — so a paragraph that overlapped itself the moment a fallback appeared would
+        // pass every other test here.
+        Assert.NotEqual(block.Lines[0].Height, block.Lines[1].Height);
+        Assert.Equal(block.Lines[0].Height, block.TopOf(1), 0.01f);
+        Assert.Equal(block.Lines[0].Height + block.Lines[1].Height, block.Height, 0.01f);
     }
 
     [Fact]
@@ -295,7 +324,7 @@ public class FontFallbackTests {
         document.Load("root { width: 400px; height: 200px; } label { font-family: Test; }");
 
         var label = Labelled(document, Latin + Kannada);
-        Assert.Same(Lana, Assert.Single(label.Line()!.Runs).Font);
+        Assert.Same(Lana, Assert.Single(label.Block()!.Lines[0].Runs).Font);
 
         // ⚠ **Nothing about the element changed**, and this is the case the line cache would get
         // wrong. Its text, its font size and its declaration are all what they were; what changed is
@@ -303,8 +332,8 @@ public class FontFallbackTests {
         // a font registered after the first frame is a font that appears.
         document.Fonts.AddFallback(Serif);
 
-        Assert.Equal(2, label.Line()!.Runs.Length);
-        Assert.Same(Serif, label.Line()!.Runs[1].Font);
+        Assert.Equal(2, label.Block()!.Lines[0].Runs.Length);
+        Assert.Same(Serif, label.Block()!.Lines[0].Runs[1].Font);
     }
 
     [Fact]
@@ -324,6 +353,6 @@ public class FontFallbackTests {
         // behind them. Behind them, an element with no `font-family` would take its spaces — and
         // every character the fallback happens to have — from whichever face was registered as a
         // last resort for some other script.
-        Assert.Same(Lana, Assert.Single(label.Line()!.Runs).Font);
+        Assert.Same(Lana, Assert.Single(label.Block()!.Lines[0].Runs).Font);
     }
 }

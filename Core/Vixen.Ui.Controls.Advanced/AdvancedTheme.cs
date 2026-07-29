@@ -135,6 +135,7 @@ public static class AdvancedTheme {
            takes its base size from its content — a hundred thousand rows of it — so it never
            overflows, the scroll range is zero, and the virtualiser realises every row there is.
            That failure is silent: the tree looks right and the process runs out of memory. */
+        tree-view virtualizing-panel { flex-grow: 1; flex-basis: 0px; min-height: 0px; }
         tree-view scroll-view { flex-grow: 1; flex-basis: 0px; }
         tree-view scroll-content { min-width: 100%; }
 

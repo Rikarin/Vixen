@@ -206,7 +206,7 @@ public sealed class DrawListBuilder {
     ///     </para>
     /// </remarks>
     void EmitText(UiDocument document, UiElement element, DrawList into, float alpha) {
-        if (element.Line() is not { } line) {
+        if (element.Block() is not { } block) {
             return;
         }
 
@@ -227,46 +227,52 @@ public sealed class DrawListBuilder {
             - document.Layout.GetComputedBorder(element.LayoutNode, Edge.Right)
             - document.Layout.GetComputedPadding(element.LayoutNode, Edge.Right);
 
-        left += Indent(element, content - line.Width);
-
         var color = Fade(Color(element, textColor) ?? Color4.Black, alpha);
 
-        // ⚠ One command per run, because a command names one font. A line whose characters are not
-        // all in one face is several commands sharing a baseline — which is also why the run's own
-        // glyphs are placed from zero and the command carries the pen, rather than the whole line
-        // being placed once and sliced: a slice would put the second command's glyphs at coordinates
-        // relative to the first one's origin.
-        for (var i = 0; i < line.Runs.Length; i++) {
-            var run = line.Runs[i];
+        // ⚠ One command per run *per line*, because a command names one font and lies on one
+        // baseline. A wrapped paragraph in two faces is four commands, and each of them carries its
+        // own origin — which is also why a run's glyphs are placed from zero rather than the whole
+        // block being placed once and sliced: a slice would put every later command's glyphs at
+        // coordinates relative to the first one's origin.
+        foreach (var line in block.Lines) {
+            // ⚠ The alignment is per line, not per block. A centred paragraph centres each of its
+            // lines within the content box; centring the block and laying the lines out inside it
+            // would left-align every line but the widest.
+            var x = left + Indent(element, content - line.Width);
+            var y = top + block.TopOf(block.Lines.IndexOf(line)) + line.Baseline;
 
-            placed.Clear();
-            run.Place(placed);
+            for (var i = 0; i < line.Runs.Length; i++) {
+                var run = line.Runs[i];
 
-            if (placed.Count == 0) {
-                continue;
-            }
+                placed.Clear();
+                run.Place(placed);
 
-            // The glyphs are placed relative to the start of the run and the command carries where
-            // that is, rather than each glyph carrying an absolute position. Two identical labels in
-            // different places then hold identical glyph runs, which is what will let the batcher
-            // notice.
-            into.Add(
-                new DrawCommand(
-                    DrawCommandKind.Text,
-                    left + line.PenOf(i),
-                    top + line.Baseline,
-                    run.Width,
-                    line.Height,
-                    color,
-                    0f,
-                    0f
-                ) {
-                    Offset = into.AddGlyphs(placed),
-                    Length = placed.Count,
-                    Font = into.AddFont(run.Font),
-                    FontSize = run.Size
+                if (placed.Count == 0) {
+                    continue;
                 }
-            );
+
+                // The glyphs are placed relative to the start of the run and the command carries
+                // where that is, rather than each glyph carrying an absolute position. Two identical
+                // labels in different places then hold identical glyph runs, which is what will let
+                // the batcher notice.
+                into.Add(
+                    new DrawCommand(
+                        DrawCommandKind.Text,
+                        x + line.PenOf(i),
+                        y,
+                        run.Width,
+                        line.Height,
+                        color,
+                        0f,
+                        0f
+                    ) {
+                        Offset = into.AddGlyphs(placed),
+                        Length = placed.Count,
+                        Font = into.AddFont(run.Font),
+                        FontSize = run.Size
+                    }
+                );
+            }
         }
     }
 

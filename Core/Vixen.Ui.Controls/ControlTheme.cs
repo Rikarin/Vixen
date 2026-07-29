@@ -319,12 +319,38 @@ public static class ControlTheme {
 
         textarea { min-height: 72px; align-items: flex-start; }
 
-        field-text { flex-shrink: 0; }
+        /*
+         * A field's text does not wrap and a text area's does, which is the whole difference
+         * between them now that the framework can break a line at all. `flex-shrink: 0` is what
+         * lets the single-line one be wider than its box and scroll sideways; the text area gives
+         * that up in exchange for its text staying inside.
+         */
+        field-text { flex-shrink: 0; white-space: nowrap; }
+        textarea field-text { flex-shrink: 1; white-space: normal; }
         field-placeholder { position: absolute; left: 8px; color: var(--text-muted); display: none; }
         .empty field-placeholder { display: flex; }
 
         search-box icon { width: 14px; height: 14px; color: var(--text-muted); }
         search-box.empty icon-button { display: none; }
+
+        /* ── Virtualisation ─────────────────────────────────────────────────── */
+        virtualizing-panel { flex: 1; min-height: 0; }
+        virtualizing-panel scroll-view { flex: 1; }
+
+        /*
+         * `position: relative` on the content and `absolute` on the rows is what makes a row's
+         * `top` mean "this far down the list" rather than "this far down the document" — and it is
+         * why a row 40 000 lines down can be placed without the 39 999 above it existing.
+         */
+        .virtual-content { position: relative; }
+        .virtual-content > * { position: absolute; left: 0; right: 0; }
+
+        /*
+         * ⚠ Parked rather than removed. A pool that shrank would allocate on the next scroll, which
+         * is the cost virtualisation exists to avoid — so a surplus row keeps its element and stops
+         * drawing.
+         */
+        .virtual-content > .parked { display: none; }
 
         /* ── Range ──────────────────────────────────────────────────────────── */
         slider, range-slider { height: 20px; min-width: 80px; }

@@ -57,7 +57,7 @@ public class TextTests {
 
         document.Update();
 
-        var run = label.Line()!;
+        var run = label.Block()!.Lines[0];
         Assert.True(run.Width > 0f);
 
         // Flexbox asked the text how big it is rather than being told, which is what a measure
@@ -96,7 +96,7 @@ public class TextTests {
         // the pixel grid and two roundings of the same number are not one rounding of twice it.
         Assert.Equal(16f, small.FontSize, Tolerance);
         Assert.Equal(32f, big.FontSize, Tolerance);
-        Assert.Equal(small.Line()!.Width * 2f, big.Line()!.Width, Tolerance);
+        Assert.Equal(small.Block()!.Lines[0].Width * 2f, big.Block()!.Lines[0].Width, Tolerance);
         Assert.Equal(1, document.Shaping.Misses);
     }
 
@@ -154,7 +154,7 @@ public class TextTests {
         document.Draw();
 
         var command = TextCommand(document);
-        var run = label.Line()!;
+        var run = label.Block()!.Lines[0];
 
         // Inside the border and the padding, because that is what those two properties mean, and
         // read from the layout results rather than resolved again from the style.
@@ -284,7 +284,7 @@ public class TextTests {
 
         // No registry entry, so no default either. An interface with a missing font is a bug worth
         // seeing rather than an exception worth throwing at whoever set the text.
-        Assert.Null(label.Line());
+        Assert.Null(label.Block());
         Assert.Equal(0f, label.Width, Tolerance);
         Assert.Empty(document.Drawing.Commands);
     }
@@ -317,7 +317,7 @@ public class TextTests {
 
         document.Draw();
         Assert.Equal(lookups, document.Shaping.Hits + document.Shaping.Misses);
-        Assert.Same(first.Line(), first.Line());
+        Assert.Same(first.Block(), first.Block());
     }
 
     [Fact]
@@ -373,7 +373,7 @@ public class TextTests {
 
         // Empty and absent are the same thing here, so a label whose text is cleared to "" behaves
         // like one that never had any rather than like one measuring an empty line.
-        Assert.Null(label.Line());
+        Assert.Null(label.Block());
         Assert.Empty(document.Drawing.Commands);
     }
 
@@ -490,7 +490,7 @@ public class TextTests {
         const float content = 200f;
 
         Assert.Equal(240f, start.Width, 1f);
-        var run = start.Line()!;
+        var run = start.Block()!.Lines[0];
 
         Assert.Equal(start.AbsoluteLeft + 40f, commands[0].X, 1f);
         Assert.Equal(middle.AbsoluteLeft + 40f + ((content - run.Width) / 2f), commands[1].X, 1f);
@@ -512,7 +512,7 @@ public class TextTests {
         document.Update();
         document.Draw();
 
-        Assert.True(label.Line()!.Width > label.Width);
+        Assert.True(label.Block()!.Lines[0].Width > label.Width);
         Assert.Equal(label.AbsoluteLeft, TextCommand(document).X, 1f);
     }
 
@@ -535,12 +535,12 @@ public class TextTests {
 
         document.Update();
 
-        var run = wide.Line()!.Runs[0];
+        var run = wide.Block()!.Lines[0].Runs[0];
 
         // Two characters, and CSS adds the spacing after the last one as well as between — which is
         // the wart every browser reproduces and this deliberately matches.
         Assert.Equal(2, run.Clusters);
-        Assert.Equal(tight.Line()!.Width + 8f, run.Width, Tolerance);
+        Assert.Equal(tight.Block()!.Lines[0].Width + 8f, run.Width, Tolerance);
         Assert.True(wide.Width > tight.Width);
     }
 
@@ -559,7 +559,7 @@ public class TextTests {
         document.Update();
 
         // Half of 32, not half of the root's 16.
-        Assert.Equal(16f, label.Line()!.Runs[0].Tracking, Tolerance);
+        Assert.Equal(16f, label.Block()!.Lines[0].Runs[0].Tracking, Tolerance);
     }
 
     [Fact]
@@ -578,8 +578,8 @@ public class TextTests {
 
         document.Update();
 
-        Assert.Equal(40f, tall.Line()!.Height, Tolerance);
-        Assert.NotEqual(40f, natural.Line()!.Height, 1f);
+        Assert.Equal(40f, tall.Block()!.Lines[0].Height, Tolerance);
+        Assert.NotEqual(40f, natural.Block()!.Lines[0].Height, 1f);
 
         // And the element measures itself at it, which is the half of this that matters — a run that
         // reported one height while the layout used another would put every baseline in the wrong
@@ -601,7 +601,7 @@ public class TextTests {
 
         document.Update();
 
-        var run = label.Line()!.Runs[0];
+        var run = label.Block()!.Lines[0].Runs[0];
         var content = (Font.Metrics.Ascender - Font.Metrics.Descender) * run.Scale;
         var above = run.Baseline - (Font.Metrics.Ascender * run.Scale);
         var below = run.Height - run.Baseline - (-Font.Metrics.Descender * run.Scale);
@@ -634,8 +634,8 @@ public class TextTests {
 
         document.Update();
 
-        Assert.Equal(45f, underRatio.Line()!.Height, Tolerance);
-        Assert.Equal(15f, underRelative.Line()!.Height, Tolerance);
+        Assert.Equal(45f, underRatio.Block()!.Lines[0].Height, Tolerance);
+        Assert.Equal(15f, underRelative.Block()!.Lines[0].Height, Tolerance);
     }
 
     [Fact]
@@ -653,7 +653,7 @@ public class TextTests {
 
         document.Update();
 
-        Assert.Equal(15f, label.Line()!.Height, Tolerance);
+        Assert.Equal(15f, label.Block()!.Lines[0].Height, Tolerance);
     }
 
     [Fact]
@@ -679,7 +679,7 @@ public class TextTests {
         panel.AddClass("tall");
         document.Update();
 
-        Assert.Equal(50f, label.Line()!.Height, Tolerance);
+        Assert.Equal(50f, label.Block()!.Lines[0].Height, Tolerance);
         Assert.Equal(50f, label.Height, 1f);
     }
 
@@ -704,7 +704,7 @@ public class TextTests {
 
         document.Update();
 
-        var run = label.Line()!.Runs[0];
+        var run = label.Block()!.Lines[0].Runs[0];
         var glyphs = new List<PositionedGlyph>();
         run.Place(glyphs);
 
@@ -776,7 +776,7 @@ public class TextTests {
 
         // Within a pixel, for the reason the measure test above spells out: the layout snaps every
         // edge to the pixel grid, so an element's width is its text's width rounded.
-        var run = label.Line()!;
+        var run = label.Block()!.Lines[0];
 
         Assert.True(run.Width > 0f);
         Assert.Equal(run.Width, label.Width, 1f);

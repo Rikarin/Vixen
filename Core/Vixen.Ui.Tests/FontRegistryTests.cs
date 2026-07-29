@@ -159,11 +159,11 @@ public class FontRegistryTests {
 
         document.Update();
 
-        Assert.Same(Roman, regular.Line()!.Runs[0].Font);
-        Assert.Same(Other, heavy.Line()!.Runs[0].Font);
+        Assert.Same(Roman, regular.Block()!.Lines[0].Runs[0].Font);
+        Assert.Same(Other, heavy.Block()!.Lines[0].Runs[0].Font);
 
         // `bold` is the keyword form of 700 and has to resolve to the same face as the number.
-        Assert.Same(Other, named.Line()!.Runs[0].Font);
+        Assert.Same(Other, named.Block()!.Lines[0].Runs[0].Font);
     }
 
     [Fact]
@@ -183,6 +183,6 @@ public class FontRegistryTests {
 
         document.Update();
 
-        Assert.Same(Other, label.Line()!.Runs[0].Font);
+        Assert.Same(Other, label.Block()!.Lines[0].Runs[0].Font);
     }
 }

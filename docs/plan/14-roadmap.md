@@ -2109,9 +2109,23 @@ sub-piece has its own gate.
   a stale `IndexInParent` broke nothing because the only reorder test read the child arena, which is
   a different fact; it takes a `:first-child` rule to reach the field at all.
 
-  Owed here: named slot projection, `scoped` actually scoping, a component stylesheet loaded once
-  per type rather than per instance, and a longest-increasing-subsequence pass so a reorder moves a
-  minimal set. The last is correctness-neutral — a move that changes nothing returns immediately.
+  ✅ **`scoped` actually scopes, and a component's stylesheet is loaded once per type.** They are the
+  same fact — a stylesheet belongs to a component's *type* — and one method's worth of change.
+  `ScopedStyles` welds a per-type class onto the end of every selector and `BuildContext.Element`
+  puts that class on every element the component builds.
+
+  ⚠ **Welded to the end, not prefixed as a descendant.** `.v-x .row` reads as the obvious
+  implementation and is wrong twice: it misses the component's own root, which is the element a
+  stylesheet most often wants, and it matches a caller's `.row` projected into a slot — which is
+  exactly what scoping exists to stop. The scope comes from who *built* an element, not from where it
+  sits.
+
+  Verified by sabotage, seven of seven landing. ⚠ One needed a test that did not exist: every rule in
+  the fixture named a child, so the component's own root was scoped by a line nothing checked.
+
+  Owed here: named slot projection, a longest-increasing-subsequence pass so a reorder moves a
+  minimal set, and `bind:` update events. The reorder is correctness-neutral — a move that changes
+  nothing returns immediately.
 - ✅ **A line is a list of runs, and a character picks its own font.** `font-family: Inter, Noto Sans
   JP` is a per-character chain rather than a first-registered-wins list: `FontRegistry.Chain` turns a
   declaration into the faces to try and `Cover` hands each grapheme cluster to the first that draws
@@ -2166,8 +2180,54 @@ sub-piece has its own gate.
 
   Not built: revealing the underlines while Alt is held, which needs a text decoration the draw list
   does not have.
-- Owed in `Vixen.Ui`: style-slot compaction, line wrapping, gradients, per-corner elliptical radii,
-  pinch and rotate, virtualisation primitive, multi-window and DPI.
+- ✅ **Line wrapping, and the element grows downwards.** `Vixen.Ui.Text` had the UAX#14 breaker and
+  the greedy filler for three phases and nothing called them: an element drew one line however long
+  its string was, and the measure function ignored the width it was offered. `TextLayout` is the
+  missing piece — the lines of one element's text, stacked, each a `TextLine` of `TextRun`s.
+
+  ⚠ **The wrapping lives in `Vixen.Ui` because the widths do.** A paragraph in two faces has no
+  single design-unit scale, so `LineWrapper`'s `ShapedText` overload cannot measure it — the
+  per-character advances are assembled a run at a time in pixels and handed to a new overload that
+  takes them. `white-space: nowrap` and `overflow-wrap: anywhere` reach it from the cascade, and each
+  wrapped line is re-shaped on its own, which is what a line break *is*.
+
+  Verified by sabotage, eight of eight landing. ⚠ **Four needed something changed first and each was
+  a real gap**: no test had a label without an explicit width, none had a paragraph whose lines were
+  in different faces and therefore different heights, none asserted where a centred line starts — and
+  `white-space` was tested in *two* places, so sabotaging either alone changed nothing. Two further
+  conditions turned out to decide nothing and were deleted rather than defended.
+
+  ⚠ **A failing test found a real bug**: the fast path for text that fits skipped mandatory breaks,
+  so a newline drew as a glyph in the middle of a line however wide the box.
+
+  `TextArea` wraps and `TextBox` does not, which is now the whole difference between them: the theme
+  puts `white-space: nowrap` on a field's text so a long value scrolls sideways. Owed with the
+  editor: a caret that can move between lines, and caret affinity — an index on a wrap belongs to
+  two lines and this returns the earlier one.
+- ✅ **`VirtualizingPanel`**, the primitive doc 09 asks for and the first control built on
+  `UiDocument.LayoutFinished` rather than on somebody remembering to call `Refresh`. A count, a row
+  height, a factory and a binder; a hundred thousand items is a hundred thousand of the caller's own
+  objects and about a dozen elements. The pool only ever grows and surplus rows are *parked* with a
+  class the theme hides, because shrinking it would allocate on the next scroll — which is the cost
+  the whole arrangement exists to avoid.
+
+  ⚠ Fixed row heights only. Knowing where row 40 000 is without measuring the 39 999 above it is what
+  makes virtualisation arithmetic instead of a walk; variable heights need a running-sum index
+  maintained as things resize, and that is a different control rather than a flag on this one.
+
+  Verified by sabotage, nine of nine landing. ⚠ **Two needed cases the suite did not have**: asking
+  `RowOf` for an item inside the pool and outside the data is the only way to tell a bounds check
+  from a parked check, and "already visible does not move" cannot be tested by calling
+  `ScrollIntoView` twice, because centring answers the same both times.
+
+  ✅ **`TreeView` is migrated onto it**, so the arithmetic exists once. What is left in that control
+  is what is actually about a tree — flattening the expanded nodes and binding a row to one — and its
+  253 tests pass unchanged. ⚠ One found a real regression on the way: `Refresh` set the panel's
+  `Count` and stopped, and adding a child to a *collapsed* node leaves the count exactly as it was
+  while changing what one row says. Assigning a property its existing value does nothing, so the row
+  kept drawing a leaf that had children.
+- Owed in `Vixen.Ui`: style-slot compaction, gradients, per-corner elliptical radii, pinch and
+  rotate, multi-window and DPI.
 - `Vixen.Ui.Markup`: ✅ **VXML — lexer, parser, binder, emitter and `#line` mapping.** A `.vxml`
   becomes a green/red tree over `Vixen.Core.Syntax`, then a `BoundComponent`, then a C# partial
   class. Second grammar on the shared tree, which is the first evidence that the Phase 0 extraction
@@ -2448,8 +2508,7 @@ sub-piece has its own gate.
 
   ⚠ **Still owed, and said plainly rather than left to be found:** `Image` reserves space and draws
   nothing, because the draw list has no texture command; `TextArea` is a taller `TextBox`, because
-  nothing wraps a line yet; and `VirtualizingPanel` is not here, so `ScrollView` keeps everything in
-  the tree. Two of the five on this list are now closed: an overlay no longer outlives the control
+  all three of the items on this list are now closed. Two of the five on this list are now closed: an overlay no longer outlives the control
   that made it (`UiElement.OnRemoved`), and `Tooltip` and `ToastHost` are on `UiDocument.Ticked`
   rather than waiting for an application to remember to call them.
 - ✅ **`Vixen.Ui.Controls.Advanced` — the first three, and the two framework primitives they needed.**
@@ -2495,15 +2554,26 @@ sub-piece has its own gate.
   elements. The grid half asserts multi-object writes, the mixed-value states, the numeric
   conversion back to a member's own type, and reset-to-default.
 
-  ⚠ **Still owed:** ~~rows and scroll ranges are one layout pass behind a *resize*~~ — closed by
+  ⚠ **Still owed:** floating groups float within the document rather than in an OS window of their
+  own, which is `Vixen.Platform`'s half. The other three on this list are closed.
+
+  ✅ ~~Rows and scroll ranges are one layout pass behind a *resize*~~ — closed by
   `UiDocument.LayoutFinished` and `Control.WhenResized`, and the enabling piece turned out to be a
   re-entrancy guard on `Update`: three of these controls run a pass inside their own `Refresh`, so
   hanging that `Refresh` on the callback recursed into the settle loop from underneath itself and
-  reset the budget meant to bound it; floating groups
-  float within the document rather than in an OS window of their own, which is `Vixen.Platform`'s
-  half; `StyleTree.AppendChild` is O(children) per append, which virtualisation keeps every control
-  here clear of and a `DataGrid` may not be; and nested struct members are shown read-only, because
-  the descriptor's accessors box.
+  reset the budget meant to bound it. `StyleTree.AppendChild` is amortised.
+
+  ✅ **A nested struct's members can be edited**, which the accessors' boxing was said to prevent.
+  It does not: an accessor takes its instance as `object`, so reading a struct member gives a box and
+  writing into it changes a copy — but setting the leaf and then writing each *owner* into its own
+  owner, innermost first, is read-modify-write and needs no `ref` accessors at all. The grid keeps
+  the path from the target to the member rather than the member alone, and expands a member into its
+  own rows where nothing else claimed it.
+
+  Verified by sabotage, five of five landing. ⚠ **Two needed the fixture changed first**, and both
+  changes are the realistic case rather than a contrivance: a setter that maintains an invariant, so
+  that re-reading a sibling row is not a no-op, and a registered descriptor for a type the grid
+  already draws an editor for — which is what a `Vector3` is.
 - ✅ **`Samples/02-HelloUi` — an editor shell on a window, with no engine underneath it.** A menu bar
   over a `DockingHost` holding three panels: a `TreeView` of a thousand nodes, a gallery of the
   standard set, and a `PropertyGrid` over a hand-written descriptor. It prints the docking

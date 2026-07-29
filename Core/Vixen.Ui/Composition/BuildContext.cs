@@ -198,6 +198,16 @@ public sealed class BuildContext {
         var target = parent ?? Anchor;
         var element = Document.Create(tag, target);
         RegionOf(target).Add(element);
+
+        // ⚠ The *owner's* scope, which is what makes `scoped` mean anything: an element created
+        // while building a component belongs to that component, and a caller's element projected
+        // into one of its slots was created while building the caller and does not get it. That
+        // distinction is the whole feature, and it falls out of `owner` rather than being decided
+        // here.
+        if (owner?.Scope is { } scope) {
+            element.AddClass(scope);
+        }
+
         return element;
     }
 

@@ -34,6 +34,11 @@ public sealed partial class UiDocument : IDisposable {
     readonly DrawListBuilder drawings;
     readonly int pointerEvents;
     readonly int fontFamily;
+    readonly int whiteSpace;
+    readonly int overflowWrap;
+    readonly int nowrap;
+    readonly int anywhere;
+    readonly int breakWord;
     readonly int letterSpacing;
     readonly int lineHeight;
     readonly int zIndex;
@@ -87,6 +92,11 @@ public sealed partial class UiDocument : IDisposable {
         pointerEvents = Styles.Properties.Intern("pointer-events");
         color = Styles.Properties.Intern("color");
         fontFamily = Styles.Properties.Intern("font-family");
+        whiteSpace = Styles.Properties.Intern("white-space");
+        overflowWrap = Styles.Properties.Intern("overflow-wrap");
+        nowrap = Styles.Values.Intern("nowrap");
+        anywhere = Styles.Values.Intern("anywhere");
+        breakWord = Styles.Values.Intern("break-word");
         letterSpacing = Styles.Properties.Intern("letter-spacing");
         lineHeight = Styles.Properties.Intern("line-height");
         zIndex = Styles.Properties.Intern("z-index");
@@ -148,6 +158,30 @@ public sealed partial class UiDocument : IDisposable {
         Invalidate();
         return sheet;
     }
+
+    /// <summary>Loads a stylesheet once for a key, however many times it is asked for.</summary>
+    /// <param name="key">What the sheet belongs to. A component's type.</param>
+    /// <param name="css">Its text.</param>
+    /// <param name="origin">Who it came from.</param>
+    /// <returns>Whether this call was the one that loaded it.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Per document, not per process.</b> Two documents are two cascades — an editor with a
+    ///     second window loads the same component's rules into each of them — and a static set would
+    ///     leave the second document styling nothing at all, which is the kind of bug that only
+    ///     appears once somebody opens a second window.
+    /// </remarks>
+    public bool LoadOnce(object key, string css, StyleOrigin origin = StyleOrigin.Author) {
+        ArgumentNullException.ThrowIfNull(key);
+
+        if (!loadedOnce.Add(key)) {
+            return false;
+        }
+
+        Load(css, origin);
+        return true;
+    }
+
+    readonly HashSet<object> loadedOnce = [];
 
     /// <summary>Replaces a loaded stylesheet with new text.</summary>
     /// <param name="sheet">The index <see cref="Load" /> returned.</param>
@@ -579,7 +613,7 @@ public sealed partial class UiDocument : IDisposable {
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The other half of <see cref="FontRegistry.Revision" />, and without it the first
-    ///         half buys nothing.</b> <see cref="UiElement.Line" /> compares the revision and so drops
+    ///         half buys nothing.</b> <see cref="UiElement.Block()" /> compares the revision and so drops
     ///         a line shaped against faces that have since changed — but a line is only rebuilt when
     ///         somebody asks for one, and what asks is the measure function, and what calls the
     ///         measure function is a layout pass over a node that is <i>dirty</i>. Registering a face
@@ -998,6 +1032,22 @@ public sealed partial class UiDocument : IDisposable {
         style.TryGet(zIndex, out var id) && reader.Parse(id) is { Kind: StyleValueKind.Number } value
             ? (int) value.Number
             : 0;
+
+    /// <summary>Whether an element's text may be broken across lines at all.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>pre</c> is treated as wrapping, and that is a stated gap rather than a reading of
+    ///     the specification.</b> <c>white-space</c> conflates three questions — whether to collapse
+    ///     runs of space, whether to keep newlines, and whether to wrap — and only the third is
+    ///     answered here. <c>nowrap</c> and <c>pre</c> agree about wrapping and disagree about the
+    ///     other two, so honouring <c>pre</c> for wrapping alone would be honouring a third of it.
+    /// </remarks>
+    internal bool WrapsOf(ComputedStyle style) => !style.TryGet(whiteSpace, out var value) || value != nowrap;
+
+    /// <summary>What to do with a word wider than the line it has to fit in.</summary>
+    internal TextWrapMode WrapModeOf(ComputedStyle style) =>
+        style.TryGet(overflowWrap, out var value) && (value == anywhere || value == breakWord)
+            ? TextWrapMode.Anywhere
+            : TextWrapMode.Word;
 
     internal string? FontFamilyOf(ComputedStyle style) =>
         style.TryGet(fontFamily, out var value) ? Styles.Values.NameOf(value) : null;

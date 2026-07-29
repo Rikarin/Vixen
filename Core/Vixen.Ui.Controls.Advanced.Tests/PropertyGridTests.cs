@@ -13,6 +13,7 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///     against one written by hand works against one written by the generator — and the test does
 ///     not need a second assembly compiled at test time to have a type to inspect.
 /// </remarks>
+[Collection(SharedTypeRegistry.Name)]
 public sealed class PropertyGridTests : IDisposable {
     public PropertyGridTests() {
         // ⚠ The registry is process-wide, so every test in this class starts by emptying it. Two

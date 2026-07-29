@@ -17,6 +17,20 @@ public sealed partial class PropertyRow : Control {
     /// <summary>The member it edits.</summary>
     public MemberDescriptor? Member { get; internal set; }
 
+    /// <summary>How to get from a target to <see cref="Member" />, ending with it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A path rather than a member, because a struct's member cannot be written in place.</b>
+    ///     Editing <c>Transform.Position.X</c> reads a box of <c>Transform</c> out of the target and a
+    ///     box of <c>Position</c> out of that; writing <c>X</c> into the innermost box changes a copy
+    ///     nothing holds. The path is what lets the write be pushed back up — <c>Position</c> into
+    ///     <c>Transform</c>, <c>Transform</c> into the target — which is the whole of what nested
+    ///     structs needed.
+    /// </remarks>
+    public IReadOnlyList<MemberDescriptor> Path { get; internal set; } = [];
+
+    /// <summary>How deep it is nested, for the indent.</summary>
+    public int Depth { get; internal set; }
+
     /// <summary>The name on the left.</summary>
     public UiElement Label { get; private set; } = null!;
 
@@ -140,9 +154,7 @@ public sealed partial class PropertyGrid : Control {
     /// </remarks>
     public void Reload() {
         foreach (var row in rows) {
-            if (row.Member is { } member) {
-                Show(row, member);
-            }
+            Show(row);
         }
     }
 
@@ -193,14 +205,56 @@ public sealed partial class PropertyGrid : Control {
                     : Group(category);
             }
 
-            var row = section.Add<PropertyRow>();
-            row.Member = member;
-            row.Label.Text = member.Presentation.DisplayName ?? member.Name;
+            Emit(section, member, [], 0);
+        }
+    }
 
-            Build(row, member);
-            Show(row, member);
+    /// <summary>How deep the grid will follow a member into another descriptor.</summary>
+    /// <remarks>
+    ///     ⚠ A reference type may contain itself — a node with a parent, a component with an owner —
+    ///     so the recursion needs a bound that is not "until it stops". Four is deeper than any
+    ///     inspector anybody reads and shallower than any cycle can hide in.
+    /// </remarks>
+    const int MaxDepth = 4;
 
-            rows.Add(row);
+    /// <summary>Adds a row for a member, and rows for its own members when it has any worth showing.</summary>
+    void Emit(UiElement section, MemberDescriptor member, List<MemberDescriptor> prefix, int depth) {
+        var path = new List<MemberDescriptor>(prefix.Count + 1);
+        path.AddRange(prefix);
+        path.Add(member);
+
+        var row = section.Add<PropertyRow>();
+        row.Member = member;
+        row.Path = path;
+        row.Depth = depth;
+        row.Label.Text = member.Presentation.DisplayName ?? member.Name;
+
+        if (depth > 0) {
+            row.Label.SetStyle("padding-left", (depth * 12).ToString(CultureInfo.InvariantCulture) + "px");
+        }
+
+        Build(row, member);
+        Show(row);
+
+        rows.Add(row);
+
+        // ⚠ Only when nothing else claimed the member. A `Vector3` with a registered descriptor is
+        // still three numbers if the grid has an editor for it, and expanding one that already has an
+        // editor would show the value twice and let two controls fight over it.
+        if (depth >= MaxDepth
+            || row.Editor.Children is not [TextBlock { } placeholder]
+            || !placeholder.HasClass("property-readonly")
+            || !TypeRegistry.TryGet(member.MemberType, out var nested)) {
+            return;
+        }
+
+        placeholder.Remove();
+        row.AddClass("property-group");
+
+        foreach (var inner in nested.Members) {
+            if (inner.Presentation.IsEditorVisible) {
+                Emit(section, inner, path, depth + 1);
+            }
         }
     }
 
@@ -227,7 +281,7 @@ public sealed partial class PropertyGrid : Control {
         if (type == typeof(bool)) {
             var checkbox = row.Editor.Add<CheckBox>();
             checkbox.Disabled = !editable;
-            checkbox.CheckedChanged += (_, value) => Write(member, value);
+            checkbox.CheckedChanged += (_, value) => Write(row, value);
 
             return;
         }
@@ -235,7 +289,7 @@ public sealed partial class PropertyGrid : Control {
         if (type == typeof(string)) {
             var field = row.Editor.Add<TextBox>();
             field.ReadOnly = !editable;
-            field.Submitted += box => Write(member, box.Value);
+            field.Submitted += box => Write(row, box.Value);
 
             return;
         }
@@ -249,7 +303,7 @@ public sealed partial class PropertyGrid : Control {
                 slider.Maximum = (float) high;
                 slider.Step = (float) presentation.Step;
                 slider.Disabled = !editable;
-                slider.ValueChanged += (_, value) => Write(member, Convert(value, type));
+                slider.ValueChanged += (_, value) => Write(row, Convert(value, type));
 
                 return;
             }
@@ -260,7 +314,7 @@ public sealed partial class PropertyGrid : Control {
             numeric.Maximum = presentation.Maximum ?? double.PositiveInfinity;
             numeric.Step = presentation.Step > 0 ? presentation.Step : 1d;
             numeric.Decimals = IsIntegral(type) ? 0 : 3;
-            numeric.NumberChanged += (_, value) => Write(member, Convert(value, type));
+            numeric.NumberChanged += (_, value) => Write(row, Convert(value, type));
 
             return;
         }
@@ -280,7 +334,7 @@ public sealed partial class PropertyGrid : Control {
 
             select.SelectionChanged += (_, value) => {
                 if (value is not null) {
-                    Write(member, Enum.Parse(member.MemberType, value));
+                    Write(row, Enum.Parse(member.MemberType, value));
                 }
             };
 
@@ -300,8 +354,12 @@ public sealed partial class PropertyGrid : Control {
     ///     something else and never know. An indeterminate checkbox and an empty field are what say
     ///     "these differ", and writing into either sets all of them.
     /// </remarks>
-    void Show(PropertyRow row, MemberDescriptor member) {
-        var (value, mixed) = Read(member);
+    void Show(PropertyRow row) {
+        if (row.Member is not { } member) {
+            return;
+        }
+
+        var (value, mixed) = Read(row.Path);
         var editor = row.Editor.Children.Count > 0 ? row.Editor.Children[0] : null;
 
         switch (editor) {
@@ -345,15 +403,15 @@ public sealed partial class PropertyGrid : Control {
         Restate(row, member, value, mixed);
     }
 
-    (object? Value, bool Mixed) Read(MemberDescriptor member) {
-        if (targets.Count == 0) {
+    (object? Value, bool Mixed) Read(IReadOnlyList<MemberDescriptor> path) {
+        if (targets.Count == 0 || path.Count == 0) {
             return (null, false);
         }
 
-        var first = member.GetValue(targets[0]);
+        var first = Through(targets[0], path);
 
         for (var i = 1; i < targets.Count; i++) {
-            if (!Equals(first, member.GetValue(targets[i]))) {
+            if (!Equals(first, Through(targets[i], path))) {
                 return (null, true);
             }
         }
@@ -361,23 +419,83 @@ public sealed partial class PropertyGrid : Control {
         return (first, false);
     }
 
-    void Write(MemberDescriptor member, object? value) {
-        if (!member.CanWrite) {
+    /// <summary>Follows a path from a target to the value at its end.</summary>
+    static object? Through(object target, IReadOnlyList<MemberDescriptor> path) {
+        object? current = target;
+
+        foreach (var member in path) {
+            if (current is null) {
+                return null;
+            }
+
+            current = member.GetValue(current);
+        }
+
+        return current;
+    }
+
+    /// <summary>Writes a value at the end of a path, and pushes every box back up behind it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The walk back up is the whole feature.</b> An accessor takes its instance as
+    ///     <see cref="object" />, so reading a struct member gives a <i>box</i> — writing into it
+    ///     changes a copy that nothing holds, which is why nested structs used to be shown read-only.
+    ///     Setting the leaf and then writing each owner into its own owner, innermost first, is
+    ///     read-modify-write and needs no <c>ref</c> accessors at all.
+    ///     <para>
+    ///         For a reference-type owner the write-back is a call that changes nothing, and it is
+    ///         made anyway: telling the two apart would mean asking whether a type is a value type at
+    ///         every level, to save a setter call on a path a person is typing into.
+    ///     </para>
+    /// </remarks>
+    static bool Through(object target, IReadOnlyList<MemberDescriptor> path, object? value) {
+        var owners = new object[path.Count];
+        object? current = target;
+
+        for (var i = 0; i < path.Count; i++) {
+            if (current is null || !path[i].CanWrite) {
+                return false;
+            }
+
+            owners[i] = current;
+            current = i == path.Count - 1 ? null : path[i].GetValue(current);
+        }
+
+        var carried = value;
+
+        for (var i = path.Count - 1; i >= 0; i--) {
+            path[i].SetValue(owners[i], carried);
+            carried = owners[i];
+        }
+
+        return true;
+    }
+
+    void Write(PropertyRow row, object? value) {
+        if (row.Path.Count == 0 || row.Member is not { CanWrite: true } member) {
             return;
         }
 
         foreach (var target in targets) {
-            member.SetValue(target, value);
+            Through(target, row.Path, value);
         }
 
-        foreach (var row in rows) {
-            if (ReferenceEquals(row.Member, member)) {
-                Restate(row, member, value, false);
+        Restate(row, member, value, false);
+
+        // ⚠ Every row whose path *starts with* this one's owner is re-read, not just this one. A
+        // struct member edited through a path replaces the whole owner, so a sibling field of the
+        // same struct is showing a value that came out of a box which no longer exists.
+        foreach (var other in rows) {
+            if (!ReferenceEquals(other, row) && other.Member is not null && Shares(other.Path, row.Path)) {
+                Show(other);
             }
         }
 
         ValueChanged?.Invoke(this, member);
     }
+
+    /// <summary>Whether two paths pass through the same owner at some point.</summary>
+    static bool Shares(IReadOnlyList<MemberDescriptor> left, IReadOnlyList<MemberDescriptor> right) =>
+        left.Count > 0 && right.Count > 0 && ReferenceEquals(left[0], right[0]);
 
     /// <summary>Shows the reset button only when there is something to reset to.</summary>
     /// <remarks>
@@ -386,7 +504,7 @@ public sealed partial class PropertyGrid : Control {
     ///     default to offer, and the button stays hidden rather than resetting to <c>null</c>.
     /// </remarks>
     void Restate(PropertyRow row, MemberDescriptor member, object? value, bool mixed) {
-        var isDefault = !mixed && Default(member) is var (known, found) && found && Equals(known, value);
+        var isDefault = !mixed && Default(row.Path) is var (known, found) && found && Equals(known, value);
 
         if (isDefault || !member.CanWrite) {
             row.Reset.AddClass("hidden");
@@ -395,8 +513,15 @@ public sealed partial class PropertyGrid : Control {
         }
     }
 
-    (object? Value, bool Found) Default(MemberDescriptor member) {
-        if (Descriptor is not { CanCreate: true } descriptor) {
+    /// <summary>What a member would hold on a freshly made target.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read through the row's path, not off the member.</b> A nested member belongs to
+    ///     another type — <c>Origin</c> is a member of <c>Placement</c>, not of the thing being
+    ///     inspected — so handing it the fresh top-level instance throws. It cost four failing tests
+    ///     to find, and every one of them failed in the same place for the same reason.
+    /// </remarks>
+    (object? Value, bool Found) Default(IReadOnlyList<MemberDescriptor> path) {
+        if (Descriptor is not { CanCreate: true } descriptor || path.Count == 0) {
             return (null, false);
         }
 
@@ -405,7 +530,7 @@ public sealed partial class PropertyGrid : Control {
             defaults[descriptor.Type] = instance;
         }
 
-        return (member.GetValue(instance), true);
+        return (Through(instance, path), true);
     }
 
     void Chosen(ClickEvent args) {
@@ -418,9 +543,9 @@ public sealed partial class PropertyGrid : Control {
                 continue;
             }
 
-            if (Default(member) is var (value, found) && found) {
-                Write(member, value);
-                Show(row, member);
+            if (Default(row.Path) is var (value, found) && found) {
+                Write(row, value);
+                Show(row);
             }
 
             args.Handled = true;

@@ -60,10 +60,17 @@ public sealed partial class TreeRow : Control {
 /// <summary>A tree, of which only what is on screen exists as elements.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Virtualised, which is the point of it.</b> The nodes are model objects; the rows are a
-///         pool of elements the size of the viewport, rebound as the view scrolls. A million-node
-///         tree is a million <see cref="TreeNode" />s and about thirty <see cref="TreeRow" />s, which
-///         is the claim doc 09 makes about a <c>DataGrid</c> and the same mechanism.
+///         <b>Virtualised, and the virtualising is <see cref="VirtualizingPanel" />'s.</b> The nodes
+///         are model objects; the rows are a pool of elements the size of the viewport, rebound as
+///         the view scrolls. A million-node tree is a million <see cref="TreeNode" />s and about
+///         thirty <see cref="TreeRow" />s.
+///     </para>
+///     <para>
+///         ⚠ <b>The pooling used to be written here.</b> It was the same code as the panel's — a
+///         capacity from the viewport, a first index from the scroll offset, a pool that only grows
+///         and parks its surplus — and two copies of an arithmetic that has to agree is one copy too
+///         many. What is left of it here is what is actually about a <i>tree</i>: flattening the
+///         expanded nodes into a list, and binding a row to one.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Rows are positioned absolutely, at a fixed height.</b> Virtualisation needs to know
@@ -72,12 +79,12 @@ public sealed partial class TreeRow : Control {
 ///         index that is maintained as things expand; that is a different control and is owed.
 ///     </para>
 ///     <para>
-///         <b>A resize is noticed rather than announced.</b> A tree realises against the size of its
-///         own box, which is a result of the layout pass — so <c>Control.WhenResized</c> hangs
-///         <see cref="Refresh" /> on <see cref="UiDocument.LayoutFinished" /> and it runs on the
-///         passes where the box actually moved. <see cref="Refresh" /> stays public because a caller
-///         that has just filled the tree and wants to read a row before the next pass still needs a
-///         way to ask.
+///         <b>A resize no longer needs telling, and this control no longer watches for one.</b> The
+///         panel subscribes to <see cref="UiDocument.LayoutFinished" /> directly rather than through
+///         <c>Control.WhenResized</c>, because it has to realise when the view is <i>scrolled</i> as
+///         well as when it is resized — which is the case that helper's own remarks send to the event
+///         itself. What is left for a tree to notice is a change to its <i>nodes</i>, and that
+///         arrives through <see cref="Refresh" />, which stays public.
 ///     </para>
 /// </remarks>
 public sealed partial class TreeView : Control {
@@ -91,15 +98,14 @@ public sealed partial class TreeView : Control {
     DropPosition dropPosition;
     int rowHeightId;
     int indentId;
-    int first;
 
     /// <summary>How many rows are realised above and below the viewport.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not zero.</b> A pool sized exactly to the viewport has to rebind on every pixel of
-    ///     scroll, and the row entering at the bottom is created in the same frame it is drawn — so
-    ///     the first frame of a flick shows a gap. Two rows of slack costs two elements.
+    ///     Kept as a name a caller can read, and it is <see cref="VirtualizingPanel.Overscan" />'s —
+    ///     the pooling is that control's now, and two constants that had to agree would eventually
+    ///     not.
     /// </remarks>
-    public const int Overscan = 2;
+    public const int Overscan = VirtualizingPanel.Overscan;
 
     /// <inheritdoc />
     protected override string TagName => "tree-view";
@@ -115,8 +121,11 @@ public sealed partial class TreeView : Control {
     /// </remarks>
     public TreeNode Root { get; } = new();
 
-    /// <summary>The scroller the rows live in.</summary>
-    public ScrollView Scroller { get; private set; } = null!;
+    /// <summary>The virtualiser the rows live in.</summary>
+    public VirtualizingPanel Panel { get; private set; } = null!;
+
+    /// <summary>The scroller inside it.</summary>
+    public ScrollView Scroller => Panel.Scroller;
 
     /// <summary>The line shown while a drag is over a row.</summary>
     public UiElement DropIndicator { get; private set; } = null!;
@@ -130,7 +139,13 @@ public sealed partial class TreeView : Control {
     /// <summary>The nodes currently showing, in order, including the ones scrolled past.</summary>
     public IReadOnlyList<TreeNode> Visible => visible;
 
-    /// <summary>The rows that exist as elements.</summary>
+    /// <summary>The rows that exist as elements, in pool order rather than in node order.</summary>
+    /// <remarks>
+    ///     Kept as a typed list of this control's own rather than read off
+    ///     <see cref="VirtualizingPanel.Rows" />, which is <c>UiElement</c>: the pool is the panel's
+    ///     and the <i>type</i> of what is in it is this control's, and a cast per access would be
+    ///     both a lie about ownership and an allocation in a loop.
+    /// </remarks>
     public IReadOnlyList<TreeRow> Rows => rows;
 
     /// <summary>What is selected.</summary>
@@ -163,16 +178,19 @@ public sealed partial class TreeView : Control {
         rowHeightId = Document.PropertyId("--row-height");
         indentId = Document.PropertyId("--indent");
 
-        Scroller = Part<ScrollView>();
+        Panel = Part<VirtualizingPanel>();
+        Panel.CreateRow = owner => {
+            var row = owner.Scroller.Content.Add<TreeRow>();
+            rows.Add(row);
+
+            return row;
+        };
+
+        Panel.BindRow = (row, index) => Bind((TreeRow) row, visible[index], index);
+
         DropIndicator = Part("tree-drop-indicator");
         DropIndicator.AddClass("hidden");
 
-        Scroller.Scrolled += _ => Realise();
-
-        // A resize changes how many rows fit and how tall the scroll range is, and nothing else
-        // announces it. See Control.WhenResized for why this is gated on the size rather than run
-        // on every pass: Flatten is O(visible).
-        WhenResized(Refresh);
 
         AddHandler<KeyEvent>(static (element, args) => ((TreeView) element).Keyed(args));
         AddHandler<PointerEvent>(static (element, args) => ((TreeView) element).Pointed(args));
@@ -190,19 +208,18 @@ public sealed partial class TreeView : Control {
         visible.Clear();
         Flatten(Root);
 
-        Scroller.Content.SetStyle(
-            "height",
-            (visible.Count * RowHeight).ToString("0.##", CultureInfo.InvariantCulture) + "px"
-        );
+        // ⚠ Setting the count is the whole of it now. The panel writes the scrollable height,
+        // realises against the viewport it actually has, and does so again on `LayoutFinished` — so
+        // the `Document.Update()` that used to be here, to turn a just-written height declaration
+        // into a measurement before `ScrollView.Refresh` read it, is somebody else's problem and is
+        // no longer a layout pass in the middle of a data change.
+        Panel.Count = visible.Count;
 
-        // ⚠ A pass, right here, before anything reads a size. The content's height was just written
-        // as a declaration and a declaration is not a measurement — `ScrollView.Refresh` asks the
-        // content how tall it is, and without this it answers with the height it had before the
-        // node that was just added. The scroll range would then be one edit behind for ever.
-        Document.Update();
-
-        Scroller.Refresh();
-        Realise();
+        // ⚠ **And a realise even when the count did not change**, which a test caught. Adding a child
+        // to a collapsed node leaves the number of visible rows exactly as it was while changing what
+        // one of them says — and assigning a property its existing value does nothing at all, so the
+        // row would keep drawing a leaf that has children.
+        Panel.Realise();
     }
 
     /// <summary>Opens or closes a node.</summary>
@@ -236,18 +253,11 @@ public sealed partial class TreeView : Control {
             return;
         }
 
-        // Against the scroller rather than through `ScrollIntoView`, because the row may not be
-        // realised yet — the whole point of virtualisation is that the thing being scrolled to does
-        // not exist until it is nearly on screen.
-        var top = index * RowHeight;
-
-        if (top < Scroller.ScrollTop) {
-            Scroller.ScrollTop = top;
-        } else if (top + RowHeight > Scroller.ScrollTop + Scroller.Height) {
-            Scroller.ScrollTop = top + RowHeight - Scroller.Height;
-        }
-
-        Realise();
+        // By index rather than by element, because the row may not be realised yet — the whole point
+        // of virtualisation is that the thing being scrolled to does not exist until it is nearly on
+        // screen.
+        Panel.ScrollIntoView(index);
+        Panel.Realise();
     }
 
     /// <summary>Selects a node, or adds it to or removes it from the selection.</summary>
@@ -382,7 +392,10 @@ public sealed partial class TreeView : Control {
     /// <returns>The row, or <c>null</c> if it is not on screen.</returns>
     public TreeRow? RowOf(TreeNode node) {
         foreach (var row in rows) {
-            if (ReferenceEquals(row.Node, node)) {
+            // ⚠ Parked rows are skipped, and they were not before: the panel no longer clears a
+            // surplus row's node, so one keeps showing whatever it last held. Answering with it
+            // would be answering with a row that is not on screen and is not this node's.
+            if (!row.HasClass("parked") && ReferenceEquals(row.Node, node)) {
                 return row;
             }
         }
@@ -400,49 +413,12 @@ public sealed partial class TreeView : Control {
         }
     }
 
-    /// <summary>Makes sure there is a row for every visible line of the viewport, and binds them.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The pool only ever grows.</b> A tree that was once tall keeps the rows it needed;
-    ///     shrinking the pool would mean removing elements on a scroll, which is the allocation this
-    ///     whole arrangement exists to avoid. Surplus rows are parked with <c>display: none</c>.
-    /// </remarks>
-    void Realise() {
-        var height = Scroller.Height;
-        var rowHeight = RowHeight;
+    void Bind(TreeRow row, TreeNode node, int index) {
+        _ = index;
 
-        if (rowHeight <= 0f) {
-            return;
-        }
-
-        var capacity = Math.Min(visible.Count, (int) MathF.Ceiling(height / rowHeight) + (Overscan * 2) + 1);
-        first = Math.Clamp((int) MathF.Floor(Scroller.ScrollTop / rowHeight) - Overscan, 0, Math.Max(0, visible.Count - capacity));
-
-        while (rows.Count < capacity) {
-            rows.Add(Scroller.Content.Add<TreeRow>());
-        }
-
-        for (var i = 0; i < rows.Count; i++) {
-            var row = rows[i];
-            var index = first + i;
-
-            if (i >= capacity || index >= visible.Count) {
-                row.Node = null;
-                row.AddClass("parked");
-
-                continue;
-            }
-
-            row.RemoveClass("parked");
-            Bind(row, visible[index], index, rowHeight);
-        }
-    }
-
-    void Bind(TreeRow row, TreeNode node, int index, float rowHeight) {
         row.Node = node;
         row.Label.Text = node.Text;
 
-        row.SetStyle("top", (index * rowHeight).ToString("0.##", CultureInfo.InvariantCulture) + "px");
-        row.SetStyle("height", rowHeight.ToString("0.##", CultureInfo.InvariantCulture) + "px");
         row.Indent.SetStyle(
             "width",
             (node.Depth * Indent).ToString("0.##", CultureInfo.InvariantCulture) + "px"
@@ -514,7 +490,7 @@ public sealed partial class TreeView : Control {
 
     TreeRow? RowAt(float x, float y) {
         foreach (var row in rows) {
-            if (row.Node is null) {
+            if (row.Node is null || row.HasClass("parked")) {
                 continue;
             }
 
