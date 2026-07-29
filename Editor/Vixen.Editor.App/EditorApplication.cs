@@ -54,6 +54,15 @@ sealed class EditorApplication : IDisposable {
     readonly World world = new("Editor");
     readonly EditorProject project;
     readonly SceneDocument scene;
+
+    /// <summary>What a click in the viewport is answered by.</summary>
+    /// <remarks>
+    ///     Held here rather than made in the panel's factory, because that factory runs again every
+    ///     time the panel is reopened and this caches a mesh per shape kind — which is geometry that
+    ///     never changes and would otherwise be rebuilt every time somebody closed the scene tab.
+    /// </remarks>
+    readonly ScenePicker picker;
+
     readonly ContentTasks content;
     readonly string scenePath;
     readonly List<Entity> shown = [];
@@ -101,6 +110,7 @@ sealed class EditorApplication : IDisposable {
         };
 
         project.Activate(scene);
+        picker = new ScenePicker(scene);
 
         if (SceneSerializer.Load(scene, scenePath) == 0) {
             Seed();
@@ -368,7 +378,13 @@ sealed class EditorApplication : IDisposable {
 
                 viewport = new SceneViewport(control, scene.Selection) {
                     Document = scene,
-                    TargetsFactory = () => EntityGizmoTarget.For(world, scene.Selection)
+                    TargetsFactory = () => EntityGizmoTarget.For(world, scene.Selection),
+
+                    // ⚠ Without this a click in the viewport selects nothing — the picking stage
+                    // wants a render target nothing here owns yet, so the only way to select an
+                    // entity was the hierarchy panel and clicking empty space did not even deselect.
+                    // Shared across panel rebuilds, because its cache of shapes is worth keeping.
+                    Picker = picker
                 };
 
                 // ⚠ Restored, because this factory runs again every time the panel is reopened and a

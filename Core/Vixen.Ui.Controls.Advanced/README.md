@@ -65,6 +65,40 @@ Floating groups float *within the document*. A second OS window is a second surf
 input queue, which belong to `Vixen.Platform` and the app head; `DockFloat` is the record such a
 head would be handed.
 
+⚠ **Dropping a tab over no group floats it, and used to do nothing at all.** `Float` had been here
+from the start and only a caller could reach it — so the arrangement could describe a floating window,
+save one and restore one, and no gesture made one. A tab dragged out of the docked tree went back
+where it came from, which reads as panels being nailed down. The preview says so before the release
+does: dragging into open space showed nothing, and so looked exactly like dragging somewhere illegal.
+
+The groups tile the surface and the surface fills the host, so "over no group" means *outside the
+host* — which in an application is whatever it puts around the docking area, and in the editor is the
+menu bar, the toolbar and the status bar. A window torn off is clamped back inside the host, because
+a floating group is positioned within the document and there is nowhere to scroll to reach one that
+is not.
+
+**The tab strip scrolls, with an arrow at each end.** A group holds as many panels as somebody stacked
+into it, and without somewhere for the tabs to go flexbox either shrinks every one until no title can
+be read or pushes the last of them out of the box — in both cases the panels on the end are ones the
+user cannot get back to. `Strip` is the row; `Tabs` inside it is the part that slides, by `OffsetX`
+against a clipping viewport. The arrows are disabled rather than hidden at the ends, or the button
+under the pointer would be a different button by the time it was pressed again.
+
+- ⚠ **`flex-basis: 0px` on the viewport is what makes an overflow possible.** Without it the viewport
+  takes its base size from its content, so it is always exactly as wide as the tabs and never
+  overflows — twelve tabs produced a strip two thousand pixels wide, which propagated up through the
+  group, the split, the surface and the host. A docking area wider than the window, with arrows that
+  never appeared because nothing had overflowed anything. `min-width: 0px` on the host and the surface
+  is the other half: a flex item's automatic minimum is its content.
+- ⚠ **A group view subscribes to `LayoutFinished` directly rather than through `Control.WhenResized`**,
+  which is the case that method documents as not being its own: whether the tabs fit depends on the
+  *tabs*, not on the group. It unsubscribes on removal, and it must — every structural change rebuilds
+  the views, so a handler left behind would leak one per dock, per drag, per rename.
+- **Selecting a panel scrolls its tab into view**, asked for during the rebuild and honoured on the
+  pass after it, because a tab that has just been created has no box to measure yet. A strip that
+  showed the selected panel's body while its tab sat off the end reads as the selection having been
+  lost.
+
 ### TreeView
 
 Virtualised rows, lazy children, multi-select, rename in place, drag-reorder with a three-zone drop

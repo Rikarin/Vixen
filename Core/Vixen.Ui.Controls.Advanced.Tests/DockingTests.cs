@@ -192,9 +192,13 @@ public class DockingTests {
         fixture.Update();
 
         var group = Assert.Single(host.Groups);
-        Assert.Equal(2, group.Strip.Children.Count);
 
-        var tabs = group.Strip.Children.OfType<DockTab>().ToList();
+        // ⚠ The tabs are in `Tabs`, which is inside `Strip` alongside the two overflow arrows. The
+        // strip is the row; the list is the part of it that scrolls.
+        Assert.Equal(2, group.Tabs.Children.Count);
+        Assert.Equal(3, group.Strip.Children.Count);
+
+        var tabs = group.Tabs.Children.OfType<DockTab>().ToList();
         Assert.Equal(["scene", "game"], tabs.Select(static tab => tab.PanelId));
         Assert.Equal("Scene", tabs[0].Label);
     }
@@ -218,7 +222,7 @@ public class DockingTests {
         Assert.True(game.Height > 0f);
         Assert.Equal(0f, scene.Height);
 
-        var tabs = host.Groups[0].Strip.Children.OfType<DockTab>().ToList();
+        var tabs = host.Groups[0].Tabs.Children.OfType<DockTab>().ToList();
         fixture.Click(tabs[0]);
 
         Assert.True(scene.Height > 0f);
@@ -336,7 +340,7 @@ public class DockingTests {
         host.AddPanel("console", "Console");
         fixture.Update();
 
-        var tab = host.Groups[0].Strip.Children.OfType<DockTab>().First(static t => t.PanelId == "console");
+        var tab = host.Groups[0].Tabs.Children.OfType<DockTab>().First(static t => t.PanelId == "console");
         var bounds = host.Groups[0].Bounds;
 
         fixture.Press(tab.Bounds.X + 4f, tab.Bounds.Y + 4f);
@@ -355,6 +359,186 @@ public class DockingTests {
     }
 
     [Fact]
+    public void Dropping_a_tab_outside_every_group_floats_it() {
+        using var fixture = new AdvancedFixture();
+
+        var host = fixture.Add<DockingHost>();
+        host.AddPanel("scene", "Scene");
+        host.AddPanel("console", "Console");
+        fixture.Update();
+
+        var tab = host.Groups[0].Tabs.Children.OfType<DockTab>().First(static t => t.PanelId == "console");
+        var (x, y) = Outside(host);
+
+        // ⚠ The regression, and it was a gesture that did nothing rather than one that went wrong.
+        // `Float` has always been here and only a caller could reach it, so the arrangement could
+        // describe a floating window, save one and restore one — and nothing a user could do made
+        // one. A tab dragged out of the docked tree went back where it came from, which reads as
+        // panels being nailed down.
+        fixture.Press(tab.Bounds.X + 4f, tab.Bounds.Y + 4f);
+        fixture.Move(x, y);
+        fixture.Move(x, y);
+
+        // The preview says so before the release does, or dragging into open space looks exactly
+        // like dragging somewhere illegal.
+        Assert.False(host.Preview.HasClass("hidden"));
+
+        fixture.Release(x, y);
+
+        var window = Assert.Single(host.Layout.Floating);
+
+        Assert.Equal("console", Assert.Single(window.Group.Panels));
+        Assert.Equal("scene", Assert.Single(Assert.IsType<DockGroupNode>(host.Layout.Root).Panels));
+    }
+
+    [Fact]
+    public void A_window_torn_off_past_an_edge_stays_inside_the_host() {
+        using var fixture = new AdvancedFixture();
+
+        var host = fixture.Add<DockingHost>();
+        host.AddPanel("scene", "Scene");
+        host.AddPanel("console", "Console");
+        fixture.Update();
+
+        var tab = host.Groups[0].Tabs.Children.OfType<DockTab>().First(static t => t.PanelId == "console");
+        var bounds = host.Bounds;
+
+        // Let go a long way past the bottom-right corner, which is where a drag that left the window
+        // ends up — the pointer is captured, so the coordinates keep arriving.
+        fixture.Press(tab.Bounds.X + 4f, tab.Bounds.Y + 4f);
+        fixture.Move(bounds.Right + 400f, bounds.Bottom + 400f);
+        fixture.Move(bounds.Right + 400f, bounds.Bottom + 400f);
+        fixture.Release(bounds.Right + 400f, bounds.Bottom + 400f);
+
+        var window = Assert.Single(host.Layout.Floating);
+
+        // ⚠ A floating group is positioned within the document rather than in a window of its own, so
+        // "off the edge of the host" is not somewhere anybody can scroll to. It is a panel that
+        // cannot be reached, which is the one outcome an undock must not have.
+        Assert.True(
+            window.X + window.Width <= bounds.Right + Tolerance,
+            $"the window's right edge is at {window.X + window.Width} and the host ends at {bounds.Right}"
+        );
+
+        Assert.True(window.Y + window.Height <= bounds.Bottom + Tolerance);
+        Assert.True(window.X >= bounds.X - Tolerance);
+        Assert.True(window.Y >= bounds.Y - Tolerance);
+    }
+
+    /// <summary>A point outside every group the host holds.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The groups tile the surface and the surface fills the host, so there is no such point
+    ///     inside it.</b> That is not an oversight in this helper — it is what "drag it outside" means
+    ///     for this host: the space outside the docked tree is whatever the application puts around
+    ///     it, which in the editor is the menu bar, the toolbar and the status bar. A host that is the
+    ///     whole window has to be dragged out of.
+    /// </remarks>
+    static (float X, float Y) Outside(DockingHost host) {
+        var bounds = host.Bounds;
+
+        for (var y = bounds.Y + 2f; y < bounds.Bottom; y += 8f) {
+            for (var x = bounds.X + 2f; x < bounds.Right; x += 8f) {
+                if (!host.Groups.Any(group => Covers(group.Bounds, x, y))) {
+                    return (x, y);
+                }
+            }
+        }
+
+        return (bounds.Right + 20f, bounds.Bottom + 20f);
+    }
+
+    static bool Covers(Rectangle bounds, float x, float y) =>
+        x >= bounds.X && y >= bounds.Y && x < bounds.Right && y < bounds.Bottom;
+
+    [Fact]
+    public void A_strip_with_more_tabs_than_fit_gets_arrows_and_scrolls() {
+        using var fixture = new AdvancedFixture();
+
+        var host = fixture.Add<DockingHost>();
+
+        for (var i = 0; i < 12; i++) {
+            host.AddPanel($"panel{i}", $"A Panel Named {i}");
+        }
+
+        fixture.Update();
+
+        var group = Assert.Single(host.Groups);
+
+        // ⚠ A group is how many panels somebody stacked into one place, and that is unbounded.
+        // Without somewhere for the tabs to go, flexbox either shrinks every one until none of the
+        // titles can be read or pushes the last of them out of the box — and in both cases the panels
+        // on the end are ones the user cannot get back to.
+        Assert.True(group.Overflows, "twelve titled tabs fit in the strip, so this fixture proves nothing");
+        Assert.False(group.Previous.HasClass("hidden"));
+        Assert.False(group.Next.HasClass("hidden"));
+
+        // ⚠ Wound back first, because the strip does *not* start at zero: the last panel registered
+        // is the selected one and its tab has already been scrolled into view. Asserting from here
+        // rather than from wherever that left it is what keeps this fixture about the arrows.
+        group.ScrollTo(0f);
+
+        Assert.True(group.Previous.Disabled);
+        Assert.False(group.Next.Disabled);
+
+        fixture.Click(group.Next);
+
+        Assert.True(group.ScrollLeft > 0f);
+        Assert.False(group.Previous.Disabled);
+
+        // And it stops at the end rather than scrolling into empty space.
+        for (var press = 0; press < 20; press++) {
+            fixture.Click(group.Next);
+        }
+
+        Assert.Equal(group.MaximumScroll, group.ScrollLeft, 2);
+        Assert.True(group.Next.Disabled);
+    }
+
+    [Fact]
+    public void A_strip_whose_tabs_fit_has_no_arrows() {
+        using var fixture = new AdvancedFixture();
+
+        var host = fixture.Add<DockingHost>();
+        host.AddPanel("scene", "Scene");
+        fixture.Update();
+
+        var group = Assert.Single(host.Groups);
+
+        Assert.False(group.Overflows);
+        Assert.True(group.Previous.HasClass("hidden"));
+        Assert.True(group.Next.HasClass("hidden"));
+    }
+
+    [Fact]
+    public void Selecting_a_panel_scrolls_its_tab_into_view() {
+        using var fixture = new AdvancedFixture();
+
+        var host = fixture.Add<DockingHost>();
+
+        for (var i = 0; i < 12; i++) {
+            host.AddPanel($"panel{i}", $"A Panel Named {i}");
+        }
+
+        fixture.Update();
+
+        var group = Assert.Single(host.Groups);
+
+        Assert.True(group.Overflows);
+
+        // The last panel registered is the selected one, and its tab is the one off the end. A strip
+        // that showed the selected panel's body while its tab sat past the edge reads as the
+        // selection having been lost.
+        Assert.True(group.ScrollLeft > 0f, "the selected tab was not scrolled into view");
+
+        var tab = group.Tabs.Children.OfType<DockTab>().Last();
+
+        Assert.True(tab.AbsoluteLeft >= group.Tabs.Parent!.AbsoluteLeft - Tolerance);
+        Assert.True(
+            tab.AbsoluteLeft + tab.Width <= group.Tabs.Parent!.AbsoluteLeft + group.Tabs.Parent!.Width + Tolerance
+        );
+    }
+
+    [Fact]
     public void Closing_a_tab_takes_the_panel_out_of_the_document() {
         using var fixture = new AdvancedFixture();
 
@@ -363,7 +547,7 @@ public class DockingTests {
         var console = host.AddPanel("console", "Console");
         fixture.Update();
 
-        var tab = host.Groups[0].Strip.Children.OfType<DockTab>().First(static t => t.PanelId == "console");
+        var tab = host.Groups[0].Tabs.Children.OfType<DockTab>().First(static t => t.PanelId == "console");
         fixture.Click(tab.CloseButton!);
 
         Assert.True(console.IsRemoved);
@@ -381,7 +565,7 @@ public class DockingTests {
         panel.CanClose = false;
         host.Rebuild();
 
-        var tab = Assert.Single(host.Groups[0].Strip.Children.OfType<DockTab>());
+        var tab = Assert.Single(host.Groups[0].Tabs.Children.OfType<DockTab>());
         Assert.Null(tab.CloseButton);
     }
 
@@ -459,7 +643,7 @@ public class DockingTests {
         host.AddPanel("game");
         fixture.Update();
 
-        var tabs = host.Groups[0].Strip.Children.OfType<DockTab>().ToList();
+        var tabs = host.Groups[0].Tabs.Children.OfType<DockTab>().ToList();
 
         Assert.Equal(ElementState.None, tabs[0].State & ElementState.Checked);
         Assert.True((tabs[1].State & ElementState.Checked) != 0);
