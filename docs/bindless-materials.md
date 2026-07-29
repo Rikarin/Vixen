@@ -51,7 +51,35 @@ still refused with a second dimension, and still refused in a struct (`RVN2053`)
 (`RVN2103`). A resource-typed *local* or parameter is accepted by nothing downstream and reported by
 nothing — a gap `Texture2D[]` shares with a plain `Texture2D` rather than one it opened.
 
-### 2. A material becomes a record rather than a set
+### 2a. ~~A material's texture becomes a value~~ — built
+
+The half of step 2 that needs nothing new on the shader side beyond step 1, and the one that closes
+doc 06's *"materials are values, not resources"* outright.
+
+A material feature could carry channels and could not carry a texture, because sampling one needs a
+binding index only the compiled shader knows — and a feature is composed into a shader it has never
+seen. With a table it needs no index of the shader's. The shader declares a `uint`, the texture goes
+in the table, and the slot goes into the material's own uniform block beside the base colour, where
+`EffectConstants` writes it out of the same offset table it writes every other constant from. A
+material texture is now a *value*, in the only sense that was ever missing.
+
+`MaterialRenderFeature.Textures` is the table and `TextureIndices` is the pairing — explicit, for the
+reason `PermutationSources` gives about its own: a shader's parameter name and a material's texture
+name belong to different things, and a convention that stripped `Index` and matched the rest would
+guess silently. An unmatched pair leaves the index at zero, which is a valid slot holding somebody
+else's texture.
+
+⚠ The registration is per **material**, not per variant, and it is idempotent. A permutation can fold
+a texture out of the block but cannot change which texture the material carries, so indexing per
+variant would take two references to one view and release neither. And this runs in `Prepare`, every
+frame: a table asked for the same view sixty times a second raises a count nothing lowers, and the
+symptom is not a wrong picture but a table that fills up after a few minutes and refuses a texture.
+A settled material costs one dictionary hit, no table write and no upload.
+
+What this does **not** do is remove the per-material descriptor set — the block is still a uniform
+buffer in set 2, so a draw still binds one. That is 2b.
+
+### 2b. A material becomes a record rather than a set
 
 This is the change the three blocked items are actually waiting for.
 
@@ -83,9 +111,8 @@ Three things this makes true, and they are the three blocked items:
   cubes did the frame bind" and becomes a number in the per-object block. `EffectSetWriter`'s
   remark about `probes[clamp(probeIndex, …)]` — a slot no probe occupies still has to hold a cube —
   stops being a constraint at all.
-- **A material feature may sample.** Its texture is a name the material carries and an index the
-  table hands out; nothing in the shader has to know a binding number, which is the authoring gap
-  doc 06 records.
+- ~~**A material feature may sample.**~~ Built in 2a — its texture is a name the material carries and
+  an index the table hands out, and nothing in the shader has to know a binding number.
 
 **The fallback is today's path, unchanged.** `MaterialRenderFeature` already forks on
 `Device`/`Descriptors` being set, and `DescriptorsOf` already falls back to `Material.Descriptors` —
@@ -121,7 +148,8 @@ Raven got atomics; what was missing was 2 and 3.
 |---|---|
 | The RHI: `BindlessTable`, the capability, the Vulkan backend | ✅ built, device-verified |
 | 1. Raven `Texture2D[]` | ✅ built, device-verified |
-| 2. A material record rather than a per-material set | ⬜ — the one the three blocked items wait on |
+| 2a. A material's texture as a value in its block | ✅ built — closes "materials are values, not resources" |
+| 2b. The block as a record rather than a per-material set | ⬜ — the one compacted draws and per-object probes wait on |
 | 3. An indirect draw whose count comes from the device | ⬜ |
 | 4. Compaction | ⬜ |
 

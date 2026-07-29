@@ -922,6 +922,7 @@ Vixen.Rendering.Features.MaterialRenderFeature : Vixen.Rendering.SubRenderFeatur
 Vixen.Rendering.Features.MaterialRenderFeature.Add(Vixen.Rendering.Material material) -> int
 Vixen.Rendering.Features.MaterialRenderFeature.Assign(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, Vixen.Rendering.Material material) -> void
 Vixen.Rendering.Features.MaterialRenderFeature.BoundCount.get -> int
+Vixen.Rendering.Features.MaterialRenderFeature.ConstantsOf(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, Vixen.Rendering.RenderStage? stage = null) -> System.ReadOnlySpan<byte>
 Vixen.Rendering.Features.MaterialRenderFeature.Descriptors.get -> Vixen.Graphics.DescriptorAllocator?
 Vixen.Rendering.Features.MaterialRenderFeature.Descriptors.set -> Vixen.Graphics.DescriptorAllocator?
 Vixen.Rendering.Features.MaterialRenderFeature.DescriptorsOf(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, Vixen.Rendering.RenderStage? stage = null) -> Vixen.Graphics.DescriptorSetHandle
@@ -931,12 +932,16 @@ Vixen.Rendering.Features.MaterialRenderFeature.Dispose() -> void
 Vixen.Rendering.Features.MaterialRenderFeature.EffectOf(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, Vixen.Rendering.RenderStage? stage = null) -> Vixen.Shaders.Effect?
 Vixen.Rendering.Features.MaterialRenderFeature.Effects.get -> Vixen.Shaders.EffectSystem?
 Vixen.Rendering.Features.MaterialRenderFeature.Effects.set -> Vixen.Shaders.EffectSystem?
+Vixen.Rendering.Features.MaterialRenderFeature.IndexedTextureCount.get -> int
 Vixen.Rendering.Features.MaterialRenderFeature.MaterialIndex.get -> Vixen.Rendering.RenderDataKey<int>
 Vixen.Rendering.Features.MaterialRenderFeature.MaterialRenderFeature() -> void
 Vixen.Rendering.Features.MaterialRenderFeature.Materials.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Material>
 Vixen.Rendering.Features.MaterialRenderFeature.PermutationKeys.get -> System.Collections.Generic.Dictionary<string, System.Collections.Generic.IReadOnlyList<Vixen.Shaders.ParameterKey>>
 Vixen.Rendering.Features.MaterialRenderFeature.PermutationSources.get -> System.Collections.Generic.Dictionary<Vixen.Shaders.PermutationKey<bool>, Vixen.Shaders.PermutationKey<bool>>
 Vixen.Rendering.Features.MaterialRenderFeature.SortGroupOf(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, Vixen.Rendering.RenderStage? stage = null) -> uint
+Vixen.Rendering.Features.MaterialRenderFeature.TextureIndices.get -> System.Collections.Generic.Dictionary<Vixen.Shaders.ParameterKey<uint>, Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>>
+Vixen.Rendering.Features.MaterialRenderFeature.Textures.get -> Vixen.Graphics.BindlessTable?
+Vixen.Rendering.Features.MaterialRenderFeature.Textures.set -> Vixen.Graphics.BindlessTable?
 Vixen.Rendering.Features.MaterialRenderFeature.UploadCount.get -> int
 Vixen.Rendering.Features.MaterialRenderFeature.VariantCount.get -> int
 Vixen.Rendering.Features.MaterialRenderFeature.VariantIndex.get -> Vixen.Rendering.RenderDataKey<int>
