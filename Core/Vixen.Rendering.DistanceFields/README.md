@@ -77,8 +77,52 @@ Samples do not read each other, so splitting the bake by Z slice cannot change w
 computes. `Parallel` exists so a profiler or a debugger can see one thread — not because the result
 depends on it, and a test asserts the two agree byte for byte.
 
+## Placing a field: position, rotation, one scale
+
+`DistanceFieldInstance` deliberately cannot hold a matrix. A distance field survives being moved and
+turned — a rotated distance is the same distance — and it survives being scaled by one number, where
+every distance scales with it. It does **not** survive a non-uniform scale: squash a sphere's field
+along one axis and the result over-reports along the squashed axis and under-reports across it, and a
+tracer reading it walks through the surface. A `Matrix4x4` would accept that silently, so the type is
+shaped to refuse it. A mesh that genuinely needs a non-uniform scale needs its own bake at that
+scale.
+
+## The clipmap
+
+`GlobalDistanceField` is what a tracer actually walks: nested cubes sharing a resolution and doubling
+in extent, fine where the camera is and coarse where it is far, composited as the minimum over every
+instance.
+
+**Every level snaps to its own cell grid.** A level centred exactly on the camera slides its sampling
+grid under static geometry, and a wall that has not moved changes its distance every frame. This is
+the same defect `ShadowCascades` fixes by snapping a cascade to whole texels — same cause, same fix,
+and the two look unrelated until both are written down.
+
+**A level clamps to what it can know.** Nothing outside a level's cube was consulted, so a cell that
+found nothing reports `MaxDistanceOf(level)` rather than infinity. "At least this far" is a step a
+tracer is always allowed to take.
+
+**Outside an instance's bounds the composite substitutes a bound, not a reading.** Let *f* be the
+field's value at the nearest point of its bounds and *t* the distance from the query to those bounds.
+Because every mesh point is inside the box, the true distance is at least `√(f² + t²)` — safe, tight,
+and *continuous* at the boundary, where `t = 0` makes it exactly *f*. A plain distance-to-box would
+drop to zero there and make every tracer crawl around every object.
+
+It is still loose in the open gap between two objects — about a sixth low, with a test that says so
+in numbers. Under-reporting is the survivable direction: a tracer that thinks a surface is nearer
+takes an extra step; one that thinks it is further goes through it.
+
 ## Not yet
 
 Stored as `float`, not quantised into a narrow band. Correctness first: a quantisation is measured
-against this, not instead of it. The clipmap that composites instances of these fields into a
-camera-centred volume is the rest of doc 19's L1 and is not built.
+against this, not instead of it.
+
+`Update` recomposites every cell of every level every time. A camera that moved one cell invalidates
+one slab per axis and nothing else — which is the entire reason the levels are snapped to their own
+grids — so scrolling is the next thing here, and it changes no result, only how long an update takes.
+
+Instances are rejected against their bounds in a linear scan, early-outing against the best distance
+so far. A tree over the instances is what replaces that when the scan stops being enough.
+
+Nothing here has touched a GPU yet. Uploading a level into a 3D texture, and the sphere tracer that
+reads it for distance-field shadows and occlusion, are the rest of doc 19's L1.
