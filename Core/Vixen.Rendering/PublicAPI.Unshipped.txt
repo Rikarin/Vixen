@@ -1270,6 +1270,14 @@ Vixen.Rendering.HiZPyramid.Pipelines.get -> Vixen.Rendering.ComputePipelineCache
 Vixen.Rendering.HiZPyramid.Pipelines.set -> Vixen.Rendering.ComputePipelineCache?
 Vixen.Rendering.HiZPyramid.Size.get -> Vixen.Core.Mathematics.Int2
 Vixen.Rendering.HiZPyramid.View.get -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.IMeshletPageSource -> interface
+Vixen.Rendering.IMeshletPageSource.ReadAsync(Vixen.Rendering.PageKey key, System.Memory<byte> destination, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<int>
+Vixen.Rendering.IPageStore -> interface
+Vixen.Rendering.IPageStore.Evict(Vixen.Rendering.PageKey key, int slot) -> void
+Vixen.Rendering.IPageStore.LoadAsync(Vixen.Rendering.PageKey key, System.Memory<byte> destination, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<int>
+Vixen.Rendering.IPageStore.PageSize.get -> int
+Vixen.Rendering.IPageStore.Place(Vixen.Rendering.PageKey key, int slot, System.ReadOnlySpan<byte> bytes) -> bool
+Vixen.Rendering.IPageStore.SlotCount.get -> int
 Vixen.Rendering.IPipelineDescriber -> interface
 Vixen.Rendering.IPipelineDescriber.Describe(Vixen.Shaders.Effect effect, Vixen.Rendering.RenderStage stage, in Vixen.Rendering.RenderOutput output, int vertexLayout) -> Vixen.Graphics.GraphicsPipelineDescription
 Vixen.Rendering.ISunSource -> interface
@@ -1778,6 +1786,11 @@ Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.Roughness.get -> float
 Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.Roughness.init -> float
 Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.ShaderName.get -> string
 Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.TexturedMetalRoughnessFeature() -> void
+Vixen.Rendering.MemoryMeshletPageSource -> sealed class
+Vixen.Rendering.MemoryMeshletPageSource : Vixen.Rendering.IMeshletPageSource
+Vixen.Rendering.MemoryMeshletPageSource.Add(int source, Vixen.Rendering.VirtualGeometry.MeshletPageSet pages) -> void
+Vixen.Rendering.MemoryMeshletPageSource.MemoryMeshletPageSource() -> void
+Vixen.Rendering.MemoryMeshletPageSource.ReadAsync(Vixen.Rendering.PageKey key, System.Memory<byte> destination, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<int>
 Vixen.Rendering.MeshData -> sealed record
 Vixen.Rendering.MeshData : System.IEquatable<Vixen.Rendering.MeshData>
 Vixen.Rendering.MeshData.BoneIndices.get -> int[]
@@ -1852,6 +1865,23 @@ Vixen.Rendering.MeshVertex.Normal.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.MeshVertex.Normal.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.MeshVertex.Position.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.MeshVertex.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.MeshletPagePool -> sealed class
+Vixen.Rendering.MeshletPagePool : System.IDisposable
+Vixen.Rendering.MeshletPagePool : Vixen.Rendering.IPageStore
+Vixen.Rendering.MeshletPagePool.Dispose() -> void
+Vixen.Rendering.MeshletPagePool.Evict(Vixen.Rendering.PageKey key, int slot) -> void
+Vixen.Rendering.MeshletPagePool.Evictions.get -> long
+Vixen.Rendering.MeshletPagePool.Flush(Vixen.Graphics.ICommandList list) -> int
+Vixen.Rendering.MeshletPagePool.LoadAsync(Vixen.Rendering.PageKey key, System.Memory<byte> destination, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<int>
+Vixen.Rendering.MeshletPagePool.MeshletPagePool(Vixen.Graphics.IGraphicsDevice device, Vixen.Rendering.IMeshletPageSource source, int slotCount, int pageSize = 131072, string name = "MeshletPages") -> void
+Vixen.Rendering.MeshletPagePool.PageSize.get -> int
+Vixen.Rendering.MeshletPagePool.Pages.get -> Vixen.Graphics.BufferHandle
+Vixen.Rendering.MeshletPagePool.PendingBytes.get -> long
+Vixen.Rendering.MeshletPagePool.Place(Vixen.Rendering.PageKey key, int slot, System.ReadOnlySpan<byte> bytes) -> bool
+Vixen.Rendering.MeshletPagePool.Placements.get -> long
+Vixen.Rendering.MeshletPagePool.Refusals.get -> long
+Vixen.Rendering.MeshletPagePool.SlotCount.get -> int
+Vixen.Rendering.MeshletPagePool.StagingCapacity.get -> long
 Vixen.Rendering.ModelData -> sealed record
 Vixen.Rendering.ModelData : System.IEquatable<Vixen.Rendering.ModelData>
 Vixen.Rendering.ModelData.Animations.get -> string[]
@@ -1887,6 +1917,43 @@ Vixen.Rendering.ModelPart.Mesh.set -> string
 Vixen.Rendering.ModelPart.ModelPart() -> void
 Vixen.Rendering.ModelPart.Node.get -> int
 Vixen.Rendering.ModelPart.Node.set -> int
+Vixen.Rendering.PageKey -> readonly struct
+Vixen.Rendering.PageKey : System.IEquatable<Vixen.Rendering.PageKey>
+Vixen.Rendering.PageKey.Index.get -> int
+Vixen.Rendering.PageKey.Index.init -> int
+Vixen.Rendering.PageKey.PageKey() -> void
+Vixen.Rendering.PageKey.PageKey(int Source, int Index) -> void
+Vixen.Rendering.PageKey.Source.get -> int
+Vixen.Rendering.PageKey.Source.init -> int
+Vixen.Rendering.PagePlacement -> readonly struct
+Vixen.Rendering.PagePlacement : System.IEquatable<Vixen.Rendering.PagePlacement>
+Vixen.Rendering.PagePlacement.Offset.get -> long
+Vixen.Rendering.PagePlacement.Offset.init -> long
+Vixen.Rendering.PagePlacement.PagePlacement() -> void
+Vixen.Rendering.PagePlacement.PagePlacement(int Slot, long Offset) -> void
+Vixen.Rendering.PagePlacement.Slot.get -> int
+Vixen.Rendering.PagePlacement.Slot.init -> int
+Vixen.Rendering.PageResidency -> sealed class
+Vixen.Rendering.PageResidency : System.IDisposable
+Vixen.Rendering.PageResidency.Budget.get -> long
+Vixen.Rendering.PageResidency.ClearRequests() -> void
+Vixen.Rendering.PageResidency.Dispose() -> void
+Vixen.Rendering.PageResidency.Evictions.get -> long
+Vixen.Rendering.PageResidency.IsResident(Vixen.Rendering.PageKey key) -> bool
+Vixen.Rendering.PageResidency.Loading.get -> int
+Vixen.Rendering.PageResidency.Loads.get -> long
+Vixen.Rendering.PageResidency.PageResidency(Vixen.Rendering.IPageStore store, long budget) -> void
+Vixen.Rendering.PageResidency.PendingRequests.get -> int
+Vixen.Rendering.PageResidency.Pin(Vixen.Rendering.PageKey key) -> void
+Vixen.Rendering.PageResidency.PinnedPages.get -> int
+Vixen.Rendering.PageResidency.Rejections.get -> long
+Vixen.Rendering.PageResidency.Request(Vixen.Rendering.PageKey key) -> void
+Vixen.Rendering.PageResidency.ResidentBytes.get -> long
+Vixen.Rendering.PageResidency.ResidentPages.get -> int
+Vixen.Rendering.PageResidency.Service(int maxLoads = 8) -> int
+Vixen.Rendering.PageResidency.Touch(Vixen.Rendering.PageKey key) -> void
+Vixen.Rendering.PageResidency.TryGetPlacement(Vixen.Rendering.PageKey key, out Vixen.Rendering.PagePlacement placement) -> bool
+Vixen.Rendering.PageResidency.Unpin(Vixen.Rendering.PageKey key) -> void
 Vixen.Rendering.ParticleLights -> static class
 Vixen.Rendering.PersistentUploadBuffer<T> -> sealed class
 Vixen.Rendering.PersistentUploadBuffer<T> : System.IDisposable

@@ -2,8 +2,9 @@
 
 One authored mesh, every level of detail at once, and no cracks between them.
 
-This is **phase 1** of [docs/virtualized-geometry.md](../../docs/virtualized-geometry.md) — the
-offline half of a Nanite-class pipeline, and the phase that decides whether the result has cracks.
+This is **phases 1 and 2's offline half** of
+[docs/virtualized-geometry.md](../../docs/virtualized-geometry.md) — the part of a Nanite-class
+pipeline that runs at import time, and the part that decides whether the result has cracks.
 What comes out is a cluster DAG: about a hundred and twenty-eight triangles per cluster, an error per
 cluster that says how far it has moved from the mesh it stands in for, and the structure that lets a
 device pick a different level for every cluster of one object in one frame without the seams between
@@ -131,3 +132,47 @@ writing through to a shared array.
 sequential one.
 
 Licensed under Apache-2.0.
+
+## Pages
+
+`MeshletPageBuilder` is phase 2's offline half: the same DAG with its geometry cut into fixed-size
+pages that can be loaded without loading all of it. Two things happen there and they are independent
+— the geometry is *quantized*, which is about bytes per vertex, and it is *paged*, which is about
+what can arrive separately.
+
+**Only the geometry is paged.** `Meshlet` — bounds, cone, error, parent error, the group links — is
+the hierarchy, and a traversal has to walk it to find out which clusters it wants, so it cannot
+itself be streamed. It is also sixty-odd bytes against a cluster's two kilobytes, which makes the
+split obviously right rather than a compromise.
+
+**One quantization grid for the mesh, not one per cluster.** This is the one decision in the format
+that cracks the mesh if it is made the obvious way. Quantizing each cluster against its own bound is
+how you spend sixteen bits well, and it is wrong: a vertex on a locked boundary is referenced by a
+cluster on each side, the two have different bounds, and the same position rounds to two different
+numbers. Everything above about collapsing onto existing vertices — so a locked boundary is
+bit-identical rather than nearly so — is thrown away in the last step before the device sees it.
+
+So the grid is sixteen bits across the *mesh's* longest extent, and a cluster stores offsets from its
+own grid-aligned origin in whole numbers. That is exact: two clusters sharing a vertex decode it to
+the same bits however far apart their origins are. It also makes every cluster's local coordinates
+fit in sixteen bits by construction, because the coarsest cluster there can be spans the whole grid.
+
+**Page zero holds the roots**, because clusters are packed coarsest level first and a root is by
+definition at the coarsest level there is. Pinning that one page is what makes an object whose pages
+have not arrived draw at its coarsest level rather than not at all.
+
+## Streaming degrades by threshold
+
+`MeshletCut.SelectByError`'s residency-aware overload is the CPU reference for what a frame draws
+when only some of the pages are there. What it does *not* do is drop the clusters that are missing:
+that is a hole, and a hole at a group boundary is a crack.
+
+What it also does not do is patch the cut locally — swap the missing cluster and its siblings for
+their group's parents and repeat. That one is wrong in a way that looks right: a group's other
+children may not be in the cut at all, because the cut took *their* children instead, so swapping in
+the parents leaves those finer clusters underneath and the surface is covered twice in one place and
+once in another.
+
+It raises the threshold instead, to the next group error at which the answer changes, until the whole
+cut is resident. Every threshold's cut is an antichain by construction, so the result is always a
+valid cut — just a coarser one, closing as the pages land.

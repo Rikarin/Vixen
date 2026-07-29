@@ -56,6 +56,8 @@ answering the *difference* — is done and device-verified.
 | Discrete LOD with hysteresis and dither cross-fade | ✅ | [LodRenderFeature.cs](../Core/Vixen.Rendering/Features/LodRenderFeature.cs) |
 | Deferred/GBuffer *shaders* | ✅ | `Pipeline/GBuffer.rvn`, `Pipeline/Deferred.rvn` |
 | **An incremental GPU scene** — object records rewritten only where they changed | ✅ | [PersistentUploadBuffer.cs](../Core/Vixen.Rendering/PersistentUploadBuffer.cs) |
+| **Geometry pages** — fixed-size, one quantization grid, roots in page zero | ✅ | [MeshletPageBuilder.cs](../Core/Vixen.Rendering.VirtualGeometry/MeshletPageBuilder.cs) |
+| **A residency service** — requests in, LRU out, one budget, not geometry-shaped | ✅ | [PageResidency.cs](../Core/Vixen.Rendering/PageResidency.cs) |
 | **Workgroup-shared memory in Raven** — `groupshared`, `barrier()`, an atomic rooted in it | ✅ | B1 below |
 | **64-bit integers and atomics in Raven** — `int64`/`uint64`, `Int64`/`Int64Atomics` reported apart | ✅ | B2 below |
 | **`SampleGrad` in Raven** — gradients the caller computed, in every stage | ✅ | B3 below |
@@ -64,7 +66,7 @@ answering the *difference* — is done and device-verified.
 | **A CPU reference cut**, and the fallback mesh cut from the same code | ✅ | `MeshletCut` |
 | Meshlet generation in `ModelCompiler` | ✅ | [ModelCompiler.cs](../Editor/Vixen.Editor.Assets/Models/ModelCompiler.cs), `generateMeshlets:` in the `.meta` |
 | Deferred *pipeline* | ⬜ | Phase 10, cut-list #6 |
-| Any streaming manager at all | ⬜ | planned in 08, no code |
+| Texture and shadow-page streaming on the same service | ⬜ | improvement 6; the service exists, the two other consumers do not |
 
 The existing two-phase structure is not merely *similar* to Nanite's — it is the same algorithm at a
 coarser granularity. Cluster culling is that traversal one level deeper. This is the single most
@@ -284,24 +286,54 @@ Removing the group-boundary lock fails it. `MeshletCutTests`, `MeshletValidatorT
 
 ---
 
-### Phase 2 — Pages and residency · ~2 EM
+### Phase 2 — Pages and residency · ~2 EM · ✅ built
 
 - **Page format**: fixed-size (128 KB) pages holding clusters with their vertex and index data,
-  position-quantized to the cluster bound, materials as indices. Root page always resident, so a
-  never-streamed object still draws at its coarsest level.
+  position-quantized, materials as indices. Root page always resident, so a never-streamed object
+  still draws at its coarsest level. [`MeshletPageBuilder`](../Core/Vixen.Rendering.VirtualGeometry/MeshletPageBuilder.cs).
 - **Page pool**: a single large buffer, suballocated. This is `GeometryBuffer` with a residency policy
-  instead of a load-time one — same invariant (one buffer per vertex layout, because `vertexOffset` is
-  multiplied by the pipeline's stride), different allocator. Its fixed capacity, which is a limitation
-  for a level that loads once, is the right shape for a pool that evicts.
-- **Residency manager**: request buffer written by the traversal (phase 3), serviced on the CPU
-  against the asset system's async I/O, LRU eviction under a byte budget.
-
-See **improvement 6** — this manager should not be geometry-specific.
+  instead of a load-time one, different allocator.
+  [`MeshletPagePool`](../Core/Vixen.Rendering/MeshletPagePool.cs).
+- **Residency manager**: requests in, serviced on the CPU against async I/O, LRU eviction under a byte
+  budget. [`PageResidency`](../Core/Vixen.Rendering/PageResidency.cs), and it is not geometry-specific
+  — see improvement 6.
 
 **Exit:** a camera path over a scene exceeding the budget by 4×, holding the budget and showing no
 cluster popping beyond the configured error, with a synthetic I/O delay injected. The
 budget-respecting criterion is already the one [08](plan/08-asset-pipeline-and-addressables.md)
 states for streaming generally.
+
+**Met**, as `MeshletStreamingTests`, with "no popping beyond the configured error" given the strongest
+form it has here: **every frame of the path draws a closed surface**. A sphere has no boundary, so a
+cut that drew a cluster and not its missing neighbour leaves an edge with one triangle on it — the
+same crack detector phase 1 uses, applied to a cut chosen under a residency constraint rather than
+under a threshold alone.
+
+Four things the plan above did not say, three of them found in the building:
+
+- **Only the geometry pages; the cluster records stay resident.** A traversal has to test a cluster —
+  its bounds, its cone, its error — before it can know whether it wants its geometry, so the
+  hierarchy cannot itself be paged. It is also sixty-odd bytes against a cluster's two kilobytes,
+  which makes the split obviously right rather than a compromise.
+- **One quantization grid for the mesh, not one per cluster.** This is the decision that cracks the
+  mesh if it is made the obvious way, and the obvious way is the one that spends the bits well:
+  quantize each cluster against its own bound. A vertex on a locked boundary is referenced by a
+  cluster on each side, the two have different bounds, and the same position rounds to two different
+  numbers — throwing away, in the last step before the device sees it, exactly the bit-identical
+  boundary phase 1 collapses onto existing vertices to guarantee. Sixteen bits across the *mesh's*
+  longest extent instead, which also makes every cluster's local coordinates fit sixteen bits by
+  construction: the coarsest cluster there can be spans the whole grid.
+- **Degradation is a coarser threshold, not a patched cut.** When a page has not arrived, the
+  tempting fix is local — swap the missing cluster and its siblings for their group's parents, repeat.
+  It is wrong in a way that looks right: a group's other children may not be in the cut at all,
+  because the cut took *their* children, so swapping in the parents leaves those finer clusters
+  underneath and the surface is covered twice in one place and once in another. Raising the threshold
+  cannot do that, because every threshold's cut is an antichain by construction.
+- **A sink may be full, and saying so is not an error.** The pool stages through host memory it
+  reclaims when the frame's copies are recorded, so a frame that streams more than one flush cycle
+  can carry has to be told to stop. `IPageStore.Place` answers whether it took the bytes, the service
+  treats a refusal as it treats a budget it cannot meet, and the page loses a frame — which costs
+  nothing, because the request is demand-driven and the next frame asks again.
 
 ---
 
@@ -498,6 +530,13 @@ budget to tune and one place to profile.
 Build it in phase 2 with all three consumers in view, or it will be geometry-shaped and the other two
 will grow their own.
 
+✅ **Built as [`PageResidency`](../Core/Vixen.Rendering/PageResidency.cs)**, and the seam that keeps it
+honest is `IPageStore`: the service owns the request queue, the byte budget, the eviction order and
+the counters, and knows nothing about where the bytes go or how they are read. What proves that is
+not the interface but the test — `PageResidencyTests` drives the whole of it against a store that is
+a dictionary, with no device and no geometry anywhere in it. The two other consumers are still
+unbuilt; what has been avoided is their having to bring their own budget.
+
 ### 7. A portable baseline that does not need 64-bit atomics
 
 Nanite is effectively SM6/Vulkan-1.2-class only. Making the **hardware-raster** visibility buffer the
@@ -524,7 +563,7 @@ being a mystery in a frame capture.
 |---|---|---|
 | 0 — Unblockers ✅ | ~1 | 1 |
 | 1 — Cluster DAG ✅ | ~3 | 4 |
-| 2 — Pages and residency | ~2 | 6 |
+| 2 — Pages and residency ✅ | ~2 | 6 |
 | 3 — Hierarchical culling | ~2.5 | 8.5 |
 | 4 — HW-raster visibility buffer | ~2 | 10.5 |
 | 5 — Material resolve | ~2.5 | 13 |
