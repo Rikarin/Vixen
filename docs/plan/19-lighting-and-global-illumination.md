@@ -408,8 +408,28 @@ rather than a screen-space gather; and it only ever **adds** detail, so a scene 
 through a region ratchets that region toward its finest and never gives the slots back. Coarsening
 needs the pool to take slots back and a policy for when, and neither exists.
 
-Owed: filler B at all; the view bias; and `Deferred`, which has the same ambient term and has not been
-given the slot. Plus one optimisation that is now visible — the repair runs over every
+**Filler B projects, and nothing renders its cubes yet.** `CapturedIrradianceFiller` takes an
+`IIrradianceCaptureSource` — a cube of radiance, a validity and a sun scalar — and writes the same
+bricks filler A writes, through the same cursor and the same budget. The projection is the same integral
+with cube texels standing in for rays, and § L2's third exit criterion is asserted: the two fillers
+agree on a directional sky within two per cent, which is filler A's sixty-four-ray budget rather than
+this one's 1536 texels.
+
+⚠ What is owed is the device half — nothing in the engine renders a cube from a scene at all. That is
+six passes per probe, a readback, and orchestration as a build step rather than a frame; the bounce
+iteration doc 19 describes lives there too, since a source that shades with the field's current answer
+produces a second bounce by being called twice.
+
+Writing it also corrected something this document implies. **For an L1 payload, cube symmetry makes
+uniform texel weights exact** — they sum to 4π so the constant band is right, and Σ(d·ŷ)² over a cube is
+a third of the texel count by the same symmetry, so the linear band is too. A smooth sky, a linear sky
+and a face-uniform sky are all blind to whether the projection weighted by solid angle at all. Only
+content varying *within* a face is not, which is why the test that can tell lights a single texel. The
+weighting stays because it is right and because an L2 band would have no such luck — but the claim that
+it was load-bearing here was wrong, and four tests passed without it before one did not.
+
+Owed: the capture source; the view bias; and `Deferred`, which has the same ambient term and has not
+been given the slot. Plus one optimisation that is now visible — the repair runs over every
 brick every frame, because a brick the budget did not refill still has neighbours that were, and
 narrowing it to the dirty bricks and their neighbours is real work nobody has done.
 

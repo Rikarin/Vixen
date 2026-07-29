@@ -1265,6 +1265,15 @@ Vixen.Rendering.LightKind.Point = 1 -> Vixen.Rendering.LightKind
 Vixen.Rendering.LightKind.Rect = 4 -> Vixen.Rendering.LightKind
 Vixen.Rendering.LightKind.Spot = 2 -> Vixen.Rendering.LightKind
 Vixen.Rendering.LightKind.Tube = 3 -> Vixen.Rendering.LightKind
+Vixen.Rendering.Lighting.CapturedIrradianceFiller -> sealed class
+Vixen.Rendering.Lighting.CapturedIrradianceFiller.CapturedIrradianceFiller(Vixen.Rendering.Lighting.IIrradianceCaptureSource source) -> void
+Vixen.Rendering.Lighting.CapturedIrradianceFiller.Cursor.get -> int
+Vixen.Rendering.Lighting.CapturedIrradianceFiller.Fill(Vixen.Rendering.IrradianceFields.IrradianceField field) -> int
+Vixen.Rendering.Lighting.CapturedIrradianceFiller.Fill(Vixen.Rendering.IrradianceFields.IrradianceField field, int budget) -> int
+Vixen.Rendering.Lighting.CapturedIrradianceFiller.Hysteresis.get -> float
+Vixen.Rendering.Lighting.CapturedIrradianceFiller.Hysteresis.init -> float
+Vixen.Rendering.Lighting.CapturedIrradianceFiller.Project(in Vixen.Rendering.Lighting.IrradianceCapture capture, Vixen.Rendering.IrradianceFields.IrradianceProbe previous) -> Vixen.Rendering.IrradianceFields.IrradianceProbe
+Vixen.Rendering.Lighting.CapturedIrradianceFiller.Skipped.get -> int
 Vixen.Rendering.Lighting.CubeImage -> sealed class
 Vixen.Rendering.Lighting.CubeImage.At(Vixen.Rendering.CubeFace face, int x, int y) -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Lighting.CubeImage.CubeImage(int size) -> void
@@ -1303,6 +1312,18 @@ Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.LevelView(int level) -> Vixe
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.Sampler.get -> Vixen.Graphics.SamplerHandle
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.Upload(Vixen.Graphics.IGraphicsDevice graphics, Vixen.Graphics.ICommandList commands) -> void
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.Uploads.get -> int
+Vixen.Rendering.Lighting.IIrradianceCaptureSource -> interface
+Vixen.Rendering.Lighting.IIrradianceCaptureSource.TryCapture(Vixen.Core.Mathematics.Vector3 position, out Vixen.Rendering.Lighting.IrradianceCapture capture) -> bool
+Vixen.Rendering.Lighting.IrradianceCapture -> readonly struct
+Vixen.Rendering.Lighting.IrradianceCapture : System.IEquatable<Vixen.Rendering.Lighting.IrradianceCapture>
+Vixen.Rendering.Lighting.IrradianceCapture.IrradianceCapture() -> void
+Vixen.Rendering.Lighting.IrradianceCapture.IrradianceCapture(Vixen.Rendering.Lighting.CubeImage Radiance, float Validity, float SunShadow) -> void
+Vixen.Rendering.Lighting.IrradianceCapture.Radiance.get -> Vixen.Rendering.Lighting.CubeImage
+Vixen.Rendering.Lighting.IrradianceCapture.Radiance.init -> Vixen.Rendering.Lighting.CubeImage
+Vixen.Rendering.Lighting.IrradianceCapture.SunShadow.get -> float
+Vixen.Rendering.Lighting.IrradianceCapture.SunShadow.init -> float
+Vixen.Rendering.Lighting.IrradianceCapture.Validity.get -> float
+Vixen.Rendering.Lighting.IrradianceCapture.Validity.init -> float
 Vixen.Rendering.Lighting.IrradianceFieldFill -> sealed class
 Vixen.Rendering.Lighting.IrradianceFieldFill : System.IDisposable
 Vixen.Rendering.Lighting.IrradianceFieldFill.Cursor.get -> int
