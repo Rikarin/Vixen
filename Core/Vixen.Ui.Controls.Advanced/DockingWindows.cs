@@ -32,6 +32,10 @@ public sealed partial class DockingHost {
         ///     the main window's top-left corner.
         /// </remarks>
         public UiElement? Preview { get; set; }
+
+        /// <summary>The guide handles offered over the groups in this window.</summary>
+        /// <inheritdoc cref="Preview" />
+        public UiElement? Guides { get; set; }
     }
 
     readonly List<TornWindow> torn = [];
@@ -152,6 +156,8 @@ public sealed partial class DockingHost {
 
         entry.Preview = root.Add("dock-preview");
         entry.Preview.AddClass("hidden");
+
+        entry.Guides = BuildGuides(root);
     }
 
     /// <summary>Closes the windows whose group has left the arrangement.</summary>
@@ -171,6 +177,7 @@ public sealed partial class DockingHost {
             torn.RemoveAt(i);
 
             entry.Preview = null;
+            entry.Guides = null;
             entry.Window.Dispose();
         }
     }
@@ -238,6 +245,7 @@ public sealed partial class DockingHost {
     protected override void OnRemoved() {
         for (var i = torn.Count - 1; i >= 0; i--) {
             torn[i].Preview = null;
+            torn[i].Guides = null;
             torn[i].Window.Dispose();
         }
 

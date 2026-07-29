@@ -453,6 +453,10 @@ public sealed partial class DockingHost : Control {
 
         Preview.AddClass("hidden");
 
+        // After the preview, because the tree order is the paint order and a guide drawn under the
+        // rectangle it is offering would be a handle the user cannot see at the moment they need it.
+        Guides = BuildGuides(this);
+
         AddHandler<ClickEvent>(static (element, args) => ((DockingHost) element).Chosen(args));
         AddHandler<DragEvent>(static (element, args) => ((DockingHost) element).Dragged(args));
     }
@@ -747,7 +751,7 @@ public sealed partial class DockingHost : Control {
     /// </remarks>
     void Dragged(DragEvent args) {
         switch (args.Stage) {
-            case DragStage.Started when args.Source is DockTab tab:
+            case DragStage.Started when TabOf(args.Source) is { } tab:
                 dragged = tab;
                 break;
 
@@ -766,6 +770,37 @@ public sealed partial class DockingHost : Control {
             default:
                 break;
         }
+    }
+
+    /// <summary>Which tab a drag that started on an element is a drag of.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The element a press lands on is the deepest one under the pointer, and on a tab
+    ///         that is almost never the tab.</b> A tab's title is a child element — it has to be, or
+    ///         a tab could not also have an icon — so a drag begun anywhere on the words reported the
+    ///         label, a test for the tab itself failed, and the only part of a tab that could be
+    ///         picked up was the few pixels of padding around the text. Users find that and report it
+    ///         as docking being broken, which it effectively was.
+    ///     </para>
+    ///     <para>
+    ///         <b>The close button is the exception and stops the walk.</b> It is inside the tab, so
+    ///         an ancestor search that did not stop would make the button a drag handle — and a press
+    ///         on it that wandered a few pixels before letting go would dock the panel somewhere
+    ///         instead of doing the one thing its icon promises.
+    ///     </para>
+    /// </remarks>
+    static DockTab? TabOf(UiElement? source) {
+        for (var walk = source; walk is not null; walk = walk.Parent) {
+            if (walk is DockTab tab) {
+                return tab;
+            }
+
+            if (walk is IconButton) {
+                return null;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Follows a tab drag, in desktop space, across every window this host has.</summary>
@@ -795,7 +830,7 @@ public sealed partial class DockingHost : Control {
             }
 
             hovered = node;
-            zone = ZoneOf(bounds, pointer.X, pointer.Y);
+            zone = ZoneAt(bounds, pointer.X, pointer.Y);
 
             Show(view, zone);
             return;
@@ -807,12 +842,14 @@ public sealed partial class DockingHost : Control {
     /// <summary>Where the drag is now, in desktop space.</summary>
     Vector2 pointer;
 
-    /// <summary>Takes the drop preview off every window.</summary>
+    /// <summary>Takes the drop preview and the guides off every window.</summary>
     void Hide() {
         Preview.AddClass("hidden");
+        Guides.AddClass("hidden");
 
         foreach (var entry in torn) {
             entry.Preview?.AddClass("hidden");
+            entry.Guides?.AddClass("hidden");
         }
     }
 
@@ -847,9 +884,9 @@ public sealed partial class DockingHost : Control {
         return best;
     }
 
-    /// <summary>Draws the drop rectangle in the window the group being hovered is in.</summary>
+    /// <summary>Draws the drop rectangle and the guides in the window the group being hovered is in.</summary>
     /// <remarks>
-    ///     ⚠ The preview belongs to a window and the geometry arrives in desktop space, so it is
+    ///     ⚠ Both overlays belong to a window and the geometry arrives in desktop space, so it is
     ///     brought back down into the surface the group lives in. A preview positioned from desktop
     ///     coordinates would draw the drop target for a torn-off inspector several hundred pixels
     ///     outside its own window.
@@ -868,34 +905,43 @@ public sealed partial class DockingHost : Control {
 
         Hide();
 
-        var preview = PreviewFor(view);
+        var (preview, guides) = OverlaysFor(view);
 
-        if (preview is null) {
-            return;
+        if (preview is not null) {
+            preview.RemoveClass("hidden");
+            Place(preview, half);
         }
 
-        preview.RemoveClass("hidden");
-        preview.SetStyle("width", Pixels(half.Width));
-        preview.SetStyle("height", Pixels(half.Height));
-
-        // The preview is a child of the host, or of a torn-off window's root, so the offset is
-        // measured from where layout put it — which is wherever a zero-sized absolutely positioned
-        // element lands.
-        preview.OffsetX += half.X - preview.AbsoluteLeft;
-        preview.OffsetY += half.Y - preview.AbsoluteTop;
+        if (guides is not null) {
+            Guide(guides, bounds, side);
+        }
     }
 
-    /// <summary>The preview rectangle belonging to the window a group view is in.</summary>
-    UiElement? PreviewFor(DockGroupView view) {
+    /// <summary>Puts an overlay over a rectangle given in its own surface's coordinates.</summary>
+    /// <remarks>
+    ///     The overlay is a child of the host, or of a torn-off window's root, so the offset is
+    ///     measured from where layout put it — which is wherever a zero-sized absolutely positioned
+    ///     element lands.
+    /// </remarks>
+    static void Place(UiElement element, Rectangle bounds) {
+        element.SetStyle("width", Pixels(bounds.Width));
+        element.SetStyle("height", Pixels(bounds.Height));
+
+        element.OffsetX += bounds.X - element.AbsoluteLeft;
+        element.OffsetY += bounds.Y - element.AbsoluteTop;
+    }
+
+    /// <summary>The preview and the guides belonging to the window a group view is in.</summary>
+    (UiElement? Preview, UiElement? Guides) OverlaysFor(DockGroupView view) {
         var surface = Document.SurfaceOf(view);
 
         foreach (var entry in torn) {
             if (ReferenceEquals(entry.Window.Surface, surface)) {
-                return entry.Preview;
+                return (entry.Preview, entry.Guides);
             }
         }
 
-        return Preview;
+        return (Preview, Guides);
     }
 
     /// <summary>How far above and to the left of the cursor a torn-off window's corner lands.</summary>
