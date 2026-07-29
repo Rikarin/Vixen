@@ -38,12 +38,76 @@ Vixen.Rendering.Compositor.BlendPreset.AlphaBlend = 1 -> Vixen.Rendering.Composi
 Vixen.Rendering.Compositor.BlendPreset.BlendPreset() -> void
 Vixen.Rendering.Compositor.BlendPreset.Opaque = 0 -> Vixen.Rendering.Compositor.BlendPreset
 Vixen.Rendering.Compositor.BlendPreset.PremultipliedAlpha = 2 -> Vixen.Rendering.Compositor.BlendPreset
+Vixen.Rendering.Compositor.BufferReadbackAsset -> sealed record
+Vixen.Rendering.Compositor.BufferReadbackAsset : System.IEquatable<Vixen.Rendering.Compositor.BufferReadbackAsset>
+Vixen.Rendering.Compositor.BufferReadbackAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
+Vixen.Rendering.Compositor.BufferReadbackAsset.Buffer.get -> string
+Vixen.Rendering.Compositor.BufferReadbackAsset.Buffer.init -> string
+Vixen.Rendering.Compositor.BufferReadbackAsset.BufferReadbackAsset() -> void
+Vixen.Rendering.Compositor.BufferReadbackAsset.Enabled.get -> bool
+Vixen.Rendering.Compositor.BufferReadbackAsset.Enabled.init -> bool
+Vixen.Rendering.Compositor.BufferReadbackAsset.Latency.get -> int
+Vixen.Rendering.Compositor.BufferReadbackAsset.Latency.init -> int
+Vixen.Rendering.Compositor.BufferReadbackAsset.Name.get -> string
+Vixen.Rendering.Compositor.BufferReadbackAsset.Name.init -> string
+Vixen.Rendering.Compositor.BufferReadbackAsset.Offset.get -> long
+Vixen.Rendering.Compositor.BufferReadbackAsset.Offset.init -> long
+Vixen.Rendering.Compositor.BufferReadbackAsset.Size.get -> long
+Vixen.Rendering.Compositor.BufferReadbackAsset.Size.init -> long
+Vixen.Rendering.Compositor.BufferReadbackRenderer -> sealed class
+Vixen.Rendering.Compositor.BufferReadbackRenderer : System.IDisposable
+Vixen.Rendering.Compositor.BufferReadbackRenderer : Vixen.Rendering.Compositor.SceneRenderer
+Vixen.Rendering.Compositor.BufferReadbackRenderer.As<T>() -> System.ReadOnlySpan<T>
+Vixen.Rendering.Compositor.BufferReadbackRenderer.BufferReadbackRenderer() -> void
+Vixen.Rendering.Compositor.BufferReadbackRenderer.CopyCount.get -> int
+Vixen.Rendering.Compositor.BufferReadbackRenderer.Data.get -> System.ReadOnlySpan<byte>
+Vixen.Rendering.Compositor.BufferReadbackRenderer.Dispose() -> void
+Vixen.Rendering.Compositor.BufferReadbackRenderer.Fetch() -> bool
+Vixen.Rendering.Compositor.BufferReadbackRenderer.Latency.get -> int
+Vixen.Rendering.Compositor.BufferReadbackRenderer.Latency.set -> int
+Vixen.Rendering.Compositor.BufferReadbackRenderer.Length.get -> long
+Vixen.Rendering.Compositor.BufferReadbackRenderer.Offset.get -> long
+Vixen.Rendering.Compositor.BufferReadbackRenderer.Offset.set -> long
+Vixen.Rendering.Compositor.BufferReadbackRenderer.OnRead.get -> System.Action<Vixen.Rendering.Compositor.BufferReadbackRenderer>?
+Vixen.Rendering.Compositor.BufferReadbackRenderer.OnRead.init -> System.Action<Vixen.Rendering.Compositor.BufferReadbackRenderer>?
+Vixen.Rendering.Compositor.BufferReadbackRenderer.ReadCount.get -> int
+Vixen.Rendering.Compositor.BufferReadbackRenderer.Size.get -> long
+Vixen.Rendering.Compositor.BufferReadbackRenderer.Size.set -> long
+Vixen.Rendering.Compositor.BufferUploadAsset -> sealed record
+Vixen.Rendering.Compositor.BufferUploadAsset : System.IEquatable<Vixen.Rendering.Compositor.BufferUploadAsset>
+Vixen.Rendering.Compositor.BufferUploadAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
+Vixen.Rendering.Compositor.BufferUploadAsset.Buffer.get -> string
+Vixen.Rendering.Compositor.BufferUploadAsset.Buffer.init -> string
+Vixen.Rendering.Compositor.BufferUploadAsset.BufferUploadAsset() -> void
+Vixen.Rendering.Compositor.BufferUploadAsset.Enabled.get -> bool
+Vixen.Rendering.Compositor.BufferUploadAsset.Enabled.init -> bool
+Vixen.Rendering.Compositor.BufferUploadAsset.Name.get -> string
+Vixen.Rendering.Compositor.BufferUploadAsset.Name.init -> string
+Vixen.Rendering.Compositor.BufferUploadAsset.Offset.get -> long
+Vixen.Rendering.Compositor.BufferUploadAsset.Offset.init -> long
+Vixen.Rendering.Compositor.BufferUploadRenderer -> sealed class
+Vixen.Rendering.Compositor.BufferUploadRenderer : System.IDisposable
+Vixen.Rendering.Compositor.BufferUploadRenderer : Vixen.Rendering.Compositor.SceneRenderer
+Vixen.Rendering.Compositor.BufferUploadRenderer.BufferUploadRenderer() -> void
+Vixen.Rendering.Compositor.BufferUploadRenderer.Data.get -> System.ReadOnlySpan<byte>
+Vixen.Rendering.Compositor.BufferUploadRenderer.Dispose() -> void
+Vixen.Rendering.Compositor.BufferUploadRenderer.Length.get -> int
+Vixen.Rendering.Compositor.BufferUploadRenderer.Offset.get -> long
+Vixen.Rendering.Compositor.BufferUploadRenderer.Offset.set -> long
+Vixen.Rendering.Compositor.BufferUploadRenderer.OnUpload.get -> System.Action<Vixen.Rendering.Compositor.BufferUploadRenderer>?
+Vixen.Rendering.Compositor.BufferUploadRenderer.OnUpload.init -> System.Action<Vixen.Rendering.Compositor.BufferUploadRenderer>?
+Vixen.Rendering.Compositor.BufferUploadRenderer.Reserve(int bytes) -> System.Span<byte>
+Vixen.Rendering.Compositor.BufferUploadRenderer.Set(System.ReadOnlySpan<byte> bytes) -> void
+Vixen.Rendering.Compositor.BufferUploadRenderer.Set<T>(System.ReadOnlySpan<T> items) -> void
+Vixen.Rendering.Compositor.BufferUploadRenderer.Set<T>(in T item) -> void
+Vixen.Rendering.Compositor.BufferUploadRenderer.UploadCount.get -> int
 Vixen.Rendering.Compositor.CompositorBindingException -> sealed class
 Vixen.Rendering.Compositor.CompositorBindingException : System.Exception
 Vixen.Rendering.Compositor.CompositorBindingException.CompositorBindingException() -> void
 Vixen.Rendering.Compositor.CompositorBindingException.CompositorBindingException(string message) -> void
 Vixen.Rendering.Compositor.CompositorBindingException.CompositorBindingException(string message, System.Exception innerException) -> void
 Vixen.Rendering.Compositor.CompositorBindingException.CompositorBindingException(string node, string kind, string name) -> void
+Vixen.Rendering.Compositor.CompositorBindingException.CompositorBindingException(string node, string kind, string name, string reason) -> void
 Vixen.Rendering.Compositor.CompositorBindingException.Kind.get -> string
 Vixen.Rendering.Compositor.CompositorBindingException.Name.get -> string
 Vixen.Rendering.Compositor.CompositorBindingException.Node.get -> string
@@ -61,18 +125,21 @@ Vixen.Rendering.Compositor.CompositorBuilder.Modules.get -> Vixen.Rendering.Comp
 Vixen.Rendering.Compositor.CompositorBuilder.Modules.set -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
 Vixen.Rendering.Compositor.CompositorBuilder.Occluders.get -> Vixen.Rendering.HiZPyramid?
 Vixen.Rendering.Compositor.CompositorBuilder.Occluders.set -> Vixen.Rendering.HiZPyramid?
+Vixen.Rendering.Compositor.CompositorBuilder.Readbacks.get -> System.Collections.Generic.Dictionary<string, Vixen.Rendering.Compositor.BufferReadbackRenderer>
 Vixen.Rendering.Compositor.CompositorBuilder.Samplers.get -> Vixen.Rendering.SamplerCache?
 Vixen.Rendering.Compositor.CompositorBuilder.Samplers.set -> Vixen.Rendering.SamplerCache?
 Vixen.Rendering.Compositor.CompositorBuilder.Stages.get -> System.Collections.Generic.Dictionary<string, Vixen.Rendering.RenderStage>
+Vixen.Rendering.Compositor.CompositorBuilder.Uploads.get -> System.Collections.Generic.Dictionary<string, Vixen.Rendering.Compositor.BufferUploadRenderer>
 Vixen.Rendering.Compositor.CompositorBuilder.ViewBlock.get -> Vixen.Rendering.ViewConstants?
 Vixen.Rendering.Compositor.CompositorBuilder.Views.get -> System.Collections.Generic.Dictionary<string, Vixen.Rendering.RenderView>
 Vixen.Rendering.Compositor.CompositorBuilder.Visibility.get -> Vixen.Rendering.GpuVisibilityGroup?
 Vixen.Rendering.Compositor.CompositorBuilder.Visibility.set -> Vixen.Rendering.GpuVisibilityGroup?
 Vixen.Rendering.Compositor.CompositorFrame -> sealed class
-Vixen.Rendering.Compositor.CompositorFrame.Add(string name, Vixen.Graphics.RenderGraph.GraphBuffer buffer) -> void
+Vixen.Rendering.Compositor.CompositorFrame.Add(string name, Vixen.Graphics.RenderGraph.GraphBuffer buffer, in Vixen.Graphics.BufferDescription description) -> void
 Vixen.Rendering.Compositor.CompositorFrame.Add(string name, Vixen.Graphics.RenderGraph.GraphTexture texture, Vixen.Graphics.PixelFormat format) -> void
 Vixen.Rendering.Compositor.CompositorFrame.Buffer(string node, string name) -> Vixen.Graphics.RenderGraph.GraphBuffer
 Vixen.Rendering.Compositor.CompositorFrame.CompositorFrame() -> void
+Vixen.Rendering.Compositor.CompositorFrame.DescribeBuffer(string node, string name) -> Vixen.Graphics.BufferDescription
 Vixen.Rendering.Compositor.CompositorFrame.Device.get -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.Compositor.CompositorFrame.Device.init -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.Compositor.CompositorFrame.FormatOf(string node, string name) -> Vixen.Graphics.PixelFormat
@@ -1528,6 +1595,8 @@ Vixen.Rendering.RenderDrawContext -> sealed class
 Vixen.Rendering.RenderDrawContext.CommandList.get -> Vixen.Graphics.ICommandList
 Vixen.Rendering.RenderDrawContext.Device.get -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.RenderDrawContext.Device.init -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.RenderDrawContext.Effect.get -> Vixen.Shaders.Effect?
+Vixen.Rendering.RenderDrawContext.Effect.set -> Vixen.Shaders.Effect?
 Vixen.Rendering.RenderDrawContext.Effects.get -> Vixen.Shaders.EffectSystem
 Vixen.Rendering.RenderDrawContext.Output.get -> Vixen.Rendering.RenderOutput
 Vixen.Rendering.RenderDrawContext.Output.set -> Vixen.Rendering.RenderOutput
@@ -2016,6 +2085,8 @@ const Vixen.Shaders.Generated.TonemapKeys.SourceBinding = 1 -> uint
 const Vixen.Shaders.Generated.TonemapKeys.SourceSamplerBinding = 3 -> uint
 const Vixen.Shaders.Generated.TonemapKeys.SourceSamplerSet = 2 -> int
 const Vixen.Shaders.Generated.TonemapKeys.SourceSet = 2 -> int
+override Vixen.Rendering.Compositor.BufferReadbackRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
+override Vixen.Rendering.Compositor.BufferUploadRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Compositor.ComputeRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Compositor.DelegateSceneRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Compositor.DelegateSceneRenderer.Collect(Vixen.Rendering.Compositor.GraphicsCompositor compositor) -> void
@@ -2091,6 +2162,10 @@ readonly Vixen.Shaders.Generated.ForwardPlusPerViewConstants.Write(System.Span<b
 readonly Vixen.Shaders.Generated.ForwardPlusProbeVolumesElement.Write(System.Span<byte> buffer, int index) -> void
 readonly Vixen.Shaders.Generated.PlaceholderConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.TonemapConstants.Write(System.Span<byte> buffer) -> void
+required Vixen.Rendering.Compositor.BufferReadbackRenderer.Buffer.get -> string
+required Vixen.Rendering.Compositor.BufferReadbackRenderer.Buffer.init -> string
+required Vixen.Rendering.Compositor.BufferUploadRenderer.Buffer.get -> string
+required Vixen.Rendering.Compositor.BufferUploadRenderer.Buffer.init -> string
 required Vixen.Rendering.Compositor.CompositorFrame.Effects.get -> Vixen.Shaders.EffectSystem
 required Vixen.Rendering.Compositor.CompositorFrame.Effects.init -> Vixen.Shaders.EffectSystem
 required Vixen.Rendering.Compositor.CompositorFrame.Graph.get -> Vixen.Graphics.RenderGraph.RenderGraph

@@ -240,7 +240,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | `Vixen.Raven.Transpile` (SPIRV-Cross → ESSL/HLSL/MSL/WGSL) | ⬜ | — | ADR-012 says SPIRV-Cross owns these targets. **No SPIRV-Cross package in `Directory.Packages.props`** |
 | Cross-compilation test pass | ⬜ | — | Not started |
 | Nuke `CompileShaderLibrary`; SPDX enforcement in `CheckFormat` | ⬜ | — | SPDX is a real gap, not a closed item |
-| Numeric BRDF gate (GPU compute readback vs. C# port) | ⛔ | — | Needs a writable resource + readback |
+| Numeric BRDF gate (GPU compute readback vs. C# port) | ⬜ | — | Unblocked: **K2** landed the writable resource and the readback. What is owed is the gate itself |
 | Per-backend layout gate (reflection offsets vs. GPU readback) | ⛔ | — | Needs a device |
 | Negative-diagnostic fixture pairs | 🟡 | Raven/Vixen.Raven.Tests | Most ids have a trigger; few have the negative |
 | Stream interpolation control; per-module flat IR namespace | ⬜ | — | Recorded in doc 07 §Streams and §D |
@@ -271,7 +271,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | `Vixen.Rendering.PostFx` — TAA, FXAA, sharpen, AO, fog, outline, vignette, chromatic aberration, grain, bloom, tonemap | ✅ | Core/Vixen.Rendering.PostFx | `ISceneRendererFactory` makes a game's own effect a first-class node |
 | SMAA, MSAA resolve, full GTAO, SSR, DoF, motion blur | ⬜ | — | Each needs a shader that does not exist yet |
 | Grading LUT as an **asset** | ⬜ | — | Needs a `.cube` importer |
-| `AutoExposure.rvn` wiring | ⛔ | — | Two compute passes over a histogram + a surviving buffer — wants a **compute node** |
+| `AutoExposure.rvn` wiring | ⬜ | — | Unblocked: the compute node, the histogram's upload and the exposure's readback all exist (**K2**). What is owed is the chain |
 | Deferred pipeline — GBuffer, shading-model dispatch, forward routing, decals | ⬜ | — | Phase 10; cut-list #6 |
 | Volumetric fog, contact shadows, light shafts, SSS blur, upscaler + FSR1 | ⬜ | — | Phase 10 |
 | Mesh shaders / meshlet culling behind capability flags | ⬜ | — | Phase 10 |
@@ -550,7 +550,12 @@ K1  Compiled scene + prefab content
     ├──→ Networking: scene-placed baked index
     └──→ Samples/05-PlatformerGame                    (needs a shipped level)
 
-K2  Compute-node in the compositor + GPU buffer upload/readback
+K2  Compute-node in the compositor + GPU buffer upload/readback              ✅ BUILT
+    ComputeRenderer declares what a dispatch reads and writes and fills its own uniform
+    block; BufferUploadRenderer and BufferReadbackRenderer are the two copies at either
+    end of it, as nodes, so the edge that orders them is the graph's and not a host's.
+    Authored as !Compute, !Upload and !Readback. What is left is the five things that
+    were waiting for it — none of which is blocked any more.
     │
     ├──→ Vfx GPU dispatch → reaping → GPU sort → indirect draw → 2nd-view particles
     ├──→ AutoExposure.rvn wiring
@@ -582,7 +587,7 @@ since. The rest can run in parallel.
 | # | Track | Unblocks |
 |---|---|---|
 | W0-1 | **K1** — `SceneCompiler` + runtime scene/prefab asset | 7 downstream items (§3.1) |
-| W0-2 | **K2** — compute node + GPU buffer upload/readback | 5 downstream items |
+| ~~W0-2~~ | ~~**K2** — compute node + GPU buffer upload/readback~~ | Built. `ComputeRenderer` · `BufferUploadRenderer` · `BufferReadbackRenderer`, all three authorable. The 5 downstream items are startable |
 | W0-3 | **K3** — `Vixen.Platform.Windows/.Linux/.MacOS` | 5 downstream items |
 | W0-4 | **K4** — `Silk.NET.OpenGLES` + EGL | 3 downstream items |
 | W0-5 | `DescriptorBinding` sample type + comparison sampler (RHI) | WebGPU shadow maps → deferred/forward parity on the web |
@@ -724,17 +729,17 @@ it is deliberately distinct from "not started" in Part 1.
 | 50 | Raven | String interpolation; workgroup-shared memory | Language | — |
 | 51 | Raven | `Vixen.Raven.Transpile`; cross-compilation pass | Feature | — |
 | 52 | Raven | `CompileShaderLibrary` Nuke target; SPDX enforcement | Infra | — |
-| 53 | Raven | Numeric BRDF gate; per-backend layout gate; negative diagnostic fixtures | Coverage | **K2** / a device |
+| 53 | Raven | Numeric BRDF gate; per-backend layout gate; negative diagnostic fixtures | Coverage | A device (**K2** landed the readback) |
 | 54 | Raven | Stream interpolation control; per-module flat IR namespace | Feature | — |
 | 55 | `Vixen.Rendering` | Compacted draws | Perf | Bindless materials |
 | 56 | `Vixen.Rendering` | Transmission; bindless material textures; blend shapes | Feature | Pass-level scene colour |
 | 57 | `Vixen.Rendering` | Light probes (tetrahedral); per-object reflection probes; punctual shadow caching | Feature | Exact predicates / binding plan |
-| 58 | `Vixen.Rendering.PostFx` | SMAA, MSAA resolve, GTAO, SSR, DoF, motion blur, LUT asset, `AutoExposure` | Feature | **K2** (AutoExposure) |
+| 58 | `Vixen.Rendering.PostFx` | SMAA, MSAA resolve, GTAO, SSR, DoF, motion blur, LUT asset, `AutoExposure` | Feature | — (**K2** landed; `AutoExposure` is now a chain to write) |
 | 59 | `Vixen.Physics` | iOS slice; per-pair suppression; vehicles/ragdolls/soft bodies; double precision | Platform / feature | Static `libjoltc.a` |
 | 60 | `Vixen.Audio` | Measured HRTF sets; per-title certification work | Content | — |
 | 61 | `Vixen.Input` | Action-map editor + debug panel; sensors/pen/MIDI/HID | Feature | Platform contracts (devices) |
 | 62 | `Vixen.Navigation` | Placements from a compiled scene | Feature | **K1** |
-| 63 | `Vixen.Vfx` | GPU dispatch, reaping, GPU sort, indirect draw; extra renderers/updaters; second view; screen-space collision | Feature | **K2** |
+| 63 | `Vixen.Vfx` | GPU dispatch, reaping, GPU sort, indirect draw; extra renderers/updaters; second view; screen-space collision | Feature | — (**K2** landed; GPU sort still wants workgroup-shared memory, #50) |
 | 64 | `Vixen.Net` | `Relay` transport + fallback | Feature | Scope decision |
 | 65 | `Vixen.Net` | UDP congestion control, ack piggybacking, path MTU, DTLS | Feature | — |
 | 66 | `Vixen.Net` | Session bandwidth budgeting / priority shedding | Feature | — |
@@ -768,13 +773,13 @@ it is deliberately distinct from "not started" in Part 1.
 | Bucket | Count | Comment |
 |---|---|---|
 | Blocked on **K1** (scene format) | 9 | The single highest-leverage unblock |
-| Blocked on **K2** (compute/readback) | 5 | Closes Phase 7's exit criterion |
+| ~~Blocked on **K2** (compute/readback)~~ | ~~5~~ | Unblocked. The node and both copies are built; the five are now ordinary work, and finishing them closes Phase 7's exit criterion |
 | Blocked on **K3** (per-OS assemblies) | 5 | Closes three deferrals dating to Phase 1 |
 | Blocked on **K4** (`OpenGLES` + EGL) | 3 | Closes Phase 10's browser criterion |
 | Blocked on a **decision**, not code | 2 | Relay scope; D3D12 (already answered: post-1.0) |
 | Blocked on **hardware or an account** | 3 | iPhone provisioning; an Android device; the IHV matrix |
 | Genuinely independent | ~40 | Can be picked up in any order (§3.5) |
-| Closed since the first revision of this page | 8 | `CheckApi` · `LayoutFinished` · `NodeGraphView` · handle reservation · line wrapping · `VirtualizingPanel` · `scoped`/per-type stylesheets · the image draw command |
+| Closed since the first revision of this page | 9 | **K2** · `CheckApi` · `LayoutFinished` · `NodeGraphView` · handle reservation · line wrapping · `VirtualizingPanel` · `scoped`/per-type stylesheets · the image draw command |
 
 ---
 

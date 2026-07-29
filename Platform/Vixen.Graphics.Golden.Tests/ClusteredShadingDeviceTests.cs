@@ -71,6 +71,7 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         frame simply came back black.
 ///     </para>
 /// </remarks>
+[Collection("Vulkan")]
 public class ClusteredShadingDeviceTests {
     /// <summary>Where the quad sits, and how big it is.</summary>
     /// <remarks>

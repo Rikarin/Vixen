@@ -154,7 +154,8 @@ public sealed class GraphicsCompositor(RenderSystem system) {
         foreach (var (name, imported) in BufferImports) {
             frame.Add(
                 name,
-                graph.ImportBuffer(imported.Buffer, imported.Description, imported.EntryState, imported.ExitState)
+                graph.ImportBuffer(imported.Buffer, imported.Description, imported.EntryState, imported.ExitState),
+                imported.Description
             );
         }
 
@@ -174,7 +175,8 @@ public sealed class GraphicsCompositor(RenderSystem system) {
                 continue;
             }
 
-            frame.Add(declared.Name, graph.CreateBuffer(declared.Describe()));
+            var description = declared.Describe();
+            frame.Add(declared.Name, graph.CreateBuffer(description), description);
         }
 
         if (Game is { Enabled: true }) {

@@ -1057,6 +1057,54 @@ descriptor bound per draw — `ForwardLightingRenderFeature.Clustered` turns the
 off, and eight objects produce eight draws and nothing else. That is the point of the pipeline, and
 it is easy to claim and easy to get wrong, so it is asserted.
 
+## Bytes into a frame, answers out of it
+
+A compute node could say what it read. What nothing could say is where the values it read came from,
+or where its answer went. Both ends are shut for the same two reasons: a graph buffer has no handle
+until the graph compiles, so nothing outside a pass can name it; and a device-local buffer is not
+addressable by the host at all, so even a handle would not help. So a histogram had no way to start
+cleared, a table of coefficients had no way in, and the number a dispatch produced had no way home.
+
+`Compositor/BufferUploadRenderer` and `Compositor/BufferReadbackRenderer` are the two copies, as
+nodes. The upload stages its bytes through a host-upload ring — `UploadBuffer<byte>`, the same ring
+and the same argument as skinning's — and declares `Writes(target, CopyDestination)`; the readback
+declares `Reads(source, CopySource)` and copies into a host-readback ring of its own.
+
+**The declaration is the entire point, at both ends.** A copy recorded by hand runs where the host
+wrote it and is not ordered against anything: a dispatch may read the buffer before the upload has
+landed, and a readback may copy the buffer as it was before the dispatch — which is zeroes on a fresh
+allocation and last frame's contents on a recycled one. **Both of those are plausible answers**,
+which is why this was the shape of the last clustered-lighting bug and why neither could be a
+function the host calls around `Graph.Execute`.
+
+**A readback's pass has a side effect** and says so, because nothing in the frame reads what it
+writes; culling is otherwise right to remove it.
+
+**When the bytes are valid is `Latency`'s question, and there is no implicit wait anywhere.** Zero is
+the stall: the region holds the frame just submitted, so the caller submits, waits and calls `Fetch`
+— what a test wants and what a one-off query wants. At or above `FramesInFlight` the region belongs
+to a frame the host's loop has already waited on, so the build fetches it itself and nothing in the
+frame loop has to know a readback exists; the cost is an answer that many frames old, which for an
+exposure or a survivor count is invisible. In between is neither, and buys nothing the full depth
+does not — see `IGraphicsDevice.Read` for why an RHI that inserted a wait would be hiding a stall the
+caller cannot see.
+
+**A buffer that was not declared as a copy source or destination is refused, naming the node.** The
+mistake is a usage flag missing from a document and what it otherwise produces is a validation error
+on a debug driver and silence on a release one — the frame renders, the value never arrives, and
+nothing says why.
+
+Both are node kinds in a document — `!Upload` and `!Readback` — and `CompositorBuilder` hands the
+built ones back through `Uploads` and `Readbacks`, because what a file cannot say about an upload is
+the one thing that matters: this frame's bytes.
+
+`BufferTransferDeviceTests` in `Platform/Vixen.Graphics.Golden.Tests` is what says a byte moved. The
+recording backend has no memory behind a buffer — it validates a write and drops it, and answers a
+read with zeroes — so **a readback that always returned zeroes would agree with every structural test
+there is.** One fixture round-trips known bytes through a graph-owned transient; the other uploads a
+light list, dispatches `ClusterCulling.rvn` over it and reads the cluster lists back, with nothing
+hand-recorded between the three.
+
 ## Binding what a node declared
 
 Declaring a read was always only half of it. The declaration orders the producing pass first and puts

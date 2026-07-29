@@ -72,7 +72,7 @@ public readonly record struct ImportedBuffer(
 /// </remarks>
 public sealed class CompositorFrame {
     readonly Dictionary<string, Entry> resources = new(StringComparer.Ordinal);
-    readonly Dictionary<string, GraphBuffer> buffers = new(StringComparer.Ordinal);
+    readonly Dictionary<string, BufferEntry> buffers = new(StringComparer.Ordinal);
     RenderDrawContext? context;
 
     /// <summary>The graph this frame's passes are declared into.</summary>
@@ -121,16 +121,34 @@ public sealed class CompositorFrame {
     public bool Has(string name) => resources.ContainsKey(name);
 
     /// <summary>Adds a buffer under a name.</summary>
-    public void Add(string name, GraphBuffer buffer) {
+    /// <param name="name">What nodes refer to it by.</param>
+    /// <param name="buffer">The graph resource.</param>
+    /// <param name="description">
+    ///     What it was declared or imported as, which is the only place its size and usage survive.
+    /// </param>
+    /// <remarks>
+    ///     The description is carried rather than dropped because a node that <em>copies</em> a buffer
+    ///     needs both halves of it: how many bytes there are to move, and whether the buffer was
+    ///     declared as something a copy may touch at all. A <see cref="GraphBuffer" /> is an index into
+    ///     one build of the graph and says neither.
+    /// </remarks>
+    public void Add(string name, GraphBuffer buffer, in BufferDescription description) {
         ArgumentException.ThrowIfNullOrEmpty(name);
-        buffers[name] = buffer;
+        buffers[name] = new(buffer, description);
     }
 
     /// <summary>The buffer a node named, or a refusal naming both.</summary>
     /// <exception cref="CompositorBindingException">Nothing was declared or imported under that name.</exception>
     public GraphBuffer Buffer(string node, string name) =>
         buffers.TryGetValue(name, out var buffer)
-            ? buffer
+            ? buffer.Buffer
+            : throw new CompositorBindingException(node, "buffer", name);
+
+    /// <summary>What the buffer a node named was declared or imported as.</summary>
+    /// <exception cref="CompositorBindingException">Nothing was declared or imported under that name.</exception>
+    public BufferDescription DescribeBuffer(string node, string name) =>
+        buffers.TryGetValue(name, out var buffer)
+            ? buffer.Description
             : throw new CompositorBindingException(node, "buffer", name);
 
     /// <summary>Whether a name resolves to a buffer.</summary>
@@ -148,4 +166,6 @@ public sealed class CompositorFrame {
         context ??= new(commandList, Effects) { Device = Device };
 
     readonly record struct Entry(GraphTexture Texture, PixelFormat Format);
+
+    readonly record struct BufferEntry(GraphBuffer Buffer, BufferDescription Description);
 }

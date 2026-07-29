@@ -2768,7 +2768,9 @@ never been driven against a running window.
   and hands over a texture. Each of the rest needs a shader that does not exist yet rather than a pass
   over one that does. `AutoExposure.rvn` is also still unwired: it is two
   compute passes over a histogram and a buffer that survives the frame, so it wants the compute node
-  rather than the full-screen one.
+  rather than the full-screen one. That node exists now, and so do the two either side of it —
+  `BufferUploadRenderer` clears the histogram and `BufferReadbackRenderer` brings the exposure home —
+  so what is left is the chain rather than anything it was waiting for.
 - `Vixen.Graphics.Direct3D12` — **not built** (Q4: postponed past 1.0). Stub project only. The abstraction
   validator role passes to `Vixen.Graphics.OpenGL`, which is a stricter test — see ADR-001.
 - ✅ **`Vixen.Graphics.OpenGL`** — GL 4.5 core, GLES 3.0/3.2 and WebGL2 behind one translation layer.
