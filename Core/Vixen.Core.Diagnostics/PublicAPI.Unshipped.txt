@@ -60,6 +60,7 @@ Vixen.Core.Diagnostics.RingBufferSink : System.IDisposable
 Vixen.Core.Diagnostics.RingBufferSink.Capacity.get -> int
 Vixen.Core.Diagnostics.RingBufferSink.Clear() -> void
 Vixen.Core.Diagnostics.RingBufferSink.ClearCategoryLevels() -> void
+Vixen.Core.Diagnostics.RingBufferSink.CopyTail(System.Span<Vixen.Core.Diagnostics.LogRecord> destination) -> int
 Vixen.Core.Diagnostics.RingBufferSink.Count.get -> int
 Vixen.Core.Diagnostics.RingBufferSink.CreateLogger(string categoryName) -> Microsoft.Extensions.Logging.ILogger
 Vixen.Core.Diagnostics.RingBufferSink.Dispose() -> void

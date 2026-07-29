@@ -6,7 +6,7 @@ This is the level of testing every other kind is a proxy for. A command-stream a
 backend emitted the calls somebody intended; only a picture proves those calls draw what they were
 meant to.
 
-Four kinds of fixture, forty in all — the suite `docs/plan/05` § Testing asks for.
+Five kinds of fixture, forty-two in all — the suite `docs/plan/05` § Testing asks for.
 
 | Class | What it is about |
 |---|---|
@@ -14,6 +14,7 @@ Four kinds of fixture, forty in all — the suite `docs/plan/05` § Testing asks
 | `PipelineStateImageTests` | One **state bit** each — cull mode, topology, instancing, vertex formats, index offsets, depth comparisons and bias, stencil, blend factors and operations, write masks, viewport, scissor, multiple targets, load actions, sampler filters and address modes, and the two transfer paths |
 | `CompositorImageTests` | The **renderer** — the layer engine code actually uses |
 | `UiImageTests` | The user interface's GPU half |
+| `DebugDrawImageTests` | The debug geometry's — the screen projection, and whether the stroke font is letters |
 
 `PipelineStateImageTests` is the largest and the most repetitive, deliberately. Every bit it covers is
 one a backend can silently ignore: recording `BindPipeline` proves the call was made and proves

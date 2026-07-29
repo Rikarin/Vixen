@@ -1,0 +1,31 @@
+#nullable enable
+Vixen.Engine.Renderer.DebugDrawRenderer -> sealed class
+Vixen.Engine.Renderer.DebugDrawRenderer : System.IDisposable
+Vixen.Engine.Renderer.DebugDrawRenderer.DebugDrawRenderer(Vixen.Graphics.IGraphicsDevice device, Vixen.Rendering.LineShaders shaders, Vixen.Rendering.RenderOutput output, int worldCapacity = 65536, int screenCapacity = 65536) -> void
+Vixen.Engine.Renderer.DebugDrawRenderer.DepthTested.get -> bool
+Vixen.Engine.Renderer.DebugDrawRenderer.DepthTested.set -> bool
+Vixen.Engine.Renderer.DebugDrawRenderer.Dispose() -> void
+Vixen.Engine.Renderer.DebugDrawRenderer.Draws.get -> int
+Vixen.Engine.Renderer.DebugDrawRenderer.Dropped.get -> int
+Vixen.Engine.Renderer.DebugDrawRenderer.LabelCount.get -> int
+Vixen.Engine.Renderer.DebugDrawRenderer.Record(Vixen.Graphics.ICommandList commands, in Vixen.Core.Mathematics.Matrix4x4 viewProjection) -> void
+Vixen.Engine.Renderer.DebugDrawRenderer.RecordScreen(Vixen.Graphics.ICommandList commands) -> void
+Vixen.Engine.Renderer.DebugDrawRenderer.ScreenCount.get -> int
+Vixen.Engine.Renderer.DebugDrawRenderer.Upload(Vixen.Engine.Diagnostics.DebugDraw draw, in Vixen.Core.Mathematics.Matrix4x4 view, Vixen.Core.Mathematics.Vector2 viewport) -> void
+Vixen.Engine.Renderer.DebugDrawRenderer.WorldCount.get -> int
+Vixen.Engine.Renderer.DebugGeometry -> sealed class
+Vixen.Engine.Renderer.DebugGeometry.Build(Vixen.Engine.Diagnostics.DebugDraw draw, in Vixen.Engine.Renderer.DebugView view) -> void
+Vixen.Engine.Renderer.DebugGeometry.Clear() -> void
+Vixen.Engine.Renderer.DebugGeometry.DebugGeometry() -> void
+Vixen.Engine.Renderer.DebugGeometry.LabelCount.get -> int
+Vixen.Engine.Renderer.DebugGeometry.Screen.get -> System.ReadOnlySpan<Vixen.Rendering.LineVertex>
+Vixen.Engine.Renderer.DebugGeometry.World.get -> System.ReadOnlySpan<Vixen.Rendering.LineVertex>
+Vixen.Engine.Renderer.DebugView -> readonly struct
+Vixen.Engine.Renderer.DebugView : System.IEquatable<Vixen.Engine.Renderer.DebugView>
+Vixen.Engine.Renderer.DebugView.DebugView() -> void
+Vixen.Engine.Renderer.DebugView.DebugView(Vixen.Core.Mathematics.Vector3 Right, Vixen.Core.Mathematics.Vector3 Up) -> void
+Vixen.Engine.Renderer.DebugView.Right.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Renderer.DebugView.Right.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Renderer.DebugView.Up.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Renderer.DebugView.Up.init -> Vixen.Core.Mathematics.Vector3
+static Vixen.Engine.Renderer.DebugView.FromView(in Vixen.Core.Mathematics.Matrix4x4 view) -> Vixen.Engine.Renderer.DebugView

@@ -798,6 +798,17 @@ Vixen.Audio.Devices.NullAudioDevice.RenderedFrames.get -> long
 Vixen.Audio.Devices.NullAudioDevice.Start(Vixen.Audio.Devices.IAudioRenderSource source) -> void
 Vixen.Audio.Devices.NullAudioDevice.Stop() -> void
 Vixen.Audio.Devices.NullAudioDevice.Underruns.get -> long
+Vixen.Audio.Diagnostics.AudioOverlay -> sealed class
+Vixen.Audio.Diagnostics.AudioOverlay : Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay
+Vixen.Audio.Diagnostics.AudioOverlay.Anchor.get -> Vixen.Engine.Diagnostics.Overlays.OverlayAnchor
+Vixen.Audio.Diagnostics.AudioOverlay.Anchor.set -> Vixen.Engine.Diagnostics.Overlays.OverlayAnchor
+Vixen.Audio.Diagnostics.AudioOverlay.AudioOverlay(Vixen.Audio.AudioEngine engine) -> void
+Vixen.Audio.Diagnostics.AudioOverlay.Draw(Vixen.Engine.Diagnostics.Overlays.OverlaySurface surface, in Vixen.Core.GameTime time) -> void
+Vixen.Audio.Diagnostics.AudioOverlay.Enabled.get -> bool
+Vixen.Audio.Diagnostics.AudioOverlay.Enabled.set -> bool
+Vixen.Audio.Diagnostics.AudioOverlay.Name.get -> string
+Vixen.Audio.Diagnostics.AudioOverlay.Width.get -> float
+Vixen.Audio.Diagnostics.AudioOverlay.Width.set -> float
 Vixen.Audio.Diagnostics.AudioStatistics -> readonly struct
 Vixen.Audio.Diagnostics.AudioStatistics : System.IEquatable<Vixen.Audio.Diagnostics.AudioStatistics>
 Vixen.Audio.Diagnostics.AudioStatistics.ActiveVoices.get -> int

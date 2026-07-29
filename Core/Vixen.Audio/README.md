@@ -1009,6 +1009,25 @@ transform bin for bin rather than against hand-worked expectations, because the 
 spectrum that is subtly wrong — and a magnitude-only test would pass on a packing that has mangled
 every phase.
 
+## The overlay
+
+`AudioOverlay` is an `IDiagnosticOverlay`, so `docs/plan/13`'s audio panel — active voices, the
+master level, load, and the three counters that only ever mean something has gone wrong — is
+registered like any other:
+
+```csharp
+overlays.Add(new AudioOverlay(engine));
+```
+
+It lives here rather than in `Vixen.Engine` because the numbers do; the overlay interface is the seam
+that lets a subsystem report on itself without the diagnostics layer growing a reference to every
+subsystem there is. `AudioStatistics` is taken as one value rather than a property at a time, so a
+panel never shows a voice count from this block beside a load from the last one.
+
+**Load is drawn first among the meters** because everything else on the panel is a symptom of it
+being close to one: a mixer at 0.8 will start dropping out the first time the operating system
+schedules something else, and by the time the underrun counters move the player has already heard it.
+
 ## Still to come
 
 Nothing structural. What is left is content and platform work rather than engine work: measured HRTF

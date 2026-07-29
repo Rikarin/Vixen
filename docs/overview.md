@@ -91,8 +91,10 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Prefabs (capture + instantiate) | ✅ | Core/Vixen.Engine | |
 | Prefab **overrides** and nested prefabs | ⬜ | — | Risk R7; needs the serialised scene format |
 | Coroutines (`async Coroutine`, zero-alloc start) | ✅ | Core/Vixen.Engine | `WhenAny` owed; stopping a single launched coroutine refused by design |
-| `DebugDraw` accumulator | ✅ | Core/Vixen.Engine | |
-| `DebugDraw` **drawing** + doc 13 overlays | ⬜ | — | Was blocked on a renderer; the renderer now exists, so this is unblocked |
+| `DebugDraw` accumulator | ✅ | Core/Vixen.Engine | Lines, rays, arrows, boxes (AABB and oriented), spheres, circles, capsules, cones, frustums, crosses, axes, world labels, screen-space lines/rects/fills/text |
+| `DebugDraw` **drawing** | ✅ | Core/Vixen.Engine.Renderer | Two line draws — world (billboarded labels included) and screen. Golden-image verified |
+| Doc 13 overlays — frame stats, frame graph, log, console | ✅ | Core/Vixen.Engine | `IDiagnosticOverlay`, corner-stacked panels, `[ConsoleCommand]`. `AudioOverlay` in Core/Vixen.Audio; physics draws into the accumulator directly |
+| Doc 13 overlays — render mode, UI debug, streaming | ⬜ | — | Render mode needs shader debug views in the compositor; the other two need `Vixen.Ui` and `Vixen.Assets` to report, and neither may reference `Vixen.Engine` (doc 02) — so each wants a join assembly or a data seam of its own |
 | ImGui debug overlay | ✂️ | — | Cut in Phase 2 rather than built, and Phase 6's "delete it" step struck with it |
 
 ## 1.4 Graphics RHI and backends
@@ -703,7 +705,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 13 | `Vixen.Ecs` | World serialisation | Feature | **K1** |
 | 14 | `Vixen.Ecs` | Read/write inference generator; `VIXEN_ECS_EVENTS` | Feature | — |
 | 16 | `Vixen.Engine` | Depth-split transform hierarchy | Perf | Shared components |
-| 17 | `Vixen.Engine` | `DebugDraw` drawing + doc 13 overlays | Feature | — (renderer now exists) |
+| 17 | `Vixen.Engine` | Doc 13's render-mode, UI-debug and streaming overlays | Feature | Shader debug views; a reporting seam out of `Vixen.Ui` and `Vixen.Assets` |
 | 18 | `Vixen.Engine` | `WhenAny` in coroutines | Feature | — |
 | 19 | `Vixen.Graphics` | `DescriptorBinding` sample type / comparison sampler | API | — |
 | 20 | `Vixen.Graphics` | Placed resources (true aliasing) | Perf | Two backends cannot express it |

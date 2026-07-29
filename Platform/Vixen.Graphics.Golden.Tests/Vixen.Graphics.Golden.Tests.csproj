@@ -46,6 +46,14 @@
         <ProjectReference Include="..\..\Core\Vixen.Ui.Renderer\Vixen.Ui.Renderer.csproj" />
 
         <!--
+            The debug geometry's GPU half, for the same reason as the line above it. `DebugGeometry`
+            is checked without a device and cannot reach the two things a picture can: whether the
+            screen projection maps a pixel to the pixel it names, and whether the stroke font comes
+            out as letters. Both of those are silently wrong in every unit test that passes.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Engine.Renderer\Vixen.Engine.Renderer.csproj" />
+
+        <!--
             `Bitmap` and `PngCodec`, which used to live here. This suite wrote them first and
             `Vixen.Ui.Testing` needed the same two for its screenshots, so there were two hand-rolled
             PNG encoders in the tree.

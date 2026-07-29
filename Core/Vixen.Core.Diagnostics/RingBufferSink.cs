@@ -145,6 +145,27 @@ public sealed class RingBufferSink : ILoggerProvider {
         }
     }
 
+    /// <summary>Copies the newest records out, oldest of them first.</summary>
+    /// <param name="destination">Where they go. Its length is how many are wanted.</param>
+    /// <returns>How many were written, which is fewer if the ring holds fewer.</returns>
+    /// <remarks>
+    ///     What a log overlay wants and what <see cref="Snapshot" /> is wrong for: the ring holds a
+    ///     hundred thousand records by default and a tail is thirty, so snapshotting once a frame to
+    ///     read the end of it would allocate several megabytes a frame to show half a screen of text.
+    /// </remarks>
+    public int CopyTail(Span<LogRecord> destination) {
+        lock (gate) {
+            var take = Math.Min(destination.Length, records.Count);
+            var first = records.Count - take;
+
+            for (var index = 0; index < take; index++) {
+                destination[index] = records[first + index];
+            }
+
+            return take;
+        }
+    }
+
     /// <summary>Empties the ring. Does not reset <see cref="DroppedCount" />.</summary>
     public void Clear() {
         lock (gate) {

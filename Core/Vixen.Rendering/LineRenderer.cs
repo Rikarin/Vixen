@@ -31,10 +31,11 @@ public readonly record struct LineShaders(ShaderHandle Vertex, ShaderHandle Frag
 /// <summary>Draws world-space line segments: a grid, a gizmo, a debug ray, a collider's outline.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The renderer <c>DebugDraw</c> has been producing lines for and nothing has drawn.</b>
-///         It is deliberately not tied to it: what arrives here is a span of vertices in world space,
-///         so the editor's grid, a gizmo's arms and a physics engine's contact normals all go through
-///         one pipeline rather than three.
+///         <b>The pipeline <c>DebugDraw</c>'s geometry comes out of, and the editor's grid with it.</b>
+///         It is deliberately not tied to either: what arrives here is a span of vertices in world
+///         space, so the editor's grid, a gizmo's arms and a physics engine's contact normals all go
+///         through one pipeline rather than three. <c>Vixen.Engine.Renderer</c> is the piece that
+///         turns an accumulator into that span.
 ///     </para>
 ///     <para>
 ///         <b>No model matrix and no per-object anything.</b> A line is already where it is. That is
