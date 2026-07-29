@@ -270,9 +270,26 @@ sealed class EditorHost : IDisposable {
     void Pump() {
         foreach (var platformEvent in platform.PumpEvents()) {
             switch (platformEvent.Kind) {
+                // ⚠ Through the same request the close button goes through, and the difference is
+                // an afternoon's work. This used to stop the loop where it stood — no prompt, no
+                // save, and every unsaved document gone. That is not a rare path: ⌘Q is how a
+                // macOS application is quit, and SDL raises this rather than a window close for it;
+                // on every platform it is also what the window manager sends when the session ends.
+                //
+                // ⚠ And the platform's own flag is cleared, because backing out of the prompt has to
+                // leave the editor running. `DesktopLifecycle` latches `IsQuitRequested` — a host
+                // that left it set would be one where the *next* quit is already half-answered.
                 case PlatformEventKind.Quit:
-                    running = false;
-                    return;
+                    editor.RequestClose();
+
+                    if (!editor.IsClosing) {
+                        platform.Lifecycle.CancelQuit();
+                    }
+
+                    // ⚠ Not `return`. The rest of this pump is the frame's input — a click, a
+                    // keystroke, the resize that arrived with it — and dropping it was what made a
+                    // close request that arrived in the same batch as a quit never reach the editor.
+                    break;
 
                 case PlatformEventKind.WindowCloseRequested:
                     // ⚠ Asked first, and the answer decides whose close this is. A torn-off panel's

@@ -51,6 +51,28 @@ sealed partial class ComponentsView : Control {
     /// </remarks>
     readonly Dictionary<IComponentBridge, List<object>> working = [];
 
+    /// <summary>The order the foldouts are shown in, by component name.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A view order rather than a fact about the entity, and it has to be.</b> An
+    ///         archetype is a set — the ECS hands out dense component ids in first-touch order and a
+    ///         chunk has no notion of "third" — so there is nowhere on an entity to record that
+    ///         somebody dragged Light above Mesh Shape. What a person is arranging when they drag a
+    ///         foldout is <i>their inspector</i>, which is the same kind of thing as a panel layout,
+    ///         and it applies to every entity for the same reason a layout applies to every project.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Names, not bridges.</b> The list outlives any particular set of bridges — a
+    ///         plugin's component is in it after the plugin is unloaded and back again when it
+    ///         returns — and a name is what a preferences file can hold. Anything not named here
+    ///         sorts after everything that is, in the order the bridges were given.
+    ///     </para>
+    /// </remarks>
+    readonly List<string> order = [];
+
+    /// <summary>The foldout being dragged, or <see langword="null" />.</summary>
+    Expander? dragging;
+
     Entity entity;
 
     /// <inheritdoc />
@@ -93,8 +115,32 @@ sealed partial class ComponentsView : Control {
     /// <summary>Which entity is being shown, or <see cref="Entity.Null" /> for none.</summary>
     public Entity Entity => entity;
 
-    /// <summary>The foldouts, in the order the bridges were given.</summary>
+    /// <summary>The foldouts, in the order they are shown.</summary>
     public IReadOnlyList<Expander> Sections => [.. host.Children.OfType<Expander>()];
+
+    /// <summary>What order the foldouts are shown in, by component name.</summary>
+    /// <inheritdoc cref="order" select="remarks" />
+    public IReadOnlyList<string> Order {
+        get => order;
+
+        set {
+            ArgumentNullException.ThrowIfNull(value);
+
+            order.Clear();
+            order.AddRange(value);
+
+            Rebuild();
+        }
+    }
+
+    /// <summary>Raised after a drag has rearranged the foldouts.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Because a panel's factory runs again when it is reopened.</b> This control is built
+    ///     fresh every time the inspector is opened, so an arrangement it kept to itself would be
+    ///     forgotten by closing the tab — which is the same failure the outliner's filter and the
+    ///     content browser's view toggle both had. Whoever built it holds the answer.
+    /// </remarks>
+    public event Action<IReadOnlyList<string>>? Reordered;
 
     /// <summary>Shows an entity's components.</summary>
     /// <param name="target">The entity, or <see cref="Entity.Null" /> to show nothing.</param>
@@ -127,11 +173,24 @@ sealed partial class ComponentsView : Control {
             return;
         }
 
-        foreach (var bridge in bridges) {
-            if (bridge.Has(scene.World, entity)) {
-                Section(bridge);
-            }
+        foreach (var bridge in Shown()) {
+            Section(bridge);
         }
+    }
+
+    /// <summary>What the entity carries, in the order the user arranged.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A stable sort on the position in <see cref="order" />, with everything unnamed after
+    ///     everything named.</b> A component added since the last drag has no place in the list, and
+    ///     putting it first would make adding one silently rearrange the panel; putting it last, in
+    ///     the bridges' own order, is where a new thing goes.
+    /// </remarks>
+    IEnumerable<IComponentBridge> Shown() {
+        var carried = bridges.Where(bridge => bridge.Has(scene.World, entity)).ToList();
+
+        return carried
+            .OrderBy(bridge => order.IndexOf(bridge.Name) is var at && at >= 0 ? at : int.MaxValue)
+            .ToList();
     }
 
     void Section(IComponentBridge bridge) {
@@ -150,6 +209,12 @@ sealed partial class ComponentsView : Control {
         remove.TabIndex = -1;
         remove.AddClass("remove-component");
         remove.Clicked += _ => Remove(bridge);
+
+        // ⚠ On the header rather than on the whole foldout, so that dragging a slider inside a
+        // component is not also dragging the component. The header is the grab handle every
+        // rearrangeable list in this editor uses, which is also why it is the thing that looks
+        // pressable.
+        fold.Header.AddHandler<DragEvent>((_, args) => Rearrange(fold, args));
 
         if (ReflectedDescriptor.For(bridge.ComponentType) is not { } descriptor) {
             // ⚠ Named rather than skipped. A component with no description is a component whose
@@ -182,6 +247,96 @@ sealed partial class ComponentsView : Control {
             );
         }
     }
+
+    /// <summary>Moves a foldout to where it was dropped.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The dragged section comes from the drag's own start rather than from a hit test
+    ///         under the pointer.</b> A drag does not begin until the pointer has passed the slop
+    ///         threshold, which in a panel of twenty-six-pixel headers is most of the way to the next
+    ///         one — so asking what is under the pointer picks up the neighbour and drags the wrong
+    ///         component. It is the same reason <c>TreeView.Dragged</c> reads the event's source.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing is recorded on the undo stack.</b> Rearranging the panel does not change
+    ///         the entity — see <see cref="order" /> — and a Ctrl+Z that undid a drag of the
+    ///         inspector rather than the edit before it would be the worst kind of surprise.
+    ///     </para>
+    /// </remarks>
+    void Rearrange(Expander section, DragEvent args) {
+        switch (args.Stage) {
+            case DragStage.Started:
+                dragging = section;
+                section.AddClass("dragging");
+
+                break;
+
+            case DragStage.Completed when dragging is { } moved:
+                moved.RemoveClass("dragging");
+                dragging = null;
+
+                Drop(moved, args.Y);
+                break;
+
+            case DragStage.Cancelled:
+                dragging?.RemoveClass("dragging");
+                dragging = null;
+
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    /// <summary>Puts a section where a drop at a height means, and reports the new order.</summary>
+    void Drop(Expander moved, float y) {
+        var sections = Sections;
+        var from = -1;
+        var to = sections.Count - 1;
+
+        for (var index = 0; index < sections.Count; index++) {
+            var bounds = sections[index].Bounds;
+
+            if (ReferenceEquals(sections[index], moved)) {
+                from = index;
+            }
+
+            // The first section whose middle is below the pointer is the one it lands above.
+            if (y < bounds.Y + (bounds.Height * 0.5f)) {
+                to = Math.Min(to, index);
+            }
+        }
+
+        if (from < 0 || from == to) {
+            return;
+        }
+
+        // ⚠ Rebuilt from what is on screen rather than edited in place, because `order` also holds
+        // the names of components this entity does not carry — a list this reordered by index would
+        // interleave the two and shuffle everything the panel is not showing.
+        var names = sections.Select(Named).Where(name => name is not null).Select(name => name!).ToList();
+        var name = Named(moved);
+
+        if (name is null) {
+            return;
+        }
+
+        names.RemoveAt(from);
+        names.Insert(Math.Clamp(to, 0, names.Count), name);
+
+        // Whatever the panel is not showing keeps its place behind what it is.
+        var updated = names.Concat(order.Where(existing => !names.Contains(existing, StringComparer.Ordinal))).ToList();
+
+        order.Clear();
+        order.AddRange(updated);
+
+        Rebuild();
+        Reordered?.Invoke(updated);
+    }
+
+    /// <summary>Which component a foldout is showing.</summary>
+    static string? Named(Expander section) => section.Label;
 
     /// <summary>Writes the edited box back to the entity as one undo step.</summary>
     void Commit(IComponentBridge bridge, InspectorRow row) {

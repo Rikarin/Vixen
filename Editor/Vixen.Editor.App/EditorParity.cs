@@ -1131,27 +1131,26 @@ sealed partial class EditorApplication {
     ///     the only set on the bar that is genuinely exclusive — space, snap and grid are three
     ///     independent toggles and drawing them boxed together would claim otherwise.
     /// </remarks>
+    /// <summary>The window's own strip: what is about the application rather than about a pane.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The gizmo controls are deliberately <i>not</i> here, and they used to be.</b> This
+    ///     bar carried Translate/Rotate/Scale, the space, pivot and snap toggles and a Gizmo dropdown
+    ///     — every one of which is also on the strip floating over the scene pane, six inches below
+    ///     and pointing at the same commands. Two copies of one control is not merely redundant: they
+    ///     are two places to look for the state, and the one that is not beside the viewport is the
+    ///     one that is read wrong, because a four-pane layout has four gizmo modes and a window has
+    ///     one bar. <c>ViewportChrome</c> shows the <i>focused</i> pane's, which is the only strip
+    ///     that can be telling the truth.
+    ///
+    ///     What is left is what belongs to the window: the palette, the two verbs that write to disk,
+    ///     the transport, and the layout.
+    /// </remarks>
     void ParityToolbar() {
         Shell.Toolbar.Show(
             new ToolbarButton("view.palette"),
             new ToolbarSeparator(),
             new ToolbarButton("file.save"),
             new ToolbarButton("assets.build"),
-            new ToolbarSeparator(),
-            new ToolbarGroup("scene.translate", "scene.rotate", "scene.scale"),
-            new ToolbarButton("scene.toggle-space"),
-            new ToolbarButton("scene.toggle-pivot"),
-            new ToolbarButton("scene.toggle-snap"),
-            new ToolbarDropdown(
-                new StringId("editor.toolbar.gizmo", "Gizmo"),
-                "settings",
-                "scene.toggle-space",
-                "scene.toggle-pivot",
-                "scene.toggle-snap",
-                null,
-                "scene.toggle-grid",
-                "scene.toggle-projection"
-            ),
             new ToolbarSeparator(),
 
             // ⚠ Boxed, and for a different reason from the gizmo modes above. Those are one *choice*

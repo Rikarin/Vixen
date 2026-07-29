@@ -78,9 +78,9 @@ public sealed class SceneMeshes {
     /// <summary>The colour of a selected one.</summary>
     /// <remarks>
     ///     <see cref="SceneLines.SelectedColour" />'s, so that a selected cube and the marker cross
-    ///     inside it are the same colour rather than two different oranges.
+    ///     inside it are the same colour rather than two different blues.
     /// </remarks>
-    public Color4 SelectedColour { get; set; } = new(1f, 0.62f, 0.15f, 1f);
+    public Color4 SelectedColour { get; set; } = SelectionBlue;
 
     /// <summary>How many divisions a curved shape is built with.</summary>
     /// <remarks>
@@ -91,7 +91,22 @@ public sealed class SceneMeshes {
     public int Segments { get; set; } = 24;
 
     /// <summary>The colour a selection's outline is drawn in.</summary>
-    public Color4 OutlineColour { get; set; } = new(1f, 0.72f, 0.25f, 1f);
+    /// <remarks>
+    ///     A step brighter than <see cref="SelectedColour" /> so the rim reads against the tinted
+    ///     surface it surrounds, and the same hue so the two are plainly one mark.
+    /// </remarks>
+    public Color4 OutlineColour { get; set; } = new(0.44f, 0.68f, 1f, 1f);
+
+    /// <summary>What "selected" is, in one place for the three things that draw it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Blue, and it was orange.</b> Selection is blue in every tool the editor's users
+    ///     arrive from and — the reason that convention exists — it is the one hue that cannot be
+    ///     confused with the scene: orange is what a warning gizmo, a baked-lighting overlay and a
+    ///     great many authored materials already are, so an orange rim is a rim you have to look at
+    ///     twice to know is yours. The accent the interface is drawn in is the same blue, which makes
+    ///     a selected row in the outliner and the outline in the viewport read as one fact.
+    /// </remarks>
+    internal static Color4 SelectionBlue { get; } = new(0.25f, 0.55f, 0.95f, 1f);
 
     /// <summary>How wide that outline is, in render pixels.</summary>
     public float OutlineWidth { get; set; } = 2.5f;

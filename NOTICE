@@ -43,6 +43,15 @@ Components currently in use:
     comes from the system. Recorded because a build that bundles libSDL2 carries
     the obligation, and the place to notice that is before the bundling happens.
 
+  Open Sans
+    OFL-1.1 — https://github.com/googlefonts/opensans
+    Vendored, and it is the one binary asset the tree carries: the editor embeds
+    OpenSans-Regular.ttf and OpenSans-SemiBold.ttf from
+    Editor/Vixen.Editor.App/Fonts/, where OFL.txt is the licence as it ships. An
+    interface whose text is laid out by whatever face the operating system
+    happened to have lays out differently on every machine it runs on, which is
+    why this is not left to a system lookup — see `Vixen.Editor.App.Fonts`.
+
   wgpu-native
     MIT OR Apache-2.0 — https://github.com/gfx-rs/wgpu-native
     Not vendored: `nuke RestoreNativeDeps` fetches the pinned, checksummed release

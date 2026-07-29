@@ -167,6 +167,14 @@ public sealed class ToolbarPresenter {
         foreach (var (button, command) in buttons) {
             button.Disabled = !commands.CanExecute(command);
 
+            // ⚠ Re-read, for the handful of commands whose name is their state — see
+            // `EditorCommand.Caption`. A label written once at build time is right for every other
+            // button on the strip and wrong for exactly these, and a strip rebuilt to change one
+            // word would throw away the popovers with it.
+            if (command.Caption is not null) {
+                button.Label = command.CurrentTitle.Text;
+            }
+
             if (command.Checked is null) {
                 continue;
             }
@@ -219,7 +227,7 @@ public sealed class ToolbarPresenter {
     }
 
     ButtonBase Button(UiElement into, EditorCommand command) {
-        var label = command.Title.Text;
+        var label = command.CurrentTitle.Text;
         var chord = keys.ChordFor(command.Id);
         var description = chord.IsBound ? $"{label} ({chord.Describe()})" : label;
 

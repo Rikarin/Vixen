@@ -178,4 +178,40 @@ public sealed class EditorPreferences {
     [Tooltip("How many entries Open Recent and the startup browser keep.")]
     [Range(1, 40)]
     public int RecentProjects { get; set; } = 12;
+
+    /// <summary>Whether the Project panel opens as a grid of tiles rather than as a tree.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Deliberately not <c>[Inspector]</c>, and it is the only member here that is
+    ///         not.</b> The button in the browser's own filter bar is the way this is changed, and a
+    ///         settings row over the same state would be the two-writers mistake doc 20 names — with
+    ///         the added indignity that the row and the button are in two different panels, so they
+    ///         can be looked at disagreeing.
+    ///     </para>
+    ///     <para>
+    ///         It is here rather than in the layout file because it is a preference and not an
+    ///         arrangement: a user who works in tiles wants tiles in every project, and the layout is
+    ///         per-window. It persisted nowhere at all until now, which meant the toggle was reset by
+    ///         every restart <i>and</i> by closing the panel — a panel's factory runs again on reopen,
+    ///         and the button was built unchecked each time.
+    ///     </para>
+    /// </remarks>
+    public bool ProjectGridView { get; set; }
+
+    /// <summary>What order the inspector's component foldouts are shown in, by component name.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A preference and not a fact about any entity, which is why it is here.</b> An
+    ///         archetype is a set — the ECS has no notion of a component being third — so there is
+    ///         nowhere in a scene file to record that somebody dragged Light above Mesh Shape.
+    ///         <c>ComponentsView.Order</c> says the rest.
+    ///     </para>
+    ///     <para>
+    ///         Not <c>[Inspector]</c>, for <see cref="ProjectGridView" />'s reason: the drag in the
+    ///         panel is how it is changed, and a settings row over the same list would be a second
+    ///         writer that can be looked at disagreeing. A name in here that no component answers to
+    ///         is harmless and is kept — a plugin that is not loaded today may be tomorrow.
+    ///     </para>
+    /// </remarks>
+    public List<string> ComponentOrder { get; set; } = [];
 }

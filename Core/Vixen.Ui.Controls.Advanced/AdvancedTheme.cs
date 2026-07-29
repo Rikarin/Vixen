@@ -211,6 +211,10 @@ public static class AdvancedTheme {
 
             --row-height: 22px;
             --indent: 14px;
+
+            /* What `TreeRow` draws its indent guides in. A token rather than a constant so a
+               theme can turn the lines up, down or off without the control knowing. */
+            --tree-guide-color: rgba(128, 128, 140, 0.30);
         }
 
         /* ⚠ `flex-basis: 0px` as well as the grow, and it is load-bearing. Without it the viewport
@@ -240,7 +244,19 @@ public static class AdvancedTheme {
 
         tree-indent { flex-shrink: 0; }
         tree-row icon { width: 10px; height: 10px; flex-shrink: 0; color: var(--text-muted); }
-        tree-row.leaf icon { display: none; }
+
+        /* ⚠ The chevron keeps its box on a leaf and loses only its glyph — see `TreeRow.Chevron`,
+           which says why. The rule that used to be here was `tree-row.leaf icon { display: none }`,
+           which took the chevron out of the flow (so leaves sat a chevron's width to the left of
+           their siblings) *and* matched every other icon in the row, including the ones a consumer
+           had put in its own columns. Both were the same selector being too broad. */
+        .tree-chevron { flex-shrink: 0; }
+
+        /* The row's own glyph. Larger than the chevron because it is a picture rather than a
+           direction, and it keeps its column when a node has none so that the text of a tree with
+           mixed rows has one left edge. */
+        .tree-glyph { width: 13px; height: 13px; flex-shrink: 0; color: var(--text-muted); }
+
         tree-label { flex-grow: 1; }
 
         .tree-editor { flex-grow: 1; padding: 0px 2px; border-radius: 3px; }

@@ -57,14 +57,20 @@ public sealed class SceneEntity {
 
     /// <summary>What it is called.</summary>
     /// <remarks>
-    ///     Written through the document rather than onto a field, so the hierarchy's inline editor
-    ///     and this box produce the same undo entry — see <c>RenameEntityCommand</c>.
+    ///     ⚠ <b><c>SetName</c> and not <c>Rename</c>, because this setter is already inside an undo
+    ///     entry.</b> The inspector wraps every write in a <c>SetMembersCommand</c>; a setter that
+    ///     recorded a <c>RenameEntityCommand</c> as well put two entries on the stack for one edit —
+    ///     and, worse, pushed the second from inside the first. Undoing then ran this setter again,
+    ///     which asked the stack to execute during an undo, which the stack refuses: the entry came
+    ///     off the history and the name did not move. "Ctrl+Z removes the step and the value stays"
+    ///     is that, exactly. The outliner's inline editor still goes through <c>Rename</c> and is
+    ///     still one step.
     /// </remarks>
     [Inspector]
     [Tooltip("What this entity is called. The editor keeps names; the runtime does not.")]
     public string Name {
         get => document.NameOf(Entity);
-        set => document.Rename(Entity, string.IsNullOrWhiteSpace(value) ? "Entity" : value);
+        set => document.SetName(Entity, string.IsNullOrWhiteSpace(value) ? "Entity" : value);
     }
 
     /// <summary>Where it is, in world space.</summary>
