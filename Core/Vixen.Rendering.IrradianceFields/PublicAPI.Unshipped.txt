@@ -53,6 +53,7 @@ Vixen.Rendering.IrradianceFields.IrradianceField.FinestProbeSpacing.get -> Vixen
 Vixen.Rendering.IrradianceFields.IrradianceField.GetProbe(Vixen.Rendering.IrradianceFields.IrradianceBrick brick, int x, int y, int z) -> Vixen.Rendering.IrradianceFields.IrradianceProbe
 Vixen.Rendering.IrradianceFields.IrradianceField.Indirection.get -> Vixen.Rendering.IrradianceFields.IrradianceIndirection
 Vixen.Rendering.IrradianceFields.IrradianceField.Irradiance(Vixen.Core.Mathematics.Vector3 world, Vixen.Core.Mathematics.Vector3 normal) -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.IrradianceFields.IrradianceField.Irradiance(Vixen.Core.Mathematics.Vector3 world, Vixen.Core.Mathematics.Vector3 normal, Vixen.Core.Mathematics.Vector3 view) -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.IrradianceFields.IrradianceField.IrradianceField(Vixen.Core.Mathematics.BoundingBox bounds, Vixen.Core.Mathematics.Int3 cells, Vixen.Rendering.IrradianceFields.IrradianceBrickPool? pool = null) -> void
 Vixen.Rendering.IrradianceFields.IrradianceField.NormalBias.get -> float
 Vixen.Rendering.IrradianceFields.IrradianceField.NormalBias.set -> float
@@ -65,8 +66,11 @@ Vixen.Rendering.IrradianceFields.IrradianceField.SetProbe(Vixen.Rendering.Irradi
 Vixen.Rendering.IrradianceFields.IrradianceField.Split(Vixen.Core.Mathematics.Int3 cell) -> int
 Vixen.Rendering.IrradianceFields.IrradianceField.SyncBorders() -> void
 Vixen.Rendering.IrradianceFields.IrradianceField.TryAllocate(Vixen.Core.Mathematics.Int3 cell, int size, out Vixen.Rendering.IrradianceFields.IrradianceBrick brick) -> bool
+Vixen.Rendering.IrradianceFields.IrradianceField.TrySample(Vixen.Core.Mathematics.Vector3 world, Vixen.Core.Mathematics.Vector3 normal, Vixen.Core.Mathematics.Vector3 view, out Vixen.Rendering.IrradianceFields.IrradianceProbe probe) -> bool
 Vixen.Rendering.IrradianceFields.IrradianceField.TrySample(Vixen.Core.Mathematics.Vector3 world, Vixen.Core.Mathematics.Vector3 normal, out Vixen.Rendering.IrradianceFields.IrradianceProbe probe) -> bool
 Vixen.Rendering.IrradianceFields.IrradianceField.TrySample(Vixen.Core.Mathematics.Vector3 world, out Vixen.Rendering.IrradianceFields.IrradianceProbe probe) -> bool
+Vixen.Rendering.IrradianceFields.IrradianceField.ViewBias.get -> float
+Vixen.Rendering.IrradianceFields.IrradianceField.ViewBias.set -> float
 Vixen.Rendering.IrradianceFields.IrradianceFillSettings -> readonly struct
 Vixen.Rendering.IrradianceFields.IrradianceFillSettings : System.IEquatable<Vixen.Rendering.IrradianceFields.IrradianceFillSettings>
 Vixen.Rendering.IrradianceFields.IrradianceFillSettings.Hysteresis.get -> float

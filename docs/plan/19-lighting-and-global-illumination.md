@@ -464,6 +464,31 @@ pass path, only a cross-check of fillers it happened to name. **A list that has 
 list is a list that drifts**, and an assertion that is missing rather than failing is invisible for as
 long as it exists.
 
+**The view bias, which completes § G3's four.** Validity, dilation and the normal bias were in; this is
+the fourth. `IrradianceField.ViewBias` moves a shading lookup toward the camera as well as along the
+normal, in the same probe spacings, and the two offsets are summed into one fetch. The justification is
+not "a bit more bias": **the space between a visible surface and the eye looking at it is empty by
+construction**, since something opaque in it would be what got shaded instead — so it is a direction
+that is always safe to step in, which the normal cannot promise. And it covers what the normal cannot:
+seen edge-on, a normal is nearly perpendicular to the view ray, so a step along it barely leaves the
+surface, and that is the geometry where a floor's lookup slides under the wall beside it.
+
+`IIrradianceSource.Sample` therefore takes a view direction, required rather than optional — a consumer
+with no camera has to answer that deliberately, because a zero nobody chose is a leak mitigation
+quietly doing half its job. `ForwardPlus` already had the vector. `IndirectDiffuse` derives it by
+reconstructing the same pixel at the near plane, rather than binding a camera position beside the
+inverse view-projection it already has: two facts about one camera are two things a caller can set half
+of, and the half that goes missing does not fail.
+
+⚠ **That derivation found a defect in two shaders, one of them outside this track.** Depth is reversed
+— near is one, far is zero, a depth attachment clears to zero — and both `IndirectDiffuse` and
+`DistanceFieldAo` tested for "nothing was drawn here" with `deviceDepth >= 1`. That is the near plane.
+The branch fired on the surfaces closest to the camera and never on the sky, which then got a field
+lookup, or a march, from a far-plane position and came back lit or shadowed. `Fog.rvn` next door has
+always had it right, so the convention was never in doubt — only this reading of it. Nothing caught it
+because every device test of either pass clears its stand-in depth to a half, where both spellings
+behave identically; each now has a frame at zero, and each of those frames fails on the old spelling.
+
 ### L3 — Screen probe gather *(3.0 EM)*
 
 The Lumen final gather. The largest quality jump and the largest risk.

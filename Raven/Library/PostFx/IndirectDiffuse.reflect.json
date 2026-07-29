@@ -22,7 +22,7 @@
                 "IsStruct": true
               },
               "Offset": 0,
-              "Size": 80,
+              "Size": 96,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": ""
@@ -122,9 +122,25 @@
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": ""
+            },
+            {
+              "Name": "IrradianceFieldProbes.irradianceField.viewBias",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 80,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
             }
           ],
-          "Size": 80,
+          "Size": 96,
           "IsWritable": false
         },
         {
@@ -402,6 +418,24 @@
       "Set": 0,
       "Binding": 0,
       "Offset": 76,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "IrradianceFieldProbes.irradianceField.viewBias",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 0,
+      "Offset": 80,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,

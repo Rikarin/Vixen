@@ -165,6 +165,23 @@ It lives on the field rather than on a caller because it is a constant the shade
 does nothing for a wall thinner than a probe spacing: it moves along the *surface's* normal, and a
 floor's normal is not the direction a thin wall is thin in.
 
+### And the view bias
+
+`ViewBias` moves the lookup toward the camera as well, by the same measure. **The space between a
+visible surface and the eye looking at it is empty by construction** — something opaque in it would be
+what got shaded instead — so it is a direction that is always safe to step in, which is not something
+the normal can promise.
+
+It exists because the normal cannot cover the grazing case. Seen edge-on, a surface's normal is nearly
+perpendicular to the view ray, so a step along it barely leaves the surface it is trying to leave —
+and that is exactly the geometry where a floor's lookup slides under the wall it runs into. Two
+numbers rather than one because they answer different geometry: a scene that leaks at grazing angles
+and not head-on is telling you which one to raise.
+
+The two offsets are **summed** and the lookup is fetched once, which is what the shader does. A caller
+with no camera passes no view direction and gets the normal term alone — a bake has no camera, and a
+bias toward one that is not there would push the lookup wherever zero happens to point.
+
 ## The filler here is the reference, and the shipping one is checked against it
 
 `TracedIrradianceFiller` is doc 19 § L2's filler A written where it can be checked: sixty-four
@@ -282,8 +299,6 @@ gets blamed on the temporal filter.
   frame, which is what this does too and is not an oversight in either — a brick the budget did not
   refill still has neighbours that were, and a border is a copy of a probe that may have just changed.
   Restricting it to the dirty bricks and their neighbours is real work nobody has done.
-- **View bias.** Dilation and the normal bias are here; the offset along the view ray, which is what
-  helps at grazing angles, is not.
 - **`Deferred`.** `ForwardPlus` composes the field into its ambient term and `Deferred` has the same
   term and has not been given the slot.
 

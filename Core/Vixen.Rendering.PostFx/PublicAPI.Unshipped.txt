@@ -355,6 +355,7 @@ Vixen.Shaders.Generated.IndirectDiffusePerFrameConstants.IrradianceFieldProbesIr
 Vixen.Shaders.Generated.IndirectDiffusePerFrameConstants.IrradianceFieldProbesIrradianceFieldMinimum -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.IndirectDiffusePerFrameConstants.IrradianceFieldProbesIrradianceFieldNormalBias -> float
 Vixen.Shaders.Generated.IndirectDiffusePerFrameConstants.IrradianceFieldProbesIrradianceFieldResolution -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.IndirectDiffusePerFrameConstants.IrradianceFieldProbesIrradianceFieldViewBias -> float
 Vixen.Shaders.Generated.IndirectDiffusePerMaterialConstants -> struct
 Vixen.Shaders.Generated.IndirectDiffusePerMaterialConstants.IndirectDiffusePerMaterialConstants() -> void
 Vixen.Shaders.Generated.IndirectDiffusePerMaterialConstants.Intensity -> float
@@ -446,7 +447,7 @@ const Vixen.Shaders.Generated.FxaaKeys.SourceSamplerSet = 2 -> int
 const Vixen.Shaders.Generated.FxaaKeys.SourceSet = 2 -> int
 const Vixen.Shaders.Generated.IndirectDiffuseKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.IndirectDiffuseKeys.ConstantBufferSet = 0 -> int
-const Vixen.Shaders.Generated.IndirectDiffuseKeys.ConstantBufferSize = 80 -> int
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.ConstantBufferSize = 96 -> int
 const Vixen.Shaders.Generated.IndirectDiffuseKeys.DepthBufferBinding = 1 -> uint
 const Vixen.Shaders.Generated.IndirectDiffuseKeys.DepthBufferSet = 2 -> int
 const Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceIndirectionBinding = 1 -> uint
@@ -467,14 +468,14 @@ const Vixen.Shaders.Generated.IndirectDiffuseKeys.NormalBufferBinding = 2 -> uin
 const Vixen.Shaders.Generated.IndirectDiffuseKeys.NormalBufferSet = 2 -> int
 const Vixen.Shaders.Generated.IndirectDiffuseKeys.PerFrameBlockBinding = 0 -> uint
 const Vixen.Shaders.Generated.IndirectDiffuseKeys.PerFrameBlockSet = 0 -> int
-const Vixen.Shaders.Generated.IndirectDiffuseKeys.PerFrameBlockSize = 80 -> int
+const Vixen.Shaders.Generated.IndirectDiffuseKeys.PerFrameBlockSize = 96 -> int
 const Vixen.Shaders.Generated.IndirectDiffuseKeys.PerMaterialBlockBinding = 0 -> uint
 const Vixen.Shaders.Generated.IndirectDiffuseKeys.PerMaterialBlockSet = 2 -> int
 const Vixen.Shaders.Generated.IndirectDiffuseKeys.PerMaterialBlockSize = 80 -> int
 const Vixen.Shaders.Generated.IndirectDiffuseKeys.PointSamplerBinding = 3 -> uint
 const Vixen.Shaders.Generated.IndirectDiffuseKeys.PointSamplerSet = 2 -> int
 const Vixen.Shaders.Generated.IndirectDiffuseKeys.ShaderName = "IndirectDiffuse" -> string
-const Vixen.Shaders.Generated.IndirectDiffusePerFrameConstants.Size = 80 -> int
+const Vixen.Shaders.Generated.IndirectDiffusePerFrameConstants.Size = 96 -> int
 const Vixen.Shaders.Generated.IndirectDiffusePerMaterialConstants.Size = 80 -> int
 const Vixen.Shaders.Generated.OutlineConstants.Size = 64 -> int
 const Vixen.Shaders.Generated.OutlineKeys.ConstantBufferBinding = 0 -> uint
@@ -658,6 +659,7 @@ static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbe
 static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceFieldMinimum -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceFieldNormalBias -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceFieldResolution -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceFieldViewBias -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceIndirection -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceL0 -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.IndirectDiffuseKeys.IrradianceFieldProbesIrradianceL1B -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>

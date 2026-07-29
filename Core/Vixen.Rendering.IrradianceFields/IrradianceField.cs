@@ -123,6 +123,36 @@ public sealed class IrradianceField {
     /// </remarks>
     public float NormalBias { get; set; } = 0.25f;
 
+    /// <summary>How far toward the camera a shading lookup moves as well, in probe spacings.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The half the normal cannot do.</b> At a grazing angle the surface normal is nearly
+    ///         perpendicular to the view ray, so a step along it barely leaves the surface it is trying
+    ///         to leave — and a grazing angle is exactly where a floor's lookup slides under the wall
+    ///         beside it. Stepping toward the camera does leave, because <b>the space between a visible
+    ///         surface and the eye looking at it is empty by construction</b>: something opaque in it
+    ///         would be what was shaded instead.
+    ///     </para>
+    ///     <para>
+    ///         That argument is the whole justification, and it is why this is not simply a larger
+    ///         normal bias. It is also why the two are separate numbers rather than one: they answer
+    ///         different geometry, and a scene that leaks at grazing angles and not head-on is telling
+    ///         you which one to raise.
+    ///     </para>
+    ///     <para>
+    ///         In probe spacings and the brick's own, like <see cref="NormalBias" />, and a quarter for
+    ///         the same reason — far enough to cross the ambiguity, near enough not to reach the probe
+    ///         after next. ⚠ It is a tuning constant matched to the shader's, not a derived quantity;
+    ///         doc 19 § G3 lists it as one of four leak mitigations rather than as a fix.
+    ///     </para>
+    ///     <para>
+    ///         Applied only where a caller passes a view direction — see
+    ///         <see cref="TrySample(Vector3, Vector3, Vector3, out IrradianceProbe)" />. A bake has no
+    ///         camera and asks for none of it.
+    ///     </para>
+    /// </remarks>
+    public float ViewBias { get; set; } = 0.25f;
+
     /// <summary>Gives a cell a brick of a given size, or answers with the one already covering it.</summary>
     /// <param name="cell">A cell the brick should cover.</param>
     /// <param name="size">How many finest cells across it should be. A power of two.</param>
@@ -567,18 +597,43 @@ public sealed class IrradianceField {
     /// <param name="probe">What is there.</param>
     /// <returns>Whether a brick covers the biased position.</returns>
     /// <remarks>
-    ///     Two lookups: the first to learn how big the brick under the surface is, because
-    ///     <see cref="NormalBias" /> is measured in that brick's probe spacings. See its remarks for
-    ///     why it is not a world distance.
+    ///     The normal bias alone, because a caller with no view direction has none to give — and a
+    ///     view bias applied toward a camera that is not there would push the lookup at whatever
+    ///     <see cref="Vector3.Zero" /> happens to mean. See the overload that takes one.
     /// </remarks>
-    public bool TrySample(Vector3 world, Vector3 normal, out IrradianceProbe probe) {
+    public bool TrySample(Vector3 world, Vector3 normal, out IrradianceProbe probe) =>
+        TrySample(world, normal, Vector3.Zero, out probe);
+
+    /// <summary>The probe a surface sees, biased off the surface and toward the eye.</summary>
+    /// <param name="world">Where the surface is.</param>
+    /// <param name="normal">Which way it faces, normalised.</param>
+    /// <param name="view">Which way the camera is, from the surface, normalised. Zero for none.</param>
+    /// <param name="probe">What is there.</param>
+    /// <returns>Whether a brick covers the biased position.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         Two lookups: the first to learn how big the brick under the surface is, because both
+    ///         <see cref="NormalBias" /> and <see cref="ViewBias" /> are measured in that brick's probe
+    ///         spacings. See their remarks for why they are not world distances, and why the second
+    ///         exists at all when the first already moves the lookup.
+    ///     </para>
+    ///     <para>
+    ///         The two offsets are summed rather than applied in turn, so a surface seen head-on — the
+    ///         case where <c>view</c> and <c>normal</c> agree — is biased by their sum along one
+    ///         direction rather than a step and then a turn. That matches the shader, which is the
+    ///         constraint that decides it: <c>IrradianceField.Bias</c> in <c>IrradianceField.rvn</c>.
+    ///     </para>
+    /// </remarks>
+    public bool TrySample(Vector3 world, Vector3 normal, Vector3 view, out IrradianceProbe probe) {
         if (!Indirection.TryLocate(world, out var brick, out _)) {
             probe = IrradianceProbe.Empty;
 
             return false;
         }
 
-        return TrySample(world + (normal * ProbeSpacingOf(brick.Size) * NormalBias), out probe);
+        var offset = (normal * NormalBias) + (view * ViewBias);
+
+        return TrySample(world + (offset * ProbeSpacingOf(brick.Size)), out probe);
     }
 
     /// <summary>The diffuse lighting a surface at a position receives, divided by π.</summary>
@@ -591,8 +646,16 @@ public sealed class IrradianceField {
     ///     caller's decision to get right — a sky light or a fallback ambient is what fills the gap,
     ///     and it should be visible that it is doing so.
     /// </remarks>
-    public Vector3 Irradiance(Vector3 world, Vector3 normal) =>
-        TrySample(world, normal, out var probe) ? probe.Irradiance(normal) : Vector3.Zero;
+    public Vector3 Irradiance(Vector3 world, Vector3 normal) => Irradiance(world, normal, Vector3.Zero);
+
+    /// <summary>The same, for a caller that knows where the camera is.</summary>
+    /// <param name="world">Where the surface is.</param>
+    /// <param name="normal">Which way it faces, normalised.</param>
+    /// <param name="view">Which way the camera is, from the surface, normalised. Zero for none.</param>
+    /// <returns>The irradiance over π, or zero where the field has nothing.</returns>
+    /// <remarks>See <see cref="ViewBias" /> for why the second direction is worth a second overload.</remarks>
+    public Vector3 Irradiance(Vector3 world, Vector3 normal, Vector3 view) =>
+        TrySample(world, normal, view, out var probe) ? probe.Irradiance(normal) : Vector3.Zero;
 
     /// <summary>The probe nearest a world position, out of whichever brick covers it.</summary>
     /// <param name="world">The position.</param>

@@ -578,7 +578,9 @@ shader ForwardPlus {
         }
 
         if (UseIrradianceField) {
-            val sample = irradiance.Sample(positionWS, n)
+            // `v` already points at the camera — the convention `IIrradianceSource.Sample` asks for —
+            // so the view bias costs this call site nothing but the argument.
+            val sample = irradiance.Sample(positionWS, n, v)
 
             // ⚠ Times π, and the round trip is the point rather than a waste. The field stores irradiance
             // DIVIDED by π — the number a shading pass multiplies straight by albedo — and `Ibl.Diffuse`

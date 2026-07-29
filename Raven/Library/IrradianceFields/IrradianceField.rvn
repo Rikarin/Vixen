@@ -37,6 +37,9 @@ struct IrradianceFieldVolume {
 
     /// How far off a surface a shading lookup moves, in probe spacings.
     var normalBias: float
+
+    /// How far toward the camera it moves as well, in probe spacings.
+    var viewBias: float
 }
 
 /// What one probe holds: four coefficients a channel, plus how much to believe it.
@@ -174,13 +177,19 @@ struct IrradianceField {
     /// that saw the room and the probes inside the wall it is part of. Pushing along the normal puts the
     /// lookup on the side it faces.
     ///
+    /// And toward the camera as well, which is the half the normal cannot do. At a grazing angle the
+    /// normal is nearly perpendicular to the view ray, so a step along it barely leaves the surface it
+    /// is trying to leave — while the space between a visible surface and the eye looking at it is
+    /// empty by construction. A `view` of zero asks for no such step, which is what a caller with no
+    /// camera has to say.
+    ///
     /// In the BRICK's probe spacing rather than a fixed distance, because a coarse brick's ambiguity is
     /// wider in exactly the ratio its probes are further apart. That is what the first of the two
     /// indirection fetches is for.
-    static func Bias(volume: IrradianceFieldVolume, entry: float4, normal: float3): float3 {
+    static func Bias(volume: IrradianceFieldVolume, entry: float4, normal: float3, view: float3): float3 {
         val cellSize = float3(1f, 1f, 1f) / volume.inverseCellSize
         val spacing = cellSize * (entry.a / BrickResolution)
-        return normal * spacing * volume.normalBias
+        return (normal * volume.normalBias + view * volume.viewBias) * spacing
     }
 }
 
@@ -219,7 +228,14 @@ protocol IIrradianceSource {
     /// and four filtered ones; a protocol with an accessor per number makes a consumer that wants two
     /// of them pay for the whole thing twice — which `IndirectDiffuse` did, while its own comment said
     /// it did not.
-    func Sample(world: float3, normal: float3): IrradianceSample
+    ///
+    /// `view` points from the surface TOWARD the camera, normalised — the same convention `ForwardPlus`
+    /// already uses for its own `v`. It is a parameter rather than a binding of the field because the
+    /// field does not know which view is being shaded, and a required one rather than an optional one
+    /// because a consumer that has no camera has to answer that deliberately: `float3(0, 0, 0)` asks
+    /// for the normal bias alone, and a zero nobody chose is a leak mitigation that quietly does half
+    /// its job.
+    func Sample(world: float3, normal: float3, view: float3): IrradianceSample
 }
 
 /// The field: an indirection grid over a pool of bricks.
@@ -248,7 +264,7 @@ shader IrradianceFieldProbes : IIrradianceSource {
     /// Nothing rather than the nearest brick's answer. A field that quietly extrapolates hides the fact
     /// that it did not cover the scene, and a sky light or a fallback ambient is what fills the gap — it
     /// should be visible that it is doing so.
-    func Probe(world: float3, normal: float3): IrradianceProbe {
+    func Probe(world: float3, normal: float3, view: float3): IrradianceProbe {
         val nothing = float3(0f, 0f, 0f)
         val empty = IrradianceProbe(nothing, nothing, nothing, nothing, 0f, 1f)
 
@@ -262,7 +278,7 @@ shader IrradianceFieldProbes : IIrradianceSource {
             return empty
         }
 
-        val biased = world + IrradianceField.Bias(irradianceField, under, normal)
+        val biased = world + IrradianceField.Bias(irradianceField, under, normal, view)
 
         if (!IrradianceField.Contains(irradianceField, biased)) {
             return empty
@@ -278,8 +294,8 @@ shader IrradianceFieldProbes : IIrradianceSource {
         return IrradianceField.Read(irradianceL0, irradianceL1R, irradianceL1G, irradianceL1B, irradianceSampler, uvw)
     }
 
-    func Sample(world: float3, normal: float3): IrradianceSample {
-        val probe = Probe(world, normal)
+    func Sample(world: float3, normal: float3, view: float3): IrradianceSample {
+        val probe = Probe(world, normal, view)
         val lit = IrradianceField.Irradiance(probe, normal)
         return IrradianceSample(lit, probe.sunShadow, saturate(probe.validity))
     }
@@ -295,7 +311,7 @@ shader IrradianceFieldProbes : IIrradianceSource {
 /// A field that is absent contributes nothing to the indirect term; it does not shadow the sun either,
 /// and answering zero there would put every surface in the world in shadow.
 shader NoIrradiance : IIrradianceSource {
-    func Sample(world: float3, normal: float3): IrradianceSample {
+    func Sample(world: float3, normal: float3, view: float3): IrradianceSample {
         return IrradianceSample(float3(0f, 0f, 0f), 1f, 0f)
     }
 }
