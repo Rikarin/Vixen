@@ -175,6 +175,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Feature | Status | Where | Blocked by / note |
 |---|---|---|---|
 | `Vixen.Ui.Reactive` — signals, computeds, effects, collections, async | ✅ | Core/Vixen.Ui.Reactive | 63 tests; diamond evaluated once, zero-alloc steady state |
+| `EffectScheduler.Flush()` driven by the frame pass | ⬜ | — | **Found while auditing the READMEs.** It was owed on a `UiSystem` in 4d; 4d landed and no such type was built. `UiDocument.Update` plays the part and does not flush, so a host calls `EffectScheduler.Default.Flush()` itself — which every test does, which is why the gap is invisible |
 | `Vixen.Ui.Layout` — SoA store + complete flexbox | ✅ | Core/Vixen.Ui.Layout | 552 tests |
 | Yoga conformance suite (534 fixtures) | ✅ | Core/Vixen.Ui.Layout.Tests | 9 skipped (`display: contents`, out of scope) |
 | Layout gates — zero-alloc settled tree, 11 ns unchanged pass, 1.16 ms at 10⁴ | ✅ | Benchmarks/Vixen.Benchmarks.Ui | |
@@ -707,6 +708,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 33 | `Vixen.Sdk` | CLI shipped in the package; platform packaging; diagnostic file paths | Infra | — |
 | 34 | `Vixen.Cli` | Signing/notarisation/packaging; `app`/`plugin`/`tool` templates; `doctor systems` | Infra | K3 (signing), Vixen.Ui maturity (`app`) |
 | 35 | `Vixen.Ui.Styling` | `UiDocument.Update` → incremental cascade | **Perf (largest in Phase 4)** | — |
+| 35b | `Vixen.Ui.Reactive` | A frame-pass caller for `EffectScheduler.Flush()` | Correctness | — |
 | 36 | `Vixen.Ui.Styling` | Transform decomposition | Feature | A transform property |
 | 37 | `Vixen.Ui.Text` | `TextEditor` model with IME + caret affinity | Feature | — |
 | 38 | `Vixen.Ui.Text` | `CVAR`, `CFF2` variation, direct `HVAR` | Feature | — |

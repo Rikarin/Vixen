@@ -87,7 +87,7 @@ public sealed class RpcGenerator : IIncrementalGenerator {
     static readonly DiagnosticDescriptor MustReturnVoid = new(
         "VXNET2004",
         "A remote call returns something",
-        "'{0}' returns {1}. A call is one way: it is sent, and it happens later or it does not. Awaitable calls returning ValueTask<T> are designed for and not built.",
+        "'{0}' returns {1}. A handler is one way: it is sent, and it happens later or it does not. To await an answer, keep the handler void and call it through RpcRouter.CallAsync<T>.",
         "Vixen.Net",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true

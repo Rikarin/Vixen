@@ -85,8 +85,11 @@ generation stamp on the walk rather than a change to the model.
 edge lists be plain arrays with no interlocked anything, and `AsyncComputed` plus
 `EffectScheduler.Post` are the supported way across.
 
-**Any integration with the frame loop.** `Flush()` is called by `UiSystem` between input and layout,
-and `UiSystem` does not exist yet — it arrives with `Vixen.Ui` in Phase 4d. Nothing here depends on
-that having happened.
+**Any integration with the frame loop.** `Flush()` still has no production caller. ⚠ This used to
+say it was waiting for a `UiSystem` in Phase 4d; that phase landed and no such type was built —
+`UiDocument.Update` is what plays the part, and it does not flush. So a host driving a document
+today calls `EffectScheduler.Default.Flush()` itself, between input and `Update`, which is what
+every test here does. Nothing in this project depends on where that call comes from, which is why
+the gap has stayed invisible.
 
 Licensed under Apache-2.0.

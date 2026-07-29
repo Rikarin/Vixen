@@ -81,7 +81,7 @@ called and asking them.
 | `VXNET2001` | A remote call takes an argument of a type that cannot be sent. |
 | `VXNET2002` | A type declaring remote calls is not `partial`. |
 | `VXNET2003` | A type declaring remote calls does not implement `IRpcObject`. |
-| `VXNET2004` | A remote call returns something. Awaitable calls are designed for and not built. |
+| `VXNET2004` | A remote call *handler* returns something. A handler is one way; a request/response is `RpcRouter.CallAsync<T>`, which is built and is not this. |
 | `VXNET2005` | A handler is marked as both a `ServerRpc` and a `ClientRpc`. |
 | `VXNET2006` | A type declaring remote calls is nested, generic, or not a class. |
 | `VXNET2007` | `[Quantize]` is on an argument that is not a `float`. |
@@ -89,6 +89,13 @@ called and asking them.
 An error emits nothing for that component. A page of errors inside generated code the author cannot
 see buries the one line that is actually wrong — the same rule the VXML generator follows, for the
 same reason.
+
+⚠ **`VXNET2004` is not a gap, and its message used to read as one.** It said awaitable calls were
+"designed for and not built"; `RpcRouter.CallAsync<T>` has since been built, and the diagnostic is
+still right. A `[ServerRpc]` handler that returns a value is a different thing from a call that
+awaits an answer: the handler is invoked by the router with no caller to return to, and the answer
+travels back as its own correlated message. So the rule stands and the sentence explaining it does
+not.
 
 ## Incrementality
 

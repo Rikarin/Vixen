@@ -520,8 +520,9 @@ single-threaded frame code — so the game pushes a reading and the callbacks re
 background thread walking a player list while somebody is joining it.
 
 **Owed:** the editor panel — connections, replicated objects, ownership, interest sets, a live RPC
-log — which is [13](../../docs/plan/13-diagnostics.md)'s to host and has nothing to hang off yet.
-Everything it would show is in these types.
+log. ⚠ **It used to be owed on there being nowhere to put it, and that is no longer true**:
+`Vixen.Editor.Ui` registers panels and `Vixen.Editor.App` runs them. Everything the panel would show
+is already public in these types, so what is left is the panel.
 
 ## Testing
 

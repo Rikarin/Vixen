@@ -91,8 +91,12 @@ Consumers of the NuGet packages get both automatically; each package carries its
 ## Still to come
 
 **`[Behavior]`**, which [doc 03](../../docs/plan/03-core-foundation.md) lists alongside the other
-three. The attribute does not exist yet — it arrives with the engine loop in Phase 2 — and the
-generator gains one line when it does.
+three. ⚠ This used to say it arrives with the engine loop in Phase 2. That phase landed and it did
+not: `BehaviorBucket<T>` is closed at the `Add<T>` call site, so its dispatch loop is already the
+monomorphic walk a generated method would have been, and the attribute had nothing left to do. What
+the engine still wants a generator for is `[Inspector]` metadata, which genuinely cannot be had
+another way. So this is a line the generator gains if a use for it appears, rather than one it is
+waiting on.
 
 **Generic types** get a warning (`VXS0201`) and no descriptor. A descriptor names one closed type; a
 generic definition would need one per instantiation and the generator cannot know which exist. A

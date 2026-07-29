@@ -251,17 +251,24 @@ Said out loud rather than left to be discovered:
   command, and falls back to the placeholder colour only when nothing has been rendered into it yet.
   `FlipVertically` is on by default, because a scene renders with y up and an interface draws with y
   down.
-- **`CodeEditor` does not wrap and has no caret blink.** Nothing in the framework wraps a line —
-  `TextRun` says so — and blinking needs a host tick, which `Tooltip` and `ToastHost` also want.
+- **`CodeEditor` does not wrap and has no caret blink.** ⚠ The first half's reason has changed: the
+  framework *does* wrap a line now — `TextLayout` over `TextLine` over `TextRun` — so what is missing
+  is this control using it, which is a caret that moves between visual lines rather than logical ones
+  and a gutter that numbers the logical ones anyway. Blinking still needs a host tick, which
+  `Tooltip` and `ToastHost` get from `UiDocument.Ticked`.
 - **`OkLch.ToSrgb` clamps per channel**, which shifts the hue rather than reducing the chroma. Real
   gamut mapping walks the chroma down until the colour fits; `IsInGamut` is how a picker can say so
   meanwhile.
 - **`StyleTree.AppendChild` is O(children) per append**, so an element with tens of thousands of
   children is quadratic. Every control here virtualises well clear of it, which is not the same as
   the problem being fixed.
-- **Nested struct members are shown read-only in `PropertyGrid`.** The descriptor's accessors pass
-  values as `object`, so editing one would edit a box nothing holds. Closing it needs `ref`
-  accessors.
+- ~~**Nested struct members are shown read-only in `PropertyGrid`.**~~ They are editable, and the
+  `ref`-accessor argument this used to make was wrong. An accessor takes its instance as `object`, so
+  writing into the box a struct member comes back in changes a copy — true, and not the end of it:
+  setting the leaf and then writing each *owner* into its own owner, innermost first, is
+  read-modify-write and needs nothing from the descriptor. What was missing is that the grid kept a
+  member where it needed a path, so `PropertyRow` carries the chain from the target to the member and
+  a member with a registered descriptor that nothing else claimed expands into rows of its own.
 - **`Canvas2D` is not here.** It is doc 09's P2 with no editor consumer; see
   `Samples/06-CanvasStress`.
 
