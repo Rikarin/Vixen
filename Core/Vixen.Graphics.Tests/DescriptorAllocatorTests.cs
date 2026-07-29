@@ -27,8 +27,11 @@ public class DescriptorAllocatorTests : IDisposable {
             new(DescriptorSetSlot.PerView, [new(0, DescriptorKind.StorageBuffer, ShaderStage.Fragment)], "View")
         );
 
+        // The same shape as the layout above, in a different slot: what these tests separate is two
+        // *layouts*, so the writes have to be ones both of them declare — a set written with a kind
+        // its layout did not declare is a different bug, and the one the backend now rejects.
         other = device.CreateDescriptorSetLayout(
-            new(DescriptorSetSlot.PerMaterial, [new(0, DescriptorKind.UniformBuffer, ShaderStage.Fragment)], "Material")
+            new(DescriptorSetSlot.PerMaterial, [new(0, DescriptorKind.StorageBuffer, ShaderStage.Fragment)], "Material")
         );
 
         first = device.CreateBuffer(new(1024, BufferUsage.Storage, Name: "First"));
@@ -144,7 +147,7 @@ public class DescriptorAllocatorTests : IDisposable {
         for (var frame = 0; frame < 100; frame++) {
             allocator.BeginFrame();
             allocator.Allocate(layout, [DescriptorWrite.Storage(0, first)]);
-            allocator.Allocate(other, [DescriptorWrite.Uniform(0, first)]);
+            allocator.Allocate(other, [DescriptorWrite.Storage(0, first)]);
         }
 
         // Two layouts, one set each per frame in flight. A shared pool would hand a PerView set to a

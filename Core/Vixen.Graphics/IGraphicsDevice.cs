@@ -366,6 +366,27 @@ public readonly record struct DescriptorWrite(
     public static DescriptorWrite Uniform(uint binding, BufferHandle buffer, long offset = 0, long size = 0) =>
         new(binding, DescriptorKind.UniformBuffer, buffer, offset, size);
 
+    /// <summary>Binds a uniform buffer whose offset is supplied per draw.</summary>
+    /// <param name="binding">Which binding.</param>
+    /// <param name="buffer">The buffer.</param>
+    /// <param name="offset">Where the range the dynamic offset is measured from starts.</param>
+    /// <param name="size">
+    ///     How much of it one draw sees — the <em>block's</em> size, not the buffer's, since a
+    ///     dynamic offset names where a block starts and this says how far it extends. Passing
+    ///     <c>0</c> extends it to the end of the buffer, which lets a shader read every other draw's
+    ///     block.
+    /// </param>
+    /// <remarks>
+    ///     Distinct from <see cref="Uniform" /> rather than a flag on it, because the difference is
+    ///     one a descriptor-set layout declares and a backend cannot infer: a set written as a plain
+    ///     <see cref="DescriptorKind.UniformBuffer" /> takes no offset at bind time, so every
+    ///     per-draw offset handed to
+    ///     <see cref="ICommandList.BindDescriptorSet(DescriptorSetSlot, DescriptorSetHandle, ReadOnlySpan{uint})" />
+    ///     is ignored and every object draws with the first one's data.
+    /// </remarks>
+    public static DescriptorWrite DynamicUniform(uint binding, BufferHandle buffer, long offset = 0, long size = 0) =>
+        new(binding, DescriptorKind.DynamicUniformBuffer, buffer, offset, size);
+
     /// <summary>Binds a storage buffer.</summary>
     /// <param name="binding">Which binding.</param>
     /// <param name="buffer">The buffer.</param>

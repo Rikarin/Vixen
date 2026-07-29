@@ -356,7 +356,7 @@ public sealed class NullDevice : IGraphicsDevice {
         description.Validate();
 
         lock (gate) {
-            return new(setLayouts.Add(new NullDescriptorSetLayout(description.Slot)));
+            return new(setLayouts.Add(new NullDescriptorSetLayout(description.Slot, description.Bindings)));
         }
     }
 
@@ -381,9 +381,15 @@ public sealed class NullDevice : IGraphicsDevice {
     /// <inheritdoc />
     public void UpdateDescriptorSet(DescriptorSetHandle descriptors, ReadOnlySpan<DescriptorWrite> writes) {
         lock (gate) {
-            if (!descriptorSets.Contains(descriptors.Value)) {
+            if (!descriptorSets.TryGet(descriptors.Value, out var set)) {
                 throw new ArgumentException("The set does not exist, or has been destroyed.", nameof(descriptors));
             }
+
+            if (!setLayouts.TryGet(((NullDescriptorSet)set).Layout.Value, out var layout)) {
+                throw new ArgumentException("The set's layout has been destroyed.", nameof(descriptors));
+            }
+
+            Validate(((NullDescriptorSetLayout)layout).Bindings, writes);
         }
     }
 
@@ -579,6 +585,57 @@ public sealed class NullDevice : IGraphicsDevice {
         return (texture, CreateTextureView(texture));
     }
 
+    /// <summary>Checks a batch of descriptor writes against what the set's layout declared.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>A binding written as a kind other than the one it was declared as is the
+    ///         failure a GPU is worst at reporting, which is exactly why a backend with no GPU checks
+    ///         it.</strong> <c>VulkanDevice</c> rejects the same write, but only on a machine that has
+    ///         a driver and has the validation layers switched on. Without them the write lands, the
+    ///         shader reads whichever kind it was compiled for, and what comes back is a wrong frame
+    ///         rather than an error — so the check that runs on every build, on every agent, is the one
+    ///         that finds it.
+    ///     </para>
+    ///     <para>
+    ///         The dynamic kinds are compared exactly, not folded into their static counterparts. A
+    ///         <see cref="DescriptorKind.DynamicUniformBuffer" /> written as a
+    ///         <see cref="DescriptorKind.UniformBuffer" /> is a descriptor that takes no offset at bind
+    ///         time, so every per-draw offset the caller later passes is ignored and every object draws
+    ///         with the first one's block. That is what this found the day it was turned on.
+    ///     </para>
+    ///     <para>
+    ///         A write to a binding the layout does not declare is rejected for the same reason and by
+    ///         the same rule the Vulkan backend applies: there is nowhere for it to land, so nothing a
+    ///         shader could read would change.
+    ///     </para>
+    /// </remarks>
+    static void Validate(DescriptorBinding[] bindings, ReadOnlySpan<DescriptorWrite> writes) {
+        foreach (var write in writes) {
+            var declared = Declared(bindings, write.Binding);
+
+            if (declared.Kind != write.Kind) {
+                throw new ArgumentException(
+                    $"Binding {write.Binding} was declared as {declared.Kind} and is being written as "
+                    + $"{write.Kind}. No driver checks this and the shader reads whichever it was "
+                    + "compiled for, so the result would be silently wrong."
+                );
+            }
+        }
+    }
+
+    static DescriptorBinding Declared(DescriptorBinding[] bindings, uint binding) {
+        foreach (var declared in bindings) {
+            if (declared.Binding == binding) {
+                return declared;
+            }
+        }
+
+        throw new ArgumentException(
+            $"Binding {binding} is not declared by this descriptor-set layout, so writing it would do "
+            + "nothing the shader could read."
+        );
+    }
+
     sealed class NullBuffer(BufferDescription description) : GpuBuffer {
         public BufferDescription Description { get; } = description;
     }
@@ -613,8 +670,10 @@ public sealed class NullDevice : IGraphicsDevice {
 
     sealed class NullPipelineLayout : GpuPipelineLayout;
 
-    sealed class NullDescriptorSetLayout(DescriptorSetSlot slot) : GpuDescriptorSetLayout {
+    sealed class NullDescriptorSetLayout(DescriptorSetSlot slot, DescriptorBinding[] bindings) : GpuDescriptorSetLayout {
         public DescriptorSetSlot Slot { get; } = slot;
+
+        public DescriptorBinding[] Bindings { get; } = bindings;
     }
 
     sealed class NullDescriptorSet(DescriptorSetLayoutHandle layout) : GpuDescriptorSet {

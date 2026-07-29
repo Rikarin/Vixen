@@ -56,6 +56,18 @@ GPU, with a message saying what was wrong:
 - a handle used after it was destroyed — caught by its generation
 - a compute pipeline on a device that reports no compute, so the fallback path the capability exists
   for actually gets taken
+- a descriptor written as a kind other than the one its set layout declared, or written to a binding
+  the layout does not declare at all
+
+The last one was left out for a while, on the grounds that `VulkanDevice` already checks it. It does —
+but only on a machine that has a driver, and only with the validation layers switched on. Without them
+the write lands, the shader reads whichever kind it was compiled for, and the frame comes out wrong
+instead of the run failing. Checking it here makes it a red build on an agent with no GPU, and turning
+it on found a real one immediately: the forward lighting feature declared its block
+`DynamicUniformBuffer` and wrote it as a plain one, so every per-object offset it bound would have
+been ignored and every object would have lit itself with the first one's lights. The rest were fixture
+layouts that had drifted from what the code they exercise actually binds, which is the same bug one
+step removed — a test that could not have caught the first.
 
 ## Resource creation genuinely does not allocate
 

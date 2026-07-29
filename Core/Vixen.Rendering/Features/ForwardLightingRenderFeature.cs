@@ -653,10 +653,14 @@ public sealed class ForwardLightingRenderFeature
             );
         }
 
+        // Dynamic, matching the layout: a set written as a plain uniform buffer takes no offset at
+        // bind time, so the per-object offset below would be ignored and every object would light
+        // itself with the first one's block.
+        //
         // The size is the *block's*, not the buffer's: a dynamic offset names where a block starts and
         // the descriptor says how far it extends. Binding the whole buffer would let a shader read
         // every other object's lights, which validation layers do report and drivers do not.
-        write[0] = DescriptorWrite.Uniform(Binding, buffer, 0, stride);
+        write[0] = DescriptorWrite.DynamicUniform(Binding, buffer, 0, stride);
         descriptors = Ring().Allocate(layout, write);
     }
 

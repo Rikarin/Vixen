@@ -110,6 +110,51 @@ public sealed class NullDeviceTests : IDisposable {
         Assert.Contains("4096", thrown.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     A binding written as a kind other than the one it was declared as is refused, which is the
+    ///     failure a driver is worst at reporting.
+    /// </summary>
+    /// <remarks>
+    ///     The dynamic kinds are the case worth spelling out: a set declared
+    ///     <see cref="DescriptorKind.DynamicUniformBuffer" /> and written as a plain
+    ///     <see cref="DescriptorKind.UniformBuffer" /> takes no offset at bind time, so every per-draw
+    ///     offset is ignored and every object draws with the first one's block. Nothing on a device
+    ///     says so without the validation layers.
+    /// </remarks>
+    [Fact]
+    public void AWriteOfTheWrongKindIsRefused() {
+        var layout = device.CreateDescriptorSetLayout(
+            new(DescriptorSetSlot.PerDraw, [new(0, DescriptorKind.DynamicUniformBuffer, ShaderStage.Vertex)], "Draw")
+        );
+
+        var set = device.CreateDescriptorSet(layout);
+        var buffer = device.CreateBuffer(new(256, BufferUsage.Uniform, MemoryAccess.HostUpload, "Transforms"));
+
+        var thrown = Assert.Throws<ArgumentException>(
+            () => device.UpdateDescriptorSet(set, [DescriptorWrite.Uniform(0, buffer, 0, 64)])
+        );
+
+        Assert.Contains("DynamicUniformBuffer", thrown.Message, StringComparison.Ordinal);
+
+        // And the write the layout actually declared goes through.
+        device.UpdateDescriptorSet(set, [DescriptorWrite.DynamicUniform(0, buffer, 0, 64)]);
+    }
+
+    /// <summary>A write to a binding the layout never declared has nowhere to land, and is refused.</summary>
+    [Fact]
+    public void AWriteToAnUndeclaredBindingIsRefused() {
+        var layout = device.CreateDescriptorSetLayout(
+            new(DescriptorSetSlot.PerView, [new(0, DescriptorKind.UniformBuffer, ShaderStage.Fragment)], "View")
+        );
+
+        var set = device.CreateDescriptorSet(layout);
+        var buffer = device.CreateBuffer(new(256, BufferUsage.Uniform, MemoryAccess.HostUpload, "View"));
+
+        Assert.Throws<ArgumentException>(
+            () => device.UpdateDescriptorSet(set, [DescriptorWrite.Uniform(1, buffer)])
+        );
+    }
+
     [Fact]
     public void ASwapChainCyclesThroughItsImages() {
         using var swapChain = device.CreateSwapChain(new(SurfaceHandle.None, new(1280, 720), ImageCount: 3));
