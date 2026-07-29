@@ -416,6 +416,10 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
         // And the record buffers after that, so a frame that touched one material of forty uploads
         // one buffer rather than one per variant that mentioned it.
         UploadedRecordCount = Upload();
+
+        // Then the set that points at them, which cannot be written until the buffers exist: a
+        // record buffer creates its handle on first upload and replaces it when it grows.
+        BindRecords();
     }
 
     /// <summary>
@@ -592,6 +596,60 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
 
         BoundCount++;
         return true;
+    }
+
+    /// <summary>
+    ///     Points every recorded variant's set at its group's buffer.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>One set for a whole group, and that is the point rather than an
+    ///         optimisation.</strong> Every variant of one group asks the allocator for the same
+    ///         layout and the same single write, and the allocator is content-addressed — so they all
+    ///         get the same handle back, and <see cref="Features.MeshRenderFeature" />'s
+    ///         "did this differ from the last one" check turns a run of objects into one bind. A set
+    ///         per material would be the cost this whole path exists to remove, arrived at by a
+    ///         different route.
+    ///     </para>
+    ///     <para>
+    ///         After the upload, because a record buffer has no handle until it has been uploaded
+    ///         once and replaces it when it grows — so a set written earlier would point at a buffer
+    ///         that no longer exists, which is the one failure the RHI's deferred destroy cannot save
+    ///         a caller from.
+    ///     </para>
+    /// </remarks>
+    void BindRecords() {
+        if (Descriptors is null) {
+            return;
+        }
+
+        const int slot = (int)DescriptorSetSlot.PerMaterial;
+
+        foreach (var (variant, place) in placed) {
+            var entry = variants[variant];
+
+            if (entry.Effect is not { } effect
+                || effect.SetLayouts.Length <= slot
+                || !effect.SetLayouts[slot].IsValid) {
+                continue;
+            }
+
+            if (effect.RecordOf(DescriptorSetSlot.PerMaterial) is not { Exists: true } declared
+                || !records.TryGetValue(place.Group, out var buffer)
+                || !buffer.Buffer.IsValid) {
+                continue;
+            }
+
+            writes.Clear();
+            writes.Add(DescriptorWrite.Storage(declared.Binding, buffer.Buffer));
+
+            variants[variant] = entry with {
+                Set = Descriptors.Allocate(
+                    effect.SetLayouts[slot],
+                    System.Runtime.InteropServices.CollectionsMarshal.AsSpan(writes)
+                )
+            };
+        }
     }
 
     /// <summary>Puts every record buffer on the device, and answers how many had anything to say.</summary>

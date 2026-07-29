@@ -40,6 +40,7 @@ public sealed class MaterialRecordBufferTests : IDisposable {
     readonly DescriptorAllocator allocator;
     readonly EffectSystem effects = new();
     readonly DescriptorSetLayoutHandle plain;
+    readonly DescriptorSetLayoutHandle lit;
 
     public MaterialRecordBufferTests() {
         allocator = new(device);
@@ -54,7 +55,18 @@ public sealed class MaterialRecordBufferTests : IDisposable {
             )
         );
 
-        effects.AddProvider(new Compiles(plain));
+        // And one for the records shader, which has a per-material set too — holding the buffer
+        // rather than the block. A fixture without it would make "no set is bound" pass for the
+        // reason that there was nowhere to bind rather than the reason under test.
+        lit = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerMaterial,
+                [new(0, DescriptorKind.StorageBuffer, ShaderStage.Fragment)],
+                "Lit"
+            )
+        );
+
+        effects.AddProvider(new Compiles(plain, lit));
     }
 
     /// <inheritdoc />
@@ -117,21 +129,68 @@ public sealed class MaterialRecordBufferTests : IDisposable {
         Assert.Equal(2, buffer.Count);
     }
 
-    /// <summary>No descriptor set is written, and none is bound.</summary>
+    /// <summary>
+    ///     Two materials of one effect are one bind, not two.
+    /// </summary>
     /// <remarks>
-    ///     The point of it. A set that was still written would be harmless and would mean the cost
-    ///     had not actually moved — so this is asserted against the command stream rather than
-    ///     against an intention.
+    ///     <para>
+    ///         <strong>The whole point, measured against the command stream.</strong> Everything else
+    ///         here is about where a material's values live; this is the thing that living there was
+    ///         for. Two materials used to be two <c>BindDescriptorSet</c>s between two draws, and a
+    ///         draw that binds cannot be merged with a draw that binds something else.
+    ///     </para>
+    ///     <para>
+    ///         It falls out of two pieces that were already there rather than a third: every variant
+    ///         of a group asks the allocator for the same layout and the same single write, and the
+    ///         allocator is content-addressed — so they get one handle, and the mesh feature's
+    ///         "did this differ from the last one" check does the rest.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void No_per_material_set_is_written() {
+    public void Two_materials_of_one_effect_are_one_bind() {
         using var h = Build();
 
-        AddMesh(h, Lit(Vector3.One));
+        AddMesh(h, Lit(new(1f, 0f, 0f)));
+        AddMesh(h, Lit(new(0f, 1f, 0f)));
+
+        Frame(h);
+        Record(h);
+
+        Assert.Equal(1, device.Recorder!.CountOf(RecordedCommandKind.BindDescriptorSet));
+    }
+
+    /// <summary>And the same two materials bound per material are two binds.</summary>
+    /// <remarks>
+    ///     The measurement the one above is a claim against. Without it "one bind" could be a fixture
+    ///     that binds nothing at all, which is what the first version of this test actually asserted.
+    /// </remarks>
+    [Fact]
+    public void Bound_per_material_the_same_two_are_two_binds() {
+        using var h = Build(records: false);
+
+        AddMesh(h, new Material("Plain"));
+        AddMesh(h, new Material("Plain"));
+
+        Frame(h);
+        Record(h);
+
+        Assert.Equal(2, device.Recorder!.CountOf(RecordedCommandKind.BindDescriptorSet));
+    }
+
+    /// <summary>Every object of a group is handed the same set.</summary>
+    [Fact]
+    public void One_set_serves_a_whole_group() {
+        using var h = Build();
+
+        var a = AddMesh(h, Lit(new(1f, 0f, 0f)));
+        var b = AddMesh(h, Lit(new(0f, 1f, 0f)));
+
         Frame(h);
 
-        Assert.False(h.Materials.DescriptorsOf(h.System, h.Objects[0]).IsValid);
-        Assert.Equal(0, device.Recorder!.CountOf(RecordedCommandKind.BindDescriptorSet));
+        var left = h.Materials.DescriptorsOf(h.System, a);
+
+        Assert.True(left.IsValid);
+        Assert.Equal(left, h.Materials.DescriptorsOf(h.System, b));
     }
 
     /// <summary>A settled scene uploads nothing, however many frames run.</summary>
@@ -279,6 +338,26 @@ public sealed class MaterialRecordBufferTests : IDisposable {
         h.System.Draw();
     }
 
+    /// <summary>Records the stage, so the binds can be counted rather than inferred.</summary>
+    void Record(Harness h) {
+        var target = device.CreateTextureView(
+            device.CreateTexture(new(PixelFormat.Rgba8UNorm, 16, 16, TextureUsage.ColourTarget, Name: "target"))
+        );
+
+        using var list = device.BeginCommandList();
+        list.BeginRenderPass(new([new(target)], name: "Opaque"));
+
+        h.System.Record(
+            h.System.Views[0],
+            h.Opaque,
+            new(list, effects) { Device = device, Output = new([PixelFormat.Rgba8UNorm]) }
+        );
+
+        list.EndRenderPass();
+        list.Finish();
+        device.GraphicsQueue.Submit([list]);
+    }
+
     Harness Build(bool records = true, bool lighting = false) {
         var system = new RenderSystem();
         var opaque = system.AddStage(new("Opaque"));
@@ -351,13 +430,13 @@ public sealed class MaterialRecordBufferTests : IDisposable {
     /// <summary>
     ///     One shader whose per-material values are a record, and one whose are a block.
     /// </summary>
-    sealed class Compiles(DescriptorSetLayoutHandle plain) : IEffectProvider {
+    sealed class Compiles(DescriptorSetLayoutHandle plain, DescriptorSetLayoutHandle lit) : IEffectProvider {
         public Effect? TryGet(EffectKey key) =>
             key.ShaderName switch {
                 "Lit" => new() {
                     Key = key,
                     Stages = Modules,
-                    SetLayouts = [default, default, default, default],
+                    SetLayouts = [default, default, lit, default],
                     Parameters = [
                         new(Tint, 0, 12) { Set = DescriptorSetSlot.PerMaterial },
                         new(Roughness, 16, 4) { Set = DescriptorSetSlot.PerMaterial }

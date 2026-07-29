@@ -204,9 +204,25 @@ into one block at agreed offsets is worse than one feature asking the other for 
 sibling through `Parent.SubFeatures`, the way `MaterialRenderFeature` finds its permutation
 contributors, so the order a host calls `Add` in does not decide whether records reach the shader.
 
-**What is left** is the bind: `MeshRenderFeature` binding a group's record buffer for the frame
-rather than a set per object, and a host asking for the `UseMaterialRecords` variant where the device
-reports `HasBindless`. After that, the indirect-count draw and compaction.
+✅ **And the bind is one per group.** `MaterialRenderFeature` points every recorded variant's set at
+its group's record buffer after the upload — every variant of a group asks the allocator for the same
+layout and the same single write, the allocator is content-addressed, so they get one handle back and
+`MeshRenderFeature`'s existing "did this differ from the last one" check turns a run of objects into
+one bind. **Two materials of one effect are one `BindDescriptorSet` where they used to be two**, and
+there is a test either side of that: the record path counts one, the bound-per-material path counts
+two, so "one" is a measurement rather than a fixture with nowhere to bind.
+
+`MeshRenderFeature` did not change at all. The seam was already in the right place — it binds
+whatever `DescriptorsOf` hands back — which is what made the last piece of 2b a change to one method
+rather than to the draw loop.
+
+⚠ After the upload, not before: a record buffer has no handle until it has been uploaded once and
+replaces it when it grows, so a set written earlier would point at a buffer that no longer exists —
+the one failure the RHI's deferred destroy cannot save a caller from.
+
+**2b is complete.** What is left in the plan is a host asking for the `UseMaterialRecords` variant
+where the device reports `HasBindless` — a wiring decision rather than a mechanism — then the
+indirect-count draw, then compaction.
 
 The sketch this replaces:
 
@@ -298,7 +314,7 @@ Raven got atomics; what was missing was 2 and 3.
 | 2b. The block as a record — engine half (records written) | ✅ built — `MaterialRecords`, one buffer per effect |
 | 2b. A marker a permutation can switch off | ✅ built — `[MaterialIndex("Key")]`, so one pass is both |
 | 2b. The shipped pass declares it, and the index reaches the block | ✅ built — and it cost no layout, filling padding that was already there |
-| 2b. Binding the record buffer for the frame | ⬜ — the last piece of 2b |
+| 2b. Binding the record buffer once per group | ✅ built — two materials of one effect are one bind |
 | 3. An indirect draw whose count comes from the device | ⬜ |
 | 4. Compaction | ⬜ |
 
