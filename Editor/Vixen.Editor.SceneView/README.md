@@ -16,6 +16,9 @@ foreach (var pane in layout.Panes) {
     pane.OrbitAround = OrbitPivot.Selection;   // Blender's "orbit around selection"
     pane.Picker = new ScenePicker(scene);      // clicking selects; the ray test needs no device
     pane.Picking = new PickingBuffer(device);  // and this takes over when there is one
+    pane.Surfaces = new SceneProbe(scene);     // what a drop, a vertex snap and a surface snap ask
+    pane.Show &= ~SceneShow.Grid;              // per pane, because that is the point of four of them
+    pane.Modes.Current = ViewMode.Wireframe;   // ditto
 }
 
 var views = layout.Update(delta);   // once a frame, after the layout pass
@@ -103,6 +106,13 @@ people use most.
 Bookmarks are the four numbers plus the projection, and the numpad views set the two angles and
 deliberately do *not* force orthographic — a key that changed two things at once is one people stop
 pressing.
+
+**Nine numbered bookmark slots, not a list.** `Ctrl+1..9` saves and `1..9` recalls, which is the pair
+both reference editors ship and which people arrive already knowing. A slot overwrites without asking
+— the gesture is "put the view I am in on key three", and a prompt would make it two gestures — and a
+recall of an empty slot is *disabled* rather than a no-op, because a key that does nothing and a key
+that does nothing *yet* look identical while you are pressing it. An unbounded list of named views is
+a different feature and belongs in the palette; the number row has nine keys.
 
 ### The gestures
 
@@ -421,6 +431,98 @@ one that takes it back out, because two gestures for the two halves of one idea 
 click an already-selected object and wonder why nothing happened. A miss clears the selection and an
 *additive* miss does not — that is the end of a rubber-band that grabbed nothing.
 
+## Show flags are a bitset per pane
+
+Unreal's Show flags and Unity's scene-view toggles, and both exist for the same reason: a viewport
+that draws everything is unreadable the moment a scene has lights, parents and bounds in it, and each
+of those is something somebody needs to look at on its own for ten minutes and never again.
+`SceneShow` is the bitset and `SceneLines`/`SceneMeshes` are what read it.
+
+- **Per pane, not per editor.** The point of four panes is that they disagree — a wireframe top view
+  beside a shaded perspective one is the whole reason somebody asked for four — so it lives beside
+  the camera and the view mode.
+- ⚠ **A flag that is off costs nothing rather than costing a walk that emits no vertices.** For the
+  parent links, the only source that is a test per entity, that is the difference between skipping a
+  branch and skipping the pass.
+- ⚠ **Only flags with something behind them are there.** Doc 20's checklist also names colliders,
+  audio sources and navigation; there is no collider component, no audio-source component and no
+  navigation mesh to draw, so a tick for any of them would be a control that does nothing — doc 20's
+  own second bar failed by the menu meant to satisfy it. They arrive with the subsystems.
+- ⚠ **The grid is `SceneShow.Grid` and *not* `SceneGrid.Enabled`.** The grid keeps its own switch for
+  a host with no show flags, and the editor writes exactly one of the two. Two writers to one setting
+  is how a menu tick and a panel toggle come to disagree.
+
+## Rubber-band selection
+
+A press in empty space starts a band **every time**, because a click and a band begin identically and
+which one it is cannot be known until the pointer has moved. The release is where they part: a band
+that never reached `Marquee.MinimumSize` is answered by the picker, and one that did is a region
+query.
+
+- **Two corners, not an origin and a size.** A drag goes in any direction, and the consumer that
+  forgets to cope with a negative width is the hit test rather than the drawing — so a band dragged up
+  and to the left selects nothing while looking exactly like one that works.
+- ⚠ **Either dimension passes the threshold, not both.** Dragging along a row of objects is a band a
+  few pixels tall and several hundred wide.
+- **Touching, not containing**, which is what both reference editors do by default: a band that only
+  took what it fully enclosed cannot select anything larger than the pane, so the gesture stops
+  working precisely where a scene gets big.
+- ⚠ **Corners behind the eye are dropped rather than projected.** A perspective divide answers for
+  them with a real pixel position mirrored through the middle of the pane, which would stretch the
+  object's screen rectangle across the whole viewport and put it in every band anybody drags.
+- ⚠ **An empty band clears the selection and an additive one does not** — the same rule a miss
+  follows, and for the same reason.
+- The band is drawn by `MarqueeOverlay`, an element in `Viewport.Overlay` rather than geometry in the
+  render target: it is in layout pixels, in the same draw list as every panel, and it is
+  `pointer-events: none` because it covers the very pixels the drag is happening over.
+
+## Snapping to what is already there
+
+`SnapSettings.SnapToVertex` and `SnapToSurface` are honoured during a translate drag, through
+`SceneProbe` — `ScenePicker`'s twin for "what does this ray hit" and "which vertex is nearest the
+pointer". Both questions are useless without an exclusion, because the pointer is over the object
+being dragged for the whole of every drag; that is why `ISceneProbe` exists beside `ISurfaceProbe`
+rather than replacing it.
+
+- **Vertex first, then surface.** Both can be on at once and they are not the same request: a vertex
+  snap only answers when there is a corner within reach, so falling through to the surface makes
+  holding both strictly better rather than a mode switch.
+- ⚠ **Nearest *on screen*, not nearest in the world.** The gesture is "put it on that corner", and
+  which corner is meant is decided by where the pointer is.
+- ⚠ **Still constrained by the handle being dragged.** A snap on the X arm moves along X to the
+  snapped point's X; a snap on a plane handle moves in that plane. "Snap to that corner" and "keep it
+  on this axis" compose rather than the last one written winning.
+- ⚠ **`TransformGizmo.SnapTo` is a *point*, not a probe.** Answering "which vertex is nearest" needs
+  the scene, the camera and the pane's size in render pixels — three things a gizmo has no business
+  holding, two of which would have to be threaded through `Drag` for the one mode that uses them.
+- ⚠ **A ray's parameter does not survive a transform, because `Ray` normalises.** Both this and
+  `ScenePicker` take the local hit *point* back out through the matrix and measure the world distance
+  from it. Without that, a shape scaled fourfold answers with a quarter of the distance — so "the near
+  cube rather than the far one" was decided by scale rather than by depth, and a shape's distance was
+  not comparable with a marker's at all.
+
+## A selection outline without a stencil
+
+The textbook outline is a stencil pass and a post effect over it: a second render pass, a stencil
+format this target does not have, and a shader. What this path *does* have is every vertex on the
+processor with the camera in hand, so the outline is an inverted hull built exactly rather than
+approximately — `SceneMeshes.Hull`.
+
+- The expansion is along the part of the normal lying **across** the view, scaled by
+  `EditorCamera.WorldPerPixel` at that vertex, so the rim is the width it was asked for in pixels at
+  every distance and in both projections.
+- ⚠ **A vertex whose normal points at the eye is not expanded at all.** It is not on the silhouette,
+  and expanding it pushes the front face outwards through its own surface — an orange bloom over the
+  middle of the selection.
+- ⚠ **The hull is pushed away from the eye by a bias in pixels.** Moved only across the view it would
+  be at the same depth as the object at every pixel the object covers, which the rasterizer settles
+  differently per triangle: an outline that flickers in patches.
+- ⚠ **The hull's normals face the light rather than the surface.** One renderer, one ambient term for
+  the whole draw — so the only way to have a flat rim beside shaded surfaces is a lambert term of one
+  everywhere, which needs the light the renderer will actually use.
+- It is collected only when surfaces are: in a wireframe view there is nothing for a rim to be the rim
+  *of*, and an expanded hull with no object over it is a solid blob.
+
 ## View modes are compositors
 
 Doc 06 made the compositor data precisely so that "show me the normals" is a different tree rather than
@@ -431,6 +533,29 @@ Wireframe and overdraw are the exception and are here as stage state, because th
 with a different rasterizer and a different blend. ⚠ That mutates the stage, and a stage belongs to the
 render system rather than to a view — so a four-pane layout with independent render modes needs a stage
 per pane. `ViewportLayout` gives each pane a whole `SceneViewport` for this reason.
+
+### …and until the viewport is compositor-driven, `ViewShading`
+
+⚠ **All of the above is right and none of it is what the editor draws today.** A mode being a
+compositor tree needs the viewport driven by `RenderSystem` through a `GraphicsCompositor`, which is
+Phase 7's material-system wiring rather than doc 20's. What the editor draws is `SceneMeshes` through
+`MeshRenderer`: world-space triangles, one flat colour per vertex, one directional term.
+`ViewShading` is the table of what *that* path can honestly express, and six of the nine modes are
+expressible with no new module, no new pipeline and no new push constant:
+
+| Mode | How |
+|---|---|
+| Shaded | The default. |
+| Shaded Wireframe | The same, plus every edge into the line list. |
+| Wireframe | Only the edges. Segments rather than `FillMode.Wireframe`, which would be a second rasterizer state in a shipping renderer for a debug view of a tool path. |
+| Unlit, Albedo | The ambient term at one. With no materials, "base colour" and "unlit" *are* the same picture, and saying so is more honest than two menu lines that differ by nothing. |
+| Normal | The world normal remapped into the vertex colour, ⚠ from −1..1 rather than clamped: half of every normal is negative, so clamping would paint three of a cube's six faces black. The selection's colour is ignored in this mode, because painting the selected object orange in a view whose content *is* the normal makes the one object being looked at the one the view cannot answer for. |
+
+⚠ **The other three are registered and greyed rather than absent.** Roughness has no material to read
+one off; light complexity needs the clustered light list; overdraw needs an additive pipeline with the
+depth test off. `ViewModes.Resolve` falls back to shaded for an unregistered mode — right for a
+compositor that has not been authored, wrong for a menu line, because a line that draws the picture of
+the line above it reads as the editor ignoring the click.
 
 ## The document
 
@@ -587,27 +712,32 @@ port present as "the remote inspector does not work with more than one client".
 
 ## Not in
 
-**Solid rings and plane quads.** ~~Solid handles.~~ The arm heads are cones and cubes through
-`MeshRenderer` — see above. What is still wire is everything else: a rotation ring is a polyline
-rather than a torus, and a plane quad is an outline rather than a filled square. The second of those
-is the one worth doing next, because the hit test already treats a plane handle as a *filled* quad —
-`InQuad`, not a distance to its border — so the outline understates what answers a click by the whole
-of its middle.
+~~**Solid rings and plane quads.**~~ ~~Solid handles.~~ Both are in. A rotation ring is a tube swept
+round the circle — cut to the camera-facing half exactly as the polyline was, because solid geometry
+makes the crossings worse rather than better — and a plane handle is a filled translucent square with
+its outline still over it. The fill is what the hit test has always answered for: `InQuad` is a
+point-in-polygon test over the whole square, not a distance to its border, so the outline understated
+what answers a click by the whole of its middle.
 
-**A selection outline.** The one thing here that is not geometry a tool can build: it wants the
-silhouette of whatever is selected, which is a post effect over a stencil rather than a mesh, and it
-wants a render pass the editor's viewport does not have.
+~~**A selection outline.**~~ In, as an inverted hull rather than as a stencil pass — see above for why
+that is exact rather than an approximation here, and for the three things it gets wrong if any of them
+is skipped.
 
-**Vertex snapping.** `SnapSettings.SnapToVertex` and its radius are in the model and are not honoured
-yet: it needs the mesh under the pointer, which is the same readback picking does but for a position
-rather than an id.
+~~**Vertex snapping.**~~ In, through `SceneProbe` rather than through a readback, together with
+surface snapping. The readback is still the right answer for geometry a shader moved; a scene of
+primitives is a scene the processor can answer about exactly.
 
-**Rubber-band selection.** The picking stage answers one pixel; a marquee wants a region, which is a
-different copy and a different resolve.
+~~**Rubber-band selection.**~~ In, as a screen-space region query rather than as a region readback —
+`IScenePicker.Within`, over the same projected bounds a click tests against.
 
-**The picking *stage*.** ~~Clicking to select in the viewport.~~ That works now — see below — but
-through a ray test rather than through the stage. The stage is written and tested and nothing sets a
-`PickingBuffer` for it, because it needs a render target the editor's host does not own yet.
+**The picking *stage*.** ~~Clicking to select in the viewport.~~ That works, through a ray test.
+`PickingRenderer` is written and tested and nothing drives it, and the reason has moved rather than
+gone away: it is a `SceneRenderer` over a `RenderStage`, which needs the viewport driven by
+`RenderSystem` through a `GraphicsCompositor`. The editor's viewport is `SceneMeshes` through
+`MeshRenderer` and has neither. So this is blocked on the same material-system wiring the view modes
+are — doc 20's Risks table says that work should be scheduled *before* the viewport milestone, and it
+was not — and it stays blocked until it is, at which point the stage connects to a real target and
+`ScenePicker` becomes the fallback rather than the answer.
 
 **Auto-depth.** `EditorCamera.OnPivotPlane` is the depth a zoom-at-the-pointer assumes when it has not
 been told one, and it is right when the grid is what you are looking at. Blender samples the depth

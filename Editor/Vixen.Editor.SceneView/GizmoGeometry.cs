@@ -145,11 +145,17 @@ public static class GizmoGeometry {
         // stopped highlighting the arm it is moving looks like it let go.
         var active = gizmo.IsDragging ? gizmo.Active : gizmo.Hovered;
 
-        if (gizmo.Mode == GizmoMode.Rotate) {
-            Rings(into, camera, origin, basis, scale, active, pen);
-            ScreenRing(into, camera, origin, scale * gizmo.ScreenRingScale, active, pen);
-        } else {
+        // ⚠ A rotate gizmo has no wire half at all any more. Its rings are tubes through
+        // <see cref="BuildSolid" />, and drawing a polyline down the middle of a five-pixel tube puts
+        // a hairline over a solid shape that is already the shape the hit test measures — visible as
+        // a seam on the near side of every ring and as nothing at all on the far side, which reads as
+        // the ring being drawn twice at slightly different radii.
+        if (gizmo.Mode != GizmoMode.Rotate) {
             Arms(into, camera, gizmo, origin, basis, scale, active, pen);
+
+            // The outline over the filled quad, not instead of it. A translucent square with no edge
+            // is a smudge at the angles where it is nearly edge-on, which is exactly where somebody
+            // is trying to decide whether they can grab it.
             Planes(into, origin, basis, scale, active, gizmo, camera.Forward, pen);
         }
 
@@ -201,8 +207,7 @@ public static class GizmoGeometry {
 
         var before = vertices.Count;
 
-        // Rotation has rings and no arms, and a gizmo with nothing selected has neither.
-        if (gizmo.Targets.Count == 0 || gizmo.Mode is GizmoMode.None or GizmoMode.Rotate) {
+        if (gizmo.Targets.Count == 0 || gizmo.Mode == GizmoMode.None) {
             return 0;
         }
 
@@ -210,6 +215,18 @@ public static class GizmoGeometry {
         var basis = gizmo.Basis(camera);
         var scale = gizmo.WorldPerPixel(camera, height) * gizmo.HandleLength;
         var active = gizmo.IsDragging ? gizmo.Active : gizmo.Hovered;
+
+        // Rotation is four tubes and nothing else: no arms, no heads, no middle box.
+        if (gizmo.Mode == GizmoMode.Rotate) {
+            Tori(vertices, triangles, gizmo, camera, height, origin, basis, active);
+            return vertices.Count - before;
+        }
+
+        // ⚠ Before the heads, and that is what makes the translucent quads read. Both go into one
+        // buffer drawn with the depth test off, so what covers what is the order they were appended
+        // in — and an opaque cone drawn under a half-transparent square is a cone with a coloured
+        // film over it.
+        PlaneQuads(vertices, triangles, gizmo, camera, origin, basis, scale, active);
 
         var cube = gizmo.Mode == GizmoMode.Scale;
         var shape = cube ? Cube : Cone;
@@ -305,6 +322,238 @@ public static class GizmoGeometry {
         );
     }
 
+    /// <summary>How translucent a plane handle's fill is when it is not under the pointer.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Low, and it has to be.</b> The three quads sit between the arms and over whatever is
+    ///     being moved, so an opaque fill hides the object at exactly the moment somebody is looking
+    ///     at where it will land. Under the pointer it goes to <see cref="PlaneHighlightAlpha" />,
+    ///     which is what says "this is the one you would grab" without hiding anything for longer than
+    ///     the pointer is there.
+    /// </remarks>
+    public const float PlaneFillAlpha = 0.22f;
+
+    /// <summary>And when it is.</summary>
+    public const float PlaneHighlightAlpha = 0.45f;
+
+    /// <summary>The three quads that drag in a plane, as filled squares.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The hit test has always treated these as filled and the picture said
+    ///         otherwise.</b> <c>TransformGizmo</c>'s plane test is <c>InQuad</c> — a point-in-polygon
+    ///         test over the whole square — not a distance to its border, so the middle of an outlined
+    ///         plane handle answered clicks and looked like empty space between three arms. An outline
+    ///         understating what answers a click by the whole of its middle is the same class of fault
+    ///         as a grab radius narrower than the line it grabs, and it reads the same way: the tool
+    ///         being unreliable rather than a number being wrong.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Skipped edge-on, on the same threshold the outline and the hit test use.</b> The
+    ///         three have to agree or a handle is drawn where it cannot be grabbed, or grabbable where
+    ///         nothing is drawn.
+    ///     </para>
+    /// </remarks>
+    static void PlaneQuads(
+        List<MeshVertex> vertices,
+        List<uint> triangles,
+        TransformGizmo gizmo,
+        EditorCamera camera,
+        Vector3 origin,
+        Matrix4x4 basis,
+        float scale,
+        GizmoHandle active
+    ) {
+        if (gizmo.Mode is not (GizmoMode.Translate or GizmoMode.Transform)) {
+            return;
+        }
+
+        Span<GizmoHandle> handles = [GizmoHandle.PlaneYZ, GizmoHandle.PlaneZX, GizmoHandle.PlaneXY];
+
+        for (var index = 0; index < 3; index++) {
+            var first = Axis(basis, (index + 1) % 3);
+            var second = Axis(basis, (index + 2) % 3);
+            var normal = Vector3.Cross(first, second);
+
+            if (MathF.Abs(Vector3.Dot(normal, camera.Forward)) < PlaneEdgeOn) {
+                continue;
+            }
+
+            var highlighted = active == handles[index];
+            var axis = AxisColour(index, highlighted);
+
+            var colour = new Color4(
+                axis.R,
+                axis.G,
+                axis.B,
+                highlighted ? PlaneHighlightAlpha : PlaneFillAlpha
+            );
+
+            var corner = origin + ((first + second) * (scale * gizmo.PlaneOffset));
+            var side = first * (scale * gizmo.PlaneSize);
+            var up = second * (scale * gizmo.PlaneSize);
+
+            var start = (uint) vertices.Count;
+
+            vertices.Add(new(corner, normal, colour));
+            vertices.Add(new(corner + side, normal, colour));
+            vertices.Add(new(corner + side + up, normal, colour));
+            vertices.Add(new(corner + up, normal, colour));
+
+            // Two triangles round the four corners in order. The pipeline is two-sided, so which way
+            // round they wind decides nothing here — see `Frame`'s remarks for why that is still not
+            // an excuse to get it wrong.
+            triangles.Add(start);
+            triangles.Add(start + 1);
+            triangles.Add(start + 2);
+            triangles.Add(start);
+            triangles.Add(start + 2);
+            triangles.Add(start + 3);
+        }
+    }
+
+    /// <summary>How nearly edge-on a plane handle may be before it is neither drawn nor grabbable.</summary>
+    /// <remarks>
+    ///     One number in one place, read by the fill, by the outline and — through
+    ///     <c>TransformGizmo</c>'s own copy of the same threshold — by the hit test. A quad seen along
+    ///     its edge projects to a sliver lying on the third arm and would take that arm's clicks.
+    /// </remarks>
+    public const float PlaneEdgeOn = 0.15f;
+
+    /// <summary>How many sides a rotation ring's tube has.</summary>
+    /// <remarks>
+    ///     Six, for a tube five pixels across: each flat is under two pixels wide, and the silhouette
+    ///     of a hexagon that size is a circle. More sides is four hundred more vertices a frame for a
+    ///     shape nobody can tell apart from this one.
+    /// </remarks>
+    public const int TubeSides = 6;
+
+    /// <summary>The four rotation rings, as tubes.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A torus rather than a polyline, and the argument is the arm heads' argument.</b> A
+    ///         ring drawn as several parallel one-pixel strokes is a ring that reads as a ring only
+    ///         from the angle the strokes were offset for; where it turns towards the eye the strokes
+    ///         converge and it thins to a hairline. A tube is the same shape from every angle, and it
+    ///         is what makes the near side of a ring look nearer than the far side.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Cut to the half facing the camera, exactly as the wire rings were and the hit test
+    ///         still is.</b> Three full circles about one point cross each other twelve times, and at
+    ///         every crossing the front of one ring is over the back of another. Solid geometry makes
+    ///         that worse rather than better: the back half is no longer something you can see the
+    ///         front through.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The run is broken rather than the sample skipped</b>, which for a tube means no
+    ///         quad is emitted across the horizon — the wire version's chord, in three dimensions.
+    ///     </para>
+    /// </remarks>
+    static void Tori(
+        List<MeshVertex> vertices,
+        List<uint> triangles,
+        TransformGizmo gizmo,
+        EditorCamera camera,
+        int height,
+        Vector3 origin,
+        Matrix4x4 basis,
+        GizmoHandle active
+    ) {
+        var worldPerPixel = gizmo.WorldPerPixel(camera, height);
+        var radius = worldPerPixel * gizmo.HandleLength;
+        var tube = worldPerPixel * MathF.Max(1f, gizmo.Thickness) * 0.5f;
+        var towards = TowardsEye(camera, origin);
+
+        for (var axis = 0; axis < 3; axis++) {
+            var normal = Axis(basis, axis);
+            var reference = MathF.Abs(Vector3.Dot(normal, Vector3.UnitY)) > 0.99f ? Vector3.UnitX : Vector3.UnitY;
+            var u = Vector3.Normalize(Vector3.Cross(reference, normal));
+            var v = Vector3.Cross(normal, u);
+
+            Tube(
+                vertices,
+                triangles,
+                origin,
+                u,
+                v,
+                radius,
+                tube,
+                AxisColour(axis, active == GizmoHandle.AxisX + axis),
+                towards
+            );
+        }
+
+        // The screen ring is a whole circle: it lies in the view plane, so every part of it faces the
+        // camera and there is no far half to cut.
+        Tube(
+            vertices,
+            triangles,
+            origin,
+            camera.Right,
+            camera.Up,
+            radius * gizmo.ScreenRingScale,
+            tube,
+            NeutralColour(active == GizmoHandle.Screen)
+        );
+    }
+
+    /// <summary>One tube swept round a circle, or round the half of it facing a direction.</summary>
+    static void Tube(
+        List<MeshVertex> vertices,
+        List<uint> triangles,
+        Vector3 origin,
+        Vector3 u,
+        Vector3 v,
+        float radius,
+        float tube,
+        Color4 colour,
+        Vector3? towards = null
+    ) {
+        var axis = Vector3.Cross(u, v);
+        var previous = -1;
+
+        for (var step = 0; step <= RingSegments; step++) {
+            var angle = step / (float) RingSegments * MathF.Tau;
+            var radial = (u * MathF.Cos(angle)) + (v * MathF.Sin(angle));
+
+            if (towards is { } eye && Vector3.Dot(radial, eye) < 0f) {
+                previous = -1;
+                continue;
+            }
+
+            var centre = origin + (radial * radius);
+            var start = vertices.Count;
+
+            for (var side = 0; side < TubeSides; side++) {
+                // ⚠ The cross-section's own normal is the outward direction of the tube at that
+                // point, which is what makes a ring look round rather than flat. It is not the
+                // ring's radial: half of the tube faces along the ring's axis.
+                var around = side / (float) TubeSides * MathF.Tau;
+                var normal = (radial * MathF.Cos(around)) + (axis * MathF.Sin(around));
+
+                vertices.Add(new(centre + (normal * tube), normal, colour));
+            }
+
+            if (previous >= 0) {
+                for (var side = 0; side < TubeSides; side++) {
+                    var next = (side + 1) % TubeSides;
+
+                    var a = (uint) (previous + side);
+                    var b = (uint) (previous + next);
+                    var c = (uint) (start + next);
+                    var d = (uint) (start + side);
+
+                    triangles.Add(a);
+                    triangles.Add(b);
+                    triangles.Add(c);
+                    triangles.Add(a);
+                    triangles.Add(c);
+                    triangles.Add(d);
+                }
+            }
+
+            previous = start;
+        }
+    }
+
     /// <summary>The three shafts. The heads on the ends of them are <see cref="BuildSolid" />'s.</summary>
     static void Arms(
         List<LineVertex> into,
@@ -363,7 +612,7 @@ public static class GizmoGeometry {
             var first = Axis(basis, (index + 1) % 3);
             var second = Axis(basis, (index + 2) % 3);
 
-            if (MathF.Abs(Vector3.Dot(Vector3.Cross(first, second), forward)) < 0.15f) {
+            if (MathF.Abs(Vector3.Dot(Vector3.Cross(first, second), forward)) < PlaneEdgeOn) {
                 continue;
             }
 
@@ -406,97 +655,6 @@ public static class GizmoGeometry {
             _ => GizmoHandle.None
         };
 
-    /// <summary>The three rings that turn about the gizmo's own axes.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Only the half of each facing the camera is drawn, exactly as the hit test only offers
-    ///     that half.</b> Three full circles about one point cross each other twelve times, and at
-    ///     every crossing the front of one ring is drawn over the back of another — so aiming at the
-    ///     green ring where the red one passes behind it is a coin toss, and the space inside the
-    ///     gizmo that looks empty is criss-crossed by the far sides of all three. Hiding the back half
-    ///     is also what makes a rotate gizmo read as a sphere rather than as a flat knot.
-    /// </remarks>
-    static void Rings(
-        List<LineVertex> into,
-        EditorCamera camera,
-        Vector3 origin,
-        Matrix4x4 basis,
-        float scale,
-        GizmoHandle active,
-        Pen pen
-    ) {
-        var towards = TowardsEye(camera, origin);
-
-        for (var axis = 0; axis < 3; axis++) {
-            var normal = Axis(basis, axis);
-            var reference = MathF.Abs(Vector3.Dot(normal, Vector3.UnitY)) > 0.99f ? Vector3.UnitX : Vector3.UnitY;
-            var u = Vector3.Normalize(Vector3.Cross(reference, normal));
-            var v = Vector3.Cross(normal, u);
-
-            Ring(into, origin, u, v, scale, AxisColour(axis, active == GizmoHandle.AxisX + axis), pen, towards);
-        }
-    }
-
-    /// <summary>The ring that turns about whatever the camera is looking along.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The other handle the hit test has always offered and nothing drew.</b>
-    ///     <c>TransformGizmo.HitTest</c> answers <see cref="GizmoHandle.Screen" /> for a circle at
-    ///     <c>HandleLength × ScreenRingScale</c>, and a rotate gizmo that did not draw it had a band
-    ///     of pixels outside the axis rings that turned the selection for no visible reason.
-    /// </remarks>
-    static void ScreenRing(
-        List<LineVertex> into,
-        EditorCamera camera,
-        Vector3 origin,
-        float radius,
-        GizmoHandle active,
-        Pen pen
-    ) =>
-        Ring(into, origin, camera.Right, camera.Up, radius, NeutralColour(active == GizmoHandle.Screen), pen);
-
-    /// <summary>A circle, or the half of one that faces a direction.</summary>
-    /// <param name="into">Where to put the vertices.</param>
-    /// <param name="origin">The middle.</param>
-    /// <param name="u">One axis of its plane, unit length.</param>
-    /// <param name="v">The other.</param>
-    /// <param name="radius">How big.</param>
-    /// <param name="colour">What to draw it in.</param>
-    /// <param name="pen">How to draw it.</param>
-    /// <param name="towards">Which way to face, or <see langword="null" /> for the whole circle.</param>
-    static void Ring(
-        List<LineVertex> into,
-        Vector3 origin,
-        Vector3 u,
-        Vector3 v,
-        float radius,
-        Color4 colour,
-        Pen pen,
-        Vector3? towards = null
-    ) {
-        var previous = Vector3.Zero;
-        var had = false;
-
-        for (var step = 0; step <= RingSegments; step++) {
-            var angle = step / (float) RingSegments * MathF.Tau;
-            var offset = (u * MathF.Cos(angle)) + (v * MathF.Sin(angle));
-
-            // ⚠ The run is broken rather than the point skipped. Joining the last point before the
-            // horizon to the first one after it draws a chord straight across the gizmo, which is a
-            // line that belongs to no handle and that the hit test does not know about.
-            if (towards is { } eye && Vector3.Dot(offset, eye) < 0f) {
-                had = false;
-                continue;
-            }
-
-            var point = origin + (offset * radius);
-
-            if (had) {
-                Segment(into, previous, point, colour, pen);
-            }
-
-            previous = point;
-            had = true;
-        }
-    }
 
     /// <summary>One segment, drawn as many parallel strokes as the pen has.</summary>
     /// <remarks>

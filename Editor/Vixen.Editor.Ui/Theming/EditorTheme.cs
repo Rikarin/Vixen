@@ -690,6 +690,83 @@ public static class EditorTheme {
            and a background under it would be a colour nobody ever sees. */
         viewport { border-radius: var(--radius-row); overflow: hidden; }
 
+        /* ── Viewport splits ────────────────────────────────────────────────────
+           `ViewportLayout` puts a class on its root and nothing else — the split
+           is a stylesheet's business, which is also what lets a user's own theme
+           change the proportions. Without these rules the panes stack in a column
+           at their natural height, which is a four-pane layout that looks like one
+           pane and three slivers. */
+        .viewport-layout { gap: 2px; }
+        .viewport-layout > viewport { flex-grow: 1; flex-basis: 0px; min-width: 0px; min-height: 0px; }
+
+        .viewport-layout.single { flex-direction: column; }
+        .viewport-layout.side-by-side { flex-direction: row; }
+        .viewport-layout.stacked { flex-direction: column; }
+
+        /* ⚠ Four panes are a wrapped row of half-width, half-height boxes rather
+           than two nested containers, because the layout owns one element and adds
+           four children to it — a nested arrangement would need it to build boxes
+           it has no reason to know about. `flex-basis: 48%` rather than 50% leaves
+           room for the gap; at exactly half, the second pane of each row wraps onto
+           a line of its own and the quad becomes a column of four. */
+        .viewport-layout.quad { flex-direction: row; flex-wrap: wrap; }
+        .viewport-layout.quad > viewport { flex-basis: 48%; height: 49%; }
+
+        /* ── Viewport chrome ────────────────────────────────────────────────────
+           Doc 20's E2: a toolbar floating over the top-left of the pane, a stats
+           readout in the bottom-left, and the rubber-band over the whole of it.
+           All three are ordinary elements in `viewport-overlay`, which is why the
+           layout engine positions them and the cascade styles them. */
+        viewport-bar {
+            position: absolute;
+            left: 6px;
+            top: 6px;
+            flex-direction: row;
+            align-items: center;
+        }
+
+        /* ⚠ The strip `ToolbarPresenter` builds, not the bar itself. The presenter
+           adds a `toolbar` element into whatever host it was given, so the panel
+           that floats is the outer one and the inner one keeps the shell
+           toolbar's own metrics. */
+        viewport-bar > toolbar {
+            background-color: var(--surface-raised);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-row);
+            padding: 2px 4px;
+            gap: 2px;
+        }
+
+        /* Only the focused pane's is shown — see `ViewportChrome`, which says why
+           four strips of which three are lying is worse than one. */
+        viewport-bar.hidden { display: none; }
+
+        /* ⚠ Bottom-left rather than bottom-right, which is where the axis cross
+           and the toolbar are not. A readout under the corner gizmo is one that
+           is unreadable in exactly the pane somebody is navigating. */
+        viewport-stats {
+            position: absolute;
+            left: 8px;
+            bottom: 6px;
+            color: var(--text-muted);
+            font-size: 0.85em;
+            pointer-events: none;
+        }
+
+        /* ⚠ Transparent to the pointer, and that is not decoration. It covers the
+           pixels the drag is happening over, so an element that hit-tested would
+           swallow the release that ends the band it is drawing. */
+        marquee {
+            position: absolute;
+            left: 0px;
+            top: 0px;
+            right: 0px;
+            bottom: 0px;
+            pointer-events: none;
+            --marquee-fill: rgba(90, 150, 255, 0.16);
+            --marquee-edge: rgba(140, 190, 255, 0.9);
+        }
+
         /* ── Background tasks ───────────────────────────────────────────────────
            Never a modal dialog — doc 11 is explicit — so this is a panel that
            happens to be over the status bar and takes no input from the rest of

@@ -39,38 +39,44 @@ public class GizmoGeometryTests {
         GizmoGeometry.Build(moving, camera, Height, translate);
         GizmoGeometry.Build(turning, camera, Height, rotate);
 
+        // Shafts and plane outlines for a translate gizmo.
         Assert.NotEmpty(translate);
 
-        // Four rings — the three axes and the screen-facing one — of up to thirty-two segments each,
-        // every segment drawn as many parallel strokes as the gizmo is pixels thick. A lot more than
-        // three arms and their heads, so this also says the two paths are not quietly the same one.
-        //
-        // ⚠ A range rather than a count, and the range is the reason: the three axis rings are cut
-        // to the half facing the camera, and which sample lands exactly on the horizon is a cosine
-        // compared against zero. Asserting the count to the segment is asserting the sign of a float
-        // that is 1e−8 either way.
-        var strokes = (int) MathF.Round(turning.Thickness);
-        var full = 4 * GizmoGeometry.RingSegments * strokes * 2;
+        // ⚠ And nothing at all in the wire list for a rotate one. Its rings are tubes through
+        // `BuildSolid`, and a polyline down the middle of a five-pixel tube is a hairline over a
+        // solid shape — visible as a seam on the near side of every ring and as nothing on the far
+        // side, which reads as the ring being drawn twice at slightly different radii.
+        Assert.Empty(rotate);
 
-        Assert.InRange(rotate.Count, full / 2, full - (strokes * 2));
+        // Four tubes — the three axes and the screen-facing one — of up to thirty-two cross-sections
+        // each, six sides to a cross-section. A lot more than three arms and their heads, so this
+        // also says the two paths are not quietly the same one.
+        var (vertices, triangles, _) = Solid(turning, camera);
+        var full = 4 * (GizmoGeometry.RingSegments + 1) * GizmoGeometry.TubeSides;
+
+        // ⚠ A range rather than a count, and the range is the reason: the three axis rings are cut to
+        // the half facing the camera, and which sample lands exactly on the horizon is a cosine
+        // compared against zero. Asserting the count to the cross-section is asserting the sign of a
+        // float that is 1e−8 either way.
+        Assert.InRange(vertices.Count, full / 2, full);
+        Assert.Equal(0, triangles.Count % 3);
     }
 
     [Fact]
     public void The_far_half_of_a_rotation_ring_is_not_drawn() {
-        List<LineVertex> into = [];
         var (gizmo, _, camera) = One(GizmoMode.Rotate);
+        var (vertices, _, radius) = Solid(gizmo, camera);
 
-        GizmoGeometry.Build(gizmo, camera, Height, into);
-
-        var radius = gizmo.WorldPerPixel(camera, Height) * gizmo.HandleLength;
         var slack = radius * 0.05f;
 
         // Nothing at ring radius sits on the far side of the gizmo. Three full circles about one
         // point cross each other twelve times, and every crossing is a click that lands on the back
         // of one ring while aiming at the front of another. The screen-facing ring is a whole circle
         // and is further out, so it is excluded by radius rather than by being special-cased.
+        Assert.NotEmpty(vertices);
+
         Assert.DoesNotContain(
-            into,
+            vertices,
             vertex => vertex.Position.Length() <= radius + slack && vertex.Position.Z < -slack
         );
     }
@@ -155,14 +161,12 @@ public class GizmoGeometryTests {
 
     [Fact]
     public void The_rotate_gizmo_draws_the_screen_ring_the_hit_test_answers_for() {
-        List<LineVertex> into = [];
         var (gizmo, _, camera) = One(GizmoMode.Rotate);
-
-        GizmoGeometry.Build(gizmo, camera, Height, into);
+        var (vertices, _, _) = Solid(gizmo, camera);
 
         var pixel = gizmo.WorldPerPixel(camera, Height);
         var expected = pixel * gizmo.HandleLength * gizmo.ScreenRingScale;
-        var outermost = into.Max(vertex => vertex.Position.Length());
+        var outermost = vertices.Max(vertex => vertex.Position.Length());
 
         // `HitTest` has always answered `Screen` for a circle out here and nothing drew it, so a
         // rotate gizmo had a band of pixels outside its three rings that turned the selection about
@@ -182,6 +186,7 @@ public class GizmoGeometryTests {
 
         var pixel = scale.WorldPerPixel(camera, Height);
 
+
         // One box, two meanings: uniform scale where there is a scale to do, and a drag in the view
         // plane where there is not — and in both cases it is the thing the arms cannot do. Neither
         // was drawn, and translate did not offer one at all, so the middle of a translate gizmo
@@ -190,8 +195,9 @@ public class GizmoGeometryTests {
         Assert.True(Middle(Solid(translate, camera).Vertices, pixel * translate.CentreRadius));
 
         // Rotate's middle is the screen-facing ring's business, and a box inside three rings is a
-        // fourth thing to aim at in the one place there is no room for it.
-        Assert.Empty(Solid(rotate, camera).Vertices);
+        // fourth thing to aim at in the one place there is no room for it. Its solid list is four
+        // tubes and nothing at the centre radius.
+        Assert.False(Middle(Solid(rotate, camera).Vertices, pixel * rotate.CentreRadius));
     }
 
     [Fact]
@@ -286,6 +292,37 @@ public class GizmoGeometryTests {
         return (vertices, triangles, gizmo.WorldPerPixel(camera, Height) * gizmo.HandleLength);
     }
 
+    /// <summary>The solid vertices that belong to an arm's head rather than to a plane quad.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A filter, because the solid list is no longer only heads.</b> The plane handles are
+    ///     filled quads in the same list and they sit at <c>PlaneOffset</c> along <i>two</i> axes at
+    ///     once, so anything that took the list's first vertex or its extreme along one axis would be
+    ///     measuring a quad's corner and calling it an arrowhead.
+    /// </remarks>
+    static MeshVertex[] Head(List<MeshVertex> vertices, int axis, float scale) =>
+        [
+            .. vertices.Where(vertex => {
+                var position = vertex.Position;
+
+                var along = axis switch {
+                    0 => position.X,
+                    1 => position.Y,
+                    _ => position.Z
+                };
+
+                var across = (position - (Axis(axis) * along)).Length();
+
+                return along > scale * 0.5f && across < scale * 0.2f;
+            })
+        ];
+
+    static Vector3 Axis(int index) =>
+        index switch {
+            0 => Vector3.UnitX,
+            1 => Vector3.UnitY,
+            _ => Vector3.UnitZ
+        };
+
     [Fact]
     public void The_arm_heads_are_solid_triangles_and_the_shafts_are_still_lines() {
         List<LineVertex> wire = [];
@@ -313,8 +350,10 @@ public class GizmoGeometryTests {
         var (gizmo, _, camera) = One(GizmoMode.Translate);
         var (vertices, _, scale) = Solid(gizmo, camera);
 
-        var tip = vertices.Max(vertex => vertex.Position.X);
-        var back = vertices.Where(vertex => vertex.Position.X > scale * 0.5f).Min(vertex => vertex.Position.X);
+        var head = Head(vertices, 0, scale);
+
+        var tip = head.Max(vertex => vertex.Position.X);
+        var back = head.Min(vertex => vertex.Position.X);
 
         // The tip lands exactly where the shaft ends, and the base a head's length behind it. A cone
         // centred on the arm's end instead would bury half of itself in the shaft and leave the arm
@@ -352,7 +391,7 @@ public class GizmoGeometryTests {
     }
 
     [Fact]
-    public void Scale_gets_cubes_and_rotate_gets_nothing() {
+    public void Scale_gets_cubes_and_rotate_gets_tubes() {
         var (scale, _, camera) = One(GizmoMode.Scale);
         var (rotate, _, _) = One(GizmoMode.Rotate);
         var (translate, _, _) = One(GizmoMode.Translate);
@@ -365,9 +404,25 @@ public class GizmoGeometryTests {
         Assert.NotEmpty(cubes.Vertices);
         Assert.NotEqual(cones.Vertices.Count, cubes.Vertices.Count);
 
-        // A rotate gizmo is rings. There is no arm to put a head on, and a solid lump inside three
-        // rings would be a fourth thing to aim at in the one place there is no room for it.
-        Assert.Empty(Solid(rotate, camera).Vertices);
+        // ⚠ A scale gizmo has no plane handles, so its solid list is heads and the middle box and
+        // nothing else. A translate one has three quads' worth of vertices on top of its heads — of
+        // which one is drawn from this angle and two are edge-on and skipped.
+        Assert.All(cubes.Vertices, vertex => Assert.Equal(1f, vertex.Colour.A));
+        Assert.Contains(cones.Vertices, vertex => vertex.Colour.A < 1f);
+
+        // A rotate gizmo is four tubes and nothing else: every vertex of it is out at ring radius,
+        // give or take the tube's own thickness. Nothing is at the middle, where a solid lump would
+        // be a fourth thing to aim at in the one place there is no room for it, and nothing is
+        // between — which is what says the arms and the heads really are gone rather than merely
+        // being somewhere else.
+        var rings = Solid(rotate, camera);
+
+        Assert.NotEmpty(rings.Vertices);
+
+        Assert.All(
+            rings.Vertices,
+            vertex => Assert.InRange(vertex.Position.Length(), rings.Scale * 0.97f, rings.Scale * 1.2f)
+        );
     }
 
     [Fact]
@@ -379,9 +434,15 @@ public class GizmoGeometryTests {
 
         var hovered = Solid(gizmo, camera);
 
+        // ⚠ Read off the head rather than off the list's first vertex: the plane quads are in the
+        // same list and are appended in front of the heads, so vertex zero belongs to a quad.
+        var before = Head(plain.Vertices, 0, plain.Scale);
+        var after = Head(hovered.Vertices, 0, hovered.Scale);
+
         Assert.Equal(plain.Vertices.Count, hovered.Vertices.Count);
-        Assert.Equal(GizmoGeometry.AxisColour(0, highlighted: true), hovered.Vertices[0].Colour);
-        Assert.NotEqual(plain.Vertices[0].Colour, hovered.Vertices[0].Colour);
+        Assert.NotEmpty(after);
+        Assert.All(after, vertex => Assert.Equal(GizmoGeometry.AxisColour(0, highlighted: true), vertex.Colour));
+        Assert.NotEqual(before[0].Colour, after[0].Colour);
     }
 
     [Fact]

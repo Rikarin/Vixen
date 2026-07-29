@@ -42,6 +42,117 @@ public enum ViewMode {
     LightComplexity
 }
 
+/// <summary>What each view mode means to the editor's own tool renderer.</summary>
+/// <remarks>
+///     <para>
+///         <b>Two answers to "show me the normals" and this is the near one.</b>
+///         <see cref="ViewModes" /> is the real one — a mode is a compositor tree, which is what doc
+///         06 made the compositor data for — and it needs the viewport to be driven by
+///         <c>RenderSystem</c> through a <c>GraphicsCompositor</c>, which is Phase 7's material-system
+///         wiring rather than this document's. What the editor draws today is
+///         <c>SceneMeshes</c> through <c>MeshRenderer</c>: world-space triangles, one flat colour per
+///         vertex, one directional term. This table is what that path can honestly express.
+///     </para>
+///     <para>
+///         ⚠ <b>The three it cannot express say so rather than falling back.</b>
+///         <see cref="ViewModes.Resolve" /> falls back to shaded for a mode with no tree registered,
+///         which is right for a compositor that has not been authored and wrong for a menu item: a
+///         line that draws the same picture as the line above it is a control the user tries twice
+///         and then stops trusting. <see cref="IsSupported" /> is what lets the Scene menu register
+///         those three as declared-and-disabled with the reason, which is doc 20's first bar.
+///     </para>
+/// </remarks>
+public static class ViewShading {
+    /// <summary>Whether the editor's tool renderer can draw a mode at all.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Roughness needs a material to read one off, and there are none: the shape colour is a
+    ///         constant chosen by <c>SceneMeshes</c>. Light complexity needs the tiled light list,
+    ///         which belongs to the clustered path. Overdraw needs an additive blend with the depth
+    ///         test off, which is a second pipeline in <c>MeshRenderer</c> — a change to a shipping
+    ///         renderer in <c>Vixen.Rendering</c> for a debug view of a tool path, made obsolete by
+    ///         the compositor swap that replaces the whole of this.
+    ///     </para>
+    /// </remarks>
+    /// <param name="mode">The mode.</param>
+    /// <returns>Whether it draws something the mode means.</returns>
+    public static bool IsSupported(ViewMode mode) =>
+        mode is not (ViewMode.Roughness or ViewMode.Overdraw or ViewMode.LightComplexity);
+
+    /// <summary>Whether a mode draws surfaces.</summary>
+    public static bool DrawsSurfaces(ViewMode mode) => mode != ViewMode.Wireframe;
+
+    /// <summary>Whether a mode draws the edges of those surfaces.</summary>
+    public static bool DrawsEdges(ViewMode mode) => mode is ViewMode.Wireframe or ViewMode.ShadedWireframe;
+
+    /// <summary>How much light a surface facing away from the key still receives.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One for the three modes that are about the surface's own value rather than about its
+    ///     shape.</b> Shading an albedo view is showing the light and the albedo multiplied together,
+    ///     which is the picture the mode exists to take apart.
+    /// </remarks>
+    /// <param name="mode">The mode.</param>
+    /// <param name="shaded">What the renderer's own ambient term is, for the modes that keep it.</param>
+    /// <returns>The ambient term to draw with.</returns>
+    public static float AmbientFor(ViewMode mode, float shaded) =>
+        mode is ViewMode.Unlit or ViewMode.Albedo or ViewMode.Normal ? 1f : shaded;
+
+    /// <summary>Whether a surface is coloured by its normal rather than by what it is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Written into the vertex colour rather than into a shader.</b> The tool path already
+    ///     puts a colour on every vertex and already computes the world normal there — see
+    ///     <c>SceneMeshes.Append</c> — so a normal view is one line at collect time and no new module,
+    ///     no new pipeline and no new push constant.
+    /// </remarks>
+    /// <param name="mode">The mode.</param>
+    /// <returns>Whether it is.</returns>
+    public static bool ColoursByNormal(ViewMode mode) => mode == ViewMode.Normal;
+
+    /// <summary>Whether a mode ignores the selection's colour.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A normal view has to.</b> Painting the selected object orange in a view whose whole
+    ///     content is "this pixel's colour <i>is</i> the normal" makes the one object being looked at
+    ///     the one the view cannot answer for. The outline still marks it, which is what the outline
+    ///     is for.
+    /// </remarks>
+    /// <param name="mode">The mode.</param>
+    /// <returns>Whether it does.</returns>
+    public static bool IgnoresSelectionColour(ViewMode mode) => mode == ViewMode.Normal;
+
+    /// <summary>What a mode is called in a menu.</summary>
+    /// <param name="mode">The mode.</param>
+    /// <returns>Its label.</returns>
+    public static string NameOf(ViewMode mode) =>
+        mode switch {
+            ViewMode.ShadedWireframe => "Shaded Wireframe",
+            ViewMode.LightComplexity => "Light Complexity",
+            _ => mode.ToString()
+        };
+
+    /// <summary>What a mode is called in a command id.</summary>
+    /// <param name="mode">The mode.</param>
+    /// <returns>A lower-case, hyphenated name.</returns>
+    public static string SlugOf(ViewMode mode) =>
+        mode switch {
+            ViewMode.ShadedWireframe => "shaded-wireframe",
+            ViewMode.LightComplexity => "light-complexity",
+            _ => mode.ToString().ToLowerInvariant()
+        };
+
+    /// <summary>Every mode, in the order the View Mode menu offers them.</summary>
+    public static IReadOnlyList<ViewMode> All { get; } = [
+        ViewMode.Shaded,
+        ViewMode.ShadedWireframe,
+        ViewMode.Wireframe,
+        ViewMode.Unlit,
+        ViewMode.Albedo,
+        ViewMode.Normal,
+        ViewMode.Roughness,
+        ViewMode.Overdraw,
+        ViewMode.LightComplexity
+    ];
+}
+
 /// <summary>The compositor a viewport uses for each way of looking at the scene.</summary>
 /// <remarks>
 ///     <para>

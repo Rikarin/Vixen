@@ -128,7 +128,29 @@ sealed partial class EditorApplication : IDisposable {
     /// <summary>The one system the editor runs, and <see cref="ResolveTransforms" /> says why.</summary>
     readonly TransformSystem transforms = new();
 
-    SceneViewport? viewport;
+    /// <summary>The panes the scene is drawn in, or <see langword="null" /> while the panel is closed.</summary>
+    ViewportLayout? viewports;
+
+    /// <summary>How the scene panel is split, kept across a panel rebuild.</summary>
+    ViewportArrangement arrangement = ViewportArrangement.Single;
+
+    /// <summary>Where each pane's camera was, so reopening the panel does not go back to the origin.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One per pane and cleared when the arrangement changes.</b> A saved camera restored
+    ///     into a freshly-split layout would overwrite <c>ViewportLayout</c>'s top/front/side presets
+    ///     with three copies of wherever the single pane happened to be looking — which is a four-pane
+    ///     layout that comes up as four identical perspective views, the exact thing the presets exist
+    ///     to prevent.
+    /// </remarks>
+    readonly ViewBookmark?[] cameras = new ViewBookmark?[4];
+
+    /// <summary>What answers "what is under this ray" for placement and snapping.</summary>
+    /// <remarks>
+    ///     Held here for <see cref="picker" />'s reason: it caches a mesh per shape kind, and a panel's
+    ///     factory runs again every time the panel is reopened.
+    /// </remarks>
+    readonly SceneProbe probe;
+
     InspectorView? inspector;
 
     /// <summary>The component foldouts under the inspector, while its panel is open.</summary>
@@ -145,7 +167,6 @@ sealed partial class EditorApplication : IDisposable {
     ContextMenu? hierarchyMenu;
     ContextMenu? assetMenu;
     ProjectBrowser? browser;
-    ViewBookmark camera;
     bool hierarchyStale = true;
 
     /// <summary>What the outliner's filter box says, or <see langword="null" /> for no filter.</summary>
@@ -238,6 +259,7 @@ sealed partial class EditorApplication : IDisposable {
 
         project.Activate(scene);
         picker = new ScenePicker(scene);
+        probe = new SceneProbe(scene);
         play = new PlayModeController(world);
 
         // ⚠ Every entity gets a *new handle* when a play-mode snapshot is restored, so the
@@ -277,8 +299,6 @@ sealed partial class EditorApplication : IDisposable {
 
         scene.StructureChanged += _ => hierarchyStale = true;
         scene.Renamed += (_, _) => hierarchyStale = true;
-
-        camera = new EditorCamera().Bookmark("initial");
 
         // ⚠ One world for every scene this editor opens and a fresh one per prefab. Sharing the
         // editor's world between scenes is what makes an entity handle mean one thing across the
@@ -378,12 +398,51 @@ sealed partial class EditorApplication : IDisposable {
         set => thumbnails.Surface = value;
     }
 
-    /// <summary>The pane the scene is drawn in, or <see langword="null" /> while it is closed.</summary>
+    /// <summary>The pane a command acts on, or <see langword="null" /> while the panel is closed.</summary>
     /// <remarks>
-    ///     Null is the ordinary case rather than an error: a layout without the scene panel in it is
-    ///     one the user chose, and the host renders nothing for it.
+    ///     <para>
+    ///         <b>The focused one, which in a single-pane layout is the only one.</b> Every scene
+    ///         command — the gizmo modes, the view keys, the show flags — acts on one pane, and which
+    ///         one is the question a split layout makes worth asking. <c>ViewportLayout</c> tracks it
+    ///         from the controls' own focus, so clicking in a pane is what makes the next `W` change
+    ///         that pane's gizmo.
+    ///     </para>
+    ///     <para>
+    ///         Null is the ordinary case rather than an error: a layout without the scene panel in it
+    ///         is one the user chose, and the host renders nothing for it.
+    ///     </para>
     /// </remarks>
     public SceneViewport? Viewport => viewport;
+
+    /// <summary>Every pane the scene is drawn in, in reading order.</summary>
+    /// <remarks>
+    ///     What the host renders: one <c>ScenePresenter</c> per entry, each with its own render
+    ///     target and its own image id. Empty while the panel is closed.
+    /// </remarks>
+    public IReadOnlyList<SceneViewport> Viewports => viewports?.Panes ?? [];
+
+    /// <summary>How the scene panel is split.</summary>
+    public ViewportArrangement Arrangement {
+        get => arrangement;
+
+        set {
+            if (arrangement == value) {
+                return;
+            }
+
+            arrangement = value;
+
+            // ⚠ Forgotten before the rebuild, not after. `ViewportLayout` raises `Rearranged` from
+            // inside the setter below, and the handler is what restores these — so clearing
+            // afterwards would restore last arrangement's cameras into this one's panes and then
+            // throw the record away.
+            Array.Clear(cameras);
+
+            if (viewports is not null) {
+                viewports.Arrangement = value;
+            }
+        }
+    }
 
     /// <summary>Whether the editor has been asked to close.</summary>
     public bool IsClosing { get; private set; }
@@ -399,11 +458,14 @@ sealed partial class EditorApplication : IDisposable {
         set {
             field = value;
 
-            if (viewport is not null) {
-                viewport.Control.RenderScale = value;
+            foreach (var pane in Viewports) {
+                pane.Control.RenderScale = value;
             }
         }
     } = 1f;
+
+    /// <summary>The pane every scene command acts on.</summary>
+    SceneViewport? viewport => viewports?.Focused;
 
     /// <summary>
     ///     Brings the panels up to date with the model, once a frame, after the layout pass.
@@ -451,20 +513,33 @@ sealed partial class EditorApplication : IDisposable {
         SyncTreeSelection();
         browser?.SyncSelection();
 
-        if (viewport is not { } pane) {
+        if (viewports is not { } layout) {
             return;
         }
 
-        pane.Update(delta);
+        // ⚠ Every pane, not only the focused one. A pane nobody has clicked in still has a camera
+        // that has to be brought up to date before its render view is read, and a four-pane layout
+        // where three of the panes only redraw once somebody has clicked in them is one where the
+        // other three look frozen. Which pane *flies* is decided by the focus, inside the pane.
+        for (var index = 0; index < layout.Panes.Count; index++) {
+            var pane = layout.Panes[index];
 
-        // ⚠ Kept every frame, not on the way out. A panel's factory runs again when it is reopened
-        // and the SceneViewport goes with the old one, so there is no teardown hook to read the
-        // camera in — and a bookmark taken once at startup would restore the origin every time.
-        camera = pane.Camera.Bookmark("current");
+            pane.Update(delta);
+            pane.Stats.Sample(delta);
+            chrome?.Refresh(pane, ReferenceEquals(pane, layout.Focused));
+
+            // ⚠ Kept every frame, not on the way out. A panel's factory runs again when it is
+            // reopened and the SceneViewport goes with the old one, so there is no teardown hook to
+            // read the camera in — and a bookmark taken once at startup would restore the origin
+            // every time.
+            if (index < cameras.Length) {
+                cameras[index] = pane.Camera.Bookmark("current");
+            }
+        }
 
         // The inspector follows the gizmo. Reload rather than Inspect, because the rows and their
         // handlers already exist and rebuilding would take the focus out of whatever is being typed.
-        if (pane.Gizmo.IsDragging) {
+        if (layout.Panes.Any(static pane => pane.Gizmo.IsDragging)) {
             inspector?.Reload();
         }
     }
@@ -527,7 +602,7 @@ sealed partial class EditorApplication : IDisposable {
         // shell's document draws through.
         thumbnails.Dispose();
 
-        viewport?.Dispose();
+        viewports?.Dispose();
 
         // Before the world, because it holds a snapshot of it: a controller disposed after the world
         // would be releasing chunks into a world that had already released its own.
@@ -627,6 +702,63 @@ sealed partial class EditorApplication : IDisposable {
             RoutingStrategy.Capture,
             handledEventsToo: true
         );
+
+    /// <summary>Gives every pane of a rearranged layout what only this application can supply.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Run on every rearrangement, because a rearrangement makes new panes.</b>
+    ///         <c>ViewportLayout</c> pushes the document and the target factory into new panes itself
+    ///         — they are its own properties — and everything here is something it has no business
+    ///         knowing about: the picker, the probe, the display scale, where the camera was, and the
+    ///         chrome drawn over the top.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The focus handler is added per pane and captures that pane.</b> A handler that
+    ///         read the loop variable would give every pane the last one, which is a four-pane layout
+    ///         where clicking any pane focuses the fourth — and the symptom is that three of the four
+    ///         ignore the keyboard.
+    ///     </para>
+    /// </remarks>
+    void Configure(ViewportLayout layout) {
+        chrome ??= new ViewportChrome(Shell);
+        chrome.Forget();
+
+        for (var index = 0; index < layout.Panes.Count; index++) {
+            var pane = layout.Panes[index];
+
+            pane.Control.RenderScale = RenderScale;
+
+            // ⚠ Without the picker a click in the viewport selects nothing — the picking stage wants
+            // a target driven by a render system the editor's viewport does not have, so the only way
+            // to select an entity would be the hierarchy panel. Shared across panel rebuilds and
+            // across panes, because its cache of shapes is worth keeping and a scene has one answer.
+            pane.Picker = picker;
+            pane.Surfaces = probe;
+
+            // ⚠ Restored, because this runs again every time the panel is reopened and a fresh
+            // SceneViewport starts at the origin looking down −Z. Absent for a pane of an
+            // arrangement nobody has looked at yet, which is what leaves the quad presets alone.
+            if (index < cameras.Length && cameras[index] is { } saved) {
+                pane.Camera.Restore(saved);
+            }
+
+            var focused = pane;
+
+            pane.Control.AddHandler<FocusEvent>(
+                (_, args) => {
+                    if (args.Gained) {
+                        layout.Focus(focused);
+                    }
+                },
+                handledEventsToo: true
+            );
+
+            chrome.Attach(pane, this);
+        }
+    }
+
+    /// <summary>The toolbar, the stats readout and the rubber-band drawn over each pane.</summary>
+    ViewportChrome? chrome;
 
     void Panels() {
         Shell.RegisterPanel(
@@ -743,23 +875,21 @@ sealed partial class EditorApplication : IDisposable {
             panel => {
                 Contextual(panel, SceneContext);
 
-                var control = panel.Add<ViewportControl>();
-                control.RenderScale = RenderScale;
-
-                viewport = new SceneViewport(control, scene.Selection) {
+                // ⚠ A layout rather than a control, and every pane in it is a whole `SceneViewport`.
+                // Doc 11 asks for "multiple simultaneous viewports with independent cameras and
+                // render modes", and the second half of that is what forces it: a view mode is stage
+                // state, so a pane that wanted its own would silently change its neighbour's.
+                viewports = new ViewportLayout(panel, scene.Selection) {
                     Document = scene,
                     TargetsFactory = () => EntityGizmoTarget.For(world, scene.Selection),
-
-                    // ⚠ Without this a click in the viewport selects nothing — the picking stage
-                    // wants a render target nothing here owns yet, so the only way to select an
-                    // entity was the hierarchy panel and clicking empty space did not even deselect.
-                    // Shared across panel rebuilds, because its cache of shapes is worth keeping.
-                    Picker = picker
+                    Arrangement = arrangement
                 };
 
-                // ⚠ Restored, because this factory runs again every time the panel is reopened and a
-                // fresh SceneViewport starts at the origin looking down −Z.
-                viewport.Camera.Restore(camera);
+                // ⚠ Subscribed after the constructor and then called by hand, because the
+                // constructor's own `Rebuild` raises this before there is anything to hear it — and
+                // the panes it made are the ones that need configuring.
+                viewports.Rearranged += Configure;
+                Configure(viewports);
             }
         );
 
@@ -1199,7 +1329,19 @@ sealed partial class EditorApplication : IDisposable {
             on: pane => pane.Gizmo.Snap.SnapPosition
         );
 
-        Add("scene.toggle-grid", "Grid", pane => pane.Grid.Enabled = !pane.Grid.Enabled, on: pane => pane.Grid.Enabled);
+        // ⚠ The show flag, not `SceneGrid.Enabled`. The grid keeps its own switch for a host with no
+        // show flags, and the editor writes exactly one of the two — see `SceneViewport.Show`, and
+        // doc 20's rule about a preferences window and a menu tick disagreeing.
+        Add(
+            "scene.toggle-grid",
+            "Grid",
+            pane => pane.Show ^= SceneShow.Grid,
+            on: pane => (pane.Show & SceneShow.Grid) != 0
+        );
+
+        // The rest of doc 20's E2 verbs: view modes, the other show flags, the pane count, camera
+        // speed, the nine bookmarks and maximise.
+        ViewportCommands();
 
         Add(
             "scene.toggle-projection",
@@ -1361,8 +1503,32 @@ sealed partial class EditorApplication : IDisposable {
             .AddSeparator()
             .Add("scene.orbit-left", "scene.orbit-right", "scene.orbit-up", "scene.orbit-down");
 
+        // ⚠ Five submenus rather than five flat runs, and the grouping is doc 20's Part C. What each
+        // of them holds is unbounded in the same way the Create menu is — nine view modes, eight show
+        // flags, nine bookmarks — and a Scene menu with thirty-one more lines on it is one where the
+        // six things people use every minute are past the point they stop reading.
+        menu.AddSubmenu(new StringId("editor.menu.panes", "Viewport Layout")).Add(ViewportIds.Arrangements);
+
+        menu.AddSubmenu(new StringId("editor.menu.view-mode", "View Mode")).Add(ViewportIds.ViewModes);
+
+        // The grid's toggle in front of the rest, for the reason `ViewportIds.ShowFlagIds` gives: it
+        // is the one show flag that had a command before there were show flags.
+        menu.AddSubmenu(new StringId("editor.menu.show", "Show"))
+            .Add("scene.toggle-grid")
+            .AddSeparator()
+            .Add(ViewportIds.ShowFlagIds);
+
+        // ⚠ Recall above save, which is the order they are used in. Nine "Set View n" lines at the
+        // top of a submenu is nine lines to scroll past every time somebody wants the view they saved.
+        menu.AddSubmenu(new StringId("editor.menu.bookmarks", "Bookmarks"))
+            .Add(ViewportIds.GoBookmarks)
+            .AddSeparator()
+            .Add(ViewportIds.SetBookmarks);
+
+        menu.AddSubmenu(new StringId("editor.menu.speed", "Camera Speed")).Add(ViewportIds.SpeedIds);
+
         menu.AddSeparator().Add("scene.focus", "scene.frame-all");
-        menu.AddSeparator().Add("scene.toggle-grid");
+        menu.AddSeparator().Add("scene.maximise");
 
         // ⚠ Rebuilt here rather than left to the one a registration triggers, which is why this runs
         // last. Every `Commands.Add` and every `Keys.SetDefault` above rebuilt the bar against a
