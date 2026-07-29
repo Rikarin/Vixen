@@ -318,7 +318,17 @@ public sealed class InspectorDescriptorGenerator : IIncrementalGenerator {
         return new(
             member.Name,
             Named(marker, "Name") as string ?? "",
-            memberType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+
+            // ⚠ With the nullable annotation, and the generated file is `#nullable enable`. A member
+            // declared `Foo? Inner` produces `ref o.Inner` of type `Foo?`, which does not match a
+            // `MemberReference<T, Foo>` — so dropping the `?` made every nullable reference member a
+            // compile error in generated code the author of the type never sees. An optional asset,
+            // an optional parent, an optional override block: none of them could be described.
+            memberType.ToDisplayString(
+                SymbolDisplayFormat.FullyQualifiedFormat.AddMiscellaneousOptions(
+                    SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier
+                )
+            ),
             isField,
             canWrite,
             header,

@@ -5,6 +5,7 @@ using Vixen.Editor.Ui;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Styling;
+using Vixen.Editor.Testing;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -23,9 +24,9 @@ public class TransportTests {
     [InlineData("play.step", "transport-step")]
     [InlineData("play.stop", "transport-stop")]
     public void Each_transport_verb_carries_an_icon_and_a_colour(string id, string className) {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
-        var command = fixture.Editor.Shell.Commands[id];
+        var command = fixture.Shell.Commands[id];
 
         Assert.NotNull(command);
         Assert.NotNull(command.Icon);
@@ -34,20 +35,20 @@ public class TransportTests {
 
     [Fact]
     public void The_play_button_fills_while_the_editor_is_playing() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         var button = Button(fixture, "transport-play");
 
         // Off: a green triangle on the surface.
         Assert.False(button.State.HasFlag(ElementState.Checked));
 
-        Assert.True(fixture.Editor.Shell.Commands.Execute("play.play"));
+        Assert.True(fixture.Shell.Commands.Execute("play.play"));
         fixture.Frames(2);
 
         // On: `:checked` is what the theme fills, so the button is green and the glyph is white.
         Assert.True(button.State.HasFlag(ElementState.Checked));
 
-        Assert.True(fixture.Editor.Shell.Commands.Execute("play.stop"));
+        Assert.True(fixture.Shell.Commands.Execute("play.stop"));
         fixture.Frames(2);
 
         Assert.False(button.State.HasFlag(ElementState.Checked));
@@ -55,7 +56,7 @@ public class TransportTests {
 
     [Fact]
     public void Stop_and_step_are_disabled_until_there_is_something_to_stop() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         var stop = Button(fixture, "transport-stop");
         var step = Button(fixture, "transport-step");
@@ -63,7 +64,7 @@ public class TransportTests {
         Assert.True(stop.Disabled);
         Assert.True(step.Disabled);
 
-        Assert.True(fixture.Editor.Shell.Commands.Execute("play.play"));
+        Assert.True(fixture.Shell.Commands.Execute("play.play"));
         fixture.Frames(2);
 
         Assert.False(stop.Disabled);
@@ -71,7 +72,7 @@ public class TransportTests {
         // Step is for a paused editor: stepping a running one is a frame nobody sees.
         Assert.True(step.Disabled);
 
-        Assert.True(fixture.Editor.Shell.Commands.Execute("play.pause"));
+        Assert.True(fixture.Shell.Commands.Execute("play.pause"));
         fixture.Frames(2);
 
         Assert.False(step.Disabled);
@@ -85,9 +86,9 @@ public class TransportTests {
     /// </summary>
     [Fact]
     public void The_transport_is_drawn_as_one_control() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
-        var strip = fixture.Editor.Shell.Toolbar.Strip;
+        var strip = fixture.Shell.Toolbar.Strip;
 
         var group = Assert.Single(
             strip.Children.Where(child => child.Tag == "toolbar-group"),
@@ -105,8 +106,8 @@ public class TransportTests {
         }
     }
 
-    static ButtonBase Button(EditorFixture fixture, string className) =>
-        Descendants(fixture.Editor.Shell.Toolbar.Strip)
+    static ButtonBase Button(EditorSession fixture, string className) =>
+        Descendants(fixture.Shell.Toolbar.Strip)
             .OfType<ButtonBase>()
             .FirstOrDefault(button => button.HasClass(className))
         ?? throw new InvalidOperationException($"the toolbar has no '{className}' button");

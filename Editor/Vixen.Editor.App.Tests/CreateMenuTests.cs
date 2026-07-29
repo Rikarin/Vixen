@@ -7,6 +7,7 @@ using Vixen.Engine.Cameras;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering;
 using Vixen.Ui.Controls;
+using Vixen.Editor.Testing;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -22,8 +23,8 @@ namespace Vixen.Editor.App.Tests;
 public class CreateMenuTests {
     [Fact]
     public void Every_kind_of_thing_the_menu_offers_has_a_command_behind_it() {
-        using var fixture = new EditorFixture();
-        var commands = fixture.Editor.Shell.Commands;
+        using var fixture = EditorSession.Start();
+        var commands = fixture.Shell.Commands;
 
         Assert.True(commands.TryGet("scene.create-entity", out _));
         Assert.True(commands.TryGet("scene.create-camera", out _));
@@ -41,7 +42,7 @@ public class CreateMenuTests {
 
     [Fact]
     public void The_hierarchy_menu_groups_the_creatable_things_into_submenus() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("hierarchy");
         fixture.Frames(2);
@@ -74,14 +75,14 @@ public class CreateMenuTests {
 
     [Fact]
     public void Creating_a_light_from_its_command_puts_a_real_light_in_the_scene() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("hierarchy");
-        Assert.True(fixture.Editor.Shell.Commands.Execute("scene.create-light-spot"));
+        Assert.True(fixture.Shell.Commands.Execute("scene.create-light-spot"));
 
         fixture.Frames(2);
 
-        var scene = fixture.Editor.Scene;
+        var scene = fixture.Scene;
         var created = Assert.Single(scene.Selection);
 
         Assert.Equal("Spot Light", scene.NameOf(created));
@@ -95,21 +96,21 @@ public class CreateMenuTests {
 
     [Fact]
     public void Creating_a_camera_from_its_command_puts_one_that_can_see_in_the_scene() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("hierarchy");
-        Assert.True(fixture.Editor.Shell.Commands.Execute("scene.create-camera"));
+        Assert.True(fixture.Shell.Commands.Execute("scene.create-camera"));
 
         fixture.Frames(2);
 
-        var scene = fixture.Editor.Scene;
+        var scene = fixture.Scene;
         var created = Assert.Single(scene.Selection);
 
         Assert.True(scene.World.Has<Camera>(created));
         Assert.True(scene.World.Read<Camera>(created).FarPlane > 0f);
     }
 
-    static IEnumerable<ContextMenu> Menus(EditorFixture fixture) {
+    static IEnumerable<ContextMenu> Menus(EditorSession fixture) {
         foreach (var child in fixture.Document.Root.Children) {
             if (child is ContextMenu menu) {
                 yield return menu;

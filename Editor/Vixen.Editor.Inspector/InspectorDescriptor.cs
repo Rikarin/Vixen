@@ -79,17 +79,27 @@ public sealed class InspectorDescriptor {
     /// <param name="value">Its default.</param>
     /// <returns>Whether there is a default to be had.</returns>
     /// <remarks>
-    ///     ⚠ <b>A constructor that throws is treated as "no defaults", once.</b> A type whose
-    ///     parameterless constructor needs a graphics device is a real thing, and an inspector that
-    ///     threw every time it drew one of those — or that retried the throwing constructor per row —
-    ///     would be worse than one that quietly offers no reset button.
+    ///     <para>
+    ///         ⚠ <b>A constructor that throws is treated as "no defaults", once.</b> A type whose
+    ///         parameterless constructor needs a graphics device is a real thing, and an inspector
+    ///         that threw every time it drew one of those — or that retried the throwing constructor
+    ///         per row — would be worse than one that quietly offers no reset button.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A member this descriptor does not own has no default here, and asking is not an
+    ///         error.</b> A composite drawer builds fields over members that belong to something else
+    ///         — a list's third element belongs to the list — and hands them the descriptor it has,
+    ///         because a field needs one. Reading such a member off a fresh instance of <i>this</i>
+    ///         type is a cast that cannot succeed, and it used to be an exception thrown while
+    ///         drawing a row.
+    ///     </para>
     /// </remarks>
     public bool TryGetDefault(InspectorMember member, out object? value) {
         ArgumentNullException.ThrowIfNull(member);
 
         value = null;
 
-        if (factory is null || defaultsFailed) {
+        if (factory is null || defaultsFailed || !Owns(member)) {
             return false;
         }
 
@@ -104,6 +114,22 @@ public sealed class InspectorDescriptor {
 
         value = member.GetBoxed(defaults);
         return true;
+    }
+
+    /// <summary>Whether a member is one of this type's own.</summary>
+    /// <remarks>
+    ///     By identity rather than by name: a nested type and its owner can both declare a
+    ///     <c>Padding</c>, and reading one off the other would produce a default from the wrong type
+    ///     rather than an obvious failure.
+    /// </remarks>
+    bool Owns(InspectorMember member) {
+        foreach (var candidate in Members) {
+            if (ReferenceEquals(candidate, member)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Renders the descriptor as its type's name.</summary>

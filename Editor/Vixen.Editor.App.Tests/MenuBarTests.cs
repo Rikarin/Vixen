@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Ui;
+using Vixen.Editor.Testing;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -16,12 +17,12 @@ namespace Vixen.Editor.App.Tests;
 public class MenuBarTests {
     [Fact]
     public void Every_line_of_every_menu_names_a_command_that_exists() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
-        var commands = fixture.Editor.Shell.Commands;
+        var commands = fixture.Shell.Commands;
         List<string> dangling = [];
 
-        foreach (var menu in fixture.Editor.Shell.Menus.Menus) {
+        foreach (var menu in fixture.Shell.Menus.Menus) {
             Walk(menu, commands, dangling);
         }
 
@@ -30,9 +31,9 @@ public class MenuBarTests {
 
     [Fact]
     public void The_bar_is_the_ten_menus_Part_C_names_in_Part_Cs_order() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
-        var titles = fixture.Editor.Shell.Menus.Menus.Select(menu => menu.Title.Text).ToList();
+        var titles = fixture.Shell.Menus.Menus.Select(menu => menu.Title.Text).ToList();
 
         Assert.Equal(
             ["File", "Edit", "Assets", "Entity", "Scene", "Play", "Window", "Build", "Tools", "Help"],
@@ -42,9 +43,9 @@ public class MenuBarTests {
 
     [Fact]
     public void No_menu_on_the_bar_opens_onto_nothing() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
-        foreach (var item in fixture.Editor.Shell.MenuBar.Bar.Items) {
+        foreach (var item in fixture.Shell.MenuBar.Bar.Items) {
             Assert.NotEmpty(item.Menu.Items);
         }
     }
@@ -61,9 +62,9 @@ public class MenuBarTests {
     /// </remarks>
     [Fact]
     public void A_declared_but_unbuilt_verb_is_disabled_and_says_why() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
-        var planned = fixture.Editor.Shell.Commands.Commands.Where(command => command.IsUnavailable).ToList();
+        var planned = fixture.Shell.Commands.Commands.Where(command => command.IsUnavailable).ToList();
 
         // If this ever reaches zero the mechanism has been retired, which is a good day and should
         // be a deliberate edit rather than a test that silently stops asserting anything.
@@ -72,16 +73,16 @@ public class MenuBarTests {
         foreach (var command in planned) {
             Assert.False(command.CanExecute, command.Id + " is unavailable and still says it can run");
             Assert.False(string.IsNullOrWhiteSpace(command.Unavailable.Text), command.Id + " gives no reason");
-            Assert.False(fixture.Editor.Shell.Commands.Execute(command.Id), command.Id + " ran");
+            Assert.False(fixture.Shell.Commands.Execute(command.Id), command.Id + " ran");
         }
     }
 
     [Fact]
     public void Every_default_binding_is_taken_without_a_conflict() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
-        var keys = fixture.Editor.Shell.Keys;
-        var commands = fixture.Editor.Shell.Commands;
+        var keys = fixture.Shell.Keys;
+        var commands = fixture.Shell.Commands;
 
         // ⚠ A default that collided with another default is a bug in the application rather than
         // something to ask the user about — `KeyMap.SetDefault` reports it and nothing else looks.
@@ -96,9 +97,9 @@ public class MenuBarTests {
     /// <summary>Doc 20's A5, in the small: the two Deletes, and neither giving up the key.</summary>
     [Fact]
     public void The_outliner_and_the_content_browser_can_both_be_the_focused_context() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
-        var shell = fixture.Editor.Shell;
+        var shell = fixture.Shell;
 
         fixture.Open("hierarchy");
         fixture.ClickRow(fixture.Hierarchy, "Ground");
@@ -107,7 +108,7 @@ public class MenuBarTests {
         Assert.True(shell.Commands.CanExecute("edit.delete"));
 
         fixture.Open("project");
-        fixture.Click(fixture.Project);
+        fixture.Click(fixture.Assets);
 
         Assert.Equal("project", shell.Context);
 

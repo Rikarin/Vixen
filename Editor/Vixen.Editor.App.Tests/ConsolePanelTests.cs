@@ -4,6 +4,7 @@
 using Vixen.Editor.Ui;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
+using Vixen.Editor.Testing;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -19,13 +20,13 @@ namespace Vixen.Editor.App.Tests;
 public class ConsolePanelTests {
     [Fact]
     public void What_the_editor_says_reaches_the_console() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("console");
 
         var view = Console(fixture);
 
-        fixture.Editor.Shell.Notifications.Show("saved Main.vxscene");
+        fixture.Shell.Notifications.Show("saved Main.vxscene");
         fixture.Frames(2);
 
         // A notification is the editor deciding something is worth saying; a toast says it for four
@@ -35,13 +36,13 @@ public class ConsolePanelTests {
 
     [Fact]
     public void An_error_notification_arrives_as_an_error_row_with_its_detail() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("console");
 
         var view = Console(fixture);
 
-        fixture.Editor.Shell.Notifications.Error("Could not save the scene", "the disk is full");
+        fixture.Shell.Notifications.Error("Could not save the scene", "the disk is full");
         fixture.Frames(2);
 
         Assert.Equal(1, view.Model?.Errors);
@@ -50,13 +51,13 @@ public class ConsolePanelTests {
 
     [Fact]
     public void The_buffer_survives_the_panel_being_closed_and_reopened() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("console");
-        fixture.Editor.Shell.Notifications.Show("before");
+        fixture.Shell.Notifications.Show("before");
         fixture.Frames(2);
 
-        fixture.Editor.Shell.Workspace.Close("console");
+        fixture.Shell.Workspace.Close("console");
         fixture.Frames(2);
 
         fixture.Open("console");
@@ -68,13 +69,13 @@ public class ConsolePanelTests {
 
     [Fact]
     public void Clearing_the_console_from_the_menu_empties_it() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("console");
-        fixture.Editor.Shell.Notifications.Show("something");
+        fixture.Shell.Notifications.Show("something");
         fixture.Frames(2);
 
-        Assert.True(fixture.Editor.Shell.Commands.Execute("view.clear-console"));
+        Assert.True(fixture.Shell.Commands.Execute("view.clear-console"));
         fixture.Frames(2);
 
         Assert.Equal(0, Console(fixture).Model?.Count);
@@ -82,17 +83,17 @@ public class ConsolePanelTests {
 
     [Fact]
     public void Clear_on_play_is_one_setting_the_menu_ticks_and_the_panel_toggles() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("console");
 
         var view = Console(fixture);
-        var command = fixture.Editor.Shell.Commands["play.clear-console"];
+        var command = fixture.Shell.Commands["play.clear-console"];
 
         Assert.NotNull(command);
         Assert.False(command.IsChecked);
 
-        Assert.True(fixture.Editor.Shell.Commands.Execute("play.clear-console"));
+        Assert.True(fixture.Shell.Commands.Execute("play.clear-console"));
 
         // Two writers to one setting is how a menu tick and a panel's toggle come to disagree.
         Assert.True(view.ClearsOnPlay);
@@ -101,17 +102,17 @@ public class ConsolePanelTests {
 
     [Fact]
     public void Entering_play_mode_empties_the_console_when_it_was_asked_to() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("console");
 
         var view = Console(fixture);
 
         view.ClearsOnPlay = true;
-        fixture.Editor.Shell.Notifications.Show("from before play");
+        fixture.Shell.Notifications.Show("from before play");
         fixture.Frames(2);
 
-        Assert.True(fixture.Editor.Shell.Commands.Execute("play.play"));
+        Assert.True(fixture.Shell.Commands.Execute("play.play"));
         fixture.Frames(2);
 
         var rows = Rows(view).ToList();
@@ -125,23 +126,23 @@ public class ConsolePanelTests {
 
     [Fact]
     public void Clicking_a_console_row_takes_the_focus_out_of_the_outliner() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("hierarchy");
         fixture.ClickRow(fixture.Hierarchy, "Ground");
 
-        Assert.Equal("scene", fixture.Editor.Shell.Context);
+        Assert.Equal("scene", fixture.Shell.Context);
 
         fixture.Open("console");
         fixture.Click(Console(fixture));
 
         // Leaving a context is as meaningful as entering one: a Delete pressed here must not delete
         // the entity that is still selected in the tree.
-        Assert.Equal("console", fixture.Editor.Shell.Context);
-        Assert.False(fixture.Editor.Shell.Commands.CanExecute("edit.delete"));
+        Assert.Equal("console", fixture.Shell.Context);
+        Assert.False(fixture.Shell.Commands.CanExecute("edit.delete"));
     }
 
-    static ConsoleView Console(EditorFixture fixture) =>
+    static ConsoleView Console(EditorSession fixture) =>
         Find<ConsoleView>(fixture.Document.Root) ?? throw new InvalidOperationException("the console is not open");
 
     /// <summary>What every realised row says, joined per row.</summary>

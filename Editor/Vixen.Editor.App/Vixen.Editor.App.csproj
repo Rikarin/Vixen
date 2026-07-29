@@ -127,6 +127,14 @@
             that drive it the way a person does have to be a friend.
         -->
         <InternalsVisibleTo Include="Vixen.Editor.App.Tests" />
+
+        <!--
+            And the automation harness, which drives the same internals on behalf of every suite
+            that is not this one's. Doc 20's E6 asks for it and its ordering note says to build it
+            during E1 rather than after E5 — a harness written last is a harness written against a
+            frozen target.
+        -->
+        <InternalsVisibleTo Include="Vixen.Editor.Testing" />
     </ItemGroup>
 
 </Project>

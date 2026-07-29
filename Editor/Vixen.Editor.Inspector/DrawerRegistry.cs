@@ -190,6 +190,23 @@ public sealed class DrawerRegistry {
         registry.Fallback(new ReadOnlyDrawer());
         registry.Fallback(new EnumDrawer());
 
+        // ⚠ The two composites go in front of the enum drawer and behind nothing else, because both
+        // answer for a family rather than for a type. The list one is in front of the nested one: a
+        // described type that happens to implement `IList` is a list first, and drawing its own
+        // members instead would show `Count` and `Capacity` where the elements belong.
+        var nested = new NestedDrawer();
+        var lists = new ListDrawer();
+
+        registry.Fallback(nested);
+        registry.Fallback(lists);
+
+        // ⚠ Told which registry they are in rather than reading the static. A test with a registry
+        // of its own, or a game that replaced the colour drawer, must see its own drawers inside a
+        // nested object and inside a list as well as outside them — and reading `Default` here would
+        // also be a cycle, since this is what builds it.
+        nested.Drawers = registry;
+        lists.Drawers = registry;
+
         return registry;
     }
 

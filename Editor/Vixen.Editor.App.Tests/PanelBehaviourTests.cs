@@ -4,6 +4,7 @@
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
+using Vixen.Editor.Testing;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -19,7 +20,7 @@ public class PanelBehaviourTests {
     /// </summary>
     [Fact]
     public void The_scene_survives_a_trip_through_play_mode_with_its_names() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("hierarchy");
 
@@ -27,10 +28,10 @@ public class PanelBehaviourTests {
 
         Assert.Contains("Crate", before);
 
-        Assert.True(fixture.Editor.Shell.Commands.Execute("play.play"));
+        Assert.True(fixture.Shell.Commands.Execute("play.play"));
         fixture.Frames(2);
 
-        Assert.True(fixture.Editor.Shell.Commands.Execute("play.stop"));
+        Assert.True(fixture.Shell.Commands.Execute("play.stop"));
         fixture.Frames(3);
 
         Assert.Equal(before, Rows(fixture.Hierarchy));
@@ -38,19 +39,19 @@ public class PanelBehaviourTests {
 
     [Fact]
     public void A_selection_survives_it_too_and_points_at_the_new_handles() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("hierarchy");
 
-        var scene = fixture.Editor.Scene;
+        var scene = fixture.Scene;
         var crate = scene.Entities.First(entity => scene.NameOf(entity) == "Crate");
 
         scene.Selection.Set([crate]);
         fixture.Frames(2);
 
-        Assert.True(fixture.Editor.Shell.Commands.Execute("play.play"));
+        Assert.True(fixture.Shell.Commands.Execute("play.play"));
         fixture.Frames(2);
-        Assert.True(fixture.Editor.Shell.Commands.Execute("play.stop"));
+        Assert.True(fixture.Shell.Commands.Execute("play.stop"));
         fixture.Frames(3);
 
         // The handle is a different one, and the name has to have travelled with it or the selection
@@ -67,7 +68,7 @@ public class PanelBehaviourTests {
     /// </summary>
     [Fact]
     public void Double_clicking_a_row_opens_the_rename_editor() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("hierarchy");
 
@@ -81,7 +82,7 @@ public class PanelBehaviourTests {
 
     [Fact]
     public void A_rename_abandoned_by_clicking_elsewhere_is_kept_rather_than_thrown_away() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("hierarchy");
         fixture.ExpandAll(fixture.Hierarchy);
@@ -112,12 +113,12 @@ public class PanelBehaviourTests {
     [InlineData("inspector")]
     [InlineData("project")]
     public void Clicking_any_panel_makes_it_the_active_one(string id) {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open(id);
         fixture.Click(Panel(fixture, id));
 
-        var host = fixture.Editor.Shell.Workspace.Host;
+        var host = fixture.Shell.Workspace.Host;
 
         Assert.Equal(id, host.Active?.Id);
         Assert.True(GroupOf(fixture, id).HasClass("active"), $"the '{id}' group is not marked active");
@@ -125,7 +126,7 @@ public class PanelBehaviourTests {
 
     [Fact]
     public void Only_one_group_is_the_active_one() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("console");
         fixture.Click(Panel(fixture, "console"));
@@ -133,34 +134,34 @@ public class PanelBehaviourTests {
         fixture.Open("inspector");
         fixture.Click(Panel(fixture, "inspector"));
 
-        var marked = fixture.Editor.Shell.Workspace.Host.Groups.Count(group => group.HasClass("active"));
+        var marked = fixture.Shell.Workspace.Host.Groups.Count(group => group.HasClass("active"));
 
         Assert.Equal(1, marked);
     }
 
     [Fact]
     public void Clicking_a_panel_takes_the_keyboard_out_of_the_one_it_left() {
-        using var fixture = new EditorFixture();
+        using var fixture = EditorSession.Start();
 
         fixture.Open("hierarchy");
         fixture.ClickRow(fixture.Hierarchy, "Ground");
 
-        Assert.Equal("hierarchy", fixture.Editor.Shell.Workspace.Host.Active?.Id);
+        Assert.Equal("hierarchy", fixture.Shell.Workspace.Host.Active?.Id);
 
         fixture.Open("console");
         fixture.Click(Panel(fixture, "console"));
 
         // Otherwise the outliner would still hold the keyboard and the next Delete would act on a
         // panel the user had visibly left.
-        Assert.Equal("console", fixture.Editor.Shell.Workspace.Host.Active?.Id);
+        Assert.Equal("console", fixture.Shell.Workspace.Host.Active?.Id);
     }
 
-    static DockPanel Panel(EditorFixture fixture, string id) =>
+    static DockPanel Panel(EditorSession fixture, string id) =>
         Descendants(fixture.Document.Root).OfType<DockPanel>().FirstOrDefault(panel => panel.Id == id)
         ?? throw new InvalidOperationException($"the '{id}' panel is not open");
 
-    static DockGroupView GroupOf(EditorFixture fixture, string id) =>
-        fixture.Editor.Shell.Workspace.Host.Groups.FirstOrDefault(group => group.Node?.IndexOf(id) >= 0)
+    static DockGroupView GroupOf(EditorSession fixture, string id) =>
+        fixture.Shell.Workspace.Host.Groups.FirstOrDefault(group => group.Node?.IndexOf(id) >= 0)
         ?? throw new InvalidOperationException($"no group holds '{id}'");
 
     static List<string> Rows(TreeView tree) => [.. Nodes(tree.Root).Select(node => node.Text ?? string.Empty)];

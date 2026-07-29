@@ -31,35 +31,33 @@ than a plan.
 
 ## Where the editor actually is
 
-Reconciled against the code in `Editor/`, not against doc 11's aspirations.
+Reconciled against the code in `Editor/`, not against doc 11's aspirations, and **as of the end of
+[E1](#e1--the-three-panels-people-live-in-20-em)**. The counts came out of the registry rather than
+from counting `Add` calls, because half of the commands are registered in loops.
 
 | | Built | Missing |
 |---|---|---|
-| **Panels** | Hierarchy, Inspector, Scene viewport, Project browser, one per open asset document, Console | ~24 more, listed in [Part B](#part-b--the-panel-inventory) |
-| **Menus** | File, Edit, Scene, View, Help — five groups, of which Scene is the only complete one | Assets, Entity, Play, Window, Build, Tools; and most of File and Edit |
-| **Commands** | 38 registered ids | ~180 more |
-| **Windows** | One OS window, plus a floated panel through `view.float-panel` | Preferences, Project Settings, Keybindings, Plugin manager, Project browser (startup), About, all modal dialogs |
-| **Layouts** | Five presets, saved/named arrangements, `current.vxlayout` | Open documents are not part of an arrangement; floating groups are not promoted in a preset |
-| **Shell services** | Commands, keymap, palette, menus, toolbar, status bar, notifications, background tasks, theming, localisation, docking, plugins | Dialog service, context menus, modes, icons, MRU, search-everywhere |
+| **Panels** | Hierarchy, Inspector, Scene viewport, Project browser, Console, one per open asset document | ~24 more, listed in [Part B](#part-b--the-panel-inventory) |
+| **Menus** | All ten of [Part C](#part-c--the-menu-bar-entry-by-entry): File, Edit, Assets, Entity, Scene, Play, Window, Build, Tools, Help | Nothing structural. Individual lines are disabled-with-a-reason rather than absent |
+| **Commands** | 153 registered ids, of which 51 are declared-and-disabled with the milestone that builds them | The 51, plus whatever E2–E6 adds |
+| **Windows** | One OS window, a floating dock group promoted to a real one, and drawn modal dialogs | Preferences, Project Settings, Keybindings, Plugin manager, Project browser (startup), About |
+| **Layouts** | Five presets, saved/named arrangements, `current.vxlayout`, floating groups with their geometry | Open documents are not part of an arrangement |
+| **Shell services** | Commands with contexts and scopes, keymap, palette, menus, context menus, toolbar with sections and groups, status bar, notifications, background tasks, theming, localisation, docking, plugins, dialogs, icons, MRU, **an automation harness** | Modes, search-everywhere, keymap presets |
 
-Three specific findings worth surfacing, because each changes what the first milestone should be:
+The three findings this document opened with are all closed, and they are kept because the reasoning
+is the record of why E0 was shaped the way it was:
 
-- ⚠ **Five menu lines already name commands nobody registers.** `EditorShell.DefaultMenus` names
-  `file.new-project`, `file.open-project`, `file.save-all`, `edit.preferences` and
-  `help.documentation`; `MenuPresenter` skips an entry whose command is not registered, so the File
-  menu currently has Save and Exit in it and the Edit menu has Undo and Redo. The bar is *already
-  shaped* for the editor this document describes. Registering those five commands is the smallest
-  possible first commit and it makes the shape visible.
-- ⚠ **The file-dialog blocker is gone and the READMEs have not caught up.**
-  [`Vixen.Editor.App/README.md`](../../Editor/Vixen.Editor.App/README.md) says "No file dialog, so no
-  *open project…*", and that was true when it was written. `INativeDialogs` now has implementations in
-  `Vixen.Platform.Windows`, `.Linux`, `.MacOS`, `.iOS` and `.Web`, reached through
-  `IPlatformSupplement`, and `Vixen.Editor.App` does not use any of it. Open/Save/Import are wiring,
-  not research.
-- ⚠ **The Console is a line of text.** It is the panel that is looked at most often when something has
-  gone wrong and it is the least built thing in the shell. `Vixen.Core.Diagnostics` already keeps a
-  `RingBufferSink` with per-category levels, so the panel is a virtualised view over a buffer that
-  exists.
+- ✅ **Five menu lines already named commands nobody registered.** `file.new-project`,
+  `file.open-project`, `file.save-all`, `edit.preferences` and `help.documentation` — the bar was
+  *already shaped* for the editor this document describes, and registering them was the smallest
+  possible first commit. All five exist; two of them are still declared-and-disabled, because
+  swapping a project underneath a live editor is [E3](#e3--settings-keys-layouts-plugins-10-em).
+- ✅ **The file-dialog blocker was gone and the READMEs had not caught up.** `INativeDialogs` is now
+  reached through `IPlatformSupplement` and `EditorServices`, and Open Scene, Save As and Import grey
+  themselves out on a platform without pickers rather than being absent.
+- ✅ **The Console was a line of text.** It is now the whole of [A7](#a7--notifications-messages-and-the-console): a virtualised view over
+  `RingBufferSink` with level badges, a category filter, search, collapse, clear-on-play and a detail
+  pane.
 
 ---
 
@@ -68,9 +66,17 @@ Three specific findings worth surfacing, because each changes what the first mil
 These are the things every panel in Part B needs and none of them should build twice. Nothing in Part
 B should start before the piece of Part A it stands on.
 
+> ⚠️ **A1–A3 and A7 are built, and the prose below is kept in the present tense on purpose.** It is
+> the record of *why* each piece is shaped the way it is, which is the part a reader still needs and
+> the part a checklist loses. Where a section's opening sentence describes the editor as it was
+> before [E0](#e0--the-frame-15-em) — "three of those five exist", "everything modal is currently
+> unbuildable" — read it as the problem statement it was written as. What is genuinely still owed is
+> called out in each section and summarised in the table above: **the mode bar, keymap presets,
+> search-everywhere, the Message Log panel, command repeat, and palette recency.**
+
 ### A1 — The application frame
 
-The frame is menu bar → **mode bar** → toolbar → workspace → status bar. Three of those five exist.
+The frame is menu bar → **mode bar** → toolbar → workspace → status bar. Four of those five exist.
 
 - **A mode bar** is the one structural addition. Unreal's Select / Landscape / Foliage / Mesh Paint
   strip is not a toolbar of commands, it is a statement about *what the viewport's input means right
@@ -110,11 +116,15 @@ currently unbuildable.
   capability is a runtime question (`PlatformCapabilities.NativeDialogs`), so the commands grey
   themselves out on Web and Android rather than being absent — the same rule `view.float-panel`
   already follows.
-- **Promoting a floating dock group to a real OS window** is doc 11's remaining docking gap and it is
-  half done: `EditorPane` already proves a second surface, swapchain and input queue, and
-  `--run view.float-panel` is validation-clean. What is left is that `DockLayout` does not record
-  *which* groups were promoted, so an arrangement restores them docked. That is a field on the
-  serialised group plus a rule about what happens when a saved window is off every current display.
+- **Promoting a floating dock group to a real OS window** is doc 11's remaining docking gap, and it is
+  now nearly closed. `EditorPane` proves a second surface, swapchain and input queue;
+  `--run view.float-panel` is validation-clean; and ⚠ **the claim that `DockLayout` does not record
+  which groups were promoted is stale** — `DockFloat(Group, X, Y, Width, Height)` is serialised with
+  the arrangement, and whether one becomes an OS window or a rectangle inside the host is
+  `IUiWindowHost`'s answer at restore time rather than something the file has to state. What is
+  genuinely left is the second half of the original sentence: **a rule about what happens when a
+  saved window is off every current display**, which today restores a panel somewhere nobody can
+  reach it.
 - **A startup Project Browser window.** Unreal's project browser and Unity Hub exist because the
   first question an editor is asked is "which project", and `--project` is not an answer for a user.
   Recent projects with their last-opened time, a New Project pane over `Tools/Vixen.Templates`, and a
@@ -122,19 +132,21 @@ currently unbuildable.
 
 ### A3 — Command system, completed
 
-The registry is right. Five things are missing from it and each shows up as a whole class of feature
-that cannot be built.
+The registry is right. Five things were missing from it and each showed up as a whole class of feature
+that could not be built. **All five are built** — this is E0's substance — and the reasoning is kept
+because it is what each of them is *for*, which is the part a reader still needs.
 
-| Missing | Why it blocks something |
+| | Why it unblocked a class of feature |
 |---|---|
-| **Context menus** | Right-clicking an outliner row, a browser row, a viewport, a node or an inspector row is how half of an editor's verbs are reached. `MenuPresenter` is already a view over the registry; a `ContextMenuPresenter` over a `MenuGroup` built per-site is the same code with a different anchor. |
-| **Command context / scope** | `scene.delete-entity` and an asset delete are both Delete. Today enablement predicates guess from focus. A command declares the context id it belongs to, the shell tracks the focused context, and the dispatcher picks — which is also what stops a keybinding in the Project panel from deleting an entity. |
-| **Dynamic menus** | `MenuDynamic` exists in the model and nothing produces one. Open Recent, Panels ▸, Layouts ▸, Build Target ▸ and Add Component ▸ are all it. |
-| **Icons** | `ControlIcons` covers the control set. A toolbar and a menu need an editor icon set — roughly 120 glyphs — as one font or one atlas, with an id per icon so a plugin can name one. |
-| **Radio groups** | `Checked` gives a tick. Translate/Rotate/Scale is a *choice*, and drawing three ticks where one radio belongs is how a menu stops being readable. |
+| ✅ **Context menus** | Right-clicking an outliner row, a browser row, a viewport, a node or an inspector row is how half of an editor's verbs are reached. `MenuPresenter.Context` is the bar's own code with a different anchor, so a context menu and a menu cannot disagree about what a verb does. |
+| ✅ **Command context / scope** | An entity delete and an asset delete are both Delete. Each declares its context id, the shell tracks which panel was last acted in, and `KeyMap` files the two under different contexts so neither has to give up the key. |
+| ✅ **Dynamic menus** | `MenuDynamic` produces Open Recent, Panels ▸ and Layouts ▸. Add Component ▸ is the one consumer still owed, and it is waiting on the component bridge rather than on this. |
+| ✅ **Icons** | `EditorIcons` — 23 glyphs on the 24×24 grid with an id per icon, rather than the ~120 estimated here. The estimate was for a full set; what a toolbar and ten menus actually name is an order of magnitude less, and a plugin can add its own. |
+| ✅ **Radio groups** | `RadioGroup` on a command, drawn as a segmented control in the toolbar and as one mark in a menu. Translate/Rotate/Scale is one *choice* and reads as one. |
 
-Also here: **command history and repeat** (`Ctrl+Shift+R` repeats the last command), and **"recently
-used" boosting in the palette**, which is the single cheapest thing that makes a palette feel fast.
+Still owed here: **command history and repeat** (`Ctrl+Shift+R` repeats the last command), and
+**"recently used" boosting in the palette**, which is the single cheapest thing that makes a palette
+feel fast.
 
 ### A4 — Preferences and Project Settings
 
@@ -164,7 +176,15 @@ conflict reporting inline, per-row and global reset, and import/export of a keym
 
 ⚠ **Presets matter more than they look.** A Unity user and an Unreal user disagree about what `W`
 does and both are certain. Shipping `Vixen`, `Unity` and `Unreal` keymap presets — a YAML file each,
-which is what `KeyMap`'s override layer already reads — converts a week of friction into a dropdown.
+which is the format `KeyMap`'s override layer already reads — converts a week of friction into a
+dropdown.
+
+⚠ **`KeyMap` has no notion of a preset**, and "the override layer already reads it" is about the
+*file format* rather than about the mechanism. A preset is a third layer between the shipped defaults
+and the user's own overrides, because choosing Unreal and then rebinding one key has to leave the
+other two hundred following the preset rather than being copied into the user's file — otherwise the
+next preset update reaches nobody who has ever rebound anything. That layer is the work; the dropdown
+is not.
 
 ### A6 — Layouts, completed
 
@@ -210,11 +230,11 @@ is the assembly that should hold it. Status: ✅ built, 🟡 partial, ⛔ absent
 
 | Panel | UE / Unity | Owner | Status | What is owed |
 |---|---|---|---|---|
-| **Hierarchy** | Outliner / Hierarchy | `.App` → `.SceneView` | 🟡 | Multi-select, drag-to-reparent (undoably — the primitive `Hierarchy.SetParentAfter` exists, the command does not), search and type filter, visibility and lock columns, sort modes, context menu, selection *into* the tree, virtualisation |
-| **Inspector** | Details / Inspector | `.Inspector` | 🟡 | Nested-object drawer, list/array drawer, component add/remove UI, asset-picker browser, lock button, multiple inspector windows, pinned/favourite members, debug (raw) mode, per-row context menu |
+| **Hierarchy** | Outliner / Hierarchy | `.App` → `.SceneView` | ✅ | — |
+| **Inspector** | Details / Inspector | `.Inspector` | 🟡 | Component add/remove UI (see E1's table for what it needs), multiple inspector windows, pinned/favourite members, debug (raw) mode |
 | **Scene viewport** | Level Viewport / Scene | `.SceneView` | 🟡 | See [B2](#b2--the-viewport) |
-| **Project browser** | Content Browser / Project | `.App` | 🟡 | Grid view with thumbnails, filters and saved filters, collections/favourites, create-asset menu, rename/move/delete with reference fixup, drag-and-drop out, source-control column, folder tree beside the list rather than one tree |
-| **Console** | Output Log / Console | `.Ui` | ⛔ | All of [A7](#a7--notifications-messages-and-the-console) |
+| **Project browser** | Content Browser / Project | `.App` | 🟡 | Grid view with thumbnails, saved filters, collections/favourites, drag-and-drop out (see E1's table), source-control column, folder tree beside the list rather than one tree |
+| **Console** | Output Log / Console | `.Ui` | ✅ | — |
 | **Message log** | Message Log | `.Ui` | ⛔ | A view over the notification history |
 | **Command palette** | — (both have search) | `.Ui` | ✅ | Recency boosting, more sources ([A8](#a8--search-everywhere)) |
 
@@ -226,8 +246,8 @@ The viewport is one panel and about nine features, so it gets its own table.
 |---|---|---|
 | Camera navigation | ✅ | — |
 | Transform gizmos, snapping, spaces, pivots | ✅ | Filled plane quads and a torus ring — the hit test already treats a plane handle as filled and the outline understates it |
-| Picking | 🟡 | A ray test works; the **picking stage** is written, tested, and driven by nothing, because it needs a render target the host does not own |
-| Marquee / rubber-band select | ⛔ | A region resolve rather than a one-pixel readback |
+| Picking | 🟡 | A ray test works and `PickingRenderer` is driven by nothing. ⚠ **The reason given here was that it needs a render target the host does not own, and that is no longer true** — `EditorHost` owns a `RenderGraph` and `ScenePresenter.Declare` already declares a pass and hands back a `GraphTexture`. What is left is connecting an existing two-pass stage to an existing graph |
+| Marquee / rubber-band select | ⛔ | A region resolve rather than a one-pixel readback — the same stage as the row above, with a bigger copy, so the two are one piece of work |
 | Selection outline | ⛔ | A stencil pass and a post effect — the one thing here that is not geometry a tool can build |
 | **Viewport overlay toolbar** | ⛔ | Camera speed, view mode, show flags, gizmo toggles, projection, maximise — floating over the top-left of the viewport, as both reference editors do. Chrome, not rendering |
 | **Multiple viewports** | ⛔ | `ViewportLayout` exists in `.SceneView`; 1/2/4-pane with independent cameras and view modes is the host wiring N `ScenePresenter`s |
@@ -493,6 +513,25 @@ browser. Inspector: nested drawer, list drawer, component add/remove, lock, cont
 drag into scene, edit property, undo, save, reopen, assert — and a second one that renames the asset
 and asserts the scene still resolves it.
 
+**Where E1 stands.** Both exit scenarios run, in `Vixen.Editor.App.Tests/ScenarioTests`, through the
+`Vixen.Editor.Testing` harness — which E6 owns and this milestone's ordering note said to build here.
+The console, the outliner and the browser's verbs are done, as are the inspector's nested and list
+drawers, its lock and its row menu. Three things are not, and each is a gap in the *runtime* rather
+than in the panel:
+
+| Not built | What it actually needs |
+|---|---|
+| **Drag from the browser into the scene** | No runtime component carries an `AssetId`, so there is nothing for an entity to hold a mesh or a texture *in*. A drop that made an entity named after the file would be the editor pretending. The scenario puts a cube in through the Entity menu instead and says so where it does it |
+| **Component add/remove in the inspector** | Two halves. `ISceneComponentBinder` already does boxed `ValueOn`/`AddTo`; it needs `Has`, `RemoveFrom` and an enumeration of what is registered. And the inspector draws an `[Inspector]` descriptor, which no runtime component carries — so it needs an adapter from `Vixen.Core.Reflection`'s `TypeDescriptor`, whose boxed accessors every `[DataContract]` component already has. The write-back is the nested drawer's by-value path, which `InspectorField.WriteEach` exists for |
+| **Grid view and thumbnails** | A thumbnail service and a second view over the same tree. The one item here that is cosmetic rather than structural |
+
+⚠ **"Rename with reference fixup" turned out not to be a rewrite**, and the note above about it being
+the fastest way to corrupt a project is right for a reason worth recording. Doc 08 chose a GUID in a
+prefixed scalar over a path, so a referrer needs nothing done to it when a file moves. The corruption
+is leaving the **sidecar** behind: the next scan finds an asset with no identity, mints a new one, and
+every reference in the project dangles with nothing having reported an error — invisible until
+somebody opens a scene. `AssetOperations` is that one invariant and the bookkeeping around it.
+
 ### E2 — The viewport (2.0 EM)
 
 Overlay toolbar, show flags, view-mode UI and the compositor swap behind it, multi-viewport, stats
@@ -521,6 +560,18 @@ preset.
 **Exit:** a frame of the editor and a frame of a running game are both profilable in the same panel;
 a draw call can be stepped and its render target inspected; a build on a device can be attached to
 and an entity mutated live.
+
+⚠ **One item here is not editor work at all and E4 cannot be scheduled as though it were
+self-contained.** [B4](#b4--diagnostics) already names timestamp queries as the GPU
+profiler's dependency; what is worth stating at the milestone is that **there is no query API in the
+RHI to build against** — not an interface, not a stub, and nothing in the Vulkan backend. A GPU
+timeline needs a query pool, a `WriteTimestamp` on the command list, and a resolve path, added to
+`Vixen.Graphics` and implemented per backend. That is a graphics change on the critical path of an
+editor milestone, and it is the one thing in E4 that cannot start with the panel.
+
+The other three are ready to build against what exists: `Profiler.Collect` hands back per-thread
+sample rings with depth and a frame index, `Vixen.Graphics.Null`'s `CommandRecorder` is the shape a
+frame capture takes, and `RemoteSink` is the remote inspector's transport.
 
 ### E5 — Authoring surfaces (2.5 EM)
 

@@ -143,6 +143,74 @@ public sealed class InspectorField {
         return reached.Count != 0 && Apply(reached, value);
     }
 
+    /// <summary>Writes a different value to each target, as one undo step.</summary>
+    /// <param name="values">One value per target, in <see cref="Targets" />' order.</param>
+    /// <returns>Whether anything changed.</returns>
+    /// <exception cref="ArgumentException">There is not exactly one value per target.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What a composite drawer needs and <see cref="Write" /> cannot express.</b> A
+    ///         nested struct is read as a box per target; editing one leaf of it changes a different
+    ///         box for every object, and writing the <i>first</i> object's whole struct to all of them
+    ///         — which is what one <see cref="Write" /> would do — silently rewrites the other leaves
+    ///         as well. Twenty objects at twenty different positions, one of which you nudged along X,
+    ///         must not all end up at the first one's Y and Z.
+    ///     </para>
+    ///     <para>
+    ///         One transaction, so the whole thing is one Ctrl+Z. This is
+    ///         <see cref="RevertToPrefab" />'s shape generalised: that method was the first place a
+    ///         per-object write was needed and it had to do this by hand.
+    ///     </para>
+    /// </remarks>
+    public bool WriteEach(IReadOnlyList<object?> values) {
+        ArgumentNullException.ThrowIfNull(values);
+
+        if (values.Count != Targets.Count) {
+            throw new ArgumentException(
+                $"There are {Targets.Count} targets and {values.Count} values. A per-object write has to "
+                + "say what each object gets, and a short list would silently leave some of them alone.",
+                nameof(values)
+            );
+        }
+
+        if (!CanWrite || refreshing > 0) {
+            return false;
+        }
+
+        var reached = WritableTargets;
+        using var transaction = Document?.Stack.BeginTransaction($"Set {Member.DisplayName}");
+        var changed = false;
+
+        for (var index = 0; index < values.Count; index++) {
+            var target = Targets[index];
+
+            // The condition decides who an edit reaches, exactly as it does in `Write`. Reference
+            // equality rather than `Contains`, because a boxed value target would compare equal to a
+            // different object holding the same value.
+            if (!ReferenceEquals(reached, Targets) && !Reaches(reached, target)) {
+                continue;
+            }
+
+            if (Equals(Member.GetBoxed(target), values[index])) {
+                continue;
+            }
+
+            changed |= Apply([target], values[index]);
+        }
+
+        return changed;
+
+        static bool Reaches(IReadOnlyList<object> reached, object target) {
+            foreach (var candidate in reached) {
+                if (ReferenceEquals(candidate, target)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
     /// <summary>Holds off writes while a drawer is being filled in from the model.</summary>
     /// <returns>A scope to dispose when the drawer is done.</returns>
     /// <remarks>

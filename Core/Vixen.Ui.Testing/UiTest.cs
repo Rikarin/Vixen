@@ -114,6 +114,25 @@ public sealed class UiTest : IDisposable {
     /// </remarks>
     public event Action? Ticked;
 
+    /// <summary>Runs once per frame, after the passes and before the draw.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The other half of the seam, for whatever has to read its own <i>laid-out</i> box before
+    ///         the picture is composed. <see cref="Ticked" /> is too early for that: nothing has a
+    ///         rectangle yet on the frame its content changed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The editor's own loop has exactly this shape and it is not a preference.</b>
+    ///         <c>EditorHost</c> runs the shell's tick, then the layout, then the application's update,
+    ///         then the draw — because a viewport measures itself in render pixels from the box the
+    ///         layout pass produces, and the axis cross it draws comes from the camera the update
+    ///         brings up to date. A harness with only a pre-layout hook has to run the update on the
+    ///         wrong side of the layout, and then every test that passes says nothing about the loop
+    ///         that actually runs.
+    ///     </para>
+    /// </remarks>
+    public event Action? Updated;
+
     /// <summary>Opens an interface of the given size.</summary>
     /// <param name="width">The viewport's width in pixels.</param>
     /// <param name="height">Its height.</param>
@@ -200,6 +219,7 @@ public sealed class UiTest : IDisposable {
         Document.Tick(Now);
         Ticked?.Invoke();
         Document.Update();
+        Updated?.Invoke();
         Document.Draw();
     }
 

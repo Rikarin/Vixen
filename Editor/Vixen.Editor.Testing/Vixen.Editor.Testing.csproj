@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.Testing</RootNamespace>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            The editor itself, as an Exe project reference. What is under test is the head: which
+            panel a click landed in, what the inspector was handed, which of the several selections
+            won. A harness that stood up its own shell and its own panels would be a harness for a
+            copy of the thing that breaks.
+
+            ⚠ The head's types are internal — it is an application and has no public surface — so
+            this assembly is named in its InternalsVisibleTo. Nothing internal leaves here: what this
+            project publishes is the shell, the project, the scene and the controls, all of which are
+            public types belonging to the assemblies that own them.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.App\Vixen.Editor.App.csproj" />
+
+        <!--
+            The document harness this is built on. Frames rather than a wall clock, selectors that
+            are the cascade's own, and a software rasteriser for the pictures — none of which is
+            worth a second implementation just because the document belongs to an editor.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Testing\Vixen.Ui.Testing.csproj" />
+    </ItemGroup>
+
+</Project>
