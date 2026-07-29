@@ -120,4 +120,13 @@
         <AdditionalFiles Include="Shaders\*.reflect.json" />
     </ItemGroup>
 
+    <ItemGroup>
+        <!--
+            The application, the panels and the two view objects it joins the model to are all
+            internal — this assembly is a head and has no public surface to speak of — so the tests
+            that drive it the way a person does have to be a friend.
+        -->
+        <InternalsVisibleTo Include="Vixen.Editor.App.Tests" />
+    </ItemGroup>
+
 </Project>

@@ -96,6 +96,16 @@ sealed class ProjectBrowser {
     /// <summary>How many rows the tree is showing.</summary>
     public int Count => tree.Root.Children.Count;
 
+    /// <summary>Deselects everything.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Through the tree rather than through <c>EditorProject.Selection</c>.</b> The rows'
+    ///     highlight is the tree's own state and the document's selection is written <i>from</i> it —
+    ///     so clearing the far end alone leaves a row that looks selected, and the next click on it
+    ///     is a click on something the tree already thinks is picked. Clearing here raises
+    ///     <c>SelectionChanged</c>, which is what empties the project's selection.
+    /// </remarks>
+    public void Deselect() => tree.Select(null);
+
     /// <summary>Rescans the project and rebuilds the tree.</summary>
     /// <returns>What the scan found, for whoever is reporting it.</returns>
     /// <remarks>
