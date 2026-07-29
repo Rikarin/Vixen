@@ -107,20 +107,28 @@ still show what a game gets.
 
 ### What it is trying to look like
 
-The near-black neutral density of a 3D tool, and the layered rounded materiality of a modern audio
-workstation. The join is the **desk**: `--workspace` is the darkest thing on screen and the panels
-are cards laid on it, separated by their own margins rather than by a splitter drawn as furniture.
-That is what gives depth without a single gradient.
+The neutral density of a 3D tool and the material layering of an audio workstation. The unit is the
+**pane**: a working grey with a seam around it, not a card on a desk.
 
-- **Four surfaces, one hairline.** `--workspace` → `--surface-sunken` → `--surface` →
-  `--surface-raised`. Depth is a luminance step; the border is nearly invisible and is there for
-  edges the fill cannot describe. Raised where you press, sunken where you type.
+- **Mid greys, not near-black.** A tool window that bottoms out at black has nowhere left to put a
+  recess — every field, gutter and gap ends up the same colour and the ramp collapses into one flat
+  sheet. The working surface sits in the middle of the range so there is room below it for the wells
+  and above it for the things you press.
+- ⚠ **The hairline is darker than the surface it edges.** A lighter border is a bevel and belongs on
+  something raised; a darker one is a seam, and a tool window is made of seams. The gap between two
+  panes is the same colour as the line around one, so a split and an edge are the same fact drawn at
+  two widths and cannot disagree.
+- **Small radii.** A pane is a region of the window with work in it, not a card that arrived from
+  somewhere. `--radius-panel` is 5px and `--radius-control` is 4px — rounding a panel like a dialog
+  throws away four pixels of every corner and makes a dense tool read as a settings screen.
+- **Four surfaces.** `--workspace` (the seam) → `--surface-sunken` → `--surface` →
+  `--surface-raised`. Depth is a luminance step. Raised where you press, sunken where you type.
 - ⚠ **The well is a fill, not an inner shadow.** `DrawListBuilder` refuses `inset` box-shadows
   outright and says why, so a recessed field is two steps down the ramp and nothing else. That is
   the reason the ramp has four entries rather than three.
-- **`--elevation` and `--card` are tokens**, so what floats and how far is one edit rather than
-  forty. Everything that leaves the plane — menu, popover, dialog, palette, toast, floating panel —
-  shares the deep one; a docked panel gets the shallow one.
+- **`--elevation` is a token**, so what floats and how far is one edit rather than forty. Everything
+  that leaves the plane — menu, popover, dialog, palette, toast, floating panel — shares it. A docked
+  pane has no shadow at all; it is not on top of anything.
 - **`--accent-deep` for resting selection, `--accent` for what you just did.** A list is mostly
   selection, and the accent at full strength is the brightest thing in a dark editor, so the
   outliner sits a step below the palette's highlight.
