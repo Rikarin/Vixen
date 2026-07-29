@@ -1,0 +1,176 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Ui;
+using Vixen.Ui.Styling;
+
+namespace Vixen.Editor.Inspector;
+
+/// <summary>The stylesheet the inspector's own elements come with.</summary>
+/// <remarks>
+///     <para>
+///         A sheet after <c>ControlTheme</c> and <c>AdvancedTheme</c> and written against the same
+///         tokens, on the same terms <c>NodeGraphTheme</c> is: the controls a drawer builds are
+///         already styled by those two, and what is here is only the six elements this assembly
+///         adds — the view, its body, a row, a row's label, a row's editor slot, and the component
+///         group a vector drawer builds.
+///     </para>
+///     <para>
+///         ⚠ <b>Both of those have to be loaded first.</b> Every colour below is a
+///         <c>var(--…)</c> against a token one of them declares, and a custom property nothing
+///         declared substitutes to nothing.
+///     </para>
+///     <para>
+///         ⚠ <b>Without this the inspector lays out as rows of rows.</b> CSS's initial
+///         <c>flex-direction</c> is <c>row</c> and <c>LayoutStyleBuilder</c> starts from CSS's
+///         initial values, so an element nothing styles is a row — which puts the search box beside
+///         the fields, and every member beside the one before it. Each <c>flex-direction: column</c>
+///         below that reads as redundant beside a browser stylesheet is not.
+///     </para>
+///     <para>
+///         ⚠ <b>A field's background is <c>--surface-sunken</c> and not <c>--surface</c>.</b> The
+///         control set gives a text box <c>--surface</c>, which is right on a page and wrong in a
+///         tool window: <c>dock-group</c> is <c>--surface</c> too, so a box drawn in the panel's own
+///         colour is a border around nothing. Sunk rather than raised because a field is a hole you
+///         type into, which is the convention every editor with a docked inspector already follows.
+///     </para>
+/// </remarks>
+public static class InspectorTheme {
+    /// <summary>Loads the theme into a document.</summary>
+    /// <param name="document">The document, which should already have the other two sheets in it.</param>
+    /// <returns>The sheet's index, for a hot reload.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="document" /> is null.</exception>
+    public static int Install(UiDocument document) {
+        ArgumentNullException.ThrowIfNull(document);
+
+        return document.Load(Css, StyleOrigin.UserAgent);
+    }
+
+    /// <summary>The stylesheet's text, for a caller that wants to read or amend it.</summary>
+    public static string Css => Sheet;
+
+    const string Sheet = """
+        /* ── The view ───────────────────────────────────────────────────────── */
+        inspector { flex-direction: column; flex-grow: 1; gap: 6px; padding: 6px; overflow: hidden; }
+
+        /* The box keeps its height while the rows below it come and go — a search field that
+           shrank when the selection emptied would move under the pointer mid-type. */
+        inspector > search-box { flex-shrink: 0; }
+
+        inspector-body { flex-direction: column; }
+
+        /* ── A row ──────────────────────────────────────────────────────────────
+           Label, editor, reset — and a minimum height, so a row holding a check box
+           is as tall as the one holding a text field and the labels down the left
+           are evenly spaced rather than following whatever their editor came to. */
+        inspector-row {
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+            padding: 2px 4px;
+            min-height: 24px;
+        }
+
+        inspector-row.filtered { display: none; }
+        inspector-row:hover { background-color: var(--surface-sunken); }
+
+        /* A share of the width rather than a fixed one, so a narrow panel gives the editor room
+           instead of clipping it, with a floor a two-word name still fits inside. */
+        inspector-label {
+            width: 34%;
+            min-width: 72px;
+            flex-shrink: 0;
+            color: var(--text-muted);
+        }
+
+        /* An override is the one thing a row says about itself, and it says it by not being muted —
+           a mark that survives every palette, which a chosen colour would not. */
+        inspector-row.overridden inspector-label { color: var(--text); }
+
+        /* ⚠ `min-width: 0` is load-bearing. A flex item's automatic minimum is its content, and a
+           number box's text is deliberately unshrinkable (`field-text` sets `flex-shrink: 0`), so
+           without this the three boxes of a vector refuse to narrow and the row overflows the
+           panel instead of the boxes clipping their own text. */
+        inspector-editor {
+            flex-grow: 1;
+            flex-direction: row;
+            align-items: center;
+            min-width: 0;
+        }
+
+        inspector-editor textbox, inspector-editor textarea, inspector-editor numeric-input,
+        inspector-editor select, inspector-editor multi-select, inspector-editor slider,
+        inspector-editor combo-box, inspector-editor color-picker, inspector-editor curve-editor,
+        inspector-editor asset-field {
+            flex-grow: 1;
+            min-width: 0;
+        }
+
+        /* The name grows and the two buttons do not, so a long asset name is what gets clipped
+           rather than the picker being pushed out of the panel. */
+        asset-field { flex-direction: row; align-items: center; gap: 4px; }
+        .asset-name { flex-grow: 1; min-width: 0; }
+        asset-field > icon-button { flex-shrink: 0; }
+
+        /* Right of the editor and out of the tab order — it appears and disappears as the value
+           moves off and onto the type's default, and a row whose width jumped when it did would
+           make every neighbouring editor twitch. */
+        inspector-row > icon-button { flex-shrink: 0; }
+
+        /* ── Fields ─────────────────────────────────────────────────────────────
+           Sunken, denser than the control set's default, and the placeholder's offset follows the
+           padding — it is positioned absolutely and would otherwise sit two pixels off the text it
+           stands in for. */
+        inspector textbox, inspector textarea, inspector numeric-input, inspector search-box,
+        inspector select, inspector multi-select, inspector combo-box {
+            padding: 3px 6px;
+            border-radius: 4px;
+            background-color: var(--surface-sunken);
+        }
+
+        /* ⚠ A placeholder is positioned absolutely, so its offset is a number rather than a
+           consequence of the padding — narrowing a field without moving it leaves the grey text two
+           pixels right of where the real text starts. The search box needs its own, because the
+           magnifier is laid out before the text and an offset that ignores it draws "Search"
+           through the icon. */
+        inspector field-placeholder { left: 6px; }
+        inspector search-box field-placeholder { left: 26px; }
+
+        /* ── Sections ───────────────────────────────────────────────────────────
+           ⚠ The indent goes. `expander-content` is indented by twenty pixels for prose, and a
+           [Header] does not start a nested thing — it names a group of members that are siblings of
+           the ungrouped ones above it. Left as it comes, "Name" and "Position" are labels in two
+           different columns of the same panel. */
+        inspector expander { border-width: 0px 0px 1px 0px; }
+        inspector expander-header { padding: 6px 4px; }
+        inspector expander-content { flex-direction: column; padding: 0px 0px 6px 0px; }
+
+        /* ── Vectors ────────────────────────────────────────────────────────────
+           ⚠ `flex-basis: 0px` on every component, not just a grow. A flex item's base size is its
+           content, so three boxes showing "0", "1.5" and "-12.25" would be three different widths —
+           and X would move as the number in it changed. Zero basis makes the row a set of equal
+           columns whatever is in them. */
+        vector-editor { flex-direction: row; flex-grow: 1; gap: 4px; min-width: 0; }
+
+        vector-component {
+            flex-direction: row;
+            align-items: center;
+            flex-grow: 1;
+            flex-basis: 0px;
+            min-width: 0;
+            gap: 4px;
+        }
+
+        vector-component > text { flex-shrink: 0; color: var(--text-muted); font-size: 0.9em; }
+        vector-component numeric-input { flex-grow: 1; flex-basis: 0px; min-width: 0; }
+
+        /* The axis colours every 3D application uses, and they are worth having: the boxes are
+           otherwise three identical fields and the letter beside them is one glyph wide. Literals
+           rather than tokens — an axis is red, green and blue in a dark theme and in a light one,
+           because it is naming X, Y and Z rather than following a palette. */
+        vector-component.axis-x > text { color: #e06c75; }
+        vector-component.axis-y > text { color: #98c379; }
+        vector-component.axis-z > text { color: #61afef; }
+        vector-component.axis-w > text { color: var(--text-muted); }
+        """;
+}

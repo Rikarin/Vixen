@@ -98,6 +98,28 @@ depend on how fast somebody moved a mouse.
 | **Search** | Rows are hidden, not removed, so clearing the box costs a restyle and a field somebody was halfway through typing into survives a stray keystroke. |
 | **Conditions** | A row is shown when *any* selected object would show it, and the edit reaches only the ones whose flag is on. Hiding a row because one of twenty has it off is how an edit misses nineteen objects. |
 
+## The sheet is not optional
+
+`InspectorTheme` is a fourth user-agent stylesheet after `ControlTheme`, `AdvancedTheme` and
+`EditorTheme`, and a host has to load it:
+
+```csharp
+ControlTheme.Install(document);
+AdvancedTheme.Install(document);
+InspectorTheme.Install(document);
+```
+
+Without it the inspector is not merely unstyled, it is *wrong*: CSS's initial `flex-direction` is
+`row` and `LayoutStyleBuilder` starts from CSS's initial values, so an element nothing styles lays
+its children out side by side — the search box beside the fields, every member beside the one before
+it, and the three boxes of a vector sized by whatever number happens to be in them. It is also where
+a field stops being invisible. The control set gives a text box `--surface`, which is right on a page
+and wrong in a tool window, because `dock-group` is `--surface` too.
+
+The one thing it overrides rather than adds is `expander-content`'s indent. A `[Header]` does not
+start a nested thing — it names a group of members that are siblings of the ungrouped ones above it —
+so twenty pixels of prose indent puts "Name" and "Position" in two different columns of one panel.
+
 ## Drawers
 
 `DrawerRegistry` resolves a member to a drawer by attribute first, then by type, then by fallback. The

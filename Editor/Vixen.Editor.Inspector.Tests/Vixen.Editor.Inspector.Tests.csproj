@@ -22,6 +22,14 @@
         <ProjectReference Include="..\Vixen.Editor.Inspector\Vixen.Editor.Inspector.csproj" />
 
         <!--
+            The harness `ThemeTests` drives. An inspector's stylesheet is only testable against a
+            document that has laid itself out — "these labels share an edge" is a fact about boxes,
+            not about which rows were built — and this is the assembly that owns running frames and
+            reading a resolved colour back.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Testing\Vixen.Ui.Testing.csproj" />
+
+        <!--
             The fixtures below declare [Inspector] members of their own, so this assembly is a
             consumer of the generator as well as a test of it — which is the only way the generated
             descriptors are exercised as a build artefact rather than as a hand-written stand-in.
