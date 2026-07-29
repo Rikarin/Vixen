@@ -175,36 +175,55 @@ public class GizmoGeometryTests {
     }
 
     [Fact]
-    public void Both_the_scale_and_the_translate_gizmo_draw_the_middle_box() {
-        List<LineVertex> resizing = [];
-        List<LineVertex> moving = [];
-        List<LineVertex> turning = [];
-
+    public void Both_the_scale_and_the_translate_gizmo_draw_a_solid_middle_box() {
         var (scale, _, camera) = One(GizmoMode.Scale);
         var (translate, _, _) = One(GizmoMode.Translate);
         var (rotate, _, _) = One(GizmoMode.Rotate);
 
-        GizmoGeometry.Build(scale, camera, Height, resizing);
-        GizmoGeometry.Build(translate, camera, Height, moving);
-        GizmoGeometry.Build(rotate, camera, Height, turning);
-
         var pixel = scale.WorldPerPixel(camera, Height);
 
-        // The corners of a square whose half-side is the radius `HitTest` answers a middle handle
-        // within. One square, two meanings: uniform scale where there is a scale to do, and a drag in
-        // the view plane where there is not — and in both cases it is the thing the arms cannot do.
-        // Neither was drawn, and translate did not offer one at all, so the middle of a translate
-        // gizmo answered with whichever arm the loop reached first.
-        var corner = MathF.Sqrt(2f) * pixel * scale.CentreRadius;
-        var tolerance = pixel * scale.Thickness;
-
-        Assert.Contains(resizing, vertex => MathF.Abs(vertex.Position.Length() - corner) <= tolerance);
-        Assert.Contains(moving, vertex => MathF.Abs(vertex.Position.Length() - corner) <= tolerance);
+        // One box, two meanings: uniform scale where there is a scale to do, and a drag in the view
+        // plane where there is not — and in both cases it is the thing the arms cannot do. Neither
+        // was drawn, and translate did not offer one at all, so the middle of a translate gizmo
+        // answered with whichever arm the loop reached first.
+        Assert.True(Middle(Solid(scale, camera).Vertices, pixel * scale.CentreRadius));
+        Assert.True(Middle(Solid(translate, camera).Vertices, pixel * translate.CentreRadius));
 
         // Rotate's middle is the screen-facing ring's business, and a box inside three rings is a
         // fourth thing to aim at in the one place there is no room for it.
-        Assert.DoesNotContain(turning, vertex => MathF.Abs(vertex.Position.Length() - corner) <= tolerance);
+        Assert.Empty(Solid(rotate, camera).Vertices);
     }
+
+    [Fact]
+    public void The_middle_box_is_a_cube_and_fits_inside_the_circle_that_grabs_it() {
+        var (gizmo, _, camera) = One(GizmoMode.Scale);
+        var (vertices, _, _) = Solid(gizmo, camera);
+
+        var radius = gizmo.WorldPerPixel(camera, Height) * gizmo.CentreRadius;
+        var near = vertices.Where(vertex => vertex.Position.Length() < radius * 1.5f).ToArray();
+
+        // ⚠ Three dimensions, not two, and that is the whole change: a flat square held square to the
+        // camera is a sticker on the front of a solid object, and it was flat because a *square* on
+        // the object's own axes is one you have to orbit to see square. A cube reads as a cube from
+        // every angle.
+        Assert.Contains(near, vertex => MathF.Abs(vertex.Position.X) > 1e-4f);
+        Assert.Contains(near, vertex => MathF.Abs(vertex.Position.Y) > 1e-4f);
+        Assert.Contains(near, vertex => MathF.Abs(vertex.Position.Z) > 1e-4f);
+
+        // ⚠ And every corner of it is inside the circle `HitTest` answers within. The old square's
+        // half-side *was* that radius, so its four corners stuck out to √2 × it and did not answer
+        // clicks — the same failure `Tolerance` exists to prevent on the arms, and it fails the same
+        // way: at the edges of a handle, which reads as the tool being unreliable.
+        Assert.All(near, vertex => Assert.True(vertex.Position.Length() <= radius + 1e-4f));
+
+        // Not so small that it is a dot: the corners should reach the circle rather than hide well
+        // inside it.
+        Assert.Contains(near, vertex => vertex.Position.Length() > radius * 0.95f);
+    }
+
+    /// <summary>Whether a solid list holds a box about the origin reaching a given corner distance.</summary>
+    static bool Middle(List<MeshVertex> vertices, float corner) =>
+        vertices.Any(vertex => MathF.Abs(vertex.Position.Length() - corner) < corner * 0.05f);
 
     [Fact]
     public void An_arm_pointing_at_the_eye_is_not_drawn() {

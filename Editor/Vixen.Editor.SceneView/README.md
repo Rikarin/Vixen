@@ -184,10 +184,9 @@ other than where it is drawn.
   and at every crossing the answer was whichever the loop reached first, which was X, always.
 - **Nothing owned the middle.** The three arms all pass through the origin, so a click anywhere near
   it started an X drag — and translate offered no middle handle at all, so there was nothing else it
-  *could* answer. There is one now: a square that drags in the view plane, which is how anything gets
-  moved that is not along an axis. Scale's square has always been there and was never drawn. The arms
-  now start at `ArmStart` in the picture *and* in the test, so the middle belongs to the square in
-  both.
+  *could* answer. There is one now: a box that drags in the view plane, which is how anything gets
+  moved that is not along an axis. Scale's box has always been there and was never drawn. The arms
+  now start at `ArmStart` in the picture *and* in the test, so the middle belongs to the box in both.
 - **An arm pointing at the eye was still offered.** It projects to a dot, so every pixel of it is
   within the grab radius of every other and it wins the middle of the gizmo — and then drags along a
   line that has no direction on screen, which moves the selection by whatever the ray's numerical
@@ -221,8 +220,9 @@ as an arrow; from every other it is four unrelated lines crossing near the end o
 also the part of a gizmo people aim at — the head is the target and the shaft only says which way —
 so it was exactly the wrong part to draw as a hint.
 
-`GizmoGeometry.BuildSolid` is the second half: a cone on a translate arm, a cube on a scale one, both
-from `MeshPrimitives` and both placed by a matrix. The geometry is cached because it never changes;
+`GizmoGeometry.BuildSolid` is the second half: a cone on a translate arm, a cube on a scale one, a
+cube in the middle either way, all from `MeshPrimitives` and all placed by a matrix. The geometry is
+cached because it never changes;
 what changes every frame is the matrix, because the gizmo is a constant size on screen and so its head
 is a different size in world units at every distance. The cone's normals are the fiddly part — its tip
 is a *row* of vertices with different normals, or it is lit as though a spotlight were on one side of
@@ -292,10 +292,24 @@ value and is what every hit test uses.
 ### Two handles the hit test answered for and nothing drew
 
 `HitTest` has always returned `Screen` for a circle outside the three rotation rings, and `Uniform`
-for a square in the middle of a scale gizmo. Neither was drawn, so a click out there turned the
-selection about the view axis and a click in the middle scaled everything — both discoverable only by
-accident. `GizmoGeometry` now draws both, from the same numbers (`ScreenRingScale`, `CentreRadius`)
-the test reads, in grey rather than an axis colour because they belong to no axis.
+for the middle of a scale gizmo. Neither was drawn, so a click out there turned the selection about
+the view axis and a click in the middle scaled everything — both discoverable only by accident.
+`GizmoGeometry` now draws both, from the same numbers (`ScreenRingScale`, `CentreRadius`) the test
+reads, in grey rather than an axis colour because they belong to no axis.
+
+⚠ **The middle one is a solid cube, and it began as a flat outlined square held square to the
+camera.** It faced the camera because it belongs to no axis and a *square* on the object's own axes is
+one you have to orbit to see square — which is true, and is the whole argument against using a square.
+A cube reads as a cube from every angle, so it sits on the gizmo's own basis with its faces
+perpendicular to the arms leaving it; in screen space that basis *is* the camera's, so facing the
+viewer falls out rather than being asserted.
+
+⚠ **It is sized to fit inside the circle that grabs it, not to match its radius.** The test answers
+for a circle of `CentreRadius` pixels and the old square's half-side was exactly that — so its four
+corners stuck out to `√2 ×` it and did not answer clicks. A cube's corners reach `√3 ×` its
+half-extent, so that is what the half-extent is divided by. It is the same rule `Tolerance` follows
+for the arms, and breaking it fails the same way: at the edges of a handle, which reads as the tool
+being unreliable rather than as a number being wrong.
 
 ⚠ **A plane handle seen edge-on is not offered.** Its quad projects to a sliver lying along the third
 arm and would take that arm's clicks, and dragging in a plane you are looking along the edge of is not

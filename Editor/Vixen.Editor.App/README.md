@@ -223,16 +223,17 @@ are the only thing that writes depth. The grid, the three-axis marker on each en
 each parent follow, depth-tested, so a marker inside a cube is inside it. Then the gizmo's shafts,
 rings and plane quads with no depth test at all — a handle you cannot reach through the thing it
 moves is a handle you cannot use. Last, the gizmo's *solid* parts: the cone on the end of a translate
-arm and the cube on a scale one, which are triangles rather than segments and so want a second
-`MeshRenderer` rather than a second range in the first.
+arm, the cube on the end of a scale one, and the cube in the middle either way — triangles rather than
+segments, so they want a second `MeshRenderer` rather than a second range in the first.
 
-⚠ **The arm heads are solid, and they used to be wire.** An outlined arrowhead is four ribs and a
-square: from the one angle it was built for it reads as an arrow, and from every other it is four
-unrelated lines crossing near the end of a shaft. It is also the part of a gizmo people aim at — the
-head is the target and the shaft only says which way — so it was exactly the wrong part to draw as a
-hint. Being solid is also why it has to be the last draw and why `MeshRenderer` grew the overlay
-pipeline `LineRenderer` already had: a wire head behind a cube still shows a few pixels through it,
-and a solid one is simply gone.
+⚠ **The handles people aim at are solid, and they used to be wire.** An outlined arrowhead is four
+ribs and a square: from the one angle it was built for it reads as an arrow, and from every other it
+is four unrelated lines crossing near the end of a shaft. The middle handle was worse — a flat square
+held square to the camera, which is a sticker on the front of a solid object rather than part of one.
+Both are the parts of a gizmo people aim at, the shafts only saying which way, so both were exactly
+the wrong parts to draw as a hint. Being solid is also why they have to be the last draw and why
+`MeshRenderer` grew the overlay pipeline `LineRenderer` already had: a wire handle behind a cube still
+shows a few pixels through it, and a solid one is simply gone.
 
 ⚠ **What it does not draw is materials.** There is no material system wired to an editor viewport and
 no model importer feeding one, so the mesh pass is `MeshRenderer` — a tool renderer whose cost is
