@@ -652,6 +652,7 @@ Vixen.Ui.Controls.Advanced.NodeGraph.Nodes.get -> System.Collections.Generic.IRe
 Vixen.Ui.Controls.Advanced.NodeGraph.Remove(Vixen.Ui.Controls.Advanced.GraphGroup group) -> bool
 Vixen.Ui.Controls.Advanced.NodeGraph.Remove(Vixen.Ui.Controls.Advanced.GraphNode node) -> bool
 Vixen.Ui.Controls.Advanced.NodeGraph.Touch() -> void
+Vixen.Ui.Controls.Advanced.NodeGraph.TryConnect(Vixen.Ui.Controls.Advanced.GraphPort from, Vixen.Ui.Controls.Advanced.GraphPort to, out Vixen.Core.GraphConnectionError error) -> Vixen.Ui.Controls.Advanced.GraphWire?
 Vixen.Ui.Controls.Advanced.NodeGraph.Wire(Vixen.Ui.Controls.Advanced.GraphPort port) -> Vixen.Ui.Controls.Advanced.GraphWire?
 Vixen.Ui.Controls.Advanced.NodeGraph.Wires.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.GraphWire>
 Vixen.Ui.Controls.Advanced.NodeGroupView -> sealed class
