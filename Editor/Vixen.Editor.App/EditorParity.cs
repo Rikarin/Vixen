@@ -506,12 +506,52 @@ sealed partial class EditorApplication {
             "There is no enabled flag on an entity yet."
         );
 
-        Planned(
+        // ⚠ Editor state and not scene state, which is the line both Unreal and Unity draw: hiding
+        // something to work on what is behind it must not change what ships. So these write
+        // `SceneDocument`'s own sets rather than a component, they are not saved, and they are not
+        // undoable — an undo that put an eye back would be one step of history spent on where the
+        // user was looking rather than on what they changed, which is `Selection`'s argument.
+        Verb(
+            "entity.toggle-hidden",
+            new StringId("editor.command.entity.toggle-hidden", "Toggle Visibility"),
+            CategoryEntity,
+            () => Mark(scene.IsHiddenDirectly, scene.SetHidden),
+            enabled: () => scene.Selection.Count > 0,
+            on: () => scene.Selection.Count > 0 && scene.IsHiddenDirectly(scene.Selection[0])
+        );
+
+        Verb(
             "entity.toggle-lock",
             new StringId("editor.command.entity.toggle-lock", "Toggle Lock"),
             CategoryEntity,
-            "Per-entity visibility and lock arrive with the outliner's columns, milestone E1."
+            () => Mark(scene.IsLockedDirectly, scene.SetLocked),
+            enabled: () => scene.Selection.Count > 0,
+            on: () => scene.Selection.Count > 0 && scene.IsLockedDirectly(scene.Selection[0])
         );
+
+        Shell.Keys.SetDefault("entity.toggle-hidden", new KeyChord(InputKey.H, ModifierKeys.None));
+        Shell.Keys.SetDefault("entity.toggle-lock", new KeyChord(InputKey.L, ModifierKeys.None));
+    }
+
+    /// <summary>Flips a mark across the selection, taking the first entity's state as the answer.</summary>
+    /// <remarks>
+    ///     ⚠ <b>All of them get what the <i>first</i> one is not, rather than each being flipped.</b>
+    ///     Toggling a mixed selection per entity swaps which half is hidden, which is the one outcome
+    ///     nobody ever means — and it makes pressing the key twice a no-op that looks like the key
+    ///     not working.
+    /// </remarks>
+    void Mark(Func<Entity, bool> read, Action<Entity, bool> write) {
+        if (scene.Selection.Count == 0) {
+            return;
+        }
+
+        var wanted = !read(scene.Selection[0]);
+
+        foreach (var entity in scene.Selection) {
+            write(entity, wanted);
+        }
+
+        RefreshMarks();
     }
 
     // ── Play ────────────────────────────────────────────────────────────────────────────────────
@@ -853,7 +893,7 @@ sealed partial class EditorApplication {
             .AddSeparator()
             .Add("scene.focus")
             .AddSeparator()
-            .Add("entity.toggle-active", "entity.toggle-lock");
+            .Add("entity.toggle-active", "entity.toggle-hidden", "entity.toggle-lock");
 
         // Consecutive, with no gap left for Scene: `SceneMenu` inserts it between Entity and Play
         // afterwards, which shifts these three along by one. Leaving a hole here instead would mean

@@ -91,6 +91,13 @@ public sealed class SceneMeshes {
                 continue;
             }
 
+            // ⚠ Editor visibility, which is not a component and is not written to the file. Hiding
+            // something to work on what is behind it must not change what ships — see
+            // `SceneDocument.Hidden`, and both Unreal and Unity draw the same line.
+            if (document.IsHidden(entity)) {
+                continue;
+            }
+
             Append(Shape(kind), world.Read<WorldTransform>(entity).Value, document.Selection.Contains(entity));
             Count++;
         }

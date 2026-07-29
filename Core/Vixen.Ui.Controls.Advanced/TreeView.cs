@@ -168,6 +168,24 @@ public sealed partial class TreeView : Control {
     /// <summary>Raised after a rename is committed. Returning without setting the text refuses it.</summary>
     public event Action<TreeView, TreeNode, string>? Renamed;
 
+    /// <summary>Raised whenever a row is bound to a node, so a consumer can decorate it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>How a tree grows columns without knowing what they mean.</b> An outliner needs an
+    ///         eye and a padlock beside every name; a file browser might want a source-control mark.
+    ///         Neither belongs in this control — a generic tree that knew what "hidden" meant would
+    ///         be the wrong place for it — and neither can be done from outside without a hook,
+    ///         because the rows are pooled.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It fires on every <i>re</i>bind, which is what a virtualised list mostly does.</b>
+    ///         Thirty rows serve a tree of any size, so a handler that appended an element per call
+    ///         would add one per scrolled row for the life of the panel. Make the element once —
+    ///         keyed off the row, not the node — and update it here.
+    ///     </para>
+    /// </remarks>
+    public event Action<TreeRow, TreeNode>? RowBound;
+
     /// <summary>Raised after a drag has moved a node.</summary>
     public event Action<TreeView, TreeNode>? Moved;
 
@@ -467,6 +485,8 @@ public sealed partial class TreeView : Control {
         } else {
             row.State &= ~ElementState.Checked;
         }
+
+        RowBound?.Invoke(row, node);
     }
 
     void Restate() {
