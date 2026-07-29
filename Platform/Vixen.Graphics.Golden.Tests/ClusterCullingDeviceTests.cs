@@ -43,6 +43,7 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         it is compared against came out of the device.
 ///     </para>
 /// </remarks>
+[Collection("Vulkan")]
 public class ClusterCullingDeviceTests {
     const float Near = 0.1f;
     const float Far = 1000f;

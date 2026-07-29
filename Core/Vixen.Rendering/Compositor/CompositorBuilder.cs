@@ -24,6 +24,24 @@ public sealed class CompositorBindingException : Exception {
         Name = name;
     }
 
+    /// <summary>Creates the exception for a name that resolved to something unusable.</summary>
+    /// <param name="node">Which node in the graph referred to the name.</param>
+    /// <param name="kind">What kind of thing the name was meant to be.</param>
+    /// <param name="name">The name.</param>
+    /// <param name="reason">What is wrong with what it found, as a clause completing "which …".</param>
+    /// <remarks>
+    ///     A resolved name can still be the wrong thing — a buffer a copy names but that was never
+    ///     declared as one a copy may touch. The three properties are the same three, so an editor
+    ///     reporting this beside the asset points at the same node either way; only the sentence
+    ///     differs.
+    /// </remarks>
+    public CompositorBindingException(string node, string kind, string name, string reason)
+        : base($"Compositor node '{node}' refers to {kind} '{name}', which {reason}.") {
+        Node = node;
+        Kind = kind;
+        Name = name;
+    }
+
     /// <inheritdoc />
     public CompositorBindingException() { }
 
@@ -168,6 +186,11 @@ public sealed class CompositorBuilder(RenderSystem system) {
         reductions = 0;
         argumentPasses = 0;
 
+        // Cleared for the same reason, and it matters more: a stale entry here is a host holding a
+        // node that is in no tree, filling a buffer no frame copies, with nothing to say why.
+        Uploads.Clear();
+        Readbacks.Clear();
+
         ViewBlock = asset.ViewBlock is { } block && Device is not null ? Block(block) : null;
 
         foreach (var declared in asset.Stages) {
@@ -230,6 +253,8 @@ public sealed class CompositorBuilder(RenderSystem system) {
             PunctualShadowAsset punctual => Punctual(punctual),
             FullScreenAsset post => FullScreen(post),
             ComputeAsset compute => Compute(compute),
+            BufferUploadAsset upload => Upload(upload),
+            BufferReadbackAsset readback => Readback(readback),
             HiZAsset pyramid => Reduce(pyramid),
             GpuCullingAsset culling => Culling(culling),
             _ => Extension(declared)
@@ -506,6 +531,43 @@ public sealed class CompositorBuilder(RenderSystem system) {
         Bind(node.Descriptors, declared.Bindings);
         return node;
     }
+
+    /// <summary>
+    ///     The upload nodes this build placed, by name, so a host can give them their bytes.
+    /// </summary>
+    /// <remarks>
+    ///     Tracked rather than left in the tree because that is the only thing a document cannot say
+    ///     about an upload: it can place the copy and name what it fills, and the contents are this
+    ///     frame's. Walking the tree to find a node by name would work and would be a second way to
+    ///     refer to something the builder already has in its hand.
+    /// </remarks>
+    public Dictionary<string, BufferUploadRenderer> Uploads { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>The readback nodes this build placed, by name, so a host can take their bytes.</summary>
+    /// <remarks>
+    ///     <strong>The caller owns them.</strong> Each holds a readback buffer per frame in flight,
+    ///     which — like <see cref="ViewBlock" /> — is device state a build produced and a builder does
+    ///     not outlive. The same is true of <see cref="Uploads" /> and their staging.
+    /// </remarks>
+    public Dictionary<string, BufferReadbackRenderer> Readbacks { get; } = new(StringComparer.Ordinal);
+
+    BufferUploadRenderer Upload(BufferUploadAsset declared) =>
+        Uploads[declared.Name] = new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Buffer = declared.Buffer,
+            Offset = declared.Offset
+        };
+
+    BufferReadbackRenderer Readback(BufferReadbackAsset declared) =>
+        Readbacks[declared.Name] = new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Buffer = declared.Buffer,
+            Offset = declared.Offset,
+            Size = declared.Size,
+            Latency = declared.Latency
+        };
 
     /// <summary>Copies a document's bindings onto a node, translating its sampler presets.</summary>
     static void Bind(DescriptorBindings bindings, ResourceBindingAsset[] declared) {

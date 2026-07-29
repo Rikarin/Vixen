@@ -46,6 +46,7 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         it runs here, and what it is compared against came out of the device.
 ///     </para>
 /// </remarks>
+[Collection("Vulkan")]
 public class ViewCullingDeviceTests {
     /// <summary>
     ///     Every object is visible in every view exactly when the CPU path says it is.

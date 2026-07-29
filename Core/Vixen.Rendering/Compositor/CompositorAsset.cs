@@ -453,6 +453,71 @@ public sealed record ComputeAsset : ISceneRendererAsset {
     public ResourceBindingAsset[] Bindings { get; init; } = [];
 }
 
+/// <summary>Host bytes into a buffer the frame declared.</summary>
+/// <remarks>
+///     <para>
+///         What the document decides is <em>where</em> the copy goes and what it fills; what the host
+///         supplies is the bytes — through <see cref="CompositorBuilder.Uploads" />, or through the
+///         node's own <c>OnUpload</c>. That division is the same one <c>GpuCulling</c> already has,
+///         and for the same reason: a file can say a histogram starts cleared, and cannot say what
+///         this frame's emitters are.
+///     </para>
+///     <para>
+///         A node whose bytes nothing ever sets declares no pass at all, which is what an authored
+///         frame running against a host that has not wired it up should cost.
+///     </para>
+/// </remarks>
+[DataContract("Upload")]
+public sealed record BufferUploadAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The buffer to fill, which must be declared as a copy destination.</summary>
+    public string Buffer { get; init; } = string.Empty;
+
+    /// <summary>Where in that buffer the bytes land.</summary>
+    public long Offset { get; init; }
+}
+
+/// <summary>A buffer the frame produced, back on the host.</summary>
+/// <remarks>
+///     The node a numeric shader gate, an auto-exposure chain and a device-side reap all needed, and
+///     which none of them could write for themselves: the copy out of device-local memory is a pass,
+///     and a pass that is not in the graph is a pass with no barrier between it and whatever produced
+///     the value.
+/// </remarks>
+[DataContract("Readback")]
+public sealed record BufferReadbackAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The buffer to read, which must be declared as a copy source.</summary>
+    public string Buffer { get; init; } = string.Empty;
+
+    /// <summary>Where in that buffer to start.</summary>
+    public long Offset { get; init; }
+
+    /// <summary>How many bytes, or zero for the rest of the buffer from <see cref="Offset" />.</summary>
+    public long Size { get; init; }
+
+    /// <summary>
+    ///     How many frames sit between the copy and the read.
+    /// </summary>
+    /// <remarks>
+    ///     Zero is the stall — the host submits, waits, and fetches. Anything at or above the
+    ///     device's frames in flight costs nothing and is a value that many frames old, which is what
+    ///     a document should normally say; see <see cref="BufferReadbackRenderer.Latency" /> for why
+    ///     the range between the two buys nothing.
+    /// </remarks>
+    public int Latency { get; init; }
+}
+
 /// <summary>One stage drawn from one view.</summary>
 [DataContract("SingleStage")]
 public sealed record SingleStageAsset : ISceneRendererAsset {
