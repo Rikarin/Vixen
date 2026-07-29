@@ -4,7 +4,7 @@
 using System.Collections;
 using System.Collections.Immutable;
 
-namespace Vixen.Ui.Markup.Generators;
+namespace Vixen.Generators.Shared;
 
 /// <summary>An array that compares by its contents, so an incremental pipeline can cache on it.</summary>
 /// <typeparam name="T">The element type, itself compared by value.</typeparam>

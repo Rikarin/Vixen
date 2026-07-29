@@ -24,4 +24,16 @@
         <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
         <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
     </ItemGroup>
+
+    <!--
+        The compiler contract for `init` accessors, absent from netstandard2.1.
+
+        Shared source rather than a shared assembly: a generator is loaded from the analyzer path
+        and `OutputItemType="Analyzer"` contributes exactly one DLL, so a ProjectReference from
+        here would not travel with it. See ..\Vixen.Generators.Shared\README.md.
+    -->
+    <ItemGroup>
+        <Compile Include="..\Vixen.Generators.Shared\IsExternalInit.cs" LinkBase="Linked\Shared" />
+    </ItemGroup>
+
 </Project>
