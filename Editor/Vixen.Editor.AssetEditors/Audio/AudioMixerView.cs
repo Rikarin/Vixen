@@ -81,9 +81,10 @@ public sealed class AudioMixerView : Control {
         RemoveBus = Push(bar, "Remove Bus");
         AddSnapshot = Push(bar, "Add Snapshot");
 
-        Strips = Part("mixer-strips");
+        var body = Part("mixer-body");
 
-        Side = Part("mixer-side");
+        Strips = body.Add("mixer-strips");
+        Side = body.Add("mixer-side");
         Fields = Side.Add("mixer-fields");
         Snapshots = Side.Add("mixer-snapshots");
         Problems = Side.Add("analysis-list");

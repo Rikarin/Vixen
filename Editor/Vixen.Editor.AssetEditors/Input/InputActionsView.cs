@@ -108,10 +108,12 @@ public sealed class InputActionsView : Control {
         Listen = bar.Add<ToggleButton>();
         Listen.Label = "Listen";
 
-        Tree = Part<TreeView>();
+        var body = Part("input-body");
+
+        Tree = body.Add<TreeView>();
         Tree.MultiSelect = false;
 
-        Side = Part("input-side");
+        Side = body.Add("input-side");
         Fields = Side.Add("input-fields");
         Diagnostics = Side.Add("analysis-list");
 

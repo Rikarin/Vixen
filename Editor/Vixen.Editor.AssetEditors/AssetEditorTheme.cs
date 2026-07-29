@@ -349,27 +349,36 @@ public static class AssetEditorTheme {
         fact-row.warning { color: var(--warning, #e2b341); }
         fact-row.selected { background-color: var(--accent-deep, var(--surface-raised)); border-radius: 3px; }
 
+        /* ⚠ **A column holding a bar and a row, never one row that wraps.** The bar has to span the
+           panel and the two columns under it have to share what is left, and `flex-wrap` does not
+           express that here: a wrapped line gets no height of its own, so the body was laid out over
+           the bar and every button in all six editors was unclickable — the timeline's ruler answered
+           the hit test at the centre of a button that was plainly visible. A row inside a column is
+           what the docked panels already do, and it needs nothing from the layout engine that the
+           rest of the editor does not already rely on. */
+        animation-body, animgraph-body, input-body, mixer-body, font-body, sequence-body {
+            flex-direction: row;
+            flex-grow: 1;
+            min-height: 0;
+            gap: 6px;
+        }
+
+        animgraph-body > state-map, input-body > tree-view, mixer-body > mixer-strips,
+        font-body > font-atlas, sequence-body > timeline, animation-body > animation-stage {
+            flex-grow: 1;
+            min-width: 0;
+            min-height: 0;
+        }
+
         /* ── The clip editor ────────────────────────────────────────────────
            The sheet and the curve editor share one slot: two modes over one document, never two
            panes, because a docked panel split in half gives each of them a height neither can use. */
-        animation-body { flex-direction: column; flex-grow: 1; min-height: 0; }
-        animation-body > timeline, animation-body > curve-editor { flex-grow: 1; min-height: 0; }
-        animation-editor { flex-direction: row; }
-        animation-editor > animation-body { flex-grow: 1; min-width: 0; }
-
-        /* ⚠ The bar is a child of the row, so it has to span it. Without this the three columns
-           would be bar | body | side and the buttons would be a narrow strip on the left. */
-        animation-editor > animation-bar, animgraph-editor > animgraph-bar,
-        input-editor > input-bar, mixer-editor > mixer-bar,
-        font-editor > font-bar, sequence-editor > sequence-bar {
-            flex-basis: 100%;
-        }
+        animation-stage { flex-direction: column; overflow: hidden; }
+        animation-stage > timeline, animation-stage > curve-editor { flex-grow: 1; min-height: 0; }
 
         /* ── The animation graph ────────────────────────────────────────────
            The arrows are drawn by the map and the state boxes are elements on top of it, because
            text in this framework is an element — see StateMapView's own remarks. */
-        animgraph-editor { flex-direction: row; flex-wrap: wrap; }
-
         state-map {
             position: relative;
             flex-grow: 1;
@@ -393,20 +402,15 @@ public static class AssetEditorTheme {
         state-box-motion { color: var(--text-muted); font-size: 11px; }
 
         /* ── The input editor ───────────────────────────────────────────── */
-        input-editor { flex-direction: row; flex-wrap: wrap; }
-        input-editor > tree-view { flex-grow: 1; min-width: 0; min-height: 0; }
+
 
         /* ── The mixer ──────────────────────────────────────────────────────
            Strips side by side, which is the layout every mixer has had since the hardware ones: a
            fader is a thing you compare against its neighbours. */
-        mixer-editor { flex-direction: row; flex-wrap: wrap; }
-
         mixer-strips {
             flex-direction: row;
             align-items: stretch;
             gap: 4px;
-            flex-grow: 1;
-            min-width: 0;
             overflow-x: auto;
         }
 
@@ -430,8 +434,6 @@ public static class AssetEditorTheme {
         mixer-snapshot.selected { background-color: var(--accent-deep, var(--surface-raised)); }
 
         /* ── The font editor ────────────────────────────────────────────── */
-        font-editor { flex-direction: row; flex-wrap: wrap; }
-
         font-atlas {
             flex-grow: 1;
             min-width: 0;
@@ -444,7 +446,6 @@ public static class AssetEditorTheme {
         font-chain-row.error { color: var(--danger, #f2696e); }
 
         /* ── The sequencer ──────────────────────────────────────────────── */
-        sequence-editor { flex-direction: row; flex-wrap: wrap; }
-        sequence-editor > timeline { flex-grow: 1; min-width: 0; min-height: 0; }
+
         """;
 }

@@ -99,10 +99,12 @@ public sealed class SequenceView : Control {
         Duration.Decimals = 2;
         Duration.Minimum = SequenceDocument.MinimumDuration;
 
-        Tracks = Part<Timeline>();
+        var body = Part("sequence-body");
+
+        Tracks = body.Add<Timeline>();
         Tracks.SnapToFrames = true;
 
-        Side = Part("sequence-side");
+        Side = body.Add("sequence-side");
         Fields = Side.Add("sequence-fields");
         Log = Side.Add("analysis-list");
 

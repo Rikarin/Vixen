@@ -129,14 +129,15 @@ public sealed class AnimationClipView : Control {
         }
 
         var body = Part("animation-body");
+        var stage = body.Add("animation-stage");
 
-        Sheet = body.Add<Timeline>();
+        Sheet = stage.Add<Timeline>();
         Sheet.SnapToFrames = true;
 
-        Curves = body.Add<CurveEditor>();
+        Curves = stage.Add<CurveEditor>();
         Curves.AddClass("hidden");
 
-        Side = Part("animation-side");
+        Side = body.Add("animation-side");
         Fields = Side.Add("animation-fields");
 
         CurveMode.CheckedChanged += (_, on) => ShowCurves(on);

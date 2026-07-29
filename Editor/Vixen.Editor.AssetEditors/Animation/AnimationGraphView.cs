@@ -348,9 +348,10 @@ public sealed class AnimationGraphView : Control {
         AddParameter = Push(bar, "Add Parameter");
         Build = Push(bar, "Compile");
 
-        Map = Part<StateMapView>();
+        var body = Part("animgraph-body");
 
-        Side = Part("animgraph-side");
+        Map = body.Add<StateMapView>();
+        Side = body.Add("animgraph-side");
         Fields = Side.Add("animgraph-fields");
         Parameters = Side.Add("animgraph-parameters");
         Diagnostics = Side.Add("analysis-list");

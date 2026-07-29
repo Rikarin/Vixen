@@ -5,6 +5,7 @@ using Vixen.Editor.AssetEditors;
 using Vixen.Editor.AssetEditors.Sequencing;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
+using Vixen.Ui;
 using Vixen.Engine.Transforms;
 using Xunit;
 
@@ -50,9 +51,16 @@ public class MilestoneE5Tests {
         Assert.True(registry.TryGetByName(editor, out _), $"'{editor}' is not registered.");
     }
 
-    /// <summary>E5's second exit clause, through the panel.</summary>
+    /// <summary>A track is added and keyed through the panel's own buttons, with no document call.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the test that was missing, and its absence is why the panel shipped
+    ///     unusable.</b> The exit-clause test above calls <c>AddTrack</c> and <c>AddKey</c> on the
+    ///     document and uses the view only to scrub and play — so it covered the model and the
+    ///     playback path and never touched the *authoring* path, where track selection came only from
+    ///     clicking a key a new track does not have.
+    /// </remarks>
     [Fact]
-    public void A_cinematic_can_be_authored_scrubbed_and_played() {
+    public void A_track_is_added_and_keyed_through_the_panel() {
         using var fixture = EditorSession.Start();
 
         var scene = fixture.Scene;
@@ -60,51 +68,81 @@ public class MilestoneE5Tests {
 
         scene.Selection.Set([actor]);
 
-        var path = Path.Combine(fixture.Project.Paths.Assets, "Intro.vxseq");
+        var view = OpenSequence(fixture, "Take.vxseq");
+        var document = (SequenceDocument) fixture.Project.Documents.First(open => open is SequenceDocument);
+
+        // Adding a track selects it, so the next press of Key has somewhere to land.
+        Press(fixture, "Track: Transform");
+
+        Assert.Single(document.Sequence.Tracks);
+        Assert.NotNull(view.Selected);
+
+        // Pose the actor the way the gizmo would, move the playhead, and key it.
+        scene.World.Set(actor, LocalTransform.At(new(0f, 7f, 0f)));
+        view.Tracks.Time = 1f;
+
+        Press(fixture, "Key");
+
+        var track = document.Sequence.Tracks[0];
+
+        Assert.Single(track.Keys);
+        Assert.Equal(1f, track.Keys[0].Time, 3);
+
+        // ⚠ The key holds what the actor was doing, not zero. Keying a pose mid-motion is the
+        // ordinary reason to press the button, and a key that dropped the value would be one nobody
+        // wants and everybody has to fix by hand.
+        Assert.Equal(7f, SequencePlayer.Read(track.Keys[0]).Position.Y, 3);
+    }
+
+    /// <summary>A track with no keys is selected by its header, which is the only way in.</summary>
+    [Fact]
+    public void A_track_is_selected_by_its_header() {
+        using var fixture = EditorSession.Start();
+
+        var view = OpenSequence(fixture, "Cuts.vxseq");
+        var document = (SequenceDocument) fixture.Project.Documents.First(open => open is SequenceDocument);
+
+        Press(fixture, "Track: Camera");
+        Press(fixture, "Track: Event");
+
+        Assert.Equal(2, document.Sequence.Tracks.Count);
+        Assert.Same(document.Sequence.Tracks[1], view.Selected);
+
+        // Back to the first, which the second add moved off — and it has no keys, so its header is
+        // the only gesture that can reach it.
+        Press(fixture, "Camera");
+
+        Assert.Same(document.Sequence.Tracks[0], view.Selected);
+    }
+
+    /// <summary>Clicks a control by what it says, which is what a person aims at.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Through the pointer rather than by raising the button's own event.</b> The defect
+    ///     these two cover was in the *routing* — a header click had nowhere to land — and a test
+    ///     that invoked <c>Clicked</c> directly would have passed against the broken build. It is
+    ///     also what caught the layout defect found while writing them: a control that is drawn but
+    ///     covered fails a pointer click and is invisible to an event-raising one.
+    /// </remarks>
+    static void Press(EditorSession fixture, string text) {
+        fixture.Ui.Contains(text).Click();
+        fixture.Settle();
+    }
+
+    /// <summary>Opens a fresh sequence asset and gives back its panel.</summary>
+    static SequenceView OpenSequence(EditorSession fixture, string name) {
+        var path = Path.Combine(fixture.Project.Paths.Assets, name);
 
         Directory.CreateDirectory(fixture.Project.Paths.Assets);
         File.WriteAllText(path, string.Empty);
 
         fixture.Project.Assets.Scan();
 
-        Assert.True(fixture.Project.Assets.TryGetByPath("Assets/Intro.vxseq", out var entry));
+        Assert.True(fixture.Project.Assets.TryGetByPath("Assets/" + name, out var entry));
 
-        // Authored: opening the asset registers the panel and attaches the open scene, which is the
-        // application's arbitration rather than the factory's.
         fixture.Editor.OpenAsset(entry.Guid);
         fixture.Settle();
 
-        var view = fixture.Control<SequenceView>("asset." + entry.Guid);
-
-        Assert.NotNull(view);
-
-        var document = (SequenceDocument) fixture.Project.Documents.First(open => open is SequenceDocument);
-
-        Assert.NotNull(document.Player);
-
-        var track = new SequenceTrackData { Kind = SequenceTrackKind.Transform, Target = scene.IdOf(actor) };
-
-        document.AddTrack(track);
-        document.AddKey(track, new() { Time = 0f, Value = SequencePlayer.Write(LocalTransform.At(new(0f, 0f, 0f))) });
-        document.AddKey(track, new() { Time = 2f, Value = SequencePlayer.Write(LocalTransform.At(new(0f, 4f, 0f))) });
-
-        // Scrubbed: the playhead drives the scene.
-        Assert.Equal(1, view.Seek(1f));
-        Assert.Equal(2f, scene.World.Get<LocalTransform>(actor).Position.Y, 3);
-
-        // Played: the transport advances it without anybody dragging. The playhead is the
-        // timeline's, which is what a drag moves and what `Tick` advances — `Seek` above drove the
-        // scene from a time without claiming to have moved it.
-        view.Tracks.Time = 1f;
-        view.Play.IsChecked = true;
-        view.Tick(TimeSpan.FromSeconds(0.5));
-
-        Assert.Equal(3f, scene.World.Get<LocalTransform>(actor).Position.Y, 3);
-
-        // ⚠ And the scene goes back. A cinematic that left the level with its actors wherever the
-        // last frame put them is the quietest way an editor can lose an afternoon's work.
-        document.Player!.Restore();
-        Assert.Equal(0f, scene.World.Get<LocalTransform>(actor).Position.Y, 3);
+        return fixture.Control<SequenceView>("asset." + entry.Guid);
     }
 
     /// <summary>The four world-building panels open, close and reopen.</summary>

@@ -280,9 +280,10 @@ public sealed class FontView : Control {
         bar.Add("fact-name").Text = "Block";
         BlockChooser = bar.Add<Select>();
 
-        Atlas = Part<FontAtlasView>();
+        var body = Part("font-body");
 
-        Side = Part("font-side");
+        Atlas = body.Add<FontAtlasView>();
+        Side = body.Add("font-side");
         Facts = Side.Add("font-facts");
         Chain = Side.Add("font-chain");
         Blocks = Side.Add("font-blocks");
