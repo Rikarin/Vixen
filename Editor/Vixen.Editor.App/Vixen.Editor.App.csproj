@@ -19,6 +19,14 @@
         <!-- The shell: docking, commands, menus, palette, theming, notifications, tasks. -->
         <ProjectReference Include="..\Vixen.Editor.Ui\Vixen.Editor.Ui.csproj" />
 
+        <!--
+            Plugin loading, which is what PublishAot="false" above is for. This assembly is also the
+            one that decides *which* extension points a plugin can reach: the contract itself
+            references only the shell, and everything else is published into PluginServices from
+            here — the same joining job this project does for the inspector and the scene view.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Plugin\Vixen.Editor.Plugin.csproj" />
+
         <!-- The project model the shell is chrome over: the asset database, the command stack. -->
         <ProjectReference Include="..\Vixen.Editor.Core\Vixen.Editor.Core.csproj" />
 

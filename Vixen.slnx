@@ -284,6 +284,12 @@
     or a code editor. It is above the panels rather than beside them, and it is still not
     the shell: an asset editor is a document and a control, and which dock group it lands
     in is Vixen.Editor.App's decision as everything else is.
+
+    Vixen.Editor.Plugin is the contract a third party writes against, and the only
+    project under Editor/ whose public surface is checked against a baseline — doc 11
+    asks for a stricter promise there than anywhere else in the editor. It references
+    Vixen.Editor.Ui and nothing else here, so that a plugin adding a menu item does not
+    build against a model importer.
   -->
   <Folder Name="/Editor/">
     <Project Path="Editor/Vixen.Editor.Core/Vixen.Editor.Core.csproj" />
@@ -306,6 +312,8 @@
     <Project Path="Editor/Vixen.Editor.Ui.Tests/Vixen.Editor.Ui.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.AssetEditors/Vixen.Editor.AssetEditors.csproj" />
     <Project Path="Editor/Vixen.Editor.AssetEditors.Tests/Vixen.Editor.AssetEditors.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Plugin/Vixen.Editor.Plugin.csproj" />
+    <Project Path="Editor/Vixen.Editor.Plugin.Tests/Vixen.Editor.Plugin.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.App/Vixen.Editor.App.csproj" />
   </Folder>
 

@@ -84,6 +84,16 @@ on the first panel in the arrangement regardless is one that surprises every tim
 keyboard. The command greys itself out where the platform has one window — a browser tab, an Android
 activity, iOS — rather than being absent, which is a runtime question with a runtime answer.
 
+**A panel can be taken back out, and unregistering closes it.** `EditorShell.UnregisterPanel` drops
+the descriptor *and* the command that shows it, because `RegisterPanel` made both — half of that
+undone leaves a View-menu line that toggles nothing. It exists for `Vixen.Editor.Plugin`: a panel
+built by a plugin's factory is a live reference into that plugin's assembly, so a workspace that
+merely forgot the panel while it was still docked would keep the whole load context alive. The saved
+layout still names it, which is what puts the panel back in its own place when the plugin returns —
+the same bargain `KeyMap` makes with a plugin's shortcut. `MenuModel.Remove` and `MenuGroup.Remove`
+are the same story for a menu, and remove **by identity**: `MenuCommand` is a record, so removing
+"the line naming `file.save`" would take out whichever of them compared equal first.
+
 ## The palette
 
 `Ctrl/Cmd+P`, fuzzy, over an ordered list of `IPaletteSource`. Commands are one source; assets,

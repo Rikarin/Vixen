@@ -109,8 +109,9 @@ public interface IEditorCommand
 > the ordering, the folder synthesis and the search are tested without a document. `Ctrl+R` rescans.
 > It does not watch the file system, and says so rather than pretending.
 >
-> The gaps are a keybinding editor (the model has conflict detection, per-command customisation and
-> reset; there is no UI over it) and plugin loading, which needs `Vixen.Editor.Plugin` to exist.
+> The remaining gap is a keybinding editor: the model has conflict detection, per-command
+> customisation and reset, and there is no UI over it. Plugin loading has since landed — see
+> [`Vixen.Editor.Plugin`](#vixeneditorplugin) below.
 
 ### `Vixen.Editor.Inspector`
 
@@ -339,6 +340,43 @@ inspector that attaches to a running build on a device to browse and mutate live
   required, and it is the reason `Vixen.Editor.App` is not NativeAOT by default.
 - API stability: `Vixen.Editor.Plugin` has its own `PublicAPI.Shipped.txt` and a stricter compatibility
   policy than the rest of the editor.
+
+> **As built** (see [`Editor/Vixen.Editor.Plugin/README.md`](../../Editor/Vixen.Editor.Plugin/README.md)).
+> All of the above is in, with one correction, one addition and two gaps.
+>
+> **The correction is what the assembly references.** This section reads as though the contract were
+> the whole editor's; it is `Vixen.Editor.Ui` and nothing else under `Editor/`. Five of the eight
+> extension points — commands, menu items, panels, and the layouts and keybindings that come with
+> them — are the shell's vocabulary, and the shell does not reference `Vixen.Editor.Core`, so the
+> contract stays chrome-level. Drawers, importers, node types and gizmos are reached through
+> `PluginServices`, a lookup the host publishes into: a plugin that only adds a menu item would
+> otherwise build against `Vixen.Editor.Assets`, which carries Assimp and a model importer for two
+> dozen authoring formats. A plugin that does write an importer references that assembly itself.
+>
+> **The addition is that unloading had to become undoing.** A collectible context only collects once
+> nothing outside it refers to anything inside it, and a command whose `Run` is a lambda over the
+> plugin's state is exactly such a reference — held by the editor's own registry. So a plugin that
+> registered five things and was unloaded without them being removed does not leak five entries, it
+> leaks its whole assembly, permanently, with nothing reporting it. Every `PluginContext.Add…`
+> records its own undo; `DockingWorkspace.Unregister`, `EditorShell.UnregisterPanel`,
+> `MenuModel.Remove` and `DrawerRegistry.Remove` are the four methods that had to exist for it, and
+> `PluginHost.WaitForCollection` is what turns the runtime's silence about a context that did not
+> collect into a warning the user sees.
+>
+> ⚠ **Importers and build steps are listed above and are not reachable.** `ContentPipeline` builds
+> its `ImporterRegistry` per run, deliberately, so the editor, the CLI and the compiler workers
+> cannot disagree about the set — which means there is no registry for a plugin to add to and giving
+> it one here would be the editor building a set the workers have not got. That is a change to
+> `Vixen.Editor.Assets`, not to this. Project templates are `Tools/Vixen.Templates`, which does not
+> exist yet either.
+>
+> ⚠ **A rebuilt dependency still needs a restart.** The plugin's own assembly is read into memory
+> rather than mapped, so a `dotnet build` over the folder the editor is watching can rewrite it and
+> `Reload Plugins` picks the new one up; the libraries beside it are mapped and stay open. Shadow-
+> copying the folder is the fix and is a feature of its own.
+>
+> There is also no plugin-management panel — installed plugins, enable, disable, reload — which is a
+> view over `PluginHost.Plugins` and nothing more.
 
 ## Editor-specific asset editors
 

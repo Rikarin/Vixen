@@ -137,6 +137,13 @@ Registration is per instance with a shared `Default`, so a plugin adds a drawer 
 test proving one in isolation builds an empty registry. A single static would make two tests that
 register drawers for one type unable to run in the same process.
 
+⚠ **A plugin's drawer has to be removable, and `Remove` is why it exists.** `Default` is a static, so
+a drawer left in it after its plugin was unloaded is a live reference into an assembly the editor is
+trying to collect — and the symptom is not a stale drawer, it is a load context that stays in memory
+for the rest of the session with nothing reporting it. `Remove` takes a drawer out of everything it
+was registered for at once, because one drawer is commonly registered for a type *and* an attribute
+and its owner should not have to remember which.
+
 ## Rotations are the one place a view is not the value
 
 Nothing in the engine stores Euler angles — three orders give three rotations from the same numbers,

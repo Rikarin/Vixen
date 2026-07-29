@@ -105,9 +105,17 @@ partial class Build {
     ///     The projects whose public surface is a promise: the RUNTIME profile of
     ///     <c>Directory.Build.props</c>, minus the ones that opt out of packing.
     /// </summary>
+    /// <remarks>
+    ///     Plus one exception, and it is the only one. <c>Editor/</c> is applications and is not
+    ///     covered — but <c>Vixen.Editor.Plugin</c> is not an application, it is the contract a
+    ///     third party compiles against, and
+    ///     <a href="../docs/plan/11-editor.md">doc 11</a> § <c>Vixen.Editor.Plugin</c> asks for a
+    ///     stricter compatibility policy there than anywhere else in the editor. A stricter promise
+    ///     nobody diffed is not a promise, so it is checked here with everything else that makes one.
+    /// </remarks>
     List<AbsolutePath> ApiCheckedProjects() =>
         RootDirectory
-            .GlobFiles("Core/**/*.csproj", "Platform/**/*.csproj")
+            .GlobFiles("Core/**/*.csproj", "Platform/**/*.csproj", "Editor/Vixen.Editor.Plugin/*.csproj")
             .Where(path => !path.ToString().Contains("/bin/", StringComparison.Ordinal))
             .Where(path => !path.ToString().Contains("/obj/", StringComparison.Ordinal))
             .Where(path => !path.NameWithoutExtension.EndsWith(".Tests", StringComparison.Ordinal))

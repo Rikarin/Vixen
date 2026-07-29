@@ -1,0 +1,156 @@
+#nullable enable
+Vixen.Editor.Plugin.EditorApi -> static class
+Vixen.Editor.Plugin.IEditorPlugin -> interface
+Vixen.Editor.Plugin.IEditorPlugin.Activate(Vixen.Editor.Plugin.PluginContext context) -> void
+Vixen.Editor.Plugin.IEditorPlugin.Deactivate() -> void
+Vixen.Editor.Plugin.LoadedPlugin -> sealed class
+Vixen.Editor.Plugin.LoadedPlugin.Descriptor.get -> Vixen.Editor.Plugin.PluginDescriptor
+Vixen.Editor.Plugin.LoadedPlugin.Failure.get -> System.Exception?
+Vixen.Editor.Plugin.LoadedPlugin.Id.get -> string
+Vixen.Editor.Plugin.LoadedPlugin.Manifest.get -> Vixen.Editor.Plugin.PluginManifest
+Vixen.Editor.Plugin.LoadedPlugin.Registrations.get -> int
+Vixen.Editor.Plugin.LoadedPlugin.State.get -> Vixen.Editor.Plugin.PluginState
+Vixen.Editor.Plugin.PluginCatalog -> sealed record
+Vixen.Editor.Plugin.PluginCatalog : System.IEquatable<Vixen.Editor.Plugin.PluginCatalog>
+Vixen.Editor.Plugin.PluginCatalog.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDiagnostic>
+Vixen.Editor.Plugin.PluginCatalog.Diagnostics.init -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDiagnostic>
+Vixen.Editor.Plugin.PluginCatalog.Find(string id) -> Vixen.Editor.Plugin.PluginDescriptor?
+Vixen.Editor.Plugin.PluginCatalog.PluginCatalog(System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDescriptor> Plugins, System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDiagnostic> Diagnostics) -> void
+Vixen.Editor.Plugin.PluginCatalog.Plugins.get -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDescriptor>
+Vixen.Editor.Plugin.PluginCatalog.Plugins.init -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDescriptor>
+Vixen.Editor.Plugin.PluginContext -> sealed class
+Vixen.Editor.Plugin.PluginContext.AddCommand(Vixen.Editor.Ui.EditorCommand command) -> Vixen.Editor.Ui.EditorCommand
+Vixen.Editor.Plugin.PluginContext.AddCommand(string id, Vixen.Editor.Ui.StringId title, System.Action run) -> Vixen.Editor.Ui.EditorCommand
+Vixen.Editor.Plugin.PluginContext.AddDefaultBinding(string commandId, Vixen.Editor.Ui.KeyChord chord) -> Vixen.Editor.Ui.BindResult
+Vixen.Editor.Plugin.PluginContext.AddLayout(string name, Vixen.Editor.Ui.StringId title, System.Func<Vixen.Ui.Controls.Advanced.DockLayout> layout) -> void
+Vixen.Editor.Plugin.PluginContext.AddMenu(Vixen.Editor.Ui.StringId title, int index = -1) -> Vixen.Editor.Ui.MenuGroup
+Vixen.Editor.Plugin.PluginContext.AddMenuItem(Vixen.Editor.Ui.MenuGroup group, string commandId) -> void
+Vixen.Editor.Plugin.PluginContext.AddPanel(Vixen.Editor.Ui.PanelDescriptor descriptor) -> Vixen.Editor.Ui.PanelDescriptor
+Vixen.Editor.Plugin.PluginContext.AddPanel(string id, Vixen.Editor.Ui.StringId title, System.Action<Vixen.Ui.Controls.Advanced.DockPanel> build) -> Vixen.Editor.Ui.PanelDescriptor
+Vixen.Editor.Plugin.PluginContext.Descriptor.get -> Vixen.Editor.Plugin.PluginDescriptor
+Vixen.Editor.Plugin.PluginContext.Directory.get -> string
+Vixen.Editor.Plugin.PluginContext.Manifest.get -> Vixen.Editor.Plugin.PluginManifest
+Vixen.Editor.Plugin.PluginContext.OnUnload(System.Action action) -> void
+Vixen.Editor.Plugin.PluginContext.Registrations.get -> Vixen.Editor.Plugin.PluginRegistrations
+Vixen.Editor.Plugin.PluginContext.Services.get -> Vixen.Editor.Plugin.PluginServices
+Vixen.Editor.Plugin.PluginContext.Shell.get -> Vixen.Editor.Ui.EditorShell
+Vixen.Editor.Plugin.PluginDescriptor -> sealed record
+Vixen.Editor.Plugin.PluginDescriptor : System.IEquatable<Vixen.Editor.Plugin.PluginDescriptor>
+Vixen.Editor.Plugin.PluginDescriptor.AssemblyPath.get -> string
+Vixen.Editor.Plugin.PluginDescriptor.AssemblyPath.init -> string
+Vixen.Editor.Plugin.PluginDescriptor.Directory.get -> string
+Vixen.Editor.Plugin.PluginDescriptor.Directory.init -> string
+Vixen.Editor.Plugin.PluginDescriptor.Id.get -> string
+Vixen.Editor.Plugin.PluginDescriptor.Manifest.get -> Vixen.Editor.Plugin.PluginManifest
+Vixen.Editor.Plugin.PluginDescriptor.Manifest.init -> Vixen.Editor.Plugin.PluginManifest
+Vixen.Editor.Plugin.PluginDescriptor.ManifestPath.get -> string
+Vixen.Editor.Plugin.PluginDescriptor.ManifestPath.init -> string
+Vixen.Editor.Plugin.PluginDescriptor.PluginDescriptor(Vixen.Editor.Plugin.PluginManifest Manifest, string Directory, string ManifestPath, string AssemblyPath) -> void
+Vixen.Editor.Plugin.PluginDiagnostic -> sealed record
+Vixen.Editor.Plugin.PluginDiagnostic : System.IEquatable<Vixen.Editor.Plugin.PluginDiagnostic>
+Vixen.Editor.Plugin.PluginDiagnostic.Message.get -> string
+Vixen.Editor.Plugin.PluginDiagnostic.Message.init -> string
+Vixen.Editor.Plugin.PluginDiagnostic.PluginDiagnostic(Vixen.Editor.Plugin.PluginSeverity Severity, string PluginId, string Message) -> void
+Vixen.Editor.Plugin.PluginDiagnostic.PluginId.get -> string
+Vixen.Editor.Plugin.PluginDiagnostic.PluginId.init -> string
+Vixen.Editor.Plugin.PluginDiagnostic.Severity.get -> Vixen.Editor.Plugin.PluginSeverity
+Vixen.Editor.Plugin.PluginDiagnostic.Severity.init -> Vixen.Editor.Plugin.PluginSeverity
+Vixen.Editor.Plugin.PluginDiscovery -> static class
+Vixen.Editor.Plugin.PluginException -> sealed class
+Vixen.Editor.Plugin.PluginException : System.Exception
+Vixen.Editor.Plugin.PluginException.PluginException() -> void
+Vixen.Editor.Plugin.PluginException.PluginException(string message) -> void
+Vixen.Editor.Plugin.PluginException.PluginException(string message, System.Exception innerException) -> void
+Vixen.Editor.Plugin.PluginHost -> sealed class
+Vixen.Editor.Plugin.PluginHost.Changed -> System.Action<Vixen.Editor.Plugin.LoadedPlugin>?
+Vixen.Editor.Plugin.PluginHost.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDiagnostic>
+Vixen.Editor.Plugin.PluginHost.Find(string id) -> Vixen.Editor.Plugin.LoadedPlugin?
+Vixen.Editor.Plugin.PluginHost.Load(System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDescriptor> descriptors) -> Vixen.Editor.Plugin.PluginReport
+Vixen.Editor.Plugin.PluginHost.Load(Vixen.Editor.Plugin.PluginCatalog catalog) -> Vixen.Editor.Plugin.PluginReport
+Vixen.Editor.Plugin.PluginHost.PluginHost(Vixen.Editor.Ui.EditorShell shell, Vixen.Editor.Plugin.PluginServices? services = null) -> void
+Vixen.Editor.Plugin.PluginHost.Plugins.get -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.LoadedPlugin>
+Vixen.Editor.Plugin.PluginHost.Reload(string id) -> Vixen.Editor.Plugin.PluginReport
+Vixen.Editor.Plugin.PluginHost.Services.get -> Vixen.Editor.Plugin.PluginServices
+Vixen.Editor.Plugin.PluginHost.Unload(string id) -> bool
+Vixen.Editor.Plugin.PluginHost.UnloadAll() -> void
+Vixen.Editor.Plugin.PluginHost.WaitForCollection(string id, System.TimeSpan timeout) -> bool
+Vixen.Editor.Plugin.PluginLoadContext -> sealed class
+Vixen.Editor.Plugin.PluginLoadContext : System.Runtime.Loader.AssemblyLoadContext
+Vixen.Editor.Plugin.PluginLoadContext.AssemblyPath.get -> string
+Vixen.Editor.Plugin.PluginLoadContext.IsShared(string? name) -> bool
+Vixen.Editor.Plugin.PluginLoadContext.LoadPlugin() -> System.Reflection.Assembly
+Vixen.Editor.Plugin.PluginLoadContext.PluginLoadContext(string assemblyPath, string? name = null) -> void
+Vixen.Editor.Plugin.PluginManifest -> sealed record
+Vixen.Editor.Plugin.PluginManifest : System.IEquatable<Vixen.Editor.Plugin.PluginManifest>
+Vixen.Editor.Plugin.PluginManifest.Api.get -> System.Version
+Vixen.Editor.Plugin.PluginManifest.Api.init -> System.Version
+Vixen.Editor.Plugin.PluginManifest.Assembly.get -> string
+Vixen.Editor.Plugin.PluginManifest.Assembly.init -> string
+Vixen.Editor.Plugin.PluginManifest.AssemblyFileName.get -> string
+Vixen.Editor.Plugin.PluginManifest.Author.get -> string
+Vixen.Editor.Plugin.PluginManifest.Author.init -> string
+Vixen.Editor.Plugin.PluginManifest.Dependencies.get -> System.Collections.Generic.List<string>
+Vixen.Editor.Plugin.PluginManifest.Dependencies.init -> System.Collections.Generic.List<string>
+Vixen.Editor.Plugin.PluginManifest.Description.get -> string
+Vixen.Editor.Plugin.PluginManifest.Description.init -> string
+Vixen.Editor.Plugin.PluginManifest.Enabled.get -> bool
+Vixen.Editor.Plugin.PluginManifest.Enabled.init -> bool
+Vixen.Editor.Plugin.PluginManifest.EntryPoint.get -> string
+Vixen.Editor.Plugin.PluginManifest.EntryPoint.init -> string
+Vixen.Editor.Plugin.PluginManifest.Id.get -> string
+Vixen.Editor.Plugin.PluginManifest.Id.init -> string
+Vixen.Editor.Plugin.PluginManifest.Name.get -> string
+Vixen.Editor.Plugin.PluginManifest.Name.init -> string
+Vixen.Editor.Plugin.PluginManifest.PluginManifest() -> void
+Vixen.Editor.Plugin.PluginManifest.Problems() -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Editor.Plugin.PluginManifest.Version.get -> System.Version
+Vixen.Editor.Plugin.PluginManifest.Version.init -> System.Version
+Vixen.Editor.Plugin.PluginRegistrations -> sealed class
+Vixen.Editor.Plugin.PluginRegistrations : System.IDisposable
+Vixen.Editor.Plugin.PluginRegistrations.Add(System.Action action) -> void
+Vixen.Editor.Plugin.PluginRegistrations.Count.get -> int
+Vixen.Editor.Plugin.PluginRegistrations.Dispose() -> void
+Vixen.Editor.Plugin.PluginRegistrations.Failures.get -> System.Collections.Generic.IReadOnlyList<System.Exception>
+Vixen.Editor.Plugin.PluginRegistrations.PluginRegistrations() -> void
+Vixen.Editor.Plugin.PluginReport -> sealed record
+Vixen.Editor.Plugin.PluginReport : System.IEquatable<Vixen.Editor.Plugin.PluginReport>
+Vixen.Editor.Plugin.PluginReport.Activated.get -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.LoadedPlugin>
+Vixen.Editor.Plugin.PluginReport.Activated.init -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.LoadedPlugin>
+Vixen.Editor.Plugin.PluginReport.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDiagnostic>
+Vixen.Editor.Plugin.PluginReport.Diagnostics.init -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDiagnostic>
+Vixen.Editor.Plugin.PluginReport.Failed.get -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.LoadedPlugin>
+Vixen.Editor.Plugin.PluginReport.Failed.init -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.LoadedPlugin>
+Vixen.Editor.Plugin.PluginReport.HasErrors.get -> bool
+Vixen.Editor.Plugin.PluginReport.PluginReport(System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.LoadedPlugin> Activated, System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.LoadedPlugin> Failed, System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDiagnostic> Diagnostics) -> void
+Vixen.Editor.Plugin.PluginServices -> sealed class
+Vixen.Editor.Plugin.PluginServices.Add<T>(T service) -> Vixen.Editor.Plugin.PluginServices
+Vixen.Editor.Plugin.PluginServices.Available.get -> System.Collections.Generic.IReadOnlyCollection<System.Type>
+Vixen.Editor.Plugin.PluginServices.Contains<T>() -> bool
+Vixen.Editor.Plugin.PluginServices.PluginServices() -> void
+Vixen.Editor.Plugin.PluginServices.Require<T>() -> T
+Vixen.Editor.Plugin.PluginServices.TryGet<T>(out T? service) -> bool
+Vixen.Editor.Plugin.PluginSeverity -> enum : byte
+Vixen.Editor.Plugin.PluginSeverity.Error = 1 -> Vixen.Editor.Plugin.PluginSeverity
+Vixen.Editor.Plugin.PluginSeverity.PluginSeverity() -> void
+Vixen.Editor.Plugin.PluginSeverity.Warning = 0 -> Vixen.Editor.Plugin.PluginSeverity
+Vixen.Editor.Plugin.PluginState -> enum : byte
+Vixen.Editor.Plugin.PluginState.Active = 1 -> Vixen.Editor.Plugin.PluginState
+Vixen.Editor.Plugin.PluginState.Disabled = 0 -> Vixen.Editor.Plugin.PluginState
+Vixen.Editor.Plugin.PluginState.Failed = 2 -> Vixen.Editor.Plugin.PluginState
+Vixen.Editor.Plugin.PluginState.PluginState() -> void
+Vixen.Editor.Plugin.PluginState.Unloaded = 3 -> Vixen.Editor.Plugin.PluginState
+const Vixen.Editor.Plugin.PluginLoadContext.SharedPrefix = "Vixen." -> string
+const Vixen.Editor.Plugin.PluginManifest.FileName = "plugin.yaml" -> string
+override Vixen.Editor.Plugin.LoadedPlugin.ToString() -> string
+override Vixen.Editor.Plugin.PluginDescriptor.ToString() -> string
+override Vixen.Editor.Plugin.PluginDiagnostic.ToString() -> string
+override Vixen.Editor.Plugin.PluginLoadContext.Load(System.Reflection.AssemblyName assemblyName) -> System.Reflection.Assembly?
+override Vixen.Editor.Plugin.PluginLoadContext.LoadUnmanagedDll(string unmanagedDllName) -> nint
+override Vixen.Editor.Plugin.PluginManifest.ToString() -> string
+override Vixen.Editor.Plugin.PluginReport.ToString() -> string
+static Vixen.Editor.Plugin.EditorApi.Explain(System.Version built) -> string?
+static Vixen.Editor.Plugin.EditorApi.IsCompatible(System.Version built) -> bool
+static Vixen.Editor.Plugin.EditorApi.Version.get -> System.Version
+static Vixen.Editor.Plugin.PluginCatalog.Empty.get -> Vixen.Editor.Plugin.PluginCatalog
+static Vixen.Editor.Plugin.PluginDiscovery.Scan(params System.Collections.Generic.IEnumerable<string> roots) -> Vixen.Editor.Plugin.PluginCatalog
+static Vixen.Editor.Plugin.PluginReport.Empty.get -> Vixen.Editor.Plugin.PluginReport

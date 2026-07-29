@@ -83,10 +83,13 @@ layout over the one the user spent the afternoon arranging.
 ## Load order, which is not arbitrary
 
 1. Register panels, layouts and commands.
-2. Load the keymap — **after** the commands that own its defaults, or every override in the file
+2. Load the plugins — **after** the editor's own commands, so a plugin naming one that already
+   exists is refused rather than shadowing it, and **before** the two steps below, because a
+   plugin's commands own keymap defaults and a plugin's panels are named by saved layouts.
+3. Load the keymap — **after** the commands that own its defaults, or every override in the file
    lands on a command with no default and the file rewrites itself with the whole map in it.
-3. Load the theme tokens.
-4. Apply the saved layout — **after** the panels are registered, or a saved arrangement names panels
+4. Load the theme tokens.
+5. Apply the saved layout — **after** the panels are registered, or a saved arrangement names panels
    the workspace cannot build.
 
 A first run has none of the three files and opens on the Default preset in dark.
@@ -186,6 +189,38 @@ same nothing and look like one asset.
 ⚠ **Untested at the panel level**, in common with every other panel here — the app is an executable
 with no test project. The model underneath it has 16.
 
+## Plugins
+
+`Plugins/` under the project, then `Plugins/` under the user's data directory. The first id wins, so
+a plugin checked into a repository overrides the copy the user installed globally — which is what
+makes "everybody on this team gets the same tools" true. Neither folder normally exists, and that is
+not an error.
+
+Everything about *how* one is loaded is `Vixen.Editor.Plugin`'s and is written down there. What is
+this project's is the two decisions above it: **where** to look, and **which extension points to
+publish**.
+
+`PluginServices` gets `EditorProject`, `SceneDocument` and `DrawerRegistry` — the shell's own
+registries a plugin reaches through `PluginContext` without being handed anything.
+
+⚠ **Importers and build steps are not published, and it is not an oversight.**
+`ContentPipeline` builds its `ImporterRegistry` inside the background task, from
+`ProjectWorkspace.Importers()`, precisely so the editor, `vixen content build` and the compiler
+worker processes cannot end up with different sets — a worker with a different set produces
+different artefacts for the same file, which shows up as a cache that never hits. So there is no
+long-lived registry here to add to, and manufacturing one would be this application building a set
+the workers have not got.
+
+`Reload Plugins` is in the palette: it unloads every active plugin, re-reads the manifests and loads
+them again, which is the plugin-development loop. It also checks that each old load context actually
+left memory and says so when one did not — the runtime reports nothing about a collectible context
+that cannot be collected, and the symptom otherwise is a plugin whose statics are not what it
+expects on its second load.
+
+⚠ **Unloaded on the way down, before the shell is disposed.** Unloading is what takes a plugin's
+panels back out, and closing a panel through a disposed docking workspace would throw during
+`Dispose` — which is the one place an exception costs the user their layout file.
+
 ## Importing and building content
 
 `Import Assets` and `Build Content` (`Ctrl+Shift+B`) run `ContentPipeline` on the shell's background
@@ -281,9 +316,9 @@ rebuilt; without it, closing and reopening the viewport puts the user back at th
   the five presets show the five standing panels and an asset editor lands wherever the workspace
   puts a new one. Remembering which documents were open across a restart is the arrangement's job and
   `current.vxlayout` does not hold it.
-- **No plugin loading.** Doc 11 puts it here, and `Vixen.Editor.Plugin` — the contract, the manifest,
-  the `AssemblyLoadContext` — does not exist yet. It is the reason this project is not NativeAOT, and
-  the `PublishAot` property says so already.
+- **No plugin-management panel.** Plugins load, but the only way to see what is installed is the
+  notification on the way up. The panel is a list over `PluginHost.Plugins` with enable, disable and
+  reload on it, and nothing in the loader is missing for it.
 - **No file dialog, so no "open project…".** A project comes from `--project` or is the scratch one;
   choosing one at run time needs a dialog, which is `Vixen.Platform`'s and not built.
 - **Reparenting is not undoable.** Dragging in the hierarchy is not wired up either; the primitive

@@ -323,8 +323,9 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 > **Phase 6's exit sentence is met.** The editor opens a project, imports assets, builds content,
 > edits a scene, saves, and runs the game — entirely in `Vixen.Ui`, with no other toolkit anywhere in
 > the dependency graph. What the sentence does not cover and Phase 6 still lists: the asset editors,
-> the profiler and debugger, plugin loading, the automation harness, and `PublishEditor`. The
-> editor-shell performance bar is unmeasured.
+> the profiler and debugger, the automation harness, and `PublishEditor`. Plugin loading has since
+> landed — `Vixen.Editor.Plugin`, a collectible `AssemblyLoadContext` per plugin, and two folders
+> the editor scans at start-up. The editor-shell performance bar is unmeasured.
 >
 > ⚠ **The viewport draws lines, not meshes.** A scene of empties looks right; a scene with a model in
 > it does not show the model. That wants a material system wired to an editor viewport.
@@ -350,7 +351,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | **Project browser** (`AssetTree` + `ProjectBrowser`) — the asset database as a searchable tree over the real `Assets/` | ✅ | Editor/Vixen.Editor.Core, Editor/Vixen.Editor.App | ⚠ Not watched: a file added outside the editor appears on `Ctrl+R`. A watcher that missed half the events while claiming to be live would be worse |
 | **Import Assets / Build Content from the editor** (`ContentPipeline` on the background task manager) | ✅ | Editor/Vixen.Editor.App | The same call the CLI makes, so the two cannot produce different output for one project |
 | Redraw-on-change (it redraws every frame today) | ⬜ | — | Every animation, toast expiry and task progress would have to say so, and one that forgets freezes a progress bar |
-| Plugin loading (`Vixen.Editor.Plugin`, `AssemblyLoadContext`) | ⬜ | — | The reason `Vixen.Editor.App` is not NativeAOT |
+| Plugin loading (`Vixen.Editor.Plugin`, `AssemblyLoadContext`) | ✅ | Editor/Vixen.Editor.Plugin, Editor/Vixen.Editor.App | Collectible per plugin, so `Reload Plugins` picks up a rebuild without closing the project. The reason `Vixen.Editor.App` is not NativeAOT. Importers and build steps are the two extension points still unreachable — `ContentPipeline` builds its registry per run |
 | "Open project…" file dialog | ⬜ | — | Unblocked: `platform.Dialogs` is the OS's own picker on all three desktops (K3). What is left is the editor calling it |
 | Asset editors: texture, model, material, prefab, shader, UI, addressable groups, compositor | ⬜ | — | Shell + inspector exist, so these are unblocked |
 | Scene editor (as an asset editor) | ⛔ | — | Needs the scene format |
@@ -619,7 +620,7 @@ since. The rest can run in parallel.
 | ~~W0-9~~ | ~~`UiDocument` "layout finished" callback~~ | Built. The resize lag in `ScrollView`, `TreeView`, `DataGrid`, `CodeEditor`, `NodeCanvas` and `Viewport` is closed |
 | ~~W0-10~~ | ~~Wire `LineWrapper` into `TextRun`/controls~~ | Built (`TextLayout`). What is left is the *editing* half — a caret that moves between lines — and `CodeEditor`'s own wrap |
 | ~~W0-11~~ | ~~`Vixen.Core.Diagnostics` sinks (ZLogger file, console, platform, remote, `EventSource`) + rate limiting~~ | Built. All five sinks, a shared `LogFilter` and `LogRateLimiter`. What the three downstream items now need is the editor UI and the inspector protocol, not a sink — `RemoteSink` streams JSON lines into whatever `IRemoteLogTransport` the protocol turns out to be |
-| W0-12 | `Vixen.Editor.Plugin` (`AssemblyLoadContext`) | Editor extensibility; lets `Vixen.Editor.App` state its AOT position |
+| ~~W0-12~~ | ~~`Vixen.Editor.Plugin` (`AssemblyLoadContext`)~~ | Built. Manifest, discovery, a collectible context per plugin, a registration scope that makes unloading undoing, and the API baseline doc 11 asks for. `Vixen.Editor.App` states its AOT position: JIT, and this is why |
 | W0-13 | `Tools/Vixen.Templates` (`vixen-game`/`app`/`lib`/`plugin`) | Phase 11's clean-machine criterion |
 | W0-14 | Pin a static `libjoltc.a` for `ios-arm64` | Physics on iOS → `Samples/05` on iOS |
 | W0-15 | Add `astcenc` + `ispc_texcomp` to `native-dependencies.json` | ASTC/ETC2 · full BC7/BC6H · mobile texture budgets. Also proves R10's schema generalises |
@@ -779,11 +780,11 @@ it is deliberately distinct from "not started" in Part 1.
 | 77 | `Vixen.Editor.Ui` | Keybinding editor; notification panel; `Strings.Resource` generation | Feature | — |
 | 78 | `Vixen.Editor.Inspector` | Curve multi-edit; asset-picker browser | Feature | — |
 | 79 | `Vixen.Editor.SceneView` | Undoable reparent command; hierarchy drag-and-drop; viewport click-to-select; meshes in the viewport | Feature | An id target; the material system |
-| 80 | `Vixen.Editor.App` | Plugin loading; file dialog | Feature | `Vixen.Editor.Plugin` (K3 is built, so the dialog is only owed a caller) |
+| 80 | `Vixen.Editor.App` | File dialog; a plugin-management panel | Feature | K3 is built, so the dialog is only owed a caller; the panel is a view over `PluginHost.Plugins` |
 | 81 | `Vixen.Editor.NodeGraph` | Selectable wires; sticky-note editing; a node in two groups; inlined-node → source-node map; Raven-span diagnostics | Feature | Emitter span recording, for the last |
 | 82 | `Vixen.Editor.ShaderGraph` | Procedural + custom-code nodes; Post/UI masters; previews; diagnostic mapping | Feature | Emitter span recording |
 | 83 | `Vixen.Editor.VfxGraph` | Operator nodes; remaining opcode blocks; sub-emitters/trails; live preview | Feature | — |
-| 84 | Editor | Asset editors; `Vixen.Editor.Profiler`/`.Debugger`/`.Plugin`/`.AnimationGraph`; golden screenshots; `PublishEditor`; redraw-on-change; the shell perf bar | Feature | Various |
+| 84 | Editor | Asset editors; `Vixen.Editor.Profiler`/`.Debugger`/`.AnimationGraph`; golden screenshots; `PublishEditor`; redraw-on-change; the shell perf bar | Feature | Various |
 | 85 | Build/CI | NativeAOT leg; sample-running leg; Playwright leg; 3-OS determinism run | Infra | — |
 | 86 | Build/CI | Per-file SPDX enforcement; third-party attribution manifest | Licence obligation (ADR-015) | — |
 | 87 | Samples | `05-PlatformerGame`; `06-CanvasStress`; `01` on Windows/Linux and physical devices | Coverage | **K1**, #59, CI legs |
@@ -810,8 +811,8 @@ it is deliberately distinct from "not started" in Part 1.
 
 | | |
 |---|---|
-| `.csproj` on disk | 221 (`Core` 124 · `Platform` 36 · `Editor` 19 · `Tools` 21 · `Samples` 11 · `Benchmarks` 7 · `Raven` 3) — counting test siblings and generators, per ADR-014. `Vixen.Platform.Ui` and its test sibling are the two newest |
-| Planned projects not created | `Vixen.Graphics.Direct3D12`, `Vixen.Net.Transport.Relay`, `Vixen.Editor.AnimationGraph/.Profiler/.Debugger/.Plugin`, `Vixen.Templates`, `Vixen.Raven.Transpile` |
+| `.csproj` on disk | 225 (`Core` 124 · `Platform` 36 · `Editor` 23 · `Tools` 21 · `Samples` 11 · `Benchmarks` 7 · `Raven` 3) — counting test siblings and generators, per ADR-014. `Vixen.Editor.Plugin` and its test sibling are the two newest |
+| Planned projects not created | `Vixen.Graphics.Direct3D12`, `Vixen.Net.Transport.Relay`, `Vixen.Editor.AnimationGraph/.Profiler/.Debugger`, `Vixen.Templates`, `Vixen.Raven.Transpile` |
 | Conformance cases green | 534 Yoga · 22 048 UAX#14/#29 · 91 707 UAX#9 · 328/413 shaping · 100 variable-font |
 | Golden image fixtures | 40 |
 | Fuzz targets / cases per build | 12 / ~11 M in ~7 s |

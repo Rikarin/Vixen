@@ -103,6 +103,36 @@ public sealed class DockingWorkspace {
     public PanelDescriptor Register(string id, StringId title, Action<DockPanel> build) =>
         Register(new PanelDescriptor(id, title, build));
 
+    /// <summary>Takes a panel out of the registry, closing it if it is open.</summary>
+    /// <param name="id">Its id.</param>
+    /// <returns>Whether it was registered.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         What unloading a plugin does, and the reason it closes rather than merely forgetting:
+    ///         the panel's elements were built by the plugin's factory, so a panel left docked would
+    ///         be a frame the user cannot rebuild and — the half that matters — a live reference into
+    ///         an assembly the editor is trying to collect.
+    ///     </para>
+    ///     <para>
+    ///         The saved layout still names it, which is the same bargain the keymap makes with a
+    ///         plugin's shortcut: reinstalling the plugin puts the panel back where it was rather
+    ///         than in the first group.
+    ///     </para>
+    /// </remarks>
+    public bool Unregister(string id) {
+        ArgumentNullException.ThrowIfNull(id);
+
+        if (!descriptors.Remove(id, out var descriptor)) {
+            return false;
+        }
+
+        ordered.Remove(descriptor);
+        Close(id);
+        Changed?.Invoke(this);
+
+        return true;
+    }
+
     /// <summary>Whether a panel is currently in the arrangement.</summary>
     /// <param name="id">Its id.</param>
     /// <returns>Whether it is.</returns>
@@ -217,6 +247,21 @@ public sealed class DockingWorkspace {
         if (fallback.Length == 0) {
             fallback = name;
         }
+    }
+
+    /// <summary>Takes a named arrangement out.</summary>
+    /// <param name="name">Which one.</param>
+    /// <returns>Whether there was one by that name.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The fallback is not reassigned.</b> If the preset removed was the one
+    ///     <see cref="Reset" /> goes back to, reset stops working until something declares another —
+    ///     which is correct: silently promoting whichever preset happened to be registered next
+    ///     would make "reset layout" mean something different depending on which plugins are
+    ///     installed.
+    /// </remarks>
+    public bool RemovePreset(string name) {
+        ArgumentNullException.ThrowIfNull(name);
+        return presets.Remove(name);
     }
 
     /// <summary>Shows a named arrangement.</summary>

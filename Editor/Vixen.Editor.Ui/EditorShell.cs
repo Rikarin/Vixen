@@ -188,6 +188,24 @@ public sealed class EditorShell : IDisposable {
     public PanelDescriptor RegisterPanel(string id, StringId title, Action<DockPanel> build) =>
         RegisterPanel(new PanelDescriptor(id, title, build));
 
+    /// <summary>Takes a panel and its command back out.</summary>
+    /// <param name="id">Its id.</param>
+    /// <returns>Whether it was registered.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Both halves, because <see cref="RegisterPanel(PanelDescriptor)" /> made both.</b> A
+    ///     workspace that forgot the panel while the registry still had the command would leave a
+    ///     View-menu line and a palette entry that toggle nothing — and, for a plugin's panel, a
+    ///     lambda over the plugin's own state that keeps its assembly loaded for the session.
+    /// </remarks>
+    public bool UnregisterPanel(string id) {
+        if (!Workspace.Unregister(id)) {
+            return false;
+        }
+
+        Commands.Remove(PanelCommand(id));
+        return true;
+    }
+
     /// <summary>Declares a named arrangement and the command that applies it.</summary>
     /// <param name="name">What it is called.</param>
     /// <param name="title">What the menu line says.</param>
@@ -201,6 +219,18 @@ public sealed class EditorShell : IDisposable {
                 Category = EditorStrings.CategoryView
             }
         );
+    }
+
+    /// <summary>Takes a named arrangement and its command back out.</summary>
+    /// <param name="name">What it was called.</param>
+    /// <returns>Whether it was registered.</returns>
+    public bool UnregisterLayout(string name) {
+        if (!Workspace.RemovePreset(name)) {
+            return false;
+        }
+
+        Commands.Remove(LayoutCommand(name));
+        return true;
     }
 
     /// <summary>What the command that shows a panel is called.</summary>

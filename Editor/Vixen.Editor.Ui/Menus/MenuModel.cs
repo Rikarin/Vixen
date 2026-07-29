@@ -101,6 +101,28 @@ public sealed class MenuGroup {
         entries.Add(new MenuDynamic(commandIds));
         return this;
     }
+
+    /// <summary>Takes a line out.</summary>
+    /// <param name="entry">Which one, as <see cref="Entries" /> reported it.</param>
+    /// <returns>Whether it was there.</returns>
+    /// <remarks>
+    ///     ⚠ <b>By identity, which is why the caller has to have kept the entry.</b>
+    ///     <see cref="MenuCommand" /> is a record, so removing "the one naming <c>file.save</c>"
+    ///     would remove whichever of them compared equal first — and a plugin that put its command
+    ///     in two menus would take the wrong one out. What unloading a plugin does.
+    /// </remarks>
+    public bool Remove(MenuEntry entry) {
+        ArgumentNullException.ThrowIfNull(entry);
+
+        var index = entries.FindIndex(candidate => ReferenceEquals(candidate, entry));
+
+        if (index < 0) {
+            return false;
+        }
+
+        entries.RemoveAt(index);
+        return true;
+    }
 }
 
 /// <summary>The whole menu bar, described.</summary>
@@ -136,5 +158,14 @@ public sealed class MenuModel {
         menus.Insert(Math.Clamp(index, 0, menus.Count), group);
 
         return group;
+    }
+
+    /// <summary>Takes a menu off the bar.</summary>
+    /// <param name="group">Which one, as <see cref="AddMenu" /> or <see cref="InsertMenu" /> returned it.</param>
+    /// <returns>Whether it was on it.</returns>
+    /// <remarks>What unloading a plugin that added a menu of its own does.</remarks>
+    public bool Remove(MenuGroup group) {
+        ArgumentNullException.ThrowIfNull(group);
+        return menus.Remove(group);
     }
 }
