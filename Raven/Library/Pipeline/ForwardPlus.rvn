@@ -267,7 +267,7 @@ shader ForwardPlus {
         // The material fills the surface. Every feature reads what the previous one left, which is
         // what `inout` buys: adding a feature to the chain changes no other feature's signature.
         var d: MaterialData
-        MaterialDefaults.Begin(d, normalWS, tangentWS)
+        MaterialDefaults.Begin(d, normalWS, tangentWS, uv)
         surface.Compute(d)
 
         val v = Math.SafeNormalize(viewPosition - positionWS)

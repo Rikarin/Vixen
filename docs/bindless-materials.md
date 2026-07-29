@@ -123,6 +123,27 @@ An unshared binding beside a shared one still gets one per feature and is still 
 the control worth keeping: three features with a `strength` each are three values, and sharing them
 is a material where moving one slider moves three.
 
+### 2c. ~~A shader-library feature that samples~~ — built
+
+`TexturedMetalRoughnessSurface` is the first feature in `Raven/Library` that reads a texture, and the
+first material feature in the engine that could. It needed all three of the pieces above and one
+more: a feature cannot read the pass's streams, so a coordinate to sample at had to arrive through
+the one thing every feature is handed. `uv` is a channel on `MaterialData` now, seeded by
+`MaterialDefaults.Begin` — which is the argument at the top of that file applied to itself, *"a
+feature that starts caring about a new channel does not change the contract every other feature is
+written to"*.
+
+`MaterialTextures` is the shared base: the table and its sampler, declared once, inherited by every
+feature that samples. `TexturedMetalRoughnessFeature` is the authored record, and it carries a
+**name** and no handle — because a material is serialised on machines with no device, which is every
+machine that authors one. The host joins that name to the shader parameter the compiler predicted
+(`BaseColorIndexParameter`), and `MaterialRenderFeature` writes the slot.
+
+The index defaults to zero, which is a slot that *exists*: a material whose map never reached a table
+— no bindless device, or a host that never set the pairing — samples the table's fallback view. A
+defined thing to read and a visible mistake, where an unwritten descriptor is whatever the driver
+left there.
+
 ### 2b. A material becomes a record rather than a set
 
 This is the change the three blocked items are actually waiting for.
@@ -194,6 +215,7 @@ Raven got atomics; what was missing was 2 and 3.
 | 1. Raven `Texture2D[]` | ✅ built, device-verified |
 | 2a. A material's texture as a value in its block | ✅ built — closes "materials are values, not resources" |
 | 2a′. A binding shared across composed features | ✅ built — `[Shared]`, collapsed by `BindingPlan`, aliased in both backends |
+| 2c. A shader-library feature that samples through the table | ✅ built — `TexturedMetalRoughnessSurface`, and `uv` on `MaterialData` |
 | 2b. The block as a record rather than a per-material set | ⬜ — the one compacted draws and per-object probes wait on |
 | 3. An indirect draw whose count comes from the device | ⬜ |
 | 4. Compaction | ⬜ |

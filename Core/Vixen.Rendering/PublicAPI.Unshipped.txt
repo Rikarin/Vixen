@@ -1491,6 +1491,20 @@ Vixen.Rendering.Materials.SubsurfaceShading.TransmissionPower.get -> float
 Vixen.Rendering.Materials.SubsurfaceShading.TransmissionPower.init -> float
 Vixen.Rendering.Materials.SubsurfaceShading.Wrap.get -> float
 Vixen.Rendering.Materials.SubsurfaceShading.Wrap.init -> float
+Vixen.Rendering.Materials.TexturedMetalRoughnessFeature -> sealed record
+Vixen.Rendering.Materials.TexturedMetalRoughnessFeature : System.IEquatable<Vixen.Rendering.Materials.TexturedMetalRoughnessFeature>
+Vixen.Rendering.Materials.TexturedMetalRoughnessFeature : Vixen.Rendering.Materials.IMaterialFeature
+Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.BaseColor.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.BaseColor.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.BaseColorMap.get -> string
+Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.BaseColorMap.init -> string
+Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.Compile(Vixen.Rendering.Materials.MaterialCompilationContext context) -> void
+Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.Metalness.get -> float
+Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.Metalness.init -> float
+Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.Roughness.get -> float
+Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.Roughness.init -> float
+Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.ShaderName.get -> string
+Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.TexturedMetalRoughnessFeature() -> void
 Vixen.Rendering.MeshData -> sealed record
 Vixen.Rendering.MeshData : System.IEquatable<Vixen.Rendering.MeshData>
 Vixen.Rendering.MeshData.BoneIndices.get -> int[]
@@ -2438,6 +2452,7 @@ static Vixen.Rendering.Lighting.SphericalHarmonics.Evaluate(in Vixen.Rendering.L
 static Vixen.Rendering.Lighting.SphericalHarmonics.Project(Vixen.Rendering.Lighting.CubeImage environment) -> Vixen.Rendering.Lighting.ShCoefficients
 static Vixen.Rendering.Materials.MaterialCompiler.Compile(Vixen.Rendering.Materials.MaterialDescriptor descriptor) -> Vixen.Rendering.Materials.MaterialCompilation
 static Vixen.Rendering.Materials.MaterialKeys.LayerCount(string shaderName) -> Vixen.Shaders.PermutationKey<int>
+static Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.BaseColorIndexParameter(string path) -> string
 static Vixen.Rendering.MeshPrimitives.Capsule(float radius = 0.25, float height = 1, int segments = 32, int rings = 16) -> Vixen.Rendering.MeshData
 static Vixen.Rendering.MeshPrimitives.Cone(float radius = 0.5, float height = 1, int segments = 32) -> Vixen.Rendering.MeshData
 static Vixen.Rendering.MeshPrimitives.Create(Vixen.Rendering.PrimitiveKind kind, int segments = 32, int rings = 16) -> Vixen.Rendering.MeshData

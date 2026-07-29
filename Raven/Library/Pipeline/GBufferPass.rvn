@@ -95,7 +95,7 @@ shader GBufferPass {
     [FragmentShader]
     func Fragment(): GBufferTargets {
         var d: MaterialData
-        MaterialDefaults.Begin(d, normalWS, tangentWS)
+        MaterialDefaults.Begin(d, normalWS, tangentWS, uv)
         surface.Compute(d)
 
         if (AlphaTested) {
