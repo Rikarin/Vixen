@@ -24,11 +24,11 @@ namespace Vixen.Editor.App;
 ///         first and are the only thing here that writes depth; the grid and the entity markers
 ///         follow, depth-tested so that a marker behind a cube is behind it; then the gizmo's shafts,
 ///         rings and plane quads with no depth test at all, because a handle you cannot reach through
-///         the thing it moves is a handle you cannot use; and last the gizmo's solid heads, which are
-///         triangles rather than segments and so cannot share the buffer in front of them. The last
-///         two are what a solid mesh pass made necessary — with only lines in the target there was
-///         nothing to be occluded by, which is why the overlay used to share the world list's
-///         pipeline.
+///         the thing it moves is a handle you cannot use; and last the gizmo's solid handles — the
+///         arm heads and the box in the middle — which are triangles rather than segments and so
+///         cannot share the buffer in front of them. The last two are what a solid mesh pass made
+///         necessary: with only lines in the target there was nothing to be occluded by, which is why
+///         the overlay used to share the world list's pipeline.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>This is not the mesh path either.</b> <see cref="MeshRenderer" />'s own remarks say

@@ -151,7 +151,6 @@ public static class GizmoGeometry {
         } else {
             Arms(into, camera, gizmo, origin, basis, scale, active, pen);
             Planes(into, origin, basis, scale, active, gizmo, camera.Forward, pen);
-            Centre(into, camera, origin, worldPerPixel * gizmo.CentreRadius, active, gizmo.Mode, pen);
         }
 
         return into.Count - before;
@@ -240,7 +239,70 @@ public static class GizmoGeometry {
             );
         }
 
+        Middle(gizmo, camera, height, vertices, triangles, origin, basis, active);
+
         return vertices.Count - before;
+    }
+
+    /// <summary>The box in the middle: uniform scale, or a drag in the view plane.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A solid cube, and it used to be a flat outlined square held square to the camera.</b>
+    ///         The reason it faced the camera was that it belongs to no axis and a square on the
+    ///         object's own axes is one you have to orbit to see square — which is true of a
+    ///         <i>square</i> and is the whole problem with using one. A cube reads as a cube from every
+    ///         angle, so it can sit on the gizmo's own basis, where its faces line up with the arms and
+    ///         it reads as the middle of a solid object rather than as a sticker on the front of one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Sized to fit inside the circle the hit test uses, rather than to match its
+    ///         radius.</b> <c>HitTest</c> answers for a circle of <c>CentreRadius</c> pixels, and the
+    ///         old square's half-side <i>was</i> that radius — so its four corners stuck out to
+    ///         <c>√2 × CentreRadius</c> and did not answer clicks. A cube's corners reach
+    ///         <c>√3 × </c> its half-extent, so that is what the half-extent is divided by: every drawn
+    ///         pixel of it is inside the region that grabs it. This is the same rule
+    ///         <c>TransformGizmo.Tolerance</c> follows for the arms and it fails the same way when it
+    ///         is broken — at the edges of a handle, which reads as the tool being unreliable rather
+    ///         than as a number being wrong.
+    ///     </para>
+    /// </remarks>
+    static void Middle(
+        TransformGizmo gizmo,
+        EditorCamera camera,
+        int height,
+        List<MeshVertex> vertices,
+        List<uint> triangles,
+        Vector3 origin,
+        Matrix4x4 basis,
+        GizmoHandle active
+    ) {
+        var handle = CentreHandle(gizmo.Mode);
+
+        if (handle == GizmoHandle.None) {
+            return;
+        }
+
+        var half = gizmo.WorldPerPixel(camera, height) * gizmo.CentreRadius / MathF.Sqrt(3f);
+
+        // On the gizmo's basis, so the cube's faces are perpendicular to the arms leaving it. In
+        // screen space that is the camera's basis and the cube faces the viewer, which is the same
+        // answer the flat square used to give and now falls out rather than being asserted.
+        var side = Axis(basis, 0) * (half * 2f);
+        var up = Axis(basis, 1) * (half * 2f);
+        var forward = Axis(basis, 2) * (half * 2f);
+
+        Append(
+            vertices,
+            triangles,
+            Cube,
+            new Matrix4x4(
+                side.X, side.Y, side.Z, 0f,
+                up.X, up.Y, up.Z, 0f,
+                forward.X, forward.Y, forward.Z, 0f,
+                origin.X, origin.Y, origin.Z, 1f
+            ),
+            NeutralColour(active == handle)
+        );
     }
 
     /// <summary>The three shafts. The heads on the ends of them are <see cref="BuildSolid" />'s.</summary>
@@ -321,45 +383,28 @@ public static class GizmoGeometry {
         }
     }
 
-    /// <summary>The box in the middle: uniform scale, or a drag in the view plane.</summary>
+    /// <summary>Which handle the middle of a gizmo answers for, if any.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Drawn for exactly the modes whose hit test offers a middle handle.</b> The test
-    ///         has always answered <see cref="GizmoHandle.Uniform" /> for a square in the middle of a
-    ///         scale gizmo and nothing drew one, so the most-used handle of the three was invisible —
-    ///         a click that scaled everything uniformly, discoverable only by accident.
+    ///         ⚠ <b>The scale gizmo's has always been answered for and was never drawn.</b>
+    ///         <c>HitTest</c> returns <see cref="GizmoHandle.Uniform" /> for the middle of a scale
+    ///         gizmo, so the most-used handle of the three was invisible — a click that scaled
+    ///         everything uniformly, discoverable only by accident.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Translate has one too, and it is the handle that was missing rather than merely
-    ///         undrawn.</b> Dragging in the view plane is how anything gets moved that is not along an
-    ///         axis, and without it the middle of a translate gizmo — where three arms cross and every
-    ///         click is ambiguous — was answered by whichever arm the loop reached first. One square,
-    ///         two meanings, and in both cases it means "the thing the arms cannot do".
+    ///         ⚠ <b>Translate's was missing rather than merely undrawn.</b> Dragging in the view plane
+    ///         is how anything gets moved that is not along an axis, and without it the middle of a
+    ///         translate gizmo — where three arms cross and every click is ambiguous — was answered by
+    ///         whichever arm the loop reached first. One box, two meanings, and in both cases it means
+    ///         "the thing the arms cannot do".
     ///     </para>
     /// </remarks>
-    static void Centre(
-        List<LineVertex> into,
-        EditorCamera camera,
-        Vector3 origin,
-        float radius,
-        GizmoHandle active,
-        GizmoMode mode,
-        Pen pen
-    ) {
-        var handle = mode switch {
+    static GizmoHandle CentreHandle(GizmoMode mode) =>
+        mode switch {
             GizmoMode.Scale or GizmoMode.Transform => GizmoHandle.Uniform,
             GizmoMode.Translate => GizmoHandle.Screen,
             _ => GizmoHandle.None
         };
-
-        if (handle == GizmoHandle.None) {
-            return;
-        }
-
-        // Square to the camera rather than to the gizmo's basis, because it belongs to no axis: a
-        // box on the object's own axes would be one the user has to orbit to see square.
-        Box(into, origin, camera.Right * radius, camera.Up * radius, NeutralColour(active == handle), pen);
-    }
 
     /// <summary>The three rings that turn about the gizmo's own axes.</summary>
     /// <remarks>
@@ -451,19 +496,6 @@ public static class GizmoGeometry {
             previous = point;
             had = true;
         }
-    }
-
-    /// <summary>A closed square, given its middle and half of each side.</summary>
-    static void Box(List<LineVertex> into, Vector3 centre, Vector3 side, Vector3 up, Color4 colour, Pen pen) {
-        var a = centre - side - up;
-        var b = centre + side - up;
-        var c = centre + side + up;
-        var d = centre - side + up;
-
-        Segment(into, a, b, colour, pen);
-        Segment(into, b, c, colour, pen);
-        Segment(into, c, d, colour, pen);
-        Segment(into, d, a, colour, pen);
     }
 
     /// <summary>One segment, drawn as many parallel strokes as the pen has.</summary>
