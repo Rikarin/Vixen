@@ -240,7 +240,7 @@ reason tests do.
 
 ## What the front end leaves to Vixen
 
-Three things now, and the pattern is the same each time: ExCSS handles the common case, Vixen owns
+Four things now, and the pattern is the same each time: ExCSS handles the common case, Vixen owns
 the general one, and the seam stops at the loader.
 
 - **`@layer`** — not parsed at all. Both forms are read here, with brace matching that skips strings
@@ -250,6 +250,17 @@ the general one, and the seam stops at the loader.
   `transition: opacity 200ms spring(1, 100, 10)` arrives as one unexpanded string. Whether the
   longhands exist depends on whether the author used a Vixen extension, which is not a distinction
   anything downstream should have to know about. Both forms are read.
+- **A shorthand holding a `var()`** — expanded by `ShorthandExpansion`, because ExCSS cannot: what
+  `border-color: var(--border)` expands *to* is not known until the custom property is resolved, so
+  it hands the declaration back whole. ⚠ **The failure that caused was silent.** Everything
+  downstream reads longhands — the layout bridge says so in its own remarks, and the draw list asks
+  for `border-top-color` by name — so the declaration cascaded, substituted, and arrived under a name
+  nothing asks for. Every sheet in the repository writes `border-color: var(--border)`, so no control
+  in the framework drew a border: no diagnostic, no missing value, just flat boxes. The expansion is
+  at load rather than after substitution so that the cascade still picks between a shorthand and a
+  longhand the way it does for a var-free one, and the tests assert against ExCSS's own output rather
+  than against a table — the bug was a difference between the two forms, so a test stating what the
+  longhands *ought* to be would have agreed with itself and with nothing else.
 - **`@keyframes`** — ExCSS *does* parse these, with `from`/`to` already normalised. Established by
   probing rather than assumed, and it saved the work `@layer` needed.
 
