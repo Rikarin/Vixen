@@ -14,11 +14,15 @@ namespace Vixen.Engine.Cameras;
 ///         renderer's decision, made from <see cref="Order" /> and the entity being enabled.
 ///     </para>
 ///     <para>
-///         <b><c>[DataContract]</c>, because a level places its cameras.</b> That is what gives it a
-///         name a <c>.vxscene</c> can write and a serializer a compiled one can be made of — see
-///         <c>SceneComponentRegistry</c>, which registers this and lets a game register its own.
+///         <b><c>[DataContract]</c>, because a level places its cameras</b> — that is what gives it a
+///         name a <c>.vxscene</c> can write and a serializer a compiled one can be made of — and
+///         <b><c>[Component]</c>, because the pair of them is what declares it to
+///         <c>SceneComponentRegistry</c>.</b> A game's own components say the same two things the
+///         same way and need nothing else; this used to be registered by hand in the registry's static
+///         constructor, which was the only reason the engine's components and a game's were different.
 ///     </para>
 /// </remarks>
+[Component]
 [DataContract]
 public struct Camera {
     /// <summary>Vertical field of view, in radians. Ignored when <see cref="Orthographic" />.</summary>

@@ -6,6 +6,7 @@ using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
 using Vixen.Engine.Cameras;
+using Vixen.Rendering.Ecs;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -187,7 +188,7 @@ public class InspectorPanelTests {
         var light = Named(editor, "Directional Light");
 
         editor.Scene.World.Add(light, new Camera());
-        editor.Scene.World.Add(light, new MeshShape());
+        editor.Scene.World.Add(light, new PrimitiveShape());
         editor.Settle();
 
         // The view rebuilds from a selection change rather than from the world, so the entity has to

@@ -3,6 +3,7 @@
 
 using Vixen.Graphics;
 using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 using Vixen.Rendering.Compositor;
 
 namespace Vixen.Editor.SceneView;

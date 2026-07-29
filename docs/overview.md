@@ -336,7 +336,9 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 > the editor scans at start-up. The editor-shell performance bar is unmeasured.
 >
 > ⚠ **The viewport draws lines, not meshes.** A scene of empties looks right; a scene with a model in
-> it does not show the model. That wants a material system wired to an editor viewport.
+> it does not show the model. That wants a material system wired to an editor viewport. `MeshRenderable`
+> is authored, compiled and loaded now — what is missing is the extraction system, which needs a
+> residency cache over `GeometryBuffer` and a material resolved to a `Material`.
 
 | Feature | Status | Where | Blocked by / note |
 |---|---|---|---|

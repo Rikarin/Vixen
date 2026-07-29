@@ -266,10 +266,10 @@ public static class SceneCompiler {
 
                 report(
                     ImportSeverity.Error,
-                    $"'{data.Name}' carries a {component.GetType().Name}, which nothing registered as a scene "
+                    $"'{data.Name}' carries a {component.GetType().Name}, which nothing declared as a scene "
                     + "component. A compiled scene names a component by its contract and loads it by that name, "
-                    + "so the type has to be registered with SceneComponentRegistry.Register in an assembly the "
-                    + "build and the game both have."
+                    + "so the type needs [Component] beside its [DataContract], in an assembly the build and the "
+                    + "game both have."
                 );
 
                 continue;

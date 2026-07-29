@@ -44,6 +44,48 @@ public sealed class AssetManagerTests {
         Assert.Same(asset, handle.Result);
     }
 
+    /// <remarks>
+    ///     What a runtime component does with what it holds. An entity stores an <c>AssetId</c> because
+    ///     that survives renaming the file; this is the only entry point that takes one.
+    /// </remarks>
+    [Fact]
+    public async Task AReferenceLoadsTheAssetItPointsAt() {
+        var hero = new AssetReference(new AssetId(new("11111111-1111-1111-1111-111111111111")));
+        var world = new World().With("ui/hero", new TestAsset { Name = "hero", Value = 7 }, reference: hero).Build();
+
+        var handle = world.Assets.LoadAsync<TestAsset>(hero, TestContext.Current.CancellationToken);
+        var asset = await handle.Completion.WaitAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal("hero", asset.Name);
+        Assert.Equal(7, asset.Value);
+    }
+
+    [Fact]
+    public void AReferenceResolvesToItsAddressWithoutLoading() {
+        var hero = new AssetReference(new AssetId(new("11111111-1111-1111-1111-111111111111")));
+        var world = new World().With("ui/hero", new TestAsset(), reference: hero).Build();
+
+        Assert.Equal("ui/hero", world.Assets.AddressOf(hero));
+    }
+
+    /// <remarks>
+    ///     ⚠ Its own exception rather than <c>AddressNotFoundException</c>: nobody typed the identity,
+    ///     so "check the spelling" would send them looking in the wrong place. This is content that was
+    ///     not built, or was deleted after something saved a reference to it.
+    /// </remarks>
+    [Fact]
+    public void AReferenceNothingShippedSaysThatRatherThanNamingAnAddress() {
+        var world = new World().With("ui/hero", new TestAsset()).Build();
+        var missing = new AssetReference(new AssetId(new("33333333-3333-3333-3333-333333333333")));
+
+        var error = Assert.Throws<ReferenceNotFoundException>(() =>
+            world.Assets.Load<TestAsset>(missing, TestContext.Current.CancellationToken)
+        );
+
+        Assert.Equal(missing, error.Reference);
+        Assert.Contains("excluded from the build", error.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void TheBlockingFormComesBackAlreadyLoaded() {
         var world = new World().With("ui/hero", new TestAsset { Name = "hero" }).Build();
@@ -316,18 +358,24 @@ public sealed class AssetManagerTests {
 
     /// <summary>A catalog, a bundle and a manager over both — put together the way a build does.</summary>
     sealed class World {
-        readonly List<(string Address, object? Asset, string[] Dependencies, string[] Labels)> planned = [];
+        readonly List<(string Address, object? Asset, string[] Dependencies, string[] Labels, AssetReference Reference)> planned = [];
 
         public AssetManager Assets { get; private set; } = null!;
 
-        public World With(string address, object asset, string[]? dependencies = null, string[]? labels = null) {
-            planned.Add((address, asset, dependencies ?? [], labels ?? []));
+        public World With(
+            string address,
+            object asset,
+            string[]? dependencies = null,
+            string[]? labels = null,
+            AssetReference reference = default
+        ) {
+            planned.Add((address, asset, dependencies ?? [], labels ?? [], reference));
             return this;
         }
 
         /// <summary>An entry whose chunk the build never wrote — a broken content build, in one line.</summary>
         public World WithMissingChunk(string address, string[]? dependencies = null) {
-            planned.Add((address, null, dependencies ?? [], []));
+            planned.Add((address, null, dependencies ?? [], [], AssetReference.Null));
             return this;
         }
 
@@ -341,14 +389,14 @@ public sealed class AssetManagerTests {
             var writing = new ObjectDatabase(scratch);
             var entries = new List<CatalogEntry>();
 
-            foreach (var (address, asset, dependencies, labels) in planned) {
+            foreach (var (address, asset, dependencies, labels, reference) in planned) {
                 var id = asset is TestAsset written
                     ? writing.Write(written)
                     // Nothing wrote this one, so the id names content that is not there.
                     : ContentHash.Compute(System.Text.Encoding.UTF8.GetBytes(address));
 
                 entries.Add(
-                    new(address, id, bundleName, ContentProvider.Local, [.. dependencies], [.. labels], 0)
+                    new(address, id, bundleName, ContentProvider.Local, [.. dependencies], [.. labels], 0, reference)
                 );
             }
 

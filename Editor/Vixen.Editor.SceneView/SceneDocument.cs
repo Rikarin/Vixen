@@ -11,6 +11,7 @@ using Vixen.Engine.Cameras;
 using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 
 namespace Vixen.Editor.SceneView;
 
@@ -383,10 +384,10 @@ public sealed class SceneDocument : EditorDocument {
     /// <remarks>
     ///     Named after the shape, which is what every editor does and what makes a hierarchy of
     ///     block-out geometry readable without clicking each row. Renaming it afterwards does not
-    ///     change what it is: the shape is <see cref="MeshShape" /> and the name is a label.
+    ///     change what it is: the shape is <see cref="PrimitiveShape" /> and the name is a label.
     /// </remarks>
     public Entity CreateShape(PrimitiveKind kind, LocalTransform local, Entity parent = default) =>
-        Create(MeshShapes.NameOf(kind), local, parent, entity => MeshShapes.Attach(World, entity, kind));
+        Create(PrimitiveShapes.NameOf(kind), local, parent, entity => PrimitiveShapes.Attach(World, entity, kind));
 
     /// <summary>Creates a light, undoably.</summary>
     /// <param name="kind">Which kind.</param>

@@ -626,14 +626,20 @@ the binary serializer use for that component. Saving reads back exactly the comp
 nothing registered is **refused on load rather than dropped**, because an entity opened without its
 component is one that gets saved without it.
 
-⚠ **A shape and a light are keys of their own rather than entries in that list, and both are
-temporary.** `MeshShape` and `Light` are the *editor's* components: the runtime has nowhere to name
-a `PrimitiveKind` or a `LightKind`, because `Vixen.Engine` deliberately does not reference
-`Vixen.Rendering`. So neither has anything to register with `SceneComponentRegistry` — and a
-component in the list above that no build declares is exactly what a content compile refuses, which
-would mean the Create menu authoring scenes that cannot be built. One key each is the cheaper
-bargain, and the day the runtime grows those components both become ordinary entries. A `Camera`,
-which *is* a registered runtime component, already is one.
+**A shape and a light used to be keys of their own rather than entries in that list, and both said they
+were temporary.** They were the *editor's* components, because the runtime had nowhere to name a
+`PrimitiveKind` or a `LightKind` — `Vixen.Engine` deliberately does not reference `Vixen.Rendering`. The
+resolution was that the reference needed to run the other way: `Vixen.Rendering` references `Vixen.Ecs`
+and `Vixen.Engine` and declares `Light`, `PrimitiveShape` and `MeshRenderable` in its own `Ecs/` folder,
+exactly as `Vixen.Physics` and `Vixen.Audio` do. All three are ordinary entries in the list now, as a
+`Camera` always was.
+
+⚠ **`shape:` and `light:` are still read, and are never written.** Every scene authored before that
+carries them, and the YAML binder ignores keys it does not know — so removing the properties would not
+fail to open those files, it would open them and quietly drop the geometry and the lighting. A file
+rewrites itself into the new form on its first save. What is left is cosmetic: `OmitDefaults` is a
+whole-document setting and is off for this format, so a newly saved scene carries `shape: ''` and
+`light: null` and means nothing by either.
 
 ⚠ **A `Color3` needs a scalar converter, the same as a `Vector3`.** Nothing in
 `Vixen.Core.Mathematics` carries the reflection generator, so every type of its that the format

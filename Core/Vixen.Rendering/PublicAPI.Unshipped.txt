@@ -854,6 +854,35 @@ Vixen.Rendering.DrawCommand.FirstInstance -> uint
 Vixen.Rendering.DrawCommand.IndexCount -> uint
 Vixen.Rendering.DrawCommand.InstanceCount -> uint
 Vixen.Rendering.DrawCommand.VertexOffset -> uint
+Vixen.Rendering.Ecs.Light -> struct
+Vixen.Rendering.Ecs.Light.Colour -> Vixen.Core.Mathematics.Color3
+Vixen.Rendering.Ecs.Light.HalfLength -> float
+Vixen.Rendering.Ecs.Light.InnerAngle -> float
+Vixen.Rendering.Ecs.Light.Intensity -> float
+Vixen.Rendering.Ecs.Light.Kind -> Vixen.Rendering.LightKind
+Vixen.Rendering.Ecs.Light.Light() -> void
+Vixen.Rendering.Ecs.Light.OuterAngle -> float
+Vixen.Rendering.Ecs.Light.Radius -> float
+Vixen.Rendering.Ecs.Light.Range -> float
+Vixen.Rendering.Ecs.LightExtractionSystem -> sealed class
+Vixen.Rendering.Ecs.LightExtractionSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Rendering.Ecs.LightExtractionSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Rendering.Ecs.LightExtractionSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Rendering.Ecs.LightExtractionSystem.Extract(Vixen.Ecs.World world) -> void
+Vixen.Rendering.Ecs.LightExtractionSystem.LightCount.get -> int
+Vixen.Rendering.Ecs.LightExtractionSystem.LightExtractionSystem(Vixen.Rendering.Features.ForwardLightingRenderFeature feature) -> void
+Vixen.Rendering.Ecs.Lights -> static class
+Vixen.Rendering.Ecs.MeshRenderable -> struct
+Vixen.Rendering.Ecs.MeshRenderable.CastsShadows -> bool
+Vixen.Rendering.Ecs.MeshRenderable.Material -> Vixen.Core.AssetReference
+Vixen.Rendering.Ecs.MeshRenderable.Mesh -> Vixen.Core.AssetReference
+Vixen.Rendering.Ecs.MeshRenderable.MeshRenderable() -> void
+Vixen.Rendering.Ecs.MeshRenderables -> static class
+Vixen.Rendering.Ecs.PrimitiveShape -> struct
+Vixen.Rendering.Ecs.PrimitiveShape.Kind -> Vixen.Rendering.PrimitiveKind
+Vixen.Rendering.Ecs.PrimitiveShape.Material -> Vixen.Core.AssetReference
+Vixen.Rendering.Ecs.PrimitiveShape.PrimitiveShape() -> void
+Vixen.Rendering.Ecs.PrimitiveShapes -> static class
 Vixen.Rendering.EffectConstants -> sealed class
 Vixen.Rendering.EffectConstants : System.IDisposable
 Vixen.Rendering.EffectConstants.Alignment.get -> int
@@ -2692,6 +2721,7 @@ override Vixen.Rendering.Compositor.ShadowMapRenderer.ToString() -> string
 override Vixen.Rendering.Compositor.SingleStageRenderer.Collect(Vixen.Rendering.Compositor.GraphicsCompositor compositor) -> void
 override Vixen.Rendering.Compositor.SingleStageRenderer.Record(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.RenderDrawContext context) -> void
 override Vixen.Rendering.Compositor.SingleStageRenderer.ToString() -> string
+override Vixen.Rendering.Ecs.LightExtractionSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Rendering.Features.ForwardLightingRenderFeature.Initialize(Vixen.Rendering.RenderSystem system) -> void
 override Vixen.Rendering.Features.ForwardLightingRenderFeature.Name.get -> string
 override Vixen.Rendering.Features.ForwardLightingRenderFeature.Prepare(Vixen.Rendering.RenderSystem system) -> void
@@ -2796,6 +2826,23 @@ static Vixen.Rendering.Compositor.ResourceBinding.IsTexture(Vixen.Graphics.Descr
 static Vixen.Rendering.Compositor.SceneRenderer.BuildChild(Vixen.Rendering.Compositor.SceneRenderer child, Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 static Vixen.Rendering.Compositor.SceneRenderer.CollectChild(Vixen.Rendering.Compositor.SceneRenderer child, Vixen.Rendering.Compositor.GraphicsCompositor compositor) -> void
 static Vixen.Rendering.Compositor.SceneRenderer.RecordChild(Vixen.Rendering.Compositor.SceneRenderer child, Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.RenderDrawContext context) -> void
+static Vixen.Rendering.Ecs.LightExtractionSystem.Convert(Vixen.Rendering.Ecs.Light light, in Vixen.Core.Mathematics.Matrix4x4 matrix) -> Vixen.Rendering.RenderLight
+static Vixen.Rendering.Ecs.Lights.All.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.LightKind>
+static Vixen.Rendering.Ecs.Lights.Attach(Vixen.Ecs.World world, Vixen.Core.Entity entity, Vixen.Rendering.Ecs.Light light) -> void
+static Vixen.Rendering.Ecs.Lights.Attach(Vixen.Ecs.World world, Vixen.Core.Entity entity, Vixen.Rendering.LightKind kind) -> void
+static Vixen.Rendering.Ecs.Lights.Default(Vixen.Rendering.LightKind kind) -> Vixen.Rendering.Ecs.Light
+static Vixen.Rendering.Ecs.Lights.NameOf(Vixen.Rendering.LightKind kind) -> string
+static Vixen.Rendering.Ecs.Lights.TitleOf(Vixen.Rendering.LightKind kind) -> string
+static Vixen.Rendering.Ecs.Lights.TryGet(Vixen.Ecs.World world, Vixen.Core.Entity entity, out Vixen.Rendering.Ecs.Light light) -> bool
+static Vixen.Rendering.Ecs.Lights.TryParse(string? text, out Vixen.Rendering.LightKind kind) -> bool
+static Vixen.Rendering.Ecs.MeshRenderables.Attach(Vixen.Ecs.World world, Vixen.Core.Entity entity, Vixen.Rendering.Ecs.MeshRenderable renderable) -> void
+static Vixen.Rendering.Ecs.MeshRenderables.Default(Vixen.Core.AssetReference mesh) -> Vixen.Rendering.Ecs.MeshRenderable
+static Vixen.Rendering.Ecs.MeshRenderables.TryGet(Vixen.Ecs.World world, Vixen.Core.Entity entity, out Vixen.Rendering.Ecs.MeshRenderable renderable) -> bool
+static Vixen.Rendering.Ecs.PrimitiveShapes.All.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.PrimitiveKind>
+static Vixen.Rendering.Ecs.PrimitiveShapes.Attach(Vixen.Ecs.World world, Vixen.Core.Entity entity, Vixen.Rendering.PrimitiveKind kind) -> void
+static Vixen.Rendering.Ecs.PrimitiveShapes.NameOf(Vixen.Rendering.PrimitiveKind kind) -> string
+static Vixen.Rendering.Ecs.PrimitiveShapes.TryGet(Vixen.Ecs.World world, Vixen.Core.Entity entity, out Vixen.Rendering.PrimitiveKind kind) -> bool
+static Vixen.Rendering.Ecs.PrimitiveShapes.TryParse(string? text, out Vixen.Rendering.PrimitiveKind kind) -> bool
 static Vixen.Rendering.EffectSetWriter.TryWrite(Vixen.Shaders.Effect effect, Vixen.Graphics.DescriptorSetSlot slot, Vixen.Shaders.ParameterCollection parameters, Vixen.Rendering.EffectConstants? block, System.Collections.Generic.IList<Vixen.Graphics.DescriptorWrite> writes) -> bool
 static Vixen.Rendering.GpuCulling.BufferSize(int viewCount, int wordCount) -> long
 static Vixen.Rendering.GpuCulling.Groups(int wordCount) -> int

@@ -8,18 +8,19 @@ using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 using Xunit;
 
 namespace Vixen.Editor.SceneView.Tests;
 
 /// <summary>Entities that are drawn as a shape: making them, undoing that, and drawing them.</summary>
-public class MeshShapeTests : IDisposable {
+public class PrimitiveShapeTests : IDisposable {
     readonly string root = Path.Combine(Path.GetTempPath(), "vixen-shapes-" + Guid.NewGuid().ToString("N"));
     readonly EditorProject project;
     readonly World world = new("Test");
     readonly SceneDocument scene;
 
-    public MeshShapeTests() {
+    public PrimitiveShapeTests() {
         Directory.CreateDirectory(root);
         project = new(new ProjectPaths(root));
         scene = new(project, world, AssetId.Empty, "Untitled");
@@ -40,7 +41,7 @@ public class MeshShapeTests : IDisposable {
         var cube = scene.CreateShape(PrimitiveKind.Cube, LocalTransform.Identity);
 
         Assert.Equal("Cube", scene.NameOf(cube));
-        Assert.True(MeshShapes.TryGet(world, cube, out var kind));
+        Assert.True(PrimitiveShapes.TryGet(world, cube, out var kind));
         Assert.Equal(PrimitiveKind.Cube, kind);
     }
 
@@ -56,7 +57,7 @@ public class MeshShapeTests : IDisposable {
         // ⚠ The redo restores a snapshot rather than running the initialiser again, so this is the
         // assertion that says the snapshot carries components the create command added — a redo that
         // brought the entity back without its shape would be an invisible cube in the hierarchy.
-        Assert.True(MeshShapes.TryGet(world, sphere, out var kind));
+        Assert.True(PrimitiveShapes.TryGet(world, sphere, out var kind));
         Assert.Equal(PrimitiveKind.Sphere, kind);
     }
 
@@ -67,41 +68,41 @@ public class MeshShapeTests : IDisposable {
         Assert.True(scene.Delete([torus]));
         Assert.True(scene.Stack.Undo());
 
-        Assert.True(MeshShapes.TryGet(world, torus, out var kind));
+        Assert.True(PrimitiveShapes.TryGet(world, torus, out var kind));
         Assert.Equal(PrimitiveKind.Torus, kind);
     }
 
     [Fact]
     public void An_entity_with_no_shape_has_none() {
-        Assert.False(MeshShapes.TryGet(world, scene.Add("Empty", LocalTransform.Identity), out _));
+        Assert.False(PrimitiveShapes.TryGet(world, scene.Add("Empty", LocalTransform.Identity), out _));
     }
 
     [Fact]
     public void Attaching_twice_changes_the_shape_rather_than_adding_a_second_one() {
         var entity = scene.Add("Thing", LocalTransform.Identity);
 
-        MeshShapes.Attach(world, entity, PrimitiveKind.Cube);
-        MeshShapes.Attach(world, entity, PrimitiveKind.Cone);
+        PrimitiveShapes.Attach(world, entity, PrimitiveKind.Cube);
+        PrimitiveShapes.Attach(world, entity, PrimitiveKind.Cone);
 
-        Assert.True(MeshShapes.TryGet(world, entity, out var kind));
+        Assert.True(PrimitiveShapes.TryGet(world, entity, out var kind));
         Assert.Equal(PrimitiveKind.Cone, kind);
     }
 
     [Fact]
     public void A_name_the_editor_does_not_know_is_not_a_shape() {
-        Assert.False(MeshShapes.TryParse(null, out _));
-        Assert.False(MeshShapes.TryParse("   ", out _));
-        Assert.False(MeshShapes.TryParse("Dodecahedron", out _));
+        Assert.False(PrimitiveShapes.TryParse(null, out _));
+        Assert.False(PrimitiveShapes.TryParse("   ", out _));
+        Assert.False(PrimitiveShapes.TryParse("Dodecahedron", out _));
 
         // Case-insensitive, because a hand-edited file is the case this has to survive.
-        Assert.True(MeshShapes.TryParse("cylinder", out var kind));
+        Assert.True(PrimitiveShapes.TryParse("cylinder", out var kind));
         Assert.Equal(PrimitiveKind.Cylinder, kind);
     }
 
     [Fact]
     public void Every_shape_in_the_menu_round_trips_through_its_name() {
-        foreach (var kind in MeshShapes.All) {
-            Assert.True(MeshShapes.TryParse(MeshShapes.NameOf(kind), out var parsed));
+        foreach (var kind in PrimitiveShapes.All) {
+            Assert.True(PrimitiveShapes.TryParse(PrimitiveShapes.NameOf(kind), out var parsed));
             Assert.Equal(kind, parsed);
         }
     }
@@ -110,8 +111,8 @@ public class MeshShapeTests : IDisposable {
     public void The_menu_offers_every_kind_exactly_once() {
         // A shape missing from the list is one nobody can spawn; one listed twice is two menu lines
         // that do the same thing and two commands registered under the same id.
-        Assert.Equal(Enum.GetValues<PrimitiveKind>().Length, MeshShapes.All.Count);
-        Assert.Equal(MeshShapes.All.Count, MeshShapes.All.Distinct().Count());
+        Assert.Equal(Enum.GetValues<PrimitiveKind>().Length, PrimitiveShapes.All.Count);
+        Assert.Equal(PrimitiveShapes.All.Count, PrimitiveShapes.All.Distinct().Count());
     }
 
     [Fact]
@@ -128,7 +129,7 @@ public class MeshShapeTests : IDisposable {
 
         var entity = Assert.Single(reloaded.Roots);
 
-        Assert.True(MeshShapes.TryGet(other, entity, out var kind));
+        Assert.True(PrimitiveShapes.TryGet(other, entity, out var kind));
         Assert.Equal(PrimitiveKind.Capsule, kind);
     }
 
@@ -141,7 +142,7 @@ public class MeshShapeTests : IDisposable {
 
         SceneSerializer.Load(reloaded, SceneSerializer.FromYaml(SceneSerializer.ToYaml(scene)));
 
-        Assert.False(MeshShapes.TryGet(other, Assert.Single(reloaded.Roots), out _));
+        Assert.False(PrimitiveShapes.TryGet(other, Assert.Single(reloaded.Roots), out _));
     }
 
     [Fact]
@@ -155,7 +156,7 @@ public class MeshShapeTests : IDisposable {
         // ⚠ Opened, minus the geometry. Refusing the whole file would make every shape added to a
         // newer editor a flag day for everyone who has not updated.
         Assert.Equal(1, SceneSerializer.Load(reloaded, file));
-        Assert.False(MeshShapes.TryGet(other, Assert.Single(reloaded.Roots), out _));
+        Assert.False(PrimitiveShapes.TryGet(other, Assert.Single(reloaded.Roots), out _));
     }
 
     [Fact]

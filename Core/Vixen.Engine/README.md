@@ -186,9 +186,33 @@ walks them.
 **The archetype is the column *names*, rebuilt at load.** A dense component id is assigned in the
 order a process first touches a type, so it means nothing outside the process that assigned it; a
 component's `[DataContract]` alias is what survives, and `SceneComponentRegistry` is what turns one
-back into a write into a chunk. The engine registers `Camera`; a game registers its own, and a scene
-naming something this build does not have **fails to load and says which name** rather than
-producing an enemy that is quietly missing its `Health`.
+back into a write into a chunk. A scene naming something this build does not have **fails to load and
+says which name** rather than producing an enemy that is quietly missing its `Health`.
+
+**What a scene may name is `[Component]` plus `[DataContract]`, and nothing else is asked of
+anybody.**
+
+```csharp
+[Component]                     // the ECS may attach it
+[DataContract]                  // it can be described and turned into bytes
+public struct Health { public int Value; }
+```
+
+`Vixen.Engine.Generators` emits a `[ModuleInitializer]` per assembly declaring every such type, so a
+game's components reach the registry — and the inspector, the Add Component menu, the `.vxscene` and
+the compiled scene — with no registration call anywhere. The engine's own `Camera` arrives by exactly
+that route; it used to be a hand-written call in a static constructor, which was the only thing that
+made the engine's components different from a game's.
+
+⚠ **The conjunction is what keeps a handle out of a scene.** `PhysicsBody` carries `[Component]` and
+not `[DataContract]`, because a body handle means nothing outside the world that issued it — so it is
+excluded by construction, with no denylist and no opt-out attribute. A component that answers only
+"the ECS may attach it" is a bridge's own bookkeeping, and that is exactly the thing a scene file must
+never carry.
+
+⚠ **A module initializer runs when its assembly loads.** A component nothing has referenced yet is not
+declared yet, which is why the editor loads a project's game assemblies eagerly and why a scene naming
+a component from an assembly the game never touches fails at the load rather than silently.
 
 **The transform is three columns of the scene's own, not a component anybody can name**, because
 every entity in a scene has one and the alternative is a file that says two different things about

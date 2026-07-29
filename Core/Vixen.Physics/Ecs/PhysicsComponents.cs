@@ -27,6 +27,7 @@ namespace Vixen.Physics.Ecs;
 ///         piece of scenery from carrying a <c>RigidBody { Motion = Static }</c>.
 ///     </para>
 /// </remarks>
+[Component]
 [DataContract]
 public struct Collider {
     /// <summary>The volume.</summary>
@@ -67,6 +68,7 @@ public struct Collider {
 ///     nothing to simulate — which is the same rule <c>WorldTransform</c> has about
 ///     <c>LocalTransform</c>, and for the same reason.
 /// </remarks>
+[Component]
 [DataContract]
 public struct RigidBody {
     /// <summary>How it moves.</summary>
@@ -122,6 +124,13 @@ public struct RigidBody {
 ///         happened to take that slot — the same reason <c>Entity</c> is never written to a scene.
 ///         The bridge rebuilds this from <see cref="Collider" /> on the first sync after a load.
 ///     </para>
+///     <para>
+///         ⚠ <b>That absence is also what keeps it out of <c>SceneComponentRegistry</c>, and it is
+///         load-bearing.</b> A scene component is one carrying <c>[Component]</c> <i>and</i>
+///         <c>[DataContract]</c>; this deliberately has neither, so nothing has to remember to exclude
+///         it. Adding either to make it inspectable would make a compiled scene able to name it, which
+///         is the failure the paragraph above describes.
+///     </para>
 /// </remarks>
 public struct PhysicsBody {
     /// <summary>The body.</summary>
@@ -149,6 +158,7 @@ public struct PhysicsBody {
 ///     so gameplay code can push a body around without holding a <see cref="PhysicsWorld" /> or a
 ///     handle, and so the velocity is a component a query can filter and a network layer can replicate.
 /// </remarks>
+[Component]
 [DataContract]
 public struct LinearVelocity {
     /// <summary>The velocity.</summary>
@@ -156,6 +166,7 @@ public struct LinearVelocity {
 }
 
 /// <summary>How fast an entity's body is turning, in radians a second about each axis.</summary>
+[Component]
 [DataContract]
 public struct AngularVelocity {
     /// <summary>The velocity.</summary>

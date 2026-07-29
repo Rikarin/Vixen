@@ -15,12 +15,17 @@ namespace Vixen.Editor.Assets.Content;
 /// <param name="Group">Which group's policy governs it.</param>
 /// <param name="Labels">What it is grouped by for loading.</param>
 /// <param name="Dependencies">Addresses that have to load first.</param>
+/// <param name="Reference">
+///     The <c>vx:</c> identity a scene or material stores for it, or <see cref="AssetReference.Null" />
+///     for a chunk no authored asset claims.
+/// </param>
 public readonly record struct BuildableAsset(
     string Address,
     ObjectId Id,
     string Group,
     ImmutableArray<string> Labels,
-    ImmutableArray<string> Dependencies
+    ImmutableArray<string> Dependencies,
+    AssetReference Reference = default
 );
 
 /// <summary>A bundle the build produced.</summary>
@@ -196,7 +201,8 @@ public sealed class ContentBuilder {
                     policies[asset.Group].LoadPath,
                     asset.Dependencies.IsDefault ? [] : asset.Dependencies,
                     asset.Labels.IsDefault ? [] : asset.Labels,
-                    0
+                    0,
+                    asset.Reference
                 )
             );
 

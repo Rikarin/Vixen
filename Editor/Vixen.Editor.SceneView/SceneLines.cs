@@ -7,6 +7,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 
 namespace Vixen.Editor.SceneView;
 
@@ -192,7 +193,7 @@ public sealed class SceneLines {
         Span<Vector3> corners = stackalloc Vector3[8];
 
         foreach (var entity in document.Entities) {
-            if (!MeshShapes.TryGet(document.World, entity, out var kind)
+            if (!PrimitiveShapes.TryGet(document.World, entity, out var kind)
                 || !document.World.Has<WorldTransform>(entity)
                 || document.IsHidden(entity)) {
                 continue;

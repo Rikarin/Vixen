@@ -12,6 +12,7 @@ using Vixen.Editor.Ui;
 using Vixen.Engine.Transforms;
 using Vixen.Navigation;
 using Vixen.Navigation.Baking;
+using Vixen.Rendering.Ecs;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Styling;
@@ -293,7 +294,7 @@ sealed partial class EditorApplication {
     ///     <para>
     ///         ⚠ <b>Over the primitives' boxes, because the viewport draws primitives and not
     ///         meshes.</b> <c>NavMeshBaker</c> takes vertices and indices; what the editor's world has
-    ///         is <c>MeshShape</c> primitives and world matrices, so what is voxelised is the unit box
+    ///         is <c>PrimitiveShape</c> primitives and world matrices, so what is voxelised is the unit box
     ///         each primitive occupies, transformed. That is a real navigation mesh over a real
     ///         blockout — which is what a level designer bakes at this stage anyway — and it becomes
     ///         the true geometry the day the renderer has meshes, with nothing here changing.
@@ -312,7 +313,7 @@ sealed partial class EditorApplication {
         List<int> indices = [];
 
         foreach (var entity in ActiveScene.Document.Entities) {
-            if (!MeshShapes.TryGet(ActiveScene.Document.World, entity, out _)
+            if (!PrimitiveShapes.TryGet(ActiveScene.Document.World, entity, out _)
                 || !ActiveScene.Document.World.Has<WorldTransform>(entity)) {
                 continue;
             }
