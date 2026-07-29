@@ -1324,6 +1324,29 @@ Vixen.Rendering.Lighting.IrradianceCapture.SunShadow.get -> float
 Vixen.Rendering.Lighting.IrradianceCapture.SunShadow.init -> float
 Vixen.Rendering.Lighting.IrradianceCapture.Validity.get -> float
 Vixen.Rendering.Lighting.IrradianceCapture.Validity.init -> float
+Vixen.Rendering.Lighting.IrradianceCubeCapture -> sealed class
+Vixen.Rendering.Lighting.IrradianceCubeCapture : System.IDisposable
+Vixen.Rendering.Lighting.IrradianceCubeCapture.Captures.get -> int
+Vixen.Rendering.Lighting.IrradianceCubeCapture.Dispose() -> void
+Vixen.Rendering.Lighting.IrradianceCubeCapture.DrawFace -> delegate
+Vixen.Rendering.Lighting.IrradianceCubeCapture.IrradianceCubeCapture(Vixen.Graphics.IGraphicsDevice device) -> void
+Vixen.Rendering.Lighting.IrradianceCubeCapture.IsCreated.get -> bool
+Vixen.Rendering.Lighting.IrradianceCubeCapture.MinimumDistance.get -> float
+Vixen.Rendering.Lighting.IrradianceCubeCapture.MinimumDistance.set -> float
+Vixen.Rendering.Lighting.IrradianceCubeCapture.Near.get -> float
+Vixen.Rendering.Lighting.IrradianceCubeCapture.Near.set -> float
+Vixen.Rendering.Lighting.IrradianceCubeCapture.Range.get -> float
+Vixen.Rendering.Lighting.IrradianceCubeCapture.Range.set -> float
+Vixen.Rendering.Lighting.IrradianceCubeCapture.Record(Vixen.Graphics.ICommandList commands, Vixen.Core.Mathematics.Vector3 position, Vixen.Rendering.Lighting.IrradianceCubeCapture.DrawFace draw) -> void
+Vixen.Rendering.Lighting.IrradianceCubeCapture.Size.get -> int
+Vixen.Rendering.Lighting.IrradianceCubeCapture.Size.init -> int
+Vixen.Rendering.Lighting.IrradianceCubeCapture.Sky.get -> Vixen.Core.Mathematics.Color4
+Vixen.Rendering.Lighting.IrradianceCubeCapture.Sky.set -> Vixen.Core.Mathematics.Color4
+Vixen.Rendering.Lighting.IrradianceCubeCapture.SunDirection.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Lighting.IrradianceCubeCapture.SunDirection.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Lighting.IrradianceCubeCapture.SunRadius.get -> float
+Vixen.Rendering.Lighting.IrradianceCubeCapture.SunRadius.set -> float
+Vixen.Rendering.Lighting.IrradianceCubeCapture.TryRead(out Vixen.Rendering.Lighting.IrradianceCapture capture) -> bool
 Vixen.Rendering.Lighting.IrradianceFieldFill -> sealed class
 Vixen.Rendering.Lighting.IrradianceFieldFill : System.IDisposable
 Vixen.Rendering.Lighting.IrradianceFieldFill.Cursor.get -> int
@@ -1443,6 +1466,15 @@ Vixen.Rendering.Lighting.ReflectionProbeSelector -> sealed class
 Vixen.Rendering.Lighting.ReflectionProbeSelector.Probes.get -> System.Collections.Generic.IList<Vixen.Rendering.Lighting.ReflectionProbe>
 Vixen.Rendering.Lighting.ReflectionProbeSelector.ReflectionProbeSelector() -> void
 Vixen.Rendering.Lighting.ReflectionProbeSelector.Select(Vixen.Core.Mathematics.Vector3 position) -> (Vixen.Rendering.Lighting.ReflectionProbe Probe, float Weight)?
+Vixen.Rendering.Lighting.RenderedIrradianceCaptures -> sealed class
+Vixen.Rendering.Lighting.RenderedIrradianceCaptures : System.IDisposable
+Vixen.Rendering.Lighting.RenderedIrradianceCaptures : Vixen.Rendering.Lighting.IIrradianceCaptureSource
+Vixen.Rendering.Lighting.RenderedIrradianceCaptures.Bounds.get -> Vixen.Core.Mathematics.BoundingBox?
+Vixen.Rendering.Lighting.RenderedIrradianceCaptures.Bounds.set -> Vixen.Core.Mathematics.BoundingBox?
+Vixen.Rendering.Lighting.RenderedIrradianceCaptures.Captured.get -> int
+Vixen.Rendering.Lighting.RenderedIrradianceCaptures.Dispose() -> void
+Vixen.Rendering.Lighting.RenderedIrradianceCaptures.RenderedIrradianceCaptures(Vixen.Graphics.IGraphicsDevice device, Vixen.Rendering.Lighting.IrradianceCubeCapture capture, Vixen.Rendering.Lighting.IrradianceCubeCapture.DrawFace draw) -> void
+Vixen.Rendering.Lighting.RenderedIrradianceCaptures.TryCapture(Vixen.Core.Mathematics.Vector3 position, out Vixen.Rendering.Lighting.IrradianceCapture capture) -> bool
 Vixen.Rendering.Lighting.SceneLighting -> sealed class
 Vixen.Rendering.Lighting.SceneLighting.Bound.get -> int
 Vixen.Rendering.Lighting.SceneLighting.Camera.get -> Vixen.Rendering.RenderCamera?
@@ -3054,6 +3086,7 @@ virtual Vixen.Rendering.Compositor.SceneRenderer.Build(Vixen.Rendering.Composito
 virtual Vixen.Rendering.Compositor.SceneRenderer.Collect(Vixen.Rendering.Compositor.GraphicsCompositor compositor) -> void
 virtual Vixen.Rendering.Compositor.SceneRenderer.Record(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.RenderDrawContext context) -> void
 virtual Vixen.Rendering.GpuCulling.OccluderDepth.Invoke(int x, int y, int level) -> float
+virtual Vixen.Rendering.Lighting.IrradianceCubeCapture.DrawFace.Invoke(Vixen.Graphics.ICommandList commands, Vixen.Rendering.CubeFace face, Vixen.Core.Mathematics.Matrix4x4 viewProjection) -> void
 virtual Vixen.Rendering.RootRenderFeature.Draw(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderDrawContext context, System.ReadOnlySpan<Vixen.Rendering.RenderNode> nodes) -> void
 virtual Vixen.Rendering.RootRenderFeature.Extract(Vixen.Rendering.RenderSystem system) -> void
 virtual Vixen.Rendering.RootRenderFeature.Initialize(Vixen.Rendering.RenderSystem system) -> void

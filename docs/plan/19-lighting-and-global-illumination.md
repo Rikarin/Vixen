@@ -415,10 +415,41 @@ with cube texels standing in for rays, and § L2's third exit criterion is asser
 agree on a directional sky within two per cent, which is filler A's sixty-four-ray budget rather than
 this one's 1536 texels.
 
-⚠ What is owed is the device half — nothing in the engine renders a cube from a scene at all. That is
-six passes per probe, a readback, and orchestration as a build step rather than a frame; the bounce
-iteration doc 19 describes lives there too, since a source that shades with the field's current answer
-produces a second bounce by being called twice.
+**And now it renders them.** `IrradianceCubeCapture` records six 90° passes from a probe's position and
+reads the colour and the depth back; `RenderedIrradianceCaptures` submits and waits, which is what makes
+`TryCapture` a function rather than a promise. The six frusta come from `ShadowProjections.Cube`, the
+same matrix a point light's shadow uses — and `CubeMapping.Direction` is *derived* from it by
+unprojection, so the direction a texel was rendered from and the direction the projection integrates
+over are one function evaluated twice rather than two conventions kept in step by hand.
+
+With that, § 7's promise to WebGL2 is executed rather than argued: a target with no compute fills the
+same bricks to the same numbers at build time. `AFieldBakedByRenderingHoldsTheSkyItWasBakedUnder` bakes a
+field of sixty-four probes by rendering and reads back the closed form.
+
+Three things the capture has to answer that a cube alone cannot. **Radiance is `Rgba32Float`**, because a
+bake is the one place clamping is fatal — a probe beside a bright window whose texels stopped at one
+carries that error into every bounce after it. **Validity is the solid-angle-weighted fraction of
+directions whose hit is further than `MinimumDistance`**, which is the distance test rather than DDGI's
+back-face count: a raster readback has no cheap winding, and "the geometry is where I am" is the question
+that actually matters. **The sun is nine taps around its direction** rather than one, because a binary
+per-probe shadow interpolates into steps at the probe spacing.
+
+⚠ And the caller must rasterise two-sided. A probe standing in a room sees the room's *inside* faces;
+culled, the room vanishes and every probe reports an open sky — the brightest possible wrong answer, and
+the one validity cannot catch, because a probe that sees nothing looks exactly like a probe in the open.
+
+⚠ It stalls the GPU once per probe. That is the right shape for a build step and the wrong one for
+anything else; batching a budget's probes into one submit wants a ring of targets rather than the one
+this reuses, and is not done. The bounce iteration is now only a matter of calling the same source twice
+with a draw callback that shades from the field — nothing further is owed for it.
+
+**Writing it found the one convention that was not derived.** The engine's clip space is +Y up, which the
+Vulkan backend expresses as a negative-height viewport — so a framebuffer's first row is *v = +1*, while
+a `CubeImage`'s first row is *v = −1*. The readback flips. Without the flip the capture is mirrored
+vertically, which leaves the constant band untouched and inverts exactly one of the three linear ones: a
+probe lit from above reports light from below, and every test that integrates a uniform sky still passes.
+That is why the fixture lights one quad in a direction with three different nonzero components rather
+than using a uniform environment — the failure it caught was a sign on Y and nothing else.
 
 Writing it also corrected something this document implies. **For an L1 payload, cube symmetry makes
 uniform texel weights exact** — they sum to 4π so the constant band is right, and Σ(d·ŷ)² over a cube is
@@ -428,10 +459,10 @@ content varying *within* a face is not, which is why the test that can tell ligh
 weighting stays because it is right and because an L2 band would have no such luck — but the claim that
 it was load-bearing here was wrong, and four tests passed without it before one did not.
 
-Owed: the capture source; the view bias; and `Deferred`, which has the same ambient term and has not
-been given the slot. Plus one optimisation that is now visible — the repair runs over every
-brick every frame, because a brick the budget did not refill still has neighbours that were, and
-narrowing it to the dirty bricks and their neighbours is real work nobody has done.
+Owed: `Deferred`, which has the same ambient term and has not been given the slot. Plus one optimisation
+that is now visible — the repair runs over every brick every frame, because a brick the budget did not
+refill still has neighbours that were, and narrowing it to the dirty bricks and their neighbours is real
+work nobody has done.
 
 Composing the slot into the forward pass also turned up a defect that has nothing to do with the field.
 **The non-clustered forward variant cannot bind set 3**: `ForwardLightingRenderFeature` declares the

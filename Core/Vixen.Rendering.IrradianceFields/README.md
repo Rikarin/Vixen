@@ -291,10 +291,10 @@ gets blamed on the temporal filter.
   detail. Nothing merges bricks back when geometry moves away, so a streamed scene ratchets toward its
   finest everywhere the geometry has ever been — which needs the pool to take slots back and a policy
   for when, and neither exists.
-- **Rendering filler B's cubes.** `Vixen.Rendering.Lighting.CapturedIrradianceFiller` projects a
-  captured cube into these bricks and agrees with the tracer above to two per cent on a directional
-  sky, which is doc 19 § L2's third exit criterion. What is missing is the half that renders one:
-  nothing in the engine produces a `CubeImage` from a scene.
+- **Coarsening again, from the other side.** `Vixen.Rendering.Lighting.IrradianceCubeCapture` now
+  renders filler B's cubes, so a field can be baked as well as traced — and a baked field is one a
+  build step could size to the scene rather than to the camera, which is the case coarsening would
+  actually pay for.
 - **A repair narrowed to what changed.** `IrradianceFieldRepair` dilates and syncs every brick every
   frame, which is what this does too and is not an oversight in either — a brick the budget did not
   refill still has neighbours that were, and a border is a copy of a probe that may have just changed.
