@@ -269,7 +269,14 @@ public sealed class ForwardFrameTests : IDisposable {
         };
 
         var materials = new MaterialRenderFeature { Effects = effects, Device = device, Descriptors = allocator };
-        var lights = new ForwardLightingRenderFeature { Device = device, MaxLightsPerObject = MaxLights };
+        // ⚠ The effect's own, not one the feature builds: a set bound at slot 3 is compatible only
+        // with a layout identically defined to the one the pipeline was created with, and the feature
+        // used to believe the block was fragment-only where the shader declares it for both stages.
+        var lights = new ForwardLightingRenderFeature {
+            Device = device,
+            MaxLightsPerObject = MaxLights,
+            Layout = effect.SetLayouts[(int)DescriptorSetSlot.PerDraw]
+        };
 
         var transforms = new TransformRenderFeature { Device = device };
 

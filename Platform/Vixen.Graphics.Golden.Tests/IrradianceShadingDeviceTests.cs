@@ -62,6 +62,18 @@ public class IrradianceShadingDeviceTests {
 
     static RenderCamera Camera => RenderCamera.Default with { Position = Vector3.Zero, AspectRatio = 1f };
 
+    /// <summary>
+    ///     Whether the frame clusters its lights.
+    /// </summary>
+    /// <remarks>
+    ///     <b>False, and that is the interesting half.</b> The non-clustered variant is the one that
+    ///     statically reads the per-draw light block, so it is the only one that requires set 3 to be
+    ///     bound — and set 3 is where the lighting feature's own layout used to disagree with the
+    ///     pipeline's about both the descriptor kind and the stages. The clustered variant never
+    ///     touches it, which is why every device test drawing this pass passed while that was broken.
+    /// </remarks>
+    const bool Clustered = false;
+
     /// <summary>The variant under test: the field on, and every other source of light off.</summary>
     static EffectKey Key(ShaderComposition composition) =>
         EffectKey.Of(
@@ -71,7 +83,7 @@ public class IrradianceShadingDeviceTests {
                 new("ForwardPlus.UseImageBasedLighting", "false"),
                 new("ForwardPlus.UseShadows", "false"),
                 new("ForwardPlus.UseReflectionProbe", "false"),
-                new("ForwardPlus.UseClusteredLights", "true")
+                new("ForwardPlus.UseClusteredLights", Clustered ? "true" : "false")
             ],
             composition
         );
@@ -216,12 +228,13 @@ public class IrradianceShadingDeviceTests {
 
         var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = describer };
         var materials = new MaterialRenderFeature { Effects = effects, Device = device, Descriptors = allocator };
-        // ⚠ Clustered, and not because this fixture is about clustering. The non-clustered variant
-        // statically reads the per-draw light block, and the set this feature binds for it is declared
-        // with a DYNAMIC uniform while the shader's reflection says a plain one — incompatible layouts,
-        // and a validation error at the draw. The clustered variant never touches set 3, so it is the
-        // path that runs; the other is a defect of its own and not this one's to carry.
-        var lighting = new ForwardLightingRenderFeature { Device = device, Clustered = true };
+        // Its layout is the effect's, which is what makes the non-clustered path drawable at all —
+        // see ForwardLightingRenderFeature.Layout.
+        var lighting = new ForwardLightingRenderFeature {
+            Device = device,
+            Clustered = Clustered,
+            Layout = effect.SetLayouts[(int)DescriptorSetSlot.PerDraw]
+        };
         var transforms = new TransformRenderFeature { Device = device, Scene = scene.Parameters };
 
         meshes.Add(transforms);

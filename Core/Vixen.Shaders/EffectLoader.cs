@@ -107,7 +107,7 @@ public sealed class EffectLoader(IGraphicsDevice device) {
 
         foreach (var binding in data.Bindings) {
             bindings.Add(
-                new(binding.Name, binding.Set, binding.Binding, binding.Kind) {
+                new(binding.Name, binding.Set, binding.Binding, KindOf(binding)) {
                     Size = binding.Size,
                     Count = binding.Count
                 }
@@ -175,7 +175,7 @@ public sealed class EffectLoader(IGraphicsDevice device) {
 
         foreach (var binding in data.Bindings) {
             if (binding.Set == slot) {
-                bindings.Add(new(binding.Binding, binding.Kind, binding.Stages, binding.Count));
+                bindings.Add(new(binding.Binding, KindOf(binding), binding.Stages, binding.Count));
             }
         }
 
@@ -197,6 +197,52 @@ public sealed class EffectLoader(IGraphicsDevice device) {
         layouts[shape] = created;
         return created;
     }
+
+    /// <summary>
+    ///     What a binding is once the four-set convention is applied to it.
+    /// </summary>
+    /// <param name="binding">The binding as the reflection describes it.</param>
+    /// <returns>Its kind.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A block that varies per draw is bound at an offset per draw, so its descriptor is a
+    ///         dynamic one.</b> The alternative is a descriptor set per object, which is the single
+    ///         most common reason a Vulkan renderer ends up slower than the D3D11 one it replaced —
+    ///         see <c>ForwardLightingRenderFeature</c>, which writes one buffer and moves an offset.
+    ///     </para>
+    ///     <para>
+    ///         <b>Graphics stages only, and the exception is not a special case.</b> "Per draw" is a
+    ///         claim about draws; a compute dispatch has none, so a compute shader marking a block
+    ///         <c>[PerDraw]</c> is using the set index for storage rather than saying its contents
+    ///         change between draws. <c>BindlessProbe</c> is exactly that, and binds its block once.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ It has to be applied <i>here</i>, where both the set layout and
+    ///         <see cref="Effect.Bindings" /> are built, because the two have to agree. A layout that
+    ///         says dynamic and a plan that says plain writes the wrong descriptor type into a correct
+    ///         layout — which the RHI refuses outright, and which is how the compute case above was
+    ///         found rather than shipped.
+    ///     </para>
+    ///     <para>
+    ///         <b>This is a convention read off a set index, and the shader ought to say it instead.</b>
+    ///         Raven has no way to mark a block as bound at an offset; until it does, this is inferred.
+    ///         The inference is safe in the direction that matters: getting it wrong is a refusal at
+    ///         the write with a message naming both kinds, never a shader quietly reading the wrong
+    ///         bytes.
+    ///     </para>
+    ///     <para>
+    ///         Before this, <c>ForwardLightingRenderFeature</c> made a layout of its own that said
+    ///         dynamic while the pipeline's said plain — incompatible, a validation error at the draw,
+    ///         and a GPU fault. Nothing found it because the only device test drawing the forward pass
+    ///         uses the clustered variant, which never statically uses set 3 and therefore need not
+    ///         bind it at all.
+    ///     </para>
+    /// </remarks>
+    static DescriptorKind KindOf(EffectBindingData binding) =>
+        binding is { Set: DescriptorSetSlot.PerDraw, Kind: DescriptorKind.UniformBuffer }
+        && (binding.Stages & ~ShaderStage.Compute) != ShaderStage.None
+            ? DescriptorKind.DynamicUniformBuffer
+            : binding.Kind;
 
     /// <summary>The cache key for a set layout: everything a backend builds one from, and nothing else.</summary>
     /// <remarks>

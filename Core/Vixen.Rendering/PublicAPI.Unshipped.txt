@@ -876,6 +876,7 @@ Vixen.Rendering.Features.ForwardLightingRenderFeature.Draw(Vixen.Rendering.Rende
 Vixen.Rendering.Features.ForwardLightingRenderFeature.ForwardLightingRenderFeature() -> void
 Vixen.Rendering.Features.ForwardLightingRenderFeature.IsRecording.get -> bool
 Vixen.Rendering.Features.ForwardLightingRenderFeature.Layout.get -> Vixen.Graphics.DescriptorSetLayoutHandle
+Vixen.Rendering.Features.ForwardLightingRenderFeature.Layout.set -> Vixen.Graphics.DescriptorSetLayoutHandle
 Vixen.Rendering.Features.ForwardLightingRenderFeature.Lights.get -> System.Collections.Generic.IList<Vixen.Rendering.RenderLight>
 Vixen.Rendering.Features.ForwardLightingRenderFeature.LightsFor(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id) -> System.Collections.Generic.IEnumerable<Vixen.Rendering.PunctualLightData>
 Vixen.Rendering.Features.ForwardLightingRenderFeature.MaxLightsPerObject.get -> int
