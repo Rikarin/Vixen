@@ -360,9 +360,11 @@ Vixen.Rendering.Compositor.GpuDrivenAsset.TransformRecords.init -> bool
 Vixen.Rendering.Compositor.GpuDrivenResult -> readonly struct
 Vixen.Rendering.Compositor.GpuDrivenResult : System.IEquatable<Vixen.Rendering.Compositor.GpuDrivenResult>
 Vixen.Rendering.Compositor.GpuDrivenResult.GpuDrivenResult() -> void
-Vixen.Rendering.Compositor.GpuDrivenResult.GpuDrivenResult(bool MaterialRecords, bool TransformRecords) -> void
+Vixen.Rendering.Compositor.GpuDrivenResult.GpuDrivenResult(bool MaterialRecords, bool TransformRecords, bool ObjectRecords) -> void
 Vixen.Rendering.Compositor.GpuDrivenResult.MaterialRecords.get -> bool
 Vixen.Rendering.Compositor.GpuDrivenResult.MaterialRecords.init -> bool
+Vixen.Rendering.Compositor.GpuDrivenResult.ObjectRecords.get -> bool
+Vixen.Rendering.Compositor.GpuDrivenResult.ObjectRecords.init -> bool
 Vixen.Rendering.Compositor.GpuDrivenResult.TransformRecords.get -> bool
 Vixen.Rendering.Compositor.GpuDrivenResult.TransformRecords.init -> bool
 Vixen.Rendering.Compositor.GraphicsCompositor -> sealed class
@@ -894,6 +896,7 @@ Vixen.Rendering.Features.ForwardLightingRenderFeature.Device.get -> Vixen.Graphi
 Vixen.Rendering.Features.ForwardLightingRenderFeature.Device.set -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.Features.ForwardLightingRenderFeature.Dispose() -> void
 Vixen.Rendering.Features.ForwardLightingRenderFeature.Draw(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderDrawContext context, in Vixen.Rendering.RenderNode node) -> void
+Vixen.Rendering.Features.ForwardLightingRenderFeature.EnableRecords(Vixen.Shaders.PermutationKey<bool> shaderKey, bool addressable) -> bool
 Vixen.Rendering.Features.ForwardLightingRenderFeature.ForwardLightingRenderFeature() -> void
 Vixen.Rendering.Features.ForwardLightingRenderFeature.IsRecording.get -> bool
 Vixen.Rendering.Features.ForwardLightingRenderFeature.Layout.get -> Vixen.Graphics.DescriptorSetLayoutHandle
@@ -906,6 +909,9 @@ Vixen.Rendering.Features.ForwardLightingRenderFeature.OffsetAlignment.set -> int
 Vixen.Rendering.Features.ForwardLightingRenderFeature.PermutationKeys.get -> System.Collections.Generic.IReadOnlyList<Vixen.Shaders.PermutationKey<bool>>
 Vixen.Rendering.Features.ForwardLightingRenderFeature.Probes.get -> Vixen.Rendering.Lighting.ReflectionProbeSelector?
 Vixen.Rendering.Features.ForwardLightingRenderFeature.Probes.set -> Vixen.Rendering.Lighting.ReflectionProbeSelector?
+Vixen.Rendering.Features.ForwardLightingRenderFeature.RecordBase.get -> int
+Vixen.Rendering.Features.ForwardLightingRenderFeature.RecordBuffer.get -> Vixen.Graphics.BufferHandle
+Vixen.Rendering.Features.ForwardLightingRenderFeature.Records.get -> System.ReadOnlySpan<Vixen.Rendering.Features.ObjectRecord>
 Vixen.Rendering.Features.ForwardLightingRenderFeature.Scene.get -> Vixen.Shaders.ParameterCollection?
 Vixen.Rendering.Features.ForwardLightingRenderFeature.Scene.set -> Vixen.Shaders.ParameterCollection?
 Vixen.Rendering.Features.ForwardLightingRenderFeature.SceneBuffer.get -> Vixen.Graphics.BufferHandle
@@ -918,6 +924,7 @@ Vixen.Rendering.Features.ForwardLightingRenderFeature.Slot.set -> Vixen.Graphics
 Vixen.Rendering.Features.ForwardLightingRenderFeature.Stages.get -> Vixen.Graphics.ShaderStage
 Vixen.Rendering.Features.ForwardLightingRenderFeature.Stages.set -> Vixen.Graphics.ShaderStage
 Vixen.Rendering.Features.ForwardLightingRenderFeature.Sun.get -> Vixen.Rendering.RenderLight?
+Vixen.Rendering.Features.ForwardLightingRenderFeature.UseRecords.get -> bool
 Vixen.Rendering.Features.ForwardLightingRenderFeature.UsedBytes.get -> int
 Vixen.Rendering.Features.ForwardLightingRenderFeature.ValueOf(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, int index) -> bool
 Vixen.Rendering.Features.IDrawSubFeature -> interface
@@ -1044,6 +1051,12 @@ Vixen.Rendering.Features.MeshRenderFeature.FillBatches(Vixen.Rendering.RenderSys
 Vixen.Rendering.Features.MeshRenderFeature.MeshRenderFeature() -> void
 Vixen.Rendering.Features.MeshRenderFeature.Pipelines.get -> Vixen.Rendering.PipelineCache?
 Vixen.Rendering.Features.MeshRenderFeature.Pipelines.set -> Vixen.Rendering.PipelineCache?
+Vixen.Rendering.Features.ObjectRecord -> struct
+Vixen.Rendering.Features.ObjectRecord.LightCount -> int
+Vixen.Rendering.Features.ObjectRecord.ObjectRecord() -> void
+Vixen.Rendering.Features.ObjectRecord.ProbeIndex -> int
+Vixen.Rendering.Features.ObjectRecord.ProbeWeight -> float
+Vixen.Rendering.Features.ObjectRecord.Reserved -> int
 Vixen.Rendering.Features.ParticleDraw -> struct
 Vixen.Rendering.Features.ParticleDraw.FirstIndex -> int
 Vixen.Rendering.Features.ParticleDraw.FirstVertex -> int
@@ -2379,6 +2392,7 @@ Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.ForwardPlusPerFrameConstant
 Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.LightColor -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.LightDirection -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.NearPlane -> float
+Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.ObjectBase -> int
 Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.ShadowConstantBias -> float
 Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.ShadowFadeRange -> float
 Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.ShadowSlopeBias -> float
@@ -2527,7 +2541,7 @@ const Vixen.Shaders.Generated.DrawArgumentsKeys.VisibilitySet = 2 -> int
 const Vixen.Shaders.Generated.ForwardPlusCascadesElement.BaseOffset = 48 -> int
 const Vixen.Shaders.Generated.ForwardPlusCascadesElement.Count = 4 -> int
 const Vixen.Shaders.Generated.ForwardPlusCascadesElement.Stride = 80 -> int
-const Vixen.Shaders.Generated.ForwardPlusKeys.ClustersBinding = 9 -> uint
+const Vixen.Shaders.Generated.ForwardPlusKeys.ClustersBinding = 10 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.ClustersSet = 0 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.ConstantBufferSet = 0 -> int
@@ -2536,9 +2550,11 @@ const Vixen.Shaders.Generated.ForwardPlusKeys.EnvironmentBinding = 2 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.EnvironmentSamplerBinding = 5 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.EnvironmentSamplerSet = 0 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.EnvironmentSet = 0 -> int
-const Vixen.Shaders.Generated.ForwardPlusKeys.LightBufferBinding = 8 -> uint
+const Vixen.Shaders.Generated.ForwardPlusKeys.LightBufferBinding = 9 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.LightBufferSet = 0 -> int
-const Vixen.Shaders.Generated.ForwardPlusKeys.NormalLocation = 6 -> uint
+const Vixen.Shaders.Generated.ForwardPlusKeys.NormalLocation = 7 -> uint
+const Vixen.Shaders.Generated.ForwardPlusKeys.ObjectsBinding = 8 -> uint
+const Vixen.Shaders.Generated.ForwardPlusKeys.ObjectsSet = 0 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.PerDrawBlockBinding = 0 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.PerDrawBlockSet = 3 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.PerDrawBlockSize = 1296 -> int
@@ -2551,7 +2567,7 @@ const Vixen.Shaders.Generated.ForwardPlusKeys.PerMaterialBlockSize = 32 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.PerViewBlockBinding = 0 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.PerViewBlockSet = 1 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.PerViewBlockSize = 144 -> int
-const Vixen.Shaders.Generated.ForwardPlusKeys.PositionLocation = 5 -> uint
+const Vixen.Shaders.Generated.ForwardPlusKeys.PositionLocation = 6 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.ProbeSamplerBinding = 6 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.ProbeSamplerSet = 0 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.ProbesBinding = 3 -> uint
@@ -2561,8 +2577,8 @@ const Vixen.Shaders.Generated.ForwardPlusKeys.ShadowMapBinding = 1 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.ShadowMapSet = 0 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.ShadowSamplerBinding = 4 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.ShadowSamplerSet = 0 -> int
-const Vixen.Shaders.Generated.ForwardPlusKeys.TangentLocation = 7 -> uint
-const Vixen.Shaders.Generated.ForwardPlusKeys.TexcoordLocation = 8 -> uint
+const Vixen.Shaders.Generated.ForwardPlusKeys.TangentLocation = 8 -> uint
+const Vixen.Shaders.Generated.ForwardPlusKeys.TexcoordLocation = 9 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.TransformsBinding = 7 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.TransformsSet = 0 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.VertexAttributeCount = 4 -> int
@@ -2925,6 +2941,8 @@ static readonly Vixen.Shaders.Generated.ForwardPlusKeys.LightCount -> Vixen.Shad
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.LightDirection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.MaxLights -> Vixen.Shaders.PermutationKey<int>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.NearPlane -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.ForwardPlusKeys.ObjectBase -> Vixen.Shaders.ParameterKey<int>
+static readonly Vixen.Shaders.Generated.ForwardPlusKeys.Objects -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.ProbeCount -> Vixen.Shaders.PermutationKey<int>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.ProbeIndex -> Vixen.Shaders.ParameterKey<int>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.ProbeSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
@@ -2942,6 +2960,7 @@ static readonly Vixen.Shaders.Generated.ForwardPlusKeys.Transforms -> Vixen.Shad
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.UseClusteredLights -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.UseImageBasedLighting -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.UseMaterialRecords -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.ForwardPlusKeys.UseObjectRecords -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.UseReflectionProbe -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.UseShadows -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.UseTransformRecords -> Vixen.Shaders.PermutationKey<bool>

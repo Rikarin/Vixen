@@ -22,6 +22,25 @@ struct ObjectTransform {
     var world: mat4
 }
 
+/// The per-object scalars a shading pass needs and cannot get from a per-draw block.
+///
+/// Sixteen bytes at the object's own slot, addressed the same way `ObjectTransform` is — by the
+/// instance index the draw carries. It exists because the clustered path binds no per-draw set at
+/// all, so anything genuinely per object has to arrive some other way.
+struct ObjectRecord {
+    /// Which of the bound probe cubes reaches this object, or zero for none.
+    var probeIndex: int
+
+    /// How much of that probe shows through, against the environment behind it.
+    var probeWeight: float
+
+    /// How many entries of the object's light list are filled. Unread when clustering is on.
+    var lightCount: int
+
+    /// Padding to sixteen, so the record's stride is the same in std430 and in the host's struct.
+    var reserved: int
+}
+
 struct Transform {
     /// Object space to clip space, in one multiply per stage.
     static func ObjectToClip(worldViewProjection: mat4, position: float3): float4 {

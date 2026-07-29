@@ -405,7 +405,8 @@ second buffer, which costs one bind between the two runs and nothing within eith
 | 5. The geometry half | ✅ built — `GeometryBuffer`, one bind per run |
 | 6. The transform out of the command buffer | ✅ built — `UseTransformRecords`, the index in `firstInstance` |
 | 7. The material record out of the per-object block | ✅ built — a push constant, per run, at the offset the effect declares |
-| 8. A document that asks for all of it | ✅ built — `gpuDriven:` on the asset root, `compact:` on the culling node |
+| 8. The probe scalars out of it as well | ✅ built — `UseObjectRecords`, and `Flat` in Raven to carry the index |
+| 9. A document that asks for all of it | ✅ built — `gpuDriven:` on the asset root, `compact:` on the culling node |
 
 ## 6. The transform, which was not a material and was still in the way
 
@@ -473,12 +474,30 @@ nothing is generated for a push block, so the only offset a host had was one it 
 while the block was one matrix at zero, and would have stopped holding **silently**: a push at the
 wrong offset inside a declared range is accepted by every layer there is.
 
-⚠ **`probeIndex` and `probeWeight` are still in that block, and still undelivered under
-clustering.** They are genuinely per object — a probe is chosen by where the object is — so the
-answer for them is a record buffer read through a flat `objectIndex` varying, not a push. Raven now
-emits `Flat` on an integer fragment input (and `flat` in GLSL), which is the piece that was missing;
-what is left is the buffer and the feature that fills it. It bites only with `UseReflectionProbe` on,
-which is off by default.
+### And `probeIndex` and `probeWeight` were in it too
+
+✅ **Fixed** — `UseObjectRecords`, a record per object read through a flat varying.
+
+These are genuinely per object — a probe is chosen by where the object *is* — so a push would be
+wrong for them the way the block was wrong for `materialIndex`. They go in a buffer the lighting
+feature owns, at the object's own slot, read in the fragment stage through an `objectIndex` varying.
+
+Two things that had to exist first:
+
+- **Raven had to emit `Flat`.** An integer varying has no interpolation it could take — the
+  rasteriser weights by barycentric coordinates and that produces a fraction — so SPIR-V *requires*
+  the decoration on a fragment input of integer type and GLSL requires the qualifier. Raven emitted
+  neither. Both backends now ask one predicate, and the float varying is asserted **not** to be flat:
+  decorating everything would satisfy the validator and quietly kill interpolation.
+- **The record has to be addressable.** `SV_InstanceID` holds the object's slot only because the
+  transform record path put it in `firstInstance`. So `UseObjectRecords` takes that as a parameter
+  rather than checking for itself, and the compositor asks for it only where transforms turned on.
+  Asked without them, every draw carries zero and every object reads record zero's probe.
+
+⚠ The new varying takes a location, so `ForwardPlus`'s vertex attributes moved from 5–8 to 6–9. A
+golden test had them written down and `vkCreateGraphicsPipelines` refused the pipeline outright —
+which is how it was found, and the fixture now reads them off the effect as its own comment always
+claimed it did.
 
 ## A document can ask for all of it
 
