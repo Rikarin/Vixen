@@ -10,6 +10,7 @@ using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Features;
 using Vixen.Rendering.Lighting;
+using Vixen.Rendering.Materials;
 using Vixen.Shaders;
 using Xunit;
 
@@ -323,6 +324,20 @@ public sealed class ForwardFrameTests : IDisposable {
         // one entry is not bound at all.
         lights.Scene = scene.Parameters;
         transforms.Scene = scene.Parameters;
+
+        // And the irradiance field's, for exactly the same reason one line up. The published variant
+        // composes `IrradianceFieldProbes` into the pass's `irradiance` slot, so set 0 declares its two
+        // volumes' worth of textures whether or not `UseIrradianceField` is on — and a set one entry
+        // short is a set nothing binds. A project that composes `NoIrradiance` instead declares none of
+        // them and needs none of this, which is what `MaterialCompiler` gives every material by default.
+        //
+        // No device is touched: `Apply` writes the handles the mirror holds, and before an upload those
+        // are default ones. What is being checked here is the *names*, which is the half that fails
+        // silently — a binding whose name nobody wrote is indistinguishable from a frame nobody drew.
+        new IrradianceFieldTexture(new(new(new(-8f), new(8f)), new(2))).Apply(
+            scene.Parameters,
+            $"ForwardPlus.{MaterialCompiler.IrradianceFieldShader}"
+        );
 
         var shadows = new ShadowMapRenderer {
             Name = "Shadows",

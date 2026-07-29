@@ -67,9 +67,8 @@ shader IndirectDiffuse {
         val world = Transform.UvDepthToWorld(inverseViewProjection, uv, deviceDepth)
         val normal = Math.SafeNormalize(normalBuffer.Sample(pointSampler, uv).xyz * 2f - 1f)
 
-        val lit = irradiance.SampleIrradiance(world, normal)
-        val sun = irradiance.SampleSunShadow(world, normal)
+        val sample = irradiance.Sample(world, normal)
 
-        return float4(lit * intensity, sun)
+        return float4(sample.irradiance * intensity, sample.sunShadow)
     }
 }

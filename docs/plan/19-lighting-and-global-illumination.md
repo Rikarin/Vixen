@@ -291,10 +291,34 @@ pool, the index volume and the shader's basis. *L* is deliberately neither a hal
 the g-buffer clears to halves and the shader writes a one into alpha, and a radiance equal to either
 would pass for a picture that had merely copied something through.
 
-A screen-space pass rather than a term inside the shading models, and that is a scoping decision
-rather than the end state: a compose slot on `ForwardPlus` and `Deferred` would put an unbound slot in
-every material in every project until each named a filler. What comes out is a buffer, which is what a
-payload stored over π is for.
+**And the shading models read it.** `ForwardPlus` now composes `IIrradianceSource` and has a
+`UseIrradianceField` permutation, so the field's answer *is* the ambient diffuse where it has one — the
+screen-space pass is a debug view and a compositing input rather than the way light reaches a surface.
+`IrradianceShadingDeviceTests` draws a Lambertian quad of albedo *C* in a field filled from a uniform
+sky of radiance *L* and asserts the pixel is *C* × *L*, per channel, with every other source of light
+switched off and a companion frame with only the flag flipped coming back dark.
+
+Four things that decided the shape:
+
+- **It replaces the sky's ambient rather than adding to it**, weighted by the probe's validity. The
+  field's rays already hit the sky, so its answer contains what the sky contributes; adding them counts
+  the sky twice and the second count is the brighter, because it is unoccluded. Where the field has no
+  answer the sky is the fallback, which is the whole reason a *coverage* number had to exist.
+- **`IIrradianceSource` became one method returning three numbers.** It had an accessor per number and
+  no coverage at all, so a consumer wanting two of them paid for the two indirection fetches and four
+  filtered ones twice — which `IndirectDiffuse` did, while its own comment said it did not.
+- **The π nearly got counted twice.** The field stores irradiance divided by π, which is what a shading
+  pass multiplies by albedo; `Ibl.Diffuse` takes plain irradiance and divides by π itself. Handing one
+  to the other unscaled is a scene lit 3.14 times too dim — dark enough to read as a tuning problem and
+  bright enough not to read as a bug. Only a per-channel closed form catches it.
+- **Which shader fills the slot is a project's decision, not a material's.** Whether the scene has a
+  field is true of every material in it at once, so `MaterialCompiler.Compile` takes the override as a
+  parameter rather than the descriptor carrying it — two materials disagreeing would be two effects
+  where the project meant one.
+
+The blast radius was the known one and it was survivable: `("ForwardPlus", "irradiance", …)` in
+`OptionalSlots` means every material names `NoIrradiance` by default and declares no bindings for it, so
+a project without a field draws exactly the frame it drew before.
 
 **Filler A dispatches, and agrees with the reference to a ten-thousandth.** `IrradianceFill` — one
 workgroup per brick, one invocation per probe, the bricks to do in a buffer indexed by the group — is
@@ -372,11 +396,18 @@ because the coarsest-first ordering exists for the refined case and a uniform fi
 Seeding a pool and then dispatching into it is not a test-only shape: it is filler B handing a field to
 filler A, and it is why the mirror carries both usages.
 
-Owed, in the order they change the picture: the shading models reading the buffer; filler B at all; a
-policy that decides *where* to refine, which § 3 says is renderer bounds and the `VisibilityGroup`
-already has; and the view bias. And one optimisation that is now visible: the repair runs over every
-brick every frame, because a brick the budget did not refill still has neighbours that were — narrowing
-it to the dirty bricks and their neighbours is real work and is not done.
+Owed: filler B at all; a policy that decides *where* to refine, which § 3 says is renderer bounds and
+the `VisibilityGroup` already has; the view bias; and `Deferred`, which has the same ambient term and
+has not been given the slot. Plus one optimisation that is now visible — the repair runs over every
+brick every frame, because a brick the budget did not refill still has neighbours that were, and
+narrowing it to the dirty bricks and their neighbours is real work nobody has done.
+
+Composing the slot into the forward pass also turned up a defect that has nothing to do with the field.
+**The non-clustered forward variant cannot bind set 3**: `ForwardLightingRenderFeature` declares the
+per-draw light block as a *dynamic* uniform, deliberately and for good reasons, and the shader's
+reflection describes it as a plain one — incompatible layouts, and a GPU fault at the draw. Nothing had
+found it because the only device test drawing `ForwardPlus` uses the clustered variant, which never
+statically uses set 3 and therefore need not bind it.
 
 ### L3 — Screen probe gather *(3.0 EM)*
 

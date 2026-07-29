@@ -279,9 +279,8 @@ gets blamed on the temporal filter.
   Restricting it to the dirty bricks and their neighbours is real work nobody has done.
 - **View bias.** Dilation and the normal bias are here; the offset along the view ray, which is what
   helps at grazing angles, is not.
-- **Indirect light inside the shading models.** `IndirectDiffuse` is a screen-space pass producing a
-  buffer; a term inside `ForwardPlus` and `Deferred` is what eventually reads it, and that is a compose
-  slot in every material rather than in one pass.
+- **`Deferred`.** `ForwardPlus` composes the field into its ambient term and `Deferred` has the same
+  term and has not been given the slot.
 
 **Nothing here creates or calls a graphics device**, which is what lets the sampling be checked
 against arithmetic instead of against a picture. The assembly does reference `Vixen.Core.Imaging` for

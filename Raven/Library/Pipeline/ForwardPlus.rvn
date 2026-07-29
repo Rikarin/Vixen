@@ -4,6 +4,7 @@ import Vixen.Shaders.Core
 import Vixen.Shaders.Shading
 import Vixen.Shaders.Geometry
 import Vixen.Shaders.Material
+import Vixen.Shaders.IrradianceFields
 
 // The forward shading pass: written once against `IMaterialSurface`, instantiated per material.
 //
@@ -42,10 +43,28 @@ shader ForwardPlus {
     /// them together would be one shader per pair.
     compose val shading: IShadingModel
 
+    /// Where indirect diffuse comes from, chosen per project rather than per material.
+    ///
+    /// `IrradianceFieldProbes` reads doc 19 § L2's field; `NoIrradiance` answers "no field here", which
+    /// is what a project without one composes and what every material beside this pass has to name
+    /// whether or not it reaches the slot.
+    compose val irradiance: IIrradianceSource
+
     /// Whether to add image-based ambient. Off gives a pure punctual-lit look, and folds the IBL
     /// arithmetic out of the variant — though not its bindings, which are declared rather than
     /// discovered. See the note at the top of the file.
     [Permutation] val UseImageBasedLighting: bool = true
+
+    /// Whether to read indirect diffuse out of an irradiance field.
+    ///
+    /// Off by default, and the default is the picture this pass already drew: with it off the ambient
+    /// diffuse is the sky's spherical harmonics alone, exactly as before.
+    ///
+    /// ⚠ It does not ADD to the sky's ambient, it REPLACES it where the field has an answer. The field
+    /// was filled by rays that hit the sky, so its value already contains what the sky contributes —
+    /// adding them counts the sky twice, and the second count is the brighter of the two because it is
+    /// unoccluded.
+    [Permutation] val UseIrradianceField: bool = false
 
     /// Whether to sample a shadow map for the directional light.
     [Permutation] val UseShadows: bool = true
@@ -355,7 +374,10 @@ shader ForwardPlus {
         var color = Direct(d, n, v, alpha)
         color += Punctual(d, n, v, alpha)
 
-        if (UseImageBasedLighting) {
+        // Either source of ambient light brings the whole term in, and the term itself decides which
+        // halves it has. Gating on the IBL flag alone would make a project that has a field and no
+        // environment cube get no ambient at all.
+        if (UseImageBasedLighting || UseIrradianceField) {
             color += Ambient(d, n, v)
         }
 
@@ -535,22 +557,43 @@ shader ForwardPlus {
     /// `SampleLevel` rather than `Sample`, and not only to state the level: a fragment shader's implicit
     /// derivatives are undefined under non-uniform flow, and this is called from inside one.
     func Ambient(d: MaterialData, n: float3, v: float3): float3 {
-        val NdotV = saturate(dot(n, v))
-        val reflected = reflect(-v, n)
+        var specular = float3(0f, 0f, 0f)
+        var incoming = float3(0f, 0f, 0f)
 
-        val dfg = Ibl.EnvironmentDfg(NdotV, d.perceptualRoughness)
-        val lod = Ibl.SpecularLod(d.perceptualRoughness, environmentMipCount)
+        if (UseImageBasedLighting) {
+            val NdotV = saturate(dot(n, v))
+            val reflected = reflect(-v, n)
 
-        var prefiltered = environment.SampleLevel(environmentSampler, reflected, lod).rgb
+            val dfg = Ibl.EnvironmentDfg(NdotV, d.perceptualRoughness)
+            val lod = Ibl.SpecularLod(d.perceptualRoughness, environmentMipCount)
 
-        if (UseReflectionProbe) {
-            prefiltered = lerp(prefiltered, Probe(d.perceptualRoughness, reflected), saturate(probeWeight))
+            var prefiltered = environment.SampleLevel(environmentSampler, reflected, lod).rgb
+
+            if (UseReflectionProbe) {
+                prefiltered = lerp(prefiltered, Probe(d.perceptualRoughness, reflected), saturate(probeWeight))
+            }
+
+            specular = Ibl.Specular(prefiltered, d.f0, dfg, d.occlusion)
+            incoming = Ibl.IrradianceSh9(n, environmentSh)
         }
 
-        val irradiance = Ibl.IrradianceSh9(n, environmentSh)
+        if (UseIrradianceField) {
+            val sample = irradiance.Sample(positionWS, n)
 
-        val specular = Ibl.Specular(prefiltered, d.f0, dfg, d.occlusion)
-        val diffuse = Ibl.Diffuse(irradiance, d.diffuseColor, d.occlusion)
+            // ⚠ Times π, and the round trip is the point rather than a waste. The field stores irradiance
+            // DIVIDED by π — the number a shading pass multiplies straight by albedo — and `Ibl.Diffuse`
+            // takes plain irradiance and does that division itself. Handing it the field's value unscaled
+            // divides by π twice, which is indirect light three and an eighth times too dim: dark enough
+            // to look like a tuning problem and bright enough not to look like a bug.
+            val lit = sample.irradiance * Const.Pi
+
+            // Blended on coverage, not added. The field's rays already hit the sky, so its answer contains
+            // what the sky contributes; where the field has no answer the sky is the fallback, and where
+            // it half-believes one the two are mixed in that proportion.
+            incoming = lerp(incoming, lit, saturate(sample.coverage))
+        }
+
+        val diffuse = Ibl.Diffuse(incoming, d.diffuseColor, d.occlusion)
         return (specular + diffuse) * ambientIntensity
     }
 

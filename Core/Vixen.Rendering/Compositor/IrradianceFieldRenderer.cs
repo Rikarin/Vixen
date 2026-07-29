@@ -4,6 +4,7 @@
 using Vixen.Graphics;
 using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering.IrradianceFields;
+using Vixen.Rendering.Materials;
 using Vixen.Rendering.Lighting;
 
 namespace Vixen.Rendering.Compositor;
@@ -76,14 +77,28 @@ public sealed class IrradianceFieldRenderer : SceneRenderer, IDisposable {
     /// <remarks>Null writes nothing, which is what a node kept for its field alone wants.</remarks>
     public SceneConstants? SceneConstants { get; set; }
 
-    /// <summary>The compose-slot prefix the field's names are written under.</summary>
+    /// <summary>Which passes read this field.</summary>
     /// <remarks>
-    ///     A slot's bindings are named for the <i>slot</i> rather than for the shader that declared
-    ///     them, so this is <c>IndirectDiffuse.IrradianceFieldProbes</c>. Get it wrong and every
-    ///     binding resolves to nothing, silently — which is why the default is the one consumer that
-    ///     exists rather than a guess.
+    ///     <para>
+    ///         <b>A list, because one field has more than one consumer.</b> The screen-space
+    ///         <c>IndirectDiffuse</c> pass reads it and so do <c>ForwardPlus</c>'s materials, and the
+    ///         two need the same handles under different names — a composed slot's bindings are named
+    ///         for the pass and the shader filling it, so one field bound once is two sets of names.
+    ///     </para>
+    ///     <para>
+    ///         Pass names only: the filler is <see cref="Source" /> and this qualifies each entry with
+    ///         it, which is one fewer place to misspell the half that resolves to nothing silently.
+    ///     </para>
+    ///     <para>
+    ///         <c>IndirectDiffuse</c> alone by default, which is the consumer that needs no material
+    ///         change. Adding <c>ForwardPlus</c> is a project deciding its materials read the field —
+    ///         and that decision is also a composition, so the two go together.
+    ///     </para>
     /// </remarks>
-    public string ShaderName { get; set; } = "IndirectDiffuse.IrradianceFieldProbes";
+    public IList<string> Passes { get; } = ["IndirectDiffuse"];
+
+    /// <summary>The shader filling the slot, which is the other half of every binding's name.</summary>
+    public string Source { get; set; } = MaterialCompiler.IrradianceFieldShader;
 
     /// <summary>How many bricks to refill each frame.</summary>
     /// <remarks>
@@ -179,7 +194,9 @@ public sealed class IrradianceFieldRenderer : SceneRenderer, IDisposable {
         }
 
         if (SceneConstants is { } scene) {
-            Texture.Apply(scene.Parameters, ShaderName);
+            foreach (var pass in Passes) {
+                Texture.Apply(scene.Parameters, $"{pass}.{Source}");
+            }
         }
     }
 }

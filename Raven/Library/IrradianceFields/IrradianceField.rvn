@@ -190,12 +190,36 @@ struct IrradianceField {
 /// slot is resolved at compile time with no dispatch, so a pass that reads indirect light is written once
 /// and a project with no field fills the slot with something that answers "none" — no permutation in the
 /// pass, no branch, and no bindings it does not use.
-protocol IIrradianceSource {
+/// What a surface receives from a field, as the three separate numbers it actually is.
+///
+/// Separate because a consumer multiplies each into a different term: the irradiance into the ambient
+/// one, the sun into the direct one, and the coverage into whichever fallback it has. Combining any two
+/// of them into one "light" number is the classic mistake that darkens direct lighting with indirect
+/// occlusion and makes a scene look dirty rather than grounded.
+struct IrradianceSample {
     /// The indirect diffuse a surface receives, divided by π — what to multiply by albedo.
-    func SampleIrradiance(world: float3, normal: float3): float3
+    var irradiance: float3
 
-    /// How much of the directional light reaches a surface, from zero to one.
-    func SampleSunShadow(world: float3, normal: float3): float
+    /// How much of the directional light reaches, from zero to one.
+    var sunShadow: float
+
+    /// How much of an answer this is, from zero to one.
+    ///
+    /// Zero where no field covers the point, and zero where the only probes nearby are buried in
+    /// geometry. **A consumer that ignores this cannot fall back**, and the fallback is the whole reason
+    /// it exists: a field is allocated over part of a world rather than all of it, so outside it the
+    /// answer is not "no light", it is "ask something else".
+    var coverage: float
+}
+
+protocol IIrradianceSource {
+    /// Everything a field says about where a surface stands, in one lookup.
+    ///
+    /// One method rather than three, and that is not tidiness. The lookup is two indirection fetches
+    /// and four filtered ones; a protocol with an accessor per number makes a consumer that wants two
+    /// of them pay for the whole thing twice — which `IndirectDiffuse` did, while its own comment said
+    /// it did not.
+    func Sample(world: float3, normal: float3): IrradianceSample
 }
 
 /// The field: an indirection grid over a pool of bricks.
@@ -254,14 +278,10 @@ shader IrradianceFieldProbes : IIrradianceSource {
         return IrradianceField.Read(irradianceL0, irradianceL1R, irradianceL1G, irradianceL1B, irradianceSampler, uvw)
     }
 
-    func SampleIrradiance(world: float3, normal: float3): float3 {
+    func Sample(world: float3, normal: float3): IrradianceSample {
         val probe = Probe(world, normal)
-        return IrradianceField.Irradiance(probe, normal)
-    }
-
-    func SampleSunShadow(world: float3, normal: float3): float {
-        val probe = Probe(world, normal)
-        return probe.sunShadow
+        val lit = IrradianceField.Irradiance(probe, normal)
+        return IrradianceSample(lit, probe.sunShadow, saturate(probe.validity))
     }
 }
 
@@ -275,7 +295,7 @@ shader IrradianceFieldProbes : IIrradianceSource {
 /// A field that is absent contributes nothing to the indirect term; it does not shadow the sun either,
 /// and answering zero there would put every surface in the world in shadow.
 shader NoIrradiance : IIrradianceSource {
-    func SampleIrradiance(world: float3, normal: float3): float3 => float3(0f, 0f, 0f)
-
-    func SampleSunShadow(world: float3, normal: float3): float => 1f
+    func Sample(world: float3, normal: float3): IrradianceSample {
+        return IrradianceSample(float3(0f, 0f, 0f), 1f, 0f)
+    }
 }

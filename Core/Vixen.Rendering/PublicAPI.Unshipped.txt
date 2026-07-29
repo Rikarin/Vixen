@@ -445,10 +445,11 @@ Vixen.Rendering.Compositor.IrradianceFieldRenderer.Filled.get -> int
 Vixen.Rendering.Compositor.IrradianceFieldRenderer.Filler.get -> Vixen.Rendering.IrradianceFields.TracedIrradianceFiller?
 Vixen.Rendering.Compositor.IrradianceFieldRenderer.Filler.set -> Vixen.Rendering.IrradianceFields.TracedIrradianceFiller?
 Vixen.Rendering.Compositor.IrradianceFieldRenderer.IrradianceFieldRenderer() -> void
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.Passes.get -> System.Collections.Generic.IList<string>
 Vixen.Rendering.Compositor.IrradianceFieldRenderer.SceneConstants.get -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.Compositor.IrradianceFieldRenderer.SceneConstants.set -> Vixen.Rendering.SceneConstants?
-Vixen.Rendering.Compositor.IrradianceFieldRenderer.ShaderName.get -> string
-Vixen.Rendering.Compositor.IrradianceFieldRenderer.ShaderName.set -> string
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.Source.get -> string
+Vixen.Rendering.Compositor.IrradianceFieldRenderer.Source.set -> string
 Vixen.Rendering.Compositor.IrradianceFieldRenderer.Texture.get -> Vixen.Rendering.Lighting.IrradianceFieldTexture?
 Vixen.Rendering.Compositor.PunctualShadowAsset -> sealed record
 Vixen.Rendering.Compositor.PunctualShadowAsset : System.IEquatable<Vixen.Rendering.Compositor.PunctualShadowAsset>
@@ -2355,6 +2356,12 @@ Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.EnvironmentShL2m1 -> Vixen.
 Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.EnvironmentShL2m2 -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.FarPlane -> float
 Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.ForwardPlusPerFrameConstants() -> void
+Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.IrradianceFieldProbesIrradianceFieldInverseCellSize -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.IrradianceFieldProbesIrradianceFieldInversePoolSize -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.IrradianceFieldProbesIrradianceFieldMaximum -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.IrradianceFieldProbesIrradianceFieldMinimum -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.IrradianceFieldProbesIrradianceFieldNormalBias -> float
+Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.IrradianceFieldProbesIrradianceFieldResolution -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.LightColor -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.LightDirection -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.NearPlane -> float
@@ -2458,7 +2465,9 @@ const Vixen.Rendering.Lighting.IrradianceRepairJob.Stride = 48 -> int
 const Vixen.Rendering.Materials.MaterialCompiler.ChainShader = "CompositeSurface" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.EmptyFieldShader = "NoDistanceField" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.EmptyIrradianceShader = "NoIrradiance" -> string
+const Vixen.Rendering.Materials.MaterialCompiler.ForwardIrradianceSlot = "ForwardPlus.irradiance" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.IdentityShader = "IdentitySurface" -> string
+const Vixen.Rendering.Materials.MaterialCompiler.IrradianceFieldShader = "IrradianceFieldProbes" -> string
 const Vixen.Rendering.Materials.MaterialKeys.DefaultLayerCount = 2 -> int
 const Vixen.Rendering.MeshPrimitives.DefaultRings = 16 -> int
 const Vixen.Rendering.MeshPrimitives.DefaultSegments = 32 -> int
@@ -2506,16 +2515,30 @@ const Vixen.Shaders.Generated.DrawArgumentsKeys.VisibilitySet = 2 -> int
 const Vixen.Shaders.Generated.ForwardPlusCascadesElement.BaseOffset = 48 -> int
 const Vixen.Shaders.Generated.ForwardPlusCascadesElement.Count = 4 -> int
 const Vixen.Shaders.Generated.ForwardPlusCascadesElement.Stride = 80 -> int
-const Vixen.Shaders.Generated.ForwardPlusKeys.ClustersBinding = 9 -> uint
+const Vixen.Shaders.Generated.ForwardPlusKeys.ClustersBinding = 16 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.ClustersSet = 0 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.ConstantBufferSet = 0 -> int
-const Vixen.Shaders.Generated.ForwardPlusKeys.ConstantBufferSize = 800 -> int
+const Vixen.Shaders.Generated.ForwardPlusKeys.ConstantBufferSize = 880 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.EnvironmentBinding = 2 -> uint
-const Vixen.Shaders.Generated.ForwardPlusKeys.EnvironmentSamplerBinding = 5 -> uint
+const Vixen.Shaders.Generated.ForwardPlusKeys.EnvironmentSamplerBinding = 10 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.EnvironmentSamplerSet = 0 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.EnvironmentSet = 0 -> int
-const Vixen.Shaders.Generated.ForwardPlusKeys.LightBufferBinding = 8 -> uint
+const Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradianceIndirectionBinding = 4 -> uint
+const Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradianceIndirectionSet = 0 -> int
+const Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradianceL0Binding = 5 -> uint
+const Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradianceL0Set = 0 -> int
+const Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradianceL1BBinding = 8 -> uint
+const Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradianceL1BSet = 0 -> int
+const Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradianceL1GBinding = 7 -> uint
+const Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradianceL1GSet = 0 -> int
+const Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradianceL1RBinding = 6 -> uint
+const Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradianceL1RSet = 0 -> int
+const Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradiancePointSamplerBinding = 12 -> uint
+const Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradiancePointSamplerSet = 0 -> int
+const Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradianceSamplerBinding = 13 -> uint
+const Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradianceSamplerSet = 0 -> int
+const Vixen.Shaders.Generated.ForwardPlusKeys.LightBufferBinding = 15 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.LightBufferSet = 0 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.NormalLocation = 6 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.PerDrawBlockBinding = 0 -> uint
@@ -2523,7 +2546,7 @@ const Vixen.Shaders.Generated.ForwardPlusKeys.PerDrawBlockSet = 3 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.PerDrawBlockSize = 1296 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.PerFrameBlockBinding = 0 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.PerFrameBlockSet = 0 -> int
-const Vixen.Shaders.Generated.ForwardPlusKeys.PerFrameBlockSize = 800 -> int
+const Vixen.Shaders.Generated.ForwardPlusKeys.PerFrameBlockSize = 880 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.PerMaterialBlockBinding = 0 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.PerMaterialBlockSet = 2 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.PerMaterialBlockSize = 32 -> int
@@ -2531,25 +2554,25 @@ const Vixen.Shaders.Generated.ForwardPlusKeys.PerViewBlockBinding = 0 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.PerViewBlockSet = 1 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.PerViewBlockSize = 144 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.PositionLocation = 5 -> uint
-const Vixen.Shaders.Generated.ForwardPlusKeys.ProbeSamplerBinding = 6 -> uint
+const Vixen.Shaders.Generated.ForwardPlusKeys.ProbeSamplerBinding = 11 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.ProbeSamplerSet = 0 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.ProbesBinding = 3 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.ProbesSet = 0 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.ShaderName = "ForwardPlus" -> string
 const Vixen.Shaders.Generated.ForwardPlusKeys.ShadowMapBinding = 1 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.ShadowMapSet = 0 -> int
-const Vixen.Shaders.Generated.ForwardPlusKeys.ShadowSamplerBinding = 4 -> uint
+const Vixen.Shaders.Generated.ForwardPlusKeys.ShadowSamplerBinding = 9 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.ShadowSamplerSet = 0 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.TangentLocation = 7 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.TexcoordLocation = 8 -> uint
-const Vixen.Shaders.Generated.ForwardPlusKeys.TransformsBinding = 7 -> uint
+const Vixen.Shaders.Generated.ForwardPlusKeys.TransformsBinding = 14 -> uint
 const Vixen.Shaders.Generated.ForwardPlusKeys.TransformsSet = 0 -> int
 const Vixen.Shaders.Generated.ForwardPlusKeys.VertexAttributeCount = 4 -> int
 const Vixen.Shaders.Generated.ForwardPlusLightsElement.BaseOffset = 16 -> int
 const Vixen.Shaders.Generated.ForwardPlusLightsElement.Count = 16 -> int
 const Vixen.Shaders.Generated.ForwardPlusLightsElement.Stride = 80 -> int
 const Vixen.Shaders.Generated.ForwardPlusPerDrawConstants.Size = 1296 -> int
-const Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.Size = 800 -> int
+const Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.Size = 880 -> int
 const Vixen.Shaders.Generated.ForwardPlusPerMaterialConstants.Size = 32 -> int
 const Vixen.Shaders.Generated.ForwardPlusPerViewConstants.Size = 144 -> int
 const Vixen.Shaders.Generated.ForwardPlusProbeVolumesElement.BaseOffset = 400 -> int
@@ -2796,7 +2819,7 @@ static Vixen.Rendering.Lighting.ShCoefficients.operator +(Vixen.Rendering.Lighti
 static Vixen.Rendering.Lighting.SphericalHarmonics.Accumulate(ref Vixen.Rendering.Lighting.ShCoefficients coefficients, Vixen.Core.Mathematics.Vector3 direction, Vixen.Core.Mathematics.Vector3 weighted) -> void
 static Vixen.Rendering.Lighting.SphericalHarmonics.Evaluate(in Vixen.Rendering.Lighting.ShCoefficients coefficients, Vixen.Core.Mathematics.Vector3 normal) -> Vixen.Core.Mathematics.Vector3
 static Vixen.Rendering.Lighting.SphericalHarmonics.Project(Vixen.Rendering.Lighting.CubeImage environment) -> Vixen.Rendering.Lighting.ShCoefficients
-static Vixen.Rendering.Materials.MaterialCompiler.Compile(Vixen.Rendering.Materials.MaterialDescriptor descriptor) -> Vixen.Rendering.Materials.MaterialCompilation
+static Vixen.Rendering.Materials.MaterialCompiler.Compile(Vixen.Rendering.Materials.MaterialDescriptor descriptor, System.Collections.Generic.IReadOnlyDictionary<string, string>? slots = null) -> Vixen.Rendering.Materials.MaterialCompilation
 static Vixen.Rendering.Materials.MaterialCompiler.PassComposition() -> Vixen.Shaders.ShaderComposition
 static Vixen.Rendering.Materials.MaterialCompiler.PassComposition(string slot, string filler) -> Vixen.Shaders.ShaderComposition
 static Vixen.Rendering.Materials.MaterialKeys.LayerCount(string shaderName) -> Vixen.Shaders.PermutationKey<int>
@@ -2898,6 +2921,19 @@ static readonly Vixen.Shaders.Generated.ForwardPlusKeys.EnvironmentShL22 -> Vixe
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.EnvironmentShL2m1 -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.EnvironmentShL2m2 -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.FarPlane -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradianceFieldInverseCellSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradianceFieldInversePoolSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradianceFieldMaximum -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradianceFieldMinimum -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradianceFieldNormalBias -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradianceFieldResolution -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradianceIndirection -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradianceL0 -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradianceL1B -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradianceL1G -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradianceL1R -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradiancePointSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.ForwardPlusKeys.IrradianceFieldProbesIrradianceSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.LightBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.LightColor -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.LightCount -> Vixen.Shaders.ParameterKey<int>
@@ -2921,6 +2957,7 @@ static readonly Vixen.Shaders.Generated.ForwardPlusKeys.TransformBase -> Vixen.S
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.Transforms -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.UseClusteredLights -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.UseImageBasedLighting -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.ForwardPlusKeys.UseIrradianceField -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.UseMaterialRecords -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.UseReflectionProbe -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.UseShadows -> Vixen.Shaders.PermutationKey<bool>

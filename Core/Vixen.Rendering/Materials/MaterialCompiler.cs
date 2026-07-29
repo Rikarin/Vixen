@@ -83,6 +83,12 @@ public static class MaterialCompiler {
         // answers rather than one convenient zero.
         ("IndirectDiffuse", "irradiance", EmptyIrradianceShader),
 
+        // And the forward pass's, which is the one with reach: every material in every project is
+        // compiled against ForwardPlus, so this is the entry that decides whether the whole material
+        // tree compiles at all. It is also why the slot's filler is a project's decision rather than a
+        // material's — a material has nothing to say about whether the scene has a field.
+        ("ForwardPlus", "irradiance", EmptyIrradianceShader),
+
         // And the fill shader's, which traces the same clipmap the traced pass does. A material never
         // reaches a compute shader, and that is exactly why this is here: a slot has to be bound
         // wherever it is *declared*, not wherever it is used.
@@ -163,11 +169,45 @@ public static class MaterialCompiler {
     /// <summary>The shader that fills an irradiance slot for a project with no field.</summary>
     public const string EmptyIrradianceShader = "NoIrradiance";
 
+    /// <summary>The shader that fills an irradiance slot by reading doc 19 § L2's field.</summary>
+    /// <remarks>
+    ///     <b>It is also half of a binding name, which is why it is a constant.</b> A composed slot's
+    ///     bindings are named for the shader filling it — <c>ForwardPlus.IrradianceFieldProbes.irradianceL0</c>
+    ///     — so the host that composes it and the host that binds its volumes have to spell it the same
+    ///     way. Two spellings resolve to nothing, silently, and a frame lit by nothing looks like a
+    ///     field that found no light.
+    /// </remarks>
+    public const string IrradianceFieldShader = "IrradianceFieldProbes";
+
     /// <summary>The chain a material's features are composed through.</summary>
     public const string ChainShader = "CompositeSurface";
 
+    /// <summary>The forward pass's irradiance slot, qualified — what a project overrides to turn GI on.</summary>
+    /// <remarks>
+    ///     Named because it is the one entry in <see cref="OptionalSlots" /> a project genuinely varies.
+    ///     The others are answers no material has an opinion about — a material cannot know whether the
+    ///     scene has a distance field, and never reaches the pass that would use one. This one it does
+    ///     reach, so whether the ambient term comes from a field is a decision somebody makes, and this
+    ///     is the key they make it under.
+    /// </remarks>
+    public const string ForwardIrradianceSlot = "ForwardPlus.irradiance";
+
     /// <summary>Compiles a descriptor, or reports why it cannot be.</summary>
-    public static MaterialCompilation Compile(MaterialDescriptor descriptor) {
+    /// <param name="descriptor">The material.</param>
+    /// <param name="slots">
+    ///     Slot fillers the project decides rather than the material, by their qualified names —
+    ///     <see cref="ForwardIrradianceSlot" /> is the one that exists. Null takes every default.
+    /// </param>
+    /// <remarks>
+    ///     <b>A parameter rather than a field on the descriptor, because it is not a property of the
+    ///     material.</b> Whether the scene has an irradiance field is true of every material in it at
+    ///     once; putting it on each one invites two materials to disagree, and two compositions is two
+    ///     effects where the project meant one.
+    /// </remarks>
+    public static MaterialCompilation Compile(
+        MaterialDescriptor descriptor,
+        IReadOnlyDictionary<string, string>? slots = null
+    ) {
         ArgumentNullException.ThrowIfNull(descriptor);
 
         Dictionary<string, string> composition = new(StringComparer.Ordinal);
@@ -215,6 +255,14 @@ public static class MaterialCompiler {
         for (var i = 0; i < descriptor.Features.Count && i < ChainSlots.Length; i++) {
             if (descriptor.Features[i] is { } feature) {
                 Chain(context, ChainSlots[i], feature);
+            }
+        }
+
+        // The project's answers before the defaults, because `Fill` only writes a slot nothing has
+        // claimed — which is what makes an override an override rather than a race.
+        if (slots is not null) {
+            foreach (var (slot, filler) in slots) {
+                composition[slot] = filler;
             }
         }
 
