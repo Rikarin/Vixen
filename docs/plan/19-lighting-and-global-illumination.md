@@ -440,6 +440,30 @@ reflection describes it as a plain one — incompatible layouts, and a GPU fault
 found it because the only device test drawing `ForwardPlus` uses the clustered variant, which never
 statically uses set 3 and therefore need not bind it.
 
+**And a frame the dispatch lit.** Filler A had been checked by reading the pool back, and the shading
+models had been checked against a field the CPU filled. Two halves, each verified against the other's
+absence: nothing had ever run `IrradianceFieldRenderer.DeviceFiller` — not the `PassKind.Compute`
+branch, not the pool created as a storage image, not the upload that carries the index volume and
+nothing else. `IrradianceShadingDeviceTests` now draws the same quad under the same closed form with
+each filler in turn, and halving the dispatch's sky halves the pixel, which is what says the light came
+from the compute shader rather than from anything else in the frame.
+
+It found a defect on the first run, and not in the field. **A pass composition could not compile against
+the whole shader library**, which is the only configuration an application has. `RVN2073` asks the
+*compilation* rather than the shader, so a compute or post-process variant sharing a source set with
+`ForwardPlus` must name a filler for `surface`, `shading` and all ten of `CompositeSurface`'s links —
+slots it cannot reach and has nothing to say about. `MaterialCompiler.PassComposition` named the two
+typed ones alone. Every post pass in the engine was affected; none had noticed, because every test that
+compiles a pass narrows its effect provider to that pass's own packages, and the narrow set is the
+configuration nothing ships in.
+
+The fix derives the pass path's defaults from the material path's own inventory rather than writing
+them down twice, so the two agree by construction; what remains is a completeness check over the
+library's declared slots for *each* path, where before there was one for the material path and, for the
+pass path, only a cross-check of fillers it happened to name. **A list that has to agree with another
+list is a list that drifts**, and an assertion that is missing rather than failing is invisible for as
+long as it exists.
+
 ### L3 — Screen probe gather *(3.0 EM)*
 
 The Lumen final gather. The largest quality jump and the largest risk.

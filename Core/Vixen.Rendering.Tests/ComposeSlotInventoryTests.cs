@@ -26,8 +26,8 @@ namespace Tests;
 ///     </para>
 /// </remarks>
 public class ComposeSlotInventoryTests {
-    [Fact]
-    public void TheEngineBindsEverySlotTheLibraryDeclares() {
+    /// <summary>Every compose slot the shipped library declares, read off the shaders themselves.</summary>
+    static string[] Declared() {
         var declared = Directory
             .EnumerateFiles(Path.Combine(AppContext.BaseDirectory, "Shaders"), "*.rvn", SearchOption.AllDirectories)
             .SelectMany(File.ReadAllLines)
@@ -38,6 +38,13 @@ public class ComposeSlotInventoryTests {
             .ToArray();
 
         Assert.NotEmpty(declared);
+
+        return declared;
+    }
+
+    [Fact]
+    public void TheEngineBindsEverySlotTheLibraryDeclares() {
+        var declared = Declared();
 
         var bound = new HashSet<string>(MaterialCompiler.ChainSlots, StringComparer.Ordinal) {
             "surface",
@@ -83,17 +90,37 @@ public class ComposeSlotInventoryTests {
     }
 
     /// <summary>
-    ///     <b>The material path and the pass path fill the same slots with the same shaders.</b> They
-    ///     are two lists because they answer different questions — one qualifies a slot by the shader
-    ///     declaring it and the other does not — and two lists of the same fillers is exactly the
-    ///     arrangement that drifts.
+    ///     <b>And a pass's composition binds every one of them too — not only the typed ones.</b>
     /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The same rule as the test above and the same reading of the library, applied to the
+    ///         other path. <c>RVN2073</c> asks the compilation rather than the shader, so a compute
+    ///         shader or a post pass compiled beside <c>ForwardPlus</c> has to answer for
+    ///         <c>surface</c>, <c>shading</c> and every link of the feature chain, none of which it can
+    ///         reach.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ This is the assertion that was missing rather than failing. The pass path had a
+    ///         cross-check against the material path's fillers and no completeness check at all, and
+    ///         every test that compiled a pass narrowed its source set to that pass's own packages —
+    ///         so a composition that could never compile in an application, which has one effect
+    ///         system serving the whole library, passed everything for as long as it existed.
+    ///     </para>
+    /// </remarks>
     [Fact]
-    public void ThePassPathAndTheMaterialPathAgreeOnFillers() {
-        foreach (var (slot, filler) in MaterialCompiler.PassSlots) {
-            foreach (var entry in MaterialCompiler.OptionalSlots.Where(other => other.Slot == slot)) {
-                Assert.Equal(filler, entry.Filler);
-            }
+    public void APassCompositionBindsEverySlotTheLibraryDeclares() {
+        var bound = MaterialCompiler.PassComposition().Slots
+            .Select(pair => pair.Key)
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var slot in Declared()) {
+            Assert.True(
+                bound.Contains(slot),
+                $"the library declares compose slot '{slot}' and a pass composition names nothing for "
+                + "it — every compute and post-process variant fails with RVN2073 against an effect "
+                + "system that serves the whole library, which is every application"
+            );
         }
     }
 
@@ -108,5 +135,23 @@ public class ComposeSlotInventoryTests {
 
         Assert.Equal("IrradianceFieldProbes", slots["irradiance"]);
         Assert.Equal(MaterialCompiler.EmptyFieldShader, slots["distanceField"]);
+
+        // And the surface slots it will never reach, which is what lets it compile beside a material.
+        Assert.Equal(MaterialCompiler.IdentityShader, slots["surface"]);
+        Assert.Equal(MaterialCompiler.DefaultShadingShader, slots["shading"]);
+        Assert.Equal(MaterialCompiler.IdentityShader, slots[MaterialCompiler.ChainSlots[0]]);
     }
+
+    /// <summary>
+    ///     <b>And the shading model a pass names is the one a material gets by default.</b>
+    /// </summary>
+    /// <remarks>
+    ///     A pass cannot leave <c>shading</c> unbound and has nothing to say about it, so what it names
+    ///     should be the model already being compiled rather than a second one. Naming a different
+    ///     model would compile <c>ForwardPlus</c> again under a second key, for a slot no pass reaches
+    ///     — a pipeline nobody draws with, paid for at load.
+    /// </remarks>
+    [Fact]
+    public void ThePassDefaultShadingModelIsTheMaterialDefault() =>
+        Assert.Equal(MaterialCompiler.DefaultShadingShader, new MaterialDescriptor().Shading.ShaderName);
 }

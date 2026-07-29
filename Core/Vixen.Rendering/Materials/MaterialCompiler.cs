@@ -95,26 +95,7 @@ public static class MaterialCompiler {
         ("IrradianceFill", "distanceField", EmptyFieldShader)
     ];
 
-    /// <summary>The typed slots a pass has to name whether or not it reaches them, and their fillers.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         Bare slot names rather than qualified ones, because a pass is compiled against a source
-    ///         set rather than against a material: a bare binding fills the slot wherever it is
-    ///         declared, which is what a compilation holding two shaders that each declare one needs.
-    ///     </para>
-    ///     <para>
-    ///         The material path uses <see cref="OptionalSlots" /> for the same job and cannot share
-    ///         this list, because there the qualification is what keeps one shader's slot from
-    ///         accidentally filling another's. The two answer different questions about the same
-    ///         fillers, and <c>ComposeSlotInventoryTests</c> holds them against each other.
-    ///     </para>
-    /// </remarks>
-    internal static readonly (string Slot, string Filler)[] PassSlots = [
-        ("distanceField", EmptyFieldShader),
-        ("irradiance", EmptyIrradianceShader)
-    ];
-
-    /// <summary>A pass's composition, with every typed slot it did not name filled by its default.</summary>
+    /// <summary>A pass's composition, with every slot it did not name filled by its default.</summary>
     /// <param name="slot">The slot this pass actually cares about.</param>
     /// <param name="filler">What to put behind it.</param>
     /// <returns>The composition.</returns>
@@ -138,7 +119,7 @@ public static class MaterialCompiler {
         return ShaderComposition.Of(bindings);
     }
 
-    /// <summary>Every typed slot filled by its default, for a pass that composes none of them.</summary>
+    /// <summary>Every slot filled by its default, for a pass that composes none of them.</summary>
     /// <returns>The composition.</returns>
     /// <remarks>
     ///     <b>A shader that composes nothing still needs one, and that is the part that surprises.</b>
@@ -149,16 +130,64 @@ public static class MaterialCompiler {
     /// </remarks>
     public static ShaderComposition PassComposition() => ShaderComposition.Of(Defaults());
 
-    /// <summary>Every typed slot mapped to the shader that fills it when nothing else does.</summary>
+    /// <summary>Every slot the library declares, mapped to the shader that fills it by default.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Every slot, not every <i>typed</i> slot, and the difference is the whole
+    ///         configuration a game ships in.</b> This used to name <c>distanceField</c> and
+    ///         <c>irradiance</c> alone, on the reasoning that a pass has nothing to say about a
+    ///         material's surface — which is true about the shader and false about the compilation.
+    ///         <c>RVN2073</c> asks the source set, so a compute shader compiled beside
+    ///         <c>ForwardPlus</c> is refused for <c>surface</c>, <c>shading</c> and all ten of
+    ///         <c>CompositeSurface</c>'s links, none of which it has heard of.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ That refusal was invisible for as long as it existed, because every test compiling a
+    ///         pass narrowed its source set to the packages the pass belongs to. An application has one
+    ///         effect system and it serves the whole library, so the narrow set is the configuration
+    ///         nothing ships in — and the first frame that asked for a device-filled field against the
+    ///         whole library is what found it.
+    ///     </para>
+    ///     <para>
+    ///         <b>Derived from the material path rather than written beside it.</b> The two lists have
+    ///         to name the same fillers for the same slots, and two lists that have to agree are two
+    ///         lists that drift; a test can only notice afterwards. Reading
+    ///         <see cref="OptionalSlots" /> and <see cref="ChainSlots" /> here makes the agreement a
+    ///         property of the code, and leaves only the two <c>Fill</c> binds by hand —
+    ///         <c>surface</c> and <c>shading</c> — to be named twice.
+    ///     </para>
+    /// </remarks>
     static Dictionary<string, string> Defaults() {
-        Dictionary<string, string> bindings = new(StringComparer.Ordinal);
+        Dictionary<string, string> bindings = new(StringComparer.Ordinal) {
+            // What a material's own composition binds these to: the chain, and the model the
+            // descriptor chose. A pass reaches neither, and has to answer for both anyway.
+            ["surface"] = IdentityShader,
+            ["shading"] = DefaultShadingShader
+        };
 
-        foreach (var (name, fallback) in PassSlots) {
-            bindings[name] = fallback;
+        foreach (var slot in ChainSlots) {
+            bindings[slot] = IdentityShader;
+        }
+
+        // Bare rather than qualified, which is the one place the two paths genuinely differ: a
+        // material qualifies a slot by the shader declaring it so that one shader's slot cannot fill
+        // another's, and a pass wants exactly the opposite — `distanceField` bound once, wherever it
+        // is declared, because it is declared in two shaders the pass does not distinguish.
+        foreach (var (_, slot, filler) in OptionalSlots) {
+            bindings[slot] = filler;
         }
 
         return bindings;
     }
+
+    /// <summary>The shading model a compilation gets where nothing chose one.</summary>
+    /// <remarks>
+    ///     <see cref="MaterialDescriptor.Shading" />'s default, and it has to stay that way: a pass
+    ///     binding a different one would compile <c>ForwardPlus</c> a second time under a second key
+    ///     for a slot the pass never reaches, which is a pipeline nobody draws with and a stutter
+    ///     nobody could attribute.
+    /// </remarks>
+    public const string DefaultShadingShader = "StandardShading";
 
     /// <summary>The shader that fills a slot nothing else does.</summary>
     public const string IdentityShader = "IdentitySurface";

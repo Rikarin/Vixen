@@ -8,6 +8,7 @@ using Vixen.Rendering.Compositor;
 using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.Features;
 using Vixen.Rendering.IrradianceFields;
+using Vixen.Rendering.Lighting;
 using Vixen.Rendering.Materials;
 using Vixen.ShaderCompiler;
 using Vixen.Shaders;
@@ -130,18 +131,50 @@ public class IrradianceShadingDeviceTests {
         }
     }
 
+    /// <summary>Which half of doc 19 § L2 fills the field this frame reads.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Both, separately, because until now each had only ever been checked against the
+    ///         other's absence.</b> <c>IrradianceFillDeviceTests</c> dispatches the fill and reads the
+    ///         pool back; this file shades from a field the CPU filled. Neither had ever run the
+    ///         renderer's own device path — the <c>PassKind.Compute</c> branch, the pool created as a
+    ///         storage image, the upload that carries the index volume and nothing else — so the two
+    ///         verified halves had never actually met.
+    ///     </para>
+    ///     <para>
+    ///         Same scene, same closed form, one property different. What the pair says is that a probe
+    ///         a compute shader wrote is a probe a material can read, which is the claim doc 19 § 3
+    ///         makes when it says nothing above the storage knows which filler ran.
+    ///     </para>
+    /// </remarks>
+    public enum Fills {
+        /// <summary>Traced on the CPU and copied up.</summary>
+        Cpu,
+
+        /// <summary>Dispatched into the pool, and nothing copied up but the indirection.</summary>
+        Device
+    }
+
     /// <summary>
     ///     A surface under a uniform sky comes back as its own albedo times that sky.
     /// </summary>
-    [Fact]
-    public void ASurfaceIsLitByTheFieldItStandsIn() {
+    /// <remarks>
+    ///     Both fillers, and the same two numbers out of each. A tolerance wide enough to accept one
+    ///     and not the other would be a tolerance measuring the filler rather than the shading, and the
+    ///     dispatch agrees with the reference filler to a ten-thousandth — see
+    ///     <see cref="IrradianceFillDeviceTests" />.
+    /// </remarks>
+    [Theory]
+    [InlineData(Fills.Cpu)]
+    [InlineData(Fills.Device)]
+    public void ASurfaceIsLitByTheFieldItStandsIn(Fills fills) {
         if (!Fixture.TryOpen(out var fixture, out var reason)) {
             Skip(reason);
             return;
         }
 
         using var owned = fixture!;
-        var image = Render(owned, lit: true);
+        var image = Render(owned, lit: true, fills);
 
         // The corner the quad does not cover is the clear, so the pass ran at all.
         var corner = Pixel(image, 2, 2);
@@ -183,7 +216,7 @@ public class IrradianceShadingDeviceTests {
     // --- The frame ----------------------------------------------------------
 
     /// <summary>Draws one forward frame with the field composed into it.</summary>
-    static Bitmap Render(Fixture fixture, bool lit) {
+    static Bitmap Render(Fixture fixture, bool lit, Fills fills = Fills.Cpu) {
         var device = fixture.Device;
         var material = Composed();
 
@@ -276,10 +309,24 @@ public class IrradianceShadingDeviceTests {
 
         field.AllocateAll();
 
+        // ⚠ One or the other, never both — see IrradianceFieldRenderer.DeviceFiller. The device one
+        // resolves its own variant, `IrradianceFill` composed with `NoDistanceField`, out of the same
+        // effect system the material came from; `RavenEffects.Everything()` is what makes that possible
+        // without a second provider.
+        using var dispatch = fills is Fills.Device
+            ? new IrradianceFieldFill(device) {
+                Effects = effects,
+                Pipelines = new ComputePipelineCache(device),
+                Descriptors = allocator,
+                SkyColour = new(Radiance)
+            }
+            : null;
+
         using var probes = new IrradianceFieldRenderer {
             Name = "IrradianceField",
             Field = field,
-            Filler = new(new EmptyWorld(), new UniformSky(Radiance)),
+            Filler = fills is Fills.Device ? null : new TracedIrradianceFiller(new EmptyWorld(), new UniformSky(Radiance)),
+            DeviceFiller = dispatch,
             SceneConstants = scene,
             Device = device,
             Budget = field.BrickCount,
@@ -361,6 +408,11 @@ public class IrradianceShadingDeviceTests {
 
         Assert.True(scene.IsComplete, "set 0 was left incomplete, so the frame bound none of it");
         Assert.True(materials.BoundCount > 0, "set 2 was left incomplete, so the material bound none of it");
+
+        // ⚠ Before the pixels. A dispatch that carried a reason is a field nothing filled, and the dark
+        // quad that produces is the same picture a wrong π or an unbound pool draws — this is the only
+        // assertion that tells the three apart.
+        Assert.Null(dispatch?.Skipped);
         Assert.Equal(field.BrickCount, probes.Filled);
 
         return picture;
@@ -393,7 +445,7 @@ public class IrradianceShadingDeviceTests {
         var parameters = new ParameterCollection();
         var field = new IrradianceField(new BoundingBox(new(-1f), new(1f)), new(1));
 
-        new Vixen.Rendering.Lighting.IrradianceFieldTexture(field).Apply(
+        new IrradianceFieldTexture(field).Apply(
             parameters,
             $"ForwardPlus.{MaterialCompiler.IrradianceFieldShader}"
         );
