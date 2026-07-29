@@ -178,6 +178,17 @@ which corrupts a project.
 Sidecars are scanned as part of the asset they belong to — a model importer's `materialMapping` holds
 references, so a `.meta` is as much a referrer as a scene.
 
+## The scene file format
+
+`Scenes/SceneFormat.cs` is what a `.vxscene` binds to: `EntityId`, `SceneEntityData`, `SceneFile`,
+and the scalar converters that make `position: 1 2 3` one line instead of fifteen.
+
+**It is here rather than beside the viewport because two things read it** — the panel that edits a
+scene (`Vixen.Editor.SceneView`) and the importer that compiles one (`Vixen.Editor.Assets`) — and
+neither should have to reference the other. It is the file format and not the document: no ECS world,
+no command stack, nothing but the shape on disk and the version check that refuses a file from a
+newer build.
+
 ## What is not here yet
 
 The document model is the vocabulary and the stacks; the concrete documents are not. A

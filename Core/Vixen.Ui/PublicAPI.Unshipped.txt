@@ -46,6 +46,7 @@ Vixen.Ui.Composition.Component -> abstract class
 Vixen.Ui.Composition.Component.Component() -> void
 Vixen.Ui.Composition.Component.Content.get -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.Component.Root.get -> Vixen.Ui.UiElement
+Vixen.Ui.Composition.ScopedStyles -> static class
 Vixen.Ui.CornerRadii -> readonly struct
 Vixen.Ui.CornerRadii : System.IEquatable<Vixen.Ui.CornerRadii>
 Vixen.Ui.CornerRadii.BottomLeft.get -> Vixen.Core.Mathematics.Vector2
@@ -516,15 +517,26 @@ Vixen.Ui.TextInputEvent.Text.init -> string
 Vixen.Ui.TextInputEvent.TextInputEvent() -> void
 Vixen.Ui.TextInputEvent.Timestamp.get -> System.TimeSpan
 Vixen.Ui.TextInputEvent.Timestamp.init -> System.TimeSpan
+Vixen.Ui.TextLayout -> sealed class
+Vixen.Ui.TextLayout.CaretAt(int index) -> (float X, float Y)
+Vixen.Ui.TextLayout.CaretIndexAt(float x, float y) -> int
+Vixen.Ui.TextLayout.Height.get -> float
+Vixen.Ui.TextLayout.LineOf(int index) -> int
+Vixen.Ui.TextLayout.Lines.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.TextLine>
+Vixen.Ui.TextLayout.TextLayout(System.Collections.Immutable.ImmutableArray<Vixen.Ui.TextLine> lines) -> void
+Vixen.Ui.TextLayout.TopOf(int line) -> float
+Vixen.Ui.TextLayout.Width.get -> float
 Vixen.Ui.TextLine -> sealed class
 Vixen.Ui.TextLine.Baseline.get -> float
 Vixen.Ui.TextLine.CaretIndexAt(float x) -> int
 Vixen.Ui.TextLine.CaretOffset(int index) -> float
 Vixen.Ui.TextLine.Height.get -> float
+Vixen.Ui.TextLine.Length.get -> int
 Vixen.Ui.TextLine.PenOf(int run) -> float
 Vixen.Ui.TextLine.Place(System.Collections.Generic.List<Vixen.Ui.PositionedGlyph> into) -> void
 Vixen.Ui.TextLine.Runs.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.TextRun>
-Vixen.Ui.TextLine.TextLine(System.Collections.Immutable.ImmutableArray<Vixen.Ui.TextRun> runs) -> void
+Vixen.Ui.TextLine.Start.get -> int
+Vixen.Ui.TextLine.TextLine(System.Collections.Immutable.ImmutableArray<Vixen.Ui.TextRun> runs, float width = NaN) -> void
 Vixen.Ui.TextLine.Width.get -> float
 Vixen.Ui.TextRun -> sealed record
 Vixen.Ui.TextRun : System.IEquatable<Vixen.Ui.TextRun>
@@ -634,6 +646,7 @@ Vixen.Ui.UiDocument.Layout.get -> Vixen.Ui.Layout.LayoutTree
 Vixen.Ui.UiDocument.LayoutFinished -> System.Action<Vixen.Ui.UiDocument>?
 Vixen.Ui.UiDocument.LengthOf(Vixen.Ui.Styling.ComputedStyle style, int property) -> float?
 Vixen.Ui.UiDocument.Load(string css, Vixen.Ui.Styling.StyleOrigin origin = Vixen.Ui.Styling.StyleOrigin.Author) -> int
+Vixen.Ui.UiDocument.LoadOnce(object key, string css, Vixen.Ui.Styling.StyleOrigin origin = Vixen.Ui.Styling.StyleOrigin.Author) -> bool
 Vixen.Ui.UiDocument.Move(Vixen.Ui.UiElement element, int index) -> void
 Vixen.Ui.UiDocument.MoveFocus(Vixen.Ui.FocusDirection direction) -> bool
 Vixen.Ui.UiDocument.MoveFocus(Vixen.Ui.NavigationDirection direction) -> bool
@@ -668,6 +681,8 @@ Vixen.Ui.UiElement.Add(string tag, string? id = null, params System.ReadOnlySpan
 Vixen.Ui.UiElement.Add<T>(string? tag = null, string? id = null, params System.ReadOnlySpan<string> classNames) -> T
 Vixen.Ui.UiElement.AddClass(string className) -> bool
 Vixen.Ui.UiElement.AddHandler<T>(System.Action<Vixen.Ui.UiElement, T> handler, Vixen.Ui.RoutingStrategy strategy = Vixen.Ui.RoutingStrategy.Bubble, bool handledEventsToo = false) -> void
+Vixen.Ui.UiElement.Block() -> Vixen.Ui.TextLayout?
+Vixen.Ui.UiElement.Block(float width) -> Vixen.Ui.TextLayout?
 Vixen.Ui.UiElement.Bounds.get -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.UiElement.Children.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.UiElement>
 Vixen.Ui.UiElement.ClearAccessKey() -> void
@@ -694,7 +709,6 @@ Vixen.Ui.UiElement.IsHitTestVisible.get -> bool
 Vixen.Ui.UiElement.IsRemoved.get -> bool
 Vixen.Ui.UiElement.Left.get -> float
 Vixen.Ui.UiElement.LetterSpacing.get -> float
-Vixen.Ui.UiElement.Line() -> Vixen.Ui.TextLine?
 Vixen.Ui.UiElement.LineHeight.get -> float
 Vixen.Ui.UiElement.OffsetX.get -> float
 Vixen.Ui.UiElement.OffsetX.set -> float
@@ -777,6 +791,8 @@ static Vixen.Ui.BoxStyle.Rounded(Vixen.Ui.CornerRadii corners) -> Vixen.Ui.BoxSt
 static Vixen.Ui.BoxStyle.Vertical(Vixen.Core.Mathematics.Color4 end, Vixen.Ui.CornerRadii corners = default(Vixen.Ui.CornerRadii)) -> Vixen.Ui.BoxStyle
 static Vixen.Ui.Composition.BuildContext.Build<T>(Vixen.Ui.UiDocument document, Vixen.Ui.UiElement mount) -> T
 static Vixen.Ui.Composition.BuildContext.BuildInto(Vixen.Ui.Composition.Component component, Vixen.Ui.UiDocument document, Vixen.Ui.UiElement mount) -> Vixen.Ui.Composition.BuildContext
+static Vixen.Ui.Composition.ScopedStyles.Scope(string css, string scope) -> string
+static Vixen.Ui.Composition.ScopedStyles.ScopeOf(System.Type component) -> string
 static Vixen.Ui.CornerRadii.Circular(float topLeft, float topRight, float bottomRight, float bottomLeft) -> Vixen.Ui.CornerRadii
 static Vixen.Ui.CornerRadii.Uniform(float radius) -> Vixen.Ui.CornerRadii
 static Vixen.Ui.DrawBatcher.Build(System.Collections.Generic.IReadOnlyList<Vixen.Ui.DrawCommand> commands, System.Collections.Generic.List<Vixen.Ui.DrawBatch> into) -> void
@@ -789,7 +805,7 @@ static Vixen.Ui.Rendering.PathFlattener.Flatten(System.Collections.Generic.IRead
 static Vixen.Ui.Rendering.PathTessellator.Fill(System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> points, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.Contour> contours, Vixen.Ui.PathFillRule rule, System.Collections.Generic.List<Vixen.Ui.Rendering.PathVertex> triangles) -> void
 static Vixen.Ui.Rendering.PathTessellator.FillFringe(System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> points, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.Contour> contours, Vixen.Ui.PathFillRule rule, float width, System.Collections.Generic.List<Vixen.Ui.Rendering.PathVertex> triangles) -> void
 static Vixen.Ui.Rendering.PathTessellator.Stroke(System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> points, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.Contour> contours, float width, Vixen.Ui.LineJoin join, Vixen.Ui.LineCap cap, float tolerance, System.Collections.Generic.List<Vixen.Ui.Rendering.PathVertex> triangles, float miterLimit = 4, float fringe = 0) -> void
-static Vixen.Ui.TextLine.Measure(in Vixen.Ui.Layout.MeasureRequest request) -> Vixen.Ui.Layout.LayoutSize
+static Vixen.Ui.TextLayout.Measure(in Vixen.Ui.Layout.MeasureRequest request) -> Vixen.Ui.Layout.LayoutSize
 static Vixen.Ui.UiDocument.TabOrder(Vixen.Ui.UiElement scope) -> System.Collections.Generic.List<Vixen.Ui.UiElement>
 static Vixen.Ui.UiPropertyRegistry.Of(System.Type ownerType) -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.UiPropertyKey>
 static Vixen.Ui.UiPropertyRegistry.Register(string name, System.Type ownerType, System.Type valueType, bool inherits, System.Func<Vixen.Ui.UiElement, object?> get, System.Action<Vixen.Ui.UiElement, object?> set) -> Vixen.Ui.UiPropertyKey

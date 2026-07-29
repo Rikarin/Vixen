@@ -608,7 +608,25 @@ Vixen.Ui.Controls.ValueChangedEvent<T>.Previous.init -> T?
 Vixen.Ui.Controls.ValueChangedEvent<T>.Value.get -> T?
 Vixen.Ui.Controls.ValueChangedEvent<T>.Value.init -> T?
 Vixen.Ui.Controls.ValueChangedEvent<T>.ValueChangedEvent() -> void
+Vixen.Ui.Controls.VirtualizingPanel -> sealed class
+Vixen.Ui.Controls.VirtualizingPanel : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.VirtualizingPanel.BindRow.get -> System.Action<Vixen.Ui.UiElement, int>?
+Vixen.Ui.Controls.VirtualizingPanel.BindRow.set -> System.Action<Vixen.Ui.UiElement, int>?
+Vixen.Ui.Controls.VirtualizingPanel.ClearCount() -> void
+Vixen.Ui.Controls.VirtualizingPanel.Count.get -> int
+Vixen.Ui.Controls.VirtualizingPanel.Count.set -> int
+Vixen.Ui.Controls.VirtualizingPanel.CreateRow.get -> System.Func<Vixen.Ui.Controls.VirtualizingPanel, Vixen.Ui.UiElement>?
+Vixen.Ui.Controls.VirtualizingPanel.CreateRow.set -> System.Func<Vixen.Ui.Controls.VirtualizingPanel, Vixen.Ui.UiElement>?
+Vixen.Ui.Controls.VirtualizingPanel.FirstItem.get -> int
+Vixen.Ui.Controls.VirtualizingPanel.Realise() -> void
+Vixen.Ui.Controls.VirtualizingPanel.RowHeight.get -> float
+Vixen.Ui.Controls.VirtualizingPanel.RowOf(int item) -> Vixen.Ui.UiElement?
+Vixen.Ui.Controls.VirtualizingPanel.Rows.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.UiElement>
+Vixen.Ui.Controls.VirtualizingPanel.ScrollIntoView(int item) -> void
+Vixen.Ui.Controls.VirtualizingPanel.Scroller.get -> Vixen.Ui.Controls.ScrollView
+Vixen.Ui.Controls.VirtualizingPanel.VirtualizingPanel() -> void
 abstract Vixen.Ui.Controls.SelectBase.OnOptionChosen(Vixen.Ui.Controls.Option option) -> void
+const Vixen.Ui.Controls.VirtualizingPanel.Overscan = 2 -> int
 override Vixen.Ui.Controls.Accordion.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Accordion.OnCreated() -> void
 override Vixen.Ui.Controls.Accordion.TagName.get -> string
@@ -764,6 +782,10 @@ override Vixen.Ui.Controls.ToggleButton.TagName.get -> string
 override Vixen.Ui.Controls.Tooltip.OnCreated() -> void
 override Vixen.Ui.Controls.Tooltip.OnRemoved() -> void
 override Vixen.Ui.Controls.Tooltip.TagName.get -> string
+override Vixen.Ui.Controls.VirtualizingPanel.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.VirtualizingPanel.OnCreated() -> void
+override Vixen.Ui.Controls.VirtualizingPanel.OnRemoved() -> void
+override Vixen.Ui.Controls.VirtualizingPanel.TagName.get -> string
 static Vixen.Ui.Controls.Avatar.Of(string? name) -> string
 static Vixen.Ui.Controls.ControlIcons.Check.get -> Vixen.Ui.PathBuilder
 static Vixen.Ui.Controls.ControlIcons.ChevronDown.get -> Vixen.Ui.PathBuilder
@@ -838,6 +860,7 @@ static readonly Vixen.Ui.Controls.TextField.ValueProperty -> Vixen.Ui.UiProperty
 static readonly Vixen.Ui.Controls.Toast.DurationProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.ToggleBase.IsCheckedProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Tooltip.DelayProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.VirtualizingPanel.CountProperty -> Vixen.Ui.UiPropertyKey
 virtual Vixen.Ui.Controls.ButtonBase.Activate(Vixen.Ui.Controls.ActivationDevice device, int count, Vixen.Ui.ModifierKeys modifiers) -> void
 virtual Vixen.Ui.Controls.ButtonBase.ActivatesOnEnter.get -> bool
 virtual Vixen.Ui.Controls.Control.AcceptsFocus.get -> bool

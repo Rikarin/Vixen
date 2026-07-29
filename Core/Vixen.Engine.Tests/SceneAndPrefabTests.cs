@@ -170,6 +170,33 @@ public sealed class SceneAndPrefabTests {
         Assert.Equal(2, prefab.ArchetypeCount);
     }
 
+    /// <summary>
+    ///     ⚠ An instance's children are in the order they were captured in, and getting this wrong
+    ///     was invisible: linking prepends, so instantiating in capture order reverses every child
+    ///     list. It surfaces as draw order, as the order a script walks its children in, and as what
+    ///     the editor's hierarchy shows — none of which look like a prefab bug.
+    /// </summary>
+    [Fact]
+    public void AnInstanceHoldsItsChildrenInTheOrderTheyWereCaptured() {
+        using var world = new World();
+        var root = Hierarchy.CreateTransform(world, LocalTransform.Identity);
+        var third = Hierarchy.CreateTransform(world, LocalTransform.At(new(3, 0, 0)));
+        var second = Hierarchy.CreateTransform(world, LocalTransform.At(new(2, 0, 0)));
+        var first = Hierarchy.CreateTransform(world, LocalTransform.At(new(1, 0, 0)));
+
+        Hierarchy.SetParent(world, third, root);
+        Hierarchy.SetParent(world, second, root);
+        Hierarchy.SetParent(world, first, root);
+
+        using var prefab = Prefab.CaptureFrom(world, root);
+        var instance = prefab.Instantiate(world);
+
+        Assert.Equal(
+            [new Vector3(1, 0, 0), new(2, 0, 0), new(3, 0, 0)],
+            Children(world, instance).Select(child => world.Read<LocalTransform>(child).Position)
+        );
+    }
+
     [Fact]
     public void ChangingTheSourceAfterCaptureDoesNotChangeThePrefab() {
         using var world = new World();

@@ -22,6 +22,18 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Engine\Vixen.Engine.csproj" />
+
+        <!--
+            A compiled scene carries components by name, so the tests declare a component of their
+            own to prove that a game's types work the same way the engine's do. Analyzers do not flow
+            through a ProjectReference, so the generators that describe and serialise it are named here.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <!-- Measured, the guarded allocation measurement. See Testing/Vixen.Testing.props. -->

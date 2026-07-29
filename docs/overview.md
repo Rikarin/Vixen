@@ -508,10 +508,13 @@ Four items unblock disproportionately more than anything else. If work is being 
 first.
 
 ```
-K1  Compiled scene + prefab content
+K1  Compiled scene + prefab content                                          ✅ built
     (doc 08 SceneCompiler · a [DataContract] runtime scene/prefab asset · per-component serialisers)
-    The *authoring* half is done — .vxscene, SceneSerializer, SceneFileWriter all exist.
-    What is missing is the build step that turns one into a chunk, and the runtime asset.
+    SceneAsset/PrefabAsset/SceneContent in Vixen.Engine.Scenes — archetype-ordered blocks,
+    a column per component, SceneComponentRegistry turning a contract name into a chunk write.
+    SceneImporter compiles .vxscene/.vxprefab; the authored format grew a tagged component list
+    and moved to Vixen.Editor.Core so the viewport and the importer read one model.
+    The seven below are unblocked and still owed.
     │
     ├──→ Vixen.Ecs world serialisation
     ├──→ Scene + prefab asset editors (loading a compiled scene, not just an authored one)
@@ -551,7 +554,7 @@ No unmet dependency. Twenty-three independent tracks.
 
 | # | Track | Unblocks |
 |---|---|---|
-| W0-1 | **K1** — `SceneCompiler` + runtime scene/prefab asset | 7 downstream items (§3.1) |
+| ~~W0-1~~ | ~~**K1** — `SceneCompiler` + runtime scene/prefab asset~~ | Built. The 7 downstream items (§3.1) are unblocked and unstarted |
 | W0-2 | **K2** — compute node + GPU buffer upload/readback | 5 downstream items |
 | W0-3 | **K3** — `Vixen.Platform.Windows/.Linux/.MacOS` | 5 downstream items |
 | W0-4 | **K4** — `Silk.NET.OpenGLES` + EGL | 3 downstream items |
@@ -672,7 +675,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 28 | `Vixen.Platform.Android` | GLES fallback + deny-list; key translation; safe-area insets; sensors; default-runtime AOT gate | Feature | **K4** (fallback) |
 | 29 | `Vixen.Platform.Web` | Playwright smoke test; `AudioWorklet` path; a browser transport | Coverage / feature | CI leg |
 | 30 | `Vixen.Assets` / pipeline | Parallel import; persisted per-entry index; the import-budget gate | Perf | — |
-| 31 | Asset pipeline | `SceneCompiler` + scene/prefab asset | Feature | — (**K1** itself) |
+| ~~31~~ | ~~Asset pipeline~~ | ~~`SceneCompiler` + scene/prefab asset~~ | Built | — (**K1** itself) |
 | 32 | Asset pipeline | `.cube` LUT importer; server content profile | Feature | — |
 | 33 | `Vixen.Sdk` | CLI shipped in the package; platform packaging; diagnostic file paths | Infra | — |
 | 34 | `Vixen.Cli` | Signing/notarisation/packaging; `app`/`plugin`/`tool` templates; `doctor systems` | Infra | K3 (signing), Vixen.Ui maturity (`app`) |
@@ -735,7 +738,7 @@ it is deliberately distinct from "not started" in Part 1.
 
 | Bucket | Count | Comment |
 |---|---|---|
-| Blocked on **K1** (scene format) | 9 | The single highest-leverage unblock |
+| ~~Blocked on **K1** (scene format)~~ | 9 | Unblocked: the scene format is built. The nine are now startable |
 | Blocked on **K2** (compute/readback) | 5 | Closes Phase 7's exit criterion |
 | Blocked on **K3** (per-OS assemblies) | 5 | Closes three deferrals dating to Phase 1 |
 | Blocked on **K4** (`OpenGLES` + EGL) | 3 | Closes Phase 10's browser criterion |

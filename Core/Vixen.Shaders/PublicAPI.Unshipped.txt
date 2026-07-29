@@ -14,10 +14,14 @@ Vixen.Shaders.Effect.Layout.get -> Vixen.Graphics.PipelineLayoutHandle
 Vixen.Shaders.Effect.Layout.init -> Vixen.Graphics.PipelineLayoutHandle
 Vixen.Shaders.Effect.Parameters.get -> System.Collections.Immutable.ImmutableArray<Vixen.Shaders.EffectParameter>
 Vixen.Shaders.Effect.Parameters.init -> System.Collections.Immutable.ImmutableArray<Vixen.Shaders.EffectParameter>
+Vixen.Shaders.Effect.PushConstants.get -> System.Collections.Immutable.ImmutableArray<Vixen.Shaders.EffectPushConstant>
+Vixen.Shaders.Effect.PushConstants.init -> System.Collections.Immutable.ImmutableArray<Vixen.Shaders.EffectPushConstant>
 Vixen.Shaders.Effect.SetLayouts.get -> System.Collections.Immutable.ImmutableArray<Vixen.Graphics.DescriptorSetLayoutHandle>
 Vixen.Shaders.Effect.SetLayouts.init -> System.Collections.Immutable.ImmutableArray<Vixen.Graphics.DescriptorSetLayoutHandle>
 Vixen.Shaders.Effect.UsedPermutationKeys.get -> System.Collections.Immutable.ImmutableArray<Vixen.Shaders.ParameterKey>
 Vixen.Shaders.Effect.UsedPermutationKeys.init -> System.Collections.Immutable.ImmutableArray<Vixen.Shaders.ParameterKey>
+Vixen.Shaders.Effect.VertexInputs.get -> System.Collections.Immutable.ImmutableArray<Vixen.Shaders.EffectVertexInput>
+Vixen.Shaders.Effect.VertexInputs.init -> System.Collections.Immutable.ImmutableArray<Vixen.Shaders.EffectVertexInput>
 Vixen.Shaders.EffectBinding -> readonly struct
 Vixen.Shaders.EffectBinding : System.IEquatable<Vixen.Shaders.EffectBinding>
 Vixen.Shaders.EffectBinding.Binding.get -> uint
@@ -119,6 +123,8 @@ Vixen.Shaders.EffectData.Stages.init -> Vixen.Shaders.EffectStageData[]
 Vixen.Shaders.EffectData.Target.get -> string
 Vixen.Shaders.EffectData.Target.init -> string
 Vixen.Shaders.EffectData.ToKey() -> Vixen.Shaders.EffectKey
+Vixen.Shaders.EffectData.VertexInputs.get -> Vixen.Shaders.EffectVertexInputData[]
+Vixen.Shaders.EffectData.VertexInputs.init -> Vixen.Shaders.EffectVertexInputData[]
 Vixen.Shaders.EffectDiskCache -> sealed class
 Vixen.Shaders.EffectDiskCache : Vixen.Shaders.IEffectSource
 Vixen.Shaders.EffectDiskCache.Directory.get -> string
@@ -189,6 +195,16 @@ Vixen.Shaders.EffectPermutationValue.Name.get -> string
 Vixen.Shaders.EffectPermutationValue.Name.init -> string
 Vixen.Shaders.EffectPermutationValue.Value.get -> string
 Vixen.Shaders.EffectPermutationValue.Value.init -> string
+Vixen.Shaders.EffectPushConstant -> readonly struct
+Vixen.Shaders.EffectPushConstant : System.IEquatable<Vixen.Shaders.EffectPushConstant>
+Vixen.Shaders.EffectPushConstant.EffectPushConstant() -> void
+Vixen.Shaders.EffectPushConstant.EffectPushConstant(Vixen.Graphics.ShaderStage Stages, int Offset, int Size) -> void
+Vixen.Shaders.EffectPushConstant.Offset.get -> int
+Vixen.Shaders.EffectPushConstant.Offset.init -> int
+Vixen.Shaders.EffectPushConstant.Size.get -> int
+Vixen.Shaders.EffectPushConstant.Size.init -> int
+Vixen.Shaders.EffectPushConstant.Stages.get -> Vixen.Graphics.ShaderStage
+Vixen.Shaders.EffectPushConstant.Stages.init -> Vixen.Graphics.ShaderStage
 Vixen.Shaders.EffectPushConstantData -> sealed record
 Vixen.Shaders.EffectPushConstantData : System.IEquatable<Vixen.Shaders.EffectPushConstantData>
 Vixen.Shaders.EffectPushConstantData.EffectPushConstantData(Vixen.Graphics.ShaderStage Stages = Vixen.Graphics.ShaderStage.None, int Offset = 0, int Size = 0) -> void
@@ -260,6 +276,25 @@ Vixen.Shaders.EffectSystem.RequestCount.get -> int
 Vixen.Shaders.EffectSystem.Requests.get -> System.Collections.Generic.IEnumerable<Vixen.Shaders.EffectKey>
 Vixen.Shaders.EffectSystem.Resolve(Vixen.Shaders.EffectKey key) -> Vixen.Shaders.Effect?
 Vixen.Shaders.EffectSystem.TryResolve(Vixen.Shaders.EffectKey key, out Vixen.Shaders.Effect? effect) -> bool
+Vixen.Shaders.EffectVertexInput -> readonly struct
+Vixen.Shaders.EffectVertexInput : System.IEquatable<Vixen.Shaders.EffectVertexInput>
+Vixen.Shaders.EffectVertexInput.EffectVertexInput() -> void
+Vixen.Shaders.EffectVertexInput.EffectVertexInput(string Name, int Location, Vixen.Shaders.ShaderValueKind Kind) -> void
+Vixen.Shaders.EffectVertexInput.Kind.get -> Vixen.Shaders.ShaderValueKind
+Vixen.Shaders.EffectVertexInput.Kind.init -> Vixen.Shaders.ShaderValueKind
+Vixen.Shaders.EffectVertexInput.Location.get -> int
+Vixen.Shaders.EffectVertexInput.Location.init -> int
+Vixen.Shaders.EffectVertexInput.Name.get -> string
+Vixen.Shaders.EffectVertexInput.Name.init -> string
+Vixen.Shaders.EffectVertexInputData -> sealed record
+Vixen.Shaders.EffectVertexInputData : System.IEquatable<Vixen.Shaders.EffectVertexInputData>
+Vixen.Shaders.EffectVertexInputData.EffectVertexInputData(string Name = "", int Location = 0, Vixen.Shaders.ShaderValueKind Kind = Vixen.Shaders.ShaderValueKind.Unknown) -> void
+Vixen.Shaders.EffectVertexInputData.Kind.get -> Vixen.Shaders.ShaderValueKind
+Vixen.Shaders.EffectVertexInputData.Kind.init -> Vixen.Shaders.ShaderValueKind
+Vixen.Shaders.EffectVertexInputData.Location.get -> int
+Vixen.Shaders.EffectVertexInputData.Location.init -> int
+Vixen.Shaders.EffectVertexInputData.Name.get -> string
+Vixen.Shaders.EffectVertexInputData.Name.init -> string
 Vixen.Shaders.IEffectProvider -> interface
 Vixen.Shaders.IEffectProvider.TryGet(Vixen.Shaders.EffectKey key) -> Vixen.Shaders.Effect?
 Vixen.Shaders.IEffectSource -> interface

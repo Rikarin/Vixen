@@ -66,6 +66,11 @@
              is what a player deserialises, so both halves have to be the same NavMeshAsset. -->
         <ProjectReference Include="..\..\Core\Vixen.Navigation\Vixen.Navigation.csproj" />
 
+        <!-- And the scene importer runs the compile, for exactly the same reason: SceneAsset is the
+             type the build writes and the type SceneManager loads, and the component registry that
+             says what a scene may carry has to be the one the game reads it with. -->
+        <ProjectReference Include="..\..\Core\Vixen.Engine\Vixen.Engine.csproj" />
+
         <!-- The content build emits a catalog, which is a runtime type: the builder and the loader
              have to be talking about the same one. -->
         <ProjectReference Include="..\..\Core\Vixen.Assets\Vixen.Assets.csproj" />

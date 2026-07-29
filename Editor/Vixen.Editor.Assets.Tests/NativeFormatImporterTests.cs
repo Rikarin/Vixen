@@ -19,8 +19,12 @@ public sealed class NativeFormatImporterTests {
 
         Assert.Equal("NativeFormatImporter", importer.Name);
         Assert.Contains(".vxmat", importer.Extensions);
-        Assert.Contains(".vxscene", importer.Extensions);
         Assert.Contains(".vxgroup", importer.Extensions);
+
+        // A scene is compiled rather than carried through, so SceneImporter claims it. This one is
+        // for the formats whose compiler does not exist yet.
+        Assert.DoesNotContain(".vxscene", importer.Extensions);
+        Assert.DoesNotContain(".vxprefab", importer.Extensions);
     }
 
     /// <summary>
@@ -71,7 +75,7 @@ public sealed class NativeFormatImporterTests {
     [Fact]
     public async Task ReferencesNestedInSequencesAreFoundToo() {
         var (context, result) = await Import(
-            "Level1.vxscene",
+            "props.vxasset",
             """
             entities:
               - name: Player

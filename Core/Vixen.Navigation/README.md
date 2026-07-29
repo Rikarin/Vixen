@@ -480,11 +480,10 @@ where the cost of a crowd actually is.
   takes a *list* of placed pieces — `source`, `position`, `rotation`, `scale` — so a level assembled
   from a floor and thirty crates bakes correctly and each piece is a dependency of its own. What is
   still missing is reading those placements out of the level the game actually loads instead of out of
-  this file, and that waits on the scene compiler doc 08 splits out, which does not exist: there is no
-  `[DataContract]` scene asset anywhere in the repo, and `NativeFormatImporter` claims `.vxscene` only
-  to scan it for dependencies and copy it through. When there is one, the work left here is to fill
-  the same list from it — the reading, the transforming and the flattening do not care where a
-  placement came from.
+  this file. **What it was waiting on has landed**: `SceneCompiler` compiles a `.vxscene` into a
+  `[DataContract]` `SceneAsset` whose entities carry their transforms and their components, so the
+  work left here is to fill the same list from one — the reading, the transforming and the flattening
+  do not care where a placement came from.
 
 ## Testing
 

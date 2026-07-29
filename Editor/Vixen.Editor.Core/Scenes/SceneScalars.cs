@@ -5,7 +5,7 @@ using System.Globalization;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
 
-namespace Vixen.Editor.SceneView;
+namespace Vixen.Editor.Core.Scenes;
 
 /// <summary>How a vector and a rotation read in a scene file.</summary>
 /// <remarks>

@@ -176,8 +176,21 @@ editor uses.
 ## The file
 
 `.vxscene` is the authoring format: YAML through the same binder a material and a settings asset go
-through. A content build compiles it, so nothing about it is shaped for load speed and everything is
-shaped for being read by a person and merged by git.
+through. A content build compiles it into a `SceneAsset`, so nothing about it is shaped for load
+speed and everything is shaped for being read by a person and merged by git.
+
+**The format itself lives in `Vixen.Editor.Core`, and this assembly is one of its two readers.** The
+other is `SceneImporter`, which compiles one; a viewport and an importer should not have to reference
+each other, and two bindings of one format are two things to keep in step — which is how a file comes
+to mean one thing when it is saved and another when it is built. What lives here is the half that
+turns a file into a live document and back.
+
+**A component is a tagged entry in the entity's `components` list** — `- !Camera` and the keys under
+it, the same polymorphism a `.meta` uses for its importer, and the same name the compiled scene and
+the binary serializer use for that component. Saving reads back exactly the components
+`SceneComponentRegistry` knows, in name order so an open-and-save is not a diff; a file naming a type
+nothing registered is **refused on load rather than dropped**, because an entity opened without its
+component is one that gets saved without it.
 
 **An entity is named by a GUID, not by its handle.** An `Entity` is a slot and a version in one
 world; loading the same scene twice reissues every one of them. `EntityId` is the identity that

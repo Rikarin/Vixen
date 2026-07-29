@@ -5,8 +5,9 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
+using Vixen.Core.Yaml;
 
-namespace Vixen.Editor.SceneView;
+namespace Vixen.Editor.Core.Scenes;
 
 /// <summary>Identity of one entity inside a scene file, independent of any world's handles.</summary>
 /// <remarks>
@@ -139,6 +140,32 @@ public sealed class SceneEntityData {
     /// </remarks>
     public List<SceneEntityData> Children { get; set; } = [];
 
+    /// <summary>What it carries besides its transform, each tagged with what it is.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Boxed values with a type tag, which is how the YAML dialect already does
+    ///         polymorphism</b> — <c>importer: !TextureImporter</c> in a <c>.meta</c> is the same
+    ///         mechanism. A component is written as <c>- !Camera</c> and the keys under it, so the
+    ///         file names the component the same way the compiled scene does and the same way the
+    ///         binary serializer does: by its <c>[DataContract]</c> alias.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An entry with no tag is an error, and the message is about <c>object</c>.</b>
+    ///         The binder resolves a tag against the type registry and has nothing to fall back on
+    ///         when there is none, so a hand-written entry that forgot its <c>!</c> is reported as
+    ///         "Object has no descriptor" against the path of the entry. That is the one rough edge
+    ///         of declaring the member this way, and it is worth it: the alternative is every
+    ///         component in the engine implementing a marker interface to be authorable.
+    ///     </para>
+    ///     <para>
+    ///         <b>The transform is not in here.</b> <see cref="Position" />, <see cref="Rotation" />
+    ///         and <see cref="Scale" /> are the authored transform, so a <c>!LocalTransform</c> entry
+    ///         would be a second answer to a question the file has already answered — the compiler
+    ///         refuses one rather than picking.
+    ///     </para>
+    /// </remarks>
+    public List<object> Components { get; set; } = [];
+
     /// <summary>Renders it as its name.</summary>
     /// <returns>The name.</returns>
     public override string ToString() => Name;
@@ -153,16 +180,41 @@ public sealed class SceneEntityData {
 ///         git.
 ///     </para>
 ///     <para>
-///         <b>The version is written and is not yet read.</b> A format with no version is one that
-///         cannot be changed without guessing what it is looking at, and the cheapest moment to add
-///         the field is before the first file exists. <see cref="SceneFile.Current" /> is what a
-///         writer stamps; a reader that meets a higher one says so rather than binding half of it.
+///         <b>The version is written and is read.</b> A format with no version is one that cannot be
+///         changed without guessing what it is looking at, and the cheapest moment to add the field
+///         is before the first file exists. <see cref="SceneFile.Current" /> is what a writer stamps;
+///         a reader that meets a higher one says so rather than binding half of it.
+///     </para>
+///     <para>
+///         <b>It lives here rather than beside the viewport because two things read it</b>: the panel
+///         that edits a scene, and the importer that compiles one into the asset a player loads.
+///         Neither should have to reference the other, and a second binding of one format is a second
+///         thing to keep in step — which is how a file comes to mean one thing when it is saved and
+///         another when it is built.
 ///     </para>
 /// </remarks>
 [DataContract("Scene")]
 public sealed class SceneFile {
     /// <summary>The version this reader and writer speak.</summary>
     public const int Current = 1;
+
+    /// <summary>What a scene is written as.</summary>
+    public const string Extension = ".vxscene";
+
+    /// <summary>What a prefab is written as — the same format, with one root.</summary>
+    public const string PrefabExtension = ".vxprefab";
+
+    /// <summary>
+    ///     Teaches the binder how a vector reads before anything asks it to read one.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A static constructor rather than a module initializer</b>, so the process-wide
+    ///     converter table changes when a scene is first read or written rather than when this
+    ///     assembly is merely referenced — see <see cref="SceneScalars.Register" />. It is on this
+    ///     type because the binder constructs one before it binds anything under it, so there is no
+    ///     path into the format that does not go through here first.
+    /// </remarks>
+    static SceneFile() => SceneScalars.Register();
 
     /// <summary>Which version of the format this file is.</summary>
     public int Version { get; set; } = Current;
@@ -173,6 +225,36 @@ public sealed class SceneFile {
     /// <summary>The entities with no parent, in order, each carrying its own subtree.</summary>
     /// <remarks>Settable for the reason <see cref="SceneEntityData.Children" /> gives.</remarks>
     public List<SceneEntityData> Roots { get; set; } = [];
+
+    /// <summary>Reads YAML into a file.</summary>
+    /// <param name="yaml">The text.</param>
+    /// <returns>The file.</returns>
+    /// <exception cref="YamlParseException">The text is not YAML.</exception>
+    /// <exception cref="YamlBindingException">The document is not a scene.</exception>
+    /// <exception cref="NotSupportedException">The file is from a newer editor.</exception>
+    /// <remarks>
+    ///     ⚠ <b>A newer file is refused rather than bound as far as it goes.</b> A newer format may
+    ///     have moved what a field means, and a scene half-read is a scene that will be saved back
+    ///     with the other half gone — which is the one failure mode a version field exists to
+    ///     prevent. A build refuses it for the same reason from the other side: compiling half a
+    ///     level is worse than not compiling it.
+    /// </remarks>
+    public static SceneFile FromYaml(string yaml) {
+        ArgumentNullException.ThrowIfNull(yaml);
+
+        var file = YamlSerializer.Parse<SceneFile>(yaml);
+
+        return file.Version <= Current
+            ? file
+            : throw new NotSupportedException(
+                $"This scene is version {file.Version} and this build reads {Current}. Reading it would bind "
+                + "the parts it recognises and drop the rest."
+            );
+    }
+
+    /// <summary>Writes it as YAML.</summary>
+    /// <returns>The text, ending in a newline.</returns>
+    public string ToYaml() => YamlSerializer.ToYaml(this);
 
     /// <summary>Every entity in the file, roots first and then depth-first under each.</summary>
     /// <remarks>

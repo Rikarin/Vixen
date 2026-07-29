@@ -1,16 +1,25 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Core.Mathematics;
 
 namespace Vixen.Engine.Cameras;
 
 /// <summary>What an entity sees. Its position and orientation come from its transform.</summary>
 /// <remarks>
-///     A camera is a component and not an object, so an entity can be one, and so a scene can have
-///     any number of them without the engine holding a list. Which one renders is the renderer's
-///     decision, made from <see cref="Order" /> and the entity being enabled.
+///     <para>
+///         A camera is a component and not an object, so an entity can be one, and so a scene can
+///         have any number of them without the engine holding a list. Which one renders is the
+///         renderer's decision, made from <see cref="Order" /> and the entity being enabled.
+///     </para>
+///     <para>
+///         <b><c>[DataContract]</c>, because a level places its cameras.</b> That is what gives it a
+///         name a <c>.vxscene</c> can write and a serializer a compiled one can be made of — see
+///         <c>SceneComponentRegistry</c>, which registers this and lets a game register its own.
+///     </para>
 /// </remarks>
+[DataContract]
 public struct Camera {
     /// <summary>Vertical field of view, in radians. Ignored when <see cref="Orthographic" />.</summary>
     public float FieldOfView;

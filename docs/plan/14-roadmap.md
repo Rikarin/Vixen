@@ -3182,11 +3182,12 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
   **A navmesh bakes from a list of placed pieces**, not just one merged collision export: `geometry`
   in a `.vxnavmesh` takes a `source`, `position`, `rotation` and `scale` per entry, each declared as a
   dependency of its own. That is the half of "bake a scene" that does not need a scene. The other half
-  does, and is genuinely blocked: there is no `[DataContract]` scene or prefab asset in the repo at
-  all — `SceneManager` builds scenes procedurally, `Prefab` captures a live `World` with nothing to
-  serialise, and `NativeFormatImporter` claims `.vxscene` only to scan it for dependencies and copy it
-  through. Doc 08's `SceneCompiler` carries no "Built" marker. When it exists, this importer fills the
-  same list of placements from it and nothing else changes.
+  does, and was genuinely blocked until doc 08's `SceneCompiler` landed: `SceneAsset`,
+  `PrefabAsset` and `SceneContent` are `[DataContract]` types in `Vixen.Engine.Scenes` now, and
+  `SceneImporter` compiles a `.vxscene` into one — archetype-ordered blocks, a column per component,
+  and the per-component binders that turn a contract name back into a write into a chunk. What is left
+  here is for this importer to fill the same list of placements from a compiled scene, and nothing
+  else changes.
 
   **The two endpoint lookups a retarget did not need are gone.** Planning used to begin by searching
   for the polygon the agent was standing on — which is its corridor's first polygon and has been kept
@@ -3216,7 +3217,7 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
   is three enormous planes sitting below the ground, and the old upward bias was accidentally
   cancelling part of that.
 
-  **Owed:** reading placements from a compiled scene, once doc 08's scene compiler exists.
+  **Owed:** reading placements from a compiled scene, which the scene compiler now makes possible.
 - `Samples/05-PlatformerGame` — physics, input, animation, audio, VFX end to end on all platforms where
   it is in scope.
 

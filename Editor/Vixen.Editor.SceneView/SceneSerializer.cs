@@ -4,6 +4,9 @@
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
+using Vixen.Ecs;
+using Vixen.Editor.Core.Scenes;
+using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
 
 namespace Vixen.Editor.SceneView;
@@ -43,10 +46,10 @@ public static class SceneSerializer {
 
     /// <summary>The extension a scene is written as.</summary>
     /// <remarks>
-    ///     Already claimed by <c>NativeFormatImporter</c>, which scans one for asset references
-    ///     without knowing what is inside it. This is what is inside it.
+    ///     Claimed by <c>SceneImporter</c>, which reads the same file through the same binder and
+    ///     compiles it into the asset a player loads. This is the half that edits one.
     /// </remarks>
-    public const string Extension = ".vxscene";
+    public const string Extension = SceneFile.Extension;
 
     /// <summary>Reads a document into a file.</summary>
     /// <param name="document">The document.</param>
@@ -97,23 +100,12 @@ public static class SceneSerializer {
     /// <returns>The file.</returns>
     /// <exception cref="YamlException">The text is not a scene.</exception>
     /// <exception cref="NotSupportedException">The file is from a newer editor.</exception>
-    public static SceneFile FromYaml(string yaml) {
-        ArgumentNullException.ThrowIfNull(yaml);
-
-        var file = YamlSerializer.Parse<SceneFile>(yaml);
-
-        // ⚠ Refused rather than bound as far as it goes. A newer format may have moved what a field
-        // means, and a scene half-read is a scene that will be saved back with the other half gone —
-        // which is the one failure mode a version field exists to prevent.
-        if (file.Version > SceneFile.Current) {
-            throw new NotSupportedException(
-                $"This scene is version {file.Version} and this editor reads {SceneFile.Current}. "
-                + "Opening it would bind the parts it recognises and drop the rest on the next save."
-            );
-        }
-
-        return file;
-    }
+    /// <remarks>
+    ///     The format's own reader, which is where the version check lives — an editor opening a
+    ///     newer scene and a build compiling one are the same refusal for the same reason, so there
+    ///     is one of it.
+    /// </remarks>
+    public static SceneFile FromYaml(string yaml) => SceneFile.FromYaml(yaml);
 
     /// <summary>Puts a file's entities into a document.</summary>
     /// <param name="document">The document to fill. Expected to be empty.</param>
@@ -167,11 +159,42 @@ public static class SceneSerializer {
             Scale = local.Scale
         };
 
+        foreach (var binder in Carried(document.World, entity)) {
+            data.Components.Add(binder.ValueOn(document.World, entity));
+        }
+
         foreach (var child in Hierarchy.ChildrenOf(document.World, entity)) {
             data.Children.Add(Capture(document, child));
         }
 
         return data;
+    }
+
+    /// <summary>Which of an entity's components a scene file can hold, in name order.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The registry is the filter, and everything else on the entity is left out on purpose:
+    ///         the hierarchy links hold entity handles that mean nothing in another world, and a
+    ///         component with no contract has no name to be written under. Both are the same rule the
+    ///         compiled form applies, so what an author sees saved is what a build will compile.
+    ///     </para>
+    ///     <para>
+    ///         Sorted by name, because a file that reordered an entity's components between saves
+    ///         would be a diff with no edit behind it — the same argument this format makes about
+    ///         sibling order.
+    ///     </para>
+    /// </remarks>
+    static IEnumerable<ISceneComponentBinder> Carried(World world, Entity entity) {
+        var carried = new List<ISceneComponentBinder>();
+
+        foreach (var id in world.ArchetypeOf(entity).Signature.Ids) {
+            if (SceneComponentRegistry.TryGet(ComponentRegistry.Get(id).Type, out var binder)) {
+                carried.Add(binder);
+            }
+        }
+
+        carried.Sort((left, right) => string.CompareOrdinal(left.Name, right.Name));
+        return carried;
     }
 
     static int Restore(SceneDocument document, SceneEntityData data, Entity parent) {
@@ -190,6 +213,23 @@ public static class SceneSerializer {
 
         var entity = document.Add(data.Name, local, parent);
         document.Adopt(entity, data.Id);
+
+        foreach (var component in data.Components) {
+            // ⚠ Refused rather than dropped. A component the binder bound and the registry does not
+            // know is a type this build has and nothing declared a scene may carry; keeping the
+            // entity without it would open the scene, look right, and delete the component from the
+            // file on the next save — which is the failure the format's version check exists for,
+            // arriving through a different door.
+            if (!SceneComponentRegistry.TryGet(component.GetType(), out var binder)) {
+                throw new SceneComponentException(
+                    $"'{data.Name}' carries a {component.GetType().Name}, which nothing registered as a scene "
+                    + "component. Call SceneComponentRegistry.Register for it where the game's components are "
+                    + "registered; a scene cannot hold what a build cannot compile."
+                );
+            }
+
+            binder.AddTo(document.World, entity, component);
+        }
 
         var created = 1;
 

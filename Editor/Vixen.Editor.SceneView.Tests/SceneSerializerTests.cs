@@ -6,6 +6,9 @@ using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
+using Vixen.Editor.Core.Scenes;
+using Vixen.Engine.Cameras;
+using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
 using Xunit;
 
@@ -251,6 +254,46 @@ public class SceneSerializerTests : IDisposable {
 
         Assert.True(File.Exists(path));
         Assert.False(scene.IsDirty.Value);
+    }
+
+    [Fact]
+    public void A_component_survives_a_round_trip_through_the_file() {
+        var entity = scene.Add("Main Camera", LocalTransform.At(new Vector3(0f, 2f, -10f)));
+        world.Add(entity, Camera.Perspective with { FarPlane = 250f, Order = 3 });
+
+        var yaml = SceneSerializer.ToYaml(scene);
+        var (other, reloaded) = Fresh();
+
+        using (other) {
+            SceneSerializer.Load(reloaded, SceneSerializer.FromYaml(yaml));
+            var camera = other.Read<Camera>(reloaded.Roots.Single());
+
+            // The tag is how the file says which component this is — the same mechanism a .meta uses
+            // for its importer, and the same name the compiled scene and the binary serializer use.
+            Assert.Contains("!Camera", yaml, StringComparison.Ordinal);
+            Assert.Equal(250f, camera.FarPlane);
+            Assert.Equal(3, camera.Order);
+            Assert.Equal(yaml, SceneSerializer.ToYaml(reloaded));
+        }
+    }
+
+    [Fact]
+    public void A_component_nothing_registered_is_refused_rather_than_dropped_on_the_next_save() {
+        var yaml = """
+                   version: 1
+                   name: Untitled
+                   roots:
+                     - id: 4c2b1a0908070605040302010f0e0d0c
+                       name: Crate
+                       components:
+                         - !SceneEntity
+                           name: Nested
+                   """;
+
+        // A type the binder can find and the scene registry does not know. Loading it and saving
+        // would silently delete the block from the file, which is the failure the version check
+        // exists to prevent arriving through another door.
+        Assert.Throws<SceneComponentException>(() => SceneSerializer.Load(scene, SceneSerializer.FromYaml(yaml)));
     }
 
     [Fact]

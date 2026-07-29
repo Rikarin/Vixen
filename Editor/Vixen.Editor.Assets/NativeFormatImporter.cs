@@ -41,13 +41,19 @@ public sealed record NativeFormatImportSettings : IImportSettings {
 ///         splits import from compile: import produces editor-domain objects, and the compiler turns
 ///         them into the runtime chunks a player loads — a <c>MaterialAsset</c> with named parameters
 ///         and asset references becomes a <c>Material</c> with a resolved pipeline and
-///         <c>ObjectId</c>s. That compiler does not exist yet. Emitting a half-resolved binary here
+///         <c>ObjectId</c>s. Those compilers do not exist yet. Emitting a half-resolved binary here
 ///         would put the compiler's decisions inside the importer, where the artefact cache key
 ///         cannot see them; carrying the document forward keeps the seam where the plan puts it, and
 ///         is written down in the README as owed.
 ///     </para>
+///     <para>
+///         <b><c>.vxscene</c> and <c>.vxprefab</c> are no longer among them</b>, and what that looks
+///         like is the shape the rest will take: <see cref="Scenes.SceneImporter" /> reads the same
+///         document, declares the same references through the same scan, and writes a compiled
+///         <c>SceneAsset</c> rather than the text.
+///     </para>
 /// </remarks>
-[Importer(".vxmat", ".vxscene", ".vxprefab", ".vxgroup", ".vxanim", ".vxvfx", ".vxinput", ".vxasset")]
+[Importer(".vxmat", ".vxgroup", ".vxanim", ".vxvfx", ".vxinput", ".vxasset")]
 public sealed class NativeFormatImporter : AssetImporter<NativeFormatImportSettings> {
     /// <inheritdoc />
     public override int Version => 1;
@@ -99,13 +105,7 @@ public sealed class NativeFormatImporter : AssetImporter<NativeFormatImportSetti
             );
         }
 
-        var malformed = 0;
-
-        foreach (var reference in References(root, context, ref malformed)) {
-            context.DependsOn(reference);
-        }
-
-        if (malformed > 0) {
+        if (AssetReferenceScan.Declare(root, context) > 0) {
             return context.Finish();
         }
 
@@ -118,73 +118,9 @@ public sealed class NativeFormatImporter : AssetImporter<NativeFormatImportSetti
         return context.Finish();
     }
 
-    /// <summary>Every asset the document points at.</summary>
-    /// <param name="root">The document.</param>
-    /// <param name="context">Where to complain about a reference that will not parse.</param>
-    /// <param name="malformed">How many did not parse.</param>
-    /// <returns>The assets, deduplicated by the caller's set.</returns>
-    /// <remarks>
-    ///     <para>
-    ///         A walk of the node tree rather than a regular expression over the text, because a GUID
-    ///         inside a comment or a quoted description is not a reference and a text scan cannot tell
-    ///         the difference. It would produce a dependency that never changes and never breaks
-    ///         anything — which is exactly the kind of wrongness nobody finds.
-    ///     </para>
-    ///     <para>
-    ///         Iterative rather than recursive. A scene is the deepest document the engine has and a
-    ///         deeply nested prefab hierarchy is an ordinary thing to author; a stack overflow inside
-    ///         an importer takes the whole process with it, which is the one failure the
-    ///         one-bad-asset-does-not-stop-the-build promise cannot catch.
-    ///     </para>
-    /// </remarks>
-    static List<AssetId> References(YamlMapping root, ImportContext context, ref int malformed) {
-        var found = new List<AssetId>();
-        var pending = new Stack<YamlNode>();
-        pending.Push(root);
-
-        while (pending.Count > 0) {
-            switch (pending.Pop()) {
-                case YamlMapping mapping:
-                    foreach (var (_, value) in mapping.Entries) {
-                        pending.Push(value);
-                    }
-
-                    break;
-
-                case YamlSequence sequence:
-                    foreach (var item in sequence.Items) {
-                        pending.Push(item);
-                    }
-
-                    break;
-
-                case YamlScalar scalar when scalar.Value.StartsWith(AssetReference.Prefix, StringComparison.Ordinal):
-                    if (AssetReference.TryParse(scalar.Value, out var reference)) {
-                        if (!reference.IsNull) {
-                            found.Add(reference.Asset);
-                        }
-                    } else {
-                        malformed++;
-
-                        context.Report(
-                            ImportSeverity.Error,
-                            $"'{scalar.Value}' begins with '{AssetReference.Prefix}' but is not a reference. It "
-                            + "should be 'vx:' and 32 hex digits, optionally '#' and a sub-asset id."
-                        );
-                    }
-
-                    break;
-            }
-        }
-
-        return found;
-    }
-
     /// <summary>What kind of thing an extension holds, when the document does not say.</summary>
     static string TypeOf(string path) => Path.GetExtension(path).ToLowerInvariant() switch {
         ".vxmat" => "Material",
-        ".vxscene" => "Scene",
-        ".vxprefab" => "Prefab",
         ".vxgroup" => "AddressableGroup",
         ".vxanim" => "AnimationClip",
         ".vxvfx" => "VisualEffect",

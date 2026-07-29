@@ -227,7 +227,13 @@ public sealed class Prefab : IDisposable {
             }
         }
 
-        for (var index = 0; index < nodes.Length; index++) {
+        // ⚠ Back to front, and the sibling-order test is what holds this honest. `Hierarchy.SetParent`
+        // puts a new child at the *head* of the intrusive list — O(1), which is the reason the list is
+        // intrusive at all — so linking the nodes in capture order leaves every instance holding its
+        // children reversed. Nothing about that looks wrong until draw order, a script's walk over its
+        // children, or what an editor shows depends on it; and a prefab that does not stamp out what
+        // was captured is not a prefab. The compiled-scene load has the same loop for the same reason.
+        for (var index = nodes.Length - 1; index >= 0; index--) {
             if (parents[index] >= 0) {
                 Hierarchy.SetParent(world, instances[index], instances[parents[index]]);
             }

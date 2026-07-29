@@ -161,6 +161,47 @@ as indices and instantiation re-parents, so nothing has to know which fields of 
 handles. Managed components are copied *by reference*: a hundred instances of a prefab share one
 mesh, which is the point of them being managed at all.
 
+**An instance's children come out in the order they were captured.** Linking prepends — O(1), which
+is why the child list is intrusive — so instantiating in capture order reversed every child list,
+invisibly, until draw order or a script's walk over its children depended on it. Both the prefab and
+the compiled-scene load link back to front, and a test holds each of them to it.
+
+## Compiled scenes and prefabs
+
+```csharp
+var asset = Serializer.Read<SceneAsset>(chunk);   // what a content build wrote
+var scene = asset.Load(scenes);                   // additive, tagged, unloadable
+```
+
+A `.vxscene` is YAML because a person merges it. A `SceneAsset` is a chunk because a player loads it
+on a frame budget, and `SceneCompiler` in `Vixen.Editor.Assets` is the only thing that has ever seen
+both. What lives here is the runtime half: the format, and turning it into a world.
+
+**Entities are grouped into blocks by archetype, and a block is one `CreateMany`.** A two-thousand
+entity level of six shapes is six archetype lookups and six bulk creates rather than two thousand of
+each — doc 08's "archetype-ordered blobs for bulk world load", concretely. Within a block, each
+component is a column: every entity's value for one component, back to back, in the order the load
+walks them.
+
+**The archetype is the column *names*, rebuilt at load.** A dense component id is assigned in the
+order a process first touches a type, so it means nothing outside the process that assigned it; a
+component's `[DataContract]` alias is what survives, and `SceneComponentRegistry` is what turns one
+back into a write into a chunk. The engine registers `Camera`; a game registers its own, and a scene
+naming something this build does not have **fails to load and says which name** rather than
+producing an enemy that is quietly missing its `Health`.
+
+**The transform is three columns of the scene's own, not a component anybody can name**, because
+every entity in a scene has one and the alternative is a file that says two different things about
+where an entity is. **Names are a table on the asset and never a component** — the editor's argument
+for holding them in a map is unchanged, and thirty bytes per entity in every chunk of a shipping
+build is still the wrong place for them; a build that wants the bytes back turns them off in the
+importer's settings.
+
+A `PrefabAsset` is the same content with one root, and `ToPrefab()` builds the template by
+instantiating it once into a staging world and capturing that. It costs one instantiation, once, per
+prefab asset — against a second capture format for the same components with its own way of being
+subtly different.
+
 ## Cameras
 
 A camera is a component, so an entity can be one and a scene can have any number without the engine

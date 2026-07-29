@@ -722,9 +722,11 @@ Vixen.Ui.Controls.Advanced.PropertyGrid.Targets.get -> System.Collections.Generi
 Vixen.Ui.Controls.Advanced.PropertyGrid.ValueChanged -> System.Action<Vixen.Ui.Controls.Advanced.PropertyGrid, Vixen.Core.Reflection.MemberDescriptor>?
 Vixen.Ui.Controls.Advanced.PropertyRow -> sealed class
 Vixen.Ui.Controls.Advanced.PropertyRow : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.PropertyRow.Depth.get -> int
 Vixen.Ui.Controls.Advanced.PropertyRow.Editor.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Advanced.PropertyRow.Label.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Advanced.PropertyRow.Member.get -> Vixen.Core.Reflection.MemberDescriptor?
+Vixen.Ui.Controls.Advanced.PropertyRow.Path.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Reflection.MemberDescriptor>
 Vixen.Ui.Controls.Advanced.PropertyRow.PropertyRow() -> void
 Vixen.Ui.Controls.Advanced.PropertyRow.Reset.get -> Vixen.Ui.Controls.IconButton
 Vixen.Ui.Controls.Advanced.TangentMode -> enum : byte
@@ -879,6 +881,7 @@ Vixen.Ui.Controls.Advanced.TreeView.MoveNode(Vixen.Ui.Controls.Advanced.TreeNode
 Vixen.Ui.Controls.Advanced.TreeView.Moved -> System.Action<Vixen.Ui.Controls.Advanced.TreeView, Vixen.Ui.Controls.Advanced.TreeNode>?
 Vixen.Ui.Controls.Advanced.TreeView.MultiSelect.get -> bool
 Vixen.Ui.Controls.Advanced.TreeView.MultiSelect.set -> bool
+Vixen.Ui.Controls.Advanced.TreeView.Panel.get -> Vixen.Ui.Controls.VirtualizingPanel
 Vixen.Ui.Controls.Advanced.TreeView.Refresh() -> void
 Vixen.Ui.Controls.Advanced.TreeView.Renamed -> System.Action<Vixen.Ui.Controls.Advanced.TreeView, Vixen.Ui.Controls.Advanced.TreeNode, string>?
 Vixen.Ui.Controls.Advanced.TreeView.Reveal(Vixen.Ui.Controls.Advanced.TreeNode node) -> void

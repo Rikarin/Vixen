@@ -25,12 +25,43 @@
         <ProjectReference Include="..\Vixen.Ecs\Vixen.Ecs.csproj" />
 
         <!--
+            A compiled scene is written by a content build and read by a player, so SceneAsset and
+            everything under it carries [DataContract] and this is the half that turns bytes back
+            into a world. The importer that writes one and the runtime that loads it have to be
+            talking about the same type — the argument Vixen.Navigation's NavMeshAsset already made.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+
+        <!--
+            And the type registry, because a component named in an authored .vxscene is bound to its
+            CLR type through a TypeDescriptor. Without this a game could compile scenes carrying its
+            own components and none of the engine's, which would make the mechanism look like a
+            limitation of the format rather than of one assembly's references.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+
+        <!--
             The action system, so that the SystemPhase.Input pass has something to run. The reference
             points this way rather than the other because Vixen.Ui also consumes Vixen.Input and must
             not acquire an ECS world by doing so (docs/plan/02 § "Why Vixen.Ui does not depend on
             Vixen.Engine") — which is why InputUpdateSystem lives here and not there.
         -->
         <ProjectReference Include="..\Vixen.Input\Vixen.Input.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            Analyzers do not flow transitively through a ProjectReference, so an assembly declaring
+            [DataContract] types of its own has to name both generators: the descriptors a YAML-bound
+            component is found through come from the reflection generator, and the binary serializers
+            a compiled scene is made of come from the serialization one.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>

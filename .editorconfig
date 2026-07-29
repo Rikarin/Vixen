@@ -617,3 +617,16 @@ dotnet_diagnostic.CA1716.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [Editor/Vixen.Editor.Inspector.Tests/Fixtures.cs]
 dotnet_diagnostic.CA1051.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Engine.Tests/SceneAssetTests.cs
+#
+# CA1051 (do not declare visible instance fields). The two components declared
+# here stand in for a game's own, and every ECS component in the engine —
+# LocalTransform, Camera, SceneTag — is public mutable fields, because a chunk
+# column is written through a `ref` to the value. A fixture with properties
+# instead would compile a shape no component in the repository has, and would
+# quietly stop testing what a game's components actually do.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Engine.Tests/SceneAssetTests.cs]
+dotnet_diagnostic.CA1051.severity = none

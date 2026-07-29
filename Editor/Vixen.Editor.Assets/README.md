@@ -82,7 +82,7 @@ under it.
 
 ## `NativeFormatImporter`, whose job is the graph and not the conversion
 
-`.vxmat`, `.vxscene`, `.vxprefab`, `.vxgroup`, `.vxanim`, `.vxvfx`. There is nothing to convert —
+`.vxmat`, `.vxgroup`, `.vxanim`, `.vxvfx`, `.vxinput`, `.vxasset`. There is nothing to convert —
 these files are already in the engine's own format, which is the point of doc 08's YAML dialect. What
 is *not* already known is what each one **points at**, and that is what makes a material re-import
 when the texture it names is replaced.
@@ -106,8 +106,48 @@ never saved ship as one.
 **What it writes is the document, and that is a deliberate stopping point.** Doc 08 splits import from
 compile: import produces editor-domain objects and the *compiler* turns them into the runtime chunks a
 player loads — a `MaterialAsset` with named parameters and asset references becomes a `Material` with
-a resolved pipeline and `ObjectId`s. That compiler does not exist yet. Emitting a half-resolved binary
+a resolved pipeline and `ObjectId`s. Those compilers do not exist yet. Emitting a half-resolved binary
 here would move its decisions inside the importer, where the artefact cache key cannot see them.
+
+**`.vxscene` and `.vxprefab` are no longer among them**, and what that looks like is the shape the
+rest will take — see `SceneImporter` below.
+
+## `SceneImporter`, the first compiler
+
+```
+Assets/Levels/Level1.vxscene   →   SceneAsset   →   one chunk, one address
+```
+
+A `.vxscene` nests its entities, spells its numbers out and is built to be read by a person and
+merged by git. A `SceneAsset` is flat tables and archetype-ordered blobs and is built to be turned
+into a world in one pass. `SceneCompiler` is the pure function between them and knows nothing about
+the pipeline; the importer is what reads the file, declares what it points at through the same scan
+`NativeFormatImporter` uses, and writes the result as a chunk.
+
+**An importer rather than a build stage of its own, and that is a deviation from doc 08 worth
+stating.** The doc describes compilers as a second pass with its own build graph. Importers here
+already produce chunks in the object database, already have a content-addressed cache keyed on the
+importer's version and the settings, and already run out of process in parallel — everything the
+compile pass was specified to add. A second graph buys one thing this does not have: sharing work
+between two assets that compile to the same intermediate. Scenes do not share; the material/effect
+pair will, and that is where the seam gets paid for.
+
+**Every problem in a file is reported, and then it fails once.** A compiler that stopped at the first
+bad component would make fixing a hand-merged level a sequence of builds. What is refused: a
+component nothing registered (by name, because the fix is a `SceneComponentRegistry.Register` call),
+two components of one type on one entity, a `LocalTransform` among the components when the entity's
+own fields already say where it is, two entities claiming one id, and a prefab with two roots.
+
+**Deterministic, because doc 12 gates the build on it.** Entities are numbered by the same
+depth-first walk the file is written in, blocks are ordered by their component names, entities within
+a block ascend, and columns are in name order. The same scene compiles to the same bytes, so an
+unchanged level ships nothing in a content update.
+
+**The importer's version is the compiler's**, so a change to the compiled layout invalidates every
+scene artefact in every project rather than only the ones somebody re-saved. And **nothing is loaded
+into a world to compile it**: authored components arrive from the YAML binder already boxed, and a
+binder writes a boxed value straight into a column, so a build that compiles every scene in a project
+never constructs an ECS world.
 
 ## `ModelImporter`, the first one that produces more than one thing
 
@@ -209,10 +249,11 @@ re-exporting one building does not depend on the others being untouched. `geomet
 means one piece at the origin, because most levels really are that and writing a list for it would be
 ceremony.
 
-That is as close to baking *a scene* as this can get until there is a scene to read: nothing in the
-repo compiles `.vxscene` into anything — `NativeFormatImporter` claims the extension to scan it for
-dependencies and copies the source through unchanged, and its own comment says the compiler does not
-exist. When it does, this importer fills the same list of placements from it and the rest is unchanged.
+That is the half of "bake a scene" that does not need a scene. The other half now has one to read —
+`SceneImporter` compiles a `.vxscene` into a `SceneAsset` whose entities carry their transforms and
+their components — and what is left is for this importer to fill the same list of placements from a
+compiled scene rather than from its own `geometry` block. The reading, the transforming and the
+flattening below do not care where a placement came from.
 
 **Nothing walkable is a warning, not an error.** An author who has just set the agent radius wider
 than their corridors wants to be told; a level whose collision is genuinely all walls is a level with
@@ -368,11 +409,16 @@ model another asset was pointing at.
 
 ## Still to come
 
-**The compilers.** Doc 08 splits import from compile, and only the first half exists. `ModelCompiler`
-is what does vertex-layout packing, meshlets, LOD generation and index reordering — none of which can
-be decided one mesh at a time, which is why they are not in the importer. `MaterialCompiler` is what
-turns a `.vxmat`'s named parameters into a resolved pipeline, which is why `NativeFormatImporter`
-carries the document forward rather than emitting a half-resolved binary.
+**The rest of the compilers.** Doc 08 splits import from compile; `SceneImporter` is the first one,
+and the others are still the import half only. `ModelCompiler` is what does vertex-layout packing,
+meshlets, LOD generation and index reordering — none of which can be decided one mesh at a time,
+which is why they are not in the importer. `MaterialCompiler` is what turns a `.vxmat`'s named
+parameters into a resolved pipeline, which is why `NativeFormatImporter` carries the document forward
+rather than emitting a half-resolved binary.
+
+**Prefab overrides and nested prefabs.** A compiled prefab is a whole subtree today. An instance that
+differs from its template in three fields, and a prefab that contains another, are the risk register's
+R7 and are the next thing the scene format has to grow.
 
 **The importers that need a decoder nobody has chosen.** Ogg, MP3 and FLAC for audio; `.exr`, `.tif`,
 `.webp` and `.dds` for textures. Fonts, shaders, VXML, VCSS and video have their own phases.

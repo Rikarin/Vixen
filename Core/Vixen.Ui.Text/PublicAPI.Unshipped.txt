@@ -607,19 +607,6 @@ Vixen.Ui.Text.TextItem.Start.init -> int
 Vixen.Ui.Text.TextItem.TextItem() -> void
 Vixen.Ui.Text.TextItem.TextItem(int Start, int Length, int Level, Vixen.Ui.Text.Script Script) -> void
 Vixen.Ui.Text.TextItemizer -> static class
-Vixen.Ui.Text.TextLine -> readonly struct
-Vixen.Ui.Text.TextLine : System.IEquatable<Vixen.Ui.Text.TextLine>
-Vixen.Ui.Text.TextLine.Advance.get -> float
-Vixen.Ui.Text.TextLine.Advance.init -> float
-Vixen.Ui.Text.TextLine.End.get -> int
-Vixen.Ui.Text.TextLine.Length.get -> int
-Vixen.Ui.Text.TextLine.Length.init -> int
-Vixen.Ui.Text.TextLine.Mandatory.get -> bool
-Vixen.Ui.Text.TextLine.Mandatory.init -> bool
-Vixen.Ui.Text.TextLine.Start.get -> int
-Vixen.Ui.Text.TextLine.Start.init -> int
-Vixen.Ui.Text.TextLine.TextLine() -> void
-Vixen.Ui.Text.TextLine.TextLine(int Start, int Length, float Advance, bool Mandatory) -> void
 Vixen.Ui.Text.TextShaper -> static class
 Vixen.Ui.Text.TextWrapMode -> enum : byte
 Vixen.Ui.Text.TextWrapMode.Anywhere = 1 -> Vixen.Ui.Text.TextWrapMode
@@ -647,10 +634,23 @@ Vixen.Ui.Text.WordBreakClass.WSegSpace = 17 -> Vixen.Ui.Text.WordBreakClass
 Vixen.Ui.Text.WordBreakClass.WordBreakClass() -> void
 Vixen.Ui.Text.WordBreakClass.ZWJ = 18 -> Vixen.Ui.Text.WordBreakClass
 Vixen.Ui.Text.WordBreaker -> static class
+Vixen.Ui.Text.WrappedLine -> readonly struct
+Vixen.Ui.Text.WrappedLine : System.IEquatable<Vixen.Ui.Text.WrappedLine>
+Vixen.Ui.Text.WrappedLine.Advance.get -> float
+Vixen.Ui.Text.WrappedLine.Advance.init -> float
+Vixen.Ui.Text.WrappedLine.End.get -> int
+Vixen.Ui.Text.WrappedLine.Length.get -> int
+Vixen.Ui.Text.WrappedLine.Length.init -> int
+Vixen.Ui.Text.WrappedLine.Mandatory.get -> bool
+Vixen.Ui.Text.WrappedLine.Mandatory.init -> bool
+Vixen.Ui.Text.WrappedLine.Start.get -> int
+Vixen.Ui.Text.WrappedLine.Start.init -> int
+Vixen.Ui.Text.WrappedLine.WrappedLine() -> void
+Vixen.Ui.Text.WrappedLine.WrappedLine(int Start, int Length, float Advance, bool Mandatory) -> void
 const Vixen.Ui.Text.BidiAlgorithm.MaximumDepth = 125 -> int
 override Vixen.Ui.Text.FontVariation.Equals(object? obj) -> bool
 override Vixen.Ui.Text.FontVariation.GetHashCode() -> int
-override Vixen.Ui.Text.TextLine.ToString() -> string
+override Vixen.Ui.Text.WrappedLine.ToString() -> string
 static Vixen.Ui.Text.BidiAlgorithm.Resolve(System.ReadOnlySpan<int> codePoints, Vixen.Ui.Text.ParagraphDirection direction = Vixen.Ui.Text.ParagraphDirection.Auto) -> Vixen.Ui.Text.BidiResult
 static Vixen.Ui.Text.BidiAlgorithm.Resolve(string text, Vixen.Ui.Text.ParagraphDirection direction = Vixen.Ui.Text.ParagraphDirection.Auto) -> Vixen.Ui.Text.BidiResult
 static Vixen.Ui.Text.FontFace.Load(byte[] data, int index = 0, string? name = null) -> Vixen.Ui.Text.FontFace
@@ -663,8 +663,10 @@ static Vixen.Ui.Text.GraphemeBreaker.IsBoundary(System.ReadOnlySpan<char> text, 
 static Vixen.Ui.Text.LineBreaker.Collect(System.ReadOnlySpan<char> text, System.Collections.Generic.List<int> opportunities) -> void
 static Vixen.Ui.Text.LineBreaker.IsMandatory(System.ReadOnlySpan<char> text, int index) -> bool
 static Vixen.Ui.Text.LineBreaker.Opportunities(string text) -> System.Collections.Generic.List<int>
-static Vixen.Ui.Text.LineWrapper.Lines(Vixen.Ui.Text.ShapedText shaped, float maxAdvance, Vixen.Ui.Text.TextWrapMode mode = Vixen.Ui.Text.TextWrapMode.Word) -> System.Collections.Generic.List<Vixen.Ui.Text.TextLine>
-static Vixen.Ui.Text.LineWrapper.Wrap(Vixen.Ui.Text.ShapedText shaped, float maxAdvance, System.Collections.Generic.List<Vixen.Ui.Text.TextLine> lines, Vixen.Ui.Text.TextWrapMode mode = Vixen.Ui.Text.TextWrapMode.Word) -> void
+static Vixen.Ui.Text.LineWrapper.Advances(Vixen.Ui.Text.ShapedText shaped) -> float[]
+static Vixen.Ui.Text.LineWrapper.Lines(Vixen.Ui.Text.ShapedText shaped, float maxAdvance, Vixen.Ui.Text.TextWrapMode mode = Vixen.Ui.Text.TextWrapMode.Word) -> System.Collections.Generic.List<Vixen.Ui.Text.WrappedLine>
+static Vixen.Ui.Text.LineWrapper.Wrap(Vixen.Ui.Text.ShapedText shaped, float maxAdvance, System.Collections.Generic.List<Vixen.Ui.Text.WrappedLine> lines, Vixen.Ui.Text.TextWrapMode mode = Vixen.Ui.Text.TextWrapMode.Word) -> void
+static Vixen.Ui.Text.LineWrapper.Wrap(string text, System.ReadOnlySpan<float> advances, float maxAdvance, System.Collections.Generic.List<Vixen.Ui.Text.WrappedLine> lines, Vixen.Ui.Text.TextWrapMode mode = Vixen.Ui.Text.TextWrapMode.Word) -> void
 static Vixen.Ui.Text.Outlines.GlyphOutline.Empty.get -> Vixen.Ui.Text.Outlines.GlyphOutline
 static Vixen.Ui.Text.Rasterizing.DistanceField.Generate(Vixen.Ui.Text.Outlines.GlyphOutline outline, int width, int height, float scale, System.Numerics.Vector2 origin, float range = 4) -> Vixen.Ui.Text.Rasterizing.DistanceFieldBitmap
 static Vixen.Ui.Text.Rasterizing.EdgeColoring.Colour(Vixen.Ui.Text.Outlines.GlyphOutline outline, System.Collections.Generic.List<Vixen.Ui.Text.Rasterizing.Edge> edges) -> System.Collections.Generic.List<Vixen.Ui.Text.Rasterizing.ColouredEdge>

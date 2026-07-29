@@ -29,12 +29,31 @@
         <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
 
         <!--
+            A scene file is positions and rotations, so the authoring format needs the vector types —
+            and only those. Scenes/SceneFormat.cs is what a .vxscene binds to, and it lives here
+            rather than beside the viewport because two things read it: the panel that edits a scene
+            and the importer that compiles one, and neither should have to reference the other.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+
+        <!--
           The document model is signal-backed: an EditorProperty is a Signal, so the inspector binds
           to it and a gizmo writing it updates the inspector with nothing wired between them. This is
           the reactive graph used outside the UI framework, which is the point of having built it as
           a layer of its own rather than inside Vixen.Ui.
         -->
         <ProjectReference Include="..\..\Core\Vixen.Ui.Reactive\Vixen.Ui.Reactive.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            Analyzers do not flow transitively through a ProjectReference, so the assembly declaring
+            the scene file's [DataContract] types has to name the generator that describes them. The
+            descriptors are how the YAML binder finds a member without reflecting over one.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>

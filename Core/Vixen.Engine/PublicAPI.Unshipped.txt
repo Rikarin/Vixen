@@ -196,6 +196,16 @@ Vixen.Engine.Frames.FixedStepAccumulator.TotalSteps.get -> long
 Vixen.Engine.Input.InputUpdateSystem -> sealed class
 Vixen.Engine.Input.InputUpdateSystem : Vixen.Ecs.Systems.SystemBase
 Vixen.Engine.Input.InputUpdateSystem.InputUpdateSystem(Vixen.Input.InputService input) -> void
+Vixen.Engine.Scenes.ISceneComponentBinder -> interface
+Vixen.Engine.Scenes.ISceneComponentBinder.AddTo(Vixen.Ecs.World world, Vixen.Core.Entity entity, object value) -> void
+Vixen.Engine.Scenes.ISceneComponentBinder.ComponentType.get -> System.Type
+Vixen.Engine.Scenes.ISceneComponentBinder.IsTag.get -> bool
+Vixen.Engine.Scenes.ISceneComponentBinder.Name.get -> string
+Vixen.Engine.Scenes.ISceneComponentBinder.Read(ref Vixen.Core.Serialization.SerializationReader reader, Vixen.Ecs.World world, Vixen.Core.Entity entity) -> void
+Vixen.Engine.Scenes.ISceneComponentBinder.TypeId.get -> Vixen.Core.ComponentTypeId
+Vixen.Engine.Scenes.ISceneComponentBinder.ValueOn(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> object
+Vixen.Engine.Scenes.ISceneComponentBinder.Write(ref Vixen.Core.Serialization.SerializationWriter writer, Vixen.Ecs.World world, Vixen.Core.Entity entity) -> void
+Vixen.Engine.Scenes.ISceneComponentBinder.WriteValue(ref Vixen.Core.Serialization.SerializationWriter writer, object value) -> void
 Vixen.Engine.Scenes.Prefab -> sealed class
 Vixen.Engine.Scenes.Prefab : System.IDisposable
 Vixen.Engine.Scenes.Prefab.ArchetypeCount.get -> int
@@ -206,6 +216,63 @@ Vixen.Engine.Scenes.Prefab.Instantiate(Vixen.Ecs.World world, Vixen.Engine.Trans
 Vixen.Engine.Scenes.Prefab.InstantiateOnto(Vixen.Ecs.World world, Vixen.Core.Entity standIn, System.Span<Vixen.Core.Entity> created, Vixen.Engine.Transforms.LocalTransform? at = null) -> Vixen.Core.Entity
 Vixen.Engine.Scenes.Prefab.Name.get -> string
 Vixen.Engine.Scenes.Prefab.NodeHas<T>(int node) -> bool
+Vixen.Engine.Scenes.PrefabAsset -> sealed class
+Vixen.Engine.Scenes.PrefabAsset.Content.get -> Vixen.Engine.Scenes.SceneContent
+Vixen.Engine.Scenes.PrefabAsset.Content.set -> Vixen.Engine.Scenes.SceneContent
+Vixen.Engine.Scenes.PrefabAsset.Instantiate(Vixen.Ecs.World world, Vixen.Engine.Transforms.LocalTransform? at = null) -> Vixen.Core.Entity
+Vixen.Engine.Scenes.PrefabAsset.Name.get -> string
+Vixen.Engine.Scenes.PrefabAsset.Name.set -> string
+Vixen.Engine.Scenes.PrefabAsset.PrefabAsset() -> void
+Vixen.Engine.Scenes.PrefabAsset.ToPrefab() -> Vixen.Engine.Scenes.Prefab
+Vixen.Engine.Scenes.PrefabAsset.Version.get -> int
+Vixen.Engine.Scenes.PrefabAsset.Version.set -> int
+Vixen.Engine.Scenes.SceneAsset -> sealed class
+Vixen.Engine.Scenes.SceneAsset.Content.get -> Vixen.Engine.Scenes.SceneContent
+Vixen.Engine.Scenes.SceneAsset.Content.set -> Vixen.Engine.Scenes.SceneContent
+Vixen.Engine.Scenes.SceneAsset.Instantiate(Vixen.Ecs.World world, System.Span<Vixen.Core.Entity> created = default(System.Span<Vixen.Core.Entity>)) -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Entity>
+Vixen.Engine.Scenes.SceneAsset.Load(Vixen.Engine.Scenes.SceneManager scenes, System.Span<Vixen.Core.Entity> created = default(System.Span<Vixen.Core.Entity>)) -> Vixen.Engine.Scenes.SceneHandle
+Vixen.Engine.Scenes.SceneAsset.Name.get -> string
+Vixen.Engine.Scenes.SceneAsset.Name.set -> string
+Vixen.Engine.Scenes.SceneAsset.SceneAsset() -> void
+Vixen.Engine.Scenes.SceneAsset.Version.get -> int
+Vixen.Engine.Scenes.SceneAsset.Version.set -> int
+Vixen.Engine.Scenes.SceneBlock -> sealed class
+Vixen.Engine.Scenes.SceneBlock.Columns.get -> Vixen.Engine.Scenes.SceneColumn[]
+Vixen.Engine.Scenes.SceneBlock.Columns.set -> Vixen.Engine.Scenes.SceneColumn[]
+Vixen.Engine.Scenes.SceneBlock.Entities.get -> int[]
+Vixen.Engine.Scenes.SceneBlock.Entities.set -> int[]
+Vixen.Engine.Scenes.SceneBlock.SceneBlock() -> void
+Vixen.Engine.Scenes.SceneColumn -> sealed class
+Vixen.Engine.Scenes.SceneColumn.Component.get -> string
+Vixen.Engine.Scenes.SceneColumn.Component.set -> string
+Vixen.Engine.Scenes.SceneColumn.Data.get -> byte[]
+Vixen.Engine.Scenes.SceneColumn.Data.set -> byte[]
+Vixen.Engine.Scenes.SceneColumn.SceneColumn() -> void
+Vixen.Engine.Scenes.SceneComponentException -> sealed class
+Vixen.Engine.Scenes.SceneComponentException : System.Exception
+Vixen.Engine.Scenes.SceneComponentException.SceneComponentException(string message) -> void
+Vixen.Engine.Scenes.SceneComponentRegistry -> static class
+Vixen.Engine.Scenes.SceneContent -> sealed class
+Vixen.Engine.Scenes.SceneContent.Blocks.get -> Vixen.Engine.Scenes.SceneBlock[]
+Vixen.Engine.Scenes.SceneContent.Blocks.set -> Vixen.Engine.Scenes.SceneBlock[]
+Vixen.Engine.Scenes.SceneContent.Count.get -> int
+Vixen.Engine.Scenes.SceneContent.Count.set -> int
+Vixen.Engine.Scenes.SceneContent.Ids.get -> System.Guid[]
+Vixen.Engine.Scenes.SceneContent.Ids.set -> System.Guid[]
+Vixen.Engine.Scenes.SceneContent.Instantiate(Vixen.Ecs.World world, System.Span<Vixen.Core.Entity> created, Vixen.Engine.Scenes.SceneHandle scene = default(Vixen.Engine.Scenes.SceneHandle)) -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Entity>
+Vixen.Engine.Scenes.SceneContent.NameOf(int index) -> string
+Vixen.Engine.Scenes.SceneContent.Names.get -> string[]
+Vixen.Engine.Scenes.SceneContent.Names.set -> string[]
+Vixen.Engine.Scenes.SceneContent.Parents.get -> int[]
+Vixen.Engine.Scenes.SceneContent.Parents.set -> int[]
+Vixen.Engine.Scenes.SceneContent.Positions.get -> Vixen.Core.Mathematics.Vector3[]
+Vixen.Engine.Scenes.SceneContent.Positions.set -> Vixen.Core.Mathematics.Vector3[]
+Vixen.Engine.Scenes.SceneContent.Rotations.get -> Vixen.Core.Mathematics.Quaternion[]
+Vixen.Engine.Scenes.SceneContent.Rotations.set -> Vixen.Core.Mathematics.Quaternion[]
+Vixen.Engine.Scenes.SceneContent.Scales.get -> Vixen.Core.Mathematics.Vector3[]
+Vixen.Engine.Scenes.SceneContent.Scales.set -> Vixen.Core.Mathematics.Vector3[]
+Vixen.Engine.Scenes.SceneContent.SceneContent() -> void
+Vixen.Engine.Scenes.SceneContent.Validate() -> void
 Vixen.Engine.Scenes.SceneHandle -> readonly struct
 Vixen.Engine.Scenes.SceneHandle : System.IEquatable<Vixen.Engine.Scenes.SceneHandle>
 Vixen.Engine.Scenes.SceneHandle.Id.get -> int
@@ -290,6 +357,8 @@ Vixen.Engine.Transforms.TransformSystem.TransformSystem() -> void
 Vixen.Engine.Transforms.WorldTransform -> struct
 Vixen.Engine.Transforms.WorldTransform.Value -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Engine.Transforms.WorldTransform.WorldTransform() -> void
+const Vixen.Engine.Scenes.PrefabAsset.Current = 1 -> int
+const Vixen.Engine.Scenes.SceneAsset.Current = 1 -> int
 override Vixen.Engine.Behaviors.BehaviorLateUpdateSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Engine.Behaviors.BehaviorLifecycleSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Engine.Behaviors.BehaviorUpdateSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
@@ -319,6 +388,11 @@ static Vixen.Engine.Coroutines.CoroutineAwaitable.operator !=(Vixen.Engine.Corou
 static Vixen.Engine.Coroutines.CoroutineAwaitable.operator ==(Vixen.Engine.Coroutines.CoroutineAwaitable left, Vixen.Engine.Coroutines.CoroutineAwaitable right) -> bool
 static Vixen.Engine.Coroutines.CoroutineMethodBuilder.Create() -> Vixen.Engine.Coroutines.CoroutineMethodBuilder
 static Vixen.Engine.Scenes.Prefab.CaptureFrom(Vixen.Ecs.World world, Vixen.Core.Entity root, string name = "Prefab") -> Vixen.Engine.Scenes.Prefab
+static Vixen.Engine.Scenes.SceneComponentRegistry.Register<T>() -> void
+static Vixen.Engine.Scenes.SceneComponentRegistry.Require(string alias) -> Vixen.Engine.Scenes.ISceneComponentBinder
+static Vixen.Engine.Scenes.SceneComponentRegistry.TryGet(System.Type type, out Vixen.Engine.Scenes.ISceneComponentBinder? binder) -> bool
+static Vixen.Engine.Scenes.SceneComponentRegistry.TryGet(string alias, out Vixen.Engine.Scenes.ISceneComponentBinder? binder) -> bool
+static Vixen.Engine.Scenes.SceneContent.Capture(Vixen.Ecs.World world, System.Collections.Generic.IReadOnlyList<Vixen.Core.Entity> roots, System.Collections.Generic.IReadOnlyDictionary<Vixen.Core.Entity, string>? names = null, System.Collections.Generic.IReadOnlyDictionary<Vixen.Core.Entity, System.Guid>? ids = null) -> Vixen.Engine.Scenes.SceneContent
 static Vixen.Engine.Scenes.SceneHandle.None.get -> Vixen.Engine.Scenes.SceneHandle
 static Vixen.Engine.Transforms.Hierarchy.ChildrenOf(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> Vixen.Engine.Transforms.Hierarchy.ChildSequence
 static Vixen.Engine.Transforms.Hierarchy.CreateTransform(Vixen.Ecs.World world, Vixen.Engine.Transforms.LocalTransform local) -> Vixen.Core.Entity
