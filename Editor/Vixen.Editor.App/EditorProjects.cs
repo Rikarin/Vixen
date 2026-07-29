@@ -315,6 +315,27 @@ sealed partial class EditorApplication {
         RequestProject(root);
     }
 
+    /// <summary>Says so when the project was made by an engine newer than this one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The <c>.vxproj</c>'s reader, and the reason the file carries a version at all.</b>
+    ///     Doc 08 has named the marker since it was written; what makes it more than a sentinel is
+    ///     that opening a project built against a newer engine fails <i>later and stranger</i> — a
+    ///     scene with a component this build has never heard of, a settings file with keys nothing
+    ///     claims — and every one of those failures is more confusing than being told at the door.
+    ///     A field nothing reads would teach people the file does not matter, which is the bar doc
+    ///     20's A4 sets for a shipped setting and it applies here too.
+    /// </remarks>
+    void WarnIfNewerEngine() {
+        if (ProjectMarker.TryRead(project.Paths.Root, out var marker) && ProjectMarker.IsFromTheFuture(marker)) {
+            Shell.Notifications.Show(
+                "This project was made with a newer Vixen",
+                NotificationSeverity.Warning,
+                $"It says engine {marker.Engine}; this editor is {ProjectScaffold.SdkVersion}. Anything it "
+                + "contains that this build does not know about will be reported as it is met."
+            );
+        }
+    }
+
     /// <summary>How long ago something was, in the roughest terms that are still useful.</summary>
     /// <remarks>
     ///     ⚠ <b>Not a date, because the question is "which of these was I last in".</b> Two projects

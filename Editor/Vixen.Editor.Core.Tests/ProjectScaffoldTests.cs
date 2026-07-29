@@ -104,3 +104,79 @@ public class ProjectScaffoldTests : IDisposable {
         Assert.True(ProjectScaffold.IsUsableName(name));
     }
 }
+
+/// <summary>The file that says a directory is a project, which doc 08 named and nothing wrote.</summary>
+public class ProjectMarkerTests : IDisposable {
+    readonly string root = Directory.CreateTempSubdirectory("vixen-marker").FullName;
+
+    public void Dispose() {
+        GC.SuppressFinalize(this);
+
+        if (Directory.Exists(root)) {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>A scaffolded game carries one, which is the only way projects come to have them.</summary>
+    [Fact]
+    public void A_new_project_is_marked_as_one() {
+        Assert.True(ProjectScaffold.Write("game", "Asteroids", root).Succeeded);
+
+        Assert.True(ProjectMarker.TryFind(root, out var path));
+        Assert.Equal("Asteroids" + ProjectMarker.Extension, Path.GetFileName(path));
+
+        Assert.True(ProjectMarker.TryRead(root, out var marker));
+        Assert.Equal(ProjectMarker.CurrentFormat, marker.Format);
+        Assert.Equal(ProjectScaffold.SdkVersion, marker.Engine);
+    }
+
+    /// <summary>
+    ///     ⚠ The reason the marker records a version: opening a project built against a newer engine
+    ///     fails later and stranger, and being told at the door is the whole value of the field.
+    /// </summary>
+    [Fact]
+    public void A_project_from_a_newer_engine_is_recognised_as_one() {
+        File.WriteAllText(Path.Combine(root, "Asteroids.vxproj"), ProjectMarker.Write("99.0.0"));
+
+        Assert.True(ProjectMarker.TryRead(root, out var marker));
+        Assert.True(ProjectMarker.IsFromTheFuture(marker, "0.1.0"));
+
+        // Older is the ordinary case and must never warn, and an unparseable version on either side
+        // is not evidence of anything.
+        Assert.False(ProjectMarker.IsFromTheFuture(marker, "99.1.0"));
+        Assert.False(ProjectMarker.IsFromTheFuture(marker with { Engine = "nightly" }, "0.1.0"));
+    }
+
+    /// <summary>
+    ///     ⚠ A format this build does not understand is found and not read. Binding the half of it
+    ///     that is recognised would be worse than saying nothing, because a later format may change
+    ///     what a field means rather than which fields there are.
+    /// </summary>
+    [Fact]
+    public void A_marker_from_a_future_format_is_not_bound() {
+        File.WriteAllText(Path.Combine(root, "Asteroids.vxproj"), "format: 99\nengine: 1.0.0\n");
+
+        Assert.True(ProjectMarker.TryFind(root, out _));
+        Assert.False(ProjectMarker.TryRead(root, out _));
+    }
+
+    /// <summary>
+    ///     ⚠ A file that will not parse is not an editor that will not open the project — the same
+    ///     bargain the keymap and the preferences file make.
+    /// </summary>
+    [Fact]
+    public void A_broken_marker_is_ignored_rather_than_thrown_on() {
+        File.WriteAllText(Path.Combine(root, "Asteroids.vxproj"), "format: : :\n\t- broken");
+
+        Assert.False(ProjectMarker.TryRead(root, out _));
+    }
+
+    /// <summary>Two markers in one directory is two projects sharing an Assets/, so neither wins.</summary>
+    [Fact]
+    public void Two_markers_are_refused_rather_than_picked_between() {
+        File.WriteAllText(Path.Combine(root, "One.vxproj"), ProjectMarker.Write("0.1.0"));
+        File.WriteAllText(Path.Combine(root, "Two.vxproj"), ProjectMarker.Write("0.1.0"));
+
+        Assert.False(ProjectMarker.TryFind(root, out _));
+    }
+}

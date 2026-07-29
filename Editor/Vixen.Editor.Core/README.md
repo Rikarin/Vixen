@@ -107,6 +107,20 @@ the type moved and the payload moved with it.
 a namespace, what would be overwritten, what was written: `ScaffoldRunner` formats a `ScaffoldResult`
 and nothing more, which is the split `ImportRunner` and `ContentPipeline` already make.
 
+⚠ **A new project carries a `.vxproj`, which doc 08 named and nothing wrote for two years.**
+`ProjectMarker` is that file, and it is a *marker* rather than the "project settings (YAML)" doc 08
+called it — the settings half was answered by `ProjectSettings/` while this went unbuilt, and a
+second place to put project settings is what that split exists to avoid. What it answers is what
+`Assets/`-exists could not: a source tree that happens to contain a folder called `Assets` is not a
+project, and a project whose assets have all been deleted still is. Both rules are live, because
+every project made before the marker has to go on opening.
+
+Two fields, and each has a reader: `format` is refused when it is newer than this build understands,
+and `engine` is what makes the editor say "this project was made with a newer Vixen" at the door
+rather than failing later and stranger on a component it has never heard of. It does not record the
+project's *name* — that is `ProjectInfoSettings.ProductName`, and two files answering "what is this
+called" is the disagreement doc 20's A4 spends a page preventing.
+
 ⚠ **`NameFrom` exists for the editor and the CLI does not use it.** A name typed as an argument
 should be refused when it cannot be a namespace; a name that *is* whatever folder somebody picked in
 a file dialog should not — "my game (2)" is an ordinary directory and an impossible identifier, and

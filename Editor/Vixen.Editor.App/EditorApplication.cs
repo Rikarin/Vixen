@@ -409,6 +409,8 @@ sealed partial class EditorApplication : IDisposable {
         // be unreadable is not offered as the first thing to try again next time.
         Recent.Record(project.Paths.Root, DateTime.UtcNow);
 
+        WarnIfNewerEngine();
+
         Shell.Status = ProductName;
 
         // ⚠ A delegate rather than a number pushed on every change. Which of the several selections
