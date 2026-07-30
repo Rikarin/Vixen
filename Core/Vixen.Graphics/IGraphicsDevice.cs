@@ -447,6 +447,20 @@ public readonly record struct DescriptorWrite(
     public static DescriptorWrite Texture(uint binding, TextureViewHandle view, int arrayIndex = 0) =>
         new(binding, DescriptorKind.SampledTexture, TextureView: view, ArrayIndex: arrayIndex);
 
+    /// <summary>Binds a storage image — one a shader loads and stores rather than samples.</summary>
+    /// <param name="binding">Which binding.</param>
+    /// <param name="view">The view.</param>
+    /// <param name="arrayIndex">Which element, for an array binding.</param>
+    /// <remarks>
+    ///     Distinct from <see cref="Texture" /> rather than a flag on it, because the difference is one a
+    ///     descriptor-set layout declares and no driver checks at bind time: a storage image written as a
+    ///     sampled one is accepted, and the shader reads whichever it was compiled for. That is silently
+    ///     wrong in the direction nobody looks — a compute pass whose output is a texture that never
+    ///     changes.
+    /// </remarks>
+    public static DescriptorWrite StorageImage(uint binding, TextureViewHandle view, int arrayIndex = 0) =>
+        new(binding, DescriptorKind.StorageTexture, TextureView: view, ArrayIndex: arrayIndex);
+
     /// <summary>Binds a sampler.</summary>
     /// <param name="binding">Which binding.</param>
     /// <param name="sampler">The sampler.</param>

@@ -959,6 +959,7 @@ static Vixen.Graphics.DescriptorSetLayoutHandle.Null.get -> Vixen.Graphics.Descr
 static Vixen.Graphics.DescriptorWrite.DynamicUniform(uint binding, Vixen.Graphics.BufferHandle buffer, long offset = 0, long size = 0) -> Vixen.Graphics.DescriptorWrite
 static Vixen.Graphics.DescriptorWrite.SamplerAt(uint binding, Vixen.Graphics.SamplerHandle sampler) -> Vixen.Graphics.DescriptorWrite
 static Vixen.Graphics.DescriptorWrite.Storage(uint binding, Vixen.Graphics.BufferHandle buffer, long offset = 0, long size = 0) -> Vixen.Graphics.DescriptorWrite
+static Vixen.Graphics.DescriptorWrite.StorageImage(uint binding, Vixen.Graphics.TextureViewHandle view, int arrayIndex = 0) -> Vixen.Graphics.DescriptorWrite
 static Vixen.Graphics.DescriptorWrite.Texture(uint binding, Vixen.Graphics.TextureViewHandle view, int arrayIndex = 0) -> Vixen.Graphics.DescriptorWrite
 static Vixen.Graphics.DescriptorWrite.Uniform(uint binding, Vixen.Graphics.BufferHandle buffer, long offset = 0, long size = 0) -> Vixen.Graphics.DescriptorWrite
 static Vixen.Graphics.GpuTimestamps.ToMilliseconds(ulong ticks, float period) -> double

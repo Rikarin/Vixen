@@ -181,6 +181,10 @@ public sealed class GpuClusterVisibility : IDisposable {
     BufferHandle requestBuffer;
     BufferHandle requestReadbackBuffer;
     BufferHandle zeros;
+    BufferHandle staging;
+
+    readonly List<(long From, BufferHandle To, long Size)> pendingMeshCopies = [];
+    long stagedMeshBytes;
 
     // One texel, for the frames with no pyramid and a variant that declares one anyway — the same
     // stand-in GpuVisibilityGroup keeps, and needed here for exactly the same reason: a permutation
@@ -585,6 +589,18 @@ public sealed class GpuClusterVisibility : IDisposable {
 
         pending = null;
 
+        // The mesh records, if a registration staged any. Before the barrier below and before the
+        // dispatch, because the traversal is about to read exactly these.
+        if (pendingMeshCopies.Count > 0) {
+            foreach (var (from, to, size) in pendingMeshCopies) {
+                list.Barrier(new([new(to, ResourceState.Undefined, ResourceState.CopyDestination)], []));
+                list.CopyBuffer(staging, from, to, 0, size);
+                list.Barrier(new([new(to, ResourceState.CopyDestination, ResourceState.ShaderRead)], []));
+            }
+
+            pendingMeshCopies.Clear();
+        }
+
         // A texture is created in no layout at all and a descriptor promises the one it was written
         // with, so the stand-in has to be transitioned even though nothing ever samples it. Once, on
         // the first dispatch that binds it; the pyramid transitions itself.
@@ -750,19 +766,44 @@ public sealed class GpuClusterVisibility : IDisposable {
     ///     path here would be machinery for a frame that never has any work for it.
     /// </remarks>
     void UploadMeshes() {
-        if (!meshesDirty) {
+        if (!meshesDirty || !staging.IsValid) {
             return;
         }
 
-        device.Write(clusterBuffer, 0, MemoryMarshal.AsBytes<CullCluster>(clusters.ToArray()));
-        device.Write(childBuffer, 0, MemoryMarshal.AsBytes<uint>(children.Count > 0 ? children.ToArray() : [0u]));
-        device.Write(rootBuffer, 0, MemoryMarshal.AsBytes<uint>(roots.Count > 0 ? roots.ToArray() : [0u]));
-        device.Write(geometryBuffer, 0, MemoryMarshal.AsBytes<RasterCluster>(geometry.ToArray()));
-        device.Write(gridBuffer, 0, MemoryMarshal.AsBytes<RasterMesh>(grids.ToArray()));
-        device.Write(materialBuffer, 0, MemoryMarshal.AsBytes<uint>(materials.Count > 0 ? materials.ToArray() : [0u]));
+        // Staged and then copied, rather than written straight in. Every one of these is device-local —
+        // the traversal reads them for every cluster it tests, which is the memory that has to be fast —
+        // and device-local memory is not host-writable at all. The copies go in the frame's own list, at
+        // the head of it, which `Record` is already the place for.
+        pendingMeshCopies.Clear();
+        stagedMeshBytes = 0;
+
+        Stage(clusterBuffer, MemoryMarshal.AsBytes<CullCluster>(clusters.ToArray()));
+        Stage(childBuffer, MemoryMarshal.AsBytes<uint>(children.Count > 0 ? children.ToArray() : [0u]));
+        Stage(rootBuffer, MemoryMarshal.AsBytes<uint>(roots.Count > 0 ? roots.ToArray() : [0u]));
+        Stage(geometryBuffer, MemoryMarshal.AsBytes<RasterCluster>(geometry.ToArray()));
+        Stage(gridBuffer, MemoryMarshal.AsBytes<RasterMesh>(grids.ToArray()));
+        Stage(materialBuffer, MemoryMarshal.AsBytes<uint>(materials.Count > 0 ? materials.ToArray() : [0u]));
 
         meshesDirty = false;
     }
+
+    /// <summary>Copies one array into the staging buffer and remembers where it has to end up.</summary>
+    void Stage(BufferHandle destination, ReadOnlySpan<byte> bytes) {
+        if (bytes.IsEmpty || stagedMeshBytes + bytes.Length > MeshStagingBytes) {
+            return;
+        }
+
+        device.Write(staging, stagedMeshBytes, bytes);
+        pendingMeshCopies.Add((stagedMeshBytes, destination, bytes.Length));
+        stagedMeshBytes += bytes.Length;
+    }
+
+    /// <summary>How many bytes the mesh records take between them, for the staging buffer.</summary>
+    long MeshStagingBytes =>
+        ((long)clusters.Count * Unsafe.SizeOf<CullCluster>())
+        + ((long)geometry.Count * Unsafe.SizeOf<RasterCluster>())
+        + ((long)grids.Count * Unsafe.SizeOf<RasterMesh>())
+        + ((long)(children.Count + roots.Count + materials.Count + 3) * sizeof(uint));
 
     void UploadViews(
         IReadOnlyList<RenderView> frameViews,
@@ -1013,6 +1054,15 @@ public sealed class GpuClusterVisibility : IDisposable {
             new(sizeof(uint) * 4, BufferUsage.CopySource, MemoryAccess.HostUpload, "ClusterCulling.Zeros")
         );
 
+        staging = device.CreateBuffer(
+            new(
+                Math.Max(MeshStagingBytes, 256),
+                BufferUsage.CopySource,
+                MemoryAccess.HostUpload,
+                "ClusterCulling.Staging"
+            )
+        );
+
         if (zeros.IsValid) {
             device.Write(zeros, 0, MemoryMarshal.AsBytes<uint>([0u, 0u, 0u, 0u]));
         }
@@ -1042,7 +1092,8 @@ public sealed class GpuClusterVisibility : IDisposable {
             && visibleBuffer.IsValid
             && requestBuffer.IsValid
             && requestReadbackBuffer.IsValid
-            && zeros.IsValid;
+            && zeros.IsValid
+            && staging.IsValid;
     }
 
     bool EnsureDescriptors(Effect effect) {
@@ -1077,7 +1128,7 @@ public sealed class GpuClusterVisibility : IDisposable {
         foreach (var buffer in (BufferHandle[])
                  [
                      clusterBuffer, childBuffer, rootBuffer, geometryBuffer, gridBuffer, materialBuffer,
-                     visibleBuffer, requestBuffer, requestReadbackBuffer, zeros
+                     visibleBuffer, requestBuffer, requestReadbackBuffer, zeros, staging
                  ]) {
             if (buffer.IsValid) {
                 device.Destroy(buffer);
@@ -1094,6 +1145,10 @@ public sealed class GpuClusterVisibility : IDisposable {
         requestBuffer = default;
         requestReadbackBuffer = default;
         zeros = default;
+        staging = default;
+
+        pendingMeshCopies.Clear();
+        stagedMeshBytes = 0;
         visibleCapacity = 0;
     }
 

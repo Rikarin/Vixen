@@ -303,11 +303,15 @@ that catches it is differentiating the reconstruction numerically, which is what
 compute stage has no quad, so `Sample` is undefined there and no runtime branch helps. It is the first
 consumer of the `SampleGrad` support built as blocker B3.
 
+**`GpuClusterResolve` dispatches one indirect command per material**, over that material's own bin,
+with the variant key being the material's own composition plus the gradient permutation — so a material
+is one surface feature chain and one shading model whichever pass reaches it. Every binding is filled by
+name through `EffectSetWriter`, because what a composed shader's set contains is whatever the material's
+features brought.
+
 ⚠ The resolve has the directional and ambient terms and not the clustered punctual loop: that loop is
 `ForwardPlus`-local, and sharing it means extracting its bindings into a base shader both derive from,
-which renumbers bindings two oracle suites are written against. And the per-material dispatch host is
-not built — it needs a compute variant resolved per material composition, which is
-`MaterialRenderFeature`'s machinery.
+which renumbers bindings two oracle suites are written against.
 
 **And with no wait, every descriptor set is a ring.** A set a submitted command buffer still
 references may not be written — `VUID-vkUpdateDescriptorSets-None-03047` — so all three classes hold

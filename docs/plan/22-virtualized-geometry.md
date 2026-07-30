@@ -408,9 +408,9 @@ the total cost. See *Where to stop*.
 
 - One instanced indirect draw over the visible cluster list — the count is the traversal's output and
   the host never learns it, which is the call `GpuDrawArguments.Compact` already makes.
-  [`GpuClusterRaster`](../Core/Vixen.Rendering/GpuClusterRaster.cs),
-  [`ClusterRaster.rvn`](../Raven/Library/Pipeline/ClusterRaster.rvn), placed by
-  [`VisibilityBufferRenderer`](../Core/Vixen.Rendering/Compositor/VisibilityBufferRenderer.cs).
+  [`GpuClusterRaster`](../../Core/Vixen.Rendering/GpuClusterRaster.cs),
+  [`ClusterRaster.rvn`](../../Raven/Library/Pipeline/ClusterRaster.rvn), placed by
+  [`VisibilityBufferRenderer`](../../Core/Vixen.Rendering/Compositor/VisibilityBufferRenderer.cs).
 - Output one `uint`: the visible-list slot and the triangle index, with ordinary depth test and depth
   write. No atomics, no 64-bit anything, no compute — which is why this is the portable baseline and
   phase 6 is the accelerator.
@@ -453,7 +453,7 @@ Four things the plan above did not say:
 
 ---
 
-### Phase 5 — Material resolve · ~2.5 EM · 🟡 mostly built
+### Phase 5 — Material resolve · ~2.5 EM · ✅ built
 
 This is where the plan deliberately diverges from Unreal. See **improvement 2** — the resolve bins
 into per-material tiles and runs the *existing* Forward+ shading, rather than resolving into a
@@ -492,7 +492,7 @@ shader source changes — the composed shading models produce the same image whe
 normal draw or a resolve.
 
 **Met for the composition, and the remainder is named below.** All four shading models compose into
-[`VisibilityResolve.rvn`](../Raven/Library/Pipeline/VisibilityResolve.rvn) through the same two slots
+[`VisibilityResolve.rvn`](../../Raven/Library/Pipeline/VisibilityResolve.rvn) through the same two slots
 `ForwardPlus` composes them into, reach both backends, and are distinguishable from the default — which
 is the criterion, and nothing in `Material/` was changed to serve the resolve except the one thing the
 resolve genuinely needs, below. `LibraryTreeTests` holds it.
@@ -500,8 +500,8 @@ resolve genuinely needs, below. `LibraryTreeTests` holds it.
 The reconstruction is where the substance is, and it is checked against the *definition* of
 perspective-correct interpolation rather than against a second solver: a world-linear attribute comes
 back as the same linear function of the world point the pixel sees, over randomised triangles, cameras
-and interior points. [`Barycentrics.rvn`](../Raven/Library/Geometry/Barycentrics.rvn) and
-[`ClusterAttributes`](../Core/Vixen.Rendering/ClusterAttributes.cs), tested in `ClusterAttributeTests`.
+and interior points. [`Barycentrics.rvn`](../../Raven/Library/Geometry/Barycentrics.rvn) and
+[`ClusterAttributes`](../../Core/Vixen.Rendering/ClusterAttributes.cs), tested in `ClusterAttributeTests`.
 
 Five things the plan above did not say:
 
@@ -532,14 +532,34 @@ Five things the plan above did not say:
   `MaterialReflectionTests` and `ForwardPlusLayoutTests` are both written against — so it is named here
   rather than done in passing. Shadows and reflection probes are behind the same door.
 
-**And the host is half done, deliberately.** The binning is complete —
-[`GpuVisibilityTiles`](../Core/Vixen.Rendering/GpuVisibilityTiles.cs), recorded by
-`VisibilityBufferRenderer` in a second pass so the ordering cannot be got wrong in a document, with the
-counters doubling as the indirect dispatch arguments. What is *not* built is the per-material resolve
-dispatch, because that needs a compute variant resolved per material composition, which is
-`MaterialRenderFeature`'s machinery and a project in its own right. So phase 5 today gives a correct
-reconstruction, a correct binning, and a resolve shader that provably composes the material tree —
-and still no picture.
+**And the host is complete.** [`GpuVisibilityTiles`](../../Core/Vixen.Rendering/GpuVisibilityTiles.cs)
+bins, with the counters doubling as the indirect dispatch arguments, and
+[`GpuClusterResolve`](../../Core/Vixen.Rendering/GpuClusterResolve.cs) dispatches one indirect command
+per material over that material's own bin — both recorded by `VisibilityBufferRenderer` in one pass, so
+the ordering between them is not something a compositor document can get wrong.
+
+Three more things the plan did not say, all found by building it:
+
+- **The variant key is the material's composition plus one permutation, spelled literally.**
+  `EffectKey.From` wants generated `ParameterKey`s and the gradient key has none — it is declared on
+  `MaterialTextures` and *inherited* into every sampling feature, which the reflection does not publish.
+  Two names and two values is a small enough surface to write out, and the test asserts the composition
+  reaches the key: without it every material resolves to the same default variant, which compiles,
+  dispatches, and shades something grey.
+- **`EffectSetWriter` could not bind a storage image at all.** It mapped `SampledTexture` and
+  `StorageTexture` to the same write, so the resolve's output target was bound as a sampled texture. The
+  null device's validation puts it better than this could: *no driver checks this and the shader reads
+  whichever it was compiled for*. Fixed with a `DescriptorWrite.StorageImage` beside `Texture`; the
+  resolve is the first set in the engine that both contains one and is filled through that helper.
+- **Two buffers were device-local and written from the host**, which is not an error anywhere until a
+  device says so — the binning's argument template, and every one of the traversal's mesh-record buffers.
+  The template only ever feeds a copy, so it is host-upload now. The mesh records are read by the
+  traversal for every cluster it tests, so they stay device-local and are staged through host memory with
+  the copies recorded at the head of the frame, which is what `MeshletPagePool` already does for pages.
+
+So the whole path exists: import → pages → residency → traversal → raster → bin → shade. **What is still
+owed is the clustered punctual light loop**, and its prerequisite is the `ForwardPlus` extraction above
+rather than anything about the resolve.
 
 ---
 
@@ -608,11 +628,12 @@ The honest cost: tile binning has a worst case UE's approach does not — a scre
 holds every material degenerates to the same work with extra bookkeeping. Materials are spatially
 coherent in practice, which is the assumption being made explicit rather than hidden.
 
-🟡 **The binning is built** as [`VisibilityTiles.rvn`](../Raven/Library/Pipeline/VisibilityTiles.rvn)
-and [`GpuVisibilityTiles`](../Core/Vixen.Rendering/GpuVisibilityTiles.cs), with the worst case
-reportable rather than merely acknowledged: `Overflowed` says a material wanted more tiles than its list
-holds, which is a hole and not a slow frame. What is still owed is the dispatch that consumes the bins
-— see phase 5.
+✅ **Built**, as [`VisibilityTiles.rvn`](../../Raven/Library/Pipeline/VisibilityTiles.rvn) and
+[`GpuVisibilityTiles`](../../Core/Vixen.Rendering/GpuVisibilityTiles.cs) for the binning, and
+[`GpuClusterResolve`](../../Core/Vixen.Rendering/GpuClusterResolve.cs) for the dispatch that consumes it
+— one indirect command per material, over that material's own bin. The worst case is reportable rather
+than merely acknowledged: `Overflowed` says a material wanted more tiles than its list holds, which is a
+hole and not a slow frame.
 
 ### 3. One culling shader, one occlusion semantic
 
@@ -716,7 +737,7 @@ being a mystery in a frame capture.
 | 2 — Pages and residency ✅ | ~2 | 6 |
 | 3 — Hierarchical culling ✅ | ~2.5 | 8.5 |
 | 4 — HW-raster visibility buffer ✅ | ~2 | 10.5 |
-| 5 — Material resolve 🟡 | ~2.5 | 13 |
+| 5 — Material resolve ✅ | ~2.5 | 13 |
 | 6 — SW raster (optional) | ~3 | 16 |
 | 7 — Virtual shadow maps | ~2.5 | 18.5 |
 
