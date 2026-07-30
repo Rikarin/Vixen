@@ -3,6 +3,8 @@
 
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
+using Vixen.Core;
+using Vixen.Ecs;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
@@ -20,7 +22,40 @@ namespace Vixen.Editor.SceneView;
 ///     into a <see cref="MeshShapeGeometry" />. When a block-out mesh is a mesh of its own rather than
 ///     a parameter, this is where its identity goes and nothing else here changes.
 /// </remarks>
-public readonly record struct ShapeBatch(PrimitiveKind Kind, int First, int Count, bool Edges);
+public readonly record struct ShapeBatch(SceneShape Shape, int First, int Count, bool Edges) {
+    /// <summary>Which primitive, for a batch of them.</summary>
+    /// <remarks>Meaningless for a batch of a mesh asset; ask <see cref="SceneShape.IsAsset" /> first.</remarks>
+    public PrimitiveKind Kind => Shape.Kind;
+}
+
+/// <summary>What a run of entities draws: a built-in shape, or a mesh an artist authored.</summary>
+/// <remarks>
+///     <para>
+///         <b>One key for two things, because a batch is a batch either way.</b> The viewport groups
+///         entities that share geometry into one instanced draw, and whether that geometry came out of
+///         <see cref="MeshPrimitives" /> or out of a bundle changes nothing about the grouping, the
+///         instancing or the pipeline. What it changes is where the vertices come from, which is
+///         <see cref="SceneMeshes.Shape" />'s business alone.
+///     </para>
+///     <para>
+///         ⚠ <b>A <see cref="PrimitiveKind" /> of zero is <c>Cube</c>, so the discriminator has to be the
+///         reference and not the kind.</b> Defaulting a key would otherwise mean "every entity is a
+///         cube", which is a viewport full of cubes where the meshes should be — and the meshes are
+///         exactly what nobody had yet, so it would have looked like the feature simply not working.
+///     </para>
+/// </remarks>
+/// <param name="Kind">Which primitive, when this names one.</param>
+/// <param name="Mesh">Which mesh asset, when it names one instead.</param>
+public readonly record struct SceneShape(PrimitiveKind Kind, AssetReference Mesh) {
+    /// <summary>Whether this names an authored mesh rather than a built-in shape.</summary>
+    public bool IsAsset => !Mesh.IsNull;
+
+    /// <summary>A key for a built-in shape.</summary>
+    public static SceneShape Of(PrimitiveKind kind) => new(kind, AssetReference.Null);
+
+    /// <summary>A key for an authored mesh.</summary>
+    public static SceneShape Of(AssetReference mesh) => new(default, mesh);
+}
 
 /// <summary>Every shaped entity in a scene, as one instance each.</summary>
 /// <remarks>
@@ -63,8 +98,12 @@ public sealed class SceneMeshes {
     // One bucket per shape per topology, reused across frames rather than rebuilt: a batch's
     // instances have to be contiguous, and a scene is walked in tree order rather than in shape
     // order. Cleared per build, so a kind that stops appearing costs an empty list.
-    readonly Dictionary<PrimitiveKind, List<MeshInstance>> solids = [];
-    readonly Dictionary<PrimitiveKind, List<MeshInstance>> wires = [];
+    readonly Dictionary<SceneShape, List<MeshInstance>> solids = [];
+    readonly Dictionary<SceneShape, List<MeshInstance>> wires = [];
+
+    // What the source answered this frame, so a batch can be asked what its geometry is without the
+    // source being asked twice for one mesh — and so `Shape` needs no source of its own.
+    readonly Dictionary<AssetReference, MeshData> assets = [];
 
     /// <summary>The frame's entities, one instance each, grouped by <see cref="Batches" />.</summary>
     /// <remarks>
@@ -76,6 +115,23 @@ public sealed class SceneMeshes {
 
     /// <summary>Which run of them is which shape.</summary>
     public IReadOnlyList<ShapeBatch> Batches => batches;
+
+    /// <summary>Where the geometry a mesh reference names comes from. Null draws no referenced mesh.</summary>
+    /// <remarks>
+    ///     <b>The viewport's half of the join a game makes through <c>MeshExtractionSystem.Meshes</c>.</b>
+    ///     The editor reads its meshes out of the import cache rather than out of a bundle, which is the
+    ///     only difference and is exactly what the interface exists to absorb — see
+    ///     <c>ProjectMeshSource</c>.
+    /// </remarks>
+    public IMeshSource? Meshes { get; set; }
+
+    /// <summary>How many entities are waiting for geometry that has not been read yet.</summary>
+    /// <remarks>
+    ///     ⚠ A number that stays up is a reference nothing can resolve — a mesh that failed to import, a
+    ///     model deleted since the scene was saved — which otherwise looks exactly like a scene with a
+    ///     hole in it.
+    /// </remarks>
+    public int Waiting { get; private set; }
 
     /// <summary>How many entities the last build drew.</summary>
     /// <remarks>
@@ -210,8 +266,11 @@ public sealed class SceneMeshes {
             bucket.Clear();
         }
 
+        assets.Clear();
+
         Count = 0;
         Triangles = 0;
+        Waiting = 0;
 
         var show = viewport?.Show ?? SceneShow.Default;
         var mode = viewport?.Modes.Current ?? ViewMode.Shaded;
@@ -236,7 +295,7 @@ public sealed class SceneMeshes {
         var world = document.World;
 
         foreach (var entity in document.Entities) {
-            if (!PrimitiveShapes.TryGet(world, entity, out var kind) || !world.Has<WorldTransform>(entity)) {
+            if (!world.Has<WorldTransform>(entity) || !Drawn(world, entity, out var kind)) {
                 continue;
             }
 
@@ -303,16 +362,77 @@ public sealed class SceneMeshes {
     ///     separately about <see cref="Segments" /> — which is the disagreement that draws the picking
     ///     ray against one sphere and the pixels against another.
     /// </remarks>
-    public MeshData Shape(PrimitiveKind kind) {
-        if (!shapes.TryGetValue(kind, out var mesh)) {
-            mesh = MeshPrimitives.Create(kind, Segments, Math.Max(MeshPrimitives.MinimumSegments, Segments / 2));
-            shapes[kind] = mesh;
+    public MeshData? Shape(SceneShape shape) {
+        if (shape.IsAsset) {
+            // Read out of what the collect already resolved rather than asked for again: a batch names
+            // only shapes some entity drew this frame, so a miss here is a caller asking about a batch
+            // from a different frame.
+            return assets.GetValueOrDefault(shape.Mesh);
+        }
+
+        if (!shapes.TryGetValue(shape.Kind, out var mesh)) {
+            mesh = MeshPrimitives.Create(
+                shape.Kind,
+                Segments,
+                Math.Max(MeshPrimitives.MinimumSegments, Segments / 2)
+            );
+
+            shapes[shape.Kind] = mesh;
         }
 
         return mesh;
     }
 
-    static void Add(Dictionary<PrimitiveKind, List<MeshInstance>> buckets, PrimitiveKind kind, MeshInstance instance) {
+    /// <summary>The geometry of one built-in shape, built once and cached.</summary>
+    /// <param name="kind">Which primitive.</param>
+    /// <returns>Its vertices, normals and triangles, in the shape's own space.</returns>
+    public MeshData Shape(PrimitiveKind kind) => Shape(SceneShape.Of(kind))!;
+
+    /// <summary>What an entity draws, if this frame can draw it.</summary>
+    /// <param name="world">The world.</param>
+    /// <param name="entity">The entity.</param>
+    /// <param name="shape">What it draws.</param>
+    /// <returns>Whether it draws anything this frame.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The mesh wins, exactly as it does in a game.</b> <c>MeshExtractionSystem</c> makes that
+    ///         an archetype fact with <c>WithNone&lt;MeshRenderable&gt;</c>; this is the same rule written
+    ///         as a branch, because the editor walks a document's entity list rather than a query. An
+    ///         entity that looked different in the viewport from how it looks in the game is the one
+    ///         defect a viewport must not have.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An unloaded mesh draws nothing rather than falling back to its shape</b> — for the
+    ///         reason the extraction gives: an entity that changed appearance while its mesh loaded is a
+    ///         scene that looks different depending on how fast the disk is. <see cref="Waiting" /> is
+    ///         what says so, and it falls to zero once the imports have been read.
+    ///     </para>
+    /// </remarks>
+    bool Drawn(World world, Entity entity, out SceneShape shape) {
+        shape = default;
+
+        if (MeshRenderables.TryGet(world, entity, out var renderable)) {
+            if (Meshes is null || renderable.Mesh.IsNull || !Meshes.TryGet(renderable.Mesh, out var mesh)) {
+                Waiting++;
+                return false;
+            }
+
+            assets[renderable.Mesh] = mesh;
+            shape = SceneShape.Of(renderable.Mesh);
+
+            return true;
+        }
+
+        if (!PrimitiveShapes.TryGet(world, entity, out var kind)) {
+            return false;
+        }
+
+        shape = SceneShape.Of(kind);
+
+        return true;
+    }
+
+    static void Add(Dictionary<SceneShape, List<MeshInstance>> buckets, SceneShape kind, MeshInstance instance) {
         if (!buckets.TryGetValue(kind, out var bucket)) {
             bucket = [];
             buckets[kind] = bucket;
@@ -321,7 +441,7 @@ public sealed class SceneMeshes {
         bucket.Add(instance);
     }
 
-    void Emit(Dictionary<PrimitiveKind, List<MeshInstance>> buckets, bool edges) {
+    void Emit(Dictionary<SceneShape, List<MeshInstance>> buckets, bool edges) {
         foreach (var (kind, bucket) in buckets) {
             if (bucket.Count == 0) {
                 continue;
@@ -331,7 +451,7 @@ public sealed class SceneMeshes {
             instances.AddRange(bucket);
 
             if (!edges) {
-                Triangles += Shape(kind).TriangleCount * bucket.Count;
+                Triangles += (Shape(kind)?.TriangleCount ?? 0) * bucket.Count;
             }
         }
     }

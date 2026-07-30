@@ -223,13 +223,13 @@ public sealed class ModelImporterTests {
     public async Task EachMeshGetsAClusterHierarchyBesideIt() {
         var (_, result) = await Import("crate.obj", Cube, Fast);
 
-        var artifact = Assert.Single(result.Artifacts, entry => entry.Type == "Meshlets");
-        var meshlets = Serializer.Read<MeshletMesh>(artifact.Content.Span.ToArray());
+        var artifact = Assert.Single(result.Artifacts, entry => entry.Type == "Clusters");
+        var meshlets = Serializer.Read<VirtualGeometryAsset>(artifact.Content.Span.ToArray()).Hierarchy;
 
         Assert.True(result.Succeeded);
         Assert.NotEmpty(meshlets.Meshlets);
         Assert.NotEmpty(meshlets.Fallback);
-        Assert.Contains(result.SubAssets, entry => entry.Type == "Meshlets");
+        Assert.Contains(result.SubAssets, entry => entry.Type == "Clusters");
 
         // A cube is twelve triangles, so the whole of it is one cluster and there is nothing to
         // simplify. What matters here is that it survives the round trip through the serializer with
@@ -260,9 +260,9 @@ public sealed class ModelImporterTests {
     public async Task EachMeshGetsItsGeometryInPagesBesideIt() {
         var (_, result) = await Import("crate.obj", Cube, Fast);
 
-        var records = Assert.Single(result.Artifacts, entry => entry.Type == "MeshletPages");
-        var data = Assert.Single(result.Artifacts, entry => entry.Type == "MeshletPageData");
-        var pages = Serializer.Read<MeshletPageSet>(records.Content.Span.ToArray());
+        var records = Assert.Single(result.Artifacts, entry => entry.Type == "Clusters");
+        var data = Assert.Single(result.Artifacts, entry => entry.Type == "ClusterPages");
+        var pages = Serializer.Read<VirtualGeometryAsset>(records.Content.Span.ToArray()).Pages;
 
         Assert.True(result.Succeeded);
         Assert.NotEmpty(pages.Pages);
@@ -297,15 +297,17 @@ public sealed class ModelImporterTests {
     public async Task A_shipped_page_decodes_to_the_mesh_it_came_from() {
         var (_, result) = await Import("crate.obj", Cube, Fast);
 
-        var pages = Serializer.Read<MeshletPageSet>(
-            Assert.Single(result.Artifacts, entry => entry.Type == "MeshletPages").Content.Span.ToArray()
+        var asset = Serializer.Read<VirtualGeometryAsset>(
+            Assert.Single(result.Artifacts, entry => entry.Type == "Clusters").Content.Span.ToArray()
         );
 
-        var meshlets = Serializer.Read<MeshletMesh>(
-            Assert.Single(result.Artifacts, entry => entry.Type == "Meshlets").Content.Span.ToArray()
-        );
+        var pages = asset.Pages;
 
-        var data = Assert.Single(result.Artifacts, entry => entry.Type == "MeshletPageData").Content.ToArray();
+        var meshlets = Serializer.Read<VirtualGeometryAsset>(
+            Assert.Single(result.Artifacts, entry => entry.Type == "Clusters").Content.Span.ToArray()
+        ).Hierarchy;
+
+        var data = Assert.Single(result.Artifacts, entry => entry.Type == "ClusterPages").Content.ToArray();
 
         // Reattached, which is what a runtime does not do — it seeks — but is the only way to decode here
         // without standing up a pool. The decoder is the one MeshletPageSet documents as the arithmetic a
@@ -332,11 +334,10 @@ public sealed class ModelImporterTests {
         var (_, result) = await Import("crate.obj", Cube, Fast with { GenerateMeshlets = false });
 
         Assert.True(result.Succeeded);
-        Assert.DoesNotContain(result.Artifacts, artifact => artifact.Type == "Meshlets");
+        Assert.DoesNotContain(result.Artifacts, artifact => artifact.Type == "Clusters");
 
         // And no pages either: pages are a packing of a hierarchy, so there is nothing to pack.
-        Assert.DoesNotContain(result.Artifacts, artifact => artifact.Type == "MeshletPages");
-        Assert.DoesNotContain(result.Artifacts, artifact => artifact.Type == "MeshletPageData");
+        Assert.DoesNotContain(result.Artifacts, artifact => artifact.Type == "ClusterPages");
     }
 
     [Fact]
@@ -344,7 +345,7 @@ public sealed class ModelImporterTests {
         var (_, result) = await Import("plane.obj", Grid, Fast with { MeshletTriangles = 4 });
 
         var meshlets = Serializer.Read<MeshletMesh>(
-            Assert.Single(result.Artifacts, artifact => artifact.Type == "Meshlets").Content.Span.ToArray()
+            Assert.Single(result.Artifacts, artifact => artifact.Type == "Clusters").Content.Span.ToArray()
         );
 
         Assert.All(meshlets.Meshlets, meshlet => Assert.InRange(meshlet.TriangleCount, 1, 4));

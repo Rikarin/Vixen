@@ -33,10 +33,12 @@ namespace Vixen.Rendering.Ecs;
 ///         is.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The material reference is still not resolved.</b> Every entity is drawn with
-///         <see cref="MeshExtractionSystem.Material" /> — one material for the scene — because turning
-///         a reference into a <see cref="Material" /> needs the descriptor loaded and compiled, which
-///         is the next join rather than this one.
+///         <b>The material resolves the same way</b>, through
+///         <see cref="MeshExtractionSystem.Materials" />: the compiled <c>MaterialContent</c> the build
+///         wrote becomes a <see cref="Material" />, its textures reach the frame's table, and the
+///         entity is drawn with it. An entity that names none is drawn with
+///         <see cref="MeshExtractionSystem.Material" />, which is what <see cref="Material" />'s own
+///         remarks say null means.
 ///     </para>
 /// </remarks>
 [Component]

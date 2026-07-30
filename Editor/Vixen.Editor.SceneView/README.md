@@ -804,3 +804,25 @@ is one flat colour under one directional term, and a textured or per-face-materi
 same Phase 7 wiring the picking stage and the view modes wait on.
 
 Licensed under Apache-2.0.
+
+## Mesh assets
+
+`SceneMeshes` collects an entity's `MeshRenderable` before its `PrimitiveShape`, and batches by
+`SceneShape` — a key that names either a built-in kind or a mesh reference. That is what makes a
+hundred instances of one rock a single instanced draw, exactly as a hundred cubes already were.
+
+⚠ **The key's discriminator is the reference, not the kind.** `PrimitiveKind.Cube` is zero, so a
+defaulted key would mean "every entity is a cube" — a viewport full of cubes where the meshes should
+be, which reads as the feature not working rather than as a key that collided.
+
+**The mesh wins over the shape**, which is the rule `MeshExtractionSystem` makes an archetype fact
+with `WithNone<MeshRenderable>`. Here it is a branch, because the editor walks a document's entity
+list rather than a query — and an entity that looks different in the viewport from how it looks in
+the game is the one defect a viewport must not have. An unloaded mesh therefore draws *nothing*
+rather than falling back to its shape, and `Waiting` says how many.
+
+Geometry comes from `IMeshSource`. The editor's implementation is `ProjectMeshSource`, which reads
+the chunks the last import wrote out of the project's own artefact store — not a content build, which
+is something an author runs when they ship rather than every time they open a scene. It is
+invalidated when an import finishes: a chunk is content-addressed, so a re-imported mesh is a new id
+under the same reference and nothing about the cached geometry would ever say it is stale.

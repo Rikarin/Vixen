@@ -39,21 +39,20 @@ public sealed record NativeFormatImportSettings : IImportSettings {
 ///     <para>
 ///         <b>What it writes is the document, and that is a deliberate stopping point.</b> Doc 08
 ///         splits import from compile: import produces editor-domain objects, and the compiler turns
-///         them into the runtime chunks a player loads — a <c>MaterialAsset</c> with named parameters
-///         and asset references becomes a <c>Material</c> with a resolved pipeline and
-///         <c>ObjectId</c>s. Those compilers do not exist yet. Emitting a half-resolved binary here
-///         would put the compiler's decisions inside the importer, where the artefact cache key
-///         cannot see them; carrying the document forward keeps the seam where the plan puts it, and
-///         is written down in the README as owed.
+///         them into the runtime chunks a player loads. Emitting a half-resolved binary here would put
+///         the compiler's decisions inside the importer, where the artefact cache key cannot see them;
+///         carrying the document forward keeps the seam where the plan puts it.
 ///     </para>
 ///     <para>
-///         <b><c>.vxscene</c> and <c>.vxprefab</c> are no longer among them</b>, and what that looks
-///         like is the shape the rest will take: <see cref="Scenes.SceneImporter" /> reads the same
-///         document, declares the same references through the same scan, and writes a compiled
-///         <c>SceneAsset</c> rather than the text.
+///         <b><c>.vxscene</c>, <c>.vxprefab</c> and now <c>.vxmat</c> are no longer among them</b>, and
+///         what that looks like is the shape the rest will take: <see cref="Scenes.SceneImporter" />
+///         and <see cref="Materials.MaterialImporter" /> read the same document, declare the same
+///         references through the same scan, and write a compiled asset rather than the text. What is
+///         left here are the formats whose compiler genuinely has nothing to do — a group, an input
+///         map — and the ones whose compiler is still owed.
 ///     </para>
 /// </remarks>
-[Importer(".vxmat", ".vxgroup", ".vxanim", ".vxvfx", ".vxinput", ".vxasset")]
+[Importer(".vxgroup", ".vxanim", ".vxvfx", ".vxinput", ".vxasset")]
 public sealed class NativeFormatImporter : AssetImporter<NativeFormatImportSettings> {
     /// <inheritdoc />
     public override int Version => 1;
@@ -120,7 +119,6 @@ public sealed class NativeFormatImporter : AssetImporter<NativeFormatImportSetti
 
     /// <summary>What kind of thing an extension holds, when the document does not say.</summary>
     static string TypeOf(string path) => Path.GetExtension(path).ToLowerInvariant() switch {
-        ".vxmat" => "Material",
         ".vxgroup" => "AddressableGroup",
         ".vxanim" => "AnimationClip",
         ".vxvfx" => "VisualEffect",

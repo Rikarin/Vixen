@@ -663,7 +663,14 @@ sealed class EditorHost : IDisposable {
         }
 
         while (scenes.Count < wanted) {
-            scenes.Add(Presenter((ulong) scenes.Count + 1));
+            var presenter = Presenter((ulong) scenes.Count + 1);
+
+            // ⚠ Every pane, and every pane created later. A source set on the first presenter only is
+            // a split view where one half draws the level and the other half draws the grid, which
+            // reads as a broken pane rather than as missing wiring.
+            presenter.Surfaces.Meshes = editor.SceneGeometry;
+
+            scenes.Add(presenter);
         }
     }
 

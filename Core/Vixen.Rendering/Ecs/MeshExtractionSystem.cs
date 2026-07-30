@@ -27,13 +27,17 @@ namespace Vixen.Rendering.Ecs;
 ///         out at the edge of the frustum.
 ///     </para>
 ///     <para>
-///         ⚠ <b>One material for everything, and that is the piece still owed.</b>
-///         <see cref="MeshRenderable.Material" /> is authored, compiled and loaded, and turning one into
-///         a <see cref="Material" /> needs a material asset format resolved to an effect — which does not
-///         exist yet. Until it does, every object is assigned <see cref="Material" />, which is what a
-///         block-out wants anyway: geometry that draws in something neutral before anybody has made a
-///         material for it. What this is *not* is doc 06's "a mesh with three materials is three render
-///         objects"; that follows the same day per-entity materials do.
+///         <b>Each drawable takes the material it names, and <see cref="Material" /> is what a
+///         drawable that names none gets.</b> That fallback is not a stopgap: a block-out mesh dropped
+///         into a level before anybody has made a material for it has to draw in something neutral, and
+///         <see cref="MeshRenderable.Material" /> being null is how an author says so. A reference that
+///         names a material this frame cannot supply yet is waited for exactly as a mesh is — see
+///         <see cref="Materials" />.
+///     </para>
+///     <para>
+///         ⚠ <b>What this is still not is doc 06's "a mesh with three materials is three render
+///         objects".</b> One entity is one render object with one material; a model whose sub-meshes
+///         want different materials needs one entity each, which is what a prefab already produces.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Every live object's transform is rewritten every frame.</b> Doc 06 wants only what moved
@@ -73,6 +77,7 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
 
     readonly List<Entity> pending = [];
     readonly Dictionary<Entity, GeometryKey> claimed = [];
+    readonly List<ResolveMaterial> resolved = [];
 
     /// <summary>Builds the bridge.</summary>
     /// <param name="system">The render system whose store the objects go in.</param>
@@ -108,12 +113,61 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
     /// </remarks>
     public RenderStageMask Stages { get; set; }
 
-    /// <summary>What every extracted object is drawn with.</summary>
+    /// <summary>What a drawable that names no material of its own is drawn with.</summary>
     /// <inheritdoc cref="MeshExtractionSystem" path="/remarks/para[3]" />
     public Material? Material { get; set; }
 
+    /// <summary>Where the material a reference names comes from. Null draws everything in
+    /// <see cref="Material" />.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Until this was settable, every object in the scene was drawn with one material</b> —
+    ///         <see cref="MeshRenderable.Material" /> was authored, compiled, loaded and never resolved,
+    ///         and this system said so in its own remarks. What was missing was never the compiling;
+    ///         <see cref="Materials.MaterialCompiler" /> has always been a pure function. It was the
+    ///         decision about what an extraction does while a material's textures are still in flight,
+    ///         which <see cref="IMaterialSource" /> answers the way <see cref="IMeshSource" /> does.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A null source is not the same as a null reference.</b> With no source, an entity
+    ///         naming a material still draws — in <see cref="Material" /> — because a host that has not
+    ///         mounted content should show geometry rather than nothing. A reference that a source
+    ///         cannot supply <em>yet</em> is a different thing and is waited for.
+    ///     </para>
+    /// </remarks>
+    public IMaterialSource? Materials { get; set; }
+
+    /// <summary>The feature virtualized meshes are drawn through, or null to draw none that way.</summary>
+    /// <remarks>
+    ///     Set with <see cref="Clusters" /> or neither. With both, a mesh built with a cluster hierarchy
+    ///     takes the virtualized path and everything else takes the ordinary one; with either missing,
+    ///     every mesh takes the ordinary one and a virtualized model draws through its fallback mesh —
+    ///     which is a correct picture and the reason this needs saying: nothing looks wrong.
+    /// </remarks>
+    public Features.VirtualGeometryRenderFeature? Virtualized { get; set; }
+
+    /// <summary>Where the cluster hierarchy a mesh reference names comes from.</summary>
+    /// <inheritdoc cref="Virtualized" path="/remarks" />
+    public IVirtualGeometrySource? Clusters { get; set; }
+
     /// <summary>How many entities are extracted.</summary>
     public int ObjectCount => claimed.Count;
+
+    /// <summary>How many of them took the virtualized path.</summary>
+    /// <remarks>
+    ///     The number that says the route is live. A scene of virtualized models with this at zero is a
+    ///     host that did not set <see cref="Clusters" />, and it looks exactly like a scene that is
+    ///     drawing correctly — because it is, through every fallback mesh in it.
+    /// </remarks>
+    public int VirtualizedCount { get; private set; }
+
+    /// <summary>The materials the resolve pass has to dispatch for, in material-index order.</summary>
+    /// <remarks>
+    ///     What a host hands to <c>GpuClusterResolve.Materials</c>. Built here because it is the scene
+    ///     that knows which materials its virtualized objects wear, and read rather than pushed because
+    ///     a resolve is set up once per frame by whoever owns the pass.
+    /// </remarks>
+    public IReadOnlyList<ResolveMaterial> ResolveMaterials => resolved;
 
     /// <summary>Where the geometry a mesh reference names comes from. Null draws no referenced mesh.</summary>
     /// <remarks>
@@ -224,6 +278,18 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
         foreach (var entity in pending) {
             var renderable = world.Read<MeshRenderable>(entity);
 
+            // The clusters first, and that order is load-bearing: a virtualized model also has a
+            // fallback mesh, which resolves through the ordinary source and draws a correct picture of
+            // the same object — so asking that one first would route every virtualized model through
+            // the vertex buffer and nothing would ever look wrong enough to notice.
+            if (Clustered(world, entity, renderable) is { } clustered) {
+                if (!clustered) {
+                    Waiting++;
+                }
+
+                continue;
+            }
+
             // Asked rather than waited for. A mesh that has not arrived leaves the entity without a
             // RenderHandle, so it matches `appearedMeshes` again next frame and is asked about again —
             // which is the whole of the asynchronous story, and is why it needs no queue of its own.
@@ -232,7 +298,15 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
                 continue;
             }
 
-            Add(world, entity, GeometryKey.Of(renderable.Mesh), () => mesh);
+            // The material on the same terms, and after the mesh rather than before: a drawable whose
+            // geometry has not arrived is going to be asked about again anyway, so asking for its
+            // material first would start a load for something that may never be drawn.
+            if (!Painted(renderable.Material, out var material)) {
+                Waiting++;
+                continue;
+            }
+
+            Add(world, entity, GeometryKey.Of(renderable.Mesh), () => mesh, material);
         }
 
         pending.Clear();
@@ -242,12 +316,126 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
         }
 
         foreach (var entity in pending) {
-            var kind = world.Read<PrimitiveShape>(entity).Kind;
-            Add(world, entity, GeometryKey.Of(kind), () => MeshPrimitives.Create(kind));
+            var shape = world.Read<PrimitiveShape>(entity);
+            var kind = shape.Kind;
+
+            if (!Painted(shape.Material, out var material)) {
+                Waiting++;
+                continue;
+            }
+
+            Add(world, entity, GeometryKey.Of(kind), () => MeshPrimitives.Create(kind), material);
         }
     }
 
-    void Add(World world, Entity entity, GeometryKey key, Func<MeshData> build) {
+    /// <summary>Takes an entity down the virtualized path, if that is where it belongs.</summary>
+    /// <param name="world">The world.</param>
+    /// <param name="entity">The entity.</param>
+    /// <param name="renderable">What it draws.</param>
+    /// <returns>
+    ///     Null when this mesh has no cluster hierarchy and the caller should carry on down the ordinary
+    ///     path; true when it was extracted here; false when it belongs here and is not ready.
+    /// </returns>
+    /// <remarks>
+    ///     ⚠ <b>A three-valued answer, and the alternative was worse.</b> The caller has to distinguish
+    ///     "not mine" from "mine and not yet", and folding the second into the first draws a virtualized
+    ///     model through its fallback mesh permanently — a correct picture of the same object, arrived at
+    ///     by the wrong path, which is the kind of wrong nothing reports.
+    /// </remarks>
+    bool? Clustered(World world, Entity entity, in MeshRenderable renderable) {
+        if (Clusters is null || Virtualized is null) {
+            return null;
+        }
+
+        switch (Clusters.TryGet(renderable.Mesh, out var cluster, out var local)) {
+            case ClusterState.None:
+                return null;
+
+            case ClusterState.Waiting:
+                return false;
+        }
+
+        if (!Painted(renderable.Material, out var material)) {
+            return false;
+        }
+
+        var matrix = world.Read<WorldTransform>(entity).Value;
+        var bounds = Transformed(local, matrix);
+
+        var id = system.Objects.Add(
+            new() {
+                Bounds = bounds,
+                Stages = Stages,
+                FeatureIndex = Virtualized.Index
+            }
+        );
+
+        // A position and a scale rather than a matrix, because that is all the traversal reads: every
+        // test it makes wants a world-space sphere and the factor an object-space length scales by, and
+        // a rotation enters into neither.
+        system.Objects.Data.Data(Virtualized.Draws)[id.Index] = new() {
+            Mesh = cluster,
+            Position = bounds.Center,
+            Scale = local.Radius > MathUtil.ZeroTolerance ? bounds.Radius / local.Radius : 1f
+        };
+
+        if (material is not null) {
+            materials.Assign(system, id, material);
+            Resolved(material);
+        }
+
+        // A default key rather than the mesh's: a virtualized object holds no residency claim, because
+        // its geometry is paged rather than suballocated. Releasing one nothing acquired is harmless by
+        // design — see `GeometryResidency.Release`.
+        world.Add(entity, new RenderHandle { Object = id, Local = local });
+        claimed[entity] = default;
+        VirtualizedCount++;
+
+        return true;
+    }
+
+    /// <summary>Records a material the resolve pass will have to dispatch for.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Index zero, for every virtualized object in the scene, and that is the honest state of
+    ///     the format rather than a shortcut here.</b> A cluster carries the material index its meshlet
+    ///     was built with, and nothing maps that index back to an asset reference — the page format does
+    ///     not carry one — so a scene's virtualized geometry resolves with the first material assigned to
+    ///     any of it. A model with one material, which is nearly all of them, is drawn correctly; a model
+    ///     with three draws with one of the three.
+    /// </remarks>
+    void Resolved(Material material) {
+        if (resolved.Count == 0) {
+            resolved.Add(new(material, 0));
+        }
+    }
+
+    /// <summary>What a drawable is painted with, or false while its material is still coming.</summary>
+    /// <param name="reference">What it named, or <see cref="AssetReference.Null" /> for none.</param>
+    /// <param name="material">The material, which may be null when nothing supplied one.</param>
+    /// <returns>Whether the answer is final.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Three outcomes and only two return values, which is the part to read carefully.</b>
+    ///     "It named none" and "it named one and there is no source" both come back true with the
+    ///     fallback, because both are states a frame should draw. Only "it named one and the source has
+    ///     not got it yet" is false — the one case where drawing now would draw the wrong thing and
+    ///     keep drawing it, since a settled entity is never re-extracted.
+    /// </remarks>
+    bool Painted(AssetReference reference, out Material? material) {
+        material = Material;
+
+        if (reference.IsNull || Materials is null) {
+            return true;
+        }
+
+        if (!Materials.TryGet(reference, out var found)) {
+            return false;
+        }
+
+        material = found;
+        return true;
+    }
+
+    void Add(World world, Entity entity, GeometryKey key, Func<MeshData> build, Material? material) {
         if (!residency.Acquire(key, build, out var slice, out var local)) {
             Dropped++;
             return;
@@ -266,7 +454,7 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
 
         system.Objects.Data.Data(meshes.Draws)[id.Index] = draw;
 
-        if (Material is { } material) {
+        if (material is not null) {
             materials.Assign(system, id, material);
         }
 

@@ -26,6 +26,13 @@
         <ProjectReference Include="..\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
 
         <!--
+          For MathScalars, and for nothing else. A vector is one scalar in every document the engine
+          writes, and the rule for turning one into text has to live below every reader of one — a
+          scene's is an editor assembly and a material's is the runtime, so neither can own it.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+
+        <!--
           The .meta model types are [DataContract]s of this assembly's own, so it runs the descriptor
           generator over itself. Analyzers do not flow transitively through a ProjectReference.
         -->

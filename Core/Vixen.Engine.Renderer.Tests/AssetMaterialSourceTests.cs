@@ -1,0 +1,165 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Assets;
+using Vixen.Core;
+using Vixen.Core.IO;
+using Vixen.Core.Serialization;
+using Vixen.Core.Serialization.Storage;
+using Vixen.Engine.Renderer;
+using Vixen.Rendering;
+using Vixen.Rendering.Materials;
+using Vixen.Shaders;
+using Xunit;
+
+namespace Tests;
+
+/// <summary>
+///     A material reference becomes a compiled material, through the content manager a game has.
+/// </summary>
+/// <remarks>
+///     <para>
+///         <b>Over a real <see cref="AssetManager" /> and a real bundle</b>, because the interesting
+///         part is the join rather than the compile: <see cref="MaterialCompiler" /> already had
+///         tests, and what did not exist was anything that turned an address into a document and a
+///         document into a material. A fake manager would assert the half that already worked.
+///     </para>
+///     <para>
+///         The chunk is written the way <c>MaterialImporter</c> writes it — <c>Serializer</c> over a
+///         <see cref="MaterialContent" /> — so a change to the content format breaks this rather than
+///         being discovered in a game.
+///     </para>
+/// </remarks>
+public sealed class AssetMaterialSourceTests {
+    static readonly AssetReference Hero = new(new AssetId(Guid.NewGuid()), SubAssetId.Main);
+
+    /// <summary>The join: a reference in, a material out, compiled from what the build wrote.</summary>
+    /// <remarks>
+    ///     The <c>metalness</c> assertion is what makes this a test of the <em>document</em> rather than
+    ///     of the compiler's defaults: an implementation that ignored the chunk and compiled an empty
+    ///     descriptor would produce a material with no such parameter at all.
+    /// </remarks>
+    [Fact]
+    public void AMaterialReferenceCompilesToTheMaterialTheBuildWrote() {
+        using var source = new AssetMaterialSource(
+            Content(
+                new MaterialContent {
+                    Shader = "ForwardPlus",
+                    Features = [new MetalRoughnessFeature { Metalness = 1f, Roughness = 0.125f }]
+                }
+            )
+        );
+
+        // Loading is asynchronous, so the first ask starts it and the answer arrives afterwards. That
+        // is the protocol rather than an inconvenience — see IMaterialSource.
+        Assert.True(Settles(source, out var material));
+
+        Assert.Equal("ForwardPlus", material.ShaderName);
+
+        var key = ParameterKeys.New<float>("ForwardPlus.CompositeSurface.MetalRoughnessSurface.roughness");
+
+        Assert.True(material.Parameters.Has(key));
+        Assert.Equal(0.125f, material.Parameters.Get(key));
+    }
+
+    /// <summary>Two entities naming one material get one material.</summary>
+    /// <remarks>
+    ///     The economy <c>MaterialRenderFeature</c> is built on: one material is one descriptor set, one
+    ///     uniform block and one resolved variant. A source that compiled per ask would be correct and
+    ///     would multiply every per-material cost in the frame by the instance count.
+    /// </remarks>
+    [Fact]
+    public void OneReferenceIsOneMaterialHoweverOftenItIsAsked() {
+        using var source = new AssetMaterialSource(Content(new()));
+
+        Assert.True(Settles(source, out var first));
+        Assert.True(source.TryGet(Hero, out var second));
+
+        Assert.Same(first, second);
+        Assert.Equal(1, source.Requested);
+        Assert.Equal(1, source.Loaded);
+    }
+
+    /// <summary>A reference this build shipped nothing for is counted, not thrown for.</summary>
+    /// <remarks>
+    ///     ⚠ A frame that threw would take the level with it for one entity pointing at something
+    ///     deleted. What it looks like instead is an object drawn in the host's material, and the number
+    ///     is the only thing that says why.
+    /// </remarks>
+    [Fact]
+    public void AReferenceNothingShippedIsCountedAsFailed() {
+        using var source = new AssetMaterialSource(Content(new()));
+
+        Assert.False(source.TryGet(new(new AssetId(Guid.NewGuid()), SubAssetId.Main), out _));
+        Assert.Equal(1, source.Failed);
+    }
+
+    /// <summary>
+    ///     A material's textures are recorded as owed, and not waited for.
+    /// </summary>
+    /// <remarks>
+    ///     <b>The decision this class makes that nothing else can.</b> A material is answered as soon as
+    ///     it compiles, with its texture parameters unset, because holding it back would hold a whole
+    ///     level's geometry off screen for its slowest texture — and the index a feature reads stays
+    ///     zero, which is the table's fallback and a defined thing to sample.
+    /// </remarks>
+    [Fact]
+    public void ATexturedMaterialIsAnsweredBeforeItsTexturesArrive() {
+        using var source = new AssetMaterialSource(
+            Content(
+                new MaterialContent {
+                    Features = [new TexturedMetalRoughnessFeature()],
+                    Textures = [new("baseColorMap", new(new AssetId(Guid.NewGuid()), SubAssetId.Main))]
+                }
+            )
+        );
+
+        Assert.True(Settles(source, out _));
+        Assert.Equal(1, source.Unpainted);
+    }
+
+    /// <summary>Asks until the load lands, which is what a frame does by asking again next frame.</summary>
+    static bool Settles(AssetMaterialSource source, out Material material) {
+        for (var attempt = 0; attempt < 200; attempt++) {
+            if (source.TryGet(Hero, out material)) {
+                return true;
+            }
+
+            Thread.Sleep(5);
+        }
+
+        material = null!;
+        return false;
+    }
+
+    /// <summary>A content manager holding one material at <see cref="Hero" />.</summary>
+    static AssetManager Content(MaterialContent material) {
+        var files = new VirtualFileSystem();
+        var storage = new MemoryFileProvider();
+
+        files.Mount(new("/store"), storage);
+        files.Mount(new("/bundles"), storage);
+
+        var backend = new FileOdbBackend(files, new("/store/odb"));
+        var database = new ObjectDatabase(backend);
+
+        var id = database.Write(material);
+        var bundle = new BundleWriter();
+
+        bundle.AddAll(backend);
+
+        using (var target = files.OpenWrite(new("/bundles/Main.bundle"))) {
+            target.Write(bundle.Build());
+        }
+
+        var catalog = new ContentCatalog(
+            CatalogFormat.Version,
+            default,
+            "Windows",
+            [new("hero", id, "Main", ContentProvider.Local, [], [], 0, Reference: Hero)],
+            [new("Main", "", default, 0, 0, CompressionMethod.None, [])]
+        );
+
+        return new(catalog, new LocalBundleSource(files, new("/bundles")));
+    }
+}

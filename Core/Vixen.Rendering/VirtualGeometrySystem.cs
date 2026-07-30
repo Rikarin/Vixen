@@ -31,7 +31,7 @@ namespace Vixen.Rendering;
 ///     <para>
 ///         <b>One page pool for the scene, and that is the whole of the streaming budget.</b> Slots
 ///         times page size is the resident geometry a project has decided to pay for, and every mesh
-///         registered through <see cref="Content" /> shares it — which is what makes a hundred
+///         registered through <see cref="Content(int, VirtualGeometryAsset, System.IO.Stream)" /> shares it — which is what makes a hundred
 ///         virtualized meshes cost one budget rather than a hundred.
 ///     </para>
 /// </remarks>
@@ -76,7 +76,7 @@ public sealed class VirtualGeometrySystem : IDisposable {
     ///     Exposed because a project that unloads a level wants its blobs closed —
     ///     <see cref="StreamMeshletPageSource.Remove" /> — and because a test asking whether a mesh's
     ///     bytes are reachable is asking this. Adding to it directly is possible and is not the way in:
-    ///     <see cref="Content" /> adds the blob and registers the mesh under one id, so the two cannot
+    ///     <see cref="Content(int, VirtualGeometryAsset, System.IO.Stream)" /> adds the blob and registers the mesh under one id, so the two cannot
     ///     be given different ones.
     /// </remarks>
     public StreamMeshletPageSource Source { get; } = new();
@@ -179,6 +179,18 @@ public sealed class VirtualGeometrySystem : IDisposable {
         ObjectDisposedException.ThrowIf(disposed, this);
 
         return VirtualGeometryContent.Load(Feature, Source, id, hierarchy, pages, data);
+    }
+
+    /// <summary>Loads a mesh out of the one chunk a build writes the records as.</summary>
+    /// <param name="id">The id its pages carry. Unique across the meshes in this system.</param>
+    /// <param name="asset">The records, as <c>MeshData.Clusters</c> resolves to.</param>
+    /// <param name="data">The page blob, seekable. Owned from here.</param>
+    /// <returns>The index to put in <see cref="VirtualGeometryDraw.Mesh" />.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="data" /> is null.</exception>
+    public int Content(int id, VirtualGeometryAsset asset, Stream data) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        return VirtualGeometryContent.Load(Feature, Source, id, asset, data);
     }
 
     /// <summary>Registers the feature with a render system.</summary>

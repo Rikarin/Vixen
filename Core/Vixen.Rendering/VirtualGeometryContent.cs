@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Core.Serialization;
 using Vixen.Rendering.VirtualGeometry;
 
@@ -16,7 +17,30 @@ namespace Vixen.Rendering;
 ///     every mesh at load, which is the one thing paging exists to avoid — see
 ///     <see cref="MeshletPageSet.WithoutData" />.
 /// </remarks>
-public readonly record struct VirtualGeometryAsset(MeshletMesh Hierarchy, MeshletPageSet Pages);
+/// <remarks>
+///     ⚠ <b>Serialisable, and written as one chunk while the blob is written as another.</b> An address
+///     names exactly one chunk, so the three artefacts a build used to write under one sub-asset id could
+///     not be addressed at all — a content build refuses "two chunks for one sub-asset", which is how the
+///     collision was found. The records travel together because they are read together; the blob travels
+///     alone because it is seeked into rather than deserialised.
+/// </remarks>
+/// <remarks>
+///     ⚠ A class and not a struct, which the content manager decides rather than this: an
+///     <c>AssetHandle&lt;T&gt;</c> holds a reference type, because a claim is shared between everything
+///     that asked for the same address and a copy per asker would not be shared at all.
+/// </remarks>
+[DataContract("VirtualGeometryAsset")]
+public sealed record VirtualGeometryAsset(MeshletMesh Hierarchy, MeshletPageSet Pages) {
+    /// <summary>For the serializer, which builds a value and then fills it.</summary>
+    public VirtualGeometryAsset()
+        : this(new(), new()) { }
+
+    /// <summary>The cluster DAG: bounds, cones, errors and the group links.</summary>
+    public MeshletMesh Hierarchy { get; init; } = Hierarchy;
+
+    /// <summary>Where each cluster's geometry is, with no geometry in it.</summary>
+    public MeshletPageSet Pages { get; init; } = Pages;
+}
 
 /// <summary>
 ///     Reads what <c>ModelImporter</c> wrote, and registers it so a frame can draw it.
@@ -24,10 +48,10 @@ public readonly record struct VirtualGeometryAsset(MeshletMesh Hierarchy, Meshle
 /// <remarks>
 ///     <para>
 ///         <b>The caller <see cref="Features.VirtualGeometryRenderFeature.Register" /> was written
-///         for.</b> A build produces three artefacts per mesh — <c>Meshlets</c>, <c>MeshletPages</c> and
-///         <c>MeshletPageData</c> — and until this existed nothing outside the importer's own tests read
-///         any of them back. The system was complete from import to shaded pixel with no way to get from
-///         one to the other.
+///         for.</b> A build produces two chunks per clustered mesh — the records under
+///         <see cref="ClusterArtifact" /> and the page blob under <see cref="ClusterPageArtifact" /> —
+///         and until this existed nothing outside the importer's own tests read either of them back. The
+///         system was complete from import to shaded pixel with no way to get from one to the other.
 ///     </para>
 ///     <para>
 ///         <b>Bytes in, not an address.</b> What produces the bytes is the caller's — <c>AssetManager</c>
@@ -42,22 +66,37 @@ public readonly record struct VirtualGeometryAsset(MeshletMesh Hierarchy, Meshle
 ///     </para>
 /// </remarks>
 public static class VirtualGeometryContent {
-    /// <summary>The artefact name a build writes the cluster hierarchy under.</summary>
-    /// <remarks>
-    ///     Spelled here as well as in <c>ModelImporter</c>, and the two have to agree. There is no shared
-    ///     constant because the importer is an editor assembly the runtime does not reference — which is
-    ///     the right dependency direction and is why <c>VirtualGeometryContentTests</c> asserts the names
-    ///     against a real import rather than against each other.
-    /// </remarks>
-    public const string HierarchyArtifact = "Meshlets";
-
-    /// <summary>The artefact name the page records are written under.</summary>
-    public const string PageArtifact = "MeshletPages";
+    /// <summary>The artefact name a build writes the hierarchy and page records under, together.</summary>
+    public const string ClusterArtifact = "Clusters";
 
     /// <summary>The artefact name the page blob is written under.</summary>
-    public const string PageDataArtifact = "MeshletPageData";
+    public const string ClusterPageArtifact = "ClusterPages";
 
-    /// <summary>Reads the two record artefacts.</summary>
+    /// <summary>Registers an already-read mesh, and makes its geometry reachable.</summary>
+    /// <param name="feature">The feature the objects will draw through.</param>
+    /// <param name="source">The page source the pool reads from, which the blob is added to.</param>
+    /// <param name="id">The id this mesh's pages carry in a <see cref="PageKey" />.</param>
+    /// <param name="asset">The records, as one chunk holds them.</param>
+    /// <param name="data">The blob. Owned by the source from here.</param>
+    /// <returns>The index to put in <see cref="Features.VirtualGeometryDraw.Mesh" />.</returns>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    public static int Load(
+        Features.VirtualGeometryRenderFeature feature,
+        StreamMeshletPageSource source,
+        int id,
+        VirtualGeometryAsset asset,
+        Stream data
+    ) {
+        ArgumentNullException.ThrowIfNull(feature);
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(data);
+
+        source.Add(id, asset.Pages, data);
+
+        return feature.Register(asset.Hierarchy, asset.Pages, id);
+    }
+
+    /// <summary>Reads the two record artefacts, as separate blobs.</summary>
     /// <param name="hierarchy">The <c>Meshlets</c> artefact's bytes.</param>
     /// <param name="pages">The <c>MeshletPages</c> artefact's bytes.</param>
     /// <returns>The mesh, ready to register.</returns>

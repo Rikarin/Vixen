@@ -18,13 +18,15 @@ public sealed class NativeFormatImporterTests {
         var importer = new NativeFormatImporter();
 
         Assert.Equal("NativeFormatImporter", importer.Name);
-        Assert.Contains(".vxmat", importer.Extensions);
         Assert.Contains(".vxgroup", importer.Extensions);
+        Assert.Contains(".vxinput", importer.Extensions);
 
-        // A scene is compiled rather than carried through, so SceneImporter claims it. This one is
-        // for the formats whose compiler does not exist yet.
+        // A scene and a material are compiled rather than carried through, so SceneImporter and
+        // MaterialImporter claim them. This one is for the formats whose compiler does not exist yet
+        // and the ones whose compiler would have nothing to do.
         Assert.DoesNotContain(".vxscene", importer.Extensions);
         Assert.DoesNotContain(".vxprefab", importer.Extensions);
+        Assert.DoesNotContain(".vxmat", importer.Extensions);
     }
 
     /// <summary>
@@ -35,7 +37,7 @@ public sealed class NativeFormatImporterTests {
     [Fact]
     public async Task EveryReferenceInTheDocumentBecomesADeclaredDependency() {
         var (context, result) = await Import(
-            "hero.vxmat",
+            "hero.vxasset",
             """
             shader: Standard
             parameters:
@@ -60,7 +62,7 @@ public sealed class NativeFormatImporterTests {
     [Fact]
     public async Task AReferenceShapedStringInsideACommentIsNotADependency() {
         var (context, result) = await Import(
-            "hero.vxmat",
+            "hero.vxasset",
             """
             # replaces vx:9e8a44c9930c64e388ca034c5fe4c426
             shader: Standard
@@ -95,7 +97,7 @@ public sealed class NativeFormatImporterTests {
 
     [Fact]
     public async Task AnExplicitlyUnsetReferenceIsNotADependency() {
-        var (context, result) = await Import("hero.vxmat", "albedo: null\nnormal: ~\n");
+        var (context, result) = await Import("hero.vxasset", "albedo: null\nnormal: ~\n");
 
         Assert.True(result.Succeeded);
         Assert.Empty(context.AssetDependencies);
@@ -108,7 +110,7 @@ public sealed class NativeFormatImporterTests {
     /// </summary>
     [Fact]
     public async Task AMalformedReferenceFailsTheImportRatherThanBeingIgnored() {
-        var (_, result) = await Import("hero.vxmat", "albedo: vx:notaguid\n");
+        var (_, result) = await Import("hero.vxasset", "albedo: vx:notaguid\n");
 
         Assert.False(result.Succeeded);
         Assert.Empty(result.Artifacts);
@@ -117,7 +119,7 @@ public sealed class NativeFormatImporterTests {
 
     [Fact]
     public async Task YamlThatDoesNotParseIsReportedRatherThanThrown() {
-        var (_, result) = await Import("hero.vxmat", "shader: Standard\n  bad: indentation\n\t tab: here\n");
+        var (_, result) = await Import("hero.vxasset", "shader: Standard\n  bad: indentation\n\t tab: here\n");
 
         Assert.False(result.Succeeded);
         Assert.Equal(ImportSeverity.Error, Assert.Single(result.Diagnostics).Severity);
@@ -125,7 +127,7 @@ public sealed class NativeFormatImporterTests {
 
     [Fact]
     public async Task ADocumentThatIsNotAMappingIsRefused() {
-        var (_, result) = await Import("hero.vxmat", "- one\n- two\n");
+        var (_, result) = await Import("hero.vxasset", "- one\n- two\n");
 
         Assert.False(result.Succeeded);
         Assert.Contains("sequence", Assert.Single(result.Diagnostics).Message, StringComparison.Ordinal);
@@ -138,7 +140,7 @@ public sealed class NativeFormatImporterTests {
     /// </summary>
     [Fact]
     public async Task AnEmptyDocumentIsCarriedForwardWithAWarning() {
-        var (_, result) = await Import("hero.vxmat", "");
+        var (_, result) = await Import("hero.vxasset", "");
 
         Assert.True(result.Succeeded);
         Assert.Single(result.Artifacts);
@@ -148,7 +150,7 @@ public sealed class NativeFormatImporterTests {
     [Fact]
     public async Task TheDocumentIsCarriedForwardVerbatim() {
         const string Text = "shader: Standard\nmetallic: 0.5\n";
-        var (_, result) = await Import("hero.vxmat", Text);
+        var (_, result) = await Import("hero.vxasset", Text);
 
         var artifact = Assert.Single(result.Artifacts);
         Assert.Equal(Text, Encoding.UTF8.GetString(artifact.Content.Span));
@@ -157,10 +159,10 @@ public sealed class NativeFormatImporterTests {
 
     [Fact]
     public async Task TheArtefactTypeComesFromTheExtensionWhenTheDocumentHasNoTag() {
-        var (_, material) = await Import("hero.vxmat", "shader: Standard\n");
+        var (_, actions) = await Import("Player.vxinput", "name: Player\n");
         var (_, group) = await Import("UiCore.vxgroup", "name: UiCore\n");
 
-        Assert.Equal("Material", Assert.Single(material.Artifacts).Type);
+        Assert.Equal("InputActions", Assert.Single(actions.Artifacts).Type);
         Assert.Equal("AddressableGroup", Assert.Single(group.Artifacts).Type);
     }
 
