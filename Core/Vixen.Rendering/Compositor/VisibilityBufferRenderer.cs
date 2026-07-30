@@ -59,6 +59,18 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
     /// </remarks>
     public GpuClusterResolve? Resolve { get; set; }
 
+    /// <summary>The frame's per-frame constants, which the resolve's lighting reads.</summary>
+    /// <remarks>
+    ///     The same object the forward pass binds. Since the lighting moved into <c>ClusteredShading</c>
+    ///     the resolve declares the same set 0 a forward draw does, so it is filled by the same writer —
+    ///     which is what makes "the same lights with the same shadows" true by construction rather than
+    ///     by two hosts agreeing.
+    /// </remarks>
+    public SceneConstants? SceneConstants { get; set; }
+
+    /// <summary>The frame's per-view constants, on the same terms.</summary>
+    public ViewConstants? ViewConstants { get; set; }
+
     /// <summary>What the shaded colour is called in the graph.</summary>
     /// <remarks>
     ///     Named rather than created, because what a resolve writes is radiance into the scene colour the
@@ -186,6 +198,9 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
 
                         // Immediately after, in the same pass: the dispatch reads the arguments the binning
                         // just filled, and the barrier between them is the one `Record` already left.
+                        resolve.Scene = SceneConstants;
+                        resolve.ViewConstants = ViewConstants;
+
                         if (resolve.Prepare(view, context.View(colour), context.View(identity), size)) {
                             resolve.Record(context.CommandList);
                         }

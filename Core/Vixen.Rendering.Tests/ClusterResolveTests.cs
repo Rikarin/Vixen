@@ -200,9 +200,7 @@ public sealed class ClusterResolveTests : IDisposable {
             Pipelines = pipelines,
             Visibility = visibility,
             Tiles = tiles,
-            Pages = pool,
-            Environment = Cube(),
-            EnvironmentSampler = device.CreateSampler(new())
+            Pages = pool
         };
 
     GpuClusterVisibility Registered(out MeshletPageSet pages, out MemoryMeshletPageSource source) {
@@ -249,16 +247,6 @@ public sealed class ClusterResolveTests : IDisposable {
         device.CreateTextureView(
             device.CreateTexture(
                 new(PixelFormat.Rgba16Float, 64, 64, TextureUsage.Storage | TextureUsage.Sampled, Name: "SceneColour")
-            )
-        );
-
-    TextureViewHandle Cube() =>
-        device.CreateTextureView(
-            device.CreateTexture(
-                new() {
-                    Width = 8, Height = 8, Depth = 1, MipLevels = 5, ArrayLayers = 6, SampleCount = 1,
-                    Format = PixelFormat.Rgba16Float, Usage = TextureUsage.Sampled
-                }
             )
         );
 
@@ -341,20 +329,21 @@ public sealed class ClusterResolveTests : IDisposable {
     ///     than the shader would assert that a host filling nothing fills nothing.
     /// </remarks>
     sealed class AlwaysCompiles(NullDevice device) : IEffectProvider {
+        // Set 2 exactly as VisibilityResolve.reflect.json reports it — the resolve's own resources, and
+        // nothing of the lighting: since that moved into ClusteredShading the sun, the cascades and the
+        // environment are the frame's sets, bound by whatever already fills them for a forward draw.
         static readonly ImmutableArray<EffectBinding> ResolveBindings = [
             new("constants", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.UniformBuffer) { Size = 256 },
             new("identities", DescriptorSetSlot.PerMaterial, 1, DescriptorKind.SampledTexture),
-            new("environment", DescriptorSetSlot.PerMaterial, 2, DescriptorKind.SampledTexture),
-            new("environmentSampler", DescriptorSetSlot.PerMaterial, 3, DescriptorKind.Sampler),
-            new("visible", DescriptorSetSlot.PerMaterial, 4, DescriptorKind.StorageBuffer),
-            new("instances", DescriptorSetSlot.PerMaterial, 5, DescriptorKind.StorageBuffer),
-            new("geometry", DescriptorSetSlot.PerMaterial, 6, DescriptorKind.StorageBuffer),
-            new("meshes", DescriptorSetSlot.PerMaterial, 7, DescriptorKind.StorageBuffer),
-            new("residency", DescriptorSetSlot.PerMaterial, 8, DescriptorKind.StorageBuffer),
-            new("pages", DescriptorSetSlot.PerMaterial, 9, DescriptorKind.StorageBuffer),
-            new("clusterMaterials", DescriptorSetSlot.PerMaterial, 10, DescriptorKind.StorageBuffer),
-            new("tiles", DescriptorSetSlot.PerMaterial, 11, DescriptorKind.StorageBuffer),
-            new("target", DescriptorSetSlot.PerMaterial, 12, DescriptorKind.StorageTexture)
+            new("visible", DescriptorSetSlot.PerMaterial, 2, DescriptorKind.StorageBuffer),
+            new("instances", DescriptorSetSlot.PerMaterial, 3, DescriptorKind.StorageBuffer),
+            new("geometry", DescriptorSetSlot.PerMaterial, 4, DescriptorKind.StorageBuffer),
+            new("meshes", DescriptorSetSlot.PerMaterial, 5, DescriptorKind.StorageBuffer),
+            new("residency", DescriptorSetSlot.PerMaterial, 6, DescriptorKind.StorageBuffer),
+            new("pages", DescriptorSetSlot.PerMaterial, 7, DescriptorKind.StorageBuffer),
+            new("clusterMaterials", DescriptorSetSlot.PerMaterial, 8, DescriptorKind.StorageBuffer),
+            new("tiles", DescriptorSetSlot.PerMaterial, 9, DescriptorKind.StorageBuffer),
+            new("target", DescriptorSetSlot.PerMaterial, 10, DescriptorKind.StorageTexture)
         ];
 
         static readonly ImmutableArray<EffectBinding> TileBindings = [

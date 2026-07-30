@@ -525,12 +525,13 @@ Five things the plan above did not say:
   vertex carries a position, a normal and a coordinate; a tangent is what those three imply, and
   deriving it needs the screen derivatives of two of them — which the analytic gradients already are. A
   fragment stage would have to interpolate a stored tangent and pay a channel for it.
-- **⚠ The clustered punctual light loop is owed, and the prerequisite is a refactor rather than a
-  feature.** The directional and ambient terms are library calls and are in the resolve; the punctual
-  loop is `ForwardPlus`-local, and reaching it from a second entry point means extracting its bindings
-  and four functions into a base shader both derive from. That renumbers `ForwardPlus`'s bindings, which
-  `MaterialReflectionTests` and `ForwardPlusLayoutTests` are both written against — so it is named here
-  rather than done in passing. Shadows and reflection probes are behind the same door.
+- **The clustered punctual loop, the shadow cascades and the ambient term are now literally one
+  implementation**, in [`ClusteredShading.rvn`](../../Raven/Library/Pipeline/ClusteredShading.rvn), which
+  `ForwardPlus` and `VisibilityResolve` both derive from. What made the extraction possible is that
+  lighting never needed the interpolators: those functions read a world position, a view-space position
+  and an object index, and nothing else about how the pixel was found. Passing those three down as a
+  `ShadingPoint` costs a forward fragment nothing and lets a compute stage supply them from a triangle it
+  reconstructed.
 
 **And the host is complete.** [`GpuVisibilityTiles`](../../Core/Vixen.Rendering/GpuVisibilityTiles.cs)
 bins, with the counters doubling as the indirect dispatch arguments, and
@@ -557,9 +558,35 @@ Three more things the plan did not say, all found by building it:
   traversal for every cluster it tests, so they stay device-local and are staged through host memory with
   the copies recorded at the head of the frame, which is what `MeshletPagePool` already does for pages.
 
-So the whole path exists: import → pages → residency → traversal → raster → bin → shade. **What is still
-owed is the clustered punctual light loop**, and its prerequisite is the `ForwardPlus` extraction above
-rather than anything about the resolve.
+So the whole path exists: import → pages → residency → traversal → raster → bin → shade, and a resolved
+pixel gets the same lights with the same shadows as a forward-drawn one because it is running the same
+code.
+
+**Three things the extraction turned up, none of which a compilation would have said:**
+
+- **Inheritance merged a base's bindings and streams and not its permutations.** `ForwardPlus` came out
+  reporting two of its eleven — the nine on the base vanished — which looks like a shader with no
+  variants: the generated keys lose the names and a host asking for `UseShadows` gets the default with
+  no diagnostic anywhere. `MergeInterface` merges them now, for inheritance only; a *composed* feature's
+  stay its own, or one shader's variant space would be the product of every feature a material brings.
+- **A composed model's parameters attach to the shader that declares the slot**, so moving
+  `compose val shading` to the base moved `SubsurfaceShading.wrap` out of the pass's binding list, where
+  `MaterialRenderFeature` looks for it. Each pass keeps its own slots and reaches the shared loop by
+  overriding one hook — one forwarding line, and a material's parameters stay where a host already knows
+  to find them.
+- **A ternary reads both operands.** Building the `ShadingPoint` with
+  `UseObjectRecords ? objectIndex : -1` declares that stream as a fragment input in *every* variant,
+  while the vertex stage writes it only under the permutation — and a fragment input the vertex stage
+  does not write is a pipeline the driver refuses outright. The reads are inside their own permutations
+  now, matching the guards the writers use. Caught by the golden device tests, which is what they are
+  for.
+
+⚠ **The resolve composes no irradiance source**, so it gets sky ambient and not field ambient. A compose
+slot has to be bound wherever it is *reached*, and the forward pass gets away with declaring one only
+because its own reach is inside `if (UseIrradianceField)` — folded off by default — and because
+`MaterialCompiler` names `NoIrradiance` for every material. Giving the resolve a field means giving the
+library a default binding for the slot, which is a change to how compositions are defaulted rather than
+a change to that file.
 
 ---
 

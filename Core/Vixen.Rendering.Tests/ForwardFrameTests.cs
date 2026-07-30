@@ -683,11 +683,15 @@ public sealed class ForwardFrameTests : IDisposable {
     ///     <see cref="ShadowCascades.CascadeOf" /> is a copy of it. Reversed, the host would fit
     ///     cascades for one set of distances and the shader would read them for another, which is a
     ///     shadow at the wrong resolution rather than a missing one.
+    ///
+    ///     Read from <c>ClusteredShading.rvn</c> rather than from the pass: the cascades and the light
+    ///     loops moved to a base shader so a visibility-buffer resolve could reach them, and the forward
+    ///     pass now inherits the selection rather than declaring it. Same arithmetic, one file over.
     /// </remarks>
     [Fact]
     public void The_shader_picks_a_cascade_the_way_the_host_says_it_does() {
         var source = File.ReadAllText(
-            ReflectionPath().Replace("ForwardPlus.reflect.json", "ForwardPlus.rvn", StringComparison.Ordinal)
+            ReflectionPath().Replace("ForwardPlus.reflect.json", "ClusteredShading.rvn", StringComparison.Ordinal)
         );
 
         Assert.Contains("if (viewDepth <= cascades[i].split) {", source, StringComparison.Ordinal);

@@ -61,6 +61,7 @@ public sealed class GpuClusterResolve : IDisposable {
     readonly List<DescriptorWrite> writes = [];
     readonly ParameterCollection parameters = new();
 
+    RenderView? view;
     bool disposed;
 
     /// <summary>Creates a resolve that dispatches on a device.</summary>
@@ -98,23 +99,37 @@ public sealed class GpuClusterResolve : IDisposable {
     /// </remarks>
     public IReadOnlyList<ResolveMaterial> Materials { get; set; } = [];
 
-    /// <summary>The directional light every resolve dispatch shades against.</summary>
-    public Vector3 LightDirection { get; set; } = -Vector3.UnitY;
+    /// <summary>
+    ///     The lights, the shadow atlas, the environment and the irradiance field: set 0.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The forward pass's own per-frame constants, bound unchanged.</b> Since the lighting
+    ///         moved into <c>ClusteredShading</c> the resolve declares exactly the bindings a forward
+    ///         draw does, so what fills them is what already fills them. A resolve that built its own
+    ///         would be a second opinion about where the sun is.
+    ///     </para>
+    ///     <para>
+    ///         The object rather than a set handle, because <see cref="SceneConstants.Bind" /> writes the
+    ///         set from the <em>effect's</em> reflection — and there is a different effect per material
+    ///         here. A pre-built handle would be a set allocated from one variant's layout and bound to
+    ///         another's.
+    ///     </para>
+    /// </remarks>
+    public SceneConstants? Scene { get; set; }
 
-    /// <summary>Its radiance.</summary>
-    public Vector3 LightColour { get; set; } = Vector3.One;
+    /// <summary>The camera's constants: set 1.</summary>
+    public ViewConstants? ViewConstants { get; set; }
 
-    /// <summary>The environment cube the ambient term reads, and how it is filtered.</summary>
-    public TextureViewHandle Environment { get; set; }
-
-    /// <summary>The sampler for it.</summary>
-    public SamplerHandle EnvironmentSampler { get; set; }
-
-    /// <summary>How many mips it has.</summary>
-    public float EnvironmentMipCount { get; set; } = 7f;
-
-    /// <summary>How bright the ambient term is.</summary>
-    public float AmbientIntensity { get; set; } = 1f;
+    /// <summary>The per-draw set: set 3, which holds the unclustered light list and the probe scalars.</summary>
+    /// <remarks>
+    ///     Invalid on a clustered frame, which binds none — a fragment finds its own lights in the grid,
+    ///     and a resolve invocation does the same. The block's reflection probe scalars then fall back to
+    ///     whatever set 3 last held, which is the behaviour <c>ClusteredShading.ProbeIndex</c> already
+    ///     documents for the forward path and is why a probe is read from the object record where there
+    ///     is one.
+    /// </remarks>
+    public DescriptorSetHandle DrawSet { get; set; }
 
     /// <summary>The table every material's textures live in.</summary>
     /// <remarks>
@@ -123,9 +138,6 @@ public sealed class GpuClusterResolve : IDisposable {
     ///     right for a frame whose materials are all untextured.
     /// </remarks>
     public DescriptorSetHandle TextureTable { get; set; }
-
-    /// <summary>The set holding the material sampler and anything else per-frame the resolve reads.</summary>
-    public DescriptorSetHandle FrameSet { get; set; }
 
     /// <summary>How many materials the last <see cref="Prepare" /> resolved a variant for.</summary>
     public int ResolvedMaterials { get; private set; }
@@ -190,6 +202,10 @@ public sealed class GpuClusterResolve : IDisposable {
     public bool Prepare(RenderView view, TextureViewHandle target, TextureViewHandle identities, Int2 size) {
         ArgumentNullException.ThrowIfNull(view);
         ObjectDisposedException.ThrowIf(disposed, this);
+
+        // Remembered for Record, which binds the view's own set and runs inside a command list where a
+        // caller has nothing left to hand it.
+        this.view = view;
 
         ResolvedMaterials = 0;
         Unresolved = 0;
@@ -272,8 +288,18 @@ public sealed class GpuClusterResolve : IDisposable {
 
             list.BindPipeline(bin.Pipeline);
 
-            if (FrameSet.IsValid) {
-                list.BindDescriptorSet(DescriptorSetSlot.PerFrame, FrameSet);
+            // Written per variant rather than bound from a handle, for the reason `Scene` gives: the
+            // layout is the effect's, and there is an effect per material.
+            if (bin.AllocatedFor is { } effect) {
+                Scene?.Bind(list, effect);
+            }
+
+            if (ViewConstants is not null && view is not null) {
+                ViewConstants.Bind(list, view);
+            }
+
+            if (DrawSet.IsValid) {
+                list.BindDescriptorSet(DescriptorSetSlot.PerDraw, DrawSet);
             }
 
             if (TextureTable.IsValid) {
@@ -359,19 +385,14 @@ public sealed class GpuClusterResolve : IDisposable {
             parameters.Set(VisibilityResolveKeys.Pages, pages.Pages);
             parameters.Set(VisibilityResolveKeys.ClusterMaterials, visibility.Materials);
             parameters.Set(VisibilityResolveKeys.Tiles, tiles.Tiles);
-            parameters.Set(VisibilityResolveKeys.Environment, owner.Environment);
-            parameters.Set(VisibilityResolveKeys.EnvironmentSampler, owner.EnvironmentSampler);
-
             parameters.Set(VisibilityResolveKeys.PageSize, (uint)visibility.PageSize);
             parameters.Set(VisibilityResolveKeys.TileBase, (uint)GpuVisibilityTiles.TileBase(entry.Index));
             parameters.Set(VisibilityResolveKeys.Material, (uint)entry.Index);
             parameters.Set(VisibilityResolveKeys.TileCount, GpuVisibilityTiles.TilesFor(size));
             parameters.Set(VisibilityResolveKeys.ViewProjection, view.ViewProjection);
-            parameters.Set(VisibilityResolveKeys.ViewPosition, view.Position);
-            parameters.Set(VisibilityResolveKeys.LightDirection, owner.LightDirection);
-            parameters.Set(VisibilityResolveKeys.LightColor, owner.LightColour);
-            parameters.Set(VisibilityResolveKeys.EnvironmentMipCount, owner.EnvironmentMipCount);
-            parameters.Set(VisibilityResolveKeys.AmbientIntensity, owner.AmbientIntensity);
+
+            // Everything else the shading needs — the sun, the cascades, the environment, the clustered
+            // light list — is in sets 0, 1 and 3, and those are the frame's own. See FrameSet.
 
             Constants ??= new(device, $"VisibilityResolve.{entry.Index}");
             Constants.Update(effect, parameters);

@@ -428,6 +428,34 @@ public sealed partial class Lowerer {
                 target.Add(stream);
             }
         }
+
+        // And the permutations, which are as much a part of a shader's interface as its bindings: they
+        // are what a host enumerates variants with, and the C# generator turns each into a
+        // `PermutationKey`. A derived shader whose base declared them would otherwise report none of
+        // them — the body is already folded against their values by this point, so the fact survives
+        // nowhere else, and a host asking for `UseShadows` on a pass that inherits it would silently get
+        // the default variant.
+        //
+        // Only for inheritance. A *composed* shader's permutations stay its own: a material's feature is
+        // selected by the composition and configured by its own key, and hoisting those into the
+        // consumer would make one shader's variant space the product of every feature's.
+        if (!qualify) {
+            var permutations = target.Permutations.Select(permutation => permutation.Name).ToHashSet(StringComparer.Ordinal);
+
+            foreach (var permutation in source.Permutations) {
+                if (permutations.Add(permutation.Name)) {
+                    target.Add(permutation);
+                }
+            }
+
+            var values = target.ValueParameters.Select(parameter => parameter.Name).ToHashSet(StringComparer.Ordinal);
+
+            foreach (var parameter in source.ValueParameters) {
+                if (values.Add(parameter.Name)) {
+                    target.Add(parameter);
+                }
+            }
+        }
     }
 
     // --- Monomorphisation --------------------------------------------------

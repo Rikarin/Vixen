@@ -979,6 +979,106 @@ public class LibraryTreeTests {
         Assert.Contains("texture(", forward, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     The forward pass and the resolve reach one light loop, one shadow term and one ambient term.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What the <c>ClusteredShading</c> extraction is for, asserted rather than described.</b>
+    ///         Two implementations of "every light that reaches this point" is two places for the
+    ///         definition to drift, and the way it drifts is one path getting a shadow the other does not
+    ///         — which reads as a lighting bug in the new path and is a duplication bug in both.
+    ///     </para>
+    ///     <para>
+    ///         Asserted on the emitted GLSL, because what matters is that the code is <em>there</em> in
+    ///         both. The base's functions are copied into each derived shader by name — that is how
+    ///         Raven's inheritance works — so the check is that both units contain the clustered lookup,
+    ///         the cascade selection and the split-sum ambient, and that neither declares them itself.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_forward_pass_and_the_resolve_share_one_light_loop() {
+        var composition = new (string, string)[] { ("surface", "MetalRoughnessSurface"), ("shading", "StandardShading") };
+
+        var permutations = PermutationValues.Parse(["UseClusteredLights=true", "UseShadows=true"]);
+        var module = LowerTree(permutations, composition);
+
+        var forward = ForwardPlusSource(module);
+        var resolve = ResolveSource(module);
+
+        // The clustered lookup and the shadow map, by the buffers only that code reads: a fragment and a
+        // resolve invocation both find their lights in the grid the culling pass filled and both sample
+        // the cascade atlas. Asserted on the binding names rather than on function names, because a
+        // library function is inlined and renamed on the way out and a binding is not.
+        foreach (var source in (string[])[forward, resolve]) {
+            Assert.Contains("clusters", source, StringComparison.Ordinal);
+            Assert.Contains("lightBuffer", source, StringComparison.Ordinal);
+            Assert.Contains("shadowMap", source, StringComparison.Ordinal);
+            Assert.Contains("cascades", source, StringComparison.Ordinal);
+        }
+
+        // The source of truth is one file. Neither pass declares the loop itself — the base does — which
+        // is what stops the two from being edited apart.
+        var shared = File.ReadAllText(Path.Combine(LibraryRoot, "Pipeline", "ClusteredShading.rvn"));
+
+        Assert.Contains("func Clustered(d: MaterialData, p: ShadingPoint", shared, StringComparison.Ordinal);
+        Assert.Contains("func Shadow(p: ShadingPoint", shared, StringComparison.Ordinal);
+        Assert.Contains("func Ambient(d: MaterialData, p: ShadingPoint", shared, StringComparison.Ordinal);
+
+        foreach (var file in (string[])["ForwardPlus.rvn", "VisibilityResolve.rvn"]) {
+            var pass = File.ReadAllText(Path.Combine(LibraryRoot, "Pipeline", file));
+
+            Assert.DoesNotContain("func Clustered(", pass, StringComparison.Ordinal);
+            Assert.DoesNotContain("func Shadow(", pass, StringComparison.Ordinal);
+            Assert.DoesNotContain("func Ambient(", pass, StringComparison.Ordinal);
+
+            // Each keeps its own composition slots, because a composed model's parameters attach to the
+            // shader that declares the slot — and reaches the shared loop by overriding one hook.
+            Assert.Contains("compose val shading: IShadingModel", pass, StringComparison.Ordinal);
+            Assert.Contains("override func Shade(", pass, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>
+    ///     A shader inherits its base's permutations, and reports them as its own.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The gap the extraction found. Inheritance already merged a base's bindings and streams
+    ///         into the derived shader's interface — permutations were missed, because until now nothing
+    ///         had inherited one. A shader that reported none of them looks like a shader with no
+    ///         variants: the generated keys lose the names, and a host asking for <c>UseShadows</c> gets
+    ///         the default variant with no diagnostic anywhere.
+    ///     </para>
+    ///     <para>
+    ///         Only for inheritance. A <em>composed</em> shader's permutations stay its own, or one
+    ///         shader's variant space would be the product of every feature a material might bring.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_shader_inherits_its_bases_permutations() {
+        var pass = FindShader(LowerTree(), "ForwardPlus");
+        var names = pass.Permutations.Select(permutation => permutation.Name).ToArray();
+
+        // Its own, and the base's.
+        Assert.Contains("UseTransformRecords", names);
+        Assert.Contains("UseClusteredLights", names);
+        Assert.Contains("UseShadows", names);
+        Assert.Contains("MaxLights", names);
+
+        // The resolve inherits the same ones, which is what lets a host ask for the same lighting.
+        var resolve = FindShader(LowerTree(), "VisibilityResolve");
+        var resolveNames = resolve.Permutations.Select(permutation => permutation.Name).ToArray();
+
+        Assert.Contains("UseClusteredLights", resolveNames);
+        Assert.Contains("UseShadows", resolveNames);
+
+        // And a composed feature's are not hoisted: the surface below has its own and the pass does not
+        // gain them.
+        var composed = FindShader(LowerTree(composition: [("shading", "CelShading")]), "ForwardPlus");
+        Assert.DoesNotContain("Steps", composed.Permutations.Select(permutation => permutation.Name));
+    }
+
     /// <summary>The resolve's compute unit, as GLSL.</summary>
     static string ResolveSource(IrModule module) {
         var bag = new DiagnosticBag();

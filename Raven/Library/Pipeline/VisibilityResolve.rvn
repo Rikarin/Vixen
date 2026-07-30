@@ -4,6 +4,7 @@ import Vixen.Shaders.Core
 import Vixen.Shaders.Shading
 import Vixen.Shaders.Geometry
 import Vixen.Shaders.Material
+import Vixen.Shaders.IrradianceFields
 
 // Shading the visibility buffer: the second half of phase 5.
 //
@@ -24,22 +25,41 @@ import Vixen.Shaders.Material
 // with them. That is what `UseAnalyticGradients` selects, and it is the first consumer of the
 // `SampleGrad` support built as blocker B3.
 //
-// ⚠ **What this does not yet share with `ForwardPlus` is the punctual light loop.** The directional
-// term and the ambient term are library calls and are here; the clustered loop is `ForwardPlus`-local,
-// and reaching it from a second entry point means extracting its bindings and its four functions into
-// a base shader both derive from. That extraction renumbers `ForwardPlus`'s bindings, which two oracle
-// suites are written against — so it is named as owed rather than done in passing. See
-// `docs/plan/22-virtualized-geometry.md` phase 5.
+// **The lighting is `ClusteredShading`'s, which both this and `ForwardPlus` derive from.** The
+// directional term, the clustered punctual loop, the shadow cascades and the ambient term are all the
+// same code reached from two entry points — so a surface shaded through the resolve gets the same lights
+// with the same shadows as one shaded through a draw, by construction rather than by two
+// implementations agreeing about what "every light that reaches this point" means. What each pass
+// supplies is a `ShadingPoint`: the three things lighting needs to know about where a pixel is, which a
+// rasterizer interpolates and this reconstructs.
 
-shader VisibilityResolve : MaterialTextures {
-    /// The material's surface features, chosen per material — the same slot `ForwardPlus` composes.
-    compose val surface: IMaterialSurface
+shader VisibilityResolve : ClusteredShading {
 
-    /// What the surface does with a light, chosen per material. Also the same slot.
+    /// What the surface does with a light, chosen per material — the same slot `ForwardPlus` composes.
+    ///
+    /// Declared here rather than on `ClusteredShading` for the reason that one gives: a composed model's
+    /// own uniforms attach to the shader that declares the slot, and a host looks for them on the pass.
     compose val shading: IShadingModel
 
-    /// Whether to add image-based ambient, as in the forward pass.
-    [Permutation] val UseImageBasedLighting: bool = true
+    /// The composed model, reached from the shared light loops.
+    override func Shade(d: MaterialData, a: ShadingAngles, s: ShadingVectors, alpha: float): float3 {
+        return shading.Shade(d, a, s, alpha)
+    }
+
+    // ⚠ **No `irradiance` slot, so the resolve gets sky ambient and not field ambient.** The base's
+    // `SampleIrradiance` returns zero coverage, which is exactly what `NoIrradiance` answers — so
+    // `UseIrradianceField` on changes nothing here rather than reading a field that is not bound.
+    //
+    // The reason is not a design one. A compose slot has to be *bound* wherever it is reached, and the
+    // forward pass gets away with declaring one because `MaterialCompiler` names `NoIrradiance` for
+    // every material and because its own reach is inside `if (UseIrradianceField)`, which folds away by
+    // default. An override here is reached from a function that is not folded, so the slot would have to
+    // be bound in every compilation of the library — including the ones that are compiling something
+    // else entirely, which is every shader in `Pipeline/`. Giving the resolve a field means giving the
+    // library a default binding for the slot, which is a change to how compositions are defaulted rather
+    // than a change to this file.
+    /// The material's surface features, chosen per material — the same slot `ForwardPlus` composes.
+    compose val surface: IMaterialSurface
 
     /// The identity buffer the raster wrote. See `ClusterRaster.rvn`.
     var identities: Texture2D
@@ -89,23 +109,6 @@ shader VisibilityResolve : MaterialTextures {
 
     /// The camera, for projecting the triangle's corners the way the raster did.
     var viewProjection: mat4
-
-    /// Where the camera is, for the view vector.
-    var viewPosition: float3
-
-    /// The directional light.
-    var lightDirection: float3
-
-    var lightColor: float3
-
-    /// The ambient environment, and how bright it is.
-    var environment: TextureCube
-    var environmentSampler: Sampler
-    var environmentMipCount: float = 7f
-    var ambientIntensity: float = 1f
-
-    /// The sky's irradiance, projected. The same nine coefficients `ForwardPlus` reads.
-    var environmentSh: ShCoefficients
 
     /// One workgroup per tile of this material's bin, one invocation per pixel.
     ///
@@ -214,55 +217,23 @@ shader VisibilityResolve : MaterialTextures {
         val n = Normals.FaceForward(Math.SafeNormalize(d.normalWS), v)
         val alpha = Brdf.Alpha(d.perceptualRoughness)
 
-        var color = Direct(d, n, v, alpha)
+        // The three things lighting needs to know about where this pixel is. `objectIndex` is negative
+        // because a resolve shades a cluster of a mesh rather than a render object — which is what makes
+        // the per-object reflection probe fall back to the block, exactly as it does on any path that
+        // binds no per-draw set.
+        var point: ShadingPoint
+        point.positionWS = positionWS
+        point.positionVS = Math.TransformPoint(view, positionWS)
+        point.objectIndex = -1
 
-        if (UseImageBasedLighting) {
-            color += Ambient(d, n, v)
+        var color = Direct(d, point, n, v, alpha)
+        color += Punctual(d, point, n, v, alpha)
+
+        if (UseImageBasedLighting || UseIrradianceField) {
+            color += Ambient(d, point, n, v)
         }
 
         target.Store(pixel, float4(color + d.emissive, d.alpha))
-    }
-
-    /// The directional light's contribution.
-    ///
-    /// The same three library calls `ForwardPlus.Direct` makes, in the same order, with the same
-    /// `shading` slot between them — which is what makes the exit criterion's claim checkable: the
-    /// composed shading models produce the same value whether reached from a draw or from here.
-    ///
-    /// Unshadowed, because a shadow lookup is `ForwardPlus`'s cascade bindings and those are what the
-    /// extraction named at the top of this file would bring. A resolve without shadows is wrong in a
-    /// way anyone can see, which is the right way for something owed to be owed.
-    func Direct(d: MaterialData, n: float3, v: float3, alpha: float): float3 {
-        val light = Lighting.Directional(lightDirection, lightColor)
-        val angles = ShadingAngles.Of(n, v, light.l)
-
-        var s: ShadingVectors
-        s.n = n
-        s.v = v
-        s.l = light.l
-
-        return shading.Shade(d, angles, s, alpha) * light.radiance
-    }
-
-    /// Image-based ambient, from the environment cube.
-    ///
-    /// `ForwardPlus.Ambient` without the reflection probe, and otherwise the same five library calls in
-    /// the same order — the split-sum DFG term, the prefiltered specular at the roughness's mip, the
-    /// sky's irradiance from its nine coefficients, and the two `Ibl` compositions. A probe is a
-    /// per-object binding and reaching it needs the extraction named at the top of the file.
-    func Ambient(d: MaterialData, n: float3, v: float3): float3 {
-        val NdotV = saturate(dot(n, v))
-        val reflected = reflect(-v, n)
-
-        val dfg = Ibl.EnvironmentDfg(NdotV, d.perceptualRoughness)
-        val lod = Ibl.SpecularLod(d.perceptualRoughness, environmentMipCount)
-        val prefiltered = environment.SampleLevel(environmentSampler, reflected, lod).rgb
-        val irradiance = Ibl.IrradianceSh9(n, environmentSh)
-
-        val specular = Ibl.Specular(prefiltered, d.f0, dfg, d.occlusion)
-        val diffuse = Ibl.Diffuse(irradiance, d.diffuseColor, d.occlusion)
-
-        return (specular + diffuse) * ambientIntensity
     }
 
     /// A tangent from the triangle's own texture coordinates.

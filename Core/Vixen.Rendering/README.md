@@ -309,9 +309,15 @@ is one surface feature chain and one shading model whichever pass reaches it. Ev
 name through `EffectSetWriter`, because what a composed shader's set contains is whatever the material's
 features brought.
 
-⚠ The resolve has the directional and ambient terms and not the clustered punctual loop: that loop is
-`ForwardPlus`-local, and sharing it means extracting its bindings into a base shader both derive from,
-which renumbers bindings two oracle suites are written against.
+**The lighting is one implementation.** `Library/Pipeline/ClusteredShading.rvn` holds the light loops,
+the shadow cascades and the ambient term, and both `ForwardPlus` and `VisibilityResolve` derive from it —
+so a resolved pixel gets the same lights with the same shadows as a forward-drawn one by construction.
+Each pass keeps its own `compose` slots and reaches the shared loop through one overridden hook, because
+a composed model's parameters attach to the shader that declares the slot.
+
+⚠ The resolve composes no irradiance source, so it gets sky ambient and not field ambient — a slot has to
+be bound wherever it is reached, and the forward pass only avoids that because its own reach is inside a
+permutation that folds off.
 
 **And with no wait, every descriptor set is a ring.** A set a submitted command buffer still
 references may not be written — `VUID-vkUpdateDescriptorSets-None-03047` — so all three classes hold
