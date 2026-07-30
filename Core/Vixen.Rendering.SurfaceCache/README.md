@@ -61,7 +61,7 @@ arriving on the floor: emissive-only the floor's red-to-green ratio is the white
 and converged it rises past 1.1, colour that took two bounces to get there. Two convergences agree
 to the bit, which is the property every dispatch comparison will lean on.
 
-## The seam every tracer left open is closed
+## The seam every tracer left open is closed, on both processors
 
 `SurfaceCacheRadiance` wraps any `IRadianceSource`: a hit inside a resident card answers with the
 card's outgoing radiance — direct, emissive, and every bounce — and everything else falls through
@@ -70,19 +70,43 @@ covers. A screen probe on the Cornell floor holds the panel in its up-texel and 
 wall, while the same probe over the black world stays dark: the L2 fillers and the L3 gather
 inherit multi-bounce light without changing a line.
 
+The shader half is the same idea as a compose slot: `ISurfaceCacheSource` in the Raven
+`SurfaceCache` package, with `NoSurfaceCache` answering the black every tracer always answered and
+`SurfaceCacheSource` answering with the card atlas — `TryRadiance`'s walk, test for test.
+`ScreenProbeTrace` composes it at its hit branch, and the bounce kernel reads the cache through the
+same implementation it feeds.
+
+## Sampling is one grid cell, and the linear scan referees it
+
+`SurfaceCardIndex` is a uniform grid of card lists: a card registers into every cell its box
+overlaps, so the cell a point falls in holds a superset of the cards that could contain it, in
+arrival order — which keeps the equal-facing tie-break on the earlier card without the index
+knowing there is one. The containment, depth and facing tests run unchanged on what it returns; a
+test holds the indexed answer against the linear scan rewritten in full, on random cards, half the
+queries aimed at stored surfaces so the comparison is not a comparison of misses.
+
+## The device halves, each against the reference that was built first
+
+- **The dispatches.** `SurfaceCacheLight` and `SurfaceCacheGather` (`Vixen.Rendering.Lighting`) run
+  `Light` and `Gather` as compute over `SurfaceCacheTexture`'s atlas planes — the gather casting
+  this package's own Hammersley rays, reading the front of the double buffer while writing the
+  back. The open-sky device tests compare under `NoDistanceField`, pure arithmetic; the seam test
+  hands **one** `GlobalDistanceField` object to both sides, so the CPU marches the very grids the
+  clipmap uploads — drift measured at exactly zero on the measuring machine, stated at 1e-4.
+- **The runtime capture.** `SurfaceCardCapture` rasterises a card in `IrradianceCubeCapture`'s
+  mould: the projection is derived from the card so framebuffer texel (x, y) *is* card texel
+  (x, y) — pinned by a closed form over all six axes — and three passes over one attachment stand
+  in for MRT, because a scene's pipelines already target one colour format. Compared against
+  `TracedCardCapture` on one scene captured both ways: validity texel for texel, materials to float
+  precision, depth to the march's own arrival hair.
+
 ## Not yet, and named so the absence is a decision
 
-- **The runtime capture.** Rasterising real meshes and materials into albedo/normal/depth/emissive
-  atlas textures, budget-limited per frame — the device half of `TracedCardCapture`, in
-  `IrradianceCubeCapture`'s mould, compared against this reference.
-- **The lighting and bounce as dispatches.** `Light` and `Gather` are shaped for it — deterministic,
-  double-buffered, texel-parallel — and the comparison pattern is the package's own bit-exactness
-  test.
-- **A spatial index for sampling.** `TryRadiance` scans the cards linearly, which is
-  fixture-honest and scene-slow.
-- **Composing the seam into the frame.** The gather node and the field fillers take their sources
-  from the host; a project that has a cache hands them `SurfaceCacheRadiance`. The Raven half of
-  the sampling — a card-sampling `IIrradianceSource`-style implementation for the kernels — lands
-  with the dispatches.
+- **The one-pass MRT capture.** The three-pass capture is its baseline and its referee.
+- **A compositor node.** Scheduling capture → light → gather in a live frame, budgeted the way the
+  irradiance-field renderer budgets its fills.
+- **A device-side spatial index.** The kernels' sampler scans the card buffer linearly —
+  fixture-honest, scene-slow, and `SurfaceCardIndex` is the shape it will take.
 
-**Nothing here creates or calls a graphics device.**
+**Nothing in this package creates or calls a graphics device** — the dispatches, the mirror and the
+capture live in `Vixen.Rendering.Lighting`, where the devices are.
