@@ -1,0 +1,43 @@
+package Vixen.Shaders.ScreenProbes
+
+import Vixen.Shaders.Core
+
+// Where a screen probe's texels live, and which direction each one stands for.
+//
+// The shader half of `Vixen.Rendering.ScreenProbes` — doc 19 § L3's atlas, addressed. The C# side
+// exists first and is checked against closed forms; this side has to reach the same texels and decode
+// the same directions, and `AtlasConventionTests` walks both against each other the way the irradiance
+// field's `SamplingConventionTests` does, because two implementations of one convention is how a probe
+// map gets written in one place and read from another.
+//
+// The octahedral fold is `Math.DecodeOctahedral`'s — the same function the G-buffer normals already
+// use — rather than a second copy here. One fold in the library, whatever it is folding.
+
+shader ScreenProbeAtlas {
+    /// How many texels one probe's map is along each axis.
+    ///
+    /// Eight, which is doc 19 § L3's number: sixty-four directions per probe, the same count the
+    /// irradiance field's probes trace and for the same reason — enough for what a probe resolves to,
+    /// with everything beyond that bought more cheaply by filtering.
+    const val MapResolution = 8
+
+    /// Where a texel's centre sits in the octahedral square, in [-1, 1]².
+    ///
+    /// The half-texel is the line that would silently drop it: without it every direction shifts half
+    /// a texel and every closed-form test on either side still passes.
+    static func TexelCentre(texel: int2, resolution: int): float2 {
+        val u = (float(texel.x) + 0.5f) / float(resolution) * 2f - 1f
+        val v = (float(texel.y) + 0.5f) / float(resolution) * 2f - 1f
+        return float2(u, v)
+    }
+
+    /// The direction a texel's centre stands for.
+    static func Direction(texel: int2, resolution: int): float3 {
+        return Math.DecodeOctahedral(TexelCentre(texel, resolution))
+    }
+
+    /// Where a probe's map starts in the atlas.
+    static func Origin(probe: int2, resolution: int): int2 {
+        return int2(probe.x * resolution, probe.y * resolution)
+    }
+}

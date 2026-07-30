@@ -1,0 +1,96 @@
+package Vixen.Shaders.ScreenProbes
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.DistanceFields
+
+// Filling screen probes by marching the distance field, on the GPU.
+//
+// `docs/plan/19` § L3's trace, first half only: one ray per octahedral texel, at the texel's centre,
+// with the radiance written into the atlas and nothing resolved. The projection, the filters and the
+// upsample are later passes, because a texel of raw radiance is the thing a reference can be compared
+// against and a filtered one is not.
+//
+// `Vixen.Rendering.ScreenProbes.TracedScreenProbeGather` is the same arithmetic on the CPU and it
+// exists first, because there it can be checked: a uniform sky comes back as itself in every texel.
+// Where the two disagree, the C# is right and this is wrong.
+//
+// One workgroup per probe and one invocation per texel: sixty-four threads, sixty-four rays. The probe
+// a group is filling comes out of a buffer indexed by the group — the same shape as `IrradianceFill`,
+// so a frame refills N probes in one dispatch and N is the host's number.
+//
+// What a hit gives back is nothing, exactly as `IrradianceFill`: a surface's own radiance is Lumen's
+// surface cache and that is § L4. Until it exists this bounces nothing, which is honest rather than
+// convenient — and it is what the CPU reference's fixtures return too.
+
+/// One probe to fill: where its map lives in the atlas, and where it stands in the world.
+struct ScreenProbeTraceJob {
+    /// Where the probe's map starts in the atlas, in texels.
+    var atlasOrigin: int2
+
+    /// Where its rays start — the probe's surface, already stepped off along its normal.
+    ///
+    /// Biased by the host rather than here, so the shader needs no normal at all: the bias is part of
+    /// where a probe stands, not of how a ray marches, and the CPU reference applies it in exactly one
+    /// place for the same reason.
+    var origin: float3
+}
+
+shader ScreenProbeTrace {
+    /// What the rays march through. `GlobalDistanceField` is the one that reads a clipmap.
+    compose val distanceField: IDistanceFieldSource
+
+    var jobs: Buffer<ScreenProbeTraceJob>
+
+    /// Every probe's map, side by side. Written, never read — the resolve is a later pass.
+    [Format("rgba32f")] var radianceAtlas: RWTexture2D<float4>
+
+    /// How far a ray looks before deciding it hit nothing.
+    var maxDistance: float = 100f
+
+    /// How many steps one march may take.
+    var maxSteps: int = 64
+
+    /// How near counts as arrived.
+    var surfaceThreshold: float = 0.05f
+
+    /// What fraction of the reported distance each step actually takes.
+    var stepScale: float = 0.9f
+
+    /// What a ray that hit nothing sees, straight ahead.
+    var skyColor: float3 = float3(1f, 1f, 1f)
+
+    /// How much the sky changes per unit of a direction's y, per channel.
+    ///
+    /// Zero is a uniform sky and the closed form. Nonzero is what lets a device comparison exercise
+    /// the octahedral decode at all: under a uniform sky every texel is the same number whatever
+    /// direction it stands for, so a transposed or mirrored decode is invisible — the same blindness
+    /// the cube capture's tests escaped by lighting a single texel.
+    var skyGradient: float3 = float3(0f, 0f, 0f)
+
+    // An eight-by-eight group, one invocation per texel of `ScreenProbeAtlas.MapResolution`. The two
+    // are the same number by construction rather than by coincidence — see Main's first line.
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_GroupID")] group: uint3, [Semantic("SV_GroupThreadID")] thread: uint3) {
+        val job = jobs[int(group.z)]
+        val texel = int2(int(thread.x), int(thread.y))
+        val atlasTexel = int2(job.atlasOrigin.x + texel.x, job.atlasOrigin.y + texel.y)
+
+        // A probe the field calls buried is invalid before any ray is cast — the reference's rule.
+        // Zero alpha is the mark: a gathered texel carries one, so a readback can tell "nothing
+        // gathered" from "gathered nothing but darkness".
+        if (distanceField.SampleField(job.origin) < 0f) {
+            radianceAtlas.Store(atlasTexel, float4(0f, 0f, 0f, 0f))
+            return
+        }
+
+        val direction = ScreenProbeAtlas.Direction(texel, ScreenProbeAtlas.MapResolution)
+        val hit = distanceField.TraceField(job.origin, direction, maxDistance, maxSteps, surfaceThreshold, stepScale)
+        var arriving = skyColor + skyGradient * direction.y
+
+        if (hit.hit) {
+            arriving = float3(0f, 0f, 0f)
+        }
+
+        radianceAtlas.Store(atlasTexel, float4(arriving, 1f))
+    }
+}

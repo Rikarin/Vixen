@@ -41,8 +41,8 @@ public class LibraryTreeTests {
     ///     asserts about the library proper.
     /// </remarks>
     static readonly string[] Packages = [
-        "Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "Material", "Pipeline", "Ui",
-        "PostFx", "Vfx"
+        "Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "ScreenProbes", "Material",
+        "Pipeline", "Ui", "PostFx", "Vfx"
     ];
 
     /// <summary>

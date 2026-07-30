@@ -630,10 +630,37 @@ the sky, for exactly the reason the bounce found L1 answering below zero — fou
 hold a one-sided distribution. The test asserts a bound on the overshoot instead of pretending
 otherwise; the spatial filter will meet this number again.
 
-Not started, and named in the README as decisions: adaptive placement, importance sampling, the
-HZB-first trace order and the termination in L2's field, the whole denoiser, and everything
-device-side. The next milestone is the one L2 stood at after its first commit: the storage
-convention pinned by a test that walks the shader's addressing in C#.
+**And the trace dispatches, agreeing with the reference to a ten-thousandth.**
+`Raven/Library/ScreenProbes` is a new package: `ScreenProbeAtlas.rvn` addresses the map by folding
+through `Math.DecodeOctahedral` — one fold in the library, so the G-buffer normals and the probe
+maps cannot disagree about which corner is the south pole — and `ScreenProbeTrace.rvn` is the
+kernel, one workgroup per probe and one invocation per texel, composing the same `distanceField`
+slot `IrradianceFill` composes, sky-or-black like it, for the same § L4 reason.
+`AtlasConventionTests` walks the shader's arithmetic in C# against `OctahedralMap` texel by texel
+and guards the drift-prone lines by text, L2's arrangement exactly. `ScreenProbeTexture` mirrors
+the atlas into one 2D texture — radiance in colour, validity in alpha, so a readback tells "nothing
+gathered" from "gathered nothing but darkness" — and `ScreenProbeTraceFill` stages one job per
+valid probe, with the surface bias applied at staging so the shader receives an origin rather than
+a surface and a rule.
+
+Two details the first dispatch decided. **The device comparison runs under a linear sky as well as
+a uniform one**, because a uniform sky is blind to the decode — every texel is the same number
+whatever direction it stands for, so a mirrored or transposed octahedral fold passes; a sky varying
+with a direction's y gives every texel its own answer, and the dispatch reproduced all of them.
+And **a probe with no surface is not dispatched, so on a device-owned atlas its patch is
+undefined** — validity rides in the alpha of texels something wrote, and clearing or skipping the
+unwritten patches belongs to the consuming pass, where it is owed.
+
+And one finding this section already owned, replayed on schedule: **a slot is filled where it is
+declared, not where it is used** — the new package's `distanceField` needed its line in
+`MaterialCompiler.OptionalSlots`, and until it had one every whole-library compilation in the
+golden suite refused with `RVN2073`, exactly as § L2 recorded when `IrradianceFill` was the shader
+doing the declaring. The failure was loud and eight tests wide, which is what that inventory's own
+comment promises.
+
+Still not started, and named in the README as decisions: adaptive placement, importance sampling,
+the HZB-first trace order and the termination in L2's field, the whole denoiser, and the resolve,
+upsample and compositor node — each of which now has a traced atlas to land against.
 
 ### L4 — Surface cache and radiosity *(3.5 EM)*
 
