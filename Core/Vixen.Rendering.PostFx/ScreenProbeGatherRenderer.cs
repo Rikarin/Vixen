@@ -271,9 +271,36 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
             throw new InvalidOperationException(
                 $"'{this}' laid its probes over {atlas.Layout.Viewport} and the frame is now {size}. "
                 + "Resizing the lattice mid-flight would rebuild textures frames still reference — "
-                + "recreate the node instead. A deliberate resize step is owed."
+                + "idle the device, call Reset(), and the next build lays a new lattice."
             );
         }
+    }
+
+    /// <summary>Forgets the lattice, so the next build lays a new one at the frame's size.</summary>
+    /// <remarks>
+    ///     The deliberate resize step. ⚠ The caller idles the device first — the textures released
+    ///     here may be referenced by frames still in flight, and this cannot know what a host's loop
+    ///     waits on. Everything accumulated starts over: probe history, placement, readback rings —
+    ///     a resize is a camera cut as far as the temporal chain is concerned, and pretending
+    ///     otherwise would reproject through a lattice that no longer exists.
+    /// </remarks>
+    public void Reset() {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        upsample?.Dispose();
+        texture?.Dispose();
+        history?.Dispose();
+
+        upsample = null;
+        texture = null;
+        history = null;
+        atlas = null;
+        surface = null;
+
+        frames = 0;
+        Placed = 0;
+        Placements = 0;
+        placedViewProjection = Matrix4x4.Identity;
     }
 
     /// <summary>The readback rings — one region per frame deep enough for the wait.</summary>

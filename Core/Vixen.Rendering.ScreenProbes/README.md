@@ -249,8 +249,17 @@ holds every pixel, and a too-tight tolerance falls back rather than going black;
 discriminating case, a depth edge the plane test must not bleed across, needs real geometry in
 the frame and is owed with the first lit-scene fixture.**
 
-Owed from here: bilinear history taps (point reprojection is the baseline), the lit-scene edge
-fixture above, and the adaptive probes' device half, which now has the pass that would read them.
+**Doc 19 § L3's exit criteria are asserted in `ExitCriteriaTests`**: the chain at its own
+sixty-four rays matches a deterministic 4096-sample Hammersley reference within a budget with
+named parts — one per cent unshadowed, five per cent RMS and ten at the worst pixel under a
+ball's occlusion, measured before stated — and the camera-cut and fast-pan tests hold ghosting to
+*exactness*: a cut keeps not a fraction of the old light, and a pan answers every probe with its
+own world column's number. The bilateral edge has its picture in the golden suite: the bilinear
+bleed pinned at the lattice weight first, then removed by the plane test at the same pixels.
+
+Owed from here, quality rather than criteria: bilinear history taps (point reprojection is the
+baseline), the adaptive probes' device half (the pass that would read them now exists), the HZB
+traversal, and importance sampling.
 
 ## Not yet, and named so the absence is a decision
 

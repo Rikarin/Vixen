@@ -162,6 +162,85 @@ public sealed class ScreenProbeGatherImageTests {
         Assert.True(Pixel(pictures[^1], 16, 16).X < 0.02f, $"the sky was lit: {Pixel(pictures[^1], 16, 16)}");
     }
 
+    /// <summary>A resized frame is refused until the host says so, and honoured once it does.</summary>
+    /// <remarks>
+    ///     Build-only, deliberately — the point under test is the lattice's lifecycle, not a picture.
+    ///     Rebuilding textures mid-flight while frames still reference them is a use-after-free with
+    ///     latency, so the refusal is loud; <c>Reset</c> after an idle is the sanctioned path, and
+    ///     it starts the temporal chain over, because a resize is a camera cut.
+    /// </remarks>
+    [Fact]
+    public void AResizeIsADeliberateStep() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var device = owned.Device;
+
+        using var allocator = new DescriptorAllocator(device);
+        using var samplers = new SamplerCache(device);
+        using var system = new RenderSystem();
+
+        var effects = new EffectSystem();
+
+        using var node = new ScreenProbeGatherRenderer {
+            Name = "ScreenProbes",
+            Depth = "Depth",
+            Normals = "Normals",
+            Output = "Display",
+            Samplers = samplers,
+            Allocator = allocator
+        };
+
+        var gbufferUsage = TextureUsage.ColourTarget | TextureUsage.Sampled | TextureUsage.CopySource;
+
+        Bitmapless(owned, system, node, Fixture.Side, gbufferUsage, effects, device);
+
+        Assert.Equal(new Int2(Fixture.Side, Fixture.Side), node.Texture!.Probes.Layout.Viewport);
+
+        // The window shrank: refused, loudly, until the host resets after an idle.
+        Assert.Throws<InvalidOperationException>(
+            () => Bitmapless(owned, system, node, 64, gbufferUsage, effects, device)
+        );
+
+        device.WaitIdle();
+        node.Reset();
+
+        Bitmapless(owned, system, node, 64, gbufferUsage, effects, device);
+
+        Assert.Equal(new Int2(64, 64), node.Texture!.Probes.Layout.Viewport);
+        Assert.Equal(0, node.Placements);
+    }
+
+    /// <summary>Builds one frame at a size without executing it — the lifecycle, not the picture.</summary>
+    static void Bitmapless(
+        Fixture fixture,
+        RenderSystem system,
+        ScreenProbeGatherRenderer node,
+        int side,
+        TextureUsage gbufferUsage,
+        EffectSystem effects,
+        Vulkan.VulkanDevice device
+    ) {
+        var depth = fixture.Owned($"depth {side}", gbufferUsage, PixelFormat.Rgba32Float, side, side);
+        var normals = fixture.Owned($"normals {side}", gbufferUsage, PixelFormat.Rgba32Float, side, side);
+        var display = fixture.Owned($"display {side}", TextureUsage.ColourTarget | TextureUsage.CopySource, PixelFormat.Rgba8UNorm, side, side);
+
+        var compositor = new GraphicsCompositor(system) {
+            FrameSize = new(side, side),
+            Game = new SceneRendererSequence { Children = { node } }
+        };
+
+        compositor.Imports["Depth"] = new(depth.Texture, depth.View, depth.Description);
+        compositor.Imports["Normals"] = new(normals.Texture, normals.View, normals.Description);
+        compositor.Imports["Display"] = new(display.Texture, display.View, display.Description);
+
+        fixture.Graph.Reset();
+        compositor.Build(fixture.Graph, effects, device);
+        fixture.Graph.Reset();
+    }
+
     sealed record Observed(
         int Probes,
         int PlacedSeen,

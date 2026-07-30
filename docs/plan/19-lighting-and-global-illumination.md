@@ -791,12 +791,32 @@ fallback engaged rather than black — and the discriminating depth-edge picture
 first fixture that draws real geometry.
 
 With that, the denoiser's chain runs end to end on the device — accumulate, filter, bilateral
-upsample — every stage held to a CPU reference. Still not started: the HZB traversal itself (the
+upsample — every stage held to a CPU reference.
+
+**And the exit criteria are asserted rather than aspired to.** `ExitCriteriaTests` is where this
+section's exit sentence becomes numbers. The reference is a 4096-sample cosine-weighted Monte
+Carlo estimate, deterministic by Hammersley because a reference that changes between runs referees
+nothing; the chain at its own sixty-four rays per probe matches it within a stated budget with
+named parts — under an unshadowed linear sky, where quadrature and truncation are exact, within
+one per cent; under a ball's occlusion cone, which no L1 projection holds, within five per cent
+RMS and ten at the worst pixel, both measured before they were stated. The camera-cut test
+accumulates five frames and cuts to a different camera on a different plane: every probe rejects
+its past outright and answers the new frame alone at weight one, no fraction of the old light
+blended in. The fast-pan test pans a tile per frame over per-column constants: every probe answers
+exactly its own world column's number — a smear would be a blend of two columns, and there is no
+tolerance wide enough to call that no ghosting — with reprojection proven to have actually run.
+The bilateral edge has its picture too: a synthetic two-plane G-buffer whose step the bilinear
+taps bleed across by exactly the lattice weight (pinned first, because a discriminator that cannot
+show the failure proves nothing), and whose sides come back pure under the plane test. And the
+gather node's resize is a deliberate step: a changed frame is refused loudly until the host idles
+and calls `Reset`, which starts the temporal chain over, because a resize is a camera cut.
+
+Remaining, all of it quality and performance rather than exit criteria: the HZB traversal (the
 naive march is the baseline, and the pyramid wants its nearest-texel reduction beside culling's
 farthest), the adaptive probes' device half (the bilateral pass that would read them now exists),
-importance sampling, bilinear history taps, the lit-scene fixtures the exit criteria ask for —
-the reference path tracer and the camera-cut and fast-pan ghosting tests — and the gather node's
-deliberate resize step.
+importance sampling, bilinear history taps, screen-trace radiance once § L4's surface cache gives
+hits something to return, and composing the output into a shipped preset — a project decision,
+the same slot `IndirectDiffuse` fills today.
 
 ### L4 — Surface cache and radiosity *(3.5 EM)*
 
