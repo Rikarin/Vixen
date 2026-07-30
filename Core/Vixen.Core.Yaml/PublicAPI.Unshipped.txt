@@ -1,4 +1,5 @@
 #nullable enable
+Vixen.Core.Yaml.MathScalars -> static class
 Vixen.Core.Yaml.Meta.AddressableInfo -> sealed record
 Vixen.Core.Yaml.Meta.AddressableInfo : System.IEquatable<Vixen.Core.Yaml.Meta.AddressableInfo>
 Vixen.Core.Yaml.Meta.AddressableInfo.Address.get -> string?
@@ -163,6 +164,7 @@ const Vixen.Core.Yaml.Meta.TargetOverrides.OverridesKey = "overrides" -> string
 const Vixen.Core.Yaml.Meta.TargetOverrides.TargetKey = "target" -> string
 const Vixen.Core.Yaml.YamlWriter.FlowWidthLimit = 60 -> int
 override Vixen.Core.Yaml.YamlScalar.ToString() -> string
+static Vixen.Core.Yaml.MathScalars.Register() -> void
 static Vixen.Core.Yaml.Meta.AssetMetaFile.PathFor(string assetPath) -> string
 static Vixen.Core.Yaml.Meta.AssetMetaFile.Read(string text, Vixen.Core.Yaml.Meta.MetaMigrationChain? chain = null, System.Action<string>? onUnknownKey = null) -> Vixen.Core.Yaml.Meta.AssetMeta
 static Vixen.Core.Yaml.Meta.AssetMetaFile.ReadFile(string path, Vixen.Core.Yaml.Meta.MetaMigrationChain? chain = null, System.Action<string>? onUnknownKey = null) -> Vixen.Core.Yaml.Meta.AssetMeta

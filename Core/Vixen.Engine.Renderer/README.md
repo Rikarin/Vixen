@@ -42,8 +42,12 @@ renderer.Mount(assets);                  // mesh references now resolve
 renderer.Register(loop, opaque.Mask);    // entities now reach the render system
 
 loop.Frame(elapsed);
-renderer.Host.Draw(list);
+renderer.Draw(list);
 ```
+
+`renderer.Draw` rather than `renderer.Host.Draw`: the texture copies a material's maps need go on the
+list before anything samples them. A host that skips it leaves every textured material sampling the
+table's fallback for ever, which reads as *all my materials are the same flat colour*.
 
 **`AssetMeshSource` is what made `MeshRenderable` mean something.** Both sides of it were finished —
 the catalog resolves a reference, the manager loads and shares the bytes, the extraction system
@@ -54,6 +58,24 @@ so an entity carrying a mesh reference was *authored, saved, compiled, loaded an
 entity keeps no render handle, so next frame's reconciliation asks again. That is the whole
 asynchronous story and it needs no queue. The alternative — a synchronous load inside extraction —
 stalls the frame a level starts on, once per mesh in it.
+
+**`AssetMaterialSource` did the same for `MeshRenderable.Material`**, which was authored, compiled and
+loaded and never resolved — so every drawable in a scene took the one material a host had assigned by
+hand. It reads the `MaterialContent` the build wrote, compiles it once per reference, and hands the same
+object to every entity that names it: one material is one descriptor set, one uniform block and one
+resolved variant, which is the economy `MaterialRenderFeature` is built on.
+
+**Textures do not hold a material up.** A material is answered as soon as it compiles, with its texture
+parameters unset; `AssetTextureSource` fills them in as they land and `MaterialRenderFeature.Index`
+notices, because it compares the view it holds against the one the material carries. Until then the
+index stays zero — the table's fallback, a defined thing to sample. Waiting instead would hold a whole
+level's geometry off screen for its slowest texture.
+
+A texture takes three stages and the split is where the costs are: reading a bundle and decoding a
+KTX2 are file work and happen on a task; creating the texture is a device call on whichever thread
+asked; recording the copy needs a command list and happens in `Draw`. So a texture is viewable the
+frame after its bytes were recorded — and the view is created *after* the copy is on the list, never
+before, or a material samples undefined memory for a frame.
 
 ## Drawing a frame
 

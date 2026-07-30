@@ -6,6 +6,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Inspector;
+using Vixen.Rendering.Materials;
 
 namespace Vixen.Editor.AssetEditors.Materials;
 
@@ -169,6 +170,29 @@ public sealed class MaterialAsset {
     ///     silently skipped on load.
     /// </remarks>
     public List<IMaterialParameter> Parameters { get; set; } = [];
+
+    /// <summary>The surface features, in the order they contribute.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The runtime's own records, not a mirror of them.</b> An <c>IMaterialFeature</c> is a
+    ///         <c>[DataContract]</c> record with no device in it, which is the property
+    ///         <c>MaterialFeature</c>'s own remarks are about — so the tag in the file selects the type
+    ///         the compiler will compose, and there is one declaration of what a metal-roughness
+    ///         material is rather than two that have to agree.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Carried and not yet edited.</b> Nothing in this editor adds a feature — the
+    ///         parameter list is what <c>MaterialView</c> draws — and this member exists first of all so
+    ///         that opening a material with features and saving it does not delete them. A binder skips
+    ///         a key it does not know, so without this the loss would be silent and permanent, which is
+    ///         exactly what <see cref="Version" /> refuses a newer file for.
+    ///     </para>
+    /// </remarks>
+    public List<IMaterialFeature> Features { get; set; } = [];
+
+    /// <summary>The textures its features sample, by the names they sample them under.</summary>
+    /// <inheritdoc cref="Features" path="/remarks/para[2]" />
+    public List<MaterialTexture> Textures { get; set; } = [];
 
     /// <summary>Reads YAML into a material.</summary>
     /// <param name="yaml">The text.</param>

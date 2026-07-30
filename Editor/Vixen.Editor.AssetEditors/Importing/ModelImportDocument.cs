@@ -51,6 +51,38 @@ public sealed class ModelImportEdits {
     [Inspector]
     [Tooltip("Room outside the surface for a ray to slow down in. With none, the surface lies on the volume's own face.")]
     public float DistanceFieldBoundsExpansion { get; set; } = 0.2f;
+
+    /// <summary>Whether to build a cluster hierarchy for each of the model's meshes.</summary>
+    /// <remarks>
+    ///     <b>The five below are what the virtualized path is built from, and until now none of them
+    ///     reached the inspector.</b> The settings record grew them and this mirror did not, so a mesh
+    ///     could be cut into clusters or not — the most expensive decision this importer makes — only by
+    ///     hand-editing a <c>.meta</c>. <c>ImportSettingsMirrorTests</c> is what noticed, which is the
+    ///     whole reason that test compares the two by reflection rather than by a written-down list.
+    /// </remarks>
+    [Inspector]
+    [Tooltip("What the virtualized path draws: every level of detail at once, plus a fallback mesh. Off for a mesh that is already a hundred triangles.")]
+    public bool GenerateMeshlets { get; set; } = true;
+
+    /// <summary>The most triangles one cluster may hold.</summary>
+    [Inspector]
+    [Tooltip("The unit of culling and of streaming both. A hundred and twenty-eight is about where the per-cluster overhead stops mattering.")]
+    public int MeshletTriangles { get; set; } = 128;
+
+    /// <summary>The most distinct vertices one cluster may reference.</summary>
+    [Inspector]
+    [Tooltip("At most 256, because a cluster's triangles index its own vertex list with a byte. Where it binds, the cluster is split rather than the mesh refused.")]
+    public int MeshletVertices { get; set; } = 128;
+
+    /// <summary>How many clusters are simplified together as a group.</summary>
+    [Inspector]
+    [Tooltip("How much a level of detail can actually remove. A group's outer boundary is locked, so a small group has little interior to collapse.")]
+    public int MeshletGroupSize { get; set; } = 16;
+
+    /// <summary>How many triangles the generated fallback mesh may have.</summary>
+    [Inspector]
+    [Tooltip("A cut through the finished hierarchy at a fixed budget. What WebGL2 draws and what the physics cook reads.")]
+    public int MeshletFallbackTriangles { get; set; } = 4096;
 }
 
 /// <summary>A model's import settings, open for editing.</summary>

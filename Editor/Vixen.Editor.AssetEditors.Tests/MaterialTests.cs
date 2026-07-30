@@ -3,7 +3,9 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
+using Vixen.Core.Yaml;
 using Vixen.Editor.AssetEditors.Materials;
+using Vixen.Rendering.Materials;
 using Xunit;
 
 namespace Vixen.Editor.AssetEditors.Tests;
@@ -182,5 +184,66 @@ public class MaterialTests {
     public void TheAliasIsTheTag() {
         Assert.Equal("Colour", MaterialView.Alias(new ColourParameter()));
         Assert.Equal("Scalar", MaterialView.Alias(new ScalarParameter()));
+    }
+
+    /// <summary>
+    ///     A material saved by the editor is a material the pipeline reads, features and all.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Two readers of one file, and this is the seam between them.</b> The editor binds a
+    ///         <see cref="MaterialAsset" /> to draw it in an inspector; the build binds a
+    ///         <see cref="MaterialContent" /> to compile it. Neither is wrong to exist — one carries a
+    ///         parameter list and an undo stack's worth of editing affordances, and the other carries
+    ///         what the renderer needs — but they read the same bytes, so nothing except this says they
+    ///         agree.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The failure it exists for is silent.</b> The binder skips a key it does not know, so
+    ///         an editor that had never heard of <c>features</c> would open a material, drop them, and
+    ///         write the file back without them — no error, no diff anybody reads, and a material that
+    ///         is a white dielectric from then on.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AMaterialSavedByTheEditorIsOneThePipelineReads() {
+        var authored = new MaterialAsset {
+            Shader = "ForwardPlus",
+            Shading = "CelShading",
+            Features = [
+                new MetalRoughnessFeature { BaseColor = new(0.2f, 0.4f, 0.6f), Metalness = 1f, Roughness = 0.3f }
+            ],
+            Textures = [new("baseColorMap", new(AssetId.New(), SubAssetId.Main))],
+            Parameters = [new ScalarParameter { Name = "tiling", Value = 2f }]
+        };
+
+        var yaml = authored.ToYaml();
+
+        // The editor's own round trip: what it wrote, it reads. Without this the assertion below
+        // could pass against a file the editor can no longer open.
+        var reopened = MaterialAsset.FromYaml(yaml);
+
+        Assert.Single(reopened.Features);
+        Assert.Single(reopened.Textures);
+        Assert.Single(reopened.Parameters);
+
+        // And the pipeline's, which is the one that matters: the same bytes, bound by the type the
+        // importer compiles and the runtime loads.
+        var content = YamlSerializer.Parse<MaterialContent>(yaml);
+
+        Assert.Equal("ForwardPlus", content.Shader);
+        Assert.Equal("CelShading", content.Shading);
+        Assert.Equal("baseColorMap", Assert.Single(content.Textures).Parameter);
+
+        var workflow = Assert.IsType<MetalRoughnessFeature>(Assert.Single(content.Features));
+
+        Assert.Equal(1f, workflow.Metalness);
+        Assert.Equal(0.3f, workflow.Roughness);
+        Assert.Equal(0.6f, workflow.BaseColor.Z, 1e-6f);
+
+        // The editor's own list is not the pipeline's business and is skipped rather than refused,
+        // which is what makes the two schemas able to differ at all.
+        Assert.True(MaterialShading.TryResolve(content.Shading, out var shading));
+        Assert.IsType<CelShading>(shading);
     }
 }

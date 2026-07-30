@@ -8,6 +8,7 @@ using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Ecs;
 using Vixen.Rendering.Features;
+using Vixen.Rendering.Materials;
 using Vixen.Shaders;
 
 namespace Vixen.Engine.Renderer;
@@ -40,6 +41,15 @@ namespace Vixen.Engine.Renderer;
 ///     </para>
 /// </remarks>
 public sealed class WorldRenderer : IDisposable {
+    /// <summary>The source <see cref="Mount" /> built, for the frame work only it can do.</summary>
+    /// <remarks>
+    ///     Separate from <see cref="Painter" /> because that one is the interface an extraction asks
+    ///     through and this one is the implementation that owns a device: a project supplying its own
+    ///     <see cref="IMaterialSource" /> sets the first and leaves this null, and <see cref="Draw" />
+    ///     then has nothing to flush, which is right.
+    /// </remarks>
+    AssetMaterialSource? Painting;
+
     bool disposed;
 
     /// <summary>Builds the standard renderer for a world.</summary>
@@ -63,6 +73,7 @@ public sealed class WorldRenderer : IDisposable {
         ArgumentNullException.ThrowIfNull(device);
         ArgumentNullException.ThrowIfNull(effects);
 
+        Device = device;
         Host = new(device, effects);
 
         // SurfaceVertex's own size rather than a number: it is what SurfaceGeometry.Packed produces and
@@ -85,7 +96,17 @@ public sealed class WorldRenderer : IDisposable {
         Meshes.Add(Lighting);
 
         Host.System.AddFeature(Meshes);
+
+        if (device.Features.HasBindless) {
+            Table = new(device);
+            Materials.Textures = Table;
+
+            Paired(Materials, "ForwardPlus");
+        }
     }
+
+    /// <summary>The device everything here lives on.</summary>
+    public IGraphicsDevice Device { get; }
 
     /// <summary>The frame: a compositor, a graph and the render system.</summary>
     public SceneRenderHost Host { get; }
@@ -116,6 +137,34 @@ public sealed class WorldRenderer : IDisposable {
     /// </remarks>
     public IMeshSource? Source { get; set; }
 
+    /// <summary>Where the material a reference names comes from.</summary>
+    /// <remarks>
+    ///     Null until <see cref="Mount" />. A drawable naming a material this cannot supply is drawn in
+    ///     <see cref="MeshExtractionSystem.Material" /> rather than not at all — see that property's
+    ///     remarks for why "no source" and "not yet" are different answers.
+    /// </remarks>
+    public IMaterialSource? Painter { get; set; }
+
+    /// <summary>The frame's texture table, on a device that has one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Created only where the device can index it.</b> A table is what turns a material's
+    ///         texture into a <c>uint</c> in its own uniform block, which is what lets a feature sample
+    ///         one at all; without <see cref="GraphicsDeviceFeatures.HasBindless" /> there is nothing to
+    ///         index and the pairing below would write slots into a shader that has no table to read
+    ///         them from.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Null is not a degraded frame. It is what runs on GL, on WebGL2 and on MoltenVK below
+    ///         argument-buffer tier 2 (ADR-011), where a project uses the untextured workflow and tints
+    ///         instead — the same fork the whole engine makes at that line.
+    ///     </para>
+    /// </remarks>
+    public BindlessTable? Table { get; }
+
+    /// <summary>Where a material's textures come from, once content is mounted.</summary>
+    public AssetTextureSource? Painted { get; private set; }
+
     /// <summary>The extraction the last <see cref="Register" /> added, or null.</summary>
     public MeshExtractionSystem? Extraction { get; private set; }
 
@@ -128,8 +177,14 @@ public sealed class WorldRenderer : IDisposable {
 
         Source = new AssetMeshSource(assets);
 
+        // Only where there is a table to put them in: an AssetTextureSource with nothing indexing its
+        // views would upload every texture in the level and hand the slots to nobody.
+        Painted = Table is null ? null : new AssetTextureSource(Device, assets);
+        Painter = Painting = new(assets, Painted);
+
         if (Extraction is { } extraction) {
             extraction.Meshes = Source;
+            extraction.Materials = Painter;
         }
     }
 
@@ -150,11 +205,69 @@ public sealed class WorldRenderer : IDisposable {
 
         Extraction = new(Host.System, Meshes, Transforms, Materials, Residency) {
             Stages = stages,
-            Meshes = Source
+            Meshes = Source,
+            Materials = Painter
         };
 
         loop.Add(Extraction);
         loop.Add(new LightExtractionSystem(Lighting));
+    }
+
+    /// <summary>Draws the frame, having first put the content work the frame needs on the list.</summary>
+    /// <param name="commands">The frame's list.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="commands" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>The texture copies go on the list before anything samples them</b>, which is the whole
+    ///     reason this exists rather than callers reaching for <see cref="SceneRenderHost.Draw" />
+    ///     directly: a host that draws without this leaves every textured material sampling the table's
+    ///     fallback for ever, which is a picture rather than a failure and reads as "all my materials
+    ///     are the same flat colour".
+    /// </remarks>
+    public void Draw(ICommandList commands) {
+        ArgumentNullException.ThrowIfNull(commands);
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        Painting?.Update(commands);
+        Host.Draw(commands);
+    }
+
+    /// <summary>
+    ///     Says which of a shader's <c>uint</c> parameters is filled from which of a material's
+    ///     textures.
+    /// </summary>
+    /// <param name="materials">The feature that holds the pairing.</param>
+    /// <param name="shader">The shading pass its materials are authored against.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Explicit, because the two names belong to different things.</b> The shader's is the
+    ///         composed parameter — the path of types the feature was reached through, then
+    ///         <c>baseColorIndex</c> — and the material's is what an artist called the map. A convention
+    ///         that stripped <c>Index</c> and matched the rest would guess, and would guess silently: an
+    ///         unmatched pair leaves the index at zero, which is a valid slot holding some other
+    ///         material's texture.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The material-side name is the feature's default and not whatever the material
+    ///         chose.</b> <see cref="TexturedMetalRoughnessFeature.BaseColorMap" /> is authorable and
+    ///         this pairing is one entry, so a material that renamed its map to <c>bark</c> samples the
+    ///         fallback. That is the shape of the pairing rather than an oversight — a table keyed by
+    ///         one name cannot hold two — and closing it means keying the pairing per material, which is
+    ///         a cost every material would pay for the few that rename.
+    ///     </para>
+    ///     <para>
+    ///         The composition path carries no slot, so the same feature in the first chain slot and the
+    ///         eighth is one parameter and one entry here. That is why
+    ///         <see cref="TexturedMetalRoughnessFeature.BaseColorIndexParameter" /> takes a path rather
+    ///         than a slot.
+    ///     </para>
+    /// </remarks>
+    static void Paired(MaterialRenderFeature materials, string shader) {
+        var path = $"{shader}.{MaterialCompiler.ChainShader}.{new TexturedMetalRoughnessFeature().ShaderName}.";
+
+        materials.TextureIndices[
+                ParameterKeys.New<uint>(TexturedMetalRoughnessFeature.BaseColorIndexParameter(path))
+            ] =
+            ParameterKeys.New<TextureViewHandle>(new TexturedMetalRoughnessFeature().BaseColorMap);
     }
 
     /// <inheritdoc />
@@ -165,7 +278,14 @@ public sealed class WorldRenderer : IDisposable {
 
         disposed = true;
 
+        // ⚠ The host first, and the table last. MaterialRenderFeature gives its table slots back when
+        // it is disposed — the table outlives a feature, being the frame's rather than a material's —
+        // so a table destroyed first is an ObjectDisposedException thrown out of a tear-down, from a
+        // line whose whole purpose is to avoid a leak.
         Host.Dispose();
+        Painting?.Dispose();
+        Painted?.Dispose();
+        Table?.Dispose();
         Geometry.Dispose();
     }
 }

@@ -27,13 +27,17 @@ namespace Vixen.Rendering.Ecs;
 ///         out at the edge of the frustum.
 ///     </para>
 ///     <para>
-///         ⚠ <b>One material for everything, and that is the piece still owed.</b>
-///         <see cref="MeshRenderable.Material" /> is authored, compiled and loaded, and turning one into
-///         a <see cref="Material" /> needs a material asset format resolved to an effect — which does not
-///         exist yet. Until it does, every object is assigned <see cref="Material" />, which is what a
-///         block-out wants anyway: geometry that draws in something neutral before anybody has made a
-///         material for it. What this is *not* is doc 06's "a mesh with three materials is three render
-///         objects"; that follows the same day per-entity materials do.
+///         <b>Each drawable takes the material it names, and <see cref="Material" /> is what a
+///         drawable that names none gets.</b> That fallback is not a stopgap: a block-out mesh dropped
+///         into a level before anybody has made a material for it has to draw in something neutral, and
+///         <see cref="MeshRenderable.Material" /> being null is how an author says so. A reference that
+///         names a material this frame cannot supply yet is waited for exactly as a mesh is — see
+///         <see cref="Materials" />.
+///     </para>
+///     <para>
+///         ⚠ <b>What this is still not is doc 06's "a mesh with three materials is three render
+///         objects".</b> One entity is one render object with one material; a model whose sub-meshes
+///         want different materials needs one entity each, which is what a prefab already produces.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Every live object's transform is rewritten every frame.</b> Doc 06 wants only what moved
@@ -108,9 +112,29 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
     /// </remarks>
     public RenderStageMask Stages { get; set; }
 
-    /// <summary>What every extracted object is drawn with.</summary>
+    /// <summary>What a drawable that names no material of its own is drawn with.</summary>
     /// <inheritdoc cref="MeshExtractionSystem" path="/remarks/para[3]" />
     public Material? Material { get; set; }
+
+    /// <summary>Where the material a reference names comes from. Null draws everything in
+    /// <see cref="Material" />.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Until this was settable, every object in the scene was drawn with one material</b> —
+    ///         <see cref="MeshRenderable.Material" /> was authored, compiled, loaded and never resolved,
+    ///         and this system said so in its own remarks. What was missing was never the compiling;
+    ///         <see cref="Materials.MaterialCompiler" /> has always been a pure function. It was the
+    ///         decision about what an extraction does while a material's textures are still in flight,
+    ///         which <see cref="IMaterialSource" /> answers the way <see cref="IMeshSource" /> does.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A null source is not the same as a null reference.</b> With no source, an entity
+    ///         naming a material still draws — in <see cref="Material" /> — because a host that has not
+    ///         mounted content should show geometry rather than nothing. A reference that a source
+    ///         cannot supply <em>yet</em> is a different thing and is waited for.
+    ///     </para>
+    /// </remarks>
+    public IMaterialSource? Materials { get; set; }
 
     /// <summary>How many entities are extracted.</summary>
     public int ObjectCount => claimed.Count;
@@ -232,7 +256,15 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
                 continue;
             }
 
-            Add(world, entity, GeometryKey.Of(renderable.Mesh), () => mesh);
+            // The material on the same terms, and after the mesh rather than before: a drawable whose
+            // geometry has not arrived is going to be asked about again anyway, so asking for its
+            // material first would start a load for something that may never be drawn.
+            if (!Painted(renderable.Material, out var material)) {
+                Waiting++;
+                continue;
+            }
+
+            Add(world, entity, GeometryKey.Of(renderable.Mesh), () => mesh, material);
         }
 
         pending.Clear();
@@ -242,12 +274,45 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
         }
 
         foreach (var entity in pending) {
-            var kind = world.Read<PrimitiveShape>(entity).Kind;
-            Add(world, entity, GeometryKey.Of(kind), () => MeshPrimitives.Create(kind));
+            var shape = world.Read<PrimitiveShape>(entity);
+            var kind = shape.Kind;
+
+            if (!Painted(shape.Material, out var material)) {
+                Waiting++;
+                continue;
+            }
+
+            Add(world, entity, GeometryKey.Of(kind), () => MeshPrimitives.Create(kind), material);
         }
     }
 
-    void Add(World world, Entity entity, GeometryKey key, Func<MeshData> build) {
+    /// <summary>What a drawable is painted with, or false while its material is still coming.</summary>
+    /// <param name="reference">What it named, or <see cref="AssetReference.Null" /> for none.</param>
+    /// <param name="material">The material, which may be null when nothing supplied one.</param>
+    /// <returns>Whether the answer is final.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Three outcomes and only two return values, which is the part to read carefully.</b>
+    ///     "It named none" and "it named one and there is no source" both come back true with the
+    ///     fallback, because both are states a frame should draw. Only "it named one and the source has
+    ///     not got it yet" is false — the one case where drawing now would draw the wrong thing and
+    ///     keep drawing it, since a settled entity is never re-extracted.
+    /// </remarks>
+    bool Painted(AssetReference reference, out Material? material) {
+        material = Material;
+
+        if (reference.IsNull || Materials is null) {
+            return true;
+        }
+
+        if (!Materials.TryGet(reference, out var found)) {
+            return false;
+        }
+
+        material = found;
+        return true;
+    }
+
+    void Add(World world, Entity entity, GeometryKey key, Func<MeshData> build, Material? material) {
         if (!residency.Acquire(key, build, out var slice, out var local)) {
             Dropped++;
             return;
@@ -266,7 +331,7 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
 
         system.Objects.Data.Data(meshes.Draws)[id.Index] = draw;
 
-        if (Material is { } material) {
+        if (material is not null) {
             materials.Assign(system, id, material);
         }
 

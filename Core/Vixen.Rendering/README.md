@@ -654,10 +654,19 @@ away from being drawn and the other never will be. `Vixen.Engine.Renderer`'s `As
 implementation over `AssetManager`, and it lives there because this assembly must not know what a bundle
 is.
 
-⚠ **Two things are still owed, and neither is structural.** *Every object takes one material*, because a
-material asset resolved to a `Material` does not exist yet — which is also why this is not doc 06's "a
-mesh with three materials is three render objects". *Every live object's transform is rewritten every
-frame*, where doc 06 wants only what moved: the wrong cost, not a wrong picture.
+**Materials resolve the same way**, through `IMaterialSource`. A drawable that names no material takes
+`MeshExtractionSystem.Material` — which is not a stopgap: a block-out mesh dropped into a level before
+anybody has made a material for it has to draw in something neutral, and a null reference is how an
+author says so. A drawable that names one this frame cannot supply *yet* is waited for exactly as a mesh
+is; a drawable that names one with no source at all is drawn in the fallback, because a host with no
+content mounted should show geometry rather than nothing. Those are three outcomes behind two return
+values, which is the one subtlety in `Painted`.
+
+⚠ **Two things are still owed and neither is structural.** *One entity is one render object with one
+material*, so this is not yet doc 06's "a mesh with three materials is three render objects" — a model
+whose sub-meshes want different materials needs one entity each, which a prefab already produces. *Every
+live object's transform is rewritten every frame*, where doc 06 wants only what moved: the wrong cost,
+not a wrong picture.
 
 ## Lighting
 

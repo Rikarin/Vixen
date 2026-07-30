@@ -377,6 +377,149 @@ public sealed class MeshExtractionTests : IDisposable {
         Assert.Equal(0, residency.ClaimsOn(GeometryKey.Of(PrimitiveKind.Cube)));
     }
 
+    // ------------------------------------------------------------------ materials
+
+    /// <summary>An entity is drawn with the material it names, not with the host's.</summary>
+    /// <remarks>
+    ///     <b>What "per-entity materials" means, and the assertion that would have been vacuous a day
+    ///     ago.</b> Every drawable in a scene was assigned <see cref="MeshExtractionSystem.Material" />
+    ///     — one material for everything — because a reference could not be turned into a material. The
+    ///     two materials here are distinguished by their index in the feature, which is where a frame
+    ///     reads "which material" from.
+    /// </remarks>
+    [Fact]
+    public void AnEntityIsDrawnWithTheMaterialItNames() {
+        using var world = new World();
+
+        var painted = new Material("ForwardPlus");
+        var reference = new AssetReference(new AssetId(new("44444444-4444-4444-4444-444444444444")));
+
+        extraction.Material = new Material("ForwardPlus");
+        extraction.Materials = new OneMaterial(reference, painted);
+
+        var entity = Shaped(world, PrimitiveKind.Cube, Vector3.Zero);
+
+        world.Get<PrimitiveShape>(entity).Material = reference;
+
+        extraction.Extract(world);
+
+        var id = world.Read<RenderHandle>(entity).Object;
+        var index = system.Objects.Data.Data(materials.MaterialIndex)[id.Index];
+
+        Assert.Same(painted, materials.Materials[index]);
+        Assert.NotSame(extraction.Material, materials.Materials[index]);
+    }
+
+    /// <summary>An entity that names no material is drawn with the host's.</summary>
+    /// <remarks>
+    ///     ⚠ Not a stopgap. A block-out mesh dropped into a level before anybody has made a material for
+    ///     it has to draw in something neutral, and a null reference is how an author says so — which is
+    ///     why <c>MeshRenderable.Material</c>'s own remarks call null a usable value.
+    /// </remarks>
+    [Fact]
+    public void AnEntityThatNamesNoMaterialTakesTheDefault() {
+        using var world = new World();
+
+        extraction.Material = new Material("ForwardPlus");
+        extraction.Materials = new OneMaterial(default, new Material("Unused"));
+
+        var entity = Shaped(world, PrimitiveKind.Cube, Vector3.Zero);
+
+        extraction.Extract(world);
+
+        var id = world.Read<RenderHandle>(entity).Object;
+        var index = system.Objects.Data.Data(materials.MaterialIndex)[id.Index];
+
+        Assert.Same(extraction.Material, materials.Materials[index]);
+        Assert.Equal(0, extraction.Waiting);
+    }
+
+    /// <summary>
+    ///     A material that has not arrived is waited for, and painted on the frame it does.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The half that would rot silently. Drawing the entity now and repainting it later is not
+    ///         available — a settled entity is never re-extracted — so an extraction that took the
+    ///         default while a material loaded would give every object in a level the host's material
+    ///         permanently, and on a fast disk it would not even be reproducible.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Distinct from a material that <em>cannot</em> be supplied at all: with no source the
+    ///         same entity draws immediately in the default, because a host with no content mounted
+    ///         should show geometry rather than nothing. See
+    ///         <see cref="AnEntityWithNoMaterialSourceIsStillDrawn" />.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AMaterialThatHasNotArrivedIsWaitedForAndThenPainted() {
+        using var world = new World();
+
+        var painted = new Material("ForwardPlus");
+        var reference = new AssetReference(new AssetId(new("55555555-5555-5555-5555-555555555555")));
+        var source = new DeferredMaterial(painted);
+
+        extraction.Material = new Material("ForwardPlus");
+        extraction.Materials = source;
+
+        var entity = Shaped(world, PrimitiveKind.Cube, Vector3.Zero);
+
+        world.Get<PrimitiveShape>(entity).Material = reference;
+
+        extraction.Extract(world);
+
+        Assert.Equal(1, extraction.Waiting);
+        Assert.Equal(0, extraction.ObjectCount);
+
+        source.Deliver();
+        extraction.Extract(world);
+
+        Assert.Equal(0, extraction.Waiting);
+
+        var id = world.Read<RenderHandle>(entity).Object;
+
+        Assert.Same(painted, materials.Materials[system.Objects.Data.Data(materials.MaterialIndex)[id.Index]]);
+    }
+
+    /// <summary>With no source at all, a named material is the default rather than a wait.</summary>
+    /// <inheritdoc cref="AMaterialThatHasNotArrivedIsWaitedForAndThenPainted" path="/remarks/para[2]" />
+    [Fact]
+    public void AnEntityWithNoMaterialSourceIsStillDrawn() {
+        using var world = new World();
+
+        extraction.Material = new Material("ForwardPlus");
+
+        var entity = Shaped(world, PrimitiveKind.Cube, Vector3.Zero);
+
+        world.Get<PrimitiveShape>(entity).Material =
+            new(new AssetId(new("66666666-6666-6666-6666-666666666666")));
+
+        extraction.Extract(world);
+
+        Assert.Equal(0, extraction.Waiting);
+        Assert.Equal(1, extraction.ObjectCount);
+    }
+
+    /// <summary>A source that answers one reference and nothing else.</summary>
+    sealed class OneMaterial(AssetReference named, Material material) : IMaterialSource {
+        public bool TryGet(AssetReference reference, out Material found) {
+            found = material;
+            return reference == named;
+        }
+    }
+
+    /// <summary>A source that answers "not yet" until it is told to answer.</summary>
+    sealed class DeferredMaterial(Material material) : IMaterialSource {
+        bool ready;
+
+        public void Deliver() => ready = true;
+
+        public bool TryGet(AssetReference reference, out Material found) {
+            found = ready ? material : null!;
+            return ready;
+        }
+    }
+
     /// <summary>A source that answers every reference with the same triangle.</summary>
     sealed class OneMesh : IMeshSource {
         public bool TryGet(AssetReference reference, out MeshData mesh) {

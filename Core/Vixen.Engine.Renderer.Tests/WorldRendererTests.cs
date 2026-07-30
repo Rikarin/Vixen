@@ -1,8 +1,13 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Assets;
 using Vixen.Core;
+using Vixen.Core.IO;
+using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
+using Vixen.Core.Serialization;
+using Vixen.Core.Serialization.Storage;
 using Vixen.Core.Yaml;
 using Vixen.Ecs;
 using Vixen.Engine.Frames;
@@ -13,6 +18,7 @@ using Vixen.Graphics.Null;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Ecs;
+using Vixen.Rendering.Materials;
 using Vixen.Shaders;
 using Xunit;
 
@@ -163,6 +169,182 @@ public sealed class WorldRendererTests : IDisposable {
         Assert.Equal(1, renderer.Residency.Count);
         Assert.Equal(2, renderer.Residency.ClaimsOn(GeometryKey.Of(Reference)));
         Assert.Equal(2, source.Delivered);
+    }
+
+    /// <summary>
+    ///     A world built from mounted content draws a mesh, in its own material, with its own texture.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The end of the shippability chain, asserted in one place.</b> Everything else in this
+    ///         file uses a fake source to pin one protocol; this uses the content manager a game has, the
+    ///         chunks a build writes, and <see cref="WorldRenderer.Draw" /> rather than the host's — so
+    ///         the material reaches the entity, the texture reaches the material, and the pixels reach a
+    ///         command list, all through the calls an application actually makes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Frames, not calls.</b> A mesh lands one frame after it is asked for, a material the
+    ///         same, and a texture one frame after that — so the loop runs several times, which is
+    ///         exactly what a level start looks like. A test that asked once would be asserting that
+    ///         loading is synchronous, which is the thing this design refuses to be.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AMountedWorldDrawsItsMeshInItsOwnMaterial() {
+        using var loop = new EngineLoop();
+        using var renderer = Build(loop, out _, mounted: false);
+
+        renderer.Mount(Mounted());
+
+        var entity = loop.World.Create();
+
+        loop.World.Add(entity, new WorldTransform { Value = Matrix4x4.Identity });
+        loop.World.Add(entity, new MeshRenderable { Mesh = Rock, Material = Painted });
+
+        // Long enough for three asynchronous hops and no longer: a count that has to grow to keep this
+        // passing is a load that has stopped being asynchronous and started being slow.
+        for (var frame = 0; frame < 16 && renderer.Extraction!.ObjectCount == 0; frame++) {
+            loop.Frame(TimeSpan.FromMilliseconds(16));
+
+            var commands = device.BeginCommandList();
+
+            renderer.Draw(commands);
+            commands.Finish();
+            device.GraphicsQueue.Submit([commands]);
+
+            Thread.Sleep(10);
+        }
+
+        Assert.Equal(1, renderer.Extraction!.ObjectCount);
+
+        // Its own material, not the host's — which is the whole of gap two.
+        var id = loop.World.Read<RenderHandle>(entity).Object;
+        var index = renderer.Host.System.Objects.Data.Data(renderer.Materials.MaterialIndex)[id.Index];
+
+        Assert.True(index > 0);
+        Assert.NotSame(renderer.Extraction.Material, renderer.Materials.Materials[index]);
+
+        // And its own texture, which is gap three: the view is in the material's parameters under the
+        // name its feature samples, so the feature has something to give a table slot to.
+        for (var frame = 0; frame < 8; frame++) {
+            var commands = device.BeginCommandList();
+
+            renderer.Draw(commands);
+            commands.Finish();
+
+            Thread.Sleep(10);
+        }
+
+        var key = ParameterKeys.New<TextureViewHandle>("baseColorMap");
+        var material = renderer.Materials.Materials[index];
+
+        Assert.True(material.Parameters.Has(key));
+        Assert.True(material.Parameters.Get(key).IsValid);
+    }
+
+    /// <summary>Mounting content before registering the systems wires them, and so does after.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Two orders, both legitimate, and each needs its own line of wiring.</b>
+    ///         <see cref="WorldRenderer.Register" /> passes whatever sources exist to the extraction it
+    ///         creates, and <see cref="WorldRenderer.Mount" /> pushes them into whatever extraction
+    ///         exists — so a project that mounts its content at start-up and one that mounts it when a
+    ///         level loads both work.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Asserted directly rather than through a drawn frame, because a frame only ever exercises
+    ///         one of the two: the surviving line covers for the missing one and the test passes with half
+    ///         the wiring gone.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void MountingEitherSideOfRegisteringWiresTheSources() {
+        using var loop = new EngineLoop();
+
+        // Mounted after, which is what Build does: Register created the extraction with no sources and
+        // Mount has to push them in.
+        using (var late = Build(loop, out _, mounted: false)) {
+            late.Mount(Mounted());
+
+            Assert.NotNull(late.Extraction!.Meshes);
+            Assert.NotNull(late.Extraction.Materials);
+        }
+
+        // And mounted before, where Register is the one that has to carry them over.
+        using var early = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+
+        early.Host.Builder.Views["Camera"] = new("camera");
+        early.Host.Load(YamlSerializer.Parse<GraphicsCompositorAsset>(Document));
+        early.Mount(Mounted());
+        early.Register(loop, RenderStageMask.None);
+
+        Assert.NotNull(early.Extraction!.Meshes);
+        Assert.NotNull(early.Extraction.Materials);
+    }
+
+    static readonly AssetReference Rock = new(new AssetId(Guid.NewGuid()), SubAssetId.Main);
+    static readonly AssetReference Painted = new(new AssetId(Guid.NewGuid()), SubAssetId.Main);
+    static readonly AssetReference Bark = new(new AssetId(Guid.NewGuid()), SubAssetId.Main);
+
+    /// <summary>A content manager holding a mesh, a material and the texture it samples.</summary>
+    static AssetManager Mounted() {
+        var files = new VirtualFileSystem();
+        var storage = new MemoryFileProvider();
+
+        files.Mount(new("/store"), storage);
+        files.Mount(new("/bundles"), storage);
+
+        var backend = new FileOdbBackend(files, new("/store/odb"));
+        var database = new ObjectDatabase(backend);
+
+        var mesh = database.Write(
+            new MeshData {
+                Name = "rock",
+                Positions = [new(0f, 0f, 0f), new(1f, 0f, 0f), new(0f, 1f, 0f)],
+                Normals = [new(0f, 0f, 1f), new(0f, 0f, 1f), new(0f, 0f, 1f)],
+                TexCoords = [new(0f, 0f), new(1f, 0f), new(0f, 1f)],
+                Indices = [0, 1, 2]
+            }
+        );
+
+        var pixels = new TextureData(PixelFormat.Rgba8UNorm, 2, 2);
+
+        pixels.PixelSpan().Fill(0x40);
+
+        var texture = database.WriteRaw(
+            ContentHash.TypeId(typeof(TextureData)),
+            [],
+            Ktx2.Write(pixels),
+            CompressionMethod.None
+        );
+
+        var material = database.Write(
+            new MaterialContent {
+                Features = [new TexturedMetalRoughnessFeature()],
+                Textures = [new("baseColorMap", Bark)]
+            }
+        );
+
+        var bundle = new BundleWriter();
+        bundle.AddAll(backend);
+
+        using (var target = files.OpenWrite(new("/bundles/Main.bundle"))) {
+            target.Write(bundle.Build());
+        }
+
+        var catalog = new ContentCatalog(
+            CatalogFormat.Version,
+            default,
+            "Windows",
+            [
+                new("bark", texture, "Main", ContentProvider.Local, [], [], 0, Reference: Bark),
+                new("granite", material, "Main", ContentProvider.Local, [], [], 0, Reference: Painted),
+                new("rock", mesh, "Main", ContentProvider.Local, [], [], 0, Reference: Rock)
+            ],
+            [new("Main", "", default, 0, 0, CompressionMethod.None, [])]
+        );
+
+        return new(catalog, new LocalBundleSource(files, new("/bundles")));
     }
 
     /// <summary>

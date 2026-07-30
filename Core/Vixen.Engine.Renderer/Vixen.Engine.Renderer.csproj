@@ -36,6 +36,13 @@
             join in either drags one whole layer into the other.
         -->
         <ProjectReference Include="..\Vixen.Assets\Vixen.Assets.csproj" />
+
+        <!--
+            And the container a texture artefact is written in, for AssetTextureSource. Decoding a KTX2
+            is the one piece of a material's textures that is neither content nor rendering: the bytes
+            come from a bundle and the pixels go to a device, and this is what sits between them.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Imaging\Vixen.Core.Imaging.csproj" />
     </ItemGroup>
 
     <ItemGroup>
