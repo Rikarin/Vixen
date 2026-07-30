@@ -66,7 +66,12 @@ struct VisibilityTile {
 
 shader VisibilityTiles {
     /// The identity buffer the raster wrote. See `ClusterRaster.rvn`.
-    var identities: Texture2D
+    ///
+    /// Integer-sampled, because the target is `R32_UINT` and the component type is part of the
+    /// descriptor: Vulkan checks the declared component against the bound view's format, so a
+    /// float-sampled `Texture2D` over this view is a validation error however the shader then
+    /// bitcasts what it fetched.
+    var identities: Texture2D<uint4>
 
     /// One record per instance, for the mesh each visible cluster belongs to.
     var instances: Buffer<CullInstance>
@@ -133,11 +138,7 @@ shader VisibilityTiles {
         val size = identities.GetDimensions(0)
 
         if (pixel.x < size.x && pixel.y < size.y) {
-            // `asuint`, because the target is `R32_UINT` and Raven's `Texture2D` reads a float.
-            // A bitcast is the right operation and not a workaround: the texel *is* the identity's
-            // bits, and a numeric conversion would round twenty-five bits of cluster index into a
-            // mantissa that holds twenty-four. Both backends emit a reinterpret with no instruction.
-            val identity = asuint(identities.Load(int3(pixel.x, pixel.y, 0)).x)
+            val identity = identities.Load(int3(pixel.x, pixel.y, 0)).x
 
             if (Raster.Covered(identity)) {
                 val material = MaterialOf(identity)

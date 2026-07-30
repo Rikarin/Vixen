@@ -190,6 +190,10 @@ public abstract partial class Binder {
             return image;
         }
 
+        if (BindSampledTextureType(name, typeArguments, syntax) is { } sampled) {
+            return sampled;
+        }
+
         var type = LookupType(name, typeArguments.Count);
 
         if (type is null) {
@@ -294,6 +298,50 @@ public abstract partial class Binder {
         }
 
         return new StorageImageTypeSymbol(texel, volume);
+    }
+
+    /// <summary>
+    ///     Builds a <c>Texture2D&lt;int4&gt;</c> or <c>Texture2D&lt;uint4&gt;</c>, or null when the
+    ///     name is not <c>Texture2D</c> or carries no type arguments.
+    /// </summary>
+    /// <remarks>
+    ///     Null for the bare name, deliberately: <c>Texture2D</c> with no arguments falls through to
+    ///     the scope lookup and resolves to the float-sampled built-in exactly as it always has. The
+    ///     angle-bracket form is intercepted here, structurally, on the terms
+    ///     <see cref="BindStorageImageType" /> sets — and a float element is refused rather than
+    ///     accepted as a second spelling of the built-in, so the two cannot drift apart.
+    /// </remarks>
+    TypeSymbol? BindSampledTextureType(string name, IReadOnlyList<TypeSymbol> typeArguments, SyntaxNode syntax) {
+        if (name != SampledTextureTypeSymbol.Texture2DName || typeArguments.Count == 0) {
+            return null;
+        }
+
+        if (typeArguments.Count != 1) {
+            Report(SemanticDiagnostics.WrongTypeArgumentCount, syntax, name, 1, typeArguments.Count);
+            return ErrorTypeSymbol.Instance;
+        }
+
+        var element = typeArguments[0];
+
+        if (element.IsErrorType) {
+            return ErrorTypeSymbol.Instance;
+        }
+
+        if (element is not PrimitiveTypeSymbol {
+                TypeKind: TypeKind.Vector, ComponentCount: 4,
+                ComponentSpecialType: SpecialType.Int or SpecialType.UInt
+            } texel) {
+            Report(
+                SemanticDiagnostics.SampledTextureElementNotIntegral,
+                syntax,
+                element.ToDisplayString(),
+                name
+            );
+
+            return ErrorTypeSymbol.Instance;
+        }
+
+        return new SampledTextureTypeSymbol(texel);
     }
 
     TypeSymbol Construct(TypeSymbol type, IReadOnlyList<TypeSymbol> typeArguments, SyntaxNode syntax) {

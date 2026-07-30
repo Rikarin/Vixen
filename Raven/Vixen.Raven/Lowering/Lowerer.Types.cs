@@ -72,6 +72,16 @@ public sealed partial class Lowerer {
                 return element.IsVoid ? NotRepresentable(type, syntax) : new IrArrayType(element);
             }
 
+            // The same IR type the built-in Texture2D lowers to, with the element as the sampled
+            // type — which is all the backends need: OpTypeImage's sampled type and GLSL's
+            // `utexture2D` prefix both come off IrTextureType.SampledType.
+            case SampledTextureTypeSymbol sampled: {
+                var element = LowerType(sampled.ElementType, syntax);
+                return element.IsVoid
+                    ? NotRepresentable(type, syntax)
+                    : new IrTextureType(IrTextureDimension.Texture2D, element);
+            }
+
             // Its own IR type rather than a flag on IrTextureType, because a sampled image and a
             // storage image are two descriptor types and two SPIR-V image types. The format is
             // already on the symbol — the binder folded the declaration's `[Format]` in — and it
