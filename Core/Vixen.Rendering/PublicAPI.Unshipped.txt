@@ -25,6 +25,17 @@ Vixen.Rendering.AnimationClipData.Duration.get -> float
 Vixen.Rendering.AnimationClipData.Duration.set -> float
 Vixen.Rendering.AnimationClipData.Name.get -> string
 Vixen.Rendering.AnimationClipData.Name.set -> string
+Vixen.Rendering.Barycentrics -> readonly struct
+Vixen.Rendering.Barycentrics : System.IEquatable<Vixen.Rendering.Barycentrics>
+Vixen.Rendering.Barycentrics.Barycentrics() -> void
+Vixen.Rendering.Barycentrics.Barycentrics(Vixen.Core.Mathematics.Vector3 Weights, Vixen.Core.Mathematics.Vector3 Ddx, Vixen.Core.Mathematics.Vector3 Ddy) -> void
+Vixen.Rendering.Barycentrics.Ddx.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Barycentrics.Ddx.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Barycentrics.Ddy.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Barycentrics.Ddy.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Barycentrics.Weights.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Barycentrics.Weights.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.ClusterAttributes -> static class
 Vixen.Rendering.ClusterGrid -> static class
 Vixen.Rendering.ClusterLights -> struct
 Vixen.Rendering.ClusterLights.ClusterLights() -> void
@@ -852,6 +863,8 @@ Vixen.Rendering.Compositor.VisibilityBufferRenderer.Output.get -> string
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.Output.set -> string
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.Raster.get -> Vixen.Rendering.GpuClusterRaster?
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.Raster.set -> Vixen.Rendering.GpuClusterRaster?
+Vixen.Rendering.Compositor.VisibilityBufferRenderer.Tiles.get -> Vixen.Rendering.GpuVisibilityTiles?
+Vixen.Rendering.Compositor.VisibilityBufferRenderer.Tiles.set -> Vixen.Rendering.GpuVisibilityTiles?
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.ViewIndex.get -> int
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.ViewIndex.set -> int
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.VisibilityBufferRenderer() -> void
@@ -1366,6 +1379,8 @@ Vixen.Rendering.GpuClusterVisibility.InstanceCount.get -> int
 Vixen.Rendering.GpuClusterVisibility.InstanceUploadRegions.get -> int
 Vixen.Rendering.GpuClusterVisibility.Instances.get -> Vixen.Graphics.BufferHandle
 Vixen.Rendering.GpuClusterVisibility.InstancesOffset.get -> long
+Vixen.Rendering.GpuClusterVisibility.MaterialCount.get -> int
+Vixen.Rendering.GpuClusterVisibility.Materials.get -> Vixen.Graphics.BufferHandle
 Vixen.Rendering.GpuClusterVisibility.MaximumTriangles.get -> int
 Vixen.Rendering.GpuClusterVisibility.MeshAt(int index) -> Vixen.Rendering.ClusterMesh
 Vixen.Rendering.GpuClusterVisibility.MeshCount.get -> int
@@ -1450,6 +1465,24 @@ Vixen.Rendering.GpuVisibilityGroup.TwoPhase.set -> bool
 Vixen.Rendering.GpuVisibilityGroup.ViewCount.get -> int
 Vixen.Rendering.GpuVisibilityGroup.VisibleCount(int viewIndex) -> int
 Vixen.Rendering.GpuVisibilityGroup.Words(int viewIndex) -> System.ReadOnlySpan<ulong>
+Vixen.Rendering.GpuVisibilityTiles -> sealed class
+Vixen.Rendering.GpuVisibilityTiles : System.IDisposable
+Vixen.Rendering.GpuVisibilityTiles.Arguments.get -> Vixen.Graphics.BufferHandle
+Vixen.Rendering.GpuVisibilityTiles.Counts.get -> System.ReadOnlySpan<uint>
+Vixen.Rendering.GpuVisibilityTiles.Dispose() -> void
+Vixen.Rendering.GpuVisibilityTiles.Effects.get -> Vixen.Shaders.EffectSystem?
+Vixen.Rendering.GpuVisibilityTiles.Effects.set -> Vixen.Shaders.EffectSystem?
+Vixen.Rendering.GpuVisibilityTiles.GpuVisibilityTiles(Vixen.Graphics.IGraphicsDevice device) -> void
+Vixen.Rendering.GpuVisibilityTiles.MaterialCount.get -> int
+Vixen.Rendering.GpuVisibilityTiles.Overflowed.get -> bool
+Vixen.Rendering.GpuVisibilityTiles.Pipelines.get -> Vixen.Rendering.ComputePipelineCache?
+Vixen.Rendering.GpuVisibilityTiles.Pipelines.set -> Vixen.Rendering.ComputePipelineCache?
+Vixen.Rendering.GpuVisibilityTiles.ReadCounts() -> int
+Vixen.Rendering.GpuVisibilityTiles.Record(Vixen.Graphics.ICommandList list, Vixen.Graphics.TextureViewHandle identities, Vixen.Core.Mathematics.Int2 size) -> bool
+Vixen.Rendering.GpuVisibilityTiles.TileCount.get -> Vixen.Core.Mathematics.Int2
+Vixen.Rendering.GpuVisibilityTiles.Tiles.get -> Vixen.Graphics.BufferHandle
+Vixen.Rendering.GpuVisibilityTiles.Visibility.get -> Vixen.Rendering.GpuClusterVisibility?
+Vixen.Rendering.GpuVisibilityTiles.Visibility.set -> Vixen.Rendering.GpuClusterVisibility?
 Vixen.Rendering.HiZPyramid -> sealed class
 Vixen.Rendering.HiZPyramid : System.IDisposable
 Vixen.Rendering.HiZPyramid.Build(Vixen.Graphics.ICommandList list, Vixen.Graphics.TextureViewHandle depth, Vixen.Core.Mathematics.Int2 depthSize) -> bool
@@ -2875,8 +2908,14 @@ Vixen.Shaders.Generated.TonemapConstants.Temperature -> float
 Vixen.Shaders.Generated.TonemapConstants.TonemapConstants() -> void
 Vixen.Shaders.Generated.TonemapConstants.WhitePoint -> float
 Vixen.Shaders.Generated.TonemapKeys -> static class
+Vixen.Shaders.Generated.VisibilityTilesConstants -> struct
+Vixen.Shaders.Generated.VisibilityTilesConstants.MaterialCount -> int
+Vixen.Shaders.Generated.VisibilityTilesConstants.TileCount -> Vixen.Core.Mathematics.Int2
+Vixen.Shaders.Generated.VisibilityTilesConstants.VisibilityTilesConstants() -> void
+Vixen.Shaders.Generated.VisibilityTilesKeys -> static class
 abstract Vixen.Rendering.RootRenderFeature.Name.get -> string
 abstract Vixen.Rendering.SubRenderFeature.Name.get -> string
+const Vixen.Rendering.ClusterAttributes.Epsilon = 1E-12 -> float
 const Vixen.Rendering.ClusterGrid.Capacity = 32 -> int
 const Vixen.Rendering.ClusterGrid.Count = 3456 -> int
 const Vixen.Rendering.ClusterGrid.Slices = 24 -> int
@@ -2909,6 +2948,10 @@ const Vixen.Rendering.GpuCulling.WordSize = 32 -> int
 const Vixen.Rendering.GpuCulling.WordsPerInvocation = 1 -> int
 const Vixen.Rendering.GpuCulling.WorkgroupSize = 64 -> int
 const Vixen.Rendering.GpuDrawArguments.Stride = 20 -> int
+const Vixen.Rendering.GpuVisibilityTiles.ArgumentWords = 3 -> int
+const Vixen.Rendering.GpuVisibilityTiles.MaxMaterials = 64 -> int
+const Vixen.Rendering.GpuVisibilityTiles.TileCapacity = 12288 -> int
+const Vixen.Rendering.GpuVisibilityTiles.TileSize = 8 -> int
 const Vixen.Rendering.Lighting.IrradianceFieldFill.ShaderName = "IrradianceFill" -> string
 const Vixen.Rendering.Lighting.IrradianceFieldRepair.ShaderName = "IrradianceRepair" -> string
 const Vixen.Rendering.Lighting.IrradianceFieldTexture.PoolIsBeingWritten = Vixen.Graphics.ResourceState.ShaderRead | Vixen.Graphics.ResourceState.ShaderWrite -> Vixen.Graphics.ResourceState
@@ -3121,6 +3164,23 @@ const Vixen.Shaders.Generated.TonemapKeys.SourceBinding = 1 -> uint
 const Vixen.Shaders.Generated.TonemapKeys.SourceSamplerBinding = 3 -> uint
 const Vixen.Shaders.Generated.TonemapKeys.SourceSamplerSet = 2 -> int
 const Vixen.Shaders.Generated.TonemapKeys.SourceSet = 2 -> int
+const Vixen.Shaders.Generated.VisibilityTilesConstants.Size = 16 -> int
+const Vixen.Shaders.Generated.VisibilityTilesKeys.ArgumentsBinding = 6 -> uint
+const Vixen.Shaders.Generated.VisibilityTilesKeys.ArgumentsSet = 2 -> int
+const Vixen.Shaders.Generated.VisibilityTilesKeys.ClusterMaterialsBinding = 3 -> uint
+const Vixen.Shaders.Generated.VisibilityTilesKeys.ClusterMaterialsSet = 2 -> int
+const Vixen.Shaders.Generated.VisibilityTilesKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.VisibilityTilesKeys.ConstantBufferSet = 2 -> int
+const Vixen.Shaders.Generated.VisibilityTilesKeys.ConstantBufferSize = 16 -> int
+const Vixen.Shaders.Generated.VisibilityTilesKeys.IdentitiesBinding = 1 -> uint
+const Vixen.Shaders.Generated.VisibilityTilesKeys.IdentitiesSet = 2 -> int
+const Vixen.Shaders.Generated.VisibilityTilesKeys.InstancesBinding = 2 -> uint
+const Vixen.Shaders.Generated.VisibilityTilesKeys.InstancesSet = 2 -> int
+const Vixen.Shaders.Generated.VisibilityTilesKeys.ShaderName = "VisibilityTiles" -> string
+const Vixen.Shaders.Generated.VisibilityTilesKeys.TilesBinding = 5 -> uint
+const Vixen.Shaders.Generated.VisibilityTilesKeys.TilesSet = 2 -> int
+const Vixen.Shaders.Generated.VisibilityTilesKeys.VisibleBinding = 4 -> uint
+const Vixen.Shaders.Generated.VisibilityTilesKeys.VisibleSet = 2 -> int
 override Vixen.Rendering.Compositor.BufferReadbackRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Compositor.BufferUploadRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Compositor.ClusterCullingRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
@@ -3219,6 +3279,7 @@ readonly Vixen.Shaders.Generated.IrradianceFillPerMaterialConstants.Write(System
 readonly Vixen.Shaders.Generated.IrradianceRepairConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.PlaceholderConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.TonemapConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.VisibilityTilesConstants.Write(System.Span<byte> buffer) -> void
 required Vixen.Rendering.Compositor.BufferReadbackRenderer.Buffer.get -> string
 required Vixen.Rendering.Compositor.BufferReadbackRenderer.Buffer.init -> string
 required Vixen.Rendering.Compositor.BufferUploadRenderer.Buffer.get -> string
@@ -3243,6 +3304,14 @@ required Vixen.Rendering.Compositor.SingleStageRenderer.Stage.get -> Vixen.Rende
 required Vixen.Rendering.Compositor.SingleStageRenderer.Stage.init -> Vixen.Rendering.RenderStage
 required Vixen.Rendering.Compositor.SingleStageRenderer.View.get -> Vixen.Rendering.RenderView
 required Vixen.Rendering.Compositor.SingleStageRenderer.View.init -> Vixen.Rendering.RenderView
+static Vixen.Rendering.ClusterAttributes.Ddx(in Vixen.Rendering.Barycentrics b, Vixen.Core.Mathematics.Vector2 a0, Vixen.Core.Mathematics.Vector2 a1, Vixen.Core.Mathematics.Vector2 a2) -> Vixen.Core.Mathematics.Vector2
+static Vixen.Rendering.ClusterAttributes.Ddy(in Vixen.Rendering.Barycentrics b, Vixen.Core.Mathematics.Vector2 a0, Vixen.Core.Mathematics.Vector2 a1, Vixen.Core.Mathematics.Vector2 a2) -> Vixen.Core.Mathematics.Vector2
+static Vixen.Rendering.ClusterAttributes.Lerp(in Vixen.Rendering.Barycentrics b, Vixen.Core.Mathematics.Vector2 a0, Vixen.Core.Mathematics.Vector2 a1, Vixen.Core.Mathematics.Vector2 a2) -> Vixen.Core.Mathematics.Vector2
+static Vixen.Rendering.ClusterAttributes.Lerp(in Vixen.Rendering.Barycentrics b, Vixen.Core.Mathematics.Vector3 a0, Vixen.Core.Mathematics.Vector3 a1, Vixen.Core.Mathematics.Vector3 a2) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Rendering.ClusterAttributes.Lerp(in Vixen.Rendering.Barycentrics b, Vixen.Core.Mathematics.Vector4 a0, Vixen.Core.Mathematics.Vector4 a1, Vixen.Core.Mathematics.Vector4 a2) -> Vixen.Core.Mathematics.Vector4
+static Vixen.Rendering.ClusterAttributes.Lerp(in Vixen.Rendering.Barycentrics b, float a0, float a1, float a2) -> float
+static Vixen.Rendering.ClusterAttributes.Of(Vixen.Core.Mathematics.Vector2 pixel, Vixen.Core.Mathematics.Vector4 clip0, Vixen.Core.Mathematics.Vector4 clip1, Vixen.Core.Mathematics.Vector4 clip2, Vixen.Core.Mathematics.Vector2 pixelSize) -> Vixen.Rendering.Barycentrics
+static Vixen.Rendering.ClusterAttributes.PixelSize(Vixen.Core.Mathematics.Int2 size) -> Vixen.Core.Mathematics.Vector2
 static Vixen.Rendering.ClusterGrid.Apply(Vixen.Shaders.ParameterCollection parameters, in Vixen.Rendering.RenderCamera camera, string shaderName) -> void
 static Vixen.Rendering.ClusterGrid.Bounds(int x, int y, int slice, Vixen.Core.Mathematics.Vector2 tanHalfFov, float near, float far) -> Vixen.Core.Mathematics.BoundingBox
 static Vixen.Rendering.ClusterGrid.BufferSize.get -> long
@@ -3311,6 +3380,10 @@ static Vixen.Rendering.GpuCulling.ScreenBounds(in Vixen.Rendering.CullObject can
 static Vixen.Rendering.GpuCulling.SetBindings.get -> uint[]
 static Vixen.Rendering.GpuCulling.Unpack(System.ReadOnlySpan<uint> words, System.Span<ulong> destination) -> void
 static Vixen.Rendering.GpuCulling.WordsFor(int objectCount) -> int
+static Vixen.Rendering.GpuVisibilityTiles.ArgumentOffset(int material) -> long
+static Vixen.Rendering.GpuVisibilityTiles.Key.get -> Vixen.Shaders.EffectKey
+static Vixen.Rendering.GpuVisibilityTiles.TileBase(int material) -> long
+static Vixen.Rendering.GpuVisibilityTiles.TilesFor(Vixen.Core.Mathematics.Int2 size) -> Vixen.Core.Mathematics.Int2
 static Vixen.Rendering.Lighting.CubeImage.Uniform(int size, Vixen.Core.Mathematics.Vector3 radiance) -> Vixen.Rendering.Lighting.CubeImage
 static Vixen.Rendering.Lighting.CubeMapping.Direction(Vixen.Rendering.CubeFace face, float u, float v) -> Vixen.Core.Mathematics.Vector3
 static Vixen.Rendering.Lighting.CubeMapping.Locate(Vixen.Core.Mathematics.Vector3 direction) -> (Vixen.Rendering.CubeFace Face, float U, float V)
@@ -3537,6 +3610,14 @@ static readonly Vixen.Shaders.Generated.TonemapKeys.Temperature -> Vixen.Shaders
 static readonly Vixen.Shaders.Generated.TonemapKeys.UseLut -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.TonemapKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
 static readonly Vixen.Shaders.Generated.TonemapKeys.WhitePoint -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.VisibilityTilesKeys.Arguments -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.VisibilityTilesKeys.ClusterMaterials -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.VisibilityTilesKeys.Identities -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.VisibilityTilesKeys.Instances -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.VisibilityTilesKeys.MaterialCount -> Vixen.Shaders.ParameterKey<int>
+static readonly Vixen.Shaders.Generated.VisibilityTilesKeys.TileCount -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Int2>
+static readonly Vixen.Shaders.Generated.VisibilityTilesKeys.Tiles -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.VisibilityTilesKeys.Visible -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 virtual Vixen.Rendering.Compositor.SceneRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 virtual Vixen.Rendering.Compositor.SceneRenderer.Collect(Vixen.Rendering.Compositor.GraphicsCompositor compositor) -> void
 virtual Vixen.Rendering.Compositor.SceneRenderer.Record(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.RenderDrawContext context) -> void

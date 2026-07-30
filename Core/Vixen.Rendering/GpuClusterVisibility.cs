@@ -151,6 +151,7 @@ public sealed class GpuClusterVisibility : IDisposable {
     readonly List<uint> roots = [];
     readonly List<RasterCluster> geometry = [];
     readonly List<RasterMesh> grids = [];
+    readonly List<uint> materials = [];
 
     // The instances, incrementally: a scene of a hundred thousand virtualized objects of which one
     // moved is one record uploaded, for PersistentUploadBuffer's reason and measured the same way.
@@ -175,6 +176,7 @@ public sealed class GpuClusterVisibility : IDisposable {
     BufferHandle rootBuffer;
     BufferHandle geometryBuffer;
     BufferHandle gridBuffer;
+    BufferHandle materialBuffer;
     BufferHandle visibleBuffer;
     BufferHandle requestBuffer;
     BufferHandle requestReadbackBuffer;
@@ -313,6 +315,18 @@ public sealed class GpuClusterVisibility : IDisposable {
     /// <summary>One quantization grid per registered mesh.</summary>
     public BufferHandle Grids => gridBuffer;
 
+    /// <summary>Which material each cluster uses, for the resolve's binning.</summary>
+    public BufferHandle Materials => materialBuffer;
+
+    /// <summary>The highest material index any registered cluster names, plus one.</summary>
+    /// <remarks>
+    ///     How many bins <c>VisibilityTiles.rvn</c> has to cover. Derived from the records rather than
+    ///     configured, because a bin nothing writes to is a dispatch of no workgroups and a material past
+    ///     the ceiling is a material nothing resolves — the second is worth reporting and the first costs
+    ///     nothing.
+    /// </remarks>
+    public int MaterialCount { get; private set; }
+
     /// <summary>Where each page sits in the pool, or <see cref="PageAbsent" />.</summary>
     public BufferHandle Slots => residencyBits.Buffer;
 
@@ -398,7 +412,16 @@ public sealed class GpuClusterVisibility : IDisposable {
 
         grids.Add(new() { QuantizationOrigin = pages.QuantizationOrigin, QuantizationStep = pages.QuantizationStep });
 
+        // Which material each cluster uses. Per cluster rather than per mesh, and every cluster of a mesh
+        // shares one value today — but phase 8 of the plan routes clusters whose material discards or
+        // perturbs position to a distinct raster permutation, and that needs the material to be a
+        // cluster's property rather than a mesh's. Nothing here depends on them being equal.
+        foreach (var meshlet in mesh.Meshlets) {
+            materials.Add((uint)Math.Max(meshlet.MaterialIndex, 0));
+        }
+
         PageSize = Math.Max(PageSize, pages.PageSize);
+        MaterialCount = Math.Max(MaterialCount, mesh.Meshlets.Max(meshlet => meshlet.MaterialIndex) + 1);
         MaximumTriangles = Math.Max(MaximumTriangles, mesh.Meshlets.Max(meshlet => meshlet.TriangleCount));
         PageCount += pages.Pages.Length;
         meshes.Add(entry);
@@ -736,6 +759,7 @@ public sealed class GpuClusterVisibility : IDisposable {
         device.Write(rootBuffer, 0, MemoryMarshal.AsBytes<uint>(roots.Count > 0 ? roots.ToArray() : [0u]));
         device.Write(geometryBuffer, 0, MemoryMarshal.AsBytes<RasterCluster>(geometry.ToArray()));
         device.Write(gridBuffer, 0, MemoryMarshal.AsBytes<RasterMesh>(grids.ToArray()));
+        device.Write(materialBuffer, 0, MemoryMarshal.AsBytes<uint>(materials.Count > 0 ? materials.ToArray() : [0u]));
 
         meshesDirty = false;
     }
@@ -947,6 +971,15 @@ public sealed class GpuClusterVisibility : IDisposable {
             )
         );
 
+        materialBuffer = device.CreateBuffer(
+            new(
+                Math.Max((long)materials.Count * sizeof(uint), 256),
+                BufferUsage.Storage | BufferUsage.CopyDestination,
+                MemoryAccess.DeviceLocal,
+                "ClusterCulling.Materials"
+            )
+        );
+
         visibleBuffer = device.CreateBuffer(
             new(
                 wanted,
@@ -1003,6 +1036,7 @@ public sealed class GpuClusterVisibility : IDisposable {
             && clusterBuffer.IsValid
             && geometryBuffer.IsValid
             && gridBuffer.IsValid
+            && materialBuffer.IsValid
             && childBuffer.IsValid
             && rootBuffer.IsValid
             && visibleBuffer.IsValid
@@ -1042,8 +1076,8 @@ public sealed class GpuClusterVisibility : IDisposable {
     void Release() {
         foreach (var buffer in (BufferHandle[])
                  [
-                     clusterBuffer, childBuffer, rootBuffer, geometryBuffer, gridBuffer, visibleBuffer,
-                     requestBuffer, requestReadbackBuffer, zeros
+                     clusterBuffer, childBuffer, rootBuffer, geometryBuffer, gridBuffer, materialBuffer,
+                     visibleBuffer, requestBuffer, requestReadbackBuffer, zeros
                  ]) {
             if (buffer.IsValid) {
                 device.Destroy(buffer);
@@ -1055,6 +1089,7 @@ public sealed class GpuClusterVisibility : IDisposable {
         rootBuffer = default;
         geometryBuffer = default;
         gridBuffer = default;
+        materialBuffer = default;
         visibleBuffer = default;
         requestBuffer = default;
         requestReadbackBuffer = default;
@@ -1100,6 +1135,7 @@ public sealed class GpuClusterVisibility : IDisposable {
         roots.Clear();
         geometry.Clear();
         grids.Clear();
+        materials.Clear();
     }
 
     sealed record PendingTraversal(PipelineHandle Pipeline, int InstanceCount, int ViewCount);

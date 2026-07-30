@@ -75,7 +75,13 @@ public class LibraryReflectionTests {
 
         // And the raster that draws what the traversal chose — GpuClusterRaster binds all six of its
         // buffers by name, for the same reason and with the same consequence if a rename slips past.
-        ("Pipeline", "ClusterRaster")
+        ("Pipeline", "ClusterRaster"),
+
+        // Phase 5's binning pass. The resolve is deliberately *not* here: it composes IMaterialSurface,
+        // so it has no single interface to publish — its parameters are whichever features a material
+        // chose, which is exactly why ForwardPlus's entry above is described under one named composition
+        // rather than in general.
+        ("Pipeline", "VisibilityTiles")
     ];
 
     /// <summary>

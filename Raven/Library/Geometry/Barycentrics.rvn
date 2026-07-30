@@ -1,0 +1,169 @@
+package Vixen.Shaders.Geometry
+
+import Vixen.Shaders.Core
+
+// Recovering a pixel's attributes from the triangle it landed on.
+//
+// Phase 5 of `docs/virtualized-geometry.md`. A visibility buffer stores *which* triangle covered a
+// pixel and nothing else, so everything an interpolator would have handed the fragment stage — the
+// world position, the normal, the texture coordinate, and the rate at which the coordinate changes —
+// has to be worked out again from the triangle's three corners and the pixel's own position.
+//
+// **All of it is exact arithmetic with one division.** There is nothing approximate here and nothing
+// that depends on neighbouring pixels, which is the whole point: a resolve dispatched over tiles has
+// no quad to take derivatives against, and even where it does have one — a fragment-stage resolve —
+// the neighbour may belong to a different triangle of a different cluster, so an implicit derivative
+// is wrong exactly at the silhouettes where it is most visible.
+
+/// A pixel's position inside a triangle, and how fast that position changes across the screen.
+///
+/// Three weights rather than two, and the third is not redundant bookkeeping: an interpolation is a
+/// weighted sum of three corner values, and carrying `w` explicitly is what lets the same struct
+/// interpolate a scalar, a vector or a matrix with no special case for which corner is the origin.
+struct Barycentrics {
+    /// The weights, summing to one. Perspective-corrected — see `Barycentric.Of`.
+    var weights: float3
+
+    /// How the weights change across one pixel in x, and in y.
+    ///
+    /// What makes an analytic gradient possible: the derivative of any interpolated attribute is the
+    /// same weighted sum with these weights instead, because interpolation is linear in them.
+    var ddx: float3
+    var ddy: float3
+}
+
+/// The reconstruction, written once so a resolve and its host mirror cannot disagree.
+struct Barycentric {
+    /// Whether a triangle is too degenerate to interpolate across.
+    ///
+    /// Not an epsilon on the area but on the *reciprocal* the solve needs, because that is the number
+    /// that actually blows up. A cluster can hold a zero-area triangle — a surplus corner from the
+    /// raster, or a collapse the simplifier made exactly degenerate — and a pixel is never covered by
+    /// one, so this only guards the arithmetic rather than deciding anything visible.
+    const val Epsilon = 1e-12f
+
+    /// A pixel's barycentric weights on a triangle whose corners are already in clip space.
+    ///
+    /// Named `Solve` rather than `Of` because a library artefact keys an exported static by its
+    /// *unqualified* method name — see `Lowerer.FunctionName` — so `Barycentric.Of` and
+    /// `ShadingAngles.Of` would be one entry, and a consumer resolving either would get whichever was
+    /// exported. The signatures differ here so it surfaced as a type error; two that matched would have
+    /// called the wrong function.
+    ///
+    /// **The screen-space solve, then the perspective correction, and the order matters.** Screen
+    /// space is where the pixel is, so the weights are solved there — but an attribute varies linearly
+    /// in *world* space and a projection is not affine, so using the screen weights directly is the
+    /// classic affine-texturing error: straight lines bend and a texture swims across a floor. The fix
+    /// is one division per corner by that corner's clip `w`, renormalised — which is what a rasterizer's
+    /// interpolator does and what this reproduces.
+    ///
+    /// `pixel` is in normalised device coordinates, which is where the clip positions land after their
+    /// own division. Returns weights that sum to one, and their screen-space derivatives.
+    static func Solve(pixel: float2, clip0: float4, clip1: float4, clip2: float4, pixelSize: float2): Barycentrics {
+        var result: Barycentrics
+        result.weights = float3(1f, 0f, 0f)
+        result.ddx = float3(0f, 0f, 0f)
+        result.ddy = float3(0f, 0f, 0f)
+
+        val inverse0 = SafeReciprocal(clip0.w)
+        val inverse1 = SafeReciprocal(clip1.w)
+        val inverse2 = SafeReciprocal(clip2.w)
+
+        val ndc0 = float2(clip0.x, clip0.y) * inverse0
+        val ndc1 = float2(clip1.x, clip1.y) * inverse1
+        val ndc2 = float2(clip2.x, clip2.y) * inverse2
+
+        // Twice the signed area of the screen triangle. The sign carries the winding and cancels in
+        // every ratio below, so nothing here has to know which way the triangle faces.
+        val edge1 = ndc1 - ndc0
+        val edge2 = ndc2 - ndc0
+        val area = edge1.x * edge2.y - edge1.y * edge2.x
+
+        if (abs(area) < Epsilon) {
+            return result
+        }
+
+        val scale = 1f / area
+
+        // The screen weights, and their derivatives. A screen weight is an affine function of the
+        // pixel, so its derivative is a constant — which is why the whole gradient story below needs
+        // no neighbouring pixel and no second evaluation.
+        val to = pixel - ndc0
+        val b1 = (to.x * edge2.y - to.y * edge2.x) * scale
+        val b2 = (edge1.x * to.y - edge1.y * to.x) * scale
+
+        val screen = float3(1f - b1 - b2, b1, b2)
+
+        val d1 = float2(edge2.y, -edge2.x) * scale
+        val d2 = float2(-edge1.y, edge1.x) * scale
+
+        val screenDdx = float3(-d1.x - d2.x, d1.x, d2.x) * pixelSize.x
+        val screenDdy = float3(-d1.y - d2.y, d1.y, d2.y) * pixelSize.y
+
+        // The perspective correction: weight each screen weight by its corner's reciprocal `w` and
+        // renormalise. The derivative then follows from the quotient rule, because the denominator is
+        // itself a function of the pixel — dropping that term is the subtle half of the affine error,
+        // and it survives every test that only looks at the interpolated value.
+        val weighted = float3(screen.x * inverse0, screen.y * inverse1, screen.z * inverse2)
+        val sum = weighted.x + weighted.y + weighted.z
+
+        if (abs(sum) < Epsilon) {
+            return result
+        }
+
+        val reciprocals = float3(inverse0, inverse1, inverse2)
+        val inverseSum = 1f / sum
+
+        result.weights = weighted * inverseSum
+
+        val weightedDdx = screenDdx * reciprocals
+        val weightedDdy = screenDdy * reciprocals
+        val sumDdx = weightedDdx.x + weightedDdx.y + weightedDdx.z
+        val sumDdy = weightedDdy.x + weightedDdy.y + weightedDdy.z
+
+        result.ddx = (weightedDdx - result.weights * sumDdx) * inverseSum
+        result.ddy = (weightedDdy - result.weights * sumDdy) * inverseSum
+
+        return result
+    }
+
+    /// One scalar attribute, interpolated.
+    static func Lerp1(b: Barycentrics, a0: float, a1: float, a2: float): float => a0 * b.weights.x + a1 * b.weights.y + a2 * b.weights.z
+
+    /// A two-component attribute, interpolated.
+    static func Lerp2(b: Barycentrics, a0: float2, a1: float2, a2: float2): float2 => a0 * b.weights.x + a1 * b.weights.y + a2 * b.weights.z
+
+    /// A three-component attribute, interpolated.
+    static func Lerp3(b: Barycentrics, a0: float3, a1: float3, a2: float3): float3 => a0 * b.weights.x + a1 * b.weights.y + a2 * b.weights.z
+
+    /// A four-component attribute, interpolated.
+    static func Lerp4(b: Barycentrics, a0: float4, a1: float4, a2: float4): float4 => a0 * b.weights.x + a1 * b.weights.y + a2 * b.weights.z
+
+    /// How a two-component attribute changes across one pixel in x.
+    ///
+    /// **The same weighted sum with the weight derivatives**, which is the whole reason
+    /// `Barycentrics` carries them: interpolation is linear in the weights, so the derivative of the
+    /// interpolated value is the interpolation of the corner values by the derivative weights. No
+    /// finite difference, no neighbouring pixel, and exact rather than nearly.
+    static func Ddx2(b: Barycentrics, a0: float2, a1: float2, a2: float2): float2 => a0 * b.ddx.x + a1 * b.ddx.y + a2 * b.ddx.z
+
+    /// How it changes across one pixel in y.
+    static func Ddy2(b: Barycentrics, a0: float2, a1: float2, a2: float2): float2 => a0 * b.ddy.x + a1 * b.ddy.y + a2 * b.ddy.z
+
+    /// How a three-component attribute changes across one pixel in x.
+    ///
+    /// What a tangent is derived from: the surface's own screen derivative, against the texture
+    /// coordinate's. A resolve is better placed for this than a fragment stage, which would have to
+    /// interpolate a stored tangent and pay a channel for it.
+    static func Ddx3(b: Barycentrics, a0: float3, a1: float3, a2: float3): float3 => a0 * b.ddx.x + a1 * b.ddx.y + a2 * b.ddx.z
+
+    /// How it changes across one pixel in y.
+    static func Ddy3(b: Barycentrics, a0: float3, a1: float3, a2: float3): float3 => a0 * b.ddy.x + a1 * b.ddy.y + a2 * b.ddy.z
+
+    /// A reciprocal that does not divide by zero.
+    ///
+    /// A clip `w` at or behind the eye has no meaningful reciprocal, and a pixel is never covered by
+    /// a triangle with one — the rasterizer clipped it — so this only keeps the arithmetic finite for
+    /// the corners of a triangle that was clipped rather than deciding anything.
+    static func SafeReciprocal(value: float): float => abs(value) < Const.Epsilon ? 0f : 1f / value
+}

@@ -879,6 +879,121 @@ public class LibraryTreeTests {
     }
 
     /// <summary>The fragment stage of the shipped forward pass, as GLSL.</summary>
+    /// <summary>
+    ///     Every shading model composes into the visibility resolve as well as into the forward pass, and
+    ///     reaches both backends.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Phase 5's exit criterion of <c>docs/virtualized-geometry.md</c>:</b> the material tree's
+    ///         composition works through the visibility path with no shader source changes. The models are
+    ///         the same four the forward test above covers, the composition slots are the same two names,
+    ///         and nothing in <c>Material/</c> knows which of the two passes composed it — which is what
+    ///         "a second entry contract, not a second material system" has to mean to be worth saying.
+    ///     </para>
+    ///     <para>
+    ///         Distinguished from the standard model rather than merely compiled, for the reason the
+    ///         forward test does it: a composition that silently fell back to the default would compile,
+    ///         reach both backends, and produce a picture — the wrong one.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("StandardShading")]
+    [InlineData("AnisotropicShading")]
+    [InlineData("ClearCoatShading")]
+    [InlineData("SheenShading")]
+    public void Every_shading_model_composes_into_the_resolve_and_reaches_both_backends(string model) {
+        var standard = ResolveSource(LowerTree(composition: [("shading", "StandardShading")]));
+        var module = LowerTree(composition: [("shading", model)]);
+        var source = ResolveSource(module);
+
+        Assert.Contains("Shade", source, StringComparison.Ordinal);
+
+        if (model != "StandardShading") {
+            Assert.NotEqual(standard, source);
+        }
+
+        foreach (var target in (string[])["glsl", "spirv"]) {
+            var bag = new DiagnosticBag();
+            var generated = TargetBackends.Create(target)!.Generate(module, bag);
+
+            var errors = bag.ToArray().Where(d => d.IsError).ToArray();
+
+            Assert.True(
+                errors.Length == 0,
+                $"{model} does not reach {target} through the resolve:\n"
+                + string.Join("\n", errors.Select(d => d.ToString()))
+            );
+
+            var pass = generated
+                .Where(unit => unit.Name.StartsWith("VisibilityResolve", StringComparison.Ordinal))
+                .ToArray();
+
+            Assert.NotEmpty(pass);
+
+            if (target == "spirv") {
+                Assert.All(pass, SpirvTestBase.Validate);
+            } else {
+                AssertGlslCompiles(pass);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     The resolve samples with gradients it was given, and the forward pass does not.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The claim <c>UseAnalyticGradients</c> exists to make, and the one that would rot: a compute
+    ///         stage has no quad, so an implicit-derivative sample there is undefined — and a permutation
+    ///         is the only way to swap the instruction, because <c>Sample</c> reads the neighbouring lanes
+    ///         and <c>SampleGrad</c> takes them as operands.
+    ///     </para>
+    ///     <para>
+    ///         Asserted on the emitted GLSL rather than on the tree, because what matters is which
+    ///         instruction came out. And asserted in both directions: the rasterized variant has to keep
+    ///         the implicit form, or every fragment in the library starts paying for two extra
+    ///         interpolants it has nothing to do with.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_resolve_samples_with_gradients_and_the_forward_pass_does_not() {
+        // Unqualified, because a permutation is one key across the compilation — the declaration lives
+        // on MaterialTextures and every feature that inherits it reads the same value. That is the right
+        // shape here: a pass either has a quad or it does not, and a composition where half the features
+        // sampled implicitly and half analytically is not a configuration anybody wants.
+        var gradients = PermutationValues.Parse(["UseAnalyticGradients=true"]);
+
+        var resolve = ResolveSource(
+            LowerTree(gradients, [("surface", "TexturedMetalRoughnessSurface"), ("shading", "StandardShading")])
+        );
+
+        Assert.Contains("textureGrad(", resolve, StringComparison.Ordinal);
+
+        // And off, which is every rasterized pass in the library.
+        var forward = ForwardPlusSource(
+            LowerTree(composition: [("surface", "TexturedMetalRoughnessSurface"), ("shading", "StandardShading")])
+        );
+
+        Assert.DoesNotContain("textureGrad(", forward, StringComparison.Ordinal);
+        Assert.Contains("texture(", forward, StringComparison.Ordinal);
+    }
+
+    /// <summary>The resolve's compute unit, as GLSL.</summary>
+    static string ResolveSource(IrModule module) {
+        var bag = new DiagnosticBag();
+        var generated = TargetBackends.Create("glsl")!.Generate(module, bag);
+
+        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+
+        return Assert.Single(
+                generated,
+                unit => unit.Name.StartsWith("VisibilityResolve", StringComparison.Ordinal)
+                    && unit.Stage == ShaderStage.Compute
+            )
+            .Code;
+    }
+
     static string ForwardPlusSource(IrModule module) {
         var bag = new DiagnosticBag();
         var generated = TargetBackends.Create("glsl")!.Generate(module, bag);

@@ -453,7 +453,7 @@ Four things the plan above did not say:
 
 ---
 
-### Phase 5 — Material resolve · ~2.5 EM
+### Phase 5 — Material resolve · ~2.5 EM · 🟡 mostly built
 
 This is where the plan deliberately diverges from Unreal. See **improvement 2** — the resolve bins
 into per-material tiles and runs the *existing* Forward+ shading, rather than resolving into a
@@ -484,9 +484,62 @@ unbuilt, and TAA is shipped and owns its history, which is what Nanite leans on 
 So the cost here is a feature that does not exist yet, and a phase-5 decision should come with
 marking MSAA as classic-path-only rather than leaving it a general promise.
 
+✅ **Marked.** [06](plan/06-rendering-pipeline.md)'s antialiasing table now reads *MSAA (classic path
+only)* with the reason, rather than leaving a general promise a virtualized frame could not keep.
+
 **Exit:** the material tree's existing composition tests pass through the visibility path with no
 shader source changes — the composed shading models produce the same image whether reached from a
 normal draw or a resolve.
+
+**Met for the composition, and the remainder is named below.** All four shading models compose into
+[`VisibilityResolve.rvn`](../Raven/Library/Pipeline/VisibilityResolve.rvn) through the same two slots
+`ForwardPlus` composes them into, reach both backends, and are distinguishable from the default — which
+is the criterion, and nothing in `Material/` was changed to serve the resolve except the one thing the
+resolve genuinely needs, below. `LibraryTreeTests` holds it.
+
+The reconstruction is where the substance is, and it is checked against the *definition* of
+perspective-correct interpolation rather than against a second solver: a world-linear attribute comes
+back as the same linear function of the world point the pixel sees, over randomised triangles, cameras
+and interior points. [`Barycentrics.rvn`](../Raven/Library/Geometry/Barycentrics.rvn) and
+[`ClusterAttributes`](../Core/Vixen.Rendering/ClusterAttributes.cs), tested in `ClusterAttributeTests`.
+
+Five things the plan above did not say:
+
+- **Both silent failures are one line each, and only one of them shows in a picture.** Dropping the
+  perspective correction is the classic affine error — plausible image, bending lines, a texture that
+  swims across a floor. Correcting the *weights* but not their *derivatives* leaves the picture right
+  and the mip selection wrong, which reads as a texture slightly too sharp at grazing angles and is
+  invisible in a still. The second is a quotient-rule term, and the finite-difference oracle is the only
+  assertion that catches it. Both sabotages verified.
+- **The tolerance has to scale with the attribute's range, not its magnitude.** A triangle whose near
+  corner is nine times nearer than its far one amplifies float32 error through the solve's division, so a
+  fixed absolute tolerance is a test of the depth ratio rather than of the arithmetic. Found by the
+  property test failing on a random seed after passing on twenty others — which is the property test
+  doing its job twice.
+- **A permutation on the *material tree*, not on the pass.** `MaterialTextures.UseAnalyticGradients`
+  swaps `Sample` for `SampleGrad`, and it has to live where the sampling is rather than where the pass
+  is: a compute stage has no quad, so the implicit form is undefined there and no runtime branch can
+  help. `MaterialData` carries `uvDdx`/`uvDdy` for it, and every feature calls one `SampleSurface`
+  instead of choosing. **This is the first consumer of B3**, which was built for exactly this.
+- **The tangent is derived, and the resolve is better placed for it than a fragment stage.** A page
+  vertex carries a position, a normal and a coordinate; a tangent is what those three imply, and
+  deriving it needs the screen derivatives of two of them — which the analytic gradients already are. A
+  fragment stage would have to interpolate a stored tangent and pay a channel for it.
+- **⚠ The clustered punctual light loop is owed, and the prerequisite is a refactor rather than a
+  feature.** The directional and ambient terms are library calls and are in the resolve; the punctual
+  loop is `ForwardPlus`-local, and reaching it from a second entry point means extracting its bindings
+  and four functions into a base shader both derive from. That renumbers `ForwardPlus`'s bindings, which
+  `MaterialReflectionTests` and `ForwardPlusLayoutTests` are both written against — so it is named here
+  rather than done in passing. Shadows and reflection probes are behind the same door.
+
+**And the host is half done, deliberately.** The binning is complete —
+[`GpuVisibilityTiles`](../Core/Vixen.Rendering/GpuVisibilityTiles.cs), recorded by
+`VisibilityBufferRenderer` in a second pass so the ordering cannot be got wrong in a document, with the
+counters doubling as the indirect dispatch arguments. What is *not* built is the per-material resolve
+dispatch, because that needs a compute variant resolved per material composition, which is
+`MaterialRenderFeature`'s machinery and a project in its own right. So phase 5 today gives a correct
+reconstruction, a correct binning, and a resolve shader that provably composes the material tree —
+and still no picture.
 
 ---
 
@@ -554,6 +607,12 @@ avoids UE's material-depth full-screen passes: a material covering 1% of the scr
 The honest cost: tile binning has a worst case UE's approach does not — a screen where every tile
 holds every material degenerates to the same work with extra bookkeeping. Materials are spatially
 coherent in practice, which is the assumption being made explicit rather than hidden.
+
+🟡 **The binning is built** as [`VisibilityTiles.rvn`](../Raven/Library/Pipeline/VisibilityTiles.rvn)
+and [`GpuVisibilityTiles`](../Core/Vixen.Rendering/GpuVisibilityTiles.cs), with the worst case
+reportable rather than merely acknowledged: `Overflowed` says a material wanted more tiles than its list
+holds, which is a hole and not a slow frame. What is still owed is the dispatch that consumes the bins
+— see phase 5.
 
 ### 3. One culling shader, one occlusion semantic
 
@@ -657,7 +716,7 @@ being a mystery in a frame capture.
 | 2 — Pages and residency ✅ | ~2 | 6 |
 | 3 — Hierarchical culling ✅ | ~2.5 | 8.5 |
 | 4 — HW-raster visibility buffer ✅ | ~2 | 10.5 |
-| 5 — Material resolve | ~2.5 | 13 |
+| 5 — Material resolve 🟡 | ~2.5 | 13 |
 | 6 — SW raster (optional) | ~3 | 16 |
 | 7 — Virtual shadow maps | ~2.5 | 18.5 |
 

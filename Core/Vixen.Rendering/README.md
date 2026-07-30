@@ -281,6 +281,34 @@ to be drawn out of a slot holding another page's bytes.
 in every API the RHI wraps, so an integer target cannot be cleared to all ones — and zero has to mean
 "nothing covered this pixel" rather than "the frame's first cluster, its first triangle".
 
+### And shading it without a GBuffer
+
+`Library/Pipeline/VisibilityTiles.rvn` bins the identity buffer's tiles by material and
+`VisibilityResolve.rvn` shades one material's bin — which is improvement 2 of the plan, and the reason
+this engine stays Forward+ where Unreal went deferred. The composition slots are `ForwardPlus`'s two,
+the shading models are the same four, and nothing in `Library/Material` knows which pass composed it.
+
+**The counters are the dispatch arguments.** Each material gets three words; the atomic that appends a
+tile is the same write that tells `DispatchIndirect` how many workgroups to launch, so there is no
+compaction pass and the host never learns how much of the screen a material covers.
+
+**The reconstruction is analytic, and two of its three steps fail silently.** `Barycentrics.rvn` and
+`ClusterAttributes` solve a pixel's weights in screen space and then correct for perspective: without
+the correction lines bend and textures swim, and without the *derivative* of the correction the picture
+is right and only the mip selection is wrong. The second is a quotient-rule term and the only thing
+that catches it is differentiating the reconstruction numerically, which is what
+`ClusterAttributeTests` does.
+
+**`MaterialTextures.UseAnalyticGradients` is a permutation on the material tree, not on the pass** — a
+compute stage has no quad, so `Sample` is undefined there and no runtime branch helps. It is the first
+consumer of the `SampleGrad` support built as blocker B3.
+
+⚠ The resolve has the directional and ambient terms and not the clustered punctual loop: that loop is
+`ForwardPlus`-local, and sharing it means extracting its bindings into a base shader both derive from,
+which renumbers bindings two oracle suites are written against. And the per-material dispatch host is
+not built — it needs a compute variant resolved per material composition, which is
+`MaterialRenderFeature`'s machinery.
+
 **And with no wait, every descriptor set is a ring.** A set a submitted command buffer still
 references may not be written — `VUID-vkUpdateDescriptorSets-None-03047` — so all three classes hold
 one set per frame in flight and advance with the frame, which is the invariant `DescriptorAllocator`

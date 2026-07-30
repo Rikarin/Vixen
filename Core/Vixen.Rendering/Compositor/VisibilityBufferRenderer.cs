@@ -37,6 +37,18 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
     /// <summary>The raster that records the draw. Null does nothing at all.</summary>
     public GpuClusterRaster? Raster { get; set; }
 
+    /// <summary>
+    ///     The binning pass that sorts this buffer's tiles by material. Null draws it and stops there.
+    /// </summary>
+    /// <remarks>
+    ///     Recorded by this node rather than by one of its own, because the ordering is not something a
+    ///     document should be able to get wrong: the binning reads the identity buffer, so it has to be
+    ///     after the draw that writes it and before anything that resolves it. A separate node would be a
+    ///     separate placement decision with no way to check it — and it would have to reopen the graph's
+    ///     pass to name the same texture.
+    /// </remarks>
+    public GpuVisibilityTiles? Tiles { get; set; }
+
     /// <summary>What the identity target is called in the graph, for whatever resolves it.</summary>
     public string Output { get; set; } = "VisibilityBuffer";
 
@@ -72,6 +84,7 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
         }
 
         var raster = Raster;
+        var tiles = Tiles;
         var viewProjection = system.Views[ViewIndex].ViewProjection;
         var size = frame.Size;
 
@@ -109,6 +122,33 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
                         // BeginRenderPass and EndRenderPass is not legal. The graph opens the pass around
                         // Execute, so this has to be the pass's first act rather than the node's.
                         raster.Record(context.CommandList, viewProjection, GpuClusterRaster.Format, format);
+                    }
+                );
+            }
+        );
+
+        if (tiles is null) {
+            return;
+        }
+
+        // A second pass, and not a second node. The binning samples what the draw wrote, so it cannot be
+        // inside the render pass that writes it — an attachment being written is not a texture being read
+        // — and it must not be somewhere a document could place it wrongly. Two passes from one node is
+        // the arrangement that makes both true.
+        frame.Graph.AddPass(
+            $"{this}.Tiles",
+            pass => {
+                pass.Kind = PassKind.Compute;
+                pass.Reads(identity);
+                pass.SideEffect();
+
+                pass.Execute(
+                    context => {
+                        // The counters the previous frame left, before this frame overwrites them. Read
+                        // here rather than by the caller because this is the one place that knows the
+                        // dispatch has been submitted and the next one has not started.
+                        tiles.ReadCounts();
+                        tiles.Record(context.CommandList, context.View(identity), size);
                     }
                 );
             }
