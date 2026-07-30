@@ -427,7 +427,7 @@ public sealed class ScreenProbeTraceDeviceTests {
             for (var px = 0; px < layout.GridSize.X; px++) {
                 for (var ty = 0; ty < layout.MapResolution; ty++) {
                     for (var tx = 0; tx < layout.MapResolution; tx++) {
-                        if (left[new(px, py), new(tx, ty)] != right[new(px, py), new(tx, ty)]) {
+                        if (left[new Int2(px, py), new(tx, ty)] != right[new Int2(px, py), new(tx, ty)]) {
                             return true;
                         }
                     }

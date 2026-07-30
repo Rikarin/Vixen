@@ -37,16 +37,22 @@ public readonly struct ScreenProbeLayout {
     /// <param name="viewport">The viewport, in pixels.</param>
     /// <param name="tileSize">How many pixels one probe stands for, along each axis.</param>
     /// <param name="mapResolution">How many texels a probe's octahedral map is, along each axis.</param>
-    /// <exception cref="ArgumentOutOfRangeException">An empty viewport, tile or map.</exception>
-    public ScreenProbeLayout(Int2 viewport, int tileSize = 16, int mapResolution = 8) {
+    /// <param name="adaptiveRows">
+    ///     How many rows of adaptive probe maps the atlas reserves below the grid — see
+    ///     <see cref="AdaptiveCapacity" />. Zero, the default, is today's fixed lattice exactly.
+    /// </param>
+    /// <exception cref="ArgumentOutOfRangeException">An empty viewport, tile or map, or negative rows.</exception>
+    public ScreenProbeLayout(Int2 viewport, int tileSize = 16, int mapResolution = 8, int adaptiveRows = 0) {
         ArgumentOutOfRangeException.ThrowIfLessThan(viewport.X, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(viewport.Y, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(tileSize, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(mapResolution, 1);
+        ArgumentOutOfRangeException.ThrowIfNegative(adaptiveRows);
 
         Viewport = viewport;
         TileSize = tileSize;
         MapResolution = mapResolution;
+        AdaptiveRows = adaptiveRows;
         GridSize = new(
             (viewport.X + tileSize - 1) / tileSize,
             (viewport.Y + tileSize - 1) / tileSize
@@ -65,11 +71,33 @@ public readonly struct ScreenProbeLayout {
     /// <summary>How many probes there are, along each axis.</summary>
     public Int2 GridSize { get; }
 
-    /// <summary>How many probes there are in all.</summary>
+    /// <summary>How many grid probes there are in all.</summary>
     public int ProbeCount => GridSize.X * GridSize.Y;
 
-    /// <summary>The atlas holding every probe's map, in texels.</summary>
-    public Int2 AtlasSize => GridSize * MapResolution;
+    /// <summary>How many rows of adaptive maps sit below the grid's in the atlas.</summary>
+    /// <remarks>
+    ///     Doc 19 § L3's "adaptive placement at disocclusions" — extra probes where the coarse grid
+    ///     straddles a depth edge. An <i>addition</i> to the lattice: the grid's addressing does not
+    ///     move, the atlas grows downward, and a capacity is a budget rather than a promise.
+    /// </remarks>
+    public int AdaptiveRows { get; }
+
+    /// <summary>How many adaptive probes the atlas has room for.</summary>
+    public int AdaptiveCapacity => AdaptiveRows * GridSize.X;
+
+    /// <summary>The atlas holding every probe's map, in texels — grid rows, then adaptive rows.</summary>
+    public Int2 AtlasSize => new(GridSize.X * MapResolution, (GridSize.Y + AdaptiveRows) * MapResolution);
+
+    /// <summary>Where an adaptive probe's map starts in the atlas.</summary>
+    /// <param name="index">The adaptive probe, 0 to <see cref="AdaptiveCapacity" /> − 1.</param>
+    /// <exception cref="ArgumentOutOfRangeException">No such slot.</exception>
+    /// <remarks>Row-major below the grid, so the first adaptive map sits directly under probe (0, 0)'s column.</remarks>
+    public Int2 AdaptiveOrigin(int index) {
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, AdaptiveCapacity);
+
+        return new Int2(index % GridSize.X, GridSize.Y + (index / GridSize.X)) * MapResolution;
+    }
 
     /// <summary>One probe's place in a flat array.</summary>
     /// <param name="probe">The probe.</param>

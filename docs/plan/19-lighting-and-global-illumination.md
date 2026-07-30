@@ -730,10 +730,23 @@ before it exists. One frame drawn with it on shows the L1 overshoot from § L3's
 end to end: probes standing on the one surface a frame drew blacken a cone *behind* themselves,
 and the away-facing answer lands above the sky, not below it.
 
+**Adaptive placement exists device-free, and is stated as half a feature on purpose.** The layout
+reserves adaptive map rows below the grid — an addition to the lattice, its addressing unmoved,
+the capacity a budget rather than a promise. Tile corners are the detectors, being the pixels
+farthest from every anchor: a corner farther than a tolerance from the plane of every probe it
+bilinearly reads stands on a surface the lattice never sampled, and gets a probe gathered by the
+same trace order. The position-aware sampling overload drops plane-mismatched taps exactly as it
+drops invalid ones — one tolerance shared by detection and sampling, because disagreeing
+definitions of "a different surface" place probes nothing reads — and falls back to the nearest
+accepting adaptive probe, then the unfiltered lattice, then zero. The ledge fixture produces
+exactly the eight corner probes its geometry predicts. What is deliberately absent: the device
+half changes no picture until the upsample reads position, and that is the bilateral upsample,
+which is the denoiser's opening move.
+
 Still not started: the HZB traversal itself (the naive march is the baseline, and the pyramid
-wants its nearest-texel reduction beside culling's farthest), adaptive placement, importance
-sampling, and the whole denoiser. The gather node also refuses a resized frame until resizing is
-a deliberate step.
+wants its nearest-texel reduction beside culling's farthest), the adaptive probes' device half,
+importance sampling, and the whole denoiser. The gather node also refuses a resized frame until
+resizing is a deliberate step.
 
 ### L4 — Surface cache and radiosity *(3.5 EM)*
 

@@ -96,6 +96,33 @@ projection keeps whole. The kernel composes the same `irradiance` slot the shadi
 `NoIrradiance`'s zero coverage blends every termination back to the sky, so a project without a
 field traces exactly the rays it traced before.
 
+## Adaptive probes stand where the lattice never sampled
+
+Doc 19 § L3's "adaptive placement at disocclusions", device-free half. The layout reserves rows of
+map slots *below* the grid's — an addition to the lattice, its addressing unmoved — and the atlas
+places into them up to a capacity that is a budget, not a promise: when it runs out, the rest of
+the screen keeps the lattice it had.
+
+A tile's corner pixels are the detectors, being the points farthest from every anchor: a corner
+whose surface stands farther than a tolerance from the plane of every valid probe it bilinearly
+reads is on a surface the lattice never sampled, and gets a probe of its own, gathered by the same
+trace order as everything else. Sampling asks the same question with the same number: the
+position-aware `Irradiance` overload drops a tap whose *plane* rejects the pixel's surface exactly
+as it drops an invalid one — blending it in is how light bleeds across a depth edge — and falls
+back, in order, to the nearest adaptive probe whose plane accepts, then to the unfiltered lattice
+(the bleed, chosen over a black hole, the dilation rule's own call), then to zero. Detection and
+sampling sharing one tolerance is deliberate: disagreeing definitions of "a different surface"
+place probes nothing reads.
+
+The fallback's tests seed the maps by hand — grid probes holding one constant, the ledge probe
+another — because under any gathered fixture of an empty world every probe sees the same sky and
+the fallback is indistinguishable from the blend it replaced. The detection test is the gathered
+one: a ledge straddled by two tiles produces exactly the eight corner probes the geometry predicts,
+each resolving the uniform-sky closed form where it stands. **The device half is owed with the
+denoiser's bilateral upsample** — the shipped upsample pass still reads the grid planes alone, so
+adaptive probes change no picture until the pass that reads position arrives, and they were built
+first because the lattice semantics had to exist to be read.
+
 ## The screen is asked first, and a screen hit is an occlusion
 
 Doc 19 § L3's trace order opens with rays against the frame's own depth — geometry the distance
@@ -170,9 +197,9 @@ stride did not move.
 
 ## Not yet, and named so the absence is a decision
 
-- **Adaptive probes.** Doc 19's "adaptive placement at disocclusions" — extra probes where the
-  coarse grid straddles a depth edge. An addition to the lattice, not a replacement, and the lattice
-  had to be right first.
+- **Adaptive probes on the device.** The CPU half above is whole; the atlas mirror does not yet
+  carry the adaptive rows up, the trace dispatch does not fill them, and the upsample pass cannot
+  read them until it reads position — which is the bilateral upsample, which is the denoiser's.
 - **Importance sampling.** The shipping gather aims rays where the BRDF and last frame's lighting
   say they matter. It changes which texel a ray serves, not what a texel means, so it belongs to the
   version that has a BRDF to sample against.
