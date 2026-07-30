@@ -24,15 +24,19 @@ namespace Vixen.Rendering.Ecs;
 ///         main object.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This is a reference, and drawing it is still owed.</b> Resolving it is done:
-///         <c>ContentCatalog.TryGetAddress</c> turns the reference into an address and
-///         <c>AssetManager.LoadAsync</c> turns that into a <see cref="MeshData" />. What does not exist
-///         yet is the extraction system that would put a <see cref="RenderObject" /> in the store for
-///         it, which needs a residency cache over <see cref="GeometryBuffer" /> — one slice per mesh,
-///         shared by every entity drawing it — and a material asset resolved to a
-///         <see cref="Material" />. Until then an entity carrying this is authored, saved, compiled,
-///         loaded and invisible. <see cref="LightExtractionSystem" /> is the same shape of thing for
-///         lights and is finished, so the pattern the mesh one follows is in the tree.
+///         <b>Drawn through <see cref="MeshExtractionSystem.Meshes" />.</b> The reference resolves the
+///         way every other one does — <c>ContentCatalog</c> turns it into an address and
+///         <c>AssetManager</c> turns that into a <see cref="MeshData" /> — and the extraction system
+///         <em>asks</em> for it rather than waiting, so a mesh that has not arrived leaves the entity
+///         without a <see cref="RenderHandle" /> and is asked about again next frame. A host that sets
+///         no source draws no referenced mesh at all, which is what a project with no content mounted
+///         is.
+///     </para>
+///     <para>
+///         ⚠ <b>The material reference is still not resolved.</b> Every entity is drawn with
+///         <see cref="MeshExtractionSystem.Material" /> — one material for the scene — because turning
+///         a reference into a <see cref="Material" /> needs the descriptor loaded and compiled, which
+///         is the next join rather than this one.
 ///     </para>
 /// </remarks>
 [Component]

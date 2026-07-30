@@ -306,11 +306,21 @@ public sealed class MeshExtractionTests : IDisposable {
     }
 
     /// <remarks>
-    ///     Loading a mesh asset is not wired in, so a reference is counted rather than drawn as something
-    ///     wrong. This is the assertion that says so out loud, and it is what will change when it is.
+    ///     <para>
+    ///         A reference with nowhere to load from is <em>waited</em> for rather than drawn as
+    ///         something wrong — which is the same answer a mesh that has simply not arrived yet gets,
+    ///         and deliberately so: from here they are the same state, and the entity keeps no render
+    ///         handle either way so the next reconciliation asks again.
+    ///     </para>
+    ///     <para>
+    ///         Distinct from <c>Dropped</c>, which is geometry that arrived and did not fit. One is a
+    ///         frame away from being drawn and the other never will be, and a level that stops appearing
+    ///         past a certain size looks exactly like a level whose content is missing until the two
+    ///         numbers are separate.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void AMeshReferenceIsCountedAsDroppedUntilLoadingIsWiredIn() {
+    public void AMeshReferenceWithNoSourceIsWaitedFor() {
         using var world = new World();
         var entity = world.Create();
 
@@ -324,7 +334,8 @@ public sealed class MeshExtractionTests : IDisposable {
 
         extraction.Extract(world);
 
-        Assert.Equal(1, extraction.Dropped);
+        Assert.Equal(1, extraction.Waiting);
+        Assert.Equal(0, extraction.Dropped);
         Assert.Equal(0, extraction.ObjectCount);
     }
 
@@ -336,27 +347,49 @@ public sealed class MeshExtractionTests : IDisposable {
     ///         <c>AudioSystem</c> applies to an event beside a clip.
     ///     </para>
     ///     <para>
-    ///         So while mesh loading is unwired the entity draws <i>nothing</i> rather than falling back to
-    ///         the cube. That is deliberate: an entity that changed shape when a mesh failed to load would
-    ///         be a level that looks different depending on what is on disk.
+    ///         So an entity whose mesh has not arrived draws <i>nothing</i> rather than falling back to
+    ///         the cube. That is deliberate: an entity that changed shape while its mesh loaded would be
+    ///         a level that looks different depending on how fast the disk is.
     ///     </para>
     /// </remarks>
     [Fact]
     public void AnEntityCarryingBothTakesItsMeshAndNotItsShape() {
         using var world = new World();
         var entity = Shaped(world, PrimitiveKind.Cube, Vector3.Zero);
+        var reference = new AssetReference(new AssetId(new("33333333-3333-3333-3333-333333333333")));
 
-        MeshRenderables.Attach(
-            world,
-            entity,
-            MeshRenderables.Default(new AssetReference(new AssetId(new("33333333-3333-3333-3333-333333333333"))))
-        );
+        MeshRenderables.Attach(world, entity, MeshRenderables.Default(reference));
 
+        // Nowhere to load from: the mesh is waited for and the cube it also carries is not drawn instead.
         extraction.Extract(world);
 
         Assert.Equal(0, system.Objects.LiveCount);
-        Assert.Equal(1, extraction.Dropped);
+        Assert.Equal(1, extraction.Waiting);
         Assert.Equal(0, residency.ClaimsOn(GeometryKey.Of(PrimitiveKind.Cube)));
+
+        // And when it does arrive it is the mesh that is drawn, still not the cube — which is the half
+        // of the claim that could not be made while no reference ever resolved.
+        extraction.Meshes = new OneMesh();
+        extraction.Extract(world);
+
+        Assert.Equal(1, system.Objects.LiveCount);
+        Assert.Equal(1, residency.ClaimsOn(GeometryKey.Of(reference)));
+        Assert.Equal(0, residency.ClaimsOn(GeometryKey.Of(PrimitiveKind.Cube)));
+    }
+
+    /// <summary>A source that answers every reference with the same triangle.</summary>
+    sealed class OneMesh : IMeshSource {
+        public bool TryGet(AssetReference reference, out MeshData mesh) {
+            mesh = new() {
+                Name = "triangle",
+                Positions = [new(0f, 0f, 0f), new(1f, 0f, 0f), new(0f, 1f, 0f)],
+                Normals = [new(0f, 0f, 1f), new(0f, 0f, 1f), new(0f, 0f, 1f)],
+                TexCoords = [new(0f, 0f), new(1f, 0f), new(0f, 1f)],
+                Indices = [0, 1, 2]
+            };
+
+            return true;
+        }
     }
 
     static Entity Shaped(World world, PrimitiveKind kind, Vector3 position) {

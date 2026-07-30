@@ -28,6 +28,14 @@
         -->
         <ProjectReference Include="..\Vixen.Engine\Vixen.Engine.csproj" />
         <ProjectReference Include="..\Vixen.Rendering\Vixen.Rendering.csproj" />
+
+        <!--
+            Content, for AssetMeshSource. This is the third join this assembly exists to make and the
+            same shape as the other two: `Vixen.Rendering` must not know what a bundle is — its business
+            is a vertex buffer — and `Vixen.Assets` must not know what a mesh buffer is. Putting the
+            join in either drags one whole layer into the other.
+        -->
+        <ProjectReference Include="..\Vixen.Assets\Vixen.Assets.csproj" />
     </ItemGroup>
 
     <ItemGroup>
