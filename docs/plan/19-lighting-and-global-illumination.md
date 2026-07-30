@@ -831,6 +831,37 @@ Multi-bounce for geometry that is off-screen. The most Epic-specific chunk, and 
 **Exit:** a Cornell-box fixture converges to a reference within a stated error; the second bounce is
 visible and measurable rather than asserted.
 
+**Status: the arithmetic is whole and the exit criterion is asserted; the device halves are the
+owed remainder.** [`Vixen.Rendering.SurfaceCache`](../../Core/Vixen.Rendering.SurfaceCache/README.md)
+holds the cards (a box and an axis, the in-plane frame cyclic whatever the sign), the generator
+(triangles vote by dominant normal axis, ties to the smaller index because float noise must not
+pick a card's shape), the shelf atlas with exact-size reuse (§ 6's "atlas allocation and
+residency", CPU half — running out is a quality reduction, not an error), the traced capture the
+rasterising runtime capture will be compared against, direct sun on the cache behind a shadow ray,
+and the radiosity gather that reads last pass's answer through a double buffer — skylight reaches
+cards through the gather's misses, with no ambient term to double-count.
+
+The Cornell box runs as written: five walls and an emissive panel as cards, converged where the
+largest change drops under a thousandth, held against a five-bounce path tracer **within a stated
+five per cent** (measured at 1.2 before being stated). The second bounce is measured, not
+asserted: emissive-only, the floor's red-to-green ratio is the white panel's — one; converged, it
+rises past 1.1, colour that took two bounces to arrive. Two convergences agree to the bit, the
+property every dispatch comparison leans on. What building the reference found: a path tracer
+whose per-bounce directions are one shifted sequence is a one-dimensional lattice threading a
+four-dimensional domain, and it biased the two-bounce estimate by a fifth — the reference now
+takes two fresh Halton primes per bounce.
+
+**And the seam every tracer left open is closed.** `SurfaceCacheRadiance` wraps any
+`IRadianceSource`: a hit inside a resident card answers with the card's outgoing radiance —
+direct, emissive, every bounce — and everything else falls through, so the L2 fillers and the L3
+gather inherit multi-bounce light without changing a line. A screen probe on the Cornell floor
+holds the panel in its up-texel and red toward the red wall; over the black world it stays dark.
+
+Owed: the runtime capture (rasterised atlases in `IrradianceCubeCapture`'s mould, against the
+traced reference), the lighting and bounce as dispatches (shaped for it — deterministic,
+double-buffered, texel-parallel), a spatial index for the linear card scan, and the Raven half of
+cache sampling for the kernels.
+
 ### L5 — Reflections through the same tracer *(1.5 EM)*
 
 Traced reflections reusing L1/L4, with rough reflections reading L2 and L4 instead of tracing, and

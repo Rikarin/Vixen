@@ -1,0 +1,79 @@
+#nullable enable
+Vixen.Rendering.SurfaceCache.CardGenerator -> static class
+Vixen.Rendering.SurfaceCache.CardRadiosity -> sealed class
+Vixen.Rendering.SurfaceCache.CardRadiosity.Bias.get -> float
+Vixen.Rendering.SurfaceCache.CardRadiosity.Bias.set -> float
+Vixen.Rendering.SurfaceCache.CardRadiosity.CardRadiosity(Vixen.Rendering.DistanceFields.IDistanceField geometry) -> void
+Vixen.Rendering.SurfaceCache.CardRadiosity.Gather(Vixen.Rendering.SurfaceCache.SurfaceCacheStore cache) -> float
+Vixen.Rendering.SurfaceCache.CardRadiosity.Light(Vixen.Rendering.SurfaceCache.SurfaceCacheStore cache, Vixen.Core.Mathematics.Vector3 towardSun, Vixen.Core.Mathematics.Vector3 sunIrradiance) -> void
+Vixen.Rendering.SurfaceCache.CardRadiosity.MaxDistance.get -> float
+Vixen.Rendering.SurfaceCache.CardRadiosity.MaxDistance.set -> float
+Vixen.Rendering.SurfaceCache.CardRadiosity.Rays.get -> int
+Vixen.Rendering.SurfaceCache.CardRadiosity.Rays.set -> int
+Vixen.Rendering.SurfaceCache.CardRadiosity.Sky.get -> System.Func<Vixen.Core.Mathematics.Vector3, Vixen.Core.Mathematics.Vector3>?
+Vixen.Rendering.SurfaceCache.CardRadiosity.Sky.set -> System.Func<Vixen.Core.Mathematics.Vector3, Vixen.Core.Mathematics.Vector3>?
+Vixen.Rendering.SurfaceCache.ISurfaceMaterial -> interface
+Vixen.Rendering.SurfaceCache.ISurfaceMaterial.Albedo(Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 normal) -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.SurfaceCache.ISurfaceMaterial.Emissive(Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 normal) -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.SurfaceCache.SurfaceCacheAtlas -> sealed class
+Vixen.Rendering.SurfaceCache.SurfaceCacheAtlas.Clear() -> void
+Vixen.Rendering.SurfaceCache.SurfaceCacheAtlas.Occupied.get -> int
+Vixen.Rendering.SurfaceCache.SurfaceCacheAtlas.Release(Vixen.Core.Mathematics.Int2 origin, Vixen.Core.Mathematics.Int2 size) -> void
+Vixen.Rendering.SurfaceCache.SurfaceCacheAtlas.Size.get -> Vixen.Core.Mathematics.Int2
+Vixen.Rendering.SurfaceCache.SurfaceCacheAtlas.SurfaceCacheAtlas(Vixen.Core.Mathematics.Int2 size) -> void
+Vixen.Rendering.SurfaceCache.SurfaceCacheAtlas.TryAllocate(Vixen.Core.Mathematics.Int2 size, out Vixen.Core.Mathematics.Int2 origin) -> bool
+Vixen.Rendering.SurfaceCache.SurfaceCacheRadiance -> sealed class
+Vixen.Rendering.SurfaceCache.SurfaceCacheRadiance : Vixen.Rendering.IrradianceFields.IRadianceSource
+Vixen.Rendering.SurfaceCache.SurfaceCacheRadiance.Sky(Vixen.Core.Mathematics.Vector3 direction) -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.SurfaceCache.SurfaceCacheRadiance.Surface(Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 normal, Vixen.Core.Mathematics.Vector3 direction) -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.SurfaceCache.SurfaceCacheRadiance.SurfaceCacheRadiance(Vixen.Rendering.SurfaceCache.SurfaceCacheStore cache, Vixen.Rendering.IrradianceFields.IRadianceSource fallback) -> void
+Vixen.Rendering.SurfaceCache.SurfaceCacheStore -> sealed class
+Vixen.Rendering.SurfaceCache.SurfaceCacheStore.AddCard(Vixen.Rendering.SurfaceCache.SurfaceCard card) -> int
+Vixen.Rendering.SurfaceCache.SurfaceCacheStore.Atlas.get -> Vixen.Rendering.SurfaceCache.SurfaceCacheAtlas
+Vixen.Rendering.SurfaceCache.SurfaceCacheStore.Cards.get -> System.Collections.Generic.IReadOnlyList<(Vixen.Rendering.SurfaceCache.SurfaceCard Card, Vixen.Core.Mathematics.Int2 Origin)>
+Vixen.Rendering.SurfaceCache.SurfaceCacheStore.DepthTolerance.get -> float
+Vixen.Rendering.SurfaceCache.SurfaceCacheStore.DepthTolerance.set -> float
+Vixen.Rendering.SurfaceCache.SurfaceCacheStore.Direct(int card, Vixen.Core.Mathematics.Int2 texel) -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.SurfaceCache.SurfaceCacheStore.Gathered(int card, Vixen.Core.Mathematics.Int2 texel) -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.SurfaceCache.SurfaceCacheStore.Invalidate(int card, Vixen.Core.Mathematics.Int2 texel) -> void
+Vixen.Rendering.SurfaceCache.SurfaceCacheStore.IsValid(int card, Vixen.Core.Mathematics.Int2 texel) -> bool
+Vixen.Rendering.SurfaceCache.SurfaceCacheStore.Outgoing(int card, Vixen.Core.Mathematics.Int2 texel) -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.SurfaceCache.SurfaceCacheStore.SetDirect(int card, Vixen.Core.Mathematics.Int2 texel, Vixen.Core.Mathematics.Vector3 value) -> void
+Vixen.Rendering.SurfaceCache.SurfaceCacheStore.SetGatheredNext(int card, Vixen.Core.Mathematics.Int2 texel, Vixen.Core.Mathematics.Vector3 value) -> void
+Vixen.Rendering.SurfaceCache.SurfaceCacheStore.SetSurface(int card, Vixen.Core.Mathematics.Int2 texel, Vixen.Rendering.SurfaceCache.SurfaceTexel surface) -> void
+Vixen.Rendering.SurfaceCache.SurfaceCacheStore.Surface(int card, Vixen.Core.Mathematics.Int2 texel) -> Vixen.Rendering.SurfaceCache.SurfaceTexel
+Vixen.Rendering.SurfaceCache.SurfaceCacheStore.SurfaceCacheStore(Vixen.Rendering.SurfaceCache.SurfaceCacheAtlas atlas) -> void
+Vixen.Rendering.SurfaceCache.SurfaceCacheStore.SwapGathered() -> void
+Vixen.Rendering.SurfaceCache.SurfaceCacheStore.TryRadiance(Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 normal, out Vixen.Core.Mathematics.Vector3 radiance) -> bool
+Vixen.Rendering.SurfaceCache.SurfaceCard -> readonly struct
+Vixen.Rendering.SurfaceCache.SurfaceCard : System.IEquatable<Vixen.Rendering.SurfaceCache.SurfaceCard>
+Vixen.Rendering.SurfaceCache.SurfaceCard.Axis.get -> int
+Vixen.Rendering.SurfaceCache.SurfaceCard.Centre.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.SurfaceCache.SurfaceCard.Direction.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.SurfaceCache.SurfaceCard.Extents.get -> (Vixen.Core.Mathematics.Vector2 Plane, float Depth)
+Vixen.Rendering.SurfaceCache.SurfaceCard.HalfSize.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.SurfaceCache.SurfaceCard.Resolution.get -> Vixen.Core.Mathematics.Int2
+Vixen.Rendering.SurfaceCache.SurfaceCard.SurfaceCard() -> void
+Vixen.Rendering.SurfaceCache.SurfaceCard.SurfaceCard(int axis, Vixen.Core.Mathematics.Vector3 centre, Vixen.Core.Mathematics.Vector3 halfSize, Vixen.Core.Mathematics.Int2 resolution) -> void
+Vixen.Rendering.SurfaceCache.SurfaceCard.TexelOrigin(Vixen.Core.Mathematics.Int2 texel) -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.SurfaceCache.SurfaceCard.TryProject(Vixen.Core.Mathematics.Vector3 world, out Vixen.Core.Mathematics.Int2 texel, out float depth) -> bool
+Vixen.Rendering.SurfaceCache.SurfaceCard.UComponent.get -> int
+Vixen.Rendering.SurfaceCache.SurfaceCard.VComponent.get -> int
+Vixen.Rendering.SurfaceCache.SurfaceTexel -> readonly struct
+Vixen.Rendering.SurfaceCache.SurfaceTexel : System.IEquatable<Vixen.Rendering.SurfaceCache.SurfaceTexel>
+Vixen.Rendering.SurfaceCache.SurfaceTexel.Albedo.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.SurfaceCache.SurfaceTexel.Albedo.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.SurfaceCache.SurfaceTexel.Depth.get -> float
+Vixen.Rendering.SurfaceCache.SurfaceTexel.Depth.init -> float
+Vixen.Rendering.SurfaceCache.SurfaceTexel.Emissive.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.SurfaceCache.SurfaceTexel.Emissive.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.SurfaceCache.SurfaceTexel.Normal.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.SurfaceCache.SurfaceTexel.Normal.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.SurfaceCache.SurfaceTexel.SurfaceTexel() -> void
+Vixen.Rendering.SurfaceCache.SurfaceTexel.SurfaceTexel(Vixen.Core.Mathematics.Vector3 Albedo, Vixen.Core.Mathematics.Vector3 Normal, float Depth, Vixen.Core.Mathematics.Vector3 Emissive) -> void
+Vixen.Rendering.SurfaceCache.TracedCardCapture -> sealed class
+Vixen.Rendering.SurfaceCache.TracedCardCapture.Bias.get -> float
+Vixen.Rendering.SurfaceCache.TracedCardCapture.Bias.init -> float
+Vixen.Rendering.SurfaceCache.TracedCardCapture.Capture(Vixen.Rendering.SurfaceCache.SurfaceCacheStore cache, int card) -> int
+Vixen.Rendering.SurfaceCache.TracedCardCapture.TracedCardCapture(Vixen.Rendering.DistanceFields.IDistanceField geometry, Vixen.Rendering.SurfaceCache.ISurfaceMaterial material) -> void
+static Vixen.Rendering.SurfaceCache.CardGenerator.Generate(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> positions, System.ReadOnlySpan<int> indices, float texelsPerUnit = 8, int maxResolution = 64, float margin = 0.05) -> System.Collections.Generic.List<Vixen.Rendering.SurfaceCache.SurfaceCard>
