@@ -25,7 +25,7 @@ optimism.
 | 4 | UI framework | 7.0 | ✅ |
 | 5 | Renderer (forward+, PBR, shadows, post FX) | 4.5 | 🟡 post FX partial; D3D12 postponed |
 | 5b | Raven parser migration (ANTLR → hand-written) | 1.5 | ✅ |
-| 6 | Editor shell | 4.5 | 🟡 the exit sentence is met; the tooling around it is not |
+| 6 | Editor shell | 4.5 | 🟡 the exit sentence and the tooling are met; `PublishEditor` and the perf bar are not |
 | 7 | Node graphs + VFX | 3.5 | 🟡 graphs done; the VFX GPU path is not |
 | 8 | Gameplay subsystems (physics, audio, animation, input) | 3.5 | ✅ bar `Samples/05` |
 | 9 | Networking and multiplayer | 5.0 | ✅ all five exit criteria met |
@@ -307,9 +307,11 @@ dependency graph and never was. Creating, deleting and renaming entities are und
 surviving a delete-and-undo (`World.TryRecreate`) and the entity returning to its own place among its
 siblings (`Hierarchy.SetParentAfter`).
 
-**What the sentence does not cover, and Phase 6 still lists:** the asset editors, the profiler and
-debugger, plugin loading, the automation harness, and `PublishEditor` with signing and notarisation.
-The editor-shell performance bar is **unmeasured** — nothing runs that benchmark yet.
+**What the sentence did not cover has since landed as well:** the asset editors
+(`Vixen.Editor.AssetEditors`), the profiler, the debugger, the plugin host, the automation harness and
+the animation graph are all projects now — so cut-list #7 was built rather than cut. What is left of
+this phase is `PublishEditor` with signing and notarisation, golden screenshots for editor layouts, and
+the editor-shell performance bar, which is **unmeasured** — nothing runs that benchmark yet.
 
 ⚠ **The viewport draws lines, not meshes.** A scene of empties looks right; a scene with a model in it
 does not show the model. That wants a material system wired to an editor viewport.
@@ -388,9 +390,9 @@ there until a static `libjoltc.a` is pinned the way MoltenVK already is.
 conflict detection works. `Samples/05-PlatformerGame` **does not exist**, so "playable on five
 platforms" has nothing to play. It needs an authored level, which needs the compiled scene format.
 
-**Owed.** Navmesh baking from a compiled scene. `Vixen.Editor.AnimationGraph` (cut-list #7 — a
-code-driven state machine ships first). Sensors, pen, MIDI and HID, which need platform contracts before
-they can have action-side ones.
+**Owed.** Navmesh baking from a compiled scene. Ragdoll integration, which lands with the
+animation/physics join. Sensors, pen, MIDI and HID, which need platform contracts before they can have
+action-side ones. (`Vixen.Editor.AnimationGraph` was cut-list #7 and has since been built.)
 
 ---
 
@@ -561,7 +563,7 @@ thing that works, which is not true of stopping mid-Phase-4.
 - **Sabotage is how you find out whether a gate is a gate.** Break the thing on purpose and check the
   suite goes red. Every phase above turned up tests that were green for the wrong reason, and nothing
   else would have found them.
-- **The automated gates substitute for code review.** Warnings-as-errors, `AnalysisLevel=latest-all`,
+- **The automated gates substitute for code review.** Warnings-as-errors, `AnalysisLevel=latest-recommended`,
   `CheckArchitecture`, `CheckApi`, the zero-allocation tests, the determinism tests. A solo developer
   has no reviewer; the build is the reviewer. Do not weaken these to move faster — they are the reason
   moving fast stays possible.
@@ -616,7 +618,7 @@ have since been *built*, so they are no longer available as savings.
 | 4 | `Samples/06-CanvasStress` | ⬜ still available, still P2 — the editor became the application-platform proof |
 | 5 | CSS Grid | ⬜ still available. Flexbox covers the editor; grid is a convenience |
 | 6 | Deferred pipeline | ⬜ still available. Forward+ covers the 1.0 use cases, and the render-feature architecture accommodates deferred later without rework |
-| 7 | `AnimationGraph` node editor | ⬜ still available. A code-driven state machine ships first |
+| 7 | `AnimationGraph` node editor | ✅ built rather than cut — `Vixen.Editor.AnimationGraph`. No longer a lever |
 | 8 | Full accessibility bridge | ⬜ still available. Hooks stay, the platform bridges slip |
 | 9 | The Web target entirely | ⬜ still available, and still the most defensible cut if schedule pressure is severe — ~15 % of the effort for the platform with the least clear payoff. Cutting it does not compromise the other five |
 

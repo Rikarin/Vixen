@@ -313,7 +313,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Backends: OpenAL ✅, WebAudio ✅ | ✅ | Platform/Vixen.Audio.Backend.* | |
 | Measured HRTF sets | ⬜ | — | Structural model ships; measured sets are content |
 | `Vixen.Animation` — skeletal playback, 1D/2D blend trees, layers + masks, state machine, two-bone/look-at/foot IK, root motion, events, GPU skinning, key reduction | ✅ | Core/Vixen.Animation | Benchmarked; `ParallelThreshold` = 32 from measurement |
-| `Vixen.Editor.AnimationGraph` | ⬜ | — | Cut-list #7 — a code-driven state machine ships first |
+| `Vixen.Editor.AnimationGraph` | ✅ | Editor/Vixen.Editor.AnimationGraph | Cut-list #7 built rather than cut. An authored state machine as a serialisable document, and the compiler that turns it into the `AnimationStateMachine` and `AnimationLayer`s `Vixen.Animation` runs. Deliberately **not** on `Vixen.Editor.NodeGraph` — its README says why |
 | Ragdoll integration | ⬜ | — | Lands with the animation/physics join |
 | `Vixen.Input` — devices, `InputControlPath`, actions, maps, processors, interactions, `.vxinput`, generated accessors, rebinding | ✅ | Core/Vixen.Input | |
 | Action-map editor + input debug panel | ⬜ | — | Was ⛔ on the editor shell; **the shell now exists, so this is unblocked** |
@@ -330,10 +330,10 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 
 > **Phase 6's exit sentence is met.** The editor opens a project, imports assets, builds content,
 > edits a scene, saves, and runs the game — entirely in `Vixen.Ui`, with no other toolkit anywhere in
-> the dependency graph. What the sentence does not cover and Phase 6 still lists: the asset editors,
-> the profiler and debugger, the automation harness, and `PublishEditor`. Plugin loading has since
-> landed — `Vixen.Editor.Plugin`, a collectible `AssemblyLoadContext` per plugin, and two folders
-> the editor scans at start-up. The editor-shell performance bar is unmeasured.
+> the dependency graph. Everything Phase 6 listed beyond that sentence has since landed too — the
+> asset editors, the profiler, the debugger, the plugin host and the animation graph are all projects
+> now. What is left of that phase is **`PublishEditor`** with signing and notarisation, **golden
+> screenshots** for editor layouts, and the **editor-shell performance bar**, which is unmeasured.
 >
 > ⚠ **The viewport draws lines, not meshes.** A scene of empties looks right; a scene with a model in
 > it does not show the model. That wants a material system wired to an editor viewport. `MeshRenderable`
@@ -366,8 +366,10 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Asset editors: texture, model, material, prefab, shader, UI, addressable groups, compositor | ⬜ | — | Shell + inspector exist, so these are unblocked. ⚠ This row is **stale**: `Editor/Vixen.Editor.AssetEditors` holds a document and a view for each of them, and its README lists what each one draws. Re-reading it is owed; the row below is the one part of it checked while writing this line |
 | **Sprite editor** (slice a texture into a sheet) | ✅ | Editor/Vixen.Editor.AssetEditors · Editor/Vixen.Editor.Assets | `SpriteSheetView`, a second **tab** over `TextureImportDocument` rather than a second document — a slice is rects written into the texture's own import settings, so it shares that undo stack. Grid by size, grid by count, and automatic (connected components over the alpha, merged to a fixed point, ordered in bands). The cutting is `SpriteSlicer`, a pure function of pixels and options, so all three modes are checked against images built in a test. The importer then produces one sub-asset per sprite and one for the sheet, keyed by name so a re-slice keeps references |
 | Scene editor (as an asset editor) | ⛔ | — | Needs the scene format |
-| `Vixen.Editor.Profiler` (frame graph, frame debugger, memory view) | ⬜ | — | ⛔ partly on `Vixen.Core.Diagnostics`' GPU/memory tracks |
-| `Vixen.Editor.Debugger` (remote inspector, live property editing) | ⬜ | — | ⛔ needs the remote log/telemetry sink |
+| `Vixen.Editor.Profiler` — CPU flame chart, GPU timeline, memory view, per-scene statistics | ✅ | Editor/Vixen.Editor.Profiler | Doc 20's B4. Over the sample rings the engine already keeps and the timestamp queries the RHI already has |
+| `Vixen.Editor.Debugger` — frame debugger, remote inspector, device manager | ✅ | Editor/Vixen.Editor.Debugger | The other half of B4: a captured command stream, an attach to a running build, and whatever can be deployed to |
+| `Vixen.Editor.AssetEditors` — the asset editors | ✅ | Editor/Vixen.Editor.AssetEditors | 54 files. Texture, model, material, sprite sheet, addressable groups, compositor and the import documents behind them |
+| `Vixen.Editor.Testing` | ✅ | Editor/Vixen.Editor.Testing | The editor's own harness, above `Vixen.Ui.Testing` |
 | Editor network panel | ⬜ | — | Everything it would show is already public in `BandwidthLedger` / `SnapshotInspector` |
 | Editor UI automation harness | ✅ | Core/Vixen.Ui.Testing | Golden **screenshots** for editor layouts not started |
 | `PublishEditor`, signing, notarisation, `.dmg`/AppImage/MSI | ⬜ | — | |
@@ -673,7 +675,7 @@ since. The rest can run in parallel.
 | VFX-graph operator nodes, remaining opcode blocks, live preview | W1(VFX GPU) | The view half is in; the live preview is the runtime's |
 | `Relay` transport + transport fallback | W0-21 | |
 | Cross-compilation test pass (ESSL/HLSL/MSL/WGSL) | W0-22 | |
-| `Vixen.Editor.Profiler` · `.Debugger` · editor console | — | Unblocked: W0-11 landed, so the console reads `RingBufferSink` live and the profiler reads the sample rings. The GPU/memory tracks in `Core.Diagnostics` are still owed |
+| ~~`Vixen.Editor.Profiler` · `.Debugger` · editor console~~ | — | Built. The console reads `RingBufferSink` live and the profiler reads the sample rings. The GPU and memory *tracks* in `Core.Diagnostics` are still owed underneath them |
 | Editor network panel | — | Unblocked: everything it shows is already public |
 | `.vxnetrules` asset | W0-1 (asset-pipeline shape) | |
 | Prefab registry filled from the content catalog | W0-1 | |
@@ -798,7 +800,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 81 | `Vixen.Editor.NodeGraph` | Selectable wires; sticky-note editing; a node in two groups; inlined-node → source-node map; Raven-span diagnostics | Feature | Emitter span recording, for the last |
 | 82 | `Vixen.Editor.ShaderGraph` | Procedural + custom-code nodes; Post/UI masters; previews; diagnostic mapping; an importer that compiles the emitted Raven | Feature | Emitter span recording; doc 08's material compiler |
 | 83 | `Vixen.Editor.VfxGraph` | Operator nodes; remaining opcode blocks; sub-emitters/trails; live preview | Feature | — |
-| 84 | Editor | Asset editors; `Vixen.Editor.Profiler`/`.Debugger`/`.AnimationGraph`; golden screenshots; `PublishEditor`; redraw-on-change; the shell perf bar | Feature | Various |
+| 84 | Editor | Golden screenshots; `PublishEditor` with signing and notarisation; redraw-on-change; the shell perf bar; a plugin *browser* (the manager lists what is installed, installing is still copying a folder) | Feature | The asset editors, profiler, debugger, plugin host and animation graph have all since landed |
 | 85 | Build/CI | NativeAOT leg; sample-running leg; Playwright leg; 3-OS determinism run | Infra | — |
 | 86 | Build/CI | Per-file SPDX enforcement; third-party attribution manifest | Licence obligation (ADR-015) | — |
 | 87 | Samples | `05-PlatformerGame`; `06-CanvasStress`; `01` on Windows/Linux and physical devices | Coverage | **K1**, #59, CI legs |
@@ -826,7 +828,7 @@ it is deliberately distinct from "not started" in Part 1.
 | | |
 |---|---|
 | `.csproj` on disk | 245 (`Core` 131 · `Platform` 36 · `Editor` 31 · `Tools` 26 · `Samples` 11 · `Benchmarks` 7 · `Raven` 3) — counting test siblings and generators, per ADR-014 |
-| Planned projects not created | `Vixen.Graphics.Direct3D12`, `Vixen.Net.Transport.Relay`, `Vixen.Editor.AnimationGraph/.Profiler/.Debugger`, `Vixen.Raven.Transpile` |
+| Planned projects not created | `Vixen.Graphics.Direct3D12` (✂️ post-1.0), `Vixen.Net.Transport.Relay` (⛔ scope decision), `Vixen.Raven.Transpile` |
 | Conformance cases green | 534 Yoga · 22 048 UAX#14/#29 · 91 707 UAX#9 · 328/413 shaping · 100 variable-font |
 | Golden image fixtures | 40 |
 | Fuzz targets / cases per build | 12 / ~11 M in ~7 s |
