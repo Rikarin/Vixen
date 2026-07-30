@@ -2,6 +2,15 @@
 Vixen.Rendering.ScreenProbes.IScreenSurface -> interface
 Vixen.Rendering.ScreenProbes.IScreenSurface.TrySurface(Vixen.Core.Mathematics.Int2 pixel, out Vixen.Core.Mathematics.Vector3 position, out Vixen.Core.Mathematics.Vector3 normal) -> bool
 Vixen.Rendering.ScreenProbes.OctahedralMap -> static class
+Vixen.Rendering.ScreenProbes.ReconstructedScreenSurface -> sealed class
+Vixen.Rendering.ScreenProbes.ReconstructedScreenSurface : Vixen.Rendering.ScreenProbes.IScreenSurface
+Vixen.Rendering.ScreenProbes.ReconstructedScreenSurface.Depth.get -> System.Span<float>
+Vixen.Rendering.ScreenProbes.ReconstructedScreenSurface.InverseViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.ScreenProbes.ReconstructedScreenSurface.InverseViewProjection.set -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.ScreenProbes.ReconstructedScreenSurface.Normals.get -> System.Span<Vixen.Core.Mathematics.Vector4>
+Vixen.Rendering.ScreenProbes.ReconstructedScreenSurface.ReconstructedScreenSurface(Vixen.Core.Mathematics.Int2 viewport) -> void
+Vixen.Rendering.ScreenProbes.ReconstructedScreenSurface.TrySurface(Vixen.Core.Mathematics.Int2 pixel, out Vixen.Core.Mathematics.Vector3 position, out Vixen.Core.Mathematics.Vector3 normal) -> bool
+Vixen.Rendering.ScreenProbes.ReconstructedScreenSurface.Viewport.get -> Vixen.Core.Mathematics.Int2
 Vixen.Rendering.ScreenProbes.ScreenProbeAtlas -> sealed class
 Vixen.Rendering.ScreenProbes.ScreenProbeAtlas.Invalidate(Vixen.Core.Mathematics.Int2 probe) -> void
 Vixen.Rendering.ScreenProbes.ScreenProbeAtlas.Irradiance(Vixen.Core.Mathematics.Int2 pixel, Vixen.Core.Mathematics.Vector3 normal) -> Vixen.Core.Mathematics.Vector3

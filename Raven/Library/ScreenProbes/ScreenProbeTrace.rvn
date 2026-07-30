@@ -28,6 +28,11 @@ struct ScreenProbeTraceJob {
     /// Where the probe's map starts in the atlas, in texels.
     var atlasOrigin: int2
 
+    /// One for a probe standing on a surface. Zero for a probe with nothing under it, whose patch is
+    /// cleared to the invalid mark instead of traced — on an atlas the dispatch owns, a patch nothing
+    /// writes holds whatever the allocator left there, and the resolve reads validity out of it.
+    var valid: int
+
     /// Where its rays start — the probe's surface, already stepped off along its normal.
     ///
     /// Biased by the host rather than here, so the shader needs no normal at all: the bias is part of
@@ -85,6 +90,13 @@ shader ScreenProbeTrace {
         val job = jobs[int(group.z)]
         val texel = int2(int(thread.x), int(thread.y))
         val atlasTexel = int2(job.atlasOrigin.x + texel.x, job.atlasOrigin.y + texel.y)
+
+        // A probe with no surface writes the invalid mark and is done — sixty-four stores, so the
+        // patch is defined whatever the allocator left in it.
+        if (job.valid == 0) {
+            radianceAtlas.Store(atlasTexel, float4(0f, 0f, 0f, 0f))
+            return
+        }
 
         // A probe the field calls buried is invalid before any ray is cast — the reference's rule.
         // Zero alpha is the mark: a gathered texel carries one, so a readback can tell "nothing

@@ -25,10 +25,11 @@ namespace Vixen.Rendering.PostFx;
 ///         frames this version is the baseline for.
 ///     </para>
 ///     <para>
-///         ⚠ <strong>The pass compiles and its conventions are pinned; a frame has not drawn it
-///         yet.</strong> The image test through a real compositor is the next increment, together with
-///         probe placement from the real depth buffer — this node exists so that increment has
-///         something to schedule.
+///         <strong>Usually a child of <see cref="ScreenProbeGatherRenderer" /></strong>, which places
+///         the probes, runs the trace and resolve dispatches, and publishes the planes this reads.
+///         Standing alone it draws whatever planes the frame imports under <see cref="Planes" /> —
+///         which is what the image tests do, so "the node schedules wrongly" and "the pass draws
+///         wrongly" stay separable.
 ///     </para>
 /// </remarks>
 public sealed class ScreenProbeUpsampleRenderer() : PostEffectRenderer(

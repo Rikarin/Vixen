@@ -1821,6 +1821,7 @@ Vixen.Rendering.Lighting.ScreenProbeTexture.AtlasIsWritten.get -> bool
 Vixen.Rendering.Lighting.ScreenProbeTexture.AtlasIsWritten.init -> bool
 Vixen.Rendering.Lighting.ScreenProbeTexture.AtlasView.get -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Lighting.ScreenProbeTexture.Dispose() -> void
+Vixen.Rendering.Lighting.ScreenProbeTexture.EnsureCreated(Vixen.Graphics.IGraphicsDevice graphics) -> void
 Vixen.Rendering.Lighting.ScreenProbeTexture.IsCreated.get -> bool
 Vixen.Rendering.Lighting.ScreenProbeTexture.OrderAtlas(Vixen.Graphics.ICommandList commands) -> void
 Vixen.Rendering.Lighting.ScreenProbeTexture.ProbePlane(int plane) -> Vixen.Graphics.TextureHandle
@@ -1838,6 +1839,8 @@ Vixen.Rendering.Lighting.ScreenProbeTexture.Upload(Vixen.Graphics.IGraphicsDevic
 Vixen.Rendering.Lighting.ScreenProbeTexture.Uploads.get -> int
 Vixen.Rendering.Lighting.ScreenProbeTraceFill -> sealed class
 Vixen.Rendering.Lighting.ScreenProbeTraceFill : System.IDisposable
+Vixen.Rendering.Lighting.ScreenProbeTraceFill.ClearInvalid.get -> bool
+Vixen.Rendering.Lighting.ScreenProbeTraceFill.ClearInvalid.set -> bool
 Vixen.Rendering.Lighting.ScreenProbeTraceFill.Descriptors.get -> Vixen.Graphics.DescriptorAllocator?
 Vixen.Rendering.Lighting.ScreenProbeTraceFill.Descriptors.set -> Vixen.Graphics.DescriptorAllocator?
 Vixen.Rendering.Lighting.ScreenProbeTraceFill.Dispatches.get -> int
@@ -1867,6 +1870,7 @@ Vixen.Rendering.Lighting.ScreenProbeTraceJob -> struct
 Vixen.Rendering.Lighting.ScreenProbeTraceJob.AtlasOrigin -> Vixen.Core.Mathematics.Int2
 Vixen.Rendering.Lighting.ScreenProbeTraceJob.Origin -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Lighting.ScreenProbeTraceJob.ScreenProbeTraceJob() -> void
+Vixen.Rendering.Lighting.ScreenProbeTraceJob.Valid -> int
 Vixen.Rendering.Lighting.ShCoefficients -> struct
 Vixen.Rendering.Lighting.ShCoefficients.L00 -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Lighting.ShCoefficients.L10 -> Vixen.Core.Mathematics.Vector3

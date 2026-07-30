@@ -26,6 +26,10 @@ public struct ScreenProbeTraceJob {
     [FieldOffset(0)]
     public Int2 AtlasOrigin;
 
+    /// <summary>One for a probe standing on a surface; zero for one whose patch is cleared instead.</summary>
+    [FieldOffset(8)]
+    public int Valid;
+
     /// <summary>Where its rays start — the probe's surface, already stepped off along its normal.</summary>
     [FieldOffset(16)]
     public Vector3 Origin;
@@ -43,11 +47,11 @@ public struct ScreenProbeTraceJob {
 ///         <b>The jobs are staged from the atlas, and only for the probes that have a surface.</b>
 ///         The atlas is where <see cref="ScreenProbeAtlas.SetSurface" /> and
 ///         <see cref="ScreenProbeAtlas.Invalidate" /> already recorded what each anchor pixel showed,
-///         so the dispatch has no opinion about the screen at all. ⚠ A probe with no surface is not
-///         dispatched, and on a mirror the dispatch owns its patch is therefore <i>undefined</i> —
-///         nothing uploaded it and nothing traced it. Whoever consumes the atlas reads validity from
-///         the alpha of texels something wrote; clearing or skipping the unwritten patches belongs to
-///         the consuming pass, and is owed with it.
+///         so the dispatch has no opinion about the screen at all. ⚠ By default a probe with no
+///         surface is not dispatched, and on a mirror the dispatch owns its patch is therefore
+///         <i>undefined</i> — nothing uploaded it and nothing traced it. A frame sets
+///         <see cref="ClearInvalid" /> and such probes get a job that writes the invalid mark
+///         instead, because the resolve reads validity out of the atlas.
 ///     </para>
 ///     <para>
 ///         <b>Every binding index comes off the compiled effect rather than the generated
@@ -143,6 +147,23 @@ public sealed class ScreenProbeTraceFill : IDisposable {
     ///     for, so a mirrored or transposed decode is invisible.
     /// </remarks>
     public Vector3 SkyGradient { get; set; }
+
+    /// <summary>Whether probes with no surface get a job that clears their patch to the invalid mark.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Off, only the probes with a surface are dispatched, and an unwritten patch on a
+    ///         device-owned atlas is <i>undefined</i> — the composition the device comparisons run
+    ///         under, where the reference says which texels mean anything.
+    ///     </para>
+    ///     <para>
+    ///         On, every probe gets a job, and one with no surface stores zero alpha across its patch
+    ///         instead of tracing. A frame wants this: the resolve reads validity out of the atlas,
+    ///         and on an atlas the dispatch owns, a patch nothing wrote holds whatever the allocator
+    ///         left there — garbage that can carry a nonzero alpha into a probe the placement already
+    ///         said has nothing under it.
+    ///     </para>
+    /// </remarks>
+    public bool ClearInvalid { get; set; }
 
     /// <summary>How many probes have been dispatched since this was made.</summary>
     public int Traced { get; private set; }
@@ -259,18 +280,21 @@ public sealed class ScreenProbeTraceFill : IDisposable {
             for (var x = 0; x < layout.GridSize.X; x++) {
                 var probe = new Int2(x, y);
 
-                if (!atlas.TrySurface(probe, out var position, out var normal)) {
+                if (atlas.TrySurface(probe, out var position, out var normal)) {
+                    jobs.Add(
+                        [
+                            new ScreenProbeTraceJob {
+                                AtlasOrigin = layout.AtlasOrigin(probe),
+                                Valid = 1,
+                                Origin = position + (normal * SurfaceBias)
+                            }
+                        ]
+                    );
+                } else if (ClearInvalid) {
+                    jobs.Add([new ScreenProbeTraceJob { AtlasOrigin = layout.AtlasOrigin(probe) }]);
+                } else {
                     continue;
                 }
-
-                jobs.Add(
-                    [
-                        new ScreenProbeTraceJob {
-                            AtlasOrigin = layout.AtlasOrigin(probe),
-                            Origin = position + (normal * SurfaceBias)
-                        }
-                    ]
-                );
 
                 count++;
             }

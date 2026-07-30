@@ -696,11 +696,29 @@ found what first frames find here, twice: a full-screen pass's textures resolve 
 and nothing else, so the resolved planes travel as imports already in their own state rather than
 as parameter writes; and a pass that composes nothing still names every slot its source set
 declares, which is the RVN2073 rule caught this time by the pass's own composition being empty.
-Owed: probe placement from the real depth buffer and the node that schedules trace, resolve and
-upsample as one graph. Bilinear only until the denoiser brings the bilateral weights.
+Bilinear only until the denoiser brings the bilateral weights.
 
-Still not started: screen traces against the HZB (the trace order's first stage, which needs that
-frame), adaptive placement, importance sampling, and the whole denoiser.
+**And the gather runs as one schedule, placed from the frame's own depth.**
+`ReconstructedScreenSurface` answers `IScreenSurface` from a frame's depth and normal buffers by
+the shaders' own arithmetic — `Transform.UvDepthToWorld` spelled in C#, the reversed-depth zero as
+the sky test — with its axes pinned by a hand-worked orthographic case, because a reconstruction
+that negated y would pass every round trip through its own inverse. `ScreenProbeGatherRenderer` is
+the node this section owed: it copies the depth and normals back each frame, places probes from
+the copy a latency ago under the camera matrix snapshotted beside it (this frame's camera against
+last frame's depth reconstructs surfaces that exist nowhere), runs trace and resolve in one
+compute pass, publishes the resolved planes as graph imports and builds the upsample as a child.
+Its image test asks a compositor for three frames: the first is honestly dark, because its
+placement data had not come back yet, and the second is the uniform-sky flat frame with nothing
+seeded by hand. Two decisions the schedule forced. **The probe lattice runs a frame behind the
+camera** — placement is a readback, and the denoiser's temporal reprojection will meet that
+staleness again with a name. And **an unplaced probe's patch is cleared by the trace dispatch
+itself** (`ClearInvalid`, a `valid` flag in the job's padding): on an atlas the dispatch owns, a
+patch nothing writes is undefined memory, and the resolve reads validity out of it.
+
+Still not started: screen traces against the HZB (the trace order's first stage — the frame that
+traces now exists, the ray-vs-pyramid march does not), adaptive placement, importance sampling,
+and the whole denoiser. The gather node also refuses a resized frame until resizing is a
+deliberate step.
 
 ### L4 — Surface cache and radiosity *(3.5 EM)*
 

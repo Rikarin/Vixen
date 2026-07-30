@@ -468,6 +468,22 @@
               "DefaultValue": ""
             },
             {
+              "Name": "jobs.valid",
+              "Type": {
+                "Scalar": "Int",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 8,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
               "Name": "jobs.origin",
               "Type": {
                 "Scalar": "Float",
@@ -827,6 +843,24 @@
       "Binding": 1,
       "Offset": 0,
       "Size": 8,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "jobs.valid",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 1,
+      "Offset": 8,
+      "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": ""

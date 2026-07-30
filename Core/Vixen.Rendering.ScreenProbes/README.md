@@ -78,9 +78,9 @@ texel is the same number and a mirrored decode is invisible.
 
 The surface bias is applied while staging, so the shader receives an origin rather than a surface
 and a rule — the same single place the reference applies it, which is what keeps the two comparable.
-⚠ A probe with no surface is not dispatched, and on a device-owned atlas its patch is therefore
-*undefined*; consumers read validity from alpha, and clearing or skipping unwritten patches belongs
-to the consuming pass.
+⚠ By default a probe with no surface is not dispatched, and on a device-owned atlas its patch is
+therefore *undefined* — the composition the device comparisons run under. A frame sets
+`ClearInvalid`, and the dispatch writes the invalid mark across such patches instead; see below.
 
 ## Long rays terminate in the irradiance field
 
@@ -107,6 +107,45 @@ output is four grid-sized planes in the irradiance pool's own colour-major packi
 constant plane's alpha, so whatever upsamples these probes interpolates coefficients exactly as the
 field's sampler does.
 
+## Placement reads the frame's own buffers, and its axes are pinned by hand
+
+`ReconstructedScreenSurface` is what "probe placement from the real depth buffer" is: one frame's
+depth and encoded normals on the host, answering `IScreenSurface` by exactly the arithmetic every
+screen-space shader here uses — `Transform.UvDepthToWorld`, the UV-to-NDC map with no y negation,
+the clip divide behind the same epsilon, the normal decode `SafeNormalize(xyz · 2 − 1)`. One
+function evaluated twice, because a probe placed by this arithmetic is upsampled by that one. Zero
+depth is the sky, because depth is reversed.
+
+Its tests work the orthographic case by hand rather than round-tripping, for the octahedral map's
+own reason: a round trip through a matrix and its inverse passes with the axes swapped, and the
+top-left pixel landing at *negative* y is precisely the fact a swap would erase. The perspective
+camera is then checked as an inversion — the reconstructed point projects back onto its own pixel
+centre at its own depth, exactly.
+
+## The frame draws it, and one node is the schedule
+
+The upsample pass — `ScreenProbeUpsample.rvn` in the PostFx package, four validity-renormalised
+taps with the lattice walk pinned against `ScreenProbeLayout.Bilinear` pixel by pixel — is drawn by
+a real compositor, over device-resolved planes that travel as graph imports (a full-screen pass's
+textures resolve through the graph and nothing else, the first drawn frame found).
+
+`ScreenProbeGatherRenderer` in `Vixen.Rendering.PostFx` is doc 19's "node that schedules trace,
+resolve and upsample as one graph". It owns none of the arithmetic — the tracer and resolver are
+the host's, with their composed sources — and all of the ordering: it copies the depth and normal
+targets back every frame, places probes from the copy a latency ago under **the matrix snapshotted
+with that copy** (this frame's camera against last frame's depth reconstructs surfaces that exist
+nowhere), runs trace and resolve in one compute pass, publishes the planes as imports, and builds
+the upsample as a child. Its image test asks for three frames: the first is honestly dark — its
+placement data had not come back yet — and the second is the uniform-sky closed form with nothing
+done by hand. The probe lattice runs a frame behind the camera; the denoiser's reprojection will
+meet that fact again.
+
+One rule the node imposes rather than configures: `ScreenProbeTraceFill.ClearInvalid`. On an atlas
+the dispatch owns, the patch of a probe nothing placed is undefined memory, and the resolve reads
+validity out of it — so a probe with no surface still gets a job, and its sixty-four stores write
+the invalid mark instead of tracing. The job struct grew a `valid` flag in what was padding; the
+stride did not move.
+
 ## Not yet, and named so the absence is a decision
 
 - **Adaptive probes.** Doc 19's "adaptive placement at disocclusions" — extra probes where the
@@ -115,22 +154,16 @@ field's sampler does.
 - **Importance sampling.** The shipping gather aims rays where the BRDF and last frame's lighting
   say they matter. It changes which texel a ray serves, not what a texel means, so it belongs to the
   version that has a BRDF to sample against.
-- **Screen traces.** The trace order's first stage — rays against the HZB before any distance field
-  — needs a frame to trace, and belongs to the renderer integration. The other end of the order,
-  termination in the irradiance field, is in.
+- **Screen traces.** The trace order's first stage — rays against the HZB before any distance field.
+  The frame that traces them now exists; the HZB pass and the ray-vs-pyramid march do not. The other
+  end of the order, termination in the irradiance field, is in.
 - **The denoiser.** Spatial filtering, temporal reprojection through the motion vectors, and the
   bilateral upsample against depth and normal edges. Doc 19 § L3's own warning is that this is the
-  project — un-denoised, the gather looks worse than § L2 alone.
-- **The frame.** The upsample pass exists — `ScreenProbeUpsample.rvn` in the PostFx package and
-  `ScreenProbeUpsampleRenderer` beside `IndirectDiffuse`, four validity-renormalised taps of the
-  resolved planes with the lattice walk pinned against `ScreenProbeLayout.Bilinear` pixel by pixel —
-  and **a frame has drawn it**: the image test runs the pass through a real compositor over the
-  device-resolved planes, and a uniform sky comes back as a flat frame while the sky's own pixels
-  stay dark. What the first frame found: a full-screen pass's textures resolve through the graph
-  and nothing else, so the planes travel as imports already in their own state — and a pass that
-  composes nothing still names every slot its source set declares. Owed: probe placement from the
-  real depth buffer, and the node that runs trace, resolve and upsample as one schedule. Bilinear
-  only until the denoiser brings the bilateral weights.
+  project — un-denoised, the gather looks worse than § L2 alone. The bilinear upsample and the
+  one-frame-stale lattice above are the baselines it starts from.
+- **Resizing.** The gather node sizes its lattice on the first build and refuses a resized frame —
+  rebuilding textures frames still reference is a use-after-free with latency, so until resizing is
+  a deliberate step, a host that resizes recreates the node.
 
 **Nothing here creates or calls a graphics device.** The assembly references
 `Vixen.Rendering.DistanceFields` for the reference's marching and `Vixen.Rendering.IrradianceFields`

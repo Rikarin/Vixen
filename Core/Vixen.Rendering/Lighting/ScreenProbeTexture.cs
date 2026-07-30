@@ -110,6 +110,22 @@ public sealed class ScreenProbeTexture : IDisposable {
     /// <remarks>The same two bits, for the same barrier reason, as the irradiance pool's.</remarks>
     public const ResourceState AtlasIsBeingWritten = ResourceState.ShaderWrite | ResourceState.ShaderRead;
 
+    /// <summary>Creates the device objects without recording anything.</summary>
+    /// <param name="graphics">The device.</param>
+    /// <exception cref="ArgumentNullException">There is no device.</exception>
+    /// <remarks>
+    ///     For the caller that has to hand the resolved-probe planes to a render graph as imports
+    ///     <i>before</i> any command list is open — an import needs a handle at build time, and
+    ///     <see cref="Upload" /> runs at execute time. Idempotent; the first upload still owes every
+    ///     texture its initial state, created here or there.
+    /// </remarks>
+    public void EnsureCreated(IGraphicsDevice graphics) {
+        ArgumentNullException.ThrowIfNull(graphics);
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        Create(graphics);
+    }
+
     /// <summary>Creates the texture if it does not exist, and uploads the CPU atlas unless a dispatch owns it.</summary>
     /// <param name="graphics">The device.</param>
     /// <param name="commands">An open command list, outside a render pass.</param>
