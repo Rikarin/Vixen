@@ -52,19 +52,20 @@ public sealed class VulkanEnumTests {
         AssertInjective<DescriptorKind, DescriptorType>(VulkanEnums.ToVulkan);
 
     /// <summary>
-    ///     ⚠ <b>The one mapping that is deliberately not the identity, and the reason is
-    ///     <c>VulkanCommandList.SetViewport</c>.</b> It submits a negative-height viewport so that
-    ///     the engine's +Y-up clip space reaches the screen the right way up; Vulkan then decides
-    ///     facing from the signed area in framebuffer coordinates, which that flip mirrors. So a
-    ///     mesh wound counter-clockwise seen from outside — which is what <c>MeshPrimitives</c>
-    ///     builds and what <see cref="FrontFace.CounterClockwise" /> names — arrives clockwise.
-    ///     Mapped straight through, <c>CullMode.Back</c> keeps the inside of every closed mesh and
-    ///     a shader reading <c>SV_IsFrontFace</c> flips exactly the normals that were already right.
+    ///     ⚠ <b>The identity, and pinned because it has been "fixed" once.</b> The tempting argument
+    ///     runs: <c>VulkanCommandList.SetViewport</c> submits a negative-height viewport, a mirror
+    ///     flips winding, so the mapping must invert. It counts one mirror and there are two —
+    ///     Vulkan's own +Y-down clip convention is the other — and they cancel: a triangle wound
+    ///     counter-clockwise in the engine's +Y-up clip space is counter-clockwise again in the
+    ///     framebuffer coordinates Vulkan decides facing in. Inverted, every closed mesh in the repo
+    ///     is classified inside-out, <c>CullMode.Back</c> culls the surface, and golden fixtures
+    ///     draw nothing with no validation error anywhere. The <c>cull-back</c> and
+    ///     <c>cull-front</c> golden references are the on-device record of the same fact.
     /// </summary>
     [Theory]
-    [InlineData(FrontFace.CounterClockwise, Silk.NET.Vulkan.FrontFace.Clockwise)]
-    [InlineData(FrontFace.Clockwise, Silk.NET.Vulkan.FrontFace.CounterClockwise)]
-    public void TheWindingIsInvertedToPayForTheFlippedViewport(
+    [InlineData(FrontFace.CounterClockwise, Silk.NET.Vulkan.FrontFace.CounterClockwise)]
+    [InlineData(FrontFace.Clockwise, Silk.NET.Vulkan.FrontFace.Clockwise)]
+    public void TheWindingMapsStraightThroughBecauseTwoMirrorsCancel(
         FrontFace face,
         Silk.NET.Vulkan.FrontFace expected
     ) =>
