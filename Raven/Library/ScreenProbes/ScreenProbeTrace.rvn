@@ -53,7 +53,7 @@ shader ScreenProbeTrace {
     /// every reader at once. `NoIrradiance` answers with zero coverage, and zero coverage blends the
     /// termination all the way back to the sky — so a project without a field traces exactly the rays
     /// it traced before.
-    compose val irradiance: IIrradianceSource
+    compose val irradiance: IIrradianceSource = NoIrradiance
 
     var jobs: Buffer<ScreenProbeTraceJob>
 
