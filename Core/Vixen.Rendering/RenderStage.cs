@@ -151,6 +151,15 @@ public readonly record struct RenderStageMask(ulong Bits) {
     /// <summary>The empty set.</summary>
     public static RenderStageMask None => default;
 
+    /// <summary>Every stage there could be.</summary>
+    /// <remarks>
+    ///     Every representable stage rather than every <em>declared</em> one, which costs nothing: a
+    ///     bit with no stage behind it intersects with no object. What it is for is a view that draws
+    ///     regardless of staging — see <see cref="Compositor.VisibilityBufferRenderer.Stages" />, whose
+    ///     default this is.
+    /// </remarks>
+    public static RenderStageMask All => new(ulong.MaxValue);
+
     /// <summary>The set holding just one stage.</summary>
     public static RenderStageMask Of(int stageIndex) {
         ArgumentOutOfRangeException.ThrowIfNegative(stageIndex);

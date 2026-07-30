@@ -98,15 +98,19 @@ public class GpuClusterCullingTests {
                 centre /= members;
                 current.Add(clusters.Count);
 
-                // One parent per group here, so the group bound is this cluster's own — the general
-                // case is exercised by `Flatten` over a real DAG, and what this fixture is for is the
-                // traversal's arithmetic rather than the bound's construction.
+                // One parent per group here, so the group bound is this cluster's own and the
+                // parent leads itself — the general case, several parents sharing one child set and
+                // one designated lead, is `Flatten`'s to build and `ClusterTraversalGroupTests`' to
+                // check. What this fixture is for is the traversal's arithmetic rather than the
+                // group bookkeeping, but the lead still has to be right: a cluster that does not
+                // lead its own group never pushes, which is a walk that stops at the roots.
                 clusters.Add(
                     Cluster(error, radius * fanOut, centre) with {
                         ErrorCenter = centre,
                         ErrorRadius = radius * fanOut,
                         FirstChild = (uint)first,
-                        ChildCount = (uint)members
+                        ChildCount = (uint)members,
+                        GroupLead = (uint)clusters.Count
                     }
                 );
             }

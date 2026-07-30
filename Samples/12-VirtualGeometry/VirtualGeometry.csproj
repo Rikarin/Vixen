@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Samples.VirtualGeometry</RootNamespace>
+        <AssemblyName>VirtualGeometry</AssemblyName>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Tools\Vixen.App\Vixen.App.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Platform.Desktop\Vixen.Platform.Desktop.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Engine.Renderer\Vixen.Engine.Renderer.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Rendering\Vixen.Rendering.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.VirtualGeometry\Vixen.Rendering.VirtualGeometry.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
+        <!--
+            The shader compiler, referenced by a sample, which no shipped game would do: a shipped
+            game loads the baked bundle its content build wrote. This sample compiles the library at
+            start-up because the samples run from the repository and the repository has the sources -
+            the same trade the golden device tests make, and honest about being one.
+        -->
+        <ProjectReference Include="..\..\Tools\Vixen.ShaderCompiler\Vixen.ShaderCompiler.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The present pass's SPIR-V, committed, for the same reason 01-HelloTriangle commits its
+            own: this one shader is the sample's - a debug view of the visibility buffer - and Raven
+            is the engine's library, not the place for a sample's scratch shader. The GLSL sits
+            beside each module. Regenerating is `glslc Shaders/present.frag -o Shaders/present.frag.spv`.
+        -->
+        <EmbeddedResource Include="Shaders\*.spv" />
+    </ItemGroup>
+
+</Project>

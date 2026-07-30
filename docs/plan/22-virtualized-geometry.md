@@ -391,6 +391,12 @@ Four things the plan above did not say, and the first is the one that would have
   `groupshared` array — 4 KB of the 16 a device has to offer — and a group whose front does not fit
   stops refining and accepts what it has. Dropping the node would be a hole, and a shader cannot grow
   an array.
+- **A group refines once, not once per parent** — found two phases later, by the sample's shutdown
+  log, and recorded here because it is a phase-3 defect: every parent of a group carries the whole
+  child set and the shared error centre makes them all refine together, so each pushed the same
+  children and the duplication compounded per level, invisible to the cut property, the coverage
+  comparison and the one-parent-per-group test fixtures alike. `CullCluster.GroupLead` designates the
+  one parent that pushes; the story is under phase 5, and `ClusterTraversalGroupTests` holds it.
 
 **Stopping here is defensible**, and what is left to reach a frame is host plumbing rather than
 another idea: a render feature that fills the instance records from the scene, dispatches the
@@ -426,36 +432,55 @@ every cluster of a sphere — `ClusterRasterTests`. Exactly, not nearly, because
 addition and one multiply and two readers of the same bytes have to reach the same float. Both the
 lost-origin and the slot-for-page-number sabotages fail it.
 
-**The golden image now exists as a fixture, and the first thing it did was fail.**
-`VirtualGeometryGoldenTests` draws one plane twice — once through `MeshRenderFeature` and once through
-the traversal and the raster, at the same camera — and compares which pixels each covers. Coverage
-rather than colour, because phase 4 owns where the draw lands and phase 5 owns what it looks like; and a
-plane rather than a sphere, because a flat quad's silhouette is LOD-invariant, so whichever cut the
-traversal chooses covers the same pixels and "within the LOD error threshold" stops being a number
-nobody can write down.
+**The golden image now exists as a fixture, and it passes — after finding four defects, of which the
+shader was guilty of none.** `VirtualGeometryGoldenTests` draws one plane twice — once through
+`MeshRenderFeature` and once through the traversal and the raster, at the same camera — and compares
+which pixels each covers. Coverage rather than colour, because phase 4 owns where the draw lands and
+phase 5 owns what it looks like; and a plane rather than a sphere, because a flat quad's silhouette is
+LOD-invariant, so whichever cut the traversal chooses covers the same pixels and "within the LOD error
+threshold" stops being a number nobody can write down.
 
-It failed twice, for two different reasons, and only the second is the engine's.
+What it found, in the order it found it — worth keeping because each is a class of defect, not an
+instance:
 
-The first was the fixture: the plane's winding faced away from the camera, and the traversal's normal
-cone correctly rejected a mesh whose back was turned. Both rasters in the fixture are two-sided, so the
-forward image looked entirely normal — which is worth recording, because a two-sided raster hides
-exactly the mistake the cone test exists to catch.
+- **The fixture's own winding.** The plane faced away from the camera and the traversal's normal cone
+  correctly rejected a mesh whose back was turned. Both rasters in the fixture are two-sided, so the
+  forward image looked entirely normal — a two-sided raster hides exactly the mistake the cone test
+  exists to catch. `VirtualGeometryDeviceTests`' plane had the same winding mistake, discovered only
+  when it gained the assertion below.
+- **What looked like a host/device divergence in the traversal was the frame assembly.**
+  `ClusterTraversalAcceptsTests` ran the scene through the host mirror and accepted clusters; the
+  device accepted none — and the shader and the mirror were *both right*, because they were fed
+  different views. `GraphicsCompositor.Use` clears a view's stage mask on first use each frame — so a
+  stage removed from the tree stops being collected for — and only stage nodes put bits back. A
+  virtualized frame has no stage nodes, so its view reached the device with an empty mask and the
+  traversal rejected every instance at the stage test, before the frustum. The probe that found it was
+  a patched shader counting how far each invocation got: 64 lanes entered, none survived the record
+  checks, and a bit-packed dump of what the device actually read showed `view.stagesLow == 0` against
+  the host's 1. `VisibilityBufferRenderer.Stages` is the fix — every stage by default, or-ed into the
+  view *after* `Use`, narrowable per document — because a cluster draw is not a stage and a mask of
+  none is a buffer that is silently, permanently empty.
+- **The raster's count copy was never ordered after the traversal's writes.** `GpuClusterVisibility`
+  leaves the visible list in `ShaderRead` and says in so many words that the reader of the count
+  transitions it; `GpuClusterRaster.Prepare` — that reader — copied without transitioning. The copy is
+  what turns the count into the indirect draw's instance count, and a copy that reads early reads last
+  frame's count, which on every first frame is zero.
+- **The depth prepass was being culled out of the frame, and this is the one that held out longest.**
+  The graph declared an attachment as a pure write, so a pass that only *clears* a target had no
+  consumer culling could see, and the pass *loading* that target tested its fragments against
+  undefined memory — NaNs on this driver, which fail every comparison and discard every fragment. An
+  indirect draw with a verified count, a forced full-screen triangle and a valid pipeline drew nothing,
+  at any depth, until the graph's own Graphviz dump showed the `ClearDepth` box dashed. Loading is
+  reading now, in `ColourAttachment` and `DepthAttachment` both, which also means loading a transient
+  nothing ever wrote is refused by name instead of being a picture that differs by driver.
+  `RenderGraphTests` holds all three directions, and the two culling tests fail with the fix removed.
 
-⚠ With the winding corrected, **the host and the device disagree.**
-`ClusterTraversalAcceptsTests` — new, and the claim every other traversal test assumed without making —
-runs the identical scene, instance and packed view through `GpuClusterCulling.Traverse`, the host mirror
-the shader is written against, and it accepts clusters; the brute-force `Cut` agrees. The device, given
-the same records, reports `VisibleClusters` zero and requests no pages, so the indirect draw's instance
-count is zero and the buffer stays uniformly `Nothing`. Neither the frustum, the cone nor the error test
-rejects on the host, so whatever rejects on the device is a divergence between the two rather than a
-decision either is entitled to make.
-
-Nothing else in the suite would have said so: `VirtualGeometryDeviceTests` asserts that the traversal
-dispatched and that a page became resident, both true here, and there is no device test that the
-meshlet traversal produces a visible cluster at all. The golden fixture is committed skipped as the
-reproduction, with the host oracle beside it pinning what the answer should be. Closing the gap means
-reading the cluster path of `Culling.rvn` against `GpuClusterCulling`, or adding a readback of the
-visible list so the device can be asked what it decided.
+**Met, and asserted at two strengths.** The golden comparison passes — the two paths agree on all but
+a fraction of a percent of pixels, the slack being edge pixels the page quantization moves — and
+`VirtualGeometryDeviceTests` now asserts `VisibleClusters > 0` through the document-driven path, the
+cheap half of the same claim per frame. That assertion is the one whose absence let all of the above
+ship: `TraversedOnDevice` is set when a dispatch is *prepared*, so it is true of a dispatch that culls
+the entire scene.
 
 Four things the plan above did not say:
 
@@ -604,9 +629,25 @@ mesh; `VirtualGeometrySystem` joins the six device objects that have to point at
   binding whether or not any instance reaches it. The frame's palette is seeded with its identity
   unconditionally now.
 
-⚠ **What still does not exist is an application.** `Vixen.App.Game` is a window and a frame loop, and
-nothing joins it to `SceneRenderHost` — the samples open a device and issue draws directly. A game can
-be written against the host today; a sample showing how has not been.
+✅ **The application exists**: [`Samples/12-VirtualGeometry`](../../Samples/12-VirtualGeometry/README.md),
+a `Vixen.App.Game` whose frame is `SceneRenderHost.Draw` — the document decides where the passes go,
+the host decides what exists, and the visibility buffer reaches a swapchain as a debug view of the
+cut. It runs the same document `VirtualGeometryDeviceTests` runs headless, plus a present pass of its
+own, and `--vixen-frames N` makes it a CI check rather than only a demo.
+
+**And the sample's shutdown log found a phase-3 defect on its first run** — the traversal accepting
+1 376 clusters of a 442-cluster mesh. Every parent of a group carries the group's whole child set, and
+the shared `errorCenter` — the thing that stops cracks — guarantees all of them refine at the same
+moment: each pushed the same children, and the duplication compounded per level. On the host an
+87-cluster sphere yielded a visible list of 1 016 entries, 34 distinct. **No existing test could see
+it**: the cut property ("every path holds exactly one visible cluster") is true of a list with
+duplicates, the golden image compares coverage that duplicates cover perfectly, and
+`GpuClusterCullingTests`' hand-built DAGs have one parent per group — their own comment says so. The
+consequence was not only waste: the duplicates multiply until they overflow the visible list's
+per-instance capacity, and an overflowed list is a hole. `CullCluster.GroupLead` is the fix — one
+parent per group, designated at flatten time, alone pushes and requests; the rest accept themselves
+when the group cannot refine and otherwise contribute nothing — and `ClusterTraversalGroupTests`
+holds it over a real multi-parent DAG, failing with the designation removed.
 
 **And a document can now place the whole path**, which it could not while its sibling could:
 `GpuCullingAsset` has had a node since phase 3 and the traversal one level down the same hierarchy could

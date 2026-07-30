@@ -69,7 +69,7 @@ public sealed class VirtualGeometryGoldenTests {
     ///         was never stored. The agreement is worth nothing without the coverage.
     ///     </para>
     /// </remarks>
-    [Fact(Skip = SkipReason)]
+    [Fact]
     public void The_visibility_buffer_covers_what_the_mesh_feature_draws() {
         if (!TryOpen(out var fixture)) {
             return;
@@ -374,36 +374,27 @@ public sealed class VirtualGeometryGoldenTests {
 
     static int Count(bool[] mask) => mask.Count(covered => covered);
 
-    /// <summary>Why this is a recorded reproduction rather than a passing test.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         <b>It failed twice, for two different reasons, and only the second is the engine's.</b>
-    ///         The first time, the plane's winding faced away from the camera: the traversal's normal
-    ///         cone correctly rejected every cluster of a mesh whose back was turned. Both rasters here
-    ///         are two-sided, so the forward image looked perfectly normal and nothing pointed at the
-    ///         winding — which is worth recording, because a two-sided raster hides exactly the mistake
-    ///         the cone test is there to catch.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>With the winding corrected, the host and the device disagree.</b>
-    ///         <c>ClusterTraversalAcceptsTests</c> runs the identical scene, instance and packed view
-    ///         through <see cref="GpuClusterCulling.Traverse" /> — the host mirror the shader is written
-    ///         against — and it accepts clusters. The device, given the same records, reports
-    ///         <c>VisibleClusters</c> zero and requests no pages, so the indirect draw's instance count is
-    ///         zero and the buffer stays uniformly <see cref="GpuClusterRaster.Nothing" />. Neither the
-    ///         frustum, the cone nor the error test rejects on the host, so whatever rejects on the device
-    ///         is a divergence between the two rather than a decision either of them is entitled to make.
-    ///     </para>
-    ///     <para>
-    ///         Skipped rather than deleted and rather than left red: this fixture is the reproduction, the
-    ///         host oracle beside it pins what the answer should be, and closing the gap means reading the
-    ///         cluster path of <c>Culling.rvn</c> against <c>GpuClusterCulling</c> or adding a readback of
-    ///         the visible list. Remove the skip when they agree.
-    ///     </para>
-    /// </remarks>
-    const string SkipReason =
-        "Reproduction: with the mesh facing the camera, the host mirror accepts clusters and the device "
-        + "traversal accepts none, so the visibility buffer is empty. See the remarks on SkipReason.";
+    // What this fixture found, in the order it found it — kept because each failure is a class of
+    // defect the suite should be able to name when it happens again.
+    //
+    // It failed four times, for four different reasons, and only the first was the fixture's.
+    //
+    // 1. The plane's winding faced away from the camera: the traversal's normal cone correctly
+    //    rejected a mesh whose back was turned. Both rasters here are two-sided, so the forward image
+    //    looked perfectly normal — a two-sided raster hides exactly the mistake the cone test catches.
+    //
+    // 2. What looked like a host/device divergence in the traversal was the frame assembly:
+    //    GraphicsCompositor.Use clears a view's stage mask on first use, stage nodes re-add theirs,
+    //    and a virtualized frame has no stage nodes — so the view reached the device with an empty
+    //    mask and the traversal rejected every instance before the frustum. The host mirror was fed a
+    //    hand-packed view, which is why it disagreed. VisibilityBufferRenderer.Stages is the fix.
+    //
+    // 3. GpuClusterRaster.Prepare copied the visible count out of a buffer it never transitioned to
+    //    CopySource — the transition its comments promised the reader would make.
+    //
+    // 4. The render graph treated a loaded attachment as a pure write, so the ClearDepth pass here
+    //    was culled as unread and the raster depth-tested against undefined memory — NaNs on this
+    //    driver, which fail every comparison and discard every fragment. Loading is reading now.
 
     /// <summary>Small pages, so a modest mesh needs more than the pinned root.</summary>
     const int PageSize = 8 * 1024;

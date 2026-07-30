@@ -441,6 +441,7 @@
   <Project Path="Samples/09-NetworkSoak/NetworkSoak.csproj" />
   <Project Path="Samples/10-VoiceChat/VoiceChat.csproj" />
   <Project Path="Samples/11-VideoPlayback/VideoPlayback.csproj" />
+  <Project Path="Samples/12-VirtualGeometry/VirtualGeometry.csproj" />
 
 
 </Solution>

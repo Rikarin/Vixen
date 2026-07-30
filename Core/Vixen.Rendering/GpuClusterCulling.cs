@@ -84,8 +84,31 @@ public struct CullCluster {
     /// <summary><see cref="GpuClusterCulling.ClusterRoot" /> when nothing simplifies it further.</summary>
     public uint Flags;
 
-    /// <summary>Eight bytes of tail padding the shader declares and never reads.</summary>
-    public ulong Padding;
+    /// <summary>
+    ///     The lowest-indexed parent of the group that produced this cluster — the one that pushes.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Every parent of a group refines into the same children</b>, and the shared
+    ///         <see cref="ErrorCenter" /> guarantees they all decide to at once — so a push per parent
+    ///         enqueues the whole child set once per parent, and the duplication compounds per level.
+    ///         An 87-cluster sphere produced a visible list of 1 016 entries, 34 of them distinct. The
+    ///         cut was still a cut — every path held exactly one visible cluster — which is why the
+    ///         property tests never saw it, and the fixtures' groups had one parent each, which is why
+    ///         the randomised comparison never did either. What gave it away was
+    ///         <c>Samples/12-VirtualGeometry</c> logging more accepted clusters than the mesh has.
+    ///     </para>
+    ///     <para>
+    ///         So one parent is designated at flatten time and it alone pushes and requests. A
+    ///         non-lead parent still accepts <em>itself</em> when the group cannot refine — that
+    ///         decision is about its own surface — and otherwise contributes nothing, because its
+    ///         replacement is the same child set the lead already enqueued.
+    ///     </para>
+    /// </remarks>
+    public uint GroupLead;
+
+    /// <summary>Four bytes of tail padding the shader declares and never reads.</summary>
+    public uint Padding;
 }
 
 /// <summary>One instance of a cluster DAG as <c>CullInstance</c> in the shader declares it.</summary>
@@ -452,7 +475,11 @@ public static class GpuClusterCulling {
                 FirstChild = (uint)first,
                 ChildCount = (uint)count,
                 Page = (uint)pages.Clusters[i].Page,
-                Flags = float.IsInfinity(meshlet.ParentError) ? ClusterRoot : 0u
+                Flags = float.IsInfinity(meshlet.ParentError) ? ClusterRoot : 0u,
+
+                // The group's push is one parent's job — see the field. A leaf has no group and no
+                // children, so it leads itself and the designation never matters.
+                GroupLead = producedBy[i] < 0 ? (uint)i : (uint)mesh.Groups[producedBy[i]].Parents.Min()
             };
         }
 
@@ -609,7 +636,7 @@ public static class GpuClusterCulling {
                 continue;
             }
 
-            if (!Refine(record)) {
+            if (!Refine(cluster, record)) {
                 Accept(cluster, record);
             }
         }
@@ -634,7 +661,14 @@ public static class GpuClusterCulling {
         // All or none, which is the same rule the offline cut follows and for the same reason: the
         // boundary between a refined cluster and its unrefined neighbour was locked at one level and
         // simplified at the other, so refining half a group is a crack.
-        bool Refine(in CullCluster record) {
+        //
+        // And once per group, not once per parent — see CullCluster.GroupLead. Every parent answers
+        // the residency question identically, because it is a question about the same children; only
+        // the lead acts on it, by pushing and by requesting. A non-lead parent still answers false
+        // when the children are absent, because what it does with that answer — accept itself — is
+        // about its own surface.
+        bool Refine(uint cluster, in CullCluster record) {
+            var lead = cluster == record.GroupLead;
             var ready = true;
 
             for (var i = 0u; i < record.ChildCount; i++) {
@@ -642,7 +676,10 @@ public static class GpuClusterCulling {
                 var page = scene.Clusters[(int)(owner.FirstCluster + child)].Page;
 
                 if (!isResident(page)) {
-                    requests.Add(page);
+                    if (lead) {
+                        requests.Add(page);
+                    }
+
                     ready = false;
                 }
             }
@@ -651,9 +688,16 @@ public static class GpuClusterCulling {
                 return false;
             }
 
+            // Before the lead early-out, so every parent of the group reaches the same answer: a
+            // front that cannot take the children makes all of them accept themselves, rather than
+            // the lead accepting alone while its siblings vanish into a refinement nobody pushed.
             if (queue.Count + record.ChildCount > QueueCapacity) {
                 overflowed = true;
                 return false;
+            }
+
+            if (!lead) {
+                return true;
             }
 
             for (var i = 0u; i < record.ChildCount; i++) {

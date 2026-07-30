@@ -744,6 +744,16 @@ public sealed record VisibilityBufferAsset : ISceneRendererAsset {
 
     /// <summary>Which of the frame's views it draws.</summary>
     public int ViewIndex { get; init; }
+
+    /// <summary>Which stages' objects it draws, by name. Empty means every stage.</summary>
+    /// <remarks>
+    ///     The traversal filters instances by the same stage intersection the object cull uses, and
+    ///     this is the view's half of it. Empty is every stage rather than none, because a cluster draw
+    ///     is not a stage — there is no per-stage command a narrower default would correspond to — and
+    ///     a mask of none is a visibility buffer that is permanently, silently empty. See
+    ///     <see cref="VisibilityBufferRenderer.Stages" />.
+    /// </remarks>
+    public string[] Stages { get; init; } = [];
 }
 
 /// <summary>Spot and point light shadows in one atlas.</summary>

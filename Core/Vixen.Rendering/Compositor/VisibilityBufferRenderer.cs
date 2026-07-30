@@ -105,21 +105,52 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
     /// </remarks>
     public RenderView? View { get; set; }
 
+    /// <summary>Which stages' objects this buffer draws — the mask the traversal tests instances against.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Every stage by default, because a cluster draw is not a stage: one indirect draw covers
+    ///         every cluster of every instance, so there is no per-stage command a narrower default
+    ///         would correspond to. What the mask is for is the traversal's <em>filter</em> — an
+    ///         instance still carries its object's stage mask, and the two intersect exactly as the
+    ///         object cull's do — so a document that stages its virtualized objects can narrow this to
+    ///         draw only some of them here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <see cref="RenderStageMask.None" /> here is a buffer that is always empty, and it is
+    ///         the value this node effectively had before the property existed:
+    ///         <see cref="GraphicsCompositor.Use(RenderView)" /> clears a view's mask on first use each
+    ///         frame — so a stage removed from the tree stops being collected for — and only stage
+    ///         nodes put bits back. A virtualized frame has no stage nodes, so its view reached the
+    ///         device with an empty mask and the traversal rejected every instance before the frustum.
+    ///         The golden fixture is what caught it, as a visibility buffer that stayed uniformly
+    ///         empty while the host mirror — fed a hand-packed view — accepted clusters.
+    ///     </para>
+    /// </remarks>
+    public RenderStageMask Stages { get; set; } = RenderStageMask.All;
+
     /// <inheritdoc />
     /// <remarks>
-    ///     <b>Collecting the view is what puts it in the frame at all.</b> A view reaches
-    ///     <c>RenderSystem.SetViews</c> because a node collected it — see
-    ///     <see cref="SingleStageRenderer" /> — and a virtualized document has no <c>SingleStage</c> in
-    ///     it, because a cluster draw is not a stage. Without this the frame collects no views, the
-    ///     traversal has nothing to choose a cut for, and every pass runs and draws nothing. That is
-    ///     what this node shipped with, and it took running the frame on a device to see: every test
-    ///     placed the nodes and none of them asked what they drew.
+    ///     <para>
+    ///         <b>Collecting the view is what puts it in the frame at all.</b> A view reaches
+    ///         <c>RenderSystem.SetViews</c> because a node collected it — see
+    ///         <see cref="SingleStageRenderer" /> — and a virtualized document has no <c>SingleStage</c> in
+    ///         it, because a cluster draw is not a stage. Without this the frame collects no views, the
+    ///         traversal has nothing to choose a cut for, and every pass runs and draws nothing. That is
+    ///         what this node shipped with, and it took running the frame on a device to see: every test
+    ///         placed the nodes and none of them asked what they drew.
+    ///     </para>
+    ///     <para>
+    ///         The stage mask goes on after <see cref="GraphicsCompositor.Use(RenderView)" /> and not
+    ///         before, because first use <em>clears</em> it — see <see cref="Stages" />. Or-ed rather
+    ///         than assigned, so a view this node shares with stage nodes keeps what they declared.
+    ///     </para>
     /// </remarks>
     protected internal override void Collect(GraphicsCompositor compositor) {
         ArgumentNullException.ThrowIfNull(compositor);
 
         if (View is { } view) {
             compositor.Use(view);
+            view.Stages |= Stages;
         }
     }
 
