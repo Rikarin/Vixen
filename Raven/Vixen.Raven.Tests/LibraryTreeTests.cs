@@ -885,7 +885,7 @@ public class LibraryTreeTests {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Phase 5's exit criterion of <c>docs/virtualized-geometry.md</c>:</b> the material tree's
+    ///         <b>Phase 5's exit criterion of <c>docs/plan/22-virtualized-geometry.md</c>:</b> the material tree's
     ///         composition works through the visibility path with no shader source changes. The models are
     ///         the same four the forward test above covers, the composition slots are the same two names,
     ///         and nothing in <c>Material/</c> knows which of the two passes composed it — which is what

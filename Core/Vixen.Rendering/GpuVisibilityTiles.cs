@@ -16,7 +16,7 @@ namespace Vixen.Rendering;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>This is where improvement 2 of <c>docs/virtualized-geometry.md</c> is paid for.</b> Nanite
+///         <b>This is where improvement 2 of <c>docs/plan/22-virtualized-geometry.md</c> is paid for.</b> Nanite
 ///         resolves its visibility buffer into a GBuffer, which is a large part of why Unreal is
 ///         deferred-first. Binning by material and dispatching the existing clustered forward shading
 ///         over each material's tiles keeps one shading path, one material tree and mobile bandwidth —

@@ -2,7 +2,7 @@ package Vixen.Shaders.Pipeline
 
 import Vixen.Shaders.Core
 
-// Phase 4 of `docs/virtualized-geometry.md`: the hardware-raster visibility buffer.
+// Phase 4 of `docs/plan/22-virtualized-geometry.md`: the hardware-raster visibility buffer.
 //
 // One instanced draw covers every cluster the traversal accepted. `SV_InstanceID` is the slot in the
 // visible list, `SV_VertexID` is a corner of one of the cluster's triangles, and everything else —

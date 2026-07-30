@@ -98,7 +98,7 @@ public static class ModelCompiler {
     ///         buffer needs positions and nothing else, and it would be smaller to ship positions
     ///         alone — but phase 5's resolve fetches the normal and the texture coordinate of the same
     ///         vertex from the same page, and a format that made that a re-import is a format that is
-    ///         not the shipping one. See <c>docs/virtualized-geometry.md</c> phase 5.
+    ///         not the shipping one. See <c>docs/plan/22-virtualized-geometry.md</c> phase 5.
     ///     </para>
     /// </remarks>
     public static MeshletPageSet? CompilePages(

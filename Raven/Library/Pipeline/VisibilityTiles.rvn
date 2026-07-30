@@ -4,7 +4,7 @@ import Vixen.Shaders.Core
 
 // Binning the visibility buffer by material: the first half of phase 5's resolve.
 //
-// **This is where improvement 2 of `docs/virtualized-geometry.md` is paid for.** Nanite resolves its
+// **This is where improvement 2 of `docs/plan/22-virtualized-geometry.md` is paid for.** Nanite resolves its
 // visibility buffer into a GBuffer, which is a large part of why Unreal is deferred-first. The
 // alternative here is to bin the screen into tiles by which materials appear in them and dispatch the
 // *existing* clustered forward shading over each material's tiles — one shading path, one material

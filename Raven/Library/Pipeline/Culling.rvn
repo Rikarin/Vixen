@@ -110,7 +110,7 @@ struct CullView {
 /// is only needed once a cluster has been *accepted*. Where its geometry is lives in the page
 /// placement, which this pass reads only to ask whether it has arrived: a traversal has to test a
 /// cluster before it can know whether it wants its bytes, which is why the records are resident and
-/// the geometry is paged. See `docs/virtualized-geometry.md` phase 2.
+/// the geometry is paged. See `docs/plan/22-virtualized-geometry.md` phase 2.
 struct CullCluster {
     /// The bind-pose bound, in the mesh's own space.
     var center: float3
@@ -262,7 +262,7 @@ struct Cull {
     /// How many clusters one workgroup's queue holds.
     ///
     /// A shared array, which is what `groupshared` is for and what this whole traversal was blocked
-    /// on — see `docs/virtualized-geometry.md` § B1. A queue with a local head is one atomic on
+    /// on — see `docs/plan/22-virtualized-geometry.md` § B1. A queue with a local head is one atomic on
     /// memory the group owns; the alternative is a global atomic per child and a dispatch that
     /// spends its life in memory traffic.
     ///
@@ -359,7 +359,7 @@ shader Culling {
     /// Whether this dispatch walks a cluster DAG rather than a flat array of objects.
     ///
     /// **A permutation of this shader and not a shader of its own**, which is improvement 3 of
-    /// `docs/virtualized-geometry.md`. Objects and clusters are the same hierarchy at different
+    /// `docs/plan/22-virtualized-geometry.md`. Objects and clusters are the same hierarchy at different
     /// depths: the `Main`/`Late` split, the Hi-Z projection, the per-view records and the rounding
     /// slack are the same decisions either way, and two implementations of "visible against last
     /// frame's pyramid" is two places for the definition to drift. What the cluster path adds is a
@@ -399,7 +399,7 @@ shader Culling {
     /// **Records, not geometry**, and the name says so because the distinction is the phase's: a
     /// traversal has to test a cluster — its bounds, its cone, its error — before it can know whether
     /// it wants its bytes, so the hierarchy is resident and the geometry is paged. See
-    /// `docs/virtualized-geometry.md` phase 2.
+    /// `docs/plan/22-virtualized-geometry.md` phase 2.
     var clusterRecords: Buffer<CullCluster>
 
     /// One record per instance. The dispatch's `x` extent is its count. `Clusters` only.
@@ -419,7 +419,7 @@ shader Culling {
     ///
     /// **This is what makes streaming demand-driven rather than predictive.** A page is asked for
     /// because a cut actually wanted a cluster in it this frame, from this view — not because a
-    /// heuristic about distance guessed it might. See `docs/virtualized-geometry.md` phase 2.
+    /// heuristic about distance guessed it might. See `docs/plan/22-virtualized-geometry.md` phase 2.
     var requests: RWBuffer<uint>
 
     /// Where each page is in the pool: one word per page, `Cull.PageAbsent` when it is not there.
@@ -543,7 +543,7 @@ shader Culling {
 
     /// Whether last frame's depth says nothing inside this sphere could have been seen.
     ///
-    /// **A sphere and not an object**, which is improvement 3 of `docs/virtualized-geometry.md` made
+    /// **A sphere and not an object**, which is improvement 3 of `docs/plan/22-virtualized-geometry.md` made
     /// concrete: the object cull and the cluster traversal ask the same question of the same pyramid
     /// with the same matrix, and two implementations of "visible against last frame's pyramid" is two
     /// places for the definition to drift. What differs between the callers is which sphere.

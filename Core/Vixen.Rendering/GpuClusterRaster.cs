@@ -40,7 +40,7 @@ namespace Vixen.Rendering;
 ///     </para>
 ///     <para>
 ///         <b>The output is one <c>uint</c> per pixel, not two.</b>
-///         <c>docs/virtualized-geometry.md</c> phase 4 says <c>RG32_UINT</c> — a cluster index and a
+///         <c>docs/plan/22-virtualized-geometry.md</c> phase 4 says <c>RG32_UINT</c> — a cluster index and a
 ///         triangle index in separate channels — and this packs both into
 ///         <see cref="PixelFormat.R32UInt" />: twenty-five bits of visible-list slot and seven of
 ///         triangle. Half the bandwidth of a full-screen target that every resolve pass reads, and the

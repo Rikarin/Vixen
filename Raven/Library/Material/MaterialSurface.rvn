@@ -122,7 +122,7 @@ struct MaterialData {
     /// no neighbours to differ from, and the visibility buffer's neighbour may belong to a different
     /// triangle of a different cluster anyway. So a resolve derives them from the triangle plane and
     /// puts them here, and `MaterialTextures.SampleMap` uses them when `UseAnalyticGradients` is on.
-    /// See `Barycentrics.rvn` and `docs/virtualized-geometry.md` phase 5.
+    /// See `Barycentrics.rvn` and `docs/plan/22-virtualized-geometry.md` phase 5.
     ///
     /// Zero on a pass that does not supply them, which is every rasterized pass — and zero is the right
     /// value to leave here, because the variant that reads them is the one that also writes them.
@@ -290,7 +290,7 @@ shader MaterialTextures {
     /// **The one thing the material tree has to know about the visibility path**, and it is a
     /// permutation rather than a branch because the two are different instructions: `Sample` reads the
     /// neighbouring lanes' coordinates and `SampleGrad` takes them as operands, and a stage with no
-    /// quad cannot execute the first at all. See `docs/virtualized-geometry.md` phase 5, and B3 —
+    /// quad cannot execute the first at all. See `docs/plan/22-virtualized-geometry.md` phase 5, and B3 —
     /// `SampleGrad` was built for exactly this and this is its first consumer.
     ///
     /// ⚠ Off by default, and off is the whole rasterized library: a fragment stage has a quad and

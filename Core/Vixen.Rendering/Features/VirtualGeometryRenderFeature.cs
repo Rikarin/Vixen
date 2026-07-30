@@ -56,7 +56,7 @@ public struct VirtualGeometryDraw {
 ///         the arrangement is that one indirect draw covers every cluster of every instance, and the host
 ///         never learns how many there are. So this feature extracts, prepares, and stops — see
 ///         <see cref="Compositor.ClusterCullingRenderer" /> for where the dispatch goes and
-///         <c>docs/virtualized-geometry.md</c> phase 4 for what consumes it.
+///         <c>docs/plan/22-virtualized-geometry.md</c> phase 4 for what consumes it.
 ///     </para>
 ///     <para>
 ///         <b>Registration is a load-time act and instancing is a frame-time one.</b>

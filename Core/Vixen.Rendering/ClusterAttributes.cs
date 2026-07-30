@@ -23,7 +23,7 @@ public readonly record struct Barycentrics(Vector3 Weights, Vector3 Ddx, Vector3
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Phase 5 of <c>docs/virtualized-geometry.md</c>.</b> A visibility buffer stores
+///         <b>Phase 5 of <c>docs/plan/22-virtualized-geometry.md</c>.</b> A visibility buffer stores
 ///         <em>which</em> triangle covered a pixel and nothing else, so everything an interpolator
 ///         would have handed the fragment stage — the world position, the normal, the texture
 ///         coordinate, and the rate at which the coordinate changes — has to be worked out again from

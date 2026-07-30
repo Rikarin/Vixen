@@ -91,7 +91,7 @@ public struct RasterMesh {
 ///         <see cref="Features.VirtualGeometryRenderFeature" /> extracts what it traverses, and
 ///         <see cref="Compositor.ClusterCullingRenderer" /> puts it in the frame. Deliberately the same
 ///         shape, because it is the same decision at a different depth of the same hierarchy — which is
-///         improvement 3 of <c>docs/virtualized-geometry.md</c>, and is why the shader is one shader.
+///         improvement 3 of <c>docs/plan/22-virtualized-geometry.md</c>, and is why the shader is one shader.
 ///     </para>
 ///     <para>
 ///         <b>Two kinds of buffer, and the difference is what changes.</b> The cluster records, the
@@ -230,7 +230,7 @@ public sealed class GpuClusterVisibility : IDisposable {
     /// <summary>Which pages are in the pool. Null traverses as though none are.</summary>
     /// <remarks>
     ///     Set rather than owned, because it is <see cref="Features.VirtualGeometryRenderFeature" />'s —
-    ///     and because improvement 6 of <c>docs/virtualized-geometry.md</c> means the same service will
+    ///     and because improvement 6 of <c>docs/plan/22-virtualized-geometry.md</c> means the same service will
     ///     one day hold texture and shadow pages, which have nothing to do with this dispatch.
     /// </remarks>
     public PageResidency? Residency { get; set; }

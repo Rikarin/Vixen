@@ -29,7 +29,7 @@ import Vixen.Shaders.Material
 // and reaching it from a second entry point means extracting its bindings and its four functions into
 // a base shader both derive from. That extraction renumbers `ForwardPlus`'s bindings, which two oracle
 // suites are written against — so it is named as owed rather than done in passing. See
-// `docs/virtualized-geometry.md` phase 5.
+// `docs/plan/22-virtualized-geometry.md` phase 5.
 
 shader VisibilityResolve : MaterialTextures {
     /// The material's surface features, chosen per material — the same slot `ForwardPlus` composes.

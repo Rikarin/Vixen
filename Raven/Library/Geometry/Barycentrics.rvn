@@ -4,7 +4,7 @@ import Vixen.Shaders.Core
 
 // Recovering a pixel's attributes from the triangle it landed on.
 //
-// Phase 5 of `docs/virtualized-geometry.md`. A visibility buffer stores *which* triangle covered a
+// Phase 5 of `docs/plan/22-virtualized-geometry.md`. A visibility buffer stores *which* triangle covered a
 // pixel and nothing else, so everything an interpolator would have handed the fragment stage — the
 // world position, the normal, the texture coordinate, and the rate at which the coordinate changes —
 // has to be worked out again from the triangle's three corners and the pixel's own position.

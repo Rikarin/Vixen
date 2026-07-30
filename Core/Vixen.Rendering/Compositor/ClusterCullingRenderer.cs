@@ -51,7 +51,7 @@ public sealed class ClusterCullingRenderer : SceneRenderer {
     /// <summary>The pool whose arrived pages to copy in. Null records the dispatch and stops there.</summary>
     /// <remarks>
     ///     Separate from the traversal because the pool is the residency service's and improvement 6 of
-    ///     <c>docs/virtualized-geometry.md</c> means that service will one day hold texture and shadow
+    ///     <c>docs/plan/22-virtualized-geometry.md</c> means that service will one day hold texture and shadow
     ///     pages too — a node that reached the pool through the traversal would be a node that could only
     ///     ever flush geometry.
     /// </remarks>
