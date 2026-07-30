@@ -6,6 +6,7 @@ using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Rendering.ScreenProbes;
+using Vixen.Shaders;
 
 namespace Vixen.Rendering.Lighting;
 
@@ -305,6 +306,34 @@ public sealed class ScreenProbeTexture : IDisposable {
 
         return true;
     }
+
+    /// <summary>Writes the four resolved-probe planes where a consuming pass's set is filled from.</summary>
+    /// <param name="parameters">The pass's parameters.</param>
+    /// <exception cref="ArgumentNullException">There are no parameters.</exception>
+    /// <exception cref="InvalidOperationException">The textures do not exist yet.</exception>
+    /// <remarks>
+    ///     Unqualified names — <c>probeL0</c> and its siblings — because the upsample declares the
+    ///     planes directly rather than composing them through a slot: which probes a screen has is a
+    ///     fact about the frame, not a configuration a project swaps. Call after the first
+    ///     <see cref="Upload" />, which is what makes the views exist to be written.
+    /// </remarks>
+    public void Apply(ParameterCollection parameters) {
+        ArgumentNullException.ThrowIfNull(parameters);
+
+        if (!IsCreated) {
+            throw new InvalidOperationException(
+                "The probe planes do not exist yet — Upload creates them, and a name bound to an "
+                + "invalid view is a descriptor write that refuses the whole set."
+            );
+        }
+
+        for (var plane = 0; plane < ProbePlanes; plane++) {
+            parameters.Set(ParameterKeys.New<TextureViewHandle>(PlaneNames[plane]), probeViews[plane]);
+        }
+    }
+
+    /// <summary>The consuming shader's names for the four probe planes, in packing order.</summary>
+    static readonly string[] PlaneNames = ["probeL0", "probeL1R", "probeL1G", "probeL1B"];
 
     /// <inheritdoc />
     public void Dispose() {

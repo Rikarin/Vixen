@@ -121,9 +121,13 @@ field's sampler does.
 - **The denoiser.** Spatial filtering, temporal reprojection through the motion vectors, and the
   bilateral upsample against depth and normal edges. Doc 19 § L3's own warning is that this is the
   project — un-denoised, the gather looks worse than § L2 alone.
-- **The frame.** The upsample as a pass, probe placement reconstructed from the real depth buffer,
-  and the compositor node that owns the lot. The resolve's four planes are shaped for exactly that
-  consumer, and it does not exist yet.
+- **The frame.** The upsample pass exists — `ScreenProbeUpsample.rvn` in the PostFx package and
+  `ScreenProbeUpsampleRenderer` beside `IndirectDiffuse`, four validity-renormalised taps of the
+  resolved planes with the lattice walk pinned against `ScreenProbeLayout.Bilinear` pixel by pixel —
+  but ⚠ **a frame has not drawn it**: it compiles against the whole library and its binding names
+  are pinned, and the image test through a real compositor is the next increment, together with
+  probe placement from the real depth buffer and the node that runs trace, resolve and upsample as
+  one schedule. Bilinear only until the denoiser brings the bilateral weights.
 
 **Nothing here creates or calls a graphics device.** The assembly references
 `Vixen.Rendering.DistanceFields` for the reference's marching and `Vixen.Rendering.IrradianceFields`

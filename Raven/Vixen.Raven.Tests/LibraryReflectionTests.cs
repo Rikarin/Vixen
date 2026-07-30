@@ -60,6 +60,7 @@ public class LibraryReflectionTests {
         ("PostFx", "Taa"),
         ("PostFx", "DistanceFieldAo"),
         ("PostFx", "IndirectDiffuse"),
+        ("PostFx", "ScreenProbeUpsample"),
         ("IrradianceFields", "IrradianceFill"),
         ("IrradianceFields", "IrradianceRepair"),
         ("ScreenProbes", "ScreenProbeTrace"),

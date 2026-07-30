@@ -1,0 +1,146 @@
+package Vixen.Shaders.PostFx
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+import Vixen.Shaders.IrradianceFields
+
+// Per-pixel irradiance out of the resolved screen probes — doc 19 § L3's upsample, first form.
+//
+// The consumer of `ScreenProbeResolve`'s four planes, and the screen-space sibling of
+// `IndirectDiffuse`: that one asks a world-space field what arrives at a position, this one asks the
+// probe lattice what arrives at a pixel. `ScreenProbeAtlas.Irradiance` is the same arithmetic on the
+// CPU and it exists first: four taps of the lattice around the pixel, invalid probes dropped, the
+// weights renormalised over what is left, the blend evaluated once — because the projection is linear,
+// so blending coefficients IS blending light.
+//
+// Bilinear only, deliberately. The bilateral half — weights that also respect depth and normal edges so
+// light does not bleed across a silhouette — is the denoiser's opening move and lands with it, against
+// frames this version is the baseline for.
+
+shader ScreenProbeUpsample {
+    /// The resolved probes, in the irradiance pool's colour-major packing — `ScreenProbeResolve`'s
+    /// output, bound from `ScreenProbeTexture.Apply`.
+    var probeL0: Texture2D
+    var probeL1R: Texture2D
+    var probeL1G: Texture2D
+    var probeL1B: Texture2D
+
+    var depthBuffer: Texture2D
+    var normalBuffer: Texture2D
+    var pointSampler: Sampler
+
+    /// How many pixels one probe stands for, along each axis.
+    var tileSize: float = 16f
+
+    /// Where the first anchor's centre is, in pixels — `tileSize / 2 + 0.5` with the host's integer
+    /// halving, so the two sides cannot round a tie differently.
+    var latticeOrigin: float = 8.5f
+
+    /// How many probes there are, along each axis.
+    var gridSize: float2 = float2(1f, 1f)
+
+    /// The viewport, in pixels — what turns a UV back into the pixel the lattice is laid over.
+    var viewport: float2 = float2(1f, 1f)
+
+    /// A multiplier on the result, for `IndirectDiffuse.intensity`'s reasons.
+    var intensity: float = 1f
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex([Semantic("SV_VertexID")] vertexIndex: int): float4 {
+        uv = Fullscreen.Uv(vertexIndex)
+        return Fullscreen.Position(vertexIndex)
+    }
+
+    /// One probe out of the four planes — the pool's colour-major unpack, one texture dimension down.
+    func Fetch(probe: int2): IrradianceProbe {
+        val a = probeL0.Load(int3(probe.x, probe.y, 0))
+        val r = probeL1R.Load(int3(probe.x, probe.y, 0))
+        val g = probeL1G.Load(int3(probe.x, probe.y, 0))
+        val b = probeL1B.Load(int3(probe.x, probe.y, 0))
+
+        val l1m1 = float3(r.r, g.r, b.r)
+        val l10 = float3(r.g, g.g, b.g)
+        val l11 = float3(r.b, g.b, b.b)
+
+        return IrradianceProbe(a.rgb, l1m1, l10, l11, a.a, r.a)
+    }
+
+    /// The two probe columns (or rows) around a pixel coordinate, and the blend between them —
+    /// `ScreenProbeLayout.Axis`, written out. Low in `x`, high in `y`, the weight in `z`.
+    func Along(pixelCentre: float, probes: float): float3 {
+        val continuous = (pixelCentre - latticeOrigin) / tileSize
+        val low = floor(continuous)
+
+        if (low < 0f) {
+            return float3(0f, 0f, 0f)
+        }
+
+        if (low >= probes - 1f) {
+            return float3(probes - 1f, probes - 1f, 0f)
+        }
+
+        return float3(low, low + 1f, continuous - low)
+    }
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        val deviceDepth = depthBuffer.Sample(pointSampler, uv).r
+
+        // Nothing was drawn here. ZERO is the sky, because depth is reversed — see `IndirectDiffuse`,
+        // and `Fog.rvn` before it.
+        if (deviceDepth <= 0f) {
+            return float4(0f, 0f, 0f, 1f)
+        }
+
+        val normal = Math.SafeNormalize(normalBuffer.Sample(pointSampler, uv).xyz * 2f - 1f)
+
+        // A fragment's UV is its pixel centre, so this is pixel + 0.5 — the coordinate the lattice
+        // maths is written in on both sides.
+        val pixelCentre = uv * viewport
+
+        val x = Along(pixelCentre.x, gridSize.x)
+        val y = Along(pixelCentre.y, gridSize.y)
+
+        var l00 = float3(0f, 0f, 0f)
+        var l1m1 = float3(0f, 0f, 0f)
+        var l10 = float3(0f, 0f, 0f)
+        var l11 = float3(0f, 0f, 0f)
+        var weight = 0f
+
+        for (corner in 0 .. 3) {
+            val px = corner == 1 || corner == 3 ? x.y : x.x
+            val py = corner >= 2 ? y.y : y.x
+            val wx = corner == 1 || corner == 3 ? x.z : 1f - x.z
+            val wy = corner >= 2 ? y.z : 1f - y.z
+            val w = wx * wy
+
+            if (w > 0f) {
+                val probe = Fetch(int2(int(px), int(py)))
+
+                // Invalid probes drop out and the weights renormalise over what is left — the
+                // screen-space restatement of the buried-probe rule, and the reason a sky-anchored
+                // probe is invalid rather than black.
+                if (probe.validity > 0f) {
+                    l00 += probe.l00 * w
+                    l1m1 += probe.l1m1 * w
+                    l10 += probe.l10 * w
+                    l11 += probe.l11 * w
+                    weight += w
+                }
+            }
+        }
+
+        if (weight <= 0f) {
+            return float4(0f, 0f, 0f, 1f)
+        }
+
+        val blended = IrradianceProbe(l00 / weight, l1m1 / weight, l10 / weight, l11 / weight, 1f, 1f)
+        val lit = max(IrradianceField.Irradiance(blended, normal), float3(0f, 0f, 0f))
+
+        return float4(lit * intensity, 1f)
+    }
+}

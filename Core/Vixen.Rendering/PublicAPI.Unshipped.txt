@@ -1816,6 +1816,7 @@ Vixen.Rendering.Lighting.ScreenProbeResolve.ScreenProbeResolve(Vixen.Graphics.IG
 Vixen.Rendering.Lighting.ScreenProbeResolve.Skipped.get -> string?
 Vixen.Rendering.Lighting.ScreenProbeTexture -> sealed class
 Vixen.Rendering.Lighting.ScreenProbeTexture : System.IDisposable
+Vixen.Rendering.Lighting.ScreenProbeTexture.Apply(Vixen.Shaders.ParameterCollection parameters) -> void
 Vixen.Rendering.Lighting.ScreenProbeTexture.Atlas.get -> Vixen.Graphics.TextureHandle
 Vixen.Rendering.Lighting.ScreenProbeTexture.AtlasIsWritten.get -> bool
 Vixen.Rendering.Lighting.ScreenProbeTexture.AtlasIsWritten.init -> bool

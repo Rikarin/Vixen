@@ -205,6 +205,11 @@ Vixen.Rendering.PostFx.PostEffectRenderer.Samplers.get -> Vixen.Rendering.Sample
 Vixen.Rendering.PostFx.PostEffectRenderer.Samplers.set -> Vixen.Rendering.SamplerCache?
 Vixen.Rendering.PostFx.PostEffectRenderer.SceneConstants.get -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.PostFx.PostEffectRenderer.SceneConstants.set -> Vixen.Rendering.SceneConstants?
+Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer -> sealed class
+Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
+Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.Intensity.get -> float
+Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.Intensity.set -> float
+Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.ScreenProbeUpsampleRenderer() -> void
 Vixen.Rendering.PostFx.SharpenRenderer -> sealed class
 Vixen.Rendering.PostFx.SharpenRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
 Vixen.Rendering.PostFx.SharpenRenderer.PerChannel.get -> bool
@@ -370,6 +375,14 @@ Vixen.Shaders.Generated.OutlineConstants.OutlineConstants() -> void
 Vixen.Shaders.Generated.OutlineConstants.TexelSize -> Vixen.Core.Mathematics.Vector2
 Vixen.Shaders.Generated.OutlineConstants.Thickness -> float
 Vixen.Shaders.Generated.OutlineKeys -> static class
+Vixen.Shaders.Generated.ScreenProbeUpsampleConstants -> struct
+Vixen.Shaders.Generated.ScreenProbeUpsampleConstants.GridSize -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.ScreenProbeUpsampleConstants.Intensity -> float
+Vixen.Shaders.Generated.ScreenProbeUpsampleConstants.LatticeOrigin -> float
+Vixen.Shaders.Generated.ScreenProbeUpsampleConstants.ScreenProbeUpsampleConstants() -> void
+Vixen.Shaders.Generated.ScreenProbeUpsampleConstants.TileSize -> float
+Vixen.Shaders.Generated.ScreenProbeUpsampleConstants.Viewport -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.ScreenProbeUpsampleKeys -> static class
 Vixen.Shaders.Generated.SharpenConstants -> struct
 Vixen.Shaders.Generated.SharpenConstants.SharpenConstants() -> void
 Vixen.Shaders.Generated.SharpenConstants.Sharpness -> float
@@ -492,6 +505,25 @@ const Vixen.Shaders.Generated.OutlineKeys.SelectionMaskSet = 2 -> int
 const Vixen.Shaders.Generated.OutlineKeys.ShaderName = "Outline" -> string
 const Vixen.Shaders.Generated.OutlineKeys.SourceBinding = 1 -> uint
 const Vixen.Shaders.Generated.OutlineKeys.SourceSet = 2 -> int
+const Vixen.Shaders.Generated.ScreenProbeUpsampleConstants.Size = 32 -> int
+const Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.ConstantBufferSet = 2 -> int
+const Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.ConstantBufferSize = 32 -> int
+const Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.DepthBufferBinding = 5 -> uint
+const Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.DepthBufferSet = 2 -> int
+const Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.NormalBufferBinding = 6 -> uint
+const Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.NormalBufferSet = 2 -> int
+const Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.PointSamplerBinding = 7 -> uint
+const Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.PointSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.ProbeL0Binding = 1 -> uint
+const Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.ProbeL0Set = 2 -> int
+const Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.ProbeL1BBinding = 4 -> uint
+const Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.ProbeL1BSet = 2 -> int
+const Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.ProbeL1GBinding = 3 -> uint
+const Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.ProbeL1GSet = 2 -> int
+const Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.ProbeL1RBinding = 2 -> uint
+const Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.ProbeL1RSet = 2 -> int
+const Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.ShaderName = "ScreenProbeUpsample" -> string
 const Vixen.Shaders.Generated.SharpenConstants.Size = 16 -> int
 const Vixen.Shaders.Generated.SharpenKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.SharpenKeys.ConstantBufferSet = 2 -> int
@@ -549,6 +581,7 @@ override Vixen.Rendering.PostFx.IndirectDiffuseRenderer.Configure(Vixen.Renderin
 override Vixen.Rendering.PostFx.IndirectDiffuseRenderer.TargetSize(Vixen.Core.Mathematics.Int2 frame) -> Vixen.Core.Mathematics.Int2
 override Vixen.Rendering.PostFx.OutlineRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.PostEffectRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
+override Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.SharpenRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.DeclareOutput(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Core.Mathematics.Int2 size) -> void
@@ -563,6 +596,7 @@ readonly Vixen.Shaders.Generated.FxaaConstants.Write(System.Span<byte> buffer) -
 readonly Vixen.Shaders.Generated.IndirectDiffusePerFrameConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.IndirectDiffusePerMaterialConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.OutlineConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.ScreenProbeUpsampleConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.SharpenConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.SsaoConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.TaaConstants.Write(System.Span<byte> buffer) -> void
@@ -591,6 +625,12 @@ required Vixen.Rendering.PostFx.OutlineRenderer.Depth.get -> string
 required Vixen.Rendering.PostFx.OutlineRenderer.Depth.init -> string
 required Vixen.Rendering.PostFx.OutlineRenderer.Source.get -> string
 required Vixen.Rendering.PostFx.OutlineRenderer.Source.init -> string
+required Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.Depth.get -> string
+required Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.Depth.init -> string
+required Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.Normals.get -> string
+required Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.Normals.init -> string
+required Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.Probes.get -> Vixen.Rendering.Lighting.ScreenProbeTexture
+required Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.Probes.init -> Vixen.Rendering.Lighting.ScreenProbeTexture
 required Vixen.Rendering.PostFx.SharpenRenderer.Source.get -> string
 required Vixen.Rendering.PostFx.SharpenRenderer.Source.init -> string
 required Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.Depth.get -> string
@@ -684,6 +724,18 @@ static readonly Vixen.Shaders.Generated.OutlineKeys.TexelSize -> Vixen.Shaders.P
 static readonly Vixen.Shaders.Generated.OutlineKeys.Thickness -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.OutlineKeys.UseNormals -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.OutlineKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
+static readonly Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.DepthBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.GridSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.Intensity -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.LatticeOrigin -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.NormalBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.PointSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.ProbeL0 -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.ProbeL1B -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.ProbeL1G -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.ProbeL1R -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.TileSize -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.ScreenProbeUpsampleKeys.Viewport -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
 static readonly Vixen.Shaders.Generated.SharpenKeys.PerChannel -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.SharpenKeys.PointSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
 static readonly Vixen.Shaders.Generated.SharpenKeys.Sharpness -> Vixen.Shaders.ParameterKey<float>

@@ -681,10 +681,20 @@ constant plane's alpha, shaped for the upsample pass that does not exist yet. Th
 the atlas under a linear sky so the projection genuinely integrates, and holds all four
 coefficients of every probe, invalid one included, to a ten-thousandth.
 
-Still not started, and named in the README as decisions: screen traces against the HZB (the trace
-order's first stage, which needs a frame), adaptive placement, importance sampling, the whole
-denoiser, and the frame itself — the upsample pass, probe placement from the real depth buffer, and
-the compositor node that owns the lot.
+**The upsample exists, and a frame has not drawn it — stated in that order deliberately.**
+`ScreenProbeUpsample.rvn` is `IndirectDiffuse`'s screen-space sibling: four validity-renormalised
+taps of the resolved planes per pixel, the blend evaluated once because the projection is linear,
+the sky rejected by the reversed-depth zero test that bit twice before. Its lattice walk is
+emulated in C# and held against `ScreenProbeLayout.Bilinear` for every pixel of a clamping
+viewport — the pixel-centre and lattice-origin halves are this pass's half-texel, wrong-silently on
+either side alone — and a compile test pins the reflected binding names to what
+`ScreenProbeTexture.Apply` writes. What does not exist is the frame: the image test through a real
+compositor, probe placement from the real depth buffer, and the node that runs trace, resolve and
+upsample as one schedule are the next increment, and this document's own history says what a first
+frame finds. Bilinear only until the denoiser brings the bilateral weights.
+
+Still not started: screen traces against the HZB (the trace order's first stage, which needs that
+frame), adaptive placement, importance sampling, and the whole denoiser.
 
 ### L4 — Surface cache and radiosity *(3.5 EM)*
 
