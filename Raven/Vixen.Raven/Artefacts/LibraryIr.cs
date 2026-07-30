@@ -65,7 +65,35 @@ public sealed record LibraryIrVariable(string Name, LibraryIrTypeReference Type,
 ///     </para>
 /// </remarks>
 public sealed record LibraryIrFunction {
+    /// <summary>
+    ///     What a reference to this function resolves by: the declaration's qualified signature.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Distinct from <see cref="Name" /> because the two answer different questions. A name
+    ///         is a module's identifier and only has to be unique inside the module that coined it;
+    ///         a consumer links every library it references into <em>one</em> module, so what it
+    ///         looks a callee up by has to be unique across all of them at once. Keyed by name, two
+    ///         packages that each declared a <c>static func Of</c> became one entry, and a call
+    ///         bound against either got whichever library loaded first — with no diagnostic, because
+    ///         nothing was missing.
+    ///     </para>
+    ///     <para>
+    ///         The signature, not just the qualified member name, so overloads stay apart: a key is
+    ///         matched, never parsed or printed, so it costs nothing to make it total.
+    ///     </para>
+    /// </remarks>
+    public required string Key { get; init; }
+
+    /// <summary>The identifier the function carried in the module that built it.</summary>
+    /// <remarks>
+    ///     Carried so a consumer can keep it. The name is what a backend emits and what a frame
+    ///     debugger shows, and <c>SpecularGgx</c> reads where the key it is reached by does not; a
+    ///     consumer takes this one unless something already holds it, which is the same rule that
+    ///     lets a shader's own <c>Saturate</c> outrank a library's.
+    /// </remarks>
     public required string Name { get; init; }
+
     public required LibraryIrTypeReference ReturnType { get; init; }
     public ImmutableArray<LibraryIrVariable> Parameters { get; init; } = [];
     public ImmutableArray<LibraryIrVariable> Locals { get; init; } = [];
@@ -176,7 +204,10 @@ public sealed record LibraryIrIntrinsic(int? Result, IrIntrinsic Intrinsic, Immu
 /// </param>
 public sealed record LibraryIrArgument(int? Value, int? Reference);
 
-/// <summary>A call, naming its callee. The name is resolved once every function exists.</summary>
+/// <summary>
+///     A call, naming its callee by <see cref="LibraryIrFunction.Key" />. Resolved once every
+///     function exists.
+/// </summary>
 public sealed record LibraryIrCall(int? Result, string Function, ImmutableArray<LibraryIrArgument> Arguments)
     : LibraryIrStatement;
 

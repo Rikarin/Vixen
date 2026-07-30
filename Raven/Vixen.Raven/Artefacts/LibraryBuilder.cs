@@ -21,9 +21,9 @@ namespace Vixen.Raven.Artefacts;
 ///     <para>
 ///         What a library exports is what its own compilation declared: every type, and the body of
 ///         every member whose body can stand on its own. Types and functions linked in from another
-///         library are <em>not</em> re-exported — a call into one travels as a name, and the consumer
-///         resolves it against its own references, which is what keeps one struct from having two
-///         identities in a module that references both libraries.
+///         library are <em>not</em> re-exported — a call into one travels as the key that library
+///         published, and the consumer resolves it against its own references, which is what keeps
+///         one struct from having two identities in a module that references both libraries.
 ///     </para>
 ///     <para>
 ///         The checks run here rather than in a consumer, because here is where they can be fixed. A
@@ -78,7 +78,7 @@ public static class LibraryBuilder {
                 ownStructs,
                 builder.ExportedFunctions,
                 lowered.ArtefactName,
-                lowered.ArtefactName
+                builder.Key
             ),
             SourceHash = HashSources(compilation)
         };
@@ -235,9 +235,23 @@ public static class LibraryBuilder {
         DiagnosticBag diagnostics
     ) {
         readonly List<IrFunction> functions = [];
+        readonly Dictionary<IrFunction, string> keys = [];
 
         /// <summary>The IR functions to put in the artefact, in the order the types named them.</summary>
         public IReadOnlyList<IrFunction> ExportedFunctions => functions;
+
+        /// <summary>
+        ///     The artefact key for a function: the one this build is giving it, or the one the
+        ///     library it was linked from already gave it.
+        /// </summary>
+        /// <remarks>
+        ///     The fallback covers a callee rather than a declaration. A body being exported may
+        ///     call into a library this one was built against; that function is not re-exported —
+        ///     the artefact that declared it exports it — so the call has to travel under the key
+        ///     that artefact used, which is what a linked function's artefact name is.
+        /// </remarks>
+        public string Key(IrFunction function) =>
+            keys.GetValueOrDefault(function) ?? lowered.ArtefactName(function);
 
         public LibraryType BuildType(NamedTypeSymbol type) {
             // Null for anything with no storage — a shader, a protocol, an enum — and for a struct
@@ -290,8 +304,18 @@ public static class LibraryBuilder {
                 HasGetter = property.HasGetter,
                 HasSetter = property.HasSetter,
                 IsStatic = property.IsStatic,
-                IrGetter = Export(property, BoundBodyKind.PropertyGetter, $"get_{property.Name}"),
-                IrSetter = Export(property, BoundBodyKind.PropertySetter, $"set_{property.Name}")
+                IrGetter = Export(
+                    property,
+                    BoundBodyKind.PropertyGetter,
+                    $"{property.ToDisplayString()}:get",
+                    $"get_{property.Name}"
+                ),
+                IrSetter = Export(
+                    property,
+                    BoundBodyKind.PropertySetter,
+                    $"{property.ToDisplayString()}:set",
+                    $"set_{property.Name}"
+                )
             };
 
         LibraryMethod Method(NamedTypeSymbol declaringType, MethodSymbol method) {
@@ -309,6 +333,10 @@ public static class LibraryBuilder {
 
             var kind = method.IsConstructor ? BoundBodyKind.Constructor : BoundBodyKind.Method;
 
+            // The qualified signature serves as both the key and the diagnostic's subject: it names
+            // one declaration and no other, which is what each of the two wants of it.
+            var signature = method.ToDisplayString();
+
             return new() {
                 Name = method.Name,
                 MethodKind = method.MethodKind,
@@ -320,18 +348,25 @@ public static class LibraryBuilder {
                 SemanticName = method.SemanticName,
                 IrFunction = method.Stage != ShaderStage.None
                     ? null
-                    : Export(method, kind, method.ToDisplayString())
+                    : Export(method, kind, signature, signature)
             };
         }
 
         /// <summary>
-        ///     The IR function name to record for a member's body, or null when there is nothing to
+        ///     The artefact key to record for a member's body, or null when there is nothing to
         ///     export.
         /// </summary>
         /// <param name="member">The member whose body is being exported.</param>
         /// <param name="kind">Which of its bodies.</param>
+        /// <param name="key">
+        ///     What a consumer will resolve the body by. Derived from the declaration rather than
+        ///     from the IR function's name, because the name is only unique within the module that
+        ///     coined it: a consumer links every library it references into one module, so two
+        ///     packages that each declared a <c>static func Of</c> both offered it the key
+        ///     <c>Of</c>, and one of them lost — silently, since a call to either resolved.
+        /// </param>
         /// <param name="description">How to name the member in a diagnostic.</param>
-        string? Export(Symbol member, BoundBodyKind kind, string description) {
+        string? Export(Symbol member, BoundBodyKind kind, string key, string description) {
             if (lowered.Functions.GetValueOrDefault((member, kind)) is not { } function) {
                 // No body: a protocol's declaration, which is bodyless by construction and is what
                 // a compose slot binds against.
@@ -339,7 +374,8 @@ public static class LibraryBuilder {
             }
 
             // Already an import — a member of a referenced library, reached because a compose slot
-            // resolved to one. Its own artefact exports it; this one records the call by name.
+            // resolved to one. Its own artefact exports it; this one records the call by that
+            // artefact's key, which is what `Key` falls back to.
             if (lowered.ImportedFunctions.Contains(function)) {
                 return null;
             }
@@ -358,8 +394,13 @@ public static class LibraryBuilder {
                 return null;
             }
 
-            functions.Add(function);
-            return function.Name;
+            // Added once, however many types name it: a member reached through an inheriting type
+            // as well as its own is one body, and the artefact says so once.
+            if (keys.TryAdd(function, key)) {
+                functions.Add(function);
+            }
+
+            return keys[function];
         }
 
         LibraryParameter Parameter(ParameterSymbol parameter) =>

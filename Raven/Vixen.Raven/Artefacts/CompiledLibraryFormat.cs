@@ -48,8 +48,15 @@ public static class CompiledLibraryFormat {
     ///     version-1 reader would have taken every argument for a by-value one, and a version-1
     ///     artefact read by this version fails to deserialize — so the bump turns a confusing JSON
     ///     error into "this library was built by a different compiler".
+    ///     <para>
+    ///         3 split a function's identity from its name: <see cref="LibraryIrFunction.Key" />
+    ///         is what a reference resolves by and <see cref="LibraryIrFunction.Name" /> is only
+    ///         what it is called. A version-2 artefact has no keys, and a version-2 reader would
+    ///         take this one's keys for names — which is the collision the split exists to stop,
+    ///         reintroduced by the reader.
+    ///     </para>
     /// </remarks>
-    public const int Version = 2;
+    public const int Version = 3;
 
     /// <summary>The conventional extension, so callers do not spell it themselves.</summary>
     public const string Extension = ".rvnlib";

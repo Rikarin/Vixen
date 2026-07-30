@@ -19,17 +19,22 @@ namespace Vixen.Raven.Artefacts;
 ///         Names, not objects, are what cross the boundary — and specifically the name the
 ///         <em>artefact</em> uses. An entity linked in from another library may have been renamed to
 ///         keep the producing module's namespace unambiguous, so the encoder is given the naming
-///         function rather than reading <c>IrFunction.Name</c>: what it writes has to be the name a
+///         function rather than reading <c>IrStructType.Name</c>: what it writes has to be the name a
 ///         consumer will look up.
+///     </para>
+///     <para>
+///         A function crosses under two labels: the <see cref="LibraryIrFunction.Key" /> a reference
+///         resolves by, which is supplied, and the <see cref="LibraryIrFunction.Name" /> it carried,
+///         which is read off the function because that is exactly what it is.
 ///     </para>
 /// </remarks>
 internal sealed class LibraryIrEncoder {
-    readonly Func<IrFunction, string> functionName;
+    readonly Func<IrFunction, string> functionKey;
     readonly Func<IrStructType, string> structName;
 
-    LibraryIrEncoder(Func<IrStructType, string> structName, Func<IrFunction, string> functionName) {
+    LibraryIrEncoder(Func<IrStructType, string> structName, Func<IrFunction, string> functionKey) {
         this.structName = structName;
-        this.functionName = functionName;
+        this.functionKey = functionKey;
     }
 
     /// <summary>
@@ -41,7 +46,10 @@ internal sealed class LibraryIrEncoder {
     ///     The artefact name for a struct — its own, or the name the library it was linked from
     ///     gave it.
     /// </param>
-    /// <param name="functionName">The artefact name for a function, on the same terms.</param>
+    /// <param name="functionKey">
+    ///     The artefact key for a function — the one this library is giving it, or the one the
+    ///     library it was linked from already gave it.
+    /// </param>
     /// <remarks>
     ///     Takes the entities to export rather than a whole module, because what a library exports
     ///     is the writer's decision: a shader's functions come along (a protocol implementation is
@@ -51,9 +59,9 @@ internal sealed class LibraryIrEncoder {
         IEnumerable<IrStructType> structs,
         IEnumerable<IrFunction> functions,
         Func<IrStructType, string> structName,
-        Func<IrFunction, string> functionName
+        Func<IrFunction, string> functionKey
     ) {
-        var encoder = new LibraryIrEncoder(structName, functionName);
+        var encoder = new LibraryIrEncoder(structName, functionKey);
 
         return new() {
             Structs = [.. structs.Select(encoder.EncodeStruct)],
@@ -111,7 +119,8 @@ internal sealed class LibraryIrEncoder {
         CollectValues(function.Body, values);
 
         return new() {
-            Name = functionName(function),
+            Key = functionKey(function),
+            Name = function.Name,
             ReturnType = EncodeType(function.ReturnType),
             Parameters = [.. function.Parameters.Select(EncodeVariable)],
             Locals = [.. function.Locals.Select(EncodeVariable)],
@@ -213,7 +222,7 @@ internal sealed class LibraryIrEncoder {
             ),
             IrCallInstruction call => new LibraryIrCall(
                 call.Result?.Id,
-                functionName(call.Function),
+                functionKey(call.Function),
                 [.. call.Arguments.Select(a => EncodeArgument(a, roots))]
             ),
             IrConstructInstruction construct => new LibraryIrConstruct(
@@ -333,12 +342,21 @@ internal sealed class LibraryIrDecoder {
     /// </remarks>
     public IReadOnlyDictionary<string, IrStructType> Structs => structs;
 
-    /// <summary>Functions keyed by the name their artefact gave them.</summary>
+    /// <summary>Functions keyed by the artefact key their library gave them.</summary>
+    /// <remarks>
+    ///     A key rather than a name, and one flat table rather than one per library, because both
+    ///     halves are load-bearing. Flat, because a library may be built against another and record
+    ///     a call into it by key — so the key a consumer resolves has to mean the same function
+    ///     whichever library named it. Keyed, because the name alone did not: two packages that each
+    ///     declared a <c>static func Of</c> collided here, and the loser's callers silently got the
+    ///     winner's body.
+    /// </remarks>
     public IReadOnlyDictionary<string, IrFunction> Functions => functions;
 
     /// <param name="nameFor">
-    ///     Maps an artefact name to one that is free in the module being built. Called once per
-    ///     struct and function in artefact order, so renaming is deterministic.
+    ///     Maps the name an entity carried in its own library to one that is free in the module
+    ///     being built. Called once per struct and function in artefact order, so renaming is
+    ///     deterministic.
     /// </param>
     public LibraryIrDecoder(Func<string, string> nameFor) {
         this.nameFor = nameFor;
@@ -382,8 +400,10 @@ internal sealed class LibraryIrDecoder {
     public void DecodeFunctions() {
         foreach (var ir in loaded) {
             foreach (var function in ir.Functions) {
-                if (!functions.ContainsKey(function.Name)) {
-                    functions[function.Name] = new(nameFor(function.Name), DecodeType(function.ReturnType));
+                // Identified by key, named by name: the key is what a caller resolves, while the
+                // name is only a request — `nameFor` moves it aside if the module already holds it.
+                if (!functions.ContainsKey(function.Key)) {
+                    functions[function.Key] = new(nameFor(function.Name), DecodeType(function.ReturnType));
                 }
             }
         }
@@ -392,7 +412,7 @@ internal sealed class LibraryIrDecoder {
 
         foreach (var ir in loaded) {
             foreach (var function in ir.Functions) {
-                if (filled.Add(function.Name)) {
+                if (filled.Add(function.Key)) {
                     DecodeBody(function);
                 }
             }
@@ -452,7 +472,7 @@ internal sealed class LibraryIrDecoder {
         };
 
     void DecodeBody(LibraryIrFunction source) {
-        var function = functions[source.Name];
+        var function = functions[source.Key];
 
         List<IrVariable> roots = [];
         foreach (var parameter in source.Parameters) {

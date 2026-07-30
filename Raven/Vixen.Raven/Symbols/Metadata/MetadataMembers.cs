@@ -74,7 +74,8 @@ public sealed class MetadataMethodSymbol : MethodSymbol {
             .ToArray();
 
     /// <summary>
-    ///     The IR function this method's body lowered to, or null when there is nothing to link.
+    ///     The artefact key of the IR function this method's body lowered to, or null when there is
+    ///     nothing to link. See <see cref="LibraryIrFunction.Key" />.
     /// </summary>
     /// <remarks>
     ///     Null is the ordinary case for a protocol's declaration, which is bodyless and is

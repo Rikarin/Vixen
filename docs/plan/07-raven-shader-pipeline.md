@@ -847,6 +847,40 @@ monomorphisation and not what `compose` does.
 - **Range `for` is inclusive.** `for (i in 0 .. 4)` runs five times, Kotlin-style. Correct and
   documented, but it is the kind of thing a library gets wrong once.
 
+#### ✅ A library function crossed the boundary under a name, and two packages could pick the same one
+
+An exported function was identified by the name it carried in the module that built it — `Of` for a
+`static func Of` on a struct that neither inherits nor is an instantiation. That name only has to be
+unique inside *one* module, and `Lowerer` made sure of it. A consumer links every library it
+references into a single module and looked each callee up in one flat table keyed by that name, so
+two packages that each declared a `static func Of` offered the same key, the first library loaded
+took it, and every call to the other silently got the winner's body. Nothing was missing, so nothing
+was reported.
+
+The table has to be flat — a library built against another records a call into it by the name that
+library published, so a name must mean the same function whichever artefact used it — which leaves
+only one place to fix: the name was doing two jobs. `LibraryIrFunction` now carries both. `Key` is
+the declaration's qualified signature and is what a reference resolves by; `Name` is the identifier
+the function had and is only a request, which the consumer honours unless something already holds it.
+Splitting them means the fix costs nothing in emitted output: a linked `SpecularGgx` is still called
+`SpecularGgx` in the GLSL a frame debugger shows, which was the reason names were left unqualified in
+the first place. The signature rather than the qualified member name, so overloads stay apart too — a
+key is matched, never printed, so making it total is free.
+
+The `.rvnlib` format went to **version 3** for the split. A version-2 reader would take this
+version's keys for names, which is the collision the split exists to stop, reintroduced by the
+reader.
+
+The signature mismatch is what made this visible — `RVN3010`, a call passing three arguments to a
+function taking five. Two same-named statics with *matching* signatures resolve to the wrong body
+with no diagnostic at all, produce a shader that compiles and validates, and compute the wrong thing;
+that is the case `CompiledLibraryTests.SameNamedStaticsInTwoLibrariesEachKeepTheirOwnBody` pins.
+
+Structs still cross by name alone, and two packages that each declare a `struct Sampling` would
+unify the same way. That one is deliberately unfixed here: a struct's name is also what a consumer's
+own declaration shadows, so it wants the same treatment on both halves of the artefact rather than
+the IR half only.
+
 ### G. Testing and CI additions
 
 The full testing story, by layer and with the status of each. This is the only testing table in the
