@@ -30,6 +30,13 @@
         -->
         <ProjectReference Include="..\Vixen.Rendering.DistanceFields\Vixen.Rendering.DistanceFields.csproj" />
         <ProjectReference Include="..\Vixen.Rendering.IrradianceFields\Vixen.Rendering.IrradianceFields.csproj" />
+
+        <!--
+            For the screen trace the trace order runs first — doc 19 § L3's own march, reused: the
+            screen holds geometry the field does not, and for a reflection the frame's colour at the
+            hit pixel is the answer, which is SSR by its plain name.
+        -->
+        <ProjectReference Include="..\Vixen.Rendering.ScreenProbes\Vixen.Rendering.ScreenProbes.csproj" />
     </ItemGroup>
 
     <ItemGroup>

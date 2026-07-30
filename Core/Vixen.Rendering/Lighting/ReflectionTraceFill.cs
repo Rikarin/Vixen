@@ -43,6 +43,8 @@ public sealed class ReflectionTraceFill : IDisposable {
 
     const string NormalsName = "reflectionNormals";
     const string TargetName = "reflectionAtlas";
+    const string DepthName = "depthBuffer";
+    const string ColourName = "sceneColor";
 
     readonly List<DescriptorWrite> writes = [];
     readonly EffectConstants frameBlock;
@@ -114,6 +116,25 @@ public sealed class ReflectionTraceFill : IDisposable {
     /// <summary>How far below the threshold the cross-fade starts. Zero is the hard switch.</summary>
     public float RoughnessBlend { get; set; }
 
+    /// <summary>The frame's depth, for the screen march — invalid for no screen trace at all.</summary>
+    public TextureViewHandle ScreenDepth { get; set; }
+
+    /// <summary>The frame's colour, which is what a screen hit reflects.</summary>
+    public TextureViewHandle ScreenColour { get; set; }
+
+    /// <summary>The camera that drew both — the forward matrix.</summary>
+    public Matrix4x4 ViewProjection { get; set; } = Matrix4x4.Identity;
+
+    /// <summary>The viewport they cover, in pixels.</summary>
+    public Int2 ScreenViewport { get; set; }
+
+    /// <summary>How many equal steps a screen ray takes. Written as zero while either view is
+    ///     invalid, so the descriptors can hold a stand-in the kernel never loads.</summary>
+    public int ScreenSteps { get; set; } = 32;
+
+    /// <summary>How deep behind a surface a sample still counts as inside it, in device depth.</summary>
+    public float ScreenThickness { get; set; } = 0.02f;
+
     /// <summary>How many dispatches have been recorded.</summary>
     public int Dispatches { get; private set; }
 
@@ -162,12 +183,22 @@ public sealed class ReflectionTraceFill : IDisposable {
             return Skip($"'{key}' has no compute stage, so there is no pipeline to dispatch");
         }
 
+        var screen = ScreenDepth.IsValid && ScreenColour.IsValid;
+
         Parameters.Set(ReflectionTraceKeys.ReflectionViewport, Viewport);
         Parameters.Set(ReflectionTraceKeys.CameraPosition, CameraPosition);
         Parameters.Set(ReflectionTraceKeys.MaxDistance, MaxDistance);
         Parameters.Set(ReflectionTraceKeys.Bias, Bias);
         Parameters.Set(ReflectionTraceKeys.RoughnessThreshold, RoughnessThreshold);
         Parameters.Set(ReflectionTraceKeys.RoughnessBlend, RoughnessBlend);
+        Parameters.Set(ReflectionTraceKeys.ViewProjection, ViewProjection);
+        Parameters.Set(ReflectionTraceKeys.ScreenViewport, new Vector2(ScreenViewport.X, ScreenViewport.Y));
+
+        // Zero while either view is a stand-in — "a set with a hole in it binds nothing", so the
+        // descriptors always point at something in the sampled layout, and this is what guarantees
+        // the kernel never loads it.
+        Parameters.Set(ReflectionTraceKeys.ScreenSteps, screen ? ScreenSteps : 0);
+        Parameters.Set(ReflectionTraceKeys.ScreenThickness, ScreenThickness);
 
         var frame = default(DescriptorSetHandle);
 
@@ -253,6 +284,16 @@ public sealed class ReflectionTraceFill : IDisposable {
 
         writes.Add(DescriptorWrite.Texture(positions.Binding, Positions));
         writes.Add(DescriptorWrite.Texture(normals.Binding, Normals));
+
+        // With no screen to trace, the positions plane stands in: the descriptor must point at
+        // something in the sampled layout, and zero screenSteps means the kernel never loads it.
+        if (effect.BindingOf(DepthName) is { } depth) {
+            writes.Add(DescriptorWrite.Texture(depth.Binding, ScreenDepth.IsValid ? ScreenDepth : Positions));
+        }
+
+        if (effect.BindingOf(ColourName) is { } colour) {
+            writes.Add(DescriptorWrite.Texture(colour.Binding, ScreenColour.IsValid ? ScreenColour : Positions));
+        }
 
         if (effect.BindingOf(TargetName) is not { } target) {
             return false;

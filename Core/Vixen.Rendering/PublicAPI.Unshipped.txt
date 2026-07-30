@@ -1931,6 +1931,15 @@ Vixen.Rendering.Lighting.ReflectionProbe.ReflectionProbe() -> void
 Vixen.Rendering.Lighting.ReflectionProbe.Sampler.get -> Vixen.Graphics.SamplerHandle
 Vixen.Rendering.Lighting.ReflectionProbe.Sampler.set -> Vixen.Graphics.SamplerHandle
 Vixen.Rendering.Lighting.ReflectionProbe.WeightAt(Vixen.Core.Mathematics.Vector3 position) -> float
+Vixen.Rendering.Lighting.ReflectionProbeMiss -> sealed class
+Vixen.Rendering.Lighting.ReflectionProbeMiss : Vixen.Rendering.Reflections.IReflectionFallback
+Vixen.Rendering.Lighting.ReflectionProbeMiss.Add(Vixen.Rendering.Lighting.ReflectionProbe probe, Vixen.Rendering.Lighting.CubeImage radiance) -> void
+Vixen.Rendering.Lighting.ReflectionProbeMiss.Apply(Vixen.Shaders.ParameterCollection parameters, string shaderName, Vixen.Graphics.SamplerHandle sampler) -> void
+Vixen.Rendering.Lighting.ReflectionProbeMiss.Count.get -> int
+Vixen.Rendering.Lighting.ReflectionProbeMiss.FarColour.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Lighting.ReflectionProbeMiss.FarColour.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Lighting.ReflectionProbeMiss.Miss(Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 direction, float roughness) -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Lighting.ReflectionProbeMiss.ReflectionProbeMiss() -> void
 Vixen.Rendering.Lighting.ReflectionProbeSelector -> sealed class
 Vixen.Rendering.Lighting.ReflectionProbeSelector.Probes.get -> System.Collections.Generic.IList<Vixen.Rendering.Lighting.ReflectionProbe>
 Vixen.Rendering.Lighting.ReflectionProbeSelector.ReflectionProbeSelector() -> void
@@ -1968,11 +1977,23 @@ Vixen.Rendering.Lighting.ReflectionTraceFill.RoughnessBlend.get -> float
 Vixen.Rendering.Lighting.ReflectionTraceFill.RoughnessBlend.set -> float
 Vixen.Rendering.Lighting.ReflectionTraceFill.RoughnessThreshold.get -> float
 Vixen.Rendering.Lighting.ReflectionTraceFill.RoughnessThreshold.set -> float
+Vixen.Rendering.Lighting.ReflectionTraceFill.ScreenColour.get -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.Lighting.ReflectionTraceFill.ScreenColour.set -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.Lighting.ReflectionTraceFill.ScreenDepth.get -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.Lighting.ReflectionTraceFill.ScreenDepth.set -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.Lighting.ReflectionTraceFill.ScreenSteps.get -> int
+Vixen.Rendering.Lighting.ReflectionTraceFill.ScreenSteps.set -> int
+Vixen.Rendering.Lighting.ReflectionTraceFill.ScreenThickness.get -> float
+Vixen.Rendering.Lighting.ReflectionTraceFill.ScreenThickness.set -> float
+Vixen.Rendering.Lighting.ReflectionTraceFill.ScreenViewport.get -> Vixen.Core.Mathematics.Int2
+Vixen.Rendering.Lighting.ReflectionTraceFill.ScreenViewport.set -> Vixen.Core.Mathematics.Int2
 Vixen.Rendering.Lighting.ReflectionTraceFill.Skipped.get -> string?
 Vixen.Rendering.Lighting.ReflectionTraceFill.Source.get -> string
 Vixen.Rendering.Lighting.ReflectionTraceFill.Source.set -> string
 Vixen.Rendering.Lighting.ReflectionTraceFill.Target.get -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Lighting.ReflectionTraceFill.Target.set -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.Lighting.ReflectionTraceFill.ViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.Lighting.ReflectionTraceFill.ViewProjection.set -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.Lighting.ReflectionTraceFill.Viewport.get -> Vixen.Core.Mathematics.Int2
 Vixen.Rendering.Lighting.ReflectionTraceFill.Viewport.set -> Vixen.Core.Mathematics.Int2
 Vixen.Rendering.Lighting.RenderedIrradianceCaptures -> sealed class
@@ -3568,8 +3589,12 @@ Vixen.Shaders.Generated.ReflectionTracePerMaterialConstants.ReflectionTracePerMa
 Vixen.Shaders.Generated.ReflectionTracePerMaterialConstants.ReflectionViewport -> Vixen.Core.Mathematics.Int2
 Vixen.Shaders.Generated.ReflectionTracePerMaterialConstants.RoughnessBlend -> float
 Vixen.Shaders.Generated.ReflectionTracePerMaterialConstants.RoughnessThreshold -> float
+Vixen.Shaders.Generated.ReflectionTracePerMaterialConstants.ScreenSteps -> int
+Vixen.Shaders.Generated.ReflectionTracePerMaterialConstants.ScreenThickness -> float
+Vixen.Shaders.Generated.ReflectionTracePerMaterialConstants.ScreenViewport -> Vixen.Core.Mathematics.Vector2
 Vixen.Shaders.Generated.ReflectionTracePerMaterialConstants.StepScale -> float
 Vixen.Shaders.Generated.ReflectionTracePerMaterialConstants.SurfaceThreshold -> float
+Vixen.Shaders.Generated.ReflectionTracePerMaterialConstants.ViewProjection -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Shaders.Generated.ScreenProbeAccumulateConstants -> struct
 Vixen.Shaders.Generated.ScreenProbeAccumulateConstants.Frames -> int
 Vixen.Shaders.Generated.ScreenProbeAccumulateConstants.GridSize -> Vixen.Core.Mathematics.Vector2
@@ -3799,6 +3824,7 @@ const Vixen.Rendering.Lighting.IrradianceFieldRepair.ShaderName = "IrradianceRep
 const Vixen.Rendering.Lighting.IrradianceFieldTexture.PoolIsBeingWritten = Vixen.Graphics.ResourceState.ShaderRead | Vixen.Graphics.ResourceState.ShaderWrite -> Vixen.Graphics.ResourceState
 const Vixen.Rendering.Lighting.IrradianceFillJob.Stride = 48 -> int
 const Vixen.Rendering.Lighting.IrradianceRepairJob.Stride = 48 -> int
+const Vixen.Rendering.Lighting.ReflectionProbeMiss.ProbeLimit = 4 -> int
 const Vixen.Rendering.Lighting.ReflectionTraceFill.ShaderName = "ReflectionTrace" -> string
 const Vixen.Rendering.Lighting.ScreenProbeAccumulateFill.ShaderName = "ScreenProbeAccumulate" -> string
 const Vixen.Rendering.Lighting.ScreenProbeFilterFill.ShaderName = "ScreenProbeFilter" -> string
@@ -4040,6 +4066,8 @@ const Vixen.Shaders.Generated.ReflectionTraceGlobalDistanceFieldDistanceFieldVol
 const Vixen.Shaders.Generated.ReflectionTraceKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.ReflectionTraceKeys.ConstantBufferSet = 0 -> int
 const Vixen.Shaders.Generated.ReflectionTraceKeys.ConstantBufferSize = 352 -> int
+const Vixen.Shaders.Generated.ReflectionTraceKeys.DepthBufferBinding = 3 -> uint
+const Vixen.Shaders.Generated.ReflectionTraceKeys.DepthBufferSet = 2 -> int
 const Vixen.Shaders.Generated.ReflectionTraceKeys.GlobalDistanceFieldDistanceFieldLevelsBinding = 1 -> uint
 const Vixen.Shaders.Generated.ReflectionTraceKeys.GlobalDistanceFieldDistanceFieldLevelsSet = 0 -> int
 const Vixen.Shaders.Generated.ReflectionTraceKeys.GlobalDistanceFieldDistanceFieldSamplerBinding = 12 -> uint
@@ -4063,13 +4091,15 @@ const Vixen.Shaders.Generated.ReflectionTraceKeys.PerFrameBlockSet = 0 -> int
 const Vixen.Shaders.Generated.ReflectionTraceKeys.PerFrameBlockSize = 352 -> int
 const Vixen.Shaders.Generated.ReflectionTraceKeys.PerMaterialBlockBinding = 0 -> uint
 const Vixen.Shaders.Generated.ReflectionTraceKeys.PerMaterialBlockSet = 2 -> int
-const Vixen.Shaders.Generated.ReflectionTraceKeys.PerMaterialBlockSize = 64 -> int
-const Vixen.Shaders.Generated.ReflectionTraceKeys.ReflectionAtlasBinding = 3 -> uint
+const Vixen.Shaders.Generated.ReflectionTraceKeys.PerMaterialBlockSize = 144 -> int
+const Vixen.Shaders.Generated.ReflectionTraceKeys.ReflectionAtlasBinding = 5 -> uint
 const Vixen.Shaders.Generated.ReflectionTraceKeys.ReflectionAtlasSet = 2 -> int
 const Vixen.Shaders.Generated.ReflectionTraceKeys.ReflectionNormalsBinding = 2 -> uint
 const Vixen.Shaders.Generated.ReflectionTraceKeys.ReflectionNormalsSet = 2 -> int
 const Vixen.Shaders.Generated.ReflectionTraceKeys.ReflectionPositionsBinding = 1 -> uint
 const Vixen.Shaders.Generated.ReflectionTraceKeys.ReflectionPositionsSet = 2 -> int
+const Vixen.Shaders.Generated.ReflectionTraceKeys.SceneColorBinding = 4 -> uint
+const Vixen.Shaders.Generated.ReflectionTraceKeys.SceneColorSet = 2 -> int
 const Vixen.Shaders.Generated.ReflectionTraceKeys.ShaderName = "ReflectionTrace" -> string
 const Vixen.Shaders.Generated.ReflectionTraceKeys.SurfaceCacheSourceSurfaceAlbedoDepthBinding = 2 -> uint
 const Vixen.Shaders.Generated.ReflectionTraceKeys.SurfaceCacheSourceSurfaceAlbedoDepthSet = 0 -> int
@@ -4088,7 +4118,7 @@ const Vixen.Shaders.Generated.ReflectionTraceKeys.SurfaceCacheSourceSurfaceGridI
 const Vixen.Shaders.Generated.ReflectionTraceKeys.SurfaceCacheSourceSurfaceNormalValidBinding = 3 -> uint
 const Vixen.Shaders.Generated.ReflectionTraceKeys.SurfaceCacheSourceSurfaceNormalValidSet = 0 -> int
 const Vixen.Shaders.Generated.ReflectionTracePerFrameConstants.Size = 352 -> int
-const Vixen.Shaders.Generated.ReflectionTracePerMaterialConstants.Size = 64 -> int
+const Vixen.Shaders.Generated.ReflectionTracePerMaterialConstants.Size = 144 -> int
 const Vixen.Shaders.Generated.ScreenProbeAccumulateConstants.Size = 112 -> int
 const Vixen.Shaders.Generated.ScreenProbeAccumulateKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.ScreenProbeAccumulateKeys.ConstantBufferSet = 2 -> int
@@ -4887,6 +4917,7 @@ static readonly Vixen.Shaders.Generated.PlaceholderKeys.UsedPermutationKeys -> V
 static readonly Vixen.Shaders.Generated.PlaceholderKeys.WorldViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Shaders.Generated.ReflectionTraceKeys.Bias -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.ReflectionTraceKeys.CameraPosition -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.ReflectionTraceKeys.DepthBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.ReflectionTraceKeys.GlobalDistanceFieldDistanceFieldLevels -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.ReflectionTraceKeys.GlobalDistanceFieldDistanceFieldSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
 static readonly Vixen.Shaders.Generated.ReflectionTraceKeys.IrradianceFieldProbesIrradianceFieldInverseCellSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
@@ -4911,6 +4942,10 @@ static readonly Vixen.Shaders.Generated.ReflectionTraceKeys.ReflectionPositions 
 static readonly Vixen.Shaders.Generated.ReflectionTraceKeys.ReflectionViewport -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Int2>
 static readonly Vixen.Shaders.Generated.ReflectionTraceKeys.RoughnessBlend -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.ReflectionTraceKeys.RoughnessThreshold -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.ReflectionTraceKeys.SceneColor -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ReflectionTraceKeys.ScreenSteps -> Vixen.Shaders.ParameterKey<int>
+static readonly Vixen.Shaders.Generated.ReflectionTraceKeys.ScreenThickness -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.ReflectionTraceKeys.ScreenViewport -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
 static readonly Vixen.Shaders.Generated.ReflectionTraceKeys.SkyMissSourceMissSkyColor -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.ReflectionTraceKeys.StepScale -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.ReflectionTraceKeys.SurfaceCacheSourceSurfaceAlbedoDepth -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
@@ -4926,6 +4961,7 @@ static readonly Vixen.Shaders.Generated.ReflectionTraceKeys.SurfaceCacheSourceSu
 static readonly Vixen.Shaders.Generated.ReflectionTraceKeys.SurfaceCacheSourceSurfaceGridMinimum -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.ReflectionTraceKeys.SurfaceCacheSourceSurfaceNormalValid -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.ReflectionTraceKeys.SurfaceThreshold -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.ReflectionTraceKeys.ViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Shaders.Generated.ScreenProbeAccumulateKeys.CurrentL0 -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.ScreenProbeAccumulateKeys.CurrentL1B -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.ScreenProbeAccumulateKeys.CurrentL1G -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>

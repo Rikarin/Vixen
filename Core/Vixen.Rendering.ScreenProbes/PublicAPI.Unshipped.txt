@@ -88,6 +88,7 @@ Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.Steps.get -> int
 Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.Steps.set -> int
 Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.Thickness.get -> float
 Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.Thickness.set -> float
+Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.TryHit(Vixen.Core.Mathematics.Vector3 origin, Vixen.Core.Mathematics.Vector3 direction, float maxDistance, out Vixen.Core.Mathematics.Int2 pixel) -> bool
 Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.ViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.ViewProjection.set -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.ScreenProbes.TracedScreenProbeGather -> sealed class

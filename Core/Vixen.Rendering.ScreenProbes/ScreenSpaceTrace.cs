@@ -77,10 +77,27 @@ public sealed class ScreenSpaceTrace {
     ///     Samples at the middle of each step, so no sample sits at the origin — where the probe's
     ///     own surface would occlude every tangent ray — and none at the exact far end.
     /// </remarks>
-    public bool Hit(Vector3 origin, Vector3 direction, float maxDistance) {
+    public bool Hit(Vector3 origin, Vector3 direction, float maxDistance) =>
+        TryHit(origin, direction, maxDistance, out _);
+
+    /// <summary>The same march, keeping which pixel stopped the ray.</summary>
+    /// <param name="origin">Where the ray starts, in world space.</param>
+    /// <param name="direction">Where it goes, normalised.</param>
+    /// <param name="maxDistance">How far it looks.</param>
+    /// <param name="pixel">The pixel whose surface the ray landed inside.</param>
+    /// <returns>True when a sample lands inside a surface's shell.</returns>
+    /// <remarks>
+    ///     The probes only ever ask <i>whether</i> — a screen hit is an occlusion there, because the
+    ///     surface's radiance is the cache's to answer. A reflection asks <i>where</i>, because the
+    ///     frame's own colour at that pixel is the whole point of tracing the screen first — SSR's
+    ///     half of doc 19 § L5 — and the two questions are one march.
+    /// </remarks>
+    public bool TryHit(Vector3 origin, Vector3 direction, float maxDistance, out Int2 pixel) {
         var viewport = surface.Viewport;
         var depth = surface.Depth;
         var step = maxDistance / Steps;
+
+        pixel = default;
 
         for (var i = 0; i < Steps; i++) {
             var world = origin + (direction * ((i + 0.5f) * step));
@@ -116,6 +133,8 @@ public sealed class ScreenSpaceTrace {
             // Behind the surface — smaller device depth, because depth is reversed — and within
             // its shell.
             if (ndc.Z < surfaceDepth && ndc.Z > surfaceDepth - Thickness) {
+                pixel = new(x, y);
+
                 return true;
             }
         }
