@@ -313,7 +313,13 @@ public class ClusteredShadingDeviceTests {
 
         var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = describer };
         var materials = new MaterialRenderFeature { Effects = effects, Device = device, Descriptors = allocator };
-        var lighting = new ForwardLightingRenderFeature { Device = device, Clustered = true };
+        // ⚠ Scene is load-bearing for the same reason as on the transform feature below: `ForwardPlus`
+        // declares `objects` in set 0 unconditionally, and the feature answers by uploading a single
+        // default record when the record path is off — but it publishes the buffer's name into the
+        // collection Scene points at, so with Scene unset the name never arrives, set 0 is one
+        // binding short, and a set short one binding is not bound at all. The frame then draws with
+        // no set 0 — a crash on one driver and a silent black quad on another.
+        var lighting = new ForwardLightingRenderFeature { Device = device, Clustered = true, Scene = scene.Parameters };
         // ⚠ A device and somewhere to publish to, both of them load-bearing even though this frame
         // pushes its matrix rather than reading a record. `ForwardPlus` declares `transforms` in set 0
         // unconditionally, so every variant needs it bound — and the feature answers that by uploading
