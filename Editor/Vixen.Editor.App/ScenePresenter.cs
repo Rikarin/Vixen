@@ -34,7 +34,7 @@ namespace Vixen.Editor.App;
 ///     <para>
 ///         ⚠ <b>The shapes come out of device-resident buffers and the overlay does not.</b>
 ///         <see cref="MeshInstanceRenderer" /> holds each shape once and draws it once per entity from
-///         a transform, which is what <c>docs/blockout-tools.md</c> § B1 asked for and what makes the
+///         a transform, which is what <c>docs/plan/24-blockout-tools.md</c> § B1 asked for and what makes the
 ///         viewport's cost linear in entities rather than in vertices. The gizmo's heads stay on
 ///         <see cref="MeshRenderer" />, because they are geometry that is genuinely rebuilt every
 ///         frame — a handle is a different size and a different colour at every camera position, and
@@ -166,7 +166,7 @@ sealed class ScenePresenter : IDisposable {
         // The instance ring is what a frame costs and the geometry is what a scene costs. Sixteen
         // thousand entities at a hundred and sixty bytes is two and a half megabytes a region; the
         // shape buffers are sized for the eight primitives with room for the edited meshes
-        // `docs/blockout-tools.md` is about, and are written once rather than per frame.
+        // `docs/plan/24-blockout-tools.md` is about, and are written once rather than per frame.
         meshes = new(device, instanceShaders, output);
 
         // A few hundred vertices at most: three heads of a dozen segments each. Sized down from the

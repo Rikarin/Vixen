@@ -190,7 +190,7 @@ first — so a joint always precedes its children.
 ## `ModelCompiler`, and the first thing a mesh cannot decide about itself
 
 A `Meshlets` sub-asset beside every mesh: the cluster DAG of
-[docs/virtualized-geometry.md](../../docs/virtualized-geometry.md) phase 1, which is every level of
+[docs/plan/22-virtualized-geometry.md](../../docs/plan/22-virtualized-geometry.md) phase 1, which is every level of
 detail at once plus the fallback mesh cut from it. The algorithm is `Vixen.Rendering.VirtualGeometry`,
 for the same reason the distance-field bake is `Vixen.Rendering.DistanceFields`: a `MeshletMesh` is
 what the build writes and what a player deserialises, so both halves have to be talking about one

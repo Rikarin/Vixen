@@ -368,7 +368,7 @@ public static class GpuCulling {
     ///     A sphere and not an object, which is improvement 6's sibling on the host: the object cull
     ///     and the cluster traversal ask the same question of the same pyramid with the same matrix,
     ///     and two implementations of "visible against last frame's pyramid" is two places for the
-    ///     definition to drift — see <c>docs/virtualized-geometry.md</c> improvement 3. The shader's
+    ///     definition to drift — see <c>docs/plan/22-virtualized-geometry.md</c> improvement 3. The shader's
     ///     <c>Occluded</c> was refactored the same way and for the same reason.
     /// </remarks>
     public static bool ScreenBounds(

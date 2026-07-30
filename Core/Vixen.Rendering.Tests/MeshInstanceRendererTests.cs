@@ -15,7 +15,7 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <strong><c>docs/blockout-tools.md</c> § B1 is the specification this file is the test
+///         <strong><c>docs/plan/24-blockout-tools.md</c> § B1 is the specification this file is the test
 ///         of.</strong> Its complaint about the path this replaces was not that it was slow: "every
 ///         mesh in the viewport goes through the CPU every frame", with a cache keyed by primitive
 ///         kind, so a hundred cubes were one mesh and a hundred <em>edited</em> meshes were a hundred

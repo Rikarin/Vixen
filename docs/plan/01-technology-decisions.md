@@ -291,9 +291,10 @@ OpenTelemetry if they want. See [13](13-diagnostics.md).
 syntax trees with trivia, in the same shape as Raven's `Syntax/`. VCSS uses ExCSS for
 tokenizing/parsing and a Vixen-owned cascade/selector-matching engine on top.
 
-**Amended:** *and Raven, eventually, too.* ANTLR was right for Raven's **bootstrap** — it is not the
-right end state. See [18-raven-parser-migration.md](18-raven-parser-migration.md) for the finding, the
-plan and the timing. Summary of why the original rationale below no longer holds:
+**Amended, and since executed:** *Raven too.* ANTLR was right for Raven's **bootstrap** and was not
+the right end state; the migration is complete and the `.g4` files survive as a differential oracle. See
+[18-raven-parser-migration.md](18-raven-parser-migration.md) for the finding and the outcome. Why the
+original rationale below stopped holding:
 
 - **"Error recovery is table-driven"** was listed as a reason *for* ANTLR. In practice its recovery
   produces trees the ANTLR→green translator cannot map, and `SyntaxTree.ParseText` has to *discard the

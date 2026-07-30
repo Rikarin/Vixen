@@ -95,7 +95,7 @@ public sealed record ModelImportSettings : IImportSettings {
     /// <summary>Whether to build a cluster hierarchy for each of the model's meshes.</summary>
     /// <remarks>
     ///     <para>
-    ///         Phase 1 of <c>docs/virtualized-geometry.md</c>: the mesh is partitioned into clusters
+    ///         Phase 1 of <c>docs/plan/22-virtualized-geometry.md</c>: the mesh is partitioned into clusters
     ///         of about <see cref="MeshletTriangles" /> triangles, neighbouring clusters are
     ///         simplified together as groups with their shared boundary locked, and the result is
     ///         split and simplified again until one cluster is left. What comes out is every level of

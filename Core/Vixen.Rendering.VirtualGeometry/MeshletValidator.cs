@@ -6,7 +6,7 @@ namespace Vixen.Rendering.VirtualGeometry;
 /// <summary>Checks that a finished DAG cannot crack, and says exactly where if it can.</summary>
 /// <remarks>
 ///     <para>
-///         Improvement 5 of <c>docs/virtualized-geometry.md</c>: DAG validity as a build error. Nanite's
+///         Improvement 5 of <c>docs/plan/22-virtualized-geometry.md</c>: DAG validity as a build error. Nanite's
 ///         crack-freedom is a property its builder is careful to maintain; making it a checked
 ///         invariant costs one pass over a structure that is already in memory, and converts the
 ///         engine's most notorious artefact class into a build that fails with a group index in the

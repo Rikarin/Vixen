@@ -12,7 +12,7 @@ namespace Vixen.Rendering;
 ///     <para>
 ///         <strong>What replaces a descriptor set per material.</strong> A draw that binds a set per
 ///         material cannot be merged with a draw that binds a different one, which is the sentence
-///         everything in <c>docs/bindless-materials.md</c> follows from. A buffer of records is bound
+///         everything in <c>docs/plan/23-bindless-materials.md</c> follows from. A buffer of records is bound
 ///         once and subscripted by a number the draw carries, so two materials' draws differ in their
 ///         data and in nothing a command list can see.
 ///     </para>

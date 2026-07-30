@@ -17,7 +17,7 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         docs/virtualized-geometry.md § B2 asks for exactly one thing and says why: a single-pass
+///         docs/plan/22-virtualized-geometry.md § B2 asks for exactly one thing and says why: a single-pass
 ///         software rasterizer wants <c>atomicMax</c> on a 64-bit word packing depth above id. With
 ///         32 bits you get depth <em>or</em> a usable id, and the alternative is two passes over the
 ///         same triangles.

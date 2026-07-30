@@ -71,7 +71,7 @@ public abstract partial class Binder {
                     // meeting a case it did not have. An array of textures is an array of
                     // *descriptors*, which are not laid out at all — there is no stride, nothing to
                     // pack, and nothing for the host to size a buffer from. It is the bindless table
-                    // (`docs/bindless-materials.md`), and the length it does not have is exactly the
+                    // (`docs/plan/23-bindless-materials.md`), and the length it does not have is exactly the
                     // point: the shader indexes it with a number and never asks how long it is.
                     if (size is null && rank.Size is null && !IsUnsizedTextureArray(element, rank)) {
                         Report(

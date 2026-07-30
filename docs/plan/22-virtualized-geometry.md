@@ -10,7 +10,7 @@ streamed pages, hierarchical culling on the device, and a rasterizer that does n
 triangles there are.
 
 This document is the plan and the argument for it. It exists as a separate file for the same reason
-[bindless-materials.md](bindless-materials.md) does — several things across the engine are blocked on
+[bindless-materials.md](23-bindless-materials.md) does — several things across the engine are blocked on
 pieces of it, and those blocks are easier to read in one place than scattered across ten status
 tables.
 
@@ -41,31 +41,31 @@ answering the *difference* — is done and device-verified.
 
 | Piece | State | Where |
 |---|---|---|
-| GPU visibility, one dispatch over every view | ✅ | [GpuVisibilityGroup.cs](../Core/Vixen.Rendering/GpuVisibilityGroup.cs) |
-| Hi-Z pyramid, min-reduced, per view | ✅ | [HiZRenderer.cs](../Core/Vixen.Rendering/Compositor/HiZRenderer.cs), `HiZReduce.rvn` |
-| **Two-phase occlusion** — `Main` then `Late`, answering the difference | ✅ | [GpuCulling.cs](../Core/Vixen.Rendering/GpuCulling.cs) `CullPhase` |
-| Draw arguments written by the device, bits never read back | ✅ | [GpuDrawArguments.cs](../Core/Vixen.Rendering/GpuDrawArguments.cs) |
+| GPU visibility, one dispatch over every view | ✅ | [GpuVisibilityGroup.cs](../../Core/Vixen.Rendering/GpuVisibilityGroup.cs) |
+| Hi-Z pyramid, min-reduced, per view | ✅ | [HiZRenderer.cs](../../Core/Vixen.Rendering/Compositor/HiZRenderer.cs), `HiZReduce.rvn` |
+| **Two-phase occlusion** — `Main` then `Late`, answering the difference | ✅ | [GpuCulling.cs](../../Core/Vixen.Rendering/GpuCulling.cs) `CullPhase` |
+| Draw arguments written by the device, bits never read back | ✅ | [GpuDrawArguments.cs](../../Core/Vixen.Rendering/GpuDrawArguments.cs) |
 | A CPU mirror of the shader's arithmetic, randomised against the definition | ✅ | `GpuCulling.IsVisible` |
 | Compositor nodes for all of it, assignments made by the builder | ✅ | `!GpuCulling`, `!HiZ` |
-| Bindless table, descriptor indexing, Raven `Texture2D[]` | ✅ | [bindless-materials.md](bindless-materials.md) |
+| Bindless table, descriptor indexing, Raven `Texture2D[]` | ✅ | [bindless-materials.md](23-bindless-materials.md) |
 | **Material records** — the block as a record of one buffer, one bind per effect | ✅ | `MaterialRecords`, `[MaterialIndex]` |
 | **Transform records** — the matrix out of the command buffer, index in `firstInstance` | ✅ | `UseTransformRecords` |
-| **`GeometryBuffer`** — many meshes in one vertex and one index buffer | ✅ | [GeometryBuffer.cs](../Core/Vixen.Rendering/GeometryBuffer.cs) |
+| **`GeometryBuffer`** — many meshes in one vertex and one index buffer | ✅ | [GeometryBuffer.cs](../../Core/Vixen.Rendering/GeometryBuffer.cs) |
 | **`DrawIndexedIndirectCount`** — a draw whose count the host never learns | ✅ | all four backends |
 | **Compaction** — survivors appended, one command per batch | ✅ | `GpuDrawArguments.Compact` |
-| Discrete LOD with hysteresis and dither cross-fade | ✅ | [LodRenderFeature.cs](../Core/Vixen.Rendering/Features/LodRenderFeature.cs) |
+| Discrete LOD with hysteresis and dither cross-fade | ✅ | [LodRenderFeature.cs](../../Core/Vixen.Rendering/Features/LodRenderFeature.cs) |
 | Deferred/GBuffer *shaders* | ✅ | `Pipeline/GBuffer.rvn`, `Pipeline/Deferred.rvn` |
-| **An incremental GPU scene** — object records rewritten only where they changed | ✅ | [PersistentUploadBuffer.cs](../Core/Vixen.Rendering/PersistentUploadBuffer.cs) |
-| **Geometry pages** — fixed-size, one quantization grid, roots in page zero | ✅ | [MeshletPageBuilder.cs](../Core/Vixen.Rendering.VirtualGeometry/MeshletPageBuilder.cs) |
-| **A residency service** — requests in, LRU out, one budget, not geometry-shaped | ✅ | [PageResidency.cs](../Core/Vixen.Rendering/PageResidency.cs) |
-| **The cluster traversal** — a permutation of `Culling.rvn`, with a CPU mirror | ✅ | [GpuClusterCulling.cs](../Core/Vixen.Rendering/GpuClusterCulling.cs), `Culling.rvn` |
+| **An incremental GPU scene** — object records rewritten only where they changed | ✅ | [PersistentUploadBuffer.cs](../../Core/Vixen.Rendering/PersistentUploadBuffer.cs) |
+| **Geometry pages** — fixed-size, one quantization grid, roots in page zero | ✅ | [MeshletPageBuilder.cs](../../Core/Vixen.Rendering.VirtualGeometry/MeshletPageBuilder.cs) |
+| **A residency service** — requests in, LRU out, one budget, not geometry-shaped | ✅ | [PageResidency.cs](../../Core/Vixen.Rendering/PageResidency.cs) |
+| **The cluster traversal** — a permutation of `Culling.rvn`, with a CPU mirror | ✅ | [GpuClusterCulling.cs](../../Core/Vixen.Rendering/GpuClusterCulling.cs), `Culling.rvn` |
 | **Workgroup-shared memory in Raven** — `groupshared`, `barrier()`, an atomic rooted in it | ✅ | B1 below |
 | **64-bit integers and atomics in Raven** — `int64`/`uint64`, `Int64`/`Int64Atomics` reported apart | ✅ | B2 below |
 | **`SampleGrad` in Raven** — gradients the caller computed, in every stage | ✅ | B3 below |
-| **The cluster DAG** — cluster, group, simplify with the group boundary locked, split, repeat | ✅ | [MeshletBuilder.cs](../Core/Vixen.Rendering.VirtualGeometry/MeshletBuilder.cs) |
+| **The cluster DAG** — cluster, group, simplify with the group boundary locked, split, repeat | ✅ | [MeshletBuilder.cs](../../Core/Vixen.Rendering.VirtualGeometry/MeshletBuilder.cs) |
 | **DAG validity as a build error** — monotonic error and boundary equality, per group | ✅ | `MeshletValidator`, `ModelCompiler.CompileMeshlets` |
 | **A CPU reference cut**, and the fallback mesh cut from the same code | ✅ | `MeshletCut` |
-| Meshlet generation in `ModelCompiler` | ✅ | [ModelCompiler.cs](../Editor/Vixen.Editor.Assets/Models/ModelCompiler.cs), `generateMeshlets:` in the `.meta` |
+| Meshlet generation in `ModelCompiler` | ✅ | [ModelCompiler.cs](../../Editor/Vixen.Editor.Assets/Models/ModelCompiler.cs), `generateMeshlets:` in the `.meta` |
 | Deferred *pipeline* | ⬜ | Phase 10, cut-list #6 |
 | Texture and shadow-page streaming on the same service | ⬜ | improvement 6; the service exists, the two other consumers do not |
 
@@ -86,7 +86,7 @@ them.
 
 ### B1. Workgroup-shared memory ✅
 
-Tracked as 🟡 in [07](plan/07-raven-shader-pipeline.md) — "a storage class the language cannot
+Tracked as 🟡 in [07](07-raven-shader-pipeline.md) — "a storage class the language cannot
 declare". Atomics landed without it, which was enough for a cull that gives one invocation one word
 and needs no cooperation at all.
 
@@ -101,7 +101,7 @@ workgroup rather than one per invocation. `barrier()` and `memoryBarrierShared()
 atomic may now root in either a writable resource or a `groupshared` variable, which is the rule the
 atomics always meant. Only a compute stage may reach any of it (`RVN3012`), decided by reachability
 rather than by where the declaration sits. See
-[07 § Workgroup-shared memory](plan/07-raven-shader-pipeline.md).
+[07 § Workgroup-shared memory](07-raven-shader-pipeline.md).
 
 ### B2. 64-bit atomics ✅
 
@@ -207,7 +207,7 @@ doing it.
 
 #### What 0.3 turned out to be
 
-[`PersistentUploadBuffer<T>`](../Core/Vixen.Rendering/PersistentUploadBuffer.cs), the sibling of
+[`PersistentUploadBuffer<T>`](../../Core/Vixen.Rendering/PersistentUploadBuffer.cs), the sibling of
 `UploadBuffer<T>`: same ring of one region per frame in flight, and the opposite policy about what
 is in it. `UploadBuffer` is refilled from scratch, which is right for a skeleton's matrices or a
 frame's light list — data the host recomputes anyway. Object records are the same bytes they were
@@ -243,7 +243,7 @@ no visible payoff until something profiles it.
 
 Offline, in `ModelCompiler`. This is the phase that decides whether the result has cracks.
 
-Built as [`Vixen.Rendering.VirtualGeometry`](../Core/Vixen.Rendering.VirtualGeometry/README.md), called
+Built as [`Vixen.Rendering.VirtualGeometry`](../../Core/Vixen.Rendering.VirtualGeometry/README.md), called
 from `ModelCompiler.CompileMeshlets` and written as a `Meshlets` sub-asset per mesh. Three things the
 plan below did not say, found in the building:
 
@@ -291,17 +291,17 @@ Removing the group-boundary lock fails it. `MeshletCutTests`, `MeshletValidatorT
 
 - **Page format**: fixed-size (128 KB) pages holding clusters with their vertex and index data,
   position-quantized, materials as indices. Root page always resident, so a never-streamed object
-  still draws at its coarsest level. [`MeshletPageBuilder`](../Core/Vixen.Rendering.VirtualGeometry/MeshletPageBuilder.cs).
+  still draws at its coarsest level. [`MeshletPageBuilder`](../../Core/Vixen.Rendering.VirtualGeometry/MeshletPageBuilder.cs).
 - **Page pool**: a single large buffer, suballocated. This is `GeometryBuffer` with a residency policy
   instead of a load-time one, different allocator.
-  [`MeshletPagePool`](../Core/Vixen.Rendering/MeshletPagePool.cs).
+  [`MeshletPagePool`](../../Core/Vixen.Rendering/MeshletPagePool.cs).
 - **Residency manager**: requests in, serviced on the CPU against async I/O, LRU eviction under a byte
-  budget. [`PageResidency`](../Core/Vixen.Rendering/PageResidency.cs), and it is not geometry-specific
+  budget. [`PageResidency`](../../Core/Vixen.Rendering/PageResidency.cs), and it is not geometry-specific
   — see improvement 6.
 
 **Exit:** a camera path over a scene exceeding the budget by 4×, holding the budget and showing no
 cluster popping beyond the configured error, with a synthetic I/O delay injected. The
-budget-respecting criterion is already the one [08](plan/08-asset-pipeline-and-addressables.md)
+budget-respecting criterion is already the one [08](08-asset-pipeline-and-addressables.md)
 states for streaming generally.
 
 **Met**, as `MeshletStreamingTests`, with "no popping beyond the configured error" given the strongest
@@ -437,7 +437,7 @@ attributes on the wrong surface. Worth an assertion rather than a comment.
 
 ⚠ **This is where MSAA goes.** A visibility buffer breaks it: per-sample visibility is four times the
 buffer and a per-sample resolve, which is the trap deferred falls into. MSAA is one of the four
-reasons [06](plan/06-rendering-pipeline.md) gives for Forward+ being the default — but it is P1 and
+reasons [06](06-rendering-pipeline.md) gives for Forward+ being the default — but it is P1 and
 unbuilt, and TAA is shipped and owns its history, which is what Nanite leans on for the same reason.
 So the cost here is a feature that does not exist yet, and a phase-5 decision should come with
 marking MSAA as classic-path-only rather than leaving it a general promise.
@@ -500,7 +500,7 @@ one. The saving is not having two cluster formats.
 that is a large part of why Unreal is deferred-first — with the forward path a separate, less
 capable branch maintained for VR and mobile.
 
-Vixen's default is Forward+ clustered, chosen deliberately: [06](plan/06-rendering-pipeline.md)
+Vixen's default is Forward+ clustered, chosen deliberately: [06](06-rendering-pipeline.md)
 records that "bandwidth is far below deferred on mobile" and that mobile is first-class. Resolving
 into a GBuffer would either abandon that or duplicate the shading path.
 
@@ -566,13 +566,13 @@ three budgets and three eviction policies.
 
 Vixen has **none of them yet**, which is an advantage exactly once. A single page-residency service —
 request buffer in, LRU eviction under one budget, one set of counters — serves geometry pages here,
-texture mip tails in [08](plan/08-asset-pipeline-and-addressables.md), and VSM pages in phase 7. One
+texture mip tails in [08](08-asset-pipeline-and-addressables.md), and VSM pages in phase 7. One
 budget to tune and one place to profile.
 
 Build it in phase 2 with all three consumers in view, or it will be geometry-shaped and the other two
 will grow their own.
 
-✅ **Built as [`PageResidency`](../Core/Vixen.Rendering/PageResidency.cs)**, and the seam that keeps it
+✅ **Built as [`PageResidency`](../../Core/Vixen.Rendering/PageResidency.cs)**, and the seam that keeps it
 honest is `IPageStore`: the service owns the request queue, the byte budget, the eviction order and
 the counters, and knows nothing about where the bytes go or how they are read. What proves that is
 not the interface but the test — `PageResidencyTests` drives the whole of it against a store that is
@@ -612,7 +612,7 @@ being a mystery in a frame capture.
 | 6 — SW raster (optional) | ~3 | 16 |
 | 7 — Virtual shadow maps | ~2.5 | 18.5 |
 
-[overview.md](overview.md) puts the *entire remaining roadmap* at ~8–11 EM. This system is still
+[overview.md](../overview.md) puts the *entire remaining roadmap* at ~8–11 EM. This system is still
 roughly twice what is left of the engine. That is not an argument against it — it is an argument for
 reading the phase boundaries as real decision points rather than as a burndown.
 
@@ -638,7 +638,7 @@ Phase 6 should be gated on a measurement, not a plan. Phase 7 is its own project
 ## What is deliberately not planned
 
 **Nanite-style GBuffer resolve.** Improvement 2 explains the alternative. If the deferred pipeline
-([06 § Deferred](plan/06-rendering-pipeline.md)) lands first, a GBuffer resolve becomes a second
+([06 § Deferred](06-rendering-pipeline.md)) lands first, a GBuffer resolve becomes a second
 resolve permutation and costs little — but it should not be the only one.
 
 **Mesh shaders.** `HasMeshShaders` stays a capability nothing uses. The cluster path is compute plus

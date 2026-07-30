@@ -16,7 +16,7 @@ namespace Tests;
 
 /// <summary>
 ///     <c>Texture2D[]</c> — the one unsized array that is not memory, and the shader half of
-///     <c>docs/bindless-materials.md</c>.
+///     <c>docs/plan/23-bindless-materials.md</c>.
 /// </summary>
 /// <remarks>
 ///     <para>

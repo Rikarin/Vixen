@@ -16,7 +16,7 @@ vertex stage, a line pair, and two mesh pairs.
 per entity, and the split is the same one `MeshRenderer` and `MeshInstanceRenderer` are: geometry that
 is genuinely rebuilt every frame against geometry that is not. The gizmo's solid handles are the first —
 a handle is a different size and colour at every camera position, and there is one of it — and the
-scene's shapes are the second, which `docs/blockout-tools.md` § B1 is the argument for.
+scene's shapes are the second, which `docs/plan/24-blockout-tools.md` § B1 is the argument for.
 
 ⚠ **`MeshInstanced`'s eleven vertex attributes are two buffers rather than one**, and the second one
 steps per *instance*: the shape's position and normal come from the geometry buffer, and the four

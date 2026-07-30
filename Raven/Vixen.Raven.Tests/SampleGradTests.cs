@@ -12,7 +12,7 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         The third sampling form, and the one docs/virtualized-geometry.md § B3 is blocked on.
+///         The third sampling form, and the one docs/plan/22-virtualized-geometry.md § B3 is blocked on.
 ///         <c>Sample</c> takes its gradients from the fragment quad, which is meaningless in a
 ///         visibility-buffer resolve — the pixel next door may be a different triangle of a
 ///         different material, so the quad's difference is between two unrelated surfaces.

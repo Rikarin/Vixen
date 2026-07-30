@@ -216,7 +216,7 @@ public sealed class ModelImporterTests {
     }
 
     /// <summary>
-    ///     Phase 1 of <c>docs/virtualized-geometry.md</c>, reached through the importer: a mesh
+    ///     Phase 1 of <c>docs/plan/22-virtualized-geometry.md</c>, reached through the importer: a mesh
     ///     produces a cluster hierarchy beside itself, addressable and loadable on its own.
     /// </summary>
     [Fact]

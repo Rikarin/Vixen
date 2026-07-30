@@ -25,7 +25,7 @@ public readonly record struct PagePlacement(int Slot, long Offset);
 /// <remarks>
 ///     <para>
 ///         The seam that keeps <see cref="PageResidency" /> from being geometry-shaped — improvement
-///         6 of <c>docs/virtualized-geometry.md</c>. Unreal runs Nanite streaming, virtual texture
+///         6 of <c>docs/plan/22-virtualized-geometry.md</c>. Unreal runs Nanite streaming, virtual texture
 ///         streaming and the shadow page pool as three systems with three budgets and three eviction
 ///         policies; Vixen has none of them yet, which is an advantage exactly once. What is
 ///         <em>common</em> to all three is a request queue, a byte budget and an eviction order, and
@@ -84,7 +84,7 @@ public interface IPageStore {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Improvement 6 of <c>docs/virtualized-geometry.md</c>, and the reason it is built in
+///         <b>Improvement 6 of <c>docs/plan/22-virtualized-geometry.md</c>, and the reason it is built in
 ///         phase 2 rather than phase 7.</b> Geometry pages want this; so do texture mip tails
 ///         (<c>docs/plan/08</c>) and the virtual shadow map's pages (phase 7). Building it with one
 ///         consumer in view is how it becomes geometry-shaped and the other two grow their own — and
