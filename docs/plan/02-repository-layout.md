@@ -423,7 +423,7 @@ project, and this is neither. It is where the shared test infrastructure of
   <Nullable>enable</Nullable>
   <ImplicitUsings>enable</ImplicitUsings>
   <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-  <AnalysisLevel>latest-all</AnalysisLevel>
+  <AnalysisLevel>latest-recommended</AnalysisLevel>
   <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
   <EnableNETAnalyzers>true</EnableNETAnalyzers>
   <GenerateDocumentationFile>true</GenerateDocumentationFile>
