@@ -22,10 +22,19 @@ traversal accepted; zero after a real run is a frame that drew nothing, whatever
 
 The visibility buffer, phase 4's output, as a debug view: every pixel names the visible cluster and
 the triangle that won the depth test, and the present pass hashes cluster identities to colours. The
-coloured patches *are* the traversal's cut — watch them change size as the camera orbits in and out
-and you are watching per-cluster level of detail decide, per frame. Shading those identities for real
-is the material resolve's job (phase 5 of `docs/plan/22-virtualized-geometry.md`) and needs the whole
-clustered-lighting frame around it, which is a different sample.
+coloured patches *are* the traversal's cut — watch them change size as the camera moves in and out
+and you are watching per-cluster level of detail decide, per frame. A patch keeps its colour for as
+long as its cluster is in the cut: the pixel actually stores a per-frame *visible-list slot*, which
+an atomic append reshuffles every frame, so the present pass decodes it through the visible list to
+the cluster it names — the first version hashed the slot and the whole sphere flickered. Shading
+those identities for real is the material resolve's job (phase 5 of
+`docs/plan/22-virtualized-geometry.md`) and needs the whole clustered-lighting frame around it,
+which is a different sample.
+
+**Drag with the left mouse button to orbit.** Until the first drag the camera turns by itself, so
+the sample shows its point unattended; the first drag takes over, seamlessly, at wherever the orbit
+was. The distance keeps breathing in and out either way — between two and a half and nine radii —
+because the level of detail responding to it is the thing being demonstrated.
 
 ## What the sample demonstrates
 

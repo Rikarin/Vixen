@@ -83,8 +83,25 @@ public sealed class VirtualGeometryGame : Game {
     bool lost;
     bool waiting;
 
+    // The orbit the camera is on: drag with the primary button to steer it. Until the first drag it
+    // turns by itself, so the sample shows its point unattended; the first drag hands it over.
+    float yaw;
+    float pitch = 0.34f;
+    bool dragging;
+    bool steered;
+
     /// <summary>The camera's vertical field of view.</summary>
     const float FieldOfView = MathF.PI / 3f;
+
+    /// <summary>How far one logical point of drag turns the orbit, in radians.</summary>
+    /// <remarks>
+    ///     Roughly a half-turn across a 720-point window, which is the "grab the globe" rate: the
+    ///     surface under the cursor approximately follows it at the sphere's near face.
+    /// </remarks>
+    const float DragRate = MathF.PI / 720f;
+
+    /// <summary>How far the orbit may tilt, short of the poles where LookAt's up degenerates.</summary>
+    const float PitchLimit = 1.45f;
 
     /// <summary>
     ///     The frame, as a document: clear the depth, traverse, draw the visibility buffer.
@@ -140,9 +157,35 @@ public sealed class VirtualGeometryGame : Game {
     protected override void OnInitialise() => log = Services.LoggerFactory.CreateLogger("VirtualGeometry");
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     The drag is read straight off the platform events, which is the layer a sample this size
+    ///     wants: <c>Vixen.Input</c>'s action maps are for games with bindings to manage, and one
+    ///     button and a delta is not that. Never handled (<see langword="false" />), so the host
+    ///     still sees every event — see <see cref="Game.OnEvent" />.
+    /// </remarks>
     protected override bool OnEvent(in PlatformEvent platformEvent) {
-        if (platformEvent.Kind is PlatformEventKind.Suspending) {
-            Release();
+        switch (platformEvent.Kind) {
+            case PlatformEventKind.Suspending:
+                Release();
+                break;
+
+            case PlatformEventKind.MouseButtonDown when platformEvent.MouseButton == MouseButton.Primary:
+                // The handover is seamless because UpdateCamera keeps `yaw` current while the orbit
+                // still turns itself — a first drag that snapped the camera somewhere else would
+                // read as a glitch.
+                dragging = true;
+                steered = true;
+                break;
+
+            case PlatformEventKind.MouseButtonUp when platformEvent.MouseButton == MouseButton.Primary:
+                dragging = false;
+                break;
+
+            case PlatformEventKind.MouseMoved when dragging:
+                // Grab-the-globe: drag right pulls the near face right, which swings the eye left.
+                yaw -= platformEvent.Delta.X * DragRate;
+                pitch = Math.Clamp(pitch + (platformEvent.Delta.Y * DragRate), -PitchLimit, PitchLimit);
+                break;
         }
 
         return false;
@@ -225,11 +268,16 @@ public sealed class VirtualGeometryGame : Game {
 
         commands.BeginRenderPass(new([new ColourAttachment(backbuffer, LoadAction.DontCare)], null, "present"));
 
+        // The visible list rides along so the fragment stage can turn a pixel's slot into its
+        // cluster. The frame left the buffer in ShaderRead — the raster's count copy transitions it
+        // back — and this pass records after host.Draw on the same queue, so no barrier is ours to
+        // place.
         var set = descriptors!.Allocate(
             presentLayout,
             [
                 DescriptorWrite.Texture(0, visibilityView),
-                DescriptorWrite.SamplerAt(1, pointSampler)
+                DescriptorWrite.SamplerAt(1, pointSampler),
+                DescriptorWrite.Storage(2, geometry!.Visibility.Visible)
             ]
         );
 
@@ -244,13 +292,24 @@ public sealed class VirtualGeometryGame : Game {
     }
 
     /// <summary>Orbits the mesh, moving in and out so the traversal's cut visibly changes.</summary>
+    /// <remarks>
+    ///     The direction is the drag's once the user has taken over, and the sample's own until
+    ///     then. The distance keeps breathing either way — between two and a half and nine radii,
+    ///     the whole range the error metric decides over — because the level of detail responding to
+    ///     it is the thing being demonstrated.
+    /// </remarks>
     void UpdateCamera(GameTime time) {
-        var angle = (float)time.Total.TotalSeconds * 0.3f;
+        if (!steered) {
+            yaw = (float)time.Total.TotalSeconds * 0.3f;
+        }
 
-        // Between two and a half and nine radii out. Close enough that the finest clusters are worth
-        // drawing, far enough that the roots are — the whole range the error metric decides over.
         var distance = 5.75f + (3.25f * MathF.Sin((float)time.Total.TotalSeconds * 0.21f));
-        var eye = new Vector3(MathF.Sin(angle) * distance, distance * 0.35f, MathF.Cos(angle) * distance);
+
+        var eye = new Vector3(
+            MathF.Sin(yaw) * MathF.Cos(pitch),
+            MathF.Sin(pitch),
+            MathF.Cos(yaw) * MathF.Cos(pitch)
+        ) * distance;
 
         var projection = Matrix4x4.PerspectiveFieldOfView(
             FieldOfView,
@@ -407,7 +466,12 @@ public sealed class VirtualGeometryGame : Game {
             DescriptorSetSlot.PerFrame,
             [
                 new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment),
-                new(1, DescriptorKind.Sampler, ShaderStage.Fragment)
+                new(1, DescriptorKind.Sampler, ShaderStage.Fragment),
+
+                // The traversal's visible list, so a pixel's slot can be decoded to its cluster —
+                // without it the colours hash the slot, which the atomic append reshuffles every
+                // frame, and the whole sphere flickers.
+                new(2, DescriptorKind.StorageBuffer, ShaderStage.Fragment)
             ],
             "present"
         ));
