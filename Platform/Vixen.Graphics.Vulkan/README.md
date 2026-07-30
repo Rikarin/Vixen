@@ -78,17 +78,17 @@ return MoltenVK's `VkPhysicalDevice` unless the instance carries `VK_KHR_portabi
 machine that works fine — so `AdapterSelection` says exactly that when it enumerates nothing, and a
 test asserts the message.
 
-**The viewport is submitted with a negative height, and the front-face winding is inverted to pay
-for it.** Vulkan's clip space has +Y down and the engine's has it up
+**The viewport is submitted with a negative height, and the front-face winding maps straight
+through anyway.** Vulkan's clip space has +Y down and the engine's has it up
 ([Conventions.md](../../Core/Vixen.Core.Mathematics/Conventions.md)), so `SetViewport` flips Y the
-standard way rather than putting a flip in every vertex shader. What that costs is winding: facing is
-decided from the signed area in *framebuffer* coordinates, which the flip mirrors, so a mesh wound
-counter-clockwise seen from outside — what `MeshPrimitives` builds, and what `FrontFace.CounterClockwise`
-names — arrives clockwise. `VulkanEnums.ToVulkan(FrontFace)` is therefore the one mapping in this
-backend that is deliberately not the identity, and it is the only place the flip is visible to a
-caller. Mapped straight through, `CullMode.Back` keeps the *inside* of every closed mesh and a shader
-reading `SV_IsFrontFace` to light a two-sided surface flips exactly the normals that were already
-right — which is how it was found: the editor's gizmo heads shaded as though lit from inside them.
+standard way rather than putting a flip in every vertex shader. The tempting conclusion — that the
+flip mirrors framebuffer coordinates, so `VulkanEnums.ToVulkan(FrontFace)` must invert to pay for
+it — counts one mirror where there are two: Vulkan's own +Y-down convention is the other, and they
+cancel. A mesh wound counter-clockwise seen from outside — what `MeshPrimitives` builds, and what
+`FrontFace.CounterClockwise` names — arrives counter-clockwise where facing is decided. The mapping
+*was* inverted once on that argument: `CullMode.Back` then kept the inside of every closed mesh, and
+the golden fixtures drew nothing with no validation error anywhere. The `cull-back` and `cull-front`
+references and a unit test on the mapping now both pin the identity.
 
 **The failure message names every device and why each was rejected.** "No suitable GPU found" is the
 least useful error a graphics engine can produce, and every fact needed to do better is available at

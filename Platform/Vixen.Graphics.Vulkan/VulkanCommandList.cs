@@ -135,9 +135,10 @@ sealed unsafe class VulkanCommandList : ICommandList {
         // (Core/Vixen.Core.Mathematics/Conventions.md). A negative-height viewport is the standard way
         // to express that, is core since 1.1, and avoids a flip in every vertex shader.
         //
-        // ⚠ It also reverses which winding is front, because facing is decided from the signed area
-        // in framebuffer coordinates and this mirrors them. `VulkanEnums.ToVulkan(FrontFace)` is
-        // where that is paid for, and its remarks say what goes wrong when it is not.
+        // ⚠ It does NOT call for a winding compensation. Facing is decided in framebuffer
+        // coordinates, which sit two mirrors from the engine's clip space — Vulkan's +Y-down
+        // convention and this flip — and two mirrors cancel. `VulkanEnums.ToVulkan(FrontFace)` maps
+        // straight through, and its remarks record the time it was inverted to "pay" for this.
         var vk = new VkViewport {
             X = viewport.X,
             Y = viewport.Y + viewport.Height,

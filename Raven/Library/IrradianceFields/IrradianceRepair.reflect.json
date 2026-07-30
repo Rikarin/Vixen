@@ -316,6 +316,18 @@
       "DefaultValue": "false"
     },
     {
+      "Name": "Rank",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "1"
+    },
+    {
       "Name": "Promote",
       "Type": {
         "Scalar": "Bool",
