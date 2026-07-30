@@ -166,6 +166,113 @@ public class SurfaceCacheTests {
         Assert.Equal(0f, radiosity.Gather(cache), 1e-4f);
     }
 
+    [Fact]
+    public void TheIndexAgreesWithTheLinearScanItReplaced() {
+        // Deterministic pseudo-random cards straddling many grid cells, some overlapping, some tiny
+        // against the cell size and some larger than it — the shapes that catch an off-by-one at a
+        // cell boundary.
+        var atlas = new SurfaceCacheAtlas(new(128, 128));
+        var cache = new SurfaceCacheStore(atlas);
+        var seed = 12345u;
+
+        float Next() {
+            seed = (seed * 1664525u) + 1013904223u;
+
+            return (seed >> 8) * (1f / 16777216f);
+        }
+
+        for (var added = 0; added < 24; added++) {
+            var centre = new Vector3((Next() * 20f) - 10f, (Next() * 20f) - 10f, (Next() * 20f) - 10f);
+            var half = new Vector3(0.1f + (Next() * 6f), 0.1f + (Next() * 6f), 0.1f + (Next() * 6f));
+            var card = cache.AddCard(new((int)(Next() * 6f), centre, half, new(4, 4)));
+
+            Assert.True(card >= 0);
+
+            // Every texel valid at mid-depth, facing the card, so depth agreement can pass.
+            var shape = cache.Cards[card].Card;
+
+            for (var y = 0; y < 4; y++) {
+                for (var x = 0; x < 4; x++) {
+                    cache.SetSurface(
+                        card,
+                        new(x, y),
+                        new(new(0.5f), shape.Direction, shape.Extents.Depth, new(added + 1f, 0f, 0f))
+                    );
+                }
+            }
+        }
+
+        // The linear scan, written out again here as the referee the index must agree with.
+        bool Linear(Vector3 position, Vector3 normal, out Vector3 radiance) {
+            radiance = default;
+
+            var best = -1;
+            var bestFacing = 0f;
+            var bestTexel = default(Int2);
+
+            for (var card = 0; card < cache.Cards.Count; card++) {
+                var shape = cache.Cards[card].Card;
+                var facing = Vector3.Dot(normal, shape.Direction);
+
+                if (facing <= bestFacing || !shape.TryProject(position, out var texel, out var depth)) {
+                    continue;
+                }
+
+                if (!cache.IsValid(card, texel) || MathF.Abs(cache.Surface(card, texel).Depth - depth) > cache.DepthTolerance) {
+                    continue;
+                }
+
+                best = card;
+                bestFacing = facing;
+                bestTexel = texel;
+            }
+
+            if (best < 0) {
+                return false;
+            }
+
+            radiance = cache.Outgoing(best, bestTexel);
+
+            return true;
+        }
+
+        var found = 0;
+
+        for (var query = 0; query < 512; query++) {
+            Vector3 position;
+            Vector3 normal;
+
+            if ((query & 1) == 0) {
+                // On a stored surface, give or take a jitter inside the depth tolerance — the
+                // queries that must find something, or the comparison is comparing misses.
+                var card = Math.Min((int)(Next() * cache.Cards.Count), cache.Cards.Count - 1);
+                var shape = cache.Cards[card].Card;
+                var texel = new Int2((int)(Next() * 4f), (int)(Next() * 4f));
+
+                position = shape.TexelOrigin(texel)
+                    - (shape.Direction * (shape.Extents.Depth + ((Next() - 0.5f) * 0.15f)));
+                normal = shape.Direction;
+            } else {
+                // Anywhere at all — mostly misses, and both scans must agree those are misses too.
+                position = new((Next() * 24f) - 12f, (Next() * 24f) - 12f, (Next() * 24f) - 12f);
+                normal = new SurfaceCard(Math.Min((int)(Next() * 6f), 5), Vector3.Zero, Vector3.One, new(1, 1)).Direction;
+            }
+
+            var hit = cache.TryRadiance(position, normal, out var indexed);
+            var expected = Linear(position, normal, out var scanned);
+
+            Assert.Equal(expected, hit);
+            Assert.Equal(scanned, indexed);
+
+            if (hit) {
+                found++;
+            }
+        }
+
+        // A comparison that never found anything compared nothing.
+        Assert.True(found > 200, $"only {found} of 512 queries landed on a card — the fixture is too sparse to referee");
+    }
+
     /// <summary>A solid half-space below y = 0.</summary>
     sealed class Floor : IDistanceField {
         public float Sample(Vector3 position) => position.Y;
