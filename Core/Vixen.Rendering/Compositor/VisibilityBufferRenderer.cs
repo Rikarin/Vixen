@@ -145,20 +145,30 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
         var viewProjection = system.Views[ViewIndex].ViewProjection;
         var size = frame.Size;
 
-        var identity = frame.Graph.CreateTexture(
-            new(
-                GpuClusterRaster.Format,
-                size.X,
-                size.Y,
-                TextureUsage.ColourTarget | TextureUsage.Sampled,
-                Name: Output
-            )
-        );
+        // A declaration wins over a creation, and that is the whole of what makes the buffer
+        // inspectable. A transient this node creates is stored only if something inside the frame reads
+        // it — nothing outside one can — so a document that wants to look at the visibility buffer, or a
+        // harness that wants to compare it against another renderer, declares or imports it by name and
+        // gets a resource that outlives the frame. Creating one unconditionally made that impossible and
+        // said nothing about it.
+        var identity = frame.Has(Output)
+            ? frame.Texture(ToString(), Output)
+            : frame.Graph.CreateTexture(
+                new(
+                    GpuClusterRaster.Format,
+                    size.X,
+                    size.Y,
+                    TextureUsage.ColourTarget | TextureUsage.Sampled,
+                    Name: Output
+                )
+            );
 
-        // Registered under its name so whatever resolves it can ask for it the way every other node asks
-        // for a target — which is what makes phase 5 a node placed in a document rather than a reference
-        // to this class.
-        frame.Add(Output, identity, GpuClusterRaster.Format);
+        if (!frame.Has(Output)) {
+            // Registered under its name so whatever resolves it can ask for it the way every other node
+            // asks for a target — which is what makes phase 5 a node placed in a document rather than a
+            // reference to this class.
+            frame.Add(Output, identity, GpuClusterRaster.Format);
+        }
 
         var depth = frame.Texture(ToString(), Depth);
         var format = frame.FormatOf(ToString(), Depth);

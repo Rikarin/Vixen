@@ -424,8 +424,24 @@ host: from a visible word through the instance, the geometry record, the slot ta
 to a world position, compared **exactly** against `MeshletPageSet.GetPositions` over every corner of
 every cluster of a sphere — `ClusterRasterTests`. Exactly, not nearly, because the decode is an integer
 addition and one multiply and two readers of the same bytes have to reach the same float. Both the
-lost-origin and the slot-for-page-number sabotages fail it. The golden image is still owed and is
-phase 5's natural companion, since a resolve is what makes the buffer into a picture.
+lost-origin and the slot-for-page-number sabotages fail it.
+
+**The golden image now exists as a fixture, and the first thing it did was fail.**
+`VirtualGeometryGoldenTests` draws one plane twice — once through `MeshRenderFeature` and once through
+the traversal and the raster, at the same camera — and compares which pixels each covers. Coverage
+rather than colour, because phase 4 owns where the draw lands and phase 5 owns what it looks like; and a
+plane rather than a sphere, because a flat quad's silhouette is LOD-invariant, so whichever cut the
+traversal chooses covers the same pixels and "within the LOD error threshold" stops being a number
+nobody can write down.
+
+⚠ What it found: for a registered, resident, in-frustum instance whose stage mask matches the view's,
+the traversal **dispatches and returns zero visible clusters**. `TraversedOnDevice` is true, the raster
+records its indirect draw, the root page is resident — and `VisibleClusters` reads back zero, so the
+instance count is zero and the buffer is uniformly `Nothing`. Nothing else in the suite says so:
+`VirtualGeometryDeviceTests` asserts that the traversal dispatched and that a page became resident, both
+of which are true here. On the evidence available the visibility buffer has never held a cluster on a
+device, and the host-side decode tests are arithmetic the device has never run. The fixture is committed
+skipped, as the reproduction; the fault is in the culling shader.
 
 Four things the plan above did not say:
 
