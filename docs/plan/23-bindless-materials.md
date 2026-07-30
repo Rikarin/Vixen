@@ -1,11 +1,11 @@
 # Bindless material binding
 
-The plan [W0-17](overview.md#32-wave-0--startable-today-fully-parallel) names, and what has been
+The plan [W0-17](../overview.md#32-wave-0--startable-today-fully-parallel) names, and what has been
 built of it.
 
 Three things in the engine are marked blocked on this and on nothing else: **compacted draws**,
 **per-object reflection probe selection**, and **a material feature that samples a texture** —
-[doc 06](plan/06-rendering-pipeline.md) § Materials calls the last one "materials are values, not
+[doc 06](06-rendering-pipeline.md) § Materials calls the last one "materials are values, not
 resources". They are blocked on the same sentence, which is worth stating precisely before any of it
 is designed:
 
@@ -291,7 +291,7 @@ Three things this makes true, and they are the three blocked items:
 `Device`/`Descriptors` being set, and `DescriptorsOf` already falls back to `Material.Descriptors` —
 the README calls that "what a host with a bindless table or a texture array still wants". So the fork
 exists; what is added is a third arm rather than a rewrite. That matters more than it looks:
-[ADR-011](plan/01-technology-decisions.md) makes the non-bindless path what runs on WebGL2 and on
+[ADR-011](01-technology-decisions.md) makes the non-bindless path what runs on WebGL2 and on
 GL, so it is not a legacy concession and cannot be allowed to rot.
 
 **The permutation question.** A set is written per variant today because a permutation can fold a
@@ -589,7 +589,7 @@ the RHI has no reason to forbid it, not because the material path should use it.
 ## Where the capability is absent
 
 `HasBindless` is false on GL, on GLES, on WebGL2, and on MoltenVK below Metal argument-buffer tier 2
-— see [rhi-backend-mapping.md](rhi-backend-mapping.md). On those targets every item above is a
+— see [rhi-backend-mapping.md](../rhi-backend-mapping.md). On those targets every item above is a
 no-op and the engine runs exactly as it does now: a descriptor set per material, one indirect command
 per object with the culled ones zeroed, four reflection probes bound per frame, and a material
 feature that cannot sample. That is a real product decision rather than a temporary state, and it is

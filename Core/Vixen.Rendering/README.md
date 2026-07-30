@@ -1661,7 +1661,7 @@ the shader takes one, nothing loads one.
 **Compacted draws are built**, and this section used to say they were the thing blocked on
 everything. `GpuDrawArguments.Compact` appends survivors to a run per batch and
 `MeshRenderFeature` covers a whole batch with one `DrawIndexedIndirectCount` — see
-[docs/bindless-materials.md](../../docs/bindless-materials.md), which is the record of the whole
+[docs/plan/23-bindless-materials.md](../../docs/plan/23-bindless-materials.md), which is the record of the whole
 chain. Both halves of the old objection are gone: the count comes from a buffer the host never reads,
 and objects share their bindings because a material is a record (`MaterialRecords`) and geometry is a
 range of a shared buffer (`GeometryBuffer`).
@@ -1708,7 +1708,7 @@ and `TextureIndices` are still host-supplied, so a material that samples through
 surface declares set 4 whatever the permutation says — bindings are declared, not discovered — so its
 pipeline layout has five sets while the draw loop binds the fifth only when a table exists. A table
 needs a capacity and a *fallback view*, and both are project decisions; see
-[docs/bindless-materials.md](../../docs/bindless-materials.md) § *The one thing left* for the two
+[docs/plan/23-bindless-materials.md](../../docs/plan/23-bindless-materials.md) § *The one thing left* for the two
 shapes it could take and the guard that belongs with either.
 
 ## Testing

@@ -59,7 +59,7 @@ reasons are practical rather than aesthetic:
 
 **No Recast or Detour code is copied.** The algorithms are re-derived from their published
 descriptions and credited at the call sites and in the repository `NOTICE`, under
-[ADR-015](../../docs/plan/01-technology-decisions.md#adr-015--vixen-is-apache-20)'s reference-material
+[ADR-015](../../docs/plan/01-technology-decisions.md#adr-015--vixen-is-apache-20---decided)'s reference-material
 rule. Recast/Detour is zlib-licensed, which the dependency audit already records.
 
 ## Counter-clockwise, everywhere

@@ -13,7 +13,7 @@ namespace Vixen.Graphics.Golden.Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <strong>The gate <c>docs/bindless-materials.md</c> says is not optional.</strong> Every
+///         <strong>The gate <c>docs/plan/23-bindless-materials.md</c> says is not optional.</strong> Every
 ///         compile-time test of <c>Texture2D[]</c> asserts something structural — a runtime array with
 ///         no stride, two capabilities, two <c>NonUniform</c> decorations — and all of it can be
 ///         right while the shader still reads one descriptor for a whole subgroup. That failure has

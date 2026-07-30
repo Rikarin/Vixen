@@ -407,7 +407,7 @@ job system with the same content-addressed caching. Notable compilers:
 - `ModelCompiler` — vertex layout optimisation, meshlet generation, index reordering for cache
   locality (Forsyth/`meshoptimizer`), LOD generation, bounds, tangent generation. **Meshlet
   generation is built**, and it subsumes LOD generation rather than sitting beside it: the cluster
-  DAG of [virtualized-geometry.md](../virtualized-geometry.md) phase 1 is every level of detail at
+  DAG of [virtualized-geometry.md](22-virtualized-geometry.md) phase 1 is every level of detail at
   once, and the discrete chain is a cut through it at a fixed budget. Written as a `Meshlets`
   sub-asset per mesh, refused rather than shipped if it would crack.
 - `MaterialCompiler` — resolves the material feature tree to a permutation set and emits the effect

@@ -14,7 +14,7 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <c>docs/bindless-materials.md</c> opens with "<c>MeshRenderFeature</c> binds a vertex
+///         <c>docs/plan/23-bindless-materials.md</c> opens with "<c>MeshRenderFeature</c> binds a vertex
 ///         buffer, an index buffer and a material set per object", and a draw that binds anything per
 ///         object cannot be merged with its neighbour. Material records removed the third. This is
 ///         the first two.

@@ -33,7 +33,7 @@ public readonly record struct ShapeBatch(PrimitiveKind Kind, int First, int Coun
 ///     </para>
 ///     <para>
 ///         ⚠ <b>This used to transform every vertex of every entity into world space every frame, and
-///         that was the thing <c>docs/blockout-tools.md</c> § B1 called a blocker rather than a
+///         that was the thing <c>docs/plan/24-blockout-tools.md</c> § B1 called a blocker rather than a
 ///         performance concern.</b> The cost was linear in vertices with a cache keyed by
 ///         <see cref="PrimitiveKind" /> — so a hundred cubes were cheap and a hundred <em>edited</em>
 ///         meshes were a hundred rebuilds a frame, and "a drag that redraws at four frames a second is

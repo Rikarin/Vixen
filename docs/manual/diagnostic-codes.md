@@ -1,7 +1,24 @@
 # Diagnostic codes
 
-Every diagnostic the tools emit in the MSBuild format carries a stable `VXnnnn` code. This file is
-the register.
+Every diagnostic the **tools** emit in the MSBuild format carries a stable `VXnnnn` code. This file is
+the register for those.
+
+**Compile-time diagnostics are a separate space and are registered with their producer**, because a
+Roslyn analyzer's codes belong to its `AnalyzerReleases.{Shipped,Unshipped}.md` pair — that is where the
+analyzer-release tracking rules require them, and a second copy here would be a second thing to keep in
+step. Where to look:
+
+| Prefix | Producer |
+|---|---|
+| `RVN` | Raven — the compiler's own diagnostics ([07](../plan/07-raven-shader-pipeline.md)) |
+| `VXS` | `Vixen.Core.Serialization.Generator`, `Vixen.Core.Reflection.Generator`, `Vixen.Ui.Generators` |
+| `VXML` | `Vixen.Ui.Markup.Generators` — `1xxx` means the tree is a guess made during recovery, `2xxx` that the tree is right and its meaning is wrong |
+| `VXNET` | `Vixen.Net.Generators` — replicators and RPC senders |
+| `VXSH` | `Vixen.Shaders.Generators` |
+| `VXIN` | `Vixen.Input.Generators` |
+| `VXN` | `Vixen.Editor.NodeGraph.Generator` |
+| `VXI` | `Vixen.Editor.Inspector.Generator` |
+| `VXIO` | `Vixen.Core.IO.Analyzers` — the `System.IO.Path` ban |
 
 **Why this exists.** MSBuild recognises `file: error CODE: text` and nothing else — without a code a
 line is prose in a build log rather than an entry in the IDE's error list. And once shipped, a code is

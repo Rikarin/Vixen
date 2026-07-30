@@ -5,15 +5,17 @@ shipped game also ships Photoshop- or Blender-class desktop tooling. The editor 
 engine, using the engine's own UI framework, and is the primary proof that the framework is
 general-purpose.
 
-This directory is the authoritative design record. Read it in order the first time; after that,
-treat each file as the spec for its subsystem.
+This directory is the authoritative design record: what Vixen is meant to be, and why each decision
+was taken. Read 00–02 first; after that, treat each file as the spec for its subsystem.
 
-**For *state* rather than design, read [`../overview.md`](../overview.md) first.** These documents say
-what Vixen is meant to be and record why each decision was taken; the overview says which of it
-exists. It carries every feature and every library with a status, a dependency tree over what is left
-so independent tracks can be scheduled in parallel, and one table of what is owed. Where it and a
-document here disagree, the overview is checked against the code and says so — which is how a design
-record that is kept for its reasoning stays useful without also having to be a status board.
+**These documents do not say what is built.** [`../overview.md`](../overview.md) does, and it is
+checked against the code — so where it and a document here disagree, it says so and it wins. Keeping
+the two apart is what lets a design record stay useful for its reasoning without also having to be a
+status board.
+
+Documents 18 and above amend or extend an earlier one rather than opening new ground; each says which,
+and the document it amends points back. **A ⚠️ means the amendment changes a decision, so read the pair
+together; a ✅ means it has since been carried out.**
 
 | # | Document | Scope |
 |---|---|---|
@@ -35,60 +37,40 @@ record that is kept for its reasoning stays useful without also having to be a s
 | 15 | [Risks and Open Questions](15-risks-and-open-questions.md) | Ranked risks, mitigations, decisions that need your input |
 | 16 | [Networking](16-networking.md) | Transports, tick, replication, interest management, lag compensation, security |
 | 17 | [App Heads and Shipping](17-app-heads-and-shipping.md) | What a shipped game *is*, build variants, dedicated server, play-mode topology, trimming policy |
-| 18 | [Raven Parser Migration](18-raven-parser-migration.md) | ⚠️ Amends ADR-009 — why ANTLR should give way to a hand-written parser, and the plan to swap it safely |
+| 18 | [Raven Parser Migration](18-raven-parser-migration.md) | ✅ Amends ADR-009 — why ANTLR gave way to a hand-written parser, and why the `.g4` files were kept as a differential oracle |
 | 19 | [Lighting and Global Illumination](19-lighting-and-global-illumination.md) | ⚠️ Amends 06 — retires baked lightmaps and tetrahedral probes for a Lumen-shaped dynamic path: distance fields, an irradiance field, screen probes, surface cache |
 | 20 | [Editor Parity](20-editor-parity.md) | ⚠️ Extends 11 — the editor's *surface*: every panel, window, menu line and verb an Unreal or Unity user reaches for, with the milestones to build them |
 | 21 | [Realtime Collaboration](21-realtime-collaboration.md) | ⚠️ Extends 11 and 20 — what Unreal's Multi-User Editing is, why intent replicates better than diffs, and what the five milestones cost. Post-1.0 except the first |
-| — | [spikes/web-webgl2](spikes/web-webgl2/RESULT.md) | ✅ Executed spike: Silk.NET.OpenGLES on `browser-wasm`, with working code and measurements |
-| — | [Implementation Overview](../overview.md) | **Not a design document.** What is built, what is not, what blocks what, and what is owed — reconciled against the code |
+| 22 | [Virtualized Geometry](22-virtualized-geometry.md) | ⚠️ Extends 06 — a Nanite-class pipeline: a cluster DAG built offline, streamed pages, hierarchical culling on the device |
+| 23 | [Bindless Materials](23-bindless-materials.md) | ⚠️ Extends 05 and 06 — one descriptor array for the frame, so a draw is an index rather than a set; what compacted draws and GPU-driven submission were waiting for |
+| 24 | [Blockout Tools](24-blockout-tools.md) | ⚠️ Extends 11 and 20 — in-viewport grey-boxing: a mesh kernel that survives editing, sub-object selection, the fifteen verbs, snapping, and the handoff to an artist |
 
-## Read this first
+### Not design documents
 
-Four things in the brief need correcting or narrowing before work starts. They are detailed in
-[15-risks-and-open-questions.md](15-risks-and-open-questions.md), summarised here:
+| Document | What it is |
+|---|---|
+| [Implementation Overview](../overview.md) | **The state, not the design.** Every feature and library with a status, a dependency tree over what is left so independent tracks can be scheduled in parallel, and one table of what is owed. Reconciled against the code |
+| [RHI Backend Mapping](../rhi-backend-mapping.md) | A reference table: every `Vixen.Graphics` concept against Vulkan, D3D12, GL/GLES/WebGL2, WebGPU and Metal. The fourth of ADR-001's five measures, reviewed whenever the RHI surface changes |
+| [spikes/web-webgl2](spikes/web-webgl2/RESULT.md) | ✅ Executed spike: `Silk.NET.OpenGLES` drives real WebGL2 from `browser-wasm`, in ~40 lines of Emscripten bridge, trimming to 0.93 MB Brotli. Retired risk R1 and corrected a size estimate that was an order of magnitude wrong |
+| [manual/](../manual/) | Reader-facing: building a game and a server, the diagnostic-code register, the log-event register |
 
-1. **There is no Silk.NET Metal binding** — ✅ *MoltenVK approach confirmed.* Verified against the live
-   package index: Silk.NET ships Vulkan, D3D11/12, OpenGL, OpenGL ES, EGL, WebGPU, SPIRV, Shaderc, but
-   nothing for Metal. Metal on macOS/iOS is delivered via **MoltenVK** — verified at **v1.4.2**
-   (released 2026-07-24), a layered implementation of **Vulkan 1.4** covering macOS/iOS/tvOS/Catalyst
-   and the Simulators, which internally converts SPIR-V to MSL with SPIRV-Cross. A native Metal
-   backend, if ever wanted, is a post-1.0 hand-written binding — not a Silk.NET package away.
-2. **"No Mono" means no Cecil** — ✅ *confirmed, settled.* The constraint is *no IL weaving, no
-   Mono.Cecil post-processing, no embedded Mono scripting host; Roslyn source generators for all
-   metaprogramming* (ADR-002), enforced by a build gate. The Mono-based WASM runtime is acceptable, so
-   **Web stays in scope**. The engine constrains its compile-time toolchain; the runtime host the .NET
-   SDK picks for `browser-wasm` is not the engine's choice.
-3. **Yoga has no CSS Grid.** The Flexbox C# port is a flexbox-only algorithm (and is .NET Framework
-   4.6, class-per-node, allocation-heavy). It is used as an *algorithm reference*, not a dependency.
-   Grid is a separate layout algorithm implemented after flexbox lands.
-4. **Scale.** Honest sizing is in [14-roadmap.md](14-roadmap.md): **~53 engineer-months** of work
-   including Raven's remainder. Since this is being built **solo with AI assistance** (Q8), that document
-   now carries a *Delivering this solo* section: four publishable milestones, a recommended swap of
-   Phases 4 and 5 so a working engine ships before the largest phase, and a cut list ordered in advance.
-   Plan against milestones, not a completion date.
+## Four corrections to the original brief
 
-**Already verified by executed spike** — [spikes/web-webgl2](spikes/web-webgl2/RESULT.md): the Web
-target's core unknown (risk R1) is retired. `Silk.NET.OpenGLES` renders a WebGL2 triangle from
-`browser-wasm` on .NET 10 via a ~40-line Emscripten bridge, with a trimmed payload of **0.93 MB
-Brotli** — an order of magnitude better than this plan's first estimate. The write-up includes the
-working project, the required emcc flags, and a silent-WebGL1-downgrade trap worth knowing about.
+All four are settled. They are kept here because each changed what got built, and the reasoning is in
+[15-risks-and-open-questions.md](15-risks-and-open-questions.md).
 
-## Current state of the repo
-
-```
-/Users/jiu/Projects/Vixen
-├── .DS_Store
-├── Raven/                  ← existing, own git repo, net10.0, RootNamespace = Vixen.Raven
-│   ├── Compiler/           ← ANTLR grammar + Roslyn-style green/red syntax trees; parse only
-│   ├── Cli/                ← `raven compile --target glsl`
-│   ├── Syntax/Syntax.xml      ← node model; the generator lives in Core/
-│   ├── Tests/              ← xunit; golden syntax, round-trip, red/green tree tests
-│   └── Feed/               ← .rvn samples
-└── docs/plan/              ← this directory
-```
-
-Raven's parser front end is real and well-structured (green/red trees, full trivia, golden tests,
-`Vixen.Raven` root namespace already chosen). Semantic analysis and code generation are the
-outstanding work, and per your brief they complete before engine work starts. Phase 0 of the roadmap
-absorbs Raven into the monorepo with history intact and adds the compiler contract the engine
-depends on.
+1. **There is no Silk.NET Metal binding.** Metal on macOS and iOS is delivered through **MoltenVK**
+   — a layered implementation of Vulkan 1.4 that converts SPIR-V to MSL with SPIRV-Cross internally
+   (ADR-011). A native Metal backend would be a hand-written binding, not a package away, and is
+   post-1.0 if ever.
+2. **"No Mono" means no Cecil.** The constraint is *no IL weaving, no Mono.Cecil post-processing, no
+   embedded Mono scripting host; Roslyn source generators for all metaprogramming* (ADR-002),
+   enforced by a `CheckArchitecture` gate. The Mono-based WASM runtime is acceptable, so **Web stays
+   in scope** — the engine constrains its compile-time toolchain, not the runtime host the SDK picks.
+3. **Yoga has no CSS Grid**, and the Flexbox C# port is not usable as a dependency (.NET Framework
+   4.6, class-per-node, allocation-heavy). It is an *algorithm reference* (ADR-006). Grid is a
+   separate algorithm, still unbuilt.
+4. **Scale.** ~48 engineer-months for the twelve original phases, all of which are now built or
+   part-built — [14-roadmap.md](14-roadmap.md) carries the per-phase state, the four publishable
+   milestones (M1 and M2 are passed), and a cut list ordered in advance. The amendments in 19–24 carry
+   their own budgets. Plan against milestones, not a completion date.

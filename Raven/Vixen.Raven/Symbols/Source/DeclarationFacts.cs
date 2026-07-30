@@ -253,7 +253,7 @@ public static class DeclarationFacts {
     ///         Which is the point: a draw that binds a descriptor set per material cannot be merged
     ///         with a draw that binds a different one. One buffer bound once for the frame and an
     ///         index in the per-draw data is what makes two materials' draws identical in everything
-    ///         but their data — see <c>docs/bindless-materials.md</c>.
+    ///         but their data — see <c>docs/plan/23-bindless-materials.md</c>.
     ///     </para>
     /// </remarks>
     public static bool IsMaterialIndex(SyntaxList<AttributeListSyntax> attributeLists) {

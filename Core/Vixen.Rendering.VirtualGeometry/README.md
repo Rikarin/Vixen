@@ -3,7 +3,7 @@
 One authored mesh, every level of detail at once, and no cracks between them.
 
 This is **phases 1 and 2's offline half** of
-[docs/virtualized-geometry.md](../../docs/virtualized-geometry.md) — the part of a Nanite-class
+[docs/plan/22-virtualized-geometry.md](../../docs/plan/22-virtualized-geometry.md) — the part of a Nanite-class
 pipeline that runs at import time, and the part that decides whether the result has cracks.
 What comes out is a cluster DAG: about a hundred and twenty-eight triangles per cluster, an error per
 cluster that says how far it has moved from the mesh it stands in for, and the structure that lets a

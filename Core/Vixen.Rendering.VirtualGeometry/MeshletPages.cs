@@ -90,7 +90,7 @@ public readonly record struct MeshletPage {
 /// <summary>A cluster DAG packed into pages: the runtime form of <see cref="MeshletMesh" />.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Phase 2 of <c>docs/virtualized-geometry.md</c>, the offline half.</b> What phase 1
+///         <b>Phase 2 of <c>docs/plan/22-virtualized-geometry.md</c>, the offline half.</b> What phase 1
 ///         produced is a DAG whose clusters index one mesh-wide vertex array — relocatable, but not
 ///         streamable: nothing in it can be loaded without loading all of it. This is the same DAG
 ///         with its geometry cut into fixed-size pages that can be.

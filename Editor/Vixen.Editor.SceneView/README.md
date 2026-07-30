@@ -504,7 +504,7 @@ rather than replacing it.
 ## Shapes are instanced, and that was a blocker rather than an optimisation
 
 `SceneMeshes` walked the scene once a frame, transformed every vertex of every entity into world space
-and appended them to one list. `docs/blockout-tools.md` § B1 is the argument for why that had to change
+and appended them to one list. `docs/plan/24-blockout-tools.md` § B1 is the argument for why that had to change
 before anything else in that document could be built, and the sentence worth keeping is the one about
 what the failure looks like: **a drag that redraws at four frames a second is not a slow tool, it is a
 tool nobody can aim.**

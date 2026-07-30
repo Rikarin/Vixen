@@ -228,7 +228,7 @@ carrying one and not the other is valid SPIR-V that a driver may read one descri
 from — which is the correct picture for any draw that happens to use a single material, and
 therefore for almost every test that is not written to catch it. The one that is written to catch it
 is `BindlessSamplingDeviceTests`, on a device, with sixty-four invocations reading sixty-four
-different slots. Nothing shorter can see it. See [bindless-materials.md](../bindless-materials.md).
+different slots. Nothing shorter can see it. See [bindless-materials.md](23-bindless-materials.md).
 
 **"Both emitters must agree" is structural rather than checked.** `Vixen.Raven.Reflection.BindingPlan`
 is the only code that assigns a `(set, binding)` pair; both emitters and `ReflectionBuilder` read
@@ -713,7 +713,7 @@ Each of these shaped a file rather than blocking it, and each is recorded in the
   as *values*, computed from the triangle's screen-space plane and propagated through the UV
   interpolation: SPIR-V's `Grad` image operand, GLSL's `textureGrad`, legal in every stage because a
   stated gradient needs no quad to derive one from. Blocks phase 5 of
-  [virtualized-geometry.md](../virtualized-geometry.md), and it is the only prerequisite the Forward+
+  [virtualized-geometry.md](22-virtualized-geometry.md), and it is the only prerequisite the Forward+
   resolve adds that a GBuffer resolve would not also need.
 - ~~**No `SV_VertexID`**~~ — landed, and it turned up a claim the library was not keeping. Every
   post-process effect took the fullscreen triangle's index as `vertexIndex: float`, an *attribute*,
@@ -907,9 +907,10 @@ with **zero diagnostics** and reprint as something else:
 
 The output is not merely different, it is **not Raven** — and `self` and `base` become
 indistinguishable from each other. None of the four is in the round-trip corpus, which is why nothing
-catches it. This blocks step 1 of [doc 18](18-raven-parser-migration.md) (a frozen corpus that omits
-them is not a safety net) and anything that reprints the tree: a formatter, a refactoring, or the
-shader graph's generated-source span mapping.
+catches it. It blocked the corpus freeze in [doc 18](18-raven-parser-migration.md) — a frozen corpus
+that omits them is not a safety net, and freezing is what flushed them out — and it still affects
+anything that reprints the tree: a formatter, a refactoring, or the shader graph's generated-source
+span mapping.
 
 #### Semantics and lowering
 
@@ -1567,7 +1568,7 @@ on a float and none on a vector, so the overloads simply are not declared and a 
 single-pass software rasterizer wants `atomicMax` on a word packing depth above a cluster id, and with
 32 bits you get one of the two. The alternative is two passes over the same triangles — a depth pass by
 `atomicMin` and an id pass testing equality — which costs roughly what it sounds like. See
-[virtualized-geometry.md § B2](../virtualized-geometry.md).
+[virtualized-geometry.md § B2](22-virtualized-geometry.md).
 
 Four decisions, each of which could have gone the other way:
 
@@ -1604,7 +1605,7 @@ The storage class § A listed as the one the language could not declare. `groups
 is a shader member that is deliberately **not a binding** — no descriptor, no `(set, binding)`, nothing
 the host writes — and deliberately not a local either: one copy per workgroup rather than one per
 invocation, which is the entire difference and the entire point. It is what a hierarchical traversal is
-made of ([virtualized-geometry.md § B1](../virtualized-geometry.md)), and what a reduction or a bitonic
+made of ([virtualized-geometry.md § B1](22-virtualized-geometry.md)), and what a reduction or a bitonic
 sort stages through.
 
 A modifier rather than an attribute, matching `stream` and `compose`: `[PushConstant]` and friends are
@@ -1679,7 +1680,7 @@ Recorded so nobody reintroduces them from the retired file's Phase 7:
 - **ANTLR as the end-state parser** → [doc 18](18-raven-parser-migration.md).
 - **Interaction classes** → § D. Raven's half is done — the reflection reports declared permutation
   keys and value parameters; the generator that turns them into C# is engine-side, and
-  [§ Generated C# bindings](#status-ravens-side-is-done-the-generator-waits-for-the-engine) records
+  [§ Generated C# bindings](#generated-c-bindings) records
   what it is waiting for.
 - **Raven's own `.github/workflows/ci.yml`** — it did not survive the merge into the monorepo, which
   has no workflows at all yet. [Doc 12](12-build-ci-and-testing.md) specifies them.

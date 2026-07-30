@@ -18,7 +18,7 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Every piece of <c>docs/bindless-materials.md</c> was reachable from a test and from
+///         Every piece of <c>docs/plan/23-bindless-materials.md</c> was reachable from a test and from
 ///         nothing else for a while: no code outside the tests built a <c>BindlessTable</c>, set
 ///         <c>TextureIndices</c>, turned <c>UseRecords</c> on, or asked for the
 ///         <c>UseMaterialRecords</c> variant. A mechanism nothing invokes is a mechanism that
@@ -277,7 +277,7 @@ public sealed class BindlessFrameTests : IDisposable {
     /// <remarks>
     ///     <para>
     ///         With the records path on, this is the sentence at the top of
-    ///         <c>docs/bindless-materials.md</c> reduced to nothing: three objects, no per-material
+    ///         <c>docs/plan/23-bindless-materials.md</c> reduced to nothing: three objects, no per-material
     ///         set, no per-object vertex buffer, no per-object index buffer. What separates their
     ///         draws is the numbers in the arguments — which is what an indirect buffer holds, and so
     ///         what makes compaction worth anything.

@@ -29,7 +29,7 @@ public readonly record struct GeometrySlice(int BaseVertex, int VertexCount, int
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <strong>The other half of the sentence <c>docs/bindless-materials.md</c> opens with.</strong>
+///         <strong>The other half of the sentence <c>docs/plan/23-bindless-materials.md</c> opens with.</strong>
 ///         <c>MeshRenderFeature</c> binds "a vertex buffer, an index buffer and a material set per
 ///         object", and a draw that binds anything per object cannot be merged with its neighbour.
 ///         Records removed the third; this removes the first two. A run of objects whose geometry

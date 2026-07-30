@@ -21,7 +21,7 @@ namespace Tests;
 ///         lights in the grid, so choosing eight per object would be work whose answer nothing reads.
 ///         Which meant everything else in that block arrived as whatever set 3 last held, and
 ///         <c>probeIndex</c> is in it. Per-object reflection probes are one of the three features
-///         <c>docs/bindless-materials.md</c> was written to unblock, so the two could not both be on.
+///         <c>docs/plan/23-bindless-materials.md</c> was written to unblock, so the two could not both be on.
 ///     </para>
 ///     <para>
 ///         ⚠ <strong>The failure is a picture rather than an error.</strong> Every object reflecting

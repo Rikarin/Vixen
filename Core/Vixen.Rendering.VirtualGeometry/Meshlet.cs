@@ -103,7 +103,7 @@ public readonly record struct Meshlet {
     /// <summary>The lowest bone index any of its vertices is weighted to, or −1 if it is not skinned.</summary>
     /// <remarks>
     ///     <para>
-    ///         Improvement 1 of <c>docs/virtualized-geometry.md</c>: skinning is designed in rather
+    ///         Improvement 1 of <c>docs/plan/22-virtualized-geometry.md</c>: skinning is designed in rather
     ///         than retrofitted, and this is the whole of what the cluster record has to carry for
     ///         it. A traversal expands <see cref="Bounds" /> by the motion of the bones in
     ///         <c>[FirstBone, FirstBone + BoneCount)</c> and everything downstream is unchanged.

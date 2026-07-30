@@ -21,7 +21,7 @@ namespace Tests;
 ///     <para>
 ///         A draw that binds a descriptor set per material cannot be merged with a draw that binds a
 ///         different one, which is the sentence
-///         <c>docs/bindless-materials.md</c> opens with and the reason compacted draws are blocked.
+///         <c>docs/plan/23-bindless-materials.md</c> opens with and the reason compacted draws are blocked.
 ///         One buffer holding every material in the frame, bound once, and a subscript in the
 ///         per-draw data makes two materials' draws identical in everything but their data.
 ///     </para>

@@ -17,7 +17,7 @@ namespace Tests;
 /// <remarks>
 ///     <para>
 ///         docs/plan/07 called this "a storage class the language cannot declare", and
-///         docs/virtualized-geometry.md § B1 is what wanted it: hierarchical traversal is a
+///         docs/plan/22-virtualized-geometry.md § B1 is what wanted it: hierarchical traversal is a
 ///         workgroup popping a node, testing its children and pushing the survivors, which is a
 ///         queue with a local head. Without shared memory it is one global atomic per child and a
 ///         dispatch that spends its life in memory traffic.

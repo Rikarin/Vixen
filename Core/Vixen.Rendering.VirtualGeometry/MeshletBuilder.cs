@@ -8,7 +8,7 @@ namespace Vixen.Rendering.VirtualGeometry;
 /// <summary>Turns a mesh into a cluster DAG: every level of detail at once, and no cracks between them.</summary>
 /// <remarks>
 ///     <para>
-///         Phase 1 of <c>docs/virtualized-geometry.md</c>, and the phase that decides whether the
+///         Phase 1 of <c>docs/plan/22-virtualized-geometry.md</c>, and the phase that decides whether the
 ///         result has cracks. The loop is four steps and the third is the whole trick:
 ///     </para>
 ///     <para>

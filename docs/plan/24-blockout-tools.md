@@ -11,19 +11,19 @@ who has box-modelled reaches for, a snapping system that is one service rather t
 a handoff that turns a block-out into an asset an artist can replace.
 
 This document is the plan and the argument for it. It is a separate file for the same reason
-[bindless-materials.md](bindless-materials.md) and [virtualized-geometry.md](virtualized-geometry.md)
+[bindless-materials.md](23-bindless-materials.md) and [virtualized-geometry.md](22-virtualized-geometry.md)
 are: it is larger than a row in a status table, several things depend on pieces of it, and the first
 half of it is an argument rather than a schedule.
 
 **Read [the row this overturns](#the-row-this-overturns) before the phases.** This document
-contradicts a decision already recorded in [20 § Part G](plan/20-editor-parity.md#part-g--out-of-scope),
+contradicts a decision already recorded in [20 § Part G](20-editor-parity.md#part-g--out-of-scope),
 and a plan that quietly reversed one would be worth less than no plan.
 
 ---
 
 ## The row this overturns
 
-[20 § Part G](plan/20-editor-parity.md#part-g--out-of-scope) lists, under things deliberately not
+[20 § Part G](20-editor-parity.md#part-g--out-of-scope) lists, under things deliberately not
 being built:
 
 > **Mesh editing / modelling tools** — Unreal ships them and they are not what an engine is for.
@@ -58,7 +58,7 @@ So the line moves rather than disappearing, and here is where it goes:
 | Snapping, measurement, alignment | A node-based parametric modeller |
 | Bake to an asset an artist replaces | Being anybody's DCC |
 
-The right-hand column is [20 § Part G](plan/20-editor-parity.md#part-g--out-of-scope)'s sentence,
+The right-hand column is [20 § Part G](20-editor-parity.md#part-g--out-of-scope)'s sentence,
 still true, and the reason it is still true is that everything in it is *authoring for its own sake*.
 Everything in the left-hand column exists to answer a question about the game.
 
@@ -173,30 +173,30 @@ against the plan docs.
 
 | Piece | State | Where |
 |---|---|---|
-| `MeshData` — parallel typed arrays, empty means absent | ✅ | [MeshData.cs](../Core/Vixen.Rendering/MeshData.cs) |
-| `MeshPrimitives` — eight shapes, every one fitting the unit cube, CCW, no device | ✅ | [MeshPrimitives.cs](../Core/Vixen.Rendering/MeshPrimitives.cs) |
-| `PrimitiveShape` + `PrimitiveShapes` — a primitive kind per entity, as a runtime component a scene names | ✅ | [MeshComponents.cs](../Core/Vixen.Rendering/Ecs/MeshComponents.cs) |
-| `SceneMeshes` — every shaped entity as one instance, grouped per shape | ✅ | [SceneMeshes.cs](../Editor/Vixen.Editor.SceneView/SceneMeshes.cs) |
-| `MeshInstanceRenderer` — device-resident shapes, a per-entity transform, one draw per shape | ✅ | [MeshInstanceRenderer.cs](../Core/Vixen.Rendering/MeshInstanceRenderer.cs) |
-| `MeshRenderer` — world-space triangles for the gizmo's solid handles, which are rebuilt per frame | ✅ | [MeshRenderer.cs](../Core/Vixen.Rendering/MeshRenderer.cs) |
-| `TransformGizmo` — four modes, four spaces, two pivots, **recomputed from mouse-down** | ✅ | [TransformGizmo.cs](../Editor/Vixen.Editor.SceneView/TransformGizmo.cs) |
-| `SnapSettings` — grid / angle / scale, absolute-vs-relative distinguished | ✅ | [GizmoTypes.cs](../Editor/Vixen.Editor.SceneView/GizmoTypes.cs) |
+| `MeshData` — parallel typed arrays, empty means absent | ✅ | [MeshData.cs](../../Core/Vixen.Rendering/MeshData.cs) |
+| `MeshPrimitives` — eight shapes, every one fitting the unit cube, CCW, no device | ✅ | [MeshPrimitives.cs](../../Core/Vixen.Rendering/MeshPrimitives.cs) |
+| `PrimitiveShape` + `PrimitiveShapes` — a primitive kind per entity, as a runtime component a scene names | ✅ | [MeshComponents.cs](../../Core/Vixen.Rendering/Ecs/MeshComponents.cs) |
+| `SceneMeshes` — every shaped entity as one instance, grouped per shape | ✅ | [SceneMeshes.cs](../../Editor/Vixen.Editor.SceneView/SceneMeshes.cs) |
+| `MeshInstanceRenderer` — device-resident shapes, a per-entity transform, one draw per shape | ✅ | [MeshInstanceRenderer.cs](../../Core/Vixen.Rendering/MeshInstanceRenderer.cs) |
+| `MeshRenderer` — world-space triangles for the gizmo's solid handles, which are rebuilt per frame | ✅ | [MeshRenderer.cs](../../Core/Vixen.Rendering/MeshRenderer.cs) |
+| `TransformGizmo` — four modes, four spaces, two pivots, **recomputed from mouse-down** | ✅ | [TransformGizmo.cs](../../Editor/Vixen.Editor.SceneView/TransformGizmo.cs) |
+| `SnapSettings` — grid / angle / scale, absolute-vs-relative distinguished | ✅ | [GizmoTypes.cs](../../Editor/Vixen.Editor.SceneView/GizmoTypes.cs) |
 | `SnapSettings.SnapToVertex` / `SnapToSurface` | 🟡 | declared, **not honoured** |
-| `SceneGrid` — 1-2-5 adaptive spacing, emphasis on round numbers, screen-height reach | ✅ | [SceneGrid.cs](../Editor/Vixen.Editor.SceneView/SceneGrid.cs) |
-| `ScenePlacement` / `ISurfaceProbe` / `SurfaceHit` — a ray to a place to put something | ✅ | [ScenePlacement.cs](../Editor/Vixen.Editor.SceneView/ScenePlacement.cs) |
-| `ScenePicker` — exact ray tests per primitive, in local space, pixel-sized markers | ✅ | [ScenePicker.cs](../Editor/Vixen.Editor.SceneView/ScenePicker.cs) |
+| `SceneGrid` — 1-2-5 adaptive spacing, emphasis on round numbers, screen-height reach | ✅ | [SceneGrid.cs](../../Editor/Vixen.Editor.SceneView/SceneGrid.cs) |
+| `ScenePlacement` / `ISurfaceProbe` / `SurfaceHit` — a ray to a place to put something | ✅ | [ScenePlacement.cs](../../Editor/Vixen.Editor.SceneView/ScenePlacement.cs) |
+| `ScenePicker` — exact ray tests per primitive, in local space, pixel-sized markers | ✅ | [ScenePicker.cs](../../Editor/Vixen.Editor.SceneView/ScenePicker.cs) |
 | `PickingRenderer` / `PickingBuffer` — id buffer, one-pixel readback, ring-deep | 🟡 | written, driven by nothing |
-| `CommandStack` — merging, transactions, clean-marking, randomised do/undo/redo tests | ✅ | [CommandStack.cs](../Editor/Vixen.Editor.Core/CommandStack.cs) |
-| `SceneDocument` — undoable create/delete/rename, names outside the world, hidden set | ✅ | [SceneDocument.cs](../Editor/Vixen.Editor.SceneView/SceneDocument.cs) |
-| `.vxscene` — YAML, GUID identities, byte-identical round trip, version-checked | ✅ | [SceneSerializer.cs](../Editor/Vixen.Editor.SceneView/SceneSerializer.cs) |
-| **`ExactPredicates`** — filtered exact `Orient3D` / `InSphere` over `BigInteger` | ✅ | [ExactPredicates.cs](../Core/Vixen.Core.Mathematics/ExactPredicates.cs) |
-| `PhysicsWorld.Raycast` — an `ISurfaceProbe` implementation waiting to be written | ✅ | [PhysicsWorld.Queries.cs](../Core/Vixen.Physics/PhysicsWorld.Queries.cs) |
-| `ShapeDescription` — box, sphere, capsule, cylinder, **convex hull, mesh** | ✅ | [ShapeDescription.cs](../Core/Vixen.Physics/Shapes/ShapeDescription.cs) |
-| `ModelImporter` — Assimp, one sub-asset per mesh, addressed by name | ✅ | [ModelImporter.cs](../Editor/Vixen.Editor.Assets/Models/ModelImporter.cs) |
-| `GeometryBuffer` — many meshes in one vertex and one index buffer | ✅ | [GeometryBuffer.cs](../Core/Vixen.Rendering/GeometryBuffer.cs) |
+| `CommandStack` — merging, transactions, clean-marking, randomised do/undo/redo tests | ✅ | [CommandStack.cs](../../Editor/Vixen.Editor.Core/CommandStack.cs) |
+| `SceneDocument` — undoable create/delete/rename, names outside the world, hidden set | ✅ | [SceneDocument.cs](../../Editor/Vixen.Editor.SceneView/SceneDocument.cs) |
+| `.vxscene` — YAML, GUID identities, byte-identical round trip, version-checked | ✅ | [SceneSerializer.cs](../../Editor/Vixen.Editor.SceneView/SceneSerializer.cs) |
+| **`ExactPredicates`** — filtered exact `Orient3D` / `InSphere` over `BigInteger` | ✅ | [ExactPredicates.cs](../../Core/Vixen.Core.Mathematics/ExactPredicates.cs) |
+| `PhysicsWorld.Raycast` — an `ISurfaceProbe` implementation waiting to be written | ✅ | [PhysicsWorld.Queries.cs](../../Core/Vixen.Physics/PhysicsWorld.Queries.cs) |
+| `ShapeDescription` — box, sphere, capsule, cylinder, **convex hull, mesh** | ✅ | [ShapeDescription.cs](../../Core/Vixen.Physics/Shapes/ShapeDescription.cs) |
+| `ModelImporter` — Assimp, one sub-asset per mesh, addressed by name | ✅ | [ModelImporter.cs](../../Editor/Vixen.Editor.Assets/Models/ModelImporter.cs) |
+| `GeometryBuffer` — many meshes in one vertex and one index buffer | ✅ | [GeometryBuffer.cs](../../Core/Vixen.Rendering/GeometryBuffer.cs) |
 | `Vixen.Navigation` — a managed voxel bake over level geometry, contour → `PolyMesh` | ✅ | Core/Vixen.Navigation |
 | Any editable mesh at all | ⬜ | — |
-| `IEditorMode` | ⬜ | proposed in [20 § A1](plan/20-editor-parity.md#a1--the-application-frame), not built |
+| `IEditorMode` | ⬜ | proposed in [20 § A1](20-editor-parity.md#a1--the-application-frame), not built |
 
 **`ExactPredicates` is the most valuable line in that table and it did not get built for this.** It
 was written for `DelaunayTetrahedralization`, and it is the exact thing a robust boolean needs: a
@@ -205,7 +205,7 @@ produces holes produces them because a predicate near zero answered wrongly and 
 became inconsistent. Having that already solved, tested and fast moves the boolean from "the phase
 that might not land" to "the phase that is merely large".
 
-**The gizmo being recomputed from mouse-down is the second.** [Numeric entry](#p0--the-seam) — the
+**The gizmo being recomputed from mouse-down is the second.** [Numeric entry](#p0--the-seam-10-em) — the
 Blender idea above — is, in that design, substituting a typed magnitude for the dragged one before
 the same arithmetic runs. In an implementation that accumulated per-frame deltas it is not
 expressible at all.
@@ -235,15 +235,15 @@ frame, with the pass linear in the scene's total vertex count and no sharing lef
 ⚠ **This is the one item here that could be mistaken for a performance concern and was not.** A drag
 that redraws at four frames a second is not a slow tool, it is a tool nobody can aim.
 
-**What was built** is the device-resident half of what [20's risk table](plan/20-editor-parity.md#risks)
+**What was built** is the device-resident half of what [20's risk table](20-editor-parity.md#risks)
 calls the viewport wiring, and none of the material half:
 
 | Piece | Where |
 |---|---|
-| `MeshInstanceRenderer` — each shape's geometry in a `GeometryBuffer`, written once; a per-entity instance ring; one draw per shape, and one more for its wireframe | [MeshInstanceRenderer.cs](../Core/Vixen.Rendering/MeshInstanceRenderer.cs) |
-| `MeshInstanced.rvn` — the transform, the normal matrix and the outline's expansion in the vertex stage | [MeshInstanced.rvn](../Editor/Vixen.Editor.App/Shaders/MeshInstanced.rvn) |
-| `SceneMeshes` — one `MeshInstance` per entity, grouped into a `ShapeBatch` per shape | [SceneMeshes.cs](../Editor/Vixen.Editor.SceneView/SceneMeshes.cs) |
-| `ScenePresenter.Resolve` — where a `PrimitiveKind` becomes a range in a vertex buffer, on the frame the first entity wanting it appears | [ScenePresenter.cs](../Editor/Vixen.Editor.App/ScenePresenter.cs) |
+| `MeshInstanceRenderer` — each shape's geometry in a `GeometryBuffer`, written once; a per-entity instance ring; one draw per shape, and one more for its wireframe | [MeshInstanceRenderer.cs](../../Core/Vixen.Rendering/MeshInstanceRenderer.cs) |
+| `MeshInstanced.rvn` — the transform, the normal matrix and the outline's expansion in the vertex stage | [MeshInstanced.rvn](../../Editor/Vixen.Editor.App/Shaders/MeshInstanced.rvn) |
+| `SceneMeshes` — one `MeshInstance` per entity, grouped into a `ShapeBatch` per shape | [SceneMeshes.cs](../../Editor/Vixen.Editor.SceneView/SceneMeshes.cs) |
+| `ScenePresenter.Resolve` — where a `PrimitiveKind` becomes a range in a vertex buffer, on the frame the first entity wanting it appears | [ScenePresenter.cs](../../Editor/Vixen.Editor.App/ScenePresenter.cs) |
 
 A frame costs a hundred and sixty bytes an entity now — a transform, a normal matrix, a colour and four
 style lanes — whether the entity is a cube or a corridor. Three things that were *copies of the
@@ -265,7 +265,7 @@ picking stage.
 
 ### B2. There is no `IEditorMode`, and blockout is the second mode 🟡
 
-[20 § A1](plan/20-editor-parity.md#a1--the-application-frame) already argues for this and already
+[20 § A1](20-editor-parity.md#a1--the-application-frame) already argues for this and already
 says why: a mode is "a statement about what the viewport's input means right now", and retrofitting
 one "is how editors end up with six mutually-exclusive booleans on the viewport". It proposes
 shipping the interface with one mode (Select) so the seam is proven.
@@ -273,7 +273,7 @@ shipping the interface with one mode (Select) so the seam is proven.
 Blockout is what proves it. It needs first refusal on viewport input, its own toolbar, its own
 context menu, and — the part that makes the seam necessary rather than nice — **its own claim on
 keys that already mean something.** `1`/`2`/`3` for vertex/edge/face is the universal binding, and
-[20 § B2](plan/20-editor-parity.md#b2--the-viewport) gives `1..9` to view-bookmark recall. Both are
+[20 § B2](20-editor-parity.md#b2--the-viewport) gives `1..9` to view-bookmark recall. Both are
 right. A mode that owns its keys while active and releases them when it is not is the only
 resolution that does not make one of them worse.
 
@@ -285,7 +285,7 @@ mesh in a runtime component — and that is still true. What was wrong was the c
 that was needed runs the *other* way. `Vixen.Rendering` now references `Vixen.Ecs` and `Vixen.Engine`
 and declares `MeshRenderable`, `PrimitiveShape` and `Light` itself, which is what `Vixen.Physics`,
 `Vixen.Audio`, `Vixen.Animation` and `Vixen.Navigation` had all been doing the whole time.
-[20 § E1](plan/20-editor-parity.md#e1--the-three-panels-people-live-in-20-em) records the same gap from
+[20 § E1](20-editor-parity.md#e1--the-three-panels-people-live-in-20-em) records the same gap from
 the other end — dragging an asset into the scene, because "no runtime component carries an `AssetId`, so
 there is nothing for an entity to hold a mesh or a texture *in*" — and it closes the same way.
 
@@ -331,7 +331,7 @@ says what would move it to the id buffer later.
 ### B5. Snapping is declared and half-implemented 🟡
 
 `SnapSettings.SnapToVertex` and `VertexRadius` are in the model and honoured by nothing; the SceneView
-README says so, and [20 § E2](plan/20-editor-parity.md#e2--the-viewport-20-em) owes them. The reason
+README says so, and [20 § E2](20-editor-parity.md#e2--the-viewport-20-em) owes them. The reason
 given — "it needs the mesh under the pointer" — stops being true the moment there *is* an editable
 mesh under the pointer with an indexed vertex list. Blockout supplies the thing that unblocks the
 feature it needs.
@@ -479,7 +479,7 @@ and rebindable, and every one is claimed by the mode and released when it deacti
 |---|---|---|
 | Object / vertex / edge / face mode | `1` `2` `3` `4` | Mode-scoped. `Tab` enters and leaves the mesh |
 | Extend / toggle | `Shift`+click | Same modifier as entity selection, for the same reason |
-| Marquee | drag on empty | Shares [20 § E2](plan/20-editor-parity.md#e2--the-viewport-20-em)'s region resolve |
+| Marquee | drag on empty | Shares [20 § E2](20-editor-parity.md#e2--the-viewport-20-em)'s region resolve |
 | Loop / ring | `Alt`+click / `Ctrl+Alt`+click | The edge table's whole reason for existing |
 | Grow / shrink | `Ctrl+↑` / `Ctrl+↓` | |
 | Select by group / material / plane | menu | "Every coplanar face" is the blockout-specific one |
@@ -526,7 +526,7 @@ This is the group that separates a toolset a professional will use from one they
 | **Work plane to face / to selection / to world** | `Shift+G` ⋯ | [D5](#d5-the-grid-is-a-plane-with-a-transform) |
 | **Grid step double / halve** | `]` / `[` | Powers of two |
 | **Edit pivot** | `Ctrl+.` | An entity's origin is where it rotates and where it snaps from; a wall's belongs at its corner |
-| **Align and distribute** | `⋯` | Across a multi-selection, per axis, by min/centre/max. [20 § Part D](plan/20-editor-parity.md#transform) already owes this |
+| **Align and distribute** | `⋯` | Across a multi-selection, per axis, by min/centre/max. [20 § Part D](20-editor-parity.md#transform) already owes this |
 | **Measure** | `Shift+M` | Click two points and read the distance; angle from three. Snaps like everything else |
 | **Dimensions during a drag** | always | The extent in metres, on screen, while resizing. Both reference editors make you read a details panel |
 | **Reference volumes** | menu | A 1.8 m capsule, a door, a corridor, a vehicle — a *scale reference*, drawn and not shipped. The thing every level designer builds by hand on every project |
@@ -563,8 +563,8 @@ This is the group that separates a toolset a professional will use from one they
 
 ## Part 3 — Phases
 
-Effort in engineer-months, on [14](plan/14-roadmap.md)'s scale and benchmarked the same way. **Total
-11.0 EM**, which is comparable to the whole of [20 § Part E](plan/20-editor-parity.md#part-e--milestones),
+Effort in engineer-months, on [14](14-roadmap.md)'s scale and benchmarked the same way. **Total
+11.0 EM**, which is comparable to the whole of [20 § Part E](20-editor-parity.md#part-e--milestones),
 and that comparison is the honest framing rather than a reason not to start.
 
 The ordering is the important part. **P0–P4 is 7.0 EM and is where the value is**; each of P5, P6 and
@@ -573,7 +573,7 @@ somebody abandons. The cut line is drawn at each phase below.
 
 ### P0 — The seam (1.0 EM)
 
-`IEditorMode` and the mode bar ([20 § A1](plan/20-editor-parity.md#a1--the-application-frame)),
+`IEditorMode` and the mode bar ([20 § A1](20-editor-parity.md#a1--the-application-frame)),
 shipped with two modes — Select, and a Blockout mode that so far only owns its keys. `SnapContext`
 ([D4](#d4-snapping-is-one-service-above-the-gizmo)) with element, base and modifiers, honouring
 `SnapToVertex` and `SnapToSurface` against the primitives that already exist. `WorkPlane`
@@ -585,7 +585,7 @@ reference volumes.
 snapping, on a grid they moved onto a wall, typing exact distances, and read the result in metres —
 with no editable mesh in the engine yet.
 
-**If you stop here** you have shipped most of what [20 § E2](plan/20-editor-parity.md#e2--the-viewport-20-em)
+**If you stop here** you have shipped most of what [20 § E2](20-editor-parity.md#e2--the-viewport-20-em)
 owes for transforms, plus a precision story neither reference editor has. That is a real release.
 
 ### P1 — The mesh (1.5 EM)
@@ -613,7 +613,7 @@ Vertex/edge/face modes, hover and selection highlight drawn through `SceneLines`
 overlay pipelines (both exist), sub-object ray picking with innermost-wins and screen-space tolerance
 ([B4](#b4-picking-answers-which-entity-and-half-the-tools-ask-which-face-)), loops and rings, grow and
 shrink, select-by-group / by-material / coplanar, and the marquee — which is
-[20 § E2](plan/20-editor-parity.md#e2--the-viewport-20-em)'s region resolve and should be built once,
+[20 § E2](20-editor-parity.md#e2--the-viewport-20-em)'s region resolve and should be built once,
 there, for both.
 
 **Exit:** every element of a mesh can be selected by every gesture in the table above, and the
@@ -655,7 +655,7 @@ smoothing groups, vertex colours, and the blockout checker material.
 [B1](#b1-every-mesh-in-the-viewport-went-through-the-cpu-every-frame-) closed.** The viewport draws
 untextured shading: one key direction, one ambient term, a colour per instance. Per-face materials and a
 checker need the material system wired to the editor's viewport, which is
-[14](plan/14-roadmap.md) Phase 7 — B1 took the device-resident geometry out of that dependency and left
+[14](14-roadmap.md) Phase 7 — B1 took the device-resident geometry out of that dependency and left
 the materials in it. P5 is therefore still the phase most likely to move, and it is placed after P4
 rather than before it for exactly that reason.
 
@@ -698,7 +698,7 @@ not change shape.
 |---|---|---|
 | P0 — The seam | 1.0 | — |
 | P1 — The mesh | 1.5 | — |
-| P2 — Selection | 1.0 | P1; shares the marquee with [E2](plan/20-editor-parity.md#e2--the-viewport-20-em) |
+| P2 — Selection | 1.0 | P1; shares the marquee with [E2](20-editor-parity.md#e2--the-viewport-20-em) |
 | P3 — The verbs | 2.0 | P1, P2 |
 | P4 — Creation | 1.5 | P1, P3 |
 | P5 — Surfaces | 1.0 | 🔴 the material system in the editor viewport |
@@ -709,7 +709,7 @@ not change shape.
 **And one cost that was not in the table and has been paid.**
 [B1](#b1-every-mesh-in-the-viewport-went-through-the-cpu-every-frame-) — drawing meshes from
 device-resident buffers instead of a per-frame CPU gather — was the precondition this document could not
-ship past about P3 without. It is built, ahead of the rest of [14](plan/14-roadmap.md) Phase 7 rather
+ship past about P3 without. It is built, ahead of the rest of [14](14-roadmap.md) Phase 7 rather
 than as part of it, so no phase below is blocked on it and P1 inherits a viewport that draws a mesh per
 entity for the price of a transform.
 
@@ -729,7 +729,7 @@ unit test with no world, no renderer and no device.**
 | **Boolean, adversarially** | Randomised operand pairs including the degenerate cases that are the *normal* cases here — coplanar faces, shared edges, identical operands, an operand entirely inside another, zero-volume intersections. The gate is no hole and no self-intersection, not no exception |
 | **Round trip** | Every mesh built by every test saves to `.vxscene` and reloads to an identical mesh, and re-saves to identical bytes. The format's own standing promise |
 | **Gestures** | `SceneViewport`'s existing pattern: synthetic pointer input against the real tool, asserting the mesh rather than the pixels. "Dragging the extrude handle fifteen pixels moves the face the right distance" is a unit test for the same reason the gizmo's version is |
-| **Golden screenshots** | Only for what is *drawn*: selection highlight, hover, the work plane, the cube grid's preview, the checker material. The suite [20 § Part F](plan/20-editor-parity.md#part-f--testing) already gates |
+| **Golden screenshots** | Only for what is *drawn*: selection highlight, hover, the work plane, the cube grid's preview, the checker material. The suite [20 § Part F](20-editor-parity.md#part-f--testing) already gates |
 
 ⚠ **The invariant helper is the highest-value item in that table and it has to be written first.** A
 mesh operation that corrupts the edge table produces geometry that looks correct and fails three
@@ -757,11 +757,11 @@ caused it.
 
 | Document | Change |
 |---|---|
-| [20 § Part G](plan/20-editor-parity.md#part-g--out-of-scope) | The "Mesh editing / modelling tools" row now points here, with the line redrawn rather than erased |
-| [20 § A1](plan/20-editor-parity.md#a1--the-application-frame) | `IEditorMode`'s second mode is named, so the seam has a consumer rather than a hypothesis |
-| [20 § E2](plan/20-editor-parity.md#e2--the-viewport-20-em) | Vertex snap, surface snap and the marquee are shared with [P0](#p0--the-seam-10-em) and [P2](#p2--selection-10-em) and should be built once |
-| [02](plan/02-repository-layout.md) | Two assemblies: `Core/Vixen.Geometry` and `Editor/Vixen.Editor.Blockout`, each with its tests |
-| [11 § `Vixen.Editor.SceneView`](plan/11-editor.md) | The "not in" list's vertex snapping and rubber-band selection are closed by [P0](#p0--the-seam-10-em) and [P2](#p2--selection-10-em) |
-| [14](plan/14-roadmap.md) | Phase 7's viewport wiring gained a second dependant and split in two: the device-resident geometry is built ([B1](#b1-every-mesh-in-the-viewport-went-through-the-cpu-every-frame-)), and the material half is what [P5](#p5--surfaces-10-em) and the picking stage still wait on |
+| [20 § Part G](20-editor-parity.md#part-g--out-of-scope) | The "Mesh editing / modelling tools" row now points here, with the line redrawn rather than erased |
+| [20 § A1](20-editor-parity.md#a1--the-application-frame) | `IEditorMode`'s second mode is named, so the seam has a consumer rather than a hypothesis |
+| [20 § E2](20-editor-parity.md#e2--the-viewport-20-em) | Vertex snap, surface snap and the marquee are shared with [P0](#p0--the-seam-10-em) and [P2](#p2--selection-10-em) and should be built once |
+| [02](02-repository-layout.md) | Two assemblies: `Core/Vixen.Geometry` and `Editor/Vixen.Editor.Blockout`, each with its tests |
+| [11 § `Vixen.Editor.SceneView`](11-editor.md) | The "not in" list's vertex snapping and rubber-band selection are closed by [P0](#p0--the-seam-10-em) and [P2](#p2--selection-10-em) |
+| [14](14-roadmap.md) | Phase 7's viewport wiring gained a second dependant and split in two: the device-resident geometry is built ([B1](#b1-every-mesh-in-the-viewport-went-through-the-cpu-every-frame-)), and the material half is what [P5](#p5--surfaces-10-em) and the picking stage still wait on |
 
 Licensed under Apache-2.0.
