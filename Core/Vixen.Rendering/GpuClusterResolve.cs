@@ -383,9 +383,19 @@ public sealed class GpuClusterResolve : IDisposable {
             parameters.Set(VisibilityResolveKeys.Meshes, visibility.Grids);
             parameters.Set(VisibilityResolveKeys.Residency, visibility.Slots);
             parameters.Set(VisibilityResolveKeys.Pages, pages.Pages);
+            parameters.Set(VisibilityResolveKeys.Bones, visibility.Bones);
             parameters.Set(VisibilityResolveKeys.ClusterMaterials, visibility.Materials);
             parameters.Set(VisibilityResolveKeys.Tiles, tiles.Tiles);
             parameters.Set(VisibilityResolveKeys.PageSize, (uint)visibility.PageSize);
+
+            // The three ringed buffers, reached by base index rather than by descriptor offset — which is
+            // not a preference: this set is filled by EffectSetWriter, and a writer that binds a buffer
+            // whole has nowhere to put an offset. Before these existed the resolve read instance records
+            // and the slot table from region zero while the raster read this frame's, so the two passes
+            // agreed on every frame the ring happened to be at zero.
+            parameters.Set(VisibilityResolveKeys.InstanceBase, (uint)visibility.InstanceBase);
+            parameters.Set(VisibilityResolveKeys.BoneBase, (uint)visibility.BoneBase);
+            parameters.Set(VisibilityResolveKeys.ResidencyBase, (uint)visibility.SlotBase);
             parameters.Set(VisibilityResolveKeys.TileBase, (uint)GpuVisibilityTiles.TileBase(entry.Index));
             parameters.Set(VisibilityResolveKeys.Material, (uint)entry.Index);
             parameters.Set(VisibilityResolveKeys.TileCount, GpuVisibilityTiles.TilesFor(size));

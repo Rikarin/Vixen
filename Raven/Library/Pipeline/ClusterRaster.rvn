@@ -1,6 +1,7 @@
 package Vixen.Shaders.Pipeline
 
 import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
 
 // Phase 4 of `docs/plan/22-virtualized-geometry.md`: the hardware-raster visibility buffer.
 //
@@ -85,8 +86,38 @@ struct RasterCluster {
 /// locked boundary is referenced by a cluster on each side, and only a grid they share decodes it to
 /// the same bits from both. See `MeshletPageSet.QuantizationStep`.
 struct RasterMesh {
+    /// What `influenceOffset` holds for a mesh with no skeleton.
+    const val NoInfluences = 0xFFFFFFFFu
+
     var quantizationOrigin: float3
     var quantizationStep: float
+
+    /// Where a vertex's four bone indices and four weights sit inside it, in bytes, or `NoInfluences`.
+    ///
+    /// **Per mesh, and a value rather than a permutation.** A classic pass picks its skinned variant per
+    /// draw — see `ShadowCaster.Skinned` — because there is a draw per object to pick it at. Here one
+    /// indirect draw covers every cluster of every mesh in the scene, so the question has to be one a
+    /// vertex's own mesh record answers. It also keeps a static mesh's page vertex at sixteen bytes
+    /// instead of charging every rock in the project eight bytes of zeros.
+    var influenceOffset: uint
+}
+
+/// How a page vertex packs its four bone influences.
+///
+/// The decode and nothing else, so that the two shaders that do it agree by construction rather than by
+/// review. The *fetch* stays in each shader, which is the split `Skinning` already makes and for its
+/// reason: indexing a palette is an access chain in the shader that declares it and a sixteen-kilobyte
+/// copy anywhere else.
+struct Influences {
+    /// Which bone one of the four slots names, out of the packed index word.
+    static func Bone(packed: uint, slot: int): uint => (packed >> (slot * 8)) & 0xFFu
+
+    /// The four weights out of the packed weight word, as fractions.
+    ///
+    /// A byte a weight, which is finer than the position it is applied to: a page stores a coordinate as
+    /// a 65535th of the mesh's longest extent, so on a two-metre character a 255th of a weight moves a
+    /// vertex by less than the quantization already did.
+    static func Weights(packed: uint): float4 => float4(float(packed & 0xFFu), float((packed >> 8) & 0xFFu), float((packed >> 16) & 0xFFu), float((packed >> 24) & 0xFFu)) / 255f
 }
 
 shader ClusterRaster {
@@ -112,8 +143,28 @@ shader ClusterRaster {
     /// a word load and a shift — which is what `Bytes` and `Shorts` below exist to say once.
     var pages: Buffer<uint>
 
+    /// Every skinned instance's matrices this frame, back to back.
+    ///
+    /// One buffer for the whole scene with a per-instance base index, which is what
+    /// `SkinningRenderFeature` already arranges for the classic path — except that there the base rides
+    /// in a push constant, and here there is no per-object command to push it through.
+    var bones: Buffer<BoneMatrix>
+
     /// How many bytes one page occupies in the pool.
     var pageSize: uint
+
+    /// Where this frame's instance records start, in records.
+    ///
+    /// The buffer holds a region per frame in flight and this says which one is ours. A base index
+    /// rather than a descriptor offset, so that the resolve — which fills its set through a writer with
+    /// nowhere to put an offset — reads the same region this does. Two passes reading different frames'
+    /// transforms is the disagreement phase 5 warns about, arriving by the back door.
+    var instanceBase: uint
+
+    /// Where this frame's palettes start, in matrices, and its slot table, in entries — the same terms.
+    var boneBase: uint
+
+    var residencyBase: uint
 
     /// The camera.
     var viewProjection: mat4
@@ -140,13 +191,13 @@ shader ClusterRaster {
         val instanceIndex = int(Cull.VisibleInstance(packed))
         val clusterIndex = Cull.VisibleCluster(packed)
 
-        val instance = instances[instanceIndex]
+        val instance = instances[int(instanceBase) + instanceIndex]
         val record = geometry[int(instance.firstCluster + clusterIndex)]
         val mesh = meshes[int(instance.mesh)]
 
         val triangle = uint(vertexId) / 3u
         val corner = uint(vertexId) % 3u
-        val page = residency[int(record.page)]
+        val page = residency[int(residencyBase + record.page)]
 
         // A surplus corner, or a page that went away between the traversal and this draw. The second
         // should not happen — a page is evicted only after the frame that drew from it was submitted —
@@ -172,12 +223,39 @@ shader ClusterRaster {
         val z = record.origin.z + int(Short(at + 4u))
 
         val local3 = float3(float(x), float(y), float(z))
-        val position = mesh.quantizationOrigin + local3 * mesh.quantizationStep
+        var position = mesh.quantizationOrigin + local3 * mesh.quantizationStep
+
+        // The pose, in object space and before the instance places it — because a bone matrix is
+        // `inverseBindPose * boneWorld` in the *mesh's* space, which is the space the page just decoded
+        // into. `VisibilityResolve` does this by the same call on the same bytes; that they are one
+        // function is what phase 5's warning about the two transforms asks for.
+        if (mesh.influenceOffset != RasterMesh.NoInfluences && instance.firstBone != Cull.NoBones) {
+            position = Math.TransformPoint(Skin(at + mesh.influenceOffset, instance), position)
+        }
+
         val world = instance.position + position * instance.scale
 
         identity = Raster.Pack(uint(slot), triangle)
 
         return viewProjection * float4(world, 1f)
+    }
+
+    /// The one matrix a vertex's four influences blend to.
+    ///
+    /// The four reads are access chains into the palette and the blend is `Skinning`'s, which is the
+    /// same division `ShadowCaster` makes — and it means a virtualized character and a classic one are
+    /// deformed by the same arithmetic rather than by two derivations of it.
+    func Skin(at: uint, instance: CullInstance): mat4 {
+        val indices = Word(at)
+        val start = int(boneBase + instance.firstBone)
+
+        var palette: BonePalette
+        palette.bone0 = bones[start + int(Influences.Bone(indices, 0))].matrix
+        palette.bone1 = bones[start + int(Influences.Bone(indices, 1))].matrix
+        palette.bone2 = bones[start + int(Influences.Bone(indices, 2))].matrix
+        palette.bone3 = bones[start + int(Influences.Bone(indices, 3))].matrix
+
+        return Skinning.BlendMatrix(palette, Influences.Weights(Word(at + 4u)))
     }
 
     /// The fragment stage: what the vertex stage decided, and the depth the hardware wrote.
@@ -190,6 +268,12 @@ shader ClusterRaster {
         val word = pages[int(at >> 2)]
         return (word >> int((at & 3u) * 8u)) & 0xFFu
     }
+
+    /// One whole word out of the pool, at a four-byte-aligned byte offset.
+    ///
+    /// Aligned by construction rather than by hope: `MeshletPageBuilder` aligns every cluster's vertex
+    /// run to four bytes, a skinned vertex is twenty-four, and the influences sit sixteen into it.
+    func Word(at: uint): uint => pages[int(at >> 2)]
 
     /// One unsigned short out of the pool, at a byte offset. Two-byte aligned by construction.
     func Short(at: uint): uint {

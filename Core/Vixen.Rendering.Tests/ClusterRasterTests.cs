@@ -210,7 +210,7 @@ public sealed class ClusterRasterTests {
         var source = Source("Pipeline", "ClusterRaster.rvn");
 
         // The slot table, not the page number, is what locates the bytes.
-        Assert.Contains("val page = residency[int(record.page)]", source, StringComparison.Ordinal);
+        Assert.Contains("val page = residency[int(residencyBase + record.page)]", source, StringComparison.Ordinal);
         Assert.Contains("val start = page * pageSize", source, StringComparison.Ordinal);
 
         // The corner is a byte inside the page and the vertex is a stride from the page's own start.

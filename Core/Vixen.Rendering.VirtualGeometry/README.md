@@ -161,6 +161,21 @@ fit in sixteen bits by construction, because the coarsest cluster there can be s
 definition at the coarsest level there is. Pinning that one page is what makes an object whose pages
 have not arrived draw at its coarsest level rather than not at all.
 
+**A skinned mesh's vertex is twenty-four bytes and a static one's is sixteen.** Six of quantized
+position, then whatever attributes the caller packs — `ModelCompiler` puts a normal in three halves and
+a coordinate in two — and then, for a mesh with a skeleton, four bone indices and four weights, a byte
+each. `MeshletPageSet.InfluenceOffset` says where they are and is −1 for a mesh without them, which is
+why a static mesh pays nothing: the stride is already per mesh, so this costs one integer beside it.
+
+A byte an index is not a compromise. `Skinning.MaxBones` is 256 because 256 `mat4`s are exactly the
+16 KB of uniform range Vulkan guarantees, so a byte addresses the largest palette the engine can bind;
+a mesh weighted past it is a build error rather than a limb clamped onto the wrong joint. A byte a
+weight is finer than the position it is applied to — the grid is a 65535th of the mesh's longest extent,
+so on a two-metre character a 255th of a weight moves a vertex by less than the quantization already
+did — and the weights are rounded rather than truncated, because truncation is wrong in the same
+direction for all four and the shader's renormalisation turns that into a uniform deflation toward the
+skeleton.
+
 ## Streaming degrades by threshold
 
 `MeshletCut.SelectByError`'s residency-aware overload is the CPU reference for what a frame draws

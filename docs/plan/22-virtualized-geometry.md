@@ -477,6 +477,15 @@ slice of the effect bundle. A build-time cost, not an architectural one.
 world-position offset run twice — once to rasterize, once to reconstruct — and a disagreement lands
 attributes on the wrong surface. Worth an assertion rather than a comment.
 
+✅ **Assertion written, now that there is a second transform to disagree.** Until skinning landed this
+warning was vacuous: both passes decoded the same bytes and placed them by the same instance, and there
+was nothing else to get wrong. The blend is now shared outright — both call `Skinning.BlendMatrix` — but
+the four palette reads cannot be, because indexing a palette has to happen in the shader that declares
+it or the whole 16 KB is copied at every call. So the fetch is duplicated, and
+`SkinnedClusterTests.The_raster_and_the_resolve_skin_by_the_same_arithmetic` compares the two `Skin`
+functions character for character. A tolerance there would be a tolerance for one of them fetching bone
+1 where the other fetches bone 2, which is the entire failure mode.
+
 ⚠ **This is where MSAA goes.** A visibility buffer breaks it: per-sample visibility is four times the
 buffer and a per-sample resolve, which is the trap deferred falls into. MSAA is one of the four
 reasons [06](06-rendering-pipeline.md) gives for Forward+ being the default — but it is P1 and
@@ -558,6 +567,16 @@ Three more things the plan did not say, all found by building it:
   traversal for every cluster it tests, so they stay device-local and are staged through host memory with
   the copies recorded at the head of the frame, which is what `MeshletPagePool` already does for pages.
 
+- **The resolve was reading last frame's records, and only skinning made it visible.** Three of the
+  buffers both passes read are ringed per frame in flight — the instance records, the slot table, and
+  now the palette. The raster bound each at this frame's descriptor offset; the resolve fills its set
+  through `EffectSetWriter`, which binds a storage buffer *whole* and has nowhere to put an offset. So
+  on every frame the ring was not at region zero the two passes disagreed about where every instance
+  was — invisible in a static scene, because the regions hold identical bytes, and exactly the
+  wrong-surface failure the warning above describes as soon as anything moves. Both now bind whole and
+  add a base index, which is `TransformRenderFeature.BaseIndex`'s arrangement and the one that survives
+  a writer with no offsets.
+
 So the whole path exists: import → pages → residency → traversal → raster → bin → shade, and a resolved
 pixel gets the same lights with the same shadows as a forward-drawn one because it is running the same
 code.
@@ -635,6 +654,59 @@ range's current motion, and everything downstream is unchanged.
 
 The cost is a few bytes per cluster and a bound that is looser for a deforming mesh than for a rigid
 one. The saving is not having two cluster formats.
+
+**✅ Built, through the pages, the raster and the resolve.** A skinned mesh's page vertex carries four
+bone indices and four weights, a byte each, after its normal and coordinate; the raster blends them
+through `Skinning.BlendMatrix` — the same function `ShadowCaster` uses — before placing the vertex, and
+the resolve does it again on the same bytes by the same call. `VirtualGeometryRenderFeature.SetBones`
+takes the same matrices `SkinningRenderFeature` does.
+
+Five things it turned out to involve, none of which the paragraph above implies:
+
+- **It cannot be a permutation, and that is the one real difference from the classic path.** A shadow
+  pass picks its skinned variant per draw because there is a draw per object to pick it at. One
+  indirect draw covers every cluster of every mesh in the scene, so "is this vertex skinned" has to be
+  a value a mesh record carries and a branch every vertex takes. That also keeps a static mesh's page
+  vertex at sixteen bytes rather than charging every rock in the project eight bytes of zeros:
+  `RasterMesh.influenceOffset` is per mesh, with a sentinel for no skeleton.
+- **A byte an index is exactly the palette, not a compromise.** `Skinning.MaxBones` is 256 because 256
+  `mat4`s are exactly the 16 KB of uniform range Vulkan guarantees. A skeleton past that is a build
+  error naming the offending bone, because the alternative — clamping — is a limb attached to the wrong
+  joint on one character, which reads as a modelling bug.
+- **The bound is expanded per instance rather than per cluster**, which is looser than the paragraph
+  above by roughly the ratio of a cluster to a character. `CullInstance.motionRadius` bounds how far
+  *any* point of the mesh can be moved by this frame's palette — an affine bound, `|(A − I)c + t|` plus
+  the radius times the norm of `A − I`, maximised over the palette — and the traversal adds it to every
+  cluster radius. It is exactly zero for a rest pose, so a skeleton standing still is culled as tightly
+  as a rock. The per-cluster form needs per-bone extents on the device and a loop per cluster test, and
+  nothing that reads this changes when it lands.
+- **The record grew past a multiple of sixteen and had to say so.** `CullInstance` was 48 bytes and
+  exactly a multiple of the alignment a `float3` member gives a struct, so nothing had ever needed
+  declaring. Two more words made it 56 on the host and 64 on the device — and a stride that disagrees
+  does not fail, it reads instance one out of the middle of instance zero. `CullObject` had carried an
+  explicit padding word and the reason for it since phase 3; this is that reason arriving.
+- ⚠ **`Skinning.BlendMatrix` had never been compiled**, because every caller of it reaches it inside
+  `if (Skinned)` and that permutation is off in the shipped set. The first shader to reach it
+  unconditionally produced invalid SPIR-V twice over — see below.
+
+**Two Raven bugs, and both were in shipped code that no shader had ever reached.**
+
+- `matrix * scalar` lowers to `MatrixMultiply` whatever is on the other side of the operator, and the
+  SPIR-V emitter's shaped-product table had no case for it — so the operator fell past every case in
+  the arithmetic switch into its default, which is `>=`. The emitted instruction was
+  `OpFOrdGreaterThanEqual` **with a `mat4` result type**.
+- `matrix + matrix` became `OpFAdd` on a matrix, which SPIR-V does not have: its arithmetic takes
+  scalars and vectors only. Matrix operands are decomposed into columns now.
+
+Both are fixed in `SpirvEmitter`. What they mean is that **GPU skinning has never produced valid SPIR-V
+on any path** — the shadow pass and the GBuffer pass would have failed the validator the first time
+anyone compiled their skinned variant. The library's own tests compile every shipped shader and did not
+catch it, because a permutation folds the code away before it is lowered.
+
+**And one thing that was the library's convention already**: a bare `Buffer<mat4>` is rejected by the
+validator, because a matrix in a storage buffer has to state its stride and its majorness and a struct
+member is the only place SPIR-V has to put them. `Transform.rvn` had made that decision and written
+down the reason; `BoneMatrix` is the same wrapper for the palette.
 
 ### 2. Forward+ compatible resolve, instead of forced deferred
 

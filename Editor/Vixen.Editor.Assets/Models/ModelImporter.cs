@@ -41,9 +41,11 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
     ///     every model in every project re-imports, which is what "the artefact this version produces
     ///     is not the one the last version produced" means. Four since the geometry pages joined them —
     ///     a hierarchy without pages is a hierarchy nothing can draw, and the two are produced together
-    ///     or not at all.
+    ///     or not at all. Five since a skinned mesh's pages carry its bone influences: a page vertex
+    ///     that did not is one a raster can only draw in its bind pose, and no artefact of version four
+    ///     can be told from one of version five by looking at it — the stride is per mesh either way.
     /// </remarks>
-    public override int Version => 4;
+    public override int Version => 5;
 
     /// <inheritdoc />
     protected override async ValueTask<ImportResult> ImportAsync(

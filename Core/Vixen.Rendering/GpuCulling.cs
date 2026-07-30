@@ -96,6 +96,17 @@ public static class GpuCulling {
     /// <summary>The bit of <see cref="CullObject.Flags" /> that says the slot holds a live object.</summary>
     public const uint Alive = 1u;
 
+    /// <summary>What <see cref="CullInstance.FirstBone" /> holds when an instance is not skinned.</summary>
+    /// <remarks>
+    ///     <b>Zero, and it is the frame's palette that makes zero available to mean it</b> — see
+    ///     <see cref="GpuClusterVisibility.BeginBones" />, which puts an identity there that no instance
+    ///     ever points at. The alternative is an all-ones sentinel, and the difference is what a
+    ///     zero-initialized record means: a dead instance slot, a draw nobody filled, a struct a test
+    ///     forgot a field of. With this convention every one of those is unskinned, which is the answer
+    ///     that cannot put a mesh through whichever matrix happened to be first.
+    /// </remarks>
+    public const uint NoBones = 0u;
+
     /// <summary>The bit of <see cref="CullView.Flags" /> that says the view can be occlusion tested.</summary>
     /// <remarks>
     ///     Per view, because a view that is new this frame has no previous depth and no previous

@@ -19,6 +19,10 @@ namespace Vixen.Rendering;
 /// <param name="RootCount">How many it has.</param>
 /// <param name="FirstPage">The global page index its page zero became.</param>
 /// <param name="PageCount">How many pages it has.</param>
+/// <param name="Center">The centre of its bind-pose bound, in object space.</param>
+/// <param name="Radius">
+///     The radius of that bound — what a pose is measured against to say how far the mesh can move.
+/// </param>
 /// <remarks>
 ///     What an instance needs to point at a DAG, and nothing about where the instance is — a mesh is
 ///     registered once and drawn many times, which is the whole reason the records and the instances
@@ -31,7 +35,9 @@ public readonly record struct ClusterMesh(
     int FirstRoot,
     int RootCount,
     int FirstPage,
-    int PageCount
+    int PageCount,
+    Vector3 Center = default,
+    float Radius = 0f
 );
 
 /// <summary>Where one cluster's bytes are inside its page, as <c>RasterCluster</c> declares it.</summary>
@@ -71,11 +77,25 @@ public struct RasterCluster {
 /// </remarks>
 [StructLayout(LayoutKind.Sequential)]
 public struct RasterMesh {
+    /// <summary>What <see cref="InfluenceOffset" /> holds for a mesh with no skeleton.</summary>
+    public const uint NoInfluences = 0xFFFFFFFFu;
+
     /// <summary>The corner of the grid.</summary>
     public Vector3 QuantizationOrigin;
 
     /// <summary>How far apart its points are, in object space.</summary>
     public float QuantizationStep;
+
+    /// <summary>
+    ///     Where a vertex's bone influences sit inside it, in bytes, or <see cref="NoInfluences" />.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="MeshletPageSet.InfluenceOffset" /> as the device reads it, and per mesh for the
+    ///     reason given there: a static mesh's page vertex is sixteen bytes and must stay sixteen. That
+    ///     makes "is this vertex skinned" a value rather than a permutation — one draw covers every mesh
+    ///     in the scene, so there is no per-draw choice of variant to make.
+    /// </remarks>
+    public uint InfluenceOffset;
 }
 
 /// <summary>
@@ -157,6 +177,11 @@ public sealed class GpuClusterVisibility : IDisposable {
     // moved is one record uploaded, for PersistentUploadBuffer's reason and measured the same way.
     readonly PersistentUploadBuffer<CullInstance> instances = new("ClusterCulling.Instances");
     readonly UploadBuffer<CullView> views = new("ClusterCulling.Views");
+
+    // Every skinned instance's matrices, back to back, rebuilt whole each frame — a palette is a pose
+    // and a pose is different every frame, so there is nothing here for the incremental compare that
+    // the instance records earn their keep with.
+    readonly UploadBuffer<Matrix4x4> bones = new("ClusterCulling.Bones");
     readonly UploadBuffer<uint> residencyBits = new("ClusterCulling.Residency");
     readonly DescriptorWrite[] writes = new DescriptorWrite[GpuCulling.SetBindings.Length + 1];
 
@@ -215,6 +240,7 @@ public sealed class GpuClusterVisibility : IDisposable {
         instances.Device = device;
         views.Device = device;
         residencyBits.Device = device;
+        bones.Device = device;
     }
 
     /// <summary>Where the traversal variant is resolved from. Null does nothing.</summary>
@@ -337,11 +363,39 @@ public sealed class GpuClusterVisibility : IDisposable {
     /// <summary>Where this frame's slot table starts in that buffer.</summary>
     public long SlotsOffset => residencyBits.Offset;
 
+    /// <summary>Where it starts in entries rather than bytes.</summary>
+    /// <inheritdoc cref="BoneBase" select="/remarks" />
+    public int SlotBase => (int)(residencyBits.Offset / sizeof(uint));
+
     /// <summary>Where this frame's instance records start.</summary>
     public BufferHandle Instances => instances.Buffer;
 
     /// <inheritdoc cref="SlotsOffset" />
     public long InstancesOffset => instances.Offset;
+
+    /// <summary>Where this frame's instance records start, in records rather than bytes.</summary>
+    /// <inheritdoc cref="BoneBase" select="/remarks" />
+    public int InstanceBase =>
+        (int)(instances.Offset / System.Runtime.CompilerServices.Unsafe.SizeOf<CullInstance>());
+
+    /// <summary>Every skinned instance's matrices, for the raster and the resolve to read.</summary>
+    public BufferHandle Bones => bones.Buffer;
+
+    /// <summary>
+    ///     Where this frame's palettes start, in matrices rather than bytes.
+    /// </summary>
+    /// <remarks>
+    ///     <b>An index and not a descriptor offset</b>, which is
+    ///     <see cref="Features.TransformRenderFeature.BaseIndex" />'s arrangement and is here for a
+    ///     harder reason than symmetry: the resolve fills its set through
+    ///     <see cref="EffectSetWriter" />, which binds a storage buffer whole and has nowhere to put an
+    ///     offset. A shader that adds a base to its index reads the right region on both paths; a
+    ///     descriptor offset would be right in the raster and silently a frame stale in the resolve.
+    /// </remarks>
+    public int BoneBase => (int)(bones.Offset / System.Runtime.CompilerServices.Unsafe.SizeOf<Matrix4x4>());
+
+    /// <summary>How many matrices this frame's palettes hold, including the leading identity.</summary>
+    public int BoneCount => bones.Count;
 
     /// <summary>Registers a mesh's DAG, and pins its root page.</summary>
     /// <param name="mesh">The DAG, from <c>MeshletBuilder</c>.</param>
@@ -371,6 +425,7 @@ public sealed class GpuClusterVisibility : IDisposable {
         ObjectDisposedException.ThrowIf(disposed, this);
 
         var scene = GpuClusterCulling.Flatten(mesh, pages);
+        var (center, radius) = Bound(scene);
 
         var entry = new ClusterMesh(
             source,
@@ -379,7 +434,9 @@ public sealed class GpuClusterVisibility : IDisposable {
             roots.Count,
             scene.Roots.Length,
             PageCount,
-            pages.Pages.Length
+            pages.Pages.Length,
+            center,
+            radius
         );
 
         var childBase = (uint)children.Count;
@@ -414,7 +471,13 @@ public sealed class GpuClusterVisibility : IDisposable {
             );
         }
 
-        grids.Add(new() { QuantizationOrigin = pages.QuantizationOrigin, QuantizationStep = pages.QuantizationStep });
+        grids.Add(
+            new() {
+                QuantizationOrigin = pages.QuantizationOrigin,
+                QuantizationStep = pages.QuantizationStep,
+                InfluenceOffset = pages.IsSkinned ? (uint)pages.InfluenceOffset : RasterMesh.NoInfluences
+            }
+        );
 
         // Which material each cluster uses. Per cluster rather than per mesh, and every cluster of a mesh
         // shares one value today — but phase 8 of the plan routes clusters whose material discards or
@@ -461,6 +524,48 @@ public sealed class GpuClusterVisibility : IDisposable {
     public ReadOnlySpan<RasterCluster> GeometryRecords =>
         System.Runtime.InteropServices.CollectionsMarshal.AsSpan(geometry);
 
+    /// <summary>One grid per registered mesh, as the raster and the resolve read them.</summary>
+    /// <remarks>
+    ///     On <see cref="GeometryRecords" />' terms. What is only visible here is whether a mesh's
+    ///     vertices carry bone influences, which the registration derives from the page set — so a check
+    ///     of the page set alone passes with every mesh registered as rigid.
+    /// </remarks>
+    public ReadOnlySpan<RasterMesh> MeshRecords =>
+        System.Runtime.InteropServices.CollectionsMarshal.AsSpan(grids);
+
+    /// <summary>This frame's instance records, before they reach the device.</summary>
+    public ReadOnlySpan<CullInstance> InstanceRecords => instances.Items;
+
+    /// <summary>
+    ///     A sphere around every root of a flattened DAG, which is a sphere around the whole mesh.
+    /// </summary>
+    /// <remarks>
+    ///     The roots cover the mesh by construction — a root is a cluster nothing simplifies further, and
+    ///     the coarsest cut is all of them — so bounding those bounds the mesh without touching a vertex.
+    ///     Around the box rather than a minimal sphere: what it is for is scaling a pose's displacement,
+    ///     where a loose bound refines a little sooner and a wrong one culls something on screen.
+    /// </remarks>
+    static (Vector3 Center, float Radius) Bound(ClusterScene scene) {
+        var minimum = new Vector3(float.MaxValue);
+        var maximum = new Vector3(float.MinValue);
+
+        foreach (var root in scene.Roots) {
+            var record = scene.Clusters[(int)root];
+            var extent = new Vector3(record.Radius);
+
+            minimum = Vector3.Min(minimum, record.Center - extent);
+            maximum = Vector3.Max(maximum, record.Center + extent);
+        }
+
+        if (scene.Roots.Length == 0) {
+            return (Vector3.Zero, 0f);
+        }
+
+        var center = (minimum + maximum) * 0.5f;
+
+        return (center, (maximum - center).Length());
+    }
+
     /// <summary>What a registered mesh's records are, by registration order.</summary>
     /// <param name="index">Which registration.</param>
     /// <exception cref="ArgumentOutOfRangeException">There is no such one.</exception>
@@ -477,6 +582,58 @@ public sealed class GpuClusterVisibility : IDisposable {
         ObjectDisposedException.ThrowIf(disposed, this);
         instances.Begin(count);
         InstanceCount = count;
+    }
+
+    /// <summary>
+    ///     Begins a frame's bone palettes, discarding the last frame's.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Separate from <see cref="Begin" /> and explicitly called, for the reason
+    ///         <see cref="Features.SkinningRenderFeature.Begin" /> is: whoever fills a palette is the
+    ///         animation system, which runs before the render system's phases — so there is no callback
+    ///         of ours between "the pose is final" and "the first palette is written". Folding it into
+    ///         the instance frame would wipe every palette the frame had already been given.
+    ///     </para>
+    ///     <para>
+    ///         The first matrix is always an identity, so that the buffer exists even in a frame with
+    ///         nothing skinned in it. A binding a variant declares has to be filled whether or not the
+    ///         shader's branch reaches it, which is the same reason this class keeps a placeholder
+    ///         texture — and an identity is the value that would be harmless if it ever were read.
+    ///     </para>
+    /// </remarks>
+    public void BeginBones() {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        ReadOnlySpan<Matrix4x4> identity = [Matrix4x4.Identity];
+
+        bones.Begin();
+        bones.Add(identity);
+    }
+
+    /// <summary>Adds one instance's palette to this frame's.</summary>
+    /// <param name="palette">
+    ///     Its skinning matrices — <c>inverseBindPose * boneWorld</c>, one per bone, in the order the
+    ///     mesh's page vertices index them.
+    /// </param>
+    /// <returns>Where they landed, for <see cref="CullInstance.FirstBone" />.</returns>
+    /// <exception cref="InvalidOperationException"><see cref="BeginBones" /> has not been called.</exception>
+    /// <remarks>
+    ///     A palette per instance rather than per skeleton, which is one pose's worth of duplication for
+    ///     two characters in the same animation on the same frame — and the alternative is an identity
+    ///     for a pose, which is a cache nothing here can invalidate.
+    /// </remarks>
+    public int AddBones(ReadOnlySpan<Matrix4x4> palette) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (bones.Count == 0) {
+            throw new InvalidOperationException(
+                "Call BeginBones before adding a palette. A frame that added palettes without beginning "
+                + "one would keep growing the buffer with poses no instance points at."
+            );
+        }
+
+        return bones.Add(palette);
     }
 
     /// <summary>Sets one instance's record, uploading it only if it differs.</summary>
@@ -496,6 +653,7 @@ public sealed class GpuClusterVisibility : IDisposable {
     public void UploadInstances() {
         ObjectDisposedException.ThrowIf(disposed, this);
         instances.Upload();
+        bones.Upload();
     }
 
     /// <summary>
@@ -1183,6 +1341,7 @@ public sealed class GpuClusterVisibility : IDisposable {
         instances.Dispose();
         views.Dispose();
         residencyBits.Dispose();
+        bones.Dispose();
 
         meshes.Clear();
         clusters.Clear();

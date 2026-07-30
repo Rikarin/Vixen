@@ -203,6 +203,31 @@ struct CullInstance {
     /// cluster is about bounds and error, not about vertices — which is why it rides here rather than in
     /// the cluster record: one word per instance against one per cluster.
     var mesh: uint
+
+    /// Where this instance's bone matrices start in the frame's palette, or `Cull.NoBones`.
+    ///
+    /// The traversal does not read this one either, for the same reason. What reads it is the raster and
+    /// the resolve, and it rides in the record because one indirect draw covers every cluster of every
+    /// instance — there is no per-object command left to push a per-object index through.
+    var firstBone: uint
+
+    /// How far this instance's pose can move its geometry away from its bind pose, in object space.
+    ///
+    /// **This one the traversal does read**, and it has to: every bound in the DAG is a bind-pose bound,
+    /// so an animating cluster tested as it stands is tested against where it is not. Zero for a rigid
+    /// instance and for a skinned one in its rest pose, so what this costs is paid by motion rather than
+    /// by having a skeleton at all.
+    var motionRadius: float
+
+    /// Declared rather than left to the compiler, so the record is 64 bytes on both sides.
+    ///
+    /// `CullObject`'s padding exists for the same reason and this one was earned the hard way: the
+    /// record was 48 bytes and exactly a multiple of the 16 a `float3` member aligns a struct to, so
+    /// nothing had ever needed saying. Two more words made it 56 on the host and 64 on the device, and
+    /// a stride that disagrees does not fail — it reads instance one out of the middle of instance zero.
+    var padding0: uint
+
+    var padding1: uint
 }
 
 /// The constants and the tests both sides of the culler have to agree on.
@@ -212,6 +237,13 @@ struct Cull {
 
     /// The bit of `CullObject.flags` that says the slot holds a live object.
     const val Alive = 1u
+
+    /// What `CullInstance.firstBone` holds when an instance is not skinned.
+    ///
+    /// Zero, which the frame's palette makes available by beginning with an identity no instance points
+    /// at. A record nobody filled is then unskinned rather than weighted to whichever matrix happened to
+    /// be first, and that is worth more than the one index it spends.
+    const val NoBones = 0u
 
     /// The bit of `CullView.flags` that says the view has a usable depth pyramid this frame.
     ///
@@ -740,8 +772,14 @@ shader Culling {
 
         // The bind-pose bound placed and scaled. A rotation is not applied and does not need to be:
         // the bound is a sphere, and a sphere is what every test below takes.
+        //
+        // The pose is what the second term is for. `motionRadius` bounds how far *any* point of the mesh
+        // can be moved by this frame's palette, so adding it to every cluster covers the deformation
+        // without a per-cluster read — the loose form of improvement 1, which expands each cluster by
+        // the bones of its own range instead. It can only ever keep a cluster the bind pose would have
+        // rejected, which is the direction a bound is allowed to be wrong in.
         val center = instance.position + record.center * instance.scale
-        val radius = record.radius * instance.scale
+        val radius = (record.radius + instance.motionRadius) * instance.scale
 
         val cutoff = view.maximumDistance
 

@@ -134,6 +134,57 @@ public struct CullInstance {
     ///     rather than in <see cref="CullCluster" />: one word per instance against one per cluster.
     /// </remarks>
     public uint Mesh;
+
+    /// <summary>
+    ///     Where this instance's bone matrices start in the palette, or <see cref="GpuCulling.NoBones" />
+    ///     for an instance that is not skinned.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The virtualized counterpart of the push constant
+    ///         <see cref="Features.SkinningRenderFeature" /> pushes, and it rides in the record for the
+    ///         reason there is no push constant to put it in: one indirect draw covers every cluster of
+    ///         every instance in the scene, so nothing is issued per object that could carry a per-object
+    ///         index.
+    ///     </para>
+    ///     <para>
+    ///         The traversal never reads it, exactly as it never reads <see cref="Mesh" /> — deciding
+    ///         whether to draw a cluster is about bounds and error. The raster and the resolve both do.
+    ///     </para>
+    /// </remarks>
+    public uint FirstBone;
+
+    /// <summary>
+    ///     How far this instance's geometry may leave its bind pose, in object space, or zero.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Every bound in the DAG is a bind-pose bound</b> — see <see cref="Meshlet.Bounds" /> —
+    ///         so a traversal that tested them as they stand would cull an animating cluster by where it
+    ///         is not. This is added to every one of the instance's cluster radii, which is the cheapest
+    ///         correct answer: one number per instance, no per-cluster work, and it can only ever draw
+    ///         clusters that would otherwise have been rejected.
+    ///     </para>
+    ///     <para>
+    ///         <b>Looser than improvement 1's form, and deliberately the stand-in for it.</b>
+    ///         <c>docs/plan/22-virtualized-geometry.md</c> describes expanding each cluster by the motion
+    ///         of the bones in its own <see cref="Meshlet.FirstBone" /> range, which is tighter by
+    ///         roughly the ratio of a cluster to a character. That needs per-bone extents on the device
+    ///         and a loop per cluster test; this needs neither, and nothing that reads it changes when
+    ///         that lands.
+    ///     </para>
+    /// </remarks>
+    public float MotionRadius;
+
+    /// <summary>Eight bytes of tail padding the shader declares and never reads.</summary>
+    /// <remarks>
+    ///     A <c>float3</c> member aligns the record to sixteen, so the device's stride is the size
+    ///     rounded up to it. The record was 48 bytes and needed nothing said; the two fields above make
+    ///     it 56, which the device reads as 64 — and a stride that disagrees does not fail, it reads
+    ///     instance one out of the middle of instance zero. <see cref="CullObject.Padding" /> is the
+    ///     same declaration for the same reason.
+    /// </remarks>
+    public ulong Padding;
 }
 
 /// <summary>
@@ -228,6 +279,52 @@ public static class GpuClusterCulling {
     /// </remarks>
     public static float ErrorScaleFor(float screenHeightScale, int screenHeight) =>
         screenHeightScale <= 0f || screenHeight <= 0 ? 0f : screenHeightScale * screenHeight * 0.5f;
+
+    /// <summary>
+    ///     How far a pose can move any point of a mesh away from where its bind-pose bound says it is.
+    /// </summary>
+    /// <param name="palette">One instance's skinning matrices, as <c>AddBones</c> takes them.</param>
+    /// <param name="center">The mesh's bind-pose bound centre, in object space.</param>
+    /// <param name="radius">That bound's radius.</param>
+    /// <returns>The displacement, in object space, for <see cref="CullInstance.MotionRadius" />.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         A bound and not an estimate. A skinning matrix is affine, so a point moves by
+    ///         <c>(A − I)p + t</c>, and over a sphere that is at most what the centre moves plus the
+    ///         radius times the norm of <c>A − I</c>. A vertex weighted to several bones lands in the
+    ///         convex hull of its per-bone images, so the maximum over the palette covers every blend as
+    ///         well as every bone.
+    ///     </para>
+    ///     <para>
+    ///         <b>The Frobenius norm, which is larger than the one the argument wants.</b> The tight
+    ///         factor is the largest singular value of <c>A − I</c>, and computing that per bone per
+    ///         frame to save a fraction of a bound that is already per instance is the wrong trade — so
+    ///         this is loose by at most the square root of three, in the safe direction.
+    ///     </para>
+    ///     <para>
+    ///         A rest pose gives exactly zero, which matters: a skinned mesh standing still is culled as
+    ///         tightly as a static one, so the cost of this is paid by motion rather than by skeletons.
+    ///     </para>
+    /// </remarks>
+    public static float MotionRadiusFor(ReadOnlySpan<Matrix4x4> palette, Vector3 center, float radius) {
+        var worst = 0f;
+
+        foreach (var bone in palette) {
+            var moved = (Matrix4x4.TransformPosition(center, bone) - center).Length();
+
+            var deformation = MathF.Sqrt(
+                Squared(bone.M11 - 1f) + Squared(bone.M12) + Squared(bone.M13)
+                + Squared(bone.M21) + Squared(bone.M22 - 1f) + Squared(bone.M23)
+                + Squared(bone.M31) + Squared(bone.M32) + Squared(bone.M33 - 1f)
+            );
+
+            worst = MathF.Max(worst, moved + (deformation * radius));
+        }
+
+        return worst;
+    }
+
+    static float Squared(float value) => value * value;
 
     /// <summary>How many pixels of screen an object-space deviation covers, at a distance.</summary>
     /// <param name="error">The deviation, in object space, already scaled by the instance.</param>
@@ -467,7 +564,7 @@ public static class GpuClusterCulling {
             var record = scene.Clusters[(int)(instance.FirstCluster + cluster)];
 
             var centre = instance.Position + (record.Center * instance.Scale);
-            var radius = record.Radius * instance.Scale;
+            var radius = (record.Radius + instance.MotionRadius) * instance.Scale;
 
             if (view.MaximumDistance > 0f) {
                 var reach = view.MaximumDistance + radius;

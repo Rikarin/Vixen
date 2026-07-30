@@ -90,6 +90,9 @@ shader VisibilityResolve : ClusteredShading {
     /// The page pool, as words.
     var pages: Buffer<uint>
 
+    /// Every skinned instance's matrices this frame — the same palette the raster read.
+    var bones: Buffer<BoneMatrix>
+
     /// Which material each cluster uses.
     var clusterMaterials: Buffer<uint>
 
@@ -98,6 +101,18 @@ shader VisibilityResolve : ClusteredShading {
 
     /// How many bytes one page occupies in the pool.
     var pageSize: uint
+
+    /// Where this frame's instance records start, in records, and its palettes, in matrices.
+    ///
+    /// The raster reads the same two. They are base indices rather than descriptor offsets because this
+    /// set is filled by `EffectSetWriter`, which binds a storage buffer whole — so a descriptor offset
+    /// would be right in the raster and a frame stale here, which is the two transforms disagreeing by
+    /// the one route no shader change can be blamed for.
+    var instanceBase: uint
+
+    var boneBase: uint
+
+    var residencyBase: uint
 
     /// Where this dispatch's tiles start in `tiles`, and which material it is shading.
     var tileBase: uint
@@ -144,7 +159,7 @@ shader VisibilityResolve : ClusteredShading {
         }
 
         val packed = visible[int(slot + 1u)]
-        val instance = instances[int(Cull.VisibleInstance(packed))]
+        val instance = instances[int(instanceBase + Cull.VisibleInstance(packed))]
         val cluster = int(instance.firstCluster + Cull.VisibleCluster(packed))
 
         // A tile is in this material's bin because *some* pixel of it is this material. The rest are
@@ -154,7 +169,7 @@ shader VisibilityResolve : ClusteredShading {
         }
 
         val record = geometry[cluster]
-        val page = residency[int(record.page)]
+        val page = residency[int(residencyBase + record.page)]
 
         if (page == Cull.PageAbsent) {
             return
@@ -267,18 +282,50 @@ shader VisibilityResolve : ClusteredShading {
         val y = record.origin.y + int(Short(at + 2u))
         val z = record.origin.z + int(Short(at + 4u))
 
-        val object = mesh.quantizationOrigin + float3(float(x), float(y), float(z)) * mesh.quantizationStep
-
-        var result: ResolvedVertex
-        result.position = instance.position + object * instance.scale
+        var object = mesh.quantizationOrigin + float3(float(x), float(y), float(z)) * mesh.quantizationStep
 
         // The attributes, at their offsets past the six bytes of position: a normal as three halves and
         // a coordinate as two. `ModelCompiler.PageAttributeStride` is the other side of this layout.
-        result.normal = Math.SafeNormalize(float3(Half(at + 6u), Half(at + 8u), Half(at + 10u)))
+        var normal = Math.SafeNormalize(float3(Half(at + 6u), Half(at + 8u), Half(at + 10u)))
+
+        // **The pose, by the same call the raster makes on the same bytes.** A disagreement here does
+        // not look like a bug: the picture is a plausible character, and the material is sampled from
+        // wherever that vertex was in some other pose. Phase 5 asks for an assertion rather than a
+        // comment, and `SkinnedResolveTests` is it.
+        if (mesh.influenceOffset != RasterMesh.NoInfluences && instance.firstBone != Cull.NoBones) {
+            val skin = Skin(at + mesh.influenceOffset, instance)
+
+            object = Math.TransformPoint(skin, object)
+
+            // A direction and not a point, so the translation is dropped — and renormalised, because a
+            // blend of two rotations is not one. `Skinning.Direction` is exactly this pair.
+            normal = Math.SafeNormalize(Math.TransformDirection(skin, normal))
+        }
+
+        var result: ResolvedVertex
+        result.position = instance.position + object * instance.scale
+        result.normal = normal
         result.uv = float2(Half(at + 12u), Half(at + 14u))
 
         return result
     }
+
+    /// The one matrix a vertex's four influences blend to. `ClusterRaster.Skin`, verbatim.
+    func Skin(at: uint, instance: CullInstance): mat4 {
+        val indices = Word(at)
+        val start = int(boneBase + instance.firstBone)
+
+        var palette: BonePalette
+        palette.bone0 = bones[start + int(Influences.Bone(indices, 0))].matrix
+        palette.bone1 = bones[start + int(Influences.Bone(indices, 1))].matrix
+        palette.bone2 = bones[start + int(Influences.Bone(indices, 2))].matrix
+        palette.bone3 = bones[start + int(Influences.Bone(indices, 3))].matrix
+
+        return Skinning.BlendMatrix(palette, Influences.Weights(Word(at + 4u)))
+    }
+
+    /// One whole word out of the pool, at a four-byte-aligned byte offset.
+    func Word(at: uint): uint => pages[int(at >> 2)]
 
     /// One byte out of the pool, at a byte offset.
     func Byte(at: uint): uint {

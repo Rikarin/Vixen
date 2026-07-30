@@ -99,7 +99,7 @@ public sealed class GpuClusterRaster : IDisposable {
 
     readonly IGraphicsDevice device;
     readonly Dictionary<(Effect, PixelFormat, PixelFormat), PipelineHandle> pipelines = [];
-    readonly DescriptorWrite[] writes = new DescriptorWrite[7];
+    readonly DescriptorWrite[] writes = new DescriptorWrite[8];
 
     DescriptorSetHandle[] descriptors = [];
     int ring;
@@ -272,24 +272,17 @@ public sealed class GpuClusterRaster : IDisposable {
     void Bind(GpuClusterVisibility visibility, MeshletPagePool pages, in Matrix4x4 viewProjection) {
         writes[0] = DescriptorWrite.Storage(ClusterRasterKeys.VisibleBinding, visibility.Visible);
 
-        writes[1] = DescriptorWrite.Storage(
-            ClusterRasterKeys.InstancesBinding,
-            visibility.Instances,
-            visibility.InstancesOffset,
-            (long)visibility.InstanceCount * Unsafe.SizeOf<CullInstance>()
-        );
-
+        // Bound whole and indexed from a base, rather than bound at this frame's offset — which the
+        // raster could do and the resolve cannot, because EffectSetWriter binds a storage buffer whole
+        // and has nowhere to put an offset. Two passes that have to agree about a transform must reach
+        // it the same way, and a descriptor offset here would have been right in the raster and a frame
+        // stale in the resolve. See GpuClusterVisibility.InstanceBase.
+        writes[1] = DescriptorWrite.Storage(ClusterRasterKeys.InstancesBinding, visibility.Instances);
         writes[2] = DescriptorWrite.Storage(ClusterRasterKeys.GeometryBinding, visibility.Geometry);
         writes[3] = DescriptorWrite.Storage(ClusterRasterKeys.MeshesBinding, visibility.Grids);
-
-        writes[4] = DescriptorWrite.Storage(
-            ClusterRasterKeys.ResidencyBinding,
-            visibility.Slots,
-            visibility.SlotsOffset,
-            (long)Math.Max(visibility.PageCount, 1) * sizeof(uint)
-        );
-
+        writes[4] = DescriptorWrite.Storage(ClusterRasterKeys.ResidencyBinding, visibility.Slots);
         writes[5] = DescriptorWrite.Storage(ClusterRasterKeys.PagesBinding, pages.Pages);
+        writes[6] = DescriptorWrite.Storage(ClusterRasterKeys.BonesBinding, visibility.Bones);
 
         // The uniform block, which holds the page size and the camera. Written into its own ring region
         // for the reason every per-frame block is: the previous frame may still be reading the last one.
@@ -297,11 +290,14 @@ public sealed class GpuClusterRaster : IDisposable {
 
         var parameters = new ParameterCollection();
         parameters.Set(ClusterRasterKeys.PageSize, (uint)visibility.PageSize);
+        parameters.Set(ClusterRasterKeys.InstanceBase, (uint)visibility.InstanceBase);
+        parameters.Set(ClusterRasterKeys.BoneBase, (uint)visibility.BoneBase);
+        parameters.Set(ClusterRasterKeys.ResidencyBase, (uint)visibility.SlotBase);
         parameters.Set(ClusterRasterKeys.ViewProjection, viewProjection);
 
         var updated = constants.Update(EffectOf(), parameters);
 
-        writes[6] = updated
+        writes[7] = updated
             ? DescriptorWrite.Uniform(
                 ClusterRasterKeys.ConstantBufferBinding,
                 constants.Buffer,
@@ -310,7 +306,7 @@ public sealed class GpuClusterRaster : IDisposable {
             )
             : default;
 
-        device.UpdateDescriptorSet(descriptors[ring], updated ? writes : writes.AsSpan(0, 6));
+        device.UpdateDescriptorSet(descriptors[ring], updated ? writes : writes.AsSpan(0, 7));
     }
 
     EffectConstants? constants;
