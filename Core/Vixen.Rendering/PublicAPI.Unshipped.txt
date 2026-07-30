@@ -2287,6 +2287,8 @@ Vixen.Rendering.Lighting.SurfaceCardCapture.IsCreated.get -> bool
 Vixen.Rendering.Lighting.SurfaceCardCapture.MaxResolution.get -> int
 Vixen.Rendering.Lighting.SurfaceCardCapture.MaxResolution.init -> int
 Vixen.Rendering.Lighting.SurfaceCardCapture.Record(Vixen.Graphics.ICommandList commands, in Vixen.Rendering.SurfaceCache.SurfaceCard card, Vixen.Rendering.Lighting.SurfaceCardCapture.DrawCard draw) -> void
+Vixen.Rendering.Lighting.SurfaceCardCapture.SinglePass.get -> bool
+Vixen.Rendering.Lighting.SurfaceCardCapture.SinglePass.init -> bool
 Vixen.Rendering.Lighting.SurfaceCardCapture.SurfaceCardCapture(Vixen.Graphics.IGraphicsDevice device) -> void
 Vixen.Rendering.Lighting.SurfaceCardCapture.TryRead(Vixen.Rendering.SurfaceCache.SurfaceCacheStore cache, int card, out int captured) -> bool
 Vixen.Rendering.LineRenderer -> sealed class
@@ -4696,6 +4698,7 @@ static Vixen.Rendering.Lighting.SphericalHarmonics.Project(Vixen.Rendering.Light
 static Vixen.Rendering.Lighting.SurfaceCacheCardData.From(in Vixen.Rendering.SurfaceCache.SurfaceCard card, Vixen.Core.Mathematics.Int2 origin) -> Vixen.Rendering.Lighting.SurfaceCacheCardData
 static Vixen.Rendering.Lighting.SurfaceCardCapture.Output.get -> Vixen.Rendering.RenderOutput
 static Vixen.Rendering.Lighting.SurfaceCardCapture.Projection(in Vixen.Rendering.SurfaceCache.SurfaceCard card) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Rendering.Lighting.SurfaceCardCapture.SinglePassOutput.get -> Vixen.Rendering.RenderOutput
 static Vixen.Rendering.Materials.MaterialCompiler.Compile(Vixen.Rendering.Materials.MaterialDescriptor descriptor, System.Collections.Generic.IReadOnlyDictionary<string, string>? slots = null) -> Vixen.Rendering.Materials.MaterialCompilation
 static Vixen.Rendering.Materials.MaterialCompiler.PassComposition() -> Vixen.Shaders.ShaderComposition
 static Vixen.Rendering.Materials.MaterialCompiler.PassComposition(params System.ReadOnlySpan<(string Slot, string Filler)> overrides) -> Vixen.Shaders.ShaderComposition

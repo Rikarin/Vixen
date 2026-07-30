@@ -1,0 +1,48 @@
+package Vixen.Shaders.SurfaceCache
+
+import Vixen.Shaders.Core
+
+// The one-pass card capture — doc 19 § L4's capture, MRT form.
+//
+// `SurfaceCardCapture`'s three-pass form is the baseline and the referee: one attachment, drawn
+// three times, each pass wearing one meaning. This writes all three meanings in one pass, which is
+// the optimisation the three-pass form was named the baseline FOR — and the device test captures
+// one scene both ways and asserts the same store texels, so the fusion cannot quietly change what
+// a texel means.
+//
+// Everything rides in the vertex: albedo and emissive as two colour attributes, the normal as
+// itself, the card's projection as a push constant. No descriptor set at all, which is what lets a
+// test build the pipeline from the compiled stages and a push-constant range alone.
+
+/// The pass's three answers, in the order the capture's readback expects its planes.
+struct SurfaceCaptureTargets {
+    var albedo: float4
+    var normal: float4
+    var emissive: float4
+}
+
+shader SurfaceCardRaster {
+    [PushConstant] var captureViewProjection: mat4
+
+    stream var capturedNormal: float3
+    stream var capturedAlbedo: float4
+    stream var capturedEmissive: float4
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex([Semantic("POSITION")] position: float3, [Semantic("NORMAL")] normal: float3, [Semantic("COLOR")] albedo: float4, [Semantic("COLOR1")] emissive: float4): float4 {
+        capturedNormal = normal
+        capturedAlbedo = albedo
+        capturedEmissive = emissive
+        return captureViewProjection * float4(position, 1f)
+    }
+
+    [FragmentShader]
+    func Fragment(): SurfaceCaptureTargets {
+        var targets: SurfaceCaptureTargets
+        targets.albedo = capturedAlbedo
+        targets.normal = float4(Math.SafeNormalize(capturedNormal), 1f)
+        targets.emissive = capturedEmissive
+        return targets
+    }
+}

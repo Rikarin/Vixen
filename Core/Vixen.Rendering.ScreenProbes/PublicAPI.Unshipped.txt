@@ -11,6 +11,13 @@ Vixen.Rendering.ScreenProbes.ReconstructedScreenSurface.Normals.get -> System.Sp
 Vixen.Rendering.ScreenProbes.ReconstructedScreenSurface.ReconstructedScreenSurface(Vixen.Core.Mathematics.Int2 viewport) -> void
 Vixen.Rendering.ScreenProbes.ReconstructedScreenSurface.TrySurface(Vixen.Core.Mathematics.Int2 pixel, out Vixen.Core.Mathematics.Vector3 position, out Vixen.Core.Mathematics.Vector3 normal) -> bool
 Vixen.Rendering.ScreenProbes.ReconstructedScreenSurface.Viewport.get -> Vixen.Core.Mathematics.Int2
+Vixen.Rendering.ScreenProbes.ScreenDepthPyramid -> sealed class
+Vixen.Rendering.ScreenProbes.ScreenDepthPyramid.Build(System.ReadOnlySpan<float> depth) -> void
+Vixen.Rendering.ScreenProbes.ScreenDepthPyramid.Levels.get -> int
+Vixen.Rendering.ScreenProbes.ScreenDepthPyramid.Nearest(int level, Vixen.Core.Mathematics.Int2 cell) -> float
+Vixen.Rendering.ScreenProbes.ScreenDepthPyramid.ScreenDepthPyramid(Vixen.Core.Mathematics.Int2 viewport) -> void
+Vixen.Rendering.ScreenProbes.ScreenDepthPyramid.SizeOf(int level) -> Vixen.Core.Mathematics.Int2
+Vixen.Rendering.ScreenProbes.ScreenDepthPyramid.Viewport.get -> Vixen.Core.Mathematics.Int2
 Vixen.Rendering.ScreenProbes.ScreenProbeAtlas -> sealed class
 Vixen.Rendering.ScreenProbes.ScreenProbeAtlas.AdaptiveCount.get -> int
 Vixen.Rendering.ScreenProbes.ScreenProbeAtlas.AdaptiveSurface(int index, out Vixen.Core.Mathematics.Int2 pixel, out Vixen.Core.Mathematics.Vector3 position, out Vixen.Core.Mathematics.Vector3 normal) -> void
@@ -83,6 +90,9 @@ Vixen.Rendering.ScreenProbes.ScreenProbeTap.Weight.get -> float
 Vixen.Rendering.ScreenProbes.ScreenProbeTap.Weight.init -> float
 Vixen.Rendering.ScreenProbes.ScreenSpaceTrace -> sealed class
 Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.Hit(Vixen.Core.Mathematics.Vector3 origin, Vixen.Core.Mathematics.Vector3 direction, float maxDistance) -> bool
+Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.Pyramid.get -> Vixen.Rendering.ScreenProbes.ScreenDepthPyramid?
+Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.Pyramid.set -> Vixen.Rendering.ScreenProbes.ScreenDepthPyramid?
+Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.Samples.get -> int
 Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.ScreenSpaceTrace(Vixen.Rendering.ScreenProbes.ReconstructedScreenSurface surface) -> void
 Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.Steps.get -> int
 Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.Steps.set -> int

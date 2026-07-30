@@ -883,9 +883,10 @@ readback is only readable after its submit, one author per plane refused rather 
 the bounce's set 0 applied before its record so each frame reads the previous swap's front. The
 sampler's scan is now one grid cell: `SurfaceCardIndex`'s device form, a dense grid over the cards'
 padded union whose cells hold ascending candidates, with the zero-drift seam test refereeing the
-change unchanged. Still owed, named so the absence is a decision: the one-pass MRT capture — the
-three-pass form is its baseline and its referee, and a scene's pipelines already target its one
-attachment.
+change unchanged. And the one-pass MRT capture followed — `SurfaceCardCapture.SinglePass`, `SurfaceCardRaster`'s
+three targets in one pass with the projection as a push constant and the materials as vertex
+colours, held against the traced reference exactly as the three-pass form is. **Nothing in § L4
+is owed.**
 
 ### L5 — Reflections through the same tracer *(1.5 EM)*
 

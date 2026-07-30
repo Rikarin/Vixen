@@ -65,6 +65,12 @@ public sealed class SurfaceCardCapture : IDisposable {
     ///     formats disagree with the pass is undefined behaviour, not a validation failure.</remarks>
     public static RenderOutput Output { get; } = new([PixelFormat.Rgba32Float], PixelFormat.Depth32Float);
 
+    /// <summary>The attachments of the one-pass form: all three planes at once.</summary>
+    /// <remarks><c>SurfaceCardRaster.rvn</c>'s target order, which is the readback's plane order —
+    ///     one convention, and the comparison against the three-pass form is what pins it.</remarks>
+    public static RenderOutput SinglePassOutput { get; } =
+        new([PixelFormat.Rgba32Float, PixelFormat.Rgba32Float, PixelFormat.Rgba32Float], PixelFormat.Depth32Float);
+
     /// <summary>The planes, in the order they are drawn and stored.</summary>
     static readonly SurfaceCapturePlane[] Planes = [
         SurfaceCapturePlane.Albedo, SurfaceCapturePlane.Normal, SurfaceCapturePlane.Emissive
@@ -74,6 +80,9 @@ public sealed class SurfaceCardCapture : IDisposable {
     const int DepthStride = 4;
 
     readonly IGraphicsDevice device;
+
+    readonly TextureHandle[] extras = new TextureHandle[2];
+    readonly TextureViewHandle[] extraViews = new TextureViewHandle[2];
 
     TextureHandle colour;
     TextureHandle depth;
@@ -98,6 +107,14 @@ public sealed class SurfaceCardCapture : IDisposable {
 
         this.device = device;
     }
+
+    /// <summary>Whether one pass writes all three planes through multiple render targets.</summary>
+    /// <remarks>The three-pass form is the baseline and the referee: a scene's own pipelines target
+    ///     one attachment, so three small passes need no new shaders — and a project that builds the
+    ///     MRT pipeline (<see cref="SinglePassOutput" />, <c>SurfaceCardRaster</c>'s shape) captures
+    ///     in one. The draw callback runs once, told <see cref="SurfaceCapturePlane.Albedo" />; the
+    ///     readback and <see cref="TryRead" /> are identical either way, which is the point.</remarks>
+    public bool SinglePass { get; init; }
 
     /// <summary>The widest card this capture can take, in texels along either axis.</summary>
     /// <remarks><c>CardGenerator</c>'s own ceiling by default. The targets are made once at this
@@ -165,10 +182,17 @@ public sealed class SurfaceCardCapture : IDisposable {
             commands.Barrier(
                 new(
                     [],
-                    [
-                        new TextureBarrier(colour, ResourceState.Undefined, ResourceState.ColourTarget),
-                        new TextureBarrier(depth, ResourceState.Undefined, ResourceState.DepthStencilWrite)
-                    ]
+                    SinglePass
+                        ? [
+                            new TextureBarrier(colour, ResourceState.Undefined, ResourceState.ColourTarget),
+                            new TextureBarrier(extras[0], ResourceState.Undefined, ResourceState.ColourTarget),
+                            new TextureBarrier(extras[1], ResourceState.Undefined, ResourceState.ColourTarget),
+                            new TextureBarrier(depth, ResourceState.Undefined, ResourceState.DepthStencilWrite)
+                        ]
+                        : [
+                            new TextureBarrier(colour, ResourceState.Undefined, ResourceState.ColourTarget),
+                            new TextureBarrier(depth, ResourceState.Undefined, ResourceState.DepthStencilWrite)
+                        ]
                 )
             );
         }
@@ -177,6 +201,63 @@ public sealed class SurfaceCardCapture : IDisposable {
         var size = new Int3(resolution.X, resolution.Y, 1);
         var projection = Projection(card);
         var texels = (long)MaxResolution * MaxResolution;
+
+        if (SinglePass) {
+            commands.BeginRenderPass(
+                new(
+                    [
+                        new ColourAttachment(colourView, LoadAction.Clear, StoreAction.Store, default),
+                        new ColourAttachment(extraViews[0], LoadAction.Clear, StoreAction.Store, default),
+                        new ColourAttachment(extraViews[1], LoadAction.Clear, StoreAction.Store, default)
+                    ],
+                    new DepthStencilAttachment(depthView),
+                    "SurfaceCardCapture MRT"
+                )
+            );
+
+            commands.SetViewport(new(0, 0, resolution.X, resolution.Y));
+            commands.SetScissor(ScissorRect.Full(new(resolution.X, resolution.Y)));
+
+            // Once, told Albedo: the MRT pipeline writes all three meanings itself.
+            draw(commands, SurfaceCapturePlane.Albedo, projection);
+
+            commands.EndRenderPass();
+
+            commands.Barrier(
+                new(
+                    [],
+                    [
+                        new TextureBarrier(colour, ResourceState.ColourTarget, ResourceState.CopySource),
+                        new TextureBarrier(extras[0], ResourceState.ColourTarget, ResourceState.CopySource),
+                        new TextureBarrier(extras[1], ResourceState.ColourTarget, ResourceState.CopySource),
+                        new TextureBarrier(depth, ResourceState.DepthStencilWrite, ResourceState.CopySource)
+                    ]
+                )
+            );
+
+            commands.CopyTextureToBuffer(new(colour), size, colourReadback, 0);
+            commands.CopyTextureToBuffer(new(extras[0]), size, colourReadback, texels * ColourStride);
+            commands.CopyTextureToBuffer(new(extras[1]), size, colourReadback, 2 * texels * ColourStride);
+            commands.CopyTextureToBuffer(new(depth), size, depthReadback, 0);
+
+            commands.Barrier(
+                new(
+                    [],
+                    [
+                        new TextureBarrier(colour, ResourceState.CopySource, ResourceState.ColourTarget),
+                        new TextureBarrier(extras[0], ResourceState.CopySource, ResourceState.ColourTarget),
+                        new TextureBarrier(extras[1], ResourceState.CopySource, ResourceState.ColourTarget),
+                        new TextureBarrier(depth, ResourceState.CopySource, ResourceState.DepthStencilWrite)
+                    ]
+                )
+            );
+
+            recorded = card;
+            hasRecorded = true;
+            Captures++;
+
+            return;
+        }
 
         for (var pass = 0; pass < Planes.Length; pass++) {
             commands.BeginRenderPass(
@@ -320,6 +401,13 @@ public sealed class SurfaceCardCapture : IDisposable {
         device.Destroy(depth);
         device.Destroy(colourReadback);
         device.Destroy(depthReadback);
+
+        for (var extra = 0; extra < 2; extra++) {
+            if (extraViews[extra].IsValid) {
+                device.Destroy(extraViews[extra]);
+                device.Destroy(extras[extra]);
+            }
+        }
     }
 
     Vector3 Colour(int plane, int texels, int source) {
@@ -363,6 +451,23 @@ public sealed class SurfaceCardCapture : IDisposable {
 
         colourView = device.CreateTextureView(colour);
         depthView = device.CreateTextureView(depth);
+
+        if (SinglePass) {
+            for (var extra = 0; extra < 2; extra++) {
+                extras[extra] = device.CreateTexture(
+                    new() {
+                        Width = MaxResolution, Height = MaxResolution, Depth = 1, MipLevels = 1, ArrayLayers = 1,
+                        SampleCount = 1,
+                        Dimension = TextureDimension.Texture2D,
+                        Format = Output.ColourFormats[0],
+                        Usage = TextureUsage.ColourTarget | TextureUsage.CopySource,
+                        Name = $"SurfaceCardCapture.Extra{extra}"
+                    }
+                );
+
+                extraViews[extra] = device.CreateTextureView(extras[extra]);
+            }
+        }
 
         colourReadback = device.CreateBuffer(
             new(texels * Planes.Length * ColourStride, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "SurfaceCardCapture.Colour")

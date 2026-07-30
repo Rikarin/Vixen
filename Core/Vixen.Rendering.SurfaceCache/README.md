@@ -108,10 +108,15 @@ a caller cannot invert, with one author per plane and both refused rather than r
 sampler's scan is one grid cell of `SurfaceCardIndex`'s device form — a dense grid over the cards'
 padded union, ascending candidates per cell — with the zero-drift seam test refereeing the change.
 
-## Not yet, and named so the absence is a decision
+## And the last debt paid: one pass writes what three passes wrote
 
-- **The one-pass MRT capture.** The three-pass capture is its baseline and its referee, and a
-  scene's pipelines already target its one attachment.
+`SurfaceCardCapture.SinglePass` renders all three planes through multiple render targets in one
+pass — `SurfaceCardRaster`'s shape: no descriptor set, the projection a push constant, albedo and
+emissive riding as vertex colours, the target order the readback's plane order. The device test
+compiles the shader on the spot, binds its vertex attributes by the names the effect declares
+(the locations are the shader's to assign — writing 0..3 down was a pipeline that failed to
+build), and holds the fused capture against the traced reference exactly as the three-pass form
+is held. Nothing in § L4 is owed.
 
 **Nothing in this package creates or calls a graphics device** — the dispatches, the mirror, the
 capture and the node live in `Vixen.Rendering`, where the devices are.
