@@ -93,11 +93,12 @@ public sealed class ModelImportEdits {
 ///         re-importing. That is the difference between opening a model and waiting for Assimp.
 ///     </para>
 ///     <para>
-///         ⚠ <b>No LOD preview, and the honest reason is no longer that there are no LODs.</b>
-///         <c>ModelCompiler</c> writes a <c>Meshlets</c> sub-asset per mesh — the cluster hierarchy
-///         of <c>docs/plan/22-virtualized-geometry.md</c>, which is every level at once rather than a chain —
-///         and this list shows it as the sub-asset it is. Previewing a level means choosing a cut and
-///         drawing it, which wants the viewport that does not exist yet.
+///         ⚠ <b>No LOD preview, and the reason is no longer the viewport.</b> <c>ModelCompiler</c>
+///         writes a <c>Clusters</c> sub-asset per mesh — the hierarchy of
+///         <c>docs/plan/22-virtualized-geometry.md</c>, which is every level at once rather than a
+///         chain — and this list shows it as the sub-asset it is. The scene viewport now draws mesh
+///         assets, so what is left is choosing a cut and drawing that, which is a control this panel
+///         does not have rather than a renderer nobody wrote.
 ///     </para>
 /// </remarks>
 public sealed class ModelImportDocument : ImportSettingsDocument {

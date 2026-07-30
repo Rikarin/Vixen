@@ -113,6 +113,17 @@ sealed partial class EditorApplication : IDisposable {
     readonly ThumbnailCache thumbnails;
 
     readonly ContentTasks content;
+
+    /// <summary>Where a viewport reads the geometry a scene's mesh references name.</summary>
+    /// <remarks>
+    ///     <b>The join that made <c>MeshRenderable</c> visible in the editor.</b> Picking and gizmos
+    ///     rendered and geometry did not — the collector had no way to turn a reference into vertices,
+    ///     so a level of authored meshes was a viewport of nothing while the same scene drew correctly in
+    ///     a game. It is the project's import cache rather than a content build, because waiting for a
+    ///     build to look at a level would make the viewport a function of the build rather than the
+    ///     files.
+    /// </remarks>
+    internal Vixen.Editor.Assets.Content.ProjectMeshSource SceneGeometry => content.Meshes;
     readonly PluginHost plugins;
 
     /// <summary>Where the open scene is written, which Save As moves.</summary>

@@ -50,7 +50,26 @@ sealed class ContentTasks {
         this.project = project;
         this.shell = shell;
         workspace = new(project.Paths);
+        Meshes = new(workspace);
     }
+
+    /// <summary>Where the viewport reads the geometry a scene's mesh references name.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Here because this is what owns a live <c>ProjectWorkspace</c>.</b> A source reads the
+    ///         chunks the last import wrote, and the import cache that says which chunk is which is
+    ///         loaded with the workspace — so a second workspace for the viewport would be a second copy
+    ///         of a file this one already has open, and the two would disagree the moment an import
+    ///         finished.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Invalidated when an import finishes. A chunk is content-addressed, so a re-imported
+    ///         mesh is a different id under the same reference and nothing about the cached geometry
+    ///         would ever say it is stale — the viewport would draw the old mesh until the project was
+    ///         reopened.
+    ///     </para>
+    /// </remarks>
+    public ProjectMeshSource Meshes { get; }
 
     /// <summary>Whether an import or a build is running.</summary>
     /// <remarks>What the two commands' enablement reads, so the menu greys itself out.</remarks>
@@ -311,6 +330,12 @@ sealed class ContentTasks {
             // showing what was true before it ran until the editor's own index is rebuilt, which has
             // to happen on the thread that owns them.
             Rescan?.Invoke();
+
+            // ⚠ And the geometry the viewport is holding, for the same reason and on the same thread:
+            // a re-imported mesh is a new chunk id under the same reference, so nothing about the
+            // cached MeshData says it is stale and the viewport would draw the old one for ever.
+            workspace.Cache.TryLoad(workspace.CacheFile);
+            Meshes.Invalidate();
 
             shell.Notifications.Show(result.Title, result.Severity, result.Detail);
         }

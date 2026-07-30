@@ -98,7 +98,7 @@ sealed class ScenePresenter : IDisposable {
     ///     counts. Without that check a sphere rebuilt at a new tessellation would keep being drawn at
     ///     the old one, because the buffers are the only place the vertices exist now.
     /// </remarks>
-    readonly Dictionary<PrimitiveKind, MeshShapeGeometry> registered = [];
+    readonly Dictionary<SceneShape, MeshShapeGeometry> registered = [];
 
     /// <summary>The batches of <see cref="surfaces" />, resolved against <see cref="registered" />.</summary>
     readonly List<MeshInstanceBatch> draws = [];
@@ -350,12 +350,16 @@ sealed class ScenePresenter : IDisposable {
         draws.Clear();
 
         foreach (var batch in surfaces.Batches) {
-            if (!registered.TryGetValue(batch.Kind, out var shape)) {
-                if (!meshes.TryRegister(surfaces.Shape(batch.Kind), out shape)) {
+            if (!registered.TryGetValue(batch.Shape, out var shape)) {
+                // Null for a mesh the collector could not resolve, which cannot happen for a batch it
+                // emitted — a batch exists because some entity drew it. Checked anyway, because the
+                // alternative is a null dereference in a viewport's draw path.
+                if (surfaces.Shape(batch.Shape) is not { } geometry
+                    || !meshes.TryRegister(geometry, out shape)) {
                     continue;
                 }
 
-                registered[batch.Kind] = shape;
+                registered[batch.Shape] = shape;
             }
 
             draws.Add(new(shape, batch.First, batch.Count, batch.Edges));
