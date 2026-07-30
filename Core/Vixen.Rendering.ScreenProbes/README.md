@@ -59,6 +59,29 @@ overshoots the sky. That is the positive mirror of the "an L1 field can return n
 finding in doc 19 § L2, and the test asserts a bound on it rather than pretending L1 is something
 it is not.
 
+## The device half, and where it lives
+
+The shader side is `Raven/Library/ScreenProbes`: `ScreenProbeAtlas.rvn` for the addressing —
+folding through `Math.DecodeOctahedral`, because one fold in the library means the G-buffer normals
+and the probe maps cannot disagree about which corner is the south pole — and `ScreenProbeTrace.rvn`
+for the kernel, one workgroup per probe and one invocation per texel, composing the same
+`distanceField` slot `IrradianceFill` does. `AtlasConventionTests` here walks the shader's
+arithmetic in C# and holds it against `OctahedralMap`, texel by texel, with text guards on the lines
+that would drift silently.
+
+The host side is `Vixen.Rendering`: `ScreenProbeTexture` mirrors the atlas into one 2D texture —
+radiance in the colour, validity in the alpha, so a readback can tell "nothing gathered" from
+"gathered nothing but darkness" — and `ScreenProbeTraceFill` stages one job per valid probe and
+dispatches. `ScreenProbeTraceDeviceTests` compares the dispatch against `TracedScreenProbeGather`
+texel by texel, under a *linear* sky as well as a uniform one, because under a uniform sky every
+texel is the same number and a mirrored decode is invisible.
+
+The surface bias is applied while staging, so the shader receives an origin rather than a surface
+and a rule — the same single place the reference applies it, which is what keeps the two comparable.
+⚠ A probe with no surface is not dispatched, and on a device-owned atlas its patch is therefore
+*undefined*; consumers read validity from alpha, and clearing or skipping unwritten patches belongs
+to the consuming pass.
+
 ## Not yet, and named so the absence is a decision
 
 - **Adaptive probes.** Doc 19's "adaptive placement at disocclusions" — extra probes where the
@@ -68,15 +91,14 @@ it is not.
   say they matter. It changes which texel a ray serves, not what a texel means, so it belongs to the
   version that has a BRDF to sample against.
 - **The trace order.** Screen traces against the HZB first, then the mesh and global SDFs, then
-  termination in the irradiance field for distant light. The reference marches one `IDistanceField`
-  because a closed form needs one thing to be true at a time.
+  termination in the irradiance field for distant light. Both tracers currently march one composed
+  distance field, because a closed form needs one thing to be true at a time.
 - **The denoiser.** Spatial filtering, temporal reprojection through the motion vectors, and the
   bilateral upsample against depth and normal edges. Doc 19 § L3's own warning is that this is the
-  project — un-denoised, the gather looks worse than § L2 alone — and none of it is here, because
-  all of it is device-side work over real frames.
-- **Everything device-side.** No shader, no atlas texture, no renderer. The next milestone is the
-  same one L2's was at this point: the storage convention pinned by a test that walks the shader's
-  addressing in C#.
+  project — un-denoised, the gather looks worse than § L2 alone.
+- **The resolve and the frame.** The per-probe resolve to SH as a dispatch, the upsample as a pass,
+  probe placement reconstructed from the real depth buffer, and the compositor node that owns the
+  lot. The trace writes raw radiance precisely so those can each land with a reference of their own.
 
 **Nothing here creates or calls a graphics device.** The assembly references
 `Vixen.Rendering.DistanceFields` for the reference's marching and `Vixen.Rendering.IrradianceFields`

@@ -24,6 +24,20 @@
         <ProjectReference Include="..\Vixen.Rendering.IrradianceFields\Vixen.Rendering.IrradianceFields.csproj" />
     </ItemGroup>
 
+    <!--
+      The shader half of the atlas, linked in so AtlasConventionTests can check that it addresses the
+      map the way this side does. Raven has no interpreter, so the shared convention is guarded by
+      reading the line rather than running it — the same arrangement as the irradiance field's tests.
+    -->
+    <ItemGroup>
+        <None Include="..\..\Raven\Library\ScreenProbes\*.rvn"
+              LinkBase="Shaders"
+              CopyToOutputDirectory="PreserveNewest" />
+        <None Include="..\..\Raven\Library\Core\Math.rvn"
+              Link="Shaders\Math.rvn"
+              CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
     <Import Project="..\..\Testing\Vixen.Testing.props" />
 
 </Project>

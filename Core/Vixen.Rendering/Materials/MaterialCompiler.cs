@@ -92,7 +92,13 @@ public static class MaterialCompiler {
         // And the fill shader's, which traces the same clipmap the traced pass does. A material never
         // reaches a compute shader, and that is exactly why this is here: a slot has to be bound
         // wherever it is *declared*, not wherever it is used.
-        ("IrradianceFill", "distanceField", EmptyFieldShader)
+        ("IrradianceFill", "distanceField", EmptyFieldShader),
+
+        // And the screen-probe trace's, the third compute shader to declare the same slot for the
+        // same march. Forgetting this line is doc 19 § L2's RVN2073 finding replaying verbatim — and
+        // it did replay, once, when the ScreenProbes package landed without it and every whole-library
+        // compilation in the golden suite refused.
+        ("ScreenProbeTrace", "distanceField", EmptyFieldShader)
     ];
 
     /// <summary>A pass's composition, with every slot it did not name filled by its default.</summary>
