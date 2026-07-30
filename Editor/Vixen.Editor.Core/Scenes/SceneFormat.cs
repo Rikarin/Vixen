@@ -130,34 +130,62 @@ public sealed class SceneEntityData {
     /// <summary>How big it is, relative to its parent.</summary>
     public Vector3 Scale { get; set; } = Vector3.One;
 
-    /// <summary>Which built-in shape it is drawn as, or empty for an entity with no geometry.</summary>
+    /// <summary>How a scene used to carry a shape. Read, and never written.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The name and not the number.</b> A <c>PrimitiveKind</c> written as its integer
-    ///         would make the enum's declaration order part of the file format for ever — a member
-    ///         inserted in the middle would turn every saved cube into a sphere, in a diff that shows
-    ///         nothing wrong. <c>shape: Cylinder</c> costs a parse and says what it means to somebody
-    ///         reading the file.
+    ///         ⚠ <b>Legacy.</b> <c>PrimitiveShape</c> is <c>Vixen.Rendering</c>'s component now, so a
+    ///         shape is an ordinary entry in <see cref="Components" /> and <c>SceneSerializer.Capture</c>
+    ///         never fills this in again. It stays because every scene authored before that carries a
+    ///         shape here, and the binder ignores keys it does not know — so removing the property would
+    ///         not fail to open those files, it would open them and quietly drop the geometry. Reading it
+    ///         is what makes the migration lossless; a file rewrites itself into the new form on its
+    ///         first save.
     ///     </para>
     ///     <para>
-    ///         An empty string is "no shape", which is what an empty, a light and a camera all are.
-    ///         A name this editor does not recognise is read as empty rather than refused — see
-    ///         <c>MeshShapes.TryParse</c>.
+    ///         ⚠ <b>Written as an empty string rather than left out</b>, because <c>OmitDefaults</c> is a
+    ///         property of the whole document and is deliberately off for this format. A newly saved
+    ///         scene therefore carries <c>shape: ''</c> and <c>light: null</c> and means nothing by
+    ///         either — dead weight until either the format drops a version or the mapper grows
+    ///         member-level omission.
+    ///     </para>
+    ///     <para>
+    ///         <b>The name and not the number, while it lasted.</b> A <c>PrimitiveKind</c> written as its
+    ///         integer would have made the enum's declaration order part of the file format for ever — a
+    ///         member inserted in the middle would turn every saved cube into a sphere, in a diff that
+    ///         shows nothing wrong. A name this editor does not recognise is read as empty rather than
+    ///         refused; see <c>PrimitiveShapes.TryParse</c>.
     ///     </para>
     /// </remarks>
     public string Shape { get; set; } = string.Empty;
 
-    /// <summary>What it lights the scene with, or <see langword="null" /> for an entity that lights nothing.</summary>
+    /// <summary>How a scene used to carry a light. Read, and never written.</summary>
     /// <remarks>
-    ///     ⚠ <b>Its own key rather than an entry in <see cref="Components" />, and the reason is the
-    ///     same one <see cref="Shape" /> gives.</b> A light is the editor's component today — the
-    ///     runtime has nowhere to name a <c>LightKind</c>, since <c>Vixen.Engine</c> does not
-    ///     reference <c>Vixen.Rendering</c> — so it has nothing to register with
-    ///     <c>SceneComponentRegistry</c>, and a component listed below that no build declares is what
-    ///     a content compile refuses. Authoring scenes that cannot be compiled is a worse bargain than
-    ///     one more key here, and the day the runtime grows a light component this becomes one of them.
+    ///     ⚠ <b>Legacy, for the reason <see cref="Shape" /> gives at length.</b> <c>Light</c> is
+    ///     <c>Vixen.Rendering</c>'s component now and is written as an entry in
+    ///     <see cref="Components" />; this is read so that every scene authored before that keeps its
+    ///     lighting. It matters more here than for a shape — a light is seven numbers behind a name, and
+    ///     an entity that lost them would be one somebody has to relight by eye.
     /// </remarks>
     public SceneLightData? Light { get; set; }
+
+    /// <summary>The asset this entity is an instance of, in <c>vx:</c> form, or empty for none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Written as the reference text rather than as a bare id, and that is what makes it
+    ///         findable.</b> <c>ReferenceIndex</c> answers "what breaks if I delete this" by scanning
+    ///         every file for <c>vx:</c> followed by thirty-two hex digits — doc 08 chose that form
+    ///         partly so a grep would work — and an <c>AssetId</c> serialised as a bare scalar, which
+    ///         is what the binder would do with one, is invisible to it. A scene that referenced an
+    ///         asset the index could not see is a scene the editor would offer to delete the asset out
+    ///         from under.
+    ///     </para>
+    ///     <para>
+    ///         Its own key rather than an entry in <see cref="Components" />, for the reason
+    ///         <see cref="Light" /> gives: the component carrying it is the editor's, because the
+    ///         runtime has nothing that holds an <c>AssetId</c> yet.
+    ///     </para>
+    /// </remarks>
+    public string Asset { get; set; } = string.Empty;
 
     /// <summary>What hangs from it, in order.</summary>
     /// <remarks>

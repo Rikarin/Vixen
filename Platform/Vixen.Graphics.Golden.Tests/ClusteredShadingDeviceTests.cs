@@ -158,21 +158,30 @@ public class ClusteredShadingDeviceTests {
             binding => binding.Set == DescriptorSetSlot.PerDraw && binding.Size == 1296
         );
 
-        // The world matrix is pushed, and the range reaches the runtime — a pipeline layout that
-        // declared none would drop every push against it, so every object in the frame would draw at
-        // the origin.
+        // The world matrix and the material record are pushed, and the range reaches the runtime — a
+        // pipeline layout that declared none would drop every push against it, so every object in the
+        // frame would draw at the origin.
+        //
+        // The members come with it, because an offset a host guessed is the failure this family
+        // specialises in: a push at the wrong offset within a declared range is accepted by every
+        // layer there is.
         var pushed = Assert.Single(data.PushConstants);
 
-        Assert.Equal(64, pushed.Size);
+        Assert.InRange(pushed.Size, 68, 128);
         Assert.Equal(0, pushed.Offset);
         Assert.True(pushed.Stages.HasFlag(ShaderStage.Vertex));
+
+        Assert.Equal(
+            [("world", 0), ("materialIndex", 64)],
+            [.. (pushed.Members ?? []).Select(member => (member.Name, member.Offset))]
+        );
 
         // And the attribute locations, which are not zero-based and are not guessable: a shader's
         // `stream` variables take locations before its vertex inputs do, so these four start at five.
         // A pipeline described against 0 to 3 is refused outright — which is the one merciful failure
         // in this family, the other two being silent.
         Assert.Equal(
-            [("position", 5), ("normal", 6), ("tangent", 7), ("texcoord", 8)],
+            [("position", 6), ("normal", 7), ("tangent", 8), ("texcoord", 9)],
             data.VertexInputs.Select(input => (input.Name, input.Location)).ToArray()
         );
 
@@ -281,16 +290,23 @@ public class ClusteredShadingDeviceTests {
 
         var describer = new EffectPipelineDescriber(device);
 
-        // Locations five to eight, which is where this shader's inputs actually are — the compile
-        // fact above is what says so, and the effect is what a real host would read them from.
+        // Read off the effect rather than written down, which is what the comment here used to only
+        // claim: a shader's `stream` variables take locations before its vertex inputs do, so adding
+        // one to the pass renumbers all four — and a pipeline described against the old numbers is
+        // refused outright by `vkCreateGraphicsPipelines`, which is how this was found.
+        var formats = new[] {
+            VertexFormat.Float32X3, VertexFormat.Float32X3, VertexFormat.Float32X4, VertexFormat.Float32X2
+        };
+
+        var offsets = new[] { 0, 12, 24, 40 };
+
         describer.VertexLayouts.Add([
             new VertexBufferLayout(
                 Vertex.Stride,
                 [
-                    new(5, VertexFormat.Float32X3, 0),
-                    new(6, VertexFormat.Float32X3, 12),
-                    new(7, VertexFormat.Float32X4, 24),
-                    new(8, VertexFormat.Float32X2, 40)
+                    .. effect!.VertexInputs.Select(
+                        (input, index) => new VertexElement((uint)input.Location, formats[index], offsets[index])
+                    )
                 ]
             )
         ]);

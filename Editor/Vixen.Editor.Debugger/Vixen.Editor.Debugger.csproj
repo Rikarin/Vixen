@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.Debugger</RootNamespace>
+        <Description>
+            The stepping half of doc 20's B4: a frame debugger over a captured command stream, with
+            the bound state replayed to any draw call; a remote inspector that attaches to a running
+            build, browses its entities and writes their components back; and a device manager over
+            whatever can be deployed to.
+        </Description>
+        <PackageTags>editor;frame-debugger;remote-inspector;devices;diagnostics;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- Panels, strings, commands, theming tokens. The same reference the profiler makes, and
+             for the same reason: nothing here is a document, so Vixen.Editor.Core stays out. -->
+        <ProjectReference Include="..\Vixen.Editor.Ui\Vixen.Editor.Ui.csproj" />
+
+        <!--
+            The RHI's vocabulary — pipeline handles, descriptor slots, formats, texture usage — which
+            is what a capture's state pane is made of. Not a backend: `FrameCapture` takes a stream
+            of `CapturedCommand`, and which backend produced it is one adapter's business.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Graphics\Vixen.Graphics.csproj" />
+
+        <!--
+            ⚠ The one backend reference in the assembly, and doc 20 names it: "`Vixen.Graphics.Null`'s
+            recording harness is the shape" a frame capture takes. `NullFrameCapture` is the adapter
+            from its stream to this assembly's, and it is the only file that knows the backend exists
+            — so a Vulkan capture path arrives as a second adapter rather than as a change to the
+            panel.
+        -->
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
+
+        <!--
+            The transport the remote inspector runs over. `ITransport` and nothing socket-shaped:
+            which transport — loopback, UDP, WebSocket — is the caller's choice, which is what lets
+            the whole protocol be tested over `LocalTransport` with no network at all.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Net\Vixen.Net.csproj" />
+
+        <!--
+            Analyzers do not flow transitively through a ProjectReference, so an assembly declaring
+            [UiProperty] controls of its own has to name the generator itself.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Generators\Vixen.Ui.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Editor.Debugger.Tests" />
+    </ItemGroup>
+
+</Project>

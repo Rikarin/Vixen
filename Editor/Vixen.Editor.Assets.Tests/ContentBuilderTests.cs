@@ -31,6 +31,20 @@ public sealed class ContentBuilderTests {
     }
 
     /// <summary>
+    ///     A planned reference reaches the catalog, so the thing a game holds resolves to the thing it
+    ///     loads. The last link in the chain: plan, pack, and ask the catalog what the id means.
+    /// </summary>
+    [Fact]
+    public void AReferenceSurvivesIntoTheCatalog() {
+        var hero = new AssetReference(new AssetId(new("11111111-1111-1111-1111-111111111111")));
+
+        var built = Build([Group("UiCore")], [Asset("ui/hero", "UiCore", reference: hero)]);
+
+        Assert.True(built.Catalog.TryGetAddress(hero, out var address));
+        Assert.Equal("ui/hero", address);
+    }
+
+    /// <summary>
     ///     One bundle each, so a patch ships only what changed. The names are hashed rather than
     ///     taken from the address, because an address contains slashes and a bundle name becomes a
     ///     file name.
@@ -314,9 +328,15 @@ public sealed class ContentBuilderTests {
             RemoteUrl = remoteUrl
         };
 
-    static BuildableAsset Asset(string address, string group, string[]? labels = null, string[]? dependencies = null) =>
+    static BuildableAsset Asset(
+        string address,
+        string group,
+        string[]? labels = null,
+        string[]? dependencies = null,
+        AssetReference reference = default
+    ) =>
         new(address, ContentHash.Compute(Encoding.UTF8.GetBytes(address)), group, [.. labels ?? []],
-            [.. dependencies ?? []]);
+            [.. dependencies ?? []], reference);
 
     /// <summary>Writes a chunk for every asset, so the builder has something real to pack.</summary>
     static ContentBuildResult Build(AddressableGroup[] groups, BuildableAsset[] assets) {

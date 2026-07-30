@@ -252,6 +252,19 @@ public static class ControlTheme {
             opacity: 0.55;
         }
 
+        /* ⚠ And a field that will not take a keystroke, which is a different state and had no
+           picture at all. `ReadOnly` is deliberately not `Disabled` — the field still takes the
+           focus and its text can still be selected and copied, which is the whole reason a form
+           uses it — so it does not get the fade, which reads as "out of reach". What it gets is
+           the muted text `:disabled` gets, because "you cannot change this" is the half the two
+           states share and is the half somebody is about to discover by typing.
+
+           On the parts as well as the field: `field-text` inherits its colour from here, and
+           `numeric-input`'s spinners and a combo box's editable half are children that do not. */
+        .read-only, .read-only field-text, .read-only icon {
+            color: var(--text-muted);
+        }
+
         /* ── Toggles ────────────────────────────────────────────────────────── */
         checkbox, radio, switch {
             flex-direction: row;
@@ -326,6 +339,15 @@ public static class ControlTheme {
             background-color: var(--surface);
             color: var(--text);
             overflow: hidden;
+
+            /* ⚠ Load-bearing, and it is what the placeholder below is positioned against. An
+               absolutely-positioned child is placed by the nearest ancestor that is not `static`,
+               and `static` is the CSS initial — so without this the placeholder was laid out
+               against whatever `position: relative` happened to be somewhere above the field, which
+               in a docked panel is nothing at all. The symptom is a placeholder sitting at the left
+               edge of the *window* rather than of the box, which in the project browser reads as
+               "the placeholder overlaps the magnifying glass" because that is where it lands. */
+            position: relative;
         }
 
         textarea { min-height: 72px; align-items: flex-start; }
@@ -336,10 +358,26 @@ public static class ControlTheme {
          * lets the single-line one be wider than its box and scroll sideways; the text area gives
          * that up in exchange for its text staying inside.
          */
-        field-text { flex-shrink: 0; white-space: nowrap; }
+        /*
+         * ⚠ `min-height` in em, and it is what stops an empty field collapsing. An element with no
+         * text has no measure function at all — see `UiElement.OnTextChanged` — so it reports zero
+         * and a field holding "" is its padding and its border and nothing else: about ten pixels
+         * tall, which is a control that looks like a rule and is almost impossible to click. One em
+         * and a fifth is roughly a line box, and it is in em rather than px so that a field in a
+         * larger-typeset panel grows with the text it will hold rather than clipping it.
+         */
+        field-text { flex-shrink: 0; white-space: nowrap; min-height: 1.2em; }
         textarea field-text { flex-shrink: 1; white-space: normal; }
         field-placeholder { position: absolute; left: 8px; color: var(--text-muted); display: none; }
         .empty field-placeholder { display: flex; }
+
+        /* ⚠ Past the magnifying glass, because a search box has one and the other fields do not.
+           The offset is the field's own padding plus the icon and the gap after it — the place
+           `field-text` starts — so what the user typed appears exactly where the prompt for it was
+           rather than a glyph's width to the right of it. Absolute rather than in flow so that the
+           prompt does not decide how wide the box has to be: "Search assets" is wider than the
+           field the project browser gives it. */
+        search-box field-placeholder { left: 28px; }
 
         search-box icon { width: 14px; height: 14px; color: var(--text-muted); }
         search-box.empty icon-button { display: none; }
@@ -362,6 +400,19 @@ public static class ControlTheme {
          * drawing.
          */
         .virtual-content > .parked { display: none; }
+
+        /*
+         * The grid's own, and it needs a class of its own rather than sharing the list's. A row
+         * spans the width — `left: 0; right: 0` — and a tile does not: it is placed at a column as
+         * well as a line, so it carries its own `left` and `width` and must not also be pinned to
+         * the right edge.
+         */
+        virtualizing-grid { flex: 1; min-height: 0; }
+        virtualizing-grid scroll-view { flex: 1; }
+
+        .virtual-grid { position: relative; }
+        .virtual-grid > * { position: absolute; }
+        .virtual-grid > .parked { display: none; }
 
         /* ── Range ──────────────────────────────────────────────────────────── */
         slider, range-slider { height: 20px; min-width: 80px; }
@@ -552,7 +603,11 @@ public static class ControlTheme {
             color: var(--text);
         }
 
-        select-field { flex-grow: 1; }
+        /* ⚠ The same floor `field-text` has, and for the same reason: a select with nothing chosen
+           yet holds an empty string, which measures zero and leaves a dropdown the height of its
+           padding. The chevron beside it is 12px and would otherwise be the only thing giving the
+           control a height at all. */
+        select-field { flex-grow: 1; min-height: 1.2em; }
         select.empty select-field, multi-select.empty select-field { color: var(--text-muted); }
         select icon, multi-select icon, combo-box icon { width: 12px; height: 12px; color: var(--text-muted); }
 

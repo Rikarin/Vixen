@@ -104,6 +104,10 @@ public static class EditorStrings {
     /// <summary>Opens the command palette.</summary>
     public static StringId CommandPalette { get; } = new("editor.command.view.palette", "Command Palette…");
 
+    /// <summary>Opens the search over assets, entities and settings.</summary>
+    public static StringId CommandSearchEverywhere { get; } =
+        new("editor.command.edit.search-everywhere", "Search Everywhere…");
+
     /// <summary>Puts the arrangement back to the preset it started from.</summary>
     public static StringId CommandResetLayout { get; } = new("editor.command.view.reset-layout", "Reset Layout");
 
@@ -203,6 +207,195 @@ public static class EditorStrings {
     /// <summary>What it reports when a keybinding could not be taken.</summary>
     public static StringId KeyBindingConflict { get; } = new("editor.notice.binding-conflict", "That shortcut is already taken");
 
+    /// <summary>The keybinding editor's tab.</summary>
+    public static StringId PanelKeys { get; } = new("editor.panel.keybindings", "Keyboard Shortcuts");
+
+    /// <summary>The message log's.</summary>
+    public static StringId PanelMessages { get; } = new("editor.panel.messages", "Message Log");
+
+    /// <summary>The preferences window's.</summary>
+    public static StringId PanelPreferences { get; } = new("editor.panel.preferences", "Preferences");
+
+    /// <summary>The project settings window's.</summary>
+    public static StringId PanelProjectSettings { get; } = new("editor.panel.project-settings", "Project Settings");
+
+    /// <summary>The plugin manager's.</summary>
+    public static StringId PanelPlugins { get; } = new("editor.panel.plugins", "Plugins");
+
+    /// <summary>The undo history's.</summary>
+    public static StringId PanelHistory { get; } = new("editor.panel.history", "Undo History");
+
+    /// <summary>What the keybinding editor's filter box says when it is empty.</summary>
+    public static StringId KeysFilter { get; } = new("editor.keys.filter", "Filter commands…");
+
+    /// <summary>Puts the panel into capture mode.</summary>
+    public static StringId KeysRecord { get; } = new("editor.keys.record", "Press a Key…");
+
+    /// <summary>What that button says while it is waiting.</summary>
+    public static StringId KeysRecording { get; } = new("editor.keys.recording", "Waiting…");
+
+    /// <summary>Unbinds the selected command.</summary>
+    public static StringId KeysClear { get; } = new("editor.keys.clear", "Unbind");
+
+    /// <summary>Puts one row back to the layer underneath.</summary>
+    public static StringId KeysResetRow { get; } = new("editor.keys.reset-row", "Reset");
+
+    /// <summary>Puts every row back.</summary>
+    public static StringId KeysResetAll { get; } = new("editor.keys.reset-all", "Reset All");
+
+    /// <summary>Reads a keymap file in.</summary>
+    public static StringId KeysImport { get; } = new("editor.keys.import", "Import…");
+
+    /// <summary>Writes one out.</summary>
+    public static StringId KeysExport { get; } = new("editor.keys.export", "Export…");
+
+    /// <summary>The command column.</summary>
+    public static StringId KeysColumnCommand { get; } = new("editor.keys.column.command", "Command");
+
+    /// <summary>The category column.</summary>
+    public static StringId KeysColumnCategory { get; } = new("editor.keys.column.category", "Category");
+
+    /// <summary>The shortcut column.</summary>
+    public static StringId KeysColumnBinding { get; } = new("editor.keys.column.binding", "Shortcut");
+
+    /// <summary>The column saying which layer a binding came from.</summary>
+    public static StringId KeysColumnSource { get; } = new("editor.keys.column.source", "Source");
+
+    /// <summary>What that column says for a binding the application shipped.</summary>
+    public static StringId KeysSourceDefault { get; } = new("editor.keys.source.default", "Default");
+
+    /// <summary>And for one the user made.</summary>
+    public static StringId KeysSourceUser { get; } = new("editor.keys.source.user", "Yours");
+
+    /// <summary>What the status line says with no row chosen.</summary>
+    public static StringId KeysPickRow { get; } = new("editor.keys.pick-row", "Choose a command to rebind it.");
+
+    /// <summary>And with one chosen.</summary>
+    public static StringId KeysReady { get; } = new("editor.keys.ready", "Press a Key, or double-click the row.");
+
+    /// <summary>And while it is waiting for one.</summary>
+    public static StringId KeysWaiting { get; } =
+        new("editor.keys.waiting", "Press the shortcut you want. Escape cancels.");
+
+    /// <summary>What it says when the chord is taken.</summary>
+    public static StringId KeysConflict { get; } =
+        new("editor.keys.conflict", "{0} is already {1}. Press it again to take it.");
+
+    /// <summary>What it says when a keymap file names a preset this editor has not got.</summary>
+    public static StringId KeysUnknownPreset { get; } =
+        new("editor.keys.unknown-preset", "There is no keymap preset called '{0}'.");
+
+    /// <summary>The message log's "no filter" choice.</summary>
+    public static StringId MessagesAllLevels { get; } = new("editor.messages.all-levels", "All Messages");
+
+    /// <summary>Its errors-only choice.</summary>
+    public static StringId MessagesErrors { get; } = new("editor.messages.errors", "Errors");
+
+    /// <summary>Its warnings-only choice.</summary>
+    public static StringId MessagesWarnings { get; } = new("editor.messages.warnings", "Warnings");
+
+    /// <summary>Its successes-only choice.</summary>
+    public static StringId MessagesSuccesses { get; } = new("editor.messages.successes", "Successes");
+
+    /// <summary>Its information-only choice.</summary>
+    public static StringId MessagesInfos { get; } = new("editor.messages.infos", "Information");
+
+    /// <summary>What its detail pane says when no line is selected.</summary>
+    public static StringId MessagesNoSelection { get; } =
+        new("editor.messages.no-selection", "Select a message to see the whole of it.");
+
+    /// <summary>What the settings window's search box says when it is empty.</summary>
+    public static StringId SettingsSearch { get; } = new("editor.settings.search", "Search settings…");
+
+    /// <summary>Puts one page back to its defaults.</summary>
+    public static StringId SettingsResetPage { get; } = new("editor.settings.reset-page", "Reset Page");
+
+    /// <summary>Throws away what has been typed since the last write.</summary>
+    public static StringId SettingsRevert { get; } = new("editor.settings.revert", "Revert");
+
+    /// <summary>Writes it.</summary>
+    public static StringId SettingsApply { get; } = new("editor.settings.apply", "Apply");
+
+    /// <summary>What the pane says when the search has matched nothing.</summary>
+    public static StringId SettingsNoPage { get; } = new("editor.settings.no-page", "No settings match that.");
+
+    /// <summary>What the plugin manager's filter box says when it is empty.</summary>
+    public static StringId PluginsFilter { get; } = new("editor.plugins.filter", "Filter plugins…");
+
+    /// <summary>Switches the selected plugin off.</summary>
+    public static StringId PluginsDisable { get; } = new("editor.plugins.disable", "Disable");
+
+    /// <summary>And back on.</summary>
+    public static StringId PluginsEnable { get; } = new("editor.plugins.enable", "Enable");
+
+    /// <summary>Unloads it and loads it again from disk.</summary>
+    public static StringId PluginsReload { get; } = new("editor.plugins.reload", "Reload");
+
+    /// <summary>The name column.</summary>
+    public static StringId PluginsColumnName { get; } = new("editor.plugins.column.name", "Plugin");
+
+    /// <summary>The id column.</summary>
+    public static StringId PluginsColumnId { get; } = new("editor.plugins.column.id", "Id");
+
+    /// <summary>The version column.</summary>
+    public static StringId PluginsColumnVersion { get; } = new("editor.plugins.column.version", "Version");
+
+    /// <summary>The state column.</summary>
+    public static StringId PluginsColumnState { get; } = new("editor.plugins.column.state", "State");
+
+    /// <summary>The author column.</summary>
+    public static StringId PluginsColumnAuthor { get; } = new("editor.plugins.column.author", "Author");
+
+    /// <summary>What the state column says for a running plugin.</summary>
+    public static StringId PluginsStateActive { get; } = new("editor.plugins.state.active", "Active");
+
+    /// <summary>For one that is switched off.</summary>
+    public static StringId PluginsStateDisabled { get; } = new("editor.plugins.state.disabled", "Disabled");
+
+    /// <summary>For one that did not start.</summary>
+    public static StringId PluginsStateFailed { get; } = new("editor.plugins.state.failed", "Failed");
+
+    /// <summary>For one that has been taken back out.</summary>
+    public static StringId PluginsStateUnloaded { get; } = new("editor.plugins.state.unloaded", "Unloaded");
+
+    /// <summary>What the detail line says when nothing is installed.</summary>
+    public static StringId PluginsNone { get; } =
+        new("editor.plugins.none", "No plugins are installed. Put one in the project's Plugins folder.");
+
+    /// <summary>And when nothing is selected.</summary>
+    public static StringId PluginsPickRow { get; } = new("editor.plugins.pick-row", "Choose a plugin.");
+
+    /// <summary>And for one the user switched off.</summary>
+    public static StringId PluginsSwitchedOff { get; } =
+        new("editor.plugins.switched-off", "You switched this off. Enable puts it back and starts it.");
+
+    /// <summary>And for one its own manifest switches off.</summary>
+    public static StringId PluginsManifestOff { get; } =
+        new("editor.plugins.manifest-off", "Its plugin.yaml says enabled: false, which is the author's switch rather than yours.");
+
+    /// <summary>What the undo history's strip says.</summary>
+    public static StringId HistoryHint { get; } =
+        new("editor.history.hint", "Choosing a step undoes back to it.");
+
+    /// <summary>What the history calls the point before anything was done.</summary>
+    public static StringId HistoryOriginal { get; } = new("editor.history.original", "Opened");
+
+    /// <summary>The heading over the startup project browser.</summary>
+    public static StringId ProjectsTitle { get; } = new("editor.projects.title", "Open a Project");
+
+    /// <summary>What it says when nothing has been opened yet.</summary>
+    public static StringId ProjectsEmpty { get; } =
+        new("editor.projects.empty", "No projects yet. Browse for one, or start a new one.");
+
+    /// <summary>Opens one that is already on disk.</summary>
+    public static StringId ProjectsBrowse { get; } = new("editor.projects.browse", "Browse…");
+
+    /// <summary>Starts one.</summary>
+    public static StringId ProjectsNew { get; } = new("editor.projects.new", "New Project…");
+
+    /// <summary>What a row says when the directory has gone.</summary>
+    public static StringId ProjectsMissing { get; } = new("editor.projects.missing", "not found");
+
     /// <summary>Every string above, for a translator to start from.</summary>
     public static IReadOnlyList<StringId> All { get; } = [
         MenuFile,
@@ -233,6 +426,7 @@ public static class EditorStrings {
         CommandRedo,
         CommandPreferences,
         CommandPalette,
+        CommandSearchEverywhere,
         CommandResetLayout,
         CommandSaveLayout,
         CommandFloatPanel,
@@ -263,6 +457,66 @@ public static class EditorStrings {
         ConsoleSearch,
         ConsoleAllCategories,
         ConsoleNoSelection,
-        KeyBindingConflict
+        KeyBindingConflict,
+        PanelKeys,
+        PanelMessages,
+        PanelPreferences,
+        PanelProjectSettings,
+        PanelPlugins,
+        PanelHistory,
+        KeysFilter,
+        KeysRecord,
+        KeysRecording,
+        KeysClear,
+        KeysResetRow,
+        KeysResetAll,
+        KeysImport,
+        KeysExport,
+        KeysColumnCommand,
+        KeysColumnCategory,
+        KeysColumnBinding,
+        KeysColumnSource,
+        KeysSourceDefault,
+        KeysSourceUser,
+        KeysPickRow,
+        KeysReady,
+        KeysWaiting,
+        KeysConflict,
+        KeysUnknownPreset,
+        MessagesAllLevels,
+        MessagesErrors,
+        MessagesWarnings,
+        MessagesSuccesses,
+        MessagesInfos,
+        MessagesNoSelection,
+        SettingsSearch,
+        SettingsResetPage,
+        SettingsRevert,
+        SettingsApply,
+        SettingsNoPage,
+        PluginsFilter,
+        PluginsDisable,
+        PluginsEnable,
+        PluginsReload,
+        PluginsColumnName,
+        PluginsColumnId,
+        PluginsColumnVersion,
+        PluginsColumnState,
+        PluginsColumnAuthor,
+        PluginsStateActive,
+        PluginsStateDisabled,
+        PluginsStateFailed,
+        PluginsStateUnloaded,
+        PluginsNone,
+        PluginsPickRow,
+        PluginsSwitchedOff,
+        PluginsManifestOff,
+        HistoryHint,
+        HistoryOriginal,
+        ProjectsTitle,
+        ProjectsEmpty,
+        ProjectsBrowse,
+        ProjectsNew,
+        ProjectsMissing
     ];
 }

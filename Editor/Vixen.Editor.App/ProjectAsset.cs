@@ -4,6 +4,8 @@
 using System.Globalization;
 using Vixen.Core;
 using Vixen.Editor.Core;
+using Vixen.Core.Yaml;
+using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Inspector;
 
 namespace Vixen.Editor.App;
@@ -123,11 +125,181 @@ public sealed class ProjectAsset {
     [Tooltip("How many other assets refer to this one.")]
     public int ReferencedBy => project.References.ReferrersOf(Asset).Count;
 
+    /// <summary>What a build ships this asset under, or empty for "not shipped".</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Writable, where everything above is not, and the difference is where the value
+    ///         lives.</b> The rows above are the database's envelope — a name is a file on disk and a
+    ///         GUID is written once and never again — and an address is neither: it is a per-asset
+    ///         fact stored in the sidecar's <c>Addressable</c> block, which is exactly the kind of
+    ///         thing an inspector edits. Without a box for it the only way to make an asset
+    ///         addressable was to open the <c>.meta</c> in a text editor, which is what
+    ///         "there is no addressable UI" meant in practice.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Empty clears the whole block rather than writing an empty address.</b>
+    ///         <c>BuildPlanner</c> reads a null address as "not shipped" and an empty string as a
+    ///         name — an asset addressed <c>""</c> is one every load of <c>""</c> would find.
+    ///     </para>
+    /// </remarks>
+    [Inspector]
+    [Header("Addressable")]
+    [Tooltip("What the game loads this by. Empty means the asset is not shipped as an addressable.")]
+    public string Address {
+        get => Meta?.Addressable?.Address ?? string.Empty;
+        set => Amend(info => info with { Address = Trimmed(value) });
+    }
+
+    /// <summary>Which bundle group it belongs to, or empty to inherit its folder's.</summary>
+    /// <remarks>
+    ///     A name rather than a picker over the project's <c>.vxgroup</c> files, deliberately: a
+    ///     group is inherited from the folder when it is not named here, and a dropdown with no
+    ///     "inherit" entry would make the common case the one that needs explaining. The Addressables
+    ///     panel is where the groups themselves are made.
+    /// </remarks>
+    [Inspector]
+    [Tooltip("Which .vxgroup packs it. Empty inherits the folder's group, which is the usual answer.")]
+    public string Group {
+        get => Meta?.Addressable?.Group ?? string.Empty;
+        set => Amend(info => info with { Group = Trimmed(value) });
+    }
+
+    /// <summary>Labels for bulk loading, comma separated.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Comma separated rather than a list editor, which is the same call
+    ///     <c>CompositorNode</c> makes about its own.</b> A list drawer over three short strings is
+    ///     four rows of chrome and a set of add/remove buttons for something people type in one go.
+    /// </remarks>
+    [Inspector]
+    [Tooltip("Labels a bulk load can ask for, comma separated.")]
+    public string Labels {
+        get => string.Join(", ", Meta?.Addressable?.Labels ?? []);
+
+        set => Amend(info => info with {
+                Labels = [.. (value ?? string.Empty)
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)]
+            }
+        );
+    }
+
     /// <summary>Renders it as its name.</summary>
     /// <returns>The name.</returns>
     public override string ToString() => Name;
 
     AssetEntry? Entry => project.Assets.TryGetByGuid(Asset, out var entry) ? entry : null;
+
+    /// <summary>Where this asset's sidecar is, or <see langword="null" /> if it has none.</summary>
+    string? Sidecar => Entry is { } entry
+        ? AssetMetaFile.PathFor(project.Paths.Absolute(entry.Path))
+        : null;
+
+    AssetMeta? meta;
+    DateTime stamp;
+
+    /// <summary>The sidecar as it stands, or <see langword="null" /> if it cannot be read.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Kept until the file's timestamp moves, which is the one place this type caches
+    ///         anything.</b> Everything else here is a dictionary lookup into an index that is
+    ///         already in memory; a sidecar is a disk read and a YAML parse, and three rows ask for
+    ///         it — so reading it per access meant three reads and three parses <i>per drawn frame</i>
+    ///         for as long as an asset was selected. That is not merely wasteful: it was enough to
+    ///         starve the thumbnail decoder running on the pool beside it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A stat rather than a flag, so an import is still seen.</b> An import rewrites the
+    ///         sidecar behind the inspector's back — that is what an import is — and a copy held
+    ///         across one would be a panel editing a version of the file that no longer exists and
+    ///         then writing it back over the new one. Comparing the last-write time costs a stat and
+    ///         keeps the rule this type's own remarks state.
+    ///     </para>
+    /// </remarks>
+    AssetMeta? Meta {
+        get {
+            if (Sidecar is not { } path) {
+                return null;
+            }
+
+            DateTime written;
+
+            try {
+                written = File.GetLastWriteTimeUtc(path);
+            } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
+                return null;
+            }
+
+            // A file that is not there reports a sentinel from the epoch rather than throwing, which
+            // is what makes this one call rather than an Exists and a stat.
+            if (written == default) {
+                meta = null;
+                return null;
+            }
+
+            if (meta is not null && written == stamp) {
+                return meta;
+            }
+
+            stamp = written;
+
+            try {
+                meta = AssetMetaFile.ReadFile(path);
+            } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or YamlParseException or YamlBindingException) {
+                // A sidecar somebody is halfway through hand-editing is not an editor that falls
+                // over — the rows read as blank, which is the honest answer to "what does it say".
+                meta = null;
+            }
+
+            return meta;
+        }
+    }
+
+    /// <summary>Rewrites the addressable block of the sidecar.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Read, amend, write — never construct.</b> The sidecar carries the GUID, the
+    ///         importer's own settings and the sub-asset table, none of which this knows anything
+    ///         about; writing a fresh <c>AssetMeta</c> with only an address on it would lose the
+    ///         identity every other file in the project refers to this one by.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The block is dropped entirely when nothing is left in it.</b> An
+    ///         <c>Addressable:</c> key holding three nulls is a diff on everybody's checkout and a
+    ///         file that says the asset is configured when it is not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not undoable, and it says so out loud.</b> This writes a file on disk directly,
+    ///         which is the same bargain the settings window makes: the undo stack belongs to a
+    ///         scene, and a Ctrl+Z aimed at the viewport that silently rewrote a sidecar would be
+    ///         worse than no undo at all.
+    ///     </para>
+    /// </remarks>
+    void Amend(Func<AddressableInfo, AddressableInfo> change) {
+        if (Sidecar is not { } path || Meta is not { } current) {
+            return;
+        }
+
+        var updated = change(current.Addressable ?? new AddressableInfo());
+
+        var empty = updated.Address is null or { Length: 0 }
+            && updated.Group is null or { Length: 0 }
+            && updated.Labels.Length == 0;
+
+        try {
+            AssetMetaFile.WriteFile(path, current with { Addressable = empty ? null : updated });
+        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
+            // A read-only checkout is an ordinary thing to meet. The row reads back what is still on
+            // disk on the next draw, which is the truthful outcome and is visible.
+        } finally {
+            // ⚠ Dropped by hand rather than left to the timestamp. A write and the read after it can
+            // land inside one tick of the file system's clock, and a cache that only notices a
+            // *different* stamp would then serve the version from before the edit — which is a row
+            // that snaps back to its old value one frame after it was typed into.
+            meta = null;
+            stamp = default;
+        }
+    }
+
+    static string? Trimmed(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     /// <summary>A byte count somebody can read at a glance.</summary>
     static string Bytes(long count) {

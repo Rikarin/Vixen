@@ -57,9 +57,31 @@ public static class InspectorTheme {
            shrank when the selection emptied would move under the pointer mid-type. */
         inspector-header { flex-direction: row; align-items: center; gap: 6px; flex-shrink: 0; }
         inspector-header > search-box { flex-grow: 1; min-width: 0; }
-        inspector-header > .inspector-lock { flex-shrink: 0; }
+        /* ⚠ The label is set and not drawn, which is what `IconButton` does for its own: it is what
+           a screen reader reads and what a tooltip would show, and a control whose only affordance
+           is a picture is the one that most needs to say what it is. Hidden here rather than by
+           leaving the label empty, because an empty label is a control with nothing to announce. */
+        inspector-header > .inspector-lock { flex-shrink: 0; padding: 3px; }
+        .inspector-lock label { display: none; }
+        .inspector-lock icon { width: 15px; height: 15px; }
 
-        inspector-body { flex-direction: column; }
+        /* ⚠ Grey open, red closed, and the glyph changes too — see `ControlIcons.Unlock`. A locked
+           inspector is the answer to "why is this panel ignoring what I select", so the state has to
+           read from across the window rather than being a slightly different grey. */
+        .inspector-lock icon { color: var(--text-muted); }
+        .inspector-lock:checked { background-color: transparent; }
+        .inspector-lock:checked icon { color: var(--danger, #c8352f); }
+        .inspector-lock:checked:hover:not(:disabled) icon { color: var(--danger, #c8352f); }
+
+        /* ⚠ `min-height: 0` is what makes it scroll rather than grow. A flex item's automatic
+           minimum is its content, so a scroll view full of rows refuses to be shorter than all of
+           them and pushes the panel's own bottom off screen — the bar never appears and the last
+           component is unreachable. The same rule `inspector-editor` follows for width. */
+        inspector > scroll-view { flex-grow: 1; min-height: 0; }
+
+        /* The rows are the content and the content does not shrink: a body that shrank to fit the
+           viewport is a body with no overflow, which is a scroll view with nothing to scroll. */
+        inspector-body { flex-direction: column; flex-shrink: 0; }
 
         /* ── A row ──────────────────────────────────────────────────────────────
            Label, editor, reset — and a minimum height, so a row holding a check box
@@ -231,9 +253,14 @@ public static class BrowserTheme {
     const string Sheet = """
         /* The search box takes what is left and the type filter keeps its width, so a long importer
            name is what gets clipped rather than the search field disappearing. */
-        browser-filters { flex-direction: row; align-items: center; gap: 6px; flex-shrink: 0; padding: 2px; }
-        browser-filters > search-box { flex-grow: 1; min-width: 0; }
-        browser-filters > select { flex-shrink: 0; width: 140px; }
+        browser-filters { flex-direction: row; align-items: center; gap: 6px; flex-shrink: 0; padding: 5px 6px; }
+        /* ⚠ The search box has a floor and the type filter gives up the width for it. At 140px the
+           dropdown left "Search assets" reading "Search as" in a docked browser, which is a
+           placeholder that has stopped being one. 110 still fits every importer tag the project
+           actually holds, and it is the control that can afford to clip: its value is a word the
+           user chose from a list they can reopen. */
+        browser-filters > search-box { flex-grow: 1; flex-shrink: 1; min-width: 90px; }
+        browser-filters > select { flex-shrink: 1; width: 110px; min-width: 64px; }
         browser-filters > .browser-view { flex-shrink: 0; }
 
         /* ── The grid ───────────────────────────────────────────────────────────
@@ -246,27 +273,24 @@ public static class BrowserTheme {
         asset-path { flex-direction: row; flex-wrap: wrap; align-items: center; flex-shrink: 0; gap: 2px; }
         .asset-crumb { flex-shrink: 0; }
 
-        asset-tiles {
-            flex-direction: row;
-            flex-wrap: wrap;
-            align-content: flex-start;
-            flex-grow: 1;
-            gap: 4px;
-            padding: 4px;
-            overflow-y: auto;
-        }
+        /* ⚠ The tile size is a custom property rather than a rule on the tile, because the grid
+           does the placing: it needs the number to work out how many fit across and where item
+           40 000 is, and a size the control could only discover by measuring an element would
+           defeat the whole arrangement. */
+        asset-tiles { --tile-width: 82px; --tile-height: 84px; flex-grow: 1; min-height: 0; }
 
+        /* Absolutely positioned by the grid, so the tile styles what is *inside* it and nothing
+           about where it is. */
         asset-tile {
+            position: absolute;
             flex-direction: column;
             align-items: center;
-            width: 78px;
-            flex-basis: 78px;
-            flex-grow: 0;
-            flex-shrink: 0;
             padding: 8px 4px;
             gap: 6px;
             border-radius: var(--radius-row, 6px);
         }
+
+        asset-tile.parked { display: none; }
 
         asset-tile:hover { background-color: var(--surface-hover, var(--surface-sunken)); }
 
@@ -279,18 +303,29 @@ public static class BrowserTheme {
            from across the panel. */
         asset-tile > icon { width: 40px; height: 40px; }
 
+        /* The picture takes the glyph's place and its size, so a tile is the same shape whether its
+           asset has one or not — a grid whose rows changed height as thumbnails arrived would
+           reflow under the pointer. */
+        asset-tile > image { width: 40px; height: 40px; }
+        asset-tile > .hidden { display: none; }
+
         /* Two lines and then clipped: a tile whose height followed its name would make every row of
            the grid a different height and the whole thing impossible to scan. */
         asset-caption { text-align: center; font-size: 0.85em; max-height: 30px; overflow: hidden; }
 
-        .asset-note { color: var(--text-muted); font-size: 0.85em; padding: 2px 6px; }
-        .asset-note.hidden { display: none; }
 
         /* ── The component foldouts ─────────────────────────────────────────────
            One block per component, under the inspector's own rows and separated from them
            by a rule, because "what this entity is" and "what is on it" are two lists and a
            panel that ran them together reads as one long one. */
-        components { flex-direction: column; }
+        components { flex-direction: column; flex-shrink: 0; }
+
+        /* ⚠ Said out loud, because the initial value of `flex-direction` is `row` and nothing else
+           here sets it. `LayoutStyle.Default` is column — which is what a document with no
+           stylesheet gets — but every styled element is built from the CSS initial instead, so a
+           part with no rule of its own lays its children out across rather than down. The symptom
+           was three component foldouts side by side, each squeezed to a third of the panel. */
+        component-list { flex-direction: column; flex-shrink: 0; }
 
         expander.component { border-width: 1px 0px 0px 0px; border-color: var(--border); }
         expander.component > expander-header { flex-direction: row; align-items: center; }
@@ -300,6 +335,11 @@ public static class BrowserTheme {
            and a column of identical crosses down the right of the panel is not. */
         .remove-component { flex-shrink: 0; margin-left: auto; opacity: 0.2; }
         expander-header:hover .remove-component { opacity: 1; }
+
+        /* The one being dragged, faded so the gap it will leave is visible under it. A real
+           floating copy would need the drag to carry an element, which the gesture layer does
+           not do — and at three foldouts the fade is enough to say what is moving. */
+        expander.component.dragging { opacity: 0.5; }
 
         .add-component { align-self: stretch; margin: 8px 4px 4px 4px; }
         .add-component.hidden { display: none; }

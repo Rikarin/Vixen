@@ -141,6 +141,8 @@ public sealed partial class Lowerer {
             SpecialType.UInt => IrScalarType.UInt,
             SpecialType.Float => IrScalarType.Float,
             SpecialType.Double => IrScalarType.Double,
+            SpecialType.Int64 => IrScalarType.Int64,
+            SpecialType.UInt64 => IrScalarType.UInt64,
             _ => null
         };
 

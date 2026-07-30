@@ -207,6 +207,48 @@ public class TextFieldTests {
         Assert.Equal("query", field.Value);
     }
 
+    /// <summary>
+    ///     ⚠ <b>The prompt has to be where the answer will be, and twice it was not.</b> It is
+    ///     absolutely positioned so that a long prompt cannot decide how wide the box has to be —
+    ///     which means the field itself has to be its containing block (<c>position: relative</c>,
+    ///     since <c>static</c> is the initial and an ancestor several panels up would otherwise
+    ///     claim it), and it means the offset has to clear the magnifying glass a search box has and
+    ///     the other fields do not. Getting either wrong draws "Search assets" over the icon.
+    /// </summary>
+    [Fact]
+    public void A_search_box_puts_its_placeholder_where_the_text_will_go() {
+        using var fixture = new ControlFixture();
+
+        var search = fixture.Add<SearchBox>();
+        search.Placeholder = "Search assets";
+        fixture.Update();
+
+        var placeholder = Descendants(search).First(child => child.Tag == "field-placeholder");
+        var text = Descendants(search).First(child => child.Tag == "field-text");
+
+        Assert.True(placeholder.Width > 0f, "the placeholder is not being drawn, so this proves nothing.");
+
+        // Clear of the icon on its left, and lined up with the value that replaces it. A pixel of
+        // slack, because both are snapped to the device's grid independently.
+        Assert.True(
+            placeholder.AbsoluteLeft >= search.SearchIcon.AbsoluteLeft + search.SearchIcon.Width,
+            $"the placeholder starts at {placeholder.AbsoluteLeft}, over an icon that runs to "
+            + $"{search.SearchIcon.AbsoluteLeft + search.SearchIcon.Width}."
+        );
+
+        Assert.Equal(text.AbsoluteLeft, placeholder.AbsoluteLeft, 1f);
+    }
+
+    static IEnumerable<UiElement> Descendants(UiElement element) {
+        foreach (var child in element.Children) {
+            yield return child;
+
+            foreach (var found in Descendants(child)) {
+                yield return found;
+            }
+        }
+    }
+
     [Fact]
     public void A_search_box_clears_itself() {
         using var fixture = new ControlFixture();

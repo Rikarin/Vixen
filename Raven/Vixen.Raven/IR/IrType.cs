@@ -12,6 +12,13 @@ public enum IrTypeKind {
     UInt,
     Float,
     Double,
+
+    /// <summary>A 64-bit signed integer. Optional on every target, so it is a reported capability.</summary>
+    Int64,
+
+    /// <summary>A 64-bit unsigned integer — the word a packed depth-above-id atomic max works on.</summary>
+    UInt64,
+
     Vector,
     Matrix,
     Array,
@@ -49,8 +56,25 @@ public abstract class IrType {
         Kind is IrTypeKind.Bool
             or IrTypeKind.Int
             or IrTypeKind.UInt
+            or IrTypeKind.Int64
+            or IrTypeKind.UInt64
             or IrTypeKind.Float
             or IrTypeKind.Double;
+
+    /// <summary>Whether this is an integer scalar of either width and either signedness.</summary>
+    /// <remarks>
+    ///     Asked wherever an operation is integers-only — the atomics, the bitwise operators — so
+    ///     that adding a width does not mean finding every list of two kinds that had become a list
+    ///     of four.
+    /// </remarks>
+    public bool IsInteger =>
+        Kind is IrTypeKind.Int or IrTypeKind.UInt or IrTypeKind.Int64 or IrTypeKind.UInt64;
+
+    /// <summary>Whether this scalar is unsigned, which decides half of SPIR-V's integer opcodes.</summary>
+    public bool IsUnsigned => Kind is IrTypeKind.UInt or IrTypeKind.UInt64;
+
+    /// <summary>Whether this scalar is 64 bits wide: eight bytes of layout, and a capability.</summary>
+    public bool Is64Bit => Kind is IrTypeKind.Int64 or IrTypeKind.UInt64 or IrTypeKind.Double;
 
     /// <summary>Scalar, vector or matrix — the types arithmetic applies to.</summary>
     public bool IsNumeric =>
@@ -75,6 +99,8 @@ public sealed class IrScalarType : IrType {
     public static readonly IrScalarType Bool = new(IrTypeKind.Bool, "bool");
     public static readonly IrScalarType Int = new(IrTypeKind.Int, "i32");
     public static readonly IrScalarType UInt = new(IrTypeKind.UInt, "u32");
+    public static readonly IrScalarType Int64 = new(IrTypeKind.Int64, "i64");
+    public static readonly IrScalarType UInt64 = new(IrTypeKind.UInt64, "u64");
     public static readonly IrScalarType Float = new(IrTypeKind.Float, "f32");
     public static readonly IrScalarType Double = new(IrTypeKind.Double, "f64");
 

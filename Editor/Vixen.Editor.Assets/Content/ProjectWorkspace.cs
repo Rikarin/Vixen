@@ -156,7 +156,24 @@ public sealed class ProjectWorkspace {
 
     /// <summary>Whether a directory looks like a project.</summary>
     /// <param name="directory">The directory.</param>
-    /// <returns>Whether it has an <c>Assets/</c> in it.</returns>
+    /// <returns>Whether it has a <c>.vxproj</c> in it, or an <c>Assets/</c>.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Either, and the order is the interesting part.</b> The marker is the answer doc
+    ///         08 always specified and <see cref="ProjectMarker" /> now writes; the <c>Assets/</c>
+    ///         rule is what answered before it existed, and it stays because every project made
+    ///         before this has no marker and must go on opening. A project that acquires one gets the
+    ///         stronger test for free.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The marker is what makes the second half of the question answerable.</b>
+    ///         <c>Assets/</c> alone is weak in both directions: any directory that happens to contain
+    ///         a folder of that name qualifies — a source tree, an unrelated game's export — and a
+    ///         project whose assets have all been deleted stops being one, which is a project the
+    ///         editor refuses to reopen exactly when somebody most needs it to.
+    ///     </para>
+    /// </remarks>
     public static bool IsProject(string directory) =>
-        Directory.Exists(System.IO.Path.Combine(directory, "Assets"));
+        ProjectMarker.TryFind(directory, out _)
+        || Directory.Exists(System.IO.Path.Combine(directory, "Assets"));
 }

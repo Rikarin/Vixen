@@ -66,6 +66,42 @@ public sealed partial class CommandPalette : Overlay {
     /// <summary>How many results are shown.</summary>
     public int Limit { get; set; } = 10;
 
+    /// <summary>Whether the best results are kept together by the source they came from.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Off for the command palette and on for search-everywhere, and the difference is
+    ///         what is being asked.</b> A palette is asked "run the thing I am typing the name of",
+    ///         and the answer is a ranked list where the best match is first whatever kind of thing it
+    ///         is. Doc 20's A8 asks for the other question — "where is this word in my project" —
+    ///         and there the answer is four short lists: assets, entities, settings, commands. A
+    ///         single ranked list of twenty across five sources buries whichever source happened to
+    ///         score a point lower.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <i>cut</i> is still by score.</b> The best <see cref="Limit" /> results are
+    ///         chosen first and only then arranged by source, so grouping never promotes a bad match
+    ///         over a good one — it decides the order of what survived, not what survives.
+    ///     </para>
+    /// </remarks>
+    public bool GroupBySource { get; set; }
+
+    /// <summary>Whether an empty query shows nothing rather than asking the sources.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The palette's policy, not each source's.</b> Opening the command palette and
+    ///         seeing what the editor can do is half of what it is for; search-everywhere is opened
+    ///         to look for something, and a list sitting there before a word is typed is rows that
+    ///         push out the first real match. That is one decision about one overlay — and left to
+    ///         the sources it is a rule every future source has to remember, which is a rule that
+    ///         will be forgotten.
+    ///     </para>
+    ///     <para>
+    ///         Skipping the loop entirely also means a source is never asked a question whose answer
+    ///         is thrown away, which is what made the asset source's per-match work worth having.
+    ///     </para>
+    /// </remarks>
+    public bool RequiresQuery { get; set; }
+
     /// <summary>What is typed into it.</summary>
     public SearchBox Field { get; private set; } = null!;
 
@@ -74,6 +110,14 @@ public sealed partial class CommandPalette : Overlay {
 
     /// <summary>What it says when nothing matched.</summary>
     public UiElement EmptyPart { get; private set; } = null!;
+
+    /// <summary>The pane under the rows describing whatever is highlighted.</summary>
+    /// <remarks>
+    ///     Drawn only when <see cref="GroupBySource" /> is on, which is the same condition as "this
+    ///     is search-everywhere rather than the palette": a command palette with a paragraph under it
+    ///     is a palette that has stopped being one keystroke and a Return.
+    /// </remarks>
+    public UiElement PreviewPart { get; private set; } = null!;
 
     /// <summary>Where it looks, in order.</summary>
     public IReadOnlyList<IPaletteSource> Sources => sources;
@@ -95,6 +139,7 @@ public sealed partial class CommandPalette : Overlay {
         Field = Part<SearchBox>();
         List = Part("palette-list");
         EmptyPart = Part("palette-empty");
+        PreviewPart = Part("palette-preview");
 
         Field.ValueChanged += (_, _) => Refresh();
         Field.Placeholder = EditorStrings.PalettePlaceholder.Text;
@@ -166,14 +211,25 @@ public sealed partial class CommandPalette : Overlay {
 
         results.Clear();
 
-        foreach (var source in sources) {
-            source.Search(query, results, Limit);
+        if (!RequiresQuery || query.Length > 0) {
+            foreach (var source in sources) {
+                source.Search(query, results, Limit);
+            }
         }
 
         // ⚠ A stable sort, which is what `List.Sort` is not — so the order sources were added in,
         // and the order each returned its own results in, survives a tie. Without it a palette
         // showing two equally-good matches would put them in a different order on every keystroke.
         var ranked = results.OrderByDescending(item => item.Score).Take(Limit).ToList();
+
+        if (GroupBySource) {
+            // ⚠ Blocks in the order their best result scored, and rows within a block in score
+            // order. `GroupBy` keys appear in first-appearance order and `ranked` is already sorted,
+            // so the block holding the best match is first — which is the arrangement that keeps the
+            // top row the top row whether or not grouping is on, and therefore the one where turning
+            // grouping on never moves what Enter would have run.
+            ranked = [.. ranked.GroupBy(item => item.Category, StringComparer.Ordinal).SelectMany(group => group)];
+        }
 
         results.Clear();
         results.AddRange(ranked);
@@ -229,6 +285,13 @@ public sealed partial class CommandPalette : Overlay {
                 rows[i].State &= ~ElementState.Checked;
             }
         }
+
+        var preview = GroupBySource && Highlighted >= 0
+            ? results[highlighted].Preview?.Invoke() ?? results[highlighted].Detail
+            : null;
+
+        PreviewPart.Text = preview;
+        PreviewPart.SetStyle("display", preview is { Length: > 0 } ? "flex" : "none");
     }
 
     void Keyed(KeyEvent args) {

@@ -40,8 +40,41 @@ namespace Vixen.Raven.Reflection;
 /// </remarks>
 public static class StageInterface {
     /// <summary>Whether a stage input or output may have this type.</summary>
+    /// <remarks>
+    ///     A 64-bit component is refused alongside a boolean, and for a neighbouring reason: it
+    ///     does not fit one location. Vulkan's interface slots are four 32-bit components wide, so a
+    ///     64-bit component consumes two of them and the numbering stops being the one
+    ///     <c>StreamPlan</c> assigns — the vertex stage's outputs and the fragment stage's inputs
+    ///     silently stop lining up. That covers <c>double</c> as well as the new integers, which was
+    ///     the same defect all along and had no way to announce itself: nothing in the engine wants
+    ///     64 bits across a stage boundary, and what does want them is a buffer an atomic operates
+    ///     on.
+    /// </remarks>
     public static bool CanCarry(IrType type) =>
-        type is IrScalarType { Kind: not IrTypeKind.Bool } or IrVectorType { Component.Kind: not IrTypeKind.Bool };
+        type is IrScalarType { Kind: not IrTypeKind.Bool, Is64Bit: false }
+            or IrVectorType { Component: { Kind: not IrTypeKind.Bool, Is64Bit: false } };
+
+    /// <summary>
+    ///     Whether a varying of this type has to be flat rather than interpolated.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>Integers, and it is a rule rather than a preference.</strong> There is no
+    ///         interpolation an integer could take — the rasteriser weights its inputs by barycentric
+    ///         coordinates, which produces a fraction — so SPIR-V requires <c>Flat</c> on a
+    ///         <c>Fragment</c> input of integer type and GLSL requires <c>flat</c> on the same. A
+    ///         module without it is invalid, and a driver's answer to invalid ranges from a validation
+    ///         error to a value that is right at one vertex of every triangle.
+    ///     </para>
+    ///     <para>
+    ///         Asked of the type rather than declared by the shader, because there is no other legal
+    ///         answer for an integer and no legal way to ask for it on a float. A qualifier would be a
+    ///         syntax whose only correct value the compiler already knows.
+    ///     </para>
+    /// </remarks>
+    public static bool MustBeFlat(IrType type) =>
+        type is IrScalarType { Kind: IrTypeKind.Int or IrTypeKind.UInt }
+            or IrVectorType { Component.Kind: IrTypeKind.Int or IrTypeKind.UInt };
 
     /// <summary>
     ///     The reason a type cannot be carried, phrased for <c>RVN4001</c>'s <c>{0}</c>.

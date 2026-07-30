@@ -255,6 +255,16 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     public bool UseRecords { get; set; }
 
     /// <summary>
+    ///     What a shader calls its <c>[MaterialIndex]</c>, which is where a host pushes the record.
+    /// </summary>
+    /// <remarks>
+    ///     The name and not an offset, for the reason <see cref="EffectSetWriter" /> exists: a host
+    ///     says what it is pushing and the effect says where it goes. A shader that adds a member
+    ///     above this one renumbers it, and nothing here changes.
+    /// </remarks>
+    public const string RecordIndexName = "materialIndex";
+
+    /// <summary>
     ///     Permutation values that belong to the frame rather than to an object or a material.
     /// </summary>
     /// <remarks>

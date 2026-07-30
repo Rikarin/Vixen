@@ -281,43 +281,95 @@ public sealed class MaterialRecordBufferTests : IDisposable {
         Assert.True(h.Materials.DescriptorsOf(h.System, id).IsValid);
     }
 
-    /// <summary>The record index reaches the per-draw block, where the shader reads it.</summary>
+    /// <summary>
+    ///     The record index is pushed, at the offset the effect says, once per material.
+    /// </summary>
     /// <remarks>
-    ///     The last join in the chain, and the one nothing else asserts: a buffer full of correct
-    ///     records is useless if the number saying which record an object is never leaves the
-    ///     renderer. Read out of the bytes at the offset `ForwardPlus.rvn` declares — which the
-    ///     checked-in reflection puts at 12, in the padding the three scalars before it already left.
+    ///     <para>
+    ///         The last join in the chain, and the one nothing else asserts: a buffer full of correct
+    ///         records is useless if the number saying which record a draw reads never leaves the
+    ///         renderer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <strong>It used to go into the per-object block, and that was the wrong shape.</strong>
+    ///         A variant is keyed <c>(material, flags, shader)</c>, so one variant is one material and
+    ///         every object in a batch shares a record — it is per draw, never per object. Worse, the
+    ///         clustered path binds no per-draw set at all, so a clustered frame delivered no index:
+    ///         bindless materials and clustered lighting were quietly exclusive.
+    ///     </para>
+    ///     <para>
+    ///         The offset is read off the effect rather than written here. A shader that adds a member
+    ///         above this one renumbers it, and a host holding 64 would push the index into the world
+    ///         matrix — a wild picture rather than an error.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void The_record_index_reaches_the_per_draw_block() {
-        using var h = Build(lighting: true);
+    public void The_record_index_is_pushed_at_the_offset_the_effect_declares() {
+        using var h = Build();
 
-        var first = Lit(new(1f, 0f, 0f));
-        var second = Lit(new(0f, 1f, 0f));
-
-        var a = AddMesh(h, first);
-        var b = AddMesh(h, second);
+        var a = AddMesh(h, Lit(new(1f, 0f, 0f)));
+        var b = AddMesh(h, Lit(new(0f, 1f, 0f)));
 
         Frame(h);
+        Record(h);
+
+        // At the record's own offset. The transform feature in the same fixture pushes the world
+        // matrix at zero, so counting every push would count that instead.
+        var pushes = Records(device).ToList();
+
+        Assert.Equal(2, pushes.Count);
 
         Assert.Equal(
-            (uint)h.Materials.RecordOf(h.System, a)!.Value.Index,
-            IndexInBlock(h, a)
-        );
-
-        Assert.Equal(
-            (uint)h.Materials.RecordOf(h.System, b)!.Value.Index,
-            IndexInBlock(h, b)
+            [
+                (long)h.Materials.RecordOf(h.System, a)!.Value.Index,
+                h.Materials.RecordOf(h.System, b)!.Value.Index
+            ],
+            [.. pushes.Select(push => push.D).Order()]
         );
     }
 
-    /// <summary>What the lighting feature wrote into one object's per-draw header.</summary>
-    static uint IndexInBlock(Harness h, RenderObjectId id) {
-        var block = h.Lighting!.Block(h.System, id);
-        Assert.False(block.IsEmpty, "the object has no per-draw block");
+    /// <summary>Two objects of one material are one push, not two.</summary>
+    /// <remarks>
+    ///     Per run and not per node, which is the whole reason this can be a push at all: the merge
+    ///     gate rules out anything that has to happen <em>between two nodes</em>, and a record changes
+    ///     only when the run does. A version that pushed per object would draw the same image and put
+    ///     a command between every pair of draws in the frame.
+    /// </remarks>
+    [Fact]
+    public void Two_objects_of_one_material_are_one_push() {
+        using var h = Build();
+        var shared = Lit(new(1f, 0f, 0f));
 
-        return BitConverter.ToUInt32(block[ForwardLightingRenderFeature.MaterialIndexOffset..]);
+        AddMesh(h, shared);
+        AddMesh(h, shared);
+
+        Frame(h);
+        Record(h);
+
+        Assert.Single(Records(device));
     }
+
+    /// <summary>And with records off nothing is pushed there at all.</summary>
+    /// <remarks>
+    ///     The control. The bound-per-material path reads its values out of a descriptor set, so an
+    ///     index pushed into it would be a number nothing looks at — and on a device with no bindless
+    ///     that is the only path there is.
+    /// </remarks>
+    [Fact]
+    public void With_records_off_nothing_is_pushed() {
+        using var h = Build(records: false);
+
+        AddMesh(h, new Material("Plain"));
+
+        Frame(h);
+        Record(h);
+
+        Assert.Empty(Records(device));
+    }
+
+    /// <summary>The pushes that carried a material record, by the offset the effect declared.</summary>
+    static IEnumerable<RecordedCommand> Records(NullDevice device) =>
+        device.Recorder!.OfKind(RecordedCommandKind.PushConstants).Where(push => push.B == 64);
 
     // --- The fixture -------------------------------------------------------
 
@@ -437,6 +489,15 @@ public sealed class MaterialRecordBufferTests : IDisposable {
                     Key = key,
                     Stages = Modules,
                     SetLayouts = [default, default, lit, default],
+
+                    // The world matrix and, after it, the record index — the shape `ForwardPlus.rvn`
+                    // declares. The member's offset is what a host pushes at, so a fixture that
+                    // declared the range without its members would test nothing.
+                    PushConstants = [
+                        new(ShaderStage.Vertex | ShaderStage.Fragment, 0, 80) {
+                            Members = [new("world", 0, 64), new("materialIndex", 64, 4)]
+                        }
+                    ],
                     Parameters = [
                         new(Tint, 0, 12) { Set = DescriptorSetSlot.PerMaterial },
                         new(Roughness, 16, 4) { Set = DescriptorSetSlot.PerMaterial }

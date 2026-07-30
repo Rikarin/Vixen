@@ -143,6 +143,7 @@ public sealed record EffectBindingData(
 /// <param name="Stages">Which stages read it.</param>
 /// <param name="Offset">Where the range starts, in bytes.</param>
 /// <param name="Size">How many bytes it is.</param>
+/// <param name="Members">What is inside it, so a caller can find one by name.</param>
 /// <remarks>
 ///     <para>
 ///         Carried because a pipeline layout has to declare it, and a layout that does not is one a
@@ -151,16 +152,28 @@ public sealed record EffectBindingData(
 ///         <em>world matrix</em>, so every object in the frame is drawn at the origin.
 ///     </para>
 ///     <para>
-///         The members are not here. What a host needs is the range — the offsets inside it come from
-///         the generated constants, which is where a caller building the bytes already looks.
+///         <strong>The members are here, and this comment used to say they were not.</strong> The
+///         claim was that a caller building the bytes reads the generated constants — but nothing is
+///         generated for a push-constant block, so the only offset a host had was the one it assumed.
+///         That held while the block was one matrix at zero. It stopped holding the moment a second
+///         member existed, and the failure would have been silent: a push at the wrong offset within
+///         a declared range is accepted by every layer there is.
 ///     </para>
 /// </remarks>
 [DataContract("EffectPushConstantData")]
 public sealed record EffectPushConstantData(
     ShaderStage Stages = ShaderStage.None,
     int Offset = 0,
-    int Size = 0
+    int Size = 0,
+    EffectPushConstantMember[]? Members = null
 );
+
+/// <summary>One member of a push-constant block, and where in it the member sits.</summary>
+/// <param name="Name">The name the shader gave it, unqualified.</param>
+/// <param name="Offset">Where it starts within the block, in bytes.</param>
+/// <param name="Size">How many bytes it occupies.</param>
+[DataContract("EffectPushConstantMember")]
+public sealed record EffectPushConstantMember(string Name = "", int Offset = 0, int Size = 0);
 
 /// <summary>
 ///     One vertex attribute the shader reads, and the location it reads it at.

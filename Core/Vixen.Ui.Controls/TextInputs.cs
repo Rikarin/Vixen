@@ -14,16 +14,26 @@ public sealed partial class TextBox : TextField {
 
 /// <summary>A field for several lines of text.</summary>
 /// <remarks>
-///     ⚠ <b>Today it is a taller <see cref="TextBox" />, and the reason is upstream of this file.</b>
-///     The framework draws one <see cref="TextLine" /> per element and nothing wraps it, so there is
-///     no second line for Enter to start. What this type does have is its own tag — so the theme can
-///     give it the height and the alignment a text area needs — and its own place for the wrapping
-///     to land when <c>Vixen.Ui.Text</c>'s line breaker reaches the draw path. Shipping the tag now
-///     means the markup that uses it will not have to change then.
+///     <para>
+///         <b>A <see cref="TextBox" /> that takes a line break, and that is the whole difference.</b>
+///         The wrapping was already there — the theme puts <c>white-space: normal</c> on this tag's
+///         text and <c>TextLayout</c> breaks on both a mandatory break and a measured one — and what
+///         was missing was any way to <i>get</i> a newline into the value: Enter submitted, so a box
+///         offered for a YAML document could hold exactly one line of it. That is the shape of bug
+///         that reads as a field which will not accept what you type.
+///     </para>
+///     <para>
+///         ⚠ <b>Ctrl-Enter still submits</b>, so a form whose default button lives behind
+///         <c>Submitted</c> is still reachable from inside the one field that has claimed the plain
+///         key.
+///     </para>
 /// </remarks>
 public sealed partial class TextArea : TextField {
     /// <inheritdoc />
     protected override string TagName => "textarea";
+
+    /// <inheritdoc />
+    protected override bool AcceptsNewlines => true;
 }
 
 /// <summary>A field with a magnifying glass and a way to empty it.</summary>

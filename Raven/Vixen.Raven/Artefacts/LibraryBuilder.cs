@@ -30,7 +30,9 @@ namespace Vixen.Raven.Artefacts;
 ///         body that reads a shader binding cannot be linked into another shader, so it is refused
 ///         (<c>RVN5001</c>) instead of exported to fail somewhere with no source in sight; a body
 ///         that touches a <c>stream</c> is refused for the neighbouring but different reason that a
-///         stream's location belongs to the consuming shader (<c>RVN5007</c>). And a stage entry
+///         stream's location belongs to the consuming shader (<c>RVN5007</c>), and one that touches
+///         <c>groupshared</c> storage because the workgroup is the consuming dispatch's
+///         (<c>RVN5008</c>). And a stage entry
 ///         point is not something a library supplies, which is said (<c>RVN5002</c>) rather than
 ///         silently dropped.
 ///     </para>
@@ -82,13 +84,23 @@ public static class LibraryBuilder {
         };
     }
 
+    /// <summary>Which kind of shader-level state a body touched, and therefore why it cannot travel.</summary>
+    /// <remarks>
+    ///     Three reasons rather than one, because the three tell an author to do different things: a
+    ///     binding cannot travel because its descriptor belongs to one shader, a stream because its
+    ///     location does, and group-shared storage because the workgroup it belongs to is the
+    ///     consuming dispatch's.
+    /// </remarks>
+    enum UnexportableKind {
+        Binding,
+        Stream,
+        GroupShared
+    }
+
     /// <summary>What stops a body from being exported, and which shader-level name it touched.</summary>
-    /// <param name="Name">The binding or stream the body reaches.</param>
-    /// <param name="IsStream">
-    ///     True for a stream, so the refusal states the right reason: a binding cannot travel
-    ///     because its descriptor belongs to one shader, a stream because its location does.
-    /// </param>
-    readonly record struct Unexportable(string Name, bool IsStream);
+    /// <param name="Name">The binding, stream or group-shared variable the body reaches.</param>
+    /// <param name="Kind">Which of the three it is, so the refusal states the right reason.</param>
+    readonly record struct Unexportable(string Name, UnexportableKind Kind);
 
     /// <summary>
     ///     The functions that cannot be exported: those that touch shader-level state, and
@@ -105,11 +117,20 @@ public static class LibraryBuilder {
             .Select(stream => stream.Variable)
             .ToHashSet();
 
+        var shared = lowered.Module.Shaders
+            .SelectMany(shader => shader.SharedVariables)
+            .Select(variable => variable.Variable)
+            .ToHashSet();
+
         Dictionary<IrFunction, Unexportable> unexportable = [];
 
         foreach (var function in lowered.Module.AllFunctions) {
             if (Globals(function.Body).FirstOrDefault() is { } root) {
-                unexportable[function] = new(root.Name, streams.Contains(root));
+                var kind = streams.Contains(root) ? UnexportableKind.Stream
+                    : shared.Contains(root) ? UnexportableKind.GroupShared
+                    : UnexportableKind.Binding;
+
+                unexportable[function] = new(root.Name, kind);
             }
         }
 
@@ -154,6 +175,17 @@ public static class LibraryBuilder {
                 break;
 
             case IrStoreInstruction { Place.Root: { Kind: IrVariableKind.Global } root }:
+                yield return root;
+                break;
+
+            // An atomic and a length query reach their storage without loading it, so neither
+            // shows up as a load. Missing them would export a function whose only use of a
+            // binding is the one use that cannot be a copy.
+            case IrAtomicInstruction { Place.Root: { Kind: IrVariableKind.Global } root }:
+                yield return root;
+                break;
+
+            case IrArrayLengthInstruction { Place.Root: { Kind: IrVariableKind.Global } root }:
                 yield return root;
                 break;
 
@@ -314,9 +346,11 @@ public static class LibraryBuilder {
 
             if (unexportable.TryGetValue(function, out var reason)) {
                 diagnostics.Add(
-                    reason.IsStream
-                        ? LibraryDiagnostics.StreamNotExportable
-                        : LibraryDiagnostics.BindingNotExportable,
+                    reason.Kind switch {
+                        UnexportableKind.Stream => LibraryDiagnostics.StreamNotExportable,
+                        UnexportableKind.GroupShared => LibraryDiagnostics.GroupSharedNotExportable,
+                        _ => LibraryDiagnostics.BindingNotExportable
+                    },
                     member.DeclaringSyntax?.GetLocation() ?? Location.None,
                     description,
                     reason.Name

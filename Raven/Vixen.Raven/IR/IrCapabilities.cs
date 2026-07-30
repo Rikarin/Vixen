@@ -17,6 +17,25 @@ public static class IrCapability {
     /// <summary>64-bit floating point (<c>double</c> and its vectors and matrices).</summary>
     public const string Float64 = "Float64";
 
+    /// <summary>64-bit integers (<c>int64</c> and <c>uint64</c>).</summary>
+    /// <remarks>
+    ///     Optional everywhere: <c>shaderInt64</c> on Vulkan, SM6.6 on D3D12, and absent from
+    ///     WebGPU. A host that cannot offer it has to pick a different variant rather than fail the
+    ///     pipeline, which is why this is reported per shader.
+    /// </remarks>
+    public const string Int64 = "Int64";
+
+    /// <summary>
+    ///     An atomic read-modify-write on a 64-bit integer.
+    /// </summary>
+    /// <remarks>
+    ///     Separate from <see cref="Int64" /> because the devices are: <c>VK_KHR_shader_atomic_int64</c>
+    ///     is its own extension with its own feature bits, and a device may support the type without
+    ///     supporting an atomic on it. Reporting only the type would be a pipeline that creates and
+    ///     a dispatch that does not run.
+    /// </remarks>
+    public const string Int64Atomics = "Int64Atomics";
+
     /// <summary>Sampling a 3D texture.</summary>
     public const string Texture3D = "Texture3D";
 
@@ -94,6 +113,12 @@ public static class IrCapabilities {
             CollectType(binding.Variable.Type, required);
         }
 
+        // Workgroup storage is not a binding, so it is not in the list above — and its type is
+        // just as capable of being a `double[]` the device has to support.
+        foreach (var shared in shader.SharedVariables) {
+            CollectType(shared.Variable.Type, required);
+        }
+
         foreach (var entryPoint in shader.EntryPoints) {
             switch (entryPoint.Stage) {
                 case ShaderStage.Geometry:
@@ -160,6 +185,15 @@ public static class IrCapabilities {
 
                     break;
 
+                // The one instruction whose *opcode* asks for something its types do not. A 64-bit
+                // atomic needs both `Int64` — which the result type below already gives — and
+                // `Int64Atomics`, which nothing about the type could say, because a shader may pack
+                // a 64-bit word and never touch it atomically.
+                case IrAtomicInstruction { Place.Type: IrScalarType { Is64Bit: true } } atomic:
+                    required.Add(IrCapability.Int64Atomics);
+                    CollectType(atomic.Result.Type, required);
+                    break;
+
                 case IrInstruction instruction:
                     // Every value a computation produces is typed, so the result type is
                     // enough — an operand was itself some instruction's result.
@@ -179,6 +213,10 @@ public static class IrCapabilities {
         switch (type) {
             case IrScalarType { Kind: IrTypeKind.Double }:
                 required.Add(IrCapability.Float64);
+                break;
+
+            case IrScalarType { Kind: IrTypeKind.Int64 or IrTypeKind.UInt64 }:
+                required.Add(IrCapability.Int64);
                 break;
 
             case IrVectorType vector:

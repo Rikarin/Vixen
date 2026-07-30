@@ -88,6 +88,23 @@ same objects, and the merged one keeps the earlier's old values, so one undo goe
 drag. `Seal()` on mouse-up ends the run — a time window would make how many undo steps an edit produced
 depend on how fast somebody moved a mouse.
 
+## The panel is a fixed strip over one scroll region
+
+`InspectorView` is three things down a column: the header, `Scroll`, and the empty state. The rows
+live in `Scroll.Content` rather than directly in the view, and the header deliberately does not — a
+search box that scrolled away with the rows is unreachable exactly when the panel is long enough to
+need one.
+
+⚠ **`Scroll.Content` is public, and that is what a host adds its own sections to.** The editor's
+component foldouts are the case: they are not the members of a described type and so are not this
+view's to draw, but a panel with two independent scroll regions in it is one where half the answer is
+off screen whichever region you move. Adding them beside the view instead is what made an entity with
+three components end below the bottom of the window with no way to reach the last one.
+
+⚠ **`min-height: 0` on the scroll view is load-bearing**, for the reason `inspector-editor`'s
+`min-width: 0` is: a flex item's automatic minimum is its content, so a region full of rows refuses
+to be shorter than all of them, the bar never appears and the panel grows instead of scrolling.
+
 ## The small affordances
 
 | | |

@@ -27,6 +27,11 @@ public sealed class VulkanFeatureTests {
             MaxBoundDescriptorSets = 8,
             MaxPushConstantsSize = 256,
             MaxSamplerAnisotropy = 16f,
+
+            // What an NVIDIA desktop part reports. A number rather than zero because the interesting
+            // assertion is that a device with valid bits and no period is still reported untimeable.
+            TimestampPeriod = 1f,
+
             FramebufferColorSampleCounts = SampleCountFlags.Count1Bit
                 | SampleCountFlags.Count2Bit
                 | SampleCountFlags.Count4Bit
@@ -53,6 +58,7 @@ public sealed class VulkanFeatureTests {
         uint apiVersion = Version11,
         QueueFamilyPlan? queues = null,
         bool unifiedMemory = false,
+        uint timestampValidBits = 0,
         PhysicalDeviceDescriptorIndexingFeatures indexing = default,
         PhysicalDeviceDescriptorIndexingProperties? indexingLimits = null
     ) =>
@@ -63,6 +69,7 @@ public sealed class VulkanFeatureTests {
             apiVersion,
             queues ?? OneFamily,
             unifiedMemory,
+            timestampValidBits,
             indexing,
             indexingLimits ?? IndexingLimits()
         );
@@ -467,6 +474,42 @@ public sealed class VulkanFeatureTests {
         };
 
         Assert.False(VulkanFeatures.HasUnifiedMemory(memory, AdapterKind.Integrated));
+    }
+
+    /// <summary>
+    ///     The graphics family's valid bits are what decides it, and the period comes across with
+    ///     them.
+    /// </summary>
+    [Fact]
+    public void TimestampsFollowTheGraphicsFamily() {
+        var features = Translate(timestampValidBits: 64);
+
+        Assert.True(features.HasTimestampQueries);
+        Assert.Equal(1f, features.TimestampPeriod);
+    }
+
+    /// <summary>
+    ///     A transfer-only queue reporting zero valid bits is an ordinary configuration, and a
+    ///     profiler told it could time the device would record readings that never change.
+    /// </summary>
+    [Fact]
+    public void NoValidBitsIsNoTimeline() {
+        var features = Translate();
+
+        Assert.False(features.HasTimestampQueries);
+        Assert.Equal(0f, features.TimestampPeriod);
+    }
+
+    /// <summary>
+    ///     Valid bits and a zero period is a real combination on software implementations, and it is
+    ///     the one where trusting the bits alone draws a timeline of zero-width passes.
+    /// </summary>
+    [Fact]
+    public void AZeroPeriodIsNotATimeline() {
+        var limits = Limits();
+        limits.TimestampPeriod = 0f;
+
+        Assert.False(Translate(limits: limits, timestampValidBits: 64).HasTimestampQueries);
     }
 
     static PhysicalDeviceMemoryProperties SharedHeap() {

@@ -47,6 +47,14 @@ this drift would appear as the editor and this tool producing different output f
 lives here is the console — exit codes, `--format msbuild`, the verbose line — and the worker pool,
 which is a command-line option rather than something an editor's background task starts unasked.
 
+⚠ **`PublishRunner` went the same way and is now `PlayerBuild`, beside the pipeline.** Doc 20's B7
+asks the editor for a Build Settings window "over `Tools/Vixen.Cli`'s existing calls", and a window
+can only be over calls that are somewhere it can reach — so the target shapes, the `dotnet publish`
+and the launch moved, and `vixen build` and the editor's Build and Run are now literally the same
+three calls. The one thing that did not move is `ShaderBuildRunner`: it links Raven's compiler, which
+is a build-time library the editor deliberately does not carry, so the ahead-of-time shader bundle
+stays a thing this command does and the editor's does not.
+
 ## `import`
 
 Scans, then imports every asset whose source, settings, importer version, target or declared
@@ -153,6 +161,12 @@ vixen new lib Physics        # a library either of them can reference
 vixen build --target iOS     # content, then dotnet publish
 vixen run -- --vixen-frames 5
 ```
+
+⚠ **`TemplateCatalog` and the scaffold moved to `Vixen.Editor.Core`**, for the reason `PublishRunner`
+and `ContentPipeline` did before them: the editor's New Project needs the same scaffold, and an
+editor whose new projects have no `.csproj` is one whose Build and Run is greyed for every project it
+makes. What is left here is the console — the listing, the exit code, and the two lines saying what
+to type next.
 
 **`new` writes the same files `dotnet new vixen-game` writes, because it reads the same files.**
 [`Vixen.Templates`](../Vixen.Templates/README.md) owns one tree; the template package ships it and

@@ -43,7 +43,7 @@ public static class AssetEditorTheme {
     const string Sheet = """
         /* ── Shared ─────────────────────────────────────────────────────────── */
         import-settings, texture-editor, sprite-editor, model-editor, material-editor,
-        code-editor-pane, group-editor, compositor-editor, prefab-editor {
+        code-editor-pane, group-editor, compositor-editor, shadergraph-editor, prefab-editor {
             flex-direction: column;
             flex-grow: 1;
             gap: 8px;
@@ -277,5 +277,198 @@ public static class AssetEditorTheme {
         /* ── The prefab editor ──────────────────────────────────────────────── */
         prefab-editor { flex-direction: column; }
         prefab-banner { flex-direction: row; align-items: center; gap: 8px; padding: 4px 8px; }
+
+        /* ── The shared node inspector ──────────────────────────────────────
+           Beside every graph rather than inside one, because a node's numbers live on the graph and
+           the port list that describes them is the registry's — so the same rows serve the VFX
+           blocks and the animation graph's states. */
+        node-inspector { flex-direction: column; gap: 2px; flex-shrink: 0; }
+        node-inspector-title { font-weight: 600; }
+        node-inspector-summary { color: var(--text-muted); font-size: 11px; }
+        lane-name { color: var(--text-muted); font-size: 11px; width: 10px; flex-shrink: 0; }
+        node-inspector fact-value { flex-direction: row; align-items: center; gap: 4px; }
+        node-inspector fact-value > numeric-input { flex-grow: 1; flex-basis: 0px; min-width: 0; }
+
+        /* ── The shader graph editor ────────────────────────────────────────
+           Three columns, and the middle one is usually not there: a graph is what is being looked
+           at, the generated Raven is what is being checked, and the fields are a fixed strip. The
+           pane keeps a width rather than growing, so showing it narrows the canvas by a predictable
+           amount instead of halving it. */
+        shadergraph-editor { flex-direction: row; gap: 6px; }
+        shadergraph-editor > node-graph { flex-grow: 1; min-width: 0; }
+
+        shadergraph-source {
+            flex-direction: column;
+            width: 420px;
+            flex-shrink: 0;
+            overflow: hidden;
+            background-color: var(--surface-sunken);
+            border-radius: var(--radius-panel, 5px);
+        }
+
+        shadergraph-source > code-editor { flex-grow: 1; min-height: 0; }
+
+        shadergraph-side { flex-direction: column; width: 300px; flex-shrink: 0; gap: 6px; overflow-y: auto; }
+        shadergraph-transport { flex-direction: row; align-items: center; gap: 4px; flex-shrink: 0; }
+        shadergraph-property { flex-direction: column; gap: 2px; flex-shrink: 0; }
+
+        /* ── The VFX editor ─────────────────────────────────────────────────
+           The canvas takes the width and the effect takes a fixed column, which is the way round a
+           node graph wants: a block chain is wide and a preview of particles reads fine small. */
+        vfx-editor { flex-direction: row; gap: 6px; }
+        vfx-editor > node-graph { flex-grow: 1; min-width: 0; }
+        vfx-side { flex-direction: column; width: 300px; flex-shrink: 0; gap: 6px; overflow-y: auto; }
+        vfx-transport { flex-direction: row; align-items: center; gap: 4px; flex-shrink: 0; }
+
+        vfx-preview {
+            height: 240px;
+            flex-shrink: 0;
+            background-color: var(--surface-sunken);
+            border-radius: var(--radius-panel, 5px);
+        }
+
+        vfx-readout { color: var(--text-muted); font-size: 11px; flex-shrink: 0; }
+
+        /* ── E5's authoring surfaces ────────────────────────────────────────
+           Six editors and one shape: a bar across the top, the thing being authored taking the
+           width, and a fixed column of fields beside it. Written once here rather than six times,
+           because six panels that drift apart is what a user reads as six different products. */
+        animation-editor, animgraph-editor, input-editor, mixer-editor, font-editor, sequence-editor {
+            flex-direction: column;
+            flex-grow: 1;
+            gap: 6px;
+            padding: 6px;
+            overflow: hidden;
+        }
+
+        animation-bar, animgraph-bar, input-bar, mixer-bar, font-bar, sequence-bar {
+            flex-direction: row;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        animation-side, animgraph-side, input-side, mixer-side, font-side, sequence-side {
+            flex-direction: column;
+            width: 300px;
+            flex-shrink: 0;
+            gap: 6px;
+            overflow-y: auto;
+        }
+
+        animation-fields, animgraph-fields, animgraph-parameters, input-fields, mixer-fields,
+        mixer-snapshots, font-facts, font-chain, font-blocks, sequence-fields {
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        animation-title, animgraph-title, input-title, mixer-title, font-title, sequence-title {
+            font-weight: 600;
+            margin-top: 4px;
+        }
+
+        animation-error { color: var(--danger, #f2696e); }
+        fact-row.error { color: var(--danger, #f2696e); }
+        fact-row.warning { color: var(--warning, #e2b341); }
+        fact-row.selected { background-color: var(--accent-deep, var(--surface-raised)); border-radius: 3px; }
+
+        /* ⚠ **A column holding a bar and a row, never one row that wraps.** The bar has to span the
+           panel and the two columns under it have to share what is left, and `flex-wrap` does not
+           express that here: a wrapped line gets no height of its own, so the body was laid out over
+           the bar and every button in all six editors was unclickable — the timeline's ruler answered
+           the hit test at the centre of a button that was plainly visible. A row inside a column is
+           what the docked panels already do, and it needs nothing from the layout engine that the
+           rest of the editor does not already rely on. */
+        animation-body, animgraph-body, input-body, mixer-body, font-body, sequence-body {
+            flex-direction: row;
+            flex-grow: 1;
+            min-height: 0;
+            gap: 6px;
+        }
+
+        animgraph-body > state-map, input-body > tree-view, mixer-body > mixer-strips,
+        font-body > font-atlas, sequence-body > timeline, animation-body > animation-stage {
+            flex-grow: 1;
+            min-width: 0;
+            min-height: 0;
+        }
+
+        /* ── The clip editor ────────────────────────────────────────────────
+           The sheet and the curve editor share one slot: two modes over one document, never two
+           panes, because a docked panel split in half gives each of them a height neither can use. */
+        animation-stage { flex-direction: column; overflow: hidden; }
+        animation-stage > timeline, animation-stage > curve-editor { flex-grow: 1; min-height: 0; }
+
+        /* ── The animation graph ────────────────────────────────────────────
+           The arrows are drawn by the map and the state boxes are elements on top of it, because
+           text in this framework is an element — see StateMapView's own remarks. */
+        state-map {
+            position: relative;
+            flex-grow: 1;
+            min-width: 0;
+            min-height: 0;
+            overflow: hidden;
+            background-color: var(--surface-sunken);
+            border-radius: var(--radius-panel, 5px);
+        }
+
+        state-box {
+            position: absolute;
+            flex-direction: column;
+            justify-content: center;
+            padding: 4px 8px;
+            gap: 2px;
+        }
+
+        state-box.parked { display: none; }
+        state-box-name { color: var(--text); }
+        state-box-motion { color: var(--text-muted); font-size: 11px; }
+
+        /* ── The input editor ───────────────────────────────────────────── */
+
+
+        /* ── The mixer ──────────────────────────────────────────────────────
+           Strips side by side, which is the layout every mixer has had since the hardware ones: a
+           fader is a thing you compare against its neighbours. */
+        mixer-strips {
+            flex-direction: row;
+            align-items: stretch;
+            gap: 4px;
+            overflow-x: auto;
+        }
+
+        mixer-strip {
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            width: 76px;
+            flex-shrink: 0;
+            padding: 6px 4px;
+            border-radius: var(--radius-panel, 5px);
+            background-color: var(--surface-sunken);
+        }
+
+        mixer-strip.selected { background-color: var(--accent-deep, var(--surface-raised)); }
+        mixer-strip > slider { flex-grow: 1; min-height: 80px; }
+        mixer-strip-name { font-weight: 600; }
+        mixer-strip-parent, mixer-strip-gain { color: var(--text-muted); font-size: 11px; }
+        mixer-strip-buttons { flex-direction: row; gap: 4px; }
+        mixer-snapshot { padding: 2px 4px; border-radius: 3px; }
+        mixer-snapshot.selected { background-color: var(--accent-deep, var(--surface-raised)); }
+
+        /* ── The font editor ────────────────────────────────────────────── */
+        font-atlas {
+            flex-grow: 1;
+            min-width: 0;
+            min-height: 0;
+            background-color: var(--surface-sunken);
+            border-radius: var(--radius-panel, 5px);
+        }
+
+        font-chain-row { color: var(--text-muted); font-size: 11px; }
+        font-chain-row.error { color: var(--danger, #f2696e); }
+
+        /* ── The sequencer ──────────────────────────────────────────────── */
+
         """;
 }

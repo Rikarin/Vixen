@@ -44,7 +44,7 @@ chunks are not redownloaded.
 ```
 MyGame/
 ├── MyGame.csproj                    # references Vixen.Sdk (Tools/Vixen.Sdk)
-├── MyGame.vxproj                    # Vixen project settings (YAML)
+├── MyGame.vxproj                    # the marker that says this is a project — see below
 ├── Assets/                          # everything here is imported
 │   ├── Textures/hero.png  + hero.png.meta
 │   ├── Models/hero.fbx    + hero.fbx.meta
@@ -64,6 +64,38 @@ MyGame/
 `Assets/` and `ProjectSettings/` are committed; `Library/` and `Build/` are not. This is Unity's
 split, and it is right: import artefacts are reproducible from source + `.meta`, so committing them is
 pure churn.
+
+⚠ **`.vxproj` is a marker and not a settings file, which is a correction to this document rather
+than to the code.** It was described here as "Vixen project settings (YAML)" and went unbuilt for
+long enough that the settings half was answered by something else: `ProjectSettingsStore` is one YAML
+file per `[DataContract]` type under `ProjectSettings/`, and doc 20's A4 built it that way precisely
+so that adding a project setting is declaring a type. A single file beside that holding *other*
+project settings is the second mechanism the split makes unnecessary, so this is not that.
+
+What it is is the answer to a question nothing else answers: **what marks a directory as a project.**
+`ProjectWorkspace.IsProject` used to say "it has an `Assets/` folder", which is weak in both
+directions — any directory containing a folder of that name qualifies, and a project whose assets
+have all been deleted stops being one, which strands somebody exactly when they most need it to
+open. Both rules are live now: the marker, or the `Assets/` folder, because every project made
+before the marker existed has to go on opening.
+
+Two fields, and each has a reader, which is the bar doc 20's A4 sets for a shipped setting:
+
+```yaml
+format: 1              # refused when it is from a format this build does not understand
+engine: 0.1.0          # what made the project; the editor says so when it is newer than itself
+```
+
+`format` is read by `ProjectMarker.TryRead`, which finds a file from a future format and declines to
+bind it — a later format may change what a field *means* rather than which fields there are. `engine`
+is read on open: a project built against a newer engine fails later and stranger — a scene with a
+component this build has never heard of, a settings key nothing claims — and every one of those is
+more confusing than being told at the door. It deliberately does **not** record the project's name;
+that is `ProjectInfoSettings.ProductName`, which the title bar and About already read.
+
+The scaffold writes it, so `dotnet new vixen-game`, `vixen new game` and the editor's New Project all
+produce one. Nothing migrates an existing project: the `Assets/` rule covers those, and a tool that
+wrote files into projects it was only asked to open would be a worse trade than the weaker test.
 
 ## The `.meta` file
 
@@ -373,7 +405,11 @@ job system with the same content-addressed caching. Notable compilers:
 
 - `TextureCompiler` — final GPU format + mip tail, streaming-mip split.
 - `ModelCompiler` — vertex layout optimisation, meshlet generation, index reordering for cache
-  locality (Forsyth/`meshoptimizer`), LOD generation, bounds, tangent generation.
+  locality (Forsyth/`meshoptimizer`), LOD generation, bounds, tangent generation. **Meshlet
+  generation is built**, and it subsumes LOD generation rather than sitting beside it: the cluster
+  DAG of [virtualized-geometry.md](../virtualized-geometry.md) phase 1 is every level of detail at
+  once, and the discrete chain is a cut through it at a fixed budget. Written as a `Meshlets`
+  sub-asset per mesh, refused rather than shipped if it would crack.
 - `MaterialCompiler` — resolves the material feature tree to a permutation set and emits the effect
   requests that `EffectCompiler` consumes.
 - `EffectCompiler` — the build-time permutation pre-generation from [06](06-rendering-pipeline.md)/[07](07-raven-shader-pipeline.md).

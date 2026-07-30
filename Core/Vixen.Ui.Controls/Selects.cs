@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using Vixen.Input;
 using Vixen.Ui.Styling;
 
@@ -147,7 +148,31 @@ public abstract partial class SelectBase : Control {
             return;
         }
 
+        Fit();
         List.Open(this);
+    }
+
+    /// <summary>Makes the list at least as wide as the field it drops out of.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A dropdown narrower than its own field reads as a different control.</b> The list
+    ///         is a child of the document root, not of this element — it has to be, or it would be
+    ///         clipped by the thing it pops out of — so nothing about the layout relates the two, and
+    ///         the popover sized itself to its longest option. Against a 132-pixel filter holding
+    ///         three short words the result is a menu floating under one end of the control it
+    ///         belongs to, which is the shape of "the dropdown is the wrong size".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>min-width</c> rather than <c>width</c>, and it is measured on every open.</b>
+    ///         An option longer than the field still gets the room to say so — clipping the text is
+    ///         the one thing worse than a narrow list — and the field's width is a layout result that
+    ///         changes with the panel, so a value written once would be last week's.
+    ///     </para>
+    /// </remarks>
+    void Fit() {
+        if (Width > 0f) {
+            List.SetStyle("min-width", Width.ToString("0.##", CultureInfo.InvariantCulture) + "px");
+        }
     }
 
     /// <summary>Hides it.</summary>
@@ -512,6 +537,12 @@ public sealed partial class ComboBox : Control {
         if (List.IsOpen) {
             List.Close();
         } else {
+            // The same fit a `Select` does — see `SelectBase.Fit`. A combo box's list is the same
+            // root-parented popover and drifts from its field the same way.
+            if (Width > 0f) {
+                List.SetStyle("min-width", Width.ToString("0.##", CultureInfo.InvariantCulture) + "px");
+            }
+
             List.Open(this);
         }
 

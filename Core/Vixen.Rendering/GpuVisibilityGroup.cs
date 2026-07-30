@@ -64,7 +64,12 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
     readonly VisibilityGroup results = new();
 
     readonly IGraphicsDevice device;
-    readonly UploadBuffer<CullObject> objects = new("Culling.Objects");
+
+    // Persistent rather than refilled, and it is the only one of the three that is. A view record is
+    // rebuilt every frame because a camera moves every frame; an object record is the same bytes it
+    // was last frame for all but a handful of a hundred thousand objects, and saying so costs one
+    // comparison against bytes the pack had to read anyway. See PersistentUploadBuffer.
+    readonly PersistentUploadBuffer<CullObject> objects = new("Culling.Objects");
     readonly UploadBuffer<CullView> views = new("Culling.Views");
 
     // A second buffer rather than a second run in the first, because what a set binds is a byte
@@ -75,7 +80,6 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
     readonly UploadBuffer<CullView> lateViews = new("Culling.LateViews");
     readonly DescriptorWrite[] writes = new DescriptorWrite[4];
 
-    CullObject[] packedObjects = [];
     CullView[] packedViews = [];
     CullView[] packedLate = [];
     uint[] words = [];
@@ -246,6 +250,35 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
     ///     anything, and those are opposite conclusions about the same frame.
     /// </remarks>
     public bool LatePhaseRan { get; private set; }
+
+    /// <summary>
+    ///     How many bytes of object records the last <see cref="Cull" /> handed to the device.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The number the incremental scene exists to make small, and a number nothing else can
+    ///         observe: the RHI has no upload counter, and a frame that quietly went back to
+    ///         uploading every object still draws exactly the same picture. So it is exposed, and the
+    ///         test that pins it is what makes removing the comparison in
+    ///         <see cref="PersistentUploadBuffer{T}.Set" /> a failing assertion rather than a slower
+    ///         frame — which is the criterion doc <c>virtualized-geometry.md</c> § Phase 0 states for
+    ///         this.
+    ///     </para>
+    ///     <para>
+    ///         Zero on a frame that culled on the CPU, and zero on a frame in which nothing moved.
+    ///         The second is the whole point; the first is <see cref="CulledOnDevice" />'s to
+    ///         explain.
+    ///     </para>
+    /// </remarks>
+    public long ObjectBytesUploaded => objects.LastUploadBytes;
+
+    /// <summary>How many separate writes those bytes took.</summary>
+    /// <remarks>
+    ///     The other half of the trade <see cref="PersistentUploadBuffer{T}.MergeGap" /> makes:
+    ///     scattered changes are coalesced into fewer, slightly larger writes, and a test that only
+    ///     watched the bytes would read that as a regression.
+    /// </remarks>
+    public int ObjectUploadRegions => objects.LastUploadRegions;
 
     /// <summary>Whether the last <see cref="Cull" /> ran on the device rather than on the CPU.</summary>
     /// <remarks>
@@ -520,15 +553,20 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
         int wordCount,
         bool occlusion
     ) {
-        Reserve(ref packedObjects, objectCount);
         Reserve(ref packedViews, frameViews.Count);
 
         var all = store.All;
         var levels = Occluders?.Levels ?? 0;
         var any = false;
 
+        // Begin before the loop, because it is what makes room and moves to this frame's region;
+        // Set then compares each record against what the device already holds and marks only the
+        // ones that moved. The loop is still linear — it reads exactly the bounds and stage mask the
+        // culling loop reads anyway — but what leaves the host is the difference.
+        objects.Begin(objectCount);
+
         for (var i = 0; i < objectCount; i++) {
-            packedObjects[i] = GpuCulling.Pack(all[i]);
+            objects.Set(i, GpuCulling.Pack(all[i]));
         }
 
         for (var i = 0; i < frameViews.Count; i++) {
@@ -548,8 +586,6 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
             );
         }
 
-        objects.Begin();
-        objects.Add(packedObjects.AsSpan(0, objectCount));
         objects.Upload();
 
         views.Begin();
@@ -982,7 +1018,6 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
         lateViews.Dispose();
         results.Dispose();
 
-        packedObjects = [];
         packedViews = [];
         packedLate = [];
         words = [];

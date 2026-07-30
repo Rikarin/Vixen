@@ -66,8 +66,15 @@ public sealed class TransformGizmo {
     ///     from are nearer twice that. It is also what sizes <see cref="PlaneOffset" /> and
     ///     <see cref="PlaneSize" />, which are fractions of it, so a short arm makes plane quads too
     ///     small to aim at as well.
+    ///     <para>
+    ///         ⚠ <b>The pixel sizes below move with it.</b> <see cref="GrabRadius" />,
+    ///         <see cref="Thickness" />, <see cref="CentreRadius" /> and
+    ///         <see cref="MinimumAxisLength" /> are absolute rather than fractions of the arm, so
+    ///         lengthening the arm alone draws a longer gizmo made of the same thin lines with the
+    ///         same small middle — which is a gizmo that got bigger without getting easier to hit.
+    ///     </para>
     /// </remarks>
-    public float HandleLength { get; set; } = 150f;
+    public float HandleLength { get; set; } = 200f;
 
     /// <summary>How near the pointer has to be to an arm to grab it, in render pixels.</summary>
     /// <remarks>
@@ -77,7 +84,7 @@ public sealed class TransformGizmo {
     ///     an arm and works in the middle of it, and so reads as the tool being unreliable rather
     ///     than as a number being wrong.
     /// </remarks>
-    public float GrabRadius { get; set; } = 14f;
+    public float GrabRadius { get; set; } = 18f;
 
     /// <summary>How thick the handles are drawn, in render pixels.</summary>
     /// <remarks>
@@ -88,7 +95,7 @@ public sealed class TransformGizmo {
     ///     how many pixels across the result is, and it is here rather than there because the hit test
     ///     has to know how wide the thing it is testing looks.
     /// </remarks>
-    public float Thickness { get; set; } = 5f;
+    public float Thickness { get; set; } = 6f;
 
     /// <summary>How far along the arms the plane quads sit, as a fraction of the arm.</summary>
     public float PlaneOffset { get; set; } = 0.35f;
@@ -97,7 +104,7 @@ public sealed class TransformGizmo {
     public float PlaneSize { get; set; } = 0.22f;
 
     /// <summary>How big the middle box is, in render pixels.</summary>
-    public float CentreRadius { get; set; } = 18f;
+    public float CentreRadius { get; set; } = 24f;
 
     /// <summary>How far out the screen-facing rotation ring sits, as a fraction of the arm.</summary>
     /// <remarks>
@@ -140,7 +147,7 @@ public sealed class TransformGizmo {
     ///     in <c>GizmoGeometry</c>, because a handle that is drawn and not grabbable is worse than one
     ///     that is neither.
     /// </remarks>
-    public float MinimumAxisLength { get; set; } = 24f;
+    public float MinimumAxisLength { get; set; } = 32f;
 
     /// <summary>
     ///     How nearly a rotation ring may be edge-on before its drag is measured along the screen
@@ -266,17 +273,10 @@ public sealed class TransformGizmo {
     public float WorldPerPixel(EditorCamera camera, int height) {
         ArgumentNullException.ThrowIfNull(camera);
 
-        if (height <= 0) {
-            return 1f;
-        }
-
-        if (camera.IsOrthographic) {
-            return camera.OrthographicHeight / height;
-        }
-
-        var depth = MathF.Max(Vector3.Dot(Origin - camera.Position, camera.Forward), camera.NearPlane);
-
-        return 2f * depth * MathF.Tan(camera.FieldOfView * 0.5f) / height;
+        // Measured at the gizmo's origin, which is what makes the handles a constant size on screen.
+        // The arithmetic itself is the camera's — see `EditorCamera.WorldPerPixel` for why it lives
+        // there rather than being written out here, in the picker and in the outline.
+        return camera.WorldPerPixel(Origin, height);
     }
 
     /// <summary>Whether an arm along a direction is long enough on screen to be worth offering.</summary>
@@ -487,9 +487,37 @@ public sealed class TransformGizmo {
         };
     }
 
+    /// <summary>Where a translate drag has been told to put the gizmo's origin, instead of where the
+    ///     pointer says.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This is the whole of vertex and surface snapping as far as the gizmo is
+    ///         concerned</b>, and it is a point rather than a probe on purpose. Answering "which
+    ///         vertex is nearest the pointer" needs the scene, the camera <i>and</i> how big the pane
+    ///         is in render pixels — three things a gizmo has no business holding, and two of which
+    ///         would have to be threaded through <see cref="Drag" /> for the one mode that uses them.
+    ///         Whoever knows those computes the point and writes it here once per drag frame;
+    ///         <see cref="Move" /> is the only reader.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Still constrained by the handle that is being dragged.</b> A snap on the X arm
+    ///         moves along X to the snapped point's X and leaves the other two alone, and a snap on a
+    ///         plane handle moves in that plane — which is what makes "snap to that corner" and "keep
+    ///         it on this axis" two settings that compose rather than two settings where the last one
+    ///         written wins. Only the free centre handle takes the point whole.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Cleared by <see cref="End" /> and <see cref="Cancel" />.</b> A snap point left
+    ///         behind is one the <i>next</i> drag begins by teleporting to, which reads as the gizmo
+    ///         having remembered the wrong object.
+    ///     </para>
+    /// </remarks>
+    public Vector3? SnapTo { get; set; }
+
     /// <summary>Ends the drag, leaving everything where it is.</summary>
     public void End() {
         Active = GizmoHandle.None;
+        SnapTo = null;
         initial.Clear();
     }
 
@@ -530,6 +558,13 @@ public sealed class TransformGizmo {
     ///     <see cref="SnapSettings.AbsoluteGrid" />.
     /// </remarks>
     bool Move(Ray ray, EditorCamera camera) {
+        // ⚠ Whatever the scene said, before the grid — and *instead of* it. A drag that both landed
+        // on a vertex and then rounded to the nearest metre would land on neither, and the whole
+        // point of a vertex snap is that the answer is a place the geometry actually has a corner at.
+        if (SnapTo is { } snapped) {
+            return Land(Constrain(snapped - dragOrigin));
+        }
+
         var offset = PointOn(ray, Active, camera) - dragStartPoint;
 
         if (Active is GizmoHandle.AxisX or GizmoHandle.AxisY or GizmoHandle.AxisZ) {
@@ -550,11 +585,38 @@ public sealed class TransformGizmo {
             offset = Local(dragBasis, Snap.Position(from + Unlocal(dragBasis, offset)) - from);
         }
 
+        return Land(offset);
+    }
+
+    /// <summary>Moves every target by an offset from where it started.</summary>
+    bool Land(Vector3 offset) {
         for (var index = 0; index < targets.Count && index < initial.Count; index++) {
             targets[index].Position = initial[index].Position + offset;
         }
 
         return offset.LengthSquared() > 0f;
+    }
+
+    /// <summary>Cuts a snapped offset down to what the grabbed handle is allowed to move along.</summary>
+    /// <remarks>
+    ///     ⚠ <b>In the drag's basis, not the world's.</b> The arms point along whatever
+    ///     <see cref="Space" /> says, so projecting onto the world's X for a local-space drag would
+    ///     move the object off the axis whose arm is being held.
+    /// </remarks>
+    Vector3 Constrain(Vector3 offset) {
+        if (Active is GizmoHandle.AxisX or GizmoHandle.AxisY or GizmoHandle.AxisZ) {
+            var axis = Axis(dragBasis, Active - GizmoHandle.AxisX);
+            return axis * Vector3.Dot(offset, axis);
+        }
+
+        if (Active is GizmoHandle.PlaneYZ or GizmoHandle.PlaneZX or GizmoHandle.PlaneXY) {
+            // The plane's normal is the axis the quad does *not* span, which is the handle's index
+            // among the three — the same mapping `Planes` builds its corners from.
+            var normal = Axis(dragBasis, Active - GizmoHandle.PlaneYZ);
+            return offset - (normal * Vector3.Dot(offset, normal));
+        }
+
+        return offset;
     }
 
     /// <summary>Records what the rest of a rotation drag is measured against.</summary>

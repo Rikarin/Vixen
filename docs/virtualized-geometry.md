@@ -55,24 +55,36 @@ answering the *difference* — is done and device-verified.
 | **Compaction** — survivors appended, one command per batch | ✅ | `GpuDrawArguments.Compact` |
 | Discrete LOD with hysteresis and dither cross-fade | ✅ | [LodRenderFeature.cs](../Core/Vixen.Rendering/Features/LodRenderFeature.cs) |
 | Deferred/GBuffer *shaders* | ✅ | `Pipeline/GBuffer.rvn`, `Pipeline/Deferred.rvn` |
+| **An incremental GPU scene** — object records rewritten only where they changed | ✅ | [PersistentUploadBuffer.cs](../Core/Vixen.Rendering/PersistentUploadBuffer.cs) |
+| **Geometry pages** — fixed-size, one quantization grid, roots in page zero | ✅ | [MeshletPageBuilder.cs](../Core/Vixen.Rendering.VirtualGeometry/MeshletPageBuilder.cs) |
+| **A residency service** — requests in, LRU out, one budget, not geometry-shaped | ✅ | [PageResidency.cs](../Core/Vixen.Rendering/PageResidency.cs) |
+| **The cluster traversal** — a permutation of `Culling.rvn`, with a CPU mirror | ✅ | [GpuClusterCulling.cs](../Core/Vixen.Rendering/GpuClusterCulling.cs), `Culling.rvn` |
+| **Workgroup-shared memory in Raven** — `groupshared`, `barrier()`, an atomic rooted in it | ✅ | B1 below |
+| **64-bit integers and atomics in Raven** — `int64`/`uint64`, `Int64`/`Int64Atomics` reported apart | ✅ | B2 below |
+| **`SampleGrad` in Raven** — gradients the caller computed, in every stage | ✅ | B3 below |
+| **The cluster DAG** — cluster, group, simplify with the group boundary locked, split, repeat | ✅ | [MeshletBuilder.cs](../Core/Vixen.Rendering.VirtualGeometry/MeshletBuilder.cs) |
+| **DAG validity as a build error** — monotonic error and boundary equality, per group | ✅ | `MeshletValidator`, `ModelCompiler.CompileMeshlets` |
+| **A CPU reference cut**, and the fallback mesh cut from the same code | ✅ | `MeshletCut` |
+| Meshlet generation in `ModelCompiler` | ✅ | [ModelCompiler.cs](../Editor/Vixen.Editor.Assets/Models/ModelCompiler.cs), `generateMeshlets:` in the `.meta` |
 | Deferred *pipeline* | ⬜ | Phase 10, cut-list #6 |
-| Meshlet generation in `ModelCompiler` | ⬜ | [08 § Compilers](plan/08-asset-pipeline-and-addressables.md) |
-| Any streaming manager at all | ⬜ | planned in 08, no code |
+| Texture and shadow-page streaming on the same service | ⬜ | improvement 6; the service exists, the two other consumers do not |
 
 The existing two-phase structure is not merely *similar* to Nanite's — it is the same algorithm at a
 coarser granularity. Cluster culling is that traversal one level deeper. This is the single most
 important fact in this document, because it means the plan extends a working system rather than
 standing up a parallel one.
 
-## What blocks it
+## What blocked it
 
-**Three things, where an earlier draft of this document said five.** The bindless plan closed the
-other two while this was being written — `GeometryBuffer` gave every mesh one shared vertex and index
+**All three are built.** An earlier draft of this document listed five, and the bindless plan closed
+two of them while it was being written — `GeometryBuffer` gave every mesh one shared vertex and index
 buffer, `DrawIndexedIndirectCount` gave a draw a count the host never learns, and material and
 transform records took the last per-object binds out of the run. Compaction, which those were blocking,
-is built. What follows is what is genuinely left.
+is built. The remaining three were all Raven's, and they have landed together; what follows is what
+each was and what it turned into, because the reasons stay useful and the phases below still refer to
+them.
 
-### B1. Raven has no workgroup-shared memory 🔴
+### B1. Workgroup-shared memory ✅
 
 Tracked as 🟡 in [07](plan/07-raven-shader-pipeline.md) — "a storage class the language cannot
 declare". Atomics landed without it, which was enough for a cull that gives one invocation one word
@@ -80,14 +92,20 @@ and needs no cooperation at all.
 
 Hierarchical traversal needs cooperation. A workgroup pops a node, tests its children, and pushes the
 survivors — a queue with a local head, which is shared memory or it is a global atomic per child and
-a dispatch that spends its life in memory traffic. The same gap blocks GPU sorting (#50) and a
+a dispatch that spends its life in memory traffic. The same gap blocked GPU sorting (#50) and a
 compaction with one counter per workgroup.
 
-**Nothing in phases 3 onward can start before this lands.**
+**Built.** `groupshared var tile: float[64]` is a shader member that is deliberately not a binding —
+no descriptor, no `(set, binding)`, nothing the host writes — and not a local either: one copy per
+workgroup rather than one per invocation. `barrier()` and `memoryBarrierShared()` came with it, and an
+atomic may now root in either a writable resource or a `groupshared` variable, which is the rule the
+atomics always meant. Only a compute stage may reach any of it (`RVN3012`), decided by reachability
+rather than by where the declaration sits. See
+[07 § Workgroup-shared memory](plan/07-raven-shader-pipeline.md).
 
-### B2. No 64-bit atomics 🟡
+### B2. 64-bit atomics ✅
 
-Raven's atomics are scalar `int`/`uint` — 32-bit, "the targets' limit rather than a choice" for
+Raven's atomics were scalar `int`/`uint` — 32-bit, "the targets' limit rather than a choice" for
 floats, but 64-bit integers are a separate matter: optional on Vulkan
 (`VK_KHR_shader_atomic_int64`), SM6.6 on D3D12, and absent from WebGPU entirely.
 
@@ -96,22 +114,29 @@ bits you get depth *or* a usable ID, not both, and the alternative is two passes
 triangles — a depth pass by `atomicMin` and an ID pass testing equality — which costs roughly what
 it sounds like.
 
-This blocks **phase 6 only**, and phase 6 is optional. Named here so it is not discovered late.
+**Built.** `int64` and `uint64` are scalar types resolved by name rather than by keyword, with every
+atomic declared at both widths and nothing widening into 64 bits implicitly — `uint64(x)` is written
+out, because a silent widening would let tie-breaking decide the width of an operation whose width is
+the entire point. A shader that uses one reports **two** capabilities, `Int64` and `Int64Atomics`,
+because a device may offer the type without offering atomics on it. This blocked **phase 6 only**, and
+phase 6 remains optional and gated on a measurement.
 
-### B3. Raven has no `SampleGrad` 🟡
+### B3. `SampleGrad` ✅
 
-`SampleLevel` landed; `Sample` takes its level from quad derivatives. A visibility-buffer resolve has
-neither — the pixel next door may be a different triangle of a different material, so the quad's
+`SampleLevel` had landed; `Sample` takes its level from quad derivatives. A visibility-buffer resolve
+has neither — the pixel next door may be a different triangle of a different material, so the quad's
 derivatives are meaningless at every silhouette and every material boundary.
 
 The fix is analytic: barycentric gradients from the triangle's screen-space plane, propagated through
 the UV interpolation and handed to the sample. `SampleLevel` alone will not do, because one LOD
 throws away anisotropy and that is visible as blur on every floor and every wall at a grazing angle.
 
-Roughly the size of the addition that already landed. It blocks **phase 5**, and it is the only
-prerequisite the Forward+ resolve adds that a GBuffer resolve would not also need.
+**Built**, on all three texture types, as SPIR-V's `Grad` image operand and GLSL's `textureGrad` —
+legal in every stage, because a stated gradient needs no quad to derive one from. It blocked **phase
+5**, and it was the only prerequisite the Forward+ resolve adds that a GBuffer resolve would not also
+need.
 
-### And two things that are no longer blockers
+### And two things that stopped being blockers earlier
 
 **A shared geometry buffer.** `GeometryBuffer` is built — many meshes in one vertex buffer and one
 index buffer, one buffer per vertex layout because `vertexOffset` is multiplied by the *pipeline's*
@@ -161,31 +186,79 @@ feature.
 
 ---
 
-### Phase 0 — Unblockers · ~1 EM
+### Phase 0 — Unblockers · ~1 EM · ✅ built
 
 Nothing here is virtualized geometry. All of it is owed to something else already. **Two of the five
-items this phase used to hold are built** — the geometry arena is `GeometryBuffer` and the
-device-supplied draw count is `DrawIndexedIndirectCount`, both landed with the bindless plan, along
-with the material records that were the third.
+items this phase used to hold were built with the bindless plan** — the geometry arena is
+`GeometryBuffer` and the device-supplied draw count is `DrawIndexedIndirectCount`, along with the
+material records that were the third.
 
-| | Work | Owed to |
-|---|---|---|
-| 0.1 | **Workgroup-shared memory in Raven** — the storage class, the barrier intrinsic, the diagnostic for an atomic on a local | B1, GPU sort (#50), a compaction with one counter per workgroup rather than one per dispatch |
-| 0.2 | **`SampleGrad` in Raven** — explicit gradients, so a sample outside a fragment quad filters correctly | B3, phase 5 |
-| 0.3 | **Incremental GPU scene** — [GpuVisibilityGroup.cs:523](../Core/Vixen.Rendering/GpuVisibilityGroup.cs:523) still repacks and re-uploads every object every frame. Dirty-tracked ranges, driven by the ECS change versions [04](plan/04-ecs-and-scripting.md) already exposes | everything; it is the cost floor at 100k instances |
+| | Work | Owed to | |
+|---|---|---|---|
+| 0.1 | **Workgroup-shared memory in Raven** — the storage class, the barrier intrinsics, the atomic root that is not a local | B1, GPU sort (#50), a compaction with one counter per workgroup rather than one per dispatch | ✅ |
+| 0.2 | **`SampleGrad` in Raven** — explicit gradients, so a sample outside a fragment quad filters correctly | B3, phase 5 | ✅ |
+| 0.3 | **Incremental GPU scene** — the object records were repacked and re-uploaded every frame. Now a persistent buffer, rewritten only where it changed | everything; it was the cost floor at 100k instances | ✅ |
+| 0.4 | **64-bit integers and atomics in Raven** — `int64`/`uint64`, every atomic at both widths, `Int64` and `Int64Atomics` reported separately | B2, phase 6 | ✅ |
 
 **Exit:** a 100k-instance scene where a frame that moves one object uploads one object's worth of
 bytes, asserted by counting the upload. Deleting the dirty tracking makes the assertion fail rather
-than making the frame slower.
+than making the frame slower. Both are `GpuVisibilityGroupTests`, and the second was checked by
+doing it.
 
-0.3 is the one worth doing on its own merits whatever happens to the rest of this document: with
-compaction built, the per-frame repack is now the largest fixed CPU cost in a GPU-culled frame.
+#### What 0.3 turned out to be
+
+[`PersistentUploadBuffer<T>`](../Core/Vixen.Rendering/PersistentUploadBuffer.cs), the sibling of
+`UploadBuffer<T>`: same ring of one region per frame in flight, and the opposite policy about what
+is in it. `UploadBuffer` is refilled from scratch, which is right for a skeleton's matrices or a
+frame's light list — data the host recomputes anyway. Object records are the same bytes they were
+last frame for all but a handful of a hundred thousand, and uploading all of them costs three
+megabytes a frame to say so.
+
+Three decisions worth keeping:
+
+- **Dirtiness is decided by comparison, not by cooperation.** The plan said "driven by the ECS
+  change versions", and the ECS does expose them — but nothing bridges the ECS to
+  `RenderObjectStore` yet, and `RenderObjectStore` hands out a `ref` that any feature may write
+  through. A flag those writers had to set would be *silently* wrong when one of them forgot, which
+  is bounds a frame culled against and a diagnostic nowhere. Comparing the packed bytes cannot miss
+  a change, and it reads exactly the bounds and stage mask the culling loop reads anyway. The linear
+  pass stays; what leaves the host is the difference.
+- **A dirty set per region, not one.** A persistent buffer cannot simply rewrite this frame's
+  region: that region is `FramesInFlight` frames stale, and what it is missing is every change
+  since. So a change marks the record in every region and each flushes its own set when its turn
+  comes — one moved object costs one record per frame for three frames rather than the whole buffer
+  once.
+- **A region starts entirely dirty.** Not conservatism, and it is the case a comparison alone gets
+  wrong: a record the host has never set is zeroed in its copy and undefined on the device, so
+  comparing the two finds no difference and skips the one write that mattered. A bit cleared only by
+  an actual write makes "never written" and "differs" the same state.
+
+What it does *not* do is remove the per-frame walk over the object array — that needs the store to
+own mutation rather than hand out a `ref`, which is a separate change with a wider blast radius and
+no visible payoff until something profiles it.
 
 ---
 
-### Phase 1 — The cluster DAG · ~3 EM
+### Phase 1 — The cluster DAG · ~3 EM · ✅ built
 
 Offline, in `ModelCompiler`. This is the phase that decides whether the result has cracks.
+
+Built as [`Vixen.Rendering.VirtualGeometry`](../Core/Vixen.Rendering.VirtualGeometry/README.md), called
+from `ModelCompiler.CompileMeshlets` and written as a `Meshlets` sub-asset per mesh. Three things the
+plan below did not say, found in the building:
+
+- **The error has to be measured, not taken from the quadric.** A quadric is the distance to the
+  *planes* of the triangles that met at a vertex, which on a smooth surface is about a third of the
+  distance to the surface itself — so a cut chosen for a one-pixel budget pops by three. The
+  simplifier measures the removed point against the triangles that replaced it and adds that to what
+  the point already carried.
+- **Locking a group's boundary vertices is not enough.** A collapse of an *interior* edge can delete
+  the one triangle carrying a boundary edge, and the edge goes with it although neither endpoint
+  moved. Both rules are needed.
+- **The per-cluster lock is a quality failure, not a validity one.** The exit criterion below asks
+  for a validation that fails on it; locking more than necessary never cracks, so it cannot. What it
+  costs is measured instead: with the group lock every level meets the ratio it was given exactly,
+  and with the per-cluster lock no level ever does.
 
 - **Cluster** the mesh into ~128-triangle groups by a locality partition (METIS-style edge-cut on the
   triangle adjacency graph). Record per cluster: bounds, a normal cone for backface rejection, the
@@ -206,45 +279,115 @@ boundary equality between every parent and its children, and it *fails* on a mes
 with the per-cluster lock instead of the per-group one. Plus a CPU reference cut over a sphere at
 twenty distances whose silhouette error stays under the requested pixel threshold.
 
+**Met**, with the third clause answered as above and one criterion added that is stronger than any of
+them: over twenty thresholds, **every cut of a closed mesh is itself closed** — a sphere has no
+boundary, so a cut that took a parent on one side of a group and a child on the other leaves an edge
+with one triangle on it, and that is a crack detected as a number rather than looked for in a picture.
+Removing the group-boundary lock fails it. `MeshletCutTests`, `MeshletValidatorTests`.
+
 ---
 
-### Phase 2 — Pages and residency · ~2 EM
+### Phase 2 — Pages and residency · ~2 EM · ✅ built
 
 - **Page format**: fixed-size (128 KB) pages holding clusters with their vertex and index data,
-  position-quantized to the cluster bound, materials as indices. Root page always resident, so a
-  never-streamed object still draws at its coarsest level.
+  position-quantized, materials as indices. Root page always resident, so a never-streamed object
+  still draws at its coarsest level. [`MeshletPageBuilder`](../Core/Vixen.Rendering.VirtualGeometry/MeshletPageBuilder.cs).
 - **Page pool**: a single large buffer, suballocated. This is `GeometryBuffer` with a residency policy
-  instead of a load-time one — same invariant (one buffer per vertex layout, because `vertexOffset` is
-  multiplied by the pipeline's stride), different allocator. Its fixed capacity, which is a limitation
-  for a level that loads once, is the right shape for a pool that evicts.
-- **Residency manager**: request buffer written by the traversal (phase 3), serviced on the CPU
-  against the asset system's async I/O, LRU eviction under a byte budget.
-
-See **improvement 6** — this manager should not be geometry-specific.
+  instead of a load-time one, different allocator.
+  [`MeshletPagePool`](../Core/Vixen.Rendering/MeshletPagePool.cs).
+- **Residency manager**: requests in, serviced on the CPU against async I/O, LRU eviction under a byte
+  budget. [`PageResidency`](../Core/Vixen.Rendering/PageResidency.cs), and it is not geometry-specific
+  — see improvement 6.
 
 **Exit:** a camera path over a scene exceeding the budget by 4×, holding the budget and showing no
 cluster popping beyond the configured error, with a synthetic I/O delay injected. The
 budget-respecting criterion is already the one [08](plan/08-asset-pipeline-and-addressables.md)
 states for streaming generally.
 
+**Met**, as `MeshletStreamingTests`, with "no popping beyond the configured error" given the strongest
+form it has here: **every frame of the path draws a closed surface**. A sphere has no boundary, so a
+cut that drew a cluster and not its missing neighbour leaves an edge with one triangle on it — the
+same crack detector phase 1 uses, applied to a cut chosen under a residency constraint rather than
+under a threshold alone.
+
+Four things the plan above did not say, three of them found in the building:
+
+- **Only the geometry pages; the cluster records stay resident.** A traversal has to test a cluster —
+  its bounds, its cone, its error — before it can know whether it wants its geometry, so the
+  hierarchy cannot itself be paged. It is also sixty-odd bytes against a cluster's two kilobytes,
+  which makes the split obviously right rather than a compromise.
+- **One quantization grid for the mesh, not one per cluster.** This is the decision that cracks the
+  mesh if it is made the obvious way, and the obvious way is the one that spends the bits well:
+  quantize each cluster against its own bound. A vertex on a locked boundary is referenced by a
+  cluster on each side, the two have different bounds, and the same position rounds to two different
+  numbers — throwing away, in the last step before the device sees it, exactly the bit-identical
+  boundary phase 1 collapses onto existing vertices to guarantee. Sixteen bits across the *mesh's*
+  longest extent instead, which also makes every cluster's local coordinates fit sixteen bits by
+  construction: the coarsest cluster there can be spans the whole grid.
+- **Degradation is a coarser threshold, not a patched cut.** When a page has not arrived, the
+  tempting fix is local — swap the missing cluster and its siblings for their group's parents, repeat.
+  It is wrong in a way that looks right: a group's other children may not be in the cut at all,
+  because the cut took *their* children, so swapping in the parents leaves those finer clusters
+  underneath and the surface is covered twice in one place and once in another. Raising the threshold
+  cannot do that, because every threshold's cut is an antichain by construction.
+- **A sink may be full, and saying so is not an error.** The pool stages through host memory it
+  reclaims when the frame's copies are recorded, so a frame that streams more than one flush cycle
+  can carry has to be told to stop. `IPageStore.Place` answers whether it took the bytes, the service
+  treats a refusal as it treats a budget it cannot meet, and the page loses a frame — which costs
+  nothing, because the request is demand-driven and the next frame asks again.
+
 ---
 
-### Phase 3 — Hierarchical cluster culling · ~2.5 EM
+### Phase 3 — Hierarchical cluster culling · ~2.5 EM · ✅ built
 
 The centre of the system, and the phase that reuses the most.
 
-- **Traversal**: persistent workgroups over the DAG. Pop a node, project its error, and either accept
-  its cluster (error under threshold) or push its children. Frustum, normal cone and Hi-Z rejection
+- **Traversal**: workgroups over the DAG. Pop a node, project its error, and either accept its
+  cluster (error under threshold) or push its children. Frustum, normal cone and Hi-Z rejection
   happen at every level, so a rejected subtree costs one test.
-- **A permutation of `Culling.rvn`, not a new shader.** See **improvement 3**. The `Main`/`Late`
-  split, the Hi-Z projection, the per-view records and the fallback-to-CPU behaviour are all
-  behaviours the existing shader has, and duplicating them is how the two answers drift apart.
+- **A permutation of `Culling.rvn`, not a new shader.** See **improvement 3**.
 - **Output**: the visible cluster list, plus page requests for clusters whose data was not resident —
   which is what makes streaming demand-driven rather than predictive.
 
 **Exit:** the existing randomised CPU-mirror test extended to the cluster hierarchy — a
 `GpuCulling.IsVisible` equivalent for the traversal, compared against a brute-force cut over random
 DAGs. Sabotage: removing the normal-cone test, or projecting error with the wrong view, both fail it.
+
+**Met** as `GpuClusterCullingTests`: `GpuClusterCulling.Traverse` against `Cut` over randomised DAG
+shapes and thresholds, with both named sabotages failing it and one criterion added that is stronger
+than either — **every path from a root to a leaf holds exactly one visible cluster**, which is the
+property that makes a cut a cut rather than a set that happens to match an oracle. Two on a path is
+the surface drawn twice; none is a hole.
+
+Four things the plan above did not say, and the first is the one that would have shipped as cracks:
+
+- **An error is projected at the *group's* bound, not at the cluster's.** A group's simplification
+  produces several parents, every one of which replaces *all* of the group's children — so all of them
+  have to reach the same refinement decision. They share an error already, because phase 1 gives a
+  group one; what they also have to share is the **distance** it is projected at, and their own bounds
+  are in different places. A per-cluster distance makes one parent refine while its sibling does not,
+  and the surface is covered twice in one place and once in another. Found by the randomised
+  comparison, which is exactly the class of defect it exists for, and `CullCluster.ErrorCenter` is what
+  fixes it.
+- **One entry point, not two.** Raven refuses a second compute stage in one shader (`RVN2050`), which
+  turns out to be the constraint agreeing with improvement 3 rather than fighting it: the branch on
+  the permutation is folded before lowering, so the object variant carries no queue, no barrier and no
+  shared memory at all, and the cluster variant carries no per-word loop. A test asserts exactly that,
+  because it is the half that would rot.
+- **`Occluded` takes a sphere now.** That is improvement 3 made concrete rather than asserted: the
+  object cull and the cluster traversal ask the same question of the same pyramid with the same
+  matrix, and what differed between them was only which sphere. The host's `IsOccluded` and
+  `ScreenBounds` were refactored the same way, so there is one occlusion semantic on each side rather
+  than two on each.
+- **The queue overflows by drawing coarser, not by dropping.** A workgroup's front is a fixed
+  `groupshared` array — 4 KB of the 16 a device has to offer — and a group whose front does not fit
+  stops refining and accepts what it has. Dropping the node would be a hole, and a shader cannot grow
+  an array.
+
+**Stopping here is defensible**, and what is left to reach a frame is host plumbing rather than
+another idea: a render feature that fills the instance records from the scene, dispatches the
+traversal, and hands the visible list to `DrawIndexedIndirectCount`. The decision the frame turns on
+is built and checked.
 
 **Stopping here is defensible.** With phases 0–3 you have continuous LOD, hierarchical device-side
 culling, streamed geometry and no authored LOD chains, drawn by ordinary hardware raster through the
@@ -307,8 +450,11 @@ normal draw or a resolve.
 
 ### Phase 6 — Software raster · ~3 EM · **optional, capability-gated**
 
-Blocked on B2. Only worth doing once profiling shows sub-pixel triangles dominating, which is the
-regime it is for: hardware raster wastes roughly 4× on triangles smaller than a quad.
+B2 is built, so the language is no longer what stands in the way — but the gate was never the
+language. Only worth doing once profiling shows sub-pixel triangles dominating, which is the regime it
+is for: hardware raster wastes roughly 4× on triangles smaller than a quad. The capability gate is
+real and now reportable: a shader using the packed word asks for `Int64` and `Int64Atomics`, and the
+host picks the hardware-raster variant on a device that has neither.
 
 Compute-based scanline raster over small clusters, 64-bit `atomicMax` packing depth above ID.
 Clusters route to hardware or software by projected triangle size, decided during traversal.
@@ -375,8 +521,15 @@ separate two-pass implementations.
 Vixen already has `Culling.rvn` with an `Occlusion` permutation and a `CullPhase`. Cluster culling
 should be a **permutation of that shader** over the same phase structure, because objects and
 clusters are the same hierarchy at different depths, and because two implementations of "visible
-against last frame's pyramid" is two places for the definition to drift. `GpuCulling.IsVisible` stays
-the single CPU mirror for both.
+against last frame's pyramid" is two places for the definition to drift.
+
+✅ **Built that way**, and the language pushed it further than intended: Raven refuses a second compute
+entry point in one shader, so the two dispatch shapes are one entry point branching on the
+permutation — which means the object variant provably carries none of the traversal's shared memory,
+and a test says so. The occlusion test now takes a **sphere** rather than an object, on both sides, so
+"visible against last frame's pyramid" is one function with two callers rather than two functions.
+`GpuClusterCulling` is a sibling of `GpuCulling` rather than a copy: the frustum test, the rounding
+slack, the stage-mask intersection and the whole occlusion test are called from it.
 
 ### 4. A CPU reference for the parts that fail silently
 
@@ -389,12 +542,22 @@ crack at one distance on one mesh. A CPU reference cut and a CPU reference raste
 the device bit-for-bit turn that class of bug into a unit test. Unreal does not have this, and
 debugging Nanite artefacts is correspondingly unpleasant.
 
+**The cut half is built.** `MeshletCut.SelectByError` is the linear scan the traversal of phase 3 will
+do hierarchically, and `PixelError` is the projection it will mirror. The fallback mesh is cut by the
+same code at a budget rather than a threshold, so the path that has to be crack-free is the path that
+runs in every build.
+
 ### 5. DAG validity as a build error
 
 Following from 4: assert monotonic error and locked-boundary equality across every edge **at import
 time**. Nanite's crack-freedom is a property the builder is careful to maintain; making it a checked
 invariant costs a validation pass over a structure already in memory, and converts the engine's most
 notorious artefact class into a failed build.
+
+**Built.** `MeshletValidator` recomputes the boundary sets from the positions rather than asking the
+builder what it did, and a mesh that fails produces no clusters and an import error naming the group —
+because a builder that is self-consistently wrong is the only interesting case, and shipping the
+asset anyway is how the crack reaches a player.
 
 ### 6. One residency manager for geometry, textures and shadow pages
 
@@ -408,6 +571,13 @@ budget to tune and one place to profile.
 
 Build it in phase 2 with all three consumers in view, or it will be geometry-shaped and the other two
 will grow their own.
+
+✅ **Built as [`PageResidency`](../Core/Vixen.Rendering/PageResidency.cs)**, and the seam that keeps it
+honest is `IPageStore`: the service owns the request queue, the byte budget, the eviction order and
+the counters, and knows nothing about where the bytes go or how they are read. What proves that is
+not the interface but the test — `PageResidencyTests` drives the whole of it against a store that is
+a dictionary, with no device and no geometry anywhere in it. The two other consumers are still
+unbuilt; what has been avoided is their having to bring their own budget.
 
 ### 7. A portable baseline that does not need 64-bit atomics
 
@@ -433,10 +603,10 @@ being a mystery in a frame capture.
 
 | Phase | EM | Cumulative |
 |---|---|---|
-| 0 — Unblockers | ~1 | 1 |
-| 1 — Cluster DAG | ~3 | 4 |
-| 2 — Pages and residency | ~2 | 6 |
-| 3 — Hierarchical culling | ~2.5 | 8.5 |
+| 0 — Unblockers ✅ | ~1 | 1 |
+| 1 — Cluster DAG ✅ | ~3 | 4 |
+| 2 — Pages and residency ✅ | ~2 | 6 |
+| 3 — Hierarchical culling ✅ | ~2.5 | 8.5 |
 | 4 — HW-raster visibility buffer | ~2 | 10.5 |
 | 5 — Material resolve | ~2.5 | 13 |
 | 6 — SW raster (optional) | ~3 | 16 |

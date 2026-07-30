@@ -79,6 +79,16 @@ public static class IrPrinter {
             );
         }
 
+        // The globals that are not bindings. A body refers to them by name like any other, so a
+        // dump without them shows a load from something nothing declared.
+        foreach (var stream in shader.Streams) {
+            writer.Line($"stream {stream.Variable} : {stream.Type.Name}");
+        }
+
+        foreach (var shared in shader.SharedVariables) {
+            writer.Line($"groupshared {shared.Variable} : {shared.Type.Name}");
+        }
+
         foreach (var entryPoint in shader.EntryPoints) {
             var output = entryPoint.Outputs.Count == 0
                 ? string.Empty

@@ -432,11 +432,57 @@ They are unsigned in both targets, so a signed declaration is refused rather tha
 converted. A `stream` is refused too — it is a location in the pipeline's interface, and a compute
 dispatch has no pipeline.
 
-A compute shader persists through a `RWBuffer<T>` or a storage image, and coordinates with the other
-invocations through the atomics below. What is still missing is **workgroup-shared memory** — the fast
-scratch a reduction or a bitonic sort stages through — which needs a storage class the language has no
-way to declare. That gap is tracked in
-[docs/plan/07](../docs/plan/07-raven-shader-pipeline.md).
+A compute shader persists through a `RWBuffer<T>` or a storage image, coordinates with the other
+invocations through the atomics below, and stages through the workgroup-shared memory below that.
+
+### Workgroup-shared memory
+
+`groupshared` declares storage one workgroup shares: one copy per group rather than one per
+invocation, which is the whole difference between it and a local.
+
+```typescript
+shader Reduce {
+    const val GroupSize: int = 64
+
+    groupshared var tile: float[GroupSize]
+
+    var input: Buffer<float>
+    var output: RWBuffer<float>
+
+    [ComputeShader(64)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3, [Semantic("SV_GroupIndex")] local: uint) {
+        tile[int(local)] = input[int(id.x)]
+
+        // Everybody has arrived, and everything they wrote is visible. Both halves, because the code
+        // after a barrier is without exception code that reads what the others wrote.
+        barrier()
+
+        if (local == 0u) {
+            var sum = 0f
+
+            for (i in 0 .. GroupSize - 1) {
+                sum = sum + tile[i]
+            }
+
+            output[int(id.x)] = sum
+        }
+    }
+}
+```
+
+It is **not a binding**: no descriptor, no `(set, binding)`, nothing the host writes, and nothing in
+the reflection. So declaring one never renumbers the resources around it.
+
+`barrier()` is an execution barrier *and* a memory barrier over shared storage, which is what GLSL's
+is in a compute stage. `memoryBarrierShared()` is the memory half alone, for where the arrival is
+already established.
+
+Five things a declaration cannot be, each reported where it is written: outside a shader (`RVN2131`),
+also a `const`, a `[Permutation]` key, a `compose` slot or a `stream` (`RVN2132`), a descriptor
+(`RVN2133`), initialized (`RVN2134` — workgroup storage starts undefined, so write it and then
+`barrier()`), or read-only (`RVN2135` — nothing else can ever write it). And only a compute stage may
+reach the storage or a barrier (`RVN3012`), decided by which stages call the code rather than by where
+it is written.
 
 ### Atomics
 
@@ -468,8 +514,8 @@ shader Compact {
 ```
 
 `atomicAdd`, `atomicMin`, `atomicMax`, `atomicAnd`, `atomicOr`, `atomicXor`, `atomicExchange` and
-`atomicCompareExchange`, on `int` and `uint`. Named as GLSL names them, because that is what both a
-reader and the nearer target already say.
+`atomicCompareExchange`, on `int`, `uint`, `int64` and `uint64`. Named as GLSL names them, because
+that is what both a reader and the nearer target already say.
 
 **The first argument is storage, not a value**, and that is the one unusual thing about them. Nothing
 in a signature can say so: `inout` is the language's only by-reference direction and it is defined as
@@ -481,10 +527,10 @@ refused rather than quietly turned into an ordinary add.
 They are free functions rather than members of `RWBuffer` so the target can be any place inside one —
 `counts[i]`, but also `cells[i].population`, which a member taking an index could not reach.
 
-**And it has to be memory the dispatch shares.** A local is a place and is refused: GLSL admits only
-"shader block storage or shared variables", and an atomic on storage one invocation owns has nothing
-to be indivisible against anyway. So the root must be a writable resource today, and workgroup-shared
-memory when the language can declare one. A read-modify-write **is** a write, so an atomic on a
+**And it has to be memory more than one invocation reaches.** A local is a place and is refused: GLSL
+admits only "shader block storage or shared variables", and an atomic on storage one invocation owns
+has nothing to be indivisible against anyway. So the root is a writable resource — the dispatch's — or
+a `groupshared` variable — the workgroup's. A read-modify-write **is** a write, so an atomic on a
 read-only `Buffer<T>` is the same `RVN2119` a store would give, with the same one-character fix in its
 message.
 
@@ -493,6 +539,27 @@ wider set would be a signature one backend could not emit. Both operands and the
 place's type, which is also what tells SPIR-V apart from GLSL here: `atomicMin` is one name for both
 signednesses and `OpAtomicSMin`/`OpAtomicUMin` are two, so the split lives in the backend that needs
 it.
+
+**Both widths, and 64 bits is why the width is worth writing down.** `int64` and `uint64` are scalar
+types spelled by name, and they exist for one job: a word wide enough to hold a depth above an id and
+be `atomicMax`'d as a unit, which is what a single-pass software rasterizer resolves visibility with.
+
+```typescript
+val packed = (uint64(depth) << 32) | uint64(clusterId)
+val previous = atomicMax(visibility[pixel], packed)
+```
+
+Nothing widens into 64 bits on its own — `uint64(x)` is written out, because a silent widening would
+make both the 32-bit and the 64-bit overload of every atomic applicable to the same call, and
+tie-breaking would decide the width of an operation whose width is the point. A *literal* still
+widens, since it has no type of its own to be surprised by.
+
+They are optional hardware everywhere — `VK_KHR_shader_atomic_int64` on Vulkan, SM6.6 on D3D12, absent
+from WebGPU — so a shader using them reports **two** capabilities rather than one: `Int64` for the type
+and `Int64Atomics` for the operation, because a device may offer the first without the second. There
+are no 64-bit vectors, and a 64-bit value cannot cross a stage boundary: an interface slot is four
+32-bit components wide, so a wide one would consume two locations and stop matching the numbers the
+stream plan assigned.
 
 Both targets get **device scope and relaxed semantics** — the same two constants glslang emits for the
 same GLSL. Device because a storage buffer is visible to the whole dispatch, and a workgroup-scoped

@@ -56,6 +56,7 @@ Vixen.Graphics.OpenGL.GlDevice.CreateDescriptorSet(Vixen.Graphics.DescriptorSetL
 Vixen.Graphics.OpenGL.GlDevice.CreateDescriptorSetLayout(in Vixen.Graphics.DescriptorSetLayoutDescription description) -> Vixen.Graphics.DescriptorSetLayoutHandle
 Vixen.Graphics.OpenGL.GlDevice.CreateGraphicsPipeline(in Vixen.Graphics.GraphicsPipelineDescription description) -> Vixen.Graphics.PipelineHandle
 Vixen.Graphics.OpenGL.GlDevice.CreatePipelineLayout(in Vixen.Graphics.PipelineLayoutDescription description) -> Vixen.Graphics.PipelineLayoutHandle
+Vixen.Graphics.OpenGL.GlDevice.CreateQueryPool(in Vixen.Graphics.QueryPoolDescription description) -> Vixen.Graphics.QueryPoolHandle
 Vixen.Graphics.OpenGL.GlDevice.CreateSampler(in Vixen.Graphics.SamplerDescription description) -> Vixen.Graphics.SamplerHandle
 Vixen.Graphics.OpenGL.GlDevice.CreateShader(Vixen.Graphics.ShaderStage stage, System.ReadOnlySpan<byte> bytecode, string name = "") -> Vixen.Graphics.ShaderHandle
 Vixen.Graphics.OpenGL.GlDevice.CreateSwapChain(in Vixen.Graphics.SwapChainDescription description) -> Vixen.Graphics.ISwapChain
@@ -66,6 +67,7 @@ Vixen.Graphics.OpenGL.GlDevice.Destroy(Vixen.Graphics.DescriptorSetHandle handle
 Vixen.Graphics.OpenGL.GlDevice.Destroy(Vixen.Graphics.DescriptorSetLayoutHandle handle) -> void
 Vixen.Graphics.OpenGL.GlDevice.Destroy(Vixen.Graphics.PipelineHandle handle) -> void
 Vixen.Graphics.OpenGL.GlDevice.Destroy(Vixen.Graphics.PipelineLayoutHandle handle) -> void
+Vixen.Graphics.OpenGL.GlDevice.Destroy(Vixen.Graphics.QueryPoolHandle handle) -> void
 Vixen.Graphics.OpenGL.GlDevice.Destroy(Vixen.Graphics.SamplerHandle handle) -> void
 Vixen.Graphics.OpenGL.GlDevice.Destroy(Vixen.Graphics.ShaderHandle handle) -> void
 Vixen.Graphics.OpenGL.GlDevice.Destroy(Vixen.Graphics.TextureHandle handle) -> void
@@ -83,6 +85,7 @@ Vixen.Graphics.OpenGL.GlDevice.Profile.get -> Vixen.Graphics.OpenGL.GlProfile
 Vixen.Graphics.OpenGL.GlDevice.ProgramCount.get -> int
 Vixen.Graphics.OpenGL.GlDevice.Read(Vixen.Graphics.BufferHandle buffer, long offset, System.Span<byte> destination) -> void
 Vixen.Graphics.OpenGL.GlDevice.TransferQueue.get -> Vixen.Graphics.ICommandSubmitter
+Vixen.Graphics.OpenGL.GlDevice.TryResolveQueries(Vixen.Graphics.QueryPoolHandle pool, int first, System.Span<ulong> results) -> bool
 Vixen.Graphics.OpenGL.GlDevice.UpdateDescriptorSet(Vixen.Graphics.DescriptorSetHandle descriptors, System.ReadOnlySpan<Vixen.Graphics.DescriptorWrite> writes) -> void
 Vixen.Graphics.OpenGL.GlDevice.WaitIdle() -> void
 Vixen.Graphics.OpenGL.GlDevice.Write(Vixen.Graphics.BufferHandle buffer, long offset, System.ReadOnlySpan<byte> data) -> void

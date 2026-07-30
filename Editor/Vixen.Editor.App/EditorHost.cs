@@ -4,6 +4,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using Vixen.Core.Mathematics;
+using Vixen.Editor.Profiler;
 using Vixen.Graphics;
 using Vixen.Graphics.RenderGraph;
 using Vixen.Graphics.Vulkan;
@@ -51,11 +52,34 @@ sealed class EditorHost : IDisposable {
     readonly GlyphFieldCache glyphs = new(new GlyphAtlas(1024, 1024));
     readonly List<EditorPane> panes = [];
 
-    ScenePresenter? scene;
+    /// <summary>One presenter per scene pane, made on demand and kept while the count holds.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Indexed by pane, and each one owns a target and an image id of its own.</b> Four panes
+    ///     sharing a presenter would share a render target, so all four would show whichever camera
+    ///     wrote it last — and sharing the <i>id</i> alone would do the same thing one layer up, in
+    ///     the interface's image registry. See <c>ScenePresenter.Image</c>.
+    /// </remarks>
+    readonly List<ScenePresenter> scenes = [];
+
+    /// <summary>The panes' targets this frame, for the interface's pass to declare that it reads.</summary>
+    readonly List<GraphTexture> sampled = [];
+
     VulkanDevice? device;
     TransientResourcePool? pool;
     RenderGraph? graph;
+
+    /// <summary>What turns a decoded thumbnail into a texture, once there is a device and a renderer.</summary>
+    ThumbnailSurface? thumbnails;
     UiShaders shaders;
+
+    /// <summary>What writes the frame's timestamps, once there is a device that can be timed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Owned here rather than by the application, because the object that records the
+    ///     timestamps has to be the one recording the frame.</b> A GPU profiler in
+    ///     <c>EditorApplication</c> would have no command list to write into — the application is
+    ///     deliberately the half of the editor that does not know what a GPU is.
+    /// </remarks>
+    GpuProfiler? gpu;
 
     bool running = true;
     bool lost;
@@ -79,6 +103,10 @@ sealed class EditorHost : IDisposable {
         ) {
             RenderScale = Scale
         };
+
+        // ⚠ Only the host asks the editor to greet, which is what keeps the startup Project Browser
+        // out of every test that builds an application. See `EditorApplication.Greets`.
+        editor.Greets = true;
 
         // ⚠ Pushed on change rather than set once. The title carries the scene's name and its dirty
         // marker — `<scene>* — <project> — Vixen` — and it is the only affordance that answers
@@ -111,6 +139,17 @@ sealed class EditorHost : IDisposable {
     /// </remarks>
     public string? Command { get; set; }
 
+    /// <summary>Which project the editor should be rebuilt over, or <see langword="null" /> to stop.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read by <c>Program</c> after <see cref="Run" /> returns, which is what makes Open
+    ///     Project work without a restart.</b> Doc 20 filed swapping a project as "a world, a scene,
+    ///     an asset database and every open document" — and it is, which is why nothing is swapped:
+    ///     this host is disposed and another is built over the same window, so the new editor is
+    ///     assembled by exactly the code that assembles it at launch. See
+    ///     <c>EditorApplication.RequestProject</c>.
+    /// </remarks>
+    public string? NextProject => editor.PendingProject;
+
     /// <summary>Runs until the window closes, or for a fixed number of frames.</summary>
     /// <param name="frames">How many, or zero for as many as it takes.</param>
     /// <returns>A process exit code.</returns>
@@ -124,7 +163,19 @@ sealed class EditorHost : IDisposable {
             var delta = now - previous;
             previous = now;
 
-            Pump();
+            // ⚠ Advanced whether or not anybody is sampling. `BeginFrame` is an interlocked
+            // increment and nothing else — an editor that only counted frames while the profiler
+            // was open would attribute a whole capture to frame zero, which is exactly the axis a
+            // flame chart is drawn against.
+            Vixen.Core.Diagnostics.Profiler.BeginFrame();
+
+            // The scope covering everything below, so a chart of the editor has one bar per frame
+            // with the four phases nested under it rather than four unrelated bars.
+            using var frame = Vixen.Core.Diagnostics.Profiler.Begin(EditorApplication.EditorKeys.Frame);
+
+            using (Vixen.Core.Diagnostics.Profiler.Begin(EditorApplication.EditorKeys.Pump)) {
+                Pump();
+            }
 
             if (!running || editor.IsClosing) {
                 break;
@@ -149,19 +200,31 @@ sealed class EditorHost : IDisposable {
 
             editor.Shell.Tick(now, delta);
 
-            editor.Shell.Document.Update();
+            using (Vixen.Core.Diagnostics.Profiler.Begin(EditorApplication.EditorKeys.Document)) {
+                editor.Shell.Document.Update();
+            }
 
             // ⚠ Between the two, and it is not arbitrary. A viewport measures itself in render pixels
             // from a box the layout pass is what produces, and the axis cross it draws comes from the
             // camera this brings up to date — so either side of this pair puts the picture a frame
             // behind whatever the user just did with the mouse.
-            editor.Update(delta);
+            using (Vixen.Core.Diagnostics.Profiler.Begin(EditorApplication.EditorKeys.Update)) {
+                editor.Update(delta);
+            }
 
-            editor.Shell.Document.Draw();
+            using (Vixen.Core.Diagnostics.Profiler.Begin(EditorApplication.EditorKeys.Document)) {
+                editor.Shell.Document.Draw();
+            }
 
             Sync();
-            Build();
-            Present();
+
+            using (Vixen.Core.Diagnostics.Profiler.Begin(EditorApplication.EditorKeys.Geometry)) {
+                Build();
+            }
+
+            using (Vixen.Core.Diagnostics.Profiler.Begin(EditorApplication.EditorKeys.Present)) {
+                Present();
+            }
 
             drawn++;
 
@@ -207,9 +270,26 @@ sealed class EditorHost : IDisposable {
     void Pump() {
         foreach (var platformEvent in platform.PumpEvents()) {
             switch (platformEvent.Kind) {
+                // ⚠ Through the same request the close button goes through, and the difference is
+                // an afternoon's work. This used to stop the loop where it stood — no prompt, no
+                // save, and every unsaved document gone. That is not a rare path: ⌘Q is how a
+                // macOS application is quit, and SDL raises this rather than a window close for it;
+                // on every platform it is also what the window manager sends when the session ends.
+                //
+                // ⚠ And the platform's own flag is cleared, because backing out of the prompt has to
+                // leave the editor running. `DesktopLifecycle` latches `IsQuitRequested` — a host
+                // that left it set would be one where the *next* quit is already half-answered.
                 case PlatformEventKind.Quit:
-                    running = false;
-                    return;
+                    editor.RequestClose();
+
+                    if (!editor.IsClosing) {
+                        platform.Lifecycle.CancelQuit();
+                    }
+
+                    // ⚠ Not `return`. The rest of this pump is the frame's input — a click, a
+                    // keystroke, the resize that arrived with it — and dropping it was what made a
+                    // close request that arrived in the same batch as a quit never reach the editor.
+                    break;
 
                 case PlatformEventKind.WindowCloseRequested:
                     // ⚠ Asked first, and the answer decides whose close this is. A torn-off panel's
@@ -270,6 +350,19 @@ sealed class EditorHost : IDisposable {
     ///     to be told would be a second place that has to agree with the first.
     /// </remarks>
     void Sync() {
+        // ⚠ Installed here rather than beside the device, because it needs the *renderer* as well —
+        // an `Image` number is resolved against the one that draws the surface it appears on, and
+        // the main pane's is made lazily on its first frame. Once, on the frame it becomes possible.
+        if (thumbnails is null && panes.Count > 0 && panes[0].Renderer is { } renderer && device is { } ready) {
+            thumbnails = new ThumbnailSurface(ready, renderer);
+            editor.ThumbnailSurface = thumbnails;
+        }
+
+        // ⚠ After the wait the loop below performs, and before anything draws again. A tile scrolled
+        // off screen released its image while a frame that sampled it was still in flight; retiring
+        // here is the moment that is known to be over.
+        thumbnails?.Retire();
+
         for (var i = panes.Count - 1; i >= 0; i--) {
             if (!panes[i].Surface.IsRemoved) {
                 continue;
@@ -390,6 +483,19 @@ sealed class EditorHost : IDisposable {
 
         using var commands = device!.BeginCommandList(QueueKind.Graphics, "ui");
 
+        // ⚠ Only the primary window's frame is timed, and it is a decision rather than a limitation.
+        // A torn-off panel is a second submission on the same queue, and interleaving two windows'
+        // regions in one pool would produce a timeline whose bars overlap for reasons that are about
+        // window management rather than about rendering.
+        var timing = gpu is not null && pane.IsPrimary;
+
+        if (timing) {
+            // The CPU profiler's frame counter, so a GPU bar and a CPU bar labelled "frame 812" are
+            // the same frame. A counter of the host's own would be a second number that agreed by
+            // accident until somebody early-returned out of the loop.
+            gpu!.BeginFrame(commands, Vixen.Core.Diagnostics.Profiler.FrameIndex);
+        }
+
         var backbuffer = graph!.ImportTexture(
             pane.SwapChain!.CurrentTexture,
             pane.Acquired,
@@ -414,12 +520,30 @@ sealed class EditorHost : IDisposable {
         // ⚠ Declared before the interface's pass, so the graph orders the two from the read: the
         // interface samples what the scene wrote, and the barrier between them is derived rather
         // than placed by hand.
-        var sampled = default(GraphTexture);
-        var hasScene = false;
+        //
+        // ⚠ One of these per pane of the scene panel, and the list is reused rather than allocated:
+        // this runs once per window per frame.
+        sampled.Clear();
 
-        if (pane.IsPrimary && editor.Viewport is { } viewport && scene is not null && scene.Resize(viewport, renderer)) {
-            scene.Upload(editor.Scene, viewport);
-            hasScene = scene.Declare(graph, viewport, out sampled);
+        if (pane.IsPrimary) {
+            var panes = editor.Viewports;
+
+            Ensure(panes.Count);
+
+            for (var index = 0; index < panes.Count && index < scenes.Count; index++) {
+                var presenter = scenes[index];
+                var viewport = panes[index];
+
+                if (!presenter.Resize(viewport, renderer)) {
+                    continue;
+                }
+
+                presenter.Upload(commands, editor.Scene, viewport);
+
+                if (presenter.Declare(graph, viewport, out var target)) {
+                    sampled.Add(target);
+                }
+            }
         }
 
         graph.AddPass(
@@ -428,12 +552,19 @@ sealed class EditorHost : IDisposable {
                 pass.ColourAttachment(backbuffer, LoadAction.Clear, new Color4(0.06f, 0.07f, 0.09f, 1f));
                 pass.SideEffect();
 
+                // ⚠ The pair goes *inside* the pass's execute rather than around `AddPass`. A render
+                // graph is declared here and executed later, so a timestamp written at declaration
+                // time would land wherever the last pass to be declared happened to be recorded —
+                // which is a bar whose position has nothing to do with when the work ran.
+                int? region = null;
+
                 // ⚠ The scene's target is sampled through a descriptor set, which the graph cannot
                 // see. Saying so here is what orders the scene's pass before this one and puts the
                 // layout transition between them — without it the target is still a colour
-                // attachment when the fragment shader reads it.
-                if (hasScene) {
-                    pass.Reads(sampled);
+                // attachment when the fragment shader reads it. Every pane's, because a four-pane
+                // layout is four targets this one pass samples.
+                foreach (var target in sampled) {
+                    pass.Reads(target);
                 }
 
                 // ⚠ The logical surface and the DPI scale, not the swapchain's size. The geometry is
@@ -442,12 +573,22 @@ sealed class EditorHost : IDisposable {
                 // quarter of the window. The scale is this window's, which on a second display is
                 // not the main window's.
                 pass.Execute(
-                    context => renderer.Record(
-                        context.CommandList,
-                        pane.Frame,
-                        new Int2((int) MathF.Round(extent.Width), (int) MathF.Round(extent.Height)),
-                        scale
-                    )
+                    context => {
+                        if (timing) {
+                            region = gpu!.Begin(context.CommandList, "ui");
+                        }
+
+                        renderer.Record(
+                            context.CommandList,
+                            pane.Frame,
+                            new Int2((int) MathF.Round(extent.Width), (int) MathF.Round(extent.Height)),
+                            scale
+                        );
+
+                        if (timing) {
+                            gpu!.End(context.CommandList, region);
+                        }
+                    }
                 );
             }
         );
@@ -457,6 +598,13 @@ sealed class EditorHost : IDisposable {
 
         commands.Finish();
         device.GraphicsQueue.Submit([commands]);
+
+        // ⚠ After the submit, and it reads a pool from several frames ago rather than this one.
+        // `TryResolveQueries` never waits — see its remarks — so the first few frames after the
+        // panel opens report nothing, which is correct and is why the view says it is waiting.
+        if (timing && gpu!.Resolve()) {
+            editor.GpuFrame = gpu.Latest;
+        }
     }
 
     /// <summary>Takes the next image, rebuilding once if the swapchain has gone stale.</summary>
@@ -484,6 +632,90 @@ sealed class EditorHost : IDisposable {
         return status is not SwapChainStatus.OutOfDate;
     }
 
+    /// <summary>Makes the pool of presenters match how many panes the scene panel has.</summary>
+    /// <param name="wanted">How many.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Grown and shrunk here rather than when the arrangement changes.</b> The
+    ///         application splits the panel and knows nothing about devices; this is the frame loop,
+    ///         which is the only place that can be sure no frame is in flight over the target it is
+    ///         about to destroy. Comparing two counts once per frame is not a cost.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The device is idled before one goes.</b> A presenter's colour target may be
+    ///         referenced by a frame the driver has not finished with, and destroying it is a
+    ///         use-after-free the validation layers name and the driver does not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Image ids are one-based and are the index plus one.</b> Zero means "no target" to
+    ///         <c>Viewport.RenderTarget</c>, which draws the placeholder instead — so a pane numbered
+    ///         zero would be a pane that never shows the scene.
+    ///     </para>
+    /// </remarks>
+    void Ensure(int wanted) {
+        if (scenes.Count > wanted) {
+            device?.WaitIdle();
+
+            for (var index = scenes.Count - 1; index >= wanted; index--) {
+                scenes[index].Dispose();
+                scenes.RemoveAt(index);
+            }
+        }
+
+        while (scenes.Count < wanted) {
+            scenes.Add(Presenter((ulong) scenes.Count + 1));
+        }
+    }
+
+    /// <summary>Builds one pane's presenter.</summary>
+    /// <param name="image">What the interface calls its target.</param>
+    /// <remarks>
+    ///     ⚠ <b>A colour format the swapchain's is not.</b> The scene is sampled by the interface
+    ///     rather than presented, so it wants a linear target — a UNorm-sRGB one would be decoded on
+    ///     the way in and encoded again on the way out, which is a scene visibly washed out next to
+    ///     the panels around it.
+    /// </remarks>
+    ScenePresenter Presenter(ulong image) =>
+        new(
+            device!,
+            new LineShaders(
+                device!.CreateShader(ShaderStage.Vertex, Module("LineVertex.vert.spv"), "line vertex"),
+                device.CreateShader(ShaderStage.Fragment, Module("LineFragment.frag.spv"), "line fragment")
+            ) {
+                Locations = new(LineVertexKeys.PositionLocation, LineVertexKeys.VertexColourLocation)
+            },
+            new MeshShaders(
+                device.CreateShader(ShaderStage.Vertex, Module("Mesh.vert.spv"), "mesh vertex"),
+                device.CreateShader(ShaderStage.Fragment, Module("Mesh.frag.spv"), "mesh fragment")
+            ) {
+                Locations = new(MeshKeys.PositionLocation, MeshKeys.NormalLocation, MeshKeys.VertexColourLocation)
+            },
+            new MeshInstanceShaders(
+                device.CreateShader(ShaderStage.Vertex, Module("MeshInstanced.vert.spv"), "mesh instance vertex"),
+                device.CreateShader(ShaderStage.Fragment, Module("MeshInstanced.frag.spv"), "mesh instance fragment")
+            ) {
+                // ⚠ Eleven, in the renderer's own attribute order: the shape's pair first, then the
+                // entity's nine. A location short would leave that attribute bound to nothing and the
+                // stage reading whatever the driver left there — see `VertexLocations`, which is why
+                // these are read out of Raven's reflection rather than written down.
+                Locations = new(
+                    MeshInstancedKeys.PositionLocation,
+                    MeshInstancedKeys.NormalLocation,
+                    MeshInstancedKeys.Model0Location,
+                    MeshInstancedKeys.Model1Location,
+                    MeshInstancedKeys.Model2Location,
+                    MeshInstancedKeys.Model3Location,
+                    MeshInstancedKeys.Normal0Location,
+                    MeshInstancedKeys.Normal1Location,
+                    MeshInstancedKeys.Normal2Location,
+                    MeshInstancedKeys.TintLocation,
+                    MeshInstancedKeys.StyleLocation
+                )
+            },
+            PixelFormat.Rgba8UNorm,
+            image
+        );
+
     /// <summary>Builds everything GPU-shaped, once there is a surface to present to.</summary>
     /// <returns>Whether there is one.</returns>
     bool EnsureDevice() {
@@ -499,6 +731,16 @@ sealed class EditorHost : IDisposable {
 
         pool = new TransientResourcePool(device);
         graph = new RenderGraph(device, pool);
+
+        // ⚠ Handed to the application so the panel can say *why* there is no timeline. A device that
+        // reports no timestamp queries — MoltenVK on an older Metal, a driver with no valid bits on
+        // the graphics family — is a real configuration, and a GPU panel that drew nothing on it
+        // would be indistinguishable from one whose frame had no passes.
+        editor.GraphicsDevice = device;
+
+        if (device.Features.HasTimestampQueries) {
+            gpu = new GpuProfiler(device);
+        }
 
         // Compiled once and handed to every window's renderer. Turning source into modules is
         // Raven's job and this host hands over what it has — which is the argument `UiShaders` makes
@@ -524,34 +766,33 @@ sealed class EditorHost : IDisposable {
             )
         };
 
-        // ⚠ A colour format the swapchain's is not. The scene is sampled by the interface rather
-        // than presented, so it wants a linear target — a UNorm-sRGB one would be decoded on the way
-        // in and encoded again on the way out, which is a scene visibly washed out next to the panels
-        // around it.
-        scene = new ScenePresenter(
-            device,
-            new LineShaders(
-                device.CreateShader(ShaderStage.Vertex, Module("LineVertex.vert.spv"), "line vertex"),
-                device.CreateShader(ShaderStage.Fragment, Module("LineFragment.frag.spv"), "line fragment")
-            ) {
-                Locations = new(LineVertexKeys.PositionLocation, LineVertexKeys.VertexColourLocation)
-            },
-            new MeshShaders(
-                device.CreateShader(ShaderStage.Vertex, Module("Mesh.vert.spv"), "mesh vertex"),
-                device.CreateShader(ShaderStage.Fragment, Module("Mesh.frag.spv"), "mesh fragment")
-            ) {
-                Locations = new(MeshKeys.PositionLocation, MeshKeys.NormalLocation, MeshKeys.VertexColourLocation)
-            },
-            PixelFormat.Rgba8UNorm
-        );
-
+        // The presenters themselves are made on demand, one per pane — see `Ensure`, which is also
+        // where they go when the panel is split the other way.
         return true;
     }
 
     void Release() {
         device?.WaitIdle();
 
-        scene?.Dispose();
+        // Before the device, and before the application is told, so that nothing hands out an image
+        // number that resolves against a renderer which is going.
+        editor.ThumbnailSurface = null;
+        thumbnails?.Dispose();
+        thumbnails = null;
+
+        // The same rule, for the same reason: the query pools are the device's resources, and the
+        // wait above is what makes it safe to take them back — a frame still in flight is one whose
+        // command buffer still names them.
+        gpu?.Dispose();
+        gpu = null;
+
+        editor.GraphicsDevice = null;
+
+        foreach (var presenter in scenes) {
+            presenter.Dispose();
+        }
+
+        scenes.Clear();
 
         foreach (var pane in panes) {
             pane.Dispose();
@@ -560,7 +801,6 @@ sealed class EditorHost : IDisposable {
         pool?.Dispose();
         device?.Dispose();
 
-        scene = null;
         graph = null;
         pool = null;
         device = null;

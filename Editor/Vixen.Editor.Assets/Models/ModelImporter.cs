@@ -37,8 +37,11 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
     ///     Two since distance fields joined the artefacts a model produces. A model imported under
     ///     version one has no field sub-asset at all, and nothing downstream could tell that from a
     ///     model whose meshes are all skinned — so the version has to say it rather than the content.
+    ///     Three since cluster hierarchies did, for the same reason and with the same consequence:
+    ///     every model in every project re-imports, which is what "the artefact this version produces
+    ///     is not the one the last version produced" means.
     /// </remarks>
-    public override int Version => 2;
+    public override int Version => 3;
 
     /// <inheritdoc />
     protected override async ValueTask<ImportResult> ImportAsync(
@@ -72,9 +75,31 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
 
         var fields = 0;
         var skinned = 0;
+        var clusters = 0;
+        var refused = 0;
 
         foreach (var mesh in read.Meshes) {
             context.Write(context.DeclareSubAsset("Mesh", mesh.Name), "Mesh", Serializer.ToBytes(mesh));
+
+            if (settings.GenerateMeshlets && mesh.Indices.Length > 0) {
+                // Skinned meshes are included, unlike the distance field below. A cluster carries the
+                // range of bones its vertices are weighted to, so a traversal can expand its bound by
+                // what those bones are doing — which is improvement 1 of docs/virtualized-geometry.md
+                // and the reason skinning is designed in here rather than retrofitted later.
+                var meshlets = ModelCompiler.CompileMeshlets(mesh, settings.ToMeshletSettings(), context.Report);
+
+                if (meshlets is null) {
+                    refused++;
+                } else {
+                    context.Write(
+                        context.DeclareSubAsset("Meshlets", mesh.Name),
+                        "Meshlets",
+                        Serializer.ToBytes(meshlets)
+                    );
+
+                    clusters += meshlets.Meshlets.Length;
+                }
+            }
 
             if (!settings.GenerateDistanceFields || mesh.Indices.Length == 0) {
                 continue;
@@ -132,8 +157,19 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
             + $"{read.Model.Nodes.Length} node(s)"
             + (read.Skeleton is { } bones ? $", {bones.Joints.Length} joint(s)" : string.Empty)
             + (fields > 0 ? $", {fields} distance field(s)" : string.Empty)
+            + (clusters > 0 ? $", {clusters} cluster(s)" : string.Empty)
             + "."
         );
+
+        if (refused > 0) {
+            // The import as a whole still fails, because CompileMeshlets reported an error and the
+            // context counts it. This says how many, which the per-mesh messages do not.
+            context.Report(
+                ImportSeverity.Error,
+                $"{refused} mesh(es) produced a cluster hierarchy that would crack and therefore have "
+                + "none. Nothing here is drawable through the virtualized path until that is fixed."
+            );
+        }
 
         if (skinned > 0) {
             // Information rather than a warning: this is the correct outcome, not a problem to fix.

@@ -766,8 +766,15 @@ public sealed partial class Lowerer {
             return Constant(type, null);
         }
 
-        // A texel store is the one intrinsic with no result, so it is emitted as a statement.
+        // A texel store and the barriers are the intrinsics with no result, so they are emitted as
+        // statements.
         if (type.IsVoid) {
+            // Where the barrier was written, so the stage check has somewhere to point. One per
+            // function: a stage that must not have one is one mistake however many times it does it.
+            if (Intrinsics.IsBarrier(method.Name)) {
+                barriers.TryAdd(Function, invocation.Syntax);
+            }
+
             Emit(new IrIntrinsicInstruction(null, intrinsic, arguments));
             return null;
         }
@@ -883,8 +890,11 @@ public sealed partial class Lowerer {
             "all" => IrIntrinsic.All,
             "any" => IrIntrinsic.Any,
             "asfloat" or "asint" or "asuint" => IrIntrinsic.BitCast,
+            "barrier" => IrIntrinsic.ControlBarrier,
+            "memoryBarrierShared" => IrIntrinsic.MemoryBarrierShared,
             "Sample" => IrIntrinsic.SampleTexture,
             "SampleLevel" => IrIntrinsic.SampleTextureLevel,
+            "SampleGrad" => IrIntrinsic.SampleTextureGrad,
             "Load" => IrIntrinsic.LoadTexture,
             "GetDimensions" => IrIntrinsic.TextureSize,
             _ => null
@@ -1078,6 +1088,8 @@ public sealed partial class Lowerer {
                 IrTypeKind.UInt => Convert.ToUInt32(value),
                 IrTypeKind.Float => Convert.ToSingle(value),
                 IrTypeKind.Double => Convert.ToDouble(value),
+                IrTypeKind.Int64 => Convert.ToInt64(value),
+                IrTypeKind.UInt64 => Convert.ToUInt64(value),
                 // A scalar used at a vector or matrix type is a broadcast of it.
                 IrTypeKind.Vector or IrTypeKind.Matrix => Coerce(value, type.ComponentType),
                 _ => value

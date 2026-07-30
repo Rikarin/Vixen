@@ -32,7 +32,7 @@ Vixen.Editor.App                          the host: window, shell, layout persis
  ├── Vixen.Editor.NodeGraph               reusable graph framework
  │    ├── Vixen.Editor.ShaderGraph
  │    ├── Vixen.Editor.VfxGraph
- │    └── Vixen.Editor.AnimationGraph
+ │    └── Vixen.Editor.AnimationGraph    ⚠ built, and *not* on the framework — see its README
  ├── Vixen.Editor.Profiler                frame graph, timeline, memory, GPU counters
  ├── Vixen.Editor.Debugger                remote inspector client
  ├── Vixen.Editor.Assets                  importers + compilers (shared with the CLI)
@@ -96,9 +96,11 @@ public interface IEditorCommand
 > tree above implies by ordering: a command is an id and a delegate and a panel is an id and a
 > factory, so the shell knows nothing about projects, documents or undo stacks — which is what makes
 > the whole of the editor's chrome testable against a bare `UiDocument`, and it is what doc 11's own
-> "headless editor host" line asks for. `Vixen.Editor.App` joins the two. **Undock to a separate OS
-> window is still half-built**: `DockFloat` is a group floating within the document, and promoting
-> one to a real window needs a second surface, swapchain and input queue from `Vixen.Platform`.
+> "headless editor host" line asks for. `Vixen.Editor.App` joins the two. ~~**Undock to a separate OS
+> window is still half-built**~~ — it is built: `IUiWindowHost` is the seam this assembly declares
+> and `Vixen.Platform.Ui` fills, the arrangement records where a promoted group was, and a saved
+> position that lands on no current display is dropped rather than restoring a window nobody can
+> reach.
 > **`Strings.Resource` is not generated yet** — `EditorStrings` is hand-written in the shape the
 > generator will emit, so no call site changes when it lands, but an id used nowhere is not yet a
 > build error.
@@ -109,9 +111,11 @@ public interface IEditorCommand
 > the ordering, the folder synthesis and the search are tested without a document. `Ctrl+R` rescans.
 > It does not watch the file system, and says so rather than pretending.
 >
-> The remaining gap is a keybinding editor: the model has conflict detection, per-command
-> customisation and reset, and there is no UI over it. Plugin loading has since landed — see
-> [`Vixen.Editor.Plugin`](#vixeneditorplugin) below.
+> ~~The remaining gap is a keybinding editor~~ — `KeyBindingsView` is that panel, and the model
+> underneath it gained the third layer it needed for presets: shipped defaults, a preset, and the
+> user's own overrides, with only the last saved. `Vixen`, `Unity` and `Unreal` ship. Plugin loading
+> has since landed — see [`Vixen.Editor.Plugin`](#vixeneditorplugin) below — and so has a panel over
+> it with enable, disable and reload.
 
 ### `Vixen.Editor.Inspector`
 
@@ -247,7 +251,7 @@ creation from a dragged wire, inline previews on nodes, group boxes, sticky note
 |---|---|---|
 | **ShaderGraph** | math, texture sample, UV, vertex data, time, noise, procedural, custom-code, master (PBR/unlit/sprite/UI/post) | **Raven source** ([07](07-raven-shader-pipeline.md)) — inspectable via "show generated code", typechecked by Raven, diagnostics mapped back to node ports |
 | **VfxGraph** | spawners, initializers, updaters, renderers, operators, events, sub-graphs | A `VfxGraphAsset` compiled to **both** a C# job body (CPU sim) and a Raven compute shader (GPU sim) — the dual-target requirement from [06](06-rendering-pipeline.md) |
-| **AnimationGraph** | states, transitions, blend trees (1D/2D), layers, masks, IK, parameters, events | An `AnimationGraphAsset` interpreted by the animation runtime |
+| **AnimationGraph** ⚠ | states, transitions, blend trees (1D/2D), layers, masks, parameters | An `AnimationGraphAsset` compiled to the `AnimationStateMachine` and `AnimationLayer`s the runtime runs. ⚠ Built, but **not on this framework** — see the note below |
 
 Node definitions are ordinary C# with a generator:
 
@@ -272,6 +276,16 @@ port model from the start.
 > [`.ShaderGraph`](../../Editor/Vixen.Editor.ShaderGraph/README.md) and
 > [`.VfxGraph`](../../Editor/Vixen.Editor.VfxGraph/README.md)). All four boxes are in, and so are two
 > of the three graphs. The example in this section compiles as written.
+>
+> ⚠ **The third graph is built and is not on this framework, which is a correction to the tree
+> above rather than a gap.** Doc 20's [E5](20-editor-parity.md#e5--authoring-surfaces-25-em) tried it
+> here first. A shader graph's edge carries a *value* and a VFX graph's carries *order*; a state
+> machine's carries *"may become"* — there is nothing on it, several leave one state and several
+> arrive at another, and a graph with no cycle is a character that can never return to idle. Every
+> rule this framework exists for would have to be switched off to hold one, so
+> [`Vixen.Editor.AnimationGraph`](../../Editor/Vixen.Editor.AnimationGraph/README.md) is its own
+> model with its own compiler. What it shares is the *shape of the editor* — a canvas, a panel of the
+> selected thing's settings, a diagnostics list, a compile button — which is where sharing belongs.
 >
 > Three notes on how it came out:
 >
@@ -316,6 +330,15 @@ port model from the start.
 >   membership is a back-pointer on the node; the model keeps both, since a document should not lose
 >   an author's grouping to a drawing limitation.
 >
+> And one from giving each graph a way in. **Each graph's document, panel and factory are
+> `Vixen.Editor.AssetEditors`', not its own assembly's** — `.vxvfx`, `.vxcomp` and now
+> `.vxshadergraph` — because a compiler that knows nothing about a project is a compiler a test runs
+> with no editor in the way, and the document-with-an-undo-stack-and-a-view is one shape this table's
+> other rows already have. The shader graph's panel is where "show generated code" lives: a read-only
+> `CodeEditor` with Raven's own highlighting, and the emitted text put back through Raven's front end
+> so that a graph which is well-formed and emits a shader that does not type-check is reported rather
+> than called a success.
+>
 > Not in: the animation graph, selectable wires, editing a sticky note in place, and mapping a
 > *generated shader's* diagnostics back to the node that emitted the line — every diagnostic the graph
 > compilers raise names a node and a port, but Raven's own complaints about the generated text are not
@@ -329,6 +352,26 @@ Covered in [13](13-diagnostics.md). Editor-side: a frame-graph flame chart over 
 GPU timeline from timestamp queries, a frame debugger stepping draw calls with render-target
 inspection, a memory view (managed heap, native allocators, GPU heaps, asset residency), and a remote
 inspector that attaches to a running build on a device to browse and mutate live entities.
+
+> **As built** (see [`Editor/Vixen.Editor.Profiler/README.md`](../../Editor/Vixen.Editor.Profiler/README.md)
+> and [`.Debugger`](../../Editor/Vixen.Editor.Debugger/README.md)). Both projects exist and both are
+> above the shell rather than beside the model — a diagnostics panel shows a *reading* rather than
+> something anybody edits, so neither references `Vixen.Editor.Core` and both are testable against a
+> bare `UiDocument`. Four gaps, each named where it is:
+>
+> - **The GPU timeline needed an RHI change first**, which doc 20's E4 called the one item that could
+>   not start with the panel. `Vixen.Graphics` now has query pools, `WriteTimestamp` and a
+>   non-blocking resolve; Vulkan implements it, the Null backend records it, OpenGL and WebGPU report
+>   the capability absent with a reason the panel shows.
+> - **Render-target inspection is not built.** Stepping to draw N replays the *state*, which a
+>   recorded command stream has; presenting what the frame had drawn by then needs a device that
+>   executed the calls, and `Vixen.Graphics.Null` is the only recording path there is.
+> - **The remote inspector's runtime half is not written** — it is doc 13's — and neither is device
+>   discovery. The editor's half is complete over any `ITransport`, and the tests drive it against a
+>   `FakeBuild` written only to the protocol.
+> - **GPU heaps are absent from the memory view**, because reporting them needs
+>   `VK_EXT_memory_budget` and the Vulkan backend does not query it. The arena is missing rather than
+>   zero, which is the difference between "not measured" and "nothing allocated".
 
 ### `Vixen.Editor.Plugin`
 
@@ -430,11 +473,36 @@ the same component tree.
 >   a truly live one means compiling the generated partial class. Layout and styling are right in
 >   that picture; state and bindings are not there at all.
 >
-> Not in: the animation clip, VFX, input-action and font editors — four rows this table has and that
-> assembly does not. The VFX graph's model and compiler already exist and want a document and a
-> factory; the other three want their formats first. Also not in: a LOD preview, which needs the
-> `ModelCompiler` [08](08-asset-pipeline-and-addressables.md) specifies, and an importer for a
-> compositor graph, which is the one place a `.vxcomp` still has to be compiled by its host.
+> **All thirteen are built now** — doc 20's [E5](20-editor-parity.md#e5--authoring-surfaces-25-em)
+> closed the four this paragraph used to name, and three of the four turned out to be about the
+> *format* rather than about the panel, exactly as it said. The VFX graph wanted a document, a
+> factory and a preview; the animation clip and the font wanted formats that did not exist; the input
+> asset's format was already `Vixen.Input`'s and shared with the source generator, so the editor
+> writes the file the compiler reads by construction. Two authoring surfaces this table has no row
+> for arrived beside them — a sequencer over a new `.vxseq`, and a mixer over the `MixerAsset`
+> `Vixen.Audio` already had.
+>
+> Three of them are worth pulling up for the same reason the five above are.
+>
+> - **An animation clip is ten scalar curves per target, not three vector tracks.**
+>   `AnimationChannel` — what an import writes — holds arrays of `Vector3` and `Quaternion`, which is
+>   right for a file a DCC produced and wrong for an editor: a curve editor edits *one* number against
+>   time and a dope sheet's row is one number's keys, and a vector track cannot express "X has a key
+>   here and Y does not", which is most of what hand animation is. `ToClipData` bakes back to the
+>   import's shape by sampling the union of each group's key times — not at a frame rate, which would
+>   turn a two-key slide into sixty keys and still miss the moment between two frames.
+> - **The VFX preview is a real simulation and an honest projection.** What steps is `VfxSystem` over
+>   the `VfxCompiledGraph` the document just compiled — the class a game runs — so an author is
+>   watching their graph rather than a mock of it. What *draws* is the panel, projecting the particle
+>   buffer, because particles are drawn by a material and the editor's viewport is a tool renderer:
+>   the half that would be dishonest to fake is the simulation, and it is not faked.
+> - **A font asset is a document beside the `.ttf` rather than settings on it, and the fallback chain
+>   is why.** A chain is a property of *this use* of a face — the same `NotoSans.ttf` is one font's
+>   primary and another's CJK fallback — which import settings on the file could only express once.
+>
+> Also not in: a LOD preview, which needs the `ModelCompiler`
+> [08](08-asset-pipeline-and-addressables.md) specifies, and an importer for a compositor graph,
+> which is the one place a `.vxcomp` still has to be compiled by its host.
 
 ## Input system
 

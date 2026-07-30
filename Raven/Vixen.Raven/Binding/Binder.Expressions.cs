@@ -594,6 +594,24 @@ public abstract partial class Binder {
             _ => null
         };
 
+    /// <summary>
+    ///     The <c>groupshared</c> declaration an access chain bottoms out in, or null.
+    /// </summary>
+    /// <remarks>
+    ///     Separate from <see cref="RootBinding" /> rather than folded into it, because the two
+    ///     answer different questions. A binding is host-supplied state, which is why writing one is
+    ///     refused; workgroup storage is the shader's own, which is why writing one is the point.
+    ///     What they have in common is only what an atomic needs — more than one invocation reaches
+    ///     it — so that is the one place both are asked.
+    /// </remarks>
+    static FieldSymbol? RootGroupShared(BoundExpression expression) =>
+        expression switch {
+            BoundFieldExpression { Field.IsGroupShared: true } field => field.Field,
+            BoundFieldExpression { Receiver: { } receiver } => RootGroupShared(receiver),
+            BoundArrayAccessExpression access => RootGroupShared(access.Receiver),
+            _ => null
+        };
+
     /// <summary>A <c>val</c> field may still be assigned from its type's constructor.</summary>
     bool IsInsideInitializerOf(FieldSymbol field) =>
         ContainingMember is MethodSymbol { MethodKind: MethodKind.Constructor } method

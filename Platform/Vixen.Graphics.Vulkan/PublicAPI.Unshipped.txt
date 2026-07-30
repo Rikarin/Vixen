@@ -12,6 +12,7 @@ Vixen.Graphics.Vulkan.VulkanDevice.CreateDescriptorSet(Vixen.Graphics.Descriptor
 Vixen.Graphics.Vulkan.VulkanDevice.CreateDescriptorSetLayout(in Vixen.Graphics.DescriptorSetLayoutDescription description) -> Vixen.Graphics.DescriptorSetLayoutHandle
 Vixen.Graphics.Vulkan.VulkanDevice.CreateGraphicsPipeline(in Vixen.Graphics.GraphicsPipelineDescription description) -> Vixen.Graphics.PipelineHandle
 Vixen.Graphics.Vulkan.VulkanDevice.CreatePipelineLayout(in Vixen.Graphics.PipelineLayoutDescription description) -> Vixen.Graphics.PipelineLayoutHandle
+Vixen.Graphics.Vulkan.VulkanDevice.CreateQueryPool(in Vixen.Graphics.QueryPoolDescription description) -> Vixen.Graphics.QueryPoolHandle
 Vixen.Graphics.Vulkan.VulkanDevice.CreateSampler(in Vixen.Graphics.SamplerDescription description) -> Vixen.Graphics.SamplerHandle
 Vixen.Graphics.Vulkan.VulkanDevice.CreateShader(Vixen.Graphics.ShaderStage stage, System.ReadOnlySpan<byte> bytecode, string name = "") -> Vixen.Graphics.ShaderHandle
 Vixen.Graphics.Vulkan.VulkanDevice.CreateSwapChain(in Vixen.Graphics.SwapChainDescription description) -> Vixen.Graphics.ISwapChain
@@ -22,6 +23,7 @@ Vixen.Graphics.Vulkan.VulkanDevice.Destroy(Vixen.Graphics.DescriptorSetHandle ha
 Vixen.Graphics.Vulkan.VulkanDevice.Destroy(Vixen.Graphics.DescriptorSetLayoutHandle handle) -> void
 Vixen.Graphics.Vulkan.VulkanDevice.Destroy(Vixen.Graphics.PipelineHandle handle) -> void
 Vixen.Graphics.Vulkan.VulkanDevice.Destroy(Vixen.Graphics.PipelineLayoutHandle handle) -> void
+Vixen.Graphics.Vulkan.VulkanDevice.Destroy(Vixen.Graphics.QueryPoolHandle handle) -> void
 Vixen.Graphics.Vulkan.VulkanDevice.Destroy(Vixen.Graphics.SamplerHandle handle) -> void
 Vixen.Graphics.Vulkan.VulkanDevice.Destroy(Vixen.Graphics.ShaderHandle handle) -> void
 Vixen.Graphics.Vulkan.VulkanDevice.Destroy(Vixen.Graphics.TextureHandle handle) -> void
@@ -35,6 +37,7 @@ Vixen.Graphics.Vulkan.VulkanDevice.ImportImage(nint image, in Vixen.Graphics.Tex
 Vixen.Graphics.Vulkan.VulkanDevice.NativeHandles.get -> Vixen.Graphics.Vulkan.VulkanNativeHandles
 Vixen.Graphics.Vulkan.VulkanDevice.Read(Vixen.Graphics.BufferHandle buffer, long offset, System.Span<byte> destination) -> void
 Vixen.Graphics.Vulkan.VulkanDevice.TransferQueue.get -> Vixen.Graphics.ICommandSubmitter
+Vixen.Graphics.Vulkan.VulkanDevice.TryResolveQueries(Vixen.Graphics.QueryPoolHandle pool, int first, System.Span<ulong> results) -> bool
 Vixen.Graphics.Vulkan.VulkanDevice.UpdateDescriptorSet(Vixen.Graphics.DescriptorSetHandle descriptors, System.ReadOnlySpan<Vixen.Graphics.DescriptorWrite> writes) -> void
 Vixen.Graphics.Vulkan.VulkanDevice.UsesDynamicRendering.get -> bool
 Vixen.Graphics.Vulkan.VulkanDevice.ValidationEnabled.get -> bool

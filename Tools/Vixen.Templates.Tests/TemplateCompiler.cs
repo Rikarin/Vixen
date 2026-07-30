@@ -6,6 +6,7 @@ using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Vixen.Cli;
+using Vixen.Editor.Core;
 
 namespace Vixen.Templates.Tests;
 

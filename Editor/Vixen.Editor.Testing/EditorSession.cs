@@ -122,6 +122,17 @@ public sealed class EditorSession : IDisposable {
         return new EditorSession(settings, directory, directory);
     }
 
+    /// <summary>The application itself, for the suites that drive what no panel exposes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Internal, and it stays internal.</b> The whole point of this harness is that a test
+    ///     says what a person does — click a row, run a command — rather than what a field holds, and
+    ///     everything that <i>can</i> be said that way is said that way above. What this is for is
+    ///     the handful of things a person does through a surface the harness has no vocabulary for
+    ///     yet: opening a second scene, reading the world settings. A public one would be an
+    ///     invitation to write the other kind of test.
+    /// </remarks>
+    internal EditorApplication Editor => editor;
+
     /// <summary>The document harness underneath: selectors, assertions, frames, pictures.</summary>
     /// <remarks>
     ///     ⚠ <b>A different object after <see cref="Restart" />.</b> The shell owns the document and
@@ -143,6 +154,15 @@ public sealed class EditorSession : IDisposable {
     /// <summary>The shell: commands, keymap, menus, docking, dialogs, notifications.</summary>
     public EditorShell Shell => editor.Shell;
 
+    /// <summary>The application itself, for the suite that lives beside it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Internal, and it stays that way.</b> Everything this harness publishes is a public
+    ///     type belonging to the assembly that owns it — a panel, a document, a command registry —
+    ///     which is what lets a plugin's tests use it. The head's own internals are for the head's
+    ///     own suite, which is already a friend of it.
+    /// </remarks>
+    internal EditorApplication Application => editor;
+
     /// <summary>The interface tree, which is the shell's.</summary>
     public UiDocument Document => editor.Shell.Document;
 
@@ -152,8 +172,15 @@ public sealed class EditorSession : IDisposable {
     /// <summary>The scene it is editing.</summary>
     public SceneDocument Scene => editor.Scene;
 
-    /// <summary>The viewport, or <see langword="null" /> while its panel is closed.</summary>
+    /// <summary>The focused pane, or <see langword="null" /> while the scene panel is closed.</summary>
     public SceneViewport? Viewport => editor.Viewport;
+
+    /// <summary>Every pane of the scene panel, in reading order. Empty while it is closed.</summary>
+    /// <remarks>
+    ///     What a test of a split layout asserts against: the panes have their own cameras, their own
+    ///     view modes and their own show flags, and the point of the split is that they disagree.
+    /// </remarks>
+    public IReadOnlyList<SceneViewport> Viewports => editor.Viewports;
 
     /// <summary>The outliner's tree.</summary>
     /// <remarks>Opens the panel if it is not already up, because a closed panel has no tree at all.</remarks>
@@ -257,6 +284,22 @@ public sealed class EditorSession : IDisposable {
         Open(id);
 
         return Find<TreeView>(Panel(id)) ?? throw Fail($"The '{id}' panel has no tree in it.");
+    }
+
+    /// <summary>The one control of a type inside a panel, opening the panel if it is closed.</summary>
+    /// <typeparam name="T">What to look for.</typeparam>
+    /// <param name="id">Which panel.</param>
+    /// <returns>The control.</returns>
+    /// <remarks>
+    ///     ⚠ <b>By panel rather than by type, for the reason <see cref="Tree" /> gives.</b> A
+    ///     document with four inspectors and three grids in it has no useful answer to "the first
+    ///     one" — it depends on which side of the window the layout put them. Every suite that
+    ///     reached into a panel was writing its own recursive walk to do this; there is one now.
+    /// </remarks>
+    public T Control<T>(string id) where T : UiElement {
+        Open(id);
+
+        return Find<T>(Panel(id)) ?? throw Fail($"The '{id}' panel has no {typeof(T).Name} in it.");
     }
 
     /// <summary>Everything inside a panel, as a subject to select within.</summary>
@@ -510,6 +553,35 @@ public sealed class EditorSession : IDisposable {
 
     /// <summary>Whether the editor has been asked to close and agreed to.</summary>
     public bool IsClosing => editor.IsClosing;
+
+    /// <summary>Where the editor has been asked to reopen, or <see langword="null" />.</summary>
+    /// <remarks>
+    ///     What <c>Program</c> reads after the loop returns. A test asserts on it for the same reason
+    ///     it asserts on <see cref="IsClosing" />: opening another project is a <i>request</i>, and
+    ///     what a harness can check is that the request was made and survived the prompt.
+    /// </remarks>
+    public string? PendingProject => editor.PendingProject;
+
+    /// <summary>The projects this editor has opened, newest first, as paths and times.</summary>
+    /// <remarks>
+    ///     Flattened to primitives rather than handed out as the application's own record, because
+    ///     that type is internal to the head and a public member of this class cannot return one.
+    /// </remarks>
+    public IReadOnlyList<(string Path, DateTime Opened)> RecentProjects =>
+        [.. editor.Recent.Entries.Select(entry => (entry.Path, entry.Opened))];
+
+    /// <summary>Asks the editor to close this project and reopen over another.</summary>
+    /// <param name="root">The new project's root.</param>
+    /// <returns>This.</returns>
+    /// <remarks>
+    ///     ⚠ <b>An ask, exactly as <see cref="RequestClose" /> is.</b> With unsaved work it puts the
+    ///     save prompt up and changes nothing until <see cref="Answer" /> presses one of its buttons
+    ///     — which is the case doc 20's A2 names beside closing the window.
+    /// </remarks>
+    public EditorSession RequestProject(string root) {
+        editor.RequestProject(root);
+        return Settle();
+    }
 
     /// <summary>Asks the editor to close, the way the window's close button does.</summary>
     /// <returns>This.</returns>

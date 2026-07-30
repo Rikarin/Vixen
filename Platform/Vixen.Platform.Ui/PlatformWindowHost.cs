@@ -96,7 +96,16 @@ public sealed class PlatformWindowHost : IUiWindowHost, IDisposable {
             new WindowOptions {
                 Title = request.Title,
                 Size = Whole(request.Width, request.Height),
-                Position = Whole(request.X, request.Y),
+
+                // ⚠ Dropped rather than honoured when it lands on no display this machine has. A
+                // torn-off panel restored onto a monitor that has since been unplugged is a window
+                // nobody can see, cannot move and will conclude did not open — and unlike the main
+                // window it has no entry in the task switcher to find it by. Left null, the platform
+                // places it where it would have placed a new one.
+                Position = IsReachable(platform, request.X, request.Y, request.Width, request.Height)
+                    ? Whole(request.X, request.Y)
+                    : null,
+
                 IsResizable = request.IsResizable,
                 IsDecorated = request.IsDecorated,
                 IsVisible = true
@@ -112,6 +121,81 @@ public sealed class PlatformWindowHost : IUiWindowHost, IDisposable {
 
         windows.Add(opened);
         return opened;
+    }
+
+    /// <summary>Whether a window put there would have a title bar somebody can grab.</summary>
+    /// <param name="platform">The platform, for the display list.</param>
+    /// <param name="x">Where its left edge would go, in device-independent desktop pixels.</param>
+    /// <param name="y">Its top edge.</param>
+    /// <param name="width">How wide it would be.</param>
+    /// <param name="height">How tall.</param>
+    /// <returns>Whether enough of it would land on a display to be reachable.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The rule a saved window position is checked against, and the one thing a docking
+    ///         arrangement could not answer for itself.</b> <c>DockFloat</c> records where a floating
+    ///         group was in desktop coordinates and says, in its own remarks, that whether it becomes
+    ///         a real window is the host's answer at restore time — so whether that position is still
+    ///         a place is the host's answer too. Nothing in <c>Core/</c> can know: a display list is
+    ///         a platform fact.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The title bar has to be reachable, not the whole window.</b> A window half off
+    ///         the right edge is one the user put there and dragging it back is a gesture they know;
+    ///         a window entirely on a display that has been unplugged is one they cannot see and
+    ///         cannot move. The test is therefore whether the top-left corner and a grabbable strip
+    ///         beside it land on something.
+    ///     </para>
+    ///     <para>
+    ///         A platform that reports no displays at all — a headless run — answers
+    ///         <see langword="true" />, because "there is nowhere to put a window" is not a reason to
+    ///         move one, and every position is equally invisible.
+    ///     </para>
+    /// </remarks>
+    public static bool IsReachable(IPlatform platform, float x, float y, float width, float height) {
+        ArgumentNullException.ThrowIfNull(platform);
+        return IsReachable(platform.Displays.Displays, x, y, width, height);
+    }
+
+    /// <inheritdoc cref="IsReachable(IPlatform, float, float, float, float)" />
+    /// <param name="displays">The displays this machine has.</param>
+    /// <param name="x">Where its left edge would go, in device-independent desktop pixels.</param>
+    /// <param name="y">Its top edge.</param>
+    /// <param name="width">How wide it would be.</param>
+    /// <param name="height">How tall.</param>
+    /// <remarks>
+    ///     ⚠ <b>The pure form, and the one the tests use.</b> The rule is geometry over a list, and a
+    ///     predicate that could only be asked through an <see cref="IPlatform" /> would need fourteen
+    ///     forwarding members to check — which is the same argument <c>KeyChord.ForPlatform</c> makes
+    ///     for taking the modifier rather than reading the static.
+    /// </remarks>
+    public static bool IsReachable(
+        IReadOnlyList<DisplayInfo> displays,
+        float x,
+        float y,
+        float width,
+        float height
+    ) {
+        ArgumentNullException.ThrowIfNull(displays);
+
+        const float Grip = 120f;
+
+        if (displays.Count == 0) {
+            return true;
+        }
+
+        foreach (var display in displays) {
+            var bounds = display.Bounds;
+
+            var overlapsX = x + MathF.Min(Grip, width) > bounds.X && x < bounds.X + bounds.Width;
+            var overlapsY = y + MathF.Min(Grip, height) > bounds.Y && y < bounds.Y + bounds.Height;
+
+            if (overlapsX && overlapsY) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <inheritdoc />

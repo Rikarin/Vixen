@@ -70,30 +70,13 @@ public sealed class ForwardLightingRenderFeature
     /// <summary>Where the chosen probe's weight sits in the header.</summary>
     public const int ProbeWeightOffset = 8;
 
-    /// <summary>Where the material's record index sits in the header.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         The fourth scalar, in the padding the other three already left — so it costs nothing
-    ///         and <see cref="HeaderSize" /> does not move. `ForwardPlus.rvn` declares it at exactly
-    ///         this offset and the checked-in reflection says so, which is what makes the number here
-    ///         a fact rather than an agreement.
-    ///     </para>
-    ///     <para>
-    ///         Written by this feature although it is the material feature's number, because the
-    ///         block is this one's: the per-draw block is one allocation with the light list in it,
-    ///         and two features writing into one block at agreed offsets is worse than one feature
-    ///         asking the other for a value.
-    ///     </para>
-    /// </remarks>
-    public const int MaterialIndexOffset = 12;
-
     readonly List<RenderLight> lights = [];
     readonly List<int> punctual = [];
     readonly UploadBuffer<PunctualLightData> scene = new("ForwardLighting.Scene");
+    readonly UploadBuffer<ObjectRecord> records = new("ForwardLighting.Objects");
+    readonly List<PermutationKey<bool>> recordKeys = [];
+    readonly List<PermutationKey<bool>> contributed = [];
     readonly List<PermutationKey<bool>> keys;
-
-    /// <summary>The sibling that knows which record each material occupies, or null.</summary>
-    MaterialRenderFeature? materials;
 
     // One element, reused: the write is the same shape every frame, and the allocator copies it only
     // when it has to make a key out of it. Building the span from a collection expression here would
@@ -114,7 +97,10 @@ public sealed class ForwardLightingRenderFeature
     DescriptorAllocator? sets;
 
     /// <summary>Creates the feature, interning its permutation key.</summary>
-    public ForwardLightingRenderFeature() => keys = [ParameterKeys.NewPermutation(false, "Vixen.Clustered")];
+    public ForwardLightingRenderFeature() {
+        keys = [ParameterKeys.NewPermutation(false, "Vixen.Clustered")];
+        contributed.AddRange(keys);
+    }
 
     /// <inheritdoc />
     public override string Name => "ForwardLighting";
@@ -203,10 +189,77 @@ public sealed class ForwardLightingRenderFeature
     public string ShaderName { get; set; } = "ForwardPlus";
 
     /// <inheritdoc />
-    public IReadOnlyList<PermutationKey<bool>> PermutationKeys => keys;
+    /// <remarks>
+    ///     Two, once records are on: whether the lights are clustered, and whether the per-object
+    ///     scalars are records. Both are facts about the frame rather than the object, so every object
+    ///     shares one bit of each and no pair of them can differ.
+    /// </remarks>
+    public IReadOnlyList<PermutationKey<bool>> PermutationKeys => contributed;
 
     /// <inheritdoc />
-    public bool ValueOf(RenderSystem system, RenderObjectId id, int index) => Clustered;
+    public bool ValueOf(RenderSystem system, RenderObjectId id, int index) =>
+        index < keys.Count ? Clustered : UseRecords;
+
+    /// <summary>
+    ///     Whether this frame's per-object scalars go into a buffer rather than into a bound block.
+    /// </summary>
+    /// <remarks>
+    ///     Set through <see cref="EnableRecords" /> rather than directly, because the host's choice
+    ///     and the shader's have to be the same one — see there.
+    /// </remarks>
+    public bool UseRecords { get; private set; }
+
+    /// <summary>The buffer the per-object records live in, for a host binding it once a frame.</summary>
+    public BufferHandle RecordBuffer => records.Buffer;
+
+    /// <summary>Which record this frame's objects start at.</summary>
+    public int RecordBase => RecordBaseOf(records.Offset);
+
+    /// <summary>What was written this frame, for a test or an inspector.</summary>
+    public ReadOnlySpan<ObjectRecord> Records => records.Items;
+
+    static int RecordBaseOf(long offset) => (int)(offset / System.Runtime.CompilerServices.Unsafe.SizeOf<ObjectRecord>());
+
+    /// <summary>
+    ///     Turns the per-object record path on, where the draw can address a record at all.
+    /// </summary>
+    /// <param name="shaderKey">
+    ///     The shader's own permutation — <c>ForwardPlusKeys.UseObjectRecords</c> for the shipped
+    ///     forward pass.
+    /// </param>
+    /// <param name="addressable">
+    ///     Whether the draw's instance index is the object's slot, which is what
+    ///     <see cref="TransformRenderFeature.EnableRecords" /> answered.
+    /// </param>
+    /// <returns>Whether records were turned on.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>The precondition is another feature's answer, which is why it is a
+    ///         parameter.</strong> What addresses a record is <c>SV_InstanceID</c>, and the API adds
+    ///         <c>firstInstance</c> into it — which holds the object's slot only because the transform
+    ///         record path put it there. With the matrix still pushed, every draw carries zero and
+    ///         every object would read record zero's probe: a picture, and a plausible one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Call before the first <c>Prepare</c>, for the reason every <c>EnableRecords</c> says:
+    ///         a permutation that changed after a variant resolved leaves that variant compiled for
+    ///         the old value.
+    ///     </para>
+    /// </remarks>
+    public bool EnableRecords(PermutationKey<bool> shaderKey, bool addressable) {
+        UseRecords = addressable;
+
+        // Contributed whichever way it went, so the number of bits `FlagsOf` packs does not depend on
+        // the answer — an object that hashed to a different variant on two devices for that reason
+        // would be a cache split with no cause.
+        contributed.Clear();
+        contributed.AddRange(keys);
+        contributed.Add(shaderKey);
+        recordKeys.Clear();
+        recordKeys.Add(shaderKey);
+
+        return UseRecords;
+    }
 
     /// <summary>Which descriptor set the block is bound to.</summary>
     public DescriptorSetSlot Slot { get; set; } = DescriptorSetSlot.PerDraw;
@@ -352,18 +405,6 @@ public sealed class ForwardLightingRenderFeature
             return;
         }
 
-        // Gathered here rather than at Initialize, for the reason MaterialRenderFeature gathers its
-        // own contributors that way: a sub-feature may be attached after this one, and the order a
-        // host calls Add in should not decide whether material records reach the shader.
-        materials = null;
-
-        foreach (var subFeature in Parent.SubFeatures) {
-            if (subFeature is MaterialRenderFeature found) {
-                materials = found;
-                break;
-            }
-        }
-
         SplitByKind();
         UploadScene();
         Publish();
@@ -373,9 +414,12 @@ public sealed class ForwardLightingRenderFeature
         // frames that did would hand one back while a forward frame in flight was still reading it.
         Ring().BeginFrame();
 
+        UploadRecords(system);
+
         if (Clustered) {
-            // Nothing per object. The cluster grid is what a fragment looks itself up in, so choosing
-            // eight lights for an object here would be work whose answer no shader reads.
+            // No light list per object. The cluster grid is what a fragment looks itself up in, so
+            // choosing eight lights for an object here would be work whose answer no shader reads —
+            // but the probe still is per object, and that is what UploadRecords above carries.
             descriptors = default;
             return;
         }
@@ -409,7 +453,6 @@ public sealed class ForwardLightingRenderFeature
             var declared = (uint)count;
             MemoryMarshal.Write(block, in declared);
             WriteProbe(block, candidate.Bounds.Center);
-            WriteMaterialIndex(block, system, new(index));
 
             for (var i = 0; i < count; i++) {
                 var light = lights[chosen[i]].ToGpu();
@@ -466,27 +509,80 @@ public sealed class ForwardLightingRenderFeature
     ///         probe, ambient from the environment alone.
     ///     </para>
     /// </remarks>
-    /// <summary>Writes which record of the material buffer this object's material is.</summary>
+    /// <summary>
+    ///     Fills and uploads one record per object slot, when the frame reads them from a buffer.
+    /// </summary>
     /// <remarks>
     ///     <para>
-    ///         Zero when materials are not records, which is a record that exists rather than one
-    ///         that does not — and the shader only reads this field in the variant that asked for it,
-    ///         so an unfilled slot on the bound-per-material path is read by nothing at all.
+    ///         Per <em>slot</em> and not per visible object, because a slot is what the draw's
+    ///         instance index carries — the same reason <c>TransformRenderFeature</c> writes the whole
+    ///         object array. A compacted list is addressed by object, so there is no per-frame
+    ///         renumbering anything could agree on.
     ///     </para>
     ///     <para>
-    ///         The <em>record</em> and not the group. A host binds the group's buffer for the frame
-    ///         and the shader subscripts it, so the number an object carries is its position within
-    ///         whichever buffer was bound — and a group written here instead would index the material
-    ///         buffer by a number that means "which buffer".
+    ///         Every slot, including the ones nothing occupies. Skipping the invisible would leave
+    ///         last frame's probe at a slot an object moved into, and the record is sixteen bytes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ There is a record even with the path off, for the reason every buffer in this family
+    ///         has one: <c>objects</c> is declared by the shader whichever way the permutation went,
+    ///         and a set short one entry is not bound at all — so the frame would lose set 0 and go
+    ///         dark rather than lose its probes.
     ///     </para>
     /// </remarks>
-    void WriteMaterialIndex(Span<byte> block, RenderSystem system, RenderObjectId id) {
-        if (materials?.RecordOf(system, id) is not { } placed) {
+    void UploadRecords(RenderSystem system) {
+        records.Device = Device;
+
+        if (!UseRecords) {
+            if (!records.Buffer.IsValid) {
+                records.Add([default]);
+                records.Upload();
+            }
+
+            PublishRecords();
             return;
         }
 
-        var record = (uint)placed.Index;
-        MemoryMarshal.Write(block[MaterialIndexOffset..], in record);
+        records.Begin();
+
+        var objects = system.Objects.All;
+        var count = system.Objects.Count;
+
+        for (var index = 0; index < count; index++) {
+            var record = default(ObjectRecord);
+
+            if (index < objects.Length && objects[index] is { IsAlive: true } candidate) {
+                record = RecordOf(candidate.Bounds);
+            }
+
+            records.Add([record]);
+        }
+
+        if (count == 0) {
+            records.Add([default]);
+        }
+
+        records.Upload();
+        PublishRecords();
+    }
+
+    /// <summary>Which probe reaches a volume, and how much of it shows.</summary>
+    ObjectRecord RecordOf(BoundingSphere bounds) {
+        if (Probes is not { } selector || selector.Select(bounds.Center) is not { } chosen) {
+            return default;
+        }
+
+        var index = selector.Probes.IndexOf(chosen.Probe);
+        return index < 0 ? default : new() { ProbeIndex = index, ProbeWeight = chosen.Weight };
+    }
+
+    void PublishRecords() {
+        if (Scene is not { } parameters || !records.Buffer.IsValid) {
+            return;
+        }
+
+        parameters.Set(ParameterKeys.New<BufferHandle>($"{ShaderName}.objects"), records.Buffer);
+        parameters.Set(ParameterKeys.New<int>($"{ShaderName}.objectBase"), RecordBase);
     }
 
     void WriteProbe(Span<byte> block, Vector3 position) {
@@ -774,6 +870,7 @@ public sealed class ForwardLightingRenderFeature
 
         disposed = true;
         scene.Dispose();
+        records.Dispose();
 
         // The ring first: it destroys the sets it made, and destroying a layout still named by a set
         // is the ordering a validation layer complains about. The layout itself is not destroyed here
@@ -788,4 +885,26 @@ public sealed class ForwardLightingRenderFeature
         buffer = default;
         descriptors = default;
     }
+}
+
+/// <summary>The per-object scalars a shading pass reads when they are records of a buffer.</summary>
+/// <remarks>
+///     Sixteen bytes at the object's own slot, matching <c>ObjectRecord</c> in
+///     <c>Raven/Library/Geometry/Transform.rvn</c> member for member. Explicit layout is not needed —
+///     four four-byte fields in declaration order is what std430 gives — but the padding field is,
+///     because a shader's struct is padded to sixteen whether or not a host writes it.
+/// </remarks>
+[System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+public struct ObjectRecord {
+    /// <summary>Which of the bound probe cubes reaches this object.</summary>
+    public int ProbeIndex;
+
+    /// <summary>How much of it shows through, against the environment behind it.</summary>
+    public float ProbeWeight;
+
+    /// <summary>How many entries of the object's light list are filled.</summary>
+    public int LightCount;
+
+    /// <summary>Padding to the shader's sixteen.</summary>
+    public int Reserved;
 }

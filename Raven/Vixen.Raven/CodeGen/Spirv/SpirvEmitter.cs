@@ -422,6 +422,8 @@ sealed partial class SpirvEmitter {
     ///     rejects it.
     /// </remarks>
     void EmitComputeInterface() {
+        EmitSharedVariables();
+
         foreach (var input in entryPoint.Inputs) {
             var variable = DeclareStageVariable(input, SpirvStorageClass.Input, "in_" + input.Name, located: false);
 
@@ -432,6 +434,39 @@ sealed partial class SpirvEmitter {
             );
 
             inputs.Add((input, variable));
+        }
+    }
+
+    /// <summary>
+    ///     Declares the <c>groupshared</c> variables this stage reaches, in the <c>Workgroup</c>
+    ///     storage class.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         An <c>OpVariable</c> at module scope with no initializer — SPIR-V has no way to give
+    ///         workgroup storage one, which is why <c>RVN2134</c> refuses the source that asks for
+    ///         it. It joins <see cref="globals" /> like any other module-scope variable, so a read
+    ///         is the same load and a write the same access chain every binding takes; only the
+    ///         storage class in the pointer type differs.
+    ///     </para>
+    ///     <para>
+    ///         Not in <see cref="interfaceIds" />, and that is a version rule rather than an
+    ///         oversight: before SPIR-V 1.4 an entry point's interface lists <c>Input</c> and
+    ///         <c>Output</c> variables and nothing else, and this backend emits 1.0. Adding a
+    ///         <c>Workgroup</c> id there is what a 1.4 module would do and what <c>spirv-val</c>
+    ///         rejects in a 1.0 one.
+    ///     </para>
+    /// </remarks>
+    void EmitSharedVariables() {
+        foreach (var shared in entryPoint.SharedVariables) {
+            var variable = module.AddDeclaration(
+                SpirvOp.Variable,
+                types.Pointer(SpirvStorageClass.Workgroup, types.Type(shared.Type)),
+                SpirvOperand.Enumerant(SpirvStorageClass.Workgroup)
+            );
+
+            module.AddName(variable, shared.Name);
+            globals[shared.Variable] = new(variable, SpirvStorageClass.Workgroup);
         }
     }
 
@@ -458,6 +493,16 @@ sealed partial class SpirvEmitter {
             SpirvDecoration.Location,
             SpirvOperand.Literal((uint)StreamPlan.LocationOf(shader, stream))
         );
+
+        // An integer has no interpolation to take — the rasteriser weights by barycentric
+        // coordinates and that produces a fraction — so SPIR-V requires this on a fragment input of
+        // integer type and a module without it is invalid. Only the input: the decoration says how a
+        // value is *received*, and the vertex stage that wrote it has no interpolation to describe.
+        if (entryPoint.Stage == ShaderStage.Fragment
+            && storage == SpirvStorageClass.Input
+            && StageInterface.MustBeFlat(stream.Type)) {
+            module.Decorate(variable, SpirvDecoration.Flat);
+        }
 
         return variable;
     }

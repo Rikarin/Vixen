@@ -52,6 +52,27 @@ public sealed class EditorCommand {
     /// <summary>What it is called on screen.</summary>
     public StringId Title { get; }
 
+    /// <summary>What it is called <i>right now</i>, when that depends on state.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>For the toggles whose two states are two nouns rather than on and off.</b> The
+    ///         gizmo's space button said "Local Space" in both of them, so the only way to find out
+    ///         which space a drag was in was to drag — and the tick beside it does not answer the
+    ///         question either, because "Local Space, unticked" and "World Space" are the same fact
+    ///         written two ways and the reader has to know which one the label is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null for everything else, and that is the common case.</b> A caption asked on
+    ///         every toolbar refresh is a delegate per button per frame; a command whose name does
+    ///         not change should not pay for one, and <see cref="CurrentTitle" /> is what every view
+    ///         reads so that neither has to know which kind it has.
+    ///     </para>
+    /// </remarks>
+    public Func<StringId>? Caption { get; init; }
+
+    /// <summary>What a menu line or a toolbar button should say for it now.</summary>
+    public StringId CurrentTitle => Caption is null ? Title : Caption();
+
     /// <summary>Where the palette files it, and what a menu would group it under.</summary>
     public StringId Category { get; init; }
 

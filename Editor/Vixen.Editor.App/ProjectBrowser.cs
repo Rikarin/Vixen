@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Editor.Core;
+using Vixen.Editor.Ui;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -72,8 +73,28 @@ sealed class ProjectBrowser {
     /// <summary>Raised when a row's inline editor is committed.</summary>
     public event Action<AssetId, string>? Renamed;
 
+    /// <summary>Raised when the user switches between the tree and the grid.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What makes the choice outlive the panel.</b> A panel's factory runs again every time
+    ///     it is reopened, so the toggle is a fresh unchecked button on every visit — and the
+    ///     application is the only thing that can hold the answer, because it is the only thing that
+    ///     owns a preferences file. Reported rather than written here for the browser's own rule:
+    ///     every verb goes out as an event.
+    /// </remarks>
+    public event Action<bool>? ViewChanged;
+
     /// <summary>Raised when rows are dropped onto a folder row.</summary>
     public event Action<IReadOnlyList<AssetId>, AssetId>? Moved;
+
+    /// <summary>Raised when a drag leaves the panel and is released somewhere else.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The browser resolves the drop, because nothing else can.</b> A drag belongs to the
+    ///     element the press landed on for its whole life — that is what makes it a drag rather than
+    ///     a series of moves — so the panel the pointer is released <i>over</i> never hears about it.
+    ///     What goes out is the assets and the point; what that point means is the application's,
+    ///     since only it knows which panel is where.
+    /// </remarks>
+    public event Action<IReadOnlyList<AssetId>, float, float>? DroppedOutside;
 
     /// <summary>Builds the panel's contents into a container.</summary>
     /// <param name="project">The project being browsed.</param>
@@ -108,11 +129,22 @@ sealed class ProjectBrowser {
         grid.Size = ControlSize.Small;
         grid.Variant = ControlVariant.Subtle;
         grid.AddClass("browser-view");
-        grid.CheckedChanged += (_, _) => Populate();
+
+        grid.CheckedChanged += (_, on) => {
+            Populate();
+            ViewChanged?.Invoke(on);
+        };
 
         tree = panel.Add<TreeView>();
         tree.MultiSelect = true;
         tree.AllowDrag = true;
+
+        // ⚠ Double-click opens and a second click on the selected row renames, which is the pair
+        // every file manager ships and the reason the two are separate properties on the control. A
+        // browser whose double-click renamed would have no gesture left for the thing a browser is
+        // for; the outliner is the other way round, because a row there is a name rather than a
+        // document — see `TreeView.RenameOnSecondClick`.
+        tree.RenameOnSecondClick = true;
 
         tree.Activated += (_, node) => {
             // ⚠ Only what the database has an identity for, and never a folder — the same rule the
@@ -147,6 +179,14 @@ sealed class ProjectBrowser {
         // handler reads where it landed, tells the application, and lets the rescan put the rows
         // back where the disk says they are. A move the file system refuses would otherwise leave
         // the browser showing a folder that does not contain what it is drawing.
+        // ⚠ On the tree as well as the grid, and it has to be the *source* that watches for this:
+        // a drop outside the panel never reaches the panel it landed on.
+        tree.AddHandler<DragEvent>((_, args) => {
+            if (args.Stage == DragStage.Completed && !Inside(tree, args.X, args.Y)) {
+                Escaped(args.X, args.Y);
+            }
+        });
+
         tree.Moved += (_, node) => {
             if (node.Parent?.Tag is AssetTreeNode { IsIndexed: true, IsFolder: true } folder) {
                 Moved?.Invoke(Dragged(node), folder.Guid);
@@ -157,12 +197,15 @@ sealed class ProjectBrowser {
 
         tiles = panel.Add<AssetGrid>();
         tiles.Containing = Containing;
+        tiles.Describe = Importer;
+        tiles.Picture = Pictured;
         tiles.Navigated += entered => {
             folder = entered.Path;
             Populate();
         };
 
         tiles.Selected += node => project.Selection.Set(node.IsIndexed ? [node.Guid] : []);
+        tiles.DroppedOutside += (x, y) => Escaped(x, y);
 
         tiles.Activated += node => {
             if (node.IsIndexed) {
@@ -188,6 +231,21 @@ sealed class ProjectBrowser {
 
     /// <summary>The tree, for the harness and for the panel that holds it.</summary>
     public TreeView Tree => tree;
+
+    /// <summary>Reports a drag released outside the panel, with whatever it was carrying.</summary>
+    void Escaped(float x, float y) {
+        List<AssetId> carried = [.. project.Selection];
+
+        if (carried.Count > 0) {
+            DroppedOutside?.Invoke(carried, x, y);
+        }
+    }
+
+    static bool Inside(UiElement element, float x, float y) {
+        var bounds = element.Bounds;
+
+        return x >= bounds.X && x < bounds.X + bounds.Width && y >= bounds.Y && y < bounds.Y + bounds.Height;
+    }
 
     /// <summary>Brings the grid's marks into line with the project's selection.</summary>
     /// <remarks>
@@ -304,7 +362,7 @@ sealed class ProjectBrowser {
             // ⚠ Falls back to whatever survives rather than showing an empty grid. A folder can go
             // — deleted, renamed, filtered out — and a browser sitting in one that no longer exists
             // is one with no way back to anything.
-            tiles.Show(AssetTree.Find(kept, folder) ?? kept, Importer);
+            tiles.Show(AssetTree.Find(kept, folder) ?? kept);
             tiles.Mark(project.Selection);
 
             return;
@@ -349,6 +407,12 @@ sealed class ProjectBrowser {
     /// </remarks>
     bool Branch(TreeNode parent, AssetTreeNode asset, string? kind) {
         var node = parent.Add(asset.Name, asset);
+
+        // A folder or a file, which is the only distinction the tree can make without asking the
+        // database what claims each row — see `AssetGrid`, which does ask, because a tile is large
+        // enough for the answer to be worth reading.
+        node.Icon = asset.IsFolder ? EditorIcons.Folder : EditorIcons.File;
+
         var kept = kind is null || (!asset.IsFolder && Tagged(asset, kind));
 
         foreach (var child in asset.Children) {
@@ -394,6 +458,38 @@ sealed class ProjectBrowser {
 
         return slash <= 0 ? null : AssetTree.Find(root, node.Path[..slash]);
     }
+
+    /// <summary>Where the pictures come from, when the host can make any.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Subscribed to, because a picture arrives after the tile that wanted it was drawn.</b>
+    ///     A decode takes a few frames; without this the grid would show glyphs until something else
+    ///     happened to make it rebind, which for a folder somebody is looking at is never.
+    /// </remarks>
+    public ThumbnailCache? Thumbnails {
+        get;
+
+        set {
+            if (field is not null) {
+                field.Changed -= Rebind;
+            }
+
+            field = value;
+
+            if (field is not null) {
+                field.Changed += Rebind;
+            }
+        }
+    }
+
+    void Rebind() {
+        if (IsGrid) {
+            tiles.Refresh();
+        }
+    }
+
+    /// <summary>The picture for an asset, asking for one if there is none yet.</summary>
+    ulong Pictured(AssetTreeNode asset) =>
+        asset.IsIndexed && Thumbnails is { } cache && cache.TryGet(asset.Guid, out var image) ? image : 0;
 
     /// <summary>Which importer claims an asset, for its glyph.</summary>
     string? Importer(AssetTreeNode asset) =>

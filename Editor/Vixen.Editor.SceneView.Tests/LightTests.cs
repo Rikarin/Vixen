@@ -9,6 +9,7 @@ using Vixen.Editor.Core.Scenes;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 using Xunit;
 
 namespace Vixen.Editor.SceneView.Tests;

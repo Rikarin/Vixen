@@ -116,7 +116,12 @@ reaching it needs a native shim in `Vixen.Platform.Native` — which is a reason
 reason for the sink not to exist.
 
 **GPU profiling and memory attribution** need the RHI and the allocators' reporting surface, so they
-land with those.
+land with those — and the first half now has. `Vixen.Graphics` has timestamp queries
+(`CreateQueryPool`, `ICommandList.WriteTimestamp`, `TryResolveQueries`) and
+`Vixen.Editor.Profiler`'s `GpuProfiler` is the thing above them. It is deliberately *not* here: a
+GPU scope is written into a command list and resolved from a device, neither of which this assembly
+is allowed to know about, and a timestamp's zero point is not comparable with `Stopwatch` anyway —
+so a GPU timeline sits beside a CPU one rather than merging into these rings.
 
 **Perfetto protobuf export.** The JSON form every tool accepts is here. Protobuf is smaller and
 streams, and is worth adding when trace size is a measured problem rather than an anticipated one —

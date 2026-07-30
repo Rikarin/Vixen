@@ -43,11 +43,33 @@
         <ProjectReference Include="..\Vixen.Rendering.IrradianceFields\Vixen.Rendering.IrradianceFields.csproj" />
 
         <!--
+            The cluster DAG and its page format (docs/virtualized-geometry.md, phases 1 and 2). One-way
+            for the same reason the distance fields are: that project references no device, so the
+            build and the page encoding are checked against spheres and grids where the answer is
+            known. This is the side that owns the pool the pages land in.
+        -->
+        <ProjectReference Include="..\Vixen.Rendering.VirtualGeometry\Vixen.Rendering.VirtualGeometry.csproj" />
+
+        <!--
             Rendering depends on Vfx and not the other way round, which is the direction doc 06
             names: ParticleRenderFeature sits beside MeshRenderFeature here, and Vixen.Vfx
             simulates without referencing a single graphics type.
         -->
         <ProjectReference Include="..\Vixen.Vfx\Vixen.Vfx.csproj" />
+
+        <!--
+            Ecs and Engine, so this assembly can declare the components a scene places a light and a
+            mesh with — the arrangement Vixen.Physics, Vixen.Audio and Vixen.Animation already use,
+            each owning its own components and the system that bridges them.
+
+            ⚠ The arrow points *this* way and only this way. Vixen.Engine references no graphics API,
+            which is what lets Vixen.Physics and Vixen.Audio produce debug geometry without linking
+            one, and is why Vixen.Engine.Renderer exists for the debug-draw join in particular — that
+            join needs both directions and this one does not. Vixen.Animation already references both
+            of these and Vixen.Rendering, so nothing here is new ground.
+        -->
+        <ProjectReference Include="..\Vixen.Ecs\Vixen.Ecs.csproj" />
+        <ProjectReference Include="..\Vixen.Engine\Vixen.Engine.csproj" />
 
         <!--
           The compositor asset's model types are [DataContract]s of this assembly's own, so it runs
@@ -84,6 +106,11 @@
           drift from the shaders without a test saying so.
         -->
         <ProjectReference Include="..\Vixen.Shaders.Generators\Vixen.Shaders.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!-- Declares this assembly's [Component] [DataContract] types to SceneComponentRegistry. -->
+        <ProjectReference Include="..\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
     </ItemGroup>

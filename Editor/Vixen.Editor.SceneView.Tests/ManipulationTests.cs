@@ -156,7 +156,13 @@ public class ManipulationTests {
 
         // The key that closes a dialog, clears a search box and cancels a rename. A viewport that
         // ate it unconditionally would be one where none of those work while it has the focus.
+        //
+        // ⚠ Pressed *and released*, because a press that misses the gizmo now starts a rubber-band
+        // and Escape is what abandons one. The release is what ends it — see `SceneViewport.EndSelect`
+        // for why every press in empty space begins a band and the release is where a click and a
+        // band part company.
         pane.Press(PointerButton.Primary, new Vector2(20f, 20f));
+        pane.Release(PointerButton.Primary, new Vector2(20f, 20f));
 
         Assert.False(pane.Key(InputKey.Escape, KeyAction.Pressed));
     }

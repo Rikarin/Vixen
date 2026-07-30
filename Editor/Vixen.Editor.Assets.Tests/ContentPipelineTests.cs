@@ -171,6 +171,23 @@ public sealed class ContentPipelineTests : IDisposable {
         Assert.False(ProjectWorkspace.IsProject(Path.Combine(root, "Assets")));
     }
 
+    /// <summary>
+    ///     ⚠ Or one with a marker in it, which is doc 08's <c>.vxproj</c> and is the stronger test:
+    ///     a project whose assets have all been deleted is still a project, and is exactly the one an
+    ///     editor refusing to reopen would strand somebody in.
+    /// </summary>
+    [Fact]
+    public void Or_one_with_a_marker_and_nothing_else_in_it() {
+        Directory.CreateDirectory(root);
+
+        Assert.False(ProjectWorkspace.IsProject(root));
+
+        File.WriteAllText(Path.Combine(root, "Asteroids.vxproj"), Vixen.Editor.Core.ProjectMarker.Write("0.1.0"));
+
+        Assert.True(ProjectWorkspace.IsProject(root));
+        Assert.False(Directory.Exists(Path.Combine(root, "Assets")));
+    }
+
     [Fact]
     public void A_targets_output_directory_never_contains_a_separator_from_the_targets_name() {
         var workspace = Workspace();

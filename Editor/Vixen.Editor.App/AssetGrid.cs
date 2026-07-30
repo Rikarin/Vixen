@@ -19,8 +19,16 @@ public sealed partial class AssetTile : Control {
     /// <summary>Which asset it shows.</summary>
     public AssetTreeNode? Node { get; internal set; }
 
-    /// <summary>The picture.</summary>
+    /// <summary>The glyph, shown while there is no picture and for everything that has none.</summary>
     public Icon Glyph { get; private set; } = null!;
+
+    /// <summary>The picture, when the asset has one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Both exist and one is hidden, rather than one being swapped for the other.</b> A
+    ///     tile is rebound as the grid scrolls, so building an element per bind would allocate one
+    ///     per scrolled row for the life of the panel — the pool exists precisely to stop that.
+    /// </remarks>
+    public Image Picture { get; private set; } = null!;
 
     /// <summary>The name under it.</summary>
     public UiElement Caption { get; private set; } = null!;
@@ -30,6 +38,10 @@ public sealed partial class AssetTile : Control {
         base.OnCreated();
 
         Glyph = Part<Icon>();
+
+        Picture = Part<Image>();
+        Picture.AddClass("hidden");
+
         Caption = Part("asset-caption");
     }
 }
@@ -51,27 +63,17 @@ public sealed partial class AssetTile : Control {
 ///         scanning is what a grid is for.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Not virtualised, and capped instead.</b> A wrapping grid needs different arithmetic
-///         from <c>VirtualizingPanel</c>'s row pooling — how many fit per line is a function of the
-///         width — and building that control is not this panel's job. A folder with more than
-///         <see cref="Limit" /> things in it shows the first of them and says how many it did not,
-///         which is honest and keeps the panel responsive. A silent truncation would be the worse
-///         half of both options.
+///         ⚠ <b>Virtualised, so a folder's size is not a number this panel has an opinion about.</b>
+///         The tiles are <see cref="VirtualizingGrid" />'s pool — about sixty of them for a folder of
+///         any size — which is what makes an asset dump of forty thousand files scroll rather than
+///         lock the editor up. It used to draw the first four hundred and say how many it had not.
 ///     </para>
 /// </remarks>
 sealed partial class AssetGrid : Control {
-    /// <summary>How many tiles are drawn before the grid says it has stopped.</summary>
-    /// <remarks>
-    ///     Enough that no ordinary folder reaches it, and small enough that the pathological one — a
-    ///     texture atlas dump, a decompiled asset bundle — does not lock the editor up.
-    /// </remarks>
-    public const int Limit = 400;
-
-    readonly List<AssetTile> tiles = [];
+    readonly List<AssetTreeNode> items = [];
 
     UiElement path = null!;
-    UiElement body = null!;
-    TextBlock note = null!;
+    VirtualizingGrid body = null!;
 
     /// <inheritdoc />
     protected override string TagName => "asset-grid";
@@ -82,8 +84,29 @@ sealed partial class AssetGrid : Control {
     /// <summary>The folder being shown, or <see langword="null" /> before the first fill.</summary>
     public AssetTreeNode? Folder { get; private set; }
 
-    /// <summary>The tiles, in order.</summary>
-    public IReadOnlyList<AssetTile> Tiles => tiles;
+    /// <summary>What the grid is showing, in order — the items, not the pooled elements.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The items rather than the tiles, and the difference is the point of virtualising.</b>
+    ///     A caller asking "what is in this folder" wants all of it; a caller asking "which element
+    ///     shows the third one" is asking about a pool that slides, and <see cref="TileOf" /> is that
+    ///     question.
+    /// </remarks>
+    public IReadOnlyList<AssetTreeNode> Items => items;
+
+    /// <summary>The tiles that exist as elements, in pool order.</summary>
+    public IReadOnlyList<AssetTile> Tiles => [.. body.Tiles.OfType<AssetTile>().Where(tile => !tile.HasClass("parked"))];
+
+    /// <summary>The element showing an item, if it is realised.</summary>
+    /// <param name="item">Its index in <see cref="Items" />.</param>
+    /// <returns>The tile, or <see langword="null" /> when it is scrolled away.</returns>
+    public AssetTile? TileOf(int item) => body.TileOf(item) as AssetTile;
+
+    /// <summary>Scrolls until an item is on screen, so that it can be clicked.</summary>
+    /// <param name="item">Its index in <see cref="Items" />.</param>
+    public void ScrollIntoView(int item) {
+        body.ScrollIntoView(item);
+        body.Realise();
+    }
 
     /// <summary>Raised when a tile is chosen — a click.</summary>
     public event Action<AssetTreeNode>? Selected;
@@ -102,48 +125,87 @@ sealed partial class AssetGrid : Control {
         base.OnCreated();
 
         path = Part("asset-path");
-        body = Part("asset-tiles");
 
-        note = Part<TextBlock>();
-        note.AddClass("asset-note");
-        note.AddClass("hidden");
+        body = Part<VirtualizingGrid>();
+        body.AddClass("asset-tiles");
+        body.CreateTile = static grid => grid.Scroller.Content.Add<AssetTile>();
+        body.BindTile = (tile, item) => Bind((AssetTile) tile, item);
 
         // ⚠ Pointer and tap, not `ClickEvent`. A bare `Control` never raises one — `RaiseClick` is
         // `ButtonBase`'s — so a tile is selected from the press and opened from the recogniser's tap
         // count, which is exactly how `TreeView` does the same two gestures.
         AddHandler<PointerEvent>(static (element, args) => ((AssetGrid) element).Pointed(args));
         AddHandler<TapEvent>(static (element, args) => ((AssetGrid) element).Tapped(args));
+        AddHandler<DragEvent>(static (element, args) => ((AssetGrid) element).Dragged(args));
     }
+
+    /// <summary>What each asset's importer tag is, for its glyph.</summary>
+    public Func<AssetTreeNode, string?> Describe { get; set; } = static _ => null;
+
+    /// <summary>The picture for an asset, if one has been made.</summary>
+    /// <remarks>
+    ///     Asked on every bind rather than pushed, because a thumbnail arrives whenever its decode
+    ///     finishes — which is usually a few frames after the tile that wanted it was drawn.
+    /// </remarks>
+    public Func<AssetTreeNode, ulong> Picture { get; set; } = static _ => 0;
 
     /// <summary>Shows a folder's contents.</summary>
     /// <param name="folder">The folder, which the caller has already filtered.</param>
-    /// <param name="describe">What each asset's importer tag is, for its glyph.</param>
-    public void Show(AssetTreeNode folder, Func<AssetTreeNode, string?> describe) {
+    public void Show(AssetTreeNode folder) {
         ArgumentNullException.ThrowIfNull(folder);
-        ArgumentNullException.ThrowIfNull(describe);
 
         Folder = folder;
 
+        items.Clear();
+        items.AddRange(folder.Children);
+
         Breadcrumbs(folder);
-        Fill(folder, describe);
+
+        // ⚠ Set before the realise rather than after. `Count` writes the content height and rebinds,
+        // and a realise against the previous count would place this folder's tiles at the last
+        // folder's positions for a frame.
+        body.Count = items.Count;
+        body.Realise();
     }
+
+    /// <summary>Rebinds the realised tiles, for a picture that arrived after they were drawn.</summary>
+    public void Refresh() => body.Realise();
 
     /// <summary>Marks the tiles for a set of assets as chosen and the rest as not.</summary>
     /// <param name="chosen">What is selected.</param>
     /// <remarks>
-    ///     Pushed in rather than kept, for the reason the outliner's highlight is: the selection is
-    ///     the project's and this is a view of it, so a grid holding its own would be a second answer
-    ///     that drifts the moment anything else selects something.
+    ///     <para>
+    ///         Pushed in rather than kept, for the reason the outliner's highlight is: the selection
+    ///         is the project's and this is a view of it, so a grid holding its own would be a second
+    ///         answer that drifts the moment anything else selects something.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Kept, because a pooled tile is rebound as it scrolls.</b> Marking the realised
+    ///         tiles alone would lose the highlight the moment a selected item scrolled off and back,
+    ///         so the set is held and applied again on every bind.
+    ///     </para>
     /// </remarks>
     public void Mark(IReadOnlyCollection<AssetId> chosen) {
         ArgumentNullException.ThrowIfNull(chosen);
 
-        foreach (var tile in tiles) {
-            if (tile.Node is { IsIndexed: true } asset && chosen.Contains(asset.Guid)) {
-                tile.State |= Vixen.Ui.Styling.ElementState.Checked;
-            } else {
-                tile.State &= ~Vixen.Ui.Styling.ElementState.Checked;
-            }
+        marked.Clear();
+
+        foreach (var asset in chosen) {
+            marked.Add(asset);
+        }
+
+        foreach (var tile in body.Tiles.OfType<AssetTile>()) {
+            Restate(tile);
+        }
+    }
+
+    readonly HashSet<AssetId> marked = [];
+
+    void Restate(AssetTile tile) {
+        if (tile.Node is { IsIndexed: true } asset && marked.Contains(asset.Guid)) {
+            tile.State |= Vixen.Ui.Styling.ElementState.Checked;
+        } else {
+            tile.State &= ~Vixen.Ui.Styling.ElementState.Checked;
         }
     }
 
@@ -174,46 +236,43 @@ sealed partial class AssetGrid : Control {
         }
     }
 
-    void Fill(AssetTreeNode folder, Func<AssetTreeNode, string?> describe) {
-        while (body.Children.Count > 0) {
-            body.Children[^1].Remove();
+    /// <summary>Puts an item on a pooled tile.</summary>
+    void Bind(AssetTile tile, int item) {
+        if (item < 0 || item >= items.Count) {
+            return;
         }
 
-        tiles.Clear();
+        var node = items[item];
 
-        var shown = 0;
+        tile.Node = node;
+        tile.Caption.Text = node.Name;
 
-        foreach (var child in folder.Children) {
-            if (shown == Limit) {
-                break;
-            }
+        var thumbnail = node.IsFolder ? AssetThumbnails.Folder : AssetThumbnails.For(Describe(node));
 
-            var tile = body.Add<AssetTile>();
+        tile.Glyph.Geometry = thumbnail.Glyph;
+        tile.Glyph.SetStyle("color", Css(thumbnail.Tint));
 
-            tile.Node = child;
-            tile.Caption.Text = child.Name;
+        // ⚠ The glyph stays until there is a picture, and goes the moment there is one. A tile that
+        // showed neither while a decode was in flight would flicker empty through every scroll.
+        var picture = node.IsFolder ? 0 : Picture(node);
 
-            var thumbnail = child.IsFolder ? AssetThumbnails.Folder : AssetThumbnails.For(describe(child));
+        tile.Picture.Texture = picture;
 
-            tile.Glyph.Geometry = thumbnail.Glyph;
-            tile.Glyph.SetStyle("color", Css(thumbnail.Tint));
-
-            if (child.IsFolder) {
-                tile.AddClass("folder");
-            }
-
-            tiles.Add(tile);
-            shown++;
-        }
-
-        var hidden = folder.Children.Count - shown;
-
-        if (hidden > 0) {
-            note.RemoveClass("hidden");
-            note.Text = $"…and {hidden} more. Narrow it with the search box.";
+        if (picture == 0) {
+            tile.Picture.AddClass("hidden");
+            tile.Glyph.RemoveClass("hidden");
         } else {
-            note.AddClass("hidden");
+            tile.Picture.RemoveClass("hidden");
+            tile.Glyph.AddClass("hidden");
         }
+
+        if (node.IsFolder) {
+            tile.AddClass("folder");
+        } else {
+            tile.RemoveClass("folder");
+        }
+
+        Restate(tile);
     }
 
     /// <summary>Walks into a folder.</summary>
@@ -222,6 +281,10 @@ sealed partial class AssetGrid : Control {
 
         Navigated?.Invoke(folder);
     }
+
+    /// <summary>Raised when a drag started on a tile is released outside the grid.</summary>
+    /// <inheritdoc cref="Activated" select="remarks" />
+    public event Action<float, float>? DroppedOutside;
 
     /// <summary>Raised when the grid should show a different folder.</summary>
     /// <remarks>
@@ -266,9 +329,26 @@ sealed partial class AssetGrid : Control {
         args.Handled = true;
     }
 
+    void Dragged(DragEvent args) {
+        var bounds = Bounds;
+
+        var inside = args.X >= bounds.X
+            && args.X < bounds.X + bounds.Width
+            && args.Y >= bounds.Y
+            && args.Y < bounds.Y + bounds.Height;
+
+        if (args.Stage == DragStage.Completed && !inside) {
+            DroppedOutside?.Invoke(args.X, args.Y);
+        }
+    }
+
     /// <summary>The tile under a point, if any.</summary>
     public AssetTile? TileAt(float x, float y) {
-        foreach (var tile in tiles) {
+        foreach (var tile in body.Tiles.OfType<AssetTile>()) {
+            if (tile.HasClass("parked")) {
+                continue;
+            }
+
             var bounds = tile.Bounds;
 
             if (x >= bounds.X && x < bounds.X + bounds.Width && y >= bounds.Y && y < bounds.Y + bounds.Height) {

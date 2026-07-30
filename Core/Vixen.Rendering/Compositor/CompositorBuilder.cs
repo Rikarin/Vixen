@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Graphics;
+using Vixen.Rendering.Features;
 using Vixen.Shaders;
 
 namespace Vixen.Rendering.Compositor;
@@ -197,6 +198,13 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Stages[declared.Name] = AddStage(declared);
         }
 
+        // Before the tree, because a permutation that changed after a variant resolved would leave
+        // already-resolved variants compiled for the old value — and a node that draws is a node that
+        // may resolve one. Both features say so in as many words.
+        if (asset.GpuDriven is { } driven) {
+            EnableGpuDriven(driven);
+        }
+
         var compositor = new GraphicsCompositor(system) { Game = asset.Game is null ? null : Node(asset.Game) };
 
         foreach (var resource in asset.Resources) {
@@ -209,6 +217,85 @@ public sealed class CompositorBuilder(RenderSystem system) {
 
         return compositor;
     }
+
+    /// <summary>
+    ///     What the document asked for and the device agreed to, after the last build.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <strong>Not the same as what was asked.</strong> Every flag in
+    ///     <see cref="GpuDrivenAsset" /> is gated on a capability, so a document that asked for all of
+    ///     it gets none of it on a target without descriptor indexing — and that is the correct frame
+    ///     rather than a degraded one. This is how a host or an editor says which, without repeating
+    ///     the capability checks the features already made.
+    /// </remarks>
+    public GpuDrivenResult GpuDriven { get; private set; }
+
+    /// <summary>
+    ///     Turns the frame's material and transform records on where the device takes them.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>Reached through the features rather than created here</strong>, which is the
+    ///         same division everything else in this builder follows: a feature holds device memory
+    ///         that outlives the frame, and a document cannot create one. What a document decides is
+    ///         whether the frame draws this way; what a host decides is whether the features exist and
+    ///         whether the table has a fallback texture to hand out.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ A material feature with no <c>Device</c> cannot answer the capability question and so
+    ///         answers no. The device is taken from this builder when the feature has none, because a
+    ///         host that set one here and not there meant the same device — and the alternative is a
+    ///         document that asks for records and silently gets none.
+    ///     </para>
+    /// </remarks>
+    void EnableGpuDriven(GpuDrivenAsset declared) {
+        var materials = false;
+        var transforms = false;
+        var objects = false;
+
+        foreach (var feature in system.Features) {
+            if (feature is not RootRenderFeature root) {
+                continue;
+            }
+
+            foreach (var subFeature in root.SubFeatures) {
+                switch (subFeature) {
+                    case MaterialRenderFeature material when declared.MaterialRecords:
+                        material.Device ??= Device;
+                        materials |= material.EnableRecords(Permutation(declared.Shader, "UseMaterialRecords"));
+                        break;
+
+                    case TransformRenderFeature transform when declared.TransformRecords:
+                        transform.Device ??= Device;
+                        transforms |= transform.EnableRecords(Permutation(declared.Shader, "UseTransformRecords"));
+                        break;
+                }
+            }
+        }
+
+        // A second pass, because the answer depends on the first one and sub-features are in the
+        // order a host added them. What addresses a per-object record is the draw's instance index,
+        // and that holds the object's slot only because the transform path put it there — so a
+        // lighting feature asked without transforms would read record zero for every object.
+        foreach (var feature in system.Features) {
+            if (feature is not RootRenderFeature root) {
+                continue;
+            }
+
+            foreach (var subFeature in root.SubFeatures) {
+                if (subFeature is ForwardLightingRenderFeature lighting && declared.TransformRecords) {
+                    lighting.Device ??= Device;
+                    objects |= lighting.EnableRecords(Permutation(declared.Shader, "UseObjectRecords"), transforms);
+                }
+            }
+        }
+
+        GpuDriven = new(materials, transforms, objects);
+    }
+
+    /// <summary>The shader's own key for a permutation, by the name the generator interns it under.</summary>
+    static PermutationKey<bool> Permutation(string shader, string name) =>
+        ParameterKeys.NewPermutation(false, $"{shader}.{name}");
 
     RenderStage AddStage(RenderStageAsset declared) {
         // Reused rather than added twice, so building a second compositor over one render system —
@@ -475,6 +562,12 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Arguments = declared.IndirectDraws ? Arguments : null
         };
 
+        // Asked for here and answered by the buffer, which checks the device: `Compact` is what a
+        // document requested and `IsCompacted` is what it got, and a draw loop reads the second.
+        if (node.Arguments is not null) {
+            node.Arguments.Compact = declared.Compact;
+        }
+
         if (Visibility is { } group) {
             // A late node's own readBack is not read. Declaring a late phase *is* declaring the
             // in-frame path — the two dispatches have to straddle a set of draws, and the readback
@@ -610,3 +703,14 @@ public sealed class CompositorBuilder(RenderSystem system) {
             ? value
             : throw new CompositorBindingException(node, kind, name);
 }
+
+/// <summary>What a build's GPU-driven request actually turned on.</summary>
+/// <param name="MaterialRecords">Whether materials became records of one buffer.</param>
+/// <param name="TransformRecords">Whether world matrices left the command buffer.</param>
+/// <param name="ObjectRecords">Whether the per-object scalars did too.</param>
+/// <remarks>
+///     Both false is the ordinary answer on most targets and is not a failure — see
+///     <see cref="GpuDrivenAsset" />. What it is useful for is telling a "the device said no" frame
+///     apart from a "nobody asked" one, which otherwise look identical from outside.
+/// </remarks>
+public readonly record struct GpuDrivenResult(bool MaterialRecords, bool TransformRecords, bool ObjectRecords);

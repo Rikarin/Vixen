@@ -20,6 +20,26 @@ public static class BuiltInTypes {
     public static readonly PrimitiveTypeSymbol Float = new("float", SpecialType.Float, TypeKind.Scalar);
     public static readonly PrimitiveTypeSymbol Double = new("double", SpecialType.Double, TypeKind.Scalar);
 
+    /// <summary>
+    ///     The 64-bit integers.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Spelled <c>int64</c> and <c>uint64</c> — names rather than keywords, which is why
+    ///         they cost the lexer, the parser and the grammar oracle nothing: the scope holds every
+    ///         intrinsic type, so <c>Texture2D</c> already resolves this way and so do these.
+    ///     </para>
+    ///     <para>
+    ///         Optional on every target: <c>VK_KHR_shader_atomic_int64</c> on Vulkan, SM6.6 on
+    ///         D3D12, and absent from WebGPU entirely. So a shader that uses one says so through
+    ///         <c>IrCapability.Int64</c> and the host gates the pipeline on it, which is the whole
+    ///         reason capabilities are reported per shader.
+    ///     </para>
+    /// </remarks>
+    public static readonly PrimitiveTypeSymbol Int64 = new("int64", SpecialType.Int64, TypeKind.Scalar);
+
+    public static readonly PrimitiveTypeSymbol UInt64 = new("uint64", SpecialType.UInt64, TypeKind.Scalar);
+
     public static readonly PrimitiveTypeSymbol Bool2 = Vec("bool2", SpecialType.Bool2, SpecialType.Bool, 2);
     public static readonly PrimitiveTypeSymbol Bool3 = Vec("bool3", SpecialType.Bool3, SpecialType.Bool, 3);
     public static readonly PrimitiveTypeSymbol Bool4 = Vec("bool4", SpecialType.Bool4, SpecialType.Bool, 4);
@@ -67,7 +87,7 @@ public static class BuiltInTypes {
 
     static BuiltInTypes() {
         PrimitiveTypeSymbol[] primitives = [
-            Void, Bool, Int, UInt, Float, Double,
+            Void, Bool, Int, UInt, Float, Double, Int64, UInt64,
             Bool2, Bool3, Bool4, Int2, Int3, Int4, UInt2, UInt3, UInt4,
             Float2, Float3, Float4, Double2, Double3, Double4,
             Mat2, Mat2x3, Mat2x4, Mat3, Mat3x2, Mat3x4, Mat4, Mat4x2, Mat4x3
@@ -168,6 +188,15 @@ public static class BuiltInTypes {
     ///         do not have to guess a level for a stage that has no derivatives.
     ///     </para>
     ///     <para>
+    ///         <c>SampleGrad</c> is the third form, and it exists for the case the other two cannot
+    ///         serve: a resolve pass, where the fragment quad's derivatives are meaningless because
+    ///         the neighbouring pixel may belong to a different triangle, and where one stated level
+    ///         would throw away the anisotropy that keeps a grazing floor sharp. The gradients are
+    ///         the caller's — derived from the triangle plane rather than from the quad — and they
+    ///         are <em>UV-space</em> gradients, the same as what <c>ddx(uv)</c> would have produced,
+    ///         so a fragment shader can pass those directly and get exactly <c>Sample</c> back.
+    ///     </para>
+    ///     <para>
     ///         <c>GetDimensions</c> returns its answer rather than filling <c>out</c> parameters the
     ///         way HLSL does — Raven has no by-reference arguments, and both targets' query
     ///         instructions return a value anyway. Signed, because that is what GLSL's
@@ -184,6 +213,12 @@ public static class BuiltInTypes {
                     Float4,
                     [("sampler", Sampler), ("uv", Float2), ("lod", Float)]
                 ),
+                new SynthesizedMethodSymbol(
+                    Texture2D,
+                    "SampleGrad",
+                    Float4,
+                    [("sampler", Sampler), ("uv", Float2), ("ddx", Float2), ("ddy", Float2)]
+                ),
                 new SynthesizedMethodSymbol(Texture2D, "Load", Float4, [("coordinate", Int3)]),
                 new SynthesizedMethodSymbol(Texture2D, "GetDimensions", Int2, [("lod", Int)])
             ]
@@ -197,6 +232,12 @@ public static class BuiltInTypes {
                     "SampleLevel",
                     Float4,
                     [("sampler", Sampler), ("uvw", Float3), ("lod", Float)]
+                ),
+                new SynthesizedMethodSymbol(
+                    Texture3D,
+                    "SampleGrad",
+                    Float4,
+                    [("sampler", Sampler), ("uvw", Float3), ("ddx", Float3), ("ddy", Float3)]
                 ),
                 new SynthesizedMethodSymbol(Texture3D, "GetDimensions", Int3, [("lod", Int)])
             ]
@@ -215,6 +256,12 @@ public static class BuiltInTypes {
                     "SampleLevel",
                     Float4,
                     [("sampler", Sampler), ("direction", Float3), ("lod", Float)]
+                ),
+                new SynthesizedMethodSymbol(
+                    TextureCube,
+                    "SampleGrad",
+                    Float4,
+                    [("sampler", Sampler), ("direction", Float3), ("ddx", Float3), ("ddy", Float3)]
                 ),
 
                 // A cube's faces are square and all six are the same size, so its size is two

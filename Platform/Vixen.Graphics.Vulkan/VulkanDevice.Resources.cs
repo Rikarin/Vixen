@@ -344,6 +344,98 @@ public sealed unsafe partial class VulkanDevice {
         Retire(() => Api.DestroyShaderModule(device, shader.Handle, null));
     }
 
+    /// <inheritdoc />
+    public QueryPoolHandle CreateQueryPool(in QueryPoolDescription description) {
+        if (!Features.HasTimestampQueries) {
+            throw new NotSupportedException(
+                $"Query pool '{description.Name}' was asked for on a device whose graphics queue "
+                + "reports no timestamp bits. Ask Features.HasTimestampQueries first."
+            );
+        }
+
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(description.Count, nameof(description));
+
+        var create = new QueryPoolCreateInfo {
+            SType = StructureType.QueryPoolCreateInfo,
+            QueryType = QueryType.Timestamp,
+            QueryCount = (uint)description.Count
+        };
+
+        QueryPool handle;
+        Check(Api.CreateQueryPool(device, &create, null, &handle), "vkCreateQueryPool");
+        Name(ObjectType.QueryPool, handle.Handle, description.Name);
+
+        lock (gate) {
+            return new(queryPools.Add(new VulkanQueryPool { Handle = handle, Count = description.Count }));
+        }
+    }
+
+    /// <inheritdoc />
+    public void Destroy(QueryPoolHandle handle) {
+        if (Take(queryPools, handle.Value) is not VulkanQueryPool pool) {
+            return;
+        }
+
+        Retire(() => Api.DestroyQueryPool(device, pool.Handle, null));
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Without <c>WAIT_BIT</c>, and that is the contract rather than an optimisation.</b>
+    ///     Asking Vulkan to wait would block the calling thread until the GPU had finished the
+    ///     submission that wrote the range — once a frame, on the frame thread, for a panel nobody
+    ///     may even have open. <c>NotReady</c> comes back as <see langword="false" /> and the caller
+    ///     asks again next frame.
+    /// </remarks>
+    public bool TryResolveQueries(QueryPoolHandle pool, int first, Span<ulong> results) {
+        ArgumentOutOfRangeException.ThrowIfNegative(first);
+
+        if (results.IsEmpty) {
+            return true;
+        }
+
+        VulkanQueryPool target;
+
+        lock (gate) {
+            if (!queryPools.TryGet(pool.Value, out var found) || found is not VulkanQueryPool resolved) {
+                throw new ArgumentException(
+                    "A query-pool handle referred to nothing. Either it was never created, or it was "
+                    + "destroyed and the handle kept.",
+                    nameof(pool)
+                );
+            }
+
+            target = resolved;
+        }
+
+        if (first + results.Length > target.Count) {
+            throw new ArgumentOutOfRangeException(
+                nameof(first),
+                $"Reading {results.Length} queries from {first} runs off the end of a pool holding "
+                + $"{target.Count}. Vulkan's answer to that is undefined rather than an error."
+            );
+        }
+
+        fixed (ulong* destination = results) {
+            var status = Api.GetQueryPoolResults(
+                device,
+                target.Handle,
+                (uint)first,
+                (uint)results.Length,
+                (nuint)(results.Length * sizeof(ulong)),
+                destination,
+                sizeof(ulong),
+                QueryResultFlags.Result64Bit
+            );
+
+            return status switch {
+                Result.Success => true,
+                Result.NotReady => false,
+                _ => throw new VulkanException($"vkGetQueryPoolResults failed with {status}.")
+            };
+        }
+    }
+
     internal VulkanBuffer Resolve(BufferHandle handle) {
         lock (gate) {
             if (buffers.TryGet(handle.Value, out var buffer) && buffer is VulkanBuffer resolved) {
@@ -385,6 +477,16 @@ public sealed unsafe partial class VulkanDevice {
         }
 
         throw new ArgumentException("A pipeline handle referred to nothing.");
+    }
+
+    internal VulkanQueryPool Resolve(QueryPoolHandle handle) {
+        lock (gate) {
+            if (queryPools.TryGet(handle.Value, out var pool) && pool is VulkanQueryPool resolved) {
+                return resolved;
+            }
+        }
+
+        throw new ArgumentException("A query-pool handle referred to nothing.");
     }
 
     internal VulkanDescriptorSet Resolve(DescriptorSetHandle handle) {
@@ -459,6 +561,12 @@ public sealed unsafe partial class VulkanDevice {
     }
 
     void DestroyAll() {
+        foreach (var (_, item) in queryPools) {
+            if (item is VulkanQueryPool pool) {
+                Api.DestroyQueryPool(device, pool.Handle, null);
+            }
+        }
+
         foreach (var (_, item) in pipelines) {
             if (item is VulkanPipeline pipeline) {
                 Api.DestroyPipeline(device, pipeline.Handle, null);
@@ -509,6 +617,7 @@ public sealed unsafe partial class VulkanDevice {
             }
         }
 
+        queryPools.Clear();
         pipelines.Clear();
         pipelineLayouts.Clear();
         setLayouts.Clear();

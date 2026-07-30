@@ -126,6 +126,7 @@ public class LexerDifferentialTests {
             Antlr.RavenLexer.READONLY => RavenTokenKind.ReadOnlyKeyword,
             Antlr.RavenLexer.STATIC => RavenTokenKind.StaticKeyword,
             Antlr.RavenLexer.STREAM => RavenTokenKind.StreamKeyword,
+            Antlr.RavenLexer.GROUPSHARED => RavenTokenKind.GroupSharedKeyword,
             Antlr.RavenLexer.INOUT => RavenTokenKind.InOutKeyword,
             Antlr.RavenLexer.BOOL => RavenTokenKind.BoolKeyword,
             Antlr.RavenLexer.BOOL2 => RavenTokenKind.Bool2Keyword,

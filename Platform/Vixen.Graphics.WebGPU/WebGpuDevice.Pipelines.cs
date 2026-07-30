@@ -127,6 +127,35 @@ public sealed partial class WebGpuDevice {
         return new WebGpuSwapChain(this, description);
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Not yet, and the reason is that the feature is not free to ask for.</b> WebGPU has
+    ///     <c>timestamp-query</c>, and it is an <i>optional</i> feature a device must be created
+    ///     with — browsers gate it behind a flag for the same fingerprinting and timing-attack
+    ///     reasons they blur <c>performance.now</c>, so a device that asked for it unconditionally
+    ///     would fail to be created on the majority of the configurations this backend targets. It
+    ///     belongs with a device-creation option that says whether the caller wants a profileable
+    ///     device, which is a decision the editor's remote-inspector work has not needed yet.
+    /// </remarks>
+    public QueryPoolHandle CreateQueryPool(in QueryPoolDescription description) =>
+        throw new NotSupportedException(
+            $"Query pool '{description.Name}' was asked for on the WebGPU backend. `timestamp-query` is "
+            + "an optional device feature this backend does not request. Ask "
+            + "Features.HasTimestampQueries first."
+        );
+
+    /// <inheritdoc />
+    public void Destroy(QueryPoolHandle handle) {
+        // Nothing was created, so nothing is freed — and a Destroy that threw would turn a clean-up
+        // path into a second failure.
+    }
+
+    /// <inheritdoc />
+    public bool TryResolveQueries(QueryPoolHandle pool, int first, Span<ulong> results) =>
+        throw new NotSupportedException(
+            "The WebGPU backend does not request `timestamp-query`, so no pool exists to resolve."
+        );
+
     static WgpuVertexBufferLayout[] BuildVertexLayouts(in GraphicsPipelineDescription description) {
         if (description.VertexBuffers is not { Length: > 0 } declared) {
             return [];

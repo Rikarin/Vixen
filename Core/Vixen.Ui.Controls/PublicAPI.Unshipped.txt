@@ -618,6 +618,25 @@ Vixen.Ui.Controls.ValueChangedEvent<T>.Previous.init -> T?
 Vixen.Ui.Controls.ValueChangedEvent<T>.Value.get -> T?
 Vixen.Ui.Controls.ValueChangedEvent<T>.Value.init -> T?
 Vixen.Ui.Controls.ValueChangedEvent<T>.ValueChangedEvent() -> void
+Vixen.Ui.Controls.VirtualizingGrid -> sealed class
+Vixen.Ui.Controls.VirtualizingGrid : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.VirtualizingGrid.BindTile.get -> System.Action<Vixen.Ui.UiElement, int>?
+Vixen.Ui.Controls.VirtualizingGrid.BindTile.set -> System.Action<Vixen.Ui.UiElement, int>?
+Vixen.Ui.Controls.VirtualizingGrid.ClearCount() -> void
+Vixen.Ui.Controls.VirtualizingGrid.Columns.get -> int
+Vixen.Ui.Controls.VirtualizingGrid.Count.get -> int
+Vixen.Ui.Controls.VirtualizingGrid.Count.set -> int
+Vixen.Ui.Controls.VirtualizingGrid.CreateTile.get -> System.Func<Vixen.Ui.Controls.VirtualizingGrid, Vixen.Ui.UiElement>?
+Vixen.Ui.Controls.VirtualizingGrid.CreateTile.set -> System.Func<Vixen.Ui.Controls.VirtualizingGrid, Vixen.Ui.UiElement>?
+Vixen.Ui.Controls.VirtualizingGrid.FirstItem.get -> int
+Vixen.Ui.Controls.VirtualizingGrid.Realise() -> void
+Vixen.Ui.Controls.VirtualizingGrid.ScrollIntoView(int item) -> void
+Vixen.Ui.Controls.VirtualizingGrid.Scroller.get -> Vixen.Ui.Controls.ScrollView
+Vixen.Ui.Controls.VirtualizingGrid.TileHeight.get -> float
+Vixen.Ui.Controls.VirtualizingGrid.TileOf(int item) -> Vixen.Ui.UiElement?
+Vixen.Ui.Controls.VirtualizingGrid.TileWidth.get -> float
+Vixen.Ui.Controls.VirtualizingGrid.Tiles.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.UiElement>
+Vixen.Ui.Controls.VirtualizingGrid.VirtualizingGrid() -> void
 Vixen.Ui.Controls.VirtualizingPanel -> sealed class
 Vixen.Ui.Controls.VirtualizingPanel : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.VirtualizingPanel.BindRow.get -> System.Action<Vixen.Ui.UiElement, int>?
@@ -636,6 +655,7 @@ Vixen.Ui.Controls.VirtualizingPanel.ScrollIntoView(int item) -> void
 Vixen.Ui.Controls.VirtualizingPanel.Scroller.get -> Vixen.Ui.Controls.ScrollView
 Vixen.Ui.Controls.VirtualizingPanel.VirtualizingPanel() -> void
 abstract Vixen.Ui.Controls.SelectBase.OnOptionChosen(Vixen.Ui.Controls.Option option) -> void
+const Vixen.Ui.Controls.VirtualizingGrid.Overscan = 2 -> int
 const Vixen.Ui.Controls.VirtualizingPanel.Overscan = 2 -> int
 override Vixen.Ui.Controls.Accordion.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Accordion.OnCreated() -> void
@@ -772,6 +792,7 @@ override Vixen.Ui.Controls.TabItem.TagName.get -> string
 override Vixen.Ui.Controls.Tabs.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Tabs.OnCreated() -> void
 override Vixen.Ui.Controls.Tabs.TagName.get -> string
+override Vixen.Ui.Controls.TextArea.AcceptsNewlines.get -> bool
 override Vixen.Ui.Controls.TextArea.TagName.get -> string
 override Vixen.Ui.Controls.TextBlock.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.TextBlock.TagName.get -> string
@@ -793,6 +814,10 @@ override Vixen.Ui.Controls.ToggleButton.TagName.get -> string
 override Vixen.Ui.Controls.Tooltip.OnCreated() -> void
 override Vixen.Ui.Controls.Tooltip.OnRemoved() -> void
 override Vixen.Ui.Controls.Tooltip.TagName.get -> string
+override Vixen.Ui.Controls.VirtualizingGrid.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.VirtualizingGrid.OnCreated() -> void
+override Vixen.Ui.Controls.VirtualizingGrid.OnRemoved() -> void
+override Vixen.Ui.Controls.VirtualizingGrid.TagName.get -> string
 override Vixen.Ui.Controls.VirtualizingPanel.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.VirtualizingPanel.OnCreated() -> void
 override Vixen.Ui.Controls.VirtualizingPanel.OnRemoved() -> void
@@ -805,12 +830,14 @@ static Vixen.Ui.Controls.ControlIcons.ChevronRight.get -> Vixen.Ui.PathBuilder
 static Vixen.Ui.Controls.ControlIcons.ChevronUp.get -> Vixen.Ui.PathBuilder
 static Vixen.Ui.Controls.ControlIcons.Close.get -> Vixen.Ui.PathBuilder
 static Vixen.Ui.Controls.ControlIcons.Dash.get -> Vixen.Ui.PathBuilder
+static Vixen.Ui.Controls.ControlIcons.Lock.get -> Vixen.Ui.PathBuilder
 static Vixen.Ui.Controls.ControlIcons.Search.get -> Vixen.Ui.PathBuilder
+static Vixen.Ui.Controls.ControlIcons.Unlock.get -> Vixen.Ui.PathBuilder
 static Vixen.Ui.Controls.ControlTheme.Css.get -> string
 static Vixen.Ui.Controls.ControlTheme.Install(Vixen.Ui.UiDocument document) -> int
 static Vixen.Ui.Controls.KeyboardShortcut.Describe(Vixen.Input.InputKey key, Vixen.Ui.ModifierKeys modifiers) -> string
-static Vixen.Ui.Controls.KeyboardShortcut.Formatter.get -> System.Func<Vixen.Input.InputKey, Vixen.Ui.ModifierKeys, string!>!
-static Vixen.Ui.Controls.KeyboardShortcut.Formatter.set -> void
+static Vixen.Ui.Controls.KeyboardShortcut.Formatter.get -> System.Func<Vixen.Input.InputKey, Vixen.Ui.ModifierKeys, string>
+static Vixen.Ui.Controls.KeyboardShortcut.Formatter.set -> System.Func<Vixen.Input.InputKey, Vixen.Ui.ModifierKeys, string>
 static readonly Vixen.Ui.Controls.Accordion.AllowMultipleProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Avatar.NameProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.BreadcrumbItem.ValueProperty -> Vixen.Ui.UiPropertyKey
@@ -873,6 +900,7 @@ static readonly Vixen.Ui.Controls.TextField.ValueProperty -> Vixen.Ui.UiProperty
 static readonly Vixen.Ui.Controls.Toast.DurationProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.ToggleBase.IsCheckedProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Tooltip.DelayProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.VirtualizingGrid.CountProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.VirtualizingPanel.CountProperty -> Vixen.Ui.UiPropertyKey
 virtual Vixen.Ui.Controls.ButtonBase.Activate(Vixen.Ui.Controls.ActivationDevice device, int count, Vixen.Ui.ModifierKeys modifiers) -> void
 virtual Vixen.Ui.Controls.ButtonBase.ActivatesOnEnter.get -> bool
@@ -882,6 +910,7 @@ virtual Vixen.Ui.Controls.Overlay.OnClosed(Vixen.Ui.Controls.CloseReason reason)
 virtual Vixen.Ui.Controls.Overlay.OnOpened() -> void
 virtual Vixen.Ui.Controls.RangeBase.OnBoundsChanged() -> void
 virtual Vixen.Ui.Controls.SelectBase.OnOptionAdded(Vixen.Ui.Controls.Option option) -> void
+virtual Vixen.Ui.Controls.TextField.AcceptsNewlines.get -> bool
 virtual Vixen.Ui.Controls.TextField.Coerce(string? value) -> string?
 virtual Vixen.Ui.Controls.TextField.OnSubmit() -> void
 virtual Vixen.Ui.Controls.TextField.SelectAt(int index, int count) -> void

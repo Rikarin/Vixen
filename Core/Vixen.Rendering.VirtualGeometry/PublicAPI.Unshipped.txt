@@ -1,0 +1,173 @@
+#nullable enable
+Vixen.Rendering.VirtualGeometry.Meshlet -> readonly struct
+Vixen.Rendering.VirtualGeometry.Meshlet : System.IEquatable<Vixen.Rendering.VirtualGeometry.Meshlet>
+Vixen.Rendering.VirtualGeometry.Meshlet.BoneCount.get -> int
+Vixen.Rendering.VirtualGeometry.Meshlet.BoneCount.init -> int
+Vixen.Rendering.VirtualGeometry.Meshlet.Bounds.get -> Vixen.Core.Mathematics.BoundingBox
+Vixen.Rendering.VirtualGeometry.Meshlet.Bounds.init -> Vixen.Core.Mathematics.BoundingBox
+Vixen.Rendering.VirtualGeometry.Meshlet.ConeAxis.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.VirtualGeometry.Meshlet.ConeAxis.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.VirtualGeometry.Meshlet.ConeCosine.get -> float
+Vixen.Rendering.VirtualGeometry.Meshlet.ConeCosine.init -> float
+Vixen.Rendering.VirtualGeometry.Meshlet.Error.get -> float
+Vixen.Rendering.VirtualGeometry.Meshlet.Error.init -> float
+Vixen.Rendering.VirtualGeometry.Meshlet.FirstBone.get -> int
+Vixen.Rendering.VirtualGeometry.Meshlet.FirstBone.init -> int
+Vixen.Rendering.VirtualGeometry.Meshlet.Group.get -> int
+Vixen.Rendering.VirtualGeometry.Meshlet.Group.init -> int
+Vixen.Rendering.VirtualGeometry.Meshlet.Level.get -> int
+Vixen.Rendering.VirtualGeometry.Meshlet.Level.init -> int
+Vixen.Rendering.VirtualGeometry.Meshlet.MaterialIndex.get -> int
+Vixen.Rendering.VirtualGeometry.Meshlet.MaterialIndex.init -> int
+Vixen.Rendering.VirtualGeometry.Meshlet.Meshlet() -> void
+Vixen.Rendering.VirtualGeometry.Meshlet.ParentError.get -> float
+Vixen.Rendering.VirtualGeometry.Meshlet.ParentError.init -> float
+Vixen.Rendering.VirtualGeometry.Meshlet.Source.get -> int
+Vixen.Rendering.VirtualGeometry.Meshlet.Source.init -> int
+Vixen.Rendering.VirtualGeometry.Meshlet.TriangleCount.get -> int
+Vixen.Rendering.VirtualGeometry.Meshlet.TriangleCount.init -> int
+Vixen.Rendering.VirtualGeometry.Meshlet.TriangleOffset.get -> int
+Vixen.Rendering.VirtualGeometry.Meshlet.TriangleOffset.init -> int
+Vixen.Rendering.VirtualGeometry.Meshlet.VertexCount.get -> int
+Vixen.Rendering.VirtualGeometry.Meshlet.VertexCount.init -> int
+Vixen.Rendering.VirtualGeometry.Meshlet.VertexOffset.get -> int
+Vixen.Rendering.VirtualGeometry.Meshlet.VertexOffset.init -> int
+Vixen.Rendering.VirtualGeometry.MeshletBuildInput -> sealed record
+Vixen.Rendering.VirtualGeometry.MeshletBuildInput : System.IEquatable<Vixen.Rendering.VirtualGeometry.MeshletBuildInput>
+Vixen.Rendering.VirtualGeometry.MeshletBuildInput.BoneIndices.get -> int[]
+Vixen.Rendering.VirtualGeometry.MeshletBuildInput.BoneIndices.init -> int[]
+Vixen.Rendering.VirtualGeometry.MeshletBuildInput.BoneWeights.get -> float[]
+Vixen.Rendering.VirtualGeometry.MeshletBuildInput.BoneWeights.init -> float[]
+Vixen.Rendering.VirtualGeometry.MeshletBuildInput.Indices.get -> int[]
+Vixen.Rendering.VirtualGeometry.MeshletBuildInput.Indices.init -> int[]
+Vixen.Rendering.VirtualGeometry.MeshletBuildInput.IsSkinned.get -> bool
+Vixen.Rendering.VirtualGeometry.MeshletBuildInput.MaterialIndex.get -> int
+Vixen.Rendering.VirtualGeometry.MeshletBuildInput.MaterialIndex.init -> int
+Vixen.Rendering.VirtualGeometry.MeshletBuildInput.MeshletBuildInput() -> void
+Vixen.Rendering.VirtualGeometry.MeshletBuildInput.Normals.get -> Vixen.Core.Mathematics.Vector3[]
+Vixen.Rendering.VirtualGeometry.MeshletBuildInput.Normals.init -> Vixen.Core.Mathematics.Vector3[]
+Vixen.Rendering.VirtualGeometry.MeshletBuildInput.Positions.get -> Vixen.Core.Mathematics.Vector3[]
+Vixen.Rendering.VirtualGeometry.MeshletBuildInput.Positions.init -> Vixen.Core.Mathematics.Vector3[]
+Vixen.Rendering.VirtualGeometry.MeshletBuildInput.Tangents.get -> Vixen.Core.Mathematics.Vector4[]
+Vixen.Rendering.VirtualGeometry.MeshletBuildInput.Tangents.init -> Vixen.Core.Mathematics.Vector4[]
+Vixen.Rendering.VirtualGeometry.MeshletBuildInput.TexCoords.get -> Vixen.Core.Mathematics.Vector2[]
+Vixen.Rendering.VirtualGeometry.MeshletBuildInput.TexCoords.init -> Vixen.Core.Mathematics.Vector2[]
+Vixen.Rendering.VirtualGeometry.MeshletBuildInput.TriangleCount.get -> int
+Vixen.Rendering.VirtualGeometry.MeshletBuildInput.Validate() -> void
+Vixen.Rendering.VirtualGeometry.MeshletBuildInput.VertexCount.get -> int
+Vixen.Rendering.VirtualGeometry.MeshletBuildSettings -> readonly struct
+Vixen.Rendering.VirtualGeometry.MeshletBuildSettings : System.IEquatable<Vixen.Rendering.VirtualGeometry.MeshletBuildSettings>
+Vixen.Rendering.VirtualGeometry.MeshletBuildSettings.FallbackTriangles.get -> int
+Vixen.Rendering.VirtualGeometry.MeshletBuildSettings.FallbackTriangles.init -> int
+Vixen.Rendering.VirtualGeometry.MeshletBuildSettings.GroupSize.get -> int
+Vixen.Rendering.VirtualGeometry.MeshletBuildSettings.GroupSize.init -> int
+Vixen.Rendering.VirtualGeometry.MeshletBuildSettings.MaxLevels.get -> int
+Vixen.Rendering.VirtualGeometry.MeshletBuildSettings.MaxLevels.init -> int
+Vixen.Rendering.VirtualGeometry.MeshletBuildSettings.MaxTriangles.get -> int
+Vixen.Rendering.VirtualGeometry.MeshletBuildSettings.MaxTriangles.init -> int
+Vixen.Rendering.VirtualGeometry.MeshletBuildSettings.MaxVertices.get -> int
+Vixen.Rendering.VirtualGeometry.MeshletBuildSettings.MaxVertices.init -> int
+Vixen.Rendering.VirtualGeometry.MeshletBuildSettings.MeshletBuildSettings() -> void
+Vixen.Rendering.VirtualGeometry.MeshletBuildSettings.Parallel.get -> bool
+Vixen.Rendering.VirtualGeometry.MeshletBuildSettings.Parallel.init -> bool
+Vixen.Rendering.VirtualGeometry.MeshletBuildSettings.SimplifyRatio.get -> float
+Vixen.Rendering.VirtualGeometry.MeshletBuildSettings.SimplifyRatio.init -> float
+Vixen.Rendering.VirtualGeometry.MeshletBuildSettings.Validate() -> void
+Vixen.Rendering.VirtualGeometry.MeshletBuilder -> static class
+Vixen.Rendering.VirtualGeometry.MeshletCut -> static class
+Vixen.Rendering.VirtualGeometry.MeshletGroup -> sealed record
+Vixen.Rendering.VirtualGeometry.MeshletGroup : System.IEquatable<Vixen.Rendering.VirtualGeometry.MeshletGroup>
+Vixen.Rendering.VirtualGeometry.MeshletGroup.Children.get -> int[]
+Vixen.Rendering.VirtualGeometry.MeshletGroup.Children.init -> int[]
+Vixen.Rendering.VirtualGeometry.MeshletGroup.Error.get -> float
+Vixen.Rendering.VirtualGeometry.MeshletGroup.Error.init -> float
+Vixen.Rendering.VirtualGeometry.MeshletGroup.Level.get -> int
+Vixen.Rendering.VirtualGeometry.MeshletGroup.Level.init -> int
+Vixen.Rendering.VirtualGeometry.MeshletGroup.MeshletGroup() -> void
+Vixen.Rendering.VirtualGeometry.MeshletGroup.Parents.get -> int[]
+Vixen.Rendering.VirtualGeometry.MeshletGroup.Parents.init -> int[]
+Vixen.Rendering.VirtualGeometry.MeshletMesh -> sealed record
+Vixen.Rendering.VirtualGeometry.MeshletMesh : System.IEquatable<Vixen.Rendering.VirtualGeometry.MeshletMesh>
+Vixen.Rendering.VirtualGeometry.MeshletMesh.Fallback.get -> int[]
+Vixen.Rendering.VirtualGeometry.MeshletMesh.Fallback.init -> int[]
+Vixen.Rendering.VirtualGeometry.MeshletMesh.GetTriangles(in Vixen.Rendering.VirtualGeometry.Meshlet meshlet, System.Span<int> indices) -> void
+Vixen.Rendering.VirtualGeometry.MeshletMesh.Groups.get -> Vixen.Rendering.VirtualGeometry.MeshletGroup[]
+Vixen.Rendering.VirtualGeometry.MeshletMesh.Groups.init -> Vixen.Rendering.VirtualGeometry.MeshletGroup[]
+Vixen.Rendering.VirtualGeometry.MeshletMesh.LevelCount.get -> int
+Vixen.Rendering.VirtualGeometry.MeshletMesh.LevelCount.init -> int
+Vixen.Rendering.VirtualGeometry.MeshletMesh.MeshletMesh() -> void
+Vixen.Rendering.VirtualGeometry.MeshletMesh.Meshlets.get -> Vixen.Rendering.VirtualGeometry.Meshlet[]
+Vixen.Rendering.VirtualGeometry.MeshletMesh.Meshlets.init -> Vixen.Rendering.VirtualGeometry.Meshlet[]
+Vixen.Rendering.VirtualGeometry.MeshletMesh.Roots.get -> int[]
+Vixen.Rendering.VirtualGeometry.MeshletMesh.Roots.init -> int[]
+Vixen.Rendering.VirtualGeometry.MeshletMesh.TriangleCount.get -> int
+Vixen.Rendering.VirtualGeometry.MeshletMesh.Triangles.get -> byte[]
+Vixen.Rendering.VirtualGeometry.MeshletMesh.Triangles.init -> byte[]
+Vixen.Rendering.VirtualGeometry.MeshletMesh.Vertices.get -> int[]
+Vixen.Rendering.VirtualGeometry.MeshletMesh.Vertices.init -> int[]
+Vixen.Rendering.VirtualGeometry.MeshletPage -> readonly struct
+Vixen.Rendering.VirtualGeometry.MeshletPage : System.IEquatable<Vixen.Rendering.VirtualGeometry.MeshletPage>
+Vixen.Rendering.VirtualGeometry.MeshletPage.ClusterCount.get -> int
+Vixen.Rendering.VirtualGeometry.MeshletPage.ClusterCount.init -> int
+Vixen.Rendering.VirtualGeometry.MeshletPage.CoarsestLevel.get -> int
+Vixen.Rendering.VirtualGeometry.MeshletPage.CoarsestLevel.init -> int
+Vixen.Rendering.VirtualGeometry.MeshletPage.FirstCluster.get -> int
+Vixen.Rendering.VirtualGeometry.MeshletPage.FirstCluster.init -> int
+Vixen.Rendering.VirtualGeometry.MeshletPage.MeshletPage() -> void
+Vixen.Rendering.VirtualGeometry.MeshletPage.Offset.get -> int
+Vixen.Rendering.VirtualGeometry.MeshletPage.Offset.init -> int
+Vixen.Rendering.VirtualGeometry.MeshletPage.Size.get -> int
+Vixen.Rendering.VirtualGeometry.MeshletPage.Size.init -> int
+Vixen.Rendering.VirtualGeometry.MeshletPageBuilder -> static class
+Vixen.Rendering.VirtualGeometry.MeshletPageCluster -> readonly struct
+Vixen.Rendering.VirtualGeometry.MeshletPageCluster : System.IEquatable<Vixen.Rendering.VirtualGeometry.MeshletPageCluster>
+Vixen.Rendering.VirtualGeometry.MeshletPageCluster.MeshletPageCluster() -> void
+Vixen.Rendering.VirtualGeometry.MeshletPageCluster.Origin.get -> Vixen.Core.Mathematics.Int3
+Vixen.Rendering.VirtualGeometry.MeshletPageCluster.Origin.init -> Vixen.Core.Mathematics.Int3
+Vixen.Rendering.VirtualGeometry.MeshletPageCluster.Page.get -> int
+Vixen.Rendering.VirtualGeometry.MeshletPageCluster.Page.init -> int
+Vixen.Rendering.VirtualGeometry.MeshletPageCluster.TriangleOffset.get -> int
+Vixen.Rendering.VirtualGeometry.MeshletPageCluster.TriangleOffset.init -> int
+Vixen.Rendering.VirtualGeometry.MeshletPageCluster.VertexOffset.get -> int
+Vixen.Rendering.VirtualGeometry.MeshletPageCluster.VertexOffset.init -> int
+Vixen.Rendering.VirtualGeometry.MeshletPageSet -> sealed record
+Vixen.Rendering.VirtualGeometry.MeshletPageSet : System.IEquatable<Vixen.Rendering.VirtualGeometry.MeshletPageSet>
+Vixen.Rendering.VirtualGeometry.MeshletPageSet.BytesOf(int page) -> System.ReadOnlySpan<byte>
+Vixen.Rendering.VirtualGeometry.MeshletPageSet.Clusters.get -> Vixen.Rendering.VirtualGeometry.MeshletPageCluster[]
+Vixen.Rendering.VirtualGeometry.MeshletPageSet.Clusters.init -> Vixen.Rendering.VirtualGeometry.MeshletPageCluster[]
+Vixen.Rendering.VirtualGeometry.MeshletPageSet.Data.get -> byte[]
+Vixen.Rendering.VirtualGeometry.MeshletPageSet.Data.init -> byte[]
+Vixen.Rendering.VirtualGeometry.MeshletPageSet.GetCorners(int cluster, int triangleCount) -> System.ReadOnlySpan<byte>
+Vixen.Rendering.VirtualGeometry.MeshletPageSet.GetPositions(int cluster, int vertexCount, System.Span<Vixen.Core.Mathematics.Vector3> positions) -> void
+Vixen.Rendering.VirtualGeometry.MeshletPageSet.MeshletPageSet() -> void
+Vixen.Rendering.VirtualGeometry.MeshletPageSet.PageSize.get -> int
+Vixen.Rendering.VirtualGeometry.MeshletPageSet.PageSize.init -> int
+Vixen.Rendering.VirtualGeometry.MeshletPageSet.Pages.get -> Vixen.Rendering.VirtualGeometry.MeshletPage[]
+Vixen.Rendering.VirtualGeometry.MeshletPageSet.Pages.init -> Vixen.Rendering.VirtualGeometry.MeshletPage[]
+Vixen.Rendering.VirtualGeometry.MeshletPageSet.QuantizationError.get -> float
+Vixen.Rendering.VirtualGeometry.MeshletPageSet.QuantizationOrigin.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.VirtualGeometry.MeshletPageSet.QuantizationOrigin.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.VirtualGeometry.MeshletPageSet.QuantizationStep.get -> float
+Vixen.Rendering.VirtualGeometry.MeshletPageSet.QuantizationStep.init -> float
+Vixen.Rendering.VirtualGeometry.MeshletPageSet.TotalBytes.get -> long
+Vixen.Rendering.VirtualGeometry.MeshletPageSet.VertexStride.get -> int
+Vixen.Rendering.VirtualGeometry.MeshletPageSet.VertexStride.init -> int
+Vixen.Rendering.VirtualGeometry.MeshletPageSettings -> readonly struct
+Vixen.Rendering.VirtualGeometry.MeshletPageSettings : System.IEquatable<Vixen.Rendering.VirtualGeometry.MeshletPageSettings>
+Vixen.Rendering.VirtualGeometry.MeshletPageSettings.AttributeStride.get -> int
+Vixen.Rendering.VirtualGeometry.MeshletPageSettings.AttributeStride.init -> int
+Vixen.Rendering.VirtualGeometry.MeshletPageSettings.MeshletPageSettings() -> void
+Vixen.Rendering.VirtualGeometry.MeshletPageSettings.PageSize.get -> int
+Vixen.Rendering.VirtualGeometry.MeshletPageSettings.PageSize.init -> int
+Vixen.Rendering.VirtualGeometry.MeshletPageSettings.Validate() -> void
+Vixen.Rendering.VirtualGeometry.MeshletValidator -> static class
+const Vixen.Rendering.VirtualGeometry.MeshletPageBuilder.PositionSize = 6 -> int
+static Vixen.Rendering.VirtualGeometry.MeshletBuilder.Build(Vixen.Rendering.VirtualGeometry.MeshletBuildInput mesh, Vixen.Rendering.VirtualGeometry.MeshletBuildSettings? options = null) -> Vixen.Rendering.VirtualGeometry.MeshletMesh
+static Vixen.Rendering.VirtualGeometry.MeshletCut.ErrorForPixels(float pixels, float distance, float verticalFieldOfView, float screenHeight) -> float
+static Vixen.Rendering.VirtualGeometry.MeshletCut.Flatten(Vixen.Rendering.VirtualGeometry.MeshletMesh mesh, System.ReadOnlySpan<int> cut) -> int[]
+static Vixen.Rendering.VirtualGeometry.MeshletCut.PixelError(float error, float distance, float verticalFieldOfView, float screenHeight) -> float
+static Vixen.Rendering.VirtualGeometry.MeshletCut.SelectByBudget(Vixen.Rendering.VirtualGeometry.MeshletMesh mesh, int triangleBudget) -> int[]
+static Vixen.Rendering.VirtualGeometry.MeshletCut.SelectByError(Vixen.Rendering.VirtualGeometry.MeshletMesh mesh, Vixen.Rendering.VirtualGeometry.MeshletPageSet pages, float threshold, System.Func<int, bool> isResident) -> int[]
+static Vixen.Rendering.VirtualGeometry.MeshletCut.SelectByError(Vixen.Rendering.VirtualGeometry.MeshletMesh mesh, float threshold) -> int[]
+static Vixen.Rendering.VirtualGeometry.MeshletPageBuilder.Build(Vixen.Rendering.VirtualGeometry.MeshletMesh mesh, System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> positions, System.ReadOnlySpan<byte> attributes, Vixen.Rendering.VirtualGeometry.MeshletPageSettings settings = default(Vixen.Rendering.VirtualGeometry.MeshletPageSettings)) -> Vixen.Rendering.VirtualGeometry.MeshletPageSet
+static Vixen.Rendering.VirtualGeometry.MeshletValidator.Validate(Vixen.Rendering.VirtualGeometry.MeshletMesh mesh, Vixen.Rendering.VirtualGeometry.MeshletBuildInput source) -> System.Collections.Generic.IReadOnlyList<string>

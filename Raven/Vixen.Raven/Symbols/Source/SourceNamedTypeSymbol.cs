@@ -576,6 +576,89 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
         }
     }
 
+    /// <summary>
+    ///     Checks that every <c>groupshared</c> field is storage a workgroup can actually have:
+    ///     declared on a shader, not also something that decides where the value lives, writable,
+    ///     without an initializer, and of a type that is a value rather than a descriptor.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The shape mirrors <see cref="ReportStreamIssues" /> because the two declarations are
+    ///         siblings: both are shader members that are deliberately <em>not</em> bindings, so
+    ///         both need saying what they may be instead of leaving <c>IsBinding</c> to answer.
+    ///     </para>
+    ///     <para>
+    ///         What is <em>not</em> checked here is the stage. Whether a group-shared variable is
+    ///         reached by a compute entry point or a fragment one is a question about the call
+    ///         graph, which the symbol table cannot see; lowering answers it once the bodies exist
+    ///         (<c>RVN3012</c>), the same division <c>stream</c> already lives under.
+    ///     </para>
+    /// </remarks>
+    void ReportGroupSharedIssues() {
+        foreach (var member in members!) {
+            if (member is not SourceFieldSymbol { IsGroupShared: true } shared) {
+                continue;
+            }
+
+            var location = shared.DeclaringSyntax?.GetLocation() ?? Location.None;
+
+            if (TypeKind != TypeKind.Shader) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.GroupSharedMustBeShaderField,
+                    location,
+                    shared.Name
+                );
+                continue;
+            }
+
+            var conflict = shared switch {
+                { IsPermutation: true } => "a [Permutation] key",
+                { IsCompose: true } => "a compose slot",
+                { IsStream: true } => "a stream",
+                { IsConst: true } => "const",
+                _ => null
+            };
+
+            if (conflict is not null) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.GroupSharedConflict,
+                    location,
+                    shared.Name,
+                    conflict
+                );
+                continue;
+            }
+
+            if (shared.IsDeclaredReadOnly) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.GroupSharedCannotBeReadOnly,
+                    location,
+                    shared.Name
+                );
+            }
+
+            if (shared.Declaration.Initializer is not null) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.GroupSharedCannotHaveInitializer,
+                    location,
+                    shared.Name
+                );
+            }
+
+            // A descriptor is not a value, so there is no `Workgroup` variable either target could
+            // declare for one. Everything else — a scalar, a vector, a matrix, a struct, an array
+            // of those — is memory, which is exactly what this storage class holds.
+            if (shared.Type.ResourceKind is not ResourceKind.None && !shared.Type.IsErrorType) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.GroupSharedTypeNotSupported,
+                    location,
+                    shared.Name,
+                    shared.Type.ToDisplayString()
+                );
+            }
+        }
+    }
+
     /// <summary>Whether a type can cross a stage boundary: a non-boolean scalar or vector.</summary>
     static bool IsStageInterfaceType(TypeSymbol type) =>
         type is PrimitiveTypeSymbol { TypeKind: TypeKind.Scalar or TypeKind.Vector } primitive
@@ -747,7 +830,8 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
             var (allowed, description) = member switch {
                 FieldSymbol =>
                     (new[] { SyntaxKind.ConstKeyword, SyntaxKind.ReadOnlyKeyword, SyntaxKind.StaticKeyword,
-                        SyntaxKind.ComposeKeyword, SyntaxKind.StreamKeyword }, "field"),
+                        SyntaxKind.ComposeKeyword, SyntaxKind.StreamKeyword,
+                        SyntaxKind.GroupSharedKeyword }, "field"),
                 MethodSymbol { MethodKind: MethodKind.Constructor } => ([], "constructor"),
                 MethodSymbol { MethodKind: MethodKind.Operator } =>
                     (new[] { SyntaxKind.StaticKeyword }, "operator"),
@@ -841,6 +925,7 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
         ReportComposeIssues();
         ReportValueParameterIssues();
         ReportStreamIssues();
+        ReportGroupSharedIssues();
         ReportResourceSetIssues();
         ReportModifierIssues();
 

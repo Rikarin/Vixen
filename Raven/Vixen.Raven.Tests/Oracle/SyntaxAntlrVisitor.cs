@@ -1029,6 +1029,7 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
             RavenLexer.READONLY => SyntaxKind.ReadOnlyKeyword,
             RavenLexer.STATIC => SyntaxKind.StaticKeyword,
             RavenLexer.STREAM => SyntaxKind.StreamKeyword,
+            RavenLexer.GROUPSHARED => SyntaxKind.GroupSharedKeyword,
             _ => throw ExceptionUtilities.Unreachable()
         };
 

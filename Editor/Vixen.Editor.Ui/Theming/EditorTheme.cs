@@ -81,6 +81,14 @@ public static class EditorTheme {
            wrote them inline would make changing the whole editor's depth a
            forty-place edit. */
         root {
+            /* ⚠ Named, and the editor ships the face — see `Vixen.Editor.App.Fonts`. A
+               declaration is what lets `font-weight` mean anything at all: the registry
+               picks the family first and the weight inside it, so text under no family
+               name draws in `Default` at whatever weight the default happens to be. A
+               machine without the face falls back to `Default` here too, which is what
+               makes naming it safe rather than a way to lose every label. */
+            font-family: OpenSans;
+
             --workspace: #b4b7bc;
             --surface: #e4e6ea;
             --surface-sunken: #d3d6db;
@@ -238,6 +246,28 @@ public static class EditorTheme {
             color: var(--text);
         }
 
+        /* ⚠ A pressed toolbar button, and there was no rule for one. `toolbar-group :checked`
+           below covered the three gizmo modes because they are in a segmented group; every
+           standalone toggle on a strip — Local Space, Pivot at Centre, Snapping, Grid,
+           Orthographic — had its state written to `:checked` by `ToolbarPresenter.Refresh`
+           and nothing drew it. A toggle whose only state is in the DOM is a button that
+           looks like it did nothing when you press it.
+
+           The accent's soft tone rather than the accent, for the reason a tree row uses
+           `--accent-deep`: several of these are on at once, all the time, and the accent at
+           full strength across a strip is the loudest thing in the window. */
+        toolbar button:checked, toolbar icon-button:checked, toolbar toggle-button:checked {
+            background-color: var(--accent-soft);
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
+        toolbar button:checked:hover:not(:disabled), toolbar icon-button:checked:hover:not(:disabled),
+        toolbar toggle-button:checked:hover:not(:disabled) {
+            background-color: var(--accent-soft);
+            color: var(--text);
+        }
+
         /* ── Sections ───────────────────────────────────────────────────────────
            ⚠ A segmented control is one box with the seams *inside* it, which is the
            whole of what makes Translate/Rotate/Scale read as a choice rather than as
@@ -253,12 +283,25 @@ public static class EditorTheme {
             border-radius: var(--radius-control);
             background-color: var(--surface);
             overflow: hidden;
+
+            /* ⚠ A pixel of it, and it is what keeps a member's fill off the group's rounded
+               corner. `overflow: hidden` is a *scissor* — the clip a draw list pushes carries the
+               radius and the geometry builder resolves it to a rectangle — so a square fill drawn
+               into a rounded box is clipped by the box's bounds and not by its corners. Inset by
+               the border and this padding, the fill never reaches a corner for the clip to have
+               to round. */
+            padding: 1px;
         }
 
+        /* ⚠ Rounded, where a segmented member's fill would normally be square. The draw path has
+           one radius per element rather than four — `border-top-left-radius` is the corner it
+           reads — so the usual answer, square inner corners and round outer ones, cannot be
+           written. Two pixels is the group's four less the border and the padding above it, which
+           is the radius concentric with the one the group draws. */
         toolbar-group button, toolbar-group icon-button, toolbar-group toggle-button,
         toolbar-group button.variant-subtle, toolbar-group icon-button.variant-subtle {
             border-width: 0px;
-            border-radius: 0px;
+            border-radius: 2px;
             background-color: transparent;
         }
 
@@ -673,7 +716,18 @@ public static class EditorTheme {
            what pressing it does. */
         .outliner-hidden.inherited, .outliner-locked.inherited { opacity: 0.45; }
 
-        outliner-filters { flex-direction: row; align-items: center; gap: 6px; flex-shrink: 0; }
+        /* ⚠ Padded on all four sides, which the row above the outliner did not have. A
+           filter box flush against the panel's border reads as part of the frame rather
+           than as a control, and the dropdown beside it lost its rounded right edge to
+           the panel's own — the two of them are inset by the same amount the rows are. */
+        outliner-filters {
+            flex-direction: row;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+            padding: 5px 6px;
+        }
+
         outliner-filters > search-box { flex-grow: 1; min-width: 0; }
         outliner-filters > select { flex-shrink: 0; width: 132px; }
 
@@ -689,6 +743,83 @@ public static class EditorTheme {
         /* The shape only. What is inside is a render target the control paints itself,
            and a background under it would be a colour nobody ever sees. */
         viewport { border-radius: var(--radius-row); overflow: hidden; }
+
+        /* ── Viewport splits ────────────────────────────────────────────────────
+           `ViewportLayout` puts a class on its root and nothing else — the split
+           is a stylesheet's business, which is also what lets a user's own theme
+           change the proportions. Without these rules the panes stack in a column
+           at their natural height, which is a four-pane layout that looks like one
+           pane and three slivers. */
+        .viewport-layout { gap: 2px; }
+        .viewport-layout > viewport { flex-grow: 1; flex-basis: 0px; min-width: 0px; min-height: 0px; }
+
+        .viewport-layout.single { flex-direction: column; }
+        .viewport-layout.side-by-side { flex-direction: row; }
+        .viewport-layout.stacked { flex-direction: column; }
+
+        /* ⚠ Four panes are a wrapped row of half-width, half-height boxes rather
+           than two nested containers, because the layout owns one element and adds
+           four children to it — a nested arrangement would need it to build boxes
+           it has no reason to know about. `flex-basis: 48%` rather than 50% leaves
+           room for the gap; at exactly half, the second pane of each row wraps onto
+           a line of its own and the quad becomes a column of four. */
+        .viewport-layout.quad { flex-direction: row; flex-wrap: wrap; }
+        .viewport-layout.quad > viewport { flex-basis: 48%; height: 49%; }
+
+        /* ── Viewport chrome ────────────────────────────────────────────────────
+           Doc 20's E2: a toolbar floating over the top-left of the pane, a stats
+           readout in the bottom-left, and the rubber-band over the whole of it.
+           All three are ordinary elements in `viewport-overlay`, which is why the
+           layout engine positions them and the cascade styles them. */
+        viewport-bar {
+            position: absolute;
+            left: 6px;
+            top: 6px;
+            flex-direction: row;
+            align-items: center;
+        }
+
+        /* ⚠ The strip `ToolbarPresenter` builds, not the bar itself. The presenter
+           adds a `toolbar` element into whatever host it was given, so the panel
+           that floats is the outer one and the inner one keeps the shell
+           toolbar's own metrics. */
+        viewport-bar > toolbar {
+            background-color: var(--surface-raised);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-row);
+            padding: 2px 4px;
+            gap: 2px;
+        }
+
+        /* Only the focused pane's is shown — see `ViewportChrome`, which says why
+           four strips of which three are lying is worse than one. */
+        viewport-bar.hidden { display: none; }
+
+        /* ⚠ Bottom-left rather than bottom-right, which is where the axis cross
+           and the toolbar are not. A readout under the corner gizmo is one that
+           is unreadable in exactly the pane somebody is navigating. */
+        viewport-stats {
+            position: absolute;
+            left: 8px;
+            bottom: 6px;
+            color: var(--text-muted);
+            font-size: 0.85em;
+            pointer-events: none;
+        }
+
+        /* ⚠ Transparent to the pointer, and that is not decoration. It covers the
+           pixels the drag is happening over, so an element that hit-tested would
+           swallow the release that ends the band it is drawing. */
+        marquee {
+            position: absolute;
+            left: 0px;
+            top: 0px;
+            right: 0px;
+            bottom: 0px;
+            pointer-events: none;
+            --marquee-fill: rgba(90, 150, 255, 0.16);
+            --marquee-edge: rgba(140, 190, 255, 0.9);
+        }
 
         /* ── Background tasks ───────────────────────────────────────────────────
            Never a modal dialog — doc 11 is explicit — so this is a panel that
@@ -764,6 +895,21 @@ public static class EditorTheme {
         palette-category { color: var(--text-muted); font-size: 0.85em; }
         palette-row:checked palette-category, palette-row:checked palette-detail { color: var(--accent-text); }
         palette-detail { color: var(--text-muted); font-size: 0.85em; }
+
+        /* ⚠ Hidden by default and shown only by search-everywhere, which is what
+           `CommandPalette.GroupBySource` decides. A command palette that grew a
+           paragraph would stop being one keystroke and a Return. */
+        palette-preview {
+            display: none;
+            flex-direction: column;
+            flex-shrink: 0;
+            margin-top: 4px;
+            padding: 6px 9px;
+            border-top-width: 1px;
+            border-color: var(--border);
+            color: var(--text-muted);
+            font-size: 0.85em;
+        }
 
         /* ── Console ────────────────────────────────────────────────────────────
            A strip, a virtualised list and a detail pane, in a column. The list is
@@ -871,5 +1017,331 @@ public static class EditorTheme {
         console-detail-heading { color: var(--text); }
         console-detail-meta { color: var(--text-muted); font-size: 0.85em; }
         console-detail-stack { color: var(--text-muted); font-size: 0.85em; white-space: pre; }
+
+        /* ── Message log ────────────────────────────────────────────────────────
+           The console's shape with a shorter list and a wider message, because
+           what is in it is a sentence somebody wrote for a person rather than a
+           category and a stack. Sharing the console's *tokens* rather than its
+           rules: the two panels sit beside each other often enough that a
+           different row height would read as one of them being broken. */
+        message-log { flex-direction: column; flex-grow: 1; flex-basis: 0px; min-height: 0px; gap: 0px; }
+
+        message-log-toolbar {
+            flex-direction: row;
+            align-items: center;
+            flex-shrink: 0;
+            gap: 4px;
+            padding: 4px 6px;
+            border-bottom-width: 1px;
+            border-color: var(--border);
+        }
+
+        message-log-toolbar search-box { flex-grow: 1; min-width: 80px; }
+        message-log-toolbar select { width: 150px; flex-shrink: 0; }
+        message-log virtualizing-panel { flex-grow: 1; flex-basis: 0px; min-height: 0px; }
+
+        message-row {
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+            padding: 0px 8px;
+            border-width: 0px;
+            background-color: transparent;
+            color: var(--text);
+            font-size: 0.9em;
+        }
+
+        message-row:hover { background-color: var(--surface-hover); }
+        message-row:checked { background-color: var(--accent); color: var(--accent-text); }
+        message-row.parked { display: none; }
+
+        message-mark { width: 3px; height: 12px; flex-shrink: 0; border-radius: 2px; }
+        message-mark.level-error { background-color: var(--danger); }
+        message-mark.level-warning { background-color: var(--warning); }
+        message-mark.level-success { background-color: var(--play); }
+        message-mark.level-info { background-color: var(--accent); }
+
+        message-time { width: 62px; flex-shrink: 0; color: var(--text-muted); font-size: 0.9em; }
+        message-text { flex-shrink: 0; max-width: 340px; overflow: hidden; }
+        message-detail-text { flex-grow: 1; overflow: hidden; color: var(--text-muted); }
+
+        message-row:checked message-time, message-row:checked message-detail-text { color: var(--accent-text); }
+
+        message-log-detail {
+            flex-direction: column;
+            flex-shrink: 0;
+            height: 96px;
+            gap: 3px;
+            padding: 7px 9px;
+            border-top-width: 1px;
+            border-color: var(--border);
+            background-color: var(--surface-sunken);
+            overflow: auto;
+        }
+
+        message-log-detail.empty { height: auto; padding: 5px 9px; color: var(--text-muted); }
+        message-detail-heading { color: var(--text); }
+        message-detail-meta { color: var(--text-muted); font-size: 0.85em; }
+        message-detail-body { color: var(--text-muted); font-size: 0.85em; white-space: pre; }
+
+        /* ── Keybindings ────────────────────────────────────────────────────────
+           A strip, a grid and a status line. The status line is the part that is
+           easy to leave out and is the whole of "conflict reporting inline": a
+           rebind that is refused with no explanation is one the user repeats. */
+        keybindings-view { flex-direction: column; flex-grow: 1; flex-basis: 0px; min-height: 0px; gap: 0px; }
+
+        keybindings-toolbar {
+            flex-direction: row;
+            align-items: center;
+            flex-shrink: 0;
+            flex-wrap: wrap;
+            gap: 4px;
+            padding: 4px 6px;
+            border-bottom-width: 1px;
+            border-color: var(--border);
+        }
+
+        keybindings-toolbar search-box { flex-grow: 1; min-width: 90px; }
+        keybindings-toolbar select { width: 110px; flex-shrink: 0; }
+        keybindings-view data-grid { flex-grow: 1; flex-basis: 0px; min-height: 0px; }
+
+        keybindings-status {
+            flex-shrink: 0;
+            padding: 4px 9px;
+            border-top-width: 1px;
+            border-color: var(--border);
+            background-color: var(--surface-sunken);
+            color: var(--text-muted);
+            font-size: 0.85em;
+        }
+
+        /* ⚠ Coloured only while there is a conflict. A status line that is always
+           red is one nobody reads the day it matters. */
+        keybindings-status.conflict { color: var(--danger); }
+
+        /* ── Settings ───────────────────────────────────────────────────────────
+           A search over everything, a rail of pages, a pane, and a footer whose
+           two buttons are disabled until something has been typed. The rail is a
+           fixed width: a settings window whose category list resizes with its
+           longest label is one whose pane jumps as you move between pages. */
+        settings-view { flex-direction: column; flex-grow: 1; flex-basis: 0px; min-height: 0px; gap: 0px; }
+
+        settings-header {
+            flex-direction: row;
+            align-items: center;
+            flex-shrink: 0;
+            padding: 5px 6px;
+            border-bottom-width: 1px;
+            border-color: var(--border);
+        }
+
+        settings-header search-box { flex-grow: 1; }
+        settings-body { flex-direction: row; flex-grow: 1; flex-basis: 0px; min-height: 0px; gap: 0px; }
+
+        settings-rail {
+            flex-direction: column;
+            flex-shrink: 0;
+            width: 168px;
+            gap: 1px;
+            padding: 5px;
+            border-right-width: 1px;
+            border-color: var(--border);
+            background-color: var(--surface-sunken);
+            overflow: auto;
+        }
+
+        /* ⚠ Left-aligned and full width, because a rail is a list rather than a
+           row of buttons that happen to be stacked. The checked state is the
+           selection and there is no hover rule fighting it, for the palette
+           row's reason. */
+        settings-rail > button.settings-tab {
+            justify-content: flex-start;
+            width: 100%;
+            padding: 4px 8px;
+            border-width: 0px;
+            border-radius: var(--radius-row);
+            background-color: transparent;
+            color: var(--text);
+        }
+
+        settings-rail > button.settings-tab:hover { background-color: var(--surface-hover); }
+        settings-rail > button.settings-tab:checked { background-color: var(--accent); color: var(--accent-text); }
+
+        settings-pane {
+            flex-direction: column;
+            flex-grow: 1;
+            flex-basis: 0px;
+            min-width: 0px;
+            gap: 4px;
+            padding: 8px 10px;
+            overflow: auto;
+        }
+
+        settings-footer {
+            flex-direction: row;
+            align-items: center;
+            flex-shrink: 0;
+            gap: 6px;
+            padding: 5px 8px;
+            border-top-width: 1px;
+            border-color: var(--border);
+            background-color: var(--surface-sunken);
+        }
+
+        settings-spacer { flex-grow: 1; }
+
+        /* ⚠ Tall and unshrinkable. It holds a stylesheet, and a text area that took its height
+           from a column's leftovers is one where a theme is edited four lines at a time —
+           `TextArea` has no scroll region of its own, so what does not fit is clipped rather
+           than reachable. */
+        .theme-tokens { min-height: 220px; flex-shrink: 0; }
+
+        /* What the window's search box hides on a page built from commands rather than from a
+           settings object. A class rather than the inspector's `filtered`, because that one is
+           the inspector's own vocabulary and these are ordinary buttons. */
+        settings-pane > .filtered-out { display: none; }
+
+        /* ── Plugins and history ────────────────────────────────────────────────
+           Two grids over lists the editor already keeps. Neither needs anything
+           the data grid does not already draw; what they need is a strip and a
+           line of prose for the state that a table cannot say — a plugin that
+           failed, and an undo entry that is where "saved" was. */
+        plugin-manager, history-view {
+            flex-direction: column;
+            flex-grow: 1;
+            flex-basis: 0px;
+            min-height: 0px;
+            gap: 0px;
+        }
+
+        plugin-toolbar, history-toolbar {
+            flex-direction: row;
+            align-items: center;
+            flex-shrink: 0;
+            gap: 4px;
+            padding: 4px 6px;
+            border-bottom-width: 1px;
+            border-color: var(--border);
+        }
+
+        plugin-toolbar search-box, history-toolbar search-box { flex-grow: 1; min-width: 80px; }
+        plugin-manager data-grid, history-view data-grid { flex-grow: 1; flex-basis: 0px; min-height: 0px; }
+
+        plugin-detail {
+            flex-direction: column;
+            flex-shrink: 0;
+            gap: 3px;
+            padding: 6px 9px;
+            border-top-width: 1px;
+            border-color: var(--border);
+            background-color: var(--surface-sunken);
+            color: var(--text-muted);
+            font-size: 0.85em;
+        }
+
+        plugin-detail.failed { color: var(--danger); }
+
+        /* ── Build settings ─────────────────────────────────────────────────────
+           A form of three rows, a list with a strip over it, and two sentences.
+           ⚠ The grid does *not* grow to fill the panel, unlike the two above:
+           a scenes-in-build list is four rows in most projects and thirty in a
+           big one, and a table stretched to the height of a docked panel would
+           put the Build button below the fold on every one of them. */
+        build-settings {
+            flex-direction: column;
+            flex-grow: 1;
+            flex-basis: 0px;
+            min-height: 0px;
+            gap: 0px;
+        }
+
+        build-form {
+            flex-direction: column;
+            flex-shrink: 0;
+            gap: 4px;
+            padding: 8px 9px;
+        }
+
+        build-row {
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+        }
+
+        build-row text { width: 110px; flex-shrink: 0; color: var(--text-muted); }
+        build-row select, build-row textbox { flex-grow: 1; min-width: 120px; }
+
+        build-heading {
+            flex-shrink: 0;
+            padding: 4px 9px 2px 9px;
+            font-weight: 600;
+        }
+
+        build-scene-bar {
+            flex-direction: row;
+            align-items: center;
+            flex-shrink: 0;
+            gap: 4px;
+            padding: 4px 6px;
+        }
+
+        build-scene-bar select { flex-grow: 1; min-width: 80px; }
+
+        build-settings data-grid { flex-grow: 1; flex-basis: 0px; min-height: 60px; }
+
+        build-note, build-status {
+            flex-shrink: 0;
+            padding: 4px 9px;
+            color: var(--text-muted);
+            font-size: 0.85em;
+        }
+
+        build-actions {
+            flex-direction: row;
+            align-items: center;
+            flex-shrink: 0;
+            gap: 6px;
+            padding: 6px 9px;
+            border-top-width: 1px;
+            border-color: var(--border);
+            background-color: var(--surface-sunken);
+        }
+
+        build-spacer { flex-grow: 1; }
+
+        /* ── Choosing one of a list, in a dialog ────────────────────────────────
+           The startup project browser and "move to which folder?" are the same
+           question about two kinds of thing, so they are one control and one
+           rule. ⚠ Deliberately *not* named after either: the first version of
+           this styled the folder chooser with the project browser's own class
+           names, which made restyling one silently restyle the other. */
+        choice-list {
+            flex-direction: column;
+            gap: 2px;
+            min-width: 420px;
+            max-height: 320px;
+            overflow: auto;
+        }
+
+        /* ⚠ A column, not a row, because a choice is a name and a line about it.
+           Left-aligned for the reason the settings rail is: a list of buttons
+           that centre their labels reads as a toolbar. */
+        choice-list > button.choice {
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: flex-start;
+            gap: 1px;
+            padding: 5px 8px;
+            border-width: 0px;
+            border-radius: var(--radius-row);
+            background-color: transparent;
+            color: var(--text);
+        }
+
+        choice-list > button.choice:hover { background-color: var(--surface-hover); }
+        choice-list > button.choice:checked { background-color: var(--accent); color: var(--accent-text); }
+        choice-detail { color: var(--text-muted); font-size: 0.85em; }
+        button.choice:checked choice-detail { color: var(--accent-text); }
+        button.choice-action { margin-top: 6px; }
         """;
 }

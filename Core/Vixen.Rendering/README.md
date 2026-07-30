@@ -227,6 +227,29 @@ ordering this RHI can express is a barrier between two things in one queue: it h
 semaphores. That is the whole reason the culling dispatch became something a node records rather than
 something `Cull` submits.
 
+**And the same shader culls clusters.** `Culling.rvn` carries a `Clusters` permutation that turns the
+per-object dispatch into a hierarchical walk over a cluster DAG — one workgroup per instance per view,
+a `groupshared` queue, and a barrier per round. It is a permutation rather than a shader of its own
+because objects and clusters are the same hierarchy at different depths, and because two
+implementations of "visible against last frame's pyramid" is two places for the definition to drift:
+`Occluded` takes a *sphere* now, and the object cull and the traversal each hand it one.
+
+Raven refuses a second compute entry point in one shader, so the two dispatch shapes are one entry
+point branching on the permutation. That turns out to be the better arrangement: the branch is folded
+before lowering, so the object variant provably carries no queue, no barrier and no shared memory at
+all, and `LibraryTreeTests` asserts it.
+
+**A rejected subtree costs one test**, which is the whole point and the whole difference from the
+object cull. A cluster that fails the frustum, the cone or the pyramid takes its children with it, so a
+mesh of a hundred thousand clusters behind the camera costs as many tests as it has roots.
+
+**The error is projected at the group's bound, not the cluster's**, and that is the one decision here
+whose failure is a crack. A group's simplification produces several parents, each of which replaces
+*all* of the group's children, so all of them have to refine or none of them do. They share an error;
+they also have to share the distance it is projected at, because their own bounds are in different
+places. `GpuClusterCullingTests` found this by comparing the traversal against a brute-force cut over
+random DAGs — which is what that comparison is for.
+
 **And with no wait, every descriptor set is a ring.** A set a submitted command buffer still
 references may not be written — `VUID-vkUpdateDescriptorSets-None-03047` — so all three classes hold
 one set per frame in flight and advance with the frame, which is the invariant `DescriptorAllocator`
@@ -427,6 +450,87 @@ at the object's own slot and carries the slot in the draw's `firstInstance`; the
 failing. What it buys is not bandwidth — it is that a push constant is *per command*, so a run of
 objects that bind nothing between them cannot become one command while each still has a matrix to
 push. See [Compacted draws](#what-is-not-here-yet).
+
+## The components a scene places
+
+`Ecs/` holds this assembly's ECS components and the systems that bridge them, the arrangement
+`Vixen.Physics` and `Vixen.Audio` already use: the subsystem references `Vixen.Ecs` and `Vixen.Engine`
+and owns both halves. `Vixen.Engine` references no graphics API, so the arrow points one way only.
+
+```csharp
+Lights.Attach(world, entity, LightKind.Directional);   // aimed with the entity's transform
+MeshRenderables.Attach(world, entity, MeshRenderables.Default(mesh));
+PrimitiveShapes.Attach(world, entity, PrimitiveKind.Cube);
+
+loop.Add(new LightExtractionSystem(lighting));         // fills lighting.Lights every frame
+```
+
+All three carry `[Component]` and `[DataContract]`, which is what declares them to
+`SceneComponentRegistry` — so a `.vxscene` places a light, the inspector draws one, and a compiled
+scene carries one, with no registration call anywhere. All three spent a while as editor-side
+components for want of exactly this.
+
+**`Light` is everything a light is except where it is.** Position, direction and the axis a tube or a
+rectangle runs along all come from `WorldTransform`, which is what makes a spot light something you aim
+with the rotate gizmo rather than by typing a vector — and what stops a file saying two different things
+about where one points.
+
+`LightExtractionSystem` is the bridge, and it is a copy rather than a translation: `Light`'s fields line
+up with `RenderLight`'s, plus the basis folded in from the transform. It runs in `SystemPhase.PreRender`
+and declares `Read<WorldTransform>`, so the dependency graph puts it after `TransformSystem` — which is
+what makes a light's position this frame's rather than last frame's. Naming the phase alone would not
+have been enough.
+
+⚠ **The list is rebuilt every frame rather than mirrored.** A light has no handle to keep, so there is
+nothing to reconcile and a destroyed entity cannot leave a light burning. That is the opposite trade
+from `PhysicsBody`, and the difference is exactly that a body is state and a light is not.
+
+## Geometry, and the objects it is drawn as
+
+`SurfaceVertex` is the interleaved vertex the shading stages declare — position, normal, tangent,
+texture coordinate, forty-eight bytes, at the locations `ForwardPlus.rvn`'s reflection reports.
+`SurfaceGeometry` packs a `MeshData`'s parallel arrays into it and fills in what the file did not have:
+a missing normal becomes +Y rather than zero, because a zero normal renders black and reads as a broken
+renderer; a missing tangent becomes some perpendicular of the normal, which is the *ordinary* case since
+`MeshPrimitives` produces none.
+
+`GeometryResidency` is one resident slice per mesh, reference counted by entity. A courtyard of forty
+identical crates is one upload; freeing on the first release would drop the crate the other thirty-nine
+are drawing, and never freeing would leak a level's geometry at every transition. A mesh too large for
+the remaining space is refused rather than growing the buffer — growing means recreating one the GPU may
+still be reading from.
+
+`MeshExtractionSystem` reconciles: a render object per drawable that appeared, retirement for what went,
+and the world matrix and bounds of what stayed.
+
+```csharp
+var residency = new GeometryResidency(new GeometryBuffer(device, SurfaceVertex.SizeInBytes, 1 << 20, 1 << 21));
+
+loop.Add(new MeshExtractionSystem(system, meshes, transforms, materials, residency) {
+    Stages = opaque.Mask,
+    Material = fallback,
+});
+
+residency.Flush(commands);   // once a frame, outside any render pass
+```
+
+⚠ **The opposite trade from a light, and for a stated reason.** A light is rebuilt every frame because it
+has no handle worth keeping; a mesh holds a render object, a residency claim and a slot in every feature's
+array, so it is reconciled. `RenderHandle` is what an entity holds it all in — written by the bridge,
+carrying neither `[Component]` nor `[DataContract]`, because a `RenderObjectId` means nothing outside the
+process that issued it.
+
+⚠ **A destroyed entity has to be forgotten explicitly.** Its `RenderHandle` went with it and the object and
+claim did not, so `Forget` exists and a scene unload that does not call it leaks a slice per entity. The
+ECS's add/remove events are what would make this automatic and they are behind a compile-time flag.
+
+⚠ **Three things are still owed, and none of them is structural.** *Mesh assets do not load* — the
+resolution is done and what is unanswered is what an extraction system does while an asynchronous load is
+in flight, since a synchronous one would stall the frame a level starts; an entity with a mesh reference is
+counted in `Dropped`. *Every object takes one material*, because a material asset resolved to a `Material`
+does not exist yet — which is also why this is not doc 06's "a mesh with three materials is three render
+objects". *Every live object's transform is rewritten every frame*, where doc 06 wants only what moved:
+the wrong cost, not a wrong picture.
 
 ## Lighting
 
@@ -1482,6 +1586,19 @@ the ring is a property of the binding, not of the data.
 `EffectConstants` moves only when a value actually changed, so a post pass whose parameters are the
 same every frame keeps reading the region it already has and the ring costs nothing.
 
+**And one of them is a ring whose regions are not interchangeable.** `PersistentUploadBuffer<T>` —
+the culling scene's object records — keeps its contents across frames rather than refilling them,
+because a hundred thousand object bounds are the same bytes they were last frame for all but a
+handful. That turns the ring's invariant inside out: this frame's region is not empty, it is
+`FramesInFlight` frames *stale*, and what it is missing is every change since it was last written. So
+a change is marked dirty in every region and each of them flushes its own set when its turn comes.
+One moved object costs one record per frame for three frames, rather than three megabytes once.
+
+Which records changed is decided by **comparing the bytes**, not by a flag a writer sets. Anything
+holding a `ref RenderObject` can move an object, and a writer that forgets to say so would be
+silently wrong — bounds a frame culled against, with nothing anywhere to say why. The comparison
+cannot miss one, and it reads exactly the data the culling loop reads anyway.
+
 **Destroying is not the same problem, and it was already solved.** Growing one of these buffers hands
 the old handle back while the frame that used it may still be running — which is safe, because every
 `Destroy` on `IGraphicsDevice` is deferred by `FramesInFlight`. The contract is now stated on the
@@ -1566,10 +1683,33 @@ records does merge. That is why the gate asks a sub-feature what it is *doing* t
 (`IDrawSubFeature.IsRecording`) rather than what type it is: the type gives the same answer to both
 of those and it is wrong for one of them. There is a test on each side.
 
-⚠ The clustered path binds no per-draw set at all, so `probeIndex`, `probeWeight`, `lightCount` and
-`materialIndex` are not bound in a clustered frame. That is older than any of this and unfixed by it
-— see [docs/bindless-materials.md](../../docs/bindless-materials.md) — and it is why "the clustered
-pass merges" is not yet the same sentence as "the clustered pass is right".
+**And `materialIndex` is out of that block too**, because it was never per-object data: a variant is
+keyed `(material, flags, shader)`, so a batch is one material and one record. It is a push constant
+now, pushed once per *run* at the offset the effect declares — `EffectPushConstant.OffsetOf`, since
+nothing is generated for a push block and the only offset a host had was one it assumed. That fixed a
+real exclusion: the clustered path binds no per-draw set, so bindless materials and clustered lighting
+could not both be on.
+
+**`probeIndex` and `probeWeight` came out of that block too**, but as records rather than as a push:
+a probe is chosen by where the object *is*, so those are genuinely per object. They go in a buffer
+`ForwardLightingRenderFeature` owns, read in the fragment stage through a flat `objectIndex` varying —
+which needed Raven to emit `Flat` on integer fragment inputs, because it did not. `UseObjectRecords`
+takes "is the record addressable" as a parameter rather than checking, since the answer is the
+transform feature's: `SV_InstanceID` holds the object's slot only because `firstInstance` does.
+
+**A compositor document turns all of this on.** `gpuDriven:` on the asset root carries
+`materialRecords` and `transformRecords`; `compact:` sits on the culling node beside `indirectDraws`.
+Every flag is a request the device answers, so one authored frame runs on a machine with descriptor
+indexing and on one without — `CompositorBuilder.GpuDriven` reports which.
+
+⚠ **Except the table itself, which nothing outside the tests creates.** `MaterialRenderFeature.Textures`
+and `TextureIndices` are still host-supplied, so a material that samples through
+`TexturedMetalRoughnessSurface` keeps `baseColorIndex = 0` unless a host wired one. Worse, that
+surface declares set 4 whatever the permutation says — bindings are declared, not discovered — so its
+pipeline layout has five sets while the draw loop binds the fifth only when a table exists. A table
+needs a capacity and a *fallback view*, and both are project decisions; see
+[docs/bindless-materials.md](../../docs/bindless-materials.md) § *The one thing left* for the two
+shapes it could take and the guard that belongs with either.
 
 ## Testing
 

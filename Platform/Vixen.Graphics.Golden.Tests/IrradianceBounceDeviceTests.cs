@@ -210,14 +210,24 @@ public sealed class IrradianceBounceDeviceTests {
         var opaque = system.AddStage(new("Opaque") { Rasterizer = RasterizerState.TwoSided });
         var describer = new EffectPipelineDescriber(device);
 
+        // ⚠ Read off the effect rather than written down. A shader's `stream` variables take locations
+        // before its vertex inputs do, so adding one to the pass renumbers all four — and a pipeline
+        // described against the old numbers is refused outright by `vkCreateGraphicsPipelines`, with an
+        // ErrorInitializationFailed that names nothing. `ClusteredShadingDeviceTests` learnt this first;
+        // these two were written with the numbers hardcoded and a later `stream` moved them.
+        var formats = new[] {
+            VertexFormat.Float32X3, VertexFormat.Float32X3, VertexFormat.Float32X4, VertexFormat.Float32X2
+        };
+
+        var offsets = new[] { 0, 12, 24, 40 };
+
         describer.VertexLayouts.Add([
             new VertexBufferLayout(
                 Vertex.Stride,
                 [
-                    new(5, VertexFormat.Float32X3, 0),
-                    new(6, VertexFormat.Float32X3, 12),
-                    new(7, VertexFormat.Float32X4, 24),
-                    new(8, VertexFormat.Float32X2, 40)
+                    .. effect!.VertexInputs.Select(
+                        (input, index) => new VertexElement((uint)input.Location, formats[index], offsets[index])
+                    )
                 ]
             )
         ]);

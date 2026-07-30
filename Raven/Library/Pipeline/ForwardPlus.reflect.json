@@ -59,6 +59,22 @@
               "DefaultValue": ""
             },
             {
+              "Name": "objectBase",
+              "Type": {
+                "Scalar": "Int",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 28,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0"
+            },
+            {
               "Name": "tanHalfFov",
               "Type": {
                 "Scalar": "Float",
@@ -837,6 +853,98 @@
         },
         {
           "Binding": 15,
+          "Name": "objects",
+          "Type": "StorageBuffer",
+          "Count": 0,
+          "Stages": "Vertex, Fragment",
+          "Members": [
+            {
+              "Name": "objects",
+              "Type": {
+                "Scalar": "Struct",
+                "Rows": 1,
+                "Columns": 1,
+                "StructName": "ObjectRecord",
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": true
+              },
+              "Offset": 0,
+              "Size": 16,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "objects.probeIndex",
+              "Type": {
+                "Scalar": "Int",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "objects.probeWeight",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 4,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "objects.lightCount",
+              "Type": {
+                "Scalar": "Int",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 8,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "objects.reserved",
+              "Type": {
+                "Scalar": "Int",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 12,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            }
+          ],
+          "Size": 16,
+          "IsWritable": false
+        },
+        {
+          "Binding": 16,
           "Name": "lightBuffer",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -1040,7 +1148,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 16,
+          "Binding": 17,
           "Name": "clusters",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -1289,22 +1397,6 @@
               "DefaultValue": "0"
             },
             {
-              "Name": "materialIndex",
-              "Type": {
-                "Scalar": "UInt",
-                "Rows": 1,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 12,
-              "Size": 4,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": "0"
-            },
-            {
               "Name": "lights",
               "Type": {
                 "Scalar": "Struct",
@@ -1507,7 +1599,7 @@
   ],
   "VertexInputs": [
     {
-      "Location": 5,
+      "Location": 6,
       "Name": "position",
       "Type": {
         "Scalar": "Float",
@@ -1519,7 +1611,7 @@
       }
     },
     {
-      "Location": 6,
+      "Location": 7,
       "Name": "normal",
       "Type": {
         "Scalar": "Float",
@@ -1531,7 +1623,7 @@
       }
     },
     {
-      "Location": 7,
+      "Location": 8,
       "Name": "tangent",
       "Type": {
         "Scalar": "Float",
@@ -1543,7 +1635,7 @@
       }
     },
     {
-      "Location": 8,
+      "Location": 9,
       "Name": "texcoord",
       "Type": {
         "Scalar": "Float",
@@ -1574,7 +1666,7 @@
     {
       "Name": "ForwardPlusPushConstants",
       "Offset": 0,
-      "Size": 64,
+      "Size": 80,
       "Stages": "Vertex, Fragment",
       "Members": [
         {
@@ -1591,6 +1683,22 @@
           "Size": 64,
           "ArrayStride": 0,
           "MatrixStride": 16,
+          "DefaultValue": ""
+        },
+        {
+          "Name": "materialIndex",
+          "Type": {
+            "Scalar": "UInt",
+            "Rows": 1,
+            "Columns": 1,
+            "IsMatrix": false,
+            "IsArray": false,
+            "IsStruct": false
+          },
+          "Offset": 64,
+          "Size": 4,
+          "ArrayStride": 0,
+          "MatrixStride": 0,
           "DefaultValue": ""
         }
       ]
@@ -1660,6 +1768,18 @@
     },
     {
       "Name": "UseTransformRecords",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "false"
+    },
+    {
+      "Name": "UseObjectRecords",
       "Type": {
         "Scalar": "Bool",
         "Rows": 1,
@@ -1774,6 +1894,24 @@
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": ""
+    },
+    {
+      "Name": "objectBase",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 0,
+      "Offset": 28,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0"
     },
     {
       "Name": "tanHalfFov",
@@ -2370,6 +2508,78 @@
       "DefaultValue": ""
     },
     {
+      "Name": "objects.probeIndex",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 15,
+      "Offset": 0,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "objects.probeWeight",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 15,
+      "Offset": 4,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "objects.lightCount",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 15,
+      "Offset": 8,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "objects.reserved",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 15,
+      "Offset": 12,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
       "Name": "lightBuffer.position",
       "Type": {
         "Scalar": "Float",
@@ -2380,7 +2590,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 15,
+      "Binding": 16,
       "Offset": 0,
       "Size": 12,
       "ArrayStride": 0,
@@ -2398,7 +2608,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 15,
+      "Binding": 16,
       "Offset": 12,
       "Size": 4,
       "ArrayStride": 0,
@@ -2416,7 +2626,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 15,
+      "Binding": 16,
       "Offset": 16,
       "Size": 12,
       "ArrayStride": 0,
@@ -2434,7 +2644,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 15,
+      "Binding": 16,
       "Offset": 28,
       "Size": 4,
       "ArrayStride": 0,
@@ -2452,7 +2662,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 15,
+      "Binding": 16,
       "Offset": 32,
       "Size": 12,
       "ArrayStride": 0,
@@ -2470,7 +2680,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 15,
+      "Binding": 16,
       "Offset": 44,
       "Size": 4,
       "ArrayStride": 0,
@@ -2488,7 +2698,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 15,
+      "Binding": 16,
       "Offset": 48,
       "Size": 4,
       "ArrayStride": 0,
@@ -2506,7 +2716,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 15,
+      "Binding": 16,
       "Offset": 52,
       "Size": 4,
       "ArrayStride": 0,
@@ -2524,7 +2734,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 15,
+      "Binding": 16,
       "Offset": 56,
       "Size": 8,
       "ArrayStride": 0,
@@ -2542,7 +2752,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 15,
+      "Binding": 16,
       "Offset": 64,
       "Size": 12,
       "ArrayStride": 0,
@@ -2560,7 +2770,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 15,
+      "Binding": 16,
       "Offset": 76,
       "Size": 4,
       "ArrayStride": 0,
@@ -2578,7 +2788,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 16,
+      "Binding": 17,
       "Offset": 0,
       "Size": 4,
       "ArrayStride": 0,
@@ -2597,7 +2807,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 16,
+      "Binding": 17,
       "Offset": 4,
       "Size": 128,
       "ArrayStride": 4,
@@ -2761,24 +2971,6 @@
       "Set": 3,
       "Binding": 0,
       "Offset": 8,
-      "Size": 4,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": "0"
-    },
-    {
-      "Name": "materialIndex",
-      "Type": {
-        "Scalar": "UInt",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 3,
-      "Binding": 0,
-      "Offset": 12,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -2994,6 +3186,7 @@
     "UseClusteredLights",
     "UseImageBasedLighting",
     "UseIrradianceField",
+    "UseObjectRecords",
     "UseReflectionProbe",
     "UseShadows",
     "UseTransformRecords"

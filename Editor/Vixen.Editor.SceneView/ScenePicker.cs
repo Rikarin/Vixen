@@ -6,6 +6,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 
 namespace Vixen.Editor.SceneView;
 
@@ -23,6 +24,20 @@ public interface IScenePicker {
     /// <param name="height">How tall.</param>
     /// <returns>The entity, or <see cref="Entity.Null" /> for nothing.</returns>
     Entity Under(Ray ray, EditorCamera camera, int width, int height);
+
+    /// <summary>Which entities a rubber-band rectangle takes.</summary>
+    /// <param name="marquee">The band, in render pixels from the pane's top-left.</param>
+    /// <param name="camera">The camera it was dragged in.</param>
+    /// <param name="width">How wide the viewport is, in render pixels.</param>
+    /// <param name="height">How tall.</param>
+    /// <param name="into">Where to put them. Not cleared.</param>
+    /// <remarks>
+    ///     ⚠ <b>A list the caller owns rather than a returned one.</b> This runs once per drag, not
+    ///     once per frame, so the allocation is not the point — what is, is that the caller is the
+    ///     thing that knows whether the answer replaces a selection or extends one, and handing back a
+    ///     fresh list would make the additive case a second copy.
+    /// </remarks>
+    void Within(Marquee marquee, EditorCamera camera, int width, int height, List<Entity> into);
 }
 
 /// <summary>Which entity is under a click, worked out on the processor.</summary>
@@ -104,7 +119,7 @@ public sealed class ScenePicker : IScenePicker {
 
             var transform = world.Read<WorldTransform>(entity).Value;
 
-            var hit = MeshShapes.TryGet(world, entity, out var kind)
+            var hit = PrimitiveShapes.TryGet(world, entity, out var kind)
                 ? Shaped(ray, Shape(kind), transform)
                 : Marker(ray, transform.Translation, camera, height);
 
@@ -117,10 +132,114 @@ public sealed class ScenePicker : IScenePicker {
         return found;
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         <b>The shape's own oriented box, projected, and then the screen rectangle round
+    ///         that.</b> Testing every triangle against the band would be exact and would cost a
+    ///         scene's worth of projections per drag; testing the world-aligned bounds would be a box
+    ///         bigger than a rotated crate on every axis. Eight corners through the entity's matrix is
+    ///         the middle answer, and it is the one both reference editors give.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Corners behind the eye are dropped rather than projected.</b>
+    ///         <see cref="EditorCamera.TryProject" />'s own remarks say why a perspective divide
+    ///         answers for them at all: the point comes back mirrored through the middle of the pane,
+    ///         which here would stretch the rectangle across the whole viewport and put the object in
+    ///         every band anybody drags. An entity with no corner in front of the eye is behind the
+    ///         camera and is skipped.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Hidden and locked entities are skipped, exactly as <see cref="Under" /> skips
+    ///         them.</b> A band is the gesture that most easily takes something the user cannot see,
+    ///         and a marquee and a click disagreeing about what is selectable is worse than either
+    ///         rule on its own.
+    ///     </para>
+    /// </remarks>
+    public void Within(Marquee marquee, EditorCamera camera, int width, int height, List<Entity> into) {
+        ArgumentNullException.ThrowIfNull(camera);
+        ArgumentNullException.ThrowIfNull(into);
+
+        if (width <= 0 || height <= 0) {
+            return;
+        }
+
+        var world = document.World;
+
+        foreach (var entity in document.Entities) {
+            if (!world.IsAlive(entity) || !world.Has<WorldTransform>(entity)) {
+                continue;
+            }
+
+            if (document.IsHidden(entity) || document.IsLocked(entity)) {
+                continue;
+            }
+
+            var transform = world.Read<WorldTransform>(entity).Value;
+
+            var taken = PrimitiveShapes.TryGet(world, entity, out var kind)
+                ? Boxed(marquee, Shape(kind).Bounds, transform, camera, width, height)
+                : camera.TryProject(transform.Translation, width, height, out var point) && marquee.Contains(point);
+
+            if (taken) {
+                into.Add(entity);
+            }
+        }
+    }
+
+    /// <summary>Whether a shape's oriented box touches the band once it is on screen.</summary>
+    static bool Boxed(
+        Marquee marquee,
+        BoundingBox bounds,
+        in Matrix4x4 transform,
+        EditorCamera camera,
+        int width,
+        int height
+    ) {
+        var centre = (bounds.Minimum + bounds.Maximum) * 0.5f;
+        var extent = (bounds.Maximum - bounds.Minimum) * 0.5f;
+
+        var left = float.MaxValue;
+        var top = float.MaxValue;
+        var right = float.MinValue;
+        var bottom = float.MinValue;
+        var any = false;
+
+        for (var index = 0; index < 8; index++) {
+            var local = centre + new Vector3(
+                (index & 1) == 0 ? -extent.X : extent.X,
+                (index & 2) == 0 ? -extent.Y : extent.Y,
+                (index & 4) == 0 ? -extent.Z : extent.Z
+            );
+
+            if (!camera.TryProject(Matrix4x4.TransformPosition(local, transform), width, height, out var point)) {
+                continue;
+            }
+
+            left = MathF.Min(left, point.X);
+            top = MathF.Min(top, point.Y);
+            right = MathF.Max(right, point.X);
+            bottom = MathF.Max(bottom, point.Y);
+            any = true;
+        }
+
+        return any && marquee.Touches(left, top, right, bottom);
+    }
+
     /// <summary>Forgets the shapes built so far, for a caller that changed <see cref="Segments" />.</summary>
     public void Invalidate() => shapes.Clear();
 
-    /// <summary>How far along a ray it first meets a shape, or null.</summary>
+    /// <summary>How far along a ray it first meets a shape, in world units, or null.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The nearest hit is brought back out of local space rather than measured along the
+    ///     world ray.</b> <c>Ray</c>'s constructor normalises, so the local ray's direction is a unit
+    ///     vector in <i>local</i> units and the parameter it hands back is in local units too — a
+    ///     shape scaled fourfold answers with a quarter of the distance, and a shape scaled to a
+    ///     tenth answers with ten times it. That made <see cref="Under" />'s comparison meaningless
+    ///     between two entities of different scale, and meaningless between a shape and a marker,
+    ///     whose distance is already the world one. Taking the point through the matrix costs one
+    ///     transform per entity and is exact.
+    /// </remarks>
     static float? Shaped(Ray ray, MeshData mesh, in Matrix4x4 transform) {
         if (!Matrix4x4.Invert(transform, out var inverse)) {
             // A zero scale, which has no surface to hit. Not an error: an entity can be scaled to
@@ -145,7 +264,9 @@ public sealed class ScenePicker : IScenePicker {
             }
         }
 
-        return nearest;
+        return nearest is { } hit
+            ? (Matrix4x4.TransformPosition(local.GetPoint(hit), transform) - ray.Origin).Length()
+            : null;
     }
 
     /// <summary>How far along a ray it passes the sphere standing in for a marker, or null.</summary>
@@ -164,19 +285,8 @@ public sealed class ScenePicker : IScenePicker {
     ///     time — and a radius taken from the pivot makes everything nearer than it too easy to hit
     ///     and everything further too hard.
     /// </remarks>
-    float Radius(Vector3 position, EditorCamera camera, int height) {
-        if (height <= 0) {
-            return MarkerRadius;
-        }
-
-        if (camera.IsOrthographic) {
-            return camera.OrthographicHeight / height * MarkerRadius;
-        }
-
-        var depth = MathF.Max(Vector3.Dot(position - camera.Position, camera.Forward), camera.NearPlane);
-
-        return 2f * depth * MathF.Tan(camera.FieldOfView * 0.5f) / height * MarkerRadius;
-    }
+    float Radius(Vector3 position, EditorCamera camera, int height) =>
+        height <= 0 ? MarkerRadius : camera.WorldPerPixel(position, height) * MarkerRadius;
 
     MeshData Shape(PrimitiveKind kind) {
         if (!shapes.TryGetValue(kind, out var mesh)) {

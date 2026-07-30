@@ -14,17 +14,24 @@ the ordinary way to start one.
 presents and stops without a validation error or a hang — the flag `Samples/01` introduced and for
 the same reason. With no `--frames` it runs until the window closes.
 
-## Three files, three jobs
+## The files, and what each is for
 
 | | |
 |---|---|
-| `Program.cs` | the platform and the main window |
+| `Program.cs` | the platform, the main window, and the loop that reopens the editor over another project |
 | `EditorHost.cs` | the device, the windows and the four steps of a frame |
 | `EditorPane.cs` | one window's half of a frame: a swapchain, a renderer and the geometry between them |
 | `EditorApplication.cs` | the project, the scene, which panels exist, which layouts, and what persists |
+| `EditorParity.cs` | every menu of doc 20's Part C, and the verbs behind them |
+| `EditorSettingsPanels.cs` | the Preferences and Project Settings pages, and the plugin and history panels |
+| `EditorProjects.cs` | which project, asked at start-up and answered without a restart |
+| `EditorSettings.cs` | the settings assets the editor ships: three of the project's and one of the user's |
+| `EditorBuilds.cs` | the Build Settings panel, Build and Run, and what Deploy means for a device |
+| `BuildSettingsView.cs` | doc 20's B7 window: target, configuration, scenes-in-build, output path |
+| `SearchSources.cs` | what `Ctrl+Shift+F` looks in that is not a command |
 | `SceneEntity.cs` | the join: one entity as a row of editors and as something a gizmo can drag |
 
-The fourth is the one a game team would fork. The loop is four steps worth naming: pump the
+`EditorApplication` and its four partials are the part a game team would fork. The loop is four steps worth naming: pump the
 platform's events into the document, run the layout and draw passes, turn the draw lists into
 geometry, record that geometry into frames. Only the last knows what a GPU is — which is why
 `--frames` means something on a machine with no Vulkan at all.
@@ -63,9 +70,13 @@ The user's — not the project's, which is `ProjectSettings/` and `Vixen.Editor.
 
 | File | What |
 |---|---|
-| `current.vxlayout` | the arrangement the editor was left in |
+| `current.vxlayout` | the arrangement the editor was left in, open documents included |
 | `<name>.vxlayout` | arrangements the user saved by name |
-| `keybindings.yaml` | only the bindings that differ from the defaults |
+| `keybindings.yaml` | the chosen keymap preset, and only the bindings that differ from it |
+| `preferences.yaml` | the editor's own preferences: external editor, undo depth, and two limits |
+| `plugins.yaml` | which plugins *this user* has switched off, which is not the same as the author's `enabled:` |
+| `projects.yaml` | which projects have been opened, and when |
+| `window.yaml` | the main window's size and place |
 | `theme.yaml` | token overrides, if the user wrote any |
 
 They live in the platform's data directory — `%APPDATA%`, `~/Library/Application Support`,
@@ -83,30 +94,62 @@ layout over the one the user spent the afternoon arranging.
 ## Load order, which is not arbitrary
 
 1. Register panels, layouts and commands.
-2. Load the plugins — **after** the editor's own commands, so a plugin naming one that already
+2. Load the preferences — **after** the commands, because the undo depth is pushed into stacks that
+   exist by then, and because the Preferences panel the previous step registered can write them back.
+3. Load the plugins — **after** the editor's own commands, so a plugin naming one that already
    exists is refused rather than shadowing it, and **before** the two steps below, because a
-   plugin's commands own keymap defaults and a plugin's panels are named by saved layouts.
-3. Load the keymap — **after** the commands that own its defaults, or every override in the file
+   plugin's commands own keymap defaults and a plugin's panels are named by saved layouts. The
+   user's list of switched-off plugins is read **before** anything is activated, because a plugin
+   somebody disabled because it broke the editor is the one whose `Activate` must not run.
+4. Load the keymap — **after** the commands that own its defaults, or every override in the file
    lands on a command with no default and the file rewrites itself with the whole map in it.
-4. Load the theme tokens.
-5. Apply the saved layout — **after** the panels are registered, or a saved arrangement names panels
-   the workspace cannot build.
+5. Load the theme tokens.
+6. Apply the saved layout — **after** the panels are registered, or a saved arrangement names panels
+   the workspace cannot build. ⚠ An asset editor's panel is registered on *demand* and cannot be, so
+   `DockingWorkspace.Resolve` asks this class to open the document rather than the arrangement
+   silently losing the tab.
 
-A first run has none of the three files and opens on the Default preset in dark.
+A first run has none of the files and opens on the Default preset in dark.
+
+## Which project, and how another one is opened
+
+`--project` first, then the most recent one that is still on disk, then a scratch project under the
+user's data directory. A genuine first run — scratch, and nothing in the history — puts the project
+browser up once; after that the editor reopens what you were in.
+
+⚠ **Opening another project does not swap one underneath the editor.** `RequestProject` asks about
+unsaved work through the same prompt the window's close button uses, then closes this editor and
+leaves the root in `PendingProject`; `Program`'s loop disposes the host and builds another over the
+same window. The new editor is therefore assembled by exactly the code that assembles it at launch —
+half a dozen fields reassigned in place would be half a dozen chances to leave a panel pointing at a
+dead world.
 
 ## The panels, and which of them are real now
 
-`Vixen.Editor.Inspector` and `Vixen.Editor.SceneView` have landed, so three of the five panels are
-looking at a real model:
+Every one of them is looking at a real model rather than at a placeholder:
 
 | Panel | What it is |
 |---|---|
 | Hierarchy | a `TreeView` over the scene's entities, with a name filter above it. Selection goes both ways — clicking a row selects, and selecting anywhere else highlights the row — and renaming, creating, deleting and dragging-to-reparent are all undo entries |
-| Inspector | an `InspectorView` over whichever selection was last clicked in — the scene's entities or the project's assets — recording every edit on the scene document's stack |
-| Scene | a `SceneViewport`: orbit, pan, zoom, the axis cross, gizmo modes and snapping, drawn into the panel — as lines, for the reason below |
+| Inspector | an `InspectorView` over whichever selection was last clicked in — the scene's entities or the project's assets — recording every edit on the scene document's stack, with `ComponentsView` under the rows in the same scroll region |
+| Scene | a `ViewportLayout` of one, two or four `SceneViewport`s, each with its own camera, view mode and show flags, and a floating toolbar, stats readout and rubber-band drawn over the focused one |
 | Project | `ProjectBrowser`: the asset database as a tree, with a search box, over the real `Assets/` directory. Double-clicking a row opens the asset |
 | An asset | one per open document, built by whichever of the nine asset editors claims the file |
 | Console | a virtualised list over the editor's log ring: level toggles with counts, a category filter, search, collapse-duplicates, clear-on-play, and a detail pane with the stack |
+| Preferences | a `SettingsView` over the user's store: General, Appearance, Scene View, and two pages that open the panels they are about |
+| Project Settings | the same control over `ProjectSettingsStore`, drawing two `[DataContract]` types with `InspectorView` |
+| Plugins | a grid over `PluginHost.Plugins` with enable, disable and reload, and the failure under it as a sentence |
+| Undo History | the active document's stack, where choosing a step undoes back to it |
+| Build Settings | target, configuration, output path and the scenes that ship, over `PlayerBuild` — the same three calls `vixen build` makes |
+| Devices | E4's list, plus a Deploy that builds and launches on this machine and says which tool is missing for every other kind |
+
+The shell registers two more of its own — **Keyboard Shortcuts** and **Message Log** — because both
+are views over things `EditorShell` owns rather than over anything here.
+
+⚠ **A settings page is drawn from a settings object or from *commands*, never from both.** The scene
+navigation preferences and the theme are ticked commands: palette-searchable, rebindable, on a menu.
+The window draws those same commands as toggles rather than a copy of their state, because two
+writers to one setting is how a preferences window and a menu tick come to disagree.
 
 `Vixen.Editor.App.Tests` drives that arrangement the way `EditorHost` does — a real application, a
 real project in a temporary directory, real pointer events into the panels, no GPU — because what
@@ -259,6 +302,50 @@ rescans afterwards, on the frame thread, which is what `ContentTasks.Rescan` is 
 the bar is a walk over what happened rather than a live feed. Honest, and fixed by giving the import
 pipeline a progress callback of its own.
 
+## Building a player
+
+`Build Settings…` opens the panel; `Build and Run` (`Ctrl+B`) runs `ContentTasks.BuildPlayer`, which
+is import → content build → `dotnet publish` → optionally launch. That is `vixen build`'s own
+sequence, over `PlayerBuild` in `Vixen.Editor.Assets`, because doc 20's B7 asks for a window "over
+`Tools/Vixen.Cli`'s existing calls" and a second orchestration would drift from the first exactly the
+way the content pipeline's would have.
+
+⚠ **On the same one-at-a-time guard as an import**, and not politeness: a player build imports and
+packs, so two of them write the same `Library/` and the same catalog.
+
+⚠ **The console is the build log.** An editor has no terminal, so `dotnet publish` is run with its
+output captured and every line goes into the ring the Console panel reads — where it can be filtered,
+searched, and read after the toast has gone. MSBuild's own severity is read back out of the line
+(`: error CS…`), because a compiler error logged as information is one the console's default filter
+hides, which would be the panel concealing the thing it was opened for.
+
+⚠ **A launch is awaited, so the task centre entry is what says a player is running** — and its Cancel
+is what kills one that came up with no window. The notification at the end carries the game's own
+exit code rather than the build's.
+
+⚠ **No shader bundle, and it is said rather than left to be found.** The ahead-of-time compile is
+`ShaderBuildRunner`'s, which links Raven's compiler — a build-time library this application
+deliberately does not carry. A project with a `ProjectSettings/Shaders.effects.json` is told so in the
+build log, and `build.rebuild-shaders` is declared-and-disabled with the same sentence.
+
+⚠ **The Target submenu, the Configuration submenu and the window write one setting.** Doc 20's A4
+rule about two writers applies, and is kept by there being one field: `PlayerBuildSettings.Target` is
+what both tick from. There is no Apply on this window, which is the one settings surface where that is
+right — Build *reads* these fields, so an uncommitted edit would mean the button building something
+other than what is on screen.
+
+⚠ **The player's target and the content target are two settings on purpose.**
+`ContentBuildSettings.Target` is what the editor's own panels are imported for and
+`PlayerBuildSettings.Target` is what ships. A single field would make "build the Android player" also
+mean "reimport the whole project as ASTC", which is precisely what a team building for a phone from a
+workstation must not have happen.
+
+**Deploy** on the Devices panel is the same build with a device attached to it: this machine is a
+publish and a launch, and every other kind of device says which tool is missing — `adb`, a vendor SDK
+— because the tool that would *find* one is the tool that would install to it. Attaching the remote
+inspector afterwards is the fourth verb doc 20's B7 asks for and is the one still owed: it needs
+something on the other side to answer, and doc 13's runtime half is not written.
+
 `--run ID` executes one editor command on the first frame, which is how CI proves an import or a
 build through the *editor's* path — enablement, background task and notification — rather than
 through the pipeline the CLI already covers. It exits 2 for a command that is not there or not
@@ -267,6 +354,13 @@ enabled.
 **The scene panel is live.** `ScenePresenter` renders into an offscreen colour target, registers it
 with `UiRenderer.RegisterImage`, and the viewport control draws it — so the scene arrives in the
 interface as an ordinary element that panels can be drawn over.
+
+⚠ **One presenter per pane, each with a target and an image id of its own.** Four panes sharing a
+presenter would share a render target, so all four would show whichever camera wrote it last; sharing
+the *id* alone does the same thing one layer up, in the interface's image registry — four identical
+views of the perspective camera, which reads as the other three cameras not working. The pool is
+grown and shrunk in the frame loop rather than when the arrangement changes, because that is the only
+place that can be sure no frame is in flight over the target it is about to destroy.
 
 ⚠ **Four draws into one target, in an order that is not arbitrary.** The spawned shapes go first and
 are the only thing that writes depth. The grid, the three-axis marker on each entity and the line to
@@ -341,9 +435,13 @@ lies about what the next Delete, the next gizmo drag or the next rename will act
   only, by its own documented decision, so clearing its document's selection from here would leave a
   row highlighted with nothing behind it.
 
-⚠ **A panel's factory runs again when it is reopened**, so nothing durable may live in one. The
-camera is kept as a `ViewBookmark` on `EditorApplication` and restored when the scene panel is
-rebuilt; without it, closing and reopening the viewport puts the user back at the origin.
+⚠ **A panel's factory runs again when it is reopened**, so nothing durable may live in one. Each
+pane's camera is kept as a `ViewBookmark` on `EditorApplication` and restored when the scene panel is
+rebuilt; without it, closing and reopening the viewport puts the user back at the origin. ⚠ **The
+saved cameras are forgotten when the arrangement changes**, because a single pane's camera restored
+into a freshly-split layout would overwrite `ViewportLayout`'s top/front/side presets with three
+copies of wherever that pane happened to be looking — a four-pane layout that comes up as four
+identical perspective views, which is the exact thing the presets exist to prevent.
 
 ## The editor's own log
 
@@ -358,38 +456,46 @@ warning would toast, log, toast, log.
 
 ## Known gaps
 
-- **A document's panel is not in any layout preset.** It is opened on demand and closed by hand, so
-  the five presets show the five standing panels and an asset editor lands wherever the workspace
-  puts a new one. Remembering which documents were open across a restart is the arrangement's job and
-  `current.vxlayout` does not hold it.
-- **No plugin-management panel.** Plugins load, but the only way to see what is installed is the
-  notification on the way up. The panel is a list over `PluginHost.Plugins` with enable, disable and
-  reload on it, and nothing in the loader is missing for it.
-- **No "open project…", and it is no longer the dialog's fault.** `INativeDialogs` exists, has
-  implementations on every desktop, and this application reaches it through `EditorServices` — Open
-  Scene, Save Scene As and Import Assets are all one call each and all work. What Open Project needs
-  is a *project swapped underneath a live editor*: a world, an asset database and every open document
-  replaced without tearing the window down. Doc 20 puts that behind the startup Project Browser in
-  E3, and the two commands are registered, greyed and carrying that sentence meanwhile.
+- ~~**A document's panel is not in any layout preset.**~~ It still is not — an asset editor is opened
+  on demand and lands wherever the workspace puts a new one — but the half that mattered is closed:
+  `current.vxlayout` always *named* the panel, and what was missing was anything able to build one on
+  the way back. `DockingWorkspace.Resolve` asks, `ReopenDocument` answers by opening the asset, and
+  `EditorPreferences.RestoreOpenDocuments` is how somebody asks for a clean start instead.
+- ~~**No plugin-management panel.**~~ `PluginManagerView` is a grid over `PluginHost.Plugins` with
+  enable, disable and reload. ⚠ What is still owed is a plugin *browser*: this lists what is
+  installed, and installing one is still copying a folder.
+- ~~**No "open project…".**~~ It opens the project browser, and choosing one closes this editor and
+  reopens it over the new root — see above. ~~**New Project makes four directories rather than
+  instantiating a template.**~~ It writes the `game` template, through the same `ProjectScaffold`
+  `vixen new game` writes it through. ⚠ **The old note said the templates were "reached with
+  `dotnet new`", and that was never true** — `TemplateCatalog` reads the same tree out of an
+  assembly. What was true is that it read it out of `Tools/Vixen.Cli`'s, which this application does
+  not reference; it is `Vixen.Editor.Core`'s now. The cost of the gap only showed up two milestones
+  later: a project with no `.csproj` is one Build and Run cannot publish, so every project the
+  editor had ever made had that button greyed.
 - ~~**Reparenting is not undoable.**~~ `ReparentCommand` records the sibling that was in front —
   `Hierarchy.PreviousSiblingOf`, restored through `SetParentAfter` — so an undo puts the third of
   five children back third rather than first. Dragging in the outliner goes through it, and the
   whole selection moves when the dragged row is part of it. ⚠ **A root is the exception**: roots are
   not a sibling list, so an entity undone back to the root set returns in creation order. Making
   that exact needs the scene format to carry a root order.
-- **Clicking in the viewport does not select.** ⚠ Not for want of a texture command any more — the
-  draw list has one, and `Viewport` draws a `RenderTarget` through it. What picking needs is the
-  *id* target and the readback: `PickingBuffer` and `PickingRenderer` in `Vixen.Editor.SceneView` are
-  the pieces, and nothing in this application drives them. The gizmo can be dragged meanwhile, and
-  what it drags comes from the hierarchy.
+- ~~**Clicking in the viewport does not select.**~~ It does, and dragging a box round several does
+  too, through `ScenePicker` and `IScenePicker.Within` — a ray test and a screen-space region query,
+  both exact against the geometry the viewport actually draws. ⚠ **The id readback is still not
+  driven**, and the reason has moved rather than gone away: `PickingRenderer` is a `SceneRenderer`
+  over a `RenderStage`, which needs the viewport driven by `RenderSystem` through a
+  `GraphicsCompositor`. This application has neither, so the stage is blocked on the same material
+  wiring the view modes are — and it is what will be right the day a shader moves a vertex.
 - **It redraws every frame.** Redrawing only on change is the right end state and is not free — every
   animation, toast expiry and task progress has to say so, and one that forgets leaves a progress bar
   frozen at forty per cent.
-- **One scene at a time, though no longer one *fixed* scene.** The editor opens
-  `Assets/Scenes/Main.vxscene` and `file.open-scene` loads another over the same document — the
-  panels, the gizmo and the picker all hold that document, so swapping the object would leave four
-  panels looking at the old one. Additive loading and per-scene visibility is doc 20's multi-scene
-  row, in E5.
+- ~~**One scene at a time.**~~ Closed by doc 20's E5. Scenes open **additively into one world** —
+  which is what `SceneManager` already does, and what keeps an entity handle meaning one thing across
+  the editor — and the Scenes panel lists them with per-scene visibility and lock. Making one active
+  is an assignment to the `scene` field every panel already reads, which is why the change was three
+  fields losing `readonly` rather than an index every panel had to learn about. ⚠ **Per-scene
+  visibility writes the documents' own hidden sets**, so it is editor state and is not saved — the
+  rule `entity.toggle-hidden` already follows.
 - ⚠ **Double-clicking the scene that is already open loads it a second time.** The editor opens its
   own scene by *path*, as a `SceneDocument` carrying `AssetId.Empty`, so `AssetEditorRegistry` has no
   way to know that the GUID being opened is the document already on screen — and both share one

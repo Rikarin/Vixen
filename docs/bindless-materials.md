@@ -22,7 +22,13 @@ stopped a merge anyway, because data in the command buffer is per command by con
 
 What remains is the per-object *light block*, and only on the path that has one: with a uniform light
 list each object binds its block at its own dynamic offset, and a dynamic offset travels in the bind.
-With clustering on nothing is bound per object and a run does merge. See the last two sections.
+With clustering on nothing is bound per object and a run does merge.
+
+And a compositor document can now ask for all of it — see the last four sections.
+
+⚠ **One step short of usable from a document alone.** Nothing outside the tests creates the
+`BindlessTable` itself, so a material feature that samples still needs a host to wire one by hand —
+§ *The one thing left*.
 
 ## What is built
 
@@ -402,6 +408,10 @@ second buffer, which costs one bind between the two runs and nothing within eith
 | 4. Compaction | ✅ built — one command per batch, three conditions checked |
 | 5. The geometry half | ✅ built — `GeometryBuffer`, one bind per run |
 | 6. The transform out of the command buffer | ✅ built — `UseTransformRecords`, the index in `firstInstance` |
+| 7. The material record out of the per-object block | ✅ built — a push constant, per run, at the offset the effect declares |
+| 8. The probe scalars out of it as well | ✅ built — `UseObjectRecords`, and `Flat` in Raven to carry the index |
+| 9. A document that asks for all of it | ✅ built — `gpuDriven:` on the asset root, `compact:` on the culling node |
+| 10. **Something that creates the table** | ⬜ **not built** — see below, and it is the one thing left |
 
 ## 6. The transform, which was not a material and was still in the way
 
@@ -447,13 +457,119 @@ side of that pair. The gate asks what a sub-feature is *doing* this frame rather
 — `IDrawSubFeature.IsRecording` — because asking the type gives the same answer to both of these and
 that answer is wrong for one of them.
 
-⚠ **And the clustered path has a pre-existing hole this makes newly relevant.** It binds no per-draw
-set at all, so the whole set-3 block — `probeIndex`, `probeWeight`, `lightCount` and, since 2b,
-`materialIndex` — is not bound in a clustered frame. That is not caused by anything here and it is
-not fixed by anything here, but it is the reason "the clustered pass merges" is not yet the same
-sentence as "the clustered pass is right". The fix is the same shape once more: those scalars are per
-object, the instance index already addresses per-object records, and one more record buffer beside
-the transforms would carry them.
+### The clustered path had a hole, and `materialIndex` was in it
+
+✅ **Fixed** — the index is a push constant beside the world matrix.
+
+The clustered path binds no per-draw set at all, so the whole set-3 block was undelivered in a
+clustered frame — including `materialIndex`, which is the number this entire document is about.
+Bindless materials and clustered lighting were quietly exclusive.
+
+The fix turned on noticing that **it was never per-object data**. A variant is keyed
+`(material, flags, shader)`, so one variant is one material; a batch keys on the variant; so every
+object in a merged command has the same material and the same record. It is per *draw*. So it is
+pushed, once per run, at the point the per-material set is bound on the path that has one — per run
+and not per node, which is exactly what the merge gate permits. It also takes a cross-feature write
+with it: the lighting feature used to write the material feature's number into its own block, which
+its own comment apologised for.
+
+The offset comes off the effect rather than a constant in the host. `EffectPushConstantData` carried
+a range and no members, on the stated grounds that a caller reads the generated constants — but
+nothing is generated for a push block, so the only offset a host had was one it assumed. That held
+while the block was one matrix at zero, and would have stopped holding **silently**: a push at the
+wrong offset inside a declared range is accepted by every layer there is.
+
+### And `probeIndex` and `probeWeight` were in it too
+
+✅ **Fixed** — `UseObjectRecords`, a record per object read through a flat varying.
+
+These are genuinely per object — a probe is chosen by where the object *is* — so a push would be
+wrong for them the way the block was wrong for `materialIndex`. They go in a buffer the lighting
+feature owns, at the object's own slot, read in the fragment stage through an `objectIndex` varying.
+
+Two things that had to exist first:
+
+- **Raven had to emit `Flat`.** An integer varying has no interpolation it could take — the
+  rasteriser weights by barycentric coordinates and that produces a fraction — so SPIR-V *requires*
+  the decoration on a fragment input of integer type and GLSL requires the qualifier. Raven emitted
+  neither. Both backends now ask one predicate, and the float varying is asserted **not** to be flat:
+  decorating everything would satisfy the validator and quietly kill interpolation.
+- **The record has to be addressable.** `SV_InstanceID` holds the object's slot only because the
+  transform record path put it in `firstInstance`. So `UseObjectRecords` takes that as a parameter
+  rather than checking for itself, and the compositor asks for it only where transforms turned on.
+  Asked without them, every draw carries zero and every object reads record zero's probe.
+
+⚠ The new varying takes a location, so `ForwardPlus`'s vertex attributes moved from 5–8 to 6–9. A
+golden test had them written down and `vkCreateGraphicsPipelines` refused the pipeline outright —
+which is how it was found, and the fixture now reads them off the effect as its own comment always
+claimed it did.
+
+## A document can ask for all of it
+
+✅ **Built** — `GpuDrivenAsset`, and `compact:` on the culling node.
+
+Everything above was reachable from a test and from **nothing a project authors**. `CompositorBuilder`
+wired one thing out of the whole chain — the argument buffer — and never turned records on, never
+asked for compaction. A mechanism nothing invokes is a mechanism that compiles.
+
+```yaml
+gpuDriven:
+  shader: ForwardPlus
+  materialRecords: true
+  transformRecords: true
+game: !Sequence
+  children:
+    - !GpuCulling
+      readBack: false
+      indirectDraws: true
+      compact: true
+```
+
+**Every flag is a request and the device answers it**, which is what makes it safe in a document at
+all: one authored frame runs on a machine with descriptor indexing and on one without, and the second
+draws the same image through a descriptor set per material. `CompositorBuilder.GpuDriven` reports what
+was actually turned on, so "the device said no" and "nobody asked" are not the same observation.
+
+The frame-wide flags are on the asset root rather than on a node, because they are not a pass: they
+decide where a material's values live and where an object's matrix lives, and the answer has to be the
+same for every pass that draws.
+
+## The one thing left: nothing creates the table
+
+⬜ **Not built.** Every mechanism above is complete and exercised, and the shipped library has the
+consumer — `TexturedMetalRoughnessSurface` inherits `MaterialTextures` and samples through
+`SampleMap`. But **nothing outside the tests constructs a `BindlessTable` or fills
+`MaterialRenderFeature.TextureIndices`**:
+
+```bash
+grep -rn "new BindlessTable" --include="*.cs" Core Editor Platform | grep -v Tests
+```
+
+returns nothing. So a project that asks for `materialRecords: true` gets records without a texture
+table, and a material naming a base-colour map keeps `baseColorIndex = 0` because the registration is
+skipped when `Textures` is null.
+
+⚠ **And there is a sharper edge behind it, which the records flag does not cause.** A material
+composed from `TexturedMetalRoughnessSurface` declares the table *whatever the permutation says* — a
+binding is in the plan because it was declared, which is the rule this whole document keeps running
+into. So its pipeline layout has five sets, while `MeshRenderFeature` binds set 4 only when
+`materials.Textures is { Set.IsValid: true }`. With no table that is a five-set layout drawing with
+four sets bound: a validation error on a real device, not a missing texture.
+
+**Why it stopped here rather than being finished with the rest.** A table needs a capacity and a
+*fallback texture view* — slot zero, what a material with no map samples. Both are project decisions
+and the fallback is an actual asset, so inventing a 1×1 white texture inside `CompositorBuilder` would
+have made the silent default one nobody chose. The two honest shapes are:
+
+- the document names it — `bindlessTextures: { capacity: 4096, fallback: <asset> }` inside
+  `gpuDriven:`, which keeps the rule that a file says *which* and a host binds it; or
+- the builder creates the table with a generated 1×1 white view when `materialRecords` is on, and a
+  host overrides it.
+
+Whichever it is, the guard belongs with it and is worth having either way: **an effect that declares
+set 4 with no table available should refuse to draw** rather than issue a draw whose layout it cannot
+satisfy. Today that combination is only reachable by hand, which is the only reason it has not been
+hit.
 
 ## Two things deliberately not planned here
 

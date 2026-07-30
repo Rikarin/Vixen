@@ -188,6 +188,7 @@ public sealed class NullDevice : IGraphicsDevice {
     readonly HandlePool<GpuPipelineLayout> pipelineLayouts = new();
     readonly HandlePool<GpuDescriptorSetLayout> setLayouts = new();
     readonly HandlePool<GpuDescriptorSet> descriptorSets = new();
+    readonly HandlePool<GpuQueryPool> queryPools = new();
     readonly Lock gate = new();
 
     bool disposed;
@@ -247,7 +248,8 @@ public sealed class NullDevice : IGraphicsDevice {
         get {
             lock (gate) {
                 return buffers.Count + textures.Count + views.Count + samplers.Count + shaders.Count
-                    + pipelines.Count + pipelineLayouts.Count + setLayouts.Count + descriptorSets.Count;
+                    + pipelines.Count + pipelineLayouts.Count + setLayouts.Count + descriptorSets.Count
+                    + queryPools.Count;
             }
         }
     }
@@ -273,6 +275,14 @@ public sealed class NullDevice : IGraphicsDevice {
         HasAnisotropicFiltering = true,
         HasIndependentBlend = true,
         HasPipelineStatistics = true,
+        HasTimestampQueries = true,
+
+        // One tick is one nanosecond, which is what a desktop NVIDIA part reports and is the value
+        // that makes a synthetic reading readable: `Vixen.Editor.Profiler`'s tests can write a
+        // duration in nanoseconds and read the same number back rather than through a scale factor
+        // whose only purpose would be to prove the multiplication happened.
+        TimestampPeriod = 1f,
+
         MaxTextureSize = 16384,
         MaxColourAttachments = 8,
         MaxVertexBuffers = 16,
@@ -529,6 +539,64 @@ public sealed class NullDevice : IGraphicsDevice {
     public ISwapChain CreateSwapChain(in SwapChainDescription description) => new NullSwapChain(description, this);
 
     /// <inheritdoc />
+    public QueryPoolHandle CreateQueryPool(in QueryPoolDescription description) {
+        if (!Features.HasTimestampQueries) {
+            throw new NotSupportedException(
+                $"Query pool '{description.Name}' was asked for on a device reporting no timestamp "
+                + "queries. Ask Features.HasTimestampQueries and leave the timeline empty."
+            );
+        }
+
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(description.Count, nameof(description));
+
+        lock (gate) {
+            return new(queryPools.Add(new NullQueryPool(description)));
+        }
+    }
+
+    /// <inheritdoc />
+    public void Destroy(QueryPoolHandle handle) {
+        lock (gate) {
+            queryPools.Remove(handle.Value);
+        }
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The readings are synthetic and monotonic, and they are not zero.</b> A backend with
+    ///     no GPU has no clock to read, and the tempting answer — resolve to zero — makes every
+    ///     duration zero, which is a result a test cannot tell from a bug. Instead each query
+    ///     answers with the pool's own counter, so a pair subtracts to a positive number and a
+    ///     caller's arithmetic is exercised. It is a shape, not a measurement, and nothing should
+    ///     read a number out of this device and call it a frame time.
+    /// </remarks>
+    public bool TryResolveQueries(QueryPoolHandle pool, int first, Span<ulong> results) {
+        ArgumentOutOfRangeException.ThrowIfNegative(first);
+
+        lock (gate) {
+            if (!queryPools.TryGet(pool.Value, out var target)) {
+                throw new ArgumentException("The query pool does not exist, or has been destroyed.", nameof(pool));
+            }
+
+            var description = ((NullQueryPool)target).Description;
+
+            if (first + results.Length > description.Count) {
+                throw new ArgumentOutOfRangeException(
+                    nameof(first),
+                    $"Reading {results.Length} queries from {first} runs off the end of '{description.Name}', "
+                    + $"which holds {description.Count}."
+                );
+            }
+
+            for (var index = 0; index < results.Length; index++) {
+                results[index] = (ulong)(first + index + 1) * NullQueryPool.SyntheticTick;
+            }
+
+            return true;
+        }
+    }
+
+    /// <inheritdoc />
     public void Destroy(BufferHandle handle) {
         lock (gate) {
             buffers.Remove(handle.Value);
@@ -677,6 +745,7 @@ public sealed class NullDevice : IGraphicsDevice {
             pipelineLayouts.Clear();
             setLayouts.Clear();
             descriptorSets.Clear();
+            queryPools.Clear();
         }
     }
 
@@ -690,6 +759,18 @@ public sealed class NullDevice : IGraphicsDevice {
 
     sealed class NullBuffer(BufferDescription description) : GpuBuffer {
         public BufferDescription Description { get; } = description;
+    }
+
+    sealed class NullQueryPool(QueryPoolDescription description) : GpuQueryPool {
+        /// <summary>How far apart two consecutive synthetic readings are, in ticks.</summary>
+        /// <remarks>
+        ///     A thousand, so a pair of adjacent queries reads as a microsecond at the device's
+        ///     one-nanosecond period — a plausible pass, and a number nobody would mistake for a
+        ///     measurement.
+        /// </remarks>
+        public const ulong SyntheticTick = 1000;
+
+        public QueryPoolDescription Description { get; } = description;
     }
 
     sealed class NullTexture(TextureDescription description) : GpuTexture {

@@ -44,7 +44,15 @@ public static class CatalogFormat {
     public static ReadOnlySpan<byte> Magic => "VXCATLOG"u8;
 
     /// <summary>The format version this reads and writes.</summary>
-    public const int Version = 1;
+    /// <remarks>
+    ///     <b>2 carries each entry's <c>vx:</c> reference.</b> Twenty fixed-width bytes per entry —
+    ///     sixteen of asset id and four of sub-asset id — and not a string-table index, because a
+    ///     reference is not text and putting one in the table would store its hex form for the sake of
+    ///     deduplicating a string that appears exactly once. Version 1 files are refused rather than
+    ///     read with empty references: a catalog that resolves addresses and silently answers no
+    ///     reference is a game whose every mesh is missing, diagnosed as content that failed to load.
+    /// </remarks>
+    public const int Version = 2;
 
     /// <summary>Writes a catalog.</summary>
     /// <param name="catalog">The catalog.</param>
@@ -104,6 +112,8 @@ public static class CatalogFormat {
             WriteInt32(file, index[entry.Bundle]);
             file.WriteByte((byte)entry.Provider);
             WriteInt64(file, entry.Size);
+            WriteGuid(file, entry.Reference.Asset.Value);
+            WriteUInt32(file, entry.Reference.SubAsset.Value);
             WriteIndices(file, index, entry.Dependencies);
             WriteIndices(file, index, entry.Labels);
         }
@@ -191,10 +201,21 @@ public static class CatalogFormat {
             var bundle = table[ReadInt32(body, ref cursor)];
             var provider = (ContentProvider)body[cursor++];
             var size = ReadInt64(body, ref cursor);
+            var asset = ReadGuid(body, ref cursor);
+            var subAsset = ReadUInt32(body, ref cursor);
             var dependencies = ReadIndices(body, ref cursor, table);
             var labels = ReadIndices(body, ref cursor, table);
 
-            entries[position] = new(address, id, bundle, provider, dependencies, labels, size);
+            entries[position] = new(
+                address,
+                id,
+                bundle,
+                provider,
+                dependencies,
+                labels,
+                size,
+                new AssetReference(new AssetId(asset), new SubAssetId(subAsset))
+            );
         }
 
         var bundles = new CatalogBundle[ReadInt32(body, ref cursor)];
@@ -253,6 +274,25 @@ public static class CatalogFormat {
         Span<byte> buffer = stackalloc byte[4];
         BinaryPrimitives.WriteUInt32LittleEndian(buffer, value);
         file.Write(buffer);
+    }
+
+    /// <remarks>
+    ///     Big-endian, through <see cref="Guid.TryWriteBytes(Span{byte}, bool, out int)" />'s
+    ///     <c>bigEndian: true</c>, so the bytes do not depend on the machine that wrote them. A
+    ///     <see cref="Guid" />'s in-memory layout is little-endian for its first three fields on every
+    ///     platform .NET runs on today, but "today" is not what a shipped content format gets to
+    ///     assume, and doc 12 gates the build on three operating systems producing identical bytes.
+    /// </remarks>
+    static void WriteGuid(Stream file, Guid value) {
+        Span<byte> buffer = stackalloc byte[16];
+        value.TryWriteBytes(buffer, bigEndian: true, out _);
+        file.Write(buffer);
+    }
+
+    static Guid ReadGuid(ReadOnlySpan<byte> body, ref int cursor) {
+        var value = new Guid(body.Slice(cursor, 16), bigEndian: true);
+        cursor += 16;
+        return value;
     }
 
     static void WriteInt64(Stream file, long value) {

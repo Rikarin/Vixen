@@ -59,12 +59,21 @@ public class AssetEditorRegistryTests {
 
         foreach (var name in new[] {
                      "Texture", "Model", "Material", "Scene", "Prefab", "Shader", "UI",
-                     "Addressable Group", "Graphics Compositor"
+                     "Addressable Group", "Graphics Compositor",
+
+                     // Doc 20's E5: the four rows of doc 11's thirteen this assembly did not cover,
+                     // plus the two authoring surfaces that had no row because they had no format.
+                     "VFX Graph", "Animation Clip", "Animation Graph", "Sequence", "Audio Mixer",
+                     "Input Actions", "Font",
+
+                     // And doc 20's B5 shader-graph row, which had a node library and a compiler for
+                     // a long time and no way into either.
+                     "Shader Graph"
                  }) {
             Assert.True(registry.TryGetByName(name, out _), $"'{name}' is not registered.");
         }
 
-        Assert.Equal(9, registry.Count);
+        Assert.Equal(17, registry.Count);
     }
 
     /// <summary>

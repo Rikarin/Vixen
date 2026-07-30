@@ -1,0 +1,150 @@
+package Vixen.Editor.Shaders
+
+// A shape held on the device, drawn once per entity.
+//
+// `Mesh` for a scene rather than for a tool, and the difference is where the placing happens. That
+// shader takes triangles that are already in world space, which means the host transforms every
+// vertex of every object every frame — the cost is linear in vertices and a scene of edited meshes
+// shares nothing between two of them. Here the geometry is uploaded once and never moves; what
+// arrives per frame is one instance record per entity, and this stage does the placing.
+//
+// **The per-instance matrices arrive as rows rather than as a mat4, and that is deliberate.** A
+// matrix vertex attribute is four attributes anyway, and reconstructing one would mean agreeing with
+// the host about whether the four locations are its rows or its columns — a convention nobody can see
+// and everybody gets to guess about. Vixen's `Matrix4x4` is row-major under the row-vector
+// convention, so `x*Row1 + y*Row2 + z*Row3 + Row4` is what `Matrix4x4.TransformPosition` computes,
+// written out. The same sum over the inverse transpose's first three rows is
+// `Matrix4x4.TransformDirection` through the normal matrix.
+//
+// ⚠ **The selection outline is a vertex-stage expansion here and was a host-side one before.** It
+// has to be: an inverted hull is the same geometry pushed outwards across the view by a width
+// measured in *pixels*, so it needs the camera at every vertex — which the host had and an instanced
+// path does not. What crosses the boundary instead is the numbers the expansion is made of, in `eye`,
+// `view` and `pixels`, and `MeshInstanceView.WorldPerPixel` is the host-side mirror of the scale
+// computed below. The two being one line each is what keeps them the same line.
+
+shader MeshInstanced {
+    /// The world-to-clip matrix of the view being drawn.
+    [PushConstant] var viewProjection: mat4
+
+    /// The direction the light travels in xyz, and the ambient term in w.
+    [PushConstant] var light: float4 = float4(0f, -1f, 0f, 0.35f)
+
+    /// Where the camera is in xyz, and one in w for an orthographic projection.
+    [PushConstant] var eye: float4
+
+    /// Which way the camera looks in xyz, and its near plane in w.
+    [PushConstant] var view: float4
+
+    /// How many world units a render pixel is, in x — a whole answer for an orthographic view and a
+    /// per-unit-of-depth factor for a perspective one.
+    [PushConstant] var pixels: float4
+
+    /// ⚠ Passed through unnormalised, for the reason `Mesh` gives: it is unit length per vertex and
+    /// the interpolation between two unit vectors is not.
+    stream var normalWS: float3
+
+    stream var colour: float4
+
+    /// The per-vertex pair is the shape; everything after it is the entity.
+    ///
+    /// `style` is four independent decisions rather than four modes, because they compose: an outline
+    /// is expanded *and* flat, a wireframe is flat and not expanded, and a normal view colours by the
+    /// normal whatever else is true.
+    ///
+    /// | Lane | Means |
+    /// |---|---|
+    /// | x | how wide an outline this instance is, in pixels. Zero for anything that is not one |
+    /// | y | how far behind its own surface that outline is pushed, in pixels |
+    /// | z | above a half, light this as though it faced the key, which is one flat colour |
+    /// | w | above a half, take the colour from the world normal rather than from `tint` |
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(position: float3, normal: float3, model0: float4, model1: float4, model2: float4, model3: float4, normal0: float3, normal1: float3, normal2: float3, tint: float4, style: float4): float4 {
+        var world = (position.x * model0.xyz) + (position.y * model1.xyz) + (position.z * model2.xyz) + model3.xyz
+        var surface = (normal.x * normal0) + (normal.y * normal1) + (normal.z * normal2)
+
+        // A matrix that cannot be inverted is a zero scale, where the entity has no visible surface
+        // and any normal will do — the host passes the transform itself in that case, and this is
+        // what keeps a degenerate one from normalising to NaN.
+        if (dot(surface, surface) > 0.000001f) {
+            surface = normalize(surface)
+        } else {
+            surface = float3(0f, 1f, 0f)
+        }
+
+        // ⚠ Taken from the geometric normal before the flat-lighting override below replaces it. A
+        // normal view of a selected object would otherwise be a picture of the light direction, in
+        // one flat colour, for the one object being looked at.
+        if (style.w > 0.5f) {
+            colour = float4((surface * 0.5f) + 0.5f, 1f)
+        } else {
+            colour = tint
+        }
+
+        // How many world units a pixel is at this vertex, and which way the eye is from it. An
+        // orthographic view has one answer for the whole frame and one fixed direction; a perspective
+        // one is linear in depth along the view axis, floored at the near plane so that a vertex
+        // behind the camera does not come out negative.
+        var scale = pixels.x
+        var toEye = -view.xyz
+
+        if (eye.w < 0.5f) {
+            scale = pixels.x * max(dot(world - eye.xyz, view.xyz), view.w)
+            val offset = eye.xyz - world
+
+            if (dot(offset, offset) > 0.000001f) {
+                toEye = normalize(offset)
+            }
+        }
+
+        if (style.x > 0f) {
+            // ⚠ Only the part of the normal that lies *across* the view is expanded. A vertex whose
+            // normal points at the eye is not on the silhouette, so expanding it would push the front
+            // of the object out through its own surface — a bloom over the middle of whatever is
+            // selected rather than a rim around it.
+            val across = surface - (toEye * dot(surface, toEye))
+
+            if (dot(across, across) > 0.000001f) {
+                world = world + (normalize(across) * (scale * style.x))
+            }
+
+            // And away from the eye by a pixel-measured bias, which is what makes the hull lose the
+            // depth test against the object instead of fighting it triangle by triangle.
+            world = world - (toEye * (scale * style.y))
+        }
+
+        // The fragment stage shades with `dot(normal, -light)`, so a normal facing the direction the
+        // light travels *from* has a lambert term of one. That is the only way to draw a flat rim
+        // beside shaded surfaces when the whole draw has one ambient term.
+        if (style.z > 0.5f) {
+            if (dot(light.xyz, light.xyz) > 0.000001f) {
+                surface = -normalize(light.xyz)
+            }
+        }
+
+        normalWS = surface
+
+        return viewProjection * float4(world, 1f)
+    }
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment([Semantic("SV_IsFrontFace")] frontFacing: bool): float4 {
+        var surface = normalize(normalWS)
+
+        // Two-sided for the reason `Mesh` gives: the inside of an open shape arrives with its normal
+        // pointing away from the viewer, and a surface you can see is a surface you can judge the
+        // shape of.
+        if (!frontFacing) {
+            surface = -surface
+        }
+
+        val lambert = max(dot(surface, -normalize(light.xyz)), 0f)
+        val shade = light.w + ((1f - light.w) * lambert)
+
+        // Premultiplied, which is what the blend state expects.
+        val lit = colour.rgb * shade
+        return float4(lit * colour.a, colour.a)
+    }
+}

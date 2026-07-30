@@ -64,13 +64,18 @@ Vixen.Editor.Plugin.PluginException.PluginException(string message, System.Excep
 Vixen.Editor.Plugin.PluginHost -> sealed class
 Vixen.Editor.Plugin.PluginHost.Changed -> System.Action<Vixen.Editor.Plugin.LoadedPlugin>?
 Vixen.Editor.Plugin.PluginHost.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDiagnostic>
+Vixen.Editor.Plugin.PluginHost.Disable(string id) -> bool
+Vixen.Editor.Plugin.PluginHost.Enable(string id) -> Vixen.Editor.Plugin.PluginReport
 Vixen.Editor.Plugin.PluginHost.Find(string id) -> Vixen.Editor.Plugin.LoadedPlugin?
+Vixen.Editor.Plugin.PluginHost.IsSuppressed(string id) -> bool
 Vixen.Editor.Plugin.PluginHost.Load(System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDescriptor> descriptors) -> Vixen.Editor.Plugin.PluginReport
 Vixen.Editor.Plugin.PluginHost.Load(Vixen.Editor.Plugin.PluginCatalog catalog) -> Vixen.Editor.Plugin.PluginReport
 Vixen.Editor.Plugin.PluginHost.PluginHost(Vixen.Editor.Ui.EditorShell shell, Vixen.Editor.Plugin.PluginServices? services = null) -> void
 Vixen.Editor.Plugin.PluginHost.Plugins.get -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.LoadedPlugin>
 Vixen.Editor.Plugin.PluginHost.Reload(string id) -> Vixen.Editor.Plugin.PluginReport
 Vixen.Editor.Plugin.PluginHost.Services.get -> Vixen.Editor.Plugin.PluginServices
+Vixen.Editor.Plugin.PluginHost.Suppress(System.Collections.Generic.IEnumerable<string> ids) -> void
+Vixen.Editor.Plugin.PluginHost.Suppressed.get -> System.Collections.Generic.IReadOnlyCollection<string>
 Vixen.Editor.Plugin.PluginHost.Unload(string id) -> bool
 Vixen.Editor.Plugin.PluginHost.UnloadAll() -> void
 Vixen.Editor.Plugin.PluginHost.WaitForCollection(string id, System.TimeSpan timeout) -> bool

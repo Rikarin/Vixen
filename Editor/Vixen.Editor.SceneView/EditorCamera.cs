@@ -325,6 +325,63 @@ public sealed class EditorCamera {
         Pivot = target + ((Pivot - target) * (Distance / before));
     }
 
+    /// <summary>How many world units one render pixel covers, at a point.</summary>
+    /// <param name="at">Where, in world space.</param>
+    /// <param name="height">How tall the viewport is, in render pixels.</param>
+    /// <returns>The scale, or one when there is no viewport to measure against.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The one conversion that makes "a constant size on screen" expressible in world
+    ///         units</b>, and there are four things in the viewport that need it: the gizmo's handles,
+    ///         the sphere that stands in for a marker in the picker, the thickness of a stroke, and
+    ///         the width of a selection outline. It was written out three times before it was a
+    ///         method, and the copies agreed — which is the state a fourth copy ends.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Measured at the point, not at the pivot.</b> They differ the moment the thing
+    ///         being measured is not what the camera is orbiting, which is most of the time; a scale
+    ///         taken from the pivot makes everything nearer than it too big and everything further too
+    ///         small. Orthographic has no such distinction, because it has no perspective divide.
+    ///     </para>
+    /// </remarks>
+    public float WorldPerPixel(Vector3 at, int height) {
+        if (height <= 0) {
+            return 1f;
+        }
+
+        var scale = PixelScale(height);
+
+        if (IsOrthographic) {
+            return scale;
+        }
+
+        return scale * MathF.Max(Vector3.Dot(at - Position, Forward), NearPlane);
+    }
+
+    /// <summary>The part of <see cref="WorldPerPixel" /> that does not depend on the point.</summary>
+    /// <param name="height">How tall the viewport is, in render pixels.</param>
+    /// <returns>
+    ///     The whole scale for an orthographic view, and the factor a perspective one is linear in
+    ///     depth by. One when there is no viewport to measure against.
+    /// </returns>
+    /// <remarks>
+    ///     ⚠ <b>Split out for a consumer that cannot call <see cref="WorldPerPixel" /> at all: a vertex
+    ///     stage.</b> The selection outline is expanded by a width in pixels at every vertex of the
+    ///     selected geometry, and the instanced mesh path has no vertex on the processor to expand —
+    ///     so what crosses to the shader is this number, and the multiplication by depth happens there.
+    ///     <c>MeshInstanceView.WorldPerPixel</c> is the mirror, and a test asserts the two agree at a
+    ///     point rather than trusting that they do.
+    /// </remarks>
+    public float PixelScale(int height) {
+        if (height <= 0) {
+            return 1f;
+        }
+
+        return IsOrthographic
+            ? OrthographicHeight / height
+            : 2f * MathF.Tan(FieldOfView * 0.5f) / height;
+    }
+
     /// <summary>Where a ray crosses the plane through the pivot that faces the camera.</summary>
     /// <param name="ray">The ray, usually the one under the pointer.</param>
     /// <returns>The point, or the pivot when the ray runs parallel to the plane.</returns>

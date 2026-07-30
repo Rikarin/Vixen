@@ -1480,6 +1480,236 @@ public class GpuVisibilityGroupTests : IDisposable {
         Assert.Equal(GpuDrawArguments.Stride * 10, arguments.OffsetOf(1, new(0)));
     }
 
+    // --- The incremental scene -----------------------------------------------
+
+    /// <summary>
+    ///     A frame that changes nothing uploads nothing.
+    /// </summary>
+    /// <remarks>
+    ///     The first frame writes the whole scene, because a freshly created buffer holds nothing.
+    ///     Every frame after it writes the difference, and when there is no difference there is
+    ///     nothing to write — which is the claim doc <c>virtualized-geometry.md</c> § Phase 0 makes
+    ///     and the reason the object records stopped being an <c>UploadBuffer</c>.
+    /// </remarks>
+    [Fact]
+    public void A_frame_that_changes_nothing_uploads_nothing() {
+        using var store = new RenderObjectStore();
+        using var visibility = Configured();
+
+        visibility.ReadBack = false;
+
+        for (var i = 0; i < 256; i++) {
+            Add(store, 10f);
+        }
+
+        var views = new[] { Camera(RenderStageMask.Of(0)) };
+
+        visibility.Cull(store, views);
+        Assert.True(visibility.CulledOnDevice);
+
+        // The scene arriving for the first time, into every region of the ring.
+        Assert.Equal(256 * 32, visibility.ObjectBytesUploaded);
+
+        for (var frame = 0; frame < device.FramesInFlight; frame++) {
+            visibility.Cull(store, views);
+        }
+
+        // Each region has now had the whole scene once, and nothing has moved since.
+        visibility.Cull(store, views);
+        Assert.Equal(0, visibility.ObjectBytesUploaded);
+        Assert.Equal(0, visibility.ObjectUploadRegions);
+    }
+
+    /// <summary>
+    ///     A hundred thousand objects, one of which moves, and one object's worth of bytes.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The exit criterion doc <c>virtualized-geometry.md</c> § Phase 0 states, asserted the
+    ///         way it says to assert it — by counting the upload rather than by timing the frame.
+    ///         Deleting the comparison in <see cref="PersistentUploadBuffer{T}.Set" /> fails this
+    ///         rather than making the frame slower, which is the point of writing it this way.
+    ///     </para>
+    ///     <para>
+    ///         The change is uploaded once per frame in flight and then stops, because each region
+    ///         of the ring is a different set of bytes and each of them is missing the change until
+    ///         its own turn comes.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void One_object_moving_in_a_hundred_thousand_uploads_one_object() {
+        using var store = new RenderObjectStore();
+        using var visibility = Configured();
+
+        visibility.ReadBack = false;
+
+        const int Count = 100_000;
+
+        for (var i = 0; i < Count; i++) {
+            Add(store, 10f);
+        }
+
+        var views = new[] { Camera(RenderStageMask.Of(0)) };
+
+        // Settle every region of the ring, so what follows is the steady state rather than the
+        // first frame's unavoidable upload of everything.
+        for (var frame = 0; frame <= device.FramesInFlight; frame++) {
+            visibility.Cull(store, views);
+        }
+
+        Assert.Equal(0, visibility.ObjectBytesUploaded);
+
+        store[new(Count / 2)].Bounds = new(new(0f, 0f, 11f), 1f);
+
+        for (var frame = 0; frame < device.FramesInFlight; frame++) {
+            visibility.Cull(store, views);
+
+            Assert.Equal(32, visibility.ObjectBytesUploaded);
+            Assert.Equal(1, visibility.ObjectUploadRegions);
+        }
+
+        // And then it is settled again: the change reached every region, and nothing re-sends it.
+        visibility.Cull(store, views);
+        Assert.Equal(0, visibility.ObjectBytesUploaded);
+    }
+
+    /// <summary>
+    ///     Every kind of change to the record is seen, not only the one the test above makes.
+    /// </summary>
+    /// <remarks>
+    ///     The record is bounds, a stage mask and a liveness flag, and a comparison that watched only
+    ///     the bounds would leave a removed object drawn and an object that changed stages drawn into
+    ///     the wrong list — both of which are pictures, not crashes. Comparing the packed bytes is
+    ///     what makes this one property rather than three.
+    /// </remarks>
+    [Theory]
+    [InlineData("bounds")]
+    [InlineData("stages")]
+    [InlineData("removed")]
+    public void Every_field_of_the_record_is_watched(string change) {
+        using var store = new RenderObjectStore();
+        using var visibility = Configured();
+
+        visibility.ReadBack = false;
+
+        var id = Add(store, 10f);
+
+        for (var i = 0; i < 8; i++) {
+            Add(store, 10f);
+        }
+
+        var views = new[] { Camera(RenderStageMask.Of(0)) };
+
+        for (var frame = 0; frame <= device.FramesInFlight; frame++) {
+            visibility.Cull(store, views);
+        }
+
+        Assert.Equal(0, visibility.ObjectBytesUploaded);
+
+        switch (change) {
+            case "bounds":
+                store[id].Bounds = new(new(0f, 0f, 11f), 2f);
+                break;
+
+            case "stages":
+                store[id].Stages = RenderStageMask.Of(1);
+                break;
+
+            default:
+                store.Remove(id);
+                break;
+        }
+
+        visibility.Cull(store, views);
+        Assert.Equal(32, visibility.ObjectBytesUploaded);
+    }
+
+    /// <summary>
+    ///     Scattered changes are coalesced, because a call into the driver costs more than the bytes.
+    /// </summary>
+    /// <remarks>
+    ///     Two records with a handful of clean ones between them are one write, not two — the trade
+    ///     <see cref="PersistentUploadBuffer{T}.MergeGap" /> makes. A test that only watched the byte
+    ///     count would read the extra bytes as a regression and the saved call as nothing, so both
+    ///     are asserted.
+    /// </remarks>
+    [Fact]
+    public void Nearby_changes_become_one_write() {
+        using var store = new RenderObjectStore();
+        using var visibility = Configured();
+
+        visibility.ReadBack = false;
+
+        for (var i = 0; i < 512; i++) {
+            Add(store, 10f);
+        }
+
+        var views = new[] { Camera(RenderStageMask.Of(0)) };
+
+        for (var frame = 0; frame <= device.FramesInFlight; frame++) {
+            visibility.Cull(store, views);
+        }
+
+        store[new(100)].Bounds = new(new(0f, 0f, 11f), 1f);
+        store[new(104)].Bounds = new(new(0f, 0f, 11f), 1f);
+
+        visibility.Cull(store, views);
+
+        // One write covering both and the three clean records between them.
+        Assert.Equal(1, visibility.ObjectUploadRegions);
+        Assert.Equal(5 * 32, visibility.ObjectBytesUploaded);
+
+        // And far apart is two, which is what says the merge has a limit rather than no bound.
+        for (var frame = 0; frame < device.FramesInFlight; frame++) {
+            visibility.Cull(store, views);
+        }
+
+        store[new(10)].Bounds = new(new(0f, 0f, 12f), 1f);
+        store[new(400)].Bounds = new(new(0f, 0f, 12f), 1f);
+
+        visibility.Cull(store, views);
+
+        Assert.Equal(2, visibility.ObjectUploadRegions);
+        Assert.Equal(2 * 32, visibility.ObjectBytesUploaded);
+    }
+
+    /// <summary>
+    ///     A scene that grows uploads the objects it grew by, and nothing else.
+    /// </summary>
+    /// <remarks>
+    ///     The case a comparison alone would get wrong. A record that has just come into range has
+    ///     never been written to the device, so its bytes are undefined there — and if its value
+    ///     happens to equal the host's zeroed copy, a comparison would find no difference and skip
+    ///     it. What makes it right is that a region starts entirely dirty and a bit is cleared only
+    ///     by actually writing it, so "never written" and "differs" are the same state.
+    /// </remarks>
+    [Fact]
+    public void A_scene_that_grows_uploads_what_it_grew_by() {
+        using var store = new RenderObjectStore();
+        using var visibility = Configured();
+
+        visibility.ReadBack = false;
+
+        for (var i = 0; i < 64; i++) {
+            Add(store, 10f);
+        }
+
+        var views = new[] { Camera(RenderStageMask.Of(0)) };
+
+        for (var frame = 0; frame <= device.FramesInFlight; frame++) {
+            visibility.Cull(store, views);
+        }
+
+        Assert.Equal(0, visibility.ObjectBytesUploaded);
+
+        // Within the buffer's existing capacity, so this is the comparison's problem rather than a
+        // reallocation's — the reallocation case re-uploads everything and is not the interesting one.
+        Add(store, 10f);
+        visibility.Cull(store, views);
+
+        Assert.Equal(32, visibility.ObjectBytesUploaded);
+    }
+
     // --- The fixture --------------------------------------------------------
 
     readonly EffectSystem effects = new();

@@ -123,6 +123,10 @@ public static class GlslTypes {
                 IrTypeKind.UInt => "uint",
                 IrTypeKind.Float => "float",
                 IrTypeKind.Double => "double",
+                // The explicit-width names, which is what the extension that provides them calls
+                // them; GLSL's own `int64_t` has no other spelling.
+                IrTypeKind.Int64 => "int64_t",
+                IrTypeKind.UInt64 => "uint64_t",
                 _ => null
             },
             IrVectorType vector => VectorName(vector),

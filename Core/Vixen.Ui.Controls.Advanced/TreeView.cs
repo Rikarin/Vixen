@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using Vixen.Core.Mathematics;
 using Vixen.Input;
 using Vixen.Ui.Styling;
 
@@ -33,8 +34,18 @@ public sealed partial class TreeRow : Control {
     /// <summary>Which node it is showing, or <c>null</c> if it is parked.</summary>
     public TreeNode? Node { get; internal set; }
 
-    /// <summary>The chevron, hidden for a node that cannot have children.</summary>
+    /// <summary>The chevron, blank — but still occupying its column — for a node with no children.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Blanked rather than hidden, and that is the whole of why a leaf lines up.</b> A
+    ///     chevron taken out of the flow pulls its row a chevron's width to the left, so a tree of
+    ///     mixed rows has two left edges and a node's text jumps sideways the moment it gains a
+    ///     child. The geometry is what changes; the box never does.
+    /// </remarks>
     public Icon Chevron { get; private set; } = null!;
+
+    /// <summary>The row's own glyph, from <see cref="TreeNode.Icon" />.</summary>
+    /// <inheritdoc cref="Chevron" select="remarks" />
+    public Icon Glyph { get; private set; } = null!;
 
     /// <summary>The spacer that indents it by its depth.</summary>
     public UiElement Indent { get; private set; } = null!;
@@ -45,16 +56,90 @@ public sealed partial class TreeRow : Control {
     /// <summary>The field shown while the row is being renamed.</summary>
     public TextBox? Editor { get; internal set; }
 
+    /// <summary>The tree this row belongs to, for the metrics its guides are drawn from.</summary>
+    /// <remarks>
+    ///     Set by the pool that made it. A row has no way to find its tree otherwise — it is a child
+    ///     of a scroll region rather than of the control — and walking the parents on every draw
+    ///     would be a walk per row per frame for an answer that never changes.
+    /// </remarks>
+    internal TreeView? Owner { get; set; }
+
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
 
         Indent = Part("tree-indent");
-        Chevron = Part<Icon>();
+        Chevron = Part<Icon>(classNames: "tree-chevron");
+        Glyph = Part<Icon>(classNames: "tree-glyph");
         Label = Part("tree-label");
 
         Chevron.Geometry = ControlIcons.ChevronRight;
     }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The guides are drawn rather than built out of elements.</b> A row is pooled and
+    ///         its depth changes on every rebind, so an element per level would mean adding and
+    ///         removing children as the view scrolls — which is the one thing virtualisation exists
+    ///         to stop. Two rectangles per level, from arithmetic the row already has, cost nothing
+    ///         and cannot get out of step with the indent.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An ancestor's line stops where that ancestor's last child is.</b> Drawing a full
+    ///         column at every level would put a line down the left of rows that have nothing above
+    ///         them in that branch, which reads as a nesting that is not there.
+    ///     </para>
+    /// </remarks>
+    protected override void OnDraw(DrawContext context) {
+        base.OnDraw(context);
+
+        if (Owner is not { } tree || Node is not { } node || HasClass("parked")) {
+            return;
+        }
+
+        var indent = tree.Indent;
+        var depth = node.Depth;
+
+        if (indent <= 0f || depth <= 0) {
+            return;
+        }
+
+        var colour = tree.GuideColour;
+        var bounds = Bounds;
+        var origin = Indent.AbsoluteLeft;
+        var middle = bounds.Y + (bounds.Height * 0.5f);
+
+        // Each ancestor between the root and this node's parent, and only where the branch carries
+        // on below this row.
+        var walk = node.Parent;
+
+        for (var level = depth - 1; level >= 1; level--) {
+            if (walk is not null && HasFollowingSibling(walk)) {
+                Vertical(Column(level), bounds.Y, bounds.Y + bounds.Height);
+            }
+
+            walk = walk?.Parent;
+        }
+
+        // This row's own: down to the middle, then across to the chevron. A node with a sibling
+        // after it carries the line on past its own row; the last child of a branch does not.
+        var x = Column(depth);
+
+        Vertical(x, bounds.Y, HasFollowingSibling(node) ? bounds.Y + bounds.Height : middle);
+        context.FillRectangle(new Rectangle(x, middle - (Thickness * 0.5f), MathF.Max(0f, indent * 0.5f), Thickness), colour);
+
+        float Column(int level) => origin + ((level - 1) * indent) + (indent * 0.5f);
+
+        void Vertical(float at, float from, float to) =>
+            context.FillRectangle(new Rectangle(at - (Thickness * 0.5f), from, Thickness, to - from), colour);
+    }
+
+    /// <summary>How wide a guide line is, in pixels.</summary>
+    const float Thickness = 1f;
+
+    static bool HasFollowingSibling(TreeNode node) =>
+        node.Parent is { } parent && parent.IndexOf(node) < parent.Children.Count - 1;
 }
 
 /// <summary>A tree, of which only what is on screen exists as elements.</summary>
@@ -94,10 +179,26 @@ public sealed partial class TreeView : Control {
 
     TreeNode? anchor;
     TreeNode? dragging;
+
+    /// <summary>A row pressed inside the selection, whose collapse is waiting for the release.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Without this a multi-selection cannot be dragged at all.</b> Pressing a row selects
+    ///     it, so pressing one of five selected rows to drag them leaves one selected before the drag
+    ///     has begun — and every consumer that moves "the selection when it includes the dragged row"
+    ///     moves one thing. The fix is every file manager's: a press inside the selection changes
+    ///     nothing, and the release collapses it only if no drag happened.
+    /// </remarks>
+    TreeNode? pending;
+
+    /// <summary>A row that was already the sole selection when it was pressed, for the rename.</summary>
+    /// <inheritdoc cref="RenameOnSecondClick" select="remarks" />
+    TreeNode? renaming;
+
     TreeNode? dropTarget;
     DropPosition dropPosition;
     int rowHeightId;
     int indentId;
+    int guideColorId;
 
     /// <summary>How many rows are realised above and below the viewport.</summary>
     /// <remarks>
@@ -136,6 +237,14 @@ public sealed partial class TreeView : Control {
     /// <summary>How far each level is indented, from <c>--indent</c>.</summary>
     public float Indent => Document.LengthOf(Style, indentId) ?? 14f;
 
+    /// <summary>What the indent guides are drawn in, from <c>--tree-guide-color</c>.</summary>
+    /// <remarks>
+    ///     A faint neutral by default rather than the text colour, because a guide that reads as
+    ///     loudly as a name is one the eye has to filter out of every row.
+    /// </remarks>
+    public Color4 GuideColour =>
+        Document.ColorOf(Style, guideColorId) ?? new Color4(0.5f, 0.5f, 0.55f, 0.35f);
+
     /// <summary>The nodes currently showing, in order, including the ones scrolled past.</summary>
     public IReadOnlyList<TreeNode> Visible => visible;
 
@@ -158,6 +267,45 @@ public sealed partial class TreeView : Control {
     /// <summary>Whether nodes may be dragged into other nodes.</summary>
     [UiProperty(Default = true)]
     public partial bool AllowDrag { get; set; }
+
+    /// <summary>Whether a double-click starts an inline rename instead of raising <see cref="Activated" />.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Rename-in-place is a tree gesture, not an outliner one.</b> A hierarchy and a
+    ///         content browser both want "double-click the row, type the new name", and both had to
+    ///         reach for <see cref="BeginRename" /> from an <see cref="Activated" /> handler of their
+    ///         own — which is the same three lines written twice and the place the two panels came to
+    ///         disagree about whether the row is selected first.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Enter still activates.</b> Only the pointer gesture is claimed, so a browser whose
+    ///         double-click renames has not lost the way to open a file — the keyboard and the
+    ///         context menu are unchanged, and a caller that wants the old behaviour leaves this off.
+    ///     </para>
+    /// </remarks>
+    [UiProperty]
+    public partial bool RenameOnActivate { get; set; }
+
+    /// <summary>Whether clicking a row that is already the only one selected renames it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The other half of the pair, and the one a file browser wants.</b> A double-click on
+    ///         a file opens it — that is what a browser is for — so the rename has to be the gesture
+    ///         that is <i>not</i> a double-click: click once to select, pause, click again on the
+    ///         same row. Every file manager does this and nobody has to be told.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>"Already selected before this press" is what tells the two apart, and it needs no
+    ///         timer.</b> The first click of a double-click lands on a row that was not selected, so
+    ///         it arms nothing and the second tap activates; a click after a pause lands on a row
+    ///         that <i>is</i> selected, and the tap that follows renames. The one case the rule
+    ///         cannot separate is a double-click on a row that was already selected — there the
+    ///         first tap opens the editor and the second closes it again and activates, which is the
+    ///         same order of events every implementation of this gesture produces.
+    ///     </para>
+    /// </remarks>
+    [UiProperty]
+    public partial bool RenameOnSecondClick { get; set; }
 
     /// <summary>Raised when the selection changes.</summary>
     public event Action<TreeView>? SelectionChanged;
@@ -195,10 +343,13 @@ public sealed partial class TreeView : Control {
 
         rowHeightId = Document.PropertyId("--row-height");
         indentId = Document.PropertyId("--indent");
+        guideColorId = Document.PropertyId("--tree-guide-color");
 
         Panel = Part<VirtualizingPanel>();
         Panel.CreateRow = owner => {
             var row = owner.Scroller.Content.Add<TreeRow>();
+
+            row.Owner = this;
             rows.Add(row);
 
             return row;
@@ -472,7 +623,14 @@ public sealed partial class TreeView : Control {
             (node.Depth * Indent).ToString("0.##", CultureInfo.InvariantCulture) + "px"
         );
 
-        row.Chevron.Geometry = node.IsExpanded ? ControlIcons.ChevronDown : ControlIcons.ChevronRight;
+        // ⚠ Null rather than hidden for a leaf. The element stays in the flow and keeps its width, so
+        // a row that has no children lines up with one that has — and gaining a child changes the
+        // glyph rather than shifting the whole row sideways.
+        row.Chevron.Geometry = node.HasChildren
+            ? node.IsExpanded ? ControlIcons.ChevronDown : ControlIcons.ChevronRight
+            : null;
+
+        row.Glyph.Geometry = node.Icon;
 
         if (node.HasChildren) {
             row.RemoveClass("leaf");
@@ -574,16 +732,74 @@ public sealed partial class TreeView : Control {
             return;
         }
 
+        // ⚠ Read before the selection is written, which is the whole of how a rename click is told
+        // apart from the first click of a double-click. See `RenameOnSecondClick`.
+        renaming = RenameOnSecondClick
+            && args.Modifiers == ModifierKeys.None
+            && selection.Count == 1
+            && selection.Contains(node)
+                ? node
+                : null;
+
+        // ⚠ Deferred rather than applied, when the press is inside the selection and nothing is
+        // held. That is the case where the user is either about to drag all of it or about to
+        // narrow to this one, and the press cannot tell which — only the release can.
+        if (MultiSelect && args.Modifiers == ModifierKeys.None && selection.Count > 1 && selection.Contains(node)) {
+            pending = node;
+            return;
+        }
+
+        pending = null;
         Select(node, args.Modifiers);
     }
 
     void Tapped(TapEvent args) {
-        if (args.Count == 2 && RowAt(args.X, args.Y) is { Node: { } node }) {
+        // A tap is a press and a release with no drag between them, which is the answer the press
+        // was waiting for: the user meant this row and not the five that were selected.
+        if (pending is { } narrowed) {
+            pending = null;
+            Select(narrowed, ModifierKeys.None);
+        }
+
+        // A single tap on a row that was already the only one selected. See `RenameOnSecondClick`:
+        // the arming happened on the press, before the selection was written, which is what keeps
+        // this off the first click of a double-click.
+        if (args.Count == 1 && renaming is { } again && RowAt(args.X, args.Y)?.Node is { } under
+            && ReferenceEquals(again, under)) {
+            renaming = null;
+
+            BeginRename(under);
+            args.Handled = true;
+
+            return;
+        }
+
+        if (args.Count >= 2 && RowAt(args.X, args.Y) is { Node: { } node } row) {
             // ⚠ The run ends with the activation. Expanding a folder moves a different row under a
             // pointer that has not moved, so the next double-click would otherwise be counted as
             // taps three and four and would activate nothing.
             Document.Gestures.EndTapRun();
-            Activated?.Invoke(this, node);
+            renaming = null;
+
+            // ⚠ And a rename the first tap of this run opened is abandoned rather than left over
+            // the row. That happens on a double-click of a row that was *already* selected, which
+            // the arming rule cannot tell from the rename gesture without a timer — so the second
+            // tap takes it back, and what the user sees is the editor they did not want closing as
+            // the file opens.
+            if (row.Editor is not null) {
+                CommitRename(row, commit: false);
+            }
+
+            if (RenameOnActivate) {
+                // ⚠ Selected first, because every consumer of a rename acts on the row that was
+                // double-clicked — and a press inside a multi-selection is deferred, so the row may
+                // not be the selection yet when the second tap arrives.
+                Select(node);
+                BeginRename(node);
+            } else {
+                Activated?.Invoke(this, node);
+            }
+
             args.Handled = true;
         }
     }
@@ -684,6 +900,8 @@ public sealed partial class TreeView : Control {
             // several rows away in a tree of twenty-pixel rows — so hit-testing here picks up
             // whatever the pointer has arrived at and drags the wrong node.
             case DragStage.Started when AllowDrag && RowUnder(args.Source) is { Node: { } node }:
+                // The drag is the other answer the press was waiting for: the whole selection moves.
+                pending = null;
                 dragging = node;
                 Track(args.X, args.Y);
 

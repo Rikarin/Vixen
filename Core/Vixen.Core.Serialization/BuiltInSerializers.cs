@@ -42,6 +42,8 @@ static class BuiltInSerializers {
         SerializerRegistry.Register(new TimeSpanSerializer());
 
         SerializerRegistry.Register(new AssetIdSerializer());
+        SerializerRegistry.Register(new SubAssetIdSerializer());
+        SerializerRegistry.Register(new AssetReferenceSerializer());
         SerializerRegistry.Register(new ObjectIdSerializer());
         SerializerRegistry.Register(new EntitySerializer());
         SerializerRegistry.Register(new ComponentTypeIdSerializer());
@@ -148,6 +150,36 @@ static class BuiltInSerializers {
     sealed class AssetIdSerializer : DataSerializer<AssetId> {
         public override void Serialize(ref SerializationWriter writer, in AssetId value) => writer.WriteGuid(value.Value);
         public override void Deserialize(ref SerializationReader reader, ref AssetId value) => value = new(reader.ReadGuid());
+    }
+
+    sealed class SubAssetIdSerializer : DataSerializer<SubAssetId> {
+        public override void Serialize(ref SerializationWriter writer, in SubAssetId value) =>
+            writer.WriteUInt32(value.Value);
+
+        public override void Deserialize(ref SerializationReader reader, ref SubAssetId value) =>
+            value = new(reader.ReadUInt32());
+    }
+
+    /// <remarks>
+    ///     ⚠ <b>Here rather than generated, and the reason is why <see cref="AssetId" /> is too.</b>
+    ///     <c>Vixen.Core</c> declares these with <c>[DataContract]</c> and cannot run the serialization
+    ///     generator over them — that would need a reference to this assembly, which references it. The
+    ///     attribute is what makes them describable for YAML; the binary form is decided here.
+    ///
+    ///     Until this existed, no ECS component could hold an <see cref="AssetReference" />: the
+    ///     generated serializer for the component would compile and then throw at the first write,
+    ///     which is how <c>MeshRenderable</c> found it.
+    /// </remarks>
+    sealed class AssetReferenceSerializer : DataSerializer<AssetReference> {
+        public override void Serialize(ref SerializationWriter writer, in AssetReference value) {
+            writer.WriteGuid(value.Asset.Value);
+            writer.WriteUInt32(value.SubAsset.Value);
+        }
+
+        public override void Deserialize(ref SerializationReader reader, ref AssetReference value) {
+            var asset = new AssetId(reader.ReadGuid());
+            value = new(asset, new SubAssetId(reader.ReadUInt32()));
+        }
     }
 
     sealed class ObjectIdSerializer : DataSerializer<ObjectId> {

@@ -120,6 +120,23 @@ public sealed class InspectorView : Control {
     /// </remarks>
     public ToggleButton Lock { get; private set; } = null!;
 
+    /// <summary>The region the rows scroll in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The header is outside it and has to be.</b> A search box that scrolled away with
+    ///         the rows is one you cannot reach at the moment you want it — the panel is long, which
+    ///         is the only reason it scrolls, which is the only reason you are filtering it.
+    ///     </para>
+    ///     <para>
+    ///         <b><see cref="ScrollView.Content" /> is public so that a host can put its own sections
+    ///         under the rows and have them scroll with them.</b> The application's component
+    ///         foldouts are the case: they are deliberately not part of this view — see
+    ///         <c>ComponentsView</c> — but a panel with two independent scroll regions in it is one
+    ///         where half the answer is always off screen.
+    ///     </para>
+    /// </remarks>
+    public ScrollView Scroll { get; private set; } = null!;
+
     /// <summary>Where the rows go.</summary>
     public UiElement Body { get; private set; } = null!;
 
@@ -167,19 +184,32 @@ public sealed class InspectorView : Control {
         Search.Placeholder = "Search";
         Search.ValueChanged += (_, _) => Filter();
 
-        // ⚠ A word rather than a padlock, and deliberately. `ControlIcons` says in its own remarks
-        // that it is not an icon set — it is the handful of shapes without which the controls here
-        // cannot be drawn — and a padlock is not one of them. Inventing an icon set in the inspector
-        // for one button would be the wrong place for it; the toolbar's set lives in the shell,
-        // which this assembly does not and should not reference.
+        // ⚠ A padlock rather than the word "Lock", and the glyph moved into `ControlIcons` to make
+        // it possible — see the remarks there. The word was four times the width of the button
+        // beside it and, worse, read as a verb: a toggle labelled with what pressing it does is one
+        // whose current state has to be inferred from a highlight, which in a header strip is the
+        // one place there is no room for a highlight to be obvious.
+        //
+        // The shackle says the state and the colour underlines it: grey open, red closed. Both, and
+        // not the colour alone — see `ControlIcons.Unlock`.
         Lock = Header.Add<ToggleButton>();
-        Lock.Label = "Lock";
+
+        Lock.LeadingIcon.Geometry = ControlIcons.Unlock;
         Lock.Size = ControlSize.Small;
         Lock.Variant = ControlVariant.Subtle;
         Lock.AddClass("inspector-lock");
-        Lock.CheckedChanged += (_, _) => LockChanged?.Invoke(this);
 
-        Body = Part("inspector-body");
+        // Still set, still not drawn: it is what a screen reader reads and what a tooltip shows, and
+        // a control whose only affordance is a picture is the one that most needs to say what it is.
+        Lock.Label = "Lock";
+
+        Lock.CheckedChanged += (control, locked) => {
+            control.LeadingIcon.Geometry = locked ? ControlIcons.Lock : ControlIcons.Unlock;
+            LockChanged?.Invoke(this);
+        };
+
+        Scroll = Part<ScrollView>();
+        Body = Scroll.Content.Add<UiElement>("inspector-body");
 
         Empty = Part<EmptyState>();
         Empty.AddClass("hidden");

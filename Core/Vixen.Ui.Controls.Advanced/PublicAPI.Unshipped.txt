@@ -378,12 +378,23 @@ Vixen.Ui.Controls.Advanced.DockGroupView -> sealed class
 Vixen.Ui.Controls.Advanced.DockGroupView : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.Advanced.DockGroupView.Body.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Advanced.DockGroupView.DockGroupView() -> void
+Vixen.Ui.Controls.Advanced.DockGroupView.MaximumScroll.get -> float
+Vixen.Ui.Controls.Advanced.DockGroupView.Next.get -> Vixen.Ui.Controls.IconButton
 Vixen.Ui.Controls.Advanced.DockGroupView.Node.get -> Vixen.Ui.Controls.Advanced.DockGroupNode?
+Vixen.Ui.Controls.Advanced.DockGroupView.Overflows.get -> bool
+Vixen.Ui.Controls.Advanced.DockGroupView.Previous.get -> Vixen.Ui.Controls.IconButton
+Vixen.Ui.Controls.Advanced.DockGroupView.Refresh() -> void
+Vixen.Ui.Controls.Advanced.DockGroupView.Reveal(Vixen.Ui.UiElement tab) -> void
+Vixen.Ui.Controls.Advanced.DockGroupView.RevealAfterLayout(Vixen.Ui.UiElement? tab) -> void
+Vixen.Ui.Controls.Advanced.DockGroupView.Scroll(float delta) -> void
+Vixen.Ui.Controls.Advanced.DockGroupView.ScrollLeft.get -> float
+Vixen.Ui.Controls.Advanced.DockGroupView.ScrollTo(float offset) -> void
 Vixen.Ui.Controls.Advanced.DockGroupView.Strip.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.DockGroupView.Tabs.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Advanced.DockLayout -> sealed class
 Vixen.Ui.Controls.Advanced.DockLayout.AddFloating(Vixen.Ui.Controls.Advanced.DockFloat window) -> void
 Vixen.Ui.Controls.Advanced.DockLayout.Contains(Vixen.Ui.Controls.Advanced.DockGroupNode group) -> bool
-Vixen.Ui.Controls.Advanced.DockLayout.Dock(string id, Vixen.Ui.Controls.Advanced.DockGroupNode target, Vixen.Ui.Controls.Advanced.DockZone zone) -> void
+Vixen.Ui.Controls.Advanced.DockLayout.Dock(string id, Vixen.Ui.Controls.Advanced.DockGroupNode target, Vixen.Ui.Controls.Advanced.DockZone zone, int index = -1) -> void
 Vixen.Ui.Controls.Advanced.DockLayout.DockLayout() -> void
 Vixen.Ui.Controls.Advanced.DockLayout.DockedGroups() -> System.Collections.Generic.List<Vixen.Ui.Controls.Advanced.DockGroupNode>
 Vixen.Ui.Controls.Advanced.DockLayout.Find(string id) -> (Vixen.Ui.Controls.Advanced.DockGroupNode Group, int Index)?
@@ -442,7 +453,7 @@ Vixen.Ui.Controls.Advanced.DockingHost.Active.get -> Vixen.Ui.Controls.Advanced.
 Vixen.Ui.Controls.Advanced.DockingHost.AddPanel(string id, string? title = null) -> Vixen.Ui.Controls.Advanced.DockPanel
 Vixen.Ui.Controls.Advanced.DockingHost.CanTearOut.get -> bool
 Vixen.Ui.Controls.Advanced.DockingHost.Detached.get -> Vixen.Ui.UiElement
-Vixen.Ui.Controls.Advanced.DockingHost.Dock(string id, Vixen.Ui.Controls.Advanced.DockGroupNode target, Vixen.Ui.Controls.Advanced.DockZone side) -> void
+Vixen.Ui.Controls.Advanced.DockingHost.Dock(string id, Vixen.Ui.Controls.Advanced.DockGroupNode target, Vixen.Ui.Controls.Advanced.DockZone side, int index = -1) -> void
 Vixen.Ui.Controls.Advanced.DockingHost.DockingHost() -> void
 Vixen.Ui.Controls.Advanced.DockingHost.Float(string id) -> bool
 Vixen.Ui.Controls.Advanced.DockingHost.Float(string id, float x, float y, float width = 320, float height = 240) -> void
@@ -855,6 +866,8 @@ Vixen.Ui.Controls.Advanced.TreeNode.Contains(Vixen.Ui.Controls.Advanced.TreeNode
 Vixen.Ui.Controls.Advanced.TreeNode.Depth.get -> int
 Vixen.Ui.Controls.Advanced.TreeNode.HasChildren.get -> bool
 Vixen.Ui.Controls.Advanced.TreeNode.HasChildren.set -> bool
+Vixen.Ui.Controls.Advanced.TreeNode.Icon.get -> Vixen.Ui.PathBuilder?
+Vixen.Ui.Controls.Advanced.TreeNode.Icon.set -> Vixen.Ui.PathBuilder?
 Vixen.Ui.Controls.Advanced.TreeNode.IndexOf(Vixen.Ui.Controls.Advanced.TreeNode child) -> int
 Vixen.Ui.Controls.Advanced.TreeNode.IsExpanded.get -> bool
 Vixen.Ui.Controls.Advanced.TreeNode.Parent.get -> Vixen.Ui.Controls.Advanced.TreeNode?
@@ -870,6 +883,7 @@ Vixen.Ui.Controls.Advanced.TreeRow -> sealed class
 Vixen.Ui.Controls.Advanced.TreeRow : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.Advanced.TreeRow.Chevron.get -> Vixen.Ui.Controls.Icon
 Vixen.Ui.Controls.Advanced.TreeRow.Editor.get -> Vixen.Ui.Controls.TextBox?
+Vixen.Ui.Controls.Advanced.TreeRow.Glyph.get -> Vixen.Ui.Controls.Icon
 Vixen.Ui.Controls.Advanced.TreeRow.Indent.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Advanced.TreeRow.Label.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Advanced.TreeRow.Node.get -> Vixen.Ui.Controls.Advanced.TreeNode?
@@ -882,8 +896,11 @@ Vixen.Ui.Controls.Advanced.TreeView.AllowDrag.set -> bool
 Vixen.Ui.Controls.Advanced.TreeView.BeginRename(Vixen.Ui.Controls.Advanced.TreeNode node) -> void
 Vixen.Ui.Controls.Advanced.TreeView.ClearAllowDrag() -> void
 Vixen.Ui.Controls.Advanced.TreeView.ClearMultiSelect() -> void
+Vixen.Ui.Controls.Advanced.TreeView.ClearRenameOnActivate() -> void
+Vixen.Ui.Controls.Advanced.TreeView.ClearRenameOnSecondClick() -> void
 Vixen.Ui.Controls.Advanced.TreeView.DropIndicator.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Advanced.TreeView.Expand(Vixen.Ui.Controls.Advanced.TreeNode node, bool expanded = true) -> void
+Vixen.Ui.Controls.Advanced.TreeView.GuideColour.get -> Vixen.Core.Mathematics.Color4
 Vixen.Ui.Controls.Advanced.TreeView.Indent.get -> float
 Vixen.Ui.Controls.Advanced.TreeView.MoveNode(Vixen.Ui.Controls.Advanced.TreeNode node, Vixen.Ui.Controls.Advanced.TreeNode target, Vixen.Ui.Controls.Advanced.DropPosition position) -> bool
 Vixen.Ui.Controls.Advanced.TreeView.Moved -> System.Action<Vixen.Ui.Controls.Advanced.TreeView, Vixen.Ui.Controls.Advanced.TreeNode>?
@@ -892,6 +909,10 @@ Vixen.Ui.Controls.Advanced.TreeView.MultiSelect.set -> bool
 Vixen.Ui.Controls.Advanced.TreeView.NodeAt(float x, float y) -> Vixen.Ui.Controls.Advanced.TreeNode?
 Vixen.Ui.Controls.Advanced.TreeView.Panel.get -> Vixen.Ui.Controls.VirtualizingPanel
 Vixen.Ui.Controls.Advanced.TreeView.Refresh() -> void
+Vixen.Ui.Controls.Advanced.TreeView.RenameOnActivate.get -> bool
+Vixen.Ui.Controls.Advanced.TreeView.RenameOnActivate.set -> bool
+Vixen.Ui.Controls.Advanced.TreeView.RenameOnSecondClick.get -> bool
+Vixen.Ui.Controls.Advanced.TreeView.RenameOnSecondClick.set -> bool
 Vixen.Ui.Controls.Advanced.TreeView.Renamed -> System.Action<Vixen.Ui.Controls.Advanced.TreeView, Vixen.Ui.Controls.Advanced.TreeNode, string>?
 Vixen.Ui.Controls.Advanced.TreeView.Reveal(Vixen.Ui.Controls.Advanced.TreeNode node) -> void
 Vixen.Ui.Controls.Advanced.TreeView.Root.get -> Vixen.Ui.Controls.Advanced.TreeNode
@@ -919,6 +940,7 @@ Vixen.Ui.Controls.Advanced.Viewport.FlipVertically.get -> bool
 Vixen.Ui.Controls.Advanced.Viewport.FlipVertically.set -> bool
 Vixen.Ui.Controls.Advanced.Viewport.Gizmo.get -> Vixen.Ui.Controls.Advanced.ViewportGizmo
 Vixen.Ui.Controls.Advanced.Viewport.IsCapturing.get -> bool
+Vixen.Ui.Controls.Advanced.Viewport.IsOverlayEvent(Vixen.Ui.UiElement? source) -> bool
 Vixen.Ui.Controls.Advanced.Viewport.Overlay.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Advanced.Viewport.PointerLockRequested -> System.Action<Vixen.Ui.Controls.Advanced.Viewport, bool>?
 Vixen.Ui.Controls.Advanced.Viewport.Refresh() -> bool
@@ -967,6 +989,7 @@ const Vixen.Ui.Controls.Advanced.CodeEditor.Overscan = 2 -> int
 const Vixen.Ui.Controls.Advanced.ColorField.Samples = 16 -> int
 const Vixen.Ui.Controls.Advanced.ColorPicker.MaximumChroma = 0.37 -> float
 const Vixen.Ui.Controls.Advanced.DataGrid.Overscan = 2 -> int
+const Vixen.Ui.Controls.Advanced.DockGroupView.PageFraction = 0.75 -> float
 const Vixen.Ui.Controls.Advanced.DockSplitNode.MinimumRatio = 0.05 -> float
 const Vixen.Ui.Controls.Advanced.Gradient.MaximumStops = 8 -> int
 const Vixen.Ui.Controls.Advanced.GradientBar.Bands = 48 -> int
@@ -1016,6 +1039,7 @@ override Vixen.Ui.Controls.Advanced.DockGroupNode.Collect(System.Collections.Gen
 override Vixen.Ui.Controls.Advanced.DockGroupNode.ToYaml() -> Vixen.Core.Yaml.YamlNode
 override Vixen.Ui.Controls.Advanced.DockGroupView.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Advanced.DockGroupView.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.DockGroupView.OnRemoved() -> void
 override Vixen.Ui.Controls.Advanced.DockGroupView.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.DockPanel.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Advanced.DockPanel.TagName.get -> string
@@ -1080,6 +1104,7 @@ override Vixen.Ui.Controls.Advanced.TimelineRuler.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Advanced.TimelineRuler.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.Advanced.TimelineRuler.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.TreeRow.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.TreeRow.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.Advanced.TreeRow.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.TreeView.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Advanced.TreeView.OnCreated() -> void
@@ -1143,6 +1168,8 @@ static readonly Vixen.Ui.Controls.Advanced.Timeline.TimeProperty -> Vixen.Ui.UiP
 static readonly Vixen.Ui.Controls.Advanced.Timeline.TimeStartProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.TreeView.AllowDragProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.TreeView.MultiSelectProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.TreeView.RenameOnActivateProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.TreeView.RenameOnSecondClickProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.Viewport.FlipVerticallyProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.Viewport.RenderScaleProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.Viewport.ShowGizmoProperty -> Vixen.Ui.UiPropertyKey

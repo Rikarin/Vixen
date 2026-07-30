@@ -138,7 +138,7 @@ public static class BuildPlanner {
                 continue;
             }
 
-            foreach (var (_, subAddress) in chunks.SubAssets) {
+            foreach (var (_, subAddress, _) in chunks.SubAssets) {
                 Claim(claimants, subAddress, entry);
             }
 
@@ -223,14 +223,19 @@ public static class BuildPlanner {
                 asset.Main,
                 group,
                 labels,
-                [.. dependencies.Concat(subAssets.Select(part => part.Address)).Order(StringComparer.Ordinal)]
+                [.. dependencies.Concat(subAssets.Select(part => part.Address)).Order(StringComparer.Ordinal)],
+                new AssetReference(entry.Guid)
             ));
 
-            foreach (var (id, subAddress) in subAssets) {
+            foreach (var (id, subAddress, subAsset) in subAssets) {
                 // The asset's dependencies, on each of its parts. Over-claiming rather than
                 // under-claiming, deliberately: which part uses which dependency is not recorded,
                 // and a mesh loaded on its own with its material's bundle unmounted fails at load.
-                planned.Add(new(subAddress, id, group, labels, [.. dependencies]));
+                //
+                // The reference carries the sub-asset id where the address carries its name — the two
+                // halves SubAssetAddress describes. This is where they are written down together, and
+                // it is the only place in the build that holds both.
+                planned.Add(new(subAddress, id, group, labels, [.. dependencies], new AssetReference(entry.Guid, subAsset)));
             }
         }
 
@@ -293,7 +298,7 @@ public static class BuildPlanner {
     ///         asset that was imported and then had its sidecar rewritten, which is a re-import.
     ///     </para>
     /// </remarks>
-    static (ObjectId Main, List<(ObjectId Id, string Address)> SubAssets)? Chunks(
+    static (ObjectId Main, List<(ObjectId Id, string Address, SubAssetId SubAsset)> SubAssets)? Chunks(
         AssetEntry entry,
         AssetMeta meta,
         string address,
@@ -315,7 +320,7 @@ public static class BuildPlanner {
             declaredById[declared.Id] = declared;
         }
 
-        var subAssets = new List<(ObjectId, string)>();
+        var subAssets = new List<(ObjectId, string, SubAssetId)>();
         var written = new HashSet<SubAssetId>();
         var addressed = new Dictionary<string, SubAssetEntry>(StringComparer.Ordinal);
         ObjectId? main = null;
@@ -366,7 +371,7 @@ public static class BuildPlanner {
             }
 
             addressed[subAddress] = declared;
-            subAssets.Add((artifact.Id, subAddress));
+            subAssets.Add((artifact.Id, subAddress, artifact.SubAsset));
         }
 
         if (main is null) {
@@ -482,6 +487,6 @@ public static class BuildPlanner {
         ImportRecord Record,
         string Address,
         ObjectId Main,
-        List<(ObjectId Id, string Address)> SubAssets
+        List<(ObjectId Id, string Address, SubAssetId SubAsset)> SubAssets
     );
 }

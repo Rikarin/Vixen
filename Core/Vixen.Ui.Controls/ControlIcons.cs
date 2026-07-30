@@ -66,6 +66,25 @@ public static class ControlIcons {
     /// <summary>A magnifying glass. The search box.</summary>
     public static PathBuilder Search { get; } = Magnifier();
 
+    /// <summary>A closed padlock. Anything held on what it is showing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The ninth, and this file's own remarks say why it may be here.</b> The bar is "a
+    ///     shape without which a control in this assembly cannot be drawn", and a lock toggle is one:
+    ///     the alternative in every set that has tried is the word "Lock", which is four times as
+    ///     wide as the button beside it and reads as a verb — so the control says what pressing it
+    ///     does rather than what state it is in, which is the one thing a toggle must not do.
+    /// </remarks>
+    public static PathBuilder Lock { get; } = Padlock(closed: true);
+
+    /// <summary>An open padlock. The same thing, off.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A second glyph rather than a colour change alone.</b> Colour is not available to
+    ///     every reader and is not available at all on a monochrome or high-contrast skin, and
+    ///     "locked" is the state whose whole purpose is to explain why something is refusing input.
+    ///     The shackle's position says it without any palette.
+    /// </remarks>
+    public static PathBuilder Unlock { get; } = Padlock(closed: false);
+
     /// <summary>Turns a polyline into a fillable outline of a given width.</summary>
     /// <remarks>
     ///     <para>
@@ -137,6 +156,59 @@ public static class ControlIcons {
         }
 
         return path;
+    }
+
+    /// <summary>A padlock: a solid body and a shackle over it, open or closed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The shackle is a stroked polyline rather than an arc.</b> There is no arc primitive
+    ///     here and a curve would need flattening anyway — six segments over a half-turn is smoother
+    ///     than the sixteen pixels this is drawn at, and it is the same expansion every other glyph
+    ///     in this file uses so the weight matches at any size.
+    /// </remarks>
+    static PathBuilder Padlock(bool closed) {
+        var path = new PathBuilder();
+
+        path.AddRectangle(new Rectangle(4.5f, 10.5f, 15f, 10.5f));
+
+        // An open lock lifts the shackle and swings it off to one side, which is the difference a
+        // reader has to see at a glance from across the panel.
+        var centre = closed ? 12f : 15.5f;
+        var top = closed ? 5.5f : 4f;
+        var radius = 4f;
+        var points = new Vector2[7];
+
+        for (var index = 0; index < points.Length; index++) {
+            var angle = MathF.PI + (index / (float) (points.Length - 1) * MathF.PI);
+            points[index] = new Vector2(centre + (MathF.Cos(angle) * radius), top + radius + (MathF.Sin(angle) * radius));
+        }
+
+        Append(path, Stroke(points, 1.9f));
+
+        // The near leg comes down to the body; the far one stops short on an open lock, because it
+        // is the leg that has come out.
+        Append(path, Stroke([points[0], new Vector2(points[0].X, 10.5f)], 1.9f));
+        Append(path, Stroke([points[^1], new Vector2(points[^1].X, closed ? 10.5f : 8.5f)], 1.9f));
+
+        return path;
+    }
+
+    /// <summary>Copies one path's segments onto another, which <see cref="PathBuilder" /> cannot do.</summary>
+    static void Append(PathBuilder path, PathBuilder other) {
+        foreach (var segment in other.Segments) {
+            switch (segment.Verb) {
+                case PathVerb.Move:
+                    path.MoveTo(segment.P2);
+                    break;
+
+                case PathVerb.Line:
+                    path.LineTo(segment.P2);
+                    break;
+
+                default:
+                    path.Close();
+                    break;
+            }
+        }
     }
 
     /// <summary>A circle with a handle, as an annulus plus a bar.</summary>

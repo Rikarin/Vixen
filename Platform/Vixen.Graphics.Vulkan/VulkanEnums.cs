@@ -34,8 +34,33 @@ static class VulkanEnums {
         _ => CullModeFlags.None
     };
 
+    /// <summary>The engine's winding, in the framebuffer coordinates Vulkan decides facing in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Inverted, and it has to be.</b> <see cref="FrontFace" /> names a winding in the
+    ///         engine's clip space, where +Y is up — <c>MeshPrimitives</c> says "counter-clockwise
+    ///         seen from outside is <c>FrontFace.CounterClockwise</c>" and every mesh in the repo is
+    ///         built that way. Vulkan decides facing from the signed area in <i>framebuffer</i>
+    ///         coordinates, which are what the viewport transform produces — and
+    ///         <c>VulkanCommandList.SetViewport</c> deliberately submits a negative height so that
+    ///         +Y is up in clip space. A negative height mirrors the picture vertically, so a
+    ///         triangle wound counter-clockwise before the transform is wound clockwise after it.
+    ///     </para>
+    ///     <para>
+    ///         Mapped straight through, the outside of every closed mesh is classified back-facing:
+    ///         <c>CullMode.Back</c> keeps the interior and discards the surface, and a shader
+    ///         reading <c>SV_IsFrontFace</c> to light a two-sided surface flips exactly the normals
+    ///         that were already right. The editor's gizmo was the visible half of that — solid
+    ///         heads shaded as though lit from inside.
+    ///     </para>
+    ///     <para>
+    ///         The compensation belongs here rather than in the callers because the flip belongs
+    ///         here: no other backend submits a mirrored viewport, and a mesh cannot be wound to
+    ///         suit one of them without being wrong on the rest.
+    ///     </para>
+    /// </remarks>
     public static VkFrontFace ToVulkan(FrontFace face) =>
-        face == FrontFace.Clockwise ? VkFrontFace.Clockwise : VkFrontFace.CounterClockwise;
+        face == FrontFace.Clockwise ? VkFrontFace.CounterClockwise : VkFrontFace.Clockwise;
 
     public static PolygonMode ToVulkan(FillMode mode) =>
         mode == FillMode.Wireframe ? PolygonMode.Line : PolygonMode.Fill;

@@ -201,9 +201,28 @@ public sealed class CatalogFormatTests {
                     (ContentProvider)fields.Item3,
                     ImmutableArray.Create(fields.Item5),
                     ImmutableArray.Create(fields.Item6),
-                    fields.Item4
+                    fields.Item4,
+                    ReferenceFor(fields.Item1)
                 )
             );
+
+    /// <summary>A reference derived from an address, so the properties above cover the field.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Injective, and it has to be.</b> <see cref="Sample" /> dedupes by address and a catalog
+    ///     refuses two addresses claiming one reference, so a random id per entry would fail the
+    ///     constructor on a collision and turn a property test into an intermittent one. Deriving it
+    ///     from the address's position in the fixed name set gives one reference per address by
+    ///     construction. The first name maps to <see cref="AssetReference.Null" />, which is what an
+    ///     entry no authored asset claims looks like and is worth having in the sample.
+    /// </remarks>
+    static AssetReference ReferenceFor(string address) {
+        var index = Array.IndexOf(Names, address);
+
+        return index <= 0 ? AssetReference.Null : new(new AssetId(new Guid(index, 0, 0, [0, 0, 0, 0, 0, 0, 0, 0])));
+    }
+
+    static readonly string[] Names =
+        ["", "a", "ui", "ui/hero", "ui/hero/", "ui/heroic", "level1/props/barrel", "Ünïcödé", "x y"];
 
     static Gen<CatalogBundle> GenBundle =>
         Gen.Select(GenName, GenName, Gen.Long[0, 1 << 24], Gen.UInt, GenName.Array[0, 2])
@@ -218,8 +237,7 @@ public sealed class CatalogFormatTests {
                 )
             );
 
-    static Gen<string> GenName =>
-        Gen.OneOfConst("", "a", "ui", "ui/hero", "ui/hero/", "ui/heroic", "level1/props/barrel", "Ünïcödé", "x y");
+    static Gen<string> GenName => Gen.OneOfConst(Names);
 
     static ContentCatalog Sample() =>
         new(

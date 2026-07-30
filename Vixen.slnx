@@ -82,6 +82,7 @@
     <Project Path="Core/Vixen.Ecs.Generators/Vixen.Ecs.Generators.csproj" />
     <Project Path="Core/Vixen.Ecs.Tests/Vixen.Ecs.Tests.csproj" />
     <Project Path="Core/Vixen.Engine/Vixen.Engine.csproj" />
+    <Project Path="Core/Vixen.Engine.Generators/Vixen.Engine.Generators.csproj" />
     <Project Path="Core/Vixen.Engine.Tests/Vixen.Engine.Tests.csproj" />
     <Project Path="Core/Vixen.Graphics/Vixen.Graphics.csproj" />
     <Project Path="Core/Vixen.Graphics.Tests/Vixen.Graphics.Tests.csproj" />
@@ -123,6 +124,8 @@
     -->
     <Project Path="Core/Vixen.Rendering.IrradianceFields/Vixen.Rendering.IrradianceFields.csproj" />
     <Project Path="Core/Vixen.Rendering.IrradianceFields.Tests/Vixen.Rendering.IrradianceFields.Tests.csproj" />
+    <Project Path="Core/Vixen.Rendering.VirtualGeometry/Vixen.Rendering.VirtualGeometry.csproj" />
+    <Project Path="Core/Vixen.Rendering.VirtualGeometry.Tests/Vixen.Rendering.VirtualGeometry.Tests.csproj" />
 
     <!--
       The debug-geometry join, listed here rather than beside Vixen.Engine because it belongs to the
@@ -282,9 +285,12 @@
     Vixen.Editor.Ui is the shell over Vixen.Ui — docking, commands, palette, theming —
     and deliberately does not reference Core, so the chrome is testable with no project
     on disk. Vixen.Editor.App is the head that joins them to a window and a device.
-    Vixen.Editor.NodeGraph is the framework the shader and VFX graphs are both built on,
+    Vixen.Editor.NodeGraph is the framework the shader and VFX graphs are both built on
     and references neither of those two: a graph is a document and a compiler, so the
-    whole of it is testable with no shell either.
+    whole of it is testable with no shell either. Vixen.Editor.AnimationGraph is beside
+    them and ⚠ deliberately *not* on that framework: a state machine's edge carries "may
+    become" rather than a value, several leave one state and several arrive at another,
+    and a graph with no cycle is a character that can never return to idle. See its README.
 
     Vixen.Editor.Inspector and Vixen.Editor.SceneView are the two panels that are more
     than chrome, and both reference Vixen.Editor.Core because both produce IEditorCommands
@@ -300,6 +306,16 @@
     or a code editor. It is above the panels rather than beside them, and it is still not
     the shell: an asset editor is a document and a control, and which dock group it lands
     in is Vixen.Editor.App's decision as everything else is.
+
+    Vixen.Editor.Profiler and Vixen.Editor.Debugger are doc 11's two diagnostics projects
+    and doc 20's B4. Two rather than one because they depend on different halves of the
+    engine — the profiler on the sample rings and the RHI's query pools, the debugger on a
+    command stream and a network transport — and neither references Vixen.Editor.Core:
+    what a diagnostics panel shows is a *reading* rather than something anybody edits, so
+    there is no document and no undo stack, and both are testable against a bare
+    UiDocument with no project on disk. Which world the statistics count and which device
+    the GPU timeline reads are Vixen.Editor.App's arbitration, as every other panel's
+    subject is.
 
     Vixen.Editor.Plugin is the contract a third party writes against, and the only
     project under Editor/ whose public surface is checked against a baseline — doc 11
@@ -319,6 +335,8 @@
     <Project Path="Editor/Vixen.Editor.ShaderGraph.Tests/Vixen.Editor.ShaderGraph.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.VfxGraph/Vixen.Editor.VfxGraph.csproj" />
     <Project Path="Editor/Vixen.Editor.VfxGraph.Tests/Vixen.Editor.VfxGraph.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.AnimationGraph/Vixen.Editor.AnimationGraph.csproj" />
+    <Project Path="Editor/Vixen.Editor.AnimationGraph.Tests/Vixen.Editor.AnimationGraph.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Inspector/Vixen.Editor.Inspector.csproj" />
     <Project Path="Editor/Vixen.Editor.Inspector.Generator/Vixen.Editor.Inspector.Generator.csproj" />
     <Project Path="Editor/Vixen.Editor.Inspector.Tests/Vixen.Editor.Inspector.Tests.csproj" />
@@ -328,6 +346,10 @@
     <Project Path="Editor/Vixen.Editor.Ui.Tests/Vixen.Editor.Ui.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.AssetEditors/Vixen.Editor.AssetEditors.csproj" />
     <Project Path="Editor/Vixen.Editor.AssetEditors.Tests/Vixen.Editor.AssetEditors.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Profiler/Vixen.Editor.Profiler.csproj" />
+    <Project Path="Editor/Vixen.Editor.Profiler.Tests/Vixen.Editor.Profiler.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Debugger/Vixen.Editor.Debugger.csproj" />
+    <Project Path="Editor/Vixen.Editor.Debugger.Tests/Vixen.Editor.Debugger.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Plugin/Vixen.Editor.Plugin.csproj" />
     <Project Path="Editor/Vixen.Editor.Plugin.Tests/Vixen.Editor.Plugin.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.App/Vixen.Editor.App.csproj" />

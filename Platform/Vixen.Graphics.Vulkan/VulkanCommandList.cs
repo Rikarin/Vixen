@@ -134,6 +134,10 @@ sealed unsafe class VulkanCommandList : ICommandList {
         // Y is flipped: Vulkan's clip space has +Y down and the engine's convention is +Y up
         // (Core/Vixen.Core.Mathematics/Conventions.md). A negative-height viewport is the standard way
         // to express that, is core since 1.1, and avoids a flip in every vertex shader.
+        //
+        // ⚠ It also reverses which winding is front, because facing is decided from the signed area
+        // in framebuffer coordinates and this mirrors them. `VulkanEnums.ToVulkan(FrontFace)` is
+        // where that is paid for, and its remarks say what goes wrong when it is not.
         var vk = new VkViewport {
             X = viewport.X,
             Y = viewport.Y + viewport.Height,
@@ -523,6 +527,54 @@ sealed unsafe class VulkanCommandList : ICommandList {
             1,
             &region
         );
+    }
+
+    /// <inheritdoc />
+    public void ResetQueries(QueryPoolHandle pool, int first, int count) {
+        ThrowIfRecorded();
+
+        if (count <= 0) {
+            return;
+        }
+
+        if (inRenderPass) {
+            throw new InvalidOperationException(
+                $"Command list '{Name}' reset queries inside a render pass, which Vulkan does not "
+                + "allow. Reset the range at the top of the list, before the first pass begins."
+            );
+        }
+
+        Bounds(pool, first, count);
+        api.CmdResetQueryPool(Buffer, device.Resolve(pool).Handle, (uint)first, (uint)count);
+    }
+
+    /// <inheritdoc />
+    public void WriteTimestamp(QueryPoolHandle pool, int index) {
+        ThrowIfRecorded();
+        Bounds(pool, index, 1);
+
+        // ⚠ BottomOfPipeBit, which is what makes a pair around a pass mean the pass. A top-of-pipe
+        // write records when the GPU *reached* this point in the stream, which on a pipelined device
+        // is long before the work in front of it finished — so two top-of-pipe writes around a pass
+        // measure how fast the front end consumed commands rather than how long the pass took.
+        api.CmdWriteTimestamp(
+            Buffer,
+            PipelineStageFlags.BottomOfPipeBit,
+            device.Resolve(pool).Handle,
+            (uint)index
+        );
+    }
+
+    void Bounds(QueryPoolHandle pool, int first, int count) {
+        var resolved = device.Resolve(pool);
+
+        if (first < 0 || count < 0 || first + count > resolved.Count) {
+            throw new ArgumentOutOfRangeException(
+                nameof(first),
+                $"Queries {first}..{first + count - 1} are outside a pool holding {resolved.Count}. "
+                + "Vulkan's behaviour there is undefined rather than an error."
+            );
+        }
     }
 
     /// <inheritdoc />

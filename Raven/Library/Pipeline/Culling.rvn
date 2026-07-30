@@ -87,8 +87,115 @@ struct CullView {
     /// `Cull.Occluders` when this view has a pyramid and a matrix to project with.
     var flags: uint
 
-    /// Eight bytes of tail padding the shader declares and never reads.
+    /// `screenHeight / (2 tan(fov / 2))` — what an object-space error is multiplied by to reach
+    /// pixels, once divided by the distance. `Clusters` only.
+    ///
+    /// Precomputed on the host rather than derived from the projection matrix here, because it is one
+    /// number per view per frame either way and the host already has the field of view in the form it
+    /// was authored in. It is also the number the "projecting error with the wrong view" sabotage
+    /// changes, which is worth being one field rather than a derivation.
+    var errorScale: float
+
+    /// How many pixels of deviation a cluster may have before it is refined. `Clusters` only.
+    ///
+    /// No tail padding after it, and that is what the two error fields are doing here rather than at
+    /// the end: the level count, the flags and the two of them are exactly one sixteen-byte row, so
+    /// the record stays two hundred and eight bytes. A field added carelessly here costs sixteen.
+    var errorThreshold: float
+}
+
+/// One cluster of a cluster DAG, as the traversal sees it.
+///
+/// The runtime half of `Meshlet` — bounds, cone, the two errors and the DAG edge — and nothing that
+/// is only needed once a cluster has been *accepted*. Where its geometry is lives in the page
+/// placement, which this pass reads only to ask whether it has arrived: a traversal has to test a
+/// cluster before it can know whether it wants its bytes, which is why the records are resident and
+/// the geometry is paged. See `docs/virtualized-geometry.md` phase 2.
+struct CullCluster {
+    /// The bind-pose bound, in the mesh's own space.
+    var center: float3
+    var radius: float
+
+    /// The axis of the cone every triangle's normal lies inside, area-weighted.
+    var coneAxis: float3
+
+    /// The cosine of the cone's half-angle. **Negative means the cone is useless** — a cluster whose
+    /// normals span more than a hemisphere can never be rejected as backfacing, and a test that
+    /// pretended otherwise would cull geometry that is facing the camera.
+    var coneCosine: float
+
+    /// The bound of the *group* whose simplification produced this cluster.
+    ///
+    /// **Not the cluster's own bound, and the difference is the whole of why a cut does not tear.**
+    /// A group's simplification produces several parents, every one of which replaces *all* of the
+    /// group's children — so all of them have to reach the same refinement decision, or one refines
+    /// while its sibling does not and the surface is covered twice in one place and once in another.
+    /// They share an error already; what they also have to share is the distance it is projected at,
+    /// and their own bounds are in different places. So the error is projected at the group's bound,
+    /// which every parent of the group carries identically.
+    var errorCenter: float3
+
+    var errorRadius: float
+
+    /// How far this cluster's surface may deviate from the original mesh, in object space.
+    var error: float
+
+    /// The error of the group this cluster is simplified into, or a very large number for a root.
+    ///
+    /// The traversal never reads it — it descends when a cluster's *own* error is too large, and it
+    /// only reached the cluster because its parent's was too — but the CPU mirror's brute-force
+    /// oracle does, and the two have to be reading the same record.
+    var parentError: float
+
+    /// Where this cluster's children start in `children`, and how many there are.
+    ///
+    /// The children of the group that *produced* this cluster: refining means replacing this cluster
+    /// with all of them, never some. Zero of them is a leaf — level zero, the original mesh.
+    var firstChild: uint
+    var childCount: uint
+
+    /// Which page holds its geometry.
+    var page: uint
+
+    /// `Cull.ClusterRoot` when nothing simplifies this cluster further.
+    var flags: uint
+
+    /// Eight bytes of tail padding the shader declares and never reads, so the record is eighty bytes
+    /// on both sides and every `float3` in it starts a sixteen-byte row.
     var padding: uint2
+}
+
+/// One instance of a cluster DAG: which clusters, where, and how big it is on screen.
+///
+/// The traversal is per instance per view, so this is what turns a mesh's object-space errors into
+/// this instance's screen-space ones. A whole matrix is not needed and is not carried: what the tests
+/// want is a world-space sphere and a scale, and a record that carried a matrix would make every
+/// instance's record four times the size for a transform this pass would only use to derive them.
+struct CullInstance {
+    /// Where the instance's clusters start in `clusters`.
+    var firstCluster: uint
+
+    /// How many it has, so a traversal cannot walk off into another instance's DAG.
+    var clusterCount: uint
+
+    /// Where its roots start in `roots`, and how many.
+    var firstRoot: uint
+    var rootCount: uint
+
+    /// The instance's world transform, as the three numbers the tests actually use.
+    var position: float3
+
+    /// The largest scale factor any axis has, which is what an object-space length is multiplied by.
+    var scale: float
+
+    /// Which stages this instance appears in.
+    var stagesLow: uint
+    var stagesHigh: uint
+
+    /// `Cull.Alive` when the slot holds a live instance.
+    var flags: uint
+
+    var padding: uint
 }
 
 /// The constants and the tests both sides of the culler have to agree on.
@@ -135,6 +242,73 @@ struct Cull {
         return (objectLow & viewLow) != 0u || (objectHigh & viewHigh) != 0u
     }
 
+    /// The bit of `CullCluster.flags` that says nothing simplifies this cluster further.
+    const val ClusterRoot = 1u
+
+    /// How many clusters one workgroup's queue holds.
+    ///
+    /// A shared array, which is what `groupshared` is for and what this whole traversal was blocked
+    /// on — see `docs/virtualized-geometry.md` § B1. A queue with a local head is one atomic on
+    /// memory the group owns; the alternative is a global atomic per child and a dispatch that
+    /// spends its life in memory traffic.
+    ///
+    /// A thousand and twenty-four is four kilobytes of the sixteen a device has to offer, which
+    /// leaves room for a second consumer in the same shader and is far more than a breadth-first
+    /// front over a DAG of a hundred and twenty-eight-triangle clusters ever reaches.
+    const val QueueCapacity = 1024
+
+    /// Whether a cluster's normals all face away from a point.
+    ///
+    /// A cone `{n : dot(n, axis) >= cosine}` is entirely backfacing from `eye` when the angle between
+    /// the axis and the direction *to* the eye exceeds ninety degrees plus the half-angle — which is
+    /// `dot(axis, toEye) < -sin(halfAngle)`. Widened by the cluster's own extent, because the eye
+    /// direction is measured from the centre and the cluster is not a point.
+    ///
+    /// **A negative cosine can never reject**, and that is the honest answer rather than a clamp: a
+    /// cluster whose normals span more than a hemisphere — a closed cap, a crumpled fold — has some
+    /// triangle facing every direction, so no eye position makes all of them backfacing. A test that
+    /// clamped the cosine to something usable would cull geometry that is facing the camera.
+    static func Backfacing(center: float3, radius: float, axis: float3, cosine: float, eye: float3): bool {
+        if (cosine < 0f) {
+            return false
+        }
+
+        val offset = eye - center
+        val distance = length(offset)
+
+        if (distance <= radius) {
+            return false
+        }
+
+        val sine = sqrt(max(1f - cosine * cosine, 0f))
+        return dot(axis, offset / distance) < -sine - radius / distance
+    }
+
+    /// How many pixels of screen an object-space deviation covers, at a distance.
+    ///
+    /// `errorScale` is `screenHeight / (2 tan(fov / 2))`, computed once per view on the host — so this
+    /// is the perspective divide and nothing else. Perpendicular to the view direction is the worst
+    /// case and is the case taken: a deviation along the view direction covers no pixels at all, and a
+    /// metric that assumed the average orientation would be right on average and visibly wrong on the
+    /// silhouette, which is the only place anybody looks.
+    ///
+    /// The same arithmetic as `MeshletCut.PixelError`, which is what the offline cut is chosen with.
+    static func PixelError(error: float, distance: float, errorScale: float): float {
+        if (distance <= 0f) {
+            // Behind or at the eye covers the whole screen, which is what refines rather than accepts.
+        return 3.4e38f
+        }
+
+        return error * errorScale / distance
+    }
+
+    /// An instance's cluster base and a cluster index, as one word.
+    ///
+    /// Sixteen bits each, which is what a draw's `firstInstance` carries and what the raster of phase
+    /// 4 will take them apart with. A DAG with more than sixty-five thousand clusters is one this
+    /// packing cannot address, and the build's own level cap reaches a single root long before that.
+    static func PackVisible(first: uint, cluster: uint): uint => (first << 16u) | (cluster & 0xFFFFu)
+
     /// Whether a sphere reaches within `maximum` of a point.
     ///
     /// Measured to the sphere's *surface*, so a large object does not pop out while it is still
@@ -159,6 +333,17 @@ shader Culling {
     /// at all in a compilation. `GpuVisibilityGroup` binds one texel and clears `Cull.Occluders` in
     /// every view.
     [Permutation] val Occlusion: bool = false
+
+    /// Whether this dispatch walks a cluster DAG rather than a flat array of objects.
+    ///
+    /// **A permutation of this shader and not a shader of its own**, which is improvement 3 of
+    /// `docs/virtualized-geometry.md`. Objects and clusters are the same hierarchy at different
+    /// depths: the `Main`/`Late` split, the Hi-Z projection, the per-view records and the rounding
+    /// slack are the same decisions either way, and two implementations of "visible against last
+    /// frame's pyramid" is two places for the definition to drift. What the cluster path adds is a
+    /// normal cone, a screen-space error, and a walk — and what it shares is everything else,
+    /// including `Occluded`, which now takes a sphere precisely so both callers can hand it one.
+    [Permutation] val Clusters: bool = false
 
     /// Whether this is the *second* pass of a two-phase cull, which answers a different question.
     ///
@@ -187,6 +372,37 @@ shader Culling {
     /// The answer: `wordCount` words per view, view-major. Read back into the host's bitset.
     var visibility: RWBuffer<uint>
 
+    /// One record per cluster of every DAG in the scene, concatenated. `Clusters` only.
+    ///
+    /// **Records, not geometry**, and the name says so because the distinction is the phase's: a
+    /// traversal has to test a cluster — its bounds, its cone, its error — before it can know whether
+    /// it wants its bytes, so the hierarchy is resident and the geometry is paged. See
+    /// `docs/virtualized-geometry.md` phase 2.
+    var clusterRecords: Buffer<CullCluster>
+
+    /// One record per instance. The dispatch's `x` extent is its count. `Clusters` only.
+    var instances: Buffer<CullInstance>
+
+    /// Every cluster's children, concatenated — `CullCluster.firstChild` indexes this.
+    var children: Buffer<uint>
+
+    /// Every instance's roots, concatenated — `CullInstance.firstRoot` indexes this.
+    var roots: Buffer<uint>
+
+    /// The clusters the traversal accepted, appended: instance in the high sixteen bits, cluster in
+    /// the low. Element zero is the count, which is what an indirect draw reads.
+    var visible: RWBuffer<uint>
+
+    /// The pages the traversal wanted and did not have, appended the same way. Element zero counts.
+    ///
+    /// **This is what makes streaming demand-driven rather than predictive.** A page is asked for
+    /// because a cut actually wanted a cluster in it this frame, from this view — not because a
+    /// heuristic about distance guessed it might. See `docs/virtualized-geometry.md` phase 2.
+    var requests: RWBuffer<uint>
+
+    /// Which pages are resident, one bit each. A cluster whose page is absent is refined no further.
+    var residency: Buffer<uint>
+
     /// Last frame's depth, min-reduced — `HiZReduce.rvn` builds it and `HiZPyramid` owns it.
     ///
     /// Level 0 is half the depth buffer in each dimension, which is why an extent measured in its
@@ -200,7 +416,17 @@ shader Culling {
     /// has a tail to test for. Both targets leave an out-of-range buffer access undefined, which on a
     /// GPU means a wrong value on one driver and a device loss on another.
     [ComputeShader(64)]
-    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3, [Semantic("SV_GroupID")] group: uint3, [Semantic("SV_GroupIndex")] lane: uint) {
+        // One entry point and two dispatch shapes, which is what a permutation is for: the branch is
+        // folded before lowering, so the object variant carries no queue, no barrier and no shared
+        // memory, and the cluster variant carries no per-word loop. Two entry points would have been
+        // the other reading and the language refuses it — a shader has one compute stage — which is
+        // the constraint agreeing with improvement 3 rather than fighting it.
+        if (Clusters) {
+            Traverse(group, lane)
+            return
+        }
+
         val viewIndex = int(id.y)
 
         if (viewIndex >= views.Length) {
@@ -281,13 +507,19 @@ shader Culling {
         }
 
         if (Occlusion && (view.flags & Cull.Occluders) != 0u) {
-            return !Occluded(candidate, view)
+            return !Occluded(candidate.center, candidate.radius, view)
         }
 
         return true
     }
 
-    /// Whether last frame's depth says nothing of this object could have been seen.
+    /// Whether last frame's depth says nothing inside this sphere could have been seen.
+    ///
+    /// **A sphere and not an object**, which is improvement 3 of `docs/virtualized-geometry.md` made
+    /// concrete: the object cull and the cluster traversal ask the same question of the same pyramid
+    /// with the same matrix, and two implementations of "visible against last frame's pyramid" is two
+    /// places for the definition to drift. What differs between the callers is which sphere.
+    ///
     ///
     /// The classic Hi-Z test, and every part of it errs towards keeping the object:
     ///
@@ -305,8 +537,7 @@ shader Culling {
     /// depth is a frame old and something that was hidden last frame and is not now appears a frame
     /// late. Run again after the first pass's draws have been reduced back into the pyramid, and the
     /// depth is this frame's — so the second answer is late by nothing.
-    func Occluded(candidate: CullObject, view: CullView): bool {
-        val radius = candidate.radius
+    func Occluded(center: float3, radius: float, view: CullView): bool {
 
         var minimum = float3(1f, 1f, 1f)
         var maximum = float3(0f, 0f, 0f)
@@ -316,7 +547,7 @@ shader Culling {
         for (i in 0 .. 7) {
             val bits = uint(i)
             val offset = float3(Cull.Sign(bits, 1u), Cull.Sign(bits, 2u), Cull.Sign(bits, 4u)) * radius
-            val clip = view.occluderProjection * float4(candidate.center + offset, 1f)
+            val clip = view.occluderProjection * float4(center + offset, 1f)
 
             if (clip.w <= Const.Epsilon) {
                 behind = true
@@ -361,4 +592,265 @@ shader Culling {
         // object itself, last frame — does not occlude it.
         return maximum.z < min(min(a, b), min(c, d))
     }
+
+    // --- The cluster traversal ---------------------------------------------
+
+    /// The workgroup's breadth-first front: the clusters it has yet to test.
+    ///
+    /// **The reason this phase was blocked on workgroup-shared memory.** A traversal pops a node,
+    /// tests its children and pushes the survivors, which is a queue with a local head — one atomic
+    /// on memory the group owns. Without it the head is a global atomic and every push is a round
+    /// trip to device memory, for a dispatch whose whole shape is pushes.
+    groupshared var queue: uint[Cull.QueueCapacity]
+
+    /// How many clusters are in the queue, and how many have been taken out of it.
+    ///
+    /// Two counters and not one, because the front is a range rather than a stack: everything between
+    /// `taken` and `pushed` is what this round has to test, and a round ends when the group has taken
+    /// all of it. A stack would work and would visit the DAG depth-first, which is the wrong order
+    /// for a front that wants to be wide enough to fill sixty-four lanes.
+    groupshared var pushed: uint
+
+    groupshared var taken: uint
+
+    /// Whether the queue overflowed, so the group knows to stop refining rather than to lose nodes.
+    groupshared var overflowed: uint
+
+    /// One workgroup per instance per view, walking the DAG from its roots.
+    ///
+    /// **A rejected subtree costs one test**, which is the whole point of the hierarchy and the whole
+    /// difference from `Main`: a cluster that fails the frustum, the cone or the pyramid takes its
+    /// children with it, and a mesh of a hundred thousand clusters behind the camera costs as many
+    /// tests as it has roots.
+    ///
+    /// **Accept or refine, never both.** A cluster is drawn when its own error is under the threshold,
+    /// and the walk only reached it because its parent's was not — which is `Error <= t < ParentError`
+    /// arrived at from the top rather than tested per cluster. That is what makes the answer a cut:
+    /// along any path through the DAG exactly one cluster satisfies it.
+    func Traverse(group: uint3, lane: uint) {
+        val instanceIndex = int(group.x)
+        val viewIndex = int(group.y)
+
+        if (instanceIndex >= instances.Length || viewIndex >= views.Length) {
+            return
+        }
+
+        val instance = instances[instanceIndex]
+        val view = views[viewIndex]
+
+        // One invocation initialises the queue's state and the rest wait for it. The barrier is not
+        // optional and not a formality: without it a lane can read `pushed` before lane zero has
+        // written it, which is a workgroup that decides its front is empty and returns.
+        if (lane == 0u) {
+            pushed = 0u
+            taken = 0u
+            overflowed = 0u
+        }
+
+        barrier()
+
+        if ((instance.flags & Cull.Alive) == 0u) {
+            return
+        }
+
+        if (!Cull.Shares(instance.stagesLow, instance.stagesHigh, view.stagesLow, view.stagesHigh)) {
+            return
+        }
+
+        // The roots, one per lane until they run out. Seeded before the loop rather than inside it so
+        // the first round is as wide as the rest.
+        for (i in 0 .. Cull.QueueCapacity - 1) {
+            val at = uint(i) * 64u + lane
+
+            if (at >= instance.rootCount) {
+                break
+            }
+
+            Push(roots[int(instance.firstRoot + at)])
+        }
+
+        barrier()
+
+        // Rounds, not recursion. Each round takes the whole front, tests it, and leaves the survivors'
+        // children as the next one; the group stops when a round adds nothing. The bound is the DAG's
+        // depth, which is logarithmic in its cluster count because every level halves it.
+        for (round in 0 .. 31) {
+            val front = pushed
+            val start = taken
+
+            if (start >= front) {
+                break
+            }
+
+            barrier()
+
+            for (i in 0 .. Cull.QueueCapacity - 1) {
+                val at = start + uint(i) * 64u + lane
+
+                if (at >= front) {
+                    break
+                }
+
+                Visit(queue[int(at % uint(Cull.QueueCapacity))], instance, view)
+            }
+
+            // Everybody has finished testing this round's front before the head moves, or a lane
+            // still reading `queue[at]` reads a slot the next round has already written.
+            barrier()
+
+            if (lane == 0u) {
+                taken = front
+            }
+
+            barrier()
+        }
+    }
+
+    /// Tests one cluster and either accepts it, refines it, or drops it with its subtree.
+    func Visit(cluster: uint, instance: CullInstance, view: CullView) {
+        val record = clusterRecords[int(instance.firstCluster + cluster)]
+
+        // The bind-pose bound placed and scaled. A rotation is not applied and does not need to be:
+        // the bound is a sphere, and a sphere is what every test below takes.
+        val center = instance.position + record.center * instance.scale
+        val radius = record.radius * instance.scale
+
+        val cutoff = view.maximumDistance
+
+        if (cutoff > 0f && !Cull.WithinDistance(view.position, center, radius, cutoff)) {
+            return
+        }
+
+        for (i in 0 .. 5) {
+            if (Cull.Outside(view.planes[i], center, radius)) {
+                return
+            }
+        }
+
+        if (Cull.Backfacing(center, radius, record.coneAxis, record.coneCosine, view.position)) {
+            return
+        }
+
+        if (Occlusion && (view.flags & Cull.Occluders) != 0u && Occluded(center, radius, view)) {
+            return
+        }
+
+        // The error is projected at the *group's* bound and not at this cluster's, so every parent of
+        // the group decides identically — see `CullCluster.errorCenter`. Measured to the surface
+        // rather than to the centre: at the centre a large group's error reads smaller than it is
+        // where anybody is looking, which is the silhouette.
+        val errorCenter = instance.position + record.errorCenter * instance.scale
+        val errorRadius = record.errorRadius * instance.scale
+        val distance = max(length(errorCenter - view.position) - errorRadius, Const.Epsilon)
+        val pixels = Cull.PixelError(record.error * instance.scale, distance, view.errorScale)
+
+        // Fine enough, or as fine as this frame can draw it: a leaf has nothing below it, and a
+        // cluster whose children are not resident is drawn rather than refined into geometry that is
+        // not there. Both are the same decision — draw what there is — and the second is what makes
+        // streaming degrade rather than fail.
+        if (pixels <= view.errorThreshold || record.childCount == 0u || overflowed != 0u) {
+            Accept(cluster, instance, record)
+            return
+        }
+
+        if (!Refine(record, instance)) {
+            Accept(cluster, instance, record)
+        }
+    }
+
+    /// Pushes a cluster's children, or answers false when any of them is not there to be drawn.
+    ///
+    /// **All or none**, which is the same rule the offline cut follows and for the same reason: the
+    /// boundary between a refined cluster and its unrefined neighbour was locked at one level and
+    /// simplified at the other, so refining half a group is a crack.
+    func Refine(record: CullCluster, instance: CullInstance): bool {
+        var ready = true
+
+        for (i in 0 .. Cull.QueueCapacity - 1) {
+            if (uint(i) >= record.childCount) {
+                break
+            }
+
+            val child = children[int(record.firstChild + uint(i))]
+            val page = clusterRecords[int(instance.firstCluster + child)].page
+
+            if (!Resident(page)) {
+                Request(page)
+                ready = false
+            }
+        }
+
+        if (!ready) {
+            return false
+        }
+
+        for (i in 0 .. Cull.QueueCapacity - 1) {
+            if (uint(i) >= record.childCount) {
+                break
+            }
+
+            Push(children[int(record.firstChild + uint(i))])
+        }
+
+        return true
+    }
+
+    /// Appends a cluster to the workgroup's front.
+    ///
+    /// The overflow is a flag rather than a drop: a group whose front does not fit stops refining and
+    /// draws what it has, which is a coarser cut. Dropping the node instead would be a hole, and
+    /// growing the queue is not something a shader can do.
+    func Push(cluster: uint) {
+        val at = atomicAdd(pushed, 1u)
+
+        if (at - taken >= uint(Cull.QueueCapacity)) {
+            overflowed = 1u
+            return
+        }
+
+        queue[int(at % uint(Cull.QueueCapacity))] = cluster
+    }
+
+    /// Appends an accepted cluster to the visible list.
+    ///
+    /// A global atomic and not a shared one, because the list is the dispatch's rather than the
+    /// group's — and it is one atomic per *accepted* cluster, which is a small fraction of the
+    /// clusters tested. That is the trade the whole hierarchy exists to make.
+    func Accept(cluster: uint, instance: CullInstance, record: CullCluster) {
+        if (!Resident(record.page)) {
+            Request(record.page)
+            return
+        }
+
+        val at = atomicAdd(visible[0], 1u)
+
+        if (at + 1u < uint(visible.Length)) {
+            visible[int(at + 1u)] = Cull.PackVisible(instance.firstCluster, cluster)
+        }
+    }
+
+    /// Records that a page was wanted and was not there.
+    func Request(page: uint) {
+        if (page >= uint(residency.Length) * 32u) {
+            return
+        }
+
+        val at = atomicAdd(requests[0], 1u)
+
+        if (at + 1u < uint(requests.Length)) {
+            requests[int(at + 1u)] = page
+        }
+    }
+
+    /// Whether a page's bytes are in the pool.
+    func Resident(page: uint): bool {
+        val word = int(page / 32u)
+
+        if (word >= residency.Length) {
+            return false
+        }
+
+        return (residency[word] & (1u << int(page % 32u))) != 0u
+    }
+
 }

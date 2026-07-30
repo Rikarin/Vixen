@@ -7,6 +7,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 
 namespace Vixen.Editor.SceneView;
 
@@ -37,6 +38,7 @@ public sealed class SceneLines {
     readonly List<LineVertex> overlay = [];
     readonly List<MeshVertex> handles = [];
     readonly List<uint> handleIndices = [];
+    readonly Dictionary<PrimitiveKind, BoundingBox> extents = [];
 
     /// <summary>The segments drawn with the depth test on.</summary>
     public IReadOnlyList<LineVertex> World => world;
@@ -67,6 +69,11 @@ public sealed class SceneLines {
     ///     With several things selected the gizmo is at one place and the other nineteen have nothing
     ///     saying they are going to move — which is the state in which somebody drags and is
     ///     surprised.
+    ///     <para>
+    ///         <see cref="SceneMeshes.SelectedColour" />'s amber, and deliberately not
+    ///         <see cref="SceneMeshes.OutlineColour" />'s blue: a marker cross and a shape's tint are
+    ///         both saying "this one is selected", and the rim is saying where it ends.
+    ///     </para>
     /// </remarks>
     public Color4 SelectedColour { get; set; } = new(1f, 0.62f, 0.15f, 1f);
 
@@ -74,6 +81,13 @@ public sealed class SceneLines {
     /// <param name="document">The scene being drawn.</param>
     /// <param name="viewport">The pane drawing it.</param>
     /// <param name="height">How tall the pane is, in render pixels.</param>
+    /// <remarks>
+    ///     ⚠ <b>Every source asks <see cref="SceneViewport.Show" /> and none of them is a
+    ///     <c>continue</c> inside its own loop.</b> A flag that is off has to cost nothing rather than
+    ///     cost a walk over the scene that emits no vertices — which for the parent links, the only
+    ///     one that is a test per entity, is the difference between skipping a branch and skipping the
+    ///     pass.
+    /// </remarks>
     public void Build(SceneDocument document, SceneViewport viewport, int height) {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(viewport);
@@ -83,9 +97,27 @@ public sealed class SceneLines {
         handles.Clear();
         handleIndices.Clear();
 
-        Grid(viewport, height);
-        Markers(document);
-        LightShapes(document);
+        var show = viewport.Show;
+
+        if ((show & SceneShow.Grid) != 0) {
+            Grid(viewport, height);
+        }
+
+        if ((show & (SceneShow.Markers | SceneShow.Parents)) != 0) {
+            Markers(document, show);
+        }
+
+        if ((show & SceneShow.Lights) != 0) {
+            LightShapes(document);
+        }
+
+        if ((show & SceneShow.Bounds) != 0) {
+            Boxes(document);
+        }
+
+        if ((show & SceneShow.Gizmos) == 0) {
+            return;
+        }
 
         GizmoGeometry.Build(viewport.Gizmo, viewport.Camera, height, overlay);
         GizmoGeometry.BuildSolid(viewport.Gizmo, viewport.Camera, height, handles, handleIndices);
@@ -108,7 +140,10 @@ public sealed class SceneLines {
     ///     cross says only "something is here", which is the truth about an entity with no mesh. The
     ///     arms are along the entity's <i>own</i> axes, so a rotated empty looks rotated.
     /// </remarks>
-    void Markers(SceneDocument document) {
+    void Markers(SceneDocument document, SceneShow show) {
+        var crosses = (show & SceneShow.Markers) != 0;
+        var links = (show & SceneShow.Parents) != 0;
+
         foreach (var entity in document.Entities) {
             if (!document.World.IsAlive(entity) || !document.World.Has<WorldTransform>(entity)) {
                 continue;
@@ -120,19 +155,99 @@ public sealed class SceneLines {
             var colour = selected ? SelectedColour : MarkerColour;
             var size = MarkerSize * (selected ? 1.6f : 1f);
 
-            Cross(origin, transform.Right * size, colour);
-            Cross(origin, transform.Up * size, colour);
-            Cross(origin, transform.Forward * size, colour);
+            if (crosses) {
+                Cross(origin, transform.Right * size, colour);
+                Cross(origin, transform.Up * size, colour);
+                Cross(origin, transform.Forward * size, colour);
+            }
 
             // A line to the parent, so a hierarchy is visible in the viewport rather than only in the
             // panel. Faded, because it is a relationship and not a thing.
-            if (transform.Parent is { IsNull: false } parent && document.World.Has<WorldTransform>(parent)) {
+            if (links && transform.Parent is { IsNull: false } parent && document.World.Has<WorldTransform>(parent)) {
                 var faded = new Color4(colour.R, colour.G, colour.B, 0.25f);
 
                 world.Add(new(origin, faded));
                 world.Add(new(new Transform(document.World, parent).Position, faded));
             }
         }
+    }
+
+    /// <summary>A wire box round every shaped entity, in the entity's own axes.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The shape's bounds through the entity's matrix, not an axis-aligned box round the
+    ///         result.</b> A world-aligned box round a rotated crate is bigger than the crate on every
+    ///         axis and touches it at four points, which answers a question — "what would the
+    ///         broadphase see" — that nobody looking at a viewport is asking. What this shows is the
+    ///         extent the geometry actually occupies, turned the way the geometry is turned.
+    ///     </para>
+    ///     <para>
+    ///         Shaped entities only: an empty has no extent, and a box round a marker cross would be a
+    ///         box round an arbitrary constant.
+    ///     </para>
+    /// </remarks>
+    void Boxes(SceneDocument document) {
+        // ⚠ Outside the loop. A stack allocation per entity is a stack that grows with the scene and
+        // has no way to shrink until the method returns, which for a large scene is an overflow
+        // rather than a slowdown — CA2014's whole point.
+        Span<Vector3> corners = stackalloc Vector3[8];
+
+        foreach (var entity in document.Entities) {
+            if (!PrimitiveShapes.TryGet(document.World, entity, out var kind)
+                || !document.World.Has<WorldTransform>(entity)
+                || document.IsHidden(entity)) {
+                continue;
+            }
+
+            var bounds = Extent(kind);
+            var matrix = document.World.Read<WorldTransform>(entity).Value;
+
+            var colour = document.Selection.Contains(entity)
+                ? SelectedColour
+                : new Color4(MarkerColour.R, MarkerColour.G, MarkerColour.B, 0.45f);
+
+            var centre = (bounds.Minimum + bounds.Maximum) * 0.5f;
+            var extent = (bounds.Maximum - bounds.Minimum) * 0.5f;
+
+            for (var index = 0; index < 8; index++) {
+                var local = centre + new Vector3(
+                    (index & 1) == 0 ? -extent.X : extent.X,
+                    (index & 2) == 0 ? -extent.Y : extent.Y,
+                    (index & 4) == 0 ? -extent.Z : extent.Z
+                );
+
+                corners[index] = Matrix4x4.TransformPosition(local, matrix);
+            }
+
+            // The twelve edges of a box whose corners are indexed by which side of each axis they are
+            // on: two corners are joined exactly when their indices differ in one bit.
+            for (var from = 0; from < 8; from++) {
+                for (var bit = 1; bit < 8; bit <<= 1) {
+                    var to = from | bit;
+
+                    if (to != from) {
+                        Segment(corners[from], corners[to], colour);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>A shape's extent in its own space, built once per kind.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The mesh's own bounds rather than the unit cube.</b> Every primitive is built to fit
+    ///     the unit cube, which is not the same as filling it: a torus is a tenth of a unit tall and a
+    ///     plane has no height at all, so a unit box round either says the entity occupies four times
+    ///     the space it does. Cached because the box never changes and the geometry it is measured
+    ///     from is hundreds of vertices.
+    /// </remarks>
+    BoundingBox Extent(PrimitiveKind kind) {
+        if (!extents.TryGetValue(kind, out var bounds)) {
+            bounds = MeshPrimitives.Create(kind).Bounds;
+            extents[kind] = bounds;
+        }
+
+        return bounds;
     }
 
     void Cross(Vector3 origin, Vector3 arm, Color4 colour) {

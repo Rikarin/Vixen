@@ -190,14 +190,36 @@ public sealed class SceneViewport : IDisposable {
     /// <summary>Which way the scene is being drawn.</summary>
     public ViewModes Modes { get; } = new();
 
+    /// <summary>What this pane draws.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is what the Show menu writes, and <c>SceneGrid.Enabled</c> is not.</b> The grid
+    ///     keeps its own switch for a host that has no show flags — a preview pane, a test — but the
+    ///     editor toggles exactly one of the two, because two writers to one idea is how a menu tick
+    ///     and a panel toggle come to disagree. See <see cref="SceneShow" />.
+    /// </remarks>
+    public SceneShow Show { get; set; } = SceneShow.Default;
+
+    /// <summary>What this pane cost last frame, for the readout in its corner.</summary>
+    public ViewportStats Stats { get; } = new();
+
     /// <summary>Where a drop would land.</summary>
     public ScenePlacement Placement { get; } = new();
 
     /// <summary>The view a frame is rendered from.</summary>
     public RenderView View { get; }
 
-    /// <summary>The bookmarks this pane has saved.</summary>
-    public IList<ViewBookmark> Bookmarks { get; } = [];
+    /// <summary>How many numbered bookmark slots a pane has.</summary>
+    /// <remarks>
+    ///     Nine, because the gesture is <c>Ctrl+1..9</c> to set and <c>1..9</c> to recall and a tenth
+    ///     slot would have no key. An unbounded list of named views is a different feature and belongs
+    ///     in the palette rather than on the number row.
+    /// </remarks>
+    public const int BookmarkSlots = 9;
+
+    readonly ViewBookmark?[] bookmarks = new ViewBookmark?[BookmarkSlots];
+
+    /// <summary>The nine slots, empty where nothing has been saved.</summary>
+    public IReadOnlyList<ViewBookmark?> Bookmarks => bookmarks;
 
     /// <summary>Where a gizmo drag is recorded.</summary>
     public EditorDocument? Document { get; set; }
@@ -254,8 +276,16 @@ public sealed class SceneViewport : IDisposable {
     /// </remarks>
     public bool IsFlying { get; private set; }
 
-    /// <summary>What can answer "what is under this ray", for placement and surface snapping.</summary>
-    public ISurfaceProbe? Surfaces { get; set; }
+    /// <summary>What can answer "what is under this ray", for placement and for snapping.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="ISceneProbe" /> rather than <c>ISurfaceProbe</c>, and the difference is the
+    ///     exclusion.</b> A drop asks about a scene it is not yet part of; a <i>drag</i> asks about a
+    ///     scene the dragged object is in the middle of, and a probe that could not be told to leave
+    ///     it out would answer with the object's own surface for the whole of every drag — a snap that
+    ///     never moves. Nothing is lost: <see cref="Drop" /> hands this straight to
+    ///     <c>ScenePlacement.Resolve</c>, which takes the narrower interface.
+    /// </remarks>
+    public ISceneProbe? Surfaces { get; set; }
 
     /// <summary>Where the answers to picks are collected, once a device exists.</summary>
     /// <remarks>
@@ -477,6 +507,102 @@ public sealed class SceneViewport : IDisposable {
         }
     }
 
+    /// <summary>The rubber-band being dragged, or <see langword="null" />.</summary>
+    /// <remarks>
+    ///     What the overlay draws. Read once a frame rather than raised as an event, because it
+    ///     changes on every pointer move and an event per move would be a subscription the drawing
+    ///     already has in the form of "it is redrawn every frame anyway".
+    /// </remarks>
+    public Marquee? Selecting { get; private set; }
+
+    /// <summary>Raised when a band has taken a set of entities. The host owns the selection.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The pane cannot resolve a band on its own and must not pretend to.</b>
+    ///     <see cref="Select" /> takes one entity because a click has one answer; a band has a list,
+    ///     and turning a list into a selection is <c>Selection&lt;T&gt;.Set</c> or a run of
+    ///     <c>Add</c> — which is the caller's decision about whether shift extends or replaces. This
+    ///     type does the geometry and hands the answer over.
+    /// </remarks>
+    public event Action<SceneViewport, IReadOnlyList<Vixen.Core.Entity>, bool>? Banded;
+
+    /// <summary>Starts a rubber-band at a point.</summary>
+    /// <param name="point">Where, in render pixels.</param>
+    /// <param name="additive">Whether what it takes extends the selection.</param>
+    public void BeginSelect(Vector2 point, bool additive) => Selecting = new Marquee(point, point, additive);
+
+    /// <summary>Drags the band's free corner.</summary>
+    /// <param name="point">Where the pointer is, in render pixels.</param>
+    public void DragSelect(Vector2 point) {
+        if (Selecting is { } band) {
+            Selecting = band.To(point);
+        }
+    }
+
+    /// <summary>Ends a band and selects what it took.</summary>
+    /// <returns>Whether anything was resolved.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A band too small to be a band is a click, and is answered by the picker.</b>
+    ///         Every press in empty space starts one of these, because the alternative is deciding
+    ///         whether a drag has begun before the pointer has moved. So the release is where the two
+    ///         gestures part, and the click path is exactly <see cref="Pick" /> — not a
+    ///         one-pixel band, which would take whatever happened to project into it rather than what
+    ///         is under the pointer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An empty band that is not additive clears the selection.</b> That is the same rule
+    ///         a miss follows and for the same reason: dragging a box round nothing is how people
+    ///         deselect without hunting for empty space to click on.
+    ///     </para>
+    /// </remarks>
+    public bool EndSelect() {
+        if (Selecting is not { } band) {
+            return false;
+        }
+
+        Selecting = null;
+
+        if (!band.IsBand) {
+            return Pick(band.Anchor, band.Additive);
+        }
+
+        if (Picker is not { } picker) {
+            return false;
+        }
+
+        List<Vixen.Core.Entity> taken = [];
+        picker.Within(band, Camera, Control.RenderWidth, Control.RenderHeight, taken);
+
+        if (taken.Count == 0 && !band.Additive) {
+            selection.Clear();
+        } else if (band.Additive) {
+            foreach (var entity in taken) {
+                selection.Add(entity);
+            }
+        } else {
+            selection.Set(taken);
+        }
+
+        Banded?.Invoke(this, taken, band.Additive);
+        return true;
+    }
+
+    /// <summary>Abandons a band without selecting anything.</summary>
+    /// <returns>Whether there was one.</returns>
+    /// <remarks>
+    ///     Escape, and losing the focus. A band left running because the pointer went somewhere else
+    ///     is one that resolves on the next click anywhere in the pane, which selects a rectangle
+    ///     nobody drew.
+    /// </remarks>
+    public bool CancelSelect() {
+        if (Selecting is null) {
+            return false;
+        }
+
+        Selecting = null;
+        return true;
+    }
+
     /// <summary>Points the camera at what is selected.</summary>
     /// <param name="bounds">What the selection occupies, or <see langword="null" /> to leave it.</param>
     public void FocusSelection(BoundingBox? bounds) {
@@ -485,27 +611,42 @@ public sealed class SceneViewport : IDisposable {
         }
     }
 
-    /// <summary>Saves where the camera is.</summary>
-    /// <param name="name">What to call it.</param>
-    /// <returns>The bookmark.</returns>
-    public ViewBookmark SaveBookmark(string name) {
-        var bookmark = Camera.Bookmark(name);
-        Bookmarks.Add(bookmark);
+    /// <summary>Saves where the camera is into one of the nine slots.</summary>
+    /// <param name="slot">Which, from zero to <see cref="BookmarkSlots" /> minus one.</param>
+    /// <returns>The bookmark, or <see langword="null" /> for a slot that does not exist.</returns>
+    /// <remarks>
+    ///     ⚠ <b>It overwrites without asking, which is what every editor's numbered bookmarks do.</b>
+    ///     The gesture is "put the view I am in on key three", and a prompt would make it two
+    ///     gestures; the previous view is a camera position rather than work, and recovering it is
+    ///     pressing the key that saved it again from where you were.
+    /// </remarks>
+    public ViewBookmark? SaveBookmark(int slot) {
+        if ((uint) slot >= (uint) BookmarkSlots) {
+            return null;
+        }
+
+        var bookmark = Camera.Bookmark("View " + (slot + 1).ToString(System.Globalization.CultureInfo.InvariantCulture));
+        bookmarks[slot] = bookmark;
 
         return bookmark;
     }
 
     /// <summary>Goes back to a saved view.</summary>
-    /// <param name="index">Which one.</param>
+    /// <param name="slot">Which one.</param>
     /// <returns>Whether there was one.</returns>
-    public bool RestoreBookmark(int index) {
-        if ((uint) index >= (uint) Bookmarks.Count) {
+    public bool RestoreBookmark(int slot) {
+        if ((uint) slot >= (uint) BookmarkSlots || bookmarks[slot] is not { } bookmark) {
             return false;
         }
 
-        Camera.Restore(Bookmarks[index]);
+        Camera.Restore(bookmark);
         return true;
     }
+
+    /// <summary>Whether a slot has a view in it.</summary>
+    /// <param name="slot">Which one.</param>
+    /// <returns>Whether it does.</returns>
+    public bool HasBookmark(int slot) => (uint) slot < (uint) BookmarkSlots && bookmarks[slot] is not null;
 
     /// <summary>What a drag with this button and these modifiers means.</summary>
     /// <param name="button">Which button is down.</param>
@@ -741,6 +882,16 @@ public sealed class SceneViewport : IDisposable {
     ///     </para>
     /// </remarks>
     void OnPointer(UiElement element, PointerEvent args) {
+        // ⚠ The chrome drawn over the pane is not the pane, and this handler hears its events
+        // because it is registered with `handledEventsToo` — see the constructor. Without the guard,
+        // clicking the toolbar that floats over the viewport began a rubber band under it and the
+        // release picked nothing, so pressing "Rotate" deselected whatever was about to be rotated.
+        // Once a real drag is under way the pointer is captured and the source is the control again,
+        // so a band that started on the pane and wandered over the toolbar is unaffected.
+        if (Control.IsOverlayEvent(args.Source)) {
+            return;
+        }
+
         if (Flies(args.Button) && args.Action is PointerAction.Pressed or PointerAction.Released) {
             Flying(args.Action == PointerAction.Pressed);
         }
@@ -761,15 +912,21 @@ public sealed class SceneViewport : IDisposable {
             case PointerAction.Pressed
                 when Interpret(args.Button, args.Modifiers) == NavigationAction.Manipulate:
                 if (!BeginManipulate(point)) {
-                    // Nothing under the pointer, so the press is a selection. The answer arrives
-                    // frames later; see PickingBuffer for why a click does not wait for the GPU.
-                    Pick(point, (args.Modifiers & (ModifierKeys.Shift | ModifierKeys.Control)) != 0);
+                    // ⚠ Nothing under the pointer, so the press starts a rubber-band rather than
+                    // picking outright. Which of the two gestures it is cannot be known yet — a click
+                    // and a band begin identically — so the band is started every time and the
+                    // release decides, which is what `EndSelect` is for.
+                    BeginSelect(point, (args.Modifiers & (ModifierKeys.Shift | ModifierKeys.Control)) != 0);
                 }
 
                 break;
 
             case PointerAction.Released when Gizmo.IsDragging:
                 EndManipulate();
+                break;
+
+            case PointerAction.Released when Selecting is not null:
+                EndSelect();
                 break;
 
             default:
@@ -779,7 +936,23 @@ public sealed class SceneViewport : IDisposable {
 
     void OnDragged(ViewportControl control, ViewportDrag drag) {
         if (Gizmo.IsDragging) {
-            Gizmo.Drag(Ray(new Vector2(drag.X, drag.Y)), Camera);
+            var at = new Vector2(drag.X, drag.Y);
+
+            // ⚠ Written before the drag is applied, not after. `Move` reads it, and a snap point one
+            // frame behind is a drag that lags the pointer by a frame only while snapping — which
+            // reads as the snap being sticky rather than as an ordering mistake.
+            Gizmo.SnapTo = SnapPoint(at);
+            Gizmo.Drag(Ray(at), Camera);
+
+            return;
+        }
+
+        // ⚠ Before the navigation switch, not inside its Manipulate case. A band is dragged with the
+        // left button and Alt+left orbits — so a band that was started and then had Alt pressed
+        // during it would silently become an orbit, leaving a rectangle on screen that nothing is
+        // updating. The band owns the drag until it is released.
+        if (Selecting is not null) {
+            DragSelect(new Vector2(drag.X, drag.Y));
             return;
         }
 
@@ -805,6 +978,51 @@ public sealed class SceneViewport : IDisposable {
         }
     }
 
+    /// <summary>Where the scene says a translate drag should land, or <see langword="null" />.</summary>
+    /// <param name="point">Where the pointer is, in render pixels.</param>
+    /// <returns>The point, in world space.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Vertex first, then surface.</b> Both can be on at once and they are not the same
+    ///         request: a vertex snap is "on that corner" and only answers when there is a corner
+    ///         within reach, so falling through to the surface when it does not is what makes holding
+    ///         both a strictly better drag rather than a mode switch.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The selection is excluded, not the gizmo's targets.</b> They are the same list —
+    ///         the targets are built from the selection once a frame — and the selection is the one
+    ///         expressed in entities, which is what a probe over a world can compare against.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only a translate.</b> A rotation or a scale has no position to land on, and the
+    ///         uniform box is a scale wearing a translate gizmo's clothes.
+    ///     </para>
+    /// </remarks>
+    Vector3? SnapPoint(Vector2 point) {
+        if (Gizmo.Mode is not (GizmoMode.Translate or GizmoMode.Transform)
+            || Gizmo.Active == GizmoHandle.Uniform
+            || Surfaces is not { } probe) {
+            return null;
+        }
+
+        var snap = Gizmo.Snap;
+
+        if (snap.SnapToVertex
+            && probe.TryNearestVertex(
+                point,
+                Camera,
+                Control.RenderWidth,
+                Control.RenderHeight,
+                snap.VertexRadius,
+                selection.Items,
+                out var vertex
+            )) {
+            return vertex;
+        }
+
+        return snap.SnapToSurface && probe.Raycast(Ray(point), selection.Items, out var hit) ? hit.Point : null;
+    }
+
     void OnZoomed(ViewportControl control, float delta) =>
         Wheel(delta, pointer.IsZero ? Middle(control) : pointer);
 
@@ -822,7 +1040,11 @@ public sealed class SceneViewport : IDisposable {
         // puts the targets back at once instead of pushing a command to be rolled back, so the
         // viewport is redrawn from the model on the frame the key was pressed — see its own remarks.
         // A drag with no way out is one people finish by dragging back to roughly where they started.
-        if (args is { Key: InputKey.Escape, Action: KeyAction.Pressed } && Gizmo.Cancel()) {
+        // ⚠ And it cancels a rubber-band on the same terms, before flight and before the shell. A
+        // band abandoned with Escape has to stop being drawn on the frame the key was pressed, for
+        // the same reason a cancelled drag does — and a band that survived Escape resolves on the
+        // next release anywhere in the pane, selecting a rectangle nobody drew.
+        if (args is { Key: InputKey.Escape, Action: KeyAction.Pressed } && (Gizmo.Cancel() | CancelSelect())) {
             args.Handled = true;
             return;
         }
@@ -857,6 +1079,7 @@ public sealed class SceneViewport : IDisposable {
     void OnFocus(UiElement element, FocusEvent args) {
         if (!args.Gained) {
             Flying(false);
+            CancelSelect();
         }
     }
 

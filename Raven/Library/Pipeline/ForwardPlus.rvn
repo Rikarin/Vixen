@@ -97,6 +97,20 @@ shader ForwardPlus {
     /// list to merge over. `TransformRenderFeature.EnableRecords` gates on exactly that.
     [Permutation] val UseTransformRecords: bool = false
 
+    /// Whether the per-object scalars come from a buffer the draw's instance index addresses.
+    ///
+    /// The last thing in the per-object block that a merged, clustered frame could not deliver. The
+    /// clustered path binds no per-draw set at all — a fragment finds its own lights in the grid — so
+    /// `probeIndex` and `probeWeight` arrived as whatever set 3 last held, and per-object reflection
+    /// probes are one of the three features `docs/bindless-materials.md` was written to unblock.
+    ///
+    /// ⚠ **Requires `UseTransformRecords`, and that is a real precondition rather than tidiness.**
+    /// What addresses a record is `SV_InstanceID`, and the API adds `firstInstance` into it — which
+    /// holds the object's slot only because the transform record path put it there. With the matrix
+    /// still pushed, every draw carries zero and every object would read record zero's probe.
+    /// `CompositorBuilder` asks for this only where transforms actually turned on.
+    [Permutation] val UseObjectRecords: bool = false
+
     /// How many entries the uniform light list has room for. Unused when clustering is on.
     ///
     /// A permutation rather than a constant because it is the *host's* budget: it sizes a uniform
@@ -131,6 +145,27 @@ shader ForwardPlus {
     /// date with the camera it was built from.
     [PushConstant] var world: mat4
 
+    /// Which record of the material buffer this draw's material is, when materials are records.
+    ///
+    /// **A push constant, and it was a per-object block member — which was the wrong shape.** A
+    /// variant is keyed `(material, flags, shader)`, so one variant is one material; a batch is keyed
+    /// on the variant, so every object in a merged draw has the *same* material and the same record.
+    /// It is per *draw* and never per object, and putting it in the per-object block meant a
+    /// clustered frame — which binds no per-draw set at all, because a fragment finds its own lights
+    /// in the grid — never delivered it. Bindless materials and clustered lighting were quietly
+    /// exclusive.
+    ///
+    /// It also takes a cross-feature write with it: the lighting feature used to write the material
+    /// feature's number into its own block, which its own comment apologised for. And the block is 68
+    /// bytes against Vulkan's guaranteed 128, so it fits everywhere `world` already did.
+    ///
+    /// ⚠ `[MaterialIndex("UseMaterialRecords")]` rather than `[MaterialIndex]`: the marker turns this
+    /// shader's whole per-material block into one record of a buffer, and that is what a device with
+    /// bindless wants and not what GL, WebGL2 or MoltenVK below argument-buffer tier 2 can do
+    /// (ADR-011). Conditional on the permutation, one shader is both — and the *default is the
+    /// fallback*, so a host that never asked gets exactly the pass it had.
+    [PushConstant] [MaterialIndex("UseMaterialRecords")] var materialIndex: uint = 0u
+
     // The scalars come first and the array last, which is not a style choice: std140 starts an array
     // of structures on a sixteen-byte boundary whatever precedes it, so three scalars and four bytes
     // of padding fill exactly the header `ForwardLightingRenderFeature.HeaderSize` already writes.
@@ -153,19 +188,6 @@ shader ForwardPlus {
     /// whole, and one near the edge fades back to the sky over the probe's falloff distance. Per
     /// object because that is what the falloff is a function of — where the object is.
     [PerDraw] var probeWeight: float = 0f
-
-    /// Which record of the material buffer this object's material is, when materials are records.
-    ///
-    /// The fourth scalar, and it costs nothing: std140 starts the array below on a sixteen-byte
-    /// boundary whatever precedes it, so three scalars already left four bytes of padding here and
-    /// this fills them. `ForwardLightingRenderFeature.HeaderSize` does not move.
-    ///
-    /// ⚠ `[MaterialIndex("UseMaterialRecords")]` rather than `[MaterialIndex]`: the marker turns this
-    /// shader's whole per-material block into one record of a buffer, and that is what a device with
-    /// bindless wants and not what GL, WebGL2 or MoltenVK below argument-buffer tier 2 can do
-    /// (ADR-011). Conditional on the permutation, one shader is both — and the *default is the
-    /// fallback*, so a host that never asked gets exactly the pass it had.
-    [PerDraw] [MaterialIndex("UseMaterialRecords")] var materialIndex: uint = 0u
 
     /// The host-filled light list. Read `lightCount` entries, not `MaxLights` — the rest is stale
     /// memory. Unused when clustering is on.
@@ -197,6 +219,14 @@ shader ForwardPlus {
     /// per-view copy of it so much waste.
     [PerFrame] var transforms: Buffer<ObjectTransform>
 
+    /// The per-object scalars, at the object's own slot. Read when `UseObjectRecords` is on.
+    ///
+    /// Its own buffer rather than more members of `transforms`, because the two have different
+    /// owners: the transform feature knows where an object is and the lighting feature knows which
+    /// probe reaches it. One buffer would be two features writing one layout at agreed offsets, which
+    /// is exactly the cross-feature write `materialIndex` was moved out of.
+    [PerFrame] var objects: Buffer<ObjectRecord>
+
     /// The sun, kept separate from the list: it has no position to cull against, so it is in every
     /// cluster and paying list traversal for it would be paying for nothing.
     [PerFrame] var lightDirection: float3
@@ -215,6 +245,16 @@ shader ForwardPlus {
     [PerFrame] var transformBase: int = 0
 
     [PerFrame] var lightColor: float3
+
+    /// Which record this frame's objects start at, added to the instance index.
+    ///
+    /// The lighting feature's own ring, and not `transformBase`: two buffers, two rings, two frames
+    /// in flight advancing independently. Sharing one base would read this frame's probes out of
+    /// whichever region the other buffer happened to be writing.
+    ///
+    /// In the four bytes std140 left after `lightColor`, for the reason `transformBase` sits after
+    /// `lightDirection`: put first it would cost the block sixteen, and put here it costs nothing.
+    [PerFrame] var objectBase: int = 0
 
     /// The scene's whole light list, which the clustered variant indexes into rather than copying.
     ///
@@ -318,6 +358,17 @@ shader ForwardPlus {
     stream var tangentWS: float4
     stream var uv: float2
 
+    /// Which object this fragment belongs to, when the scalars are records.
+    ///
+    /// The instance index, carried across the rasteriser so the fragment stage can address the same
+    /// record the vertex stage could. `SV_InstanceID` is a vertex-stage built-in and there is no
+    /// fragment counterpart, so a varying is the only route — and an integer varying is `flat` by
+    /// necessity rather than by choice: there is no interpolation an index could take.
+    ///
+    /// Costs a location only in the variant that reads it, because the write below is inside the
+    /// permutation and a stream nothing writes is not an output.
+    stream var objectIndex: int
+
     /// View-space position, for finding the fragment's cluster.
     ///
     /// Carried from the vertex stage rather than recovered in the fragment stage, because Raven has no
@@ -343,6 +394,10 @@ shader ForwardPlus {
 
         if (UseTransformRecords) {
             objectToWorld = transforms[transformBase + instance].world
+        }
+
+        if (UseObjectRecords) {
+            objectIndex = instance
         }
 
         positionWS = Math.TransformPoint(objectToWorld, position)
@@ -569,11 +624,16 @@ shader ForwardPlus {
 
             var prefiltered = environment.SampleLevel(environmentSampler, reflected, lod).rgb
 
+            // `ProbeWeight()` rather than the block's field, which is master's: a clustered frame binds
+            // no per-draw set, so the weight comes from the object record where there is one.
             if (UseReflectionProbe) {
-                prefiltered = lerp(prefiltered, Probe(d.perceptualRoughness, reflected), saturate(probeWeight))
+                prefiltered = lerp(prefiltered, Probe(d.perceptualRoughness, reflected), saturate(ProbeWeight()))
             }
 
             specular = Ibl.Specular(prefiltered, d.f0, dfg, d.occlusion)
+
+            // `incoming` rather than a local named `irradiance`, which is what this was: the compose slot
+            // below is called `irradiance` and a local of the same name shadows it.
             incoming = Ibl.IrradianceSh9(n, environmentSh)
         }
 
@@ -599,6 +659,28 @@ shader ForwardPlus {
         return (specular + diffuse) * ambientIntensity
     }
 
+    /// Which probe reaches this object: from the record when there is one, from the block otherwise.
+    ///
+    /// The two sources exist because the per-draw block is not bound on every path. A clustered frame
+    /// binds no per-draw set at all, so reading the block there returns whatever set 3 last held —
+    /// which is a plausible picture, not an error: every object reflecting one object's probe.
+    func ProbeIndex(): int {
+        if (UseObjectRecords) {
+            return objects[objectBase + objectIndex].probeIndex
+        }
+
+        return probeIndex
+    }
+
+    /// How much of it shows through, on the same terms.
+    func ProbeWeight(): float {
+        if (UseObjectRecords) {
+            return objects[objectBase + objectIndex].probeWeight
+        }
+
+        return probeWeight
+    }
+
     /// The local probe's radiance along a reflection, corrected for where it was captured from.
     ///
     /// **Without the correction a probe is worse than no probe.** A cubemap is captured from one
@@ -610,7 +692,7 @@ shader ForwardPlus {
         // Clamped rather than trusted: the index arrives in a per-object block a host filled, and
         // an out-of-range one reads a descriptor nobody wrote — a wrong reflection on one driver and
         // a device loss on another.
-        val index = clamp(probeIndex, 0, ProbeCount - 1)
+        val index = clamp(ProbeIndex(), 0, ProbeCount - 1)
         val volume = probeVolumes[index]
 
         var corrected = Ibl.ParallaxCorrect(reflected, positionWS, volume.box)

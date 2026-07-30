@@ -189,6 +189,12 @@ public sealed class TrackingCommandList : ICommandList {
     public void CopyTexture(in TextureRegion source, in TextureRegion destination, Int3 size) { }
 
     /// <inheritdoc />
+    public void ResetQueries(QueryPoolHandle pool, int first, int count) { }
+
+    /// <inheritdoc />
+    public void WriteTimestamp(QueryPoolHandle pool, int index) { }
+
+    /// <inheritdoc />
     public void PushDebugGroup(string name) { }
 
     /// <inheritdoc />

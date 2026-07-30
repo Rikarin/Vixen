@@ -187,6 +187,25 @@ the root.
 one skeleton, and it is ordered by the node tree rather than by whichever mesh listed its bones
 first — so a joint always precedes its children.
 
+## `ModelCompiler`, and the first thing a mesh cannot decide about itself
+
+A `Meshlets` sub-asset beside every mesh: the cluster DAG of
+[docs/virtualized-geometry.md](../../docs/virtualized-geometry.md) phase 1, which is every level of
+detail at once plus the fallback mesh cut from it. The algorithm is `Vixen.Rendering.VirtualGeometry`,
+for the same reason the distance-field bake is `Vixen.Rendering.DistanceFields`: a `MeshletMesh` is
+what the build writes and what a player deserialises, so both halves have to be talking about one
+type, and the algorithm is then testable against spheres and grids with no import context in the way.
+
+**Skinned meshes get one, unlike the distance field.** A field is baked in one pose and a character
+does not stay in it; a cluster carries the *range of bones* its vertices are weighted to, so the
+traversal expands its bound by what those bones are doing. That is designed in here rather than
+retrofitted, which is the cost Epic paid for shipping Nanite rigid-only.
+
+⚠ **A hierarchy that would crack fails the import.** `MeshletValidator` recomputes each group's
+boundary from the positions and refuses a DAG whose error is not strictly increasing or whose boundary
+moved; the mesh then ships with no clusters and an error naming the group. The alternative is an asset
+that builds, ships, and opens a slit at one distance on one mesh — a failure that points at nothing.
+
 ## `SpriteSlicer`, and a texture that produces sprites
 
 A texture in a sprite mode produces the same KTX2 it always did, plus one sub-asset per sprite and one
@@ -367,6 +386,16 @@ left in `Vixen.Cli` is the console formatting and the worker pool.
 path; the CLI turns one into an MSBuild-parseable line and the editor turns a few into a
 notification. Neither owns the other's output format.
 
+⚠ **`PlayerBuild` is the third step and it arrived here for the same reason the other two did.**
+Content is not an application: after the pack there is a `dotnet publish`, and doc 20's B7 asks for a
+Build Settings window "over `Tools/Vixen.Cli`'s existing calls" — which is only possible if the calls
+are somewhere both heads can reach. So the target shapes (which RID, which framework, which
+configuration a variant compiles as), the publish and the launch live beside the pipeline, and
+`vixen build` and the editor's Build and Run are the same three calls in the same order. What is
+*not* here is the shader bundle: `ShaderBuildRunner` links Raven's compiler, which is a build-time
+library the editor deliberately does not carry, so it stays in the CLI and the editor's build log says
+so for a project that has a manifest.
+
 `ContentPipeline.Analyse` is `Build` without the packing: the same group read and the same
 `BuildPlanner.Plan` call, and nothing written. It exists because the editor's addressable analysis
 view answers "what would a build say", and a panel that reimplemented the planner's rules would be a
@@ -450,9 +479,8 @@ model another asset was pointing at.
 ## Still to come
 
 **The rest of the compilers.** Doc 08 splits import from compile; `SceneImporter` is the first one,
-and the others are still the import half only. `ModelCompiler` is what does vertex-layout packing,
-meshlets, LOD generation and index reordering — none of which can be decided one mesh at a time,
-which is why they are not in the importer. `MaterialCompiler` is what turns a `.vxmat`'s named
+and the others are still the import half only. `ModelCompiler` has its first job — see below — and
+still owes vertex-layout packing and index reordering. `MaterialCompiler` is what turns a `.vxmat`'s named
 parameters into a resolved pipeline, which is why `NativeFormatImporter` carries the document forward
 rather than emitting a half-resolved binary.
 

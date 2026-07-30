@@ -56,6 +56,7 @@ sealed class RavenLexer {
         ["readonly"] = RavenTokenKind.ReadOnlyKeyword,
         ["static"] = RavenTokenKind.StaticKeyword,
         ["stream"] = RavenTokenKind.StreamKeyword,
+        ["groupshared"] = RavenTokenKind.GroupSharedKeyword,
         ["inout"] = RavenTokenKind.InOutKeyword,
         ["bool"] = RavenTokenKind.BoolKeyword,
         ["bool2"] = RavenTokenKind.Bool2Keyword,

@@ -61,7 +61,18 @@ public static class EffectTranslator {
                 .. reflection.VertexInputs.Select(input => new EffectVertexInputData(input.Name, input.Location, Kind(input.Type)))
             ],
             PushConstants = [
-                .. reflection.PushConstants.Select(range => new EffectPushConstantData(Stages(range.Stages), range.Offset, range.Size))
+                .. reflection.PushConstants.Select(
+                    range => new EffectPushConstantData(
+                        Stages(range.Stages),
+                        range.Offset,
+                        range.Size,
+                        [
+                            .. range.Members.Select(
+                                member => new EffectPushConstantMember(member.Name, member.Offset, member.Size)
+                            )
+                        ]
+                    )
+                )
             ]
         };
     }
