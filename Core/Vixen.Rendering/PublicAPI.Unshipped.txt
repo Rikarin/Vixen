@@ -863,6 +863,38 @@ Vixen.Rendering.Compositor.SingleStageRenderer : Vixen.Rendering.Compositor.Scen
 Vixen.Rendering.Compositor.SingleStageRenderer.Constants.get -> Vixen.Rendering.ViewConstants?
 Vixen.Rendering.Compositor.SingleStageRenderer.Constants.set -> Vixen.Rendering.ViewConstants?
 Vixen.Rendering.Compositor.SingleStageRenderer.SingleStageRenderer() -> void
+Vixen.Rendering.Compositor.SurfaceCacheRenderer -> sealed class
+Vixen.Rendering.Compositor.SurfaceCacheRenderer : System.IDisposable
+Vixen.Rendering.Compositor.SurfaceCacheRenderer : Vixen.Rendering.Compositor.SceneRenderer
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.Bounces.get -> int
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.Capture.get -> Vixen.Rendering.Lighting.SurfaceCardCapture?
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.Capture.set -> Vixen.Rendering.Lighting.SurfaceCardCapture?
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.Captured.get -> int
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.Device.get -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.Device.set -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.Dispose() -> void
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.Draw.get -> Vixen.Rendering.Lighting.SurfaceCardCapture.DrawCard?
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.Draw.set -> Vixen.Rendering.Lighting.SurfaceCardCapture.DrawCard?
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.GatherFill.get -> Vixen.Rendering.Lighting.SurfaceCacheGatherFill?
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.GatherFill.set -> Vixen.Rendering.Lighting.SurfaceCacheGatherFill?
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.LastChange.get -> float
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.LightFill.get -> Vixen.Rendering.Lighting.SurfaceCacheLightFill?
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.LightFill.set -> Vixen.Rendering.Lighting.SurfaceCacheLightFill?
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.Passes.get -> System.Collections.Generic.IList<string>
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.Radiosity.get -> Vixen.Rendering.SurfaceCache.CardRadiosity?
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.Radiosity.set -> Vixen.Rendering.SurfaceCache.CardRadiosity?
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.SceneConstants.get -> Vixen.Rendering.SceneConstants?
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.SceneConstants.set -> Vixen.Rendering.SceneConstants?
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.Source.get -> string
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.Source.set -> string
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.Store.get -> Vixen.Rendering.SurfaceCache.SurfaceCacheStore?
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.Store.set -> Vixen.Rendering.SurfaceCache.SurfaceCacheStore?
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.SunIrradiance.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.SunIrradiance.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.SurfaceCacheRenderer() -> void
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.Texture.get -> Vixen.Rendering.Lighting.SurfaceCacheTexture?
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.TowardSun.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Compositor.SurfaceCacheRenderer.TowardSun.set -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Compositor.ViewBlockAsset -> sealed record
 Vixen.Rendering.Compositor.ViewBlockAsset : System.IEquatable<Vixen.Rendering.Compositor.ViewBlockAsset>
 Vixen.Rendering.Compositor.ViewBlockAsset.Binding.get -> uint
@@ -2151,6 +2183,8 @@ Vixen.Rendering.Lighting.SurfaceCacheTexture -> sealed class
 Vixen.Rendering.Lighting.SurfaceCacheTexture : System.IDisposable
 Vixen.Rendering.Lighting.SurfaceCacheTexture.AlbedoDepthView.get -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Lighting.SurfaceCacheTexture.Apply(Vixen.Shaders.ParameterCollection parameters, string shaderName) -> void
+Vixen.Rendering.Lighting.SurfaceCacheTexture.BounceIsWritten.get -> bool
+Vixen.Rendering.Lighting.SurfaceCacheTexture.BounceIsWritten.init -> bool
 Vixen.Rendering.Lighting.SurfaceCacheTexture.CardCount.get -> int
 Vixen.Rendering.Lighting.SurfaceCacheTexture.CardsBuffer.get -> Vixen.Graphics.BufferHandle
 Vixen.Rendering.Lighting.SurfaceCacheTexture.DirectIsWritten.get -> bool
@@ -3497,8 +3531,10 @@ Vixen.Shaders.Generated.ScreenProbeTracePerFrameConstants.IrradianceFieldProbesI
 Vixen.Shaders.Generated.ScreenProbeTracePerFrameConstants.IrradianceFieldProbesIrradianceFieldResolution -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.ScreenProbeTracePerFrameConstants.IrradianceFieldProbesIrradianceFieldViewBias -> float
 Vixen.Shaders.Generated.ScreenProbeTracePerFrameConstants.ScreenProbeTracePerFrameConstants() -> void
-Vixen.Shaders.Generated.ScreenProbeTracePerFrameConstants.SurfaceCacheSourceSurfaceCardCount -> int
 Vixen.Shaders.Generated.ScreenProbeTracePerFrameConstants.SurfaceCacheSourceSurfaceDepthTolerance -> float
+Vixen.Shaders.Generated.ScreenProbeTracePerFrameConstants.SurfaceCacheSourceSurfaceGridDimensions -> Vixen.Core.Mathematics.Int3
+Vixen.Shaders.Generated.ScreenProbeTracePerFrameConstants.SurfaceCacheSourceSurfaceGridInverseCell -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.ScreenProbeTracePerFrameConstants.SurfaceCacheSourceSurfaceGridMinimum -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.ScreenProbeTracePerMaterialConstants -> struct
 Vixen.Shaders.Generated.ScreenProbeTracePerMaterialConstants.MaxDistance -> float
 Vixen.Shaders.Generated.ScreenProbeTracePerMaterialConstants.MaxSteps -> int
@@ -3520,8 +3556,10 @@ Vixen.Shaders.Generated.SurfaceCacheGatherGlobalDistanceFieldDistanceFieldVolume
 Vixen.Shaders.Generated.SurfaceCacheGatherKeys -> static class
 Vixen.Shaders.Generated.SurfaceCacheGatherPerFrameConstants -> struct
 Vixen.Shaders.Generated.SurfaceCacheGatherPerFrameConstants.SurfaceCacheGatherPerFrameConstants() -> void
-Vixen.Shaders.Generated.SurfaceCacheGatherPerFrameConstants.SurfaceCacheSourceSurfaceCardCount -> int
 Vixen.Shaders.Generated.SurfaceCacheGatherPerFrameConstants.SurfaceCacheSourceSurfaceDepthTolerance -> float
+Vixen.Shaders.Generated.SurfaceCacheGatherPerFrameConstants.SurfaceCacheSourceSurfaceGridDimensions -> Vixen.Core.Mathematics.Int3
+Vixen.Shaders.Generated.SurfaceCacheGatherPerFrameConstants.SurfaceCacheSourceSurfaceGridInverseCell -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.SurfaceCacheGatherPerFrameConstants.SurfaceCacheSourceSurfaceGridMinimum -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.SurfaceCacheGatherPerMaterialConstants -> struct
 Vixen.Shaders.Generated.SurfaceCacheGatherPerMaterialConstants.Bias -> float
 Vixen.Shaders.Generated.SurfaceCacheGatherPerMaterialConstants.MaxDistance -> float
@@ -4003,7 +4041,7 @@ const Vixen.Shaders.Generated.ScreenProbeTraceGlobalDistanceFieldDistanceFieldVo
 const Vixen.Shaders.Generated.ScreenProbeTraceGlobalDistanceFieldDistanceFieldVolumesElement.Stride = 48 -> int
 const Vixen.Shaders.Generated.ScreenProbeTraceKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.ScreenProbeTraceKeys.ConstantBufferSet = 0 -> int
-const Vixen.Shaders.Generated.ScreenProbeTraceKeys.ConstantBufferSize = 304 -> int
+const Vixen.Shaders.Generated.ScreenProbeTraceKeys.ConstantBufferSize = 336 -> int
 const Vixen.Shaders.Generated.ScreenProbeTraceKeys.DepthBufferBinding = 1 -> uint
 const Vixen.Shaders.Generated.ScreenProbeTraceKeys.DepthBufferSet = 2 -> int
 const Vixen.Shaders.Generated.ScreenProbeTraceKeys.GlobalDistanceFieldDistanceFieldLevelsBinding = 1 -> uint
@@ -4028,7 +4066,7 @@ const Vixen.Shaders.Generated.ScreenProbeTraceKeys.JobsBinding = 2 -> uint
 const Vixen.Shaders.Generated.ScreenProbeTraceKeys.JobsSet = 2 -> int
 const Vixen.Shaders.Generated.ScreenProbeTraceKeys.PerFrameBlockBinding = 0 -> uint
 const Vixen.Shaders.Generated.ScreenProbeTraceKeys.PerFrameBlockSet = 0 -> int
-const Vixen.Shaders.Generated.ScreenProbeTraceKeys.PerFrameBlockSize = 304 -> int
+const Vixen.Shaders.Generated.ScreenProbeTraceKeys.PerFrameBlockSize = 336 -> int
 const Vixen.Shaders.Generated.ScreenProbeTraceKeys.PerMaterialBlockBinding = 0 -> uint
 const Vixen.Shaders.Generated.ScreenProbeTraceKeys.PerMaterialBlockSet = 2 -> int
 const Vixen.Shaders.Generated.ScreenProbeTraceKeys.PerMaterialBlockSize = 128 -> int
@@ -4045,9 +4083,13 @@ const Vixen.Shaders.Generated.ScreenProbeTraceKeys.SurfaceCacheSourceSurfaceEmis
 const Vixen.Shaders.Generated.ScreenProbeTraceKeys.SurfaceCacheSourceSurfaceEmissiveSet = 0 -> int
 const Vixen.Shaders.Generated.ScreenProbeTraceKeys.SurfaceCacheSourceSurfaceGatheredBinding = 11 -> uint
 const Vixen.Shaders.Generated.ScreenProbeTraceKeys.SurfaceCacheSourceSurfaceGatheredSet = 0 -> int
+const Vixen.Shaders.Generated.ScreenProbeTraceKeys.SurfaceCacheSourceSurfaceGridCellsBinding = 16 -> uint
+const Vixen.Shaders.Generated.ScreenProbeTraceKeys.SurfaceCacheSourceSurfaceGridCellsSet = 0 -> int
+const Vixen.Shaders.Generated.ScreenProbeTraceKeys.SurfaceCacheSourceSurfaceGridIndicesBinding = 17 -> uint
+const Vixen.Shaders.Generated.ScreenProbeTraceKeys.SurfaceCacheSourceSurfaceGridIndicesSet = 0 -> int
 const Vixen.Shaders.Generated.ScreenProbeTraceKeys.SurfaceCacheSourceSurfaceNormalValidBinding = 8 -> uint
 const Vixen.Shaders.Generated.ScreenProbeTraceKeys.SurfaceCacheSourceSurfaceNormalValidSet = 0 -> int
-const Vixen.Shaders.Generated.ScreenProbeTracePerFrameConstants.Size = 304 -> int
+const Vixen.Shaders.Generated.ScreenProbeTracePerFrameConstants.Size = 336 -> int
 const Vixen.Shaders.Generated.ScreenProbeTracePerMaterialConstants.Size = 128 -> int
 const Vixen.Shaders.Generated.SurfaceCacheGatherGlobalDistanceFieldDistanceFieldVolumesElement.BaseOffset = 0 -> int
 const Vixen.Shaders.Generated.SurfaceCacheGatherGlobalDistanceFieldDistanceFieldVolumesElement.Count = 4 -> int
@@ -4058,7 +4100,7 @@ const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.CardsBinding = 3 -> uint
 const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.CardsSet = 2 -> int
 const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.ConstantBufferSet = 0 -> int
-const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.ConstantBufferSize = 208 -> int
+const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.ConstantBufferSize = 240 -> int
 const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.GatherAtlasBinding = 4 -> uint
 const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.GatherAtlasSet = 2 -> int
 const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.GlobalDistanceFieldDistanceFieldLevelsBinding = 1 -> uint
@@ -4069,7 +4111,7 @@ const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.NormalValidBinding = 2 -> u
 const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.NormalValidSet = 2 -> int
 const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.PerFrameBlockBinding = 0 -> uint
 const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.PerFrameBlockSet = 0 -> int
-const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.PerFrameBlockSize = 208 -> int
+const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.PerFrameBlockSize = 240 -> int
 const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.PerMaterialBlockBinding = 0 -> uint
 const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.PerMaterialBlockSet = 2 -> int
 const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.PerMaterialBlockSize = 48 -> int
@@ -4084,9 +4126,13 @@ const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.SurfaceCacheSourceSurfaceEm
 const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.SurfaceCacheSourceSurfaceEmissiveSet = 0 -> int
 const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.SurfaceCacheSourceSurfaceGatheredBinding = 6 -> uint
 const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.SurfaceCacheSourceSurfaceGatheredSet = 0 -> int
+const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.SurfaceCacheSourceSurfaceGridCellsBinding = 9 -> uint
+const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.SurfaceCacheSourceSurfaceGridCellsSet = 0 -> int
+const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.SurfaceCacheSourceSurfaceGridIndicesBinding = 10 -> uint
+const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.SurfaceCacheSourceSurfaceGridIndicesSet = 0 -> int
 const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.SurfaceCacheSourceSurfaceNormalValidBinding = 3 -> uint
 const Vixen.Shaders.Generated.SurfaceCacheGatherKeys.SurfaceCacheSourceSurfaceNormalValidSet = 0 -> int
-const Vixen.Shaders.Generated.SurfaceCacheGatherPerFrameConstants.Size = 208 -> int
+const Vixen.Shaders.Generated.SurfaceCacheGatherPerFrameConstants.Size = 240 -> int
 const Vixen.Shaders.Generated.SurfaceCacheGatherPerMaterialConstants.Size = 48 -> int
 const Vixen.Shaders.Generated.SurfaceCacheLightGlobalDistanceFieldDistanceFieldVolumesElement.BaseOffset = 0 -> int
 const Vixen.Shaders.Generated.SurfaceCacheLightGlobalDistanceFieldDistanceFieldVolumesElement.Count = 4 -> int
@@ -4256,6 +4302,7 @@ override Vixen.Rendering.Compositor.ShadowMapRenderer.ToString() -> string
 override Vixen.Rendering.Compositor.SingleStageRenderer.Collect(Vixen.Rendering.Compositor.GraphicsCompositor compositor) -> void
 override Vixen.Rendering.Compositor.SingleStageRenderer.Record(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.RenderDrawContext context) -> void
 override Vixen.Rendering.Compositor.SingleStageRenderer.ToString() -> string
+override Vixen.Rendering.Compositor.SurfaceCacheRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Compositor.VisibilityBufferRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Compositor.VisibilityBufferRenderer.Collect(Vixen.Rendering.Compositor.GraphicsCompositor compositor) -> void
 override Vixen.Rendering.Ecs.GeometryKey.ToString() -> string
@@ -4776,12 +4823,16 @@ static readonly Vixen.Shaders.Generated.ScreenProbeTraceKeys.SkyColor -> Vixen.S
 static readonly Vixen.Shaders.Generated.ScreenProbeTraceKeys.SkyGradient -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.ScreenProbeTraceKeys.StepScale -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.ScreenProbeTraceKeys.SurfaceCacheSourceSurfaceAlbedoDepth -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
-static readonly Vixen.Shaders.Generated.ScreenProbeTraceKeys.SurfaceCacheSourceSurfaceCardCount -> Vixen.Shaders.ParameterKey<int>
 static readonly Vixen.Shaders.Generated.ScreenProbeTraceKeys.SurfaceCacheSourceSurfaceCards -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.ScreenProbeTraceKeys.SurfaceCacheSourceSurfaceDepthTolerance -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.ScreenProbeTraceKeys.SurfaceCacheSourceSurfaceDirect -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.ScreenProbeTraceKeys.SurfaceCacheSourceSurfaceEmissive -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.ScreenProbeTraceKeys.SurfaceCacheSourceSurfaceGathered -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ScreenProbeTraceKeys.SurfaceCacheSourceSurfaceGridCells -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.ScreenProbeTraceKeys.SurfaceCacheSourceSurfaceGridDimensions -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Int3>
+static readonly Vixen.Shaders.Generated.ScreenProbeTraceKeys.SurfaceCacheSourceSurfaceGridIndices -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.ScreenProbeTraceKeys.SurfaceCacheSourceSurfaceGridInverseCell -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.ScreenProbeTraceKeys.SurfaceCacheSourceSurfaceGridMinimum -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.ScreenProbeTraceKeys.SurfaceCacheSourceSurfaceNormalValid -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.ScreenProbeTraceKeys.SurfaceThreshold -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.ScreenProbeTraceKeys.ViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
@@ -4798,12 +4849,16 @@ static readonly Vixen.Shaders.Generated.SurfaceCacheGatherKeys.Rays -> Vixen.Sha
 static readonly Vixen.Shaders.Generated.SurfaceCacheGatherKeys.SkyColor -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.SurfaceCacheGatherKeys.StepScale -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.SurfaceCacheGatherKeys.SurfaceCacheSourceSurfaceAlbedoDepth -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
-static readonly Vixen.Shaders.Generated.SurfaceCacheGatherKeys.SurfaceCacheSourceSurfaceCardCount -> Vixen.Shaders.ParameterKey<int>
 static readonly Vixen.Shaders.Generated.SurfaceCacheGatherKeys.SurfaceCacheSourceSurfaceCards -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.SurfaceCacheGatherKeys.SurfaceCacheSourceSurfaceDepthTolerance -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.SurfaceCacheGatherKeys.SurfaceCacheSourceSurfaceDirect -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.SurfaceCacheGatherKeys.SurfaceCacheSourceSurfaceEmissive -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.SurfaceCacheGatherKeys.SurfaceCacheSourceSurfaceGathered -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.SurfaceCacheGatherKeys.SurfaceCacheSourceSurfaceGridCells -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.SurfaceCacheGatherKeys.SurfaceCacheSourceSurfaceGridDimensions -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Int3>
+static readonly Vixen.Shaders.Generated.SurfaceCacheGatherKeys.SurfaceCacheSourceSurfaceGridIndices -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.SurfaceCacheGatherKeys.SurfaceCacheSourceSurfaceGridInverseCell -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.SurfaceCacheGatherKeys.SurfaceCacheSourceSurfaceGridMinimum -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.SurfaceCacheGatherKeys.SurfaceCacheSourceSurfaceNormalValid -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.SurfaceCacheGatherKeys.SurfaceThreshold -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.SurfaceCacheLightKeys.AlbedoDepth -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>

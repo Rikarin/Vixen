@@ -44,6 +44,12 @@ struct SurfaceCardProjection {
     var depth: float
 }
 
+/// One grid cell's slice of the candidate list — where it starts, and how many cards it holds.
+struct SurfaceCacheGridCell {
+    var offset: int
+    var count: int
+}
+
 struct SurfaceCards {
     /// The outward direction of the surfaces a card captures.
     static func Direction(axis: int): float3 {
@@ -231,10 +237,22 @@ shader NoSurfaceCache : ISurfaceCacheSource {
 /// agreement proves the card captured this surface and not one in front of it. Outgoing radiance is
 /// the store's convention — emissive plus albedo times direct-plus-gathered, both irradiance over π.
 ///
+/// The candidates come off a grid rather than off every card — `SurfaceCardIndex`'s device form: a
+/// dense grid over the cards' padded union, each cell holding the ascending indices of every card
+/// whose box overlaps it, so any card containing a point is in the point's cell and the tie-break
+/// on the earlier card survives without the grid knowing there is one. A point outside the grid is
+/// outside every card, and answers not-found before any card is read.
+///
 /// Bound by `Vixen.Rendering.Lighting.SurfaceCacheTexture.Apply`, and the names here are that
 /// type's contract: a rename on either side is a binding that silently resolves to nothing.
 shader SurfaceCacheSource : ISurfaceCacheSource {
     [PerFrame] var surfaceCards: Buffer<SurfaceCacheCard>
+
+    /// Each cell's slice of `surfaceGridIndices`, x-major then y then z.
+    [PerFrame] var surfaceGridCells: Buffer<SurfaceCacheGridCell>
+
+    /// The concatenated candidate lists, ascending within each cell.
+    [PerFrame] var surfaceGridIndices: Buffer<int>
 
     /// Albedo in `rgb`, the stored depth in `a`.
     [PerFrame] var surfaceAlbedoDepth: Texture2D
@@ -251,18 +269,40 @@ shader SurfaceCacheSource : ISurfaceCacheSource {
     /// Gathered indirect irradiance over π, as of the last swap — the front of the double buffer.
     [PerFrame] var surfaceGathered: Texture2D
 
-    /// How many cards are resident.
-    [PerFrame] var surfaceCardCount: int = 0
+    /// Where the grid starts, in world space.
+    [PerFrame] var surfaceGridMinimum: float3 = float3(0f, 0f, 0f)
+
+    /// Cells per world unit, per axis.
+    [PerFrame] var surfaceGridInverseCell: float3 = float3(1f, 1f, 1f)
+
+    /// How many cells the grid has along each axis.
+    [PerFrame] var surfaceGridDimensions: int3 = int3(0, 0, 0)
 
     /// How far a point may sit from a texel's stored depth and still be its surface.
     [PerFrame] var surfaceDepthTolerance: float = 0.1f
 
     func SurfaceRadiance(position: float3, normal: float3): float4 {
+        val grid = (position - surfaceGridMinimum) * surfaceGridInverseCell
+        val cx = int(floor(grid.x))
+        val cy = int(floor(grid.y))
+        val cz = int(floor(grid.z))
+
+        if (cx < 0 || cy < 0 || cz < 0) {
+            return float4(0f, 0f, 0f, 0f)
+        }
+
+        if (cx >= surfaceGridDimensions.x || cy >= surfaceGridDimensions.y || cz >= surfaceGridDimensions.z) {
+            return float4(0f, 0f, 0f, 0f)
+        }
+
+        val cell = surfaceGridCells[(cz * surfaceGridDimensions.y + cy) * surfaceGridDimensions.x + cx]
+
         var bestFacing = 0f
         var bestAt = int2(0, 0)
         var found = false
 
-        for (index in 0 .. surfaceCardCount - 1) {
+        for (candidate in 0 .. cell.count - 1) {
+            val index = surfaceGridIndices[cell.offset + candidate]
             val card = surfaceCards[index]
             val facing = dot(normal, SurfaceCards.Direction(card.axis))
 
