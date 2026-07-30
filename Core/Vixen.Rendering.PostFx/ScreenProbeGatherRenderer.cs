@@ -51,7 +51,10 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
     /// <summary>How many planes the resolve writes.</summary>
     const int ProbePlanes = 4;
 
-    readonly string[] planeNames = new string[ProbePlanes];
+    /// <summary>Two more when the history rides along: the probes' surfaces and normals.</summary>
+    const int SurfacePlanes = 2;
+
+    readonly string[] planeNames = new string[ProbePlanes + SurfacePlanes];
 
     ScreenProbeAtlas? atlas;
     ScreenProbeTexture? texture;
@@ -116,6 +119,14 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
 
     /// <summary>Why the spatial filter recorded nothing last frame, or null.</summary>
     public string? FilterSkipped { get; private set; }
+
+    /// <summary>How far off a probe's plane a pixel may stand and still read it, in world units.</summary>
+    /// <remarks>
+    ///     The bilateral upsample's knob — zero, the default, keeps the bilinear taps. Above zero it
+    ///     needs an <see cref="Accumulator" />, because the probes' surface planes the taps test
+    ///     against are the history's.
+    /// </remarks>
+    public float PlaneTolerance { get; set; }
 
     /// <summary>This frame's camera — the inverse of the view-projection the frame draws with.</summary>
     /// <remarks>
@@ -249,7 +260,7 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
             history = new(atlas.Layout);
             surface = new(size);
 
-            for (var plane = 0; plane < ProbePlanes; plane++) {
+            for (var plane = 0; plane < ProbePlanes + SurfacePlanes; plane++) {
                 planeNames[plane] = $"{this}.Probe{plane}";
             }
 
@@ -449,6 +460,24 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
                 PixelFormat.Rgba32Float
             );
         }
+
+        // The surface and normal planes ride along whenever the history exists — planes four and
+        // five of the back set, which the bilateral taps test the pixel's surface against.
+        if (accumulated) {
+            for (var plane = 0; plane < SurfacePlanes; plane++) {
+                frame.Add(
+                    planeNames[ProbePlanes + plane],
+                    frame.Graph.ImportTexture(
+                        history!.BackTexture(ProbePlanes + plane),
+                        history.BackView(ProbePlanes + plane),
+                        history.PlaneDescription,
+                        ResourceState.ShaderRead,
+                        ResourceState.ShaderRead
+                    ),
+                    PixelFormat.Rgba32Float
+                );
+            }
+        }
     }
 
     /// <summary>The upsample, built as a child over the planes just published.</summary>
@@ -459,7 +488,7 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
             Normals = Normals,
             Output = Output,
             Probes = texture!,
-            Planes = planeNames
+            Planes = planeNames[..ProbePlanes]
         };
 
         upsample.Modules = modules ??= new(device);
@@ -467,6 +496,15 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
         upsample.Samplers = Samplers;
         upsample.Allocator = Allocator;
         upsample.Intensity = Intensity;
+
+        // The bilateral taps need the history's surface planes; without an accumulator there are
+        // none, and the tolerance quietly stays bilinear rather than testing against nothing.
+        var bilateral = Accumulator is not null && PlaneTolerance > 0f;
+
+        upsample.PlaneTolerance = bilateral ? PlaneTolerance : 0f;
+        upsample.SurfacePlane = bilateral ? planeNames[ProbePlanes] : null;
+        upsample.NormalPlane = bilateral ? planeNames[ProbePlanes + 1] : null;
+        upsample.InverseViewProjection = InverseViewProjection;
 
         BuildChild(upsample, compositor, frame);
     }

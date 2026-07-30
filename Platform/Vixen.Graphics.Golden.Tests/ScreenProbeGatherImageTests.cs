@@ -118,6 +118,34 @@ public sealed class ScreenProbeGatherImageTests {
         Assert.Equal(Radiance, centre.Z, 0.02f);
     }
 
+    /// <summary>The bilateral taps accept a whole flat frame — and reject everything gracefully.</summary>
+    /// <remarks>
+    ///     One surface, so every probe's plane holds every pixel: the bilateral picture is the
+    ///     bilinear picture exactly, which proves the surface planes are bound and read without
+    ///     changing the closed form. A tolerance too tight for the frame's own float noise then
+    ///     rejects every tap, and the fallback hands back the unfiltered blend rather than a black
+    ///     hole — the CPU overload's own last resort, drawn. The discriminating case — a depth edge
+    ///     the plane test must not bleed across — needs real geometry in the frame, and is owed with
+    ///     the first lit-scene fixture.
+    /// </remarks>
+    [Fact]
+    public void TheBilateralTapsKeepTheFlatFrame() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var pictures = Render(owned, 0.5f, frames: 4, out var node, accumulate: true, planeTolerance: 0.5f);
+
+        Assert.Null(node.FilterSkippedSeen);
+
+        var centre = Pixel(pictures[^1], 16, 16);
+
+        Assert.Equal(Radiance, centre.X, 0.02f);
+        Assert.Equal(Radiance, centre.Y, 0.02f);
+        Assert.Equal(Radiance, centre.Z, 0.02f);
+    }
+
     [Fact]
     public void ASkyOnlyFrameStaysDark() {
         if (!TryOpen(out var fixture)) {
@@ -150,7 +178,8 @@ public sealed class ScreenProbeGatherImageTests {
         int frames,
         out Observed observed,
         bool screenTraces = false,
-        bool accumulate = false
+        bool accumulate = false,
+        float planeTolerance = 0f
     ) {
         var device = fixture.Device;
 
@@ -218,6 +247,7 @@ public sealed class ScreenProbeGatherImageTests {
             Resolver = resolver,
             Accumulator = accumulate ? accumulator : null,
             SpatialFilter = accumulate ? spatial : null,
+            PlaneTolerance = planeTolerance,
             InverseViewProjection = inverse,
             ViewProjection = camera,
             ScreenTraces = screenTraces,

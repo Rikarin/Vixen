@@ -781,11 +781,22 @@ bleed to the bit; the dispatch is compared against the CPU probe for probe over 
 both closed forms at once, and the gather node runs it after the accumulation with the upsample
 reading the filtered planes — still without knowing what kind of planes they are.
 
-Still not started: the HZB traversal itself (the naive march is the baseline, and the pyramid
-wants its nearest-texel reduction beside culling's farthest), the adaptive probes' device half,
-importance sampling, and the denoiser's remaining moves — bilinear history taps over the
-point-reprojection baseline, and the bilateral upsample, in that order. The gather node also
-refuses a resized frame until resizing is a deliberate step.
+**And the upsample is bilateral, behind a tolerance.** Above zero, each tap tests the pixel's
+reconstructed world position against its probe's stored plane — the history's surface and normal
+planes — dropping mismatches exactly as invalid probes drop, with the plain blend as the
+everyone-rejected fallback: the CPU overload's own order, minus adaptive probes, so a lattice
+without them behaves identically on both sides. Zero is bit-for-bit the bilinear pass. A flat
+frame proves what a flat frame can — planes bound and read without changing the closed form, the
+fallback engaged rather than black — and the discriminating depth-edge picture is owed with the
+first fixture that draws real geometry.
+
+With that, the denoiser's chain runs end to end on the device — accumulate, filter, bilateral
+upsample — every stage held to a CPU reference. Still not started: the HZB traversal itself (the
+naive march is the baseline, and the pyramid wants its nearest-texel reduction beside culling's
+farthest), the adaptive probes' device half (the bilateral pass that would read them now exists),
+importance sampling, bilinear history taps, the lit-scene fixtures the exit criteria ask for —
+the reference path tracer and the camera-cut and fast-pan ghosting tests — and the gather node's
+deliberate resize step.
 
 ### L4 — Surface cache and radiosity *(3.5 EM)*
 

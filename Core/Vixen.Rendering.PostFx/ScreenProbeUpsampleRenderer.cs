@@ -59,6 +59,21 @@ public sealed class ScreenProbeUpsampleRenderer() : PostEffectRenderer(
     /// <summary>A multiplier on the result, for <see cref="IndirectDiffuseRenderer.Intensity" />'s reasons.</summary>
     public float Intensity { get; set; } = 1f;
 
+    /// <summary>The probes' surface plane's graph name, for the bilateral taps. Null binds a stand-in.</summary>
+    public string? SurfacePlane { get; set; }
+
+    /// <summary>The probes' normal plane's graph name. Null binds a stand-in.</summary>
+    public string? NormalPlane { get; set; }
+
+    /// <summary>How far off a probe's plane a pixel may stand and still read it, in world units.</summary>
+    /// <remarks>Zero, the default, is the plain bilinear upsample — the compare composition. Above
+    ///     zero needs <see cref="SurfacePlane" /> and <see cref="NormalPlane" /> to name real planes
+    ///     and <see cref="InverseViewProjection" /> to match the frame's depth.</remarks>
+    public float PlaneTolerance { get; set; }
+
+    /// <summary>What turns a pixel's depth back into the world the probes stand in.</summary>
+    public Matrix4x4 InverseViewProjection { get; set; } = Matrix4x4.Identity;
+
     /// <inheritdoc />
     protected override void Configure(
         CompositorFrame frame,
@@ -83,10 +98,18 @@ public sealed class ScreenProbeUpsampleRenderer() : PostEffectRenderer(
         parameters.Set(ScreenProbeUpsampleKeys.Viewport, new Vector2(layout.Viewport.X, layout.Viewport.Y));
         parameters.Set(ScreenProbeUpsampleKeys.Intensity, Intensity);
 
+        parameters.Set(ScreenProbeUpsampleKeys.PlaneTolerance, PlaneTolerance);
+        parameters.Set(ScreenProbeUpsampleKeys.InverseViewProjection, InverseViewProjection);
+
         Read(bindings, ScreenProbeUpsampleKeys.ProbeL0Binding, Planes[0]);
         Read(bindings, ScreenProbeUpsampleKeys.ProbeL1RBinding, Planes[1]);
         Read(bindings, ScreenProbeUpsampleKeys.ProbeL1GBinding, Planes[2]);
         Read(bindings, ScreenProbeUpsampleKeys.ProbeL1BBinding, Planes[3]);
+
+        // The first plane stands in when no surface planes are named — a set with a hole in it
+        // binds nothing, and zero tolerance never loads these.
+        Read(bindings, ScreenProbeUpsampleKeys.ProbeSurfaceBinding, SurfacePlane ?? Planes[0]);
+        Read(bindings, ScreenProbeUpsampleKeys.ProbeNormalBinding, NormalPlane ?? Planes[0]);
 
         Read(bindings, ScreenProbeUpsampleKeys.DepthBufferBinding, Depth);
         Read(bindings, ScreenProbeUpsampleKeys.NormalBufferBinding, Normals);

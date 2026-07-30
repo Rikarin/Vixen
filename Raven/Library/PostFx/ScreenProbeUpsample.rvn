@@ -29,6 +29,19 @@ shader ScreenProbeUpsample {
     var normalBuffer: Texture2D
     var pointSampler: Sampler
 
+    /// The probes' own surfaces — position in rgb — and their normals, for the bilateral taps.
+    /// Always bound, because a set with a hole in it binds nothing; read only above zero
+    /// `planeTolerance`, so the bilinear composition hands over any plane it likes.
+    var probeSurface: Texture2D
+    var probeNormal: Texture2D
+
+    /// What turns a pixel's depth back into the world the probes stand in.
+    var inverseViewProjection: mat4
+
+    /// How far off a probe's plane a pixel's surface may stand and still read it, in world units.
+    /// Zero is the plain bilinear upsample — the compare composition, and the default.
+    var planeTolerance: float = 0f
+
     /// How many pixels one probe stands for, along each axis.
     var tileSize: float = 16f
 
@@ -102,6 +115,10 @@ shader ScreenProbeUpsample {
         // maths is written in on both sides.
         val pixelCentre = uv * viewport
 
+        // The pixel's own surface, for the bilateral taps — the same reconstruction placement uses,
+        // so a pixel and the probe that stood on its surface agree about where that surface is.
+        val world = Transform.UvDepthToWorld(inverseViewProjection, uv, deviceDepth)
+
         val x = Along(pixelCentre.x, gridSize.x)
         val y = Along(pixelCentre.y, gridSize.y)
 
@@ -111,6 +128,14 @@ shader ScreenProbeUpsample {
         var l11 = float3(0f, 0f, 0f)
         var weight = 0f
 
+        // The unfiltered sums ride along, because the bilateral fallback is the CPU's own: a pixel
+        // every plane rejects takes the plain blend over a black hole.
+        var u00 = float3(0f, 0f, 0f)
+        var u1m1 = float3(0f, 0f, 0f)
+        var u10 = float3(0f, 0f, 0f)
+        var u11 = float3(0f, 0f, 0f)
+        var unfiltered = 0f
+
         for (corner in 0 .. 3) {
             val px = corner == 1 || corner == 3 ? x.y : x.x
             val py = corner >= 2 ? y.y : y.x
@@ -119,19 +144,52 @@ shader ScreenProbeUpsample {
             val w = wx * wy
 
             if (w > 0f) {
-                val probe = Fetch(int2(int(px), int(py)))
+                val cell = int2(int(px), int(py))
+                val probe = Fetch(cell)
 
                 // Invalid probes drop out and the weights renormalise over what is left — the
                 // screen-space restatement of the buried-probe rule, and the reason a sky-anchored
                 // probe is invalid rather than black.
                 if (probe.validity > 0f) {
-                    l00 += probe.l00 * w
-                    l1m1 += probe.l1m1 * w
-                    l10 += probe.l10 * w
-                    l11 += probe.l11 * w
-                    weight += w
+                    u00 += probe.l00 * w
+                    u1m1 += probe.l1m1 * w
+                    u10 += probe.l10 * w
+                    u11 += probe.l11 * w
+                    unfiltered += w
+
+                    // The bilateral half: a probe whose plane the pixel's surface does not lie on
+                    // measured a different surface, and blending it in is how light bleeds across
+                    // a depth edge — `ScreenProbeAtlas.Irradiance`'s own tap rule.
+                    var keep = true
+
+                    if (planeTolerance > 0f) {
+                        val theirs = probeSurface.Load(int3(cell.x, cell.y, 0)).rgb
+                        val plane = probeNormal.Load(int3(cell.x, cell.y, 0)).xyz
+
+                        if (abs(dot(world - theirs, plane)) > planeTolerance) {
+                            keep = false
+                        }
+                    }
+
+                    if (keep) {
+                        l00 += probe.l00 * w
+                        l1m1 += probe.l1m1 * w
+                        l10 += probe.l10 * w
+                        l11 += probe.l11 * w
+                        weight += w
+                    }
                 }
             }
+        }
+
+        // Every plane rejected the pixel: the unfiltered blend, for the dilation rule's reason —
+        // a smeared answer over a black hole.
+        if (weight <= 0f) {
+            l00 = u00
+            l1m1 = u1m1
+            l10 = u10
+            l11 = u11
+            weight = unfiltered
         }
 
         if (weight <= 0f) {

@@ -238,9 +238,19 @@ raw), compared against `Filter` probe for probe over a scene holding both closed
 spike spreading within its plane and a nearer plane refusing it. The gather node runs it after the
 accumulation and the upsample reads the filtered planes, still without knowing.
 
-Owed from here, in the denoiser's own order: bilinear history taps (point reprojection is the
-baseline), and the bilateral upsample that finally reads depth and normal edges — which is also
-what turns the adaptive probes on.
+**And the upsample's taps are bilateral, behind a tolerance.** `ScreenProbeUpsample.rvn` grew the
+plane test: above zero `planeTolerance`, a tap whose probe's plane (out of the history's surface
+and normal planes) the pixel's reconstructed world position does not lie on is dropped exactly as
+an invalid one is, with the plain bilinear blend as the everyone-rejected fallback — the CPU
+overload's own order, minus the adaptive probes, so a lattice with none behaves identically on
+both sides. Zero tolerance is the plain bilinear pass, bit for bit the compare composition. What a
+flat frame can prove is proven — the bilateral picture equals the bilinear one when one plane
+holds every pixel, and a too-tight tolerance falls back rather than going black; **the
+discriminating case, a depth edge the plane test must not bleed across, needs real geometry in
+the frame and is owed with the first lit-scene fixture.**
+
+Owed from here: bilinear history taps (point reprojection is the baseline), the lit-scene edge
+fixture above, and the adaptive probes' device half, which now has the pass that would read them.
 
 ## Not yet, and named so the absence is a decision
 

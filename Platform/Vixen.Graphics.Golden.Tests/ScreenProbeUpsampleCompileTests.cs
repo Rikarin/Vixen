@@ -25,7 +25,7 @@ public sealed class ScreenProbeUpsampleCompileTests {
 
         // The names ScreenProbeTexture.Apply writes — unqualified, because the planes are declared
         // directly rather than composed. A rename on either side has to fail here, not in a frame.
-        foreach (var plane in new[] { "probeL0", "probeL1R", "probeL1G", "probeL1B" }) {
+        foreach (var plane in new[] { "probeL0", "probeL1R", "probeL1G", "probeL1B", "probeSurface", "probeNormal" }) {
             Assert.Contains(plane, names);
         }
 
