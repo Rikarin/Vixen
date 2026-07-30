@@ -63,6 +63,9 @@ public sealed class ScreenProbeTraceFill : IDisposable {
     /// <summary>The slot it marches through.</summary>
     const string FieldSlot = "distanceField";
 
+    /// <summary>The slot its long rays terminate in.</summary>
+    const string FarSlot = "irradiance";
+
     /// <summary>The shader's name for the job buffer.</summary>
     const string JobsName = "jobs";
 
@@ -105,6 +108,17 @@ public sealed class ScreenProbeTraceFill : IDisposable {
     ///     against, so it is the composition the two can be compared under.
     /// </remarks>
     public string Source { get; set; } = MaterialCompiler.EmptyFieldShader;
+
+    /// <summary>The shader behind the irradiance slot — where a ray that misses terminates.</summary>
+    /// <remarks>
+    ///     <c>NoIrradiance</c> by default, whose coverage of zero blends every termination back to the
+    ///     sky — a project without a field traces exactly the rays it traced before.
+    ///     <c>IrradianceFieldProbes</c> is what a frame with a field sets, and the field's volumes are
+    ///     then written under <c>ScreenProbeTrace.IrradianceFieldProbes.*</c> — which is
+    ///     <see cref="IrradianceFieldTexture.Apply" /> with exactly that prefix, into
+    ///     <see cref="Parameters" />.
+    /// </remarks>
+    public string FarSource { get; set; } = MaterialCompiler.EmptyIrradianceShader;
 
     /// <summary>What the sets are filled from, by the names the reflection interned.</summary>
     public ParameterCollection Parameters { get; } = new();
@@ -173,7 +187,7 @@ public sealed class ScreenProbeTraceFill : IDisposable {
             return Skip("the mirror uploads its atlas, so a dispatch into it would be overwritten");
         }
 
-        var key = EffectKey.Of(ShaderName).With(MaterialCompiler.PassComposition(FieldSlot, Source));
+        var key = EffectKey.Of(ShaderName).With(MaterialCompiler.PassComposition((FieldSlot, Source), (FarSlot, FarSource)));
 
         if (Effects.Resolve(key) is not { IsPlaceholder: false } effect) {
             return Skip($"'{key}' has not compiled yet");

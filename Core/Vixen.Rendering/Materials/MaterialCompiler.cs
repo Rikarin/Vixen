@@ -98,7 +98,12 @@ public static class MaterialCompiler {
         // same march. Forgetting this line is doc 19 § L2's RVN2073 finding replaying verbatim — and
         // it did replay, once, when the ScreenProbes package landed without it and every whole-library
         // compilation in the golden suite refused.
-        ("ScreenProbeTrace", "distanceField", EmptyFieldShader)
+        ("ScreenProbeTrace", "distanceField", EmptyFieldShader),
+
+        // The trace also terminates long rays in the irradiance field — the same slot name and type
+        // the shading passes compose, because it is the same field and a pass composition binds a
+        // slot once, wherever it is declared.
+        ("ScreenProbeTrace", "irradiance", EmptyIrradianceShader)
     ];
 
     /// <summary>A pass's composition, with every slot it did not name filled by its default.</summary>
@@ -121,6 +126,30 @@ public static class MaterialCompiler {
         Dictionary<string, string> bindings = Defaults();
 
         bindings[slot] = filler;
+
+        return ShaderComposition.Of(bindings);
+    }
+
+    /// <summary>The same composition, for a pass that cares about several slots.</summary>
+    /// <param name="overrides">The slots and what to put behind each.</param>
+    /// <returns>The composition.</returns>
+    /// <exception cref="ArgumentNullException">There are no overrides.</exception>
+    /// <exception cref="ArgumentException">A slot or a filler is empty.</exception>
+    /// <remarks>
+    ///     The screen-probe trace is what forced the plural: it marches a distance field <i>and</i>
+    ///     terminates its long rays in the irradiance field, and a pass with two slots and one
+    ///     override would quietly leave the other at its default — which for a slot whose default
+    ///     answers "nothing" is a feature switched off with no error anywhere.
+    /// </remarks>
+    public static ShaderComposition PassComposition(params ReadOnlySpan<(string Slot, string Filler)> overrides) {
+        Dictionary<string, string> bindings = Defaults();
+
+        foreach (var (slot, filler) in overrides) {
+            ArgumentException.ThrowIfNullOrEmpty(slot);
+            ArgumentException.ThrowIfNullOrEmpty(filler);
+
+            bindings[slot] = filler;
+        }
 
         return ShaderComposition.Of(bindings);
     }

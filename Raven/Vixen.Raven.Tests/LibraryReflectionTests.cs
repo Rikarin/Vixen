@@ -63,6 +63,7 @@ public class LibraryReflectionTests {
         ("IrradianceFields", "IrradianceFill"),
         ("IrradianceFields", "IrradianceRepair"),
         ("ScreenProbes", "ScreenProbeTrace"),
+        ("ScreenProbes", "ScreenProbeResolve"),
         ("Pipeline", "ForwardPlus"),
 
         // The GPU culling passes, whose host binds every one of their buffers by name — see

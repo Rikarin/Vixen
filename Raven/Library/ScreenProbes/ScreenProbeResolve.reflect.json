@@ -1,0 +1,120 @@
+{
+  "Sets": [
+    {
+      "Set": 2,
+      "Bindings": [
+        {
+          "Binding": 0,
+          "Name": "radianceAtlas",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Compute",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 1,
+          "Name": "solidAngles",
+          "Type": "StorageBuffer",
+          "Count": 0,
+          "Stages": "Compute",
+          "Members": [
+            {
+              "Name": "solidAngles",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            }
+          ],
+          "Size": 4,
+          "IsWritable": false
+        },
+        {
+          "Binding": 2,
+          "Name": "probeL0",
+          "Type": "StorageImage",
+          "Count": 1,
+          "Stages": "Compute",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 3,
+          "Name": "probeL1R",
+          "Type": "StorageImage",
+          "Count": 1,
+          "Stages": "Compute",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 4,
+          "Name": "probeL1G",
+          "Type": "StorageImage",
+          "Count": 1,
+          "Stages": "Compute",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 5,
+          "Name": "probeL1B",
+          "Type": "StorageImage",
+          "Count": 1,
+          "Stages": "Compute",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        }
+      ]
+    }
+  ],
+  "VertexInputs": [],
+  "Outputs": [],
+  "PushConstants": [],
+  "SpecConstants": [],
+  "Permutations": [],
+  "ValueParameters": [],
+  "Parameters": [
+    {
+      "Name": "solidAngles",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 1,
+      "Offset": 0,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    }
+  ],
+  "RequiredCapabilities": [
+    "Compute",
+    "StorageImage"
+  ],
+  "UsedPermutationKeys": [],
+  "Stages": [
+    "Compute"
+  ]
+}

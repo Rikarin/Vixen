@@ -113,6 +113,24 @@ public class AtlasConventionTests {
         Assert.Contains("radianceAtlas.Store(atlasTexel, float4(arriving, 1f))", Trace, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     The resolve's basis constants are the ones this side's projection uses — raw, with no
+    ///     cosine fold, because it projects radiance rather than evaluating irradiance.
+    /// </summary>
+    [Fact]
+    public void TheResolvesBasisConstantsAreThisSides() {
+        var resolve = Read("ScreenProbeResolve.rvn");
+
+        Span<float> basis = stackalloc float[Vixen.Core.Imaging.SphericalHarmonicsL1.Count];
+
+        Vixen.Core.Imaging.SphericalHarmonicsL1.Evaluate(new(0f, 1f, 0f), basis);
+
+        Assert.Contains("const val Constant = 0.282095f", resolve, StringComparison.Ordinal);
+        Assert.Contains("const val LinearBasis = 0.488603f", resolve, StringComparison.Ordinal);
+        Assert.Equal(0.282095f, basis[0], 6);
+        Assert.Equal(0.488603f, basis[1], 6);
+    }
+
     /// <summary>The shader's arithmetic, written out in the order the shader writes it.</summary>
     /// <remarks>
     ///     <c>TexelCentre</c> as the .rvn spells it, then <c>Math.DecodeOctahedral</c> as

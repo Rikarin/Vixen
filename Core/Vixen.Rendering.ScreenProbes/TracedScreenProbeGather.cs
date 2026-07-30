@@ -102,6 +102,19 @@ public sealed class TracedScreenProbeGather {
     /// <summary>How this gather was told to trace.</summary>
     public ScreenProbeGatherSettings Settings { get; }
 
+    /// <summary>Where a ray that ran out of budget terminates, or null for the sky alone.</summary>
+    /// <remarks>
+    ///     Doc 19 § L3's trace order ends by terminating long rays in § L2's field, so distant
+    ///     lighting is amortised rather than re-traced per probe. A miss samples the field at the
+    ///     ray's end and blends toward the field's answer by the probe's validity — the sky is the
+    ///     fallback, not an addend, for the double-counting reason <c>ForwardPlus</c> records: the
+    ///     field's rays already saw the sky. Radiance rather than irradiance, clamped at zero on the
+    ///     way in, because the L1 truncation can answer below zero toward the dark side of a
+    ///     one-sided distribution — and above the truth toward its bright side, which the blend
+    ///     passes through and the eventual filters meet again.
+    /// </remarks>
+    public IrradianceField? FarField { get; set; }
+
     /// <summary>Fills every probe of an atlas from what its anchor pixel shows.</summary>
     /// <param name="atlas">The atlas to fill.</param>
     /// <param name="surface">What the screen is looking at.</param>
@@ -170,10 +183,29 @@ public sealed class TracedScreenProbeGather {
 
                 atlas[probe, new(tx, ty)] = hit.Hit
                     ? radiance.Surface(hit.Position, hit.Normal, direction)
-                    : radiance.Sky(direction);
+                    : Missed(origin, direction);
             }
         }
 
         return true;
+    }
+
+    /// <summary>What a ray that hit nothing sees: the far field where it has an answer, else the sky.</summary>
+    Vector3 Missed(Vector3 origin, Vector3 direction) {
+        var sky = radiance.Sky(direction);
+
+        if (FarField is null) {
+            return sky;
+        }
+
+        if (!FarField.TrySample(origin + (direction * Settings.MaxDistance), out var probe)) {
+            return sky;
+        }
+
+        return Vector3.Lerp(
+            sky,
+            Vector3.Max(probe.Radiance.Radiance(direction), Vector3.Zero),
+            Math.Clamp(probe.Validity, 0f, 1f)
+        );
     }
 }

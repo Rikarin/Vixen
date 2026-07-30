@@ -91,9 +91,138 @@
               "ArrayStride": 48,
               "MatrixStride": 0,
               "DefaultValue": ""
+            },
+            {
+              "Name": "IrradianceFieldProbes.irradianceField",
+              "Type": {
+                "Scalar": "Struct",
+                "Rows": 1,
+                "Columns": 1,
+                "StructName": "IrradianceFieldVolume",
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": true
+              },
+              "Offset": 192,
+              "Size": 96,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "IrradianceFieldProbes.irradianceField.minimum",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 192,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "IrradianceFieldProbes.irradianceField.maximum",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 208,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "IrradianceFieldProbes.irradianceField.inverseCellSize",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 224,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "IrradianceFieldProbes.irradianceField.resolution",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 240,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "IrradianceFieldProbes.irradianceField.inversePoolSize",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 256,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "IrradianceFieldProbes.irradianceField.normalBias",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 268,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "IrradianceFieldProbes.irradianceField.viewBias",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 272,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
             }
           ],
-          "Size": 192,
+          "Size": 288,
           "IsWritable": false
         },
         {
@@ -108,7 +237,77 @@
         },
         {
           "Binding": 2,
+          "Name": "IrradianceFieldProbes.irradianceIndirection",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Compute",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 3,
+          "Name": "IrradianceFieldProbes.irradianceL0",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Compute",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 4,
+          "Name": "IrradianceFieldProbes.irradianceL1R",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Compute",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 5,
+          "Name": "IrradianceFieldProbes.irradianceL1G",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Compute",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 6,
+          "Name": "IrradianceFieldProbes.irradianceL1B",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Compute",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 7,
           "Name": "GlobalDistanceField.distanceFieldSampler",
+          "Type": "Sampler",
+          "Count": 1,
+          "Stages": "Compute",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 8,
+          "Name": "IrradianceFieldProbes.irradiancePointSampler",
+          "Type": "Sampler",
+          "Count": 1,
+          "Stages": "Compute",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 9,
+          "Name": "IrradianceFieldProbes.irradianceSampler",
           "Type": "Sampler",
           "Count": 1,
           "Stages": "Compute",
@@ -377,6 +576,132 @@
       "Offset": 32,
       "Size": 4,
       "ArrayStride": 48,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "IrradianceFieldProbes.irradianceField.minimum",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 0,
+      "Offset": 192,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "IrradianceFieldProbes.irradianceField.maximum",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 0,
+      "Offset": 208,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "IrradianceFieldProbes.irradianceField.inverseCellSize",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 0,
+      "Offset": 224,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "IrradianceFieldProbes.irradianceField.resolution",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 0,
+      "Offset": 240,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "IrradianceFieldProbes.irradianceField.inversePoolSize",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 0,
+      "Offset": 256,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "IrradianceFieldProbes.irradianceField.normalBias",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 0,
+      "Offset": 268,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "IrradianceFieldProbes.irradianceField.viewBias",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 0,
+      "Offset": 272,
+      "Size": 4,
+      "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": ""
     },

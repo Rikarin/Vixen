@@ -45,6 +45,8 @@ Vixen.Rendering.ScreenProbes.ScreenProbeTap.ScreenProbeTap(Vixen.Core.Mathematic
 Vixen.Rendering.ScreenProbes.ScreenProbeTap.Weight.get -> float
 Vixen.Rendering.ScreenProbes.ScreenProbeTap.Weight.init -> float
 Vixen.Rendering.ScreenProbes.TracedScreenProbeGather -> sealed class
+Vixen.Rendering.ScreenProbes.TracedScreenProbeGather.FarField.get -> Vixen.Rendering.IrradianceFields.IrradianceField?
+Vixen.Rendering.ScreenProbes.TracedScreenProbeGather.FarField.set -> Vixen.Rendering.IrradianceFields.IrradianceField?
 Vixen.Rendering.ScreenProbes.TracedScreenProbeGather.Fill(Vixen.Rendering.ScreenProbes.ScreenProbeAtlas atlas, Vixen.Rendering.ScreenProbes.IScreenSurface surface) -> int
 Vixen.Rendering.ScreenProbes.TracedScreenProbeGather.FillProbe(Vixen.Rendering.ScreenProbes.ScreenProbeAtlas atlas, Vixen.Core.Mathematics.Int2 probe, Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 normal) -> bool
 Vixen.Rendering.ScreenProbes.TracedScreenProbeGather.Settings.get -> Vixen.Rendering.ScreenProbes.ScreenProbeGatherSettings

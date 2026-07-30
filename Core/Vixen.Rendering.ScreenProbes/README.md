@@ -82,6 +82,31 @@ and a rule — the same single place the reference applies it, which is what kee
 *undefined*; consumers read validity from alpha, and clearing or skipping unwritten patches belongs
 to the consuming pass.
 
+## Long rays terminate in the irradiance field
+
+Doc 19 § L3's trace order ends by amortising distant lighting in § L2's field, and both tracers do
+it: a ray that runs out of budget samples the field at its end point and blends toward the field's
+answer by the probe's validity — the sky is the fallback, not an addend, for the double-counting
+reason `ForwardPlus` records. The Raven `IIrradianceSource` protocol grew a second member for it,
+`Radiance(world, direction)`: the raw basis with no cosine lobe, because a termination point is not
+a surface — nothing stands there to bias away from, and the ray wants what the light *is*, not what
+a wall would receive from it. `SphericalHarmonicsL1.Radiance` is the C# half, and a linear sky
+survives the round trip exactly, because a function of the first band's shape is what an L1
+projection keeps whole. The kernel composes the same `irradiance` slot the shading passes compose —
+`NoIrradiance`'s zero coverage blends every termination back to the sky, so a project without a
+field traces exactly the rays it traced before.
+
+## The resolve is a dispatch, and its weights are the same table
+
+`ScreenProbeResolve.rvn` projects each probe's map into L1 — one workgroup per probe, walking the
+map in the exact order `ScreenProbeAtlas.Resolve` walks it, because a parallel reduction reorders a
+float sum and the first version of anything here is the one with nothing between it and the
+reference (making it wide is owed, with a baseline to hold it to). The solid angles arrive in a
+buffer filled from `OctahedralMap.SolidAngles` — the same exact table, not a second derivation. The
+output is four grid-sized planes in the irradiance pool's own colour-major packing, validity in the
+constant plane's alpha, so whatever upsamples these probes interpolates coefficients exactly as the
+field's sampler does.
+
 ## Not yet, and named so the absence is a decision
 
 - **Adaptive probes.** Doc 19's "adaptive placement at disocclusions" — extra probes where the
@@ -90,15 +115,15 @@ to the consuming pass.
 - **Importance sampling.** The shipping gather aims rays where the BRDF and last frame's lighting
   say they matter. It changes which texel a ray serves, not what a texel means, so it belongs to the
   version that has a BRDF to sample against.
-- **The trace order.** Screen traces against the HZB first, then the mesh and global SDFs, then
-  termination in the irradiance field for distant light. Both tracers currently march one composed
-  distance field, because a closed form needs one thing to be true at a time.
+- **Screen traces.** The trace order's first stage — rays against the HZB before any distance field
+  — needs a frame to trace, and belongs to the renderer integration. The other end of the order,
+  termination in the irradiance field, is in.
 - **The denoiser.** Spatial filtering, temporal reprojection through the motion vectors, and the
   bilateral upsample against depth and normal edges. Doc 19 § L3's own warning is that this is the
   project — un-denoised, the gather looks worse than § L2 alone.
-- **The resolve and the frame.** The per-probe resolve to SH as a dispatch, the upsample as a pass,
-  probe placement reconstructed from the real depth buffer, and the compositor node that owns the
-  lot. The trace writes raw radiance precisely so those can each land with a reference of their own.
+- **The frame.** The upsample as a pass, probe placement reconstructed from the real depth buffer,
+  and the compositor node that owns the lot. The resolve's four planes are shaped for exactly that
+  consumer, and it does not exist yet.
 
 **Nothing here creates or calls a graphics device.** The assembly references
 `Vixen.Rendering.DistanceFields` for the reference's marching and `Vixen.Rendering.IrradianceFields`

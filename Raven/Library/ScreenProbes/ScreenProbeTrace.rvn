@@ -2,6 +2,7 @@ package Vixen.Shaders.ScreenProbes
 
 import Vixen.Shaders.Core
 import Vixen.Shaders.DistanceFields
+import Vixen.Shaders.IrradianceFields
 
 // Filling screen probes by marching the distance field, on the GPU.
 //
@@ -38,6 +39,16 @@ struct ScreenProbeTraceJob {
 shader ScreenProbeTrace {
     /// What the rays march through. `GlobalDistanceField` is the one that reads a clipmap.
     compose val distanceField: IDistanceFieldSource
+
+    /// Where a ray that ran out of budget terminates — doc 19 § L3's "terminate long rays in L2's
+    /// field, so distant lighting is amortised rather than re-traced per probe".
+    ///
+    /// The same slot name and type the shading passes compose, because it is the same field: a pass
+    /// composition binds a slot once, wherever it is declared, and a project with a field gives it to
+    /// every reader at once. `NoIrradiance` answers with zero coverage, and zero coverage blends the
+    /// termination all the way back to the sky — so a project without a field traces exactly the rays
+    /// it traced before.
+    compose val irradiance: IIrradianceSource
 
     var jobs: Buffer<ScreenProbeTraceJob>
 
@@ -89,6 +100,12 @@ shader ScreenProbeTrace {
 
         if (hit.hit) {
             arriving = float3(0f, 0f, 0f)
+        } else {
+            // A miss terminates in the field where the field has an answer, blended by its coverage —
+            // the sky is the fallback, not an addend, for the double-counting reason `ForwardPlus`
+            // records: the field's rays already saw the sky.
+            val far = irradiance.Radiance(job.origin + direction * maxDistance, direction)
+            arriving = lerp(arriving, far.rgb, clamp(far.a, 0f, 1f))
         }
 
         radianceAtlas.Store(atlasTexel, float4(arriving, 1f))

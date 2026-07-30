@@ -7,6 +7,7 @@ using Vixen.Rendering;
 using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.IrradianceFields;
 using Vixen.Rendering.Lighting;
+using Vixen.Rendering.Materials;
 using Vixen.Rendering.ScreenProbes;
 using Vixen.Shaders;
 using Xunit;
@@ -119,9 +120,12 @@ public sealed class ScreenProbeTraceDeviceTests {
         var loader = new EffectLoader(device);
         var effects = new EffectSystem();
 
-        // ScreenProbes, and DistanceFields beside it, because the trace declares a slot and
-        // NoDistanceField is what fills it.
-        effects.AddProvider(new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "ScreenProbes"])));
+        // ScreenProbes and everything its two slots reach into: DistanceFields for the march, and
+        // IrradianceFields because the trace terminates long rays there — the import exists even when
+        // NoIrradiance fills the slot.
+        effects.AddProvider(
+            new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "ScreenProbes"]))
+        );
 
         using var trace = new ScreenProbeTraceFill(device) {
             Effects = effects,
@@ -152,6 +156,109 @@ public sealed class ScreenProbeTraceDeviceTests {
 
         Assert.Null(trace.Skipped);
         Assert.Equal(1, trace.Dispatches);
+        Assert.Empty(effects.Misses);
+        Assert.True(texture.TryRead(texels));
+        AssertClean();
+
+        Compare(reference, texels, _ => true);
+    }
+
+    /// <summary>
+    ///     A ray that runs out of budget terminates in the irradiance field on the device too — and
+    ///     beyond the field's box, in the sky, on both sides alike.
+    /// </summary>
+    /// <param name="maxDistance">The ray budget: four ends inside the field, fifty beyond it.</param>
+    /// <remarks>
+    ///     The reference computes its termination through <c>IrradianceField.TrySample</c> and the
+    ///     dispatch through <c>IrradianceFieldProbes.Radiance</c>, and the two read the same pool
+    ///     through conventions pinned by the field's own tests — so a uniform far field either comes
+    ///     back identical from both, or one of the two lookups is not the lookup it claims to be.
+    /// </remarks>
+    [Theory]
+    [InlineData(4f)]
+    [InlineData(50f)]
+    public void AMissTerminatesInTheFieldOnTheDeviceToo(float maxDistance) {
+        const float FarRadiance = 0.4f;
+
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var device = owned.Device;
+
+        var field = new IrradianceField(new BoundingBox(new(-8f), new(8f)), new(2));
+
+        field.AllocateAll();
+        new TracedIrradianceFiller(new EmptyWorld(), new LinearSky(FarRadiance, 0f)).Fill(field);
+        field.SyncBorders();
+
+        var reference = new ScreenProbeAtlas(new(new(64, 48)));
+
+        new TracedScreenProbeGather(
+            new EmptyWorld(),
+            new LinearSky(Radiance, 0f),
+            new ScreenProbeGatherSettings { MaxDistance = maxDistance }
+        ) { FarField = field }.Fill(reference, new Floor());
+
+        var traced = new ScreenProbeAtlas(new(new(64, 48)));
+        var floor = new Floor();
+
+        for (var y = 0; y < traced.Layout.GridSize.Y; y++) {
+            for (var x = 0; x < traced.Layout.GridSize.X; x++) {
+                var probe = new Int2(x, y);
+
+                Assert.True(floor.TrySurface(traced.Layout.Anchor(probe), out var position, out var normal));
+                traced.SetSurface(probe, position, normal);
+            }
+        }
+
+        using var allocator = new DescriptorAllocator(device);
+        using var texture = new ScreenProbeTexture(traced) { AtlasIsWritten = true };
+        using var fieldTexture = new IrradianceFieldTexture(field);
+
+        var loader = new EffectLoader(device);
+        var effects = new EffectSystem();
+
+        effects.AddProvider(
+            new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "ScreenProbes"]))
+        );
+
+        using var trace = new ScreenProbeTraceFill(device) {
+            Effects = effects,
+            Pipelines = new ComputePipelineCache(device),
+            Descriptors = allocator,
+            SkyColour = new(Radiance),
+            MaxDistance = maxDistance,
+            FarSource = MaterialCompiler.IrradianceFieldShader
+        };
+
+        var texels = new Vector4[traced.Layout.AtlasSize.X * traced.Layout.AtlasSize.Y];
+
+        allocator.BeginFrame();
+        VulkanDiagnostics.Reset();
+        device.BeginFrame();
+
+        using (var commands = device.BeginCommandList(QueueKind.Graphics, "screen probe far trace")) {
+            fieldTexture.Upload(device, commands);
+            texture.Upload(device, commands);
+
+            // The field's volumes, under the slot's qualified prefix — the same handover the forward
+            // pass's composition uses, one shader over. After the upload, because that is what makes
+            // the views exist to be written.
+            fieldTexture.Apply(trace.Parameters, $"{ScreenProbeTraceFill.ShaderName}.{MaterialCompiler.IrradianceFieldShader}");
+
+            Assert.Equal(traced.Layout.ProbeCount, trace.Record(commands, texture));
+            Assert.True(texture.RecordReadback(commands));
+
+            commands.Finish();
+            device.GraphicsQueue.Submit([commands]);
+        }
+
+        device.EndFrame();
+        device.WaitIdle();
+
+        Assert.Null(trace.Skipped);
         Assert.Empty(effects.Misses);
         Assert.True(texture.TryRead(texels));
         AssertClean();

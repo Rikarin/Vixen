@@ -129,6 +129,7 @@
         <AdditionalFiles Include="..\..\Raven\Library\IrradianceFields\IrradianceFill.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\IrradianceFields\IrradianceRepair.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\ScreenProbes\ScreenProbeTrace.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\ScreenProbes\ScreenProbeResolve.reflect.json" />
     </ItemGroup>
 
     <ItemGroup>

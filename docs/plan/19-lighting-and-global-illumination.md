@@ -658,9 +658,33 @@ golden suite refused with `RVN2073`, exactly as § L2 recorded when `IrradianceF
 doing the declaring. The failure was loud and eight tests wide, which is what that inventory's own
 comment promises.
 
-Still not started, and named in the README as decisions: adaptive placement, importance sampling,
-the HZB-first trace order and the termination in L2's field, the whole denoiser, and the resolve,
-upsample and compositor node — each of which now has a traced atlas to land against.
+**Long rays terminate in L2's field, on both sides.** The trace order's last stage, and the arrow
+this section always drew from § L3 into § L2, executed: a ray that runs out of budget samples the
+field at its end and blends toward the field's answer by probe validity — sky as the fallback, not
+an addend, for the double-counting reason the forward pass recorded. The Raven `IIrradianceSource`
+grew `Radiance(world, direction)` for it — the raw basis, no cosine lobe, because a termination
+point is not a surface and the ray wants what the light *is* — with `SphericalHarmonicsL1.Radiance`
+as the C# half, and a linear sky surviving the round trip exactly because an L1-shaped function is
+what an L1 projection keeps whole. The kernel composes the same `irradiance` slot the shading
+passes compose, so `NoIrradiance`'s zero coverage makes a fieldless project trace exactly the rays
+it traced before; the device comparison runs the reference's termination through
+`IrradianceField.TrySample` and the dispatch's through `IrradianceFieldProbes.Radiance`, inside the
+field and beyond its box, and the two agree either way.
+
+**And the resolve is a dispatch.** `ScreenProbeResolve.rvn` projects each probe's map into L1 — one
+workgroup per probe, walking the map in the exact order `ScreenProbeAtlas.Resolve` walks it,
+because a parallel reduction reorders a float sum and the first version is the one with nothing
+between it and the reference; widening it is an owed optimisation with a baseline. Its solid angles
+are uploaded from `OctahedralMap.SolidAngles` — the same exact table, not a second derivation — and
+its output is four grid-sized planes in the pool's own colour-major packing, validity in the
+constant plane's alpha, shaped for the upsample pass that does not exist yet. The comparison seeds
+the atlas under a linear sky so the projection genuinely integrates, and holds all four
+coefficients of every probe, invalid one included, to a ten-thousandth.
+
+Still not started, and named in the README as decisions: screen traces against the HZB (the trace
+order's first stage, which needs a frame), adaptive placement, importance sampling, the whole
+denoiser, and the frame itself — the upsample pass, probe placement from the real depth buffer, and
+the compositor node that owns the lot.
 
 ### L4 — Surface cache and radiosity *(3.5 EM)*
 
