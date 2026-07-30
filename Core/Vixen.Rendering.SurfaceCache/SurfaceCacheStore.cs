@@ -31,13 +31,15 @@ public readonly record struct SurfaceTexel(Vector3 Albedo, Vector3 Normal, float
 ///         <b>Sampling picks the best-facing card that contains the point at the stored depth.</b>
 ///         Containment says the point is in some card's box; the depth agreement says the card
 ///         actually captured <i>this</i> surface rather than one in front of or behind it; the
-///         facing test says the card saw the surface's own side. A linear scan over cards is the
-///         fixture-honest first form — the spatial index is an optimisation with this as its
-///         baseline.
+///         facing test says the card saw the surface's own side. The candidates come off a
+///         <see cref="SurfaceCardIndex" /> — one grid cell rather than every card — and the tests
+///         above run unchanged on what it returns, so the index narrows the scan without ever
+///         answering for it.
 ///     </para>
 /// </remarks>
 public sealed class SurfaceCacheStore {
     readonly List<(SurfaceCard Card, Int2 Origin)> cards = [];
+    readonly SurfaceCardIndex index = new();
     readonly SurfaceTexel[] texels;
     readonly bool[] valid;
     readonly Vector3[] direct;
@@ -79,6 +81,7 @@ public sealed class SurfaceCacheStore {
         }
 
         cards.Add((card, origin));
+        index.Add(cards.Count - 1, card);
 
         // The slot may be a reused one: a fresh card starts invalid, not haunted.
         for (var y = 0; y < card.Resolution.Y; y++) {
@@ -159,8 +162,8 @@ public sealed class SurfaceCacheStore {
         var bestFacing = 0f;
         var bestTexel = default(Int2);
 
-        for (var index = 0; index < cards.Count; index++) {
-            var (card, origin) = cards[index];
+        foreach (var candidate in index.Candidates(position)) {
+            var (card, origin) = cards[candidate];
             var facing = Vector3.Dot(normal, card.Direction);
 
             if (facing <= bestFacing || !card.TryProject(position, out var texel, out var depth)) {
@@ -173,7 +176,7 @@ public sealed class SurfaceCacheStore {
                 continue;
             }
 
-            best = index;
+            best = candidate;
             bestFacing = facing;
             bestTexel = texel;
         }

@@ -41,8 +41,8 @@ public class LibraryTreeTests {
     ///     asserts about the library proper.
     /// </remarks>
     static readonly string[] Packages = [
-        "Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "ScreenProbes", "Material",
-        "Pipeline", "Ui", "PostFx", "Vfx"
+        "Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache",
+        "Material", "Pipeline", "Ui", "PostFx", "Vfx"
     ];
 
     /// <summary>
@@ -951,7 +951,7 @@ public class LibraryTreeTests {
         // here would make this fail every time a shader is renamed for reasons nothing depends on.
         string[] expected = [
             "distanceField", "eighth", "fifth", "first", "fourth", "irradiance", "over", "second",
-            "seventh", "shading", "sixth", "surface", "third", "under"
+            "seventh", "shading", "sixth", "surface", "surfaceCache", "third", "under"
         ];
 
         Assert.Equal(

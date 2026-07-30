@@ -59,6 +59,13 @@ Vixen.Rendering.SurfaceCache.SurfaceCard.TexelOrigin(Vixen.Core.Mathematics.Int2
 Vixen.Rendering.SurfaceCache.SurfaceCard.TryProject(Vixen.Core.Mathematics.Vector3 world, out Vixen.Core.Mathematics.Int2 texel, out float depth) -> bool
 Vixen.Rendering.SurfaceCache.SurfaceCard.UComponent.get -> int
 Vixen.Rendering.SurfaceCache.SurfaceCard.VComponent.get -> int
+Vixen.Rendering.SurfaceCache.SurfaceCardIndex -> sealed class
+Vixen.Rendering.SurfaceCache.SurfaceCardIndex.Add(int card, Vixen.Rendering.SurfaceCache.SurfaceCard shape) -> void
+Vixen.Rendering.SurfaceCache.SurfaceCardIndex.Candidates(Vixen.Core.Mathematics.Vector3 position) -> System.ReadOnlySpan<int>
+Vixen.Rendering.SurfaceCache.SurfaceCardIndex.CellSize.get -> float
+Vixen.Rendering.SurfaceCache.SurfaceCardIndex.Clear() -> void
+Vixen.Rendering.SurfaceCache.SurfaceCardIndex.Registrations.get -> int
+Vixen.Rendering.SurfaceCache.SurfaceCardIndex.SurfaceCardIndex(float cellSize = 4) -> void
 Vixen.Rendering.SurfaceCache.SurfaceTexel -> readonly struct
 Vixen.Rendering.SurfaceCache.SurfaceTexel : System.IEquatable<Vixen.Rendering.SurfaceCache.SurfaceTexel>
 Vixen.Rendering.SurfaceCache.SurfaceTexel.Albedo.get -> Vixen.Core.Mathematics.Vector3

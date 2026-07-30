@@ -70,6 +70,9 @@ public sealed class ScreenProbeTraceFill : IDisposable {
     /// <summary>The slot its long rays terminate in.</summary>
     const string FarSlot = "irradiance";
 
+    /// <summary>The slot a hit is answered through — doc 19 § L4's cache.</summary>
+    const string CacheSlot = "surfaceCache";
+
     /// <summary>The shader's name for the job buffer.</summary>
     const string JobsName = "jobs";
 
@@ -126,6 +129,17 @@ public sealed class ScreenProbeTraceFill : IDisposable {
     ///     <see cref="Parameters" />.
     /// </remarks>
     public string FarSource { get; set; } = MaterialCompiler.EmptyIrradianceShader;
+
+    /// <summary>The shader behind the cache slot — what a ray that hits a surface sees.</summary>
+    /// <remarks>
+    ///     <c>NoSurfaceCache</c> by default, which answers black — exactly what the hit branch stored
+    ///     before the slot existed, so a project without a cache traces what it always traced.
+    ///     <see cref="MaterialCompiler.SurfaceCacheShader" /> is what a frame with a card atlas sets,
+    ///     and the cache's planes are then written under <c>ScreenProbeTrace.SurfaceCacheSource.*</c>
+    ///     — which is <see cref="SurfaceCacheTexture.Apply" /> with exactly that prefix, into
+    ///     <see cref="Parameters" />.
+    /// </remarks>
+    public string CacheSource { get; set; } = MaterialCompiler.EmptySurfaceCacheShader;
 
     /// <summary>What the sets are filled from, by the names the reflection interned.</summary>
     public ParameterCollection Parameters { get; } = new();
@@ -232,7 +246,8 @@ public sealed class ScreenProbeTraceFill : IDisposable {
             return Skip("the mirror uploads its atlas, so a dispatch into it would be overwritten");
         }
 
-        var key = EffectKey.Of(ShaderName).With(MaterialCompiler.PassComposition((FieldSlot, Source), (FarSlot, FarSource)));
+        var key = EffectKey.Of(ShaderName)
+            .With(MaterialCompiler.PassComposition((FieldSlot, Source), (FarSlot, FarSource), (CacheSlot, CacheSource)));
 
         if (Effects.Resolve(key) is not { IsPlaceholder: false } effect) {
             return Skip($"'{key}' has not compiled yet");

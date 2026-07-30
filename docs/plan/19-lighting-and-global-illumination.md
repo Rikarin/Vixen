@@ -831,8 +831,8 @@ Multi-bounce for geometry that is off-screen. The most Epic-specific chunk, and 
 **Exit:** a Cornell-box fixture converges to a reference within a stated error; the second bounce is
 visible and measurable rather than asserted.
 
-**Status: the arithmetic is whole and the exit criterion is asserted; the device halves are the
-owed remainder.** [`Vixen.Rendering.SurfaceCache`](../../Core/Vixen.Rendering.SurfaceCache/README.md)
+**Status: the arithmetic is whole, the exit criterion is asserted, and the device halves have
+landed.** [`Vixen.Rendering.SurfaceCache`](../../Core/Vixen.Rendering.SurfaceCache/README.md)
 holds the cards (a box and an axis, the in-plane frame cyclic whatever the sign), the generator
 (triangles vote by dominant normal axis, ties to the smaller index because float noise must not
 pick a card's shape), the shelf atlas with exact-size reuse (§ 6's "atlas allocation and
@@ -857,10 +857,30 @@ direct, emissive, every bounce — and everything else falls through, so the L2 
 gather inherit multi-bounce light without changing a line. A screen probe on the Cornell floor
 holds the panel in its up-texel and red toward the red wall; over the black world it stays dark.
 
-Owed: the runtime capture (rasterised atlases in `IrradianceCubeCapture`'s mould, against the
-traced reference), the lighting and bounce as dispatches (shaped for it — deterministic,
-double-buffered, texel-parallel), a spatial index for the linear card scan, and the Raven half of
-cache sampling for the kernels.
+**And the device halves are no longer owed — each one landed against the reference that was built
+first.** Sampling narrows through `SurfaceCardIndex` — a uniform grid where a query is one cell and
+a test holds the indexed answer against the linear scan rewritten in full. The Raven `SurfaceCache`
+package carries the card arithmetic once for every kernel, and `ISurfaceCacheSource` turns "what a
+ray that hits a surface sees" into a compose slot: `NoSurfaceCache` answers the black every tracer
+always answered, `SurfaceCacheSource` answers with the card atlas — `TryRadiance`'s walk, test for
+test — and `ScreenProbeTrace` composes it at its hit branch, so the probes inherit multi-bounce
+light on the device exactly as the CPU gather already did. `SurfaceCacheLight` and
+`SurfaceCacheGather` dispatch the two radiosity passes and are compared texel by texel against
+`CardRadiosity`: the open-sky facts under `NoDistanceField` (pure arithmetic), and the seam fact
+handing **one** `GlobalDistanceField` object to both sides — the CPU reference marches the very
+grids the clipmap uploads — with the drift measured at exactly zero on the machine that measured
+it, stated at 1e-4 for devices whose filters carry fewer weight bits. The runtime capture,
+`SurfaceCardCapture`, rasterises a card in `IrradianceCubeCapture`'s mould — the projection derived
+from the card so framebuffer texel (x, y) *is* card texel (x, y), three passes over the one
+attachment every scene pipeline already targets — and is compared against the traced reference on
+one scene captured both ways: validity texel for texel, materials to float precision, depth to the
+march's own arrival hair.
+
+Still owed, named so the absence is a decision: the one-pass MRT capture (the three-pass form is
+its baseline and referee), a compositor node scheduling capture → light → gather in a live frame
+the way the irradiance-field renderer schedules its fills, and a device-side spatial index — the
+kernels' sampler still scans the card buffer linearly, which is honest at fixture scale and slow at
+scene scale.
 
 ### L5 — Reflections through the same tracer *(1.5 EM)*
 

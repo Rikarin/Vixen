@@ -67,6 +67,8 @@ public class LibraryReflectionTests {
         ("ScreenProbes", "ScreenProbeResolve"),
         ("ScreenProbes", "ScreenProbeAccumulate"),
         ("ScreenProbes", "ScreenProbeFilter"),
+        ("SurfaceCache", "SurfaceCacheLight"),
+        ("SurfaceCache", "SurfaceCacheGather"),
         ("Pipeline", "ForwardPlus"),
 
         // The GPU culling passes, whose host binds every one of their buffers by name — see
@@ -138,8 +140,8 @@ public class LibraryReflectionTests {
     /// </remarks>
     static IrModule Library(out IEnumerable<string> usedPermutationKeys) {
         var trees = new[] {
-                "Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "ScreenProbes", "Material",
-                "Pipeline", "Ui", "PostFx", "Vfx"
+                "Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache",
+                "Material", "Pipeline", "Ui", "PostFx", "Vfx"
             }
             .SelectMany(package => Directory.EnumerateFiles(Path.Combine(LibraryRoot, package), "*.rvn"))
             .OrderBy(file => file, StringComparer.Ordinal)

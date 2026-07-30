@@ -274,7 +274,7 @@ public sealed class ScreenProbeGatherImageTests {
             new Compiling(
                 loader,
                 _ => RavenEffects.Only(
-                    ["Core", "Geometry", "Shading", "DistanceFields", "IrradianceFields", "ScreenProbes"],
+                    ["Core", "Geometry", "Shading", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"],
                     Path.Combine("PostFx", "Fullscreen.rvn"),
                     Path.Combine("PostFx", "ScreenProbeUpsample.rvn")
                 )
