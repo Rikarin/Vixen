@@ -608,6 +608,33 @@ The Lumen final gather. The largest quality jump and the largest risk.
 **Exit:** a reference-path-traced fixture matched within a stated error at a stated ray count; no
 ghosting on the standard camera-cut and fast-pan tests.
 
+**Status: started — the geometry and arithmetic of the gather exist, device-free, and nothing else
+does.** [`Vixen.Rendering.ScreenProbes`](../../Core/Vixen.Rendering.ScreenProbes/README.md) holds
+the octahedral mapping (the same fold as the Raven library's G-buffer normals, pinned by hand-written
+convention tests rather than roundtrips), the probe lattice and its atlas addressing, the atlas with
+per-probe validity, and a reference gather in the L1/L2 mould: one deterministic ray per texel
+through an `IDistanceField`, radiance from `IRadianceSource`, resolved to L1 with a validity rule
+copied from the field's filler. A uniform sky comes back as itself through the whole chain — anchor
+lookup, trace, map, projection, bilinear resolve — and a linear sky matches its closed form within
+the stated two per cent.
+
+Two things the first pass decided. **Texel solid angles are computed exactly** — a texel clipped
+against the eight octants is a set of great-circle polygons, and their areas sum to 4π at double
+precision — because the octahedral map is not equal-area and a Jacobian shortcut is a projection
+that is uniformly dark by whole percents, the error that reads as a tuning problem forever. And **a
+probe whose pixel shows the sky is invalid, not black**, with the bilinear weights renormalising
+over what remains — the screen-space restatement of the buried-probe rule, for the same leak.
+
+One finding, the truncation's other face: beside an occluder the away-facing answer **overshoots**
+the sky, for exactly the reason the bounce found L1 answering below zero — four coefficients cannot
+hold a one-sided distribution. The test asserts a bound on the overshoot instead of pretending
+otherwise; the spatial filter will meet this number again.
+
+Not started, and named in the README as decisions: adaptive placement, importance sampling, the
+HZB-first trace order and the termination in L2's field, the whole denoiser, and everything
+device-side. The next milestone is the one L2 stood at after its first commit: the storage
+convention pinned by a test that walks the shader's addressing in C#.
+
 ### L4 — Surface cache and radiosity *(3.5 EM)*
 
 Multi-bounce for geometry that is off-screen. The most Epic-specific chunk, and the most deferrable.
