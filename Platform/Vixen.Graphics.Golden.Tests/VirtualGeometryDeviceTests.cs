@@ -146,6 +146,9 @@ public sealed class VirtualGeometryDeviceTests {
         // The traversal ran on the device rather than being skipped for a missing variant, an unresolved
         // effect or an empty instance list — each of which is a frame that draws nothing and reports it
         // nowhere, and each of which this suite exists to tell apart from a picture being wrong.
+        // ⚠ That it dispatched, and deliberately not that it produced anything. VirtualGeometryGoldenTests
+        // is what asks the stronger question — and the answer, today, is that it produces no visible
+        // clusters at all, which every assertion in this test is compatible with.
         Assert.True(geometry.Visibility.TraversedOnDevice, "The cluster traversal never dispatched.");
 
         // And the streaming loop closed: something asked for pages and something serviced them. A mesh

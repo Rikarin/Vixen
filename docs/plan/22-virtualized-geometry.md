@@ -424,8 +424,38 @@ host: from a visible word through the instance, the geometry record, the slot ta
 to a world position, compared **exactly** against `MeshletPageSet.GetPositions` over every corner of
 every cluster of a sphere — `ClusterRasterTests`. Exactly, not nearly, because the decode is an integer
 addition and one multiply and two readers of the same bytes have to reach the same float. Both the
-lost-origin and the slot-for-page-number sabotages fail it. The golden image is still owed and is
-phase 5's natural companion, since a resolve is what makes the buffer into a picture.
+lost-origin and the slot-for-page-number sabotages fail it.
+
+**The golden image now exists as a fixture, and the first thing it did was fail.**
+`VirtualGeometryGoldenTests` draws one plane twice — once through `MeshRenderFeature` and once through
+the traversal and the raster, at the same camera — and compares which pixels each covers. Coverage
+rather than colour, because phase 4 owns where the draw lands and phase 5 owns what it looks like; and a
+plane rather than a sphere, because a flat quad's silhouette is LOD-invariant, so whichever cut the
+traversal chooses covers the same pixels and "within the LOD error threshold" stops being a number
+nobody can write down.
+
+It failed twice, for two different reasons, and only the second is the engine's.
+
+The first was the fixture: the plane's winding faced away from the camera, and the traversal's normal
+cone correctly rejected a mesh whose back was turned. Both rasters in the fixture are two-sided, so the
+forward image looked entirely normal — which is worth recording, because a two-sided raster hides
+exactly the mistake the cone test exists to catch.
+
+⚠ With the winding corrected, **the host and the device disagree.**
+`ClusterTraversalAcceptsTests` — new, and the claim every other traversal test assumed without making —
+runs the identical scene, instance and packed view through `GpuClusterCulling.Traverse`, the host mirror
+the shader is written against, and it accepts clusters; the brute-force `Cut` agrees. The device, given
+the same records, reports `VisibleClusters` zero and requests no pages, so the indirect draw's instance
+count is zero and the buffer stays uniformly `Nothing`. Neither the frustum, the cone nor the error test
+rejects on the host, so whatever rejects on the device is a divergence between the two rather than a
+decision either is entitled to make.
+
+Nothing else in the suite would have said so: `VirtualGeometryDeviceTests` asserts that the traversal
+dispatched and that a page became resident, both true here, and there is no device test that the
+meshlet traversal produces a visible cluster at all. The golden fixture is committed skipped as the
+reproduction, with the host oracle beside it pinning what the answer should be. Closing the gap means
+reading the cluster path of `Culling.rvn` against `GpuClusterCulling`, or adding a readback of the
+visible list so the device can be asked what it decided.
 
 Four things the plan above did not say:
 
