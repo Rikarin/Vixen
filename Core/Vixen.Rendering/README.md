@@ -250,6 +250,37 @@ they also have to share the distance it is projected at, because their own bound
 places. `GpuClusterCullingTests` found this by comparing the traversal against a brute-force cut over
 random DAGs — which is what that comparison is for.
 
+### And drawing what the traversal chose
+
+`GpuClusterVisibility` is the traversal's device side — the DAG in buffers, the dispatch, and the page
+requests coming back — and it is deliberately `GpuVisibilityGroup`'s shape: a group that owns the
+buffers, a feature (`VirtualGeometryRenderFeature`) that extracts what it walks, and a node
+(`ClusterCullingRenderer`) that puts the dispatch in the frame. `GpuClusterRaster` and
+`Compositor/VisibilityBufferRenderer` then draw it, through `Library/Pipeline/ClusterRaster.rvn`.
+
+**One indirect draw for the whole frame, and it needs no optional capability.** `DrawIndexedIndirect`
+with a single argument structure whose `instanceCount` is a four-byte copy out of the visible list's own
+count word — so a frame that drew a million clusters and a frame that drew none are the same command.
+`DrawIndexedIndirectCount` exists for a *list* of argument structures, which is what the compacted
+per-object path wants and this does not: no `HasDrawIndirectCount`, no `HasMultiDrawIndirect`, no
+64-bit atomics and no compute, which is what makes the visibility buffer the portable baseline.
+
+**The index buffer holds no mesh's indices.** It is `0, 1, 2, …` up to three times the largest cluster,
+so `SV_VertexID` reaches the vertex stage unchanged and the real corners are bytes fetched out of a
+page once the stage knows which cluster it is drawing. A cluster with fewer triangles has corners left
+over and they collapse to a degenerate triangle, which is the price of one command instead of one per
+cluster.
+
+**The visible word carries the instance index, not its cluster base**, and that distinction is not
+cosmetic: a raster needs the transform as well as the record, and an index reaches both. **And the
+residency bitset became a slot table** — the traversal only asks the yes-or-no question, but the raster
+needs the slot, and two tables that have to agree about whether a page is present is how a cluster comes
+to be drawn out of a slot holding another page's bytes.
+
+**A pixel's identity is biased by one so the target can clear to zero.** A clear colour is four floats
+in every API the RHI wraps, so an integer target cannot be cleared to all ones — and zero has to mean
+"nothing covered this pixel" rather than "the frame's first cluster, its first triangle".
+
 **And with no wait, every descriptor set is a ring.** A set a submitted command buffer still
 references may not be written — `VUID-vkUpdateDescriptorSets-None-03047` — so all three classes hold
 one set per frame in flight and advance with the frame, which is the invariant `DescriptorAllocator`

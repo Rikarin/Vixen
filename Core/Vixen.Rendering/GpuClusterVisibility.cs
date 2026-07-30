@@ -34,6 +34,50 @@ public readonly record struct ClusterMesh(
     int PageCount
 );
 
+/// <summary>Where one cluster's bytes are inside its page, as <c>RasterCluster</c> declares it.</summary>
+/// <remarks>
+///     <see cref="CullCluster" />'s other half, and split from it for the reason the whole phase is
+///     split that way: a traversal reads bounds and errors for every cluster it <em>tests</em>, and a
+///     raster reads this for only the ones it <em>draws</em>. One buffer per question keeps the
+///     traversal's reads dense, which is what a walk over a hundred thousand clusters is bound by.
+/// </remarks>
+[StructLayout(LayoutKind.Sequential)]
+public struct RasterCluster {
+    /// <summary>The cluster's origin on the mesh's quantization grid, in whole grid steps.</summary>
+    public Int3 Origin;
+
+    /// <summary>Which page holds its bytes, in the pool's global page numbering.</summary>
+    public uint Page;
+
+    /// <summary>Where its vertices start, in bytes from the page's own start.</summary>
+    public uint VertexOffset;
+
+    /// <summary>Where its triangle corners start, in bytes from the page's own start.</summary>
+    public uint TriangleOffset;
+
+    /// <summary>How many triangles it has.</summary>
+    public uint TriangleCount;
+
+    /// <summary>How many bytes one of its vertices occupies.</summary>
+    public uint VertexStride;
+}
+
+/// <summary>One mesh's quantization grid, as <c>RasterMesh</c> declares it.</summary>
+/// <remarks>
+///     Per mesh and not per cluster, which is the property that keeps a cut crack-free: a vertex on a
+///     locked boundary is referenced by a cluster on each side, and only a grid they share decodes it to
+///     the same bits from both. See <see cref="MeshletPageSet.QuantizationStep" />, which is where that
+///     argument is made at length.
+/// </remarks>
+[StructLayout(LayoutKind.Sequential)]
+public struct RasterMesh {
+    /// <summary>The corner of the grid.</summary>
+    public Vector3 QuantizationOrigin;
+
+    /// <summary>How far apart its points are, in object space.</summary>
+    public float QuantizationStep;
+}
+
 /// <summary>
 ///     The device side of the cluster traversal: the DAG in buffers, the dispatch, and the page
 ///     requests coming back.
@@ -83,6 +127,14 @@ public sealed class GpuClusterVisibility : IDisposable {
     /// </remarks>
     public const int VisiblePerInstance = GpuClusterCulling.QueueCapacity;
 
+    /// <summary>What the slot table holds for a page whose bytes are not in the pool.</summary>
+    /// <remarks>
+    ///     <c>Cull.PageAbsent</c>, and all ones rather than zero because zero is a real slot. A table
+    ///     cleared to zero would say every page of every mesh was in slot zero, which draws the whole
+    ///     scene out of one page's bytes at all the right places.
+    /// </remarks>
+    public const uint PageAbsent = 0xFFFFFFFFu;
+
     /// <summary>How many page requests one frame's dispatch may record.</summary>
     /// <remarks>
     ///     A frame cannot usefully act on more than a few dozen — <see cref="PageResidency.Service" />
@@ -97,6 +149,8 @@ public sealed class GpuClusterVisibility : IDisposable {
     readonly List<CullCluster> clusters = [];
     readonly List<uint> children = [];
     readonly List<uint> roots = [];
+    readonly List<RasterCluster> geometry = [];
+    readonly List<RasterMesh> grids = [];
 
     // The instances, incrementally: a scene of a hundred thousand virtualized objects of which one
     // moved is one record uploaded, for PersistentUploadBuffer's reason and measured the same way.
@@ -119,6 +173,8 @@ public sealed class GpuClusterVisibility : IDisposable {
     BufferHandle clusterBuffer;
     BufferHandle childBuffer;
     BufferHandle rootBuffer;
+    BufferHandle geometryBuffer;
+    BufferHandle gridBuffer;
     BufferHandle visibleBuffer;
     BufferHandle requestBuffer;
     BufferHandle requestReadbackBuffer;
@@ -183,8 +239,26 @@ public sealed class GpuClusterVisibility : IDisposable {
     /// <summary>How many clusters they have between them.</summary>
     public int ClusterCount => clusters.Count;
 
-    /// <summary>How many pages, which is what the residency bitset has to cover.</summary>
+    /// <summary>How many pages, which is what the slot table has to cover.</summary>
     public int PageCount { get; private set; }
+
+    /// <summary>How many bytes one page occupies in the pool.</summary>
+    /// <remarks>
+    ///     From the registered meshes rather than configured, because it is a property of the artefacts:
+    ///     the raster multiplies a slot by it to find a page's bytes, and a number that disagreed with
+    ///     the packer's would read a page at a fraction of an offset into the pool.
+    /// </remarks>
+    public int PageSize { get; private set; }
+
+    /// <summary>The most triangles any registered cluster holds.</summary>
+    /// <remarks>
+    ///     What the single instanced draw's index count is three times. A cluster with fewer than this
+    ///     has corners left over, and they collapse to a degenerate triangle — see
+    ///     <c>ClusterRaster.rvn</c>'s vertex stage. Taken from the meshes rather than from
+    ///     <c>MeshletBuildSettings.MaxTriangles</c>, because a build may have used a different setting
+    ///     and the records are what actually shipped.
+    /// </remarks>
+    public int MaximumTriangles { get; private set; }
 
     /// <summary>How many instances the last <see cref="Prepare" /> uploaded.</summary>
     public int InstanceCount { get; private set; }
@@ -232,6 +306,24 @@ public sealed class GpuClusterVisibility : IDisposable {
 
     /// <summary>The pages the traversal wanted and did not have. Element zero is the count.</summary>
     public BufferHandle Requests => requestBuffer;
+
+    /// <summary>Where each cluster's bytes are, for the raster.</summary>
+    public BufferHandle Geometry => geometryBuffer;
+
+    /// <summary>One quantization grid per registered mesh.</summary>
+    public BufferHandle Grids => gridBuffer;
+
+    /// <summary>Where each page sits in the pool, or <see cref="PageAbsent" />.</summary>
+    public BufferHandle Slots => residencyBits.Buffer;
+
+    /// <summary>Where this frame's slot table starts in that buffer.</summary>
+    public long SlotsOffset => residencyBits.Offset;
+
+    /// <summary>Where this frame's instance records start.</summary>
+    public BufferHandle Instances => instances.Buffer;
+
+    /// <inheritdoc cref="SlotsOffset" />
+    public long InstancesOffset => instances.Offset;
 
     /// <summary>Registers a mesh's DAG, and pins its root page.</summary>
     /// <param name="mesh">The DAG, from <c>MeshletBuilder</c>.</param>
@@ -286,6 +378,28 @@ public sealed class GpuClusterVisibility : IDisposable {
         children.AddRange(scene.Children);
         roots.AddRange(scene.Roots);
 
+        // The raster's half of the same registration, built here rather than by whatever records the
+        // draw, so the page offset is applied by one authority. Two places that each add FirstPage is
+        // how the traversal comes to be testing one page while the raster reads another.
+        for (var i = 0; i < mesh.Meshlets.Length; i++) {
+            var placement = pages.Clusters[i];
+
+            geometry.Add(
+                new() {
+                    Origin = placement.Origin,
+                    Page = (uint)(placement.Page + entry.FirstPage),
+                    VertexOffset = (uint)placement.VertexOffset,
+                    TriangleOffset = (uint)placement.TriangleOffset,
+                    TriangleCount = (uint)mesh.Meshlets[i].TriangleCount,
+                    VertexStride = (uint)pages.VertexStride
+                }
+            );
+        }
+
+        grids.Add(new() { QuantizationOrigin = pages.QuantizationOrigin, QuantizationStep = pages.QuantizationStep });
+
+        PageSize = Math.Max(PageSize, pages.PageSize);
+        MaximumTriangles = Math.Max(MaximumTriangles, mesh.Meshlets.Max(meshlet => meshlet.TriangleCount));
         PageCount += pages.Pages.Length;
         meshes.Add(entry);
         meshesDirty = true;
@@ -308,6 +422,17 @@ public sealed class GpuClusterVisibility : IDisposable {
     ///     what it was, and a check of only the first would pass with the second never applied.
     /// </remarks>
     public ReadOnlySpan<CullCluster> Records => System.Runtime.InteropServices.CollectionsMarshal.AsSpan(clusters);
+
+    /// <summary>
+    ///     The merged geometry records, as the raster will read them.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="Records" />' counterpart, exposed for the same reason: the page offset and the
+    ///     triangle counts are applied here and are invisible from anywhere else, so a check of the
+    ///     registration alone would pass with the records never written.
+    /// </remarks>
+    public ReadOnlySpan<RasterCluster> GeometryRecords =>
+        System.Runtime.InteropServices.CollectionsMarshal.AsSpan(geometry);
 
     /// <summary>What a registered mesh's records are, by registration order.</summary>
     /// <param name="index">Which registration.</param>
@@ -609,6 +734,8 @@ public sealed class GpuClusterVisibility : IDisposable {
         device.Write(clusterBuffer, 0, MemoryMarshal.AsBytes<CullCluster>(clusters.ToArray()));
         device.Write(childBuffer, 0, MemoryMarshal.AsBytes<uint>(children.Count > 0 ? children.ToArray() : [0u]));
         device.Write(rootBuffer, 0, MemoryMarshal.AsBytes<uint>(roots.Count > 0 ? roots.ToArray() : [0u]));
+        device.Write(geometryBuffer, 0, MemoryMarshal.AsBytes<RasterCluster>(geometry.ToArray()));
+        device.Write(gridBuffer, 0, MemoryMarshal.AsBytes<RasterMesh>(grids.ToArray()));
 
         meshesDirty = false;
     }
@@ -653,39 +780,46 @@ public sealed class GpuClusterVisibility : IDisposable {
         views.Upload();
     }
 
-    /// <summary>Turns the residency service's answer into the bitset the traversal reads.</summary>
+    /// <summary>
+    ///     Turns the residency service's answer into the slot table both the traversal and the raster
+    ///     read.
+    /// </summary>
     /// <remarks>
     ///     <para>
-    ///         Rebuilt every frame rather than tracked, because it is one bit per page and a scene's
-    ///         pages number in the thousands — the whole bitset is smaller than the bookkeeping that
-    ///         would keep it incremental, and a stale bit here means a cluster drawn from a slot holding
-    ///         another page's bytes.
+    ///         <b>A slot per page, not a bit per page, and that is the point.</b> The traversal only asks
+    ///         the yes-or-no question, so a bitset would do for it — but the raster has to find the
+    ///         cluster's bytes, which means it needs the slot. Two tables would be two authorities on
+    ///         whether a page is present, and the way that fails is a cluster drawn out of a slot holding
+    ///         a different page's geometry: the right shape, in the right place, made of the wrong mesh.
     ///     </para>
     ///     <para>
-    ///         <b>Absent when there is no service, rather than present.</b> A traversal that believed
-    ///         every page was resident would draw the finest cut it could reach out of a pool with
-    ///         nothing in it, which is the one failure this whole arrangement is shaped to make
-    ///         impossible.
+    ///         Rebuilt every frame rather than tracked, because it is one word per page and a scene's
+    ///         pages number in the thousands — the whole table is smaller than the bookkeeping that would
+    ///         keep it incremental.
+    ///     </para>
+    ///     <para>
+    ///         <b>Absent is all ones, not zero.</b> Zero is a real slot — the first one — so a table
+    ///         cleared to zero says every page of every mesh is sitting in slot zero, which draws the
+    ///         whole scene out of one page's bytes. See <c>Cull.PageAbsent</c>.
     ///     </para>
     /// </remarks>
     void UploadResidency() {
-        var wordCount = Math.Max((PageCount + 31) / 32, 1);
+        var count = Math.Max(PageCount, 1);
 
-        if (residency.Length < wordCount) {
-            residency = new uint[wordCount];
+        if (residency.Length < count) {
+            residency = new uint[count];
         }
 
-        Array.Clear(residency, 0, wordCount);
+        residency.AsSpan(0, count).Fill(PageAbsent);
 
         if (Residency is not null) {
             foreach (var mesh in meshes) {
                 for (var page = 0; page < mesh.PageCount; page++) {
-                    if (!Residency.IsResident(new(mesh.Source, page))) {
+                    if (!Residency.TryGetPlacement(new(mesh.Source, page), out var placement)) {
                         continue;
                     }
 
-                    var global = mesh.FirstPage + page;
-                    residency[global / 32] |= 1u << (global % 32);
+                    residency[mesh.FirstPage + page] = (uint)placement.Slot;
 
                     // Resident and about to be read is exactly what Touch means, and without it the
                     // pages a frame draws are the ones it evicts — a pool that thrashes hardest on the
@@ -696,7 +830,7 @@ public sealed class GpuClusterVisibility : IDisposable {
         }
 
         residencyBits.Begin();
-        residencyBits.Add(residency.AsSpan(0, wordCount));
+        residencyBits.Add(residency.AsSpan(0, count));
         residencyBits.Upload();
     }
 
@@ -750,7 +884,7 @@ public sealed class GpuClusterVisibility : IDisposable {
             CullingKeys.ResidencyBinding,
             residencyBits.Buffer,
             residencyBits.Offset,
-            (long)Math.Max((PageCount + 31) / 32, 1) * sizeof(uint)
+            (long)Math.Max(PageCount, 1) * sizeof(uint)
         );
 
         device.UpdateDescriptorSet(descriptors[ring], writes);
@@ -792,6 +926,24 @@ public sealed class GpuClusterVisibility : IDisposable {
                 BufferUsage.Storage | BufferUsage.CopyDestination,
                 MemoryAccess.DeviceLocal,
                 "ClusterCulling.Roots"
+            )
+        );
+
+        geometryBuffer = device.CreateBuffer(
+            new(
+                Math.Max((long)geometry.Count * Unsafe.SizeOf<RasterCluster>(), 256),
+                BufferUsage.Storage | BufferUsage.CopyDestination,
+                MemoryAccess.DeviceLocal,
+                "ClusterCulling.Geometry"
+            )
+        );
+
+        gridBuffer = device.CreateBuffer(
+            new(
+                Math.Max((long)grids.Count * Unsafe.SizeOf<RasterMesh>(), 256),
+                BufferUsage.Storage | BufferUsage.CopyDestination,
+                MemoryAccess.DeviceLocal,
+                "ClusterCulling.Grids"
             )
         );
 
@@ -849,6 +1001,8 @@ public sealed class GpuClusterVisibility : IDisposable {
 
         return Occluding().IsValid
             && clusterBuffer.IsValid
+            && geometryBuffer.IsValid
+            && gridBuffer.IsValid
             && childBuffer.IsValid
             && rootBuffer.IsValid
             && visibleBuffer.IsValid
@@ -887,7 +1041,10 @@ public sealed class GpuClusterVisibility : IDisposable {
 
     void Release() {
         foreach (var buffer in (BufferHandle[])
-                 [clusterBuffer, childBuffer, rootBuffer, visibleBuffer, requestBuffer, requestReadbackBuffer, zeros]) {
+                 [
+                     clusterBuffer, childBuffer, rootBuffer, geometryBuffer, gridBuffer, visibleBuffer,
+                     requestBuffer, requestReadbackBuffer, zeros
+                 ]) {
             if (buffer.IsValid) {
                 device.Destroy(buffer);
             }
@@ -896,6 +1053,8 @@ public sealed class GpuClusterVisibility : IDisposable {
         clusterBuffer = default;
         childBuffer = default;
         rootBuffer = default;
+        geometryBuffer = default;
+        gridBuffer = default;
         visibleBuffer = default;
         requestBuffer = default;
         requestReadbackBuffer = default;
@@ -939,6 +1098,8 @@ public sealed class GpuClusterVisibility : IDisposable {
         clusters.Clear();
         children.Clear();
         roots.Clear();
+        geometry.Clear();
+        grids.Clear();
     }
 
     sealed record PendingTraversal(PipelineHandle Pipeline, int InstanceCount, int ViewCount);

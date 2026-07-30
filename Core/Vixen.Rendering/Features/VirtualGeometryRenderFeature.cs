@@ -251,7 +251,8 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
             Scale = draw.Scale,
             StagesLow = (uint)candidate.Stages.Bits,
             StagesHigh = (uint)(candidate.Stages.Bits >> 32),
-            Flags = candidate.IsAlive ? GpuCulling.Alive : 0u
+            Flags = candidate.IsAlive ? GpuCulling.Alive : 0u,
+            Mesh = (uint)draw.Mesh
         };
     }
 

@@ -790,7 +790,7 @@
               "DefaultValue": ""
             },
             {
-              "Name": "instances.padding",
+              "Name": "instances.mesh",
               "Type": {
                 "Scalar": "UInt",
                 "Rows": 1,
@@ -1731,7 +1731,7 @@
       "DefaultValue": ""
     },
     {
-      "Name": "instances.padding",
+      "Name": "instances.mesh",
       "Type": {
         "Scalar": "UInt",
         "Rows": 1,

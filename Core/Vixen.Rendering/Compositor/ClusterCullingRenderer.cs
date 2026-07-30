@@ -20,11 +20,11 @@ namespace Vixen.Rendering.Compositor;
 ///         <b>The page copies are recorded here too, and the order is the whole of why.</b> A page that
 ///         arrived on an I/O thread is bytes in a staging buffer;
 ///         <see cref="MeshletPagePool.Flush" /> turns them into copies into the pool. Those copies have
-///         to be recorded <em>before</em> the traversal's dispatch, because the traversal reads a
-///         residency bitset that already says the page is there — the bit was set by
+///         to be recorded <em>before</em> the traversal's dispatch, because the traversal reads a slot
+///         table that already says the page is there — written by
 ///         <see cref="Features.VirtualGeometryRenderFeature.Prepare" />, which ran before this node.
-///         Flushing after the dispatch would mean one frame in which a cluster is drawn from a slot
-///         whose bytes are still in flight.
+///         Flushing after the dispatch would mean one frame in which a cluster is drawn from a slot whose
+///         bytes are still in flight.
 ///     </para>
 ///     <para>
 ///         It declares no graph resources and is therefore a side effect, exactly as
@@ -35,6 +35,18 @@ namespace Vixen.Rendering.Compositor;
 public sealed class ClusterCullingRenderer : SceneRenderer {
     /// <summary>The traversal whose dispatch to record. Null does nothing at all.</summary>
     public GpuClusterVisibility? Visibility { get; set; }
+
+    /// <summary>
+    ///     The raster whose draw arguments this frame's cluster count feeds. Null records nothing extra.
+    /// </summary>
+    /// <remarks>
+    ///     Here rather than in <see cref="VisibilityBufferRenderer" />, and the reason is a rule of the
+    ///     API rather than a preference: turning the traversal's count into an instance count is a buffer
+    ///     copy, and a copy is not legal between <c>BeginRenderPass</c> and <c>EndRenderPass</c>. This
+    ///     node is outside one and the raster's is inside one, so the copy belongs here — which also
+    ///     makes the ordering structural rather than a comment: dispatch, then copy, then draw.
+    /// </remarks>
+    public GpuClusterRaster? Raster { get; set; }
 
     /// <summary>The pool whose arrived pages to copy in. Null records the dispatch and stops there.</summary>
     /// <remarks>
@@ -65,6 +77,7 @@ public sealed class ClusterCullingRenderer : SceneRenderer {
 
         var visibility = Visibility;
         var pages = Pages;
+        var raster = Raster;
 
         frame.Graph.AddPass(
             ToString(),
@@ -79,6 +92,10 @@ public sealed class ClusterCullingRenderer : SceneRenderer {
                         LastPageCopies = pages?.Flush(context.CommandList) ?? 0;
 
                         visibility.Record(context.CommandList);
+
+                        // The draw's arguments, from the count the dispatch just wrote. After the
+                        // dispatch and before any render pass, which is the only window there is.
+                        raster?.Prepare(context.CommandList);
                     }
                 );
             }

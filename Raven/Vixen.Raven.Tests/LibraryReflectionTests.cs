@@ -71,7 +71,11 @@ public class LibraryReflectionTests {
         // rename in the .rvn as a silent fall back to the CPU rather than as an error.
         ("Pipeline", "Culling"),
         ("Pipeline", "HiZReduce"),
-        ("Pipeline", "DrawArguments")
+        ("Pipeline", "DrawArguments"),
+
+        // And the raster that draws what the traversal chose — GpuClusterRaster binds all six of its
+        // buffers by name, for the same reason and with the same consequence if a rename slips past.
+        ("Pipeline", "ClusterRaster")
     ];
 
     /// <summary>

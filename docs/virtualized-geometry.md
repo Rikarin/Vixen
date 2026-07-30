@@ -335,6 +335,14 @@ Four things the plan above did not say, three of them found in the building:
   can carry has to be told to stop. `IPageStore.Place` answers whether it took the bytes, the service
   treats a refusal as it treats a budget it cannot meet, and the page loses a frame — which costs
   nothing, because the request is demand-driven and the next frame asks again.
+- **The pages are two artefacts, and one artefact would have defeated the phase.** A
+  `MeshletPageSet` carrying its own bytes is a single blob whose deserialisation reads every page,
+  which is the one thing paging exists to avoid — so `ModelImporter` writes the records with
+  `WithoutData()` and the geometry beside them, and `StreamMeshletPageSource` seeks into the second.
+  Building the pages at *import* rather than at load is the other half of the same point: finding a
+  mesh's extent and snapping every vertex to a grid is work proportional to the whole mesh, which is
+  exactly the work streaming exists so a frame never does. A build that shipped only the DAG would
+  have moved it to load time with an identical picture to show for it.
 
 ---
 
@@ -396,18 +404,52 @@ the total cost. See *Where to stop*.
 
 ---
 
-### Phase 4 — Hardware-raster visibility buffer · ~2 EM
+### Phase 4 — Hardware-raster visibility buffer · ~2 EM · ✅ built
 
-- One instanced `DrawIndexedIndirectCount` over the visible cluster list — the count is the
-  traversal's output and the host never learns it, which is the call `GpuDrawArguments.Compact`
-  already makes. `firstInstance` reaches per-cluster data exactly as `InstancingRenderFeature` and
-  the transform records already do.
-- Output `RG32_UINT`: cluster index and triangle index, with ordinary depth test and depth write. No
-  atomics, no 64-bit anything, no compute — which is why this is the portable baseline and phase 6 is
-  the accelerator.
+- One instanced indirect draw over the visible cluster list — the count is the traversal's output and
+  the host never learns it, which is the call `GpuDrawArguments.Compact` already makes.
+  [`GpuClusterRaster`](../Core/Vixen.Rendering/GpuClusterRaster.cs),
+  [`ClusterRaster.rvn`](../Raven/Library/Pipeline/ClusterRaster.rvn), placed by
+  [`VisibilityBufferRenderer`](../Core/Vixen.Rendering/Compositor/VisibilityBufferRenderer.cs).
+- Output one `uint`: the visible-list slot and the triangle index, with ordinary depth test and depth
+  write. No atomics, no 64-bit anything, no compute — which is why this is the portable baseline and
+  phase 6 is the accelerator.
 
 **Exit:** a golden-image comparison against the same scene drawn through `MeshRenderFeature`,
 matching within the LOD error threshold.
+
+**Not met in that form, and the substitute is stated rather than implied.** A golden image needs a
+rasterizer, so it is a device test, and what is asserted here instead is the whole decode path on the
+host: from a visible word through the instance, the geometry record, the slot table and the page bytes
+to a world position, compared **exactly** against `MeshletPageSet.GetPositions` over every corner of
+every cluster of a sphere — `ClusterRasterTests`. Exactly, not nearly, because the decode is an integer
+addition and one multiply and two readers of the same bytes have to reach the same float. Both the
+lost-origin and the slot-for-page-number sabotages fail it. The golden image is still owed and is
+phase 5's natural companion, since a resolve is what makes the buffer into a picture.
+
+Four things the plan above did not say:
+
+- **`DrawIndexedIndirect`, not `DrawIndexedIndirectCount`.** The latter is for a *list* of argument
+  structures whose length the device decides, which is what a compacted per-object draw needs. Here
+  there is one structure and the device decides its `instanceCount` — so the whole of "draw what the
+  traversal chose" is a four-byte copy from the visible list's count word into the argument buffer.
+  That removes the `HasDrawIndirectCount` gate, which is worth having: the visibility buffer is
+  reachable on every target the RHI supports rather than on the ones with the newer feature.
+- **One `uint` per pixel, not `RG32_UINT`.** Twenty-five bits of visible-list slot and seven of
+  triangle, packed. Half the bandwidth of a full-screen target every resolve pass reads, no new pixel
+  format in three backends, and the bit budget is not tight — a cluster holds 128 triangles by
+  construction and 33M drawn clusters is far past what a frame reaches.
+- **The slot is stored biased by one, so the target can clear to zero.** A clear colour is four floats
+  in every API the RHI wraps, so an integer target cannot be cleared to all ones — and zero has to mean
+  "nothing covered this pixel" rather than "the frame's first cluster, its first triangle". An
+  increment where a pixel is written, a decrement where it is read.
+- **`firstInstance` is *not* how per-cluster data is reached, and the visible word had to change.** The
+  packed word carried the instance's *cluster base*, which reaches the cluster record and not the
+  instance's transform — so a raster could find the geometry and not where to put it. It carries the
+  instance *index* now, which reaches both. And the residency bitset became a **slot table**: the
+  traversal only asks the yes-or-no question, but the raster needs the slot, and two tables that have
+  to agree about whether a page is present is how a cluster comes to be drawn out of a slot holding
+  another page's bytes.
 
 ---
 
@@ -587,6 +629,13 @@ geometry on GLES 3.1, WebGPU and MoltenVK — none of which offer 64-bit image a
 
 The fallback mesh from phase 1 covers WebGL2, which has no compute at all.
 
+✅ **Built, and it turned out to need one thing less than the plan assumed.** `ClusterRaster.rvn` uses
+no atomics, no 64-bit types and no compute, as intended — and it also needs neither
+`HasDrawIndirectCount` nor `HasMultiDrawIndirect`, because the frame is *one* instanced
+`DrawIndexedIndirect` whose instance count is a four-byte copy out of the traversal's own count word.
+So the portability claim is stronger than it was written: the gate is plain indirect drawing, which
+every backend the RHI wraps has.
+
 ### 8. Raster cost visible in the asset, not discovered in a profile
 
 Unreal's programmable raster makes masked materials and world-position offset work under Nanite, at a
@@ -607,7 +656,7 @@ being a mystery in a frame capture.
 | 1 — Cluster DAG ✅ | ~3 | 4 |
 | 2 — Pages and residency ✅ | ~2 | 6 |
 | 3 — Hierarchical culling ✅ | ~2.5 | 8.5 |
-| 4 — HW-raster visibility buffer | ~2 | 10.5 |
+| 4 — HW-raster visibility buffer ✅ | ~2 | 10.5 |
 | 5 — Material resolve | ~2.5 | 13 |
 | 6 — SW raster (optional) | ~3 | 16 |
 | 7 — Virtual shadow maps | ~2.5 | 18.5 |
@@ -623,10 +672,16 @@ project.
 
 - **After phase 3 (~8.5 EM).** Continuous LOD, no authored LOD chains, hierarchical device-side
   culling, streamed geometry — drawn by ordinary hardware raster through the existing Forward+ path.
-  **This is the recommendation.** It captures what people actually notice about Nanite (import a
-  film-resolution mesh, it just works) without touching the shading architecture, and every phase in
-  it is independently useful. Discrete LOD and `LodRenderFeature` keep working alongside it for
-  meshes that opt out.
+  **This was the recommendation and it has been passed.** It captures what people actually notice about
+  Nanite (import a film-resolution mesh, it just works) without touching the shading architecture, and
+  every phase in it is independently useful. Discrete LOD and `LodRenderFeature` keep working alongside
+  it for meshes that opt out.
+
+  Phase 4 has since been built, which moves the line rather than erasing it: what exists now is a
+  visibility buffer with nothing that reads it, so the *drawable* configuration is still this one —
+  virtualized meshes through the classic path — until phase 5 gives the buffer a resolve. That is the
+  honest reading of where the system is, and it is why the next decision is phase 5 or nothing rather
+  than phase 6.
 
 - **After phase 5 (~13 EM).** Object count stops mattering to the CPU entirely. Worth it only if
   profiling shows draw submission, not shading or triangles, as the limit — and note that compaction
