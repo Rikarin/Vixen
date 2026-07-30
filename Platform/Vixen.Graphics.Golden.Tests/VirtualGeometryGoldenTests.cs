@@ -377,30 +377,33 @@ public sealed class VirtualGeometryGoldenTests {
     /// <summary>Why this is a recorded reproduction rather than a passing test.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>What it found the first time it ran.</b> A registered, resident, in-frustum instance
-    ///         whose stage mask matches the view's produces <em>no visible clusters</em>: the traversal
-    ///         dispatches (<c>TraversedOnDevice</c>), the raster records its indirect draw
-    ///         (<c>Raster.Drawn</c>, 384 indices), the root page is resident — and
-    ///         <c>Visibility.VisibleClusters</c> reads back zero, so the draw's instance count is zero and
-    ///         the visibility buffer is uniformly <see cref="GpuClusterRaster.Nothing" />.
+    ///         <b>It failed twice, for two different reasons, and only the second is the engine's.</b>
+    ///         The first time, the plane's winding faced away from the camera: the traversal's normal
+    ///         cone correctly rejected every cluster of a mesh whose back was turned. Both rasters here
+    ///         are two-sided, so the forward image looked perfectly normal and nothing pointed at the
+    ///         winding — which is worth recording, because a two-sided raster hides exactly the mistake
+    ///         the cone test is there to catch.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Nothing else in the suite would have said so.</b> <c>VirtualGeometryDeviceTests</c>
-    ///         asserts that the traversal dispatched and that a page became resident — both true here —
-    ///         and stops. So on the evidence available, the visibility buffer has never contained a
-    ///         cluster on a device, and every host-side test of the decode is a test of arithmetic that
-    ///         nothing on the device has exercised. That is precisely the gap doc 22 § phase 4 says a
-    ///         golden image exists to close.
+    ///         ⚠ <b>With the winding corrected, the host and the device disagree.</b>
+    ///         <c>ClusterTraversalAcceptsTests</c> runs the identical scene, instance and packed view
+    ///         through <see cref="GpuClusterCulling.Traverse" /> — the host mirror the shader is written
+    ///         against — and it accepts clusters. The device, given the same records, reports
+    ///         <c>VisibleClusters</c> zero and requests no pages, so the indirect draw's instance count is
+    ///         zero and the buffer stays uniformly <see cref="GpuClusterRaster.Nothing" />. Neither the
+    ///         frustum, the cone nor the error test rejects on the host, so whatever rejects on the device
+    ///         is a divergence between the two rather than a decision either of them is entitled to make.
     ///     </para>
     ///     <para>
-    ///         Skipped rather than deleted, and rather than left red: the fixture below is the
-    ///         reproduction, and the fault is in the culling shader rather than in anything this file
-    ///         does. Remove the skip when the traversal accepts a cluster.
+    ///         Skipped rather than deleted and rather than left red: this fixture is the reproduction, the
+    ///         host oracle beside it pins what the answer should be, and closing the gap means reading the
+    ///         cluster path of <c>Culling.rvn</c> against <c>GpuClusterCulling</c> or adding a readback of
+    ///         the visible list. Remove the skip when they agree.
     ///     </para>
     /// </remarks>
     const string SkipReason =
-        "Reproduction: the traversal dispatches and returns zero visible clusters for a resident, "
-        + "in-frustum instance, so the visibility buffer is empty. See the remarks on SkipReason.";
+        "Reproduction: with the mesh facing the camera, the host mirror accepts clusters and the device "
+        + "traversal accepts none, so the visibility buffer is empty. See the remarks on SkipReason.";
 
     /// <summary>Small pages, so a modest mesh needs more than the pinned root.</summary>
     const int PageSize = 8 * 1024;
@@ -437,8 +440,8 @@ public sealed class VirtualGeometryGoldenTests {
                 var b = a + 1;
                 var c = a + segments + 1;
 
-                indices.AddRange([a, c, b]);
-                indices.AddRange([b, c, c + 1]);
+                indices.AddRange([a, b, c]);
+                indices.AddRange([b, c + 1, c]);
             }
         }
 

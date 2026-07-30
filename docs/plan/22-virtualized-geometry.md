@@ -434,14 +434,28 @@ plane rather than a sphere, because a flat quad's silhouette is LOD-invariant, s
 traversal chooses covers the same pixels and "within the LOD error threshold" stops being a number
 nobody can write down.
 
-⚠ What it found: for a registered, resident, in-frustum instance whose stage mask matches the view's,
-the traversal **dispatches and returns zero visible clusters**. `TraversedOnDevice` is true, the raster
-records its indirect draw, the root page is resident — and `VisibleClusters` reads back zero, so the
-instance count is zero and the buffer is uniformly `Nothing`. Nothing else in the suite says so:
-`VirtualGeometryDeviceTests` asserts that the traversal dispatched and that a page became resident, both
-of which are true here. On the evidence available the visibility buffer has never held a cluster on a
-device, and the host-side decode tests are arithmetic the device has never run. The fixture is committed
-skipped, as the reproduction; the fault is in the culling shader.
+It failed twice, for two different reasons, and only the second is the engine's.
+
+The first was the fixture: the plane's winding faced away from the camera, and the traversal's normal
+cone correctly rejected a mesh whose back was turned. Both rasters in the fixture are two-sided, so the
+forward image looked entirely normal — which is worth recording, because a two-sided raster hides
+exactly the mistake the cone test exists to catch.
+
+⚠ With the winding corrected, **the host and the device disagree.**
+`ClusterTraversalAcceptsTests` — new, and the claim every other traversal test assumed without making —
+runs the identical scene, instance and packed view through `GpuClusterCulling.Traverse`, the host mirror
+the shader is written against, and it accepts clusters; the brute-force `Cut` agrees. The device, given
+the same records, reports `VisibleClusters` zero and requests no pages, so the indirect draw's instance
+count is zero and the buffer stays uniformly `Nothing`. Neither the frustum, the cone nor the error test
+rejects on the host, so whatever rejects on the device is a divergence between the two rather than a
+decision either is entitled to make.
+
+Nothing else in the suite would have said so: `VirtualGeometryDeviceTests` asserts that the traversal
+dispatched and that a page became resident, both true here, and there is no device test that the
+meshlet traversal produces a visible cluster at all. The golden fixture is committed skipped as the
+reproduction, with the host oracle beside it pinning what the answer should be. Closing the gap means
+reading the cluster path of `Culling.rvn` against `GpuClusterCulling`, or adding a readback of the
+visible list so the device can be asked what it decided.
 
 Four things the plan above did not say:
 
