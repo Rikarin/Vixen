@@ -135,6 +135,7 @@
         <AdditionalFiles Include="..\..\Raven\Library\ScreenProbes\ScreenProbeFilter.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\SurfaceCache\SurfaceCacheLight.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\SurfaceCache\SurfaceCacheGather.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\Reflections\ReflectionTrace.reflect.json" />
     </ItemGroup>
 
     <ItemGroup>

@@ -103,9 +103,16 @@ public sealed class SurfaceCacheTexture : IDisposable {
 
     IGraphicsDevice? device;
     BufferHandle cards;
+    BufferHandle gridCells;
+    BufferHandle gridIndices;
     BufferHandle staging;
     BufferHandle download;
     long cardsCapacity;
+    long cellsCapacity;
+    long indicesCapacity;
+    Vector3 gridMinimum;
+    Vector3 gridInverseCell;
+    Int3 gridDimensions;
     int front = GatherA;
     int uploadedCards;
     bool disposed;
@@ -137,6 +144,13 @@ public sealed class SurfaceCacheTexture : IDisposable {
     ///     <see cref="IrradianceFieldTexture.PoolIsWritten" />: once a dispatch writes the plane, an
     ///     upload after it would overwrite a frame's lighting with the stale CPU copy.</remarks>
     public bool DirectIsWritten { get; init; }
+
+    /// <summary>Whether the bounce dispatch owns both gather planes, so the upload must not copy them.</summary>
+    /// <remarks>The ping-pong makes this all-or-nothing: the dispatch writes the back and the swap
+    ///     makes it the front, so an upload of either plane overwrites a bounce one frame after it
+    ///     was gathered — the flicker between two authors that <c>DirectIsWritten</c> exists to
+    ///     prevent, on the plane where it compounds.</remarks>
+    public bool BounceIsWritten { get; init; }
 
     /// <summary>What a written plane is in while a dispatch owns it.</summary>
     public const ResourceState PlaneIsBeingWritten = ResourceState.ShaderWrite | ResourceState.ShaderRead;
@@ -202,11 +216,14 @@ public sealed class SurfaceCacheTexture : IDisposable {
         }
 
         for (var plane = 0; plane < Planes; plane++) {
-            if (plane == Back || (plane == DirectPlane && DirectIsWritten && !first)) {
+            var owned = (plane == DirectPlane && DirectIsWritten)
+                || (plane == front && BounceIsWritten);
+
+            if (plane == Back || (owned && !first)) {
                 continue;
             }
 
-            if (plane == DirectPlane && DirectIsWritten) {
+            if (owned) {
                 Transition(commands, plane, ResourceState.Undefined, ResourceState.ShaderRead);
 
                 continue;
@@ -289,12 +306,16 @@ public sealed class SurfaceCacheTexture : IDisposable {
         }
 
         parameters.Set(ParameterKeys.New<BufferHandle>($"{shaderName}.surfaceCards"), cards);
+        parameters.Set(ParameterKeys.New<BufferHandle>($"{shaderName}.surfaceGridCells"), gridCells);
+        parameters.Set(ParameterKeys.New<BufferHandle>($"{shaderName}.surfaceGridIndices"), gridIndices);
         parameters.Set(ParameterKeys.New<TextureViewHandle>($"{shaderName}.surfaceAlbedoDepth"), views[AlbedoPlane]);
         parameters.Set(ParameterKeys.New<TextureViewHandle>($"{shaderName}.surfaceNormalValid"), views[NormalPlane]);
         parameters.Set(ParameterKeys.New<TextureViewHandle>($"{shaderName}.surfaceEmissive"), views[EmissivePlane]);
         parameters.Set(ParameterKeys.New<TextureViewHandle>($"{shaderName}.surfaceDirect"), views[DirectPlane]);
         parameters.Set(ParameterKeys.New<TextureViewHandle>($"{shaderName}.surfaceGathered"), views[front]);
-        parameters.Set(ParameterKeys.New<int>($"{shaderName}.surfaceCardCount"), uploadedCards);
+        parameters.Set(ParameterKeys.New<Vector3>($"{shaderName}.surfaceGridMinimum"), gridMinimum);
+        parameters.Set(ParameterKeys.New<Vector3>($"{shaderName}.surfaceGridInverseCell"), gridInverseCell);
+        parameters.Set(ParameterKeys.New<Int3>($"{shaderName}.surfaceGridDimensions"), gridDimensions);
         parameters.Set(ParameterKeys.New<float>($"{shaderName}.surfaceDepthTolerance"), Store.DepthTolerance);
     }
 
@@ -324,6 +345,14 @@ public sealed class SurfaceCacheTexture : IDisposable {
 
         if (cards.IsValid) {
             device.Destroy(cards);
+        }
+
+        if (gridCells.IsValid) {
+            device.Destroy(gridCells);
+        }
+
+        if (gridIndices.IsValid) {
+            device.Destroy(gridIndices);
         }
 
         if (staging.IsValid) {
@@ -429,6 +458,127 @@ public sealed class SurfaceCacheTexture : IDisposable {
         }
 
         uploadedCards = count;
+        StageGrid(graphics);
+    }
+
+    /// <summary>Builds the dense grid the sampler scans instead of every card.</summary>
+    /// <remarks>
+    ///     <c>SurfaceCardIndex</c>'s device form, rebuilt whole on every upload: the bounds are the
+    ///     cards' padded union — padded so a point exactly on a card's outer face still lands in a
+    ///     cell — a cell is a few world units on a side, capped so a vast scene coarsens rather than
+    ///     explodes, and each cell holds the ascending indices of every card overlapping it, which
+    ///     is what keeps the equal-facing tie-break on the earlier card through the indirection.
+    /// </remarks>
+    void StageGrid(IGraphicsDevice graphics) {
+        const float CellTarget = 4f;
+        const int DimensionCap = 64;
+        const float Padding = 0.01f;
+
+        var count = Store.Cards.Count;
+        var low = new Vector3(float.MaxValue);
+        var high = new Vector3(float.MinValue);
+
+        for (var index = 0; index < count; index++) {
+            var card = Store.Cards[index].Card;
+
+            low = Vector3.Min(low, card.Centre - card.HalfSize);
+            high = Vector3.Max(high, card.Centre + card.HalfSize);
+        }
+
+        if (count == 0) {
+            low = Vector3.Zero;
+            high = Vector3.One;
+        }
+
+        low -= new Vector3(Padding);
+        high += new Vector3(Padding);
+
+        var extent = high - low;
+
+        gridDimensions = new(
+            Math.Clamp((int)MathF.Ceiling(extent.X / CellTarget), 1, DimensionCap),
+            Math.Clamp((int)MathF.Ceiling(extent.Y / CellTarget), 1, DimensionCap),
+            Math.Clamp((int)MathF.Ceiling(extent.Z / CellTarget), 1, DimensionCap)
+        );
+
+        gridMinimum = low;
+        gridInverseCell = new(gridDimensions.X / extent.X, gridDimensions.Y / extent.Y, gridDimensions.Z / extent.Z);
+
+        var cellCount = gridDimensions.X * gridDimensions.Y * gridDimensions.Z;
+        var lists = new List<int>[cellCount];
+
+        for (var index = 0; index < count; index++) {
+            var card = Store.Cards[index].Card;
+            var from = Cell(card.Centre - card.HalfSize);
+            var to = Cell(card.Centre + card.HalfSize);
+
+            for (var z = from.Z; z <= to.Z; z++) {
+                for (var y = from.Y; y <= to.Y; y++) {
+                    for (var x = from.X; x <= to.X; x++) {
+                        var cell = ((z * gridDimensions.Y) + y) * gridDimensions.X + x;
+
+                        (lists[cell] ??= []).Add(index);
+                    }
+                }
+            }
+        }
+
+        var cells = new Int2[cellCount];
+        var flattened = new List<int>();
+
+        for (var cell = 0; cell < cellCount; cell++) {
+            var candidates = lists[cell];
+
+            cells[cell] = new(flattened.Count, candidates?.Count ?? 0);
+
+            if (candidates is not null) {
+                flattened.AddRange(candidates);
+            }
+        }
+
+        var cellBytes = (long)cellCount * 8;
+        var indexBytes = (long)Math.Max(flattened.Count, 1) * 4;
+
+        if (!gridCells.IsValid || cellBytes > cellsCapacity) {
+            if (gridCells.IsValid) {
+                graphics.Destroy(gridCells);
+            }
+
+            gridCells = graphics.CreateBuffer(
+                new BufferDescription(cellBytes, BufferUsage.Storage, MemoryAccess.HostUpload, "SurfaceCache.GridCells")
+            );
+
+            cellsCapacity = cellBytes;
+        }
+
+        if (!gridIndices.IsValid || indexBytes > indicesCapacity) {
+            if (gridIndices.IsValid) {
+                graphics.Destroy(gridIndices);
+            }
+
+            gridIndices = graphics.CreateBuffer(
+                new BufferDescription(indexBytes, BufferUsage.Storage, MemoryAccess.HostUpload, "SurfaceCache.GridIndices")
+            );
+
+            indicesCapacity = indexBytes;
+        }
+
+        graphics.Write(gridCells, 0, MemoryMarshal.AsBytes(cells.AsSpan()));
+
+        if (flattened.Count > 0) {
+            graphics.Write(gridIndices, 0, MemoryMarshal.AsBytes(CollectionsMarshal.AsSpan(flattened)));
+        }
+    }
+
+    /// <summary>Which cell a position falls in, clamped into the grid.</summary>
+    Int3 Cell(Vector3 position) {
+        var grid = (position - gridMinimum) * gridInverseCell;
+
+        return new(
+            Math.Clamp((int)MathF.Floor(grid.X), 0, gridDimensions.X - 1),
+            Math.Clamp((int)MathF.Floor(grid.Y), 0, gridDimensions.Y - 1),
+            Math.Clamp((int)MathF.Floor(grid.Z), 0, gridDimensions.Z - 1)
+        );
     }
 
     /// <summary>Lays one plane of the store out in <see cref="scratch" />.</summary>

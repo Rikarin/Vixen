@@ -1,0 +1,150 @@
+package Vixen.Shaders.Reflections
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.DistanceFields
+import Vixen.Shaders.IrradianceFields
+import Vixen.Shaders.SurfaceCache
+
+// Reflections through the same tracer, on the GPU.
+//
+// `docs/plan/19` § L5's kernel. `Vixen.Rendering.Reflections.TracedReflections` is the same
+// arithmetic on the CPU and it exists first: the mirror formula, the threshold, the blend band and
+// the fallback order are each pinned by a closed form there, and the device tests hold this against
+// it texel by texel. Where the two disagree, the C# is right and this is wrong.
+//
+// The section's whole argument is reuse, and it shows in the slots: the mirror ray marches
+// `IDistanceFieldSource` (L1), a hit answers through `ISurfaceCacheSource` (L4's seam, the same slot
+// the bounce and the probe trace already compose), the rough path samples `IIrradianceSource` (L2)
+// about the mirror direction, and a miss asks `IReflectionMissSource` — the slot doc 06's
+// reflection probes fill the day their sampler implements it, which is what retires that row's
+// "blended against the sky" caveat: the trace answers the near field, and the probe becomes what a
+// miss sees.
+//
+// The inputs are surface planes rather than a G-buffer walk: a world position and a normal with
+// roughness beside it, which is fixture-honest and exactly what a deferred pass has anyway. The
+// reconstruction from a real frame's depth is the production wiring, not this kernel's concern.
+
+/// What a reflection ray that found nothing should see — the far field, behind a slot.
+protocol IReflectionMissSource {
+    /// The radiance arriving from a direction nothing in the scene answered for.
+    func MissRadiance(position: float3, direction: float3, roughness: float): float3
+}
+
+/// No far field at all: black, the honest answer of a project with neither probes nor sky.
+shader NoReflectionMiss : IReflectionMissSource {
+    func MissRadiance(position: float3, direction: float3, roughness: float): float3 => float3(0f, 0f, 0f)
+}
+
+/// One colour of sky — the far field every reflection in doc 06 sees beyond the probes today.
+///
+/// Bound by whoever owns the sky, under the slot's qualified name; the reflection-probe
+/// implementation replaces this without the kernel changing a line, which is the point of the slot.
+shader SkyMissSource : IReflectionMissSource {
+    [PerFrame] var missSkyColor: float3 = float3(0f, 0f, 0f)
+
+    func MissRadiance(position: float3, direction: float3, roughness: float): float3 => missSkyColor
+}
+
+shader ReflectionTrace {
+    /// What the mirror rays march through.
+    compose val distanceField: IDistanceFieldSource = NoDistanceField
+
+    /// What a ray that hits a surface sees — L4's seam, the slot every kernel here composes.
+    compose val surfaceCache: ISurfaceCacheSource = NoSurfaceCache
+
+    /// What the rough path reads instead of tracing — L2's field.
+    compose val irradiance: IIrradianceSource = NoIrradiance
+
+    /// What a miss sees — the probes' seat.
+    compose val miss: IReflectionMissSource = NoReflectionMiss
+
+    /// The reflecting surfaces: world position in `xyz`, validity in `a`.
+    var reflectionPositions: Texture2D
+
+    /// Their normals in `xyz`, roughness in `a`.
+    var reflectionNormals: Texture2D
+
+    /// The answer, radiance in `rgb` and validity in `a`.
+    [Format("rgba32f")] var reflectionAtlas: RWTexture2D<float4>
+
+    /// How many texels the planes cover.
+    var reflectionViewport: int2 = int2(0, 0)
+
+    /// Where the camera stands — the view direction is toward the surface, the incident convention.
+    var cameraPosition: float3 = float3(0f, 0f, 0f)
+
+    /// How far a mirror ray looks before deciding it escaped.
+    var maxDistance: float = 100f
+
+    /// How many steps one march may take. The CPU tracer's own default.
+    var maxSteps: int = 128
+
+    /// How near counts as arrived. The CPU tracer's own default.
+    var surfaceThreshold: float = 0.01f
+
+    /// What fraction of the reported distance each step actually takes.
+    var stepScale: float = 0.9f
+
+    /// How far off its surface a mirror ray starts — zero is a mirror that reflects itself.
+    var bias: float = 0.01f
+
+    /// The roughness at and above which the field answers instead of the trace.
+    var roughnessThreshold: float = 0.5f
+
+    /// How far below the threshold the cross-fade starts. Zero is the hard switch.
+    var roughnessBlend: float = 0f
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_GroupID")] group: uint3, [Semantic("SV_GroupThreadID")] thread: uint3) {
+        val texel = int2(int(group.x) * 8 + int(thread.x), int(group.y) * 8 + int(thread.y))
+
+        if (texel.x >= reflectionViewport.x || texel.y >= reflectionViewport.y) {
+            return
+        }
+
+        val surface = reflectionPositions.Load(int3(texel.x, texel.y, 0))
+
+        if (surface.a < 0.5f) {
+            reflectionAtlas.Store(texel, float4(0f, 0f, 0f, 0f))
+            return
+        }
+
+        val shading = reflectionNormals.Load(int3(texel.x, texel.y, 0))
+        val position = surface.xyz
+        val normal = shading.xyz
+        val roughness = shading.a
+        val view = Math.SafeNormalize(position - cameraPosition)
+        val mirror = Math.SafeNormalize(view - normal * (2f * dot(view, normal)))
+
+        // How much of the answer is the field's — the CPU reference's ramp, branch for branch.
+        var rough = 1f
+
+        if (roughness < roughnessThreshold) {
+            rough = 0f
+
+            if (roughnessBlend > 0f) {
+                rough = clamp((roughness - (roughnessThreshold - roughnessBlend)) / roughnessBlend, 0f, 1f)
+            }
+        }
+
+        var wide = float3(0f, 0f, 0f)
+
+        if (rough > 0f) {
+            wide = irradiance.Sample(position, mirror, float3(0f, 0f, 0f)).irradiance
+        }
+
+        if (rough >= 1f) {
+            reflectionAtlas.Store(texel, float4(wide, 1f))
+            return
+        }
+
+        val hit = distanceField.TraceField(position + normal * bias, mirror, maxDistance, maxSteps, surfaceThreshold, stepScale)
+        var sharp = miss.MissRadiance(position, mirror, roughness)
+
+        if (hit.hit) {
+            sharp = surfaceCache.SurfaceRadiance(hit.position, distanceField.GradientField(hit.position)).rgb
+        }
+
+        reflectionAtlas.Store(texel, float4(lerp(sharp, wide, rough), 1f))
+    }
+}

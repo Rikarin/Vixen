@@ -93,20 +93,52 @@
               "DefaultValue": ""
             },
             {
-              "Name": "SurfaceCacheSource.surfaceCardCount",
+              "Name": "SurfaceCacheSource.surfaceGridMinimum",
               "Type": {
-                "Scalar": "Int",
-                "Rows": 1,
+                "Scalar": "Float",
+                "Rows": 3,
                 "Columns": 1,
                 "IsMatrix": false,
                 "IsArray": false,
                 "IsStruct": false
               },
               "Offset": 192,
-              "Size": 4,
+              "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "0"
+              "DefaultValue": ""
+            },
+            {
+              "Name": "SurfaceCacheSource.surfaceGridInverseCell",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 208,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "SurfaceCacheSource.surfaceGridDimensions",
+              "Type": {
+                "Scalar": "Int",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 224,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
             },
             {
               "Name": "SurfaceCacheSource.surfaceDepthTolerance",
@@ -118,14 +150,14 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 196,
+              "Offset": 236,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": "0.1"
             }
           ],
-          "Size": 208,
+          "Size": 240,
           "IsWritable": false
         },
         {
@@ -304,6 +336,93 @@
             }
           ],
           "Size": 64,
+          "IsWritable": false
+        },
+        {
+          "Binding": 9,
+          "Name": "SurfaceCacheSource.surfaceGridCells",
+          "Type": "StorageBuffer",
+          "Count": 0,
+          "Stages": "Compute",
+          "Members": [
+            {
+              "Name": "SurfaceCacheSource.surfaceGridCells",
+              "Type": {
+                "Scalar": "Struct",
+                "Rows": 1,
+                "Columns": 1,
+                "StructName": "SurfaceCacheGridCell",
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": true
+              },
+              "Offset": 0,
+              "Size": 8,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "SurfaceCacheSource.surfaceGridCells.offset",
+              "Type": {
+                "Scalar": "Int",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "SurfaceCacheSource.surfaceGridCells.count",
+              "Type": {
+                "Scalar": "Int",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 4,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            }
+          ],
+          "Size": 8,
+          "IsWritable": false
+        },
+        {
+          "Binding": 10,
+          "Name": "SurfaceCacheSource.surfaceGridIndices",
+          "Type": "StorageBuffer",
+          "Count": 0,
+          "Stages": "Compute",
+          "Members": [
+            {
+              "Name": "SurfaceCacheSource.surfaceGridIndices",
+              "Type": {
+                "Scalar": "Int",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            }
+          ],
+          "Size": 4,
           "IsWritable": false
         }
       ]
@@ -655,10 +774,10 @@
       "DefaultValue": ""
     },
     {
-      "Name": "SurfaceCacheSource.surfaceCardCount",
+      "Name": "SurfaceCacheSource.surfaceGridMinimum",
       "Type": {
-        "Scalar": "Int",
-        "Rows": 1,
+        "Scalar": "Float",
+        "Rows": 3,
         "Columns": 1,
         "IsMatrix": false,
         "IsArray": false,
@@ -667,10 +786,46 @@
       "Set": 0,
       "Binding": 0,
       "Offset": 192,
-      "Size": 4,
+      "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "0"
+      "DefaultValue": ""
+    },
+    {
+      "Name": "SurfaceCacheSource.surfaceGridInverseCell",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 0,
+      "Offset": 208,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "SurfaceCacheSource.surfaceGridDimensions",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 0,
+      "Offset": 224,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
     },
     {
       "Name": "SurfaceCacheSource.surfaceDepthTolerance",
@@ -684,7 +839,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 196,
+      "Offset": 236,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -775,6 +930,60 @@
       "Set": 0,
       "Binding": 8,
       "Offset": 48,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "SurfaceCacheSource.surfaceGridCells.offset",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 9,
+      "Offset": 0,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "SurfaceCacheSource.surfaceGridCells.count",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 9,
+      "Offset": 4,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "SurfaceCacheSource.surfaceGridIndices",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 10,
+      "Offset": 0,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,

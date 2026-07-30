@@ -56,6 +56,16 @@ public sealed class TracedReflections(IDistanceField geometry, IRadianceSource r
     ///     mirror ray through it is a sample, not an estimate.</remarks>
     public float RoughnessThreshold { get; set; } = 0.5f;
 
+    /// <summary>How far below the threshold the cross-fade starts, in roughness.</summary>
+    /// <remarks>
+    ///     Zero is the hard switch — the testable form, and the default. Nonzero fades the traced
+    ///     answer into the field's over the band ending at the threshold, so a roughness map does
+    ///     not draw the threshold as a line across a floor: at the band's midpoint the answer is
+    ///     the midpoint, which is the closed form the band is held to. Inside the band both reads
+    ///     run, which is the band's honest cost.
+    /// </remarks>
+    public float RoughnessBlend { get; set; }
+
     /// <summary>The irradiance field the rough path reads — doc 19 § L2's, when the scene has one.</summary>
     /// <remarks>Null sends rough reflections to the fallback whole. A field that does not cover the
     ///     position answers black, which is the field's own honesty convention — the gap should be
@@ -72,10 +82,24 @@ public sealed class TracedReflections(IDistanceField geometry, IRadianceSource r
     public Vector3 Reflect(Vector3 position, Vector3 normal, Vector3 view, float roughness) {
         var mirror = Vector3.Normalize(view - (2f * Vector3.Dot(view, normal) * normal));
 
-        if (roughness >= RoughnessThreshold) {
-            return Field is { } field
+        // How much of the answer is the field's: zero below the band, one at the threshold, and the
+        // ramp between. A zero-width band divides by nothing because the >= took the whole answer.
+        var rough = 1f;
+
+        if (roughness < RoughnessThreshold) {
+            rough = RoughnessBlend > 0f
+                ? Math.Clamp((roughness - (RoughnessThreshold - RoughnessBlend)) / RoughnessBlend, 0f, 1f)
+                : 0f;
+        }
+
+        var wide = rough > 0f
+            ? Field is { } field
                 ? field.Irradiance(position, mirror)
-                : fallback.Miss(position, mirror, roughness);
+                : fallback.Miss(position, mirror, roughness)
+            : Vector3.Zero;
+
+        if (rough >= 1f) {
+            return wide;
         }
 
         var hit = DistanceFieldTracer.Trace(
@@ -85,8 +109,10 @@ public sealed class TracedReflections(IDistanceField geometry, IRadianceSource r
             new DistanceFieldTraceSettings { MaxDistance = MaxDistance }
         );
 
-        return hit.Hit
+        var sharp = hit.Hit
             ? radiance.Surface(hit.Position, hit.Normal, mirror)
             : fallback.Miss(position, mirror, roughness);
+
+        return Vector3.Lerp(sharp, wide, rough);
     }
 }

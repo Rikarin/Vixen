@@ -42,7 +42,7 @@ public class LibraryTreeTests {
     /// </remarks>
     static readonly string[] Packages = [
         "Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache",
-        "Material", "Pipeline", "Ui", "PostFx", "Vfx"
+        "Reflections", "Material", "Pipeline", "Ui", "PostFx", "Vfx"
     ];
 
     /// <summary>
@@ -950,7 +950,7 @@ public class LibraryTreeTests {
         // Slot names only: which shader declares which is the engine's business, and qualifying them
         // here would make this fail every time a shader is renamed for reasons nothing depends on.
         string[] expected = [
-            "distanceField", "eighth", "fifth", "first", "fourth", "irradiance", "over", "second",
+            "distanceField", "eighth", "fifth", "first", "fourth", "irradiance", "miss", "over", "second",
             "seventh", "shading", "sixth", "surface", "surfaceCache", "third", "under"
         ];
 

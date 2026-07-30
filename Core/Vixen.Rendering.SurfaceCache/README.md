@@ -100,13 +100,18 @@ queries aimed at stored surfaces so the comparison is not a comparison of misses
   `TracedCardCapture` on one scene captured both ways: validity texel for texel, materials to float
   precision, depth to the march's own arrival hair.
 
+## And the cache lives in the frame
+
+`SurfaceCacheRenderer` (`Vixen.Rendering.Compositor`) sequences a frame's keeping: decode last
+frame's capture, record the next card round-robin, light, upload, bounce, swap, publish — an order
+a caller cannot invert, with one author per plane and both refused rather than resolved. The device
+sampler's scan is one grid cell of `SurfaceCardIndex`'s device form — a dense grid over the cards'
+padded union, ascending candidates per cell — with the zero-drift seam test refereeing the change.
+
 ## Not yet, and named so the absence is a decision
 
-- **The one-pass MRT capture.** The three-pass capture is its baseline and its referee.
-- **A compositor node.** Scheduling capture → light → gather in a live frame, budgeted the way the
-  irradiance-field renderer budgets its fills.
-- **A device-side spatial index.** The kernels' sampler scans the card buffer linearly —
-  fixture-honest, scene-slow, and `SurfaceCardIndex` is the shape it will take.
+- **The one-pass MRT capture.** The three-pass capture is its baseline and its referee, and a
+  scene's pipelines already target its one attachment.
 
-**Nothing in this package creates or calls a graphics device** — the dispatches, the mirror and the
-capture live in `Vixen.Rendering.Lighting`, where the devices are.
+**Nothing in this package creates or calls a graphics device** — the dispatches, the mirror, the
+capture and the node live in `Vixen.Rendering`, where the devices are.

@@ -876,11 +876,16 @@ attachment every scene pipeline already targets — and is compared against the 
 one scene captured both ways: validity texel for texel, materials to float precision, depth to the
 march's own arrival hair.
 
-Still owed, named so the absence is a decision: the one-pass MRT capture (the three-pass form is
-its baseline and referee), a compositor node scheduling capture → light → gather in a live frame
-the way the irradiance-field renderer schedules its fills, and a device-side spatial index — the
-kernels' sampler still scans the card buffer linearly, which is honest at fixture scale and slow at
-scene scale.
+**And the frame and the index followed.** `SurfaceCacheRenderer` is the compositor node, the
+irradiance-field renderer's shape for its reasons: capture, then light, then the bounce, then the
+swap, in an order a caller cannot invert — the runtime capture decoding one frame late because a
+readback is only readable after its submit, one author per plane refused rather than resolved, and
+the bounce's set 0 applied before its record so each frame reads the previous swap's front. The
+sampler's scan is now one grid cell: `SurfaceCardIndex`'s device form, a dense grid over the cards'
+padded union whose cells hold ascending candidates, with the zero-drift seam test refereeing the
+change unchanged. Still owed, named so the absence is a decision: the one-pass MRT capture — the
+three-pass form is its baseline and its referee, and a scene's pipelines already target its one
+attachment.
 
 ### L5 — Reflections through the same tracer *(1.5 EM)*
 
@@ -888,8 +893,8 @@ Traced reflections reusing L1/L4, with rough reflections reading L2 and L4 inste
 the existing reflection probes as the miss fallback. Retires doc 06's "⚠ blended against the sky"
 caveat as a side effect.
 
-**Status: the reference half is built and its closed forms hold; the device half is the owed
-remainder.** [`Vixen.Rendering.Reflections`](../../Core/Vixen.Rendering.Reflections/README.md) is
+**Status: built, reference and kernel both, to the section's own definition.**
+[`Vixen.Rendering.Reflections`](../../Core/Vixen.Rendering.Reflections/README.md) is
 the layer that reuses everything below it, which is this section's whole argument: a mirror ray
 marches L1's tracer, a hit answers through `IRadianceSource` — hand it L4's
 `SurfaceCacheRadiance` and a reflection carries emissive, direct light and every bounce, asserted
@@ -902,11 +907,23 @@ a darker mirror. The view convention is incident and pinned (the other conventio
 camera and looks plausible everywhere), and the mirror bias carries the test that shows what
 removing it does: every reflection becomes the reflector's own colour.
 
-Owed: the device half — a per-pixel Raven kernel through the same composed slots the kernels
-already share (`IDistanceFieldSource`, `ISurfaceCacheSource`), with this reference as its
-texel-by-texel referee and the probe fallback handed through the interface's device analogue,
-which is the piece that actually retires doc 06's caveat in a frame — plus the blend band around
-the hard threshold, and screen traces first in the trace order, for the screen probes' reason.
+The hard threshold gained its blend band — a stated cross-fade whose midpoint answer is the
+midpoint of the two paths, held by a closed form on both processors, because a roughness map must
+not draw the threshold as a line. And the device half is `ReflectionTrace`: a per-texel kernel
+through the same composed slots every kernel here shares — the march through `IDistanceFieldSource`,
+the hit through `ISurfaceCacheSource`, the rough read through `IIrradianceSource`, and the miss
+through a new `IReflectionMissSource`, the seat doc 06's probes take without the kernel changing a
+line (`SkyMissSource` sits in it today, which is honestly what every reflection sees beyond the
+probes anyway). The device test holds one eight-by-eight dispatch against the reference across
+every answer it distinguishes — sharp hit on an emissive wall through the cache, sharp miss to the
+sky slot, the band mixing both, the field whole, an invalid texel — within a stated hundredth,
+measured at four thousandths, all of which is the field read's hardware trilinear: the march and
+the cache agree to the bit, as they did for the radiosity.
+
+Owed: the probe-backed `IReflectionMissSource` implementation — the wiring that finishes retiring
+doc 06's caveat in a frame — and screen traces first in the trace order, which for reflections is
+SSR proper: it wants the frame's own colour, a different input contract than the occlusion-only
+trace the probes run, and it should arrive as one.
 
 ### L6 — Hardware ray tracing *(2.0 EM)*
 
