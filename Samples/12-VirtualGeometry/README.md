@@ -56,6 +56,14 @@ The division of labour is the thing to read for:
 - **Neither knows the other's half**, which is what lets the same document run against a swapchain
   here and a golden test's scratch texture there.
 
+## A log line to ignore
+
+On macOS the first frame logs `Blending is enabled for attachment with format VK_FORMAT_R32_UINT,
+which does not support it`. It is a MoltenVK false positive: its pipeline-creation guard warns for
+every colour format Metal cannot blend without checking whether blending is actually enabled — and
+here it is not. `docs/rhi-backend-mapping.md` § 5 records the verification; if that message ever
+names a format you *meant* to blend, take it seriously.
+
 ## What it is honest about
 
 Effects compile from `Raven/Library` at start-up, which no shipped game would do — a shipped game

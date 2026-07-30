@@ -520,6 +520,14 @@ public sealed class GpuClusterRaster : IDisposable {
     ///         nearest surface either way. Culling here would be a second opinion about facing, disagreeing
     ///         with the cone at the silhouette.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Creating this pipeline on MoltenVK logs a blend warning that is not real.</b>
+    ///         <i>"Blending is enabled for attachment with format VK_FORMAT_R32_UINT, which does not
+    ///         support it"</i> — but blending is not enabled; MoltenVK's guard warns for every
+    ///         unblendable colour format without reading <c>blendEnable</c> (its
+    ///         <c>MVKPipeline.mm</c>, at least through v1.4.2). Verified against the create-info and
+    ///         bisected in <c>docs/rhi-backend-mapping.md</c> § 5, which is the long form of this note.
+    ///     </para>
     /// </remarks>
     PipelineHandle PipelineFor(Effect effect, PixelFormat colour, PixelFormat depth) {
         var key = (effect, colour, depth);
