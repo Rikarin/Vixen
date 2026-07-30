@@ -380,7 +380,8 @@ public sealed class GpuVisibilityTiles : IDisposable {
     }
 
     /// <summary>The effect key selecting the binning pass.</summary>
-    public static EffectKey Key => EffectKey.Of(VisibilityTilesKeys.ShaderName, []);
+    public static EffectKey Key =>
+        EffectKey.Of(VisibilityTilesKeys.ShaderName, [], Materials.MaterialCompiler.PassComposition());
 
     void Bind(Effect effect, GpuClusterVisibility visibility, TextureViewHandle identities, int materials) {
         writes[0] = DescriptorWrite.Texture(VisibilityTilesKeys.IdentitiesBinding, identities);

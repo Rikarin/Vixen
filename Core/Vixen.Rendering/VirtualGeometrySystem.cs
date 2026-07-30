@@ -1,0 +1,229 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Graphics;
+using Vixen.Rendering.Compositor;
+using Vixen.Rendering.Features;
+using Vixen.Shaders;
+
+namespace Vixen.Rendering;
+
+/// <summary>
+///     Every device-side piece of virtualized geometry, joined up.
+/// </summary>
+/// <remarks>
+///     <para>
+///         <b>The assembly nobody had written.</b> Six objects have to point at each other before a
+///         cluster reaches a pixel — the traversal, the page pool and its residency, the raster, the
+///         binning and the resolve — and every one of them was independently constructible and
+///         independently tested. What was missing is the only part with no natural owner: which of them
+///         holds which, and in what order they are told about a frame. A host doing it by hand gets it
+///         right the first time and wrong on the second project.
+///     </para>
+///     <para>
+///         <b>It owns the device objects and not the scene.</b> What goes in is a device, an effect
+///         system and a budget; what comes out is a feature to register with a
+///         <see cref="RenderSystem" /> and five references a <see cref="CompositorBuilder" /> wants. It
+///         has no opinion about which objects draw, which is
+///         <see cref="VirtualGeometryRenderFeature.Draws" />' business, or where in the frame the passes
+///         go, which is a document's.
+///     </para>
+///     <para>
+///         <b>One page pool for the scene, and that is the whole of the streaming budget.</b> Slots
+///         times page size is the resident geometry a project has decided to pay for, and every mesh
+///         registered through <see cref="Content" /> shares it — which is what makes a hundred
+///         virtualized meshes cost one budget rather than a hundred.
+///     </para>
+/// </remarks>
+public sealed class VirtualGeometrySystem : IDisposable {
+    bool disposed;
+
+    /// <summary>Builds the stack on a device.</summary>
+    /// <param name="device">The device every buffer lives on.</param>
+    /// <param name="slots">How many pages may be resident at once.</param>
+    /// <param name="pageSize">How many bytes one page occupies. Must match what the build produced.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="device" /> is null.</exception>
+    /// <remarks>
+    ///     The page size is the caller's because it is the <em>build's</em> — a pool whose slots are a
+    ///     different size than the pages a mesh was cut into puts one page's bytes across two slots. The
+    ///     default is <c>MeshletPageSettings</c>'s, so a project that changed neither has nothing to say.
+    /// </remarks>
+    public VirtualGeometrySystem(IGraphicsDevice device, int slots = 512, int pageSize = 128 * 1024) {
+        ArgumentNullException.ThrowIfNull(device);
+
+        Pages = new(device, Source, slots, pageSize);
+        Residency = new(Pages, (long)slots * pageSize);
+
+        // The traversal reads the slot table the residency keeps, and asks it for the pages a cut wanted
+        // and did not have. It is set rather than owned there because improvement 6 has one residency
+        // service holding geometry, texture and shadow pages — so the wiring is here and the ownership
+        // is nobody's in particular.
+        Visibility = new(device) { Residency = Residency };
+        Raster = new(device) { Visibility = Visibility, Pages = Pages };
+        Tiles = new(device) { Visibility = Visibility };
+
+        Resolve = new(device) {
+            Visibility = Visibility,
+            Tiles = Tiles,
+            Pages = Pages
+        };
+
+        Feature = new() { Visibility = Visibility, Pages = Pages };
+    }
+
+    /// <summary>Where every mesh's page blob lives, and what the pool reads out of.</summary>
+    /// <remarks>
+    ///     Exposed because a project that unloads a level wants its blobs closed —
+    ///     <see cref="StreamMeshletPageSource.Remove" /> — and because a test asking whether a mesh's
+    ///     bytes are reachable is asking this. Adding to it directly is possible and is not the way in:
+    ///     <see cref="Content" /> adds the blob and registers the mesh under one id, so the two cannot
+    ///     be given different ones.
+    /// </remarks>
+    public StreamMeshletPageSource Source { get; } = new();
+
+    /// <summary>The pool every resident page lives in.</summary>
+    public MeshletPagePool Pages { get; }
+
+    /// <summary>What decides which pages are in it.</summary>
+    public PageResidency Residency { get; }
+
+    /// <summary>The cluster traversal.</summary>
+    public GpuClusterVisibility Visibility { get; }
+
+    /// <summary>The draw that fills the visibility buffer.</summary>
+    public GpuClusterRaster Raster { get; }
+
+    /// <summary>The binning that sorts its tiles by material.</summary>
+    public GpuVisibilityTiles Tiles { get; }
+
+    /// <summary>The per-material shading that consumes those bins.</summary>
+    public GpuClusterResolve Resolve { get; }
+
+    /// <summary>The feature a scene's objects draw through.</summary>
+    public VirtualGeometryRenderFeature Feature { get; }
+
+    /// <summary>Which material each bin holds, as the resolve dispatches them.</summary>
+    /// <remarks>
+    ///     Forwarded rather than mirrored, because a second list is a second thing to keep in step. The
+    ///     bins are numbered by <c>Meshlet.MaterialIndex</c> — a model's own submesh slots — and a
+    ///     project binds an asset to each.
+    /// </remarks>
+    public IReadOnlyList<ResolveMaterial> Materials {
+        get => Resolve.Materials;
+        set => Resolve.Materials = value;
+    }
+
+    /// <summary>How many meshes have been loaded into it.</summary>
+    public int MeshCount => Visibility.MeshCount;
+
+    /// <summary>
+    ///     Where every variant is compiled, which every one of the four passes needs.
+    /// </summary>
+    /// <remarks>
+    ///     Set once here rather than four times by a caller. Three of the four resolve a variant and do
+    ///     nothing quietly without one, which is a frame that draws no virtualized geometry and reports
+    ///     no reason — the failure this property exists to make impossible to have partially.
+    /// </remarks>
+    public EffectSystem? Effects {
+        get => Visibility.Effects;
+        set {
+            Visibility.Effects = value;
+            Raster.Effects = value;
+            Tiles.Effects = value;
+            Resolve.Effects = value;
+        }
+    }
+
+    /// <summary>Where the compute pipelines come from, on the same terms.</summary>
+    public ComputePipelineCache? Pipelines {
+        get => Visibility.Pipelines;
+        set {
+            Visibility.Pipelines = value;
+            Tiles.Pipelines = value;
+            Resolve.Pipelines = value;
+        }
+    }
+
+    /// <summary>Where the raster's shader modules come from.</summary>
+    /// <remarks>
+    ///     The raster builds a graphics pipeline rather than a compute one, so it needs the describer
+    ///     that turns an effect's stages into modules — the same one <c>MeshRenderFeature</c> takes.
+    /// </remarks>
+    public EffectPipelineDescriber? Modules {
+        get => Raster.Modules;
+        set => Raster.Modules = value;
+    }
+
+    /// <summary>The frame's per-frame constants, which the resolve's lighting reads.</summary>
+    public SceneConstants? Scene {
+        get => Resolve.Scene;
+        set => Resolve.Scene = value;
+    }
+
+    /// <summary>The frame's per-view constants.</summary>
+    public ViewConstants? ViewConstants {
+        get => Resolve.ViewConstants;
+        set => Resolve.ViewConstants = value;
+    }
+
+    /// <summary>
+    ///     Loads a mesh out of the artefacts a build wrote, and makes it drawable.
+    /// </summary>
+    /// <param name="id">The id its pages carry. Unique across the meshes in this system.</param>
+    /// <param name="hierarchy">The <c>Meshlets</c> artefact's bytes.</param>
+    /// <param name="pages">The <c>MeshletPages</c> artefact's bytes.</param>
+    /// <param name="data">The <c>MeshletPageData</c> blob, seekable. Owned from here.</param>
+    /// <returns>The index to put in <see cref="VirtualGeometryDraw.Mesh" />.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="data" /> is null.</exception>
+    public int Content(int id, ReadOnlySpan<byte> hierarchy, ReadOnlySpan<byte> pages, Stream data) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        return VirtualGeometryContent.Load(Feature, Source, id, hierarchy, pages, data);
+    }
+
+    /// <summary>Registers the feature with a render system.</summary>
+    /// <param name="system">The system.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="system" /> is null.</exception>
+    public void Register(RenderSystem system) {
+        ArgumentNullException.ThrowIfNull(system);
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        system.AddFeature(Feature);
+    }
+
+    /// <summary>Hands a compositor builder everything its two nodes need.</summary>
+    /// <param name="builder">The builder.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="builder" /> is null.</exception>
+    /// <remarks>
+    ///     Five assignments, and a node built without any one of them is a node that silently does
+    ///     nothing — which is right for a project with no virtualized geometry and is a bug in a project
+    ///     that has some. Doing them here is what makes "the document names the passes" true rather than
+    ///     "the document names the passes and the host remembers five properties".
+    /// </remarks>
+    public void Supply(CompositorBuilder builder) {
+        ArgumentNullException.ThrowIfNull(builder);
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        builder.Clusters = Visibility;
+        builder.Pages = Pages;
+        builder.Raster = Raster;
+        builder.Tiles = Tiles;
+        builder.Resolve = Resolve;
+    }
+
+    /// <inheritdoc />
+    public void Dispose() {
+        if (disposed) {
+            return;
+        }
+
+        disposed = true;
+
+        Resolve.Dispose();
+        Tiles.Dispose();
+        Raster.Dispose();
+        Visibility.Dispose();
+        Pages.Dispose();
+        Source.Dispose();
+    }
+}

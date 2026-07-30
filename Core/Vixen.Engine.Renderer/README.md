@@ -25,6 +25,24 @@ does not reference a graphics API — which is what lets `Vixen.Physics`, `Vixen
 `Vixen.Audio` produce debug geometry without linking one. `Vixen.Rendering` draws lines without
 knowing what a debug overlay is. Putting the join in either would drag one into the other.
 
+## Drawing a frame
+
+`SceneRenderHost` is the other join this assembly makes, and it is the same shape as the first: a
+render system belongs to `Vixen.Rendering` and knows nothing about a window, a compositor is a
+document, and a device outlives both. What was missing is the object that owns one of each and turns
+them into a recorded frame — `new RenderSystem()` appeared only inside test projects, and every sample
+opened a device and issued draws directly.
+
+**It does not run the render system's phases.** `GraphicsCompositor.Build` already collects the frame's
+views from its own nodes and then calls `RenderSystem.Draw`, in that order, because culling before the
+views are collected culls against the previous frame's. A host that ran the phases itself would extract
+every feature twice a frame — a correct-looking picture, and a renderer that profiles as half as fast.
+`Every_feature_is_extracted_once_a_frame` is the assertion.
+
+So what is left is three calls in an order — reset the graph, build it, execute it into a list the
+caller owns. It opens no command list and submits nothing: when a frame is presented is the
+application's business.
+
 ## Two draws, not one
 
 `DebugDraw` accumulates three things and they come out as two draw calls:

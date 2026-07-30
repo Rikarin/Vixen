@@ -28,4 +28,19 @@ Vixen.Engine.Renderer.DebugView.Right.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Engine.Renderer.DebugView.Right.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Engine.Renderer.DebugView.Up.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Engine.Renderer.DebugView.Up.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Renderer.SceneRenderHost -> sealed class
+Vixen.Engine.Renderer.SceneRenderHost : System.IDisposable
+Vixen.Engine.Renderer.SceneRenderHost.Builder.get -> Vixen.Rendering.Compositor.CompositorBuilder
+Vixen.Engine.Renderer.SceneRenderHost.Compositor.get -> Vixen.Rendering.Compositor.GraphicsCompositor?
+Vixen.Engine.Renderer.SceneRenderHost.Dispose() -> void
+Vixen.Engine.Renderer.SceneRenderHost.Draw(Vixen.Graphics.ICommandList list) -> bool
+Vixen.Engine.Renderer.SceneRenderHost.Effects.get -> Vixen.Shaders.EffectSystem
+Vixen.Engine.Renderer.SceneRenderHost.FrameCount.get -> int
+Vixen.Engine.Renderer.SceneRenderHost.FrameSize.get -> Vixen.Core.Mathematics.Int2
+Vixen.Engine.Renderer.SceneRenderHost.FrameSize.set -> Vixen.Core.Mathematics.Int2
+Vixen.Engine.Renderer.SceneRenderHost.Graph.get -> Vixen.Graphics.RenderGraph.RenderGraph
+Vixen.Engine.Renderer.SceneRenderHost.Import(string name, Vixen.Rendering.Compositor.ImportedTexture texture) -> void
+Vixen.Engine.Renderer.SceneRenderHost.Load(Vixen.Rendering.Compositor.GraphicsCompositorAsset asset) -> void
+Vixen.Engine.Renderer.SceneRenderHost.SceneRenderHost(Vixen.Graphics.IGraphicsDevice device, Vixen.Shaders.EffectSystem effects) -> void
+Vixen.Engine.Renderer.SceneRenderHost.System.get -> Vixen.Rendering.RenderSystem
 static Vixen.Engine.Renderer.DebugView.FromView(in Vixen.Core.Mathematics.Matrix4x4 view) -> Vixen.Engine.Renderer.DebugView

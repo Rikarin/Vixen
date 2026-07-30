@@ -99,6 +99,30 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
     /// </remarks>
     public int ViewIndex { get; set; }
 
+    /// <summary>The view it draws from, and the one the traversal chooses a cut for.</summary>
+    /// <remarks>
+    ///     Null collects nothing, on the same terms as every other resource here.
+    /// </remarks>
+    public RenderView? View { get; set; }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <b>Collecting the view is what puts it in the frame at all.</b> A view reaches
+    ///     <c>RenderSystem.SetViews</c> because a node collected it — see
+    ///     <see cref="SingleStageRenderer" /> — and a virtualized document has no <c>SingleStage</c> in
+    ///     it, because a cluster draw is not a stage. Without this the frame collects no views, the
+    ///     traversal has nothing to choose a cut for, and every pass runs and draws nothing. That is
+    ///     what this node shipped with, and it took running the frame on a device to see: every test
+    ///     placed the nodes and none of them asked what they drew.
+    /// </remarks>
+    protected internal override void Collect(GraphicsCompositor compositor) {
+        ArgumentNullException.ThrowIfNull(compositor);
+
+        if (View is { } view) {
+            compositor.Use(view);
+        }
+    }
+
     /// <inheritdoc />
     protected internal override void Build(GraphicsCompositor compositor, CompositorFrame frame) {
         ArgumentNullException.ThrowIfNull(compositor);

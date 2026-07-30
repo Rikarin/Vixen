@@ -331,6 +331,22 @@ which a list holds every tile there is and overflow is impossible. `Overflowed` 
 the counts come back a frame late and the growth with them: it says a frame *was* wrong, not that frames
 will be.
 
+### And loading it
+
+`VirtualGeometryContent` reads the three artefacts a build writes — `Meshlets`, `MeshletPages` and
+`MeshletPageData` — into a mesh registered with the traversal and a blob the pool streams from. Until it
+existed nothing outside the importer's own tests read any of them back, and
+`VirtualGeometryRenderFeature.Register` took its arguments from a caller that did not exist.
+
+**One call does the registration and the blob**, because doing them separately is how a mesh comes to be
+registered against a blob nobody added: it draws its pinned root page and nothing below it, for ever,
+which is a working frame showing a coarse mesh.
+
+`VirtualGeometrySystem` is the assembly above that — the traversal, the page pool and its residency, the
+raster, the binning and the resolve, wired to each other, with `Register` for a `RenderSystem` and
+`Supply` for a `CompositorBuilder`. Six objects and eleven references between them; a host that set ten
+would get a frame that draws nothing and reports no reason.
+
 ### And posing it
 
 A skinned mesh's page vertex carries four bone indices and four weights, a byte each, and both the

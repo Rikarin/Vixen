@@ -53,6 +53,9 @@
         -->
         <ProjectReference Include="..\..\Core\Vixen.Engine.Renderer\Vixen.Engine.Renderer.csproj" />
 
+        <!-- A compositor is a document, and the virtualized frame is described by one. -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
+
         <!--
             `Bitmap` and `PngCodec`, which used to live here. This suite wrote them first and
             `Vixen.Ui.Testing` needed the same two for its screenshots, so there were two hand-rolled

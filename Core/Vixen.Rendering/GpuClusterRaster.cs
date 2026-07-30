@@ -106,6 +106,9 @@ public sealed class GpuClusterRaster : IDisposable {
 
     BufferHandle indices;
     BufferHandle arguments;
+    BufferHandle staging;
+    BufferHandle seed;
+    bool pendingIndices;
     int indexCount;
 
     Effect? allocatedFor;
@@ -149,7 +152,8 @@ public sealed class GpuClusterRaster : IDisposable {
     ///     to be conditional about. Every variation phase 5 will need is a variation of the
     ///     <em>resolve</em>, which is a different shader reading this one's output.
     /// </remarks>
-    public static EffectKey Key => EffectKey.Of(ClusterRasterKeys.ShaderName, []);
+    public static EffectKey Key =>
+        EffectKey.Of(ClusterRasterKeys.ShaderName, [], Materials.MaterialCompiler.PassComposition());
 
     /// <summary>
     ///     Records the one draw that covers every cluster the traversal accepted.
@@ -221,6 +225,12 @@ public sealed class GpuClusterRaster : IDisposable {
             return false;
         }
 
+        // The index run and the argument template, staged into their device-local homes. Both are
+        // written by the host and read by the device, and a device-local buffer cannot be host-written —
+        // which no recording backend ever says, so this arrived as an exception the first time the frame
+        // ran on Vulkan. See GpuClusterVisibility's mesh records, which are staged for the same reason.
+        Upload(list);
+
         ring = (ring + 1) % Math.Max(descriptors.Length, 1);
 
         // Element zero of the visible list is the count the traversal appended to, and the instance
@@ -255,6 +265,14 @@ public sealed class GpuClusterRaster : IDisposable {
         effect = null!;
 
         if (Visibility is not { MeshCount: > 0 } candidate || Pages is null || Effects is null || Modules is null) {
+            return false;
+        }
+
+        // The traversal's own buffers, which exist once it has prepared a frame. A raster asked to draw
+        // before the traversal ever ran has nothing to copy a count out of — which is the first frame of
+        // an application whose meshes registered after the compositor was built, and is a frame that
+        // draws nothing rather than an error.
+        if (!candidate.Visible.IsValid) {
             return false;
         }
 
@@ -359,9 +377,27 @@ public sealed class GpuClusterRaster : IDisposable {
             )
         );
 
-        if (indices.IsValid) {
-            device.Write(indices, 0, MemoryMarshal.AsBytes<uint>(run));
+        // Written into host memory now and copied on the next Prepare, because the index buffer is
+        // device-local: an input assembler reads it once per vertex of every cluster in the frame, which
+        // is the one buffer here that has any business being in device memory.
+        if (staging.IsValid) {
+            device.Destroy(staging);
         }
+
+        staging = device.CreateBuffer(
+            new(
+                (long)run.Length * sizeof(uint),
+                BufferUsage.CopySource,
+                MemoryAccess.HostUpload,
+                "ClusterRaster.Staging"
+            )
+        );
+
+        if (staging.IsValid) {
+            device.Write(staging, 0, MemoryMarshal.AsBytes<uint>(run));
+        }
+
+        pendingIndices = true;
 
         if (!arguments.IsValid) {
             arguments = device.CreateBuffer(
@@ -374,9 +410,24 @@ public sealed class GpuClusterRaster : IDisposable {
             );
         }
 
-        if (arguments.IsValid) {
+        // The argument template, on the same terms: device-local because DrawIndexedIndirect reads it,
+        // and seeded through host memory rather than written into.
+        if (seed.IsValid) {
+            device.Destroy(seed);
+        }
+
+        seed = device.CreateBuffer(
+            new(
+                Unsafe.SizeOf<DrawCommand>(),
+                BufferUsage.CopySource,
+                MemoryAccess.HostUpload,
+                "ClusterRaster.ArgumentSeed"
+            )
+        );
+
+        if (seed.IsValid) {
             device.Write(
-                arguments,
+                seed,
                 0,
                 MemoryMarshal.AsBytes<DrawCommand>([new() { IndexCount = (uint)wanted, InstanceCount = 0 }])
             );
@@ -385,6 +436,31 @@ public sealed class GpuClusterRaster : IDisposable {
         indexCount = wanted;
 
         return indices.IsValid && arguments.IsValid;
+    }
+
+    /// <summary>Copies the index run and the argument template into their device-local buffers.</summary>
+    /// <remarks>
+    ///     Once per registration rather than once per frame: the run is <c>0, 1, 2, …</c> and the
+    ///     template's index count both change only when a mesh with larger clusters is registered.
+    /// </remarks>
+    void Upload(ICommandList list) {
+        if (!pendingIndices) {
+            return;
+        }
+
+        pendingIndices = false;
+
+        if (staging.IsValid && indices.IsValid) {
+            list.Barrier(new([new(indices, ResourceState.Undefined, ResourceState.CopyDestination)], []));
+            list.CopyBuffer(staging, 0, indices, 0, (long)indexCount * sizeof(uint));
+            list.Barrier(new([new(indices, ResourceState.CopyDestination, ResourceState.VertexInput)], []));
+        }
+
+        if (seed.IsValid && arguments.IsValid) {
+            list.Barrier(new([new(arguments, ResourceState.Undefined, ResourceState.CopyDestination)], []));
+            list.CopyBuffer(seed, 0, arguments, 0, Unsafe.SizeOf<DrawCommand>());
+            list.Barrier(new([new(arguments, ResourceState.CopyDestination, ResourceState.IndirectArgument)], []));
+        }
     }
 
     bool EnsureDescriptors(Effect effect) {
@@ -499,6 +575,16 @@ public sealed class GpuClusterRaster : IDisposable {
         if (arguments.IsValid) {
             device.Destroy(arguments);
             arguments = default;
+        }
+
+        if (staging.IsValid) {
+            device.Destroy(staging);
+            staging = default;
+        }
+
+        if (seed.IsValid) {
+            device.Destroy(seed);
+            seed = default;
         }
 
         constants?.Dispose();

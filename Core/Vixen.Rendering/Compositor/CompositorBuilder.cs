@@ -648,6 +648,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Depth = declared.Depth,
             Colour = declared.Colour,
             ViewIndex = declared.ViewIndex,
+            View = declared.View is { Length: > 0 } view ? Bind(Views, declared.Name, "view", view) : null,
             Raster = Raster,
             Tiles = Tiles,
             Resolve = Resolve,

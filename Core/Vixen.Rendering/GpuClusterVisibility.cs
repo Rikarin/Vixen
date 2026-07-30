@@ -652,6 +652,16 @@ public sealed class GpuClusterVisibility : IDisposable {
     /// </remarks>
     public void UploadInstances() {
         ObjectDisposedException.ThrowIf(disposed, this);
+
+        // A frame with nothing skinned in it still has to have a palette, because the raster and the
+        // resolve declare the binding whether or not any instance reaches it — a permutation folds code
+        // and not bindings, and this one is not even a permutation. Without the seed the buffer is never
+        // created and the descriptor write refers to nothing, which a recording backend accepts and a
+        // real device refuses outright.
+        if (bones.Count == 0) {
+            BeginBones();
+        }
+
         instances.Upload();
         bones.Upload();
     }
@@ -910,7 +920,8 @@ public sealed class GpuClusterVisibility : IDisposable {
                 new(GpuCulling.OcclusionKey, occlusion ? "true" : "false"),
                 new(GpuClusterCulling.ClustersKey, "true"),
                 new(GpuCulling.LateKey, "false")
-            ]
+            ],
+            global::Vixen.Rendering.Materials.MaterialCompiler.PassComposition()
         );
 
     static long RequestBytes => (long)(RequestCapacity + 1) * sizeof(uint);

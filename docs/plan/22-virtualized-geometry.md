@@ -548,6 +548,36 @@ bins, with the counters doubling as the indirect dispatch arguments, and
 per material over that material's own bin — both recorded by `VisibilityBufferRenderer` in one pass, so
 the ordering between them is not something a compositor document can get wrong.
 
+**And the two links to the outside world exist.** The system was complete from import to shaded pixel
+and had never run: `new RenderSystem()` appeared only in test projects, and the three artefacts a build
+writes per mesh were read by nothing. `VirtualGeometryContent` reads them into a registered, streaming
+mesh; `VirtualGeometrySystem` joins the six device objects that have to point at each other; and
+`SceneRenderHost` turns a document, a device and a scene into a recorded frame.
+`VirtualGeometryDeviceTests` runs all of it on real Vulkan.
+
+**Four defects surfaced the first time a frame ran, and none of them could have surfaced earlier:**
+
+- **The cluster passes' effect keys carried no composition**, so the raster, the binning and the
+  traversal each failed `RVN2073` against an effect system serving the whole library — which is every
+  application. Every test that had resolved one narrowed the source set to that pass's own packages.
+  `MaterialCompiler.PassComposition()` is what they name now, and
+  `ComposeSlotInventoryTests.APassCompositionBindsEverySlotTheLibraryDeclares` had been asserting that
+  this existed while nothing used it.
+- **The raster's index buffer and argument template were device-local and written from the host** — the
+  third instance of that in this system, and the recording backend accepts it every time. Both are
+  staged through host memory now, as the mesh records already were.
+- **`VisibilityBufferRenderer` collected no view**, so a virtualized document produced a frame with no
+  views in it: the traversal had nothing to choose a cut for and every pass ran and drew nothing. A
+  virtualized document has no `SingleStage` in it — a cluster draw is not a stage — so this node is the
+  only place a view can enter the frame, and it had no way to name one.
+- **The bone palette buffer did not exist in a frame with nothing skinned**, and the raster declares the
+  binding whether or not any instance reaches it. The frame's palette is seeded with its identity
+  unconditionally now.
+
+⚠ **What still does not exist is an application.** `Vixen.App.Game` is a window and a frame loop, and
+nothing joins it to `SceneRenderHost` — the samples open a device and issue draws directly. A game can
+be written against the host today; a sample showing how has not been.
+
 **And a document can now place the whole path**, which it could not while its sibling could:
 `GpuCullingAsset` has had a node since phase 3 and the traversal one level down the same hierarchy could
 only be assembled in code. `ClusterCulling` and `VisibilityBuffer` are the two nodes, on exactly the

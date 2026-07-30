@@ -898,6 +898,8 @@ Vixen.Rendering.Compositor.VisibilityBufferAsset.Name.get -> string
 Vixen.Rendering.Compositor.VisibilityBufferAsset.Name.init -> string
 Vixen.Rendering.Compositor.VisibilityBufferAsset.Output.get -> string
 Vixen.Rendering.Compositor.VisibilityBufferAsset.Output.init -> string
+Vixen.Rendering.Compositor.VisibilityBufferAsset.View.get -> string
+Vixen.Rendering.Compositor.VisibilityBufferAsset.View.init -> string
 Vixen.Rendering.Compositor.VisibilityBufferAsset.ViewIndex.get -> int
 Vixen.Rendering.Compositor.VisibilityBufferAsset.ViewIndex.init -> int
 Vixen.Rendering.Compositor.VisibilityBufferAsset.VisibilityBufferAsset() -> void
@@ -917,6 +919,8 @@ Vixen.Rendering.Compositor.VisibilityBufferRenderer.SceneConstants.get -> Vixen.
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.SceneConstants.set -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.Tiles.get -> Vixen.Rendering.GpuVisibilityTiles?
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.Tiles.set -> Vixen.Rendering.GpuVisibilityTiles?
+Vixen.Rendering.Compositor.VisibilityBufferRenderer.View.get -> Vixen.Rendering.RenderView?
+Vixen.Rendering.Compositor.VisibilityBufferRenderer.View.set -> Vixen.Rendering.RenderView?
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.ViewConstants.get -> Vixen.Rendering.ViewConstants?
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.ViewConstants.set -> Vixen.Rendering.ViewConstants?
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.ViewIndex.get -> int
@@ -3033,6 +3037,43 @@ Vixen.Rendering.ViewConstants.Size.set -> int
 Vixen.Rendering.ViewConstants.Slot.get -> Vixen.Graphics.DescriptorSetSlot
 Vixen.Rendering.ViewConstants.Slot.set -> Vixen.Graphics.DescriptorSetSlot
 Vixen.Rendering.ViewConstants.ViewConstants(Vixen.Graphics.IGraphicsDevice device, string name = "View") -> void
+Vixen.Rendering.VirtualGeometryAsset -> readonly struct
+Vixen.Rendering.VirtualGeometryAsset : System.IEquatable<Vixen.Rendering.VirtualGeometryAsset>
+Vixen.Rendering.VirtualGeometryAsset.Hierarchy.get -> Vixen.Rendering.VirtualGeometry.MeshletMesh
+Vixen.Rendering.VirtualGeometryAsset.Hierarchy.init -> Vixen.Rendering.VirtualGeometry.MeshletMesh
+Vixen.Rendering.VirtualGeometryAsset.Pages.get -> Vixen.Rendering.VirtualGeometry.MeshletPageSet
+Vixen.Rendering.VirtualGeometryAsset.Pages.init -> Vixen.Rendering.VirtualGeometry.MeshletPageSet
+Vixen.Rendering.VirtualGeometryAsset.VirtualGeometryAsset() -> void
+Vixen.Rendering.VirtualGeometryAsset.VirtualGeometryAsset(Vixen.Rendering.VirtualGeometry.MeshletMesh Hierarchy, Vixen.Rendering.VirtualGeometry.MeshletPageSet Pages) -> void
+Vixen.Rendering.VirtualGeometryContent -> static class
+Vixen.Rendering.VirtualGeometrySystem -> sealed class
+Vixen.Rendering.VirtualGeometrySystem : System.IDisposable
+Vixen.Rendering.VirtualGeometrySystem.Content(int id, System.ReadOnlySpan<byte> hierarchy, System.ReadOnlySpan<byte> pages, System.IO.Stream data) -> int
+Vixen.Rendering.VirtualGeometrySystem.Dispose() -> void
+Vixen.Rendering.VirtualGeometrySystem.Effects.get -> Vixen.Shaders.EffectSystem?
+Vixen.Rendering.VirtualGeometrySystem.Effects.set -> Vixen.Shaders.EffectSystem?
+Vixen.Rendering.VirtualGeometrySystem.Feature.get -> Vixen.Rendering.Features.VirtualGeometryRenderFeature
+Vixen.Rendering.VirtualGeometrySystem.Materials.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.ResolveMaterial>
+Vixen.Rendering.VirtualGeometrySystem.Materials.set -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.ResolveMaterial>
+Vixen.Rendering.VirtualGeometrySystem.MeshCount.get -> int
+Vixen.Rendering.VirtualGeometrySystem.Modules.get -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
+Vixen.Rendering.VirtualGeometrySystem.Modules.set -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
+Vixen.Rendering.VirtualGeometrySystem.Pages.get -> Vixen.Rendering.MeshletPagePool
+Vixen.Rendering.VirtualGeometrySystem.Pipelines.get -> Vixen.Rendering.ComputePipelineCache?
+Vixen.Rendering.VirtualGeometrySystem.Pipelines.set -> Vixen.Rendering.ComputePipelineCache?
+Vixen.Rendering.VirtualGeometrySystem.Raster.get -> Vixen.Rendering.GpuClusterRaster
+Vixen.Rendering.VirtualGeometrySystem.Register(Vixen.Rendering.RenderSystem system) -> void
+Vixen.Rendering.VirtualGeometrySystem.Residency.get -> Vixen.Rendering.PageResidency
+Vixen.Rendering.VirtualGeometrySystem.Resolve.get -> Vixen.Rendering.GpuClusterResolve
+Vixen.Rendering.VirtualGeometrySystem.Scene.get -> Vixen.Rendering.SceneConstants?
+Vixen.Rendering.VirtualGeometrySystem.Scene.set -> Vixen.Rendering.SceneConstants?
+Vixen.Rendering.VirtualGeometrySystem.Source.get -> Vixen.Rendering.StreamMeshletPageSource
+Vixen.Rendering.VirtualGeometrySystem.Supply(Vixen.Rendering.Compositor.CompositorBuilder builder) -> void
+Vixen.Rendering.VirtualGeometrySystem.Tiles.get -> Vixen.Rendering.GpuVisibilityTiles
+Vixen.Rendering.VirtualGeometrySystem.ViewConstants.get -> Vixen.Rendering.ViewConstants?
+Vixen.Rendering.VirtualGeometrySystem.ViewConstants.set -> Vixen.Rendering.ViewConstants?
+Vixen.Rendering.VirtualGeometrySystem.VirtualGeometrySystem(Vixen.Graphics.IGraphicsDevice device, int slots = 512, int pageSize = 131072) -> void
+Vixen.Rendering.VirtualGeometrySystem.Visibility.get -> Vixen.Rendering.GpuClusterVisibility
 Vixen.Rendering.VisibilityGroup -> sealed class
 Vixen.Rendering.VisibilityGroup : System.IDisposable
 Vixen.Rendering.VisibilityGroup : Vixen.Rendering.IVisibilityGroup
@@ -3349,6 +3390,9 @@ const Vixen.Rendering.Sprites.Sprite.DefaultPixelsPerUnit = 100 -> float
 const Vixen.Rendering.Sprites.SpriteGeometry.IndicesPerQuad = 6 -> int
 const Vixen.Rendering.Sprites.SpriteGeometry.TileLimit = 64 -> int
 const Vixen.Rendering.Sprites.SpriteGeometry.VerticesPerQuad = 4 -> int
+const Vixen.Rendering.VirtualGeometryContent.HierarchyArtifact = "Meshlets" -> string
+const Vixen.Rendering.VirtualGeometryContent.PageArtifact = "MeshletPages" -> string
+const Vixen.Rendering.VirtualGeometryContent.PageDataArtifact = "MeshletPageData" -> string
 const Vixen.Shaders.Generated.BloomConstants.Size = 32 -> int
 const Vixen.Shaders.Generated.BloomKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.BloomKeys.ConstantBufferSet = 2 -> int
@@ -3708,6 +3752,7 @@ override Vixen.Rendering.Compositor.SingleStageRenderer.Collect(Vixen.Rendering.
 override Vixen.Rendering.Compositor.SingleStageRenderer.Record(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.RenderDrawContext context) -> void
 override Vixen.Rendering.Compositor.SingleStageRenderer.ToString() -> string
 override Vixen.Rendering.Compositor.VisibilityBufferRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
+override Vixen.Rendering.Compositor.VisibilityBufferRenderer.Collect(Vixen.Rendering.Compositor.GraphicsCompositor compositor) -> void
 override Vixen.Rendering.Ecs.GeometryKey.ToString() -> string
 override Vixen.Rendering.Ecs.LightExtractionSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Rendering.Ecs.MeshExtractionSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
@@ -3981,6 +4026,8 @@ static Vixen.Rendering.SurfaceGeometry.VertexCount(Vixen.Rendering.MeshData mesh
 static Vixen.Rendering.SurfaceVertex.Locations.get -> Vixen.Rendering.VertexLocations
 static Vixen.Rendering.SurfaceVertex.SizeInBytes.get -> int
 static Vixen.Rendering.VfxGpuSimulation.Groups(int count) -> int
+static Vixen.Rendering.VirtualGeometryContent.Load(Vixen.Rendering.Features.VirtualGeometryRenderFeature feature, Vixen.Rendering.StreamMeshletPageSource source, int id, System.ReadOnlySpan<byte> hierarchy, System.ReadOnlySpan<byte> pages, System.IO.Stream data) -> int
+static Vixen.Rendering.VirtualGeometryContent.Read(System.ReadOnlySpan<byte> hierarchy, System.ReadOnlySpan<byte> pages) -> Vixen.Rendering.VirtualGeometryAsset
 static readonly Vixen.Rendering.Lighting.CubeMapping.Faces -> Vixen.Rendering.CubeFace[]
 static readonly Vixen.Rendering.ViewConstants.View -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Rendering.ViewConstants.ViewPosition -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>

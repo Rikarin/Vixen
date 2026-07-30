@@ -22,6 +22,10 @@
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Editor.Assets\Vixen.Editor.Assets.csproj" />
 
+        <!-- The device the loader registers a mesh against. What is being tested is the join between an
+             import and the runtime, and the runtime half needs somewhere to put its buffers. -->
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
+
         <!--
           Analyzers do not flow transitively through a ProjectReference. The fixture importer settings
           here are [DataContract] types the binder has to describe, and the end-to-end test writes a

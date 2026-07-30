@@ -4,9 +4,9 @@
         <TargetFramework>net10.0</TargetFramework>
         <RootNamespace>Vixen.Engine.Renderer</RootNamespace>
         <Description>
-            The GPU half of the debug geometry: the renderer that drains a DebugDraw once a frame —
-            world lines, billboarded labels and the screen-space diagnostic overlays — into two line
-            draws.
+            Where the engine's scene meets the renderer: SceneRenderHost, which turns a compositor
+            document, a device and a render system into a recorded frame, and the renderer that drains a
+            DebugDraw once a frame into two line draws.
         </Description>
         <PackageTags>debug-draw;diagnostics;overlay;rendering;game-engine;vixen</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>

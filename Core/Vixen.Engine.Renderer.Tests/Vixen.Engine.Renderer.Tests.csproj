@@ -21,6 +21,13 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Engine.Renderer\Vixen.Engine.Renderer.csproj" />
+
+        <!-- The device a frame can be recorded against without one. SceneRenderHost's whole claim is
+             about the order commands are recorded in, which is exactly what the recorder can answer. -->
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
+
+        <!-- A compositor is a document, and the point of the host is that it builds one. -->
+        <ProjectReference Include="..\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
     </ItemGroup>
 
     <!-- Measured, the guarded allocation measurement. See Testing/Vixen.Testing.props. -->

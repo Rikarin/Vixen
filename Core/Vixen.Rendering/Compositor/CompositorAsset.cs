@@ -734,6 +734,14 @@ public sealed record VisibilityBufferAsset : ISceneRendererAsset {
     /// <summary>The scene colour the resolve adds radiance to. Named, not created.</summary>
     public string Colour { get; init; } = "SceneColour";
 
+    /// <summary>The view it draws from, by the name the document's views are known by.</summary>
+    /// <remarks>
+    ///     A virtualized document has no <c>SingleStage</c> in it — a cluster draw is not a stage — so
+    ///     this is the only place a view enters the frame. A document that names none collects none, and
+    ///     the traversal then has nothing to choose a cut for.
+    /// </remarks>
+    public string View { get; init; } = string.Empty;
+
     /// <summary>Which of the frame's views it draws.</summary>
     public int ViewIndex { get; init; }
 }
