@@ -307,33 +307,24 @@ public sealed class ScreenProbeTexture : IDisposable {
         return true;
     }
 
-    /// <summary>Writes the four resolved-probe planes where a consuming pass's set is filled from.</summary>
-    /// <param name="parameters">The pass's parameters.</param>
-    /// <exception cref="ArgumentNullException">There are no parameters.</exception>
-    /// <exception cref="InvalidOperationException">The textures do not exist yet.</exception>
+    /// <summary>One plane's texture, for importing into a compositor's graph.</summary>
+    /// <param name="plane">Which one.</param>
     /// <remarks>
-    ///     Unqualified names — <c>probeL0</c> and its siblings — because the upsample declares the
-    ///     planes directly rather than composing them through a slot: which probes a screen has is a
-    ///     fact about the frame, not a configuration a project swaps. Call after the first
-    ///     <see cref="Upload" />, which is what makes the views exist to be written.
+    ///     The planes reach a consuming pass as graph imports rather than as parameter writes — a
+    ///     <c>ResourceBinding</c> resolves textures against the graph and nothing else, and an import
+    ///     is also what tells the graph the planes are already in <see cref="ResourceState.ShaderRead" />
+    ///     so it will not transition what the resolve owns.
     /// </remarks>
-    public void Apply(ParameterCollection parameters) {
-        ArgumentNullException.ThrowIfNull(parameters);
+    public TextureHandle ProbePlane(int plane) => probes[plane];
 
-        if (!IsCreated) {
-            throw new InvalidOperationException(
-                "The probe planes do not exist yet — Upload creates them, and a name bound to an "
-                + "invalid view is a descriptor write that refuses the whole set."
-            );
-        }
-
-        for (var plane = 0; plane < ProbePlanes; plane++) {
-            parameters.Set(ParameterKeys.New<TextureViewHandle>(PlaneNames[plane]), probeViews[plane]);
-        }
-    }
-
-    /// <summary>The consuming shader's names for the four probe planes, in packing order.</summary>
-    static readonly string[] PlaneNames = ["probeL0", "probeL1R", "probeL1G", "probeL1B"];
+    /// <summary>What one plane is, for the same import.</summary>
+    public TextureDescription ProbePlaneDescription =>
+        new(
+            PixelFormat.Rgba32Float,
+            Probes.Layout.GridSize.X,
+            Probes.Layout.GridSize.Y,
+            TextureUsage.Sampled | TextureUsage.CopySource | TextureUsage.Storage
+        );
 
     /// <inheritdoc />
     public void Dispose() {

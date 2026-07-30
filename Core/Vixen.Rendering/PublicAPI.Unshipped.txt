@@ -1816,7 +1816,6 @@ Vixen.Rendering.Lighting.ScreenProbeResolve.ScreenProbeResolve(Vixen.Graphics.IG
 Vixen.Rendering.Lighting.ScreenProbeResolve.Skipped.get -> string?
 Vixen.Rendering.Lighting.ScreenProbeTexture -> sealed class
 Vixen.Rendering.Lighting.ScreenProbeTexture : System.IDisposable
-Vixen.Rendering.Lighting.ScreenProbeTexture.Apply(Vixen.Shaders.ParameterCollection parameters) -> void
 Vixen.Rendering.Lighting.ScreenProbeTexture.Atlas.get -> Vixen.Graphics.TextureHandle
 Vixen.Rendering.Lighting.ScreenProbeTexture.AtlasIsWritten.get -> bool
 Vixen.Rendering.Lighting.ScreenProbeTexture.AtlasIsWritten.init -> bool
@@ -1824,6 +1823,8 @@ Vixen.Rendering.Lighting.ScreenProbeTexture.AtlasView.get -> Vixen.Graphics.Text
 Vixen.Rendering.Lighting.ScreenProbeTexture.Dispose() -> void
 Vixen.Rendering.Lighting.ScreenProbeTexture.IsCreated.get -> bool
 Vixen.Rendering.Lighting.ScreenProbeTexture.OrderAtlas(Vixen.Graphics.ICommandList commands) -> void
+Vixen.Rendering.Lighting.ScreenProbeTexture.ProbePlane(int plane) -> Vixen.Graphics.TextureHandle
+Vixen.Rendering.Lighting.ScreenProbeTexture.ProbePlaneDescription.get -> Vixen.Graphics.TextureDescription
 Vixen.Rendering.Lighting.ScreenProbeTexture.ProbeView(int plane) -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Lighting.ScreenProbeTexture.Probes.get -> Vixen.Rendering.ScreenProbes.ScreenProbeAtlas
 Vixen.Rendering.Lighting.ScreenProbeTexture.RecordProbeReadback(Vixen.Graphics.ICommandList commands) -> bool

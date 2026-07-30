@@ -124,10 +124,13 @@ field's sampler does.
 - **The frame.** The upsample pass exists — `ScreenProbeUpsample.rvn` in the PostFx package and
   `ScreenProbeUpsampleRenderer` beside `IndirectDiffuse`, four validity-renormalised taps of the
   resolved planes with the lattice walk pinned against `ScreenProbeLayout.Bilinear` pixel by pixel —
-  but ⚠ **a frame has not drawn it**: it compiles against the whole library and its binding names
-  are pinned, and the image test through a real compositor is the next increment, together with
-  probe placement from the real depth buffer and the node that runs trace, resolve and upsample as
-  one schedule. Bilinear only until the denoiser brings the bilateral weights.
+  and **a frame has drawn it**: the image test runs the pass through a real compositor over the
+  device-resolved planes, and a uniform sky comes back as a flat frame while the sky's own pixels
+  stay dark. What the first frame found: a full-screen pass's textures resolve through the graph
+  and nothing else, so the planes travel as imports already in their own state — and a pass that
+  composes nothing still names every slot its source set declares. Owed: probe placement from the
+  real depth buffer, and the node that runs trace, resolve and upsample as one schedule. Bilinear
+  only until the denoiser brings the bilateral weights.
 
 **Nothing here creates or calls a graphics device.** The assembly references
 `Vixen.Rendering.DistanceFields` for the reference's marching and `Vixen.Rendering.IrradianceFields`

@@ -629,6 +629,8 @@ required Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.Depth.get -> string
 required Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.Depth.init -> string
 required Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.Normals.get -> string
 required Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.Normals.init -> string
+required Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.Planes.get -> string[]
+required Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.Planes.init -> string[]
 required Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.Probes.get -> Vixen.Rendering.Lighting.ScreenProbeTexture
 required Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.Probes.init -> Vixen.Rendering.Lighting.ScreenProbeTexture
 required Vixen.Rendering.PostFx.SharpenRenderer.Source.get -> string

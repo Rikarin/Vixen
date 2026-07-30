@@ -4,6 +4,7 @@
 using Vixen.Core.Mathematics;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Lighting;
+using Vixen.Rendering.Materials;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
 
@@ -42,7 +43,17 @@ public sealed class ScreenProbeUpsampleRenderer() : PostEffectRenderer(
     public required string Normals { get; init; }
 
     /// <summary>The probes to upsample — the mirror whose planes the resolve wrote.</summary>
+    /// <remarks>What the lattice constants come from; the planes themselves arrive as graph imports.</remarks>
     public required ScreenProbeTexture Probes { get; init; }
+
+    /// <summary>The four planes' graph names, in packing order — imported by whoever owns the frame.</summary>
+    /// <remarks>
+    ///     Graph names rather than the mirror's own views, because a <c>ResourceBinding</c> resolves
+    ///     textures against the graph and nothing else — a view handed over directly is a descriptor
+    ///     the pass would have to write itself, which is exactly the seam every compute driver here
+    ///     crosses by hand and a full-screen pass does not.
+    /// </remarks>
+    public required string[] Planes { get; init; }
 
     /// <summary>A multiplier on the result, for <see cref="IndirectDiffuseRenderer.Intensity" />'s reasons.</summary>
     public float Intensity { get; set; } = 1f;
@@ -56,6 +67,10 @@ public sealed class ScreenProbeUpsampleRenderer() : PostEffectRenderer(
         ArgumentNullException.ThrowIfNull(frame);
         ArgumentNullException.ThrowIfNull(parameters);
 
+        // A composition for a shader that composes nothing — the rule is about the compilation, and
+        // this pass shares a source set with three shaders that declare slots it has never heard of.
+        Pass.Composition = MaterialCompiler.PassComposition();
+
         var layout = Probes.Probes.Layout;
 
         parameters.Set(ScreenProbeUpsampleKeys.TileSize, (float)layout.TileSize);
@@ -67,7 +82,10 @@ public sealed class ScreenProbeUpsampleRenderer() : PostEffectRenderer(
         parameters.Set(ScreenProbeUpsampleKeys.Viewport, new Vector2(layout.Viewport.X, layout.Viewport.Y));
         parameters.Set(ScreenProbeUpsampleKeys.Intensity, Intensity);
 
-        Probes.Apply(parameters);
+        Read(bindings, ScreenProbeUpsampleKeys.ProbeL0Binding, Planes[0]);
+        Read(bindings, ScreenProbeUpsampleKeys.ProbeL1RBinding, Planes[1]);
+        Read(bindings, ScreenProbeUpsampleKeys.ProbeL1GBinding, Planes[2]);
+        Read(bindings, ScreenProbeUpsampleKeys.ProbeL1BBinding, Planes[3]);
 
         Read(bindings, ScreenProbeUpsampleKeys.DepthBufferBinding, Depth);
         Read(bindings, ScreenProbeUpsampleKeys.NormalBufferBinding, Normals);

@@ -688,10 +688,16 @@ the sky rejected by the reversed-depth zero test that bit twice before. Its latt
 emulated in C# and held against `ScreenProbeLayout.Bilinear` for every pixel of a clamping
 viewport — the pixel-centre and lattice-origin halves are this pass's half-texel, wrong-silently on
 either side alone — and a compile test pins the reflected binding names to what
-`ScreenProbeTexture.Apply` writes. What does not exist is the frame: the image test through a real
-compositor, probe placement from the real depth buffer, and the node that runs trace, resolve and
-upsample as one schedule are the next increment, and this document's own history says what a first
-frame finds. Bilinear only until the denoiser brings the bilateral weights.
+`ScreenProbeTexture.Apply` writes. **And a frame has drawn it.** The image test runs the pass through a real compositor over
+device-resolved planes: a uniform sky crosses the atlas, the solid-angle table, the resolve
+dispatch, the four planes, the lattice walk and the graph's scheduling, and comes back as a flat
+frame of itself — with the sky's own pixels dark under the reversed-depth test. The first frame
+found what first frames find here, twice: a full-screen pass's textures resolve through the graph
+and nothing else, so the resolved planes travel as imports already in their own state rather than
+as parameter writes; and a pass that composes nothing still names every slot its source set
+declares, which is the RVN2073 rule caught this time by the pass's own composition being empty.
+Owed: probe placement from the real depth buffer and the node that schedules trace, resolve and
+upsample as one graph. Bilinear only until the denoiser brings the bilateral weights.
 
 Still not started: screen traces against the HZB (the trace order's first stage, which needs that
 frame), adaptive placement, importance sampling, and the whole denoiser.
