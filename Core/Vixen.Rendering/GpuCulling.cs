@@ -112,6 +112,41 @@ public static class GpuCulling {
     /// </remarks>
     public const float ClipEpsilon = 0.0001f;
 
+    /// <summary>
+    ///     Every storage-buffer binding of the culling set, whichever variant is being dispatched.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>A permutation removes code and not declarations.</strong> Both variants of
+    ///         <c>Culling.rvn</c> declare all of these, so both descriptor-set layouts contain all of
+    ///         them — and a set bound with any of them unwritten is a validation error on a device and
+    ///         nothing at all in a compilation, which is the failure mode the one-texel occluder
+    ///         placeholder already exists for. So a dispatch fills the ones it uses and points the rest
+    ///         at a placeholder, and this is the list that says what "the rest" is.
+    ///     </para>
+    ///     <para>
+    ///         Here rather than inside either group because there are two of them —
+    ///         <see cref="GpuVisibilityGroup" /> uses the first four and
+    ///         <see cref="GpuClusterVisibility" /> the last seven — and a binding added to the shader
+    ///         has to reach both. <c>GpuVisibilityGroupTests</c> compares this against the checked-in
+    ///         reflection, so adding one to the <c>.rvn</c> and not to this list is a failing test
+    ///         rather than a device that loses itself the first time somebody profiles on Vulkan.
+    ///     </para>
+    /// </remarks>
+    public static uint[] SetBindings =>
+    [
+        CullingKeys.ObjectsBinding,
+        CullingKeys.ViewsBinding,
+        CullingKeys.VisibilityBinding,
+        CullingKeys.ClusterRecordsBinding,
+        CullingKeys.InstancesBinding,
+        CullingKeys.ChildrenBinding,
+        CullingKeys.RootsBinding,
+        CullingKeys.VisibleBinding,
+        CullingKeys.RequestsBinding,
+        CullingKeys.ResidencyBinding
+    ];
+
     /// <summary>The name of the shader that builds the depth pyramid.</summary>
     public const string ReduceShaderName = HiZReduceKeys.ShaderName;
 

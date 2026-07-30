@@ -1,0 +1,185 @@
+package Vixen.Shaders.Pipeline
+
+import Vixen.Shaders.Core
+
+// Binning the visibility buffer by material: the first half of phase 5's resolve.
+//
+// **This is where improvement 2 of `docs/plan/22-virtualized-geometry.md` is paid for.** Nanite resolves its
+// visibility buffer into a GBuffer, which is a large part of why Unreal is deferred-first. The
+// alternative here is to bin the screen into tiles by which materials appear in them and dispatch the
+// *existing* clustered forward shading over each material's tiles — one shading path, one material
+// tree, and mobile bandwidth. A material covering one per cent of the screen then dispatches over one
+// per cent of the tiles rather than rasterizing a depth-tested full-screen quad.
+//
+// **The honest cost is stated rather than hidden.** A screen where every tile holds every material
+// degenerates to the same work UE does with extra bookkeeping on top. Materials are spatially coherent
+// in practice, and that is the assumption — not a claim that the worst case does not exist.
+//
+// **One pass, two outputs, no second dispatch to compact.** A tile appends itself to its material's
+// list with one atomic on that material's counter, and the counters *are* the indirect dispatch
+// arguments — element zero of each material's argument triple is its tile count, so a
+// `DispatchIndirect` reads what this pass wrote with nothing in between.
+
+/// The tiling's shape, and the arithmetic both the binner and the resolve address tiles with.
+///
+/// Constants rather than permutations because a host and both shaders have to agree on the byte layout
+/// of the lists these index — the same argument `ClusterGrid` makes.
+struct VisibilityTile {
+    /// How many pixels a tile is on a side.
+    ///
+    /// Eight, so a tile is sixty-four pixels and one workgroup resolves it with one invocation each.
+    /// Smaller tiles bin more precisely and cost more lists; larger ones put more materials in a tile,
+    /// and a tile is dispatched once per material in it. Sixty-four is also the workgroup size the rest
+    /// of the library uses, which is not a coincidence worth breaking.
+    const val Size = 8
+
+    /// How many tiles one material's list can hold.
+    ///
+    /// A whole 1440p screen is 43 200 tiles, so this holds a material covering about a quarter of it.
+    /// Overflow drops the tile rather than growing the list — see `Append`, and see
+    /// `GpuVisibilityTiles.Overflowed`, which is how a host finds out.
+    const val Capacity = 12288
+
+    /// How many materials the binning covers.
+    ///
+    /// A ceiling on the *bins*, not on the scene: a material past this is not binned and so is not
+    /// resolved, which the host reports rather than draws wrong.
+    const val MaxMaterials = 64
+
+    /// The three words a `DispatchIndirect` reads: workgroups in x, y and z.
+    const val ArgumentWords = 3
+
+    /// How many tiles cover a screen of this many pixels.
+    static func CountFor(size: int2): int2 => int2((size.x + Size - 1) / Size, (size.y + Size - 1) / Size)
+
+    /// Which tile a pixel is in.
+    static func Of(pixel: int2): int2 => int2(pixel.x / Size, pixel.y / Size)
+
+    /// One tile's index in a row-major grid of them.
+    static func Index(tile: int2, count: int2): int => tile.y * count.x + tile.x
+
+    /// The tile a row-major index names.
+    static func Unindex(index: int, count: int2): int2 => int2(index % count.x, index / count.x)
+}
+
+shader VisibilityTiles {
+    /// The identity buffer the raster wrote. See `ClusterRaster.rvn`.
+    var identities: Texture2D
+
+    /// One record per instance, for the mesh each visible cluster belongs to.
+    var instances: Buffer<CullInstance>
+
+    /// Which material each cluster's mesh uses, indexed as `clusterRecords` is.
+    ///
+    /// Per cluster rather than per mesh, because that is what phase 8 wants: a build knows whether a
+    /// material discards or perturbs position, and routing *those* clusters to a distinct raster
+    /// permutation needs the material to be a cluster's property. Today every cluster of a mesh shares
+    /// one value, and nothing here depends on that.
+    var clusterMaterials: Buffer<uint>
+
+    /// The clusters the traversal accepted. Element zero is the count.
+    var visible: Buffer<uint>
+
+    /// Each material's tile list, `VisibilityTile.Capacity` words apart.
+    var tiles: RWBuffer<uint>
+
+    /// Each material's dispatch arguments, three words apart. Element zero of each is its tile count.
+    ///
+    /// **The counter and the argument are one word**, which is what removes the compaction pass: the
+    /// atomic that appends a tile is the same write that tells `DispatchIndirect` how many workgroups
+    /// to launch. The other two words are ones, written by the host once.
+    var arguments: RWBuffer<uint>
+
+    /// How many tiles cover the screen, in x and y.
+    var tileCount: int2
+
+    /// How many materials are binned this frame, at most `VisibilityTile.MaxMaterials`.
+    var materialCount: int
+
+    /// Which materials this tile holds, one bit each.
+    ///
+    /// **Shared, and the reason the pass is one workgroup per tile.** Sixty-four pixels each read one
+    /// identity and set one bit; then one lane walks the bits and appends the tile once per material
+    /// present. Without the shared word every pixel would have to append, and a tile of sixty-four
+    /// pixels of one material would append it sixty-four times.
+    groupshared var present: uint[2]
+
+    /// One workgroup per tile, one invocation per pixel of it.
+    ///
+    /// The dispatch is `(tileCount.x, tileCount.y, 1)` with a workgroup of `Size * Size`, so a tile is
+    /// a workgroup exactly and a pixel is a lane. Out-of-range pixels — the screen's right and bottom
+    /// edges, where a tile hangs over — read nothing and set no bit.
+    [ComputeShader(64)]
+    func Main([Semantic("SV_GroupID")] group: uint3, [Semantic("SV_GroupIndex")] lane: uint) {
+        if (lane < 2u) {
+            present[int(lane)] = 0u
+        }
+
+        barrier()
+
+        val tile = int2(int(group.x), int(group.y))
+        val pixel = tile * VisibilityTile.Size + int2(int(lane) % VisibilityTile.Size, int(lane) / VisibilityTile.Size)
+        val size = identities.GetDimensions(0)
+
+        if (pixel.x < size.x && pixel.y < size.y) {
+            // `asuint`, because the target is `R32_UINT` and Raven's `Texture2D` reads a float.
+            // A bitcast is the right operation and not a workaround: the texel *is* the identity's
+            // bits, and a numeric conversion would round twenty-five bits of cluster index into a
+            // mantissa that holds twenty-four. Both backends emit a reinterpret with no instruction.
+            val identity = asuint(identities.Load(int3(pixel.x, pixel.y, 0)).x)
+
+            if (Raster.Covered(identity)) {
+                val material = MaterialOf(identity)
+
+                if (material < uint(materialCount) && material < uint(VisibilityTile.MaxMaterials)) {
+                    atomicOr(present[int(material / 32u)], 1u << int(material % 32u))
+                }
+            }
+        }
+
+        barrier()
+
+        // One lane appends, because a tile belongs to a material once however many of its pixels do.
+        if (lane == 0u) {
+            val index = uint(VisibilityTile.Index(tile, tileCount))
+
+            for (i in 0 .. VisibilityTile.MaxMaterials - 1) {
+                if (i >= materialCount) {
+                    break
+                }
+
+                if ((present[i / 32] & (1u << (i % 32))) != 0u) {
+                    Append(uint(i), index)
+                }
+            }
+        }
+    }
+
+    /// Which material a pixel's cluster uses.
+    func MaterialOf(identity: uint): uint {
+        val slot = Raster.Slot(identity)
+
+        if (slot + 1u >= uint(visible.Length)) {
+            return 0u
+        }
+
+        val packed = visible[int(slot + 1u)]
+        val instance = instances[int(Cull.VisibleInstance(packed))]
+
+        return clusterMaterials[int(instance.firstCluster + Cull.VisibleCluster(packed))]
+    }
+
+    /// Appends a tile to a material's list, and counts it for the dispatch.
+    ///
+    /// The overflow is a drop rather than a wrap: a wrapped write would overwrite a tile the resolve is
+    /// about to shade, which is a tile shaded twice and another not at all. A dropped tile is a hole,
+    /// which is worse to look at and far easier to find — and `arguments` still counts it, so a host
+    /// comparing the count against the capacity knows.
+    func Append(material: uint, tile: uint) {
+        val at = atomicAdd(arguments[int(material) * VisibilityTile.ArgumentWords], 1u)
+
+        if (at < uint(VisibilityTile.Capacity)) {
+            tiles[int(material * uint(VisibilityTile.Capacity) + at)] = tile
+        }
+    }
+}

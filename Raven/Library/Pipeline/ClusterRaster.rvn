@@ -1,0 +1,199 @@
+package Vixen.Shaders.Pipeline
+
+import Vixen.Shaders.Core
+
+// Phase 4 of `docs/plan/22-virtualized-geometry.md`: the hardware-raster visibility buffer.
+//
+// One instanced draw covers every cluster the traversal accepted. `SV_InstanceID` is the slot in the
+// visible list, `SV_VertexID` is a corner of one of the cluster's triangles, and everything else —
+// which mesh, which page, which vertex, where in the world — is fetched from buffers. There is no
+// vertex buffer, no index buffer with the mesh's indices in it, and no per-object draw call.
+//
+// **What it writes is an identity, not a colour.** One `uint` per pixel naming the visible-list slot
+// and the triangle within its cluster, with ordinary depth test and depth write. Phase 5's resolve
+// then fetches the triangle, recovers barycentrics from the pixel and runs the material — which is
+// why nothing about a material appears here, and why this shader is the same for every material in
+// the project.
+//
+// **No atomics, no 64-bit anything, no compute.** That is deliberate and is what makes this the
+// portable baseline: the depth test is the hardware's, and the identity rides through the rasteriser
+// as a flat varying. Phase 6's software raster is the accelerator for sub-pixel triangles and needs
+// both of the things this does without.
+
+/// The packing and the decode the raster and the resolve have to agree about.
+struct Raster {
+    /// How many bits of the identity word name the triangle within its cluster.
+    ///
+    /// Seven, for the hundred and twenty-eight triangles a cluster is built to hold — see
+    /// `MeshletBuildSettings.MaxTriangles`. The other twenty-five name the visible-list slot, which
+    /// bounds a frame at thirty-three million drawn clusters.
+    const val TriangleBits = 7
+
+    const val TriangleMask = 0x7Fu
+
+    /// What a pixel nothing covered holds.
+    const val Nothing = 0u
+
+    /// One pixel's identity: which visible cluster, and which of its triangles.
+    ///
+    /// **The slot is stored one higher than it is**, so that zero means "nothing covered this pixel".
+    /// The obvious alternative is to clear the target to all ones — but a clear colour is four floats in
+    /// every API the RHI wraps, and there is no float whose bits are `0xFFFFFFFF` that also survives
+    /// being interpreted as one. Biasing by one makes the empty value zero, which every backend can
+    /// clear a `uint` target to, and costs an increment in the one place that packs and a decrement in
+    /// the one place that unpacks.
+    static func Pack(slot: uint, triangle: uint): uint => ((slot + 1u) << TriangleBits) | (triangle & TriangleMask)
+
+    /// Whether anything drew to this pixel at all.
+    static func Covered(id: uint): bool => id != Nothing
+
+    /// Which visible-list slot a pixel names. Meaningless unless `Covered`.
+    static func Slot(id: uint): uint => (id >> TriangleBits) - 1u
+
+    /// Which triangle of that cluster it names.
+    static func Triangle(id: uint): uint => id & TriangleMask
+}
+
+/// Where one cluster's bytes are inside its page, and how to decode them.
+///
+/// `CullCluster`'s other half, and split from it for the reason the whole phase is split that way: a
+/// traversal reads bounds and errors for every cluster it tests, and a raster reads this for only the
+/// ones it draws. Two buffers means the traversal's reads stay dense.
+struct RasterCluster {
+    /// The cluster's origin on the mesh's quantization grid, in whole grid steps.
+    var origin: int3
+
+    /// Which page holds its bytes.
+    var page: uint
+
+    /// Where its vertices start, in bytes from the page's own start.
+    var vertexOffset: uint
+
+    /// Where its triangle corners start, in bytes from the page's own start.
+    var triangleOffset: uint
+
+    /// How many triangles it has.
+    var triangleCount: uint
+
+    /// How many bytes one of its vertices occupies.
+    var vertexStride: uint
+}
+
+/// One mesh's quantization grid.
+///
+/// Per mesh and not per cluster, which is the property that keeps a cut crack-free: a vertex on a
+/// locked boundary is referenced by a cluster on each side, and only a grid they share decodes it to
+/// the same bits from both. See `MeshletPageSet.QuantizationStep`.
+struct RasterMesh {
+    var quantizationOrigin: float3
+    var quantizationStep: float
+}
+
+shader ClusterRaster {
+    /// The clusters the traversal accepted. Element zero is the count, which the draw's own arguments
+    /// carry — so this stage indexes from one.
+    var visible: Buffer<uint>
+
+    /// One record per instance, as `Culling.rvn` writes it.
+    var instances: Buffer<CullInstance>
+
+    /// Where each cluster's bytes are, indexed as `clusterRecords` is.
+    var geometry: Buffer<RasterCluster>
+
+    /// One record per registered mesh.
+    var meshes: Buffer<RasterMesh>
+
+    /// Where each page sits in the pool, or `Cull.PageAbsent`. The same table the traversal read.
+    var residency: Buffer<uint>
+
+    /// The page pool, as words. A page's bytes are `pageSize` from `residency[page] * pageSize`.
+    ///
+    /// Words rather than bytes because a storage buffer has no byte element type, so every read here is
+    /// a word load and a shift — which is what `Bytes` and `Shorts` below exist to say once.
+    var pages: Buffer<uint>
+
+    /// How many bytes one page occupies in the pool.
+    var pageSize: uint
+
+    /// The camera.
+    var viewProjection: mat4
+
+    /// Which visible cluster and which of its triangles this fragment belongs to.
+    ///
+    /// An integer varying, so `flat` by necessity rather than by choice — there is no interpolation an
+    /// identity could take, and Raven decorates it for both backends. This is the whole output of the
+    /// pass: the fragment stage computes nothing and writes what the vertex stage decided.
+    stream var identity: uint
+
+    /// The vertex stage: one corner of one triangle of one visible cluster.
+    ///
+    /// **The surplus corners are the interesting part.** The draw is a single instanced command, so
+    /// every cluster is rasterized with the same index count — the largest a cluster can hold — and a
+    /// cluster with fewer triangles has corners left over. Those corners all take the same branch and
+    /// all return the same position, so the triangle they form has zero area and covers no pixel. A
+    /// variable index count per cluster would need one argument structure per cluster and a
+    /// multi-draw, which is what phase 4 exists to not need.
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex([Semantic("SV_VertexID")] vertexId: int, [Semantic("SV_InstanceID")] slot: int): float4 {
+        val packed = visible[slot + 1]
+        val instanceIndex = int(Cull.VisibleInstance(packed))
+        val clusterIndex = Cull.VisibleCluster(packed)
+
+        val instance = instances[instanceIndex]
+        val record = geometry[int(instance.firstCluster + clusterIndex)]
+        val mesh = meshes[int(instance.mesh)]
+
+        val triangle = uint(vertexId) / 3u
+        val corner = uint(vertexId) % 3u
+        val page = residency[int(record.page)]
+
+        // A surplus corner, or a page that went away between the traversal and this draw. The second
+        // should not happen — a page is evicted only after the frame that drew from it was submitted —
+        // and it is checked anyway, because the alternative is reading a slot that holds another page's
+        // bytes and drawing geometry from the wrong mesh.
+        if (triangle >= record.triangleCount || page == Cull.PageAbsent) {
+            identity = Raster.Nothing
+            return float4(0f, 0f, 0f, 1f)
+        }
+
+        val start = page * pageSize
+
+        // Which of the cluster's own vertices this corner is. One byte, because a cluster holds at most
+        // two hundred and fifty-six of them.
+        val local = Byte(start + record.triangleOffset + triangle * 3u + corner)
+        val at = start + record.vertexOffset + local * record.vertexStride
+
+        // The grid coordinate, exactly: the cluster's origin plus the stored offset, both integers. That
+        // this is an integer addition and not a float one is the whole of why a locked boundary decodes
+        // to the same bits from both sides of it.
+        val x = record.origin.x + int(Short(at))
+        val y = record.origin.y + int(Short(at + 2u))
+        val z = record.origin.z + int(Short(at + 4u))
+
+        val local3 = float3(float(x), float(y), float(z))
+        val position = mesh.quantizationOrigin + local3 * mesh.quantizationStep
+        val world = instance.position + position * instance.scale
+
+        identity = Raster.Pack(uint(slot), triangle)
+
+        return viewProjection * float4(world, 1f)
+    }
+
+    /// The fragment stage: what the vertex stage decided, and the depth the hardware wrote.
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): uint => identity
+
+    /// One byte out of the pool, at a byte offset.
+    func Byte(at: uint): uint {
+        val word = pages[int(at >> 2)]
+        return (word >> int((at & 3u) * 8u)) & 0xFFu
+    }
+
+    /// One unsigned short out of the pool, at a byte offset. Two-byte aligned by construction.
+    func Short(at: uint): uint {
+        val word = pages[int(at >> 2)]
+        return (word >> int((at & 2u) * 8u)) & 0xFFFFu
+    }
+}

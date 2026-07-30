@@ -114,6 +114,21 @@ struct MaterialData {
     /// Zero on a pass with no coordinates, which samples the corner of every map rather than
     /// something undefined.
     var uv: float2
+
+    /// How `uv` changes across one pixel, in x and in y.
+    ///
+    /// **What a pass with no quad derivatives has to supply instead of them.** A fragment stage gets
+    /// these for free — `Sample` computes them from the neighbouring lanes — but a compute resolve has
+    /// no neighbours to differ from, and the visibility buffer's neighbour may belong to a different
+    /// triangle of a different cluster anyway. So a resolve derives them from the triangle plane and
+    /// puts them here, and `MaterialTextures.SampleMap` uses them when `UseAnalyticGradients` is on.
+    /// See `Barycentrics.rvn` and `docs/plan/22-virtualized-geometry.md` phase 5.
+    ///
+    /// Zero on a pass that does not supply them, which is every rasterized pass — and zero is the right
+    /// value to leave here, because the variant that reads them is the one that also writes them.
+    var uvDdx: float2
+
+    var uvDdy: float2
 }
 
 /// A material feature: it reads the surface and contributes to it.
@@ -191,6 +206,8 @@ struct MaterialDefaults {
         d.thickness = 0f
 
         d.uv = float2(0f, 0f)
+        d.uvDdx = float2(0f, 0f)
+        d.uvDdy = float2(0f, 0f)
 
         // The identity frame, so `Normals.ToWorld` is a no-op until a pass supplies a real one. A
         // zeroed frame would be worse than useless — it maps every normal to zero, and `SafeNormalize`
@@ -268,6 +285,18 @@ shader MaterialTextures {
     /// that way.
     [PerFrame] [Shared] var materialSampler: Sampler
 
+    /// Whether a map's mip is chosen from gradients the pass supplied rather than from the quad.
+    ///
+    /// **The one thing the material tree has to know about the visibility path**, and it is a
+    /// permutation rather than a branch because the two are different instructions: `Sample` reads the
+    /// neighbouring lanes' coordinates and `SampleGrad` takes them as operands, and a stage with no
+    /// quad cannot execute the first at all. See `docs/plan/22-virtualized-geometry.md` phase 5, and B3 —
+    /// `SampleGrad` was built for exactly this and this is its first consumer.
+    ///
+    /// ⚠ Off by default, and off is the whole rasterized library: a fragment stage has a quad and
+    /// implicit derivatives are both cheaper and, within one triangle, identical.
+    [Permutation] val UseAnalyticGradients: bool = false
+
     /// One map, at the surface's coordinate.
     ///
     /// `index` is a slot the host handed out, so it is always in range — but a material that names
@@ -276,6 +305,23 @@ shader MaterialTextures {
     /// unset map a visible mistake instead of an undefined one.
     func SampleMap(index: uint, uv: float2): float4 {
         return materialTextures[int(index)].Sample(materialSampler, uv)
+    }
+
+    /// One map, at the surface's coordinate, with the mip chosen the way this pass can.
+    ///
+    /// **What every feature calls, so that no feature has to know which pass it is in.** With the
+    /// permutation off this is `SampleMap` with the gradients folded away; with it on the gradients are
+    /// the ones the resolve derived from the triangle plane. Either way a feature writes one call.
+    ///
+    /// The gradients come off `MaterialData` rather than being parameters, for the reason `uv` does:
+    /// widening every feature's `Compute` to carry two more vectors would be a change to every feature
+    /// in the library to serve one pass.
+    func SampleSurface(index: uint, d: MaterialData): float4 {
+        if (UseAnalyticGradients) {
+            return materialTextures[int(index)].SampleGrad(materialSampler, d.uv, d.uvDdx, d.uvDdy)
+        }
+
+        return materialTextures[int(index)].Sample(materialSampler, d.uv)
     }
 }
 
@@ -300,7 +346,7 @@ shader TexturedMetalRoughnessSurface : MaterialTextures, IMaterialSurface {
     var baseColorIndex: uint = 0u
 
     func Compute(inout d: MaterialData) {
-        val sampled = SampleMap(baseColorIndex, d.uv)
+        val sampled = SampleSurface(baseColorIndex, d)
         val colour = baseColor * sampled.rgb
 
         d.diffuseColor = colour * (1f - metalness)

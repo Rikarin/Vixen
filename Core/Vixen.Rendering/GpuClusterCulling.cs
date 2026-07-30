@@ -125,8 +125,15 @@ public struct CullInstance {
     /// <summary><see cref="GpuCulling.Alive" /> when the slot holds a live instance.</summary>
     public uint Flags;
 
-    /// <summary>Four bytes of tail padding the shader declares and never reads.</summary>
-    public uint Padding;
+    /// <summary>Which registered mesh's quantization grid this instance's geometry decodes against.</summary>
+    /// <remarks>
+    ///     The word that used to be padding, and phase 4 is what earned it a name. A page holds positions
+    ///     as integers on a grid the <em>mesh</em> owns, so a raster that has a cluster still needs the
+    ///     grid to turn them back into object space. The traversal never reads it — deciding whether to
+    ///     draw a cluster is about bounds and error, not about vertices — which is why it rides here
+    ///     rather than in <see cref="CullCluster" />: one word per instance against one per cluster.
+    /// </remarks>
+    public uint Mesh;
 }
 
 /// <summary>
@@ -192,6 +199,35 @@ public static class GpuClusterCulling {
     /// </remarks>
     public static float ErrorScaleFor(float verticalFieldOfView, float screenHeight) =>
         screenHeight / (2f * MathF.Tan(verticalFieldOfView * 0.5f));
+
+    /// <summary>
+    ///     The same scale, from what a <see cref="RenderView" /> already carries.
+    /// </summary>
+    /// <param name="screenHeightScale">
+    ///     <see cref="RenderView.ScreenHeightScale" />: <c>1 / tan(fov / 2)</c>, or zero for a view that
+    ///     does no screen-size work at all.
+    /// </param>
+    /// <param name="screenHeight">How many pixels tall the view is.</param>
+    /// <returns>The scale, or zero for a view that opted out.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         Two entry points to one number, and this is the one a frame uses. A view does not carry a
+    ///         field of view — it carries the fraction-of-height factor every LOD consumer wants, which
+    ///         is that projection with the pixels divided out — so the conversion is half of it times the
+    ///         height, and it is written here rather than at the caller because a factor of two in the
+    ///         wrong place is a threshold that means twice what it says.
+    ///     </para>
+    ///     <para>
+    ///         <b>Zero propagates, and that is the useful part.</b>
+    ///         <see cref="RenderView.ScreenHeightScale" /> is zero for a shadow cascade and a probe face
+    ///         on purpose — choosing a different mesh for a shadow than for its caster makes the shadow
+    ///         stop matching it — and a zero scale projects every error to zero, so such a view accepts
+    ///         every cluster at its root. <see cref="Features.LodRenderFeature" /> reads the same field
+    ///         the same way, which is what keeps the two paths agreeing about which views do this.
+    ///     </para>
+    /// </remarks>
+    public static float ErrorScaleFor(float screenHeightScale, int screenHeight) =>
+        screenHeightScale <= 0f || screenHeight <= 0 ? 0f : screenHeightScale * screenHeight * 0.5f;
 
     /// <summary>How many pixels of screen an object-space deviation covers, at a distance.</summary>
     /// <param name="error">The deviation, in object space, already scaled by the instance.</param>

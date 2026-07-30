@@ -39,9 +39,11 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
     ///     model whose meshes are all skinned — so the version has to say it rather than the content.
     ///     Three since cluster hierarchies did, for the same reason and with the same consequence:
     ///     every model in every project re-imports, which is what "the artefact this version produces
-    ///     is not the one the last version produced" means.
+    ///     is not the one the last version produced" means. Four since the geometry pages joined them —
+    ///     a hierarchy without pages is a hierarchy nothing can draw, and the two are produced together
+    ///     or not at all.
     /// </remarks>
-    public override int Version => 3;
+    public override int Version => 4;
 
     /// <inheritdoc />
     protected override async ValueTask<ImportResult> ImportAsync(
@@ -77,6 +79,7 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
         var skinned = 0;
         var clusters = 0;
         var refused = 0;
+        var pageBytes = 0L;
 
         foreach (var mesh in read.Meshes) {
             context.Write(context.DeclareSubAsset("Mesh", mesh.Name), "Mesh", Serializer.ToBytes(mesh));
@@ -91,11 +94,22 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
                 if (meshlets is null) {
                     refused++;
                 } else {
-                    context.Write(
-                        context.DeclareSubAsset("Meshlets", mesh.Name),
-                        "Meshlets",
-                        Serializer.ToBytes(meshlets)
-                    );
+                    var id = context.DeclareSubAsset("Meshlets", mesh.Name);
+                    var pages = ModelCompiler.CompilePages(mesh, meshlets, context.Report);
+
+                    context.Write(id, "Meshlets", Serializer.ToBytes(meshlets));
+
+                    // Two artefacts under one sub-asset, and the split is the phase's whole point: the
+                    // records are read in full at load and stay resident, and the geometry is read a
+                    // page at a time by whatever is looking at the mesh. One artefact carrying both
+                    // would be an artefact whose deserialisation reads every page — see
+                    // MeshletPageSet.WithoutData.
+                    if (pages is not null) {
+                        context.Write(id, "MeshletPages", Serializer.ToBytes(pages.WithoutData()));
+                        context.Write(id, "MeshletPageData", pages.Data);
+
+                        pageBytes += pages.Data.Length;
+                    }
 
                     clusters += meshlets.Meshlets.Length;
                 }
@@ -158,6 +172,7 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
             + (read.Skeleton is { } bones ? $", {bones.Joints.Length} joint(s)" : string.Empty)
             + (fields > 0 ? $", {fields} distance field(s)" : string.Empty)
             + (clusters > 0 ? $", {clusters} cluster(s)" : string.Empty)
+            + (pageBytes > 0 ? $", {pageBytes / 1024} KB of geometry pages" : string.Empty)
             + "."
         );
 

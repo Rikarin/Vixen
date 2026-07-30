@@ -1,0 +1,356 @@
+package Vixen.Shaders.Pipeline
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Shading
+import Vixen.Shaders.Geometry
+import Vixen.Shaders.Material
+
+// Shading the visibility buffer: the second half of phase 5.
+//
+// **A second entry contract, not a second material system.** `ForwardPlus.rvn` receives its surface's
+// inputs — the normal, the tangent, the texture coordinate — from the rasterizer's interpolators. This
+// receives them from a fetch-and-interpolate prologue over the triangle the pixel landed on, and then
+// does the same thing with them: fills a `MaterialData` from the same `IMaterialSurface`, and asks the
+// same `IShadingModel` what the surface does with a light. Adding a material feature does not touch
+// this file any more than it touches that one.
+//
+// **One workgroup per tile, dispatched per material.** `VisibilityTiles.rvn` bins the screen and this
+// runs over one material's bin, so a material covering one per cent of the screen shades one per cent
+// of the pixels. A pixel whose material is not this dispatch's is skipped — a tile belongs to every
+// material that appears in it, and the bin is a superset of the pixels.
+//
+// **The gradients are analytic.** A compute stage has no quad to take derivatives from, so
+// `MaterialData.uvDdx` and `uvDdy` are filled from the triangle plane and `MaterialTextures` samples
+// with them. That is what `UseAnalyticGradients` selects, and it is the first consumer of the
+// `SampleGrad` support built as blocker B3.
+//
+// ⚠ **What this does not yet share with `ForwardPlus` is the punctual light loop.** The directional
+// term and the ambient term are library calls and are here; the clustered loop is `ForwardPlus`-local,
+// and reaching it from a second entry point means extracting its bindings and its four functions into
+// a base shader both derive from. That extraction renumbers `ForwardPlus`'s bindings, which two oracle
+// suites are written against — so it is named as owed rather than done in passing. See
+// `docs/plan/22-virtualized-geometry.md` phase 5.
+
+shader VisibilityResolve : MaterialTextures {
+    /// The material's surface features, chosen per material — the same slot `ForwardPlus` composes.
+    compose val surface: IMaterialSurface
+
+    /// What the surface does with a light, chosen per material. Also the same slot.
+    compose val shading: IShadingModel
+
+    /// Whether to add image-based ambient, as in the forward pass.
+    [Permutation] val UseImageBasedLighting: bool = true
+
+    /// The identity buffer the raster wrote. See `ClusterRaster.rvn`.
+    var identities: Texture2D
+
+    /// Where the shaded colour goes.
+    ///
+    /// Half-float rather than eight-bit, because what a resolve writes is radiance before tonemapping —
+    /// the same thing the forward pass writes into the scene colour it shares with every post-effect.
+    /// A storage image's texel format is part of its declaration in both targets, which is why it is
+    /// spelled here rather than decided by the host.
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The clusters the traversal accepted. Element zero is the count.
+    var visible: Buffer<uint>
+
+    /// One record per instance, as `Culling.rvn` writes it.
+    var instances: Buffer<CullInstance>
+
+    /// Where each cluster's bytes are — the same records the raster read.
+    var geometry: Buffer<RasterCluster>
+
+    /// One quantization grid per registered mesh.
+    var meshes: Buffer<RasterMesh>
+
+    /// Where each page sits in the pool, or `Cull.PageAbsent`.
+    var residency: Buffer<uint>
+
+    /// The page pool, as words.
+    var pages: Buffer<uint>
+
+    /// Which material each cluster uses.
+    var clusterMaterials: Buffer<uint>
+
+    /// This material's tile list, `VisibilityTile.Capacity` words into the shared buffer.
+    var tiles: Buffer<uint>
+
+    /// How many bytes one page occupies in the pool.
+    var pageSize: uint
+
+    /// Where this dispatch's tiles start in `tiles`, and which material it is shading.
+    var tileBase: uint
+
+    var material: uint
+
+    /// How many tiles cover the screen, in x and y.
+    var tileCount: int2
+
+    /// The camera, for projecting the triangle's corners the way the raster did.
+    var viewProjection: mat4
+
+    /// Where the camera is, for the view vector.
+    var viewPosition: float3
+
+    /// The directional light.
+    var lightDirection: float3
+
+    var lightColor: float3
+
+    /// The ambient environment, and how bright it is.
+    var environment: TextureCube
+    var environmentSampler: Sampler
+    var environmentMipCount: float = 7f
+    var ambientIntensity: float = 1f
+
+    /// The sky's irradiance, projected. The same nine coefficients `ForwardPlus` reads.
+    var environmentSh: ShCoefficients
+
+    /// One workgroup per tile of this material's bin, one invocation per pixel.
+    ///
+    /// The dispatch is indirect: `VisibilityTiles.rvn` wrote the tile count into the argument triple
+    /// this reads, so the host never learns how much of the screen this material covers.
+    [ComputeShader(64)]
+    func Main([Semantic("SV_GroupID")] group: uint3, [Semantic("SV_GroupIndex")] lane: uint) {
+        val index = int(tileBase + group.x)
+
+        if (index >= tiles.Length) {
+            return
+        }
+
+        val tile = VisibilityTile.Unindex(int(tiles[index]), tileCount)
+        val offset = int2(int(lane) % VisibilityTile.Size, int(lane) / VisibilityTile.Size)
+        val pixel = tile * VisibilityTile.Size + offset
+        val size = identities.GetDimensions(0)
+
+        if (pixel.x >= size.x || pixel.y >= size.y) {
+            return
+        }
+
+        val identity = asuint(identities.Load(int3(pixel.x, pixel.y, 0)).x)
+
+        if (!Raster.Covered(identity)) {
+            return
+        }
+
+        val slot = Raster.Slot(identity)
+
+        if (slot + 1u >= uint(visible.Length)) {
+            return
+        }
+
+        val packed = visible[int(slot + 1u)]
+        val instance = instances[int(Cull.VisibleInstance(packed))]
+        val cluster = int(instance.firstCluster + Cull.VisibleCluster(packed))
+
+        // A tile is in this material's bin because *some* pixel of it is this material. The rest are
+        // some other dispatch's, and skipping them is what makes the bin a superset rather than a lie.
+        if (clusterMaterials[cluster] != material) {
+            return
+        }
+
+        val record = geometry[cluster]
+        val page = residency[int(record.page)]
+
+        if (page == Cull.PageAbsent) {
+            return
+        }
+
+        Shade(pixel, size, identity, record, page, instance, meshes[int(instance.mesh)])
+    }
+
+    /// Reconstructs one pixel's surface and shades it.
+    ///
+    /// **The vertex-side transform is the raster's, verbatim.** The corners are decoded from the same
+    /// page bytes by the same arithmetic and placed by the same instance transform, because a
+    /// disagreement between the two lands attributes on the wrong surface — the plan flags this and it
+    /// is why `Corner` exists once rather than being inlined twice.
+    func Shade(pixel: int2, size: int2, identity: uint, record: RasterCluster, page: uint, instance: CullInstance, mesh: RasterMesh) {
+        val triangle = Raster.Triangle(identity)
+
+        if (triangle >= record.triangleCount) {
+            return
+        }
+
+        val start = page * pageSize
+        val at = start + record.triangleOffset + triangle * 3u
+
+        val v0 = Corner(start, record, mesh, instance, Byte(at))
+        val v1 = Corner(start, record, mesh, instance, Byte(at + 1u))
+        val v2 = Corner(start, record, mesh, instance, Byte(at + 2u))
+
+        val clip0 = viewProjection * float4(v0.position, 1f)
+        val clip1 = viewProjection * float4(v1.position, 1f)
+        val clip2 = viewProjection * float4(v2.position, 1f)
+
+        // The pixel's centre in NDC, which is where the rasterizer decided coverage.
+        val uv = (float2(float(pixel.x), float(pixel.y)) + float2(0.5f, 0.5f)) / float2(float(size.x), float(size.y))
+        val ndc = Transform.UvToNdc(uv)
+        val pixelSize = float2(2f / float(size.x), 2f / float(size.y))
+
+        val b = Barycentric.Solve(ndc, clip0, clip1, clip2, pixelSize)
+
+        val positionWS = Barycentric.Lerp3(b, v0.position, v1.position, v2.position)
+        val normalWS = Math.SafeNormalize(Barycentric.Lerp3(b, v0.normal, v1.normal, v2.normal))
+        val texcoord = Barycentric.Lerp2(b, v0.uv, v1.uv, v2.uv)
+
+        // The tangent is derived rather than stored: a page vertex carries a position, a normal and a
+        // coordinate, and a tangent is what those three imply. `FrameFromDerivatives` wants the screen
+        // derivatives of both, which the analytic gradients are — so this is the one place a resolve is
+        // *better* placed than a fragment stage, which would have to interpolate a stored tangent.
+        val geometricNormal = Math.SafeNormalize(cross(v1.position - v0.position, v2.position - v0.position))
+        val frame = Normals.Frame(normalWS, TangentOf(b, v0, v1, v2, geometricNormal), 1f)
+
+        var d: MaterialData
+        MaterialDefaults.Begin(d, frame.normal, float4(frame.tangent, 1f), texcoord)
+
+        d.uvDdx = Barycentric.Ddx2(b, v0.uv, v1.uv, v2.uv)
+        d.uvDdy = Barycentric.Ddy2(b, v0.uv, v1.uv, v2.uv)
+
+        surface.Compute(d)
+
+        val v = Math.SafeNormalize(viewPosition - positionWS)
+        val n = Normals.FaceForward(Math.SafeNormalize(d.normalWS), v)
+        val alpha = Brdf.Alpha(d.perceptualRoughness)
+
+        var color = Direct(d, n, v, alpha)
+
+        if (UseImageBasedLighting) {
+            color += Ambient(d, n, v)
+        }
+
+        target.Store(pixel, float4(color + d.emissive, d.alpha))
+    }
+
+    /// The directional light's contribution.
+    ///
+    /// The same three library calls `ForwardPlus.Direct` makes, in the same order, with the same
+    /// `shading` slot between them — which is what makes the exit criterion's claim checkable: the
+    /// composed shading models produce the same value whether reached from a draw or from here.
+    ///
+    /// Unshadowed, because a shadow lookup is `ForwardPlus`'s cascade bindings and those are what the
+    /// extraction named at the top of this file would bring. A resolve without shadows is wrong in a
+    /// way anyone can see, which is the right way for something owed to be owed.
+    func Direct(d: MaterialData, n: float3, v: float3, alpha: float): float3 {
+        val light = Lighting.Directional(lightDirection, lightColor)
+        val angles = ShadingAngles.Of(n, v, light.l)
+
+        var s: ShadingVectors
+        s.n = n
+        s.v = v
+        s.l = light.l
+
+        return shading.Shade(d, angles, s, alpha) * light.radiance
+    }
+
+    /// Image-based ambient, from the environment cube.
+    ///
+    /// `ForwardPlus.Ambient` without the reflection probe, and otherwise the same five library calls in
+    /// the same order — the split-sum DFG term, the prefiltered specular at the roughness's mip, the
+    /// sky's irradiance from its nine coefficients, and the two `Ibl` compositions. A probe is a
+    /// per-object binding and reaching it needs the extraction named at the top of the file.
+    func Ambient(d: MaterialData, n: float3, v: float3): float3 {
+        val NdotV = saturate(dot(n, v))
+        val reflected = reflect(-v, n)
+
+        val dfg = Ibl.EnvironmentDfg(NdotV, d.perceptualRoughness)
+        val lod = Ibl.SpecularLod(d.perceptualRoughness, environmentMipCount)
+        val prefiltered = environment.SampleLevel(environmentSampler, reflected, lod).rgb
+        val irradiance = Ibl.IrradianceSh9(n, environmentSh)
+
+        val specular = Ibl.Specular(prefiltered, d.f0, dfg, d.occlusion)
+        val diffuse = Ibl.Diffuse(irradiance, d.diffuseColor, d.occlusion)
+
+        return (specular + diffuse) * ambientIntensity
+    }
+
+    /// A tangent from the triangle's own texture coordinates.
+    ///
+    /// The gradient of the surface with respect to `u`, orthogonalised against the shading normal.
+    /// Derived rather than stored, and derived from the *analytic* gradients rather than from a quad —
+    /// so it is exact within the triangle and does not smear across a silhouette.
+    func TangentOf(b: Barycentrics, v0: ResolvedVertex, v1: ResolvedVertex, v2: ResolvedVertex, fallback: float3): float3 {
+        val du = Barycentric.Ddx2(b, v0.uv, v1.uv, v2.uv)
+        val dv = Barycentric.Ddy2(b, v0.uv, v1.uv, v2.uv)
+        val px = Barycentric.Ddx3(b, v0.position, v1.position, v2.position)
+        val py = Barycentric.Ddy3(b, v0.position, v1.position, v2.position)
+
+        val determinant = du.x * dv.y - dv.x * du.y
+
+        // A triangle whose coordinates do not vary — an untextured surface, or one whose whole cluster
+        // maps to a point — has no tangent to find. Any vector perpendicular to the normal will do, and
+        // an arbitrary one beats a zero: a zeroed frame maps every tangent-space normal to nothing.
+        if (abs(determinant) < 1e-12f) {
+            return Normals.Frame(fallback, float3(1f, 0f, 0f), 1f).tangent
+        }
+
+        return Math.SafeNormalize((px * dv.y - py * du.y) / determinant)
+    }
+
+    /// One decoded page vertex, in world space.
+    func Corner(start: uint, record: RasterCluster, mesh: RasterMesh, instance: CullInstance, local: uint): ResolvedVertex {
+        val at = start + record.vertexOffset + local * record.vertexStride
+
+        val x = record.origin.x + int(Short(at))
+        val y = record.origin.y + int(Short(at + 2u))
+        val z = record.origin.z + int(Short(at + 4u))
+
+        val object = mesh.quantizationOrigin + float3(float(x), float(y), float(z)) * mesh.quantizationStep
+
+        var result: ResolvedVertex
+        result.position = instance.position + object * instance.scale
+
+        // The attributes, at their offsets past the six bytes of position: a normal as three halves and
+        // a coordinate as two. `ModelCompiler.PageAttributeStride` is the other side of this layout.
+        result.normal = Math.SafeNormalize(float3(Half(at + 6u), Half(at + 8u), Half(at + 10u)))
+        result.uv = float2(Half(at + 12u), Half(at + 14u))
+
+        return result
+    }
+
+    /// One byte out of the pool, at a byte offset.
+    func Byte(at: uint): uint {
+        val word = pages[int(at >> 2)]
+        return (word >> int((at & 3u) * 8u)) & 0xFFu
+    }
+
+    /// One unsigned short out of the pool, at a byte offset.
+    func Short(at: uint): uint {
+        val word = pages[int(at >> 2)]
+        return (word >> int((at & 2u) * 8u)) & 0xFFFFu
+    }
+
+    /// One half-precision float out of the pool, at a byte offset.
+    ///
+    /// **Decoded by arithmetic, because neither target offers a scalar half conversion Raven exposes.**
+    /// A half is a sign, five bits of exponent biased by fifteen, and ten of mantissa; a float is the
+    /// same shape biased by a hundred and twenty-seven with twenty-three. So the conversion is a
+    /// re-bias and a shift, and it is exact for every normal half — which is every value a normal or a
+    /// texture coordinate takes.
+    ///
+    /// A zero exponent returns zero rather than reconstructing the subnormal. Half's smallest normal is
+    /// about six hundredths of a thousandth; a normal component or a texture coordinate below that is
+    /// zero for every purpose this has, and the branch that handled it properly would cost every vertex
+    /// of every pixel a leading-zero count.
+    func Half(at: uint): float {
+        val bits = Short(at)
+        val exponent = (bits >> 10) & 0x1Fu
+
+        if (exponent == 0u) {
+            return 0f
+        }
+
+        val sign = (bits & 0x8000u) << 16
+        val mantissa = (bits & 0x3FFu) << 13
+
+        return asfloat(sign | ((exponent + 112u) << 23) | mantissa)
+    }
+}
+
+/// One page vertex, decoded.
+struct ResolvedVertex {
+    var position: float3
+    var normal: float3
+    var uv: float2
+}

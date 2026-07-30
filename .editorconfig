@@ -400,6 +400,17 @@ dotnet_diagnostic.CA1711.severity = none
 dotnet_diagnostic.CA1051.severity = none
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Rendering/Features/VirtualGeometryRenderFeature.cs
+#
+# CA1051 (do not declare visible instance fields). `VirtualGeometryDraw` is an
+# element of a RenderDataHolder array, exactly as `MeshDraw` above is: native
+# memory, read through a `ref` per object, and a property returning a copy would
+# silently drop a write. Same exemption, same reason, different feature.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Rendering/Features/VirtualGeometryRenderFeature.cs]
+dotnet_diagnostic.CA1051.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Core/Vixen.Animation/BoneTransform.cs
 #
 # CA1051 (do not declare visible instance fields). A `BoneTransform` is one

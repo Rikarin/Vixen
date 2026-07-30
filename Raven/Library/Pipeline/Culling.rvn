@@ -110,7 +110,7 @@ struct CullView {
 /// is only needed once a cluster has been *accepted*. Where its geometry is lives in the page
 /// placement, which this pass reads only to ask whether it has arrived: a traversal has to test a
 /// cluster before it can know whether it wants its bytes, which is why the records are resident and
-/// the geometry is paged. See `docs/virtualized-geometry.md` phase 2.
+/// the geometry is paged. See `docs/plan/22-virtualized-geometry.md` phase 2.
 struct CullCluster {
     /// The bind-pose bound, in the mesh's own space.
     var center: float3
@@ -195,7 +195,14 @@ struct CullInstance {
     /// `Cull.Alive` when the slot holds a live instance.
     var flags: uint
 
-    var padding: uint
+    /// Which mesh's quantization grid this instance's geometry decodes against.
+    ///
+    /// The word that used to be padding, and it earns its place in phase 4: a page holds positions as
+    /// integers on a grid the *mesh* owns, so a raster that has a cluster still needs the grid to turn
+    /// those integers back into object space. The traversal never reads it — deciding whether to draw a
+    /// cluster is about bounds and error, not about vertices — which is why it rides here rather than in
+    /// the cluster record: one word per instance against one per cluster.
+    var mesh: uint
 }
 
 /// The constants and the tests both sides of the culler have to agree on.
@@ -245,10 +252,17 @@ struct Cull {
     /// The bit of `CullCluster.flags` that says nothing simplifies this cluster further.
     const val ClusterRoot = 1u
 
+    /// What the slot table holds for a page whose bytes are not in the pool.
+    ///
+    /// All ones rather than zero, because zero is a real slot — the first one — and a table initialised
+    /// to zero would say every page of every mesh was sitting in slot zero. That draws the whole scene
+    /// out of one page's bytes, at the right places, which looks like corrupt assets.
+    const val PageAbsent = 0xFFFFFFFFu
+
     /// How many clusters one workgroup's queue holds.
     ///
     /// A shared array, which is what `groupshared` is for and what this whole traversal was blocked
-    /// on — see `docs/virtualized-geometry.md` § B1. A queue with a local head is one atomic on
+    /// on — see `docs/plan/22-virtualized-geometry.md` § B1. A queue with a local head is one atomic on
     /// memory the group owns; the alternative is a global atomic per child and a dispatch that
     /// spends its life in memory traffic.
     ///
@@ -302,12 +316,20 @@ struct Cull {
         return error * errorScale / distance
     }
 
-    /// An instance's cluster base and a cluster index, as one word.
+    /// An instance index and a cluster index, as one word.
     ///
-    /// Sixteen bits each, which is what a draw's `firstInstance` carries and what the raster of phase
-    /// 4 will take them apart with. A DAG with more than sixty-five thousand clusters is one this
-    /// packing cannot address, and the build's own level cap reaches a single root long before that.
-    static func PackVisible(first: uint, cluster: uint): uint => (first << 16u) | (cluster & 0xFFFFu)
+    /// Sixteen bits each, and the high half is the **instance** rather than its cluster base — which
+    /// looks like the same thing and is not. A raster needs the instance's transform as well as its
+    /// cluster record, and an index reaches both (`instances[i].firstCluster` is right there) where a
+    /// base reaches only the second. Sixty-five thousand instances and sixty-five thousand clusters per
+    /// DAG are the bounds; the build's own level cap reaches a single root long before the second.
+    static func PackVisible(instance: uint, cluster: uint): uint => (instance << 16u) | (cluster & 0xFFFFu)
+
+    /// Which instance a visible word names.
+    static func VisibleInstance(packed: uint): uint => packed >> 16u
+
+    /// Which of that instance's clusters it names.
+    static func VisibleCluster(packed: uint): uint => packed & 0xFFFFu
 
     /// Whether a sphere reaches within `maximum` of a point.
     ///
@@ -337,7 +359,7 @@ shader Culling {
     /// Whether this dispatch walks a cluster DAG rather than a flat array of objects.
     ///
     /// **A permutation of this shader and not a shader of its own**, which is improvement 3 of
-    /// `docs/virtualized-geometry.md`. Objects and clusters are the same hierarchy at different
+    /// `docs/plan/22-virtualized-geometry.md`. Objects and clusters are the same hierarchy at different
     /// depths: the `Main`/`Late` split, the Hi-Z projection, the per-view records and the rounding
     /// slack are the same decisions either way, and two implementations of "visible against last
     /// frame's pyramid" is two places for the definition to drift. What the cluster path adds is a
@@ -377,7 +399,7 @@ shader Culling {
     /// **Records, not geometry**, and the name says so because the distinction is the phase's: a
     /// traversal has to test a cluster — its bounds, its cone, its error — before it can know whether
     /// it wants its bytes, so the hierarchy is resident and the geometry is paged. See
-    /// `docs/virtualized-geometry.md` phase 2.
+    /// `docs/plan/22-virtualized-geometry.md` phase 2.
     var clusterRecords: Buffer<CullCluster>
 
     /// One record per instance. The dispatch's `x` extent is its count. `Clusters` only.
@@ -397,10 +419,16 @@ shader Culling {
     ///
     /// **This is what makes streaming demand-driven rather than predictive.** A page is asked for
     /// because a cut actually wanted a cluster in it this frame, from this view — not because a
-    /// heuristic about distance guessed it might. See `docs/virtualized-geometry.md` phase 2.
+    /// heuristic about distance guessed it might. See `docs/plan/22-virtualized-geometry.md` phase 2.
     var requests: RWBuffer<uint>
 
-    /// Which pages are resident, one bit each. A cluster whose page is absent is refined no further.
+    /// Where each page is in the pool: one word per page, `Cull.PageAbsent` when it is not there.
+    ///
+    /// **A slot table and not a bitset**, though the traversal only ever asks the yes-or-no question. The
+    /// raster of phase 4 needs the slot to find a cluster's bytes, so a bitset here would mean two tables
+    /// that have to agree about whether a page is present — and two authorities on one fact is how a
+    /// cluster comes to be drawn out of a slot holding another page's geometry. One table, asked two
+    /// ways.
     var residency: Buffer<uint>
 
     /// Last frame's depth, min-reduced — `HiZReduce.rvn` builds it and `HiZPyramid` owns it.
@@ -515,7 +543,7 @@ shader Culling {
 
     /// Whether last frame's depth says nothing inside this sphere could have been seen.
     ///
-    /// **A sphere and not an object**, which is improvement 3 of `docs/virtualized-geometry.md` made
+    /// **A sphere and not an object**, which is improvement 3 of `docs/plan/22-virtualized-geometry.md` made
     /// concrete: the object cull and the cluster traversal ask the same question of the same pyramid
     /// with the same matrix, and two implementations of "visible against last frame's pyramid" is two
     /// places for the definition to drift. What differs between the callers is which sphere.
@@ -691,7 +719,7 @@ shader Culling {
                     break
                 }
 
-                Visit(queue[int(at % uint(Cull.QueueCapacity))], instance, view)
+                Visit(queue[int(at % uint(Cull.QueueCapacity))], uint(instanceIndex), instance, view)
             }
 
             // Everybody has finished testing this round's front before the head moves, or a lane
@@ -707,7 +735,7 @@ shader Culling {
     }
 
     /// Tests one cluster and either accepts it, refines it, or drops it with its subtree.
-    func Visit(cluster: uint, instance: CullInstance, view: CullView) {
+    func Visit(cluster: uint, owner: uint, instance: CullInstance, view: CullView) {
         val record = clusterRecords[int(instance.firstCluster + cluster)]
 
         // The bind-pose bound placed and scaled. A rotation is not applied and does not need to be:
@@ -749,12 +777,12 @@ shader Culling {
         // not there. Both are the same decision — draw what there is — and the second is what makes
         // streaming degrade rather than fail.
         if (pixels <= view.errorThreshold || record.childCount == 0u || overflowed != 0u) {
-            Accept(cluster, instance, record)
+            Accept(cluster, owner, record)
             return
         }
 
         if (!Refine(record, instance)) {
-            Accept(cluster, instance, record)
+            Accept(cluster, owner, record)
         }
     }
 
@@ -816,7 +844,7 @@ shader Culling {
     /// A global atomic and not a shared one, because the list is the dispatch's rather than the
     /// group's — and it is one atomic per *accepted* cluster, which is a small fraction of the
     /// clusters tested. That is the trade the whole hierarchy exists to make.
-    func Accept(cluster: uint, instance: CullInstance, record: CullCluster) {
+    func Accept(cluster: uint, owner: uint, record: CullCluster) {
         if (!Resident(record.page)) {
             Request(record.page)
             return
@@ -825,13 +853,13 @@ shader Culling {
         val at = atomicAdd(visible[0], 1u)
 
         if (at + 1u < uint(visible.Length)) {
-            visible[int(at + 1u)] = Cull.PackVisible(instance.firstCluster, cluster)
+            visible[int(at + 1u)] = Cull.PackVisible(owner, cluster)
         }
     }
 
     /// Records that a page was wanted and was not there.
     func Request(page: uint) {
-        if (page >= uint(residency.Length) * 32u) {
+        if (int(page) >= residency.Length) {
             return
         }
 
@@ -844,13 +872,11 @@ shader Culling {
 
     /// Whether a page's bytes are in the pool.
     func Resident(page: uint): bool {
-        val word = int(page / 32u)
-
-        if (word >= residency.Length) {
+        if (int(page) >= residency.Length) {
             return false
         }
 
-        return (residency[word] & (1u << int(page % 32u))) != 0u
+        return residency[int(page)] != Cull.PageAbsent
     }
 
 }
