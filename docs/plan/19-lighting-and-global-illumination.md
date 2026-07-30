@@ -932,9 +932,20 @@ only whether, the reference reflects the frame's colour at that pixel, and the k
 same march sample for sample — SSR reduced to its arithmetic, compared to the reference at 1e-4
 with a position-coded colour plane so a wrong hit cannot read right.
 
-Owed, and only this: the HZB traversal that replaces all three copies of the naive screen march at
-once (§ L3's own note), and a compositor node wiring the kernel over a real frame's G-buffer — the
-reconstruction-from-depth production plumbing, not a missing piece of the arithmetic.
+**And the frame wiring followed.** `ReflectionRenderer` runs the kernel over a real frame: the
+kernel gained a reconstruction mode — `Transform.UvDepthToWorld`, the placement's own arithmetic,
+a sky texel invalid before any ray is cast — and the node points it at the frame's depth for both
+reconstruction and the screen march, with the frame's colour named by the host because which
+colour a reflection samples is a scheduling decision. Its device test drives the node over
+imported planes and measures zero drift against `TracedReflections` on `ReconstructedScreenSurface`.
+The screen march also grew its HZB half on the CPU: `ScreenDepthPyramid` (the *nearest* reduction,
+where `HiZReduce` keeps the farthest) and a hierarchical DDA behind `ScreenSpaceTrace.Pyramid` —
+exact under an affine camera, declining to the fixed-step walk under a perspective one rather than
+skipping wrongly, with agreement over a grid of rays and the fetch count measured at a quarter of
+the naive march's on an open screen.
+
+Owed, and only this: the kernels' pyramid march (the CPU DDA is its referee, and the nearest-reduce
+dispatch rides with it) with the perspective form's `1/w` interpolation and linear thickness.
 
 ### L6 — Hardware ray tracing *(2.0 EM)*
 
