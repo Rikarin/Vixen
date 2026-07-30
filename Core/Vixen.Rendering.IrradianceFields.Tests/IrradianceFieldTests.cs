@@ -152,6 +152,83 @@ public class IrradianceFieldTests {
         Assert.Equal(field.GetProbe(last, 3, 3, 3), field.GetProbe(last, 4, 4, 4));
     }
 
+    /// <summary>
+    ///     A border texel can be a copy of another border texel, and the copy has to read one this
+    ///     same sync already wrote — never what the pool held before the sync began.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The case is structural, not exotic: at the grid's outer face a border position clamps
+    ///         back inside, so the lookup lands in a <i>face</i> neighbour with a local coordinate of
+    ///         exactly one, and the same-size copy reaches that neighbour's own border plane. An edge
+    ///         texel of a brick on the grid's top row does this on every sync.
+    ///     </para>
+    ///     <para>
+    ///         Every border texel is poisoned before the sync, so a sync that defers a whole size
+    ///         class at once — every value computed before any is written, the obvious way to make a
+    ///         pass order-independent — copies the poison into those edge texels, deterministically.
+    ///         Committing faces, then edges, then the corner is what this asserts, and it is also the
+    ///         order the device repair dispatches; the two have to agree because the device is checked
+    ///         against this class.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ASyncNeverCopiesABorderItHasNotWrittenYet() {
+        const float Poison = 4096f;
+
+        var field = new IrradianceField(new BoundingBox(new(-2f), new(2f)), new(4), new(new(4)));
+
+        field.AllocateAll();
+
+        foreach (var brick in field.Bricks) {
+            for (var z = 0; z <= 4; z++) {
+                for (var y = 0; y <= 4; y++) {
+                    for (var x = 0; x <= 4; x++) {
+                        if (x < 4 && y < 4 && z < 4) {
+                            field.SetProbe(
+                                brick, x, y, z,
+                                Probes.Of(Probes.Ramp(field.ProbePosition(brick, x, y, z)))
+                            );
+                        } else {
+                            field.Pool[brick.Slot, x, y, z] = Probes.Of(Poison);
+                        }
+                    }
+                }
+            }
+        }
+
+        field.SyncBorders();
+
+        var interior = 0;
+
+        foreach (var brick in field.Bricks) {
+            for (var z = 0; z <= 4; z++) {
+                for (var y = 0; y <= 4; y++) {
+                    for (var x = 0; x <= 4; x++) {
+                        var value = field.GetProbe(brick, x, y, z).Value();
+
+                        Assert.True(
+                            MathF.Abs(value) < Poison / 2f,
+                            $"texel {x},{y},{z} of the brick at {brick.Cell} still carries the poison, "
+                            + "so the sync copied a border texel it had not written yet"
+                        );
+
+                        // And where a real neighbour exists, the copy is the field's own answer at
+                        // that position — on the FIRST sync, not eventually.
+                        var position = field.ProbePosition(brick, x, y, z);
+
+                        if (position.X < 2f && position.Y < 2f && position.Z < 2f) {
+                            Assert.Equal(Probes.Ramp(position), value, 2);
+                            interior++;
+                        }
+                    }
+                }
+            }
+        }
+
+        Assert.True(interior > 0, "no border texel was interior, so the positive half asserted nothing");
+    }
+
     /// <summary>Borders are not data, so a filler cannot write one.</summary>
     [Fact]
     public void AFillerCannotWriteABorder() {

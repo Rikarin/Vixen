@@ -42,6 +42,9 @@ public sealed class IrradianceRepairDeviceTests {
     /// <summary>How bright the sky is.</summary>
     const float Radiance = 0.75f;
 
+    /// <summary>What a border texel holds before the repair — a value no correct sync can produce.</summary>
+    const float Poison = 4096f;
+
     /// <summary>
     ///     Every texel the repair wrote is the texel the reference repair would have written.
     /// </summary>
@@ -81,8 +84,8 @@ public sealed class IrradianceRepairDeviceTests {
         Assert.Null(skipped);
         Assert.Equal(device.BrickCount, repaired);
 
-        // Two per dilation pass, plus one per size class.
-        Assert.Equal(refined ? 4 : 3, dispatches);
+        // Two per dilation pass, plus three per size class — the border sync is a dispatch per rank.
+        Assert.Equal(refined ? 8 : 5, dispatches);
 
         var compared = 0;
 
@@ -198,6 +201,31 @@ public sealed class IrradianceRepairDeviceTests {
         }
 
         new TracedIrradianceFiller(new Ball(), new UniformSky(Radiance)).Fill(field);
+
+        // Every border texel poisoned, because a border texel can be the source of another border
+        // texel's copy — an edge texel of a brick at the grid's outer face reads its neighbour's
+        // border plane — and the copy has to be of what this repair wrote, not of what the pool held
+        // before. A dispatch that reads a border texel its own pass has not finished writing copies
+        // either the poison or a value from the wrong moment, and the comparison sees both.
+        var poison = new IrradianceProbe(
+            new(new Vector3(Poison), Vector3.Zero, Vector3.Zero, Vector3.Zero),
+            1f,
+            0f
+        );
+
+        foreach (var brick in field.Bricks) {
+            for (var z = 0; z <= IrradianceBrickPool.BrickResolution; z++) {
+                for (var y = 0; y <= IrradianceBrickPool.BrickResolution; y++) {
+                    for (var x = 0; x <= IrradianceBrickPool.BrickResolution; x++) {
+                        if (x == IrradianceBrickPool.BrickResolution
+                            || y == IrradianceBrickPool.BrickResolution
+                            || z == IrradianceBrickPool.BrickResolution) {
+                            field.Pool[brick.Slot, x, y, z] = poison;
+                        }
+                    }
+                }
+            }
+        }
 
         return field;
     }

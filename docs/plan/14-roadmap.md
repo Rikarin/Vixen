@@ -455,7 +455,9 @@ unshippable, so whether one is hosted, in-box or an addon wants an answer before
 surfaces — native Dawn/wgpu and `navigator.gpu` — over one `IWebGpuBinding`, with **the web path
 covered by tests that run on a CI machine with no browser**. `Vixen.Platform.Web`. `Vixen.Video` with
 its codec and rendering siblings, and `Vixen.Xr` with the OpenXR backend: both were cut-list items and
-both landed early. Global illumination phase **L1** complete and **L2** nearly so — see
+both landed early. Global illumination phases **L1** and **L2** complete — all three of L2's exit
+criteria are asserted end to end, and its last known defect, the device border sync racing its own
+reads, is closed by committing borders rank by rank on both sides — see
 [19](19-lighting-and-global-illumination.md), which **retires baked lightmaps and tetrahedral probes**
 rather than deferring them, and which is where most of that phase's saving comes from.
 

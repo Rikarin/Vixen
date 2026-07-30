@@ -16,7 +16,9 @@ import Vixen.Shaders.Core
 //
 // THREE PHASES, ONE SHADER, because they share every binding and differ only in what an invocation does
 // with a texel. A permutation rather than a branch: each variant is compiled with one answer, so the
-// promote pass is four instructions rather than a dilation kernel with its body switched off.
+// promote pass is four instructions rather than a dilation kernel with its body switched off. The border
+// phase is itself three variants — faces, edges, corner — because a border texel can read another border
+// texel, and the read has to be of a finished dispatch. See `Rank`.
 //
 // The pool is read through the storage images rather than through a sampler, and that is not a preference.
 // An image is in one layout at a time; these dispatches need it writable, so a sampled view of the same
@@ -52,6 +54,23 @@ shader IrradianceRepair {
     /// so every dilation everywhere has to have finished before the first border is written. That is a
     /// barrier, and a barrier is between dispatches.
     [Permutation] val Borders: bool = false
+
+    /// Which border texels this dispatch writes: 1 for faces, 2 for edges, 3 for the corner.
+    ///
+    /// The border phase's own deferral, done as an order rather than as scratch memory. `Beyond` READS
+    /// border texels: at the grid's outer face a lookup clamps back inside and lands in a face neighbour
+    /// with a local coordinate of exactly one, so the same-size copy reaches that neighbour's border plane
+    /// — a texel a border dispatch over the whole class is concurrently writing. The dilation phase got the
+    /// negated-validity sign for exactly this; a copy cannot use it, because a copy needs the VALUE and a
+    /// sign only marks one.
+    ///
+    /// What makes three dispatches sufficient is that the read target always has strictly fewer
+    /// border-plane coordinates than the reader. A neighbour's texel is at four only on an axis where this
+    /// brick's texel is also at four — the position sits on a shared boundary plane — and it cannot be at
+    /// four on ALL of them, because the same-size brick whose far corner is this position is this brick,
+    /// which `Beyond` already refuses. So a face reads only owned probes, an edge reads at worst a face,
+    /// the corner reads at worst an edge — and a rank never reads what its own dispatch writes.
+    [Permutation] val Rank: int = 1
 
     /// Turn this pass's repairs from provisional into believed.
     ///
@@ -309,6 +328,26 @@ shader IrradianceRepair {
 
         if (Borders) {
             if (!border) {
+                return
+            }
+
+            // Faces, then edges, then the corner — see `Rank`. An invocation outside its rank returns
+            // rather than waits, because the barrier between ranks is between dispatches.
+            var rank = 0
+
+            if (probe.x == Last) {
+                rank += 1
+            }
+
+            if (probe.y == Last) {
+                rank += 1
+            }
+
+            if (probe.z == Last) {
+                rank += 1
+            }
+
+            if (rank != Rank) {
                 return
             }
 
