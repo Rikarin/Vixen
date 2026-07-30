@@ -35,11 +35,17 @@ public sealed class ScreenProbeHistoryTexture : IDisposable {
     /// <summary>Planes per set.</summary>
     public const int Planes = 6;
 
+    /// <summary>Planes in the filtered set — the four the upsample reads.</summary>
+    public const int FilteredPlanes = 4;
+
     readonly TextureHandle[,] textures = new TextureHandle[2, Planes];
     readonly TextureViewHandle[,] views = new TextureViewHandle[2, Planes];
+    readonly TextureHandle[] filtered = new TextureHandle[FilteredPlanes];
+    readonly TextureViewHandle[] filteredViews = new TextureViewHandle[FilteredPlanes];
 
     IGraphicsDevice? device;
     BufferHandle download;
+    BufferHandle filteredDownload;
     int front;
     bool primed;
     bool disposed;
@@ -86,6 +92,33 @@ public sealed class ScreenProbeHistoryTexture : IDisposable {
     /// <summary>Makes the back set the front — the written history becomes the read one.</summary>
     public void Swap() => front = 1 - front;
 
+    /// <summary>One plane of the spatially filtered probes — what the upsample reads when a filter runs.</summary>
+    /// <remarks>
+    ///     Separate from both history sets, deliberately: the filter reads accumulated probes and
+    ///     writes here, so the history stays raw and next frame blends against an unfiltered past —
+    ///     filtered history is a blur that widens every frame with no knob that set it.
+    /// </remarks>
+    public TextureViewHandle FilteredView(int plane) => filteredViews[plane];
+
+    /// <summary>The filtered plane's texture, for importing into a graph.</summary>
+    public TextureHandle FilteredTexture(int plane) => filtered[plane];
+
+    /// <summary>Moves the filtered set between <see cref="ResourceState.ShaderRead" /> and writable.</summary>
+    /// <param name="commands">Where to record it.</param>
+    /// <param name="before">What the set is in.</param>
+    /// <param name="after">What it needs to be in.</param>
+    public void TransitionFiltered(ICommandList commands, ResourceState before, ResourceState after) {
+        ArgumentNullException.ThrowIfNull(commands);
+
+        var barriers = new TextureBarrier[FilteredPlanes];
+
+        for (var plane = 0; plane < FilteredPlanes; plane++) {
+            barriers[plane] = new(filtered[plane], before, after);
+        }
+
+        commands.Barrier(new([], barriers));
+    }
+
     /// <summary>Creates both sets, without recording anything — a graph import needs handles at build time.</summary>
     /// <param name="graphics">The device.</param>
     /// <exception cref="ArgumentNullException">There is no device.</exception>
@@ -117,6 +150,20 @@ public sealed class ScreenProbeHistoryTexture : IDisposable {
             }
         }
 
+        for (var plane = 0; plane < FilteredPlanes; plane++) {
+            filtered[plane] = graphics.CreateTexture(
+                new TextureDescription(
+                    PixelFormat.Rgba32Float,
+                    grid.X,
+                    grid.Y,
+                    TextureUsage.Sampled | TextureUsage.CopySource | TextureUsage.Storage,
+                    Name: $"ScreenProbes.Filtered.{plane}"
+                )
+            );
+
+            filteredViews[plane] = graphics.CreateTextureView(filtered[plane]);
+        }
+
         IsCreated = true;
     }
 
@@ -130,13 +177,17 @@ public sealed class ScreenProbeHistoryTexture : IDisposable {
             return;
         }
 
-        var barriers = new TextureBarrier[2 * Planes];
+        var barriers = new TextureBarrier[(2 * Planes) + FilteredPlanes];
 
         for (var set = 0; set < 2; set++) {
             for (var plane = 0; plane < Planes; plane++) {
                 barriers[(set * Planes) + plane] =
                     new(textures[set, plane], ResourceState.Undefined, ResourceState.ShaderRead);
             }
+        }
+
+        for (var plane = 0; plane < FilteredPlanes; plane++) {
+            barriers[(2 * Planes) + plane] = new(filtered[plane], ResourceState.Undefined, ResourceState.ShaderRead);
         }
 
         commands.Barrier(new([], barriers));
@@ -210,6 +261,81 @@ public sealed class ScreenProbeHistoryTexture : IDisposable {
         return true;
     }
 
+    /// <summary>Records a copy of the filtered planes back into host memory.</summary>
+    /// <param name="commands">Where to record it.</param>
+    /// <returns>False before the textures exist.</returns>
+    public bool RecordFilteredReadback(ICommandList commands) {
+        ArgumentNullException.ThrowIfNull(commands);
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (!IsCreated || device is null) {
+            return false;
+        }
+
+        var grid = Layout.GridSize;
+        var planeBytes = (long)grid.X * grid.Y * 4 * sizeof(float);
+
+        if (!filteredDownload.IsValid) {
+            filteredDownload = device.CreateBuffer(
+                new BufferDescription(
+                    planeBytes * FilteredPlanes,
+                    BufferUsage.CopyDestination,
+                    MemoryAccess.HostReadback,
+                    "ScreenProbes.FilteredReadback"
+                )
+            );
+        }
+
+        TransitionFiltered(commands, ResourceState.ShaderRead, ResourceState.CopySource);
+
+        for (var plane = 0; plane < FilteredPlanes; plane++) {
+            commands.CopyTextureToBuffer(
+                new TextureRegion(filtered[plane]),
+                new(grid.X, grid.Y, 1),
+                filteredDownload,
+                plane * planeBytes
+            );
+        }
+
+        TransitionFiltered(commands, ResourceState.CopySource, ResourceState.ShaderRead);
+
+        return true;
+    }
+
+    /// <summary>Decodes what the last <see cref="RecordFilteredReadback" /> copied.</summary>
+    /// <param name="filteredProbes">One projection per probe, row-major over the grid.</param>
+    /// <returns>False when nothing has been read back, or the span is too short.</returns>
+    public bool TryReadFiltered(Span<SphericalHarmonicsL1> filteredProbes) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        var grid = Layout.GridSize;
+        var count = grid.X * grid.Y;
+
+        if (device is null || !filteredDownload.IsValid || filteredProbes.Length < count) {
+            return false;
+        }
+
+        var floats = new float[count * 4 * FilteredPlanes];
+
+        device.Read(filteredDownload, 0, MemoryMarshal.AsBytes(floats.AsSpan()));
+
+        for (var index = 0; index < count; index++) {
+            var l0 = floats.AsSpan(index * 4);
+            var red = floats.AsSpan((count * 4) + (index * 4));
+            var green = floats.AsSpan((2 * count * 4) + (index * 4));
+            var blue = floats.AsSpan((3 * count * 4) + (index * 4));
+
+            filteredProbes[index] = new(
+                new Vector3(l0[0], l0[1], l0[2]),
+                new Vector3(red[0], green[0], blue[0]),
+                new Vector3(red[1], green[1], blue[1]),
+                new Vector3(red[2], green[2], blue[2])
+            );
+        }
+
+        return true;
+    }
+
     /// <summary>Decodes what the last <see cref="RecordReadback" /> copied.</summary>
     /// <param name="accumulated">One projection per probe, row-major over the grid.</param>
     /// <param name="weights">The accumulated weight per probe, same order.</param>
@@ -272,8 +398,24 @@ public sealed class ScreenProbeHistoryTexture : IDisposable {
             }
         }
 
+        foreach (var view in filteredViews) {
+            if (view.IsValid) {
+                device.Destroy(view);
+            }
+        }
+
+        foreach (var plane in filtered) {
+            if (plane.IsValid) {
+                device.Destroy(plane);
+            }
+        }
+
         if (download.IsValid) {
             device.Destroy(download);
+        }
+
+        if (filteredDownload.IsValid) {
+            device.Destroy(filteredDownload);
         }
 
         IsCreated = false;

@@ -90,16 +90,17 @@ public sealed class ScreenProbeGatherImageTests {
         Assert.True(centre.X < 1f, $"the overshoot has no ceiling: {centre}");
     }
 
-    /// <summary>The accumulated path draws the same flat frame a raw resolve draws.</summary>
+    /// <summary>The accumulated and filtered path draws the same flat frame a raw resolve draws.</summary>
     /// <remarks>
-    ///     The running mean of a constant is the constant — so routing the upsample through the
-    ///     history planes must change nothing about this picture, to the tolerance, while the
-    ///     recurrences themselves are pinned against the CPU in <c>ScreenProbeAccumulateDeviceTests</c>.
-    ///     A wrong swap, a stale set or a mismatched camera all show here as a dark or half-dark
-    ///     frame, because the first accumulation keeps nothing.
+    ///     The running mean of a constant is the constant and a spatial filter of a uniform field is
+    ///     the field — so routing the upsample through the whole denoise chain must change nothing
+    ///     about this picture, to the tolerance, while the arithmetic itself is pinned against the
+    ///     CPU in <c>ScreenProbeAccumulateDeviceTests</c>. A wrong swap, a stale set, a mismatched
+    ///     camera or an unwritten filtered plane all show here as a dark or half-dark frame, because
+    ///     the first accumulation keeps nothing.
     /// </remarks>
     [Fact]
-    public void TheAccumulatedPathDrawsTheSameClosedForm() {
+    public void TheDenoisedPathDrawsTheSameClosedForm() {
         if (!TryOpen(out var fixture)) {
             return;
         }
@@ -108,6 +109,7 @@ public sealed class ScreenProbeGatherImageTests {
         var pictures = Render(owned, 0.5f, frames: 4, out var node, accumulate: true);
 
         Assert.Null(node.AccumulateSkippedSeen);
+        Assert.Null(node.FilterSkippedSeen);
 
         var centre = Pixel(pictures[^1], 16, 16);
 
@@ -138,7 +140,8 @@ public sealed class ScreenProbeGatherImageTests {
         int Placements,
         string? TraceSkippedSeen,
         string? ResolveSkippedSeen,
-        string? AccumulateSkippedSeen
+        string? AccumulateSkippedSeen,
+        string? FilterSkippedSeen
     );
 
     static Bitmap[] Render(
@@ -192,6 +195,12 @@ public sealed class ScreenProbeGatherImageTests {
             Descriptors = allocator
         };
 
+        using var spatial = new ScreenProbeFilterFill(device) {
+            Effects = effects,
+            Pipelines = pipelines,
+            Descriptors = allocator
+        };
+
         // The CPU placement tests' camera: reconstruction under it is pinned by hand over there,
         // and under a uniform sky nothing here depends on the positions it produces.
         var camera = Matrix4x4.Orthographic(4f, 4f, 1f, 9f);
@@ -208,6 +217,7 @@ public sealed class ScreenProbeGatherImageTests {
             Tracer = tracer,
             Resolver = resolver,
             Accumulator = accumulate ? accumulator : null,
+            SpatialFilter = accumulate ? spatial : null,
             InverseViewProjection = inverse,
             ViewProjection = camera,
             ScreenTraces = screenTraces,
@@ -266,7 +276,8 @@ public sealed class ScreenProbeGatherImageTests {
             node.Placements,
             node.TraceSkipped,
             node.ResolveSkipped,
-            node.AccumulateSkipped
+            node.AccumulateSkipped,
+            node.FilterSkipped
         );
 
         return pictures;

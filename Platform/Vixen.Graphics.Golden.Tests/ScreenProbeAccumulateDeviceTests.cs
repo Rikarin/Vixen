@@ -134,6 +134,113 @@ public sealed class ScreenProbeAccumulateDeviceTests {
         }
     }
 
+    /// <summary>The spatial filter stops at the same plane the CPU stops at, probe for probe.</summary>
+    /// <remarks>
+    ///     One scene covers both closed forms at once: a spike inside the far plane spreads to its
+    ///     plane-sharing neighbours by the kernel's share, and the columns standing on the nearer
+    ///     plane neither receive it nor leak their own across — compared against
+    ///     <c>ScreenProbeHistory.Filter</c> for every probe.
+    /// </remarks>
+    [Fact]
+    public void TheFilterDispatchAgreesWithTheCpu() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var device = owned.Device;
+
+        var atlas = new ScreenProbeAtlas(new(new(64, 64)));
+
+        // A spike at (1,1) on the far plane; columns two and three on a nearer one.
+        Seed(atlas, probe => probe == new Int2(1, 1) ? 1f : 0f, 0f);
+
+        for (var y = 0; y < atlas.Layout.GridSize.Y; y++) {
+            for (var x = 2; x < atlas.Layout.GridSize.X; x++) {
+                var probe = new Int2(x, y);
+                var anchor = atlas.Layout.Anchor(probe);
+
+                atlas.SetSurface(probe, new((anchor.X - 32) / 16f, (anchor.Y - 32) / 16f, -4f), new(0f, 0f, 1f));
+            }
+        }
+
+        using var allocator = new DescriptorAllocator(device);
+        using var texture = new ScreenProbeTexture(atlas);
+        using var history = new ScreenProbeHistoryTexture(atlas.Layout);
+
+        var loader = new EffectLoader(device);
+        var effects = new EffectSystem();
+
+        effects.AddProvider(
+            new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "ScreenProbes"]))
+        );
+
+        var pipelines = new ComputePipelineCache(device);
+
+        using var resolve = new ScreenProbeResolve(device) {
+            Effects = effects,
+            Pipelines = pipelines,
+            Descriptors = allocator
+        };
+
+        using var accumulate = new ScreenProbeAccumulateFill(device) {
+            Effects = effects,
+            Pipelines = pipelines,
+            Descriptors = allocator,
+            ViewProjection = Camera
+        };
+
+        using var filter = new ScreenProbeFilterFill(device) {
+            Effects = effects,
+            Pipelines = pipelines,
+            Descriptors = allocator,
+            Strength = 0.5f,
+            Tolerance = 0.1f
+        };
+
+        var count = atlas.Layout.ProbeCount;
+        var filteredProbes = new SphericalHarmonicsL1[count];
+
+        allocator.BeginFrame();
+        VulkanDiagnostics.Reset();
+        device.BeginFrame();
+
+        using (var commands = device.BeginCommandList(QueueKind.Graphics, "filter")) {
+            texture.Upload(device, commands);
+
+            Assert.Equal(count, resolve.Record(commands, texture));
+            Assert.Equal(count, accumulate.Record(commands, atlas, texture, history));
+            Assert.Equal(count, filter.Record(commands, history));
+            Assert.True(history.RecordFilteredReadback(commands));
+
+            commands.Finish();
+            device.GraphicsQueue.Submit([commands]);
+        }
+
+        device.EndFrame();
+        device.WaitIdle();
+
+        Assert.Null(filter.Skipped);
+        AssertClean();
+
+        var reference = new ScreenProbeHistory(atlas.Layout);
+
+        reference.Accumulate(atlas, Camera);
+
+        var expected = new SphericalHarmonicsL1[count];
+
+        reference.Filter(expected, 0.5f, 0.1f);
+
+        Assert.True(history.TryReadFiltered(filteredProbes));
+
+        for (var index = 0; index < count; index++) {
+            Assert.True(
+                MathF.Abs(expected[index].L00.X - filteredProbes[index].L00.X) < 1e-4f,
+                $"probe {index}: the reference holds {expected[index].L00} and the device {filteredProbes[index].L00}"
+            );
+        }
+    }
+
     /// <summary>Valid probes on the z = −5 plane, each map one constant, surfaces shifted by an offset.</summary>
     static void Seed(ScreenProbeAtlas atlas, Func<Int2, float> radiance, float shift) {
         var layout = atlas.Layout;

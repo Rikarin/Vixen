@@ -109,6 +109,14 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
     /// <summary>Why the accumulator recorded nothing last frame, or null.</summary>
     public string? AccumulateSkipped { get; private set; }
 
+    /// <summary>What spreads each accumulated probe over its plane-sharing neighbours.</summary>
+    /// <remarks>Only run when <see cref="Accumulator" /> is also set — the filter reads the history
+    ///     the accumulation wrote, and without one there is nothing to spread.</remarks>
+    public ScreenProbeFilterFill? SpatialFilter { get; set; }
+
+    /// <summary>Why the spatial filter recorded nothing last frame, or null.</summary>
+    public string? FilterSkipped { get; private set; }
+
     /// <summary>This frame's camera — the inverse of the view-projection the frame draws with.</summary>
     /// <remarks>
     ///     Snapshotted beside the frame's depth copy and used when <i>that copy</i> is placed from,
@@ -392,6 +400,11 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
                             accumulator.ViewProjection = placedViewProjection;
                             accumulator.Record(commands, atlas!, texture, history!);
                             AccumulateSkipped = accumulator.Skipped;
+
+                            if (SpatialFilter is { } filter) {
+                                filter.Record(commands, history!);
+                                FilterSkipped = filter.Skipped;
+                            }
                         }
                     }
                 );
@@ -408,21 +421,28 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
     /// </remarks>
     void PublishPlanes(CompositorFrame frame) {
         // With an accumulator, the upsample reads the history's back set — the set the swap makes
-        // front by the time the pass draws. Without one, the raw resolve, which is the comparison
-        // composition.
+        // front by the time the pass draws — or the filtered planes when a filter runs over it.
+        // Without one, the raw resolve, which is the comparison composition.
         var accumulated = Accumulator is not null;
+        var filtered = accumulated && SpatialFilter is not null;
 
         if (accumulated) {
             history!.EnsureCreated((Device ?? frame.Device)!);
         }
 
         for (var plane = 0; plane < ProbePlanes; plane++) {
+            var source = filtered
+                ? (history!.FilteredTexture(plane), history.FilteredView(plane), history.PlaneDescription)
+                : accumulated
+                    ? (history!.BackTexture(plane), history.BackView(plane), history.PlaneDescription)
+                    : (texture!.ProbePlane(plane), texture.ProbeView(plane), texture.ProbePlaneDescription);
+
             frame.Add(
                 planeNames[plane],
                 frame.Graph.ImportTexture(
-                    accumulated ? history!.BackTexture(plane) : texture!.ProbePlane(plane),
-                    accumulated ? history!.BackView(plane) : texture!.ProbeView(plane),
-                    accumulated ? history!.PlaneDescription : texture!.ProbePlaneDescription,
+                    source.Item1,
+                    source.Item2,
+                    source.Item3,
                     ResourceState.ShaderRead,
                     ResourceState.ShaderRead
                 ),

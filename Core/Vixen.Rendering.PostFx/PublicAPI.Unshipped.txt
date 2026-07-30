@@ -216,6 +216,7 @@ Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Allocator.set -> Vixen.Graphics
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Device.get -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Device.set -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Dispose() -> void
+Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.FilterSkipped.get -> string?
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Intensity.get -> float
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Intensity.set -> float
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.InverseViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
@@ -234,6 +235,8 @@ Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Samplers.set -> Vixen.Rendering
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.ScreenProbeGatherRenderer() -> void
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.ScreenTraces.get -> bool
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.ScreenTraces.set -> bool
+Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.SpatialFilter.get -> Vixen.Rendering.Lighting.ScreenProbeFilterFill?
+Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.SpatialFilter.set -> Vixen.Rendering.Lighting.ScreenProbeFilterFill?
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Texture.get -> Vixen.Rendering.Lighting.ScreenProbeTexture?
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.TileSize.get -> int
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.TileSize.set -> int

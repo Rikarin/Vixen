@@ -232,9 +232,15 @@ the kernel's own arithmetic: a uniform field is unchanged exactly, a lone spike 
 itself and hands each neighbour k of that, and a neighbour across a depth edge keeps its answer
 to the bit.
 
-Owed from here, in the denoiser's own order: the filter's dispatch, bilinear history taps (point
-reprojection is the baseline), and the bilateral upsample that finally reads depth and normal
-edges — which is also what turns the adaptive probes on.
+**And the filter dispatches** — `ScreenProbeFilter.rvn`, one invocation per probe over the
+history's front set into a separate set of filtered planes (the recursion guard: the history stays
+raw), compared against `Filter` probe for probe over a scene holding both closed forms at once — a
+spike spreading within its plane and a nearer plane refusing it. The gather node runs it after the
+accumulation and the upsample reads the filtered planes, still without knowing.
+
+Owed from here, in the denoiser's own order: bilinear history taps (point reprojection is the
+baseline), and the bilateral upsample that finally reads depth and normal edges — which is also
+what turns the adaptive probes on.
 
 ## Not yet, and named so the absence is a decision
 

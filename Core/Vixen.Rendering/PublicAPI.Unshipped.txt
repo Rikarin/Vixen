@@ -1821,23 +1821,45 @@ Vixen.Rendering.Lighting.ScreenProbeAccumulateFill.Tolerance.get -> float
 Vixen.Rendering.Lighting.ScreenProbeAccumulateFill.Tolerance.set -> float
 Vixen.Rendering.Lighting.ScreenProbeAccumulateFill.ViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.Lighting.ScreenProbeAccumulateFill.ViewProjection.set -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.Lighting.ScreenProbeFilterFill -> sealed class
+Vixen.Rendering.Lighting.ScreenProbeFilterFill : System.IDisposable
+Vixen.Rendering.Lighting.ScreenProbeFilterFill.Descriptors.get -> Vixen.Graphics.DescriptorAllocator?
+Vixen.Rendering.Lighting.ScreenProbeFilterFill.Descriptors.set -> Vixen.Graphics.DescriptorAllocator?
+Vixen.Rendering.Lighting.ScreenProbeFilterFill.Dispose() -> void
+Vixen.Rendering.Lighting.ScreenProbeFilterFill.Effects.get -> Vixen.Shaders.EffectSystem?
+Vixen.Rendering.Lighting.ScreenProbeFilterFill.Effects.set -> Vixen.Shaders.EffectSystem?
+Vixen.Rendering.Lighting.ScreenProbeFilterFill.Parameters.get -> Vixen.Shaders.ParameterCollection
+Vixen.Rendering.Lighting.ScreenProbeFilterFill.Pipelines.get -> Vixen.Rendering.ComputePipelineCache?
+Vixen.Rendering.Lighting.ScreenProbeFilterFill.Pipelines.set -> Vixen.Rendering.ComputePipelineCache?
+Vixen.Rendering.Lighting.ScreenProbeFilterFill.Record(Vixen.Graphics.ICommandList commands, Vixen.Rendering.Lighting.ScreenProbeHistoryTexture history) -> int
+Vixen.Rendering.Lighting.ScreenProbeFilterFill.ScreenProbeFilterFill(Vixen.Graphics.IGraphicsDevice device) -> void
+Vixen.Rendering.Lighting.ScreenProbeFilterFill.Skipped.get -> string?
+Vixen.Rendering.Lighting.ScreenProbeFilterFill.Strength.get -> float
+Vixen.Rendering.Lighting.ScreenProbeFilterFill.Strength.set -> float
+Vixen.Rendering.Lighting.ScreenProbeFilterFill.Tolerance.get -> float
+Vixen.Rendering.Lighting.ScreenProbeFilterFill.Tolerance.set -> float
 Vixen.Rendering.Lighting.ScreenProbeHistoryTexture -> sealed class
 Vixen.Rendering.Lighting.ScreenProbeHistoryTexture : System.IDisposable
 Vixen.Rendering.Lighting.ScreenProbeHistoryTexture.BackTexture(int plane) -> Vixen.Graphics.TextureHandle
 Vixen.Rendering.Lighting.ScreenProbeHistoryTexture.BackView(int plane) -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Lighting.ScreenProbeHistoryTexture.Dispose() -> void
 Vixen.Rendering.Lighting.ScreenProbeHistoryTexture.EnsureCreated(Vixen.Graphics.IGraphicsDevice graphics) -> void
+Vixen.Rendering.Lighting.ScreenProbeHistoryTexture.FilteredTexture(int plane) -> Vixen.Graphics.TextureHandle
+Vixen.Rendering.Lighting.ScreenProbeHistoryTexture.FilteredView(int plane) -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Lighting.ScreenProbeHistoryTexture.FrontTexture(int plane) -> Vixen.Graphics.TextureHandle
 Vixen.Rendering.Lighting.ScreenProbeHistoryTexture.FrontView(int plane) -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Lighting.ScreenProbeHistoryTexture.IsCreated.get -> bool
 Vixen.Rendering.Lighting.ScreenProbeHistoryTexture.Layout.get -> Vixen.Rendering.ScreenProbes.ScreenProbeLayout
 Vixen.Rendering.Lighting.ScreenProbeHistoryTexture.PlaneDescription.get -> Vixen.Graphics.TextureDescription
 Vixen.Rendering.Lighting.ScreenProbeHistoryTexture.Prime(Vixen.Graphics.ICommandList commands) -> void
+Vixen.Rendering.Lighting.ScreenProbeHistoryTexture.RecordFilteredReadback(Vixen.Graphics.ICommandList commands) -> bool
 Vixen.Rendering.Lighting.ScreenProbeHistoryTexture.RecordReadback(Vixen.Graphics.ICommandList commands) -> bool
 Vixen.Rendering.Lighting.ScreenProbeHistoryTexture.ScreenProbeHistoryTexture(Vixen.Rendering.ScreenProbes.ScreenProbeLayout layout) -> void
 Vixen.Rendering.Lighting.ScreenProbeHistoryTexture.Swap() -> void
 Vixen.Rendering.Lighting.ScreenProbeHistoryTexture.TransitionBack(Vixen.Graphics.ICommandList commands, Vixen.Graphics.ResourceState before, Vixen.Graphics.ResourceState after) -> void
+Vixen.Rendering.Lighting.ScreenProbeHistoryTexture.TransitionFiltered(Vixen.Graphics.ICommandList commands, Vixen.Graphics.ResourceState before, Vixen.Graphics.ResourceState after) -> void
 Vixen.Rendering.Lighting.ScreenProbeHistoryTexture.TryRead(System.Span<Vixen.Core.Imaging.SphericalHarmonicsL1> accumulated, System.Span<float> weights) -> bool
+Vixen.Rendering.Lighting.ScreenProbeHistoryTexture.TryReadFiltered(System.Span<Vixen.Core.Imaging.SphericalHarmonicsL1> filteredProbes) -> bool
 Vixen.Rendering.Lighting.ScreenProbeResolve -> sealed class
 Vixen.Rendering.Lighting.ScreenProbeResolve : System.IDisposable
 Vixen.Rendering.Lighting.ScreenProbeResolve.Descriptors.get -> Vixen.Graphics.DescriptorAllocator?
@@ -3141,6 +3163,12 @@ Vixen.Shaders.Generated.ScreenProbeAccumulateConstants.TileSize -> float
 Vixen.Shaders.Generated.ScreenProbeAccumulateConstants.Tolerance -> float
 Vixen.Shaders.Generated.ScreenProbeAccumulateConstants.Viewport -> Vixen.Core.Mathematics.Vector2
 Vixen.Shaders.Generated.ScreenProbeAccumulateKeys -> static class
+Vixen.Shaders.Generated.ScreenProbeFilterConstants -> struct
+Vixen.Shaders.Generated.ScreenProbeFilterConstants.GridSize -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.ScreenProbeFilterConstants.ScreenProbeFilterConstants() -> void
+Vixen.Shaders.Generated.ScreenProbeFilterConstants.Strength -> float
+Vixen.Shaders.Generated.ScreenProbeFilterConstants.Tolerance -> float
+Vixen.Shaders.Generated.ScreenProbeFilterKeys -> static class
 Vixen.Shaders.Generated.ScreenProbeResolveKeys -> static class
 Vixen.Shaders.Generated.ScreenProbeTraceGlobalDistanceFieldDistanceFieldVolumesElement -> struct
 Vixen.Shaders.Generated.ScreenProbeTraceGlobalDistanceFieldDistanceFieldVolumesElement.InverseCellSize -> float
@@ -3231,6 +3259,8 @@ const Vixen.Rendering.Lighting.IrradianceFieldTexture.PoolIsBeingWritten = Vixen
 const Vixen.Rendering.Lighting.IrradianceFillJob.Stride = 48 -> int
 const Vixen.Rendering.Lighting.IrradianceRepairJob.Stride = 48 -> int
 const Vixen.Rendering.Lighting.ScreenProbeAccumulateFill.ShaderName = "ScreenProbeAccumulate" -> string
+const Vixen.Rendering.Lighting.ScreenProbeFilterFill.ShaderName = "ScreenProbeFilter" -> string
+const Vixen.Rendering.Lighting.ScreenProbeHistoryTexture.FilteredPlanes = 4 -> int
 const Vixen.Rendering.Lighting.ScreenProbeHistoryTexture.Planes = 6 -> int
 const Vixen.Rendering.Lighting.ScreenProbeResolve.ShaderName = "ScreenProbeResolve" -> string
 const Vixen.Rendering.Lighting.ScreenProbeSurfaceJob.Stride = 32 -> int
@@ -3487,6 +3517,31 @@ const Vixen.Shaders.Generated.ScreenProbeAccumulateKeys.OutSurfaceSet = 2 -> int
 const Vixen.Shaders.Generated.ScreenProbeAccumulateKeys.ShaderName = "ScreenProbeAccumulate" -> string
 const Vixen.Shaders.Generated.ScreenProbeAccumulateKeys.SurfacesBinding = 11 -> uint
 const Vixen.Shaders.Generated.ScreenProbeAccumulateKeys.SurfacesSet = 2 -> int
+const Vixen.Shaders.Generated.ScreenProbeFilterConstants.Size = 16 -> int
+const Vixen.Shaders.Generated.ScreenProbeFilterKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.ScreenProbeFilterKeys.ConstantBufferSet = 2 -> int
+const Vixen.Shaders.Generated.ScreenProbeFilterKeys.ConstantBufferSize = 16 -> int
+const Vixen.Shaders.Generated.ScreenProbeFilterKeys.HistoryL0Binding = 1 -> uint
+const Vixen.Shaders.Generated.ScreenProbeFilterKeys.HistoryL0Set = 2 -> int
+const Vixen.Shaders.Generated.ScreenProbeFilterKeys.HistoryL1BBinding = 4 -> uint
+const Vixen.Shaders.Generated.ScreenProbeFilterKeys.HistoryL1BSet = 2 -> int
+const Vixen.Shaders.Generated.ScreenProbeFilterKeys.HistoryL1GBinding = 3 -> uint
+const Vixen.Shaders.Generated.ScreenProbeFilterKeys.HistoryL1GSet = 2 -> int
+const Vixen.Shaders.Generated.ScreenProbeFilterKeys.HistoryL1RBinding = 2 -> uint
+const Vixen.Shaders.Generated.ScreenProbeFilterKeys.HistoryL1RSet = 2 -> int
+const Vixen.Shaders.Generated.ScreenProbeFilterKeys.HistoryNormalBinding = 6 -> uint
+const Vixen.Shaders.Generated.ScreenProbeFilterKeys.HistoryNormalSet = 2 -> int
+const Vixen.Shaders.Generated.ScreenProbeFilterKeys.HistorySurfaceBinding = 5 -> uint
+const Vixen.Shaders.Generated.ScreenProbeFilterKeys.HistorySurfaceSet = 2 -> int
+const Vixen.Shaders.Generated.ScreenProbeFilterKeys.OutL0Binding = 7 -> uint
+const Vixen.Shaders.Generated.ScreenProbeFilterKeys.OutL0Set = 2 -> int
+const Vixen.Shaders.Generated.ScreenProbeFilterKeys.OutL1BBinding = 10 -> uint
+const Vixen.Shaders.Generated.ScreenProbeFilterKeys.OutL1BSet = 2 -> int
+const Vixen.Shaders.Generated.ScreenProbeFilterKeys.OutL1GBinding = 9 -> uint
+const Vixen.Shaders.Generated.ScreenProbeFilterKeys.OutL1GSet = 2 -> int
+const Vixen.Shaders.Generated.ScreenProbeFilterKeys.OutL1RBinding = 8 -> uint
+const Vixen.Shaders.Generated.ScreenProbeFilterKeys.OutL1RSet = 2 -> int
+const Vixen.Shaders.Generated.ScreenProbeFilterKeys.ShaderName = "ScreenProbeFilter" -> string
 const Vixen.Shaders.Generated.ScreenProbeResolveKeys.ProbeL0Binding = 2 -> uint
 const Vixen.Shaders.Generated.ScreenProbeResolveKeys.ProbeL0Set = 2 -> int
 const Vixen.Shaders.Generated.ScreenProbeResolveKeys.ProbeL1BBinding = 5 -> uint
@@ -3669,6 +3724,7 @@ readonly Vixen.Shaders.Generated.IrradianceFillPerMaterialConstants.Write(System
 readonly Vixen.Shaders.Generated.IrradianceRepairConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.PlaceholderConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.ScreenProbeAccumulateConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.ScreenProbeFilterConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.ScreenProbeTraceGlobalDistanceFieldDistanceFieldVolumesElement.Write(System.Span<byte> buffer, int index) -> void
 readonly Vixen.Shaders.Generated.ScreenProbeTracePerFrameConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.ScreenProbeTracePerMaterialConstants.Write(System.Span<byte> buffer) -> void
@@ -4041,6 +4097,19 @@ static readonly Vixen.Shaders.Generated.ScreenProbeAccumulateKeys.Surfaces -> Vi
 static readonly Vixen.Shaders.Generated.ScreenProbeAccumulateKeys.TileSize -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.ScreenProbeAccumulateKeys.Tolerance -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.ScreenProbeAccumulateKeys.Viewport -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.ScreenProbeFilterKeys.GridSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.ScreenProbeFilterKeys.HistoryL0 -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ScreenProbeFilterKeys.HistoryL1B -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ScreenProbeFilterKeys.HistoryL1G -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ScreenProbeFilterKeys.HistoryL1R -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ScreenProbeFilterKeys.HistoryNormal -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ScreenProbeFilterKeys.HistorySurface -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ScreenProbeFilterKeys.OutL0 -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ScreenProbeFilterKeys.OutL1B -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ScreenProbeFilterKeys.OutL1G -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ScreenProbeFilterKeys.OutL1R -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ScreenProbeFilterKeys.Strength -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.ScreenProbeFilterKeys.Tolerance -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.ScreenProbeResolveKeys.ProbeL0 -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.ScreenProbeResolveKeys.ProbeL1B -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.ScreenProbeResolveKeys.ProbeL1G -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
