@@ -42,6 +42,7 @@
         <ProjectReference Include="..\Vixen.Rendering.DistanceFields\Vixen.Rendering.DistanceFields.csproj" />
         <ProjectReference Include="..\Vixen.Rendering.IrradianceFields\Vixen.Rendering.IrradianceFields.csproj" />
         <ProjectReference Include="..\Vixen.Rendering.ScreenProbes\Vixen.Rendering.ScreenProbes.csproj" />
+        <ProjectReference Include="..\Vixen.Rendering.SurfaceCache\Vixen.Rendering.SurfaceCache.csproj" />
 
         <!--
             The cluster DAG and its page format (docs/virtualized-geometry.md, phases 1 and 2). One-way
@@ -132,6 +133,8 @@
         <AdditionalFiles Include="..\..\Raven\Library\ScreenProbes\ScreenProbeResolve.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\ScreenProbes\ScreenProbeAccumulate.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\ScreenProbes\ScreenProbeFilter.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\SurfaceCache\SurfaceCacheLight.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\SurfaceCache\SurfaceCacheGather.reflect.json" />
     </ItemGroup>
 
     <ItemGroup>

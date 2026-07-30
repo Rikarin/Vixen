@@ -248,6 +248,13 @@ public static class MaterialCompiler {
     /// <summary>The shader that fills an irradiance slot for a project with no field.</summary>
     public const string EmptyIrradianceShader = "NoIrradiance";
 
+    /// <summary>The shader that fills a surface-cache slot for a project with no cache — every hit
+    ///     answers black, which is every tracer's answer before doc 19 § L4 existed.</summary>
+    public const string EmptySurfaceCacheShader = "NoSurfaceCache";
+
+    /// <summary>The shader that fills a surface-cache slot by sampling § L4's card atlas.</summary>
+    public const string SurfaceCacheShader = "SurfaceCacheSource";
+
     /// <summary>The shader that fills an irradiance slot by reading doc 19 § L2's field.</summary>
     /// <remarks>
     ///     <b>It is also half of a binding name, which is why it is a constant.</b> A composed slot's

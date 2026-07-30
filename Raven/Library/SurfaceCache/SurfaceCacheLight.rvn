@@ -1,0 +1,96 @@
+package Vixen.Shaders.SurfaceCache
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.DistanceFields
+
+// Direct light on the cache, on the GPU.
+//
+// `docs/plan/19` § L4's lighting pass. `Vixen.Rendering.SurfaceCache.CardRadiosity.Light` is the same
+// arithmetic on the CPU and it exists first, because there it can be checked: a sun straight overhead
+// at irradiance π writes a direct term of exactly one, and a pass that agrees with arithmetic is the
+// reference this one is compared against. Where the two disagree, the C# is right and this is wrong.
+//
+// One invocation per texel and one group-z per card: the cards buffer is the job list, because the
+// radiosity relights every resident card every pass — there is no cursor and no budget, the way the
+// probe fills have one, since a card missing a pass is a card whose bounce lags the scene.
+//
+// The direct atlas is written rather than read, so it is a storage image; the surface atlases are
+// read-only here and stay sampled. A texel whose capture saw nothing is skipped, which leaves the
+// cleared zero the upload put there — the same answer the CPU pass leaves by skipping it.
+
+shader SurfaceCacheLight {
+    /// What the shadow rays march through.
+    compose val distanceField: IDistanceFieldSource = NoDistanceField
+
+    /// The cards in residence — shapes and atlas rectangles, `SurfaceCacheTexture.Apply`'s upload.
+    var cards: Buffer<SurfaceCacheCard>
+
+    /// Albedo in `rgb`, the stored depth in `a`.
+    var albedoDepth: Texture2D
+
+    /// The normal in `xyz`, validity in `a`.
+    var normalValid: Texture2D
+
+    /// Direct incident irradiance over π, this pass's output.
+    [Format("rgba32f")] var directAtlas: RWTexture2D<float4>
+
+    /// From the surface toward the sun, normalised by the host.
+    var towardSun: float3 = float3(0f, 1f, 0f)
+
+    /// The sun's irradiance on a perpendicular surface.
+    var sunIrradiance: float3 = float3(1f, 1f, 1f)
+
+    /// How far a shadow ray looks before deciding it escaped.
+    var maxDistance: float = 100f
+
+    /// How many steps one march may take. The CPU tracer's own default.
+    var maxSteps: int = 128
+
+    /// How near counts as arrived. The CPU tracer's own default.
+    var surfaceThreshold: float = 0.01f
+
+    /// What fraction of the reported distance each step actually takes.
+    var stepScale: float = 0.9f
+
+    /// How far off its surface a shadow ray starts, in world units.
+    var bias: float = 0.01f
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_GroupID")] group: uint3, [Semantic("SV_GroupThreadID")] thread: uint3) {
+        val card = cards[int(group.z)]
+        val texel = int2(int(group.x) * 8 + int(thread.x), int(group.y) * 8 + int(thread.y))
+
+        // Cards come in every size up to the dispatch's widest, so the spare threads walk away.
+        if (texel.x >= card.resolution.x || texel.y >= card.resolution.y) {
+            return
+        }
+
+        val atlasTexel = int2(card.origin.x + texel.x, card.origin.y + texel.y)
+        val surface = normalValid.Load(int3(atlasTexel.x, atlasTexel.y, 0))
+
+        // A texel that captured nothing keeps the cleared zero the upload wrote — skipping is the
+        // CPU pass's own behaviour, not a shortcut.
+        if (surface.a < 0.5f) {
+            return
+        }
+
+        val normal = surface.xyz
+        val cosine = dot(normal, towardSun)
+
+        if (cosine <= 0f) {
+            directAtlas.Store(atlasTexel, float4(0f, 0f, 0f, 0f))
+            return
+        }
+
+        val depth = albedoDepth.Load(int3(atlasTexel.x, atlasTexel.y, 0)).a
+        val position = SurfaceCards.TexelOrigin(card, texel) - SurfaceCards.Direction(card.axis) * depth
+        val shadow = distanceField.TraceField(position + normal * bias, towardSun, maxDistance, maxSteps, surfaceThreshold, stepScale)
+
+        if (shadow.hit) {
+            directAtlas.Store(atlasTexel, float4(0f, 0f, 0f, 0f))
+            return
+        }
+
+        directAtlas.Store(atlasTexel, float4(sunIrradiance * (cosine / Const.Pi), 0f))
+    }
+}

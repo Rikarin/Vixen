@@ -1,0 +1,115 @@
+package Vixen.Shaders.SurfaceCache
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.DistanceFields
+
+// The bounce over the cards, on the GPU.
+//
+// `docs/plan/19` § L4's radiosity gather. `Vixen.Rendering.SurfaceCache.CardRadiosity.Gather` is the
+// same arithmetic on the CPU and it exists first: a gather under a uniform sky is the sky exactly, a
+// Cornell box converges within a measured error of a path tracer, and two convergences agree to the
+// bit — the properties this dispatch is compared against. Where the two disagree, the C# is right.
+//
+// The rays are the CPU's own Hammersley set — cosine-weighted, deterministic, no seed — because a
+// dispatch compared against a reference must cast the reference's rays. A hit asks the composed
+// `surfaceCache` what the surface radiates, which is the seam § L4 exists to close: `NoSurfaceCache`
+// answers black (every tracer's honest answer before the cache existed), `SurfaceCacheSource` answers
+// with the cache — reading the FRONT of the double buffer while this writes the back, because a
+// bounce that reads its own pass converges to whatever the texel order made of it.
+//
+// A miss is the sky, one colour — which is how skylight reaches the cards at all, with no ambient
+// term to double-count it.
+
+shader SurfaceCacheGather {
+    /// What the gather rays march through.
+    compose val distanceField: IDistanceFieldSource = NoDistanceField
+
+    /// What a ray that hits a surface sees. The cache itself, in any frame that has one.
+    compose val surfaceCache: ISurfaceCacheSource = NoSurfaceCache
+
+    /// The cards in residence — shapes and atlas rectangles, `SurfaceCacheTexture.Apply`'s upload.
+    var cards: Buffer<SurfaceCacheCard>
+
+    /// Albedo in `rgb`, the stored depth in `a`.
+    var albedoDepth: Texture2D
+
+    /// The normal in `xyz`, validity in `a`.
+    var normalValid: Texture2D
+
+    /// The next gathered irradiance over π — the BACK of the double buffer, live after the host swaps.
+    [Format("rgba32f")] var gatherAtlas: RWTexture2D<float4>
+
+    /// How many rays each texel's gather casts.
+    var rays: int = 32
+
+    /// How far a gather ray looks before deciding it escaped.
+    var maxDistance: float = 100f
+
+    /// How many steps one march may take. The CPU tracer's own default.
+    var maxSteps: int = 128
+
+    /// How near counts as arrived. The CPU tracer's own default.
+    var surfaceThreshold: float = 0.01f
+
+    /// What fraction of the reported distance each step actually takes.
+    var stepScale: float = 0.9f
+
+    /// How far off its surface a ray starts, in world units.
+    var bias: float = 0.01f
+
+    /// What an escaping ray sees. Black is a closed scene.
+    var skyColor: float3 = float3(0f, 0f, 0f)
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_GroupID")] group: uint3, [Semantic("SV_GroupThreadID")] thread: uint3) {
+        val card = cards[int(group.z)]
+        val texel = int2(int(group.x) * 8 + int(thread.x), int(group.y) * 8 + int(thread.y))
+
+        if (texel.x >= card.resolution.x || texel.y >= card.resolution.y) {
+            return
+        }
+
+        val atlasTexel = int2(card.origin.x + texel.x, card.origin.y + texel.y)
+        val surface = normalValid.Load(int3(atlasTexel.x, atlasTexel.y, 0))
+
+        if (surface.a < 0.5f) {
+            return
+        }
+
+        val normal = surface.xyz
+        val depth = albedoDepth.Load(int3(atlasTexel.x, atlasTexel.y, 0)).a
+        val position = SurfaceCards.TexelOrigin(card, texel) - SurfaceCards.Direction(card.axis) * depth
+        val origin = position + normal * bias
+
+        // The CPU's tangent rule verbatim: away from whichever world axis the normal leans least on.
+        var away = float3(1f, 0f, 0f)
+
+        if (abs(normal.y) < 0.99f) {
+            away = float3(0f, 1f, 0f)
+        }
+
+        val tangent = Math.SafeNormalize(cross(away, normal))
+        val bitangent = cross(normal, tangent)
+        var sum = float3(0f, 0f, 0f)
+
+        for (ray in 0 .. rays - 1) {
+            val u = (float(ray) + 0.5f) / float(rays)
+            val v = SurfaceCards.RadicalInverse(ray)
+            val r = sqrt(u)
+            val phi = 2f * Const.Pi * v
+            val direction = tangent * (r * cos(phi)) + bitangent * (r * sin(phi)) + normal * sqrt(1f - u)
+            val hit = distanceField.TraceField(origin, direction, maxDistance, maxSteps, surfaceThreshold, stepScale)
+
+            if (hit.hit) {
+                val hitNormal = distanceField.GradientField(hit.position)
+
+                sum += surfaceCache.SurfaceRadiance(hit.position, hitNormal).rgb
+            } else {
+                sum += skyColor
+            }
+        }
+
+        // Cosine importance folds the lobe into the distribution: the mean IS E/π.
+        gatherAtlas.Store(atlasTexel, float4(sum / float(rays), 1f))
+    }
+}

@@ -55,6 +55,9 @@ static class LibraryComposition {
         // And the irradiance field an indirect pass reads, which the probe pool fills.
         bindings.Add(new("irradiance", "IrradianceFieldProbes"));
 
+        // And the surface cache a hit asks, which the card atlas fills.
+        bindings.Add(new("surfaceCache", "SurfaceCacheSource"));
+
         foreach (var (slot, shader) in overrides) {
             bindings.Add(new(slot, shader));
         }

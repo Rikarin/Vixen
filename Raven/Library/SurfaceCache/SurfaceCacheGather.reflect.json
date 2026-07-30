@@ -5,7 +5,7 @@
       "Bindings": [
         {
           "Binding": 0,
-          "Name": "ScreenProbeTracePerFrameUniforms",
+          "Name": "SurfaceCacheGatherPerFrameUniforms",
           "Type": "UniformBuffer",
           "Count": 1,
           "Stages": "Compute",
@@ -93,135 +93,6 @@
               "DefaultValue": ""
             },
             {
-              "Name": "IrradianceFieldProbes.irradianceField",
-              "Type": {
-                "Scalar": "Struct",
-                "Rows": 1,
-                "Columns": 1,
-                "StructName": "IrradianceFieldVolume",
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": true
-              },
-              "Offset": 192,
-              "Size": 96,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "IrradianceFieldProbes.irradianceField.minimum",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 3,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 192,
-              "Size": 12,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "IrradianceFieldProbes.irradianceField.maximum",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 3,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 208,
-              "Size": 12,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "IrradianceFieldProbes.irradianceField.inverseCellSize",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 3,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 224,
-              "Size": 12,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "IrradianceFieldProbes.irradianceField.resolution",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 3,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 240,
-              "Size": 12,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "IrradianceFieldProbes.irradianceField.inversePoolSize",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 3,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 256,
-              "Size": 12,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "IrradianceFieldProbes.irradianceField.normalBias",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 1,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 268,
-              "Size": 4,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "IrradianceFieldProbes.irradianceField.viewBias",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 1,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 272,
-              "Size": 4,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
               "Name": "SurfaceCacheSource.surfaceCardCount",
               "Type": {
                 "Scalar": "Int",
@@ -231,7 +102,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 288,
+              "Offset": 192,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -247,14 +118,14 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 292,
+              "Offset": 196,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": "0.1"
             }
           ],
-          "Size": 304,
+          "Size": 208,
           "IsWritable": false
         },
         {
@@ -269,56 +140,6 @@
         },
         {
           "Binding": 2,
-          "Name": "IrradianceFieldProbes.irradianceIndirection",
-          "Type": "SampledTexture",
-          "Count": 1,
-          "Stages": "Compute",
-          "Members": [],
-          "Size": 0,
-          "IsWritable": false
-        },
-        {
-          "Binding": 3,
-          "Name": "IrradianceFieldProbes.irradianceL0",
-          "Type": "SampledTexture",
-          "Count": 1,
-          "Stages": "Compute",
-          "Members": [],
-          "Size": 0,
-          "IsWritable": false
-        },
-        {
-          "Binding": 4,
-          "Name": "IrradianceFieldProbes.irradianceL1R",
-          "Type": "SampledTexture",
-          "Count": 1,
-          "Stages": "Compute",
-          "Members": [],
-          "Size": 0,
-          "IsWritable": false
-        },
-        {
-          "Binding": 5,
-          "Name": "IrradianceFieldProbes.irradianceL1G",
-          "Type": "SampledTexture",
-          "Count": 1,
-          "Stages": "Compute",
-          "Members": [],
-          "Size": 0,
-          "IsWritable": false
-        },
-        {
-          "Binding": 6,
-          "Name": "IrradianceFieldProbes.irradianceL1B",
-          "Type": "SampledTexture",
-          "Count": 1,
-          "Stages": "Compute",
-          "Members": [],
-          "Size": 0,
-          "IsWritable": false
-        },
-        {
-          "Binding": 7,
           "Name": "SurfaceCacheSource.surfaceAlbedoDepth",
           "Type": "SampledTexture",
           "Count": 1,
@@ -328,7 +149,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 8,
+          "Binding": 3,
           "Name": "SurfaceCacheSource.surfaceNormalValid",
           "Type": "SampledTexture",
           "Count": 1,
@@ -338,7 +159,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 9,
+          "Binding": 4,
           "Name": "SurfaceCacheSource.surfaceEmissive",
           "Type": "SampledTexture",
           "Count": 1,
@@ -348,7 +169,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 10,
+          "Binding": 5,
           "Name": "SurfaceCacheSource.surfaceDirect",
           "Type": "SampledTexture",
           "Count": 1,
@@ -358,7 +179,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 11,
+          "Binding": 6,
           "Name": "SurfaceCacheSource.surfaceGathered",
           "Type": "SampledTexture",
           "Count": 1,
@@ -368,7 +189,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 12,
+          "Binding": 7,
           "Name": "GlobalDistanceField.distanceFieldSampler",
           "Type": "Sampler",
           "Count": 1,
@@ -378,27 +199,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 13,
-          "Name": "IrradianceFieldProbes.irradiancePointSampler",
-          "Type": "Sampler",
-          "Count": 1,
-          "Stages": "Compute",
-          "Members": [],
-          "Size": 0,
-          "IsWritable": false
-        },
-        {
-          "Binding": 14,
-          "Name": "IrradianceFieldProbes.irradianceSampler",
-          "Type": "Sampler",
-          "Count": 1,
-          "Stages": "Compute",
-          "Members": [],
-          "Size": 0,
-          "IsWritable": false
-        },
-        {
-          "Binding": 15,
+          "Binding": 8,
           "Name": "SurfaceCacheSource.surfaceCards",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -512,45 +313,13 @@
       "Bindings": [
         {
           "Binding": 0,
-          "Name": "ScreenProbeTracePerMaterialUniforms",
+          "Name": "SurfaceCacheGatherPerMaterialUniforms",
           "Type": "UniformBuffer",
           "Count": 1,
           "Stages": "Compute",
           "Members": [
             {
-              "Name": "viewProjection",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 4,
-                "Columns": 4,
-                "IsMatrix": true,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 0,
-              "Size": 64,
-              "ArrayStride": 0,
-              "MatrixStride": 16,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "screenViewport",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 2,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 64,
-              "Size": 8,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "screenSteps",
+              "Name": "rays",
               "Type": {
                 "Scalar": "Int",
                 "Rows": 1,
@@ -559,27 +328,11 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 72,
+              "Offset": 0,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "0"
-            },
-            {
-              "Name": "screenThickness",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 1,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 76,
-              "Size": 4,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": "0.02"
+              "DefaultValue": "32"
             },
             {
               "Name": "maxDistance",
@@ -591,7 +344,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 80,
+              "Offset": 4,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -607,11 +360,11 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 84,
+              "Offset": 8,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "64"
+              "DefaultValue": "128"
             },
             {
               "Name": "surfaceThreshold",
@@ -623,11 +376,11 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 88,
+              "Offset": 12,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "0.05"
+              "DefaultValue": "0.01"
             },
             {
               "Name": "stepScale",
@@ -639,11 +392,27 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 92,
+              "Offset": 16,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": "0.9"
+            },
+            {
+              "Name": "bias",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 20,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.01"
             },
             {
               "Name": "skyColor",
@@ -655,35 +424,19 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 96,
-              "Size": 12,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "skyGradient",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 3,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 112,
+              "Offset": 32,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": ""
             }
           ],
-          "Size": 128,
+          "Size": 48,
           "IsWritable": false
         },
         {
           "Binding": 1,
-          "Name": "depthBuffer",
+          "Name": "albedoDepth",
           "Type": "SampledTexture",
           "Count": 1,
           "Stages": "Compute",
@@ -693,62 +446,56 @@
         },
         {
           "Binding": 2,
-          "Name": "jobs",
+          "Name": "normalValid",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Compute",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 3,
+          "Name": "cards",
           "Type": "StorageBuffer",
           "Count": 0,
           "Stages": "Compute",
           "Members": [
             {
-              "Name": "jobs",
+              "Name": "cards",
               "Type": {
                 "Scalar": "Struct",
                 "Rows": 1,
                 "Columns": 1,
-                "StructName": "ScreenProbeTraceJob",
+                "StructName": "SurfaceCacheCard",
                 "IsMatrix": false,
                 "IsArray": false,
                 "IsStruct": true
               },
               "Offset": 0,
-              "Size": 32,
+              "Size": 64,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": ""
             },
             {
-              "Name": "jobs.atlasOrigin",
+              "Name": "cards.centre",
               "Type": {
-                "Scalar": "Int",
-                "Rows": 2,
+                "Scalar": "Float",
+                "Rows": 3,
                 "Columns": 1,
                 "IsMatrix": false,
                 "IsArray": false,
                 "IsStruct": false
               },
               "Offset": 0,
-              "Size": 8,
+              "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": ""
             },
             {
-              "Name": "jobs.valid",
-              "Type": {
-                "Scalar": "Int",
-                "Rows": 1,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 8,
-              "Size": 4,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "jobs.origin",
+              "Name": "cards.halfSize",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 3,
@@ -762,14 +509,62 @@
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": ""
+            },
+            {
+              "Name": "cards.origin",
+              "Type": {
+                "Scalar": "Int",
+                "Rows": 2,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 32,
+              "Size": 8,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "cards.resolution",
+              "Type": {
+                "Scalar": "Int",
+                "Rows": 2,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 40,
+              "Size": 8,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "cards.axis",
+              "Type": {
+                "Scalar": "Int",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 48,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
             }
           ],
-          "Size": 32,
+          "Size": 64,
           "IsWritable": false
         },
         {
-          "Binding": 3,
-          "Name": "radianceAtlas",
+          "Binding": 4,
+          "Name": "gatherAtlas",
           "Type": "StorageImage",
           "Count": 1,
           "Stages": "Compute",
@@ -860,132 +655,6 @@
       "DefaultValue": ""
     },
     {
-      "Name": "IrradianceFieldProbes.irradianceField.minimum",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 3,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 0,
-      "Binding": 0,
-      "Offset": 192,
-      "Size": 12,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "IrradianceFieldProbes.irradianceField.maximum",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 3,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 0,
-      "Binding": 0,
-      "Offset": 208,
-      "Size": 12,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "IrradianceFieldProbes.irradianceField.inverseCellSize",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 3,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 0,
-      "Binding": 0,
-      "Offset": 224,
-      "Size": 12,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "IrradianceFieldProbes.irradianceField.resolution",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 3,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 0,
-      "Binding": 0,
-      "Offset": 240,
-      "Size": 12,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "IrradianceFieldProbes.irradianceField.inversePoolSize",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 3,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 0,
-      "Binding": 0,
-      "Offset": 256,
-      "Size": 12,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "IrradianceFieldProbes.irradianceField.normalBias",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 0,
-      "Binding": 0,
-      "Offset": 268,
-      "Size": 4,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "IrradianceFieldProbes.irradianceField.viewBias",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 0,
-      "Binding": 0,
-      "Offset": 272,
-      "Size": 4,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": ""
-    },
-    {
       "Name": "SurfaceCacheSource.surfaceCardCount",
       "Type": {
         "Scalar": "Int",
@@ -997,7 +666,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 288,
+      "Offset": 192,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1015,7 +684,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 292,
+      "Offset": 196,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1032,7 +701,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 15,
+      "Binding": 8,
       "Offset": 0,
       "Size": 12,
       "ArrayStride": 0,
@@ -1050,7 +719,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 15,
+      "Binding": 8,
       "Offset": 16,
       "Size": 12,
       "ArrayStride": 0,
@@ -1068,7 +737,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 15,
+      "Binding": 8,
       "Offset": 32,
       "Size": 8,
       "ArrayStride": 0,
@@ -1086,7 +755,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 15,
+      "Binding": 8,
       "Offset": 40,
       "Size": 8,
       "ArrayStride": 0,
@@ -1104,7 +773,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 15,
+      "Binding": 8,
       "Offset": 48,
       "Size": 4,
       "ArrayStride": 0,
@@ -1112,43 +781,7 @@
       "DefaultValue": ""
     },
     {
-      "Name": "viewProjection",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 4,
-        "Columns": 4,
-        "IsMatrix": true,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 0,
-      "Size": 64,
-      "ArrayStride": 0,
-      "MatrixStride": 16,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "screenViewport",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 2,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 64,
-      "Size": 8,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "screenSteps",
+      "Name": "rays",
       "Type": {
         "Scalar": "Int",
         "Rows": 1,
@@ -1159,29 +792,11 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 72,
+      "Offset": 0,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "0"
-    },
-    {
-      "Name": "screenThickness",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 76,
-      "Size": 4,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": "0.02"
+      "DefaultValue": "32"
     },
     {
       "Name": "maxDistance",
@@ -1195,7 +810,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 80,
+      "Offset": 4,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1213,11 +828,11 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 84,
+      "Offset": 8,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "64"
+      "DefaultValue": "128"
     },
     {
       "Name": "surfaceThreshold",
@@ -1231,11 +846,11 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 88,
+      "Offset": 12,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "0.05"
+      "DefaultValue": "0.01"
     },
     {
       "Name": "stepScale",
@@ -1249,11 +864,29 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 92,
+      "Offset": 16,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": "0.9"
+    },
+    {
+      "Name": "bias",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 20,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.01"
     },
     {
       "Name": "skyColor",
@@ -1267,14 +900,14 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 96,
+      "Offset": 32,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": ""
     },
     {
-      "Name": "skyGradient",
+      "Name": "cards.centre",
       "Type": {
         "Scalar": "Float",
         "Rows": 3,
@@ -1284,15 +917,33 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 0,
-      "Offset": 112,
+      "Binding": 3,
+      "Offset": 0,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": ""
     },
     {
-      "Name": "jobs.atlasOrigin",
+      "Name": "cards.halfSize",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 3,
+      "Offset": 16,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "cards.origin",
       "Type": {
         "Scalar": "Int",
         "Rows": 2,
@@ -1302,15 +953,33 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 2,
-      "Offset": 0,
+      "Binding": 3,
+      "Offset": 32,
       "Size": 8,
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": ""
     },
     {
-      "Name": "jobs.valid",
+      "Name": "cards.resolution",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 2,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 3,
+      "Offset": 40,
+      "Size": 8,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "cards.axis",
       "Type": {
         "Scalar": "Int",
         "Rows": 1,
@@ -1320,27 +989,9 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 2,
-      "Offset": 8,
+      "Binding": 3,
+      "Offset": 48,
       "Size": 4,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "jobs.origin",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 3,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 2,
-      "Offset": 16,
-      "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": ""

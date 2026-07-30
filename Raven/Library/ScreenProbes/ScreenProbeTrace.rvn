@@ -3,6 +3,7 @@ package Vixen.Shaders.ScreenProbes
 import Vixen.Shaders.Core
 import Vixen.Shaders.DistanceFields
 import Vixen.Shaders.IrradianceFields
+import Vixen.Shaders.SurfaceCache
 
 // Filling screen probes by marching the distance field, on the GPU.
 //
@@ -54,6 +55,12 @@ shader ScreenProbeTrace {
     /// termination all the way back to the sky — so a project without a field traces exactly the rays
     /// it traced before.
     compose val irradiance: IIrradianceSource = NoIrradiance
+
+    /// What a ray that hits a surface sees — doc 19 § L4's cache, closing the seam this kernel
+    /// carried from the day it was written. `NoSurfaceCache` answers black, which is exactly what
+    /// the hit branch stored before the slot existed; `SurfaceCacheSource` answers with the card
+    /// atlas, and the probes inherit multi-bounce light without this file changing again.
+    compose val surfaceCache: ISurfaceCacheSource = NoSurfaceCache
 
     var jobs: Buffer<ScreenProbeTraceJob>
 
@@ -174,7 +181,10 @@ shader ScreenProbeTrace {
         var arriving = skyColor + skyGradient * direction.y
 
         if (hit.hit) {
-            arriving = float3(0f, 0f, 0f)
+            // What the surface radiates, from the cache — `SurfaceCacheStore.TryRadiance`'s walk,
+            // behind the slot. The normal is the field's gradient, the same answer the CPU tracer
+            // hands its radiance source.
+            arriving = surfaceCache.SurfaceRadiance(hit.position, distanceField.GradientField(hit.position)).rgb
         } else {
             // A miss terminates in the field where the field has an answer, blended by its coverage —
             // the sky is the fallback, not an addend, for the double-counting reason `ForwardPlus`

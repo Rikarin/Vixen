@@ -1,0 +1,297 @@
+package Vixen.Shaders.SurfaceCache
+
+import Vixen.Shaders.Core
+
+// The surface cache's cards, addressed — and the answer a hit gives, behind a protocol.
+//
+// The shader half of `Vixen.Rendering.SurfaceCache` — doc 19 § L4's cache, sampled. The C# side
+// exists first and is checked against closed forms and a Cornell box; this side has to place the
+// same texels, project the same points and pick the same card, and the device tests hold the two
+// against each other the way every capture in this engine is held against its reference. Where the
+// two disagree, the C# is right and this is wrong.
+//
+// The in-plane frame is the C# `SurfaceCard`'s one rule: U and V are the other two world axes in
+// cyclic order whatever the sign, so a card written by one side and read by the other cannot
+// disagree about which way U runs.
+//
+// A style note that is a language constraint: no `%` and no bit operators are used anywhere here —
+// everything is derived with integer divides, so nothing leans on operators the language may not
+// carry. The radical inverse is the arithmetic form of the CPU's bit reversal and agrees with it
+// exactly, because every partial sum is a distinct power of two and floats add those without error.
+
+/// One card as `SurfaceCacheTexture.Apply` uploads it: a box, an axis, and its atlas rectangle.
+struct SurfaceCacheCard {
+    /// The centre of its box, in world space.
+    var centre: float3
+
+    /// The box's half-extents, world-axis aligned.
+    var halfSize: float3
+
+    /// Where the card's texels start in the atlas.
+    var origin: int2
+
+    /// Texels along the card's U and V.
+    var resolution: int2
+
+    /// Which of the six directions it faces, 0 to 5: +X, −X, +Y, −Y, +Z, −Z.
+    var axis: int
+}
+
+/// A world position in a card's own terms, or not.
+struct SurfaceCardProjection {
+    var inside: bool
+    var texel: int2
+    var depth: float
+}
+
+struct SurfaceCards {
+    /// The outward direction of the surfaces a card captures.
+    static func Direction(axis: int): float3 {
+        val component = axis / 2
+        var sign = 1f
+
+        if (axis != component * 2) {
+            sign = -1f
+        }
+
+        if (component == 0) {
+            return float3(sign, 0f, 0f)
+        }
+
+        if (component == 1) {
+            return float3(0f, sign, 0f)
+        }
+
+        return float3(0f, 0f, sign)
+    }
+
+    /// One component of a vector, by world-axis index.
+    static func Component(value: float3, index: int): float {
+        if (index == 0) {
+            return value.x
+        }
+
+        if (index == 1) {
+            return value.y
+        }
+
+        return value.z
+    }
+
+    /// The world component a card's U runs along — cyclic from the axis, whatever the sign.
+    static func UComponent(axis: int): int {
+        val component = axis / 2
+
+        if (component == 2) {
+            return 0
+        }
+
+        return component + 1
+    }
+
+    /// The world component a card's V runs along.
+    static func VComponent(axis: int): int {
+        val component = axis / 2
+
+        if (component == 0) {
+            return 2
+        }
+
+        return component - 1
+    }
+
+    /// Where a texel's centre sits on the card's near plane — the face the capture enters.
+    static func TexelOrigin(card: SurfaceCacheCard, texel: int2): float3 {
+        val direction = Direction(card.axis)
+        val uComponent = UComponent(card.axis)
+        val vComponent = VComponent(card.axis)
+        val planeU = Component(card.halfSize, uComponent)
+        val planeV = Component(card.halfSize, vComponent)
+        val halfDepth = Component(card.halfSize, card.axis / 2)
+        val u = ((float(texel.x) + 0.5f) / float(card.resolution.x) * 2f - 1f) * planeU
+        val v = ((float(texel.y) + 0.5f) / float(card.resolution.y) * 2f - 1f) * planeV
+
+        var origin = card.centre + direction * halfDepth
+
+        if (uComponent == 0) {
+            origin.x = card.centre.x + u
+        }
+
+        if (uComponent == 1) {
+            origin.y = card.centre.y + u
+        }
+
+        if (uComponent == 2) {
+            origin.z = card.centre.z + u
+        }
+
+        if (vComponent == 0) {
+            origin.x = card.centre.x + v
+        }
+
+        if (vComponent == 1) {
+            origin.y = card.centre.y + v
+        }
+
+        if (vComponent == 2) {
+            origin.z = card.centre.z + v
+        }
+
+        return origin
+    }
+
+    /// A world position in the card's own terms, if it lies inside the box.
+    static func Project(card: SurfaceCacheCard, world: float3): SurfaceCardProjection {
+        var result = SurfaceCardProjection(false, int2(0, 0), 0f)
+
+        val direction = Direction(card.axis)
+        val planeU = Component(card.halfSize, UComponent(card.axis))
+        val planeV = Component(card.halfSize, VComponent(card.axis))
+        val halfDepth = Component(card.halfSize, card.axis / 2)
+        val local = world - card.centre
+        val u = Component(local, UComponent(card.axis))
+        val v = Component(local, VComponent(card.axis))
+        val along = dot(local, direction)
+
+        if (abs(u) > planeU || abs(v) > planeV || abs(along) > halfDepth) {
+            return result
+        }
+
+        var x = int((u / planeU + 1f) * 0.5f * float(card.resolution.x))
+        var y = int((v / planeV + 1f) * 0.5f * float(card.resolution.y))
+
+        if (x < 0) {
+            x = 0
+        }
+
+        if (x > card.resolution.x - 1) {
+            x = card.resolution.x - 1
+        }
+
+        if (y < 0) {
+            y = 0
+        }
+
+        if (y > card.resolution.y - 1) {
+            y = card.resolution.y - 1
+        }
+
+        result.inside = true
+        result.texel = int2(x, y)
+        result.depth = halfDepth - along
+
+        return result
+    }
+
+    /// The Van der Corput sequence, base two — the Hammersley set's second coordinate.
+    ///
+    /// The arithmetic form of the CPU's bit reversal, and exactly it: bit `k` of the index
+    /// contributes `2^-(k-1)`, every partial sum is a distinct power of two, and floats add those
+    /// without rounding. Sixteen bits covers every ray count anyone dispatches.
+    static func RadicalInverse(index: int): float {
+        var bits = index
+        var result = 0f
+        var scale = 0.5f
+
+        for (i in 0 .. 15) {
+            val half = bits / 2
+
+            if (bits != half * 2) {
+                result += scale
+            }
+
+            bits = half
+            scale *= 0.5f
+        }
+
+        return result
+    }
+}
+
+/// What a ray that hits a cached surface sees — the seam § L4 exists to close, as a slot.
+///
+/// A `protocol` for the reason `IDistanceFieldSource` is one: the slot resolves at compile time
+/// with no dispatch, so a kernel that wants a hit answered is written once, and a project with no
+/// cache fills the slot with the answer the tracers always gave — black, honestly.
+protocol ISurfaceCacheSource {
+    /// The outgoing radiance of a cached surface at a point, `rgb`, with `a` one where a card
+    /// answered and zero where none did.
+    func SurfaceRadiance(position: float3, normal: float3): float4
+}
+
+/// No cache: every hit is black, which is every tracer's honest answer since the day it was written.
+shader NoSurfaceCache : ISurfaceCacheSource {
+    func SurfaceRadiance(position: float3, normal: float3): float4 => float4(0f, 0f, 0f, 0f)
+}
+
+/// The cache itself: the best-facing resident card containing the point at the stored depth.
+///
+/// The linear scan `SurfaceCacheStore.TryRadiance` is the reference for, test-for-test: facing must
+/// strictly beat the best so far (a tie goes to the earlier card), containment finds the box, depth
+/// agreement proves the card captured this surface and not one in front of it. Outgoing radiance is
+/// the store's convention — emissive plus albedo times direct-plus-gathered, both irradiance over π.
+///
+/// Bound by `Vixen.Rendering.Lighting.SurfaceCacheTexture.Apply`, and the names here are that
+/// type's contract: a rename on either side is a binding that silently resolves to nothing.
+shader SurfaceCacheSource : ISurfaceCacheSource {
+    [PerFrame] var surfaceCards: Buffer<SurfaceCacheCard>
+
+    /// Albedo in `rgb`, the stored depth in `a`.
+    [PerFrame] var surfaceAlbedoDepth: Texture2D
+
+    /// The normal in `xyz`, validity in `a` — zero is a texel whose capture saw nothing.
+    [PerFrame] var surfaceNormalValid: Texture2D
+
+    /// What the surface emits, as radiance.
+    [PerFrame] var surfaceEmissive: Texture2D
+
+    /// Direct incident irradiance over π, the lighting kernel's output.
+    [PerFrame] var surfaceDirect: Texture2D
+
+    /// Gathered indirect irradiance over π, as of the last swap — the front of the double buffer.
+    [PerFrame] var surfaceGathered: Texture2D
+
+    /// How many cards are resident.
+    [PerFrame] var surfaceCardCount: int = 0
+
+    /// How far a point may sit from a texel's stored depth and still be its surface.
+    [PerFrame] var surfaceDepthTolerance: float = 0.1f
+
+    func SurfaceRadiance(position: float3, normal: float3): float4 {
+        var bestFacing = 0f
+        var bestAt = int2(0, 0)
+        var found = false
+
+        for (index in 0 .. surfaceCardCount - 1) {
+            val card = surfaceCards[index]
+            val facing = dot(normal, SurfaceCards.Direction(card.axis))
+
+            if (facing > bestFacing) {
+                val projection = SurfaceCards.Project(card, position)
+
+                if (projection.inside) {
+                    val at = int2(card.origin.x + projection.texel.x, card.origin.y + projection.texel.y)
+                    val stored = surfaceAlbedoDepth.Load(int3(at.x, at.y, 0))
+                    val valid = surfaceNormalValid.Load(int3(at.x, at.y, 0)).a
+
+                    if (valid > 0.5f && abs(stored.a - projection.depth) <= surfaceDepthTolerance) {
+                        bestFacing = facing
+                        bestAt = at
+                        found = true
+                    }
+                }
+            }
+        }
+
+        if (!found) {
+            return float4(0f, 0f, 0f, 0f)
+        }
+
+        val albedo = surfaceAlbedoDepth.Load(int3(bestAt.x, bestAt.y, 0)).rgb
+        val emissive = surfaceEmissive.Load(int3(bestAt.x, bestAt.y, 0)).rgb
+        val direct = surfaceDirect.Load(int3(bestAt.x, bestAt.y, 0)).rgb
+        val gathered = surfaceGathered.Load(int3(bestAt.x, bestAt.y, 0)).rgb
+
+        return float4(emissive + albedo * (direct + gathered), 1f)
+    }
+}

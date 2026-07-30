@@ -124,7 +124,7 @@ public sealed class ScreenProbeTraceDeviceTests {
         // IrradianceFields because the trace terminates long rays there — the import exists even when
         // NoIrradiance fills the slot.
         effects.AddProvider(
-            new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "ScreenProbes"]))
+            new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"]))
         );
 
         using var trace = new ScreenProbeTraceFill(device) {
@@ -221,7 +221,7 @@ public sealed class ScreenProbeTraceDeviceTests {
         var effects = new EffectSystem();
 
         effects.AddProvider(
-            new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "ScreenProbes"]))
+            new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"]))
         );
 
         using var trace = new ScreenProbeTraceFill(device) {
@@ -340,7 +340,7 @@ public sealed class ScreenProbeTraceDeviceTests {
         var effects = new EffectSystem();
 
         effects.AddProvider(
-            new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "ScreenProbes"]))
+            new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"]))
         );
 
         // The depth buffer, uploaded as the frame would have drawn it.
