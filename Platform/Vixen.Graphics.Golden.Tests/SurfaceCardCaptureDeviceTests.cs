@@ -4,9 +4,11 @@
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics.Vulkan;
+using Vixen.Rendering;
 using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.Lighting;
 using Vixen.Rendering.SurfaceCache;
+using Vixen.Shaders;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -152,6 +154,197 @@ public sealed class SurfaceCardCaptureDeviceTests {
                 Assert.Equal(march.Depth, raster.Depth, 0.015f);
             }
         }
+    }
+
+    /// <summary>One pass writes what three passes wrote — the fusion, held to both referees.</summary>
+    /// <remarks>
+    ///     The MRT pipeline comes from <c>SurfaceCardRaster</c> compiled on the spot: no descriptor
+    ///     set, the projection a push constant, albedo and emissive riding as vertex colours. The
+    ///     same half-floor is captured single-pass and against the traced reference — and then the
+    ///     three-pass capture runs beside it into a second store, and the two stores must agree
+    ///     texel for texel, which is what keeps the fusion from quietly changing what a texel means.
+    /// </remarks>
+    [Fact]
+    public void OnePassWritesWhatThreePassesWrote() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var device = owned.Device;
+
+        var card = new SurfaceCard(2, new(0f, 0f, 0f), new(1f, 0.2f, 1f), new(8, 8));
+        var store = new SurfaceCacheStore(new SurfaceCacheAtlas(new(16, 16)));
+        var mrt = store.AddCard(card);
+
+        var loader = new EffectLoader(device);
+        var effects = new EffectSystem();
+
+        effects.AddProvider(
+            new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "SurfaceCache"]))
+        );
+
+        var effect = effects.Resolve(
+            EffectKey.Of("SurfaceCardRaster").With(Vixen.Rendering.Materials.MaterialCompiler.PassComposition())
+        );
+
+        Assert.NotNull(effect);
+        Assert.False(effect!.IsPlaceholder);
+        Assert.Empty(effects.Misses);
+
+        Effect compiled = effect!;
+
+        ShaderHandle Stage(Fixture host, ShaderStage stage) {
+            foreach (var candidate in compiled.Stages) {
+                if (candidate.Stage == stage) {
+                    var handle = host.Device.CreateShader(stage, [.. candidate.Bytecode], $"SurfaceCardRaster.{stage}");
+
+                    host.Owns(() => host.Device.Destroy(handle));
+
+                    return handle;
+                }
+            }
+
+            Assert.Fail($"the effect compiled no {stage} stage");
+
+            return default;
+        }
+
+
+        // The effect's own layout rather than an ad-hoc one: the compiled stages know what push
+        // constants and sets they declared, and a layout that disagrees is a pipeline that fails
+        // to build — which is exactly how the ad-hoc form announced itself.
+        var pipeline = device.CreateGraphicsPipeline(
+            new(
+                Stage(owned, ShaderStage.Vertex),
+                Stage(owned, ShaderStage.Fragment),
+                compiled.Layout,
+                [
+                    new ColourTargetState(PixelFormat.Rgba32Float, BlendState.Opaque),
+                    new ColourTargetState(PixelFormat.Rgba32Float, BlendState.Opaque),
+                    new ColourTargetState(PixelFormat.Rgba32Float, BlendState.Opaque)
+                ],
+                [
+                    // The locations are the shader's to assign — EffectVertexInput's own warning —
+                    // and asking by name is what survives a reordering; writing 0..3 down was a
+                    // pipeline that failed to build.
+                    new VertexBufferLayout(
+                        MrtVertex.Stride,
+                        [
+                            new(Location(compiled, "position"), VertexFormat.Float32X3, 0),
+                            new(Location(compiled, "normal"), VertexFormat.Float32X3, 12),
+                            new(Location(compiled, "albedo"), VertexFormat.Float32X4, 24),
+                            new(Location(compiled, "emissive"), VertexFormat.Float32X4, 40)
+                        ]
+                    )
+                ],
+                PrimitiveTopology.TriangleList,
+                RasterizerState.TwoSided,
+                new DepthStencilState { DepthTest = true, DepthWrite = true, DepthCompare = CompareFunction.Greater },
+                PixelFormat.Depth32Float,
+                Name: "SurfaceCardRaster"
+            )
+        );
+
+        owned.Owns(() => device.Destroy(pipeline));
+
+        var pushStages = compiled.PushConstants[0].Stages;
+
+        var buffer = owned.Buffer<MrtVertex>(MrtQuad(), BufferUsage.Vertex);
+
+        using var capture = new SurfaceCardCapture(device) { MaxResolution = 16, SinglePass = true };
+
+        VulkanDiagnostics.Reset();
+        device.BeginFrame();
+
+        using (var commands = device.BeginCommandList(QueueKind.Graphics, "mrt-capture")) {
+            capture.Record(
+                commands,
+                card,
+                (list, _, viewProjection) => {
+                    list.BindPipeline(pipeline);
+                    list.PushConstants(pushStages, 0, MemoryMarshal.AsBytes([viewProjection]));
+                    list.BindVertexBuffer(0, buffer);
+                    list.Draw(6, 1);
+                }
+            );
+
+            commands.Finish();
+            device.GraphicsQueue.Submit([commands]);
+        }
+
+        device.EndFrame();
+        device.WaitIdle();
+        AssertClean();
+
+        Assert.True(capture.TryRead(store, mrt, out var captured));
+        Assert.Equal(32, captured);
+
+        // Referee one: the traced reference, exactly as the three-pass form is held to it.
+        var traced = new SurfaceCacheStore(new SurfaceCacheAtlas(new(16, 16)));
+        var reference = traced.AddCard(card);
+
+        Assert.Equal(32, new TracedCardCapture(new HalfFloor(), new Paint()).Capture(traced, reference));
+
+        for (var y = 0; y < 8; y++) {
+            for (var x = 0; x < 8; x++) {
+                var texel = new Int2(x, y);
+
+                Assert.Equal(traced.IsValid(reference, texel), store.IsValid(mrt, texel));
+
+                if (!store.IsValid(mrt, texel)) {
+                    continue;
+                }
+
+                var march = traced.Surface(reference, texel);
+                var raster = store.Surface(mrt, texel);
+
+                Assert.Equal(march.Albedo.X, raster.Albedo.X, 1e-5f);
+                Assert.Equal(march.Emissive.X, raster.Emissive.X, 1e-5f);
+                Assert.Equal(march.Normal.Y, raster.Normal.Y, 1e-4f);
+                Assert.Equal(0.2f, raster.Depth, 1e-4f);
+            }
+        }
+    }
+
+    /// <summary>One attribute's location, by the name the shader gave it.</summary>
+    static uint Location(Effect effect, string name) {
+        foreach (var input in effect.VertexInputs) {
+            if (input.Name == name) {
+                return (uint)input.Location;
+            }
+        }
+
+        Assert.Fail($"the effect declares no vertex input named '{name}'");
+
+        return 0;
+    }
+
+    /// <summary>What <c>SurfaceCardRaster</c> reads: position, normal, albedo, emissive.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    struct MrtVertex(Vector3 position, Vector3 normal, Vector3 albedo, Vector3 emissive) {
+        public const int Stride = 56;
+
+        public Vector3 Position = position;
+        public Vector3 Normal = normal;
+        public Vector4 Albedo = new(albedo, 1f);
+        public Vector4 Emissive = new(emissive, 1f);
+    }
+
+    /// <summary>The same covered half, wearing the paint's answers as vertex data.</summary>
+    static MrtVertex[] MrtQuad() {
+        Vector3 albedo = new(0.5f, 0.25f, 0.125f);
+        Vector3 emissive = new(2f, 1f, 0.5f);
+        Vector3 up = new(0f, 1f, 0f);
+        Vector3 a = new(-1.5f, 0f, -1.5f);
+        Vector3 b = new(0f, 0f, -1.5f);
+        Vector3 c = new(-1.5f, 0f, 1.5f);
+        Vector3 d = new(0f, 0f, 1.5f);
+
+        return [
+            new(a, up, albedo, emissive), new(b, up, albedo, emissive), new(c, up, albedo, emissive),
+            new(c, up, albedo, emissive), new(b, up, albedo, emissive), new(d, up, albedo, emissive)
+        ];
     }
 
     /// <summary>The floor's covered half: y = 0 under x &lt; 0, wider than the card in z.</summary>
