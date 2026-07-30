@@ -1,0 +1,23 @@
+#nullable enable
+Vixen.Rendering.RayTracing.RayHit -> readonly struct
+Vixen.Rendering.RayTracing.RayHit : System.IEquatable<Vixen.Rendering.RayTracing.RayHit>
+Vixen.Rendering.RayTracing.RayHit.Distance.get -> float
+Vixen.Rendering.RayTracing.RayHit.Distance.init -> float
+Vixen.Rendering.RayTracing.RayHit.Hit.get -> bool
+Vixen.Rendering.RayTracing.RayHit.Hit.init -> bool
+Vixen.Rendering.RayTracing.RayHit.Normal.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.RayTracing.RayHit.Normal.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.RayTracing.RayHit.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.RayTracing.RayHit.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.RayTracing.RayHit.RayHit() -> void
+Vixen.Rendering.RayTracing.RayHit.RayHit(bool Hit, float Distance, Vixen.Core.Mathematics.Vector3 Position, Vixen.Core.Mathematics.Vector3 Normal, int Triangle, int Visited) -> void
+Vixen.Rendering.RayTracing.RayHit.Triangle.get -> int
+Vixen.Rendering.RayTracing.RayHit.Triangle.init -> int
+Vixen.Rendering.RayTracing.RayHit.Visited.get -> int
+Vixen.Rendering.RayTracing.RayHit.Visited.init -> int
+Vixen.Rendering.RayTracing.TriangleBvh -> sealed class
+Vixen.Rendering.RayTracing.TriangleBvh.BruteForce(Vixen.Core.Mathematics.Vector3 origin, Vixen.Core.Mathematics.Vector3 direction, float maxDistance = Infinity) -> Vixen.Rendering.RayTracing.RayHit
+Vixen.Rendering.RayTracing.TriangleBvh.NodeCount.get -> int
+Vixen.Rendering.RayTracing.TriangleBvh.Trace(Vixen.Core.Mathematics.Vector3 origin, Vixen.Core.Mathematics.Vector3 direction, float maxDistance = Infinity) -> Vixen.Rendering.RayTracing.RayHit
+Vixen.Rendering.RayTracing.TriangleBvh.TriangleBvh(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> vertices, System.ReadOnlySpan<int> indices, int leafSize = 4) -> void
+Vixen.Rendering.RayTracing.TriangleBvh.TriangleCount.get -> int
