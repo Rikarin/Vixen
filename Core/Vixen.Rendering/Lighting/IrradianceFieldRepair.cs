@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
@@ -61,19 +62,22 @@ public struct IrradianceRepairJob {
 ///     </para>
 ///     <para>
 ///         <b>The order is fixed and each step is a dispatch with a barrier after it.</b> Dilate, promote,
-///         then the borders coarsest first. A border is a copy, so copying before the original is repaired
-///         copies the hole; and a fine brick borrows across a size boundary by interpolating the coarse
-///         one's own field, including its border plane — so the coarse brick's borders have to be right
-///         first. Both facts are <see cref="IrradianceField.SyncBorders" />'s, restated as a dispatch
-///         order.
+///         then the borders coarsest first — and within each size class faces, then edges, then the corner.
+///         A border is a copy, so copying before the original is repaired copies the hole; a fine brick
+///         borrows across a size boundary by interpolating the coarse one's own field, including its border
+///         plane — so the coarse brick's borders have to be right first; and a border texel can read a
+///         border texel of its own class, so the one it reads has to belong to a dispatch that has finished.
+///         All three facts are <see cref="IrradianceField.SyncBorders" />'s, restated as a dispatch order.
 ///     </para>
 ///     <para>
-///         <b>What replaces the CPU's deferred write list is a sign.</b> <see cref="IrradianceField.Dilate" />
-///         applies its repairs after the whole sweep so that a repair cannot feed the probe beside it in the
-///         same pass. A device has nowhere to put a list every invocation can also read past, so a repair
-///         is written with its validity negated — a value no filler produces and every reader already
-///         rejects, because <c>validity &lt;= 0</c> was already the test for "do not borrow from this". The
-///         promote pass flips it back.
+///         <b>What replaces the CPU's deferred write list is a sign for the dilation, and an order for the
+///         borders.</b> <see cref="IrradianceField.Dilate" /> applies its repairs after the whole sweep so
+///         that a repair cannot feed the probe beside it in the same pass. A device has nowhere to put a
+///         list every invocation can also read past, so a repair is written with its validity negated — a
+///         value no filler produces and every reader already rejects, because <c>validity &lt;= 0</c> was
+///         already the test for "do not borrow from this". The promote pass flips it back. The border phase
+///         cannot use the sign — a copy needs the value, and a sign only marks one — which is why its
+///         deferral is the rank order above rather than a mark.
 ///     </para>
 /// </remarks>
 public sealed class IrradianceFieldRepair : IDisposable {
@@ -109,6 +113,7 @@ public sealed class IrradianceFieldRepair : IDisposable {
     readonly List<DescriptorWrite> writes = [];
     readonly List<(int Start, int Count)> classes = [];
     readonly List<int> sizes = [];
+    readonly PipelineHandle[] borderPipelines = new PipelineHandle[3];
     readonly EffectConstants block;
 
     bool disposed;
@@ -154,9 +159,10 @@ public sealed class IrradianceFieldRepair : IDisposable {
 
     /// <summary>How many dispatches the last repair recorded, or zero when it recorded none.</summary>
     /// <remarks>
-    ///     Two per dilation pass plus one per size class. A field that still has seams and this sitting at
-    ///     zero is a repair that never ran; the same field with this climbing is a repair that ran and
-    ///     disagrees with the reference, which are different bugs in different files.
+    ///     Two per dilation pass plus three per size class — the border sync is a dispatch per rank. A
+    ///     field that still has seams and this sitting at zero is a repair that never ran; the same field
+    ///     with this climbing is a repair that ran and disagrees with the reference, which are different
+    ///     bugs in different files.
     /// </remarks>
     public int Dispatches { get; private set; }
 
@@ -198,7 +204,7 @@ public sealed class IrradianceFieldRepair : IDisposable {
         }
 
         if (!TryPipelines(out var dilate, out var promote, out var borders, out var effect)) {
-            return Skip($"'{ShaderName}' has not compiled all three of its variants yet");
+            return Skip($"'{ShaderName}' has not compiled all five of its variants yet");
         }
 
         texture.Apply(Parameters, ShaderName);
@@ -217,41 +223,56 @@ public sealed class IrradianceFieldRepair : IDisposable {
         }
 
         // Coarsest first, because a fine brick borrows across a size boundary by interpolating the coarse
-        // one's field — including the border plane the coarse brick has only just been given.
+        // one's field — including the border plane the coarse brick has only just been given. Within a
+        // class faces, then edges, then the corner, because an edge texel's copy can reach a face texel of
+        // its own class and the read has to be of a finished dispatch — see the shader's `Rank`.
         foreach (var (start, count) in classes) {
-            if (!Dispatch(commands, texture, effect, borders, start, count)) {
-                return Skip("set 2 of the border variant could not be filled");
+            foreach (var pipeline in borders) {
+                if (!Dispatch(commands, texture, effect, pipeline, start, count)) {
+                    return Skip("set 2 of a border variant could not be filled");
+                }
             }
         }
 
         return field.BrickCount;
     }
 
-    /// <summary>The three variants and the effect whose plan says where their bindings go.</summary>
+    /// <summary>The five variants and the effect whose plan says where their bindings go.</summary>
     /// <remarks>
-    ///     One effect for the layout because all three share it — the permutations decide what an
-    ///     invocation does, not what it binds — and three pipelines because that is the point of a
+    ///     One effect for the layout because all five share it — the permutations decide what an
+    ///     invocation does, not what it binds — and five pipelines because that is the point of a
     ///     permutation: the promote pass is four instructions rather than a dilation kernel switched off.
+    ///     The borders come back in rank order — faces, edges, corner — which is the order they dispatch.
     /// </remarks>
     bool TryPipelines(
         out PipelineHandle dilate,
         out PipelineHandle promote,
-        out PipelineHandle borders,
+        out PipelineHandle[] borders,
         out Effect effect
     ) {
         dilate = default;
         promote = default;
-        borders = default;
+        borders = borderPipelines;
         effect = null!;
 
-        if (!TryPipeline(false, false, out dilate, out effect)) {
+        if (!TryPipeline(false, false, 1, out dilate, out effect)) {
             return false;
         }
 
-        return TryPipeline(false, true, out promote, out _) && TryPipeline(true, false, out borders, out _);
+        if (!TryPipeline(false, true, 1, out promote, out _)) {
+            return false;
+        }
+
+        for (var rank = 1; rank <= 3; rank++) {
+            if (!TryPipeline(true, false, rank, out borders[rank - 1], out _)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
-    bool TryPipeline(bool borders, bool promote, out PipelineHandle pipeline, out Effect resolved) {
+    bool TryPipeline(bool borders, bool promote, int rank, out PipelineHandle pipeline, out Effect resolved) {
         pipeline = default;
         resolved = null!;
 
@@ -262,7 +283,8 @@ public sealed class IrradianceFieldRepair : IDisposable {
             ShaderName,
             [
                 new(IrradianceRepairKeys.Borders.Name, borders ? "true" : "false"),
-                new(IrradianceRepairKeys.Promote.Name, promote ? "true" : "false")
+                new(IrradianceRepairKeys.Promote.Name, promote ? "true" : "false"),
+                new(IrradianceRepairKeys.Rank.Name, rank.ToString(CultureInfo.InvariantCulture))
             ],
             MaterialCompiler.PassComposition()
         );

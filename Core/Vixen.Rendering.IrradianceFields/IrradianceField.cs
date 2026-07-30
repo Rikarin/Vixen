@@ -447,9 +447,20 @@ public sealed class IrradianceField {
     ///         it wants can fall in the coarse brick's <i>own</i> border plane — so the coarse brick
     ///         has to be finished first. The reverse never happens: a coarse brick's border lands on
     ///         the near face of whichever fine brick covers it, which needs only probes that brick
-    ///         owns. Two bricks of the same size only ever copy each other's owned probes, so within a
-    ///         size the order does not matter — and every value in a size is computed before any of
-    ///         them is written, so it cannot matter.
+    ///         owns.
+    ///     </para>
+    ///     <para>
+    ///         <b>Within a size: faces, then edges, then the corner — and that ordering is forced
+    ///         too.</b> Two bricks of the same size do not only copy each other's owned probes. At the
+    ///         grid's outer face a border position clamps back inside, so the lookup lands in a
+    ///         <i>face</i> neighbour with a local coordinate of exactly one, and the copy reaches that
+    ///         neighbour's own border plane. Copying a border texel before it is written this pass
+    ///         copies whatever the pool held before — zero, on a field synced once, which is a dark
+    ///         seam along the grid's edges. The read target always has strictly fewer border-plane
+    ///         coordinates than the reader (an axis at four means a shared boundary plane, and a brick
+    ///         matching on every such axis is this brick), so committing rank by rank makes every read
+    ///         a read of something finished. It is also the order the device repair dispatches, and
+    ///         the two have to agree because the device is checked against this.
     ///     </para>
     /// </remarks>
     public void SyncBorders() {
@@ -466,28 +477,32 @@ public sealed class IrradianceField {
         sizes.Sort(static (left, right) => right.CompareTo(left));
 
         foreach (var size in sizes) {
-            deferred.Clear();
+            for (var rank = 1; rank <= 3; rank++) {
+                deferred.Clear();
 
-            foreach (var brick in Bricks) {
-                if (brick.Size != size) {
-                    continue;
-                }
+                foreach (var brick in Bricks) {
+                    if (brick.Size != size) {
+                        continue;
+                    }
 
-                for (var z = 0; z <= last; z++) {
-                    for (var y = 0; y <= last; y++) {
-                        for (var x = 0; x <= last; x++) {
-                            if (x < last && y < last && z < last) {
-                                continue;
+                    for (var z = 0; z <= last; z++) {
+                        for (var y = 0; y <= last; y++) {
+                            for (var x = 0; x <= last; x++) {
+                                var planes = (x == last ? 1 : 0) + (y == last ? 1 : 0) + (z == last ? 1 : 0);
+
+                                if (planes != rank) {
+                                    continue;
+                                }
+
+                                deferred.Add((brick.Slot, x, y, z, Borrowed(brick, x, y, z)));
                             }
-
-                            deferred.Add((brick.Slot, x, y, z, Borrowed(brick, x, y, z)));
                         }
                     }
                 }
-            }
 
-            foreach (var (slot, x, y, z, probe) in deferred) {
-                Pool[slot, x, y, z] = probe;
+                foreach (var (slot, x, y, z, probe) in deferred) {
+                    Pool[slot, x, y, z] = probe;
+                }
             }
         }
 

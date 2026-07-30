@@ -221,8 +221,8 @@ alternative answers rather than a replacement for a hole.
 within a bounded frame count; the same scene through filler A and filler B agree within a stated
 tolerance.
 
-**Status: filler A is complete on both sides, repair included, and the two agree; filler B is not
-started.**
+**Status: both fillers are complete, the repair is dispatched with the same deferrals the CPU makes,
+and every comparison between the two sides is clean.**
 [`Vixen.Rendering.IrradianceFields`](../../Core/Vixen.Rendering.IrradianceFields/README.md) holds the
 payload (`SphericalHarmonicsL1` plus validity and a sun-shadow scalar), the pool (4³ probes in a 5³
 footprint, fixed capacity, cleared on release), the indirection grid, and the border sync. The seam is
@@ -396,27 +396,34 @@ because the coarsest-first ordering exists for the refined case and a uniform fi
 Seeding a pool and then dispatching into it is not a test-only shape: it is filler B handing a field to
 filler A, and it is why the mirror carries both usages.
 
-⚠ **And that comparison has an open, intermittent disagreement.** Roughly one whole-solution run in
-three, the dispatched repair differs from the reference at a single texel — never in isolation, never in
-the golden suite alone across some fifteen runs. It is not a tolerance: the reference reads exactly zero
-and the dispatch reads a small value or a validity of one, so the two took different branches. Every
-observed case is a border **edge** texel, with exactly two of three coordinates on the border plane —
-`(4,4,0)`, `(4,4,1)`, `(4,0,4)` — on refined and uniform fields alike, at a different texel each time.
+**And that comparison's one intermittent disagreement is closed — the border phase has its deferral,
+as an order rather than as memory.** The leading explanation was right and the mechanism was sharper
+than "a race the scheduler sometimes wins": the same-size reads of border texels are not floating-point
+luck, they are structural. At the grid's outer face a border position clamps back inside, so the lookup
+lands in a *face* neighbour with a local coordinate of exactly one, and the copy reaches that
+neighbour's own border plane — every sync, at every grid-face edge texel, which is exactly the
+`(4,4,0)`-shaped set observed. The CPU, deferring the whole class, read those texels *pre-pass* — a
+stale zero on a field synced once; the dispatch read them whenever the scheduler ran that invocation.
+One side deterministic-but-stale, the other side racy, and agreement was the common case only because
+an unwritten border usually still held zero on the device too.
 
-The leading explanation is structural and visible by reading. `SyncBorders` computes a whole size class
-into a deferred list and writes it afterwards, so every read sees the state before the pass;
-`IrradianceRepair.rvn`'s border permutation writes every border of a class in one dispatch, and `Beyond`
-*reads* border texels — the same-size path through `Round(local, Owned, Last)`, which permits index four,
-and the cross-size path through `Lower`, whose upper tap is documented as reaching the border plane.
-Those are texels other invocations of the same dispatch are writing. **The dilation phase was given the
-negated-validity trick precisely to avoid this and the border phase never was.**
+The fix is a third ordering, next to coarsest-first: **faces, then edges, then the corner**, as a
+`Rank` permutation and three barriered dispatches per size class. It is sufficient for the same kind of
+reason coarsest-first is: the read target always has strictly fewer border-plane coordinates than the
+reader — a neighbour's texel is at four only on an axis where the reader's is too, and a same-size
+brick matching on every such axis is the reader itself, which `Beyond` already refuses. So a rank never
+reads its own dispatch, and never reads an unfinished one. The dilation's negated-validity sign could
+not have done this — a copy needs the value, and a sign only marks one — which is why the border phase
+never got it and why its deferral had to be an order instead.
 
-⚠ One candidate fix has been tried and rejected. Clamping the same-size path to owned probes — which is
-what its own comment already claims it does — is plausible and unproven: a device-free fixture built to
-exercise it could not discriminate, because at the grid's outer face the neighbour's border texel falls
-back to its own probe and both indices read the same value. It was reverted rather than shipped, and
-green runs afterwards prove nothing, because green was already the common case. What is owed is a test
-that makes the race deterministic, and then the deferral.
+`SyncBorders` commits in the same rank order now, because the CPU is the reference and the two must
+take the same branches — and that also corrected the CPU: a grid-face edge texel now holds the field's
+answer at its position on the *first* sync, not the previous sync's leftovers. The test that pins it is
+the deterministic one this section used to owe: every border texel poisoned with a value no correct
+sync can produce, owned probes filled from a ramp, one sync — under the old whole-class deferral the
+poison provably survives in those edge texels, under the rank order nothing anywhere carries it. The
+device comparison now runs on a poisoned pool too, so a dispatch that reads any border texel at the
+wrong moment copies something the reference cannot contain, rather than a zero that happens to match.
 
 **And something decides where to refine.** `IrradianceRefinementPolicy` takes *bands* — a margin and a
 brick size — and applies them coarsest first around every renderer's bounds, which is what grades a
@@ -515,8 +522,8 @@ content varying *within* a face is not, which is why the test that can tell ligh
 weighting stays because it is right and because an L2 band would have no such luck — but the claim that
 it was load-bearing here was wrong, and four tests passed without it before one did not.
 
-Owed: the border phase's deferral, above, which is the only known *defect* left in L2. Then `Deferred`,
-which has the same ambient term and has not been given the slot — blocked rather than pending, since the
+Owed: no known defects — the border phase's deferral, above, was the last one. `Deferred`, which has
+the same ambient term and has not been given the slot, stays blocked rather than pending, since the
 pass itself is Phase 10 and unbuilt. Then two optimisations: the repair runs over every brick every
 frame, because a brick the budget did not refill still has neighbours that were, and narrowing it to the
 dirty bricks and their neighbours is real work nobody has done; and filler B stalls the GPU once per
@@ -600,6 +607,33 @@ The Lumen final gather. The largest quality jump and the largest risk.
 
 **Exit:** a reference-path-traced fixture matched within a stated error at a stated ray count; no
 ghosting on the standard camera-cut and fast-pan tests.
+
+**Status: started — the geometry and arithmetic of the gather exist, device-free, and nothing else
+does.** [`Vixen.Rendering.ScreenProbes`](../../Core/Vixen.Rendering.ScreenProbes/README.md) holds
+the octahedral mapping (the same fold as the Raven library's G-buffer normals, pinned by hand-written
+convention tests rather than roundtrips), the probe lattice and its atlas addressing, the atlas with
+per-probe validity, and a reference gather in the L1/L2 mould: one deterministic ray per texel
+through an `IDistanceField`, radiance from `IRadianceSource`, resolved to L1 with a validity rule
+copied from the field's filler. A uniform sky comes back as itself through the whole chain — anchor
+lookup, trace, map, projection, bilinear resolve — and a linear sky matches its closed form within
+the stated two per cent.
+
+Two things the first pass decided. **Texel solid angles are computed exactly** — a texel clipped
+against the eight octants is a set of great-circle polygons, and their areas sum to 4π at double
+precision — because the octahedral map is not equal-area and a Jacobian shortcut is a projection
+that is uniformly dark by whole percents, the error that reads as a tuning problem forever. And **a
+probe whose pixel shows the sky is invalid, not black**, with the bilinear weights renormalising
+over what remains — the screen-space restatement of the buried-probe rule, for the same leak.
+
+One finding, the truncation's other face: beside an occluder the away-facing answer **overshoots**
+the sky, for exactly the reason the bounce found L1 answering below zero — four coefficients cannot
+hold a one-sided distribution. The test asserts a bound on the overshoot instead of pretending
+otherwise; the spatial filter will meet this number again.
+
+Not started, and named in the README as decisions: adaptive placement, importance sampling, the
+HZB-first trace order and the termination in L2's field, the whole denoiser, and everything
+device-side. The next milestone is the one L2 stood at after its first commit: the storage
+convention pinned by a test that walks the shader's addressing in C#.
 
 ### L4 — Surface cache and radiosity *(3.5 EM)*
 
