@@ -4,10 +4,20 @@
 // within it, packed the way ClusterRaster.rvn packs them — a slot biased by one so zero means
 // "nothing covered this pixel", seven low bits of triangle.
 //
-// The cluster index becomes a colour through an integer hash, so two neighbouring clusters get
-// unrelated colours and the cut is legible: watch the patches change size as the camera moves and
-// you are watching the traversal choose a different level of detail per cluster, per frame. The
-// triangle bits darken the colour slightly so the geometry reads inside each patch.
+// The cluster becomes a colour through an integer hash, so two neighbouring clusters get unrelated
+// colours and the cut is legible: watch the patches change as the camera moves and you are watching
+// the traversal choose a different level of detail per cluster, per frame. The triangle bits darken
+// the colour slightly so the geometry reads inside each patch.
+//
+// ⚠ The pixel names a *slot in this frame's visible list*, not a cluster — the raster stores the
+// slot because that is what the material resolve needs to reach the list. A slot is assigned by an
+// atomic append during the traversal, so the same cluster lands in a different slot every frame
+// depending on which lane got there first — and the first version of this shader hashed the slot,
+// which recoloured the entire sphere every frame. Deterministic geometry, flickering palette. So
+// the list itself is bound here and the slot is decoded to the packed instance-and-cluster word,
+// which is stable for as long as the cluster is in the cut: a patch now only changes colour when
+// the traversal actually swaps it for its parent or its children, which is the event this view
+// exists to show.
 //
 // This is deliberately a picture of phase 4's output, not phase 5's: the buffer holds identities,
 // not colours, and shading it for real is the material resolve's job. A sample of the resolve is a
@@ -15,6 +25,11 @@
 
 layout(set = 0, binding = 0) uniform utexture2D identities;
 layout(set = 0, binding = 1) uniform sampler pointSampler;
+
+// The traversal's visible list: element zero is the count, then one packed word per accepted
+// cluster — the instance in the high sixteen bits, the cluster in the low. Cull.PackVisible's
+// layout, read rather than re-derived.
+layout(set = 0, binding = 2) readonly buffer Visible { uint visible[]; };
 
 layout(location = 0) in vec2 uv;
 layout(location = 0) out vec4 target;
@@ -44,7 +59,8 @@ void main() {
     uint slot = (id >> 7) - 1u;
     uint triangle = id & 0x7Fu;
 
-    uint mixed = hash(slot);
+    // Slot to cluster, so the colour survives the frame — see the header.
+    uint mixed = hash(visible[slot + 1u]);
     vec3 colour = vec3(
         float((mixed >> 0) & 0xFFu),
         float((mixed >> 8) & 0xFFu),
