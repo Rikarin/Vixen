@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Rendering.SurfaceCache</RootNamespace>
+        <Description>
+            The surface cache of docs/plan/19 § L4: orthographic cards clustered from a mesh's
+            geometry, a texel atlas that holds their captures, direct lighting evaluated on the
+            cache, and the radiosity pass over the cards that turns one bounce into the
+            infinite-bounce look. Written first and device-free, so the card fitting, the capture
+            and the bounce are checked against closed forms and a path-traced reference rather than
+            against a picture — the same discipline every layer below followed.
+        </Description>
+        <PackageTags>global-illumination;surface-cache;radiosity;cards;lumen;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+
+        <!--
+            For the captures and the bounce, both of which march a scene's distance field the way
+            every reference tracer here does. The storage half compiles without asking it anything.
+        -->
+        <ProjectReference Include="..\Vixen.Rendering.DistanceFields\Vixen.Rendering.DistanceFields.csproj" />
+        <ProjectReference Include="..\Vixen.Rendering.IrradianceFields\Vixen.Rendering.IrradianceFields.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Rendering.SurfaceCache.Tests" />
+    </ItemGroup>
+
+</Project>
