@@ -90,6 +90,8 @@ Vixen.Rendering.ScreenProbes.ScreenProbeTap.Weight.get -> float
 Vixen.Rendering.ScreenProbes.ScreenProbeTap.Weight.init -> float
 Vixen.Rendering.ScreenProbes.ScreenSpaceTrace -> sealed class
 Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.Hit(Vixen.Core.Mathematics.Vector3 origin, Vixen.Core.Mathematics.Vector3 direction, float maxDistance) -> bool
+Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.LinearThickness.get -> float
+Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.LinearThickness.set -> float
 Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.Pyramid.get -> Vixen.Rendering.ScreenProbes.ScreenDepthPyramid?
 Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.Pyramid.set -> Vixen.Rendering.ScreenProbes.ScreenDepthPyramid?
 Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.Samples.get -> int

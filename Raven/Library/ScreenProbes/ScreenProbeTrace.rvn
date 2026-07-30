@@ -84,6 +84,20 @@ shader ScreenProbeTrace {
     /// How deep behind a surface a sample still counts as inside it, in device depth.
     var screenThickness: float = 0.02f
 
+    /// The depth's nearest-per-cell chain — `HiZPyramid` wearing `NearestReduce`, so mip N holds
+    /// level N + 1 of the march, the depth itself being level zero. Always bound (a set with a hole
+    /// in it binds nothing); read only above zero `pyramidLevels`, so a host without a chain hands
+    /// any texture in the sampled layout.
+    var depthPyramid: Texture2D
+
+    /// How many levels the hierarchical march may use, counting the depth as level zero — the CPU
+    /// pyramid's own count. Zero is the fixed-step walk.
+    var pyramidLevels: int = 0
+
+    /// How deep the shell is in view units, where a perspective ray can say. Zero keeps the
+    /// device-depth shell everywhere — `ScreenSpaceTrace.LinearThickness`, choice for choice.
+    var screenLinearThickness: float = 0f
+
     /// How far a ray looks before deciding it hit nothing.
     var maxDistance: float = 100f
 
@@ -107,12 +121,180 @@ shader ScreenProbeTrace {
     /// the cube capture's tests escaped by lighting a single texel.
     var skyGradient: float3 = float3(0f, 0f, 0f)
 
+    /// The linear shell's slope — device depth is affine in `1/w`, `z = a + b·(1/w)`, with the same
+    /// constants at every point the camera sees, so one ray's two endpoints determine them. Zero
+    /// where the conversion does not exist (a `w` that does not vary, a camera bent the wrong way)
+    /// and the device-depth shell stands — `ScreenSpaceTrace.ShellOf`, choice for choice.
+    func ShellSlope(fromClip: float4, toClip: float4): float {
+        if (screenLinearThickness <= 0f || fromClip.w <= Const.Epsilon || toClip.w <= Const.Epsilon) {
+            return 0f
+        }
+
+        val inverseFrom = 1f / fromClip.w
+        val inverseTo = 1f / toClip.w
+
+        if (abs(inverseFrom - inverseTo) <= 0.000001f) {
+            return 0f
+        }
+
+        val slope = (fromClip.z * inverseFrom - toClip.z * inverseTo) / (inverseFrom - inverseTo)
+
+        if (slope <= 0f) {
+            return 0f
+        }
+
+        return slope
+    }
+
+    /// The hierarchical DDA over the nearest chain — `ScreenSpaceTrace.Hierarchical`, sample for
+    /// sample: skip a cell whose whole crossing stays nearer than its nearest surface, descend where
+    /// it does not, and hold the shell against the texel crossing continuously — in view units where
+    /// `screenLinearThickness` bought the conversion, device units otherwise. Answers the pixel that
+    /// stopped the ray, or (-1, -1); the caller decides what a pixel is worth.
+    func PyramidMarch(fromClip: float4, toClip: float4): int2 {
+        val inverseFrom = 1f / fromClip.w
+        val inverseTo = 1f / toClip.w
+        val fromX = (fromClip.x * inverseFrom * 0.5f + 0.5f) * screenViewport.x
+        val fromY = (fromClip.y * inverseFrom * 0.5f + 0.5f) * screenViewport.y
+        val fromZ = fromClip.z * inverseFrom
+        val toX = (toClip.x * inverseTo * 0.5f + 0.5f) * screenViewport.x
+        val toY = (toClip.y * inverseTo * 0.5f + 0.5f) * screenViewport.y
+        val toZ = toClip.z * inverseTo
+        val deltaX = toX - fromX
+        val deltaY = toY - fromY
+        val deltaZ = toZ - fromZ
+        val slope = ShellSlope(fromClip, toClip)
+        val shellA = fromZ - slope * inverseFrom
+
+        var along = 0f
+        var level = pyramidLevels - 1
+        var size = 1
+
+        for (i in 0 .. level - 1) {
+            size = size * 2
+        }
+
+        val width = int(screenViewport.x)
+        val height = int(screenViewport.y)
+
+        // A DDA visits O(levels · perimeter) cells; anything past this is a defect, and a budget
+        // that ends a march is a miss in the only sense that matters.
+        val budget = 16 * (width + height + pyramidLevels) + 64
+
+        for (i in 0 .. budget - 1) {
+            if (along >= 1f) {
+                return int2(-1, -1)
+            }
+
+            val px = int(floor(fromX + deltaX * along))
+            val py = int(floor(fromY + deltaY * along))
+
+            // Off the viewport, the rest of the ray is not the screen's to answer.
+            if (px < 0 || py < 0 || px >= width || py >= height) {
+                return int2(-1, -1)
+            }
+
+            val cellX = (px / size) * size
+            val cellY = (py / size) * size
+            var exit = 1f
+
+            if (deltaX > 0.000001f) {
+                exit = min(exit, (float(cellX + size) - fromX) / deltaX)
+            } else {
+                if (deltaX < -0.000001f) {
+                    exit = min(exit, (float(cellX) - fromX) / deltaX)
+                }
+            }
+
+            if (deltaY > 0.000001f) {
+                exit = min(exit, (float(cellY + size) - fromY) / deltaY)
+            } else {
+                if (deltaY < -0.000001f) {
+                    exit = min(exit, (float(cellY) - fromY) / deltaY)
+                }
+            }
+
+            exit = max(exit, along + 0.00001f)
+
+            var nearest = 0f
+
+            if (level == 0) {
+                nearest = depthBuffer.Load(int3(px, py, 0)).r
+            } else {
+                val dims = depthPyramid.GetDimensions(level - 1)
+                val cx = min(px / size, dims.x - 1)
+                val cy = min(py / size, dims.y - 1)
+
+                nearest = depthPyramid.Load(int3(cx, cy, level - 1)).r
+            }
+
+            val zAt = fromZ + deltaZ * along
+            val zExit = fromZ + deltaZ * exit
+            val enter = min(zAt, zExit)
+            val leave = max(zAt, zExit)
+
+            if (enter > nearest) {
+                // The whole crossing stays nearer than the cell's nearest surface — nothing here
+                // can stop the ray. Skip it, and try a coarser cell for the next one.
+                along = exit
+
+                if (level < pyramidLevels - 1) {
+                    level = level + 1
+                    size = size * 2
+                }
+            } else {
+                if (level > 0) {
+                    level = level - 1
+                    size = size / 2
+                } else {
+                    // Texel level: the shell, held against the segment. A sky texel occludes
+                    // nothing.
+                    if (nearest > 0f) {
+                        if (slope > 0f) {
+                            val surfaceInverseW = (nearest - shellA) / slope
+
+                            if (surfaceInverseW > 0.000001f) {
+                                val surfaceW = 1f / surfaceInverseW
+                                val wAt = 1f / (inverseFrom + (inverseTo - inverseFrom) * along)
+                                val wExit = 1f / (inverseFrom + (inverseTo - inverseFrom) * exit)
+
+                                if (max(wAt, wExit) > surfaceW && min(wAt, wExit) < surfaceW + screenLinearThickness) {
+                                    return int2(px, py)
+                                }
+                            }
+                        } else {
+                            if (enter < nearest && leave > max(nearest - screenThickness, 0f)) {
+                                return int2(px, py)
+                            }
+                        }
+                    }
+
+                    along = exit
+                }
+            }
+        }
+
+        return int2(-1, -1)
+    }
+
     /// Whether a ray from a point is stopped by something the screen can see — the naive march,
-    /// sample by sample, in exactly `ScreenSpaceTrace.Hit`'s order. Behind is a *smaller* device
-    /// depth, because depth is reversed; a sky texel occludes nothing; off the viewport the ray is
-    /// not the screen's to answer. The hierarchical march through the depth pyramid is owed, with
-    /// this and its C# twin as the baseline.
+    /// sample by sample, in exactly `ScreenSpaceTrace.Hit`'s order, or the hierarchical march when
+    /// the host handed over a chain and both endpoints project. Behind is a *smaller* device depth,
+    /// because depth is reversed; a sky texel occludes nothing; off the viewport the ray is not the
+    /// screen's to answer.
     func ScreenHit(origin: float3, direction: float3): bool {
+        val fromClip = viewProjection * float4(origin, 1f)
+        val toClip = viewProjection * float4(origin + direction * maxDistance, 1f)
+
+        if (pyramidLevels > 0 && fromClip.w > Const.Epsilon && toClip.w > Const.Epsilon) {
+            val landed = PyramidMarch(fromClip, toClip)
+
+            return landed.x >= 0
+        }
+
+        val slope = ShellSlope(fromClip, toClip)
+        val inverseFrom = 1f / max(fromClip.w, Const.Epsilon)
+        val shellA = fromClip.z * inverseFrom - slope * inverseFrom
         val step = maxDistance / float(screenSteps)
 
         for (i in 0 .. screenSteps - 1) {
@@ -134,8 +316,22 @@ shader ScreenProbeTrace {
 
                     val surfaceDepth = depthBuffer.Load(int3(px, py, 0)).r
 
-                    if (surfaceDepth > 0f && ndc.z < surfaceDepth && ndc.z > surfaceDepth - screenThickness) {
-                        return true
+                    if (surfaceDepth > 0f) {
+                        if (slope > 0f) {
+                            val surfaceInverseW = (surfaceDepth - shellA) / slope
+
+                            if (surfaceInverseW > 0.000001f) {
+                                val surfaceW = 1f / surfaceInverseW
+
+                                if (clip.w > surfaceW && clip.w < surfaceW + screenLinearThickness) {
+                                    return true
+                                }
+                            }
+                        } else {
+                            if (ndc.z < surfaceDepth && ndc.z > surfaceDepth - screenThickness) {
+                                return true
+                            }
+                        }
                     }
                 }
             }

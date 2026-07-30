@@ -79,6 +79,10 @@ public class LibraryReflectionTests {
         // rename in the .rvn as a silent fall back to the CPU rather than as an error.
         ("Pipeline", "Culling"),
         ("Pipeline", "HiZReduce"),
+
+        // The other reduction — doc 19 § L5's nearest chain, worn by the same HiZPyramid driver,
+        // which binds source and target by these names.
+        ("Pipeline", "NearestReduce"),
         ("Pipeline", "DrawArguments"),
 
         // And the raster that draws what the traversal chose — GpuClusterRaster binds all six of its

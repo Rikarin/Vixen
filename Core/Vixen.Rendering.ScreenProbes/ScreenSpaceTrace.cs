@@ -18,20 +18,30 @@ namespace Vixen.Rendering.ScreenProbes;
 ///     <para>
 ///         <b>The naive march is the baseline, and the HZB traversal landed against it.</b> A fixed
 ///         count of equal steps along the ray, each projected and compared — deterministic, so the
-///         device kernel is held to it texel by texel. Setting <see cref="Pyramid" /> switches an
-///         affine camera's march to the hierarchical DDA over <see cref="ScreenDepthPyramid" /> —
-///         the <i>nearest</i> reduction, where <c>HiZReduce</c> keeps the farthest — with the
-///         agreement and the fetch counts both asserted rather than claimed. The device kernels
-///         still walk naively; their pyramid march is owed with this one as its referee.
+///         device kernel is held to it texel by texel. Setting <see cref="Pyramid" /> switches the
+///         march to the hierarchical DDA over <see cref="ScreenDepthPyramid" /> — the <i>nearest</i>
+///         reduction, where <c>HiZReduce</c> keeps the farthest — with the agreement and the fetch
+///         counts both asserted rather than claimed.
+///     </para>
+///     <para>
+///         <b>The perspective form is the same DDA, and it is exact.</b> Screen position and device
+///         depth are both linear in the screen-space parameter of the projected segment — the
+///         rasteriser's own interpolation argument — so projecting the two endpoints is the whole
+///         perspective form of the traversal. What perspective changes is the <i>shell</i>:
+///         <c>1/w</c> is the third quantity linear in that parameter, and interpolating it is what
+///         lets <see cref="LinearThickness" /> measure the shell in view units, where a constant
+///         device-depth shell is paper-thin near and metres deep far. Only a ray with an endpoint
+///         behind the camera's plane — a projected segment that is not a segment — declines to the
+///         fixed-step walk, which guards per sample.
 ///     </para>
 ///     <para>
 ///         <b>A sample is occluded when it stands behind a surface, within its thickness.</b> Depth
 ///         is reversed, so behind is a <i>smaller</i> device depth; the shell is
-///         <see cref="Thickness" /> deep in device-depth units — the first form, exact under an
-///         orthographic camera and a stated approximation under a perspective one, where a linear
-///         thickness is owed with the pyramid. A sky texel occludes nothing, and a ray that leaves
-///         the viewport stops being the screen's to answer — the caller's field march continues
-///         regardless, because a screen miss never proves the world empty.
+///         <see cref="Thickness" /> deep in device-depth units, or <see cref="LinearThickness" />
+///         deep in view units where a perspective ray can pay for the conversion. A sky texel
+///         occludes nothing, and a ray that leaves the viewport stops being the screen's to answer —
+///         the caller's field march continues regardless, because a screen miss never proves the
+///         world empty.
 ///     </para>
 /// </remarks>
 public sealed class ScreenSpaceTrace {
@@ -68,24 +78,38 @@ public sealed class ScreenSpaceTrace {
     /// </remarks>
     public float Thickness { get; set; } = 0.02f;
 
+    /// <summary>How deep the shell is in view units, where a perspective ray can say. Zero keeps the
+    ///     device-depth shell everywhere.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The perspective form's thickness.</b> A constant device-depth shell under a
+    ///         perspective camera is a different physical depth at every distance — reversed depth
+    ///         packs most of its range into the first metres, so the same <see cref="Thickness" />
+    ///         that stops a nearby ray lets a distant one slip through the same wall. This is the
+    ///         shell in the camera's own linear units instead: device depth is affine in <c>1/w</c>
+    ///         with constants the ray's two endpoints determine — the same two projections the
+    ///         hierarchical march already made — so a surface texel's view depth is arithmetic, not
+    ///         a matrix inverse.
+    ///     </para>
+    ///     <para>
+    ///         Used only where the conversion exists: a ray whose <c>w</c> does not vary — every ray
+    ///         of an affine camera, and a perspective ray parallel to the image plane — has no
+    ///         <c>1/w</c> line to read the constants from, and its device depth is already linear,
+    ///         so <see cref="Thickness" /> keeps it. Both marches honour it identically, which the
+    ///         agreement test holds.
+    ///     </para>
+    /// </remarks>
+    public float LinearThickness { get; set; }
+
     /// <summary>The nearest-per-cell pyramid the march skips empty screen with, or null for the
     ///     fixed-step walk.</summary>
     /// <remarks>
-    ///     <para>
-    ///         <b>The HZB traversal, and it changes how fast the answer is found, not where.</b> The
-    ///         ray runs as a DDA over the pyramid's cells: a cell whose nearest surface is farther
-    ///         than the whole segment crossing it cannot stop the ray and is skipped at whatever
-    ///         level that is true, and only cells the ray could actually enter are tested texel by
-    ///         texel — continuously, so a shell the fixed steps could straddle cannot be stepped
-    ///         over. <see cref="Samples" /> counts the fetches, which is the claim, measured.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Exact under an affine camera and declined under a perspective one</b> — a clip
-    ///         <c>w</c> off one means depth is not linear along the ray in screen space, the skip
-    ///         test would compare the wrong interval, and this falls back to the fixed-step walk
-    ///         rather than skip wrongly. The perspective form interpolates <c>1/w</c> and belongs
-    ///         with the linear-thickness work the naive march's remarks already name.
-    ///     </para>
+    ///     <b>The HZB traversal, and it changes how fast the answer is found, not where.</b> The
+    ///     ray runs as a DDA over the pyramid's cells: a cell whose nearest surface is farther
+    ///     than the whole segment crossing it cannot stop the ray and is skipped at whatever
+    ///     level that is true, and only cells the ray could actually enter are tested texel by
+    ///     texel — continuously, so a shell the fixed steps could straddle cannot be stepped
+    ///     over. <see cref="Samples" /> counts the fetches, which is the claim, measured.
     /// </remarks>
     public ScreenDepthPyramid? Pyramid { get; set; }
 
@@ -119,20 +143,21 @@ public sealed class ScreenSpaceTrace {
     public bool TryHit(Vector3 origin, Vector3 direction, float maxDistance, out Int2 pixel) {
         Samples = 0;
 
-        if (Pyramid is { } pyramid) {
-            var fromClip = Matrix4x4.TransformVector4(new(origin, 1f), ViewProjection);
-            var toClip = Matrix4x4.TransformVector4(new(origin + (direction * maxDistance), 1f), ViewProjection);
+        var fromClip = Matrix4x4.TransformVector4(new(origin, 1f), ViewProjection);
+        var toClip = Matrix4x4.TransformVector4(new(origin + (direction * maxDistance), 1f), ViewProjection);
 
-            // Affine or nothing: with w off one, depth is not linear along the ray in screen space
-            // and the skip test would compare the wrong interval — decline rather than skip wrongly.
-            if (MathF.Abs(fromClip.W - 1f) < 1e-4f && MathF.Abs(toClip.W - 1f) < 1e-4f) {
-                return Hierarchical(pyramid, fromClip, toClip, out pixel);
-            }
+        // The projected segment is a segment only while both endpoints are in front of the camera's
+        // plane — behind it there is no pixel to interpolate toward, and the fixed-step walk guards
+        // per sample instead.
+        if (Pyramid is { } pyramid && fromClip.W > Epsilon && toClip.W > Epsilon) {
+            return Hierarchical(pyramid, fromClip, toClip, out pixel);
         }
 
         var viewport = surface.Viewport;
         var depth = surface.Depth;
         var step = maxDistance / Steps;
+
+        ShellOf(fromClip, toClip, out var shellA, out var shellB);
 
         pixel = default;
 
@@ -169,6 +194,24 @@ public sealed class ScreenSpaceTrace {
                 continue;
             }
 
+            if (shellB > 0f) {
+                // The linear shell: the surface's view depth from the ray's own constants, the
+                // sample's from its w directly. Behind is a larger view depth.
+                var surfaceInverseW = (surfaceDepth - shellA) / shellB;
+
+                if (surfaceInverseW > 1e-6f) {
+                    var surfaceW = 1f / surfaceInverseW;
+
+                    if (clip.W > surfaceW && clip.W < surfaceW + LinearThickness) {
+                        pixel = new(x, y);
+
+                        return true;
+                    }
+                }
+
+                continue;
+            }
+
             // Behind the surface — smaller device depth, because depth is reversed — and within
             // its shell.
             if (ndc.Z < surfaceDepth && ndc.Z > surfaceDepth - Thickness) {
@@ -181,30 +224,72 @@ public sealed class ScreenSpaceTrace {
         return false;
     }
 
+    /// <summary>The device-depth-to-view conversion's constants, or <c>b</c> zero where it does not
+    ///     exist and the device-depth shell stands.</summary>
+    /// <remarks>
+    ///     Device depth is affine in <c>1/w</c> — <c>z = a + b·(1/w)</c> with the same constants at
+    ///     every point the camera sees — so one ray's two endpoints determine them. No line to read
+    ///     them from (an endpoint behind the camera, a <c>w</c> that does not vary) or a camera bent
+    ///     the wrong way (<c>b</c> not positive, which reversed depth never produces) leaves the
+    ///     shell in device units, deterministically, so the kernel can mirror the choice.
+    /// </remarks>
+    void ShellOf(Vector4 fromClip, Vector4 toClip, out float a, out float b) {
+        a = 0f;
+        b = 0f;
+
+        if (LinearThickness <= 0f || fromClip.W <= Epsilon || toClip.W <= Epsilon) {
+            return;
+        }
+
+        var inverseFrom = 1f / fromClip.W;
+        var inverseTo = 1f / toClip.W;
+
+        if (MathF.Abs(inverseFrom - inverseTo) <= 1e-6f) {
+            return;
+        }
+
+        var depthFrom = fromClip.Z * inverseFrom;
+        var depthTo = toClip.Z * inverseTo;
+        var slope = (depthFrom - depthTo) / (inverseFrom - inverseTo);
+
+        if (slope <= 0f) {
+            return;
+        }
+
+        b = slope;
+        a = depthFrom - (slope * inverseFrom);
+    }
+
     /// <summary>The DDA over the pyramid: skip what cannot stop the ray, test what could.</summary>
     /// <remarks>
-    ///     Everything is linear in the ray parameter because the caller proved the camera affine:
-    ///     pixel position and device depth both interpolate exactly, so a cell crossing is one
-    ///     interval and the skip test is two endpoint compares. The texel test holds the naive
-    ///     shell against the <i>segment</i> rather than a sample — continuous, so a shell the fixed
-    ///     steps could straddle cannot be stepped over.
+    ///     Everything the skip test needs is linear in the screen-space parameter whatever the
+    ///     camera: pixel position by the definition of the projected segment, device depth by the
+    ///     rasteriser's own argument — clip <c>z</c> over <c>w</c> interpolates linearly in screen
+    ///     space — so a cell crossing is one interval and the skip test is two endpoint compares.
+    ///     The texel test holds the shell against the <i>segment</i> rather than a sample —
+    ///     continuous, so a shell the fixed steps could straddle cannot be stepped over — in view
+    ///     units where <see cref="LinearThickness" /> bought them, device units otherwise.
     /// </remarks>
     bool Hierarchical(ScreenDepthPyramid pyramid, Vector4 fromClip, Vector4 toClip, out Int2 pixel) {
         pixel = default;
 
         var viewport = surface.Viewport;
+        var inverseFrom = 1f / fromClip.W;
+        var inverseTo = 1f / toClip.W;
 
         var from = new Vector3(
-            ((fromClip.X * 0.5f) + 0.5f) * viewport.X,
-            ((fromClip.Y * 0.5f) + 0.5f) * viewport.Y,
-            fromClip.Z
+            (((fromClip.X * inverseFrom) * 0.5f) + 0.5f) * viewport.X,
+            (((fromClip.Y * inverseFrom) * 0.5f) + 0.5f) * viewport.Y,
+            fromClip.Z * inverseFrom
         );
 
         var to = new Vector3(
-            ((toClip.X * 0.5f) + 0.5f) * viewport.X,
-            ((toClip.Y * 0.5f) + 0.5f) * viewport.Y,
-            toClip.Z
+            (((toClip.X * inverseTo) * 0.5f) + 0.5f) * viewport.X,
+            (((toClip.Y * inverseTo) * 0.5f) + 0.5f) * viewport.Y,
+            toClip.Z * inverseTo
         );
+
+        ShellOf(fromClip, toClip, out var shellA, out var shellB);
 
         var delta = to - from;
         var along = 0f;
@@ -248,14 +333,33 @@ public sealed class ScreenSpaceTrace {
                 continue;
             }
 
-            // Texel level: the naive shell, clipped to the range the buffer saw, held against the
-            // segment. A sky texel occludes nothing.
+            // Texel level: the shell, held against the segment. A sky texel occludes nothing.
             var surfaceDepth = pyramid.Nearest(0, new(px, py));
 
-            if (surfaceDepth > 0f && enter < surfaceDepth && leave > MathF.Max(surfaceDepth - Thickness, 0f)) {
-                pixel = new(px, py);
+            if (surfaceDepth > 0f) {
+                if (shellB > 0f) {
+                    // The linear shell: view depths from the interpolated 1/w, monotone over the
+                    // crossing, against the surface's own from the ray's constants.
+                    var surfaceInverseW = (surfaceDepth - shellA) / shellB;
 
-                return true;
+                    if (surfaceInverseW > 1e-6f) {
+                        var surfaceW = 1f / surfaceInverseW;
+                        var wAt = 1f / (inverseFrom + ((inverseTo - inverseFrom) * along));
+                        var wExit = 1f / (inverseFrom + ((inverseTo - inverseFrom) * exit));
+                        var wEnter = MathF.Min(wAt, wExit);
+                        var wLeave = MathF.Max(wAt, wExit);
+
+                        if (wLeave > surfaceW && wEnter < surfaceW + LinearThickness) {
+                            pixel = new(px, py);
+
+                            return true;
+                        }
+                    }
+                } else if (enter < surfaceDepth && leave > MathF.Max(surfaceDepth - Thickness, 0f)) {
+                    pixel = new(px, py);
+
+                    return true;
+                }
             }
 
             along = exit;

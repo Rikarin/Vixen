@@ -939,14 +939,24 @@ a sky texel invalid before any ray is cast — and the node points it at the fra
 reconstruction and the screen march, with the frame's colour named by the host because which
 colour a reflection samples is a scheduling decision. Its device test drives the node over
 imported planes and measures zero drift against `TracedReflections` on `ReconstructedScreenSurface`.
-The screen march also grew its HZB half on the CPU: `ScreenDepthPyramid` (the *nearest* reduction,
-where `HiZReduce` keeps the farthest) and a hierarchical DDA behind `ScreenSpaceTrace.Pyramid` —
-exact under an affine camera, declining to the fixed-step walk under a perspective one rather than
-skipping wrongly, with agreement over a grid of rays and the fetch count measured at a quarter of
-the naive march's on an open screen.
+And the HZB traversal is whole, both processors, perspective included. `ScreenDepthPyramid` is the
+*nearest* reduction (where `HiZReduce` keeps the farthest), shaped exactly like a device mip chain
+because the device chain is one: `NearestReduce.rvn` through `HiZPyramid` wearing its `Nearest`
+reduction, held against the CPU pyramid mip for mip with zero drift — a maximum over identical
+floats has no arithmetic to drift in. Behind `ScreenSpaceTrace.Pyramid` the march becomes a
+hierarchical DDA, and the perspective form is the *same* DDA: screen position and device depth are
+both linear in the projected segment's parameter — the rasteriser's own interpolation argument —
+and `1/w` is the third linear quantity, which is what `LinearThickness` buys: the shell in view
+units, where a constant device-depth shell is paper-thin near and metres deep far, held by
+pass-behind closed forms on both marches. Only a ray with an endpoint behind the camera's plane
+declines to the fixed-step walk. The kernels carry the same march — the probes' copy and the
+reflections' copy, each refereed sample for sample against the CPU DDA by a golden test that
+builds the chain with the same `NearestReduce` dispatches a frame runs — and the frame wiring
+followed: `ReflectionRenderer` and `ScreenProbeGatherRenderer` each build the chain inside their
+own pass, so the reduce and the march cannot be reordered apart. The fetch counts are measured at
+better than four to one on an open screen, affine and perspective both.
 
-Owed, and only this: the kernels' pyramid march (the CPU DDA is its referee, and the nearest-reduce
-dispatch rides with it) with the perspective form's `1/w` interpolation and linear thickness.
+**Nothing in § L5 is owed.**
 
 ### L6 — Hardware ray tracing *(2.0 EM)*
 

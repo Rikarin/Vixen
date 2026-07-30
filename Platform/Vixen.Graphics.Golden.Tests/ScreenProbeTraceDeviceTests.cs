@@ -419,6 +419,164 @@ public sealed class ScreenProbeTraceDeviceTests {
         Compare(reference, texels, _ => true);
     }
 
+    /// <summary>The same wall, the same rays — but the screen trace skips by the nearest chain on
+    ///     both sides, so it is the probes' copy of the hierarchical march being refereed.</summary>
+    /// <remarks>
+    ///     The chain is built by <c>NearestReduce</c> in the same submission, and the reference's
+    ///     <see cref="ScreenSpaceTrace.Pyramid" /> is the CPU pyramid over the same depth: the two
+    ///     marches skip the same cells because the two pyramids hold the same texels, which
+    ///     <c>ScreenPyramidDeviceTests</c> proves separately and exactly.
+    /// </remarks>
+    [Fact]
+    public void ThePyramidMarchStopsTheSameRaysOnTheDevice() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var device = owned.Device;
+
+        var screenSurface = new ReconstructedScreenSurface(new(64, 48));
+
+        for (var y = 0; y < 48; y++) {
+            for (var x = 32; x < 64; x++) {
+                screenSurface.Depth[(y * 64) + x] = 0.75f;
+            }
+        }
+
+        var pyramid = new ScreenDepthPyramid(new(64, 48));
+
+        pyramid.Build(screenSurface.Depth);
+
+        var camera = Matrix4x4.Orthographic(4f, 4f, 1f, 9f);
+        var settings = new ScreenProbeGatherSettings { MaxDistance = 8f };
+
+        var reference = new ScreenProbeAtlas(new(new(64, 48)));
+
+        new TracedScreenProbeGather(new EmptyWorld(), new LinearSky(Radiance, 0.3f), settings) {
+            ScreenTrace = new(screenSurface) { ViewProjection = camera, Pyramid = pyramid }
+        }.Fill(reference, new Floor());
+
+        var traced = new ScreenProbeAtlas(new(new(64, 48)));
+        var floor = new Floor();
+
+        for (var y = 0; y < traced.Layout.GridSize.Y; y++) {
+            for (var x = 0; x < traced.Layout.GridSize.X; x++) {
+                var probe = new Int2(x, y);
+
+                Assert.True(floor.TrySurface(traced.Layout.Anchor(probe), out var position, out var normal));
+                traced.SetSurface(probe, position, normal);
+            }
+        }
+
+        using var allocator = new DescriptorAllocator(device);
+        using var texture = new ScreenProbeTexture(traced) { AtlasIsWritten = true };
+
+        var loader = new EffectLoader(device);
+        var effects = new EffectSystem();
+
+        effects.AddProvider(
+            new Compiling(
+                loader,
+                name => name == "NearestReduce"
+                    ? RavenEffects.Only(["Core"], Path.Combine("Pipeline", "NearestReduce.rvn"))
+                    : RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"])
+            )
+        );
+
+        var pipelines = new ComputePipelineCache(device);
+
+        var chain = new HiZPyramid(device) {
+            Reduction = HiZReduction.Nearest,
+            Effects = effects,
+            Pipelines = pipelines
+        };
+
+        owned.Owns(chain.Dispose);
+
+        var depthTexture = owned.Owned(
+            "pyramid screen depth",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba32Float,
+            64,
+            48
+        );
+
+        var depthTexels = new float[64 * 48 * 4];
+
+        for (var i = 0; i < 64 * 48; i++) {
+            depthTexels[i * 4] = screenSurface.Depth[i];
+        }
+
+        var staging = device.CreateBuffer(
+            new(
+                (long)depthTexels.Length * sizeof(float),
+                BufferUsage.CopySource,
+                MemoryAccess.HostUpload,
+                "pyramid depth staging"
+            )
+        );
+
+        device.Write(staging, 0, System.Runtime.InteropServices.MemoryMarshal.AsBytes(depthTexels.AsSpan()));
+
+        using var trace = new ScreenProbeTraceFill(device) {
+            Effects = effects,
+            Pipelines = pipelines,
+            Descriptors = allocator,
+            SkyColour = new(Radiance),
+            SkyGradient = new(0.3f),
+            MaxDistance = 8f,
+            ScreenDepth = depthTexture.View,
+            ScreenViewport = new(64, 48),
+            ViewProjection = camera
+        };
+
+        var texels = new Vector4[traced.Layout.AtlasSize.X * traced.Layout.AtlasSize.Y];
+
+        allocator.BeginFrame();
+        VulkanDiagnostics.Reset();
+        device.BeginFrame();
+
+        using (var commands = device.BeginCommandList(QueueKind.Graphics, "pyramid screen trace")) {
+            commands.Barrier(
+                new([], [new TextureBarrier(depthTexture.Texture, ResourceState.Undefined, ResourceState.CopyDestination)])
+            );
+
+            commands.CopyBufferToTexture(staging, 0, new TextureRegion(depthTexture.Texture), new(64, 48, 1));
+
+            commands.Barrier(
+                new([], [new TextureBarrier(depthTexture.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)])
+            );
+
+            // The reduce first, into the same list — the trace may only skip by texels it wrote.
+            Assert.True(chain.Build(commands, depthTexture.View, new(64, 48)), "the chain did not build");
+
+            trace.ScreenPyramid = chain.View;
+            trace.ScreenPyramidLevels = chain.Levels + 1;
+
+            Assert.Equal(pyramid.Levels, trace.ScreenPyramidLevels);
+
+            texture.Upload(device, commands);
+
+            Assert.Equal(traced.Layout.ProbeCount, trace.Record(commands, texture));
+            Assert.True(texture.RecordReadback(commands));
+
+            commands.Finish();
+            device.GraphicsQueue.Submit([commands]);
+        }
+
+        device.EndFrame();
+        device.WaitIdle();
+        device.Destroy(staging);
+
+        Assert.Null(trace.Skipped);
+        Assert.Empty(effects.Misses);
+        Assert.True(texture.TryRead(texels));
+        AssertClean();
+
+        Compare(reference, texels, _ => true);
+    }
+
     /// <summary>Whether any texel of two same-shaped atlases disagrees.</summary>
     static bool Differs(ScreenProbeAtlas left, ScreenProbeAtlas right) {
         var layout = left.Layout;

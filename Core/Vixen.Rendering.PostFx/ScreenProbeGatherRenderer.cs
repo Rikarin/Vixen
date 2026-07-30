@@ -150,6 +150,21 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
     /// </remarks>
     public bool ScreenTraces { get; set; }
 
+    /// <summary>The nearest chain the screen trace skips by, or null for the fixed-step walk.</summary>
+    /// <remarks>
+    ///     Host-owned, wearing <see cref="HiZReduction.Nearest" /> — any other reduction is ignored,
+    ///     because a chain of farthest texels skips rays through walls. Built inside the compute
+    ///     pass, so the reduce dispatches and the trace cannot be reordered apart; a host sharing
+    ///     one chain with <c>ReflectionRenderer</c> sets <see cref="HiZPyramid.BuildsPerFrame" /> to
+    ///     cover both, exactly as a two-phase cull does.
+    /// </remarks>
+    public HiZPyramid? Pyramid { get; set; }
+
+    /// <summary>How deep the trace's shell is in view units, where a perspective ray can say. Zero
+    ///     keeps the device-depth shell — forwarded to
+    ///     <see cref="ScreenProbeTraceFill.ScreenLinearThickness" />.</summary>
+    public float ScreenLinearThickness { get; set; }
+
     /// <summary>How many pixels one probe stands for, along each axis.</summary>
     public int TileSize { get; set; } = 16;
 
@@ -419,8 +434,22 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
                                 tracer.ScreenDepth = context.View(depth);
                                 tracer.ScreenViewport = atlas!.Layout.Viewport;
                                 tracer.ViewProjection = ViewProjection;
+
+                                // The chain first, into the same list: the trace may only skip by
+                                // texels the reduce has written, and the pyramid's own barriers
+                                // order the two.
+                                var chain = Pyramid is { Reduction: HiZReduction.Nearest } pyramid
+                                    && pyramid.Build(commands, context.View(depth), atlas.Layout.Viewport)
+                                        ? Pyramid
+                                        : null;
+
+                                tracer.ScreenPyramid = chain?.View ?? default;
+                                tracer.ScreenPyramidLevels = chain is null ? 0 : chain.Levels + 1;
+                                tracer.ScreenLinearThickness = ScreenLinearThickness;
                             } else {
                                 tracer.ScreenDepth = default;
+                                tracer.ScreenPyramid = default;
+                                tracer.ScreenPyramidLevels = 0;
                             }
 
                             tracer.Record(commands, texture);

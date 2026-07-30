@@ -16,10 +16,15 @@ namespace Vixen.Rendering.ScreenProbes;
 ///         to zero, which stops nothing.
 ///     </para>
 ///     <para>
-///         <b>Level zero is the depth itself; each level halves, rounding up.</b> A cell covers the
-///         up-to-four texels beneath it, edge cells covering what exists — the reduction the device
-///         half mirrors, so a march that skips by this pyramid and one that skips by that one skip
-///         the same cells.
+///         <b>Level zero is the depth itself; each level above it halves the way a mip chain
+///         halves</b> — flooring, to a minimum of one — because the device pyramid <i>is</i> a mip
+///         chain and the two must hold the same texels for the two marches to skip the same cells.
+///         Each cell reduces a clamped three-by-three block of the level below, exactly
+///         <c>NearestReduce.rvn</c>'s taps: floor-halving leaves a trailing row and column a
+///         two-by-two block never reads, and a missed surface would <i>lower</i> a cell's nearest,
+///         which is the direction that lets a ray skip through a wall. The extra ring only ever
+///         raises it, which merely descends a level sooner — the trade every conservative
+///         hierarchy makes, in this pyramid's own direction.
 ///     </para>
 /// </remarks>
 public sealed class ScreenDepthPyramid {
@@ -39,7 +44,7 @@ public sealed class ScreenDepthPyramid {
         var size = viewport;
 
         while (size.X > 1 || size.Y > 1) {
-            size = new((size.X + 1) / 2, (size.Y + 1) / 2);
+            size = new(Math.Max(1, size.X / 2), Math.Max(1, size.Y / 2));
             count++;
         }
 
@@ -50,7 +55,7 @@ public sealed class ScreenDepthPyramid {
         for (var level = 0; level < count; level++) {
             sizes[level] = size;
             levels[level] = new float[size.X * size.Y];
-            size = new((size.X + 1) / 2, (size.Y + 1) / 2);
+            size = new(Math.Max(1, size.X / 2), Math.Max(1, size.Y / 2));
         }
     }
 
@@ -91,14 +96,12 @@ public sealed class ScreenDepthPyramid {
                 for (var x = 0; x < coarse.X; x++) {
                     var nearest = 0f;
 
-                    for (var dy = 0; dy < 2; dy++) {
-                        for (var dx = 0; dx < 2; dx++) {
-                            var fx = (x * 2) + dx;
-                            var fy = (y * 2) + dy;
+                    for (var dy = 0; dy < 3; dy++) {
+                        for (var dx = 0; dx < 3; dx++) {
+                            var fx = Math.Min((x * 2) + dx, fine.X - 1);
+                            var fy = Math.Min((y * 2) + dy, fine.Y - 1);
 
-                            if (fx < fine.X && fy < fine.Y) {
-                                nearest = MathF.Max(nearest, levels[level - 1][(fy * fine.X) + fx]);
-                            }
+                            nearest = MathF.Max(nearest, levels[level - 1][(fy * fine.X) + fx]);
                         }
                     }
 

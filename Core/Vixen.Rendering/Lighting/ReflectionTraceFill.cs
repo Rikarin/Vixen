@@ -45,6 +45,7 @@ public sealed class ReflectionTraceFill : IDisposable {
     const string TargetName = "reflectionAtlas";
     const string DepthName = "depthBuffer";
     const string ColourName = "sceneColor";
+    const string PyramidName = "depthPyramid";
 
     readonly List<DescriptorWrite> writes = [];
     readonly EffectConstants frameBlock;
@@ -135,6 +136,24 @@ public sealed class ReflectionTraceFill : IDisposable {
     /// <summary>How deep behind a surface a sample still counts as inside it, in device depth.</summary>
     public float ScreenThickness { get; set; } = 0.02f;
 
+    /// <summary>The depth's nearest-per-cell chain — <see cref="HiZPyramid" /> wearing
+    ///     <see cref="HiZReduction.Nearest" />. Invalid keeps the fixed-step walk.</summary>
+    /// <remarks>
+    ///     A view of every level, mip N holding level N + 1 of the march — the depth itself is level
+    ///     zero. ⚠ It must be this frame's reduction of <see cref="ScreenDepth" />: a chain of a
+    ///     different depth skips rays through surfaces that exist nowhere.
+    /// </remarks>
+    public TextureViewHandle ScreenPyramid { get; set; }
+
+    /// <summary>How many levels the march may use, counting the depth itself — the CPU pyramid's
+    ///     own <c>Levels</c>, which is the chain's plus one.</summary>
+    public int ScreenPyramidLevels { get; set; }
+
+    /// <summary>How deep the shell is in view units, where a perspective ray can say. Zero keeps
+    ///     the device-depth shell — <c>ScreenSpaceTrace.LinearThickness</c>, choice for
+    ///     choice.</summary>
+    public float ScreenLinearThickness { get; set; }
+
     /// <summary>Whether positions come from <see cref="ScreenDepth" /> rather than a positions plane.</summary>
     /// <remarks>The production wiring — a real frame has a depth, not a positions plane. Requires
     ///     <see cref="ScreenDepth" /> and <see cref="InverseViewProjection" />; the positions
@@ -212,6 +231,13 @@ public sealed class ReflectionTraceFill : IDisposable {
         // the kernel never loads it.
         Parameters.Set(ReflectionTraceKeys.ScreenSteps, screen ? ScreenSteps : 0);
         Parameters.Set(ReflectionTraceKeys.ScreenThickness, ScreenThickness);
+
+        // The hierarchical march runs only where the whole screen trace can: zero levels is the
+        // fixed-step walk, and zero is also what a stale or missing chain must read as.
+        var pyramid = screen && ScreenPyramid.IsValid && ScreenPyramidLevels > 1;
+
+        Parameters.Set(ReflectionTraceKeys.PyramidLevels, pyramid ? ScreenPyramidLevels : 0);
+        Parameters.Set(ReflectionTraceKeys.ScreenLinearThickness, ScreenLinearThickness);
         Parameters.Set(ReflectionTraceKeys.ReconstructFromDepth, ReconstructFromDepth ? 1 : 0);
         Parameters.Set(ReflectionTraceKeys.InverseViewProjection, InverseViewProjection);
 
@@ -311,6 +337,12 @@ public sealed class ReflectionTraceFill : IDisposable {
 
         if (effect.BindingOf(ColourName) is { } colour) {
             writes.Add(DescriptorWrite.Texture(colour.Binding, ScreenColour.IsValid ? ScreenColour : Positions));
+        }
+
+        if (effect.BindingOf(PyramidName) is { } chain) {
+            // With no chain, the normals plane stands in — always valid here, always sampled
+            // layout — and zero pyramidLevels means the kernel never loads it.
+            writes.Add(DescriptorWrite.Texture(chain.Binding, ScreenPyramid.IsValid ? ScreenPyramid : Normals));
         }
 
         if (effect.BindingOf(TargetName) is not { } target) {

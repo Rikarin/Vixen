@@ -1,0 +1,55 @@
+package Vixen.Shaders.Pipeline
+
+import Vixen.Shaders.Core
+
+// The depth pyramid's OTHER reduction — doc 19 § L5's, where `HiZReduce.rvn` is culling's.
+//
+// **Maximum, and the direction of the whole argument flips with it.** Depth is reversed — near is 1,
+// far is 0 — and a screen march asks "could anything in this cell stop my ray", which is answered no
+// only when the ray passes nearer than the cell's *nearest* surface. So the number a tile carries is
+// the largest one, and a tile of pure sky reduces to zero, which stops nothing. Reducing by anything
+// else skips rays through walls, which is a reflection of the wrong room rather than a slow frame.
+//
+// **Every tap is clamped, and the block is 3×3 rather than 2×2** — `HiZReduce`'s trade, re-made in
+// this direction: flooring mips leave a trailing row and column a 2×2 block never reads, and a
+// missed surface would *lower* the tile's nearest, which is the direction that skips wrongly. The
+// extra ring only ever raises it, which merely descends the march a level sooner.
+//
+// **A dispatch per level rather than one dispatch with a loop**, because a level cannot be read
+// until the whole of the level above it is written, and a workgroup can only wait for itself. The
+// barriers between them are `HiZPyramid`'s to record — the same driver, wearing this shader when a
+// march rather than a cull asks for the chain.
+
+shader NearestReduce {
+    /// The level being read: the depth buffer for the first dispatch, the previous level after that.
+    var source: Texture2D
+
+    /// The level being written — half the source's size in each dimension, rounded down.
+    [Format("r32f")] var target: RWTexture2D<float4>
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        // The dispatch is rounded up to whole groups, so the tail invocations have no texel. Storing
+        // outside a storage image is undefined in both targets.
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val parent = source.GetDimensions(0)
+        var nearest = 0f
+
+        for (dy in 0 .. 2) {
+            for (dx in 0 .. 2) {
+                val x = min(coord.x * 2 + dx, parent.x - 1)
+                val y = min(coord.y * 2 + dy, parent.y - 1)
+
+                nearest = max(nearest, source.Load(int3(x, y, 0)).x)
+            }
+        }
+
+        target.Store(coord, float4(nearest, 0f, 0f, 0f))
+    }
+}
