@@ -76,6 +76,9 @@ public sealed class ScreenProbeTraceFill : IDisposable {
     /// <summary>The shader's name for the atlas it writes.</summary>
     const string AtlasName = "radianceAtlas";
 
+    /// <summary>The shader's name for the depth its screen rays march.</summary>
+    const string DepthName = "depthBuffer";
+
     readonly IGraphicsDevice device;
     readonly UploadBuffer<ScreenProbeTraceJob> jobs = new("ScreenProbeTrace.Jobs");
     readonly List<DescriptorWrite> writes = [];
@@ -147,6 +150,27 @@ public sealed class ScreenProbeTraceFill : IDisposable {
     ///     for, so a mirrored or transposed decode is invisible.
     /// </remarks>
     public Vector3 SkyGradient { get; set; }
+
+    /// <summary>The frame's depth, for the trace order's first stage. Invalid traces no screen rays.</summary>
+    /// <remarks>
+    ///     A view in the sampled layout at dispatch time — for a compositor node, the graph resource
+    ///     it declared a read of. ⚠ The camera in <see cref="ViewProjection" /> must be the one that
+    ///     drew it, and the probes' origins should come from the same frame's placement: rays against
+    ///     a different frame's depth test surfaces that exist nowhere.
+    /// </remarks>
+    public TextureViewHandle ScreenDepth { get; set; }
+
+    /// <summary>The viewport <see cref="ScreenDepth" /> covers, in pixels.</summary>
+    public Int2 ScreenViewport { get; set; }
+
+    /// <summary>The camera that drew the depth — the forward matrix, not placement's inverse.</summary>
+    public Matrix4x4 ViewProjection { get; set; } = Matrix4x4.Identity;
+
+    /// <summary>How many equal steps a screen ray takes over <see cref="MaxDistance" />.</summary>
+    public int ScreenSteps { get; set; } = 32;
+
+    /// <summary>How deep behind a surface a sample still counts as inside it, in device depth.</summary>
+    public float ScreenThickness { get; set; } = 0.02f;
 
     /// <summary>Whether probes with no surface get a job that clears their patch to the invalid mark.</summary>
     /// <remarks>
@@ -229,6 +253,13 @@ public sealed class ScreenProbeTraceFill : IDisposable {
         Parameters.Set(ScreenProbeTraceKeys.MaxDistance, MaxDistance);
         Parameters.Set(ScreenProbeTraceKeys.SkyColor, SkyColour);
         Parameters.Set(ScreenProbeTraceKeys.SkyGradient, SkyGradient);
+
+        // Zero steps is the off switch the shader branches on — a host with no screen still binds a
+        // texture below, because a set with a hole in it binds nothing.
+        Parameters.Set(ScreenProbeTraceKeys.ScreenSteps, ScreenDepth.IsValid ? ScreenSteps : 0);
+        Parameters.Set(ScreenProbeTraceKeys.ScreenViewport, new Vector2(ScreenViewport.X, ScreenViewport.Y));
+        Parameters.Set(ScreenProbeTraceKeys.ScreenThickness, ScreenThickness);
+        Parameters.Set(ScreenProbeTraceKeys.ViewProjection, ViewProjection);
 
         // Everything that can fail does so before anything is recorded, so a list is never left
         // holding a barrier with no dispatch to justify it.
@@ -371,6 +402,19 @@ public sealed class ScreenProbeTraceFill : IDisposable {
         }
 
         writes.Add(new DescriptorWrite(target.Binding, DescriptorKind.StorageTexture, TextureView: texture.AtlasView));
+
+        if (effect.BindingOf(DepthName) is { } depth) {
+            // With no screen to trace, a resolved-probe plane stands in: the descriptor must point
+            // at something in the sampled layout, the planes are exactly that for the whole
+            // dispatch, and zero screenSteps means the shader never loads it.
+            writes.Add(
+                new DescriptorWrite(
+                    depth.Binding,
+                    DescriptorKind.SampledTexture,
+                    TextureView: ScreenDepth.IsValid ? ScreenDepth : texture.ProbeView(0)
+                )
+            );
+        }
 
         set = Descriptors!.Allocate(effect.SetLayouts[index], CollectionsMarshal.AsSpan(writes));
 

@@ -715,10 +715,25 @@ staleness again with a name. And **an unplaced probe's patch is cleared by the t
 itself** (`ClearInvalid`, a `valid` flag in the job's padding): on an atlas the dispatch owns, a
 patch nothing writes is undefined memory, and the resolve reads validity out of it.
 
-Still not started: screen traces against the HZB (the trace order's first stage — the frame that
-traces now exists, the ray-vs-pyramid march does not), adaptive placement, importance sampling,
-and the whole denoiser. The gather node also refuses a resized frame until resizing is a
-deliberate step.
+**And the trace order opens with the screen.** `ScreenSpaceTrace` marches the frame's own depth —
+geometry the distance field may not hold — before any field ray: a fixed count of equal steps, each
+projected and tested behind-within-thickness, a hit giving back nothing for the § L4 reason a field
+hit does, a sky texel occluding nothing, and an off-screen ray falling through to the field because
+a screen miss never proves the world empty. The kernel runs the same march sample for sample, and
+its device comparison is the package's sternest: a screen hit is binary, so a last-bit decode
+disagreement flips a texel whole — the wall only the depth buffer can see stopped the same rays on
+both sides, texel for texel, with a traceless reference proving it stopped any. Wired through the
+gather node behind `ScreenTraces`, **off by default and stated why**: the probes stand where a
+frame ago's placement put them and the rays march this frame's depth — identical for a still
+scene, sheared by motion for a moving one, which is the denoiser's reprojection problem named
+before it exists. One frame drawn with it on shows the L1 overshoot from § L3's own finding, now
+end to end: probes standing on the one surface a frame drew blacken a cone *behind* themselves,
+and the away-facing answer lands above the sky, not below it.
+
+Still not started: the HZB traversal itself (the naive march is the baseline, and the pyramid
+wants its nearest-texel reduction beside culling's farthest), adaptive placement, importance
+sampling, and the whole denoiser. The gather node also refuses a resized frame until resizing is
+a deliberate step.
 
 ### L4 — Surface cache and radiosity *(3.5 EM)*
 

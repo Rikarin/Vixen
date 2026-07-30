@@ -96,6 +96,28 @@ projection keeps whole. The kernel composes the same `irradiance` slot the shadi
 `NoIrradiance`'s zero coverage blends every termination back to the sky, so a project without a
 field traces exactly the rays it traced before.
 
+## The screen is asked first, and a screen hit is an occlusion
+
+Doc 19 § L3's trace order opens with rays against the frame's own depth — geometry the distance
+field may not hold: skinned meshes, foliage, anything too small or mobile for a signed distance
+representation. `ScreenSpaceTrace` is the CPU half: a fixed count of equal steps along the ray, each
+projected through the camera and compared against the depth buffer — behind a surface, within its
+`Thickness`, is a hit, and a hit gives back **nothing**, exactly as a field hit does, because a
+surface's own radiance is the § L4 surface cache. A sky texel occludes nothing; a ray that leaves
+the viewport stops being the screen's to answer; and the field march runs over the whole ray
+regardless, because a screen miss never proves the world empty.
+
+The kernel runs the same march sample for sample, and the device comparison is sterner here than
+anywhere else in the package: a screen hit is *binary*, so a last-bit disagreement in the decode
+would flip a texel whole rather than nudge it — the comparison runs under an orthographic camera to
+keep the projection affine, over a wall only the depth buffer can see, with a traceless reference
+proving the wall stopped something. **The naive march is the point**: the HZB traversal that skips
+empty space through the depth pyramid changes how fast the answer is found, not what it is, and it
+lands against this baseline — wanting the pyramid's *other* reduction, since `HiZReduce` keeps the
+farthest texel for occlusion culling and empty-space skipping wants the nearest. The step-versus-
+thickness trade is real in the meantime: a fixed-step ray samples its budget divided by its step
+count, and a wall thinner than a step slips between samples.
+
 ## The resolve is a dispatch, and its weights are the same table
 
 `ScreenProbeResolve.rvn` projects each probe's map into L1 — one workgroup per probe, walking the
@@ -154,9 +176,9 @@ stride did not move.
 - **Importance sampling.** The shipping gather aims rays where the BRDF and last frame's lighting
   say they matter. It changes which texel a ray serves, not what a texel means, so it belongs to the
   version that has a BRDF to sample against.
-- **Screen traces.** The trace order's first stage — rays against the HZB before any distance field.
-  The frame that traces them now exists; the HZB pass and the ray-vs-pyramid march do not. The other
-  end of the order, termination in the irradiance field, is in.
+- **The HZB traversal.** The screen trace exists and is the naive march; the hierarchical one that
+  skips empty space through the depth pyramid is owed against it, together with the pyramid's
+  nearest-texel reduction and a linear-depth thickness for perspective cameras.
 - **The denoiser.** Spatial filtering, temporal reprojection through the motion vectors, and the
   bilateral upsample against depth and normal edges. Doc 19 § L3's own warning is that this is the
   project — un-denoised, the gather looks worse than § L2 alone. The bilinear upsample and the

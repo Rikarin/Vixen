@@ -102,6 +102,21 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
     /// </remarks>
     public Matrix4x4 InverseViewProjection { get; set; } = Matrix4x4.Identity;
 
+    /// <summary>This frame's camera, forward — what the screen trace projects its samples with.</summary>
+    /// <remarks>Only read when <see cref="ScreenTraces" /> is on. The host has both matrices;
+    ///     deriving one from the other here would manufacture error.</remarks>
+    public Matrix4x4 ViewProjection { get; set; } = Matrix4x4.Identity;
+
+    /// <summary>Whether the trace's first stage marches the frame's own depth buffer.</summary>
+    /// <remarks>
+    ///     Off by default, deliberately: the probes' origins come from a placement one
+    ///     <see cref="Latency" /> old, and the depth the rays march is this frame's — identical for a
+    ///     still scene, sheared by one frame of motion for a moving one. That shear is the
+    ///     reprojection problem the denoiser owns, and until it exists this is a choice the host
+    ///     makes knowingly rather than a default it inherits.
+    /// </remarks>
+    public bool ScreenTraces { get; set; }
+
     /// <summary>How many pixels one probe stands for, along each axis.</summary>
     public int TileSize { get; set; } = 16;
 
@@ -169,7 +184,7 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
         matrices[slot] = InverseViewProjection;
         frames++;
 
-        DeclareCompute(frame, device);
+        DeclareCompute(frame, device, depthTexture);
         PublishPlanes(frame);
         BuildUpsample(compositor, frame, device);
         DeclareReadback(frame, depthTexture, normalTexture, slot);
@@ -305,12 +320,21 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
     ///     named into descriptor sets rather than declared to the graph, exactly as the irradiance
     ///     field's refill pass argues.
     /// </remarks>
-    void DeclareCompute(CompositorFrame frame, IGraphicsDevice device) {
+    void DeclareCompute(CompositorFrame frame, IGraphicsDevice device, GraphTexture depth) {
+        var screen = ScreenTraces && Tracer is not null;
+
         frame.Graph.AddPass(
             ToString(),
             pass => {
                 pass.Kind = PassKind.Compute;
                 pass.SideEffect();
+
+                // The screen trace samples this frame's depth, so the graph must order this pass
+                // after the one that draws it — without the declared read, the dispatch runs
+                // wherever it was declared and marches last frame's texels or none.
+                if (screen) {
+                    pass.Reads(depth);
+                }
 
                 pass.Execute(
                     context => {
@@ -323,6 +347,15 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
                             // patch, and an unplaced probe's patch is undefined unless a job
                             // clears it.
                             tracer.ClearInvalid = true;
+
+                            if (screen) {
+                                tracer.ScreenDepth = context.View(depth);
+                                tracer.ScreenViewport = atlas!.Layout.Viewport;
+                                tracer.ViewProjection = ViewProjection;
+                            } else {
+                                tracer.ScreenDepth = default;
+                            }
+
                             tracer.Record(commands, texture);
                             TraceSkipped = tracer.Skipped;
                         }

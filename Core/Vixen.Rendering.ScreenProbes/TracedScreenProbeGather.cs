@@ -115,6 +115,15 @@ public sealed class TracedScreenProbeGather {
     /// </remarks>
     public IrradianceField? FarField { get; set; }
 
+    /// <summary>The trace order's first stage: rays against the frame's own depth, or null for none.</summary>
+    /// <remarks>
+    ///     Asked before the distance field, and a hit gives back nothing — an occlusion, not a lit
+    ///     surface, for <see cref="ScreenSpaceTrace" />'s § L4 reason. A screen miss proves nothing:
+    ///     the field march runs over the whole ray regardless, because the screen only ever saw the
+    ///     front of what it saw.
+    /// </remarks>
+    public ScreenSpaceTrace? ScreenTrace { get; set; }
+
     /// <summary>Fills every probe of an atlas from what its anchor pixel shows.</summary>
     /// <param name="atlas">The atlas to fill.</param>
     /// <param name="surface">What the screen is looking at.</param>
@@ -179,6 +188,14 @@ public sealed class TracedScreenProbeGather {
         for (var ty = 0; ty < resolution; ty++) {
             for (var tx = 0; tx < resolution; tx++) {
                 var direction = OctahedralMap.Direction(new(tx, ty), resolution);
+
+                // The screen first — geometry the field may not hold — and a hit is an occlusion.
+                if (ScreenTrace?.Hit(origin, direction, Settings.MaxDistance) == true) {
+                    atlas[probe, new(tx, ty)] = Vector3.Zero;
+
+                    continue;
+                }
+
                 var hit = DistanceFieldTracer.Trace(geometry, origin, direction, trace);
 
                 atlas[probe, new(tx, ty)] = hit.Hit

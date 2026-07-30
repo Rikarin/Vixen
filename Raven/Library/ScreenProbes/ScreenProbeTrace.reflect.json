@@ -328,6 +328,70 @@
           "Stages": "Compute",
           "Members": [
             {
+              "Name": "viewProjection",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 4,
+                "IsMatrix": true,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 64,
+              "ArrayStride": 0,
+              "MatrixStride": 16,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "screenViewport",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 2,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 64,
+              "Size": 8,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "screenSteps",
+              "Type": {
+                "Scalar": "Int",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 72,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0"
+            },
+            {
+              "Name": "screenThickness",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 76,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.02"
+            },
+            {
               "Name": "maxDistance",
               "Type": {
                 "Scalar": "Float",
@@ -337,7 +401,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 0,
+              "Offset": 80,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -353,7 +417,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 4,
+              "Offset": 84,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -369,7 +433,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 8,
+              "Offset": 88,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -385,7 +449,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 12,
+              "Offset": 92,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -401,7 +465,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 16,
+              "Offset": 96,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -417,18 +481,28 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 32,
+              "Offset": 112,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": ""
             }
           ],
-          "Size": 48,
+          "Size": 128,
           "IsWritable": false
         },
         {
           "Binding": 1,
+          "Name": "depthBuffer",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Compute",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 2,
           "Name": "jobs",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -504,7 +578,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 2,
+          "Binding": 3,
           "Name": "radianceAtlas",
           "Type": "StorageImage",
           "Count": 1,
@@ -722,6 +796,78 @@
       "DefaultValue": ""
     },
     {
+      "Name": "viewProjection",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 4,
+        "IsMatrix": true,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 0,
+      "Size": 64,
+      "ArrayStride": 0,
+      "MatrixStride": 16,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "screenViewport",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 2,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 64,
+      "Size": 8,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "screenSteps",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 72,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0"
+    },
+    {
+      "Name": "screenThickness",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 76,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.02"
+    },
+    {
       "Name": "maxDistance",
       "Type": {
         "Scalar": "Float",
@@ -733,7 +879,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 0,
+      "Offset": 80,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -751,7 +897,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 4,
+      "Offset": 84,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -769,7 +915,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 8,
+      "Offset": 88,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -787,7 +933,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 12,
+      "Offset": 92,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -805,7 +951,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 16,
+      "Offset": 96,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -823,7 +969,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 32,
+      "Offset": 112,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -840,7 +986,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 1,
+      "Binding": 2,
       "Offset": 0,
       "Size": 8,
       "ArrayStride": 0,
@@ -858,7 +1004,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 1,
+      "Binding": 2,
       "Offset": 8,
       "Size": 4,
       "ArrayStride": 0,
@@ -876,7 +1022,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 1,
+      "Binding": 2,
       "Offset": 16,
       "Size": 12,
       "ArrayStride": 0,

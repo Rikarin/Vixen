@@ -462,9 +462,10 @@ criteria are asserted end to end, and its last known defect, the device border s
 reads, is closed by committing borders rank by rank on both sides. **L3** is started and runs as a
 schedule: the octahedral map with exact texel solid angles, the probe lattice, and the traced
 reference exist in `Vixen.Rendering.ScreenProbes` checked against the same closed forms L2 was; the
-trace, resolve and upsample all dispatch and agree with that reference; and one compositor node
-places probes from the frame's own depth buffer and draws the result. The denoiser — § L3's stated
-risk — is not started. See
+trace, resolve and upsample all dispatch and agree with that reference; one compositor node places
+probes from the frame's own depth buffer and draws the result; and the trace order opens with a
+screen trace against that same depth on both sides. The denoiser — § L3's stated risk — is not
+started. See
 [19](19-lighting-and-global-illumination.md), which **retires baked lightmaps and tetrahedral probes**
 rather than deferring them, and which is where most of that phase's saving comes from.
 

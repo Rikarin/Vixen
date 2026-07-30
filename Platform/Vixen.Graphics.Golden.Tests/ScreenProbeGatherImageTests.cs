@@ -64,6 +64,32 @@ public sealed class ScreenProbeGatherImageTests {
         Assert.Null(node.ResolveSkippedSeen);
     }
 
+    /// <summary>The screen trace wired through the node changes what the probes see.</summary>
+    /// <remarks>
+    ///     A wiring assertion, not a closed form — the arithmetic is pinned texel by texel in
+    ///     <c>ScreenProbeTraceDeviceTests</c>. Every probe stands on the one flat surface the frame
+    ///     drew, so the screen trace blackens a cone of directions behind each probe — and the
+    ///     surface's own normal faces <i>away</i> from that cone, so the frame lands <i>above</i>
+    ///     the sky, not below it: the L1 truncation's overshoot, doc 19 § L3's "beside an occluder
+    ///     the away-facing answer overshoots the sky", drawn by a whole frame. The traceless frame
+    ///     is the sky exactly, so anything but the sky here is the screen trace's doing.
+    /// </remarks>
+    [Fact]
+    public void TheScreenTraceDarkensWhatItStops() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var pictures = Render(owned, 0.5f, frames: 3, out var node, screenTraces: true);
+
+        var centre = Pixel(pictures[^1], 16, 16);
+
+        Assert.Null(node.TraceSkippedSeen);
+        Assert.True(centre.X > Radiance + 0.03f, $"the screen trace stopped nothing: {centre}");
+        Assert.True(centre.X < 1f, $"the overshoot has no ceiling: {centre}");
+    }
+
     [Fact]
     public void ASkyOnlyFrameStaysDark() {
         if (!TryOpen(out var fixture)) {
@@ -82,7 +108,13 @@ public sealed class ScreenProbeGatherImageTests {
 
     sealed record Observed(int Probes, int PlacedSeen, int Placements, string? TraceSkippedSeen, string? ResolveSkippedSeen);
 
-    static Bitmap[] Render(Fixture fixture, float clearDepth, int frames, out Observed observed) {
+    static Bitmap[] Render(
+        Fixture fixture,
+        float clearDepth,
+        int frames,
+        out Observed observed,
+        bool screenTraces = false
+    ) {
         var device = fixture.Device;
 
         using var allocator = new DescriptorAllocator(device);
@@ -104,11 +136,14 @@ public sealed class ScreenProbeGatherImageTests {
             )
         );
 
+        // Eight units of ray, matching the screen-trace closed forms: at the default hundred, a
+        // fixed-step march samples too coarsely to land in a surface's shell at all.
         using var tracer = new ScreenProbeTraceFill(device) {
             Effects = effects,
             Pipelines = pipelines,
             Descriptors = allocator,
-            SkyColour = new(Radiance)
+            SkyColour = new(Radiance),
+            MaxDistance = 8f
         };
 
         using var resolver = new ScreenProbeResolve(device) {
@@ -119,7 +154,9 @@ public sealed class ScreenProbeGatherImageTests {
 
         // The CPU placement tests' camera: reconstruction under it is pinned by hand over there,
         // and under a uniform sky nothing here depends on the positions it produces.
-        Assert.True(Matrix4x4.Invert(Matrix4x4.Orthographic(4f, 4f, 1f, 9f), out var inverse));
+        var camera = Matrix4x4.Orthographic(4f, 4f, 1f, 9f);
+
+        Assert.True(Matrix4x4.Invert(camera, out var inverse));
 
         using var node = new ScreenProbeGatherRenderer {
             Name = "ScreenProbes",
@@ -131,6 +168,8 @@ public sealed class ScreenProbeGatherImageTests {
             Tracer = tracer,
             Resolver = resolver,
             InverseViewProjection = inverse,
+            ViewProjection = camera,
+            ScreenTraces = screenTraces,
 
             // One frame of latency, because this loop waits the device idle every frame.
             Latency = 1

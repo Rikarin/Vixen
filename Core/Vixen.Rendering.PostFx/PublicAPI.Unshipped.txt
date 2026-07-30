@@ -229,6 +229,8 @@ Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Resolver.set -> Vixen.Rendering
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Samplers.get -> Vixen.Rendering.SamplerCache?
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Samplers.set -> Vixen.Rendering.SamplerCache?
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.ScreenProbeGatherRenderer() -> void
+Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.ScreenTraces.get -> bool
+Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.ScreenTraces.set -> bool
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Texture.get -> Vixen.Rendering.Lighting.ScreenProbeTexture?
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.TileSize.get -> int
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.TileSize.set -> int
@@ -236,6 +238,8 @@ Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.TraceSkipped.get -> string?
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Tracer.get -> Vixen.Rendering.Lighting.ScreenProbeTraceFill?
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Tracer.set -> Vixen.Rendering.Lighting.ScreenProbeTraceFill?
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Upsample.get -> Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer?
+Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.ViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.ViewProjection.set -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer -> sealed class
 Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
 Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.Intensity.get -> float

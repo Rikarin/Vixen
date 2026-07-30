@@ -266,6 +266,178 @@ public sealed class ScreenProbeTraceDeviceTests {
         Compare(reference, texels, _ => true);
     }
 
+    /// <summary>
+    ///     The trace order's first stage on the device: a wall only the depth buffer can see stops
+    ///     the same rays it stops on the CPU.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The distance field is empty, so every darkened texel is the screen's doing — and a
+    ///         second reference without the screen trace proves the wall darkened something, or the
+    ///         agreement would be the sky agreeing with itself.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ A screen hit is a <i>binary</i> decision, so this comparison leans harder on "one
+    ///         function evaluated twice" than the radiance comparisons do: a last-bit disagreement in
+    ///         the octahedral decode would not nudge a texel by a millionth, it would flip it whole.
+    ///         The orthographic camera keeps the projection affine for exactly that reason. If
+    ///         another driver ever flips a marginal texel here, the upgrade is a margin audit on the
+    ///         reference — assert no sample lands within float noise of a threshold — not a wider
+    ///         tolerance.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheScreenTraceStopsTheSameRaysOnTheDevice() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var device = owned.Device;
+
+        // A wall over the right half of a 64×48 screen, at z = −3 under the placement tests'
+        // orthographic camera — device depth 0.75. The left half is sky.
+        var screenSurface = new ReconstructedScreenSurface(new(64, 48));
+
+        for (var y = 0; y < 48; y++) {
+            for (var x = 32; x < 64; x++) {
+                screenSurface.Depth[(y * 64) + x] = 0.75f;
+            }
+        }
+
+        var camera = Matrix4x4.Orthographic(4f, 4f, 1f, 9f);
+        var settings = new ScreenProbeGatherSettings { MaxDistance = 8f };
+
+        var reference = new ScreenProbeAtlas(new(new(64, 48)));
+
+        new TracedScreenProbeGather(new EmptyWorld(), new LinearSky(Radiance, 0.3f), settings) {
+            ScreenTrace = new(screenSurface) { ViewProjection = camera }
+        }.Fill(reference, new Floor());
+
+        // The wall must have stopped something, or agreement below proves nothing.
+        var bare = new ScreenProbeAtlas(new(new(64, 48)));
+
+        new TracedScreenProbeGather(new EmptyWorld(), new LinearSky(Radiance, 0.3f), settings).Fill(bare, new Floor());
+
+        Assert.True(Differs(reference, bare), "no ray was stopped by the wall, so the scene tests nothing");
+
+        var traced = new ScreenProbeAtlas(new(new(64, 48)));
+        var floor = new Floor();
+
+        for (var y = 0; y < traced.Layout.GridSize.Y; y++) {
+            for (var x = 0; x < traced.Layout.GridSize.X; x++) {
+                var probe = new Int2(x, y);
+
+                Assert.True(floor.TrySurface(traced.Layout.Anchor(probe), out var position, out var normal));
+                traced.SetSurface(probe, position, normal);
+            }
+        }
+
+        using var allocator = new DescriptorAllocator(device);
+        using var texture = new ScreenProbeTexture(traced) { AtlasIsWritten = true };
+
+        var loader = new EffectLoader(device);
+        var effects = new EffectSystem();
+
+        effects.AddProvider(
+            new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "ScreenProbes"]))
+        );
+
+        // The depth buffer, uploaded as the frame would have drawn it.
+        var depthTexture = owned.Owned(
+            "screen depth",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba32Float,
+            64,
+            48
+        );
+
+        var depthTexels = new float[64 * 48 * 4];
+
+        for (var i = 0; i < 64 * 48; i++) {
+            depthTexels[i * 4] = screenSurface.Depth[i];
+        }
+
+        var staging = device.CreateBuffer(
+            new(
+                (long)depthTexels.Length * sizeof(float),
+                BufferUsage.CopySource,
+                MemoryAccess.HostUpload,
+                "screen depth staging"
+            )
+        );
+
+        device.Write(staging, 0, System.Runtime.InteropServices.MemoryMarshal.AsBytes(depthTexels.AsSpan()));
+
+        using var trace = new ScreenProbeTraceFill(device) {
+            Effects = effects,
+            Pipelines = new ComputePipelineCache(device),
+            Descriptors = allocator,
+            SkyColour = new(Radiance),
+            SkyGradient = new(0.3f),
+            MaxDistance = 8f,
+            ScreenDepth = depthTexture.View,
+            ScreenViewport = new(64, 48),
+            ViewProjection = camera
+        };
+
+        var texels = new Vector4[traced.Layout.AtlasSize.X * traced.Layout.AtlasSize.Y];
+
+        allocator.BeginFrame();
+        VulkanDiagnostics.Reset();
+        device.BeginFrame();
+
+        using (var commands = device.BeginCommandList(QueueKind.Graphics, "screen trace")) {
+            commands.Barrier(
+                new([], [new TextureBarrier(depthTexture.Texture, ResourceState.Undefined, ResourceState.CopyDestination)])
+            );
+
+            commands.CopyBufferToTexture(staging, 0, new TextureRegion(depthTexture.Texture), new(64, 48, 1));
+
+            commands.Barrier(
+                new([], [new TextureBarrier(depthTexture.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)])
+            );
+
+            texture.Upload(device, commands);
+
+            Assert.Equal(traced.Layout.ProbeCount, trace.Record(commands, texture));
+            Assert.True(texture.RecordReadback(commands));
+
+            commands.Finish();
+            device.GraphicsQueue.Submit([commands]);
+        }
+
+        device.EndFrame();
+        device.WaitIdle();
+        device.Destroy(staging);
+
+        Assert.Null(trace.Skipped);
+        Assert.Empty(effects.Misses);
+        Assert.True(texture.TryRead(texels));
+        AssertClean();
+
+        Compare(reference, texels, _ => true);
+    }
+
+    /// <summary>Whether any texel of two same-shaped atlases disagrees.</summary>
+    static bool Differs(ScreenProbeAtlas left, ScreenProbeAtlas right) {
+        var layout = left.Layout;
+
+        for (var py = 0; py < layout.GridSize.Y; py++) {
+            for (var px = 0; px < layout.GridSize.X; px++) {
+                for (var ty = 0; ty < layout.MapResolution; ty++) {
+                    for (var tx = 0; tx < layout.MapResolution; tx++) {
+                        if (left[new(px, py), new(tx, ty)] != right[new(px, py), new(tx, ty)]) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Holds every valid probe's patch of the readback against the reference atlas.</summary>
     /// <remarks>
     ///     Ten-thousandths, which is what two machines' float maths cost — anything structural is off
