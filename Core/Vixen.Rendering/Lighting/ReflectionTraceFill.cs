@@ -135,6 +135,15 @@ public sealed class ReflectionTraceFill : IDisposable {
     /// <summary>How deep behind a surface a sample still counts as inside it, in device depth.</summary>
     public float ScreenThickness { get; set; } = 0.02f;
 
+    /// <summary>Whether positions come from <see cref="ScreenDepth" /> rather than a positions plane.</summary>
+    /// <remarks>The production wiring — a real frame has a depth, not a positions plane. Requires
+    ///     <see cref="ScreenDepth" /> and <see cref="InverseViewProjection" />; the positions
+    ///     binding then takes a stand-in the kernel never loads.</remarks>
+    public bool ReconstructFromDepth { get; set; }
+
+    /// <summary>What turns a pixel's depth back into the world, when reconstructing.</summary>
+    public Matrix4x4 InverseViewProjection { get; set; } = Matrix4x4.Identity;
+
     /// <summary>How many dispatches have been recorded.</summary>
     public int Dispatches { get; private set; }
 
@@ -155,8 +164,12 @@ public sealed class ReflectionTraceFill : IDisposable {
             return Skip("the pass has no effect system, pipeline cache or descriptor allocator");
         }
 
-        if (!Positions.IsValid || !Normals.IsValid || !Target.IsValid) {
+        if ((!Positions.IsValid && !ReconstructFromDepth) || !Normals.IsValid || !Target.IsValid) {
             return Skip("the surface planes or the target do not exist, so there is nothing to reflect");
+        }
+
+        if (ReconstructFromDepth && !ScreenDepth.IsValid) {
+            return Skip("reconstruction was asked for and there is no depth to reconstruct from");
         }
 
         if (Viewport.X <= 0 || Viewport.Y <= 0) {
@@ -199,6 +212,8 @@ public sealed class ReflectionTraceFill : IDisposable {
         // the kernel never loads it.
         Parameters.Set(ReflectionTraceKeys.ScreenSteps, screen ? ScreenSteps : 0);
         Parameters.Set(ReflectionTraceKeys.ScreenThickness, ScreenThickness);
+        Parameters.Set(ReflectionTraceKeys.ReconstructFromDepth, ReconstructFromDepth ? 1 : 0);
+        Parameters.Set(ReflectionTraceKeys.InverseViewProjection, InverseViewProjection);
 
         var frame = default(DescriptorSetHandle);
 
@@ -282,7 +297,10 @@ public sealed class ReflectionTraceFill : IDisposable {
             return false;
         }
 
-        writes.Add(DescriptorWrite.Texture(positions.Binding, Positions));
+        // Reconstructing, the positions binding takes the normals plane as its stand-in — the
+        // descriptor must point at something in the sampled layout, and the mode flag is what
+        // guarantees the kernel never loads it.
+        writes.Add(DescriptorWrite.Texture(positions.Binding, Positions.IsValid ? Positions : Normals));
         writes.Add(DescriptorWrite.Texture(normals.Binding, Normals));
 
         // With no screen to trace, the positions plane stands in: the descriptor must point at

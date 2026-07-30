@@ -98,7 +98,7 @@ public sealed class ReflectionTraceDeviceTests {
         effects.AddProvider(
             new Compiling(
                 loader,
-                _ => RavenEffects.Only(["Core", "Shading", "DistanceFields", "IrradianceFields", "SurfaceCache", "Reflections"])
+                _ => RavenEffects.Only(["Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "SurfaceCache", "Reflections"])
             )
         );
 
@@ -364,7 +364,7 @@ public sealed class ReflectionTraceDeviceTests {
         effects.AddProvider(
             new Compiling(
                 loader,
-                _ => RavenEffects.Only(["Core", "Shading", "DistanceFields", "IrradianceFields", "SurfaceCache", "Reflections"])
+                _ => RavenEffects.Only(["Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "SurfaceCache", "Reflections"])
             )
         );
 
@@ -551,7 +551,7 @@ public sealed class ReflectionTraceDeviceTests {
         effects.AddProvider(
             new Compiling(
                 loader,
-                _ => RavenEffects.Only(["Core", "Shading", "DistanceFields", "IrradianceFields", "SurfaceCache", "Reflections"])
+                _ => RavenEffects.Only(["Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "SurfaceCache", "Reflections"])
             )
         );
 
