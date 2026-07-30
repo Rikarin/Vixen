@@ -132,6 +132,8 @@
     -->
     <Project Path="Core/Vixen.Rendering.ScreenProbes/Vixen.Rendering.ScreenProbes.csproj" />
     <Project Path="Core/Vixen.Rendering.ScreenProbes.Tests/Vixen.Rendering.ScreenProbes.Tests.csproj" />
+    <Project Path="Core/Vixen.Rendering.RayTracing/Vixen.Rendering.RayTracing.csproj" />
+    <Project Path="Core/Vixen.Rendering.RayTracing.Tests/Vixen.Rendering.RayTracing.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering.Reflections/Vixen.Rendering.Reflections.csproj" />
     <Project Path="Core/Vixen.Rendering.Reflections.Tests/Vixen.Rendering.Reflections.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering.SurfaceCache/Vixen.Rendering.SurfaceCache.csproj" />

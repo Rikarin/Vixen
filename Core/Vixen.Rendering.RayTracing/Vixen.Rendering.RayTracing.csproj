@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Rendering.RayTracing</RootNamespace>
+        <Description>
+            The reference half of docs/plan/19 § L6: a bounding-volume hierarchy over triangles,
+            built and traversed on the CPU with closed-form tests, so the day acceleration
+            structures enter the RHI there is an answer to hold them against — the arrangement
+            every device feature in this engine has with its reference. Written first and
+            device-free, the discipline every layer below followed.
+        </Description>
+        <PackageTags>ray-tracing;bvh;acceleration-structure;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Rendering.RayTracing.Tests" />
+    </ItemGroup>
+
+</Project>

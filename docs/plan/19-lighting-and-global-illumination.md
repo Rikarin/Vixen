@@ -952,6 +952,19 @@ dispatch rides with it) with the perspective form's `1/w` interpolation and line
 Acceleration structures in the RHI (`GraphicsDeviceFeatures.HasRayTracing`, capability-gated like
 everything else), as an alternative tracer behind L1's interface. Nothing above it changes.
 
+**Status: opened, reference first — a hardware ray query cannot be checked against arithmetic, so
+the arithmetic exists before the query does.**
+[`Vixen.Rendering.RayTracing`](../../Core/Vixen.Rendering.RayTracing/README.md) holds a triangle
+BVH: a median build (deterministic from the input alone, two builds agree to the bit — SAH is an
+optimisation with this as its baseline), a front-to-back traversal whose far subtree is closed by
+a nearer hit, and Möller–Trumbore answering the triangles two-sided with the geometric normal
+facing the ray. The closed forms hold — a ray crosses a known plane at a known distance from
+either side — and the traversal is the brute force hit for hit over four hundred rays through a
+soup, at better than four times fewer visits, the logarithm measured rather than asserted. Owed:
+the RHI concept itself (build/refit and ray queries behind `HasRayTracing`, § 6's genuinely new
+row) and the `IDistanceFieldSource` implementation that answers `TraceField` with a query, which
+is the sentence "nothing above it changes" made true on a device.
+
 ### Total, honestly
 
 **~14.5 EM.** That is three times Phase 5's entire renderer and twice the UI framework. It is the
