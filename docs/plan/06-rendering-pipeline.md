@@ -119,7 +119,7 @@ Three things the implementation settled that the sketch above leaves open:
   Only the last does. A dynamic offset travels in the bind and a push constant travels in the command
   buffer, so both are per command whatever else they are — which is why the transform moved onto
   `firstInstance` beside instancing rather than staying pushed. See
-  [bindless-materials.md](../bindless-materials.md) § 6.
+  [bindless-materials.md](23-bindless-materials.md) § 6.
 - **A pass's own bindings need a lifetime the RHI does not have**, and
   `Vixen.Graphics.DescriptorAllocator` is it. A pass sampling the shadow atlas cannot own a set,
   because the atlas is a graph resource whose handle does not exist until the graph compiles and
@@ -176,7 +176,7 @@ Vixen keeps all three, with these changes:
   `GpuDrawArguments.Compact` appends survivors to a run per batch behind an `atomicAdd`, and
   `MeshRenderFeature` draws that run with one `DrawIndexedIndirectCount` whose count comes out of a
   buffer the host never reads. What unblocked it was the rest of the bindless plan:
-  [bindless-materials.md](../bindless-materials.md) — `GeometryBuffer` puts many meshes in one vertex
+  [bindless-materials.md](23-bindless-materials.md) — `GeometryBuffer` puts many meshes in one vertex
   and one index buffer, material records replace the per-material set, and transform records take the
   matrix out of the command buffer, so a run of objects binds nothing between its draws and what
   separates two of them is the numbers in their arguments. Three conditions gate the merge — same

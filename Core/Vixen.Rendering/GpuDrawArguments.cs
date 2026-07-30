@@ -145,7 +145,7 @@ public sealed class GpuDrawArguments : IDisposable {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         Step 4 of <c>docs/bindless-materials.md</c>, and the payoff for everything before it. A
+    ///         Step 4 of <c>docs/plan/23-bindless-materials.md</c>, and the payoff for everything before it. A
     ///         padded buffer costs one command per <em>candidate</em> object, whatever the culling
     ///         decided; a compacted one costs one command per <em>batch</em>, because
     ///         <see cref="ICommandList.DrawIndexedIndirectCount" /> reads how many survivors there

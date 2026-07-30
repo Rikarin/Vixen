@@ -191,7 +191,7 @@ public sealed class StreamMeshletPageSource : IMeshletPageSource, IDisposable {
 /// <remarks>
 ///     <para>
 ///         <b>This is <see cref="GeometryBuffer" /> with a residency policy instead of a load-time
-///         one</b>, which is what <c>docs/virtualized-geometry.md</c> phase 2 says it should be. The
+///         one</b>, which is what <c>docs/plan/22-virtualized-geometry.md</c> phase 2 says it should be. The
 ///         same fixed capacity, the same device-local memory written through staging, the same
 ///         two-call <c>Write</c>/<c>Flush</c> split because a page arrives on one thread and the copy
 ///         belongs at one known point in one command list. What differs is the allocator: that one

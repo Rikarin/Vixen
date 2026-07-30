@@ -7,11 +7,11 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 [`docs/rhi-backend-mapping.md`](rhi-backend-mapping.md), the per-project `README.md` files, the
 `Directory.Packages.props` register, the Nuke targets in `build/`, and `.github/workflows/`.
 
-> **Where the sources disagree, the code wins.** [`14-roadmap.md`](plan/14-roadmap.md) is the richest
-> status record but its Phase 6/7/8 bullets predate the editor, animation and input work that has
-> since landed; the per-project READMEs and [`02-repository-layout.md`](plan/02-repository-layout.md)
-> are current for those. Rows below are marked against the code, and a divergence is called out in
-> the note.
+> **Where the sources disagree, the code wins.** Every row below is marked against the code, and a
+> divergence from a document is called out in the note. This file is the *only* place that carries
+> per-feature status: [`14-roadmap.md`](plan/14-roadmap.md) keeps the phase boundaries and their exit
+> criteria and points here, and the reasoning behind any one subsystem lives in that subsystem's
+> `README.md`. Three places recording the same thing is how they come to disagree.
 
 ## Legend
 
@@ -277,8 +277,8 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Lighting — directional/point/spot/tube/rect, clustered binning, IBL, reflection probes | ✅ | Core/Vixen.Rendering | `EnvironmentBaker` + `SphericalHarmonics` on the CPU |
 | **Light probes** (tetrahedral interpolation) | 🟡 | Core/Vixen.Core.Mathematics · Core/Vixen.Rendering | `ExactPredicates` + `DelaunayTetrahedralization` + `LightProbeVolume`. The CPU half is done and the GPU half is not: nothing uploads a volume or samples one in a shader. The row used to read ⛔ *written, found wrong by its own tests, withdrawn*. ⚠ It is not what [plan/19](plan/19-lighting-and-global-illumination.md) § L2 builds on — that is the brick-and-indirection field below, which places probes on a lattice rather than triangulating them |
 | **Distance fields** (bake, clipmap, tracer, traced pass) | ✅ | `Vixen.Rendering.DistanceFields` | [plan/19](plan/19-lighting-and-global-illumination.md) § L1. Exact bake with a voted sign, camera-snapped clipmap that scrolls, CPU tracer, volume textures, compositor node, Raven module, `DistanceFieldAo` — and `DistanceFieldAoImageTests` draws with it on a device |
-| **Irradiance field** (bricks, indirection, L1 payload, leak mitigation) | 🟡 | `Vixen.Rendering.IrradianceFields` · Core/Vixen.Rendering | [plan/19](plan/19-lighting-and-global-illumination.md) § L2. 4³ probes in a 5³ footprint, refinement, borders, dilation, normal bias; a CPU reference filler and the compute filler that agrees with it probe by probe on a device, with the dilation and border sync dispatched beside it and checked over all 125 texels of every brick; `IndirectDiffuse` draws the result. ⚠ Owed: filler B; the shading models reading the buffer; a policy that decides where to refine |
-| Per-object reflection probe selection | ⬜ | — | ⛔ needs a probe to be a table index rather than one of four bound cubes — [step 2](bindless-materials.md). The per-object block already carries the index and the weight |
+| **Irradiance field** (bricks, indirection, L1 payload, leak mitigation) | 🟡 | `Vixen.Rendering.IrradianceFields` · Core/Vixen.Rendering | [plan/19](plan/19-lighting-and-global-illumination.md) § L2. 4³ probes in a 5³ footprint, refinement, borders, dilation, normal bias; a CPU reference filler and the compute filler that agrees with it probe by probe on a device, with the dilation and border sync dispatched beside it and checked over all 125 texels of every brick; `IndirectDiffuse` draws the result. `ForwardPlus` composes it into its ambient term, checked against a per-channel closed form on a device. Refinement follows renderer bounds through `IrradianceRefinementPolicy`; the normal and view biases are both in, which completes § G3's four leak mitigations. Filler B projects captured cubes into the same bricks, agrees with filler A within 2%, **and now renders its own cubes** — six 90° passes off `ShadowProjections.Cube` with the colour and depth read back, so a target with no compute bakes the same bricks a compute shader fills. The bounce runs: cube faces drawn through the same three render features a frame uses, with the field composed into that shading, so pass *n+1* shades from pass *n*. ⚠ Owed: the device border phase needs `SyncBorders`' within-class deferral and does not have it — an open intermittent disagreement at one border edge texel, roughly one full-suite run in three, which is the only known defect left in § L2. Then `Deferred` (blocked on the Phase 10 pass); coarsening, since refinement only ever adds detail; and two unmeasured optimisations — narrowing the repair to dirty bricks, and batching filler B's one-submit-per-probe |
+| Per-object reflection probe selection | ⬜ | — | ⛔ needs a probe to be a table index rather than one of four bound cubes — [step 2](plan/23-bindless-materials.md). The per-object block already carries the index and the weight |
 | Shadows — CSM, cube, spot, atlas, static caching, PCF/PCSS | ✅ | Core/Vixen.Rendering | |
 | Punctual shadow caching | ⬜ | — | Only the directional cascades are cached |
 | Blend shapes | ⬜ | — | |
@@ -313,7 +313,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Backends: OpenAL ✅, WebAudio ✅ | ✅ | Platform/Vixen.Audio.Backend.* | |
 | Measured HRTF sets | ⬜ | — | Structural model ships; measured sets are content |
 | `Vixen.Animation` — skeletal playback, 1D/2D blend trees, layers + masks, state machine, two-bone/look-at/foot IK, root motion, events, GPU skinning, key reduction | ✅ | Core/Vixen.Animation | Benchmarked; `ParallelThreshold` = 32 from measurement |
-| `Vixen.Editor.AnimationGraph` | ⬜ | — | Cut-list #7 — a code-driven state machine ships first |
+| `Vixen.Editor.AnimationGraph` | ✅ | Editor/Vixen.Editor.AnimationGraph | Cut-list #7 built rather than cut. An authored state machine as a serialisable document, and the compiler that turns it into the `AnimationStateMachine` and `AnimationLayer`s `Vixen.Animation` runs. Deliberately **not** on `Vixen.Editor.NodeGraph` — its README says why |
 | Ragdoll integration | ⬜ | — | Lands with the animation/physics join |
 | `Vixen.Input` — devices, `InputControlPath`, actions, maps, processors, interactions, `.vxinput`, generated accessors, rebinding | ✅ | Core/Vixen.Input | |
 | Action-map editor + input debug panel | ⬜ | — | Was ⛔ on the editor shell; **the shell now exists, so this is unblocked** |
@@ -330,10 +330,10 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 
 > **Phase 6's exit sentence is met.** The editor opens a project, imports assets, builds content,
 > edits a scene, saves, and runs the game — entirely in `Vixen.Ui`, with no other toolkit anywhere in
-> the dependency graph. What the sentence does not cover and Phase 6 still lists: the asset editors,
-> the profiler and debugger, the automation harness, and `PublishEditor`. Plugin loading has since
-> landed — `Vixen.Editor.Plugin`, a collectible `AssemblyLoadContext` per plugin, and two folders
-> the editor scans at start-up. The editor-shell performance bar is unmeasured.
+> the dependency graph. Everything Phase 6 listed beyond that sentence has since landed too — the
+> asset editors, the profiler, the debugger, the plugin host and the animation graph are all projects
+> now. What is left of that phase is **`PublishEditor`** with signing and notarisation, **golden
+> screenshots** for editor layouts, and the **editor-shell performance bar**, which is unmeasured.
 >
 > ⚠ **The viewport draws lines, not meshes.** A scene of empties looks right; a scene with a model in
 > it does not show the model. That wants a material system wired to an editor viewport. `MeshRenderable`
@@ -366,8 +366,10 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Asset editors: texture, model, material, prefab, shader, UI, addressable groups, compositor | ⬜ | — | Shell + inspector exist, so these are unblocked. ⚠ This row is **stale**: `Editor/Vixen.Editor.AssetEditors` holds a document and a view for each of them, and its README lists what each one draws. Re-reading it is owed; the row below is the one part of it checked while writing this line |
 | **Sprite editor** (slice a texture into a sheet) | ✅ | Editor/Vixen.Editor.AssetEditors · Editor/Vixen.Editor.Assets | `SpriteSheetView`, a second **tab** over `TextureImportDocument` rather than a second document — a slice is rects written into the texture's own import settings, so it shares that undo stack. Grid by size, grid by count, and automatic (connected components over the alpha, merged to a fixed point, ordered in bands). The cutting is `SpriteSlicer`, a pure function of pixels and options, so all three modes are checked against images built in a test. The importer then produces one sub-asset per sprite and one for the sheet, keyed by name so a re-slice keeps references |
 | Scene editor (as an asset editor) | ⛔ | — | Needs the scene format |
-| `Vixen.Editor.Profiler` (frame graph, frame debugger, memory view) | ⬜ | — | ⛔ partly on `Vixen.Core.Diagnostics`' GPU/memory tracks |
-| `Vixen.Editor.Debugger` (remote inspector, live property editing) | ⬜ | — | ⛔ needs the remote log/telemetry sink |
+| `Vixen.Editor.Profiler` — CPU flame chart, GPU timeline, memory view, per-scene statistics | ✅ | Editor/Vixen.Editor.Profiler | Doc 20's B4. Over the sample rings the engine already keeps and the timestamp queries the RHI already has |
+| `Vixen.Editor.Debugger` — frame debugger, remote inspector, device manager | ✅ | Editor/Vixen.Editor.Debugger | The other half of B4: a captured command stream, an attach to a running build, and whatever can be deployed to |
+| `Vixen.Editor.AssetEditors` — the asset editors | ✅ | Editor/Vixen.Editor.AssetEditors | 54 files. Texture, model, material, sprite sheet, addressable groups, compositor and the import documents behind them |
+| `Vixen.Editor.Testing` | ✅ | Editor/Vixen.Editor.Testing | The editor's own harness, above `Vixen.Ui.Testing` |
 | Editor network panel | ⬜ | — | Everything it would show is already public in `BandwidthLedger` / `SnapshotInspector` |
 | Editor UI automation harness | ✅ | Core/Vixen.Ui.Testing | Golden **screenshots** for editor layouts not started |
 | `PublishEditor`, signing, notarisation, `.dmg`/AppImage/MSI | ⬜ | — | |
@@ -638,7 +640,7 @@ since. The rest can run in parallel.
 | W0-14 | Pin a static `libjoltc.a` for `ios-arm64` | Physics on iOS → `Samples/05` on iOS |
 | W0-15 | Add `astcenc` + `ispc_texcomp` to `native-dependencies.json` | ASTC/ETC2 · full BC7/BC6H · mobile texture budgets. Also proves R10's schema generalises |
 | ~~W0-16~~ | ~~ECS entity-handle **reservation**~~ | Built (`World.TryRecreate`), and spent: create/delete/rename are undoable in the scene view |
-| W0-17 | Bindless material binding plan | **Built, bar the table's construction**, and the record is [bindless-materials.md](bindless-materials.md). `BindlessTable` and descriptor indexing in the Vulkan backend; Raven's `Texture2D[]`, `[Shared]`, `[MaterialIndex("…")]` and `[Bindless]`; materials as records of one buffer bound per effect; `GeometryBuffer` so meshes share one vertex and index buffer; `DrawIndexedIndirectCount` behind its own capability; and compaction — one command per batch, with the count read from a buffer the host never sees. ⚠ A table is **set 4**, because a content-addressed per-frame set cannot hold one, so `HasBindless` also requires five bindable sets. The world matrix left the command buffer with them — `UseTransformRecords`, the record index carried in the draw's own `firstInstance` — because a push constant is per command whether or not it is a binding. The per-object scalars followed — `materialIndex` is a per-run push constant because a variant is one material, and the probe pair is a record read through a flat varying. A document asks for the lot with `gpuDriven:`, and every flag is a request the device answers. ⚠ **Not closed:** nothing outside the tests creates the `BindlessTable`, so a material feature that samples still needs a host to wire one — and a surface that declares set 4 with no table gives a five-set layout with four sets bound. The uniform-light-list path also cannot merge, by nature: a dynamic offset travels in the bind |
+| W0-17 | Bindless material binding plan | **Built, bar the table's construction**, and the record is [plan/23-bindless-materials.md](plan/23-bindless-materials.md). `BindlessTable` and descriptor indexing in the Vulkan backend; Raven's `Texture2D[]`, `[Shared]`, `[MaterialIndex("…")]` and `[Bindless]`; materials as records of one buffer bound per effect; `GeometryBuffer` so meshes share one vertex and index buffer; `DrawIndexedIndirectCount` behind its own capability; and compaction — one command per batch, with the count read from a buffer the host never sees. ⚠ A table is **set 4**, because a content-addressed per-frame set cannot hold one, so `HasBindless` also requires five bindable sets. The world matrix left the command buffer with them — `UseTransformRecords`, the record index carried in the draw's own `firstInstance` — because a push constant is per command whether or not it is a binding. The per-object scalars followed — `materialIndex` is a per-run push constant because a variant is one material, and the probe pair is a record read through a flat varying. A document asks for the lot with `gpuDriven:`, and every flag is a request the device answers. ⚠ **Not closed:** nothing outside the tests creates the `BindlessTable`, so a material feature that samples still needs a host to wire one — and a surface that declares set 4 with no table gives a five-set layout with four sets bound. The uniform-light-list path also cannot merge, by nature: a dynamic offset travels in the bind |
 | ~~W0-18~~ | ~~Light-probe exact predicates (robust Bowyer–Watson)~~ | Built, and spent: `LightProbeVolume` interpolates tetrahedrally. `ExactPredicates` is general — an exact orientation and in-sphere live in `Vixen.Core.Mathematics` now, for whatever else needs a sign rather than a number |
 | ~~W0-19~~ | ~~`NodeGraphView` (pan/zoom/wires/minimap/search-to-create)~~ | Built. Shader-graph and VFX-graph authoring is now a matter of nodes, not of a canvas |
 | W0-20 | Non-scene asset editors: texture, model, material, shader, UI, addressable groups, compositor | Phase 6's exit criterion, minus the scene half |
@@ -673,7 +675,7 @@ since. The rest can run in parallel.
 | VFX-graph operator nodes, remaining opcode blocks, live preview | W1(VFX GPU) | The view half is in; the live preview is the runtime's |
 | `Relay` transport + transport fallback | W0-21 | |
 | Cross-compilation test pass (ESSL/HLSL/MSL/WGSL) | W0-22 | |
-| `Vixen.Editor.Profiler` · `.Debugger` · editor console | — | Unblocked: W0-11 landed, so the console reads `RingBufferSink` live and the profiler reads the sample rings. The GPU/memory tracks in `Core.Diagnostics` are still owed |
+| ~~`Vixen.Editor.Profiler` · `.Debugger` · editor console~~ | — | Built. The console reads `RingBufferSink` live and the profiler reads the sample rings. The GPU and memory *tracks* in `Core.Diagnostics` are still owed underneath them |
 | Editor network panel | — | Unblocked: everything it shows is already public |
 | `.vxnetrules` asset | W0-1 (asset-pipeline shape) | |
 | Prefab registry filled from the content catalog | W0-1 | |
@@ -798,7 +800,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 81 | `Vixen.Editor.NodeGraph` | Selectable wires; sticky-note editing; a node in two groups; inlined-node → source-node map; Raven-span diagnostics | Feature | Emitter span recording, for the last |
 | 82 | `Vixen.Editor.ShaderGraph` | Procedural + custom-code nodes; Post/UI masters; previews; diagnostic mapping; an importer that compiles the emitted Raven | Feature | Emitter span recording; doc 08's material compiler |
 | 83 | `Vixen.Editor.VfxGraph` | Operator nodes; remaining opcode blocks; sub-emitters/trails; live preview | Feature | — |
-| 84 | Editor | Asset editors; `Vixen.Editor.Profiler`/`.Debugger`/`.AnimationGraph`; golden screenshots; `PublishEditor`; redraw-on-change; the shell perf bar | Feature | Various |
+| 84 | Editor | Golden screenshots; `PublishEditor` with signing and notarisation; redraw-on-change; the shell perf bar; a plugin *browser* (the manager lists what is installed, installing is still copying a folder) | Feature | The asset editors, profiler, debugger, plugin host and animation graph have all since landed |
 | 85 | Build/CI | NativeAOT leg; sample-running leg; Playwright leg; 3-OS determinism run | Infra | — |
 | 86 | Build/CI | Per-file SPDX enforcement; third-party attribution manifest | Licence obligation (ADR-015) | — |
 | 87 | Samples | `05-PlatformerGame`; `06-CanvasStress`; `01` on Windows/Linux and physical devices | Coverage | **K1**, #59, CI legs |
@@ -825,8 +827,8 @@ it is deliberately distinct from "not started" in Part 1.
 
 | | |
 |---|---|
-| `.csproj` on disk | 227 (`Core` 124 · `Platform` 36 · `Editor` 23 · `Tools` 23 · `Samples` 11 · `Benchmarks` 7 · `Raven` 3) — counting test siblings and generators, per ADR-014. `Vixen.Templates` and its test sibling are the two newest |
-| Planned projects not created | `Vixen.Graphics.Direct3D12`, `Vixen.Net.Transport.Relay`, `Vixen.Editor.AnimationGraph/.Profiler/.Debugger`, `Vixen.Raven.Transpile` |
+| `.csproj` on disk | 245 (`Core` 131 · `Platform` 36 · `Editor` 31 · `Tools` 26 · `Samples` 11 · `Benchmarks` 7 · `Raven` 3) — counting test siblings and generators, per ADR-014 |
+| Planned projects not created | `Vixen.Graphics.Direct3D12` (✂️ post-1.0), `Vixen.Net.Transport.Relay` (⛔ scope decision), `Vixen.Raven.Transpile` |
 | Conformance cases green | 534 Yoga · 22 048 UAX#14/#29 · 91 707 UAX#9 · 328/413 shaping · 100 variable-font |
 | Golden image fixtures | 40 |
 | Fuzz targets / cases per build | 12 / ~11 M in ~7 s |

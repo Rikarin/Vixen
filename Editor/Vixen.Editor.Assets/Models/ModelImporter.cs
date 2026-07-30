@@ -87,7 +87,7 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
             if (settings.GenerateMeshlets && mesh.Indices.Length > 0) {
                 // Skinned meshes are included, unlike the distance field below. A cluster carries the
                 // range of bones its vertices are weighted to, so a traversal can expand its bound by
-                // what those bones are doing — which is improvement 1 of docs/virtualized-geometry.md
+                // what those bones are doing — which is improvement 1 of docs/plan/22-virtualized-geometry.md
                 // and the reason skinning is designed in here rather than retrofitted later.
                 var meshlets = ModelCompiler.CompileMeshlets(mesh, settings.ToMeshletSettings(), context.Report);
 

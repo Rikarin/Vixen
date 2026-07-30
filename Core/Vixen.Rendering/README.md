@@ -544,12 +544,52 @@ have been enough.
 nothing to reconcile and a destroyed entity cannot leave a light burning. That is the opposite trade
 from `PhysicsBody`, and the difference is exactly that a body is state and a light is not.
 
-⚠ **`MeshRenderable` is authored, compiled, loaded — and not yet drawn.** Resolving it is done:
-`ContentCatalog.TryGetAddress` turns its `AssetReference` into an address and `AssetManager.LoadAsync`
-turns that into a `MeshData`. What is missing is the extraction system, which needs a residency cache
-over `GeometryBuffer` — one slice per mesh, shared by every entity drawing it — and a material asset
-resolved to a `Material`. `LightExtractionSystem` is the same shape of thing and is finished, so the
-pattern is in the tree.
+## Geometry, and the objects it is drawn as
+
+`SurfaceVertex` is the interleaved vertex the shading stages declare — position, normal, tangent,
+texture coordinate, forty-eight bytes, at the locations `ForwardPlus.rvn`'s reflection reports.
+`SurfaceGeometry` packs a `MeshData`'s parallel arrays into it and fills in what the file did not have:
+a missing normal becomes +Y rather than zero, because a zero normal renders black and reads as a broken
+renderer; a missing tangent becomes some perpendicular of the normal, which is the *ordinary* case since
+`MeshPrimitives` produces none.
+
+`GeometryResidency` is one resident slice per mesh, reference counted by entity. A courtyard of forty
+identical crates is one upload; freeing on the first release would drop the crate the other thirty-nine
+are drawing, and never freeing would leak a level's geometry at every transition. A mesh too large for
+the remaining space is refused rather than growing the buffer — growing means recreating one the GPU may
+still be reading from.
+
+`MeshExtractionSystem` reconciles: a render object per drawable that appeared, retirement for what went,
+and the world matrix and bounds of what stayed.
+
+```csharp
+var residency = new GeometryResidency(new GeometryBuffer(device, SurfaceVertex.SizeInBytes, 1 << 20, 1 << 21));
+
+loop.Add(new MeshExtractionSystem(system, meshes, transforms, materials, residency) {
+    Stages = opaque.Mask,
+    Material = fallback,
+});
+
+residency.Flush(commands);   // once a frame, outside any render pass
+```
+
+⚠ **The opposite trade from a light, and for a stated reason.** A light is rebuilt every frame because it
+has no handle worth keeping; a mesh holds a render object, a residency claim and a slot in every feature's
+array, so it is reconciled. `RenderHandle` is what an entity holds it all in — written by the bridge,
+carrying neither `[Component]` nor `[DataContract]`, because a `RenderObjectId` means nothing outside the
+process that issued it.
+
+⚠ **A destroyed entity has to be forgotten explicitly.** Its `RenderHandle` went with it and the object and
+claim did not, so `Forget` exists and a scene unload that does not call it leaks a slice per entity. The
+ECS's add/remove events are what would make this automatic and they are behind a compile-time flag.
+
+⚠ **Three things are still owed, and none of them is structural.** *Mesh assets do not load* — the
+resolution is done and what is unanswered is what an extraction system does while an asynchronous load is
+in flight, since a synchronous one would stall the frame a level starts; an entity with a mesh reference is
+counted in `Dropped`. *Every object takes one material*, because a material asset resolved to a `Material`
+does not exist yet — which is also why this is not doc 06's "a mesh with three materials is three render
+objects". *Every live object's transform is rewritten every frame*, where doc 06 wants only what moved:
+the wrong cost, not a wrong picture.
 
 ## Lighting
 
@@ -1680,7 +1720,7 @@ the shader takes one, nothing loads one.
 **Compacted draws are built**, and this section used to say they were the thing blocked on
 everything. `GpuDrawArguments.Compact` appends survivors to a run per batch and
 `MeshRenderFeature` covers a whole batch with one `DrawIndexedIndirectCount` — see
-[docs/bindless-materials.md](../../docs/bindless-materials.md), which is the record of the whole
+[docs/plan/23-bindless-materials.md](../../docs/plan/23-bindless-materials.md), which is the record of the whole
 chain. Both halves of the old objection are gone: the count comes from a buffer the host never reads,
 and objects share their bindings because a material is a record (`MaterialRecords`) and geometry is a
 range of a shared buffer (`GeometryBuffer`).
@@ -1727,7 +1767,7 @@ and `TextureIndices` are still host-supplied, so a material that samples through
 surface declares set 4 whatever the permutation says — bindings are declared, not discovered — so its
 pipeline layout has five sets while the draw loop binds the fifth only when a table exists. A table
 needs a capacity and a *fallback view*, and both are project decisions; see
-[docs/bindless-materials.md](../../docs/bindless-materials.md) § *The one thing left* for the two
+[docs/plan/23-bindless-materials.md](../../docs/plan/23-bindless-materials.md) § *The one thing left* for the two
 shapes it could take and the guard that belongs with either.
 
 ## Testing

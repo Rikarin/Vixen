@@ -95,7 +95,7 @@ retires a released index for `FramesInFlight` frames before reusing it.
 What is *not* here is the material side: a material is still a descriptor set per variant, and the
 draw that binds it is still a draw that cannot merge with its neighbour. That, the Raven declaration
 it needs and the indirect-count draw after it are written down in
-[bindless-materials.md](../bindless-materials.md).
+[bindless-materials.md](23-bindless-materials.md).
 
 ✅ Sets whose contents are a *frame's* resources — anything a render-graph pass reads — come from
 `DescriptorAllocator` rather than being created and destroyed. It recycles through a ring exactly

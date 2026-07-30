@@ -181,7 +181,7 @@ public class PrimitiveShapeTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>The assertion <c>docs/blockout-tools.md</c> § B1 is about.</b> A frame's cost used to be
+    ///     ⚠ <b>The assertion <c>docs/plan/24-blockout-tools.md</c> § B1 is about.</b> A frame's cost used to be
     ///     every vertex of every entity, transformed on the processor, with a cache keyed by kind — so
     ///     a hundred cubes were one mesh and a hundred *edited* meshes were a hundred rebuilds a frame.
     ///     What a frame collects now is one instance per entity and one batch per shape, whatever the

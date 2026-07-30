@@ -6,7 +6,7 @@ namespace Vixen.Rendering.VirtualGeometry;
 /// <summary>Which clusters of a DAG to draw — the CPU's answer, against which the device's is checked.</summary>
 /// <remarks>
 ///     <para>
-///         Improvement 4 of <c>docs/virtualized-geometry.md</c>: the parts of this system that fail
+///         Improvement 4 of <c>docs/plan/22-virtualized-geometry.md</c>: the parts of this system that fail
 ///         silently get a CPU reference. A cut chosen with an error metric that is non-monotonic at
 ///         one edge of one mesh produces a crack at one distance, and finding that in a frame capture
 ///         is a bad afternoon. Finding it here is a unit test.

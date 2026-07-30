@@ -18,7 +18,7 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Step 4 of <c>docs/bindless-materials.md</c>, and the payoff for every step before it. The
+///         Step 4 of <c>docs/plan/23-bindless-materials.md</c>, and the payoff for every step before it. The
 ///         padded form costs one command per <em>candidate</em> object whatever the culling decided;
 ///         a compacted one costs one command per batch, because
 ///         <c>DrawIndexedIndirectCount</c> reads how many survived out of a buffer the host never
@@ -357,7 +357,21 @@ public sealed class DrawCompactionTests : IDisposable {
     public void Clustered_lighting_leaves_the_merge_alone(bool clustered, int merged, int separate) {
         using var harness = Build();
         using var transforms = new TransformRenderFeature { Device = device };
-        using var lights = new ForwardLightingRenderFeature { Device = device, Clustered = clustered };
+        // The shape ForwardPlus declares for set 3. The feature takes its layout rather than inventing
+        // one, so a harness with a faked effect has to say what it is — see ForwardLightingRenderFeature.Layout.
+        var perDraw = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerDraw,
+                [new(0, DescriptorKind.DynamicUniformBuffer, ShaderStage.Vertex | ShaderStage.Fragment)],
+                "ForwardPlus.PerDraw"
+            )
+        );
+
+        using var lights = new ForwardLightingRenderFeature {
+            Device = device,
+            Clustered = clustered,
+            Layout = perDraw
+        };
 
         harness.Meshes.Add(transforms);
         harness.Meshes.Add(lights);

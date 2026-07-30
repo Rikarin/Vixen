@@ -466,6 +466,7 @@ public sealed class IrradianceFieldTexture : IDisposable {
             Vector3.One / new Vector3(texels.X, texels.Y, texels.Z)
         );
         parameters.Set(ParameterKeys.New<float>($"{slot}.normalBias"), Field.NormalBias);
+        parameters.Set(ParameterKeys.New<float>($"{slot}.viewBias"), Field.ViewBias);
 
         // The volumes the numbers describe, beside the numbers describing them. Writing one without
         // the other is a shader told exactly where to look in a texture nothing bound.

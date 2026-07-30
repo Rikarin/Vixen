@@ -29,7 +29,31 @@ public class ForwardLightingTests : IDisposable {
     readonly NullDevice device = new(new() { Record = true });
     readonly EffectSystem effects = new();
 
+    DescriptorSetLayoutHandle perDraw;
+
     const int LightSize = 80;
+
+    /// <summary>
+    ///     The per-draw set's shape, as <c>ForwardPlus</c> declares it.
+    /// </summary>
+    /// <remarks>
+    ///     Stated here because the effect this harness fakes has no layouts to take one from. The
+    ///     feature no longer invents its own — see <see cref="ForwardLightingRenderFeature.Layout" />
+    ///     — and a test that let it would be testing something the engine does not do. All four parts
+    ///     matter: a set is compatible only with a layout identically defined, and this feature used to
+    ///     get the stages wrong.
+    /// </remarks>
+    DescriptorSetLayoutHandle PerDraw =>
+        perDraw.IsValid
+            ? perDraw
+            : perDraw = device.CreateDescriptorSetLayout(
+                new(
+                    DescriptorSetSlot.PerDraw,
+                    [new(0, DescriptorKind.DynamicUniformBuffer, ShaderStage.Vertex | ShaderStage.Fragment)],
+                    "ForwardPlus.PerDraw"
+                )
+            );
+
 
     // --- Fixture ------------------------------------------------------------
 
@@ -68,7 +92,7 @@ public class ForwardLightingTests : IDisposable {
         };
 
         var materials = new MaterialRenderFeature { Effects = effects };
-        var lighting = new ForwardLightingRenderFeature { Device = device };
+        var lighting = new ForwardLightingRenderFeature { Device = device, Layout = PerDraw };
 
         meshes.Add(materials);
         meshes.Add(lighting);

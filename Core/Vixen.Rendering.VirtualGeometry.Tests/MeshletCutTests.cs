@@ -8,7 +8,7 @@ namespace Vixen.Rendering.VirtualGeometry;
 
 /// <summary>That a cut through the DAG is a surface, and one as close to the mesh as it claims.</summary>
 /// <remarks>
-///     These are the phase-1 exit criteria of <c>docs/virtualized-geometry.md</c>, and the reason the
+///     These are the phase-1 exit criteria of <c>docs/plan/22-virtualized-geometry.md</c>, and the reason the
 ///     CPU reference exists at all. A cut is what the device will choose per cluster per frame; if the
 ///     rule that chooses it can produce a crack, it produces one at one distance on one mesh, and
 ///     nothing about the asset or the build says so.

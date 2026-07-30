@@ -432,7 +432,7 @@ public class LibraryTreeTests {
     ///     <para>
     ///         Two claims, and the second is the one that would rot. The traversal is a permutation
     ///         of the object cull rather than a shader of its own — improvement 3 of
-    ///         <c>docs/virtualized-geometry.md</c> — so the object variant has to come out with no
+    ///         <c>docs/plan/22-virtualized-geometry.md</c> — so the object variant has to come out with no
     ///         queue, no barrier and no shared storage at all, or every frame that is not doing
     ///         virtualized geometry pays for the branch that is.
     ///     </para>

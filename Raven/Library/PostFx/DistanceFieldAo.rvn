@@ -93,7 +93,12 @@ shader DistanceFieldAo {
         val deviceDepth = depthBuffer.Sample(pointSampler, uv).r
 
         // Nothing was drawn here. Fully lit and fully open — the sky is not occluded by the world.
-        if (deviceDepth >= 1f) {
+        //
+        // ZERO, because depth is reversed: near is 1, far is 0, and a depth attachment clears to 0.
+        // `>= 1` is the other end — the near plane — so it fired on the surfaces closest to the camera
+        // and never on the sky, which then took a march from a far-plane position. See `Fog.rvn`,
+        // which has always had this right, and `docs/plan/19` § E for the convention.
+        if (deviceDepth <= 0f) {
             return float4(1f, 1f, 0f, 1f)
         }
 

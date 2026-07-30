@@ -63,7 +63,7 @@ public sealed class ModelImportEdits {
 ///     <para>
 ///         ⚠ <b>No LOD preview, and the honest reason is no longer that there are no LODs.</b>
 ///         <c>ModelCompiler</c> writes a <c>Meshlets</c> sub-asset per mesh — the cluster hierarchy
-///         of <c>docs/virtualized-geometry.md</c>, which is every level at once rather than a chain —
+///         of <c>docs/plan/22-virtualized-geometry.md</c>, which is every level at once rather than a chain —
 ///         and this list shows it as the sub-asset it is. Previewing a level means choosing a cut and
 ///         drawing it, which wants the viewport that does not exist yet.
 ///     </para>

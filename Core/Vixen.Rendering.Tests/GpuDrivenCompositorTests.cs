@@ -19,7 +19,7 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <strong>Everything in <c>docs/bindless-materials.md</c> was reachable from a test and from
+///         <strong>Everything in <c>docs/plan/23-bindless-materials.md</c> was reachable from a test and from
 ///         nothing a project authors.</strong> The compositor builder wired one thing out of the whole
 ///         chain — the argument buffer — and never created a table, never turned records on, never
 ///         asked for compaction. A mechanism nothing invokes is a mechanism that compiles.

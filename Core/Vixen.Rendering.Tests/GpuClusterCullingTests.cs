@@ -13,7 +13,7 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Improvement 4 of <c>docs/virtualized-geometry.md</c>, one level deeper than
+///         Improvement 4 of <c>docs/plan/22-virtualized-geometry.md</c>, one level deeper than
 ///         <see cref="GpuVisibilityGroupTests" />. That one compares <c>GpuCulling.IsVisible</c> — the
 ///         host's transliteration of the object cull — against <c>VisibilityGroup</c>, which is the
 ///         definition. This compares <c>GpuClusterCulling.Traverse</c> against <c>Cut</c>: a linear
@@ -617,7 +617,7 @@ public class GpuClusterCullingTests {
         Assert.Contains("view.errorThreshold", source, StringComparison.Ordinal);
 
         // The shared queue and the barrier that makes it a queue rather than a race — what
-        // docs/virtualized-geometry.md § B1 was blocked on.
+        // docs/plan/22-virtualized-geometry.md § B1 was blocked on.
         Assert.Contains("groupshared var queue:", source, StringComparison.Ordinal);
         Assert.Contains("barrier()", source, StringComparison.Ordinal);
         Assert.Contains("atomicAdd(pushed,", source, StringComparison.Ordinal);

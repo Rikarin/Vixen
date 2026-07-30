@@ -11,7 +11,7 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Improvement 6 of <c>docs/virtualized-geometry.md</c>, and the reason it is phase 2 rather
+///         Improvement 6 of <c>docs/plan/22-virtualized-geometry.md</c>, and the reason it is phase 2 rather
 ///         than phase 7: geometry pages want this, and so do texture mip tails and the virtual shadow
 ///         map's pages. What is tested here is the part that is common to all three, against a store
 ///         that is not geometry — because a service that only works for the thing it was written for

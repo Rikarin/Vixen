@@ -122,7 +122,7 @@ set.
 model — "a global `TextureHandle → uint` bindless index table" — and it is what
 [W0-17](../../docs/overview.md) needed before compacted draws, per-object reflection probes or a
 material that samples a texture it was handed the *index* of could be written. See
-[docs/bindless-materials.md](../../docs/bindless-materials.md) for the halves that follow it.
+[docs/plan/23-bindless-materials.md](../../docs/plan/23-bindless-materials.md) for the halves that follow it.
 
 One unbounded binding, one set, bound once for the frame. A draw stops carrying a descriptor set and
 carries a number, so two draws that differ only in their textures stop differing at all — which is

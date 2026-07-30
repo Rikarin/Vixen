@@ -160,7 +160,7 @@ public sealed record ClusterScene(CullCluster[] Clusters, uint[] Children, uint[
 ///         test, the rounding slack, the stage-mask intersection and the whole occlusion test are
 ///         that one's, called from here. What is new is a normal cone, a screen-space error and a
 ///         walk — which is exactly the difference improvement 3 of
-///         <c>docs/virtualized-geometry.md</c> says should be the whole difference.
+///         <c>docs/plan/22-virtualized-geometry.md</c> says should be the whole difference.
 ///     </para>
 ///     <para>
 ///         <strong><see cref="Traverse" /> is the mirror, and it is what phase 3 is judged on.</strong>
