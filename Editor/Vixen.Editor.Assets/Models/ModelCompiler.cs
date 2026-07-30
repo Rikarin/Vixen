@@ -80,6 +80,19 @@ public static class ModelCompiler {
     /// </remarks>
     public const int PageAttributeStride = 10;
 
+    /// <summary>
+    ///     The same, for a skinned mesh: eight more bytes of bone influences after the coordinate.
+    /// </summary>
+    /// <remarks>
+    ///     A skinned page vertex is twenty-four bytes rather than sixteen, and a static one is
+    ///     untouched — see <see cref="MeshletPageSet.InfluenceOffset" /> for why this is per mesh
+    ///     rather than a fixed layout every mesh pays for.
+    /// </remarks>
+    public const int SkinnedPageAttributeStride = PageAttributeStride + MeshletPageBuilder.InfluenceSize;
+
+    /// <summary>Where a skinned page vertex's influences begin, in bytes from the vertex.</summary>
+    public const int PageInfluenceOffset = MeshletPageBuilder.PositionSize + PageAttributeStride;
+
     /// <summary>Packs a DAG's geometry into pages, quantized against one grid.</summary>
     /// <param name="mesh">The mesh, as it came out of the importer.</param>
     /// <param name="meshlets">Its DAG, from <see cref="CompileMeshlets" />.</param>
@@ -110,12 +123,27 @@ public static class ModelCompiler {
         ArgumentNullException.ThrowIfNull(meshlets);
         ArgumentNullException.ThrowIfNull(report);
 
+        if (mesh.IsSkinned && OutOfPalette(mesh) is { } offender) {
+            report(
+                ImportSeverity.Error,
+                $"'{mesh.Name}' weights a vertex to bone {offender}, and a page vertex stores a bone "
+                + $"index in one byte — so a skeleton it can page has at most "
+                + $"{MeshletPageBuilder.MaxBones} bones. "
+                + "The mesh has a cluster hierarchy and no pages."
+            );
+
+            return null;
+        }
+
         try {
             return MeshletPageBuilder.Build(
                 meshlets,
                 mesh.Positions,
                 PageAttributes(mesh),
-                new() { AttributeStride = PageAttributeStride }
+                new() {
+                    AttributeStride = mesh.IsSkinned ? SkinnedPageAttributeStride : PageAttributeStride,
+                    InfluenceOffset = mesh.IsSkinned ? PageInfluenceOffset : -1
+                }
             );
         } catch (ArgumentException failure) {
             // A cluster that does not fit a page, or positions the grid was not built over. Both are
@@ -142,21 +170,74 @@ public static class ModelCompiler {
     ///     because a stride that varied per mesh would have to be carried per mesh.
     /// </remarks>
     static byte[] PageAttributes(MeshData mesh) {
-        var attributes = new byte[mesh.Positions.Length * PageAttributeStride];
+        var stride = mesh.IsSkinned ? SkinnedPageAttributeStride : PageAttributeStride;
+        var attributes = new byte[mesh.Positions.Length * stride];
 
         for (var i = 0; i < mesh.Positions.Length; i++) {
             var normal = i < mesh.Normals.Length ? mesh.Normals[i] : Vector3.Zero;
             var uv = i < mesh.TexCoords.Length ? mesh.TexCoords[i] : Vector2.Zero;
-            var at = i * PageAttributeStride;
+            var at = i * stride;
 
             Half(attributes.AsSpan(at), normal.X);
             Half(attributes.AsSpan(at + 2), normal.Y);
             Half(attributes.AsSpan(at + 4), normal.Z);
             Half(attributes.AsSpan(at + 6), uv.X);
             Half(attributes.AsSpan(at + 8), uv.Y);
+
+            if (mesh.IsSkinned) {
+                Influences(attributes.AsSpan(at + PageAttributeStride), mesh, i);
+            }
         }
 
         return attributes;
+    }
+
+    /// <summary>
+    ///     One vertex's four bone indices and four weights, a byte each.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Rounded rather than truncated, and that is not fussiness.</b> Truncating four weights
+    ///         loses up to four 255ths of the total, all of it in the same direction — so every vertex
+    ///         of the mesh shrinks toward the skeleton's origin by a fraction that varies with how
+    ///         unlucky its weights are. The shader renormalises, which hides the magnitude of the error
+    ///         and not its distribution.
+    ///     </para>
+    ///     <para>
+    ///         A vertex with no weights at all — which a mesh can have, since <c>IsSkinned</c> is a
+    ///         property of the mesh — gets the whole of bone zero rather than nothing. Nothing would
+    ///         renormalise to the same thing, and saying it here means the shader's fallback is never
+    ///         the path a shipped asset takes.
+    ///     </para>
+    /// </remarks>
+    static void Influences(Span<byte> destination, MeshData mesh, int vertex) {
+        var at = vertex * 4;
+
+        if (at + 4 > mesh.BoneWeights.Length) {
+            destination[..MeshletPageBuilder.InfluenceSize].Clear();
+            destination[4] = byte.MaxValue;
+
+            return;
+        }
+
+        for (var i = 0; i < 4; i++) {
+            var index = at + i < mesh.BoneIndices.Length ? mesh.BoneIndices[at + i] : 0;
+            var weight = Math.Clamp(mesh.BoneWeights[at + i], 0f, 1f);
+
+            destination[i] = (byte)Math.Clamp(index, 0, MeshletPageBuilder.MaxBones - 1);
+            destination[4 + i] = (byte)MathF.Round(weight * byte.MaxValue);
+        }
+    }
+
+    /// <summary>The first bone index the page format cannot store, or null if every one fits.</summary>
+    static int? OutOfPalette(MeshData mesh) {
+        foreach (var index in mesh.BoneIndices) {
+            if (index < 0 || index >= MeshletPageBuilder.MaxBones) {
+                return index;
+            }
+        }
+
+        return null;
     }
 
     static void Half(Span<byte> destination, float value) =>

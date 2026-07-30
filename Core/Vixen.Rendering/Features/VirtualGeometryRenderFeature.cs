@@ -35,8 +35,26 @@ public struct VirtualGeometryDraw {
     /// </remarks>
     public float Scale;
 
+    /// <summary>
+    ///     Where this object's bone matrices start in the frame's palette, or zero if it has none.
+    /// </summary>
+    /// <remarks>
+    ///     Written by <see cref="VirtualGeometryRenderFeature.SetBones" /> rather than by whoever fills
+    ///     the draw, because it is an index into a buffer that is rebuilt every frame — a value a scene
+    ///     cannot know and an extraction must not cache. Zero can mean "none" for
+    ///     <see cref="GpuCulling.NoBones" />'s reason.
+    /// </remarks>
+    public int FirstBone;
+
+    /// <summary>How far this object's pose can move its geometry, in object space.</summary>
+    /// <seealso cref="CullInstance.MotionRadius" />
+    public float MotionRadius;
+
     /// <summary>Whether this object contributes an instance at all.</summary>
     public bool IsDrawable => Mesh >= 0;
+
+    /// <summary>Whether it has a palette this frame.</summary>
+    public bool IsSkinned => FirstBone > 0;
 }
 
 /// <summary>
@@ -169,6 +187,71 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
         return registered.Count - 1;
     }
 
+    /// <summary>Starts a frame's bone palettes. Call before the first <see cref="SetBones" />.</summary>
+    /// <exception cref="InvalidOperationException">There is no traversal to hold them.</exception>
+    /// <remarks>
+    ///     Explicit and not folded into <see cref="Prepare" />, for
+    ///     <see cref="SkinningRenderFeature.Begin" />'s reason: what fills a palette is the animation
+    ///     system, and it runs before the render system's phases do.
+    /// </remarks>
+    public void BeginBones() {
+        if (Visibility is null) {
+            throw new InvalidOperationException(
+                "Set Visibility before beginning a frame's palettes — the buffer they go in lives in it."
+            );
+        }
+
+        Visibility.BeginBones();
+    }
+
+    /// <summary>Gives an object its pose for this frame.</summary>
+    /// <param name="system">The render system.</param>
+    /// <param name="id">The object.</param>
+    /// <param name="palette">
+    ///     Its skinning matrices — <c>inverseBindPose * boneWorld</c>, one per bone, in the order the
+    ///     mesh's page vertices index them. Empty makes the object unskinned again.
+    /// </param>
+    /// <exception cref="ArgumentNullException"><paramref name="system" /> is null.</exception>
+    /// <exception cref="InvalidOperationException">There is no traversal to hold the palette.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="SkinningRenderFeature.SetBones" />'s counterpart, taking the same matrices in
+    ///         the same order — a host that skins a mesh on both paths hands the same array to both.
+    ///         They are two buffers rather than one, which is a pose duplicated for a mesh drawn both
+    ///         ways; the alternative is a feature reaching into another feature's ring, and the two
+    ///         features are optional independently.
+    ///     </para>
+    ///     <para>
+    ///         The motion radius is computed here rather than asked for, because everything it needs is
+    ///         here: the pose, and the bind-pose bound the registration recorded. A host that knows
+    ///         better can overwrite <see cref="VirtualGeometryDraw.MotionRadius" /> afterwards.
+    ///     </para>
+    /// </remarks>
+    public void SetBones(RenderSystem system, RenderObjectId id, ReadOnlySpan<Matrix4x4> palette) {
+        ArgumentNullException.ThrowIfNull(system);
+
+        if (Visibility is null) {
+            throw new InvalidOperationException(
+                "Set Visibility before giving an object a palette — the buffer it goes in lives in it."
+            );
+        }
+
+        ref var draw = ref system.Objects.Data.Data(Draws)[id.Index];
+
+        if (palette.IsEmpty) {
+            draw.FirstBone = 0;
+            draw.MotionRadius = 0f;
+
+            return;
+        }
+
+        draw.FirstBone = Visibility.AddBones(palette);
+
+        draw.MotionRadius = draw.IsDrawable && draw.Mesh < Visibility.MeshCount
+            ? GpuClusterCulling.MotionRadiusFor(palette, Visibility.MeshAt(draw.Mesh).Center, Visibility.MeshAt(draw.Mesh).Radius)
+            : 0f;
+    }
+
     /// <inheritdoc />
     protected internal override void Initialize(RenderSystem system) {
         ArgumentNullException.ThrowIfNull(system);
@@ -252,7 +335,9 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
             StagesLow = (uint)candidate.Stages.Bits,
             StagesHigh = (uint)(candidate.Stages.Bits >> 32),
             Flags = candidate.IsAlive ? GpuCulling.Alive : 0u,
-            Mesh = (uint)draw.Mesh
+            Mesh = (uint)draw.Mesh,
+            FirstBone = draw.IsSkinned ? (uint)draw.FirstBone : GpuCulling.NoBones,
+            MotionRadius = draw.IsSkinned ? draw.MotionRadius : 0f
         };
     }
 

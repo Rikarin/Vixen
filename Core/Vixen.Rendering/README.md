@@ -303,11 +303,45 @@ that catches it is differentiating the reconstruction numerically, which is what
 compute stage has no quad, so `Sample` is undefined there and no runtime branch helps. It is the first
 consumer of the `SampleGrad` support built as blocker B3.
 
-⚠ The resolve has the directional and ambient terms and not the clustered punctual loop: that loop is
-`ForwardPlus`-local, and sharing it means extracting its bindings into a base shader both derive from,
-which renumbers bindings two oracle suites are written against. And the per-material dispatch host is
-not built — it needs a compute variant resolved per material composition, which is
-`MaterialRenderFeature`'s machinery.
+**`GpuClusterResolve` dispatches one indirect command per material**, over that material's own bin,
+with the variant key being the material's own composition plus the gradient permutation — so a material
+is one surface feature chain and one shading model whichever pass reaches it. Every binding is filled by
+name through `EffectSetWriter`, because what a composed shader's set contains is whatever the material's
+features brought.
+
+**The lighting is one implementation.** `Library/Pipeline/ClusteredShading.rvn` holds the light loops,
+the shadow cascades and the ambient term, and both `ForwardPlus` and `VisibilityResolve` derive from it —
+so a resolved pixel gets the same lights with the same shadows as a forward-drawn one by construction.
+Each pass keeps its own `compose` slots and reaches the shared loop through one overridden hook, because
+a composed model's parameters attach to the shader that declares the slot.
+
+⚠ The resolve composes no irradiance source, so it gets sky ambient and not field ambient — a slot has to
+be bound wherever it is reached, and the forward pass only avoids that because its own reach is inside a
+permutation that folds off.
+
+### And posing it
+
+A skinned mesh's page vertex carries four bone indices and four weights, a byte each, and both the
+raster and the resolve blend them through `Skinning.BlendMatrix` — the same function `ShadowCaster`
+uses. `VirtualGeometryRenderFeature.SetBones` takes the matrices `SkinningRenderFeature` takes.
+
+**Whether a vertex is skinned is a value, not a permutation**, which is the one place this genuinely
+differs from the classic path: a shadow pass picks its skinned variant per draw because there is a draw
+per object to pick it at, and here one indirect draw covers every mesh in the scene.
+`RasterMesh.influenceOffset` is per mesh with a sentinel for none, which also keeps a static mesh's page
+vertex at sixteen bytes instead of charging every rock eight bytes of zeros.
+
+**A bind-pose bound culls an animating cluster by where it is not**, so `CullInstance.motionRadius`
+bounds how far this frame's palette can move any point of the mesh and the traversal adds it to every
+cluster radius. It is exactly zero for a rest pose. `GpuClusterCulling.MotionRadiusFor` computes it from
+the pose and the mesh's own bound, and `SkinnedClusterTests` checks it is a bound rather than an
+estimate over random poses.
+
+**The two passes reach this frame's records by base index rather than by descriptor offset.** Three of
+the buffers they share are ringed per frame in flight, and `EffectSetWriter` — which fills the resolve's
+set — binds a storage buffer whole with nowhere to put an offset. Before that the resolve read region
+zero while the raster read this frame's, which is invisible in a static scene and lands attributes on
+the wrong surface as soon as anything moves.
 
 **And with no wait, every descriptor set is a ring.** A set a submitted command buffer still
 references may not be written — `VUID-vkUpdateDescriptorSets-None-03047` — so all three classes hold

@@ -49,6 +49,37 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
     /// </remarks>
     public GpuVisibilityTiles? Tiles { get; set; }
 
+    /// <summary>
+    ///     The per-material shading that consumes those bins. Null bins them and stops there.
+    /// </summary>
+    /// <remarks>
+    ///     Recorded in the same pass as the binning and immediately after it, for the reason the binning
+    ///     is recorded here at all: the dispatch reads the arguments the binning atomically filled, so the
+    ///     two are one ordering decision rather than two placements a document could disagree about.
+    /// </remarks>
+    public GpuClusterResolve? Resolve { get; set; }
+
+    /// <summary>The frame's per-frame constants, which the resolve's lighting reads.</summary>
+    /// <remarks>
+    ///     The same object the forward pass binds. Since the lighting moved into <c>ClusteredShading</c>
+    ///     the resolve declares the same set 0 a forward draw does, so it is filled by the same writer —
+    ///     which is what makes "the same lights with the same shadows" true by construction rather than
+    ///     by two hosts agreeing.
+    /// </remarks>
+    public SceneConstants? SceneConstants { get; set; }
+
+    /// <summary>The frame's per-view constants, on the same terms.</summary>
+    public ViewConstants? ViewConstants { get; set; }
+
+    /// <summary>What the shaded colour is called in the graph.</summary>
+    /// <remarks>
+    ///     Named rather than created, because what a resolve writes is radiance into the scene colour the
+    ///     forward pass and every post-effect already share — which is the whole of improvement 2. A
+    ///     resolve with a target of its own would be a second colour buffer to composite, and compositing
+    ///     it is the thing a GBuffer resolve does.
+    /// </remarks>
+    public string Colour { get; set; } = "SceneColour";
+
     /// <summary>What the identity target is called in the graph, for whatever resolves it.</summary>
     public string Output { get; set; } = "VisibilityBuffer";
 
@@ -85,6 +116,8 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
 
         var raster = Raster;
         var tiles = Tiles;
+        var resolve = Resolve;
+        var view = system.Views[ViewIndex];
         var viewProjection = system.Views[ViewIndex].ViewProjection;
         var size = frame.Size;
 
@@ -131,6 +164,11 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
             return;
         }
 
+        // The scene colour, named rather than created — see Colour. Resolved outside the pass because a
+        // node's Build is where a name becomes a resource, and a missing one should refuse the whole node
+        // rather than fail inside a command list.
+        var colour = resolve is null ? default : frame.Texture(ToString(), Colour);
+
         // A second pass, and not a second node. The binning samples what the draw wrote, so it cannot be
         // inside the render pass that writes it — an attachment being written is not a texture being read
         // — and it must not be somewhere a document could place it wrongly. Two passes from one node is
@@ -140,6 +178,11 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
             pass => {
                 pass.Kind = PassKind.Compute;
                 pass.Reads(identity);
+
+                if (resolve is not null) {
+                    pass.Writes(colour);
+                }
+
                 pass.SideEffect();
 
                 pass.Execute(
@@ -148,7 +191,19 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
                         // here rather than by the caller because this is the one place that knows the
                         // dispatch has been submitted and the next one has not started.
                         tiles.ReadCounts();
-                        tiles.Record(context.CommandList, context.View(identity), size);
+
+                        if (!tiles.Record(context.CommandList, context.View(identity), size) || resolve is null) {
+                            return;
+                        }
+
+                        // Immediately after, in the same pass: the dispatch reads the arguments the binning
+                        // just filled, and the barrier between them is the one `Record` already left.
+                        resolve.Scene = SceneConstants;
+                        resolve.ViewConstants = ViewConstants;
+
+                        if (resolve.Prepare(view, context.View(colour), context.View(identity), size)) {
+                            resolve.Record(context.CommandList);
+                        }
                     }
                 );
             }

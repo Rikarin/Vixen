@@ -408,9 +408,9 @@ the total cost. See *Where to stop*.
 
 - One instanced indirect draw over the visible cluster list — the count is the traversal's output and
   the host never learns it, which is the call `GpuDrawArguments.Compact` already makes.
-  [`GpuClusterRaster`](../Core/Vixen.Rendering/GpuClusterRaster.cs),
-  [`ClusterRaster.rvn`](../Raven/Library/Pipeline/ClusterRaster.rvn), placed by
-  [`VisibilityBufferRenderer`](../Core/Vixen.Rendering/Compositor/VisibilityBufferRenderer.cs).
+  [`GpuClusterRaster`](../../Core/Vixen.Rendering/GpuClusterRaster.cs),
+  [`ClusterRaster.rvn`](../../Raven/Library/Pipeline/ClusterRaster.rvn), placed by
+  [`VisibilityBufferRenderer`](../../Core/Vixen.Rendering/Compositor/VisibilityBufferRenderer.cs).
 - Output one `uint`: the visible-list slot and the triangle index, with ordinary depth test and depth
   write. No atomics, no 64-bit anything, no compute — which is why this is the portable baseline and
   phase 6 is the accelerator.
@@ -453,7 +453,7 @@ Four things the plan above did not say:
 
 ---
 
-### Phase 5 — Material resolve · ~2.5 EM · 🟡 mostly built
+### Phase 5 — Material resolve · ~2.5 EM · ✅ built
 
 This is where the plan deliberately diverges from Unreal. See **improvement 2** — the resolve bins
 into per-material tiles and runs the *existing* Forward+ shading, rather than resolving into a
@@ -477,6 +477,15 @@ slice of the effect bundle. A build-time cost, not an architectural one.
 world-position offset run twice — once to rasterize, once to reconstruct — and a disagreement lands
 attributes on the wrong surface. Worth an assertion rather than a comment.
 
+✅ **Assertion written, now that there is a second transform to disagree.** Until skinning landed this
+warning was vacuous: both passes decoded the same bytes and placed them by the same instance, and there
+was nothing else to get wrong. The blend is now shared outright — both call `Skinning.BlendMatrix` — but
+the four palette reads cannot be, because indexing a palette has to happen in the shader that declares
+it or the whole 16 KB is copied at every call. So the fetch is duplicated, and
+`SkinnedClusterTests.The_raster_and_the_resolve_skin_by_the_same_arithmetic` compares the two `Skin`
+functions character for character. A tolerance there would be a tolerance for one of them fetching bone
+1 where the other fetches bone 2, which is the entire failure mode.
+
 ⚠ **This is where MSAA goes.** A visibility buffer breaks it: per-sample visibility is four times the
 buffer and a per-sample resolve, which is the trap deferred falls into. MSAA is one of the four
 reasons [06](06-rendering-pipeline.md) gives for Forward+ being the default — but it is P1 and
@@ -492,7 +501,7 @@ shader source changes — the composed shading models produce the same image whe
 normal draw or a resolve.
 
 **Met for the composition, and the remainder is named below.** All four shading models compose into
-[`VisibilityResolve.rvn`](../Raven/Library/Pipeline/VisibilityResolve.rvn) through the same two slots
+[`VisibilityResolve.rvn`](../../Raven/Library/Pipeline/VisibilityResolve.rvn) through the same two slots
 `ForwardPlus` composes them into, reach both backends, and are distinguishable from the default — which
 is the criterion, and nothing in `Material/` was changed to serve the resolve except the one thing the
 resolve genuinely needs, below. `LibraryTreeTests` holds it.
@@ -500,8 +509,8 @@ resolve genuinely needs, below. `LibraryTreeTests` holds it.
 The reconstruction is where the substance is, and it is checked against the *definition* of
 perspective-correct interpolation rather than against a second solver: a world-linear attribute comes
 back as the same linear function of the world point the pixel sees, over randomised triangles, cameras
-and interior points. [`Barycentrics.rvn`](../Raven/Library/Geometry/Barycentrics.rvn) and
-[`ClusterAttributes`](../Core/Vixen.Rendering/ClusterAttributes.cs), tested in `ClusterAttributeTests`.
+and interior points. [`Barycentrics.rvn`](../../Raven/Library/Geometry/Barycentrics.rvn) and
+[`ClusterAttributes`](../../Core/Vixen.Rendering/ClusterAttributes.cs), tested in `ClusterAttributeTests`.
 
 Five things the plan above did not say:
 
@@ -525,21 +534,78 @@ Five things the plan above did not say:
   vertex carries a position, a normal and a coordinate; a tangent is what those three imply, and
   deriving it needs the screen derivatives of two of them — which the analytic gradients already are. A
   fragment stage would have to interpolate a stored tangent and pay a channel for it.
-- **⚠ The clustered punctual light loop is owed, and the prerequisite is a refactor rather than a
-  feature.** The directional and ambient terms are library calls and are in the resolve; the punctual
-  loop is `ForwardPlus`-local, and reaching it from a second entry point means extracting its bindings
-  and four functions into a base shader both derive from. That renumbers `ForwardPlus`'s bindings, which
-  `MaterialReflectionTests` and `ForwardPlusLayoutTests` are both written against — so it is named here
-  rather than done in passing. Shadows and reflection probes are behind the same door.
+- **The clustered punctual loop, the shadow cascades and the ambient term are now literally one
+  implementation**, in [`ClusteredShading.rvn`](../../Raven/Library/Pipeline/ClusteredShading.rvn), which
+  `ForwardPlus` and `VisibilityResolve` both derive from. What made the extraction possible is that
+  lighting never needed the interpolators: those functions read a world position, a view-space position
+  and an object index, and nothing else about how the pixel was found. Passing those three down as a
+  `ShadingPoint` costs a forward fragment nothing and lets a compute stage supply them from a triangle it
+  reconstructed.
 
-**And the host is half done, deliberately.** The binning is complete —
-[`GpuVisibilityTiles`](../Core/Vixen.Rendering/GpuVisibilityTiles.cs), recorded by
-`VisibilityBufferRenderer` in a second pass so the ordering cannot be got wrong in a document, with the
-counters doubling as the indirect dispatch arguments. What is *not* built is the per-material resolve
-dispatch, because that needs a compute variant resolved per material composition, which is
-`MaterialRenderFeature`'s machinery and a project in its own right. So phase 5 today gives a correct
-reconstruction, a correct binning, and a resolve shader that provably composes the material tree —
-and still no picture.
+**And the host is complete.** [`GpuVisibilityTiles`](../../Core/Vixen.Rendering/GpuVisibilityTiles.cs)
+bins, with the counters doubling as the indirect dispatch arguments, and
+[`GpuClusterResolve`](../../Core/Vixen.Rendering/GpuClusterResolve.cs) dispatches one indirect command
+per material over that material's own bin — both recorded by `VisibilityBufferRenderer` in one pass, so
+the ordering between them is not something a compositor document can get wrong.
+
+Three more things the plan did not say, all found by building it:
+
+- **The variant key is the material's composition plus one permutation, spelled literally.**
+  `EffectKey.From` wants generated `ParameterKey`s and the gradient key has none — it is declared on
+  `MaterialTextures` and *inherited* into every sampling feature, which the reflection does not publish.
+  Two names and two values is a small enough surface to write out, and the test asserts the composition
+  reaches the key: without it every material resolves to the same default variant, which compiles,
+  dispatches, and shades something grey.
+- **`EffectSetWriter` could not bind a storage image at all.** It mapped `SampledTexture` and
+  `StorageTexture` to the same write, so the resolve's output target was bound as a sampled texture. The
+  null device's validation puts it better than this could: *no driver checks this and the shader reads
+  whichever it was compiled for*. Fixed with a `DescriptorWrite.StorageImage` beside `Texture`; the
+  resolve is the first set in the engine that both contains one and is filled through that helper.
+- **Two buffers were device-local and written from the host**, which is not an error anywhere until a
+  device says so — the binning's argument template, and every one of the traversal's mesh-record buffers.
+  The template only ever feeds a copy, so it is host-upload now. The mesh records are read by the
+  traversal for every cluster it tests, so they stay device-local and are staged through host memory with
+  the copies recorded at the head of the frame, which is what `MeshletPagePool` already does for pages.
+
+- **The resolve was reading last frame's records, and only skinning made it visible.** Three of the
+  buffers both passes read are ringed per frame in flight — the instance records, the slot table, and
+  now the palette. The raster bound each at this frame's descriptor offset; the resolve fills its set
+  through `EffectSetWriter`, which binds a storage buffer *whole* and has nowhere to put an offset. So
+  on every frame the ring was not at region zero the two passes disagreed about where every instance
+  was — invisible in a static scene, because the regions hold identical bytes, and exactly the
+  wrong-surface failure the warning above describes as soon as anything moves. Both now bind whole and
+  add a base index, which is `TransformRenderFeature.BaseIndex`'s arrangement and the one that survives
+  a writer with no offsets.
+
+So the whole path exists: import → pages → residency → traversal → raster → bin → shade, and a resolved
+pixel gets the same lights with the same shadows as a forward-drawn one because it is running the same
+code.
+
+**Three things the extraction turned up, none of which a compilation would have said:**
+
+- **Inheritance merged a base's bindings and streams and not its permutations.** `ForwardPlus` came out
+  reporting two of its eleven — the nine on the base vanished — which looks like a shader with no
+  variants: the generated keys lose the names and a host asking for `UseShadows` gets the default with
+  no diagnostic anywhere. `MergeInterface` merges them now, for inheritance only; a *composed* feature's
+  stay its own, or one shader's variant space would be the product of every feature a material brings.
+- **A composed model's parameters attach to the shader that declares the slot**, so moving
+  `compose val shading` to the base moved `SubsurfaceShading.wrap` out of the pass's binding list, where
+  `MaterialRenderFeature` looks for it. Each pass keeps its own slots and reaches the shared loop by
+  overriding one hook — one forwarding line, and a material's parameters stay where a host already knows
+  to find them.
+- **A ternary reads both operands.** Building the `ShadingPoint` with
+  `UseObjectRecords ? objectIndex : -1` declares that stream as a fragment input in *every* variant,
+  while the vertex stage writes it only under the permutation — and a fragment input the vertex stage
+  does not write is a pipeline the driver refuses outright. The reads are inside their own permutations
+  now, matching the guards the writers use. Caught by the golden device tests, which is what they are
+  for.
+
+⚠ **The resolve composes no irradiance source**, so it gets sky ambient and not field ambient. A compose
+slot has to be bound wherever it is *reached*, and the forward pass gets away with declaring one only
+because its own reach is inside `if (UseIrradianceField)` — folded off by default — and because
+`MaterialCompiler` names `NoIrradiance` for every material. Giving the resolve a field means giving the
+library a default binding for the slot, which is a change to how compositions are defaulted rather than
+a change to that file.
 
 ---
 
@@ -589,6 +655,59 @@ range's current motion, and everything downstream is unchanged.
 The cost is a few bytes per cluster and a bound that is looser for a deforming mesh than for a rigid
 one. The saving is not having two cluster formats.
 
+**✅ Built, through the pages, the raster and the resolve.** A skinned mesh's page vertex carries four
+bone indices and four weights, a byte each, after its normal and coordinate; the raster blends them
+through `Skinning.BlendMatrix` — the same function `ShadowCaster` uses — before placing the vertex, and
+the resolve does it again on the same bytes by the same call. `VirtualGeometryRenderFeature.SetBones`
+takes the same matrices `SkinningRenderFeature` does.
+
+Five things it turned out to involve, none of which the paragraph above implies:
+
+- **It cannot be a permutation, and that is the one real difference from the classic path.** A shadow
+  pass picks its skinned variant per draw because there is a draw per object to pick it at. One
+  indirect draw covers every cluster of every mesh in the scene, so "is this vertex skinned" has to be
+  a value a mesh record carries and a branch every vertex takes. That also keeps a static mesh's page
+  vertex at sixteen bytes rather than charging every rock in the project eight bytes of zeros:
+  `RasterMesh.influenceOffset` is per mesh, with a sentinel for no skeleton.
+- **A byte an index is exactly the palette, not a compromise.** `Skinning.MaxBones` is 256 because 256
+  `mat4`s are exactly the 16 KB of uniform range Vulkan guarantees. A skeleton past that is a build
+  error naming the offending bone, because the alternative — clamping — is a limb attached to the wrong
+  joint on one character, which reads as a modelling bug.
+- **The bound is expanded per instance rather than per cluster**, which is looser than the paragraph
+  above by roughly the ratio of a cluster to a character. `CullInstance.motionRadius` bounds how far
+  *any* point of the mesh can be moved by this frame's palette — an affine bound, `|(A − I)c + t|` plus
+  the radius times the norm of `A − I`, maximised over the palette — and the traversal adds it to every
+  cluster radius. It is exactly zero for a rest pose, so a skeleton standing still is culled as tightly
+  as a rock. The per-cluster form needs per-bone extents on the device and a loop per cluster test, and
+  nothing that reads this changes when it lands.
+- **The record grew past a multiple of sixteen and had to say so.** `CullInstance` was 48 bytes and
+  exactly a multiple of the alignment a `float3` member gives a struct, so nothing had ever needed
+  declaring. Two more words made it 56 on the host and 64 on the device — and a stride that disagrees
+  does not fail, it reads instance one out of the middle of instance zero. `CullObject` had carried an
+  explicit padding word and the reason for it since phase 3; this is that reason arriving.
+- ⚠ **`Skinning.BlendMatrix` had never been compiled**, because every caller of it reaches it inside
+  `if (Skinned)` and that permutation is off in the shipped set. The first shader to reach it
+  unconditionally produced invalid SPIR-V twice over — see below.
+
+**Two Raven bugs, and both were in shipped code that no shader had ever reached.**
+
+- `matrix * scalar` lowers to `MatrixMultiply` whatever is on the other side of the operator, and the
+  SPIR-V emitter's shaped-product table had no case for it — so the operator fell past every case in
+  the arithmetic switch into its default, which is `>=`. The emitted instruction was
+  `OpFOrdGreaterThanEqual` **with a `mat4` result type**.
+- `matrix + matrix` became `OpFAdd` on a matrix, which SPIR-V does not have: its arithmetic takes
+  scalars and vectors only. Matrix operands are decomposed into columns now.
+
+Both are fixed in `SpirvEmitter`. What they mean is that **GPU skinning has never produced valid SPIR-V
+on any path** — the shadow pass and the GBuffer pass would have failed the validator the first time
+anyone compiled their skinned variant. The library's own tests compile every shipped shader and did not
+catch it, because a permutation folds the code away before it is lowered.
+
+**And one thing that was the library's convention already**: a bare `Buffer<mat4>` is rejected by the
+validator, because a matrix in a storage buffer has to state its stride and its majorness and a struct
+member is the only place SPIR-V has to put them. `Transform.rvn` had made that decision and written
+down the reason; `BoneMatrix` is the same wrapper for the palette.
+
 ### 2. Forward+ compatible resolve, instead of forced deferred
 
 **This is the most consequential deviation.** Nanite's visibility buffer resolves into a GBuffer, and
@@ -608,11 +727,12 @@ The honest cost: tile binning has a worst case UE's approach does not — a scre
 holds every material degenerates to the same work with extra bookkeeping. Materials are spatially
 coherent in practice, which is the assumption being made explicit rather than hidden.
 
-🟡 **The binning is built** as [`VisibilityTiles.rvn`](../Raven/Library/Pipeline/VisibilityTiles.rvn)
-and [`GpuVisibilityTiles`](../Core/Vixen.Rendering/GpuVisibilityTiles.cs), with the worst case
-reportable rather than merely acknowledged: `Overflowed` says a material wanted more tiles than its list
-holds, which is a hole and not a slow frame. What is still owed is the dispatch that consumes the bins
-— see phase 5.
+✅ **Built**, as [`VisibilityTiles.rvn`](../../Raven/Library/Pipeline/VisibilityTiles.rvn) and
+[`GpuVisibilityTiles`](../../Core/Vixen.Rendering/GpuVisibilityTiles.cs) for the binning, and
+[`GpuClusterResolve`](../../Core/Vixen.Rendering/GpuClusterResolve.cs) for the dispatch that consumes it
+— one indirect command per material, over that material's own bin. The worst case is reportable rather
+than merely acknowledged: `Overflowed` says a material wanted more tiles than its list holds, which is a
+hole and not a slow frame.
 
 ### 3. One culling shader, one occlusion semantic
 
@@ -716,7 +836,7 @@ being a mystery in a frame capture.
 | 2 — Pages and residency ✅ | ~2 | 6 |
 | 3 — Hierarchical culling ✅ | ~2.5 | 8.5 |
 | 4 — HW-raster visibility buffer ✅ | ~2 | 10.5 |
-| 5 — Material resolve 🟡 | ~2.5 | 13 |
+| 5 — Material resolve ✅ | ~2.5 | 13 |
 | 6 — SW raster (optional) | ~3 | 16 |
 | 7 — Virtual shadow maps | ~2.5 | 18.5 |
 

@@ -587,8 +587,12 @@ public class GpuClusterCullingTests {
         // every float3 starting one.
         Assert.Equal(80, System.Runtime.InteropServices.Marshal.SizeOf<CullCluster>());
 
-        // Four counts, position + scale, two mask halves, flags and padding: three rows.
-        Assert.Equal(48, System.Runtime.InteropServices.Marshal.SizeOf<CullInstance>());
+        // Four counts, position + scale, two mask halves, flags, the mesh, the palette base, the motion
+        // radius and the padding the shader declares: four rows. The padding is the whole point of the
+        // assertion — the record was three rows and exactly a multiple of the sixteen a float3 aligns a
+        // struct to, and the two fields skinning added would otherwise have made it 56 here and 64 on
+        // the device, which reads instance one out of the middle of instance zero.
+        Assert.Equal(64, System.Runtime.InteropServices.Marshal.SizeOf<CullInstance>());
 
         Assert.Equal(1024, GpuClusterCulling.QueueCapacity);
         Assert.Equal(1u, GpuClusterCulling.ClusterRoot);

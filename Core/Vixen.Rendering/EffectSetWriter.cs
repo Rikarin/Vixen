@@ -131,9 +131,17 @@ public static class EffectSetWriter {
         }
 
         DescriptorWrite? write = binding.Kind switch {
-            DescriptorKind.SampledTexture or DescriptorKind.StorageTexture =>
-                key is ParameterKey<TextureViewHandle> texture
-                    ? DescriptorWrite.Texture(binding.Binding, parameters.Get(texture))
+            // The two texture kinds are written differently and the difference is not cosmetic: no driver
+            // checks a storage image bound as a sampled one, and the shader reads whichever it was
+            // compiled for. Writing both the same way is a compute pass whose output silently never
+            // changes.
+            DescriptorKind.SampledTexture =>
+                key is ParameterKey<TextureViewHandle> sampled
+                    ? DescriptorWrite.Texture(binding.Binding, parameters.Get(sampled))
+                    : null,
+            DescriptorKind.StorageTexture =>
+                key is ParameterKey<TextureViewHandle> stored
+                    ? DescriptorWrite.StorageImage(binding.Binding, parameters.Get(stored))
                     : null,
             DescriptorKind.Sampler =>
                 key is ParameterKey<SamplerHandle> sampler

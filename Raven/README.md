@@ -374,6 +374,12 @@ a driver hoist a load out of a loop from a buffer nothing writes to.
 A buffer's element type has to be something the host can lay out, so a texture or a sampler is refused
 (`RVN2118`): a descriptor is not a value and has no bytes to place.
 
+**A bare `Buffer<mat4>` is rejected by the validator, and the fix is a struct of one member.** A matrix
+inside a storage buffer has to state its stride and which way its majorness runs, and SPIR-V's only
+place for those decorations is a struct *member* — so a runtime array of matrices has nowhere to put
+them. `Geometry/Transform.rvn`'s `ObjectTransform` and `Geometry/Skinning.rvn`'s `BoneMatrix` are both
+that wrapper, and both say so where somebody reaching for `Buffer<mat4>` will read it.
+
 **Writing to anything else is refused.** A shader's `var` is host-uploaded state, so a store into one is
 `RVN2119` — checked at the root of the access chain, which means `tint`, `tint.rgb` and
 `lights[i].color` are all caught. Mutable state belongs to a local, or to a struct whose fields are

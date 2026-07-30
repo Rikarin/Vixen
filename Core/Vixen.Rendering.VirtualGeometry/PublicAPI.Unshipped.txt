@@ -138,8 +138,12 @@ Vixen.Rendering.VirtualGeometry.MeshletPageSet.Clusters.init -> Vixen.Rendering.
 Vixen.Rendering.VirtualGeometry.MeshletPageSet.Data.get -> byte[]
 Vixen.Rendering.VirtualGeometry.MeshletPageSet.Data.init -> byte[]
 Vixen.Rendering.VirtualGeometry.MeshletPageSet.GetCorners(int cluster, int triangleCount) -> System.ReadOnlySpan<byte>
+Vixen.Rendering.VirtualGeometry.MeshletPageSet.GetInfluences(int cluster, int vertexCount, System.Span<Vixen.Rendering.VirtualGeometry.VertexInfluence> influences) -> void
 Vixen.Rendering.VirtualGeometry.MeshletPageSet.GetPositions(int cluster, int vertexCount, System.Span<Vixen.Core.Mathematics.Vector3> positions) -> void
 Vixen.Rendering.VirtualGeometry.MeshletPageSet.HasData.get -> bool
+Vixen.Rendering.VirtualGeometry.MeshletPageSet.InfluenceOffset.get -> int
+Vixen.Rendering.VirtualGeometry.MeshletPageSet.InfluenceOffset.init -> int
+Vixen.Rendering.VirtualGeometry.MeshletPageSet.IsSkinned.get -> bool
 Vixen.Rendering.VirtualGeometry.MeshletPageSet.MeshletPageSet() -> void
 Vixen.Rendering.VirtualGeometry.MeshletPageSet.OffsetOf(int page) -> long
 Vixen.Rendering.VirtualGeometry.MeshletPageSet.PageSize.get -> int
@@ -159,11 +163,25 @@ Vixen.Rendering.VirtualGeometry.MeshletPageSettings -> readonly struct
 Vixen.Rendering.VirtualGeometry.MeshletPageSettings : System.IEquatable<Vixen.Rendering.VirtualGeometry.MeshletPageSettings>
 Vixen.Rendering.VirtualGeometry.MeshletPageSettings.AttributeStride.get -> int
 Vixen.Rendering.VirtualGeometry.MeshletPageSettings.AttributeStride.init -> int
+Vixen.Rendering.VirtualGeometry.MeshletPageSettings.InfluenceOffset.get -> int
+Vixen.Rendering.VirtualGeometry.MeshletPageSettings.InfluenceOffset.init -> int
 Vixen.Rendering.VirtualGeometry.MeshletPageSettings.MeshletPageSettings() -> void
 Vixen.Rendering.VirtualGeometry.MeshletPageSettings.PageSize.get -> int
 Vixen.Rendering.VirtualGeometry.MeshletPageSettings.PageSize.init -> int
 Vixen.Rendering.VirtualGeometry.MeshletPageSettings.Validate() -> void
 Vixen.Rendering.VirtualGeometry.MeshletValidator -> static class
+Vixen.Rendering.VirtualGeometry.VertexInfluence -> readonly struct
+Vixen.Rendering.VirtualGeometry.VertexInfluence : System.IEquatable<Vixen.Rendering.VirtualGeometry.VertexInfluence>
+Vixen.Rendering.VirtualGeometry.VertexInfluence.Blend(System.ReadOnlySpan<Vixen.Core.Mathematics.Matrix4x4> palette, int firstBone) -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.VirtualGeometry.VertexInfluence.Bones.get -> Vixen.Core.Mathematics.Int4
+Vixen.Rendering.VirtualGeometry.VertexInfluence.Bones.init -> Vixen.Core.Mathematics.Int4
+Vixen.Rendering.VirtualGeometry.VertexInfluence.Normalized.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Rendering.VirtualGeometry.VertexInfluence.VertexInfluence() -> void
+Vixen.Rendering.VirtualGeometry.VertexInfluence.VertexInfluence(Vixen.Core.Mathematics.Int4 Bones, Vixen.Core.Mathematics.Vector4 Weights) -> void
+Vixen.Rendering.VirtualGeometry.VertexInfluence.Weights.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Rendering.VirtualGeometry.VertexInfluence.Weights.init -> Vixen.Core.Mathematics.Vector4
+const Vixen.Rendering.VirtualGeometry.MeshletPageBuilder.InfluenceSize = 8 -> int
+const Vixen.Rendering.VirtualGeometry.MeshletPageBuilder.MaxBones = 256 -> int
 const Vixen.Rendering.VirtualGeometry.MeshletPageBuilder.PositionSize = 6 -> int
 static Vixen.Rendering.VirtualGeometry.MeshletBuilder.Build(Vixen.Rendering.VirtualGeometry.MeshletBuildInput mesh, Vixen.Rendering.VirtualGeometry.MeshletBuildSettings? options = null) -> Vixen.Rendering.VirtualGeometry.MeshletMesh
 static Vixen.Rendering.VirtualGeometry.MeshletCut.ErrorForPixels(float pixels, float distance, float verticalFieldOfView, float screenHeight) -> float

@@ -463,7 +463,33 @@ partial class SpirvEmitter {
             )
         };
 
+        // SPIR-V's arithmetic instructions take scalars and vectors and no matrices at all, where GLSL
+        // spells a matrix sum with the same `+` as a float one. So a matrix operand is decomposed here
+        // into its columns rather than being handed to an instruction that cannot take it — which the
+        // validator catches, and only for the shaders somebody compiles.
+        if (binary.Result.Type is IrMatrixType matrix
+            && binary.Left.Type is IrMatrixType
+            && binary.Right.Type is IrMatrixType) {
+            return Columnwise(matrix, op, resultType, left, right);
+        }
+
         return Emit(op, resultType, left, right);
+    }
+
+    /// <summary>The same operation applied to each column of two matrices, gathered back into one.</summary>
+    uint Columnwise(IrMatrixType matrix, SpirvOp op, uint resultType, SpirvOperand left, SpirvOperand right) {
+        var columnType = types.Type(new IrVectorType(matrix.Component, matrix.Rows));
+        var columns = new SpirvOperand[matrix.Columns];
+
+        for (var column = 0; column < matrix.Columns; column++) {
+            var index = SpirvOperand.Literal(column);
+            var a = Emit(SpirvOp.CompositeExtract, columnType, left, index);
+            var b = Emit(SpirvOp.CompositeExtract, columnType, right, index);
+
+            columns[column] = SpirvOperand.Id(Emit(op, columnType, SpirvOperand.Id(a), SpirvOperand.Id(b)));
+        }
+
+        return Emit(SpirvOp.CompositeConstruct, resultType, columns);
     }
 
     /// <summary>
@@ -479,6 +505,13 @@ partial class SpirvEmitter {
             (IrBinaryOp.MatrixMultiply, IrMatrixType, IrMatrixType) => (SpirvOp.MatrixTimesMatrix, false),
             (IrBinaryOp.MatrixMultiply, IrMatrixType, IrVectorType) => (SpirvOp.MatrixTimesVector, false),
             (IrBinaryOp.MatrixMultiply, IrVectorType, IrMatrixType) => (SpirvOp.VectorTimesMatrix, false),
+
+            // A matrix scaled. The lowerer calls `*` on a matrix a matrix multiply whatever is on the
+            // other side of it, so this is the same product as the `Multiply` line below and arrives
+            // under the other name — and without it the operator falls past every case in `EmitBinary`
+            // into its default, which is a comparison.
+            (IrBinaryOp.MatrixMultiply, IrMatrixType, { IsScalar: true }) => (SpirvOp.MatrixTimesScalar, false),
+            (IrBinaryOp.MatrixMultiply, { IsScalar: true }, IrMatrixType) => (SpirvOp.MatrixTimesScalar, true),
 
             // Scalar operands come second in SPIR-V, whichever side they were on.
             (IrBinaryOp.Multiply, IrVectorType, { IsScalar: true }) => (SpirvOp.VectorTimesScalar, false),

@@ -35,11 +35,37 @@ public readonly record struct MeshletPageSettings {
     /// </remarks>
     public int AttributeStride { get; init; }
 
+    /// <summary>
+    ///     Where four bone indices and four weights sit inside those attributes, in bytes from the
+    ///     start of the <em>vertex</em>, or −1 for a mesh with no skeleton.
+    /// </summary>
+    /// <remarks>
+    ///     The one thing about the attribute bytes this format does have an opinion about, and only
+    ///     because the traversal does: a skinned cluster's bytes are decoded by a raster that has to
+    ///     know whether they carry influences and where. Everything else in them stays the caller's,
+    ///     as <see cref="AttributeStride" /> says. It reaches <see cref="MeshletPageSet.InfluenceOffset" />
+    ///     unchanged.
+    /// </remarks>
+    public int InfluenceOffset { get; init; } = -1;
+
     /// <summary>Refuses settings that cannot produce pages.</summary>
     /// <exception cref="ArgumentOutOfRangeException">One of them is out of range.</exception>
     public void Validate() {
         ArgumentOutOfRangeException.ThrowIfLessThan(PageSize, 1024);
         ArgumentOutOfRangeException.ThrowIfNegative(AttributeStride);
+
+        if (InfluenceOffset < 0) {
+            return;
+        }
+
+        // Inside the attributes and eight bytes short of their end, because the two things a vertex
+        // has to hold at once are its position and everything a decoder reads past it.
+        ArgumentOutOfRangeException.ThrowIfLessThan(InfluenceOffset, MeshletPageBuilder.PositionSize);
+
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(
+            InfluenceOffset + MeshletPageBuilder.InfluenceSize,
+            MeshletPageBuilder.PositionSize + AttributeStride
+        );
     }
 }
 
@@ -70,6 +96,22 @@ public static class MeshletPageBuilder {
     ///     since the coarsest cluster spans the whole grid.
     /// </remarks>
     public const int PositionSize = 6;
+
+    /// <summary>Eight bytes of influences: four bone indices, then four weights.</summary>
+    /// <seealso cref="VertexInfluence" />
+    public const int InfluenceSize = 8;
+
+    /// <summary>
+    ///     How many bones a mesh whose pages carry influences may have.
+    /// </summary>
+    /// <remarks>
+    ///     A page vertex stores a bone index in one byte, so this is 256 — which is exactly
+    ///     <c>Skinning.MaxBones</c>, and not by coincidence: that one is 256 because 256 <c>mat4</c>s
+    ///     fill the 16 KB of uniform range Vulkan guarantees, and a format storing more indices than
+    ///     the engine can bind matrices for would be spending a byte to describe geometry nothing can
+    ///     draw. A skeleton past either is the same conversation.
+    /// </remarks>
+    public const int MaxBones = 256;
 
     /// <summary>How many grid steps span the mesh's longest extent.</summary>
     const int GridSteps = ushort.MaxValue;
@@ -172,6 +214,7 @@ public static class MeshletPageBuilder {
             Data = [.. data],
             PageSize = settings.PageSize,
             VertexStride = stride,
+            InfluenceOffset = settings.InfluenceOffset,
             QuantizationOrigin = origin,
             QuantizationStep = step
         };

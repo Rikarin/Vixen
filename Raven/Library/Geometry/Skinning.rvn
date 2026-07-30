@@ -18,6 +18,19 @@ import Vixen.Shaders.Core
 // real-time skinning path uses, because the fifth influence is almost always below the weight
 // threshold.
 
+/// One skinning matrix as a record of a palette buffer.
+///
+/// A struct of one member rather than a bare `Buffer<mat4>`, for `ObjectTransform`'s reason and with a
+/// harder edge to it: a matrix inside a storage buffer has to say its stride and which way its majorness
+/// runs, and a struct *member* is the only place SPIR-V has to put those decorations. A bare runtime
+/// array of matrices is rejected by the validator rather than laid out by default — so the wrapper is
+/// not a style choice, it is where the layout is allowed to be written down.
+///
+/// Sixty-four bytes, column-major, exactly the bytes `Matrix4x4` already holds.
+struct BoneMatrix {
+    var matrix: mat4
+}
+
 /// The four bone matrices a vertex is influenced by, already fetched.
 struct BonePalette {
     var bone0: mat4

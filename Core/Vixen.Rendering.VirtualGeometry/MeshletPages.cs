@@ -128,6 +128,31 @@ public sealed record MeshletPageSet {
     /// <summary>How many bytes one page vertex occupies: six of position, then the attributes.</summary>
     public int VertexStride { get; init; }
 
+    /// <summary>
+    ///     Where a vertex's four bone influences start, in bytes from the vertex, or −1 for a mesh
+    ///     that has none.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A per-mesh offset rather than a fixed one, because a static mesh must not pay for
+    ///         it.</b> Influences are eight bytes — four indices and four weights — on a vertex that
+    ///         is otherwise sixteen, so charging every mesh for them would be half again the bytes of
+    ///         every page of every rock in the project to carry zeros. The stride is already per
+    ///         mesh, so this costs one more integer beside it.
+    ///     </para>
+    ///     <para>
+    ///         <b>And it cannot be a shader permutation, which is what makes it a record.</b> A
+    ///         classic pass picks its skinned variant per draw — see <c>ShadowCaster</c>'s
+    ///         <c>Skinned</c>. One indirect draw covers every cluster of every mesh in the scene, so
+    ///         there is no per-draw anything to pick with, and "is this vertex skinned" has to be a
+    ///         question the vertex's own mesh record answers.
+    ///     </para>
+    /// </remarks>
+    public int InfluenceOffset { get; init; } = -1;
+
+    /// <summary>Whether the vertices carry bone influences.</summary>
+    public bool IsSkinned => InfluenceOffset >= 0;
+
     /// <summary>The corner of the mesh-wide quantization grid.</summary>
     public Vector3 QuantizationOrigin { get; init; }
 
@@ -264,6 +289,49 @@ public sealed record MeshletPageSet {
         }
     }
 
+    /// <summary>
+    ///     One cluster's bone influences, decoded.
+    /// </summary>
+    /// <param name="cluster">Which cluster, indexed as <see cref="MeshletMesh.Meshlets" /> is.</param>
+    /// <param name="vertexCount">How many vertices it has, from its <see cref="Meshlet" />.</param>
+    /// <param name="influences">Where to write them.</param>
+    /// <exception cref="ArgumentException">The span is too small.</exception>
+    /// <exception cref="InvalidOperationException">The mesh is not skinned — see <see cref="IsSkinned" />.</exception>
+    /// <remarks>
+    ///     <see cref="GetPositions" />'s counterpart and it exists for the same reason: this is the
+    ///     arithmetic the raster and the resolve each do per vertex, written once so both can be
+    ///     checked against it rather than against each other. Two shaders that agree with a third
+    ///     party agree with each other; two that are only ever compared with each other agree on
+    ///     whatever they both get wrong.
+    /// </remarks>
+    public void GetInfluences(int cluster, int vertexCount, Span<VertexInfluence> influences) {
+        ArgumentOutOfRangeException.ThrowIfNegative(cluster);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(cluster, Clusters.Length);
+
+        if (!IsSkinned) {
+            throw new InvalidOperationException(
+                "This page set carries no bone influences, so its vertices have none to decode. See "
+                + "MeshletPageSet.IsSkinned."
+            );
+        }
+
+        if (influences.Length < vertexCount) {
+            throw new ArgumentException("Too small to hold the cluster's influences.", nameof(influences));
+        }
+
+        var placement = Clusters[cluster];
+        var start = Pages[placement.Page].Offset + placement.VertexOffset + InfluenceOffset;
+
+        for (var i = 0; i < vertexCount; i++) {
+            var at = start + (i * VertexStride);
+
+            influences[i] = new(
+                new(Data[at], Data[at + 1], Data[at + 2], Data[at + 3]),
+                new Vector4(Data[at + 4], Data[at + 5], Data[at + 6], Data[at + 7]) / byte.MaxValue
+            );
+        }
+    }
+
     /// <summary>One cluster's triangle corners, as indices into its own vertex list.</summary>
     /// <param name="cluster">Which cluster.</param>
     /// <param name="triangleCount">How many triangles it has, from its <see cref="Meshlet" />.</param>
@@ -275,5 +343,72 @@ public sealed record MeshletPageSet {
 
         var placement = Clusters[cluster];
         return Data.AsSpan(Pages[placement.Page].Offset + placement.TriangleOffset, triangleCount * 3);
+    }
+}
+
+/// <summary>The four bones one page vertex is weighted to, decoded.</summary>
+/// <param name="Bones">Their indices into the mesh's skeleton, in the order the weights are.</param>
+/// <param name="Weights">Their weights, as stored — which is to say not exactly summing to one.</param>
+/// <remarks>
+///     <para>
+///         <b>A byte an index and a byte a weight, which is not a compromise.</b>
+///         <c>Skinning.MaxBones</c> is 256 because 256 <c>mat4</c>s is exactly the 16 KB of uniform
+///         range Vulkan guarantees — so a byte indexes the largest palette the engine has, exactly. And
+///         a weight quantized to a 255th is finer than the position it is applied to, which a page
+///         stores as a 65535th of the mesh's longest extent: a character two metres tall carries
+///         positions to a thirtieth of a millimetre, and the weight error moves a vertex by less than
+///         that.
+///     </para>
+///     <para>
+///         Four influences, matching <c>BonePalette</c> and the glTF the importer reads. The fifth is
+///         below the weight threshold in every asset that has one.
+///     </para>
+/// </remarks>
+public readonly record struct VertexInfluence(Int4 Bones, Vector4 Weights) {
+    /// <summary>The weights, normalised to sum to one.</summary>
+    /// <remarks>
+    ///     The mirror of <c>Skinning.NormalizeWeights</c>, and it is done rather than trusted for the
+    ///     reason that one gives: quantized weights do not sum to exactly one, and the residue shows
+    ///     as a uniform deflation toward the origin that reads as a scale bug.
+    /// </remarks>
+    public Vector4 Normalized {
+        get {
+            var total = Weights.X + Weights.Y + Weights.Z + Weights.W;
+            return total > MathUtil.ZeroTolerance ? Weights / total : new(1f, 0f, 0f, 0f);
+        }
+    }
+
+    /// <summary>The one matrix this vertex is transformed by.</summary>
+    /// <param name="palette">Every skeleton's matrices, as the device sees them.</param>
+    /// <param name="firstBone">Where this instance's own palette starts in it.</param>
+    /// <returns>The blend.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">An influence reaches outside the palette.</exception>
+    /// <remarks>
+    ///     Linear blend skinning, mirroring <c>Skinning.BlendMatrix</c> — interpolate the matrices,
+    ///     then transform once. Written here so a test can ask whether the shaders agree with the
+    ///     definition rather than with each other.
+    /// </remarks>
+    public Matrix4x4 Blend(ReadOnlySpan<Matrix4x4> palette, int firstBone) {
+        var w = Normalized;
+
+        var bone0 = palette[Bone(firstBone, Bones.X, palette.Length)];
+        var bone1 = palette[Bone(firstBone, Bones.Y, palette.Length)];
+        var bone2 = palette[Bone(firstBone, Bones.Z, palette.Length)];
+        var bone3 = palette[Bone(firstBone, Bones.W, palette.Length)];
+
+        return new(
+            (bone0.Row1 * w.X) + (bone1.Row1 * w.Y) + (bone2.Row1 * w.Z) + (bone3.Row1 * w.W),
+            (bone0.Row2 * w.X) + (bone1.Row2 * w.Y) + (bone2.Row2 * w.Z) + (bone3.Row2 * w.W),
+            (bone0.Row3 * w.X) + (bone1.Row3 * w.Y) + (bone2.Row3 * w.Z) + (bone3.Row3 * w.W),
+            (bone0.Row4 * w.X) + (bone1.Row4 * w.Y) + (bone2.Row4 * w.Z) + (bone3.Row4 * w.W)
+        );
+    }
+
+    static int Bone(int first, int index, int count) {
+        var at = first + index;
+        ArgumentOutOfRangeException.ThrowIfNegative(at);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(at, count);
+
+        return at;
     }
 }

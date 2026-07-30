@@ -334,11 +334,14 @@ public sealed class GpuVisibilityTiles : IDisposable {
             template[(material * ArgumentWords) + 2] = 1u;
         }
 
+        // Host-upload, because the host writes it once and nothing but a copy ever reads it. Device-local
+        // would be the faster memory for a buffer a shader read, and this is not one — it is a template
+        // that exists so the per-frame clear is a copy instead of a map.
         seed = device.CreateBuffer(
             new(
                 (long)template.Length * sizeof(uint),
                 BufferUsage.CopySource,
-                MemoryAccess.DeviceLocal,
+                MemoryAccess.HostUpload,
                 "VisibilityTiles.Seed"
             )
         );

@@ -78,11 +78,12 @@ public class LibraryReflectionTests {
         // buffers by name, for the same reason and with the same consequence if a rename slips past.
         ("Pipeline", "ClusterRaster"),
 
-        // Phase 5's binning pass. The resolve is deliberately *not* here: it composes IMaterialSurface,
-        // so it has no single interface to publish — its parameters are whichever features a material
-        // chose, which is exactly why ForwardPlus's entry above is described under one named composition
-        // rather than in general.
-        ("Pipeline", "VisibilityTiles")
+        // Phase 5's binning pass, and the resolve beside it. The resolve composes IMaterialSurface, so
+        // like ForwardPlus above it has no single interface — and like ForwardPlus it is published under
+        // the one named composition below, for the same two reasons: its *own* bindings are fixed
+        // whatever a material chose, and GpuClusterResolve fills every one of them by name.
+        ("Pipeline", "VisibilityTiles"),
+        ("Pipeline", "VisibilityResolve")
     ];
 
     /// <summary>

@@ -267,14 +267,14 @@ public sealed class VirtualGeometryFrameTests {
         for (var frame = 0; frame < device.FramesInFlight; frame++) {
             Upload(visibility, records);
 
-            Assert.Equal(48, visibility.InstanceBytesUploaded);
+            Assert.Equal(64, visibility.InstanceBytesUploaded);
             Assert.Equal(1, visibility.InstanceUploadRegions);
         }
 
         // And then it is settled again: the change reached every region and nothing re-sends it.
         Upload(visibility, records);
         Assert.Equal(0, visibility.InstanceBytesUploaded);
-        Assert.True(everything > 48 * 100, "The first upload should be the whole scene.");
+        Assert.True(everything > 64 * 100, "The first upload should be the whole scene.");
     }
 
     /// <summary>
