@@ -229,6 +229,7 @@ Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Placed.get -> int
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Placements.get -> int
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.PlaneTolerance.get -> float
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.PlaneTolerance.set -> float
+Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Reset() -> void
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.ResolveSkipped.get -> string?
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Resolver.get -> Vixen.Rendering.Lighting.ScreenProbeResolve?
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Resolver.set -> Vixen.Rendering.Lighting.ScreenProbeResolve?
