@@ -4,6 +4,7 @@ import Vixen.Shaders.Core
 import Vixen.Shaders.DistanceFields
 import Vixen.Shaders.IrradianceFields
 import Vixen.Shaders.SurfaceCache
+import Vixen.Shaders.Shading
 
 // Reflections through the same tracer, on the GPU.
 //
@@ -38,11 +39,107 @@ shader NoReflectionMiss : IReflectionMissSource {
 /// One colour of sky — the far field every reflection in doc 06 sees beyond the probes today.
 ///
 /// Bound by whoever owns the sky, under the slot's qualified name; the reflection-probe
-/// implementation replaces this without the kernel changing a line, which is the point of the slot.
+/// implementation below replaces this without the kernel changing a line, which is the point of
+/// the slot.
 shader SkyMissSource : IReflectionMissSource {
     [PerFrame] var missSkyColor: float3 = float3(0f, 0f, 0f)
 
     func MissRadiance(position: float3, direction: float3, roughness: float): float3 => missSkyColor
+}
+
+/// One probe of the miss set: doc 06's volume plus the blend the shader never used to need.
+///
+/// Not `ReflectionProbeVolume`, deliberately: the forward pass weighs probes per OBJECT on the CPU,
+/// so its struct carries no blend distance — here the weight is per query, so the distance rides
+/// beside the volume rather than being retrofitted into a struct two other passes bind. The box is
+/// flat fields rather than a nested `ProbeBox`, because struct declarations are emitted in file
+/// order across the whole library and this package sorts before the one that declares the box —
+/// the correction builds one locally, which costs three moves and breaks no emit.
+struct ReflectionMissProbe {
+    var minimum: float3
+    var maximum: float3
+
+    /// Where the cubemap was captured from, which is what the correction re-aims away from.
+    var center: float3
+
+    var radius: float
+    var mipCount: float
+
+    /// Over what distance the probe fades at its boundary, measured inward, in world units.
+    var blendDistance: float
+}
+
+/// Doc 06's reflection probes, in the miss seat — the retirement of "blended against the sky".
+///
+/// `Vixen.Rendering.Lighting.ReflectionProbeMiss` is the CPU half: it answers the reference's
+/// misses through the same corrections and the same inward-measured weight, and its `Apply` writes
+/// every name declared here. A probe used to be the whole reflection and faded into nothing but
+/// sky; behind the trace it answers only what the trace missed — the far field it is actually good
+/// at — and the fade is a fade between two kinds of far field rather than a reflection vanishing.
+///
+/// Probes are consulted in bound order, first non-zero weight wins — the host sorts by priority,
+/// the same contract the forward pass's array keeps. Four probes, fixed: the count sizes a binding,
+/// and a composed shader's permutations are not host-selectable.
+shader ReflectionProbeMissSource : IReflectionMissSource {
+    [PerFrame] var missProbes: TextureCube[4]
+
+    [PerFrame] var missProbeSampler: Sampler
+
+    [PerFrame] var missProbeVolumes: ReflectionMissProbe[4]
+
+    [PerFrame] var missProbeCount: int = 0
+
+    /// What lies behind every probe — the sky, one colour.
+    [PerFrame] var missFarColor: float3 = float3(0f, 0f, 0f)
+
+    /// How much of a probe a point takes — `ReflectionProbe.WeightAt`, mirrored exactly.
+    static func Weight(volume: ReflectionMissProbe, position: float3): float {
+        var inside = 0f
+
+        if (volume.radius > 0f) {
+            inside = volume.radius - length(position - volume.center)
+        } else {
+            val low = position - volume.minimum
+            val high = volume.maximum - position
+
+            inside = min(min(min(low.x, high.x), min(low.y, high.y)), min(low.z, high.z))
+        }
+
+        if (inside <= 0f) {
+            return 0f
+        }
+
+        if (volume.blendDistance <= 0f) {
+            return 1f
+        }
+
+        return clamp(inside / volume.blendDistance, 0f, 1f)
+    }
+
+    func MissRadiance(position: float3, direction: float3, roughness: float): float3 {
+        for (index in 0 .. 3) {
+            if (index < missProbeCount) {
+                val volume = missProbeVolumes[index]
+                val weight = Weight(volume, position)
+
+                if (weight > 0f) {
+                    var corrected = direction
+
+                    if (volume.radius > 0f) {
+                        corrected = Ibl.ParallaxCorrectSphere(direction, position, volume.center, volume.radius)
+                    } else {
+                        corrected = Ibl.ParallaxCorrect(direction, position, ProbeBox(volume.minimum, volume.maximum, volume.center))
+                    }
+
+                    val sample = missProbes[index].SampleLevel(missProbeSampler, corrected, roughness * (volume.mipCount - 1f))
+
+                    return lerp(missFarColor, sample.rgb, weight)
+                }
+            }
+        }
+
+        return missFarColor
+    }
 }
 
 shader ReflectionTrace {
@@ -66,6 +163,25 @@ shader ReflectionTrace {
 
     /// The answer, radiance in `rgb` and validity in `a`.
     [Format("rgba32f")] var reflectionAtlas: RWTexture2D<float4>
+
+    /// The frame's own depth, for the screen march the sharp path runs first. Always bound — a set
+    /// with a hole in it binds nothing — and read only above zero `screenSteps`.
+    var depthBuffer: Texture2D
+
+    /// The frame's own colour, which is what a screen hit reflects — SSR by its plain name.
+    var sceneColor: Texture2D
+
+    /// The camera that drew `depthBuffer` and `sceneColor` — the forward matrix.
+    var viewProjection: mat4
+
+    /// The viewport those two cover, in pixels.
+    var screenViewport: float2 = float2(0f, 0f)
+
+    /// How many equal steps a screen ray takes over `maxDistance`. Zero is no screen trace at all.
+    var screenSteps: int = 0
+
+    /// How deep behind a surface a sample still counts as inside it, in device depth.
+    var screenThickness: float = 0.02f
 
     /// How many texels the planes cover.
     var reflectionViewport: int2 = int2(0, 0)
@@ -93,6 +209,46 @@ shader ReflectionTrace {
 
     /// How far below the threshold the cross-fade starts. Zero is the hard switch.
     var roughnessBlend: float = 0f
+
+    /// What the screen answers for a ray, if it answers at all: the frame's colour where a sample
+    /// landed inside a surface's shell, `a` one, or `a` zero for a ray the screen could not stop.
+    ///
+    /// `ScreenSpaceTrace.TryHit`'s march, sample for sample — the third documented copy of the
+    /// naive walk, and the HZB traversal replaces all three at once when it lands. The one
+    /// difference from the probes' copy is the answer: they ask WHETHER (a hit is an occlusion, the
+    /// cache answers radiance), a reflection asks WHERE, because the colour at that pixel is the
+    /// reflection.
+    func ScreenColour(origin: float3, direction: float3): float4 {
+        val step = maxDistance / float(screenSteps)
+
+        for (i in 0 .. screenSteps - 1) {
+            val world = origin + direction * ((float(i) + 0.5f) * step)
+            val clip = viewProjection * float4(world, 1f)
+
+            if (clip.w > Const.Epsilon) {
+                val ndc = clip.xyz / clip.w
+
+                if (ndc.z > 0f && ndc.z < 1f) {
+                    val px = int(floor((ndc.x * 0.5f + 0.5f) * screenViewport.x))
+                    val py = int(floor((ndc.y * 0.5f + 0.5f) * screenViewport.y))
+
+                    // Off the viewport, the rest of the ray is not the screen's to answer.
+                    if (px < 0 || py < 0 || px >= int(screenViewport.x) || py >= int(screenViewport.y)) {
+                        return float4(0f, 0f, 0f, 0f)
+                    }
+
+                    val surfaceDepth = depthBuffer.Load(int3(px, py, 0)).r
+
+                    // A sky texel occludes nothing; behind a surface and within its shell is a hit.
+                    if (surfaceDepth > 0f && ndc.z < surfaceDepth && ndc.z > surfaceDepth - screenThickness) {
+                        return float4(sceneColor.Load(int3(px, py, 0)).rgb, 1f)
+                    }
+                }
+            }
+        }
+
+        return float4(0f, 0f, 0f, 0f)
+    }
 
     [ComputeShader(8, 8, 1)]
     func Main([Semantic("SV_GroupID")] group: uint3, [Semantic("SV_GroupThreadID")] thread: uint3) {
@@ -136,6 +292,17 @@ shader ReflectionTrace {
         if (rough >= 1f) {
             reflectionAtlas.Store(texel, float4(wide, 1f))
             return
+        }
+
+        // The screen first — geometry the field may not hold — and the frame's own colour at the
+        // pixel that stopped the ray is the reflection.
+        if (screenSteps > 0) {
+            val screen = ScreenColour(position + normal * bias, mirror)
+
+            if (screen.a > 0.5f) {
+                reflectionAtlas.Store(texel, float4(lerp(screen.rgb, wide, rough), 1f))
+                return
+            }
         }
 
         val hit = distanceField.TraceField(position + normal * bias, mirror, maxDistance, maxSteps, surfaceThreshold, stepScale)

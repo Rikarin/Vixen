@@ -56,13 +56,25 @@ sky slot, the band mixing both, the field whole, and an invalid texel — within
 measured at four thousandths, all of which is the field read's hardware trilinear: the march and
 the cache agree to the bit.
 
+## The probes take the miss seat, and the screen answers first
+
+`ReflectionProbeMissSource` is doc 06's probes behind the miss slot — the same parallax
+corrections, the same inward-measured weight, first non-zero weight wins — and
+`Vixen.Rendering.Lighting.ReflectionProbeMiss` is its CPU pair: one class answers the reference's
+misses and writes the kernel's bindings, so the two cannot drift apart quietly. That is the
+"blended against the sky" caveat retired for reflections: the fade is between two kinds of far
+field, never a reflection vanishing. And the sharp path asks the screen before the field:
+`ScreenSpaceTrace` says *where* it stopped a ray, the frame's colour at that pixel is the
+reflection — SSR reduced to its arithmetic — and the kernel runs the same march sample for
+sample, compared at 1e-4 against this reference.
+
 ## Not yet, and named so the absence is a decision
 
-- **The probe-backed miss.** An `IReflectionMissSource` sampling doc 06's probe cubes is the wiring
-  that finishes retiring that row's "blended against the sky" caveat in a frame.
-- **Screen traces first.** For reflections this is SSR proper — it wants the frame's own colour,
-  a different input contract than the occlusion-only trace the probes run — and it should arrive
-  as one piece, not as an occluder that answers black.
+- **The HZB screen march.** Three documented copies of the naive walk now exist — the probes',
+  this reference's, the kernel's — and the hierarchical traversal replaces all of them at once.
+- **The compositor node.** Wiring the kernel over a real frame — positions and normals
+  reconstructed from depth rather than handed in as planes — is production plumbing with this
+  package as its referee.
 
 **Nothing in this package creates or calls a graphics device** — the kernel's driver lives in
 `Vixen.Rendering.Lighting`, where the devices are.

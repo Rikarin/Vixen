@@ -17,4 +17,8 @@ Vixen.Rendering.Reflections.TracedReflections.RoughnessBlend.get -> float
 Vixen.Rendering.Reflections.TracedReflections.RoughnessBlend.set -> float
 Vixen.Rendering.Reflections.TracedReflections.RoughnessThreshold.get -> float
 Vixen.Rendering.Reflections.TracedReflections.RoughnessThreshold.set -> float
+Vixen.Rendering.Reflections.TracedReflections.ScreenColour.get -> System.Func<Vixen.Core.Mathematics.Int2, Vixen.Core.Mathematics.Vector3>?
+Vixen.Rendering.Reflections.TracedReflections.ScreenColour.set -> System.Func<Vixen.Core.Mathematics.Int2, Vixen.Core.Mathematics.Vector3>?
+Vixen.Rendering.Reflections.TracedReflections.ScreenTrace.get -> Vixen.Rendering.ScreenProbes.ScreenSpaceTrace?
+Vixen.Rendering.Reflections.TracedReflections.ScreenTrace.set -> Vixen.Rendering.ScreenProbes.ScreenSpaceTrace?
 Vixen.Rendering.Reflections.TracedReflections.TracedReflections(Vixen.Rendering.DistanceFields.IDistanceField geometry, Vixen.Rendering.IrradianceFields.IRadianceSource radiance, Vixen.Rendering.Reflections.IReflectionFallback fallback) -> void

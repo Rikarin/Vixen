@@ -4,6 +4,7 @@
 using Vixen.Core.Mathematics;
 using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.IrradianceFields;
+using Vixen.Rendering.ScreenProbes;
 
 namespace Vixen.Rendering.Reflections;
 
@@ -72,6 +73,17 @@ public sealed class TracedReflections(IDistanceField geometry, IRadianceSource r
     ///     visible rather than quietly extrapolated.</remarks>
     public IrradianceField? Field { get; set; }
 
+    /// <summary>The screen march the sharp path runs first, or null for the field alone.</summary>
+    /// <remarks>The trace order's own first stage, for its own reason: the screen holds geometry
+    ///     the field does not. For a reflection the hit is not an occlusion — the frame's colour at
+    ///     that pixel is the answer, which is SSR by its plain name, and it is why
+    ///     <see cref="ScreenColour" /> must be set beside this: a screen hit with no colour to read
+    ///     would answer black for exactly the geometry the screen was consulted to catch.</remarks>
+    public ScreenSpaceTrace? ScreenTrace { get; set; }
+
+    /// <summary>The frame's colour at a pixel, for what a screen hit reflects.</summary>
+    public Func<Int2, Vector3>? ScreenColour { get; set; }
+
     /// <summary>What a surface reflects toward the camera.</summary>
     /// <param name="position">Where the surface is, in world space.</param>
     /// <param name="normal">Which way it faces, normalised.</param>
@@ -100,6 +112,14 @@ public sealed class TracedReflections(IDistanceField geometry, IRadianceSource r
 
         if (rough >= 1f) {
             return wide;
+        }
+
+        // The screen first — geometry the field may not hold — and the frame's own colour at the
+        // pixel that stopped the ray is the reflection.
+        if (ScreenTrace is { } screen
+            && ScreenColour is { } colour
+            && screen.TryHit(position + (normal * Bias), mirror, MaxDistance, out var pixel)) {
+            return Vector3.Lerp(colour(pixel), wide, rough);
         }
 
         var hit = DistanceFieldTracer.Trace(

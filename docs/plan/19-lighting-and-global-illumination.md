@@ -920,10 +920,21 @@ sky slot, the band mixing both, the field whole, an invalid texel — within a s
 measured at four thousandths, all of which is the field read's hardware trilinear: the march and
 the cache agree to the bit, as they did for the radiosity.
 
-Owed: the probe-backed `IReflectionMissSource` implementation — the wiring that finishes retiring
-doc 06's caveat in a frame — and screen traces first in the trace order, which for reflections is
-SSR proper: it wants the frame's own colour, a different input contract than the occlusion-only
-trace the probes run, and it should arrive as one.
+**And both former debts are paid.** `ReflectionProbeMissSource` puts doc 06's probes in the miss
+seat — the same parallax corrections, the same inward-measured weight, first non-zero weight wins —
+with `ReflectionProbeMiss` as its CPU pair, one class answering the reference's misses and writing
+the kernel's bindings, held against each other on a sphere probe whose corrected directions a
+uniform-face cube can referee (a box probe aims them at cube-face diagonals, where the device's
+seamless filtering blends faces a nearest fetch never sees — measured, then designed out). That
+retires doc 06's "blended against the sky": the fade is now between two kinds of far field. And
+the screen answers first: `ScreenSpaceTrace` learnt to say *where* it stopped a ray rather than
+only whether, the reference reflects the frame's colour at that pixel, and the kernel runs the
+same march sample for sample — SSR reduced to its arithmetic, compared to the reference at 1e-4
+with a position-coded colour plane so a wrong hit cannot read right.
+
+Owed, and only this: the HZB traversal that replaces all three copies of the naive screen march at
+once (§ L3's own note), and a compositor node wiring the kernel over a real frame's G-buffer — the
+reconstruction-from-depth production plumbing, not a missing piece of the arithmetic.
 
 ### L6 — Hardware ray tracing *(2.0 EM)*
 
