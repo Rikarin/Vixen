@@ -115,6 +115,25 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
     /// <summary>How many entities are extracted.</summary>
     public int ObjectCount => claimed.Count;
 
+    /// <summary>Where the geometry a mesh reference names comes from. Null draws no referenced mesh.</summary>
+    /// <remarks>
+    ///     <b>Until this was settable, every mesh reference resolved to an empty mesh</b> — the
+    ///     component was authored, saved, compiled, loaded and invisible, and the placeholder said so in
+    ///     its own remarks. What was missing was never the loading; it was the decision about what an
+    ///     extraction system does while a load is in flight, which <see cref="IMeshSource" /> answers by
+    ///     letting it ask instead of wait.
+    /// </remarks>
+    public IMeshSource? Meshes { get; set; }
+
+    /// <summary>How many entities are waiting for geometry that has not loaded yet.</summary>
+    /// <remarks>
+    ///     Counted per frame rather than accumulated, and expected to fall to zero a few frames after a
+    ///     level starts. A number that stays up is a reference nothing can resolve — a misspelled
+    ///     address, a mesh left out of the build — which otherwise looks exactly like a mesh that is
+    ///     simply not there.
+    /// </remarks>
+    public int Waiting { get; private set; }
+
     /// <summary>How many entities wanted geometry that did not fit in the buffer.</summary>
     /// <remarks>
     ///     Counted rather than thrown for, and worth looking at: a level that silently stops drawing past
@@ -195,6 +214,7 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
     }
 
     void Appear(World world) {
+        Waiting = 0;
         pending.Clear();
 
         foreach (var chunk in world.Chunks(appearedMeshes)) {
@@ -203,7 +223,16 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
 
         foreach (var entity in pending) {
             var renderable = world.Read<MeshRenderable>(entity);
-            Add(world, entity, GeometryKey.Of(renderable.Mesh), () => MeshOf(renderable.Mesh));
+
+            // Asked rather than waited for. A mesh that has not arrived leaves the entity without a
+            // RenderHandle, so it matches `appearedMeshes` again next frame and is asked about again —
+            // which is the whole of the asynchronous story, and is why it needs no queue of its own.
+            if (Meshes is null || !Meshes.TryGet(renderable.Mesh, out var mesh)) {
+                Waiting++;
+                continue;
+            }
+
+            Add(world, entity, GeometryKey.Of(renderable.Mesh), () => mesh);
         }
 
         pending.Clear();
@@ -285,17 +314,5 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
         static float Row(float x, float y, float z) => (x * x) + (y * y) + (z * z);
     }
 
-    /// <summary>The geometry a mesh reference names.</summary>
-    /// <param name="reference">The reference.</param>
-    /// <returns>The mesh.</returns>
-    /// <remarks>
-    ///     ⚠ <b>An empty mesh, because loading is not wired in yet.</b> Every piece needed to do it
-    ///     properly exists — <c>ContentCatalog.TryGetAddress</c> resolves the reference and
-    ///     <c>AssetManager.LoadAsync&lt;MeshData&gt;</c> loads it — and what is missing is the decision
-    ///     about what an extraction system does while an asynchronous load is in flight. A synchronous
-    ///     load here would stall the frame that first sees a mesh, which is the frame a level starts.
-    ///     Until that is answered, an entity with a mesh reference is counted in
-    ///     <see cref="Dropped" /> rather than drawn as something wrong.
-    /// </remarks>
-    static MeshData MeshOf(AssetReference reference) => new() { Name = reference.ToString() };
+
 }

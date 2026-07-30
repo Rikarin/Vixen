@@ -1,4 +1,11 @@
 #nullable enable
+Vixen.Engine.Renderer.AssetMeshSource -> sealed class
+Vixen.Engine.Renderer.AssetMeshSource : Vixen.Rendering.Ecs.IMeshSource
+Vixen.Engine.Renderer.AssetMeshSource.AssetMeshSource(Vixen.Assets.AssetManager assets) -> void
+Vixen.Engine.Renderer.AssetMeshSource.Failed.get -> int
+Vixen.Engine.Renderer.AssetMeshSource.Loaded.get -> int
+Vixen.Engine.Renderer.AssetMeshSource.Requested.get -> int
+Vixen.Engine.Renderer.AssetMeshSource.TryGet(Vixen.Core.AssetReference reference, out Vixen.Rendering.MeshData mesh) -> bool
 Vixen.Engine.Renderer.DebugDrawRenderer -> sealed class
 Vixen.Engine.Renderer.DebugDrawRenderer : System.IDisposable
 Vixen.Engine.Renderer.DebugDrawRenderer.DebugDrawRenderer(Vixen.Graphics.IGraphicsDevice device, Vixen.Rendering.LineShaders shaders, Vixen.Rendering.RenderOutput output, int worldCapacity = 65536, int screenCapacity = 65536) -> void
@@ -43,4 +50,20 @@ Vixen.Engine.Renderer.SceneRenderHost.Import(string name, Vixen.Rendering.Compos
 Vixen.Engine.Renderer.SceneRenderHost.Load(Vixen.Rendering.Compositor.GraphicsCompositorAsset asset) -> void
 Vixen.Engine.Renderer.SceneRenderHost.SceneRenderHost(Vixen.Graphics.IGraphicsDevice device, Vixen.Shaders.EffectSystem effects) -> void
 Vixen.Engine.Renderer.SceneRenderHost.System.get -> Vixen.Rendering.RenderSystem
+Vixen.Engine.Renderer.WorldRenderer -> sealed class
+Vixen.Engine.Renderer.WorldRenderer : System.IDisposable
+Vixen.Engine.Renderer.WorldRenderer.Dispose() -> void
+Vixen.Engine.Renderer.WorldRenderer.Extraction.get -> Vixen.Rendering.Ecs.MeshExtractionSystem?
+Vixen.Engine.Renderer.WorldRenderer.Geometry.get -> Vixen.Rendering.GeometryBuffer
+Vixen.Engine.Renderer.WorldRenderer.Host.get -> Vixen.Engine.Renderer.SceneRenderHost
+Vixen.Engine.Renderer.WorldRenderer.Lighting.get -> Vixen.Rendering.Features.ForwardLightingRenderFeature
+Vixen.Engine.Renderer.WorldRenderer.Materials.get -> Vixen.Rendering.Features.MaterialRenderFeature
+Vixen.Engine.Renderer.WorldRenderer.Meshes.get -> Vixen.Rendering.Features.MeshRenderFeature
+Vixen.Engine.Renderer.WorldRenderer.Mount(Vixen.Assets.AssetManager assets) -> void
+Vixen.Engine.Renderer.WorldRenderer.Register(Vixen.Engine.Frames.EngineLoop loop, Vixen.Rendering.RenderStageMask stages) -> void
+Vixen.Engine.Renderer.WorldRenderer.Residency.get -> Vixen.Rendering.Ecs.GeometryResidency
+Vixen.Engine.Renderer.WorldRenderer.Source.get -> Vixen.Rendering.Ecs.IMeshSource?
+Vixen.Engine.Renderer.WorldRenderer.Source.set -> Vixen.Rendering.Ecs.IMeshSource?
+Vixen.Engine.Renderer.WorldRenderer.Transforms.get -> Vixen.Rendering.Features.TransformRenderFeature
+Vixen.Engine.Renderer.WorldRenderer.WorldRenderer(Vixen.Graphics.IGraphicsDevice device, Vixen.Shaders.EffectSystem effects, int vertexCapacity = 1048576, int indexCapacity = 2097152) -> void
 static Vixen.Engine.Renderer.DebugView.FromView(in Vixen.Core.Mathematics.Matrix4x4 view) -> Vixen.Engine.Renderer.DebugView

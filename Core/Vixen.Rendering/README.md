@@ -645,13 +645,19 @@ process that issued it.
 claim did not, so `Forget` exists and a scene unload that does not call it leaks a slice per entity. The
 ECS's add/remove events are what would make this automatic and they are behind a compile-time flag.
 
-⚠ **Three things are still owed, and none of them is structural.** *Mesh assets do not load* — the
-resolution is done and what is unanswered is what an extraction system does while an asynchronous load is
-in flight, since a synchronous one would stall the frame a level starts; an entity with a mesh reference is
-counted in `Dropped`. *Every object takes one material*, because a material asset resolved to a `Material`
-does not exist yet — which is also why this is not doc 06's "a mesh with three materials is three render
-objects". *Every live object's transform is rewritten every frame*, where doc 06 wants only what moved:
-the wrong cost, not a wrong picture.
+**Mesh assets load through `IMeshSource`**, which the extraction system *asks* rather than waits on: an
+entity whose mesh has not arrived keeps no `RenderHandle`, so the next reconciliation asks again, and
+nothing needs a queue. That is what makes an asynchronous load safe inside a frame — a synchronous one
+would stall the frame a level starts on, once per mesh in it. `Waiting` counts the entities in that
+state and is distinct from `Dropped`, which is geometry that arrived and did not fit: one is a frame
+away from being drawn and the other never will be. `Vixen.Engine.Renderer`'s `AssetMeshSource` is the
+implementation over `AssetManager`, and it lives there because this assembly must not know what a bundle
+is.
+
+⚠ **Two things are still owed, and neither is structural.** *Every object takes one material*, because a
+material asset resolved to a `Material` does not exist yet — which is also why this is not doc 06's "a
+mesh with three materials is three render objects". *Every live object's transform is rewritten every
+frame*, where doc 06 wants only what moved: the wrong cost, not a wrong picture.
 
 ## Lighting
 

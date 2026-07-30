@@ -1020,6 +1020,8 @@ Vixen.Rendering.Ecs.GeometryResidency.Flush(Vixen.Graphics.ICommandList list) ->
 Vixen.Rendering.Ecs.GeometryResidency.GeometryResidency(Vixen.Rendering.GeometryBuffer buffer) -> void
 Vixen.Rendering.Ecs.GeometryResidency.Release(Vixen.Rendering.Ecs.GeometryKey key) -> bool
 Vixen.Rendering.Ecs.GeometryResidency.TryGet(Vixen.Rendering.Ecs.GeometryKey key, out Vixen.Rendering.GeometrySlice slice) -> bool
+Vixen.Rendering.Ecs.IMeshSource -> interface
+Vixen.Rendering.Ecs.IMeshSource.TryGet(Vixen.Core.AssetReference reference, out Vixen.Rendering.MeshData mesh) -> bool
 Vixen.Rendering.Ecs.Light -> struct
 Vixen.Rendering.Ecs.Light.Colour -> Vixen.Core.Mathematics.Color3
 Vixen.Rendering.Ecs.Light.HalfLength -> float
@@ -1049,9 +1051,12 @@ Vixen.Rendering.Ecs.MeshExtractionSystem.Forget(Vixen.Core.Entity entity) -> boo
 Vixen.Rendering.Ecs.MeshExtractionSystem.Material.get -> Vixen.Rendering.Material?
 Vixen.Rendering.Ecs.MeshExtractionSystem.Material.set -> Vixen.Rendering.Material?
 Vixen.Rendering.Ecs.MeshExtractionSystem.MeshExtractionSystem(Vixen.Rendering.RenderSystem system, Vixen.Rendering.Features.MeshRenderFeature meshes, Vixen.Rendering.Features.TransformRenderFeature transforms, Vixen.Rendering.Features.MaterialRenderFeature materials, Vixen.Rendering.Ecs.GeometryResidency residency) -> void
+Vixen.Rendering.Ecs.MeshExtractionSystem.Meshes.get -> Vixen.Rendering.Ecs.IMeshSource?
+Vixen.Rendering.Ecs.MeshExtractionSystem.Meshes.set -> Vixen.Rendering.Ecs.IMeshSource?
 Vixen.Rendering.Ecs.MeshExtractionSystem.ObjectCount.get -> int
 Vixen.Rendering.Ecs.MeshExtractionSystem.Stages.get -> Vixen.Rendering.RenderStageMask
 Vixen.Rendering.Ecs.MeshExtractionSystem.Stages.set -> Vixen.Rendering.RenderStageMask
+Vixen.Rendering.Ecs.MeshExtractionSystem.Waiting.get -> int
 Vixen.Rendering.Ecs.MeshRenderable -> struct
 Vixen.Rendering.Ecs.MeshRenderable.CastsShadows -> bool
 Vixen.Rendering.Ecs.MeshRenderable.Material -> Vixen.Core.AssetReference

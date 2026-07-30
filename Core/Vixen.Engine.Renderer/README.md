@@ -25,6 +25,36 @@ does not reference a graphics API — which is what lets `Vixen.Physics`, `Vixen
 `Vixen.Audio` produce debug geometry without linking one. `Vixen.Rendering` draws lines without
 knowing what a debug overlay is. Putting the join in either would drag one into the other.
 
+## A world, drawn
+
+`WorldRenderer` is the whole join: the standard features, the shared geometry buffer and its residency,
+the extraction systems, and a `SceneRenderHost` to draw with. Before it, a game had to build four
+features, a buffer, a residency, two systems and a host — in an order, with every reference between them
+right — which is why the samples opened a device and issued draws instead, and why none of them is a
+game.
+
+```csharp
+using var renderer = new WorldRenderer(device, effects);
+
+renderer.Host.Builder.Views["Camera"] = camera;
+renderer.Host.Load(compositor);
+renderer.Mount(assets);                  // mesh references now resolve
+renderer.Register(loop, opaque.Mask);    // entities now reach the render system
+
+loop.Frame(elapsed);
+renderer.Host.Draw(list);
+```
+
+**`AssetMeshSource` is what made `MeshRenderable` mean something.** Both sides of it were finished —
+the catalog resolves a reference, the manager loads and shares the bytes, the extraction system
+reconciles entities into render objects — and between them stood one function returning an empty mesh,
+so an entity carrying a mesh reference was *authored, saved, compiled, loaded and invisible*.
+
+**Nothing waits.** A load starts on the first ask and the answer is "not yet" until it lands; the
+entity keeps no render handle, so next frame's reconciliation asks again. That is the whole
+asynchronous story and it needs no queue. The alternative — a synchronous load inside extraction —
+stalls the frame a level starts on, once per mesh in it.
+
 ## Drawing a frame
 
 `SceneRenderHost` is the other join this assembly makes, and it is the same shape as the first: a
