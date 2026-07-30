@@ -453,6 +453,7 @@ Phase 9 is the most complete phase in the repository — **all five exit criteri
 | `07-AddressablesRemote` | ✅ | 144.6 KB cold → 48.6 KB update, asserted |
 | `08-Multiplayer`, `09-NetworkSoak`, `10-VoiceChat` | ✅ | |
 | `11-VideoPlayback` | ✅ | The half of video only a running frame exercises: three planes reaching the GPU at their own sizes, in order |
+| `12-VirtualGeometry` | ✅ | The `Game` ⇄ `SceneRenderHost` join doc 22 phase 5 recorded as owed: a document-driven virtualized frame on a swapchain, presenting the visibility buffer as a debug view. Its shutdown log caught the traversal's per-parent duplication |
 
 ## 1.14 Documentation and release (Phase 11)
 
@@ -463,7 +464,7 @@ Phase 9 is the most complete phase in the repository — **all five exit criteri
 | `docs/rhi-backend-mapping.md` | ✅ |
 | DocFX API reference | ⬜ |
 | Manual: getting started, per-subsystem guides, UI tutorial, Raven reference, Unity migration | ⬜ |
-| 12+ runnable samples | 🟡 (11 exist) |
+| 12+ runnable samples | ✅ (12 exist) |
 | `dotnet new` templates verified on six targets | ⬜ |
 | `PublicAPI.Shipped.txt` freeze + API review | 🟡 (baselines exist and are gated; the freeze is folding `Unshipped` into `Shipped` at the release, and the review pass is the reading nobody has done yet) |
 | Release automation (tag → signed builds + NuGet + GitHub Release) | ⬜ |

@@ -122,6 +122,98 @@ public sealed class RenderGraphTests : IDisposable {
         Assert.True(ran);
     }
 
+    /// <summary>A pass that only clears a depth target survives when a later pass loads it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Loading is reading, and culling has to see it that way.</b> An attachment is declared
+    ///         as a write, so a clear-only pass has no consumer culling can find unless the load is
+    ///         also a read — and without that read the clear is removed, the loading pass tests its
+    ///         fragments against undefined memory, and on a driver where that memory is NaNs every
+    ///         comparison is false and every fragment quietly disappears.
+    ///     </para>
+    ///     <para>
+    ///         That is not hypothetical: it is how the visibility buffer's depth prepass was culled out
+    ///         of the virtualized frame, and the picture stayed empty through three other diagnoses
+    ///         because a culled pass fails nothing. See <c>docs/plan/22-virtualized-geometry.md</c> phase 4.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AClearOnlyDepthPassSurvivesWhenALaterPassLoadsIt() {
+        var description = Target("backbuffer");
+        var texture = device.CreateTexture(description);
+        var view = device.CreateTextureView(texture);
+        var imported = graph.ImportTexture(texture, view, description, exitState: ResourceState.CopySource);
+        var depth = graph.CreateTexture(Depth("depth"));
+        var ran = new List<string>();
+
+        graph.AddPass("clear", pass => {
+            pass.DepthAttachment(depth);
+            pass.Execute(_ => ran.Add("clear"));
+        });
+
+        graph.AddPass("draw", pass => {
+            pass.ColourAttachment(imported);
+            pass.DepthAttachment(depth, LoadAction.Load);
+            pass.Execute(_ => ran.Add("draw"));
+        });
+
+        graph.Execute(new TrackingCommandList());
+
+        Assert.Equal(["clear", "draw"], ran);
+    }
+
+    /// <summary>The same for a colour attachment: a loaded target keeps its producer alive.</summary>
+    [Fact]
+    public void AClearOnlyColourPassSurvivesWhenALaterPassLoadsIt() {
+        var description = Target("backbuffer");
+        var texture = device.CreateTexture(description);
+        var view = device.CreateTextureView(texture);
+        var imported = graph.ImportTexture(texture, view, description, exitState: ResourceState.CopySource);
+        var accumulation = graph.CreateTexture(Target("accumulation"));
+        var ran = new List<string>();
+
+        graph.AddPass("base", pass => {
+            pass.ColourAttachment(accumulation);
+            pass.Execute(_ => ran.Add("base"));
+        });
+
+        graph.AddPass("accumulate", pass => {
+            pass.ColourAttachment(accumulation, LoadAction.Load);
+            pass.Execute(_ => ran.Add("accumulate"));
+        });
+
+        graph.AddPass("resolve", pass => {
+            pass.Reads(accumulation);
+            pass.ColourAttachment(imported);
+            pass.Execute(_ => ran.Add("resolve"));
+        });
+
+        graph.Execute(new TrackingCommandList());
+
+        Assert.Equal(["base", "accumulate", "resolve"], ran);
+    }
+
+    /// <summary>Loading a transient nothing ever wrote is refused, not quietly undefined.</summary>
+    /// <remarks>
+    ///     The other half of loading being a read: the validation that already refuses reading an
+    ///     unwritten transient now covers attachments too. The message names the pass, which is how a
+    ///     document missing its depth prepass fails — instead of depth-testing against garbage.
+    /// </remarks>
+    [Fact]
+    public void LoadingADepthTargetNothingWroteIsRefused() {
+        var depth = graph.CreateTexture(Depth("depth"));
+
+        graph.AddPass("draw", pass => {
+            pass.DepthAttachment(depth, LoadAction.Load);
+            pass.SideEffect();
+            pass.Execute(_ => { });
+        });
+
+        var refused = Assert.Throws<RenderGraphException>(() => graph.Execute(new TrackingCommandList()));
+
+        Assert.Contains("draw", refused.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>Culling keeps a chain that ends somewhere real.</summary>
     [Fact]
     public void AChainThatReachesTheOutputIsKeptWhole() {

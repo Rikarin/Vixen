@@ -146,10 +146,19 @@ public sealed class VirtualGeometryDeviceTests {
         // The traversal ran on the device rather than being skipped for a missing variant, an unresolved
         // effect or an empty instance list — each of which is a frame that draws nothing and reports it
         // nowhere, and each of which this suite exists to tell apart from a picture being wrong.
-        // ⚠ That it dispatched, and deliberately not that it produced anything. VirtualGeometryGoldenTests
-        // is what asks the stronger question — and the answer, today, is that it produces no visible
-        // clusters at all, which every assertion in this test is compatible with.
         Assert.True(geometry.Visibility.TraversedOnDevice, "The cluster traversal never dispatched.");
+
+        // And it produced something. This is the assertion whose absence let the traversal reject every
+        // instance for a whole phase without any device test noticing: TraversedOnDevice is set when a
+        // dispatch is prepared, so it is true of a dispatch that culls the entire scene. The count is
+        // read back beside the page requests, one frame stale, which the frame loop above has already
+        // allowed for. VirtualGeometryGoldenTests asks the still stronger question — that the drawn
+        // pixels match a forward render — and this is the cheap half of it that runs per document.
+        Assert.True(
+            geometry.Visibility.VisibleClusters > 0,
+            "The traversal dispatched and accepted nothing: an empty visible list is a frame that draws "
+            + "no virtualized geometry, whatever else it got right."
+        );
 
         // And the streaming loop closed: something asked for pages and something serviced them. A mesh
         // whose pages never arrive still draws — at its coarsest level, for ever — so "resident" is the
@@ -196,6 +205,9 @@ public sealed class VirtualGeometryDeviceTests {
         game: !Sequence
           name: Frame
           children:
+            - !RenderPass
+              name: ClearDepth
+              depthTarget: SceneDepth
             - !ClusterCulling
               name: Traversal
             - !VisibilityBuffer
@@ -236,8 +248,13 @@ public sealed class VirtualGeometryDeviceTests {
                 var c = a + segments + 1;
                 var d = c + 1;
 
-                indices.AddRange([a, c, b]);
-                indices.AddRange([b, c, d]);
+                // Wound so the normals face +z — towards the camera the test puts at the origin. The
+                // other winding is not a different-looking picture: the traversal's normal cone
+                // correctly rejects every cluster of a plane whose back is turned, and the assertion
+                // on the visible count fails with nothing else wrong. The golden fixture made the
+                // same mistake first and records it.
+                indices.AddRange([a, b, c]);
+                indices.AddRange([b, d, c]);
             }
         }
 

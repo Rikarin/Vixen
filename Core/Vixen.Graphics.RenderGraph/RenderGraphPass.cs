@@ -101,8 +101,19 @@ public sealed class RenderGraphPassBuilder {
     ///     anything reads it later.
     /// </param>
     /// <remarks>
-    ///     An attachment is a write, and is declared as one — so culling, lifetimes and barriers all
-    ///     see it without the caller having to say it twice.
+    ///     <para>
+    ///         An attachment is a write, and is declared as one — so culling, lifetimes and barriers all
+    ///         see it without the caller having to say it twice.
+    ///     </para>
+    ///     <para>
+    ///         <b>A loaded attachment is a read as well</b>, and the graph has to be told, because two of
+    ///         its decisions turn on reads and neither can see a <see cref="LoadAction" />: culling keeps
+    ///         a pass alive because a survivor <em>reads</em> what it wrote, and validation requires what
+    ///         is read to have a producer. Without the read, a pass that only clears a target is "never
+    ///         read" and culled, and the pass that loads it loads undefined memory — which is how the
+    ///         visibility buffer's depth arrived as NaNs and every fragment quietly failed the depth
+    ///         test.
+    ///     </para>
     /// </remarks>
     public void ColourAttachment(
         GraphTexture texture,
@@ -111,6 +122,11 @@ public sealed class RenderGraphPassBuilder {
         StoreAction? store = null
     ) {
         graph.Validate(texture);
+
+        if (load == LoadAction.Load) {
+            pass.Uses.Add(new(texture, GraphBuffer.None, ResourceState.ColourTarget, false));
+        }
+
         pass.Uses.Add(new(texture, GraphBuffer.None, ResourceState.ColourTarget, true));
         pass.Attachments.Add(new(texture, load, store, clear, 0f, 0, false, false));
     }
@@ -137,6 +153,14 @@ public sealed class RenderGraphPassBuilder {
         StoreAction? store = null
     ) {
         graph.Validate(texture);
+
+        // Loading is reading — see ColourAttachment. A depth test against loaded contents is the
+        // clearest case there is: the whole point of loading is that an earlier pass's depth decides
+        // this one's fragments, and culling that earlier pass replaces its answer with whatever was
+        // in the memory.
+        if (load == LoadAction.Load && !readOnly) {
+            pass.Uses.Add(new(texture, GraphBuffer.None, ResourceState.DepthStencilWrite, false));
+        }
 
         pass.Uses.Add(new(
             texture,

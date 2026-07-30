@@ -602,17 +602,33 @@
               "DefaultValue": ""
             },
             {
-              "Name": "clusterRecords.padding",
+              "Name": "clusterRecords.groupLead",
               "Type": {
                 "Scalar": "UInt",
-                "Rows": 2,
+                "Rows": 1,
                 "Columns": 1,
                 "IsMatrix": false,
                 "IsArray": false,
                 "IsStruct": false
               },
               "Offset": 72,
-              "Size": 8,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "clusterRecords.padding",
+              "Type": {
+                "Scalar": "UInt",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 76,
+              "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": ""
@@ -1615,10 +1631,10 @@
       "DefaultValue": ""
     },
     {
-      "Name": "clusterRecords.padding",
+      "Name": "clusterRecords.groupLead",
       "Type": {
         "Scalar": "UInt",
-        "Rows": 2,
+        "Rows": 1,
         "Columns": 1,
         "IsMatrix": false,
         "IsArray": false,
@@ -1627,7 +1643,25 @@
       "Set": 2,
       "Binding": 4,
       "Offset": 72,
-      "Size": 8,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "clusterRecords.padding",
+      "Type": {
+        "Scalar": "UInt",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 4,
+      "Offset": 76,
+      "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": ""

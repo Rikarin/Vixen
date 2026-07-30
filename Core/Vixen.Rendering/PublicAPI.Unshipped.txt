@@ -930,6 +930,8 @@ Vixen.Rendering.Compositor.VisibilityBufferAsset.Name.get -> string
 Vixen.Rendering.Compositor.VisibilityBufferAsset.Name.init -> string
 Vixen.Rendering.Compositor.VisibilityBufferAsset.Output.get -> string
 Vixen.Rendering.Compositor.VisibilityBufferAsset.Output.init -> string
+Vixen.Rendering.Compositor.VisibilityBufferAsset.Stages.get -> string[]
+Vixen.Rendering.Compositor.VisibilityBufferAsset.Stages.init -> string[]
 Vixen.Rendering.Compositor.VisibilityBufferAsset.View.get -> string
 Vixen.Rendering.Compositor.VisibilityBufferAsset.View.init -> string
 Vixen.Rendering.Compositor.VisibilityBufferAsset.ViewIndex.get -> int
@@ -949,6 +951,8 @@ Vixen.Rendering.Compositor.VisibilityBufferRenderer.Resolve.get -> Vixen.Renderi
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.Resolve.set -> Vixen.Rendering.GpuClusterResolve?
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.SceneConstants.get -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.SceneConstants.set -> Vixen.Rendering.SceneConstants?
+Vixen.Rendering.Compositor.VisibilityBufferRenderer.Stages.get -> Vixen.Rendering.RenderStageMask
+Vixen.Rendering.Compositor.VisibilityBufferRenderer.Stages.set -> void
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.Tiles.get -> Vixen.Rendering.GpuVisibilityTiles?
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.Tiles.set -> Vixen.Rendering.GpuVisibilityTiles?
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.View.get -> Vixen.Rendering.RenderView?
@@ -982,7 +986,8 @@ Vixen.Rendering.CullCluster.ErrorCenter -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.CullCluster.ErrorRadius -> float
 Vixen.Rendering.CullCluster.FirstChild -> uint
 Vixen.Rendering.CullCluster.Flags -> uint
-Vixen.Rendering.CullCluster.Padding -> ulong
+Vixen.Rendering.CullCluster.GroupLead -> uint
+Vixen.Rendering.CullCluster.Padding -> uint
 Vixen.Rendering.CullCluster.Page -> uint
 Vixen.Rendering.CullCluster.ParentError -> float
 Vixen.Rendering.CullCluster.Radius -> float
@@ -4761,6 +4766,7 @@ static Vixen.Rendering.RenderLight.Tube(Vixen.Core.Mathematics.Vector3 position,
 static Vixen.Rendering.RenderObjectId.Invalid.get -> Vixen.Rendering.RenderObjectId
 static Vixen.Rendering.RenderOutput.operator !=(Vixen.Rendering.RenderOutput left, Vixen.Rendering.RenderOutput right) -> bool
 static Vixen.Rendering.RenderOutput.operator ==(Vixen.Rendering.RenderOutput left, Vixen.Rendering.RenderOutput right) -> bool
+static Vixen.Rendering.RenderStageMask.All.get -> Vixen.Rendering.RenderStageMask
 static Vixen.Rendering.RenderStageMask.None.get -> Vixen.Rendering.RenderStageMask
 static Vixen.Rendering.RenderStageMask.Of(int stageIndex) -> Vixen.Rendering.RenderStageMask
 static Vixen.Rendering.RenderStageMask.operator &(Vixen.Rendering.RenderStageMask left, Vixen.Rendering.RenderStageMask right) -> Vixen.Rendering.RenderStageMask

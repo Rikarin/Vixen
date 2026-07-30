@@ -158,6 +158,11 @@ Vixen would show them the thing the analyzer forbids everywhere else.
 | 14012 | Error | `There is no window to present to.` — `Samples/03` needs a real display | 0.1.0 |
 | 14013 | Error | `The device was lost.` — recreation arrives in Phase 2 | 0.1.0 |
 | 14014 | Information | `The swapchain was out of date and has been rebuilt at {Width}×{Height}.` | 0.1.0 |
+| 14021 | Information | `Built {Triangles} triangles into {Clusters} clusters over {Pages} page(s) on {Adapter} ({Kind}). The host never learns how many are drawn.` | 0.1.0 |
+| 14022 | Error | `There is no window to present to.` — `Samples/12` needs a real display | 0.1.0 |
+| 14023 | Error | `The device was lost.` — recreation arrives in Phase 2 | 0.1.0 |
+| 14024 | Information | `The swapchain was out of date and has been rebuilt at {Width}×{Height}.` | 0.1.0 |
+| 14025 | Information | `The last frame's traversal accepted {Visible} of {Clusters} clusters, with {Resident} page(s) resident.` — printed at shutdown; zero visible after a real run is a frame that drew nothing, and it is what caught the traversal accepting more clusters than the mesh has | 0.1.0 |
 
 Two of those read the same as 14002 and 14004 and are separate ids anyway. A shared id would make
 this register ambiguous the first time somebody greps for one in a support log, and the register is

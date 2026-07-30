@@ -160,9 +160,22 @@ struct CullCluster {
     /// `Cull.ClusterRoot` when nothing simplifies this cluster further.
     var flags: uint
 
-    /// Eight bytes of tail padding the shader declares and never reads, so the record is eighty bytes
+    /// The lowest-indexed parent of the group that produced this cluster — the one that pushes.
+    ///
+    /// **Every parent of a group refines into the same children**, by construction, and the shared
+    /// `errorCenter` guarantees they all decide to at once — so a push per parent enqueues the whole
+    /// child set once per parent, and the duplication *compounds* per level: an 87-cluster sphere
+    /// produced a visible list of a thousand and sixteen, thirty-four of them distinct. The cut was
+    /// still a cut — every path held one visible cluster — which is exactly why no property test saw
+    /// it; what gave it away was a sample logging more accepted clusters than the mesh has. So one
+    /// parent is designated here, at flatten time, and it alone pushes and requests; the rest accept
+    /// themselves when the group cannot refine and otherwise contribute nothing, because their
+    /// replacement is the same child set the lead already enqueued.
+    var groupLead: uint
+
+    /// Four bytes of tail padding the shader declares and never reads, so the record is eighty bytes
     /// on both sides and every `float3` in it starts a sixteen-byte row.
-    var padding: uint2
+    var padding: uint
 }
 
 /// One instance of a cluster DAG: which clusters, where, and how big it is on screen.
@@ -819,7 +832,7 @@ shader Culling {
             return
         }
 
-        if (!Refine(record, instance)) {
+        if (!Refine(cluster, record, instance)) {
             Accept(cluster, owner, record)
         }
     }
@@ -829,7 +842,14 @@ shader Culling {
     /// **All or none**, which is the same rule the offline cut follows and for the same reason: the
     /// boundary between a refined cluster and its unrefined neighbour was locked at one level and
     /// simplified at the other, so refining half a group is a crack.
-    func Refine(record: CullCluster, instance: CullInstance): bool {
+    ///
+    /// **And once per group, not once per parent** — see `CullCluster.groupLead`. Every parent of a
+    /// group answers the residency question identically, because it is a question about the same
+    /// children; only the lead acts on the answer, by pushing when the group refines and by
+    /// requesting when it cannot. A non-lead parent still answers false when the children are
+    /// absent, because what it does with that answer — accept itself — is about its own surface.
+    func Refine(cluster: uint, record: CullCluster, instance: CullInstance): bool {
+        val lead = cluster == record.groupLead
         var ready = true
 
         for (i in 0 .. Cull.QueueCapacity - 1) {
@@ -841,13 +861,30 @@ shader Culling {
             val page = clusterRecords[int(instance.firstCluster + child)].page
 
             if (!Resident(page)) {
-                Request(page)
+                if (lead) {
+                    Request(page)
+                }
+
                 ready = false
             }
         }
 
         if (!ready) {
             return false
+        }
+
+        // Before the lead early-out, so every parent of the group reaches the same answer: a front
+        // that cannot take the children makes all of them accept themselves, rather than the lead
+        // accepting alone while its siblings vanish into a refinement nobody pushed. The count is
+        // read while other lanes push, so it is approximate — `Push` still has the last word, and a
+        // group that slips past both is what the overflowed flag is for.
+        if (pushed - taken + record.childCount > uint(Cull.QueueCapacity)) {
+            overflowed = 1u
+            return false
+        }
+
+        if (!lead) {
+            return true
         }
 
         for (i in 0 .. Cull.QueueCapacity - 1) {

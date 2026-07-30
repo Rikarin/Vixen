@@ -236,9 +236,19 @@ public sealed class GpuClusterRaster : IDisposable {
         // Element zero of the visible list is the count the traversal appended to, and the instance
         // count is the second word of an indirect draw's arguments. So the whole of "draw what the
         // device decided" is a four-byte copy between two device-local buffers.
+        //
+        // The source is transitioned here and not by the traversal — its Record leaves the list in
+        // ShaderRead and says the reader of the count is the side that knows. This is that reader:
+        // without the round trip through CopySource the copy is not ordered after the dispatch's
+        // writes, and an instance count read a hair early is this frame's draw issued with last
+        // frame's count — which on a first frame is zero, for ever, and reads as a raster that works
+        // and covers nothing.
         list.Barrier(
             new(
-                [new(arguments, ResourceState.IndirectArgument, ResourceState.CopyDestination)],
+                [
+                    new(arguments, ResourceState.IndirectArgument, ResourceState.CopyDestination),
+                    new(visibility.Visible, ResourceState.ShaderRead, ResourceState.CopySource)
+                ],
                 []
             )
         );
@@ -247,7 +257,10 @@ public sealed class GpuClusterRaster : IDisposable {
 
         list.Barrier(
             new(
-                [new(arguments, ResourceState.CopyDestination, ResourceState.IndirectArgument)],
+                [
+                    new(arguments, ResourceState.CopyDestination, ResourceState.IndirectArgument),
+                    new(visibility.Visible, ResourceState.CopySource, ResourceState.ShaderRead)
+                ],
                 []
             )
         );

@@ -649,6 +649,16 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Colour = declared.Colour,
             ViewIndex = declared.ViewIndex,
             View = declared.View is { Length: > 0 } view ? Bind(Views, declared.Name, "view", view) : null,
+
+            // Empty is every stage, not none — see the asset. A named stage that does not exist is the
+            // same refusal a missing view is, because a typo here is otherwise a buffer that quietly
+            // draws less than the document says.
+            Stages = declared.Stages is { Length: > 0 } stages
+                ? stages.Aggregate(
+                    RenderStageMask.None,
+                    (mask, name) => mask | Bind(Stages, declared.Name, "stage", name).Mask
+                )
+                : RenderStageMask.All,
             Raster = Raster,
             Tiles = Tiles,
             Resolve = Resolve,
