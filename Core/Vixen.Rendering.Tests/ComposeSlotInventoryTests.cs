@@ -72,6 +72,7 @@ public class ComposeSlotInventoryTests {
     [InlineData("irradiance", MaterialCompiler.EmptyIrradianceShader)]
     [InlineData("distanceField", MaterialCompiler.EmptyFieldShader)]
     [InlineData("surfaceCache", MaterialCompiler.EmptySurfaceCacheShader)]
+    [InlineData("miss", MaterialCompiler.EmptyReflectionMissShader)]
     [InlineData("under", MaterialCompiler.IdentityShader)]
     [InlineData("over", MaterialCompiler.IdentityShader)]
     public void EveryOptionalSlotNamesItsOwnDefaultInTheLibrary(string slot, string expected) {

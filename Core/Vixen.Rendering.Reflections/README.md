@@ -36,16 +36,33 @@ A mirror ray leaves the very surface the march would first sample, at distance n
 `Bias`, every reflection is the reflector's own colour. The test holds both behaviours, so the
 why survives the parameter.
 
+## The band, so a roughness map does not draw the threshold
+
+`RoughnessBlend` cross-fades the traced answer into the field's over a stated band ending at the
+threshold: at the band's midpoint the answer is the midpoint of the two, which no single path
+produces and which is exactly what the closed form holds — on this reference and on the kernel
+alike. Inside the band both reads run, which is the band's honest cost.
+
+## The device half, through the slots everything already shares
+
+`ReflectionTrace` (Raven `Reflections` package, driven by `Vixen.Rendering.Lighting`'s
+`ReflectionTraceFill`) reflects per texel: the march through `IDistanceFieldSource`, the hit
+through `ISurfaceCacheSource`, the rough read through `IIrradianceSource`, and the miss through
+`IReflectionMissSource` — a new slot whose seat is doc 06's reflection probes, taken without the
+kernel changing a line; `SkyMissSource` sits in it today, which is honestly what every reflection
+sees beyond the probes anyway. The device test holds one dispatch against this reference across
+every answer it distinguishes — sharp hit on an emissive wall through the cache, sharp miss to the
+sky slot, the band mixing both, the field whole, and an invalid texel — within a stated hundredth,
+measured at four thousandths, all of which is the field read's hardware trilinear: the march and
+the cache agree to the bit.
+
 ## Not yet, and named so the absence is a decision
 
-- **The device half.** A Raven kernel reflecting per pixel through the same composed slots the
-  kernels already share — `IDistanceFieldSource`, `ISurfaceCacheSource` — with this reference as
-  its texel-by-texel referee, and the reflection-probe fallback handed through
-  `IReflectionFallback`'s device analogue. That is also the piece that actually retires doc 06's
-  caveat in a frame.
-- **The blend band.** The hard threshold is the testable form; the device half owes a band that
-  cross-fades trace and field around it, so a roughness map does not draw the threshold as a line.
-- **Screen traces first.** The same trace order the screen probes run — screen, then field — and
-  for the same reason: the screen holds geometry the field does not.
+- **The probe-backed miss.** An `IReflectionMissSource` sampling doc 06's probe cubes is the wiring
+  that finishes retiring that row's "blended against the sky" caveat in a frame.
+- **Screen traces first.** For reflections this is SSR proper — it wants the frame's own colour,
+  a different input contract than the occlusion-only trace the probes run — and it should arrive
+  as one piece, not as an occluder that answers black.
 
-**Nothing here creates or calls a graphics device.**
+**Nothing in this package creates or calls a graphics device** — the kernel's driver lives in
+`Vixen.Rendering.Lighting`, where the devices are.

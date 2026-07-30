@@ -100,6 +100,36 @@ public class TracedReflectionTests {
     }
 
     [Fact]
+    public void TheBandBlendsWhatTheThresholdWouldCut() {
+        // A field of 2.5 against a wall answer of 0.8: at the band's midpoint the reflection is the
+        // midpoint of the two, which no single path produces — the discriminator for the lerp
+        // running rather than either side winning outright.
+        const float Uniform = 2.5f;
+
+        var field = new IrradianceField(new BoundingBox(new(-4f), new(4f)), new(2));
+
+        field.AllocateAll();
+        new TracedIrradianceFiller(new Empty(), new Constant { SkyValue = new(Uniform) }).Fill(field);
+
+        var radiance = new Constant();
+        var view = Vector3.Normalize(new(1f, -1f, 0f));
+
+        var tracer = new TracedReflections(new Wall(), radiance, new SkyFallback(radiance)) {
+            Field = field,
+            RoughnessThreshold = 0.5f,
+            RoughnessBlend = 0.2f
+        };
+
+        // Below the band: the wall whole. At the threshold: the field whole. Midway: half of each.
+        Assert.Equal(SurfaceAnswer.X, tracer.Reflect(Vector3.Zero, new(0f, 1f, 0f), view, 0.29f).X, 1e-3f);
+        Assert.Equal(Uniform, tracer.Reflect(Vector3.Zero, new(0f, 1f, 0f), view, 0.5f).X, 0.05f);
+
+        var middle = tracer.Reflect(Vector3.Zero, new(0f, 1f, 0f), view, 0.4f);
+
+        Assert.Equal((SurfaceAnswer.X + Uniform) * 0.5f, middle.X, 0.05f);
+    }
+
+    [Fact]
     public void AReflectionCarriesTheCachesBounces() {
         // The reuse § L5 exists for, in one assertion: hand the tracer L4's SurfaceCacheRadiance
         // and a mirror facing a cached wall reflects the wall's outgoing radiance — emissive plus

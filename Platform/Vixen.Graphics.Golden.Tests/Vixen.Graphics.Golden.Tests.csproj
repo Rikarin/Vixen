@@ -36,6 +36,7 @@
           backend that agrees with whatever it is told.
         -->
         <ProjectReference Include="..\..\Core\Vixen.Rendering\Vixen.Rendering.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.Reflections\Vixen.Rendering.Reflections.csproj" />
 
         <!--
             The user interface's GPU half. Its geometry is already checked without a device, and what

@@ -58,6 +58,9 @@ static class LibraryComposition {
         // And the surface cache a hit asks, which the card atlas fills.
         bindings.Add(new("surfaceCache", "SurfaceCacheSource"));
 
+        // And the far field a reflection miss sees, which a sky or the probes fill.
+        bindings.Add(new("miss", "SkyMissSource"));
+
         foreach (var (slot, shader) in overrides) {
             bindings.Add(new(slot, shader));
         }
