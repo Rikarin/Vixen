@@ -131,7 +131,11 @@ public class CompiledLibraryTests {
             .Single(m => m.Name == "Saturate");
 
         Assert.NotNull(saturate.IrFunction);
-        Assert.Contains(read.Ir.Functions, f => f.Name == saturate.IrFunction);
+
+        // By key, which is what the method records and what a call resolves; the function is still
+        // called `Saturate`, and the two being different strings is the point.
+        var lowered = Assert.Single(read.Ir.Functions, f => f.Key == saturate.IrFunction);
+        Assert.Equal("Saturate", lowered.Name);
     }
 
     /// <summary>
@@ -273,6 +277,99 @@ public class CompiledLibraryTests {
         Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
         Assert.Contains("Saturate", Assert.Single(generated).Code, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    ///     Two libraries that each declare a static of the same name both link, each to its own
+    ///     body.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A consumer links every library it references into one module, and a function used to
+    ///         cross the boundary under the name it carried there — a name only unique inside the
+    ///         module that coined it. Two packages that each declared a <c>static func Of</c>
+    ///         therefore offered the same identity, the first loaded took it, and every call to the
+    ///         other got the winner's body.
+    ///     </para>
+    ///     <para>
+    ///         Identical signatures deliberately. Mismatched ones make the substitution visible as
+    ///         an arity error out of the IR verifier, which is how this surfaced; matching ones
+    ///         produce a shader that compiles, validates, and computes the wrong thing — so this is
+    ///         the case worth pinning.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void SameNamedStaticsInTwoLibrariesEachKeepTheirOwnBody() {
+        var geometry = BuildLibrary(
+            "Geometry",
+            """
+            package Geometry
+
+            struct Barycentric {
+                static func Of(a: float): float {
+                    return sqrt(a)
+                }
+            }
+
+            """
+        );
+
+        var shading = BuildLibrary(
+            "Shading",
+            """
+            package Shading
+
+            struct ShadingAngles {
+                static func Of(a: float): float {
+                    return abs(a)
+                }
+            }
+
+            """
+        );
+
+        // The claim, at the artefact: the same name, and not the same key.
+        var keyOf = (CompiledLibrary library) =>
+            Assert.Single(library.Ir.Functions, f => f.Name == "Of").Key;
+
+        Assert.NotEqual(keyOf(geometry), keyOf(shading));
+
+        var (_, module, diagnostics) = Consume(
+            """
+            package App
+
+            import Geometry
+            import Shading
+
+            shader Lit {
+                var amount: float
+
+                [FragmentShader]
+                func Shade(): float4 {
+                    val a = Barycentric.Of(amount)
+                    val b = ShadingAngles.Of(amount)
+                    return float4(a, b, 0f, 1f)
+                }
+            }
+
+            """,
+            geometry,
+            shading
+        );
+
+        Assert.DoesNotContain(diagnostics, d => d.IsError);
+
+        var shade = Assert.Single(module.AllFunctions, f => f.Name == "Shade");
+        var called = CallGraph.Calls(shade.Body).ToArray();
+
+        // Two callees rather than one reached twice, and each holds the body its own package wrote.
+        Assert.Equal(2, called.Length);
+        Assert.NotSame(called[0], called[1]);
+        Assert.Equal(IrIntrinsic.Sqrt, OnlyIntrinsic(called[0]));
+        Assert.Equal(IrIntrinsic.Abs, OnlyIntrinsic(called[1]));
+    }
+
+    static IrIntrinsic OnlyIntrinsic(IrFunction function) =>
+        Assert.Single(function.Body.Statements.OfType<IrIntrinsicInstruction>()).Intrinsic;
 
     /// <summary>
     ///     A library struct keeps one identity across the link, so a value of it flows between the

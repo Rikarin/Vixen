@@ -145,7 +145,10 @@ public sealed partial class Lowerer {
             }
         }
 
-        /// <summary>Adds anything the decoder has produced but the module has not seen.</summary>
+        /// <summary>
+        ///     Adds anything the decoder has produced but the module has not seen, remembering the
+        ///     artefact key each entity was reached by so a library built here can re-record it.
+        /// </summary>
         void Publish() {
             foreach (var (name, structType) in decoder.Structs) {
                 if (lowerer.importedStructs.Add(structType)) {
@@ -199,6 +202,8 @@ public sealed partial class Lowerer {
         /// <remarks>
         ///     Renaming only on collision, rather than qualifying everything, so the GLSL a frame
         ///     debugger shows still says <c>Saturate</c> — which is the other job that backend does.
+        ///     Safe to be this relaxed because nothing resolves by these names: a library entity is
+        ///     reached by its artefact key, and the name is only what it ends up called.
         /// </remarks>
         string Unique(string name) {
             if (taken.Add(name)) {

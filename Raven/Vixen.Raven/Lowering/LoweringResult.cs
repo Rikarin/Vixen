@@ -21,7 +21,8 @@ namespace Vixen.Raven.Lowering;
 ///     <para>
 ///         The imported sets say which entities came from a referenced library. A library exports
 ///         only what its own compilation declared; a call into a library it was built against
-///         travels as a name, which is what the artefact-name maps supply.
+///         travels as the name or key that library published, which is what the artefact maps
+///         supply.
 ///     </para>
 /// </remarks>
 public sealed class LoweringResult {
@@ -40,7 +41,12 @@ public sealed class LoweringResult {
     /// <summary>Structs linked in from a referenced library rather than lowered here.</summary>
     internal IReadOnlySet<IrStructType> ImportedStructs { get; }
 
-    /// <summary>The name the artefact gave each imported function, which may not be the one it carries.</summary>
+    /// <summary>The artefact key each imported function was resolved by, which is not its name.</summary>
+    /// <remarks>
+    ///     A key, and kept, because a library built against another records a call into it by the
+    ///     key that library published — while the name the function carries here is whatever was
+    ///     free in this module.
+    /// </remarks>
     internal IReadOnlyDictionary<IrFunction, string> ImportedFunctionNames { get; }
 
     /// <summary>The name the artefact gave each imported struct.</summary>
@@ -64,7 +70,11 @@ public sealed class LoweringResult {
         ImportedStructNames = importedStructNames;
     }
 
-    /// <summary>The artefact name for a function: the one it carries, or the one its library gave it.</summary>
+    /// <summary>
+    ///     The artefact key for an imported function, falling back to the name for one this
+    ///     compilation lowered. See <c>LibraryBuilder.Builder.Key</c>, which is where the fallback
+    ///     is replaced by a key derived from the declaration.
+    /// </summary>
     internal string ArtefactName(IrFunction function) =>
         ImportedFunctionNames.GetValueOrDefault(function) ?? function.Name;
 
