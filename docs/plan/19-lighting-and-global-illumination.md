@@ -888,6 +888,26 @@ Traced reflections reusing L1/L4, with rough reflections reading L2 and L4 inste
 the existing reflection probes as the miss fallback. Retires doc 06's "⚠ blended against the sky"
 caveat as a side effect.
 
+**Status: the reference half is built and its closed forms hold; the device half is the owed
+remainder.** [`Vixen.Rendering.Reflections`](../../Core/Vixen.Rendering.Reflections/README.md) is
+the layer that reuses everything below it, which is this section's whole argument: a mirror ray
+marches L1's tracer, a hit answers through `IRadianceSource` — hand it L4's
+`SurfaceCacheRadiance` and a reflection carries emissive, direct light and every bounce, asserted
+by a test that reads the store's own outgoing convention back off a cached wall — and a miss asks
+`IReflectionFallback`, the seam doc 06's probes plug into as the far field they are actually good
+at. Rough surfaces, at and above a stated threshold, read L2's field about the mirror direction
+instead of tracing — the discriminating test puts a wall where the mirror ray would hit and shows
+it appearing below the threshold and *not* appearing at it, because rough is a different read, not
+a darker mirror. The view convention is incident and pinned (the other convention reflects the
+camera and looks plausible everywhere), and the mirror bias carries the test that shows what
+removing it does: every reflection becomes the reflector's own colour.
+
+Owed: the device half — a per-pixel Raven kernel through the same composed slots the kernels
+already share (`IDistanceFieldSource`, `ISurfaceCacheSource`), with this reference as its
+texel-by-texel referee and the probe fallback handed through the interface's device analogue,
+which is the piece that actually retires doc 06's caveat in a frame — plus the blend band around
+the hard threshold, and screen traces first in the trace order, for the screen probes' reason.
+
 ### L6 — Hardware ray tracing *(2.0 EM)*
 
 Acceleration structures in the RHI (`GraphicsDeviceFeatures.HasRayTracing`, capability-gated like

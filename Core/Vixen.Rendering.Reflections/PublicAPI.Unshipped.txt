@@ -1,0 +1,18 @@
+#nullable enable
+Vixen.Rendering.Reflections.IReflectionFallback -> interface
+Vixen.Rendering.Reflections.IReflectionFallback.Miss(Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 direction, float roughness) -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Reflections.SkyFallback -> sealed class
+Vixen.Rendering.Reflections.SkyFallback : Vixen.Rendering.Reflections.IReflectionFallback
+Vixen.Rendering.Reflections.SkyFallback.Miss(Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 direction, float roughness) -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Reflections.SkyFallback.SkyFallback(Vixen.Rendering.IrradianceFields.IRadianceSource source) -> void
+Vixen.Rendering.Reflections.TracedReflections -> sealed class
+Vixen.Rendering.Reflections.TracedReflections.Bias.get -> float
+Vixen.Rendering.Reflections.TracedReflections.Bias.set -> float
+Vixen.Rendering.Reflections.TracedReflections.Field.get -> Vixen.Rendering.IrradianceFields.IrradianceField?
+Vixen.Rendering.Reflections.TracedReflections.Field.set -> Vixen.Rendering.IrradianceFields.IrradianceField?
+Vixen.Rendering.Reflections.TracedReflections.MaxDistance.get -> float
+Vixen.Rendering.Reflections.TracedReflections.MaxDistance.set -> float
+Vixen.Rendering.Reflections.TracedReflections.Reflect(Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 normal, Vixen.Core.Mathematics.Vector3 view, float roughness) -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Reflections.TracedReflections.RoughnessThreshold.get -> float
+Vixen.Rendering.Reflections.TracedReflections.RoughnessThreshold.set -> float
+Vixen.Rendering.Reflections.TracedReflections.TracedReflections(Vixen.Rendering.DistanceFields.IDistanceField geometry, Vixen.Rendering.IrradianceFields.IRadianceSource radiance, Vixen.Rendering.Reflections.IReflectionFallback fallback) -> void
