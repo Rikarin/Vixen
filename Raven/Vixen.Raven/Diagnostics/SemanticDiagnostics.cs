@@ -1016,6 +1016,25 @@ public static class SemanticDiagnostics {
         DiagnosticSeverity.Error
     );
 
+    /// <summary>A <c>Texture2D&lt;T&gt;</c> whose element is not an integer texel.</summary>
+    /// <remarks>
+    ///     The angle-bracket form exists for the views the plain <c>Texture2D</c> cannot describe:
+    ///     integer formats, whose component type Vulkan checks against the descriptor. A float
+    ///     element would be the built-in spelled twice — one of them without <c>Sample</c> — so it
+    ///     is refused and the message points back at the spelling that works. Scalars are refused
+    ///     for the reason <c>RVN2122</c> refuses them on a storage image: a fetch returns four
+    ///     lanes on both targets, whatever the format stores.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor SampledTextureElementNotIntegral = new(
+        "RVN2136",
+        "Sampled texture element is not an integer texel",
+        "'{0}' cannot be the element type of a '{1}': the angle-bracket form is for integer-sampled "
+        + "textures and a fetch returns four lanes, so the element must be 'int4' or 'uint4' — a "
+        + "float-sampled texture is the plain 'Texture2D'",
+        Declaration,
+        DiagnosticSeverity.Error
+    );
+
     /// <summary>A <c>[Format]</c> on something that is not a storage image.</summary>
     /// <remarks>
     ///     On the <c>RVN2091</c> policy: nothing else in the language has a texel format, so the

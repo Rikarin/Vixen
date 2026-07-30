@@ -65,7 +65,10 @@ shader VisibilityResolve : ClusteredShading {
     compose val surface: IMaterialSurface
 
     /// The identity buffer the raster wrote. See `ClusterRaster.rvn`.
-    var identities: Texture2D
+    ///
+    /// Integer-sampled for the reason `VisibilityTiles.rvn` gives: the view is `R32_UINT`, and the
+    /// component type is part of the descriptor.
+    var identities: Texture2D<uint4>
 
     /// Where the shaded colour goes.
     ///
@@ -149,7 +152,7 @@ shader VisibilityResolve : ClusteredShading {
             return
         }
 
-        val identity = asuint(identities.Load(int3(pixel.x, pixel.y, 0)).x)
+        val identity = identities.Load(int3(pixel.x, pixel.y, 0)).x
 
         if (!Raster.Covered(identity)) {
             return

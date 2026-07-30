@@ -134,12 +134,15 @@ public static class GlslTypes {
             IrStructType structType => structType.Name,
             // Vulkan GLSL has separate texture and sampler objects, so both survive as
             // themselves and pair up at the sample site — the same shape as SPIR-V, and
-            // the reason the two backends agree about binding indices.
-            IrTextureType texture => texture.Dimension switch {
-                IrTextureDimension.Texture2D => "texture2D",
-                IrTextureDimension.Texture3D => "texture3D",
-                _ => "textureCube"
-            },
+            // the reason the two backends agree about binding indices. The prefix is the
+            // sampled component's class, exactly as on a storage image: `utexture2D` is
+            // what a uint-sampled Texture2D declares, and what texelFetch returns uvec4 from.
+            IrTextureType texture => SampledPrefix(texture)
+                + texture.Dimension switch {
+                    IrTextureDimension.Texture2D => "texture2D",
+                    IrTextureDimension.Texture3D => "texture3D",
+                    _ => "textureCube"
+                },
             IrSamplerType => "sampler",
 
             // A storage image is its own GLSL type, prefixed by the component class it reads as:
@@ -200,12 +203,24 @@ public static class GlslTypes {
     public static string Combined(IrTextureType texture) {
         ArgumentNullException.ThrowIfNull(texture);
 
-        return texture.Dimension switch {
-            IrTextureDimension.Texture2D => "sampler2D",
-            IrTextureDimension.Texture3D => "sampler3D",
-            _ => "samplerCube"
-        };
+        return SampledPrefix(texture)
+            + texture.Dimension switch {
+                IrTextureDimension.Texture2D => "sampler2D",
+                IrTextureDimension.Texture3D => "sampler3D",
+                _ => "samplerCube"
+            };
     }
+
+    /// <summary>
+    ///     The component-class prefix a sampled texture's GLSL name carries: <c>u</c> for uint,
+    ///     <c>i</c> for int, nothing for float — the same rule a storage image's name follows.
+    /// </summary>
+    static string SampledPrefix(IrTextureType texture) =>
+        texture.SampledType.ComponentType.Kind switch {
+            IrTypeKind.Int => "i",
+            IrTypeKind.UInt => "u",
+            _ => string.Empty
+        };
 
     /// <summary>
     ///     A declaration of <paramref name="name" /> at <paramref name="type" />.
