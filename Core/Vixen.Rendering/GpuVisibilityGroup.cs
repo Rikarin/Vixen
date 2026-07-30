@@ -78,22 +78,26 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
     // at a legal offset only every sixteenth view — which is padding, arithmetic and a rule to get
     // wrong, to save one buffer of a few kilobytes.
     readonly UploadBuffer<CullView> lateViews = new("Culling.LateViews");
-    readonly DescriptorWrite[] writes = new DescriptorWrite[4];
+    readonly DescriptorWrite[] writes = new DescriptorWrite[GpuCulling.SetBindings.Length + 1];
 
     CullView[] packedViews = [];
     CullView[] packedLate = [];
     uint[] words = [];
 
-    // Each view's matrix from the frame the pyramid was built in, which is the only matrix its
-    // rectangle may be projected with. Indexed by view index, and dropped whole whenever the number
-    // of views changes: index 2 being "the second cascade" is a convention of the host's, and a
-    // frame that added a view has renumbered everything after it.
-    Matrix4x4[] previous = [];
-    bool[] projectable = [];
-    int remembered = -1;
+    // Each view's matrix from the frame the pyramid was built in — see OccluderProjections, which is
+    // its own type because the cluster traversal tests against the same pyramid and has to answer the
+    // same question about the same views.
+    readonly OccluderProjections projections = new();
 
     BufferHandle visibility;
     BufferHandle readback;
+
+    // One word, for the seven cluster bindings this dispatch declares and never reads. The same
+    // argument as the one-texel texture below, and for the same reason it is not optional: a
+    // permutation folds away the *code* that would have read them, not the declarations — so the set
+    // layout has eleven bindings whichever variant is bound, and a hole in it is a validation error on
+    // a device and nothing at all here. See GpuCulling.SetBindings.
+    BufferHandle unusedBindings;
 
     // One texel, for the frames that have no pyramid and a variant that declares one anyway.
     TextureHandle placeholder;
@@ -357,7 +361,7 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
         // fell back to the CPU still drew, so its matrices are the ones the depth it left behind was
         // drawn with. Remembering only on the device path would test one frame's rectangles against
         // another frame's pixels the moment a single frame fell back.
-        Remember(views);
+        projections.Remember(views);
     }
 
     /// <summary>Runs the dispatch and reads it back, or answers false having done nothing.</summary>
@@ -375,7 +379,7 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
 
         var occlusion = Occluders is { IsBuilt: true, Levels: > 0 } pyramid
             && pyramid.View.IsValid
-            && remembered == frameViews.Count;
+            && projections.Matches(frameViews.Count);
 
         // A placeholder is a variant that has not compiled yet, and culling with it would produce an
         // empty frame rather than a differently-shaded one — the failure a placeholder exists to
@@ -525,25 +529,6 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
         }
     }
 
-    /// <summary>Records the matrices the next frame's occlusion test will project with.</summary>
-    void Remember(IReadOnlyList<RenderView> frameViews) {
-        if (previous.Length < frameViews.Count) {
-            Array.Resize(ref previous, frameViews.Count);
-            Array.Resize(ref projectable, frameViews.Count);
-        }
-
-        for (var i = 0; i < frameViews.Count; i++) {
-            previous[i] = frameViews[i].ViewProjection;
-
-            // A view whose matrix was never set — a caller that supplied a frustum and nothing else
-            // — leaves identity behind, which projects a scene into a rectangle that means nothing.
-            // Better to skip occlusion for it than to occlude by arithmetic about nowhere.
-            projectable[i] = previous[i] != Matrix4x4.Identity;
-        }
-
-        remembered = frameViews.Count;
-    }
-
     /// <summary>Packs this frame's objects and views and writes them to their upload rings.</summary>
     /// <returns>Whether any view ended up with a pyramid to test against.</returns>
     bool Upload(
@@ -572,7 +557,8 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
         for (var i = 0; i < frameViews.Count; i++) {
             // Occlusion per view rather than per dispatch: only a view this group saw in the frame
             // the pyramid was built in has a matrix its rectangle may be projected with.
-            var tested = occlusion && levels > 0 && i < projectable.Length && projectable[i];
+            var known = projections.TryGet(i, out var projection);
+            var tested = occlusion && levels > 0 && known;
             any |= tested;
 
             // The counts are the same for every view and are carried per view anyway, because that is
@@ -581,7 +567,7 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
                 frameViews[i],
                 objectCount,
                 wordCount,
-                tested ? previous[i] : default,
+                tested ? projection : default,
                 tested ? levels : 0
             );
         }
@@ -607,26 +593,7 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
     ///     </para>
     /// </remarks>
     void Bind(int objectCount, int viewCount, long bytes) {
-        writes[0] = DescriptorWrite.Storage(
-            CullingKeys.ObjectsBinding,
-            objects.Buffer,
-            objects.Offset,
-            (long)objectCount * Unsafe.SizeOf<CullObject>()
-        );
-
-        writes[1] = DescriptorWrite.Storage(
-            CullingKeys.ViewsBinding,
-            views.Buffer,
-            views.Offset,
-            (long)viewCount * Unsafe.SizeOf<CullView>()
-        );
-
-        writes[2] = DescriptorWrite.Storage(CullingKeys.VisibilityBinding, visibility, 0, bytes);
-
-        // Always, for the reason above: a view that is not being occlusion tested says so through
-        // its own flag rather than by leaving a hole in the set.
-        writes[3] = DescriptorWrite.Texture(CullingKeys.OccludersBinding, Occluding());
-
+        Fill(objects.Buffer, objects.Offset, (long)objectCount * Unsafe.SizeOf<CullObject>(), views, viewCount, bytes);
         device.UpdateDescriptorSet(descriptors[ring], writes);
     }
 
@@ -639,22 +606,14 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
     ///     of the pyramid this dispatch will actually sample.
     /// </remarks>
     void BindLate(int objectCount, int viewCount, long bytes) {
-        writes[0] = DescriptorWrite.Storage(
-            CullingKeys.ObjectsBinding,
+        Fill(
             objects.Buffer,
             objects.Offset,
-            (long)objectCount * Unsafe.SizeOf<CullObject>()
+            (long)objectCount * Unsafe.SizeOf<CullObject>(),
+            lateViews,
+            viewCount,
+            bytes
         );
-
-        writes[1] = DescriptorWrite.Storage(
-            CullingKeys.ViewsBinding,
-            lateViews.Buffer,
-            lateViews.Offset,
-            (long)viewCount * Unsafe.SizeOf<CullView>()
-        );
-
-        writes[2] = DescriptorWrite.Storage(CullingKeys.VisibilityBinding, visibility, 0, bytes);
-        writes[3] = DescriptorWrite.Texture(CullingKeys.OccludersBinding, Occluding());
 
         device.UpdateDescriptorSet(lateDescriptors[lateRing], writes);
     }
@@ -819,6 +778,47 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
     ///     silence.
     /// </remarks>
     /// <summary>What fills the occluder binding: the pyramid, or the texture that stands in for it.</summary>
+    /// <summary>
+    ///     Points every binding of the set at something: the four this dispatch reads, and the seven it
+    ///     declares and does not.
+    /// </summary>
+    /// <remarks>
+    ///     One method for both passes, because the only thing that differs between them is which ring
+    ///     of views they name — and the seven placeholders are exactly the kind of detail that gets
+    ///     added to one of two near-identical methods. See <see cref="GpuCulling.SetBindings" />.
+    /// </remarks>
+    void Fill(
+        BufferHandle objectBuffer,
+        long objectOffset,
+        long objectBytes,
+        UploadBuffer<CullView> viewRing,
+        int viewCount,
+        long bytes
+    ) {
+        writes[0] = DescriptorWrite.Storage(CullingKeys.ObjectsBinding, objectBuffer, objectOffset, objectBytes);
+
+        writes[1] = DescriptorWrite.Storage(
+            CullingKeys.ViewsBinding,
+            viewRing.Buffer,
+            viewRing.Offset,
+            (long)viewCount * Unsafe.SizeOf<CullView>()
+        );
+
+        writes[2] = DescriptorWrite.Storage(CullingKeys.VisibilityBinding, visibility, 0, bytes);
+
+        // Always, for the reason above: a view that is not being occlusion tested says so through
+        // its own flag rather than by leaving a hole in the set.
+        writes[3] = DescriptorWrite.Texture(CullingKeys.OccludersBinding, Occluding());
+
+        writes[4] = DescriptorWrite.Storage(CullingKeys.ClusterRecordsBinding, unusedBindings);
+        writes[5] = DescriptorWrite.Storage(CullingKeys.InstancesBinding, unusedBindings);
+        writes[6] = DescriptorWrite.Storage(CullingKeys.ChildrenBinding, unusedBindings);
+        writes[7] = DescriptorWrite.Storage(CullingKeys.RootsBinding, unusedBindings);
+        writes[8] = DescriptorWrite.Storage(CullingKeys.VisibleBinding, unusedBindings);
+        writes[9] = DescriptorWrite.Storage(CullingKeys.RequestsBinding, unusedBindings);
+        writes[10] = DescriptorWrite.Storage(CullingKeys.ResidencyBinding, unusedBindings);
+    }
+
     TextureViewHandle Occluding() =>
         Occluders is { IsBuilt: true } pyramid && pyramid.View.IsValid ? pyramid.View : placeholderView;
 
@@ -840,6 +840,20 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
     ///     </para>
     /// </remarks>
     bool EnsureOccluders() {
+        if (!unusedBindings.IsValid) {
+            // Storage rather than a uniform, and four bytes rather than none: a zero-length buffer is
+            // not a legal descriptor range, and a shader that never reads it does not care what is in
+            // it. `Buffer<T>.Length` derives from the bound range, so this reports one element — which
+            // the folded-away code would have used as a bound and no live code does.
+            unusedBindings = device.CreateBuffer(
+                new(sizeof(uint), BufferUsage.Storage, MemoryAccess.DeviceLocal, "Culling.UnusedBindings")
+            );
+
+            if (!unusedBindings.IsValid) {
+                return false;
+            }
+        }
+
         if (Occluding().IsValid) {
             return true;
         }
@@ -1011,6 +1025,11 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
         if (placeholder.IsValid) {
             device.Destroy(placeholder);
             placeholder = default;
+        }
+
+        if (unusedBindings.IsValid) {
+            device.Destroy(unusedBindings);
+            unusedBindings = default;
         }
 
         objects.Dispose();

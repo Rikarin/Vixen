@@ -66,6 +66,126 @@ public sealed class MemoryMeshletPageSource : IMeshletPageSource {
 }
 
 /// <summary>
+///     Reads pages out of seekable blobs, which is what a build's artefacts are.
+/// </summary>
+/// <remarks>
+///     <para>
+///         <b>The source a shipping build uses, and the reason
+///         <see cref="MeshletPageSet.WithoutData" /> exists.</b> A build writes a mesh's records and
+///         its geometry as two artefacts; the records are deserialised whole at load, and this reads
+///         the geometry a page at a time from wherever the second one landed. What it never does is
+///         read the whole blob, which is the difference between streaming and loading.
+///     </para>
+///     <para>
+///         <b>A stream per source rather than one shared handle.</b> Reads are issued from whatever
+///         thread the residency service's continuations land on, and a <see cref="Stream" />'s
+///         position is not thread-safe — so the seek and the read are one operation under one lock
+///         per source. A file provider that hands out <see cref="System.IO.MemoryMappedFiles" />
+///         would not need it; the interface does not promise one.
+///     </para>
+///     <para>
+///         Offsets come from <see cref="MeshletPageSet.OffsetOf" /> rather than from
+///         <see cref="MeshletPage.Offset" />, because a data-less set's pages carry the offsets they
+///         had in a blob that is no longer attached — the same numbers, and derived rather than
+///         trusted.
+///     </para>
+/// </remarks>
+public sealed class StreamMeshletPageSource : IMeshletPageSource, IDisposable {
+    readonly Dictionary<int, Blob> sources = [];
+    bool disposed;
+
+    /// <summary>Registers a mesh's page blob under a source id.</summary>
+    /// <param name="source">The id <see cref="PageKey.Source" /> will carry.</param>
+    /// <param name="pages">Its records, with or without their data.</param>
+    /// <param name="data">The blob its pages live in. Owned from here, and disposed with this.</param>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException">The stream cannot seek, so a page cannot be found in it.</exception>
+    public void Add(int source, MeshletPageSet pages, Stream data) {
+        ArgumentNullException.ThrowIfNull(pages);
+        ArgumentNullException.ThrowIfNull(data);
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (!data.CanSeek) {
+            throw new ArgumentException(
+                "A page blob has to be seekable — the whole point is to read one page without reading "
+                + "the ones before it.",
+                nameof(data)
+            );
+        }
+
+        if (sources.Remove(source, out var replaced)) {
+            replaced.Data.Dispose();
+        }
+
+        sources[source] = new(pages, data);
+    }
+
+    /// <summary>Forgets a source and closes its blob.</summary>
+    /// <param name="source">Which one.</param>
+    /// <returns>Whether there was one.</returns>
+    public bool Remove(int source) {
+        if (!sources.Remove(source, out var blob)) {
+            return false;
+        }
+
+        blob.Data.Dispose();
+
+        return true;
+    }
+
+    /// <inheritdoc />
+    public ValueTask<int> ReadAsync(PageKey key, Memory<byte> destination, CancellationToken cancellation) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+        cancellation.ThrowIfCancellationRequested();
+
+        if (!sources.TryGetValue(key.Source, out var blob) || key.Index >= blob.Pages.Pages.Length) {
+            return ValueTask.FromResult(0);
+        }
+
+        var page = blob.Pages.Pages[key.Index];
+        var size = Math.Min(page.Size, destination.Length);
+
+        if (size <= 0) {
+            return ValueTask.FromResult(0);
+        }
+
+        // Synchronous under the lock, and honestly so: the seek and the read are one indivisible
+        // operation on a shared position, and an await between them is exactly the interleaving that
+        // gives one page another page's bytes. Making this asynchronous would need a handle whose
+        // reads carry their own offset, which is what the interface leaves open.
+        lock (blob.Gate) {
+            blob.Data.Seek(blob.Pages.OffsetOf(key.Index), SeekOrigin.Begin);
+
+            // ReadAtLeast rather than Read, because a stream may return short for reasons that are
+            // not the end of it — and a short page is geometry with a hole, which decodes to
+            // triangles at the origin rather than to nothing.
+            var read = blob.Data.ReadAtLeast(destination.Span[..size], size, false);
+
+            return ValueTask.FromResult(read);
+        }
+    }
+
+    /// <inheritdoc />
+    public void Dispose() {
+        if (disposed) {
+            return;
+        }
+
+        disposed = true;
+
+        foreach (var blob in sources.Values) {
+            blob.Data.Dispose();
+        }
+
+        sources.Clear();
+    }
+
+    sealed record Blob(MeshletPageSet Pages, Stream Data) {
+        public Lock Gate { get; } = new();
+    }
+}
+
+/// <summary>
 ///     A device buffer of fixed-size page slots, filled and emptied by <see cref="PageResidency" />.
 /// </summary>
 /// <remarks>

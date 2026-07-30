@@ -1810,11 +1810,26 @@ public class GpuVisibilityGroupTests : IDisposable {
     sealed class AlwaysCompiles(NullDevice device) : IEffectProvider {
         // The binding order is the real one: the texture first, and the three shaders disagree about
         // what every index after 0 holds.
+        //
+        // All eleven, including the seven the object cull never reads. That is not padding — a
+        // permutation folds away the *code* that would have read them and leaves the declarations, so
+        // `Culling.rvn` compiled through RavenEffectCompiler reports all eleven whichever variant was
+        // asked for, and a set bound with any of them unwritten is undefined on a device. This fixture
+        // listed four for as long as the cluster traversal existed, which is exactly the failure its own
+        // comment below warns about: a fixture that invents a leaner variant lets the host get it wrong
+        // and says nothing.
         static readonly ImmutableArray<EffectBinding> CullingBindings = [
             new("occluders", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.SampledTexture),
             new("objects", DescriptorSetSlot.PerMaterial, 1, DescriptorKind.StorageBuffer),
             new("views", DescriptorSetSlot.PerMaterial, 2, DescriptorKind.StorageBuffer),
-            new("visibility", DescriptorSetSlot.PerMaterial, 3, DescriptorKind.StorageBuffer)
+            new("visibility", DescriptorSetSlot.PerMaterial, 3, DescriptorKind.StorageBuffer),
+            new("clusterRecords", DescriptorSetSlot.PerMaterial, 4, DescriptorKind.StorageBuffer),
+            new("instances", DescriptorSetSlot.PerMaterial, 5, DescriptorKind.StorageBuffer),
+            new("children", DescriptorSetSlot.PerMaterial, 6, DescriptorKind.StorageBuffer),
+            new("roots", DescriptorSetSlot.PerMaterial, 7, DescriptorKind.StorageBuffer),
+            new("visible", DescriptorSetSlot.PerMaterial, 8, DescriptorKind.StorageBuffer),
+            new("requests", DescriptorSetSlot.PerMaterial, 9, DescriptorKind.StorageBuffer),
+            new("residency", DescriptorSetSlot.PerMaterial, 10, DescriptorKind.StorageBuffer)
         ];
 
         // Six, and the last three in both variants. A binding is a declared field, so it survives

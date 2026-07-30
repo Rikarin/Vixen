@@ -237,12 +237,106 @@ public sealed class ModelImporterTests {
         Assert.Equal(12, meshlets.Meshlets.Sum(meshlet => meshlet.TriangleCount));
     }
 
+    /// <summary>
+    ///     Phase 2 reached through the importer: the pages are built at build time and shipped as two
+    ///     artefacts, records and geometry.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Two artefacts rather than one, which is what makes the geometry streamable.</b> A
+    ///         <see cref="MeshletPageSet" /> carrying its own <c>Data</c> is a single blob whose
+    ///         deserialisation reads every page — the one thing paging exists to avoid — so the build
+    ///         writes the records with the bytes removed and the bytes beside them, and a runtime source
+    ///         seeks into the second. See <see cref="MeshletPageSet.WithoutData" />.
+    ///     </para>
+    ///     <para>
+    ///         Also the claim that <em>the quantization happens here</em>: finding a mesh's extent and
+    ///         snapping every vertex to a grid is work proportional to the whole mesh, which is exactly
+    ///         the work a frame must never do. A build that shipped the DAG alone would have moved it to
+    ///         load time without anybody noticing, because the picture would be identical.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task EachMeshGetsItsGeometryInPagesBesideIt() {
+        var (_, result) = await Import("crate.obj", Cube, Fast);
+
+        var records = Assert.Single(result.Artifacts, entry => entry.Type == "MeshletPages");
+        var data = Assert.Single(result.Artifacts, entry => entry.Type == "MeshletPageData");
+        var pages = Serializer.Read<MeshletPageSet>(records.Content.Span.ToArray());
+
+        Assert.True(result.Succeeded);
+        Assert.NotEmpty(pages.Pages);
+        Assert.NotEmpty(pages.Clusters);
+
+        // The records carry no geometry, and the blob is the geometry. The two together are what the
+        // in-memory set was; either alone is useless, which is the arrangement.
+        Assert.False(pages.HasData);
+        Assert.Equal(pages.TotalBytes, data.Content.Length);
+
+        // A page vertex is six bytes of quantized position and ten of attributes, which is sixteen —
+        // one device word boundary per vertex with no padding to reach it.
+        Assert.Equal(MeshletPageBuilder.PositionSize + ModelCompiler.PageAttributeStride, pages.VertexStride);
+        Assert.Equal(16, pages.VertexStride);
+
+        // And the grid is the mesh's, not a cluster's: one step across the cube's longest extent divided
+        // sixteen-bit, which is what keeps a locked boundary bit-identical between a parent and a child.
+        Assert.True(pages.QuantizationStep > 0f, "A degenerate grid would fold the mesh onto one point.");
+        Assert.Equal(pages.QuantizationStep * 0.5f, pages.QuantizationError);
+    }
+
+    /// <summary>
+    ///     A page's bytes survive the round trip through the two artefacts and decode to the mesh.
+    /// </summary>
+    /// <remarks>
+    ///     The end-to-end claim, and the only one that would catch the two artefacts being written out of
+    ///     step with each other: the records say where a page is in a blob they no longer carry, so a
+    ///     build that wrote the records of one packing and the bytes of another would produce a set that
+    ///     validates, loads, streams, and decodes to geometry in the wrong place.
+    /// </remarks>
+    [Fact]
+    public async Task A_shipped_page_decodes_to_the_mesh_it_came_from() {
+        var (_, result) = await Import("crate.obj", Cube, Fast);
+
+        var pages = Serializer.Read<MeshletPageSet>(
+            Assert.Single(result.Artifacts, entry => entry.Type == "MeshletPages").Content.Span.ToArray()
+        );
+
+        var meshlets = Serializer.Read<MeshletMesh>(
+            Assert.Single(result.Artifacts, entry => entry.Type == "Meshlets").Content.Span.ToArray()
+        );
+
+        var data = Assert.Single(result.Artifacts, entry => entry.Type == "MeshletPageData").Content.ToArray();
+
+        // Reattached, which is what a runtime does not do — it seeks — but is the only way to decode here
+        // without standing up a pool. The decoder is the one MeshletPageSet documents as the arithmetic a
+        // resolve shader will do per vertex.
+        var reattached = pages with { Data = data };
+        var positions = new Vector3[meshlets.Meshlets.Max(meshlet => meshlet.VertexCount)];
+
+        for (var cluster = 0; cluster < meshlets.Meshlets.Length; cluster++) {
+            var meshlet = meshlets.Meshlets[cluster];
+            reattached.GetPositions(cluster, meshlet.VertexCount, positions);
+
+            // Every decoded vertex is within half a grid step of where the cube's corner actually is,
+            // which is the error the format promises and nothing more.
+            for (var i = 0; i < meshlet.VertexCount; i++) {
+                Assert.InRange(positions[i].X, -0.5f - pages.QuantizationError, 0.5f + pages.QuantizationError);
+                Assert.InRange(positions[i].Y, -0.5f - pages.QuantizationError, 0.5f + pages.QuantizationError);
+                Assert.InRange(positions[i].Z, -0.5f - pages.QuantizationError, 0.5f + pages.QuantizationError);
+            }
+        }
+    }
+
     [Fact]
     public async Task TheHierarchyCanBeTurnedOff() {
         var (_, result) = await Import("crate.obj", Cube, Fast with { GenerateMeshlets = false });
 
         Assert.True(result.Succeeded);
         Assert.DoesNotContain(result.Artifacts, artifact => artifact.Type == "Meshlets");
+
+        // And no pages either: pages are a packing of a hierarchy, so there is nothing to pack.
+        Assert.DoesNotContain(result.Artifacts, artifact => artifact.Type == "MeshletPages");
+        Assert.DoesNotContain(result.Artifacts, artifact => artifact.Type == "MeshletPageData");
     }
 
     [Fact]

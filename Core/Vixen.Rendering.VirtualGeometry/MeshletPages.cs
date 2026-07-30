@@ -170,13 +170,62 @@ public sealed record MeshletPageSet {
     /// <summary>How many bytes the pages occupy in total.</summary>
     public long TotalBytes => (long)Pages.Length * PageSize;
 
+    /// <summary>Whether the geometry is here, as opposed to in a blob beside it.</summary>
+    /// <remarks>
+    ///     False for the set a build ships and a runtime loads — see <see cref="WithoutData" />. The
+    ///     decoders below are the offline half and need the bytes; the traversal is the runtime half
+    ///     and needs none of them, which is the split the whole phase is about.
+    /// </remarks>
+    public bool HasData => Data.Length > 0;
+
+    /// <summary>
+    ///     The same set with the geometry removed, for a build that ships the bytes separately.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What makes streaming possible at all.</b> A set carrying its own
+    ///         <see cref="Data" /> is a single artefact, and deserialising it reads every page — which
+    ///         is the one thing paging exists to avoid. So a build writes this beside the bytes: the
+    ///         records, which are small and stay resident, and a blob a page source seeks into.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="OffsetOf" /> is what makes the blob seekable without an index, and the
+    ///         reason <see cref="MeshletPageBuilder" /> pads every page out to
+    ///         <see cref="PageSize" /> rather than packing them tight.
+    ///     </para>
+    /// </remarks>
+    public MeshletPageSet WithoutData() => this with { Data = [] };
+
+    /// <summary>Where a page's bytes start in the blob, whether or not the blob is here.</summary>
+    /// <param name="page">Which page.</param>
+    /// <remarks>
+    ///     Arithmetic rather than a lookup, because <see cref="MeshletPageBuilder" /> pads each page
+    ///     out to a whole slot — so a file of pages has the same shape as the pool they load into and
+    ///     a source needs no table to find one. <see cref="MeshletPage.Offset" /> agrees with this for
+    ///     a set that still has its data; a set that does not still answers, which is the point.
+    /// </remarks>
+    public long OffsetOf(int page) {
+        ArgumentOutOfRangeException.ThrowIfNegative(page);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(page, Pages.Length);
+
+        return (long)page * PageSize;
+    }
+
     /// <summary>The bytes of one page, ready to be handed to a pool.</summary>
     /// <param name="page">Which page.</param>
     /// <returns>Its used bytes, which may be shorter than <see cref="PageSize" /> for the last one.</returns>
     /// <exception cref="ArgumentOutOfRangeException">There is no such page.</exception>
+    /// <exception cref="InvalidOperationException">The geometry is not here — see <see cref="HasData" />.</exception>
     public ReadOnlySpan<byte> BytesOf(int page) {
         ArgumentOutOfRangeException.ThrowIfNegative(page);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(page, Pages.Length);
+
+        if (!HasData) {
+            throw new InvalidOperationException(
+                "This page set carries no geometry, so a page's bytes have to be read from the blob it "
+                + "was built beside. See MeshletPageSet.WithoutData."
+            );
+        }
 
         return Data.AsSpan(Pages[page].Offset, Pages[page].Size);
     }

@@ -504,6 +504,114 @@ public class MeshletStreamingTests : IDisposable {
     ///     outstanding for two more frames is not waited for — which is the difference between a test
     ///     that runs in a second and one that spends its timeout on every frame.
     /// </remarks>
+    /// <summary>
+    ///     A page read out of a blob is the page the builder wrote, and reading one reads only it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a shipping build actually does.</b> The records are deserialised whole at load and
+    ///         the geometry is a blob beside them, so the source seeks — and a set that has been through
+    ///         <see cref="MeshletPageSet.WithoutData" /> has no bytes of its own to check against, which
+    ///         is exactly the arrangement this has to work in.
+    ///     </para>
+    ///     <para>
+    ///         Two claims, and the second is the one that would rot silently. Reading the <em>right</em>
+    ///         bytes is checked against the in-memory source, page for page. Reading <em>only</em> those
+    ///         bytes is checked by counting what the stream was asked for: a source that read the blob
+    ///         from the start every time would return identical, correct pages and defeat the entire
+    ///         point of paging.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task A_streamed_page_is_the_page_the_builder_wrote() {
+        var (_, _, pages) = Scene();
+        var shipped = pages.WithoutData();
+
+        Assert.False(shipped.HasData);
+        Assert.Throws<InvalidOperationException>(() => shipped.BytesOf(0));
+
+        using var counted = new CountingStream(new MemoryStream(pages.Data));
+        using var streamed = new StreamMeshletPageSource();
+
+        streamed.Add(0, shipped, counted);
+
+        var buffer = new byte[pages.PageSize];
+
+        for (var page = 0; page < pages.Pages.Length; page++) {
+            var read = await streamed.ReadAsync(new(0, page), buffer, CancellationToken.None);
+
+            Assert.Equal(pages.Pages[page].Size, read);
+            Assert.True(pages.BytesOf(page).SequenceEqual(buffer.AsSpan(0, read)), $"Page {page} differs.");
+        }
+
+        // Every page read exactly its own bytes and no more — the blob is far larger than the sum, since
+        // a page's used size is at most a slot and the last one is short.
+        Assert.Equal(pages.Pages.Sum(page => (long)page.Size), counted.BytesRead);
+        Assert.True(counted.BytesRead < pages.Data.Length, "A source that read the whole blob would pass every other assertion here.");
+    }
+
+    /// <summary>
+    ///     The offsets a data-less set reports are the ones its pages were written at.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="MeshletPageSet.OffsetOf" /> is arithmetic and <see cref="MeshletPage.Offset" /> is
+    ///     what the builder recorded, and a streamed source trusts the first because the second belongs
+    ///     to a blob that is no longer attached. They agree because the builder pads each page out to a
+    ///     whole slot — which is a property of the packer that nothing else asserts, and which a change
+    ///     to pack pages tightly would break here rather than in a frame.
+    /// </remarks>
+    [Fact]
+    public void A_pages_offset_is_its_index_times_the_page_size() {
+        var (_, _, pages) = Scene();
+
+        for (var page = 0; page < pages.Pages.Length; page++) {
+            Assert.Equal(pages.Pages[page].Offset, pages.OffsetOf(page));
+            Assert.Equal((long)page * pages.PageSize, pages.OffsetOf(page));
+        }
+
+        Assert.Equal(pages.TotalBytes, pages.Data.Length);
+    }
+
+    /// <summary>A stream that says how much of it was actually read.</summary>
+    sealed class CountingStream(Stream inner) : Stream {
+        public long BytesRead { get; private set; }
+
+        public override bool CanRead => inner.CanRead;
+        public override bool CanSeek => inner.CanSeek;
+        public override bool CanWrite => false;
+        public override long Length => inner.Length;
+
+        public override long Position {
+            get => inner.Position;
+            set => inner.Position = value;
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => Read(buffer.AsSpan(offset, count));
+
+        public override int Read(Span<byte> buffer) {
+            var read = inner.Read(buffer);
+            BytesRead += read;
+
+            return read;
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => inner.Seek(offset, origin);
+
+        public override void Flush() => inner.Flush();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        protected override void Dispose(bool disposing) {
+            if (disposing) {
+                inner.Dispose();
+            }
+
+            base.Dispose(disposing);
+        }
+    }
+
     static void Handoff(PageResidency residency, DelayedSource source) =>
         SpinWait.SpinUntil(() => residency.Loading <= source.Waiting, 250);
 
