@@ -60,16 +60,34 @@ shader IndirectDiffuse {
 
         // Nothing was drawn here. No surface, no indirect light, and nothing shadowing the sun — the
         // sky is not lit by the world and is not in the world's shadow either.
-        if (deviceDepth >= 1f) {
+        //
+        // ZERO, because depth is reversed: near is 1, far is 0, and a depth attachment clears to 0.
+        // `>= 1` is the other end — the near plane — so it fired on the surfaces closest to the camera
+        // and never on the sky, which then got a field lookup at a far-plane position. See `Fog.rvn`,
+        // which has always had this right.
+        if (deviceDepth <= 0f) {
             return float4(0f, 0f, 0f, 1f)
         }
 
         val world = Transform.UvDepthToWorld(inverseViewProjection, uv, deviceDepth)
         val normal = Math.SafeNormalize(normalBuffer.Sample(pointSampler, uv).xyz * 2f - 1f)
 
-        val lit = irradiance.SampleIrradiance(world, normal)
-        val sun = irradiance.SampleSunShadow(world, normal)
+        // The same pixel at the near plane, which is a point on the ray that reached this surface —
+        // so the direction between them is the view direction, without a camera position of its own.
+        //
+        // Derived rather than bound, and that is the reason: a `viewPosition` binding beside
+        // `inverseViewProjection` is two facts about one camera that a caller can set half of, and the
+        // half that is missing does not fail — it silently turns the view bias off. This cannot
+        // disagree with the matrix it comes out of.
+        //
+        // ONE is the near plane. Reversed depth again, and getting it backwards here points the view
+        // bias away from the camera — into the geometry it exists to step out of, which is worse than
+        // not having it.
+        val near = Transform.UvDepthToWorld(inverseViewProjection, uv, 1f)
+        val view = Math.SafeNormalize(near - world)
 
-        return float4(lit * intensity, sun)
+        val sample = irradiance.Sample(world, normal, view)
+
+        return float4(sample.irradiance * intensity, sample.sunShadow)
     }
 }

@@ -291,10 +291,34 @@ pool, the index volume and the shader's basis. *L* is deliberately neither a hal
 the g-buffer clears to halves and the shader writes a one into alpha, and a radiance equal to either
 would pass for a picture that had merely copied something through.
 
-A screen-space pass rather than a term inside the shading models, and that is a scoping decision
-rather than the end state: a compose slot on `ForwardPlus` and `Deferred` would put an unbound slot in
-every material in every project until each named a filler. What comes out is a buffer, which is what a
-payload stored over π is for.
+**And the shading models read it.** `ForwardPlus` now composes `IIrradianceSource` and has a
+`UseIrradianceField` permutation, so the field's answer *is* the ambient diffuse where it has one — the
+screen-space pass is a debug view and a compositing input rather than the way light reaches a surface.
+`IrradianceShadingDeviceTests` draws a Lambertian quad of albedo *C* in a field filled from a uniform
+sky of radiance *L* and asserts the pixel is *C* × *L*, per channel, with every other source of light
+switched off and a companion frame with only the flag flipped coming back dark.
+
+Four things that decided the shape:
+
+- **It replaces the sky's ambient rather than adding to it**, weighted by the probe's validity. The
+  field's rays already hit the sky, so its answer contains what the sky contributes; adding them counts
+  the sky twice and the second count is the brighter, because it is unoccluded. Where the field has no
+  answer the sky is the fallback, which is the whole reason a *coverage* number had to exist.
+- **`IIrradianceSource` became one method returning three numbers.** It had an accessor per number and
+  no coverage at all, so a consumer wanting two of them paid for the two indirection fetches and four
+  filtered ones twice — which `IndirectDiffuse` did, while its own comment said it did not.
+- **The π nearly got counted twice.** The field stores irradiance divided by π, which is what a shading
+  pass multiplies by albedo; `Ibl.Diffuse` takes plain irradiance and divides by π itself. Handing one
+  to the other unscaled is a scene lit 3.14 times too dim — dark enough to read as a tuning problem and
+  bright enough not to read as a bug. Only a per-channel closed form catches it.
+- **Which shader fills the slot is a project's decision, not a material's.** Whether the scene has a
+  field is true of every material in it at once, so `MaterialCompiler.Compile` takes the override as a
+  parameter rather than the descriptor carrying it — two materials disagreeing would be two effects
+  where the project meant one.
+
+The blast radius was the known one and it was survivable: `("ForwardPlus", "irradiance", …)` in
+`OptionalSlots` means every material names `NoIrradiance` by default and declares no bindings for it, so
+a project without a field draws exactly the frame it drew before.
 
 **Filler A dispatches, and agrees with the reference to a ten-thousandth.** `IrradianceFill` — one
 workgroup per brick, one invocation per probe, the bricks to do in a buffer indexed by the group — is
@@ -372,11 +396,193 @@ because the coarsest-first ordering exists for the refined case and a uniform fi
 Seeding a pool and then dispatching into it is not a test-only shape: it is filler B handing a field to
 filler A, and it is why the mirror carries both usages.
 
-Owed, in the order they change the picture: the shading models reading the buffer; filler B at all; a
-policy that decides *where* to refine, which § 3 says is renderer bounds and the `VisibilityGroup`
-already has; and the view bias. And one optimisation that is now visible: the repair runs over every
-brick every frame, because a brick the budget did not refill still has neighbours that were — narrowing
-it to the dirty bricks and their neighbours is real work and is not done.
+⚠ **And that comparison has an open, intermittent disagreement.** Roughly one whole-solution run in
+three, the dispatched repair differs from the reference at a single texel — never in isolation, never in
+the golden suite alone across some fifteen runs. It is not a tolerance: the reference reads exactly zero
+and the dispatch reads a small value or a validity of one, so the two took different branches. Every
+observed case is a border **edge** texel, with exactly two of three coordinates on the border plane —
+`(4,4,0)`, `(4,4,1)`, `(4,0,4)` — on refined and uniform fields alike, at a different texel each time.
+
+The leading explanation is structural and visible by reading. `SyncBorders` computes a whole size class
+into a deferred list and writes it afterwards, so every read sees the state before the pass;
+`IrradianceRepair.rvn`'s border permutation writes every border of a class in one dispatch, and `Beyond`
+*reads* border texels — the same-size path through `Round(local, Owned, Last)`, which permits index four,
+and the cross-size path through `Lower`, whose upper tap is documented as reaching the border plane.
+Those are texels other invocations of the same dispatch are writing. **The dilation phase was given the
+negated-validity trick precisely to avoid this and the border phase never was.**
+
+⚠ One candidate fix has been tried and rejected. Clamping the same-size path to owned probes — which is
+what its own comment already claims it does — is plausible and unproven: a device-free fixture built to
+exercise it could not discriminate, because at the grid's outer face the neighbour's border texel falls
+back to its own probe and both indices read the same value. It was reverted rather than shipped, and
+green runs afterwards prove nothing, because green was already the common case. What is owed is a test
+that makes the race deterministic, and then the deferral.
+
+**And something decides where to refine.** `IrradianceRefinementPolicy` takes *bands* — a margin and a
+brick size — and applies them coarsest first around every renderer's bounds, which is what grades a
+field rather than making it uniformly fine. `IrradianceFieldRenderer.Refinement` is the half that knows
+what a renderer is; the policy itself takes boxes and is checked against closed forms with no scene in
+sight.
+
+Two things it is deliberately not: it reads **every** object rather than the visible ones, because
+indirect light comes from geometry the camera cannot see and that is the whole reason a field exists
+rather than a screen-space gather; and it only ever **adds** detail, so a scene that streams geometry
+through a region ratchets that region toward its finest and never gives the slots back. Coarsening
+needs the pool to take slots back and a policy for when, and neither exists.
+
+**Filler B projects, and nothing renders its cubes yet.** `CapturedIrradianceFiller` takes an
+`IIrradianceCaptureSource` — a cube of radiance, a validity and a sun scalar — and writes the same
+bricks filler A writes, through the same cursor and the same budget. The projection is the same integral
+with cube texels standing in for rays, and § L2's third exit criterion is asserted: the two fillers
+agree on a directional sky within two per cent, which is filler A's sixty-four-ray budget rather than
+this one's 1536 texels.
+
+**And now it renders them.** `IrradianceCubeCapture` records six 90° passes from a probe's position and
+reads the colour and the depth back; `RenderedIrradianceCaptures` submits and waits, which is what makes
+`TryCapture` a function rather than a promise. The six frusta come from `ShadowProjections.Cube`, the
+same matrix a point light's shadow uses — and `CubeMapping.Direction` is *derived* from it by
+unprojection, so the direction a texel was rendered from and the direction the projection integrates
+over are one function evaluated twice rather than two conventions kept in step by hand.
+
+With that, § 7's promise to WebGL2 is executed rather than argued: a target with no compute fills the
+same bricks to the same numbers at build time. `AFieldBakedByRenderingHoldsTheSkyItWasBakedUnder` bakes a
+field of sixty-four probes by rendering and reads back the closed form.
+
+Three things the capture has to answer that a cube alone cannot. **Radiance is `Rgba32Float`**, because a
+bake is the one place clamping is fatal — a probe beside a bright window whose texels stopped at one
+carries that error into every bounce after it. **Validity is the solid-angle-weighted fraction of
+directions whose hit is further than `MinimumDistance`**, which is the distance test rather than DDGI's
+back-face count: a raster readback has no cheap winding, and "the geometry is where I am" is the question
+that actually matters. **The sun is nine taps around its direction** rather than one, because a binary
+per-probe shadow interpolates into steps at the probe spacing.
+
+⚠ And the caller must rasterise two-sided. A probe standing in a room sees the room's *inside* faces;
+culled, the room vanishes and every probe reports an open sky — the brightest possible wrong answer, and
+the one validity cannot catch, because a probe that sees nothing looks exactly like a probe in the open.
+
+⚠ It stalls the GPU once per probe. That is the right shape for a build step and the wrong one for
+anything else; batching a budget's probes into one submit wants a ring of targets rather than the one
+this reuses, and is not done.
+
+**And the bounce runs.** `IrradianceBounceDeviceTests` draws each cube face through `RenderSystem` —
+`MeshRenderFeature`, `MaterialRenderFeature`, `ForwardLightingRenderFeature`, the three a frame uses —
+so a probe sees the scene as `ForwardPlus` shades it, with the field composed into that shading. Bake,
+upload, bake again: the second pass shades the scene with the first pass's answer. A sunlit floor and a
+wall the sun cannot reach (its *N*·*L* is zero, so every photon it holds came off the floor) went
+0.254 → 0.331 → 0.324, against a flat 0.254 with the field switched off.
+
+Contracting rather than monotone, and that is the scheme: each pass re-gathers the whole field from a
+scene shaded with the previous one, so it is a Jacobi iteration that overshoots slightly and settles. The
+assertions are the shape of the series — it grows, it stays, the change shrinks — because a cube capture
+of a finite room projected into four coefficients has no closed form and pretending otherwise would be a
+tolerance nobody could defend.
+
+⚠ **It found that an L1 field can return negative light, and did.** Four coefficients cannot represent a
+hemisphere sharply, so a probe lit entirely from one side evaluates *below zero* for a normal facing the
+other way — the linear band subtracts more than the constant band has. A sunlit floor produces exactly
+that: light arriving entirely from below, evaluating to **−0.047** for the floor's own upward normal.
+Fed back as ambient, the second pass came out *dimmer* than the first. Nothing had caught it because
+every earlier test used a near-uniform environment, where the linear band is small and this never
+happens — a bounce is the first thing that ever asks a field about a direction its own light does not
+come from.
+
+The clamp is at the field-sampling boundary on both sides — `IrradianceField.Irradiance` in C#,
+`IrradianceFieldProbes.Sample` in Raven — and deliberately *not* at the probe evaluation, which stays
+raw arithmetic over a basis. Clamping there would also have made `IrradianceProbe.Irradiance` a lossy
+readout of what a brick holds, which is what the addressing tests use it as; three of them said so
+immediately.
+
+Two more things had to be right about the *scene* before any bounce appeared, and each read as the
+feedback being broken. **A flat floor cannot light itself** — every ray leaving it goes up and never
+returns — so the first fixture produced one pass and then nothing. And **a field answers nothing outside
+its own box**, so the wall, standing beyond it, received no indirect light however many passes ran.
+Neither is a defect; both are properties a project has to get right, and they are now written down where
+somebody will hit them.
+
+**Writing it found the one convention that was not derived.** The engine's clip space is +Y up, which the
+Vulkan backend expresses as a negative-height viewport — so a framebuffer's first row is *v = +1*, while
+a `CubeImage`'s first row is *v = −1*. The readback flips. Without the flip the capture is mirrored
+vertically, which leaves the constant band untouched and inverts exactly one of the three linear ones: a
+probe lit from above reports light from below, and every test that integrates a uniform sky still passes.
+That is why the fixture lights one quad in a direction with three different nonzero components rather
+than using a uniform environment — the failure it caught was a sign on Y and nothing else.
+
+Writing it also corrected something this document implies. **For an L1 payload, cube symmetry makes
+uniform texel weights exact** — they sum to 4π so the constant band is right, and Σ(d·ŷ)² over a cube is
+a third of the texel count by the same symmetry, so the linear band is too. A smooth sky, a linear sky
+and a face-uniform sky are all blind to whether the projection weighted by solid angle at all. Only
+content varying *within* a face is not, which is why the test that can tell lights a single texel. The
+weighting stays because it is right and because an L2 band would have no such luck — but the claim that
+it was load-bearing here was wrong, and four tests passed without it before one did not.
+
+Owed: the border phase's deferral, above, which is the only known *defect* left in L2. Then `Deferred`,
+which has the same ambient term and has not been given the slot — blocked rather than pending, since the
+pass itself is Phase 10 and unbuilt. Then two optimisations: the repair runs over every brick every
+frame, because a brick the budget did not refill still has neighbours that were, and narrowing it to the
+dirty bricks and their neighbours is real work nobody has done; and filler B stalls the GPU once per
+probe, which wants a ring of targets rather than the one the capture reuses. Neither has a scene large
+enough to measure against, which is why neither has been done.
+
+And coarsening, which is a feature rather than either: refinement only ever adds detail, so a scene that
+streams geometry through a region ratchets it toward its finest and never gives the slots back. It needs
+the pool to take slots back and a policy for when. Baking makes it worth more than it was — a field sized
+to the scene at build time is the case that actually pays for releasing slots.
+
+Composing the slot into the forward pass also turned up a defect that has nothing to do with the field.
+**The non-clustered forward variant cannot bind set 3**: `ForwardLightingRenderFeature` declares the
+per-draw light block as a *dynamic* uniform, deliberately and for good reasons, and the shader's
+reflection describes it as a plain one — incompatible layouts, and a GPU fault at the draw. Nothing had
+found it because the only device test drawing `ForwardPlus` uses the clustered variant, which never
+statically uses set 3 and therefore need not bind it.
+
+**And a frame the dispatch lit.** Filler A had been checked by reading the pool back, and the shading
+models had been checked against a field the CPU filled. Two halves, each verified against the other's
+absence: nothing had ever run `IrradianceFieldRenderer.DeviceFiller` — not the `PassKind.Compute`
+branch, not the pool created as a storage image, not the upload that carries the index volume and
+nothing else. `IrradianceShadingDeviceTests` now draws the same quad under the same closed form with
+each filler in turn, and halving the dispatch's sky halves the pixel, which is what says the light came
+from the compute shader rather than from anything else in the frame.
+
+It found a defect on the first run, and not in the field. **A pass composition could not compile against
+the whole shader library**, which is the only configuration an application has. `RVN2073` asks the
+*compilation* rather than the shader, so a compute or post-process variant sharing a source set with
+`ForwardPlus` must name a filler for `surface`, `shading` and all ten of `CompositeSurface`'s links —
+slots it cannot reach and has nothing to say about. `MaterialCompiler.PassComposition` named the two
+typed ones alone. Every post pass in the engine was affected; none had noticed, because every test that
+compiles a pass narrows its effect provider to that pass's own packages, and the narrow set is the
+configuration nothing ships in.
+
+The fix derives the pass path's defaults from the material path's own inventory rather than writing
+them down twice, so the two agree by construction; what remains is a completeness check over the
+library's declared slots for *each* path, where before there was one for the material path and, for the
+pass path, only a cross-check of fillers it happened to name. **A list that has to agree with another
+list is a list that drifts**, and an assertion that is missing rather than failing is invisible for as
+long as it exists.
+
+**The view bias, which completes § G3's four.** Validity, dilation and the normal bias were in; this is
+the fourth. `IrradianceField.ViewBias` moves a shading lookup toward the camera as well as along the
+normal, in the same probe spacings, and the two offsets are summed into one fetch. The justification is
+not "a bit more bias": **the space between a visible surface and the eye looking at it is empty by
+construction**, since something opaque in it would be what got shaded instead — so it is a direction
+that is always safe to step in, which the normal cannot promise. And it covers what the normal cannot:
+seen edge-on, a normal is nearly perpendicular to the view ray, so a step along it barely leaves the
+surface, and that is the geometry where a floor's lookup slides under the wall beside it.
+
+`IIrradianceSource.Sample` therefore takes a view direction, required rather than optional — a consumer
+with no camera has to answer that deliberately, because a zero nobody chose is a leak mitigation
+quietly doing half its job. `ForwardPlus` already had the vector. `IndirectDiffuse` derives it by
+reconstructing the same pixel at the near plane, rather than binding a camera position beside the
+inverse view-projection it already has: two facts about one camera are two things a caller can set half
+of, and the half that goes missing does not fail.
+
+⚠ **That derivation found a defect in two shaders, one of them outside this track.** Depth is reversed
+— near is one, far is zero, a depth attachment clears to zero — and both `IndirectDiffuse` and
+`DistanceFieldAo` tested for "nothing was drawn here" with `deviceDepth >= 1`. That is the near plane.
+The branch fired on the surfaces closest to the camera and never on the sky, which then got a field
+lookup, or a march, from a far-plane position and came back lit or shadowed. `Fog.rvn` next door has
+always had it right, so the convention was never in doubt — only this reading of it. Nothing caught it
+because every device test of either pass clears its stand-in depth to a half, where both spellings
+behave identically; each now has a frame at zero, and each of those frames fails on the old spelling.
 
 ### L3 — Screen probe gather *(3.0 EM)*
 

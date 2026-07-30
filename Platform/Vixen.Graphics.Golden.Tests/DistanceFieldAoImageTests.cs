@@ -123,8 +123,44 @@ public sealed class DistanceFieldAoImageTests {
         Assert.True(corner.Y > 0.5f, $"the corner was shadowed by a ball nowhere near it: {corner}");
     }
 
+    /// <summary>
+    ///     <b>And the sky is open and lit, because depth is reversed.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A depth attachment clears to zero and zero is the <i>far</i> plane — near is one. This
+    ///         pass's test for "nothing was drawn here" read <c>&gt;= 1</c>, which is the near plane, so
+    ///         it fired on the surfaces closest to the camera and never on the sky: the sky was then
+    ///         marched from a far-plane position and came back shadowed by whatever happened to be
+    ///         there.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Nothing caught it because every frame in this file clears its stand-in depth to a
+    ///         half, where the two spellings behave the same. <c>IndirectDiffuse</c> had the identical
+    ///         inversion; <c>Fog.rvn</c> has always had it right. Found while adding the irradiance
+    ///         field's view bias, which needed the near plane and therefore needed the convention read
+    ///         correctly for the first time.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheFarPlaneIsSkyAndIsNeitherOccludedNorShadowed() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        // The traced frame, so the ball is there to shadow the middle of the picture if the branch
+        // does not fire — which is exactly what the old spelling did.
+        var image = Render(owned, traced: true, clearDepth: 0f);
+        var centre = Pixel(image, image.Width / 2, image.Height / 2);
+
+        Assert.Equal(1f, centre.X, 0.02f);
+        Assert.Equal(1f, centre.Y, 0.02f);
+    }
+
     /// <summary>Builds one frame of the pass, and reads the picture back when it can be drawn.</summary>
-    static Bitmap Render(Fixture fixture, bool traced, bool sun = true, bool draw = true) {
+    static Bitmap Render(Fixture fixture, bool traced, bool sun = true, bool draw = true, float clearDepth = 0.5f) {
         var device = fixture.Device;
 
         // Nothing draws into these and nothing needs to: with the null field the answer does not
@@ -170,7 +206,7 @@ public sealed class DistanceFieldAoImageTests {
 
         // A pass that clears and draws nothing, which is all this needs: it exists so the graph moves
         // the two textures into a state the AO pass can sample, rather than leaving them UNDEFINED.
-        var gbuffer = new RenderPassRenderer { Name = "GBuffer", ClearColour = new(0.5f, 0.5f, 1f, 1f) };
+        var gbuffer = new RenderPassRenderer { Name = "GBuffer", ClearColour = new(clearDepth, clearDepth, 1f, 1f) };
 
         gbuffer.ColourTargets.Add("Depth");
         gbuffer.ColourTargets.Add("Normals");

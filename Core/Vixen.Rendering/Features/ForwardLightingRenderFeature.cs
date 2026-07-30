@@ -93,7 +93,6 @@ public sealed class ForwardLightingRenderFeature
     int used;
     int capacity;
     BufferHandle buffer;
-    DescriptorSetLayoutHandle layout;
     DescriptorSetHandle descriptors;
     DescriptorAllocator? sets;
 
@@ -320,8 +319,29 @@ public sealed class ForwardLightingRenderFeature
     /// </remarks>
     public bool IsRecording => !Clustered && descriptors.IsValid;
 
-    /// <summary>The layout that set was made from.</summary>
-    public DescriptorSetLayoutHandle Layout => layout;
+    /// <summary>The layout its set is made from — the pass's own, taken from the effect.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The shader's, not this feature's, and that is the whole point.</b> A set bound at
+    ///         slot <i>n</i> has to have been allocated from a layout identically defined to the one
+    ///         the pipeline was created with — same binding index, same kind, same stages, same count
+    ///         — and only the shader knows all four. This feature used to build one from what it
+    ///         believed instead, and believed the block was read by the fragment stage alone where
+    ///         <c>ForwardPlus</c> declares it for the vertex stage as well. Two layouts that differ in
+    ///         any of the four are incompatible, and the draw is a validation error and a GPU fault.
+    ///     </para>
+    ///     <para>
+    ///         The same arrangement <see cref="ViewConstants.Layout" /> has, for the same reason and
+    ///         with the same shape:
+    ///     </para>
+    ///     <code>lighting.Layout = effect.SetLayouts[(int)DescriptorSetSlot.PerDraw];</code>
+    ///     <para>
+    ///         ⚠ Unset, this binds nothing and <see cref="IsRecording" /> is false — the honest answer
+    ///         for a feature that cannot know what shape to allocate. It is not a regression from what
+    ///         a host got before: what it got before was a frame the driver refused.
+    ///     </para>
+    /// </remarks>
+    public DescriptorSetLayoutHandle Layout { get; set; }
 
     /// <summary>How many sets the ring has had to create, which settles at frames-in-flight.</summary>
     /// <remarks>
@@ -812,14 +832,11 @@ public sealed class ForwardLightingRenderFeature
             return;
         }
 
-        if (!layout.IsValid) {
-            layout = Device.CreateDescriptorSetLayout(
-                new(
-                    Slot,
-                    [new(Binding, DescriptorKind.DynamicUniformBuffer, Stages)],
-                    "ForwardLighting"
-                )
-            );
+        if (!Layout.IsValid) {
+            // Nothing to allocate from. See the remarks on Layout: a set of the wrong shape is worse
+            // than no set, because the driver refuses the draw rather than the frame drawing dark.
+            descriptors = default;
+            return;
         }
 
         // Dynamic, matching the layout: a set written as a plain uniform buffer takes no offset at
@@ -830,7 +847,7 @@ public sealed class ForwardLightingRenderFeature
         // the descriptor says how far it extends. Binding the whole buffer would let a shader read
         // every other object's lights, which validation layers do report and drivers do not.
         write[0] = DescriptorWrite.DynamicUniform(Binding, buffer, 0, stride);
-        descriptors = Ring().Allocate(layout, write);
+        descriptors = Ring().Allocate(Layout, write);
     }
 
     /// <summary>The ring the frame's set comes out of, made on the first frame that needs one.</summary>
@@ -856,22 +873,16 @@ public sealed class ForwardLightingRenderFeature
         records.Dispose();
 
         // The ring first: it destroys the sets it made, and destroying a layout still named by a set
-        // is the ordering a validation layer complains about.
+        // is the ordering a validation layer complains about. The layout itself is not destroyed here
+        // and must not be — it is the effect's, shared by every pipeline built from that variant.
         sets?.Dispose();
         sets = null;
 
-        if (Device is not null) {
-            if (buffer.IsValid) {
-                Device.Destroy(buffer);
-            }
-
-            if (layout.IsValid) {
-                Device.Destroy(layout);
-            }
+        if (Device is not null && buffer.IsValid) {
+            Device.Destroy(buffer);
         }
 
         buffer = default;
-        layout = default;
         descriptors = default;
     }
 }

@@ -95,8 +95,155 @@ public sealed class IndirectDiffuseImageTests {
         Assert.Equal(1f, alpha, 0.01f);
     }
 
+    /// <summary>
+    ///     The view bias moves the lookup toward the camera, on a device, by the amount it says.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A field whose probes carry their own <i>Z</i>, so the pixel reports where the lookup
+    ///         landed.</b> Every other test here uses a uniform environment on purpose — it makes the
+    ///         answer a number rather than a shape — and a uniform environment is exactly what a bias
+    ///         cannot be seen through: moving the lookup anywhere reads the same light. So this is the
+    ///         one frame in the file with a gradient in it.
+    ///     </para>
+    ///     <para>
+    ///         With an identity inverse view-projection the reconstruction is its own coordinate
+    ///         system: a pixel at device depth <see cref="SurfaceDepth" /> lands at
+    ///         <c>z = SurfaceDepth</c>, and the near plane — <b>one</b>, because depth is reversed —
+    ///         is at <c>z = 1</c>. The view direction is therefore exactly <c>+Z</c> at every pixel,
+    ///         which turns "toward the camera" into an axis a probe value can measure.
+    ///     </para>
+    ///     <para>
+    ///         The normal bias is zero throughout, so what moves is the view term alone. Getting its
+    ///         sign backwards, dropping it, or reading the near plane at zero all produce a different
+    ///         number here — and none of them produce a different number in any other test in this
+    ///         file.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheViewBiasMovesTheLookupTowardTheCamera() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        // Two whole probe spacings, which is one world unit here — see Spacing.
+        //
+        // ⚠ Eight times the shipping default, and deliberately. At a quarter of a spacing the lookup
+        // moves an eighth of a unit and the ramp reports a change of 0.031, which against an 8-bit
+        // target and a 0.02 tolerance is a signal the size of its own noise floor: the test would pass
+        // for a bias applied at a third of its strength. The arithmetic is linear, so measuring it
+        // where it is legible measures it everywhere.
+        const float Bias = 2f;
+
+        var unbiased = Pixel(Render(owned, filled: true, ramp: true, viewBias: 0f), Fixture.Side / 2, Fixture.Side / 2);
+
+        // A graph builds one frame. Two frames from one fixture is two graphs, and the second would
+        // otherwise declare into one that has already been compiled and culled.
+        owned.Graph.Reset();
+
+        var biased = Pixel(Render(owned, filled: true, ramp: true, viewBias: Bias), Fixture.Side / 2, Fixture.Side / 2);
+
+        // The ramp is what the probes carry, so the pixel is Ramp(z) and z is where the lookup went.
+        Assert.Equal(Ramp(SurfaceDepth), unbiased.X, 0.02f);
+        Assert.Equal(Ramp(SurfaceDepth + (Bias * Spacing)), biased.X, 0.02f);
+
+        // And the step is far larger than the tolerance that accepted each end, which is what makes
+        // the pair a measurement rather than two assertions that happen to overlap.
+        Assert.True(
+            biased.X - unbiased.X > 0.15f,
+            $"the view bias moved the lookup by nothing: {unbiased.X} then {biased.X}"
+        );
+    }
+
+    /// <summary>
+    ///     <b>And the sky is left alone, because depth is reversed.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A depth attachment clears to zero and zero is the <i>far</i> plane — near is one. The
+    ///         pass's own test for "nothing was drawn here" read <c>&gt;= 1</c>, so it fired on the
+    ///         surfaces nearest the camera and never on the sky, which then got a field lookup at
+    ///         whatever the far plane reconstructs to and came back lit.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Nothing caught it because every frame in this file clears its stand-in depth to a
+    ///         half, where both spellings behave the same. <c>DistanceFieldAo</c> had the identical
+    ///         inversion, for the identical reason. <c>Fog.rvn</c> has always had it right, which is
+    ///         what says the convention was never in doubt — only this reading of it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheFarPlaneIsSkyAndGetsNoIndirectLight() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        // A filled field, so a pass that did the lookup anyway would come back at Radiance rather
+        // than at zero — the two answers are as far apart as this fixture can make them.
+        var image = Render(owned, filled: true, clearDepth: 0f);
+        var pixel = Pixel(image, Fixture.Side / 2, Fixture.Side / 2);
+
+        Assert.True(pixel.X < 0.02f, $"the sky was given indirect light: {pixel}");
+
+        // Alpha is what says the shader ran at all: black in rgb is also what an unwritten target
+        // holds, and a one here is a number only this branch puts there.
+        Assert.Equal(1f, Alpha(image, Fixture.Side / 2, Fixture.Side / 2), 0.01f);
+    }
+
+    /// <summary>Where the g-buffer's cleared depth reconstructs to, in world Z.</summary>
+    /// <remarks>Identity inverse view-projection, so a device depth of one half is a world Z of one half.</remarks>
+    const float SurfaceDepth = 0.5f;
+
+    /// <summary>How far apart the ramped field's probes are, in world units.</summary>
+    /// <remarks>
+    ///     Four units across two indirection cells is a cell of two, and a brick spans four probe gaps
+    ///     rather than five — so a brick of size one has probes a half apart. The bias is measured in
+    ///     these, which is what makes it a number a coarse region scales rather than a fixed distance.
+    /// </remarks>
+    const float Spacing = 0.5f;
+
+    /// <summary>What a probe at a world Z carries, chosen to stay inside an 8-bit target.</summary>
+    static float Ramp(float z) => 0.25f + (0.25f * z);
+
+    /// <summary>Writes the ramp into every probe of a field, borders included.</summary>
+    /// <remarks>
+    ///     By hand rather than through a filler, because a filler answers "what light is here" and this
+    ///     needs "where am I" — and the borders are synced explicitly, since the renderer only runs the
+    ///     repair after a fill it did itself.
+    /// </remarks>
+    static void Author(IrradianceField field) {
+        const int Resolution = IrradianceBrickPool.BrickResolution;
+
+        foreach (var brick in field.Bricks) {
+            for (var z = 0; z < Resolution; z++) {
+                for (var y = 0; y < Resolution; y++) {
+                    for (var x = 0; x < Resolution; x++) {
+                        var value = Ramp(field.ProbePosition(brick, x, y, z).Z);
+
+                        // The constant band alone, divided by its own basis function, so what comes
+                        // back out of Irradiance is the number that went in rather than the
+                        // coefficient behind it.
+                        field.SetProbe(
+                            brick,
+                            x,
+                            y,
+                            z,
+                            IrradianceProbe.Lit(new(new Vector3(value / 0.282095f), default, default, default))
+                        );
+                    }
+                }
+            }
+        }
+
+        field.SyncBorders();
+    }
+
     /// <summary>Runs one frame of the pass and reads the picture back.</summary>
-    static Bitmap Render(Fixture fixture, bool filled) {
+    static Bitmap Render(Fixture fixture, bool filled, bool ramp = false, float viewBias = 0f, float clearDepth = SurfaceDepth) {
         var device = fixture.Device;
 
         // Depth of a half and a normal of +Z, so every pixel reconstructs to a point on the plane
@@ -111,20 +258,33 @@ public sealed class IndirectDiffuseImageTests {
         using var system = new RenderSystem();
         using var scene = new SceneConstants(device) { Descriptors = allocator };
 
-        var field = new IrradianceField(new BoundingBox(new(-2f), new(2f)), new(2));
+        var field = new IrradianceField(new BoundingBox(new(-2f), new(2f)), new(2)) {
+            // Zero throughout, so a ramped frame measures the view term alone. The normal here is +Z
+            // and so is the view direction, and two biases along one axis are one number nobody can
+            // attribute.
+            NormalBias = 0f,
+            ViewBias = viewBias
+        };
 
         field.AllocateAll();
+
+        if (ramp) {
+            Author(field);
+        }
 
         using var probes = new IrradianceFieldRenderer {
             Name = "IrradianceField",
             Field = field,
-            Filler = new(new EmptyWorld(), new UniformSky(Radiance)),
+
+            // A ramped field is authored rather than traced: what its probes carry is where they
+            // stand, which no filler would ever produce.
+            Filler = ramp ? null : new TracedIrradianceFiller(new EmptyWorld(), new UniformSky(Radiance)),
             SceneConstants = scene,
             Device = device,
 
             // Every brick in one frame, so the picture is the converged answer rather than whatever a
             // round robin had reached by the time it was read.
-            Budget = field.BrickCount
+            Budget = ramp ? 0 : field.BrickCount
         };
 
         var describer = new EffectPipelineDescriber(device);
@@ -147,7 +307,7 @@ public sealed class IndirectDiffuseImageTests {
             )
         );
 
-        var gbuffer = new RenderPassRenderer { Name = "GBuffer", ClearColour = new(0.5f, 0.5f, 1f, 1f) };
+        var gbuffer = new RenderPassRenderer { Name = "GBuffer", ClearColour = new(clearDepth, clearDepth, 1f, 1f) };
 
         gbuffer.ColourTargets.Add("Depth");
         gbuffer.ColourTargets.Add("Normals");
@@ -202,7 +362,7 @@ public sealed class IndirectDiffuseImageTests {
             // ⚠ Asserted rather than assumed. A set 0 that fell one binding short is not bound at all,
             // and the pass then reads whatever set 0 held before — which here is nothing, and comes
             // back as a field with no light in it.
-            Assert.Equal(field.BrickCount, probes.Filled);
+            Assert.Equal(ramp ? 0 : field.BrickCount, probes.Filled);
             Assert.True(scene.IsComplete, "set 0 was left incomplete, so the frame bound none of it");
             Assert.True(scene.WriteCount > 0, "set 0 was never written");
         }

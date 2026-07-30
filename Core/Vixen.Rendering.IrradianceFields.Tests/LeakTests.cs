@@ -214,6 +214,62 @@ public class LeakTests {
     }
 
     /// <summary>
+    ///     And the view bias moves it toward the camera, which is the direction the normal cannot.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The case it exists for is the last one here: a surface facing <c>+Y</c> seen from
+    ///         <c>+X</c>. The normal bias moves the lookup along <c>Y</c>, which does nothing about the
+    ///         wall the floor runs into, and the view bias moves it along <c>X</c> into the space the
+    ///         camera can see — which is empty, because something opaque in it would be what was
+    ///         shaded instead.
+    ///     </para>
+    ///     <para>
+    ///         Summed rather than applied in turn, so the two are independent: the first three cases
+    ///         pin the view term down on its own with the normal bias at zero, and the last one is the
+    ///         sum. A shader that applied one and then re-fetched with the other would agree on the
+    ///         first three and disagree here.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheViewBiasMovesTheLookupTowardTheCamera() {
+        var field = Room();
+
+        field.AllocateAll();
+        Fill(field, position => Probes.Of(position.X));
+        field.SyncBorders();
+
+        var at = new Vector3(8f, 8f, 8f);
+        var up = new Vector3(0, 1, 0);
+
+        field.NormalBias = 0f;
+        field.ViewBias = 0f;
+
+        Assert.True(field.TrySample(at, up, new(1, 0, 0), out var off));
+        Assert.Equal(8f, off.Value(), 3);
+
+        field.ViewBias = 0.5f;
+
+        // The camera is along +X, so the lookup goes to +X. The probes carry their own X, so the
+        // number that comes back says where it landed.
+        Assert.True(field.TrySample(at, up, new(1, 0, 0), out var toward));
+        Assert.Equal(8.5f, toward.Value(), 3);
+
+        Assert.True(field.TrySample(at, up, new(-1, 0, 0), out var away));
+        Assert.Equal(7.5f, away.Value(), 3);
+
+        // A caller with no camera gets none of it, which is what the three-argument overload means.
+        Assert.True(field.TrySample(at, up, out var none));
+        Assert.Equal(8f, none.Value(), 3);
+
+        // And the two are summed, in the geometry the view bias is for: a floor seen from the side.
+        field.NormalBias = 0.25f;
+
+        Assert.True(field.TrySample(at, up, new(1, 0, 0), out var both));
+        Assert.Equal(8.5f, both.Value(), 3);
+    }
+
+    /// <summary>
     ///     A room with walls three probes thick: solid from 2 to 14, air from 5 to 11 in probes.
     /// </summary>
     /// <param name="interior">What the probes in the room saw.</param>

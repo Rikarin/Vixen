@@ -173,6 +173,7 @@ public class IrradianceFieldTextureTests {
         var parameters = new ParameterCollection();
 
         field.NormalBias = 0.375f;
+        field.ViewBias = 0.625f;
         mirror.Apply(parameters, Slot);
 
         Assert.Equal(
@@ -205,7 +206,10 @@ public class IrradianceFieldTextureTests {
             parameters.Get(ParameterKeys.New<Vector3>($"{Slot}.irradianceField.inversePoolSize"))
         );
 
+        // Two different numbers, because the two biases are two members of one block and a mirror
+        // that wrote the same value into both would pass any test that used one number for both.
         Assert.Equal(0.375f, parameters.Get(ParameterKeys.New<float>($"{Slot}.irradianceField.normalBias")));
+        Assert.Equal(0.625f, parameters.Get(ParameterKeys.New<float>($"{Slot}.irradianceField.viewBias")));
     }
 
     /// <summary>

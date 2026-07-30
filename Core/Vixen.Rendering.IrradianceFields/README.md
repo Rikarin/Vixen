@@ -165,6 +165,41 @@ It lives on the field rather than on a caller because it is a constant the shade
 does nothing for a wall thinner than a probe spacing: it moves along the *surface's* normal, and a
 floor's normal is not the direction a thin wall is thin in.
 
+### And the view bias
+
+`ViewBias` moves the lookup toward the camera as well, by the same measure. **The space between a
+visible surface and the eye looking at it is empty by construction** — something opaque in it would be
+what got shaded instead — so it is a direction that is always safe to step in, which is not something
+the normal can promise.
+
+It exists because the normal cannot cover the grazing case. Seen edge-on, a surface's normal is nearly
+perpendicular to the view ray, so a step along it barely leaves the surface it is trying to leave —
+and that is exactly the geometry where a floor's lookup slides under the wall it runs into. Two
+numbers rather than one because they answer different geometry: a scene that leaks at grazing angles
+and not head-on is telling you which one to raise.
+
+The two offsets are **summed** and the lookup is fetched once, which is what the shader does. A caller
+with no camera passes no view direction and gets the normal term alone — a bake has no camera, and a
+bias toward one that is not there would push the lookup wherever zero happens to point.
+
+### And the answer is clamped at zero
+
+`IrradianceField.Irradiance` never returns negative light, and an L1 band genuinely needs saying so.
+Four coefficients cannot represent a hemisphere sharply, so **a probe lit entirely from one side
+evaluates below zero for a normal facing the other way** — the linear band subtracts more than the
+constant band has. That is not a small error; it is light with the wrong sign, and a surface given it
+comes out darker than an unlit one.
+
+⚠ It was found by doc 19 § L2's bounce, which is the first thing that ever fed a field back into the
+scene that filled it. A sunlit floor produces light arriving entirely from below and evaluated to −0.047
+for the floor's own upward normal, so the second pass came out *dimmer* than the first. Every earlier
+test used a near-uniform environment, where the linear band is small and this never shows.
+
+The clamp is **here rather than on `IrradianceProbe.Irradiance`**, which stays raw arithmetic over a
+basis: it is the exact readout several addressing tests use to say which texel was reached, and clamping
+it would make that readout lossy. `IrradianceFieldProbes.Sample` clamps in the matching place, because
+the two sides are held against each other.
+
 ## The filler here is the reference, and the shipping one is checked against it
 
 `TracedIrradianceFiller` is doc 19 § L2's filler A written where it can be checked: sixty-four
@@ -270,18 +305,32 @@ gets blamed on the temporal filter.
 
 ## Not yet, and named so the absence is a decision
 
-- **A refinement policy.** `Refine` exists; nothing decides *where* to call it. Doc 19 § 3 wants that
-  driven by renderer bounds, which the `VisibilityGroup` already has.
-- **Filler B at all.** The offline cube capture, for the targets without compute.
+- **Coarsening.** `IrradianceRefinementPolicy` decides where a field should be fine and only ever adds
+  detail. Nothing merges bricks back when geometry moves away, so a streamed scene ratchets toward its
+  finest everywhere the geometry has ever been — which needs the pool to take slots back and a policy
+  for when, and neither exists.
+- **Coarsening again, from the other side.** `Vixen.Rendering.Lighting.IrradianceCubeCapture` now
+  renders filler B's cubes, so a field can be baked as well as traced — and a baked field is one a
+  build step could size to the scene rather than to the camera, which is the case coarsening would
+  actually pay for.
+- ⚠ **The device repair's border phase needs `SyncBorders`' deferral, and does not have it.** This
+  computes a whole size class into a deferred list and writes it afterwards, so every read sees the state
+  before the pass. `IrradianceRepair.rvn` writes every border of a class in one dispatch and reads border
+  texels while doing it — `Beyond`'s same-size path permits an index of four, and its cross-size path
+  interpolates through the border plane by design. The dilation phase was given the negated-validity
+  trick to avoid exactly this; the border phase never was.
+
+  It shows up as `IrradianceRepairDeviceTests` disagreeing at one border **edge** texel — two of three
+  coordinates on the border plane — in roughly one whole-solution run in three, never in isolation, at a
+  different texel each time. Not a tolerance: this side reads exactly zero and the dispatch reads a
+  value, so the two took different branches. **Where the two disagree this side is right**, so the
+  defect is the shader's; what is owed is a test that makes the race deterministic before any fix.
 - **A repair narrowed to what changed.** `IrradianceFieldRepair` dilates and syncs every brick every
   frame, which is what this does too and is not an oversight in either — a brick the budget did not
   refill still has neighbours that were, and a border is a copy of a probe that may have just changed.
   Restricting it to the dirty bricks and their neighbours is real work nobody has done.
-- **View bias.** Dilation and the normal bias are here; the offset along the view ray, which is what
-  helps at grazing angles, is not.
-- **Indirect light inside the shading models.** `IndirectDiffuse` is a screen-space pass producing a
-  buffer; a term inside `ForwardPlus` and `Deferred` is what eventually reads it, and that is a compose
-  slot in every material rather than in one pass.
+- **`Deferred`.** `ForwardPlus` composes the field into its ambient term and `Deferred` has the same
+  term and has not been given the slot.
 
 **Nothing here creates or calls a graphics device**, which is what lets the sampling be checked
 against arithmetic instead of against a picture. The assembly does reference `Vixen.Core.Imaging` for
