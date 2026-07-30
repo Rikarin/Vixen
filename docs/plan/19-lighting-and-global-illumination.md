@@ -772,11 +772,17 @@ frame older than its own, matching the surfaces exactly. A constant scene throug
 accumulated chain draws the same flat frame the raw resolve draws, which is the closed form's way
 of saying the plumbing added nothing and lost nothing.
 
+**The spatial filter exists on the CPU**: a cross of lattice neighbours blended at a stated
+strength, gated by history and by the shared plane test, renormalising over what survives —
+writing into a span rather than into the history, because filtering what the next frame blends
+against is a recursive blur whose width nothing set. A uniform field is unchanged exactly, a lone
+spike spreads by precisely its kernel share, and a depth edge stops the bleed to the bit.
+
 Still not started: the HZB traversal itself (the naive march is the baseline, and the pyramid
 wants its nearest-texel reduction beside culling's farthest), the adaptive probes' device half,
-importance sampling, and the denoiser past its temporal half — bilinear history taps over the
-point-reprojection baseline, the spatial filter over probes, and the bilateral upsample, in that
-order. The gather node also refuses a resized frame until resizing is a deliberate step.
+importance sampling, and the denoiser's remaining moves — the spatial filter's dispatch, bilinear
+history taps over the point-reprojection baseline, and the bilateral upsample, in that order. The
+gather node also refuses a resized frame until resizing is a deliberate step.
 
 ### L4 — Surface cache and radiosity *(3.5 EM)*
 

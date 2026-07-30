@@ -224,9 +224,17 @@ draws — and hands the driver the camera the surfaces were *placed* under, a fr
 node's own, because pairing this frame's camera with last frame's surfaces reconstructs history
 that exists nowhere.
 
-Owed from here, in the denoiser's own order: bilinear history taps (point reprojection is the
-baseline), the spatial filter over probes, and the bilateral upsample that finally reads depth
-and normal edges — which is also what turns the adaptive probes on.
+**The spatial filter is `Filter`**: a cross of four lattice neighbours, each blended at a stated
+strength when it has history and stands on the probe's own plane — the same plane test, the same
+renormalising drop-out. It writes into a span rather than into the history, because filtering what
+the next frame blends against is a recursive blur whose width nothing set. Its closed forms are
+the kernel's own arithmetic: a uniform field is unchanged exactly, a lone spike keeps 1/(1+4k) of
+itself and hands each neighbour k of that, and a neighbour across a depth edge keeps its answer
+to the bit.
+
+Owed from here, in the denoiser's own order: the filter's dispatch, bilinear history taps (point
+reprojection is the baseline), and the bilateral upsample that finally reads depth and normal
+edges — which is also what turns the adaptive probes on.
 
 ## Not yet, and named so the absence is a decision
 

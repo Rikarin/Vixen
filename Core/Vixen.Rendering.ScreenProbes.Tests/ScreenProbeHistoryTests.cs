@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
 using Xunit;
 
@@ -140,6 +141,78 @@ public class ScreenProbeHistoryTests {
         // Probe 0's surface was off screen last frame — no history, honestly noisy.
         Assert.Equal(1f, history.Weight(new(0, 1)));
         Assert.Equal(0f, history.Resolved(new(0, 1)).Irradiance(up).X, 1e-5f);
+    }
+
+    [Fact]
+    public void TheFilterLeavesAUniformFieldAlone() {
+        var history = new ScreenProbeHistory(new ScreenProbeAtlas(new(new(64, 64))).Layout);
+
+        history.Accumulate(Seeded(_ => 0.6f), Camera);
+
+        var filtered = new SphericalHarmonicsL1[history.Layout.ProbeCount];
+
+        history.Filter(filtered, 0.5f, 0.1f);
+
+        // Every neighbour holds the same answer, so however many blend in, the weights normalise
+        // back to it exactly.
+        foreach (var value in filtered) {
+            Assert.Equal(0.6f, value.Irradiance(new(0f, 0f, 1f)).X, 1e-5f);
+        }
+    }
+
+    [Fact]
+    public void ALoneSpikeSpreadsByTheStatedShare() {
+        var history = new ScreenProbeHistory(new ScreenProbeAtlas(new(new(64, 64))).Layout);
+
+        // One bright probe in a dark field, all on one plane.
+        history.Accumulate(Seeded(probe => probe == new Int2(1, 1) ? 1f : 0f), Camera);
+
+        var filtered = new SphericalHarmonicsL1[history.Layout.ProbeCount];
+
+        history.Filter(filtered, 0.5f, 0.1f);
+
+        var up = new Vector3(0f, 0f, 1f);
+
+        // The spike keeps 1/(1 + 4·0.5) of itself; an edge-adjacent neighbour gains 0.5/(1 + 4·0.5)
+        // of it — hand-computed from the kernel, not observed from the code.
+        Assert.Equal(1f / 3f, filtered[history.Layout.ProbeIndex(new(1, 1))].Irradiance(up).X, 1e-5f);
+        Assert.Equal(0.5f / 3f, filtered[history.Layout.ProbeIndex(new(2, 1))].Irradiance(up).X, 1e-5f);
+
+        // Two steps away, nothing arrives in one pass.
+        Assert.Equal(0f, filtered[history.Layout.ProbeIndex(new(3, 1))].Irradiance(up).X, 1e-5f);
+    }
+
+    [Fact]
+    public void ADepthEdgeStopsTheSpread() {
+        var atlas = Seeded(probe => probe.X <= 1 ? 1f : 0f);
+        var layout = atlas.Layout;
+
+        // Columns 2 and 3 stand on a nearer plane — the bright half is a different surface.
+        for (var y = 0; y < layout.GridSize.Y; y++) {
+            for (var x = 2; x < layout.GridSize.X; x++) {
+                var probe = new Int2(x, y);
+                var anchor = layout.Anchor(probe);
+
+                atlas.SetSurface(probe, new(World(anchor.X), World(anchor.Y), -4f), new(0f, 0f, 1f));
+            }
+        }
+
+        var history = new ScreenProbeHistory(layout);
+
+        history.Accumulate(atlas, Camera);
+
+        var filtered = new SphericalHarmonicsL1[layout.ProbeCount];
+
+        history.Filter(filtered, 0.5f, 0.1f);
+
+        var up = new Vector3(0f, 0f, 1f);
+
+        // The dark probe beside the edge keeps its own answer to the bit: its bright neighbour is a
+        // different surface, and blending it in is how light bleeds across a doorway.
+        Assert.Equal(0f, filtered[layout.ProbeIndex(new(2, 1))].Irradiance(up).X, 1e-6f);
+
+        // The bright probe on its own side still spreads within its plane.
+        Assert.Equal(1f, filtered[layout.ProbeIndex(new(0, 1))].Irradiance(up).X, 1e-5f);
     }
 
     /// <summary>World coordinate of a pixel centre-ish under the test camera: one tile per unit.</summary>

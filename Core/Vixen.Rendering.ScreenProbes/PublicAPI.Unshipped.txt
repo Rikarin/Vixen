@@ -44,6 +44,7 @@ Vixen.Rendering.ScreenProbes.ScreenProbeGatherSettings.SurfaceBias.init -> float
 Vixen.Rendering.ScreenProbes.ScreenProbeGatherSettings.Validate() -> void
 Vixen.Rendering.ScreenProbes.ScreenProbeHistory -> sealed class
 Vixen.Rendering.ScreenProbes.ScreenProbeHistory.Accumulate(Vixen.Rendering.ScreenProbes.ScreenProbeAtlas atlas, Vixen.Core.Mathematics.Matrix4x4 viewProjection) -> void
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.Filter(System.Span<Vixen.Core.Imaging.SphericalHarmonicsL1> into, float strength, float tolerance) -> void
 Vixen.Rendering.ScreenProbes.ScreenProbeHistory.Frames.get -> int
 Vixen.Rendering.ScreenProbes.ScreenProbeHistory.Layout.get -> Vixen.Rendering.ScreenProbes.ScreenProbeLayout
 Vixen.Rendering.ScreenProbes.ScreenProbeHistory.MaxFrames.get -> int
