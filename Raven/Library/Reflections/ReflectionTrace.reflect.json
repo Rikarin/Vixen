@@ -717,6 +717,38 @@
               "DefaultValue": "0.02"
             },
             {
+              "Name": "reconstructFromDepth",
+              "Type": {
+                "Scalar": "Int",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 80,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0"
+            },
+            {
+              "Name": "inverseViewProjection",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 4,
+                "IsMatrix": true,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 96,
+              "Size": 64,
+              "ArrayStride": 0,
+              "MatrixStride": 16,
+              "DefaultValue": ""
+            },
+            {
               "Name": "reflectionViewport",
               "Type": {
                 "Scalar": "Int",
@@ -726,7 +758,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 80,
+              "Offset": 160,
               "Size": 8,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -742,7 +774,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 96,
+              "Offset": 176,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -758,7 +790,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 108,
+              "Offset": 188,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -774,7 +806,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 112,
+              "Offset": 192,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -790,7 +822,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 116,
+              "Offset": 196,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -806,7 +838,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 120,
+              "Offset": 200,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -822,7 +854,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 124,
+              "Offset": 204,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -838,7 +870,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 128,
+              "Offset": 208,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -854,14 +886,14 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 132,
+              "Offset": 212,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": "0"
             }
           ],
-          "Size": 144,
+          "Size": 224,
           "IsWritable": false
         },
         {
@@ -1429,6 +1461,42 @@
       "DefaultValue": "0.02"
     },
     {
+      "Name": "reconstructFromDepth",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 80,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0"
+    },
+    {
+      "Name": "inverseViewProjection",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 4,
+        "IsMatrix": true,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 96,
+      "Size": 64,
+      "ArrayStride": 0,
+      "MatrixStride": 16,
+      "DefaultValue": ""
+    },
+    {
       "Name": "reflectionViewport",
       "Type": {
         "Scalar": "Int",
@@ -1440,7 +1508,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 80,
+      "Offset": 160,
       "Size": 8,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1458,7 +1526,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 96,
+      "Offset": 176,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1476,7 +1544,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 108,
+      "Offset": 188,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1494,7 +1562,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 112,
+      "Offset": 192,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1512,7 +1580,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 116,
+      "Offset": 196,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1530,7 +1598,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 120,
+      "Offset": 200,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1548,7 +1616,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 124,
+      "Offset": 204,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1566,7 +1634,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 128,
+      "Offset": 208,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1584,7 +1652,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 132,
+      "Offset": 212,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,

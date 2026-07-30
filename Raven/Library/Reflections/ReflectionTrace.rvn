@@ -1,6 +1,7 @@
 package Vixen.Shaders.Reflections
 
 import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
 import Vixen.Shaders.DistanceFields
 import Vixen.Shaders.IrradianceFields
 import Vixen.Shaders.SurfaceCache
@@ -183,6 +184,17 @@ shader ReflectionTrace {
     /// How deep behind a surface a sample still counts as inside it, in device depth.
     var screenThickness: float = 0.02f
 
+    /// Whether positions come from `depthBuffer` rather than the positions plane.
+    ///
+    /// The production wiring: a real frame has a depth, not a positions plane, so the compositor
+    /// node reconstructs — the same `Transform.UvDepthToWorld` placement and the upsample already
+    /// lean on, so a reflection and the probe that stood on its pixel agree about where the surface
+    /// is. A sky texel answers invalid before any ray is cast.
+    var reconstructFromDepth: int = 0
+
+    /// What turns a pixel's depth back into the world, when reconstructing.
+    var inverseViewProjection: mat4
+
     /// How many texels the planes cover.
     var reflectionViewport: int2 = int2(0, 0)
 
@@ -258,15 +270,32 @@ shader ReflectionTrace {
             return
         }
 
-        val surface = reflectionPositions.Load(int3(texel.x, texel.y, 0))
+        var position = float3(0f, 0f, 0f)
 
-        if (surface.a < 0.5f) {
-            reflectionAtlas.Store(texel, float4(0f, 0f, 0f, 0f))
-            return
+        if (reconstructFromDepth != 0) {
+            val deviceDepth = depthBuffer.Load(int3(texel.x, texel.y, 0)).r
+
+            // Zero is the cleared far plane — sky, which reflects nothing of the scene's.
+            if (deviceDepth <= 0f) {
+                reflectionAtlas.Store(texel, float4(0f, 0f, 0f, 0f))
+                return
+            }
+
+            val uv = float2((float(texel.x) + 0.5f) / screenViewport.x, (float(texel.y) + 0.5f) / screenViewport.y)
+
+            position = Transform.UvDepthToWorld(inverseViewProjection, uv, deviceDepth)
+        } else {
+            val surface = reflectionPositions.Load(int3(texel.x, texel.y, 0))
+
+            if (surface.a < 0.5f) {
+                reflectionAtlas.Store(texel, float4(0f, 0f, 0f, 0f))
+                return
+            }
+
+            position = surface.xyz
         }
 
         val shading = reflectionNormals.Load(int3(texel.x, texel.y, 0))
-        val position = surface.xyz
         val normal = shading.xyz
         val roughness = shading.a
         val view = Math.SafeNormalize(position - cameraPosition)

@@ -205,6 +205,36 @@ Vixen.Rendering.PostFx.PostEffectRenderer.Samplers.get -> Vixen.Rendering.Sample
 Vixen.Rendering.PostFx.PostEffectRenderer.Samplers.set -> Vixen.Rendering.SamplerCache?
 Vixen.Rendering.PostFx.PostEffectRenderer.SceneConstants.get -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.PostFx.PostEffectRenderer.SceneConstants.set -> Vixen.Rendering.SceneConstants?
+Vixen.Rendering.PostFx.ReflectionRenderer -> sealed class
+Vixen.Rendering.PostFx.ReflectionRenderer : System.IDisposable
+Vixen.Rendering.PostFx.ReflectionRenderer : Vixen.Rendering.Compositor.SceneRenderer
+Vixen.Rendering.PostFx.ReflectionRenderer.Allocator.get -> Vixen.Graphics.DescriptorAllocator?
+Vixen.Rendering.PostFx.ReflectionRenderer.Allocator.set -> Vixen.Graphics.DescriptorAllocator?
+Vixen.Rendering.PostFx.ReflectionRenderer.CameraPosition.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.PostFx.ReflectionRenderer.CameraPosition.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.PostFx.ReflectionRenderer.Colour.get -> string?
+Vixen.Rendering.PostFx.ReflectionRenderer.Colour.set -> string?
+Vixen.Rendering.PostFx.ReflectionRenderer.Depth.get -> string
+Vixen.Rendering.PostFx.ReflectionRenderer.Depth.set -> string
+Vixen.Rendering.PostFx.ReflectionRenderer.Device.get -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.PostFx.ReflectionRenderer.Device.set -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.PostFx.ReflectionRenderer.Dispose() -> void
+Vixen.Rendering.PostFx.ReflectionRenderer.Effects.get -> Vixen.Shaders.EffectSystem?
+Vixen.Rendering.PostFx.ReflectionRenderer.Effects.set -> Vixen.Shaders.EffectSystem?
+Vixen.Rendering.PostFx.ReflectionRenderer.InverseViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.PostFx.ReflectionRenderer.InverseViewProjection.set -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.PostFx.ReflectionRenderer.Normals.get -> string
+Vixen.Rendering.PostFx.ReflectionRenderer.Normals.set -> string
+Vixen.Rendering.PostFx.ReflectionRenderer.Output.get -> Vixen.Graphics.TextureHandle
+Vixen.Rendering.PostFx.ReflectionRenderer.Pipelines.get -> Vixen.Rendering.ComputePipelineCache?
+Vixen.Rendering.PostFx.ReflectionRenderer.Pipelines.set -> Vixen.Rendering.ComputePipelineCache?
+Vixen.Rendering.PostFx.ReflectionRenderer.ReflectionRenderer() -> void
+Vixen.Rendering.PostFx.ReflectionRenderer.Skipped.get -> string?
+Vixen.Rendering.PostFx.ReflectionRenderer.Target.get -> string
+Vixen.Rendering.PostFx.ReflectionRenderer.Target.set -> string
+Vixen.Rendering.PostFx.ReflectionRenderer.Trace.get -> Vixen.Rendering.Lighting.ReflectionTraceFill?
+Vixen.Rendering.PostFx.ReflectionRenderer.ViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.PostFx.ReflectionRenderer.ViewProjection.set -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer -> sealed class
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer : System.IDisposable
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer : Vixen.Rendering.Compositor.SceneRenderer
@@ -639,6 +669,7 @@ override Vixen.Rendering.PostFx.IndirectDiffuseRenderer.Configure(Vixen.Renderin
 override Vixen.Rendering.PostFx.IndirectDiffuseRenderer.TargetSize(Vixen.Core.Mathematics.Int2 frame) -> Vixen.Core.Mathematics.Int2
 override Vixen.Rendering.PostFx.OutlineRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.PostEffectRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
+override Vixen.Rendering.PostFx.ReflectionRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.SharpenRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
