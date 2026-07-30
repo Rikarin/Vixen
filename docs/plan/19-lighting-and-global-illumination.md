@@ -433,9 +433,8 @@ sight.
 
 Two things it is deliberately not: it reads **every** object rather than the visible ones, because
 indirect light comes from geometry the camera cannot see and that is the whole reason a field exists
-rather than a screen-space gather; and it only ever **adds** detail, so a scene that streams geometry
-through a region ratchets that region toward its finest and never gives the slots back. Coarsening
-needs the pool to take slots back and a policy for when, and neither exists.
+rather than a screen-space gather; and refinement alone only ever **adds** detail — the other
+direction is `CoarsenTo`, below, which is what a streamed scene sets.
 
 **Filler B projects, and nothing renders its cubes yet.** `CapturedIrradianceFiller` takes an
 `IIrradianceCaptureSource` — a cube of radiance, a validity and a sun scalar — and writes the same
@@ -530,10 +529,16 @@ dirty bricks and their neighbours is real work nobody has done; and filler B sta
 probe, which wants a ring of targets rather than the one the capture reuses. Neither has a scene large
 enough to measure against, which is why neither has been done.
 
-And coarsening, which is a feature rather than either: refinement only ever adds detail, so a scene that
-streams geometry through a region ratchets it toward its finest and never gives the slots back. It needs
-the pool to take slots back and a policy for when. Baking makes it worth more than it was — a field sized
-to the scene at build time is the case that actually pays for releasing slots.
+And coarsening is in, closing the ratchet this paragraph used to record. `TryMerge` is `Split`'s
+exact inverse — refusing mixed groups and merges that add no coverage, subsampling the merged
+probes rather than discarding them, because a parent probe stands at exactly every other child
+probe's position and a copy of something real beats a flicker to black. The policy's `CoarsenTo`
+merges back whatever no band still claims, never undoing its own frame's refinement, with
+`CoarsenMargin` as the hysteresis against a box teetering on a brick boundary; a scene whose
+geometry leaves entirely gives every slot back, and a test walks exactly that. What building it
+found: a merge that covers not one cell more is a rename that doubles a brick's nominal size
+without end — stale candidates once escalated a corner octet into a brick thirty-two thousand
+cells across — so both the merge and the policy's snapshot now refuse staleness explicitly.
 
 Composing the slot into the forward pass also turned up a defect that has nothing to do with the field.
 **The non-clustered forward variant cannot bind set 3**: `ForwardLightingRenderFeature` declares the
@@ -658,9 +663,140 @@ golden suite refused with `RVN2073`, exactly as § L2 recorded when `IrradianceF
 doing the declaring. The failure was loud and eight tests wide, which is what that inventory's own
 comment promises.
 
-Still not started, and named in the README as decisions: adaptive placement, importance sampling,
-the HZB-first trace order and the termination in L2's field, the whole denoiser, and the resolve,
-upsample and compositor node — each of which now has a traced atlas to land against.
+**Long rays terminate in L2's field, on both sides.** The trace order's last stage, and the arrow
+this section always drew from § L3 into § L2, executed: a ray that runs out of budget samples the
+field at its end and blends toward the field's answer by probe validity — sky as the fallback, not
+an addend, for the double-counting reason the forward pass recorded. The Raven `IIrradianceSource`
+grew `Radiance(world, direction)` for it — the raw basis, no cosine lobe, because a termination
+point is not a surface and the ray wants what the light *is* — with `SphericalHarmonicsL1.Radiance`
+as the C# half, and a linear sky surviving the round trip exactly because an L1-shaped function is
+what an L1 projection keeps whole. The kernel composes the same `irradiance` slot the shading
+passes compose, so `NoIrradiance`'s zero coverage makes a fieldless project trace exactly the rays
+it traced before; the device comparison runs the reference's termination through
+`IrradianceField.TrySample` and the dispatch's through `IrradianceFieldProbes.Radiance`, inside the
+field and beyond its box, and the two agree either way.
+
+**And the resolve is a dispatch.** `ScreenProbeResolve.rvn` projects each probe's map into L1 — one
+workgroup per probe, walking the map in the exact order `ScreenProbeAtlas.Resolve` walks it,
+because a parallel reduction reorders a float sum and the first version is the one with nothing
+between it and the reference; widening it is an owed optimisation with a baseline. Its solid angles
+are uploaded from `OctahedralMap.SolidAngles` — the same exact table, not a second derivation — and
+its output is four grid-sized planes in the pool's own colour-major packing, validity in the
+constant plane's alpha, shaped for the upsample pass that does not exist yet. The comparison seeds
+the atlas under a linear sky so the projection genuinely integrates, and holds all four
+coefficients of every probe, invalid one included, to a ten-thousandth.
+
+**The upsample exists, and a frame has not drawn it — stated in that order deliberately.**
+`ScreenProbeUpsample.rvn` is `IndirectDiffuse`'s screen-space sibling: four validity-renormalised
+taps of the resolved planes per pixel, the blend evaluated once because the projection is linear,
+the sky rejected by the reversed-depth zero test that bit twice before. Its lattice walk is
+emulated in C# and held against `ScreenProbeLayout.Bilinear` for every pixel of a clamping
+viewport — the pixel-centre and lattice-origin halves are this pass's half-texel, wrong-silently on
+either side alone — and a compile test pins the reflected binding names to what
+`ScreenProbeTexture.Apply` writes. **And a frame has drawn it.** The image test runs the pass through a real compositor over
+device-resolved planes: a uniform sky crosses the atlas, the solid-angle table, the resolve
+dispatch, the four planes, the lattice walk and the graph's scheduling, and comes back as a flat
+frame of itself — with the sky's own pixels dark under the reversed-depth test. The first frame
+found what first frames find here, twice: a full-screen pass's textures resolve through the graph
+and nothing else, so the resolved planes travel as imports already in their own state rather than
+as parameter writes; and a pass that composes nothing still names every slot its source set
+declares, which is the RVN2073 rule caught this time by the pass's own composition being empty.
+Bilinear only until the denoiser brings the bilateral weights.
+
+**And the gather runs as one schedule, placed from the frame's own depth.**
+`ReconstructedScreenSurface` answers `IScreenSurface` from a frame's depth and normal buffers by
+the shaders' own arithmetic — `Transform.UvDepthToWorld` spelled in C#, the reversed-depth zero as
+the sky test — with its axes pinned by a hand-worked orthographic case, because a reconstruction
+that negated y would pass every round trip through its own inverse. `ScreenProbeGatherRenderer` is
+the node this section owed: it copies the depth and normals back each frame, places probes from
+the copy a latency ago under the camera matrix snapshotted beside it (this frame's camera against
+last frame's depth reconstructs surfaces that exist nowhere), runs trace and resolve in one
+compute pass, publishes the resolved planes as graph imports and builds the upsample as a child.
+Its image test asks a compositor for three frames: the first is honestly dark, because its
+placement data had not come back yet, and the second is the uniform-sky flat frame with nothing
+seeded by hand. Two decisions the schedule forced. **The probe lattice runs a frame behind the
+camera** — placement is a readback, and the denoiser's temporal reprojection will meet that
+staleness again with a name. And **an unplaced probe's patch is cleared by the trace dispatch
+itself** (`ClearInvalid`, a `valid` flag in the job's padding): on an atlas the dispatch owns, a
+patch nothing writes is undefined memory, and the resolve reads validity out of it.
+
+**And the trace order opens with the screen.** `ScreenSpaceTrace` marches the frame's own depth —
+geometry the distance field may not hold — before any field ray: a fixed count of equal steps, each
+projected and tested behind-within-thickness, a hit giving back nothing for the § L4 reason a field
+hit does, a sky texel occluding nothing, and an off-screen ray falling through to the field because
+a screen miss never proves the world empty. The kernel runs the same march sample for sample, and
+its device comparison is the package's sternest: a screen hit is binary, so a last-bit decode
+disagreement flips a texel whole — the wall only the depth buffer can see stopped the same rays on
+both sides, texel for texel, with a traceless reference proving it stopped any. Wired through the
+gather node behind `ScreenTraces`, **off by default and stated why**: the probes stand where a
+frame ago's placement put them and the rays march this frame's depth — identical for a still
+scene, sheared by motion for a moving one, which is the denoiser's reprojection problem named
+before it exists. One frame drawn with it on shows the L1 overshoot from § L3's own finding, now
+end to end: probes standing on the one surface a frame drew blacken a cone *behind* themselves,
+and the away-facing answer lands above the sky, not below it.
+
+**Adaptive placement exists device-free, and is stated as half a feature on purpose.** The layout
+reserves adaptive map rows below the grid — an addition to the lattice, its addressing unmoved,
+the capacity a budget rather than a promise. Tile corners are the detectors, being the pixels
+farthest from every anchor: a corner farther than a tolerance from the plane of every probe it
+bilinearly reads stands on a surface the lattice never sampled, and gets a probe gathered by the
+same trace order. The position-aware sampling overload drops plane-mismatched taps exactly as it
+drops invalid ones — one tolerance shared by detection and sampling, because disagreeing
+definitions of "a different surface" place probes nothing reads — and falls back to the nearest
+accepting adaptive probe, then the unfiltered lattice, then zero. The ledge fixture produces
+exactly the eight corner probes its geometry predicts. What is deliberately absent: the device
+half changes no picture until the upsample reads position, and that is the bilateral upsample,
+which is the denoiser's opening move.
+
+**And the denoiser has its opening move.** `ScreenProbeHistory` accumulates resolved probes
+across frames as a capped running mean — the cheapest variance reduction being the frames already
+paid for — with history following the <i>surface</i> rather than the tile: this frame's surface
+reprojects through last frame's camera to the probe that stood on it then, which is where the
+gather node's one-frame-stale lattice gets its answer. Disocclusion rejects by the plane test
+placement and adaptive sampling already use, and a rejection starts over at weight one — noisy
+and honest until the spatial filter exists to hide the restart. The tests hold the recurrences to
+the digit: a constant converges to itself exactly, a flip follows the mean's own sequence, the cap
+converges at the cap's rate, and a camera panned one tile blends each probe with its neighbour's
+history while the newly revealed column starts from nothing.
+
+**And the accumulation dispatches, agreeing with the CPU frame by frame.**
+`ScreenProbeAccumulate.rvn` runs the same capped running mean per probe over two ping-ponged sets
+of six planes — four in the resolve's own packing, so the upsample reads accumulated probes
+without knowing the difference, plus surface-and-weight and normal planes for the reprojection
+and its plane test. The device comparison replays the CPU recurrences' scenarios — constant
+convergence, the flip, the pan that borrows the neighbour's history — through the dispatch,
+coefficients and weights compared after every frame so a drift is caught where it starts. The
+gather node routes the upsample through the history when an `Accumulator` is set, publishing the
+back set the swap will front, and feeds the driver the camera its surfaces were placed under — a
+frame older than its own, matching the surfaces exactly. A constant scene through the whole
+accumulated chain draws the same flat frame the raw resolve draws, which is the closed form's way
+of saying the plumbing added nothing and lost nothing.
+
+**The spatial filter runs on both sides**: a cross of lattice neighbours blended at a stated
+strength, gated by history and by the shared plane test, renormalising over what survives —
+writing into separate filtered planes rather than into the history, because filtering what the
+next frame blends against is a recursive blur whose width nothing set. A uniform field is
+unchanged exactly, a lone spike spreads by precisely its kernel share, and a depth edge stops the
+bleed to the bit; the dispatch is compared against the CPU probe for probe over a scene holding
+both closed forms at once, and the gather node runs it after the accumulation with the upsample
+reading the filtered planes — still without knowing what kind of planes they are.
+
+**And the upsample is bilateral, behind a tolerance.** Above zero, each tap tests the pixel's
+reconstructed world position against its probe's stored plane — the history's surface and normal
+planes — dropping mismatches exactly as invalid probes drop, with the plain blend as the
+everyone-rejected fallback: the CPU overload's own order, minus adaptive probes, so a lattice
+without them behaves identically on both sides. Zero is bit-for-bit the bilinear pass. A flat
+frame proves what a flat frame can — planes bound and read without changing the closed form, the
+fallback engaged rather than black — and the discriminating depth-edge picture is owed with the
+first fixture that draws real geometry.
+
+With that, the denoiser's chain runs end to end on the device — accumulate, filter, bilateral
+upsample — every stage held to a CPU reference. Still not started: the HZB traversal itself (the
+naive march is the baseline, and the pyramid wants its nearest-texel reduction beside culling's
+farthest), the adaptive probes' device half (the bilateral pass that would read them now exists),
+importance sampling, bilinear history taps, the lit-scene fixtures the exit criteria ask for —
+the reference path tracer and the camera-cut and fast-pan ghosting tests — and the gather node's
+deliberate resize step.
 
 ### L4 — Surface cache and radiosity *(3.5 EM)*
 

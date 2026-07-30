@@ -204,6 +204,33 @@ public class SphericalHarmonicsL1Tests {
         Assert.Equal(SphericalHarmonicsL1.Zero, default);
     }
 
+    /// <summary>
+    ///     <c>Radiance</c> reads back what was projected, with no cosine lobe in the way: a uniform
+    ///     environment answers itself in every direction, and a linear one answers its own closed form
+    ///     — exactly, because a function of the first band's shape survives an L1 projection whole.
+    /// </summary>
+    [Fact]
+    public void RadianceReadsBackWhatWasProjected() {
+        const float Baseline = 0.6f;
+        const float Tilt = 0.3f;
+
+        var directions = Sphere(4096);
+        var solidAngle = 4f * MathF.PI / directions.Length;
+
+        var uniform = SphericalHarmonicsL1.Zero;
+        var linear = SphericalHarmonicsL1.Zero;
+
+        foreach (var direction in directions) {
+            uniform = uniform.Accumulated(direction, new(Baseline), solidAngle);
+            linear = linear.Accumulated(direction, new(Baseline + (Tilt * direction.Y)), solidAngle);
+        }
+
+        foreach (var direction in new Vector3[] { new(0, 1, 0), new(1, 0, 0), Vector3.Normalize(new(1f, -0.5f, 0.25f)) }) {
+            Assert.Equal(Baseline, uniform.Radiance(direction).X, 1e-3f);
+            Assert.Equal(Baseline + (Tilt * direction.Y), linear.Radiance(direction).X, 1e-3f);
+        }
+    }
+
     [Fact]
     public void TooLittleRoomForTheBasisIsRejected() {
         Assert.Throws<ArgumentException>(() => {

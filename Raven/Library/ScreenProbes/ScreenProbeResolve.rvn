@@ -1,0 +1,94 @@
+package Vixen.Shaders.ScreenProbes
+
+import Vixen.Shaders.Core
+
+// Resolving each probe's radiance map into four spherical-harmonic coefficients.
+//
+// The projection half of doc 19 § L3's "resolve to SH" — `ScreenProbeAtlas.Resolve` on the CPU, which
+// exists first and is the reference this is compared against, probe by probe. Where the two disagree,
+// the C# is right and this is wrong.
+//
+// One workgroup per probe and ONE invocation per workgroup, walking the map in the exact order the CPU
+// walks it — row by row, texel by texel. Sixty-four serial loads per probe is not the fast shape, and
+// that is deliberate: a parallel reduction reorders a float sum, and the first version of anything here
+// is the one with nothing between it and the reference. Making it wide is an optimisation with a
+// baseline to be held against, and is owed.
+//
+// The solid angles arrive in a buffer the host fills from `OctahedralMap.SolidAngles` — the SAME exact
+// table the CPU projection uses, not a second derivation. A texel's weight is a property of the map,
+// computing it twice is how the two sides drift by a percent nobody can attribute, and the table is
+// sixty-four floats.
+//
+// The output is four small textures in the irradiance pool's own colour-major packing — one fetch of
+// the red plane gives all three of red's linear coefficients — with validity in the constant plane's
+// alpha. The same convention because the consumers are the same kind: whatever upsamples these probes
+// interpolates coefficients, exactly as the field's sampler does.
+
+shader ScreenProbeResolve {
+    /// How many texels one probe's map is along each axis. `ScreenProbeAtlas.MapResolution`'s number,
+    /// and the convention tests hold the two together.
+    const val MapResolution = 8
+
+    /// The constant spherical-harmonic basis function.
+    const val Constant = 0.282095f
+
+    /// The linear ones, raw — this is a projection of radiance, not an irradiance evaluation, so the
+    /// cosine lobe's fold has no business here.
+    const val LinearBasis = 0.488603f
+
+    /// Every probe's map, side by side — what the trace wrote.
+    var radianceAtlas: Texture2D
+
+    /// How much of the sphere each map texel stands for, row-major, from `OctahedralMap.SolidAngles`.
+    var solidAngles: Buffer<float>
+
+    /// The resolved probes, in the irradiance pool's colour-major packing.
+    [Format("rgba32f")] var probeL0: RWTexture2D<float4>
+    [Format("rgba32f")] var probeL1R: RWTexture2D<float4>
+    [Format("rgba32f")] var probeL1G: RWTexture2D<float4>
+    [Format("rgba32f")] var probeL1B: RWTexture2D<float4>
+
+    [ComputeShader(1, 1, 1)]
+    func Main([Semantic("SV_GroupID")] group: uint3) {
+        val probe = int2(int(group.x), int(group.y))
+        val origin = ScreenProbeAtlas.Origin(probe, MapResolution)
+
+        // Validity rides in the alpha of every texel the trace wrote, uniformly across a probe's map —
+        // one read of the first texel answers for the patch. A probe nothing gathered resolves to
+        // nothing, deliberately including its coefficients: stale numbers behind a zero validity are
+        // stale numbers something will eventually read anyway.
+        val validity = radianceAtlas.Load(int3(origin.x, origin.y, 0)).a
+
+        if (validity <= 0f) {
+            probeL0.Store(probe, float4(0f, 0f, 0f, 0f))
+            probeL1R.Store(probe, float4(0f, 0f, 0f, 0f))
+            probeL1G.Store(probe, float4(0f, 0f, 0f, 0f))
+            probeL1B.Store(probe, float4(0f, 0f, 0f, 0f))
+            return
+        }
+
+        var l00 = float3(0f, 0f, 0f)
+        var l1m1 = float3(0f, 0f, 0f)
+        var l10 = float3(0f, 0f, 0f)
+        var l11 = float3(0f, 0f, 0f)
+
+        for (ty in 0 .. MapResolution - 1) {
+            for (tx in 0 .. MapResolution - 1) {
+                val texel = int2(tx, ty)
+                val direction = ScreenProbeAtlas.Direction(texel, MapResolution)
+                val radiance = radianceAtlas.Load(int3(origin.x + tx, origin.y + ty, 0)).rgb
+                val weighted = radiance * solidAngles[ty * MapResolution + tx]
+
+                l00 += weighted * Constant
+                l1m1 += weighted * (LinearBasis * direction.y)
+                l10 += weighted * (LinearBasis * direction.z)
+                l11 += weighted * (LinearBasis * direction.x)
+            }
+        }
+
+        probeL0.Store(probe, float4(l00, validity))
+        probeL1R.Store(probe, float4(l1m1.x, l10.x, l11.x, 0f))
+        probeL1G.Store(probe, float4(l1m1.y, l10.y, l11.y, 0f))
+        probeL1B.Store(probe, float4(l1m1.z, l10.z, l11.z, 0f))
+    }
+}

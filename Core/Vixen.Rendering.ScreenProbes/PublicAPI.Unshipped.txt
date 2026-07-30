@@ -2,28 +2,65 @@
 Vixen.Rendering.ScreenProbes.IScreenSurface -> interface
 Vixen.Rendering.ScreenProbes.IScreenSurface.TrySurface(Vixen.Core.Mathematics.Int2 pixel, out Vixen.Core.Mathematics.Vector3 position, out Vixen.Core.Mathematics.Vector3 normal) -> bool
 Vixen.Rendering.ScreenProbes.OctahedralMap -> static class
+Vixen.Rendering.ScreenProbes.ReconstructedScreenSurface -> sealed class
+Vixen.Rendering.ScreenProbes.ReconstructedScreenSurface : Vixen.Rendering.ScreenProbes.IScreenSurface
+Vixen.Rendering.ScreenProbes.ReconstructedScreenSurface.Depth.get -> System.Span<float>
+Vixen.Rendering.ScreenProbes.ReconstructedScreenSurface.InverseViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.ScreenProbes.ReconstructedScreenSurface.InverseViewProjection.set -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.ScreenProbes.ReconstructedScreenSurface.Normals.get -> System.Span<Vixen.Core.Mathematics.Vector4>
+Vixen.Rendering.ScreenProbes.ReconstructedScreenSurface.ReconstructedScreenSurface(Vixen.Core.Mathematics.Int2 viewport) -> void
+Vixen.Rendering.ScreenProbes.ReconstructedScreenSurface.TrySurface(Vixen.Core.Mathematics.Int2 pixel, out Vixen.Core.Mathematics.Vector3 position, out Vixen.Core.Mathematics.Vector3 normal) -> bool
+Vixen.Rendering.ScreenProbes.ReconstructedScreenSurface.Viewport.get -> Vixen.Core.Mathematics.Int2
 Vixen.Rendering.ScreenProbes.ScreenProbeAtlas -> sealed class
+Vixen.Rendering.ScreenProbes.ScreenProbeAtlas.AdaptiveCount.get -> int
+Vixen.Rendering.ScreenProbes.ScreenProbeAtlas.AdaptiveSurface(int index, out Vixen.Core.Mathematics.Int2 pixel, out Vixen.Core.Mathematics.Vector3 position, out Vixen.Core.Mathematics.Vector3 normal) -> void
+Vixen.Rendering.ScreenProbes.ScreenProbeAtlas.ClearAdaptive() -> void
 Vixen.Rendering.ScreenProbes.ScreenProbeAtlas.Invalidate(Vixen.Core.Mathematics.Int2 probe) -> void
 Vixen.Rendering.ScreenProbes.ScreenProbeAtlas.Irradiance(Vixen.Core.Mathematics.Int2 pixel, Vixen.Core.Mathematics.Vector3 normal) -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.ScreenProbes.ScreenProbeAtlas.Irradiance(Vixen.Core.Mathematics.Int2 pixel, Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 normal, float tolerance) -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.ScreenProbes.ScreenProbeAtlas.IsValid(Vixen.Core.Mathematics.Int2 probe) -> bool
 Vixen.Rendering.ScreenProbes.ScreenProbeAtlas.Layout.get -> Vixen.Rendering.ScreenProbes.ScreenProbeLayout
+Vixen.Rendering.ScreenProbes.ScreenProbeAtlas.PlaceAdaptive(Vixen.Core.Mathematics.Int2 pixel, Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 normal) -> int
 Vixen.Rendering.ScreenProbes.ScreenProbeAtlas.Resolve() -> void
 Vixen.Rendering.ScreenProbes.ScreenProbeAtlas.Resolved(Vixen.Core.Mathematics.Int2 probe) -> Vixen.Core.Imaging.SphericalHarmonicsL1
+Vixen.Rendering.ScreenProbes.ScreenProbeAtlas.ResolvedAdaptive(int index) -> Vixen.Core.Imaging.SphericalHarmonicsL1
 Vixen.Rendering.ScreenProbes.ScreenProbeAtlas.ScreenProbeAtlas(Vixen.Rendering.ScreenProbes.ScreenProbeLayout layout) -> void
 Vixen.Rendering.ScreenProbes.ScreenProbeAtlas.SetSurface(Vixen.Core.Mathematics.Int2 probe, Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 normal) -> void
 Vixen.Rendering.ScreenProbes.ScreenProbeAtlas.TrySurface(Vixen.Core.Mathematics.Int2 probe, out Vixen.Core.Mathematics.Vector3 position, out Vixen.Core.Mathematics.Vector3 normal) -> bool
 Vixen.Rendering.ScreenProbes.ScreenProbeAtlas.ValidCount.get -> int
 Vixen.Rendering.ScreenProbes.ScreenProbeAtlas.this[Vixen.Core.Mathematics.Int2 probe, Vixen.Core.Mathematics.Int2 texel].get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.ScreenProbes.ScreenProbeAtlas.this[Vixen.Core.Mathematics.Int2 probe, Vixen.Core.Mathematics.Int2 texel].set -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.ScreenProbes.ScreenProbeAtlas.this[int adaptive, Vixen.Core.Mathematics.Int2 texel].get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.ScreenProbes.ScreenProbeAtlas.this[int adaptive, Vixen.Core.Mathematics.Int2 texel].set -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.ScreenProbes.ScreenProbeGatherSettings -> readonly struct
 Vixen.Rendering.ScreenProbes.ScreenProbeGatherSettings : System.IEquatable<Vixen.Rendering.ScreenProbes.ScreenProbeGatherSettings>
+Vixen.Rendering.ScreenProbes.ScreenProbeGatherSettings.AdaptiveTolerance.get -> float
+Vixen.Rendering.ScreenProbes.ScreenProbeGatherSettings.AdaptiveTolerance.init -> float
 Vixen.Rendering.ScreenProbes.ScreenProbeGatherSettings.MaxDistance.get -> float
 Vixen.Rendering.ScreenProbes.ScreenProbeGatherSettings.MaxDistance.init -> float
 Vixen.Rendering.ScreenProbes.ScreenProbeGatherSettings.ScreenProbeGatherSettings() -> void
 Vixen.Rendering.ScreenProbes.ScreenProbeGatherSettings.SurfaceBias.get -> float
 Vixen.Rendering.ScreenProbes.ScreenProbeGatherSettings.SurfaceBias.init -> float
 Vixen.Rendering.ScreenProbes.ScreenProbeGatherSettings.Validate() -> void
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory -> sealed class
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.Accumulate(Vixen.Rendering.ScreenProbes.ScreenProbeAtlas atlas, Vixen.Core.Mathematics.Matrix4x4 viewProjection) -> void
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.Filter(System.Span<Vixen.Core.Imaging.SphericalHarmonicsL1> into, float strength, float tolerance) -> void
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.Frames.get -> int
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.Layout.get -> Vixen.Rendering.ScreenProbes.ScreenProbeLayout
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.MaxFrames.get -> int
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.MaxFrames.set -> int
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.Rejected.get -> int
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.Reprojected.get -> int
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.Resolved(Vixen.Core.Mathematics.Int2 probe) -> Vixen.Core.Imaging.SphericalHarmonicsL1
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.ScreenProbeHistory(Vixen.Rendering.ScreenProbes.ScreenProbeLayout layout) -> void
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.Tolerance.get -> float
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.Tolerance.set -> float
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.ViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.Weight(Vixen.Core.Mathematics.Int2 probe) -> float
 Vixen.Rendering.ScreenProbes.ScreenProbeLayout -> readonly struct
+Vixen.Rendering.ScreenProbes.ScreenProbeLayout.AdaptiveCapacity.get -> int
+Vixen.Rendering.ScreenProbes.ScreenProbeLayout.AdaptiveOrigin(int index) -> Vixen.Core.Mathematics.Int2
+Vixen.Rendering.ScreenProbes.ScreenProbeLayout.AdaptiveRows.get -> int
 Vixen.Rendering.ScreenProbes.ScreenProbeLayout.Anchor(Vixen.Core.Mathematics.Int2 probe) -> Vixen.Core.Mathematics.Int2
 Vixen.Rendering.ScreenProbes.ScreenProbeLayout.AtlasOrigin(Vixen.Core.Mathematics.Int2 probe) -> Vixen.Core.Mathematics.Int2
 Vixen.Rendering.ScreenProbes.ScreenProbeLayout.AtlasSize.get -> Vixen.Core.Mathematics.Int2
@@ -33,7 +70,7 @@ Vixen.Rendering.ScreenProbes.ScreenProbeLayout.MapResolution.get -> int
 Vixen.Rendering.ScreenProbes.ScreenProbeLayout.ProbeCount.get -> int
 Vixen.Rendering.ScreenProbes.ScreenProbeLayout.ProbeIndex(Vixen.Core.Mathematics.Int2 probe) -> int
 Vixen.Rendering.ScreenProbes.ScreenProbeLayout.ScreenProbeLayout() -> void
-Vixen.Rendering.ScreenProbes.ScreenProbeLayout.ScreenProbeLayout(Vixen.Core.Mathematics.Int2 viewport, int tileSize = 16, int mapResolution = 8) -> void
+Vixen.Rendering.ScreenProbes.ScreenProbeLayout.ScreenProbeLayout(Vixen.Core.Mathematics.Int2 viewport, int tileSize = 16, int mapResolution = 8, int adaptiveRows = 0) -> void
 Vixen.Rendering.ScreenProbes.ScreenProbeLayout.TileSize.get -> int
 Vixen.Rendering.ScreenProbes.ScreenProbeLayout.Viewport.get -> Vixen.Core.Mathematics.Int2
 Vixen.Rendering.ScreenProbes.ScreenProbeTap -> readonly struct
@@ -44,9 +81,22 @@ Vixen.Rendering.ScreenProbes.ScreenProbeTap.ScreenProbeTap() -> void
 Vixen.Rendering.ScreenProbes.ScreenProbeTap.ScreenProbeTap(Vixen.Core.Mathematics.Int2 Probe, float Weight) -> void
 Vixen.Rendering.ScreenProbes.ScreenProbeTap.Weight.get -> float
 Vixen.Rendering.ScreenProbes.ScreenProbeTap.Weight.init -> float
+Vixen.Rendering.ScreenProbes.ScreenSpaceTrace -> sealed class
+Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.Hit(Vixen.Core.Mathematics.Vector3 origin, Vixen.Core.Mathematics.Vector3 direction, float maxDistance) -> bool
+Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.ScreenSpaceTrace(Vixen.Rendering.ScreenProbes.ReconstructedScreenSurface surface) -> void
+Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.Steps.get -> int
+Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.Steps.set -> int
+Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.Thickness.get -> float
+Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.Thickness.set -> float
+Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.ViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.ScreenProbes.ScreenSpaceTrace.ViewProjection.set -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.ScreenProbes.TracedScreenProbeGather -> sealed class
+Vixen.Rendering.ScreenProbes.TracedScreenProbeGather.FarField.get -> Vixen.Rendering.IrradianceFields.IrradianceField?
+Vixen.Rendering.ScreenProbes.TracedScreenProbeGather.FarField.set -> Vixen.Rendering.IrradianceFields.IrradianceField?
 Vixen.Rendering.ScreenProbes.TracedScreenProbeGather.Fill(Vixen.Rendering.ScreenProbes.ScreenProbeAtlas atlas, Vixen.Rendering.ScreenProbes.IScreenSurface surface) -> int
 Vixen.Rendering.ScreenProbes.TracedScreenProbeGather.FillProbe(Vixen.Rendering.ScreenProbes.ScreenProbeAtlas atlas, Vixen.Core.Mathematics.Int2 probe, Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 normal) -> bool
+Vixen.Rendering.ScreenProbes.TracedScreenProbeGather.ScreenTrace.get -> Vixen.Rendering.ScreenProbes.ScreenSpaceTrace?
+Vixen.Rendering.ScreenProbes.TracedScreenProbeGather.ScreenTrace.set -> Vixen.Rendering.ScreenProbes.ScreenSpaceTrace?
 Vixen.Rendering.ScreenProbes.TracedScreenProbeGather.Settings.get -> Vixen.Rendering.ScreenProbes.ScreenProbeGatherSettings
 Vixen.Rendering.ScreenProbes.TracedScreenProbeGather.TracedScreenProbeGather(Vixen.Rendering.DistanceFields.IDistanceField geometry, Vixen.Rendering.IrradianceFields.IRadianceSource radiance, Vixen.Rendering.ScreenProbes.ScreenProbeGatherSettings? options = null) -> void
 static Vixen.Rendering.ScreenProbes.OctahedralMap.Decode(Vixen.Core.Mathematics.Vector2 encoded) -> Vixen.Core.Mathematics.Vector3

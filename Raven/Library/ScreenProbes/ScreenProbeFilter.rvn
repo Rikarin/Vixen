@@ -1,0 +1,105 @@
+package Vixen.Shaders.ScreenProbes
+
+import Vixen.Shaders.Core
+
+// Spreading each accumulated probe over its plane-sharing neighbours — the denoiser's spatial move.
+//
+// `ScreenProbeHistory.Filter` is the same arithmetic on the CPU and it exists first, held to the
+// kernel's own closed forms: a uniform field unchanged exactly, a lone spike keeping 1/(1+4k) of
+// itself, a depth edge stopping the spread to the bit. Where the two disagree, the C# is right.
+//
+// One invocation per probe, a cross of four lattice neighbours, each blended at `strength` when it
+// has history and stands on the probe's own plane — the plane test placement, adaptive sampling and
+// the temporal rejection all share. The output is four planes in the resolve's packing, so the
+// upsample reads filtered probes the way it reads resolved or accumulated ones: without knowing.
+//
+// Reading the history and writing separate filtered planes is the recursion guard, not a
+// convenience: filtered history blended into next frame's history is a blur that widens every
+// frame with no knob that set it.
+
+shader ScreenProbeFilter {
+    /// The accumulated probes — the history set the last accumulation wrote.
+    var historyL0: Texture2D
+    var historyL1R: Texture2D
+    var historyL1G: Texture2D
+    var historyL1B: Texture2D
+
+    /// Their surfaces: position in rgb, accumulated weight in alpha.
+    var historySurface: Texture2D
+
+    /// Their normals, xyz.
+    var historyNormal: Texture2D
+
+    /// The filtered probes, in the resolve's own packing.
+    [Format("rgba32f")] var outL0: RWTexture2D<float4>
+    [Format("rgba32f")] var outL1R: RWTexture2D<float4>
+    [Format("rgba32f")] var outL1G: RWTexture2D<float4>
+    [Format("rgba32f")] var outL1B: RWTexture2D<float4>
+
+    /// How many probes there are, along each axis.
+    var gridSize: float2 = float2(1f, 1f)
+
+    /// A lattice neighbour's share relative to the probe's own, 0 to 1.
+    var strength: float = 0.5f
+
+    /// How far off the probe's plane a neighbour's surface may stand and still blend, in world units.
+    var tolerance: float = 0.05f
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] thread: uint3) {
+        val probe = int2(int(thread.x), int(thread.y))
+
+        if (probe.x >= int(gridSize.x) || probe.y >= int(gridSize.y)) {
+            return
+        }
+
+        val aux = historySurface.Load(int3(probe.x, probe.y, 0))
+
+        // A probe with no history has nothing to spread and nothing to receive.
+        if (aux.a <= 0f) {
+            outL0.Store(probe, float4(0f, 0f, 0f, 0f))
+            outL1R.Store(probe, float4(0f, 0f, 0f, 0f))
+            outL1G.Store(probe, float4(0f, 0f, 0f, 0f))
+            outL1B.Store(probe, float4(0f, 0f, 0f, 0f))
+            return
+        }
+
+        val normal = historyNormal.Load(int3(probe.x, probe.y, 0)).xyz
+
+        var l0 = historyL0.Load(int3(probe.x, probe.y, 0))
+        var r = historyL1R.Load(int3(probe.x, probe.y, 0))
+        var g = historyL1G.Load(int3(probe.x, probe.y, 0))
+        var b = historyL1B.Load(int3(probe.x, probe.y, 0))
+        var total = 1f
+
+        for (step in 0 .. 3) {
+            val dx = step == 0 ? -1 : step == 1 ? 1 : 0
+            val dy = step == 2 ? -1 : step == 3 ? 1 : 0
+            val nx = probe.x + dx
+            val ny = probe.y + dy
+
+            if (nx >= 0 && ny >= 0 && nx < int(gridSize.x) && ny < int(gridSize.y)) {
+                val theirs = historySurface.Load(int3(nx, ny, 0))
+
+                // History, and the probe's own plane — a neighbour across a depth edge measured a
+                // different surface, and blending it in is the bleed this filter must not add.
+                if (theirs.a > 0f && abs(dot(theirs.rgb - aux.rgb, normal)) <= tolerance) {
+                    l0 += historyL0.Load(int3(nx, ny, 0)) * strength
+                    r += historyL1R.Load(int3(nx, ny, 0)) * strength
+                    g += historyL1G.Load(int3(nx, ny, 0)) * strength
+                    b += historyL1B.Load(int3(nx, ny, 0)) * strength
+                    total += strength
+                }
+            }
+        }
+
+        val scale = 1f / total
+
+        // The validity alpha is the probe's own, not blended — the filter widens the estimate, not
+        // the set of probes that exist.
+        outL0.Store(probe, float4(l0.rgb * scale, historyL0.Load(int3(probe.x, probe.y, 0)).a))
+        outL1R.Store(probe, r * scale)
+        outL1G.Store(probe, g * scale)
+        outL1B.Store(probe, b * scale)
+    }
+}

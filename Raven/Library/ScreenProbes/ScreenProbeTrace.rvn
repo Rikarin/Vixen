@@ -2,6 +2,7 @@ package Vixen.Shaders.ScreenProbes
 
 import Vixen.Shaders.Core
 import Vixen.Shaders.DistanceFields
+import Vixen.Shaders.IrradianceFields
 
 // Filling screen probes by marching the distance field, on the GPU.
 //
@@ -27,6 +28,11 @@ struct ScreenProbeTraceJob {
     /// Where the probe's map starts in the atlas, in texels.
     var atlasOrigin: int2
 
+    /// One for a probe standing on a surface. Zero for a probe with nothing under it, whose patch is
+    /// cleared to the invalid mark instead of traced — on an atlas the dispatch owns, a patch nothing
+    /// writes holds whatever the allocator left there, and the resolve reads validity out of it.
+    var valid: int
+
     /// Where its rays start — the probe's surface, already stepped off along its normal.
     ///
     /// Biased by the host rather than here, so the shader needs no normal at all: the bias is part of
@@ -39,10 +45,37 @@ shader ScreenProbeTrace {
     /// What the rays march through. `GlobalDistanceField` is the one that reads a clipmap.
     compose val distanceField: IDistanceFieldSource = NoDistanceField
 
+    /// Where a ray that ran out of budget terminates — doc 19 § L3's "terminate long rays in L2's
+    /// field, so distant lighting is amortised rather than re-traced per probe".
+    ///
+    /// The same slot name and type the shading passes compose, because it is the same field: a pass
+    /// composition binds a slot once, wherever it is declared, and a project with a field gives it to
+    /// every reader at once. `NoIrradiance` answers with zero coverage, and zero coverage blends the
+    /// termination all the way back to the sky — so a project without a field traces exactly the rays
+    /// it traced before.
+    compose val irradiance: IIrradianceSource
+
     var jobs: Buffer<ScreenProbeTraceJob>
 
     /// Every probe's map, side by side. Written, never read — the resolve is a later pass.
     [Format("rgba32f")] var radianceAtlas: RWTexture2D<float4>
+
+    /// The frame's own depth, for the trace order's first stage. The descriptor is always written —
+    /// a set with a hole in it binds nothing — and the texels are read only above zero `screenSteps`,
+    /// so a host with no screen to trace hands over any texture in the sampled layout.
+    var depthBuffer: Texture2D
+
+    /// The camera that drew `depthBuffer` — the forward matrix, not the inverse placement uses.
+    var viewProjection: mat4
+
+    /// The viewport `depthBuffer` covers, in pixels.
+    var screenViewport: float2 = float2(0f, 0f)
+
+    /// How many equal steps a screen ray takes over `maxDistance`. Zero is no screen trace at all.
+    var screenSteps: int = 0
+
+    /// How deep behind a surface a sample still counts as inside it, in device depth.
+    var screenThickness: float = 0.02f
 
     /// How far a ray looks before deciding it hit nothing.
     var maxDistance: float = 100f
@@ -67,6 +100,43 @@ shader ScreenProbeTrace {
     /// the cube capture's tests escaped by lighting a single texel.
     var skyGradient: float3 = float3(0f, 0f, 0f)
 
+    /// Whether a ray from a point is stopped by something the screen can see — the naive march,
+    /// sample by sample, in exactly `ScreenSpaceTrace.Hit`'s order. Behind is a *smaller* device
+    /// depth, because depth is reversed; a sky texel occludes nothing; off the viewport the ray is
+    /// not the screen's to answer. The hierarchical march through the depth pyramid is owed, with
+    /// this and its C# twin as the baseline.
+    func ScreenHit(origin: float3, direction: float3): bool {
+        val step = maxDistance / float(screenSteps)
+
+        for (i in 0 .. screenSteps - 1) {
+            val world = origin + direction * ((float(i) + 0.5f) * step)
+            val clip = viewProjection * float4(world, 1f)
+
+            // Behind the camera's plane there is no pixel to ask, and outside the depth range the
+            // buffer never saw it.
+            if (clip.w > Const.Epsilon) {
+                val ndc = clip.xyz / clip.w
+
+                if (ndc.z > 0f && ndc.z < 1f) {
+                    val px = int(floor((ndc.x * 0.5f + 0.5f) * screenViewport.x))
+                    val py = int(floor((ndc.y * 0.5f + 0.5f) * screenViewport.y))
+
+                    if (px < 0 || py < 0 || px >= int(screenViewport.x) || py >= int(screenViewport.y)) {
+                        return false
+                    }
+
+                    val surfaceDepth = depthBuffer.Load(int3(px, py, 0)).r
+
+                    if (surfaceDepth > 0f && ndc.z < surfaceDepth && ndc.z > surfaceDepth - screenThickness) {
+                        return true
+                    }
+                }
+            }
+        }
+
+        return false
+    }
+
     // An eight-by-eight group, one invocation per texel of `ScreenProbeAtlas.MapResolution`. The two
     // are the same number by construction rather than by coincidence — see Main's first line.
     [ComputeShader(8, 8, 1)]
@@ -74,6 +144,13 @@ shader ScreenProbeTrace {
         val job = jobs[int(group.z)]
         val texel = int2(int(thread.x), int(thread.y))
         val atlasTexel = int2(job.atlasOrigin.x + texel.x, job.atlasOrigin.y + texel.y)
+
+        // A probe with no surface writes the invalid mark and is done — sixty-four stores, so the
+        // patch is defined whatever the allocator left in it.
+        if (job.valid == 0) {
+            radianceAtlas.Store(atlasTexel, float4(0f, 0f, 0f, 0f))
+            return
+        }
 
         // A probe the field calls buried is invalid before any ray is cast — the reference's rule.
         // Zero alpha is the mark: a gathered texel carries one, so a readback can tell "nothing
@@ -84,11 +161,26 @@ shader ScreenProbeTrace {
         }
 
         val direction = ScreenProbeAtlas.Direction(texel, ScreenProbeAtlas.MapResolution)
+
+        // The screen first — geometry the field may not hold — and a hit is an occlusion, for the
+        // same § L4 reason a field hit gives back nothing. `ScreenSpaceTrace` is the C# side, and
+        // where the two disagree, the C# is right.
+        if (screenSteps > 0 && ScreenHit(job.origin, direction)) {
+            radianceAtlas.Store(atlasTexel, float4(0f, 0f, 0f, 1f))
+            return
+        }
+
         val hit = distanceField.TraceField(job.origin, direction, maxDistance, maxSteps, surfaceThreshold, stepScale)
         var arriving = skyColor + skyGradient * direction.y
 
         if (hit.hit) {
             arriving = float3(0f, 0f, 0f)
+        } else {
+            // A miss terminates in the field where the field has an answer, blended by its coverage —
+            // the sky is the fallback, not an addend, for the double-counting reason `ForwardPlus`
+            // records: the field's rays already saw the sky.
+            val far = irradiance.Radiance(job.origin + direction * maxDistance, direction)
+            arriving = lerp(arriving, far.rgb, clamp(far.a, 0f, 1f))
         }
 
         radianceAtlas.Store(atlasTexel, float4(arriving, 1f))

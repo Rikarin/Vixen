@@ -26,6 +26,10 @@ public struct ScreenProbeTraceJob {
     [FieldOffset(0)]
     public Int2 AtlasOrigin;
 
+    /// <summary>One for a probe standing on a surface; zero for one whose patch is cleared instead.</summary>
+    [FieldOffset(8)]
+    public int Valid;
+
     /// <summary>Where its rays start — the probe's surface, already stepped off along its normal.</summary>
     [FieldOffset(16)]
     public Vector3 Origin;
@@ -43,11 +47,11 @@ public struct ScreenProbeTraceJob {
 ///         <b>The jobs are staged from the atlas, and only for the probes that have a surface.</b>
 ///         The atlas is where <see cref="ScreenProbeAtlas.SetSurface" /> and
 ///         <see cref="ScreenProbeAtlas.Invalidate" /> already recorded what each anchor pixel showed,
-///         so the dispatch has no opinion about the screen at all. ⚠ A probe with no surface is not
-///         dispatched, and on a mirror the dispatch owns its patch is therefore <i>undefined</i> —
-///         nothing uploaded it and nothing traced it. Whoever consumes the atlas reads validity from
-///         the alpha of texels something wrote; clearing or skipping the unwritten patches belongs to
-///         the consuming pass, and is owed with it.
+///         so the dispatch has no opinion about the screen at all. ⚠ By default a probe with no
+///         surface is not dispatched, and on a mirror the dispatch owns its patch is therefore
+///         <i>undefined</i> — nothing uploaded it and nothing traced it. A frame sets
+///         <see cref="ClearInvalid" /> and such probes get a job that writes the invalid mark
+///         instead, because the resolve reads validity out of the atlas.
 ///     </para>
 ///     <para>
 ///         <b>Every binding index comes off the compiled effect rather than the generated
@@ -63,11 +67,17 @@ public sealed class ScreenProbeTraceFill : IDisposable {
     /// <summary>The slot it marches through.</summary>
     const string FieldSlot = "distanceField";
 
+    /// <summary>The slot its long rays terminate in.</summary>
+    const string FarSlot = "irradiance";
+
     /// <summary>The shader's name for the job buffer.</summary>
     const string JobsName = "jobs";
 
     /// <summary>The shader's name for the atlas it writes.</summary>
     const string AtlasName = "radianceAtlas";
+
+    /// <summary>The shader's name for the depth its screen rays march.</summary>
+    const string DepthName = "depthBuffer";
 
     readonly IGraphicsDevice device;
     readonly UploadBuffer<ScreenProbeTraceJob> jobs = new("ScreenProbeTrace.Jobs");
@@ -106,6 +116,17 @@ public sealed class ScreenProbeTraceFill : IDisposable {
     /// </remarks>
     public string Source { get; set; } = MaterialCompiler.EmptyFieldShader;
 
+    /// <summary>The shader behind the irradiance slot — where a ray that misses terminates.</summary>
+    /// <remarks>
+    ///     <c>NoIrradiance</c> by default, whose coverage of zero blends every termination back to the
+    ///     sky — a project without a field traces exactly the rays it traced before.
+    ///     <c>IrradianceFieldProbes</c> is what a frame with a field sets, and the field's volumes are
+    ///     then written under <c>ScreenProbeTrace.IrradianceFieldProbes.*</c> — which is
+    ///     <see cref="IrradianceFieldTexture.Apply" /> with exactly that prefix, into
+    ///     <see cref="Parameters" />.
+    /// </remarks>
+    public string FarSource { get; set; } = MaterialCompiler.EmptyIrradianceShader;
+
     /// <summary>What the sets are filled from, by the names the reflection interned.</summary>
     public ParameterCollection Parameters { get; } = new();
 
@@ -129,6 +150,44 @@ public sealed class ScreenProbeTraceFill : IDisposable {
     ///     for, so a mirrored or transposed decode is invisible.
     /// </remarks>
     public Vector3 SkyGradient { get; set; }
+
+    /// <summary>The frame's depth, for the trace order's first stage. Invalid traces no screen rays.</summary>
+    /// <remarks>
+    ///     A view in the sampled layout at dispatch time — for a compositor node, the graph resource
+    ///     it declared a read of. ⚠ The camera in <see cref="ViewProjection" /> must be the one that
+    ///     drew it, and the probes' origins should come from the same frame's placement: rays against
+    ///     a different frame's depth test surfaces that exist nowhere.
+    /// </remarks>
+    public TextureViewHandle ScreenDepth { get; set; }
+
+    /// <summary>The viewport <see cref="ScreenDepth" /> covers, in pixels.</summary>
+    public Int2 ScreenViewport { get; set; }
+
+    /// <summary>The camera that drew the depth — the forward matrix, not placement's inverse.</summary>
+    public Matrix4x4 ViewProjection { get; set; } = Matrix4x4.Identity;
+
+    /// <summary>How many equal steps a screen ray takes over <see cref="MaxDistance" />.</summary>
+    public int ScreenSteps { get; set; } = 32;
+
+    /// <summary>How deep behind a surface a sample still counts as inside it, in device depth.</summary>
+    public float ScreenThickness { get; set; } = 0.02f;
+
+    /// <summary>Whether probes with no surface get a job that clears their patch to the invalid mark.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Off, only the probes with a surface are dispatched, and an unwritten patch on a
+    ///         device-owned atlas is <i>undefined</i> — the composition the device comparisons run
+    ///         under, where the reference says which texels mean anything.
+    ///     </para>
+    ///     <para>
+    ///         On, every probe gets a job, and one with no surface stores zero alpha across its patch
+    ///         instead of tracing. A frame wants this: the resolve reads validity out of the atlas,
+    ///         and on an atlas the dispatch owns, a patch nothing wrote holds whatever the allocator
+    ///         left there — garbage that can carry a nonzero alpha into a probe the placement already
+    ///         said has nothing under it.
+    ///     </para>
+    /// </remarks>
+    public bool ClearInvalid { get; set; }
 
     /// <summary>How many probes have been dispatched since this was made.</summary>
     public int Traced { get; private set; }
@@ -173,7 +232,7 @@ public sealed class ScreenProbeTraceFill : IDisposable {
             return Skip("the mirror uploads its atlas, so a dispatch into it would be overwritten");
         }
 
-        var key = EffectKey.Of(ShaderName).With(MaterialCompiler.PassComposition(FieldSlot, Source));
+        var key = EffectKey.Of(ShaderName).With(MaterialCompiler.PassComposition((FieldSlot, Source), (FarSlot, FarSource)));
 
         if (Effects.Resolve(key) is not { IsPlaceholder: false } effect) {
             return Skip($"'{key}' has not compiled yet");
@@ -194,6 +253,13 @@ public sealed class ScreenProbeTraceFill : IDisposable {
         Parameters.Set(ScreenProbeTraceKeys.MaxDistance, MaxDistance);
         Parameters.Set(ScreenProbeTraceKeys.SkyColor, SkyColour);
         Parameters.Set(ScreenProbeTraceKeys.SkyGradient, SkyGradient);
+
+        // Zero steps is the off switch the shader branches on — a host with no screen still binds a
+        // texture below, because a set with a hole in it binds nothing.
+        Parameters.Set(ScreenProbeTraceKeys.ScreenSteps, ScreenDepth.IsValid ? ScreenSteps : 0);
+        Parameters.Set(ScreenProbeTraceKeys.ScreenViewport, new Vector2(ScreenViewport.X, ScreenViewport.Y));
+        Parameters.Set(ScreenProbeTraceKeys.ScreenThickness, ScreenThickness);
+        Parameters.Set(ScreenProbeTraceKeys.ViewProjection, ViewProjection);
 
         // Everything that can fail does so before anything is recorded, so a list is never left
         // holding a barrier with no dispatch to justify it.
@@ -245,18 +311,21 @@ public sealed class ScreenProbeTraceFill : IDisposable {
             for (var x = 0; x < layout.GridSize.X; x++) {
                 var probe = new Int2(x, y);
 
-                if (!atlas.TrySurface(probe, out var position, out var normal)) {
+                if (atlas.TrySurface(probe, out var position, out var normal)) {
+                    jobs.Add(
+                        [
+                            new ScreenProbeTraceJob {
+                                AtlasOrigin = layout.AtlasOrigin(probe),
+                                Valid = 1,
+                                Origin = position + (normal * SurfaceBias)
+                            }
+                        ]
+                    );
+                } else if (ClearInvalid) {
+                    jobs.Add([new ScreenProbeTraceJob { AtlasOrigin = layout.AtlasOrigin(probe) }]);
+                } else {
                     continue;
                 }
-
-                jobs.Add(
-                    [
-                        new ScreenProbeTraceJob {
-                            AtlasOrigin = layout.AtlasOrigin(probe),
-                            Origin = position + (normal * SurfaceBias)
-                        }
-                    ]
-                );
 
                 count++;
             }
@@ -333,6 +402,19 @@ public sealed class ScreenProbeTraceFill : IDisposable {
         }
 
         writes.Add(new DescriptorWrite(target.Binding, DescriptorKind.StorageTexture, TextureView: texture.AtlasView));
+
+        if (effect.BindingOf(DepthName) is { } depth) {
+            // With no screen to trace, a resolved-probe plane stands in: the descriptor must point
+            // at something in the sampled layout, the planes are exactly that for the whole
+            // dispatch, and zero screenSteps means the shader never loads it.
+            writes.Add(
+                new DescriptorWrite(
+                    depth.Binding,
+                    DescriptorKind.SampledTexture,
+                    TextureView: ScreenDepth.IsValid ? ScreenDepth : texture.ProbeView(0)
+                )
+            );
+        }
 
         set = Descriptors!.Allocate(effect.SetLayouts[index], CollectionsMarshal.AsSpan(writes));
 

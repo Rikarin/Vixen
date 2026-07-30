@@ -20,6 +20,7 @@ namespace Tests;
 public class ScreenProbeTraceJobTests {
     [Theory]
     [InlineData("jobs.atlasOrigin", nameof(ScreenProbeTraceJob.AtlasOrigin))]
+    [InlineData("jobs.valid", nameof(ScreenProbeTraceJob.Valid))]
     [InlineData("jobs.origin", nameof(ScreenProbeTraceJob.Origin))]
     public void EveryMemberSitsWhereTheShaderPutIt(string member, string field) {
         Assert.Equal(Members()[member], (int)Marshal.OffsetOf<ScreenProbeTraceJob>(field));

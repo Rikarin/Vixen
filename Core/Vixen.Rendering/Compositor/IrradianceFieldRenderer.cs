@@ -116,9 +116,9 @@ public sealed class IrradianceFieldRenderer : SceneRenderer, IDisposable {
     ///         bouncing light onto what the camera <i>can</i> see, one frame after it left the view.
     ///     </para>
     ///     <para>
-    ///         ⚠ Refinement only ever adds detail — see <see cref="IrradianceRefinementPolicy" />. A
-    ///         scene that streams geometry through a region ratchets that region toward its finest and
-    ///         never gives the slots back.
+    ///         Refinement alone only ever adds detail; a streamed scene sets
+    ///         <see cref="IrradianceRefinementPolicy.CoarsenTo" /> so regions the geometry leaves
+    ///         merge back and the pool gets its slots returned.
     ///     </para>
     /// </remarks>
     public IrradianceRefinementPolicy? Refinement { get; set; }

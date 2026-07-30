@@ -36,6 +36,9 @@
         <None Include="..\..\Raven\Library\Core\Math.rvn"
               Link="Shaders\Math.rvn"
               CopyToOutputDirectory="PreserveNewest" />
+        <None Include="..\..\Raven\Library\PostFx\ScreenProbeUpsample.rvn"
+              Link="Shaders\ScreenProbeUpsample.rvn"
+              CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 
     <Import Project="..\..\Testing\Vixen.Testing.props" />

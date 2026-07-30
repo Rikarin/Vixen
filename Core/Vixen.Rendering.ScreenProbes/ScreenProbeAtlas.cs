@@ -19,8 +19,8 @@ namespace Vixen.Rendering.ScreenProbes;
 ///         the sky has nothing to stand on and nothing to gather for; marking it black instead would
 ///         pull every neighbouring pixel toward darkness through the bilinear filter, which is the
 ///         screen-space version of the buried-probe leak the irradiance field's validity exists for.
-///         Invalid probes drop out of <see cref="Irradiance" /> and the weights renormalise over
-///         what is left.
+///         Invalid probes drop out of <see cref="Irradiance(Int2, Vector3)" /> and the weights
+///         renormalise over what is left.
 ///     </para>
 ///     <para>
 ///         <b>The resolve is a projection with exact texel weights.</b> Each map texel carries its
@@ -39,22 +39,33 @@ public sealed class ScreenProbeAtlas {
     readonly Vector3[] normals;
     readonly bool[] valid;
     readonly SphericalHarmonicsL1[] resolved;
+    readonly Int2[] adaptivePixels;
+    readonly Vector3[] adaptivePositions;
+    readonly Vector3[] adaptiveNormals;
+    readonly SphericalHarmonicsL1[] adaptiveResolved;
     readonly ReadOnlyMemory<float> solidAngles;
 
     /// <summary>Builds an empty atlas over a layout.</summary>
     /// <param name="layout">Where the probes stand.</param>
     public ScreenProbeAtlas(ScreenProbeLayout layout) {
         Layout = layout;
-        texels = new Vector3[layout.ProbeCount * layout.MapResolution * layout.MapResolution];
+        texels = new Vector3[(layout.ProbeCount + layout.AdaptiveCapacity) * layout.MapResolution * layout.MapResolution];
         positions = new Vector3[layout.ProbeCount];
         normals = new Vector3[layout.ProbeCount];
         valid = new bool[layout.ProbeCount];
         resolved = new SphericalHarmonicsL1[layout.ProbeCount];
+        adaptivePixels = new Int2[layout.AdaptiveCapacity];
+        adaptivePositions = new Vector3[layout.AdaptiveCapacity];
+        adaptiveNormals = new Vector3[layout.AdaptiveCapacity];
+        adaptiveResolved = new SphericalHarmonicsL1[layout.AdaptiveCapacity];
         solidAngles = OctahedralMap.SolidAngles(layout.MapResolution);
     }
 
     /// <summary>Where the probes stand.</summary>
     public ScreenProbeLayout Layout { get; }
+
+    /// <summary>How many adaptive probes are placed right now.</summary>
+    public int AdaptiveCount { get; private set; }
 
     /// <summary>How many probes have a surface.</summary>
     public int ValidCount {
@@ -127,6 +138,65 @@ public sealed class ScreenProbeAtlas {
         return valid[index];
     }
 
+    /// <summary>One texel of one adaptive probe's map.</summary>
+    /// <param name="adaptive">The adaptive probe, 0 to <see cref="AdaptiveCount" /> − 1.</param>
+    /// <param name="texel">The texel within its map.</param>
+    public Vector3 this[int adaptive, Int2 texel] {
+        get => texels[AdaptiveTexelIndex(adaptive, texel)];
+        set => texels[AdaptiveTexelIndex(adaptive, texel)] = value;
+    }
+
+    /// <summary>Places an adaptive probe on a pixel's surface, if the budget allows one more.</summary>
+    /// <param name="pixel">The pixel it stands on.</param>
+    /// <param name="position">Where that surface is, in world space.</param>
+    /// <param name="normal">Which way it faces, normalised.</param>
+    /// <returns>Its index, or −1 when the capacity is spent.</returns>
+    /// <remarks>
+    ///     −1 rather than a throw, because the capacity is a <i>budget</i>: a frame with more broken
+    ///     tiles than slots keeps the probes it placed and the rest of the screen falls back to the
+    ///     lattice, which is exactly what it did before adaptive probes existed.
+    /// </remarks>
+    public int PlaceAdaptive(Int2 pixel, Vector3 position, Vector3 normal) {
+        if (AdaptiveCount >= Layout.AdaptiveCapacity) {
+            return -1;
+        }
+
+        var index = AdaptiveCount++;
+
+        adaptivePixels[index] = pixel;
+        adaptivePositions[index] = position;
+        adaptiveNormals[index] = normal;
+        adaptiveResolved[index] = SphericalHarmonicsL1.Zero;
+
+        var resolution = Layout.MapResolution;
+
+        Array.Clear(texels, (Layout.ProbeCount + index) * resolution * resolution, resolution * resolution);
+
+        return index;
+    }
+
+    /// <summary>Forgets every adaptive probe — the start of a new placement pass.</summary>
+    public void ClearAdaptive() => AdaptiveCount = 0;
+
+    /// <summary>The surface an adaptive probe stands on.</summary>
+    /// <param name="index">The adaptive probe.</param>
+    /// <param name="pixel">The pixel it was placed on.</param>
+    /// <param name="position">Where its surface is.</param>
+    /// <param name="normal">Which way it faces.</param>
+    /// <exception cref="ArgumentOutOfRangeException">No adaptive probe has that index.</exception>
+    public void AdaptiveSurface(int index, out Int2 pixel, out Vector3 position, out Vector3 normal) {
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, AdaptiveCount);
+
+        pixel = adaptivePixels[index];
+        position = adaptivePositions[index];
+        normal = adaptiveNormals[index];
+    }
+
+    /// <summary>An adaptive probe's resolved radiance, as projected by the last <see cref="Resolve" />.</summary>
+    /// <param name="index">The adaptive probe.</param>
+    public SphericalHarmonicsL1 ResolvedAdaptive(int index) => adaptiveResolved[index];
+
     /// <summary>Projects every valid probe's map into its resolved answer.</summary>
     /// <remarks>
     ///     Separate from writing the texels because the projection is linear and total: it reads the
@@ -161,6 +231,22 @@ public sealed class ScreenProbeAtlas {
 
                 resolved[index] = projection;
             }
+        }
+
+        for (var adaptive = 0; adaptive < AdaptiveCount; adaptive++) {
+            var projection = SphericalHarmonicsL1.Zero;
+
+            for (var ty = 0; ty < resolution; ty++) {
+                for (var tx = 0; tx < resolution; tx++) {
+                    projection = projection.Accumulated(
+                        OctahedralMap.Direction(new(tx, ty), resolution),
+                        this[adaptive, new Int2(tx, ty)],
+                        weights[(ty * resolution) + tx]
+                    );
+                }
+            }
+
+            adaptiveResolved[adaptive] = projection;
         }
     }
 
@@ -207,6 +293,97 @@ public sealed class ScreenProbeAtlas {
         }
 
         return Vector3.Max(blended.Scaled(1f / weight).Irradiance(normal), Vector3.Zero);
+    }
+
+    /// <summary>The indirect diffuse a pixel receives, over π — knowing where the pixel's surface is.</summary>
+    /// <param name="pixel">The pixel.</param>
+    /// <param name="position">Where its surface is, in world space.</param>
+    /// <param name="normal">The way that surface faces, normalised.</param>
+    /// <param name="tolerance">How far off a probe's plane the surface may stand and still read it.</param>
+    /// <returns>Irradiance over π. Zero where no probe knows.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         The adaptive half of <see cref="Irradiance(Int2, Vector3)" />: a tap whose probe stands
+    ///         on a <i>different surface</i> — the pixel's position farther than
+    ///         <paramref name="tolerance" /> from the probe's plane — is dropped exactly as an invalid
+    ///         one is, because blending it in is how light bleeds across a depth edge.
+    ///     </para>
+    ///     <para>
+    ///         The fallbacks, in order, each one only when the previous answered nothing: the
+    ///         plane-filtered lattice; the nearest adaptive probe whose plane accepts the surface;
+    ///         then the unfiltered lattice — the bleed the tolerance exists to prevent, but a smeared
+    ///         answer over a black hole is the same call the dilation rule made — and zero last.
+    ///     </para>
+    /// </remarks>
+    public Vector3 Irradiance(Int2 pixel, Vector3 position, Vector3 normal, float tolerance) {
+        Span<ScreenProbeTap> taps = stackalloc ScreenProbeTap[4];
+
+        Layout.Bilinear(pixel, taps);
+
+        var blended = SphericalHarmonicsL1.Zero;
+        var weight = 0f;
+
+        foreach (var tap in taps) {
+            var index = Layout.ProbeIndex(tap.Probe);
+
+            if (tap.Weight <= 0f || !valid[index] || Mismatch(position, positions[index], normals[index]) > tolerance) {
+                continue;
+            }
+
+            blended = new(
+                blended.L00 + (resolved[index].L00 * tap.Weight),
+                blended.L1m1 + (resolved[index].L1m1 * tap.Weight),
+                blended.L10 + (resolved[index].L10 * tap.Weight),
+                blended.L11 + (resolved[index].L11 * tap.Weight)
+            );
+
+            weight += tap.Weight;
+        }
+
+        if (weight > 0f) {
+            return Vector3.Max(blended.Scaled(1f / weight).Irradiance(normal), Vector3.Zero);
+        }
+
+        var nearest = -1;
+        var nearestDistance = float.MaxValue;
+
+        for (var adaptive = 0; adaptive < AdaptiveCount; adaptive++) {
+            if (Mismatch(position, adaptivePositions[adaptive], adaptiveNormals[adaptive]) > tolerance) {
+                continue;
+            }
+
+            var offset = adaptivePixels[adaptive] - pixel;
+            var distance = (float)((offset.X * offset.X) + (offset.Y * offset.Y));
+
+            if (distance < nearestDistance) {
+                nearest = adaptive;
+                nearestDistance = distance;
+            }
+        }
+
+        if (nearest >= 0) {
+            return Vector3.Max(adaptiveResolved[nearest].Irradiance(normal), Vector3.Zero);
+        }
+
+        return Irradiance(pixel, normal);
+    }
+
+    /// <summary>How far a surface stands off a probe's plane.</summary>
+    /// <remarks>Internal so the gather's placement asks the same question the sampling fallback asks.</remarks>
+    internal static float Mismatch(Vector3 position, Vector3 probePosition, Vector3 probeNormal) =>
+        MathF.Abs(Vector3.Dot(position - probePosition, probeNormal));
+
+    int AdaptiveTexelIndex(int adaptive, Int2 texel) {
+        var resolution = Layout.MapResolution;
+
+        ArgumentOutOfRangeException.ThrowIfNegative(adaptive);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(adaptive, AdaptiveCount);
+        ArgumentOutOfRangeException.ThrowIfNegative(texel.X);
+        ArgumentOutOfRangeException.ThrowIfNegative(texel.Y);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(texel.X, resolution);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(texel.Y, resolution);
+
+        return ((Layout.ProbeCount + adaptive) * resolution * resolution) + (texel.Y * resolution) + texel.X;
     }
 
     int TexelIndex(Int2 probe, Int2 texel) {

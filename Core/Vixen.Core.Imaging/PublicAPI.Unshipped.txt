@@ -79,6 +79,7 @@ readonly Vixen.Core.Imaging.SphericalHarmonicsL1.L00 -> Vixen.Core.Mathematics.V
 readonly Vixen.Core.Imaging.SphericalHarmonicsL1.L10 -> Vixen.Core.Mathematics.Vector3
 readonly Vixen.Core.Imaging.SphericalHarmonicsL1.L11 -> Vixen.Core.Mathematics.Vector3
 readonly Vixen.Core.Imaging.SphericalHarmonicsL1.L1m1 -> Vixen.Core.Mathematics.Vector3
+readonly Vixen.Core.Imaging.SphericalHarmonicsL1.Radiance(Vixen.Core.Mathematics.Vector3 direction) -> Vixen.Core.Mathematics.Vector3
 readonly Vixen.Core.Imaging.SphericalHarmonicsL1.Scaled(float scale) -> Vixen.Core.Imaging.SphericalHarmonicsL1
 static Vixen.Core.Imaging.BlockCompression.BlockCompressor.CanEncode(Vixen.Graphics.PixelFormat format) -> bool
 static Vixen.Core.Imaging.BlockCompression.BlockCompressor.Decode(Vixen.Core.Imaging.TextureData source) -> Vixen.Core.Imaging.TextureData

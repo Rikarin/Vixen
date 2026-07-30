@@ -134,6 +134,23 @@ public struct SphericalHarmonicsL1 : IEquatable<SphericalHarmonicsL1> {
             + ((L1m1 * basis[1]) + (L10 * basis[2]) + (L11 * basis[3])) * (2f / 3f);
     }
 
+    /// <summary>The radiance arriving from a direction, as far as four coefficients can say.</summary>
+    /// <param name="direction">The direction, normalised.</param>
+    /// <returns>The radiance, per channel.</returns>
+    /// <remarks>
+    ///     The raw basis with no cosine lobe — what a ray that terminated in a probe field reads,
+    ///     where <see cref="Irradiance" /> is what a surface standing in it receives. ⚠ Unclamped,
+    ///     and the L1 truncation cuts both ways: toward the dark side of a one-sided distribution
+    ///     this goes negative, toward the bright side it overshoots. The clamp belongs to whoever
+    ///     turns the number into light.
+    /// </remarks>
+    public readonly Vector3 Radiance(Vector3 direction) {
+        Span<float> basis = stackalloc float[Count];
+        Evaluate(direction, basis);
+
+        return (L00 * basis[0]) + (L1m1 * basis[1]) + (L10 * basis[2]) + (L11 * basis[3]);
+    }
+
     /// <summary>One probe blended toward another.</summary>
     /// <param name="from">Where to start.</param>
     /// <param name="to">Where to end.</param>

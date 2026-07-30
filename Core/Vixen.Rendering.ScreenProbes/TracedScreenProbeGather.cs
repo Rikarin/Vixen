@@ -41,11 +41,25 @@ public readonly record struct ScreenProbeGatherSettings {
     /// </remarks>
     public float SurfaceBias { get; init; } = 0.01f;
 
+    /// <summary>How far off every nearby probe's plane a pixel's surface may stand before it gets
+    ///     a probe of its own, in world units. Zero, the default, places none.</summary>
+    /// <remarks>
+    ///     Doc 19 § L3's "adaptive placement at disocclusions". A tile's corner pixels are the
+    ///     detectors: a corner farther than this from the plane of <i>every</i> probe it bilinearly
+    ///     reads is standing on a surface the lattice never sampled, and gets an adaptive probe —
+    ///     capacity permitting. The same number is what <c>ScreenProbeAtlas.Irradiance</c>'s
+    ///     position-aware overload drops mismatched taps by, deliberately: detection and sampling
+    ///     have to agree about what "a different surface" means, or probes are placed that nothing
+    ///     reads.
+    /// </remarks>
+    public float AdaptiveTolerance { get; init; }
+
     /// <summary>Throws if these settings cannot gather anything.</summary>
     /// <exception cref="ArgumentOutOfRangeException">A value is out of range.</exception>
     public void Validate() {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(MaxDistance);
         ArgumentOutOfRangeException.ThrowIfNegative(SurfaceBias);
+        ArgumentOutOfRangeException.ThrowIfNegative(AdaptiveTolerance);
     }
 }
 
@@ -102,6 +116,28 @@ public sealed class TracedScreenProbeGather {
     /// <summary>How this gather was told to trace.</summary>
     public ScreenProbeGatherSettings Settings { get; }
 
+    /// <summary>Where a ray that ran out of budget terminates, or null for the sky alone.</summary>
+    /// <remarks>
+    ///     Doc 19 § L3's trace order ends by terminating long rays in § L2's field, so distant
+    ///     lighting is amortised rather than re-traced per probe. A miss samples the field at the
+    ///     ray's end and blends toward the field's answer by the probe's validity — the sky is the
+    ///     fallback, not an addend, for the double-counting reason <c>ForwardPlus</c> records: the
+    ///     field's rays already saw the sky. Radiance rather than irradiance, clamped at zero on the
+    ///     way in, because the L1 truncation can answer below zero toward the dark side of a
+    ///     one-sided distribution — and above the truth toward its bright side, which the blend
+    ///     passes through and the eventual filters meet again.
+    /// </remarks>
+    public IrradianceField? FarField { get; set; }
+
+    /// <summary>The trace order's first stage: rays against the frame's own depth, or null for none.</summary>
+    /// <remarks>
+    ///     Asked before the distance field, and a hit gives back nothing — an occlusion, not a lit
+    ///     surface, for <see cref="ScreenSpaceTrace" />'s § L4 reason. A screen miss proves nothing:
+    ///     the field march runs over the whole ray regardless, because the screen only ever saw the
+    ///     front of what it saw.
+    /// </remarks>
+    public ScreenSpaceTrace? ScreenTrace { get; set; }
+
     /// <summary>Fills every probe of an atlas from what its anchor pixel shows.</summary>
     /// <param name="atlas">The atlas to fill.</param>
     /// <param name="surface">What the screen is looking at.</param>
@@ -131,9 +167,92 @@ public sealed class TracedScreenProbeGather {
             }
         }
 
+        atlas.ClearAdaptive();
+
+        if (Settings.AdaptiveTolerance > 0f && layout.AdaptiveCapacity > 0) {
+            PlaceAdaptive(atlas, surface);
+        }
+
         atlas.Resolve();
 
         return gathered;
+    }
+
+    /// <summary>Stands extra probes where the lattice straddles a surface it never sampled.</summary>
+    /// <remarks>
+    ///     A tile's corner pixels are the detectors — the points of a tile farthest from every
+    ///     anchor, which is where a straddled edge shows first. A corner whose surface is farther
+    ///     than <see cref="ScreenProbeGatherSettings.AdaptiveTolerance" /> from the plane of every valid probe it bilinearly
+    ///     reads (or that has no valid probe to read at all) gets a probe of its own, gathered by
+    ///     the same trace order as everything else. The capacity is a budget: when it runs out, the
+    ///     rest of the screen keeps the lattice it had.
+    /// </remarks>
+    void PlaceAdaptive(ScreenProbeAtlas atlas, IScreenSurface surface) {
+        var layout = atlas.Layout;
+        var placed = new HashSet<Int2>();
+
+        Span<ScreenProbeTap> taps = stackalloc ScreenProbeTap[4];
+
+        for (var ty = 0; ty < layout.GridSize.Y; ty++) {
+            for (var tx = 0; tx < layout.GridSize.X; tx++) {
+                var left = tx * layout.TileSize;
+                var top = ty * layout.TileSize;
+                var right = Math.Min(left + layout.TileSize, layout.Viewport.X) - 1;
+                var bottom = Math.Min(top + layout.TileSize, layout.Viewport.Y) - 1;
+
+                Span<Int2> corners = [new(left, top), new(right, top), new(left, bottom), new(right, bottom)];
+
+                foreach (var corner in corners) {
+                    if (placed.Contains(corner) || !surface.TrySurface(corner, out var position, out var normal)) {
+                        continue;
+                    }
+
+                    layout.Bilinear(corner, taps);
+
+                    var covered = false;
+
+                    foreach (var tap in taps) {
+                        if (tap.Weight > 0f
+                            && atlas.TrySurface(tap.Probe, out var probePosition, out var probeNormal)
+                            && ScreenProbeAtlas.Mismatch(position, probePosition, probeNormal)
+                            <= Settings.AdaptiveTolerance) {
+                            covered = true;
+
+                            break;
+                        }
+                    }
+
+                    if (covered) {
+                        continue;
+                    }
+
+                    var origin = position + (normal * Settings.SurfaceBias);
+
+                    // Buried is buried, whoever asks — the field filler's rule.
+                    if (geometry.Sample(origin) < 0f) {
+                        continue;
+                    }
+
+                    var index = atlas.PlaceAdaptive(corner, position, normal);
+
+                    if (index < 0) {
+                        return;
+                    }
+
+                    placed.Add(corner);
+
+                    var resolution = layout.MapResolution;
+                    var trace = new DistanceFieldTraceSettings { MaxDistance = Settings.MaxDistance };
+
+                    for (var my = 0; my < resolution; my++) {
+                        for (var mx = 0; mx < resolution; mx++) {
+                            atlas[index, new Int2(mx, my)] =
+                                TexelRadiance(origin, new(mx, my), resolution, trace);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /// <summary>Gathers one probe standing on one surface.</summary>
@@ -165,15 +284,45 @@ public sealed class TracedScreenProbeGather {
 
         for (var ty = 0; ty < resolution; ty++) {
             for (var tx = 0; tx < resolution; tx++) {
-                var direction = OctahedralMap.Direction(new(tx, ty), resolution);
-                var hit = DistanceFieldTracer.Trace(geometry, origin, direction, trace);
-
-                atlas[probe, new(tx, ty)] = hit.Hit
-                    ? radiance.Surface(hit.Position, hit.Normal, direction)
-                    : radiance.Sky(direction);
+                atlas[probe, new(tx, ty)] = TexelRadiance(origin, new(tx, ty), resolution, trace);
             }
         }
 
         return true;
+    }
+
+    /// <summary>One texel's arriving radiance — the whole trace order, for whichever probe asks.</summary>
+    Vector3 TexelRadiance(Vector3 origin, Int2 texel, int resolution, in DistanceFieldTraceSettings trace) {
+        var direction = OctahedralMap.Direction(texel, resolution);
+
+        // The screen first — geometry the field may not hold — and a hit is an occlusion.
+        if (ScreenTrace?.Hit(origin, direction, Settings.MaxDistance) == true) {
+            return Vector3.Zero;
+        }
+
+        var hit = DistanceFieldTracer.Trace(geometry, origin, direction, trace);
+
+        return hit.Hit
+            ? radiance.Surface(hit.Position, hit.Normal, direction)
+            : Missed(origin, direction);
+    }
+
+    /// <summary>What a ray that hit nothing sees: the far field where it has an answer, else the sky.</summary>
+    Vector3 Missed(Vector3 origin, Vector3 direction) {
+        var sky = radiance.Sky(direction);
+
+        if (FarField is null) {
+            return sky;
+        }
+
+        if (!FarField.TrySample(origin + (direction * Settings.MaxDistance), out var probe)) {
+            return sky;
+        }
+
+        return Vector3.Lerp(
+            sky,
+            Vector3.Max(probe.Radiance.Radiance(direction), Vector3.Zero),
+            Math.Clamp(probe.Validity, 0f, 1f)
+        );
     }
 }

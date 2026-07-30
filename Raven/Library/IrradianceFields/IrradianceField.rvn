@@ -75,6 +75,12 @@ struct IrradianceField {
     /// The linear ones, already multiplied by the cosine lobe's own band factor of two thirds.
     const val Linear = 0.325735f
 
+    /// The linear basis functions, raw — for evaluating RADIANCE toward a direction rather than
+    /// irradiance onto a surface. The folded constant above bakes in the cosine lobe, which is a fact
+    /// about surfaces; a ray terminating in the field wants what the light is, not what a wall would
+    /// receive from it.
+    const val LinearBasis = 0.488603f
+
     // --- Finding the brick -------------------------------------------------
 
     /// Whether the field covers a point at all.
@@ -177,6 +183,20 @@ struct IrradianceField {
         return constant + linear * Linear
     }
 
+    /// The radiance arriving FROM a direction, as far as four coefficients can say.
+    ///
+    /// The raw basis with no cosine lobe — what a ray that terminated in the field reads, where
+    /// `Irradiance` is what a surface standing in it receives. ⚠ Unclamped for `Irradiance`'s reason,
+    /// and the L1 truncation cuts both ways here too: toward the dark side of a one-sided
+    /// distribution this goes negative, toward the bright side it overshoots. The clamp belongs to
+    /// whoever turns the number into light. `SphericalHarmonicsL1.Radiance` in C# is the same
+    /// arithmetic, held against this by the trace comparison.
+    static func Radiance(probe: IrradianceProbe, direction: float3): float3 {
+        val constant = probe.l00 * Constant
+        val linear = probe.l1m1 * direction.y + probe.l10 * direction.z + probe.l11 * direction.x
+        return constant + linear * LinearBasis
+    }
+
     /// How far a shading lookup moves off the surface it stands on.
     ///
     /// A surface stands exactly where the leak is: its own position is the boundary between the probes
@@ -242,6 +262,15 @@ protocol IIrradianceSource {
     /// for the normal bias alone, and a zero nobody chose is a leak mitigation that quietly does half
     /// its job.
     func Sample(world: float3, normal: float3, view: float3): IrradianceSample
+
+    /// The radiance arriving at a point from a direction, with the coverage in `w`.
+    ///
+    /// What a ray that travelled its whole budget without hitting anything reads instead of the sky —
+    /// doc 19 § L3's "terminate long rays in L2's field", asked of the field directly. No normal and
+    /// no view, because a termination point is not a surface: nothing stands there to bias away from,
+    /// so the lookup is the raw one. A coverage of zero means "ask something else", exactly as it does
+    /// for `Sample`, and a consumer blends toward its own fallback by it.
+    func Radiance(world: float3, direction: float3): float4
 }
 
 /// The field: an indirection grid over a pool of bricks.
@@ -317,6 +346,15 @@ shader IrradianceFieldProbes : IIrradianceSource {
 
         return IrradianceSample(lit, probe.sunShadow, saturate(probe.validity))
     }
+
+    func Radiance(world: float3, direction: float3): float4 {
+        // Zero normal and zero view: a termination point is not a surface, so there is no bias to ask
+        // for — `Probe` then looks up exactly where the ray ended.
+        val probe = Probe(world, float3(0f, 0f, 0f), float3(0f, 0f, 0f))
+        val lit = max(IrradianceField.Radiance(probe, direction), float3(0f, 0f, 0f))
+
+        return float4(lit, saturate(probe.validity))
+    }
 }
 
 /// A world with no indirect light, for a project that has no field.
@@ -331,5 +369,9 @@ shader IrradianceFieldProbes : IIrradianceSource {
 shader NoIrradiance : IIrradianceSource {
     func Sample(world: float3, normal: float3, view: float3): IrradianceSample {
         return IrradianceSample(float3(0f, 0f, 0f), 1f, 0f)
+    }
+
+    func Radiance(world: float3, direction: float3): float4 {
+        return float4(0f, 0f, 0f, 0f)
     }
 }

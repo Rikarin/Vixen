@@ -121,6 +121,51 @@ public class TracedScreenProbeGatherTests {
         );
     }
 
+    /// <summary>
+    ///     A ray that runs out of budget terminates in the far field where the field has an answer,
+    ///     and falls back to the sky where it does not.
+    /// </summary>
+    /// <remarks>
+    ///     Doc 19 § L3's trace order, last stage: distant lighting is amortised in § L2's field rather
+    ///     than re-traced per probe. The two halves are one fixture with two budgets — a short one
+    ///     whose rays end inside the field and read it, and a long one whose rays end beyond it and
+    ///     read the sky — because "the field answers nothing outside its own box" is a property a
+    ///     project has to get right, already written down once in § L2's bounce.
+    /// </remarks>
+    [Fact]
+    public void AMissTerminatesInTheFarField() {
+        const float FarRadiance = 0.4f;
+        const float SkyRadiance = 0.9f;
+
+        var field = new IrradianceField(new BoundingBox(new(-8f), new(8f)), new(2));
+
+        field.AllocateAll();
+        new TracedIrradianceFiller(new EmptyWorld(), new UniformSky(FarRadiance)).Fill(field);
+        field.SyncBorders();
+
+        var atlas = new ScreenProbeAtlas(new(new(16, 16)));
+
+        var near = new TracedScreenProbeGather(
+            new EmptyWorld(),
+            new UniformSky(SkyRadiance),
+            new ScreenProbeGatherSettings { MaxDistance = 4f }
+        ) { FarField = field };
+
+        near.Fill(atlas, new Floor());
+
+        Assert.Equal(FarRadiance, atlas.Irradiance(new(8, 8), new(0f, 1f, 0f)).X, 5e-3f);
+
+        var beyond = new TracedScreenProbeGather(
+            new EmptyWorld(),
+            new UniformSky(SkyRadiance),
+            new ScreenProbeGatherSettings { MaxDistance = 50f }
+        ) { FarField = field };
+
+        beyond.Fill(atlas, new Floor());
+
+        Assert.Equal(SkyRadiance, atlas.Irradiance(new(8, 8), new(0f, 1f, 0f)).X, 1e-3f);
+    }
+
     /// <summary>A probe whose anchor shows the sky has nothing to stand on, and says so.</summary>
     [Fact]
     public void ASkyPixelLeavesItsProbeInvalid() {

@@ -60,9 +60,13 @@ public class LibraryReflectionTests {
         ("PostFx", "Taa"),
         ("PostFx", "DistanceFieldAo"),
         ("PostFx", "IndirectDiffuse"),
+        ("PostFx", "ScreenProbeUpsample"),
         ("IrradianceFields", "IrradianceFill"),
         ("IrradianceFields", "IrradianceRepair"),
         ("ScreenProbes", "ScreenProbeTrace"),
+        ("ScreenProbes", "ScreenProbeResolve"),
+        ("ScreenProbes", "ScreenProbeAccumulate"),
+        ("ScreenProbes", "ScreenProbeFilter"),
         ("Pipeline", "ForwardPlus"),
 
         // The GPU culling passes, whose host binds every one of their buffers by name — see

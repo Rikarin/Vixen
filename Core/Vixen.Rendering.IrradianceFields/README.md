@@ -311,16 +311,34 @@ Slots are cleared **on release** rather than on allocation, so a slot never hold
 lighting while it waits. Handing out a dirty slot shows as one frame of somewhere else's colour and
 gets blamed on the temporal filter.
 
+## Coarsening gives the ratchet its other direction
+
+`IrradianceField.TryMerge` is `Split`'s exact inverse: an aligned group of equal-size bricks becomes
+one of twice the size, and it refuses rather than guesses — a mixed group has a grandchild somebody
+asked for, and a merge covering not one cell more would be a rename that invites the next call to
+double it again (the first version did exactly that, by way of stale candidates, until a brick
+claimed to be thirty-two thousand cells across; two tests now pin the refusal and the ceiling).
+
+**The merged probes are subsampled, not fabricated** — the mirror of `Split` discarding. Splitting
+invents detail that does not exist and is honest to start empty; merging summarises detail that
+does, and a parent probe stands at exactly every other child probe's position, so its value is a
+copy of something real, validity included. Throwing that away would make every coarsened region
+flicker dark for no reason.
+
+`IrradianceRefinementPolicy` decides when: with `CoarsenTo` set (the field's own baseline size),
+every group no band still claims at a finer size merges back — including nothing this very `Apply`
+refined, which is what keeps a frame from undoing itself — and `CoarsenMargin` is the hysteresis
+that stops a box on a brick boundary from splitting and merging the same octet on alternating
+frames. A scene whose geometry left entirely owes every slot back, and a test walks exactly that.
+⚠ On a device-filled field a merged brick's device probes are whatever its slot last held until the
+round robin refills them — the same window a split's empty children already have.
+
 ## Not yet, and named so the absence is a decision
 
-- **Coarsening.** `IrradianceRefinementPolicy` decides where a field should be fine and only ever adds
-  detail. Nothing merges bricks back when geometry moves away, so a streamed scene ratchets toward its
-  finest everywhere the geometry has ever been — which needs the pool to take slots back and a policy
-  for when, and neither exists.
-- **Coarsening again, from the other side.** `Vixen.Rendering.Lighting.IrradianceCubeCapture` now
-  renders filler B's cubes, so a field can be baked as well as traced — and a baked field is one a
-  build step could size to the scene rather than to the camera, which is the case coarsening would
-  actually pay for.
+- **Sizing a baked field.** `Vixen.Rendering.Lighting.IrradianceCubeCapture` renders filler B's
+  cubes, so a field can be baked as well as traced — and a baked field is one a build step could
+  size to the scene rather than to the camera. Coarsening now exists; the build step that would
+  drive it at bake time does not.
 - **A repair narrowed to what changed.** `IrradianceFieldRepair` dilates and syncs every brick every
   frame, which is what this does too and is not an oversight in either — a brick the budget did not
   refill still has neighbours that were, and a border is a copy of a probe that may have just changed.
