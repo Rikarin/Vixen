@@ -8,9 +8,23 @@ using Vixen.Shaders.Generated;
 
 namespace Vixen.Rendering;
 
+/// <summary>Which way a <see cref="HiZPyramid" /> reduces, which is which question it answers.</summary>
+public enum HiZReduction {
+    /// <summary>The farthest texel per cell — the minimum, under reversed depth. Occlusion culling's
+    ///     question: an object is hidden only when its nearest point is behind every pixel of the
+    ///     tile. <c>HiZReduce.rvn</c>.</summary>
+    Furthest,
+
+    /// <summary>The nearest texel per cell — the maximum, under reversed depth. The screen march's
+    ///     question: a cell cannot stop a ray that passes nearer than everything in it.
+    ///     <c>NearestReduce.rvn</c>, and <c>ScreenDepthPyramid</c> is its CPU referee.</summary>
+    Nearest
+}
+
 /// <summary>
 ///     A depth pyramid: last frame's depth buffer, min-reduced level by level, for
-///     <see cref="GpuVisibilityGroup" /> to occlusion-test against.
+///     <see cref="GpuVisibilityGroup" /> to occlusion-test against — or max-reduced, for a screen
+///     march to skip by. <see cref="Reduction" /> is the choice.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -62,7 +76,23 @@ public sealed class HiZPyramid : IDisposable {
     // Where the set goes, from the reflection checked in beside the shader rather than from a name
     // looked up at run time: a binding index is declaration order within a set, so adding an image
     // above another renumbers it — and the generated constant moves with it while a literal does not.
-    const DescriptorSetSlot Slot = (DescriptorSetSlot)HiZReduceKeys.SourceSet;
+    // The two reduce shaders are deliberately the same shape, but each is read through its own keys,
+    // so a drift between them is a compile error here rather than a wrong binding there.
+    DescriptorSetSlot Slot => (DescriptorSetSlot)(Reduction == HiZReduction.Nearest
+        ? NearestReduceKeys.SourceSet
+        : HiZReduceKeys.SourceSet);
+
+    uint SourceBinding => Reduction == HiZReduction.Nearest
+        ? NearestReduceKeys.SourceBinding
+        : HiZReduceKeys.SourceBinding;
+
+    uint TargetBinding => Reduction == HiZReduction.Nearest
+        ? NearestReduceKeys.TargetBinding
+        : HiZReduceKeys.TargetBinding;
+
+    string ShaderName => Reduction == HiZReduction.Nearest
+        ? NearestReduceKeys.ShaderName
+        : HiZReduceKeys.ShaderName;
 
     Effect? allocatedFor;
     bool disposed;
@@ -74,6 +104,13 @@ public sealed class HiZPyramid : IDisposable {
         ArgumentNullException.ThrowIfNull(device);
         this.device = device;
     }
+
+    /// <summary>Which way the chain reduces. Furthest is culling's; Nearest is the screen march's.</summary>
+    /// <remarks>⚠ Decided before the first build: the chain's texels mean one thing or the other,
+    ///     and a consumer cannot tell which from the texture. Changing it later merely reduces the
+    ///     next build the other way — into a chain whose earlier readers keep their old answer's
+    ///     name for it.</remarks>
+    public HiZReduction Reduction { get; set; }
 
     /// <summary>Where the reduction variant is resolved from. Null builds nothing.</summary>
     public EffectSystem? Effects { get; set; }
@@ -110,6 +147,9 @@ public sealed class HiZPyramid : IDisposable {
     /// <summary>A view of every level, which is what the culling pass samples.</summary>
     public TextureViewHandle View => all;
 
+    /// <summary>The chain's own texture — what a readback copies from, mip by mip.</summary>
+    public TextureHandle Texture => texture;
+
     /// <summary>Whether a build has completed and the pyramid holds a frame's depth.</summary>
     /// <remarks>
     ///     What tells the culler that testing against this would be testing against nothing: a
@@ -144,7 +184,7 @@ public sealed class HiZPyramid : IDisposable {
             return false;
         }
 
-        if (Effects.Resolve(EffectKey.Of(GpuCulling.ReduceShaderName)) is not { IsPlaceholder: false } effect) {
+        if (Effects.Resolve(EffectKey.Of(ShaderName)) is not { IsPlaceholder: false } effect) {
             return false;
         }
 
@@ -164,8 +204,8 @@ public sealed class HiZPyramid : IDisposable {
             device.UpdateDescriptorSet(
                 set,
                 [
-                    DescriptorWrite.Texture(HiZReduceKeys.SourceBinding, level == 0 ? depth : sources[level - 1]),
-                    new(HiZReduceKeys.TargetBinding, DescriptorKind.StorageTexture, TextureView: targets[level])
+                    DescriptorWrite.Texture(SourceBinding, level == 0 ? depth : sources[level - 1]),
+                    new(TargetBinding, DescriptorKind.StorageTexture, TextureView: targets[level])
                 ]
             );
 
@@ -219,12 +259,14 @@ public sealed class HiZPyramid : IDisposable {
         Size = wanted;
         Levels = PixelFormats.MipLevelCount(wanted.X, wanted.Y);
 
+        // CopySource so the chain can be read back — which is how the golden tests hold the
+        // reduction against its CPU referee, and how anything else would ever debug it.
         texture = device.CreateTexture(
             new(
                 PixelFormat.R32Float,
                 wanted.X,
                 wanted.Y,
-                TextureUsage.Sampled | TextureUsage.Storage,
+                TextureUsage.Sampled | TextureUsage.Storage | TextureUsage.CopySource,
                 MipLevels: Levels,
                 Name: "HiZ"
             )

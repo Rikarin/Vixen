@@ -82,6 +82,9 @@ public sealed class ScreenProbeTraceFill : IDisposable {
     /// <summary>The shader's name for the depth its screen rays march.</summary>
     const string DepthName = "depthBuffer";
 
+    /// <summary>The shader's name for the depth's nearest chain.</summary>
+    const string PyramidName = "depthPyramid";
+
     readonly IGraphicsDevice device;
     readonly UploadBuffer<ScreenProbeTraceJob> jobs = new("ScreenProbeTrace.Jobs");
     readonly List<DescriptorWrite> writes = [];
@@ -186,6 +189,24 @@ public sealed class ScreenProbeTraceFill : IDisposable {
     /// <summary>How deep behind a surface a sample still counts as inside it, in device depth.</summary>
     public float ScreenThickness { get; set; } = 0.02f;
 
+    /// <summary>The depth's nearest-per-cell chain — <see cref="HiZPyramid" /> wearing
+    ///     <see cref="HiZReduction.Nearest" />. Invalid keeps the fixed-step walk.</summary>
+    /// <remarks>
+    ///     A view of every level, mip N holding level N + 1 of the march — the depth itself is level
+    ///     zero. ⚠ It must be this frame's reduction of <see cref="ScreenDepth" />: a chain of a
+    ///     different depth skips rays through surfaces that exist nowhere.
+    /// </remarks>
+    public TextureViewHandle ScreenPyramid { get; set; }
+
+    /// <summary>How many levels the march may use, counting the depth itself — the CPU pyramid's
+    ///     own <c>Levels</c>, which is the chain's plus one.</summary>
+    public int ScreenPyramidLevels { get; set; }
+
+    /// <summary>How deep the shell is in view units, where a perspective ray can say. Zero keeps
+    ///     the device-depth shell — <c>ScreenSpaceTrace.LinearThickness</c>, choice for
+    ///     choice.</summary>
+    public float ScreenLinearThickness { get; set; }
+
     /// <summary>Whether probes with no surface get a job that clears their patch to the invalid mark.</summary>
     /// <remarks>
     ///     <para>
@@ -275,6 +296,13 @@ public sealed class ScreenProbeTraceFill : IDisposable {
         Parameters.Set(ScreenProbeTraceKeys.ScreenViewport, new Vector2(ScreenViewport.X, ScreenViewport.Y));
         Parameters.Set(ScreenProbeTraceKeys.ScreenThickness, ScreenThickness);
         Parameters.Set(ScreenProbeTraceKeys.ViewProjection, ViewProjection);
+
+        // The hierarchical march runs only where the whole screen trace can: zero levels is the
+        // fixed-step walk, and zero is also what a stale or missing chain must read as.
+        var pyramid = ScreenDepth.IsValid && ScreenPyramid.IsValid && ScreenPyramidLevels > 1;
+
+        Parameters.Set(ScreenProbeTraceKeys.PyramidLevels, pyramid ? ScreenPyramidLevels : 0);
+        Parameters.Set(ScreenProbeTraceKeys.ScreenLinearThickness, ScreenLinearThickness);
 
         // Everything that can fail does so before anything is recorded, so a list is never left
         // holding a barrier with no dispatch to justify it.
@@ -427,6 +455,18 @@ public sealed class ScreenProbeTraceFill : IDisposable {
                     depth.Binding,
                     DescriptorKind.SampledTexture,
                     TextureView: ScreenDepth.IsValid ? ScreenDepth : texture.ProbeView(0)
+                )
+            );
+        }
+
+        if (effect.BindingOf(PyramidName) is { } chain) {
+            // The same stand-in rule for the nearest chain: zero pyramidLevels means the shader
+            // never loads it.
+            writes.Add(
+                new DescriptorWrite(
+                    chain.Binding,
+                    DescriptorKind.SampledTexture,
+                    TextureView: ScreenPyramid.IsValid ? ScreenPyramid : texture.ProbeView(0)
                 )
             );
         }

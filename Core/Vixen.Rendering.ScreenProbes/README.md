@@ -138,12 +138,23 @@ The kernel runs the same march sample for sample, and the device comparison is s
 anywhere else in the package: a screen hit is *binary*, so a last-bit disagreement in the decode
 would flip a texel whole rather than nudge it — the comparison runs under an orthographic camera to
 keep the projection affine, over a wall only the depth buffer can see, with a traceless reference
-proving the wall stopped something. **The naive march is the point**: the HZB traversal that skips
-empty space through the depth pyramid changes how fast the answer is found, not what it is, and it
-lands against this baseline — wanting the pyramid's *other* reduction, since `HiZReduce` keeps the
-farthest texel for occlusion culling and empty-space skipping wants the nearest. The step-versus-
-thickness trade is real in the meantime: a fixed-step ray samples its budget divided by its step
-count, and a wall thinner than a step slips between samples.
+proving the wall stopped something. **The naive march is the baseline, and the HZB traversal landed
+against it, both processors.** `ScreenDepthPyramid` is the depth's *other* reduction — nearest per
+cell where `HiZReduce` keeps the farthest, shaped exactly like a device mip chain (floor-halving,
+clamped 3×3 taps) because the device chain *is* one: `NearestReduce.rvn` through `HiZPyramid`
+wearing its `Nearest` reduction, compared mip for mip against this pyramid with zero drift, since a
+maximum over identical floats has no arithmetic to drift in. `ScreenSpaceTrace.Pyramid` switches
+the march to a hierarchical DDA over it — skip a cell whose whole crossing stays nearer than its
+nearest surface, at whatever level that is provable; test texel crossings *continuously*, so a
+shell the fixed steps could straddle cannot be stepped over — with the fetch counts measured at
+better than four-to-one on an open screen, under perspective as well as affine. The perspective
+form is the same DDA: screen position and device depth are both linear in the projected segment's
+parameter (the rasteriser's own interpolation argument), and `1/w` is the third linear quantity,
+which is what `LinearThickness` buys — the shell in view units, where a constant device-depth shell
+is paper-thin near and metres deep far, with the pass-behind closed forms holding it on both
+marches. Only a ray with an endpoint behind the camera's plane declines to the fixed-step walk,
+observably. The kernels carry the same march — the probes' copy and the reflections' copy, each
+refereed against this DDA by a golden test through the same `NearestReduce` chain.
 
 ## The resolve is a dispatch, and its weights are the same table
 
@@ -258,8 +269,8 @@ own world column's number. The bilateral edge has its picture in the golden suit
 bleed pinned at the lattice weight first, then removed by the plane test at the same pixels.
 
 Owed from here, quality rather than criteria: bilinear history taps (point reprojection is the
-baseline), the adaptive probes' device half (the pass that would read them now exists), the HZB
-traversal, and importance sampling.
+baseline), the adaptive probes' device half (the pass that would read them now exists), and
+importance sampling.
 
 ## Not yet, and named so the absence is a decision
 
@@ -269,9 +280,6 @@ traversal, and importance sampling.
 - **Importance sampling.** The shipping gather aims rays where the BRDF and last frame's lighting
   say they matter. It changes which texel a ray serves, not what a texel means, so it belongs to the
   version that has a BRDF to sample against.
-- **The HZB traversal.** The screen trace exists and is the naive march; the hierarchical one that
-  skips empty space through the depth pyramid is owed against it, together with the pyramid's
-  nearest-texel reduction and a linear-depth thickness for perspective cameras.
 - **The denoiser past its opening.** Temporal accumulation exists above, on the CPU; the device
   half, the spatial filter over probes, and the bilateral upsample are the project doc 19 § L3
   warns about, in that order.

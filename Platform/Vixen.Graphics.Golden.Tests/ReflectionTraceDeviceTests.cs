@@ -689,6 +689,234 @@ public sealed class ReflectionTraceDeviceTests {
         Assert.Equal(SkyMiss.X, missColumn.X, 1e-4f);
     }
 
+    /// <summary>The hierarchical march under a perspective camera, with the shell in view units —
+    ///     the kernel against the CPU DDA, sample for sample.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         A real perspective camera this time — looking down +Z from the origin, ndc.x = x/z,
+    ///         device depth = 1/z, reversed with the near plane at one — because the perspective
+    ///         form is the whole point: screen position and device depth stay linear in the
+    ///         projected segment's parameter, <c>1/w</c> is the third linear quantity, and the
+    ///         linear shell's slope comes out positive, so the view-unit thickness path actually
+    ///         executes on both sides rather than deterministically declining.
+    ///     </para>
+    ///     <para>
+    ///         The chain is built by the same <c>NearestReduce</c> dispatches a frame would run —
+    ///         reduce and march in one submission, the reduce's own barriers between them — and the
+    ///         frame's colour encodes its own pixel, so a march that stopped one texel elsewhere
+    ///         cannot read right.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ThePyramidMarchIsTheRefereeUnderPerspective() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var device = owned.Device;
+
+        var viewProjection = new Matrix4x4(
+            new Vector4(1f, 0f, 0f, 0f),
+            new Vector4(0f, 1f, 0f, 0f),
+            new Vector4(0f, 0f, 0f, 1f),
+            new Vector4(0f, 0f, 1f, 0f)
+        );
+
+        // The screen: a wall at view depth four everywhere, and a colour that encodes its pixel.
+        var surface = new ReconstructedScreenSurface(new(Side, Side));
+        var depths = new Vector4[Side * Side];
+        var colours = new Vector4[Side * Side];
+
+        for (var i = 0; i < Side * Side; i++) {
+            surface.Depth[i] = 0.25f;
+            depths[i] = new(0.25f, 0f, 0f, 0f);
+            colours[i] = new(0.1f * (i % Side), 0.1f * (i / Side), 0.3f, 1f);
+        }
+
+        var pyramid = new ScreenDepthPyramid(new(Side, Side));
+
+        pyramid.Build(surface.Depth);
+
+        // Mirrors on a floor below the axis: every ray reflects up and forward, crossing the wall's
+        // view depth inside the viewport, with x and z varying so w varies along every ray.
+        var camera = Vector3.Zero;
+        var positions = new Vector4[Side * Side];
+        var normals = new Vector4[Side * Side];
+
+        for (var y = 0; y < Side; y++) {
+            for (var x = 0; x < Side; x++) {
+                var at = (y * Side) + x;
+
+                positions[at] = new((x - 3.5f) * 0.45f, -1f, 2f + (0.1f * y), 1f);
+                normals[at] = new(0f, 1f, 0f, 0f);
+            }
+        }
+
+        using var allocator = new DescriptorAllocator(device);
+
+        var loader = new EffectLoader(device);
+        var effects = new EffectSystem();
+
+        effects.AddProvider(
+            new Compiling(
+                loader,
+                name => name == "NearestReduce"
+                    ? RavenEffects.Only(["Core"], Path.Combine("Pipeline", "NearestReduce.rvn"))
+                    : RavenEffects.Only(["Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "SurfaceCache", "Reflections"])
+            )
+        );
+
+        var pipelines = new ComputePipelineCache(device);
+
+        var chain = new HiZPyramid(device) {
+            Reduction = HiZReduction.Nearest,
+            Effects = effects,
+            Pipelines = pipelines
+        };
+
+        owned.Owns(chain.Dispose);
+
+        var positionPlane = owned.Owned("hzb-positions", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
+        var normalPlane = owned.Owned("hzb-normals", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
+        var depthPlane = owned.Owned("hzb-depth", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
+        var colourPlane = owned.Owned("hzb-colour", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.Rgba32Float, Side, Side);
+        var target = owned.Owned("hzb-target", TextureUsage.Storage | TextureUsage.CopySource, PixelFormat.Rgba32Float, Side, Side);
+
+        var staging = owned.Buffer<Vector4>([.. positions, .. normals, .. depths, .. colours], BufferUsage.CopySource);
+        var readback = device.CreateBuffer(
+            new BufferDescription(Side * Side * 16, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "hzb-readback")
+        );
+
+        using var trace = new ReflectionTraceFill(device) {
+            Effects = effects,
+            Pipelines = pipelines,
+            Descriptors = allocator,
+            Positions = positionPlane.View,
+            Normals = normalPlane.View,
+            Target = target.View,
+            ScreenDepth = depthPlane.View,
+            ScreenColour = colourPlane.View,
+            ViewProjection = viewProjection,
+            ScreenViewport = new(Side, Side),
+            ScreenSteps = 32,
+            ScreenThickness = 0.05f,
+            ScreenLinearThickness = 0.5f,
+            Viewport = new(Side, Side),
+            CameraPosition = camera,
+            MaxDistance = 8f
+        };
+
+        trace.Parameters.Set(
+            ParameterKeys.New<Vector3>($"{ReflectionTraceFill.ShaderName}.{MaterialCompiler.SkyReflectionMissShader}.missSkyColor"),
+            SkyMiss
+        );
+
+        allocator.BeginFrame();
+        VulkanDiagnostics.Reset();
+        device.BeginFrame();
+
+        using (var commands = device.BeginCommandList(QueueKind.Graphics, "hzb-ssr")) {
+            commands.Barrier(
+                new(
+                    [],
+                    [
+                        new TextureBarrier(positionPlane.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
+                        new TextureBarrier(normalPlane.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
+                        new TextureBarrier(depthPlane.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
+                        new TextureBarrier(colourPlane.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
+                        new TextureBarrier(target.Texture, ResourceState.Undefined, SurfaceCacheTexture.PlaneIsBeingWritten)
+                    ]
+                )
+            );
+
+            var plane = Side * Side * 16;
+
+            commands.CopyBufferToTexture(staging, 0, new TextureRegion(positionPlane.Texture), new(Side, Side, 1));
+            commands.CopyBufferToTexture(staging, plane, new TextureRegion(normalPlane.Texture), new(Side, Side, 1));
+            commands.CopyBufferToTexture(staging, plane * 2, new TextureRegion(depthPlane.Texture), new(Side, Side, 1));
+            commands.CopyBufferToTexture(staging, plane * 3, new TextureRegion(colourPlane.Texture), new(Side, Side, 1));
+
+            commands.Barrier(
+                new(
+                    [],
+                    [
+                        new TextureBarrier(positionPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead),
+                        new TextureBarrier(normalPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead),
+                        new TextureBarrier(depthPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead),
+                        new TextureBarrier(colourPlane.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)
+                    ]
+                )
+            );
+
+            // The reduce first, into the same list — the march may only skip by texels it wrote.
+            Assert.True(chain.Build(commands, depthPlane.View, new(Side, Side)), "the chain did not build");
+
+            trace.ScreenPyramid = chain.View;
+            trace.ScreenPyramidLevels = chain.Levels + 1;
+
+            Assert.Equal(pyramid.Levels, trace.ScreenPyramidLevels);
+            Assert.Equal(Side * Side, trace.Record(commands));
+
+            commands.Barrier(
+                new([], [new TextureBarrier(target.Texture, SurfaceCacheTexture.PlaneIsBeingWritten, ResourceState.CopySource)])
+            );
+
+            commands.CopyTextureToBuffer(new TextureRegion(target.Texture), new(Side, Side, 1), readback, 0);
+            commands.Finish();
+            device.GraphicsQueue.Submit([commands]);
+        }
+
+        device.EndFrame();
+        device.WaitIdle();
+
+        Assert.Null(trace.Skipped);
+        Assert.Empty(effects.Misses);
+        AssertClean();
+
+        var bytes = new float[Side * Side * 4];
+
+        device.Read(readback, 0, MemoryMarshal.AsBytes(bytes.AsSpan()));
+        device.Destroy(readback);
+
+        var reference = new TracedReflections(new EmptyWorld(), new UniformSky(0f), new SkyFallback(new UniformSky(SkyMiss))) {
+            MaxDistance = 8f,
+            ScreenTrace = new ScreenSpaceTrace(surface) {
+                ViewProjection = viewProjection,
+                Steps = 32,
+                Thickness = 0.05f,
+                LinearThickness = 0.5f,
+                Pyramid = pyramid
+            },
+            ScreenColour = pixel => new(0.1f * pixel.X, 0.1f * pixel.Y, 0.3f)
+        };
+
+        var worst = 0f;
+        var screened = 0;
+
+        for (var y = 0; y < Side; y++) {
+            for (var x = 0; x < Side; x++) {
+                var at = (y * Side) + x;
+                var answer = new Vector3(bytes[at * 4], bytes[(at * 4) + 1], bytes[(at * 4) + 2]);
+                var position = new Vector3(positions[at].X, positions[at].Y, positions[at].Z);
+                var view = Vector3.Normalize(position - camera);
+                var expected = reference.Reflect(position, new(0f, 1f, 0f), view, 0f);
+
+                worst = MathF.Max(worst, (answer - expected).Length());
+
+                if ((answer - new Vector3(SkyMiss.X, SkyMiss.Y, SkyMiss.Z)).Length() > 0.05f) {
+                    screened++;
+                }
+            }
+        }
+
+        // The DDA is the same IEEE arithmetic over the same chain on both sides.
+        Assert.True(worst < 1e-4f, $"the pyramid march drifted {worst} from the reference");
+
+        // The wall covers the whole screen, so nearly every mirror ray must have read its colour.
+        Assert.True(screened >= 40, $"only {screened} of 64 texels read the frame's colour — the march barely marched");
+    }
+
     /// <summary>A box's field, written from its own equation.</summary>
     static MeshDistanceField Slab(Vector3 centre, Vector3 half, int resolution = 24) {
         var pad = new Vector3(0.6f);

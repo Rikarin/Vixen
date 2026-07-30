@@ -79,6 +79,26 @@ public sealed class ReflectionRenderer : SceneRenderer, IDisposable {
     /// <summary>Where the camera stands.</summary>
     public Vector3 CameraPosition { get; set; }
 
+    /// <summary>The nearest chain the screen march skips by, or null for the fixed-step walk.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Host-owned, wearing <see cref="HiZReduction.Nearest" /> — any other reduction is
+    ///         ignored, because a chain of farthest texels skips rays through walls. Built here,
+    ///         inside the node's own pass, so the reduce dispatches and the march cannot be
+    ///         reordered apart; its barriers are <see cref="HiZPyramid" />'s own.
+    ///     </para>
+    ///     <para>
+    ///         A host sharing one chain between this and the probes' gather sets
+    ///         <see cref="HiZPyramid.BuildsPerFrame" /> to cover both, exactly as a two-phase cull
+    ///         does.
+    ///     </para>
+    /// </remarks>
+    public HiZPyramid? Pyramid { get; set; }
+
+    /// <summary>How deep the march's shell is in view units, where a perspective ray can say. Zero
+    ///     keeps the device-depth shell — forwarded to <see cref="ReflectionTraceFill.ScreenLinearThickness" />.</summary>
+    public float ScreenLinearThickness { get; set; }
+
     /// <summary>The kernel's driver — sources, thresholds and march settings are set here.</summary>
     /// <remarks>Created on the first build, because it needs the device. The node overwrites the
     ///     frame-shaped properties every build — planes, viewports, matrices, reconstruction — and
@@ -148,6 +168,16 @@ public sealed class ReflectionRenderer : SceneRenderer, IDisposable {
                             );
                         }
 
+                        // The chain first, into the same list: the march may only skip by texels
+                        // the reduce has written, and the pyramid's own barriers order the two.
+                        var chain = Pyramid is { Reduction: HiZReduction.Nearest } pyramid
+                            && pyramid.Build(commands, context.View(depth), frame.Size)
+                                ? Pyramid
+                                : null;
+
+                        trace.ScreenPyramid = chain?.View ?? default;
+                        trace.ScreenPyramidLevels = chain is null ? 0 : chain.Levels + 1;
+                        trace.ScreenLinearThickness = ScreenLinearThickness;
                         trace.Positions = default;
                         trace.Normals = context.View(normals);
                         trace.Target = outputView;
