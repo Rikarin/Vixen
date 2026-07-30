@@ -46,18 +46,21 @@ shader VisibilityResolve : ClusteredShading {
         return shading.Shade(d, a, s, alpha)
     }
 
-    // ⚠ **No `irradiance` slot, so the resolve gets sky ambient and not field ambient.** The base's
-    // `SampleIrradiance` returns zero coverage, which is exactly what `NoIrradiance` answers — so
-    // `UseIrradianceField` on changes nothing here rather than reading a field that is not bound.
-    //
-    // The reason is not a design one. A compose slot has to be *bound* wherever it is reached, and the
-    // forward pass gets away with declaring one because `MaterialCompiler` names `NoIrradiance` for
-    // every material and because its own reach is inside `if (UseIrradianceField)`, which folds away by
-    // default. An override here is reached from a function that is not folded, so the slot would have to
-    // be bound in every compilation of the library — including the ones that are compiling something
-    // else entirely, which is every shader in `Pipeline/`. Giving the resolve a field means giving the
-    // library a default binding for the slot, which is a change to how compositions are defaulted rather
-    // than a change to this file.
+    /// Where indirect diffuse comes from, on `ForwardPlus`'s terms and defaulted the same way.
+    ///
+    /// **The default is what makes this declarable at all.** A slot has to resolve in every compilation
+    /// that declares it, reached or not — so before slots could name their own default, declaring this
+    /// here would have obliged every compilation of the library to bind it, including the ones compiling
+    /// something else entirely. The alternative was to not declare it, and that is what this file did:
+    /// the resolve got sky ambient where a forward-drawn pixel got field ambient, which is a divergence
+    /// in exactly the place `ClusteredShading` exists to remove.
+    compose val irradiance: IIrradianceSource = NoIrradiance
+
+    /// The composed field, reached from the shared ambient term.
+    override func SampleIrradiance(position: float3, n: float3, v: float3): IrradianceSample {
+        return irradiance.Sample(position, n, v)
+    }
+
     /// The material's surface features, chosen per material — the same slot `ForwardPlus` composes.
     compose val surface: IMaterialSurface
 
@@ -96,7 +99,7 @@ shader VisibilityResolve : ClusteredShading {
     /// Which material each cluster uses.
     var clusterMaterials: Buffer<uint>
 
-    /// This material's tile list, `VisibilityTile.Capacity` words into the shared buffer.
+    /// This material's tile list, `tileBase` words into the shared buffer.
     var tiles: Buffer<uint>
 
     /// How many bytes one page occupies in the pool.

@@ -184,6 +184,101 @@ public class CompositorAssetTests : IDisposable {
         public Effect? TryGet(EffectKey key) => Compiled(key);
     }
 
+    /// <summary>The virtualized path as a document describes it: traverse, then draw and shade.</summary>
+    /// <remarks>
+    ///     Two nodes for what is one system, because the placement decision genuinely is two: the
+    ///     traversal has to run before the draw its answer feeds, and the draw has to share the depth
+    ///     the classic geometry is in. Everything between the draw, the binning and the shading is one
+    ///     node, because their order is not something a file should be able to get wrong.
+    /// </remarks>
+    const string ClusterDocument = """
+        version: 2
+        resources:
+          - name: SceneColour
+            format: Rgba16Float
+            usage: ColourTarget, Sampled, Storage
+          - name: SceneDepth
+            format: Depth32Float
+            usage: DepthStencilTarget, Sampled
+        stages:
+          - name: Opaque
+        game: !Sequence
+          name: Frame
+          children:
+            - !ClusterCulling
+              name: Traversal
+            - !VisibilityBuffer
+              name: Visibility
+              output: Identities
+              depth: SceneDepth
+              colour: SceneColour
+        """;
+
+    /// <summary>
+    ///     A document can describe the virtualized path, and a host that supplied nothing gets nodes
+    ///     that do nothing.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The asymmetry this removes: the object cull has been placeable by a document since phase
+    ///         3, and its sibling — the same decision one level down the same hierarchy — could only be
+    ///         assembled in code. A path that cannot be written down is a path every host has to
+    ///         reimplement.
+    ///     </para>
+    ///     <para>
+    ///         Both halves are asserted because both are the contract. A document names placement and a
+    ///         host supplies the device memory, so the same file has to build on a project with no
+    ///         virtualized geometry in it — and build nodes that draw nothing rather than nodes that
+    ///         throw.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_document_can_place_the_virtualized_path() {
+        using var h = Build();
+        using var clusters = new GpuClusterVisibility(device);
+        using var pages = new MeshletPagePool(device, new MemoryMeshletPageSource(), 4, 8 * 1024);
+        using var raster = new GpuClusterRaster(device);
+        using var tiles = new GpuVisibilityTiles(device);
+        using var resolve = new GpuClusterResolve(device);
+
+        h.Builder.Clusters = clusters;
+        h.Builder.Pages = pages;
+        h.Builder.Raster = raster;
+        h.Builder.Tiles = tiles;
+        h.Builder.Resolve = resolve;
+
+        var compositor = h.Builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(ClusterDocument));
+        var children = Assert.IsType<SceneRendererSequence>(compositor.Game).Children;
+
+        var traversal = Assert.IsType<ClusterCullingRenderer>(children[0]);
+        var visibility = Assert.IsType<VisibilityBufferRenderer>(children[1]);
+
+        Assert.Same(clusters, traversal.Visibility);
+        Assert.Same(pages, traversal.Pages);
+        Assert.Same(raster, traversal.Raster);
+
+        Assert.Same(raster, visibility.Raster);
+        Assert.Same(tiles, visibility.Tiles);
+        Assert.Same(resolve, visibility.Resolve);
+
+        // The names the document chose, which is the whole of what it decides beyond placement.
+        Assert.Equal("Identities", visibility.Output);
+        Assert.Equal("SceneDepth", visibility.Depth);
+        Assert.Equal("SceneColour", visibility.Colour);
+    }
+
+    /// <summary>The same document on a host with no virtualized geometry builds nodes that do nothing.</summary>
+    [Fact]
+    public void The_same_document_builds_on_a_host_that_has_no_clusters() {
+        using var h = Build();
+
+        var compositor = h.Builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(ClusterDocument));
+        var children = Assert.IsType<SceneRendererSequence>(compositor.Game).Children;
+
+        Assert.Null(Assert.IsType<ClusterCullingRenderer>(children[0]).Visibility);
+        Assert.Null(Assert.IsType<VisibilityBufferRenderer>(children[1]).Raster);
+    }
+
     sealed class Harness : IDisposable {
         public required RenderSystem System { get; init; }
         public required CompositorBuilder Builder { get; init; }

@@ -243,6 +243,30 @@ Two slots filled with the *same* implementation share one set of parameters — 
 one shader with one set of storage. Per-slot parameters would mean instantiating it per slot, which
 `compose` does not do.
 
+**Every slot in the compilation has to resolve, reached or not**, because a slot with no implementation
+is a shader that cannot be emitted and finding that out per entry point rather than per declaration
+would report it against the wrong file. That is a heavier obligation than it looks: it is about the
+*compilation*, so a compute shader sharing a package with a pass that declares `surface` has to answer
+for `surface` too.
+
+A slot may therefore name its own **default**, used whenever the compilation binds nothing:
+
+```typescript
+shader Forward {
+    compose val irradiance: IIrradianceSource = NoIrradiance
+}
+```
+
+What this is for is a feature a shader can *do without*. Without it, a pass that can read indirect light
+makes indirect light everybody's problem — every material compiled beside it has to name something for
+a slot it never reaches — and the only way to decline is to not declare the slot, which is a pass that
+silently cannot use the feature. A binding still wins over the default, so naming a real implementation
+is unchanged.
+
+The initializer is a bare identifier and not an expression, because what it names is a *type*: there is
+nothing to evaluate, and `RVN2072` says so if it is given anything else. A slot with neither a binding
+nor a default is `RVN2073` as before.
+
 ### `inout`
 
 A parameter marked `inout` is passed by reference, so the callee's changes reach the caller:

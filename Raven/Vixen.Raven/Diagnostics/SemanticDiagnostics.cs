@@ -376,10 +376,11 @@ public static class SemanticDiagnostics {
         DiagnosticSeverity.Error
     );
 
-    public static readonly DiagnosticDescriptor ComposeCannotHaveInitializer = new(
+    public static readonly DiagnosticDescriptor ComposeDefaultMustBeShaderName = new(
         "RVN2072",
-        "compose slot with an initializer",
-        "Compose slot '{0}' cannot have an initializer; the implementation is chosen when the shader is compiled",
+        "compose slot's default is not a shader name",
+        "Compose slot '{0}' can only be initialized with the name of a shader, which is its default when "
+        + "the compilation binds nothing",
         Shader,
         DiagnosticSeverity.Error
     );

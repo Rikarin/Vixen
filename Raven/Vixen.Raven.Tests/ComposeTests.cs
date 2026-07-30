@@ -57,6 +57,39 @@ public class ComposeTests {
 
                             """;
 
+    /// <summary>The same material, with the slot naming one of the two as its default.</summary>
+    const string Defaulted = """
+                             package A
+
+                             protocol IDiffuseModel {
+                                 func Diffuse(albedo: float4): float4
+                             }
+
+                             shader Lambert : IDiffuseModel {
+                                 func Diffuse(albedo: float4): float4 {
+                                     return albedo * 0.5f
+                                 }
+                             }
+
+                             shader OrenNayar : IDiffuseModel {
+                                 func Diffuse(albedo: float4): float4 {
+                                     return albedo * 0.25f
+                                 }
+                             }
+
+                             shader Lit {
+                                 compose val diffuse: IDiffuseModel = Lambert
+
+                                 var tint: float4
+
+                                 [FragmentShader]
+                                 func Shade(): float4 {
+                                     return diffuse.Diffuse(tint)
+                                 }
+                             }
+
+                             """;
+
     static (Compilation Compilation, IrModule Module) LowerWith(string source, ComposeBindings bindings) {
         var tree = SyntaxTree.ParseText(source, path: "Test.rvn");
         Assert.Empty(tree.Diagnostics);
@@ -263,8 +296,65 @@ public class ComposeTests {
             "RVN2071"
         );
 
+    /// <summary>
+    ///     A slot naming its own default resolves with nothing bound at all.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a default is for is a feature the shader can do without.</b> Every slot a
+    ///         compilation declares has to resolve, reached or not — so before this, a pass that
+    ///         <em>could</em> read indirect light forced every material compiled beside it to name
+    ///         something for the slot, and the only way to decline the obligation was to not declare the
+    ///         slot. <c>VisibilityResolve</c> was left with exactly that choice and took it, which is
+    ///         why a resolved pixel got sky ambient where a forward-drawn one got field ambient.
+    ///     </para>
+    ///     <para>
+    ///         Not an initializer in any ordinary sense: what it names is a type, and there is no value
+    ///         to evaluate. The syntax is a bare identifier and the shape is what says so.
+    ///     </para>
+    /// </remarks>
     [Fact]
-    public void A_slot_with_an_initializer_is_rejected() {
+    public void A_slot_resolves_to_its_own_default_when_nothing_is_bound() {
+        var (compilation, module) = LowerWith(Defaulted, ComposeBindings.Empty);
+
+        Assert.Equal("Lambert", Slot(compilation, "Lit", "diffuse").ComposedType?.Name);
+
+        // And it is a composition rather than a name kept somewhere: the call lowers into the default's
+        // body, which is the whole difference between defaulting a slot and documenting one.
+        Assert.Contains("0.5", GenerateWith(Defaulted, ComposeBindings.Empty), StringComparison.Ordinal);
+        Assert.DoesNotContain("diffuse", FindShader(module, "Lit").Bindings.Select(b => b.Variable.Name));
+    }
+
+    /// <summary>
+    ///     A binding wins over the default, which is the point of the default being a default.
+    /// </summary>
+    [Fact]
+    public void A_binding_wins_over_the_default() {
+        var (compilation, _) = LowerWith(Defaulted, Bind("diffuse", "OrenNayar"));
+
+        Assert.Equal("OrenNayar", Slot(compilation, "Lit", "diffuse").ComposedType?.Name);
+    }
+
+    /// <summary>
+    ///     A default naming a shader that does not exist is the same error a binding gets.
+    /// </summary>
+    /// <remarks>
+    ///     Worth its own test because the two arrive by different routes and could have been reported
+    ///     differently — and a default is the one a person is less likely to be looking at, since it was
+    ///     written once in the library rather than named at the call.
+    /// </remarks>
+    [Fact]
+    public void A_default_naming_an_unknown_shader_is_rejected() {
+        var diagnostic = Assert.Single(
+            DiagnosticsWith(Defaulted.Replace("= Lambert", "= NoSuchShader", StringComparison.Ordinal), ComposeBindings.Empty)
+        );
+
+        Assert.Equal("RVN2074", diagnostic.Id);
+        Assert.Contains("NoSuchShader", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_slot_with_an_initializer_that_is_not_a_shader_name_is_rejected() {
         var ids = DiagnosticsWith(
                 """
                 package A

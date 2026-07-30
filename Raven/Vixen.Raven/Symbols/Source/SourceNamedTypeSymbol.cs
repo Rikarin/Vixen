@@ -379,8 +379,11 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
                 continue;
             }
 
-            if (slot.Declaration.Initializer is not null) {
-                outerBinder.Diagnostics.Add(SemanticDiagnostics.ComposeCannotHaveInitializer, location, slot.Name);
+            // An initializer names this slot's default rather than giving it a value, so the only shape
+            // it can take is a bare identifier. Anything else — a literal, a call, a qualified name —
+            // would be an expression, and there is nothing here to evaluate one into.
+            if (slot.Declaration.Initializer is { Value: not IdentifierNameSyntax }) {
+                outerBinder.Diagnostics.Add(SemanticDiagnostics.ComposeDefaultMustBeShaderName, location, slot.Name);
             }
 
             // The slot's declared type has to be a protocol: that is what lets one shader be
@@ -398,7 +401,13 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
                 continue;
             }
 
-            var boundName = outerBinder.Compilation.ComposeBindings.Resolve(Name, slot.Name);
+            // The compilation's binding, then the slot's own default — the same order
+            // SourceFieldSymbol.ComposedType resolves them in, and it has to be: a slot reported unbound
+            // here while lowering happily composed its default would be a shader that cannot be compiled
+            // and works.
+            var boundName = outerBinder.Compilation.ComposeBindings.Resolve(Name, slot.Name)
+                ?? slot.DefaultComposition;
+
             if (boundName is null) {
                 outerBinder.Diagnostics.Add(
                     SemanticDiagnostics.ComposeNotBound,

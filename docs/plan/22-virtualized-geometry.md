@@ -548,6 +548,15 @@ bins, with the counters doubling as the indirect dispatch arguments, and
 per material over that material's own bin — both recorded by `VisibilityBufferRenderer` in one pass, so
 the ordering between them is not something a compositor document can get wrong.
 
+**And a document can now place the whole path**, which it could not while its sibling could:
+`GpuCullingAsset` has had a node since phase 3 and the traversal one level down the same hierarchy could
+only be assembled in code. `ClusterCulling` and `VisibilityBuffer` are the two nodes, on exactly the
+terms the culling node already had — a document decides placement and the names, a host supplies the
+device memory, and the same file builds on a project with no virtualized geometry into nodes that draw
+nothing. Two nodes and not three, because the traversal has to precede the draw its answer feeds and the
+draw has to share the classic geometry's depth, whereas the draw, the binning and the shading have an
+order no file should be able to disagree with.
+
 Three more things the plan did not say, all found by building it:
 
 - **The variant key is the material's composition plus one permutation, spelled literally.**
@@ -606,6 +615,38 @@ because its own reach is inside `if (UseIrradianceField)` — folded off by defa
 `MaterialCompiler` names `NoIrradiance` for every material. Giving the resolve a field means giving the
 library a default binding for the slot, which is a change to how compositions are defaulted rather than
 a change to that file.
+
+✅ **Done, and the change was to Raven rather than to either shader.** A compose slot may now name its
+own default — `compose val irradiance: IIrradianceSource = NoIrradiance` — used in any compilation that
+binds nothing. The resolve declares the slot and overrides `SampleIrradiance`, so it takes indirect
+diffuse from the same place a forward draw does, and `GpuClusterResolve.IrradianceField` is the same
+choice `UseIrradianceField` is on the forward path. Neither is on in a shipped frame today: indirect
+diffuse arrives through `PostFx/IndirectDiffuse.rvn`. What changed is that the two paths now have the
+same choice rather than different answers to it.
+
+Three things about the diagnosis above turned out to be wrong or beside the point, and the difference
+matters because it is what made the fix a language feature:
+
+- **Reachability had nothing to do with it.** `ReportComposeIssues` runs over every slot of every type
+  in the compilation, folded or not, reached or not. The forward pass survives because
+  `MaterialCompiler` names a filler for it, and *only* because of that — the `if (UseIrradianceField)`
+  guard was never load-bearing.
+- **So the obligation was on the whole compilation**, which is why the alternative to declaring the slot
+  was so unattractive: declaring one here would have obliged every compilation of the library to bind
+  it, including the ones compiling something else entirely.
+- **And `MaterialCompiler.OptionalSlots` was the mechanism the plan was asking to change.** It is a
+  hand-kept list of the slots the library declares that a material does not fill, whose own comment
+  records the failure mode — a slot added to the library and not added there shows up as `RVN2073` the
+  first time anything compiles a material, breaking every material in the project rather than the shader
+  that declared the slot. It happened twice; the `ScreenProbes` package landing without its line refused
+  every whole-library compilation in the golden suite. Every entry now also names its default in the
+  `.rvn`, so the list stops being load-bearing and becomes what it should always have been: how a
+  *project* names a real field where the library's default is the neutral one.
+
+A slot's initializer is a bare identifier naming a shader and not an expression, so `RVN2072` changed
+from "a compose slot cannot have an initializer" to "its initializer has to name a shader". Binding it
+as a value would have reported the shader as a type used as a value, which is true of the syntax and
+wrong about what it means.
 
 ---
 
@@ -733,6 +774,19 @@ coherent in practice, which is the assumption being made explicit rather than hi
 — one indirect command per material, over that material's own bin. The worst case is reportable rather
 than merely acknowledged: `Overflowed` says a material wanted more tiles than its list holds, which is a
 hole and not a slow frame.
+
+**And answered rather than only reported.** A diagnostic that fires every frame and changes nothing is a
+hole that documents itself, so the capacity is a uniform the host raises rather than a constant the
+shader was compiled with: a frame that overflowed grows the lists to hold what it wanted, and the growth
+is capped at the screen's own tile count — a material's list holds tiles that exist, so at that capacity
+overflow is impossible and the growth has finished. Within a frame the overflow is still a dropped tile,
+because a list is a device buffer and a frame cannot make one.
+
+The report is still worth having with the policy behind it. The counts come back from a dispatch nothing
+waited for, so the growth is a frame late by construction: `Overflowed` is how a host learns that a frame
+*was* wrong rather than that frames *will be*, and `Growths` rising every frame is a scene whose
+materials are genuinely scattered — the case the whole binning assumption is about, where the honest
+answer is a smaller tile rather than a bigger list.
 
 ### 3. One culling shader, one occlusion semantic
 

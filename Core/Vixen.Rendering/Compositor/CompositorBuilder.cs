@@ -138,6 +138,41 @@ public sealed class CompositorBuilder(RenderSystem system) {
     public GpuDrawArguments? Arguments { get; set; }
 
     /// <summary>
+    ///     The cluster traversal a <c>ClusterCulling</c> node dispatches, or null.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="Visibility" />'s counterpart for virtualized geometry, supplied on exactly the
+    ///     same terms and for the same reason: it owns device buffers that outlive a frame, which a
+    ///     document cannot create. Every one of the five below is independently null, and a node built
+    ///     without them is a node that does nothing — which is what a document describing the
+    ///     virtualized path says to a project that has no virtualized meshes in it.
+    /// </remarks>
+    public GpuClusterVisibility? Clusters { get; set; }
+
+    /// <summary>The pool the traversal's pages live in.</summary>
+    public MeshletPagePool? Pages { get; set; }
+
+    /// <summary>The draw that fills the visibility buffer.</summary>
+    public GpuClusterRaster? Raster { get; set; }
+
+    /// <summary>The binning that sorts its tiles by material.</summary>
+    public GpuVisibilityTiles? Tiles { get; set; }
+
+    /// <summary>The per-material shading that consumes those bins.</summary>
+    public GpuClusterResolve? Resolve { get; set; }
+
+    /// <summary>The frame's per-frame constants, which the resolve's lighting reads.</summary>
+    /// <remarks>
+    ///     The same objects a forward draw binds. Since the lighting moved into <c>ClusteredShading</c>
+    ///     the resolve declares the same sets a forward draw does, so what fills them is what already
+    ///     fills them — see <see cref="VisibilityBufferRenderer.SceneConstants" />.
+    /// </remarks>
+    public SceneConstants? SceneConstants { get; set; }
+
+    /// <summary>The frame's per-view constants, on the same terms.</summary>
+    public ViewConstants? ViewConstants { get; set; }
+
+    /// <summary>
     ///     The per-view block this build created, if the document declared one.
     /// </summary>
     /// <remarks>
@@ -344,6 +379,8 @@ public sealed class CompositorBuilder(RenderSystem system) {
             BufferReadbackAsset readback => Readback(readback),
             HiZAsset pyramid => Reduce(pyramid),
             GpuCullingAsset culling => Culling(culling),
+            ClusterCullingAsset clusters => ClusterCulling(clusters),
+            VisibilityBufferAsset visibility => VisibilityBuffer(visibility),
             _ => Extension(declared)
         };
 
@@ -593,6 +630,30 @@ public sealed class CompositorBuilder(RenderSystem system) {
 
         return node;
     }
+
+    ClusterCullingRenderer ClusterCulling(ClusterCullingAsset declared) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Visibility = Clusters,
+            Pages = Pages,
+            Raster = Raster
+        };
+
+    VisibilityBufferRenderer VisibilityBuffer(VisibilityBufferAsset declared) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Output = declared.Output,
+            Depth = declared.Depth,
+            Colour = declared.Colour,
+            ViewIndex = declared.ViewIndex,
+            Raster = Raster,
+            Tiles = Tiles,
+            Resolve = Resolve,
+            SceneConstants = SceneConstants,
+            ViewConstants = ViewConstants
+        };
 
     ComputeRenderer Compute(ComputeAsset declared) {
         var node = new ComputeRenderer {

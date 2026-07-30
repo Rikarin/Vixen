@@ -139,6 +139,28 @@ public sealed class GpuClusterResolve : IDisposable {
     /// </remarks>
     public DescriptorSetHandle TextureTable { get; set; }
 
+    /// <summary>Whether the variants compile the environment ambient term in.</summary>
+    public bool ImageBasedLighting { get; set; } = true;
+
+    /// <summary>
+    ///     Whether they read indirect diffuse from a field.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Off by default, which matches the forward pass: <c>UseIrradianceField</c> is off there too
+    ///         and indirect diffuse reaches a shipped frame through
+    ///         <c>PostFx/IndirectDiffuse.rvn</c> instead. What this gives the resolve is the <em>same
+    ///         choice</em> the forward pass has rather than a different answer to it — which is the whole
+    ///         claim, and it was not true until <c>VisibilityResolve</c> could declare the slot.
+    ///     </para>
+    ///     <para>
+    ///         Turning it on without composing a field into the material gets <c>NoIrradiance</c>, which
+    ///         answers no light and an unshadowed sun. That is a slower way of leaving it off, not a
+    ///         wrong picture.
+    ///     </para>
+    /// </remarks>
+    public bool IrradianceField { get; set; }
+
     /// <summary>How many materials the last <see cref="Prepare" /> resolved a variant for.</summary>
     public int ResolvedMaterials { get; private set; }
 
@@ -166,20 +188,27 @@ public sealed class GpuClusterResolve : IDisposable {
     /// <summary>The effect key one material's resolve variant is compiled under.</summary>
     /// <param name="material">The material, whose composition fills the shader's slots.</param>
     /// <param name="imageBasedLighting">Whether the ambient term is compiled in.</param>
+    /// <param name="irradianceField">
+    ///     Whether indirect diffuse is read from a field. On the same terms as the forward pass's key of
+    ///     the same name, and it takes the material's own composition to say <em>which</em> field — a
+    ///     variant compiled with this on and <c>NoIrradiance</c> composed reads a field that answers
+    ///     nothing, which is a slower way of leaving it off rather than a wrong picture.
+    /// </param>
     /// <remarks>
     ///     Built literally rather than through <see cref="EffectKey.From" />, because the gradient key is
     ///     declared on a shader the reflection does not publish — it is inherited into every sampling
-    ///     feature — so there is no generated <see cref="ParameterKey" /> to look it up by. Two names and
-    ///     two values is a small enough surface to spell.
+    ///     feature — so there is no generated <see cref="ParameterKey" /> to look it up by. Three names
+    ///     and three values is a small enough surface to spell.
     /// </remarks>
-    public static EffectKey Key(Material material, bool imageBasedLighting = true) {
+    public static EffectKey Key(Material material, bool imageBasedLighting = true, bool irradianceField = false) {
         ArgumentNullException.ThrowIfNull(material);
 
         return EffectKey.Of(
             VisibilityResolveKeys.ShaderName,
             [
                 new(AnalyticGradientsKey, "true"),
-                new(VisibilityResolveKeys.UseImageBasedLighting.Name, imageBasedLighting ? "true" : "false")
+                new(VisibilityResolveKeys.UseImageBasedLighting.Name, imageBasedLighting ? "true" : "false"),
+                new(VisibilityResolveKeys.UseIrradianceField.Name, irradianceField ? "true" : "false")
             ],
             material.Composition
         );
@@ -226,7 +255,8 @@ public sealed class GpuClusterResolve : IDisposable {
                 continue;
             }
 
-            if (Effects.Resolve(Key(entry.Material)) is not { IsPlaceholder: false } effect) {
+            if (Effects.Resolve(Key(entry.Material, ImageBasedLighting, IrradianceField))
+                is not { IsPlaceholder: false } effect) {
                 // A variant still compiling. The bin dispatches nothing this frame and the picture has a
                 // hole in it, which is the honest outcome: shading with a placeholder would be a wrong
                 // colour nobody could attribute, and the real variant arrives in a frame or two.
@@ -396,7 +426,7 @@ public sealed class GpuClusterResolve : IDisposable {
             parameters.Set(VisibilityResolveKeys.InstanceBase, (uint)visibility.InstanceBase);
             parameters.Set(VisibilityResolveKeys.BoneBase, (uint)visibility.BoneBase);
             parameters.Set(VisibilityResolveKeys.ResidencyBase, (uint)visibility.SlotBase);
-            parameters.Set(VisibilityResolveKeys.TileBase, (uint)GpuVisibilityTiles.TileBase(entry.Index));
+            parameters.Set(VisibilityResolveKeys.TileBase, (uint)tiles.TileBase(entry.Index));
             parameters.Set(VisibilityResolveKeys.Material, (uint)entry.Index);
             parameters.Set(VisibilityResolveKeys.TileCount, GpuVisibilityTiles.TilesFor(size));
             parameters.Set(VisibilityResolveKeys.ViewProjection, view.ViewProjection);

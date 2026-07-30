@@ -185,8 +185,8 @@ shader MaterialLayersSurface : IMaterialSurface {
 
 /// Two surfaces, mixed by a weight.
 shader BlendSurface : IMaterialSurface {
-    compose val under: IMaterialSurface
-    compose val over: IMaterialSurface
+    compose val under: IMaterialSurface = IdentitySurface
+    compose val over: IMaterialSurface = IdentitySurface
 
     /// How much of `over` shows. Zero is `under` alone.
     var blend: float = 0.5f

@@ -63,8 +63,16 @@ public sealed class SourceFieldSymbol : FieldSymbol {
 
             composeResolved = true;
 
-            if (ContainingType is not { } containing
-                || binder.Compilation.ComposeBindings.Resolve(containing.Name, Name) is not { } boundName) {
+            if (ContainingType is not { } containing) {
+                return null;
+            }
+
+            // The compilation's binding first, this slot's own default second. A default is what lets a
+            // shader declare a feature it can do without: every slot a compilation declares has to
+            // resolve whether or not anything reaches it, so before this a pass that *could* read
+            // indirect light forced every material compiled beside it to name something for the slot.
+            if ((binder.Compilation.ComposeBindings.Resolve(containing.Name, Name)
+                    ?? DefaultComposition) is not { } boundName) {
                 return null;
             }
 
@@ -82,6 +90,29 @@ public sealed class SourceFieldSymbol : FieldSymbol {
             return composedType = bound;
         }
     }
+
+    /// <summary>
+    ///     The shader this slot names as its own default, or null if it names none.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>compose val irradiance: IIrradianceSource = NoIrradiance</c> — the implementation to
+    ///         use when the compilation binds nothing. It is a bare identifier and not an expression,
+    ///         because what it names is a type: there is no value here to evaluate, and the shape of the
+    ///         syntax is the only thing that says so.
+    ///     </para>
+    ///     <para>
+    ///         <b>What a default is for is a feature a pass can do without.</b> A slot has to resolve in
+    ///         every compilation that declares it, reached or not — so without this, a pass that
+    ///         <em>can</em> read indirect light makes indirect light everybody's problem, and the only
+    ///         way to decline is to not declare the slot at all. That is the choice
+    ///         <c>VisibilityResolve</c> was left with.
+    ///     </para>
+    /// </remarks>
+    internal string? DefaultComposition =>
+        IsCompose && Declaration.Initializer?.Value is IdentifierNameSyntax name
+            ? name.Identifier.ValueText
+            : null;
 
     static NamedTypeSymbol? Find(IEnumerable<NamedTypeSymbol> types, string name) {
         foreach (var type in types) {

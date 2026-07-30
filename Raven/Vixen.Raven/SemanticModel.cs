@@ -167,6 +167,14 @@ public sealed class SemanticModel {
             return;
         }
 
+        // A compose slot's initializer names a shader, not a value — it is this slot's default
+        // implementation. Binding it as an expression would report the shader as a type used as a value
+        // (RVN2013), which is true of the syntax and wrong about what it means. Whether it names
+        // something that exists and implements the protocol is ReportComposeIssues' question.
+        if (field.IsCompose) {
+            return;
+        }
+
         var binder = MemberScope(type, field, null);
         var initializer = binder.BindValue(value);
 

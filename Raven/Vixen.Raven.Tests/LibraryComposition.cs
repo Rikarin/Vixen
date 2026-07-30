@@ -61,4 +61,26 @@ static class LibraryComposition {
 
         return ComposeBindings.Create(bindings);
     }
+
+    /// <summary>
+    ///     Only the slots a material genuinely chooses, leaving every optional one to its own default.
+    /// </summary>
+    /// <remarks>
+    ///     What <see cref="With" /> fills beyond these — the blend's two layers, the distance field, the
+    ///     irradiance field — is what a compilation used to have to name whether or not it reached them.
+    ///     Since a slot can name its own default in the library, a composition that says nothing about
+    ///     them is a valid one, and this is the composition that proves it.
+    /// </remarks>
+    public static ComposeBindings Minimal() {
+        List<KeyValuePair<string, string>> bindings = [
+            new("surface", "MetalRoughnessSurface"),
+            new("shading", "StandardShading")
+        ];
+
+        foreach (var slot in ChainSlots) {
+            bindings.Add(new(slot, "IdentitySurface"));
+        }
+
+        return ComposeBindings.Create(bindings);
+    }
 }

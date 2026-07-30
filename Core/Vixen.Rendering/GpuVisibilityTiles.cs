@@ -42,13 +42,13 @@ public sealed class GpuVisibilityTiles : IDisposable {
     /// <remarks><c>VisibilityTile.Size</c>, and a tile is one workgroup of sixty-four invocations.</remarks>
     public const int TileSize = 8;
 
-    /// <summary>How many tiles one material's list holds.</summary>
+    /// <summary>How many tiles one material's list holds to begin with.</summary>
     /// <remarks>
     ///     <c>VisibilityTile.Capacity</c>. A 1440p screen is 43 200 tiles, so this covers a material over
-    ///     about a quarter of it. Past that the tile is dropped, which is a hole — see
-    ///     <see cref="Overflowed" />.
+    ///     about a quarter of it — which is the assumption that materials are spatially coherent, sized.
+    ///     A frame that breaks it raises <see cref="TileCapacity" /> rather than dropping tiles forever.
     /// </remarks>
-    public const int TileCapacity = 12288;
+    public const int DefaultTileCapacity = 12288;
 
     /// <summary>How many materials the binning covers.</summary>
     public const int MaxMaterials = 64;
@@ -105,14 +105,44 @@ public sealed class GpuVisibilityTiles : IDisposable {
     public ReadOnlySpan<uint> Counts => counts.AsSpan(0, Math.Min(MaterialCount, counts.Length));
 
     /// <summary>
-    ///     Whether any material wanted more tiles than its list holds.
+    ///     Whether any material wanted more tiles than its list held.
     /// </summary>
     /// <remarks>
-    ///     A frame with this set drew a hole: the dropped tiles are pixels no resolve dispatch covers.
-    ///     Worth a flag rather than a log because the fix is a larger <see cref="TileCapacity" /> or a
-    ///     smaller <see cref="TileSize" />, and neither is something to discover from a screenshot.
+    ///     A frame with this set drew a hole: the dropped tiles are pixels no resolve dispatch covered.
+    ///     Still reported now that <see cref="TileCapacity" /> grows in response, because the growth is a
+    ///     frame late by construction — the counts come back from a dispatch nothing waited for — so this
+    ///     is how a host learns that a frame was wrong, rather than how it learns that frames will be.
     /// </remarks>
     public bool Overflowed { get; private set; }
+
+    /// <summary>
+    ///     How many tiles one material's list holds, which grows when one of them wanted more.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A number the shader reads rather than a constant it was compiled with</b>, so that
+    ///         <see cref="Overflowed" /> can be answered instead of merely reported. A dropped tile is a
+    ///         hole in the picture; a hole that reports itself and then happens again every frame is a
+    ///         diagnostic pretending to be a policy.
+    ///     </para>
+    ///     <para>
+    ///         It only ever rises, and it stops at the number of tiles on the screen — a material cannot
+    ///         want more list than there are tiles to put in it, so the growth terminates at a capacity
+    ///         where overflow is impossible rather than at an arbitrary ceiling. The cost at that point
+    ///         is <see cref="MaxMaterials" /> lists of the whole screen, which is eleven megabytes at
+    ///         1440p and is only reached by a frame where sixty-four materials each cover all of it.
+    ///     </para>
+    /// </remarks>
+    public int TileCapacity { get; private set; } = DefaultTileCapacity;
+
+    /// <summary>How many times the lists have been grown.</summary>
+    /// <remarks>
+    ///     Expected to settle at zero or one for a given scene. A number that keeps rising is a frame
+    ///     whose materials are genuinely scattered across the screen, which is the case the whole binning
+    ///     assumption is about — and at that point the honest answer is a smaller
+    ///     <see cref="TileSize" /> rather than a bigger list.
+    /// </remarks>
+    public int Growths { get; private set; }
 
     /// <summary>Each material's tile list, <see cref="TileCapacity" /> words apart.</summary>
     public BufferHandle Tiles => tiles;
@@ -127,8 +157,47 @@ public sealed class GpuVisibilityTiles : IDisposable {
     /// <summary>Where a material's dispatch arguments start, in bytes.</summary>
     public static long ArgumentOffset(int material) => (long)material * ArgumentWords * sizeof(uint);
 
+    /// <summary>
+    ///     What the capacity becomes after a frame where a material wanted more than it had.
+    /// </summary>
+    /// <param name="current">The capacity that was too small.</param>
+    /// <param name="wanted">The largest count any material reported.</param>
+    /// <param name="tileCount">How many tiles cover the screen, which is the ceiling.</param>
+    /// <returns>The new capacity, never below <paramref name="current" />.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         Separate from <see cref="ReadCounts" /> because it is the policy and the rest is
+    ///         plumbing: what a frame is allowed to do about a hole in the picture is a decision worth
+    ///         being able to read, and worth being able to test without a device that can execute a
+    ///         copy.
+    ///     </para>
+    ///     <para>
+    ///         Doubling <em>or</em> the count, whichever is larger, so a frame that overflowed by a
+    ///         factor of ten settles in one step rather than four — and capped at the screen's own tile
+    ///         count, which is what makes it terminate: a material's list holds tiles that exist, so
+    ///         past that there is nothing left to drop.
+    ///     </para>
+    /// </remarks>
+    public static int NextCapacity(int current, int wanted, Int2 tileCount) {
+        var ceiling = Math.Max((long)tileCount.X * tileCount.Y, DefaultTileCapacity);
+
+        // A screen that shrank leaves the capacity above its own ceiling, which is not a reason to give
+        // any of it back: the buffer exists, and lowering it would be a second allocation to save memory
+        // a frame is not short of.
+        if (ceiling <= current) {
+            return current;
+        }
+
+        return (int)Math.Min(Math.Max(wanted, (long)current * 2), ceiling);
+    }
+
     /// <summary>Where a material's tile list starts, as a word index.</summary>
-    public static long TileBase(int material) => (long)material * TileCapacity;
+    /// <remarks>
+    ///     An instance member rather than a static one since the capacity became a frame's decision. A
+    ///     static answer would be the base for a list the shader is no longer using, which reads a
+    ///     neighbouring material's tiles rather than failing.
+    /// </remarks>
+    public long TileBase(int material) => (long)material * TileCapacity;
 
     /// <summary>
     ///     Records the binning pass, and clears the counters it is about to fill.
@@ -248,6 +317,7 @@ public sealed class GpuVisibilityTiles : IDisposable {
         device.Read(readback, 0, MemoryMarshal.AsBytes(words.AsSpan()));
 
         var total = 0;
+        var largest = 0;
         Overflowed = false;
 
         for (var material = 0; material < MaterialCount; material++) {
@@ -255,13 +325,58 @@ public sealed class GpuVisibilityTiles : IDisposable {
 
             counts[material] = wanted;
             total += (int)Math.Min(wanted, TileCapacity);
+            largest = Math.Max(largest, (int)Math.Min(wanted, int.MaxValue));
 
             if (wanted > TileCapacity) {
                 Overflowed = true;
             }
         }
 
+        if (Overflowed) {
+            Grow(largest);
+        }
+
         return total;
+    }
+
+    /// <summary>
+    ///     Raises the capacity so the next frame's lists hold what this one wanted, and drops the buffer
+    ///     that was too small.
+    /// </summary>
+    /// <param name="wanted">The largest count any material reported.</param>
+    /// <remarks>
+    ///     <para>
+    ///         Capped at the screen's own tile count, which is the number that makes this terminate: a
+    ///         material's list is a list of tiles on the screen, so past that there is nothing left to
+    ///         drop. A frame at that capacity cannot overflow at all.
+    ///     </para>
+    ///     <para>
+    ///         <b>Destroyed here rather than at the next <see cref="Record" />, because here is where
+    ///         nothing is reading it.</b> <see cref="ReadCounts" /> is called between frames, after the
+    ///         readback the previous frame's copy filled — see <see cref="Compositor.ClusterCullingRenderer" />
+    ///         for where the same argument places the page flush. Destroying it inside a frame would free
+    ///         a buffer the resolve's own dispatch is still bound to.
+    ///     </para>
+    /// </remarks>
+    void Grow(int wanted) {
+        var capacity = NextCapacity(TileCapacity, wanted, TileCount);
+
+        if (capacity <= TileCapacity) {
+            // Already as large as the screen can ask for. The overflow is then a frame with more than
+            // MaxMaterials-worth of scattered materials, which a bigger list cannot fix.
+            return;
+        }
+
+        TileCapacity = capacity;
+        Growths++;
+
+        if (tiles.IsValid) {
+            device.Destroy(tiles);
+            tiles = default;
+        }
+
+        // The descriptor sets are not touched: Bind rewrites every one of them each frame, so the new
+        // buffer reaches the set the way the old one did.
     }
 
     /// <summary>The effect key selecting the binning pass.</summary>
@@ -287,6 +402,7 @@ public sealed class GpuVisibilityTiles : IDisposable {
         var parameters = new ParameterCollection();
         parameters.Set(VisibilityTilesKeys.TileCount, TileCount);
         parameters.Set(VisibilityTilesKeys.MaterialCount, materials);
+        parameters.Set(VisibilityTilesKeys.TileCapacity, (uint)TileCapacity);
 
         var count = constants.Update(effect, parameters) ? 7 : 6;
 
@@ -303,18 +419,22 @@ public sealed class GpuVisibilityTiles : IDisposable {
     }
 
     bool EnsureBuffers() {
-        if (tiles.IsValid) {
-            return true;
+        // The tile lists alone, because they are the only ones the capacity sizes — Grow destroys this
+        // one and leaves the rest, and recreating all four here would leak three every time it did.
+        if (!tiles.IsValid) {
+            tiles = device.CreateBuffer(
+                new(
+                    (long)MaxMaterials * TileCapacity * sizeof(uint),
+                    BufferUsage.Storage,
+                    MemoryAccess.DeviceLocal,
+                    "VisibilityTiles.Tiles"
+                )
+            );
         }
 
-        tiles = device.CreateBuffer(
-            new(
-                (long)MaxMaterials * TileCapacity * sizeof(uint),
-                BufferUsage.Storage,
-                MemoryAccess.DeviceLocal,
-                "VisibilityTiles.Tiles"
-            )
-        );
+        if (arguments.IsValid) {
+            return tiles.IsValid;
+        }
 
         arguments = device.CreateBuffer(
             new(

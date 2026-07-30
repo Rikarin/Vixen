@@ -62,11 +62,26 @@ public static class MaterialCompiler {
 
     /// <summary>Slots the library declares that a material does not necessarily fill.</summary>
     /// <remarks>
-    ///     Written down here rather than discovered, for the reason
-    ///     <see cref="Features.MaterialRenderFeature.PermutationKeys" /> gives about permutation
-    ///     keys: it is a property of the shipped shaders, and this cannot compile one to ask. A slot
-    ///     added to the library and not added here shows up as <c>RVN2073</c> the first time
-    ///     something compiles a material, which is a loud failure rather than a quiet one.
+    ///     <para>
+    ///         Written down here rather than discovered, for the reason
+    ///         <see cref="Features.MaterialRenderFeature.PermutationKeys" /> gives about permutation
+    ///         keys: it is a property of the shipped shaders, and this cannot compile one to ask.
+    ///     </para>
+    ///     <para>
+    ///         <b>No longer load-bearing, and worth saying because it was.</b> Every one of these slots
+    ///         now names the same filler as its own default in the library — <c>compose val irradiance:
+    ///         IIrradianceSource = NoIrradiance</c> — so a compilation that says nothing about them gets
+    ///         exactly what this names. Before that, a slot added to the library and not added here
+    ///         showed up as <c>RVN2073</c> the first time anything compiled a material, which broke
+    ///         every material in the project rather than the shader that declared the slot; it happened
+    ///         twice.
+    ///     </para>
+    ///     <para>
+    ///         What the list is <em>for</em> now is the other direction: naming a real implementation
+    ///         where the library's default is the neutral one. A project with a field binds
+    ///         <c>IrradianceFieldProbes</c> here, and that is a project's decision rather than a
+    ///         material's — a material has nothing to say about whether the scene has a field.
+    ///     </para>
     /// </remarks>
     internal static readonly (string Shader, string Slot, string Filler)[] OptionalSlots = [
         ("BlendSurface", "under", IdentityShader),

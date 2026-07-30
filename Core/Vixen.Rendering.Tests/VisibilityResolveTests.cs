@@ -42,7 +42,12 @@ public sealed class VisibilityResolveTests {
         var source = Source("Pipeline", "VisibilityTiles.rvn");
 
         Assert.Contains($"const val Size = {GpuVisibilityTiles.TileSize}", source, StringComparison.Ordinal);
-        Assert.Contains($"const val Capacity = {GpuVisibilityTiles.TileCapacity}", source, StringComparison.Ordinal);
+        Assert.Contains($"const val Capacity = {GpuVisibilityTiles.DefaultTileCapacity}", source, StringComparison.Ordinal);
+
+        // And the capacity the shader actually indexes with is a uniform, so a frame that overflowed
+        // can be answered rather than only reported.
+        Assert.Contains("var tileCapacity: uint", source, StringComparison.Ordinal);
+        Assert.Contains("if (at < tileCapacity) {", source, StringComparison.Ordinal);
         Assert.Contains($"const val MaxMaterials = {GpuVisibilityTiles.MaxMaterials}", source, StringComparison.Ordinal);
 
         Assert.Contains(
@@ -106,12 +111,57 @@ public sealed class VisibilityResolveTests {
     ///     write with. An overlap is one material's tiles appearing in another's dispatch, which shades the
     ///     wrong pixels with the wrong material — a picture, and a plausible one.
     /// </remarks>
+    /// <summary>
+    ///     A frame that overflowed makes the lists larger, and the growth terminates.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The difference between a diagnostic and a policy.</b> <c>Overflowed</c> reported that a
+    ///         material wanted more tiles than its list held — which is a hole in the picture — and
+    ///         nothing did anything about it, so the same hole appeared every frame for as long as the
+    ///         camera stayed there.
+    ///     </para>
+    ///     <para>
+    ///         The ceiling is the assertion that matters. A capacity that doubles forever is a buffer
+    ///         that eventually fails to allocate; a material's list holds tiles that exist on the screen,
+    ///         so past that count there is nothing left to drop and the growth is finished.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_overflowed_list_grows_and_stops_growing() {
+        var screen = new Int2(240, 180);
+        var tiles = screen.X * screen.Y;
+
+        // One step, and it clears the count that overflowed rather than merely doubling toward it.
+        var once = GpuVisibilityTiles.NextCapacity(GpuVisibilityTiles.DefaultTileCapacity, 40000, screen);
+
+        Assert.True(once >= 40000, $"A capacity of {once} still drops a material that wanted 40000.");
+        Assert.True(once <= tiles, $"A capacity of {once} is larger than the {tiles} tiles on the screen.");
+
+        // And it converges: whatever it is asked for, it reaches the ceiling and stays there.
+        var capacity = GpuVisibilityTiles.DefaultTileCapacity;
+
+        for (var step = 0; step < 32; step++) {
+            capacity = GpuVisibilityTiles.NextCapacity(capacity, int.MaxValue, screen);
+        }
+
+        Assert.Equal(tiles, capacity);
+        Assert.Equal(tiles, GpuVisibilityTiles.NextCapacity(capacity, int.MaxValue, screen));
+
+        // It never gives capacity back, including for a screen smaller than the buffer already is.
+        Assert.Equal(capacity, GpuVisibilityTiles.NextCapacity(capacity, 0, new(8, 8)));
+        Assert.Equal(capacity, GpuVisibilityTiles.NextCapacity(capacity, 0, screen));
+    }
+
     [Fact]
     public void Each_materials_lists_are_its_own() {
+        using var device = new NullDevice();
+        using var tiles = new GpuVisibilityTiles(device);
+
         for (var material = 1; material < GpuVisibilityTiles.MaxMaterials; material++) {
             Assert.Equal(
-                GpuVisibilityTiles.TileBase(material - 1) + GpuVisibilityTiles.TileCapacity,
-                GpuVisibilityTiles.TileBase(material)
+                tiles.TileBase(material - 1) + tiles.TileCapacity,
+                tiles.TileBase(material)
             );
 
             Assert.Equal(

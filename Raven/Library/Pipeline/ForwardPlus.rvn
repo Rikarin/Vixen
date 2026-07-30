@@ -53,7 +53,7 @@ shader ForwardPlus : ClusteredShading {
     compose val shading: IShadingModel
 
     /// Where indirect diffuse comes from, when it comes from a field.
-    compose val irradiance: IIrradianceSource
+    compose val irradiance: IIrradianceSource = NoIrradiance
 
     /// The composed model, reached from the shared light loops.
     override func Shade(d: MaterialData, a: ShadingAngles, s: ShadingVectors, alpha: float): float3 {

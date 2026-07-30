@@ -35,7 +35,7 @@ struct IrradianceFillJob {
 
 shader IrradianceFill {
     /// What the rays march through. `GlobalDistanceField` is the one that reads a clipmap.
-    compose val distanceField: IDistanceFieldSource
+    compose val distanceField: IDistanceFieldSource = NoDistanceField
 
     /// How many probes a brick owns along each axis.
     const val BrickResolution = 4

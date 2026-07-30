@@ -463,6 +463,88 @@ public class LibraryTreeTests {
         Assert.Empty(Assert.Single(objects.EntryPoints).SharedVariables);
     }
 
+    /// <summary>
+    ///     The resolve takes its indirect diffuse from the same slot the forward pass does.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The last place the two paths diverged. <c>ClusteredShading</c> made the direct light, the
+    ///         shadows and the ambient term one implementation, and the field stayed out of the resolve
+    ///         for a reason that was nothing to do with rendering: a slot has to resolve in every
+    ///         compilation that declares it, so declaring one here obliged every compilation of the
+    ///         library to bind it — including the ones compiling something else entirely.
+    ///     </para>
+    ///     <para>
+    ///         A slot naming its own default is what removed the obligation, so this checks both halves:
+    ///         the resolve reaches the composed field when the compilation binds one, and the whole
+    ///         library still compiles when nothing does.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_resolve_takes_its_irradiance_from_the_slot_the_forward_pass_uses() {
+        var source = ResolveSource(LowerTree(PermutationValues.Parse(["UseIrradianceField=true"])));
+
+        // The resolve's own override, emitted — which is the thing that was missing. Its bindings alone
+        // prove nothing: a composed shader's uniforms attach to the shader declaring the slot whether or
+        // not anything reaches it, so `irradianceField` is declared here even with the slot unread.
+        Assert.Contains("VisibilityResolve_SampleIrradiance", source, StringComparison.Ordinal);
+
+        // And what it reaches is the field's own lookup, from `IrradianceFieldProbes` — the shader
+        // LibraryComposition binds the slot to, not something this file wrote.
+        Assert.Contains("IrradianceSample Sample(", source, StringComparison.Ordinal);
+
+        // With the permutation off it is gone entirely, so the ambient term costs a variant that has no
+        // field exactly nothing.
+        Assert.DoesNotContain("VisibilityResolve_SampleIrradiance", ResolveSource(LowerTree()), StringComparison.Ordinal);
+
+        // And the forward pass reaches it through the same slot name, which is what makes the two
+        // one decision rather than two that agree.
+        foreach (var pass in (string[])["ForwardPlus.rvn", "VisibilityResolve.rvn"]) {
+            Assert.Contains(
+                "compose val irradiance: IIrradianceSource",
+                File.ReadAllText(Path.Combine(LibraryRoot, "Pipeline", pass)),
+                StringComparison.Ordinal
+            );
+        }
+    }
+
+    /// <summary>
+    ///     A composition naming only the slots a material chooses still compiles the whole library.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The obligation this removes was real and had bitten twice.</b>
+    ///         <c>MaterialCompiler.OptionalSlots</c> is a hand-kept list of slots the library declares
+    ///         that a material does not fill, and its own comment records the failure mode: a slot added
+    ///         to the library and not added there shows up as <c>RVN2073</c> the first time anything
+    ///         compiles a material. The <c>ScreenProbes</c> package landed without its line and every
+    ///         whole-library compilation in the golden suite refused.
+    ///     </para>
+    ///     <para>
+    ///         With the defaults in the library, the list stops being load-bearing: it is how a
+    ///         <em>project</em> chooses a real field over the neutral one, not how the library is kept
+    ///         compiling. This is the assertion that says so.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_composition_that_names_no_optional_slot_still_compiles_the_library() {
+        var trees = Files()
+            .Select(file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
+            .ToArray();
+
+        var compilation = Compilation.Create("Library", PermutationValues.Empty, LibraryComposition.Minimal(), trees);
+        var diagnostics = compilation.GetDiagnostics();
+
+        Assert.True(diagnostics.Count == 0, string.Join("\n", diagnostics.Select(d => d.ToString())));
+
+        // And the defaults are what filled them, rather than the slots having quietly disappeared.
+        var bag = new DiagnosticBag();
+        var module = Lowerer.Lower(compilation, bag);
+
+        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+        Assert.NotEmpty(module.Shaders);
+    }
+
     static IrShader FindShader(IrModule module, string name) =>
         Assert.Single(module.Shaders, shader => shader.Name == name);
 

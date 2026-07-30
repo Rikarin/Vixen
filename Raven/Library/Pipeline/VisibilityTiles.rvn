@@ -36,8 +36,10 @@ struct VisibilityTile {
     /// How many tiles one material's list can hold.
     ///
     /// A whole 1440p screen is 43 200 tiles, so this holds a material covering about a quarter of it.
-    /// Overflow drops the tile rather than growing the list — see `Append`, and see
-    /// `GpuVisibilityTiles.Overflowed`, which is how a host finds out.
+    /// **The starting size and not the limit**: the shader reads `tileCapacity`, which the host raises
+    /// after a frame that overflowed — see `GpuVisibilityTiles.TileCapacity`. Within a frame the
+    /// overflow still drops the tile rather than growing the list, because a list is a device buffer and
+    /// a frame cannot make one.
     const val Capacity = 12288
 
     /// How many materials the binning covers.
@@ -80,7 +82,7 @@ shader VisibilityTiles {
     /// The clusters the traversal accepted. Element zero is the count.
     var visible: Buffer<uint>
 
-    /// Each material's tile list, `VisibilityTile.Capacity` words apart.
+    /// Each material's tile list, `tileCapacity` words apart.
     var tiles: RWBuffer<uint>
 
     /// Each material's dispatch arguments, three words apart. Element zero of each is its tile count.
@@ -95,6 +97,15 @@ shader VisibilityTiles {
 
     /// How many materials are binned this frame, at most `VisibilityTile.MaxMaterials`.
     var materialCount: int
+
+    /// How many tiles one material's list holds this frame.
+    ///
+    /// **A uniform rather than `VisibilityTile.Capacity`, so a frame that overflowed can be answered.**
+    /// The constant is still the starting size and the shape of the arithmetic is unchanged; what a
+    /// value adds is that the host can grow the lists and the next frame stops dropping tiles. A
+    /// constant makes the overflow permanent, which is a hole in the picture that reports itself and
+    /// then happens again.
+    var tileCapacity: uint
 
     /// Which materials this tile holds, one bit each.
     ///
@@ -178,8 +189,8 @@ shader VisibilityTiles {
     func Append(material: uint, tile: uint) {
         val at = atomicAdd(arguments[int(material) * VisibilityTile.ArgumentWords], 1u)
 
-        if (at < uint(VisibilityTile.Capacity)) {
-            tiles[int(material * uint(VisibilityTile.Capacity) + at)] = tile
+        if (at < tileCapacity) {
+            tiles[int(material * tileCapacity + at)] = tile
         }
     }
 }

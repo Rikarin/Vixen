@@ -41,6 +41,22 @@
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": ""
+            },
+            {
+              "Name": "tileCapacity",
+              "Type": {
+                "Scalar": "UInt",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 12,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
             }
           ],
           "Size": 16,
@@ -457,6 +473,24 @@
       "Set": 2,
       "Binding": 0,
       "Offset": 8,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "tileCapacity",
+      "Type": {
+        "Scalar": "UInt",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 12,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,

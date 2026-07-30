@@ -664,6 +664,80 @@ public sealed record GpuCullingAsset : ISceneRendererAsset {
     public CullPhase Phase { get; init; }
 }
 
+/// <summary>
+///     The cluster traversal: virtualized geometry's answer to <see cref="GpuCullingAsset" />.
+/// </summary>
+/// <remarks>
+///     <para>
+///         <b>The same division of labour, and it is the reason this exists as a node at all.</b> A
+///         document decides where the traversal runs — before the draws its answer feeds, after the
+///         pyramid it tests against — and a host decides whether the project has virtualized geometry.
+///         Building this with nothing supplied is how a document says "walk the cluster DAG" to a host
+///         that has none, and it is a node that then does nothing.
+///     </para>
+///     <para>
+///         It carries no settings of its own, which is not an oversight. Everything the traversal is
+///         parameterised by is a property of the scene rather than of the frame: the error threshold is
+///         the project's quality setting on <c>VirtualGeometryRenderFeature</c>, the page budget is the
+///         residency manager's, and the views are the frame's. What is left for a document to say is
+///         exactly where in the frame it happens, which is what a node is.
+///     </para>
+/// </remarks>
+[DataContract("ClusterCulling")]
+public sealed record ClusterCullingAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+}
+
+/// <summary>
+///     The visibility buffer: the draw that fills it, the binning that sorts it, and the shading.
+/// </summary>
+/// <remarks>
+///     <para>
+///         Three passes in one node, and the ordering between them is deliberately not something a
+///         document can get wrong — see <see cref="VisibilityBufferRenderer.Tiles" />. What a document
+///         chooses is the names: which depth this shares with the classic geometry, and which colour
+///         target the resolve writes radiance into.
+///     </para>
+///     <para>
+///         <b>The depth is named rather than created</b>, because a frame that also draws classic
+///         geometry wants both in one depth buffer or the two occlude each other not at all. The colour
+///         is named for the same reason and a stronger one: what a resolve writes is radiance into the
+///         scene colour the forward pass and every post-effect already share, which is the whole of
+///         improvement 2 in <c>docs/plan/22-virtualized-geometry.md</c>. A resolve with a target of its
+///         own would be a second colour buffer to composite, and compositing it is what a GBuffer
+///         resolve does.
+///     </para>
+/// </remarks>
+[DataContract("VisibilityBuffer")]
+public sealed record VisibilityBufferAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>What the identity target is called in the graph. Created by this node.</summary>
+    /// <remarks>
+    ///     The one resource here the node owns, because nothing else produces it: one <c>uint</c> per
+    ///     pixel naming a visible cluster and a triangle, which only this pass writes and only its own
+    ///     resolve reads. Naming it anyway lets a debug view read it.
+    /// </remarks>
+    public string Output { get; init; } = "VisibilityBuffer";
+
+    /// <summary>The depth this shares with whatever else draws geometry. Named, not created.</summary>
+    public string Depth { get; init; } = "SceneDepth";
+
+    /// <summary>The scene colour the resolve adds radiance to. Named, not created.</summary>
+    public string Colour { get; init; } = "SceneColour";
+
+    /// <summary>Which of the frame's views it draws.</summary>
+    public int ViewIndex { get; init; }
+}
+
 /// <summary>Spot and point light shadows in one atlas.</summary>
 [DataContract("PunctualShadows")]
 public sealed record PunctualShadowAsset : ISceneRendererAsset {

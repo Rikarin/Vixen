@@ -37,7 +37,7 @@ struct ScreenProbeTraceJob {
 
 shader ScreenProbeTrace {
     /// What the rays march through. `GlobalDistanceField` is the one that reads a clipmap.
-    compose val distanceField: IDistanceFieldSource
+    compose val distanceField: IDistanceFieldSource = NoDistanceField
 
     var jobs: Buffer<ScreenProbeTraceJob>
 

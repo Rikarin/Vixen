@@ -26,13 +26,30 @@ namespace Tests;
 ///     </para>
 /// </remarks>
 public class ComposeSlotInventoryTests {
-    /// <summary>Every compose slot the shipped library declares, read off the shaders themselves.</summary>
+    /// <summary>
+    ///     Every compose slot the shipped library declares without naming its own default.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A slot that names a default is not the engine's problem.</b>
+    ///         <c>compose val irradiance: IIrradianceSource = NoIrradiance</c> resolves to that shader
+    ///         in any compilation that says nothing about it, so forgetting it here breaks nothing —
+    ///         and a test that failed anyway would be asserting a rule that no longer exists, which is
+    ///         worse than no test because it blocks the change that made it obsolete.
+    ///     </para>
+    ///     <para>
+    ///         The slots below it still is: <c>surface</c>, <c>shading</c> and the feature chain are
+    ///         choices a material has to make, and a default for those would be a material that
+    ///         silently compiled as something else.
+    ///     </para>
+    /// </remarks>
     static string[] Declared() {
         var declared = Directory
             .EnumerateFiles(Path.Combine(AppContext.BaseDirectory, "Shaders"), "*.rvn", SearchOption.AllDirectories)
             .SelectMany(File.ReadAllLines)
             .Select(line => line.Trim())
             .Where(line => line.StartsWith("compose val ", StringComparison.Ordinal))
+            .Where(line => !line.Contains('=', StringComparison.Ordinal))
             .Select(line => line["compose val ".Length..].Split(':')[0].Trim())
             .Distinct(StringComparer.Ordinal)
             .ToArray();
@@ -40,6 +57,35 @@ public class ComposeSlotInventoryTests {
         Assert.NotEmpty(declared);
 
         return declared;
+    }
+
+    /// <summary>
+    ///     And the library does default the optional ones, which is what makes the filter above honest.
+    /// </summary>
+    /// <remarks>
+    ///     Without this the filter is a hole: a slot could stop being declared, or stop being defaulted,
+    ///     and the inventory test would go quiet either way. These four are the slots a shader declares
+    ///     that its consumers cannot be expected to know about — a pass that can trace, a pass that can
+    ///     read a field, a surface that can blend two others.
+    /// </remarks>
+    [Theory]
+    [InlineData("irradiance", MaterialCompiler.EmptyIrradianceShader)]
+    [InlineData("distanceField", MaterialCompiler.EmptyFieldShader)]
+    [InlineData("under", MaterialCompiler.IdentityShader)]
+    [InlineData("over", MaterialCompiler.IdentityShader)]
+    public void EveryOptionalSlotNamesItsOwnDefaultInTheLibrary(string slot, string expected) {
+        var declarations = Directory
+            .EnumerateFiles(Path.Combine(AppContext.BaseDirectory, "Shaders"), "*.rvn", SearchOption.AllDirectories)
+            .SelectMany(File.ReadAllLines)
+            .Select(line => line.Trim())
+            .Where(line => line.StartsWith($"compose val {slot}:", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.NotEmpty(declarations);
+
+        foreach (var declaration in declarations) {
+            Assert.EndsWith($"= {expected}", declaration, StringComparison.Ordinal);
+        }
     }
 
     [Fact]

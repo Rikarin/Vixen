@@ -315,9 +315,21 @@ so a resolved pixel gets the same lights with the same shadows as a forward-draw
 Each pass keeps its own `compose` slots and reaches the shared loop through one overridden hook, because
 a composed model's parameters attach to the shader that declares the slot.
 
-⚠ The resolve composes no irradiance source, so it gets sky ambient and not field ambient — a slot has to
-be bound wherever it is reached, and the forward pass only avoids that because its own reach is inside a
-permutation that folds off.
+**The resolve takes its indirect diffuse from the same slot the forward pass does**, which needed a
+change to Raven rather than to either shader: a compose slot can now name its own default
+(`= NoIrradiance`), so declaring one no longer obliges every compilation of the library to bind it.
+`MaterialCompiler.OptionalSlots` stops being the thing that keeps the library compiling and becomes what
+it should have been — how a project names a real field where the library's default is the neutral one.
+
+**A document can place the whole virtualized path**: `ClusterCulling` and `VisibilityBuffer`, on the
+terms `GpuCulling` already had. A document decides placement and the resource names; a host supplies the
+device memory, and the same file builds into nodes that do nothing on a project with no clusters in it.
+
+**A material that overflowed its tile list gets a bigger one.** The capacity is a uniform the host
+raises rather than a constant compiled into the shader, capped at the screen's own tile count — past
+which a list holds every tile there is and overflow is impossible. `Overflowed` still reports, because
+the counts come back a frame late and the growth with them: it says a frame *was* wrong, not that frames
+will be.
 
 ### And posing it
 

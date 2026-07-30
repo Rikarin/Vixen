@@ -22,7 +22,7 @@ import Vixen.Shaders.IrradianceFields
 
 shader IndirectDiffuse {
     /// Where the light comes from. `IrradianceFieldProbes` is the one that reads a field.
-    compose val irradiance: IIrradianceSource
+    compose val irradiance: IIrradianceSource = NoIrradiance
 
     var depthBuffer: Texture2D
     var normalBuffer: Texture2D
