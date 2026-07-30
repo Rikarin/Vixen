@@ -433,9 +433,8 @@ sight.
 
 Two things it is deliberately not: it reads **every** object rather than the visible ones, because
 indirect light comes from geometry the camera cannot see and that is the whole reason a field exists
-rather than a screen-space gather; and it only ever **adds** detail, so a scene that streams geometry
-through a region ratchets that region toward its finest and never gives the slots back. Coarsening
-needs the pool to take slots back and a policy for when, and neither exists.
+rather than a screen-space gather; and refinement alone only ever **adds** detail — the other
+direction is `CoarsenTo`, below, which is what a streamed scene sets.
 
 **Filler B projects, and nothing renders its cubes yet.** `CapturedIrradianceFiller` takes an
 `IIrradianceCaptureSource` — a cube of radiance, a validity and a sun scalar — and writes the same
@@ -530,10 +529,16 @@ dirty bricks and their neighbours is real work nobody has done; and filler B sta
 probe, which wants a ring of targets rather than the one the capture reuses. Neither has a scene large
 enough to measure against, which is why neither has been done.
 
-And coarsening, which is a feature rather than either: refinement only ever adds detail, so a scene that
-streams geometry through a region ratchets it toward its finest and never gives the slots back. It needs
-the pool to take slots back and a policy for when. Baking makes it worth more than it was — a field sized
-to the scene at build time is the case that actually pays for releasing slots.
+And coarsening is in, closing the ratchet this paragraph used to record. `TryMerge` is `Split`'s
+exact inverse — refusing mixed groups and merges that add no coverage, subsampling the merged
+probes rather than discarding them, because a parent probe stands at exactly every other child
+probe's position and a copy of something real beats a flicker to black. The policy's `CoarsenTo`
+merges back whatever no band still claims, never undoing its own frame's refinement, with
+`CoarsenMargin` as the hysteresis against a box teetering on a brick boundary; a scene whose
+geometry leaves entirely gives every slot back, and a test walks exactly that. What building it
+found: a merge that covers not one cell more is a rename that doubles a brick's nominal size
+without end — stale candidates once escalated a corner octet into a brick thirty-two thousand
+cells across — so both the merge and the policy's snapshot now refuse staleness explicitly.
 
 Composing the slot into the forward pass also turned up a defect that has nothing to do with the field.
 **The non-clustered forward variant cannot bind set 3**: `ForwardLightingRenderFeature` declares the

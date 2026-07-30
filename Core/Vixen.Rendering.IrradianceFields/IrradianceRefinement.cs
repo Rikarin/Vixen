@@ -33,10 +33,15 @@ public readonly record struct IrradianceRefinementBand(float Margin, int Size);
 ///         other way round would refine everything to one and the wide band would find nothing to do.
 ///     </para>
 ///     <para>
-///         <b>It only ever refines.</b> Nothing here merges bricks back when geometry moves away, so a
-///         field driven by this over a long session ratchets toward its finest everywhere the geometry
-///         has ever been. That is honest for a static or slowly-changing scene and wrong for a streamed
-///         one; coarsening needs the pool to give slots back and a policy for when, and neither exists.
+///         <b>It coarsens what nothing protects, when told to.</b> Refinement only ever adds detail,
+///         so a field driven by bands alone over a long session ratchets toward its finest everywhere
+///         the geometry has ever been — wrong for a streamed scene, whose pool never gets slots back.
+///         With <see cref="CoarsenTo" /> set, every aligned group of bricks finer than it whose merged
+///         extent no band still claims at a finer size is merged back, probes subsampled rather than
+///         discarded. A region a band <i>does</i> claim is protected — including the regions this very
+///         call refined, which is what keeps one <see cref="Apply" /> from undoing itself — and
+///         <see cref="CoarsenMargin" /> widens every claim, so a box teetering on a brick boundary
+///         does not split and merge the same octet on alternating frames.
 ///     </para>
 ///     <para>
 ///         <b>Running out of pool is not an error.</b> <see cref="IrradianceField.Split" /> skips a
@@ -61,6 +66,31 @@ public sealed class IrradianceRefinementPolicy {
     /// </remarks>
     public int Refined { get; private set; }
 
+    /// <summary>The size bricks relax back to where no band claims them finer. Zero never coarsens.</summary>
+    /// <remarks>
+    ///     The field's own baseline — what <see cref="IrradianceField.AllocateAll" /> was called with —
+    ///     is the number that belongs here: coarser would merge past the allocation nothing refined,
+    ///     and finer leaves part of the ratchet in place. A power of two, like every brick size.
+    /// </remarks>
+    public int CoarsenTo { get; set; }
+
+    /// <summary>Extra width every band keeps while deciding what may coarsen, in world units.</summary>
+    /// <remarks>
+    ///     The hysteresis: a box sitting exactly on a brick boundary refines the brick when it edges
+    ///     in and would merge it back the frame it edges out, splitting and merging the same octet
+    ///     forever. Any width above the largest per-frame movement of a bound ends that; the cost is
+    ///     detail lingering that much farther from departed geometry.
+    /// </remarks>
+    public float CoarsenMargin { get; set; }
+
+    /// <summary>How many merges the last <see cref="Apply" /> performed.</summary>
+    /// <remarks>
+    ///     The other side of <see cref="Refined" />'s steady state: a number that never settles while
+    ///     the scene stands still means a band and the coarsening disagree about a region, and the
+    ///     field is thrashing between two answers instead of holding either.
+    /// </remarks>
+    public int Coarsened { get; private set; }
+
     /// <summary>Refines a field around a set of renderer bounds.</summary>
     /// <param name="field">The field to refine.</param>
     /// <param name="bounds">Where the geometry is. Empty refines nothing.</param>
@@ -76,26 +106,106 @@ public sealed class IrradianceRefinementPolicy {
         ArgumentNullException.ThrowIfNull(bounds);
 
         Refined = 0;
+        Coarsened = 0;
 
-        if (Bands.Count == 0 || bounds.Count == 0) {
-            return 0;
+        if (Bands.Count > 0 && bounds.Count > 0) {
+            var ordered = new List<IrradianceRefinementBand>(Bands);
+
+            ordered.Sort(static (left, right) => right.Size.CompareTo(left.Size));
+
+            foreach (var band in ordered) {
+                if (band.Size <= 0) {
+                    continue;
+                }
+
+                foreach (var box in bounds) {
+                    Refined += field.Refine(Expanded(box, band.Margin), band.Size);
+                }
+            }
         }
 
-        var ordered = new List<IrradianceRefinementBand>(Bands);
+        // After refinement, never instead of it: what was just claimed is what must not merge.
+        // And deliberately not gated on `bounds` being empty — a scene whose geometry left
+        // entirely is exactly the scene that owes every slot back.
+        if (CoarsenTo > 1) {
+            Coarsen(field, bounds);
+        }
 
-        ordered.Sort(static (left, right) => right.Size.CompareTo(left.Size));
+        return Refined;
+    }
 
-        foreach (var band in ordered) {
-            if (band.Size <= 0) {
+    /// <summary>Merges every unclaimed group finer than <see cref="CoarsenTo" />, finest first.</summary>
+    /// <remarks>
+    ///     Rounds, because a merge enables the next: four singles become a two this round and a two
+    ///     becomes a four the next. The snapshot per round is deliberate — <see cref="IrradianceField.TryMerge" />
+    ///     revalidates everything, so an entry the previous merge invalidated just refuses.
+    /// </remarks>
+    void Coarsen(IrradianceField field, IReadOnlyList<BoundingBox> bounds) {
+        var candidates = new List<IrradianceBrick>();
+
+        while (true) {
+            candidates.Clear();
+
+            foreach (var brick in field.Bricks) {
+                if (brick.Size * 2 <= CoarsenTo) {
+                    candidates.Add(brick);
+                }
+            }
+
+            candidates.Sort(static (left, right) => left.Size.CompareTo(right.Size));
+
+            var merges = 0;
+
+            foreach (var brick in candidates) {
+                // A merge earlier in this pass may have consumed the candidate. Skipping the stale
+                // entry is load-bearing, not tidy: the brick standing at its cell now is coarser,
+                // and calling through it would merge one level past what the snapshot vetted —
+                // stale singles once escalated a corner octet into a brick the size of the field.
+                if (!field.Indirection.TryBrick(brick.Cell, out var live)
+                    || live.Cell != brick.Cell
+                    || live.Size != brick.Size) {
+                    continue;
+                }
+
+                var merged = brick.Size * 2;
+                var origin = new Int3(
+                    brick.Cell.X / merged * merged,
+                    brick.Cell.Y / merged * merged,
+                    brick.Cell.Z / merged * merged
+                );
+
+                if (Claimed(field, origin, merged, bounds) || !field.TryMerge(origin)) {
+                    continue;
+                }
+
+                merges++;
+            }
+
+            if (merges == 0) {
+                return;
+            }
+
+            Coarsened += merges;
+        }
+    }
+
+    /// <summary>Whether any band still wants somewhere in a would-be brick finer than it would be.</summary>
+    bool Claimed(IrradianceField field, Int3 origin, int size, IReadOnlyList<BoundingBox> bounds) {
+        var extent = field.BrickBounds(new(0, origin, size));
+
+        foreach (var band in Bands) {
+            if (band.Size <= 0 || band.Size >= size) {
                 continue;
             }
 
             foreach (var box in bounds) {
-                Refined += field.Refine(Expanded(box, band.Margin), band.Size);
+                if (Expanded(box, band.Margin + CoarsenMargin).Intersects(extent)) {
+                    return true;
+                }
             }
         }
 
-        return Refined;
+        return false;
     }
 
     /// <summary>One box grown by a margin on every side.</summary>

@@ -335,6 +335,130 @@ public sealed class IrradianceField {
         return made;
     }
 
+    /// <summary>Replaces an aligned group of equal-size bricks with one of twice the size.</summary>
+    /// <param name="cell">The merged brick's origin — a cell aligned to twice the children's size.</param>
+    /// <returns>Whether the merge happened.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The inverse of <see cref="Split" />, and the unit coarsening is built from.</b> It
+    ///         refuses rather than guesses: the origin must hold a brick starting there, aligned to
+    ///         the doubled size, and every sibling position inside the grid must hold a brick of
+    ///         exactly the children's size — a mixed octet has a grandchild whose detail somebody
+    ///         asked for, and merging over it would be refinement undone at a distance.
+    ///     </para>
+    ///     <para>
+    ///         <b>The parent's probes are subsampled, not fabricated.</b> A parent probe stands at
+    ///         exactly every other child probe's position — the lattices nest — so its value is a
+    ///         <i>copy</i> of a probe something really filled, validity included. That is the mirror
+    ///         of <see cref="Split" /> discarding: splitting invents detail that does not exist, and
+    ///         is honest to start empty; merging summarises detail that does, and throwing it away
+    ///         would make every coarsened region flicker dark for no reason. Probes covering space
+    ///         past the grid's edge (a parent overhanging like its children did) stay invalid, and
+    ///         the pool clears released slots, so nothing stale shines through.
+    ///     </para>
+    ///     ⚠ On a device-filled field the CPU pool is not what the shader reads, so a merged brick's
+    ///     device probes are whatever its slot last held until the round robin refills them — the
+    ///     same window a split's empty children already have, and the same repair covers both.
+    /// </remarks>
+    public bool TryMerge(Int3 cell) {
+        if (!Indirection.TryBrick(cell, out var first) || first.Cell != cell) {
+            return false;
+        }
+
+        var size = first.Size;
+        var merged = size * 2;
+
+        if (cell.X % merged != 0 || cell.Y % merged != 0 || cell.Z % merged != 0) {
+            return false;
+        }
+
+        Span<IrradianceBrick> children = stackalloc IrradianceBrick[8];
+        var count = 0;
+
+        for (var z = 0; z < 2; z++) {
+            for (var y = 0; y < 2; y++) {
+                for (var x = 0; x < 2; x++) {
+                    var origin = cell + (new Int3(x, y, z) * size);
+
+                    if (!Indirection.Holds(origin)) {
+                        continue;
+                    }
+
+                    if (!Indirection.TryBrick(origin, out var child) || child.Cell != origin || child.Size != size) {
+                        return false;
+                    }
+
+                    children[count++] = child;
+                }
+            }
+        }
+
+        // One child is the brick itself — every sibling hangs past the grid, and "merging" would
+        // rename it to double the size, cover not one cell more, and invite the next call to double
+        // it again. A merge that adds no coverage is refused, which is also what caps a brick's
+        // size at the grid it lives in.
+        if (count < 2) {
+            return false;
+        }
+
+        // Read before anything is revoked: the subsample is of the children as they stand. The
+        // owned probes are 0..3 per axis — the fourth plane is the border, and borders belong to
+        // SyncBorders on the merged brick exactly as on any other.
+        const int Interior = IrradianceBrickPool.BrickResolution;
+
+        Span<IrradianceProbe> kept = new IrradianceProbe[Interior * Interior * Interior];
+        Span<bool> written = new bool[Interior * Interior * Interior];
+
+        for (var index = 0; index < count; index++) {
+            var child = children[index];
+            var offset = (child.Cell - cell) / size;
+
+            for (var z = offset.Z * 2; z < (offset.Z * 2) + 2; z++) {
+                for (var y = offset.Y * 2; y < (offset.Y * 2) + 2; y++) {
+                    for (var x = offset.X * 2; x < (offset.X * 2) + 2; x++) {
+                        // Parent probe (x, y, z) stands exactly on child probe (2x − 4·offset, …).
+                        var at = ((z * Interior) + y) * Interior + x;
+
+                        kept[at] = GetProbe(
+                            child,
+                            (2 * x) - (4 * offset.X),
+                            (2 * y) - (4 * offset.Y),
+                            (2 * z) - (4 * offset.Z)
+                        );
+
+                        written[at] = true;
+                    }
+                }
+            }
+        }
+
+        for (var index = 0; index < count; index++) {
+            Indirection.Revoke(children[index]);
+            Pool.Release(children[index].Slot);
+        }
+
+        // Cannot fail: at least one slot was just released.
+        Pool.TryAllocate(out var slot);
+
+        var parent = new IrradianceBrick(slot, cell, merged);
+
+        Indirection.Assign(parent);
+
+        for (var z = 0; z < Interior; z++) {
+            for (var y = 0; y < Interior; y++) {
+                for (var x = 0; x < Interior; x++) {
+                    var at = ((z * Interior) + y) * Interior + x;
+
+                    if (written[at]) {
+                        SetProbe(parent, x, y, z, kept[at]);
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
     /// <summary>Takes a cell's brick away and gives the slot back.</summary>
     /// <param name="cell">A cell the brick covers.</param>
     /// <returns>Whether it had one.</returns>

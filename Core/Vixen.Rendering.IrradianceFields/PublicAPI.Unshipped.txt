@@ -66,6 +66,7 @@ Vixen.Rendering.IrradianceFields.IrradianceField.SetProbe(Vixen.Rendering.Irradi
 Vixen.Rendering.IrradianceFields.IrradianceField.Split(Vixen.Core.Mathematics.Int3 cell) -> int
 Vixen.Rendering.IrradianceFields.IrradianceField.SyncBorders() -> void
 Vixen.Rendering.IrradianceFields.IrradianceField.TryAllocate(Vixen.Core.Mathematics.Int3 cell, int size, out Vixen.Rendering.IrradianceFields.IrradianceBrick brick) -> bool
+Vixen.Rendering.IrradianceFields.IrradianceField.TryMerge(Vixen.Core.Mathematics.Int3 cell) -> bool
 Vixen.Rendering.IrradianceFields.IrradianceField.TrySample(Vixen.Core.Mathematics.Vector3 world, Vixen.Core.Mathematics.Vector3 normal, Vixen.Core.Mathematics.Vector3 view, out Vixen.Rendering.IrradianceFields.IrradianceProbe probe) -> bool
 Vixen.Rendering.IrradianceFields.IrradianceField.TrySample(Vixen.Core.Mathematics.Vector3 world, Vixen.Core.Mathematics.Vector3 normal, out Vixen.Rendering.IrradianceFields.IrradianceProbe probe) -> bool
 Vixen.Rendering.IrradianceFields.IrradianceField.TrySample(Vixen.Core.Mathematics.Vector3 world, out Vixen.Rendering.IrradianceFields.IrradianceProbe probe) -> bool
@@ -127,6 +128,11 @@ Vixen.Rendering.IrradianceFields.IrradianceRefinementBand.Size.init -> int
 Vixen.Rendering.IrradianceFields.IrradianceRefinementPolicy -> sealed class
 Vixen.Rendering.IrradianceFields.IrradianceRefinementPolicy.Apply(Vixen.Rendering.IrradianceFields.IrradianceField field, System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.BoundingBox> bounds) -> int
 Vixen.Rendering.IrradianceFields.IrradianceRefinementPolicy.Bands.get -> System.Collections.Generic.IList<Vixen.Rendering.IrradianceFields.IrradianceRefinementBand>
+Vixen.Rendering.IrradianceFields.IrradianceRefinementPolicy.CoarsenMargin.get -> float
+Vixen.Rendering.IrradianceFields.IrradianceRefinementPolicy.CoarsenMargin.set -> float
+Vixen.Rendering.IrradianceFields.IrradianceRefinementPolicy.CoarsenTo.get -> int
+Vixen.Rendering.IrradianceFields.IrradianceRefinementPolicy.CoarsenTo.set -> int
+Vixen.Rendering.IrradianceFields.IrradianceRefinementPolicy.Coarsened.get -> int
 Vixen.Rendering.IrradianceFields.IrradianceRefinementPolicy.IrradianceRefinementPolicy() -> void
 Vixen.Rendering.IrradianceFields.IrradianceRefinementPolicy.Refined.get -> int
 Vixen.Rendering.IrradianceFields.TracedIrradianceFiller -> sealed class
