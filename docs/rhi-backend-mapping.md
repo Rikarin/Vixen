@@ -166,6 +166,18 @@ right answer everywhere.
    re-validate the whole set. A renderer has the same twelve attachment sets every frame; keyed on
    *views* rather than textures, so two passes into two mips of one chain stay distinct.
 
+**And one warning MoltenVK emits that is not yours.** Creating any graphics pipeline whose colour
+target is a format Metal cannot blend — every integer format, so the visibility buffer's `R32Uint` —
+logs *"Blending is enabled for attachment with format VK_FORMAT_R32_UINT, which does not support
+it"*, **whether or not blending is enabled**. MoltenVK's guard (`MVKPipeline.mm`,
+`addFragmentOutputToPipeline`, present at least through v1.4.2 and current `main`) skips the blend
+state for unblendable formats and warns on the way past without ever reading `blendEnable`; the
+engine's create-info provably carries `BlendEnable = false`, and a bisect ruled out the
+`BlendConstants` dynamic state and the attachment clear. It is not filtered out of
+`VulkanDiagnostics`, deliberately: the same message with blending genuinely enabled would be a real
+bug, and a string filter would eat both. If the message names a format you *meant* to blend, believe
+it; if it names an integer target, it is this.
+
 ## 6. Barriers and synchronisation
 
 This is the row ADR-001 calls the highest-risk place for Vulkan-only drift, and the reason the RHI's
