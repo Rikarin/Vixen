@@ -195,6 +195,28 @@ validity out of it — so a probe with no surface still gets a job, and its sixt
 the invalid mark instead of tracing. The job struct grew a `valid` flag in what was padding; the
 stride did not move.
 
+## The denoiser opens with the frames already paid for
+
+`ScreenProbeHistory` is temporal accumulation at probe level — the denoiser's first move, because
+sixty-four rays per probe is a noisy estimate and the cheapest variance reduction is last frame's
+answer. Each resolved probe blends with its own history as a running mean, `(h·w + c)/(w+1)`, with
+a weight cap that ages the oldest frames out — the lag-versus-noise dial, and its tests hold the
+recurrence to the digit rather than to a mood: a constant scene converges to itself exactly, a
+flipped light follows `3/4, 3/5·…` precisely, a capped weight converges at the cap's rate.
+
+History follows the *surface*, not the tile: this frame's surface is projected through last
+frame's camera to find the probe that stood on it then — which is where the gather node's
+one-frame-stale lattice finally gets its answer. Disocclusion is rejected by the plane test
+placement and adaptive sampling already trust, and a rejection starts over at weight one — noisy
+and honest; the spatial filter that will hide the restart is the denoiser's next move. The pan
+test is the discriminator: a camera panned one tile blends each probe with its *neighbour's*
+history, and the probe whose surface was off screen last frame starts from nothing.
+
+Owed from here, in the denoiser's own order: the device half (history planes beside the resolved
+ones, the accumulation as a dispatch against this reference), bilinear history taps (point
+reprojection is the baseline), the spatial filter over probes, and the bilateral upsample that
+finally reads depth and normal edges — which is also what turns the adaptive probes on.
+
 ## Not yet, and named so the absence is a decision
 
 - **Adaptive probes on the device.** The CPU half above is whole; the atlas mirror does not yet
@@ -206,10 +228,9 @@ stride did not move.
 - **The HZB traversal.** The screen trace exists and is the naive march; the hierarchical one that
   skips empty space through the depth pyramid is owed against it, together with the pyramid's
   nearest-texel reduction and a linear-depth thickness for perspective cameras.
-- **The denoiser.** Spatial filtering, temporal reprojection through the motion vectors, and the
-  bilateral upsample against depth and normal edges. Doc 19 § L3's own warning is that this is the
-  project — un-denoised, the gather looks worse than § L2 alone. The bilinear upsample and the
-  one-frame-stale lattice above are the baselines it starts from.
+- **The denoiser past its opening.** Temporal accumulation exists above, on the CPU; the device
+  half, the spatial filter over probes, and the bilateral upsample are the project doc 19 § L3
+  warns about, in that order.
 - **Resizing.** The gather node sizes its lattice on the first build and refuses a resized frame —
   rebuilding textures frames still reference is a use-after-free with latency, so until resizing is
   a deliberate step, a host that resizes recreates the node.

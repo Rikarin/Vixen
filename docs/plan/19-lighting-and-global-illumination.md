@@ -743,10 +743,22 @@ exactly the eight corner probes its geometry predicts. What is deliberately abse
 half changes no picture until the upsample reads position, and that is the bilateral upsample,
 which is the denoiser's opening move.
 
+**And the denoiser has its opening move.** `ScreenProbeHistory` accumulates resolved probes
+across frames as a capped running mean — the cheapest variance reduction being the frames already
+paid for — with history following the <i>surface</i> rather than the tile: this frame's surface
+reprojects through last frame's camera to the probe that stood on it then, which is where the
+gather node's one-frame-stale lattice gets its answer. Disocclusion rejects by the plane test
+placement and adaptive sampling already use, and a rejection starts over at weight one — noisy
+and honest until the spatial filter exists to hide the restart. The tests hold the recurrences to
+the digit: a constant converges to itself exactly, a flip follows the mean's own sequence, the cap
+converges at the cap's rate, and a camera panned one tile blends each probe with its neighbour's
+history while the newly revealed column starts from nothing.
+
 Still not started: the HZB traversal itself (the naive march is the baseline, and the pyramid
 wants its nearest-texel reduction beside culling's farthest), the adaptive probes' device half,
-importance sampling, and the whole denoiser. The gather node also refuses a resized frame until
-resizing is a deliberate step.
+importance sampling, and the denoiser past its opening — its device half, the spatial filter over
+probes, and the bilateral upsample, in that order. The gather node also refuses a resized frame
+until resizing is a deliberate step.
 
 ### L4 — Surface cache and radiosity *(3.5 EM)*
 

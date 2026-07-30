@@ -42,6 +42,20 @@ Vixen.Rendering.ScreenProbes.ScreenProbeGatherSettings.ScreenProbeGatherSettings
 Vixen.Rendering.ScreenProbes.ScreenProbeGatherSettings.SurfaceBias.get -> float
 Vixen.Rendering.ScreenProbes.ScreenProbeGatherSettings.SurfaceBias.init -> float
 Vixen.Rendering.ScreenProbes.ScreenProbeGatherSettings.Validate() -> void
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory -> sealed class
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.Accumulate(Vixen.Rendering.ScreenProbes.ScreenProbeAtlas atlas, Vixen.Core.Mathematics.Matrix4x4 viewProjection) -> void
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.Frames.get -> int
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.Layout.get -> Vixen.Rendering.ScreenProbes.ScreenProbeLayout
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.MaxFrames.get -> int
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.MaxFrames.set -> int
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.Rejected.get -> int
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.Reprojected.get -> int
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.Resolved(Vixen.Core.Mathematics.Int2 probe) -> Vixen.Core.Imaging.SphericalHarmonicsL1
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.ScreenProbeHistory(Vixen.Rendering.ScreenProbes.ScreenProbeLayout layout) -> void
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.Tolerance.get -> float
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.Tolerance.set -> float
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.ViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.ScreenProbes.ScreenProbeHistory.Weight(Vixen.Core.Mathematics.Int2 probe) -> float
 Vixen.Rendering.ScreenProbes.ScreenProbeLayout -> readonly struct
 Vixen.Rendering.ScreenProbes.ScreenProbeLayout.AdaptiveCapacity.get -> int
 Vixen.Rendering.ScreenProbes.ScreenProbeLayout.AdaptiveOrigin(int index) -> Vixen.Core.Mathematics.Int2
