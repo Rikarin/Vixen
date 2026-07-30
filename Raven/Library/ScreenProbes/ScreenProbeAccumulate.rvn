@@ -1,0 +1,165 @@
+package Vixen.Shaders.ScreenProbes
+
+import Vixen.Shaders.Core
+
+// Folding one frame's resolved probes into their history — the denoiser's opening move, dispatched.
+//
+// `Vixen.Rendering.ScreenProbes.ScreenProbeHistory` is the same arithmetic on the CPU and it exists
+// first, recurrences pinned to the digit. Where the two disagree, the C# is right and this is wrong.
+//
+// One invocation per probe. The blend is the capped running mean, (history · w + current) / (w + 1),
+// and history follows the SURFACE rather than the tile: this frame's surface is projected through
+// LAST frame's camera to find the probe that stood on it then. Disocclusion is the plane test
+// placement already trusts — a reprojected probe whose stored plane the current surface does not lie
+// on measured a different surface, and blending it in is ghosting.
+//
+// The history is ping-ponged by the host: last frame's planes are read, this frame's are written,
+// and the two swap. Reading and writing one set would race a panning camera against itself — the
+// same reason the CPU reference double-buffers.
+
+/// One probe's placement, as the host staged it.
+struct ScreenProbeSurface {
+    /// Where the probe's surface is, in world space.
+    var position: float3
+
+    /// One for a probe standing on a surface, zero for one with nothing under it.
+    var valid: int
+
+    /// Which way that surface faces, normalised.
+    var normal: float3
+}
+
+shader ScreenProbeAccumulate {
+    /// This frame's placement, one entry per probe, row-major over the grid.
+    var surfaces: Buffer<ScreenProbeSurface>
+
+    /// This frame's resolved probes — `ScreenProbeResolve`'s output.
+    var currentL0: Texture2D
+    var currentL1R: Texture2D
+    var currentL1G: Texture2D
+    var currentL1B: Texture2D
+
+    /// Last frame's accumulation — the other half of the ping-pong.
+    var historyL0: Texture2D
+    var historyL1R: Texture2D
+    var historyL1G: Texture2D
+    var historyL1B: Texture2D
+
+    /// Last frame's surfaces: position in rgb, the accumulated weight in alpha.
+    var historySurface: Texture2D
+
+    /// Last frame's normals, xyz.
+    var historyNormal: Texture2D
+
+    /// This frame's accumulation, in the resolve's own packing — what the upsample reads.
+    [Format("rgba32f")] var outL0: RWTexture2D<float4>
+    [Format("rgba32f")] var outL1R: RWTexture2D<float4>
+    [Format("rgba32f")] var outL1G: RWTexture2D<float4>
+    [Format("rgba32f")] var outL1B: RWTexture2D<float4>
+    [Format("rgba32f")] var outSurface: RWTexture2D<float4>
+    [Format("rgba32f")] var outNormal: RWTexture2D<float4>
+
+    /// The camera of the frames already in the history — what reprojection projects through.
+    var previousViewProjection: mat4
+
+    /// The lattice, in the upsample's own terms.
+    var viewport: float2 = float2(1f, 1f)
+    var tileSize: float = 16f
+    var gridSize: float2 = float2(1f, 1f)
+
+    /// How many frames a probe's history may weigh at most.
+    var maxFrames: float = 16f
+
+    /// How far off a history probe's plane this frame's surface may stand, in world units.
+    var tolerance: float = 0.05f
+
+    /// How many accumulations have run before this one. Zero keeps nothing, whatever the planes hold.
+    var frames: int = 0
+
+    /// The probe that stood on a surface last frame, or (-1, -1) if the camera could not see it.
+    func Reproject(position: float3): int2 {
+        val clip = previousViewProjection * float4(position, 1f)
+
+        if (clip.w <= Const.Epsilon) {
+            return int2(-1, -1)
+        }
+
+        val ndc = clip.xyz / clip.w
+
+        if (ndc.z <= 0f || ndc.z >= 1f) {
+            return int2(-1, -1)
+        }
+
+        val px = int(floor((ndc.x * 0.5f + 0.5f) * viewport.x))
+        val py = int(floor((ndc.y * 0.5f + 0.5f) * viewport.y))
+
+        if (px < 0 || py < 0 || px >= int(viewport.x) || py >= int(viewport.y)) {
+            return int2(-1, -1)
+        }
+
+        val tx = min(px / int(tileSize), int(gridSize.x) - 1)
+        val ty = min(py / int(tileSize), int(gridSize.y) - 1)
+
+        return int2(tx, ty)
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] thread: uint3) {
+        val probe = int2(int(thread.x), int(thread.y))
+
+        if (probe.x >= int(gridSize.x) || probe.y >= int(gridSize.y)) {
+            return
+        }
+
+        val surface = surfaces[probe.y * int(gridSize.x) + probe.x]
+
+        if (surface.valid == 0) {
+            outL0.Store(probe, float4(0f, 0f, 0f, 0f))
+            outL1R.Store(probe, float4(0f, 0f, 0f, 0f))
+            outL1G.Store(probe, float4(0f, 0f, 0f, 0f))
+            outL1B.Store(probe, float4(0f, 0f, 0f, 0f))
+            outSurface.Store(probe, float4(0f, 0f, 0f, 0f))
+            outNormal.Store(probe, float4(0f, 0f, 0f, 0f))
+            return
+        }
+
+        val l0 = currentL0.Load(int3(probe.x, probe.y, 0))
+        var r = currentL1R.Load(int3(probe.x, probe.y, 0))
+        var g = currentL1G.Load(int3(probe.x, probe.y, 0))
+        var b = currentL1B.Load(int3(probe.x, probe.y, 0))
+        var rgb = l0.rgb
+        var weight = 1f
+
+        if (frames > 0) {
+            val previous = Reproject(surface.position)
+
+            if (previous.x >= 0) {
+                val aux = historySurface.Load(int3(previous.x, previous.y, 0))
+
+                if (aux.a > 0f) {
+                    val storedNormal = historyNormal.Load(int3(previous.x, previous.y, 0)).xyz
+
+                    // Behind or ahead of the stored plane beyond tolerance is a different surface,
+                    // and blending it in is ghosting.
+                    if (abs(dot(surface.position - aux.rgb, storedNormal)) <= tolerance) {
+                        val w = min(aux.a, maxFrames - 1f)
+                        val keep = w / (w + 1f)
+
+                        rgb = lerp(rgb, historyL0.Load(int3(previous.x, previous.y, 0)).rgb, keep)
+                        r = lerp(r, historyL1R.Load(int3(previous.x, previous.y, 0)), keep)
+                        g = lerp(g, historyL1G.Load(int3(previous.x, previous.y, 0)), keep)
+                        b = lerp(b, historyL1B.Load(int3(previous.x, previous.y, 0)), keep)
+                        weight = w + 1f
+                    }
+                }
+            }
+        }
+
+        outL0.Store(probe, float4(rgb, l0.a))
+        outL1R.Store(probe, r)
+        outL1G.Store(probe, g)
+        outL1B.Store(probe, b)
+        outSurface.Store(probe, float4(surface.position, weight))
+        outNormal.Store(probe, float4(surface.normal, 0f))
+    }
+}

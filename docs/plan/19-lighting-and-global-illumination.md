@@ -759,11 +759,24 @@ the digit: a constant converges to itself exactly, a flip follows the mean's own
 converges at the cap's rate, and a camera panned one tile blends each probe with its neighbour's
 history while the newly revealed column starts from nothing.
 
+**And the accumulation dispatches, agreeing with the CPU frame by frame.**
+`ScreenProbeAccumulate.rvn` runs the same capped running mean per probe over two ping-ponged sets
+of six planes — four in the resolve's own packing, so the upsample reads accumulated probes
+without knowing the difference, plus surface-and-weight and normal planes for the reprojection
+and its plane test. The device comparison replays the CPU recurrences' scenarios — constant
+convergence, the flip, the pan that borrows the neighbour's history — through the dispatch,
+coefficients and weights compared after every frame so a drift is caught where it starts. The
+gather node routes the upsample through the history when an `Accumulator` is set, publishing the
+back set the swap will front, and feeds the driver the camera its surfaces were placed under — a
+frame older than its own, matching the surfaces exactly. A constant scene through the whole
+accumulated chain draws the same flat frame the raw resolve draws, which is the closed form's way
+of saying the plumbing added nothing and lost nothing.
+
 Still not started: the HZB traversal itself (the naive march is the baseline, and the pyramid
 wants its nearest-texel reduction beside culling's farthest), the adaptive probes' device half,
-importance sampling, and the denoiser past its opening — its device half, the spatial filter over
-probes, and the bilateral upsample, in that order. The gather node also refuses a resized frame
-until resizing is a deliberate step.
+importance sampling, and the denoiser past its temporal half — bilinear history taps over the
+point-reprojection baseline, the spatial filter over probes, and the bilateral upsample, in that
+order. The gather node also refuses a resized frame until resizing is a deliberate step.
 
 ### L4 — Surface cache and radiosity *(3.5 EM)*
 

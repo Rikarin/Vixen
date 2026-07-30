@@ -55,9 +55,12 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
 
     ScreenProbeAtlas? atlas;
     ScreenProbeTexture? texture;
+    ScreenProbeHistoryTexture? history;
     ReconstructedScreenSurface? surface;
     ScreenProbeUpsampleRenderer? upsample;
     EffectPipelineDescriber? modules;
+    Matrix4x4 placedViewProjection = Matrix4x4.Identity;
+    Matrix4x4[] forwardMatrices = [];
 
     BufferHandle depthReadback;
     BufferHandle normalReadback;
@@ -94,6 +97,17 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
 
     /// <summary>What resolves them to spherical harmonics. Null resolves nothing.</summary>
     public ScreenProbeResolve? Resolver { get; set; }
+
+    /// <summary>What folds each frame into the probes' history — the denoiser's temporal half.</summary>
+    /// <remarks>
+    ///     Null draws the raw resolve, which is the comparison composition. Set, the upsample reads
+    ///     the accumulated planes instead, and the driver's camera is fed the matrix the surfaces
+    ///     were placed under — a frame older than this one, exactly as the surfaces are.
+    /// </remarks>
+    public ScreenProbeAccumulateFill? Accumulator { get; set; }
+
+    /// <summary>Why the accumulator recorded nothing last frame, or null.</summary>
+    public string? AccumulateSkipped { get; private set; }
 
     /// <summary>This frame's camera — the inverse of the view-projection the frame draws with.</summary>
     /// <remarks>
@@ -176,12 +190,16 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
 
         if (fetch >= 0) {
             Place((int)(fetch % slots), depthFormat, normalFormat, device);
+            placedViewProjection = forwardMatrices[(int)(fetch % slots)];
         }
 
-        // This frame's snapshot: the copy the readback pass below will fill, and its camera.
+        // This frame's snapshot: the copy the readback pass below will fill, and its camera —
+        // both halves of it, because placement reconstructs with the inverse and the accumulator
+        // reprojects with the forward.
         var slot = (int)(frames % slots);
 
         matrices[slot] = InverseViewProjection;
+        forwardMatrices[slot] = ViewProjection;
         frames++;
 
         DeclareCompute(frame, device, depthTexture);
@@ -200,6 +218,7 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
 
         upsample?.Dispose();
         texture?.Dispose();
+        history?.Dispose();
 
         if (owner is { } device) {
             if (depthReadback.IsValid) {
@@ -219,6 +238,7 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
         if (atlas is null) {
             atlas = new(new(size, TileSize));
             texture = new(atlas) { AtlasIsWritten = true };
+            history = new(atlas.Layout);
             surface = new(size);
 
             for (var plane = 0; plane < ProbePlanes; plane++) {
@@ -270,6 +290,7 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
         depthBytes = new byte[depthSize];
         normalBytes = new byte[normalSize];
         matrices = new Matrix4x4[slots];
+        forwardMatrices = new Matrix4x4[slots];
 
         // Two hundred and fifty-six, for the reason every readback ring here aligns to it.
         depthStride = (depthSize + 255) / 256 * 256;
@@ -364,6 +385,14 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
                             resolver.Record(commands, texture);
                             ResolveSkipped = resolver.Skipped;
                         }
+
+                        if (Accumulator is { } accumulator) {
+                            // The surfaces are a placement old, so the camera handed over is the
+                            // one they were placed under — not this frame's.
+                            accumulator.ViewProjection = placedViewProjection;
+                            accumulator.Record(commands, atlas!, texture, history!);
+                            AccumulateSkipped = accumulator.Skipped;
+                        }
                     }
                 );
             }
@@ -378,13 +407,22 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
     ///     the resolve's own barriers manage.
     /// </remarks>
     void PublishPlanes(CompositorFrame frame) {
+        // With an accumulator, the upsample reads the history's back set — the set the swap makes
+        // front by the time the pass draws. Without one, the raw resolve, which is the comparison
+        // composition.
+        var accumulated = Accumulator is not null;
+
+        if (accumulated) {
+            history!.EnsureCreated((Device ?? frame.Device)!);
+        }
+
         for (var plane = 0; plane < ProbePlanes; plane++) {
             frame.Add(
                 planeNames[plane],
                 frame.Graph.ImportTexture(
-                    texture!.ProbePlane(plane),
-                    texture.ProbeView(plane),
-                    texture.ProbePlaneDescription,
+                    accumulated ? history!.BackTexture(plane) : texture!.ProbePlane(plane),
+                    accumulated ? history!.BackView(plane) : texture!.ProbeView(plane),
+                    accumulated ? history!.PlaneDescription : texture!.ProbePlaneDescription,
                     ResourceState.ShaderRead,
                     ResourceState.ShaderRead
                 ),

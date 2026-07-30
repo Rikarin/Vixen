@@ -208,6 +208,9 @@ Vixen.Rendering.PostFx.PostEffectRenderer.SceneConstants.set -> Vixen.Rendering.
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer -> sealed class
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer : System.IDisposable
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer : Vixen.Rendering.Compositor.SceneRenderer
+Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.AccumulateSkipped.get -> string?
+Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Accumulator.get -> Vixen.Rendering.Lighting.ScreenProbeAccumulateFill?
+Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Accumulator.set -> Vixen.Rendering.Lighting.ScreenProbeAccumulateFill?
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Allocator.get -> Vixen.Graphics.DescriptorAllocator?
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Allocator.set -> Vixen.Graphics.DescriptorAllocator?
 Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Device.get -> Vixen.Graphics.IGraphicsDevice?

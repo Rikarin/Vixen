@@ -212,10 +212,21 @@ and honest; the spatial filter that will hide the restart is the denoiser's next
 test is the discriminator: a camera panned one tile blends each probe with its *neighbour's*
 history, and the probe whose surface was off screen last frame starts from nothing.
 
-Owed from here, in the denoiser's own order: the device half (history planes beside the resolved
-ones, the accumulation as a dispatch against this reference), bilinear history taps (point
-reprojection is the baseline), the spatial filter over probes, and the bilateral upsample that
-finally reads depth and normal edges — which is also what turns the adaptive probes on.
+**And the accumulation dispatches.** `ScreenProbeAccumulate.rvn` is the same arithmetic, one
+invocation per probe, over two ping-ponged sets of six planes (`ScreenProbeHistoryTexture` — four
+in the resolve's own packing so the upsample cannot tell accumulated planes from resolved ones,
+plus the surface-and-weight and normal planes reprojection tests against). The device comparison
+runs the CPU tests' scenarios — constant convergence, the flip, the pan that borrows the
+neighbour's history — through the dispatch frame by frame, coefficients and weights alike, so a
+drift is caught at the frame it starts. The gather node routes the upsample through the history's
+back set when an `Accumulator` is present — the set the swap makes front by the time the pass
+draws — and hands the driver the camera the surfaces were *placed* under, a frame older than the
+node's own, because pairing this frame's camera with last frame's surfaces reconstructs history
+that exists nowhere.
+
+Owed from here, in the denoiser's own order: bilinear history taps (point reprojection is the
+baseline), the spatial filter over probes, and the bilateral upsample that finally reads depth
+and normal edges — which is also what turns the adaptive probes on.
 
 ## Not yet, and named so the absence is a decision
 
