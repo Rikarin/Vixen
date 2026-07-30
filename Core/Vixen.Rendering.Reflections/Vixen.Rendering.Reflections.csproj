@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Rendering.Reflections</RootNamespace>
+        <Description>
+            The reflections of docs/plan/19 § L5: mirror rays through the same distance-field
+            tracer everything below already marches, answered by the same surface cache every hit
+            already asks, with rough reflections reading the irradiance field instead of tracing
+            and a fallback for whatever a miss should see. Written first and device-free, so the
+            reflect, the threshold and the fallback order are checked against closed forms rather
+            than against a picture — the same discipline every layer below followed.
+        </Description>
+        <PackageTags>reflections;ray-tracing;distance-field;global-illumination;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+
+        <!--
+            The mirror rays march L1's tracer, hits answer through L4's radiance seam, and the
+            rough path reads L2's field — reflections are the layer that reuses all three, which
+            is doc 19 § L5's whole argument for building them last.
+        -->
+        <ProjectReference Include="..\Vixen.Rendering.DistanceFields\Vixen.Rendering.DistanceFields.csproj" />
+        <ProjectReference Include="..\Vixen.Rendering.IrradianceFields\Vixen.Rendering.IrradianceFields.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Rendering.Reflections.Tests" />
+    </ItemGroup>
+
+</Project>
