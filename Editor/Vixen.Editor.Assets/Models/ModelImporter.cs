@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Core.Serialization;
+using Vixen.Rendering;
 using Vixen.Rendering.DistanceFields;
 
 namespace Vixen.Editor.Assets.Models;
@@ -44,8 +45,38 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
     ///     or not at all. Five since a skinned mesh's pages carry its bone influences: a page vertex
     ///     that did not is one a raster can only draw in its bind pose, and no artefact of version four
     ///     can be told from one of version five by looking at it — the stride is per mesh either way.
+    ///     Six since the cluster artefacts became two addressable sub-assets that the mesh points at: a
+    ///     version-five model wrote three chunks under one sub-asset id, which a content build refuses
+    ///     outright, so those artefacts were never addressable and no runtime could load one.
     /// </remarks>
-    public override int Version => 5;
+    public override int Version => 6;
+
+    /// <summary>What the sub-asset holding a mesh's hierarchy and page records is called.</summary>
+    /// <remarks>
+    ///     The kind and the artefact type are the same word on purpose — one sub-asset, one chunk, one
+    ///     name for what is in it — and it is <see cref="VirtualGeometryContent" />'s constant rather
+    ///     than a second spelling of it, which the dependency direction happens to allow here: this
+    ///     assembly references the runtime and the runtime does not reference this one.
+    /// </remarks>
+    public const string ClusterKind = VirtualGeometryContent.ClusterArtifact;
+
+    /// <summary>What the sub-asset holding a mesh's page blob is called.</summary>
+    public const string ClusterPageKind = VirtualGeometryContent.ClusterPageArtifact;
+
+    /// <summary>What a mesh's cluster sub-asset is named, which is what its address is built from.</summary>
+    /// <param name="mesh">The mesh's own name.</param>
+    /// <returns>The sub-asset name.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Distinct from the mesh's name, and that is a build error rather than a tidiness
+    ///     point.</b> A sub-asset's address is built from its name alone, so a hierarchy called what its
+    ///     mesh is called collides with it exactly as "a mesh and a material both called Body" does —
+    ///     which <c>BuildPlanner</c> reports and refuses.
+    /// </remarks>
+    public static string ClusterName(string mesh) => mesh + " Clusters";
+
+    /// <summary>What a mesh's page-blob sub-asset is named.</summary>
+    /// <inheritdoc cref="ClusterName" path="/remarks" />
+    public static string PageName(string mesh) => mesh + " Pages";
 
     /// <inheritdoc />
     protected override async ValueTask<ImportResult> ImportAsync(
@@ -84,8 +115,6 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
         var pageBytes = 0L;
 
         foreach (var mesh in read.Meshes) {
-            context.Write(context.DeclareSubAsset("Mesh", mesh.Name), "Mesh", Serializer.ToBytes(mesh));
-
             if (settings.GenerateMeshlets && mesh.Indices.Length > 0) {
                 // Skinned meshes are included, unlike the distance field below. A cluster carries the
                 // range of bones its vertices are weighted to, so a traversal can expand its bound by
@@ -96,19 +125,35 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
                 if (meshlets is null) {
                     refused++;
                 } else {
-                    var id = context.DeclareSubAsset("Meshlets", mesh.Name);
                     var pages = ModelCompiler.CompilePages(mesh, meshlets, context.Report);
 
-                    context.Write(id, "Meshlets", Serializer.ToBytes(meshlets));
-
-                    // Two artefacts under one sub-asset, and the split is the phase's whole point: the
-                    // records are read in full at load and stay resident, and the geometry is read a
-                    // page at a time by whatever is looking at the mesh. One artefact carrying both
-                    // would be an artefact whose deserialisation reads every page — see
-                    // MeshletPageSet.WithoutData.
                     if (pages is not null) {
-                        context.Write(id, "MeshletPages", Serializer.ToBytes(pages.WithoutData()));
-                        context.Write(id, "MeshletPageData", pages.Data);
+                        // ⚠ Two sub-assets, with names of their own, and both halves of that matter. An
+                        // address names exactly one chunk, so the three artefacts this used to write
+                        // under one sub-asset id could not be addressed — a content build refuses "two
+                        // chunks for one sub-asset". And a sub-asset's address is built from its *name*,
+                        // so a hierarchy called the same thing as its mesh collides with it just as a
+                        // mesh and a material both called Body would.
+                        var records = context.DeclareSubAsset(ClusterKind, ClusterName(mesh.Name));
+                        var blob = context.DeclareSubAsset(ClusterPageKind, PageName(mesh.Name));
+
+                        // The records travel together because they are read together, and the blob
+                        // travels alone because it is seeked into rather than deserialised — one chunk
+                        // carrying both would read every page of every mesh at load, which is the one
+                        // thing paging exists to avoid. See MeshletPageSet.WithoutData.
+                        context.Write(
+                            records,
+                            ClusterKind,
+                            Serializer.ToBytes(new VirtualGeometryAsset(meshlets, pages.WithoutData()))
+                        );
+
+                        context.Write(blob, ClusterPageKind, pages.Data);
+
+                        // Written on the mesh before the mesh is written, which is the whole join: a
+                        // frame holding a mesh reference cannot derive a sub-asset id — that needs the
+                        // importer's name, the kind and the mesh's name — so the mesh has to say.
+                        mesh.Clusters = new(context.Guid, records);
+                        mesh.ClusterPages = new(context.Guid, blob);
 
                         pageBytes += pages.Data.Length;
                     }
@@ -116,6 +161,8 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
                     clusters += meshlets.Meshlets.Length;
                 }
             }
+
+            context.Write(context.DeclareSubAsset("Mesh", mesh.Name), "Mesh", Serializer.ToBytes(mesh));
 
             if (!settings.GenerateDistanceFields || mesh.Indices.Length == 0) {
                 continue;

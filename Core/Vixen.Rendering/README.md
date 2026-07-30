@@ -654,6 +654,19 @@ away from being drawn and the other never will be. `Vixen.Engine.Renderer`'s `As
 implementation over `AssetManager`, and it lives there because this assembly must not know what a bundle
 is.
 
+**A mesh built with a cluster hierarchy is routed to the traversal**, through `IVirtualGeometrySource` —
+asked *before* the ordinary source and not after, because a virtualized model also has a fallback mesh
+that draws a correct picture of the same object. Asking the ordinary source first would send every
+virtualized model through the vertex buffer and nothing would look wrong enough to notice.
+`ClusterState` is three-valued for the same reason: "this mesh has no hierarchy" falls straight through,
+and "it has one and it is not here yet" waits, and folding those together is permanent because a settled
+entity is never re-extracted. `VirtualizedCount` is the number that says the route is live.
+
+⚠ **A virtualized object's material is the first one the scene assigned.** A cluster carries the material
+index its meshlet was built with and nothing maps that index back to an asset — the page format carries
+no reference — so `ResolveMaterials` holds one entry. A model with one material is drawn correctly and a
+model with three draws with one of the three.
+
 **Materials resolve the same way**, through `IMaterialSource`. A drawable that names no material takes
 `MeshExtractionSystem.Material` — which is not a stopgap: a block-out mesh dropped into a level before
 anybody has made a material for it has to draw in something neutral, and a null reference is how an

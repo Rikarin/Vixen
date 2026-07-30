@@ -66,6 +66,38 @@ public sealed record MeshData {
     /// <summary>Everything the mesh occupies, in the model's space.</summary>
     public BoundingBox Bounds { get; set; }
 
+    /// <summary>This mesh's cluster hierarchy and page records, or null if it has none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Written down rather than derived, because a runtime cannot derive it.</b> A sub-asset's
+    ///         id comes from <c>SubAssets.Derive(importer, kind, name)</c> — the importer's name, the kind
+    ///         and the mesh's name — and a frame holding a mesh reference knows none of the three. So the
+    ///         link is a field, and the mesh that has clusters is the one thing that can say where they
+    ///         are.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null is the ordinary case and not a failure.</b> A mesh imported with
+    ///         <c>GenerateMeshlets</c> off has none, and so does a mesh the cluster builder refused —
+    ///         both draw through the vertex-buffer path, which is what this <see cref="MeshData" /> is
+    ///         for. It is also what a virtualized mesh falls back to everywhere the virtualized path does
+    ///         not reach: WebGL2, the physics cook, a ray query.
+    ///     </para>
+    /// </remarks>
+    public AssetReference Clusters { get; set; }
+
+    /// <summary>Where this mesh's page blob is, or null if it has no clusters.</summary>
+    /// <remarks>
+    ///     A second reference and not a second field of the first chunk, because the two are read in
+    ///     opposite ways: the records are deserialised in full at load and stay resident, and the blob is
+    ///     seeked into one page at a time by whatever is looking at the mesh. One chunk carrying both
+    ///     would be a chunk whose deserialisation reads every page of every mesh in the level, which is
+    ///     the one thing paging exists to avoid.
+    /// </remarks>
+    public AssetReference ClusterPages { get; set; }
+
+    /// <summary>Whether it was built with a cluster hierarchy.</summary>
+    public bool IsClustered => !Clusters.IsNull && !ClusterPages.IsNull;
+
     /// <summary>How many vertices it has.</summary>
     public int VertexCount => Positions.Length;
 

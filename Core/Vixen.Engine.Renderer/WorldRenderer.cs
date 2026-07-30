@@ -50,6 +50,9 @@ public sealed class WorldRenderer : IDisposable {
     /// </remarks>
     AssetMaterialSource? Painting;
 
+    /// <summary>The source <see cref="Mount" /> built for the virtualized path, if there is one.</summary>
+    AssetVirtualGeometrySource? Clustering;
+
     bool disposed;
 
     /// <summary>Builds the standard renderer for a world.</summary>
@@ -165,6 +168,27 @@ public sealed class WorldRenderer : IDisposable {
     /// <summary>Where a material's textures come from, once content is mounted.</summary>
     public AssetTextureSource? Painted { get; private set; }
 
+    /// <summary>The virtualized stack, if this renderer was given one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Set by the application, not created here.</b> A <c>VirtualGeometrySystem</c> owns a page
+    ///         pool whose size is a project's streaming budget, and it has to be handed to a compositor
+    ///         builder before the document is loaded — both of which happen outside this class. What this
+    ///         does with it is the one thing only it can: route the scene's clustered meshes to it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null draws every model through its fallback mesh, and nothing looks wrong.</b> That is
+    ///         the failure mode worth naming: a virtualized model's fallback is a correct picture of the
+    ///         same object, so a project that meant to use the virtualized path and did not set this sees
+    ///         a scene that draws, at a fraction of the detail, with no error anywhere.
+    ///         <see cref="MeshExtractionSystem.VirtualizedCount" /> is what says so.
+    ///     </para>
+    /// </remarks>
+    public VirtualGeometrySystem? Clusters { get; set; }
+
+    /// <summary>Where the cluster hierarchy a mesh reference names comes from.</summary>
+    public IVirtualGeometrySource? Hierarchies { get; set; }
+
     /// <summary>The extraction the last <see cref="Register" /> added, or null.</summary>
     public MeshExtractionSystem? Extraction { get; private set; }
 
@@ -182,9 +206,15 @@ public sealed class WorldRenderer : IDisposable {
         Painted = Table is null ? null : new AssetTextureSource(Device, assets);
         Painter = Painting = new(assets, Painted);
 
+        // Only where there is a stack to register them with. A source that loaded hierarchies and had
+        // nowhere to put them would page a level's geometry in and draw none of it.
+        Hierarchies = Clustering = Clusters is null ? null : new(assets, Clusters);
+
         if (Extraction is { } extraction) {
             extraction.Meshes = Source;
             extraction.Materials = Painter;
+            extraction.Virtualized = Clusters?.Feature;
+            extraction.Clusters = Hierarchies;
         }
     }
 
@@ -206,7 +236,9 @@ public sealed class WorldRenderer : IDisposable {
         Extraction = new(Host.System, Meshes, Transforms, Materials, Residency) {
             Stages = stages,
             Meshes = Source,
-            Materials = Painter
+            Materials = Painter,
+            Virtualized = Clusters?.Feature,
+            Clusters = Hierarchies
         };
 
         loop.Add(Extraction);
@@ -228,6 +260,14 @@ public sealed class WorldRenderer : IDisposable {
         ObjectDisposedException.ThrowIf(disposed, this);
 
         Painting?.Update(commands);
+
+        // The scene's virtualized materials to the pass that dispatches for them. Read every frame
+        // rather than pushed once, because an entity appearing is what adds one — see
+        // MeshExtractionSystem.ResolveMaterials.
+        if (Clusters is { } clusters && Extraction is { ResolveMaterials.Count: > 0 } extraction) {
+            clusters.Materials = extraction.ResolveMaterials;
+        }
+
         Host.Draw(commands);
     }
 
@@ -283,6 +323,7 @@ public sealed class WorldRenderer : IDisposable {
         // so a table destroyed first is an ObjectDisposedException thrown out of a tear-down, from a
         // line whose whole purpose is to avoid a leak.
         Host.Dispose();
+        Clustering?.Dispose();
         Painting?.Dispose();
         Painted?.Dispose();
         Table?.Dispose();

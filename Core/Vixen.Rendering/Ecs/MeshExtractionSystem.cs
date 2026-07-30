@@ -77,6 +77,7 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
 
     readonly List<Entity> pending = [];
     readonly Dictionary<Entity, GeometryKey> claimed = [];
+    readonly List<ResolveMaterial> resolved = [];
 
     /// <summary>Builds the bridge.</summary>
     /// <param name="system">The render system whose store the objects go in.</param>
@@ -136,8 +137,37 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
     /// </remarks>
     public IMaterialSource? Materials { get; set; }
 
+    /// <summary>The feature virtualized meshes are drawn through, or null to draw none that way.</summary>
+    /// <remarks>
+    ///     Set with <see cref="Clusters" /> or neither. With both, a mesh built with a cluster hierarchy
+    ///     takes the virtualized path and everything else takes the ordinary one; with either missing,
+    ///     every mesh takes the ordinary one and a virtualized model draws through its fallback mesh —
+    ///     which is a correct picture and the reason this needs saying: nothing looks wrong.
+    /// </remarks>
+    public Features.VirtualGeometryRenderFeature? Virtualized { get; set; }
+
+    /// <summary>Where the cluster hierarchy a mesh reference names comes from.</summary>
+    /// <inheritdoc cref="Virtualized" path="/remarks" />
+    public IVirtualGeometrySource? Clusters { get; set; }
+
     /// <summary>How many entities are extracted.</summary>
     public int ObjectCount => claimed.Count;
+
+    /// <summary>How many of them took the virtualized path.</summary>
+    /// <remarks>
+    ///     The number that says the route is live. A scene of virtualized models with this at zero is a
+    ///     host that did not set <see cref="Clusters" />, and it looks exactly like a scene that is
+    ///     drawing correctly — because it is, through every fallback mesh in it.
+    /// </remarks>
+    public int VirtualizedCount { get; private set; }
+
+    /// <summary>The materials the resolve pass has to dispatch for, in material-index order.</summary>
+    /// <remarks>
+    ///     What a host hands to <c>GpuClusterResolve.Materials</c>. Built here because it is the scene
+    ///     that knows which materials its virtualized objects wear, and read rather than pushed because
+    ///     a resolve is set up once per frame by whoever owns the pass.
+    /// </remarks>
+    public IReadOnlyList<ResolveMaterial> ResolveMaterials => resolved;
 
     /// <summary>Where the geometry a mesh reference names comes from. Null draws no referenced mesh.</summary>
     /// <remarks>
@@ -248,6 +278,18 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
         foreach (var entity in pending) {
             var renderable = world.Read<MeshRenderable>(entity);
 
+            // The clusters first, and that order is load-bearing: a virtualized model also has a
+            // fallback mesh, which resolves through the ordinary source and draws a correct picture of
+            // the same object — so asking that one first would route every virtualized model through
+            // the vertex buffer and nothing would ever look wrong enough to notice.
+            if (Clustered(world, entity, renderable) is { } clustered) {
+                if (!clustered) {
+                    Waiting++;
+                }
+
+                continue;
+            }
+
             // Asked rather than waited for. A mesh that has not arrived leaves the entity without a
             // RenderHandle, so it matches `appearedMeshes` again next frame and is asked about again —
             // which is the whole of the asynchronous story, and is why it needs no queue of its own.
@@ -283,6 +325,87 @@ public sealed class MeshExtractionSystem : SystemBase, IDeclaredAccess {
             }
 
             Add(world, entity, GeometryKey.Of(kind), () => MeshPrimitives.Create(kind), material);
+        }
+    }
+
+    /// <summary>Takes an entity down the virtualized path, if that is where it belongs.</summary>
+    /// <param name="world">The world.</param>
+    /// <param name="entity">The entity.</param>
+    /// <param name="renderable">What it draws.</param>
+    /// <returns>
+    ///     Null when this mesh has no cluster hierarchy and the caller should carry on down the ordinary
+    ///     path; true when it was extracted here; false when it belongs here and is not ready.
+    /// </returns>
+    /// <remarks>
+    ///     ⚠ <b>A three-valued answer, and the alternative was worse.</b> The caller has to distinguish
+    ///     "not mine" from "mine and not yet", and folding the second into the first draws a virtualized
+    ///     model through its fallback mesh permanently — a correct picture of the same object, arrived at
+    ///     by the wrong path, which is the kind of wrong nothing reports.
+    /// </remarks>
+    bool? Clustered(World world, Entity entity, in MeshRenderable renderable) {
+        if (Clusters is null || Virtualized is null) {
+            return null;
+        }
+
+        switch (Clusters.TryGet(renderable.Mesh, out var cluster, out var local)) {
+            case ClusterState.None:
+                return null;
+
+            case ClusterState.Waiting:
+                return false;
+        }
+
+        if (!Painted(renderable.Material, out var material)) {
+            return false;
+        }
+
+        var matrix = world.Read<WorldTransform>(entity).Value;
+        var bounds = Transformed(local, matrix);
+
+        var id = system.Objects.Add(
+            new() {
+                Bounds = bounds,
+                Stages = Stages,
+                FeatureIndex = Virtualized.Index
+            }
+        );
+
+        // A position and a scale rather than a matrix, because that is all the traversal reads: every
+        // test it makes wants a world-space sphere and the factor an object-space length scales by, and
+        // a rotation enters into neither.
+        system.Objects.Data.Data(Virtualized.Draws)[id.Index] = new() {
+            Mesh = cluster,
+            Position = bounds.Center,
+            Scale = local.Radius > MathUtil.ZeroTolerance ? bounds.Radius / local.Radius : 1f
+        };
+
+        if (material is not null) {
+            materials.Assign(system, id, material);
+            Resolved(material);
+        }
+
+        // A default key rather than the mesh's: a virtualized object holds no residency claim, because
+        // its geometry is paged rather than suballocated. Releasing one nothing acquired is harmless by
+        // design — see `GeometryResidency.Release`.
+        world.Add(entity, new RenderHandle { Object = id, Local = local });
+        claimed[entity] = default;
+        VirtualizedCount++;
+
+        return true;
+    }
+
+    /// <summary>Records a material the resolve pass will have to dispatch for.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Index zero, for every virtualized object in the scene, and that is the honest state of
+    ///     the format rather than a shortcut here.</b> A cluster carries the material index its meshlet
+    ///     was built with, and nothing maps that index back to an asset reference — the page format does
+    ///     not carry one — so a scene's virtualized geometry resolves with the first material assigned to
+    ///     any of it. A model with one material, which is nearly all of them, is drawn correctly; a model
+    ///     with three draws with one of the three.
+    /// </remarks>
+    void Resolved(Material material) {
+        if (resolved.Count == 0) {
+            resolved.Add(new(material, 0));
         }
     }
 

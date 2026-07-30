@@ -29,6 +29,14 @@ Vixen.Engine.Renderer.AssetTextureSource.Loaded.get -> int
 Vixen.Engine.Renderer.AssetTextureSource.Requested.get -> int
 Vixen.Engine.Renderer.AssetTextureSource.TryGet(Vixen.Core.AssetReference reference, out Vixen.Graphics.TextureViewHandle view) -> bool
 Vixen.Engine.Renderer.AssetTextureSource.Update(Vixen.Graphics.ICommandList commands) -> void
+Vixen.Engine.Renderer.AssetVirtualGeometrySource -> sealed class
+Vixen.Engine.Renderer.AssetVirtualGeometrySource : System.IDisposable
+Vixen.Engine.Renderer.AssetVirtualGeometrySource : Vixen.Rendering.Ecs.IVirtualGeometrySource
+Vixen.Engine.Renderer.AssetVirtualGeometrySource.AssetVirtualGeometrySource(Vixen.Assets.AssetManager assets, Vixen.Rendering.VirtualGeometrySystem geometry) -> void
+Vixen.Engine.Renderer.AssetVirtualGeometrySource.Dispose() -> void
+Vixen.Engine.Renderer.AssetVirtualGeometrySource.Registered.get -> int
+Vixen.Engine.Renderer.AssetVirtualGeometrySource.Requested.get -> int
+Vixen.Engine.Renderer.AssetVirtualGeometrySource.TryGet(Vixen.Core.AssetReference reference, out int mesh, out Vixen.Core.Mathematics.BoundingSphere bounds) -> Vixen.Rendering.Ecs.ClusterState
 Vixen.Engine.Renderer.DebugDrawRenderer -> sealed class
 Vixen.Engine.Renderer.DebugDrawRenderer : System.IDisposable
 Vixen.Engine.Renderer.DebugDrawRenderer.DebugDrawRenderer(Vixen.Graphics.IGraphicsDevice device, Vixen.Rendering.LineShaders shaders, Vixen.Rendering.RenderOutput output, int worldCapacity = 65536, int screenCapacity = 65536) -> void
@@ -75,11 +83,15 @@ Vixen.Engine.Renderer.SceneRenderHost.SceneRenderHost(Vixen.Graphics.IGraphicsDe
 Vixen.Engine.Renderer.SceneRenderHost.System.get -> Vixen.Rendering.RenderSystem
 Vixen.Engine.Renderer.WorldRenderer -> sealed class
 Vixen.Engine.Renderer.WorldRenderer : System.IDisposable
+Vixen.Engine.Renderer.WorldRenderer.Clusters.get -> Vixen.Rendering.VirtualGeometrySystem?
+Vixen.Engine.Renderer.WorldRenderer.Clusters.set -> Vixen.Rendering.VirtualGeometrySystem?
 Vixen.Engine.Renderer.WorldRenderer.Device.get -> Vixen.Graphics.IGraphicsDevice
 Vixen.Engine.Renderer.WorldRenderer.Dispose() -> void
 Vixen.Engine.Renderer.WorldRenderer.Draw(Vixen.Graphics.ICommandList commands) -> void
 Vixen.Engine.Renderer.WorldRenderer.Extraction.get -> Vixen.Rendering.Ecs.MeshExtractionSystem?
 Vixen.Engine.Renderer.WorldRenderer.Geometry.get -> Vixen.Rendering.GeometryBuffer
+Vixen.Engine.Renderer.WorldRenderer.Hierarchies.get -> Vixen.Rendering.Ecs.IVirtualGeometrySource?
+Vixen.Engine.Renderer.WorldRenderer.Hierarchies.set -> Vixen.Rendering.Ecs.IVirtualGeometrySource?
 Vixen.Engine.Renderer.WorldRenderer.Host.get -> Vixen.Engine.Renderer.SceneRenderHost
 Vixen.Engine.Renderer.WorldRenderer.Lighting.get -> Vixen.Rendering.Features.ForwardLightingRenderFeature
 Vixen.Engine.Renderer.WorldRenderer.Materials.get -> Vixen.Rendering.Features.MaterialRenderFeature
