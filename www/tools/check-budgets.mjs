@@ -19,7 +19,7 @@
  * disagreeing.
  */
 
-import { readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 /** What the site should be. Measured at 4 248; the headroom is for the sweep's pages. */
@@ -30,6 +30,10 @@ const FILES_PER_DEPLOYMENT = 20_000;
 
 /** Cloudflare's per-file cap, in bytes. */
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
+
+/** § Part 7's two tiers, Brotli. The builder fails on them too; this is what CI reads back. */
+const EAGER_BUDGET = 300 * 1024;
+const LAZY_BUDGET = 2 * 1024 * 1024;
 
 const directory = process.argv[2] ?? 'dist/vixen-docs/browser';
 
@@ -79,17 +83,31 @@ try {
 
 const mb = bytes => (bytes / 1024 / 1024).toFixed(1) + ' MB';
 
+let search = null;
+
+try {
+  search = JSON.parse(readFileSync(join(directory, 'search', 'budget.json'), 'utf8'));
+} catch {
+  // A build with no index is a build that never ran `pnpm generate`; the row says so rather than
+  // passing silently.
+}
+
 const rows = [
   ['files, budgeted', measured.files, FILES_PER_VERSION],
   ['files, Cloudflare', measured.files, FILES_PER_DEPLOYMENT],
-  ['largest file', measured.largest.bytes, MAX_FILE_BYTES]
+  ['largest file', measured.largest.bytes, MAX_FILE_BYTES],
+  ['search, eager', search ? search.eager : Number.POSITIVE_INFINITY, EAGER_BUDGET],
+  ['search, lazy', search ? search.lazy : Number.POSITIVE_INFINITY, LAZY_BUDGET]
 ];
 
 const failures = rows.filter(([, value, budget]) => value > budget);
 
 for (const [name, value, budget] of rows) {
-  const shown = name === 'largest file' ? `${mb(value)} (${measured.largest.path})` : value.toLocaleString('en-US');
-  const cap = name === 'largest file' ? mb(budget) : budget.toLocaleString('en-US');
+  const bytes = name === 'largest file' || name.startsWith('search');
+  const shown = bytes
+    ? `${(value / 1024).toFixed(0)} kB${name === 'largest file' ? ` (${measured.largest.path})` : ' Brotli'}`
+    : value.toLocaleString('en-US');
+  const cap = bytes ? `${(budget / 1024).toFixed(0)} kB` : budget.toLocaleString('en-US');
 
   console.log(`${value > budget ? '✘' : '✔'} ${name.padEnd(20)} ${shown} of ${cap}`);
 }

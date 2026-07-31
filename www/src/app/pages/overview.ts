@@ -42,7 +42,7 @@ import { TAXONOMY } from '../core/model';
           <ul class="divide-border border-border divide-y rounded-lg border">
             @for (page of guide; track page.slug) {
               <li class="px-4 py-3">
-                <a [routerLink]="['/docs/guide', page.slug]" class="text-foreground hover:text-primary font-medium transition-colors">
+                <a [routerLink]="['/docs/guide', ...page.slug.split('/')]" class="text-foreground hover:text-primary font-medium transition-colors">
                   {{ page.title }}
                 </a>
                 <p class="text-foreground-muted mt-1 text-sm">{{ page.summary }}</p>

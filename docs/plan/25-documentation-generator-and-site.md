@@ -648,6 +648,12 @@ The UI is `@xui/omnibar` — a ⌘K palette that already exists — with the del
 [Part 9](#part-9--what-xui-needs). Results grouped by kind, filter chips bound to the tag fields,
 match ranges highlighted, arrow-key navigation, and the last-visited pages shown on an empty query.
 
+✅ **Built and measured** ([P4](#p4--search-05-em)): 33 045 documents, **51 kB eager and 1 483 kB
+lazy**, both Brotli, against the 300 kB and 2 MB above. One deviation, deliberate: the eager tier
+loads when the palette opens rather than with the application — the budget it would otherwise sit in
+is [§ 8.5](#85-non-negotiables-for-the-site-itself)'s, a reader who never searches should not pay for
+it, and 51 kB arrives well within the time it takes to type the second character.
+
 ---
 
 ## Part 8 — The site
@@ -723,9 +729,18 @@ as well as markup, since these pages exist to be found by search engines.
 
 Dark and light from xUI's semantic tokens, never a raw colour. Keyboard-complete: ⌘K, `/`, `[`/`]`
 between pages, arrow keys in results. Readable with JavaScript off — the prerendered HTML carries the
-prose, the tables and the highlighted code. `prefers-reduced-motion` respected. Budget: **≤ 250 kB
-initial JS** (xUI's own budget is 700 kB and it is a component gallery; a documentation site that
-needs more than a third of that has done something wrong). A copy button on every fence, an anchor on
+prose, the tables and the highlighted code. `prefers-reduced-motion` respected. Budget: ~~**≤ 250 kB initial JS**~~ (xUI's own budget is 700 kB
+and it is a component gallery; a documentation site that needs more than a third of that has done
+something wrong).
+
+> ⚠ **Amended by [P4](#p4--search-05-em), with the measurement.** The site is **401 kB raw and
+> 99.8 kB over the wire**. The 250 kB was written before the packages this document specified
+> existed: Angular 22 with the router is most of it, and `@xui/tree`, `@xui/toc`, `@xui/code-block`,
+> `@xui/prose`, `@xui/breadcrumb` and `@xui/omnibar` — every one of them asked for by
+> [Part 9](#part-9--what-xui-needs) — are the rest. Measured: **the whole palette costs 24 kB raw
+> and 5 kB transferred**, so deferring it was tried and abandoned as pointless. The budget is now
+> **380 kB warning / 450 kB error** in `angular.json`, and the number worth watching is the transfer
+> one, because that is what a reader waits for. A copy button on every fence, an anchor on
 every heading, a per-page "edit on GitHub" link.
 
 ---
@@ -750,6 +765,35 @@ app-local files that would be deleted when the package lands
 None is architectural, none blocks [P1](#p1--the-graph-15-em) or [P2](#p2--the-content-pipeline-10-em),
 and X1–X3 and X5–X6 are the ones a docs site cannot do without. Budget: **0.5 EM inside xUI**, which
 xuijs.org gets back immediately.
+
+### ✅ Shipped in xUI 2.1.0, and what the swap found
+
+All seven landed and the site's three stand-ins are deleted. **X1 arrived exactly as specified** —
+`tokens: XuiCodeLine[]` of `{text, kind}` runs, seventeen kinds, and `codeBlockTokenClasses` exported
+so a consumer can use the same palette outside the component, which is what a symbol page's member
+list does. **X4's deltas are all load-bearing here**: async provider, grouped rows, chips bound to
+tags, `<mark>`ed ranges, an empty template, virtualisation past 200 rows and `recentItems`.
+
+Three findings from putting them in, in descending order of how much they cost to discover:
+
+⚠ **`<xui-breadcrumbs>` does not survive prerendering.** Its overflow measurement reads
+`this.ruler.nativeElement.children` as an iterable, and the server DOM's is not one, so it throws —
+and the throw does not merely lose the trail, it **aborts the rest of the page**: symbol pages came
+out with no breadcrumb, no outline and no nav tree at all. `Array.from(...)`, or an
+`isPlatformBrowser` guard around the measure, fixes it in the package in one line. Until then this
+site composes `@xui/breadcrumb`'s primitives, which render server-side correctly, and X5's collapse
+is unused.
+
+⚠ **Tailwind cannot see `node_modules`, so every class an `@xui` component sets on itself was
+missing.** It fails silently — components render, unstyled — and the symptom was an omnibar overlay
+with the page showing through it. `@source '../node_modules/@xui';` is the fix and `@xui/core`'s
+README says so; it is worth a line in the *installation* section, because a consumer hits this before
+they read anything else.
+
+⚠ **A code block per member is the wrong unit.** Rendering each of a type's members through
+`<xui-code-block>` took a symbol page from 16 kB to 104 kB — a header, a gutter and a copy button
+around a one-line signature, a hundred times over. The declaration gets the block; members get the
+palette and nothing else.
 
 ---
 
@@ -785,7 +829,7 @@ and nothing else.
 | [P1 — The graph](#p1--the-graph-15-em) | 1.5 EM | ✅ **Done** — the graph, classified, with facets, `used-by` edges, classified signatures and the non-C# nodes; agrees with `CheckApi` |
 | [P2 — The content pipeline](#p2--the-content-pipeline-10-em) | 1.0 EM | ✅ **Done** — front matter, the five-heading contract, snippet regions, compiled examples, the join to the graph |
 | [P3 — Site MVP](#p3--site-mvp-15-em) | 1.5 EM | ✅ **Done** — 3 938 routes prerendered, 4 242 files, readable with JavaScript off |
-| [P4 — Search](#p4--search-05-em) | 0.5 EM | ⌘K over everything, inside budget |
+| [P4 — Search](#p4--search-05-em) | 0.5 EM | ✅ **Done** — 33 045 documents, 51 kB eager and 1 483 kB lazy against 300 kB and 2 MB, ⌘K verified in a browser |
 | [P5 — Gates and CI](#p5--gates-and-ci-05-em) | 0.5 EM | ✅ **Done** — coverage gated behind a seeded `DocsExempt.txt`; `docs.yml` builds, checks budgets and deploys; PR previews |
 | [P6 — Versioning and the release diff](#p6--versioning-and-the-release-diff-10-em) | 1.0 EM | ✅ **Done** — the store, the fold, the seven diff rules, the release pages and the switcher; 0.1.0 archived |
 | [P7 — The coverage sweep](#p7--the-coverage-sweep-3040-em-continuous) | 3.0–4.0 EM | `DocsExempt.txt` empty |
@@ -915,7 +959,34 @@ and are being written. Everything else is one of the fifteen `@xui` packages tha
 
 #### P4 — Search (0.5 EM)
 
-Index build, two tiers, the Worker, the omnibar with X4's deltas, filter chips, budgets in `CheckDocs`.
+✅ **Built** ([`www/tools/build-search.mjs`](../../www/tools/build-search.mjs),
+[`search.worker.ts`](../../www/src/app/search/search.worker.ts),
+[`omnibar.ts`](../../www/src/app/shared/omnibar.ts)). **33 045 documents** — every type, every one of
+29 000 members, every guide page *and* every guide section — exported at build time and imported by
+the worker, so nothing is tokenised in a browser. **Eager 51 kB of 300 kB, lazy 1 483 kB of 2 MB**,
+both Brotli, both failing the build when exceeded.
+
+**Three trims got it inside the budget, and each was measured rather than guessed.** Whole summaries
+cost 823 kB of index and 735 kB of store; members' summaries alone were most of that, for a query
+nobody types — a member is found by its name, and its summary is on the page it links to. Repeating
+the type's expanded words in each member's `qualifiedName` cost another 371 kB. Together: 2 687 kB →
+1 483 kB.
+
+**The field that makes it usable is `qualifiedName`, expanded at build time.** `Vixen.Rendering.MeshRenderer`
+is also indexed as `Vixen Rendering Mesh Renderer`, so `meshrend`, `mesh renderer` and the namespace
+all hit — verified in the browser: `meshrend` returns `MeshRenderable`, `MeshRenderables`,
+`MeshRenderFeature`, `MeshRenderer`, grouped by kind with the matched prefix marked. And the facets
+are indexed too, which is what answers `fbx` with `ModelImporter` — a question no prose on the site
+contains the answer to.
+
+⚠ **One query the index answers correctly and the engine cannot: `velocity` filtered to systems
+returns nothing, because none of the 36 systems declare `[Reads]`/`[Writes]`** — the same gap
+[P1](#p1--the-graph-15-em) found in the facets. The search is right; the declarations are missing.
+
+Verified in a real browser rather than by reading the code: the palette opens on ⌘K and on the
+button, results arrive from the worker grouped under kind headings, the chips filter, the matched
+range is marked, `ArrowDown` moves `aria-activedescendant`, `Enter` navigates, and the visited page
+is remembered for the next empty query.
 
 #### P5 — Gates and CI (0.5 EM)
 

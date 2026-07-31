@@ -4,8 +4,8 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { slugOf, type GuidePage } from '../core/model';
+import { XuiToc, type XuiTocEntry } from '@xui/toc';
 import { Prose } from '../shared/prose';
-import { TableOfContents } from '../shared/table-of-contents';
 
 /**
  * A written page — docs/plan/25 § 4.
@@ -17,7 +17,7 @@ import { TableOfContents } from '../shared/table-of-contents';
 @Component({
   selector: 'docs-guide',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, Prose, TableOfContents],
+  imports: [RouterLink, Prose, XuiToc],
   template: `
     @if (page(); as guide) {
       <div class="flex gap-8">
@@ -51,7 +51,7 @@ import { TableOfContents } from '../shared/table-of-contents';
             </section>
           }
 
-          <docs-prose [markdown]="guide.Body" />
+          <docs-prose [markdown]="guide.Body" [basePath]="path()" [tokens]="guide.Tokens" />
 
           @if (guide.Related.length > 0) {
             <footer class="border-border border-t pt-4">
@@ -59,7 +59,7 @@ import { TableOfContents } from '../shared/table-of-contents';
               <ul class="space-y-1">
                 @for (slug of guide.Related; track slug) {
                   <li>
-                    <a [routerLink]="['/docs/guide', slug]" class="text-primary text-sm hover:underline">{{ slug }}</a>
+                    <a [routerLink]="['/docs/guide', ...slug.split('/')]" class="text-primary text-sm hover:underline">{{ slug }}</a>
                   </li>
                 }
               </ul>
@@ -68,7 +68,15 @@ import { TableOfContents } from '../shared/table-of-contents';
         </article>
 
         <div class="hidden xl:block">
-          <docs-toc [entries]="guide.Headings" />
+          <!-- X3, with the scroll-spy the stand-in could not have: a symbol page is long enough
+               that an outline which does not follow the reader is an outline nobody looks at. -->
+          <xui-toc
+            class="w-56 shrink-0"
+            label="On this page"
+            [entries]="outline()"
+            [basePath]="path()"
+            scrollSpy
+          />
         </div>
       </div>
     } @else {
@@ -79,6 +87,14 @@ import { TableOfContents } from '../shared/table-of-contents';
 export class GuidePageComponent {
   /** Bound from the resolver by `withComponentInputBinding()`. */
   readonly page = input<GuidePage | undefined>();
+
+  /** `@xui/toc`'s shape, from the generator's headings. */
+  protected readonly outline = computed<XuiTocEntry[]>(() =>
+    (this.page()?.Headings ?? []).map(heading => ({ id: heading.Id, label: heading.Text, level: heading.Level }))
+  );
+
+  /** The page's own path, so a heading's self-link goes down the page rather than to the root. */
+  protected readonly path = computed(() => `/docs/guide/${this.page()?.Slug ?? ''}`);
 
   protected readonly symbols = computed(() =>
     (this.page()?.Api ?? []).map(id => {

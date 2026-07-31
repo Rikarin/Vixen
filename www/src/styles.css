@@ -12,6 +12,14 @@
 
 @source '../src';
 
+/*
+ * ⚠ Tailwind only emits the utilities it can see, and it cannot see node_modules by default — so
+ * without this every class an @xui component sets on itself is missing from the stylesheet. It does
+ * not fail loudly: components render, unstyled, and the omnibar's overlay came out transparent with
+ * the page showing through it. @xui/core's README says to add exactly this line.
+ */
+@source '../node_modules/@xui';
+
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 5rem;

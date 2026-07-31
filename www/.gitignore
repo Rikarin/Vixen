@@ -11,3 +11,8 @@ src/generated/
 # What `pnpm pack` copies into vixen-mcp so a published package answers without a checkout —
 # the same graph, and the same argument against committing it.
 mcp/data/
+
+# The search index — 30 MB of exported FlexSearch, rebuilt by `pnpm generate` from the same graph.
+# Served from public/ because that is where Angular's static assets live, committed nowhere for the
+# same reason src/generated/ is not.
+public/search/
