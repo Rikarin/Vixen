@@ -9,6 +9,7 @@ Spec: [docs/plan/08](../../docs/plan/08-asset-pipeline-and-addressables.md),
 ```bash
 vixen import                     # import everything that changed
 vixen content build              # pack it into bundles and write the catalog
+vixen content loose              # or catalogue the imported artefacts, unpacked, for iteration
 vixen content serve --any        # serve that build to a phone on the same network
 vixen doctor                     # say what is wrong, and change nothing
 ```
@@ -93,6 +94,23 @@ built is one somebody eventually uploads. Only `*.bundle`, the catalog and its h
 because a build directory is also where a person keeps the one-line script that publishes it.
 
 Two builds of the same content are byte-identical, and there is a test that says so.
+
+## `content loose`
+
+The same plan with the packing step removed: a catalog written into the project's `Library/`, beside
+the `ArtifactDb/` the import already wrote its chunks into, with every entry naming **no bundle**.
+Point a player at it with `--vixen-loose-content <project>/Library` and it reads those chunks
+directly.
+
+This is [doc 17](../../docs/plan/17-app-heads-and-shipping.md)'s **Editor variant**, and what it is
+for is the iteration loop. The same `BuildPlanner` decides the same addresses from the same sidecars,
+so a player resolves `Assets/Textures/Crate.png` to the same asset it would in a shipped build — the
+difference is that making a change visible costs the re-import of the one asset that changed instead
+of a pack of every group.
+
+It is written into `Library/` rather than beside it because a player is pointed at one directory and
+has to find both halves in it, and because `Library/` is the one that is not committed — this is a
+local development artefact, not something a checkout should carry.
 
 ### The shader bundle
 

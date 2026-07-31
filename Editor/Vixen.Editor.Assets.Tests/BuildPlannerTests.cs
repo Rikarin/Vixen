@@ -42,7 +42,7 @@ public sealed class BuildPlannerTests {
     ///     only a material refers to is reached through the chunk graph and never asked for by name.
     /// </summary>
     [Fact]
-    public void AnAssetWithNoAddressIsSkippedRatherThanRefused() {
+    public void AnAssetWithNoAddressIsShippedUnderItsPath() {
         var project = new PlannedProject();
         project.Add("Textures/hero.png", address: "ui/hero", group: "UiCore");
         project.Add("Textures/detail.png", group: "UiCore");
@@ -51,8 +51,44 @@ public sealed class BuildPlannerTests {
         var plan = project.Plan();
 
         Assert.True(plan.Succeeded);
-        Assert.Equal(["ui/hero"], plan.Assets.Select(asset => asset.Address));
+
+        // The one somebody named keeps its name; the one nobody named is its own path, which is what
+        // makes a project loadable without a field being filled in per asset.
+        Assert.Equal(["Textures/detail.png", "ui/hero"], plan.Assets.Select(asset => asset.Address).Order(StringComparer.Ordinal));
         Assert.Empty(plan.Diagnostics);
+    }
+
+    /// <summary>
+    ///     ⚠ And <c>Excluded</c> is what keeps something out, which had to become a flag of its own
+    ///     the moment saying nothing started meaning "the path". What it is for is the source file
+    ///     nothing loads at run time — a layered PSD a texture was flattened from.
+    /// </summary>
+    [Fact]
+    public void AnExcludedAssetIsNotShipped() {
+        var project = new PlannedProject();
+        project.Add("Textures/hero.png", group: "UiCore");
+        project.Add("Textures/hero.psd", group: "UiCore", excluded: true);
+        project.Group("UiCore");
+
+        var plan = project.Plan();
+
+        Assert.True(plan.Succeeded);
+        Assert.Equal(["Textures/hero.png"], plan.Assets.Select(asset => asset.Address));
+    }
+
+    /// <summary>
+    ///     A <c>.vxgroup</c> is the build's own configuration and lives under <c>Assets/</c> because
+    ///     that is where the things it governs are. Defaulting it into a bundle would ship a
+    ///     project's packing policy to its players.
+    /// </summary>
+    [Fact]
+    public void AGroupPolicyFileIsNotShippedByDefault() {
+        var project = new PlannedProject();
+        project.Add("UI/UiCore.vxgroup", group: "UiCore");
+        project.Add("UI/hero.png", group: "UiCore");
+        project.Group("UiCore");
+
+        Assert.Equal(["UI/hero.png"], project.Plan().Assets.Select(asset => asset.Address));
     }
 
     /// <summary>
@@ -214,13 +250,13 @@ public sealed class BuildPlannerTests {
 
     /// <summary>
     ///     <b>The check worth having.</b> The catalog records dependencies by address, so a dependency
-    ///     with no address is in no bundle — the build succeeds, ships, and fails at load on a chunk
-    ///     that was never packed.
+    ///     that is in no bundle — which now means excluded, since everything else has an address —
+    ///     makes a build that succeeds, ships, and fails at load on a chunk that was never packed.
     /// </summary>
     [Fact]
-    public void DependingOnSomethingWithNoAddressIsAnError() {
+    public void DependingOnSomethingExcludedIsAnError() {
         var project = new PlannedProject();
-        var texture = project.Add("Textures/detail.png", group: "UiCore");
+        var texture = project.Add("Textures/detail.png", group: "UiCore", excluded: true);
         project.Add("Materials/wall.mat", address: "materials/wall", group: "UiCore", dependsOn: [texture]);
         project.Group("UiCore");
 
@@ -646,7 +682,8 @@ public sealed class BuildPlannerTests {
             string[]? materials = null,
             bool main = true,
             string[]? undeclared = null,
-            bool writeMainTwice = false
+            bool writeMainTwice = false,
+            bool excluded = false
         ) =>
             Put(
                 path,
@@ -660,11 +697,12 @@ public sealed class BuildPlannerTests {
                 main,
                 undeclared,
                 writeMainTwice,
-                false
+                false,
+                excluded
             );
 
         public AssetId AddFolder(string path, string? group = null, string[]? labels = null) =>
-            Put(path, null, group, labels, null, false, null, null, false, null, false, isFolder: true);
+            Put(path, null, group, labels, null, false, null, null, false, null, false, isFolder: true, excluded: false);
 
         /// <summary>An asset the index knows about whose sidecar will not read.</summary>
         public void AddUnreadable(string path) {
@@ -695,7 +733,8 @@ public sealed class BuildPlannerTests {
             bool main,
             string[]? undeclared,
             bool writeMainTwice,
-            bool isFolder
+            bool isFolder,
+            bool excluded
         ) {
             var guid = AssetId.New();
             entries.Add(new(guid, path, isFolder ? null : "TextureImporter", 1, isFolder));
@@ -708,9 +747,9 @@ public sealed class BuildPlannerTests {
 
             metas[path] = new() {
                 Guid = guid,
-                Addressable = address is null && group is null && labels is null
+                Addressable = address is null && group is null && labels is null && !excluded
                     ? null
-                    : new() { Address = address, Group = group, Labels = labels ?? [] },
+                    : new() { Address = address, Group = group, Labels = labels ?? [], Excluded = excluded },
                 SubAssets = declared
             };
 

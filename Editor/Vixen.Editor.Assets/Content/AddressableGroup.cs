@@ -68,6 +68,15 @@ public enum UpdateRestriction {
 /// </remarks>
 [DataContract("AddressableGroup")]
 public sealed record AddressableGroup {
+    /// <summary>What a group file is called.</summary>
+    /// <remarks>
+    ///     Spelled once, because two places read it: <c>ProjectWorkspace.Groups</c> collects them and
+    ///     <c>BuildPlanner</c> keeps them <i>out</i> of a build. A <c>.vxgroup</c> is the build's own
+    ///     configuration and lives under <c>Assets/</c> because that is where the things it governs
+    ///     are — packing it would ship a project's packing policy to its players.
+    /// </remarks>
+    public const string Extension = ".vxgroup";
+
     /// <summary>What the group is called. Bundles are named after it.</summary>
     public string Name { get; init; } = string.Empty;
 

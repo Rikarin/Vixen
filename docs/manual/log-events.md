@@ -117,7 +117,8 @@ started" rather than "just now".
 | 13017 | Warning | `The compositor declares no stage called {Stage}, so nothing in the world will be drawn.` — the failure that otherwise draws an empty window and reports nothing | 0.1.0 |
 | 13018 | Information | `Startup scene {Address} loaded: {Entities} entities.` | 0.1.0 |
 | 13019 | Warning | `The startup scene {Address} was not loaded ({Reason}) — the world is empty.` — something asked for a level, so an empty window has a reason nothing else in the log would give | 0.1.0 |
-| 13020 | Information | `Remote content: {Bundles} downloadable bundle(s), cached under {Cache}.` — the line that turns a first-run stall into an explanation, and says where the space went | 0.1.0 |
+| 13020 | Information | `Remote content: {Bundles} downloadable bundle(s), cached under {Cache}.` — the line that turns a first-run stall into an explanation, and says where the space went |
+| 13021 | Information | `Unpacked content: chunks read from the artefact store at {Root}, with nothing bundled.` — doc 17's Editor variant; a run whose content came from somebody's `Library/` has to be identifiable in a log attached to a bug report | 0.1.0 |
 
 Every other range is still reserved rather than allocated: the subsystems that will log have not been
 written, and the ranges exist so that when they are, nobody has to invent a numbering scheme under

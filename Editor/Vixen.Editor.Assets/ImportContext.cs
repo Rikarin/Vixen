@@ -31,6 +31,9 @@ public sealed class ImportContext {
     readonly List<SubAssetEntry> subAssets = [];
     readonly List<ImportedArtifact> artifacts = [];
 
+    /// <summary>Which (kind, name) pairs are spoken for, so a second one can be given a suffix.</summary>
+    readonly HashSet<(string Kind, string Name)> taken = [];
+
     /// <summary>The asset being imported.</summary>
     public AssetId Guid { get; }
 
@@ -128,17 +131,79 @@ public sealed class ImportContext {
 
     /// <summary>Declares a sub-asset and derives its stable id.</summary>
     /// <param name="kind">What kind of thing it is — <c>Mesh</c>, <c>AnimationClip</c>.</param>
-    /// <param name="name">What it is called.</param>
+    /// <param name="name">What the source file calls it.</param>
     /// <returns>Its id.</returns>
     /// <remarks>
-    ///     Derived here rather than by the importer, so that every importer gets the same rule and no
-    ///     importer is tempted to number its sub-assets by position — which is the mistake that
-    ///     breaks every reference to a mesh when an artist re-exports an FBX.
+    ///     <para>
+    ///         Derived here rather than by the importer, so that every importer gets the same rule and
+    ///         no importer is tempted to number its sub-assets by position — which is the mistake that
+    ///         breaks every reference to a mesh when an artist re-exports an FBX.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The author's rename is applied first, and it is applied to the name the source
+    ///         gave.</b> <see cref="IImportSettings.SubAssetNames" /> is keyed by what is in the file
+    ///         rather than by what the last import ended up calling it, so a re-export that adds a
+    ///         third <c>Cube</c> does not shuffle which rename lands on which mesh.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A name already taken is suffixed rather than refused, and this is a change of
+    ///         mind.</b> Two meshes called <c>Cube</c> in one <c>.glb</c> derive one id, and that used
+    ///         to throw <c>SubAssetCollisionException</c> and fail the whole asset with "rename one of
+    ///         them" — advice nobody could act on, because the names are in the file and the editor
+    ///         could not edit them. The second one becomes <c>Cube_1</c>, the author is warned, and
+    ///         the rename map is there for anybody who wants better names than that.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A generated suffix is stable only for as long as the order in the file is.</b>
+    ///         That is the property a derived id exists to protect and the one case where it cannot
+    ///         be: nothing distinguishes two things with one name except which came first. Renaming
+    ///         them — in the DCC tool, or here — is what makes their ids survive a re-export, which is
+    ///         what the warning says.
+    ///     </para>
     /// </remarks>
     public SubAssetId DeclareSubAsset(string kind, string name) {
-        var id = Vixen.Core.Yaml.Meta.SubAssets.Derive(Importer, kind, name);
-        subAssets.Add(new() { Id = id, Name = name, Type = kind });
+        ArgumentNullException.ThrowIfNull(kind);
+        ArgumentNullException.ThrowIfNull(name);
+
+        var chosen = Rename(name);
+
+        if (!taken.Add((kind, chosen))) {
+            var unique = chosen;
+
+            // Bumped until it is free rather than once, because the file is allowed to contain a
+            // real `Cube_1` beside the two `Cube`s — and a suffix that collided with a genuine name
+            // would put the collision back where it started.
+            for (var index = 1; !taken.Add((kind, unique = $"{chosen}_{index}")); index++) { }
+
+            Report(
+                ImportSeverity.Warning,
+                $"Two {kind} sub-assets are both called '{chosen}', so the second is '{unique}'. That name — and "
+                + "every reference to it — depends on the order they appear in the file, so give them distinct "
+                + "names in the source or rename one under Sub-assets to make it survive a re-export."
+            );
+
+            chosen = unique;
+        }
+
+        var id = Vixen.Core.Yaml.Meta.SubAssets.Derive(Importer, kind, chosen);
+        subAssets.Add(new() { Id = id, Name = chosen, Type = kind, Source = chosen == name ? string.Empty : name });
         return id;
+    }
+
+    /// <summary>What the author asked this source name to be called, or the name itself.</summary>
+    /// <remarks>
+    ///     First match wins. Two rows naming one source is a list somebody edited twice rather than a
+    ///     question with two answers, and refusing the import over it would be a settings panel that
+    ///     can put a project into a state only a text editor can get it out of.
+    /// </remarks>
+    string Rename(string source) {
+        foreach (var rename in Settings.SubAssetNames) {
+            if (string.Equals(rename.Source, source, StringComparison.Ordinal) && rename.Name.Length > 0) {
+                return rename.Name;
+            }
+        }
+
+        return source;
     }
 
     /// <summary>Records an artefact the import produced.</summary>

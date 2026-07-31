@@ -436,13 +436,27 @@ ancestor that names a group, so a subfolder can override its parent.
 children, and a label is a query — the thing you most want to say "all of these except that one"
 about.
 
-**An asset with no address is not an error.** It is not shipped by name, which is the ordinary state
-of most files in a project: a source texture only a material refers to is reached through the chunk
-graph and never asked for.
+**An asset with no address gets its path.** `Assets/Textures/Crate.png` is unique, stable within a
+checkout and already what the author sees in the Project panel, so it is an address every asset can
+have without anybody typing one. This reverses doc 08's original "an unaddressed asset is not shipped
+by name", and the reason is what that rule cost: a texture a game wanted to load by name and a scene
+in the Build Settings list were each a build error whose remedy was to go and fill in a field.
 
-**An addressable asset depending on one that is not addressable *is* an error**, and it is the check
-worth having. The catalog records dependencies by address, so a dependency with no address is in no
-bundle — the build succeeds, ships, and fails at load on a chunk that was never packed.
+Setting an address is therefore for the ones that are **contracts** — a level a save game names, a
+pack a URL is built from — because an explicit address survives the file being moved and a path by
+definition does not. `excluded: true` keeps something out; a folder has no chunk and a `.vxgroup` is
+the build's own configuration, so neither is ever defaulted.
+
+**What a build says about a broken asset depends on who chose its address.** An author who typed one
+meant it to ship, so anything that stops it being packed is an error. A path-derived address is a
+convenience over every file in the project, and a convenience that turns an unimported scratch file
+into a failed build is worse than none — the same conditions are warnings there, and the asset is
+simply not shipped.
+
+**An addressable asset depending on one that is not shipped *is* an error**, and it is the check
+worth having. The catalog records dependencies by address, so a dependency in no bundle — excluded,
+or refused for one of the reasons above — makes a build that succeeds, ships, and fails at load on a
+chunk that was never packed.
 
 **Every error leaves its asset out of the plan.** Two assets claiming one address are both refused
 rather than one winning by enumeration order; an asset whose group nothing defines, whose import

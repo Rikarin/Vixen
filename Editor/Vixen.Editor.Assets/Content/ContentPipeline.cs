@@ -321,7 +321,7 @@ public static class ContentPipeline {
     ///         <see cref="ProjectSettingsStore" /> refuses one layer down.
     ///     </para>
     /// </remarks>
-    static SceneManifest? SceneManifestFor(
+    internal static SceneManifest? SceneManifestFor(
         ProjectWorkspace workspace,
         BuildPlan plan,
         Action<ContentDiagnostic> report

@@ -120,8 +120,14 @@ public sealed class ContentPipelineTests : IDisposable {
         Assert.True(second.Single(step => step.Path.EndsWith("a.txt", StringComparison.Ordinal)).Outcome.WasCached);
     }
 
+    /// <summary>
+    ///     ⚠ <b>A project nobody has addressed still ships everything in it, under its own paths.</b>
+    ///     That is the whole of the defaulting change seen from the outside: the friction it removes
+    ///     is a field per asset, and the thing it costs is that a scratch file under <c>Assets/</c>
+    ///     is content until somebody excludes it.
+    /// </summary>
     [Fact]
-    public async Task A_build_of_a_project_with_no_addresses_says_so_rather_than_failing() {
+    public async Task A_build_of_a_project_with_no_addresses_ships_it_under_its_paths() {
         var workspace = Workspace("a.txt");
         List<ContentDiagnostic> said = [];
 
@@ -134,11 +140,11 @@ public sealed class ContentPipelineTests : IDisposable {
 
         var built = ContentPipeline.Build(workspace, "Windows", workspace.DefaultOutput("Windows"), said.Add);
 
-        // Succeeded, because a project can legitimately have nothing addressable yet — and said so,
-        // because silence would look like success at packing everything.
         Assert.True(built.Succeeded);
-        Assert.Equal(0, built.Addresses);
+        Assert.Equal(1, built.Addresses);
 
+        // In the group the planner invents, and it says where that came from — the moment a project
+        // cares about compression or remote delivery it needs a real .vxgroup.
         Assert.Contains(
             said,
             diagnostic => diagnostic.Stage == ContentStage.Plan

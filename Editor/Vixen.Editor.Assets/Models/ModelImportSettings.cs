@@ -20,6 +20,20 @@ public sealed record ModelImportSettings : IImportSettings {
     /// <inheritdoc />
     public int Version { get; init; } = 1;
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The importer that most needs it, because a model is the asset whose sub-asset names
+    ///     the author least controls.</b> A <c>.glb</c> from an asset store arrives with two meshes
+    ///     called <c>Cube</c> and no way to fix it short of a round trip through Blender; the import
+    ///     names the second one <c>Cube_1</c> so the asset still loads, and this is how it gets a name
+    ///     worth reading. A sprite's name comes from the slicer and a video has one track, so neither
+    ///     of those importers declares this.
+    /// </remarks>
+    public List<SubAssetRename> SubAssetNames { get; init; } = [];
+
+    /// <inheritdoc />
+    IReadOnlyList<SubAssetRename> IImportSettings.SubAssetNames => SubAssetNames;
+
     /// <summary>What to multiply every length by.</summary>
     /// <remarks>
     ///     The setting nobody escapes. An FBX out of Max or Maya is in centimetres, a glTF is in
