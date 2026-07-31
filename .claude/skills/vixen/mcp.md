@@ -7,17 +7,21 @@ scraped web page, and it covers every type rather than the handful anybody has w
 
 ## Configuration
 
-Inside a Vixen checkout, after `./build.sh Docs`:
+**Already registered inside this repository** — [`.mcp.json`](../../../.mcp.json) at the root runs
+`node www/mcp/server.mjs`. It needs two things that are not in the checkout:
 
-```json
-{
-  "mcpServers": {
-    "vixen": { "command": "node", "args": ["www/mcp/server.mjs"] }
-  }
-}
+```bash
+cd www && pnpm install
 ```
 
-Published:
+```bash
+./build.sh Docs --configuration Release
+```
+
+The first installs the server's three dependencies; the second produces the graph it reads. Without
+either, the server exits with a message naming what is missing.
+
+Elsewhere, published:
 
 ```json
 {

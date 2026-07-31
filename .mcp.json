@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "vixen": {
+      "command": "node",
+      "args": ["www/mcp/server.mjs"]
+    }
+  }
+}

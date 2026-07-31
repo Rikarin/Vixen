@@ -479,7 +479,7 @@ Phase 9 is the most complete phase in the repository — **all five exit criteri
 | vixenengine.org — the site | ✅ ([www/](../www)) — Angular 22 on xUI, 3 938 routes prerendered to Cloudflare static assets, readable with JavaScript off |
 | Site search (FlexSearch over API + guide) | 🟡 — the MCP server indexes both; the site's ⌘K is P4 |
 | Versioned docs and the release diff table | ✅ — [`docs/api-history/`](api-history/index.json) holds 0.1.0 (2.43 MB Brotli for the whole graph); `nuke Release` folds the API baselines, archives and writes the table into [CHANGELOG.md](../CHANGELOG.md) and `/docs/releases/<version>` |
-| `vixen-mcp` + the `vixen` skill | ✅ ([www/mcp](../www/mcp/README.md), [skills/vixen](../skills/vixen/SKILL.md)) — six tools over the graph: meta, search by kind, symbol, guide, examples, release diff |
+| `vixen-mcp` + the `vixen` skill | ✅ ([www/mcp](../www/mcp/README.md), [.claude/skills/vixen](../.claude/skills/vixen/SKILL.md)) — six tools over the graph: meta, search by kind, symbol, guide, examples, release diff |
 | Manual: getting started, per-subsystem guides, UI tutorial, Raven reference, Unity migration | 🟡 (2 pages of 3 679 types; the sweep is P7, gated by `docs/DocsExempt.txt`) |
 | 12+ runnable samples | ✅ (12 exist) |
 | `dotnet new` templates verified on six targets | ⬜ |
