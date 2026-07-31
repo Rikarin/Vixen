@@ -381,10 +381,16 @@ public static class AdvancedTheme {
         node-item:checked node-header { background-color: var(--accent); color: var(--accent-text); }
 
         node-body { flex-direction: row; flex-grow: 1; }
-        node-inputs { flex-direction: column; flex-grow: 1; }
-        node-outputs { flex-direction: column; flex-grow: 1; align-items: flex-end; }
 
-        node-port { flex-direction: row; align-items: center; gap: 0.35em; padding: 0px 0.35em; }
+        /* ⚠ The inputs take the room and the outputs take what they need. Two columns that each grew
+           would give half a node to a column of names — and the other half, the one with the value
+           boxes in it, would be the half that had to overflow. `min-width: 0` is what lets the input
+           column shrink below the width of the longest port name on it; without it a flex item is
+           floored at its content and the row spills out past the node's rounded corner. */
+        node-inputs { flex-direction: column; flex-grow: 1; flex-shrink: 1; min-width: 0px; }
+        node-outputs { flex-direction: column; flex-grow: 0; flex-shrink: 0; align-items: flex-end; }
+
+        node-port { flex-direction: row; align-items: center; gap: 0.35em; padding: 0px 0.35em; min-width: 0px; overflow: hidden; }
         node-port.output { flex-direction: row-reverse; }
         node-port.parked { display: none; }
 
@@ -397,7 +403,35 @@ public static class AdvancedTheme {
         }
 
         node-port:hover node-dot { background-color: var(--accent); }
-        node-port-label { color: var(--text-muted); }
+        /* Shrinks and is clipped by the row rather than pushing the value out of it: a name is
+           readable from half of itself and a number is not. The floor is what stops a four-lane
+           port squeezing its own name out of existence. */
+        node-port-label { color: var(--text-muted); flex-shrink: 1; min-width: 2.5em; overflow: hidden; }
+
+        /* The value an unconnected input takes, on the node itself. It takes the room the label does
+           not, so a port with a wire in it reads as a name and one without reads as a number — and
+           the row is the same height either way, which is what keeps the wire anchors arithmetic. */
+        node-port-editor { flex-direction: row; align-items: center; justify-content: flex-end; gap: 0.2em; flex-grow: 1; min-width: 0px; }
+        node-port-editor.parked { display: none; }
+        node-port-editor > .parked { display: none; }
+        node-port-lane { color: var(--text-muted); flex-shrink: 0; }
+        node-port-lane:empty { display: none; }
+
+        /* ⚠ Sized in `em` like everything else inside a node, because one font-size per node is what
+           carries the zoom. A field in `px` would keep its size as the graph was zoomed out and end
+           up taller than the node it is on. */
+        node-port-editor numeric-input {
+            flex-grow: 1;
+            flex-shrink: 1;
+            flex-basis: 0px;
+            min-width: 2.2em;
+            height: 1.15em;
+            padding: 0px 0.25em;
+            font-size: 0.85em;
+            border-radius: 0.25em;
+        }
+
+        node-port-editor checkbox { flex-shrink: 0; }
 
         node-marquee {
             position: absolute;

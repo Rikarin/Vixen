@@ -301,7 +301,7 @@ port model from the start.
 >   against it, so a graph that produces the array produces the Raven too. There is no second lowering
 >   and no way for the two halves to have understood the graph differently.
 >
-> Four more from building the view and sub-graphs on top:
+> Five more from building the view and sub-graphs on top:
 >
 > - **A sub-graph is inlined, not called.** Every target here is a straight-line program over values —
 >   Raven source with no function to call, a VFX operation array with no stack to put one on — so
@@ -322,6 +322,17 @@ port model from the start.
 >   own graph with no event for it — is found by comparing the model's edges against the picture's
 >   wires. Both are recorded in the view's README, because both are the kind of thing that reads as a
 >   bug until you know why.
+> - **An unconnected input is typed into on the node, and the question that got wrong was "how many
+>   boxes".** The port model answers *how wide a value is in the emitted source*, which is zero lanes
+>   for a boolean, an integer and an unresolved dynamic — so an editor that asked it gave every maths
+>   node in the shader graph, whose inputs are all `DynamicVector`, no way to type a number into it at
+>   all. `PortKinds.Fields` is the second question and the answer is one for all three; a dynamic port
+>   takes one number however wide it later turns out to be, because the compiler pads a short constant
+>   with its last lane. The boxes go *beside* the port's name rather than under it, because a wire's
+>   endpoint is arithmetic over the port pitch and a row that grew for its value is a row every wire
+>   on the node would miss. Two gestures had to be taken back off the canvas for it: a press inside a
+>   value box (which would otherwise start a wire from the port the box sits in) and every keyboard
+>   shortcut while the focus is in a field (or Backspace deletes the node instead of a digit).
 > - **Two things the section asks for are half here.** A preview is drawn either as a colour or as a
 >   render target — the same image command and the same flip question as `Viewport` — but nothing yet
 >   *renders* one: compiling a single node's sub-expression, running it over a quad and keeping the

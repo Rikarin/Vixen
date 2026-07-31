@@ -34,6 +34,7 @@ graph.Connect(new(uv.Id, "UV"), new(sample.Id, "UV"));
 | `NodeDiagnostic` | Something to say, about a node and a port an author can see. |
 | `SubGraphs`, `SubGraphLibrary` | A graph inside a graph: the boundary nodes, inlining, and extraction. |
 | `NodeGraphView`, `NodeCommentView` | The model on a `NodeCanvas`, with every gesture arriving as a command. |
+| `NodeInspector` | The selected node's values as rows beside the canvas, for what will not fit on it. |
 | `NodeSearchPopup`, `NodeSearch`, `PortFilter` | Search-to-create, and the ranking behind it. |
 | `NodePreviewLayer`, `INodePreviewSource` | The swatch under a node that asked for one. |
 | `NodeGraphLayout`, `NodeLayoutOptions` | Laying a graph out left to right, in columns. |
@@ -137,6 +138,50 @@ VFX node would start reading the number an author typed before wiring something 
 **No file format is chosen here.** The document types are `[DataContract]` records described by the
 reflection generator; a caller writes them as YAML or bakes them with the binary serializer. Nothing
 that only wants to compile a graph links a parser.
+
+## An unconnected input is typed into on the node
+
+A graph is read by looking at it, so the number a `Multiply` is multiplying by is on the
+`Multiply` — a box of digits in the port's own row, drawn for every input that has no wire in it.
+`NodeInspector` is still there and still shows the same values, for a node whose ports do not fit
+across 240 units of canvas and for reading one node's settings without hunting across the graph.
+
+**Fields, not lanes.** `PortKinds.Lanes` answers "how wide is this value in the emitted source",
+which is *zero* for a boolean, an integer and an unresolved dynamic — none of them is a float
+vector. `PortKinds.Fields` answers "how many boxes", which is one for all three. Asking the first
+question is what left every maths node in the shader graph — whose inputs are all `DynamicVector` —
+showing the word "Dynamic" where its numbers should have been.
+
+**A dynamic port takes one number however wide it turned out to be.** The compiler pads a short
+constant with its last lane, so a `0.25` typed into a port that resolved to a colour compiles as a
+grey. Drawing four boxes because the node resolved to a `float4` would mean the same graph offered a
+different editor depending on what was wired to a *different* port.
+
+**The row is the same height whether or not it has a value in it.** A wire's endpoint is arithmetic
+over the header height and the port pitch — see `NodeCanvas.AnchorOf` — and a port that made its own
+row taller would be a port every wire on the node missed. So the boxes go *beside* the name rather
+than under it, the name shrinks and is clipped before the number is, and a node is 240 units wide
+because three lanes and a port called "Base Colour" is the widest a row gets.
+
+**⚠ The canvas hides a connected port's editor; the projection does not remove it.** The canvas is
+the thing that knows a wire was dropped, a frame before anything above it has recorded it. It is also
+what makes pulling a wire off bring the old number back rather than a zero.
+
+**⚠ Two gestures had to be taken back off the canvas.** A press inside a value box would otherwise
+start a wire drag from the port the box belongs to, because the box is inside the port's element; and
+Backspace would delete the selected node rather than a digit. Both the canvas and the view check
+whether the keyboard is talking to a `TextField` before claiming a key, and both have to, because the
+view claims its keys on the capture leg and the canvas on the bubble leg.
+
+**⚠ A value edit does not reproject, which is the second exception after a drag.** Dragging across a
+number field raises one command per frame, and rebuilding the projection per frame is a cost that
+grows with the graph rather than with the screen. There is nothing to correct: the field wrote the
+value into the canvas's own copy before telling anybody. `NodeInspector` follows via
+`NodeGraphView.GraphChanged`, re-reading the rows it has rather than rebuilding them — in a framework
+where removal is final, a rebuild per frame is elements that accumulate for as long as the drag. It
+*does* rebuild when the node's wiring changed, which it tells apart by comparing a signature of the
+selected node's ports and which of them a wire arrives at: connecting something turns a row from a
+field into "from a connection", and no amount of re-reading numbers will do that.
 
 ## The compiler does the parts that are the same everywhere
 

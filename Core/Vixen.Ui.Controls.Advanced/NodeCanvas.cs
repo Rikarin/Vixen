@@ -31,12 +31,173 @@ public sealed partial class NodePortView : Control {
     /// <summary>The name beside it.</summary>
     public UiElement Label { get; private set; } = null!;
 
+    /// <summary>The boxes an unconnected input's value is typed into.</summary>
+    public NodePortEditor Fields { get; private set; } = null!;
+
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
 
         Dot = Part("node-dot");
         Label = Part("node-port-label");
+        Fields = Part<NodePortEditor>();
+    }
+}
+
+/// <summary>The boxes on a port, for the value it takes when nothing is wired to it.</summary>
+/// <remarks>
+///     <para>
+///         <b>On the node rather than only in a panel beside it.</b> A graph is read by looking at it,
+///         and a constant that is only visible once its node is selected makes "what is this multiply
+///         multiplying by" a click and a glance somewhere else — for every node, one at a time. The
+///         panel is still where a port with no room on the node is edited; this is where the common
+///         case lives.
+///     </para>
+///     <para>
+///         ⚠ <b>Its elements are pooled and parked, never removed.</b> This is a part of
+///         <see cref="NodePortView" />, which is itself pooled and rebound as the canvas scrolls — so
+///         a row that once showed four lanes keeps four boxes and hides three of them. Removal is
+///         final in this framework, so a pool that shrank would have to build fresh elements the next
+///         time a <c>float4</c> came back into view.
+///     </para>
+///     <para>
+///         ⚠ <b>It writes into the editor it was given before it tells anybody.</b> Same bargain as
+///         the wire drag: the picture is authoritative for the length of the gesture and the command
+///         follows. See <see cref="NodeCanvas.PortEdited" />.
+///     </para>
+/// </remarks>
+public sealed partial class NodePortEditor : Control {
+    readonly List<NumericInput> boxes = [];
+    readonly List<UiElement> names = [];
+
+    CheckBox? tick;
+    bool binding;
+
+    /// <inheritdoc />
+    protected override string TagName => "node-port-editor";
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>The port whose value is showing, or <c>null</c> if nothing is.</summary>
+    public GraphPort? Port { get; private set; }
+
+    /// <summary>The number boxes, including the parked ones.</summary>
+    public IReadOnlyList<NumericInput> Boxes => boxes;
+
+    /// <summary>The tick, once something has needed one.</summary>
+    public CheckBox? Tick => tick;
+
+    /// <summary>Told when the person at the keyboard changed a value. Set by the canvas.</summary>
+    internal Action<GraphPort>? Edited { get; set; }
+
+    /// <summary>Shows a port's editor, or nothing.</summary>
+    /// <param name="port">The port, or <c>null</c> for a parked row.</param>
+    /// <param name="editable">Whether the port is unconnected, and so takes a typed value at all.</param>
+    internal void Bind(GraphPort? port, bool editable) {
+        Port = null;
+
+        var editor = editable ? port?.Editor : null;
+
+        if (port is null || editor is null || editor.Kind == PortEditorKind.None) {
+            AddClass("parked");
+            return;
+        }
+
+        RemoveClass("parked");
+
+        // ⚠ Every write below raises the control's own changed event, which is the same event a
+        // person typing raises. Without this the first bind of a node would report an edit of every
+        // value on it — and the merge in `SetPortValueCommand` would make the undo stack agree.
+        binding = true;
+
+        try {
+            Port = port;
+
+            if (editor.Kind == PortEditorKind.Toggle) {
+                Lanes(0);
+
+                if (tick is null) {
+                    tick = Add<CheckBox>();
+                    tick.CheckedChanged += (_, on) => Ticked(on);
+                }
+
+                tick.RemoveClass("parked");
+                tick.IsChecked = editor.IsOn;
+                tick.Disabled = editor.ReadOnly;
+
+                return;
+            }
+
+            tick?.AddClass("parked");
+
+            Lanes(editor.Lanes);
+
+            for (var lane = 0; lane < editor.Lanes; lane++) {
+                var box = boxes[lane];
+
+                box.Decimals = editor.Decimals;
+                box.Number = editor[lane];
+                box.ReadOnly = editor.ReadOnly;
+
+                names[lane].Text = lane < editor.LaneNames.Length ? editor.LaneNames[lane].ToString() : "";
+            }
+        } finally {
+            binding = false;
+        }
+    }
+
+    void Lanes(int lanes) {
+        while (boxes.Count < lanes) {
+            var lane = boxes.Count;
+
+            // The letter first, so that a row reads "X 0.5" left to right. Both are parked together,
+            // which is why the two lists are the same length and indexed the same way.
+            names.Add(Add("node-port-lane"));
+
+            var box = Add<NumericInput>();
+
+            box.NumberChanged += (_, _) => Changed(lane);
+            boxes.Add(box);
+        }
+
+        for (var index = 0; index < boxes.Count; index++) {
+            if (index < lanes) {
+                boxes[index].RemoveClass("parked");
+                names[index].RemoveClass("parked");
+            } else {
+                boxes[index].AddClass("parked");
+                names[index].AddClass("parked");
+            }
+        }
+    }
+
+    void Changed(int lane) {
+        if (binding || Port is not { Editor: { } editor } port || lane >= editor.Lanes) {
+            return;
+        }
+
+        editor[lane] = (float) boxes[lane].Number;
+        Edited?.Invoke(port);
+    }
+
+    void Ticked(bool on) {
+        if (binding || Port is not { Editor: { } editor } port) {
+            return;
+        }
+
+        editor.IsOn = on;
+        Edited?.Invoke(port);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     Parked from the start: a port view is created before it is bound to anything, and a row of
+    ///     empty boxes showing for one frame is what a pool that starts visible looks like.
+    /// </remarks>
+    protected override void OnCreated() {
+        base.OnCreated();
+        AddClass("parked");
     }
 }
 
@@ -77,6 +238,9 @@ public sealed partial class NodeItem : Control {
     /// <summary>Ditto, on the right.</summary>
     public IReadOnlyList<NodePortView> Outputs => outputs;
 
+    /// <summary>Told when a value was typed into one of this node's ports. Set by the canvas.</summary>
+    internal Action<GraphPort>? Edited { get; set; }
+
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
@@ -94,13 +258,13 @@ public sealed partial class NodeItem : Control {
     ///     theme that expressed them in <c>em</c> would agree with the arithmetic at one font size
     ///     and drift from it at every other — a wire that visibly misses the dot it is attached to.
     /// </remarks>
-    internal void Bind(GraphNode node, float headerHeight, float portPitch) {
+    internal void Bind(GraphNode node, float headerHeight, float portPitch, IReadOnlySet<GraphPort> connected) {
         Node = node;
         Header.Text = node.Title;
         Header.SetStyle("height", Inline.Px(headerHeight));
 
-        Fill(inputs, InputColumn, node.Inputs, "input", portPitch);
-        Fill(outputs, OutputColumn, node.Outputs, "output", portPitch);
+        Fill(inputs, InputColumn, node.Inputs, "input", portPitch, connected);
+        Fill(outputs, OutputColumn, node.Outputs, "output", portPitch, connected);
     }
 
     /// <summary>The element showing a port, if this item has one for it.</summary>
@@ -124,10 +288,19 @@ public sealed partial class NodeItem : Control {
     ///     removal is final in this framework, so a pool that shrank would have to create fresh
     ///     elements the next time a six-input node scrolled back in.
     /// </remarks>
-    static void Fill(List<NodePortView> pool, UiElement column, IReadOnlyList<GraphPort> ports, string className, float pitch) {
+    void Fill(
+        List<NodePortView> pool,
+        UiElement column,
+        IReadOnlyList<GraphPort> ports,
+        string className,
+        float pitch,
+        IReadOnlySet<GraphPort> connected
+    ) {
         while (pool.Count < ports.Count) {
             var view = column.Add<NodePortView>();
             view.AddClass(className);
+
+            view.Fields.Edited = port => Edited?.Invoke(port);
 
             pool.Add(view);
         }
@@ -137,15 +310,23 @@ public sealed partial class NodeItem : Control {
 
             if (i >= ports.Count) {
                 view.Port = null;
+                view.Fields.Bind(null, false);
                 view.AddClass("parked");
 
                 continue;
             }
 
+            var port = ports[i];
+
             view.RemoveClass("parked");
-            view.Port = ports[i];
-            view.Label.Text = ports[i].Name;
+            view.Port = port;
+            view.Label.Text = port.Name;
             view.SetStyle("height", Inline.Px(pitch));
+
+            // ⚠ An output never takes one however it was set up. A value typed into the port a
+            // wire *leaves* would be a number nothing reads: what an output carries is whatever its
+            // node computed.
+            view.Fields.Bind(port, port.Direction == PortDirection.Input && !connected.Contains(port));
         }
     }
 }
@@ -284,6 +465,11 @@ public sealed partial class NodeCanvas : Control {
     readonly HashSet<GraphNode> selection = [];
     readonly List<GraphNode> moving = [];
     readonly PathBuilder grid = new();
+
+    // ⚠ Rebuilt once per realise rather than asked per port. `NodeGraph.Wire` walks the wires, and a
+    // node's row asking it would be one walk per visible port — which on a graph with as many wires
+    // as nodes is the quadratic that `Measure`'s cache was written to undo.
+    readonly HashSet<GraphPort> connected = [];
 
     NodeGraph graph = new();
     CanvasDrag drag;
@@ -487,6 +673,14 @@ public sealed partial class NodeCanvas : Control {
 
     /// <summary>Raised after a wire is made by dragging.</summary>
     public event Action<NodeCanvas, GraphWire>? Connected;
+
+    /// <summary>Raised after a value was typed into a port's inline editor.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The value is already written into <see cref="GraphPort.Editor" /> when this arrives.</b>
+    ///     Same shape as <see cref="Connected" />: the picture moved first, and what follows is either
+    ///     a command that agrees with it or a reprojection that puts it back.
+    /// </remarks>
+    public event Action<NodeCanvas, GraphPort>? PortEdited;
 
     /// <inheritdoc />
     protected override void OnCreated() {
@@ -741,8 +935,17 @@ public sealed partial class NodeCanvas : Control {
             }
         }
 
+        connected.Clear();
+
+        foreach (var wire in graph.Wires) {
+            connected.Add(wire.To);
+        }
+
         while (items.Count < visible.Count) {
-            items.Add(Surface.Add<NodeItem>());
+            var item = Surface.Add<NodeItem>();
+            item.Edited = port => PortEdited?.Invoke(this, port);
+
+            items.Add(item);
         }
 
         var fontSize = Inline.Px(NodeFontSize * Zoom);
@@ -764,7 +967,7 @@ public sealed partial class NodeCanvas : Control {
             var origin = ToScreen(rectangle.Position);
 
             item.RemoveClass("parked");
-            item.Bind(node, header, pitch);
+            item.Bind(node, header, pitch, connected);
 
             item.Place(
                 origin.X - Surface.AbsoluteLeft,
@@ -939,8 +1142,17 @@ public sealed partial class NodeCanvas : Control {
         args.Handled = true;
     }
 
+    /// <summary>Whether the keyboard is talking to a field on a node rather than to the canvas.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every shortcut here is also a character or an edit.</b> Backspace in a number box has
+    ///     to delete a digit rather than the node the box is on, and Ctrl+A has to select the text
+    ///     rather than the graph. This is the one check that keeps an inline editor usable, and it is
+    ///     asked before the switch rather than per case so a shortcut added later cannot forget it.
+    /// </remarks>
+    bool Typing => Document.Focused is TextField;
+
     void Keyed(KeyEvent args) {
-        if (args.Action != KeyAction.Pressed) {
+        if (args.Action != KeyAction.Pressed || Typing) {
             return;
         }
 
@@ -975,14 +1187,30 @@ public sealed partial class NodeCanvas : Control {
     }
 
     void Tapped(TapEvent args) {
+        if (Under<NodePortEditor>(args.Source) is not null) {
+            return;
+        }
+
         if (args.Count == 2 && Under<NodeItem>(args.Source) is { Node: { } node }) {
             Activated?.Invoke(this, node);
             args.Handled = true;
         }
     }
 
+    /// <remarks>
+    ///     ⚠ <b>A press inside a port's editor is left alone entirely.</b> It lands on a
+    ///     <c>NodePortView</c>, so the untouched version starts a wire drag from the port the field
+    ///     belongs to — and the field never sees the caret placement or the scrub it was pressed for.
+    ///     Left unhandled rather than swallowed, because the field's own handlers are further along
+    ///     the same route. The primary button only: a middle or secondary press pans wherever it
+    ///     landed, and a dense graph is mostly nodes.
+    /// </remarks>
     void Pointed(PointerEvent args) {
         switch (args.Action) {
+            case PointerAction.Pressed
+                when args.Button == PointerButton.Primary && Under<NodePortEditor>(args.Source) is not null:
+                return;
+
             case PointerAction.Pressed:
                 Begin(args);
                 break;

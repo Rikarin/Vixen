@@ -543,4 +543,91 @@ public class NodeCanvasTests {
         // ⚠ Otherwise Delete on the new graph edits nodes belonging to the old one.
         Assert.Empty(canvas.Selection);
     }
+
+    // ── Inline values ────────────────────────────────────────────────────────
+
+    [Fact]
+    public void An_input_with_an_editor_is_drawn_with_a_box_per_lane() {
+        using var fixture = new AdvancedFixture();
+
+        var (graph, _, sink) = Pair();
+
+        var editor = new PortEditor(PortEditorKind.Number, 3) { LaneNames = "XYZ" };
+        editor.Set([0.1f, 0.2f, 0.3f]);
+
+        sink.Inputs[0].Editor = editor;
+
+        var canvas = Canvas(fixture, graph);
+        var fields = canvas.ItemOf(sink)!.Inputs[0].Fields;
+
+        Assert.Equal(3, fields.Boxes.Count);
+        Assert.Equal([0.1d, 0.2d, 0.3d], fields.Boxes.Select(box => Math.Round(box.Number, 3)));
+    }
+
+    /// <remarks>
+    ///     The canvas hides it rather than the caller removing it, because the canvas is the thing
+    ///     that knows a wire was dropped — a frame before anything above it has recorded anything.
+    /// </remarks>
+    [Fact]
+    public void A_connected_input_hides_its_editor() {
+        using var fixture = new AdvancedFixture();
+
+        var (graph, source, sink) = Pair();
+
+        sink.Inputs[0].Editor = new(PortEditorKind.Number);
+
+        var canvas = Canvas(fixture, graph);
+        Assert.NotNull(canvas.ItemOf(sink)!.Inputs[0].Fields.Port);
+
+        graph.Connect(source.Outputs[0], sink.Inputs[0]);
+        fixture.Update();
+
+        Assert.Null(canvas.ItemOf(sink)!.Inputs[0].Fields.Port);
+    }
+
+    [Fact]
+    public void Typing_into_a_box_writes_the_editor_and_says_so() {
+        using var fixture = new AdvancedFixture();
+
+        var (graph, _, sink) = Pair();
+        var editor = new PortEditor(PortEditorKind.Number, 2);
+
+        sink.Inputs[0].Editor = editor;
+
+        var canvas = Canvas(fixture, graph);
+
+        GraphPort? reported = null;
+        canvas.PortEdited += (_, port) => reported = port;
+
+        canvas.ItemOf(sink)!.Inputs[0].Fields.Boxes[1].Number = 0.5d;
+
+        Assert.Same(sink.Inputs[0], reported);
+        Assert.Equal(0.5f, editor[1], 3);
+    }
+
+    /// <remarks>
+    ///     ⚠ The pool is rebound as the canvas scrolls, and a bind that reported an edit would tell
+    ///     the graph above it that every value on every node that came into view had just been typed.
+    /// </remarks>
+    [Fact]
+    public void Binding_a_node_reports_no_edit() {
+        using var fixture = new AdvancedFixture();
+
+        var (graph, _, sink) = Pair();
+
+        var editor = new PortEditor(PortEditorKind.Number);
+        editor.Set([7f]);
+
+        sink.Inputs[0].Editor = editor;
+
+        var canvas = Canvas(fixture, graph);
+        var edits = 0;
+
+        canvas.PortEdited += (_, _) => edits++;
+
+        canvas.Refresh();
+        fixture.Update();
+
+        Assert.Equal(0, edits);
+    }
 }
