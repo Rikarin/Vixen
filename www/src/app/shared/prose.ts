@@ -3,6 +3,7 @@
 
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { XuiCodeBlock, type XuiCodeLine } from '@xui/code-block';
+import { tokenKind } from '../core/code';
 import { XuiProse } from '@xui/prose';
 import type { DocSpan } from '../core/model';
 
@@ -117,7 +118,7 @@ export class Prose {
         text: code.join('\n'),
         language: info[0] ?? '',
         filename,
-        tokens: runs ? runs.map(line => line.map(([text, kind]) => ({ text, kind: kind as never }))) : null
+        tokens: runs ? runs.map(line => line.map(([text, kind]) => ({ text, kind: tokenKind(kind) }))) : null
       });
 
       fence++;

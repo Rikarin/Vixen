@@ -166,6 +166,33 @@ static async Task<int> Run(Arguments arguments) {
 
     problems.AddRange(compiled.SelectMany(result => result.Errors));
 
+    // § 3.4 — the compiler that checked the example also colours it. Every C# fence, not only the
+    // compiled ones: a `no-compile` fence still has keywords, strings and comments, and the semantic
+    // model answers whatever binds.
+    var (highlightHost, highlightOptions) = Examples.Host([.. documented.Select(project => project.Compilation)]);
+    var highlighted = 0;
+
+    pages = [
+        .. pages.Select(page => {
+            var tokens = new Dictionary<string, IReadOnlyList<IReadOnlyList<DocSpan>>>(StringComparer.Ordinal);
+
+            for (var index = 0; index < page.Examples.Count; index++) {
+                var lines = Highlighter.Highlight(
+                    page.Examples[index],
+                    highlightHost,
+                    highlightOptions,
+                    CancellationToken.None);
+
+                if (lines is not null) {
+                    tokens[index.ToString(System.Globalization.CultureInfo.InvariantCulture)] = lines;
+                    highlighted++;
+                }
+            }
+
+            return tokens.Count == 0 ? page : page with { Tokens = tokens };
+        })
+    ];
+
     // The join, § 1: a page declares the symbols it is the prose for, and from that one line the
     // symbol page gets the prose and the guide page gets the signature.
     var documentedBy = pages
@@ -272,7 +299,7 @@ static async Task<int> Run(Arguments arguments) {
         + $"in {written.Chunks} chunks ({written.SplitChunks} namespaces split) → {arguments.Output}");
     Console.WriteLine($"{pages.Count} guide pages, {documentedBy.Count} symbols with prose, "
         + $"{examples.Count(example => example.Compile)} of {examples.Count} examples compiled, "
-        + $"{guideWritten / 1024.0:F0} kB");
+        + $"{highlighted} classified, {guideWritten / 1024.0:F0} kB");
 
     // § Part 5's coverage row, printed whether or not it is gating: a number that only appears when
     // the build is already red is a number nobody watches go down.

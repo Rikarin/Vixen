@@ -172,6 +172,7 @@ sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
                 page.Front.Related,
                 page.Body,
                 page.Headings,
+                page.Tokens,
                 Edit = page.Source?.Url
             }, Options));
 

@@ -25,6 +25,15 @@ sealed record GuidePage {
     public required IReadOnlyList<DocHeading> Headings { get; init; }
     public required IReadOnlyList<Example> Examples { get; init; }
     public DocSource? Source { get; init; }
+
+    /// <summary>
+    ///     Classified fences, keyed by the fence's position in the body — § 3.4.
+    ///
+    ///     Filled by <see cref="Highlighter" /> after the graph exists, because colouring a C# fence
+    ///     properly means binding it, and binding it means the engine's compilations. Null for a page
+    ///     whose fences are in a language nothing here reads.
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<IReadOnlyList<DocSpan>>>? Tokens { get; init; }
 }
 
 /// <summary>
