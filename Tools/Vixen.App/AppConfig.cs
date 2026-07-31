@@ -128,6 +128,22 @@ public sealed class AppConfig {
     /// </remarks>
     public bool UseEngine { get; set; } = true;
 
+    /// <summary>What the host draws the world with.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Never null: <see cref="GraphicsOptions.Enabled" /> is how a head says it wants no
+    ///         device, so that a game reading <c>config.Graphics.Compositor</c> to build a settings
+    ///         menu does not have to check whether the object exists first.
+    ///     </para>
+    ///     <para>
+    ///         Read after <see cref="Game.OnConfigure" /> and not again, like everything else here —
+    ///         the geometry capacities size a buffer that is created once, and the compositor address
+    ///         names a document that is loaded once. Changing a frame at run time means loading
+    ///         another compositor into <c>WorldRenderer.Host</c>, which is a method that exists.
+    ///     </para>
+    /// </remarks>
+    public GraphicsOptions Graphics { get; set; } = new();
+
     /// <summary>
     ///     How much simulated time one fixed step covers, or <see langword="null" /> for sixty a
     ///     second.

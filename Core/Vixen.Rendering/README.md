@@ -584,6 +584,7 @@ MeshRenderables.Attach(world, entity, MeshRenderables.Default(mesh));
 PrimitiveShapes.Attach(world, entity, PrimitiveKind.Cube);
 
 loop.Add(new LightExtractionSystem(lighting));         // fills lighting.Lights every frame
+loop.Add(new CameraExtractionSystem(view));            // aims the frame's view from the scene's camera
 ```
 
 All three carry `[Component]` and `[DataContract]`, which is what declares them to
@@ -605,6 +606,21 @@ have been enough.
 ⚠ **The list is rebuilt every frame rather than mirrored.** A light has no handle to keep, so there is
 nothing to reconcile and a destroyed entity cannot leave a light burning. That is the opposite trade
 from `PhysicsBody`, and the difference is exactly that a body is state and a light is not.
+
+**`CameraExtractionSystem` is the same bridge for the thing the frame is seen through.** `Camera` was
+a component a scene could place and `CameraMath` built the matrices it implies, and until this existed
+nothing read the first to produce a `RenderView` — so a level with a camera in it rendered from
+wherever a host had last poked the view by hand.
+
+One view, not one per camera: the view is handed in, because its name is what a document binds a node
+to (`view: Camera`) and its stage mask is the host's. Which entity fills it is the only thing decided
+here, and the rule is the lowest `Camera.Order` — that field's documented meaning read as a priority.
+
+⚠ **A world with no camera leaves the view exactly as it was**, and says so through `Found`. Zeroing
+it renders through a degenerate matrix, and a black frame reads as a broken renderer rather than as a
+level nobody has finished. ⚠ **An orthographic camera leaves `RenderView.Camera` null**, because
+`RenderCamera` describes a cone and a cascade fit would slice the wrong shape — and its
+`ScreenHeightScale` is zero, because size on screen there does not fall off with distance at all.
 
 ## Geometry, and the objects it is drawn as
 

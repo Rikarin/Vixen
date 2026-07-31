@@ -151,6 +151,12 @@ public sealed class VirtualGeometryGame : Game {
     protected override void OnConfigure(AppConfig config) {
         config.Name = "Virtual Geometry";
         config.Window = new() { Title = "Vixen — Virtual Geometry", Size = new(1280, 720), IsVisible = true };
+
+        // The division of labour this sample is about is between a document and a host it builds
+        // itself — the VirtualGeometrySystem, its page pool and the visibility buffer are all lent to
+        // the frame by hand. The host's own renderer would be a second device and a second swapchain
+        // on the same window.
+        config.Graphics.Enabled = false;
     }
 
     /// <inheritdoc />
