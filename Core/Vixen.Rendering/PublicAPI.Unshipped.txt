@@ -1041,6 +1041,17 @@ Vixen.Rendering.DrawCommand.FirstInstance -> uint
 Vixen.Rendering.DrawCommand.IndexCount -> uint
 Vixen.Rendering.DrawCommand.InstanceCount -> uint
 Vixen.Rendering.DrawCommand.VertexOffset -> uint
+Vixen.Rendering.Ecs.CameraExtractionSystem -> sealed class
+Vixen.Rendering.Ecs.CameraExtractionSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Rendering.Ecs.CameraExtractionSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Rendering.Ecs.CameraExtractionSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Rendering.Ecs.CameraExtractionSystem.AspectRatio.get -> float
+Vixen.Rendering.Ecs.CameraExtractionSystem.AspectRatio.set -> float
+Vixen.Rendering.Ecs.CameraExtractionSystem.CameraCount.get -> int
+Vixen.Rendering.Ecs.CameraExtractionSystem.CameraExtractionSystem(Vixen.Rendering.RenderView view) -> void
+Vixen.Rendering.Ecs.CameraExtractionSystem.Extract(Vixen.Ecs.World world) -> void
+Vixen.Rendering.Ecs.CameraExtractionSystem.Found.get -> bool
+Vixen.Rendering.Ecs.CameraExtractionSystem.View.get -> Vixen.Rendering.RenderView
 Vixen.Rendering.Ecs.ClusterState -> enum : int
 Vixen.Rendering.Ecs.ClusterState.ClusterState() -> void
 Vixen.Rendering.Ecs.ClusterState.None = 0 -> Vixen.Rendering.Ecs.ClusterState
@@ -4511,6 +4522,7 @@ override Vixen.Rendering.Compositor.SingleStageRenderer.ToString() -> string
 override Vixen.Rendering.Compositor.SurfaceCacheRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Compositor.VisibilityBufferRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Compositor.VisibilityBufferRenderer.Collect(Vixen.Rendering.Compositor.GraphicsCompositor compositor) -> void
+override Vixen.Rendering.Ecs.CameraExtractionSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Rendering.Ecs.GeometryKey.ToString() -> string
 override Vixen.Rendering.Ecs.LightExtractionSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Rendering.Ecs.MeshExtractionSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle

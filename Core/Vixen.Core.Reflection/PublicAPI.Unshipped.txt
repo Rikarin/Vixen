@@ -12,6 +12,10 @@ Vixen.Core.Reflection.MemberDescriptor.Presentation.get -> Vixen.Core.Reflection
 Vixen.Core.Reflection.MemberDescriptor.SetValue(object instance, object? value) -> void
 Vixen.Core.Reflection.MemberPresentation -> readonly struct
 Vixen.Core.Reflection.MemberPresentation : System.IEquatable<Vixen.Core.Reflection.MemberPresentation>
+Vixen.Core.Reflection.MemberPresentation.AllowsNull.get -> bool
+Vixen.Core.Reflection.MemberPresentation.AllowsNull.init -> bool
+Vixen.Core.Reflection.MemberPresentation.AssetType.get -> System.Type?
+Vixen.Core.Reflection.MemberPresentation.AssetType.init -> System.Type?
 Vixen.Core.Reflection.MemberPresentation.Category.get -> string?
 Vixen.Core.Reflection.MemberPresentation.Category.init -> string?
 Vixen.Core.Reflection.MemberPresentation.DisplayName.get -> string?
@@ -25,7 +29,7 @@ Vixen.Core.Reflection.MemberPresentation.Logarithmic.init -> bool
 Vixen.Core.Reflection.MemberPresentation.Maximum.get -> double?
 Vixen.Core.Reflection.MemberPresentation.Maximum.init -> double?
 Vixen.Core.Reflection.MemberPresentation.MemberPresentation() -> void
-Vixen.Core.Reflection.MemberPresentation.MemberPresentation(string? Category = null, string? DisplayName = null, string? Tooltip = null, double? Minimum = null, double? Maximum = null, double Step = 0, bool Logarithmic = false, bool IsEditorVisible = true, bool IsEditorReadOnly = false) -> void
+Vixen.Core.Reflection.MemberPresentation.MemberPresentation(string? Category = null, string? DisplayName = null, string? Tooltip = null, double? Minimum = null, double? Maximum = null, double Step = 0, bool Logarithmic = false, bool IsEditorVisible = true, bool IsEditorReadOnly = false, System.Type? AssetType = null, bool AllowsNull = true) -> void
 Vixen.Core.Reflection.MemberPresentation.Minimum.get -> double?
 Vixen.Core.Reflection.MemberPresentation.Minimum.init -> double?
 Vixen.Core.Reflection.MemberPresentation.Step.get -> double

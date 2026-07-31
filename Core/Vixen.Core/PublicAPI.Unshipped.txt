@@ -32,6 +32,12 @@ Vixen.Core.AssetReference.SubAsset.get -> Vixen.Core.SubAssetId
 Vixen.Core.AssetReference.SubAsset.init -> Vixen.Core.SubAssetId
 Vixen.Core.AssetReference.ToString(string? format, System.IFormatProvider? formatProvider) -> string
 Vixen.Core.AssetReference.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format = default(System.ReadOnlySpan<char>), System.IFormatProvider? provider = null) -> bool
+Vixen.Core.AssetTypeAttribute -> sealed class
+Vixen.Core.AssetTypeAttribute : System.Attribute
+Vixen.Core.AssetTypeAttribute.AllowNull.get -> bool
+Vixen.Core.AssetTypeAttribute.AllowNull.set -> bool
+Vixen.Core.AssetTypeAttribute.AssetType.get -> System.Type
+Vixen.Core.AssetTypeAttribute.AssetTypeAttribute(System.Type assetType) -> void
 Vixen.Core.CategoryAttribute -> sealed class
 Vixen.Core.CategoryAttribute : System.Attribute
 Vixen.Core.CategoryAttribute.CategoryAttribute(string name) -> void

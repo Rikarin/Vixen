@@ -587,6 +587,8 @@ Vixen.Ui.Controls.Advanced.GraphNode.Width.set -> float
 Vixen.Ui.Controls.Advanced.GraphPort -> sealed class
 Vixen.Ui.Controls.Advanced.GraphPort.AllowsMany.get -> bool
 Vixen.Ui.Controls.Advanced.GraphPort.Direction.get -> Vixen.Ui.Controls.Advanced.PortDirection
+Vixen.Ui.Controls.Advanced.GraphPort.Editor.get -> Vixen.Ui.Controls.Advanced.PortEditor?
+Vixen.Ui.Controls.Advanced.GraphPort.Editor.set -> Vixen.Ui.Controls.Advanced.PortEditor?
 Vixen.Ui.Controls.Advanced.GraphPort.Index.get -> int
 Vixen.Ui.Controls.Advanced.GraphPort.Name.get -> string
 Vixen.Ui.Controls.Advanced.GraphPort.Name.set -> string
@@ -650,6 +652,7 @@ Vixen.Ui.Controls.Advanced.NodeCanvas.Pan.get -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Controls.Advanced.NodeCanvas.Pan.set -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Controls.Advanced.NodeCanvas.PendingPoint.get -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Controls.Advanced.NodeCanvas.PendingPort.get -> Vixen.Ui.Controls.Advanced.GraphPort?
+Vixen.Ui.Controls.Advanced.NodeCanvas.PortEdited -> System.Action<Vixen.Ui.Controls.Advanced.NodeCanvas, Vixen.Ui.Controls.Advanced.GraphPort>?
 Vixen.Ui.Controls.Advanced.NodeCanvas.PortPitch.get -> float
 Vixen.Ui.Controls.Advanced.NodeCanvas.RectOf(Vixen.Ui.Controls.Advanced.GraphGroup group) -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Controls.Advanced.NodeCanvas.RectOf(Vixen.Ui.Controls.Advanced.GraphNode node) -> Vixen.Core.Mathematics.Rectangle
@@ -716,9 +719,16 @@ Vixen.Ui.Controls.Advanced.NodeMinimap.NodeMinimap() -> void
 Vixen.Ui.Controls.Advanced.NodeMinimap.Scale.get -> float
 Vixen.Ui.Controls.Advanced.NodeMinimap.ToGraph(float x, float y) -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Controls.Advanced.NodeMinimap.ToScreen(Vixen.Core.Mathematics.Vector2 point) -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.NodePortEditor -> sealed class
+Vixen.Ui.Controls.Advanced.NodePortEditor : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.NodePortEditor.Boxes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.NumericInput>
+Vixen.Ui.Controls.Advanced.NodePortEditor.NodePortEditor() -> void
+Vixen.Ui.Controls.Advanced.NodePortEditor.Port.get -> Vixen.Ui.Controls.Advanced.GraphPort?
+Vixen.Ui.Controls.Advanced.NodePortEditor.Tick.get -> Vixen.Ui.Controls.CheckBox?
 Vixen.Ui.Controls.Advanced.NodePortView -> sealed class
 Vixen.Ui.Controls.Advanced.NodePortView : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.Advanced.NodePortView.Dot.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.NodePortView.Fields.get -> Vixen.Ui.Controls.Advanced.NodePortEditor
 Vixen.Ui.Controls.Advanced.NodePortView.Label.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Advanced.NodePortView.NodePortView() -> void
 Vixen.Ui.Controls.Advanced.NodePortView.Port.get -> Vixen.Ui.Controls.Advanced.GraphPort?
@@ -746,6 +756,27 @@ Vixen.Ui.Controls.Advanced.PortDirection -> enum : byte
 Vixen.Ui.Controls.Advanced.PortDirection.Input = 0 -> Vixen.Ui.Controls.Advanced.PortDirection
 Vixen.Ui.Controls.Advanced.PortDirection.Output = 1 -> Vixen.Ui.Controls.Advanced.PortDirection
 Vixen.Ui.Controls.Advanced.PortDirection.PortDirection() -> void
+Vixen.Ui.Controls.Advanced.PortEditor -> sealed class
+Vixen.Ui.Controls.Advanced.PortEditor.Decimals.get -> int
+Vixen.Ui.Controls.Advanced.PortEditor.Decimals.set -> int
+Vixen.Ui.Controls.Advanced.PortEditor.IsOn.get -> bool
+Vixen.Ui.Controls.Advanced.PortEditor.IsOn.set -> bool
+Vixen.Ui.Controls.Advanced.PortEditor.Kind.get -> Vixen.Ui.Controls.Advanced.PortEditorKind
+Vixen.Ui.Controls.Advanced.PortEditor.LaneNames.get -> string
+Vixen.Ui.Controls.Advanced.PortEditor.LaneNames.set -> string
+Vixen.Ui.Controls.Advanced.PortEditor.Lanes.get -> int
+Vixen.Ui.Controls.Advanced.PortEditor.PortEditor(Vixen.Ui.Controls.Advanced.PortEditorKind kind, int lanes = 1) -> void
+Vixen.Ui.Controls.Advanced.PortEditor.ReadOnly.get -> bool
+Vixen.Ui.Controls.Advanced.PortEditor.ReadOnly.set -> bool
+Vixen.Ui.Controls.Advanced.PortEditor.Set(System.ReadOnlySpan<float> lanes) -> void
+Vixen.Ui.Controls.Advanced.PortEditor.ToArray() -> float[]
+Vixen.Ui.Controls.Advanced.PortEditor.this[int lane].get -> float
+Vixen.Ui.Controls.Advanced.PortEditor.this[int lane].set -> float
+Vixen.Ui.Controls.Advanced.PortEditorKind -> enum : byte
+Vixen.Ui.Controls.Advanced.PortEditorKind.None = 0 -> Vixen.Ui.Controls.Advanced.PortEditorKind
+Vixen.Ui.Controls.Advanced.PortEditorKind.Number = 1 -> Vixen.Ui.Controls.Advanced.PortEditorKind
+Vixen.Ui.Controls.Advanced.PortEditorKind.PortEditorKind() -> void
+Vixen.Ui.Controls.Advanced.PortEditorKind.Toggle = 2 -> Vixen.Ui.Controls.Advanced.PortEditorKind
 Vixen.Ui.Controls.Advanced.PropertyGrid -> sealed class
 Vixen.Ui.Controls.Advanced.PropertyGrid : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.Advanced.PropertyGrid.Body.get -> Vixen.Ui.UiElement
@@ -1102,6 +1133,9 @@ override Vixen.Ui.Controls.Advanced.NodeMinimap.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Advanced.NodeMinimap.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.NodeMinimap.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.Advanced.NodeMinimap.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.NodePortEditor.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.NodePortEditor.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.NodePortEditor.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.NodePortView.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Advanced.NodePortView.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.NodePortView.TagName.get -> string
