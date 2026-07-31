@@ -65,6 +65,25 @@ public abstract class Component : IComposable {
     /// <param name="ctx">What to build with.</param>
     protected abstract void Build(BuildContext ctx);
 
+    /// <summary>Called when the component leaves the tree, before its effects are disposed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Where a component gives back what the runtime did not give it. Effects, two-way
+    ///         bindings and the elements themselves are the region's and are taken care of; a
+    ///         handler hung on a model — <c>manager.Changed += …</c> — is the component's, and
+    ///         nothing else knows it exists.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An unmount is not a dispose.</b> The component object survives it: a hot reload
+    ///         re-mounts the same instance so that its signals, and therefore most of what "state
+    ///         was preserved" means, carry across. So this may run more than once, and
+    ///         <see cref="Build" /> may follow it.
+    ///     </para>
+    /// </remarks>
+    protected virtual void OnUnmounted() { }
+
+    internal void Unmount() => OnUnmounted();
+
     /// <summary>The slots this component declared, by name.</summary>
     /// <remarks>
     ///     Cleared on every mount rather than added to. A reload re-runs <see cref="Build" /> on the

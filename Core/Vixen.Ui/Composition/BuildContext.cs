@@ -270,6 +270,19 @@ public sealed class BuildContext {
             case Component component: {
                 var host = Element(parent, component.TagName);
 
+                // ⚠ **The region a component builds into hangs off its host, not off the region
+                // being built** — so clearing the enclosing branch removes the host element and
+                // would never reach what the component put inside it. Its effects went on running
+                // against detached elements, which is the exact failure regions exist to prevent
+                // and which `A_branch_that_leaves_takes_its_effects_with_it` only ever tested for
+                // plain ones.
+                //
+                // A subscription rather than a slot: slot order is how a region computes its
+                // indices within *one* parent element, and this region's parent is the host.
+                // `Region.Clear` disposes subscriptions before it removes elements, so a
+                // component's effects stop before anything it built goes.
+                building.Track(new Unsubscribe(() => Unmount(host)));
+
                 var previousOwner = owner;
                 var previousAnchor = Anchor;
                 var previousBuilding = building;
@@ -680,6 +693,26 @@ public sealed class BuildContext {
     }
 
     // ================================================================== Regions
+
+    /// <summary>Takes a component's own build back out, and tells it so.</summary>
+    /// <param name="host">The element it drew itself into.</param>
+    /// <remarks>
+    ///     ⚠ <b>The hook runs first, while the component's elements are still there.</b> That is
+    ///     what makes it useful — a panel saving a scroll offset or a selection has something to
+    ///     read — and it is what every other framework's unmount does. Its effects are disposed
+    ///     immediately afterwards, so an <c>OnUnmounted</c> that writes a signal cannot leave
+    ///     anything running.
+    ///
+    ///     ⚠ And the region is fetched rather than captured: <see cref="Rebuild" /> replaces a
+    ///     component's region with a new one, so a closure holding the old object would clear
+    ///     something nothing is in.
+    /// </remarks>
+    void Unmount(UiElement host) {
+        Document.ComponentAt(host)?.Unmount();
+
+        RegionOf(host).Clear();
+        regions.Remove(host);
+    }
 
     Region RegionOf(UiElement parent) {
         if (!regions.TryGetValue(parent, out var region)) {

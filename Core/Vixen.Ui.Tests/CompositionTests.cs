@@ -392,6 +392,57 @@ public class CompositionTests {
         Assert.Equal("mixed-up", BuildContext.Build<Mixed>(document, document.Root).Root.Tag);
     }
 
+    // ------------------------------------------------------------ Teardown
+
+    /// <summary>
+    ///     ⚠ <b>A component's own build hangs off its host rather than off the branch that made
+    ///     it</b>, so a <c>Clear</c> that removed the host used to leave everything inside it
+    ///     running — assigning to elements that were no longer in the document. The plain-element
+    ///     case above has been tested since regions existed; this is the same claim for the case
+    ///     the markup channel actually produces.
+    /// </summary>
+    [Fact]
+    public void A_component_inside_a_branch_takes_its_effects_with_it() {
+        using var document = new UiDocument(200f, 200f);
+        var component = BuildContext.Build<Hosting>(document, document.Root);
+
+        document.Effects.Flush();
+        var runs = Guest.Runs;
+
+        component.Shown.Value = false;
+        document.Effects.Flush();
+
+        Assert.DoesNotContain(component.Root.Children, child => child.Tag == "guest");
+
+        // Nothing it built is still watching anything.
+        Guest.Ping.Value++;
+        document.Effects.Flush();
+
+        Assert.Equal(runs, Guest.Runs);
+    }
+
+    /// <summary>
+    ///     What the runtime gave, the runtime takes back; what a component subscribed to itself is
+    ///     the component's, and <c>OnUnmounted</c> is where it says so.
+    /// </summary>
+    [Fact]
+    public void A_component_is_told_when_it_leaves_and_can_still_see_what_it_built() {
+        using var document = new UiDocument(200f, 200f);
+        var component = BuildContext.Build<Hosting>(document, document.Root);
+
+        document.Effects.Flush();
+        Assert.Equal(0, Guest.Unmounts);
+
+        component.Shown.Value = false;
+        document.Effects.Flush();
+
+        Assert.Equal(1, Guest.Unmounts);
+
+        // The hook runs before the teardown, so a component saving a scroll offset or a selection
+        // has something left to read.
+        Assert.Equal(["box"], Guest.SawOnUnmount);
+    }
+
     // ------------------------------------------------------------ Fixtures
 
     static IReadOnlyList<string> Tags(UiElement element) => [.. element.Children.Select(child => child.Tag)];
@@ -604,6 +655,45 @@ public class CompositionTests {
 
             ctx.Bind(() => gauge.Level = Level.Value);
             ctx.Element(BuildContext.Inner(gauge), "mark");
+        }
+    }
+
+    /// <summary>A component built inside a branch, which counts what it is asked to do.</summary>
+    /// <remarks>
+    ///     Static counters because the point is what happens to an instance nobody holds any more:
+    ///     a field on the test would be a reference keeping it alive and would prove less.
+    /// </remarks>
+    sealed class Guest : Component {
+        public static readonly Signal<int> Ping = new(0);
+        public static int Runs;
+        public static int Unmounts;
+        public static string[] SawOnUnmount = [];
+
+        protected internal override string TagName => "guest";
+
+        protected override void Build(BuildContext ctx) {
+            var box = ctx.Element(null, "box");
+            ctx.Bind(() => {
+                Runs++;
+                box.Text = Ping.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            });
+        }
+
+        protected override void OnUnmounted() {
+            Unmounts++;
+            SawOnUnmount = [.. Root.Children.Select(child => child.Tag)];
+        }
+    }
+
+    sealed class Hosting : Component {
+        public Signal<bool> Shown { get; } = new(true);
+
+        protected override void Build(BuildContext ctx) {
+            Guest.Runs = 0;
+            Guest.Unmounts = 0;
+            Guest.SawOnUnmount = [];
+
+            ctx.Switch(null, () => Shown.Value ? 0 : -1, (inner, parent, _) => inner.Child<Guest>(parent));
         }
     }
 

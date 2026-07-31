@@ -965,7 +965,24 @@ reorder moves a minimal set rather than every surviving item. The last one is co
 move that changes nothing returns immediately, so an unchanged list already costs a walk and nothing
 else.
 
-**A component has no teardown hook.** `Region.Clear` disposes what the runtime registered — effects
-and two-way subscriptions — and knows nothing about what a component subscribed to itself. Today
-that is survivable because a component and the thing it listens to are usually owned by the same
-object; it will not stay survivable.
+*(Both of the items that used to be here — a component rooted by its caller, and no teardown hook —
+are done; see above and below.)*
+
+### A component leaves when its branch does
+
+⚠ **It did not, and the shape of the bug is worth keeping.** A component's own build goes into a
+region hanging off its *host*, which is not a slot of the region being built — so clearing the
+enclosing branch removed the host element and never reached what the component put inside it. Its
+effects went on running against elements that were no longer in the document, which is precisely
+what regions exist to prevent, and `A_branch_that_leaves_takes_its_effects_with_it` had tested it
+since regions existed — for plain elements only, which is the one case markup never produces on its
+own.
+
+The teardown is a *subscription* on the enclosing region rather than a slot in it, because slot
+order is how a region computes indices within one parent element and this region's parent is the
+host. `Region.Clear` disposes subscriptions before it removes elements, so the ordering falls out.
+
+`Component.OnUnmounted` hangs off the same call, and runs **before** the teardown: a panel saving a
+scroll offset or a selection needs its elements to still be there. It is where a component gives
+back what the runtime did not give it — a handler on a model, which nothing else knows exists. An
+unmount is not a dispose: the object survives, because a hot reload re-mounts the same instance.
