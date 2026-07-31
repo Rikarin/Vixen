@@ -104,11 +104,11 @@ public class HotReloadTests {
         var component = host.Mount<Counting>(document.Root);
 
         component.Count.Value = 12;
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
         Assert.Equal("12", component.Root.Children[0].Text);
 
         host.ReloadComponents();
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
 
         Assert.Equal(12, component.Count.Value);
         Assert.Equal("12", component.Root.Children[0].Text);
@@ -120,13 +120,13 @@ public class HotReloadTests {
         var host = new HotReloadHost(document);
         var component = host.Mount<Counting>(document.Root);
 
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
         host.ReloadComponents();
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
 
         var runs = component.Runs;
         component.Count.Value = 5;
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
 
         // One effect ran, not two: the old build's is disposed rather than left reading the signal.
         Assert.Equal(runs + 1, component.Runs);

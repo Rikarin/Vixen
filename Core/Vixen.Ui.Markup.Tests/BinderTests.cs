@@ -162,6 +162,23 @@ public class BinderTests {
     public void Class_on_a_component_is_not_a_parameter_name_error() =>
         Assert.Empty(Ids("@component A\n<Callout class=\"warn\" />"));
 
+    /// <summary>
+    ///     A parameter may be a <i>path</i>, because the control library has properties that are
+    ///     objects — a button's icon is <c>LeadingIcon.Geometry</c> and there is no flat name for
+    ///     it. Whether the path exists is Roslyn's question; what is checked here is only that it
+    ///     will parse.
+    /// </summary>
+    [Theory]
+    [InlineData("@component A\n<IconButton LeadingIcon.Geometry=\"@Icons.Close\" />")]
+    [InlineData("@component A\n<Callout Kind=\"warn\" />")]
+    public void A_parameter_may_name_a_property_path(string source) => Assert.Empty(Ids(source));
+
+    [Theory]
+    [InlineData("@component A\n<Callout LeadingIcon..Geometry=\"@X\" />")]
+    [InlineData("@component A\n<Callout data-id=\"1\" />")]
+    public void A_parameter_that_could_not_be_written_in_C_sharp_is_refused(string source) =>
+        Assert.Contains("VXML2008", Ids(source));
+
     static BoundComponent BindClean(string source) {
         var component = Binder.Bind(Vxml.Parse(source), out var diagnostics);
 

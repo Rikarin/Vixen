@@ -220,21 +220,21 @@ public class EmitterTests {
         var root = component.Root.Children.Single();
         var span = root.Children[0];
 
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
         Assert.Equal("div", root.Tag);
         Assert.True(root.HasClass("root"));
         Assert.Equal(["Count: ", "0"], span.Children.Select(child => child.Text));
 
         // A signal write reaches exactly the effect that reads it.
         Count(instance).Value = 3;
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
         Assert.Equal(["Count: ", "3"], span.Children.Select(child => child.Text));
 
         // ...and the branch it gates appears, in its place among the siblings.
         Assert.Equal(["span", "em"], root.Children.Select(child => child.Tag));
 
         Count(instance).Value = 0;
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
         Assert.Equal(["span"], root.Children.Select(child => child.Tag));
     }
 
@@ -246,12 +246,12 @@ public class EmitterTests {
         var root = component.Root.Children.Single();
 
         Items(instance).Value = ["a", "b"];
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
 
         var b = root.Children.Single(child => child.Tag == "li" && Text(child) == "b");
 
         Items(instance).Value = ["b", "a"];
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
 
         Assert.Same(b, root.Children.Single(child => child.Tag == "li" && Text(child) == "b"));
         Assert.Equal(["b", "a"], root.Children.Where(child => child.Tag == "li").Select(Text));

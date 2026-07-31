@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Concurrent;
 using System.Globalization;
 using Vixen.Ui.Reactive;
 
@@ -33,8 +34,16 @@ public sealed class BuildContext {
     ///     <c>Core</c> is AOT-compatible and a name-to-type lookup that ends in
     ///     <c>MakeGenericMethod</c> is not.
     /// </summary>
-    static readonly Dictionary<string, Action<UiElement, Action<UiEvent>, RoutingStrategy>> Subscriptions =
+    /// <remarks>
+    ///     Concurrent because <see cref="Subscribe" /> writes to it from a module initializer while
+    ///     another thread may be building a document — two test collections, or an editor with a
+    ///     background document graph. Registration is rare and reads are one lookup per markup
+    ///     handler, so the cheap thing to make safe is the write.
+    /// </remarks>
+    static readonly ConcurrentDictionary<string, Action<UiElement, Action<UiEvent>, RoutingStrategy>> Subscriptions =
         new(StringComparer.Ordinal) {
+            ["tap"] = (element, handler, strategy) =>
+                element.AddHandler<TapEvent>((_, args) => handler(args), strategy),
             ["click"] = (element, handler, strategy) =>
                 element.AddHandler<TapEvent>((_, args) => handler(args), strategy),
             ["dblclick"] = (element, handler, strategy) =>
@@ -139,7 +148,7 @@ public sealed class BuildContext {
     }
 
     void Adopt(Component component, UiElement parent) {
-        var host = Element(parent, component.GetType().Name.ToLowerInvariant());
+        var host = Element(parent, component.TagName);
 
         owner = component;
         Anchor = host;
@@ -211,36 +220,141 @@ public sealed class BuildContext {
         return element;
     }
 
-    /// <summary>Creates a component and builds it.</summary>
-    /// <typeparam name="T">The component type.</typeparam>
+    /// <summary>Creates whatever a capitalised tag named, and builds it if it is a component.</summary>
+    /// <typeparam name="T">The component type or the element type.</typeparam>
     /// <param name="parent">Its parent, or null for the mount point.</param>
-    /// <returns>The component.</returns>
+    /// <returns>What was created.</returns>
+    /// <exception cref="ArgumentException">
+    ///     <typeparamref name="T" /> implements <see cref="IComposable" /> and is neither, which
+    ///     nothing in the framework does and no generated code can produce.
+    /// </exception>
     /// <remarks>
-    ///     The host element's tag is the type's name in lower case, so <c>&lt;Callout /&gt;</c> is
-    ///     styled by <c>callout { … }</c> — a component is a kind of element as far as a stylesheet
-    ///     is concerned, and CSS type selectors are lower case.
+    ///     <para>
+    ///         <b>One method for two kinds of tag</b>, because the markup compiler cannot tell them
+    ///         apart and deliberately does not try: <c>&lt;Callout /&gt;</c> names a
+    ///         <see cref="Component" /> and <c>&lt;ProgressBar /&gt;</c> names a
+    ///         <see cref="UiElement" />, and both are written the same way. The type argument is
+    ///         what settles it, which puts the decision in the C# compiler where the rest of the
+    ///         markup channel's checking already lives.
+    ///     </para>
+    ///     <para>
+    ///         Either way the host element's tag is the one the type answers to, so
+    ///         <c>&lt;Callout /&gt;</c> is styled by <c>callout { … }</c> and
+    ///         <c>&lt;ProgressBar /&gt;</c> by <c>progress-bar { … }</c> — the same rule the control
+    ///         library already follows for a control built by hand.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An element is not entered, and a component is.</b> A component's markup builds
+    ///         into its host and belongs to it, so <see cref="Anchor" /> and the scope move; a
+    ///         control builds its own parts in <c>OnCreated</c> and what the markup wrote inside its
+    ///         tag is the caller's content, projected in. Moving the anchor for a control would make
+    ///         its stylesheet's scope class land on elements the caller wrote.
+    ///     </para>
     /// </remarks>
-    public T Child<T>(UiElement? parent) where T : Component, new() {
-        var host = Element(parent, typeof(T).Name.ToLowerInvariant());
-        var component = new T();
+    public T Child<T>(UiElement? parent) where T : IComposable, new() {
+        var created = new T();
 
-        var previousOwner = owner;
-        var previousAnchor = Anchor;
-        var previousBuilding = building;
+        switch (created) {
+            case UiElement element: {
+                var target = parent ?? Anchor;
+                Document.Adopt(element, null, target);
+                RegionOf(target).Add(element);
 
-        owner = component;
-        Anchor = host;
-        building = RegionOf(host);
+                if (owner?.Scope is { } elementScope) {
+                    element.AddClass(elementScope);
+                }
 
-        try {
-            component.Mount(this, host);
-        } finally {
-            owner = previousOwner;
-            Anchor = previousAnchor;
-            building = previousBuilding;
+                return created;
+            }
+
+            case Component component: {
+                var host = Element(parent, component.TagName);
+
+                var previousOwner = owner;
+                var previousAnchor = Anchor;
+                var previousBuilding = building;
+
+                owner = component;
+                Anchor = host;
+                building = RegionOf(host);
+
+                try {
+                    component.Mount(this, host);
+                } finally {
+                    owner = previousOwner;
+                    Anchor = previousAnchor;
+                    building = previousBuilding;
+                }
+
+                return created;
+            }
+
+            default:
+                throw new InvalidOperationException(
+                    $"'{typeof(T).Name}' is neither a component nor an element, so it cannot be a tag."
+                );
         }
+    }
 
-        return component;
+    /// <summary>The element an attribute written on a capitalised tag applies to.</summary>
+    /// <param name="component">The component.</param>
+    /// <returns>The element it drew itself into.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <c>class</c> on <c>&lt;Callout&gt;</c> styles the element the component drew, not the
+    ///         component object — and on <c>&lt;ProgressBar&gt;</c> it styles the control, which is
+    ///         already an element. The emitter cannot choose between <c>.Root</c> and nothing at
+    ///         all, because it does not know which kind of tag it wrote; these two overloads make
+    ///         the choice for it, at compile time and at no cost.
+    ///     </para>
+    /// </remarks>
+    public static UiElement Host(Component component) {
+        ArgumentNullException.ThrowIfNull(component);
+        return component.Root;
+    }
+
+    /// <inheritdoc cref="Host(Component)" />
+    /// <param name="element">The element, which is its own host.</param>
+    public static UiElement Host(UiElement element) => element;
+
+    /// <summary>Where the content written inside a capitalised tag goes.</summary>
+    /// <param name="component">The component.</param>
+    /// <returns>Its default slot, or its root when it declared none.</returns>
+    public static UiElement Inner(Component component) {
+        ArgumentNullException.ThrowIfNull(component);
+        return component.Content;
+    }
+
+    /// <inheritdoc cref="Inner(Component)" />
+    /// <param name="element">The element, whose children are its children.</param>
+    public static UiElement Inner(UiElement element) => element;
+
+    /// <summary>Teaches the runtime an event name, or changes what one already means.</summary>
+    /// <param name="name">The name, as written after <c>on:</c>.</param>
+    /// <param name="subscribe">
+    ///     How to subscribe: given the element, what to call, and which leg of the route to listen
+    ///     on. The handler it is given already applies the <c>on:</c> modifiers.
+    /// </param>
+    /// <remarks>
+    ///     <para>
+    ///         The table is in <c>Vixen.Ui</c> and knows only the events <c>Vixen.Ui</c> raises.
+    ///         <c>Vixen.Ui.Controls</c> is where activation lives — a button is pressed by Space and
+    ///         Enter as well as by a tap — and it registers from a module initializer, so a project
+    ///         that uses a control gets the right meaning for <c>on:click</c> without knowing this
+    ///         exists.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Replacing an entry is allowed and is the point.</b> An additive-only table would
+    ///         leave <c>on:click</c> on a <c>&lt;Button&gt;</c> meaning "a pointer tapped it", which
+    ///         is right until somebody uses the keyboard — the sort of accessibility bug that is
+    ///         invisible to everyone who tests with a mouse.
+    ///     </para>
+    /// </remarks>
+    public static void Subscribe(string name, Action<UiElement, Action<UiEvent>, RoutingStrategy> subscribe) {
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(subscribe);
+
+        Subscriptions[name] = subscribe;
     }
 
     /// <summary>Creates an element holding fixed text.</summary>
@@ -302,13 +416,22 @@ public sealed class BuildContext {
     /// <summary>Runs an assignment now, and again whenever what it read changes.</summary>
     /// <param name="assign">The assignment.</param>
     /// <remarks>
-    ///     One effect per dynamic expression. It is registered against the region being built, so a
-    ///     branch that leaves the tree takes its effects with it — an effect that outlived its
-    ///     element would keep the element alive through its closure and keep assigning to it.
+    ///     <para>
+    ///         One effect per dynamic expression. It is registered against the region being built,
+    ///         so a branch that leaves the tree takes its effects with it — an effect that outlived
+    ///         its element would keep the element alive through its closure and keep assigning to
+    ///         it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And against the <i>document's</i> scheduler rather than the thread's.</b> See
+    ///         <see cref="UiDocument.Effects" />: two documents on one thread sharing a queue means
+    ///         either of them can drain the other's, and a document that has been disposed still
+    ///         has effects in it.
+    ///     </para>
     /// </remarks>
     public void Bind(Action assign) {
         ArgumentNullException.ThrowIfNull(assign);
-        building.Track(new Effect(assign));
+        building.Track(new Effect(assign, Document.Effects));
     }
 
     /// <summary>Subscribes a handler to an event by name.</summary>
@@ -331,6 +454,13 @@ public sealed class BuildContext {
     /// <param name="handler">What to run.</param>
     /// <param name="modifiers">As above.</param>
     /// <exception cref="ArgumentException">The name is not one the runtime knows.</exception>
+    /// <remarks>
+    ///     ⚠ <b><typeparamref name="TEvent" /> is a filter, not the subscription.</b> What is
+    ///     subscribed to is decided by the name's entry in the table — which for <c>click</c> is a
+    ///     different event type depending on whether the target is a control — and an argument of
+    ///     another type is dropped. So the default <see cref="UiEvent" /> is what markup emits, and
+    ///     a handler that narrows is asking for a subset of what the name delivers.
+    /// </remarks>
     public void On<TEvent>(UiElement target, string name, Action<TEvent> handler, params string[] modifiers)
         where TEvent : UiEvent {
         ArgumentNullException.ThrowIfNull(target);

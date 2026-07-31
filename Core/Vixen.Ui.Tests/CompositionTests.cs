@@ -38,11 +38,11 @@ public class CompositionTests {
         var component = BuildContext.Build<Counter>(document, document.Root);
         var label = component.Root.Children[0];
 
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
         Assert.Equal("0", label.Text);
 
         component.Count.Value = 7;
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
         Assert.Equal("7", label.Text);
     }
 
@@ -52,11 +52,11 @@ public class CompositionTests {
         var component = BuildContext.Build<Counter>(document, document.Root);
         var label = component.Root.Children[0];
 
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
         Assert.True(label.HasClass("zero"));
 
         component.Count.Value = 1;
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
 
         Assert.False(label.HasClass("zero"));
         Assert.True(label.HasClass("some"));
@@ -68,16 +68,16 @@ public class CompositionTests {
     public void A_branch_swaps_its_subtree_when_the_arm_changes() {
         using var document = new UiDocument(200f, 200f);
         var component = BuildContext.Build<Branching>(document, document.Root);
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
 
         Assert.Equal(["before", "none", "after"], Tags(component.Root));
 
         component.Which.Value = 0;
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
         Assert.Equal(["before", "first", "after"], Tags(component.Root));
 
         component.Which.Value = 1;
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
         Assert.Equal(["before", "second", "after"], Tags(component.Root));
     }
 
@@ -89,10 +89,10 @@ public class CompositionTests {
     public void A_rebuilt_branch_lands_back_between_its_siblings() {
         using var document = new UiDocument(200f, 200f);
         var component = BuildContext.Build<Branching>(document, document.Root);
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
 
         component.Which.Value = 0;
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
 
         Assert.Equal(1, component.Root.Children.Single(child => child.Tag == "first").IndexInParent);
     }
@@ -103,7 +103,7 @@ public class CompositionTests {
         var component = BuildContext.Build<Branching>(document, document.Root);
 
         component.Which.Value = -1;
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
 
         Assert.Equal(["before", "after"], Tags(component.Root));
     }
@@ -118,15 +118,15 @@ public class CompositionTests {
         var component = BuildContext.Build<Branching>(document, document.Root);
 
         component.Which.Value = 0;
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
         var runs = component.Runs;
 
         component.Which.Value = 1;
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
 
         // The first arm's effect is gone, so touching what it read runs nothing.
         component.Label.Value = "changed";
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
 
         Assert.Equal(runs, component.Runs);
     }
@@ -139,7 +139,7 @@ public class CompositionTests {
         var component = BuildContext.Build<Listing>(document, document.Root);
 
         component.Items.Value = ["a", "b", "c"];
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
 
         Assert.Equal(["head", "item", "item", "item", "tail"], Tags(component.Root));
         Assert.Equal(["a", "b", "c"], Texts(component.Root, "item"));
@@ -155,11 +155,11 @@ public class CompositionTests {
         var component = BuildContext.Build<Listing>(document, document.Root);
 
         component.Items.Value = ["a", "b", "c"];
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
         var b = component.Root.Children.Single(child => child.Text == "b");
 
         component.Items.Value = ["c", "b", "a"];
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
 
         Assert.Same(b, component.Root.Children.Single(child => child.Text == "b"));
         Assert.Equal(["c", "b", "a"], Texts(component.Root, "item"));
@@ -171,11 +171,11 @@ public class CompositionTests {
         var component = BuildContext.Build<Listing>(document, document.Root);
 
         component.Items.Value = ["a", "b", "c"];
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
         var b = component.Root.Children.Single(child => child.Text == "b");
 
         component.Items.Value = ["a", "c"];
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
 
         Assert.True(b.IsRemoved);
         Assert.Equal(["head", "item", "item", "tail"], Tags(component.Root));
@@ -187,10 +187,10 @@ public class CompositionTests {
         var component = BuildContext.Build<Listing>(document, document.Root);
 
         component.Items.Value = ["a", "c"];
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
 
         component.Items.Value = ["a", "b", "c"];
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
 
         Assert.Equal(["a", "b", "c"], Texts(component.Root, "item"));
     }
@@ -210,11 +210,11 @@ public class CompositionTests {
         var component = BuildContext.Build<Listing>(document, document.Root);
 
         component.Items.Value = ["a", "b", "c"];
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
         Assert.Equal(component.Root.Children.Select(child => child.StyleNode), StyleChildren(document, component.Root));
 
         component.Items.Value = ["c", "a", "b"];
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
         Assert.Equal(component.Root.Children.Select(child => child.StyleNode), StyleChildren(document, component.Root));
         Assert.Equal(["c", "a", "b"], Texts(component.Root, "item"));
     }
@@ -232,14 +232,14 @@ public class CompositionTests {
 
         var component = BuildContext.Build<Bare>(document, document.Root);
         component.Items.Value = ["a", "b"];
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
         document.Update();
 
         var firstChild = Styled(component, "a");
         Assert.NotSame(firstChild, Styled(component, "b"));
 
         component.Items.Value = ["b", "a"];
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
         document.Update();
 
         Assert.Same(firstChild, Styled(component, "b"));
@@ -257,11 +257,11 @@ public class CompositionTests {
         var component = BuildContext.Build<Nested>(document, document.Root);
 
         component.Items.Value = ["a", "b"];
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
 
         component.Items.Value = ["b", "a"];
         component.Open.Value = true;
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
 
         Assert.Equal(["b", "mark", "a", "mark"], component.Root.Children.Select(Label));
     }
@@ -276,10 +276,10 @@ public class CompositionTests {
         var component = BuildContext.Build<LeadingBranch>(document, document.Root);
 
         component.Items.Value = ["a", "b"];
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
 
         component.Open.Value = true;
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
 
         Assert.Equal(["mark", "a", "mark", "b"], component.Root.Children.Select(Label));
     }
@@ -324,6 +324,72 @@ public class CompositionTests {
 
         Assert.Equal("slot", slot.Tag);
         Assert.Equal(["guest"], slot.Children.Select(child => child.Tag));
+    }
+
+    // ------------------------------------------------------------ Element tags
+
+    /// <summary>
+    ///     A capitalised tag may name an element type as well as a component, because the control
+    ///     library is made of elements and the markup compiler resolves no types — so the two are
+    ///     written identically and the C# compiler is what tells them apart.
+    /// </summary>
+    [Fact]
+    public void A_capitalised_tag_that_names_an_element_type_builds_the_element() {
+        using var document = new UiDocument(200f, 200f);
+        var component = BuildContext.Build<Mixed>(document, document.Root);
+
+        var gauge = Assert.IsType<Gauge>(component.Root.Children[0]);
+
+        // Its own tag, not the type's name in lower case: `gauge-bar { … }` is what a stylesheet
+        // for it says, exactly as it would for one built by hand.
+        Assert.Equal("gauge-bar", gauge.Tag);
+    }
+
+    [Fact]
+    public void An_element_tags_bindings_and_children_land_on_the_element_itself() {
+        using var document = new UiDocument(200f, 200f);
+        var component = BuildContext.Build<Mixed>(document, document.Root);
+        var gauge = (Gauge) component.Root.Children[0];
+
+        document.Effects.Flush();
+        Assert.Equal(1, gauge.Level);
+
+        component.Level.Value = 9;
+        document.Effects.Flush();
+        Assert.Equal(9, gauge.Level);
+
+        // A component's children are projected into its slot; an element's children are its own.
+        Assert.Equal(["mark"], Tags(gauge));
+    }
+
+    /// <summary>
+    ///     The same teardown a component gets. An element created by a tag is registered against
+    ///     the region that built it, so a branch leaving takes it with it — the alternative is a
+    ///     control that stays in the tree after the <c>@if</c> that made it stopped being true.
+    /// </summary>
+    [Fact]
+    public void An_element_tag_inside_a_branch_leaves_with_it() {
+        using var document = new UiDocument(200f, 200f);
+        var component = BuildContext.Build<Switching>(document, document.Root);
+
+        document.Effects.Flush();
+        Assert.Equal(["gauge-bar"], Tags(component.Root));
+
+        component.Shown.Value = false;
+        document.Effects.Flush();
+        Assert.Empty(Tags(component.Root));
+    }
+
+    /// <summary>
+    ///     A default taken from the type's name cannot produce a hyphen, and every compound tag in
+    ///     the control library has one.
+    /// </summary>
+    [Fact]
+    public void A_component_may_name_its_own_host_tag() {
+        using var document = new UiDocument(200f, 200f);
+
+        Assert.Equal("panel", BuildContext.Build<Panel>(document, document.Root).Root.Tag);
+        Assert.Equal("mixed-up", BuildContext.Build<Mixed>(document, document.Root).Root.Tag);
     }
 
     // ------------------------------------------------------------ Fixtures
@@ -512,5 +578,43 @@ public class CompositionTests {
             var host = ctx.Child<Host>(null);
             ctx.Element(host.Content, "guest");
         }
+    }
+
+    /// <summary>Stands in for a control: an element type a capitalised tag can name.</summary>
+    /// <remarks>
+    ///     Not a real one, because <c>Vixen.Ui.Controls</c> is downstream of this assembly. What is
+    ///     being tested is the shape a control has — a <see cref="UiElement" /> with a tag of its
+    ///     own and properties to bind — and not any particular control.
+    /// </remarks>
+    sealed class Gauge : UiElement {
+        protected internal override string TagName => "gauge-bar";
+
+        public int Level { get; set; }
+    }
+
+    sealed class Mixed : Component {
+        public Signal<int> Level { get; } = new(1);
+
+        // `protected internal`, not `protected`, only because this assembly is a friend of the one
+        // that declares it. An application overriding it writes `protected override`.
+        protected internal override string TagName => "mixed-up";
+
+        protected override void Build(BuildContext ctx) {
+            var gauge = ctx.Child<Gauge>(null);
+
+            ctx.Bind(() => gauge.Level = Level.Value);
+            ctx.Element(BuildContext.Inner(gauge), "mark");
+        }
+    }
+
+    sealed class Switching : Component {
+        public Signal<bool> Shown { get; } = new(true);
+
+        protected override void Build(BuildContext ctx) =>
+            ctx.Switch(
+                null,
+                () => Shown.Value ? 0 : -1,
+                (inner, parent, _) => inner.Child<Gauge>(parent)
+            );
     }
 }

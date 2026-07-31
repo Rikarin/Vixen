@@ -237,6 +237,58 @@ title that was replaced between two reads. The pump has a budget, which is a liv
 than a nicety: a task reporting per file over a hundred thousand files can enqueue faster than a
 frame can drain.
 
+## The task centre is written in VXML
+
+`Tasks/TaskCenter.vxml` is the first interface in the repository written in the markup language the
+UI framework exists for, and it is here as a proof of concept: one panel, small enough to read
+whole, with a list, a control, an event and a piece of state — the four things every other panel is
+also made of.
+
+```html
+@for (var task in Running) {
+    <task-row key="@task">
+        <task-line>
+            <task-title>@task.Title</task-title>
+            <IconButton LeadingIcon.Geometry="@ControlIcons.Close"
+                        Disabled="@Live(task.IsCancellationRequested)"
+                        on:click.stop="@(() => Cancel(task))" />
+        </task-line>
+
+        <ProgressBar Value="@Live(task.Progress)" IsIndeterminate="@Live(task.IsIndeterminate)" />
+    </task-row>
+}
+```
+
+What the C# version was is a `Control` with a pool of rows, rebound from `EditorShell.Tick` sixty
+times a second whether or not anything had changed, and a click handler that walked up from the
+event's source to find out which row had been pressed. None of those three things survives: the
+loop's key is the task, so a row that is still running keeps its elements; the handler is the
+row's, so there is nothing to walk; and the bindings re-run when the manager says something changed
+rather than on a timer.
+
+**Four things it needed that the framework did not have.** They are written up where they live —
+[`Vixen.Ui`](../../Core/Vixen.Ui/README.md#composition) and
+[`Vixen.Ui.Markup`](../../Core/Vixen.Ui.Markup/README.md) — and named here because "rewrite one
+component first" is what found them:
+
+| | |
+|---|---|
+| A capitalised tag could not name a control | `ctx.Child<T>` took `Component` only, so `<ProgressBar />` did not compile. Nothing in the control library was reachable from markup. |
+| `on:click` was a tap | Which is not what a button is: it is also Space, Enter and an access key. `BuildContext.Subscribe` is how `Vixen.Ui.Controls` says so. |
+| A component could not name its host tag | The default is the type's name in lower case, which cannot produce the hyphen every tag in these stylesheets has. |
+| Effects were queued per thread | And a shell that flushed the thread's queue ran every other document's bindings. `UiDocument.Effects` is the fix; `Tick` drains this document's. |
+
+⚠ **And one thing the *model* still owes.** `BackgroundTask` holds plain properties that a worker
+thread writes through `Pump`, so no binding over them would ever be invalidated. The component keeps
+one signal that every row binding reads through a `Live(…)` helper, which turns "the manager applied
+something" into "these bindings are stale". It is honest and it is a workaround: the model holding
+signals is the better answer, and it is a change to the model rather than to its view.
+
+**A text node is an element.** `<task-title>@task.Title</task-title>` puts a `text` element inside
+`task-title` where the C# version set `.Text` on `task-title` itself. Nothing in the stylesheet
+cared, because none of its selectors reach past the part — but a rule written as `task-title` and
+meaning "the thing with the words in it" would.
+
 ## Localisation
 
 Every user-visible string is a `StringId` — an id and the English text it says — so

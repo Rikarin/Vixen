@@ -66,6 +66,19 @@ A lowercase tag is an intrinsic element and an uppercase one is a component — 
 rule, chosen because it is decidable from the characters. A parser cannot consult a registry of
 component types: the types it would look up are being compiled beside it.
 
+⚠ **An uppercase tag may also name a *control*,** and this side cannot tell: `<Callout />` is a
+`Component` and `<ProgressBar />` is a `UiElement`, and resolving which would mean the type
+resolution this design exists to avoid. So the emitter writes one call for both —
+`ctx.Child<Tag>(…)`, plus `BuildContext.Host`/`Inner` where the two differ — and C# overload
+resolution settles it at the use site. Without that the control library would be unreachable from
+the markup language it is meant to be written in.
+
+**A parameter may be a property *path*.** `LeadingIcon.Geometry="@Icons.Close"` emits
+`n1.LeadingIcon.Geometry = …` under the attribute name's own `#line`, because the control library
+has properties that are objects and there is no flat name for them. Nothing here checks that the
+path exists — the binder's rule is only that it will parse as C#, which is the same bargain the tag
+name is emitted under.
+
 ## The binder has no semantic model, and that is the design
 
 The original sketch had the binder resolve `<Counter Title="x" />` against the C# type `Counter`

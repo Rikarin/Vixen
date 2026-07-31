@@ -4,8 +4,10 @@
 using System.Globalization;
 using Vixen.Input;
 using Vixen.Ui;
+using Vixen.Ui.Composition;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
+using Vixen.Ui.Reactive;
 
 namespace Vixen.Editor.Ui;
 
@@ -49,7 +51,16 @@ public sealed class EditorShell : IDisposable {
     readonly ProgressBar statusProgress;
     readonly Button statusTasks;
     readonly Popover taskPopover;
-    readonly TaskCenterView taskCenter;
+
+    /// <summary>The task centre, which is a VXML component rather than a control.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Held, and not because anything calls it.</b> The elements a component builds are in
+    ///     the document; its <i>effects</i> are not, and what keeps them alive is the component —
+    ///     so a field that looks unused is what stops the panel silently freezing whenever a
+    ///     collection happens to run. That the framework leaves this to the caller is noted as owed
+    ///     in <c>Vixen.Ui</c>'s README.
+    /// </remarks>
+    readonly TaskCenter taskCenter;
 
     readonly double[] frames = new double[FrameWindow];
 
@@ -118,7 +129,11 @@ public sealed class EditorShell : IDisposable {
         Tasks = new BackgroundTaskManager();
 
         taskPopover = Document.Root.Add<Popover>();
-        taskCenter = taskPopover.Content.Add<TaskCenterView>();
+
+        // The one panel written in VXML rather than in C#. `Build` is what mounts a component into
+        // a document; everything below the popover's content element is the `.vxml` beside this
+        // file, compiled by the markup generator into the same assembly.
+        taskCenter = BuildContext.Build<TaskCenter>(Document, taskPopover.Content);
         taskCenter.Show(Tasks);
 
         statusTasks.Clicked += _ => taskPopover.Open(statusTasks);
@@ -535,10 +550,20 @@ public sealed class EditorShell : IDisposable {
         Dialogs.Pump();
 
         Toolbar.Refresh();
-        taskCenter.Refresh();
 
         Measure(delta);
         RefreshStatus();
+
+        // ⚠ **Last, and it is the point in the frame the whole signal graph was designed around.**
+        // Writing a signal only queues; nothing above this line has changed an element, it has
+        // changed what the elements are *going to say*. Draining here means one flush per frame,
+        // after every model the interface reads has been pumped, and before the host lays the
+        // document out — never in the middle of a pass that is walking the tree.
+        //
+        // ⚠ This document's queue, not the thread's. `UiDocument.Effects` says why, and the reason
+        // is not theoretical: a shell that drained the thread's would run every other document's
+        // bindings, disposed ones included.
+        Document.Effects.Flush();
     }
 
     /// <summary>Changes the surface's size.</summary>

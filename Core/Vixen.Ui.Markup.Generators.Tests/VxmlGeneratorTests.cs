@@ -315,12 +315,12 @@ public class VxmlGeneratorTests {
         var root = ((Component)instance).Root.Children.Single();
         var span = root.Children[0];
 
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
         Assert.Equal("div", root.Tag);
         Assert.Equal(["Count: ", "0"], span.Children.Select(child => child.Text));
 
         ((Signal<int>)type.GetProperty("Count")!.GetValue(instance)!).Value = 7;
-        EffectScheduler.Default.Flush();
+        document.Effects.Flush();
         Assert.Equal(["Count: ", "7"], span.Children.Select(child => child.Text));
     }
 }
