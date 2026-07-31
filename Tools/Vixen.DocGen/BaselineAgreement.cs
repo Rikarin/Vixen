@@ -42,6 +42,7 @@ static class BaselineAgreement {
 
         foreach (var directory in Directory
             .EnumerateFiles(repositoryRoot, "PublicAPI.Unshipped.txt", SearchOption.AllDirectories)
+            .Where(path => IsSource(Path.GetRelativePath(repositoryRoot, path)))
             .Select(path => Path.GetDirectoryName(path)!)
             .OrderBy(path => path, StringComparer.Ordinal)) {
             var assembly = Path.GetFileName(directory);
@@ -77,6 +78,28 @@ static class BaselineAgreement {
     ///     The type names a baseline declares. A type's own line is the one with an arrow and a type
     ///     keyword after it — <c>Vixen.Core.DisposeBag -&gt; sealed class</c>.
     /// </summary>
+    /// <summary>
+    ///     Whether a baseline found by the walk is the project's own, rather than a copy of it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A recursive walk of a checkout finds more baselines than there are projects</b>, and
+    ///     the extras are stale by construction. This repository keeps its agent worktrees under
+    ///     <c>.claude/worktrees/</c>, so the main checkout carries nine copies of every
+    ///     <c>PublicAPI.Unshipped.txt</c> — eight of them from other branches. Read anyway, they made
+    ///     this check report seven assemblies as disagreeing whose baselines are in fact correct: the
+    ///     newest branch's types against another branch's file. Build outputs are the same mistake in
+    ///     a smaller way, which is why <c>ApiCheckedProjects()</c> filters them too.
+    /// </remarks>
+    internal static bool IsSource(string relativePath) {
+        var segments = relativePath.Replace('\\', '/').Split('/');
+
+        return !segments.Any(segment =>
+            segment.StartsWith('.')
+            || string.Equals(segment, "bin", StringComparison.Ordinal)
+            || string.Equals(segment, "obj", StringComparison.Ordinal)
+            || string.Equals(segment, "artifacts", StringComparison.Ordinal));
+    }
+
     internal static HashSet<string> ReadTypes(string projectDirectory) {
         var types = new HashSet<string>(StringComparer.Ordinal);
 

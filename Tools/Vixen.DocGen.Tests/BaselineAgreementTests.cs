@@ -149,4 +149,19 @@ public class BaselineAgreementTests : IDisposable {
 
         Assert.Empty(BaselineAgreement.Compare(root, [Node("Vixen.Core.World", "Vixen.Core")]));
     }
+
+    /// <summary>
+    ///     The failure this filter exists for: a checkout keeps agent worktrees under
+    ///     <c>.claude/worktrees/</c>, so a recursive walk finds nine copies of every baseline and
+    ///     eight are another branch's.
+    /// </summary>
+    [Theory]
+    [InlineData("Core/Vixen.Assets/PublicAPI.Unshipped.txt", true)]
+    [InlineData(".claude/worktrees/other/Core/Vixen.Assets/PublicAPI.Unshipped.txt", false)]
+    [InlineData("Core/Vixen.Assets/bin/Release/net10.0/PublicAPI.Unshipped.txt", false)]
+    [InlineData("Core/Vixen.Assets/obj/PublicAPI.Unshipped.txt", false)]
+    [InlineData("artifacts/staging/Vixen.Assets/PublicAPI.Unshipped.txt", false)]
+    public void OnlyTheProjectsOwnBaselineIsRead(string path, bool expected) {
+        Assert.Equal(expected, BaselineAgreement.IsSource(path));
+    }
 }
