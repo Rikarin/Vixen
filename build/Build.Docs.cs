@@ -1,0 +1,91 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using System.Collections.Generic;
+using Nuke.Common;
+using Nuke.Common.Git;
+using Nuke.Common.IO;
+using Nuke.Common.Tools.DotNet;
+using Serilog;
+using static Nuke.Common.Tools.DotNet.DotNetTasks;
+
+/// <summary>
+///     The documentation graph: every public type in the engine, classified as what it actually is.
+/// </summary>
+/// <remarks>
+///     <para>
+///         Spec: <a href="../docs/plan/25-documentation-generator-and-site.md">doc 25</a>. The work is
+///         done by <c>Tools/Vixen.DocGen</c>; what lives here is the two decisions the build owns —
+///         which configuration the graph is read in, and which commit its source links point at.
+///     </para>
+///     <para>
+///         ⚠ <b>Release, and a built tree, and the two have to be the same one.</b> The engine
+///         resolves its own generators through <c>ProjectReference</c> with
+///         <c>OutputItemType=Analyzer</c>, so a design-time build in another configuration finds no
+///         analyzer where the path says one is, runs none of them, and produces a graph missing
+///         everything they emit — measured at 298 types and four whole kinds, with nothing in the
+///         output to say so
+///         (<a href="../docs/plan/spikes/docs-graph/RESULT.md">the spike</a> § F1). Release matches
+///         <see cref="CheckApi" />'s subject, for the same reason it does.
+///     </para>
+/// </remarks>
+partial class Build {
+    [Parameter("Also fail when the documentation graph and the PublicAPI baselines disagree")]
+    readonly bool VerifyDocs = true;
+
+    /// <summary>The commit the source links point at. Injected, so a CI run stamps the real one.</summary>
+    [GitRepository]
+    readonly GitRepository DocsRepository;
+
+    AbsolutePath DocsDirectory => RootDirectory / "artifacts" / "docs";
+
+    Target Docs => definition => definition
+        .Description("Emits the documentation graph the site is rendered from")
+        .DependsOn(Restore)
+        .Produces(DocsDirectory / "graph.json")
+        .Executes(() => {
+                DotNetBuild(settings => settings
+                    .SetProjectFile(Solution)
+                    .SetConfiguration(Configuration.Release)
+                    .EnableNoRestore()
+                );
+
+                var arguments = new List<string> {
+                    RootDirectory / "Vixen.slnx",
+                    "--output", DocsDirectory,
+                    "--configuration", Configuration.Release,
+
+                    // The one project a design-time build cannot compile, and the reason is worth
+                    // the line: its parser visitors come from ANTLR's MSBuild task rather than from
+                    // a Roslyn generator, and a workspace runs generators but not tasks. It is a
+                    // test project holding the differential oracle of docs/plan/18, so nothing it
+                    // declares is documented surface either way. The tool prints the excuse.
+                    "--excuse", "Vixen.Raven.Tests"
+                };
+
+                // The commit the source links point at. A local run without one still produces the
+                // graph — with paths and no URLs, which is honest about what a dirty tree can promise.
+                var commit = DocsRepository?.Commit;
+
+                if (commit is not null) {
+                    arguments.Add("--commit");
+                    arguments.Add(commit);
+                } else {
+                    Log.Warning("No commit resolved; the graph will carry paths without source links.");
+                }
+
+                if (VerifyDocs) {
+                    arguments.Add("--verify-baselines");
+                }
+
+                DotNetRun(settings => settings
+                    .SetProjectFile(RootDirectory / "Tools" / "Vixen.DocGen" / "Vixen.DocGen.csproj")
+                    .SetConfiguration(Configuration.Release)
+                    .EnableNoRestore()
+                    .SetApplicationArguments(arguments)
+                );
+
+                Log.Information("The documentation graph is in {Directory}.", DocsDirectory);
+            }
+        );
+}

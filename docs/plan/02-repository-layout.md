@@ -44,7 +44,9 @@ Vixen/
 ├── docs/
 │   ├── plan/                      # this directory
 │   ├── adr/                       # ADRs promoted out of 01 as they accumulate
-│   └── manual/                    # user-facing docs (DocFX)
+│   ├── manual/                    # ⚠️ superseded by docs/guide/ — see 25
+│   └── guide/                     # user-facing docs, compiled into the site (25)
+├── www/                           # the documentation site (Angular + xUI) — not in the solution (25)
 ├── .editorconfig
 ├── .gitattributes                 # binary/lfs rules, .meta text merge
 ├── .gitignore

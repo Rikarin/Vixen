@@ -43,7 +43,7 @@ Clean ──► Restore ──► Compile ──┬─► Test ─────�
 | `Pack` | produces every NuGet package; validates package contents against an expected-files manifest (a package that silently stops shipping its native asset is a real failure mode) |
 | `PublishEditor` | per-RID single-file publish of `Vixen.Editor.App`; `.app` bundle + `.dmg` on macOS, AppImage on Linux, MSI/zip on Windows |
 | `Sign` / `Notarize` | codesign + notarytool on macOS, Authenticode on Windows; secrets from CI, skipped locally |
-| `Docs` | DocFX over XML doc comments + `docs/manual`; publishes to GitHub Pages |
+| `Docs` | ⚠️ **Superseded by [25](25-documentation-generator-and-site.md)**: `Vixen.DocGen` over Roslyn source symbols + `docs/guide`, built into the Angular site in `www/` and deployed to Cloudflare as static assets. `CheckDocs` is its gate — coverage, links and compiled examples — and sits beside `CheckApi` |
 | `Release` | on tag: everything above, plus GitHub Release creation with changelog from conventional commits, artefact upload, and `dotnet nuget push` |
 
 Nuke parameters: `--configuration`, `--platform`, `--rid`, `--skip-native`, `--update-golden`,
@@ -94,7 +94,7 @@ something to satisfy by memory.
 ├── ci.yml               # PR + push to main: the matrix below
 ├── nightly.yml          # physical-device suites, long benchmarks, fuzzing, full golden sweep
 ├── release.yml          # tag-triggered: Release target, signed artefacts, NuGet push
-└── docs.yml             # DocFX → Pages on main
+└── docs.yml             # Docs + CheckDocs → Cloudflare on main and on tags; preview per PR (25)
 ```
 
 `ci.yml` jobs (per [10](10-platforms.md)'s matrix), all required for merge:

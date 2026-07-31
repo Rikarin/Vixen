@@ -44,6 +44,7 @@ together; a ✅ means it has since been carried out.**
 | 22 | [Virtualized Geometry](22-virtualized-geometry.md) | ⚠️ Extends 06 — a Nanite-class pipeline: a cluster DAG built offline, streamed pages, hierarchical culling on the device |
 | 23 | [Bindless Materials](23-bindless-materials.md) | ⚠️ Extends 05 and 06 — one descriptor array for the frame, so a draw is an index rather than a set; what compacted draws and GPU-driven submission were waiting for |
 | 24 | [Blockout Tools](24-blockout-tools.md) | ⚠️ Extends 11 and 20 — in-viewport grey-boxing: a mesh kernel that survives editing, sub-object selection, the fifteen verbs, snapping, and the handoff to an artist |
+| 25 | [Documentation Generator and Site](25-documentation-generator-and-site.md) | ⚠️ Amends 02 and 12 — DocFX gives way to a Roslyn generator that classifies what the engine actually offers (components, systems, shaders, annotations), and a versioned, searchable site built on xUI and served from Cloudflare. Coverage and examples become build gates |
 
 ### Not design documents
 
