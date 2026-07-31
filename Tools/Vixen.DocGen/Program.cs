@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Microsoft.Build.Locator;
 using Vixen.DocGen;
+using Vixen.DocGen.Guide;
 
 // The subject of `nuke Docs`. It reads the engine's own source with Roslyn and emits the graph the
 // documentation site is rendered from — docs/plan/25-documentation-generator-and-site.md.
@@ -26,6 +27,9 @@ if (arguments is null) {
           --commit <sha>           the commit being documented; source links are built from it.
           --repository-url <url>   default: https://github.com/rikarin/Vixen
           --verify-baselines       also fail when the graph and the PublicAPI baselines disagree.
+          --check-docs             also fail on a guide page that breaks its contract, names a
+                                   symbol the graph does not have, or carries an example that does
+                                   not compile.
           --excuse <project>       tolerate compile errors in this project, and say so in the
                                    summary. Repeatable. For sources produced by an MSBuild task
                                    rather than a Roslyn generator, which a design-time build cannot
@@ -85,11 +89,11 @@ static async Task<int> Run(Arguments arguments) {
 
     var documented = projects.Where(project => Scope.IsDocumented(project.Area, project.Name)).ToList();
 
-    var (nodes, merged) = Scope.Deduplicate(documented
+    var (nodes, merged) = Scope.Deduplicate(NonCSharpNodes.Read(root, links).Concat(documented
         .SelectMany(project => reader.Read(
-            project.Compilation.Assembly,
+            project.Compilation,
             project.Area,
-            project.IsPackable)));
+            project.IsPackable))));
 
     nodes = [.. nodes.OrderBy(node => node.Id, StringComparer.Ordinal)];
 
@@ -118,7 +122,7 @@ static async Task<int> Run(Arguments arguments) {
         );
     }
 
-    var graph = new DocGraph {
+    DocGraph graph = new() {
         Solution = Path.GetFileName(arguments.Solution),
         Configuration = arguments.Configuration,
         Commit = arguments.Commit,
@@ -127,7 +131,47 @@ static async Task<int> Run(Arguments arguments) {
         Nodes = nodes
     };
 
+    // ── The written half — § 4 ──────────────────────────────────────────────────────────────────
+    var (pages, guideErrors) = GuideReader.Read(root, links);
+    var byId = nodes.ToDictionary(node => node.Id, StringComparer.Ordinal);
+    var problems = new List<string>(guideErrors);
+
+    foreach (var page in pages) {
+        foreach (var id in page.Front.Api.Where(id => !byId.ContainsKey(id))) {
+            problems.Add($"{page.Path}: `api: {id}` names nothing the graph has");
+        }
+
+        foreach (var related in page.Front.Related
+            .Where(slug => !pages.Any(other => string.Equals(other.Front.Slug, slug, StringComparison.Ordinal)))) {
+            problems.Add($"{page.Path}: `related: {related}` names no page");
+        }
+    }
+
+    // § 4.3 — the single most valuable gate. Documentation examples rot silently and are the first
+    // thing a new user copies.
+    var examples = pages.SelectMany(page => page.Examples).ToList();
+    var compiled = Examples.Compile(
+        examples,
+        [.. documented.Select(project => project.Compilation)],
+        CancellationToken.None);
+
+    problems.AddRange(compiled.SelectMany(result => result.Errors));
+
+    // The join, § 1: a page declares the symbols it is the prose for, and from that one line the
+    // symbol page gets the prose and the guide page gets the signature.
+    var documentedBy = pages
+        .SelectMany(page => page.Front.Api.Select(id => (id, page.Front.Slug)))
+        .GroupBy(pair => pair.id, StringComparer.Ordinal)
+        .ToDictionary(group => group.Key, group => group.First().Slug, StringComparer.Ordinal);
+
+    nodes = [
+        .. nodes.Select(node => documentedBy.TryGetValue(node.Id, out var slug) ? node with { Docs = slug } : node)
+    ];
+
+    graph = graph with { Nodes = nodes };
+
     var written = new GraphWriter().Write(graph, arguments.Output);
+    var guideWritten = GraphWriter.WriteGuide(pages, arguments.Output);
 
     Console.WriteLine();
     Console.WriteLine($"{documented.Count} of {projects.Count} projects documented "
@@ -151,7 +195,28 @@ static async Task<int> Run(Arguments arguments) {
     Console.WriteLine();
     Console.WriteLine($"index {written.IndexBytes / 1024.0:F0} kB, pages {written.PageBytes / 1024.0 / 1024.0:F2} MB "
         + $"in {written.Chunks} chunks ({written.SplitChunks} namespaces split) → {arguments.Output}");
+    Console.WriteLine($"{pages.Count} guide pages, {documentedBy.Count} symbols with prose, "
+        + $"{examples.Count(example => example.Compile)} of {examples.Count} examples compiled, "
+        + $"{guideWritten / 1024.0:F0} kB");
+
+    foreach (var exempt in examples.Where(example => example.Reason is not null)) {
+        // § 4.3: an exemption nobody sees is a gate nobody has.
+        Console.WriteLine($"  not compiled  {exempt.Page}:{exempt.Line} — {exempt.Reason}");
+    }
+
+    if (problems.Count > 0) {
+        Console.Error.WriteLine();
+        Console.Error.WriteLine($"{problems.Count} problems in the written half:");
+
+        foreach (var problem in problems.Take(25)) {
+            Console.Error.WriteLine($"  {problem}");
+        }
+    }
     Console.WriteLine($"done in {watch.Elapsed.TotalSeconds:F1} s");
+
+    if (arguments.CheckDocs && problems.Count > 0) {
+        return 1;
+    }
 
     if (!arguments.VerifyBaselines) {
         return 0;
@@ -193,6 +258,7 @@ sealed record Arguments(
     string? Commit,
     string RepositoryUrl,
     bool VerifyBaselines,
+    bool CheckDocs,
     IReadOnlySet<string> Excused
 ) {
     public static Arguments? Parse(string[] args) {
@@ -202,6 +268,7 @@ sealed record Arguments(
         string? commit = null;
         var repositoryUrl = "https://github.com/rikarin/Vixen";
         var verify = false;
+        var checkDocs = false;
         var excused = new HashSet<string>(StringComparer.Ordinal);
 
         for (var index = 0; index < args.Length; index++) {
@@ -231,6 +298,11 @@ sealed record Arguments(
 
                     break;
 
+                case "--check-docs":
+                    checkDocs = true;
+
+                    break;
+
                 case "--excuse" when index + 1 < args.Length:
                     excused.Add(args[++index]);
 
@@ -249,6 +321,6 @@ sealed record Arguments(
 
         return solution is null || output is null
             ? null
-            : new Arguments(solution, output, configuration, commit, repositoryUrl, verify, excused);
+            : new Arguments(solution, output, configuration, commit, repositoryUrl, verify, checkDocs, excused);
     }
 }

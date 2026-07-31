@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Vixen.DocGen;
 
@@ -30,14 +31,15 @@ static class Facets {
     const string Importer = "Vixen.Editor.Assets.ImporterAttribute";
     const string Node = "Vixen.Editor.NodeGraph.NodeAttribute";
     const string AttributeUsage = "System.AttributeUsageAttribute";
+    const string DeclaredAccess = "Vixen.Ecs.Systems.IDeclaredAccess";
 
     /// <summary>`Archetype.ChunkBudget` — the per-chunk byte budget the ECS allocates.</summary>
     const int ChunkBudget = 16 * 1024;
 
-    public static DocFacets? For(INamedTypeSymbol type, DocKind kind) {
+    public static DocFacets? For(INamedTypeSymbol type, DocKind kind, Compilation? compilation = null) {
         var facets = kind switch {
             DocKind.Component or DocKind.SceneComponent => Component(type),
-            DocKind.System => System(type),
+            DocKind.System => System(type, compilation),
             DocKind.ReplicatedComponent => Replication(type),
             DocKind.Importer => new DocFacets { Extensions = Some(Strings(type, Importer)) },
             DocKind.GraphNode => GraphNode(type),
@@ -70,17 +72,78 @@ static class Facets {
         };
     }
 
-    static DocFacets System(INamedTypeSymbol type) => new() {
+    static DocFacets System(INamedTypeSymbol type, Compilation? compilation) {
+        // ⚠ The engine declares access through `IDeclaredAccess.Access` — a `SystemAccess.Declare()
+        // .Read<T>().Write<T>().Build()` initialiser — rather than through the [Reads]/[Writes]
+        // attributes, which exist and which nothing uses. Reading only the attributes made every
+        // system on the site claim to touch nothing; both are read, and the declaration wins because
+        // it is the one the scheduler consumes.
+        var (reads, writes) = DeclaredAccessOf(type, compilation);
+
+        return new DocFacets {
         // Without [UpdateInGroup] a system lands in Update, which the attribute's own documentation
         // says — so the absence is a fact rather than a blank.
-        Phase = Find(type, UpdateInGroup) is { ConstructorArguments.Length: > 0 } group
-            ? EnumName(group.ConstructorArguments[0])
-            : "Update",
-        Reads = Some(Types(type, Reads)),
-        Writes = Some(Types(type, Writes)),
-        RunsBefore = Some(Types(type, UpdateBefore)),
-        RunsAfter = Some(Types(type, UpdateAfter))
-    };
+            Phase = Find(type, UpdateInGroup) is { ConstructorArguments.Length: > 0 } group
+                ? EnumName(group.ConstructorArguments[0])
+                : "Update",
+            Reads = Some([.. Types(type, Reads).Concat(reads).Distinct(StringComparer.Ordinal)]),
+            Writes = Some([.. Types(type, Writes).Concat(writes).Distinct(StringComparer.Ordinal)]),
+            RunsBefore = Some(Types(type, UpdateBefore)),
+            RunsAfter = Some(Types(type, UpdateAfter))
+        };
+    }
+
+    /// <summary>
+    ///     The component types a system's <c>SystemAccess.Declare()</c> chain names.
+    /// </summary>
+    /// <remarks>
+    ///     Read from the initialiser's syntax rather than by running it: the declaration is a
+    ///     property initialiser evaluated at construction, and a documentation tool does not
+    ///     instantiate the engine. Each <c>.Read&lt;T&gt;()</c> and <c>.Write&lt;T&gt;()</c> in the
+    ///     chain is one type argument, and the semantic model turns it into an id.
+    /// </remarks>
+    static (IReadOnlyList<string> Reads, IReadOnlyList<string> Writes) DeclaredAccessOf(
+        INamedTypeSymbol type,
+        Compilation? compilation
+    ) {
+        if (compilation is null
+            || !type.AllInterfaces.Any(candidate =>
+                string.Equals(candidate.ToDisplayString(), DeclaredAccess, StringComparison.Ordinal))) {
+            return ([], []);
+        }
+
+        var reads = new List<string>();
+        var writes = new List<string>();
+
+        foreach (var reference in type.GetMembers("Access")
+            .SelectMany(member => member.DeclaringSyntaxReferences)) {
+            var node = reference.GetSyntax();
+            var model = compilation.GetSemanticModel(node.SyntaxTree);
+
+            foreach (var invocation in node.DescendantNodes().OfType<InvocationExpressionSyntax>()) {
+                if (invocation.Expression is not MemberAccessExpressionSyntax {
+                    Name: GenericNameSyntax { TypeArgumentList.Arguments.Count: 1 } name
+                }) {
+                    continue;
+                }
+
+                var argument = model.GetSymbolInfo(name.TypeArgumentList.Arguments[0]).Symbol;
+                var id = (argument as INamedTypeSymbol)?.GetDocumentationCommentId();
+
+                if (id is null) {
+                    continue;
+                }
+
+                if (name.Identifier.ValueText is "Read") {
+                    reads.Add(id);
+                } else if (name.Identifier.ValueText is "Write") {
+                    writes.Add(id);
+                }
+            }
+        }
+
+        return (reads, writes);
+    }
 
     static DocFacets? Replication(INamedTypeSymbol type) {
         var replicated = Find(type, Replicated);

@@ -7,6 +7,7 @@ namespace Vixen.DocGen;
 
 /// <summary>Turns a compilation's public surface into <see cref="DocNode" />s — docs/plan/25 § 2.</summary>
 sealed class SymbolReader(SourceLinks links) {
+    Compilation? _compilation;
     static readonly SymbolDisplayFormat SignatureFormat = new(
         SymbolDisplayGlobalNamespaceStyle.Omitted,
         SymbolDisplayTypeQualificationStyle.NameAndContainingTypes,
@@ -44,6 +45,17 @@ sealed class SymbolReader(SourceLinks links) {
     /// <param name="isPackable">Whether the assembly carries a <c>PublicAPI.*.txt</c>.</param>
     public IEnumerable<DocNode> Read(IAssemblySymbol assembly, string area, bool isPackable) =>
         Types(assembly.GlobalNamespace).Select(type => Describe(type, assembly.Name, area, isPackable));
+
+    /// <summary>
+    ///     Reads a whole compilation. The compilation is kept because some facets are declared in
+    ///     code rather than in metadata — a system's access is a property initialiser, and reading it
+    ///     needs the semantic model that produced the symbol.
+    /// </summary>
+    public IEnumerable<DocNode> Read(Compilation compilation, string area, bool isPackable) {
+        _compilation = compilation;
+
+        return Read(compilation.Assembly, area, isPackable);
+    }
 
     static IEnumerable<INamedTypeSymbol> Types(INamespaceOrTypeSymbol container) {
         foreach (var member in container.GetMembers()) {
@@ -119,7 +131,7 @@ sealed class SymbolReader(SourceLinks links) {
             Members = [.. Members(type)],
             SeeAlso = docs.SeeAlso,
             Obsolete = Obsolete(type),
-            Facets = Vixen.DocGen.Facets.For(type, kind),
+            Facets = Vixen.DocGen.Facets.For(type, kind, _compilation),
             IsGenerated = source is not null && links.IsGenerated(source.Path),
             IsPackable = isPackable,
             Source = source

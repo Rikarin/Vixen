@@ -13,7 +13,7 @@ public class FacetTests {
     static DocFacets Read(string source, string metadataName) {
         var compilation = Fixture.Compile(source);
         var type = compilation.Type(metadataName);
-        var facets = Facets.For(type, Taxonomy.Of(type));
+        var facets = Facets.For(type, Taxonomy.Of(type), compilation);
 
         Assert.NotNull(facets);
 
@@ -115,6 +115,30 @@ public class FacetTests {
         Assert.Equal(["T:Position"], facets.Writes!);
         Assert.Equal(["T:InputSystem"], facets.RunsAfter!);
         Assert.Null(facets.RunsBefore);
+    }
+
+    /// <summary>
+    ///     ⚠ The engine declares access through `IDeclaredAccess.Access` rather than through the
+    ///     `[Reads]`/`[Writes]` attributes — which exist and which nothing uses. Reading only the
+    ///     attributes had every system on the site claiming to touch nothing.
+    /// </summary>
+    [Fact]
+    public void DeclaredAccessIsReadFromTheInitialiserTheSchedulerConsumes() {
+        var facets = Read(
+            """
+            [Vixen.Core.Component] public struct Orbit { public float Angle; }
+            [Vixen.Core.Component] public struct LocalTransform { public float X; }
+
+            public sealed class OrbitSystem : Vixen.Ecs.Systems.SystemBase, Vixen.Ecs.Systems.IDeclaredAccess {
+                public Vixen.Ecs.Systems.SystemAccess Access { get; } = Vixen.Ecs.Systems.SystemAccess.Declare()
+                    .Read<Orbit>()
+                    .Write<LocalTransform>()
+                    .Build();
+            }
+            """, "OrbitSystem");
+
+        Assert.Equal(["T:Orbit"], facets.Reads!);
+        Assert.Equal(["T:LocalTransform"], facets.Writes!);
     }
 
     /// <summary>

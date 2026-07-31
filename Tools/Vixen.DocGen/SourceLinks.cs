@@ -59,6 +59,11 @@ sealed class SourceLinks(string repositoryRoot, string repositoryUrl, string? co
             || relative.Contains("/obj/", StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     The link for a whole file — a shader's source, a register the site renders from.
+    /// </summary>
+    public DocSource For(string absolutePath) => Create(absolutePath, 1, 1);
+
     DocSource Create(string absolutePath, int startLine, int endLine) {
         var relative = Relative(absolutePath);
         var url = commit is null || IsGenerated(absolutePath)

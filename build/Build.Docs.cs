@@ -33,6 +33,9 @@ partial class Build {
     [Parameter("Also fail when the documentation graph and the PublicAPI baselines disagree")]
     readonly bool VerifyDocs = true;
 
+    /// <summary>Set by <see cref="CheckDocs" />; `Docs` on its own emits without gating.</summary>
+    bool CheckDocsGate;
+
     /// <summary>The commit the source links point at. Injected, so a CI run stamps the real one.</summary>
     [GitRepository]
     readonly GitRepository DocsRepository;
@@ -63,6 +66,10 @@ partial class Build {
                     "--excuse", "Vixen.Raven.Tests"
                 };
 
+                if (CheckDocsGate) {
+                    arguments.Add("--check-docs");
+                }
+
                 // The commit the source links point at. A local run without one still produces the
                 // graph — with paths and no URLs, which is honest about what a dirty tree can promise.
                 var commit = DocsRepository?.Commit;
@@ -88,4 +95,30 @@ partial class Build {
                 Log.Information("The documentation graph is in {Directory}.", DocsDirectory);
             }
         );
+
+    /// <summary>
+    ///     The written half's gate — docs/plan/25 § Part 5.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         What it fails on today: a guide page that breaks the five-heading contract, one whose
+    ///         `api:` names a symbol the graph does not have, a snippet naming a region that is not
+    ///         there, and — the one worth the most — <b>an example that does not compile</b>.
+    ///         Documentation examples rot silently and are the first thing a new user copies.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Coverage is not gated yet.</b> § Part 5 wants a public type with no page to fail,
+    ///         behind a `DocsExempt.txt` seeded with every existing type; switching that on before
+    ///         the sweep has somewhere to start would block every merge, which is exactly the failure
+    ///         the plan predicted for itself.
+    ///     </para>
+    /// </remarks>
+    Target CheckDocs => definition => definition
+        .Description("Fails on a guide page that breaks its contract or carries an example that does not compile")
+        .DependsOn(Restore)
+        .Executes(() => {
+                CheckDocsGate = true;
+            }
+        )
+        .Triggers(Docs);
 }

@@ -144,6 +144,7 @@ public sealed class OrbitSystem : SystemBase, IDeclaredAccess {
     public override JobHandle Update(in SystemContext context, JobHandle dependency) {
         var delta = context.Time.DeltaSeconds;
 
+        // #region docs:query
         foreach (var chunk in context.World.Chunks(orbiting)) {
             var orbits = chunk.Values<Orbit>();
             var transforms = chunk.Values<LocalTransform>()[..orbits.Length];
@@ -160,6 +161,8 @@ public sealed class OrbitSystem : SystemBase, IDeclaredAccess {
                 );
             }
         }
+
+        // #endregion
 
         return dependency;
     }

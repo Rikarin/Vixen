@@ -755,8 +755,8 @@ and nothing else.
 | Phase | Cost | Exit criterion |
 |---|---|---|
 | [P0 — The spike](#p0--the-spike-03-em) | 0.3 EM | ✅ **Done** — [RESULT.md](spikes/docs-graph/RESULT.md). Three measurements, three decisions, five findings |
-| [P1 — The graph](#p1--the-graph-15-em) | 1.5 EM | 🟡 **Half built** — `Tools/Vixen.DocGen` emits the graph and agrees with `CheckApi`; the `used-by` pass, classified signatures and the non-C# nodes are owed |
-| [P2 — The content pipeline](#p2--the-content-pipeline-10-em) | 1.0 EM | Markdown → JSON with front matter, snippets, classified fences |
+| [P1 — The graph](#p1--the-graph-15-em) | 1.5 EM | ✅ **Done** — the graph, classified, with facets, `used-by` edges, classified signatures and the non-C# nodes; agrees with `CheckApi` |
+| [P2 — The content pipeline](#p2--the-content-pipeline-10-em) | 1.0 EM | ✅ **Done** — front matter, the five-heading contract, snippet regions, compiled examples, the join to the graph |
 | [P3 — Site MVP](#p3--site-mvp-15-em) | 1.5 EM | Prerendered on Cloudflare: guide, API, taxonomy indexes, nav, breadcrumbs, TOC |
 | [P4 — Search](#p4--search-05-em) | 0.5 EM | ⌘K over everything, inside budget |
 | [P5 — Gates and CI](#p5--gates-and-ci-05-em) | 0.5 EM | `CheckDocs` red on a violation; `docs.yml` deploying; PR previews |
@@ -812,7 +812,7 @@ per-symbol search, **18.5 s for the solution**, and 3 494 of 3 588 types come ou
 have at least one sample use. `Vector3`, at 788, is what a name query should rank above everything
 else.
 
-**Signatures arrive classified**, so the site ships no highlighter and the prerendered HTML is
+**Facets, `used-by` and classified signatures are all built.** Signatures arrive classified, so the site ships no highlighter and the prerendered HTML is
 coloured with JavaScript off. One correction to [3.4](#34-highlighting-comes-from-the-engines-own-lexers)
 that the code forced: a signature is *synthesised* from symbols rather than quoted from source, so
 there is no span for the classifier to run over — `ToDisplayParts` hands the classification out with
@@ -824,12 +824,19 @@ Over the tree today: **120 of 243 projects documented, 3 588 types, 29 354 membe
 with prose, in 57 s** — a 1.86 MB index and 18 MB of pages in 258 chunks, and the graph agrees with
 every `PublicAPI.*.txt` baseline.
 
-**Owed**, and each is a section of this document that has no code yet:
+**The non-C# nodes are built too** ([2.8](#28-what-else-becomes-a-node)): **30 shaders** from the
+reflection Raven already writes beside each compiled `.rvn`, **8 diagnostic codes** and **53 log
+events** parsed out of the registers — which stay the source of truth, as [13](13-diagnostics.md)
+asks. A `.rvn` with no reflection is not documented, because a page that guesses at descriptor sets
+is worse than no page.
 
-| Owed | Where |
-|---|---|
-| Raven shaders, the diagnostic and log-event registers, the CLI trees | [2.8](#28-what-else-becomes-a-node) |
-| Member-level baseline agreement | [2.1](#21-why-source-symbols-and-not-the-assembly) |
+**One source is owed and one is deliberately not done.** The CLI trees need a contract rather than
+reflection: walking `System.CommandLine` in-process would have this tool loading `Vixen.Cli`, `raven`
+and `Vixen.AssetCompiler`, so **the proposal is a hidden `--dump-commands json` verb per tool** —
+one flag, no loading, and testable on its own. Member-level baseline agreement stays out for the
+reason [2.1](#21-why-source-symbols-and-not-the-assembly) gives: it would mean a second signature
+formatter kept identical to `ApiCheck`'s, and type declarations already catch the failure the check
+exists for.
 
 Three things the build found that the plan had not: **a documentation id is unique inside an assembly
 and not across a solution** (this repository links `Vixen.Core.Syntax` into a generator assembly as
@@ -840,10 +847,25 @@ graph under a third.
 
 #### P2 — The content pipeline (1.0 EM)
 
-Markdig, front matter, the five-heading contract, snippet regions, `compile` fences and their
-generated project, classified fences via [3.4](#34-highlighting-comes-from-the-engines-own-lexers),
-link resolution, TOC extraction, search-document emission. `docs/guide/` seeded with getting-started
-and one page per area — enough to prove every mechanism, not the sweep.
+✅ **Built.** Front matter with a checked schema, the five-heading contract, snippet regions resolved
+out of files the solution compiles, fences classified as compiled or exempt-with-a-reason, heading
+extraction for the outline, the join to the graph, and `docs/guide/` seeded with two ECS pages —
+enough to prove every mechanism, not the sweep.
+
+Two corrections the build forced:
+
+**Markdig was not needed.** § 1's diagram had the tool rendering markdown; it does not. The body is
+carried to the site as markdown with its snippets already resolved, and the site renders it — which
+is where the renderer belongs, because the site is what knows its own components and link scheme. A
+dependency the plan named turns out to be one nobody has to take, so
+[ADR-020](#proposed-adrs)'s question does not arise yet.
+
+⚠ **An example is compiled inside an engine compilation, not one of its own.** Building the reference
+set by hand is the obvious approach and it fails in a way that reads as its own opposite: the
+workspace's compilations carry ~120 distinct instances of each framework assembly, and a compilation
+given those cannot bind a corlib — `CS0518: Predefined type 'System.Void' is not defined`, which
+looks like a missing reference and is a surplus of them. Adding a tree to a compilation that already
+works inherits its references *and* its parse options, and cannot be wrong about either.
 
 #### P3 — Site MVP (1.5 EM)
 

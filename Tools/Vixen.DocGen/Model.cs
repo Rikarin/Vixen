@@ -27,7 +27,13 @@ enum DocKind {
     GraphNode,
     Importer,
     Annotation,
-    Generator
+    Generator,
+
+    // § 2.8 — the parts of the engine that are not C# symbols, and that a symbol-only tool leaves
+    // undocumented.
+    Shader,
+    Diagnostic,
+    LogEvent
 }
 
 /// <summary>Where a declaration is, and where to read it on GitHub.</summary>
@@ -117,6 +123,26 @@ sealed record DocFacets {
 
     public string? MenuSummary { get; init; }
 
+    /// <summary>A shader's stages, from its reflection.</summary>
+    public IReadOnlyList<string>? Stages { get; init; }
+
+    /// <summary>Its `[Permutation]` keys — the switches a variant is compiled for.</summary>
+    public IReadOnlyList<string>? Permutations { get; init; }
+
+    /// <summary>How many descriptor sets it binds, and how many parameters they carry.</summary>
+    public int? DescriptorSets { get; init; }
+
+    public int? ShaderParameters { get; init; }
+    public IReadOnlyList<string>? VertexInputs { get; init; }
+
+    /// <summary>What emits a diagnostic code.</summary>
+    public IReadOnlyList<string>? EmittedBy { get; init; }
+
+    /// <summary>A log event's level, and the version it was allocated in.</summary>
+    public string? Level { get; init; }
+
+    public string? Since { get; init; }
+
     /// <summary>What an annotation may be put on.</summary>
     public IReadOnlyList<string>? Targets { get; init; }
 
@@ -128,7 +154,10 @@ sealed record DocFacets {
         SizeBytes is null && EntitiesPerChunk is null && Phase is null && Channel is null
         && SendRate is null && Priority is null && MenuPath is null && MenuSummary is null
         && AllowMultiple is null && Reads is null && Writes is null && RunsBefore is null
-        && RunsAfter is null && Quantized is null && Extensions is null && Targets is null;
+        && RunsAfter is null && Quantized is null && Extensions is null && Targets is null
+        && Stages is null && Permutations is null && DescriptorSets is null
+        && ShaderParameters is null && VertexInputs is null && EmittedBy is null && Level is null
+        && Since is null;
 }
 
 /// <summary>One type that uses another, and where from.</summary>
@@ -169,6 +198,9 @@ sealed record DocNode {
     public IReadOnlyList<string> SeeAlso { get; init; } = [];
 
     public string? Obsolete { get; init; }
+
+    /// <summary>The guide page that is this symbol's prose, when one claims it — § 1's join.</summary>
+    public string? Docs { get; init; }
 
     /// <summary>The kind-specific facts, or null when the kind has none to give.</summary>
     public DocFacets? Facets { get; init; }

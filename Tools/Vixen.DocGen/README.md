@@ -155,13 +155,48 @@ The cost is real and was measured: classification took the page tier from 21.6 M
 pair encoding brought it back to **26.0 MB in 277 chunks**. The index tier is untouched at 1.9 MB,
 because the index carries no signatures.
 
+## The written half
+
+`docs/guide/**` is read here too, and the checks are what make § 4's contract a build failure rather
+than an instruction:
+
+| Check | Fails when |
+|---|---|
+| Front matter | A field is missing, `kind` or `status` is not one of the allowed values, or `api:` names nothing |
+| The contract | One of the five headings is absent, out of order, or has nothing under it |
+| Snippets | `{{ snippet path#region }}` names a file or a `#region docs:…` that is not there |
+| Fences | A C# fence is neither `compile` nor `no-compile="why"` — an exemption with no reason is one nobody reviewed |
+| **Examples** | **A `compile` fence does not compile against the engine** |
+| Resolution | `api:` names a symbol the graph does not have, or `related:` names no page |
+| Slugs | Two pages claim one URL |
+
+⚠ **An example is compiled inside an engine compilation rather than in one of its own.** Building a
+reference set by hand looks obvious and is not: the workspace's compilations carry ~120 distinct
+instances of each framework assembly, and a compilation handed those cannot bind a corlib — the error
+is `CS0518: Predefined type 'System.Void' is not defined`, which reads like a missing reference rather
+than a surplus of them. Adding a tree to a compilation that already works inherits its references
+*and* its parse options, and cannot be wrong about either.
+
+A snippet is not compiled twice: it is quoted from a file the solution builds, so the region would not
+exist if that file had stopped compiling.
+
 ## Known gaps
 
 Owed by [25](../../docs/plan/25-documentation-generator-and-site.md) § P1 and not yet built:
 
-- **Non-C# nodes** — Raven shaders from `--emit-reflection`, the diagnostic and log-event registers,
-  the `System.CommandLine` trees.
-- **Member-level baseline agreement.** Only type declarations are compared; the baseline's member
-  format would mean a second signature formatter kept identical to the first.
+- **The CLI trees.** Walking `System.CommandLine` in-process would mean this tool referencing and
+  loading `Vixen.Cli`, `raven` and `Vixen.AssetCompiler` — a documentation tool that loads the tools
+  it documents. **The proposal is a contract instead**: each CLI grows a hidden
+  `--dump-commands json` verb, and this reads its output. One flag per tool, no reflection, and the
+  dump is testable on its own.
+- **Coverage as a gate.** § Part 5 wants a public type with no page to fail, behind a
+  `DocsExempt.txt` seeded with every existing type. Switching it on before the sweep has somewhere to
+  start would block every merge — which is the failure the plan predicted for itself, so it waits for
+  P5.
+
+**Deliberately not done**: member-level baseline agreement. Only type declarations are compared
+against `PublicAPI.*.txt`; matching members would mean a second signature formatter kept identical to
+`Vixen.ApiCheck`'s, and types are enough to catch the failure the check exists for — an assembly, or a
+generator's whole output, going missing.
 
 Licensed under Apache-2.0.

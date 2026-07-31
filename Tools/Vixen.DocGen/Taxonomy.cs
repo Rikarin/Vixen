@@ -93,6 +93,7 @@ static class Taxonomy {
 
     /// <summary>The kebab-cased form the site filters on.</summary>
     public static string Slug(DocKind kind) => kind switch {
+        DocKind.LogEvent => "log-event",
         DocKind.SceneComponent => "scene-component",
         DocKind.ReplicatedComponent => "replicated-component",
         DocKind.UiControl => "ui-control",

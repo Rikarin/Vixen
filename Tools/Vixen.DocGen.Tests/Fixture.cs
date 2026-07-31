@@ -34,6 +34,18 @@ static class Fixture {
             public sealed class UpdateInGroupAttribute(SystemPhase phase) : System.Attribute;
             public sealed class UpdateBeforeAttribute(System.Type type) : System.Attribute;
             public sealed class UpdateAfterAttribute(System.Type type) : System.Attribute;
+
+            public interface IDeclaredAccess { SystemAccess Access { get; } }
+
+            public sealed class SystemAccess {
+                public static AccessBuilder Declare() => new();
+            }
+
+            public sealed class AccessBuilder {
+                public AccessBuilder Read<T>() => this;
+                public AccessBuilder Write<T>() => this;
+                public SystemAccess Build() => new();
+            }
         }
 
         namespace Vixen.Engine.Behaviors {

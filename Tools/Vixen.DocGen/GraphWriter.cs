@@ -97,6 +97,7 @@ sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
                 node.IsGenerated,
                 node.IsPackable,
                 node.UsedByCount,
+                node.Docs,
                 Members = node.Members.Count,
                 Source = node.Source?.Url
             })
@@ -130,6 +131,63 @@ sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
         }
 
         return new Written(new FileInfo(indexPath).Length, pageBytes, chunks, split);
+    }
+
+    /// <summary>
+    ///     Writes the written half: one file per guide page, and an index of them.
+    /// </summary>
+    /// <remarks>
+    ///     Per page rather than per area, because a guide page is what a route loads and there are
+    ///     hundreds rather than thousands — the argument that made the API pages per-namespace
+    ///     (§ 8.1) does not apply to a tier this size.
+    /// </remarks>
+    public static long WriteGuide(IReadOnlyList<Vixen.DocGen.Guide.GuidePage> pages, string outputDirectory) {
+        var directory = Path.Combine(outputDirectory, "guide");
+
+        if (Directory.Exists(directory)) {
+            Directory.Delete(directory, recursive: true);
+        }
+
+        Directory.CreateDirectory(directory);
+
+        long bytes = 0;
+
+        foreach (var page in pages) {
+            var path = Path.Combine(directory, page.Front.Slug.Replace('/', '.') + ".json");
+
+            File.WriteAllText(path, JsonSerializer.Serialize(new {
+                page.Front.Title,
+                page.Front.Slug,
+                page.Front.Kind,
+                page.Front.Area,
+                page.Front.Summary,
+                page.Front.Api,
+                page.Front.Tags,
+                page.Front.Since,
+                page.Front.Status,
+                page.Front.Related,
+                page.Body,
+                page.Headings,
+                Edit = page.Source?.Url
+            }, Options));
+
+            bytes += new FileInfo(path).Length;
+        }
+
+        var indexPath = Path.Combine(directory, "index.json");
+
+        File.WriteAllText(indexPath, JsonSerializer.Serialize(pages.Select(page => new {
+            page.Front.Title,
+            page.Front.Slug,
+            page.Front.Kind,
+            page.Front.Area,
+            page.Front.Summary,
+            page.Front.Tags,
+            page.Front.Status,
+            Symbols = page.Front.Api.Count
+        }), Options));
+
+        return bytes + new FileInfo(indexPath).Length;
     }
 
     /// <summary>Splits a namespace's nodes into parts that each fit the budget.</summary>
