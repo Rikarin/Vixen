@@ -57,3 +57,9 @@ BenchmarkDotNet.Artifacts/
 /.nuke/build.schema.json
 /.nuke/temp/
 /BenchmarkDotNet.Artifacts/
+
+# The documentation site's install and build outputs.
+www/node_modules/
+www/dist/
+www/.angular/
+www/out-tsc/

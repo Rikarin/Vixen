@@ -1,0 +1,24 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) Rikarin
+ * SPDX-License-Identifier: Apache-2.0
+ */
+@import 'tailwindcss';
+
+/*
+ * xUI's design tokens. Everything on this site styles against these rather than against raw
+ * colours, which is what makes light and dark one decision instead of two — docs/plan/25 § 8.5.
+ */
+@import '@xui/core/styles/theme.css';
+
+@source '../src';
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}

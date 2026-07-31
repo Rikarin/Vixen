@@ -1,0 +1,10 @@
+# pnpm 11 keeps its settings here rather than in package.json.
+#
+# esbuild and workerd ship platform binaries their install scripts unpack; left unbuilt, every
+# `pnpm exec` re-runs install, fails, and takes the build with it.
+allowBuilds:
+  esbuild: true
+  workerd: true
+  '@parcel/watcher': true
+  lmdb: true
+  msgpackr-extract: true
