@@ -890,6 +890,26 @@ once at build time, and a property that cannot be read is one to write with `@ex
 converts to is a *compile* error on the attribute, which is what an `object Convert(Type, string)`
 would have turned into a run-time surprise.
 
+### A mounted component is findable, and therefore alive
+
+`UiDocument.ComponentAt` answers "which component drew this element", for the elements that are a
+component's host. A control *is* the element a caller reaches for; a component is an object beside
+the elements it drew, and without this there is no way back from the tree to it — which a test
+harness needs, a debugger wants, and a future inspector will.
+
+⚠ **The table is weak on the element, and that is what makes it free.** A component is reachable
+for exactly as long as its host is, so a branch that leaves the tree takes its component with it and
+nothing has to be told. It also retires the owed item below it: a mounted component's *effects* are
+not in the document, so before this the only thing keeping a panel's bindings alive was whatever
+reference the caller happened to hold.
+
+### Content goes where the element says
+
+`UiElement.ContentHost` is the control-side mirror of `Component.Content`: itself for most elements,
+and the viewport for a `ScrollView`, the panel for a `Popover`. Markup written inside a
+`<ScrollView>` means the rows are what scrolls; hung off the control they would sit beside the
+scrollbars, laid out by neither.
+
 ### Effects belong to the document
 
 `UiDocument.Effects` is where every binding queues, and a frame drains it in one place. The
@@ -944,12 +964,6 @@ Named slot projection (`slot="footer"` on a child), and a longest-increasing-sub
 reorder moves a minimal set rather than every surviving item. The last one is correctness-neutral: a
 move that changes nothing returns immediately, so an unchanged list already costs a walk and nothing
 else.
-
-⚠ **And a mounted component is rooted by its caller rather than by the document.** `Build<T>` drops
-the `BuildContext` it made, so the regions holding a component's effects are reachable only through
-the component it returned — a caller that mounts a panel and does not keep the reference has a
-subtree that stops updating whenever a collection runs, with nothing to see. `Vixen.Editor.Ui` keeps
-the field and says why; the framework should not need it to.
 
 **A component has no teardown hook.** `Region.Clear` disposes what the runtime registered — effects
 and two-way subscriptions — and knows nothing about what a component subscribed to itself. Today

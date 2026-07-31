@@ -7,6 +7,7 @@ using Vixen.Editor.Inspector;
 using Vixen.Editor.Ui;
 using Vixen.Platform;
 using Vixen.Ui;
+using Vixen.Ui.Composition;
 using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.App;
@@ -45,7 +46,7 @@ sealed partial class EditorApplication {
     ///     mistake that took the editor down when the Scene tab was closed — see
     ///     <c>EditorApplication.Update</c>.
     /// </remarks>
-    UndoHistoryView? historyView;
+    UndoHistory? historyView;
 
     /// <summary>What the preferences panel is called in an arrangement.</summary>
     internal const string PreferencesPanel = "preferences";
@@ -163,7 +164,7 @@ sealed partial class EditorApplication {
                 HistoryPanel,
                 EditorStrings.PanelHistory,
                 panel => {
-                    historyView = panel.Add<UndoHistoryView>();
+                    historyView = BuildContext.Build<UndoHistory>(Shell.Document, panel);
 
                     // ⚠ Asked every refresh rather than handed a stack. The inspector arbitrates
                     // between several selections and so must this: a history pointed at the editor's

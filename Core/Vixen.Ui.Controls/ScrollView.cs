@@ -197,6 +197,10 @@ public sealed partial class ScrollView : Control {
     /// <summary>Where the content goes.</summary>
     public UiElement Content { get; private set; } = null!;
 
+    /// <inheritdoc />
+    /// <remarks>So that markup written inside a <c>&lt;ScrollView&gt;</c> is what scrolls.</remarks>
+    protected override UiElement ContentHost => Content;
+
     /// <summary>The bar down the right.</summary>
     public ScrollBar VerticalBar { get; private set; } = null!;
 

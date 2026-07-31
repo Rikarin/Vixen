@@ -302,6 +302,37 @@ public sealed class EditorSession : IDisposable {
         return Find<T>(Panel(id)) ?? throw Fail($"The '{id}' panel has no {typeof(T).Name} in it.");
     }
 
+    /// <summary>The one VXML component of a type inside a panel, opening the panel if it is closed.</summary>
+    /// <typeparam name="T">What to look for.</typeparam>
+    /// <param name="id">Which panel.</param>
+    /// <returns>The component.</returns>
+    /// <remarks>
+    ///     ⚠ <b><see cref="Control{T}" />'s counterpart, and it needs to exist because a component
+    ///     is not an element.</b> A panel written in C# <i>is</i> the control a suite reaches for; a
+    ///     panel written in VXML is an object beside the elements it drew, so the walk asks the
+    ///     document which component each element is the host of rather than testing the element's
+    ///     own type.
+    /// </remarks>
+    public T Component<T>(string id) where T : Vixen.Ui.Composition.Component {
+        Open(id);
+
+        return Mounted<T>(Panel(id)) ?? throw Fail($"The '{id}' panel has no {typeof(T).Name} in it.");
+    }
+
+    T? Mounted<T>(UiElement element) where T : Vixen.Ui.Composition.Component {
+        if (Document.ComponentAt(element) is T match) {
+            return match;
+        }
+
+        foreach (var child in element.Children) {
+            if (Mounted<T>(child) is { } found) {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>Everything inside a panel, as a subject to select within.</summary>
     /// <param name="id">Which panel.</param>
     /// <returns>A subject over the panel itself; chain <c>Find</c> from it.</returns>

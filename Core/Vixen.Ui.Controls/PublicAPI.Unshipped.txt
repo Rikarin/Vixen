@@ -750,6 +750,7 @@ override Vixen.Ui.Controls.Pagination.OnCreated() -> void
 override Vixen.Ui.Controls.Pagination.TagName.get -> string
 override Vixen.Ui.Controls.Panel.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Panel.TagName.get -> string
+override Vixen.Ui.Controls.Popover.ContentHost.get -> Vixen.Ui.UiElement
 override Vixen.Ui.Controls.Popover.OnCreated() -> void
 override Vixen.Ui.Controls.Popover.TagName.get -> string
 override Vixen.Ui.Controls.ProgressBar.AcceptsFocus.get -> bool
@@ -771,6 +772,7 @@ override Vixen.Ui.Controls.ScrollBar.OnCreated() -> void
 override Vixen.Ui.Controls.ScrollBar.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.ScrollBar.TagName.get -> string
 override Vixen.Ui.Controls.ScrollView.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.ScrollView.ContentHost.get -> Vixen.Ui.UiElement
 override Vixen.Ui.Controls.ScrollView.OnCreated() -> void
 override Vixen.Ui.Controls.ScrollView.OnRemoved() -> void
 override Vixen.Ui.Controls.ScrollView.TagName.get -> string

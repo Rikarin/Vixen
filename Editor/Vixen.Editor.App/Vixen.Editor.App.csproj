@@ -177,4 +177,21 @@
         <InternalsVisibleTo Include="Vixen.Editor.Testing" />
     </ItemGroup>
 
+    <ItemGroup>
+        <!--
+            The VXML compiler. Analyzers do not flow transitively through a ProjectReference, so an
+            assembly with `.vxml` in it names the generator the same way it names the others above.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Markup.Generators\Vixen.Ui.Markup.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <!--
+        What a PackageReference to Vixen.Ui would have imported: the **/*.vxml glob and the two
+        properties the generator asks MSBuild for. At the bottom of the file, because the glob has
+        to run after DefaultItemExcludes is final.
+    -->
+    <Import Project="..\..\Core\Vixen.Ui\build\Vixen.Ui.targets" />
+
 </Project>

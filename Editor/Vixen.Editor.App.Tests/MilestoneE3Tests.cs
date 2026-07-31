@@ -277,6 +277,33 @@ public class MilestoneE3Tests {
         Assert.Empty(log.Shown);
     }
 
+    /// <summary>
+    ///     An edit made while the panel is open reaches it, and nothing asked it to look.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The point of the panel being markup rather than a control.</b> It used to compare
+    ///     the stack, its count and its depth once a frame and rewrite every row when any of them
+    ///     moved — the panel's own remarks called the polling out and blamed it on nothing in the
+    ///     editor's loop flushing the reactive scheduler. The shell flushes now, <c>CommandStack</c>
+    ///     was always signal-backed, and this asserts the consequence: a row appears because a
+    ///     signal changed, not because a frame went looking.
+    /// </remarks>
+    [Fact]
+    public void An_edit_made_while_the_history_is_open_appears_in_it() {
+        using var fixture = EditorSession.Start();
+
+        fixture.Run("edit.undo-history");
+        var view = fixture.Component<UndoHistory>("history");
+
+        // Just the row for where the document started.
+        Assert.Equal(1, view.Count);
+
+        fixture.Run("scene.create-entity");
+        fixture.Settle();
+
+        Assert.Equal(2, view.Count);
+    }
+
     /// <summary>Part C's <b>Undo History⋯</b>, and the one operation an undo stack actually supports.</summary>
     /// <remarks>
     ///     ⚠ <b>Clicking an entry undoes back to it rather than undoing that one.</b> Removing the
@@ -294,7 +321,7 @@ public class MilestoneE3Tests {
 
         fixture.Run("edit.undo-history");
 
-        var view = fixture.Control<UndoHistoryView>("history");
+        var view = fixture.Component<UndoHistory>("history");
 
         // Three edits, plus the row for where the document was before any of them.
         Assert.Equal(4, view.Count);

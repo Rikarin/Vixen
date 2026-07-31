@@ -1,0 +1,172 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+@component UndoHistory
+@namespace Vixen.Editor.App
+@tag history-view
+@using Vixen.Editor.Core
+@using Vixen.Editor.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<history-toolbar>
+    <TextBlock>@EditorStrings.HistoryHint.Text</TextBlock>
+</history-toolbar>
+
+<ScrollView>
+    <!--
+        The first row is where the document was before anything was done to it, which is the one
+        place a history has to be able to get back to and the one that is not an entry.
+    -->
+    <Button class="history-entry @Mark(0)"
+            Variant="Subtle"
+            Label="@EditorStrings.HistoryOriginal.Text"
+            Disabled="@(Stack is null)"
+            on:click="@(() => Rewind(0))" />
+
+    @for (var entry in Entries) {
+        <Button key="@entry"
+                class="history-entry @Mark(entry.Slot)"
+                Variant="Subtle"
+                Label="@entry.Name"
+                on:click="@(() => Rewind(entry.Slot))" />
+    }
+</ScrollView>
+
+@code {
+    /// <summary>One row: what the command was called, and how far back clicking it goes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A record with the slot in it, because <c>@for</c> keys on the item.</b> Keying on
+    ///     the <c>IEditorCommand</c> would be keying on the command <i>object</i>, and the same
+    ///     command instance can appear twice in a history — "Move" pushed, undone, and pushed again
+    ///     — which the reconciler would read as one row that had not moved.
+    /// </remarks>
+    sealed record Entry(int Slot, string Name);
+
+    /// <summary>Bumped when the stack being shown is a different object than last time.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The only thing left that has to be polled, and it is about *which* stack.</b> What
+    ///     is on the stack is signal-backed — <c>CommandStack.Depth</c> is a <c>Computed</c> — so
+    ///     every binding below re-runs on its own when an edit is pushed, undone or redone. Which
+    ///     stack the panel is looking at is a plain delegate the application re-points when the
+    ///     active document changes, and nothing tells anybody about that.
+    /// </remarks>
+    readonly Signal<int> swapped = new(0);
+
+    Func<CommandStack?>? source;
+    CommandStack? watched;
+
+    /// <summary>Which stack it is showing, or <see langword="null" /> when there is none.</summary>
+    public CommandStack? Stack {
+        get {
+            _ = swapped.Value;
+            return source?.Invoke();
+        }
+    }
+
+    /// <summary>Points the panel at whichever stack is current.</summary>
+    /// <param name="stack">
+    ///     Asked every refresh rather than held, because the active document changes and a panel
+    ///     holding one stack would go on showing a closed document's history.
+    /// </param>
+    public void Show(Func<CommandStack?> stack) {
+        ArgumentNullException.ThrowIfNull(stack);
+
+        source = stack;
+        watched = stack();
+        swapped.Value++;
+    }
+
+    /// <summary>Notices that the application has pointed the panel at a different stack.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What is left of a method that used to rebuild the whole list every frame.</b> It
+    ///     compared the stack, its entry count and its depth, and rewrote every row when any of
+    ///     them moved — because at the time nothing in the editor's loop flushed the reactive
+    ///     scheduler, so a signal-backed stack could not drive a view. The shell flushes now, so
+    ///     the counts and the depth arrive by themselves and this is one reference comparison.
+    /// </remarks>
+    public void Tick() {
+        var current = source?.Invoke();
+
+        if (ReferenceEquals(current, watched)) {
+            return;
+        }
+
+        watched = current;
+        swapped.Value++;
+    }
+
+    /// <summary>The entries, oldest first, each knowing the depth it rewinds to.</summary>
+    IEnumerable<Entry> Entries {
+        get {
+            if (Stack is not { } stack) {
+                yield break;
+            }
+
+            // Read inside the loop's own effect, so that pushing or undoing rebuilds it. `History`
+            // is a plain list over the same field the computed reads, and only this subscribes.
+            _ = stack.Depth.Value;
+
+            var history = stack.History;
+
+            for (var index = 0; index < history.Count; index++) {
+                yield return new(index + 1, history[index].Name);
+            }
+        }
+    }
+
+    /// <summary>The class marking the row the document is currently at, if this is it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A class rather than <c>ElementState.Checked</c>, which is what this used to set and
+    ///     what nothing drew.</b> There is no <c>button:checked</c> rule
+    ///     outside the toolbar, so the marker the class remarks call "the only thing here that
+    ///     answers what have I not saved" was invisible for as long as the panel has existed. A
+    ///     class the editor's stylesheet has a rule for is the fix; writing <c>State</c> from
+    ///     markup would also mean assigning the whole flags value and clobbering hover and active.
+    /// </remarks>
+    string Mark(int slot) => Stack is { } stack && slot == stack.Depth.Value ? "current" : string.Empty;
+
+    /// <summary>How many rows the list is showing, for a test to count.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The elements, not the model.</b> Counting <c>Entries</c> would be asking the panel
+    ///     to confirm its own arithmetic; what a test wants to know is whether the rows were
+    ///     drawn — which for a <c>@for</c> means the effect ran, which means the frame flushed.
+    /// </remarks>
+    public int Count {
+        get {
+            foreach (var child in Root.Children) {
+                if (child is ScrollView list) {
+                    return list.Content.Children.Count;
+                }
+            }
+
+            return 0;
+        }
+    }
+
+    /// <summary>Undoes or redoes until the stack is at a depth.</summary>
+    /// <param name="depth">How many entries should be undoable afterwards.</param>
+    /// <remarks>
+    ///     ⚠ <b>Bounded by the number of entries rather than by "until it stops".</b> A stack that
+    ///     refused an undo — a command that threw on the way back — would otherwise be a loop in the
+    ///     frame thread, and a history panel is the last place that should be able to hang the editor.
+    /// </remarks>
+    public void Rewind(int depth) {
+        if (Stack is not { } stack) {
+            return;
+        }
+
+        for (var guard = stack.History.Count + stack.Depth.Value; guard >= 0 && stack.Depth.Value > depth; guard--) {
+            if (!stack.Undo()) {
+                break;
+            }
+        }
+
+        for (var guard = stack.History.Count; guard >= 0 && stack.Depth.Value < depth; guard--) {
+            if (!stack.Redo()) {
+                break;
+            }
+        }
+    }
+}

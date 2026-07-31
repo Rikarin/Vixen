@@ -297,6 +297,10 @@ public sealed partial class Popover : Overlay {
     public UiElement Content { get; private set; } = null!;
 
     /// <inheritdoc />
+    /// <remarks>So that markup written inside a <c>&lt;Popover&gt;</c> lands in its panel.</remarks>
+    protected override UiElement ContentHost => Content;
+
+    /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
         Content = Part("popover-content");

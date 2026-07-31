@@ -326,8 +326,17 @@ public sealed class BuildContext {
     }
 
     /// <inheritdoc cref="Inner(Component)" />
-    /// <param name="element">The element, whose children are its children.</param>
-    public static UiElement Inner(UiElement element) => element;
+    /// <param name="element">The element, or the part it keeps its content in.</param>
+    /// <remarks>
+    ///     <see cref="UiElement.ContentHost" />, which is the element itself for everything that
+    ///     does not have a scrolling viewport or a panel to put content in — and is that part for
+    ///     the ones that do. A <c>&lt;ScrollView&gt;</c> whose markup children hung off the control
+    ///     rather than off its viewport would put them beside the scrollbars.
+    /// </remarks>
+    public static UiElement Inner(UiElement element) {
+        ArgumentNullException.ThrowIfNull(element);
+        return element.ContentHost;
+    }
 
     /// <summary>Teaches the runtime an event name, or changes what one already means.</summary>
     /// <param name="name">The name, as written after <c>on:</c>.</param>

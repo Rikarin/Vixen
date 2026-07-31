@@ -28,6 +28,7 @@ the same reason. With no `--frames` it runs until the window closes.
 | `EditorSettings.cs` | the settings assets the editor ships: three of the project's and one of the user's |
 | `EditorBuilds.cs` | the Build Settings panel, Build and Run, and what Deploy means for a device |
 | `BuildSettingsView.cs` | doc 20's B7 window: target, configuration, scenes-in-build, output path |
+| `UndoHistory.vxml` | the undo history panel — the first of this assembly's panels written in markup |
 | `SearchSources.cs` | what `Ctrl+Shift+F` looks in that is not a command |
 | `SceneEntity.cs` | the join: one entity as a row of editors and as something a gizmo can drag |
 
@@ -183,6 +184,32 @@ closes. `Ctrl+S` saves; the menu item greys itself out from the document's own d
 ⚠ **The seeded scene is scanned a second time, and has to be.** `EditorProject.Open` indexes the
 project before that file is written, so without the rescan a first run shows a browser with no scene
 in it — the one file the editor is certain exists, because it just made it.
+
+## Panels written in markup
+
+`UndoHistory.vxml` is the first, and the reason to start with it is that it is the one panel whose
+model was already reactive: `CommandStack.Depth` is a `Computed`, so every binding re-runs when an
+edit is pushed, undone or redone. What it was before is a `Control` that compared the stack, its
+entry count and its depth **once a frame** and rewrote every row when any of them moved — and its
+own remarks said why: *"a stack is signal-backed and nothing in the editor's loop flushes the
+reactive scheduler, so polling is the same trade this application already makes"*. The shell flushes
+now (`EditorShell.Tick` drains `Document.Effects`), so that trade is off. What is left of `Tick` is
+one reference comparison, and it is there for the one thing that is genuinely not a signal: which
+document's stack the panel is pointed at.
+
+⚠ **Two things the old panel claimed and did not draw**, both found by rewriting it rather than by
+reading it:
+
+- Surplus rows were "hidden" with `AddClass("hidden")`, and nothing in the editor declares a
+  `.hidden` rule — the class is a *utility*, and the editor does not load the utility sheet. A
+  shrinking history left rows on screen. `@for` removes them from the tree instead, so the bug
+  cannot come back.
+- The row marking where the document is now set `ElementState.Checked`, and there is no
+  `button:checked` rule outside the toolbar. The marker the panel's remarks call "the only thing
+  here that answers what have I not saved" has never been visible. It is a class now, with a rule.
+
+Both were invisible to the test, which counted rows by asking the view rather than the tree.
+`UndoHistory.Count` counts the elements in the scroll view.
 
 ## The Scene menu
 

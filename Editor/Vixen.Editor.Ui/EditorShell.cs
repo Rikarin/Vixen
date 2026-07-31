@@ -54,11 +54,8 @@ public sealed class EditorShell : IDisposable {
 
     /// <summary>The task centre, which is a VXML component rather than a control.</summary>
     /// <remarks>
-    ///     ⚠ <b>Held, and not because anything calls it.</b> The elements a component builds are in
-    ///     the document; its <i>effects</i> are not, and what keeps them alive is the component —
-    ///     so a field that looks unused is what stops the panel silently freezing whenever a
-    ///     collection happens to run. That the framework leaves this to the caller is noted as owed
-    ///     in <c>Vixen.Ui</c>'s README.
+    ///     Held for <see cref="Show" />'s sake and nothing else. Keeping a mounted component alive
+    ///     is <see cref="UiDocument.ComponentAt" />'s job now, not the caller's.
     /// </remarks>
     readonly TaskCenter taskCenter;
 
