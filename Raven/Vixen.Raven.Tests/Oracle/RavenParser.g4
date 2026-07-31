@@ -42,8 +42,13 @@ attribute_argument
     : name_colon? expression
     ;
 
+// A newline inside the parentheses is layout, not a terminator: after the `(`,
+// after each `,` and before the `)`. A signature wide enough to need it is a
+// signature that would otherwise have to be written on one very long line, and
+// nothing else in the grammar can start with `,` or `)`, so the NLs cannot be
+// mistaken for the end of anything.
 parameter_list
-    : '(' (parameter (',' parameter)*)? ')'
+    : '(' NL* (parameter (',' NL* parameter)* NL*)? ')'
     ;
 
 parameter
@@ -205,8 +210,11 @@ variable_declaration
     : (VAR | VAL) identifier_token (':' type)? equals_value_clause?
     ;
 
+// The call side of `parameter_list`'s NLs, in the same three positions and for the
+// same reason: a call whose declaration had to be broken over lines is a call that
+// has to be too.
 argument_list
-    : '(' (argument (',' argument)*)? ')'
+    : '(' NL* (argument (',' NL* argument)* NL*)? ')'
     ;
 
 argument

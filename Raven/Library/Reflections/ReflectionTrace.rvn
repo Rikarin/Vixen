@@ -129,10 +129,18 @@ shader ReflectionProbeMissSource : IReflectionMissSource {
                     if (volume.radius > 0f) {
                         corrected = Ibl.ParallaxCorrectSphere(direction, position, volume.center, volume.radius)
                     } else {
-                        corrected = Ibl.ParallaxCorrect(direction, position, ProbeBox(volume.minimum, volume.maximum, volume.center))
+                        corrected = Ibl.ParallaxCorrect(
+                            direction,
+                            position,
+                            ProbeBox(volume.minimum, volume.maximum, volume.center)
+                        )
                     }
 
-                    val sample = missProbes[index].SampleLevel(missProbeSampler, corrected, roughness * (volume.mipCount - 1f))
+                    val sample = missProbes[index].SampleLevel(
+                        missProbeSampler,
+                        corrected,
+                        roughness * (volume.mipCount - 1f)
+                    )
 
                     return lerp(missFarColor, sample.rgb, weight)
                 }
@@ -534,7 +542,14 @@ shader ReflectionTrace {
             }
         }
 
-        val hit = distanceField.TraceField(position + normal * bias, mirror, maxDistance, maxSteps, surfaceThreshold, stepScale)
+        val hit = distanceField.TraceField(
+            position + normal * bias,
+            mirror,
+            maxDistance,
+            maxSteps,
+            surfaceThreshold,
+            stepScale
+        )
         var sharp = miss.MissRadiance(position, mirror, roughness)
 
         if (hit.hit) {

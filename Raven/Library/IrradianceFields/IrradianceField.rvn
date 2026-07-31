@@ -154,7 +154,14 @@ struct IrradianceField {
     /// Four and not six: validity rides in the constant volume's alpha and the sun's shadow in the red
     /// channel's, because both are one number a probe and a fifth texture for each would be two more
     /// fetches at every shaded pixel.
-    static func Read(l0: Texture3D, l1r: Texture3D, l1g: Texture3D, l1b: Texture3D, s: Sampler, uvw: float3): IrradianceProbe {
+    static func Read(
+        l0: Texture3D,
+        l1r: Texture3D,
+        l1g: Texture3D,
+        l1b: Texture3D,
+        s: Sampler,
+        uvw: float3
+    ): IrradianceProbe {
         val a = l0.SampleLevel(s, uvw, 0f)
         val r = l1r.SampleLevel(s, uvw, 0f)
         val g = l1g.SampleLevel(s, uvw, 0f)

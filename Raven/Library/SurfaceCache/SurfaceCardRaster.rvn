@@ -30,7 +30,12 @@ shader SurfaceCardRaster {
 
     [VertexShader]
     [Semantic("SV_Position")]
-    func Vertex([Semantic("POSITION")] position: float3, [Semantic("NORMAL")] normal: float3, [Semantic("COLOR")] albedo: float4, [Semantic("COLOR1")] emissive: float4): float4 {
+    func Vertex(
+        [Semantic("POSITION")] position: float3,
+        [Semantic("NORMAL")] normal: float3,
+        [Semantic("COLOR")] albedo: float4,
+        [Semantic("COLOR1")] emissive: float4
+    ): float4 {
         capturedNormal = normal
         capturedAlbedo = albedo
         capturedEmissive = emissive

@@ -219,7 +219,13 @@ shader ForwardPlus : ClusteredShading {
     /// two variants differ only in where the matrix comes from.
     [VertexShader]
     [Semantic("SV_Position")]
-    func Vertex(position: float3, normal: float3, tangent: float4, texcoord: float2, [Semantic("SV_InstanceID")] instance: int): float4 {
+    func Vertex(
+        position: float3,
+        normal: float3,
+        tangent: float4,
+        texcoord: float2,
+        [Semantic("SV_InstanceID")] instance: int
+    ): float4 {
         // Whichever way the host sends it. The permutation folds, so the variant that pushes has no
         // buffer read and the variant that reads has no push — rather than a branch every vertex takes
         // on a value that is the same for the whole frame.

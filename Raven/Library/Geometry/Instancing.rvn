@@ -75,7 +75,12 @@ struct Instancing {
     ///
     /// Returns 0..1 to drive alpha or a dither threshold. A hard cull is visible at any distance
     /// because the instance is exactly as big as the pixels it covers when it disappears.
-    static func DistanceFade(instancePosition: float3, cameraPosition: float3, fadeStart: float, fadeEnd: float): float {
+    static func DistanceFade(
+        instancePosition: float3,
+        cameraPosition: float3,
+        fadeStart: float,
+        fadeEnd: float
+    ): float {
         val distance = length(instancePosition - cameraPosition)
         return 1f - saturate(Math.InverseLerp(fadeStart, fadeEnd, distance))
     }

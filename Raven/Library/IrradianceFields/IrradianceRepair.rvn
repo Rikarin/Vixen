@@ -384,6 +384,9 @@ shader IrradianceRepair {
         }
 
         // Negated, so this pass cannot read what this pass wrote. `Promote` turns it back.
-        Write(texel, IrradianceProbe(repair.l00, repair.l1m1, repair.l10, repair.l11, -repair.validity, repair.sunShadow))
+        Write(
+            texel,
+            IrradianceProbe(repair.l00, repair.l1m1, repair.l10, repair.l11, -repair.validity, repair.sunShadow)
+        )
     }
 }

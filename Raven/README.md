@@ -203,6 +203,57 @@ struct Ray {
 The full syntax sample lives in [`Library/Example1.rvn`](Library/Example1.rvn), and a compute
 shader in [`Library/Example2.rvn`](Library/Example2.rvn).
 
+### Line breaks
+
+A newline ends a statement, so it is a terminator nearly everywhere. Inside the parentheses of a
+signature or a call it is layout instead, and a wide one may be broken over lines:
+
+```typescript
+shader Fade {
+    var world: mat4
+
+    static func March(
+        origin: float3,
+        direction: float3,
+        maxDistance: float,
+        maxSteps: int,
+        threshold: float
+    ): float3 {
+        var travelled = 0f
+
+        for (step in 0 .. maxSteps - 1) {
+            travelled = min(travelled + threshold, maxDistance)
+        }
+
+        return origin + normalize(direction) * travelled
+    }
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(position: float3, normal: float3): float4 {
+        val marched = March(
+            position,
+            normal,
+            4f,
+            8,
+            0.01f
+        )
+
+        return world * float4(marched, 1f)
+    }
+}
+```
+
+**Three positions, not "anywhere inside the parens"**: after the `(`, after each `,`, and before
+the `)`. Nothing in the grammar begins with a `,` or a `)`, so a newline in front of one cannot be
+the end of anything — which is what makes these three safe and the rest not. A newline in the
+middle of a parameter or an argument is still a terminator, and still an error.
+
+Nothing else changes: the newlines are trivia, so the tree still reproduces the file, and a
+signature reads the same to a caller, to the reflection and to both backends however it is laid
+out. The eleven-parameter signatures in `Library/DistanceFields/DistanceField.rvn` are what wanted
+this — they ran past 120 columns with nowhere to break.
+
 ### `compose`
 
 A `compose` slot is a protocol-typed member filled by a concrete shader chosen when the shader is
