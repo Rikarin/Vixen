@@ -649,6 +649,7 @@ Vixen.Ui.UiDocument.CapturePointer(Vixen.Ui.UiElement element) -> void
 Vixen.Ui.UiDocument.Captured.get -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.ColorOf(Vixen.Ui.Styling.ComputedStyle style, int property) -> Vixen.Core.Mathematics.Color4?
 Vixen.Ui.UiDocument.CompactStyles() -> bool
+Vixen.Ui.UiDocument.ComponentAt(Vixen.Ui.UiElement element) -> Vixen.Ui.Composition.Component?
 Vixen.Ui.UiDocument.Create(string tag, Vixen.Ui.UiElement? parent, string? id = null, params System.ReadOnlySpan<string> classNames) -> Vixen.Ui.UiElement
 Vixen.Ui.UiDocument.Create<T>(string? tag, Vixen.Ui.UiElement? parent, string? id = null, params System.ReadOnlySpan<string> classNames) -> T
 Vixen.Ui.UiDocument.CreateSurface(float width, float height, float dpiScale = 1, Vixen.Ui.UiElement? owner = null) -> Vixen.Ui.UiSurface
@@ -917,6 +918,7 @@ static readonly Vixen.Ui.UiElement.TextProperty -> Vixen.Ui.UiPropertyKey
 virtual Vixen.Ui.Composition.Component.Style.get -> string?
 virtual Vixen.Ui.Composition.Component.StyleIsScoped.get -> bool
 virtual Vixen.Ui.Composition.Component.TagName.get -> string
+virtual Vixen.Ui.UiElement.ContentHost.get -> Vixen.Ui.UiElement
 virtual Vixen.Ui.UiElement.OnCreated() -> void
 virtual Vixen.Ui.UiElement.OnDraw(Vixen.Ui.DrawContext context) -> void
 virtual Vixen.Ui.UiElement.OnPropertyChanged(Vixen.Ui.UiPropertyKey key) -> void

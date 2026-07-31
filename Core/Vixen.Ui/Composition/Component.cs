@@ -85,6 +85,11 @@ public abstract class Component : IComposable {
         Content = root;
         Slots = null;
 
+        // ⚠ Before `Build`, so that a component reachable from its host is reachable for the whole
+        // of the build rather than only afterwards — and so that a component whose own markup asks
+        // the document about an ancestor gets an answer.
+        ctx.Document.Mounted(root, this);
+
         // ⚠ Before `Build`, because `BuildContext.Element` reads it for every element the component
         // makes — and after it the component's own elements would already exist unscoped.
         if (Scope is { } scope) {

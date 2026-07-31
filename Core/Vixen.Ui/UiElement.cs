@@ -94,6 +94,24 @@ public partial class UiElement : Composition.IComposable {
     /// </remarks>
     protected internal virtual string TagName => "div";
 
+    /// <summary>Where content written inside this element's tag actually goes.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Itself, for everything that is only an element. A control with a scrolling viewport,
+    ///         a popover with a panel, a card with a body — anything whose visible interior is a
+    ///         <i>part</i> rather than the control — answers with that part.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The control-side mirror of <c>Component.Content</c>, and markup is what needs
+    ///         it.</b> <c>&lt;ScrollView&gt;&lt;row /&gt;&lt;/ScrollView&gt;</c> means the row is in
+    ///         the scrolled area; hung off the control itself it would sit beside the viewport and
+    ///         the scrollbars, be laid out by neither, and never move when the view scrolled. Code
+    ///         that builds by hand writes <c>view.Content.Add(…)</c> and says the same thing;
+    ///         markup has no <c>.Content</c> to write, so the element answers for itself.
+    ///     </para>
+    /// </remarks>
+    protected internal virtual UiElement ContentHost => this;
+
     /// <summary>Its parent, or <c>null</c> for the root.</summary>
     public UiElement? Parent { get; private set; }
 

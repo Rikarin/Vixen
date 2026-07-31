@@ -1241,6 +1241,22 @@ public static class EditorTheme {
         plugin-toolbar search-box, history-toolbar search-box { flex-grow: 1; min-width: 80px; }
         plugin-manager data-grid, history-view data-grid { flex-grow: 1; flex-basis: 0px; min-height: 0px; }
 
+        /* ⚠ The history is a list of buttons in a scroll view rather than a grid, and the rule
+           above never matched it. Its rows were unstyled, its surplus rows were "hidden" by a
+           class nothing declares, and the row saying where the document is now set `:checked`,
+           which no button rule outside the toolbar draws — so all three were invisible. The
+           first two went away with the rewrite (a row that leaves the list leaves the tree);
+           this is the third. */
+        history-view scroll-view { flex-grow: 1; flex-basis: 0px; min-height: 0px; }
+
+        .history-entry {
+            justify-content: flex-start;
+            border-radius: 0px;
+            flex-shrink: 0;
+        }
+
+        .history-entry.current { background-color: var(--accent-soft); color: var(--text); }
+
         plugin-detail {
             flex-direction: column;
             flex-shrink: 0;

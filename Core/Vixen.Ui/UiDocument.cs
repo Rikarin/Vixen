@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using Vixen.Ui.Layout;
 using Vixen.Ui.Styling;
 using Vixen.Ui.Text;
@@ -124,6 +125,46 @@ public sealed partial class UiDocument : IDisposable {
 
     /// <summary>The cascade.</summary>
     public StyleEngine Styles { get; }
+
+    /// <summary>Which component built which element, for the elements that are a component's host.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Weak on the element, which is what makes this bookkeeping-free.</b> A component is
+    ///     reachable for exactly as long as the element it drew itself into is, so a branch that
+    ///     leaves the tree takes its component with it and nothing has to be told. A dictionary
+    ///     would need an entry removed at every place an element can go, and the one that was
+    ///     forgotten would be a leak nobody could see.
+    /// </remarks>
+    readonly ConditionalWeakTable<UiElement, Composition.Component> components = [];
+
+    /// <summary>The component whose host this element is, if it is one.</summary>
+    /// <param name="element">The element.</param>
+    /// <returns>The component, or null when the element is not a component's host.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         The question every caller of a mounted component eventually asks. A component is not
+    ///         an element, so a panel that was handed one and a test that goes looking for one have
+    ///         no way back from the tree to the object — which is what a control gives for free
+    ///         simply by <i>being</i> the element.
+    ///     </para>
+    ///     <para>
+    ///         It is also what keeps a mounted component alive. Its elements are in the document and
+    ///         its <i>effects</i> are not: before this, the only thing holding a panel's bindings was
+    ///         whatever reference the caller happened to keep, so a caller that mounted a component
+    ///         and dropped it had a subtree that stopped updating at the next collection.
+    ///     </para>
+    /// </remarks>
+    public Composition.Component? ComponentAt(UiElement element) {
+        ArgumentNullException.ThrowIfNull(element);
+        return components.TryGetValue(element, out var component) ? component : null;
+    }
+
+    /// <summary>Records that a component drew itself into an element.</summary>
+    /// <remarks>
+    ///     <c>AddOrUpdate</c> rather than <c>Add</c>: a hot reload re-mounts the same component onto
+    ///     the same host, and a second <c>Add</c> for one key throws.
+    /// </remarks>
+    internal void Mounted(UiElement host, Composition.Component component) =>
+        components.AddOrUpdate(host, component);
 
     /// <summary>Where this document's bindings queue, and what a frame drains.</summary>
     /// <remarks>
