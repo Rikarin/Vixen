@@ -149,6 +149,15 @@ export interface GuidePage {
   Body: string;
   Headings: GuideHeading[];
   Edit?: string;
+
+  /**
+   * Classified fences, keyed by the fence's position in the body — § 3.4.
+   *
+   * Absent for a language the build has no lexer for, and absent entirely for a page whose fences
+   * are all in one. The renderer falls back to plain text rather than guessing, which is the honest
+   * state for a language nothing has read.
+   */
+  Tokens?: Record<string, DocSpan[][]>;
 }
 
 export interface GuideSummary {
@@ -183,6 +192,14 @@ export function slugOf(documentationId: string): string {
 
   return namespace.length === 0 ? sanitise(type) : `${sanitise(namespace)}/${sanitise(type)}`;
 }
+
+/**
+ * One row of the eager search tier — `[name, qualifiedName, kind, slug, usedBy]`, § Part 7.
+ *
+ * A tuple rather than an object, and the reason is 3 681 of them: property names repeated that many
+ * times are the difference between a tier that loads on a keystroke and one that does not.
+ */
+export type SearchName = [name: string, qualifiedName: string, kind: string, slug: string, usedBy: number];
 
 // ── Releases — § 6 ────────────────────────────────────────────────────────────────────────────
 

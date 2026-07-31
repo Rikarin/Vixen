@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Router, RouterLink, RouterOutlet } from '@angular/router';
+import { XuiTree, XuiTreeRouter, type XuiTreeNode } from '@xui/tree';
+import { Omnibar } from '../shared/omnibar';
 import { GRAPH, GUIDE } from '../../generated/manifest';
 import { RELEASES } from '../../generated/releases';
 import { TAXONOMY } from '../core/model';
@@ -17,7 +19,7 @@ import { TAXONOMY } from '../core/model';
 @Component({
   selector: 'docs-layout',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, XuiTree, XuiTreeRouter, Omnibar],
   template: `
     <div class="min-h-full">
       <header class="border-border bg-background/80 sticky top-0 z-20 border-b backdrop-blur">
@@ -32,10 +34,12 @@ import { TAXONOMY } from '../core/model';
             <a routerLink="/docs/releases" class="hover:text-foreground transition-colors">Releases</a>
           </nav>
 
+          <docs-omnibar class="ms-auto" />
+
           <!-- The version switcher — § 6.3. A plain <select> with a form action so it works with
                JavaScript off, which is the site's rule and not a detail here: a reader on an old
                version is often reading from a machine they do not control. -->
-          <div class="ms-auto flex items-center gap-3">
+          <div class="flex items-center gap-3">
             @if (releases.length > 0) {
               <label class="text-foreground-subtle flex items-center gap-2 text-xs">
                 <span class="sr-only">Version</span>
@@ -57,57 +61,17 @@ import { TAXONOMY } from '../core/model';
 
       <div class="mx-auto flex max-w-[100rem] gap-8 px-4 py-8">
         <aside class="hidden w-64 shrink-0 lg:block">
-          <nav class="sticky top-24 max-h-[calc(100vh-8rem)] space-y-6 overflow-y-auto pe-2">
-            @if (guide.length > 0) {
-              <div>
-                <p class="text-foreground-subtle mb-2 text-xs font-semibold tracking-wide uppercase">Guide</p>
-                <ul class="space-y-1">
-                  @for (page of guide; track page.slug) {
-                    <li>
-                      <a
-                        [routerLink]="['/docs/guide', page.slug]"
-                        routerLinkActive="text-foreground font-medium"
-                        class="text-foreground-muted hover:text-foreground block truncate text-sm transition-colors"
-                      >
-                        {{ page.title }}
-                      </a>
-                    </li>
-                  }
-                </ul>
-              </div>
-            }
-
-            <div>
-              <p class="text-foreground-subtle mb-2 text-xs font-semibold tracking-wide uppercase">By kind</p>
-              <ul class="space-y-1">
-                @for (entry of taxonomy; track entry.slug) {
-                  <li>
-                    <a
-                      [routerLink]="['/docs', entry.slug]"
-                      routerLinkActive="text-foreground font-medium"
-                      class="text-foreground-muted hover:text-foreground flex items-center justify-between gap-2 text-sm transition-colors"
-                    >
-                      <span class="truncate">{{ entry.title }}</span>
-                      <span class="text-foreground-subtle text-xs">{{ countOf(entry.kind) }}</span>
-                    </a>
-                  </li>
-                }
-              </ul>
-            </div>
-
-            <div>
-              <!-- ⚠ Not the namespace list. Rendering 364 links into every one of 3 939 prerendered
-                   pages cost 90 kB of HTML each — more than the page — for a list nobody reads from
-                   a symbol page. It lives on the API index, which is one click away and is the page
-                   that exists to hold it. -->
-              <a
-                routerLink="/docs/api"
-                class="text-foreground-muted hover:text-foreground flex items-center justify-between gap-2 text-sm transition-colors"
-              >
-                <span>All namespaces</span>
-                <span class="text-foreground-subtle text-xs">{{ namespaces.length }}</span>
-              </a>
-            </div>
+          <!-- X6: xuiTreeRouter reads the active node off the router and keeps the expansion a
+               reader chose, which a list of links rebuilt on every navigation cannot. persistKey is
+               what makes an opened section survive the next page. -->
+          <nav class="sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto pe-2" aria-label="Documentation">
+            <xui-tree
+              xuiTreeRouter
+              persistKey="vixen-docs-nav"
+              ariaLabel="Documentation"
+              [nodes]="tree"
+              [nodeLink]="linkOf"
+            />
           </nav>
         </aside>
 
@@ -129,9 +93,41 @@ export class DocsLayout {
 
   private readonly router = inject(Router);
 
-  protected countOf(kind: string): number {
-    return GRAPH.counts[kind] ?? 0;
-  }
+  /**
+   * The nav, built from the manifest rather than written down — § 8.2.
+   *
+   * ⚠ Not the namespace list. Rendering 244 links into every one of 3 940 prerendered pages cost
+   * 90 kB of HTML each — more than the page — for a list nobody reads from a symbol page. It lives
+   * on the API index, which is one click away and is the page that exists to hold it.
+   */
+  protected readonly tree: XuiTreeNode[] = [
+    ...(GUIDE.length > 0
+      ? [
+          {
+            id: 'guide',
+            label: 'Guide',
+            isExpanded: true,
+            children: GUIDE.map(page => ({ id: `guide/${page.slug}`, label: page.title }))
+          }
+        ]
+      : []),
+    {
+      id: 'kinds',
+      label: 'By kind',
+      isExpanded: true,
+      children: TAXONOMY.map(entry => ({
+        id: entry.slug,
+        label: entry.title,
+        secondaryLabel: String(GRAPH.counts[entry.kind] ?? 0)
+      }))
+    },
+    { id: 'api', label: 'All namespaces', secondaryLabel: String(GRAPH.namespaces.length) },
+    { id: 'releases', label: 'Releases', secondaryLabel: String(RELEASES.length) }
+  ];
+
+  /** Where a node goes, and what the router matches the active one against. */
+  protected readonly linkOf = (node: XuiTreeNode): string | null =>
+    node.children ? null : `/docs/${node.id}`;
 
   /**
    * Picking a version goes to that release's table rather than to a pinned copy of this page.

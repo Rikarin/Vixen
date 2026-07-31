@@ -476,8 +476,8 @@ Phase 9 is the most complete phase in the repository — **all five exit criteri
 | `docs/manual/` — building a game and a server, diagnostic codes, log events | 🟡 (3 pages) |
 | `docs/rhi-backend-mapping.md` | ✅ |
 | ~~DocFX API reference~~ → generated from Roslyn symbols ([25](plan/25-documentation-generator-and-site.md), ADR-016) | ✅ ([Tools/Vixen.DocGen](../Tools/Vixen.DocGen/README.md)) — 3 679 nodes classified as what they are: 153 controls, 64 graph nodes, 36 systems, 30 shaders, 12 components, 10 importers, 8 diagnostics, 53 log events |
-| vixenengine.org — the site | ✅ ([www/](../www)) — Angular 22 on xUI, 3 938 routes prerendered to Cloudflare static assets, readable with JavaScript off |
-| Site search (FlexSearch over API + guide) | 🟡 — the MCP server indexes both; the site's ⌘K is P4 |
+| vixenengine.org — the site | ✅ ([www/](../www)) — Angular 22 on xUI 2.1.0, 3 940 routes prerendered to Cloudflare static assets, readable with JavaScript off. Code, prose, outline, nav tree and palette are all `@xui` packages; nothing is a stand-in |
+| Site search (FlexSearch over API + guide) | ✅ — 33 045 documents (types, 29 000 members, guide *sections*), exported at build time and read in a Web Worker; ⌘K, grouped results, kind chips, marked matches. 51 kB eager and 1 483 kB lazy against the 300 kB / 2 MB budgets |
 | Versioned docs and the release diff table | ✅ — [`docs/api-history/`](api-history/index.json) holds 0.1.0 (2.43 MB Brotli for the whole graph); `nuke Release` folds the API baselines, archives and writes the table into [CHANGELOG.md](../CHANGELOG.md) and `/docs/releases/<version>` |
 | `vixen-mcp` + the `vixen` skill | ✅ ([www/mcp](../www/mcp/README.md), [.claude/skills/vixen](../.claude/skills/vixen/SKILL.md)) — six tools over the graph: meta, search by kind, symbol, guide, examples, release diff |
 | Manual: getting started, per-subsystem guides, UI tutorial, Raven reference, Unity migration | 🟡 (2 pages of 3 679 types; the sweep is P7, gated by `docs/DocsExempt.txt`) |

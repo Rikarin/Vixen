@@ -3,6 +3,7 @@
 
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { XuiToc, type XuiTocEntry } from '@xui/toc';
 import { slugOf, type DocNode } from '../core/model';
 import { Breadcrumbs } from '../shared/breadcrumbs';
 import { KindBadge } from '../shared/kind-badge';
@@ -18,10 +19,11 @@ import { Signature } from '../shared/signature';
 @Component({
   selector: 'docs-symbol',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, Breadcrumbs, KindBadge, Signature],
+  imports: [RouterLink, Breadcrumbs, KindBadge, Signature, XuiToc],
   template: `
     @if (node(); as symbol) {
-      <article class="min-w-0 space-y-8">
+      <div class="flex gap-8">
+      <article class="min-w-0 flex-1 space-y-8">
         <header class="space-y-3">
           <docs-breadcrumbs
             [namespace]="symbol.Namespace"
@@ -46,10 +48,8 @@ import { Signature } from '../shared/signature';
             }
           </div>
 
-          <docs-signature
-            class="border-border bg-surface overflow-x-auto rounded-lg border p-4"
-            [spans]="symbol.Signature"
-          />
+          <!-- The declaration gets the full block: it is the one line on the page a reader copies. -->
+          <docs-signature [block]="true" [spans]="symbol.Signature" />
 
           @if (symbol.Summary) {
             <p class="text-foreground-muted leading-relaxed">{{ symbol.Summary }}</p>
@@ -57,7 +57,7 @@ import { Signature } from '../shared/signature';
 
           @if (symbol.Docs) {
             <p class="text-sm">
-              <a [routerLink]="['/docs/guide', symbol.Docs]" class="text-primary hover:underline">
+              <a [routerLink]="['/docs/guide', ...symbol.Docs.split('/')]" class="text-primary hover:underline">
                 Read the guide page for this →
               </a>
             </p>
@@ -70,7 +70,7 @@ import { Signature } from '../shared/signature';
 
         <!-- The kind panel: § 2.3's whole argument, on the page. -->
         @if (symbol.Facets; as facets) {
-          <section class="border-border rounded-lg border">
+          <section id="as-a-kind" class="border-border rounded-lg border">
             <h2 class="border-border text-foreground border-b px-4 py-2 text-sm font-semibold">
               As a {{ symbol.Kind.replaceAll('-', ' ') }}
             </h2>
@@ -179,7 +179,7 @@ import { Signature } from '../shared/signature';
         }
 
         @if (symbol.Remarks) {
-          <section class="space-y-2">
+          <section id="remarks" class="space-y-2">
             <h2 class="text-foreground text-lg font-semibold">Remarks</h2>
             @for (paragraph of symbol.Remarks.split('\n\n'); track $index) {
               <p class="text-foreground-muted leading-relaxed">{{ paragraph }}</p>
@@ -188,7 +188,7 @@ import { Signature } from '../shared/signature';
         }
 
         @if (symbol.Members?.length) {
-          <section class="space-y-3">
+          <section id="members" class="space-y-3">
             <h2 class="text-foreground text-lg font-semibold">
               Members <span class="text-foreground-subtle text-sm font-normal">({{ symbol.Members!.length }})</span>
             </h2>
@@ -206,7 +206,7 @@ import { Signature } from '../shared/signature';
         }
 
         @if (symbol.UsedBy?.length) {
-          <section class="space-y-3">
+          <section id="used-by" class="space-y-3">
             <h2 class="text-foreground text-lg font-semibold">
               Used by
               <span class="text-foreground-subtle text-sm font-normal">
@@ -229,6 +229,13 @@ import { Signature } from '../shared/signature';
           </section>
         }
       </article>
+
+      <!-- X3, and the reason it was specified: these pages run to a hundred members, and an outline
+           that does not follow the reader down one is an outline nobody uses. -->
+      <div class="hidden xl:block">
+        <xui-toc class="w-56 shrink-0" label="On this page" [entries]="outline()" [basePath]="path()" scrollSpy />
+      </div>
+      </div>
     } @else {
       <p class="text-foreground-muted">No symbol at this address.</p>
     }
@@ -237,6 +244,41 @@ import { Signature } from '../shared/signature';
 export class SymbolPage {
   /** Bound from the resolver by `withComponentInputBinding()`. */
   readonly node = input<DocNode | undefined>();
+
+  /**
+   * The sections this page actually rendered — a facet panel, remarks, members, users — rather than
+   * a fixed list, because most symbols have two of the four and an outline naming empty sections is
+   * worse than none.
+   */
+  protected readonly outline = computed<XuiTocEntry[]>(() => {
+    const symbol = this.node();
+
+    if (!symbol) {
+      return [];
+    }
+
+    const entries: XuiTocEntry[] = [];
+
+    if (symbol.Facets) {
+      entries.push({ id: 'as-a-kind', label: `As a ${symbol.Kind.replaceAll('-', ' ')}`, level: 2 });
+    }
+
+    if (symbol.Remarks) {
+      entries.push({ id: 'remarks', label: 'Remarks', level: 2 });
+    }
+
+    if (symbol.Members?.length) {
+      entries.push({ id: 'members', label: `Members (${symbol.Members.length})`, level: 2 });
+    }
+
+    if (symbol.UsedBy?.length) {
+      entries.push({ id: 'used-by', label: 'Used by', level: 2 });
+    }
+
+    return entries;
+  });
+
+  protected readonly path = computed(() => `/docs/api/${this.node()?.Slug ?? ''}`);
 
   protected readonly namespaceSlug = computed(() => {
     const slug = this.node()?.Slug ?? '';
