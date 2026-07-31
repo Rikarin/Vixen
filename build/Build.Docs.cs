@@ -101,20 +101,23 @@ partial class Build {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         What it fails on today: a guide page that breaks the five-heading contract, one whose
-    ///         `api:` names a symbol the graph does not have, a snippet naming a region that is not
-    ///         there, and — the one worth the most — <b>an example that does not compile</b>.
-    ///         Documentation examples rot silently and are the first thing a new user copies.
+    ///         What it fails on: a guide page that breaks the five-heading contract, one whose `api:`
+    ///         names a symbol the graph does not have, a link or a snippet region that resolves to
+    ///         nothing, a page nothing links to, a public type with neither a page nor a line in
+    ///         <c>docs/DocsExempt.txt</c>, and — the one worth the most — <b>an example that does not
+    ///         compile</b>. Documentation examples rot silently and are the first thing a new user
+    ///         copies.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Coverage is not gated yet.</b> § Part 5 wants a public type with no page to fail,
-    ///         behind a `DocsExempt.txt` seeded with every existing type; switching that on before
-    ///         the sweep has somewhere to start would block every merge, which is exactly the failure
-    ///         the plan predicted for itself.
+    ///         ⚠ <b>The exemption file only ever shrinks.</b> It was seeded with the 3 674 types that
+    ///         predate the gate, because switching coverage on for all of them at once would block
+    ///         every merge for a quarter — which is the failure § Part 5 predicts for itself. What is
+    ///         live from day one is the half that stops the backlog growing: a <em>new</em> public
+    ///         type is not in the file, so it fails until it has a page or a reviewed reason.
     ///     </para>
     /// </remarks>
     Target CheckDocs => definition => definition
-        .Description("Fails on a guide page that breaks its contract or carries an example that does not compile")
+        .Description("Fails on a type with no page, a page that breaks its contract, or an example that does not compile")
         .DependsOn(Restore)
         .Executes(() => {
                 CheckDocsGate = true;

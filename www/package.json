@@ -6,11 +6,13 @@
   "homepage": "https://vixenengine.org",
   "license": "Apache-2.0",
   "type": "module",
+  "packageManager": "pnpm@11.18.0",
   "scripts": {
     "generate": "node tools/import-graph.mjs",
     "start": "pnpm generate && ng serve",
     "build": "pnpm generate && ng build",
     "bundle": "node -e \"require('node:fs').copyFileSync('dist/vixen-docs/browser/404/index.html','dist/vixen-docs/browser/404.html')\"",
+    "check": "node tools/check-budgets.mjs",
     "preview": "wrangler dev",
     "deploy": "wrangler deploy"
   },

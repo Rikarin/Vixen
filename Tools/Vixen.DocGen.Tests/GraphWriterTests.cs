@@ -8,11 +8,11 @@ namespace Vixen.DocGen.Tests;
 
 /// <summary>The two tiers, and the two things that would silently lose a page.</summary>
 public class GraphWriterTests : IDisposable {
-    readonly string _directory = Path.Combine(Path.GetTempPath(), "vixen-docgen-" + Guid.NewGuid().ToString("N"));
+    readonly string directory = Path.Combine(Path.GetTempPath(), "vixen-docgen-" + Guid.NewGuid().ToString("N"));
 
     public void Dispose() {
-        if (Directory.Exists(_directory)) {
-            Directory.Delete(_directory, recursive: true);
+        if (Directory.Exists(directory)) {
+            Directory.Delete(directory, recursive: true);
         }
 
         GC.SuppressFinalize(this);
@@ -50,14 +50,14 @@ public class GraphWriterTests : IDisposable {
 
     [Fact]
     public void TheIndexCarriesEveryNodeAndThePagesCarryTheDetail() {
-        var written = new GraphWriter().Write(Graph(Node("Alpha"), Node("Beta")), _directory);
+        var written = new GraphWriter().Write(Graph(Node("Alpha"), Node("Beta")), directory);
 
-        using var index = JsonDocument.Parse(File.ReadAllText(Path.Combine(_directory, "graph.json")));
+        using var index = JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, "graph.json")));
 
         Assert.Equal(2, index.RootElement.GetProperty("Nodes").GetArrayLength());
         Assert.Equal("Release", index.RootElement.GetProperty("Configuration").GetString());
         Assert.Equal(1, written.Chunks);
-        Assert.True(File.Exists(Path.Combine(_directory, "pages", "fixtures.json")));
+        Assert.True(File.Exists(Path.Combine(directory, "pages", "fixtures.json")));
     }
 
     /// <summary>
@@ -70,9 +70,9 @@ public class GraphWriterTests : IDisposable {
             Signature = [new DocSpan("public", "keyword"), new DocSpan(" Alpha", "class")]
         };
 
-        new GraphWriter().Write(Graph(node), _directory);
+        new GraphWriter().Write(Graph(node), directory);
 
-        var page = File.ReadAllText(Path.Combine(_directory, "pages", "fixtures.json"));
+        var page = File.ReadAllText(Path.Combine(directory, "pages", "fixtures.json"));
 
         Assert.Contains("[\"public\",\"keyword\"]", page, StringComparison.Ordinal);
         Assert.DoesNotContain("\"Text\":", page, StringComparison.Ordinal);
@@ -83,9 +83,9 @@ public class GraphWriterTests : IDisposable {
     public void KindsAreWrittenAsTheirSlugs() {
         var node = Node("Velocity") with { Kind = DocKind.SceneComponent };
 
-        new GraphWriter().Write(Graph(node), _directory);
+        new GraphWriter().Write(Graph(node), directory);
 
-        var index = File.ReadAllText(Path.Combine(_directory, "graph.json"));
+        var index = File.ReadAllText(Path.Combine(directory, "graph.json"));
 
         Assert.Contains("\"Kind\":\"scene-component\"", index, StringComparison.Ordinal);
     }
@@ -97,16 +97,16 @@ public class GraphWriterTests : IDisposable {
     [Fact]
     public void ANamespacePastTheBudgetIsSplit() {
         var nodes = Enumerable.Range(0, 8).Select(index => Node("Type" + index, members: 4)).ToArray();
-        var written = new GraphWriter(chunkBudgetBytes: 4096).Write(Graph(nodes), _directory);
+        var written = new GraphWriter(chunkBudgetBytes: 4096).Write(Graph(nodes), directory);
 
         Assert.True(written.Chunks > 1, "the budget should have split this namespace");
         Assert.Equal(1, written.SplitChunks);
-        Assert.True(File.Exists(Path.Combine(_directory, "pages", "fixtures.1.json")));
+        Assert.True(File.Exists(Path.Combine(directory, "pages", "fixtures.1.json")));
     }
 
     [Fact]
     public void ASmallNamespaceIsOneChunk() {
-        var written = new GraphWriter(chunkBudgetBytes: 256 * 1024).Write(Graph(Node("Alpha")), _directory);
+        var written = new GraphWriter(chunkBudgetBytes: 256 * 1024).Write(Graph(Node("Alpha")), directory);
 
         Assert.Equal(1, written.Chunks);
         Assert.Equal(0, written.SplitChunks);
@@ -122,7 +122,7 @@ public class GraphWriterTests : IDisposable {
         var second = Node("IPIN");
 
         var failure = Assert.Throws<DocGenException>(() =>
-            new GraphWriter().Write(Graph(first, second), _directory));
+            new GraphWriter().Write(Graph(first, second), directory));
 
         Assert.Contains("slug collisions", failure.Message, StringComparison.Ordinal);
     }
@@ -130,13 +130,13 @@ public class GraphWriterTests : IDisposable {
     /// <summary>A stale page from a previous run is a page the site still serves.</summary>
     [Fact]
     public void PagesFromAPreviousRunAreRemoved() {
-        new GraphWriter().Write(Graph(Node("Alpha", "Old")), _directory);
+        new GraphWriter().Write(Graph(Node("Alpha", "Old")), directory);
 
-        Assert.True(File.Exists(Path.Combine(_directory, "pages", "old.json")));
+        Assert.True(File.Exists(Path.Combine(directory, "pages", "old.json")));
 
-        new GraphWriter().Write(Graph(Node("Alpha", "New")), _directory);
+        new GraphWriter().Write(Graph(Node("Alpha", "New")), directory);
 
-        Assert.False(File.Exists(Path.Combine(_directory, "pages", "old.json")));
-        Assert.True(File.Exists(Path.Combine(_directory, "pages", "new.json")));
+        Assert.False(File.Exists(Path.Combine(directory, "pages", "old.json")));
+        Assert.True(File.Exists(Path.Combine(directory, "pages", "new.json")));
     }
 }

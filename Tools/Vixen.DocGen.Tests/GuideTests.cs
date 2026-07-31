@@ -8,11 +8,11 @@ namespace Vixen.DocGen.Tests;
 
 /// <summary>The written half — docs/plan/25 § 4, and the contract that makes it a build failure.</summary>
 public class GuideTests : IDisposable {
-    readonly string _root = Path.Combine(Path.GetTempPath(), "vixen-guide-" + Guid.NewGuid().ToString("N"));
+    readonly string root = Path.Combine(Path.GetTempPath(), "vixen-guide-" + Guid.NewGuid().ToString("N"));
 
     public void Dispose() {
-        if (Directory.Exists(_root)) {
-            Directory.Delete(_root, recursive: true);
+        if (Directory.Exists(root)) {
+            Directory.Delete(root, recursive: true);
         }
 
         GC.SuppressFinalize(this);
@@ -57,14 +57,14 @@ public class GuideTests : IDisposable {
         """;
 
     void Write(string relativePath, string contents) {
-        var path = Path.Combine(_root, relativePath.Replace('/', Path.DirectorySeparatorChar));
+        var path = Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar));
 
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, contents);
     }
 
     (IReadOnlyList<GuidePage> Pages, IReadOnlyList<string> Errors) Read() =>
-        GuideReader.Read(_root, new SourceLinks(_root, "https://github.com/rikarin/Vixen", "abc123"));
+        GuideReader.Read(root, new SourceLinks(root, "https://github.com/rikarin/Vixen", "abc123"));
 
     // ── Front matter ────────────────────────────────────────────────────────────────────────────
 

@@ -493,21 +493,29 @@ Sequenced by [P7](#p7--the-coverage-sweep-3040-em-continuous), which is where th
 
 `nuke CheckDocs`, in CI beside `CheckApi` and `CheckFormat`, failing on any of:
 
-| Check | Fails when |
-|---|---|
-| **Coverage** | A public type has neither a guide page (`api:`) nor an entry in `docs/DocsExempt.txt` with a reason. Same shape as the PublicAPI baselines, same review discipline, same file format |
-| **Contract** | A guide page is missing one of the five headings, has an empty one, or has no `summary` |
-| **Resolution** | An `api:` ID, a `related:` slug, a `<see cref>`, a snippet region or an internal link does not resolve |
-| **Examples** | A `compile` fence does not compile; a `no-compile` fence has no reason |
-| **Agreement** | The public type set disagrees with the `PublicAPI.*.txt` baselines ([2.1](#21-why-source-symbols-and-not-the-assembly)) |
-| **Budgets** | The search index or the initial JS bundle exceeds [its budget](#part-7--search) |
-| **Orphans** | A guide page nothing links to and nothing lists |
+| Check | Fails when | Live |
+|---|---|---|
+| **Coverage** | A public type has neither a guide page (`api:`) nor an entry in `docs/DocsExempt.txt` with a reason. Same shape as the PublicAPI baselines, same review discipline, same file format | ✅ |
+| **Contract** | A guide page is missing one of the five headings, has an empty one, or has no `summary` | ✅ |
+| **Resolution** | An `api:` ID, a `related:` slug, a snippet region or an internal link does not resolve | ✅ |
+| **Examples** | A `compile` fence does not compile; a `no-compile` fence has no reason | ✅ |
+| **Agreement** | The public type set disagrees with the `PublicAPI.*.txt` baselines ([2.1](#21-why-source-symbols-and-not-the-assembly)) | ✅ |
+| **Budgets** | The deployment's file count, or the initial JS bundle, exceeds [its budget](#63-urls-and-retention) | ✅ |
+| **Orphans** | A guide page nothing links to and nothing lists | ✅ |
+| **Crefs** | A `<see cref>` names nothing — [owed](../../Tools/Vixen.DocGen/README.md#known-gaps): a cref to a framework type must not read as a broken one | ⌛ |
 
-⚠ **Coverage is turned on per area, not all at once.** Switched on for 2 372 types on day one it
-would block every merge for a quarter and be disabled within a week. `DocsExempt.txt` starts holding
-every existing type with the reason `sweep-pending`, and [P7](#p7--the-coverage-sweep-3040-em-continuous)
-empties it area by area. **The gate is live from day one for anything *new*** — which is the half
-that actually prevents the backlog from growing.
+⚠ **Coverage is turned on per area, not all at once.** Switched on for every type on day one it would
+block every merge for a quarter and be disabled within a week. So `docs/DocsExempt.txt` was
+**seeded with the 3 674 types that predate the gate**, all `sweep-pending`, and
+[P7](#p7--the-coverage-sweep-3040-em-continuous) empties it area by area. **The gate is live from day
+one for anything *new*** — which is the half that actually prevents the backlog from growing.
+
+The seven live checks run in two places, and the split is deliberate. Everything except the file-count
+budget is `nuke CheckDocs`, in `ci.yml` beside `CheckApi` — a public type with no page is a source
+change, and that is the job source changes go through. The file count is measured on the built site in
+[`docs.yml`](../../.github/workflows/docs.yml), because it is a fact about the deployment rather than
+about the repository; the initial JS budget stays in `angular.json`, where the build already fails on
+it.
 
 ---
 
@@ -757,9 +765,9 @@ and nothing else.
 | [P0 — The spike](#p0--the-spike-03-em) | 0.3 EM | ✅ **Done** — [RESULT.md](spikes/docs-graph/RESULT.md). Three measurements, three decisions, five findings |
 | [P1 — The graph](#p1--the-graph-15-em) | 1.5 EM | ✅ **Done** — the graph, classified, with facets, `used-by` edges, classified signatures and the non-C# nodes; agrees with `CheckApi` |
 | [P2 — The content pipeline](#p2--the-content-pipeline-10-em) | 1.0 EM | ✅ **Done** — front matter, the five-heading contract, snippet regions, compiled examples, the join to the graph |
-| [P3 — Site MVP](#p3--site-mvp-15-em) | 1.5 EM | Prerendered on Cloudflare: guide, API, taxonomy indexes, nav, breadcrumbs, TOC |
+| [P3 — Site MVP](#p3--site-mvp-15-em) | 1.5 EM | ✅ **Done** — 3 938 routes prerendered, 4 242 files, readable with JavaScript off |
 | [P4 — Search](#p4--search-05-em) | 0.5 EM | ⌘K over everything, inside budget |
-| [P5 — Gates and CI](#p5--gates-and-ci-05-em) | 0.5 EM | `CheckDocs` red on a violation; `docs.yml` deploying; PR previews |
+| [P5 — Gates and CI](#p5--gates-and-ci-05-em) | 0.5 EM | ✅ **Done** — coverage gated behind a seeded `DocsExempt.txt`; `docs.yml` builds, checks budgets and deploys; PR previews |
 | [P6 — Versioning and the release diff](#p6--versioning-and-the-release-diff-10-em) | 1.0 EM | Two versions live; a release emits its diff table |
 | [P7 — The coverage sweep](#p7--the-coverage-sweep-3040-em-continuous) | 3.0–4.0 EM | `DocsExempt.txt` empty |
 | [P8 — The agent surface](#p8--the-agent-surface-05-em) | 0.5 EM | `vixen-mcp` published; skill in the repo |
@@ -869,8 +877,22 @@ works inherits its references *and* its parse options, and cannot be wrong about
 
 #### P3 — Site MVP (1.5 EM)
 
-The Angular app: layout, nav, breadcrumbs, TOC, theme, guide page, symbol page, taxonomy indexes, 404,
-sitemap. Prerendered, deployed to Cloudflare, inside the JS budget. X1–X3, X5, X6 land in xUI here.
+✅ **Built** ([`www/`](../../www)). The Angular 22 app on xUI: layout, nav, breadcrumbs, TOC, theme,
+guide page, symbol page, a taxonomy index per kind, 404. **3 938 routes prerendered in 70 s, 4 242
+files, 101 MB** — one version against the free plan's 20 000, which is where
+[6.3](#63-urls-and-retention) said retention of four would land.
+
+Four measurements, each of which changed the design. **Inlining the manifest** put 1.9 MB of
+JavaScript in front of a reader who had asked for nothing; the eager bundle is now 23 kB of namespaces
+and counts, and the 924 kB node list is a lazy import. **Critical-CSS inlining** wrote the theme into
+all 3 939 pages — turned off, they went 132 kB → 50 kB. **The sidebar's 364 namespaces** cost another
+90 kB per page and belong on the API index, which exists to hold them; pages are **16 kB** now. And
+Angular 22 requires a `BootstrapContext` through the server bootstrap, without which every render
+fails as `NG0401: Missing Platform` — which reads like configuration and is an argument.
+
+Three components are local stand-ins with [a README saying so](../../www/src/app/shared/README.md):
+`@xui/code-block`, `@xui/prose` and `@xui/toc` are [X1–X3](#part-9--what-xui-needs)
+and are being written. Everything else is one of the fifteen `@xui` packages that exist.
 
 #### P4 — Search (0.5 EM)
 
@@ -878,8 +900,32 @@ Index build, two tiers, the Worker, the omnibar with X4's deltas, filter chips, 
 
 #### P5 — Gates and CI (0.5 EM)
 
-`CheckDocs` with every check in [Part 5](#part-5--the-gates); `DocsExempt.txt` seeded; `docs.yml`
-building and deploying on `main` and on tags; a preview deployment per PR touching `docs/` or `www/`.
+✅ **Built.** [`CheckDocs`](../../build/Build.Docs.cs) now fails on coverage, on a link or a page
+nothing resolves to, and on an orphan, beside the contract and example checks P2 landed
+([Part 5](#part-5--the-gates)). It runs in `ci.yml`'s `checks` job beside `CheckApi` and `CheckFormat`
+— the job that already builds Release, and the one a source change goes through.
+
+**`docs/DocsExempt.txt` is seeded with 3 674 types**, every one of them `sweep-pending`. The measured
+run: `coverage: 5 of 3679 types have a page, 3674 exempt, 0 with neither`. What the gate catches from
+day one is the *new* public type, which is not in the file and therefore fails until somebody writes
+about it — the half of the rule that stops the backlog from growing while
+[P7](#p7--the-coverage-sweep-3040-em-continuous) pays down the other half. Symmetry keeps the file
+honest: an exemption for a type that has since got a page fails too, so the file can only shrink.
+
+[`docs.yml`](../../.github/workflows/docs.yml) builds the graph in Release, builds the site, checks
+the deployment budgets and publishes. **The budgets are measured rather than asserted**
+([`www/tools/check-budgets.mjs`](../../www/tools/check-budgets.mjs)): 4 242 files for one version,
+16 968 projected for four, largest file 0.8 MB — against 20 000 and 25 MiB. A pull request that
+touches `docs/`, `www/` or the generator gets a **preview version uploaded and its URL edited into one
+comment** rather than appended to fourteen; the initial-JS budget stays where Angular already fails on
+it, because two places asserting one number is how the two numbers start to disagree.
+
+Two notes on what this leg deliberately does not do. **It does not gate.** The prerender is fifteen
+minutes and belongs off the pull requests that have nothing to do with the site; the gate is
+`CheckDocs` in `ci.yml`, which runs on all of them. And **a tag builds but does not publish a
+version** — the `/docs/<version>/` prefix, the switcher and the store are [P6](#p6--versioning-and-the-release-diff-10-em),
+and a tag leg that deployed into a scheme that does not exist yet would have to be undone by the
+commit that introduces it.
 
 #### P6 — Versioning and the release diff (1.0 EM)
 
@@ -925,7 +971,11 @@ delivers value on the day each page lands rather than at the end.
 2. ~~**Cloudflare plan.**~~ ✅ **Free** — 20 000 files per deployment, which fixes retention at four
    versions ([6.3](#63-urls-and-retention)) and makes the file count a build gate.
 3. **Publish `next` from `main`?** Recommended yes, `noindex`, banner-marked — it is how contributors
-   check their own pages, and how the docs get read before a release.
+   check their own pages, and how the docs get read before a release. **Interim, from
+   [P5](#p5--gates-and-ci-05-em): `master` publishes to the site root**, because there is no release
+   yet for the root to belong to and a `/next/` prefix with nothing beside it is a redirect nobody
+   needs. The prefix, the banner and the `noindex` land with the version scheme in
+   [P6](#p6--versioning-and-the-release-diff-10-em) — at the first tag, not before.
 4. ~~**Retention.**~~ ✅ Settled by the free plan's cap: current + two + `next`. More is not available
    rather than merely expensive.
 5. **Analytics.** Recommendation: none, or Cloudflare's own request analytics. A documentation site

@@ -28,8 +28,12 @@ if (arguments is null) {
           --repository-url <url>   default: https://github.com/rikarin/Vixen
           --verify-baselines       also fail when the graph and the PublicAPI baselines disagree.
           --check-docs             also fail on a guide page that breaks its contract, names a
-                                   symbol the graph does not have, or carries an example that does
-                                   not compile.
+                                   symbol the graph does not have, carries an example that does not
+                                   compile, or a public type with neither a page nor a line in
+                                   docs/DocsExempt.txt.
+          --seed-exemptions        rewrite docs/DocsExempt.txt with every type that has no page and
+                                   exit. Run once, when the coverage gate lands; after that the file
+                                   only ever shrinks, by hand, in the commit that writes the page.
           --excuse <project>       tolerate compile errors in this project, and say so in the
                                    summary. Repeatable. For sources produced by an MSBuild task
                                    rather than a Roslyn generator, which a design-time build cannot
@@ -170,6 +174,22 @@ static async Task<int> Run(Arguments arguments) {
 
     graph = graph with { Nodes = nodes };
 
+    // § Part 5 — the two checks that read the join rather than one page at a time.
+    var (exemptions, exemptionErrors) = Coverage.Read(root);
+
+    problems.AddRange(exemptionErrors);
+    problems.AddRange(PageLinks.Check(pages, nodes.Select(node => node.Slug).ToHashSet(StringComparer.Ordinal)));
+
+    if (arguments.SeedExemptions) {
+        var seeded = Coverage.Write(root, nodes);
+
+        Console.WriteLine($"Seeded {Coverage.RelativePath} with {seeded} types as `{Coverage.SeedReason}`.");
+
+        return 0;
+    }
+
+    problems.AddRange(Coverage.Check(nodes, exemptions));
+
     var written = new GraphWriter().Write(graph, arguments.Output);
     var guideWritten = GraphWriter.WriteGuide(pages, arguments.Output);
 
@@ -199,6 +219,14 @@ static async Task<int> Run(Arguments arguments) {
         + $"{examples.Count(example => example.Compile)} of {examples.Count} examples compiled, "
         + $"{guideWritten / 1024.0:F0} kB");
 
+    // § Part 5's coverage row, printed whether or not it is gating: a number that only appears when
+    // the build is already red is a number nobody watches go down.
+    var covered = nodes.Count(node => node.Docs is not null);
+    var exemptIds = exemptions.Select(entry => entry.Id).ToHashSet(StringComparer.Ordinal);
+
+    Console.WriteLine($"coverage: {covered} of {nodes.Count} types have a page, {exemptions.Count} exempt, "
+        + $"{nodes.Count(node => node.Docs is null && !exemptIds.Contains(node.Id))} with neither");
+
     foreach (var exempt in examples.Where(example => example.Reason is not null)) {
         // § 4.3: an exemption nobody sees is a gate nobody has.
         Console.WriteLine($"  not compiled  {exempt.Page}:{exempt.Line} — {exempt.Reason}");
@@ -206,10 +234,15 @@ static async Task<int> Run(Arguments arguments) {
 
     if (problems.Count > 0) {
         Console.Error.WriteLine();
-        Console.Error.WriteLine($"{problems.Count} problems in the written half:");
+        Console.Error.WriteLine($"{problems.Count} problem{(problems.Count == 1 ? string.Empty : "s")} "
+            + "in the written half:");
 
         foreach (var problem in problems.Take(25)) {
             Console.Error.WriteLine($"  {problem}");
+        }
+
+        if (problems.Count > 25) {
+            Console.Error.WriteLine($"  …and {problems.Count - 25} more");
         }
     }
     Console.WriteLine($"done in {watch.Elapsed.TotalSeconds:F1} s");
@@ -259,6 +292,7 @@ sealed record Arguments(
     string RepositoryUrl,
     bool VerifyBaselines,
     bool CheckDocs,
+    bool SeedExemptions,
     IReadOnlySet<string> Excused
 ) {
     public static Arguments? Parse(string[] args) {
@@ -269,6 +303,7 @@ sealed record Arguments(
         var repositoryUrl = "https://github.com/rikarin/Vixen";
         var verify = false;
         var checkDocs = false;
+        var seedExemptions = false;
         var excused = new HashSet<string>(StringComparer.Ordinal);
 
         for (var index = 0; index < args.Length; index++) {
@@ -303,6 +338,11 @@ sealed record Arguments(
 
                     break;
 
+                case "--seed-exemptions":
+                    seedExemptions = true;
+
+                    break;
+
                 case "--excuse" when index + 1 < args.Length:
                     excused.Add(args[++index]);
 
@@ -321,6 +361,15 @@ sealed record Arguments(
 
         return solution is null || output is null
             ? null
-            : new Arguments(solution, output, configuration, commit, repositoryUrl, verify, checkDocs, excused);
+            : new Arguments(
+                solution,
+                output,
+                configuration,
+                commit,
+                repositoryUrl,
+                verify,
+                checkDocs,
+                seedExemptions,
+                excused);
     }
 }

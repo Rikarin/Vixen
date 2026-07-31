@@ -1,0 +1,176 @@
+name: Docs
+
+# vixenengine.org — docs/plan/25 § P5.
+#
+# This workflow publishes; it does not gate. The gate is `CheckDocs`, which runs in ci.yml beside
+# CheckApi and CheckFormat on every pull request, because a public type with no page is a source
+# change and belongs in the job that reads source changes. Splitting it that way keeps the fifteen
+# minutes of prerendering off the pull requests that have nothing to do with the site.
+#
+# The site is a Cloudflare deployment of static assets and nothing else — no Worker, no SSR at
+# runtime (ADR-017) — so `wrangler deploy` uploads a directory and the deploy is the whole release.
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+
+  # Filtered, unlike the push: a pull request that changes engine source changes the API pages, and
+  # the gate that cares about that is CheckDocs in ci.yml. What this leg is for is seeing the site
+  # you changed, which is only worth a build when you changed the site.
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'www/**'
+      - 'Tools/Vixen.DocGen/**'
+      - 'build/Build.Docs.cs'
+      - '.github/workflows/docs.yml'
+
+  workflow_dispatch:
+
+# One deploy at a time per ref, and never cancel a production one halfway: a cancelled
+# `wrangler deploy` is a deployment nobody can name the contents of.
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+
+    # Needed to leave the preview URL on the pull request that produced it.
+    permissions:
+      contents: read
+      pull-requests: write
+
+    # On the job rather than on the steps that use them, because `secrets` is not a context `if:`
+    # can read and `env` from a step is not in scope for that step's own condition. Lifted here, the
+    # publishing steps can test for the token and skip on a fork's pull request rather than fail.
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-docs-${{ hashFiles('**/Directory.Packages.props', 'global.json') }}
+          restore-keys: nuget-docs-
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: www/pnpm-lock.yaml
+
+      # In Release, and that is not a detail: the engine resolves its generators through
+      # ProjectReference, so a graph read in another configuration silently loses everything they
+      # emit — 298 types and four whole kinds, measured (docs/plan/spikes/docs-graph § F1). The Nuke
+      # target passes it to both the build and the workspace for exactly that reason.
+      - name: Build the graph
+        run: ./build.sh Docs --configuration Release
+        shell: bash
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+        working-directory: www
+
+      # `bundle` copies the prerendered 404 where Cloudflare's `not_found_handling` looks for it.
+      - name: Build the site
+        run: pnpm build && pnpm bundle
+        working-directory: www
+
+      # § 6.3 — the free plan caps a deployment at 20 000 files, four versions of this site is
+      # ~17 000 of them, and the deploy that first exceeds it would otherwise be the one that
+      # discovers it.
+      - name: Budgets
+        run: pnpm check
+        working-directory: www
+
+      # Small (~2 MB) and the input to the release diff in P6, so it is worth keeping per run.
+      - name: Upload the graph
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-graph
+          path: artifacts/docs/graph.json
+          if-no-files-found: error
+
+      # ── Publishing ──────────────────────────────────────────────────────────────────────────────
+      #
+      # `secrets` is not a context `if:` can read, so the token is lifted into `env` and the steps
+      # test that. A fork's pull request has no secrets, which is the point — it also means these
+      # steps skip rather than fail there, and the build above has already proved the site compiles.
+
+      - name: Deploy
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master' && env.CLOUDFLARE_API_TOKEN != ''
+        # `pnpm run deploy`, not `pnpm deploy`: the latter is pnpm's own workspace command and would
+        # not run the script at all.
+        run: pnpm run deploy
+        working-directory: www
+
+      # A version, not a deployment: it uploads and returns its own URL without taking over the
+      # domain, so a pull request can be read at a link and the live site is untouched.
+      #
+      # ⚠ The preview URL is served only if Preview URLs are enabled on the Worker — they are by
+      # default, and if they are turned off this step still succeeds and prints nothing to link to.
+      - name: Upload a preview
+        id: preview
+        if: github.event_name == 'pull_request' && env.CLOUDFLARE_API_TOKEN != ''
+        # `pipefail`, because the interesting exit code is wrangler's and `tee`'s is always zero.
+        run: |
+          set -o pipefail
+          pnpm exec wrangler versions upload | tee "$RUNNER_TEMP/upload.log"
+          url=$(grep -oE 'https://[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev' "$RUNNER_TEMP/upload.log" | head -1)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+        working-directory: www
+
+      - name: Leave the preview link
+        if: github.event_name == 'pull_request' && steps.preview.outputs.url != ''
+        uses: actions/github-script@v7
+        env:
+          URL: ${{ steps.preview.outputs.url }}
+        with:
+          script: |
+            const url = process.env.URL;
+            const marker = '<!-- docs-preview -->';
+            const body = `${marker}\n📖 **Docs preview:** ${url}\n\nPrerendered from this branch. Not indexed, not the live site.`;
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.rest.issues.listComments({ owner, repo, issue_number });
+            const existing = comments.data.find(comment => comment.body?.startsWith(marker));
+
+            // Edited rather than appended: a pull request with fourteen pushes should carry one
+            // link to the current build, not fourteen links to builds nobody can tell apart.
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+      # A tag is a release, and a release is where the version store and the `/docs/<version>/`
+      # prefix land — P6. Until then the tag leg builds and checks the site and says so rather than
+      # deploying a version scheme that does not exist yet.
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          echo "::notice::${GITHUB_REF_NAME} built and within budget. Versioned publishing is P6 — docs/plan/25 § 6.3."

@@ -29,7 +29,7 @@ sealed class ReferenceIndex {
     /// <summary>How many referencing types a node carries. The rest are a count.</summary>
     const int PerNodeLimit = 40;
 
-    readonly ConcurrentDictionary<string, ConcurrentDictionary<string, DocReference>> _byTarget = new(StringComparer.Ordinal);
+    readonly ConcurrentDictionary<string, ConcurrentDictionary<string, DocReference>> byTarget = new(StringComparer.Ordinal);
 
     /// <summary>Builds the index over every project, documented or not.</summary>
     /// <param name="projects">Every loaded project.</param>
@@ -97,7 +97,7 @@ sealed class ReferenceIndex {
                 continue;
             }
 
-            _byTarget
+            byTarget
                 .GetOrAdd(target, _ => new ConcurrentDictionary<string, DocReference>(StringComparer.Ordinal))
                 .TryAdd(source.Id, source with { Area = project.Area, Assembly = project.Name });
         }
@@ -124,7 +124,7 @@ sealed class ReferenceIndex {
     ///     use in the engine is an implementation detail.
     /// </summary>
     public (IReadOnlyList<DocReference> Shown, int Total) For(string id) {
-        if (!_byTarget.TryGetValue(id, out var references)) {
+        if (!byTarget.TryGetValue(id, out var references)) {
             return ([], 0);
         }
 

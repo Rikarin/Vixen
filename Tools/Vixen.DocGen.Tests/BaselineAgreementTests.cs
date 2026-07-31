@@ -10,18 +10,18 @@ namespace Vixen.DocGen.Tests;
 ///     reasons and have to agree about what is in it.
 /// </summary>
 public class BaselineAgreementTests : IDisposable {
-    readonly string _root = Path.Combine(Path.GetTempPath(), "vixen-baseline-" + Guid.NewGuid().ToString("N"));
+    readonly string root = Path.Combine(Path.GetTempPath(), "vixen-baseline-" + Guid.NewGuid().ToString("N"));
 
     public void Dispose() {
-        if (Directory.Exists(_root)) {
-            Directory.Delete(_root, recursive: true);
+        if (Directory.Exists(root)) {
+            Directory.Delete(root, recursive: true);
         }
 
         GC.SuppressFinalize(this);
     }
 
     string WriteBaseline(string assembly, string contents) {
-        var directory = Path.Combine(_root, assembly);
+        var directory = Path.Combine(root, assembly);
 
         Directory.CreateDirectory(directory);
         File.WriteAllText(Path.Combine(directory, "PublicAPI.Unshipped.txt"), contents);
@@ -81,7 +81,7 @@ public class BaselineAgreementTests : IDisposable {
     public void AgreementIsSilent() {
         WriteBaseline("Vixen.Core", "Vixen.Core.World -> sealed class");
 
-        Assert.Empty(BaselineAgreement.Compare(_root, [Node("Vixen.Core.World", "Vixen.Core")]));
+        Assert.Empty(BaselineAgreement.Compare(root, [Node("Vixen.Core.World", "Vixen.Core")]));
     }
 
     /// <summary>
@@ -98,7 +98,7 @@ public class BaselineAgreementTests : IDisposable {
             """);
 
         var disagreement = Assert.Single(
-            BaselineAgreement.Compare(_root, [Node("Vixen.Core.World", "Vixen.Core")]));
+            BaselineAgreement.Compare(root, [Node("Vixen.Core.World", "Vixen.Core")]));
 
         Assert.Equal(["Vixen.Core.Generated.Registry"], disagreement.MissingFromGraph);
         Assert.Empty(disagreement.MissingFromBaseline);
@@ -108,7 +108,7 @@ public class BaselineAgreementTests : IDisposable {
     public void AnUnapprovedTypeInTheGraphIsReportedToo() {
         WriteBaseline("Vixen.Core", "Vixen.Core.World -> sealed class");
 
-        var disagreement = Assert.Single(BaselineAgreement.Compare(_root, [
+        var disagreement = Assert.Single(BaselineAgreement.Compare(root, [
             Node("Vixen.Core.World", "Vixen.Core"),
             Node("Vixen.Core.Newcomer", "Vixen.Core")
         ]));
@@ -125,7 +125,7 @@ public class BaselineAgreementTests : IDisposable {
         WriteBaseline("Vixen.Core", "Vixen.Core.Pooling.PooledDictionary<TKey, TValue> -> sealed class");
 
         Assert.Empty(BaselineAgreement.Compare(
-            _root,
+            root,
             [Node("Vixen.Core.Pooling.PooledDictionary<TKey,TValue>", "Vixen.Core")]));
     }
 
@@ -138,7 +138,7 @@ public class BaselineAgreementTests : IDisposable {
         WriteBaseline("Vixen.Ui.Reactive", "Vixen.Ui.Reactive.IReadOnlySignal<out T> -> interface");
 
         Assert.Empty(BaselineAgreement.Compare(
-            _root,
+            root,
             [Node("Vixen.Ui.Reactive.IReadOnlySignal<T>", "Vixen.Ui.Reactive")]));
     }
 
@@ -147,6 +147,6 @@ public class BaselineAgreementTests : IDisposable {
     public void AnEmptyBaselineIsNotADisagreement() {
         WriteBaseline("Vixen.Core", string.Empty);
 
-        Assert.Empty(BaselineAgreement.Compare(_root, [Node("Vixen.Core.World", "Vixen.Core")]));
+        Assert.Empty(BaselineAgreement.Compare(root, [Node("Vixen.Core.World", "Vixen.Core")]));
     }
 }

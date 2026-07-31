@@ -7,7 +7,7 @@ namespace Vixen.DocGen;
 
 /// <summary>Turns a compilation's public surface into <see cref="DocNode" />s — docs/plan/25 § 2.</summary>
 sealed class SymbolReader(SourceLinks links) {
-    Compilation? _compilation;
+    Compilation? subject;
     static readonly SymbolDisplayFormat SignatureFormat = new(
         SymbolDisplayGlobalNamespaceStyle.Omitted,
         SymbolDisplayTypeQualificationStyle.NameAndContainingTypes,
@@ -52,7 +52,7 @@ sealed class SymbolReader(SourceLinks links) {
     ///     needs the semantic model that produced the symbol.
     /// </summary>
     public IEnumerable<DocNode> Read(Compilation compilation, string area, bool isPackable) {
-        _compilation = compilation;
+        subject = compilation;
 
         return Read(compilation.Assembly, area, isPackable);
     }
@@ -131,7 +131,7 @@ sealed class SymbolReader(SourceLinks links) {
             Members = [.. Members(type)],
             SeeAlso = docs.SeeAlso,
             Obsolete = Obsolete(type),
-            Facets = Vixen.DocGen.Facets.For(type, kind, _compilation),
+            Facets = Vixen.DocGen.Facets.For(type, kind, subject),
             IsGenerated = source is not null && links.IsGenerated(source.Path),
             IsPackable = isPackable,
             Source = source

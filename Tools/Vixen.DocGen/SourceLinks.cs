@@ -15,7 +15,7 @@ namespace Vixen.DocGen;
 ///     <c>next</c>. Null produces paths without URLs, which is what a local run wants.
 /// </param>
 sealed class SourceLinks(string repositoryRoot, string repositoryUrl, string? commit) {
-    readonly string _root = repositoryRoot.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+    readonly string root = repositoryRoot.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
 
     /// <summary>The link for a symbol's first declaration in source, or null if it has none.</summary>
     /// <remarks>
@@ -49,7 +49,7 @@ sealed class SourceLinks(string repositoryRoot, string repositoryUrl, string? co
     ///     both are outside the source tree, which is the test.
     /// </remarks>
     public bool IsGenerated(string path) {
-        if (!path.StartsWith(_root, StringComparison.Ordinal)) {
+        if (!path.StartsWith(root, StringComparison.Ordinal)) {
             return true;
         }
 
@@ -78,8 +78,8 @@ sealed class SourceLinks(string repositoryRoot, string repositoryUrl, string? co
     ///     in a URL and in a JSON file that three platforms have to produce identically.
     /// </summary>
     string Relative(string absolutePath) {
-        var path = absolutePath.StartsWith(_root, StringComparison.Ordinal)
-            ? absolutePath[_root.Length..]
+        var path = absolutePath.StartsWith(root, StringComparison.Ordinal)
+            ? absolutePath[root.Length..]
             : absolutePath;
 
         return path.Replace('\\', '/');

@@ -29,6 +29,8 @@ dotnet run --project Tools/Vixen.DocGen -- Vixen.slnx --output artifacts/docs \
 | `--commit <sha>` | The commit source links point at. Without it there are paths and no URLs. |
 | `--repository-url <url>` | Default `https://github.com/rikarin/Vixen`. |
 | `--verify-baselines` | Also fail when the graph and the `PublicAPI.*.txt` baselines disagree. |
+| `--check-docs` | Also run [the written half's gate](#the-gate). |
+| `--seed-exemptions` | Rewrite `docs/DocsExempt.txt` with every type that has no page, and exit. Run once. |
 | `--excuse <project>` | Tolerate compile errors in one project, and print that it did. Repeatable. |
 
 ## ⚠ The configuration is not cosmetic
@@ -160,6 +162,10 @@ because the index carries no signatures.
 `docs/guide/**` is read here too, and the checks are what make § 4's contract a build failure rather
 than an instruction:
 
+### The gate
+
+`--check-docs`, which is what `nuke CheckDocs` passes:
+
 | Check | Fails when |
 |---|---|
 | Front matter | A field is missing, `kind` or `status` is not one of the allowed values, or `api:` names nothing |
@@ -167,8 +173,26 @@ than an instruction:
 | Snippets | `{{ snippet path#region }}` names a file or a `#region docs:…` that is not there |
 | Fences | A C# fence is neither `compile` nor `no-compile="why"` — an exemption with no reason is one nobody reviewed |
 | **Examples** | **A `compile` fence does not compile against the engine** |
-| Resolution | `api:` names a symbol the graph does not have, or `related:` names no page |
+| Resolution | `api:` names a symbol the graph does not have, `related:` names no page, or a link resolves to no page, no symbol and no route |
+| Orphans | Nothing links to a page and it is not an index — prose that was written and then lost |
+| **Coverage** | **A public type has neither a page nor a line in `docs/DocsExempt.txt`** |
 | Slugs | Two pages claim one URL |
+
+### `docs/DocsExempt.txt`
+
+The coverage gate's baseline, and the same discipline as
+[`PublicAPI.*.txt`](../Vixen.ApiCheck/README.md): one line per type, the documentation id, whitespace,
+and the reason it has no page. A reviewer sees the file change in a diff, which is not true of a
+coverage percentage.
+
+It was seeded once (`--seed-exemptions`) with the **3 674 types that predate the gate**, all as
+`sweep-pending`, because turning coverage on for all of them at once would block every merge for a
+quarter — [§ Part 5](../../docs/plan/25-documentation-generator-and-site.md#part-5--the-gates)
+predicts that failure for itself. **The file only ever shrinks**: writing a page means deleting its
+line in the same commit, and a line for a type that now has a page, or for a type the graph no longer
+has, fails the build. A *new* public type is not in the file at all — which is the half of the gate
+that stops the backlog from growing while [P7](../../docs/plan/25-documentation-generator-and-site.md#p7--the-coverage-sweep-3040-em-continuous)
+pays it down.
 
 ⚠ **An example is compiled inside an engine compilation rather than in one of its own.** Building a
 reference set by hand looks obvious and is not: the workspace's compilations carry ~120 distinct
@@ -189,10 +213,10 @@ Owed by [25](../../docs/plan/25-documentation-generator-and-site.md) § P1 and n
   it documents. **The proposal is a contract instead**: each CLI grows a hidden
   `--dump-commands json` verb, and this reads its output. One flag per tool, no reflection, and the
   dump is testable on its own.
-- **Coverage as a gate.** § Part 5 wants a public type with no page to fail, behind a
-  `DocsExempt.txt` seeded with every existing type. Switching it on before the sweep has somewhere to
-  start would block every merge — which is the failure the plan predicted for itself, so it waits for
-  P5.
+- **`<see cref>` resolution.** § Part 5's Resolution row covers doc-comment crefs too. The ids are
+  collected (`SeeAlso`) and rendered, but a cref naming a symbol outside the graph — a framework type,
+  most often — is not yet told apart from one naming nothing, and a gate that cannot tell those apart
+  would fail on `<see cref="System.Span{T}"/>`.
 
 **Deliberately not done**: member-level baseline agreement. Only type declarations are compared
 against `PublicAPI.*.txt`; matching members would mean a second signature formatter kept identical to
