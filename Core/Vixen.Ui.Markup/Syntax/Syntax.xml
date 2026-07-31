@@ -23,34 +23,38 @@
         </TypeComment>
     </AbstractNode>
 
+    <AbstractNode Name="DirectiveSyntax" Base="VxmlSyntaxNode">
+        <TypeComment>
+            <summary>
+                A file-level header: <c>@component</c>, <c>@namespace</c>, <c>@tag</c> or
+                <c>@using</c>.
+            </summary>
+            <remarks>
+                ⚠ <b>They share a base so that they can share a list, and they share a list so that
+                the tree holds them in the order the file wrote them.</b> Held as one field each —
+                which is what this was — a node's children come out in *field* order, so a file that
+                put its <c>@using</c> above its <c>@namespace</c> did not reproduce itself. That is
+                the one property everything else here rests on: an incremental reparse, a formatter
+                and every span-to-source mapping all assume a tree can be printed back into the file
+                it came from.
+            </remarks>
+        </TypeComment>
+    </AbstractNode>
+
     <!-- ===================================================== Document -->
 
     <Node Name="DocumentSyntax" Base="VxmlSyntaxNode">
         <Kind Name="Document"/>
-        <Field Name="Component" Type="ComponentDirectiveSyntax" Optional="true">
-            <PropertyComment>
-                <summary>The <c>@component</c> header. Absent only in a file the binder rejects.</summary>
-            </PropertyComment>
-        </Field>
-        <Field Name="Namespace" Type="NamespaceDirectiveSyntax" Optional="true">
+        <Field Name="Directives" Type="SyntaxList&lt;DirectiveSyntax&gt;">
             <PropertyComment>
                 <summary>
-                    The <c>@namespace</c> header, if the file names one. Absent means the project's
-                    root namespace is used instead.
+                    Every file-level header, in the order the file wrote them.
                 </summary>
-            </PropertyComment>
-        </Field>
-        <Field Name="Tag" Type="TagDirectiveSyntax" Optional="true">
-            <PropertyComment>
-                <summary>
-                    The <c>@tag</c> header, if the file names one. Absent means the component's host
-                    element takes the type's name in lower case.
-                </summary>
-            </PropertyComment>
-        </Field>
-        <Field Name="Usings" Type="SyntaxList&lt;UsingDirectiveSyntax&gt;">
-            <PropertyComment>
-                <summary>The <c>@using</c> headers, in source order.</summary>
+                <remarks>
+                    One list rather than a field each, so that the tree prints back into its file
+                    whatever order the headers were written in. <see cref="Component" />,
+                    <see cref="Namespace" />, <see cref="Tag" /> and <see cref="Usings" /> read it.
+                </remarks>
             </PropertyComment>
         </Field>
         <Field Name="Content" Type="SyntaxList&lt;MarkupSyntax&gt;">
@@ -66,7 +70,7 @@
         </TypeComment>
     </Node>
 
-    <Node Name="ComponentDirectiveSyntax" Base="VxmlSyntaxNode">
+    <Node Name="ComponentDirectiveSyntax" Base="DirectiveSyntax">
         <Kind Name="ComponentDirective"/>
         <Field Name="ComponentKeyword" Type="SyntaxToken">
             <Kind Name="ComponentKeyword"/>
@@ -82,7 +86,7 @@
         </TypeComment>
     </Node>
 
-    <Node Name="UsingDirectiveSyntax" Base="VxmlSyntaxNode">
+    <Node Name="UsingDirectiveSyntax" Base="DirectiveSyntax">
         <Kind Name="UsingDirective"/>
         <Field Name="UsingKeyword" Type="SyntaxToken">
             <Kind Name="UsingKeyword"/>
@@ -98,7 +102,7 @@
         </TypeComment>
     </Node>
 
-    <Node Name="NamespaceDirectiveSyntax" Base="VxmlSyntaxNode">
+    <Node Name="NamespaceDirectiveSyntax" Base="DirectiveSyntax">
         <Kind Name="NamespaceDirective"/>
         <Field Name="NamespaceKeyword" Type="SyntaxToken">
             <Kind Name="NamespaceKeyword"/>
@@ -122,7 +126,7 @@
         </TypeComment>
     </Node>
 
-    <Node Name="TagDirectiveSyntax" Base="VxmlSyntaxNode">
+    <Node Name="TagDirectiveSyntax" Base="DirectiveSyntax">
         <Kind Name="TagDirective"/>
         <Field Name="TagKeyword" Type="SyntaxToken">
             <Kind Name="TagKeyword"/>

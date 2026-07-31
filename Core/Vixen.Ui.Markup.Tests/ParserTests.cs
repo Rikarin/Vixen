@@ -44,7 +44,7 @@ public class ParserTests {
         var document = Vxml.ParseClean(Counter);
 
         Assert.Equal("Counter", document.Component!.Identifier.Text);
-        Assert.Equal("Vixen.Ui.Controls", Assert.Single(document.Usings.Items()).Name.Text);
+        Assert.Equal("Vixen.Ui.Controls", Assert.Single(document.Usings).Name.Text);
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public class ParserTests {
             """);
 
         Assert.Equal("Game.Screens", document.Namespace!.Name.Text);
-        Assert.Equal(["System", "System.Text"], document.Usings.Items().Select(one => one.Name.Text));
+        Assert.Equal(["System", "System.Text"], document.Usings.Select(one => one.Name.Text));
     }
 
     /// <summary>
@@ -104,7 +104,37 @@ public class ParserTests {
 
         Assert.Equal("task-center", document.Tag!.Name.Text);
         Assert.Equal("Game.Screens", document.Namespace!.Name.Text);
-        Assert.Equal(["System"], document.Usings.Items().Select(one => one.Name.Text));
+        Assert.Equal(["System"], document.Usings.Select(one => one.Name.Text));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The headers are held in source order rather than one field each</b>, which is what
+    ///     makes the round-trip cases above pass whichever way round they are written. A field per
+    ///     header prints them in field order, and a file that wrote them in any other order came
+    ///     back rearranged — silently, because nothing that reads a header cares about the order
+    ///     and only <c>ToFullString</c> can see it.
+    /// </summary>
+    [Fact]
+    public void The_headers_are_held_in_the_order_the_file_wrote_them() {
+        var document = Vxml.ParseClean("""
+            @component Counter
+            @using System
+            @tag task-center
+            @namespace Game.Screens
+            @using System.Text
+            <panel />
+            """);
+
+        Assert.Equal(
+            [
+                SyntaxKind.ComponentDirective,
+                SyntaxKind.UsingDirective,
+                SyntaxKind.TagDirective,
+                SyntaxKind.NamespaceDirective,
+                SyntaxKind.UsingDirective
+            ],
+            document.Directives.Items().Select(directive => directive.Kind)
+        );
     }
 
     [Fact]
@@ -153,6 +183,13 @@ public class ParserTests {
     [Theory]
     [InlineData("@component A\n<div />")]
     [InlineData("@component A\n@tag task-center\n<div />")]
+    [InlineData("@component A\n@using System\n@namespace N\n<div />")]
+    [InlineData("@component A\n@using System\n@tag a-b\n<div />")]
+    [InlineData("@component A\n@tag a-b\n@namespace N\n<div />")]
+    [InlineData("@component A\n@namespace N\n@using System\n<div />")]
+    [InlineData("@component A\n@tag a-b\n@using System\n<div />")]
+    [InlineData("@component A\n@namespace N\n@tag a-b\n<div />")]
+    [InlineData("@component A\n@namespace N\n@using System\n@tag a-b\n@using System.Text\n<div />")]
     [InlineData("@component A\n<div></div>")]
     [InlineData("@component A\n<div>text</div>")]
     [InlineData("@component A\n<!-- a comment -->\n<div />")]

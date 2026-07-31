@@ -232,12 +232,23 @@ sealed class VxmlParser : SyntaxParser {
 
     // ================================================================== Document
 
+    /// <remarks>
+    ///     ⚠ <b>The headers go into one list in source order, not a field each.</b> A node's
+    ///     children are printed in the order it stores them, so a document holding
+    ///     <c>@namespace</c> and <c>@using</c> in separate fields reproduced them in *field* order
+    ///     — and a file that wrote them the other way round did not round-trip. Which header is
+    ///     which is a question <see cref="DocumentSyntax.Namespace" /> and friends answer by looking,
+    ///     which is a walk of four nodes and cannot disagree with the file.
+    /// </remarks>
     DocumentSyntax ParseDocument() {
-        var component = At(VxmlTokenKind.ComponentKeyword) ? ParseComponentDirective() : null;
+        List<SyntaxNode?> directives = [];
 
-        NamespaceDirectiveSyntax? @namespace = null;
-        TagDirectiveSyntax? tag = null;
-        List<SyntaxNode?> usings = [];
+        if (At(VxmlTokenKind.ComponentKeyword)) {
+            directives.Add(ParseComponentDirective());
+        }
+
+        var seenNamespace = false;
+        var seenTag = false;
 
         // ⚠ `@namespace`, `@tag` and `@using` interleave freely, because there is no reason for them
         // not to and a header order nobody can remember is a diagnostic nobody wants. A *second*
@@ -246,24 +257,26 @@ sealed class VxmlParser : SyntaxParser {
         // directive does — and, like them, survives in the tree as trivia.
         while (At(VxmlTokenKind.UsingKeyword) || At(VxmlTokenKind.NamespaceKeyword) || At(VxmlTokenKind.TagKeyword)) {
             if (At(VxmlTokenKind.NamespaceKeyword)) {
-                if (@namespace is not null) {
+                if (seenNamespace) {
                     break;
                 }
 
-                @namespace = ParseNamespaceDirective();
+                seenNamespace = true;
+                directives.Add(ParseNamespaceDirective());
                 continue;
             }
 
             if (At(VxmlTokenKind.TagKeyword)) {
-                if (tag is not null) {
+                if (seenTag) {
                     break;
                 }
 
-                tag = ParseTagDirective();
+                seenTag = true;
+                directives.Add(ParseTagDirective());
                 continue;
             }
 
-            usings.Add(ParseUsingDirective());
+            directives.Add(ParseUsingDirective());
         }
 
         List<SyntaxNode?> content = [];
@@ -280,10 +293,7 @@ sealed class VxmlParser : SyntaxParser {
         }
 
         return SyntaxFactory.Document(
-            component,
-            @namespace,
-            tag,
-            new(SyntaxList.List([.. usings])),
+            new(SyntaxList.List([.. directives])),
             new(SyntaxList.List([.. content])),
             TokenAt(RawPosition, SyntaxKind.EndOfFileToken)
         );
