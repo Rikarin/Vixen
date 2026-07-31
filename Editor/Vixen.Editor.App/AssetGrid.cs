@@ -286,6 +286,25 @@ sealed partial class AssetGrid : Control {
     /// <inheritdoc cref="Activated" select="remarks" />
     public event Action<float, float>? DroppedOutside;
 
+    /// <summary>Raised while a drag started on a tile is somewhere outside the grid.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The moves as well as the release, because a drop the user cannot aim is a drop they
+    ///     get wrong.</b> An inspector row is twenty pixels tall and the field within it narrower
+    ///     still; without something lighting up under the pointer, assigning to the right member is
+    ///     guesswork that is only found out about afterwards. Reported outside the grid only — a drag
+    ///     within it is the grid's own business.
+    /// </remarks>
+    public event Action<float, float>? DraggedOutside;
+
+    /// <summary>Raised when a drag ends, however it ends and wherever it ended.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Cancelled as well as completed, and that is the whole reason it is separate from the
+    ///     two above.</b> A window losing focus mid-drag produces no release, so a host holding "a
+    ///     gesture is in flight" off the pointer alone would hold it for the rest of the session —
+    ///     and what that suspends is the inspector following the selection.
+    /// </remarks>
+    public event Action? DragEnded;
+
     /// <summary>Raised when the grid should show a different folder.</summary>
     /// <remarks>
     ///     Out rather than done here, because the folder the grid shows has to be the <i>filtered</i>
@@ -337,8 +356,31 @@ sealed partial class AssetGrid : Control {
             && args.Y >= bounds.Y
             && args.Y < bounds.Y + bounds.Height;
 
-        if (args.Stage == DragStage.Completed && !inside) {
-            DroppedOutside?.Invoke(args.X, args.Y);
+        if (args.Stage is DragStage.Completed or DragStage.Cancelled) {
+            DragEnded?.Invoke();
+        }
+
+        switch (args.Stage) {
+            case DragStage.Completed when !inside:
+                DroppedOutside?.Invoke(args.X, args.Y);
+                break;
+
+            // ⚠ Started as well as Moved. A drag that crosses the panel edge in one motion — which is
+            // every drag that starts near it — has its first event outside already, and a hover that
+            // only began on the second would flicker on for the first field the pointer crossed.
+            case DragStage.Started or DragStage.Moved when !inside:
+                DraggedOutside?.Invoke(args.X, args.Y);
+                break;
+
+            // ⚠ Coming back inside, and being cancelled, both have to reach the host — otherwise
+            // whatever it lit up stays lit for the rest of the session. Both are reported as a move
+            // to nowhere, which is what they are.
+            case DragStage.Started or DragStage.Moved or DragStage.Cancelled:
+                DraggedOutside?.Invoke(float.NaN, float.NaN);
+                break;
+
+            default:
+                break;
         }
     }
 

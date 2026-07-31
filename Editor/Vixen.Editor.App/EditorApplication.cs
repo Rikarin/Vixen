@@ -109,6 +109,19 @@ sealed partial class EditorApplication : IDisposable {
     /// <summary>What an asset field's button opens.</summary>
     AssetPicker assetPicker = null!;
 
+    /// <summary>What an asset dragged out of the browser and over an inspector field lands in.</summary>
+    AssetFieldDrop assetDrop = null!;
+
+    /// <summary>Whether a pointer is currently down in the project browser.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What makes dragging an asset into an inspector field possible at all.</b> See
+    ///     <see cref="ProjectBrowser.Grabbing" />: pressing a row selects the asset, a selected asset
+    ///     wins the inspector from whatever entity had it, and the field the drag was aimed at is
+    ///     gone several frames before the drag has even begun. <see cref="FollowSelection" /> is held
+    ///     off for the length of the gesture, on the rule that a drag is not a click.
+    /// </remarks>
+    bool grabbingAssets;
+
     /// <summary>Pictures of assets for the browser's grid, decoded off the frame thread.</summary>
     readonly ThumbnailCache thumbnails;
 
@@ -383,6 +396,10 @@ sealed partial class EditorApplication : IDisposable {
         // to be pointed at a project first. `AssetDrawer` has raised `PickRequested` since it was
         // written and nothing ever listened, so the button in an asset field did nothing at all.
         assetPicker = new AssetPicker(project, Shell.Dialogs);
+
+        // The other way to fill an asset field, over the same answer about what each one takes: a
+        // drop path with its own opinion is one that accepts what the picker would never have listed.
+        assetDrop = new AssetFieldDrop(assetPicker);
 
         foreach (var drawer in DrawerRegistry.Default.Drawers.OfType<AssetDrawer>()) {
             drawer.Resolve = assetPicker.NameOf;
@@ -1041,7 +1058,9 @@ sealed partial class EditorApplication : IDisposable {
                 browser.Activated += Open;
                 browser.Renamed += RenameAsset;
                 browser.Moved += MoveAssets;
-                browser.DroppedOutside += DropIntoScene;
+                browser.DroppedOutside += Dropped;
+                browser.DraggedOutside += Dragging;
+                browser.Grabbing += down => grabbingAssets = down;
                 browser.Thumbnails = thumbnails;
 
                 // ⚠ Restored before the subscription, so putting the toggle back where the user
@@ -2160,6 +2179,14 @@ sealed partial class EditorApplication : IDisposable {
     ///     </para>
     /// </remarks>
     void FollowSelection() {
+        // ⚠ Not while a gesture in the browser is still running. Pressing an asset row selects it,
+        // and handing the inspector over on that frame destroys the field a drag was aimed at long
+        // before the drag has begun — see `grabbingAssets`. The hand-over is a click's doing, and a
+        // click is not over until the button comes up.
+        if (grabbingAssets) {
+            return;
+        }
+
         CollectScenes();
 
         // A document that has been closed cannot be what the inspector is showing, and its snapshot
@@ -2360,6 +2387,82 @@ sealed partial class EditorApplication : IDisposable {
             1 => document.NameOf(document.Selection[0]),
             _ => $"{document.Selection.Count} selected"
         };
+    }
+
+    /// <summary>Says where a drag out of the browser has got to, so the target can light up.</summary>
+    /// <remarks>
+    ///     The inspector's fields are the only thing that answers: the viewport takes a drop anywhere
+    ///     in it and needs no aiming, and an outline round the whole of it during every drag across
+    ///     the window would be noise.
+    /// </remarks>
+    void Dragging(IReadOnlyList<AssetId> assets, float x, float y) =>
+        assetDrop.Over(Shell.Document.Root, assets, x, y);
+
+    /// <summary>Resolves a drag released outside the browser: an asset field first, then the scene.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The field is asked first, and a field that <i>refused</i> the drop still consumes
+    ///         it.</b> The alternative is falling through to the scene, so that dragging a texture
+    ///         onto a mesh field spawns an entity in the middle of the level — a thing the user has to
+    ///         notice and then undo, in exchange for an assignment they did not get either way. A drop
+    ///         aimed at a field belongs to that field whatever it decides.
+    ///     </para>
+    ///     <para>
+    ///         The panels cannot overlap, so "aimed at a field" and "aimed at the scene" are never
+    ///         both true and the order is a formality rather than a policy. It is written down because
+    ///         a floating inspector window over the viewport would make it one.
+    ///     </para>
+    /// </remarks>
+    void Dropped(IReadOnlyList<AssetId> assets, float x, float y) {
+        var landed = assetDrop.Drop(Shell.Document.Root, assets, x, y);
+
+        if (!landed.IsHandled) {
+            DropIntoScene(assets, x, y);
+            return;
+        }
+
+        // ⚠ The selection the press made is swallowed rather than acted on, and without this the
+        // panel jumps to the dropped asset the frame after the drop — hiding the row that just
+        // changed, which is the one thing the user was looking at. `FollowSelection` reads a change
+        // against these snapshots, so bringing them up to date is how a change is un-noticed; the
+        // method does the same thing to its own clears, for the same reason.
+        shownAssets.Clear();
+        shownAssets.AddRange(project.Selection);
+
+        switch (landed.Outcome) {
+            case AssetFieldDropOutcome.Assigned:
+                Shell.Notifications.Show($"{landed.Member} is {landed.Asset}", NotificationSeverity.Success);
+                break;
+
+            // ⚠ Said out loud rather than silently ignored. A drag that ends on a field and changes
+            // nothing looks identical to one the editor dropped on the floor, and the difference —
+            // "this is not that kind of asset" — is the one thing the user needs in order to know
+            // what to drag instead.
+            case AssetFieldDropOutcome.WrongKind:
+                Shell.Notifications.Show(
+                    $"{landed.Member} does not take {landed.Asset ?? "that"}",
+                    NotificationSeverity.Warning,
+                    "The field names one kind of asset. Its picker lists what it will take."
+                );
+
+                break;
+
+            case AssetFieldDropOutcome.TooMany:
+                Shell.Notifications.Show(
+                    $"{landed.Member} names one asset",
+                    NotificationSeverity.Warning,
+                    $"{assets.Count} were dropped on it, and choosing between them is not this gesture's to make."
+                );
+
+                break;
+
+            // Already named it, or the member's condition means the edit reaches nothing. Neither is
+            // a failure and neither changed anything, so neither is worth a notification.
+            case AssetFieldDropOutcome.Unchanged:
+            case AssetFieldDropOutcome.NotAField:
+            default:
+                break;
+        }
     }
 
     /// <summary>Puts assets into the scene, when a drag from the browser was released over it.</summary>

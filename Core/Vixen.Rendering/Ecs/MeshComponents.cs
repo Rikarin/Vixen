@@ -45,13 +45,23 @@ namespace Vixen.Rendering.Ecs;
 [DataContract]
 public struct MeshRenderable {
     /// <summary>Which mesh, as the reference a scene stores.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>[AssetType]</c> is what makes the row in the inspector a picker for <i>meshes</i>
+    ///     rather than for anything in the project.</b> It is <c>Vixen.Core</c>'s annotation and not
+    ///     the editor's, for the reason this whole component is drawn from its <c>[DataContract]</c>
+    ///     description: a runtime assembly referencing an editor one is the coupling doc 11's
+    ///     layering exists to prevent.
+    /// </remarks>
+    [AssetType(typeof(MeshData), AllowNull = false)]
     public AssetReference Mesh;
 
     /// <summary>Which material, or <see cref="AssetReference.Null" /> for the renderer's default.</summary>
     /// <remarks>
     ///     Null is a usable value rather than a mistake: a block-out mesh dropped into a level before
     ///     anybody has made a material for it should draw in something neutral, not fail to load.
+    ///     Which is why this one, unlike <see cref="Mesh" />, keeps the picker's "None".
     /// </remarks>
+    [AssetType(typeof(Material))]
     public AssetReference Material;
 
     /// <summary>Whether it is drawn into the shadow stages as well as the shading ones.</summary>
@@ -87,6 +97,7 @@ public struct PrimitiveShape {
     public PrimitiveKind Kind;
 
     /// <summary>Which material, or <see cref="AssetReference.Null" /> for the renderer's default.</summary>
+    [AssetType(typeof(Material))]
     public AssetReference Material;
 }
 

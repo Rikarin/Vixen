@@ -178,6 +178,14 @@ public sealed class CurveDrawer : PropertyDrawer<AnimationCurve, CurveEditor> {
 ///         name that a rename would make wrong.
 ///     </para>
 ///     <para>
+///         ⚠ <b>An <see cref="AssetReference" /> is the same row, and leaving it out was not a
+///         missing nicety.</b> A bare id can only ever name an asset's main object, so what a scene
+///         actually stores is a reference — <c>MeshRenderable.Mesh</c> and every material member on
+///         every component are that type, not <see cref="AssetId" />. The drawer answered for
+///         <see cref="AssetId" /> alone, so all of them fell through to the read-only last resort:
+///         the two most-used asset fields in the editor were grey text.
+///     </para>
+///     <para>
 ///         An unresolved GUID shows as <c>Missing (…)</c> with the id, not as empty. An asset that
 ///         has been deleted out from under a scene is exactly the case a person needs to see, and an
 ///         empty box says "nothing was ever assigned" — which is a different problem with a different
@@ -185,6 +193,23 @@ public sealed class CurveDrawer : PropertyDrawer<AnimationCurve, CurveEditor> {
 ///     </para>
 /// </remarks>
 public sealed class AssetDrawer : IPropertyDrawer {
+    /// <summary>The class a host puts on the row under a drag it would accept.</summary>
+    /// <remarks>
+    ///     Named here rather than spelled into the shell, because the stylesheet that draws it is
+    ///     this assembly's and a class name agreed between two files by copying it is one that stops
+    ///     matching the first time either end is renamed.
+    /// </remarks>
+    public const string DropTargetClass = "drop-target";
+
+    /// <summary>The class for a drag over a field that will not take it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Shown rather than ignored.</b> A drag of a texture over a mesh field that lit up like
+    ///     every other field, did nothing on release and said nothing about why is the interaction
+    ///     people repeat three times before concluding the editor is broken. Refusal has to be
+    ///     visible while the pointer is still down and the drag can still be taken somewhere else.
+    /// </remarks>
+    public const string DropRejectedClass = "drop-rejected";
+
     /// <summary>Turns an asset id into what the field says.</summary>
     /// <remarks>
     ///     Set by the host, because this assembly has no project. Unset, the field shows the id —
@@ -199,8 +224,70 @@ public sealed class AssetDrawer : IPropertyDrawer {
     public bool CanDraw(InspectorMember member) {
         ArgumentNullException.ThrowIfNull(member);
 
-        return member.MemberType == typeof(AssetId) || member.AssetType is not null;
+        return member.MemberType == typeof(AssetId)
+            || member.MemberType == typeof(AssetReference)
+            || member.AssetType is not null;
     }
+
+    /// <summary>What a field currently names, whichever of the two types it holds.</summary>
+    /// <param name="field">The field.</param>
+    /// <returns>The id, or <see cref="AssetId.Empty" /> for a field naming nothing or disagreeing.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Mixed reads as empty, and callers have to ask separately.</b> This exists for the
+    ///     host's drop path, which only needs "is the field already holding this" — and a mixed field
+    ///     is not, whatever the answer would be for any one object.
+    /// </remarks>
+    public static AssetId Current(InspectorField field) {
+        ArgumentNullException.ThrowIfNull(field);
+
+        var (value, mixed) = field.Read();
+
+        return mixed ? AssetId.Empty : Identify(value);
+    }
+
+    /// <summary>Writes an asset into a field, as whichever type the member holds.</summary>
+    /// <param name="field">The field.</param>
+    /// <param name="asset">The asset, or <see cref="AssetId.Empty" /> to clear it.</param>
+    /// <returns>Whether anything changed.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Boxing the right type is the whole of this method and it is not optional.</b>
+    ///         <see cref="InspectorField.Write" /> takes an <see cref="object" /> and hands it to a
+    ///         generated setter that casts; an <see cref="AssetId" /> written into an
+    ///         <see cref="AssetReference" /> member is an <see cref="InvalidCastException" /> thrown
+    ///         from inside a click handler, which in a UI framework means the frame dies rather than
+    ///         the field refusing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The sub-asset is reset to <see cref="SubAssetId.Main" /> rather than kept.</b>
+    ///         Assigning a different asset to a member that named <c>hero#Hero_Mesh</c> and keeping
+    ///         the sub-asset id would point at a part of the new asset chosen by a hash of a name
+    ///         from the old one — which resolves to nothing, or to the wrong part. Picking a part is
+    ///         its own gesture and is not this one.
+    ///     </para>
+    /// </remarks>
+    public static bool Assign(InspectorField field, AssetId asset) {
+        ArgumentNullException.ThrowIfNull(field);
+
+        return field.Write(Box(field.Member, asset));
+    }
+
+    /// <summary>An asset id as the member's own type, boxed for <see cref="InspectorField.Write" />.</summary>
+    /// <param name="member">The member being written.</param>
+    /// <param name="asset">The asset.</param>
+    /// <returns>The boxed value.</returns>
+    public static object Box(InspectorMember member, AssetId asset) {
+        ArgumentNullException.ThrowIfNull(member);
+
+        return member.MemberType == typeof(AssetReference) ? new AssetReference(asset) : asset;
+    }
+
+    static AssetId Identify(object? value) =>
+        value switch {
+            AssetId id => id,
+            AssetReference reference => reference.Asset,
+            _ => AssetId.Empty
+        };
 
     /// <inheritdoc />
     public UiElement Build(InspectorField field, UiElement parent) {
@@ -231,7 +318,7 @@ public sealed class AssetDrawer : IPropertyDrawer {
             clear.Disabled = !field.CanWrite;
 
             clear.AddHandler<ClickEvent>((_, args) => {
-                if (field.Write(AssetId.Empty)) {
+                if (Assign(field, AssetId.Empty)) {
                     field.Seal();
                 }
 
@@ -258,11 +345,21 @@ public sealed class AssetDrawer : IPropertyDrawer {
             return;
         }
 
-        if (value is not AssetId id || id.IsEmpty) {
+        var id = Identify(value);
+
+        if (id.IsEmpty) {
             label.Text = "None";
             return;
         }
 
-        label.Text = Resolve?.Invoke(id) ?? $"Missing ({id})";
+        var name = Resolve?.Invoke(id) ?? $"Missing ({id})";
+
+        // ⚠ The sub-asset is shown when there is one, because an FBX imports to a main object and a
+        // mesh per part: two entities drawing `hero#Hero_Mesh` and `hero#Cape_Mesh` are two different
+        // things, and a field that said "hero" for both would be a field the user cannot tell apart
+        // from the one they meant to change.
+        label.Text = value is AssetReference { SubAsset.IsMain: false } reference
+            ? $"{name} › {reference.SubAsset}"
+            : name;
     }
 }

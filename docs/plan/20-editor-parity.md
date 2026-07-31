@@ -340,7 +340,7 @@ The viewport is one panel and about nine features, so it gets its own table.
 | UI editor (`.vxml`/`.vcss`) | UMG / UI Builder | `.AssetEditors` | 🟡 | VCSS preview is genuinely live; VXML is structure only. A *visual* UI designer is post-1.0 and is called out in [Part G](#part-g--out-of-scope) |
 | Addressable groups | — / Addressables | `.AssetEditors` | ✅ | Runs the real planner |
 | Graphics compositor | — | `.AssetEditors` | ✅ | No importer for `.vxcomp` yet |
-| **Asset picker browser** | Asset picker | `.App` | ⛔ | `AssetDrawer` raises `PickRequested` and nothing opens. Small, and every asset field is dead without it |
+| **Asset picker browser** | Asset picker | `.App` | 🟡 | A searchable dialog filtered to the kind the member names, and a drag out of the browser that lands in the field — see the Content row in [Part D](#content). Still a list rather than the thumbnail grid this row asks for, which waits on the thumbnail service below. ⚠ **Three things had to be true before either half worked**, and all three were quietly false: `AssetDrawer` answered for `AssetId` while every reference a scene stores is an `AssetReference`, so `MeshRenderable.Mesh` was drawn read-only; no runtime component could say what it takes, since `[AssetPicker]` is the editor's attribute and a component carrying it would be a runtime assembly referencing an editor one — `Vixen.Core`'s `[AssetType]` is that, and the reflected descriptor carries it through; and the filter compared a type's name against `"texture"` where a `.meta` file records `"TextureImporter"`, which is a comparison that had never once been true |
 | **Thumbnail service** | ✅ both | `.App` | ⛔ | Offscreen render per asset type, cached on disk under `Library/`, invalidated by source hash. Unlocks the grid view, the picker, and node previews |
 | **Import dialog** | ✅ both | `.App` | ⛔ | Drag a file in from the OS, choose a destination, preview the settings |
 
@@ -572,7 +572,24 @@ operations**, **filter by component type**, **visibility and lock per entity**.
 Create asset from template, rename with reference fixup, move with reference fixup, delete with
 "what breaks" reporting, duplicate, reimport, show in OS, find references, select dependencies,
 **drag into the viewport** ✅ (placement with surface snapping is built), **drag into an inspector
-field** ⛔, **drag from OS into the browser** ⛔, favourites, collections, saved filters.
+field** ✅, **drag from OS into the browser** ⛔, favourites, collections, saved filters.
+
+⚠ **Dragging into a field needed the selection rule changed, and that is the part worth writing
+down.** Pressing a row in the browser selects the asset, a selected asset wins the inspector from
+whatever entity had it, and the panel is rebuilt — so the field the drag was aimed at was gone
+several frames before the drag had begun. The gesture was not awkward, it was impossible, and no
+amount of drop plumbing would have made it work. The fix is one sentence long: *a drag is not a
+click*. `FollowSelection` is held off for as long as a pointer is down in the browser, and a drop
+that lands in a field swallows the selection change rather than acting on it — otherwise the panel
+would jump to the dropped asset the frame after the drop, hiding the row that had just changed.
+
+The refusal is drawn as well as the acceptance. A field outlines in the accent colour for an asset
+it would take and in the danger colour for one it would not, while the pointer is still down and the
+drag can still be taken elsewhere — a field that lit up identically for both and then silently did
+nothing is the interaction people repeat three times before concluding the editor is broken. A drop
+a field refuses is still *consumed*: falling through to the scene would spawn an entity in the
+middle of the level for a drop the user aimed at a panel, which is a worse outcome than the refusal
+and one they then have to undo.
 
 ### Play and simulate
 

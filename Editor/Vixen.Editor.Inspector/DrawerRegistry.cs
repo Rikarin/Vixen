@@ -184,6 +184,12 @@ public sealed class DrawerRegistry {
         registry.ForType<AnimationCurve>(new CurveDrawer());
         registry.ForType<AssetId>(new AssetDrawer());
 
+        // ⚠ And the type a scene actually stores. A bare id can only name an asset's main object, so
+        // every reference a component holds — `MeshRenderable.Mesh`, every material member — is an
+        // `AssetReference`, and with no entry here all of them were drawn by the read-only last
+        // resort. The two most-used asset fields in the editor were grey text.
+        registry.ForType<AssetReference>(new AssetDrawer());
+
         // ⚠ Both, and the order does not matter: `PropertyDrawer.CanDraw` answers for its own value
         // type, so the one that does not match the member declines and the registry moves on. A
         // `[ColorUsage]` on a `Color3` would otherwise land on the `Color4` drawer, be refused, and
