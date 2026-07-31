@@ -141,7 +141,7 @@ public sealed class ProjectWorkspace {
             return groups;
         }
 
-        foreach (var file in Directory.EnumerateFiles(Paths.Assets, "*.vxgroup", SearchOption.AllDirectories)
+        foreach (var file in Directory.EnumerateFiles(Paths.Assets, "*" + AddressableGroup.Extension, SearchOption.AllDirectories)
                      .OrderBy(path => path, StringComparer.Ordinal)) {
             try {
                 var group = YamlSerializer.Parse<AddressableGroup>(File.ReadAllText(file));

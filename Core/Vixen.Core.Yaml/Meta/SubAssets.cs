@@ -71,9 +71,18 @@ public static class SubAssets {
     /// <param name="entries">The entries.</param>
     /// <exception cref="SubAssetCollisionException">Two of them do.</exception>
     /// <remarks>
-    ///     Reported naming both, at import, rather than silently resolved. A collision is two things
-    ///     in one asset that every reference in the project would then be unable to tell apart, and
-    ///     the fix — rename one — is the author's to make.
+    ///     <para>
+    ///         ⚠ <b>A backstop rather than the thing that catches the ordinary case.</b> Two meshes
+    ///         with one name is what a <c>.glb</c> from anywhere but your own DCC tool looks like, and
+    ///         this used to fail the whole asset with "rename one of them" — which nothing in the
+    ///         editor could do. <c>ImportContext.DeclareSubAsset</c> now suffixes the second one and
+    ///         warns, so an importer going through it cannot reach here.
+    ///     </para>
+    ///     <para>
+    ///         What is left for this to catch is two <i>different</i> names that hash alike, which is
+    ///         a genuine one-in-four-billion and has no answer but renaming, and an importer that
+    ///         built its entries by hand instead of declaring them.
+    ///     </para>
     /// </remarks>
     public static void EnsureDistinct(IEnumerable<SubAssetEntry> entries) {
         ArgumentNullException.ThrowIfNull(entries);

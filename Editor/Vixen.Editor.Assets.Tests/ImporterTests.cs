@@ -108,15 +108,101 @@ public sealed class ImporterTests {
         Assert.Equal(SubAssets.Derive("PaletteImporter", "Palette", "swatch"), entry.Id);
     }
 
+    /// <summary>
+    ///     ⚠ <b>Suffixed and warned about rather than refused, which is a change of mind.</b> Two
+    ///     meshes with one name is what a <c>.glb</c> from anywhere but your own DCC tool looks like,
+    ///     and failing the whole asset with "rename one of them" was advice nothing in the editor
+    ///     could act on — the names are in the file.
+    /// </summary>
     [Fact]
-    public async Task TwoSubAssetsThatDeriveOneIdAreRefusedRatherThanSilentlyMerged() {
+    public async Task TwoSubAssetsWithOneNameAreSuffixedRatherThanRefused() {
         var files = Provider(("/Assets/hero.png", "PNG"));
         var context = Context(files, new PaletteImporter());
 
         context.DeclareSubAsset("Palette", "swatch");
         context.DeclareSubAsset("Palette", "swatch");
 
-        Assert.Throws<SubAssetCollisionException>(context.Finish);
+        var result = context.Finish();
+
+        Assert.Equal(["swatch", "swatch_1"], result.SubAssets.Select(entry => entry.Name));
+
+        // The second one records what the file called it, which is the key a rename is stored under.
+        Assert.Equal(["", "swatch"], result.SubAssets.Select(entry => entry.Source));
+
+        // And it is said out loud, because the suffix depends on the order they appear in the file —
+        // the one property a derived id exists to avoid, and the one case where it cannot.
+        var warning = Assert.Single(result.Diagnostics);
+
+        Assert.Equal(ImportSeverity.Warning, warning.Severity);
+        Assert.Contains("swatch_1", warning.Message, StringComparison.Ordinal);
+
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    ///     ⚠ And a suffix that would land on a name the file genuinely uses keeps bumping, or the
+    ///     collision would simply move.
+    /// </summary>
+    [Fact]
+    public async Task AGeneratedNameNeverStealsOneTheFileAlreadyUses() {
+        var files = Provider(("/Assets/hero.png", "PNG"));
+        var context = Context(files, new PaletteImporter());
+
+        context.DeclareSubAsset("Palette", "swatch");
+        context.DeclareSubAsset("Palette", "swatch_1");
+        context.DeclareSubAsset("Palette", "swatch");
+
+        Assert.Equal(
+            ["swatch", "swatch_1", "swatch_2"],
+            context.Finish().SubAssets.Select(entry => entry.Name)
+        );
+
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    ///     ⚠ A name of one kind does not collide with the same name of another: an FBX with a mesh and
+    ///     a material both called Body is ordinary, and their ids differ where their names do not.
+    /// </summary>
+    [Fact]
+    public async Task TwoKindsMayShareAName() {
+        var files = Provider(("/Assets/hero.png", "PNG"));
+        var context = Context(files, new PaletteImporter());
+
+        context.DeclareSubAsset("Palette", "Body");
+        context.DeclareSubAsset("Mesh", "Body");
+
+        Assert.Equal(["Body", "Body"], context.Finish().SubAssets.Select(entry => entry.Name));
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The author's rename lands before the id is derived, and is keyed by what the file
+    ///     calls the thing.</b> That is what makes it survive a re-export that reorders the meshes —
+    ///     which is the whole reason an id comes from a name rather than a position.
+    /// </summary>
+    [Fact]
+    public async Task AnAuthorsRenameIsAppliedToWhatTheSourceCalledIt() {
+        var files = Provider(("/Assets/hero.png", "PNG"));
+
+        var context = new ImportContext(
+            AssetId.New(),
+            Source,
+            new Models.ModelImportSettings { SubAssetNames = [new() { Source = "Cube", Name = "Body" }] },
+            files,
+            "ModelImporter"
+        );
+
+        context.DeclareSubAsset("Mesh", "Cube");
+        context.DeclareSubAsset("Mesh", "Cube");
+
+        var result = context.Finish();
+
+        // Both go through the rename, because the file cannot tell them apart — so the second one
+        // still takes a suffix, off the renamed stem rather than the original.
+        Assert.Equal(["Body", "Body_1"], result.SubAssets.Select(entry => entry.Name));
+        Assert.Equal(SubAssets.Derive("ModelImporter", "Mesh", "Body"), result.SubAssets[0].Id);
+
         await Task.CompletedTask;
     }
 

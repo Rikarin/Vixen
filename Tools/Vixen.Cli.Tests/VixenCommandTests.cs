@@ -194,14 +194,23 @@ public sealed class VixenCommandTests : IDisposable {
     ///     and says so rather than reporting a success that looks like it packed something.
     /// </summary>
     [Fact]
-    public async Task AProjectWithNoAddressesBuildsAndSaysItIsEmpty() {
+    public async Task AProjectWithNoAddressesShipsEverythingUnderItsPaths() {
         Asset("notes.txt", "just a file");
 
         var (code, output) = await Run("content", "build");
 
         Assert.Equal(ExitCode.Success, code);
-        Assert.Contains("has an address", output, StringComparison.Ordinal);
-        Assert.Equal(0, CatalogFormat.Read(File.ReadAllBytes(Path.Combine(Build(), "catalog.bin"))).Count);
+
+        // ⚠ One address, and nobody typed it. A project used to have to name every asset it wanted
+        // shipped; the path is the name now, and this is that seen from a terminal.
+        var catalog = CatalogFormat.Read(File.ReadAllBytes(Path.Combine(Build(), "catalog.bin")));
+
+        Assert.Equal(1, catalog.Count);
+        Assert.True(catalog.Contains("Assets/notes.txt"));
+
+        // And it says where the group it invented came from, because the moment a project cares
+        // about compression or remote delivery it needs a real .vxgroup.
+        Assert.Contains("Default", output, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -262,7 +271,7 @@ public sealed class VixenCommandTests : IDisposable {
         var (code, output) = await Run("content", "build", "--format", "msbuild");
 
         Assert.Equal(ExitCode.Success, code);
-        Assert.Contains("has an address", output, StringComparison.Ordinal);
+        Assert.Contains("Default", output, StringComparison.Ordinal);
         Assert.DoesNotContain("error", output, StringComparison.Ordinal);
         Assert.DoesNotContain("warning", output, StringComparison.Ordinal);
     }

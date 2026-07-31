@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.CommandLine;
+using System.Globalization;
 using Vixen.ContentServer;
 using Vixen.Core.IO;
 using Vixen.Editor.Assets.Content;
@@ -116,8 +117,89 @@ public static class VixenCommand {
     static Command Content(TextWriter? output, TextWriter? error) =>
         new("content", "Build and serve the project's addressable content.") {
             ContentBuild(output, error),
+            ContentLoose(output, error),
             ContentServe(output, error)
         };
+
+    /// <summary>
+    ///     <c>vixen content loose</c> — a catalog over what the import produced, with nothing packed.
+    /// </summary>
+    /// <remarks>
+    ///     Doc 17's Editor variant, as a command. What a player pointed at the resulting directory
+    ///     reads is the same address for the same asset a shipped build would give it, because the
+    ///     same planner decided both; what it does not pay for is the pack. That is what makes
+    ///     "change a texture and look at it" a re-import of one asset rather than a rebuild of every
+    ///     group.
+    /// </remarks>
+    static Command ContentLoose(TextWriter? output, TextWriter? error) {
+        var project = ProjectOption();
+        var target = TargetOption();
+        var format = FormatOption();
+
+        var noImport = new Option<bool>("--no-import") {
+            Description = "Do not import first. Only for a caller that has already done it in this build."
+        };
+
+        var command = new Command(
+            "loose",
+            "Write a catalog over the imported artefacts, with nothing packed, for --vixen-loose-content."
+        ) { project, target, format, noImport };
+
+        command.SetAction(async (parseResult, cancellationToken) => {
+                var writer = output ?? Console.Out;
+                var chosen = parseResult.GetValue(format);
+
+                if (!Project.TryOpen(parseResult.GetValue(project), out var opened, out var why)) {
+                    Complain(chosen, error ?? Console.Error, why);
+                    return (int)ExitCode.UsageError;
+                }
+
+                var forTarget = parseResult.GetRequiredValue(target);
+                var diagnostics = new DiagnosticWriter(writer, chosen, opened.Paths.Root);
+
+                if (!parseResult.GetValue(noImport)) {
+                    var summary = await ImportRunner
+                        .RunAsync(opened, forTarget, diagnostics, false, isolated: false, cancellationToken)
+                        .ConfigureAwait(false);
+
+                    ImportRunner.Report(summary, diagnostics);
+
+                    if (summary.Failed > 0) {
+                        Complain(
+                            chosen,
+                            error ?? Console.Error,
+                            $"{summary.Failed} asset(s) failed to import, so there is nothing to catalogue for them."
+                        );
+
+                        return (int)ExitCode.Failed;
+                    }
+                } else {
+                    opened.Database.Scan();
+                }
+
+                var written = LooseContent.Write(
+                    opened.Workspace,
+                    diagnostic => ContentBuildRunner.Write(diagnostics, diagnostic)
+                );
+
+                if (!written.Succeeded) {
+                    return (int)ExitCode.Failed;
+                }
+
+                writer.WriteLine(
+                    string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"Catalogued {written.Addresses} address(es) at {written.Directory}, unpacked. "
+                        + $"Run a player with --vixen-loose-content {written.Directory}"
+                    )
+                );
+
+                return (int)ExitCode.Success;
+            }
+        );
+
+        return command;
+    }
 
     static Command ContentBuild(TextWriter? output, TextWriter? error) {
         var project = ProjectOption();

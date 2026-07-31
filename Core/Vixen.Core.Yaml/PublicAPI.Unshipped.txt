@@ -5,6 +5,8 @@ Vixen.Core.Yaml.Meta.AddressableInfo : System.IEquatable<Vixen.Core.Yaml.Meta.Ad
 Vixen.Core.Yaml.Meta.AddressableInfo.Address.get -> string?
 Vixen.Core.Yaml.Meta.AddressableInfo.Address.init -> string?
 Vixen.Core.Yaml.Meta.AddressableInfo.AddressableInfo() -> void
+Vixen.Core.Yaml.Meta.AddressableInfo.Excluded.get -> bool
+Vixen.Core.Yaml.Meta.AddressableInfo.Excluded.init -> bool
 Vixen.Core.Yaml.Meta.AddressableInfo.Group.get -> string?
 Vixen.Core.Yaml.Meta.AddressableInfo.Group.init -> string?
 Vixen.Core.Yaml.Meta.AddressableInfo.Labels.get -> string[]
@@ -26,6 +28,7 @@ Vixen.Core.Yaml.Meta.AssetMeta.SubAssets.get -> Vixen.Core.Yaml.Meta.SubAssetEnt
 Vixen.Core.Yaml.Meta.AssetMeta.SubAssets.init -> Vixen.Core.Yaml.Meta.SubAssetEntry[]
 Vixen.Core.Yaml.Meta.AssetMetaFile -> static class
 Vixen.Core.Yaml.Meta.IImportSettings -> interface
+Vixen.Core.Yaml.Meta.IImportSettings.SubAssetNames.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Yaml.Meta.SubAssetRename>
 Vixen.Core.Yaml.Meta.IImportSettings.Version.get -> int
 Vixen.Core.Yaml.Meta.MetaEnvelope -> readonly struct
 Vixen.Core.Yaml.Meta.MetaEnvelope : System.IEquatable<Vixen.Core.Yaml.Meta.MetaEnvelope>
@@ -61,9 +64,18 @@ Vixen.Core.Yaml.Meta.SubAssetEntry.Id.get -> Vixen.Core.SubAssetId
 Vixen.Core.Yaml.Meta.SubAssetEntry.Id.init -> Vixen.Core.SubAssetId
 Vixen.Core.Yaml.Meta.SubAssetEntry.Name.get -> string
 Vixen.Core.Yaml.Meta.SubAssetEntry.Name.init -> string
+Vixen.Core.Yaml.Meta.SubAssetEntry.Source.get -> string
+Vixen.Core.Yaml.Meta.SubAssetEntry.Source.init -> string
 Vixen.Core.Yaml.Meta.SubAssetEntry.SubAssetEntry() -> void
 Vixen.Core.Yaml.Meta.SubAssetEntry.Type.get -> string
 Vixen.Core.Yaml.Meta.SubAssetEntry.Type.init -> string
+Vixen.Core.Yaml.Meta.SubAssetRename -> sealed record
+Vixen.Core.Yaml.Meta.SubAssetRename : System.IEquatable<Vixen.Core.Yaml.Meta.SubAssetRename>
+Vixen.Core.Yaml.Meta.SubAssetRename.Name.get -> string
+Vixen.Core.Yaml.Meta.SubAssetRename.Name.set -> string
+Vixen.Core.Yaml.Meta.SubAssetRename.Source.get -> string
+Vixen.Core.Yaml.Meta.SubAssetRename.Source.set -> string
+Vixen.Core.Yaml.Meta.SubAssetRename.SubAssetRename() -> void
 Vixen.Core.Yaml.Meta.SubAssets -> static class
 Vixen.Core.Yaml.Meta.TargetOverrides -> static class
 Vixen.Core.Yaml.YamlBindingException -> sealed class

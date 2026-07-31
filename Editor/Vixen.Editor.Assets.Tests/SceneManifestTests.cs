@@ -89,9 +89,27 @@ public sealed class SceneManifestTests : IDisposable {
         Assert.Empty(manifest.Scenes);
     }
 
+    /// <summary>
+    ///     ⚠ <b>A scene nobody addressed ships under its path, so the ordinary case needs no field
+    ///     filled in.</b> This used to be the build error that sent somebody to the inspector.
+    /// </summary>
     [Fact]
-    public async Task A_scene_in_the_build_with_no_address_refuses_the_build_and_says_which() {
+    public async Task A_scene_in_the_build_with_no_address_ships_under_its_path() {
         Scene("Scenes/Level1.vxscene", address: null);
+
+        var manifest = await BuildAndRead(Listing("Assets/Scenes/Level1.vxscene"));
+
+        Assert.Equal(["Assets/Scenes/Level1.vxscene"], manifest.Scenes);
+    }
+
+    /// <summary>
+    ///     ⚠ And a scene somebody deliberately excluded is still refused, because the build list says
+    ///     it ships and the exclusion says it does not — two statements that cannot both hold, and a
+    ///     player that started to an empty world is the cost of guessing which was meant.
+    /// </summary>
+    [Fact]
+    public async Task A_scene_in_the_build_that_was_excluded_refuses_the_build() {
+        Scene("Scenes/Level1.vxscene", address: null, excluded: true);
 
         var workspace = Listing("Assets/Scenes/Level1.vxscene");
         var (built, said) = await Build(workspace);
@@ -141,6 +159,7 @@ public sealed class SceneManifestTests : IDisposable {
     [Fact]
     public async Task Every_unshippable_entry_is_named_rather_than_only_the_first() {
         var (_, said) = await Build(Listing("Assets/Scenes/Gone.vxscene", "Assets/Scenes/AlsoGone.vxscene"));
+
 
         Assert.Equal(2, said.Count(diagnostic => diagnostic.Severity == ImportSeverity.Error));
     }
@@ -195,19 +214,19 @@ public sealed class SceneManifestTests : IDisposable {
     }
 
     /// <summary>Writes a <c>.vxscene</c>, with an address on its sidecar when it is meant to ship.</summary>
-    void Scene(string relativePath, string? address = null) {
+    void Scene(string relativePath, string? address = null, bool excluded = false) {
         var absolute = Path.Combine(root, "Assets", relativePath.Replace('/', Path.DirectorySeparatorChar));
 
         Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
         File.WriteAllText(absolute, Level);
 
-        if (address is null) {
+        if (address is null && !excluded) {
             return;
         }
 
         AssetMetaFile.WriteFile(
             AssetMetaFile.PathFor(absolute),
-            new() { Guid = AssetId.New(), Addressable = new() { Address = address } }
+            new() { Guid = AssetId.New(), Addressable = new() { Address = address, Excluded = excluded } }
         );
     }
 

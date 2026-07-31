@@ -166,6 +166,47 @@ public sealed class StartupSceneTests : IDisposable {
         );
     }
 
+    /// <summary>
+    ///     ⚠ <b>Doc 17's Editor variant, end to end.</b> A catalog whose entries name no bundle, an
+    ///     artefact store beside it, and a host that opens the startup scene out of it — which is the
+    ///     iteration loop the whole loose-content path exists for: change one asset, re-import it,
+    ///     and the running player sees it without anything being packed.
+    /// </summary>
+    [Fact]
+    public void AnUnpackedProjectLibraryIsOpenedLikeAnyOtherContent() {
+        var library = Directory.CreateDirectory(Path.Combine(files.ApplicationDirectory, "..", "Library")).FullName;
+        var store = Directory.CreateDirectory(Path.Combine(library, ContentMount.ArtifactFolderName)).FullName;
+
+        var scratch = new VirtualFileSystem();
+        scratch.Mount(new("/odb"), new PhysicalFileProvider(store));
+
+        var id = new ObjectDatabase(new FileOdbBackend(scratch, new("/odb"))).Write(Scene("level-1"));
+
+        // No bundle name, and no bundles at all — which is the whole of what makes it unpacked.
+        var catalog = new ContentCatalog(
+            CatalogFormat.Version,
+            default,
+            "Windows",
+            [new("Assets/Scenes/Level1.vxscene", id, "", ContentProvider.Local, [], [], 0)],
+            []
+        );
+
+        File.WriteAllBytes(Path.Combine(library, ContentMount.CatalogFileName), CatalogFormat.Write(catalog));
+
+        File.WriteAllBytes(
+            Path.Combine(library, ContentMount.SceneManifestFileName),
+            Serializer.ToBytes(new SceneManifest { Scenes = ["Assets/Scenes/Level1.vxscene"] })
+        );
+
+        using var application = Build(new SilentGame(), "--vixen-loose-content", library);
+
+        application.Initialise();
+
+        Assert.True(application.Services.Content.IsUnpacked);
+        Assert.True(application.Services.Content.IsLoose);
+        Assert.Equal(2, application.Services.Scenes!.CountIn(application.StartupScene));
+    }
+
     VixenApplication Build(Game game, params string[] arguments) =>
         VixenApp.Create(["--vixen-workers", "1", "--vixen-frame-limit", "0", .. arguments])
             .WithPlatform(new HeadlessPlatform(new() { FileSystem = files }))

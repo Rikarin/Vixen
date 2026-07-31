@@ -180,6 +180,10 @@ public sealed class VixenApplication : IDisposable {
         if (Services.Content is { Assets: { } assets, Root: var root }) {
             HostLog.ContentMounted(logger, root, assets.Catalog.Entries.Count);
 
+            if (Services.Content.IsUnpacked) {
+                HostLog.UnpackedContent(logger, Services.Content.Root);
+            }
+
             // Only when there is something to download. A build that ships everything in its package
             // says nothing, which is the ordinary case and the one that does not need a line.
             if (Services.Content.Cache is { } cache) {

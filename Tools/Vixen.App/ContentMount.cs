@@ -4,6 +4,7 @@
 using Vixen.Assets;
 using Vixen.Core.IO;
 using Vixen.Core.Serialization;
+using Vixen.Core.Serialization.Storage;
 using Vixen.Engine.Scenes;
 using Vixen.Shaders;
 
@@ -74,6 +75,16 @@ public sealed class ContentMount : IDisposable {
     ///     question with an address would need one to find it.
     /// </remarks>
     public const string SceneManifestFileName = "scenes.bin";
+
+    /// <summary>The artefact store a loose content directory carries instead of bundles.</summary>
+    /// <remarks>
+    ///     Matches <c>LooseContent.ArtifactFolderName</c>, which is where an editor writes it — the
+    ///     fifth name in this file spelled twice across a build and a run, and for the reason the
+    ///     other four give. Its presence is what turns <c>--vixen-loose-content</c> from "read another
+    ///     build's bundles" into "read the chunks an import produced", which is doc 17's Editor
+    ///     variant.
+    /// </remarks>
+    public const string ArtifactFolderName = "ArtifactDb";
 
     /// <summary>Where downloaded bundles are kept, under the platform's own cache directory.</summary>
     /// <remarks>
@@ -185,6 +196,24 @@ public sealed class ContentMount : IDisposable {
     /// <summary>Why nothing can be downloaded, when nothing can.</summary>
     public string? RemoteReason { get; private init; }
 
+    /// <summary>
+    ///     Whether the chunks come from an artefact store rather than from bundles.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 17's Editor variant: loose files and a live import.</b> A catalog written by
+    ///         <c>LooseContent</c> names no bundle for anything, and the chunks are read straight out
+    ///         of the <c>Library/</c> the import wrote them to — so making a change visible to a
+    ///         running player costs the import of the one asset that changed and nothing else.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not the same as <see cref="IsLoose" />, and both can be true.</b> That one says
+    ///         the content came from somewhere other than the package, which was already possible
+    ///         with a directory of packed bundles. This says there is nothing packed at all.
+    ///     </para>
+    /// </remarks>
+    public bool IsUnpacked { get; private init; }
+
     /// <summary>Finds the application's content and opens it.</summary>
     /// <param name="files">The virtual file system, with the standard locations already mounted.</param>
     /// <param name="loosePath">The directory from <c>--vixen-loose-content</c>, or <see langword="null" />.</param>
@@ -259,6 +288,15 @@ public sealed class ContentMount : IDisposable {
 
         var local = new LocalBundleSource(files, root);
 
+        // ⚠ Mounted up front, where a bundle is mounted on demand, because there is no address that
+        // would trigger it: an entry that names no bundle asks the asset manager for nothing, so a
+        // store opened lazily would be opened never. `ObjectDatabase.Mount` puts bundles after it,
+        // so a build that has both — a packed one pointed at a project's artefacts — reads the
+        // artefacts first, which is the way round an editor rebuilding into them needs.
+        var artifacts = files.Exists(root / ArtifactFolderName)
+            ? new ObjectDatabase(new FileOdbBackend(files, root / ArtifactFolderName, isReadOnly: true))
+            : null;
+
         // ⚠ Decided from the catalog rather than from configuration, and only a catalog that names a
         // remote bundle gets any of it. `RoutedBundleSource` reads an empty URL as "this one shipped
         // with the application", so a project whose groups are all local has nothing to route — and
@@ -266,8 +304,9 @@ public sealed class ContentMount : IDisposable {
         // for an HttpClient, a cache directory and a socket handle at boot.
         if (!catalog.Bundles.Any(bundle => bundle.Url.Length > 0)) {
             return Mount(
-                assets: new(catalog, local),
+                assets: new(catalog, local, artifacts),
                 sources: local,
+                unpacked: artifacts is not null,
                 remoteReason: "no group in this build's catalog is served from a URL."
             );
         }
@@ -279,7 +318,7 @@ public sealed class ContentMount : IDisposable {
         var cache = new BundleCache(files, CacheRoot, transport ?? ours!);
         var routed = new RoutedBundleSource(local, new RemoteBundleSource(files, cache));
 
-        return Mount(assets: new(catalog, routed), sources: routed, owned: ours, cache: cache);
+        return Mount(assets: new(catalog, routed, artifacts), sources: routed, owned: ours, cache: cache, unpacked: artifacts is not null);
 
         // Everything found beside the catalog belongs on the mount whether or not the catalog itself
         // read, so the four of them are filled in here rather than at each of the five returns.
@@ -289,7 +328,8 @@ public sealed class ContentMount : IDisposable {
             IDisposable? sources = null,
             IDisposable? owned = null,
             BundleCache? cache = null,
-            string? remoteReason = null
+            string? remoteReason = null,
+            bool unpacked = false
         ) =>
             new(root, loose) {
                 Reason = reason,
@@ -301,7 +341,8 @@ public sealed class ContentMount : IDisposable {
                 Sources = sources,
                 OwnedTransport = owned,
                 Cache = cache,
-                RemoteReason = remoteReason
+                RemoteReason = remoteReason,
+                IsUnpacked = unpacked
             };
     }
 

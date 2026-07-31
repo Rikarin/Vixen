@@ -44,16 +44,28 @@ public sealed record BuildPlan(
 ///         you most want to be able to say "all of these except that one" about.
 ///     </para>
 ///     <para>
-///         <b>An asset with no address is not an error.</b> It is not shipped by name, which is the
-///         ordinary state of most files in a project — a source texture that only a material refers
-///         to is reached through the chunk graph and never asked for by anyone.
+///         <b>An asset with no address gets its path.</b> <c>Assets/Textures/Crate.png</c> is unique,
+///         stable within a checkout and already what the author sees in the Project panel, so it is an
+///         address every asset can have without anybody typing one. This reverses doc 08's original
+///         "an unaddressed asset is not shipped by name", and the reason is what that cost: a texture
+///         a game wanted to load by name and a scene in the build list were each a build error whose
+///         remedy was to go and fill in a field. <see cref="AddressableInfo.Excluded" /> is how
+///         something is now kept out.
 ///     </para>
 ///     <para>
-///         <b>An addressable asset depending on one that is not addressable <i>is</i> an error</b>,
-///         and this is the check worth having. The catalog records dependencies as addresses, so a
-///         dependency with no address is not in any bundle — the build succeeds, ships, and fails at
-///         load on a chunk that was never packed. That is exactly the class of mistake that is
-///         expensive to find later and free to find here.
+///         ⚠ <b>What a build says about a broken asset therefore depends on who chose its
+///         address.</b> An author who typed one meant it to ship, so anything that stops it being
+///         packed is an error; a path-derived address is a convenience over every file in the
+///         project, and a convenience that turns an unimported scratch file into a failed build is
+///         worse than none. The same conditions are warnings there, and the asset is simply not
+///         shipped.
+///     </para>
+///     <para>
+///         <b>An addressable asset depending on one that is not shipped <i>is</i> an error</b>, and
+///         this is the check worth having. The catalog records dependencies as addresses, so a
+///         dependency in no bundle — excluded, or refused for one of the reasons above — makes a
+///         build that succeeds, ships, and fails at load on a chunk that was never packed. That is
+///         exactly the class of mistake that is expensive to find later and free to find here.
 ///     </para>
 ///     <para>
 ///         <b>An asset's sub-assets are addressed under it</b>, at
@@ -113,9 +125,17 @@ public static class BuildPlanner {
         var refused = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var (entry, meta) in metas.Values) {
-            if (AddressOf(meta) is not { } address) {
+            if (AddressOf(entry, meta) is not { } address) {
                 continue;
             }
+
+            // ⚠ Everything that follows is an error when somebody asked for this address and a
+            // warning when the path supplied it. An author who typed an address means the asset to
+            // ship, so failing to pack it is a build that must not succeed; the default is a
+            // convenience over every file in the project, and a convenience that turns an unimported
+            // scratch file into a broken build is worse than no convenience at all.
+            var asked = meta.Addressable?.Address is { Length: > 0 };
+            var severity = asked ? ImportSeverity.Error : ImportSeverity.Warning;
 
             // Claimed whether or not anything else about the asset works out, because two assets
             // claiming one address is a fact about the project rather than about its imports, and
@@ -123,17 +143,19 @@ public static class BuildPlanner {
             Claim(claimants, address, entry);
 
             if (!cache.TryGet(entry.Guid, out var record) || record is null) {
-                diagnostics.Add(new(
-                    ImportSeverity.Error,
-                    $"'{entry.Path}' is addressable as '{address}' and has not been imported, so there is no chunk "
-                    + "to pack. Import before building, or remove its address."
-                ));
+                if (asked) {
+                    diagnostics.Add(new(
+                        ImportSeverity.Error,
+                        $"'{entry.Path}' is addressable as '{address}' and has not been imported, so there is no "
+                        + "chunk to pack. Import before building, or remove its address."
+                    ));
+                }
 
                 refused.Add(entry.Path);
                 continue;
             }
 
-            if (Chunks(entry, meta, address, record, diagnostics) is not { } chunks) {
+            if (Chunks(entry, meta, address, record, severity, diagnostics) is not { } chunks) {
                 refused.Add(entry.Path);
                 continue;
             }
@@ -168,7 +190,14 @@ public static class BuildPlanner {
 
             // Only an asset's own address answers a dependency on it. A dependent names the asset,
             // not a part of it, and gets the whole of it through that address's closure.
-            if (!address.Contains(SubAssetSeparator, StringComparison.Ordinal)) {
+            //
+            // ⚠ And only if it is actually being packed. An asset that claimed an address and was
+            // then refused — never imported, its importer produced nothing — is in no bundle, so
+            // answering a dependency with its address would hand the catalog a dependency that
+            // resolves to nothing and fail on a device instead of here. That mattered less when
+            // every refusal was itself an error; it is load-bearing now that a path-derived address
+            // can be dropped with only a warning.
+            if (!address.Contains(SubAssetSeparator, StringComparison.Ordinal) && !refused.Contains(claiming[0].Path)) {
                 addressOf[claiming[0].Guid] = address;
             }
         }
@@ -275,8 +304,46 @@ public static class BuildPlanner {
     /// <summary>The group a project gets when it has not asked for one.</summary>
     static AddressableGroup DefaultGroup => new() { Name = DefaultGroupName };
 
-    static string? AddressOf(AssetMeta meta) =>
-        meta.Addressable?.Address is { Length: > 0 } address ? address : null;
+    /// <summary>What an asset is shipped as, or <see langword="null" /> if it is not shipped.</summary>
+    /// <param name="entry">The asset.</param>
+    /// <param name="meta">Its sidecar.</param>
+    /// <returns>Its address.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The path, unless the sidecar says otherwise.</b> A project-relative path is already
+    ///         unique, already stable within a checkout and already what the author sees in the
+    ///         Project panel, so it is an address every asset can have without anybody typing one.
+    ///         This reverses doc 08's original position that an unaddressed asset is not shipped by
+    ///         name, and the reason is what that position cost in practice: a texture the game wanted
+    ///         to load by name and a scene in the build list were both build errors telling somebody
+    ///         to go and fill in a field.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What is lost is that an address no longer survives the file moving</b>, which the
+    ///         GUID always will. That is the trade an explicit address buys back, and it is the right
+    ///         thing to set on the handful of addresses that are contracts — a level a save game
+    ///         names, a pack a URL is built from.
+    ///     </para>
+    ///     <para>
+    ///         Folders have no chunk and never had an address. <see cref="AddressableInfo.Excluded" />
+    ///         is the way to say "not shipped" now that saying nothing means the path.
+    ///     </para>
+    /// </remarks>
+    static string? AddressOf(AssetEntry entry, AssetMeta meta) {
+        if (meta.Addressable?.Address is { Length: > 0 } asked) {
+            return asked;
+        }
+
+        // ⚠ A folder has no chunk, and a .vxgroup is the build's own configuration — it lives under
+        // Assets/ because that is where the things it governs are, and defaulting it into a bundle
+        // would ship a project's packing policy to its players. Both are still addressable if
+        // somebody types an address, which is why this is below that check rather than above it.
+        return entry.IsFolder
+            || meta.Addressable is { Excluded: true }
+            || entry.Path.EndsWith(AddressableGroup.Extension, StringComparison.OrdinalIgnoreCase)
+                ? null
+                : entry.Path;
+    }
 
     static void Claim(SortedDictionary<string, List<AssetEntry>> claimants, string address, AssetEntry entry) =>
         (claimants.TryGetValue(address, out var already) ? already : claimants[address] = []).Add(entry);
@@ -303,13 +370,20 @@ public static class BuildPlanner {
         AssetMeta meta,
         string address,
         ImportRecord record,
+        ImportSeverity severity,
         ImmutableArray<ImportDiagnostic>.Builder diagnostics
     ) {
         if (record.Artifacts.Count == 0) {
-            diagnostics.Add(new(
-                ImportSeverity.Error,
-                $"'{entry.Path}' is addressable as '{address}' and its importer produced nothing."
-            ));
+            // ⚠ Not said at all when the address came from the path. An importer that produces no
+            // chunk is an ordinary thing — a folder, a file claimed by something that only reads it
+            // for its dependencies — and a project of ten thousand assets would otherwise open every
+            // build with a page of warnings about files nobody ever asked to ship.
+            if (severity == ImportSeverity.Error) {
+                diagnostics.Add(new(
+                    ImportSeverity.Error,
+                    $"'{entry.Path}' is addressable as '{address}' and its importer produced nothing."
+                ));
+            }
 
             return null;
         }
@@ -329,7 +403,7 @@ public static class BuildPlanner {
         foreach (var artifact in record.Artifacts) {
             if (!written.Add(artifact.SubAsset)) {
                 diagnostics.Add(new(
-                    ImportSeverity.Error,
+                    severity,
                     $"'{entry.Path}' imported to two chunks for sub-asset {artifact.SubAsset}, so an address would "
                     + "name both. Its importer writes one of them twice."
                 ));
@@ -345,7 +419,7 @@ public static class BuildPlanner {
 
             if (!declaredById.TryGetValue(artifact.SubAsset, out var declared) || declared.Name.Length == 0) {
                 diagnostics.Add(new(
-                    ImportSeverity.Error,
+                    severity,
                     $"'{entry.Path}' imported to a chunk for sub-asset {artifact.SubAsset}, which its .meta does not "
                     + "name, so nothing can address it. Re-import it."
                 ));
@@ -361,7 +435,7 @@ public static class BuildPlanner {
             // addresses would not. The id collision is caught at import; this is the other half.
             if (addressed.TryGetValue(subAddress, out var already)) {
                 diagnostics.Add(new(
-                    ImportSeverity.Error,
+                    severity,
                     $"'{entry.Path}' contains a {already.Type} and a {declared.Type} both called '{declared.Name}', "
                     + $"so both would be addressed '{subAddress}'. Rename one of them."
                 ));
@@ -378,11 +452,17 @@ public static class BuildPlanner {
             // The address has to name something. An importer with a main object writes it under
             // SubAssetId.Main; one whose asset is only a container of parts has an address that
             // resolves to no chunk, which fails at load rather than here.
-            diagnostics.Add(new(
-                ImportSeverity.Error,
-                $"'{entry.Path}' is addressable as '{address}' and its importer wrote no main object, only "
-                + $"{subAssets.Count} sub-asset(s), so that address names nothing."
-            ));
+            //
+            // Silent for a path-derived address, for the reason the empty case above is: an asset
+            // that is only a container of parts is a shape an importer is allowed to have, and the
+            // parts still ship under their own addresses.
+            if (severity == ImportSeverity.Error) {
+                diagnostics.Add(new(
+                    ImportSeverity.Error,
+                    $"'{entry.Path}' is addressable as '{address}' and its importer wrote no main object, only "
+                    + $"{subAssets.Count} sub-asset(s), so that address names nothing."
+                ));
+            }
 
             complete = false;
         }

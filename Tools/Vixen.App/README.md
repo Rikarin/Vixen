@@ -108,7 +108,7 @@ untouched and in order.
 | `--vixen-frame-limit <n>` | Frames per second, `0` for uncapped. |
 | `--vixen-log-level <level>` | The lowest level the log ring keeps. |
 | `--vixen-log-file <dir>` | Also write rolling JSON-line files there, through `ZLoggerFileSink`. A directory rather than a file name, because the sink rolls by day and by size and therefore owns the names. |
-| `--vixen-loose-content <path>` | [Q5b](../../docs/plan/17-app-heads-and-shipping.md): read loose files instead of bundles, even in a release build. Warns loudly; the content system honours it in Phase 3. |
+| `--vixen-loose-content <path>` | [Q5b](../../docs/plan/17-app-heads-and-shipping.md): read content from there instead of from the package, even in a release build. Either another build's bundles or a project's `Library/` — see [Downloaded content](#downloaded-content) and the section below it. Warns loudly, on a timer. |
 | `--vixen-scene <address>` | Open this scene instead of the one the content build listed first. What makes "it only reproduces on the third map" something a tester can hand over. |
 
 An unrecognised `--vixen-*` argument is **warned about**, not ignored — a typo in a launch script
@@ -225,9 +225,20 @@ quiet**: the host warns at startup and then **every sixty seconds** for as long 
 Once is not visible — a build left overnight in a QA lab scrolled that line away hours ago. The
 diagnostic-overlay and crash-report stamps doc 17 also asks for arrive with the things that have them.
 
-Today "loose" means a content *build* directory outside the package — what `vixen content build
---output` writes and what `vixen content serve` serves. Reading unbundled loose files, which is what
-the Editor variant will want, needs a provider that does not exist yet.
+"Loose" now means either of two things, and the directory says which. A content **build** outside the
+package — what `vixen content build --output` writes and `vixen content serve` serves — or a
+project's own `Library/`, written by `vixen content loose`: a catalog whose entries name **no bundle
+at all**, beside the `ArtifactDb/` the import wrote its chunks into. Finding that folder is what
+makes the host mount the artefact store and read chunks straight out of it, and
+`Services.Content.IsUnpacked` says it did.
+
+That second form is doc 17's **Editor variant**, and it is the one that changes the iteration loop:
+the same `BuildPlanner` decides the same addresses from the same sidecars, so a player resolves
+`Assets/Textures/Crate.png` to the same asset it would in a shipped build — but the cost of making a
+change visible is the re-import of the one asset that changed, with nothing packed. The runtime hooks
+for it were already there and had nothing to serve: `AssetManager.MountFor` returns without mounting
+anything for an entry that names no bundle, and `ObjectDatabase.Mount` adds bundles *last* so a
+bundle never shadows what an editor is rebuilding into.
 
 ### The scene a build opens with
 

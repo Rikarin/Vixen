@@ -125,7 +125,7 @@ public sealed class ProjectAsset {
     [Tooltip("How many other assets refer to this one.")]
     public int ReferencedBy => project.References.ReferrersOf(Asset).Count;
 
-    /// <summary>What a build ships this asset under, or empty for "not shipped".</summary>
+    /// <summary>What a build ships this asset under, or empty for its path.</summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Writable, where everything above is not, and the difference is where the value
@@ -137,14 +137,21 @@ public sealed class ProjectAsset {
     ///         "there is no addressable UI" meant in practice.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Empty clears the whole block rather than writing an empty address.</b>
-    ///         <c>BuildPlanner</c> reads a null address as "not shipped" and an empty string as a
-    ///         name — an asset addressed <c>""</c> is one every load of <c>""</c> would find.
+    ///         ⚠ <b>Empty means the asset's own path, not "not shipped".</b> Every asset is
+    ///         addressable by where it is, so this box is for the addresses that are <i>contracts</i>
+    ///         — a level a save game names, a pack a URL is built from — which are worth setting
+    ///         because they survive the file being moved and the path by definition does not.
+    ///         <see cref="Excluded" /> is how something is kept out.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Clearing it clears the whole block rather than writing an empty address.</b>
+    ///         <c>BuildPlanner</c> reads a null address as "use the path" and an empty string would
+    ///         be a name — an asset addressed <c>""</c> is one every load of <c>""</c> would find.
     ///     </para>
     /// </remarks>
     [Inspector]
     [Header("Addressable")]
-    [Tooltip("What the game loads this by. Empty means the asset is not shipped as an addressable.")]
+    [Tooltip("What the game loads this by. Empty is the asset's own path, which is what almost everything wants.")]
     public string Address {
         get => Meta?.Addressable?.Address ?? string.Empty;
         set => Amend(info => info with { Address = Trimmed(value) });
@@ -180,6 +187,21 @@ public sealed class ProjectAsset {
                     .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)]
             }
         );
+    }
+
+    /// <summary>Whether to keep it out of the build entirely.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The opt-out that only became necessary when an absent address stopped meaning
+    ///     "not shipped".</b> Every asset is addressable by its path now, so "leave this one out" had
+    ///     to become something a project can say rather than something it expressed by saying
+    ///     nothing. What it is for is the source file nothing loads at run time — a layered PSD a
+    ///     texture was flattened from, a reference FBX kept beside the one that ships.
+    /// </remarks>
+    [Inspector]
+    [Tooltip("Keep this asset out of the build. Anything addressable that depends on it then fails the build.")]
+    public bool Excluded {
+        get => Meta?.Addressable?.Excluded ?? false;
+        set => Amend(info => info with { Excluded = value });
     }
 
     /// <summary>Renders it as its name.</summary>
@@ -282,7 +304,8 @@ public sealed class ProjectAsset {
 
         var empty = updated.Address is null or { Length: 0 }
             && updated.Group is null or { Length: 0 }
-            && updated.Labels.Length == 0;
+            && updated.Labels.Length == 0
+            && !updated.Excluded;
 
         try {
             AssetMetaFile.WriteFile(path, current with { Addressable = empty ? null : updated });

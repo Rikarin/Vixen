@@ -167,4 +167,16 @@ static partial class HostLog {
         Message = "Remote content: {Bundles} downloadable bundle(s), cached under {Cache}."
     )]
     public static partial void RemoteContent(ILogger logger, int bundles, VirtualPath cache);
+
+    /// <summary>
+    ///     Doc 17's Editor variant, said once. A build reading an import's own artefacts is not a
+    ///     shipping configuration, and a run whose content came from somebody's <c>Library/</c> has
+    ///     to be identifiable as such in a log attached to a bug report.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 13021,
+        Level = LogLevel.Information,
+        Message = "Unpacked content: chunks read from the artefact store at {Root}, with nothing bundled."
+    )]
+    public static partial void UnpackedContent(ILogger logger, VirtualPath root);
 }

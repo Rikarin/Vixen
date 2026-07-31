@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets.Models;
 using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
@@ -12,6 +13,19 @@ namespace Vixen.Editor.AssetEditors.Importing;
 /// <inheritdoc cref="TextureImportEdits" path="/remarks" />
 [DataContract("ModelImportEdits")]
 public sealed class ModelImportEdits {
+    /// <summary>What each of the model's parts should be called instead of what the file calls it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The editable half of the part list below.</b> A <c>.glb</c> with two meshes called
+    ///     <c>Cube</c> imports them as <c>Cube</c> and <c>Cube_1</c> — a name the importer invented,
+    ///     which depends on the order they appear in the file — and the Parts list shows exactly that.
+    ///     A row here, keyed by what the file calls it, is what turns one of them into a name somebody
+    ///     chose. Renaming changes the sub-asset's id and so breaks existing references to it, which is
+    ///     the same trade as renaming in the DCC tool and is worth making early.
+    /// </remarks>
+    [Inspector]
+    [Tooltip("Rename a part: Source is what the file calls it, Name is what it is addressed as. Applies on the next import.")]
+    public List<SubAssetRename> SubAssetNames { get; set; } = [];
+
     /// <summary>What to multiply every length by.</summary>
     [Inspector]
     [Tooltip("An FBX out of Max is centimetres and a glTF is metres. Applied to positions and to node translations.")]

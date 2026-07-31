@@ -130,15 +130,15 @@ sealed partial class EditorApplication {
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The panel's copy of the check <c>ContentPipeline</c> makes, and the two have to
-    ///         agree.</b> A build resolves every entry to the address its sidecar declares and refuses
-    ///         one it cannot — so a row that read "In build" for a scene the build would reject would
-    ///         be the panel actively misleading somebody about the thing it is for.
+    ///         agree.</b> A build resolves every entry to an address and refuses one it cannot — so a
+    ///         row that read "In build" for a scene the build would reject would be the panel actively
+    ///         misleading somebody about the thing it is for.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The sidecar is read here rather than the database asked.</b> An address lives in
-    ///         the <c>.meta</c> and the database's envelope does not carry it — the same read
-    ///         <c>ProjectAsset.Address</c> does for the inspector row, on a handful of files, when
-    ///         something happened rather than once a frame.
+    ///         ⚠ <b>Having no address is no longer one of the answers.</b> Every asset is addressable
+    ///         by its path, so the two ways a listed scene can still fail are that it names nothing —
+    ///         somebody's rename arriving in a checkout — and that it was deliberately excluded, which
+    ///         is the build list and the sidecar contradicting each other.
     ///     </para>
     /// </remarks>
     string? SceneTrouble(string path) {
@@ -147,9 +147,10 @@ sealed partial class EditorApplication {
         }
 
         try {
-            var meta = AssetMetaFile.ReadFile(AssetMetaFile.PathFor(project.Paths.Absolute(path)));
-
-            return meta?.Addressable?.Address is { Length: > 0 } ? null : "No address";
+            return AssetMetaFile.ReadFile(AssetMetaFile.PathFor(project.Paths.Absolute(path)))
+                is { Addressable.Excluded: true }
+                    ? "Excluded"
+                    : null;
         } catch (Exception failure) when (failure is IOException or YamlParseException or YamlBindingException) {
             // A sidecar somebody is halfway through hand-editing reads as unshippable, which is what
             // the build would say about it too — it is the planner's "no readable sidecar".
