@@ -510,6 +510,13 @@ block every merge for a quarter and be disabled within a week. So `docs/DocsExem
 [P7](#p7--the-coverage-sweep-3040-em-continuous) empties it area by area. **The gate is live from day
 one for anything *new*** — which is the half that actually prevents the backlog from growing.
 
+A merge can still bring in types older than the gate — the first one did, 58 of them from branches
+that predate it — so `./build.sh CheckDocs --update-exemptions` writes their lines, drops the ones no
+longer owed, and keeps every reason already written. ⚠ **It is a command somebody runs, not something
+the gate does for itself.** A check that wrote its own exemption whenever an undocumented type
+appeared would fail on nothing, forever; what makes the file worth having is that a person read the
+diff. `--update-api` has exactly this shape, for exactly this reason.
+
 The seven live checks run in two places, and the split is deliberate. Everything except the file-count
 budget is `nuke CheckDocs`, in `ci.yml` beside `CheckApi` — a public type with no page is a source
 change, and that is the job source changes go through. The file count is measured on the built site in

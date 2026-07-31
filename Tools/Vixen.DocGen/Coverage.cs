@@ -56,9 +56,14 @@ static class Coverage {
         #   * a line names a type that now has a page — delete the line in the same commit,
         #   * a line names a type the graph does not have — it was renamed or removed.
         #
-        # So this file only ever shrinks. Nothing new should be added to it: a new public type is
-        # written about in the commit that adds it, which is the one commit where its author knows
-        # what it is for.
+        # So this file should only ever shrink. A new public type is written about in the commit that
+        # adds it, which is the one commit where its author knows what it is for.
+        #
+        # When a merge brings in types that predate the gate — a long-lived branch, most often —
+        # `./build.sh CheckDocs --update-exemptions` adds their lines, drops the ones that are no
+        # longer owed, and keeps every reason already written. It is deliberately a command somebody
+        # runs and not something the gate does for itself: a gate that wrote its own exemptions would
+        # fail on nothing, forever.
 
         """;
 
@@ -160,34 +165,73 @@ static class Coverage {
         return problems;
     }
 
-    /// <summary>The seeded file, for <c>--seed-exemptions</c>.</summary>
+    /// <summary>What one <c>--update-exemptions</c> run did, for the summary it prints.</summary>
+    /// <param name="Added">Types that had no line and now carry <see cref="SeedReason" />.</param>
+    /// <param name="Documented">Lines dropped because the type now has a page.</param>
+    /// <param name="Gone">Lines dropped because the graph no longer has the type.</param>
+    /// <param name="Total">Lines in the file afterwards.</param>
+    public sealed record Update(int Added, int Documented, int Gone, int Total);
+
+    /// <summary>
+    ///     The file as it should be: every uncovered type, each keeping the reason it already had.
+    /// </summary>
     /// <remarks>
-    ///     Sorted by id and nothing else, so a regenerated file diffs against the previous one as the
-    ///     lines that were actually added or removed rather than as a reordering.
+    ///     <para>
+    ///         ⚠ <b>Existing reasons are preserved, and that is the whole difference between this and
+    ///         a re-seed.</b> The sweep replaces <c>sweep-pending</c> with reasons somebody wrote —
+    ///         "the managed-component store is not part of the packable surface yet" — and a rewrite
+    ///         that flattened those back to <c>sweep-pending</c> would delete the only review anybody
+    ///         had done.
+    ///     </para>
+    ///     <para>
+    ///         Sorted by id and nothing else, so the file diffs as the lines that were actually added
+    ///         or removed rather than as a reordering.
+    ///     </para>
     /// </remarks>
-    public static string Seed(IReadOnlyList<DocNode> nodes, string reason = SeedReason) {
+    public static (string Text, Update Summary) Rewrite(
+        IReadOnlyList<DocNode> nodes,
+        IReadOnlyList<Exemption> existing
+    ) {
+        var reasons = existing
+            .GroupBy(entry => entry.Id, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First().Reason, StringComparer.Ordinal);
+
         var builder = new StringBuilder(Header);
+        var byId = nodes.ToDictionary(node => node.Id, StringComparer.Ordinal);
+        var added = 0;
+
         var uncovered = nodes
             .Where(node => node.Docs is null)
-            .OrderBy(node => node.Id, StringComparer.Ordinal);
+            .OrderBy(node => node.Id, StringComparer.Ordinal)
+            .ToList();
 
         // One column, not two: the ids run to sixty characters and an aligned second column would
         // reflow the whole file every time the longest name changes.
         foreach (var node in uncovered) {
+            if (!reasons.TryGetValue(node.Id, out var reason)) {
+                reason = SeedReason;
+                added++;
+            }
+
             builder.Append(node.Id).Append(' ').Append(reason).Append('\n');
         }
 
-        return builder.ToString();
+        var documented = existing.Count(entry =>
+            byId.TryGetValue(entry.Id, out var node) && node.Docs is not null);
+
+        var gone = existing.Count(entry => !byId.ContainsKey(entry.Id));
+
+        return (builder.ToString(), new Update(added, documented, gone, uncovered.Count));
     }
 
-    /// <summary>Writes the seed where <see cref="Read" /> looks for it.</summary>
-    public static int Write(string repositoryRoot, IReadOnlyList<DocNode> nodes) {
+    /// <summary>Rewrites the file where <see cref="Read" /> looks for it.</summary>
+    public static Update Write(string repositoryRoot, IReadOnlyList<DocNode> nodes) {
         var path = Path.Combine(repositoryRoot, "docs", "DocsExempt.txt");
-        var text = Seed(nodes);
+        var (text, summary) = Rewrite(nodes, Read(repositoryRoot).Entries);
 
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, text);
 
-        return nodes.Count(node => node.Docs is null);
+        return summary;
     }
 }

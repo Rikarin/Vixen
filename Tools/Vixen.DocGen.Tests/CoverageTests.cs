@@ -131,10 +131,10 @@ public class CoverageTests : IDisposable {
         Assert.Contains(problems, problem => problem.Contains("…and 25 more", StringComparison.Ordinal));
     }
 
-    // ── The seed ────────────────────────────────────────────────────────────────────────────────
+    // ── The update ──────────────────────────────────────────────────────────────────────────────
 
     [Fact]
-    public void TheSeedHoldsEveryUndocumentedTypeAndNothingElse() {
+    public void TheFileHoldsEveryUndocumentedTypeAndNothingElse() {
         Coverage.Write(root, [Node("Beta"), Node("Alpha"), Node("Gamma", docs: "ecs/gamma")]);
 
         var (entries, errors) = Coverage.Read(root);
@@ -146,11 +146,48 @@ public class CoverageTests : IDisposable {
 
     /// <summary>A file the gate would then fail on would be a seed nobody could commit.</summary>
     [Fact]
-    public void TheSeedSatisfiesTheGateItSeeds() {
+    public void TheFileSatisfiesTheGateItWrites() {
         var nodes = new[] { Node("Alpha"), Node("Beta"), Node("Gamma", docs: "ecs/gamma") };
 
         Coverage.Write(root, nodes);
 
         Assert.Empty(Coverage.Check(nodes, Coverage.Read(root).Entries));
+    }
+
+    /// <summary>
+    ///     The whole difference between updating and re-seeding: the sweep replaces `sweep-pending`
+    ///     with reasons somebody wrote, and flattening those back would delete the only review anybody
+    ///     had done.
+    /// </summary>
+    [Fact]
+    public void AnExistingReasonSurvivesTheUpdate() {
+        WriteExemptions("T:Fixtures.Alpha the store is not public yet\n");
+        Coverage.Write(root, [Node("Alpha"), Node("Beta")]);
+
+        var entries = Coverage.Read(root).Entries;
+
+        Assert.Equal("the store is not public yet", entries.Single(entry => entry.Id.EndsWith("Alpha", StringComparison.Ordinal)).Reason);
+        Assert.Equal(Coverage.SeedReason, entries.Single(entry => entry.Id.EndsWith("Beta", StringComparison.Ordinal)).Reason);
+    }
+
+    [Fact]
+    public void TheUpdateCountsWhatItDid() {
+        WriteExemptions("T:Fixtures.Alpha sweep-pending\nT:Fixtures.Renamed sweep-pending\nT:Fixtures.Gamma sweep-pending\n");
+
+        var summary = Coverage.Write(root, [Node("Alpha"), Node("Beta"), Node("Gamma", docs: "ecs/gamma")]);
+
+        Assert.Equal(1, summary.Added);       // Beta
+        Assert.Equal(1, summary.Documented);  // Gamma has a page now
+        Assert.Equal(1, summary.Gone);        // Renamed is not in the graph
+        Assert.Equal(2, summary.Total);
+    }
+
+    /// <summary>On an empty tree it is the seed, which is how the file came to exist at all.</summary>
+    [Fact]
+    public void WithNoFileTheUpdateIsTheSeed() {
+        var summary = Coverage.Write(root, [Node("Alpha"), Node("Beta")]);
+
+        Assert.Equal(2, summary.Added);
+        Assert.Equal(2, summary.Total);
     }
 }
