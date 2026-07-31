@@ -48,6 +48,7 @@ Vixen.Ui.Composition.Component.Component() -> void
 Vixen.Ui.Composition.Component.Content.get -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.Component.Root.get -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.IComposable -> interface
+Vixen.Ui.Composition.Literals -> static class
 Vixen.Ui.Composition.ScopedStyles -> static class
 Vixen.Ui.CornerRadii -> readonly struct
 Vixen.Ui.CornerRadii : System.IEquatable<Vixen.Ui.CornerRadii>
@@ -874,6 +875,17 @@ static Vixen.Ui.Composition.BuildContext.Host(Vixen.Ui.UiElement element) -> Vix
 static Vixen.Ui.Composition.BuildContext.Inner(Vixen.Ui.Composition.Component component) -> Vixen.Ui.UiElement
 static Vixen.Ui.Composition.BuildContext.Inner(Vixen.Ui.UiElement element) -> Vixen.Ui.UiElement
 static Vixen.Ui.Composition.BuildContext.Subscribe(string name, System.Action<Vixen.Ui.UiElement, System.Action<Vixen.Ui.UiEvent>, Vixen.Ui.RoutingStrategy> subscribe) -> void
+static Vixen.Ui.Composition.Literals.Of(bool shape, string text) -> bool
+static Vixen.Ui.Composition.Literals.Of(bool? shape, string text) -> bool?
+static Vixen.Ui.Composition.Literals.Of(double shape, string text) -> double
+static Vixen.Ui.Composition.Literals.Of(double? shape, string text) -> double?
+static Vixen.Ui.Composition.Literals.Of(float shape, string text) -> float
+static Vixen.Ui.Composition.Literals.Of(float? shape, string text) -> float?
+static Vixen.Ui.Composition.Literals.Of(int shape, string text) -> int
+static Vixen.Ui.Composition.Literals.Of(int? shape, string text) -> int?
+static Vixen.Ui.Composition.Literals.Of(string? shape, string text) -> string
+static Vixen.Ui.Composition.Literals.Of<T>(T shape, string text) -> T
+static Vixen.Ui.Composition.Literals.Of<T>(T? shape, string text) -> T?
 static Vixen.Ui.Composition.ScopedStyles.Scope(string css, string scope) -> string
 static Vixen.Ui.Composition.ScopedStyles.ScopeOf(System.Type component) -> string
 static Vixen.Ui.CornerRadii.Circular(float topLeft, float topRight, float bottomRight, float bottomLeft) -> Vixen.Ui.CornerRadii

@@ -34,6 +34,7 @@ SourceText
 
 ```html
 @component Counter
+@tag counter-panel
 @using Vixen.Ui.Controls
 
 @code {
@@ -53,7 +54,7 @@ SourceText
     }
 
     @for (var i in Enumerable.Range(0, 3)) {
-        <Button key="@i" on:click.stop="@Increment">+@i</Button>
+        <Button key="@i" Variant="Subtle" on:click.stop="@Increment">+@i</Button>
     }
 
     <slot name="footer" />
@@ -79,6 +80,29 @@ has properties that are objects and there is no flat name for them. Nothing here
 path exists — the binder's rule is only that it will parse as C#, which is the same bargain the tag
 name is emitted under.
 
+**And a quoted value is not necessarily a string.** `Variant="Subtle"` is an enum member,
+`Value="0.5"` is a float, `Loud="true"` is a flag — and this side cannot tell which, for the same
+reason it cannot tell a component from a control. So the emitter writes
+
+```csharp
+n1.Variant =
+    Literals.Of(n1.Variant, "Subtle");
+```
+
+and the *C# compiler* picks the conversion, from the type of the property being assigned. The first
+argument is there to be inferred from and is never read: C# infers nothing from what an expression
+is assigned to, and there is no other way to get the target's type into a generic method.
+
+⚠ **The property is therefore named twice, under two `#line` directives.** One would map its own
+fragment and *extrapolate* the rest of the line — which put the second error from a misspelt
+parameter at a column several words past the end of the line the author wrote. Two directives put
+both on the attribute's name, which is the price of the shorthand along with one duplicated
+diagnostic.
+
+⚠ **And a misspelt enum member is a run-time failure**, because nothing on this side knows the
+member names either. `Literals.Of` says what they were; `@ControlVariant.Subtle` is still accepted
+and is still checked by the compiler, for anyone who would rather have the error at build time.
+
 ## The binder has no semantic model, and that is the design
 
 The original sketch had the binder resolve `<Counter Title="x" />` against the C# type `Counter`
@@ -93,6 +117,21 @@ markup rather than about C#: a duplicate attribute, an event handler given a str
 claiming one name, a loop whose elements have no identity. Every `VXML2xxx` is one of those. There
 is deliberately no `VXML3xxx` range, because a second and worse typechecker is exactly what this
 design exists to avoid.
+
+## `@tag`, and what a component is called
+
+```html
+@component TaskCentre
+@tag task-center
+```
+
+The default host tag is the type's name in lower case, and it cannot produce a hyphen — so every
+component whose stylesheet spells its tag the way CSS does, which is every compound one, would
+otherwise override a virtual property to say a single word. A header is where a component already
+says what it is.
+
+It emits `protected override string TagName => "task-center";` and nothing else, so a component
+written by hand says the same thing the same way.
 
 ## Whitespace
 

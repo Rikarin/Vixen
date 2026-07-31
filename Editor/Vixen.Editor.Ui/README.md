@@ -250,6 +250,7 @@ also made of.
         <task-line>
             <task-title>@task.Title</task-title>
             <IconButton LeadingIcon.Geometry="@ControlIcons.Close"
+                        Variant="Subtle"
                         Disabled="@Live(task.IsCancellationRequested)"
                         on:click.stop="@(() => Cancel(task))" />
         </task-line>
@@ -275,7 +276,8 @@ component first" is what found them:
 |---|---|
 | A capitalised tag could not name a control | `ctx.Child<T>` took `Component` only, so `<ProgressBar />` did not compile. Nothing in the control library was reachable from markup. |
 | `on:click` was a tap | Which is not what a button is: it is also Space, Enter and an access key. `BuildContext.Subscribe` is how `Vixen.Ui.Controls` says so. |
-| A component could not name its host tag | The default is the type's name in lower case, which cannot produce the hyphen every tag in these stylesheets has. |
+| A component could not name its host tag | The default is the type's name in lower case, which cannot produce the hyphen every tag in these stylesheets has. `@tag task-center` is the header that says so. |
+| A quoted value was always a string | So an enum had to be written `Variant="@ControlVariant.Subtle"` — a qualified expression, and an effect registered to assign a constant. `Variant="Subtle"` is the same thing said once. |
 | Effects were queued per thread | And a shell that flushed the thread's queue ran every other document's bindings. `UiDocument.Effects` is the fix; `Tick` drains this document's. |
 
 ⚠ **And one thing the *model* still owes.** `BackgroundTask` holds plain properties that a worker

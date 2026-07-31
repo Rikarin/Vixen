@@ -31,6 +31,9 @@ public enum SyntaxKind : ushort {
     /// <summary><c>@namespace Some.Namespace</c>.</summary>
     NamespaceDirective,
 
+    /// <summary><c>@tag element-name</c>.</summary>
+    TagDirective,
+
     /// <summary><c>@code { … }</c>.</summary>
     CodeBlock,
 
@@ -89,6 +92,9 @@ public enum SyntaxKind : ushort {
 
     /// <summary><c>@namespace</c>.</summary>
     NamespaceKeyword,
+
+    /// <summary><c>@tag</c>.</summary>
+    TagKeyword,
 
     /// <summary><c>@code</c>.</summary>
     CodeKeyword,

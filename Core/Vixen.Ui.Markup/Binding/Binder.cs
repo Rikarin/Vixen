@@ -136,10 +136,12 @@ public sealed class Binder {
         // namespace asked for" keeps the emitter's fallback rather than declaring a class inside a
         // namespace called nothing.
         var @namespace = document.Namespace is { Name.IsMissing: false } named ? named.Name.Text : null;
+        var tag = document.Tag is { Name.IsMissing: false } tagged ? tagged.Name.Text : null;
 
         return new(
             directive.Identifier.Text,
             @namespace,
+            tag,
             usings.ToImmutable(),
             code.ToImmutable(),
             content,

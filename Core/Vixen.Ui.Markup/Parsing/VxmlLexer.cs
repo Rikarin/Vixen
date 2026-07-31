@@ -355,6 +355,15 @@ sealed class VxmlLexer {
             return;
         }
 
+        // A name rather than an identifier, because an element name has hyphens in it — which is
+        // the whole reason this directive exists rather than a rule about the type's name.
+        if (AtDirective("tag")) {
+            Emit(tokens, VxmlTokenKind.TagKeyword, 4);
+            SkipWhitespace(tokens);
+            LexName(tokens);
+            return;
+        }
+
         if (AtDirective("code")) {
             Emit(tokens, VxmlTokenKind.CodeKeyword, 5);
             LexCodeBody(tokens);

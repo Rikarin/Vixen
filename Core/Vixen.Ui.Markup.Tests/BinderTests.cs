@@ -26,6 +26,12 @@ public class BinderTests {
     }
 
     [Fact]
+    public void A_tag_directive_reaches_the_bound_component_and_its_absence_is_null() {
+        Assert.Equal("task-center", BindClean("@component A\n@tag task-center\n<div />").Tag);
+        Assert.Null(BindClean("@component A\n<div />").Tag);
+    }
+
+    [Fact]
     public void Code_blocks_concatenate_in_source_order() {
         var component = BindClean("@component A\n@code { int a; }\n<div />\n@code { int b; }");
         Assert.Equal([" int a; ", " int b; "], component.Code.Select(c => c.Text));

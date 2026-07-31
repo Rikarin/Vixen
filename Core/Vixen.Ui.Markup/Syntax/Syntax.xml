@@ -40,6 +40,14 @@
                 </summary>
             </PropertyComment>
         </Field>
+        <Field Name="Tag" Type="TagDirectiveSyntax" Optional="true">
+            <PropertyComment>
+                <summary>
+                    The <c>@tag</c> header, if the file names one. Absent means the component's host
+                    element takes the type's name in lower case.
+                </summary>
+            </PropertyComment>
+        </Field>
         <Field Name="Usings" Type="SyntaxList&lt;UsingDirectiveSyntax&gt;">
             <PropertyComment>
                 <summary>The <c>@using</c> headers, in source order.</summary>
@@ -110,6 +118,32 @@
                 offer supplies it as a default, and this overrides it — which is the point: a
                 component in a folder whose name is not what its namespace should be has no other way
                 to say so, and renaming the folder is not a fix a library can rely on.
+            </remarks>
+        </TypeComment>
+    </Node>
+
+    <Node Name="TagDirectiveSyntax" Base="VxmlSyntaxNode">
+        <Kind Name="TagDirective"/>
+        <Field Name="TagKeyword" Type="SyntaxToken">
+            <Kind Name="TagKeyword"/>
+        </Field>
+        <Field Name="Name" Type="SyntaxToken">
+            <Kind Name="NameToken"/>
+            <PropertyComment>
+                <summary>An element name, hyphens and all.</summary>
+            </PropertyComment>
+        </Field>
+        <TypeComment>
+            <summary>
+                <c>@tag task-center</c> — the element name the component's host answers to.
+            </summary>
+            <remarks>
+                ⚠ <b>A header rather than three lines of <c>@code</c>.</b> The default is the type's
+                name in lower case and it cannot produce a hyphen, so every component whose
+                stylesheet spells its tag the way CSS does — which is every compound one — would
+                otherwise have to override a virtual property to say a single word. What a component
+                is called is a property of the component, and the file already has a place where a
+                component says what it is.
             </remarks>
         </TypeComment>
     </Node>

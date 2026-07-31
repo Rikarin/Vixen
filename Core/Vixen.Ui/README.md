@@ -878,7 +878,17 @@ works for everybody who tests with a mouse and for nobody who does not use one.
 
 **A component names its host tag.** `Component.TagName` defaults to the type's name in lower case
 and is overridable for the reason `UiElement.TagName` is: a default taken from a type name cannot
-produce a hyphen, and `task-center` is not spelled `taskcenter` in anybody's stylesheet.
+produce a hyphen, and `task-center` is not spelled `taskcenter` in anybody's stylesheet. In markup
+that is the `@tag` header.
+
+**`Literals` is how a quoted attribute becomes something that is not a string.** `Variant="Subtle"`
+is an enum member and `Value="0.5"` is a float; the markup compiler knows neither, so it writes
+`Literals.Of(n1.Variant, "Subtle")` and lets overload resolution pick the conversion from the type
+of the property being assigned. ⚠ **The first argument exists to be inferred from and is never
+read** — C# infers nothing from an assignment target — so a property whose getter does work does it
+once at build time, and a property that cannot be read is one to write with `@expr`. A type nothing
+converts to is a *compile* error on the attribute, which is what an `object Convert(Type, string)`
+would have turned into a run-time surprise.
 
 ### Effects belong to the document
 
