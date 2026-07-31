@@ -50,6 +50,52 @@ public static class Hierarchy {
         return world.TryGet<HierarchyDepth>(entity, out var depth) ? depth.Value : 0;
     }
 
+    /// <summary>
+    ///     The entity's local-to-world matrix as it stands <i>now</i>, composed by walking the parent
+    ///     chain rather than read from <see cref="WorldTransform" />.
+    /// </summary>
+    /// <param name="world">The world.</param>
+    /// <param name="entity">The entity.</param>
+    /// <returns>The matrix, or the identity for an entity with no transform.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>For the code that runs before <c>TransformSystem</c> does.</b>
+    ///         <see cref="WorldTransform" /> is resolved in <c>SystemPhase.PreRender</c>, so anything
+    ///         reading it during <c>Update</c> or <c>LateUpdate</c> is reading what the entity's
+    ///         position was at the end of the previous frame. That is fine for most things and is
+    ///         exactly wrong for a camera: a camera that follows a target through last frame's
+    ///         position renders every frame one frame behind the thing it is looking at, which shows
+    ///         up as a subject that slides about within the frame whenever anything accelerates.
+    ///     </para>
+    ///     <para>
+    ///         It costs one matrix multiply per level of depth, per call, and it is worth it exactly
+    ///         where the entity count is small and the staleness is visible. Anything sweeping over
+    ///         thousands of entities should be in <c>PreRender</c> reading the resolved column
+    ///         instead.
+    ///     </para>
+    /// </remarks>
+    public static Matrix4x4 ResolveWorldMatrix(World world, Entity entity) {
+        ArgumentNullException.ThrowIfNull(world);
+
+        if (!world.TryGet<LocalTransform>(entity, out var local)) {
+            return world.TryGet<WorldTransform>(entity, out var resolved) ? resolved.Value : Matrix4x4.Identity;
+        }
+
+        var matrix = local.ToMatrix();
+
+        // Row-vector convention: the child's own transform applies first, then each ancestor's in
+        // turn. The same composition TransformSystem performs, walked upward instead of downward.
+        for (var parent = ParentOf(world, entity); !parent.IsNull; parent = ParentOf(world, parent)) {
+            if (!world.TryGet<LocalTransform>(parent, out var parentLocal)) {
+                break;
+            }
+
+            matrix *= parentLocal.ToMatrix();
+        }
+
+        return matrix;
+    }
+
     /// <summary>The entity's children, in no guaranteed order.</summary>
     /// <param name="world">The world.</param>
     /// <param name="entity">The entity.</param>

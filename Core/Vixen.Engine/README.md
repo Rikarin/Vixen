@@ -234,6 +234,69 @@ transform — **reverse-Z in both projection modes**, because the rest of the en
 and tests `GREATER`, and a projection that disagreed would render a picture that is correct except
 that everything is behind everything else.
 
+## Virtual cameras
+
+```csharp
+loop.Add(new VirtualCameraSystem());
+loop.Add(new CameraDirectorSystem());
+
+world.Add(eye, Camera.Perspective);
+world.Add(eye, CameraDirector.Default);
+
+var shot = VirtualCameras.Create(world, VirtualCamera.Default, CameraTargets.Both(player));
+world.Add(shot, FollowBody.Behind(distance: 6f, height: 2f, damping: 0.5f));
+world.Add(shot, ComposerAim.Centred(damping: 0.3f));
+world.Add(shot, CameraNoise.Handheld);
+```
+
+Cinemachine's shape, and the reasoning is in [docs/plan/26](../../docs/plan/26-virtual-cameras.md).
+A scene holds many **shots**; a **director** beside the real camera picks the enabled one with the
+highest `Priority` and blends when the pick changes. Nothing anywhere says "switch to camera B" — B
+is given a higher priority, or A is switched off, and the cut happens because the answer changed.
+
+**Which stage a shot uses is an archetype question, not a branch.** A body decides where it is
+(`FollowBody` in one of four binding frames, `FramingBody` for screen-space framing, `OrbitBody`,
+`HardLockBody`); an aim decides where it looks (`ComposerAim` with its dead and soft zones,
+`HardLookAim`, `PovAim`, `MatchTargetAim`). Each is a sweep over the chunks carrying that component,
+and a shot with neither sits exactly where its entity does — which is what a hand-placed
+establishing shot wants. The stages run as passes inside one system rather than as systems of their
+own, because their order *is* the design and an `UpdateAfter` chain is a place for it to be edited by
+accident.
+
+**A damping time is the time in which 99 % of the error is removed**, and it means that everywhere.
+The form is exponential, so it composes exactly: the residual after a second is the same whether the
+second arrived as one frame or a hundred. `Lerp(current, target, 0.1f)` — the way this is usually
+written — is a different camera at 30 Hz than at 144. The rotational form is exact too, because a
+slerp travels the geodesic at constant angular speed and leaves exactly the same fraction of the
+*angle*.
+
+⚠ **Framing is corrected in angles, not in screen units.** A screen coordinate is proportional to the
+tangent of the angle off the view axis, so the tempting `atan(overshoot · tan(fov/2))` is right in the
+middle of the frame and increasingly wrong towards its edges — a subject entering from the side gets
+snatched past the dead zone. The correct form is the difference of two arctangents and costs one more
+`atan`.
+
+**Shake is held apart from the damped state.** `CameraNoise` and `CameraImpulseListener` write
+`CameraShot.ShakePosition` / `ShakeRotation`, and only the composed output folds them in; a damped
+camera that could see its own shake would chase it. The noise is *value* noise, so an amplitude is a
+hard bound rather than a hope — five centimetres never becomes six. An impulse is an initial
+velocity, not a displacement, with distance falloff and a propagation delay, so doubling its
+frequency halves the visible kick from the same number.
+
+⚠ **The pipeline runs in `LateUpdate` and resolves its targets by walking the parent chain.**
+`WorldTransform` is resolved in `PreRender`, so reading it here would give last frame's answer and the
+camera would render one frame behind its subject. The director then writes the camera's *local*
+transform, so the ordinary transform pass resolves the camera and everything parented to it in the
+same frame.
+
+⚠ **`CameraTargets` is `[Component]` without `[DataContract]`**, so a scene places a shot, its
+priority, its lens and its framing, and something running in the world says what it follows. An
+entity handle names a slot in the world that issued it — the line `PhysicsBody` is already on.
+
+Obstacle avoidance asks `ICameraOcclusion`, which the host implements, because this assembly
+references no physics and that is what keeps `Vixen.Physics` optional. A `CameraOcclusion` in a game
+that supplies no implementation does nothing rather than throwing.
+
 ## Debug geometry
 
 ```csharp

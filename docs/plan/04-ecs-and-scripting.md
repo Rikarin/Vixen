@@ -264,6 +264,14 @@ need throughput. Both are first-class and documented as such.
 > this document already schedules explicitly; and the `IWorldCommand` undo/redo vocabulary, which
 > arrives with the editor. The ImGui scaffold is **cut** — see [14](14-roadmap.md) § Phase 2.
 >
+> ✅ **The camera façade grew a system.** This document gives a game a `Camera` component and a
+> transform, which is everything it needs and nothing it wants — what gets written on top of it, every
+> time, is a controller with a mode enum whose transitions outnumber its modes.
+> [26](26-virtual-cameras.md) is what replaces that: many authored shots, composable body and aim
+> stages, and a director that picks one on priority and blends. It extends this document rather than
+> amending it — `Camera` and `CameraMath` are unchanged and a game that wants neither uses them
+> exactly as before.
+>
 > ✅ **The coroutines, built as the row above specifies.** `Core/Vixen.Engine/Coroutines/`, 25 tests:
 > `async Coroutine` with `await NextFrame()`, `await Seconds(2f)`, `await UnscaledSeconds()`,
 > `await Until(…)`, `await While(…)`, `Coroutine.WhenAll`, and `Run` / `StopCoroutines` on
