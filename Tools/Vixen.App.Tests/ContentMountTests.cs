@@ -4,7 +4,9 @@
 using Vixen.Assets;
 using Vixen.Core;
 using Vixen.Core.IO;
+using Vixen.Core.Serialization;
 using Vixen.Core.Serialization.Storage;
+using Vixen.Shaders;
 using Xunit;
 
 namespace Vixen.App.Tests;
@@ -110,6 +112,72 @@ public sealed class ContentMountTests : IDisposable {
 
         Assert.Null(mount.Assets);
         Assert.NotNull(mount.Reason);
+    }
+
+    /// <summary>
+    ///     The same gap one file along: <c>vixen build</c> has been writing <c>shaders.effects</c>
+    ///     beside the catalog and nothing had ever opened it — so a shipping build, whose only
+    ///     effect source this is, resolved every material to a miss.
+    /// </summary>
+    [Fact]
+    public void TheBakedShadersBesideTheCatalogAreFoundAndIndexed() {
+        var app = Directory.CreateDirectory(Path.Combine(root, "app")).FullName;
+        var content = Directory.CreateDirectory(Path.Combine(app, ContentMount.FolderName)).FullName;
+
+        var bundle = new EffectBundle {
+            Effects = [new() { ShaderName = "ForwardPlus" }, new() { ShaderName = "Shadow" }]
+        };
+
+        File.WriteAllBytes(Path.Combine(content, ContentMount.ShaderBundleFileName), Serializer.ToBytes(bundle));
+
+        var files = new VirtualFileSystem();
+        files.Mount(MountPoints.App, new PhysicalFileProvider(app, isReadOnly: true));
+
+        using var mount = ContentMount.Open(files);
+
+        Assert.Null(mount.ShaderReason);
+        Assert.Equal(2, mount.Shaders!.Count);
+        Assert.NotNull(mount.Shaders.TryGet(EffectKey.Of("ForwardPlus")));
+
+        // And the catalog's absence did not stop it: the two are separate products of one build, and
+        // a project may bake its variants before it has anything addressable to draw with them.
+        Assert.Null(mount.Assets);
+    }
+
+    /// <summary>
+    ///     A project that has not captured a manifest yet ships no bundle, which is ordinary — it
+    ///     runs against whatever provider it adds itself, exactly as the samples do.
+    /// </summary>
+    [Fact]
+    public void NoShaderBundleIsOrdinaryAndSaysWhy() {
+        var app = Directory.CreateDirectory(Path.Combine(root, "app")).FullName;
+
+        var files = new VirtualFileSystem();
+        files.Mount(MountPoints.App, new PhysicalFileProvider(app, isReadOnly: true));
+
+        using var mount = ContentMount.Open(files);
+
+        Assert.Null(mount.Shaders);
+        Assert.Contains(ContentMount.ShaderBundleFileName, mount.ShaderReason, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Reported rather than thrown, like the catalog's own failures: a bundle truncated by a
+    ///     failed download costs every material a miss, not a process that will not start.
+    /// </summary>
+    [Fact]
+    public void ACorruptShaderBundleIsReportedRatherThanThrown() {
+        var app = Directory.CreateDirectory(Path.Combine(root, "app")).FullName;
+        var content = Directory.CreateDirectory(Path.Combine(app, ContentMount.FolderName)).FullName;
+        File.WriteAllBytes(Path.Combine(content, ContentMount.ShaderBundleFileName), [9, 9, 9, 9]);
+
+        var files = new VirtualFileSystem();
+        files.Mount(MountPoints.App, new PhysicalFileProvider(app, isReadOnly: true));
+
+        using var mount = ContentMount.Open(files);
+
+        Assert.Null(mount.Shaders);
+        Assert.NotNull(mount.ShaderReason);
     }
 
     [Fact]

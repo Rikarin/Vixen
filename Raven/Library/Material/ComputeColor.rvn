@@ -65,7 +65,10 @@ struct ComputeColor {
     }
 
     /// A gamma-style curve. `amount` above 1 darkens mid-tones, below 1 lightens them.
-    static func Gamma(value: float3, amount: float): float3 => pow(max(value, float3(0f)), float3(max(amount, Const.Epsilon)))
+    static func Gamma(
+        value: float3,
+        amount: float
+    ): float3 => pow(max(value, float3(0f)), float3(max(amount, Const.Epsilon)))
 
     /// Hue rotation in YIQ space, which is cheap and good enough for a material graph.
     ///
@@ -82,7 +85,14 @@ struct ComputeColor {
 
         val ri = i * c - q * s
         val rq = i * s + q * c
-        return max(float3(luma + ri * 0.956f + rq * 0.621f, luma - ri * 0.272f - rq * 0.647f, luma - ri * 1.106f + rq * 1.703f), float3(0f))
+        return max(
+            float3(
+                luma + ri * 0.956f + rq * 0.621f,
+                luma - ri * 0.272f - rq * 0.647f,
+                luma - ri * 1.106f + rq * 1.703f
+            ),
+            float3(0f)
+        )
     }
 
     /// Saturation, around the colour's own luminance.

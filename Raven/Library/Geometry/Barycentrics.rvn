@@ -128,16 +128,36 @@ struct Barycentric {
     }
 
     /// One scalar attribute, interpolated.
-    static func Lerp1(b: Barycentrics, a0: float, a1: float, a2: float): float => a0 * b.weights.x + a1 * b.weights.y + a2 * b.weights.z
+    static func Lerp1(
+        b: Barycentrics,
+        a0: float,
+        a1: float,
+        a2: float
+    ): float => a0 * b.weights.x + a1 * b.weights.y + a2 * b.weights.z
 
     /// A two-component attribute, interpolated.
-    static func Lerp2(b: Barycentrics, a0: float2, a1: float2, a2: float2): float2 => a0 * b.weights.x + a1 * b.weights.y + a2 * b.weights.z
+    static func Lerp2(
+        b: Barycentrics,
+        a0: float2,
+        a1: float2,
+        a2: float2
+    ): float2 => a0 * b.weights.x + a1 * b.weights.y + a2 * b.weights.z
 
     /// A three-component attribute, interpolated.
-    static func Lerp3(b: Barycentrics, a0: float3, a1: float3, a2: float3): float3 => a0 * b.weights.x + a1 * b.weights.y + a2 * b.weights.z
+    static func Lerp3(
+        b: Barycentrics,
+        a0: float3,
+        a1: float3,
+        a2: float3
+    ): float3 => a0 * b.weights.x + a1 * b.weights.y + a2 * b.weights.z
 
     /// A four-component attribute, interpolated.
-    static func Lerp4(b: Barycentrics, a0: float4, a1: float4, a2: float4): float4 => a0 * b.weights.x + a1 * b.weights.y + a2 * b.weights.z
+    static func Lerp4(
+        b: Barycentrics,
+        a0: float4,
+        a1: float4,
+        a2: float4
+    ): float4 => a0 * b.weights.x + a1 * b.weights.y + a2 * b.weights.z
 
     /// How a two-component attribute changes across one pixel in x.
     ///
@@ -145,20 +165,40 @@ struct Barycentric {
     /// `Barycentrics` carries them: interpolation is linear in the weights, so the derivative of the
     /// interpolated value is the interpolation of the corner values by the derivative weights. No
     /// finite difference, no neighbouring pixel, and exact rather than nearly.
-    static func Ddx2(b: Barycentrics, a0: float2, a1: float2, a2: float2): float2 => a0 * b.ddx.x + a1 * b.ddx.y + a2 * b.ddx.z
+    static func Ddx2(
+        b: Barycentrics,
+        a0: float2,
+        a1: float2,
+        a2: float2
+    ): float2 => a0 * b.ddx.x + a1 * b.ddx.y + a2 * b.ddx.z
 
     /// How it changes across one pixel in y.
-    static func Ddy2(b: Barycentrics, a0: float2, a1: float2, a2: float2): float2 => a0 * b.ddy.x + a1 * b.ddy.y + a2 * b.ddy.z
+    static func Ddy2(
+        b: Barycentrics,
+        a0: float2,
+        a1: float2,
+        a2: float2
+    ): float2 => a0 * b.ddy.x + a1 * b.ddy.y + a2 * b.ddy.z
 
     /// How a three-component attribute changes across one pixel in x.
     ///
     /// What a tangent is derived from: the surface's own screen derivative, against the texture
     /// coordinate's. A resolve is better placed for this than a fragment stage, which would have to
     /// interpolate a stored tangent and pay a channel for it.
-    static func Ddx3(b: Barycentrics, a0: float3, a1: float3, a2: float3): float3 => a0 * b.ddx.x + a1 * b.ddx.y + a2 * b.ddx.z
+    static func Ddx3(
+        b: Barycentrics,
+        a0: float3,
+        a1: float3,
+        a2: float3
+    ): float3 => a0 * b.ddx.x + a1 * b.ddx.y + a2 * b.ddx.z
 
     /// How it changes across one pixel in y.
-    static func Ddy3(b: Barycentrics, a0: float3, a1: float3, a2: float3): float3 => a0 * b.ddy.x + a1 * b.ddy.y + a2 * b.ddy.z
+    static func Ddy3(
+        b: Barycentrics,
+        a0: float3,
+        a1: float3,
+        a2: float3
+    ): float3 => a0 * b.ddy.x + a1 * b.ddy.y + a2 * b.ddy.z
 
     /// A reciprocal that does not divide by zero.
     ///

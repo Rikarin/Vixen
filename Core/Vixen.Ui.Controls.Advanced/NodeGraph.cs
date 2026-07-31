@@ -15,6 +15,106 @@ public enum PortDirection : byte {
     Output
 }
 
+/// <summary>What an unconnected port's value is typed into.</summary>
+public enum PortEditorKind : byte {
+    /// <summary>Nothing. The port is a socket and no more.</summary>
+    None,
+
+    /// <summary>A box of digits per lane.</summary>
+    Number,
+
+    /// <summary>A tick.</summary>
+    Toggle
+}
+
+/// <summary>The value a port takes when nothing is wired to it, as the canvas shows it.</summary>
+/// <remarks>
+///     <para>
+///         <b>A picture of a value, not the value.</b> What a port's number <i>is</i> lives in the
+///         document — <c>Vixen.Editor.NodeGraph.GraphNode.Values</c> — because that is what is saved,
+///         undone and compiled. This is what the canvas draws and what a gesture writes into before
+///         anything is recorded, the same bargain <see cref="NodeGraph.Connect" /> makes: the picture
+///         moves first and the command follows, because a field that waited for a round trip through
+///         a command stack would drop keystrokes.
+///     </para>
+///     <para>
+///         ⚠ <b>Lanes are fixed at construction.</b> A port that is a <c>float3</c> is three boxes for
+///         as long as it exists, and a caller that wants a different width makes a different editor —
+///         which is what a reprojection does anyway. Growing one in place would mean the element pool
+///         showing it had to notice, and it is rebound rather than rebuilt.
+///     </para>
+/// </remarks>
+public sealed class PortEditor {
+    readonly float[] value;
+
+    /// <summary>Creates one.</summary>
+    /// <param name="kind">What it looks like.</param>
+    /// <param name="lanes">How many numbers it holds. One for a toggle.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="lanes" /> is not one to four.</exception>
+    public PortEditor(PortEditorKind kind, int lanes = 1) {
+        ArgumentOutOfRangeException.ThrowIfLessThan(lanes, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(lanes, 4);
+
+        Kind = kind;
+        value = new float[lanes];
+    }
+
+    /// <summary>What it looks like.</summary>
+    public PortEditorKind Kind { get; }
+
+    /// <summary>How many numbers it holds.</summary>
+    public int Lanes => value.Length;
+
+    /// <summary>How many decimal places each box shows.</summary>
+    public int Decimals { get; set; } = 3;
+
+    /// <summary>Whether it may be typed into.</summary>
+    /// <remarks>
+    ///     A graph shown without an undo stack behind it still shows its numbers — a sub-graph being
+    ///     previewed is worth reading — and a field that silently accepted an edit nothing recorded
+    ///     would be worse than one that refuses.
+    /// </remarks>
+    public bool ReadOnly { get; set; }
+
+    /// <summary>What the letter beside each box says, or empty for none.</summary>
+    /// <remarks>
+    ///     Four boxes in a row are unreadable without them and one box is unreadable with one, so a
+    ///     single-lane editor is normally given none.
+    /// </remarks>
+    public string LaneNames { get; set; } = "";
+
+    /// <summary>One lane.</summary>
+    /// <param name="lane">Which.</param>
+    /// <returns>Its value.</returns>
+    public float this[int lane] {
+        get => value[lane];
+        set => this.value[lane] = value;
+    }
+
+    /// <summary>Whether it is on, for a <see cref="PortEditorKind.Toggle" />.</summary>
+    public bool IsOn {
+        get => value[0] != 0f;
+        set => this.value[0] = value ? 1f : 0f;
+    }
+
+    /// <summary>Fills the lanes from a span, padding with the last one it was given.</summary>
+    /// <param name="lanes">The values. A shorter span pads, a longer one is truncated.</param>
+    /// <remarks>
+    ///     Padded with the last rather than with zero, for the reason a shader compiler pads a
+    ///     constant the same way: a one-number default on a port being shown as three means "and the
+    ///     same again", not "and then black".
+    /// </remarks>
+    public void Set(ReadOnlySpan<float> lanes) {
+        for (var index = 0; index < value.Length; index++) {
+            value[index] = lanes.IsEmpty ? 0f : lanes[Math.Min(index, lanes.Length - 1)];
+        }
+    }
+
+    /// <summary>The lanes, copied.</summary>
+    /// <returns>A fresh array.</returns>
+    public float[] ToArray() => [.. value];
+}
+
 /// <summary>One socket on the side of a node.</summary>
 /// <remarks>
 ///     ⚠ <b>A port knows where it is without being laid out.</b>
@@ -54,6 +154,16 @@ public sealed class GraphPort {
     ///     document model enforces the same one.
     /// </remarks>
     public bool AllowsMany => Direction == PortDirection.Output;
+
+    /// <summary>What an author types into it when nothing is wired to it, or <c>null</c> for nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Set on inputs, and only shown while the input is unconnected.</b> A port fed by a wire
+    ///     takes its value from that wire, and a box of digits beside it would be a number the
+    ///     compiler ignores — which is how somebody comes to spend an afternoon changing a field that
+    ///     does nothing. The canvas hides it rather than the projection removing it, because the
+    ///     canvas is the thing that knows a wire was dropped a frame before anything is recorded.
+    /// </remarks>
+    public PortEditor? Editor { get; set; }
 
     /// <summary>Whatever the application wants to hang off it.</summary>
     public object? Tag { get; set; }

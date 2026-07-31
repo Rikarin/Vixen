@@ -42,15 +42,16 @@ test drive it a fixed number of times, without a second implementation of the or
 ## The frame
 
 ```
-PumpEvents  →  MainThread.Drain  →  Advance  →  OnUpdate  →  OnRender  →  pace
+PumpEvents  →  MainThread.Drain  →  Advance  →  engine.Frame  →  OnUpdate
+                                 →  draw the world  →  OnRender  →  present  →  pace
 ```
 
 Main-thread work drains *after* events so that anything an event handler posted runs in the same
 frame rather than the next. Elapsed time is clamped to 250 ms, so a breakpoint or a closed laptop lid
-does not hand the simulation a second of movement at once. `OnUpdate` and `OnRender` are separate
-from the start, before there is a renderer to make it matter, because the split is what lets a later
-loop run several simulation steps per rendered frame and retrofitting it means revisiting every
-application written against a single hook.
+does not hand the simulation a second of movement at once. `OnUpdate` and `OnRender` are separate,
+because the split is what lets the loop run several simulation steps per rendered frame — and now
+also because the world's own frame is opened between them. See [The frame's
+picture](#the-frames-picture).
 
 The fixed-step accumulator itself is `Vixen.Engine`'s in Phase 2
 ([doc 03](../../docs/plan/03-core-foundation.md)); this loop is variable-step and calls the same
@@ -123,10 +124,10 @@ window went.
 
 ## Frame pacing
 
-`FrameRateLimit` defaults to 60 rather than uncapped, and that matters more today than it will: with
-no swapchain there is no vsync, so an uncapped loop spins a core at 100 % to draw nothing. Once a
-graphics backend is present, presentation paces a windowed frame and this becomes the cap for when
-vsync is off or there is no window — a server's tick rate, or a tool's.
+`FrameRateLimit` defaults to 60 rather than uncapped. A windowed head is paced by presentation —
+`config.Graphics.PresentMode` is `Fifo`, which is vsync — so the two cap at whichever is lower, which
+is what a player expects from both settings. The limit is what does the work where there is no vsync
+to do it: a server's tick rate, a tool's, and any head whose swapchain is the Null backend's.
 
 `UnfocusedFrameRateLimit` defaults to 10. A game alt-tabbed away is a game whose fans should stop.
 
@@ -226,12 +227,74 @@ speed silently becomes a quarter. `VixenApplication.TimeScale` is the one place 
 reaches both clocks, so a paused game owes no simulation steps rather than accumulating a debt it
 pays all at once when the menu closes.
 
+## The frame's picture
+
+`Services.Graphics` is an `AppGraphics` — a device, a swapchain, an `EffectSystem` and the
+`WorldRenderer` that joins the world to a drawn frame. The host opens it at boot and drives it once
+a frame, so a game that places a camera and some drawables sees them without writing a line of
+rendering code.
+
+```
+                        ┌ Begin: acquire → lend the image → WorldRenderer.Draw
+engine.Frame → OnUpdate ┤  OnRender  (Services.Graphics.Commands is open, scene already recorded)
+                        └ End: submit → present
+```
+
+**`OnRender` is inside the frame, not before it.** The scene is already in
+`Services.Graphics.Commands` by the time the hook runs, so an overlay, a UI pass or a debug draw
+records on top of it. `Commands` is null outside a frame and during one whose image could not be
+acquired — a window mid-resize, a device that has gone — so an application checks rather than assumes.
+
+**The camera comes from the world.** `CameraExtractionSystem` fills the frame's `RenderView` from the
+lowest-`Order` entity carrying a `Camera` — in `SystemPhase.PreRender`, after the transforms are
+written, so a camera moved this frame renders from where it now is. A world with no camera leaves the
+view alone and says so through `Camera.Found`, because a zeroed matrix is a black screen that reads
+as a broken renderer.
+
+**The frame's shape is a document, not code.** `config.Graphics.Compositor` names a compositor asset
+to load; without one the host uses `AppGraphics.DefaultFrame`, which is one lit pass into the window
+— the smallest frame in which a scene is visible, and deliberately too small to be mistaken for what
+a project should ship.
+
+⚠ **The window's image is lent to the document under a name** (`config.Graphics.Output`, default
+`SceneColour`) **and the frame's last colour target has to be that name.** A render graph culls a
+pass whose output nobody outside it reads, so a document whose final pass writes a resource it
+declared itself draws a correct frame into memory that is then discarded — a black window, no error
+anywhere.
+
+### Which device
+
+`GraphicsHost` is `PlatformHost`'s counterpart and answers one question: is there a surface to
+present to? Vulkan if so, `Vixen.Graphics.Null` if not — and the second is not a failure mode.
+[Doc 17](../../docs/plan/17-app-heads-and-shipping.md) makes Null a shipping backend: it is what the
+dedicated server runs on, and running the whole frame against it is what keeps a server and a client
+one program instead of two paths that drift. It is also what makes `--vixen-frames 10` a smoke test of
+the entire renderer on a machine with no GPU, which is the only kind of machine CI has.
+
+A head that wants another backend — OpenGL, WebGPU, the device an editor's play mode is already
+drawing with — passes one to `AppBuilder.WithGraphics`. A device handed in that way is **not**
+disposed with the application, because it belongs to whoever handed it over.
+
+`config.Graphics.Enabled = false` is the line for a head that wants no device at all: a batch tool, or
+a sample that builds the whole stack by hand to show what it looks like.
+
+### Shaders
+
+`vixen build` writes `shaders.effects` beside `catalog.bin`, and the host opens it into an
+`EffectStore` behind `Services.Graphics.Effects`. That is a shipping build's **only** effect source —
+the code that could compile a variant lives in `Tools/Vixen.ShaderCompiler` and is never linked into
+a game — so a project with no bundle resolves every material to a miss and gets one line at startup
+saying which build step has not been run. A development head adds a compiling provider on top, which
+is the tiering `IEffectSource` was drawn for.
+
 ## Still to come
 
-**Graphics.** `OnRender` runs with nothing to render to. The shape is deliberate — the hooks and the
-ordering are what a later phase fills in, not what it replaces.
+**Recovering from a lost device.** `AppGraphics.IsLost` latches and nothing more is drawn. Rebuilding
+every device resource a game holds after a driver reset is a feature; a half-measure that left
+handles dangling would be worse than the honest stop.
 
 **The meta-package.** [Doc 02](../../docs/plan/02-repository-layout.md) also describes `Vixen.App` as
-the package that pulls in the graphics backends valid for a RID. That half arrives with the backends.
+the package that pulls in the graphics backends valid for a RID. It now references Vulkan and Null
+directly; the per-RID conditioning arrives with the packaging.
 
 Licensed under Apache-2.0.

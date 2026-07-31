@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using System.Text;
 using Vixen.Editor.Core;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
@@ -30,13 +31,44 @@ namespace Vixen.Editor.NodeGraph;
 ///     </para>
 /// </remarks>
 public sealed class NodeInspector : UiElement {
-    readonly Dictionary<UiElement, PortDefinition> editors = [];
+    readonly List<Field> editors = [];
+
+    NodeGraphView? view;
+    string signature = "";
+    int rows;
+    bool writing;
+
+    /// <summary>One editor element, and which lane of which port it stands for.</summary>
+    readonly record struct Field(UiElement Element, PortDefinition Port, int Lane);
 
     /// <inheritdoc />
     protected override string TagName => "node-inspector";
 
     /// <summary>The view whose selection is shown.</summary>
-    public NodeGraphView? View { get; set; }
+    /// <remarks>
+    ///     ⚠ <b>Assigning subscribes, because the same number can now be typed in two places.</b> A
+    ///     port's value is editable on the node as well as here, and a panel that only refreshed when
+    ///     the selection changed would sit there showing the number the port had before the field on
+    ///     the canvas was dragged.
+    /// </remarks>
+    public NodeGraphView? View {
+        get => view;
+        set {
+            if (ReferenceEquals(view, value)) {
+                return;
+            }
+
+            if (view is not null) {
+                view.GraphChanged -= Changed;
+            }
+
+            view = value;
+
+            if (view is not null) {
+                view.GraphChanged += Changed;
+            }
+        }
+    }
 
     /// <summary>The document edits are recorded against, or <see langword="null" /> for none.</summary>
     public EditorDocument? EditedDocument { get; set; }
@@ -45,7 +77,90 @@ public sealed class NodeInspector : UiElement {
     public string EmptyMessage { get; set; } = "Select a node to edit its settings.";
 
     /// <summary>How many rows are showing.</summary>
-    public int RowCount => editors.Count;
+    public int RowCount => rows;
+
+    /// <inheritdoc />
+    protected override void OnRemoved() {
+        View = null;
+        base.OnRemoved();
+    }
+
+    /// <summary>Re-reads the values of the rows that are already there.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not <see cref="Rebuild" />, and the difference matters every frame.</b> Dragging a
+    ///     number field on a node raises the model's change once per frame, and rebuilding would
+    ///     remove and re-create the rows that many times — in a framework where removal is final, so
+    ///     the elements would accumulate for as long as the drag lasted.
+    /// </remarks>
+    public void Refresh() {
+        if (View is not { } current
+            || current.Selection.Count != 1
+            || !current.Graph.TryGet(current.Selection.First(), out var node)) {
+            return;
+        }
+
+        writing = true;
+
+        try {
+            foreach (var (element, port, lane) in editors) {
+                var value = Lanes(node, port, PortKinds.Fields(port.Kind));
+
+                switch (element) {
+                    case CheckBox toggle:
+                        toggle.IsChecked = value[0] != 0f;
+                        break;
+
+                    case NumericInput box:
+                        box.Number = value[lane];
+                        break;
+                }
+            }
+        } finally {
+            writing = false;
+        }
+    }
+
+    /// <remarks>
+    ///     ⚠ <b>A value change refreshes and a structural one rebuilds, and telling them apart is
+    ///     what this is for.</b> Wiring something into the selected node's port turns that row from a
+    ///     field into "from a connection", which no amount of re-reading values will do; dragging a
+    ///     number does not, and rebuilding for it once a frame is what <see cref="Refresh" /> exists
+    ///     to avoid. The signature is what the rows were built against.
+    /// </remarks>
+    void Changed(NodeGraphView changed) {
+        var current = Signature(changed);
+
+        if (string.Equals(current, signature, StringComparison.Ordinal)) {
+            Refresh();
+
+            return;
+        }
+
+        Rebuild();
+    }
+
+    /// <summary>What the rows depend on: the node, its ports, and which of them a wire arrives at.</summary>
+    static string Signature(NodeGraphView view) {
+        if (view.Selection.Count != 1 || !view.Graph.TryGet(view.Selection.First(), out var node)) {
+            return view.Selection.Count.ToString(CultureInfo.InvariantCulture);
+        }
+
+        var text = new StringBuilder(node.Type);
+
+        if (view.Definition(node.Type) is { } definition) {
+            foreach (var port in definition.Ports) {
+                if (port.Direction != PortDirection.Input) {
+                    continue;
+                }
+
+                text.Append('|')
+                    .Append(port.Name)
+                    .Append(view.Graph.Source(new(node.Id, port.Name)) is null ? '.' : '*');
+            }
+        }
+
+        return text.ToString();
+    }
 
     /// <summary>Rebuilds the rows for whatever is selected.</summary>
     /// <remarks>
@@ -59,6 +174,9 @@ public sealed class NodeInspector : UiElement {
         }
 
         editors.Clear();
+        rows = 0;
+
+        signature = View is { } shown ? Signature(shown) : "";
 
         if (View is not { } view || view.Selection.Count != 1) {
             Add("text").Text = View is { Selection.Count: > 1 } ? "Several nodes selected." : EmptyMessage;
@@ -88,7 +206,7 @@ public sealed class NodeInspector : UiElement {
             Row(view, node, port);
         }
 
-        if (editors.Count == 0 && Children.Count <= 2) {
+        if (rows == 0 && Children.Count <= 2) {
             Add("text").Text = "This node has nothing to set.";
         }
     }
@@ -96,6 +214,8 @@ public sealed class NodeInspector : UiElement {
     void Row(NodeGraphView view, GraphNode node, PortDefinition port) {
         var row = Add("fact-row");
         row.Add("fact-name").Text = port.Name;
+
+        rows++;
 
         var slot = row.Add("fact-value");
 
@@ -105,30 +225,39 @@ public sealed class NodeInspector : UiElement {
             return;
         }
 
-        var lanes = PortKinds.Lanes(port.Kind);
+        // ⚠ Fields rather than lanes. A boolean, an integer and an unresolved dynamic all occupy no
+        // float lanes at all — see PortKinds.Lanes — and asking that question here is what left every
+        // maths node in the shader graph, whose inputs are dynamic, with the word "Dynamic" where its
+        // numbers should have been.
+        var fields = PortKinds.Fields(port.Kind);
 
-        if (lanes <= 0) {
+        if (fields <= 0) {
             slot.Add("text").Text = port.Kind.ToString();
 
             return;
         }
 
-        var current = Lanes(node, port, lanes);
+        var current = Lanes(node, port, fields);
 
         if (port.Kind == PortKind.Bool) {
             var toggle = slot.Add<CheckBox>();
             toggle.IsChecked = current[0] != 0f;
 
-            toggle.CheckedChanged += (_, value) => Write(view, node, port, [value ? 1f : 0f]);
-            editors[toggle] = port;
+            toggle.CheckedChanged += (_, value) => {
+                if (!writing) {
+                    Write(view, node, port, [value ? 1f : 0f]);
+                }
+            };
+
+            editors.Add(new(toggle, port, 0));
 
             return;
         }
 
         List<NumericInput> boxes = [];
 
-        for (var lane = 0; lane < lanes; lane++) {
-            if (lanes > 1) {
+        for (var lane = 0; lane < fields; lane++) {
+            if (fields > 1) {
                 slot.Add("lane-name").Text = LaneNames[lane].ToString(CultureInfo.InvariantCulture);
             }
 
@@ -138,20 +267,30 @@ public sealed class NodeInspector : UiElement {
             box.Number = current[lane];
 
             boxes.Add(box);
-            editors[box] = port;
+            editors.Add(new(box, port, lane));
         }
 
         foreach (var box in boxes) {
             // ⚠ Every lane is written together rather than the changed one alone, because a value is
             // an array on the node: writing one lane would need a read-modify-write against whatever
             // the *other* boxes are showing, and reading them back at commit time is that read.
-            box.NumberChanged += (_, _) => Write(view, node, port, [.. boxes.Select(entry => (float) entry.Number)]);
+            box.NumberChanged += (_, _) => {
+                if (!writing) {
+                    Write(view, node, port, [.. boxes.Select(entry => (float) entry.Number)]);
+                }
+            };
         }
     }
 
     /// <summary>What each lane of a vector port is called.</summary>
     const string LaneNames = "XYZW";
 
+    /// <remarks>
+    ///     ⚠ <b>A short default fills the lanes it has and no more.</b> A one-number default on a
+    ///     three-lane port leaves the other two at zero <i>here</i>, where an author is being shown
+    ///     three separate boxes to type into — the compiler's splat is what the same default means
+    ///     when it reaches a <c>float3</c> as one value.
+    /// </remarks>
     static float[] Lanes(GraphNode node, PortDefinition port, int lanes) {
         var value = new float[lanes];
 

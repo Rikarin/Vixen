@@ -407,7 +407,14 @@ shader ClusteredShading {
     /// The early-out asks the surface as well as the angle, and that is the price of scattering: a
     /// material with no scatter colour is answered by every model here with zero once the cosine is
     /// zero, so skipping it is free — and one that has one is brightest exactly there.
-    func Contribution(light: PunctualLight, d: MaterialData, p: ShadingPoint, n: float3, v: float3, alpha: float): float3 {
+    func Contribution(
+        light: PunctualLight,
+        d: MaterialData,
+        p: ShadingPoint,
+        n: float3,
+        v: float3,
+        alpha: float
+    ): float3 {
         // The mirror direction, which is what a shaped light finds its representative point along. A
         // punctual light ignores it, and it is computed per light rather than once per fragment
         // because the light loop is where a shaded normal is already in registers — one `reflect` is

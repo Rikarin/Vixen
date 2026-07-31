@@ -7,6 +7,7 @@ using Vixen.Core.IO;
 using Vixen.Core.Threading;
 using Vixen.Engine.Frames;
 using Vixen.Engine.Input;
+using Vixen.Graphics;
 using Vixen.Input;
 using Vixen.Platform;
 
@@ -50,6 +51,7 @@ public sealed class AppBuilder {
     readonly List<Action<AppServices>> configurations = [];
 
     IPlatform? platform;
+    IGraphicsDevice? device;
 
     internal AppBuilder(AppArguments arguments) => this.arguments = arguments;
 
@@ -62,6 +64,23 @@ public sealed class AppBuilder {
     /// </remarks>
     public AppBuilder WithPlatform(IPlatform host) {
         platform = host;
+        return this;
+    }
+
+    /// <summary>Uses a device the caller built, rather than choosing one.</summary>
+    /// <param name="graphics">
+    ///     The device. The application does <em>not</em> take ownership: a device handed in is one
+    ///     somebody else's frame is also drawing with, which is exactly the editor's play mode, and a
+    ///     host that disposed it would take the editor's own window down with the game.
+    /// </param>
+    /// <returns>This builder.</returns>
+    /// <remarks>
+    ///     The seam for the backends <see cref="GraphicsHost" /> does not choose between — OpenGL,
+    ///     WebGPU, a device an XR runtime dictated the creation of — and the reason that class can
+    ///     stay a function with two answers rather than a registry.
+    /// </remarks>
+    public AppBuilder WithGraphics(IGraphicsDevice graphics) {
+        device = graphics;
         return this;
     }
 
@@ -146,6 +165,12 @@ public sealed class AppBuilder {
         // that reacts to it.
         engine?.Add(new InputUpdateSystem(input));
 
+        // After the content, because the baked variants and the compositor both come out of it;
+        // after the engine, because this adds the extraction systems that fill the frame from the
+        // world; and before the game sees the services, because OnInitialise is where a game places
+        // its camera and expects something to be looking through it.
+        var graphics = config.Graphics.Enabled ? Graphics(config, window, content, engine, loggerFactory) : null;
+
         var services = new AppServices(
             host,
             window,
@@ -157,7 +182,8 @@ public sealed class AppBuilder {
             config,
             content,
             engine,
-            input
+            input,
+            graphics
         );
 
         foreach (var configure in configurations) {
@@ -165,6 +191,51 @@ public sealed class AppBuilder {
         }
 
         return new(game, services);
+    }
+
+    /// <summary>Opens a device and builds the frame the world is drawn through.</summary>
+    /// <remarks>
+    ///     Both of the things that can go wrong here are reported and survived rather than thrown
+    ///     for. A machine with no Vulkan gets the Null backend and a warning — which is also, word
+    ///     for word, how a dedicated server boots — and a build with no baked shaders gets a line
+    ///     saying so, because "every material resolved to a miss" is otherwise a mystery with a
+    ///     build step for an answer.
+    /// </remarks>
+    AppGraphics Graphics(
+        AppConfig config,
+        IWindow? window,
+        ContentMount content,
+        EngineLoop? engine,
+        ILoggerFactory logs
+    ) {
+        var log = logs.CreateLogger("Vixen.App");
+        var graphics = device;
+
+        if (graphics is null) {
+            graphics = GraphicsHost.Create(window, logs, out var reason);
+
+            if (reason is { } why) {
+                HostLog.NoPresentingDevice(log, why);
+            }
+        }
+
+        if (content.Shaders is null && content.ShaderReason is { } shaders) {
+            HostLog.NoShaders(log, shaders);
+        }
+
+        return new(
+            graphics,
+            config.Graphics,
+            window,
+            content.Assets,
+            content.Shaders,
+            engine,
+            logs,
+
+            // A device this built is this application's to close. One handed to WithGraphics belongs
+            // to whoever handed it over — the editor, an XR runtime — and outlives the game.
+            ownsDevice: device is null
+        );
     }
 
     /// <summary>

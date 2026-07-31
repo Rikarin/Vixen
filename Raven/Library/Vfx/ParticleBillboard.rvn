@@ -59,7 +59,14 @@ shader ParticleBillboard {
     /// the shader guess at time.
     [VertexShader]
     [Semantic("SV_Position")]
-    func Vertex(corner: float2, center: float3, velocity: float3, sizeRotation: float3, particleColor: float4, age: float): float4 {
+    func Vertex(
+        corner: float2,
+        center: float3,
+        velocity: float3,
+        sizeRotation: float3,
+        particleColor: float4,
+        age: float
+    ): float4 {
         color = particleColor
 
         val size = sizeRotation.xy

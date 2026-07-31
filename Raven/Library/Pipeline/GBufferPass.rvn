@@ -52,7 +52,14 @@ shader GBufferPass {
 
     [VertexShader]
     [Semantic("SV_Position")]
-    func Vertex(position: float3, normal: float3, tangent: float4, texcoord: float2, bones0: float4, weights0: float4): float4 {
+    func Vertex(
+        position: float3,
+        normal: float3,
+        tangent: float4,
+        texcoord: float2,
+        bones0: float4,
+        weights0: float4
+    ): float4 {
         var local = position
         var localNormal = normal
         var localTangent = tangent.xyz

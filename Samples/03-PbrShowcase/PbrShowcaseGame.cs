@@ -130,6 +130,10 @@ public sealed class PbrShowcaseGame : Game {
     protected override void OnConfigure(AppConfig config) {
         config.Name = "PBR Showcase";
         config.Window = new() { Title = "Vixen — PBR Showcase", Size = new(1280, 720), IsVisible = true };
+
+        // The sample builds its own device, frame and present pass — a second host swapchain on the
+        // same surface would be two things presenting to one window.
+        config.Graphics.Enabled = false;
     }
 
     /// <inheritdoc />

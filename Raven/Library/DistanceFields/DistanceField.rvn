@@ -91,9 +91,13 @@ struct DistanceField {
     /// trilinear field reads that cell's own constant gradient and carries nothing the sample did not.
     static func Gradient(volume: DistanceFieldVolume, field: Texture3D, s: Sampler, world: float3): float3 {
         val cell = 1f / volume.inverseCellSize
-        val dx = Sample(volume, field, s, world + float3(cell, 0f, 0f)) - Sample(volume, field, s, world - float3(cell, 0f, 0f))
-        val dy = Sample(volume, field, s, world + float3(0f, cell, 0f)) - Sample(volume, field, s, world - float3(0f, cell, 0f))
-        val dz = Sample(volume, field, s, world + float3(0f, 0f, cell)) - Sample(volume, field, s, world - float3(0f, 0f, cell))
+        val ex = float3(cell, 0f, 0f)
+        val ey = float3(0f, cell, 0f)
+        val ez = float3(0f, 0f, cell)
+
+        val dx = Sample(volume, field, s, world + ex) - Sample(volume, field, s, world - ex)
+        val dy = Sample(volume, field, s, world + ey) - Sample(volume, field, s, world - ey)
+        val dz = Sample(volume, field, s, world + ez) - Sample(volume, field, s, world - ez)
         return Math.SafeNormalize(float3(dx, dy, dz))
     }
 
@@ -108,7 +112,17 @@ struct DistanceField {
     ///
     /// A ray that begins inside geometry reports a hit at once, at its own origin. Marching out of the
     /// solid it started in answers a question nobody asked, and indistinguishably.
-    static func Trace(volume: DistanceFieldVolume, field: Texture3D, s: Sampler, origin: float3, direction: float3, maxDistance: float, maxSteps: int, threshold: float, stepScale: float): DistanceFieldHit {
+    static func Trace(
+        volume: DistanceFieldVolume,
+        field: Texture3D,
+        s: Sampler,
+        origin: float3,
+        direction: float3,
+        maxDistance: float,
+        maxSteps: int,
+        threshold: float,
+        stepScale: float
+    ): DistanceFieldHit {
         val ray = Math.SafeNormalize(direction)
         var travelled = 0f
         var result = DistanceFieldHit(false, maxDistance, origin, 0)
@@ -149,7 +163,19 @@ struct DistanceField {
     /// shadow map's depth bias has: without it every lit surface shadows itself.
     ///
     /// `softness` is the reciprocal of the light's angular radius. Larger is sharper.
-    static func Shadow(volume: DistanceFieldVolume, field: Texture3D, s: Sampler, origin: float3, toLight: float3, lightDistance: float, softness: float, bias: float, maxSteps: int, threshold: float, stepScale: float): float {
+    static func Shadow(
+        volume: DistanceFieldVolume,
+        field: Texture3D,
+        s: Sampler,
+        origin: float3,
+        toLight: float3,
+        lightDistance: float,
+        softness: float,
+        bias: float,
+        maxSteps: int,
+        threshold: float,
+        stepScale: float
+    ): float {
         val ray = Math.SafeNormalize(toLight)
         var travelled = max(bias, MinStep)
         var light = 1f
@@ -186,7 +212,16 @@ struct DistanceField {
     ///
     /// This is large-scale occlusion and not a replacement for the screen-space kind: it sees geometry at
     /// the field's own resolution and nothing finer. A renderer wants both.
-    static func Occlusion(volume: DistanceFieldVolume, field: Texture3D, s: Sampler, position: float3, normal: float3, radius: float, samples: int, strength: float): float {
+    static func Occlusion(
+        volume: DistanceFieldVolume,
+        field: Texture3D,
+        s: Sampler,
+        position: float3,
+        normal: float3,
+        radius: float,
+        samples: int,
+        strength: float
+    ): float {
         val up = Math.SafeNormalize(normal)
         var occlusion = 0f
         var weight = 1f
@@ -228,10 +263,26 @@ protocol IDistanceFieldSource {
     func GradientField(world: float3): float3
 
     /// Marches a ray until it reaches a surface or runs out of road.
-    func TraceField(origin: float3, direction: float3, maxDistance: float, maxSteps: int, threshold: float, stepScale: float): DistanceFieldHit
+    func TraceField(
+        origin: float3,
+        direction: float3,
+        maxDistance: float,
+        maxSteps: int,
+        threshold: float,
+        stepScale: float
+    ): DistanceFieldHit
 
     /// How much of a light reaches a point, with the penumbra falling out of the march.
-    func ShadowField(origin: float3, toLight: float3, lightDistance: float, softness: float, bias: float, maxSteps: int, threshold: float, stepScale: float): float
+    func ShadowField(
+        origin: float3,
+        toLight: float3,
+        lightDistance: float,
+        softness: float,
+        bias: float,
+        maxSteps: int,
+        threshold: float,
+        stepScale: float
+    ): float
 
     /// How enclosed a point is, from a few samples up its own normal.
     func OcclusionField(position: float3, normal: float3, radius: float, samples: int, strength: float): float
@@ -272,7 +323,12 @@ shader GlobalDistanceField : IDistanceFieldSource {
 
         for (level in 0 .. LevelCount - 1) {
             if (!found && DistanceField.Contains(distanceFieldVolumes[level], world)) {
-                result = DistanceField.Sample(distanceFieldVolumes[level], distanceFieldLevels[level], distanceFieldSampler, world)
+                result = DistanceField.Sample(
+                    distanceFieldVolumes[level],
+                    distanceFieldLevels[level],
+                    distanceFieldSampler,
+                    world
+                )
                 found = true
             }
         }
@@ -306,7 +362,14 @@ shader GlobalDistanceField : IDistanceFieldSource {
     ///
     /// Identical to `DistanceField.Trace` but reading across levels, so a ray leaving the near volume
     /// keeps going in a coarser one instead of stopping at a boundary the world does not have.
-    func TraceField(origin: float3, direction: float3, maxDistance: float, maxSteps: int, threshold: float, stepScale: float): DistanceFieldHit {
+    func TraceField(
+        origin: float3,
+        direction: float3,
+        maxDistance: float,
+        maxSteps: int,
+        threshold: float,
+        stepScale: float
+    ): DistanceFieldHit {
         val ray = Math.SafeNormalize(direction)
         var travelled = 0f
         var result = DistanceFieldHit(false, maxDistance, origin, 0)
@@ -345,7 +408,16 @@ shader GlobalDistanceField : IDistanceFieldSource {
     /// The penumbra is the smallest ratio of clearance to distance over the march — see
     /// `DistanceField.Shadow`. Reading across levels is what lets a shadow be cast by something far
     /// enough away to have left the near volume, which is most of what a sun shadow is.
-    func ShadowField(origin: float3, toLight: float3, lightDistance: float, softness: float, bias: float, maxSteps: int, threshold: float, stepScale: float): float {
+    func ShadowField(
+        origin: float3,
+        toLight: float3,
+        lightDistance: float,
+        softness: float,
+        bias: float,
+        maxSteps: int,
+        threshold: float,
+        stepScale: float
+    ): float {
         val ray = Math.SafeNormalize(toLight)
         var travelled = max(bias, DistanceField.MinStep)
         var light = 1f
@@ -413,12 +485,28 @@ shader NoDistanceField : IDistanceFieldSource {
 
     func GradientField(world: float3): float3 => float3(0f, 1f, 0f)
 
-    func TraceField(origin: float3, direction: float3, maxDistance: float, maxSteps: int, threshold: float, stepScale: float): DistanceFieldHit {
+    func TraceField(
+        origin: float3,
+        direction: float3,
+        maxDistance: float,
+        maxSteps: int,
+        threshold: float,
+        stepScale: float
+    ): DistanceFieldHit {
         return DistanceFieldHit(false, maxDistance, origin + Math.SafeNormalize(direction) * maxDistance, 0)
     }
 
     /// Nothing blocks anything.
-    func ShadowField(origin: float3, toLight: float3, lightDistance: float, softness: float, bias: float, maxSteps: int, threshold: float, stepScale: float): float => 1f
+    func ShadowField(
+        origin: float3,
+        toLight: float3,
+        lightDistance: float,
+        softness: float,
+        bias: float,
+        maxSteps: int,
+        threshold: float,
+        stepScale: float
+    ): float => 1f
 
     /// And nothing encloses anything.
     func OcclusionField(position: float3, normal: float3, radius: float, samples: int, strength: float): float => 1f

@@ -190,7 +190,15 @@ shader VisibilityResolve : ClusteredShading {
     /// page bytes by the same arithmetic and placed by the same instance transform, because a
     /// disagreement between the two lands attributes on the wrong surface — the plan flags this and it
     /// is why `Corner` exists once rather than being inlined twice.
-    func Shade(pixel: int2, size: int2, identity: uint, record: RasterCluster, page: uint, instance: CullInstance, mesh: RasterMesh) {
+    func Shade(
+        pixel: int2,
+        size: int2,
+        identity: uint,
+        record: RasterCluster,
+        page: uint,
+        instance: CullInstance,
+        mesh: RasterMesh
+    ) {
         val triangle = Raster.Triangle(identity)
 
         if (triangle >= record.triangleCount) {
@@ -262,7 +270,13 @@ shader VisibilityResolve : ClusteredShading {
     /// The gradient of the surface with respect to `u`, orthogonalised against the shading normal.
     /// Derived rather than stored, and derived from the *analytic* gradients rather than from a quad —
     /// so it is exact within the triangle and does not smear across a silhouette.
-    func TangentOf(b: Barycentrics, v0: ResolvedVertex, v1: ResolvedVertex, v2: ResolvedVertex, fallback: float3): float3 {
+    func TangentOf(
+        b: Barycentrics,
+        v0: ResolvedVertex,
+        v1: ResolvedVertex,
+        v2: ResolvedVertex,
+        fallback: float3
+    ): float3 {
         val du = Barycentric.Ddx2(b, v0.uv, v1.uv, v2.uv)
         val dv = Barycentric.Ddy2(b, v0.uv, v1.uv, v2.uv)
         val px = Barycentric.Ddx3(b, v0.position, v1.position, v2.position)
@@ -281,7 +295,13 @@ shader VisibilityResolve : ClusteredShading {
     }
 
     /// One decoded page vertex, in world space.
-    func Corner(start: uint, record: RasterCluster, mesh: RasterMesh, instance: CullInstance, local: uint): ResolvedVertex {
+    func Corner(
+        start: uint,
+        record: RasterCluster,
+        mesh: RasterMesh,
+        instance: CullInstance,
+        local: uint
+    ): ResolvedVertex {
         val at = start + record.vertexOffset + local * record.vertexStride
 
         val x = record.origin.x + int(Short(at))

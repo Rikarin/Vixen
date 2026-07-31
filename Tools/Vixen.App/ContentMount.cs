@@ -3,6 +3,8 @@
 
 using Vixen.Assets;
 using Vixen.Core.IO;
+using Vixen.Core.Serialization;
+using Vixen.Shaders;
 
 namespace Vixen.App;
 
@@ -50,13 +52,35 @@ public sealed class ContentMount : IDisposable {
     /// <summary>What a catalog file is called.</summary>
     public const string CatalogFileName = "catalog.bin";
 
+    /// <summary>
+    ///     What the shader bundle is called, beside the catalog.
+    /// </summary>
+    /// <remarks>
+    ///     Matches <c>ShaderBuildRunner.BundleFileName</c>, which is where <c>vixen build</c> writes
+    ///     it — the third name in this file that is spelled twice across a build and a run, and for
+    ///     the reason the other two give. A sibling of the catalog rather than an addressed chunk
+    ///     because it has to be loadable <em>before</em> anything addressable is: an address is a
+    ///     thing the catalog provides, and resolving one needs a shader.
+    /// </remarks>
+    public const string ShaderBundleFileName = "shaders.effects";
+
     readonly IDisposable? bundles;
 
-    ContentMount(AssetManager? assets, VirtualPath root, bool isLoose, IDisposable? bundles, string? reason) {
+    ContentMount(
+        AssetManager? assets,
+        VirtualPath root,
+        bool isLoose,
+        IDisposable? bundles,
+        string? reason,
+        EffectStore? shaders = null,
+        string? shaderReason = null
+    ) {
         Assets = assets;
         Root = root;
         IsLoose = isLoose;
         Reason = reason;
+        Shaders = shaders;
+        ShaderReason = shaderReason;
         this.bundles = bundles;
     }
 
@@ -80,6 +104,28 @@ public sealed class ContentMount : IDisposable {
 
     /// <summary>Why there is no content, when there is none.</summary>
     public string? Reason { get; }
+
+    /// <summary>
+    ///     The variants this build baked, or <see langword="null" /> if it baked none.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A shipping build's only effect source: the code that could compile one is in
+    ///         <c>Tools/Vixen.ShaderCompiler</c> and is never linked into a game. Until this was read
+    ///         here, <c>vixen build</c> had been writing the file and nothing had ever opened it —
+    ///         the same gap the catalog was in, one layer along.
+    ///     </para>
+    ///     <para>
+    ///         Null is ordinary rather than broken. A project that has not written a
+    ///         <c>Shaders.effects.json</c> yet ships no bundle and runs against whatever provider it
+    ///         adds itself — a development build's compiler, a test's fake — which is exactly the
+    ///         arrangement the samples use.
+    ///     </para>
+    /// </remarks>
+    public EffectStore? Shaders { get; }
+
+    /// <summary>Why there are no baked variants, when there are none.</summary>
+    public string? ShaderReason { get; }
 
     /// <summary>Finds the application's content and opens it.</summary>
     /// <param name="files">The virtual file system, with the standard locations already mounted.</param>
@@ -107,10 +153,15 @@ public sealed class ContentMount : IDisposable {
             root = LooseMountPoint;
         }
 
+        // Before the catalog and independently of it, because the two are separate products of one
+        // build: a project may bake its variants before it has any addressable content, and a build
+        // whose catalog failed to read still wants to say what it found beside it.
+        var shaders = OpenShaders(files, root, out var shaderReason);
+
         var catalogPath = root / CatalogFileName;
 
         if (!files.Exists(catalogPath)) {
-            return new(null, root, loose, null, $"There is no {CatalogFileName} at {root}.");
+            return new(null, root, loose, null, $"There is no {CatalogFileName} at {root}.", shaders, shaderReason);
         }
 
         ContentCatalog catalog;
@@ -121,12 +172,56 @@ public sealed class ContentMount : IDisposable {
             stream.CopyTo(buffer);
             catalog = CatalogFormat.Read(buffer.ToArray());
         } catch (Exception failure) when (failure is IOException or InvalidDataException or CatalogFormatException) {
-            return new(null, root, loose, null, $"{catalogPath} could not be read: {failure.Message}");
+            return new(
+                null,
+                root,
+                loose,
+                null,
+                $"{catalogPath} could not be read: {failure.Message}",
+                shaders,
+                shaderReason
+            );
         }
 
         var source = new LocalBundleSource(files, root);
 
-        return new(new(catalog, source), root, loose, source, null);
+        return new(new(catalog, source), root, loose, source, null, shaders, shaderReason);
+    }
+
+    /// <summary>Reads the baked variants sitting beside the catalog, if the build wrote any.</summary>
+    /// <remarks>
+    ///     Recorded rather than thrown, for the reason the catalog's own failures are: a bundle
+    ///     written by a newer build or truncated by a failed download is a thing that happens in the
+    ///     field, and a game that refused to start over it could not draw the message saying why.
+    ///     What it costs instead is every material resolving to a miss, which the effect system
+    ///     already counts and names.
+    /// </remarks>
+    static EffectStore? OpenShaders(VirtualFileSystem files, VirtualPath root, out string? reason) {
+        var path = root / ShaderBundleFileName;
+
+        if (!files.Exists(path)) {
+            reason = $"There is no {ShaderBundleFileName} at {root}.";
+            return null;
+        }
+
+        try {
+            using var stream = files.OpenRead(path);
+            using var buffer = new MemoryStream();
+            stream.CopyTo(buffer);
+
+            reason = null;
+            return new(Serializer.Read<EffectBundle>(buffer.ToArray()));
+        }
+
+        // ⚠ Broad, unlike the catalog's named CatalogFormatException, and deliberately: a bundle is
+        // read by a generated serializer that reports a version it cannot migrate, a length it cannot
+        // honour and a member count it did not expect through three different exception types — and a
+        // file truncated mid-download produces whichever of them the cut landed in. Naming a set here
+        // would be naming the failures somebody has seen so far.
+        catch (Exception failure) when (failure is not (OutOfMemoryException or StackOverflowException)) {
+            reason = $"{path} could not be read: {failure.Message}";
+            return null;
+        }
     }
 
     /// <inheritdoc />

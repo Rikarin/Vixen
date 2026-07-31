@@ -81,6 +81,30 @@ public static class PortKinds {
     /// <summary>Whether a kind is one of the float vectors, which is what <see cref="PortKind.Dynamic" /> resolves to.</summary>
     public static bool IsVector(PortKind kind) => Lanes(kind) > 0;
 
+    /// <summary>How many numbers an author types into an unconnected port of a kind, or zero for none.</summary>
+    /// <param name="kind">The kind.</param>
+    /// <returns>One to four, or zero when the port takes no typed value at all.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Not <see cref="Lanes" />, and the three kinds where they differ are the point.</b>
+    ///         Lanes is how wide a value <i>is</i> in the emitted source, which is zero for a boolean,
+    ///         an integer and an unresolved dynamic — none of which is a float vector. What an editor
+    ///         needs is how many boxes to draw, and all three of those take exactly one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A dynamic port takes one number however wide it turned out to be.</b> The
+    ///         compiler pads a short constant with its last lane — see <c>NodeGraphCompiler</c> — so a
+    ///         <c>0.25</c> typed into a port that resolved to a colour compiles as a grey rather than
+    ///         as a red. Drawing four boxes because the node happens to have resolved to a
+    ///         <c>float4</c> would make the same graph offer a different editor depending on what was
+    ///         wired to a <i>different</i> port.
+    ///     </para>
+    /// </remarks>
+    public static int Fields(PortKind kind) => kind switch {
+        PortKind.Bool or PortKind.Int or PortKind.Dynamic => 1,
+        _ => Lanes(kind)
+    };
+
     /// <summary>The vector kind with a given number of lanes.</summary>
     /// <param name="lanes">One to four.</param>
     /// <returns>The kind.</returns>

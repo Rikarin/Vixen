@@ -60,7 +60,19 @@ shader MeshInstanced {
     /// | w | above a half, take the colour from the world normal rather than from `tint` |
     [VertexShader]
     [Semantic("SV_Position")]
-    func Vertex(position: float3, normal: float3, model0: float4, model1: float4, model2: float4, model3: float4, normal0: float3, normal1: float3, normal2: float3, tint: float4, style: float4): float4 {
+    func Vertex(
+        position: float3,
+        normal: float3,
+        model0: float4,
+        model1: float4,
+        model2: float4,
+        model3: float4,
+        normal0: float3,
+        normal1: float3,
+        normal2: float3,
+        tint: float4,
+        style: float4
+    ): float4 {
         var world = (position.x * model0.xyz) + (position.y * model1.xyz) + (position.z * model2.xyz) + model3.xyz
         var surface = (normal.x * normal0) + (normal.y * normal1) + (normal.z * normal2)
 

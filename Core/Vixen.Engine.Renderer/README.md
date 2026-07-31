@@ -49,6 +49,12 @@ renderer.Draw(list);
 list before anything samples them. A host that skips it leaves every textured material sampling the
 table's fallback for ever, which reads as *all my materials are the same flat colour*.
 
+**And the host does all of that for you.** Those six lines are what `Vixen.App` runs at boot:
+`Services.Graphics` owns a `WorldRenderer`, a device, a swapchain and the compositor, and drives them
+once a frame — so `VixenApp.Run<MyGame>(args)` is a game that draws. Writing them out by hand is for
+a head with two windows, its own device, or a frame recorded into somebody else's command list. See
+[`Vixen.App`'s README](../../Tools/Vixen.App/README.md).
+
 **`AssetMeshSource` is what made `MeshRenderable` mean something.** Both sides of it were finished —
 the catalog resolves a reference, the manager loads and shares the bytes, the extraction system
 reconciles entities into render objects — and between them stood one function returning an empty mesh,

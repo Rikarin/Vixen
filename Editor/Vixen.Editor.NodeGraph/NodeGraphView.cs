@@ -92,6 +92,7 @@ public sealed class NodeGraphView : Control {
     EditorDocument? edited;
 
     bool projecting;
+    bool typing;
     Vector2 placed = new(float.NaN, float.NaN);
     float scaled = float.NaN;
     Vector2 pointer;
@@ -123,7 +124,18 @@ public sealed class NodeGraphView : Control {
     public NodeSearchPopup Search { get; private set; } = null!;
 
     /// <summary>How wide a node is drawn, in graph units.</summary>
-    public float NodeWidth { get; set; } = 160f;
+    /// <remarks>
+    ///     Wide enough for a name and the number beside it, because an unconnected input is shown as
+    ///     both. A narrower node is a node whose <c>float3</c> is three boxes with no digits in them.
+    /// </remarks>
+    public float NodeWidth { get; set; } = 240f;
+
+    /// <summary>How many decimal places a number on a node shows.</summary>
+    /// <remarks>
+    ///     Three, which is the inspector's, so the same value does not read as two different numbers
+    ///     depending on which of the two an author is looking at.
+    /// </remarks>
+    public int Decimals { get; set; } = 3;
 
     /// <summary>The graph being shown.</summary>
     /// <remarks>
@@ -206,6 +218,14 @@ public sealed class NodeGraphView : Control {
     /// <summary>Raised when a node standing for a sub-graph is opened.</summary>
     public event Action<NodeGraphView, string, NodeGraphModel>? SubGraphOpened;
 
+    /// <summary>Raised after the model this view is showing changed, however it changed.</summary>
+    /// <remarks>
+    ///     The model's own <see cref="NodeGraphModel.Changed" /> says the same thing, and this exists
+    ///     so that a panel beside the canvas does not have to follow the graph the view is pointed at
+    ///     through every reassignment to hear it.
+    /// </remarks>
+    public event Action<NodeGraphView>? GraphChanged;
+
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
@@ -215,6 +235,7 @@ public sealed class NodeGraphView : Control {
         Canvas.NodesMoved += _ => Dropped();
         Canvas.Connected += (_, wire) => Wired(wire);
         Canvas.Activated += (_, node) => Opened(node);
+        Canvas.PortEdited += (_, port) => Typed(port);
 
         // A child of the canvas rather than of its surface, so it is drawn after the node elements.
         // See NodePreviewLayer for what that costs and why it is the arrangement that works.
@@ -335,7 +356,7 @@ public sealed class NodeGraphView : Control {
 
             if (definition is not null) {
                 foreach (var port in definition.Ports) {
-                    Anchor(view, node.Id, port.Name, port.Direction);
+                    Anchor(view, node.Id, port.Name, port.Direction, node, port);
                 }
 
                 continue;
@@ -391,7 +412,14 @@ public sealed class NodeGraphView : Control {
         PlaceNotes();
     }
 
-    void Anchor(CanvasNode view, NodeId id, string port, PortDirection direction) {
+    void Anchor(
+        CanvasNode view,
+        NodeId id,
+        string port,
+        PortDirection direction,
+        GraphNode? node = null,
+        PortDefinition? definition = null
+    ) {
         var key = new Socket(id, port, direction);
 
         if (anchors.ContainsKey(key)) {
@@ -400,8 +428,50 @@ public sealed class NodeGraphView : Control {
 
         var socket = direction == PortDirection.Input ? view.AddInput(port) : view.AddOutput(port);
 
+        if (node is not null && definition is not null) {
+            socket.Editor = Inline(node, definition);
+        }
+
         anchors[key] = socket;
         sockets[socket] = key;
+    }
+
+    /// <summary>What an unconnected input takes, as the canvas shows it, or null for a port that takes nothing.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The author's value or the type's default, and the difference is not written
+    ///         down here.</b> A port with nothing typed into it shows its type's default, which is
+    ///         also what the compiler reads — see <c>NodeGraphCompiler.Value</c> — so the picture and
+    ///         the emitted source agree without the projection having to say which of the two it was
+    ///         showing. What records the difference is <see cref="SetPortValueCommand" />, because an
+    ///         undo has to be able to put a port back to having no value at all.
+    ///     </para>
+    ///     <para>
+    ///         <b>An unregistered node type gets none.</b> Its ports come off its edges, so nothing
+    ///         knows what kind they are or how wide — and a box of digits over a value the graph
+    ///         cannot type is a number that would be written into a file the missing plugin owns.
+    ///     </para>
+    /// </remarks>
+    PortEditor? Inline(GraphNode node, PortDefinition port) {
+        if (port.Direction != PortDirection.Input) {
+            return null;
+        }
+
+        var fields = PortKinds.Fields(port.Kind);
+
+        if (fields <= 0) {
+            return null;
+        }
+
+        var editor = new PortEditor(port.Kind == PortKind.Bool ? PortEditorKind.Toggle : PortEditorKind.Number, fields) {
+            Decimals = port.Kind is PortKind.Int ? 0 : Decimals,
+            ReadOnly = IsReadOnly,
+            LaneNames = fields > 1 ? "XYZW" : ""
+        };
+
+        editor.Set(node.Values.TryGetValue(port.Name, out var written) ? written : port.Default.AsSpan());
+
+        return editor;
     }
 
     /// <summary>What is written across the top of a node.</summary>
@@ -706,9 +776,11 @@ public sealed class NodeGraphView : Control {
     // ── What the canvas tells us ─────────────────────────────────────────────
 
     void OnGraphChanged(NodeGraphModel changed) {
-        if (!projecting) {
+        if (!projecting && !typing) {
             Project();
         }
+
+        GraphChanged?.Invoke(this);
     }
 
     void Reselected() {
@@ -803,6 +875,52 @@ public sealed class NodeGraphView : Control {
 
             Run(new ConnectCommand(graph, source, target, edited));
         }
+    }
+
+    /// <summary>Records a number typed into a port on the canvas.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>It does not reproject, which is the second of the two exceptions this class
+    ///         makes — the first being a drag.</b> For the same reason: dragging across a number field
+    ///         raises this every frame, and rebuilding the whole projection per frame is a cost that
+    ///         grows with the graph rather than with the screen. The canvas already holds exactly what
+    ///         was written, because the field wrote it there before telling anybody, so there is
+    ///         nothing for a reprojection to correct.
+    ///     </para>
+    ///     <para>
+    ///         <b>Merging is what makes a scrub one undo entry.</b> <see cref="SetPortValueCommand" />
+    ///         folds the run into one and keeps the first "before" — including whether the port had a
+    ///         value at all.
+    ///     </para>
+    /// </remarks>
+    void Typed(CanvasPort port) {
+        if (projecting || port.Editor is not { } editor || !sockets.TryGetValue(port, out var key)) {
+            return;
+        }
+
+        if (!graph.TryGet(key.Node, out var node)) {
+            return;
+        }
+
+        var value = editor.ToArray();
+
+        if (Stack is { } stack) {
+            typing = true;
+
+            try {
+                stack.Execute(new SetPortValueCommand(graph, key.Node, key.Port, value, edited));
+            } finally {
+                typing = false;
+            }
+
+            return;
+        }
+
+        // ⚠ A view with no stack marks its editors read-only — see Inline — so this is unreachable
+        // through the canvas. It is here for the same reason NodeInspector's is: a caller driving the
+        // projection directly should write to the model rather than to a picture of it.
+        node.SetValue(key.Port, value);
+        graph.Touch();
     }
 
     void Opened(CanvasNode node) {
@@ -943,8 +1061,13 @@ public sealed class NodeGraphView : Control {
         return definition.Port(socket.Port, socket.Direction)?.Kind;
     }
 
+    /// <remarks>
+    ///     ⚠ <b>Claimed on the capture leg, so this runs before the field the key was typed into.</b>
+    ///     The canvas has the same guard for the same reason; both are needed, because this handler
+    ///     would otherwise take Delete out of a number box on a node and delete the node instead.
+    /// </remarks>
     void Keyed(KeyEvent args) {
-        if (args.Action != KeyAction.Pressed) {
+        if (args.Action != KeyAction.Pressed || Document.Focused is TextField) {
             return;
         }
 
