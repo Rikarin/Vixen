@@ -61,6 +61,26 @@ public sealed partial class TestTextureNode : Node {
     public Texture Out;
 }
 
+/// <summary>The three kinds that occupy no float lane, which is what an editor must not read as "none".</summary>
+[Node("Test/Settings", Summary = "A tick, a count and a wire that carries nothing.")]
+public sealed partial class TestSettingsNode : Node {
+    /// <summary>The tick.</summary>
+    [Input(Default = [1f])]
+    public Bool Enabled;
+
+    /// <summary>The count.</summary>
+    [Input(Default = [3f])]
+    public Int Count;
+
+    /// <summary>An ordering wire, which takes no value at all.</summary>
+    [Input(Name = "After")]
+    public Flow After;
+
+    /// <summary>The result.</summary>
+    [Output(Name = "Out")]
+    public Scalar Out;
+}
+
 /// <summary>An input with a named port and a declared vector default.</summary>
 [Node("Test/Named", Summary = "A port whose name is not its field's.")]
 public sealed partial class TestNamedNode : Node {

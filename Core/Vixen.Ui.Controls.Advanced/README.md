@@ -181,6 +181,25 @@ left the viewport.
 a cycle is not a graph with a mistake in it but a walk that does not terminate. The moment of
 connection is the only place the user can be told which wire was the problem.
 
+**A port may carry a `PortEditor`**, which is a box of digits or a tick in the port's own row for
+the value it takes when nothing is wired to it. What the number *is* belongs to whatever document is
+being drawn — the canvas holds a picture of it and raises `PortEdited` after the field has already
+written it, the same optimistic bargain the wire drag makes.
+
+⚠ **A connected input's editor is hidden rather than dropped**, because the canvas is the thing that
+knows a wire was dropped a frame before anything above it recorded anything — and it is what makes
+pulling the wire off bring the old number back rather than a zero.
+
+⚠ **The editor lives inside the port row and must not change its height.** The wire arithmetic above
+is over one header height and one port pitch; a row that grew for the value in it is a row every wire
+on the node misses. The boxes therefore go beside the port's name, the name shrinks and is clipped
+before the number is, and the input column takes the width the output column does not need.
+
+⚠ **Two of the canvas's own gestures stand down for it.** A primary press inside a `NodePortEditor`
+is left entirely alone — the press lands on the `NodePortView`, so the untouched version starts a
+wire from the port the box belongs to — and no keyboard shortcut is claimed while the focus is in a
+`TextField`, or Backspace in a value box deletes the node the box is on.
+
 ### CodeEditor
 
 Virtualised lines, pluggable highlighting, line numbers, indentation folding, a diagnostics gutter
