@@ -152,7 +152,7 @@ public sealed class EditorPreferences {
     ///     <para>
     ///         ⚠ <b>A preference and not a fact about any entity, which is why it is here.</b> An
     ///         archetype is a set — the ECS has no notion of a component being third — so there is
-    ///         nowhere in a scene file to record that somebody dragged Light above Mesh Shape.
+    ///         nowhere in a scene file to record that somebody dragged Light above Primitive Shape.
     ///         <c>ComponentsView.Order</c> says the rest.
     ///     </para>
     ///     <para>
