@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Concurrent;
+using Vixen.Ui.Reactive;
 
 namespace Vixen.Editor.Ui;
 
@@ -28,7 +29,12 @@ namespace Vixen.Editor.Ui;
 /// </remarks>
 public sealed class BackgroundTaskManager {
     readonly ConcurrentQueue<Action> pending = new();
-    readonly List<BackgroundTask> tasks = [];
+
+    // ⚠ A `CollectionSignal` rather than a `List`, and `Tasks` below is unchanged because it already
+    // implements `IReadOnlyList<T>`. Counting it or indexing it inside a binding subscribes, so a
+    // panel over this list is rebuilt when a task starts or stops rather than when somebody
+    // remembers to ask. Every mutation is on the UI thread already — that is what `Pump` is.
+    readonly CollectionSignal<BackgroundTask> tasks = new();
     readonly List<BackgroundTask> finished = [];
 
     /// <summary>What is running, oldest first.</summary>

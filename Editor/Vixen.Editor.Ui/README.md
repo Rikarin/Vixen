@@ -280,11 +280,23 @@ component first" is what found them:
 | A quoted value was always a string | So an enum had to be written `Variant="@ControlVariant.Subtle"` — a qualified expression, and an effect registered to assign a constant. `Variant="Subtle"` is the same thing said once. |
 | Effects were queued per thread | And a shell that flushed the thread's queue ran every other document's bindings. `UiDocument.Effects` is the fix; `Tick` drains this document's. |
 
-⚠ **And one thing the *model* still owes.** `BackgroundTask` holds plain properties that a worker
-thread writes through `Pump`, so no binding over them would ever be invalidated. The component keeps
-one signal that every row binding reads through a `Live(…)` helper, which turns "the manager applied
-something" into "these bindings are stale". It is honest and it is a workaround: the model holding
-signals is the better answer, and it is a change to the model rather than to its view.
+**And the model holds signals, which is what the panel is actually over.** `BackgroundTask`'s
+properties are signal-backed and `BackgroundTaskManager.Tasks` is a `CollectionSignal`, so the list
+and every number in it follow the model with nothing in between. The panel keeps one signal, for
+which *manager* it is pointed at, and that is the only thing here no signal covers.
+
+⚠ **Signal-backed, not signal-typed, and that is the whole migration.** `Progress` is still
+`float Progress { get; }` — the field behind it is a `Signal<float>` — so not one caller of a task
+changed. What changed is that reading it inside a binding subscribes. The first version of this
+panel had a revision signal that every row binding read through a `Live(…)` helper, which is the
+adaptation a view needs when its model raises events instead; that helper and the
+`manager.Changed` handler behind it are both gone, and so is the subscription that would have
+outlived the panel.
+
+⚠ **`IsCancellationRequested` is the exception and says why.** It used to read the
+`CancellationToken`, which the *work* polls from whatever thread it is on — and a signal read
+asserts the owning thread. So the token stays a token and a mirror signal, written by `Cancel` on
+the UI thread, is what the button reads.
 
 **A text node is an element.** `<task-title>@task.Title</task-title>` puts a `text` element inside
 `task-title` where the C# version set `.Text` on `task-title` itself. Nothing in the stylesheet

@@ -915,6 +915,7 @@ static readonly Vixen.Ui.UiElement.OffsetXProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.UiElement.OffsetYProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.UiElement.TabIndexProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.UiElement.TextProperty -> Vixen.Ui.UiPropertyKey
+virtual Vixen.Ui.Composition.Component.OnUnmounted() -> void
 virtual Vixen.Ui.Composition.Component.Style.get -> string?
 virtual Vixen.Ui.Composition.Component.StyleIsScoped.get -> bool
 virtual Vixen.Ui.Composition.Component.TagName.get -> string

@@ -19,12 +19,12 @@
                         Variant="Subtle"
                         Size="Small"
                         Label="@EditorStrings.TasksCancel.Text"
-                        Disabled="@Live(task.IsCancellationRequested)"
+                        Disabled="@task.IsCancellationRequested"
                         on:click.stop="@(() => Cancel(task))" />
         </task-line>
 
-        <ProgressBar Value="@Live(task.Progress)" IsIndeterminate="@Live(task.IsIndeterminate)" />
-        <task-status>@Live(task.Status ?? string.Empty)</task-status>
+        <ProgressBar Value="@task.Progress" IsIndeterminate="@task.IsIndeterminate" />
+        <task-status>@(task.Status ?? string.Empty)</task-status>
     </task-row>
 }
 
@@ -33,66 +33,37 @@
 }
 
 @code {
-    /// <summary>What the numbers were last read at, bumped when they may have moved.</summary>
+    /// <summary>Which manager it is showing, or null before it has been given one.</summary>
     /// <remarks>
-    ///     ⚠ <b>A pulse, because <c>BackgroundTask</c> is not reactive.</b> Its progress is a plain
-    ///     property that a worker thread writes through <c>Pump</c>, so no effect in this file would
-    ///     ever be invalidated by it. One signal that every row binding reads — through
-    ///     <see cref="Live{T}" /> — turns "the manager applied something" into "these bindings are
-    ///     stale", which is the whole of the adaptation. Making the model itself hold signals is the
-    ///     better answer and is a change to the model rather than to its view.
+    ///     ⚠ <b>A signal for the *manager*, and nothing else here needs one.</b>
+    ///     <c>BackgroundTaskManager.Tasks</c> is a <c>CollectionSignal</c> and every property of a
+    ///     <c>BackgroundTask</c> is signal-backed, so the list below and every number in it follow
+    ///     the model on their own. What no signal covers is being pointed at a different manager,
+    ///     which is one assignment and this is it.
     /// </remarks>
-    readonly Signal<int> revision = new(0);
-
-    BackgroundTaskManager? manager;
+    readonly Signal<BackgroundTaskManager?> manager = new(null);
 
     /// <summary>What is running, oldest first.</summary>
-    /// <remarks>Reads the pulse, so the list is rebuilt when a task starts or stops.</remarks>
-    IReadOnlyList<BackgroundTask> Running {
-        get {
-            _ = revision.Value;
-            return manager?.Tasks ?? [];
-        }
-    }
+    IReadOnlyList<BackgroundTask> Running => manager.Value?.Tasks ?? [];
 
     /// <summary>Shows a manager's tasks.</summary>
     /// <param name="tasks">The manager.</param>
     /// <remarks>
-    ///     ⚠ <b>No <c>Refresh</c> for the frame loop to call.</b> The old view was rebound every
-    ///     tick whether or not anything had changed; this subscribes to the one event that means
-    ///     something did, which is what <c>Pump</c> raises after it applies a batch.
+    ///     ⚠ <b>No subscription, and nothing to unsubscribe.</b> This used to hang a handler on
+    ///     <c>BackgroundTaskManager.Changed</c> and bump a revision signal that every binding read
+    ///     through a <c>Live(…)</c> helper — the adaptation a view needs when its model is a plain
+    ///     object that raises events. The model holds signals now, so the adaptation is gone and so
+    ///     is the handler that would have outlived the panel.
     /// </remarks>
     public void Show(BackgroundTaskManager tasks) {
         ArgumentNullException.ThrowIfNull(tasks);
-
-        if (manager is not null) {
-            manager.Changed -= Moved;
-        }
-
-        manager = tasks;
-        manager.Changed += Moved;
-
-        revision.Value++;
+        manager.Value = tasks;
     }
-
-    /// <summary>Ties a binding to the pulse, so it re-runs when the numbers may have moved.</summary>
-    /// <typeparam name="T">The value's type.</typeparam>
-    /// <param name="value">Whatever was read off the task.</param>
-    /// <returns>It, unchanged.</returns>
-    T Live<T>(T value) {
-        _ = revision.Value;
-        return value;
-    }
-
-    void Moved(BackgroundTaskManager _) => revision.Value++;
 
     /// <remarks>
-    ///     Bumps the pulse itself rather than waiting for the manager to: cancelling raises no
-    ///     event, and the button going quiet is what tells the user the request landed on work that
-    ///     has not noticed yet.
+    ///     Cancelling raises no event and does not need to: <c>IsCancellationRequested</c> is a
+    ///     signal, so the button goes quiet on the next flush — which is what tells the user the
+    ///     request landed on work that has not noticed yet.
     /// </remarks>
-    void Cancel(BackgroundTask task) {
-        task.Cancel();
-        revision.Value++;
-    }
+    static void Cancel(BackgroundTask task) => task.Cancel();
 }
