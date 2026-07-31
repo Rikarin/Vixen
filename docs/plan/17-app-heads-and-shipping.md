@@ -1,5 +1,10 @@
 # 17 — App Heads, Build Variants and Shipping
 
+> ⚠️ **Extended by [27](27-mmo-framework.md).** The dedicated-server variant below is one process,
+> started by hand. Doc 27 adds a fifth kind of head — the *realm* — and the orchestrator that spawns,
+> places, drains and upgrades fleets of them under Kubernetes, Docker, or nothing at all. Everything
+> in § The dedicated server is its foundation and none of it changes.
+
 This is Q5 elaborated. The question sounds like packaging trivia and is actually one of the more
 consequential architectural decisions in the plan: it determines what a user's project looks like, how
 long their builds take, whether the editor and the shipped game share code paths, and whether a bug

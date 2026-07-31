@@ -513,5 +513,16 @@ Applied to Vixen:
 > the format an environment map actually ships in and which the BC6H encoder and the IBL prefilter
 > were waiting for; `.exr`, `.tif` and `.webp` left, and `.dds` was never there.
 >
-> **`CheckArchitecture`'s ADR-015 rule stays.** Nothing references ImageSharp now, so the rule guards
-> against a future mistake rather than a present one — which is what it was for.
+> **`CheckArchitecture`'s ADR-015 rule stays; the package it names does not.** This paragraph used to
+> read "the rule guards against a future mistake rather than a present one", keeping
+> `SixLabors.ImageSharp` in the editor-only list on that argument. It has since been taken out, and
+> the argument does not survive a second look: central package management means nobody can add a
+> `PackageReference` to ImageSharp without first adding a `PackageVersion` for it here, so the guard
+> was standing between a mistake and a mistake that has to be made twice. What it cost was
+> legibility — a rule naming a package reads as evidence that the package is still around, and it was
+> the last thing in the repository that did. The rule itself is unchanged and now carries
+> `Silk.NET.Assimp`, which *is* referenced and *is* one edit away from reaching a runtime assembly.
+>
+> The two remaining mentions of the name are deliberate and are not references: the block in
+> `Directory.Packages.props` § Imaging that records why `StbImageSharp` is there instead, and the
+> paragraph above. Deleting those would remove the reasoning rather than the dependency.

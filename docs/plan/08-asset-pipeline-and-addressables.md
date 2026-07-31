@@ -1,5 +1,12 @@
 # 08 — Asset Pipeline and Addressables
 
+> ⚠️ **Extended by [28](28-gameplay-framework.md).** Gameplay *definitions* — items, quests, recipes,
+> loot tables — are ordinary addressable assets through one `.vxdef` importer over ADR-005's YAML type
+> tags, and their runtime ids are hashes of their addresses, the same construction the prefab id and
+> `NetworkSceneId` already use. Nothing here changes; doc 28 is what happens when this pipeline is
+> pointed at game rules instead of at meshes, and [27](27-mmo-framework.md) § Upgrades is what makes a
+> catalog update reach a running server.
+
 Two systems are being merged here: **Unity's project layout and `.meta` sidecar pattern** (the better
 *authoring* model) and **Stride's content-addressed object database + bundle runtime** (the better
 *runtime* model). They compose cleanly because they solve different halves of the problem.

@@ -44,6 +44,8 @@ together; a ✅ means it has since been carried out.**
 | 22 | [Virtualized Geometry](22-virtualized-geometry.md) | ⚠️ Extends 06 — a Nanite-class pipeline: a cluster DAG built offline, streamed pages, hierarchical culling on the device |
 | 23 | [Bindless Materials](23-bindless-materials.md) | ⚠️ Extends 05 and 06 — one descriptor array for the frame, so a draw is an index rather than a set; what compacted draws and GPU-driven submission were waiting for |
 | 24 | [Blockout Tools](24-blockout-tools.md) | ⚠️ Extends 11 and 20 — in-viewport grey-boxing: a mesh kernel that survives editing, sub-object selection, the fifteen verbs, snapping, and the handoff to an artist |
+| 27 | [MMO Framework](27-mmo-framework.md) | ⚠️ Extends 16 and 17 — the substrate: an Orleans orchestrator that places, scales and upgrades map instances; realms as headless heads; the three network planes and why real-time traffic never meets a gateway; seamless transfer by overlapping sessions and a lease |
+| 28 | [Gameplay Framework](28-gameplay-framework.md) | ⚠️ Extends 27, 08 and 16 — the opinionated library set on top: tags, definitions and the modifier algebra, then items, combat, quests, guilds, economy, matchmaking and the rest, so a new item is a content build rather than a release |
 
 ### Not design documents
 

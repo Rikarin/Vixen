@@ -50,6 +50,13 @@ that drifts.
 | [22](22-virtualized-geometry.md) | A Nanite-class geometry pipeline | § Phases |
 | [23](23-bindless-materials.md) | One descriptor array per frame, so a draw is an index | Folded into Phase 5's remainder |
 | [24](24-blockout-tools.md) | In-viewport grey-boxing | § Part 3. 11.0 EM total, of which P0–P4 is 7.0 and is where the value is |
+| [27](27-mmo-framework.md) | An orchestrator, realms, and seamless transfer between them | § Cost. 16.0 EM across L0–L4, each shippable on its own |
+| [28](28-gameplay-framework.md) | The gameplay library set on top of it | § Cost. 25.5 EM across G0–G8, taken by genre rather than whole |
+
+> **27 and 28 together are ≈ 41.5 EM — near enough this table's whole original total.** That is
+> deliberate and it is stated in both documents rather than buried: an MMO framework is the size of
+> the engine it runs on. Neither is on the 1.0 path, and both are ordered so that stopping after any
+> milestone leaves something a real game ships on.
 
 The phases are ordered so **every phase ends with something that runs**, and so the highest-risk items
 are answered early rather than discovered late. Both originally-flagged risks are retired: the Web

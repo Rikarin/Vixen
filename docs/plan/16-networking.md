@@ -1,5 +1,13 @@
 # 16 — Networking and Multiplayer
 
+> ⚠️ **Extended by [27](27-mmo-framework.md).** This document specifies one server and its clients.
+> When there is more than one server, they are spawned and retired while people are playing, and a
+> player walks from one to another, doc 27 is the answer — and it is built on this one rather than
+> beside it: the transfer ticket is `NetworkSession`'s reconnect token, the handoff payload is
+> `IComponentReplicator`'s encoding, and the shard-version filter is this document's content-hash
+> handshake used as a routing decision instead of a rejection. [28](28-gameplay-framework.md) is the
+> gameplay library set on top of both.
+
 In scope for 1.0 (Q7). Reference implementation: **[PurrNet](https://github.com/PurrNet/PurrNet)** (MIT,
 614★, actively developed — last push 2026-07-23), studied from source. Per Q9, PurrNet is a *reference*,
 not a compatibility target: its good ideas are re-derived, its Unity-specific and IL-weaving mechanics

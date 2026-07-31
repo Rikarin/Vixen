@@ -9,9 +9,9 @@
     version is an NU1008 build error, which is the point.
 
     Only packages actually in use are listed. The plan's full dependency register
-    (Silk.NET, Jolt, ImageSharp, ExCSS, HarfBuzz, …) is in docs/plan/01 and lands
-    here as each subsystem is built — not before, so that `dotnet list package`
-    always reflects reality.
+    (Silk.NET, Jolt, ExCSS, HarfBuzz, …) is in docs/plan/01 and lands here as each
+    subsystem is built — not before, so that `dotnet list package` always
+    reflects reality.
   -->
 
   <PropertyGroup>
