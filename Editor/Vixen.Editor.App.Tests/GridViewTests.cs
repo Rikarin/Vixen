@@ -486,3 +486,50 @@ public class AssetWatchTests {
         return false;
     }
 }
+
+/// <summary>What a rebuild of the project tree keeps.</summary>
+public class ProjectTreeStateTests {
+    /// <summary>
+    ///     ⚠ <b>A rescan must not close every folder somebody opened.</b> The tree is rebuilt from
+    ///     scratch on every rebuild and was re-expanded only to its top level, which was survivable
+    ///     while a rebuild followed something the user had just done — and stopped being so the
+    ///     moment a file watcher could cause one. A project tree that folds itself up while you are
+    ///     looking at it is worse than one that does not notice the file.
+    /// </summary>
+    [Fact]
+    public void A_rescan_leaves_the_folders_that_were_open_open() {
+        using var editor = EditorSession.Start();
+
+        editor.Open("project");
+        editor.ExpandAll(editor.Assets);
+
+        // ⚠ `Row` and not `Labels`: the labels are the *nodes*, which exist whether or not their
+        // folder is open, and a rebuild that closed everything would leave them all in the list. A
+        // row is what is on screen, which is the thing that stopped being there.
+        Assert.NotNull(editor.Row(editor.Assets, "Main.vxscene"));
+
+        // Whatever the rescan is for — a rename, an import, a file another program saved — it comes
+        // through here.
+        editor.Run("assets.refresh");
+
+        Assert.NotNull(editor.Row(editor.Assets, "Main.vxscene"));
+    }
+
+    /// <summary>A folder that has gone does not come back, and does not throw on the way.</summary>
+    [Fact]
+    public void A_folder_deleted_between_rebuilds_is_simply_not_restored() {
+        using var editor = EditorSession.Start();
+
+        editor.Open("project");
+        editor.ExpandAll(editor.Assets);
+
+        var scenes = editor.Project.Assets.Entries.First(entry => entry.Path == "Assets/Scenes").Guid;
+
+        Assert.True(Vixen.Editor.Core.AssetOperations.Delete(editor.Project, scenes).Ok);
+
+        editor.Run("assets.refresh");
+
+        Assert.DoesNotContain("Scenes", EditorSession.Labels(editor.Assets));
+        Assert.NotNull(editor.Row(editor.Assets, "Assets"));
+    }
+}

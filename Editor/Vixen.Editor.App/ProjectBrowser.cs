@@ -410,6 +410,19 @@ sealed class ProjectBrowser {
         return tree.Selection.Contains(node) ? [.. project.Selection] : [asset.Guid];
     }
 
+    /// <summary>Which folders are open, by path.</summary>
+    HashSet<string> Opened() {
+        HashSet<string> open = new(StringComparer.Ordinal);
+
+        foreach (var node in Descendants(tree.Root)) {
+            if (node.IsExpanded && node.Tag is AssetTreeNode { IsFolder: true } asset) {
+                open.Add(asset.Path);
+            }
+        }
+
+        return open;
+    }
+
     /// <summary>Rebuilds whichever view is showing, from the tree and the two filters.</summary>
     void Populate() {
         var shown = AssetTree.Filter(root, search.Value);
@@ -433,12 +446,29 @@ sealed class ProjectBrowser {
         tree.RemoveClass("hidden");
         tiles.AddClass("hidden");
 
+        // ⚠ Read before the rows are thrown away, and this is what makes a rescan survivable. The
+        // tree is rebuilt from scratch on every rebuild — a rename, an import, and now a file
+        // somebody saved from another program — and until this existed each of those closed every
+        // folder the user had opened. That was tolerable while a rebuild only followed something
+        // they had just done; with a watcher behind it, the project tree collapsed by itself.
+        var open = Opened();
+
         while (tree.Root.Children.Count > 0) {
             tree.Root.Remove(tree.Root.Children[^1]);
         }
 
         Branch(tree.Root, shown, kind);
         tree.Refresh();
+
+        // ⚠ By path rather than by node, for the reason `folder` is: a rebuild makes a new
+        // `AssetTreeNode` for everything, so a remembered reference is to a folder that no longer
+        // exists. A path that has gone — the folder was deleted or renamed — simply does not match,
+        // which is the right answer rather than a special case.
+        foreach (var node in Descendants(tree.Root).ToList()) {
+            if (node.Tag is AssetTreeNode { IsFolder: true } asset && open.Contains(asset.Path)) {
+                tree.Expand(node);
+            }
+        }
 
         // The root and its immediate folders, so a project opens showing something. Deeper than that
         // is the user's business — and a search has already narrowed to what matched, so opening
