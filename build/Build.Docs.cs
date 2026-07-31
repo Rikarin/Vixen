@@ -33,6 +33,19 @@ partial class Build {
     [Parameter("Also fail when the documentation graph and the PublicAPI baselines disagree")]
     readonly bool VerifyDocs = true;
 
+    /// <summary>
+    ///     Rewrites <c>docs/DocsExempt.txt</c> instead of failing on it — the coverage gate's
+    ///     <c>--update-api</c>.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Assisted, not automatic, and the difference is the whole gate.</b> A gate that wrote
+    ///     its own exemption whenever a type appeared without a page would fail on nothing, forever;
+    ///     what makes the file worth having is that a person ran this, read the diff, and committed
+    ///     it. Which is exactly the discipline <see cref="UpdateApi" /> has for the same reason.
+    /// </remarks>
+    [Parameter("Rewrite docs/DocsExempt.txt from the graph instead of failing — review the diff")]
+    readonly bool UpdateExemptions;
+
     /// <summary>Set by <see cref="CheckDocs" />; `Docs` on its own emits without gating.</summary>
     bool CheckDocsGate;
 
@@ -66,7 +79,11 @@ partial class Build {
                     "--excuse", "Vixen.Raven.Tests"
                 };
 
-                if (CheckDocsGate) {
+                if (UpdateExemptions) {
+                    // Exclusive with the gate: this run rewrites the file the gate reads, so failing
+                    // on its previous contents would be failing on something already fixed.
+                    arguments.Add("--update-exemptions");
+                } else if (CheckDocsGate) {
                     arguments.Add("--check-docs");
                 }
 
@@ -104,6 +121,16 @@ partial class Build {
                     .EnableNoRestore()
                     .SetApplicationArguments(arguments)
                 );
+
+                if (UpdateExemptions) {
+                    Log.Warning(
+                        "docs/DocsExempt.txt has been rewritten. Read the diff before committing: a "
+                        + "line added here is a public type nobody has written about, and saying so "
+                        + "out loud is the only thing the file does."
+                    );
+
+                    return;
+                }
 
                 Log.Information("The documentation graph is in {Directory}.", DocsDirectory);
             }

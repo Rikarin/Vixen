@@ -131,9 +131,11 @@ itself compiled by the build.
 - **Every gate is a Nuke target, and they are the same ones CI runs**: `./build.sh Test`,
   `CheckFormat`, `CheckArchitecture`, `CheckApi`, `CheckDocs`, `Docs`.
 - **A new public type needs a page.** `CheckDocs` fails on a public type with neither a guide page
-  nor a line in `docs/DocsExempt.txt` — the file only ever shrinks. Write
-  `docs/guide/<area>/<page>.md` with the five headings: *What it is*, *What it is for*, *Using it*,
-  *Examples*, *See also*.
+  nor a line in `docs/DocsExempt.txt`. Write `docs/guide/<area>/<page>.md` with the five headings:
+  *What it is*, *What it is for*, *Using it*, *Examples*, *See also* — and delete the type's
+  exemption line in the same commit. **Do not add a line to `DocsExempt.txt` to make a build pass**;
+  that file is for types that predate the gate, and `./build.sh CheckDocs --update-exemptions` is how
+  a merge full of those is absorbed.
 - **A new public API needs a baseline line.** `PublicAPI.Unshipped.txt`, reviewed;
   `./build.sh CheckApi --update-api` writes it.
 - **Design decisions live in `docs/plan/`**, the state of the tree in `docs/overview.md`, and the

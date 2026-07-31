@@ -30,7 +30,7 @@ dotnet run --project Tools/Vixen.DocGen -- Vixen.slnx --output artifacts/docs \
 | `--repository-url <url>` | Default `https://github.com/rikarin/Vixen`. |
 | `--verify-baselines` | Also fail when the graph and the `PublicAPI.*.txt` baselines disagree. |
 | `--check-docs` | Also run [the written half's gate](#the-gate). |
-| `--seed-exemptions` | Rewrite `docs/DocsExempt.txt` with every type that has no page, and exit. Run once. |
+| `--update-exemptions` | Rewrite `docs/DocsExempt.txt` from the graph and exit — [see below](#docsdocsexempttxt). |
 | `--release <version>` | Archive the graph and emit [the release's table](#releases). Committed output — run it at the tag, through `nuke Release`. |
 | `--date <yyyy-mm-dd>` | The release's date. Default: today, UTC. |
 | `--excuse <project>` | Tolerate compile errors in one project, and print that it did. Repeatable. |
@@ -187,14 +187,28 @@ The coverage gate's baseline, and the same discipline as
 and the reason it has no page. A reviewer sees the file change in a diff, which is not true of a
 coverage percentage.
 
-It was seeded once (`--seed-exemptions`) with the **3 674 types that predate the gate**, all as
-`sweep-pending`, because turning coverage on for all of them at once would block every merge for a
-quarter — [§ Part 5](../../docs/plan/25-documentation-generator-and-site.md#part-5--the-gates)
-predicts that failure for itself. **The file only ever shrinks**: writing a page means deleting its
-line in the same commit, and a line for a type that now has a page, or for a type the graph no longer
-has, fails the build. A *new* public type is not in the file at all — which is the half of the gate
-that stops the backlog from growing while [P7](../../docs/plan/25-documentation-generator-and-site.md#p7--the-coverage-sweep-3040-em-continuous)
+It was seeded with the **3 674 types that predate the gate**, all as `sweep-pending`, because turning
+coverage on for all of them at once would block every merge for a quarter —
+[§ Part 5](../../docs/plan/25-documentation-generator-and-site.md#part-5--the-gates) predicts that
+failure for itself. **The file should only shrink**: writing a page means deleting its line in the
+same commit, and a line for a type that now has a page, or for a type the graph no longer has, fails
+the build. A *new* public type is not in the file at all — which is the half of the gate that stops
+the backlog from growing while [P7](../../docs/plan/25-documentation-generator-and-site.md#p7--the-coverage-sweep-3040-em-continuous)
 pays it down.
+
+```bash
+./build.sh CheckDocs --update-exemptions --configuration Release
+```
+
+Which is how a merge that brings in types older than the gate is absorbed — a long-lived branch, most
+often. It adds a `sweep-pending` line per uncovered type, drops the lines that are no longer owed,
+**and keeps every reason already written**, because the sweep replaces `sweep-pending` with sentences
+somebody reviewed and a re-seed would flatten them.
+
+⚠ **It is a command somebody runs, not something the gate does for itself**, and that is the
+difference between a gate and a formality: a check that wrote its own exemption whenever a type
+appeared without a page would fail on nothing, forever. Same discipline as `--update-api`, same
+warning printed after it, same expectation that the diff is read before it is committed.
 
 ⚠ **An example is compiled inside an engine compilation rather than in one of its own.** Building a
 reference set by hand looks obvious and is not: the workspace's compilations carry ~120 distinct

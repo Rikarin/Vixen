@@ -31,9 +31,10 @@ if (arguments is null) {
                                    symbol the graph does not have, carries an example that does not
                                    compile, or a public type with neither a page nor a line in
                                    docs/DocsExempt.txt.
-          --seed-exemptions        rewrite docs/DocsExempt.txt with every type that has no page and
-                                   exit. Run once, when the coverage gate lands; after that the file
-                                   only ever shrinks, by hand, in the commit that writes the page.
+          --update-exemptions      rewrite docs/DocsExempt.txt from the graph and exit: a type with
+                                   no page and no line gets one as `sweep-pending`, a line whose type
+                                   now has a page or no longer exists is dropped, and every reason
+                                   already written is kept. Read the diff before committing.
           --release <version>      archive this graph as a release under docs/api-history/, diff it
                                    against the previous one, and write the table into the store and
                                    into CHANGELOG.md. Committed output — run it at the tag.
@@ -184,10 +185,19 @@ static async Task<int> Run(Arguments arguments) {
     problems.AddRange(exemptionErrors);
     problems.AddRange(PageLinks.Check(pages, nodes.Select(node => node.Slug).ToHashSet(StringComparer.Ordinal)));
 
-    if (arguments.SeedExemptions) {
-        var seeded = Coverage.Write(root, nodes);
+    if (arguments.UpdateExemptions) {
+        var update = Coverage.Write(root, nodes);
 
-        Console.WriteLine($"Seeded {Coverage.RelativePath} with {seeded} types as `{Coverage.SeedReason}`.");
+        Console.WriteLine($"{Coverage.RelativePath}: {update.Added} added as `{Coverage.SeedReason}`, "
+            + $"{update.Documented} removed (documented), {update.Gone} removed (gone), "
+            + $"{update.Total} lines.");
+
+        if (update.Added > 0) {
+            // The same warning `--update-api` prints, for the same reason: the file's value is that
+            // somebody looked at what went into it.
+            Console.WriteLine("Read the diff before committing. A type added here is a type nobody "
+                + "has written about, and the line is what says so out loud.");
+        }
 
         return 0;
     }
@@ -337,7 +347,7 @@ sealed record Arguments(
     string RepositoryUrl,
     bool VerifyBaselines,
     bool CheckDocs,
-    bool SeedExemptions,
+    bool UpdateExemptions,
     string? Release,
     string Date,
     IReadOnlySet<string> Excused
@@ -350,7 +360,7 @@ sealed record Arguments(
         var repositoryUrl = "https://github.com/rikarin/Vixen";
         var verify = false;
         var checkDocs = false;
-        var seedExemptions = false;
+        var updateExemptions = false;
         string? release = null;
         var date = DateTime.UtcNow.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
         var excused = new HashSet<string>(StringComparer.Ordinal);
@@ -387,8 +397,8 @@ sealed record Arguments(
 
                     break;
 
-                case "--seed-exemptions":
-                    seedExemptions = true;
+                case "--update-exemptions":
+                    updateExemptions = true;
 
                     break;
 
@@ -428,7 +438,7 @@ sealed record Arguments(
                 repositoryUrl,
                 verify,
                 checkDocs,
-                seedExemptions,
+                updateExemptions,
                 release,
                 date,
                 excused);

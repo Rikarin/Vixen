@@ -9,9 +9,14 @@
 #   * a line names a type that now has a page — delete the line in the same commit,
 #   * a line names a type the graph does not have — it was renamed or removed.
 #
-# So this file only ever shrinks. Nothing new should be added to it: a new public type is
-# written about in the commit that adds it, which is the one commit where its author knows
-# what it is for.
+# So this file should only ever shrink. A new public type is written about in the commit that
+# adds it, which is the one commit where its author knows what it is for.
+#
+# When a merge brings in types that predate the gate — a long-lived branch, most often —
+# `./build.sh CheckDocs --update-exemptions` adds their lines, drops the ones that are no
+# longer owed, and keeps every reason already written. It is deliberately a command somebody
+# runs and not something the gate does for itself: a gate that wrote its own exemptions would
+# fail on nothing, forever.
 D:VX1001 sweep-pending
 D:VX1002 sweep-pending
 D:VX2001 sweep-pending
