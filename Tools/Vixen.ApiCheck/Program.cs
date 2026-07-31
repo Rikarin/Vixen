@@ -19,12 +19,17 @@ const int Usage = 2;
 const int MaxReported = 20;
 
 var update = false;
+var fold = false;
 var assemblies = new List<string>();
 
 foreach (var argument in args) {
     switch (argument) {
         case "--update" or "-u":
             update = true;
+            break;
+
+        case "--fold" or "-f":
+            fold = true;
             break;
 
         case "--help" or "-h":
@@ -67,6 +72,23 @@ foreach (var assemblyPath in assemblies) {
 
     var surface = ApiSurfaceReader.Read(assemblyPath);
     var shipped = ApiBaseline.Read(shippedPath);
+
+    if (fold) {
+        // The release ritual: what was approved becomes what was shipped, and the approval file
+        // starts again empty. `Approved` is the same method the check uses to decide what is
+        // allowed, so the fold cannot promise something the gate would not have accepted.
+        var unshipped = ApiBaseline.Read(unshippedPath);
+        var approved = ApiBaseline.Approved(shipped, unshipped);
+
+        ApiBaseline.Write(shippedPath, [.. approved]);
+        ApiBaseline.Write(unshippedPath, []);
+
+        Console.WriteLine(string.Create(
+            CultureInfo.InvariantCulture,
+            $"{name}: folded {unshipped.Count} entries in, {approved.Count} shipped."));
+
+        continue;
+    }
 
     if (update) {
         // Written even when it would be empty, and never rewritten from the surface. An absent
@@ -116,6 +138,16 @@ foreach (var assemblyPath in assemblies) {
 
     Report('+', difference.Added);
     Report('-', difference.Removed);
+}
+
+if (fold) {
+    Console.WriteLine(
+        string.Create(CultureInfo.InvariantCulture, $"Folded the API baselines of {assemblies.Count} assemblies.")
+    );
+
+    Console.WriteLine("Everything approved is now shipped. From here a removal is a breaking change.");
+
+    return Success;
 }
 
 if (update) {
@@ -168,7 +200,7 @@ void Report(char sign, IReadOnlyList<string> entries) {
 void PrintUsage() {
     Console.WriteLine(
         """
-        vixen-api-check [--update] <assembly> [<assembly> …]
+        vixen-api-check [--update | --fold] <assembly> [<assembly> …]
 
           Compares the public surface of each assembly with PublicAPI.Shipped.txt and
           PublicAPI.Unshipped.txt beside the project that produced it.
@@ -176,6 +208,8 @@ void PrintUsage() {
           --update, -u   Rewrite PublicAPI.Unshipped.txt from what the assemblies contain
                          instead of failing. Shipped API is never rewritten; a shipped entry
                          that is gone becomes a *REMOVED* line.
+          --fold, -f     The release: fold Unshipped into Shipped and empty it. Run by
+                         `nuke Release` at the tag, never as part of a check.
           --help, -h     This text.
 
         Exit codes: 0 the surfaces match, 1 they do not, 2 the arguments or the inputs are wrong.

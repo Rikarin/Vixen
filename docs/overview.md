@@ -38,7 +38,11 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Nuke `CheckAotIos` | ✅ | build/ | `.ipa`, 7 MB native, zero managed assemblies, zero trim/AOT warnings |
 | Nuke `CompileMobile`, `CompileWeb`, `RestoreNativeDeps` | ✅ | build/ | |
 | Nuke `CheckApi` | ✅ | [build/Build.Api.cs](../build/Build.Api.cs), [Tools/Vixen.ApiCheck](../Tools/Vixen.ApiCheck/README.md) | 59 packable assemblies, 22 807 baselined entries, both directions gated (an unapproved addition *and* a silent removal). `Shipped` is empty everywhere, because nothing has shipped |
+| Nuke `Docs` | ✅ | [build/Build.Docs.cs](../build/Build.Docs.cs), [Tools/Vixen.DocGen](../Tools/Vixen.DocGen/README.md) | 3 679 nodes, 29 354 members, in 70 s. Read in **Release**, because the generators resolve through `ProjectReference` and any other configuration silently drops 298 types |
+| Nuke `CheckDocs` | ✅ | build/Build.Docs.cs | Coverage, the five-heading contract, link and snippet resolution, orphans, compiled examples, baseline agreement. Coverage is seeded: [`docs/DocsExempt.txt`](DocsExempt.txt) holds the 3 674 types that predate the gate and only shrinks |
+| Nuke `Release` | ✅ | [build/Build.Release.cs](../build/Build.Release.cs) | Folds `PublicAPI.Unshipped.txt` into `Shipped`, archives the graph under `docs/api-history/<version>/`, and emits the added/removed/deprecated/breaking table — including the engine-specific rows (a component's size, a system's phase, a shader's bindings) whose signatures are unchanged |
 | `ci.yml` — 3 desktop runners, test + checks + pack | ✅ | [.github/workflows/ci.yml](../.github/workflows/ci.yml) | Doubles as the bit-exact-serialization gate (3 OSes, 2 architectures) |
+| `docs.yml` — graph, site, budgets, deploy | ✅ | [.github/workflows/docs.yml](../.github/workflows/docs.yml) | Publishes vixenengine.org from `master`; uploads a preview version per PR. Fails on the Cloudflare file-count budget — 4 242 files a version against 20 000 for four |
 | `nightly.yml` — long-running fuzz | ✅ | [.github/workflows/nightly.yml](../.github/workflows/nightly.yml) | 10 min/target vs. 1 s in the build gate |
 | lavapipe Vulkan CI leg | ✅ | ci.yml | 155 Vulkan tests, zero skipped, validation-clean |
 | NativeAOT publish leg on every PR | ⬜ | — | Gate exists, leg does not |
@@ -468,15 +472,19 @@ Phase 9 is the most complete phase in the repository — **all five exit criteri
 
 | Item | Status |
 |---|---|
-| `docs/plan/` design record (19 documents) | ✅ |
+| `docs/plan/` design record (26 documents) | ✅ |
 | `docs/manual/` — building a game and a server, diagnostic codes, log events | 🟡 (3 pages) |
 | `docs/rhi-backend-mapping.md` | ✅ |
-| DocFX API reference | ⬜ |
-| Manual: getting started, per-subsystem guides, UI tutorial, Raven reference, Unity migration | ⬜ |
+| ~~DocFX API reference~~ → generated from Roslyn symbols ([25](plan/25-documentation-generator-and-site.md), ADR-016) | ✅ ([Tools/Vixen.DocGen](../Tools/Vixen.DocGen/README.md)) — 3 679 nodes classified as what they are: 153 controls, 64 graph nodes, 36 systems, 30 shaders, 12 components, 10 importers, 8 diagnostics, 53 log events |
+| vixenengine.org — the site | ✅ ([www/](../www)) — Angular 22 on xUI, 3 938 routes prerendered to Cloudflare static assets, readable with JavaScript off |
+| Site search (FlexSearch over API + guide) | 🟡 — the MCP server indexes both; the site's ⌘K is P4 |
+| Versioned docs and the release diff table | ✅ — [`docs/api-history/`](api-history/index.json) holds 0.1.0 (2.43 MB Brotli for the whole graph); `nuke Release` folds the API baselines, archives and writes the table into [CHANGELOG.md](../CHANGELOG.md) and `/docs/releases/<version>` |
+| `vixen-mcp` + the `vixen` skill | ✅ ([www/mcp](../www/mcp/README.md), [skills/vixen](../skills/vixen/SKILL.md)) — six tools over the graph: meta, search by kind, symbol, guide, examples, release diff |
+| Manual: getting started, per-subsystem guides, UI tutorial, Raven reference, Unity migration | 🟡 (2 pages of 3 679 types; the sweep is P7, gated by `docs/DocsExempt.txt`) |
 | 12+ runnable samples | ✅ (12 exist) |
 | `dotnet new` templates verified on six targets | ⬜ |
-| `PublicAPI.Shipped.txt` freeze + API review | 🟡 (baselines exist and are gated; the freeze is folding `Unshipped` into `Shipped` at the release, and the review pass is the reading nobody has done yet) |
-| Release automation (tag → signed builds + NuGet + GitHub Release) | ⬜ |
+| `PublicAPI.Shipped.txt` freeze + API review | 🟡 — the fold is now one command (`nuke Release` → `vixen-api-check --fold`, using the same `Approved` method the gate uses); the review pass is still the reading nobody has done |
+| Release automation (tag → signed builds + NuGet + GitHub Release) | 🟡 — `nuke Release` does the API fold, the graph archive and the changelog; signing, packing and the GitHub release are not wired |
 | 24 h editor / 24 h game soak | ⬜ |
 | Public triage process + compatibility policy | ⬜ |
 | Third-party attribution manifest / `docs/manual/third-party.md` | ⬜ |
@@ -846,6 +854,7 @@ it is deliberately distinct from "not started" in Part 1.
 | Planned projects not created | `Vixen.Graphics.Direct3D12` (✂️ post-1.0), `Vixen.Net.Transport.Relay` (⛔ scope decision), `Vixen.Raven.Transpile` |
 | Conformance cases green | 534 Yoga · 22 048 UAX#14/#29 · 91 707 UAX#9 · 328/413 shaping · 100 variable-font |
 | Golden image fixtures | 40 |
+| Documentation graph | 3 679 nodes · 29 354 members · 3 565 with prose from the code · 2 guide pages written of 3 674 owed |
 | Fuzz targets / cases per build | 12 / ~11 M in ~7 s |
 | Phases complete | 0, 1, 2, 3 (bar CI legs and physical devices), 4, 5b, 6 (the exit sentence; the tooling around it is not), 9 |
 | Phases partial | 5 (renderer — PostFx and D3D12), 7 (VFX GPU path), 8 (samples), 10 (WebGPU, Video and XR landed early; deferred rendering and the browser run did not) |

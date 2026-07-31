@@ -502,8 +502,10 @@ editor became the application-platform proof instead.
   leftovers. The *gate* exists — `nuke CheckApi` baselines 59 packable assemblies and 22 807 entries and
   fails on an unapproved addition *and* on a silent removal — so what is left is the reading nobody has
   done, and folding `Unshipped` into `Shipped` at the release.
-- Documentation: DocFX API reference, a manual (getting started, per-subsystem guides, a UI framework
-  tutorial, a Raven language reference), and 12+ runnable samples. Eleven exist.
+- Documentation: ⚠️ **specified in [25](25-documentation-generator-and-site.md)**, which replaces the
+  DocFX API reference with a generated graph and a site built on xUI — getting started, per-subsystem
+  guides, a UI framework tutorial and a Raven language reference, at ~10 EM, of which the writing is a
+  third and is continuous rather than a phase. Plus 12+ runnable samples. Eleven exist.
 - `dotnet new` templates for game, application, library and editor plugin, verified from a clean machine
   on all six targets. Three of the four are built and their C# is compiled in CI against the assemblies
   their package references resolve to; the plugin one is owed rather than blocked. "From a clean

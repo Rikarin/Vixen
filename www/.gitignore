@@ -1,0 +1,13 @@
+node_modules/
+dist/
+out-tsc/
+.angular/
+.wrangler/
+
+# Generated from artifacts/docs by `pnpm generate`. 26 MB of JSON that the .NET side
+# reproduces exactly, so committing it would be committing a build output twice.
+src/generated/
+
+# What `pnpm pack` copies into vixen-mcp so a published package answers without a checkout —
+# the same graph, and the same argument against committing it.
+mcp/data/

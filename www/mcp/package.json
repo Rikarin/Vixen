@@ -1,0 +1,30 @@
+{
+  "name": "vixen-mcp",
+  "version": "0.1.0",
+  "description": "The Vixen engine's API graph as MCP tools — search, symbols, guides, examples and release diffs",
+  "homepage": "https://vixenengine.org",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "vixen-mcp": "server.mjs"
+  },
+  "main": "server.mjs",
+  "files": [
+    "server.mjs",
+    "data",
+    "README.md"
+  ],
+  "scripts": {
+    "start": "node server.mjs",
+    "check": "node server.mjs --self-test",
+    "prepack": "node -e \"require('node:fs').cpSync('../../artifacts/docs','data',{recursive:true})\""
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "flexsearch": "^0.8.212",
+    "zod": "^3.25.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

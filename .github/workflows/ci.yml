@@ -160,8 +160,12 @@ jobs:
       # CheckApi builds — it reads the assemblies rather than the source — which is why this leg
       # takes longer than the other two checks put together and why it is worth having: the diff it
       # fails on is the one nobody would have looked at otherwise.
-      - name: Architecture, API and format
-        run: ./build.sh CheckArchitecture CheckApi CheckFormat --configuration Release
+      #
+      # CheckDocs joins them for the same reason and reuses the same build: a public type with
+      # neither a guide page nor a line in docs/DocsExempt.txt is a source change, and the job that
+      # reads source changes is this one. Publishing the site is docs.yml's job, not a gate.
+      - name: Architecture, API, format and docs
+        run: ./build.sh CheckArchitecture CheckApi CheckFormat CheckDocs --configuration Release
         shell: bash
 
   pack:
