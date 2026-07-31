@@ -137,6 +137,28 @@ public static class InspectorTheme {
         .asset-name { flex-grow: 1; min-width: 0; }
         asset-field > icon-button { flex-shrink: 0; }
 
+        /* ⚠ A border rather than a background, and inset rather than outset: the row is two pixels
+           of padding away from its neighbours, so a halo drawn outside it lands on the row above and
+           makes the wrong field look like the target. The pointer is somewhere over the field and
+           the answer has to be unambiguous — this is a gesture people aim. */
+        asset-field.drop-target {
+            border-width: 1px;
+            border-style: solid;
+            border-color: var(--accent, #2f6ecd);
+            background-color: var(--accent-soft, #c6d8f5);
+            border-radius: 3px;
+        }
+
+        /* Refusal is shown while the pointer is still down, because a drag that lights up like every
+           other and then silently does nothing is one people repeat before concluding the editor is
+           broken. */
+        asset-field.drop-rejected {
+            border-width: 1px;
+            border-style: solid;
+            border-color: var(--danger, #c8352f);
+            border-radius: 3px;
+        }
+
         /* Right of the editor and out of the tab order — it appears and disappears as the value
            moves off and onto the type's default, and a row whose width jumped when it did would
            make every neighbouring editor twitch. */

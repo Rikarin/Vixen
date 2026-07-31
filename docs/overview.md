@@ -355,7 +355,8 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Keybinding editor UI; notification panel; `Strings.Resource` generation | ⬜ | — | Models exist, views do not |
 | `Vixen.Editor.Inspector` — generated drawers, attribute set, multi-object editing, `ref` accessors | ✅ | Editor/Vixen.Editor.Inspector | ~2 800 lines |
 | Nested-object drawer / nested struct editing | ✅ | Core/Vixen.Ui.Controls.Advanced | The `ref`-accessor argument was wrong: set the leaf, then write each *owner* into its own owner innermost-first. `PropertyRow` carries a path where it used to carry a member |
-| Multi-edit of a curve; the asset picker's browser | ⬜ | — | Browser belongs to the shell |
+| Multi-edit of a curve | ⬜ | — | Merging twenty curves has no answer that is not a guess |
+| **Asset fields — picker, type filter, drag-and-drop from the browser** | ✅ | Editor/Vixen.Editor.Inspector · Editor/Vixen.Editor.App | The drawer answers for `AssetReference` as well as `AssetId` — the type a scene actually stores, and without it `MeshRenderable.Mesh` was read-only text. `Vixen.Core`'s `[AssetType]` is how a *runtime* component says what a member takes, since `[AssetPicker]` is the editor's and a component carrying it would invert the layering. ⚠ **The gesture needed the selection rule changed**: pressing a browser row selects the asset, which hands the inspector away and destroys the field the drag was aimed at, so `FollowSelection` is suspended while a pointer is down in the browser — *a drag is not a click*. Still a list rather than a thumbnail grid |
 | `Vixen.Editor.SceneView` — viewport, gizmos, picking, camera nav, grid, outline, debug view modes, `SceneDocument`, `.vxscene` | ✅ | Editor/Vixen.Editor.SceneView | ~4 900 lines |
 | Undoable entity create/destroy | ⛔ | — | `Vixen.Ecs` cannot reserve a handle, so redo would hand back a different one |
 | Undoable entity **create / delete / rename**, handle surviving a delete-and-undo | ✅ | Editor/Vixen.Editor.SceneView | Five things come back: the handle (`TryRecreate`), the components (a scratch world — the only thing that can hold an arbitrary unconstrained struct is a chunk), the name, the stable id, and its place among its siblings. A delete takes the whole subtree |
@@ -804,7 +805,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 75 | Networking | Editor network panel; RTT/jitter/loss graphs | Tooling | Panel host |
 | 76 | Server variant | Container image; server content profile | Infra | CI / asset pipeline |
 | 77 | `Vixen.Editor.Ui` | Keybinding editor; notification panel; `Strings.Resource` generation | Feature | — |
-| 78 | `Vixen.Editor.Inspector` | Curve multi-edit; asset-picker browser | Feature | — |
+| 78 | `Vixen.Editor.Inspector` | Curve multi-edit; a *thumbnail grid* for the asset picker | Feature | The thumbnail service. The picker itself, its type filter and drag-and-drop into a field are built |
 | 79 | `Vixen.Editor.SceneView` | Undoable reparent command; hierarchy drag-and-drop; viewport click-to-select; meshes in the viewport | Feature | An id target; the material system |
 | 80 | `Vixen.Editor.App` | File dialog; a plugin-management panel | Feature | K3 is built, so the dialog is only owed a caller; the panel is a view over `PluginHost.Plugins` |
 | 81 | `Vixen.Editor.NodeGraph` | Selectable wires; sticky-note editing; a node in two groups; inlined-node → source-node map; Raven-span diagnostics | Feature | Emitter span recording, for the last |

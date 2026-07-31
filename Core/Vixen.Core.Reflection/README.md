@@ -33,7 +33,7 @@ rather than a subsystem that quietly finds nothing on iOS.
 | `TypeDescriptor` | One type: alias, traits, members, factory, category, serializer. |
 | `MemberDescriptor` | One member: name, type, order, presentation, and two accessor delegates. |
 | `TypeTraits` | `DataContract`, `Component`, `EditorVisible`, `Abstract` — flags, because a type is usually several. |
-| `MemberPresentation` | Category, tooltip, range, display name — what an inspector needs. |
+| `MemberPresentation` | Category, tooltip, range, display name, and which kind of asset the member may name — what an inspector needs. The last is `[AssetType]`, and it rides here so that a component in a runtime assembly can state it without carrying an editor attribute. |
 | `TypeRegistry` | Everything registered, queryable by type, by name, by trait, and by base type. |
 | `CollectionFactory` | How to make a `T[]`, `List<T>` or `Dictionary<string,V>` whose element type is only known at run time. |
 

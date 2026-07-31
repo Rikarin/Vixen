@@ -8,7 +8,7 @@ subsystems need to talk to each other.
 
 | | |
 |---|---|
-| **Annotations** | `[DataContract]`, `[DataMember]`, `[DataMemberIgnore]`, `[DataAlias]`, `[Component]`, `[HotPath]`, `[EditorVisible]`, `[Category]`, `[Range]`, `[Tooltip]` — marker types that source generators read at compile time. They carry no runtime behaviour. |
+| **Annotations** | `[DataContract]`, `[DataMember]`, `[DataMemberIgnore]`, `[DataAlias]`, `[Component]`, `[HotPath]`, `[EditorVisible]`, `[Category]`, `[Range]`, `[Tooltip]`, `[AssetType]` — marker types that source generators read at compile time. They carry no runtime behaviour. ⚠ **`[AssetType(typeof(AudioClip))]` is here rather than in the editor for the reason the whole set is**: it says what kind of asset an `AssetId` or `AssetReference` member may name, and the component that needs to say so lives in a runtime assembly — one annotated with the editor's own asset-picker attribute would be a runtime assembly referencing an editor one. |
 | **Identity** | `AssetId`, `ObjectId`, `Entity`, `ComponentTypeId` — value types with span formatting and parsing, so writing an id never allocates a string. |
 | `GameTime` | What a frame is told about the clock: scaled and unscaled deltas, the running total, the frame number. |
 | `ServiceRegistry` | A flat, typed lookup for the handful of genuinely global services. Not a DI container — see below. |

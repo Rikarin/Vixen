@@ -40,6 +40,8 @@ public enum TypeTraits {
 /// <param name="Logarithmic">Whether the slider should be logarithmic.</param>
 /// <param name="IsEditorVisible">Whether the inspector shows it at all.</param>
 /// <param name="IsEditorReadOnly">Whether the inspector shows it without letting it be changed.</param>
+/// <param name="AssetType">What kind of asset it names, if it names one.</param>
+/// <param name="AllowsNull">Whether it may name nothing at all.</param>
 /// <remarks>
 ///     ⚠ <b><c>default(MemberPresentation)</c> is not the same thing as
 ///     <c>new MemberPresentation()</c> would be in a class, and the difference bites exactly once
@@ -54,6 +56,11 @@ public enum TypeTraits {
 ///         because <c>IsEditorHidden</c> would read backwards everywhere it is used to spare one
 ///         caller a surprise they only get once.
 ///     </para>
+///     <para>
+///         <see cref="AllowsNull" /> is the second flag with that shape and it is deliberately not a
+///         second surprise: it only means anything alongside an <see cref="AssetType" />, and a
+///         descriptor stating one states the other in the same breath.
+///     </para>
 /// </remarks>
 public readonly record struct MemberPresentation(
     string? Category = null,
@@ -64,7 +71,9 @@ public readonly record struct MemberPresentation(
     double Step = 0,
     bool Logarithmic = false,
     bool IsEditorVisible = true,
-    bool IsEditorReadOnly = false
+    bool IsEditorReadOnly = false,
+    Type? AssetType = null,
+    bool AllowsNull = true
 );
 
 /// <summary>One member of a described type, and the two delegates that read and write it.</summary>

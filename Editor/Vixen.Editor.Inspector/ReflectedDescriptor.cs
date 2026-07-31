@@ -54,6 +54,14 @@ public sealed class ReflectedMember : InspectorMember {
         Order = member.Order;
         IsReadOnly = presentation.IsEditorReadOnly;
 
+        // ⚠ What <c>[AssetPicker]</c> says on an <c>[Inspector]</c> type, said by an annotation a
+        // runtime assembly is allowed to carry. Without it every asset member on every component the
+        // engine or a game declares offered the whole project — which for a clip is a list of every
+        // texture and every scene — and a drag carrying the wrong kind of file had nothing to be
+        // refused by.
+        AssetType = presentation.AssetType;
+        AllowNull = presentation.AllowsNull;
+
         // ⚠ Both ends or neither. `InspectorRange` is what turns a number into a slider, and a
         // slider with one end unstated would run from whatever the other end is to zero.
         if (presentation.Minimum is { } low && presentation.Maximum is { } high) {

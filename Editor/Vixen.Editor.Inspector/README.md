@@ -147,8 +147,36 @@ on a dictionary's iteration order.
 
 Built in: bool, string, multiline string, every numeric type, enums (and `[Flags]` enums as a
 multi-select), `Vector2/3/4`, `Quaternion` (as three angles), `Color4`, `AnimationCurve`, `AssetId`,
-and a read-only fallback. A member nothing can edit is drawn read-only rather than omitted — a member
-the inspector cannot edit is still one somebody needs to see the value of.
+`AssetReference`, and a read-only fallback. A member nothing can edit is drawn read-only rather than
+omitted — a member the inspector cannot edit is still one somebody needs to see the value of.
+
+⚠ **`AssetReference` was the omission that mattered, and it did not look like one.** A bare `AssetId`
+can only ever name an asset's *main* object, so what a scene actually stores is a reference — which
+means `MeshRenderable.Mesh` and every material member on every component were `AssetReference`, had
+no drawer, and fell through to the read-only last resort. The two most-used asset fields in the
+editor were grey text. `AssetDrawer` now answers for both and boxes whichever the member holds:
+`InspectorField.Write` hands its value to a generated setter that casts, so an id written into a
+reference member is an `InvalidCastException` thrown from inside a click handler — which in a UI
+framework kills the frame rather than refusing the edit. `AssetDrawer.Assign` is the one place that
+knows this, and the picker and the drop both go through it.
+
+## What an asset field will accept
+
+`[AssetPicker(typeof(Texture))]` is this assembly's, and a runtime component must not carry it: a
+component in `Vixen.Rendering` annotated for the editor would be a runtime assembly referencing an
+editor one, which is the whole reason `ReflectedDescriptor` exists. So an asset member on a
+*component* had no way to say what it holds, and every one of them offered the entire project — for
+a clip member, a list with every texture and every scene in it.
+
+`Vixen.Core`'s `[AssetType(typeof(AudioClip))]` is the other half. It rides through
+`MemberPresentation` with the rest of what the serialization generator already records, and
+`ReflectedMember` reads it into the same `InspectorMember.AssetType` the editor-side attribute fills
+in — so the drawer, the picker and the drop path cannot tell which kind of type they are looking at,
+and a game's own component gets the filter by adding one attribute from an assembly it already
+references.
+
+Which *importer* produces a given runtime type is not decided here. That join is the shell's, next to
+the project it needs in order to answer.
 
 Registration is per instance with a shared `Default`, so a plugin adds a drawer to the default and a
 test proving one in isolation builds an empty registry. A single static would make two tests that
@@ -184,6 +212,7 @@ twenty curves has no answer that is not a guess, and "apply this one to all" is 
 state of the editor.
 
 **The asset picker's picker.** `AssetDrawer` raises `PickRequested` and shows the name the host
-resolves; the browser it opens belongs to the shell.
+resolves; the browser it opens belongs to the shell, as does the drop — this assembly has no
+project, so it cannot say what a field will take, only where a field is and how to write one.
 
 Licensed under Apache-2.0.

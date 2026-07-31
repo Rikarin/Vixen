@@ -100,6 +100,41 @@ sealed class ProjectBrowser {
     /// </remarks>
     public event Action<IReadOnlyList<AssetId>, float, float>? DroppedOutside;
 
+    /// <summary>Raised while a drag is somewhere outside the panel, before it is released.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What lets a drop be aimed.</b> <see cref="DroppedOutside" /> is the verb and this is
+    ///     the feedback: an inspector row is twenty pixels tall, and a person dragging a mesh onto the
+    ///     right one of four asset fields needs the target to say so while the pointer is still down.
+    ///     The point is <see cref="float.NaN" /> when the drag has come back over the panel or was
+    ///     cancelled, because "no longer anywhere" has to be reportable or the last thing highlighted
+    ///     stays highlighted.
+    /// </remarks>
+    public event Action<IReadOnlyList<AssetId>, float, float>? DraggedOutside;
+
+    /// <summary>Raised when a pointer goes down on the panel, and again when it comes up.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Without this there is no such thing as dragging an asset into an inspector
+    ///         field, and the reason is two panels deep.</b> Pressing a row selects it, a selected
+    ///         asset wins the inspector from whatever entity had it, and the panel is rebuilt — so by
+    ///         the time the pointer has moved far enough to be a drag at all, the field it was aimed
+    ///         at no longer exists. The gesture was not merely awkward; it was impossible.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The press rather than the drag, and the difference is a frame that matters.</b> A
+    ///         drag does not begin until the pointer has passed the slop threshold, which is several
+    ///         frames after the press — and the inspector is handed over on the first of them. What
+    ///         the application does with this is suspend that hand-over until the gesture is over,
+    ///         which is the rule every editor follows without saying so: <i>a drag is not a click</i>.
+    ///     </para>
+    ///     <para>
+    ///         Captured rather than bubbled, because the tree and the grid both handle their own
+    ///         presses and a bubbling handler behind them would hear about only the ones that landed
+    ///         on nothing.
+    ///     </para>
+    /// </remarks>
+    public event Action<bool>? Grabbing;
+
     /// <summary>Builds the panel's contents into a container.</summary>
     /// <param name="project">The project being browsed.</param>
     /// <param name="panel">Where to put the rows.</param>
@@ -109,6 +144,29 @@ sealed class ProjectBrowser {
 
         this.project = project;
         root = AssetTree.Build(project.Assets.Entries);
+
+        // ⚠ On the panel and in the capture phase, so it is heard before the tree and the grid
+        // decide what the press meant — see `Grabbing`. A release that lands outside the panel still
+        // arrives here, because a press captures the pointer and the route is built from the element
+        // it captured to.
+        panel.AddHandler<PointerEvent>(
+            (_, args) => {
+                switch (args.Action) {
+                    case PointerAction.Pressed:
+                        Grabbing?.Invoke(true);
+                        break;
+
+                    case PointerAction.Released:
+                        Grabbing?.Invoke(false);
+                        break;
+
+                    default:
+                        break;
+                }
+            },
+            RoutingStrategy.Capture,
+            handledEventsToo: true
+        );
 
         var bar = panel.Add<UiElement>("browser-filters");
 
@@ -187,8 +245,30 @@ sealed class ProjectBrowser {
         // ⚠ On the tree as well as the grid, and it has to be the *source* that watches for this:
         // a drop outside the panel never reaches the panel it landed on.
         tree.AddHandler<DragEvent>((_, args) => {
-            if (args.Stage == DragStage.Completed && !Inside(tree, args.X, args.Y)) {
-                Escaped(args.X, args.Y);
+            var outside = !Inside(tree, args.X, args.Y);
+
+            // ⚠ However it ended. A cancelled drag — a window losing focus mid-gesture — produces no
+            // release, so a host that learned "the gesture is over" from the pointer alone would
+            // never learn it, and what that suspends is the inspector following the selection.
+            if (args.Stage is DragStage.Completed or DragStage.Cancelled) {
+                Grabbing?.Invoke(false);
+            }
+
+            switch (args.Stage) {
+                case DragStage.Completed when outside:
+                    Escaped(args.X, args.Y);
+                    break;
+
+                case DragStage.Started or DragStage.Moved when outside:
+                    Hovering(args.X, args.Y);
+                    break;
+
+                case DragStage.Started or DragStage.Moved or DragStage.Cancelled:
+                    Hovering(float.NaN, float.NaN);
+                    break;
+
+                default:
+                    break;
             }
         });
 
@@ -211,6 +291,8 @@ sealed class ProjectBrowser {
 
         tiles.Selected += node => project.Selection.Set(node.IsIndexed ? [node.Guid] : []);
         tiles.DroppedOutside += (x, y) => Escaped(x, y);
+        tiles.DraggedOutside += (x, y) => Hovering(x, y);
+        tiles.DragEnded += () => Grabbing?.Invoke(false);
 
         tiles.Activated += node => {
             if (node.IsIndexed) {
@@ -302,6 +384,14 @@ sealed class ProjectBrowser {
             DroppedOutside?.Invoke(carried, x, y);
         }
     }
+
+    /// <summary>Reports where a drag has got to, so a target can say it would take it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Reported even when the selection is empty, unlike <see cref="Escaped" />.</b> A drag
+    ///     that begins on nothing still has to clear whatever the previous one lit up, and a guard
+    ///     that swallowed it here would leave a field outlined until the next successful drop.
+    /// </remarks>
+    void Hovering(float x, float y) => DraggedOutside?.Invoke([.. project.Selection], x, y);
 
     static bool Inside(UiElement element, float x, float y) {
         var bounds = element.Bounds;

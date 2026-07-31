@@ -281,6 +281,8 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
         double? maximum = null;
         var step = 0d;
         var logarithmic = false;
+        string? assetType = null;
+        var allowsNull = true;
 
         // A member is shown unless something says otherwise: [EditorVisible(false)] hides it, and
         // [DataMemberIgnore] does not — the two answer different questions, and conflating them is
@@ -307,6 +309,23 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
                             step = ToDouble(named.Value.Value) ?? 0d;
                         } else if (named.Key == "Logarithmic" && named.Value.Value is bool flag) {
                             logarithmic = flag;
+                        }
+                    }
+
+                    break;
+
+                // ⚠ The symbol rather than its name, so that what is emitted is the type the author
+                // wrote and not a string that happens to match one. `typeof(AudioClip)` in a
+                // component's source has to come out the other side as the same closed type, or the
+                // editor joins a member to the wrong importer and offers the wrong list.
+                case "AssetTypeAttribute" when attribute.ConstructorArguments.Length == 1:
+                    assetType = (attribute.ConstructorArguments[0].Value as INamedTypeSymbol)?.ToDisplayString(
+                        SymbolDisplayFormat.FullyQualifiedFormat
+                    );
+
+                    foreach (var named in attribute.NamedArguments) {
+                        if (named.Key == "AllowNull" && named.Value.Value is bool nullable) {
+                            allowsNull = nullable;
                         }
                     }
 
@@ -345,6 +364,8 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
             logarithmic,
             editorVisible,
             editorReadOnly,
+            assetType,
+            allowsNull,
             collectionFactories
         );
     }
@@ -518,7 +539,8 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
                 + $"{Quote(member.Category)}, {Quote(member.DisplayName)}, {Quote(member.Tooltip)}, "
                 + $"{Number(member.Minimum)}, {Number(member.Maximum)}, "
                 + $"{member.Step.ToString("R", CultureInfo.InvariantCulture)}d, "
-                + $"{Lower(member.Logarithmic)}, {Lower(member.IsEditorVisible)}, {Lower(member.IsEditorReadOnly)}),"
+                + $"{Lower(member.Logarithmic)}, {Lower(member.IsEditorVisible)}, {Lower(member.IsEditorReadOnly)}, "
+                + $"{(member.AssetType is null ? "null" : $"typeof({member.AssetType})")}, {Lower(member.AllowsNull)}),"
             );
 
             source.AppendLine($"                    {Lower(member.IsInitOnly)}");
