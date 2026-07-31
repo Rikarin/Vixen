@@ -352,6 +352,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 |---|---|---|---|
 | `Vixen.Editor.Core` — `IEditorCommand`, `CommandStack` with merging/transactions/clean-marking, document model, `EditorProject`, `Selection<T>`, settings assets | ✅ | Editor/Vixen.Editor.Core | 48 tests incl. randomised do/undo/redo |
 | `Vixen.Editor.Ui` — shell, docking, command registry, menus/toolbars/context/palette as views, theming, notifications, background tasks, localisation | ✅ | Editor/Vixen.Editor.Ui | ~4 100 lines |
+| Editor panels written in VXML rather than in C# | 🟡 | Editor/Vixen.Editor.Ui | One of them — `Tasks/TaskCenter.vxml`, the proof of concept. It is what found that a capitalised tag could not name a *control*, that `on:click` on a button was a tap and not an activation, that a component could not name its host tag, and that effects queued per thread rather than per document |
 | Keybinding editor UI; notification panel; `Strings.Resource` generation | ⬜ | — | Models exist, views do not |
 | `Vixen.Editor.Inspector` — generated drawers, attribute set, multi-object editing, `ref` accessors | ✅ | Editor/Vixen.Editor.Inspector | ~2 800 lines |
 | Nested-object drawer / nested struct editing | ✅ | Core/Vixen.Ui.Controls.Advanced | The `ref`-accessor argument was wrong: set the leaf, then write each *owner* into its own owner innermost-first. `PropertyRow` carries a path where it used to carry a member |

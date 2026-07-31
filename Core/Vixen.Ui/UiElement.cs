@@ -25,7 +25,7 @@ namespace Vixen.Ui;
 ///         anything.
 ///     </para>
 /// </remarks>
-public partial class UiElement {
+public partial class UiElement : Composition.IComposable {
     readonly List<UiElement> children = [];
     List<UiElement>? ordered;
     bool orderDirty = true;

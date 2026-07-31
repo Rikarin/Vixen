@@ -125,6 +125,30 @@ public sealed partial class UiDocument : IDisposable {
     /// <summary>The cascade.</summary>
     public StyleEngine Styles { get; }
 
+    /// <summary>Where this document's bindings queue, and what a frame drains.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Every effect <see cref="Composition.BuildContext" /> creates is registered here rather
+    ///         than on <see cref="Reactive.EffectScheduler.Default" />, which is what the scheduler's
+    ///         own advice says a thing that owns a frame loop should do — and a document is exactly
+    ///         that.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The default is per <i>thread</i>, and that is the wrong granularity here.</b> An
+    ///         editor has more than one document — a shell, a preview pane, a floating window — and
+    ///         a test process has one per test. Flushing the thread's queue from one document's
+    ///         frame runs the bindings of every other document on that thread, including the
+    ///         disposed ones, whose effects then assign to elements that have been removed. It is
+    ///         not a hypothetical: it turned a ten-second test run into one that did not finish.
+    ///     </para>
+    ///     <para>
+    ///         <b>Not flushed by <see cref="Update" />.</b> A pass walks the tree and an effect
+    ///         mutates it, so the host drains this before the pass rather than inside it — which is
+    ///         the whole reason writing a signal only ever queues.
+    ///     </para>
+    /// </remarks>
+    public Reactive.EffectScheduler Effects { get; } = new();
+
     /// <summary>What holds every element's computed style and keeps it that way.</summary>
     /// <remarks>
     ///     ⚠ <b>Not <c>StyleEngine.ResolveAll</c>, which is what this used to be and is why a hover
@@ -297,8 +321,32 @@ public sealed partial class UiDocument : IDisposable {
     ///     </para>
     /// </remarks>
     public T Create<T>(string? tag, UiElement? parent, string? id = null, params ReadOnlySpan<string> classNames)
-        where T : UiElement, new() {
-        var element = new T();
+        where T : UiElement, new() =>
+        (T) Adopt(new T(), tag, parent, id, classNames);
+
+    /// <summary>Makes an element this document already has an instance of part of it.</summary>
+    /// <param name="element">The instance, which must not belong to a document yet.</param>
+    /// <param name="tag">Its element name, or <c>null</c> to take the one the type answers to.</param>
+    /// <param name="parent">Its parent, or <c>null</c> for the root.</param>
+    /// <param name="id">Its identifier.</param>
+    /// <param name="classNames">Its classes.</param>
+    /// <returns>The element.</returns>
+    /// <remarks>
+    ///     The half of <see cref="Create{T}" /> below the <c>new</c>, and it is separate because
+    ///     <see cref="Composition.BuildContext" /> cannot use the generic form: the type argument it
+    ///     has is constrained to <see cref="Composition.IComposable" /> rather than to
+    ///     <see cref="UiElement" />, because the same tag may name a component instead. Everything
+    ///     the order of these three steps buys is documented on <see cref="Create{T}" /> and none of
+    ///     it changed.
+    /// </remarks>
+    public UiElement Adopt(
+        UiElement element,
+        string? tag,
+        UiElement? parent,
+        string? id = null,
+        params ReadOnlySpan<string> classNames
+    ) {
+        ArgumentNullException.ThrowIfNull(element);
         tag ??= element.TagName;
 
         var styleNode = Styles.Tree.CreateElement(tag, parent?.StyleNode, id, classNames);

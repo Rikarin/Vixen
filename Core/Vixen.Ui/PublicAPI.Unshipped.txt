@@ -43,9 +43,11 @@ Vixen.Ui.Composition.BuildContext.Text(Vixen.Ui.UiElement? parent, System.Func<o
 Vixen.Ui.Composition.BuildContext.Text(Vixen.Ui.UiElement? parent, string text) -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.BuildContext.TwoWay<T>(Vixen.Ui.UiElement target, string name, System.Func<T> get, System.Action<T> set) -> void
 Vixen.Ui.Composition.Component -> abstract class
+Vixen.Ui.Composition.Component : Vixen.Ui.Composition.IComposable
 Vixen.Ui.Composition.Component.Component() -> void
 Vixen.Ui.Composition.Component.Content.get -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.Component.Root.get -> Vixen.Ui.UiElement
+Vixen.Ui.Composition.IComposable -> interface
 Vixen.Ui.Composition.ScopedStyles -> static class
 Vixen.Ui.CornerRadii -> readonly struct
 Vixen.Ui.CornerRadii : System.IEquatable<Vixen.Ui.CornerRadii>
@@ -639,6 +641,7 @@ Vixen.Ui.UiCursor.UiCursor() -> void
 Vixen.Ui.UiCursor.Wait = 10 -> Vixen.Ui.UiCursor
 Vixen.Ui.UiDocument -> sealed class
 Vixen.Ui.UiDocument : System.IDisposable
+Vixen.Ui.UiDocument.Adopt(Vixen.Ui.UiElement element, string? tag, Vixen.Ui.UiElement? parent, string? id = null, params System.ReadOnlySpan<string> classNames) -> Vixen.Ui.UiElement
 Vixen.Ui.UiDocument.Builder.get -> Vixen.Ui.LayoutStyleBuilder
 Vixen.Ui.UiDocument.CanOpenWindows.get -> bool
 Vixen.Ui.UiDocument.CapturePointer(Vixen.Ui.UiElement element) -> void
@@ -660,6 +663,7 @@ Vixen.Ui.UiDocument.Dispose() -> void
 Vixen.Ui.UiDocument.Draw() -> bool
 Vixen.Ui.UiDocument.Draw(Vixen.Ui.UiSurface surface) -> bool
 Vixen.Ui.UiDocument.Drawing.get -> Vixen.Ui.DrawList
+Vixen.Ui.UiDocument.Effects.get -> Vixen.Ui.Reactive.EffectScheduler
 Vixen.Ui.UiDocument.FindInDirection(Vixen.Ui.UiElement origin, Vixen.Ui.NavigationDirection direction) -> Vixen.Ui.UiElement?
 Vixen.Ui.UiDocument.Focus(Vixen.Ui.UiElement? element) -> bool
 Vixen.Ui.UiDocument.Focused.get -> Vixen.Ui.UiElement?
@@ -714,6 +718,7 @@ Vixen.Ui.UiDocument.Viewport.get -> Vixen.Ui.LengthContext
 Vixen.Ui.UiDocument.Windows.get -> Vixen.Ui.IUiWindowHost?
 Vixen.Ui.UiDocument.Windows.set -> Vixen.Ui.IUiWindowHost?
 Vixen.Ui.UiElement -> class
+Vixen.Ui.UiElement : Vixen.Ui.Composition.IComposable
 Vixen.Ui.UiElement.AbsoluteLeft.get -> float
 Vixen.Ui.UiElement.AbsoluteTop.get -> float
 Vixen.Ui.UiElement.AccessKey.get -> char
@@ -864,6 +869,11 @@ static Vixen.Ui.BoxStyle.Rounded(Vixen.Ui.CornerRadii corners) -> Vixen.Ui.BoxSt
 static Vixen.Ui.BoxStyle.Vertical(Vixen.Core.Mathematics.Color4 end, Vixen.Ui.CornerRadii corners = default(Vixen.Ui.CornerRadii)) -> Vixen.Ui.BoxStyle
 static Vixen.Ui.Composition.BuildContext.Build<T>(Vixen.Ui.UiDocument document, Vixen.Ui.UiElement mount) -> T
 static Vixen.Ui.Composition.BuildContext.BuildInto(Vixen.Ui.Composition.Component component, Vixen.Ui.UiDocument document, Vixen.Ui.UiElement mount) -> Vixen.Ui.Composition.BuildContext
+static Vixen.Ui.Composition.BuildContext.Host(Vixen.Ui.Composition.Component component) -> Vixen.Ui.UiElement
+static Vixen.Ui.Composition.BuildContext.Host(Vixen.Ui.UiElement element) -> Vixen.Ui.UiElement
+static Vixen.Ui.Composition.BuildContext.Inner(Vixen.Ui.Composition.Component component) -> Vixen.Ui.UiElement
+static Vixen.Ui.Composition.BuildContext.Inner(Vixen.Ui.UiElement element) -> Vixen.Ui.UiElement
+static Vixen.Ui.Composition.BuildContext.Subscribe(string name, System.Action<Vixen.Ui.UiElement, System.Action<Vixen.Ui.UiEvent>, Vixen.Ui.RoutingStrategy> subscribe) -> void
 static Vixen.Ui.Composition.ScopedStyles.Scope(string css, string scope) -> string
 static Vixen.Ui.Composition.ScopedStyles.ScopeOf(System.Type component) -> string
 static Vixen.Ui.CornerRadii.Circular(float topLeft, float topRight, float bottomRight, float bottomLeft) -> Vixen.Ui.CornerRadii
@@ -894,6 +904,7 @@ static readonly Vixen.Ui.UiElement.TabIndexProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.UiElement.TextProperty -> Vixen.Ui.UiPropertyKey
 virtual Vixen.Ui.Composition.Component.Style.get -> string?
 virtual Vixen.Ui.Composition.Component.StyleIsScoped.get -> bool
+virtual Vixen.Ui.Composition.Component.TagName.get -> string
 virtual Vixen.Ui.UiElement.OnCreated() -> void
 virtual Vixen.Ui.UiElement.OnDraw(Vixen.Ui.DrawContext context) -> void
 virtual Vixen.Ui.UiElement.OnPropertyChanged(Vixen.Ui.UiPropertyKey key) -> void

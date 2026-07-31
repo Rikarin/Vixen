@@ -21,7 +21,7 @@ namespace Vixen.Ui.Composition;
 ///         the property it was written for.
 ///     </para>
 /// </remarks>
-public abstract class Component {
+public abstract class Component : IComposable {
     /// <summary>The element this component drew itself into.</summary>
     /// <remarks>
     ///     Its host, not its first element. A <c>class</c> written on the component's tag styles
@@ -36,6 +36,24 @@ public abstract class Component {
     ///     did decides where they go.
     /// </remarks>
     public UiElement Content { get; private set; } = null!;
+
+    /// <summary>The element name this component's host answers to.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The type's name in lower case, so <c>&lt;Callout /&gt;</c> is styled by
+    ///         <c>callout { … }</c> — a component is a kind of element as far as a stylesheet is
+    ///         concerned, and CSS type selectors are lower case.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Overridable for the same reason <see cref="UiElement.TagName" /> is.</b> A
+    ///         default taken from the type's name cannot produce a hyphen, and every compound tag in
+    ///         the control library and the editor's stylesheets has one — so a component called
+    ///         <c>TaskCentre</c> would silently answer to <c>taskcentre</c> and no rule written for
+    ///         it would match. In markup the override is three lines of <c>@code</c>, which is where
+    ///         a component's C# belongs anyway.
+    ///     </para>
+    /// </remarks>
+    protected internal virtual string TagName => GetType().Name.ToLowerInvariant();
 
     /// <summary>The component's own stylesheet, if it declared a <c>&lt;style&gt;</c> block.</summary>
     protected virtual string? Style => null;

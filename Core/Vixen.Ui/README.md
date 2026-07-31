@@ -855,6 +855,41 @@ element — and so its focus, its scroll offset and its animation state. Without
 the item itself, never the index: an index makes every element after an insertion compare unequal,
 which is exactly the failure `VXML2004` warns about.
 
+### A capitalised tag is a component *or* a control
+
+`<Counter />` names a `Component` and `<ProgressBar />` names a `UiElement`, and they are written
+identically because the markup compiler resolves no types and is not going to start. `ctx.Child<T>`
+takes both, and which one it got is settled by C# overload resolution at the use site rather than by
+a registry: `IComposable` is the constraint, and it exists so that a tag naming a type that is
+neither is an error on the tag the author wrote.
+
+The two differ in exactly two places, and `BuildContext.Host` and `BuildContext.Inner` are those
+places. An attribute on a component's tag applies to the element the component *drew*; on a
+control's tag it applies to the control, which is already an element. Children written inside a
+component's tag are content projected into its slot; inside a control's tag they are its children.
+Both are static overloads that inline away, which is what lets the emitter write one call for a
+distinction it cannot see.
+
+⚠ **`on:click` therefore has to mean two things, and `Vixen.Ui`'s table only knows one of them.**
+An element's click is a tap; a *control's* click is its activation — Space, Enter, an access key and
+a tap, which is what `ClickEvent` exists to be. So `BuildContext.Subscribe` lets a control library
+say so, and `Vixen.Ui.Controls` does it from a module initializer. Without that a `<Button on:click>`
+works for everybody who tests with a mouse and for nobody who does not use one.
+
+**A component names its host tag.** `Component.TagName` defaults to the type's name in lower case
+and is overridable for the reason `UiElement.TagName` is: a default taken from a type name cannot
+produce a hyphen, and `task-center` is not spelled `taskcenter` in anybody's stylesheet.
+
+### Effects belong to the document
+
+`UiDocument.Effects` is where every binding queues, and a frame drains it in one place. The
+scheduler's own default is per *thread*, which is the wrong granularity for a document: an editor
+has several — a shell, a preview pane, a floating window — and a test process has one per test.
+
+⚠ **This was found rather than reasoned about.** Flushing the thread's queue from one shell's tick
+ran the bindings of every other document on that thread, disposed ones included, and turned a
+ten-second test run into one that did not finish.
+
 ### Regions, and the question "where"
 
 An `@if` in the middle of a `<div>` has siblings on both sides, and the element tree only appends.
@@ -899,3 +934,14 @@ Named slot projection (`slot="footer"` on a child), and a longest-increasing-sub
 reorder moves a minimal set rather than every surviving item. The last one is correctness-neutral: a
 move that changes nothing returns immediately, so an unchanged list already costs a walk and nothing
 else.
+
+⚠ **And a mounted component is rooted by its caller rather than by the document.** `Build<T>` drops
+the `BuildContext` it made, so the regions holding a component's effects are reachable only through
+the component it returned — a caller that mounts a panel and does not keep the reference has a
+subtree that stops updating whenever a collection runs, with nothing to see. `Vixen.Editor.Ui` keeps
+the field and says why; the framework should not need it to.
+
+**A component has no teardown hook.** `Region.Clear` disposes what the runtime registered — effects
+and two-way subscriptions — and knows nothing about what a component subscribed to itself. Today
+that is survivable because a component and the thing it listens to are usually owned by the same
+object; it will not stay survivable.

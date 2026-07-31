@@ -390,7 +390,7 @@ public sealed class Binder {
         }
 
         // A parameter on a component becomes a property assignment, so its name has to be one.
-        if (kind == BoundAttributeKind.Parameter && isComponent && !IsUniversal(name) && !IsIdentifier(name)) {
+        if (kind == BoundAttributeKind.Parameter && isComponent && !IsUniversal(name) && !IsPropertyPath(name)) {
             Report(MarkupDiagnostics.InvalidParameterName, attribute.Name.Span, name, tag);
             return null;
         }
@@ -400,6 +400,26 @@ public sealed class Binder {
 
     /// <summary>Attributes that mean the same on a component as on an element, so are never parameters.</summary>
     static bool IsUniversal(string name) => string.Equals(name, "class", StringComparison.Ordinal);
+
+    /// <summary>
+    ///     Whether a name can be written after a <c>.</c> in an assignment's target.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A path rather than a single name</b>, because the control library has properties
+    ///     that are objects: a button's icon is <c>LeadingIcon.Geometry</c> and there is no flat name
+    ///     for it. Nothing is checked here beyond "this will parse as C#" — whether the path exists
+    ///     and whether the value fits is Roslyn's, reported on the characters of the attribute name,
+    ///     which is the same bargain the tag name is emitted under.
+    /// </remarks>
+    static bool IsPropertyPath(string name) {
+        foreach (var part in name.Split('.')) {
+            if (!IsIdentifier(part)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     static bool IsIdentifier(string name) {
         if (name.Length == 0 || (!char.IsLetter(name[0]) && name[0] != '_')) {

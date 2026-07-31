@@ -57,6 +57,15 @@
                           ReferenceOutputAssembly="false" />
 
         <!--
+            The VXML compiler, for the same reason and by the same route: a PackageReference to
+            Vixen.Ui would bring it, and a ProjectReference does not. This is the first assembly in
+            the repository whose interface is written in the markup language the UI framework is for.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Markup.Generators\Vixen.Ui.Markup.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!--
             ⚠ Deliberately *not* Vixen.Editor.Core. The shell is chrome: a command is an id and a
             delegate, a panel is an id and a factory, and nothing here knows what a project, a
             document or an undo stack is. That is what lets the whole assembly be tested against a
@@ -68,5 +77,13 @@
     <ItemGroup>
         <InternalsVisibleTo Include="Vixen.Editor.Ui.Tests" />
     </ItemGroup>
+
+    <!--
+        What a PackageReference to Vixen.Ui would have imported on its own: the **/*.vxml glob and
+        the two properties the generator asks MSBuild for. At the bottom of the file rather than the
+        top for the reason the .targets itself gives — the glob has to run after DefaultItemExcludes
+        is final, or a .vxml copied into bin/ by a previous build is compiled a second time.
+    -->
+    <Import Project="..\..\Core\Vixen.Ui\build\Vixen.Ui.targets" />
 
 </Project>

@@ -217,15 +217,27 @@ public sealed class ComponentEmitter {
         }
 
         // A component's children are not its children — they are content projected into it, so
-        // they hang from whatever element that component put its default slot on.
-        EmitNodes(element.Children, context, element.IsComponent ? $"{name}.Content" : name);
+        // they hang from whatever element that component put its default slot on. A control's are.
+        EmitNodes(
+            element.Children,
+            context,
+            element.IsComponent ? $"{RuntimeNamespace}.BuildContext.Inner({name})" : name
+        );
     }
 
     /// <summary>
     ///     The element an attribute applies to. For a component that is its root: <c>class</c> on
     ///     <c>&lt;Callout&gt;</c> styles the element the component drew, not the component object.
     /// </summary>
-    static string Target(BoundElement element, string name) => element.IsComponent ? $"{name}.Root" : name;
+    /// <remarks>
+    ///     ⚠ <b>A call rather than <c>.Root</c>, because a capitalised tag may name a control.</b>
+    ///     <c>&lt;ProgressBar&gt;</c> and <c>&lt;Callout&gt;</c> are written identically and the
+    ///     binder resolves no types, so which of them <c>n1</c> is cannot be known here — but
+    ///     <c>Host</c> is overloaded on the two, and by the time the C# compiler reads it <c>n1</c>
+    ///     has a type. The cost is a static call that inlines to nothing.
+    /// </remarks>
+    static string Target(BoundElement element, string name) =>
+        element.IsComponent ? $"{RuntimeNamespace}.BuildContext.Host({name})" : name;
 
     /// <summary>
     ///     Attributes that mean the same thing on a component as on an element, and are therefore
