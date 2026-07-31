@@ -1,5 +1,11 @@
 # pnpm 11 keeps its settings here rather than in package.json.
 #
+# `mcp/` is a second package in this project rather than a folder of the site: it publishes as
+# `vixen-mcp`, ships to a different registry consumer, and must not drag Angular in as a dependency.
+packages:
+  - mcp
+
+#
 # esbuild and workerd ship platform binaries their install scripts unpack; left unbuilt, every
 # `pnpm exec` re-runs install, fails, and takes the build with it.
 allowBuilds:

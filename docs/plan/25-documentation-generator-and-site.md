@@ -586,7 +586,16 @@ roughly:
 **So retention is four: the current release, the two before it, and `next`** — ≈ 18 000 files against
 a 20 000 ceiling. That is deliberately close, and it is why the file count is a `CheckDocs` budget
 that fails the build rather than a note in this document: the deploy that first exceeds it would
-otherwise be the one that discovers it. Anything older is reachable as the archived JSON, rendered
+otherwise be the one that discovers it.
+
+> ✅ **Overturned by [P6](#p6--versioning-and-the-release-diff-10-em), and the budget outlived the
+> reason for it.** Pinned versions are not prerendered: the pages would be `noindex` by the decision
+> two paragraphs above, so 4 500 files per version buy nothing a search engine reads, and the
+> archived graph is one 2.44 MB file that can be served directly instead. The site is **4 244 files**
+> whatever the release count, so **retention is unbounded** — the store costs 2.44 MB per release and
+> nothing on the deployment. The file-count gate stays, because what it now watches is the *current*
+> version growing: 4 244 of a 5 000-file budget, and the sweep in
+> [P7](#p7--the-coverage-sweep-3040-em-continuous) adds a page per type it documents. Anything older is reachable as the archived JSON, rendered
 client-side, which costs one file per version rather than 4 500.
 
 Two consequences worth stating now, because they are cheap to design for and expensive to retrofit:
@@ -739,6 +748,9 @@ xuijs.org gets back immediately.
 
 ## Part 10 — The agent surface
 
+✅ **Built** — [`www/mcp`](../../www/mcp/README.md), [`skills/vixen`](../../skills/vixen/SKILL.md),
+[P8](#p8--the-agent-surface-05-em).
+
 The graph is one artefact with three consumers, and the third is nearly free: `@xui/mcp` proves the
 pattern — an index extracted from sources, so the answers match the version installed rather than
 whatever a docs scraper last saw.
@@ -768,9 +780,9 @@ and nothing else.
 | [P3 — Site MVP](#p3--site-mvp-15-em) | 1.5 EM | ✅ **Done** — 3 938 routes prerendered, 4 242 files, readable with JavaScript off |
 | [P4 — Search](#p4--search-05-em) | 0.5 EM | ⌘K over everything, inside budget |
 | [P5 — Gates and CI](#p5--gates-and-ci-05-em) | 0.5 EM | ✅ **Done** — coverage gated behind a seeded `DocsExempt.txt`; `docs.yml` builds, checks budgets and deploys; PR previews |
-| [P6 — Versioning and the release diff](#p6--versioning-and-the-release-diff-10-em) | 1.0 EM | Two versions live; a release emits its diff table |
+| [P6 — Versioning and the release diff](#p6--versioning-and-the-release-diff-10-em) | 1.0 EM | ✅ **Done** — the store, the fold, the seven diff rules, the release pages and the switcher; 0.1.0 archived |
 | [P7 — The coverage sweep](#p7--the-coverage-sweep-3040-em-continuous) | 3.0–4.0 EM | `DocsExempt.txt` empty |
-| [P8 — The agent surface](#p8--the-agent-surface-05-em) | 0.5 EM | `vixen-mcp` published; skill in the repo |
+| [P8 — The agent surface](#p8--the-agent-surface-05-em) | 0.5 EM | ✅ **Done** — `vixen-mcp`'s six tools answer against the graph; the skill is in `skills/vixen/` |
 | **Total** | **9.8–10.8 EM** + 0.5 EM in xUI | |
 
 #### P0 — The spike (0.3 EM)
@@ -929,8 +941,38 @@ commit that introduces it.
 
 #### P6 — Versioning and the release diff (1.0 EM)
 
-The version store, the URL scheme, the switcher, retention with the file-count budget, and the diff
-generator wired into the `PublicAPI` fold so a release emits its own table.
+✅ **Built.** The store ([`docs/api-history/`](../api-history/index.json)), the diff
+([`ReleaseDiff.cs`](../../Tools/Vixen.DocGen/ReleaseDiff.cs)), the fold
+([`nuke Release`](../../build/Build.Release.cs)), the switcher and the release pages.
+
+**One target, because the two halves are the same fact.** `nuke Release --release-version 0.2.0`
+folds `PublicAPI.Unshipped.txt` into `Shipped` through `Vixen.ApiCheck --fold` — the same `Approved`
+method the gate uses, so the fold cannot promise something the gate would have rejected — and then
+archives the graph and writes the table. Run apart, the two would eventually disagree about what
+shipped, and the one that would be wrong is the changelog.
+
+**The archive is the whole graph, members and all** — 24 MB of JSON, **2.44 MB** after Brotli. Not
+the index tier: a diff that cannot see members cannot say a parameter type changed, which is the most
+common breaking change there is.
+
+**Verified against a fabricated predecessor**, because a diff with nothing to diff has proved
+nothing. An archived graph was mutated — a type deleted, a type invented, `sealed` removed, a
+member's signature changed, a component's size changed — and the release run produced exactly the
+five rows: `Vixen.Ecs.Retired` removed, `AnimationClip` gaining `sealed` ("anything deriving from it
+stops compiling"), `Archetype.Signature` changed, **`Camera` 24 b → 28 b — "scenes saved with the old
+layout load wrong"**, and `Chunk` added. The fourth is the row [6.2](#62-the-diff-is-generated-at-the-release-and-it-is-the-same-moment-as-the-api-fold)
+was written for: the signature is identical and the change breaks every saved scene. The fabricated
+versions were then deleted; the store holds **0.1.0** and nothing else.
+
+⚠ **One correction to [6.3](#63-urls-and-retention), and it changes the retention arithmetic.** The
+plan prerendered pinned versions under `/docs/<version>/`, ~4 500 files each, which is what fixed
+retention at four. Two facts overturn it: those pages are `noindex` **by this document's own
+decision**, so prerendering buys nothing a search engine will read; and the archived graph is one
+2.44 MB file that a reader can be served directly. So the switcher points at what the store actually
+holds — the release and its table — and **the site stays at ~4 300 files however many releases
+accumulate**. Retention stops being a constraint rather than being met. What is *not* built is a
+browsable pinned tree; the archive is there to build one from the day a release's graph differs from
+latest and somebody wants to read the old one.
 
 #### P7 — The coverage sweep (3.0–4.0 EM, continuous)
 
@@ -942,7 +984,26 @@ delivers value on the day each page lands rather than at the end.
 
 #### P8 — The agent surface (0.5 EM)
 
-[Part 10](#part-10--the-agent-surface).
+✅ **Built** — [`www/mcp`](../../www/mcp/README.md) and [`skills/vixen`](../../skills/vixen/SKILL.md).
+
+All six tools of [Part 10](#part-10--the-agent-surface) answer over stdio against the real graph:
+`vixen_meta` (3 679 types, seventeen kinds, the commit), `vixen_search`, `vixen_symbol_get`,
+`vixen_guide_get`, `vixen_examples`, `vixen_diff`. Verified by driving the server with an MCP client
+rather than by reading the code: `vixen_search { query: "camera", kind: "scene-component" }` returns
+one row, which is the query this exists for — **a shape rather than a name**, answerable without
+knowing a single identifier.
+
+Two things the plan did not say and the build settled. **The index is FlexSearch built at startup**
+from the index tier — a second's work for 3 679 types, and no dependency on [P4](#p4--search-05-em),
+which is a browser concern; when P4 lands, the two indexes are built from the same fields rather than
+shared as a file. And **`vixen_examples` reads the fences out of the guide bodies** rather than
+storing a second copy, because a second copy is a second thing that can drift.
+
+The skill mirrors [xUI's](https://github.com/Rikarin/xui/blob/main/skills/xui/SKILL.md): the
+taxonomy as a table, six principles, the gates a contributor has to pass, and the rule the whole
+thing exists for — *never guess a type name; there are 3 679 of them*. Its ECS example is quoted
+from the guide page the build compiles; the systems example is marked as shaped-from-the-index and
+not compiled, which is the honest label for it.
 
 ---
 
@@ -1000,8 +1061,9 @@ To be added to [01](01-technology-decisions.md) — 016 is the next free number.
 
 New package entries for [Directory.Packages.props](../../Directory.Packages.props):
 `Microsoft.CodeAnalysis.Workspaces.MSBuild` and `Microsoft.Build.Locator` (pinned inside
-`Vixen.DocGen` per [3.1](#31-the-tool)), and `Markdig`. New JS dependencies in `www/`: Angular 22,
-Tailwind 4, `@xui/*`, `flexsearch`, `wrangler`.
+`Vixen.DocGen` per [3.1](#31-the-tool)), and ~~`Markdig`~~ (not needed —
+[P2](#p2--the-content-pipeline-10-em)). New JS dependencies in `www/`: Angular 22, Tailwind 4,
+`@xui/*`, `wrangler`; and in `www/mcp/`: `@modelcontextprotocol/sdk`, `flexsearch`, `zod`.
 
 ---
 

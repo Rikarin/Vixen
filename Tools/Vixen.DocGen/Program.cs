@@ -34,6 +34,10 @@ if (arguments is null) {
           --seed-exemptions        rewrite docs/DocsExempt.txt with every type that has no page and
                                    exit. Run once, when the coverage gate lands; after that the file
                                    only ever shrinks, by hand, in the commit that writes the page.
+          --release <version>      archive this graph as a release under docs/api-history/, diff it
+                                   against the previous one, and write the table into the store and
+                                   into CHANGELOG.md. Committed output — run it at the tag.
+          --date <yyyy-mm-dd>      the release's date. Default: today, UTC.
           --excuse <project>       tolerate compile errors in this project, and say so in the
                                    summary. Repeatable. For sources produced by an MSBuild task
                                    rather than a Roslyn generator, which a design-time build cannot
@@ -193,6 +197,47 @@ static async Task<int> Run(Arguments arguments) {
     var written = new GraphWriter().Write(graph, arguments.Output);
     var guideWritten = GraphWriter.WriteGuide(pages, arguments.Output);
 
+    // ── The release, § 6 ────────────────────────────────────────────────────────────────────────
+    // Written before the summary so the numbers the summary prints include it, and after the graph
+    // so a release that fails the gate below has still produced something to look at.
+    var history = History.Read(root);
+
+    if (arguments.Release is { } release) {
+        var previous = History.Previous(history, release);
+        var semantic = pages
+            .SelectMany(page => page.Front.Breaking.Select(text => (page.Front.Slug, text)))
+            .ToList();
+
+        var changes = previous is null
+            ? []
+            : ReleaseDiff.Between(
+                History.ReadGraph(root, previous.Version)
+                ?? throw new DocGenException(
+                    $"{previous.Version} is in {History.RelativeDirectory}/index.json and its graph is not. "
+                    + "The index and the store have to be committed together."),
+                graph,
+                semantic);
+
+        var record = History.Write(root, graph, release, arguments.Date);
+
+        Releases.Write(root, arguments.Output, record, previous?.Version, changes);
+
+        Console.WriteLine();
+        Console.WriteLine($"release {release}: {record.Types} types, {record.Members} members, "
+            + $"{record.Bytes / 1024.0 / 1024.0:F2} MB archived in {History.RelativeDirectory}/{release}");
+
+        Console.WriteLine(previous is null
+            ? "  the first release — no diff, because there is nothing to diff against"
+            : $"  against {previous.Version}: {changes.Count(change => change.Kind == ChangeKind.Added)} added, "
+            + $"{changes.Count(change => change.Kind == ChangeKind.Removed)} removed, "
+            + $"{changes.Count(change => change.Kind == ChangeKind.Deprecated)} deprecated, "
+            + $"{changes.Count(change => change.IsBreaking)} breaking");
+    } else {
+        // Every archived release, re-emitted for the site: the pages are rendered from what is
+        // committed, so a rebuild of an old release's table cannot disagree with the release.
+        Releases.WriteIndex(root, arguments.Output, history);
+    }
+
     Console.WriteLine();
     Console.WriteLine($"{documented.Count} of {projects.Count} projects documented "
         + $"(samples, benchmarks and tests are examples rather than surface), "
@@ -293,6 +338,8 @@ sealed record Arguments(
     bool VerifyBaselines,
     bool CheckDocs,
     bool SeedExemptions,
+    string? Release,
+    string Date,
     IReadOnlySet<string> Excused
 ) {
     public static Arguments? Parse(string[] args) {
@@ -304,6 +351,8 @@ sealed record Arguments(
         var verify = false;
         var checkDocs = false;
         var seedExemptions = false;
+        string? release = null;
+        var date = DateTime.UtcNow.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
         var excused = new HashSet<string>(StringComparer.Ordinal);
 
         for (var index = 0; index < args.Length; index++) {
@@ -343,6 +392,16 @@ sealed record Arguments(
 
                     break;
 
+                case "--release" when index + 1 < args.Length:
+                    release = args[++index].TrimStart('v');
+
+                    break;
+
+                case "--date" when index + 1 < args.Length:
+                    date = args[++index];
+
+                    break;
+
                 case "--excuse" when index + 1 < args.Length:
                     excused.Add(args[++index]);
 
@@ -370,6 +429,8 @@ sealed record Arguments(
                 verify,
                 checkDocs,
                 seedExemptions,
+                release,
+                date,
                 excused);
     }
 }

@@ -31,6 +31,8 @@ dotnet run --project Tools/Vixen.DocGen -- Vixen.slnx --output artifacts/docs \
 | `--verify-baselines` | Also fail when the graph and the `PublicAPI.*.txt` baselines disagree. |
 | `--check-docs` | Also run [the written half's gate](#the-gate). |
 | `--seed-exemptions` | Rewrite `docs/DocsExempt.txt` with every type that has no page, and exit. Run once. |
+| `--release <version>` | Archive the graph and emit [the release's table](#releases). Committed output — run it at the tag, through `nuke Release`. |
+| `--date <yyyy-mm-dd>` | The release's date. Default: today, UTC. |
 | `--excuse <project>` | Tolerate compile errors in one project, and print that it did. Repeatable. |
 
 ## ⚠ The configuration is not cosmetic
@@ -203,6 +205,34 @@ than a surplus of them. Adding a tree to a compilation that already works inheri
 
 A snippet is not compiled twice: it is quoted from a file the solution builds, so the region would not
 exist if that file had stopped compiling.
+
+## Releases
+
+`nuke Release --release-version 0.2.0` — docs/plan/25 § 6. One command, because the API fold and the
+release table are the same fact written twice:
+
+1. **`Vixen.ApiCheck --fold`** turns everything approved into everything shipped, through the same
+   `Approved` method the gate uses, so the fold cannot promise what the gate would have rejected.
+2. **This tool with `--release`** archives the whole graph — members included, because a diff that
+   cannot see members cannot say a parameter type changed — as
+   `docs/api-history/<version>/graph.json.br`. **24 MB of JSON, 2.43 MB after Brotli.**
+3. It diffs that against the previous archive and writes the table to
+   `docs/api-history/<version>/changes.json`, to `CHANGELOG.md`, and into the graph output for the
+   site's `/docs/releases/<version>` page.
+
+Everything it writes is **committed**. § 6.1's argument is that rebuilding an old release two years
+from now means restoring an old SDK and an old MSBuild, and the first release where that fails is the
+release where the changelog quietly stops existing.
+
+| Row | Fires when |
+|---|---|
+| **Added** | An id present now and absent before. A new type folds its members in rather than listing forty of them |
+| **Removed** | An id gone. Breaking, and a removed type folds its members in the same way |
+| **Deprecated** | `[Obsolete]` gained, carrying its message |
+| **Breaking — signature** | Same id, different declaration |
+| **Breaking — shape** | `sealed` or `abstract` or `ref` gained, base type changed, an interface dropped, an enum's underlying type changed |
+| **Breaking — engine** | **The row no generic tool produces**: a component's size, a system's phase or ordering or declared access, a shader's descriptor layout, a replication channel, a log level. *The signature is identical and the scene, the frame or the pipeline is not* |
+| **Breaking — behaviour** | A `breaking:` entry in a guide page's front matter — the only row a human writes, because "this now defaults to linear space" is in no declaration |
 
 ## Known gaps
 

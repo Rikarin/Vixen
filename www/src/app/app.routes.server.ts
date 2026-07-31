@@ -4,6 +4,7 @@
 import { RenderMode, type ServerRoute } from '@angular/ssr';
 import { GRAPH, GUIDE } from '../generated/manifest';
 import { NODES } from '../generated/nodes';
+import { RELEASES } from '../generated/releases';
 
 /**
  * Documentation reads the same for everyone, so every page is rendered at build time and served as a
@@ -38,6 +39,12 @@ export const serverRoutes: ServerRoute[] = [
 
         return { area: entry.slug.slice(0, separator), page: entry.slug.slice(separator + 1) };
       })
+  },
+  { path: 'docs/releases', renderMode: RenderMode.Prerender },
+  {
+    path: 'docs/releases/:version',
+    renderMode: RenderMode.Prerender,
+    getPrerenderParams: async () => RELEASES.map(entry => ({ version: entry.Version }))
   },
   ...['components', 'systems', 'controls', 'shaders', 'nodes', 'importers', 'attributes', 'diagnostics', 'log-events'].map(
     slug => ({ path: `docs/${slug}`, renderMode: RenderMode.Prerender }) as ServerRoute

@@ -3,7 +3,8 @@
 
 import type { ResolveFn, Routes } from '@angular/router';
 import { GUIDE_LOADERS, PAGE_LOADERS } from '../generated/loaders';
-import type { DocNode, GuidePage } from './core/model';
+import { RELEASE_LOADERS } from '../generated/releases';
+import type { DocNode, GuidePage, ReleaseDetail } from './core/model';
 
 /**
  * Loads one type's detail.
@@ -35,6 +36,13 @@ export const guide: ResolveFn<GuidePage | undefined> = async route => {
   const slug = `${route.paramMap.get('area')}.${route.paramMap.get('page')}`;
 
   return GUIDE_LOADERS[slug] ? GUIDE_LOADERS[slug]() : undefined;
+};
+
+/** One release's committed table — § 6.2. */
+export const release: ResolveFn<ReleaseDetail | undefined> = async route => {
+  const version = route.paramMap.get('version') ?? '';
+
+  return RELEASE_LOADERS[version] ? RELEASE_LOADERS[version]() : undefined;
 };
 
 export const routes: Routes = [
@@ -79,6 +87,18 @@ export const routes: Routes = [
         path: 'guide/:area/:page',
         loadComponent: () => import('./pages/guide').then(m => m.GuidePageComponent),
         resolve: { page: guide }
+      },
+      {
+        path: 'releases',
+        pathMatch: 'full',
+        loadComponent: () => import('./pages/releases').then(m => m.ReleasesPage),
+        title: 'Releases — Vixen'
+      },
+      {
+        path: 'releases/:version',
+        loadComponent: () => import('./pages/release').then(m => m.ReleasePage),
+        resolve: { release },
+        title: route => `${route.paramMap.get('version') ?? 'Release'} — Vixen`
       },
       ...['components', 'systems', 'controls', 'shaders', 'nodes', 'importers', 'attributes', 'diagnostics', 'log-events'].map(
         slug => ({

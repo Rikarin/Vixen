@@ -14,6 +14,11 @@ namespace Vixen.DocGen.Guide;
 /// <param name="Since">The version it first described.</param>
 /// <param name="Status"><c>stable</c>, <c>preview</c> or <c>deprecated</c>.</param>
 /// <param name="Related">Slugs of pages a reader should go to next.</param>
+/// <param name="Breaking">
+///     Behaviour that changed without a signature changing — docs/plan/25 § 6.2's last-but-one row.
+///     One sentence per entry, in the release it applies to. The only part of a release table a human
+///     writes, because "this now defaults to linear space" is in no declaration.
+/// </param>
 sealed record FrontMatter(
     string Title,
     string Slug,
@@ -24,7 +29,8 @@ sealed record FrontMatter(
     IReadOnlyList<string> Tags,
     string? Since,
     string Status,
-    IReadOnlyList<string> Related
+    IReadOnlyList<string> Related,
+    IReadOnlyList<string> Breaking
 ) {
     static readonly string[] Kinds = ["guide", "tutorial", "concept", "reference"];
     static readonly string[] Statuses = ["stable", "preview", "deprecated"];
@@ -106,7 +112,8 @@ sealed record FrontMatter(
             List("tags"),
             fields.TryGetValue("since", out var since) && since.Count == 1 ? since[0] : null,
             status,
-            List("related"));
+            List("related"),
+            List("breaking"));
 
         return (errors.Count > 0 ? null : page, body, errors);
     }

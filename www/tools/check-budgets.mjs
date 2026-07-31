@@ -4,11 +4,15 @@
 /**
  * The deployment budgets — docs/plan/25 § 6.3 and § Part 5's `Budgets` row.
  *
- * Cloudflare's free plan caps a deployment at 20 000 files of 25 MiB each, and a version of this
- * site is roughly 4 500 of them. That is what fixes retention at four — the current release, the two
- * before it, and `next` — and it is why the file count is a build failure rather than a note: the
- * deploy that first exceeds it would otherwise be the one that discovers it, at the moment the site
- * stops publishing.
+ * Cloudflare's free plan caps a deployment at 20 000 files of 25 MiB each, and this site is ~4 250
+ * of them. The file count is a build failure rather than a note because the deploy that first
+ * exceeded the cap would otherwise be the one that discovered it, at the moment the site stopped
+ * publishing.
+ *
+ * ⚠ **What it watches changed in P6.** § 6.3 budgeted four prerendered versions at ~4 500 files
+ * each; pinned versions are not prerendered (they would be `noindex`, and the archived graph is one
+ * 2.4 MB file), so the deployment does not grow with the release count. What grows it is the sweep —
+ * a page per type documented — which is what the per-version budget below is now for.
  *
  * The initial JavaScript budget is not here. Angular already fails the build on it
  * (`angular.json` → `budgets`), and a second opinion in a second place is how two numbers start
@@ -18,14 +22,11 @@
 import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-/** One prerendered version of the site. Measured at 4 242; the headroom is for the sweep's pages. */
+/** What the site should be. Measured at 4 248; the headroom is for the sweep's pages. */
 const FILES_PER_VERSION = 5_000;
 
-/** Cloudflare's free plan, per deployment. */
+/** Cloudflare's free plan, per deployment — the wall, not the target. */
 const FILES_PER_DEPLOYMENT = 20_000;
-
-/** How many versions the deployment carries: current + two + `next` (§ 6.3). */
-const RETENTION = 4;
 
 /** Cloudflare's per-file cap, in bytes. */
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
@@ -77,11 +78,10 @@ try {
 }
 
 const mb = bytes => (bytes / 1024 / 1024).toFixed(1) + ' MB';
-const projected = measured.files * RETENTION;
 
 const rows = [
-  ['files, one version', measured.files, FILES_PER_VERSION],
-  [`files, ${RETENTION} versions`, projected, FILES_PER_DEPLOYMENT],
+  ['files, budgeted', measured.files, FILES_PER_VERSION],
+  ['files, Cloudflare', measured.files, FILES_PER_DEPLOYMENT],
   ['largest file', measured.largest.bytes, MAX_FILE_BYTES]
 ];
 
@@ -99,8 +99,8 @@ console.log(`  ${mb(measured.bytes)} total in ${directory}`);
 if (failures.length > 0) {
   console.error('');
   console.error(
-    'The deployment is over budget. § 6.3: a version that grows past its share costs a version of ' +
-      'retention, and the paid plan buys 100 000 files rather than a bigger site.'
+    'The deployment is over budget. § 6.3: the paid plan buys 100 000 files rather than a bigger ' +
+      'site, so the question to ask first is which pages multiplied.'
   );
   process.exit(1);
 }

@@ -13,7 +13,11 @@ namespace Vixen.DocGen;
 ///     holds all of it. <c>pages/&lt;namespace&gt;.json</c> carries the detail, and a route loads one.
 /// </remarks>
 sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
-    static readonly JsonSerializerOptions Options = new() {
+    /// <summary>
+    ///     The graph's JSON shape, shared with <see cref="History" /> so an archived release reads
+    ///     back as the thing that was written — including <see cref="SpanConverter" />'s pair form.
+    /// </summary>
+    internal static readonly JsonSerializerOptions Options = new() {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.KebabCaseLower), new SpanConverter() },
         WriteIndented = false

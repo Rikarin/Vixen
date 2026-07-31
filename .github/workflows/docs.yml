@@ -107,6 +107,12 @@ jobs:
         run: pnpm check
         working-directory: www
 
+      # The third consumer of the same graph — docs/plan/25 § Part 10. A server that cannot read the
+      # graph fails here rather than in somebody's editor.
+      - name: Agent surface
+        run: node server.mjs --self-test
+        working-directory: www/mcp
+
       # Small (~2 MB) and the input to the release diff in P6, so it is worth keeping per run.
       - name: Upload the graph
         uses: actions/upload-artifact@v4

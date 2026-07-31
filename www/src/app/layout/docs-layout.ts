@@ -1,9 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { GRAPH, GUIDE } from '../../generated/manifest';
+import { RELEASES } from '../../generated/releases';
 import { TAXONOMY } from '../core/model';
 
 /**
@@ -28,10 +29,29 @@ import { TAXONOMY } from '../core/model';
             <a routerLink="/docs/components" class="hover:text-foreground transition-colors">Components</a>
             <a routerLink="/docs/systems" class="hover:text-foreground transition-colors">Systems</a>
             <a routerLink="/docs/shaders" class="hover:text-foreground transition-colors">Shaders</a>
+            <a routerLink="/docs/releases" class="hover:text-foreground transition-colors">Releases</a>
           </nav>
-          <span class="text-foreground-subtle ms-auto font-mono text-xs">
-            {{ commit }}
-          </span>
+
+          <!-- The version switcher — § 6.3. A plain <select> with a form action so it works with
+               JavaScript off, which is the site's rule and not a detail here: a reader on an old
+               version is often reading from a machine they do not control. -->
+          <div class="ms-auto flex items-center gap-3">
+            @if (releases.length > 0) {
+              <label class="text-foreground-subtle flex items-center gap-2 text-xs">
+                <span class="sr-only">Version</span>
+                <select
+                  (change)="onVersion($event)"
+                  class="border-border bg-surface text-foreground-muted rounded border px-2 py-1 text-xs outline-none focus:border-primary"
+                >
+                  <option value="" selected>latest ({{ commit }})</option>
+                  @for (entry of releases; track entry.Version) {
+                    <option [value]="entry.Version">{{ entry.Version }} — {{ entry.Date }}</option>
+                  }
+                </select>
+              </label>
+            }
+            <span class="text-foreground-subtle font-mono text-xs">{{ commit }}</span>
+          </div>
         </div>
       </header>
 
@@ -104,7 +124,30 @@ export class DocsLayout {
   protected readonly namespaces = GRAPH.namespaces;
   protected readonly commit = GRAPH.commit ? GRAPH.commit.slice(0, 8) : 'working tree';
 
+  /** Newest first, because that is the order the switcher is read in. */
+  protected readonly releases = [...RELEASES].reverse();
+
+  private readonly router = inject(Router);
+
   protected countOf(kind: string): number {
     return GRAPH.counts[kind] ?? 0;
+  }
+
+  /**
+   * Picking a version goes to that release's table rather than to a pinned copy of this page.
+   *
+   * ⚠ **This is a correction to § 6.3, and it is worth stating.** The plan had pinned versions
+   * prerendered under `/docs/<version>/`, at ~4 500 files each against Cloudflare's 20 000, which is
+   * what fixed retention at four. Two facts changed the arithmetic: those pages are `noindex` by the
+   * plan's own decision, so prerendering buys nothing a search engine will read; and the archived
+   * graph is one 2.4 MB file that a browser can render from directly. So the switcher points at what
+   * the store actually holds — the release and its table — and an old version's API is read from its
+   * archive rather than from 4 500 duplicated pages. Retention stops being a constraint: the site
+   * stays at ~4 300 files however many releases accumulate.
+   */
+  protected onVersion(event: Event): void {
+    const version = (event.target as HTMLSelectElement).value;
+
+    void this.router.navigate(version.length === 0 ? ['/docs'] : ['/docs/releases', version]);
   }
 }

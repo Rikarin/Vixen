@@ -184,6 +184,70 @@ export function slugOf(documentationId: string): string {
   return namespace.length === 0 ? sanitise(type) : `${sanitise(namespace)}/${sanitise(type)}`;
 }
 
+// ── Releases — § 6 ────────────────────────────────────────────────────────────────────────────
+
+/** One row of a release's table. `Kind` is kebab-cased on the wire, as the store writes it. */
+export interface Change {
+  Kind:
+    | 'added'
+    | 'removed'
+    | 'deprecated'
+    | 'signature-break'
+    | 'shape-break'
+    | 'semantic-break'
+    | 'engine-break';
+  Id: string;
+  Display: string;
+  Taxonomy: string;
+  Before?: string;
+  After?: string;
+  Note?: string;
+}
+
+export interface ReleaseRecord {
+  Version: string;
+  Date: string;
+  Commit?: string;
+  Types: number;
+  Members: number;
+  Bytes: number;
+}
+
+export interface ReleaseDetail {
+  Release: ReleaseRecord;
+  Previous?: string;
+  Changes: Change[];
+  Counts: Record<string, number>;
+}
+
+/** What the switcher and the release index need without loading a table. */
+export interface ReleaseSummary {
+  Version: string;
+  Date: string;
+  Types: number;
+  Members: number;
+  Breaking: number;
+  HasTable: boolean;
+}
+
+/**
+ * The sections of a release page, in the order a reader needs them: what will break first, what is
+ * merely deprecated after, and what is new last.
+ */
+export const CHANGE_SECTIONS: { kind: Change['Kind']; title: string; blurb: string }[] = [
+  { kind: 'removed', title: 'Removed', blurb: 'Gone. Anything calling it stops compiling.' },
+  { kind: 'shape-break', title: 'Breaking — shape', blurb: 'Still there, and no longer usable the same way.' },
+  { kind: 'signature-break', title: 'Breaking — signature', blurb: 'The declaration changed.' },
+  {
+    kind: 'engine-break',
+    title: 'Breaking — engine',
+    blurb: 'The signature is identical and the behaviour is not: layout, phase, ordering, bindings.'
+  },
+  { kind: 'semantic-break', title: 'Breaking — behaviour', blurb: 'Written by hand, because no declaration says it.' },
+  { kind: 'deprecated', title: 'Deprecated', blurb: 'Still works, and will not always.' },
+  { kind: 'added', title: 'Added', blurb: 'New surface.' }
+];
+
 /** The kinds the taxonomy indexes are built from — § 8.2. */
 export const TAXONOMY: { slug: string; kind: string; title: string; blurb: string }[] = [
   { slug: 'components', kind: 'scene-component', title: 'Components', blurb: 'Data a scene can place on an entity.' },

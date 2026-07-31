@@ -70,6 +70,19 @@ partial class Build {
                     arguments.Add("--check-docs");
                 }
 
+                // Set by `Release`, which runs first and triggers this. The graph is archived under
+                // docs/api-history/ and diffed against the previous release in the same pass that
+                // produced it, so the table cannot describe a graph other than the one that shipped.
+                if (ReleasingVersion is not null) {
+                    arguments.Add("--release");
+                    arguments.Add(ReleasingVersion);
+
+                    if (ReleaseDate is not null) {
+                        arguments.Add("--date");
+                        arguments.Add(ReleaseDate);
+                    }
+                }
+
                 // The commit the source links point at. A local run without one still produces the
                 // graph — with paths and no URLs, which is honest about what a dirty tree can promise.
                 var commit = DocsRepository?.Commit;
